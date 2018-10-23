@@ -15,7 +15,7 @@
 #include "explorer/server.h"
 #include "explorer/adapter.h"
 #include "p2p/stratum.h"
-#include "utility/nlohmann/json.hpp"
+#include "nlohmann/json.hpp"
 #include "utility/helpers.h"
 #include "utility/logger.h"
 

@@ -45,12 +45,10 @@ endif()
 add_library(utility STATIC ${UTILITY_SRC} ${IO_SRC})
 
 if(ANDROID OR NOT BEAM_USE_AVX)
-    add_library(crypto STATIC crypto/blake/ref/blake2b-ref.c)
+    add_library(crypto STATIC ${PROJECT_SOURCE_DIR}/3rdparty/crypto/blake/ref/blake2b-ref.c)
 else()
-    add_library(crypto STATIC crypto/blake/sse/blake2b.cpp)
+    add_library(crypto STATIC ${PROJECT_SOURCE_DIR}/3rdparty/crypto/blake/sse/blake2b.cpp)
 endif()
-
-include_directories(${PROJECT_SOURCE_DIR}/utility)
 
 if (UV_INTERNAL)
     include(io/libuv.cmake)

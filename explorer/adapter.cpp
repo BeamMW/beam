@@ -17,7 +17,7 @@
 #include "core/serialization_adapters.h"
 #include "p2p/stratum.h"
 #include "p2p/http_msg_creator.h"
-#include "utility/nlohmann/json.hpp"
+#include "nlohmann/json.hpp"
 #include "utility/helpers.h"
 #include "utility/logger.h"
 

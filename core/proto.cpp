@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "../../utility/serialize.h"
-#include "../../core/serialization_adapters.h"
-#include "../../core/ecc_native.h"
+#include "utility/serialize.h"
+#include "core/serialization_adapters.h"
+#include "core/ecc_native.h"
 #include "proto.h"
-#include "../utility/logger.h"
-#include "../utility/logger_checkpoints.h"
+#include "utility/logger.h"
+#include "utility/logger_checkpoints.h"
 
 namespace beam {
 namespace proto {

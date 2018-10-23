@@ -40,7 +40,7 @@ struct SSLInitializer {
     bool ok=false;
 };
 
-static SSLInitializer g_sslInitializer;
+SSLInitializer g_sslInitializer;
 
 SSL_CTX* init_ctx(bool isServer) {
     if (!g_sslInitializer.ok) {
@@ -51,7 +51,7 @@ SSL_CTX* init_ctx(bool isServer) {
     static const char* cipher_settings = "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH";
     static const char* srtp_settings = "SRTP_AES128_CM_SHA1_80";
 
-    SSL_CTX* ctx = SSL_CTX_new(isServer ? TLS_server_method() : TLS_client_method());
+    SSL_CTX* ctx = SSL_CTX_new(isServer ? SSLv23_server_method() : SSLv23_client_method());
     if (!ctx) {
         LOG_ERROR() << "SSL_CTX_new failed";
         IO_EXCEPTION(EC_SSL_ERROR);

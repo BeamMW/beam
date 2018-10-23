@@ -26,7 +26,7 @@
 #	pragma warning (disable: 4706 4701) // assignment within conditional expression
 #endif
 
-#include "../secp256k1-zkp/src/secp256k1.c"
+#include "secp256k1-zkp/src/secp256k1.c"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic pop

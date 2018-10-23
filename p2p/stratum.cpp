@@ -14,7 +14,7 @@
 
 #include "stratum.h"
 #include "http_msg_creator.h"
-#include "utility/nlohmann/json.hpp"
+#include "nlohmann/json.hpp"
 #include "utility/logger.h"
 
 using json = nlohmann::json;

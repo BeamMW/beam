@@ -183,7 +183,7 @@ endif()
 include_directories(${PROJECT_SOURCE_DIR})
 add_definitions(-DPROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 
-include_directories(${PROJECT_SOURCE_DIR}/utility) # TODO  move to ./3rdparty all that stuff that requires to add this line
+include_directories(${PROJECT_SOURCE_DIR}/3rdparty)
 
 if(BEAM_USE_STATIC)
 
@@ -238,12 +238,12 @@ else()
     endif()
 endif()
 
+add_subdirectory(3rdparty/sqlite)
 add_subdirectory(utility)
 add_subdirectory(core)
 add_subdirectory(pow)
 add_subdirectory(p2p)
 add_subdirectory(wallet)
-add_subdirectory(sqlite)
 add_subdirectory(node)
 add_subdirectory(beam)
 add_subdirectory(explorer)

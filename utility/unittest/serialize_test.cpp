@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "utility/serialize.h"
-#include "helpers.h"
+#include "utility/helpers.h"
 #include <iostream>
 
 using namespace beam;

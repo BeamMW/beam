@@ -1,5 +1,5 @@
-set(UV_SRC_DIR ${PROJECT_SOURCE_DIR}/utility/io/libuv/src)
-set(UV_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/utility/io/libuv/include)
+set(UV_SRC_DIR ${PROJECT_SOURCE_DIR}/3rdparty/libuv/src)
+set(UV_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/3rdparty/libuv/include)
 
 set(UV_SOURCES
     ${UV_SRC_DIR}/fs-poll.c
