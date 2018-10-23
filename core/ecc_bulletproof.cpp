@@ -188,6 +188,7 @@ namespace ECC {
 			}
 
 			void Proceed(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k);
+			void ProceedRec(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k, uint32_t j);
 		};
 
 		static const uint32_t s_iCycle0 = 2; // condense source generators into points (after 3 iterations, 8 points)
@@ -213,11 +214,7 @@ namespace ECC {
 
 	void InnerProduct::Calculator::get_Challenge(Scalar::Native* pX, Oracle& oracle)
 	{
-		do
-			oracle >> pX[0];
-		while (pX[0] == Zero);
-
-		pX[1].SetInv(pX[0]);
+		oracle.get_Reciprocal(pX[0], pX[1]);
 	}
 
 	void InnerProduct::Calculator::Condense()
@@ -299,22 +296,28 @@ namespace ECC {
 		}
 	}
 
+	void InnerProduct::Calculator::Aggregator::ProceedRec(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k, uint32_t j)
+	{
+		if (m_pBatchCtx && j)
+			Proceed(iPos, iCycle - 1, k); // in batch mode all inverses are already multiplied
+		else
+		{
+			Scalar::Native k0 = k;
+			k0 *= m_cs.m_Val[nCycles - iCycle][j];
+
+			Proceed(iPos, iCycle - 1, k0);
+		}
+	}
+
 	void InnerProduct::Calculator::Aggregator::Proceed(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k)
 	{
 		if (iCycle != m_iCycleTrg)
 		{
 			assert(iCycle <= nCycles);
-			Scalar::Native k0 = k;
-			k0 *= m_cs.m_Val[nCycles - iCycle][!m_j];
-
-			Proceed(iPos, iCycle - 1, k0);
-
-			k0 = k;
-			k0 *= m_cs.m_Val[nCycles - iCycle][m_j];
+			ProceedRec(iPos, iCycle, k, !m_j);
 
 			uint32_t nStep = 1 << (iCycle - 1);
-
-			Proceed(iPos + nStep, iCycle - 1, k0);
+			ProceedRec(iPos + nStep, iCycle, k, m_j);
 
 		} else
 		{
@@ -495,6 +498,14 @@ namespace ECC {
 		// -sum( G_Condensed[j] * pCondensed[j] )
 		// whereas G_Condensed[j] = Gen[j] * sum (k[iCycle]^(+/-)2 ), i.e. transformed (condensed) generators
 
+		// Reduce the num of multiplications. Instead of multiplying by inversa - pre-multiply by all inverses, and square their reciprocals
+		Scalar::Native kAllInverses = 1U;
+		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
+		{
+			cs.m_Val[iCycle][0] *= cs.m_Val[iCycle][0];
+			kAllInverses *= cs.m_Val[iCycle][1];
+		}
+
 		for (int j = 0; j < 2; j++)
 		{
 			MultiMac mmDummy;
@@ -506,6 +517,8 @@ namespace ECC {
 
 			if (bc.m_bEnableBatch)
 				k *= bc.m_Multiplier;
+
+			k *= kAllInverses;
 
 			aggr.Proceed(0, nCycles, k);
 		}
@@ -545,7 +558,7 @@ namespace ECC {
 
 		Oracle o(oracle); // copy
 		NoLeak<uintBig> seedSk;
-		o << sk << cp.m_Value >> seedSk.V;
+		o << sk << cp.m_Kidv.m_Value >> seedSk.V;
 
 		verify(CoSign(seedSk.V, sk, cp, oracle, Phase::SinglePass));
 	}
@@ -563,7 +576,7 @@ namespace ECC {
 
 	struct RangeProof::Confidential::ChallengeSet
 	{
-		Scalar::Native x, y, z, zz;
+		Scalar::Native x, y, yInv, z, zz;
 		void Init(const Part1&, Oracle&);
 		void Init(const Part2&, Oracle&);
 	};
@@ -599,10 +612,10 @@ namespace ECC {
 		static_assert(sizeof(CreatorParams::Padded) == sizeof(Scalar), "");
 		NoLeak<CreatorParams::Padded> pad;
 		ZeroObject(pad.V.m_Padding);
-		pad.V.V.m_Idx = cp.m_Kid.m_Idx;
-		pad.V.V.m_Idx2 = cp.m_Kid.m_IdxSecondary;
-		pad.V.V.m_Type = static_cast<uint32_t>(cp.m_Kid.m_Type);
-		pad.V.V.m_Value = cp.m_Value;
+		pad.V.V.m_Idx = cp.m_Kidv.m_Idx;
+		pad.V.V.m_Idx2 = cp.m_Kidv.m_IdxSecondary;
+		pad.V.V.m_Type = static_cast<uint32_t>(cp.m_Kidv.m_Type);
+		pad.V.V.m_Value = cp.m_Kidv.m_Value;
 
 		verify(!ro.Import((Scalar&) pad.V)); // if overflow - the params won't be recovered properly, there may be ambiguity
 
@@ -616,7 +629,7 @@ namespace ECC {
 
 			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 			{
-				uint32_t iBit = 1 & (cp.m_Value >> i);
+				uint32_t iBit = 1 & (cp.m_Kidv.m_Value >> i);
 
 				// protection against side-channel attacks
 				object_cmov(ge_s.V, Context::get().m_Ipp.m_pGet1_Minus[i], 0 == iBit);
@@ -667,7 +680,7 @@ namespace ECC {
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
-			uint32_t bit = 1 & (cp.m_Value >> i);
+			uint32_t bit = 1 & (cp.m_Kidv.m_Value >> i);
 
 			l0 = -cs.z;
 			if (bit)
@@ -767,7 +780,7 @@ namespace ECC {
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
-			uint32_t bit = 1 & (cp.m_Value >> i);
+			uint32_t bit = 1 & (cp.m_Kidv.m_Value >> i);
 
 			pS[0][i] *= cs.x;
 
@@ -791,10 +804,8 @@ namespace ECC {
 			yPwr *= cs.y;
 		}
 
-		yPwr.SetInv(cs.y);
-
 		InnerProduct::Modifier mod;
-		mod.m_pMultiplier[1] = &yPwr;
+		mod.m_pMultiplier[1] = &cs.yInv;
 
 		m_P_Tag.Create(oracle, l0, pS[0], pS[1], mod);
 
@@ -831,13 +842,13 @@ namespace ECC {
 		if (!memis0(pad.m_Padding, sizeof(pad.m_Padding)))
 			return false;
 
-		pad.V.m_Idx.Export(cp.m_Kid.m_Idx);
-		pad.V.m_Idx2.Export(cp.m_Kid.m_IdxSecondary);
-		pad.V.m_Value.Export(cp.m_Value);
+		pad.V.m_Idx.Export(cp.m_Kidv.m_Idx);
+		pad.V.m_Idx2.Export(cp.m_Kidv.m_IdxSecondary);
+		pad.V.m_Value.Export(cp.m_Kidv.m_Value);
 
 		uint32_t val;
 		pad.V.m_Type.Export(val);
-		cp.m_Kid.m_Type = static_cast<Key::Type>(val);
+		cp.m_Kidv.m_Type = static_cast<Key::Type>(val);
 
 		return true;
 	}
@@ -914,9 +925,10 @@ namespace ECC {
 	void RangeProof::Confidential::ChallengeSet::Init(const Part1& p1, Oracle& oracle)
 	{
 		oracle << p1.m_A << p1.m_S;
-		oracle >> y;
-		oracle >> z;
 
+		oracle.get_Reciprocal(y, yInv);
+
+		oracle >> z;
 		zz = z;
 		zz *= z;
 	}
@@ -1037,11 +1049,10 @@ namespace ECC {
 		if (!bc.AddCasual(m_Part1.m_S, cs.x))
 			return false;
 
-		Scalar::Native yInv, pwr, mul;
-		yInv.SetInv(cs.y);
+		Scalar::Native pwr, mul;
 
 		mul = 2U;
-		mul *= yInv;
+		mul *= cs.yInv;
 		pwr = zz;
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
@@ -1058,7 +1069,7 @@ namespace ECC {
 
 		// finally check the inner product
 		InnerProduct::Modifier mod;
-		mod.m_pMultiplier[1] = &yInv;
+		mod.m_pMultiplier[1] = &cs.yInv;
 
 		if (!m_P_Tag.IsValid(bc, oracle, tDot, mod))
 			return false;

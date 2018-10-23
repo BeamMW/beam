@@ -63,6 +63,7 @@ namespace ECC
 	public:
 
 		const secp256k1_scalar& get() const { return *this; }
+		secp256k1_scalar& get_Raw() { return *this; } // use with care
 
 #ifdef USE_SCALAR_4X64
 		typedef uint64_t uint;
@@ -266,6 +267,27 @@ namespace ECC
 			MultiMac::Calculate(res);
 		}
 	};
+
+	struct ScalarGenerator
+	{
+		// needed to quickly calculate power of a predefined scalar.
+		// Used to quickly sample a scalar and its inverse, by actually sampling the order.
+		// Implementation is *NOT* secure (constant time/memory access). Should be used with challenges, but not nonces!
+
+		static const uint32_t nBitsPerLevel = 8;
+		static const uint32_t nLevels = nBits / nBitsPerLevel;
+		static_assert(nLevels * nBitsPerLevel == nBits, "");
+
+		struct PerLevel {
+			Scalar::Native m_pVal[(1 << nBitsPerLevel) - 1];
+		};
+
+		PerLevel m_pLevel[nLevels];
+
+		void Initialize(const Scalar::Native&);
+		void Calculate(Scalar::Native& trg, const Scalar& pwr) const;
+	};
+
 
 	namespace Generator
 	{
@@ -485,6 +507,9 @@ namespace ECC
 
 		} m_Casual;
 
+		ScalarGenerator m_pwr2;
+		ScalarGenerator m_pwr2_Inv;
+
 		Hash::Value m_hvChecksum; // all the generators and signature version. In case we change seed strings or formula
 
 	private:
@@ -579,5 +604,7 @@ namespace ECC
 
 		void operator >> (Scalar::Native&);
 		void operator >> (Hash::Value&);
+
+		void get_Reciprocal(Scalar::Native& vice, Scalar::Native& versa);
 	};
 }

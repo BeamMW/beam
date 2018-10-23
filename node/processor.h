@@ -59,6 +59,27 @@ class NodeProcessor
 	struct UtxoSig;
 	struct UnspentWalker;
 
+	struct IBlockWalker
+	{
+		virtual bool OnBlock(const Block::BodyBase&, TxBase::IReader&&, uint64_t rowid, Height, const Height* pHMax) = 0;
+	};
+
+	struct IUtxoWalker
+		:public IBlockWalker
+	{
+		NodeProcessor& m_This;
+		IUtxoWalker(NodeProcessor& x) :m_This(x) {}
+
+		Block::SystemState::Full m_Hdr;
+
+		virtual bool OnBlock(const Block::BodyBase&, TxBase::IReader&&, uint64_t rowid, Height, const Height* pHMax) override;
+
+		virtual bool OnInput(const Input&) = 0;
+		virtual bool OnOutput(const Output&) = 0;
+	};
+
+	bool EnumBlocks(IBlockWalker&);
+
 public:
 
 	void Initialize(const char* szPath, bool bResetCursor = false);
@@ -134,17 +155,57 @@ public:
 
 	uint64_t FindActiveAtStrict(Height);
 
-	Key::IKdf::Ptr m_pKdf;
-
 	bool ValidateTxContext(const Transaction&); // assuming context-free validation is already performed, but 
 	static bool ValidateTxWrtHeight(const Transaction&, Height);
 
-	bool GenerateNewBlock(TxPool::Fluff&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body& blockInOut);
-	bool GenerateNewBlock(TxPool::Fluff&, Block::SystemState::Full&, ByteBuffer&, Amount& fees);
+	struct BlockContext
+	{
+		TxPool::Fluff& m_TxPool;
+		Key::IKdf& m_Kdf;
+		Block::SystemState::Full m_Hdr;
+		ByteBuffer m_Body;
+		Amount m_Fees;
+
+		BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf)
+			:m_TxPool(txp)
+			,m_Kdf(kdf)
+		{
+		}
+	};
+
+	bool GenerateNewBlock(BlockContext&, Block::Body& blockInOut);
+	bool GenerateNewBlock(BlockContext&);
+
+	struct UtxoRecover
+		:public IUtxoWalker
+	{
+		std::vector<Key::IPKdf::Ptr> m_vKeys;
+
+		struct Value {
+			Key::IDV m_Kidv;
+			uint32_t m_iKey;
+			Input::Count m_Count;
+
+			Value() :m_Count(0) {}
+		};
+		
+		typedef std::map<ECC::Point, Value> UtxoMap;
+		UtxoMap m_Map;
+
+		UtxoRecover(NodeProcessor& x) :IUtxoWalker(x) {}
+
+		bool Proceed();
+
+		virtual bool OnInput(const Input&) override;
+		virtual bool OnOutput(const Output&) override;
+
+	private:
+		void Add(const ECC::Point&, const Value&);
+	};
 
 private:
-	bool GenerateNewBlock(TxPool::Fluff&, Block::SystemState::Full&, Block::Body& block, Amount& fees, Height, RollbackData&);
-	bool GenerateNewBlock(TxPool::Fluff&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body&, bool bInitiallyEmpty);
+	bool GenerateNewBlock(BlockContext&, Block::Body&, Height, RollbackData&);
+	bool GenerateNewBlock(BlockContext&, Block::Body&, bool bInitiallyEmpty);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&);
 };
 

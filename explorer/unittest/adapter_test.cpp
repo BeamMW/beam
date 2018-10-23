@@ -53,7 +53,7 @@ WaitHandle run_node(const NodeParams& params) {
 
 			std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
 			pKdf->m_Secret.V = params.walletSeed;
-			node.get_Processor().m_pKdf = pKdf;
+			node.m_pKdf = pKdf;
 
             if (!params.connectTo.empty()) {
                 node.m_Cfg.m_Connect.push_back(params.connectTo);

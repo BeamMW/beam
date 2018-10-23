@@ -59,7 +59,7 @@ namespace beam
         boost::optional<TxID> m_createTxId;
         boost::optional<TxID> m_spentTxId;
 
-		Key::ID get_Kid() const;
+		Key::IDV get_Kidv() const;
     };
 
     struct TxPeer

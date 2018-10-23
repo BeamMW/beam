@@ -200,6 +200,19 @@ namespace ECC
 			}
 
 			void get_Hash(Hash::Value&) const;
+			ID& as_ID() { return *this; }
+		};
+
+		struct IDV
+			:public ID
+		{
+			Amount m_Value;
+			IDV() {}
+			IDV(Amount v, beam::Height h, Type type, uint64_t nIdxSecondary = 0)
+				:ID(h, type, nIdxSecondary)
+				,m_Value(v)
+			{
+			}
 		};
 
 		struct IPKdf
@@ -289,8 +302,8 @@ namespace ECC
 
 			InnerProduct m_P_Tag; // contains commitment P - m_Mu*G
 
-			// Nonce generation policy for signing. There are two distinct nonce generators, both need to be initialized with seeds. One for value blinding and Key::ID embedding, and the other one that blinds the secret key.
-			// Seed for value and Key::ID is always specified explicitly, and should be deducible from the public Kdf and the commitment.
+			// Nonce generation policy for signing. There are two distinct nonce generators, both need to be initialized with seeds. One for value blinding and Key::IDV embedding, and the other one that blinds the secret key.
+			// Seed for value and Key::IDV is always specified explicitly, and should be deducible from the public Kdf and the commitment.
 			// Regaring the seed for secret keys:
 			//		In case of single-sig it's derived directly from the secret key itself.
 			//		In case of multi-sig it should be specified explicitly by the caller.
@@ -302,8 +315,7 @@ namespace ECC
 				NoLeak<uintBig> m_Seed; // must be a function of the commitment and master secret
 				void InitSeed(Key::IPKdf&, const ECC::Point& comm);
 
-				Amount m_Value;
-				Key::ID m_Kid;
+				Key::IDV m_Kidv;
 
 				struct Packed;
 				struct Padded;

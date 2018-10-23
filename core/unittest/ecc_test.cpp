@@ -174,6 +174,19 @@ void TestScalars()
 		s1 += s0;
 		verify_test(s1 == Zero);
 	}
+
+	// powers
+	for (int i = 0; i < 20; i++)
+	{
+		Scalar pwr;
+		SetRandom(pwr.m_Value); // don't care if overflows, just doesn't matter
+
+		Context::get().m_pwr2.Calculate(s1, pwr);
+		Context::get().m_pwr2_Inv.Calculate(s2, pwr);
+
+		s0.SetInv(s2);
+		verify_test(s0 == s1);
+	}
 }
 
 void TestPoints()
@@ -473,13 +486,13 @@ void TestRangeProof()
 
 	RangeProof::Confidential bp;
 	RangeProof::Confidential::CreatorParams cp;
-	SetRandomOrd(cp.m_Kid.m_Idx);
-	SetRandomOrd(cp.m_Kid.m_IdxSecondary);
-	SetRandomOrd(cp.m_Kid.m_Type);
+	SetRandomOrd(cp.m_Kidv.m_Idx);
+	SetRandomOrd(cp.m_Kidv.m_IdxSecondary);
+	SetRandomOrd(cp.m_Kidv.m_Type);
 	SetRandom(cp.m_Seed.V);
-	cp.m_Value = 23110;
+	cp.m_Kidv.m_Value = 23110;
 
-	comm = Commitment(sk, cp.m_Value);
+	comm = Commitment(sk, cp.m_Kidv.m_Value);
 
 	{
 		Oracle oracle;
@@ -497,10 +510,10 @@ void TestRangeProof()
 		bp.Recover(oracle, cp2);
 
 		verify_test(
-			(cp.m_Value == cp2.m_Value) &&
-			(cp.m_Kid.m_Idx == cp2.m_Kid.m_Idx) &&
-			(cp.m_Kid.m_IdxSecondary == cp2.m_Kid.m_IdxSecondary) &&
-			(cp.m_Kid.m_Type == cp2.m_Kid.m_Type));
+			(cp.m_Kidv.m_Value == cp2.m_Kidv.m_Value) &&
+			(cp.m_Kidv.m_Idx == cp2.m_Kidv.m_Idx) &&
+			(cp.m_Kidv.m_IdxSecondary == cp2.m_Kidv.m_IdxSecondary) &&
+			(cp.m_Kidv.m_Type == cp2.m_Kidv.m_Type));
 	}
 
 	InnerProduct::BatchContextEx<2> bc;
@@ -512,9 +525,9 @@ void TestRangeProof()
 	}
 
 	SetRandom(sk);
-	cp.m_Value = 7223110;
+	cp.m_Kidv.m_Value = 7223110;
 	SetRandom(cp.m_Seed.V); // another seed for this bulletproof
-	comm = Commitment(sk, cp.m_Value);
+	comm = Commitment(sk, cp.m_Kidv.m_Value);
 
 	{
 		Oracle oracle;
@@ -563,7 +576,7 @@ void TestRangeProof()
 		RangeProof::Confidential::Part3 p3;
 		ZeroObject(p3);
 
-		comm = Context::get().H * cp.m_Value;
+		comm = Context::get().H * cp.m_Kidv.m_Value;
 
 		for (uint32_t i = 0; i < nSigners; i++)
 		{
@@ -665,22 +678,22 @@ struct TransactionMaker
 
 			Scalar::Native k;
 
-			Key::ID kid;
-			SetRandomOrd(kid.m_Idx);
-			SetRandomOrd(kid.m_IdxSecondary);
-			kid.m_Type = Key::Type::Regular;
+			Key::IDV kidv;
+			SetRandomOrd(kidv.m_Idx);
+			SetRandomOrd(kidv.m_IdxSecondary);
+			kidv.m_Type = Key::Type::Regular;
+			kidv.m_Value = val;
 
-			pOut->Create(k, val, kdf, kid);
+			pOut->Create(k, kdf, kidv);
 
 			// test recovery
-			Key::ID kid2;
-			Amount val2;
-			verify_test(pOut->Recover(kdf, kid2, val2));
+			Key::IDV kidv2;
+			verify_test(pOut->Recover(kdf, kidv2));
 			verify_test(
-				(val2 == val) &&
-				(kid2.m_Idx == kid.m_Idx) &&
-				(kid2.m_IdxSecondary == kid.m_IdxSecondary) &&
-				(kid2.m_Type == kid.m_Type));
+				(kidv2.m_Value == kidv.m_Value) &&
+				(kidv2.m_Idx == kidv.m_Idx) &&
+				(kidv2.m_IdxSecondary == kidv.m_IdxSecondary) &&
+				(kidv2.m_Type == kidv.m_Type));
 
 			t.m_vOutputs.push_back(std::move(pOut));
 
@@ -1199,6 +1212,18 @@ void RunBenchmark()
 		} while (bm.ShouldContinue());
 	}
 */
+
+	{
+		BenchmarkMeter bm("scalar.2-Pwr");
+		SetRandom(k_.m_Value);
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				Context::get().m_pwr2.Calculate(k1, k_);
+
+		} while (bm.ShouldContinue());
+	}
+
 	Point::Native p0, p1;
 
 	Point p_;
@@ -1437,9 +1462,9 @@ void RunBenchmark()
 
 	RangeProof::Confidential bp;
 	RangeProof::Confidential::CreatorParams cp;
-	ZeroObject(cp.m_Kid);
+	ZeroObject(cp.m_Kidv);
 	SetRandom(cp.m_Seed.V);
-	cp.m_Value = 23110;
+	cp.m_Kidv.m_Value = 23110;
 
 	{
 		BenchmarkMeter bm("BulletProof.Sign");
@@ -1455,7 +1480,7 @@ void RunBenchmark()
 		} while (bm.ShouldContinue());
 	}
 
-	Point::Native comm = Commitment(k1, cp.m_Value);
+	Point::Native comm = Commitment(k1, cp.m_Kidv.m_Value);
 
 	{
 		BenchmarkMeter bm("BulletProof.Verify");
