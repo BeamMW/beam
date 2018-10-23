@@ -174,6 +174,19 @@ void TestScalars()
 		s1 += s0;
 		verify_test(s1 == Zero);
 	}
+
+	// powers
+	for (int i = 0; i < 20; i++)
+	{
+		Scalar pwr;
+		SetRandom(pwr.m_Value); // don't care if overflows, just doesn't matter
+
+		Context::get().m_pwr2.Calculate(s1, pwr);
+		Context::get().m_pwr2_Inv.Calculate(s2, pwr);
+
+		s0.SetInv(s2);
+		verify_test(s0 == s1);
+	}
 }
 
 void TestPoints()
@@ -1199,6 +1212,18 @@ void RunBenchmark()
 		} while (bm.ShouldContinue());
 	}
 */
+
+	{
+		BenchmarkMeter bm("scalar.2-Pwr");
+		SetRandom(k_.m_Value);
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				Context::get().m_pwr2.Calculate(k1, k_);
+
+		} while (bm.ShouldContinue());
+	}
+
 	Point::Native p0, p1;
 
 	Point p_;

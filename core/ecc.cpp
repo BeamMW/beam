@@ -992,6 +992,56 @@ namespace ECC {
 	}
 
 	/////////////////////
+	// ScalarGenerator
+	void ScalarGenerator::Initialize(const Scalar::Native& x)
+	{
+		Scalar::Native pos = x;
+		for (uint32_t iLevel = 0; ; )
+		{
+			PerLevel& lev = m_pLevel[iLevel];
+
+			lev.m_pVal[0] = pos;
+			for (uint32_t i = 1; i < _countof(lev.m_pVal); i++)
+				lev.m_pVal[i] = lev.m_pVal[i - 1] * pos;
+
+			if (++iLevel == nLevels)
+				break;
+
+			for (uint32_t i = 0; i < nBitsPerLevel; i++)
+				secp256k1_scalar_sqr(&pos.get_Raw(), &pos.get());
+		}
+	}
+
+	void ScalarGenerator::Calculate(Scalar::Native& trg, const Scalar& pwr) const
+	{
+		trg = 1U;
+
+		const uint32_t nWordBits = sizeof(pwr.m_Value.m_pData[0]) << 3;
+		const uint32_t nLevelsPerWord = nWordBits / nBitsPerLevel;
+		static_assert(nLevelsPerWord * nBitsPerLevel == nWordBits, "");
+
+		uint32_t iLevel = 0;
+		for (uint32_t iWord = _countof(pwr.m_Value.m_pData); iWord--; )
+		{
+			auto val = pwr.m_Value.m_pData[iWord];
+
+			for (uint32_t j = 0; ; )
+			{
+				const PerLevel& lev = m_pLevel[iLevel++];
+
+				auto idx = val & _countof(lev.m_pVal);
+				if (idx)
+					trg *= lev.m_pVal[idx - 1];
+
+				if (++j == nLevelsPerWord)
+					break;
+
+				val >>= nBitsPerLevel;
+			}
+		}
+	}
+
+	/////////////////////
 	// Context
 	alignas(32) char g_pContextBuf[sizeof(Context)];
 
@@ -1087,6 +1137,13 @@ namespace ECC {
 			mm.Calculate(pt);
 			Generator::FromPt(ctx.m_Casual.m_Compensation, pt);
 		}
+
+		// scalar generators
+		Scalar::Native val = 2U;
+		ctx.m_pwr2.Initialize(val);
+
+		val.SetInv(val);
+		ctx.m_pwr2_Inv.Initialize(val);
 
 		oracle << uint32_t(0); // increment this each time we change signature formula (rangeproof and etc.)
 
