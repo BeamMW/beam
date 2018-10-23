@@ -86,6 +86,9 @@ namespace beam
             hash.size(), 
             hmacIterations);
 
+        if (result != 0)
+            throw MnemonicException("pbkdf2 returned bad result");
+
         return hash;
     }
 }

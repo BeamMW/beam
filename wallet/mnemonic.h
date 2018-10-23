@@ -21,6 +21,19 @@
 
 namespace beam
 {
+    class MnemonicException : public std::runtime_error {
+    public:
+        explicit MnemonicException(const std::string& msg)
+            : std::runtime_error(msg.c_str())
+        {
+        }
+
+        explicit MnemonicException(const char *msg)
+            : std::runtime_error(msg)
+        {
+        }
+    };
+
     typedef std::vector<std::string> WordList;
 
     // implementation of bip39 for 12 words
