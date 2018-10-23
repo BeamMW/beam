@@ -538,14 +538,16 @@ namespace ECC {
 	struct NonceGenerator
 	{
 		Oracle m_Oracle;
-		NoLeak<uintBig> m_Seed;
+		const uintBig& m_Seed;
+
+		NonceGenerator(const uintBig& seed) :m_Seed(seed) {}
 
 		void operator >> (Scalar::Native& k)
 		{
 			NoLeak<Hash::Value> hv;
 			m_Oracle >> hv.V;
 
-			k.GenerateNonce(m_Seed.V, hv.V, NULL);
+			k.GenerateNonce(m_Seed, hv.V, NULL);
 		}
 	};
 
@@ -600,8 +602,7 @@ namespace ECC {
 
 	bool RangeProof::Confidential::CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, MultiSig* pMsigOut /* = NULL */)
 	{
-		NonceGenerator nonceGen;
-		nonceGen.m_Seed = cp.m_Seed;
+		NonceGenerator nonceGen(cp.m_Seed.V);
 
 		// A = G*alpha + vec(aL)*vec(G) + vec(aR)*vec(H)
 		Scalar::Native alpha, ro;
@@ -814,8 +815,7 @@ namespace ECC {
 
 	bool RangeProof::Confidential::Recover(Oracle& oracle, CreatorParams& cp) const
 	{
-		NonceGenerator nonceGen;
-		nonceGen.m_Seed = cp.m_Seed;
+		NonceGenerator nonceGen(cp.m_Seed.V);
 
 		Scalar::Native alpha_minus_params, ro;
 		nonceGen >> alpha_minus_params;
@@ -855,8 +855,7 @@ namespace ECC {
 
 	void RangeProof::Confidential::MultiSig::Impl::Init(const uintBig& seedSk)
 	{
-		NonceGenerator nonceGen;
-		nonceGen.m_Seed.V = seedSk;
+		NonceGenerator nonceGen(seedSk);
 
 		nonceGen >> m_tau1;
 		nonceGen >> m_tau2;
