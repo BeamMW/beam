@@ -36,6 +36,8 @@ namespace beam
 
     typedef std::vector<std::string> WordList;
 
+    std::vector<uint8_t> getEntropy();
+
     // implementation of bip39 for 12 words
     // TODO implement other version of bip39
     WordList createMnemonic(const std::vector<uint8_t>& entropy, const Dictionary& dict);

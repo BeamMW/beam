@@ -143,30 +143,7 @@ int RecoveryPhraseItem::getIndex() const
 
 StartViewModel::StartViewModel()
 {
-    m_recoveryPhrases.push_back("void");
-    m_recoveryPhrases.push_back("come");
-    m_recoveryPhrases.push_back("effort");
-    m_recoveryPhrases.push_back("suffer");
-    m_recoveryPhrases.push_back("camp");
-    m_recoveryPhrases.push_back("survey");
-    m_recoveryPhrases.push_back("warrior");
-    m_recoveryPhrases.push_back("heavy");
-    m_recoveryPhrases.push_back("shoot");
-    m_recoveryPhrases.push_back("primary");
-    m_recoveryPhrases.push_back("clutch");
-    m_recoveryPhrases.push_back("crush");
-    //m_recoveryPhrases.push_back("open");
-    //m_recoveryPhrases.push_back("amazing");
-    //m_recoveryPhrases.push_back("screen");
-    //m_recoveryPhrases.push_back("patrol");
-    //m_recoveryPhrases.push_back("group");
-    //m_recoveryPhrases.push_back("space");
-    //m_recoveryPhrases.push_back("point");
-    //m_recoveryPhrases.push_back("ten");
-    //m_recoveryPhrases.push_back("exist");
-    //m_recoveryPhrases.push_back("slush");
-    //m_recoveryPhrases.push_back("involve");
-    //m_recoveryPhrases.push_back("unfold");
+
 }
 
 StartViewModel::~StartViewModel()
@@ -179,8 +156,18 @@ bool StartViewModel::walletExists() const
     return Keychain::isInitialized(AppModel::getInstance()->getSettings().getWalletStorage());
 }
 
-const QStringList& StartViewModel::getRecovertPhrases() const
+const QStringList& StartViewModel::getRecoveryPhrases()
 {
+    if (m_recoveryPhrases.empty())
+    {
+        m_generatedPhrases = beam::createMnemonic(beam::getEntropy(), beam::language::en);
+        assert(m_generatedPhrases.size() == 12);
+        m_recoveryPhrases.reserve(static_cast<int>(m_generatedPhrases.size()));
+        for (const auto& p : m_generatedPhrases)
+        {
+            m_recoveryPhrases.push_back(QString::fromStdString(p));
+        }
+    }
     return m_recoveryPhrases;
 }
 
@@ -189,10 +176,15 @@ const QList<QObject*>& StartViewModel::getCheckPhrases()
     if (m_checkPhrases.empty())
     {
         srand(time(0));
-        for (int i = 0; i < 6; ++i)
+        set<int> indecies;
+        while (indecies.size() < 6)
         {
             int index = rand() % m_recoveryPhrases.size();
-            m_checkPhrases.push_back(new RecoveryPhraseItem(index, m_recoveryPhrases[index]));
+            auto it = indecies.insert(index);
+            if (it.second)
+            {
+                m_checkPhrases.push_back(new RecoveryPhraseItem(index, m_recoveryPhrases[index]));
+            }
         }
     }
     return m_checkPhrases;
@@ -294,10 +286,13 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
     }
 }
 
-bool StartViewModel::createWallet(const QString& seed, const QString& pass)
+bool StartViewModel::createWallet(const QString& pass)
 {
     // TODO make this secure
-    SecString secretSeed = seed.toStdString();
+    auto buf = beam::decodeMnemonic(m_generatedPhrases);
+
+    SecString secretSeed;
+    secretSeed.assign(buf.data(), buf.size());
     SecString sectretPass = pass.toStdString();
     return AppModel::getInstance()->createWallet(secretSeed, sectretPass);
 }

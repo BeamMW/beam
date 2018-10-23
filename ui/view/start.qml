@@ -497,31 +497,6 @@ Item
                             spacing: 10
 
                             SFText {
-                                text: qsTr("Enter secret key (seed)")
-                                color: Style.white
-                                font.pixelSize: 14
-                                font.styleName: "Bold"; font.weight: Font.Bold
-                            }
-
-                            SFTextInput {
-
-                                id:seed
-
-                                width: parent.width
-
-                                font.pixelSize: 14
-                                color: Style.white
-                                echoMode: TextInput.Password
-                                onTextChanged: if (seed.text.length > 0) passwordError.text = ""
-                            }
-                        }
-
-                        Column {
-                            width: parent.width
-
-                            spacing: 10
-
-                            SFText {
                                 text: qsTr("Enter password")
                                 color: Style.white
                                 font.pixelSize: 14
@@ -638,11 +613,7 @@ Item
                                 text: qsTr("proceed to your wallet")
                                 icon.source : "qrc:/assets/icon-next-blue.svg"
                                 onClicked: {
-                                    if(seed.text.length == 0)
-                                    {
-                                         passwordError.text = qsTr("Please, enter secret key (seed)");
-                                    }
-                                    else if(password.text.length == 0)
+                                    if(password.text.length == 0)
                                     {
                                         passwordError.text = qsTr("Please, enter password");
                                     }
@@ -650,7 +621,7 @@ Item
                                     {
                                         passwordError.text = qsTr("Passwords do not match");
                                     }
-                                    else if(!viewModel.createWallet(seed.text, password.text))
+                                    else if(!viewModel.createWallet(password.text))
                                     {
                                         passwordError.text = qsTr("Error, something went wrong, wallet not created :(");
                                     }

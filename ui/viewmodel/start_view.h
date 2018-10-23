@@ -19,6 +19,7 @@
 #include <QQmlListProperty>
 
 #include "wallet/wallet_db.h"
+#include "wallet/mnemonic.h"
 
 #include "messages_view.h"
 
@@ -52,7 +53,7 @@ class StartViewModel : public QObject
     Q_OBJECT
 
     Q_PROPERTY(bool walletExists READ walletExists NOTIFY walletExistsChanged)
-    Q_PROPERTY(QStringList recoveryPhrases READ getRecovertPhrases NOTIFY recoveryPhrasesChanged)
+    Q_PROPERTY(QStringList recoveryPhrases READ getRecoveryPhrases NOTIFY recoveryPhrasesChanged)
     Q_PROPERTY(QList<QObject*> checkPhrases READ getCheckPhrases NOTIFY checkPhrasesChanged)
 public:
 
@@ -62,7 +63,7 @@ public:
     ~StartViewModel();
 
     bool walletExists() const;
-    const QStringList& getRecovertPhrases() const;
+    const QStringList& getRecoveryPhrases();
     const QList<QObject*>& getCheckPhrases();
 
     Q_INVOKABLE void setupLocalNode(int port, int miningThreads, bool generateGenesys = false);
@@ -79,9 +80,10 @@ signals:
     void checkPhrasesChanged();
 
 public slots:
-    bool createWallet(const QString& seed, const QString& pass);
+    bool createWallet(const QString& pass);
     bool openWallet(const QString& pass);
 private:
     QStringList m_recoveryPhrases;
     QList<QObject*> m_checkPhrases;
+    beam::WordList m_generatedPhrases;
 };
