@@ -209,8 +209,8 @@ namespace ECC
 			Amount m_Value;
 			IDV() {}
 			IDV(Amount v, beam::Height h, Type type, uint64_t nIdxSecondary = 0)
-				:m_Value(v)
-				,ID(h, type, nIdxSecondary)
+				:ID(h, type, nIdxSecondary)
+				,m_Value(v)
 			{
 			}
 		};
