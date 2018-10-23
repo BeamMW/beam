@@ -18,6 +18,13 @@
 #include <QStringBuilder>
 #include <QApplication>
 #include <QClipboard>
+#include <QVariant>
+#if defined(QT_PRINTSUPPORT_LIB)
+#include <QtPrintSupport/qtprintsupportglobal.h>
+#include <QPrinter>
+#include <QPrintDialog>
+#include <QPainter>
+#endif
 #include "settings_view.h"
 #include "model/app_model.h"
 #include "wallet/secstring.h"
@@ -233,6 +240,58 @@ void StartViewModel::copyPhrasesToClipboard()
         ++i;
     }
     QApplication::clipboard()->setText(phrases);
+}
+
+void StartViewModel::printRecoveryPhrases(QVariant viewData )
+{
+    try
+    {
+        QImage image = qvariant_cast<QImage>(viewData);
+        QPrinter printer;
+        printer.setColorMode(QPrinter::GrayScale);
+        QPrintDialog dialog(&printer);
+        if (dialog.exec() == QDialog::Accepted) {
+
+            QPainter painter(&printer);
+            
+            QRect rect = painter.viewport();
+            QFont f;
+            f.setPixelSize(24);
+            painter.setFont(f);
+            int x = 60, y = 30;
+
+            const int n = 4;
+            int s = rect.width() / n;
+
+            for (int i = 0; i < m_recoveryPhrases.size(); ++i)
+            {
+                if (i % n == 0)
+                {
+                    x = 60;
+                    y += 30;
+                }
+                else
+                {
+                    x += s;
+                }
+                QString t = QString::number(i + 1) % " - " % m_recoveryPhrases[i];
+                painter.drawText(x, y, t);
+                
+            }
+           
+            //QRect rect = painter.viewport();
+            //QSize size = image.size();
+            //size.scale(rect.size(), Qt::KeepAspectRatio);
+            //painter.setViewport(rect.x(), rect.y() + 60, size.width(), size.height());
+            //painter.setWindow(image.rect());
+            //painter.drawImage(0, 0, image);
+            painter.end();
+        }
+    }
+    catch (...)
+    {
+
+    }
 }
 
 bool StartViewModel::createWallet(const QString& seed, const QString& pass)

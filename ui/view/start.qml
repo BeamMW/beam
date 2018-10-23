@@ -222,6 +222,7 @@ Item
                         }
                     }
                     Grid{
+                        id: phrasesView
                         Layout.alignment: Qt.AlignHCenter
 
                         topPadding: 50
@@ -284,6 +285,12 @@ Item
                                 text: qsTr("print")
                                 icon.source: "qrc:/assets/icon-print.svg"
                                 
+                                onClicked: {
+                                    phrasesView.grabToImage(function(result) {
+                                        viewModel.printRecoveryPhrases(result.image); //result.image holds the QVariant
+                                    });
+
+                                }
                             }
 
                             PrimaryButton {

@@ -70,6 +70,7 @@ public:
     Q_INVOKABLE void setupTestnetNode();
     Q_INVOKABLE uint coreAmount() const;
     Q_INVOKABLE void copyPhrasesToClipboard();
+    Q_INVOKABLE void printRecoveryPhrases(QVariant viewData);
 
 signals:
     void walletExistsChanged();
