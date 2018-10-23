@@ -12,7 +12,6 @@ Item {
     anchors.fill: parent
 
     WalletViewModel {id: viewModel}
-    AddressBookViewModel {id: addressBookViewModel}
 
     property bool toSend: false
 
@@ -801,6 +800,7 @@ Item {
                     Layout.fillWidth: true
 
                     value: viewModel.available
+                    onCopyValueText: viewModel.copyToClipboard(value)
                 }
 
                 SecondaryPanel {
@@ -810,6 +810,7 @@ Item {
                     title: qsTr("Unconfirmed")
                     amountColor: Style.white
                     value: viewModel.unconfirmed
+                    onCopyValueText: viewModel.copyToClipboard(value)
                 }
             }
         }
@@ -957,6 +958,26 @@ Item {
                 elideMode: Text.ElideRight
                 resizable: false
                 movable: false
+                delegate: Item {
+                    Item {
+                        width: parent.width
+                        height: transactionsView.rowHeight
+                        clip:true
+
+                        SFLabel {
+                            font.pixelSize: 14
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.leftMargin: 20
+                            elide: Text.ElideRight
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: styleData.value
+                            color: Style.white
+                            copyMenuEnabled: true
+                            onCopyText: viewModel.copyToClipboard(text)
+                        }
+                    }
+                }
             }
 
             TableViewColumn {
@@ -972,7 +993,7 @@ Item {
                         height: transactionsView.rowHeight
                         clip:true
 
-                        SFText {
+                        SFLabel {
                             font.pixelSize: 14
                             anchors.left: parent.left
                             anchors.right: parent.right
@@ -981,6 +1002,8 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             text: styleData.value
                             color: Style.white
+                            copyMenuEnabled: true
+                            onCopyText: viewModel.copyToClipboard(text)
                         }
                     }
                 }
@@ -1047,7 +1070,7 @@ Item {
                         width: parent.width
                         height: transactionsView.rowHeight
                         property bool income: (styleData.row >= 0) ? viewModel.transactions[styleData.row].income : false
-                        SFText {
+                        SFLabel {
                             anchors.leftMargin: 20
                             anchors.right: parent.right
                             anchors.left: parent.left
@@ -1057,6 +1080,8 @@ Item {
                             text: "<font size='6'>" + (parent.income ? "+ " : "- ") + styleData.value + "</font>"
                             textFormat: Text.StyledText
                             font.styleName: "Light"; font.weight: Font.Thin
+                            copyMenuEnabled: true
+                            onCopyText: viewModel.copyToClipboard((parent.income ? "+ " : "- ") + styleData.value)
                         }
                     }
                 }
@@ -1076,7 +1101,7 @@ Item {
 
                         clip:true
 
-                        SFText {
+                        SFLabel {
                             font.pixelSize: 14
                             anchors.left: parent.left
                             anchors.right: parent.right
@@ -1091,6 +1116,8 @@ Item {
                             elide: Text.ElideRight
                             anchors.verticalCenter: parent.verticalCenter
                             text: styleData.value
+                            copyMenuEnabled: true
+                            onCopyText: viewModel.copyToClipboard(text)
                         }
                     }
                 }
@@ -1155,7 +1182,7 @@ Item {
                     onTriggered: {
                         if (!!txContextMenu.transaction)
                         {
-                            addressBookViewModel.copyToClipboard(txContextMenu.transaction.user);
+                            viewModel.copyToClipboard(txContextMenu.transaction.user);
                         }
                     }
                 }
@@ -1239,7 +1266,8 @@ Item {
                                     color: Style.bluey_grey
                                     text: qsTr("Sending address:")
                                 }
-                                SFText {
+                                SFLabel {
+                                    copyMenuEnabled: true
                                     font.pixelSize: 14
                                     color: Style.white
                                     text: {
@@ -1249,6 +1277,7 @@ Item {
                                         }
                                         return "";
                                     }
+                                    onCopyText: viewModel.copyToClipboard(text)
                                 }
 
                                 SFText {
@@ -1257,7 +1286,8 @@ Item {
                                     color: Style.bluey_grey
                                     text: qsTr("Receiving address:")
                                 }
-                                SFText {
+                                SFLabel {
+                                    copyMenuEnabled: true
                                     font.pixelSize: 14
                                     color: Style.white
                                     text: {
@@ -1266,7 +1296,8 @@ Item {
                                             return viewModel.transactions[styleData.row].receivingAddress;
                                         }
                                         return "";
-                                    }
+                                    }                      
+                                    onCopyText: viewModel.copyToClipboard(text)
                                 }
 
                                 SFText {
@@ -1275,7 +1306,8 @@ Item {
                                     color: Style.bluey_grey
                                     text: qsTr("Transaction fee:")
                                 }
-                                SFText {
+                                SFLabel {
+                                    copyMenuEnabled: true
                                     font.pixelSize: 14
                                     color: Style.white
                                     text:{
@@ -1285,6 +1317,7 @@ Item {
                                         }
                                         return "";
                                     }
+                                    onCopyText: viewModel.copyToClipboard(text)
                                 }
 
                                 SFText {
@@ -1293,7 +1326,8 @@ Item {
                                     color: Style.bluey_grey
                                     text: qsTr("Comment:")
                                 }
-                                SFText {
+                                SFLabel {
+                                    copyMenuEnabled: true
                                     font.pixelSize: 14
                                     color: Style.white
                                     text: {
@@ -1304,6 +1338,7 @@ Item {
                                         return "";
                                     }
                                     font.styleName: "Italic"
+                                    onCopyText: viewModel.copyToClipboard(text)
                                 }
                             }
                             ColumnLayout {
@@ -1316,7 +1351,11 @@ Item {
 
 
                 MouseArea {
-                    anchors.fill: parent
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    height: transactionsView.rowHeight
+                    width: parent.width
+
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                     onClicked: {
                         if (styleData.row === undefined 
