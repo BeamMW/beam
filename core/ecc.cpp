@@ -1023,13 +1023,13 @@ namespace ECC {
 		uint32_t iLevel = 0;
 		for (uint32_t iWord = _countof(pwr.m_Value.m_pData); iWord--; )
 		{
-			auto val = pwr.m_Value.m_pData[iWord];
+			unsigned int val = pwr.m_Value.m_pData[iWord];
 
 			for (uint32_t j = 0; ; )
 			{
 				const PerLevel& lev = m_pLevel[iLevel++];
 
-				auto idx = val & _countof(lev.m_pVal);
+				unsigned int idx = val & _countof(lev.m_pVal);
 				if (idx)
 					trg *= lev.m_pVal[idx - 1];
 
