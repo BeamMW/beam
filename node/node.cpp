@@ -590,7 +590,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 
 void Node::Initialize()
 {
-	if (!m_Processor.m_pKdf)
+	if (!m_pKdf)
 	{
 		if (m_Cfg.m_MiningThreads)
 			throw std::runtime_error("Mining enabled, but Kdf not specified!");
@@ -598,8 +598,11 @@ void Node::Initialize()
 		// use arbitrary, inited from system random. Needed for misc things, such as secure channel.
 		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
 		ECC::GenRandom(pKdf->m_Secret.V.m_pData, pKdf->m_Secret.V.nBytes);
-		m_Processor.m_pKdf = pKdf;
+		m_pKdf = pKdf;
 	}
+
+	if (!m_pOwnerKdf)
+		m_pOwnerKdf = m_pKdf;
 
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_Sync.m_ForceResync);
@@ -639,29 +642,28 @@ void Node::InitIDs()
 {
 	ECC::GenRandom(m_NonceLast.V.m_pData, m_NonceLast.V.nBytes);
 
-	m_MyPrivateID.V.m_Value = Zero;
-
-	Blob blob(m_MyPrivateID.V.m_Value);
+	ECC::NoLeak<ECC::Scalar> s;
+	Blob blob(s.V.m_Value);
 	bool bNewID = !m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob);
 
 	if (bNewID)
 	{
-		ECC::Scalar::Native sk;
-		NextNonce(sk);
-		m_MyPrivateID.V = sk;
-	}
-
-	ECC::Scalar::Native sk = m_MyPrivateID.V;
-	proto::Sk2Pk(m_MyPublicID, sk);
-
-	if (bNewID)
-	{
-		m_MyPrivateID.V = sk; // may have been negated
+		NextNonce(m_MyPrivateID);
+		s.V = m_MyPrivateID;
 		m_Processor.get_DB().ParamSet(NodeDB::ParamID::MyID, NULL, &blob);
 	}
+	else
+		m_MyPrivateID = s.V;
 
-	m_Processor.m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
-	proto::Sk2Pk(m_MyOwnerID, sk);
+	proto::Sk2Pk(m_MyPublicID, m_MyPrivateID);
+
+
+	ECC::Hash::Value hv;
+	Key::ID(0, Key::Type::Identity).get_Hash(hv);
+
+	ECC::Point::Native pt;
+	m_pOwnerKdf->DerivePKey(pt, hv);
+	m_MyOwnerID = ECC::Point(pt).m_X;
 }
 
 void Node::InitMode()
@@ -888,8 +890,7 @@ void Node::Peer::OnConnectedSecure()
 		Send(msgPi);
 	}
 
-	ECC::Scalar::Native sk = m_This.m_MyPrivateID.V;
-	ProveID(sk, proto::IDType::Node);
+	ProveID(m_This.m_MyPrivateID, proto::IDType::Node);
 
 	proto::Config msgCfg;
 	msgCfg.m_CfgChecksum = Rules::get().Checksum;
@@ -1675,7 +1676,7 @@ const ECC::uintBig& Node::NextNonce()
 
 void Node::NextNonce(ECC::Scalar::Native& sk)
 {
-	m_Processor.m_pKdf->DeriveKey(sk, m_NonceLast.V);
+	m_pKdf->DeriveKey(sk, m_NonceLast.V);
 	ECC::Hash::Processor() << sk >> m_NonceLast.V;
 }
 
@@ -1842,13 +1843,15 @@ void Node::PerformAggregation(TxPool::Stem::Element& x)
 		while (x.m_pValue->m_vOutputs.size() <= m_Cfg.m_Dandelion.m_OutputsMax)
 		{
 			TxPool::Stem::Element& src = it->get_ParentObj();
+
 			bool bEnd = (m_Dandelion.m_setProfit.begin() == it);
+			if (!bEnd)
+				--it;
 
 			m_Dandelion.TryMerge(x, src);
 
 			if (bEnd)
 				break;
-			--it;
 		}
 	}
 
@@ -2724,11 +2727,11 @@ bool Node::Miner::Restart()
 		pTreasury->m_SubsidyClosing = (dh + 1 == vTreasury.size());
 	}
 
-	Task::Ptr pTask(std::make_shared<Task>());
+	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, *get_ParentObj().m_pKdf);
 
 	bool bRes = pTreasury ?
-		get_ParentObj().m_Processor.GenerateNewBlock(get_ParentObj().m_TxPool, pTask->m_Hdr, pTask->m_Body, pTask->m_Fees, *pTreasury) :
-		get_ParentObj().m_Processor.GenerateNewBlock(get_ParentObj().m_TxPool, pTask->m_Hdr, pTask->m_Body, pTask->m_Fees);
+		get_ParentObj().m_Processor.GenerateNewBlock(bc, *pTreasury) :
+		get_ParentObj().m_Processor.GenerateNewBlock(bc);
 
 	if (!bRes)
 	{
@@ -2736,7 +2739,12 @@ bool Node::Miner::Restart()
 		return false;
 	}
 
-	LOG_INFO() << "Block generated: Height=" << pTask->m_Hdr.m_Height << ", Fee=" << pTask->m_Fees << ", Difficulty=" << pTask->m_Hdr.m_PoW.m_Difficulty << ", Size=" << pTask->m_Body.size();
+	LOG_INFO() << "Block generated: Height=" << bc.m_Hdr.m_Height << ", Fee=" << bc.m_Fees << ", Difficulty=" << bc.m_Hdr.m_PoW.m_Difficulty << ", Size=" << bc.m_Body.size();
+
+	Task::Ptr pTask(std::make_shared<Task>());
+	pTask->m_Hdr = std::move(bc.m_Hdr);
+	pTask->m_Body = std::move(bc.m_Body);
+	pTask->m_Fees = bc.m_Fees;
 
 	pTask->m_hvNonceSeed = get_ParentObj().NextNonce();
 

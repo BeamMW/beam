@@ -190,17 +190,17 @@ namespace beam
 			m_pConfidential.reset(new ECC::RangeProof::Confidential);
 
 			ECC::RangeProof::Confidential::CreatorParams cp;
-			cp.m_Value = v;
+			cp.m_Kidv.m_Value = v;
 
 			if (pKdf)
 			{
 				assert(pKid);
-				cp.m_Kid = *pKid;
+				cp.m_Kidv.as_ID() = *pKid;
 				get_SeedKid(cp.m_Seed.V, *pKdf);
 			}
 			else
 			{
-				ZeroObject(cp.m_Kid);
+				ZeroObject(cp.m_Kidv.as_ID());
 				ECC::Hash::Processor() << "outp" << sk << v >> cp.m_Seed.V;
 			}
 
@@ -208,10 +208,10 @@ namespace beam
 		}
 	}
 
-	void Output::Create(ECC::Scalar::Native& sk, Amount v, Key::IKdf& kdf, const Key::ID& kid)
+	void Output::Create(ECC::Scalar::Native& sk, Key::IKdf& kdf, const Key::IDV& kidv)
 	{
-		kdf.DeriveKey(sk, kid);
-		CreateInternal(sk, v, m_Coinbase, &kdf, &kid);
+		kdf.DeriveKey(sk, kidv);
+		CreateInternal(sk, kidv.m_Value, m_Coinbase, &kdf, &kidv);
 	}
 
 	void Output::Create(const ECC::Scalar::Native& sk, Amount v, bool bPublic /* = false */)
@@ -229,7 +229,7 @@ namespace beam
 		ECC::Hash::Processor() << sk >> seed;
 	}
 
-	bool Output::Recover(Key::IPKdf& kdf, Key::ID& kid, Amount& v) const
+	bool Output::Recover(Key::IPKdf& kdf, Key::IDV& kidv) const
 	{
 		if (!m_pConfidential)
 			return false; // coinbases should be identified other way.
@@ -247,12 +247,12 @@ namespace beam
 		ECC::Mode::Scope scope(ECC::Mode::Fast);
 
 		ECC::Hash::Value hv;
-		cp.m_Kid.get_Hash(hv);
+		cp.m_Kidv.get_Hash(hv);
 
 		ECC::Point::Native comm, comm2;
 		kdf.DerivePKey(comm, hv);
 
-		comm += ECC::Context::get().H * cp.m_Value;
+		comm += ECC::Context::get().H * cp.m_Kidv.m_Value;
 
 		if (!comm2.Import(m_Commitment))
 			return false;
@@ -264,8 +264,7 @@ namespace beam
 			return false;
 
 		// bingo!
-		kid = cp.m_Kid;
-		v = cp.m_Value;
+		kidv = cp.m_Kidv;
 		return true;
 	}
 
