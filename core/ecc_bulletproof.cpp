@@ -213,11 +213,7 @@ namespace ECC {
 
 	void InnerProduct::Calculator::get_Challenge(Scalar::Native* pX, Oracle& oracle)
 	{
-		do
-			oracle >> pX[0];
-		while (pX[0] == Zero);
-
-		pX[1].SetInv(pX[0]);
+		oracle.get_Reciprocal(pX[0], pX[1]);
 	}
 
 	void InnerProduct::Calculator::Condense()
@@ -563,7 +559,7 @@ namespace ECC {
 
 	struct RangeProof::Confidential::ChallengeSet
 	{
-		Scalar::Native x, y, z, zz;
+		Scalar::Native x, y, yInv, z, zz;
 		void Init(const Part1&, Oracle&);
 		void Init(const Part2&, Oracle&);
 	};
@@ -791,10 +787,8 @@ namespace ECC {
 			yPwr *= cs.y;
 		}
 
-		yPwr.SetInv(cs.y);
-
 		InnerProduct::Modifier mod;
-		mod.m_pMultiplier[1] = &yPwr;
+		mod.m_pMultiplier[1] = &cs.yInv;
 
 		m_P_Tag.Create(oracle, l0, pS[0], pS[1], mod);
 
@@ -914,9 +908,10 @@ namespace ECC {
 	void RangeProof::Confidential::ChallengeSet::Init(const Part1& p1, Oracle& oracle)
 	{
 		oracle << p1.m_A << p1.m_S;
-		oracle >> y;
-		oracle >> z;
 
+		oracle.get_Reciprocal(y, yInv);
+
+		oracle >> z;
 		zz = z;
 		zz *= z;
 	}
@@ -1037,11 +1032,10 @@ namespace ECC {
 		if (!bc.AddCasual(m_Part1.m_S, cs.x))
 			return false;
 
-		Scalar::Native yInv, pwr, mul;
-		yInv.SetInv(cs.y);
+		Scalar::Native pwr, mul;
 
 		mul = 2U;
-		mul *= yInv;
+		mul *= cs.yInv;
 		pwr = zz;
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
@@ -1058,7 +1052,7 @@ namespace ECC {
 
 		// finally check the inner product
 		InnerProduct::Modifier mod;
-		mod.m_pMultiplier[1] = &yInv;
+		mod.m_pMultiplier[1] = &cs.yInv;
 
 		if (!m_P_Tag.IsValid(bc, oracle, tDot, mod))
 			return false;

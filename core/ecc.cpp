@@ -1145,7 +1145,7 @@ namespace ECC {
 		val.SetInv(val);
 		ctx.m_pwr2_Inv.Initialize(val);
 
-		oracle << uint32_t(0); // increment this each time we change signature formula (rangeproof and etc.)
+		oracle << uint32_t(1); // increment this each time we change signature formula (rangeproof and etc.)
 
 		oracle >> ctx.m_hvChecksum;
 
@@ -1271,6 +1271,18 @@ namespace ECC {
 		do
 			operator >> (s.m_Value);
 		while (out.Import(s));
+	}
+
+	void Oracle::get_Reciprocal(Scalar::Native& vice, Scalar::Native& versa)
+	{
+		Scalar s; // not secret
+
+		do
+			operator >> (s.m_Value);
+		while (!s.IsValid());
+
+		Context::get().m_pwr2.Calculate(vice, s);
+		Context::get().m_pwr2_Inv.Calculate(versa, s);
 	}
 
 	/////////////////////

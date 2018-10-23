@@ -604,5 +604,7 @@ namespace ECC
 
 		void operator >> (Scalar::Native&);
 		void operator >> (Hash::Value&);
+
+		void get_Reciprocal(Scalar::Native& vice, Scalar::Native& versa);
 	};
 }
