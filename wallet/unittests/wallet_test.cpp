@@ -62,7 +62,7 @@ namespace
         ECC::Scalar::Native calcKey(const Coin& c) const override
         {
 			ECC::Scalar::Native sk;
-			m_pKdf->DeriveKey(sk, c.get_Kid());
+			m_pKdf->DeriveKey(sk, c.get_Kidv());
             return sk;
         }
 

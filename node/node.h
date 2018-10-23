@@ -126,6 +126,9 @@ struct Node
 
 	} m_Cfg; // must not be changed after initialization
 
+	Key::IKdf::Ptr m_pKdf;
+	Key::IPKdf::Ptr m_pOwnerKdf;
+
 	~Node();
 	void Initialize();
 	void ImportMacroblock(Height); // throws on err
@@ -477,7 +480,7 @@ private:
 
 	uint32_t RandomUInt32(uint32_t threshold);
 
-	ECC::NoLeak<ECC::Scalar> m_MyPrivateID;
+	ECC::Scalar::Native m_MyPrivateID;
 	PeerID m_MyPublicID;
 	PeerID m_MyOwnerID;
 
