@@ -28,6 +28,7 @@ namespace beam
         const uint8_t byteBits = 8;
         const std::string passphrasePrefix = "mnemonic";
         const size_t hmacIterations = 2048;
+        const size_t sizeHash = 512 >> 3;
 
         uint8_t shiftBits(size_t bit)
         {
@@ -35,11 +36,15 @@ namespace beam
         }
     }
 
-    WordList createMnemonic(uintBig128 entropy, const Dictionary& dict)
+    WordList createMnemonic(const std::vector<uint8_t>& entropy, const Dictionary& dict)
     {
+        // entropy should be 16 bytes or 128 bits for 12 words
+        assert(entropy.size() == 128 >> 3);
+
         ECC::Hash::Value value;
-        ECC::Hash::Processor() << entropy >> value;
-        std::vector<uint8_t> data(&entropy.m_pData[0], &entropy.m_pData[0] + uintBig128::nBytes);
+        Blob blob(entropy.data(), static_cast<uint32_t>(entropy.size()));
+        ECC::Hash::Processor() << blob >> value;
+        std::vector<uint8_t> data(entropy);
         data.push_back(value.m_pData[0]);
         
         std::vector<std::string> words;
@@ -65,12 +70,12 @@ namespace beam
         return words;
     }
 
-    uintBig512 decodeMnemonic(const WordList& words)
+    std::vector<uint8_t> decodeMnemonic(const WordList& words)
     {
         const std::string sentence = boost::join(words, " ");
         std::vector<uint8_t> passphrase(sentence.begin(), sentence.end());
         std::vector<uint8_t> salt(passphrasePrefix.begin(), passphrasePrefix.end());
-        std::vector<uint8_t> hash(uintBig512::nBytes);
+        std::vector<uint8_t> hash(sizeHash);
 
         const auto result = pkcs5_pbkdf2(
             passphrase.data(),

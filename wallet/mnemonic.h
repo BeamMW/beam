@@ -23,10 +23,9 @@ namespace beam
 {
     typedef std::vector<std::string> WordList;
 
-    typedef uintBig_t<128> uintBig128;
-    typedef uintBig_t<512> uintBig512;
+    // implementation of bip39 for 12 words
+    // TODO implement other version of bip39
+    WordList createMnemonic(const std::vector<uint8_t>& entropy, const Dictionary& dict);
 
-    WordList createMnemonic(uintBig128 entropy, const Dictionary& dict);
-
-    uintBig512 decodeMnemonic(const WordList& words);
+    std::vector<uint8_t> decodeMnemonic(const WordList& words);
 }

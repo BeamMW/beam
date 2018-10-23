@@ -84,9 +84,9 @@ void testMnemonic()
 
         WALLET_CHECK(testData.mnemonic == boost::join(wordList, ","));
 
-        uintBig512 hash = decodeMnemonic(wordList);
-        std::vector<uint8_t> data(&hash.m_pData[0], &hash.m_pData[0] + uintBig512::nBytes);
-        WALLET_CHECK(testData.seed == to_hex(data.data(), data.size()));
+        std::vector<uint8_t> hash = decodeMnemonic(wordList);
+        //std::vector<uint8_t> data(&hash.m_pData[0], &hash.m_pData[0] + uintBig512::nBytes);
+        WALLET_CHECK(testData.seed == to_hex(hash.data(), hash.size()));
     }    
 }
 
