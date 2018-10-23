@@ -29,7 +29,7 @@ public:
     // 2) embed deserializer (protocol-specific) object into stream
 
     // errorCode==0 on new data
-    using Callback = std::function<void(ErrorCode errorCode, void* data, size_t size)>;
+    using Callback = std::function<bool(ErrorCode errorCode, void* data, size_t size)>;
 
     struct State {
         uint64_t received=0;
@@ -81,7 +81,8 @@ public:
 protected:
     TcpStream();
 
-    virtual void on_read(ErrorCode errorCode, void* data, size_t size);
+    /// read callback, returns whether to proceed
+    virtual bool on_read(ErrorCode errorCode, void* data, size_t size);
 
 private:
     static void read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf);
@@ -89,6 +90,7 @@ private:
     friend class TcpServer;
     friend class SslServer;
     friend class Reactor;
+    friend class TcpConnectors;
 
     void alloc_read_buffer();
     void free_read_buffer();

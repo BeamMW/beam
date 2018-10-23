@@ -60,6 +60,12 @@ else()
     target_link_libraries(utility uv)
 endif()
 
+target_link_libraries(utility ${OPENSSL_LIBSSL} ${OPENSSL_LIBCRYPTO})
+
+if (UNIX)
+    target_link_libraries(utility dl)
+endif()
+
 if(ANDROID)
     target_link_libraries(utility
         $ENV{BOOST_ROOT_ANDROID}/lib/libboost_program_options-clang-mt-a32-1_68.a

@@ -18,5 +18,4 @@ add_test_snippet(channel_test utility)
 add_test_snippet(config_test utility)
 add_test_snippet(bridge_test utility)
 add_test_snippet(ssl_test utility)
-find_package(OpenSSL REQUIRED)
-target_link_libraries(ssl_test OpenSSL::SSL OpenSSL::Crypto)
+

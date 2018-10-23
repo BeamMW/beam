@@ -34,19 +34,25 @@ Result SslStream::write(const SerializedMsg& fragments, bool flush) {
 }
 
 void SslStream::shutdown() {
-    _ssl.flush();
+    //_ssl.flush();
+    _ssl.shutdown();
     TcpStream::shutdown();
 }
 
-void SslStream::on_read(ErrorCode ec, void *data, size_t size) {
-    Result res = _ssl.on_encrypted_data_from_stream(data, size);
-    if (!res) {
-        TcpStream::on_read(res.error(), 0, 0);
+bool SslStream::on_read(ErrorCode ec, void *data, size_t size) {
+    if (ec == EC_OK) {
+        Result res = _ssl.on_encrypted_data_from_stream(data, size);
+        if (!res) {
+            return TcpStream::on_read(res.error(), 0, 0);
+        }
+    } else {
+        return TcpStream::on_read(ec, 0, 0);
     }
+    return true;
 }
 
-void SslStream::on_decrypted_data(void* data, size_t size) {
-    TcpStream::on_read(EC_OK, data, size);
+bool SslStream::on_decrypted_data(void* data, size_t size) {
+    return TcpStream::on_read(EC_OK, data, size);
 }
 
 Result SslStream::on_encrypted_data(const SharedBuffer& data, bool flush) {

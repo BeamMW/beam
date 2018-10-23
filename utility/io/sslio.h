@@ -48,8 +48,8 @@ private:
 
 class SSLIO {
 public:
-    /// Decrypted data received from stream
-    using OnDecryptedData = std::function<void(void* data, size_t size)>;
+    /// Decrypted data received from stream. Returns whether to proceed
+    using OnDecryptedData = std::function<bool(void* data, size_t size)>;
 
     /// Encrypted data to be queued to stream
     using OnEncryptedData = std::function<Result(const io::SharedBuffer& data, bool flush)>;
@@ -71,10 +71,9 @@ public:
     void enqueue(const SharedBuffer& buf);
 
     Result flush();
-private:
-    enum IOState { io_ok, io_handshaking, io_error };
-    IOState get_iostate(int retCode);
 
+    void shutdown();
+private:
     Result do_handshake();
 
     Result send_pending_data(bool flush);

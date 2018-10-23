@@ -182,12 +182,13 @@ void TcpStream::read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf)
     }
 }
 
-void TcpStream::on_read(ErrorCode errorCode, void* data, size_t size) {
+bool TcpStream::on_read(ErrorCode errorCode, void* data, size_t size) {
     if (_callback) {
         _state.received += size;
         LOG_DEBUG() << __FUNCTION__ << TRACE(size) << TRACE(_state.unsent) << TRACE(_state.sent) << TRACE(_state.received);
-        _callback(errorCode, data, size);
+        return _callback(errorCode, data, size);
     }
+    return false;
 }
 
 }} //namespaces

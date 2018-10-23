@@ -16,6 +16,7 @@
 #include <openssl/bio.h>
 #include <assert.h>
 
+#define LOG_DEBUG_ENABLED 0
 #include "utility/logger.h"
 
 namespace beam { namespace io {
@@ -43,7 +44,8 @@ static SSLInitializer g_sslInitializer;
 
 SSL_CTX* init_ctx(bool isServer) {
     if (!g_sslInitializer.ok) {
-        throw std::runtime_error("SSL init failed");
+        LOG_ERROR() << "SSL init failed";
+        IO_EXCEPTION(EC_SSL_ERROR);
     }
 
     static const char* cipher_settings = "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH";
@@ -51,14 +53,17 @@ SSL_CTX* init_ctx(bool isServer) {
 
     SSL_CTX* ctx = SSL_CTX_new(isServer ? TLS_server_method() : TLS_client_method());
     if (!ctx) {
-        throw std::runtime_error("SSL_CTX_new failed");
+        LOG_ERROR() << "SSL_CTX_new failed";
+        IO_EXCEPTION(EC_SSL_ERROR);
     }
     if (SSL_CTX_set_cipher_list(ctx, cipher_settings) != 1) {
-        throw std::runtime_error("SSL_CTX_set_cipher_list failed");
+        LOG_ERROR() << "SSL_CTX_set_cipher_list failed";
+        IO_EXCEPTION(EC_SSL_ERROR);
     }
     // TODO ???
     if (SSL_CTX_set_tlsext_use_srtp(ctx, srtp_settings) != 0) {
-        throw std::runtime_error("SSL_CTX_set_tlsext_use_srtp failed");
+        LOG_ERROR() << "SSL_CTX_set_tlsext_use_srtp failed";
+        IO_EXCEPTION(EC_SSL_ERROR);
     }
     SSL_CTX_set_options(ctx, SSL_OP_ALL|SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3);
     return ctx;
@@ -119,6 +124,7 @@ SSLIO::SSLIO(
 
     SSL_set_mode(_ssl, SSL_MODE_ENABLE_PARTIAL_WRITE);
     SSL_set_mode(_ssl, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
+    SSL_set_mode(_ssl, SSL_MODE_AUTO_RETRY);
 
     _rbio = BIO_new(BIO_s_mem());
     _wbio = BIO_new(BIO_s_mem());
@@ -140,6 +146,7 @@ SSLIO::SSLIO(
 }
 
 SSLIO::~SSLIO() {
+    LOG_DEBUG() << __FUNCTION__;
     if (_ssl) SSL_free(_ssl);
 }
 
@@ -148,7 +155,10 @@ void SSLIO::enqueue(const io::SharedBuffer& buf) {
 }
 
 Result SSLIO::flush() {
-    Result res = do_handshake();
+    Result res;
+    if (!SSL_is_init_finished(_ssl)) {
+        res = do_handshake();
+    }
     if (res && !_outMsg.empty() && SSL_is_init_finished(_ssl)) {
         auto buf = io::normalize(_outMsg, false);
         _outMsg.clear();
@@ -167,11 +177,17 @@ Result SSLIO::flush() {
     return res;
 }
 
+void SSLIO::shutdown() {
+    flush();
+    SSL_shutdown(_ssl);
+    send_pending_data(true);
+}
+
 Result SSLIO::send_pending_data(bool flush) {
     int bytes = BIO_pending(_wbio);
-    LOG_DEBUG() << __FUNCTION__ << TRACE(this) << TRACE(bytes);
     if (bytes < 0) return make_unexpected(EC_SSL_ERROR);
     if (bytes > 0) {
+        LOG_DEBUG() << __FUNCTION__ << TRACE(this) << TRACE(bytes);
         auto p = alloc_heap((size_t) bytes);
         assert(p.first);
         int bytesRead = BIO_read(_wbio, p.first, bytes);
@@ -179,13 +195,6 @@ Result SSLIO::send_pending_data(bool flush) {
         return _onEncryptedData(SharedBuffer(p.first, size_t(bytesRead), p.second), flush);
     }
     return Ok();
-}
-
-SSLIO::IOState SSLIO::get_iostate(int retCode) {
-    int errCode = SSL_get_error(_ssl, retCode);
-    if (errCode == 0) return io_ok;
-    if (errCode == SSL_ERROR_WANT_READ || errCode == SSL_ERROR_WANT_WRITE) return io_handshaking;
-    return io_error;
 }
 
 Result SSLIO::do_handshake() {
@@ -197,7 +206,9 @@ Result SSLIO::do_handshake() {
 }
 
 Result SSLIO::on_encrypted_data_from_stream(const void *data, size_t size) {
-    void *buf = alloca(_fragmentSize);
+    LOG_DEBUG() << TRACE(size); // << std::string((const char*)data, size);
+
+    void* buf = alloca(_fragmentSize);
     auto ptr = (const uint8_t *) data;
     int bytesRemaining = (int) size;
 
@@ -214,14 +225,20 @@ Result SSLIO::on_encrypted_data_from_stream(const void *data, size_t size) {
         if (!SSL_is_init_finished(_ssl)) {
             res = do_handshake();
             if (!res) return res;
-            if (!SSL_is_init_finished(_ssl))
+            if (!SSL_is_init_finished(_ssl)) {
                 break;
+            } else if (!_outMsg.empty()) {
+                res = flush();
+                if (!res) return res;
+            }
         }
 
         do {
-            r = SSL_read(_ssl, buf, (int)_fragmentSize);
+            r = SSL_read(_ssl, buf, (int) _fragmentSize);
             if (r > 0) {
-                _onDecryptedData(buf, (size_t)r);
+                if (!_onDecryptedData(buf, (size_t) r)) {
+                    return make_unexpected(EC_EOF);
+                }
             }
         } while (r > 0);
 
@@ -229,7 +246,9 @@ Result SSLIO::on_encrypted_data_from_stream(const void *data, size_t size) {
         if (r == SSL_ERROR_WANT_WRITE) {
             res = send_pending_data(true);
             if (!res) return res;
-        } else if (r == SSL_ERROR_SYSCALL || r == SSL_ERROR_SSL || r == SSL_ERROR_ZERO_RETURN) {
+        } else if (r == SSL_ERROR_ZERO_RETURN) {
+            break; // EOF will be sent on TCP stream
+        } else if (r == SSL_ERROR_SYSCALL || r == SSL_ERROR_SSL) {
             return make_unexpected(EC_SSL_ERROR);
         }
     }

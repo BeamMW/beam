@@ -29,9 +29,10 @@ namespace {
         size_t expectedSize = 0;
         size_t receivedSize = 0;
 
-        auto on_decrypted = [&receivedSize](void* data, size_t size) {
+        auto on_decrypted = [&receivedSize](void* data, size_t size) -> bool {
             LOG_DEBUG() << "received " << size << " bytes";
             receivedSize += size;
+            return true;
         };
 
         std::unique_ptr<SSLIO> server;

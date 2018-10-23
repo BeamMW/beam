@@ -20,7 +20,7 @@ namespace beam { namespace io {
 
 class SslStream : public TcpStream {
 public:
-    ~SslStream();
+    ~SslStream() = default;
 
     /// Writes raw data, returns status code
     Result write(const SharedBuffer& buf, bool flush=true) override;
@@ -34,11 +34,12 @@ public:
 private:
     friend class SslServer;
     friend class Reactor;
+    friend class TcpConnectors;
 
     explicit SslStream(const SSLContext::Ptr& ctx);
 
-    void on_read(ErrorCode ec, void* data, size_t size) override;
-    void on_decrypted_data(void* data, size_t size);
+    bool on_read(ErrorCode ec, void* data, size_t size) override;
+    bool on_decrypted_data(void* data, size_t size);
     Result on_encrypted_data(const SharedBuffer& data, bool flush);
 
     SSLIO _ssl;
