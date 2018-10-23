@@ -118,7 +118,7 @@ WaitHandle run_node(const NodeParams& params) {
 
 			std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
 			pKdf->m_Secret.V = params.walletSeed;
-			node.get_Processor().m_pKdf = pKdf;
+			node.m_pKdf = pKdf;
 
             node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 500;
 

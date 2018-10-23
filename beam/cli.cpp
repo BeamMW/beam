@@ -148,7 +148,7 @@ int main_impl(int argc, char* argv[])
 					if (node.m_Cfg.m_MiningThreads > 0)
 					{
 						std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
-						node.get_Processor().m_pKdf = pKdf;
+						node.m_pKdf = pKdf;
 
 						if (!beam::read_wallet_seed(pKdf->m_Secret, vm)) {
                             LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";

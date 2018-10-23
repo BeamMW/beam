@@ -1019,15 +1019,9 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 		ValidateTxContextKernels(tx.m_vKernelsInput, false);
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, Block::Body& res, Amount& fees, Height h, RollbackData& rbData)
+bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height h, RollbackData& rbData)
 {
-	if (!m_pKdf)
-	{
-		LOG_WARNING() << "No Kdf. Can't generate blocks";
-		return false;
-	}
-
-	fees = 0;
+	bc.m_Fees = 0;
 	size_t nBlockSize = 0;
 	size_t nAmount = 0;
 
@@ -1037,14 +1031,14 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 
 	ECC::Scalar::Native offset = res.m_Offset;
 
-	for (TxPool::Fluff::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
+	for (TxPool::Fluff::ProfitSet::iterator it = bc.m_TxPool.m_setProfit.begin(); bc.m_TxPool.m_setProfit.end() != it; )
 	{
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
 
 		if (x.m_Profit.m_nSize > nSizeThreshold)
 		{
 			LOG_INFO() << "Tx is very big. It's deleted.";
-			txp.Delete(x);
+			bc.m_TxPool.Delete(x);
 			continue;
 		}
 
@@ -1058,13 +1052,13 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 		{
 			Block::Body::Writer(res).Dump(tx.get_Reader());
 
-			fees += x.m_Profit.m_Fee;
+			bc.m_Fees += x.m_Profit.m_Fee;
 			offset += ECC::Scalar::Native(tx.m_Offset);
 			nBlockSize += x.m_Profit.m_nSize;
 			++nAmount;
 		}
 		else
-			txp.Delete(x); // isn't available in this context
+			bc.m_TxPool.Delete(x); // isn't available in this context
 	}
 
 	LOG_INFO() << "GenerateNewBlock: size of block = " << nBlockSize << "; amount of tx = " << nAmount;
@@ -1074,7 +1068,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 	{
 		Output::Ptr pOutp(new Output);
 		pOutp->m_Coinbase = true;
-		pOutp->Create(kKernel, Rules::get().CoinbaseEmission, *m_pKdf, Key::ID(h, Key::Type::Coinbase));
+		pOutp->Create(kKernel, bc.m_Kdf, Key::IDV(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase));
 
 		if (!HandleBlockElement(*pOutp, h, NULL, true))
 			return false;
@@ -1082,12 +1076,12 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 		res.m_vOutputs.push_back(std::move(pOutp));
 	}
 
-	if (fees)
+	if (bc.m_Fees)
 	{
 		ECC::Scalar::Native sk;
 
 		Output::Ptr pOutp(new Output);
-		pOutp->Create(sk, fees, *m_pKdf, Key::ID(h, Key::Type::Comission));
+		pOutp->Create(sk, bc.m_Kdf, Key::IDV(bc.m_Fees, h, Key::Type::Comission));
 
 		if (!HandleBlockElement(*pOutp, h, NULL, true))
 			return false; // though should not happen!
@@ -1122,9 +1116,9 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 
 	// Finalize block construction.
 	if (m_Cursor.m_Sid.m_Row)
-		s.m_Prev = m_Cursor.m_ID.m_Hash;
+		bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
 	else
-		ZeroObject(s.m_Prev);
+		ZeroObject(bc.m_Hdr.m_Prev);
 
 	if (!m_Extra.m_SubsidyOpen)
 		res.m_SubsidyClosing = false;
@@ -1132,40 +1126,40 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 	if (res.m_SubsidyClosing)
 		ToggleSubsidyOpened();
 
-	get_Definition(s.m_Definition, true);
+	get_Definition(bc.m_Hdr.m_Definition, true);
 
 	if (res.m_SubsidyClosing)
 		ToggleSubsidyOpened();
 
-	s.m_Height = h;
-	s.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
-	s.m_TimeStamp = getTimestamp();
+	bc.m_Hdr.m_Height = h;
+	bc.m_Hdr.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
+	bc.m_Hdr.m_TimeStamp = getTimestamp();
 
-	s.m_PoW.m_Difficulty.Inc(s.m_ChainWork, m_Cursor.m_Full.m_ChainWork);
+	bc.m_Hdr.m_PoW.m_Difficulty.Inc(bc.m_Hdr.m_ChainWork, m_Cursor.m_Full.m_ChainWork);
 
 	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
 	Timestamp tm = get_MovingMedian() + 1;
-	s.m_TimeStamp = std::max(s.m_TimeStamp, tm);
+	bc.m_Hdr.m_TimeStamp = std::max(bc.m_Hdr.m_TimeStamp, tm);
 
 	res.m_Offset = offset;
 
 	return true;
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
+bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 {
 	Block::Body block;
 	block.ZeroInit();
 	block.m_SubsidyClosing = true; // by default insist on it. If already closed - this flag will automatically be turned OFF
-	return GenerateNewBlock(txp, s, bbBlock, fees, block, true);
+	return GenerateNewBlock(bc, block, true);
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees, Block::Body& res)
+bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res)
 {
-	return GenerateNewBlock(txp, s, bbBlock, fees, res, false);
+	return GenerateNewBlock(bc, res, false);
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees, Block::Body& res, bool bInitiallyEmpty)
+bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, bool bInitiallyEmpty)
 {
 	Height h = m_Cursor.m_Sid.m_Height + 1;
 
@@ -1183,7 +1177,7 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 				return false;
 		}
 
-		bool bRes = GenerateNewBlock(txp, s, res, fees, h, rbData);
+		bool bRes = GenerateNewBlock(bc, res, h, rbData);
 
 		rbData.m_Inputs = 0;
 		verify(HandleValidatedTx(res.get_Reader(), h, false, rbData)); // undo changes
@@ -1199,9 +1193,9 @@ bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Ful
 
 	ser.reset();
 	ser & res;
-	ser.swap_buf(bbBlock);
+	ser.swap_buf(bc.m_Body);
 
-	return bbBlock.size() <= Rules::get().MaxBodySize;
+	return bc.m_Body.size() <= Rules::get().MaxBodySize;
 }
 
 bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
@@ -1471,10 +1465,10 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	return true;
 }
 
-void NodeProcessor::InitializeFromBlocks()
+bool NodeProcessor::EnumBlocks(IBlockWalker& wlk)
 {
 	if (m_Cursor.m_ID.m_Height < Rules::HeightGenesis)
-		return;
+		return true;
 
 	NodeDB::WalkerState ws(m_DB);
 	Height h = 0;
@@ -1488,23 +1482,18 @@ void NodeProcessor::InitializeFromBlocks()
 		if (!OpenMacroblock(rw, ws.m_Sid))
 			continue;
 
-		LOG_INFO() << "Interpreting MB up to " << ws.m_Sid.m_Height << "...";
-
 		Block::BodyBase body;
 		Block::SystemState::Sequence::Prefix prefix;
 
 		rw.Reset();
 		rw.get_Start(body, prefix);
 
-		RollbackData rbData;
-		if (!HandleValidatedBlock(std::move(rw), body, Rules::HeightGenesis, true, rbData, &ws.m_Sid.m_Height))
-			OnCorrupted();
+		if (!wlk.OnBlock(body, std::move(rw), 0, Rules::HeightGenesis, &ws.m_Sid.m_Height))
+			return false;
 
 		h = ws.m_Sid.m_Height;
 		break;
 	}
-
-	LOG_INFO() << "Interpreting blocks up to " << m_Cursor.m_ID.m_Height << "...";
 
 	std::vector<uint64_t> vPath;
 	vPath.reserve(m_Cursor.m_ID.m_Height - h);
@@ -1543,15 +1532,170 @@ void NodeProcessor::InitializeFromBlocks()
 		der.reset(&bb.at(0), bb.size());
 		der & block;
 
-		if (!HandleValidatedBlock(block.get_Reader(), block, ++h, true, rbData))
-			OnCorrupted();
+		if (!wlk.OnBlock(block, block.get_Reader(), vPath.back(), ++h, NULL))
+			return false;
 	}
 
-	// final check
-	Merkle::Hash hv;
-	get_Definition(hv, false);
-	if (m_Cursor.m_Full.m_Definition != hv)
-		OnCorrupted();
+	return true;
+}
+
+
+void NodeProcessor::InitializeFromBlocks()
+{
+	struct MyWalker
+		:public IBlockWalker
+	{
+		NodeProcessor* m_pThis;
+		bool m_bFirstBlock = true;
+
+		virtual bool OnBlock(const Block::BodyBase& body, TxBase::IReader&& r, uint64_t rowid, Height h, const Height* pHMax) override
+		{
+			if (pHMax)
+			{
+				LOG_INFO() << "Interpreting MB up to " << *pHMax << "...";
+			} else
+				if (m_bFirstBlock)
+				{
+					m_bFirstBlock = false;
+					LOG_INFO() << "Interpreting blocks up to " << m_pThis->m_Cursor.m_ID.m_Height << "...";
+				}
+
+			RollbackData rbData;
+			if (!m_pThis->HandleValidatedBlock(std::move(r), body, h, true, rbData, pHMax))
+				OnCorrupted();
+
+			return true;
+		}
+	};
+
+	MyWalker wlk;
+	wlk.m_pThis = this;
+	EnumBlocks(wlk);
+
+	if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
+	{
+		// final check
+		Merkle::Hash hv;
+		get_Definition(hv, false);
+		if (m_Cursor.m_Full.m_Definition != hv)
+			OnCorrupted();
+	}
+}
+
+bool NodeProcessor::IUtxoWalker::OnBlock(const Block::BodyBase&, TxBase::IReader&& r, uint64_t rowid, Height, const Height* pHMax)
+{
+	if (rowid)
+		m_This.get_DB().get_State(rowid, m_Hdr);
+	else
+		ZeroObject(m_Hdr);
+
+	for (r.Reset(); r.m_pUtxoIn; r.NextUtxoIn())
+		if (!OnInput(*r.m_pUtxoIn))
+			return false;
+
+	for ( ; r.m_pUtxoOut; r.NextUtxoOut())
+		if (!OnOutput(*r.m_pUtxoOut))
+			return false;
+
+	return true;
+}
+
+bool NodeProcessor::UtxoRecover::Proceed()
+{
+	ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+	// try to identify coinbase utxos. They can't be detected via bulletproof since they must have public signature
+	Value v;
+	v.m_Kidv.m_Value = Rules::get().CoinbaseEmission;
+
+	for (v.m_iKey = 0; v.m_iKey < m_vKeys.size(); v.m_iKey++)
+	{
+		for (Height h = Rules::HeightGenesis; h <= m_This.m_Cursor.m_ID.m_Height; h++)
+		{
+			v.m_Kidv.as_ID() = Key::ID(h, Key::Type::Coinbase);
+
+			ECC::Hash::Value hv;
+			v.m_Kidv.get_Hash(hv);
+
+			ECC::Point::Native comm;
+			m_vKeys[v.m_iKey]->DerivePKey(comm, hv);
+			comm += ECC::Context::get().H * v.m_Kidv.m_Value;
+
+			struct Traveler :public UtxoTree::ITraveler {
+				Input::Count m_Count = 0;
+				virtual bool OnLeaf(const RadixTree::Leaf& x) override
+				{
+					const UtxoTree::MyLeaf& n = (UtxoTree::MyLeaf&) x;
+					m_Count += n.m_Value.m_Count;
+					return true;
+				}
+			} t;
+
+			UtxoTree::Key kMin, kMax;
+
+			UtxoTree::Key::Data d;
+			d.m_Commitment = comm;
+			d.m_Maturity = 0;
+			kMin = d;
+			d.m_Maturity = MaxHeight;
+			kMax = d;
+
+			UtxoTree::Cursor cu;
+			t.m_pCu = &cu;
+			t.m_pBound[0] = kMin.m_pArr;
+			t.m_pBound[1] = kMax.m_pArr;
+
+			m_This.m_Utxos.Traverse(t);
+
+			if (t.m_Count > 0)
+			{
+				v.m_Count = t.m_Count;
+				Add(d.m_Commitment, v);
+			}
+		}
+	}
+
+	return m_This.EnumBlocks(*this);
+}
+
+void NodeProcessor::UtxoRecover::Add(const ECC::Point& comm, const Value& v)
+{
+	assert(v.m_Count);
+
+	Value& v0 = m_Map[comm];
+	if (v0.m_Count)
+		v0.m_Count += v.m_Count; // ignore overflow possibility
+	else
+		v0 = v;
+}
+
+bool NodeProcessor::UtxoRecover::OnInput(const Input& x)
+{
+	UtxoMap::iterator it = m_Map.find(x.m_Commitment);
+	if (m_Map.end() != it)
+	{
+		Value& v = it->second;
+		assert(v.m_Count);
+
+		if (! --v.m_Count)
+			m_Map.erase(it);
+	}
+	return true;
+}
+
+bool NodeProcessor::UtxoRecover::OnOutput(const Output& x)
+{
+	Value v;
+	v.m_Count = 1;
+
+	for (v.m_iKey = 0; v.m_iKey < m_vKeys.size(); v.m_iKey++)
+		if (x.Recover(*m_vKeys[v.m_iKey], v.m_Kidv))
+		{
+			Add(x.m_Commitment, v);
+			break;
+		}
+
+	return true;
 }
 
 } // namespace beam

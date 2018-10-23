@@ -69,7 +69,7 @@ void NodeModel::run()
             node.m_Cfg.m_MiningThreads = node.m_Cfg.m_VerificationThreads = 0;
         }
 
-		node.get_Processor().m_pKdf = m_pKdf;
+		node.m_pKdf = m_pKdf;
 
 
         node.m_Cfg.m_HistoryCompression.m_sPathOutput = settings.getTempDir();
