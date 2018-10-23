@@ -188,6 +188,7 @@ namespace ECC {
 			}
 
 			void Proceed(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k);
+			void ProceedRec(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k, uint32_t j);
 		};
 
 		static const uint32_t s_iCycle0 = 2; // condense source generators into points (after 3 iterations, 8 points)
@@ -295,22 +296,28 @@ namespace ECC {
 		}
 	}
 
+	void InnerProduct::Calculator::Aggregator::ProceedRec(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k, uint32_t j)
+	{
+		if (m_pBatchCtx && j)
+			Proceed(iPos, iCycle - 1, k); // in batch mode all inverses are already multiplied
+		else
+		{
+			Scalar::Native k0 = k;
+			k0 *= m_cs.m_Val[nCycles - iCycle][j];
+
+			Proceed(iPos, iCycle - 1, k0);
+		}
+	}
+
 	void InnerProduct::Calculator::Aggregator::Proceed(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k)
 	{
 		if (iCycle != m_iCycleTrg)
 		{
 			assert(iCycle <= nCycles);
-			Scalar::Native k0 = k;
-			k0 *= m_cs.m_Val[nCycles - iCycle][!m_j];
-
-			Proceed(iPos, iCycle - 1, k0);
-
-			k0 = k;
-			k0 *= m_cs.m_Val[nCycles - iCycle][m_j];
+			ProceedRec(iPos, iCycle, k, !m_j);
 
 			uint32_t nStep = 1 << (iCycle - 1);
-
-			Proceed(iPos + nStep, iCycle - 1, k0);
+			ProceedRec(iPos + nStep, iCycle, k, m_j);
 
 		} else
 		{
@@ -491,6 +498,14 @@ namespace ECC {
 		// -sum( G_Condensed[j] * pCondensed[j] )
 		// whereas G_Condensed[j] = Gen[j] * sum (k[iCycle]^(+/-)2 ), i.e. transformed (condensed) generators
 
+		// Reduce the num of multiplications. Instead of multiplying by inversa - pre-multiply by all inverses, and square their reciprocals
+		Scalar::Native kAllInverses = 1U;
+		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
+		{
+			cs.m_Val[iCycle][0] *= cs.m_Val[iCycle][0];
+			kAllInverses *= cs.m_Val[iCycle][1];
+		}
+
 		for (int j = 0; j < 2; j++)
 		{
 			MultiMac mmDummy;
@@ -502,6 +517,8 @@ namespace ECC {
 
 			if (bc.m_bEnableBatch)
 				k *= bc.m_Multiplier;
+
+			k *= kAllInverses;
 
 			aggr.Proceed(0, nCycles, k);
 		}
