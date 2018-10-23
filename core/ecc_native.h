@@ -404,7 +404,6 @@ namespace ECC
 		bool m_bInitialized;
 
 		void Write(const void*, uint32_t);
-		void Write(const char*);
 		void Write(bool);
 		void Write(uint8_t);
 		void Write(const Scalar&);
@@ -414,6 +413,9 @@ namespace ECC
 		void Write(const beam::Blob&);
 		template <uint32_t nBits_>
 		void Write(const beam::uintBig_t<nBits_>& x) { Write(x.m_pData, x.nBytes); }
+		template <uint32_t n>
+		void Write(const char(&sz)[n]) { Write(sz, n); }
+		void Write(const std::string& str) { Write(str.c_str(), static_cast<uint32_t>(str.size() + 1)); }
 
 		template <typename T>
 		void Write(T v)

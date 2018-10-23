@@ -280,11 +280,6 @@ namespace ECC {
 		Write(v.p, v.n);
 	}
 
-	void Hash::Processor::Write(const char* sz)
-	{
-		Write(sz, (uint32_t) (strlen(sz) + 1));
-	}
-
 	void Hash::Processor::Write(bool b)
 	{
 		uint8_t n = (false != b);
