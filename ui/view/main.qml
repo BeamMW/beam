@@ -15,6 +15,20 @@ Rectangle {
 
     color: Style.marine
 
+    MouseArea {
+        id: mainMouseArea
+        anchors.fill: parent
+        acceptedButtons: Qt.AllButtons
+        hoverEnabled: true
+        propagateComposedEvents: true
+        onMouseXChanged: resetLockTimer()
+        onPressedChanged: resetLockTimer()
+    }
+
+    Keys.onReleased: {
+        resetLockTimer()
+    }
+
     property var contentItems : [
 		//"dashboard",
 		"wallet", 
@@ -134,6 +148,10 @@ Rectangle {
         
 		viewModel.update(selectedItem)
 	}
+
+    function resetLockTimer() {
+        viewModel.resetLockTimer();
+    }
 
     Connections {
         target: viewModel
