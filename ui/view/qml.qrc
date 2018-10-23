@@ -3,6 +3,7 @@
         <file>controls/Style.qml</file>
         <file>controls/qmldir</file>
         <file>controls/SvgImage.qml</file>
+        <file>controls/SFLabel.qml</file>
         <file>controls/SFText.qml</file>
         <file>controls/SFTextInput.qml</file>
         <file>controls/AvailablePanel.qml</file>

@@ -53,6 +53,8 @@ Menu {
     background: Rectangle {
         implicitWidth: 200
         implicitHeight: 40
+        border.width: 1
+        border.color: Style.separator_color
         color: Style.dark_slate_blue
 		//opacity: 0.1
         radius: 10
