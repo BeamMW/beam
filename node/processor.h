@@ -176,11 +176,24 @@ public:
 	bool GenerateNewBlock(BlockContext&, Block::Body& blockInOut);
 	bool GenerateNewBlock(BlockContext&);
 
-	struct UtxoRecover
+	struct UtxoRecoverSimple
 		:public IUtxoWalker
 	{
 		std::vector<Key::IPKdf::Ptr> m_vKeys;
 
+		UtxoRecoverSimple(NodeProcessor& x) :IUtxoWalker(x) {}
+
+		bool Proceed();
+
+		virtual bool OnInput(const Input&) override;
+		virtual bool OnOutput(const Output&) override;
+
+		virtual bool OnOutput(uint32_t iKey, const Key::IDV&, const Output&) = 0;
+	};
+
+	struct UtxoRecoverEx
+		:public UtxoRecoverSimple
+	{
 		struct Value {
 			Key::IDV m_Kidv;
 			uint32_t m_iKey;
@@ -192,15 +205,10 @@ public:
 		typedef std::map<ECC::Point, Value> UtxoMap;
 		UtxoMap m_Map;
 
-		UtxoRecover(NodeProcessor& x) :IUtxoWalker(x) {}
-
-		bool Proceed();
+		UtxoRecoverEx(NodeProcessor& x) :UtxoRecoverSimple(x) {}
 
 		virtual bool OnInput(const Input&) override;
-		virtual bool OnOutput(const Output&) override;
-
-	private:
-		void Add(const ECC::Point&, const Value&);
+		virtual bool OnOutput(uint32_t iKey, const Key::IDV&, const Output&) override;
 	};
 
 private:

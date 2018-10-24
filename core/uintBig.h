@@ -90,7 +90,7 @@ namespace beam
 		}
 
 		template <typename T>
-		static void _ExportAligned(T& out, uint8_t* pDst, uint32_t nDst)
+		static void _ExportAligned(T& out, const uint8_t* pDst, uint32_t nDst)
 		{
 			static_assert(T(-1) > 0, "must be unsigned");
 
@@ -180,7 +180,7 @@ namespace beam
 		}
 
 		template <typename T>
-		void Export(T& x)
+		void Export(T& x) const
 		{
 			_ExportAligned(x, m_pData, nBytes);
 		}
