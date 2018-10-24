@@ -358,6 +358,7 @@ Item
                         text: qsTr("Run local node (recommended)")
                         ButtonGroup.group: nodePreferencesGroup
                         font.pixelSize: 14
+                        checked: true
                     }
                     Column {
                         id: localNodePanel
