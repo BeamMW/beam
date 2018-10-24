@@ -18,6 +18,7 @@
 #include "utility/string_helpers.h"
 #include "utility/helpers.h"
 #include "wallet/secstring.h"
+#include "utility/mnemonic.h"
 
 using namespace std;
 using namespace ECC;
@@ -56,6 +57,7 @@ namespace beam
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
         const char* WALLET_SEED = "wallet_seed";
+        const char* WALLET_PHRASES = "wallet_phrases";
         const char* FEE = "fee";
         const char* FEE_FULL = "fee,f";
         const char* RECEIVE = "receive";
@@ -94,6 +96,7 @@ namespace beam
             //(cli::MODE, po::value<string>()->required(), "mode to execute [node|wallet]")
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
             (cli::WALLET_SEED, po::value<string>(), "secret key generation seed")
+            (cli::WALLET_PHRASES, po::value<string>(), "phrases to generate secret key according to BIP-39. <wallet_seed> option will be ignored")
             (cli::LOG_LEVEL, po::value<string>(), "log level [info|debug|verbose]")
             (cli::FILE_LOG_LEVEL, po::value<string>(), "file log level [info|debug|verbose]")
             (cli::VERSION_FULL, "return project version")
@@ -266,7 +269,21 @@ namespace beam
     bool read_wallet_seed(NoLeak<uintBig>& walletSeed, po::variables_map& vm)
     {
         SecString seed;
-        if (!read_secret_impl(seed, "Enter seed: ", cli::WALLET_SEED, vm))
+
+        if (vm.count(cli::WALLET_PHRASES))
+        {
+            auto tempPhrases = vm[cli::WALLET_PHRASES].as<string>();
+            WordList phrases = string_helpers::split(tempPhrases, ';');
+            assert(phrases.size() == 12);
+            if (phrases.size() != 12)
+            {
+                LOG_ERROR() << "Invalid recovery phrases provided: " << tempPhrases;
+                return false;
+            }
+            auto buf = decodeMnemonic(phrases);
+            seed.assign(buf.data(), buf.size());
+        }
+        else if (!read_secret_impl(seed, "Enter seed: ", cli::WALLET_SEED, vm))
         {
             return false;
         }

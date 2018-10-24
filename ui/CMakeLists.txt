@@ -7,6 +7,7 @@ endif()
 set (CMAKE_PREFIX_PATH $ENV{QT5_ROOT_DIR})
 
 find_package(Qt5 COMPONENTS Qml Quick Svg REQUIRED)
+find_package(Qt5PrintSupport REQUIRED)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
@@ -119,7 +120,7 @@ target_link_libraries(${TARGET_NAME} quazip_static)
 	target_link_libraries(${TARGET_NAME} node)
 #endif()
 
-target_link_libraries(${TARGET_NAME} wallet Qt5::Qml Qt5::Quick Qt5::Svg)
+target_link_libraries(${TARGET_NAME} wallet Qt5::Qml Qt5::Quick Qt5::Svg Qt5::PrintSupport)
 
 if(BEAM_USE_STATIC)
 

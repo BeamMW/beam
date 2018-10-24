@@ -1,4 +1,4 @@
-import QtQuick 2.3
+import QtQuick 2.11
 import QtQuick.Controls 1.2
 import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
@@ -435,9 +435,6 @@ Rectangle {
                         }                        
 
                         CustomButton {
-                            Layout.minimumHeight: 38
-                            Layout.minimumWidth: 150
-
                             text: "save wallet logs"
                             palette.buttonText : "white"
                             palette.button: "#708090"
@@ -499,8 +496,6 @@ Rectangle {
 
 
                         CustomButton {
-                            width: 244
-
                             text: "change wallet password"
                             palette.buttonText : "white"
                             palette.button: "#708090"

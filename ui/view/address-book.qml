@@ -1,4 +1,4 @@
-import QtQuick 2.3
+import QtQuick 2.11
 import QtQuick.Controls 1.4
 import QtQuick.Controls 2.3
 import QtQuick.Layouts 1.0
@@ -270,8 +270,6 @@ ColumnLayout {
 						
 						CustomButton {
 							palette.buttonText: Style.white
-                            Layout.minimumHeight: 38
-							Layout.minimumWidth: 122
 							text: qsTr("cancel")
 							icon.source: "qrc:/assets/icon-cancel.svg"
 
@@ -283,8 +281,6 @@ ColumnLayout {
 						CustomButton {
 							palette.button: Style.bright_teal
 							Layout.leftMargin: 31
-                            Layout.minimumHeight: 38
-                            Layout.minimumWidth: 166
 							text: qsTr("create address")
 							icon.source: "qrc:/assets/icon-done.svg"
 							palette.buttonText: Style.marine
@@ -365,7 +361,6 @@ ColumnLayout {
             CustomButton {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.right: parent.right
-                width: 195
 				text: "create new address"
 				palette.buttonText: Style.white
 				icon.source: "qrc:/assets/icon-add.svg"

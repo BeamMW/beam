@@ -3,10 +3,6 @@ set(TARGET_NAME beam-wallet)
 add_definitions( -DSQLITE_HAS_CODEC )
 
 set(WALLET_SRC
-    dictionary.h
-    dictionary.cpp
-    mnemonic.h
-    mnemonic.cpp
     wallet.h
     wallet.cpp
     wallet_transaction.cpp
@@ -16,14 +12,6 @@ set(WALLET_SRC
     keystore.cpp
     secstring2.cpp
     unittests/util.cpp
-    external/hmac_sha512.c
-    external/hmac_sha512.h
-    external/pkcs5_pbkdf2.c
-    external/pkcs5_pbkdf2.h
-    external/sha512.c
-    external/sha512.h
-    external/zeroize.c
-    external/zeroize.h
 )
 
 add_library(wallet STATIC ${WALLET_SRC})
