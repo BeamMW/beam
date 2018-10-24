@@ -1243,9 +1243,11 @@ namespace ECC {
 	{
 		Scalar s; // not secret
 
+		// x^0 == x^(s_Order - 1) == 1
+		// to guarantee uniform distribution (excluding zero, which doesn't have a reciprocal) the power should be in the range [1, s_Order - 1]
 		do
 			operator >> (s.m_Value);
-		while (!s.IsValid());
+		while ((s.m_Value == Zero) || !s.IsValid());
 
 		Context::get().m_pwr2.Calculate(vice, s);
 		Context::get().m_pwr2_Inv.Calculate(versa, s);
