@@ -222,7 +222,7 @@ IKeyChain::Ptr init_keychain(const std::string& path, uintBig* walletSeed) {
 
     NoLeak<uintBig> seed;
     Hash::Value hv;
-    Hash::Processor() << password.c_str() >> hv;
+    Hash::Processor() << password >> hv;
     seed.V = hv;
 
     auto keychain = Keychain::init(path, password, seed);

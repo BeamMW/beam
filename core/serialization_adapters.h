@@ -197,6 +197,31 @@ namespace detail
             return ar;
         }
 
+		/// ECC::Key::IDV serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const ECC::Key::IDV& kidv)
+		{
+			ar
+				& kidv.m_Idx
+				& kidv.m_IdxSecondary
+				& kidv.m_Type
+				& kidv.m_Value;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, ECC::Key::IDV& kidv)
+		{
+			ar
+				& kidv.m_Idx
+				& kidv.m_IdxSecondary
+				& kidv.m_Type
+				& kidv.m_Value;
+
+			return ar;
+		}
+
         /// ECC::Signature serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const ECC::Signature& val)
@@ -333,6 +358,9 @@ namespace detail
             ar
                 & val.m_Value
                 & val.m_Signature
+				& val.m_Kid.m_Idx
+				& val.m_Kid.m_Idx2
+				& val.m_Kid.m_Type
             ;
 
             return ar;
@@ -344,6 +372,9 @@ namespace detail
             ar
                 & val.m_Value
                 & val.m_Signature
+				& val.m_Kid.m_Idx
+				& val.m_Kid.m_Idx2
+				& val.m_Kid.m_Type
             ;
 
             return ar;

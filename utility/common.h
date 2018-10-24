@@ -65,6 +65,8 @@
 
 inline void memset0(void* p, size_t n) { memset(p, 0, n); }
 bool memis0(const void* p, size_t n);
+void memxor(uint8_t* pDst, const uint8_t* pSrc, size_t n);
+
 
 template <typename T>
 inline void ZeroObject(T& x)

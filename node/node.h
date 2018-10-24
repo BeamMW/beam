@@ -469,6 +469,7 @@ private:
 		virtual void OnMsg(proto::MacroblockGet&&) override;
 		virtual void OnMsg(proto::Macroblock&&) override;
 		virtual void OnMsg(proto::ProofChainWork&&) override;
+		virtual void OnMsg(proto::Recover&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
