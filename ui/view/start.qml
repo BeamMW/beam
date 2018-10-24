@@ -1,4 +1,4 @@
-import QtQuick 2.3
+import QtQuick 2.11
 import QtQuick.Controls 1.2
 import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
@@ -412,22 +412,18 @@ Item
                         ButtonGroup.group: nodePreferencesGroup
                         font.pixelSize: 14
                     }
-                    
-                    CustomRadioButton {
-                        id: remoteNodeButton
-                        text: qsTr("Connect to specific remote node")
-                        ButtonGroup.group: nodePreferencesGroup
-                        font.pixelSize: 14
-                    }
-                    Column {
-                        id: remoteNodePanel
-                        visible: remoteNodeButton.checked
+                    Row {
                         width: parent.width
-
                         spacing: 10
-
+                        CustomRadioButton {
+                            id: remoteNodeButton
+                            text: qsTr("Connect to specific remote node")
+                            ButtonGroup.group: nodePreferencesGroup
+                            font.pixelSize: 14
+                        }
                         SFTextInput {
                             id:remoteNodeAddrInput
+                            visible: remoteNodeButton.checked
                             width: parent.width
                             font.pixelSize: 14
                             color: Style.white
@@ -436,6 +432,15 @@ Item
                             onTextChanged: if (remoteNodeAddrInput.text.length > 0) remoteNodeAddrError.text = ""
                             bottomPadding: 8 // TODO add default value of this item to controls
                         }
+                    }
+                    Column {
+                        id: remoteNodePanel
+                        visible: remoteNodeButton.checked
+                        width: parent.width
+                        leftPadding: 40
+
+                        spacing: 10
+
                         SFText {
                             id: remoteNodeAddrError
                             color: Style.validator_color
