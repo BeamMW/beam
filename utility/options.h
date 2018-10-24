@@ -56,6 +56,7 @@ namespace beam
         extern const char* INFO;
         extern const char* TX_HISTORY;
         extern const char* WALLET_SEED;
+        extern const char* WALLET_PHRASES;
         extern const char* FEE;
         extern const char* FEE_FULL;
         extern const char* RECEIVE;

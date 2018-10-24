@@ -10,6 +10,7 @@ Button {
     id: control
     
     palette.button: Style.separator_color
+    palette.buttonText: Style.white
     property alias textOpacity: rect.opacity
 
     font { 
@@ -18,15 +19,17 @@ Button {
         styleName: "Bold"; weight: Font.Bold
     }
 
-    width: 122
+//    width: 122
     height: 38
+    leftPadding: 30
+    rightPadding: 30
     
     activeFocusOnTab: true
 
     spacing: 15
     icon.color: "transparent"
-    icon.width: 10
-    icon.height: 10
+    icon.width: 16
+    icon.height: 16
     
     contentItem: IconLabel {
         spacing: control.spacing

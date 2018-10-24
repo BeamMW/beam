@@ -51,7 +51,7 @@ Item
                 font.pixelSize: 18
                 font.styleName: "Bold"; font.weight: Font.Bold
             }
-        }                    
+        }
     }
 
     StackView {
@@ -86,32 +86,509 @@ Item
                     anchors.topMargin: 140
                 }
 
+
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.topMargin: 587
-                    anchors.top: parent.top
+                    anchors.bottomMargin: 143
+                    anchors.bottom: parent.bottom
 
                     spacing: 30
-                    // DefaultButton {
-                    //     text: qsTr("restore wallet from file")
-                    // }
 
-                    // DefaultButton {
-                    //     text: qsTr("restore wallet from blockchain")
-                    // }
-
-                    CustomButton {
+                    PrimaryButton {
                         id: createNewWallet
                         anchors.verticalCenter: parent.verticalCenter
 
-                        width: 202
                         text: qsTr("create new wallet")
-                        palette.buttonText: Style.marine
                         icon.source: "qrc:/assets/icon-add-blue.svg"
                         onClicked: startWizzardView.push(nodeSetup);
-                        palette.button: Style.bright_teal
-                        icon.width: 16
-                        icon.height: 16
+                    }
+
+                    CustomButton {
+                        text: qsTr("restore wallet from blockchain")
+                        icon.source: "qrc:/assets/icon-restore.svg"
+                        onClicked: {
+                            viewModel.isRecoveryMode = true;
+                            startWizzardView.push(nodeSetup);
+                        }
+                    }
+                }
+            }
+        }
+
+        Component {
+            id: createWalletEntry
+            Rectangle
+            {
+                color: Style.marine
+                property Item defaultFocusItem: generateRecoveryPhraseButton
+
+                ColumnLayout {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.fill: parent
+                    anchors.topMargin: 50
+                    Column {
+                        spacing: 30
+                        Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+                        SFText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            horizontalAlignment: Qt.AlignHCenter
+                            text: qsTr("Create new wallet")
+                            color: Style.white
+                            font.pixelSize: 36
+                        }
+                        SFText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            horizontalAlignment: Qt.AlignHCenter
+                            text: qsTr("Create new wallet with generating recovery phrase.
+        If you ever lose your device, you will need this phrase to recover your wallet!")
+                            color: Style.white
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: 14
+                        }
+                    }
+
+                    Row {
+                        topPadding: 100
+                        spacing: 65
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.minimumHeight : 300
+                        Layout.maximumHeight: 500
+                        SecurityNote{
+                            iconSource: "qrc:/assets/eye.svg"
+                            text: qsTr("Do not let anyone see your recovery phrase");
+                        }
+                        SecurityNote{
+                            iconSource: "qrc:/assets/password.svg"
+                            text: qsTr("Never type your recovery phrase into password managers or elsewhere");
+                        }
+                        SecurityNote{
+                            iconSource: "qrc:/assets/copy-two-paper-sheets-interface-symbol.svg"
+                            text: qsTr("Make at least 2 copies of the phrase in case of emergency");
+                        }
+                    }
+                    
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        Row {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.bottom: parent.bottom
+                            bottomPadding: 143
+
+                            PrimaryButton {
+                                id: generateRecoveryPhraseButton
+
+                                text: qsTr("generate recovery phrase")
+                                icon.source: "qrc:/assets/icon-recovery.svg"
+                                onClicked: startWizzardView.push(generateRecoveryPhrase);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Component {
+            id: generateRecoveryPhrase
+            Rectangle {
+                color: Style.marine
+                property Item defaultFocusItem: nextButton
+
+                ColumnLayout {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.fill: parent
+                    anchors.topMargin: 50
+                    Column {
+                        spacing: 30
+                        Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+                        Layout.preferredWidth: 730
+                        SFText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            horizontalAlignment: Qt.AlignHCenter
+                            text: qsTr("Create new wallet")
+                            color: Style.white
+                            font.pixelSize: 36
+                        }
+                        SFText {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            horizontalAlignment: Qt.AlignHCenter
+                            text: qsTr("This set of 12 words allows you to recover your wallet from the blockchain. Print or write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.")
+                            color: Style.white
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: 14
+                        }
+                    }
+                    ConfirmationDialog {
+                        id: confirRecoveryPhrasesDialog
+                        okButtonText: qsTr("understand")
+                        okButtonIconSource: "qrc:/assets/icon-done.svg"
+                        cancelVisible: false
+                        width: 460
+                        text: qsTr("It is strictly recommended to write down the recovery phrase on a paper. Storing it in a file makes it prone to cyber attacks and, therefore, less secure.")
+                        onAccepted: {
+                            onClicked: startWizzardView.push(checkRecoveryPhrase);
+                        }
+                    }
+                    Grid{
+                        id: phrasesView
+                        Layout.alignment: Qt.AlignHCenter
+
+                        topPadding: 50
+                        columnSpacing: 30
+                        rowSpacing:  20
+
+                        Repeater {
+                            model:viewModel.recoveryPhrases
+                            Rectangle{
+                                border.color: Style.dark_slate_blue
+                                color: "transparent"
+                                width: 160
+                                height: 38
+                                radius: 30
+                                Rectangle {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.leftMargin: 9
+                                    anchors.left: parent.left
+                                    color: Style.dark_slate_blue
+                                    width: 20
+                                    height: 20
+                                    radius: 10
+                                    SFText {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        text: modelData.index + 1
+                                        font.pixelSize: 10
+                                        color: Style.white
+                                        opacity: 0.5
+                                    }
+                                }
+                                SFText {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: modelData.phrase
+                                    font.pixelSize: 14
+                                    color: Style.white
+                                }
+                            }
+                        }
+                    }
+                    
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        Row {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.bottom: parent.bottom
+                            bottomPadding: 143
+
+                            spacing: 30
+                     
+                            CustomButton {
+                                text: qsTr("copy to clipboard")
+                                icon.source: "qrc:/assets/icon-copy.svg"
+                                onClicked: {viewModel.copyPhrasesToClipboard();}
+                            }
+
+                            CustomButton {
+                                text: qsTr("print")
+                                icon.source: "qrc:/assets/icon-print.svg"
+                                
+                                onClicked: {
+                                    phrasesView.grabToImage(function(result) {
+                                        viewModel.printRecoveryPhrases(result.image); //result.image holds the QVariant
+                                    });
+
+                                }
+                            }
+
+                            PrimaryButton {
+                                id: nextButton
+                                text: qsTr("next")
+                                icon.source: "qrc:/assets/icon-next-blue.svg"
+                                onClicked: {confirRecoveryPhrasesDialog.open();}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Component {
+            id: checkRecoveryPhrase
+            Rectangle {
+                color: Style.marine
+
+                ColumnLayout {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.fill: parent
+                    anchors.topMargin: 50
+                    Column {
+                        spacing: 30
+                        Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+                        Layout.preferredWidth: 730
+                        SFText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            horizontalAlignment: Qt.AlignHCenter
+                            text: qsTr("Create new wallet")
+                            color: Style.white
+                            font.pixelSize: 36
+                        }
+                        SFText {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            horizontalAlignment: Qt.AlignHCenter
+                            text: qsTr("To ensure the recovery phrase is written down, please fill-in the specific words below")
+                            color: Style.white
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: 14
+                        }
+                    }
+ 
+                    Grid{
+                        Layout.alignment: Qt.AlignHCenter
+
+                        topPadding: 50
+                        columnSpacing: 30
+                        rowSpacing:  20
+
+                        Repeater {
+                            model:viewModel.checkPhrases
+
+                            Row {
+                                width: 160
+                                height: 38
+                                spacing: 20
+                                Item {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.leftMargin: 9
+                                    width: 20
+                                    height: 20
+                                    Rectangle {
+                                        color: "transparent"
+                                        border.color: Style.dark_slate_blue
+                                        width: 20
+                                        height: 20
+                                        radius: 10
+                                        SFText {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: modelData.index + 1
+                                            font.pixelSize: 10
+                                            color: Style.dark_slate_blue
+                                        }
+                                        visible: !modelData.isCorrect
+                                    }
+
+                                    Rectangle {
+                                        id: correctPhraseRect
+                                        color: Style.bright_teal
+                                        width: 20
+                                        height: 20
+                                        radius: 10
+                                        SFText {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: modelData.index + 1
+                                            font.pixelSize: 10
+                                            color: Style.marine
+                                        }
+                                        visible: modelData.isCorrect
+                                    }
+
+                                    DropShadow {
+                                        anchors.fill: correctPhraseRect
+                                        radius: 5
+                                        samples: 9
+                                        color: Style.bright_teal
+                                        source: correctPhraseRect
+                                        visible: correctPhraseRect.visible
+                                    }
+                                }
+
+                                SFTextInput {
+                                    id: phraseValue
+                                    anchors.bottom: parent.bottom
+                                    anchors.bottomMargin: 10
+                                    width: 121
+
+                                    font.pixelSize: 14
+                                    color: Style.white
+                                    text: modelData.value
+                                }
+                                Binding {
+                                    target: modelData
+                                    property: "value"
+                                    value: phraseValue.text
+                                }
+                            }
+                        }
+                    }
+                    
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        Row {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.bottom: parent.bottom
+                            bottomPadding: 143
+
+                            spacing: 30
+                     
+                            CustomButton {
+                                text: qsTr("go back to the recovery phrase")
+                                icon.source: "qrc:/assets/icon-back.svg"
+                                onClicked: startWizzardView.pop();
+                            }
+
+                            PrimaryButton {
+                                id: checkRecoveryNextButton
+                                text: qsTr("next")
+                                enabled: {
+                                    var enable = true;
+                                    for(var i = 0; i < viewModel.checkPhrases.length; ++i)
+                                    {
+                                        enable &= viewModel.checkPhrases[i].isCorrect;
+                                    }
+                                    return enable;
+                                }
+                                icon.source: "qrc:/assets/icon-next-blue.svg"
+                                onClicked: startWizzardView.push(create);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Component {
+            id: restoreWallet
+            Rectangle {
+                color: Style.marine
+
+                ColumnLayout {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.fill: parent
+                    anchors.topMargin: 50
+                    Column {
+                        spacing: 30
+                        Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+                        Layout.preferredWidth: 730
+                        SFText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            horizontalAlignment: Qt.AlignHCenter
+                            text: qsTr("Restore wallet")
+                            color: Style.white
+                            font.pixelSize: 36
+                        }
+                        SFText {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            horizontalAlignment: Qt.AlignHCenter
+                            text: qsTr("Type in or paste your recovery phrase")
+                            color: Style.white
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: 14
+                        }
+                    }
+ 
+                    Grid{
+                        Layout.alignment: Qt.AlignHCenter
+
+                        topPadding: 50
+                        columnSpacing: 30
+                        rowSpacing:  20
+
+                        Repeater {
+                            model:viewModel.recoveryPhrases
+
+                            Row {
+                                width: 160
+                                height: 38
+                                spacing: 20
+                                Item {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.leftMargin: 9
+                                    width: 20
+                                    height: 20
+                                    Rectangle {
+                                        color: "transparent"
+                                        border.color: Style.dark_slate_blue
+                                        width: 20
+                                        height: 20
+                                        radius: 10
+                                        SFText {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: modelData.index + 1
+                                            font.pixelSize: 10
+                                            color: Style.dark_slate_blue
+                                        }
+                                        visible: modelData.value.length == 0
+                                    }
+
+                                    Rectangle {
+                                        id: correctPhraseRect
+                                        color: Style.dark_slate_blue
+                                        width: 20
+                                        height: 20
+                                        radius: 10
+                                        SFText {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: modelData.index + 1
+                                            font.pixelSize: 10
+                                            color: Style.white
+                                            opacity: 0.5
+                                        }
+                                        visible: modelData.value.length > 0
+                                    }
+                                }
+
+                                SFTextInput {
+                                    id: phraseValue
+                                    anchors.bottom: parent.bottom
+                                    anchors.bottomMargin: 10
+                                    width: 121
+
+                                    font.pixelSize: 14
+                                    color: Style.white
+                                    text: modelData.value
+                                }
+                                Binding {
+                                    target: modelData
+                                    property: "value"
+                                    value: phraseValue.text
+                               }
+                            }
+                        }
+                    }
+                    
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        Row {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.bottom: parent.bottom
+                            bottomPadding: 143
+
+                            spacing: 30
+                     
+                            PrimaryButton {
+                                id: checkRecoveryNextButton
+                                text: qsTr("restore wallet")
+                                enabled: {
+                                    var enable = true;
+                                    for(var i = 0; i < viewModel.recoveryPhrases.length; ++i)
+                                    {
+                                        enable &= viewModel.recoveryPhrases[i].value.length > 0;
+                                    }
+                                    return enable;
+                                }
+                                icon.source: "qrc:/assets/icon-restore-blue.svg"
+                                onClicked: startWizzardView.push(create);
+                            }
+                        }
                     }
                 }
             }
@@ -123,197 +600,179 @@ Item
             {
                 color: Style.marine
 
-                property Item defaultFocusItem: seed
+                property Item defaultFocusItem: password
 
-                SFText {
-                    text: qsTr("Create new wallet")
-                    color: Style.white
-                    font.pixelSize: 36
-
+                ColumnLayout {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
+                    anchors.fill: parent
                     anchors.topMargin: 50
-                }
-
-                SFText {
-                    text: qsTr("Create password to access your wallet")
-                    color: Style.white
-                    font.pixelSize: 18
-
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 123
-                }
-
-                Column {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 191
-                    width: 400
-
-                    //clip: true
-
-                    spacing: 30
-
                     Column {
-                        width: parent.width
-
-                        spacing: 10
-
+                        spacing: 30
+                        Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+                        Layout.preferredWidth: 730
                         SFText {
-                            text: qsTr("Enter secret key (seed)")
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            horizontalAlignment: Qt.AlignHCenter
+                            text: qsTr("Create new wallet")
                             color: Style.white
-                            font.pixelSize: 14
-                            font.styleName: "Bold"; font.weight: Font.Bold
+                            font.pixelSize: 36
                         }
-
-                        SFTextInput {
-
-                            id:seed
-
-                            width: parent.width
-
-                            font.pixelSize: 14
+                        SFText {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            horizontalAlignment: Qt.AlignHCenter
+                            text: qsTr("Create password to access your wallet")
                             color: Style.white
-                            echoMode: TextInput.Password
-                            onTextChanged: if (seed.text.length > 0) passwordError.text = ""
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: 14
                         }
                     }
-
+                    
                     Column {
-                        width: parent.width
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.preferredWidth: 400
+                        Layout.topMargin: 50
+                        spacing: 30
 
-                        spacing: 10
-
-                        SFText {
-                            text: qsTr("Enter password")
-                            color: Style.white
-                            font.pixelSize: 14
-                            font.styleName: "Bold"; font.weight: Font.Bold
-                        }
-
-                        SFTextInput {
-
-                            id:password
-
+                        Column {
                             width: parent.width
 
-                            font.pixelSize: 14
-                            color: Style.white
-                            echoMode: TextInput.Password
-                            onTextChanged: if (password.text.length > 0) passwordError.text = ""
-                        }
+                            spacing: 10
 
-                        RowLayout{
-                            id: strengthChecker
-
-                            property var strengthTests: 
-                            [
-                                {exp: new RegExp("(?=.{1,})")                                                               , color: "#ff625c", msg: "Very weak password"},
-                                {exp: new RegExp("((?=.{6,})(?=.*[0-9]))|((?=.{6,})(?=.*[A-Z]))|((?=.{6,})(?=.*[a-z]))")    , color: "#ff625c", msg: "Weak password"},
-                                {exp: new RegExp("((?=.{6,})(?=.*[A-Z])(?=.*[a-z]))|((?=.{6,})(?=.*[0-9])(?=.*[a-z]))")     , color: "#f4ce4a", msg: "Medium strength password"},
-                                {exp: new RegExp("(?=.{8,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                              , color: "#f4ce4a", msg: "Medium strength password"},
-                                {exp: new RegExp("(?=.{10,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                             , color: "#00f6d2", msg: "Strong password"},
-                                {exp: new RegExp("(?=.{10,})(?=.*[!@#\$%\^&\*])(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")          , color: "#00f6d2", msg: "Very strong password"},
-                            ]
-
-                            function passwordStrength(pass)
-                            {
-                                for(var i = strengthTests.length - 1; i >= 0; i--)
-                                    if(strengthTests[i].exp.test(pass))
-                                        return i + 1;
-                               
-                                return 0;
+                            SFText {
+                                text: qsTr("Enter password")
+                                color: Style.white
+                                font.pixelSize: 14
+                                font.styleName: "Bold"; font.weight: Font.Bold
                             }
 
-                            property var strength: passwordStrength(password.text)
+                            SFTextInput {
 
-                            width: parent.width
+                                id:password
 
-                            spacing: 8
+                                width: parent.width
 
-                            Repeater{
-                                model: parent.strengthTests.length
+                                font.pixelSize: 14
+                                color: Style.white
+                                echoMode: TextInput.Password
+                                onTextChanged: if (password.text.length > 0) passwordError.text = ""
+                            }
 
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    height: 4
-                                    border.width: index < parent.strength ? 0 : 1
-                                    border.color: Style.dark_slate_blue
-                                    radius: 10
-                                    color: index < parent.strength ? parent.strengthTests[parent.strength-1].color : Style.marine
+                            RowLayout{
+                                id: strengthChecker
+
+                                property var strengthTests: 
+                                [
+                                    {exp: new RegExp("(?=.{1,})")                                                               , color: "#ff625c", msg: "Very weak password"},
+                                    {exp: new RegExp("((?=.{6,})(?=.*[0-9]))|((?=.{6,})(?=.*[A-Z]))|((?=.{6,})(?=.*[a-z]))")    , color: "#ff625c", msg: "Weak password"},
+                                    {exp: new RegExp("((?=.{6,})(?=.*[A-Z])(?=.*[a-z]))|((?=.{6,})(?=.*[0-9])(?=.*[a-z]))")     , color: "#f4ce4a", msg: "Medium strength password"},
+                                    {exp: new RegExp("(?=.{8,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                              , color: "#f4ce4a", msg: "Medium strength password"},
+                                    {exp: new RegExp("(?=.{10,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                             , color: "#00f6d2", msg: "Strong password"},
+                                    {exp: new RegExp("(?=.{10,})(?=.*[!@#\$%\^&\*])(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")          , color: "#00f6d2", msg: "Very strong password"},
+                                ]
+
+                                function passwordStrength(pass)
+                                {
+                                    for(var i = strengthTests.length - 1; i >= 0; i--)
+                                        if(strengthTests[i].exp.test(pass))
+                                            return i + 1;
+                               
+                                    return 0;
+                                }
+
+                                property var strength: passwordStrength(password.text)
+
+                                width: parent.width
+
+                                spacing: 8
+
+                                Repeater{
+                                    model: parent.strengthTests.length
+
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        height: 4
+                                        border.width: index < parent.strength ? 0 : 1
+                                        border.color: Style.dark_slate_blue
+                                        radius: 10
+                                        color: index < parent.strength ? parent.strengthTests[parent.strength-1].color : Style.marine
+                                    }
                                 }
                             }
+
+                            SFText {
+                                text: strengthChecker.strength > 0 ? strengthChecker.strengthTests[strengthChecker.strength-1].msg : ""
+                                color: "#84a5b2"
+                                font.pixelSize: 14
+                            }
                         }
 
-                        SFText {
-                            text: strengthChecker.strength > 0 ? strengthChecker.strengthTests[strengthChecker.strength-1].msg : ""
-                            color: "#84a5b2"
-                            font.pixelSize: 14
-                        }
-                    }
-
-                    Column {
-                        width: parent.width
-                        anchors.bottomMargin: 6
-                        spacing: 10
-
-                        SFText {
-                            text: qsTr("Confirm password")
-                            color: Style.white
-                            font.pixelSize: 14
-                            font.styleName: "Bold"; font.weight: Font.Bold
-                        }
-
-                        SFTextInput {
-                            id: confirmPassword
+                        Column {
                             width: parent.width
+                            anchors.bottomMargin: 6
+                            spacing: 10
 
-                            font.pixelSize: 14
-                            color: Style.white
-                            echoMode: TextInput.Password
-                            onTextChanged: if (confirmPassword.text.length > 0) passwordError.text = ""
-                        }
+                            SFText {
+                                text: qsTr("Confirm password")
+                                color: Style.white
+                                font.pixelSize: 14
+                                font.styleName: "Bold"; font.weight: Font.Bold
+                            }
 
-                        SFText {
-                            id: passwordError
-                            color: Style.validator_color
-                            font.pixelSize: 14
+                            SFTextInput {
+                                id: confirmPassword
+                                width: parent.width
+
+                                font.pixelSize: 14
+                                color: Style.white
+                                echoMode: TextInput.Password
+                                onTextChanged: if (confirmPassword.text.length > 0) passwordError.text = ""
+                            }
+
+                            SFText {
+                                id: passwordError
+                                color: Style.validator_color
+                                font.pixelSize: 14
+                            }
                         }
                     }
-                }
 
-                Row {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 599
-                    spacing: 30
-                    CustomButton {
-                        text: qsTr("back");
-                        onClicked: startWizzardView.pop();
-                    }
-                    PrimaryButton {
-                        text: qsTr("create wallet")
-                        onClicked: {
-                            if(seed.text.length == 0)
-                            {
-                                 passwordError.text = qsTr("Please, enter secret key (seed)");
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        Row {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.bottom: parent.bottom
+                            bottomPadding: 143
+                    
+                            spacing: 30
+
+                            CustomButton {
+                                text: qsTr("back");
+                                icon.source: "qrc:/assets/icon-back.svg"
+                                onClicked: startWizzardView.pop();
                             }
-                            else if(password.text.length == 0)
-                            {
-                                passwordError.text = qsTr("Please, enter password");
-                            }
-                            else if(password.text != confirmPassword.text)
-                            {
-                                passwordError.text = qsTr("Passwords do not match");
-                            }
-                            else if(!viewModel.createWallet(seed.text, password.text))
-                            {
-                                passwordError.text = qsTr("Error, something went worng, wallet not created :(");
-                            }
-                            else
-                            {
-                                root.parent.source = "qrc:/main.qml";
+                            PrimaryButton {
+                                text: qsTr("proceed to your wallet")
+                                icon.source : "qrc:/assets/icon-next-blue.svg"
+                                onClicked: {
+                                    if(password.text.length == 0)
+                                    {
+                                        passwordError.text = qsTr("Please, enter password");
+                                    }
+                                    else if(password.text != confirmPassword.text)
+                                    {
+                                        passwordError.text = qsTr("Passwords do not match");
+                                    }
+                                    else if(!viewModel.createWallet(password.text))
+                                    {
+                                        passwordError.text = qsTr("Error, something went wrong, wallet not created :(");
+                                    }
+                                    else
+                                    {
+                                        root.parent.source = "qrc:/main.qml";
+                                    }
+                                }
                             }
                         }
                     }
@@ -452,17 +911,19 @@ Item
 
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 599
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 143
                     spacing: 30
 
                     CustomButton {
                         text: qsTr("back");
+                        icon.source: "qrc:/assets/icon-back.svg"
                         onClicked: startWizzardView.pop();
                     }
 
                     PrimaryButton {
                         text: qsTr("next");
+                        icon.source: "qrc:/assets/icon-next-blue.svg"
                         enabled: nodePreferencesGroup.checkState != Qt.Unchecked
                         onClicked:{
                             if (localNodeButton.checked) {
@@ -487,7 +948,7 @@ Item
                             else if (testnetNodeButton.checked) {
                                 viewModel.setupTestnetNode();
                             }
-                            startWizzardView.push(create);
+                            startWizzardView.push(viewModel.isRecoveryMode ? restoreWallet : createWalletEntry);
                         }
                     }
                 }
@@ -583,16 +1044,11 @@ Item
                     // activeFocusOnTab: true
         //         }
 
-                CustomButton {
+                PrimaryButton {
                     anchors.verticalCenter: parent.verticalCenter
                     id: btnCurrentWallet
-                    width: 188
                     text: qsTr("show my wallet")
-                    palette.buttonText: Style.marine
                     icon.source: "qrc:/assets/icon-wallet-small.svg"
-                    palette.button: Style.bright_teal
-                    icon.width: 16
-                    icon.height: 16
                     onClicked: {
                         if(openPassword.text.length == 0)
                         {
