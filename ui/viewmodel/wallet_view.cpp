@@ -805,4 +805,5 @@ void WalletViewModel::onGeneratedNewWalletID(const beam::WalletID& walletID)
 {
     _newReceiverAddr = toString(walletID);
     emit newReceiverAddrChanged();
+    saveNewAddress();
 }

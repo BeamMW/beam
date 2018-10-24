@@ -302,19 +302,22 @@ Item {
                 spacing: 19
 
                 CustomButton {
-                    text: qsTr("cancel")
+                    text: qsTr("close")
                     palette.buttonText: Style.white
-                    onClicked: root.state = "wallet";
+                    icon.source: "qrc:/assets/icon-cancel-white.svg"
+                    onClicked: {
+                        // TODO: "Save" may be deleted in future, when we'll have editor for own addresses.
+                        viewModel.saveNewAddress();
+                        root.state = "wallet";
+                    }
                 }
 
                 CustomButton {
-                    text: qsTr("Copy && Close")
+                    text: qsTr("copy")
                     palette.buttonText: Style.white
                     icon.source: "qrc:/assets/icon-copy.svg"
                     onClicked: {
                         viewModel.copyToClipboard(myAddressID.text);
-                        viewModel.saveNewAddress();
-                        root.state = "wallet";
                     }
                 }
             }
