@@ -18,7 +18,7 @@
 #include "utility/string_helpers.h"
 #include "utility/helpers.h"
 #include "wallet/secstring.h"
-#include "utility/mnemonic.h"
+#include "mnemonic/mnemonic.h"
 
 using namespace std;
 using namespace ECC;

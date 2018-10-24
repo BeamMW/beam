@@ -215,6 +215,7 @@ const QList<QObject*>& StartViewModel::getCheckPhrases()
             }
         }
     }
+
     return m_checkPhrases;
 }
 
@@ -315,7 +316,7 @@ bool StartViewModel::createWallet(const QString& pass)
 {
     if (m_isRecoveryMode)
     {
-        assert(m_generatedPhrases.size() == m_recoveryPhrases.size());
+        assert(m_generatedPhrases.size() == static_cast<size_t>(m_recoveryPhrases.size()));
         for (int i = 0; i < m_recoveryPhrases.size(); ++i)
         {
             QString s = static_cast<RecoveryPhraseItem*>(m_recoveryPhrases[i])->getValue();

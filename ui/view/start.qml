@@ -221,7 +221,7 @@ Item
                     }
                     ConfirmationDialog {
                         id: confirRecoveryPhrasesDialog
-                        okButtonText: qsTr("understand")
+                        okButtonText: qsTr("I understand")
                         okButtonIconSource: "qrc:/assets/icon-done.svg"
                         cancelVisible: false
                         width: 460
@@ -415,6 +415,9 @@ Item
                                     font.pixelSize: 14
                                     color: Style.white
                                     text: modelData.value
+                                    Component.onCompleted: {
+                                        modelData.value = "";
+                                    }
                                 }
                                 Binding {
                                     target: modelData

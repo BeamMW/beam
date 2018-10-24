@@ -41,16 +41,7 @@ namespace beam
     {
         std::vector<uint8_t> res;
         res.resize(16);
-
-        // TODO: use better source of randomness
-        std::random_device r;
-
-        std::mt19937 e1(r());
-        std::uniform_int_distribution<uint16_t> uniformDist(0, 255);
-        for (size_t i = 0; i < res.size(); ++i)
-        {
-            res[i] = static_cast<uint8_t>(uniformDist(e1));
-        }
+        ECC::GenRandom(res.data(), static_cast<uint32_t>(res.size()));
 
         return res;
     }

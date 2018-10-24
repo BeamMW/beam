@@ -194,6 +194,7 @@ add_subdirectory(sqlite)
 add_subdirectory(node)
 add_subdirectory(beam)
 add_subdirectory(explorer)
+add_subdirectory(mnemonic)
 
 # TODO: uncomment this later
 if(NOT ANDROID AND BEAM_QT_UI_WALLET)

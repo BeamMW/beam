@@ -2,10 +2,10 @@
 #include "core/ecc.h"
 #include "core/ecc_native.h"
 
-#include "utility/mnemonic.h"
+#include "mnemonic/mnemonic.h"
 #include "utility/helpers.h"
 
-#include "test_helpers.h"
+#include "wallet/unittests/test_helpers.h"
 
 #include <array>
 #include <vector>

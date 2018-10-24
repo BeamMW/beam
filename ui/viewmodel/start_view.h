@@ -19,7 +19,7 @@
 #include <QQmlListProperty>
 
 #include "wallet/wallet_db.h"
-#include "utility/mnemonic.h"
+#include "mnemonic/mnemonic.h"
 
 #include "messages_view.h"
 

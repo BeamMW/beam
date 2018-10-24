@@ -85,7 +85,7 @@ endif()
 
 configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 
-add_dependencies(${TARGET_NAME} wallet)
+add_dependencies(${TARGET_NAME} wallet mnemonic)
 
 if(LINUX)
 	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -120,7 +120,7 @@ target_link_libraries(${TARGET_NAME} quazip_static)
 	target_link_libraries(${TARGET_NAME} node)
 #endif()
 
-target_link_libraries(${TARGET_NAME} wallet Qt5::Qml Qt5::Quick Qt5::Svg Qt5::PrintSupport)
+target_link_libraries(${TARGET_NAME} wallet mnemonic Qt5::Qml Qt5::Quick Qt5::Svg Qt5::PrintSupport)
 
 if(BEAM_USE_STATIC)
 
