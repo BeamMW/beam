@@ -1029,30 +1029,6 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                             source: "qrc:/assets/icon-comment.svg"
                             visible: styleData.value !== null && styleData.value !== ""
-                            ToolTip {
-                                id: comment_tooltip
-                                visible: mouseArea.containsMouse
-                                delay: 500
-                                timeout: 4000
-                                text: styleData.value
-
-                                contentItem: Text {
-                                    text: comment_tooltip.text
-                                    font: comment_tooltip.font
-                                    color: Style.white
-                                }
-
-                                background: Rectangle {
-                                    border.color: Style.white
-                                    opacity: 0
-                                }
-                            }
-                            MouseArea {
-                                id: mouseArea
-                                anchors.fill: parent
-                                acceptedButtons: Qt.NoButton
-                                hoverEnabled: true
-                            }
                         }
                     }
                 }
@@ -1241,12 +1217,11 @@ Item {
                             opacity: 0.1
                         }
                         RowLayout {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-
+                            anchors.fill: parent
                             GridLayout {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
+                                Layout.maximumWidth: transactionsView.width - 2 * Layout.margins
                                 Layout.margins: 30
                                 columns: 2
                                 columnSpacing: 44
@@ -1338,6 +1313,10 @@ Item {
                                         return "";
                                     }
                                     font.styleName: "Italic"
+                                    maximumLineCount: 2
+                                    Layout.fillWidth: true
+                                    wrapMode : Text.Wrap
+                                    elide: Text.ElideRight
                                     onCopyText: viewModel.copyToClipboard(text)
                                 }
                             }
