@@ -112,7 +112,6 @@ namespace ECC
 		typedef Op::Binary<Op::Plus, Native, Native>		Plus;
 		typedef Op::Binary<Op::Mul, Native, Scalar::Native>	Mul;
 
-		bool ImportInternal(const Point&);
 		Native(const Point&);
 	public:
 		secp256k1_gej& get_Raw() { return *this; } // use with care
@@ -140,8 +139,11 @@ namespace ECC
 		template <class Setter> Native& operator = (const Setter& v) { v.Assign(*this, true); return *this; }
 		template <class Setter> Native& operator += (const Setter& v) { v.Assign(*this, false); return *this; }
 
+		bool ImportNnz(const Point&); // won't accept zero point, doesn't zero itself in case of failure
 		bool Import(const Point&);
 		bool Export(Point&) const; // if the point is zero - returns false and zeroes the result
+
+		static void ExportEx(Point&, const secp256k1_ge&);
 	};
 
 #ifdef NDEBUG
@@ -223,7 +225,7 @@ namespace ECC
 				Scalar::Native m_Scalar;
 			} m_Secure;
 
-			void Initialize(const char* szSeed, Oracle&);
+			void Initialize(Oracle&, Hash::Processor& hpRes);
 			void Initialize(Point::Native&, Oracle&);
 		};
 
@@ -402,7 +404,6 @@ namespace ECC
 		bool m_bInitialized;
 
 		void Write(const void*, uint32_t);
-		void Write(const char*);
 		void Write(bool);
 		void Write(uint8_t);
 		void Write(const Scalar&);
@@ -412,6 +413,9 @@ namespace ECC
 		void Write(const beam::Blob&);
 		template <uint32_t nBits_>
 		void Write(const beam::uintBig_t<nBits_>& x) { Write(x.m_pData, x.nBytes); }
+		template <uint32_t n>
+		void Write(const char(&sz)[n]) { Write(sz, n); }
+		void Write(const std::string& str) { Write(str.c_str(), static_cast<uint32_t>(str.size() + 1)); }
 
 		template <typename T>
 		void Write(T v)

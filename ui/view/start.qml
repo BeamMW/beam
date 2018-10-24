@@ -1,4 +1,4 @@
-import QtQuick 2.3
+import QtQuick 2.11
 import QtQuick.Controls 1.2
 import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
@@ -412,44 +412,41 @@ Item
                         ButtonGroup.group: nodePreferencesGroup
                         font.pixelSize: 14
                     }
-                    
-                    CustomRadioButton {
-                        id: remoteNodeButton
-                        text: qsTr("Connect to specific remote node")
-                        ButtonGroup.group: nodePreferencesGroup
-                        font.pixelSize: 14
-                    }
-                    Column {
-                        id: remoteNodePanel
-                        visible: remoteNodeButton.checked
+                    Row {
                         width: parent.width
-
                         spacing: 10
-
-                        SFText {
-                            text: qsTr("Enter remote node address")
-                            color: Style.white
+                        CustomRadioButton {
+                            id: remoteNodeButton
+                            text: qsTr("Connect to specific remote node")
+                            ButtonGroup.group: nodePreferencesGroup
                             font.pixelSize: 14
-                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
-
                         SFTextInput {
                             id:remoteNodeAddrInput
+                            visible: remoteNodeButton.checked
                             width: parent.width
                             font.pixelSize: 14
                             color: Style.white
                             text: "127.0.0.1:10000"
                             validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                             onTextChanged: if (remoteNodeAddrInput.text.length > 0) remoteNodeAddrError.text = ""
+                            bottomPadding: 8 // TODO add default value of this item to controls
                         }
+                    }
+                    Column {
+                        id: remoteNodePanel
+                        visible: remoteNodeButton.checked
+                        width: parent.width
+                        leftPadding: 40
+
+                        spacing: 10
+
                         SFText {
                             id: remoteNodeAddrError
                             color: Style.validator_color
                             font.pixelSize: 14
                         }
                     }
-
-                    
                 }
 
                 Row {
