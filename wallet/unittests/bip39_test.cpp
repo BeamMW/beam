@@ -2,7 +2,7 @@
 #include "core/ecc.h"
 #include "core/ecc_native.h"
 
-#include "wallet/mnemonic.h"
+#include "utility/mnemonic.h"
 #include "utility/helpers.h"
 
 #include "test_helpers.h"

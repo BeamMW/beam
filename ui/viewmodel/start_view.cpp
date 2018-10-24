@@ -252,12 +252,9 @@ uint StartViewModel::coreAmount() const
 void StartViewModel::copyPhrasesToClipboard()
 {
     QString phrases;
-
-    int i = 1;
     for (const auto& p : m_generatedPhrases)
     {
-        phrases = phrases % QString::number(i) % " - " % p.c_str() % "; ";
-        ++i;
+        phrases = phrases % p.c_str() % ";";
     }
     QApplication::clipboard()->setText(phrases);
 }

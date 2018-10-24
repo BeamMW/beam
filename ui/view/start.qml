@@ -600,7 +600,7 @@ Item
             {
                 color: Style.marine
 
-                property Item defaultFocusItem: seed
+                property Item defaultFocusItem: password
 
                 ColumnLayout {
                     anchors.horizontalCenter: parent.horizontalCenter

@@ -7,6 +7,15 @@ set(UTILITY_SRC
 	options.cpp
 	string_helpers.cpp
 	asynccontext.cpp
+
+    dictionary.cpp
+    mnemonic.cpp
+
+    external/hmac_sha512.c
+    external/pkcs5_pbkdf2.c
+    external/sha512.c
+    external/zeroize.c
+
 # ~etc
 )
 
