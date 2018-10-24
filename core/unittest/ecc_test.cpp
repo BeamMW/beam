@@ -509,11 +509,7 @@ void TestRangeProof()
 
 		bp.Recover(oracle, cp2);
 
-		verify_test(
-			(cp.m_Kidv.m_Value == cp2.m_Kidv.m_Value) &&
-			(cp.m_Kidv.m_Idx == cp2.m_Kidv.m_Idx) &&
-			(cp.m_Kidv.m_IdxSecondary == cp2.m_Kidv.m_IdxSecondary) &&
-			(cp.m_Kidv.m_Type == cp2.m_Kidv.m_Type));
+		verify_test(cp.m_Kidv == cp2.m_Kidv);
 	}
 
 	InnerProduct::BatchContextEx<2> bc;
@@ -689,11 +685,7 @@ struct TransactionMaker
 			// test recovery
 			Key::IDV kidv2;
 			verify_test(pOut->Recover(kdf, kidv2));
-			verify_test(
-				(kidv2.m_Value == kidv.m_Value) &&
-				(kidv2.m_Idx == kidv.m_Idx) &&
-				(kidv2.m_IdxSecondary == kidv.m_IdxSecondary) &&
-				(kidv2.m_Type == kidv.m_Type));
+			verify_test(kidv == kidv2);
 
 			t.m_vOutputs.push_back(std::move(pOut));
 

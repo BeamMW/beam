@@ -1174,6 +1174,34 @@ namespace ECC {
 			>> hv;
 	}
 
+	bool Key::IDV::operator == (const IDV& x) const
+	{
+		return
+			(m_Value == x.m_Value) &&
+			(m_Idx == x.m_Idx) &&
+			(m_IdxSecondary == x.m_IdxSecondary) &&
+			(m_Type == x.m_Type);
+	}
+
+	void Key::IDV::operator = (const Packed& x)
+	{
+		x.m_Idx.Export(m_Idx);
+		x.m_Idx2.Export(m_IdxSecondary);
+		x.m_Value.Export(m_Value);
+
+		uint32_t val;
+		x.m_Type.Export(val);
+		m_Type = static_cast<Key::Type>(val);
+	}
+
+	void Key::IDV::Packed::operator = (const IDV& x)
+	{
+		m_Idx = x.m_Idx;
+		m_Idx2 = x.m_IdxSecondary;
+		m_Type = static_cast<uint32_t>(x.m_Type);
+		m_Value = x.m_Value;
+	}
+
 	void Key::IKdf::DeriveKey(Scalar::Native& out, const Key::ID& kid)
 	{
 		Hash::Value hv; // the key hash is not secret

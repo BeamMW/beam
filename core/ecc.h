@@ -213,6 +213,21 @@ namespace ECC
 				,m_Value(v)
 			{
 			}
+
+#pragma pack (push, 1)
+			struct Packed
+			{
+				beam::uintBigFor<uint64_t>::Type m_Idx;
+				beam::uintBigFor<uint64_t>::Type m_Idx2;
+				beam::uintBigFor<Amount>::Type m_Value;
+				beam::uintBigFor<uint32_t>::Type m_Type;
+
+				void operator = (const IDV&);
+			};
+#pragma pack (pop)
+
+			void operator = (const Packed&);
+			bool operator == (const IDV&) const;
 		};
 
 		struct IPKdf
@@ -317,7 +332,6 @@ namespace ECC
 
 				Key::IDV m_Kidv;
 
-				struct Packed;
 				struct Padded;
 			};
 

@@ -584,18 +584,10 @@ namespace ECC {
 	};
 
 #pragma pack (push, 1)
-	struct RangeProof::Confidential::CreatorParams::Packed
-	{
-		beam::uintBigFor<uint64_t>::Type m_Idx;
-		beam::uintBigFor<uint64_t>::Type m_Idx2;
-		beam::uintBigFor<Amount>::Type m_Value;
-		beam::uintBigFor<uint32_t>::Type m_Type;
-	};
-
 	struct RangeProof::Confidential::CreatorParams::Padded
 	{
-		uint8_t m_Padding[sizeof(Scalar) - sizeof(Packed)];
-		Packed V;
+		uint8_t m_Padding[sizeof(Scalar) - sizeof(Key::IDV::Packed)];
+		Key::IDV::Packed V;
 	};
 
 #pragma pack (pop)
@@ -609,14 +601,11 @@ namespace ECC {
 		nonceGen >> alpha;
 
 		// embed extra params into alpha
-		static_assert(sizeof(CreatorParams::Packed) < sizeof(Scalar), "");
+		static_assert(sizeof(Key::IDV::Packed) < sizeof(Scalar), "");
 		static_assert(sizeof(CreatorParams::Padded) == sizeof(Scalar), "");
 		NoLeak<CreatorParams::Padded> pad;
 		ZeroObject(pad.V.m_Padding);
-		pad.V.V.m_Idx = cp.m_Kidv.m_Idx;
-		pad.V.V.m_Idx2 = cp.m_Kidv.m_IdxSecondary;
-		pad.V.V.m_Type = static_cast<uint32_t>(cp.m_Kidv.m_Type);
-		pad.V.V.m_Value = cp.m_Kidv.m_Value;
+		pad.V.V = cp.m_Kidv;
 
 		verify(!ro.Import((Scalar&) pad.V)); // if overflow - the params won't be recovered properly, there may be ambiguity
 
@@ -842,14 +831,7 @@ namespace ECC {
 		if (!memis0(pad.m_Padding, sizeof(pad.m_Padding)))
 			return false;
 
-		pad.V.m_Idx.Export(cp.m_Kidv.m_Idx);
-		pad.V.m_Idx2.Export(cp.m_Kidv.m_IdxSecondary);
-		pad.V.m_Value.Export(cp.m_Kidv.m_Value);
-
-		uint32_t val;
-		pad.V.m_Type.Export(val);
-		cp.m_Kidv.m_Type = static_cast<Key::Type>(val);
-
+		cp.m_Kidv = pad.V;
 		return true;
 	}
 
