@@ -185,6 +185,8 @@ private:
 
     bool on_response(uint64_t, const HttpMsgReader::Message& msg) {
         if (msg.what != HttpMsgReader::http_message || !msg.msg) {
+            LOG_ERROR() << __FUNCTION__ << " " << msg.error_str();
+
             if (msg.what == HttpMsgReader::connection_error && msg.connectionError == io::EC_EOF) {
                 _theConnection.reset();
             }
@@ -265,7 +267,7 @@ int main() {
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
-    int r = http_server_test(false);
-    r += http_server_test(true);
+    int r = http_server_test(true);
+    r += http_server_test(false);
     return r;
 }
