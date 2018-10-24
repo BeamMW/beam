@@ -166,6 +166,14 @@ namespace proto {
 	macro(Block::SystemState::ID, ID) \
 	macro(ByteBuffer, Portion)
 
+#define BeamNodeMsg_Recover(macro) \
+	macro(bool, Private) \
+	macro(bool, Public)
+
+#define BeamNodeMsg_Recovered(macro) \
+	macro(std::vector<Key::IDV>, Private) \
+	macro(std::vector<Key::IDV>, Public)
+
 #define BeamNodeMsgsAll(macro) \
 	macro(1, NewTip) /* Also the first message sent by the node */ \
 	macro(2, GetHdr) \
@@ -207,6 +215,8 @@ namespace proto {
 	macro(45, BbsPickChannelRes) \
 	macro(50, MacroblockGet) \
 	macro(51, Macroblock) \
+	macro(56, Recover) \
+	macro(57, Recovered) \
 	macro(61, SChannelInitiate) \
 	macro(62, SChannelReady) \
 	macro(63, Authentication) \
