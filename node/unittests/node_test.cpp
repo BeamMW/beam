@@ -1292,7 +1292,7 @@ namespace beam
 		if (!cl.IsAllBbsReceived())
 			fail_test("some BBS messages missing");
 
-		NodeProcessor::UtxoRecover urec(node2.get_Processor());
+		NodeProcessor::UtxoRecoverEx urec(node2.get_Processor());
 		urec.m_vKeys.push_back(node.m_pKdf);
 		urec.Proceed();
 

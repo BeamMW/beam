@@ -1600,24 +1600,28 @@ bool NodeProcessor::IUtxoWalker::OnBlock(const Block::BodyBase&, TxBase::IReader
 	return true;
 }
 
-bool NodeProcessor::UtxoRecover::Proceed()
+bool NodeProcessor::UtxoRecoverSimple::Proceed()
 {
 	ECC::Mode::Scope scope(ECC::Mode::Fast);
 	return m_This.EnumBlocks(*this);
 }
 
-void NodeProcessor::UtxoRecover::Add(const ECC::Point& comm, const Value& v)
+bool NodeProcessor::UtxoRecoverEx::OnOutput(uint32_t iKey, const Key::IDV& kidv, const Output& x)
 {
-	assert(v.m_Count);
-
-	Value& v0 = m_Map[comm];
+	Value& v0 = m_Map[x.m_Commitment];
 	if (v0.m_Count)
-		v0.m_Count += v.m_Count; // ignore overflow possibility
+		v0.m_Count++; // ignore overflow possibility
 	else
-		v0 = v;
+	{
+		v0.m_Kidv = kidv;
+		v0.m_iKey = iKey;;
+		v0.m_Count = 1;
+	}
+
+	return true;
 }
 
-bool NodeProcessor::UtxoRecover::OnInput(const Input& x)
+bool NodeProcessor::UtxoRecoverEx::OnInput(const Input& x)
 {
 	UtxoMap::iterator it = m_Map.find(x.m_Commitment);
 	if (m_Map.end() != it)
@@ -1631,19 +1635,20 @@ bool NodeProcessor::UtxoRecover::OnInput(const Input& x)
 	return true;
 }
 
-bool NodeProcessor::UtxoRecover::OnOutput(const Output& x)
+bool NodeProcessor::UtxoRecoverSimple::OnOutput(const Output& x)
 {
-	Value v;
-	v.m_Count = 1;
+	Key::IDV kidv;
 
-	for (v.m_iKey = 0; v.m_iKey < m_vKeys.size(); v.m_iKey++)
-		if (x.Recover(*m_vKeys[v.m_iKey], v.m_Kidv))
-		{
-			Add(x.m_Commitment, v);
-			break;
-		}
+	for (uint32_t iKey = 0; iKey < m_vKeys.size(); iKey++)
+		if (x.Recover(*m_vKeys[iKey], kidv))
+			return OnOutput(iKey, kidv, x);
 
 	return true;
+}
+
+bool NodeProcessor::UtxoRecoverSimple::OnInput(const Input& x)
+{
+	return true; // ignore
 }
 
 } // namespace beam
