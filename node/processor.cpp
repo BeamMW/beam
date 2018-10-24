@@ -1603,58 +1603,6 @@ bool NodeProcessor::IUtxoWalker::OnBlock(const Block::BodyBase&, TxBase::IReader
 bool NodeProcessor::UtxoRecover::Proceed()
 {
 	ECC::Mode::Scope scope(ECC::Mode::Fast);
-
-	// try to identify coinbase utxos. They can't be detected via bulletproof since they must have public signature
-	Value v;
-	v.m_Kidv.m_Value = Rules::get().CoinbaseEmission;
-
-	for (v.m_iKey = 0; v.m_iKey < m_vKeys.size(); v.m_iKey++)
-	{
-		for (Height h = Rules::HeightGenesis; h <= m_This.m_Cursor.m_ID.m_Height; h++)
-		{
-			v.m_Kidv.as_ID() = Key::ID(h, Key::Type::Coinbase);
-
-			ECC::Hash::Value hv;
-			v.m_Kidv.get_Hash(hv);
-
-			ECC::Point::Native comm;
-			m_vKeys[v.m_iKey]->DerivePKey(comm, hv);
-			comm += ECC::Context::get().H * v.m_Kidv.m_Value;
-
-			struct Traveler :public UtxoTree::ITraveler {
-				Input::Count m_Count = 0;
-				virtual bool OnLeaf(const RadixTree::Leaf& x) override
-				{
-					const UtxoTree::MyLeaf& n = (UtxoTree::MyLeaf&) x;
-					m_Count += n.m_Value.m_Count;
-					return true;
-				}
-			} t;
-
-			UtxoTree::Key kMin, kMax;
-
-			UtxoTree::Key::Data d;
-			d.m_Commitment = comm;
-			d.m_Maturity = 0;
-			kMin = d;
-			d.m_Maturity = MaxHeight;
-			kMax = d;
-
-			UtxoTree::Cursor cu;
-			t.m_pCu = &cu;
-			t.m_pBound[0] = kMin.m_pArr;
-			t.m_pBound[1] = kMax.m_pArr;
-
-			m_This.m_Utxos.Traverse(t);
-
-			if (t.m_Count > 0)
-			{
-				v.m_Count = t.m_Count;
-				Add(d.m_Commitment, v);
-			}
-		}
-	}
-
 	return m_This.EnumBlocks(*this);
 }
 

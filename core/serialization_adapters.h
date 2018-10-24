@@ -333,6 +333,9 @@ namespace detail
             ar
                 & val.m_Value
                 & val.m_Signature
+				& val.m_Kid.m_Idx
+				& val.m_Kid.m_Idx2
+				& val.m_Kid.m_Type
             ;
 
             return ar;
@@ -344,6 +347,9 @@ namespace detail
             ar
                 & val.m_Value
                 & val.m_Signature
+				& val.m_Kid.m_Idx
+				& val.m_Kid.m_Idx2
+				& val.m_Kid.m_Type
             ;
 
             return ar;

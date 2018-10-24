@@ -584,7 +584,7 @@ namespace ECC {
 	};
 
 #pragma pack (push, 1)
-	struct RangeProof::Confidential::CreatorParams::Padded
+	struct RangeProof::CreatorParams::Padded
 	{
 		uint8_t m_Padding[sizeof(Scalar) - sizeof(Key::IDV::Packed)];
 		Key::IDV::Packed V;

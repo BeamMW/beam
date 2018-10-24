@@ -425,14 +425,21 @@ void WriteSizeSerialized(const char* sz, const T& t)
 
 void TestRangeProof()
 {
+	RangeProof::CreatorParams cp;
+	SetRandomOrd(cp.m_Kidv.m_Idx);
+	SetRandomOrd(cp.m_Kidv.m_IdxSecondary);
+	SetRandomOrd(cp.m_Kidv.m_Type);
+	SetRandom(cp.m_Seed.V);
+	cp.m_Kidv.m_Value = 345000;
+
 	Scalar::Native sk;
 	SetRandom(sk);
 
 	RangeProof::Public rp;
-	rp.m_Value = 345000;
 	{
 		Oracle oracle;
-		rp.Create(sk, oracle);
+		rp.Create(sk, cp, oracle);
+		verify_test(rp.m_Value == cp.m_Kidv.m_Value);
 	}
 
 	Point::Native comm = Commitment(sk, rp.m_Value);
@@ -440,6 +447,14 @@ void TestRangeProof()
 	{
 		Oracle oracle;
 		verify_test(rp.IsValid(comm, oracle));
+	}
+
+	{
+		RangeProof::CreatorParams cp2;
+		cp2.m_Seed = cp.m_Seed;
+
+		rp.Recover(cp2);
+		verify_test(cp.m_Kidv == cp2.m_Kidv);
 	}
 
 	// tamper value
@@ -485,11 +500,6 @@ void TestRangeProof()
 	verify_test(sig.IsValid(comm, dot, mod));
 
 	RangeProof::Confidential bp;
-	RangeProof::Confidential::CreatorParams cp;
-	SetRandomOrd(cp.m_Kidv.m_Idx);
-	SetRandomOrd(cp.m_Kidv.m_IdxSecondary);
-	SetRandomOrd(cp.m_Kidv.m_Type);
-	SetRandom(cp.m_Seed.V);
 	cp.m_Kidv.m_Value = 23110;
 
 	comm = Commitment(sk, cp.m_Kidv.m_Value);
@@ -504,11 +514,10 @@ void TestRangeProof()
 	}
 	{
 		Oracle oracle;
-		RangeProof::Confidential::CreatorParams cp2;
+		RangeProof::CreatorParams cp2;
 		cp2.m_Seed = cp.m_Seed;
 
 		bp.Recover(oracle, cp2);
-
 		verify_test(cp.m_Kidv == cp2.m_Kidv);
 	}
 
@@ -1453,7 +1462,7 @@ void RunBenchmark()
 	}
 
 	RangeProof::Confidential bp;
-	RangeProof::Confidential::CreatorParams cp;
+	RangeProof::CreatorParams cp;
 	ZeroObject(cp.m_Kidv);
 	SetRandom(cp.m_Seed.V);
 	cp.m_Kidv.m_Value = 23110;

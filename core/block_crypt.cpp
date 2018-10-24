@@ -179,31 +179,30 @@ namespace beam
 		ECC::Oracle oracle;
 		oracle << m_Incubation;
 
+		ECC::RangeProof::CreatorParams cp;
+		cp.m_Kidv.m_Value = v;
+
+		if (pKdf)
+		{
+			assert(pKid);
+			cp.m_Kidv.as_ID() = *pKid;
+			get_SeedKid(cp.m_Seed.V, *pKdf);
+		}
+		else
+		{
+			ZeroObject(cp.m_Kidv.as_ID());
+			ECC::Hash::Processor() << "outp" << sk << v >> cp.m_Seed.V;
+		}
+
 		if (bPublic)
 		{
 			m_pPublic.reset(new ECC::RangeProof::Public);
 			m_pPublic->m_Value = v;
-			m_pPublic->Create(sk, oracle);
+			m_pPublic->Create(sk, cp, oracle);
 		}
 		else
 		{
 			m_pConfidential.reset(new ECC::RangeProof::Confidential);
-
-			ECC::RangeProof::Confidential::CreatorParams cp;
-			cp.m_Kidv.m_Value = v;
-
-			if (pKdf)
-			{
-				assert(pKid);
-				cp.m_Kidv.as_ID() = *pKid;
-				get_SeedKid(cp.m_Seed.V, *pKdf);
-			}
-			else
-			{
-				ZeroObject(cp.m_Kidv.as_ID());
-				ECC::Hash::Processor() << "outp" << sk << v >> cp.m_Seed.V;
-			}
-
 			m_pConfidential->Create(sk, cp, oracle);
 		}
 	}
@@ -231,17 +230,19 @@ namespace beam
 
 	bool Output::Recover(Key::IPKdf& kdf, Key::IDV& kidv) const
 	{
-		if (!m_pConfidential)
-			return false; // coinbases should be identified other way.
-
-		ECC::RangeProof::Confidential::CreatorParams cp;
+		ECC::RangeProof::CreatorParams cp;
 		get_SeedKid(cp.m_Seed.V, kdf);
 
 		ECC::Oracle oracle;
 		oracle << m_Incubation;
 
-		if (!m_pConfidential->Recover(oracle, cp))
-			return false;
+		if (m_pPublic)
+			m_pPublic->Recover(cp);
+		else
+		{
+			if (!(m_pConfidential && m_pConfidential->Recover(oracle, cp)))
+				false;
+		}
 
 		// reconstruct the commitment
 		ECC::Mode::Scope scope(ECC::Mode::Fast);
@@ -755,7 +756,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(8) // increment this whenever we change something in the protocol
+			<< uint32_t(9) // increment this whenever we change something in the protocol
 			// out
 			>> Checksum;
 	}
