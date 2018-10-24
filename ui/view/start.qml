@@ -51,7 +51,7 @@ Item
                 font.pixelSize: 18
                 font.styleName: "Bold"; font.weight: Font.Bold
             }
-        }                    
+        }
     }
 
     StackView {
@@ -101,6 +101,15 @@ Item
                         text: qsTr("create new wallet")
                         icon.source: "qrc:/assets/icon-add-blue.svg"
                         onClicked: startWizzardView.push(nodeSetup);
+                    }
+
+                    CustomButton {
+                        text: qsTr("restore wallet from blockchain")
+                        icon.source: "qrc:/assets/icon-restore.svg"
+                        onClicked: {
+                            viewModel.isRecoveryMode = true;
+                            startWizzardView.push(nodeSetup);
+                        }
                     }
                 }
             }
@@ -248,7 +257,7 @@ Item
                                     SFText {
                                         anchors.verticalCenter: parent.verticalCenter
                                         anchors.horizontalCenter: parent.horizontalCenter
-                                        text: index + 1
+                                        text: modelData.index + 1
                                         font.pixelSize: 10
                                         color: Style.white
                                         opacity: 0.5
@@ -257,7 +266,7 @@ Item
                                 SFText {
                                     anchors.verticalCenter: parent.verticalCenter
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    text: modelData
+                                    text: modelData.phrase
                                     font.pixelSize: 14
                                     color: Style.white
                                 }
@@ -443,6 +452,146 @@ Item
                                     return enable;
                                 }
                                 icon.source: "qrc:/assets/icon-next-blue.svg"
+                                onClicked: startWizzardView.push(create);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Component {
+            id: restoreWallet
+            Rectangle {
+                color: Style.marine
+
+                ColumnLayout {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.fill: parent
+                    anchors.topMargin: 50
+                    Column {
+                        spacing: 30
+                        Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+                        Layout.preferredWidth: 730
+                        SFText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            horizontalAlignment: Qt.AlignHCenter
+                            text: qsTr("Restore wallet")
+                            color: Style.white
+                            font.pixelSize: 36
+                        }
+                        SFText {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            horizontalAlignment: Qt.AlignHCenter
+                            text: qsTr("Type in or paste your recovery phrase")
+                            color: Style.white
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: 14
+                        }
+                    }
+ 
+                    Grid{
+                        Layout.alignment: Qt.AlignHCenter
+
+                        topPadding: 50
+                        columnSpacing: 30
+                        rowSpacing:  20
+
+                        Repeater {
+                            model:viewModel.recoveryPhrases
+
+                            Row {
+                                width: 160
+                                height: 38
+                                spacing: 20
+                                Item {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.leftMargin: 9
+                                    width: 20
+                                    height: 20
+                                    Rectangle {
+                                        color: Style.dark_slate_blue
+                                        width: 20
+                                        height: 20
+                                        radius: 10
+                                        SFText {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: modelData.index + 1
+                                            font.pixelSize: 10
+                                            color: Style.white
+                                            opacity: 0.5
+                                        }
+                                        visible: modelData.value.length == 0
+                                    }
+
+                                    Rectangle {
+                                        id: correctPhraseRect
+                                        color: Style.bright_teal
+                                        width: 20
+                                        height: 20
+                                        radius: 10
+                                        SFText {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: modelData.index + 1
+                                            font.pixelSize: 10
+                                            color: Style.marine
+                                        }
+                                        visible: modelData.value.length > 0
+                                    }
+
+                                    DropShadow {
+                                        anchors.fill: correctPhraseRect
+                                        radius: 5
+                                        samples: 9
+                                        color: Style.bright_teal
+                                        source: correctPhraseRect
+                                        visible: correctPhraseRect.visible
+                                    }
+                                }
+
+                                SFTextInput {
+                                    id: phraseValue
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: 121
+
+                                    font.pixelSize: 14
+                                    color: Style.white
+                                    text: modelData.value
+                                }
+                                Binding {
+                                    target: modelData
+                                    property: "value"
+                                    value: phraseValue.text
+                               }
+                            }
+                        }
+                    }
+                    
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        Row {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.bottom: parent.bottom
+                            bottomPadding: 143
+
+                            spacing: 30
+                     
+                            PrimaryButton {
+                                id: checkRecoveryNextButton
+                                text: qsTr("restore wallet")
+                                enabled: {
+                                    var enable = true;
+                                    for(var i = 0; i < viewModel.recoveryPhrases.length; ++i)
+                                    {
+                                        enable &= viewModel.recoveryPhrases[i].value.length > 0;
+                                    }
+                                    return enable;
+                                }
+                                icon.source: "qrc:/assets/icon-restore-blue.svg"
                                 onClicked: startWizzardView.push(create);
                             }
                         }
@@ -807,7 +956,7 @@ Item
                             else if (testnetNodeButton.checked) {
                                 viewModel.setupTestnetNode();
                             }
-                            startWizzardView.push(createWalletEntry);
+                            startWizzardView.push(viewModel.isRecoveryMode ? restoreWallet : createWalletEntry);
                         }
                     }
                 }

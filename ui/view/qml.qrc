@@ -102,5 +102,9 @@
         <file>assets/password.svg</file>
         <file>assets/icon-next-blue.svg</file>
         <file>controls/SecurityNote.qml</file>
+        <file>assets/icon-file.svg</file>
+        <file>assets/icon-restore.svg</file>
+        <file>assets/icon-restore-blue.svg</file>
+        <file>assets/icon-try-again.svg</file>
     </qresource>
 </RCC>

@@ -136,12 +136,18 @@ void RecoveryPhraseItem::setValue(const QString& value)
     }
 }
 
+const QString& RecoveryPhraseItem::getPhrase() const
+{
+    return m_phrase;
+}
+
 int RecoveryPhraseItem::getIndex() const
 {
     return m_index;
 }
 
 StartViewModel::StartViewModel()
+    : m_isRecoveryMode{false}
 {
 
 }
@@ -156,16 +162,38 @@ bool StartViewModel::walletExists() const
     return Keychain::isInitialized(AppModel::getInstance()->getSettings().getWalletStorage());
 }
 
-const QStringList& StartViewModel::getRecoveryPhrases()
+bool StartViewModel::getIsRecoveryMode() const
+{
+    return m_isRecoveryMode;
+}
+
+void StartViewModel::setIsRecoveryMode(bool value)
+{
+    if (value != m_isRecoveryMode)
+    {
+        m_isRecoveryMode = value;
+        emit isRecoveryModeChanged();
+    }
+}
+
+const QList<QObject*>& StartViewModel::getRecoveryPhrases()
 {
     if (m_recoveryPhrases.empty())
     {
-        m_generatedPhrases = beam::createMnemonic(beam::getEntropy(), beam::language::en);
+        if (!m_isRecoveryMode)
+        {
+            m_generatedPhrases = beam::createMnemonic(beam::getEntropy(), beam::language::en);
+        }
+        else
+        {
+            m_generatedPhrases.resize(12);
+        }
         assert(m_generatedPhrases.size() == 12);
         m_recoveryPhrases.reserve(static_cast<int>(m_generatedPhrases.size()));
+        int i = 0;
         for (const auto& p : m_generatedPhrases)
         {
-            m_recoveryPhrases.push_back(QString::fromStdString(p));
+            m_recoveryPhrases.push_back(new RecoveryPhraseItem(i++, QString::fromStdString(p)));
         }
     }
     return m_recoveryPhrases;
@@ -183,7 +211,7 @@ const QList<QObject*>& StartViewModel::getCheckPhrases()
             auto it = indecies.insert(index);
             if (it.second)
             {
-                m_checkPhrases.push_back(new RecoveryPhraseItem(index, m_recoveryPhrases[index]));
+                m_checkPhrases.push_back(new RecoveryPhraseItem(index, QString::fromStdString(m_generatedPhrases[index])));
             }
         }
     }
@@ -226,9 +254,9 @@ void StartViewModel::copyPhrasesToClipboard()
     QString phrases;
 
     int i = 1;
-    for (const auto& p : m_recoveryPhrases)
+    for (const auto& p : m_generatedPhrases)
     {
-        phrases = phrases % QString::number(i) % " - " % p % "; ";
+        phrases = phrases % QString::number(i) % " - " % p.c_str() % "; ";
         ++i;
     }
     QApplication::clipboard()->setText(phrases);
@@ -266,7 +294,7 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
                 {
                     x += s;
                 }
-                QString t = QString::number(i + 1) % " - " % m_recoveryPhrases[i];
+                QString t = QString::number(i + 1) % " - " % m_generatedPhrases[i].c_str();
                 painter.drawText(x, y, t);
                 
             }
@@ -288,7 +316,15 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
 
 bool StartViewModel::createWallet(const QString& pass)
 {
-    // TODO make this secure
+    if (m_isRecoveryMode)
+    {
+        assert(m_generatedPhrases.size() == m_recoveryPhrases.size());
+        for (int i = 0; i < m_recoveryPhrases.size(); ++i)
+        {
+            QString s = static_cast<RecoveryPhraseItem*>(m_recoveryPhrases[i])->getValue();
+            m_generatedPhrases[i] = s.toStdString();
+        }
+    }
     auto buf = beam::decodeMnemonic(m_generatedPhrases);
 
     SecString secretSeed;
