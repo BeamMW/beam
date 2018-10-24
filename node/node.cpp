@@ -2561,6 +2561,52 @@ void Node::Peer::OnMsg(proto::MacroblockGet&& msg)
 	Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::Recover&& msg)
+{
+	struct Walker
+		:public NodeProcessor::UtxoRecoverSimple
+	{
+		Walker(NodeProcessor& p) :NodeProcessor::UtxoRecoverSimple(p) {}
+
+		proto::Recovered m_MsgOut;
+
+		virtual bool OnOutput(uint32_t iKey, const Key::IDV& kidv, const Output&) override
+		{
+			assert(iKey < 1);
+			std::vector<Key::IDV>& trg = iKey ? m_MsgOut.m_Public : m_MsgOut.m_Private;
+			trg.push_back(kidv);
+			return true;
+		}
+
+	} wlk(m_This.m_Processor);
+
+	if (Flags::Owner & m_Flags)
+	{
+		if (msg.m_Private)
+			wlk.m_vKeys.push_back(m_This.m_pKdf);
+
+		if (msg.m_Public)
+		{
+			// make sure it's not the same
+			ECC::Hash::Value hv = Zero;
+
+			ECC::Scalar::Native k0, k1;
+			m_This.m_pKdf->DerivePKey(k0, hv);
+			m_This.m_pOwnerKdf->DerivePKey(k1, hv);
+
+			k0 += -k1;
+			if (!(k0 == Zero))
+				wlk.m_vKeys.push_back(m_This.m_pOwnerKdf);
+		}
+
+		wlk.Proceed();
+	}
+	else
+		LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized recovery request.";
+
+	Send(wlk.m_MsgOut);
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
 	if (newStream)

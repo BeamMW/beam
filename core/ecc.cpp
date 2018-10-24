@@ -1174,6 +1174,44 @@ namespace ECC {
 			>> hv;
 	}
 
+	bool Key::IDV::operator == (const IDV& x) const
+	{
+		return
+			(m_Value == x.m_Value) &&
+			(m_Idx == x.m_Idx) &&
+			(m_IdxSecondary == x.m_IdxSecondary) &&
+			(m_Type == x.m_Type);
+	}
+
+	void Key::ID::operator = (const Packed& x)
+	{
+		x.m_Idx.Export(m_Idx);
+		x.m_Idx2.Export(m_IdxSecondary);
+
+		uint32_t val;
+		x.m_Type.Export(val);
+		m_Type = static_cast<Key::Type>(val);
+	}
+
+	void Key::ID::Packed::operator = (const ID& x)
+	{
+		m_Idx = x.m_Idx;
+		m_Idx2 = x.m_IdxSecondary;
+		m_Type = static_cast<uint32_t>(x.m_Type);
+	}
+
+	void Key::IDV::operator = (const Packed& x)
+	{
+		ID::operator = (x);
+		x.m_Value.Export(m_Value);
+	}
+
+	void Key::IDV::Packed::operator = (const IDV& x)
+	{
+		ID::Packed::operator = (x);
+		m_Value = x.m_Value;
+	}
+
 	void Key::IKdf::DeriveKey(Scalar::Native& out, const Key::ID& kid)
 	{
 		Hash::Value hv; // the key hash is not secret
@@ -1243,9 +1281,11 @@ namespace ECC {
 	{
 		Scalar s; // not secret
 
+		// x^0 == x^(s_Order - 1) == 1
+		// to guarantee uniform distribution (excluding zero, which doesn't have a reciprocal) the power should be in the range [1, s_Order - 1]
 		do
 			operator >> (s.m_Value);
-		while (!s.IsValid());
+		while ((s.m_Value == Zero) || !s.IsValid());
 
 		Context::get().m_pwr2.Calculate(vice, s);
 		Context::get().m_pwr2_Inv.Calculate(versa, s);
@@ -1339,23 +1379,41 @@ namespace ECC {
 			get_PtMinusVal(pk, comm, m_Value);
 
 			Hash::Value hv;
-			oracle << m_Value >> hv;
+			get_Msg(hv, oracle);
 
 			return m_Signature.IsValid(hv, pk);
 		}
 
-		void Public::Create(const Scalar::Native& sk, Oracle& oracle)
+		void Public::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle)
 		{
+			m_Value = cp.m_Kidv.m_Value;
 			assert(m_Value >= s_MinimumValue);
+
+			m_Kid = cp.m_Kidv;
+			XCryptKid(m_Kid, cp);
+
 			Hash::Value hv;
-			oracle << m_Value >> hv;
+			get_Msg(hv, oracle);
 
 			m_Signature.Sign(hv, sk);
+		}
+
+		void Public::Recover(CreatorParams& cp) const
+		{
+			Key::ID::Packed kid = m_Kid;
+			XCryptKid(kid, cp);
+
+			cp.m_Kidv.as_ID() = kid;
+			cp.m_Kidv.m_Value = m_Value;
 		}
 
 		int Public::cmp(const Public& x) const
 		{
 			int n = m_Signature.cmp(x.m_Signature);
+			if (n)
+				return n;
+
+			n = memcmp(&m_Kid, &x.m_Kid, sizeof(m_Kid));
 			if (n)
 				return n;
 
@@ -1367,6 +1425,25 @@ namespace ECC {
 			return 0;
 		}
 
+		void Public::XCryptKid(Key::ID::Packed& kid, const CreatorParams& cp)
+		{
+			Hash::Value hv;
+			Hash::Processor()
+				<< "p-xc"
+				<< cp.m_Seed.V
+				>> hv;
+
+			static_assert(hv.nBytes >= sizeof(kid), "");
+			memxor(reinterpret_cast<uint8_t*>(&kid), hv.m_pData, sizeof(kid));
+		}
+
+		void Public::get_Msg(Hash::Value& hv, Oracle& oracle) const
+		{
+			oracle
+				<< m_Value
+				<< beam::Blob(&m_Kid, sizeof(m_Kid))
+				>> hv;
+		}
 
 	} // namespace RangeProof
 

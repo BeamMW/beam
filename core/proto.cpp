@@ -268,7 +268,7 @@ union HighestMsgCode
 /////////////////////////
 // NodeConnection
 NodeConnection::NodeConnection()
-	:m_Protocol('B', 'm', 4, sizeof(HighestMsgCode), *this, 20000)
+	:m_Protocol('B', 'm', 5, sizeof(HighestMsgCode), *this, 20000)
 	,m_ConnectPending(false)
 {
 #define THE_MACRO(code, msg) \

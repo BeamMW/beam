@@ -201,6 +201,18 @@ namespace ECC
 
 			void get_Hash(Hash::Value&) const;
 			ID& as_ID() { return *this; }
+
+#pragma pack (push, 1)
+			struct Packed
+			{
+				beam::uintBigFor<uint64_t>::Type m_Idx;
+				beam::uintBigFor<uint64_t>::Type m_Idx2;
+				beam::uintBigFor<uint32_t>::Type m_Type;
+				void operator = (const ID&);
+			};
+#pragma pack (pop)
+
+			void operator = (const Packed&);
 		};
 
 		struct IDV
@@ -213,6 +225,18 @@ namespace ECC
 				,m_Value(v)
 			{
 			}
+
+#pragma pack (push, 1)
+			struct Packed
+				:public ID::Packed
+			{
+				beam::uintBigFor<Amount>::Type m_Value;
+				void operator = (const IDV&);
+			};
+#pragma pack (pop)
+
+			void operator = (const Packed&);
+			bool operator == (const IDV&) const;
 		};
 
 		struct IPKdf
@@ -276,6 +300,16 @@ namespace ECC
 	{
 		static const Amount s_MinimumValue = 1;
 
+		struct CreatorParams
+		{
+			NoLeak<uintBig> m_Seed; // must be a function of the commitment and master secret
+			void InitSeed(Key::IPKdf&, const ECC::Point& comm);
+
+			Key::IDV m_Kidv;
+
+			struct Padded;
+		};
+
 		struct Confidential
 		{
 			// Bulletproof scheme
@@ -309,17 +343,6 @@ namespace ECC
 			//		In case of multi-sig it should be specified explicitly by the caller.
 			//			If it's guaranteed to be a single-usage key - the seed can be derived from the secret key (as with single-sig)
 			//			Otherwise - the seed *must* use external source of randomness.
-
-			struct CreatorParams
-			{
-				NoLeak<uintBig> m_Seed; // must be a function of the commitment and master secret
-				void InitSeed(Key::IPKdf&, const ECC::Point& comm);
-
-				Key::IDV m_Kidv;
-
-				struct Packed;
-				struct Padded;
-			};
 
 			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&); // single-pass
 			bool IsValid(const Point::Native&, Oracle&) const;
@@ -360,12 +383,18 @@ namespace ECC
 		{
 			Signature m_Signature;
 			Amount m_Value;
+			Key::ID::Packed m_Kid; // encoded of course
 
-			void Create(const Scalar::Native& sk, Oracle&); // amount should have been set
+			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&); // amount should have been set
 			bool IsValid(const Point::Native&, Oracle&) const;
+			void Recover(CreatorParams&) const;
 
 			int cmp(const Public&) const;
 			COMPARISON_VIA_CMP
+
+		private:
+			static void XCryptKid(Key::ID::Packed&, const CreatorParams&);
+			void get_Msg(Hash::Value&, Oracle&) const;
 		};
 	}
 }

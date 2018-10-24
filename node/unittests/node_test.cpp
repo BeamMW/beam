@@ -961,6 +961,7 @@ namespace beam
 			std::list<uint32_t> m_queProofsKrnExpected;
 			uint32_t m_nChainWorkProofsPending = 0;
 			uint32_t m_nBbsMsgsPending = 0;
+			uint32_t m_nRecoveryPending = 0;
 
 
 			MyClient(const Key::IKdf::Ptr& pKdf)
@@ -1027,6 +1028,11 @@ namespace beam
 				return !m_nBbsMsgsPending;
 			}
 
+			bool IsAllRecoveryReceived() const
+			{
+				return !m_nRecoveryPending;
+			}
+
 			void OnTimer() {
 
 				io::Reactor::get_Current().stop();
@@ -1041,7 +1047,7 @@ namespace beam
 
 				if (IsHeightReached())
 				{
-					if (IsAllProofsReceived() && IsAllBbsReceived())
+					if (IsAllProofsReceived() && IsAllBbsReceived() && IsAllRecoveryReceived())
 						io::Reactor::get_Current().stop();
 					return;
 				}
@@ -1110,6 +1116,12 @@ namespace beam
 					assert(msgTx.m_Transaction);
 					Send(msgTx);
 				}
+
+				proto::Recover msgRec;
+				msgRec.m_Private = true;
+				msgRec.m_Public = true;
+				Send(msgRec);
+				m_nRecoveryPending++;
 			}
 
 			virtual void OnMsg(proto::ProofState&& msg) override
@@ -1181,6 +1193,14 @@ namespace beam
 				m_nChainWorkProofsPending--;
 			}
 
+			virtual void OnMsg(proto::Recovered&& msg) override
+			{
+				verify_test(m_nRecoveryPending);
+				m_nRecoveryPending--;
+
+				verify_test(msg.m_Public.empty()); // so far public and private is the same, hence only private should be reported
+				verify_test(!msg.m_Private.empty()); // at least coinbases must be present
+			}
 
 			void SetTimer(uint32_t timeout_ms) {
 				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
@@ -1291,8 +1311,10 @@ namespace beam
 			fail_test("some proofs missing");
 		if (!cl.IsAllBbsReceived())
 			fail_test("some BBS messages missing");
+		if (!cl.IsAllRecoveryReceived())
+			fail_test("some recovery messages missing");
 
-		NodeProcessor::UtxoRecover urec(node2.get_Processor());
+		NodeProcessor::UtxoRecoverEx urec(node2.get_Processor());
 		urec.m_vKeys.push_back(node.m_pKdf);
 		urec.Proceed();
 
