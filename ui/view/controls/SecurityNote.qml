@@ -1,6 +1,7 @@
 import QtQuick 2.11
 import QtQuick.Controls 2.4
 import QtQuick.Layouts 1.3
+import QtGraphicalEffects 1.0
 
 import "."
 
@@ -16,6 +17,13 @@ ColumnLayout {
         SvgImage {
             id: icon
             anchors.horizontalCenter: parent.horizontalCenter
+        }
+        DropShadow {
+            anchors.fill: icon
+            radius: 7
+            samples: 9
+            color: Style.bright_teal
+            source: icon
         }
     }
     

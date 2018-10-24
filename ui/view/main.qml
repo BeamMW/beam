@@ -90,7 +90,7 @@ Rectangle {
                             samples: 9
                             color: Style.bright_teal
                             source: indicator
-                        }                        
+                        }
 
     					visible: selectedItem == index
                     }
