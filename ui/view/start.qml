@@ -365,7 +365,8 @@ Item
                                     width: 20
                                     height: 20
                                     Rectangle {
-                                        color: Style.dark_slate_blue
+                                        color: "transparent"
+                                        border.color: Style.dark_slate_blue
                                         width: 20
                                         height: 20
                                         radius: 10
@@ -374,8 +375,7 @@ Item
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             text: modelData.index + 1
                                             font.pixelSize: 10
-                                            color: Style.white
-                                            opacity: 0.5
+                                            color: Style.dark_slate_blue
                                         }
                                         visible: !modelData.isCorrect
                                     }
@@ -408,7 +408,8 @@ Item
 
                                 SFTextInput {
                                     id: phraseValue
-                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.bottom: parent.bottom
+                                    anchors.bottomMargin: 10
                                     width: 121
 
                                     font.pixelSize: 14
@@ -511,6 +512,23 @@ Item
                                     width: 20
                                     height: 20
                                     Rectangle {
+                                        color: "transparent"
+                                        border.color: Style.dark_slate_blue
+                                        width: 20
+                                        height: 20
+                                        radius: 10
+                                        SFText {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: modelData.index + 1
+                                            font.pixelSize: 10
+                                            color: Style.dark_slate_blue
+                                        }
+                                        visible: modelData.value.length == 0
+                                    }
+
+                                    Rectangle {
+                                        id: correctPhraseRect
                                         color: Style.dark_slate_blue
                                         width: 20
                                         height: 20
@@ -523,38 +541,14 @@ Item
                                             color: Style.white
                                             opacity: 0.5
                                         }
-                                        visible: modelData.value.length == 0
-                                    }
-
-                                    Rectangle {
-                                        id: correctPhraseRect
-                                        color: Style.bright_teal
-                                        width: 20
-                                        height: 20
-                                        radius: 10
-                                        SFText {
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            anchors.horizontalCenter: parent.horizontalCenter
-                                            text: modelData.index + 1
-                                            font.pixelSize: 10
-                                            color: Style.marine
-                                        }
                                         visible: modelData.value.length > 0
-                                    }
-
-                                    DropShadow {
-                                        anchors.fill: correctPhraseRect
-                                        radius: 5
-                                        samples: 9
-                                        color: Style.bright_teal
-                                        source: correctPhraseRect
-                                        visible: correctPhraseRect.visible
                                     }
                                 }
 
                                 SFTextInput {
                                     id: phraseValue
-                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.bottom: parent.bottom
+                                    anchors.bottomMargin: 10
                                     width: 121
 
                                     font.pixelSize: 14
