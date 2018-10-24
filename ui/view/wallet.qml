@@ -1081,7 +1081,7 @@ Item {
                             textFormat: Text.StyledText
                             font.styleName: "Light"; font.weight: Font.Thin
                             copyMenuEnabled: true
-                            onCopyText: viewModel.copyToClipboard((parent.income ? "+ " : "- ") + styleData.value)
+                            onCopyText: viewModel.copyToClipboard(styleData.value)
                         }
                     }
                 }
