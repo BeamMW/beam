@@ -1104,13 +1104,6 @@ namespace ECC {
 			Generator::FromPt(ctx.m_Casual.m_Compensation, pt);
 		}
 
-		// scalar generators
-		Scalar::Native val = 2U;
-		ctx.m_pwr2.Initialize(val);
-
-		val.SetInv(val);
-		ctx.m_pwr2_Inv.Initialize(val);
-
 		hpRes
 			<< uint32_t(2) // increment this each time we change signature formula (rangeproof and etc.)
 			>> ctx.m_hvChecksum;
@@ -1275,20 +1268,6 @@ namespace ECC {
 		do
 			operator >> (s.m_Value);
 		while ((s.m_Value == Zero) || out.Import(s));
-	}
-
-	void Oracle::get_Reciprocal(Scalar::Native& vice, Scalar::Native& versa)
-	{
-		Scalar s; // not secret
-
-		// x^0 == x^(s_Order - 1) == 1
-		// to guarantee uniform distribution (excluding zero, which doesn't have a reciprocal) the power should be in the range [1, s_Order - 1]
-		do
-			operator >> (s.m_Value);
-		while ((s.m_Value == Zero) || !s.IsValid());
-
-		Context::get().m_pwr2.Calculate(vice, s);
-		Context::get().m_pwr2_Inv.Calculate(versa, s);
 	}
 
 	/////////////////////

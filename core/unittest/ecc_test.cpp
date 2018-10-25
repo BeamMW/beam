@@ -176,13 +176,20 @@ void TestScalars()
 	}
 
 	// powers
+	ScalarGenerator pwrGen, pwrGenInv;
+	s0 = 7U; // looks like a good generator
+	pwrGen.Initialize(s0);
+	s0.Inv();
+	pwrGenInv.Initialize(s0);
+
+
 	for (int i = 0; i < 20; i++)
 	{
 		Scalar pwr;
 		SetRandom(pwr.m_Value); // don't care if overflows, just doesn't matter
 
-		Context::get().m_pwr2.Calculate(s1, pwr);
-		Context::get().m_pwr2_Inv.Calculate(s2, pwr);
+		pwrGen.Calculate(s1, pwr);
+		pwrGenInv.Calculate(s2, pwr);
 
 		s0.SetInv(s2);
 		verify_test(s0 == s1);
@@ -1215,12 +1222,15 @@ void RunBenchmark()
 */
 
 	{
-		BenchmarkMeter bm("scalar.2-Pwr");
+		ScalarGenerator pwrGen;
+		pwrGen.Initialize(7U);
+
+		BenchmarkMeter bm("scalar.7-Pwr");
 		SetRandom(k_.m_Value);
 		do
 		{
 			for (uint32_t i = 0; i < bm.N; i++)
-				Context::get().m_pwr2.Calculate(k1, k_);
+				pwrGen.Calculate(k1, k_);
 
 		} while (bm.ShouldContinue());
 	}
