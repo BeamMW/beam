@@ -499,6 +499,17 @@ namespace ECC {
 
 		Scalar::Native k;
 
+		// calculate pairs of cs_.m_X.m_Val
+		static_assert(!(nCycles & 1), "");
+		const uint32_t nPairs = nCycles >> 1;
+		Scalar::Native pPair[nPairs];
+
+		for (uint32_t iPair = 0; iPair < nPairs; iPair++)
+		{
+			pPair[iPair] = cs_.m_X.m_Val[iPair << 1];
+			pPair[iPair] *= cs_.m_X.m_Val[(iPair << 1) + 1];
+		}
+
 		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++)
 		{
 			const Point* pLR = m_pLR[iCycle];
@@ -506,20 +517,18 @@ namespace ECC {
 			{
 				if (j)
 				{
-					k = 1U;
-					// all except this one. TODO - do it in 12 multiplications instead of 30
-					for (uint32_t n = 0; n < nCycles; n++)
-						if (n != iCycle)
-							k *= cs_.m_X.m_Val[n];
+					// all except this one.
+					k = cs_.m_X.m_Val[iCycle ^ 1];
+
+					for (uint32_t iPair = 0; iPair < nPairs; iPair++)
+						if (iPair != (iCycle >> 1))
+							k *= pPair[iPair];
 				}
 				else
 				{
 					k = cs_.m_Mul2;
 					k *= cs_.m_X.m_Val[iCycle];
 				}
-
-				//k = j ? cs_.m_XInv.m_Val[iCycle] : cs_.m_X.m_Val[iCycle];
-				//k *= cs_.m_Mul2;
 
 				if (!bc.AddCasual(pLR[j], k))
 					return false;
@@ -529,7 +538,7 @@ namespace ECC {
 		// The expression we're calculating is: the transformed generator
 		//
 		// -sum( G_Condensed[j] * pCondensed[j] )
-		// whereas G_Condensed[j] = Gen[j] * sum (k[iCycle]^(+/-)2 ), i.e. transformed (condensed) generators
+		// whereas G_Condensed[j] = Gen[j] * sum (k[iCycle]^(+/-)1 ), i.e. transformed (condensed) generators
 
 		for (int j = 0; j < 2; j++)
 		{
@@ -1055,7 +1064,9 @@ namespace ECC {
 		InnerProduct::Challenges cs_;
 		cs_.Init(oracle, tDot, m_P_Tag);
 
-		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_Aux2, cs.z * cs_.m_Mul2);
+		cs.z *= cs_.m_Mul2;
+
+		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_Aux2, cs.z);
 
 		sumY = m_Mu;
 		sumY *= cs_.m_Mul2;
@@ -1070,13 +1081,14 @@ namespace ECC {
 		mul = 2U;
 		mul *= cs.yInv;
 		pwr = zz;
+		pwr *= cs_.m_Mul2;
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
 			sum2 = pwr;
 			sum2 += cs.z;
 
-			bc.AddPrepared(InnerProduct::nDim + i, sum2 * cs_.m_Mul2);
+			bc.AddPrepared(InnerProduct::nDim + i, sum2);
 
 			pwr *= mul;
 		}
