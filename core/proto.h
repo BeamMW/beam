@@ -59,6 +59,9 @@ namespace proto {
 #define BeamNodeMsg_GetProofState(macro) \
 	macro(Height, Height)
 
+#define BeamNodeMsg_GetCommonState(macro) \
+	macro(std::vector<Block::SystemState::ID>, IDs)
+
 #define BeamNodeMsg_GetProofKernel(macro) \
 	macro(Merkle::Hash, ID)
 
@@ -76,6 +79,10 @@ namespace proto {
 	macro(std::vector<Input::Proof>, Proofs)
 
 #define BeamNodeMsg_ProofState(macro) \
+	macro(Merkle::HardProof, Proof)
+
+#define BeamNodeMsg_ProofCommonState(macro) \
+	macro(uint32_t, iState) \
 	macro(Merkle::HardProof, Proof)
 
 #define BeamNodeMsg_ProofChainWork(macro) \
@@ -209,6 +216,8 @@ namespace proto {
 	macro(0x1e, ProofChainWork) \
 	macro(0x20, MacroblockGet) \
 	macro(0x21, Macroblock) \
+	macro(0x22, GetCommonState) \
+	macro(0x23, ProofCommonState) \
 	/* onwer-relevant */ \
 	macro(0x28, GetMined) \
 	macro(0x29, Mined) \

@@ -2186,6 +2186,34 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 	Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::GetCommonState&& msg)
+{
+	proto::ProofCommonState msgOut;
+
+	Processor& p = m_This.m_Processor; // alias
+
+	for (msgOut.m_iState = 0; msgOut.m_iState < msg.m_IDs.size(); msgOut.m_iState++)
+	{
+		const Block::SystemState::ID& id = msg.m_IDs[msgOut.m_iState];
+		if (id.m_Height < Rules::HeightGenesis)
+			ThrowUnexpected();
+
+		if (id.m_Height < p.m_Cursor.m_ID.m_Height)
+		{
+			Merkle::Hash hv;
+			p.get_DB().get_StateHash(p.FindActiveAtStrict(id.m_Height), hv);
+
+			if (hv == id.m_Hash)
+			{
+				p.GenerateProofStateStrict(msgOut.m_Proof, id.m_Height);
+				break;
+			}
+		}
+	}
+
+	Send(msgOut);
+}
+
 void Node::Peer::OnMsg(proto::GetProofState&& msg)
 {
 	if (msg.m_Height < Rules::HeightGenesis)
@@ -2195,17 +2223,22 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 
 	Processor& p = m_This.m_Processor;
 	const NodeDB::StateID& sid = p.m_Cursor.m_Sid;
-	if (sid.m_Row && (msg.m_Height < sid.m_Height))
-	{
-		Merkle::ProofBuilderHard bld;
-		p.get_DB().get_Proof(bld, sid, msg.m_Height);
-		msgOut.m_Proof.swap(bld.m_Proof);
-
-		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-		p.get_CurrentLive(msgOut.m_Proof.back());
-	}
+	if (msg.m_Height < sid.m_Height)
+		p.GenerateProofStateStrict(msgOut.m_Proof, msg.m_Height);
 
 	Send(msgOut);
+}
+
+void Node::Processor::GenerateProofStateStrict(Merkle::HardProof& proof, Height h)
+{
+	assert(h < m_Cursor.m_Sid.m_Height);
+
+	Merkle::ProofBuilderHard bld;
+	get_DB().get_Proof(bld, m_Cursor.m_Sid, h);
+	proof.swap(bld.m_Proof);
+
+	proof.resize(proof.size() + 1);
+	get_CurrentLive(proof.back());
 }
 
 void Node::Peer::OnMsg(proto::GetProofKernel&& msg)

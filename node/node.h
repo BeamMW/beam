@@ -181,6 +181,8 @@ private:
 		Block::ChainWorkProof m_Cwp; // cached
 		bool BuildCwp();
 
+		void GenerateProofStateStrict(Merkle::HardProof&, Height);
+
 		int m_RequestedCount = 0;
 		int m_DownloadedHeaders = 0;
 		int m_DownloadedBlocks = 0;
@@ -453,6 +455,7 @@ private:
 		virtual void OnMsg(proto::HaveTransaction&&) override;
 		virtual void OnMsg(proto::GetTransaction&&) override;
 		virtual void OnMsg(proto::GetMined&&) override;
+		virtual void OnMsg(proto::GetCommonState&&) override;
 		virtual void OnMsg(proto::GetProofState&&) override;
 		virtual void OnMsg(proto::GetProofKernel&&) override;
 		virtual void OnMsg(proto::GetProofUtxo&&) override;
