@@ -156,7 +156,7 @@ bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& re
 	// Diffie-Hellman
 	ECC::Point pt;
 	pt.m_X = remotePublic;
-	pt.m_Y = false;
+	pt.m_Y = 0;
 
 	ECC::Point::Native p;
 	if (!p.Import(pt))
@@ -582,7 +582,7 @@ void NodeConnection::OnMsg(Authentication&& msg)
 
 	ECC::Point pt;
 	pt.m_X = msg.m_ID;
-	pt.m_Y = false;
+	pt.m_Y = 0;
 
 	ECC::Point::Native p;
 	if (!p.Import(pt))
