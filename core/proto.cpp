@@ -265,10 +265,24 @@ union HighestMsgCode
 #undef THE_MACRO
 };
 
+bool NotCalled_VerifyNoDuplicatedIDs(uint32_t id)
+{
+	// 
+	switch (id)
+	{
+#define THE_MACRO(code, msg) \
+	case code:
+		BeamNodeMsgsAll(THE_MACRO)
+#undef THE_MACRO
+		return true;
+	}
+	return false;
+}
+
 /////////////////////////
 // NodeConnection
 NodeConnection::NodeConnection()
-	:m_Protocol('B', 'm', 5, sizeof(HighestMsgCode), *this, 20000)
+	:m_Protocol('B', 'm', 6, sizeof(HighestMsgCode), *this, 20000)
 	,m_ConnectPending(false)
 {
 #define THE_MACRO(code, msg) \

@@ -175,51 +175,56 @@ namespace proto {
 	macro(std::vector<Key::IDV>, Public)
 
 #define BeamNodeMsgsAll(macro) \
-	macro(1, NewTip) /* Also the first message sent by the node */ \
-	macro(2, GetHdr) \
-	macro(3, Hdr) \
-	macro(14, GetHdrPack) \
-	macro(19, HdrPack) \
-	macro(4, DataMissing) \
-	macro(5, Boolean) \
-	macro(6, GetBody) \
-	macro(7, Body) \
-	macro(8, GetProofState) \
-	macro(9, GetProofKernel) \
-	macro(10, GetProofUtxo) \
-	macro(11, ProofKernel) \
-	macro(12, ProofUtxo) \
-	macro(13, ProofState) \
-	macro(15, GetMined) \
-	macro(16, Mined) \
-	macro(17, GetProofChainWork) \
-	macro(18, ProofChainWork) \
-	macro(20, Config) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
-	macro(21, Ping) \
-	macro(22, Pong) \
-	macro(23, NewTransaction) \
-	macro(24, HaveTransaction) \
-	macro(25, GetTransaction) \
-	macro(29, Bye) \
-	macro(31, PeerInfoSelf) \
-	macro(32, PeerInfo) \
-	macro(33, GetTime) \
-	macro(34, Time) \
-	macro(35, GetExternalAddr) \
-	macro(36, ExternalAddr) \
-	macro(40, BbsMsg) \
-	macro(41, BbsHaveMsg) \
-	macro(42, BbsGetMsg) \
-	macro(43, BbsSubscribe) \
-	macro(44, BbsPickChannel) \
-	macro(45, BbsPickChannelRes) \
-	macro(50, MacroblockGet) \
-	macro(51, Macroblock) \
-	macro(56, Recover) \
-	macro(57, Recovered) \
-	macro(61, SChannelInitiate) \
-	macro(62, SChannelReady) \
-	macro(63, Authentication) \
+	/* general msgs */ \
+	macro(0x00, Config) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
+	macro(0x01, Bye) \
+	macro(0x02, Ping) \
+	macro(0x03, Pong) \
+	macro(0x04, SChannelInitiate) \
+	macro(0x05, SChannelReady) \
+	macro(0x06, Authentication) \
+	macro(0x07, PeerInfoSelf) \
+	macro(0x08, PeerInfo) \
+	macro(0x09, GetExternalAddr) \
+	macro(0x0a, ExternalAddr) \
+	macro(0x0b, GetTime) \
+	macro(0x0c, Time) \
+	macro(0x0d, DataMissing) \
+	macro(0x0e, Boolean) \
+	/* blockchain status */ \
+	macro(0x10, NewTip) \
+	macro(0x11, GetHdr) \
+	macro(0x12, Hdr) \
+	macro(0x13, GetHdrPack) \
+	macro(0x14, HdrPack) \
+	macro(0x15, GetBody) \
+	macro(0x16, Body) \
+	macro(0x17, GetProofState) \
+	macro(0x18, ProofState) \
+	macro(0x19, GetProofKernel) \
+	macro(0x1a, ProofKernel) \
+	macro(0x1b, GetProofUtxo) \
+	macro(0x1c, ProofUtxo) \
+	macro(0x1d, GetProofChainWork) \
+	macro(0x1e, ProofChainWork) \
+	macro(0x20, MacroblockGet) \
+	macro(0x21, Macroblock) \
+	/* onwer-relevant */ \
+	macro(0x28, GetMined) \
+	macro(0x29, Mined) \
+	macro(0x2a, Recover) \
+	macro(0x2b, Recovered) \
+	/* tx broadcast and replication */ \
+	macro(0x30, NewTransaction) \
+	macro(0x31, HaveTransaction) \
+	macro(0x32, GetTransaction) \
+	/* bbs */ \
+	macro(0x38, BbsMsg) \
+	macro(0x39, BbsHaveMsg) \
+	macro(0x3a, BbsGetMsg) \
+	macro(0x3b, BbsSubscribe) \
+	macro(0x3c, BbsPickChannel) \
+	macro(0x3d, BbsPickChannelRes) \
 
 
 	struct PerMined
