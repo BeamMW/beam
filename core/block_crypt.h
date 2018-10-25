@@ -393,7 +393,7 @@ namespace beam
 			// equihash parameters. 
 			// Parameters recommended by BTG are 144/5, to make it asic-resistant (~1GB average, spikes about 1.5GB). On CPU solve time about 1 minutes
 			// The following are the parameters for testnet, to make it of similar size, and much faster solve time, to test concurrency and difficulty adjustment
-			static const uint32_t N = 120;
+			static const uint32_t N = 144;
 			static const uint32_t K = 5;
 
 			static const uint32_t nNumIndices		= 1 << K; // 32
