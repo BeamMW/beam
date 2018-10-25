@@ -267,10 +267,11 @@ Rectangle {
                                         validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                     }
                                     
-                                    PrimaryButton {
+                                    CustomButton {
                                         Layout.fillWidth: true
-                                        Layout.minimumHeight: 20
-                                        Layout.minimumWidth: 60
+                                        Layout.minimumWidth: 70
+                                        leftPadding: 20
+                                        rightPadding: 20
 				                        text: "Add"
                                         palette.button: "#708090"
                                         palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
@@ -289,8 +290,9 @@ Rectangle {
                                     model: viewModel.localNodePeers
                                     clip: true
                                     delegate: RowLayout {
-                                        Layout.fillWidth: true
-                                        height: 30
+                                        width: parent.width
+                                        height: 36
+
                                         SFText {
                                             Layout.fillWidth: true
                                             Layout.alignment: Qt.AlignVCenter
@@ -300,13 +302,16 @@ Rectangle {
                                             height: 16
                                             elide: Text.ElideRight
                                         }
-                                        Item {
-                                            Layout.fillWidth: true
-                                        }
+
                                         CustomButton {
                                             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
                                             Layout.minimumHeight: 20
                                             Layout.minimumWidth: 20
+                                            shadowRadius: 5
+                                            shadowSamples: 7
+                                            Layout.margins: shadowRadius
+                                            leftPadding: 5
+                                            rightPadding: 5
                                             textOpacity: 0
                                             icon.source: "qrc:/assets/icon-delete.svg"
                                             enabled: localNodeRun.checked
