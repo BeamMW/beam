@@ -12,6 +12,8 @@ Button {
     palette.button: Style.separator_color
     palette.buttonText: Style.white
     property alias textOpacity: rect.opacity
+    property alias shadowSamples: drop_shadow.samples
+    property alias shadowRadius: drop_shadow.radius
 
     font { 
         family: "SF Pro Display"
@@ -56,14 +58,15 @@ Button {
         height: control.height
     }
 
-	DropShadow {
-		anchors.fill: rect
-		radius: 7
-		samples: 9
-		color: "white"
-		source: rect
+    DropShadow {
+        id: drop_shadow
+        anchors.fill: rect
+        radius: 7
+        samples: 9
+        color: "white"
+        source: rect
         // TODO (roman.strilets) maybe should using control.focus property
         // look at https://doc.qt.io/qt-5.9/qml-qtquick-controls2-control.html#visualFocus-prop
-		visible: /*control.visualFocus*/control.activeFocus || control.hovered
-	}
+        visible: /*control.visualFocus*/control.activeFocus || control.hovered
+    }
 }
