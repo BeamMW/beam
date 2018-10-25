@@ -373,7 +373,6 @@ namespace beam
     void Wallet::set_node_address(io::Address node_address)
     {
         m_network->set_node_address(node_address);
-        resetSystemState();
     }
 
     void Wallet::resetSystemState()
@@ -686,6 +685,25 @@ namespace beam
         for (auto& p : t)
         {
             p.second->Update();
+        }
+
+        // try to restore utxo state after reset, rollback and etc..
+        vector<Coin> unconfirmedUtxo;
+        m_keyChain->visit([&unconfirmedUtxo, this](const Coin& c)->bool
+        {
+            if (c.m_status == Coin::Unconfirmed 
+                && c.m_createTxId.is_initialized()
+                && m_transactions.find(*c.m_createTxId) == m_transactions.end())
+            {
+                unconfirmedUtxo.push_back(c);
+            }
+            return true;
+        });
+
+        if (!unconfirmedUtxo.empty())
+        {
+            LOG_INFO() << "Found " << unconfirmedUtxo.size() << " unconfirmed utxo to proof";
+            getUtxoProofs(unconfirmedUtxo);
         }
     }
 
