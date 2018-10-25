@@ -1112,7 +1112,7 @@ namespace ECC {
 		ctx.m_pwr2_Inv.Initialize(val);
 
 		hpRes
-			<< uint32_t(1) // increment this each time we change signature formula (rangeproof and etc.)
+			<< uint32_t(2) // increment this each time we change signature formula (rangeproof and etc.)
 			>> ctx.m_hvChecksum;
 
 #ifndef NDEBUG
@@ -1274,7 +1274,7 @@ namespace ECC {
 
 		do
 			operator >> (s.m_Value);
-		while (out.Import(s));
+		while ((s.m_Value == Zero) || out.Import(s));
 	}
 
 	void Oracle::get_Reciprocal(Scalar::Native& vice, Scalar::Native& versa)
