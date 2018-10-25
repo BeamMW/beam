@@ -65,6 +65,7 @@ Q_IMPORT_PLUGIN(QtGraphicalEffectsPrivatePlugin)
 Q_IMPORT_PLUGIN(QSvgPlugin)
 Q_IMPORT_PLUGIN(QtQuickLayoutsPlugin)
 Q_IMPORT_PLUGIN(QtQuickTemplates2Plugin)
+Q_IMPORT_PLUGIN(QPlatformPrinterSupportPlugin)
 
 #endif
 
