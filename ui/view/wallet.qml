@@ -263,6 +263,16 @@ Item {
             }
 
             SFText {
+                Layout.alignment: Qt.AlignLeft
+                Layout.minimumHeight: 16
+                Layout.topMargin: -24
+                font.pixelSize: 14
+                font.italic: true
+                color: Style.white
+                text: qsTr("The address will be valid for 24 hours")
+            }
+
+            SFText {
                 font.pixelSize: 14
                 Layout.minimumHeight: 16
                 font.styleName: "Bold"; font.weight: Font.Bold
@@ -290,7 +300,6 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.minimumHeight: 16
                 font.pixelSize: 14
-                font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
                 text: qsTr("Send this address to the sender over an external secure channel")
             }
