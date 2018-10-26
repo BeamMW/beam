@@ -533,9 +533,13 @@ namespace beam { namespace wallet
 
         m_Kernel->get_Hash(m_Message);
         m_MultiSig.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
-        LOG_DEBUG() << "[SignPartial]\nMessage:\t" << m_Message << "\nNoncePub:\t" << m_MultiSig.m_NoncePub;
+        
         
         m_MultiSig.SignPartial(m_PartialSignature, m_Message, m_BlindingExcess);
+        LOG_DEBUG() << "[SignPartial]\nMessage:\t" << m_Message
+                                 << "\nNoncePub:\t" << m_MultiSig.m_NoncePub
+                                 << "\nPartialSignature:\t" << Scalar(m_PartialSignature)
+                                 << "\nBlindingExcess:\t" << Scalar(m_BlindingExcess);
     }
 
     Transaction::Ptr TxBuilder::CreateTransaction()
@@ -563,6 +567,9 @@ namespace beam { namespace wallet
         Signature peerSig;
         peerSig.m_NoncePub = m_MultiSig.m_NoncePub;
         peerSig.m_k = m_PeerSignature;
+        LOG_DEBUG() << "[IsPeerSignatureValid]\nMessage:\t" << m_Message 
+                    << "\nNoncePub:\t" << m_MultiSig.m_NoncePub
+                    << "\nPeerPublicExcess:\t" << m_PeerPublicExcess;
         return peerSig.IsValidPartial(m_Message, m_PeerPublicNonce, m_PeerPublicExcess);
     }
 }}
