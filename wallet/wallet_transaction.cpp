@@ -301,12 +301,10 @@ namespace beam { namespace wallet
             if (!isSelfTx && !builder.GetPeerInputsAndOutputs())
             {
                 assert(IsInitiator());
-                Scalar s;
-                builder.m_PartialSignature.Export(s);
 
                 // Confirm transaction
                 SetTxParameter msg;
-                msg.AddParameter(TxParameterID::PeerSignature, s);
+                msg.AddParameter(TxParameterID::PeerSignature, Scalar(builder.m_PartialSignature));
                 SendTxParameters(move(msg));
             }
             else
@@ -570,7 +568,9 @@ namespace beam { namespace wallet
         peerSig.m_k = m_PeerSignature;
         LOG_DEBUG() << "[IsPeerSignatureValid]\nMessage:\t" << m_Message 
                     << "\nNoncePub:\t" << m_MultiSig.m_NoncePub
-                    << "\nPeerPublicExcess:\t" << m_PeerPublicExcess;
+                    << "\nPeerSig:\t" << m_PeerSignature
+                    << "\nPeerPublicExcess:\t" << m_PeerPublicExcess
+                    << "\nPeerPublicNonce:\t" << m_PeerPublicNonce;
         return peerSig.IsValidPartial(m_Message, m_PeerPublicNonce, m_PeerPublicExcess);
     }
 }}
