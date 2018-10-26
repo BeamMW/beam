@@ -557,6 +557,15 @@ Item
                                     font.pixelSize: 14
                                     color: Style.white
                                     text: modelData.value
+                                    onTextEdited: {
+                                        var phrases = text.split(viewModel.phrasesSeparator);
+                                        if (phrases.length > viewModel.recoveryPhrases.length) {
+                                            for(var i = 0; i < viewModel.recoveryPhrases.length; ++i)
+                                            {
+                                                viewModel.recoveryPhrases[i].value = phrases[i];
+                                            }
+                                        }
+                                    }
                                 }
                                 Binding {
                                     target: modelData

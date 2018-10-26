@@ -104,6 +104,7 @@ namespace
         return QString(Testnet[rand() % (sizeof(Testnet) / sizeof(Testnet[0]))]);
     }
 
+    const QChar PHRASES_SEPARATOR = ';';
 }
 
 RecoveryPhraseItem::RecoveryPhraseItem(int index, const QString& phrase)
@@ -219,6 +220,11 @@ const QList<QObject*>& StartViewModel::getCheckPhrases()
     return m_checkPhrases;
 }
 
+QChar StartViewModel::getPhrasesSeparator()
+{
+    return PHRASES_SEPARATOR;
+}
+
 void StartViewModel::setupLocalNode(int port, int miningThreads, bool generateGenesys)
 {
     auto& settings = AppModel::getInstance()->getSettings();
@@ -255,7 +261,7 @@ void StartViewModel::copyPhrasesToClipboard()
     QString phrases;
     for (const auto& p : m_generatedPhrases)
     {
-        phrases = phrases % p.c_str() % ";";
+        phrases = phrases % p.c_str() % PHRASES_SEPARATOR;
     }
     QApplication::clipboard()->setText(phrases);
 }
