@@ -538,7 +538,11 @@ namespace beam { namespace wallet
                                  << "\nNoncePub:\t" << m_MultiSig.m_NoncePub
                                  << "\nPartialSignature:\t" << Scalar(m_PartialSignature)
                                  << "\nPublicBlindingExcess:\t" << Point(Context::get().G* m_BlindingExcess)
-                                 << "\nPublicNonce:\t" << Point(GetPublicNonce());
+                                 << "\nPublicNonce:\t" << Point(GetPublicNonce())
+            << "\nm_Excess:\t" << m_Kernel->m_Excess
+            << "\nm_fee:\t" << m_Kernel->m_Fee
+            << "\nminheight:\t" << m_Kernel->m_Height.m_Min
+            ;
     }
 
     Transaction::Ptr TxBuilder::CreateTransaction()
