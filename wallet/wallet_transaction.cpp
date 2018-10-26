@@ -533,6 +533,7 @@ namespace beam { namespace wallet
 
         m_Kernel->get_Hash(m_Message);
         m_MultiSig.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
+        LOG_DEBUG() << "[SignPartial]\nMessage:\t" << m_Message << "\nNoncePub:\t" << m_MultiSig.m_NoncePub;
         
         m_MultiSig.SignPartial(m_PartialSignature, m_Message, m_BlindingExcess);
     }
