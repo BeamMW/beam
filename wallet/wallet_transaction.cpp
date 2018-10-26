@@ -484,9 +484,13 @@ namespace beam { namespace wallet
 
     bool TxBuilder::GetPeerSignature()
     {
-        auto res = m_Tx.GetParameter(TxParameterID::PeerSignature, m_PeerSignature);
-        LOG_DEBUG() << "Received PeerSig:\t" << m_PeerSignature;
-        return res;
+        if (m_Tx.GetParameter(TxParameterID::PeerSignature, m_PeerSignature))
+        {
+            LOG_DEBUG() << "Received PeerSig:\t" << m_PeerSignature;
+            return true;
+        }
+        
+        return false;
     }
 
     bool TxBuilder::GetInitialTxParams()
