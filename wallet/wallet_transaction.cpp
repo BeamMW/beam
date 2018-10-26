@@ -231,7 +231,6 @@ namespace beam { namespace wallet
         if (!builder.GetInitialTxParams())
         {
             LOG_INFO() << GetTxID() << (sender ? " Sending " : " Receiving ") << PrintableAmount(amount) << " (fee: " << PrintableAmount(fee) << ")";
-            builder.SetMinHeight(m_Keychain->getCurrentHeight());
 
             if (sender)
             {
@@ -301,12 +300,12 @@ namespace beam { namespace wallet
             if (!isSelfTx && !builder.GetPeerInputsAndOutputs())
             {
                 assert(IsInitiator());
-                Scalar s;
-                builder.m_PartialSignature.Export(s);
 
                 // Confirm transaction
                 SetTxParameter msg;
-                msg.AddParameter(TxParameterID::PeerSignature, s);
+                Scalar s(builder.m_PartialSignature);
+                LOG_DEBUG() << "PeerSig for send:\t" << s;
+                msg.AddParameter(TxParameterID::PeerSignature, s);//Scalar(builder.m_PartialSignature));
                 SendTxParameters(move(msg));
             }
             else
@@ -484,16 +483,22 @@ namespace beam { namespace wallet
 
     bool TxBuilder::GetPeerSignature()
     {
-        return m_Tx.GetParameter(TxParameterID::PeerSignature, m_PeerSignature);
+        if (m_Tx.GetParameter(TxParameterID::PeerSignature, m_PeerSignature))
+        {
+            LOG_DEBUG() << "Received PeerSig:\t" << m_PeerSignature;
+            return true;
+        }
+        
+        return false;
     }
 
     bool TxBuilder::GetInitialTxParams()
     {
         m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs);
         m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs);
+        m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight);
         return m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess)
-            && m_Tx.GetParameter(TxParameterID::Offset, m_Offset)
-            && m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight);
+            && m_Tx.GetParameter(TxParameterID::Offset, m_Offset);
     }
 
     bool TxBuilder::GetPeerInputsAndOutputs()
@@ -518,12 +523,6 @@ namespace beam { namespace wallet
         return true;
     }
 
-    void TxBuilder::SetMinHeight(Height minHeight)
-    {
-        m_MinHeight = minHeight;
-        m_Tx.SetParameter(TxParameterID::MinHeight, m_MinHeight);
-    }
-
     void TxBuilder::SignPartial()
     {
         // create signature
@@ -534,7 +533,17 @@ namespace beam { namespace wallet
         m_Kernel->get_Hash(m_Message);
         m_MultiSig.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
         
+        
         m_MultiSig.SignPartial(m_PartialSignature, m_Message, m_BlindingExcess);
+        LOG_DEBUG() << "[SignPartial]\nMessage:\t" << m_Message
+                                 << "\nNoncePub:\t" << m_MultiSig.m_NoncePub
+                                 << "\nPartialSignature:\t" << Scalar(m_PartialSignature)
+                                 << "\nPublicBlindingExcess:\t" << Point(Context::get().G* m_BlindingExcess)
+                                 << "\nPublicNonce:\t" << Point(GetPublicNonce())
+            << "\nm_Excess:\t" << m_Kernel->m_Excess
+            << "\nm_fee:\t" << m_Kernel->m_Fee
+            << "\nminheight:\t" << m_Kernel->m_Height.m_Min
+            ;
     }
 
     Transaction::Ptr TxBuilder::CreateTransaction()
@@ -562,6 +571,11 @@ namespace beam { namespace wallet
         Signature peerSig;
         peerSig.m_NoncePub = m_MultiSig.m_NoncePub;
         peerSig.m_k = m_PeerSignature;
+        LOG_DEBUG() << "[IsPeerSignatureValid]\nMessage:\t" << m_Message 
+                    << "\nNoncePub:\t" << m_MultiSig.m_NoncePub
+                    << "\nPeerSig:\t" << m_PeerSignature
+                    << "\nPeerPublicExcess:\t" << m_PeerPublicExcess
+                    << "\nPeerPublicNonce:\t" << m_PeerPublicNonce;
         return peerSig.IsValidPartial(m_Message, m_PeerPublicNonce, m_PeerPublicExcess);
     }
 }}

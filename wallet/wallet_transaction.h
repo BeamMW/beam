@@ -140,7 +140,7 @@ namespace beam { namespace wallet
         
         // deduced values, 
         TxKernel::Ptr m_Kernel;
-        ECC::Scalar::Native m_PeerSignature;
+        ECC::Scalar m_PeerSignature;
         ECC::Hash::Value m_Message;
         ECC::Signature::MultiSig m_MultiSig;
 
@@ -157,7 +157,6 @@ namespace beam { namespace wallet
         bool GetPeerPublicExcessAndNonce();
         bool GetPeerSignature();
         bool GetPeerInputsAndOutputs();
-        void SetMinHeight(Height minHeight);
         Transaction::Ptr CreateTransaction();
         void SignPartial();
         bool IsPeerSignatureValid() const;
