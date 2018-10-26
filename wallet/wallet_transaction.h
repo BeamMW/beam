@@ -140,7 +140,7 @@ namespace beam { namespace wallet
         
         // deduced values, 
         TxKernel::Ptr m_Kernel;
-        ECC::Scalar::Native m_PeerSignature;
+        ECC::Scalar m_PeerSignature;
         ECC::Hash::Value m_Message;
         ECC::Signature::MultiSig m_MultiSig;
 
