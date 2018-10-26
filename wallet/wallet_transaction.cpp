@@ -304,7 +304,9 @@ namespace beam { namespace wallet
 
                 // Confirm transaction
                 SetTxParameter msg;
-                msg.AddParameter(TxParameterID::PeerSignature, Scalar(builder.m_PartialSignature));
+                Scalar s(builder.m_PartialSignature);
+                LOG_DEBUG() << "PeerSig for send:\t" << s;
+                msg.AddParameter(TxParameterID::PeerSignature, s);//Scalar(builder.m_PartialSignature));
                 SendTxParameters(move(msg));
             }
             else
@@ -482,7 +484,9 @@ namespace beam { namespace wallet
 
     bool TxBuilder::GetPeerSignature()
     {
-        return m_Tx.GetParameter(TxParameterID::PeerSignature, m_PeerSignature);
+        auto res = m_Tx.GetParameter(TxParameterID::PeerSignature, m_PeerSignature);
+        LOG_DEBUG() << "Received PeerSig:\t" << m_PeerSignature;
+        return res;
     }
 
     bool TxBuilder::GetInitialTxParams()
