@@ -303,9 +303,7 @@ namespace beam { namespace wallet
 
                 // Confirm transaction
                 SetTxParameter msg;
-                Scalar s(builder.m_PartialSignature);
-                LOG_DEBUG() << "PeerSig for send:\t" << s;
-                msg.AddParameter(TxParameterID::PeerSignature, s);//Scalar(builder.m_PartialSignature));
+                msg.AddParameter(TxParameterID::PeerSignature, Scalar(builder.m_PartialSignature));
                 SendTxParameters(move(msg));
             }
             else
@@ -485,7 +483,7 @@ namespace beam { namespace wallet
     {
         if (m_Tx.GetParameter(TxParameterID::PeerSignature, m_PeerSignature))
         {
-            LOG_DEBUG() << "Received PeerSig:\t" << m_PeerSignature;
+            LOG_DEBUG() << "Received PeerSig:\t" << Scalar(m_PeerSignature);
             return true;
         }
         
@@ -535,15 +533,6 @@ namespace beam { namespace wallet
         
         
         m_MultiSig.SignPartial(m_PartialSignature, m_Message, m_BlindingExcess);
-        LOG_DEBUG() << "[SignPartial]\nMessage:\t" << m_Message
-                                 << "\nNoncePub:\t" << m_MultiSig.m_NoncePub
-                                 << "\nPartialSignature:\t" << Scalar(m_PartialSignature)
-                                 << "\nPublicBlindingExcess:\t" << Point(Context::get().G* m_BlindingExcess)
-                                 << "\nPublicNonce:\t" << Point(GetPublicNonce())
-            << "\nm_Excess:\t" << m_Kernel->m_Excess
-            << "\nm_fee:\t" << m_Kernel->m_Fee
-            << "\nminheight:\t" << m_Kernel->m_Height.m_Min
-            ;
     }
 
     Transaction::Ptr TxBuilder::CreateTransaction()
@@ -571,11 +560,6 @@ namespace beam { namespace wallet
         Signature peerSig;
         peerSig.m_NoncePub = m_MultiSig.m_NoncePub;
         peerSig.m_k = m_PeerSignature;
-        LOG_DEBUG() << "[IsPeerSignatureValid]\nMessage:\t" << m_Message 
-                    << "\nNoncePub:\t" << m_MultiSig.m_NoncePub
-                    << "\nPeerSig:\t" << m_PeerSignature
-                    << "\nPeerPublicExcess:\t" << m_PeerPublicExcess
-                    << "\nPeerPublicNonce:\t" << m_PeerPublicNonce;
         return peerSig.IsValidPartial(m_Message, m_PeerPublicNonce, m_PeerPublicExcess);
     }
 }}
