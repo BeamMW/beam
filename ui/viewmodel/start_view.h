@@ -57,6 +57,7 @@ class StartViewModel : public QObject
     Q_PROPERTY(bool isRecoveryMode READ getIsRecoveryMode WRITE setIsRecoveryMode NOTIFY isRecoveryModeChanged)
     Q_PROPERTY(QList<QObject*> recoveryPhrases READ getRecoveryPhrases NOTIFY recoveryPhrasesChanged)
     Q_PROPERTY(QList<QObject*> checkPhrases READ getCheckPhrases NOTIFY checkPhrasesChanged)
+    Q_PROPERTY(QChar phrasesSeparator READ getPhrasesSeparator CONSTANT)
 public:
 
     using DoneCallback = std::function<bool (beam::IKeyChain::Ptr db, const std::string& walletPass)>;
@@ -69,6 +70,7 @@ public:
     void setIsRecoveryMode(bool value);
     const QList<QObject*>& getRecoveryPhrases();
     const QList<QObject*>& getCheckPhrases();
+    QChar getPhrasesSeparator();
 
     Q_INVOKABLE void setupLocalNode(int port, int miningThreads, bool generateGenesys = false);
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
