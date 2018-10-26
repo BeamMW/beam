@@ -9,7 +9,7 @@
 #include "crypto/sha256.h"
 #include "utilstrencodings.h"
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || !defined(BEAM_USE_AVX)
 #include "blake/ref/blake2.h"
 #else
 #include "blake/sse/blake2.h"
