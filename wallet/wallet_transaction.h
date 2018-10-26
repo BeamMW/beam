@@ -157,7 +157,6 @@ namespace beam { namespace wallet
         bool GetPeerPublicExcessAndNonce();
         bool GetPeerSignature();
         bool GetPeerInputsAndOutputs();
-        void SetMinHeight(Height minHeight);
         Transaction::Ptr CreateTransaction();
         void SignPartial();
         bool IsPeerSignatureValid() const;
