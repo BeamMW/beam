@@ -98,7 +98,10 @@ Rectangle {
                     MouseArea {
                         id: mouseArea
                         anchors.fill: parent
-                        onClicked: updateItem(index)
+                        onClicked: {
+                            if (selectedItem != index)
+                                updateItem(index)
+                        }
 						hoverEnabled: true
                     }
                 }
