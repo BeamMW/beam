@@ -102,28 +102,25 @@ int main (int argc, char* argv[])
         }
         catch (const po::error& e)
         {
-            cout << e.what() << std::endl;
-            cout << options << std::endl;
-
+            QMessageBox msgBox;
+            msgBox.setText(e.what());
+            msgBox.exec();
             return -1;
-        }
-
-        if (vm.count(cli::HELP))
-        {
-            cout << options << std::endl;
-
-            return 0;
         }
 
         if (vm.count(cli::VERSION))
         {
-            cout << PROJECT_VERSION << endl;
+            QMessageBox msgBox;
+            msgBox.setText(PROJECT_VERSION.c_str());
+            msgBox.exec();
             return 0;
         }
 
         if (vm.count(cli::GIT_COMMIT_HASH))
         {
-            cout << GIT_COMMIT_HASH << endl;
+            QMessageBox msgBox;
+            msgBox.setText(GIT_COMMIT_HASH.c_str());
+            msgBox.exec();
             return 0;
         }
 
@@ -193,7 +190,9 @@ int main (int argc, char* argv[])
     }
     catch (const std::exception& e)
     {
-        std::cout << e.what() << std::endl;
+        QMessageBox msgBox;
+        msgBox.setText(e.what());
+        msgBox.exec();
         return -1;
     }
 }
