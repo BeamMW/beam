@@ -320,7 +320,7 @@ namespace beam
 			{
 				if (pOut)
 				{
-					int n = pInp->cmp_CaM(*pOut);
+					int n = CmpInOut(*pInp, *pOut);
 					if (n > 0)
 						pInp = NULL;
 					else

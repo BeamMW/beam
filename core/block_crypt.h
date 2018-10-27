@@ -285,6 +285,7 @@ namespace beam
 	struct TxBase
 	{
 		class Context;
+		static int CmpInOut(const Input&, const Output&);
 
 		struct IReader
 		{

@@ -100,6 +100,17 @@ namespace beam
 				if (pPrev && (*pPrev > *r.m_pUtxoIn))
 					return false;
 
+				// make sure no redundant outputs
+				for (; r.m_pUtxoOut; r.NextUtxoOut())
+				{
+					int n = CmpInOut(*r.m_pUtxoIn, *r.m_pUtxoOut);
+					if (n < 0)
+						break;
+
+					if (!n)
+						return false; // duplicate!
+				}
+
 				if (!pt.Import(r.m_pUtxoIn->m_Commitment))
 					return false;
 

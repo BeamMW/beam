@@ -456,6 +456,20 @@ namespace beam
 				v.push_back(std::move(vSrc[i]));
 	}
 
+	int TxBase::CmpInOut(const Input& in, const Output& out)
+	{
+		if (in.m_Maturity)
+			return in.cmp_CaM(out);
+
+		// if maturity isn't overridden (as in standard txs/blocks) - we consider the commitment and the coinbase flag.
+		// In such a case the maturity parameters (such as explicit incubation) - are ignored. There's just no way to prevent the in/out elimination.
+		int n = in.m_Commitment.cmp(out.m_Commitment);
+		if (n)
+			return n;
+
+		return out.m_Coinbase ? 1 : 0;
+	}
+
 	size_t TxVectors::DeleteIntermediateOutputs()
 	{
 		size_t nDel = 0;
@@ -469,7 +483,7 @@ namespace beam
 			{
 				Output::Ptr& pOut = m_vOutputs[i1];
 
-				int n = pInp->cmp_CaM(*pOut);
+				int n = TxBase::CmpInOut(*pInp, *pOut);
 				if (n <= 0)
 				{
 					if (!n)
