@@ -1185,8 +1185,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, bool bI
 		if (!bRes)
 			return false;
 
-		res.Sort(); // can sort only after the changes are undone.
-		res.DeleteIntermediateOutputs();
+		res.Normalize(); // can sort only after the changes are undone.
 	}
 
 	Serializer ser;

@@ -435,15 +435,6 @@ namespace beam
 
 	/////////////
 	// Transaction
-
-	void TxVectors::Sort()
-	{
-		std::sort(m_vInputs.begin(), m_vInputs.end());
-		std::sort(m_vOutputs.begin(), m_vOutputs.end());
-		std::sort(m_vKernelsInput.begin(), m_vKernelsInput.end());
-		std::sort(m_vKernelsOutput.begin(), m_vKernelsOutput.end());
-	}
-
 	template <class T>
 	void RebuildVectorWithoutNulls(std::vector<T>& v, size_t nDel)
 	{
@@ -470,8 +461,13 @@ namespace beam
 		return out.m_Coinbase ? 1 : 0;
 	}
 
-	size_t TxVectors::DeleteIntermediateOutputs()
+	size_t TxVectors::Normalize()
 	{
+		std::sort(m_vInputs.begin(), m_vInputs.end());
+		std::sort(m_vOutputs.begin(), m_vOutputs.end());
+		std::sort(m_vKernelsInput.begin(), m_vKernelsInput.end());
+		std::sort(m_vKernelsOutput.begin(), m_vKernelsOutput.end());
+
 		size_t nDel = 0;
 
 		size_t i1 = m_vOutputs.size();

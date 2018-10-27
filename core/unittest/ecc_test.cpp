@@ -819,7 +819,7 @@ void TestTransaction()
 	tm.AddInput(1, 740);
 	tm.CreateTxKernel(tm.m_Trans.m_vKernelsOutput, fee2, lstNested);
 
-	tm.m_Trans.Sort();
+	tm.m_Trans.Normalize();
 
 	beam::TxBase::Context ctx;
 	verify_test(tm.m_Trans.IsValid(ctx));
@@ -871,7 +871,7 @@ void TestTransactionKernelConsuming()
 	}
 
 	t.m_Offset = kOffs;
-	t.Sort();
+	t.Normalize();
 
 	beam::TxBase::Context ctx;
 	verify_test(t.IsValid(ctx));

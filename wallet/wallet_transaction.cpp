@@ -547,7 +547,7 @@ namespace beam { namespace wallet
         transaction->m_Offset = m_Offset;
         transaction->m_vInputs = move(m_Inputs);
         transaction->m_vOutputs = move(m_Outputs);
-        transaction->Sort();
+        transaction->Normalize();
 
         // Verify final transaction
         TxBase::Context ctx;

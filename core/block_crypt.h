@@ -332,8 +332,7 @@ namespace beam
 		std::vector<TxKernel::Ptr> m_vKernelsInput;
 		std::vector<TxKernel::Ptr> m_vKernelsOutput;
 
-		void Sort(); // w.r.t. the standard
-		size_t DeleteIntermediateOutputs(); // assumed to be already sorted. Retruns the num deleted
+		size_t Normalize(); // w.r.t. the standard, delete spent outputs. Retruns the num deleted
 
 		void TestNoNulls() const; // valid object should not have NULL members. Should be used during (de)serialization
 

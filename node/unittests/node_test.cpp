@@ -576,7 +576,7 @@ namespace beam
 			kOffset += k;
 			pTx->m_Offset = kOffset;
 
-			pTx->Sort();
+			pTx->Normalize();
 			Transaction::Context ctx;
 			bool isTxValid = pTx->IsValid(ctx);
 			verify_test(isTxValid);
@@ -1259,7 +1259,7 @@ namespace beam
 		}
 
 		treasury.m_Offset = offset;
-		treasury.Sort();
+		treasury.Normalize();
 
 		node.Initialize();
 

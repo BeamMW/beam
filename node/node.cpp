@@ -1932,7 +1932,7 @@ void Node::AddDummyInputs(Transaction& tx)
 	if (bModified)
 	{
 		txScope.Commit();
-		tx.Sort();
+		tx.Normalize();
 	}
 }
 
@@ -1977,7 +1977,7 @@ void Node::AddDummyOutputs(Transaction& tx)
 	if (bModified)
 	{
 		txScope.Commit();
-		tx.Sort();
+		tx.Normalize();
 	}
 }
 
