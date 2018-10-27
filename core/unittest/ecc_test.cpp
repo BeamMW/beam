@@ -205,11 +205,11 @@ void TestPoints()
 	Point p_, p2_;
 
 	p_.m_X = Zero; // should be zero-point
-	p_.m_Y = true;
+	p_.m_Y = 1;
 	verify_test(!p0.Import(p_));
 	verify_test(p0 == Zero);
 
-	p_.m_Y = false;
+	p_.m_Y = 0;
 	verify_test(p0.Import(p_));
 	verify_test(p0 == Zero);
 
@@ -219,7 +219,7 @@ void TestPoints()
 	for (int i = 0; i < 1000; i++)
 	{
 		SetRandom(p_.m_X);
-		p_.m_Y = 0 != (1 & i);
+		p_.m_Y = (1 & i);
 
 		while (!p0.Import(p_))
 		{
@@ -1238,7 +1238,7 @@ void RunBenchmark()
 	Point::Native p0, p1;
 
 	Point p_;
-	p_.m_Y = false;
+	p_.m_Y = 0;
 
 	SetRandom(p_.m_X);
 	while (!p0.Import(p_))
@@ -1367,7 +1367,7 @@ void RunBenchmark()
 
 		Point p2;
 		p2.m_X = Zero;
-		p2.m_Y = false;
+		p2.m_Y = 0;
 
 		while (!p0.Import(p2))
 			p2.m_X.Inc();

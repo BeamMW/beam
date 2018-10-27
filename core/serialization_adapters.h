@@ -97,7 +97,7 @@ namespace detail
 		static const uint32_t N_Max = (N + 7) & ~7;
 		uint8_t m_pF[N_Max >> 3];
 
-		void get(uint32_t i, bool& b) const
+		void get(uint32_t i, uint8_t& b) const
 		{
 			assert(i < N_Max);
 			uint8_t x = m_pF[i >> 3];
@@ -105,7 +105,7 @@ namespace detail
 
 			b = (0 != (x & msk));
 		}
-		void set(uint32_t i, bool b)
+		void set(uint32_t i, uint8_t b)
 		{
 			// assume flags are zero-initialized
 			if (b)
@@ -114,8 +114,7 @@ namespace detail
 				uint8_t& x = m_pF[i >> 3];
 				uint8_t msk = 1 << (i & 7);
 
-				if (b)
-					x |= msk;
+				x |= msk;
 			}
 		}
 
@@ -410,7 +409,7 @@ namespace detail
 				& nFlags
 				& input.m_Commitment.m_X;
 
-			input.m_Commitment.m_Y = 0 != (1 & nFlags);
+			input.m_Commitment.m_Y = (1 & nFlags);
 
 			if (0x2 & nFlags)
 				ar & input.m_Maturity;
@@ -457,7 +456,7 @@ namespace detail
 				& nFlags
 				& output.m_Commitment.m_X;
 
-			output.m_Commitment.m_Y = 0 != (1 & nFlags);
+			output.m_Commitment.m_Y = (1 & nFlags);
 			output.m_Coinbase = 0 != (2 & nFlags);
 
 			if (4 & nFlags)

@@ -597,7 +597,7 @@ UtxoTree::Key::Data& UtxoTree::Key::Data::operator = (const Key& key)
 	memcpy(m_Commitment.m_X.m_pData, key.m_pArr, m_Commitment.m_X.nBytes);
 	const uint8_t* pKey = key.m_pArr + m_Commitment.m_X.nBytes;
 
-	m_Commitment.m_Y	= (1 & (pKey[0] >> 7)) != 0;
+	m_Commitment.m_Y = 1 & (pKey[0] >> 7);
 
 	m_Maturity = 0;
 	for (size_t i = 0; i < sizeof(m_Maturity); i++, pKey++)

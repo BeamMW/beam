@@ -21,7 +21,7 @@ int main()
     {
         ECC::Point in;
         in.m_X.m_pData[0] = 123;
-        in.m_Y = true;
+        in.m_Y = 1;
 
         beam::Serializer ser;
         ser & in;

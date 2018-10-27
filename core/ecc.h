@@ -119,7 +119,7 @@ namespace ECC
 		static const uintBig s_FieldOrder; // The field order, it's different from the group order (a little bigger).
 
 		uintBig	m_X; // valid range is [0 .. s_FieldOrder)
-		bool	m_Y; // Flag for Y. Currently specifies if it's odd
+		uint8_t m_Y; // Flag for Y. Currently specifies if it's odd
 
 		Point() {}
 

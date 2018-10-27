@@ -375,12 +375,15 @@ namespace ECC {
 
 	bool Point::Native::ImportNnz(const Point& v)
 	{
+		if (v.m_Y > 1)
+			return false; // should always be well-formed
+
 		NoLeak<secp256k1_fe> nx;
 		if (!secp256k1_fe_set_b32(&nx.V, v.m_X.m_pData))
 			return false;
 
 		NoLeak<secp256k1_ge> ge;
-		if (!secp256k1_ge_set_xo_var(&ge.V, &nx.V, false != v.m_Y))
+		if (!secp256k1_ge_set_xo_var(&ge.V, &nx.V, v.m_Y))
 			return false;
 
 		secp256k1_gej_set_ge(this, &ge.V);
@@ -401,8 +404,7 @@ namespace ECC {
 	{
 		if (*this == Zero)
 		{
-			v.m_X = Zero;
-			v.m_Y = false;
+			ZeroObject(v);
 			return false;
 		}
 
@@ -515,7 +517,7 @@ namespace ECC {
 		void CreatePointNnz(Point::Native& out, Oracle& oracle, Hash::Processor* phpRes)
 		{
 			Point pt;
-			pt.m_Y = false;
+			pt.m_Y = 0;
 
 			do
 				oracle >> pt.m_X;
