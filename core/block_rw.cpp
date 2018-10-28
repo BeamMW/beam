@@ -524,7 +524,7 @@ namespace beam
 
 	void KeyString::XCrypt(MacValue& mv, uint32_t nSize, bool bEnc) const
 	{
-		static_assert(AES::s_KeyBytes == m_hvSecret.V.nBytes, "");
+		static_assert(AES::s_KeyBytes == sizeof(m_hvSecret.V), "");
 		AES::Encoder enc;
 		enc.Init(m_hvSecret.V.m_pData);
 

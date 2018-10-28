@@ -1233,7 +1233,8 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, bool bI
 	if (!nSizeEstimated)
 		return false;
 
-	size_t nCutThrough = res.Normalize(); // can sort only after the changes are undone.
+	size_t nCutThrough = res.Normalize();
+	nCutThrough; // remove "unused var" warning
 
 	Serializer ser;
 
