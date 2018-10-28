@@ -116,6 +116,22 @@ namespace beam
 		int cmp_CaM(const CommitmentAndMaturity&) const;
 		int cmp(const CommitmentAndMaturity&) const;
 		COMPARISON_VIA_CMP
+
+        class SerializeMaturity {
+            bool m_Prev;
+        public:
+			static thread_local bool s_On;
+
+			SerializeMaturity(bool b)
+                :m_Prev(s_On)
+            {
+				s_On = b;
+            }
+            ~SerializeMaturity()
+            {
+				s_On = m_Prev;
+            }
+        };
 	};
 
 	struct Rules
@@ -157,21 +173,6 @@ namespace beam
 		typedef uint32_t Count; // the type for count of duplicate UTXOs in the system
 
 		static thread_local bool s_bAutoMaturity;
-
-		class SetAutoMaturity {
-			bool m_Prev;
-		public:
-			SetAutoMaturity(bool b)
-				:m_Prev(s_bAutoMaturity)
-			{
-				s_bAutoMaturity = b;
-			}
-			~SetAutoMaturity()
-			{
-				s_bAutoMaturity = m_Prev;
-			}
-		};
-
 
 		struct State
 		{
@@ -349,7 +350,7 @@ namespace beam
 		std::vector<TxKernel::Ptr> m_vKernelsInput;
 		std::vector<TxKernel::Ptr> m_vKernelsOutput;
 
-		size_t Normalize(); // w.r.t. the standard, delete spent outputs. Retruns the num deleted
+		size_t Normalize(); // w.r.t. the standard, delete spent outputs. Returns the num deleted
 
 		class Reader :public TxBase::IReader {
 			size_t m_pIdx[4];

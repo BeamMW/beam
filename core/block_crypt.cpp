@@ -100,6 +100,8 @@ namespace beam
 
 	/////////////
 	// Input
+	thread_local bool CommitmentAndMaturity::SerializeMaturity::s_On = false;
+
 	int CommitmentAndMaturity::cmp_CaM(const CommitmentAndMaturity& v) const
 	{
 		CMP_MEMBER_EX(m_Commitment)
@@ -111,8 +113,6 @@ namespace beam
 	{
 		return cmp_CaM(v);
 	}
-
-	thread_local bool Input::s_bAutoMaturity = false;
 
 	int Input::cmp(const Input& v) const
 	{

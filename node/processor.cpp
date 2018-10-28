@@ -1214,8 +1214,6 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, bool bI
 	if (!bInitiallyEmpty && !VerifyBlock(res, res.get_Reader(), h))
 		return false;
 
-	Input::SetAutoMaturity scope(true);
-
 	size_t nSizeEstimated;
 
 	{

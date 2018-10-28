@@ -387,7 +387,7 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Input& input)
         {
-			bool bMaturity = input.m_Maturity && !beam::Input::s_bAutoMaturity;
+			bool bMaturity = input.m_Maturity && beam::CommitmentAndMaturity::SerializeMaturity::s_On;
 
 			uint8_t nFlags =
 				(input.m_Commitment.m_Y ? 1 : 0) |
@@ -413,7 +413,7 @@ namespace detail
 
 			input.m_Commitment.m_Y = (1 & nFlags);
 
-			if (0x2 & nFlags)
+			if ((0x2 & nFlags) && beam::CommitmentAndMaturity::SerializeMaturity::s_On)
 				ar & input.m_Maturity;
 
             return ar;
@@ -423,13 +423,15 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Output& output)
         {
+			bool bMaturity = output.m_Maturity && beam::CommitmentAndMaturity::SerializeMaturity::s_On;
+
 			uint8_t nFlags =
 				(output.m_Commitment.m_Y ? 1 : 0) |
 				(output.m_Coinbase ? 2 : 0) |
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
 				(output.m_Incubation ? 0x10 : 0) |
-				(output.m_Maturity ? 0x20 : 0);
+				(bMaturity ? 0x20 : 0);
 
 			ar
 				& nFlags
@@ -444,7 +446,7 @@ namespace detail
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
 
-			if (output.m_Maturity)
+			if (bMaturity)
 				ar & output.m_Maturity;
 
             return ar;
@@ -476,7 +478,7 @@ namespace detail
 			if (0x10 & nFlags)
 				ar & output.m_Incubation;
 
-			if (0x20 & nFlags)
+			if ((0x20 & nFlags) && beam::CommitmentAndMaturity::SerializeMaturity::s_On)
 				ar & output.m_Maturity;
 
             return ar;

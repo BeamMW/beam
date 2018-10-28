@@ -246,6 +246,7 @@ namespace beam
 			//if (!ppGuard[0])
 				ppGuard[0].reset(new T);
 
+			CommitmentAndMaturity::SerializeMaturity scope(true);
 			yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
 			arc & *ppGuard[0];
 
@@ -262,6 +263,7 @@ namespace beam
 		if (!s.IsOpen() && !OpenInternal(iData))
 			std::ThrowIoError();
 
+		CommitmentAndMaturity::SerializeMaturity scope(true);
 		yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
 		arc & v;
 	}
