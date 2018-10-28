@@ -625,14 +625,40 @@ namespace detail
             return ar;
         }
 
+		template <typename Archive, typename TPtr>
+		static void save_VecPtr(Archive& ar, const std::vector<TPtr>& v)
+		{
+			uint32_t nSize = static_cast<uint32_t>(v.size());
+			ar & beam::uintBigFrom(nSize);
+
+			for (uint32_t i = 0; i < nSize; i++)
+				ar & *v[i];
+		}
+
+		template <typename Archive, typename TPtr>
+		static void load_VecPtr(Archive& ar, std::vector<TPtr>& v)
+		{
+			beam::uintBigFor<uint32_t>::Type x;
+			ar & x;
+			
+			uint32_t nSize;
+			x.Export(nSize);
+
+			v.resize(nSize);
+			for (uint32_t i = 0; i < nSize; i++)
+			{
+				v[i].reset(new TPtr::element_type);
+				ar & *v[i];
+			}
+		}
+
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::TxVectors& txv)
         {
-			ar
-				& txv.m_vInputs
-				& txv.m_vOutputs
-				& txv.m_vKernelsInput
-				& txv.m_vKernelsOutput;
+			save_VecPtr(ar, txv.m_vInputs);
+			save_VecPtr(ar, txv.m_vOutputs);
+			save_VecPtr(ar, txv.m_vKernelsInput);
+			save_VecPtr(ar, txv.m_vKernelsOutput);
 
             return ar;
         }
@@ -640,13 +666,10 @@ namespace detail
         template<typename Archive>
         static Archive& load(Archive& ar, beam::TxVectors& txv)
         {
-			ar
-				& txv.m_vInputs
-				& txv.m_vOutputs
-				& txv.m_vKernelsInput
-				& txv.m_vKernelsOutput;
-
-			txv.TestNoNulls();
+			load_VecPtr(ar, txv.m_vInputs);
+			load_VecPtr(ar, txv.m_vOutputs);
+			load_VecPtr(ar, txv.m_vKernelsInput);
+			load_VecPtr(ar, txv.m_vKernelsOutput);
 
             return ar;
         }
