@@ -651,7 +651,7 @@ namespace detail
 			v.resize(nSize);
 			for (uint32_t i = 0; i < nSize; i++)
 			{
-				v[i].reset(new TPtr::element_type);
+				v[i].reset(new typename TPtr::element_type);
 				ar & *v[i];
 			}
 		}
