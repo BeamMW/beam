@@ -181,6 +181,7 @@ namespace ECC
 			Regular		= 3,
 			Identity	= 4,
 			Nonce		= 5,
+			ChildKey	= 6,
 		};
 
 		struct ID

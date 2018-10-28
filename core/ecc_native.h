@@ -472,6 +472,18 @@ namespace ECC
 		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
 		// IKdf
 		virtual void DeriveKey(Scalar::Native&, const Hash::Value&) override;
+
+#pragma pack (push, 1)
+		struct Packed
+		{
+			uintBig m_Secret;
+			Scalar m_kCoFactor;
+		};
+		static_assert(sizeof(Packed) == uintBig::nBytes * 2, "");
+#pragma pack (pop)
+
+		void Export(Packed&) const;
+		bool Import(const Packed&);
 	};
 
 	struct HKdfPub
@@ -482,6 +494,18 @@ namespace ECC
 		// IPKdf
 		virtual void DerivePKey(Point::Native&, const Hash::Value&) override;
 		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
+
+#pragma pack (push, 1)
+		struct Packed
+		{
+			uintBig m_Secret;
+			Point m_Pk;
+		};
+		static_assert(sizeof(Packed) == uintBig::nBytes * 2 + 1, "");
+#pragma pack (pop)
+
+		void Export(Packed&) const;
+		bool Import(const Packed&);
 	};
 
 	struct Context
