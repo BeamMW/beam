@@ -112,6 +112,8 @@ namespace beam
 		return cmp_CaM(v);
 	}
 
+	thread_local bool Input::s_bAutoMaturity = false;
+
 	int Input::cmp(const Input& v) const
 	{
 		return cmp_CaM(v);

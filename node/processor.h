@@ -26,6 +26,8 @@ class NodeProcessor
 	UtxoTree m_Utxos;
 	RadixHashOnlyTree m_Kernels;
 
+	size_t m_nSizeUtxoComission;
+
 	void TryGoUp();
 
 	bool GoForward(uint64_t);
@@ -212,7 +214,7 @@ public:
 	};
 
 private:
-	bool GenerateNewBlock(BlockContext&, Block::Body&, Height);
+	size_t GenerateNewBlock(BlockContext&, Block::Body&, Height);
 	bool GenerateNewBlock(BlockContext&, Block::Body&, bool bInitiallyEmpty);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&);
 };

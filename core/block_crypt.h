@@ -156,6 +156,23 @@ namespace beam
 		typedef std::unique_ptr<Input> Ptr;
 		typedef uint32_t Count; // the type for count of duplicate UTXOs in the system
 
+		static thread_local bool s_bAutoMaturity;
+
+		class SetAutoMaturity {
+			bool m_Prev;
+		public:
+			SetAutoMaturity(bool b)
+				:m_Prev(s_bAutoMaturity)
+			{
+				s_bAutoMaturity = b;
+			}
+			~SetAutoMaturity()
+			{
+				s_bAutoMaturity = m_Prev;
+			}
+		};
+
+
 		struct State
 		{
 			Height m_Maturity;

@@ -51,6 +51,7 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 			throw std::runtime_error(os.str());
 		}
 
+	m_nSizeUtxoComission = 0;
 	ZeroObject(m_Extra);
 	m_Extra.m_SubsidyOpen = true;
 
@@ -572,6 +573,9 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 
 		if (bAdjustInputMaturity)
 		{
+			if (v.m_Maturity)
+				return false; // not allowed
+
 			d.m_Maturity = 0;
 			kMin = d;
 			d.m_Maturity = pHMax ? *pHMax : h;
@@ -1027,32 +1031,108 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 		ValidateTxContextKernels(tx.m_vKernelsInput, false);
 }
 
-bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height h)
+size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height h)
 {
+	// Generate the block up to the allowed size.
+	// All block elements are serialized independently, their binary size can just be added to the size of the "empty" block.
+
+	res.m_Subsidy += Rules::get().CoinbaseEmission;
+	if (!m_Extra.m_SubsidyOpen)
+		res.m_SubsidyClosing = false;
+
+	ECC::Scalar::Native sk, offset = res.m_Offset;
+
+	// Add mandatory elements: coinbase UTXO and kernel
+	{
+		Output::Ptr pOutp(new Output);
+		pOutp->m_Coinbase = true;
+		pOutp->Create(sk, bc.m_Kdf, Key::IDV(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase));
+
+		if (!HandleBlockElement(*pOutp, h, NULL, true))
+			return 0;
+
+		res.m_vOutputs.push_back(std::move(pOutp));
+
+		sk = -sk;
+		offset += sk;
+
+		bc.m_Kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel, uint64_t(-1LL)));
+
+		TxKernel::Ptr pKrn(new TxKernel);
+		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * sk);
+		pKrn->m_Height.m_Min = h; // make it similar to others
+
+		ECC::Hash::Value hv;
+		pKrn->get_Hash(hv);
+		pKrn->m_Signature.Sign(hv, sk);
+
+		if (!HandleBlockElement(*pKrn, true, false))
+			return 0; // Will fail if kernel key duplicated!
+
+		res.m_vKernelsOutput.push_back(std::move(pKrn));
+
+		sk = -sk;
+		offset += sk;
+	}
+
+	SerializerSizeCounter ssc;
+	ssc & res;
+
+	const size_t nSizeMax = Rules::get().MaxBodySize;
+	if (ssc.m_Counter.m_Value > nSizeMax)
+	{
+		// the block may be non-empty (i.e. contain treasury)
+		LOG_WARNING() << "Block too large.";
+		return 0; //
+	}
+
+	 // estimate the size of the fees UTXO
+	if (!m_nSizeUtxoComission)
+	{
+		Output outp;
+		outp.m_pConfidential.reset(new ECC::RangeProof::Confidential);
+		ZeroObject(*outp.m_pConfidential);
+
+		SerializerSizeCounter ssc2;
+		ssc2 & outp;
+		m_nSizeUtxoComission = ssc2.m_Counter.m_Value;
+	}
+
 	bc.m_Fees = 0;
-	size_t nBlockSize = 0;
-	size_t nAmount = 0;
-
-	// due to (potential) inaccuracy in the block size estimation, our rough estimate - take no more than 95% of allowed block size, minus potential UTXOs to consume fees and coinbase.
-	const size_t nRoughExtra = sizeof(ECC::Point) * 2 + sizeof(ECC::RangeProof::Confidential) + sizeof(ECC::RangeProof::Public) + 300;
-	const size_t nSizeThreshold = Rules::get().MaxBodySize * 95 / 100 - nRoughExtra;
-
-	ECC::Scalar::Native offset = res.m_Offset;
+	size_t nTxNum = 0;
 
 	for (TxPool::Fluff::ProfitSet::iterator it = bc.m_TxPool.m_setProfit.begin(); bc.m_TxPool.m_setProfit.end() != it; )
 	{
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
 
-		if (x.m_Profit.m_nSize > nSizeThreshold)
+		if (x.m_Profit.m_Fee.Hi)
 		{
-			LOG_INFO() << "Tx is very big. It's deleted.";
+			// huge fees are unsupported
 			bc.m_TxPool.Delete(x);
 			continue;
 		}
 
-		if (nBlockSize + x.m_Profit.m_nSize > nSizeThreshold)
+		Amount feesNext = bc.m_Fees + x.m_Profit.m_Fee.Lo;
+		if (feesNext < bc.m_Fees)
+			continue; // huge fees are unsupported
+
+		size_t nSizeNext = ssc.m_Counter.m_Value + x.m_Profit.m_nSize;
+		if (!bc.m_Fees && feesNext)
+			nSizeNext += m_nSizeUtxoComission;
+
+		if (nSizeNext > nSizeMax)
+		{
+			if (res.m_vInputs.empty() &&
+				res.m_vKernelsInput.empty() &&
+				(res.m_vOutputs.size() == 1) &&
+				(res.m_vKernelsOutput.size() == 1))
+			{
+				// won't fit in empty block
+				LOG_INFO() << "Tx is too big.";
+				bc.m_TxPool.Delete(x);
+			}
 			continue;
-			//break;
+		}
 
 		Transaction& tx = *x.m_pValue;
 
@@ -1060,34 +1140,19 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height 
 		{
 			Block::Body::Writer(res).Dump(tx.get_Reader());
 
-			bc.m_Fees += x.m_Profit.m_Fee;
+			bc.m_Fees = feesNext;
+			ssc.m_Counter.m_Value = nSizeNext;
 			offset += ECC::Scalar::Native(tx.m_Offset);
-			nBlockSize += x.m_Profit.m_nSize;
-			++nAmount;
+			++nTxNum;
 		}
 		else
 			bc.m_TxPool.Delete(x); // isn't available in this context
 	}
 
-	LOG_INFO() << "GenerateNewBlock: size of block = " << nBlockSize << "; amount of tx = " << nAmount;
-
-	ECC::Scalar::Native kKernel;
-
-	{
-		Output::Ptr pOutp(new Output);
-		pOutp->m_Coinbase = true;
-		pOutp->Create(kKernel, bc.m_Kdf, Key::IDV(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase));
-
-		if (!HandleBlockElement(*pOutp, h, NULL, true))
-			return false;
-
-		res.m_vOutputs.push_back(std::move(pOutp));
-	}
+	LOG_INFO() << "GenerateNewBlock: size of block = " << ssc.m_Counter.m_Value << "; amount of tx = " << nTxNum;
 
 	if (bc.m_Fees)
 	{
-		ECC::Scalar::Native sk;
-
 		Output::Ptr pOutp(new Output);
 		pOutp->Create(sk, bc.m_Kdf, Key::IDV(bc.m_Fees, h, Key::Type::Comission));
 
@@ -1096,40 +1161,15 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height 
 
 		res.m_vOutputs.push_back(std::move(pOutp));
 
-		kKernel += sk;
+		sk = -sk;
+		offset += sk;
 	}
-
-	{
-		kKernel = -kKernel;
-
-		ECC::Scalar::Native k2;
-		ExtractOffset(kKernel, k2, h);
-
-		offset += k2;
-
-		TxKernel::Ptr pKrn(new TxKernel);
-		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * kKernel);
-
-		ECC::Hash::Value hv;
-		pKrn->get_Hash(hv);
-		pKrn->m_Signature.Sign(hv, kKernel);
-
-		if (!HandleBlockElement(*pKrn, true, false))
-			return false; // Will fail if kernel key duplicated!
-
-		res.m_vKernelsOutput.push_back(std::move(pKrn));
-	}
-
-	res.m_Subsidy += Rules::get().CoinbaseEmission;
 
 	// Finalize block construction.
 	if (m_Cursor.m_Sid.m_Row)
 		bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
 	else
 		ZeroObject(bc.m_Hdr.m_Prev);
-
-	if (!m_Extra.m_SubsidyOpen)
-		res.m_SubsidyClosing = false;
 
 	if (res.m_SubsidyClosing)
 		ToggleSubsidyOpened();
@@ -1151,7 +1191,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height 
 
 	res.m_Offset = offset;
 
-	return true;
+	return ssc.m_Counter.m_Value;
 }
 
 bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
@@ -1174,6 +1214,10 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, bool bI
 	if (!bInitiallyEmpty && !VerifyBlock(res, res.get_Reader(), h))
 		return false;
 
+	Input::SetAutoMaturity scope(true);
+
+	size_t nSizeEstimated;
+
 	{
 		NodeDB::Transaction t(m_DB);
 
@@ -1183,21 +1227,25 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, bool bI
 				return false;
 		}
 
-		bool bRes = GenerateNewBlock(bc, res, h);
+		nSizeEstimated = GenerateNewBlock(bc, res, h);
 
 		verify(HandleValidatedTx(res.get_Reader(), h, false, false)); // undo changes
-
-		if (!bRes)
-			return false;
-
-		res.Normalize(); // can sort only after the changes are undone.
 	}
+
+	if (!nSizeEstimated)
+		return false;
+
+	size_t nCutThrough = res.Normalize(); // can sort only after the changes are undone.
 
 	Serializer ser;
 
 	ser.reset();
 	ser & res;
 	ser.swap_buf(bc.m_Body);
+
+	assert(nCutThrough ?
+		(bc.m_Body.size() < nSizeEstimated) :
+		(bc.m_Body.size() == nSizeEstimated));
 
 	return bc.m_Body.size() <= Rules::get().MaxBodySize;
 }

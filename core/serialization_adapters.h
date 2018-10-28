@@ -387,15 +387,17 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Input& input)
         {
+			bool bMaturity = input.m_Maturity && !beam::Input::s_bAutoMaturity;
+
 			uint8_t nFlags =
 				(input.m_Commitment.m_Y ? 1 : 0) |
-				(input.m_Maturity ? 0x2 : 0);
+				(bMaturity ? 0x2 : 0);
 
 			ar
 				& nFlags
 				& input.m_Commitment.m_X;
 
-			if (input.m_Maturity)
+			if (bMaturity)
 				ar & input.m_Maturity;
 
             return ar;
