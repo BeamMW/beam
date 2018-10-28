@@ -15,7 +15,9 @@
 //#include <ctime>
 #include "block_crypt.h"
 #include "../utility/serialize.h"
+#include "../pow/impl/utilstrencodings.h"
 #include "../core/serialization_adapters.h"
+#include "aes.h"
 
 namespace beam
 {
@@ -445,5 +447,106 @@ namespace beam
 
 		return true;
 	}
+
+	/////////////
+	// KeyString
+	void KeyString::Export(const ECC::HKdf& v)
+	{
+		ECC::NoLeak<ECC::HKdf::Packed> p;
+		v.Export(p.V);
+		Export(&p.V, sizeof(p.V), 's');
+	}
+
+	void KeyString::Export(const ECC::HKdfPub& v)
+	{
+		ECC::NoLeak<ECC::HKdfPub::Packed> p;
+		v.Export(p.V);
+		Export(&p.V, sizeof(p.V), 'P');
+	}
+
+	void KeyString::Export(void* p, uint32_t nData, uint8_t nCode)
+	{
+		ByteBuffer bb;
+		bb.resize(sizeof(MacValue) + nData + 1 + m_sMeta.size());
+		MacValue& mv = reinterpret_cast<MacValue&>(bb.at(0));
+
+		bb[sizeof(MacValue)] = nCode;
+		memcpy(&bb.at(1) + sizeof(MacValue), p, nData);
+		memcpy(&bb.at(1) + sizeof(MacValue) + nData, m_sMeta.c_str(), m_sMeta.size());
+
+		XCrypt(mv, static_cast<uint32_t>(nData + 1 + m_sMeta.size()), true);
+
+		m_sRes = EncodeBase64(&bb.at(0), bb.size());
+	}
+
+	bool KeyString::Import(ECC::HKdf& v)
+	{
+		ECC::NoLeak<ECC::HKdf::Packed> p;
+		return
+			Import(&p.V, sizeof(p.V), 's') &&
+			v.Import(p.V);
+	}
+
+	bool KeyString::Import(ECC::HKdfPub& v)
+	{
+		ECC::NoLeak<ECC::HKdfPub::Packed> p;
+		return
+			Import(&p.V, sizeof(p.V), 'P') &&
+			v.Import(p.V);
+	}
+
+	bool KeyString::Import(void* p, uint32_t nData, uint8_t nCode)
+	{
+		bool bInvalid = false;
+		ByteBuffer bb = DecodeBase64(m_sRes.c_str(), &bInvalid);
+
+		if (bInvalid || (bb.size() < sizeof(MacValue) + 1 + nData))
+			return false;
+
+		MacValue& mv = reinterpret_cast<MacValue&>(bb.at(0));
+		MacValue mvOrg = mv;
+
+		XCrypt(mv, static_cast<uint32_t>(bb.size()) - sizeof(mv), false);
+
+		if ((mv != mvOrg) || (bb[sizeof(MacValue)] != nCode))
+			return false;
+
+		memcpy(p, &bb.at(1) + sizeof(MacValue), nData);
+
+		m_sMeta.resize(bb.size() - (sizeof(MacValue) + 1 + nData));
+		if (!m_sMeta.empty())
+			memcpy(&m_sMeta.front(), &bb.at(1) + sizeof(MacValue) + nData, m_sMeta.size());
+
+		return true;
+	}
+
+	void KeyString::XCrypt(MacValue& mv, uint32_t nSize, bool bEnc) const
+	{
+		static_assert(AES::s_KeyBytes == m_hvSecret.V.nBytes, "");
+		AES::Encoder enc;
+		enc.Init(m_hvSecret.V.m_pData);
+
+		AES::StreamCipher c;
+		ECC::NoLeak<ECC::Hash::Value> hvIV;
+		ECC::Hash::Processor() << m_hvSecret.V >> hvIV.V;
+
+		c.m_Counter = hvIV.V; // truncated
+		c.m_nBuf = 0;
+
+		ECC::Hash::Mac hmac;
+		hmac.Reset(m_hvSecret.V.m_pData, m_hvSecret.V.nBytes);
+
+		if (bEnc)
+			hmac.Write(reinterpret_cast<uint8_t*>(&mv + 1), nSize);
+
+		c.XCrypt(enc, reinterpret_cast<uint8_t*>(&mv + 1), nSize);
+
+		if (!bEnc)
+			hmac.Write(reinterpret_cast<uint8_t*>(&mv + 1), nSize);
+
+		hmac >> hvIV.V;
+		mv = hvIV.V;
+	}
+
 
 } // namespace beam

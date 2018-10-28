@@ -723,4 +723,22 @@ namespace beam
 		void ZeroInit();
 	};
 
+	struct KeyString
+	{
+		std::string m_sRes;
+		std::string m_sMeta;
+		ECC::NoLeak<Merkle::Hash> m_hvSecret;
+
+		void Export(const ECC::HKdf&);
+		void Export(const ECC::HKdfPub&);
+		bool Import(ECC::HKdf&);
+		bool Import(ECC::HKdfPub&);
+
+	private:
+		typedef uintBig_t<64> MacValue;
+		void XCrypt(MacValue&, uint32_t nSize, bool bEnc) const;
+
+		void Export(void*, uint32_t, uint8_t nCode);
+		bool Import(void*, uint32_t, uint8_t nCode);
+	};
 }
