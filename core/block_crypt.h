@@ -334,8 +334,6 @@ namespace beam
 
 		size_t Normalize(); // w.r.t. the standard, delete spent outputs. Retruns the num deleted
 
-		void TestNoNulls() const; // valid object should not have NULL members. Should be used during (de)serialization
-
 		class Reader :public TxBase::IReader {
 			size_t m_pIdx[4];
 		public:
