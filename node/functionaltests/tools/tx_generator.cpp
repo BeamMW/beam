@@ -94,7 +94,7 @@ bool TxGenerator::IsValid() const
 
 void TxGenerator::Sort()
 {
-	m_MsgTx.m_Transaction->Sort();
+	m_MsgTx.m_Transaction->Normalize();
 }
 
 void TxGenerator::SortInputs()

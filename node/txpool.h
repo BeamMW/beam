@@ -25,10 +25,9 @@ struct TxPool
 	struct Profit
 		:public boost::intrusive::set_base_hook<>
 	{
-		Amount m_Fee;
+		AmountBig m_Fee; // since a tx may include multiple kernels - theoretically fee may be huge (though highly unlikely)
 		uint32_t m_nSize;
 
-		void SetFee(const Transaction::Context&);
 		void SetSize(const Transaction&);
 
 		bool operator < (const Profit& t) const;

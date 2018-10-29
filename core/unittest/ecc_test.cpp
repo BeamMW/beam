@@ -819,7 +819,7 @@ void TestTransaction()
 	tm.AddInput(1, 740);
 	tm.CreateTxKernel(tm.m_Trans.m_vKernelsOutput, fee2, lstNested);
 
-	tm.m_Trans.Sort();
+	tm.m_Trans.Normalize();
 
 	beam::TxBase::Context ctx;
 	verify_test(tm.m_Trans.IsValid(ctx));
@@ -871,7 +871,7 @@ void TestTransactionKernelConsuming()
 	}
 
 	t.m_Offset = kOffs;
-	t.Sort();
+	t.Normalize();
 
 	beam::TxBase::Context ctx;
 	verify_test(t.IsValid(ctx));
@@ -954,6 +954,25 @@ void TestKdf()
 		pk0 += pk1;
 		verify_test(pk0 == Zero);
 	}
+
+	beam::KeyString ks1;
+	SetRandom(ks1.m_hvSecret.V);
+	ks1.m_sMeta = "hello, World!";
+
+	ks1.Export(skdf);
+	HKdf skdf2;
+	ks1.m_sMeta.clear();
+	verify_test(ks1.Import(skdf2));
+	verify_test((skdf2.m_Secret.V == skdf.m_Secret.V) && (skdf2.m_kCoFactor == skdf.m_kCoFactor));
+
+	ks1.Export(pkdf);
+	HKdfPub pkdf2;
+	verify_test(ks1.Import(pkdf2));
+	verify_test(pkdf2.m_Secret.V == pkdf.m_Secret.V);
+
+	pkdf2.m_Pk = -pkdf2.m_Pk;
+	pkdf2.m_Pk += pkdf.m_Pk;
+	verify_test(pkdf2.m_Pk == Zero);
 }
 
 void TestBbs()

@@ -1159,6 +1159,8 @@ namespace ECC {
 		GenerateNonce(sk_.V.m_Value, msg, pMsg2, nAttempt);
 	}
 
+	/////////////////////
+	// Key::ID
 	void Key::ID::get_Hash(Hash::Value& hv) const
 	{
 		Hash::Processor()
@@ -1214,6 +1216,8 @@ namespace ECC {
 		DeriveKey(out, hv);
 	}
 
+	/////////////////////
+	// HKdf
 	HKdf::HKdf()
 	{
 		ZeroObject(m_Secret.V);
@@ -1248,6 +1252,30 @@ namespace ECC {
 		Scalar::Native sk;
 		DerivePKey(sk, hv);
 		out = m_Pk * sk;
+	}
+
+	void HKdf::Export(Packed& v) const
+	{
+		v.m_Secret = m_Secret.V;
+		v.m_kCoFactor = m_kCoFactor;
+	}
+
+	bool HKdf::Import(const Packed& v)
+	{
+		m_Secret.V = v.m_Secret;
+		return !m_kCoFactor.Import(v.m_kCoFactor);
+	}
+
+	void HKdfPub::Export(Packed& v) const
+	{
+		v.m_Secret = m_Secret.V;
+		v.m_Pk = m_Pk;
+	}
+
+	bool HKdfPub::Import(const Packed& v)
+	{
+		m_Secret.V = v.m_Secret;
+		return m_Pk.ImportNnz(v.m_Pk);
 	}
 
 	/////////////////////

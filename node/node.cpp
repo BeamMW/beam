@@ -1758,7 +1758,7 @@ bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 		std::unique_ptr<TxPool::Stem::Element> pGuard(new TxPool::Stem::Element);
 		pGuard->m_bAggregating = false;
 		pGuard->m_Time.m_Value = 0;
-		pGuard->m_Profit.SetFee(ctx);
+		pGuard->m_Profit.m_Fee = ctx.m_Fee;
 		pGuard->m_Profit.SetSize(*ptx);
 		pGuard->m_pValue.swap(ptx);
 
@@ -1935,7 +1935,7 @@ void Node::AddDummyInputs(Transaction& tx)
 	if (bModified)
 	{
 		txScope.Commit();
-		tx.Sort();
+		tx.Normalize();
 	}
 }
 
@@ -1980,7 +1980,7 @@ void Node::AddDummyOutputs(Transaction& tx)
 	if (bModified)
 	{
 		txScope.Commit();
-		tx.Sort();
+		tx.Normalize();
 	}
 }
 
@@ -1992,7 +1992,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 	Transaction::Context ctx;
 	if (pElem)
 	{
-		ctx.m_Fee.Lo = pElem->m_Profit.m_Fee;
+		ctx.m_Fee = pElem->m_Profit.m_Fee;
 		m_Dandelion.Delete(*pElem);
 	}
 	else
