@@ -130,10 +130,7 @@ int main (int argc, char* argv[])
         }
 
         int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
-        int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
-#if LOG_VERBOSE_ENABLED
-        logLevel = LOG_LEVEL_VERBOSE;
-#endif
+        int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
         auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_",
 			appDataDir.filePath(WalletSettings::LogsFolder).toStdString());

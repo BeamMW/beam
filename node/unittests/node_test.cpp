@@ -22,7 +22,9 @@
 #include "../../utility/test_helpers.h"
 #include "../../core/serialization_adapters.h"
 
-#define LOG_VERBOSE_ENABLED 0
+#ifndef LOG_VERBOSE_ENABLED
+    #define LOG_VERBOSE_ENABLED 0
+#endif
 #include "utility/logger.h"
 
 namespace ECC {
