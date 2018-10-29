@@ -92,9 +92,12 @@ if(BEAM_USE_STATIC)
     add_definitions(-DBEAM_USE_STATIC)
 endif()
 
-if(DEBUG_MESSAGES_IN_RELEASE_MODE)
+#it's enabled by default for testnet
+#if(DEBUG_MESSAGES_IN_RELEASE_MODE)
     add_definitions(-DDEBUG_MESSAGES_IN_RELEASE_MODE)
-endif()
+#endif()
+#it's enabled by default for testnet
+add_definitions(-DLOG_VERBOSE_ENABLED=1)
 
 if(SHOW_CODE_LOCATION)
     add_definitions(-DSHOW_CODE_LOCATION=1)

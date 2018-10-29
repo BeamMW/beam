@@ -57,7 +57,9 @@ namespace
     }
 }
 
-#define LOG_VERBOSE_ENABLED 0
+#ifndef LOG_VERBOSE_ENABLED
+    #define LOG_VERBOSE_ENABLED 0
+#endif
 
 io::Reactor::Ptr reactor;
 
@@ -102,11 +104,7 @@ int main_impl(int argc, char* argv[])
 		}
 
 		int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
-		int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
-
-#if LOG_VERBOSE_ENABLED
-		logLevel = LOG_LEVEL_VERBOSE;
-#endif
+		int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
 		const auto path = boost::filesystem::system_complete("./logs");
 		auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "node_", path.string());

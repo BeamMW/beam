@@ -165,9 +165,6 @@ int main(int argc, char* argv[])
 {
 	int logLevel = LOG_LEVEL_DEBUG;
 	int fileLogLevel = LOG_LEVEL_INFO;
-#if LOG_VERBOSE_ENABLED
-	logLevel = LOG_LEVEL_VERBOSE;
-#endif
 	auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "test_");
 
 	TestNodeConnection connection(argc, argv);

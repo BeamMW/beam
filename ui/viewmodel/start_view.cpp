@@ -173,6 +173,7 @@ void StartViewModel::setIsRecoveryMode(bool value)
     if (value != m_isRecoveryMode)
     {
         m_isRecoveryMode = value;
+        m_recoveryPhrases.clear();
         emit isRecoveryModeChanged();
     }
 }
