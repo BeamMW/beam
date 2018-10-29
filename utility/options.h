@@ -52,6 +52,8 @@ namespace beam
         extern const char* TREASURY_BLOCK;
 		extern const char* RESYNC;
 		extern const char* INIT;
+        extern const char* NEW_ADDRESS;
+        extern const char* NEW_ADDRESS_LABEL;
         extern const char* SEND;
         extern const char* INFO;
         extern const char* TX_HISTORY;

@@ -53,6 +53,8 @@ namespace beam
         const char* TREASURY_BLOCK = "treasury_path";
 		const char* RESYNC = "resync";
 		const char* INIT = "init";
+        const char* NEW_ADDRESS = "new_addr";
+        const char* NEW_ADDRESS_LABEL = "label";
         const char* SEND = "send";
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
@@ -126,11 +128,12 @@ namespace beam
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
             (cli::BBS_STORAGE, po::value<string>()->default_value("bbs_keys.db"), "path to file with bbs keys")
             (cli::TX_HISTORY, "print transacrions' history in info command")
+            (cli::NEW_ADDRESS_LABEL, po::value<string>()->default_value(""), "label for new own address")
 
             (cli::TR_COUNT, po::value<uint32_t>()->default_value(30), "treasury UTXO count")
             (cli::TR_DH, po::value<uint32_t>()->default_value(1440), "treasury UTXO height lock step")
             (cli::TR_BEAMS, po::value<uint32_t>()->default_value(10), "treasury value of each UTXO (in Beams)")
-            (cli::COMMAND, po::value<string>(), "command to execute [send|receive|listen|init|info|treasury]");
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|info|treasury]");
 
         po::options_description uioptions("UI options");
         uioptions.add_options()

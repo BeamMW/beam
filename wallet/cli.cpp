@@ -120,8 +120,30 @@ namespace
 
         return IKeyStore::create(options, pass.data(), pass.size());
     }
-}
 
+    void newAddress(
+        const IKeyChain::Ptr& keychain,
+        const std::string& label,
+        const std::string& bbsKeysPath, const SecString& pass)
+    {
+        IKeyStore::Ptr ks = createKeyStore(bbsKeysPath, pass);
+        WalletAddress address = {};
+        address.m_own = true;
+        address.m_label = label;
+        address.m_createTime = getTimestamp();
+        ks->gen_keypair(address.m_walletID);
+        ks->save_keypair(address.m_walletID, true);
+        keychain->saveAddress(address);
+
+        char buf[uintBig::nBytes * 2 + 1];
+        to_hex(buf, address.m_walletID.m_pData, uintBig::nBytes);
+
+        LOG_INFO() << "New address generated:\n\n" << buf << "\n";
+        if (!label.empty()) {
+            LOG_INFO() << "label = " << label;
+        }
+    }
+}
 
 io::Reactor::Ptr reactor;
 
@@ -210,7 +232,8 @@ int main_impl(int argc, char* argv[])
                             && command != cli::RECEIVE
                             && command != cli::LISTEN
                             && command != cli::TREASURY
-                            && command != cli::INFO)
+                            && command != cli::INFO
+                            && command != cli::NEW_ADDRESS)
                         {
                             LOG_ERROR() << "unknown command: \'" << command << "\'";
                             return -1;
@@ -249,16 +272,8 @@ int main_impl(int argc, char* argv[])
                             {
                                 LOG_INFO() << "wallet successfully created...";
 
-                                IKeyStore::Ptr ks = createKeyStore(bbsKeysPath, pass);
-
                                 // generate default address
-                                WalletAddress defaultAddress = {};
-                                defaultAddress.m_own = true;
-                                defaultAddress.m_label = "default";
-                                defaultAddress.m_createTime = getTimestamp();
-                                ks->gen_keypair(defaultAddress.m_walletID);
-                                ks->save_keypair(defaultAddress.m_walletID, true);
-                                keychain->saveAddress(defaultAddress);
+                                newAddress(keychain, "default", bbsKeysPath, pass);
 
                                 return 0;
                             }
@@ -274,6 +289,13 @@ int main_impl(int argc, char* argv[])
                         {
                             LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet";
                             return -1;
+                        }
+
+                        if (command == cli::NEW_ADDRESS)
+                        {
+                            auto label = vm[cli::NEW_ADDRESS_LABEL].as<string>();
+                            newAddress(keychain, label, bbsKeysPath, pass);
+                            return 0;
                         }
 
                         LOG_INFO() << "wallet sucessfully opened...";
