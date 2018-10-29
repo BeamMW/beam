@@ -231,7 +231,8 @@ int main_impl(int argc, char* argv[])
                             && command != cli::LISTEN
                             && command != cli::TREASURY
                             && command != cli::INFO
-                            && command != cli::NEW_ADDRESS)
+                            && command != cli::NEW_ADDRESS
+                            && command != cli::CANCEL_TX)
                         {
                             LOG_ERROR() << "unknown command: \'" << command << "\'";
                             return -1;
@@ -335,12 +336,12 @@ int main_impl(int argc, char* argv[])
                                 }
 
                                 cout << "TRANSACTIONS\n\n"
-                                    << "| datetime          | amount, BEAM    | status\t|\n";
+                                    << "| datetime            | amount, BEAM        | status    | ID\t|\n";
                                 for (auto& tx : txHistory)
                                 {
                                     cout << "  " << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false)
                                         << setw(17) << PrintableAmount(tx.m_amount, true)
-                                        << "  " << getTxStatus(tx) << '\n';
+                                        << "  " << getTxStatus(tx) << "  " << tx.m_txId << '\n';
                                 }
                                 return 0;
                             }
@@ -442,6 +443,13 @@ int main_impl(int argc, char* argv[])
                             auto addresses = keychain->getAddresses(true);
                             assert(!addresses.empty());
                             wallet.transfer_money(addresses[0].m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
+                        }
+
+                        if (command == cli::CANCEL_TX) {
+                            auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
+                            TxID txId;
+                            std::copy_n(txIdVec.begin(), 16, txId.begin());
+                            wallet.cancel_tx(txId);
                         }
 
                         wallet_io->start();

@@ -53,10 +53,12 @@ namespace beam
 		extern const char* RESYNC;
 		extern const char* INIT;
         extern const char* NEW_ADDRESS;
-        extern const char* NEW_ADDRESS_LABEL;
+        extern const char* CANCEL_TX;
         extern const char* SEND;
         extern const char* INFO;
+        extern const char* NEW_ADDRESS_LABEL;
         extern const char* TX_HISTORY;
+        extern const char* TX_ID;
         extern const char* WALLET_SEED;
         extern const char* WALLET_PHRASES;
         extern const char* FEE;

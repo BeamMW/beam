@@ -58,6 +58,8 @@ namespace beam
         const char* SEND = "send";
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
+        const char* CANCEL_TX = "cancel_tx";
+        const char* TX_ID = "tx_id";
         const char* WALLET_SEED = "wallet_seed";
         const char* WALLET_PHRASES = "wallet_phrases";
         const char* FEE = "fee";
@@ -128,6 +130,7 @@ namespace beam
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
             (cli::BBS_STORAGE, po::value<string>()->default_value("bbs_keys.db"), "path to file with bbs keys")
             (cli::TX_HISTORY, "print transacrions' history in info command")
+            (cli::TX_ID, po::value<string>()->default_value(""), "tx id")
             (cli::NEW_ADDRESS_LABEL, po::value<string>()->default_value(""), "label for new own address")
 
             (cli::TR_COUNT, po::value<uint32_t>()->default_value(30), "treasury UTXO count")
