@@ -893,10 +893,10 @@ void Node::Peer::OnConnectedSecure()
 	ProveID(m_This.m_MyPrivateID, proto::IDType::Node);
 
 	proto::Config msgCfg;
-	msgCfg.m_CfgChecksum = Rules::get().Checksum;
-	msgCfg.m_SpreadingTransactions = true;
-	msgCfg.m_Bbs = true;
-	msgCfg.m_SendPeers = true;
+	msgCfg.m_CfgChecksum = Rules::get().Checksum; // checksum of all consesnsus related configuration
+	msgCfg.m_SpreadingTransactions = true; // indicate ability to receive and broadcast transactions
+	msgCfg.m_Bbs = true; // indicate ability to receive and broadcast BBS messages
+	msgCfg.m_SendPeers = true; // request a another node to periodically send a list of recommended peers
 	Send(msgCfg);
 
 	if (m_This.m_Processor.m_Cursor.m_Sid.m_Row)
@@ -1793,14 +1793,17 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
 	{
 		auto thr = uintBigFrom(m_Cfg.m_Dandelion.m_FluffProbability);
 
+		// Compare two bytes of threshold with random nonce 
 		if (memcmp(thr.m_pData, NextNonce().m_pData, thr.nBytes) < 0)
 		{
 			// broadcast to random peer
 			assert(nStemPeers);
-			nStemPeers = RandomUInt32(nStemPeers);
+
+			// Choose random peer index between 0 and nStemPeers - 1 
+			nRandomPeerIdx = RandomUInt32(nStemPeers);
 
 			for (PeerList::iterator it = m_lstPeers.begin(); ; it++)
-				if (it->m_Config.m_SpreadingTransactions && !nStemPeers--)
+				if (it->m_Config.m_SpreadingTransactions && !nRandomPeerIdx--)
 				{
 					it->SendTxGuard(x.m_pValue, false);
 					break;
@@ -2148,6 +2151,7 @@ void Node::Peer::SendTxGuard(Transaction::Ptr& ptx, bool bFluff)
 
 		void Swap() { m_ppVal->swap(m_Msg.m_Transaction); }
 
+		// Swap back when Guard is destroyed to preserve transaction pointer when message is destroyed
 		~Guard() { Swap(); }
 	};
 
