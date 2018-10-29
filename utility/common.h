@@ -111,6 +111,25 @@ namespace beam
 
 		void Export(ByteBuffer&) const;
 	};
+
+	template <typename T>
+	struct TemporarySwap
+	{
+		T& m_var0;
+		T& m_var1;
+
+		TemporarySwap(T& v0, T& v1)
+			:m_var0(v0)
+			,m_var1(v1)
+		{
+			std::swap(m_var0, m_var1); // std::swap has specializations for many types that have internal swap(), such as unique_ptr, shared_ptr
+		}
+
+		~TemporarySwap()
+		{
+			std::swap(m_var0, m_var1);
+		}
+	};
 }
 
 namespace std

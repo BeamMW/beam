@@ -1802,7 +1802,7 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
 			for (PeerList::iterator it = m_lstPeers.begin(); ; it++)
 				if (it->m_Config.m_SpreadingTransactions && !nStemPeers--)
 				{
-					it->SendTxGuard(x.m_pValue, false);
+					it->SendTx(x.m_pValue, false);
 					break;
 				}
 
@@ -2135,28 +2135,17 @@ void Node::Peer::OnMsg(proto::GetTransaction&& msg)
 	if (m_This.m_TxPool.m_setTxs.end() == it)
 		return; // don't have it
 
-	SendTxGuard(it->get_ParentObj().m_pValue, true);
+	SendTx(it->get_ParentObj().m_pValue, true);
 }
 
-void Node::Peer::SendTxGuard(Transaction::Ptr& ptx, bool bFluff)
+void Node::Peer::SendTx(Transaction::Ptr& ptx, bool bFluff)
 {
-	// temporarily move the transaction to the Msg object, but make sure it'll be restored back, even in case of the exception.
-	struct Guard
-	{
-		proto::NewTransaction m_Msg;
-		Transaction::Ptr* m_ppVal;
+	proto::NewTransaction msg;
+	msg.m_Fluff = bFluff;
 
-		void Swap() { m_ppVal->swap(m_Msg.m_Transaction); }
+	TemporarySwap scope(msg.m_Transaction, ptx);
 
-		~Guard() { Swap(); }
-	};
-
-	Guard g;
-	g.m_ppVal = &ptx;
-	g.Swap();
-	g.m_Msg.m_Fluff = bFluff;
-
-	Send(g.m_Msg);
+	Send(msg);
 }
 
 void Node::Peer::OnMsg(proto::GetMined&& msg)
