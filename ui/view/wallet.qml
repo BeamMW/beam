@@ -1,4 +1,4 @@
-import QtQuick 2.6
+import QtQuick 2.11
 import QtQuick.Controls 1.2
 import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
@@ -263,6 +263,16 @@ Item {
             }
 
             SFText {
+                Layout.alignment: Qt.AlignLeft
+                Layout.minimumHeight: 16
+                Layout.topMargin: -24
+                font.pixelSize: 14
+                font.italic: true
+                color: Style.white
+                text: qsTr("The address will be valid for 24 hours")
+            }
+
+            SFText {
                 font.pixelSize: 14
                 Layout.minimumHeight: 16
                 font.styleName: "Bold"; font.weight: Font.Bold
@@ -290,7 +300,6 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.minimumHeight: 16
                 font.pixelSize: 14
-                font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
                 text: qsTr("Send this address to the sender over an external secure channel")
             }
@@ -302,25 +311,22 @@ Item {
                 spacing: 19
 
                 CustomButton {
-                    text: qsTr("cancel")
-                    height: 38
-                    width: 122
+                    text: qsTr("close")
                     palette.buttonText: Style.white
-                    onClicked: root.state = "wallet";
+                    icon.source: "qrc:/assets/icon-cancel-white.svg"
+                    onClicked: {
+                        // TODO: "Save" may be deleted in future, when we'll have editor for own addresses.
+                        viewModel.saveNewAddress();
+                        root.state = "wallet";
+                    }
                 }
 
                 CustomButton {
-                    text: qsTr("Copy && Close")
-                    height: 38
-                    width: 162
+                    text: qsTr("copy")
                     palette.buttonText: Style.white
                     icon.source: "qrc:/assets/icon-copy.svg"
-                    icon.width: 16
-                    icon.height: 16
                     onClicked: {
                         viewModel.copyToClipboard(myAddressID.text);
-                        viewModel.saveNewAddress();
-                        root.state = "wallet";
                     }
                 }
             }
@@ -695,20 +701,17 @@ Item {
                 spacing: 30
 
                 CustomButton {
-                    width: 122
                     text: qsTr("cancel")
-                    palette.buttonText: Style.white
                     icon.source: "qrc:/assets/icon-cancel.svg"
                     onClicked: root.state = "wallet"
                 }
 
                 CustomButton {
-                    width: 122
                     text: qsTr("send")
                     palette.buttonText: Style.marine
                     palette.button: Style.heliotrope
                     icon.source: "qrc:/assets/icon-send.svg"
-                    enabled: {viewModel.isEnoughMoney && amount_input.acceptableInput && receiverAddrInput.acceptableInput }
+                    enabled: {viewModel.isEnoughMoney && amount_input.amount > 0 && receiverAddrInput.acceptableInput }
                     onClicked: {
                         if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {
                             var message = "You are about to send %1 to address %2";
@@ -747,11 +750,7 @@ Item {
             CustomButton {
                 palette.button: Style.bright_sky_blue
                 palette.buttonText: Style.marine
-                height: 38
-                width: 122
                 icon.source: "qrc:/assets/icon-receive-blue.svg"
-                icon.height: 16
-                icon.width: 16
                 text: qsTr("receive")
 
                 onClicked: {
@@ -764,10 +763,6 @@ Item {
                 palette.button: Style.heliotrope
                 palette.buttonText: Style.marine
                 icon.source: "qrc:/assets/icon-send-blue.svg"
-                icon.height: 16
-                icon.width: 16
-                height: 38
-                width: 122
                 text: qsTr("send")
 
                 onClicked: root.state = "send"
@@ -1029,30 +1024,6 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                             source: "qrc:/assets/icon-comment.svg"
                             visible: styleData.value !== null && styleData.value !== ""
-                            ToolTip {
-                                id: comment_tooltip
-                                visible: mouseArea.containsMouse
-                                delay: 500
-                                timeout: 4000
-                                text: styleData.value
-
-                                contentItem: Text {
-                                    text: comment_tooltip.text
-                                    font: comment_tooltip.font
-                                    color: Style.white
-                                }
-
-                                background: Rectangle {
-                                    border.color: Style.white
-                                    opacity: 0
-                                }
-                            }
-                            MouseArea {
-                                id: mouseArea
-                                anchors.fill: parent
-                                acceptedButtons: Qt.NoButton
-                                hoverEnabled: true
-                            }
                         }
                     }
                 }
@@ -1081,7 +1052,7 @@ Item {
                             textFormat: Text.StyledText
                             font.styleName: "Light"; font.weight: Font.Thin
                             copyMenuEnabled: true
-                            onCopyText: viewModel.copyToClipboard((parent.income ? "+ " : "- ") + styleData.value)
+                            onCopyText: viewModel.copyToClipboard(styleData.value)
                         }
                     }
                 }
@@ -1241,12 +1212,11 @@ Item {
                             opacity: 0.1
                         }
                         RowLayout {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-
+                            anchors.fill: parent
                             GridLayout {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
+                                Layout.maximumWidth: transactionsView.width - 2 * Layout.margins
                                 Layout.margins: 30
                                 columns: 2
                                 columnSpacing: 44
@@ -1338,6 +1308,10 @@ Item {
                                         return "";
                                     }
                                     font.styleName: "Italic"
+                                    maximumLineCount: 2
+                                    Layout.fillWidth: true
+                                    wrapMode : Text.Wrap
+                                    elide: Text.ElideRight
                                     onCopyText: viewModel.copyToClipboard(text)
                                 }
                             }

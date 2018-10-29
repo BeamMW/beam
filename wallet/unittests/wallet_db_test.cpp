@@ -781,7 +781,7 @@ void TestTxParameters()
 
     ECC::Point p;
     p.m_X = unsigned(143521);
-    p.m_Y = false;
+    p.m_Y = 0;
     ECC::Point::Native pt, pt2;
     pt.Import(p);
     WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::PeerPublicNonce, pt));

@@ -116,6 +116,22 @@ namespace beam
 		int cmp_CaM(const CommitmentAndMaturity&) const;
 		int cmp(const CommitmentAndMaturity&) const;
 		COMPARISON_VIA_CMP
+
+        class SerializeMaturity {
+            bool m_Prev;
+        public:
+			static thread_local bool s_On;
+
+			SerializeMaturity(bool b)
+                :m_Prev(s_On)
+            {
+				s_On = b;
+            }
+            ~SerializeMaturity()
+            {
+				s_On = m_Prev;
+            }
+        };
 	};
 
 	struct Rules
@@ -137,7 +153,7 @@ namespace beam
 		uint32_t MaxDifficultyChange		= 2; // (x4, same as in bitcoin).
 		uint32_t TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
 		uint32_t WindowForMedian			= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
-		Difficulty StartDifficulty			= Difficulty(7 << Difficulty::s_MantissaBits); // fair start for a testnet
+		Difficulty StartDifficulty			= Difficulty(2 << Difficulty::s_MantissaBits); // FAST start, good for QA
 
 		bool AllowPublicUtxos = false;
 		bool FakePoW = false;
@@ -155,6 +171,8 @@ namespace beam
 	{
 		typedef std::unique_ptr<Input> Ptr;
 		typedef uint32_t Count; // the type for count of duplicate UTXOs in the system
+
+		static thread_local bool s_bAutoMaturity;
 
 		struct State
 		{
@@ -285,6 +303,7 @@ namespace beam
 	struct TxBase
 	{
 		class Context;
+		static int CmpInOut(const Input&, const Output&);
 
 		struct IReader
 		{
@@ -331,10 +350,7 @@ namespace beam
 		std::vector<TxKernel::Ptr> m_vKernelsInput;
 		std::vector<TxKernel::Ptr> m_vKernelsOutput;
 
-		void Sort(); // w.r.t. the standard
-		size_t DeleteIntermediateOutputs(); // assumed to be already sorted. Retruns the num deleted
-
-		void TestNoNulls() const; // valid object should not have NULL members. Should be used during (de)serialization
+		size_t Normalize(); // w.r.t. the standard, delete spent outputs. Returns the num deleted
 
 		class Reader :public TxBase::IReader {
 			size_t m_pIdx[4];
@@ -393,7 +409,7 @@ namespace beam
 			// equihash parameters. 
 			// Parameters recommended by BTG are 144/5, to make it asic-resistant (~1GB average, spikes about 1.5GB). On CPU solve time about 1 minutes
 			// The following are the parameters for testnet, to make it of similar size, and much faster solve time, to test concurrency and difficulty adjustment
-			static const uint32_t N = 120;
+			static const uint32_t N = 144;
 			static const uint32_t K = 5;
 
 			static const uint32_t nNumIndices		= 1 << K; // 32
@@ -723,4 +739,22 @@ namespace beam
 		void ZeroInit();
 	};
 
+	struct KeyString
+	{
+		std::string m_sRes;
+		std::string m_sMeta;
+		ECC::NoLeak<Merkle::Hash> m_hvSecret;
+
+		void Export(const ECC::HKdf&);
+		void Export(const ECC::HKdfPub&);
+		bool Import(ECC::HKdf&);
+		bool Import(ECC::HKdfPub&);
+
+	private:
+		typedef uintBig_t<64> MacValue;
+		void XCrypt(MacValue&, uint32_t nSize, bool bEnc) const;
+
+		void Export(void*, uint32_t, uint8_t nCode);
+		bool Import(void*, uint32_t, uint8_t nCode);
+	};
 }

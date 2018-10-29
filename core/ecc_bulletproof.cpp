@@ -131,9 +131,14 @@ namespace ECC {
 
 	struct InnerProduct::Calculator
 	{
+		struct XSet
+		{
+			Scalar::Native m_Val[nCycles];
+		};
+
 		struct ChallengeSet {
 			Scalar::Native m_DotMultiplier;
-			Scalar::Native m_Val[nCycles][2];
+			XSet m_pX[2];
 		};
 
 		struct ModifierExpanded
@@ -164,27 +169,26 @@ namespace ECC {
 			}
 		};
 
-		static void get_Challenge(Scalar::Native* pX, Oracle&);
-
 		struct Aggregator
 		{
 			MultiMac& m_Mm;
-			const ChallengeSet& m_cs;
+			const XSet* m_pX[2];
 			const ModifierExpanded& m_Mod;
 			const Calculator* m_pCalc; // set if source are already condensed points
 			InnerProduct::BatchContext* m_pBatchCtx;
 			const int m_j;
 			const unsigned int m_iCycleTrg;
 
-			Aggregator(MultiMac& mm, const ChallengeSet& cs, const ModifierExpanded& mod, int j, unsigned int iCycleTrg)
+			Aggregator(MultiMac& mm, const XSet* pX, const XSet* pXInv, const ModifierExpanded& mod, int j, unsigned int iCycleTrg)
 				:m_Mm(mm)
-				,m_cs(cs)
 				,m_Mod(mod)
 				,m_pCalc(NULL)
 				,m_pBatchCtx(NULL)
 				,m_j(j)
 				,m_iCycleTrg(iCycleTrg)				
 			{
+				m_pX[0] = pX;
+				m_pX[1] = pXInv;
 			}
 
 			void Proceed(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k);
@@ -211,12 +215,6 @@ namespace ECC {
 		void ExtractLR(int j);
 	};
 
-
-	void InnerProduct::Calculator::get_Challenge(Scalar::Native* pX, Oracle& oracle)
-	{
-		oracle.get_Reciprocal(pX[0], pX[1]);
-	}
-
 	void InnerProduct::Calculator::Condense()
 	{
 		// Vectors
@@ -224,8 +222,8 @@ namespace ECC {
 			for (uint32_t i = 0; i < m_n; i++)
 			{
 				// dst and src need not to be distinct
-				m_pVal[j][i] = m_ppSrc[j][i] * m_Cs.m_Val[m_iCycle][j];
-				m_pVal[j][i] += m_ppSrc[j][m_n + i] * m_Cs.m_Val[m_iCycle][!j];
+				m_pVal[j][i] = m_ppSrc[j][i] * m_Cs.m_pX[j].m_Val[m_iCycle];
+				m_pVal[j][i] += m_ppSrc[j][m_n + i] * m_Cs.m_pX[!j].m_Val[m_iCycle];
 			}
 
 		// Points
@@ -248,7 +246,7 @@ namespace ECC {
 
 				Point::Native& g0 = m_pGen[j][i];
 
-				Aggregator aggr(m_Mm, m_Cs, m_Mod, j, nCycles - m_iCycle - 1);
+				Aggregator aggr(m_Mm, &m_Cs.m_pX[0], &m_Cs.m_pX[1], m_Mod, j, nCycles - m_iCycle - 1);
 
 				if (m_iCycle > s_iCycle0)
 					aggr.m_pCalc = this;
@@ -286,7 +284,7 @@ namespace ECC {
 			{
 				const Scalar::Native& v = m_ppSrc[jSrc][i + off0];
 
-				Aggregator aggr(m_Mm, m_Cs, m_Mod, jSrc, nCycles - m_iCycle);
+				Aggregator aggr(m_Mm, &m_Cs.m_pX[0], &m_Cs.m_pX[1], m_Mod, jSrc, nCycles - m_iCycle);
 
 				if (m_iCycle > s_iCycle0)
 					aggr.m_pCalc = this;
@@ -298,15 +296,15 @@ namespace ECC {
 
 	void InnerProduct::Calculator::Aggregator::ProceedRec(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k, uint32_t j)
 	{
-		if (m_pBatchCtx && j)
-			Proceed(iPos, iCycle - 1, k); // in batch mode all inverses are already multiplied
-		else
+		if (m_pX[j])
 		{
 			Scalar::Native k0 = k;
-			k0 *= m_cs.m_Val[nCycles - iCycle][j];
+			k0 *= m_pX[j]->m_Val[nCycles - iCycle];
 
 			Proceed(iPos, iCycle - 1, k0);
 		}
+		else
+			Proceed(iPos, iCycle - 1, k); // in batch mode all inverses are already multiplied
 	}
 
 	void InnerProduct::Calculator::Aggregator::Proceed(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k)
@@ -405,7 +403,8 @@ namespace ECC {
 		{
 			c.m_n = nDim >> (c.m_iCycle + 1);
 
-			Calculator::get_Challenge(c.m_Cs.m_Val[c.m_iCycle], oracle);
+			oracle >> c.m_Cs.m_pX[0].m_Val[c.m_iCycle];
+			c.m_Cs.m_pX[1].m_Val[c.m_iCycle].SetInv(c.m_Cs.m_pX[0].m_Val[c.m_iCycle]);
 
 			for (int j = 0; j < 2; j++)
 			{
@@ -438,6 +437,34 @@ namespace ECC {
 			bc.Flush();
 	}
 
+	struct InnerProduct::Challenges
+	{
+		Scalar::Native m_DotMultiplier;
+		Calculator::XSet m_X;
+
+		Scalar::Native m_Mul1, m_Mul2;
+
+		void Init(Oracle& oracle, const Scalar::Native& dotAB, const InnerProduct& v)
+		{
+			oracle << dotAB >> m_DotMultiplier;
+			m_Mul1 = 1U;
+
+			for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++)
+			{
+				oracle >> m_X.m_Val[iCycle];
+
+				m_Mul1 *= m_X.m_Val[iCycle];
+				m_X.m_Val[iCycle] *= m_X.m_Val[iCycle];
+
+				for (int j = 0; j < 2; j++)
+					oracle << v.m_pLR[iCycle][j];
+			}
+
+			m_Mul2 = m_Mul1;
+			m_Mul2 *= m_Mul1;
+		}
+	};
+
 	bool InnerProduct::IsValid(BatchContext& bc, const Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& mod) const
 	{
 		Mode::Scope scope(Mode::Fast);
@@ -445,22 +472,22 @@ namespace ECC {
 		Oracle oracle;
 		oracle << commAB;
 
+		Challenges cs_;
+		cs_.Init(oracle, dotAB, *this);
+
 		if (!bc.EquationBegin(1))
 			return false;
 
-		bc.AddCasual(commAB, 1U);
+		bc.AddCasual(commAB, cs_.m_Mul2);
 
 		return
-			IsValid(bc, oracle, dotAB, mod) &&
+			IsValid(bc, cs_, dotAB, mod) &&
 			bc.EquationEnd();
 	}
 
-	bool InnerProduct::IsValid(BatchContext& bc, Oracle& oracle, const Scalar::Native& dotAB, const Modifier& mod) const
+	bool InnerProduct::IsValid(BatchContext& bc, Challenges& cs_, const Scalar::Native& dotAB, const Modifier& mod) const
 	{
 		Mode::Scope scope(Mode::Fast);
-
-		Calculator::ChallengeSet cs;
-		oracle << dotAB >> cs.m_DotMultiplier;
 
 		// Calculate the aggregated sum, consisting of sum of multiplications at once.
 		// The expression we're calculating is:
@@ -470,46 +497,53 @@ namespace ECC {
 		Calculator::ModifierExpanded modExp;
 		modExp.Init(mod);
 
-		Point::Native p;
 		Scalar::Native k;
 
-		uint32_t n = nDim;
-		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
-		{
-			Calculator::get_Challenge(cs.m_Val[iCycle], oracle);
+		// calculate pairs of cs_.m_X.m_Val
+		static_assert(!(nCycles & 1), "");
+		const uint32_t nPairs = nCycles >> 1;
+		Scalar::Native pPair[nPairs];
 
+		for (uint32_t iPair = 0; iPair < nPairs; iPair++)
+		{
+			pPair[iPair] = cs_.m_X.m_Val[iPair << 1];
+			pPair[iPair] *= cs_.m_X.m_Val[(iPair << 1) + 1];
+		}
+
+		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++)
+		{
 			const Point* pLR = m_pLR[iCycle];
 			for (int j = 0; j < 2; j++)
 			{
-				k = cs.m_Val[iCycle][j];
-				k *= k;
+				if (j)
+				{
+					// all except this one.
+					k = cs_.m_X.m_Val[iCycle ^ 1];
+
+					for (uint32_t iPair = 0; iPair < nPairs; iPair++)
+						if (iPair != (iCycle >> 1))
+							k *= pPair[iPair];
+				}
+				else
+				{
+					k = cs_.m_Mul2;
+					k *= cs_.m_X.m_Val[iCycle];
+				}
 
 				if (!bc.AddCasual(pLR[j], k))
 					return false;
-
-				oracle << pLR[j];
 			}
 		}
-
-		assert(1 == n);
 
 		// The expression we're calculating is: the transformed generator
 		//
 		// -sum( G_Condensed[j] * pCondensed[j] )
-		// whereas G_Condensed[j] = Gen[j] * sum (k[iCycle]^(+/-)2 ), i.e. transformed (condensed) generators
-
-		// Reduce the num of multiplications. Instead of multiplying by inversa - pre-multiply by all inverses, and square their reciprocals
-		Scalar::Native kAllInverses = 1U;
-		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
-		{
-			cs.m_Val[iCycle][0] *= cs.m_Val[iCycle][0];
-			kAllInverses *= cs.m_Val[iCycle][1];
-		}
+		// whereas G_Condensed[j] = Gen[j] * sum (k[iCycle]^(+/-)1 ), i.e. transformed (condensed) generators
 
 		for (int j = 0; j < 2; j++)
 		{
 			MultiMac mmDummy;
-			Calculator::Aggregator aggr(mmDummy, cs, modExp, j, 0);
+			Calculator::Aggregator aggr(mmDummy, &cs_.m_X, NULL, modExp, j, 0);
 			aggr.m_pBatchCtx = &bc;
 
 			k = m_pCondensed[j];
@@ -518,7 +552,7 @@ namespace ECC {
 			if (bc.m_bEnableBatch)
 				k *= bc.m_Multiplier;
 
-			k *= kAllInverses;
+			k *= cs_.m_Mul1;
 
 			aggr.Proceed(0, nCycles, k);
 		}
@@ -528,7 +562,8 @@ namespace ECC {
 		k *= m_pCondensed[1];
 		k = -k;
 		k += dotAB;
-		k *= cs.m_DotMultiplier;
+		k *= cs_.m_DotMultiplier;
+		k *= cs_.m_Mul2;
 
 		bc.AddPrepared(BatchContext::s_Idx_GenDot, k);
 
@@ -907,9 +942,10 @@ namespace ECC {
 	{
 		oracle << p1.m_A << p1.m_S;
 
-		oracle.get_Reciprocal(y, yInv);
-
+		oracle >> y;
 		oracle >> z;
+
+		yInv.SetInv(y);
 		zz = z;
 		zz *= z;
 	}
@@ -1025,9 +1061,19 @@ namespace ECC {
 		if (!bc.EquationBegin(2))
 			return false;
 
+		InnerProduct::Challenges cs_;
+		cs_.Init(oracle, tDot, m_P_Tag);
+
+		cs.z *= cs_.m_Mul2;
+
 		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_Aux2, cs.z);
-		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, -Scalar::Native(m_Mu));
-		if (!bc.AddCasual(m_Part1.m_S, cs.x))
+
+		sumY = m_Mu;
+		sumY *= cs_.m_Mul2;
+
+		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, -sumY);
+
+		if (!bc.AddCasual(m_Part1.m_S, cs.x * cs_.m_Mul2))
 			return false;
 
 		Scalar::Native pwr, mul;
@@ -1035,6 +1081,7 @@ namespace ECC {
 		mul = 2U;
 		mul *= cs.yInv;
 		pwr = zz;
+		pwr *= cs_.m_Mul2;
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
@@ -1046,13 +1093,13 @@ namespace ECC {
 			pwr *= mul;
 		}
 
-		bc.AddCasual(m_Part1.m_A, 1U);
+		bc.AddCasual(m_Part1.m_A, cs_.m_Mul2);
 
 		// finally check the inner product
 		InnerProduct::Modifier mod;
 		mod.m_pMultiplier[1] = &cs.yInv;
 
-		if (!m_P_Tag.IsValid(bc, oracle, tDot, mod))
+		if (!m_P_Tag.IsValid(bc, cs_, tDot, mod))
 			return false;
 
 		return bc.EquationEnd();

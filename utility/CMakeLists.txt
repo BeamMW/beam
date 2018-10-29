@@ -64,6 +64,8 @@ if (UNIX)
     target_link_libraries(utility dl)
 endif()
 
+target_link_libraries(utility mnemonic)
+
 if(ANDROID)
     target_link_libraries(utility
         $ENV{BOOST_ROOT_ANDROID}/lib/libboost_program_options-clang-mt-a32-1_68.a

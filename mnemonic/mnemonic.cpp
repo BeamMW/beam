@@ -18,6 +18,7 @@
 #include "external/pkcs5_pbkdf2.h"
 
 #include <boost/algorithm/string.hpp>
+#include <random>
 
 namespace beam
 {
@@ -34,6 +35,15 @@ namespace beam
         {
             return (1 << (byteBits - (bit % byteBits) - 1));
         }
+    }
+
+    std::vector<uint8_t> getEntropy()
+    {
+        std::vector<uint8_t> res;
+        res.resize(16);
+        ECC::GenRandom(res.data(), static_cast<uint32_t>(res.size()));
+
+        return res;
     }
 
     WordList createMnemonic(const std::vector<uint8_t>& entropy, const Dictionary& dict)

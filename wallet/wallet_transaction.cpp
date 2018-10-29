@@ -231,7 +231,6 @@ namespace beam { namespace wallet
         if (!builder.GetInitialTxParams())
         {
             LOG_INFO() << GetTxID() << (sender ? " Sending " : " Receiving ") << PrintableAmount(amount) << " (fee: " << PrintableAmount(fee) << ")";
-            builder.SetMinHeight(m_Keychain->getCurrentHeight());
 
             if (sender)
             {
@@ -301,12 +300,10 @@ namespace beam { namespace wallet
             if (!isSelfTx && !builder.GetPeerInputsAndOutputs())
             {
                 assert(IsInitiator());
-                Scalar s;
-                builder.m_PartialSignature.Export(s);
 
                 // Confirm transaction
                 SetTxParameter msg;
-                msg.AddParameter(TxParameterID::PeerSignature, s);
+                msg.AddParameter(TxParameterID::PeerSignature, Scalar(builder.m_PartialSignature));
                 SendTxParameters(move(msg));
             }
             else
@@ -484,16 +481,22 @@ namespace beam { namespace wallet
 
     bool TxBuilder::GetPeerSignature()
     {
-        return m_Tx.GetParameter(TxParameterID::PeerSignature, m_PeerSignature);
+        if (m_Tx.GetParameter(TxParameterID::PeerSignature, m_PeerSignature))
+        {
+            LOG_DEBUG() << "Received PeerSig:\t" << Scalar(m_PeerSignature);
+            return true;
+        }
+        
+        return false;
     }
 
     bool TxBuilder::GetInitialTxParams()
     {
         m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs);
         m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs);
+        m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight);
         return m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess)
-            && m_Tx.GetParameter(TxParameterID::Offset, m_Offset)
-            && m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight);
+            && m_Tx.GetParameter(TxParameterID::Offset, m_Offset);
     }
 
     bool TxBuilder::GetPeerInputsAndOutputs()
@@ -518,12 +521,6 @@ namespace beam { namespace wallet
         return true;
     }
 
-    void TxBuilder::SetMinHeight(Height minHeight)
-    {
-        m_MinHeight = minHeight;
-        m_Tx.SetParameter(TxParameterID::MinHeight, m_MinHeight);
-    }
-
     void TxBuilder::SignPartial()
     {
         // create signature
@@ -533,6 +530,7 @@ namespace beam { namespace wallet
 
         m_Kernel->get_Hash(m_Message);
         m_MultiSig.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
+        
         
         m_MultiSig.SignPartial(m_PartialSignature, m_Message, m_BlindingExcess);
     }
@@ -549,7 +547,7 @@ namespace beam { namespace wallet
         transaction->m_Offset = m_Offset;
         transaction->m_vInputs = move(m_Inputs);
         transaction->m_vOutputs = move(m_Outputs);
-        transaction->Sort();
+        transaction->Normalize();
 
         // Verify final transaction
         TxBase::Context ctx;

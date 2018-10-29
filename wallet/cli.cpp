@@ -24,7 +24,9 @@
 #include "core/serialization_adapters.h"
 #include "unittests/util.h"
 
-#define LOG_VERBOSE_ENABLED 0
+#ifndef LOG_VERBOSE_ENABLED
+    #define LOG_VERBOSE_ENABLED 0
+#endif
 
 #include "utility/logger.h"
 #include "utility/options.h"
@@ -120,8 +122,30 @@ namespace
 
         return IKeyStore::create(options, pass.data(), pass.size());
     }
-}
 
+    void newAddress(
+        const IKeyChain::Ptr& keychain,
+        const std::string& label,
+        const std::string& bbsKeysPath, const SecString& pass)
+    {
+        IKeyStore::Ptr ks = createKeyStore(bbsKeysPath, pass);
+        WalletAddress address = {};
+        address.m_own = true;
+        address.m_label = label;
+        address.m_createTime = getTimestamp();
+        ks->gen_keypair(address.m_walletID);
+        ks->save_keypair(address.m_walletID, true);
+        keychain->saveAddress(address);
+
+        char buf[uintBig::nBytes * 2 + 1];
+        to_hex(buf, address.m_walletID.m_pData, uintBig::nBytes);
+
+        LOG_INFO() << "New address generated:\n\n" << buf << "\n";
+        if (!label.empty()) {
+            LOG_INFO() << "label = " << label;
+        }
+    }
+}
 
 io::Reactor::Ptr reactor;
 
@@ -166,11 +190,7 @@ int main_impl(int argc, char* argv[])
         }
 
         int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
-        int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
-
-#if LOG_VERBOSE_ENABLED
-        logLevel = LOG_LEVEL_VERBOSE;
-#endif
+        int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
         const auto path = boost::filesystem::system_complete("./logs");
         auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "wallet_", path.string());
@@ -210,7 +230,9 @@ int main_impl(int argc, char* argv[])
                             && command != cli::RECEIVE
                             && command != cli::LISTEN
                             && command != cli::TREASURY
-                            && command != cli::INFO)
+                            && command != cli::INFO
+                            && command != cli::NEW_ADDRESS
+                            && command != cli::CANCEL_TX)
                         {
                             LOG_ERROR() << "unknown command: \'" << command << "\'";
                             return -1;
@@ -249,16 +271,8 @@ int main_impl(int argc, char* argv[])
                             {
                                 LOG_INFO() << "wallet successfully created...";
 
-                                IKeyStore::Ptr ks = createKeyStore(bbsKeysPath, pass);
-
                                 // generate default address
-                                WalletAddress defaultAddress = {};
-                                defaultAddress.m_own = true;
-                                defaultAddress.m_label = "default";
-                                defaultAddress.m_createTime = getTimestamp();
-                                ks->gen_keypair(defaultAddress.m_walletID);
-                                ks->save_keypair(defaultAddress.m_walletID, true);
-                                keychain->saveAddress(defaultAddress);
+                                newAddress(keychain, "default", bbsKeysPath, pass);
 
                                 return 0;
                             }
@@ -274,6 +288,13 @@ int main_impl(int argc, char* argv[])
                         {
                             LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet";
                             return -1;
+                        }
+
+                        if (command == cli::NEW_ADDRESS)
+                        {
+                            auto label = vm[cli::NEW_ADDRESS_LABEL].as<string>();
+                            newAddress(keychain, label, bbsKeysPath, pass);
+                            return 0;
                         }
 
                         LOG_INFO() << "wallet sucessfully opened...";
@@ -315,12 +336,12 @@ int main_impl(int argc, char* argv[])
                                 }
 
                                 cout << "TRANSACTIONS\n\n"
-                                    << "| datetime          | amount, BEAM    | status\t|\n";
+                                    << "| datetime            | amount, BEAM        | status    | ID\t|\n";
                                 for (auto& tx : txHistory)
                                 {
                                     cout << "  " << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false)
                                         << setw(17) << PrintableAmount(tx.m_amount, true)
-                                        << "  " << getTxStatus(tx) << '\n';
+                                        << "  " << getTxStatus(tx) << "  " << tx.m_txId << '\n';
                                 }
                                 return 0;
                             }
@@ -422,6 +443,13 @@ int main_impl(int argc, char* argv[])
                             auto addresses = keychain->getAddresses(true);
                             assert(!addresses.empty());
                             wallet.transfer_money(addresses[0].m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
+                        }
+
+                        if (command == cli::CANCEL_TX) {
+                            auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
+                            TxID txId;
+                            std::copy_n(txIdVec.begin(), 16, txId.begin());
+                            wallet.cancel_tx(txId);
                         }
 
                         wallet_io->start();

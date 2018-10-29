@@ -368,7 +368,7 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
         }
     }
 
-    emit transactionsChanged();
+    sortTx();
 
     // Get info for TxObject::_user_name (get wallets labels)
     if (_model.async)
@@ -805,4 +805,5 @@ void WalletViewModel::onGeneratedNewWalletID(const beam::WalletID& walletID)
 {
     _newReceiverAddr = toString(walletID);
     emit newReceiverAddrChanged();
+    saveNewAddress();
 }

@@ -472,6 +472,18 @@ namespace ECC
 		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
 		// IKdf
 		virtual void DeriveKey(Scalar::Native&, const Hash::Value&) override;
+
+#pragma pack (push, 1)
+		struct Packed
+		{
+			uintBig m_Secret;
+			Scalar m_kCoFactor;
+		};
+		static_assert(sizeof(Packed) == uintBig::nBytes * 2, "");
+#pragma pack (pop)
+
+		void Export(Packed&) const;
+		bool Import(const Packed&);
 	};
 
 	struct HKdfPub
@@ -482,6 +494,18 @@ namespace ECC
 		// IPKdf
 		virtual void DerivePKey(Point::Native&, const Hash::Value&) override;
 		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
+
+#pragma pack (push, 1)
+		struct Packed
+		{
+			uintBig m_Secret;
+			Point m_Pk;
+		};
+		static_assert(sizeof(Packed) == uintBig::nBytes * 2 + 1, "");
+#pragma pack (pop)
+
+		void Export(Packed&) const;
+		bool Import(const Packed&);
 	};
 
 	struct Context
@@ -510,9 +534,6 @@ namespace ECC
 			CompactPoint m_Compensation;
 
 		} m_Casual;
-
-		ScalarGenerator m_pwr2;
-		ScalarGenerator m_pwr2_Inv;
 
 		Hash::Value m_hvChecksum; // all the generators and signature version. In case we change seed strings or formula
 
@@ -608,7 +629,5 @@ namespace ECC
 
 		void operator >> (Scalar::Native&);
 		void operator >> (Hash::Value&);
-
-		void get_Reciprocal(Scalar::Native& vice, Scalar::Native& versa);
 	};
 }

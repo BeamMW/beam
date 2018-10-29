@@ -22,7 +22,9 @@
 #include "../../utility/test_helpers.h"
 #include "../../core/serialization_adapters.h"
 
-#define LOG_VERBOSE_ENABLED 0
+#ifndef LOG_VERBOSE_ENABLED
+    #define LOG_VERBOSE_ENABLED 0
+#endif
 #include "utility/logger.h"
 
 namespace ECC {
@@ -576,7 +578,7 @@ namespace beam
 			kOffset += k;
 			pTx->m_Offset = kOffset;
 
-			pTx->Sort();
+			pTx->Normalize();
 			Transaction::Context ctx;
 			bool isTxValid = pTx->IsValid(ctx);
 			verify_test(isTxValid);
@@ -1076,6 +1078,16 @@ namespace beam
 					m_queProofsStateExpected.push_back((uint32_t) i);
 				}
 
+				{
+					proto::GetCommonState msgOut2;
+					msgOut2.m_IDs.resize(m_vStates.size());
+
+					for (size_t i = 0; i < m_vStates.size(); i++)
+						m_vStates[i].get_ID(msgOut2.m_IDs[i]);
+
+					Send(msgOut2);
+				}
+
 				for (auto it = m_Wallet.m_MyUtxos.begin(); m_Wallet.m_MyUtxos.end() != it; it++)
 				{
 					const MiniWallet::MyUtxo& utxo = it->second;
@@ -1138,6 +1150,24 @@ namespace beam
 				}
 				else
 					fail_test("unexpected proof");
+			}
+
+			virtual void OnMsg(proto::ProofCommonState&& msg) override
+			{
+				verify_test(!m_vStates.empty());
+				if (1 == m_vStates.size())
+				{
+					verify_test(msg.m_iState == 1);
+					verify_test(msg.m_Proof.empty());
+				}
+				else
+				{
+					verify_test(msg.m_iState == 0);
+
+					Block::SystemState::ID id;
+					m_vStates.front().get_ID(id);
+					verify_test(m_vStates.back().IsValidProofState(id, msg.m_Proof));
+				}
 			}
 
 			virtual void OnMsg(proto::ProofUtxo&& msg) override
@@ -1231,7 +1261,7 @@ namespace beam
 		}
 
 		treasury.m_Offset = offset;
-		treasury.Sort();
+		treasury.Normalize();
 
 		node.Initialize();
 

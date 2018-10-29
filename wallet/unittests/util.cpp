@@ -127,8 +127,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 
 	for (auto i = 0u; i < m_vBlocks.size(); i++)
 	{
-		m_vBlocks[i].Sort();
-		m_vBlocks[i].DeleteIntermediateOutputs();
+		m_vBlocks[i].Normalize();
 	}
 
 	std::FStream f;

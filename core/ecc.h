@@ -119,7 +119,7 @@ namespace ECC
 		static const uintBig s_FieldOrder; // The field order, it's different from the group order (a little bigger).
 
 		uintBig	m_X; // valid range is [0 .. s_FieldOrder)
-		bool	m_Y; // Flag for Y. Currently specifies if it's odd
+		uint8_t m_Y; // Flag for Y. Currently specifies if it's odd
 
 		Point() {}
 
@@ -181,6 +181,7 @@ namespace ECC
 			Regular		= 3,
 			Identity	= 4,
 			Nonce		= 5,
+			ChildKey	= 6,
 		};
 
 		struct ID
@@ -287,7 +288,9 @@ namespace ECC
 		template <uint32_t nBatchSize> struct BatchContextEx;
 
 		void Create(Oracle&, const Scalar::Native& dotAB, const Scalar::Native* pA, const Scalar::Native* pB, const Modifier& = Modifier());
-		bool IsValid(BatchContext&, Oracle&, const Scalar::Native& dotAB, const Modifier& = Modifier()) const;
+
+		struct Challenges;
+		bool IsValid(BatchContext&, Challenges&, const Scalar::Native& dotAB, const Modifier& = Modifier()) const;
 
 	private:
 		struct Calculator;

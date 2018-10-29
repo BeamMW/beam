@@ -100,6 +100,8 @@ namespace beam
 
 	/////////////
 	// Input
+	thread_local bool CommitmentAndMaturity::SerializeMaturity::s_On = false;
+
 	int CommitmentAndMaturity::cmp_CaM(const CommitmentAndMaturity& v) const
 	{
 		CMP_MEMBER_EX(m_Commitment)
@@ -435,15 +437,6 @@ namespace beam
 
 	/////////////
 	// Transaction
-
-	void TxVectors::Sort()
-	{
-		std::sort(m_vInputs.begin(), m_vInputs.end());
-		std::sort(m_vOutputs.begin(), m_vOutputs.end());
-		std::sort(m_vKernelsInput.begin(), m_vKernelsInput.end());
-		std::sort(m_vKernelsOutput.begin(), m_vKernelsOutput.end());
-	}
-
 	template <class T>
 	void RebuildVectorWithoutNulls(std::vector<T>& v, size_t nDel)
 	{
@@ -456,8 +449,27 @@ namespace beam
 				v.push_back(std::move(vSrc[i]));
 	}
 
-	size_t TxVectors::DeleteIntermediateOutputs()
+	int TxBase::CmpInOut(const Input& in, const Output& out)
 	{
+		if (in.m_Maturity)
+			return in.cmp_CaM(out);
+
+		// if maturity isn't overridden (as in standard txs/blocks) - we consider the commitment and the coinbase flag.
+		// In such a case the maturity parameters (such as explicit incubation) - are ignored. There's just no way to prevent the in/out elimination.
+		int n = in.m_Commitment.cmp(out.m_Commitment);
+		if (n)
+			return n;
+
+		return out.m_Coinbase ? 1 : 0;
+	}
+
+	size_t TxVectors::Normalize()
+	{
+		std::sort(m_vInputs.begin(), m_vInputs.end());
+		std::sort(m_vOutputs.begin(), m_vOutputs.end());
+		std::sort(m_vKernelsInput.begin(), m_vKernelsInput.end());
+		std::sort(m_vKernelsOutput.begin(), m_vKernelsOutput.end());
+
 		size_t nDel = 0;
 
 		size_t i1 = m_vOutputs.size();
@@ -469,7 +481,7 @@ namespace beam
 			{
 				Output::Ptr& pOut = m_vOutputs[i1];
 
-				int n = pInp->cmp_CaM(*pOut);
+				int n = TxBase::CmpInOut(*pInp, *pOut);
 				if (n <= 0)
 				{
 					if (!n)
@@ -527,28 +539,6 @@ namespace beam
 		return
 			ctx.ValidateAndSummarize(*this, get_Reader()) &&
 			ctx.IsValidTransaction();
-	}
-
-	template <typename T>
-	void TestNotNull(const std::unique_ptr<T>& p)
-	{
-		if (!p)
-			throw std::runtime_error("invalid NULL ptr");
-	}
-
-	void TxVectors::TestNoNulls() const
-	{
-		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
-			TestNotNull(*it);
-
-		for (auto it = m_vKernelsInput.begin(); m_vKernelsInput.end() != it; it++)
-			TestNotNull(*it);
-
-		for (auto it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
-			TestNotNull(*it);
-
-		for (auto it = m_vKernelsOutput.begin(); m_vKernelsOutput.end() != it; it++)
-			TestNotNull(*it);
 	}
 
 	void Transaction::get_Key(KeyType& key) const

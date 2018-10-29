@@ -26,6 +26,8 @@ class NodeProcessor
 	UtxoTree m_Utxos;
 	RadixHashOnlyTree m_Kernels;
 
+	size_t m_nSizeUtxoComission;
+
 	void TryGoUp();
 
 	bool GoForward(uint64_t);
@@ -37,9 +39,9 @@ class NodeProcessor
 	struct RollbackData;
 
 	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
-	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, RollbackData&, const Height* = NULL);
-	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, RollbackData&, const Height* = NULL);
-	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd, RollbackData&);
+	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, bool bAdjustInputMaturity, const Height* = NULL);
+	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, bool bAdjustInputMaturity, const Height* = NULL);
+	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd, bool bAdjustInputMaturity);
 	bool HandleBlockElement(const Output&, Height, const Height*, bool bFwd);
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
 	void ToggleSubsidyOpened();
@@ -212,7 +214,7 @@ public:
 	};
 
 private:
-	bool GenerateNewBlock(BlockContext&, Block::Body&, Height, RollbackData&);
+	size_t GenerateNewBlock(BlockContext&, Block::Body&, Height);
 	bool GenerateNewBlock(BlockContext&, Block::Body&, bool bInitiallyEmpty);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&);
 };

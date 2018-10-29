@@ -156,7 +156,7 @@ bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& re
 	// Diffie-Hellman
 	ECC::Point pt;
 	pt.m_X = remotePublic;
-	pt.m_Y = false;
+	pt.m_Y = 0;
 
 	ECC::Point::Native p;
 	if (!p.Import(pt))
@@ -265,10 +265,24 @@ union HighestMsgCode
 #undef THE_MACRO
 };
 
+bool NotCalled_VerifyNoDuplicatedIDs(uint32_t id)
+{
+	// 
+	switch (id)
+	{
+#define THE_MACRO(code, msg) \
+	case code:
+		BeamNodeMsgsAll(THE_MACRO)
+#undef THE_MACRO
+		return true;
+	}
+	return false;
+}
+
 /////////////////////////
 // NodeConnection
 NodeConnection::NodeConnection()
-	:m_Protocol('B', 'm', 5, sizeof(HighestMsgCode), *this, 20000)
+	:m_Protocol('B', 'm', 6, sizeof(HighestMsgCode), *this, 20000)
 	,m_ConnectPending(false)
 {
 #define THE_MACRO(code, msg) \
@@ -568,7 +582,7 @@ void NodeConnection::OnMsg(Authentication&& msg)
 
 	ECC::Point pt;
 	pt.m_X = msg.m_ID;
-	pt.m_Y = false;
+	pt.m_Y = 0;
 
 	ECC::Point::Native p;
 	if (!p.Import(pt))
