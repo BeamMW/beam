@@ -294,6 +294,8 @@ namespace beam { namespace wallet
             return;
         }
 
+        builder.FinalizeSignature();
+
         bool isRegistered = false;
         if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered))
         {
@@ -535,12 +537,19 @@ namespace beam { namespace wallet
         m_MultiSig.SignPartial(m_PartialSignature, m_Message, m_BlindingExcess);
     }
 
-    Transaction::Ptr TxBuilder::CreateTransaction()
+    void TxBuilder::FinalizeSignature()
     {
         // final signature
         m_Kernel->m_Signature.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
         m_Kernel->m_Signature.m_k = m_PartialSignature + m_PeerSignature;
+    }
 
+    Transaction::Ptr TxBuilder::CreateTransaction()
+    {
+        assert(m_Kernel);
+        Merkle::Hash kernelID = { 0 };
+        m_Kernel->get_ID(kernelID);
+        LOG_INFO() << "Transaction kernel: " << kernelID;
         // create transaction
         auto transaction = make_shared<Transaction>();
         transaction->m_vKernelsOutput.push_back(move(m_Kernel));

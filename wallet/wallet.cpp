@@ -264,6 +264,7 @@ namespace beam
         {
             proto::GetProofKernel kernelMsg = {};
             kernel.get_ID(kernelMsg.m_ID);
+            LOG_INFO() << "Get proof for kernel: " << kernelMsg.m_ID;
             m_pendingKernelProofs.push_back(it->second);
             enter_sync();
             m_network->send_node_message(move(kernelMsg));
@@ -443,7 +444,7 @@ namespace beam
         input.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
         if (utxoProof.m_Proofs.empty())
         {
-            LOG_WARNING() << "Got empty proof for: " << input.m_Commitment;
+            LOG_WARNING() << "Got empty utxo proof for: " << input.m_Commitment;
 
             if (coin.m_status == Coin::Locked)
             {
@@ -465,7 +466,7 @@ namespace beam
                 {
                     if (IsTestMode() || m_newState.IsValidProofUtxo(input, proof))
                     {
-                        LOG_INFO() << "Got proof for: " << input.m_Commitment;
+                        LOG_INFO() << "Got utxo proof for: " << input.m_Commitment;
                         coin.m_status = Coin::Unspent;
                         coin.m_maturity = proof.m_State.m_Maturity;
                         coin.m_confirmHeight = m_newState.m_Height;
@@ -490,7 +491,7 @@ namespace beam
                     }
                     else
                     {
-                        LOG_ERROR() << "Invalid proof provided: " << input.m_Commitment;
+                        LOG_ERROR() << "Invalid utxo proof provided: " << input.m_Commitment;
                     }
                 }
             }
