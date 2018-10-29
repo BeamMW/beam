@@ -64,9 +64,11 @@ Rectangle {
                 model: contentItems
 
                 Item {
+                    id: control
                     width: parent.width
                     height: parent.width
-
+                    activeFocusOnTab: true
+                    
                     SvgImage {
 						id: icon
                         x: 21
@@ -81,7 +83,7 @@ Rectangle {
                             y: 6
                             width: 4
                             height: 48
-                            color: Style.bright_teal
+                            color: selectedItem == index ? Style.bright_teal : Style.silver
                         }
 
                         DropShadow {
@@ -92,13 +94,18 @@ Rectangle {
                             source: indicator
                         }
 
-    					visible: selectedItem == index
+    					visible: control.activeFocus
+                    }
+                    Keys.onPressed: {
+                        if ((event.key == Qt.Key_Return || event.key == Qt.Key_Enter || event.key == Qt.Key_Space) && selectedItem != index) 
+                            updateItem(index);
                     }
 
                     MouseArea {
                         id: mouseArea
                         anchors.fill: parent
                         onClicked: {
+                            control.focus = true
                             if (selectedItem != index)
                                 updateItem(index)
                         }
