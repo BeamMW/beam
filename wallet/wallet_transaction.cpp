@@ -506,21 +506,9 @@ namespace beam { namespace wallet
         vector<Input::Ptr> inputs;
         vector<Output::Ptr> outputs;
         Scalar::Native peerOffset;
-        if (!m_Tx.GetParameter(TxParameterID::PeerInputs, inputs)
-            || !m_Tx.GetParameter(TxParameterID::PeerOutputs, outputs)
-            || !m_Tx.GetParameter(TxParameterID::PeerOffset, peerOffset))
-        {
-            return false;
-        }
-        move(inputs.begin(), inputs.end(), back_inserter(m_Inputs));
-        move(outputs.begin(), outputs.end(), back_inserter(m_Outputs));
-        m_Offset += peerOffset;
-
-        m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs);
-        m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs);
-        m_Tx.SetParameter(TxParameterID::Offset, m_Offset);
-        
-        return true;
+        return m_Tx.GetParameter(TxParameterID::PeerInputs, m_PeerInputs)
+            && m_Tx.GetParameter(TxParameterID::PeerOutputs, m_PeerOutputs)
+            && m_Tx.GetParameter(TxParameterID::PeerOffset, m_PeerOffset);
     }
 
     void TxBuilder::SignPartial()
@@ -553,9 +541,12 @@ namespace beam { namespace wallet
         // create transaction
         auto transaction = make_shared<Transaction>();
         transaction->m_vKernelsOutput.push_back(move(m_Kernel));
-        transaction->m_Offset = m_Offset;
+        transaction->m_Offset = m_Offset + m_PeerOffset;
         transaction->m_vInputs = move(m_Inputs);
         transaction->m_vOutputs = move(m_Outputs);
+        move(m_PeerInputs.begin(), m_PeerInputs.end(), back_inserter(transaction->m_vInputs));
+        move(m_PeerOutputs.begin(), m_PeerOutputs.end(), back_inserter(transaction->m_vOutputs));
+
         transaction->Normalize();
 
         // Verify final transaction

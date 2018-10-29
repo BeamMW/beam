@@ -723,7 +723,7 @@ namespace beam
             m_pendingUtxoProofs.push_back(coin);
             m_PendingUtxoUnique.insert(input.m_Commitment);
             assert(m_pendingUtxoProofs.size() == m_PendingUtxoUnique.size());
-            LOG_DEBUG() << "Get proof: " << input.m_Commitment;
+            LOG_DEBUG() << "Get utxo proof: " << input.m_Commitment;
             m_network->send_node_message(proto::GetProofUtxo{ input, 0 });
         }
     }

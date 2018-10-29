@@ -137,6 +137,9 @@ namespace beam { namespace wallet
         ECC::Scalar::Native m_PartialSignature;
         ECC::Point::Native m_PeerPublicNonce;
         ECC::Point::Native m_PeerPublicExcess;
+        std::vector<Input::Ptr> m_PeerInputs;
+        std::vector<Output::Ptr> m_PeerOutputs;
+        ECC::Scalar::Native m_PeerOffset;
         
         // deduced values, 
         TxKernel::Ptr m_Kernel;
