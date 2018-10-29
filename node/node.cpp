@@ -893,10 +893,10 @@ void Node::Peer::OnConnectedSecure()
 	ProveID(m_This.m_MyPrivateID, proto::IDType::Node);
 
 	proto::Config msgCfg;
-	msgCfg.m_CfgChecksum = Rules::get().Checksum;
-	msgCfg.m_SpreadingTransactions = true;
-	msgCfg.m_Bbs = true;
-	msgCfg.m_SendPeers = true;
+	msgCfg.m_CfgChecksum = Rules::get().Checksum; // checksum of all consesnsus related configuration
+	msgCfg.m_SpreadingTransactions = true; // indicate ability to receive and broadcast transactions
+	msgCfg.m_Bbs = true; // indicate ability to receive and broadcast BBS messages
+	msgCfg.m_SendPeers = true; // request a another node to periodically send a list of recommended peers
 	Send(msgCfg);
 
 	if (m_This.m_Processor.m_Cursor.m_Sid.m_Row)
@@ -1793,16 +1793,19 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
 	{
 		auto thr = uintBigFrom(m_Cfg.m_Dandelion.m_FluffProbability);
 
+		// Compare two bytes of threshold with random nonce 
 		if (memcmp(thr.m_pData, NextNonce().m_pData, thr.nBytes) < 0)
 		{
 			// broadcast to random peer
 			assert(nStemPeers);
-			nStemPeers = RandomUInt32(nStemPeers);
+
+			// Choose random peer index between 0 and nStemPeers - 1 
+			uint32_t nRandomPeerIdx = RandomUInt32(nStemPeers);
 
 			for (PeerList::iterator it = m_lstPeers.begin(); ; it++)
-				if (it->m_Config.m_SpreadingTransactions && !nStemPeers--)
+				if (it->m_Config.m_SpreadingTransactions && !nRandomPeerIdx--)
 				{
-					it->SendTxGuard(x.m_pValue, false);
+					it->SendTx(x.m_pValue, false);
 					break;
 				}
 
@@ -2135,28 +2138,17 @@ void Node::Peer::OnMsg(proto::GetTransaction&& msg)
 	if (m_This.m_TxPool.m_setTxs.end() == it)
 		return; // don't have it
 
-	SendTxGuard(it->get_ParentObj().m_pValue, true);
+	SendTx(it->get_ParentObj().m_pValue, true);
 }
 
-void Node::Peer::SendTxGuard(Transaction::Ptr& ptx, bool bFluff)
+void Node::Peer::SendTx(Transaction::Ptr& ptx, bool bFluff)
 {
-	// temporarily move the transaction to the Msg object, but make sure it'll be restored back, even in case of the exception.
-	struct Guard
-	{
-		proto::NewTransaction m_Msg;
-		Transaction::Ptr* m_ppVal;
+	proto::NewTransaction msg;
+	msg.m_Fluff = bFluff;
 
-		void Swap() { m_ppVal->swap(m_Msg.m_Transaction); }
+	TemporarySwap scope(msg.m_Transaction, ptx);
 
-		~Guard() { Swap(); }
-	};
-
-	Guard g;
-	g.m_ppVal = &ptx;
-	g.Swap();
-	g.m_Msg.m_Fluff = bFluff;
-
-	Send(g.m_Msg);
+	Send(msg);
 }
 
 void Node::Peer::OnMsg(proto::GetMined&& msg)

@@ -433,7 +433,7 @@ private:
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
 
-		void SendTxGuard(Transaction::Ptr& ptx, bool bFluff);
+		void SendTx(Transaction::Ptr& ptx, bool bFluff);
 
 		// proto::NodeConnection
 		virtual void OnConnectedSecure() override;
