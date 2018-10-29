@@ -1264,7 +1264,7 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 	der.reset(bb.empty() ? NULL : &bb.at(0), bb.size());
 	der & block;
 
-	rbData.Export(block);;
+	rbData.Export(block);
 
 	for (size_t i = 0; i < block.m_vOutputs.size(); i++)
 	{
@@ -1578,8 +1578,6 @@ bool NodeProcessor::EnumBlocks(IBlockWalker& wlk)
 		Deserializer der;
 		der.reset(&bb.at(0), bb.size());
 		der & block;
-
-		rbData.Export(block);
 
 		if (!wlk.OnBlock(block, block.get_Reader(), vPath.back(), ++h, NULL))
 			return false;
