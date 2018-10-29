@@ -100,7 +100,11 @@ Item
 
                         text: qsTr("create new wallet")
                         icon.source: "qrc:/assets/icon-add-blue.svg"
-                        onClicked: startWizzardView.push(nodeSetup);
+                        onClicked: 
+                        {
+                            viewModel.isRecoveryMode = false;
+                            startWizzardView.push(nodeSetup);
+                        }
                     }
 
                     CustomButton {
@@ -174,6 +178,14 @@ Item
                             anchors.horizontalCenter: parent.horizontalCenter
                             anchors.bottom: parent.bottom
                             bottomPadding: 143
+
+                            spacing: 30
+
+                            CustomButton {
+                                text: qsTr("back");
+                                icon.source: "qrc:/assets/icon-back.svg"
+                                onClicked: startWizzardView.pop();
+                            }
 
                             PrimaryButton {
                                 id: generateRecoveryPhraseButton
@@ -283,7 +295,13 @@ Item
                             bottomPadding: 143
 
                             spacing: 30
-                     
+
+                            CustomButton {
+                                text: qsTr("back");
+                                icon.source: "qrc:/assets/icon-back.svg"
+                                onClicked: startWizzardView.pop();
+                            }
+
                             CustomButton {
                                 text: qsTr("copy to clipboard")
                                 icon.source: "qrc:/assets/icon-copy.svg"
@@ -377,12 +395,12 @@ Item
                                             font.pixelSize: 10
                                             color: Style.dark_slate_blue
                                         }
-                                        visible: !modelData.isCorrect
+                                        visible: modelData.value.length == 0
                                     }
 
                                     Rectangle {
                                         id: correctPhraseRect
-                                        color: Style.bright_teal
+                                        color: modelData.isCorrect ? Style.bright_teal : Style.validator_color
                                         width: 20
                                         height: 20
                                         radius: 10
@@ -393,14 +411,14 @@ Item
                                             font.pixelSize: 10
                                             color: Style.marine
                                         }
-                                        visible: modelData.isCorrect
+                                        visible: modelData.value.length > 0
                                     }
 
                                     DropShadow {
                                         anchors.fill: correctPhraseRect
                                         radius: 5
                                         samples: 9
-                                        color: Style.bright_teal
+                                        color: modelData.isCorrect ? Style.bright_teal : Style.validator_color
                                         source: correctPhraseRect
                                         visible: correctPhraseRect.visible
                                     }
@@ -413,7 +431,7 @@ Item
                                     width: 121
 
                                     font.pixelSize: 14
-                                    color: Style.white
+                                    color: (modelData.isCorrect || modelData.value.length == 0) ? Style.white : Style.validator_color
                                     text: modelData.value
                                     Component.onCompleted: {
                                         modelData.value = "";
@@ -437,9 +455,9 @@ Item
                             bottomPadding: 143
 
                             spacing: 30
-                     
+
                             CustomButton {
-                                text: qsTr("go back to the recovery phrase")
+                                text: qsTr("back");
                                 icon.source: "qrc:/assets/icon-back.svg"
                                 onClicked: startWizzardView.pop();
                             }
@@ -585,7 +603,13 @@ Item
                             bottomPadding: 143
 
                             spacing: 30
-                     
+
+                            CustomButton {
+                                text: qsTr("back");
+                                icon.source: "qrc:/assets/icon-back.svg"
+                                onClicked: startWizzardView.pop();
+                            }
+
                             PrimaryButton {
                                 id: checkRecoveryNextButton
                                 text: qsTr("restore wallet")
@@ -798,169 +822,179 @@ Item
             Rectangle
             {
                 color: Style.marine
-
                 property Item defaultFocusItem: localNodeButton
 
-                SFText {
-                    text: qsTr("Setup node connectivity (testnet)")
-                    color: Style.white
-                    font.pixelSize: 36
-
+                ColumnLayout {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
+                    anchors.fill: parent
                     anchors.topMargin: 50
-                }
-
-                Column {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 191
-                    width: 440
-
-                    clip: true
-
-                    spacing: 30
-                    ButtonGroup {
-                        id: nodePreferencesGroup
-                    }
-
-                    CustomRadioButton {
-                        id: localNodeButton
-                        text: qsTr("Run local node (recommended)")
-                        ButtonGroup.group: nodePreferencesGroup
-                        font.pixelSize: 14
-                        checked: true
-                    }
                     Column {
-                        id: localNodePanel
-                        visible: localNodeButton.checked
-                        width: parent.width
-
-                        spacing: 10
-
+                        spacing: 30
+                        Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+                        Layout.preferredWidth: 730
                         SFText {
-                            text: qsTr("Enter port to listen")
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            horizontalAlignment: Qt.AlignHCenter
+                            text: qsTr("Setup node connectivity (testnet)")
                             color: Style.white
-                            font.pixelSize: 14
-                            font.styleName: "Bold"; font.weight: Font.Bold
-                        }
-
-                        SFTextInput {
-                            id:portInput
-                            width: parent.width
-
-                            font.pixelSize: 14
-                            color: Style.white
-                            text: "10000"
-                            onTextChanged: if (portInput.text.length > 0) portError.text = ""
-                        }
-                        SFText {
-                            id: portError
-                            color: Style.validator_color
-                            font.pixelSize: 14
-                        }
-
-                        SFText {
-                            text: qsTr("Enter mining threads (0 - no mining)")
-                            color: Style.white
-                            font.pixelSize: 14
-                            font.styleName: "Bold"; font.weight: Font.Bold
-                        }
-
-                        FeeSlider {
-                            id: miningInput
-                            precision: 0
-                            showTicks: true
-                            width: parent.width
-                            value: 0
-                            to: {viewModel.coreAmount()}
-                            stepSize: 1
+                            font.pixelSize: 36
                         }
                     }
 
-                    CustomRadioButton {
-                        id: testnetNodeButton
-                        text: qsTr("Connect to random remote node")
-                        ButtonGroup.group: nodePreferencesGroup
-                        font.pixelSize: 14
-                    }
-                    Row {
-                        width: parent.width
-                        spacing: 10
+                    Column {
+                        Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+                        Layout.preferredWidth: 400
+                        topPadding: 50
+
+                        clip: true
+
+                        spacing: 30
+                        ButtonGroup {
+                            id: nodePreferencesGroup
+                        }
+
                         CustomRadioButton {
-                            id: remoteNodeButton
-                            text: qsTr("Connect to specific remote node")
+                            id: localNodeButton
+                            text: qsTr("Run local node (recommended)")
+                            ButtonGroup.group: nodePreferencesGroup
+                            font.pixelSize: 14
+                            checked: true
+                        }
+                        Column {
+                            id: localNodePanel
+                            visible: localNodeButton.checked
+                            width: parent.width
+
+                            spacing: 10
+
+                            SFText {
+                                text: qsTr("Enter port to listen")
+                                color: Style.white
+                                font.pixelSize: 14
+                                font.styleName: "Bold"; font.weight: Font.Bold
+                            }
+
+                            SFTextInput {
+                                id:portInput
+                                width: parent.width
+
+                                font.pixelSize: 14
+                                color: Style.white
+                                text: "10000"
+                                onTextChanged: if (portInput.text.length > 0) portError.text = ""
+                            }
+                            SFText {
+                                id: portError
+                                color: Style.validator_color
+                                font.pixelSize: 14
+                            }
+
+                            SFText {
+                                text: qsTr("Enter mining threads (0 - no mining)")
+                                color: Style.white
+                                font.pixelSize: 14
+                                font.styleName: "Bold"; font.weight: Font.Bold
+                            }
+
+                            FeeSlider {
+                                id: miningInput
+                                precision: 0
+                                showTicks: true
+                                width: parent.width
+                                value: 0
+                                to: {viewModel.coreAmount()}
+                                stepSize: 1
+                            }
+                        }
+
+                        CustomRadioButton {
+                            id: testnetNodeButton
+                            text: qsTr("Connect to random remote node")
                             ButtonGroup.group: nodePreferencesGroup
                             font.pixelSize: 14
                         }
-                        SFTextInput {
-                            id:remoteNodeAddrInput
+                        Row {
+                            width: parent.width
+                            spacing: 10
+                            CustomRadioButton {
+                                id: remoteNodeButton
+                                text: qsTr("Connect to specific remote node")
+                                ButtonGroup.group: nodePreferencesGroup
+                                font.pixelSize: 14
+                            }
+                            SFTextInput {
+                                id:remoteNodeAddrInput
+                                visible: remoteNodeButton.checked
+                                width: parent.width
+                                font.pixelSize: 14
+                                color: Style.white
+                                text: "127.0.0.1:10000"
+                                validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
+                                onTextChanged: if (remoteNodeAddrInput.text.length > 0) remoteNodeAddrError.text = ""
+                                bottomPadding: 8 // TODO add default value of this item to controls
+                            }
+                        }
+                        Column {
+                            id: remoteNodePanel
                             visible: remoteNodeButton.checked
                             width: parent.width
-                            font.pixelSize: 14
-                            color: Style.white
-                            text: "127.0.0.1:10000"
-                            validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
-                            onTextChanged: if (remoteNodeAddrInput.text.length > 0) remoteNodeAddrError.text = ""
-                            bottomPadding: 8 // TODO add default value of this item to controls
+                            leftPadding: 40
+
+                            spacing: 10
+
+                            SFText {
+                                id: remoteNodeAddrError
+                                color: Style.validator_color
+                                font.pixelSize: 14
+                            }
                         }
                     }
-                    Column {
-                        id: remoteNodePanel
-                        visible: remoteNodeButton.checked
-                        width: parent.width
-                        leftPadding: 40
 
-                        spacing: 10
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
 
-                        SFText {
-                            id: remoteNodeAddrError
-                            color: Style.validator_color
-                            font.pixelSize: 14
-                        }
-                    }
-                }
+                        Row {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 30
 
-                Row {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 143
-                    spacing: 30
+                            CustomButton {
+                                text: qsTr("back");
+                                icon.source: "qrc:/assets/icon-back.svg"
+                                onClicked: startWizzardView.pop();
+                            }
 
-                    CustomButton {
-                        text: qsTr("back");
-                        icon.source: "qrc:/assets/icon-back.svg"
-                        onClicked: startWizzardView.pop();
-                    }
-
-                    PrimaryButton {
-                        text: qsTr("next");
-                        icon.source: "qrc:/assets/icon-next-blue.svg"
-                        enabled: nodePreferencesGroup.checkState != Qt.Unchecked
-                        onClicked:{
-                            if (localNodeButton.checked) {
-                                var portEmpty = portInput.text.trim().length === 0;
-                                if (portEmpty) {
-                                    portError.text = qsTr("Please, specify port to listen ");
-                                }
-                                if (!portEmpty) {
-                                    viewModel.setupLocalNode(parseInt(portInput.text), parseInt(miningInput.value));
-                                }
-                                else {
-                                    return;
+                            PrimaryButton {
+                                text: qsTr("next");
+                                icon.source: "qrc:/assets/icon-next-blue.svg"
+                                enabled: nodePreferencesGroup.checkState != Qt.Unchecked
+                                onClicked:{
+                                    if (localNodeButton.checked) {
+                                        var portEmpty = portInput.text.trim().length === 0;
+                                        if (portEmpty) {
+                                            portError.text = qsTr("Please, specify port to listen ");
+                                        }
+                                        if (!portEmpty) {
+                                            viewModel.setupLocalNode(parseInt(portInput.text), parseInt(miningInput.value));
+                                        }
+                                        else {
+                                            return;
+                                        }
+                                    }
+                                    else if (remoteNodeButton.checked) {
+                                        if (remoteNodeAddrInput.text.trim().length === 0) {
+                                            remoteNodeAddrError.text = qsTr("Please, specify address of the remote node");
+                                            return;
+                                        }
+                                        viewModel.setupRemoteNode(remoteNodeAddrInput.text.trim());
+                                    }
+                                    else if (testnetNodeButton.checked) {
+                                        viewModel.setupTestnetNode();
+                                    }
+                                    startWizzardView.push(viewModel.isRecoveryMode ? restoreWallet : createWalletEntry);
                                 }
                             }
-                            else if (remoteNodeButton.checked) {
-                                if (remoteNodeAddrInput.text.trim().length === 0) {
-                                    remoteNodeAddrError.text = qsTr("Please, specify address of the remote node");
-                                    return;
-                                }
-                                viewModel.setupRemoteNode(remoteNodeAddrInput.text.trim());
-                            }
-                            else if (testnetNodeButton.checked) {
-                                viewModel.setupTestnetNode();
-                            }
-                            startWizzardView.push(viewModel.isRecoveryMode ? restoreWallet : createWalletEntry);
                         }
                     }
                 }
