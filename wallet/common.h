@@ -87,7 +87,7 @@ namespace beam
         Timestamp m_createTime=0;
         Timestamp m_modifyTime=0;
         bool m_sender=false;
-        TxStatus m_status=TxStatus::Failed;
+        TxStatus m_status=TxStatus::Pending;
         ByteBuffer m_fsmState;
 
         bool canResume() const
