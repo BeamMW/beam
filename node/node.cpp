@@ -1800,7 +1800,7 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
 			assert(nStemPeers);
 
 			// Choose random peer index between 0 and nStemPeers - 1 
-			nRandomPeerIdx = RandomUInt32(nStemPeers);
+			uint32_t nRandomPeerIdx = RandomUInt32(nStemPeers);
 
 			for (PeerList::iterator it = m_lstPeers.begin(); ; it++)
 				if (it->m_Config.m_SpreadingTransactions && !nRandomPeerIdx--)
