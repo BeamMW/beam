@@ -573,9 +573,6 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 
 		if (bAdjustInputMaturity)
 		{
-			if (v.m_Maturity)
-				return false; // not allowed
-
 			d.m_Maturity = 0;
 			kMin = d;
 			d.m_Maturity = pHMax ? *pHMax : h;
