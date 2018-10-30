@@ -771,15 +771,9 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 {
 	s.get_ID(id);
 
-	if (!s.IsSane())
+	if (!s.IsValid())
 	{
-		LOG_WARNING() << id << " header insane!";
-		return DataStatus::Invalid;
-	}
-
-	if (!s.IsValidPoW())
-	{
-		LOG_WARNING() << id << " PoW invalid";
+		LOG_WARNING() << id << " header invalid!";
 		return DataStatus::Invalid;
 	}
 

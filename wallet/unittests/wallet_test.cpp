@@ -1531,6 +1531,9 @@ int main()
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
 
+	Rules::get().FakePoW = true;
+	Rules::get().UpdateChecksum();
+
     TestSplitKey();
     TestP2PWalletNegotiationST();
     TestP2PWalletReverseNegotiationST();
