@@ -108,7 +108,7 @@ after_success:
 
   # create package for advanced users
   - mkdir pack && mkdir pack/wallet && mkdir pack/node && mkdir pack/ui
-  - cp wallet/beam-wallet* pack/wallet && cp wallet/beam-node* pack/node && cp "ui/Beam Wallet" pack/ui
+  - cp wallet/beam-wallet* pack/wallet && cp beam/beam-node* pack/node && cp "ui/Beam Wallet" pack/ui
   - tar -cvzf beam-pack-$BEAM_VERSION.tar.gz --directory=$HOME/build/beam-mw/beam/pack wallet node ui
 
   # upload binaries
