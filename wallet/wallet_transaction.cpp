@@ -30,15 +30,32 @@ namespace beam { namespace wallet
         return txID;
     }
 
-    TransactionFailedException::TransactionFailedException(bool notify, const char* message)
+    std::string GetFailureMessage(TxFailureReason reason)
+    {
+        switch (reason)
+        {
+#define MACRO(name, code, message) case name: return message;
+            BEAM_TX_FAILURE_REASON_MAP(MACRO)
+#undef MACRO
+        }
+        return "Unknown reason";
+    }
+
+    TransactionFailedException::TransactionFailedException(bool notify, TxFailureReason reason, const char* message)
         : std::runtime_error(message)
         , m_Notify{notify}
+        , m_Reason{reason}
     {
 
     }
     bool TransactionFailedException::ShouldNofify() const
     {
         return m_Notify;
+    }
+
+    TxFailureReason TransactionFailedException::GetReason() const
+    {
+        return m_Reason;
     }
 
     BaseTransaction::BaseTransaction(INegotiatorGateway& gateway
@@ -74,10 +91,10 @@ namespace beam { namespace wallet
     {
         try
         {
-            int reason = 0;
+            TxFailureReason reason = TxFailureReason::Unknown;
             if (GetParameter(TxParameterID::FailureReason, reason))
             {
-                OnFailed();
+                OnFailed(reason);
                 return;
             }
 
@@ -85,7 +102,7 @@ namespace beam { namespace wallet
             auto address = m_Keychain->getAddress(myID);
             if (address.is_initialized() && address->isExpired())
             {
-                OnFailed();
+                OnFailed(TxFailureReason::ExpiredAddressProvided);
                 return;
             }
 
@@ -93,11 +110,12 @@ namespace beam { namespace wallet
         }
         catch (const TransactionFailedException& ex)
         {
-            OnFailed(ex.what(), ex.ShouldNofify());
+            LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+            OnFailed(ex.GetReason(), ex.ShouldNofify());
         }
         catch (const exception& ex)
         {
-            LOG_ERROR() << GetTxID() << " exception: " << ex.what();
+            LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
         }
     }
 
@@ -114,7 +132,7 @@ namespace beam { namespace wallet
             UpdateTxDescription(TxStatus::Cancelled);
             RollbackTx();
             SetTxParameter msg;
-            msg.AddParameter(TxParameterID::FailureReason, 0);
+            msg.AddParameter(TxParameterID::FailureReason, TxFailureReason::Cancelled);
             SendTxParameters(move(msg));
             m_Gateway.on_tx_completed(GetTxID());
         }
@@ -154,15 +172,15 @@ namespace beam { namespace wallet
         SetParameter(TxParameterID::ModifyTime, getTimestamp());
     }
 
-    void BaseTransaction::OnFailed(const string& message, bool notify)
+    void BaseTransaction::OnFailed(TxFailureReason reason, bool notify)
     {
-        LOG_ERROR() << GetTxID() << " Failed. " << message;
-        UpdateTxDescription(TxStatus::Failed);
+        LOG_ERROR() << GetTxID() << " Failed. " << GetFailureMessage(reason);
+        UpdateTxDescription((reason == TxFailureReason::Cancelled) ? TxStatus::Cancelled : TxStatus::Failed);
         RollbackTx();
         if (notify)
         {
             SetTxParameter msg;
-            msg.AddParameter(TxParameterID::FailureReason, 0);
+            msg.AddParameter(TxParameterID::FailureReason, reason);
             SendTxParameters(move(msg));
         }
         m_Gateway.on_tx_completed(GetTxID());
@@ -268,7 +286,7 @@ namespace beam { namespace wallet
 
                 if (!SendTxParameters(move(msg)))
                 {
-                    OnFailed("SendTxParameters failed", false);
+                    OnFailed(TxFailureReason::FailedToSendParameters, false);
                 }
                 SetState(State::Invitation);
             }
@@ -297,7 +315,7 @@ namespace beam { namespace wallet
 
         if (!builder.IsPeerSignatureValid())
         {
-            OnFailed("Peer signature in not valid ", true);
+            OnFailed(TxFailureReason::InvalidPeerSignature, true);
             return;
         }
 
@@ -327,7 +345,7 @@ namespace beam { namespace wallet
                 TxBase::Context ctx;
                 if (!transaction->IsValid(ctx))
                 {
-                    OnFailed("tx is not valid", true);
+                    OnFailed(TxFailureReason::InvalidTransaction, true);
                     return;
                 }
                 m_Gateway.register_tx(GetTxID(), transaction);
@@ -338,7 +356,7 @@ namespace beam { namespace wallet
 
         if (!isRegistered)
         {
-            OnFailed("not registered", true);
+            OnFailed(TxFailureReason::FailedToRegister, true);
             return;
         }
 
@@ -362,7 +380,7 @@ namespace beam { namespace wallet
         {
             if (!m_Gateway.isTestMode())
             {
-                OnFailed("invalid kernel proof provided", false);
+                OnFailed(TxFailureReason::InvalidKernelProof, false);
                 return;
             }
         }
@@ -401,7 +419,7 @@ namespace beam { namespace wallet
         if (coins.empty())
         {
             LOG_ERROR() << "You only have " << PrintableAmount(getAvailable(m_Tx.GetKeychain()));
-            throw TransactionFailedException(!m_Tx.IsInitiator());
+            throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
         }
 
         m_Inputs.reserve(m_Inputs.size() + coins.size());
