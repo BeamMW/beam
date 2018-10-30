@@ -160,6 +160,7 @@ void NodeProcessor::EnumCongestions()
 void NodeProcessor::TryGoUp()
 {
 	bool bDirty = false;
+	uint64_t rowid = m_Cursor.m_Sid.m_Row;
 
 	while (true)
 	{
@@ -227,7 +228,8 @@ void NodeProcessor::TryGoUp()
 	if (bDirty)
 	{
 		PruneOld();
-		OnNewState();
+		if (m_Cursor.m_Sid.m_Row != rowid)
+			OnNewState();
 	}
 }
 
