@@ -384,15 +384,6 @@ namespace beam
         m_keyChain->rollbackConfirmedUtxo(0);
     }
 
-    void Wallet::emergencyReset()
-    {
-        LOG_INFO() << "System state has been reset manually!";
-        resetSystemState();
-        m_keyChain->clear();
-        m_network->close_node_connection();
-        m_network->connect_node();
-    }
-
     void Wallet::updateTransaction(const TxID& txID)
     {
         auto f = [&]()

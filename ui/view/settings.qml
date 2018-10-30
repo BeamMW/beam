@@ -13,13 +13,6 @@ Rectangle {
 
     SettingsViewModel {id: viewModel}
 
-    ConfirmationDialog {
-        id: emergencyConfirmation
-        text: "Transaction history will be deleted. This operation can not be undone"
-        okButtonText: "reset"
-        onAccepted: viewModel.emergencyReset()
-    }
-
     ChangePasswordDialog {
         id: changePasswordDialog
 
