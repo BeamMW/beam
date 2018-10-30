@@ -46,7 +46,7 @@ on_success:
 
     7z a c:/projects/beam/beam/beam-pack-%BEAM_VERSION%.zip %CD%\pack\wallet %CD%\pack\node %CD%\pack\ui
 
-    7z a c:/projects/beam/beam/beam-pdb-%BEAM_VERSION%.zip c:/projects/beam/ui/%BUILD_CONFIG%/Beam Wallet.pdb c:/projects/beam/beam/%BUILD_CONFIG%/beam-node.pdb c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.pdb
+    7z a c:/projects/beam/beam/beam-pdb-%BEAM_VERSION%.zip "c:/projects/beam/ui/%BUILD_CONFIG%/Beam Wallet.pdb" "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node.pdb" "c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.pdb"
 
     set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/%BUILD_CONFIG%/win
 
