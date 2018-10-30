@@ -28,7 +28,7 @@ on_success:
 - ps: $env:TIME=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('HH:mm:ss')
 - cmd: >-
 
-    cpack --verbose -G NSIS
+    cpack --verbose -G NSIS -C %BUILD_CONFIG%
 
     git rev-list HEAD --count > BEAM_VERSION_REVISION
 
