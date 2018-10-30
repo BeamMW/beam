@@ -81,6 +81,13 @@ namespace beam { namespace wallet
         {
             return setTxParameter(m_Keychain, GetTxID(), paramID, value);
         }
+
+        template <typename T>
+        void SetState(T state)
+        {
+            SetParameter(TxParameterID::State, state);
+        }
+
         IKeyChain::Ptr GetKeychain();
         bool IsInitiator() const;
     protected:
@@ -110,6 +117,18 @@ namespace beam { namespace wallet
 
     class SimpleTransaction : public BaseTransaction
     {
+        enum State : uint8_t
+        {
+            Initial,
+            Invitation,
+            PeerConfirmation,
+            
+            InvitationConfirmation,
+            Registration,
+
+            KernelConfirmation,
+            OutputsConfirmation
+        };
     public:
         SimpleTransaction(INegotiatorGateway& gateway
                         , beam::IKeyChain::Ptr keychain
@@ -117,6 +136,7 @@ namespace beam { namespace wallet
     private:
         TxType GetType() const override;
         void UpdateImpl() override;
+        State GetState() const;
     };
 
     struct TxBuilder

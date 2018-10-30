@@ -977,7 +977,7 @@ Item {
 
             TableViewColumn {
                 role: viewModel.displayNameRole
-                title: qsTr("Recipient / Sender ID")
+                title: qsTr("Address")
                 width: 400 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideMiddle
                 resizable: false
