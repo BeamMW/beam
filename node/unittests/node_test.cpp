@@ -897,9 +897,6 @@ namespace beam
 			void SetTimer(uint32_t timeout_ms) {
 				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
 			}
-			void KillTimer() {
-				m_pTimer->cancel();
-			}
 		};
 
 		MyClient cl;
@@ -1235,9 +1232,6 @@ namespace beam
 			void SetTimer(uint32_t timeout_ms) {
 				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
 			}
-			void KillTimer() {
-				m_pTimer->cancel();
-			}
 		};
 
 		MyClient cl(pKdf);
@@ -1461,14 +1455,18 @@ namespace beam
 		printf("Preparing blockchain ...\n");
 		cc.Init();
 
+		const Block::SystemState::Full& sRoot = cc.m_vStates.back().m_Hdr;
+
 		Block::ChainWorkProof cwp;
 		cwp.m_hvRootLive = cc.m_hvLive;
-		cwp.Create(cc.m_Source, cc.m_vStates.back().m_Hdr);
+		cwp.Create(cc.m_Source, sRoot);
 
 		uint32_t nStates = (uint32_t) cc.m_vStates.size();
 		for (size_t i0 = 0; ; i0++)
 		{
-			verify_test(cwp.IsValid());
+			Block::SystemState::Full sTip;
+			verify_test(cwp.IsValid(&sTip));
+			verify_test(sRoot == sTip);
 
 			printf("Blocks = %u. Proof: States = %u/%u, Hashes = %u, Size = %u\n",
 				nStates,
@@ -1489,8 +1487,10 @@ namespace beam
 			cwp.m_LowerBound = cwp2.m_LowerBound;
 			verify_test(cwp.Crop());
 
-			verify_test(cwp2.IsValid());
-			verify_test(cwp.IsValid());
+			verify_test(cwp2.IsValid(&sTip));
+			verify_test(sRoot == sTip);
+			verify_test(cwp.IsValid(&sTip));
+			verify_test(sRoot == sTip);
 		}
 	}
 
