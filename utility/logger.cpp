@@ -164,10 +164,7 @@ private:
 
             path /= fileName;
 #ifdef WIN32
-            if (_wfopen_s(&_sink, path.wstring().c_str(), L"ab") != 0)
-            {
-                _sink = nullptr;
-            }
+            _sink = _wfsopen(path.wstring().c_str(), L"ab", _SH_DENYNO);
 #else
             _sink = fopen(path.string().c_str(), "ab");
 #endif

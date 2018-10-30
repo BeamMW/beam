@@ -151,8 +151,13 @@ namespace
 
         bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob) override
         {
-            auto p = m_params.emplace(paramID, blob);
-            return p.second;
+            if (paramID < wallet::TxParameterID::PrivateFirstParam)
+            {
+                auto p = m_params.emplace(paramID, blob);
+                return p.second;
+            }
+            m_params[paramID] = blob;
+            return true;
         }
         bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) override
         {

@@ -195,10 +195,6 @@ void SettingsViewModel::undoChanges()
     setLocalNodePeers(m_settings.getLocalNodePeers());
 }
 
-void SettingsViewModel::emergencyReset()
-{
-    m_settings.emergencyReset();
-}
 
 void SettingsViewModel::reportProblem()
 {

@@ -294,7 +294,10 @@ int main_impl(int argc, char* argv[])
                         {
                             auto label = vm[cli::NEW_ADDRESS_LABEL].as<string>();
                             newAddress(keychain, label, bbsKeysPath, pass);
-                            return 0;
+
+                            if (!vm.count(cli::LISTEN)) {
+                                return 0;
+                            }
                         }
 
                         LOG_INFO() << "wallet sucessfully opened...";

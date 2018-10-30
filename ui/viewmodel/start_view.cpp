@@ -86,15 +86,10 @@ namespace
         "138.68.163.99:8101"
 #else
         "172.104.249.212:8101",
-        "172.104.249.212:8102",
         "23.239.23.209:8201",
-        "23.239.23.209:8202",
         "172.105.211.232:8301",
-        "172.105.211.232:8302",
         "96.126.111.61:8401",
-        "96.126.111.61:8402",
-        "176.58.98.195:8501",
-        "176.58.98.195:8502"
+        "176.58.98.195:8501"
 #endif
     };
 
@@ -123,10 +118,12 @@ bool RecoveryPhraseItem::isCorrect() const
 {
     return m_userInput == m_phrase;
 }
+
 const QString& RecoveryPhraseItem::getValue() const
 {
     return m_userInput;
 }
+
 void RecoveryPhraseItem::setValue(const QString& value)
 {
     if (m_userInput != value)
@@ -317,6 +314,14 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
     {
 
     }
+}
+
+void StartViewModel::resetPhrases()
+{
+    m_recoveryPhrases.clear();
+    m_generatedPhrases.clear();
+    m_checkPhrases.clear();
+    emit recoveryPhrasesChanged();
 }
 
 bool StartViewModel::createWallet(const QString& pass)
