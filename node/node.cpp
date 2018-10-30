@@ -1011,6 +1011,11 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	LOG_INFO() << *m_pInfo << " connected, info updated";
 }
 
+void Node::Peer::OnMsg(proto::Bye&& msg)
+{
+	LOG_INFO() << "Peer " << m_RemoteAddr << " Received Bye." << msg.m_Reason;
+}
+
 void Node::Peer::OnDisconnect(const DisconnectReason& dr)
 {
 	LOG_WARNING() << m_RemoteAddr << ": " << dr;

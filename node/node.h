@@ -442,6 +442,7 @@ private:
 		// messages
 		virtual void OnMsg(proto::Authentication&&) override;
 		virtual void OnMsg(proto::Config&&) override;
+		virtual void OnMsg(proto::Bye&&) override;
 		virtual void OnMsg(proto::Ping&&) override;
 		virtual void OnMsg(proto::NewTip&&) override;
 		virtual void OnMsg(proto::DataMissing&&) override;
