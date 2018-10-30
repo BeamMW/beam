@@ -119,7 +119,7 @@ after_success:
   - curl --retry 3 --ftp-create-dirs -T beam-node-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/$BEAM_WALLET_UI_IN" "$BUILDS_SERVER_PATH/$BEAM_WALLET_UI_OUT"
-  - curl --retry 3 --ftp-create-dirs -T beam-pack-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  - curl --retry 3 --ftp-create-dirs -T beam-pack-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/pack/
 
 notifications:
   email:
