@@ -229,7 +229,7 @@ namespace beam
 			((SystemState::Sequence::Prefix&) s) = src.m_Heading.m_Prefix;
 			((SystemState::Sequence::Element&) s) = src.m_Heading.m_vElements.back();
 
-			for (size_t i = src.m_Heading.m_vElements.size(); i > iState; )
+			for (size_t i = src.m_Heading.m_vElements.size() - 1; i >= iState; )
 			{
 				s.NextPrefix();
 				((SystemState::Sequence::Element&) s) = src.m_Heading.m_vElements[--i];
