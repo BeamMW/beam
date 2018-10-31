@@ -15,7 +15,7 @@
 //#include <ctime>
 #include "block_crypt.h"
 #include "../utility/serialize.h"
-#include "../pow/impl/utilstrencodings.h"
+#include "utilstrencodings.h"
 #include "../core/serialization_adapters.h"
 #include "aes.h"
 

@@ -20,6 +20,7 @@ add_dependencies(core p2p pow)
 target_link_libraries(core p2p pow)
 
 target_include_directories(core PUBLIC ${PROJECT_SOURCE_DIR}/3rdparty/secp256k1-zkp/src)
+target_include_directories(core PUBLIC ${PROJECT_SOURCE_DIR}/3rdparty)
 
 include_directories(${PROJECT_SOURCE_DIR}/core)
 
