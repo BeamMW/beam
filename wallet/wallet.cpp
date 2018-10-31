@@ -446,6 +446,7 @@ namespace beam
             }
             else if (coin.m_status == Coin::Unconfirmed && coin.isReward())
             {
+                LOG_WARNING() << "Uncofirmed reward UTXO removed. Amount: " << coin.m_amount << " Height: " << coin.m_createHeight;
                 m_keyChain->remove(coin);
             }
         }
@@ -684,8 +685,8 @@ namespace beam
         m_keyChain->visit([&unconfirmedUtxo, this](const Coin& c)->bool
         {
             if (c.m_status == Coin::Unconfirmed 
-                && c.m_createTxId.is_initialized()
-                && m_transactions.find(*c.m_createTxId) == m_transactions.end())
+                && (c.m_createTxId.is_initialized()
+                && m_transactions.find(*c.m_createTxId) == m_transactions.end() || c.isReward()))
             {
                 unconfirmedUtxo.push_back(c);
             }

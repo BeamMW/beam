@@ -306,7 +306,7 @@ void TestRollback()
 
 
     // rewards
-    // should be deleted
+    // should not be deleted
     {
         Coin coin1 = { 5, Coin::Spent, 7, 8, Key::Type::Coinbase, Height(8) };
         db->store(coin1);
@@ -366,7 +366,7 @@ void TestRollback()
         return true;
     });
 
-    WALLET_CHECK(coins.size() == 17);
+    WALLET_CHECK(coins.size() == 21);
 
     for (int i = 0; i < 5; ++i)
     {
@@ -401,21 +401,21 @@ void TestRollback()
         WALLET_CHECK(c.m_confirmHash == Zero);
     }
 
-    for (int i = 11; i < 13; ++i)
+    for (int i = 11; i < 17; ++i)
     {
         auto& c = coins[i];
         WALLET_CHECK(c.m_status == Coin::Unconfirmed);
         WALLET_CHECK(c.m_confirmHeight == MaxHeight);
         WALLET_CHECK(c.m_lockedHeight == MaxHeight);
     }
-    for (int i = 13; i < 15; ++i)
+    for (int i = 17; i < 19; ++i)
     {
         auto& c = coins[i];
         WALLET_CHECK(c.m_status == Coin::Spent);
         WALLET_CHECK(c.m_confirmHeight != MaxHeight);
         WALLET_CHECK(c.m_lockedHeight == MaxHeight);
     }
-    for (int i = 15; i < 17; ++i)
+    for (int i = 19; i < 21; ++i)
     {
         auto& c = coins[i];
         WALLET_CHECK(c.m_status == Coin::Unspent);
