@@ -151,6 +151,7 @@ private:
 		void OnStateData() override;
 		void OnBlockData() override;
 		bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) override;
+		void OnModified() override;
 
 		void ReportProgress();
         void ReportNewState();
@@ -186,6 +187,12 @@ private:
 		int m_RequestedCount = 0;
 		int m_DownloadedHeaders = 0;
 		int m_DownloadedBlocks = 0;
+
+		bool m_bFlushPending = false;
+		io::Timer::Ptr m_pFlushTimer;
+		void OnFlushTimer();
+
+		void FlushDB();
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
@@ -442,6 +449,7 @@ private:
 		// messages
 		virtual void OnMsg(proto::Authentication&&) override;
 		virtual void OnMsg(proto::Config&&) override;
+		virtual void OnMsg(proto::Bye&&) override;
 		virtual void OnMsg(proto::Ping&&) override;
 		virtual void OnMsg(proto::NewTip&&) override;
 		virtual void OnMsg(proto::DataMissing&&) override;

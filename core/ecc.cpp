@@ -1014,7 +1014,7 @@ namespace ECC {
 
 	/////////////////////
 	// Context
-	alignas(32) char g_pContextBuf[sizeof(Context)];
+	alignas(64) char g_pContextBuf[sizeof(Context)];
 
 	// Currently - auto-init in global obj c'tor
 	Initializer g_Initializer;

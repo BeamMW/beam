@@ -336,7 +336,7 @@ namespace beam { namespace wallet
                     SetState(State::PeerConfirmation);
                 }
             }
-            else if (isSelfTx || txState == State::InvitationConfirmation)
+            else if (isSelfTx && txState == State::Initial || txState == State::InvitationConfirmation)
             {
                 // Construct and verify transaction
                 auto transaction = builder.CreateTransaction();
@@ -376,13 +376,14 @@ namespace beam { namespace wallet
         }
 
         Block::SystemState::Full state;
-        if (!GetTip(state) || !state.IsValidProofKernel(*builder.m_Kernel, kernelProof))
+        if (!GetTip(state))
         {
-            if (!m_Gateway.isTestMode())
+            if (!state.IsValidProofKernel(*builder.m_Kernel, kernelProof) && !m_Gateway.isTestMode())
             {
                 OnFailed(TxFailureReason::InvalidKernelProof, false);
                 return;
             }
+            return;
         }
 
         vector<Coin> unconfirmed = GetUnconfirmedOutputs();
