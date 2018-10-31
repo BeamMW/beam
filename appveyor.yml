@@ -42,7 +42,11 @@ on_success:
 
     mkdir pack && cd pack && mkdir wallet && mkdir node && mkdir ui && cd ..
 
-    copy "ui\%BUILD_CONFIG%\Beam Wallet.exe" pack\ui && copy beam\%BUILD_CONFIG%\beam-node.exe pack\node && copy beam\beam-node.cfg pack\node && copy wallet\%BUILD_CONFIG%\beam-wallet.exe pack\wallet && copy wallet\beam-wallet.cfg pack\wallet
+    copy "c:\projects\beam\BeamWallet-0.0.1-win64.exe" "pack\ui\Beam-Wallet-%BEAM_VERSION%.exe"
+
+    copy beam\%BUILD_CONFIG%\beam-node.exe pack\node && copy beam\beam-node.cfg pack\node
+
+    copy wallet\%BUILD_CONFIG%\beam-wallet.exe pack\wallet && copy wallet\beam-wallet.cfg pack\wallet
 
     7z a c:/projects/beam/beam/beam-pack-%BEAM_VERSION%.zip %CD%\pack\wallet %CD%\pack\node %CD%\pack\ui
 
