@@ -976,7 +976,7 @@ Item {
             }
 
             TableViewColumn {
-                role: viewModel.displayNameRole
+                role: viewModel.userRole
                 title: qsTr("Address")
                 width: 400 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideMiddle

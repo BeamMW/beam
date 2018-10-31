@@ -125,6 +125,7 @@ class WalletViewModel : public QObject
 
     Q_PROPERTY(QString incomeRole READ getIncomeRole CONSTANT)
     Q_PROPERTY(QString dateRole READ getDateRole CONSTANT)
+    Q_PROPERTY(QString userRole READ getUserRole CONSTANT)
     Q_PROPERTY(QString displayNameRole READ getDisplayNameRole CONSTANT)
     Q_PROPERTY(QString amountRole READ getAmountRole CONSTANT)
     Q_PROPERTY(QString statusRole READ getStatusRole CONSTANT)
@@ -192,6 +193,7 @@ public:
     void setSortOrder(Qt::SortOrder);
     QString getIncomeRole() const;
     QString getDateRole() const;
+    QString getUserRole() const;
     QString getDisplayNameRole() const;
     QString getAmountRole() const;
     QString getStatusRole() const;
