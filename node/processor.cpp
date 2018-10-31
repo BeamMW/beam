@@ -34,6 +34,7 @@ NodeProcessor::Horizon::Horizon()
 void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false */)
 {
 	m_DB.Open(szPath);
+	m_DbTx.Start(m_DB);
 
 	Merkle::Hash hv;
 	Blob blob(hv);
@@ -66,10 +67,27 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, (Height) Rules::get().MaxRollbackHeight);
 
 	if (!bResetCursor)
-	{
-		NodeDB::Transaction t(m_DB);
 		TryGoUp();
-		t.Commit();
+}
+
+NodeProcessor::~NodeProcessor()
+{
+	if (m_DbTx.IsInProgress())
+	{
+		try {
+			m_DbTx.Commit();
+		} catch (std::exception& e) {
+			LOG_ERROR() << "DB Commit failed: %s" << e.what();
+		}
+	}
+}
+
+void NodeProcessor::CommitDB()
+{
+	if (m_DbTx.IsInProgress())
+	{
+		m_DbTx.Commit();
+		m_DbTx.Start(m_DB);
 	}
 }
 
@@ -160,6 +178,7 @@ void NodeProcessor::EnumCongestions()
 void NodeProcessor::TryGoUp()
 {
 	bool bDirty = false;
+	uint64_t rowid = m_Cursor.m_Sid.m_Row;
 
 	while (true)
 	{
@@ -227,7 +246,8 @@ void NodeProcessor::TryGoUp()
 	if (bDirty)
 	{
 		PruneOld();
-		OnNewState();
+		if (m_Cursor.m_Sid.m_Row != rowid)
+			OnNewState();
 	}
 }
 
@@ -769,15 +789,9 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 {
 	s.get_ID(id);
 
-	if (!s.IsSane())
+	if (!s.IsValid())
 	{
-		LOG_WARNING() << id << " header insane!";
-		return DataStatus::Invalid;
-	}
-
-	if (!s.IsValidPoW())
-	{
-		LOG_WARNING() << id << " PoW invalid";
+		LOG_WARNING() << id << " header invalid!";
 		return DataStatus::Invalid;
 	}
 
@@ -814,10 +828,8 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 	DataStatus::Enum ret = OnStateInternal(s, id);
 	if (DataStatus::Accepted == ret)
 	{
-		NodeDB::Transaction t(m_DB);
 		uint64_t rowid = m_DB.InsertState(s);
 		m_DB.set_Peer(rowid, &peer);
-		t.Commit();
 
 		LOG_INFO() << id << " Header accepted";
 	}
@@ -852,16 +864,12 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 
 	LOG_INFO() << id << " Block received";
 
-	NodeDB::Transaction t(m_DB);
-
 	m_DB.SetStateBlock(rowid, block);
 	m_DB.SetStateFunctional(rowid);
 	m_DB.set_Peer(rowid, &peer);
 
 	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
 		TryGoUp();
-
-	t.Commit();
 
 	return DataStatus::Accepted;
 }
@@ -1211,21 +1219,15 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, bool bI
 	if (!bInitiallyEmpty && !VerifyBlock(res, res.get_Reader(), h))
 		return false;
 
-	size_t nSizeEstimated;
-
+	if (!bInitiallyEmpty)
 	{
-		NodeDB::Transaction t(m_DB);
-
-		if (!bInitiallyEmpty)
-		{
-			if (!HandleValidatedTx(res.get_Reader(), h, true, true))
-				return false;
-		}
-
-		nSizeEstimated = GenerateNewBlock(bc, res, h);
-
-		verify(HandleValidatedTx(res.get_Reader(), h, false, false)); // undo changes
+		if (!HandleValidatedTx(res.get_Reader(), h, true, true))
+			return false;
 	}
+
+	size_t nSizeEstimated = GenerateNewBlock(bc, res, h);
+
+	verify(HandleValidatedTx(res.get_Reader(), h, false, false)); // undo changes
 
 	if (!nSizeEstimated)
 		return false;
@@ -1358,12 +1360,7 @@ void NodeProcessor::ExportHdrRange(const HeightRange& hr, Block::SystemState::Se
 
 bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 {
-	NodeDB::Transaction t(m_DB);
-
-	bool b = ImportMacroBlockInternal(r);
-
-	t.Commit(); // regardless to if succeeded or not
-	if (!b)
+	if (!ImportMacroBlockInternal(r))
 		return false;
 
 	TryGoUp();

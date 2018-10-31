@@ -620,5 +620,50 @@ namespace proto {
 
 	std::ostream& operator << (std::ostream& s, const PeerManager::PeerInfo&);
 
+	struct FlyClient
+	{
+		typedef std::map<Height, Block::SystemState::Full> StateMap;
+		StateMap m_Hist; // some recent blocks of the current active branch
+
+		const Block::SystemState::Full* get_Tip() const; // NULL if no hist
+
+		virtual void OnNewTip() {} // tip already added
+		virtual void OnRolledBack() {} // reversed states are already removed
+
+		class Connection
+			:public NodeConnection
+		{
+			struct SyncCtx
+			{
+				std::vector<Block::SystemState::ID> m_vConfirming;
+				Block::SystemState::Full m_Confirmed;
+				Block::SystemState::Full m_TipBeforeGap;
+			};
+
+			std::unique_ptr<SyncCtx> m_pSync;
+
+			struct StateArray;
+
+			bool ShouldSync() const;
+			void StartSync();
+			void SearchBelow(Height);
+			void RequestChainworkProof();
+
+		public:
+			FlyClient& m_This;
+			Connection(FlyClient& x);
+
+			// most recent tip of the Node, according to which all the proofs are interpreted
+			Block::SystemState::Full m_Tip;
+
+			// NodeConnection
+			virtual void OnConnectedSecure() override;
+			virtual void OnMsg(proto::NewTip&& msg) override;
+			virtual void OnMsg(proto::ProofCommonState&& msg) override;
+			virtual void OnMsg(proto::ProofChainWork&& msg) override;
+		};
+	};
+
+
 } // namespace proto
 } // namespace beam

@@ -273,7 +273,7 @@ namespace beam
 
     bool Wallet::get_tip(Block::SystemState::Full& state) const
     {
-        if (m_newState.IsSane())
+        if (m_newState.IsValid())
         {
             state = m_newState;
             return true;
@@ -684,9 +684,9 @@ namespace beam
         vector<Coin> unconfirmedUtxo;
         m_keyChain->visit([&unconfirmedUtxo, this](const Coin& c)->bool
         {
-            if (c.m_status == Coin::Unconfirmed 
-                && (c.m_createTxId.is_initialized()
-                && m_transactions.find(*c.m_createTxId) == m_transactions.end() || c.isReward()))
+            if (c.m_status == Coin::Unconfirmed
+                && ((c.m_createTxId.is_initialized()
+                && (m_transactions.find(*c.m_createTxId) == m_transactions.end())) || c.isReward()))
             {
                 unconfirmedUtxo.push_back(c);
             }

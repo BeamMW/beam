@@ -897,9 +897,6 @@ namespace beam
 			void SetTimer(uint32_t timeout_ms) {
 				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
 			}
-			void KillTimer() {
-				m_pTimer->cancel();
-			}
 		};
 
 		MyClient cl;
@@ -1235,9 +1232,6 @@ namespace beam
 			void SetTimer(uint32_t timeout_ms) {
 				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
 			}
-			void KillTimer() {
-				m_pTimer->cancel();
-			}
 		};
 
 		MyClient cl(pKdf);
@@ -1461,14 +1455,18 @@ namespace beam
 		printf("Preparing blockchain ...\n");
 		cc.Init();
 
+		const Block::SystemState::Full& sRoot = cc.m_vStates.back().m_Hdr;
+
 		Block::ChainWorkProof cwp;
 		cwp.m_hvRootLive = cc.m_hvLive;
-		cwp.Create(cc.m_Source, cc.m_vStates.back().m_Hdr);
+		cwp.Create(cc.m_Source, sRoot);
 
 		uint32_t nStates = (uint32_t) cc.m_vStates.size();
 		for (size_t i0 = 0; ; i0++)
 		{
-			verify_test(cwp.IsValid());
+			Block::SystemState::Full sTip;
+			verify_test(cwp.IsValid(&sTip));
+			verify_test(sRoot == sTip);
 
 			printf("Blocks = %u. Proof: States = %u/%u, Hashes = %u, Size = %u\n",
 				nStates,
@@ -1489,10 +1487,156 @@ namespace beam
 			cwp.m_LowerBound = cwp2.m_LowerBound;
 			verify_test(cwp.Crop());
 
-			verify_test(cwp2.IsValid());
-			verify_test(cwp.IsValid());
+			verify_test(cwp2.IsValid(&sTip));
+			verify_test(sRoot == sTip);
+			verify_test(cwp.IsValid(&sTip));
+			verify_test(sRoot == sTip);
 		}
 	}
+
+	void RaiseHeightTo(Node& node, Height h)
+	{
+		TxPool::Fluff txPool;
+
+		while (node.get_Processor().m_Cursor.m_ID.m_Height < h)
+		{
+			NodeProcessor::BlockContext bc(txPool, *node.m_pKdf);
+			verify_test(node.get_Processor().GenerateNewBlock(bc));
+			node.get_Processor().OnState(bc.m_Hdr, PeerID());
+
+			Block::SystemState::ID id;
+			bc.m_Hdr.get_ID(id);
+			node.get_Processor().OnBlock(id, bc.m_Body, PeerID());
+		}
+	}
+
+	void TestFlyClient()
+	{
+		io::Reactor::Ptr pReactor(io::Reactor::create());
+		io::Reactor::Scope scope(*pReactor);
+
+		Node node;
+		node.m_Cfg.m_sPathLocal = g_sz;
+		node.m_Cfg.m_Listen.port(g_Port);
+		node.m_Cfg.m_Listen.ip(INADDR_ANY);
+		node.m_Cfg.m_MiningThreads = 0;
+		node.m_Cfg.m_vTreasury.resize(1);
+		node.m_Cfg.m_vTreasury[0].ZeroInit();
+
+		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
+		ECC::SetRandom(pKdf->m_Secret.V);
+		node.m_pKdf = pKdf;
+
+		node.Initialize();
+
+		struct MyFlyClient
+			:public proto::FlyClient
+		{
+			io::Timer::Ptr m_pTimer;
+
+			bool m_bTip;
+			Height m_hRolledTo;
+
+			MyFlyClient()
+			{
+				m_pTimer = io::Timer::create(io::Reactor::get_Current());
+			}
+
+			virtual void OnNewTip() override
+			{
+				m_bTip = true;
+				io::Reactor::get_Current().stop();
+			}
+
+			virtual void OnRolledBack() override
+			{
+				m_hRolledTo = m_Hist.empty() ? 0 : m_Hist.rbegin()->first;
+			}
+
+			void OnTimer() {
+				io::Reactor::get_Current().stop();
+			}
+
+			void SetTimer(uint32_t timeout_ms) {
+				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
+			}
+
+			void KillTimer() {
+				m_pTimer->cancel();
+			}
+
+			void SyncSync() // synchronize synchronously. Joky joke.
+			{
+				m_bTip = false;
+				m_hRolledTo = MaxHeight;
+
+				io::Address addr;
+				addr.resolve("127.0.0.1");
+				addr.port(g_Port);
+
+				Connection conn(*this);
+				conn.Connect(addr);
+
+				//SetTimer(90 * 1000);
+				io::Reactor::get_Current().run();
+				KillTimer();
+			}
+		};
+
+		const Height hThrd1 = 250;
+		RaiseHeightTo(node, hThrd1);
+
+
+		MyFlyClient fc;
+		// simple case
+		fc.SyncSync();
+
+		verify_test(fc.m_bTip);
+		verify_test(fc.m_hRolledTo == MaxHeight);
+		verify_test(!fc.m_Hist.empty() && fc.m_Hist.rbegin()->second.m_Height == hThrd1);
+
+		{
+			// pop last
+			auto it = fc.m_Hist.rbegin();
+			fc.m_Hist.erase((++it).base());
+		}
+
+		fc.SyncSync(); // should be trivial
+		verify_test(fc.m_bTip);
+		verify_test(fc.m_hRolledTo == MaxHeight);
+		verify_test(!fc.m_Hist.empty() && fc.m_Hist.rbegin()->second.m_Height == hThrd1);
+
+		const Height hThrd2 = 270;
+		RaiseHeightTo(node, hThrd2);
+
+		// should only fill the gap to the tip, not from the beginning. Should involve
+		fc.SyncSync();
+		verify_test(fc.m_bTip);
+		verify_test(fc.m_hRolledTo == MaxHeight);
+		verify_test(!fc.m_Hist.empty() && fc.m_Hist.rbegin()->second.m_Height == hThrd2);
+
+		// simulate branching, make it rollback
+		Height hBranch = 203;
+		while (!fc.m_Hist.empty())
+		{
+			proto::FlyClient::StateMap::reverse_iterator it = fc.m_Hist.rbegin();
+			if ((it++)->first <= hBranch)
+				break;
+			fc.m_Hist.erase(it.base());
+		}
+
+		Block::SystemState::Full s1;
+		ZeroObject(s1);
+		s1.m_Height = hBranch + 2;
+		fc.m_Hist[s1.m_Height] = s1;
+
+		fc.SyncSync();
+
+		verify_test(fc.m_bTip);
+		verify_test(fc.m_hRolledTo <= hBranch); // must rollback beyond the manually appended state
+		verify_test(!fc.m_Hist.empty() && fc.m_Hist.rbegin()->second.m_Height == hThrd2);
+	}
+
 
 }
 
@@ -1550,6 +1694,12 @@ int main()
 	beam::TestNodeClientProto();
 	beam::DeleteFile(beam::g_sz);
 	beam::DeleteFile(beam::g_sz2);
+
+	printf("Node <---> FlyClient test...\n");
+	fflush(stdout);
+
+	beam::TestFlyClient();
+	beam::DeleteFile(beam::g_sz);
 
 	return g_TestsFailed ? -1 : 0;
 }

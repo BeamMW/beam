@@ -427,7 +427,7 @@ int main_impl(int argc, char* argv[])
                             fee = static_cast<ECC::Amount>(signedFee);
                         }
 
-                        bool is_server = command == cli::LISTEN;
+                        bool is_server = (command == cli::LISTEN || vm.count(cli::LISTEN));
 
                         IKeyStore::Ptr keystore = createKeyStore(bbsKeysPath, pass);
 
