@@ -278,6 +278,7 @@ namespace beam
             state = m_newState;
             return true;
         }
+        LOG_ERROR() << "get_tip: Invalid state " ;
         return false;
     }
 
@@ -837,8 +838,7 @@ namespace beam
             // we return only active transactions
             return BaseTransaction::Ptr();
         }
-        auto address = m_keyChain->getAddress(myID);
-        ByteBuffer message(address->m_label.begin(), address->m_label.end());
+
         auto t = constructTransaction(msg.m_txId, msg.m_Type);
 
         t->SetParameter(TxParameterID::TransactionType, msg.m_Type);
@@ -847,7 +847,13 @@ namespace beam
         t->SetParameter(TxParameterID::PeerID, msg.m_from);
         t->SetParameter(TxParameterID::IsInitiator, false);
         t->SetParameter(TxParameterID::Status, TxStatus::Pending);
-        t->SetParameter(TxParameterID::Message, message);
+
+        auto address = m_keyChain->getAddress(myID);
+        if (address.is_initialized())
+        {
+            ByteBuffer message(address->m_label.begin(), address->m_label.end());
+            t->SetParameter(TxParameterID::Message, message);
+        }
 
         m_transactions.emplace(msg.m_txId, t);
         return t;

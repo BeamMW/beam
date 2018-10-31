@@ -336,7 +336,7 @@ namespace beam { namespace wallet
                     SetState(State::PeerConfirmation);
                 }
             }
-            else if (isSelfTx && txState == State::Initial || txState == State::InvitationConfirmation)
+            else if ((isSelfTx && txState == State::Initial) || txState == State::InvitationConfirmation)
             {
                 // Construct and verify transaction
                 auto transaction = builder.CreateTransaction();
