@@ -167,13 +167,14 @@ namespace beam
             SharedPeerOutputs = 85,
 
             TransactionRegistered = 90,
-            KernelProof = 91,
+
             FailureReason = 92,
 
             // private parameters
             PrivateFirstParam = 128,
 
             ModifyTime = 128,
+            KernelProof = 129,
 
             BlindingExcess = 130, // + MaxSignatures,
             SharedBlindingExcess = 131,
