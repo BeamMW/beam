@@ -232,6 +232,7 @@ void Node::Compressor::OnNotify()
 		{
 			uint64_t rowid = get_ParentObj().m_Processor.FindActiveAtStrict(h);
 			get_ParentObj().m_Processor.get_DB().MacroblockIns(rowid);
+			get_ParentObj().m_Processor.FlushDB();
 
 			LOG_INFO() << "History generated up to height " << h;
 

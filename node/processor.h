@@ -22,7 +22,16 @@ namespace beam {
 
 class NodeProcessor
 {
-	NodeDB m_DB;
+	struct DB
+		:public NodeDB
+	{
+		// NodeDB
+		virtual void OnModified() override { get_ParentObj().OnModified(); }
+		IMPLEMENT_GET_PARENT_OBJ(NodeProcessor, m_DB)
+	} m_DB;
+
+	NodeDB::Transaction m_DbTx;
+
 	UtxoTree m_Utxos;
 	RadixHashOnlyTree m_Kernels;
 
@@ -85,6 +94,7 @@ class NodeProcessor
 public:
 
 	void Initialize(const char* szPath, bool bResetCursor = false);
+	virtual ~NodeProcessor();
 
 	struct Horizon {
 
@@ -141,6 +151,7 @@ public:
 	UtxoTree& get_Utxos() { return m_Utxos; }
 	RadixHashOnlyTree& get_Kernels() { return m_Kernels; }
 
+	void CommitDB();
 	void EnumCongestions();
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 
@@ -154,6 +165,7 @@ public:
 	virtual void OnStateData() {}
 	virtual void OnBlockData() {}
 	virtual bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) { return false; }
+	virtual void OnModified() {}
 
 	uint64_t FindActiveAtStrict(Height);
 

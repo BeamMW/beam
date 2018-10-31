@@ -273,7 +273,7 @@ namespace beam
 
     bool Wallet::get_tip(Block::SystemState::Full& state) const
     {
-        if (m_newState.IsSane())
+        if (m_newState.IsValid())
         {
             state = m_newState;
             return true;
