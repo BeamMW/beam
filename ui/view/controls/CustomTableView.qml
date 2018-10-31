@@ -11,9 +11,8 @@ TableView {
 
     style: TableViewStyle {
         transientScrollBars: true
-
+        minimumHandleLength: 20
         handle: Rectangle {
-            anchors.topMargin: headerHeight
             implicitWidth: 14
             implicitHeight: 16
             radius: 6

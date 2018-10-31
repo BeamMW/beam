@@ -15,8 +15,8 @@ matrix:
         - brew link qt5 --force
         - export PATH=/usr/local/opt/qt/bin:$PATH
         - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Darwin.dmg"
-        - export BEAM_WALLET_UI_APP="Beam Wallet.app"
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.dmg"
       env: 
         - BUILD_TYPE=Debug
         - OS_FOLDER=mac
@@ -37,7 +37,7 @@ matrix:
         - export QT5_ROOT_DIR="/usr/local/qt5-static"
         - export QML_IMPORT_PATH="/usr/local/qt5-static/qml"
         - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Darwin.dmg"
-        - export BEAM_WALLET_UI_APP="Beam Wallet.app"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.dmg"
       env: 
         - BUILD_TYPE=Release
         - OS_FOLDER=mac
@@ -65,7 +65,7 @@ matrix:
         - eval "CC=gcc-7 && CXX=g++-7"
         - export PATH=/opt/qt510/bin:$PATH
         - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Linux.deb"
-        - export BEAM_WALLET_UI_APP="BeamWallet"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.deb"
       env: 
         - BUILD_TYPE=Debug
         - OS_FOLDER=linux
@@ -92,7 +92,7 @@ matrix:
         - export QT5_ROOT_DIR="/home/travis/qt5-static"
         - export QML_IMPORT_PATH="/home/travis/qt5-static/qml"
         - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Linux.deb"
-        - export BEAM_WALLET_UI_APP="BeamWallet"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.deb"
       env: 
         - BUILD_TYPE=Release
         - OS_FOLDER=linux
@@ -112,7 +112,7 @@ after_success:
 
   # create package for advanced users
   - mkdir pack && mkdir pack/wallet && mkdir pack/node && mkdir pack/ui
-  - cp wallet/beam-wallet* pack/wallet && cp beam/beam-node* pack/node && cp "ui/$BEAM_WALLET_UI_APP" pack/ui
+  - cp wallet/beam-wallet* pack/wallet && cp beam/beam-node* pack/node && cp "$BEAM_WALLET_UI_IN" pack/ui/$BEAM_WALLET_UI_OUT_VERLESS
   - tar -cvzf beam-pack-$BEAM_VERSION.tar.gz --directory=$HOME/build/beam-mw/beam/pack wallet node ui
 
   # upload binaries
