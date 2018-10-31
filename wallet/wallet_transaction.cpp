@@ -30,15 +30,32 @@ namespace beam { namespace wallet
         return txID;
     }
 
-    TransactionFailedException::TransactionFailedException(bool notify, const char* message)
+    std::string GetFailureMessage(TxFailureReason reason)
+    {
+        switch (reason)
+        {
+#define MACRO(name, code, message) case name: return message;
+            BEAM_TX_FAILURE_REASON_MAP(MACRO)
+#undef MACRO
+        }
+        return "Unknown reason";
+    }
+
+    TransactionFailedException::TransactionFailedException(bool notify, TxFailureReason reason, const char* message)
         : std::runtime_error(message)
         , m_Notify{notify}
+        , m_Reason{reason}
     {
 
     }
     bool TransactionFailedException::ShouldNofify() const
     {
         return m_Notify;
+    }
+
+    TxFailureReason TransactionFailedException::GetReason() const
+    {
+        return m_Reason;
     }
 
     BaseTransaction::BaseTransaction(INegotiatorGateway& gateway
@@ -74,10 +91,10 @@ namespace beam { namespace wallet
     {
         try
         {
-            int reason = 0;
+            TxFailureReason reason = TxFailureReason::Unknown;
             if (GetParameter(TxParameterID::FailureReason, reason))
             {
-                OnFailed();
+                OnFailed(reason);
                 return;
             }
 
@@ -85,7 +102,7 @@ namespace beam { namespace wallet
             auto address = m_Keychain->getAddress(myID);
             if (address.is_initialized() && address->isExpired())
             {
-                OnFailed();
+                OnFailed(TxFailureReason::ExpiredAddressProvided);
                 return;
             }
 
@@ -93,11 +110,12 @@ namespace beam { namespace wallet
         }
         catch (const TransactionFailedException& ex)
         {
-            OnFailed(ex.what(), ex.ShouldNofify());
+            LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+            OnFailed(ex.GetReason(), ex.ShouldNofify());
         }
         catch (const exception& ex)
         {
-            LOG_ERROR() << GetTxID() << " exception: " << ex.what();
+            LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
         }
     }
 
@@ -114,7 +132,7 @@ namespace beam { namespace wallet
             UpdateTxDescription(TxStatus::Cancelled);
             RollbackTx();
             SetTxParameter msg;
-            msg.AddParameter(TxParameterID::FailureReason, 0);
+            msg.AddParameter(TxParameterID::FailureReason, TxFailureReason::Cancelled);
             SendTxParameters(move(msg));
             m_Gateway.on_tx_completed(GetTxID());
         }
@@ -154,15 +172,15 @@ namespace beam { namespace wallet
         SetParameter(TxParameterID::ModifyTime, getTimestamp());
     }
 
-    void BaseTransaction::OnFailed(const string& message, bool notify)
+    void BaseTransaction::OnFailed(TxFailureReason reason, bool notify)
     {
-        LOG_ERROR() << GetTxID() << " Failed. " << message;
-        UpdateTxDescription(TxStatus::Failed);
+        LOG_ERROR() << GetTxID() << " Failed. " << GetFailureMessage(reason);
+        UpdateTxDescription((reason == TxFailureReason::Cancelled) ? TxStatus::Cancelled : TxStatus::Failed);
         RollbackTx();
         if (notify)
         {
             SetTxParameter msg;
-            msg.AddParameter(TxParameterID::FailureReason, 0);
+            msg.AddParameter(TxParameterID::FailureReason, reason);
             SendTxParameters(move(msg));
         }
         m_Gateway.on_tx_completed(GetTxID());
@@ -226,9 +244,9 @@ namespace beam { namespace wallet
         WalletID peerID = GetMandatoryParameter<WalletID>(TxParameterID::PeerID);
         auto address = m_Keychain->getAddress(peerID);
         bool isSelfTx = address.is_initialized() && address->m_own;
-
+        State txState = GetState();
         TxBuilder builder{ *this, amount, fee };
-        if (!builder.GetInitialTxParams())
+        if (!builder.GetInitialTxParams() && txState == State::Initial)
         {
             LOG_INFO() << GetTxID() << (sender ? " Sending " : " Receiving ") << PrintableAmount(amount) << " (fee: " << PrintableAmount(fee) << ")";
 
@@ -253,21 +271,24 @@ namespace beam { namespace wallet
         if (!isSelfTx && !builder.GetPeerPublicExcessAndNonce())
         {
             assert(IsInitiator());
-
-            SetTxParameter msg;
-            msg.AddParameter(TxParameterID::Amount, builder.m_Amount)
-                .AddParameter(TxParameterID::Fee, builder.m_Fee)
-                .AddParameter(TxParameterID::MinHeight, builder.m_MinHeight)
-                .AddParameter(TxParameterID::IsSender, !sender)
-                .AddParameter(TxParameterID::PeerInputs, builder.m_Inputs)
-                .AddParameter(TxParameterID::PeerOutputs, builder.m_Outputs)
-                .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
-                .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce())
-                .AddParameter(TxParameterID::PeerOffset, builder.m_Offset);
-
-            if (!SendTxParameters(move(msg)))
+            if (txState == State::Initial)
             {
-                OnFailed("SendTxParameters failed", false);
+                SetTxParameter msg;
+                msg.AddParameter(TxParameterID::Amount, builder.m_Amount)
+                    .AddParameter(TxParameterID::Fee, builder.m_Fee)
+                    .AddParameter(TxParameterID::MinHeight, builder.m_MinHeight)
+                    .AddParameter(TxParameterID::IsSender, !sender)
+                    .AddParameter(TxParameterID::PeerInputs, builder.m_Inputs)
+                    .AddParameter(TxParameterID::PeerOutputs, builder.m_Outputs)
+                    .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
+                    .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce())
+                    .AddParameter(TxParameterID::PeerOffset, builder.m_Offset);
+
+                if (!SendTxParameters(move(msg)))
+                {
+                    OnFailed(TxFailureReason::FailedToSendParameters, false);
+                }
+                SetState(State::Invitation);
             }
             return;
         }
@@ -276,23 +297,29 @@ namespace beam { namespace wallet
 
         if (!isSelfTx && !builder.GetPeerSignature())
         {
-            // invited participant
-            assert(!IsInitiator());
-            // Confirm invitation
-            SetTxParameter msg;
-            msg.AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
-                .AddParameter(TxParameterID::PeerSignature, builder.m_PartialSignature)
-                .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce());
+            if (txState == State::Initial)
+            {
+                // invited participant
+                assert(!IsInitiator());
+                // Confirm invitation
+                SetTxParameter msg;
+                msg.AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
+                    .AddParameter(TxParameterID::PeerSignature, builder.m_PartialSignature)
+                    .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce());
 
-            SendTxParameters(move(msg));
+                SendTxParameters(move(msg));
+                SetState(State::InvitationConfirmation);
+            }
             return;
         }
 
         if (!builder.IsPeerSignatureValid())
         {
-            OnFailed("Peer signature in not valid ", true);
+            OnFailed(TxFailureReason::InvalidPeerSignature, true);
             return;
         }
+
+        builder.FinalizeSignature();
 
         bool isRegistered = false;
         if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered))
@@ -300,13 +327,16 @@ namespace beam { namespace wallet
             if (!isSelfTx && !builder.GetPeerInputsAndOutputs())
             {
                 assert(IsInitiator());
-
-                // Confirm transaction
-                SetTxParameter msg;
-                msg.AddParameter(TxParameterID::PeerSignature, Scalar(builder.m_PartialSignature));
-                SendTxParameters(move(msg));
+                if (txState == State::Invitation)
+                {
+                    // Confirm transaction
+                    SetTxParameter msg;
+                    msg.AddParameter(TxParameterID::PeerSignature, Scalar(builder.m_PartialSignature));
+                    SendTxParameters(move(msg));
+                    SetState(State::PeerConfirmation);
+                }
             }
-            else
+            else if (isSelfTx || txState == State::InvitationConfirmation)
             {
                 // Construct and verify transaction
                 auto transaction = builder.CreateTransaction();
@@ -315,30 +345,32 @@ namespace beam { namespace wallet
                 TxBase::Context ctx;
                 if (!transaction->IsValid(ctx))
                 {
-                    OnFailed("tx is not valid", true);
+                    OnFailed(TxFailureReason::InvalidTransaction, true);
                     return;
                 }
                 m_Gateway.register_tx(GetTxID(), transaction);
+                SetState(State::Registration);
             }
             return;
         }
 
         if (!isRegistered)
         {
-            OnFailed("not registered", true);
+            OnFailed(TxFailureReason::FailedToRegister, true);
             return;
         }
 
         Merkle::Proof kernelProof;
         if (!GetParameter(TxParameterID::KernelProof, kernelProof))
         {
-            if (!IsInitiator())
+            if (!IsInitiator() && txState == State::Registration)
             {
                 // notify peer that transaction has been registered
                 SetTxParameter msg;
                 msg.AddParameter(TxParameterID::TransactionRegistered, true);
                 SendTxParameters(move(msg));
             }
+            SetState(State::KernelConfirmation);
             ConfirmKernel(*builder.m_Kernel);
             return;
         }
@@ -348,6 +380,7 @@ namespace beam { namespace wallet
         {
             if (!m_Gateway.isTestMode())
             {
+                OnFailed(TxFailureReason::InvalidKernelProof, false);
                 return;
             }
         }
@@ -355,11 +388,19 @@ namespace beam { namespace wallet
         vector<Coin> unconfirmed = GetUnconfirmedOutputs();
         if (!unconfirmed.empty())
         {
+            SetState(State::OutputsConfirmation);
             m_Gateway.confirm_outputs(unconfirmed);
             return;
         }
 
         CompleteTx();
+    }
+
+    SimpleTransaction::State SimpleTransaction::GetState() const
+    {
+        State state = State::Initial;
+        GetParameter(TxParameterID::State, state);
+        return state;
     }
 
     TxBuilder::TxBuilder(BaseTransaction& tx, Amount amount, Amount fee)
@@ -378,7 +419,7 @@ namespace beam { namespace wallet
         if (coins.empty())
         {
             LOG_ERROR() << "You only have " << PrintableAmount(getAvailable(m_Tx.GetKeychain()));
-            throw TransactionFailedException(!m_Tx.IsInitiator());
+            throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
         }
 
         m_Inputs.reserve(m_Inputs.size() + coins.size());
@@ -504,21 +545,9 @@ namespace beam { namespace wallet
         vector<Input::Ptr> inputs;
         vector<Output::Ptr> outputs;
         Scalar::Native peerOffset;
-        if (!m_Tx.GetParameter(TxParameterID::PeerInputs, inputs)
-            || !m_Tx.GetParameter(TxParameterID::PeerOutputs, outputs)
-            || !m_Tx.GetParameter(TxParameterID::PeerOffset, peerOffset))
-        {
-            return false;
-        }
-        move(inputs.begin(), inputs.end(), back_inserter(m_Inputs));
-        move(outputs.begin(), outputs.end(), back_inserter(m_Outputs));
-        m_Offset += peerOffset;
-
-        m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs);
-        m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs);
-        m_Tx.SetParameter(TxParameterID::Offset, m_Offset);
-        
-        return true;
+        return m_Tx.GetParameter(TxParameterID::PeerInputs, m_PeerInputs)
+            && m_Tx.GetParameter(TxParameterID::PeerOutputs, m_PeerOutputs)
+            && m_Tx.GetParameter(TxParameterID::PeerOffset, m_PeerOffset);
     }
 
     void TxBuilder::SignPartial()
@@ -535,18 +564,28 @@ namespace beam { namespace wallet
         m_MultiSig.SignPartial(m_PartialSignature, m_Message, m_BlindingExcess);
     }
 
-    Transaction::Ptr TxBuilder::CreateTransaction()
+    void TxBuilder::FinalizeSignature()
     {
         // final signature
         m_Kernel->m_Signature.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
         m_Kernel->m_Signature.m_k = m_PartialSignature + m_PeerSignature;
+    }
 
+    Transaction::Ptr TxBuilder::CreateTransaction()
+    {
+        assert(m_Kernel);
+        Merkle::Hash kernelID = { 0 };
+        m_Kernel->get_ID(kernelID);
+        LOG_INFO() << "Transaction kernel: " << kernelID;
         // create transaction
         auto transaction = make_shared<Transaction>();
         transaction->m_vKernelsOutput.push_back(move(m_Kernel));
-        transaction->m_Offset = m_Offset;
+        transaction->m_Offset = m_Offset + m_PeerOffset;
         transaction->m_vInputs = move(m_Inputs);
         transaction->m_vOutputs = move(m_Outputs);
+        move(m_PeerInputs.begin(), m_PeerInputs.end(), back_inserter(transaction->m_vInputs));
+        move(m_PeerOutputs.begin(), m_PeerOutputs.end(), back_inserter(transaction->m_vOutputs));
+
         transaction->Normalize();
 
         // Verify final transaction

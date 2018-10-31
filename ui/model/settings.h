@@ -36,7 +36,6 @@ public:
     void initModel(WalletModel::Ptr model);
     std::string getWalletStorage() const;
     std::string getBbsStorage() const;
-    void emergencyReset();
 	void reportProblem();
 
     bool getGenerateGenesys() const;

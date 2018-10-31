@@ -50,7 +50,6 @@ namespace beam
         virtual void delete_tx(const TxID& id) = 0;
 
         virtual void set_node_address(io::Address node_address) = 0;
-        virtual void emergencyReset() = 0;
 
         virtual bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) = 0;
     };
@@ -149,7 +148,6 @@ namespace beam
         void delete_tx(const TxID& txId) override;
 
         void set_node_address(io::Address node_address) override;
-        void emergencyReset() override;
         bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) override;
 
     private:

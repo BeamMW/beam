@@ -1276,15 +1276,6 @@ namespace beam
         sqlite::Transaction trans(_db);
 
         {
-            const char* req = "DELETE FROM " STORAGE_NAME " WHERE createHeight >?1 AND (key_type=?2 OR key_type=?3);";
-            sqlite::Statement stm(_db, req);
-            stm.bind(1, minHeight);
-            stm.bind(2, Key::Type::Coinbase);
-            stm.bind(3, Key::Type::Comission);
-            stm.step();
-        }
-
-        {
             const char* req = "UPDATE " STORAGE_NAME " SET status=?1, confirmHeight=?2, lockedHeight=?2, confirmHash=NULL WHERE confirmHeight > ?3 ;";
             sqlite::Statement stm(_db, req);
             stm.bind(1, Coin::Unconfirmed);

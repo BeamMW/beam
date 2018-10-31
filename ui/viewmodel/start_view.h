@@ -78,6 +78,7 @@ public:
     Q_INVOKABLE uint coreAmount() const;
     Q_INVOKABLE void copyPhrasesToClipboard();
     Q_INVOKABLE void printRecoveryPhrases(QVariant viewData);
+    Q_INVOKABLE void resetPhrases();
 
 signals:
     void walletExistsChanged();

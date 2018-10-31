@@ -106,15 +106,6 @@ void WalletSettings::setLockTimeout(int value)
     }
 }
 
-void WalletSettings::emergencyReset()
-{
-    auto walletModel = AppModel::getInstance()->getWallet();
-    if (walletModel)
-    {
-        walletModel->async->emergencyReset();
-    }
-}
-
 bool WalletSettings::getGenerateGenesys() const
 {
     Lock lock(m_mutex);

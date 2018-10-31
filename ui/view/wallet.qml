@@ -535,7 +535,7 @@ Item {
                             font.pixelSize: 14
                             color: Style.white
 
-                            maximumLength: 200
+                            maximumLength: 1024
                             selectByMouse: true
                         }
 
@@ -977,7 +977,7 @@ Item {
 
             TableViewColumn {
                 role: viewModel.displayNameRole
-                title: qsTr("Recipient / Sender ID")
+                title: qsTr("Address")
                 width: 400 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideMiddle
                 resizable: false
@@ -1204,7 +1204,14 @@ Item {
                         width: parent.width
                         clip: true
 
-                        property int maximumHeight: 200
+                        property int maximumHeight: 180 + commentTx.contentHeight
+
+                        onMaximumHeightChanged: {
+                            if (!rowItem.collapsed) {
+                                rowItem.height = maximumHeight + transactionsView.rowHeight
+                                txDetails.height = maximumHeight
+                            }
+                        }
 
                         Rectangle {
                             anchors.fill: parent
@@ -1297,6 +1304,7 @@ Item {
                                     text: qsTr("Comment:")
                                 }
                                 SFLabel {
+                                    id: commentTx
                                     copyMenuEnabled: true
                                     font.pixelSize: 14
                                     color: Style.white
@@ -1308,7 +1316,6 @@ Item {
                                         return "";
                                     }
                                     font.styleName: "Italic"
-                                    maximumLineCount: 2
                                     Layout.fillWidth: true
                                     wrapMode : Text.Wrap
                                     elide: Text.ElideRight

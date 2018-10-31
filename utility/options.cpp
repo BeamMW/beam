@@ -130,6 +130,7 @@ namespace beam
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
             (cli::BBS_STORAGE, po::value<string>()->default_value("bbs_keys.db"), "path to file with bbs keys")
             (cli::TX_HISTORY, "print transacrions' history in info command")
+            (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "tx id")
             (cli::NEW_ADDRESS_LABEL, po::value<string>()->default_value(""), "label for new own address")
 
