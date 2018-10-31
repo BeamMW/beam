@@ -575,6 +575,11 @@ QString WalletViewModel::getDateRole() const
     return "date";
 }
 
+QString WalletViewModel::getUserRole() const
+{
+    return "user";
+}
+
 QString WalletViewModel::getDisplayNameRole() const
 {
     return "displayName";
@@ -695,6 +700,12 @@ std::function<bool(const TxObject*, const TxObject*)> WalletViewModel::generateC
         return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
     {
         return compareTx(lf->getTxDescription().m_sender, rt->getTxDescription().m_sender, sortOrder);
+    };
+
+    if (_sortRole == getUserRole())
+        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
+    {
+        return compareTx(lf->user(), rt->user(), sortOrder);
     };
 
     if (_sortRole == getDisplayNameRole())
