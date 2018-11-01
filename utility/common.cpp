@@ -245,6 +245,14 @@ void MiniDumpWriteGuarded(EXCEPTION_POINTERS* pExc)
 
 }
 
+void MiniDumpWriteNoExc()
+{
+	__try {
+		RaiseException(0xC20A1000, EXCEPTION_NONCONTINUABLE, 0, NULL);
+	} __except (MiniDumpWriteGuarded(GetExceptionInformation()), EXCEPTION_EXECUTE_HANDLER) {
+	}
+}
+
 long WINAPI ExcFilter(EXCEPTION_POINTERS* pExc)
 {
 	__try {
@@ -255,35 +263,54 @@ long WINAPI ExcFilter(EXCEPTION_POINTERS* pExc)
 	return EXCEPTION_CONTINUE_SEARCH;
 }
 
-_invalid_parameter_handler g_pfnCrtHandlerOrg = NULL;
+//void CrtInvHandler(const wchar_t* expression, const wchar_t* function, const wchar_t* file, unsigned int line, uintptr_t pReserved)
+//{
+//	if (IsDebuggerPresent())
+//		/*_invalid_parameter_handler(expression, function, file, line, pReserved)*/;
+//	else
+//		MiniDumpWriteNoExc();
+//}
 
-void CrtInvHandler(const wchar_t* expression, const wchar_t* function, const wchar_t* file, unsigned int line, uintptr_t pReserved)
+terminate_function g_pfnTerminate = NULL;
+
+void TerminateHandler()
 {
-	if (IsDebuggerPresent())
-		g_pfnCrtHandlerOrg(expression, function, file, line, pReserved);
-	else
-	{
-		__try {
-			RaiseException(0xC20A1000, EXCEPTION_NONCONTINUABLE, 0, NULL);
-		} __except (MiniDumpWriteGuarded(GetExceptionInformation()), EXCEPTION_EXECUTE_HANDLER) {
-		}
-
-	}
+	MiniDumpWriteNoExc();
+	g_pfnTerminate();
 }
+
+_CRT_REPORT_HOOK g_pfnCrtReport = NULL;
+
+int CrtReportHook(int n, char* sz, int* p)
+{
+	MiniDumpWriteNoExc();
+	return 0;
+}
+
 
 void beam::InstallCrashHandler(const char* szLocation)
 {
-	std::wstring s = beam::Utf8toUtf16(szLocation);
-	size_t nLen = s.size();
-	if (nLen >= _countof(g_szDumpPathTemplate))
-		nLen = _countof(g_szDumpPathTemplate) - 1;
+	if (szLocation)
+	{
+		std::wstring s = beam::Utf8toUtf16(szLocation);
+		size_t nLen = s.size();
+		if (nLen >= _countof(g_szDumpPathTemplate))
+			nLen = _countof(g_szDumpPathTemplate) - 1;
 
-	memcpy(g_szDumpPathTemplate, s.c_str(), sizeof(wchar_t) * (nLen + 1));
+		memcpy(g_szDumpPathTemplate, s.c_str(), sizeof(wchar_t) * (nLen + 1));
+	}
+	else
+	{
+		GetModuleFileNameW(NULL, g_szDumpPathTemplate, _countof(g_szDumpPathTemplate));
+		g_szDumpPathTemplate[_countof(g_szDumpPathTemplate) - 1] = 0;
+	}
 
 	SetUnhandledExceptionFilter(ExcFilter);
 
 	// CRT-specific
-	_set_invalid_parameter_handler(CrtInvHandler);
+	//_set_invalid_parameter_handler(CrtInvHandler);
+	g_pfnTerminate = set_terminate(TerminateHandler);
+	_CrtSetReportHook(CrtReportHook);
 }
 
 #else // WIN32
