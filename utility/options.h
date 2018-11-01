@@ -36,7 +36,6 @@ namespace beam
         extern const char* IMPORT;
         extern const char* MINING_THREADS;
         extern const char* VERIFICATION_THREADS;
-        extern const char* MINER_ID;
         extern const char* NODE_PEER;
         extern const char* PASS;
         extern const char* BTC_PASS;
@@ -54,11 +53,17 @@ namespace beam
         extern const char* LISTEN;
         extern const char* TREASURY;
         extern const char* TREASURY_BLOCK;
-        extern const char* INIT;
+		extern const char* RESYNC;
+		extern const char* INIT;
+        extern const char* NEW_ADDRESS;
+        extern const char* CANCEL_TX;
         extern const char* SEND;
         extern const char* INFO;
+        extern const char* NEW_ADDRESS_LABEL;
         extern const char* TX_HISTORY;
+        extern const char* TX_ID;
         extern const char* WALLET_SEED;
+        extern const char* WALLET_PHRASES;
         extern const char* FEE;
         extern const char* FEE_FULL;
         extern const char* RECEIVE;

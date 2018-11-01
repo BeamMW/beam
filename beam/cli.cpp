@@ -57,7 +57,9 @@ namespace
     }
 }
 
-#define LOG_VERBOSE_ENABLED 0
+#ifndef LOG_VERBOSE_ENABLED
+    #define LOG_VERBOSE_ENABLED 0
+#endif
 
 io::Reactor::Ptr reactor;
 
@@ -102,11 +104,7 @@ int main_impl(int argc, char* argv[])
 		}
 
 		int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
-		int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
-
-#if LOG_VERBOSE_ENABLED
-		logLevel = LOG_LEVEL_VERBOSE;
-#endif
+		int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
 		const auto path = boost::filesystem::system_complete("./logs");
 		auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "node_", path.string());
@@ -126,9 +124,6 @@ int main_impl(int argc, char* argv[])
 
 				io::Reactor::GracefulIntHandler gih(*reactor);
 
-				NoLeak<uintBig> walletSeed;
-				walletSeed.V = Zero;
-
 				io::Timer::Ptr logRotateTimer = io::Timer::create(*reactor);
 				logRotateTimer->start(
 					LOG_ROTATION_PERIOD, true,
@@ -144,11 +139,13 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_Listen.ip(INADDR_ANY);
 					node.m_Cfg.m_sPathLocal = vm[cli::STORAGE].as<string>();
 					node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
-					node.m_Cfg.m_MinerID = vm[cli::MINER_ID].as<uint32_t>();
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
 					if (node.m_Cfg.m_MiningThreads > 0)
 					{
-						if (!beam::read_wallet_seed(node.m_Cfg.m_WalletKey, vm)) {
+						std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
+						node.m_pKdf = pKdf;
+
+						if (!beam::read_wallet_seed(pKdf->m_Secret, vm)) {
                             LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
                             return -1;
                         }
@@ -199,6 +196,10 @@ int main_impl(int argc, char* argv[])
 						0x6d, 0xf0, 0x10, 0xb5, 0x3f, 0x9a, 0xaf, 0x32, 0xe3, 0xcb, 0xc7, 0x5f, 0xa3, 0x6a, 0x21, 0x97
 					};
 #endif
+
+					if (vm.count(cli::RESYNC))
+						node.m_Cfg.m_Sync.m_ForceResync = vm[cli::RESYNC].as<bool>();
+
 					node.Initialize();
 
 					Height hImport = vm[cli::IMPORT].as<Height>();

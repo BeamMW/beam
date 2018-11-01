@@ -16,16 +16,48 @@
 
 #include <QObject>
 #include <functional>
+#include <QQmlListProperty>
 
 #include "wallet/wallet_db.h"
+#include "mnemonic/mnemonic.h"
 
 #include "messages_view.h"
+
+class RecoveryPhraseItem : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(bool isCorrect READ isCorrect NOTIFY isCorrectChanged)
+    Q_PROPERTY(QString value READ getValue WRITE setValue NOTIFY valueChanged)
+    Q_PROPERTY(QString phrase READ getPhrase CONSTANT)
+    Q_PROPERTY(int index READ getIndex CONSTANT)
+public:
+    RecoveryPhraseItem(int index, const QString& phrase);
+    ~RecoveryPhraseItem();
+
+    bool isCorrect() const;
+    const QString& getValue() const;
+    void setValue(const QString& value);
+    const QString& getPhrase() const;
+    int getIndex() const;
+signals: 
+    void isCorrectChanged();
+    void valueChanged();
+
+private:
+    int m_index;
+    QString m_phrase;
+    QString m_userInput;
+};
 
 class StartViewModel : public QObject
 {
     Q_OBJECT
 
     Q_PROPERTY(bool walletExists READ walletExists NOTIFY walletExistsChanged)
+    Q_PROPERTY(bool isRecoveryMode READ getIsRecoveryMode WRITE setIsRecoveryMode NOTIFY isRecoveryModeChanged)
+    Q_PROPERTY(QList<QObject*> recoveryPhrases READ getRecoveryPhrases NOTIFY recoveryPhrasesChanged)
+    Q_PROPERTY(QList<QObject*> checkPhrases READ getCheckPhrases NOTIFY checkPhrasesChanged)
+    Q_PROPERTY(QChar phrasesSeparator READ getPhrasesSeparator CONSTANT)
 public:
 
     using DoneCallback = std::function<bool (beam::IKeyChain::Ptr db, const std::string& walletPass)>;
@@ -34,17 +66,33 @@ public:
     ~StartViewModel();
 
     bool walletExists() const;
+    bool getIsRecoveryMode() const;
+    void setIsRecoveryMode(bool value);
+    const QList<QObject*>& getRecoveryPhrases();
+    const QList<QObject*>& getCheckPhrases();
+    QChar getPhrasesSeparator();
 
     Q_INVOKABLE void setupLocalNode(int port, int miningThreads, bool generateGenesys = false);
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
     Q_INVOKABLE void setupTestnetNode();
     Q_INVOKABLE uint coreAmount() const;
+    Q_INVOKABLE void copyPhrasesToClipboard();
+    Q_INVOKABLE void printRecoveryPhrases(QVariant viewData);
+    Q_INVOKABLE void resetPhrases();
 
 signals:
     void walletExistsChanged();
     void generateGenesysyBlockChanged();
+    void recoveryPhrasesChanged();
+    void checkPhrasesChanged();
+    void isRecoveryModeChanged();
 
 public slots:
-    bool createWallet(const QString& seed, const QString& pass);
+    bool createWallet(const QString& pass);
     bool openWallet(const QString& pass);
+private:
+    QList<QObject*> m_recoveryPhrases;
+    QList<QObject*> m_checkPhrases;
+    beam::WordList m_generatedPhrases;
+    bool m_isRecoveryMode;
 };

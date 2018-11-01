@@ -131,9 +131,14 @@ namespace ECC {
 
 	struct InnerProduct::Calculator
 	{
+		struct XSet
+		{
+			Scalar::Native m_Val[nCycles];
+		};
+
 		struct ChallengeSet {
 			Scalar::Native m_DotMultiplier;
-			Scalar::Native m_Val[nCycles][2];
+			XSet m_pX[2];
 		};
 
 		struct ModifierExpanded
@@ -164,30 +169,30 @@ namespace ECC {
 			}
 		};
 
-		static void get_Challenge(Scalar::Native* pX, Oracle&);
-
 		struct Aggregator
 		{
 			MultiMac& m_Mm;
-			const ChallengeSet& m_cs;
+			const XSet* m_pX[2];
 			const ModifierExpanded& m_Mod;
 			const Calculator* m_pCalc; // set if source are already condensed points
 			InnerProduct::BatchContext* m_pBatchCtx;
 			const int m_j;
 			const unsigned int m_iCycleTrg;
 
-			Aggregator(MultiMac& mm, const ChallengeSet& cs, const ModifierExpanded& mod, int j, unsigned int iCycleTrg)
+			Aggregator(MultiMac& mm, const XSet* pX, const XSet* pXInv, const ModifierExpanded& mod, int j, unsigned int iCycleTrg)
 				:m_Mm(mm)
-				,m_cs(cs)
 				,m_Mod(mod)
 				,m_pCalc(NULL)
 				,m_pBatchCtx(NULL)
 				,m_j(j)
 				,m_iCycleTrg(iCycleTrg)				
 			{
+				m_pX[0] = pX;
+				m_pX[1] = pXInv;
 			}
 
 			void Proceed(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k);
+			void ProceedRec(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k, uint32_t j);
 		};
 
 		static const uint32_t s_iCycle0 = 2; // condense source generators into points (after 3 iterations, 8 points)
@@ -210,16 +215,6 @@ namespace ECC {
 		void ExtractLR(int j);
 	};
 
-
-	void InnerProduct::Calculator::get_Challenge(Scalar::Native* pX, Oracle& oracle)
-	{
-		do
-			oracle >> pX[0];
-		while (pX[0] == Zero);
-
-		pX[1].SetInv(pX[0]);
-	}
-
 	void InnerProduct::Calculator::Condense()
 	{
 		// Vectors
@@ -227,8 +222,8 @@ namespace ECC {
 			for (uint32_t i = 0; i < m_n; i++)
 			{
 				// dst and src need not to be distinct
-				m_pVal[j][i] = m_ppSrc[j][i] * m_Cs.m_Val[m_iCycle][j];
-				m_pVal[j][i] += m_ppSrc[j][m_n + i] * m_Cs.m_Val[m_iCycle][!j];
+				m_pVal[j][i] = m_ppSrc[j][i] * m_Cs.m_pX[j].m_Val[m_iCycle];
+				m_pVal[j][i] += m_ppSrc[j][m_n + i] * m_Cs.m_pX[!j].m_Val[m_iCycle];
 			}
 
 		// Points
@@ -251,7 +246,7 @@ namespace ECC {
 
 				Point::Native& g0 = m_pGen[j][i];
 
-				Aggregator aggr(m_Mm, m_Cs, m_Mod, j, nCycles - m_iCycle - 1);
+				Aggregator aggr(m_Mm, &m_Cs.m_pX[0], &m_Cs.m_pX[1], m_Mod, j, nCycles - m_iCycle - 1);
 
 				if (m_iCycle > s_iCycle0)
 					aggr.m_pCalc = this;
@@ -289,7 +284,7 @@ namespace ECC {
 			{
 				const Scalar::Native& v = m_ppSrc[jSrc][i + off0];
 
-				Aggregator aggr(m_Mm, m_Cs, m_Mod, jSrc, nCycles - m_iCycle);
+				Aggregator aggr(m_Mm, &m_Cs.m_pX[0], &m_Cs.m_pX[1], m_Mod, jSrc, nCycles - m_iCycle);
 
 				if (m_iCycle > s_iCycle0)
 					aggr.m_pCalc = this;
@@ -299,22 +294,28 @@ namespace ECC {
 		}
 	}
 
+	void InnerProduct::Calculator::Aggregator::ProceedRec(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k, uint32_t j)
+	{
+		if (m_pX[j])
+		{
+			Scalar::Native k0 = k;
+			k0 *= m_pX[j]->m_Val[nCycles - iCycle];
+
+			Proceed(iPos, iCycle - 1, k0);
+		}
+		else
+			Proceed(iPos, iCycle - 1, k); // in batch mode all inverses are already multiplied
+	}
+
 	void InnerProduct::Calculator::Aggregator::Proceed(uint32_t iPos, uint32_t iCycle, const Scalar::Native& k)
 	{
 		if (iCycle != m_iCycleTrg)
 		{
 			assert(iCycle <= nCycles);
-			Scalar::Native k0 = k;
-			k0 *= m_cs.m_Val[nCycles - iCycle][!m_j];
-
-			Proceed(iPos, iCycle - 1, k0);
-
-			k0 = k;
-			k0 *= m_cs.m_Val[nCycles - iCycle][m_j];
+			ProceedRec(iPos, iCycle, k, !m_j);
 
 			uint32_t nStep = 1 << (iCycle - 1);
-
-			Proceed(iPos + nStep, iCycle - 1, k0);
+			ProceedRec(iPos + nStep, iCycle, k, m_j);
 
 		} else
 		{
@@ -402,7 +403,8 @@ namespace ECC {
 		{
 			c.m_n = nDim >> (c.m_iCycle + 1);
 
-			Calculator::get_Challenge(c.m_Cs.m_Val[c.m_iCycle], oracle);
+			oracle >> c.m_Cs.m_pX[0].m_Val[c.m_iCycle];
+			c.m_Cs.m_pX[1].m_Val[c.m_iCycle].SetInv(c.m_Cs.m_pX[0].m_Val[c.m_iCycle]);
 
 			for (int j = 0; j < 2; j++)
 			{
@@ -435,6 +437,34 @@ namespace ECC {
 			bc.Flush();
 	}
 
+	struct InnerProduct::Challenges
+	{
+		Scalar::Native m_DotMultiplier;
+		Calculator::XSet m_X;
+
+		Scalar::Native m_Mul1, m_Mul2;
+
+		void Init(Oracle& oracle, const Scalar::Native& dotAB, const InnerProduct& v)
+		{
+			oracle << dotAB >> m_DotMultiplier;
+			m_Mul1 = 1U;
+
+			for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++)
+			{
+				oracle >> m_X.m_Val[iCycle];
+
+				m_Mul1 *= m_X.m_Val[iCycle];
+				m_X.m_Val[iCycle] *= m_X.m_Val[iCycle];
+
+				for (int j = 0; j < 2; j++)
+					oracle << v.m_pLR[iCycle][j];
+			}
+
+			m_Mul2 = m_Mul1;
+			m_Mul2 *= m_Mul1;
+		}
+	};
+
 	bool InnerProduct::IsValid(BatchContext& bc, const Point::Native& commAB, const Scalar::Native& dotAB, const Modifier& mod) const
 	{
 		Mode::Scope scope(Mode::Fast);
@@ -442,22 +472,22 @@ namespace ECC {
 		Oracle oracle;
 		oracle << commAB;
 
+		Challenges cs_;
+		cs_.Init(oracle, dotAB, *this);
+
 		if (!bc.EquationBegin(1))
 			return false;
 
-		bc.AddCasual(commAB, 1U);
+		bc.AddCasual(commAB, cs_.m_Mul2);
 
 		return
-			IsValid(bc, oracle, dotAB, mod) &&
+			IsValid(bc, cs_, dotAB, mod) &&
 			bc.EquationEnd();
 	}
 
-	bool InnerProduct::IsValid(BatchContext& bc, Oracle& oracle, const Scalar::Native& dotAB, const Modifier& mod) const
+	bool InnerProduct::IsValid(BatchContext& bc, Challenges& cs_, const Scalar::Native& dotAB, const Modifier& mod) const
 	{
 		Mode::Scope scope(Mode::Fast);
-
-		Calculator::ChallengeSet cs;
-		oracle << dotAB >> cs.m_DotMultiplier;
 
 		// Calculate the aggregated sum, consisting of sum of multiplications at once.
 		// The expression we're calculating is:
@@ -467,39 +497,53 @@ namespace ECC {
 		Calculator::ModifierExpanded modExp;
 		modExp.Init(mod);
 
-		Point::Native p;
 		Scalar::Native k;
 
-		uint32_t n = nDim;
-		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++, n >>= 1)
-		{
-			Calculator::get_Challenge(cs.m_Val[iCycle], oracle);
+		// calculate pairs of cs_.m_X.m_Val
+		static_assert(!(nCycles & 1), "");
+		const uint32_t nPairs = nCycles >> 1;
+		Scalar::Native pPair[nPairs];
 
+		for (uint32_t iPair = 0; iPair < nPairs; iPair++)
+		{
+			pPair[iPair] = cs_.m_X.m_Val[iPair << 1];
+			pPair[iPair] *= cs_.m_X.m_Val[(iPair << 1) + 1];
+		}
+
+		for (uint32_t iCycle = 0; iCycle < nCycles; iCycle++)
+		{
 			const Point* pLR = m_pLR[iCycle];
 			for (int j = 0; j < 2; j++)
 			{
-				k = cs.m_Val[iCycle][j];
-				k *= k;
-				k = k;
+				if (j)
+				{
+					// all except this one.
+					k = cs_.m_X.m_Val[iCycle ^ 1];
+
+					for (uint32_t iPair = 0; iPair < nPairs; iPair++)
+						if (iPair != (iCycle >> 1))
+							k *= pPair[iPair];
+				}
+				else
+				{
+					k = cs_.m_Mul2;
+					k *= cs_.m_X.m_Val[iCycle];
+				}
 
 				if (!bc.AddCasual(pLR[j], k))
 					return false;
-
-				oracle << pLR[j];
 			}
 		}
-
-		assert(1 == n);
 
 		// The expression we're calculating is: the transformed generator
 		//
 		// -sum( G_Condensed[j] * pCondensed[j] )
-		// whereas G_Condensed[j] = Gen[j] * sum (k[iCycle]^(+/-)2 ), i.e. transformed (condensed) generators
+		// whereas G_Condensed[j] = Gen[j] * sum (k[iCycle]^(+/-)1 ), i.e. transformed (condensed) generators
 
 		for (int j = 0; j < 2; j++)
 		{
 			MultiMac mmDummy;
-			Calculator::Aggregator aggr(mmDummy, cs, modExp, j, 0);
+			Calculator::Aggregator aggr(mmDummy, &cs_.m_X, NULL, modExp, j, 0);
 			aggr.m_pBatchCtx = &bc;
 
 			k = m_pCondensed[j];
@@ -507,6 +551,8 @@ namespace ECC {
 
 			if (bc.m_bEnableBatch)
 				k *= bc.m_Multiplier;
+
+			k *= cs_.m_Mul1;
 
 			aggr.Proceed(0, nCycles, k);
 		}
@@ -516,7 +562,8 @@ namespace ECC {
 		k *= m_pCondensed[1];
 		k = -k;
 		k += dotAB;
-		k *= cs.m_DotMultiplier;
+		k *= cs_.m_DotMultiplier;
+		k *= cs_.m_Mul2;
 
 		bc.AddPrepared(BatchContext::s_Idx_GenDot, k);
 
@@ -525,32 +572,40 @@ namespace ECC {
 
 	struct NonceGenerator
 	{
-		NoLeak<Oracle> m_Oracle;
-		NoLeak<Scalar> m_sk;
+		Oracle m_Oracle;
+		const uintBig& m_Seed;
+
+		NonceGenerator(const uintBig& seed) :m_Seed(seed) {}
 
 		void operator >> (Scalar::Native& k)
 		{
 			NoLeak<Hash::Value> hv;
-			m_Oracle.V >> hv.V;
+			m_Oracle >> hv.V;
 
-			k.GenerateNonce(m_sk.V.m_Value, hv.V, NULL);
+			k.GenerateNonce(m_Seed, hv.V, NULL);
 		}
 	};
 
 	/////////////////////
 	// Bulletproof
-	void RangeProof::Confidential::Create(const Scalar::Native& sk, Amount v, Oracle& oracle)
+	void RangeProof::Confidential::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle)
 	{
-		verify(CoSign(sk, v, oracle, Phase::SinglePass));
+		// single-pass - use deterministic seed for key blinding.
+		// For more safety - use the current oracle state
+
+		Oracle o(oracle); // copy
+		NoLeak<uintBig> seedSk;
+		o << sk << cp.m_Kidv.m_Value >> seedSk.V;
+
+		verify(CoSign(seedSk.V, sk, cp, oracle, Phase::SinglePass));
 	}
 
-	struct RangeProof::Confidential::MultiSig
+	struct RangeProof::Confidential::MultiSig::Impl
 	{
 		Scalar::Native m_tau1;
 		Scalar::Native m_tau2;
 
-		void Init(NonceGenerator&);
-		void Init(const Scalar::Native& sk, Amount v);
+		void Init(const uintBig& seedSk);
 
 		void AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const;
 		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet&) const;
@@ -558,20 +613,38 @@ namespace ECC {
 
 	struct RangeProof::Confidential::ChallengeSet
 	{
-		Scalar::Native x, y, z, zz;
+		Scalar::Native x, y, yInv, z, zz;
 		void Init(const Part1&, Oracle&);
 		void Init(const Part2&, Oracle&);
 	};
 
-	bool RangeProof::Confidential::CoSign(const Scalar::Native& sk, Amount v, Oracle& oracle, Phase::Enum ePhase)
+#pragma pack (push, 1)
+	struct RangeProof::CreatorParams::Padded
 	{
-		NonceGenerator nonceGen;
-		nonceGen.m_sk.V = sk;
-		nonceGen.m_Oracle.V << v;
+		uint8_t m_Padding[sizeof(Scalar) - sizeof(Key::IDV::Packed)];
+		Key::IDV::Packed V;
+	};
+
+#pragma pack (pop)
+
+	bool RangeProof::Confidential::CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, MultiSig* pMsigOut /* = NULL */)
+	{
+		NonceGenerator nonceGen(cp.m_Seed.V);
 
 		// A = G*alpha + vec(aL)*vec(G) + vec(aR)*vec(H)
-		Scalar::Native alpha;
+		Scalar::Native alpha, ro;
 		nonceGen >> alpha;
+
+		// embed extra params into alpha
+		static_assert(sizeof(Key::IDV::Packed) < sizeof(Scalar), "");
+		static_assert(sizeof(CreatorParams::Padded) == sizeof(Scalar), "");
+		NoLeak<CreatorParams::Padded> pad;
+		ZeroObject(pad.V.m_Padding);
+		pad.V.V = cp.m_Kidv;
+
+		verify(!ro.Import((Scalar&) pad.V)); // if overflow - the params won't be recovered properly, there may be ambiguity
+
+		alpha += ro;
 
 		Point::Native comm = Context::get().G * alpha;
 
@@ -581,7 +654,7 @@ namespace ECC {
 
 			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 			{
-				uint32_t iBit = 1 & (v >> i);
+				uint32_t iBit = 1 & (cp.m_Kidv.m_Value >> i);
 
 				// protection against side-channel attacks
 				object_cmov(ge_s.V, Context::get().m_Ipp.m_pGet1_Minus[i], 0 == iBit);
@@ -594,7 +667,6 @@ namespace ECC {
 		m_Part1.m_A = comm;
 
 		// S = G*ro + vec(sL)*vec(G) + vec(sR)*vec(H)
-		Scalar::Native ro;
 		nonceGen >> ro;
 
 		MultiMac_WithBufs<1, InnerProduct::nDim * 2 + 1> mm;
@@ -633,7 +705,7 @@ namespace ECC {
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
-			uint32_t bit = 1 & (v >> i);
+			uint32_t bit = 1 & (cp.m_Kidv.m_Value >> i);
 
 			l0 = -cs.z;
 			if (bit)
@@ -660,8 +732,8 @@ namespace ECC {
 			t2 += lx * rx;
 		}
 
-		MultiSig msig;
-		msig.Init(nonceGen);
+		MultiSig::Impl msig;
+		msig.Init(seedSk);
 
 		if (Phase::Finalize != ePhase) // otherwise m_Part2 already contains the whole aggregate
 		{
@@ -687,10 +759,16 @@ namespace ECC {
 			m_Part2.m_T2 = comm2;
 		}
 
+		cs.Init(m_Part2, oracle); // get challenge 
+
+		if (pMsigOut)
+		{
+			pMsigOut->x = cs.x;
+			pMsigOut->zz = cs.zz;
+		}
+
 		if (Phase::Step2 == ePhase)
 			return true; // stop after T1,T2 calculated
-
-		cs.Init(m_Part2, oracle); // get challenge 
 
 		// m_TauX = tau2*x^2 + tau1*x + sk*z^2
 		msig.AddInfo2(l0, sk, cs);
@@ -727,7 +805,7 @@ namespace ECC {
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
-			uint32_t bit = 1 & (v >> i);
+			uint32_t bit = 1 & (cp.m_Kidv.m_Value >> i);
 
 			pS[0][i] *= cs.x;
 
@@ -751,38 +829,62 @@ namespace ECC {
 			yPwr *= cs.y;
 		}
 
-		yPwr.SetInv(cs.y);
-
 		InnerProduct::Modifier mod;
-		mod.m_pMultiplier[1] = &yPwr;
+		mod.m_pMultiplier[1] = &cs.yInv;
 
 		m_P_Tag.Create(oracle, l0, pS[0], pS[1], mod);
 
 		return true;
 	}
 
-	void RangeProof::Confidential::MultiSig::Init(const Scalar::Native& sk, Amount v)
+	bool RangeProof::Confidential::Recover(Oracle& oracle, CreatorParams& cp) const
 	{
-		NonceGenerator nonceGen;
-		nonceGen.m_sk.V = sk;
-		nonceGen.m_Oracle.V << v;
+		NonceGenerator nonceGen(cp.m_Seed.V);
 
-		Init(nonceGen);
+		Scalar::Native alpha_minus_params, ro;
+		nonceGen >> alpha_minus_params;
+		nonceGen >> ro;
+
+		// get challenges
+		ChallengeSet cs;
+		cs.Init(m_Part1, oracle);
+		cs.Init(m_Part2, oracle);
+
+		// m_Mu = alpha + ro*x
+		// alpha = m_Mu - ro*x = alpha_minus_params + params
+		// params = m_Mu - ro*x - alpha_minus_params
+
+		ro *= cs.x;
+		alpha_minus_params += ro;
+		alpha_minus_params = -alpha_minus_params;
+		alpha_minus_params += m_Mu;
+
+		CreatorParams::Padded pad;
+		static_assert(sizeof(CreatorParams::Padded) == sizeof(Scalar), "");
+		((Scalar&) pad) = alpha_minus_params;
+
+		if (!memis0(pad.m_Padding, sizeof(pad.m_Padding)))
+			return false;
+
+		cp.m_Kidv = pad.V;
+		return true;
 	}
 
-	void RangeProof::Confidential::MultiSig::Init(NonceGenerator& nonceGen)
+	void RangeProof::Confidential::MultiSig::Impl::Init(const uintBig& seedSk)
 	{
+		NonceGenerator nonceGen(seedSk);
+
 		nonceGen >> m_tau1;
 		nonceGen >> m_tau2;
 	}
 
-	void RangeProof::Confidential::MultiSig::AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const
+	void RangeProof::Confidential::MultiSig::Impl::AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const
 	{
 		ptT1 = Context::get().G * m_tau1;
 		ptT2 = Context::get().G * m_tau2;
 	}
 
-	void RangeProof::Confidential::MultiSig::AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet& cs) const
+	void RangeProof::Confidential::MultiSig::Impl::AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet& cs) const
 	{
 		// m_TauX = tau2*x^2 + tau1*x + sk*z^2
 		taux = m_tau2;
@@ -798,38 +900,52 @@ namespace ECC {
 		taux += t1;
 	}
 
-	void RangeProof::Confidential::CoSignPart(const Scalar::Native& sk, Amount v, Oracle&, Part2& p2)
+	bool RangeProof::Confidential::MultiSig::CoSignPart(const uintBig& seedSk, Part2& p2)
 	{
-		MultiSig msig;
-		msig.Init(sk, v);
+		Impl msig;
+		msig.Init(seedSk);
 
 		Point::Native ptT1, ptT2;
 		msig.AddInfo1(ptT1, ptT2);
-		p2.m_T1 = ptT1;
-		p2.m_T2 = ptT2;
+
+		Point::Native pt;
+		if (!pt.Import(p2.m_T1))
+			return false;
+		pt += ptT1;
+		p2.m_T1 = pt;
+
+		if (!pt.Import(p2.m_T2))
+			return false;
+		pt += ptT2;
+		p2.m_T2 = pt;
+
+		return true;
 	}
 
-	void RangeProof::Confidential::CoSignPart(const Scalar::Native& sk, Amount v, Oracle& oracle, const Part1& p1, const Part2& p2, Part3& p3)
+	void RangeProof::Confidential::MultiSig::CoSignPart(const uintBig& seedSk, const Scalar::Native& sk, Part3& p3) const
 	{
-		MultiSig msig;
-		msig.Init(sk, v);
+		Impl msig;
+		msig.Init(seedSk);
 
 		ChallengeSet cs;
-		cs.Init(p1, oracle);
-		cs.Init(p2, oracle);
+		cs.x = x;
+		cs.zz = zz;
 
 		Scalar::Native taux;
 		msig.AddInfo2(taux, sk, cs);
 
+		taux += Scalar::Native(p3.m_TauX);
 		p3.m_TauX = taux;
 	}
 
 	void RangeProof::Confidential::ChallengeSet::Init(const Part1& p1, Oracle& oracle)
 	{
 		oracle << p1.m_A << p1.m_S;
+
 		oracle >> y;
 		oracle >> z;
 
+		yInv.SetInv(y);
 		zz = z;
 		zz *= z;
 	}
@@ -945,17 +1061,27 @@ namespace ECC {
 		if (!bc.EquationBegin(2))
 			return false;
 
+		InnerProduct::Challenges cs_;
+		cs_.Init(oracle, tDot, m_P_Tag);
+
+		cs.z *= cs_.m_Mul2;
+
 		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_Aux2, cs.z);
-		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, -Scalar::Native(m_Mu));
-		if (!bc.AddCasual(m_Part1.m_S, cs.x))
+
+		sumY = m_Mu;
+		sumY *= cs_.m_Mul2;
+
+		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, -sumY);
+
+		if (!bc.AddCasual(m_Part1.m_S, cs.x * cs_.m_Mul2))
 			return false;
 
-		Scalar::Native yInv, pwr, mul;
-		yInv.SetInv(cs.y);
+		Scalar::Native pwr, mul;
 
 		mul = 2U;
-		mul *= yInv;
+		mul *= cs.yInv;
 		pwr = zz;
+		pwr *= cs_.m_Mul2;
 
 		for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 		{
@@ -967,13 +1093,13 @@ namespace ECC {
 			pwr *= mul;
 		}
 
-		bc.AddCasual(m_Part1.m_A, 1U);
+		bc.AddCasual(m_Part1.m_A, cs_.m_Mul2);
 
 		// finally check the inner product
 		InnerProduct::Modifier mod;
-		mod.m_pMultiplier[1] = &yInv;
+		mod.m_pMultiplier[1] = &cs.yInv;
 
-		if (!m_P_Tag.IsValid(bc, oracle, tDot, mod))
+		if (!m_P_Tag.IsValid(bc, cs_, tDot, mod))
 			return false;
 
 		return bc.EquationEnd();

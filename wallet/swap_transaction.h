@@ -29,6 +29,8 @@ namespace beam
         private:
             TxType GetType() const override;
             void UpdateImpl() override;
+            void Send();
+            void Receive();
         };
     }
 }

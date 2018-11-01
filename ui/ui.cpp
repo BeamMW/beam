@@ -50,10 +50,13 @@
 
 #if defined Q_OS_WIN
 Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin)
+Q_IMPORT_PLUGIN(QWindowsPrinterSupportPlugin)
 #elif defined Q_OS_MAC
 Q_IMPORT_PLUGIN(QCocoaIntegrationPlugin)
+Q_IMPORT_PLUGIN(QCocoaPrinterSupportPlugin)
 #elif defined Q_OS_LINUX
 Q_IMPORT_PLUGIN(QXcbIntegrationPlugin)
+//Q_IMPORT_PLUGIN(QCupsPrinterSupportPlugin)
 #endif
 
 Q_IMPORT_PLUGIN(QtQuick2Plugin)
@@ -65,6 +68,7 @@ Q_IMPORT_PLUGIN(QtGraphicalEffectsPrivatePlugin)
 Q_IMPORT_PLUGIN(QSvgPlugin)
 Q_IMPORT_PLUGIN(QtQuickLayoutsPlugin)
 Q_IMPORT_PLUGIN(QtQuickTemplates2Plugin)
+
 
 #endif
 
@@ -98,28 +102,25 @@ int main (int argc, char* argv[])
         }
         catch (const po::error& e)
         {
-            cout << e.what() << std::endl;
-            cout << options << std::endl;
-
+            QMessageBox msgBox;
+            msgBox.setText(e.what());
+            msgBox.exec();
             return -1;
-        }
-
-        if (vm.count(cli::HELP))
-        {
-            cout << options << std::endl;
-
-            return 0;
         }
 
         if (vm.count(cli::VERSION))
         {
-            cout << PROJECT_VERSION << endl;
+            QMessageBox msgBox;
+            msgBox.setText(PROJECT_VERSION.c_str());
+            msgBox.exec();
             return 0;
         }
 
         if (vm.count(cli::GIT_COMMIT_HASH))
         {
-            cout << GIT_COMMIT_HASH << endl;
+            QMessageBox msgBox;
+            msgBox.setText(GIT_COMMIT_HASH.c_str());
+            msgBox.exec();
             return 0;
         }
 
@@ -129,10 +130,7 @@ int main (int argc, char* argv[])
         }
 
         int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
-        int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
-#if LOG_VERBOSE_ENABLED
-        logLevel = LOG_LEVEL_VERBOSE;
-#endif
+        int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
         auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_",
 			appDataDir.filePath(WalletSettings::LogsFolder).toStdString());
@@ -189,7 +187,9 @@ int main (int argc, char* argv[])
     }
     catch (const std::exception& e)
     {
-        std::cout << e.what() << std::endl;
+        QMessageBox msgBox;
+        msgBox.setText(e.what());
+        msgBox.exec();
         return -1;
     }
 }

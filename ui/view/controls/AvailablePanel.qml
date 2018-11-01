@@ -1,4 +1,4 @@
-import QtQuick 2.4
+import QtQuick 2.11
 import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
 import QtQuick.Layouts 1.0
@@ -13,6 +13,8 @@ Rectangle {
 
     property string value
     property alias color: panel.color
+
+    signal copyValueText()
 
     SFText {
         id: title
@@ -38,7 +40,7 @@ Rectangle {
 
         spacing: 6
 
-        SFText {
+        SFLabel {
             id: amount_text
             font.pixelSize: 36
             font.styleName: "Light"; font.weight: Font.Light
@@ -46,6 +48,8 @@ Rectangle {
 
             text: value
             anchors.bottom: parent.bottom
+            copyMenuEnabled: true
+            onCopyText: panel.copyValueText()
         }
 
         SFText {

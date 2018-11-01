@@ -15,24 +15,34 @@
 //#include <ctime>
 #include "block_crypt.h"
 #include "../utility/serialize.h"
+#include "../pow/impl/utilstrencodings.h"
 #include "../core/serialization_adapters.h"
+#include "aes.h"
 
 namespace beam
 {
 	/////////////
 	// RW
-	const char* const Block::BodyBase::RW::s_pszSufix[s_Datas] = {
-		"ui",
-		"uo",
-		"ki",
-		"ko",
-		"hd",
+	const char* const Block::BodyBase::RW::s_pszSufix[Type::count] = {
+#define THE_MACRO(x) #x,
+		MBLOCK_DATA_Types(THE_MACRO)
+#undef THE_MACRO
 	};
 
 	void Block::BodyBase::RW::GetPath(std::string& s, int iData) const
 	{
-		assert(iData < s_Datas);
+		assert(iData < Type::count);
 		s = m_sPath + s_pszSufix[iData];
+	}
+
+	void Block::BodyBase::RW::ROpen()
+	{
+		Open(true);
+	}
+
+	void Block::BodyBase::RW::WCreate()
+	{
+		Open(false);
 	}
 
 	void Block::BodyBase::RW::Open(bool bRead)
@@ -43,7 +53,9 @@ namespace beam
 
 		if (bRead)
 		{
-			for (int i = 0; i < static_cast<int>(_countof(m_pS)); i++)
+			static_assert(Type::hd == 0, ""); // must be the 1st to open
+
+			for (int i = 0; i < Type::count; i++)
 				OpenInternal(i);
 		}
 		else
@@ -54,12 +66,48 @@ namespace beam
 	{
 		std::string s;
 		GetPath(s, iData);
-		return m_pS[iData].Open(s.c_str(), m_bRead);
+		if (!m_pS[iData].Open(s.c_str(), m_bRead))
+			return false;
+
+		PostOpen(iData);
+		return true;
+	}
+
+	void Block::BodyBase::RW::PostOpen(int iData)
+	{
+		if (m_bRead)
+		{
+			yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(m_pS[iData]);
+			ECC::Hash::Value hv;
+			arc & hv;
+
+			if (Type::hd == iData)
+			{
+				if (hv != Rules::get().Checksum)
+					throw std::runtime_error("Block rules mismatch");
+
+				arc & m_hvContentTag;
+			}
+			else
+			{
+				if (hv != m_hvContentTag)
+					throw std::runtime_error("MB tags mismatch");
+			}
+		}
+		else
+		{
+			yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(m_pS[iData]);
+
+			if (Type::hd == iData)
+				arc & Rules::get().Checksum;
+
+			arc & m_hvContentTag;
+		}
 	}
 
 	void Block::BodyBase::RW::Delete()
 	{
-		for (int i = 0; i < static_cast<int>(_countof(m_pS)); i++)
+		for (int i = 0; i < Type::count; i++)
 		{
 			std::string s;
 			GetPath(s, i);
@@ -69,7 +117,7 @@ namespace beam
 
 	void Block::BodyBase::RW::Close()
 	{
-		for (size_t i = 0; i < _countof(m_pS); i++)
+		for (int i = 0; i < Type::count; i++)
 			m_pS[i].Close();
 	}
 
@@ -84,20 +132,23 @@ namespace beam
 
 	void Block::BodyBase::RW::Reset()
 	{
-		for (size_t i = 0; i < _countof(m_pS); i++)
+		for (int i = 0; i < Type::count; i++)
 			if (m_pS[i].IsOpen())
+			{
 				m_pS[i].Restart();
+				PostOpen(i);
+			}
 
 		// preload
-		LoadInternal(m_pUtxoIn, 0, m_pGuardUtxoIn);
-		LoadInternal(m_pUtxoOut, 1, m_pGuardUtxoOut);
-		LoadInternal(m_pKernelIn, 2, m_pGuardKernelIn);
-		LoadInternal(m_pKernelOut, 3, m_pGuardKernelOut);
+		LoadInternal(m_pUtxoIn,		Type::ui, m_pGuardUtxoIn);
+		LoadInternal(m_pUtxoOut,	Type::uo, m_pGuardUtxoOut);
+		LoadInternal(m_pKernelIn,	Type::ki, m_pGuardKernelIn);
+		LoadInternal(m_pKernelOut,	Type::ko, m_pGuardKernelOut);
 	}
 
 	void Block::BodyBase::RW::Flush()
 	{
-		for (size_t i = 0; i < _countof(m_pS); i++)
+		for (int i = 0; i < Type::count; i++)
 			if (m_pS[i].IsOpen())
 				m_pS[i].Flush();
 	}
@@ -113,35 +164,29 @@ namespace beam
 
 	void Block::BodyBase::RW::NextUtxoIn()
 	{
-		LoadInternal(m_pUtxoIn, 0, m_pGuardUtxoIn);
+		LoadInternal(m_pUtxoIn, Type::ui, m_pGuardUtxoIn);
 	}
 
 	void Block::BodyBase::RW::NextUtxoOut()
 	{
-		LoadInternal(m_pUtxoOut, 1, m_pGuardUtxoOut);
+		LoadInternal(m_pUtxoOut, Type::uo, m_pGuardUtxoOut);
 	}
 
 	void Block::BodyBase::RW::NextKernelIn()
 	{
-		LoadInternal(m_pKernelIn, 2, m_pGuardKernelIn);
+		LoadInternal(m_pKernelIn, Type::ki, m_pGuardKernelIn);
 	}
 
 	void Block::BodyBase::RW::NextKernelOut()
 	{
-		LoadInternal(m_pKernelOut, 3, m_pGuardKernelOut);
+		LoadInternal(m_pKernelOut, Type::ko, m_pGuardKernelOut);
 	}
 
 	void Block::BodyBase::RW::get_Start(BodyBase& body, SystemState::Sequence::Prefix& prefix)
 	{
-		if (!m_pS[4].IsOpen())
+		if (!m_pS[Type::hd].IsOpen())
 			std::ThrowIoError();
-		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(m_pS[4]);
-
-		ECC::Hash::Value hv;
-		arc & hv;
-
-		if (hv != Rules::get().Checksum)
-			throw std::runtime_error("Block rules mismatch");
+		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(m_pS[Type::hd]);
 
 		arc & body;
 		arc & prefix;
@@ -149,7 +194,7 @@ namespace beam
 
 	bool Block::BodyBase::RW::get_NextHdr(SystemState::Sequence::Element& elem)
 	{
-		std::FStream& s = m_pS[4];
+		std::FStream& s = m_pS[Type::hd];
 		if (!s.get_Remaining())
 			return false;
 
@@ -161,34 +206,33 @@ namespace beam
 
 	void Block::BodyBase::RW::WriteIn(const Input& v)
 	{
-		WriteInternal(v, 0);
+		WriteInternal(v, Type::ui);
 	}
 
 	void Block::BodyBase::RW::WriteIn(const TxKernel& v)
 	{
-		WriteInternal(v, 2);
+		WriteInternal(v, Type::ki);
 	}
 
 	void Block::BodyBase::RW::WriteOut(const Output& v)
 	{
-		WriteInternal(v, 1);
+		WriteInternal(v, Type::uo);
 	}
 
 	void Block::BodyBase::RW::WriteOut(const TxKernel& v)
 	{
-		WriteInternal(v, 3);
+		WriteInternal(v, Type::ko);
 	}
 
 	void Block::BodyBase::RW::put_Start(const BodyBase& body, const SystemState::Sequence::Prefix& prefix)
 	{
-		WriteInternal(Rules::get().Checksum, 4);
-		WriteInternal(body, 4);
-		WriteInternal(prefix, 4);
+		WriteInternal(body, Type::hd);
+		WriteInternal(prefix, Type::hd);
 	}
 
 	void Block::BodyBase::RW::put_NextHdr(const SystemState::Sequence::Element& elem)
 	{
-		WriteInternal(elem, 4);
+		WriteInternal(elem, Type::hd);
 	}
 
 	template <typename T>
@@ -202,6 +246,7 @@ namespace beam
 			//if (!ppGuard[0])
 				ppGuard[0].reset(new T);
 
+			CommitmentAndMaturity::SerializeMaturity scope(true);
 			yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
 			arc & *ppGuard[0];
 
@@ -218,6 +263,7 @@ namespace beam
 		if (!s.IsOpen() && !OpenInternal(iData))
 			std::ThrowIoError();
 
+		CommitmentAndMaturity::SerializeMaturity scope(true);
 		yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
 		arc & v;
 	}
@@ -278,7 +324,7 @@ namespace beam
 			{
 				if (pOut)
 				{
-					int n = pInp->cmp_CaM(*pOut);
+					int n = CmpInOut(*pInp, *pOut);
 					if (n > 0)
 						pInp = NULL;
 					else
@@ -403,5 +449,106 @@ namespace beam
 
 		return true;
 	}
+
+	/////////////
+	// KeyString
+	void KeyString::Export(const ECC::HKdf& v)
+	{
+		ECC::NoLeak<ECC::HKdf::Packed> p;
+		v.Export(p.V);
+		Export(&p.V, sizeof(p.V), 's');
+	}
+
+	void KeyString::Export(const ECC::HKdfPub& v)
+	{
+		ECC::NoLeak<ECC::HKdfPub::Packed> p;
+		v.Export(p.V);
+		Export(&p.V, sizeof(p.V), 'P');
+	}
+
+	void KeyString::Export(void* p, uint32_t nData, uint8_t nCode)
+	{
+		ByteBuffer bb;
+		bb.resize(sizeof(MacValue) + nData + 1 + m_sMeta.size());
+		MacValue& mv = reinterpret_cast<MacValue&>(bb.at(0));
+
+		bb[sizeof(MacValue)] = nCode;
+		memcpy(&bb.at(1) + sizeof(MacValue), p, nData);
+		memcpy(&bb.at(1) + sizeof(MacValue) + nData, m_sMeta.c_str(), m_sMeta.size());
+
+		XCrypt(mv, static_cast<uint32_t>(nData + 1 + m_sMeta.size()), true);
+
+		m_sRes = EncodeBase64(&bb.at(0), bb.size());
+	}
+
+	bool KeyString::Import(ECC::HKdf& v)
+	{
+		ECC::NoLeak<ECC::HKdf::Packed> p;
+		return
+			Import(&p.V, sizeof(p.V), 's') &&
+			v.Import(p.V);
+	}
+
+	bool KeyString::Import(ECC::HKdfPub& v)
+	{
+		ECC::NoLeak<ECC::HKdfPub::Packed> p;
+		return
+			Import(&p.V, sizeof(p.V), 'P') &&
+			v.Import(p.V);
+	}
+
+	bool KeyString::Import(void* p, uint32_t nData, uint8_t nCode)
+	{
+		bool bInvalid = false;
+		ByteBuffer bb = DecodeBase64(m_sRes.c_str(), &bInvalid);
+
+		if (bInvalid || (bb.size() < sizeof(MacValue) + 1 + nData))
+			return false;
+
+		MacValue& mv = reinterpret_cast<MacValue&>(bb.at(0));
+		MacValue mvOrg = mv;
+
+		XCrypt(mv, static_cast<uint32_t>(bb.size()) - sizeof(mv), false);
+
+		if ((mv != mvOrg) || (bb[sizeof(MacValue)] != nCode))
+			return false;
+
+		memcpy(p, &bb.at(1) + sizeof(MacValue), nData);
+
+		m_sMeta.resize(bb.size() - (sizeof(MacValue) + 1 + nData));
+		if (!m_sMeta.empty())
+			memcpy(&m_sMeta.front(), &bb.at(1) + sizeof(MacValue) + nData, m_sMeta.size());
+
+		return true;
+	}
+
+	void KeyString::XCrypt(MacValue& mv, uint32_t nSize, bool bEnc) const
+	{
+		static_assert(AES::s_KeyBytes == sizeof(m_hvSecret.V), "");
+		AES::Encoder enc;
+		enc.Init(m_hvSecret.V.m_pData);
+
+		AES::StreamCipher c;
+		ECC::NoLeak<ECC::Hash::Value> hvIV;
+		ECC::Hash::Processor() << m_hvSecret.V >> hvIV.V;
+
+		c.m_Counter = hvIV.V; // truncated
+		c.m_nBuf = 0;
+
+		ECC::Hash::Mac hmac;
+		hmac.Reset(m_hvSecret.V.m_pData, m_hvSecret.V.nBytes);
+
+		if (bEnc)
+			hmac.Write(reinterpret_cast<uint8_t*>(&mv + 1), nSize);
+
+		c.XCrypt(enc, reinterpret_cast<uint8_t*>(&mv + 1), nSize);
+
+		if (!bEnc)
+			hmac.Write(reinterpret_cast<uint8_t*>(&mv + 1), nSize);
+
+		hmac >> hvIV.V;
+		mv = hvIV.V;
+	}
+
 
 } // namespace beam

@@ -59,9 +59,11 @@ namespace proto {
 #define BeamNodeMsg_GetProofState(macro) \
 	macro(Height, Height)
 
+#define BeamNodeMsg_GetCommonState(macro) \
+	macro(std::vector<Block::SystemState::ID>, IDs)
+
 #define BeamNodeMsg_GetProofKernel(macro) \
-	macro(Merkle::Hash, ID) \
-	macro(bool, RequestHashPreimage)
+	macro(Merkle::Hash, ID)
 
 #define BeamNodeMsg_GetProofUtxo(macro) \
 	macro(Input, Utxo) \
@@ -71,13 +73,16 @@ namespace proto {
 	macro(Difficulty::Raw, LowerBound)
 
 #define BeamNodeMsg_ProofKernel(macro) \
-	macro(Merkle::Proof, Proof) \
-	macro(ECC::uintBig, HashPreimage)
+	macro(Merkle::Proof, Proof)
 
 #define BeamNodeMsg_ProofUtxo(macro) \
 	macro(std::vector<Input::Proof>, Proofs)
 
 #define BeamNodeMsg_ProofState(macro) \
+	macro(Merkle::HardProof, Proof)
+
+#define BeamNodeMsg_ProofCommonState(macro) \
+	macro(uint32_t, iState) \
 	macro(Merkle::HardProof, Proof)
 
 #define BeamNodeMsg_ProofChainWork(macro) \
@@ -168,50 +173,67 @@ namespace proto {
 	macro(Block::SystemState::ID, ID) \
 	macro(ByteBuffer, Portion)
 
+#define BeamNodeMsg_Recover(macro) \
+	macro(bool, Private) \
+	macro(bool, Public)
+
+#define BeamNodeMsg_Recovered(macro) \
+	macro(std::vector<Key::IDV>, Private) \
+	macro(std::vector<Key::IDV>, Public)
+
 #define BeamNodeMsgsAll(macro) \
-	macro(1, NewTip) /* Also the first message sent by the node */ \
-	macro(2, GetHdr) \
-	macro(3, Hdr) \
-	macro(14, GetHdrPack) \
-	macro(19, HdrPack) \
-	macro(4, DataMissing) \
-	macro(5, Boolean) \
-	macro(6, GetBody) \
-	macro(7, Body) \
-	macro(8, GetProofState) \
-	macro(9, GetProofKernel) \
-	macro(10, GetProofUtxo) \
-	macro(11, ProofKernel) \
-	macro(12, ProofUtxo) \
-	macro(13, ProofState) \
-	macro(15, GetMined) \
-	macro(16, Mined) \
-	macro(17, GetProofChainWork) \
-	macro(18, ProofChainWork) \
-	macro(20, Config) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
-	macro(21, Ping) \
-	macro(22, Pong) \
-	macro(23, NewTransaction) \
-	macro(24, HaveTransaction) \
-	macro(25, GetTransaction) \
-	macro(29, Bye) \
-	macro(31, PeerInfoSelf) \
-	macro(32, PeerInfo) \
-	macro(33, GetTime) \
-	macro(34, Time) \
-	macro(35, GetExternalAddr) \
-	macro(36, ExternalAddr) \
-	macro(40, BbsMsg) \
-	macro(41, BbsHaveMsg) \
-	macro(42, BbsGetMsg) \
-	macro(43, BbsSubscribe) \
-	macro(44, BbsPickChannel) \
-	macro(45, BbsPickChannelRes) \
-	macro(50, MacroblockGet) \
-	macro(51, Macroblock) \
-	macro(61, SChannelInitiate) \
-	macro(62, SChannelReady) \
-	macro(63, Authentication) \
+	/* general msgs */ \
+	macro(0x00, Config) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
+	macro(0x01, Bye) \
+	macro(0x02, Ping) \
+	macro(0x03, Pong) \
+	macro(0x04, SChannelInitiate) \
+	macro(0x05, SChannelReady) \
+	macro(0x06, Authentication) \
+	macro(0x07, PeerInfoSelf) \
+	macro(0x08, PeerInfo) \
+	macro(0x09, GetExternalAddr) \
+	macro(0x0a, ExternalAddr) \
+	macro(0x0b, GetTime) \
+	macro(0x0c, Time) \
+	macro(0x0d, DataMissing) \
+	macro(0x0e, Boolean) \
+	/* blockchain status */ \
+	macro(0x10, NewTip) \
+	macro(0x11, GetHdr) \
+	macro(0x12, Hdr) \
+	macro(0x13, GetHdrPack) \
+	macro(0x14, HdrPack) \
+	macro(0x15, GetBody) \
+	macro(0x16, Body) \
+	macro(0x17, GetProofState) \
+	macro(0x18, ProofState) \
+	macro(0x19, GetProofKernel) \
+	macro(0x1a, ProofKernel) \
+	macro(0x1b, GetProofUtxo) \
+	macro(0x1c, ProofUtxo) \
+	macro(0x1d, GetProofChainWork) \
+	macro(0x1e, ProofChainWork) \
+	macro(0x20, MacroblockGet) \
+	macro(0x21, Macroblock) \
+	macro(0x22, GetCommonState) \
+	macro(0x23, ProofCommonState) \
+	/* onwer-relevant */ \
+	macro(0x28, GetMined) \
+	macro(0x29, Mined) \
+	macro(0x2a, Recover) \
+	macro(0x2b, Recovered) \
+	/* tx broadcast and replication */ \
+	macro(0x30, NewTransaction) \
+	macro(0x31, HaveTransaction) \
+	macro(0x32, GetTransaction) \
+	/* bbs */ \
+	macro(0x38, BbsMsg) \
+	macro(0x39, BbsHaveMsg) \
+	macro(0x3a, BbsGetMsg) \
+	macro(0x3b, BbsSubscribe) \
+	macro(0x3c, BbsPickChannel) \
+	macro(0x3d, BbsPickChannelRes) \
 
 
 	struct PerMined
@@ -597,6 +619,51 @@ namespace proto {
 
 
 	std::ostream& operator << (std::ostream& s, const PeerManager::PeerInfo&);
+
+	struct FlyClient
+	{
+		typedef std::map<Height, Block::SystemState::Full> StateMap;
+		StateMap m_Hist; // some recent blocks of the current active branch
+
+		const Block::SystemState::Full* get_Tip() const; // NULL if no hist
+
+		virtual void OnNewTip() {} // tip already added
+		virtual void OnRolledBack() {} // reversed states are already removed
+
+		class Connection
+			:public NodeConnection
+		{
+			struct SyncCtx
+			{
+				std::vector<Block::SystemState::ID> m_vConfirming;
+				Block::SystemState::Full m_Confirmed;
+				Block::SystemState::Full m_TipBeforeGap;
+			};
+
+			std::unique_ptr<SyncCtx> m_pSync;
+
+			struct StateArray;
+
+			bool ShouldSync() const;
+			void StartSync();
+			void SearchBelow(Height);
+			void RequestChainworkProof();
+
+		public:
+			FlyClient& m_This;
+			Connection(FlyClient& x);
+
+			// most recent tip of the Node, according to which all the proofs are interpreted
+			Block::SystemState::Full m_Tip;
+
+			// NodeConnection
+			virtual void OnConnectedSecure() override;
+			virtual void OnMsg(proto::NewTip&& msg) override;
+			virtual void OnMsg(proto::ProofCommonState&& msg) override;
+			virtual void OnMsg(proto::ProofChainWork&& msg) override;
+		};
+	};
+
 
 } // namespace proto
 } // namespace beam

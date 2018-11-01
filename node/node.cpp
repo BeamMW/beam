@@ -72,9 +72,10 @@ void Node::WantedTx::OnExpired(const KeyType& key)
 
 void Node::Bbs::CalcMsgKey(NodeDB::WalkerBbs::Data& d)
 {
-	ECC::Hash::Processor hp;
-	hp.Write(d.m_Message.p, d.m_Message.n);
-	hp << d.m_Channel >> d.m_Key;
+	ECC::Hash::Processor()
+		<< d.m_Message
+		<< d.m_Channel
+		>> d.m_Key;
 }
 
 uint32_t Node::Bbs::WantedMsg::get_Timeout_ms()
@@ -449,7 +450,7 @@ bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&
 	while (v.m_Remaining)
 		v.m_TaskFinished.wait(scope);
 
-	return !v.m_bFail && v.m_Context.IsValidBlock(block, m_Cursor.m_SubsidyOpen);
+	return !v.m_bFail && v.m_Context.IsValidBlock(block, m_Extra.m_SubsidyOpen);
 }
 
 void Node::Processor::Verifier::Thread(uint32_t iVerifier)
@@ -535,6 +536,13 @@ void Node::Processor::OnBlockData()
 	ReportProgress();
 }
 
+bool Node::Processor::OpenMacroblock(Block::BodyBase::RW& rw, const NodeDB::StateID& sid)
+{
+	get_ParentObj().m_Compressor.FmtPath(rw, sid.m_Height, NULL);
+	rw.ROpen();
+	return true;
+}
+
 void Node::Processor::ReportProgress()
 {
 	auto observer = get_ParentObj().m_Cfg.m_Observer;
@@ -563,6 +571,36 @@ void Node::Processor::ReportNewState()
     }
 }
 
+void Node::Processor::OnModified()
+{
+	if (!m_bFlushPending)
+	{
+		if (!m_pFlushTimer)
+			m_pFlushTimer = io::Timer::create(io::Reactor::get_Current());
+
+		m_pFlushTimer->start(50, false, [this]() { OnFlushTimer(); });
+
+		m_bFlushPending = true;
+	}
+}
+
+void Node::Processor::OnFlushTimer()
+{
+	m_bFlushPending = false;
+	CommitDB();
+}
+
+void Node::Processor::FlushDB()
+{
+	if (m_bFlushPending)
+	{
+		assert(m_pFlushTimer);
+		m_pFlushTimer->cancel();
+
+		OnFlushTimer();
+	}
+}
+
 Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 {
 	Peer* pPeer = new Peer(*this);
@@ -582,9 +620,25 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 
 void Node::Initialize()
 {
+	if (!m_pKdf)
+	{
+		if (m_Cfg.m_MiningThreads)
+			throw std::runtime_error("Mining enabled, but Kdf not specified!");
+
+		// use arbitrary, inited from system random. Needed for misc things, such as secure channel.
+		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
+		ECC::GenRandom(pKdf->m_Secret.V.m_pData, pKdf->m_Secret.V.nBytes);
+		m_pKdf = pKdf;
+	}
+
+	if (!m_pOwnerKdf)
+		m_pOwnerKdf = m_pKdf;
+
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
-	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str());
-	m_Processor.m_Kdf.m_Secret = m_Cfg.m_WalletKey;
+	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_Sync.m_ForceResync);
+
+	if (m_Cfg.m_Sync.m_ForceResync)
+		m_Processor.get_DB().ParamSet(NodeDB::ParamID::SyncTarget, NULL, NULL);
 
 	if (m_Cfg.m_VerificationThreads < 0)
 	{
@@ -618,29 +672,28 @@ void Node::InitIDs()
 {
 	ECC::GenRandom(m_NonceLast.V.m_pData, m_NonceLast.V.nBytes);
 
-	m_MyPrivateID.V.m_Value = Zero;
-
-	NodeDB::Blob blob(m_MyPrivateID.V.m_Value);
+	ECC::NoLeak<ECC::Scalar> s;
+	Blob blob(s.V.m_Value);
 	bool bNewID = !m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob);
 
 	if (bNewID)
 	{
-		ECC::Scalar::Native sk;
-		NextNonce(sk);
-		m_MyPrivateID.V = sk;
-	}
-
-	ECC::Scalar::Native sk = m_MyPrivateID.V;
-	proto::Sk2Pk(m_MyPublicID, sk);
-
-	if (bNewID)
-	{
-		m_MyPrivateID.V = sk; // may have been negated
+		NextNonce(m_MyPrivateID);
+		s.V = m_MyPrivateID;
 		m_Processor.get_DB().ParamSet(NodeDB::ParamID::MyID, NULL, &blob);
 	}
+	else
+		m_MyPrivateID = s.V;
 
-	DeriveKey(sk, m_Processor.m_Kdf, 0, KeyType::Identity);
-	proto::Sk2Pk(m_MyOwnerID, sk);
+	proto::Sk2Pk(m_MyPublicID, m_MyPrivateID);
+
+
+	ECC::Hash::Value hv;
+	Key::ID(0, Key::Type::Identity).get_Hash(hv);
+
+	ECC::Point::Native pt;
+	m_pOwnerKdf->DerivePKey(pt, hv);
+	m_MyOwnerID = ECC::Point(pt).m_X;
 }
 
 void Node::InitMode()
@@ -663,7 +716,7 @@ void Node::InitMode()
 	ZeroObject(m_pSync->m_Trg);
 	ZeroObject(m_pSync->m_Best);
 
-	NodeDB::Blob blobTrg = m_pSync->m_Trg.m_Hash;
+	Blob blobTrg(m_pSync->m_Trg.m_Hash);
 	m_Processor.get_DB().ParamGet(NodeDB::ParamID::SyncTarget, &m_pSync->m_Trg.m_Height, &blobTrg);
 
 	m_pSync->m_bDetecting = !m_pSync->m_Trg.m_Height;
@@ -739,7 +792,7 @@ void Node::ImportMacroblock(Height h)
 {
 	Block::BodyBase::RW rw;
 	m_Compressor.FmtPath(rw, h, NULL);
-	rw.Open(true);
+	rw.ROpen();
 
 	if (!m_Processor.ImportMacroBlock(rw))
 		throw std::runtime_error("import failed");
@@ -867,14 +920,13 @@ void Node::Peer::OnConnectedSecure()
 		Send(msgPi);
 	}
 
-	ECC::Scalar::Native sk = m_This.m_MyPrivateID.V;
-	ProveID(sk, proto::IDType::Node);
+	ProveID(m_This.m_MyPrivateID, proto::IDType::Node);
 
 	proto::Config msgCfg;
-	msgCfg.m_CfgChecksum = Rules::get().Checksum;
-	msgCfg.m_SpreadingTransactions = true;
-	msgCfg.m_Bbs = true;
-	msgCfg.m_SendPeers = true;
+	msgCfg.m_CfgChecksum = Rules::get().Checksum; // checksum of all consesnsus related configuration
+	msgCfg.m_SpreadingTransactions = true; // indicate ability to receive and broadcast transactions
+	msgCfg.m_Bbs = true; // indicate ability to receive and broadcast BBS messages
+	msgCfg.m_SendPeers = true; // request a another node to periodically send a list of recommended peers
 	Send(msgCfg);
 
 	if (m_This.m_Processor.m_Cursor.m_Sid.m_Row)
@@ -987,6 +1039,11 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	pm.OnSeen(*pPi);
 
 	LOG_INFO() << *m_pInfo << " connected, info updated";
+}
+
+void Node::Peer::OnMsg(proto::Bye&& msg)
+{
+	LOG_INFO() << "Peer " << m_RemoteAddr << " Received Bye." << msg.m_Reason;
 }
 
 void Node::Peer::OnDisconnect(const DisconnectReason& dr)
@@ -1282,7 +1339,7 @@ void Node::OnSyncTimer()
 
 		LOG_INFO() << "Sync target final: " << m_pSync->m_Trg;
 
-		NodeDB::Blob blob = m_pSync->m_Trg.m_Hash;
+		Blob blob(m_pSync->m_Trg.m_Hash);
 		m_Processor.get_DB().ParamSet(NodeDB::ParamID::SyncTarget, &m_pSync->m_Trg.m_Height, &blob);
 
 		m_pSync->m_bDetecting = false;
@@ -1326,7 +1383,7 @@ bool Node::SyncCycle(Peer& p)
 	msg.m_ID = m_pSync->m_Trg;
 	msg.m_Data = m_pSync->m_iData;
 
-	assert(m_pSync->m_iData < Block::Body::RW::s_Datas);
+	assert(m_pSync->m_iData < Block::Body::RW::Type::count);
 
 	Block::Body::RW rw;
 	m_Compressor.FmtPath(rw, m_pSync->m_Trg.m_Height, NULL);
@@ -1350,13 +1407,13 @@ bool Node::SyncCycle(Peer& p)
 void Node::SyncCycle(Peer& p, const ByteBuffer& buf)
 {
 	assert(m_pSync && !m_pSync->m_bDetecting && !m_pSync->m_RequestsPending);
-	assert(m_pSync->m_iData < Block::Body::RW::s_Datas);
+	assert(m_pSync->m_iData < Block::Body::RW::Type::count);
 
 	if (buf.empty())
 	{
 		LOG_INFO() << "Sync cycle complete for Idx=" << m_pSync->m_iData;
 
-		if (++m_pSync->m_iData == Block::Body::RW::s_Datas)
+		if (++m_pSync->m_iData == Block::Body::RW::Type::count)
 		{
 			Height h = m_pSync->m_Trg.m_Height;
 			m_pSync = NULL;
@@ -1647,13 +1704,15 @@ void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType&
 
 const ECC::uintBig& Node::NextNonce()
 {
-	ECC::GenerateNonce(m_NonceLast.V, m_Processor.m_Kdf.m_Secret.V, m_NonceLast.V, NULL, 0);
+	ECC::Scalar::Native sk;
+	NextNonce(sk);
 	return m_NonceLast.V;
 }
 
 void Node::NextNonce(ECC::Scalar::Native& sk)
 {
-	sk.GenerateNonce(m_Cfg.m_WalletKey.V, NextNonce(), NULL);
+	m_pKdf->DeriveKey(sk, m_NonceLast.V);
+	ECC::Hash::Processor() << sk >> m_NonceLast.V;
 }
 
 uint32_t Node::RandomUInt32(uint32_t threshold)
@@ -1734,7 +1793,7 @@ bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 		std::unique_ptr<TxPool::Stem::Element> pGuard(new TxPool::Stem::Element);
 		pGuard->m_bAggregating = false;
 		pGuard->m_Time.m_Value = 0;
-		pGuard->m_Profit.SetFee(ctx);
+		pGuard->m_Profit.m_Fee = ctx.m_Fee;
 		pGuard->m_Profit.SetSize(*ptx);
 		pGuard->m_pValue.swap(ptx);
 
@@ -1769,16 +1828,19 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
 	{
 		auto thr = uintBigFrom(m_Cfg.m_Dandelion.m_FluffProbability);
 
+		// Compare two bytes of threshold with random nonce 
 		if (memcmp(thr.m_pData, NextNonce().m_pData, thr.nBytes) < 0)
 		{
 			// broadcast to random peer
 			assert(nStemPeers);
-			nStemPeers = RandomUInt32(nStemPeers);
+
+			// Choose random peer index between 0 and nStemPeers - 1 
+			uint32_t nRandomPeerIdx = RandomUInt32(nStemPeers);
 
 			for (PeerList::iterator it = m_lstPeers.begin(); ; it++)
-				if (it->m_Config.m_SpreadingTransactions && !nStemPeers--)
+				if (it->m_Config.m_SpreadingTransactions && !nRandomPeerIdx--)
 				{
-					it->SendTxGuard(x.m_pValue, false);
+					it->SendTx(x.m_pValue, false);
 					break;
 				}
 
@@ -1819,13 +1881,15 @@ void Node::PerformAggregation(TxPool::Stem::Element& x)
 		while (x.m_pValue->m_vOutputs.size() <= m_Cfg.m_Dandelion.m_OutputsMax)
 		{
 			TxPool::Stem::Element& src = it->get_ParentObj();
+
 			bool bEnd = (m_Dandelion.m_setProfit.begin() == it);
+			if (!bEnd)
+				--it;
 
 			m_Dandelion.TryMerge(x, src);
 
 			if (bEnd)
 				break;
-			--it;
 		}
 	}
 
@@ -1839,24 +1903,19 @@ void Node::PerformAggregation(TxPool::Stem::Element& x)
 
 void Node::AddDummyInputs(Transaction& tx)
 {
-	NodeDB::Transaction txScope;
 	bool bModified = false;
 
 	while (tx.m_vInputs.size() < m_Cfg.m_Dandelion.m_OutputsMax)
 	{
 		Height h;
 		ECC::Scalar sk;
-		NodeDB::Blob blob(sk.m_Value);
+		Blob blob(sk.m_Value);
 
 		uint64_t rowid = m_Processor.get_DB().FindDummy(h, blob);
 		if (!rowid || (h > m_Processor.m_Cursor.m_ID.m_Height + 1))
 			break;
 
-		if (!bModified)
-		{
-			bModified = true;
-			txScope.Start(m_Processor.get_DB());
-		}
+		bModified = true;
 
 		ECC::Mode::Scope scope(ECC::Mode::Fast);
 
@@ -1905,8 +1964,8 @@ void Node::AddDummyInputs(Transaction& tx)
 
 	if (bModified)
 	{
-		txScope.Commit();
-		tx.Sort();
+		m_Processor.FlushDB(); // make sure they're not lost
+		tx.Normalize();
 	}
 }
 
@@ -1916,7 +1975,6 @@ void Node::AddDummyOutputs(Transaction& tx)
 		return;
 
 	// add dummy outputs
-	NodeDB::Transaction txScope;
 	bool bModified = false;
 
 	NodeDB& db = m_Processor.get_DB();
@@ -1926,11 +1984,7 @@ void Node::AddDummyOutputs(Transaction& tx)
 		ECC::Scalar::Native sk;
 		NextNonce(sk);
 
-		if (!bModified)
-		{
-			bModified = true;
-			txScope.Start(db);
-		}
+		bModified = true;
 
 		Output::Ptr pOutput(new Output);
 		pOutput->Create(sk, 0);
@@ -1940,7 +1994,7 @@ void Node::AddDummyOutputs(Transaction& tx)
 			h += RandomUInt32(m_Cfg.m_Dandelion.m_DummyLifetimeHi - m_Cfg.m_Dandelion.m_DummyLifetimeLo);
 
 		ECC::Scalar sk_(sk); // not so secret
-		db.InsertDummy(h, NodeDB::Blob(sk_.m_Value));
+		db.InsertDummy(h, Blob(sk_.m_Value));
 
 		tx.m_vOutputs.push_back(std::move(pOutput));
 
@@ -1950,8 +2004,8 @@ void Node::AddDummyOutputs(Transaction& tx)
 
 	if (bModified)
 	{
-		txScope.Commit();
-		tx.Sort();
+		m_Processor.FlushDB();
+		tx.Normalize();
 	}
 }
 
@@ -1963,7 +2017,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 	Transaction::Context ctx;
 	if (pElem)
 	{
-		ctx.m_Fee.Lo = pElem->m_Profit.m_Fee;
+		ctx.m_Fee = pElem->m_Profit.m_Fee;
 		m_Dandelion.Delete(*pElem);
 	}
 	else
@@ -1992,7 +2046,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 	m_Wtx.Delete(key.m_Key);
 
 	// new transaction
-	bool bValid = pElem ? true : tx.IsValid(ctx);
+	bool bValid = pElem ? true: ValidateTx(ctx, tx);
 	LogTx(tx, bValid, key.m_Key);
 
 	if (!bValid)
@@ -2021,8 +2075,12 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 
 void Node::Dandelion::OnTimedOut(Element& x)
 {
-	get_ParentObj().AddDummyOutputs(*x.m_pValue);
-	get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
+	if (x.m_bAggregating)
+	{
+		get_ParentObj().AddDummyOutputs(*x.m_pValue);
+		get_ParentObj().OnTransactionAggregated(x);
+	} else
+		get_ParentObj().OnTransactionFluff(std::move(x.m_pValue), NULL, &x);
 }
 
 bool Node::Dandelion::ValidateTxContext(const Transaction& tx)
@@ -2105,28 +2163,17 @@ void Node::Peer::OnMsg(proto::GetTransaction&& msg)
 	if (m_This.m_TxPool.m_setTxs.end() == it)
 		return; // don't have it
 
-	SendTxGuard(it->get_ParentObj().m_pValue, true);
+	SendTx(it->get_ParentObj().m_pValue, true);
 }
 
-void Node::Peer::SendTxGuard(Transaction::Ptr& ptx, bool bFluff)
+void Node::Peer::SendTx(Transaction::Ptr& ptx, bool bFluff)
 {
-	// temporarily move the transaction to the Msg object, but make sure it'll be restored back, even in case of the exception.
-	struct Guard
-	{
-		proto::NewTransaction m_Msg;
-		Transaction::Ptr* m_ppVal;
+	proto::NewTransaction msg;
+	msg.m_Fluff = bFluff;
 
-		void Swap() { m_ppVal->swap(m_Msg.m_Transaction); }
+	TemporarySwap scope(msg.m_Transaction, ptx);
 
-		~Guard() { Swap(); }
-	};
-
-	Guard g;
-	g.m_ppVal = &ptx;
-	g.Swap();
-	g.m_Msg.m_Fluff = bFluff;
-
-	Send(g.m_Msg);
+	Send(msg);
 }
 
 void Node::Peer::OnMsg(proto::GetMined&& msg)
@@ -2156,6 +2203,34 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 	Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::GetCommonState&& msg)
+{
+	proto::ProofCommonState msgOut;
+
+	Processor& p = m_This.m_Processor; // alias
+
+	for (msgOut.m_iState = 0; msgOut.m_iState < msg.m_IDs.size(); msgOut.m_iState++)
+	{
+		const Block::SystemState::ID& id = msg.m_IDs[msgOut.m_iState];
+		if (id.m_Height < Rules::HeightGenesis)
+			ThrowUnexpected();
+
+		if (id.m_Height < p.m_Cursor.m_ID.m_Height)
+		{
+			Merkle::Hash hv;
+			p.get_DB().get_StateHash(p.FindActiveAtStrict(id.m_Height), hv);
+
+			if (hv == id.m_Hash)
+			{
+				p.GenerateProofStateStrict(msgOut.m_Proof, id.m_Height);
+				break;
+			}
+		}
+	}
+
+	Send(msgOut);
+}
+
 void Node::Peer::OnMsg(proto::GetProofState&& msg)
 {
 	if (msg.m_Height < Rules::HeightGenesis)
@@ -2165,17 +2240,22 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 
 	Processor& p = m_This.m_Processor;
 	const NodeDB::StateID& sid = p.m_Cursor.m_Sid;
-	if (sid.m_Row && (msg.m_Height < sid.m_Height))
-	{
-		Merkle::ProofBuilderHard bld;
-		p.get_DB().get_Proof(bld, sid, msg.m_Height);
-		msgOut.m_Proof.swap(bld.m_Proof);
-
-		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-		p.get_CurrentLive(msgOut.m_Proof.back());
-	}
+	if (msg.m_Height < sid.m_Height)
+		p.GenerateProofStateStrict(msgOut.m_Proof, msg.m_Height);
 
 	Send(msgOut);
+}
+
+void Node::Processor::GenerateProofStateStrict(Merkle::HardProof& proof, Height h)
+{
+	assert(h < m_Cursor.m_Sid.m_Height);
+
+	Merkle::ProofBuilderHard bld;
+	get_DB().get_Proof(bld, m_Cursor.m_Sid, h);
+	proof.swap(bld.m_Proof);
+
+	proof.resize(proof.size() + 1);
+	get_CurrentLive(proof.back());
 }
 
 void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
@@ -2198,9 +2278,6 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
 		msgOut.m_Proof.back().first = false;
 		msgOut.m_Proof.back().second = m_This.m_Processor.m_Cursor.m_History;
-
-		if (msg.m_RequestHashPreimage)
-			m_This.m_Processor.get_KernelHashPreimage(msg.m_ID, msgOut.m_HashPreimage);
 	}
 
 	Send(msgOut);
@@ -2355,7 +2432,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
 	wlk.m_Data.m_Channel = msg.m_Channel;
 	wlk.m_Data.m_TimePosted = msg.m_TimePosted;
-	wlk.m_Data.m_Message = NodeDB::Blob(msg.m_Message);
+	wlk.m_Data.m_Message = Blob(msg.m_Message);
 
 	Bbs::CalcMsgKey(wlk.m_Data);
 
@@ -2480,7 +2557,7 @@ void Node::Peer::OnMsg(proto::BbsPickChannel&& msg)
 
 void Node::Peer::OnMsg(proto::MacroblockGet&& msg)
 {
-	if (msg.m_Data >= Block::BodyBase::RW::s_Datas)
+	if (msg.m_Data >= Block::BodyBase::RW::Type::count)
 		ThrowUnexpected();
 
 	proto::Macroblock msgOut;
@@ -2534,6 +2611,52 @@ void Node::Peer::OnMsg(proto::MacroblockGet&& msg)
 	Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::Recover&& msg)
+{
+	struct Walker
+		:public NodeProcessor::UtxoRecoverSimple
+	{
+		Walker(NodeProcessor& p) :NodeProcessor::UtxoRecoverSimple(p) {}
+
+		proto::Recovered m_MsgOut;
+
+		virtual bool OnOutput(uint32_t iKey, const Key::IDV& kidv, const Output&) override
+		{
+			assert(iKey < 1);
+			std::vector<Key::IDV>& trg = iKey ? m_MsgOut.m_Public : m_MsgOut.m_Private;
+			trg.push_back(kidv);
+			return true;
+		}
+
+	} wlk(m_This.m_Processor);
+
+	if (Flags::Owner & m_Flags)
+	{
+		if (msg.m_Private)
+			wlk.m_vKeys.push_back(m_This.m_pKdf);
+
+		if (msg.m_Public)
+		{
+			// make sure it's not the same
+			ECC::Hash::Value hv = Zero;
+
+			ECC::Scalar::Native k0, k1;
+			m_This.m_pKdf->DerivePKey(k0, hv);
+			m_This.m_pOwnerKdf->DerivePKey(k1, hv);
+
+			k0 += -k1;
+			if (!(k0 == Zero))
+				wlk.m_vKeys.push_back(m_This.m_pOwnerKdf);
+		}
+
+		wlk.Proceed();
+	}
+	else
+		LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized recovery request.";
+
+	Send(wlk.m_MsgOut);
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
 	if (newStream)
@@ -2583,10 +2706,8 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 
 		ECC::Hash::Value hv; // pick pseudo-random initial nonce for mining.
 		ECC::Hash::Processor()
-			<< get_ParentObj().m_Cfg.m_MinerID
-			<< get_ParentObj().m_Processor.m_Kdf.m_Secret.V
+			<< pTask->m_hvNonceSeed
 			<< iIdx
-			<< s.m_Height
 			>> hv;
 
 		static_assert(s.m_PoW.m_Nonce.nBytes <= hv.nBytes);
@@ -2691,7 +2812,7 @@ bool Node::Miner::Restart()
 
 	Block::Body* pTreasury = NULL;
 
-	if (get_ParentObj().m_Processor.m_Cursor.m_SubsidyOpen)
+	if (get_ParentObj().m_Processor.m_Extra.m_SubsidyOpen)
 	{
 		Height dh = get_ParentObj().m_Processor.m_Cursor.m_Sid.m_Height + 1 - Rules::HeightGenesis;
 		std::vector<Block::Body>& vTreasury = get_ParentObj().m_Cfg.m_vTreasury;
@@ -2702,11 +2823,11 @@ bool Node::Miner::Restart()
 		pTreasury->m_SubsidyClosing = (dh + 1 == vTreasury.size());
 	}
 
-	Task::Ptr pTask(std::make_shared<Task>());
+	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, *get_ParentObj().m_pKdf);
 
 	bool bRes = pTreasury ?
-		get_ParentObj().m_Processor.GenerateNewBlock(get_ParentObj().m_TxPool, pTask->m_Hdr, pTask->m_Body, pTask->m_Fees, *pTreasury) :
-		get_ParentObj().m_Processor.GenerateNewBlock(get_ParentObj().m_TxPool, pTask->m_Hdr, pTask->m_Body, pTask->m_Fees);
+		get_ParentObj().m_Processor.GenerateNewBlock(bc, *pTreasury) :
+		get_ParentObj().m_Processor.GenerateNewBlock(bc);
 
 	if (!bRes)
 	{
@@ -2714,7 +2835,14 @@ bool Node::Miner::Restart()
 		return false;
 	}
 
-	LOG_INFO() << "Block generated: Height=" << pTask->m_Hdr.m_Height << ", Fee=" << pTask->m_Fees << ", Difficulty=" << pTask->m_Hdr.m_PoW.m_Difficulty << ", Size=" << pTask->m_Body.size();
+	LOG_INFO() << "Block generated: Height=" << bc.m_Hdr.m_Height << ", Fee=" << bc.m_Fees << ", Difficulty=" << bc.m_Hdr.m_PoW.m_Difficulty << ", Size=" << bc.m_Body.size();
+
+	Task::Ptr pTask(std::make_shared<Task>());
+	pTask->m_Hdr = std::move(bc.m_Hdr);
+	pTask->m_Body = std::move(bc.m_Body);
+	pTask->m_Fees = bc.m_Fees;
+
+	pTask->m_hvNonceSeed = get_ParentObj().NextNonce();
 
 	// let's mine it.
 	std::scoped_lock<std::mutex> scope(m_Mutex);
@@ -2779,6 +2907,8 @@ void Node::Miner::OnMined()
 	sid.m_Height = id.m_Height;
 
 	get_ParentObj().m_Processor.get_DB().SetMined(sid, pTask->m_Fees); // ding!
+
+	get_ParentObj().m_Processor.FlushDB();
 
 	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_Body, get_ParentObj().m_MyPublicID); // will likely trigger OnNewState(), and spread this block to the network
 	assert(NodeProcessor::DataStatus::Accepted == eStatus);
@@ -2992,7 +3122,6 @@ void Node::PeerMan::Initialize()
 void Node::PeerMan::OnFlush()
 {
 	NodeDB& db = get_ParentObj().m_Processor.get_DB();
-	NodeDB::Transaction t(db);
 
 	db.PeersDel();
 
@@ -3010,8 +3139,6 @@ void Node::PeerMan::OnFlush()
 
 		db.PeerIns(d);
 	}
-
-	t.Commit();
 }
 
 void Node::PeerMan::ActivatePeer(PeerInfo& pi)

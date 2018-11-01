@@ -63,6 +63,7 @@ namespace ECC
 	public:
 
 		const secp256k1_scalar& get() const { return *this; }
+		secp256k1_scalar& get_Raw() { return *this; } // use with care
 
 #ifdef USE_SCALAR_4X64
 		typedef uint64_t uint;
@@ -100,6 +101,7 @@ namespace ECC
 		void Export(Scalar&) const;
 
 		void GenerateNonce(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt = 0);
+		void GenerateNonce(const Scalar::Native& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt = 0);
 	};
 
 	class Point::Native
@@ -110,7 +112,6 @@ namespace ECC
 		typedef Op::Binary<Op::Plus, Native, Native>		Plus;
 		typedef Op::Binary<Op::Mul, Native, Scalar::Native>	Mul;
 
-		bool ImportInternal(const Point&);
 		Native(const Point&);
 	public:
 		secp256k1_gej& get_Raw() { return *this; } // use with care
@@ -138,8 +139,11 @@ namespace ECC
 		template <class Setter> Native& operator = (const Setter& v) { v.Assign(*this, true); return *this; }
 		template <class Setter> Native& operator += (const Setter& v) { v.Assign(*this, false); return *this; }
 
+		bool ImportNnz(const Point&); // won't accept zero point, doesn't zero itself in case of failure
 		bool Import(const Point&);
 		bool Export(Point&) const; // if the point is zero - returns false and zeroes the result
+
+		static void ExportEx(Point&, const secp256k1_ge&);
 	};
 
 #ifdef NDEBUG
@@ -221,8 +225,8 @@ namespace ECC
 				Scalar::Native m_Scalar;
 			} m_Secure;
 
-			void Initialize(const char* szSeed, Hash::Processor& hp);
-			void Initialize(Point::Native&, Hash::Processor&);
+			void Initialize(Oracle&, Hash::Processor& hpRes);
+			void Initialize(Point::Native&, Oracle&);
 		};
 
 		Casual* m_pCasual;
@@ -266,6 +270,27 @@ namespace ECC
 		}
 	};
 
+	struct ScalarGenerator
+	{
+		// needed to quickly calculate power of a predefined scalar.
+		// Used to quickly sample a scalar and its inverse, by actually sampling the order.
+		// Implementation is *NOT* secure (constant time/memory access). Should be used with challenges, but not nonces!
+
+		static const uint32_t nBitsPerLevel = 8;
+		static const uint32_t nLevels = nBits / nBitsPerLevel;
+		static_assert(nLevels * nBitsPerLevel == nBits, "");
+
+		struct PerLevel {
+			Scalar::Native m_pVal[(1 << nBitsPerLevel) - 1];
+		};
+
+		PerLevel m_pLevel[nLevels];
+
+		void Initialize(const Scalar::Native&);
+		void Calculate(Scalar::Native& trg, const Scalar& pwr) const;
+	};
+
+
 	namespace Generator
 	{
 		void ToPt(Point::Native&, secp256k1_ge& ge, const CompactPoint&, bool bSet);
@@ -283,7 +308,7 @@ namespace ECC
 			CompactPoint m_pPts[nLevels * nPointsPerLevel];
 		};
 
-		void GeneratePts(const Point::Native&, Hash::Processor&, CompactPoint* pPts, uint32_t nLevels);
+		void GeneratePts(const Point::Native&, Oracle&, CompactPoint* pPts, uint32_t nLevels);
 		void SetMul(Point::Native& res, bool bSet, const CompactPoint* pPts, const Scalar::Native::uint* p, int nWords);
 
 		template <uint32_t nBits_>
@@ -321,9 +346,9 @@ namespace ECC
 			};
 
 		public:
-			void Initialize(const Point::Native& p, Hash::Processor& hp)
+			void Initialize(const Point::Native& p, Oracle& oracle)
 			{
-				GeneratePts(p, hp, Base<nBits_>::m_pPts, Base<nBits_>::nLevels);
+				GeneratePts(p, oracle, Base<nBits_>::m_pPts, Base<nBits_>::nLevels);
 			}
 
 			template <typename TScalar>
@@ -349,7 +374,7 @@ namespace ECC
 			void AssignInternal(Point::Native& res, bool bSet, Scalar::Native& kTmp, const Scalar::Native&) const;
 
 		public:
-			void Initialize(const Point::Native&, Hash::Processor& hp);
+			void Initialize(const Point::Native&, Oracle&);
 
 			template <typename TScalar>
 			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }
@@ -362,7 +387,13 @@ namespace ECC
 		Scalar::Native	m_Nonce;	// specific signer
 		Point::Native	m_NoncePub;	// sum of all co-signers
 
-		void GenerateNonce(const Hash::Value& msg, const Scalar::Native& sk);
+		//	NOTE: Schnorr's multisig should be used carefully. If done naively it has the following potential weaknesses:
+		//	1. Key cancellation. (The attacker may exclude you and actually create a signature for its private key).
+		//		This isn't a problem for our case, but should be taken into consideration if used in other schemes.
+		// 2. Private Key leak. If the same message signed with the same key but co-signers use different nonces (altering the challenge) - there's a potential for key leak. 
+		//		This is indeed the case if the nonce is generated from the secret key and the message only.
+		//		In order to prevent this the signer **MUST**  use an additional source of randomness, and make sure it's different for every ritual.
+
 		void SignPartial(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk) const;
 	};
 
@@ -370,15 +401,21 @@ namespace ECC
 	class Hash::Processor
 		:private secp256k1_sha256_t
 	{
-		void Write(const char*);
+		bool m_bInitialized;
+
+		void Write(const void*, uint32_t);
 		void Write(bool);
 		void Write(uint8_t);
 		void Write(const Scalar&);
 		void Write(const Scalar::Native&);
 		void Write(const Point&);
 		void Write(const Point::Native&);
+		void Write(const beam::Blob&);
 		template <uint32_t nBits_>
 		void Write(const beam::uintBig_t<nBits_>& x) { Write(x.m_pData, x.nBytes); }
+		template <uint32_t n>
+		void Write(const char(&sz)[n]) { Write(sz, n); }
+		void Write(const std::string& str) { Write(str.c_str(), static_cast<uint32_t>(str.size() + 1)); }
 
 		template <typename T>
 		void Write(T v)
@@ -398,10 +435,9 @@ namespace ECC
 
 	public:
 		Processor();
+		~Processor();
 
 		void Reset();
-
-		void Write(const void*, uint32_t);
 
 		template <typename T>
 		Processor& operator << (const T& t) { Write(t); return *this; }
@@ -421,15 +457,55 @@ namespace ECC
 		void Reset(const void* pSecret, uint32_t nSecret);
 		void Write(const void*, uint32_t);
 
-		template <typename T>
-		Mac& operator << (const T& t)
-		{
-			static_assert(sizeof(Processor) == sizeof(inner));
-			((Processor&)inner) << t;
-			return *this;
-		}
-
 		void operator >> (Value& hv) { Finalize(hv); }
+	};
+
+	struct HKdf
+		:public Key::IKdf
+	{
+		HKdf();
+
+		NoLeak<uintBig> m_Secret;
+		Scalar::Native m_kCoFactor;
+		// IPKdf
+		virtual void DerivePKey(Point::Native&, const Hash::Value&) override;
+		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
+		// IKdf
+		virtual void DeriveKey(Scalar::Native&, const Hash::Value&) override;
+
+#pragma pack (push, 1)
+		struct Packed
+		{
+			uintBig m_Secret;
+			Scalar m_kCoFactor;
+		};
+		static_assert(sizeof(Packed) == uintBig::nBytes * 2, "");
+#pragma pack (pop)
+
+		void Export(Packed&) const;
+		bool Import(const Packed&);
+	};
+
+	struct HKdfPub
+		:public Key::IPKdf
+	{
+		NoLeak<uintBig> m_Secret;
+		Point::Native m_Pk;
+		// IPKdf
+		virtual void DerivePKey(Point::Native&, const Hash::Value&) override;
+		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
+
+#pragma pack (push, 1)
+		struct Packed
+		{
+			uintBig m_Secret;
+			Point m_Pk;
+		};
+		static_assert(sizeof(Packed) == uintBig::nBytes * 2 + 1, "");
+#pragma pack (pop)
+
+		void Export(Packed&) const;
+		bool Import(const Packed&);
 	};
 
 	struct Context
@@ -552,6 +628,6 @@ namespace ECC
 		Oracle& operator << (const T& t) { m_hp << t; return *this; }
 
 		void operator >> (Scalar::Native&);
-		void operator >> (Hash::Value& hv) { m_hp >> hv; }
+		void operator >> (Hash::Value&);
 	};
 }

@@ -100,6 +100,8 @@ namespace beam
 
 	/////////////
 	// Input
+	thread_local bool CommitmentAndMaturity::SerializeMaturity::s_On = false;
+
 	int CommitmentAndMaturity::cmp_CaM(const CommitmentAndMaturity& v) const
 	{
 		CMP_MEMBER_EX(m_Commitment)
@@ -172,23 +174,101 @@ namespace beam
 		return 0;
 	}
 
-	void Output::Create(const ECC::Scalar::Native& k, Amount v, bool bPublic /* = false */)
+	void Output::CreateInternal(const ECC::Scalar::Native& sk, Amount v, bool bPublic, Key::IKdf* pKdf, const Key::ID* pKid)
 	{
-		m_Commitment = ECC::Commitment(k, v);
+		m_Commitment = ECC::Commitment(sk, v);
 
 		ECC::Oracle oracle;
 		oracle << m_Incubation;
+
+		ECC::RangeProof::CreatorParams cp;
+		cp.m_Kidv.m_Value = v;
+
+		if (pKdf)
+		{
+			assert(pKid);
+			cp.m_Kidv.as_ID() = *pKid;
+			get_SeedKid(cp.m_Seed.V, *pKdf);
+		}
+		else
+		{
+			ZeroObject(cp.m_Kidv.as_ID());
+			ECC::Hash::Processor() << "outp" << sk << v >> cp.m_Seed.V;
+		}
 
 		if (bPublic)
 		{
 			m_pPublic.reset(new ECC::RangeProof::Public);
 			m_pPublic->m_Value = v;
-			m_pPublic->Create(k, oracle);
-		} else
+			m_pPublic->Create(sk, cp, oracle);
+		}
+		else
 		{
 			m_pConfidential.reset(new ECC::RangeProof::Confidential);
-			m_pConfidential->Create(k, v, oracle);
+			m_pConfidential->Create(sk, cp, oracle);
 		}
+	}
+
+	void Output::Create(ECC::Scalar::Native& sk, Key::IKdf& kdf, const Key::IDV& kidv)
+	{
+		kdf.DeriveKey(sk, kidv);
+		CreateInternal(sk, kidv.m_Value, m_Coinbase, &kdf, &kidv);
+	}
+
+	void Output::Create(const ECC::Scalar::Native& sk, Amount v, bool bPublic /* = false */)
+	{
+		CreateInternal(sk, v, bPublic, NULL, NULL);
+	}
+
+	void Output::get_SeedKid(ECC::uintBig& seed, Key::IPKdf& kdf) const
+	{
+		ECC::Hash::Processor() << m_Commitment >> seed;
+
+		ECC::Scalar::Native sk;
+		kdf.DerivePKey(sk, seed);
+
+		ECC::Hash::Processor() << sk >> seed;
+	}
+
+	bool Output::Recover(Key::IPKdf& kdf, Key::IDV& kidv) const
+	{
+		ECC::RangeProof::CreatorParams cp;
+		get_SeedKid(cp.m_Seed.V, kdf);
+
+		ECC::Oracle oracle;
+		oracle << m_Incubation;
+
+		if (m_pPublic)
+			m_pPublic->Recover(cp);
+		else
+		{
+			if (!(m_pConfidential && m_pConfidential->Recover(oracle, cp)))
+				false;
+		}
+
+		// reconstruct the commitment
+		ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+		ECC::Hash::Value hv;
+		cp.m_Kidv.get_Hash(hv);
+
+		ECC::Point::Native comm, comm2;
+		kdf.DerivePKey(comm, hv);
+
+		comm += ECC::Context::get().H * cp.m_Kidv.m_Value;
+
+		if (!comm2.Import(m_Commitment))
+			return false;
+
+		comm = -comm;
+		comm += comm2;
+		
+		if (!(comm == Zero))
+			return false;
+
+		// bingo!
+		kidv = cp.m_Kidv;
+		return true;
 	}
 
 	void HeightAdd(Height& trg, Height val)
@@ -357,15 +437,6 @@ namespace beam
 
 	/////////////
 	// Transaction
-
-	void TxVectors::Sort()
-	{
-		std::sort(m_vInputs.begin(), m_vInputs.end());
-		std::sort(m_vOutputs.begin(), m_vOutputs.end());
-		std::sort(m_vKernelsInput.begin(), m_vKernelsInput.end());
-		std::sort(m_vKernelsOutput.begin(), m_vKernelsOutput.end());
-	}
-
 	template <class T>
 	void RebuildVectorWithoutNulls(std::vector<T>& v, size_t nDel)
 	{
@@ -378,8 +449,27 @@ namespace beam
 				v.push_back(std::move(vSrc[i]));
 	}
 
-	size_t TxVectors::DeleteIntermediateOutputs()
+	int TxBase::CmpInOut(const Input& in, const Output& out)
 	{
+		if (in.m_Maturity)
+			return in.cmp_CaM(out);
+
+		// if maturity isn't overridden (as in standard txs/blocks) - we consider the commitment and the coinbase flag.
+		// In such a case the maturity parameters (such as explicit incubation) - are ignored. There's just no way to prevent the in/out elimination.
+		int n = in.m_Commitment.cmp(out.m_Commitment);
+		if (n)
+			return n;
+
+		return out.m_Coinbase ? 1 : 0;
+	}
+
+	size_t TxVectors::Normalize()
+	{
+		std::sort(m_vInputs.begin(), m_vInputs.end());
+		std::sort(m_vOutputs.begin(), m_vOutputs.end());
+		std::sort(m_vKernelsInput.begin(), m_vKernelsInput.end());
+		std::sort(m_vKernelsOutput.begin(), m_vKernelsOutput.end());
+
 		size_t nDel = 0;
 
 		size_t i1 = m_vOutputs.size();
@@ -391,7 +481,7 @@ namespace beam
 			{
 				Output::Ptr& pOut = m_vOutputs[i1];
 
-				int n = pInp->cmp_CaM(*pOut);
+				int n = TxBase::CmpInOut(*pInp, *pOut);
 				if (n <= 0)
 				{
 					if (!n)
@@ -449,28 +539,6 @@ namespace beam
 		return
 			ctx.ValidateAndSummarize(*this, get_Reader()) &&
 			ctx.IsValidTransaction();
-	}
-
-	template <typename T>
-	void TestNotNull(const std::unique_ptr<T>& p)
-	{
-		if (!p)
-			throw std::runtime_error("invalid NULL ptr");
-	}
-
-	void TxVectors::TestNoNulls() const
-	{
-		for (auto it = m_vInputs.begin(); m_vInputs.end() != it; it++)
-			TestNotNull(*it);
-
-		for (auto it = m_vKernelsInput.begin(); m_vKernelsInput.end() != it; it++)
-			TestNotNull(*it);
-
-		for (auto it = m_vOutputs.begin(); m_vOutputs.end() != it; it++)
-			TestNotNull(*it);
-
-		for (auto it = m_vKernelsOutput.begin(); m_vKernelsOutput.end() != it; it++)
-			TestNotNull(*it);
 	}
 
 	void Transaction::get_Key(KeyType& key) const
@@ -678,7 +746,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(5) // increment this whenever we change something in the protocol
+			<< uint32_t(9) // increment this whenever we change something in the protocol
 			// out
 			>> Checksum;
 	}
@@ -687,8 +755,34 @@ namespace beam
 	int Block::SystemState::ID::cmp(const ID& v) const
 	{
 		CMP_MEMBER(m_Height)
-		CMP_MEMBER(m_Hash)
+		CMP_MEMBER_EX(m_Hash)
 		return 0;
+	}
+
+	int Block::SystemState::Full::cmp(const Full& v) const
+	{
+		CMP_MEMBER(m_Height)
+		CMP_MEMBER_EX(m_Definition)
+		CMP_MEMBER_EX(m_Prev)
+		CMP_MEMBER_EX(m_ChainWork)
+		CMP_MEMBER(m_TimeStamp)
+		CMP_MEMBER(m_PoW.m_Difficulty.m_Packed)
+		CMP_MEMBER_EX(m_PoW.m_Nonce)
+		CMP_MEMBER(m_PoW.m_Indices)
+		return 0;
+	}
+
+	bool Block::SystemState::Full::IsNext(const Full& sNext) const
+	{
+		if (m_Height + 1 != sNext.m_Height)
+			return false;
+
+		if (!m_Height)
+			return sNext.m_Prev == Zero;
+
+		Merkle::Hash hv;
+		get_Hash(hv);
+		return sNext.m_Prev == hv;
 	}
 
 	void Block::SystemState::Full::NextPrefix()
@@ -711,8 +805,9 @@ namespace beam
 
 		if (bTotal)
 		{
-			hp.Write(&m_PoW.m_Indices.at(0), sizeof(m_PoW.m_Indices));
-			hp << m_PoW.m_Nonce;
+			hp
+				<< Blob(&m_PoW.m_Indices.at(0), sizeof(m_PoW.m_Indices))
+				<< m_PoW.m_Nonce;
 		}
 
 		hp >> out;
@@ -878,11 +973,6 @@ namespace beam
 			ctx.ValidateAndSummarize(*this, std::move(r)) &&
 			ctx.IsValidBlock(*this, bSubsidyOpen);
 	}
-
-    void DeriveKey(ECC::Scalar::Native& out, const ECC::Kdf& kdf, Height h, KeyType eType, uint32_t nIdx /* = 0 */)
-    {
-        kdf.DeriveKey(out, h, static_cast<uint32_t>(eType), nIdx);
-    }
 
 	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height h /* = 0 */, uint32_t nIdx /* = 0 */)
 	{

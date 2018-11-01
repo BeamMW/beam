@@ -40,7 +40,7 @@ namespace beam
            , Status status = Coin::Unspent
            , const Height& createHeight = 0
            , const Height& maturity = MaxHeight
-           , KeyType keyType = KeyType::Regular
+           , Key::Type keyType = Key::Type::Regular
            , Height confirmHeight = MaxHeight
            , Height lockedHeight = MaxHeight);
         Coin();
@@ -52,12 +52,14 @@ namespace beam
         Status m_status;
         Height m_createHeight;  // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
         Height m_maturity;      // coin can be spent only when chain is >= this value. Valid for confirmed coins (Unspent, Locked, Spent).
-        KeyType m_key_type;
+		Key::Type m_key_type;
         Height m_confirmHeight;
         Merkle::Hash m_confirmHash;
         Height m_lockedHeight;
         boost::optional<TxID> m_createTxId;
         boost::optional<TxID> m_spentTxId;
+
+		Key::IDV get_Kidv() const;
     };
 
     struct TxPeer
@@ -73,10 +75,19 @@ namespace beam
         std::string m_label;
         std::string m_category;
         Timestamp m_createTime;
-        uint64_t  m_duration; // seconds, 0 - for single use;
+        uint64_t  m_duration;
         bool m_own;
 
-        WalletAddress() : m_createTime(0), m_duration(0), m_own(false) {}
+        bool isExpired() const
+        {
+            return getTimestamp() > (m_createTime + m_duration);
+        }
+
+        WalletAddress() 
+            : m_createTime(0)
+            , m_duration(24 * 60 * 60) // 24h
+            , m_own(false)
+        {}
     };
 
     struct TxParameter
@@ -109,7 +120,7 @@ namespace beam
         using Ptr = std::shared_ptr<IKeyChain>;
         virtual ~IKeyChain() {}
 
-
+		virtual beam::Key::IKdf::Ptr get_Kdf() const = 0;
         virtual ECC::Scalar::Native calcKey(const beam::Coin& coin) const = 0;
         virtual void get_IdentityKey(ECC::Scalar::Native&) const = 0;
 
@@ -174,19 +185,23 @@ namespace beam
 
         virtual bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob) = 0;
         virtual bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) = 0;
+
+		uint64_t get_AutoIncrID();
     };
 
     class Keychain : public IKeyChain, public std::enable_shared_from_this<Keychain>
     {
-    public:
+		Keychain();
+	public:
         static bool isInitialized(const std::string& path);
         static Ptr init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey);
         static Ptr open(const std::string& path, const SecString& password);
 
-        Keychain(const ECC::NoLeak<ECC::uintBig>& secretKey );
+        Keychain(const ECC::NoLeak<ECC::uintBig>& secretKey);
         ~Keychain();
 
-        ECC::Scalar::Native calcKey(const beam::Coin& coin) const override;
+		beam::Key::IKdf::Ptr get_Kdf() const override;
+		ECC::Scalar::Native calcKey(const beam::Coin& coin) const override;
         void get_IdentityKey(ECC::Scalar::Native&) const override;
         std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) override;
         std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) override;
@@ -244,7 +259,7 @@ namespace beam
     private:
 
         sqlite3* _db;
-        ECC::Kdf m_kdf;
+        Key::IKdf::Ptr m_pKdf;
 
         std::vector<IKeyChainObserver*> m_subscribers;
     };
@@ -287,8 +302,8 @@ namespace beam
         bool setTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value);
 
         Amount getAvailable(beam::IKeyChain::Ptr keychain);
-        Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType);
+        Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, Key::Type keyType);
         Amount getTotal(beam::IKeyChain::Ptr keychain, Coin::Status status);
-        Amount getTotalByType(beam::IKeyChain::Ptr keychain, Coin::Status status, KeyType keyType);
+        Amount getTotalByType(beam::IKeyChain::Ptr keychain, Coin::Status status, Key::Type keyType);
     }
 }

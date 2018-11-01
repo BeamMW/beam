@@ -42,7 +42,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Run test with empty kernel";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs
 		gen.GenerateInputInTx(1, 1);
@@ -63,7 +63,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Run test with normal and empty kernels";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs
 		gen.GenerateInputInTx(2, 1);
@@ -88,7 +88,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Run test with 2 empty kernels";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs
 		gen.GenerateInputInTx(3, 1);
@@ -110,7 +110,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Run test without kernels";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs
 		gen.GenerateInputInTx(4, 1);
@@ -130,7 +130,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Run test with kernel without input and output";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Kernels
 		gen.GenerateKernel(5, 0);
@@ -147,9 +147,6 @@ void TestNodeConnection::GenerateTests()
 int main(int argc, char* argv[])
 {
 	int logLevel = LOG_LEVEL_DEBUG;
-#if LOG_VERBOSE_ENABLED
-	logLevel = LOG_LEVEL_VERBOSE;
-#endif
 	auto logger = Logger::create(logLevel, logLevel);
 
 	TestNodeConnection connection(argc, argv);

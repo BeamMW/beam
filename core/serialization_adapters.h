@@ -97,7 +97,7 @@ namespace detail
 		static const uint32_t N_Max = (N + 7) & ~7;
 		uint8_t m_pF[N_Max >> 3];
 
-		void get(uint32_t i, bool& b) const
+		void get(uint32_t i, uint8_t& b) const
 		{
 			assert(i < N_Max);
 			uint8_t x = m_pF[i >> 3];
@@ -105,7 +105,7 @@ namespace detail
 
 			b = (0 != (x & msk));
 		}
-		void set(uint32_t i, bool b)
+		void set(uint32_t i, uint8_t b)
 		{
 			// assume flags are zero-initialized
 			if (b)
@@ -114,8 +114,7 @@ namespace detail
 				uint8_t& x = m_pF[i >> 3];
 				uint8_t msk = 1 << (i & 7);
 
-				if (b)
-					x |= msk;
+				x |= msk;
 			}
 		}
 
@@ -196,6 +195,31 @@ namespace detail
 
             return ar;
         }
+
+		/// ECC::Key::IDV serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const ECC::Key::IDV& kidv)
+		{
+			ar
+				& kidv.m_Idx
+				& kidv.m_IdxSecondary
+				& kidv.m_Type
+				& kidv.m_Value;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, ECC::Key::IDV& kidv)
+		{
+			ar
+				& kidv.m_Idx
+				& kidv.m_IdxSecondary
+				& kidv.m_Type
+				& kidv.m_Value;
+
+			return ar;
+		}
 
         /// ECC::Signature serialization
         template<typename Archive>
@@ -333,6 +357,9 @@ namespace detail
             ar
                 & val.m_Value
                 & val.m_Signature
+				& val.m_Kid.m_Idx
+				& val.m_Kid.m_Idx2
+				& val.m_Kid.m_Type
             ;
 
             return ar;
@@ -344,6 +371,9 @@ namespace detail
             ar
                 & val.m_Value
                 & val.m_Signature
+				& val.m_Kid.m_Idx
+				& val.m_Kid.m_Idx2
+				& val.m_Kid.m_Type
             ;
 
             return ar;
@@ -357,15 +387,17 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Input& input)
         {
+			bool bMaturity = input.m_Maturity && beam::CommitmentAndMaturity::SerializeMaturity::s_On;
+
 			uint8_t nFlags =
 				(input.m_Commitment.m_Y ? 1 : 0) |
-				(input.m_Maturity ? 0x2 : 0);
+				(bMaturity ? 0x2 : 0);
 
 			ar
 				& nFlags
 				& input.m_Commitment.m_X;
 
-			if (input.m_Maturity)
+			if (bMaturity)
 				ar & input.m_Maturity;
 
             return ar;
@@ -379,9 +411,9 @@ namespace detail
 				& nFlags
 				& input.m_Commitment.m_X;
 
-			input.m_Commitment.m_Y = 0 != (1 & nFlags);
+			input.m_Commitment.m_Y = (1 & nFlags);
 
-			if (0x2 & nFlags)
+			if ((0x2 & nFlags) && beam::CommitmentAndMaturity::SerializeMaturity::s_On)
 				ar & input.m_Maturity;
 
             return ar;
@@ -391,13 +423,15 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Output& output)
         {
+			bool bMaturity = output.m_Maturity && beam::CommitmentAndMaturity::SerializeMaturity::s_On;
+
 			uint8_t nFlags =
 				(output.m_Commitment.m_Y ? 1 : 0) |
 				(output.m_Coinbase ? 2 : 0) |
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
 				(output.m_Incubation ? 0x10 : 0) |
-				(output.m_Maturity ? 0x20 : 0);
+				(bMaturity ? 0x20 : 0);
 
 			ar
 				& nFlags
@@ -412,7 +446,7 @@ namespace detail
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
 
-			if (output.m_Maturity)
+			if (bMaturity)
 				ar & output.m_Maturity;
 
             return ar;
@@ -426,7 +460,7 @@ namespace detail
 				& nFlags
 				& output.m_Commitment.m_X;
 
-			output.m_Commitment.m_Y = 0 != (1 & nFlags);
+			output.m_Commitment.m_Y = (1 & nFlags);
 			output.m_Coinbase = 0 != (2 & nFlags);
 
 			if (4 & nFlags)
@@ -444,7 +478,7 @@ namespace detail
 			if (0x10 & nFlags)
 				ar & output.m_Incubation;
 
-			if (0x20 & nFlags)
+			if ((0x20 & nFlags) && beam::CommitmentAndMaturity::SerializeMaturity::s_On)
 				ar & output.m_Maturity;
 
             return ar;
@@ -595,14 +629,40 @@ namespace detail
             return ar;
         }
 
+		template <typename Archive, typename TPtr>
+		static void save_VecPtr(Archive& ar, const std::vector<TPtr>& v)
+		{
+			uint32_t nSize = static_cast<uint32_t>(v.size());
+			ar & beam::uintBigFrom(nSize);
+
+			for (uint32_t i = 0; i < nSize; i++)
+				ar & *v[i];
+		}
+
+		template <typename Archive, typename TPtr>
+		static void load_VecPtr(Archive& ar, std::vector<TPtr>& v)
+		{
+			beam::uintBigFor<uint32_t>::Type x;
+			ar & x;
+			
+			uint32_t nSize;
+			x.Export(nSize);
+
+			v.resize(nSize);
+			for (uint32_t i = 0; i < nSize; i++)
+			{
+				v[i].reset(new typename TPtr::element_type);
+				ar & *v[i];
+			}
+		}
+
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::TxVectors& txv)
         {
-			ar
-				& txv.m_vInputs
-				& txv.m_vOutputs
-				& txv.m_vKernelsInput
-				& txv.m_vKernelsOutput;
+			save_VecPtr(ar, txv.m_vInputs);
+			save_VecPtr(ar, txv.m_vOutputs);
+			save_VecPtr(ar, txv.m_vKernelsInput);
+			save_VecPtr(ar, txv.m_vKernelsOutput);
 
             return ar;
         }
@@ -610,13 +670,10 @@ namespace detail
         template<typename Archive>
         static Archive& load(Archive& ar, beam::TxVectors& txv)
         {
-			ar
-				& txv.m_vInputs
-				& txv.m_vOutputs
-				& txv.m_vKernelsInput
-				& txv.m_vKernelsOutput;
-
-			txv.TestNoNulls();
+			load_VecPtr(ar, txv.m_vInputs);
+			load_VecPtr(ar, txv.m_vOutputs);
+			load_VecPtr(ar, txv.m_vKernelsInput);
+			load_VecPtr(ar, txv.m_vKernelsOutput);
 
             return ar;
         }

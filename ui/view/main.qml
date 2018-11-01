@@ -1,4 +1,4 @@
-import QtQuick 2.6
+import QtQuick 2.11
 import QtQuick.Controls 1.4
 import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
@@ -14,6 +14,20 @@ Rectangle {
 	MainViewModel {id: viewModel}
 
     color: Style.marine
+
+    MouseArea {
+        id: mainMouseArea
+        anchors.fill: parent
+        acceptedButtons: Qt.AllButtons
+        hoverEnabled: true
+        propagateComposedEvents: true
+        onMouseXChanged: resetLockTimer()
+        onPressedChanged: resetLockTimer()
+    }
+
+    Keys.onReleased: {
+        resetLockTimer()
+    }
 
     property var contentItems : [
 		//"dashboard",
@@ -50,9 +64,11 @@ Rectangle {
                 model: contentItems
 
                 Item {
+                    id: control
                     width: parent.width
                     height: parent.width
-
+                    activeFocusOnTab: true
+                    
                     SvgImage {
 						id: icon
                         x: 21
@@ -67,7 +83,7 @@ Rectangle {
                             y: 6
                             width: 4
                             height: 48
-                            color: Style.bright_teal
+                            color: selectedItem == index ? Style.bright_teal : Style.silver
                         }
 
                         DropShadow {
@@ -76,15 +92,23 @@ Rectangle {
                             samples: 9
                             color: Style.bright_teal
                             source: indicator
-                        }                        
+                        }
 
-    					visible: selectedItem == index
+    					visible: control.activeFocus
+                    }
+                    Keys.onPressed: {
+                        if ((event.key == Qt.Key_Return || event.key == Qt.Key_Enter || event.key == Qt.Key_Space) && selectedItem != index) 
+                            updateItem(index);
                     }
 
                     MouseArea {
                         id: mouseArea
                         anchors.fill: parent
-                        onClicked: updateItem(index)
+                        onClicked: {
+                            control.focus = true
+                            if (selectedItem != index)
+                                updateItem(index)
+                        }
 						hoverEnabled: true
                     }
                 }
@@ -134,6 +158,10 @@ Rectangle {
         
 		viewModel.update(selectedItem)
 	}
+
+    function resetLockTimer() {
+        viewModel.resetLockTimer();
+    }
 
     Connections {
         target: viewModel

@@ -22,34 +22,34 @@ struct TreasuryBlockGenerator
 	ECC::Scalar::Native m_Offset;
 
 	std::vector<Coin> m_Coins;
-	std::vector<std::pair<Height, ECC::Scalar::Native> > m_vIncubationAndKeys;
+	std::vector<Height> m_vIncubation;
 
 	std::mutex m_Mutex;
 	std::vector<std::thread> m_vThreads;
 
 	Block::Body& get_WriteBlock();
 	void FinishLastBlock();
-	int Generate(uint32_t nCount, Height dh);
+	int Generate(uint32_t nCount, Height dh, Amount v);
 private:
 	void Proceed(uint32_t i);
 };
 
 bool ReadTreasury(std::vector<Block::Body>& vBlocks, const string& sPath)
-    {
-		if (sPath.empty())
-			return false;
+{
+	if (sPath.empty())
+		return false;
 
-		std::FStream f;
-		if (!f.Open(sPath.c_str(), true))
-			return false;
+	std::FStream f;
+	if (!f.Open(sPath.c_str(), true))
+		return false;
 
-		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
-        arc & vBlocks;
+	yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
+    arc & vBlocks;
 
-		return true;
-    }
+	return true;
+}
 
-int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
+int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 {
 	if (m_sPath.empty())
 	{
@@ -77,26 +77,23 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 	LOG_INFO() << "Generating coins...";
 
 	m_Coins.resize(nCount);
-	m_vIncubationAndKeys.resize(nCount);
+	m_vIncubation.resize(nCount);
 
 	Height h = 0;
 
 	for (uint32_t i = 0; i < nCount; i++, h += dh)
 	{
 		Coin& coin = m_Coins[i];
-		coin.m_key_type = KeyType::Regular;
-		coin.m_amount = Rules::Coin * 10;
+		coin.m_key_type = Key::Type::Regular;
+		coin.m_amount = v;
 		coin.m_status = Coin::Unconfirmed;
 		coin.m_createHeight = h + Rules::HeightGenesis;
 
 
-		m_vIncubationAndKeys[i].first = h;
+		m_vIncubation[i] = h;
 	}
 
 	m_pKeyChain->store(m_Coins); // we get coin id only after store
-
-	for (uint32_t i = 0; i < nCount; ++i)
-        m_vIncubationAndKeys[i].second = m_pKeyChain->calcKey(m_Coins[i]);
 
 	m_vThreads.resize(std::thread::hardware_concurrency());
 	assert(!m_vThreads.empty());
@@ -110,7 +107,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 	// at least 1 kernel
 	{
 		Coin dummy; // not a coin actually
-		dummy.m_key_type = KeyType::Kernel;
+		dummy.m_key_type = Key::Type::Kernel;
 		dummy.m_status = Coin::Unconfirmed;
 
 		ECC::Scalar::Native k = m_pKeyChain->calcKey(dummy);
@@ -130,8 +127,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh)
 
 	for (auto i = 0u; i < m_vBlocks.size(); i++)
 	{
-		m_vBlocks[i].Sort();
-		m_vBlocks[i].DeleteIntermediateOutputs();
+		m_vBlocks[i].Normalize();
 	}
 
 	std::FStream f;
@@ -175,19 +171,21 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 {
 	std::vector<Output::Ptr> vOut;
 
+	std::vector<ECC::Scalar::Native> vSk;
+
 	for (size_t i = i0; i < m_Coins.size(); i += m_vThreads.size())
 	{
 		const Coin& coin = m_Coins[i];
 
 		Output::Ptr pOutp(new Output);
-		pOutp->m_Incubation = m_vIncubationAndKeys[i].first;
+		pOutp->m_Incubation = m_vIncubation[i];
 
-		const ECC::Scalar::Native& k = m_vIncubationAndKeys[i].second;
-		pOutp->Create(k, coin.m_amount);
+		vSk.resize(vSk.size() + 1);
+
+		ECC::Scalar::Native& sk = vSk.back();;
+		pOutp->Create(sk, *m_pKeyChain->get_Kdf(), coin.get_Kidv());
 
 		vOut.push_back(std::move(pOutp));
-		//offset += k;
-		//subBlock.m_Subsidy += coin.m_amount;
 	}
 
 	std::unique_lock<std::mutex> scope(m_Mutex);
@@ -198,9 +196,18 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 		Block::Body& block = get_WriteBlock();
 
 		block.m_vOutputs.push_back(std::move(vOut[iOutp]));
+		m_Offset += vSk[iOutp];
 		block.m_Subsidy += m_Coins[i].m_amount;
-		m_Offset += m_vIncubationAndKeys[i].second;
 	}
+}
+
+int GenerateTreasury(IKeyChain* pKeyChain, const std::string& sPath, uint32_t nCount, Height dh, Amount v)
+{
+	TreasuryBlockGenerator tbg;
+	tbg.m_sPath = sPath;
+	tbg.m_pKeyChain = pKeyChain;
+
+	return tbg.Generate(nCount, dh, v);
 }
 
 
@@ -214,7 +221,7 @@ IKeyChain::Ptr init_keychain(const std::string& path, uintBig* walletSeed) {
 
     NoLeak<uintBig> seed;
     Hash::Value hv;
-    Hash::Processor() << password.c_str() >> hv;
+    Hash::Processor() << password >> hv;
     seed.V = hv;
 
     auto keychain = Keychain::init(path, password, seed);
@@ -225,7 +232,7 @@ IKeyChain::Ptr init_keychain(const std::string& path, uintBig* walletSeed) {
         tbg.m_pKeyChain = keychain.get();
 		Height dh = 1;
 		uint32_t nCount = 10;
-        tbg.Generate(nCount, dh);
+        tbg.Generate(nCount, dh, Rules::Coin * 10);
         *walletSeed = seed.V;
     }
 

@@ -65,6 +65,8 @@
 
 inline void memset0(void* p, size_t n) { memset(p, 0, n); }
 bool memis0(const void* p, size_t n);
+void memxor(uint8_t* pDst, const uint8_t* pSrc, size_t n);
+
 
 template <typename T>
 inline void ZeroObject(T& x)
@@ -87,11 +89,47 @@ namespace beam
 	typedef uint64_t Amount;
 	typedef std::vector<uint8_t> ByteBuffer;
 
+	template <uint32_t nBits_>
+	struct uintBig_t;
+
 #ifdef WIN32
 	std::wstring Utf8toUtf16(const char*);
 #endif // WIN32
 
 	bool DeleteFile(const char*);
+
+	struct Blob {
+		const void* p;
+		uint32_t n;
+
+		Blob() {}
+		Blob(const void* p_, uint32_t n_) :p(p_), n(n_) {}
+		Blob(const ByteBuffer& bb);
+
+		template <uint32_t nBits_>
+		Blob(const uintBig_t<nBits_>& x) :p(x.m_pData), n(x.nBytes) {}
+
+		void Export(ByteBuffer&) const;
+	};
+
+	template <typename T>
+	struct TemporarySwap
+	{
+		T& m_var0;
+		T& m_var1;
+
+		TemporarySwap(T& v0, T& v1)
+			:m_var0(v0)
+			,m_var1(v1)
+		{
+			std::swap(m_var0, m_var1); // std::swap has specializations for many types that have internal swap(), such as unique_ptr, shared_ptr
+		}
+
+		~TemporarySwap()
+		{
+			std::swap(m_var0, m_var1);
+		}
+	};
 }
 
 namespace std

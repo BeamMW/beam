@@ -49,7 +49,7 @@ void Node::Compressor::Cleanup()
 
 				Block::BodyBase::RW rw;
 				FmtPath(rw, ws.m_Sid.m_Height, NULL);
-				rw.Open(true);
+				rw.ROpen();
 
 				Block::BodyBase body;
 				Block::SystemState::Sequence::Prefix prf;
@@ -111,7 +111,7 @@ void Node::Compressor::OnNewState()
 
 	const uint32_t nThreshold = Rules::get().MaxRollbackHeight;
 
-	if (p.m_Cursor.m_ID.m_Height - Rules::HeightGenesis + 1 <= nThreshold)
+	if (p.m_Cursor.m_ID.m_Height - Rules::HeightGenesis + 1 < nThreshold)
 		return;
 
 	HeightRange hr;
@@ -133,6 +133,7 @@ void Node::Compressor::OnNewState()
 	m_bStop = false;
 	m_bSuccess = false;
 	ZeroObject(m_hrInplaceRequest);
+	get_ParentObj().m_Processor.get_DB().get_StateHash(get_ParentObj().m_Processor.FindActiveAtStrict(hr.m_Max), m_hvTag);
 
 	m_Link.m_pReactor = io::Reactor::get_Current().shared_from_this();
 	m_Link.m_pEvt = io::AsyncEvent::create(*m_Link.m_pReactor, [this]() { OnNotify(); });;
@@ -167,7 +168,8 @@ void Node::Compressor::OnNotify()
 		{
 			Block::Body::RW rw;
 			FmtPath(rw, m_hrInplaceRequest.m_Max, &m_hrInplaceRequest.m_Min);
-			rw.Open(false);
+			rw.m_hvContentTag = m_hvTag;
+			rw.WCreate();
 
 			get_ParentObj().m_Processor.ExportMacroBlock(rw, m_hrInplaceRequest);
 		}
@@ -194,7 +196,7 @@ void Node::Compressor::OnNotify()
 			FmtPath(rwSrc, h, &Rules::HeightGenesis);
 			FmtPath(rwTrg, h, NULL);
 
-			for (int i = 0; i < Block::Body::RW::s_Datas; i++)
+			for (int i = 0; i < Block::Body::RW::Type::count; i++)
 			{
 				std::string sSrc;
 				std::string sTrg;
@@ -230,6 +232,7 @@ void Node::Compressor::OnNotify()
 		{
 			uint64_t rowid = get_ParentObj().m_Processor.FindActiveAtStrict(h);
 			get_ParentObj().m_Processor.get_DB().MacroblockIns(rowid);
+			get_ParentObj().m_Processor.FlushDB();
 
 			LOG_INFO() << "History generated up to height " << h;
 
@@ -358,9 +361,11 @@ bool Node::Compressor::SquashOnce(std::vector<HeightRange>& v)
 
 bool Node::Compressor::SquashOnce(Block::BodyBase::RW& rw, Block::BodyBase::RW& rwSrc0, Block::BodyBase::RW& rwSrc1)
 {
-	rw.Open(false);
-	rwSrc0.Open(true);
-	rwSrc1.Open(true);
+	rwSrc0.ROpen();
+	rwSrc1.ROpen();
+
+	rw.m_hvContentTag = m_hvTag;
+	rw.WCreate();
 
 	if (!rw.CombineHdr(std::move(rwSrc0), std::move(rwSrc1), m_bStop))
 		return false;

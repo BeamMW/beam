@@ -1,4 +1,4 @@
-import QtQuick 2.6
+import QtQuick 2.11
 import QtQuick.Controls 1.2
 import QtQuick.Controls 2.4
 import QtQuick.Controls.Styles 1.2
@@ -12,7 +12,6 @@ Item {
     anchors.fill: parent
 
     WalletViewModel {id: viewModel}
-    AddressBookViewModel {id: addressBookViewModel}
 
     property bool toSend: false
 
@@ -264,6 +263,16 @@ Item {
             }
 
             SFText {
+                Layout.alignment: Qt.AlignLeft
+                Layout.minimumHeight: 16
+                Layout.topMargin: -24
+                font.pixelSize: 14
+                font.italic: true
+                color: Style.white
+                text: qsTr("The address will be valid for 24 hours")
+            }
+
+            SFText {
                 font.pixelSize: 14
                 Layout.minimumHeight: 16
                 font.styleName: "Bold"; font.weight: Font.Bold
@@ -291,7 +300,6 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.minimumHeight: 16
                 font.pixelSize: 14
-                font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
                 text: qsTr("Send this address to the sender over an external secure channel")
             }
@@ -303,25 +311,22 @@ Item {
                 spacing: 19
 
                 CustomButton {
-                    text: qsTr("cancel")
-                    height: 38
-                    width: 122
+                    text: qsTr("close")
                     palette.buttonText: Style.white
-                    onClicked: root.state = "wallet";
+                    icon.source: "qrc:/assets/icon-cancel-white.svg"
+                    onClicked: {
+                        // TODO: "Save" may be deleted in future, when we'll have editor for own addresses.
+                        viewModel.saveNewAddress();
+                        root.state = "wallet";
+                    }
                 }
 
                 CustomButton {
-                    text: qsTr("Copy && Close")
-                    height: 38
-                    width: 162
+                    text: qsTr("copy")
                     palette.buttonText: Style.white
                     icon.source: "qrc:/assets/icon-copy.svg"
-                    icon.width: 16
-                    icon.height: 16
                     onClicked: {
                         viewModel.copyToClipboard(myAddressID.text);
-                        viewModel.saveNewAddress();
-                        root.state = "wallet";
                     }
                 }
             }
@@ -452,10 +457,23 @@ Item {
                                     font.styleName: "Light"; font.weight: Font.Light
                                     color: Style.heliotrope
 
-                                    text: viewModel.sendAmount
+                                    property double amount: 0
 
                                     validator: RegExpValidator { regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,5}[1-9])?$/ }
                                     selectByMouse: true
+                                    
+                                    onTextChanged: {
+                                        if (focus) {
+                                            amount = text ? text : 0;
+                                        }
+                                    }
+
+                                    onFocusChanged: {
+                                        if (amount > 0) {
+                                            // QLocale::FloatingPointShortest = -128
+                                            text = focus ? amount : amount.toLocaleString(Qt.locale(), 'f', -128);
+                                        }
+                                    }
                                 }
 
                                 Item {
@@ -474,7 +492,7 @@ Item {
                                 Binding {
                                     target: viewModel
                                     property: "sendAmount"
-                                    value: amount_input.text
+                                    value: amount_input.amount
                                 }
                             }
 
@@ -517,7 +535,7 @@ Item {
                             font.pixelSize: 14
                             color: Style.white
 
-                            maximumLength: 200
+                            maximumLength: 1024
                             selectByMouse: true
                         }
 
@@ -683,20 +701,17 @@ Item {
                 spacing: 30
 
                 CustomButton {
-                    width: 122
                     text: qsTr("cancel")
-                    palette.buttonText: Style.white
                     icon.source: "qrc:/assets/icon-cancel.svg"
                     onClicked: root.state = "wallet"
                 }
 
                 CustomButton {
-                    width: 122
                     text: qsTr("send")
                     palette.buttonText: Style.marine
                     palette.button: Style.heliotrope
                     icon.source: "qrc:/assets/icon-send.svg"
-                    enabled: {viewModel.isEnoughMoney && amount_input.acceptableInput && receiverAddrInput.acceptableInput }
+                    enabled: {viewModel.isEnoughMoney && amount_input.amount > 0 && receiverAddrInput.acceptableInput }
                     onClicked: {
                         if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {
                             var message = "You are about to send %1 to address %2";
@@ -735,11 +750,7 @@ Item {
             CustomButton {
                 palette.button: Style.bright_sky_blue
                 palette.buttonText: Style.marine
-                height: 38
-                width: 122
                 icon.source: "qrc:/assets/icon-receive-blue.svg"
-                icon.height: 16
-                icon.width: 16
                 text: qsTr("receive")
 
                 onClicked: {
@@ -752,10 +763,6 @@ Item {
                 palette.button: Style.heliotrope
                 palette.buttonText: Style.marine
                 icon.source: "qrc:/assets/icon-send-blue.svg"
-                icon.height: 16
-                icon.width: 16
-                height: 38
-                width: 122
                 text: qsTr("send")
 
                 onClicked: root.state = "send"
@@ -788,6 +795,7 @@ Item {
                     Layout.fillWidth: true
 
                     value: viewModel.available
+                    onCopyValueText: viewModel.copyToClipboard(value)
                 }
 
                 SecondaryPanel {
@@ -797,6 +805,7 @@ Item {
                     title: qsTr("Unconfirmed")
                     amountColor: Style.white
                     value: viewModel.unconfirmed
+                    onCopyValueText: viewModel.copyToClipboard(value)
                 }
             }
         }
@@ -944,11 +953,31 @@ Item {
                 elideMode: Text.ElideRight
                 resizable: false
                 movable: false
+                delegate: Item {
+                    Item {
+                        width: parent.width
+                        height: transactionsView.rowHeight
+                        clip:true
+
+                        SFLabel {
+                            font.pixelSize: 14
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.leftMargin: 20
+                            elide: Text.ElideRight
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: styleData.value
+                            color: Style.white
+                            copyMenuEnabled: true
+                            onCopyText: viewModel.copyToClipboard(text)
+                        }
+                    }
+                }
             }
 
             TableViewColumn {
-                role: viewModel.displayNameRole
-                title: qsTr("Recipient / Sender ID")
+                role: viewModel.userRole
+                title: qsTr("Address")
                 width: 400 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideMiddle
                 resizable: false
@@ -959,7 +988,7 @@ Item {
                         height: transactionsView.rowHeight
                         clip:true
 
-                        SFText {
+                        SFLabel {
                             font.pixelSize: 14
                             anchors.left: parent.left
                             anchors.right: parent.right
@@ -968,6 +997,8 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             text: styleData.value
                             color: Style.white
+                            copyMenuEnabled: true
+                            onCopyText: viewModel.copyToClipboard(text)
                         }
                     }
                 }
@@ -993,30 +1024,6 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                             source: "qrc:/assets/icon-comment.svg"
                             visible: styleData.value !== null && styleData.value !== ""
-                            ToolTip {
-                                id: comment_tooltip
-                                visible: mouseArea.containsMouse
-                                delay: 500
-                                timeout: 4000
-                                text: styleData.value
-
-                                contentItem: Text {
-                                    text: comment_tooltip.text
-                                    font: comment_tooltip.font
-                                    color: Style.white
-                                }
-
-                                background: Rectangle {
-                                    border.color: Style.white
-                                    opacity: 0
-                                }
-                            }
-                            MouseArea {
-                                id: mouseArea
-                                anchors.fill: parent
-                                acceptedButtons: Qt.NoButton
-                                hoverEnabled: true
-                            }
                         }
                     }
                 }
@@ -1034,7 +1041,7 @@ Item {
                         width: parent.width
                         height: transactionsView.rowHeight
                         property bool income: (styleData.row >= 0) ? viewModel.transactions[styleData.row].income : false
-                        SFText {
+                        SFLabel {
                             anchors.leftMargin: 20
                             anchors.right: parent.right
                             anchors.left: parent.left
@@ -1044,6 +1051,8 @@ Item {
                             text: "<font size='6'>" + (parent.income ? "+ " : "- ") + styleData.value + "</font>"
                             textFormat: Text.StyledText
                             font.styleName: "Light"; font.weight: Font.Thin
+                            copyMenuEnabled: true
+                            onCopyText: viewModel.copyToClipboard(styleData.value)
                         }
                     }
                 }
@@ -1063,7 +1072,7 @@ Item {
 
                         clip:true
 
-                        SFText {
+                        SFLabel {
                             font.pixelSize: 14
                             anchors.left: parent.left
                             anchors.right: parent.right
@@ -1078,6 +1087,8 @@ Item {
                             elide: Text.ElideRight
                             anchors.verticalCenter: parent.verticalCenter
                             text: styleData.value
+                            copyMenuEnabled: true
+                            onCopyText: viewModel.copyToClipboard(text)
                         }
                     }
                 }
@@ -1142,7 +1153,7 @@ Item {
                     onTriggered: {
                         if (!!txContextMenu.transaction)
                         {
-                            addressBookViewModel.copyToClipboard(txContextMenu.transaction.user);
+                            viewModel.copyToClipboard(txContextMenu.transaction.user);
                         }
                     }
                 }
@@ -1193,7 +1204,14 @@ Item {
                         width: parent.width
                         clip: true
 
-                        property int maximumHeight: 200
+                        property int maximumHeight: 180 + commentTx.contentHeight
+
+                        onMaximumHeightChanged: {
+                            if (!rowItem.collapsed) {
+                                rowItem.height = maximumHeight + transactionsView.rowHeight
+                                txDetails.height = maximumHeight
+                            }
+                        }
 
                         Rectangle {
                             anchors.fill: parent
@@ -1201,12 +1219,11 @@ Item {
                             opacity: 0.1
                         }
                         RowLayout {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-
+                            anchors.fill: parent
                             GridLayout {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
+                                Layout.maximumWidth: transactionsView.width - 2 * Layout.margins
                                 Layout.margins: 30
                                 columns: 2
                                 columnSpacing: 44
@@ -1226,7 +1243,8 @@ Item {
                                     color: Style.bluey_grey
                                     text: qsTr("Sending address:")
                                 }
-                                SFText {
+                                SFLabel {
+                                    copyMenuEnabled: true
                                     font.pixelSize: 14
                                     color: Style.white
                                     text: {
@@ -1236,6 +1254,7 @@ Item {
                                         }
                                         return "";
                                     }
+                                    onCopyText: viewModel.copyToClipboard(text)
                                 }
 
                                 SFText {
@@ -1244,7 +1263,8 @@ Item {
                                     color: Style.bluey_grey
                                     text: qsTr("Receiving address:")
                                 }
-                                SFText {
+                                SFLabel {
+                                    copyMenuEnabled: true
                                     font.pixelSize: 14
                                     color: Style.white
                                     text: {
@@ -1253,7 +1273,8 @@ Item {
                                             return viewModel.transactions[styleData.row].receivingAddress;
                                         }
                                         return "";
-                                    }
+                                    }                      
+                                    onCopyText: viewModel.copyToClipboard(text)
                                 }
 
                                 SFText {
@@ -1262,7 +1283,8 @@ Item {
                                     color: Style.bluey_grey
                                     text: qsTr("Transaction fee:")
                                 }
-                                SFText {
+                                SFLabel {
+                                    copyMenuEnabled: true
                                     font.pixelSize: 14
                                     color: Style.white
                                     text:{
@@ -1272,6 +1294,7 @@ Item {
                                         }
                                         return "";
                                     }
+                                    onCopyText: viewModel.copyToClipboard(text)
                                 }
 
                                 SFText {
@@ -1280,7 +1303,9 @@ Item {
                                     color: Style.bluey_grey
                                     text: qsTr("Comment:")
                                 }
-                                SFText {
+                                SFLabel {
+                                    id: commentTx
+                                    copyMenuEnabled: true
                                     font.pixelSize: 14
                                     color: Style.white
                                     text: {
@@ -1291,6 +1316,10 @@ Item {
                                         return "";
                                     }
                                     font.styleName: "Italic"
+                                    Layout.fillWidth: true
+                                    wrapMode : Text.Wrap
+                                    elide: Text.ElideRight
+                                    onCopyText: viewModel.copyToClipboard(text)
                                 }
                             }
                             ColumnLayout {
@@ -1303,7 +1332,11 @@ Item {
 
 
                 MouseArea {
-                    anchors.fill: parent
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    height: transactionsView.rowHeight
+                    width: parent.width
+
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                     onClicked: {
                         if (styleData.row === undefined 
@@ -1451,7 +1484,9 @@ Item {
             PropertyChanges {target: wallet_layout; visible: false}
             PropertyChanges {target: send_layout; visible: true}
             PropertyChanges {target: amount_input; text: ""}
+            PropertyChanges {target: amount_input; amount: 0}
             PropertyChanges {target: receiverAddrInput; text: ""}
+            PropertyChanges {target: comment_input; text: ""}
             StateChangeScript {
                 script: receiverAddrInput.forceActiveFocus(Qt.TabFocusReason);
             }

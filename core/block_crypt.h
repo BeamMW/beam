@@ -24,6 +24,8 @@ namespace beam
 	typedef uint64_t BbsChannel;
 	typedef ECC::Hash::Value BbsMsgID;
 
+	using ECC::Key;
+
 	Timestamp getTimestamp();
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
@@ -114,6 +116,22 @@ namespace beam
 		int cmp_CaM(const CommitmentAndMaturity&) const;
 		int cmp(const CommitmentAndMaturity&) const;
 		COMPARISON_VIA_CMP
+
+        class SerializeMaturity {
+            bool m_Prev;
+        public:
+			static thread_local bool s_On;
+
+			SerializeMaturity(bool b)
+                :m_Prev(s_On)
+            {
+				s_On = b;
+            }
+            ~SerializeMaturity()
+            {
+				s_On = m_Prev;
+            }
+        };
 	};
 
 	struct Rules
@@ -135,7 +153,7 @@ namespace beam
 		uint32_t MaxDifficultyChange		= 2; // (x4, same as in bitcoin).
 		uint32_t TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
 		uint32_t WindowForMedian			= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
-		Difficulty StartDifficulty			= Difficulty(7 << Difficulty::s_MantissaBits); // fair start for a testnet
+		Difficulty StartDifficulty			= Difficulty(2 << Difficulty::s_MantissaBits); // FAST start, good for QA
 
 		bool AllowPublicUtxos = false;
 		bool FakePoW = false;
@@ -153,6 +171,8 @@ namespace beam
 	{
 		typedef std::unique_ptr<Input> Ptr;
 		typedef uint32_t Count; // the type for count of duplicate UTXOs in the system
+
+		static thread_local bool s_bAutoMaturity;
 
 		struct State
 		{
@@ -213,12 +233,20 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
 		void Create(const ECC::Scalar::Native&, Amount, bool bPublic = false);
+		void Create(ECC::Scalar::Native&, Key::IKdf&, const Key::IDV&);
+
+		bool Recover(Key::IPKdf&, Key::IDV&) const;
+
 		bool IsValid(ECC::Point::Native& comm) const;
 		Height get_MinMaturity(Height h) const; // regardless to the explicitly-overridden
 
 		void operator = (const Output&);
 		int cmp(const Output&) const;
 		COMPARISON_VIA_CMP
+
+	private:
+		void CreateInternal(const ECC::Scalar::Native&, Amount, bool bPublic, Key::IKdf*, const Key::ID*);
+		void get_SeedKid(ECC::uintBig&, Key::IPKdf&) const;
 	};
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }
@@ -275,6 +303,7 @@ namespace beam
 	struct TxBase
 	{
 		class Context;
+		static int CmpInOut(const Input&, const Output&);
 
 		struct IReader
 		{
@@ -321,10 +350,7 @@ namespace beam
 		std::vector<TxKernel::Ptr> m_vKernelsInput;
 		std::vector<TxKernel::Ptr> m_vKernelsOutput;
 
-		void Sort(); // w.r.t. the standard
-		size_t DeleteIntermediateOutputs(); // assumed to be already sorted. Retruns the num deleted
-
-		void TestNoNulls() const; // valid object should not have NULL members. Should be used during (de)serialization
+		size_t Normalize(); // w.r.t. the standard, delete spent outputs. Returns the num deleted
 
 		class Reader :public TxBase::IReader {
 			size_t m_pIdx[4];
@@ -383,7 +409,7 @@ namespace beam
 			// equihash parameters. 
 			// Parameters recommended by BTG are 144/5, to make it asic-resistant (~1GB average, spikes about 1.5GB). On CPU solve time about 1 minutes
 			// The following are the parameters for testnet, to make it of similar size, and much faster solve time, to test concurrency and difficulty adjustment
-			static const uint32_t N = 120;
+			static const uint32_t N = 144;
 			static const uint32_t K = 5;
 
 			static const uint32_t nNumIndices		= 1 << K; // 32
@@ -454,10 +480,16 @@ namespace beam
 
 				bool IsSane() const;
 				bool IsValidPoW() const;
+				bool IsValid() const { return IsSane() && IsValidPoW(); }
 				bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
 
 				// the most robust proof verification - verifies the whole proof structure
 				bool IsValidProofState(const ID&, const Merkle::HardProof&) const;
+
+				int cmp(const Full&) const;
+				COMPARISON_VIA_CMP
+
+				bool IsNext(const Full& sNext) const;
 
 			private:
 				void get_HashInternal(Merkle::Hash&, bool bTotal) const;
@@ -519,21 +551,9 @@ namespace beam
 		struct ChainWorkProof;
 	};
 
-	enum struct KeyType
-	{
-		Comission,
-		Coinbase,
-		Kernel,
-		Regular,
-		Identity,
-		SChannelNonce
-	};
-	void DeriveKey(ECC::Scalar::Native&, const ECC::Kdf&, Height, KeyType, uint32_t nIdx = 0);
 	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height = 0, uint32_t nIdx = 0);
 
 	std::ostream& operator << (std::ostream&, const Block::SystemState::ID&);
-
-
 
 
 	class TxBase::Context
@@ -595,12 +615,28 @@ namespace beam
 
 	public:
 
-		static const int s_Datas = 5;
-		static const char* const s_pszSufix[s_Datas];
+#define MBLOCK_DATA_Types(macro) \
+		macro(hd) \
+		macro(ui) \
+		macro(uo) \
+		macro(ki) \
+		macro(ko)
+
+		struct Type
+		{
+			enum Enum {
+#define THE_MACRO(x) x,
+				MBLOCK_DATA_Types(THE_MACRO)
+#undef THE_MACRO
+				count
+			};
+		};
+
+		static const char* const s_pszSufix[Type::count];
 
 	private:
 
-		std::FStream m_pS[s_Datas];
+		std::FStream m_pS[Type::count];
 
 		Input::Ptr m_pGuardUtxoIn[2];
 		Output::Ptr m_pGuardUtxoOut[2];
@@ -614,6 +650,8 @@ namespace beam
 		void WriteInternal(const T&, int);
 
 		bool OpenInternal(int iData);
+		void PostOpen(int iData);
+		void Open(bool bRead);
 
 	public:
 
@@ -624,10 +662,13 @@ namespace beam
 		bool m_bRead;
 		bool m_bAutoDelete;
 		std::string m_sPath;
+		Merkle::Hash m_hvContentTag; // needed to make sure all the files indeed belong to the same data set
 
 		void GetPath(std::string&, int iData) const;
 
-		void Open(bool bRead);
+		void ROpen();
+		void WCreate();
+
 		void Flush();
 		void Close();
 		void Delete(); // must be closed
@@ -681,7 +722,7 @@ namespace beam
 
 		void Reset();
 		void Create(ISource&, const SystemState::Full& sRoot);
-		bool IsValid(Block::SystemState::Full* pTip = NULL) const;
+		bool IsValid(SystemState::Full* pTip = NULL) const;
 		bool Crop(); // according to current bound
 		bool Crop(const ChainWorkProof& src);
 		bool IsEmpty() const { return m_Heading.m_vElements.empty(); }
@@ -700,8 +741,26 @@ namespace beam
 
 	private:
 		struct Sampler;
-		bool IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound, Block::SystemState::Full* pTip) const;
+		bool IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound, SystemState::Full* pTip) const;
 		void ZeroInit();
 	};
 
+	struct KeyString
+	{
+		std::string m_sRes;
+		std::string m_sMeta;
+		ECC::NoLeak<Merkle::Hash> m_hvSecret;
+
+		void Export(const ECC::HKdf&);
+		void Export(const ECC::HKdfPub&);
+		bool Import(ECC::HKdf&);
+		bool Import(ECC::HKdfPub&);
+
+	private:
+		typedef uintBig_t<64> MacValue;
+		void XCrypt(MacValue&, uint32_t nSize, bool bEnc) const;
+
+		void Export(void*, uint32_t, uint8_t nCode);
+		bool Import(void*, uint32_t, uint8_t nCode);
+	};
 }

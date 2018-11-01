@@ -59,7 +59,6 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
             defaultAddress.m_own = true;
             defaultAddress.m_label = "default";
             defaultAddress.m_createTime = getTimestamp();
-            defaultAddress.m_duration = numeric_limits<uint64_t>::max();
             keystore->gen_keypair(defaultAddress.m_walletID);
             keystore->save_keypair(defaultAddress.m_walletID, true);
 
@@ -153,17 +152,8 @@ void AppModel::start(IKeyStore::Ptr keystore)
 
 void AppModel::startNode()
 {
-    ECC::NoLeak<ECC::uintBig> seed;
-    bool isSeedValid = m_db->getVar("WalletSeed", seed);
-
-    assert(isSeedValid);
-    if (!isSeedValid)
-    {
-        getMessages().addMessage(QObject::tr("You have no seed for key generation"));
-        return;
-    }
-
-    m_node = make_unique<NodeModel>(seed);
+    m_node = make_unique<NodeModel>();
+	m_node->m_pKdf = m_db->get_Kdf();
     m_node->start();
 }
 

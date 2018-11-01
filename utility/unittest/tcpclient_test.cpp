@@ -19,7 +19,9 @@
 #include <iostream>
 #include <assert.h>
 
-#define LOG_VERBOSE_ENABLED 0
+#ifndef LOG_VERBOSE_ENABLED
+    #define LOG_VERBOSE_ENABLED 0
+#endif
 #include "utility/logger.h"
 
 using namespace beam;

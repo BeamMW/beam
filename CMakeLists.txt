@@ -69,8 +69,21 @@ endfunction()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(BEAM_USE_STATIC FALSE)
+set(BEAM_USE_AVX FALSE)
+if (BEAM_CPU_ARCH MATCHES "avx")
+    set(BEAM_USE_AVX TRUE)
+endif()
 
+if(BEAM_USE_AVX)
+    add_definitions(-DBEAM_USE_AVX)
+endif()
+
+set(BEAM_QT_UI_WALLET TRUE)
+if (BEAM_NO_QT_UI_WALLET)
+    set(BEAM_QT_UI_WALLET FALSE)    
+endif()
+
+set(BEAM_USE_STATIC FALSE)
 if(BEAM_LINK_TYPE MATCHES "Static")
     set(BEAM_USE_STATIC TRUE)
 endif()
@@ -79,9 +92,12 @@ if(BEAM_USE_STATIC)
     add_definitions(-DBEAM_USE_STATIC)
 endif()
 
-if(DEBUG_MESSAGES_IN_RELEASE_MODE)
+#it's enabled by default for testnet
+#if(DEBUG_MESSAGES_IN_RELEASE_MODE)
     add_definitions(-DDEBUG_MESSAGES_IN_RELEASE_MODE)
-endif()
+#endif()
+#it's enabled by default for testnet
+add_definitions(-DLOG_VERBOSE_ENABLED=1)
 
 if(SHOW_CODE_LOCATION)
     add_definitions(-DSHOW_CODE_LOCATION=1)
@@ -149,6 +165,9 @@ if(UNIX OR WIN32)
     add_definitions(-DUV_INTERNAL)
 endif()
 
+include_directories($ENV{BOOST_ROOT}/include)
+link_directories($ENV{BOOST_ROOT}/lib)
+
 if(ANDROID)
     include_directories($ENV{BOOST_ROOT_ANDROID}/include/boost-1_68)
 else()
@@ -191,9 +210,10 @@ add_subdirectory(sqlite)
 add_subdirectory(node)
 add_subdirectory(beam)
 add_subdirectory(explorer)
+add_subdirectory(mnemonic)
 
 # TODO: uncomment this later
-if(NOT ANDROID)
+if(NOT ANDROID AND BEAM_QT_UI_WALLET)
     add_subdirectory(ui)
 endif()
 

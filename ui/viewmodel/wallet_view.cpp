@@ -368,7 +368,7 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
         }
     }
 
-    emit transactionsChanged();
+    sortTx();
 
     // Get info for TxObject::_user_name (get wallets labels)
     if (_model.async)
@@ -575,6 +575,11 @@ QString WalletViewModel::getDateRole() const
     return "date";
 }
 
+QString WalletViewModel::getUserRole() const
+{
+    return "user";
+}
+
 QString WalletViewModel::getDisplayNameRole() const
 {
     return "displayName";
@@ -697,6 +702,12 @@ std::function<bool(const TxObject*, const TxObject*)> WalletViewModel::generateC
         return compareTx(lf->getTxDescription().m_sender, rt->getTxDescription().m_sender, sortOrder);
     };
 
+    if (_sortRole == getUserRole())
+        return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
+    {
+        return compareTx(lf->user(), rt->user(), sortOrder);
+    };
+
     if (_sortRole == getDisplayNameRole())
         return [sortOrder = _sortOrder](const TxObject* lf, const TxObject* rt)
     {
@@ -805,4 +816,5 @@ void WalletViewModel::onGeneratedNewWalletID(const beam::WalletID& walletID)
 {
     _newReceiverAddr = toString(walletID);
     emit newReceiverAddrChanged();
+    saveNewAddress();
 }

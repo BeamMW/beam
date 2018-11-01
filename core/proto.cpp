@@ -142,10 +142,8 @@ void ProtocolPlus::Encrypt(SerializedMsg& sm, MsgSerializer& ser)
 
 void InitCipherIV(AES::StreamCipher& c, const ECC::Hash::Value& hvSecret, const ECC::Hash::Value& hvParam)
 {
-	ECC::NoLeak<ECC::Hash::Processor> hpIV;
 	ECC::NoLeak<ECC::Hash::Value> hvIV;
-
-	hpIV.V << hvSecret << hvParam >> hvIV.V;
+	ECC::Hash::Processor() << hvSecret << hvParam >> hvIV.V;
 
 	//static_assert(hvIV.V.nBytes >= c.m_Counter.nBytes, "");
 	c.m_Counter = hvIV.V;
@@ -158,7 +156,7 @@ bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& re
 	// Diffie-Hellman
 	ECC::Point pt;
 	pt.m_X = remotePublic;
-	pt.m_Y = false;
+	pt.m_Y = 0;
 
 	ECC::Point::Native p;
 	if (!p.Import(pt))
@@ -166,9 +164,8 @@ bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& re
 
 	ECC::Point::Native ptSecret = p * myPrivate;
 
-	ECC::NoLeak<ECC::Hash::Processor> hp;
 	ECC::NoLeak<ECC::Hash::Value> hvSecret;
-	hp.V << ptSecret >> hvSecret.V;
+	ECC::Hash::Processor() << ptSecret >> hvSecret.V;
 
 	static_assert(AES::s_KeyBytes == ECC::Hash::Value::nBytes, "");
 	enc.Init(hvSecret.V.m_pData);
@@ -268,10 +265,24 @@ union HighestMsgCode
 #undef THE_MACRO
 };
 
+bool NotCalled_VerifyNoDuplicatedIDs(uint32_t id)
+{
+	// 
+	switch (id)
+	{
+#define THE_MACRO(code, msg) \
+	case code:
+		BeamNodeMsgsAll(THE_MACRO)
+#undef THE_MACRO
+		return true;
+	}
+	return false;
+}
+
 /////////////////////////
 // NodeConnection
 NodeConnection::NodeConnection()
-	:m_Protocol('B', 'm', 3, sizeof(HighestMsgCode), *this, 20000)
+	:m_Protocol('B', 'm', 6, sizeof(HighestMsgCode), *this, 20000)
 	,m_ConnectPending(false)
 {
 #define THE_MACRO(code, msg) \
@@ -571,7 +582,7 @@ void NodeConnection::OnMsg(Authentication&& msg)
 
 	ECC::Point pt;
 	pt.m_X = msg.m_ID;
-	pt.m_Y = false;
+	pt.m_Y = 0;
 
 	ECC::Point::Native p;
 	if (!p.Import(pt))
@@ -929,6 +940,260 @@ std::ostream& operator << (std::ostream& s, const PeerManager::PeerInfo& pi)
 	s << "PI " << pi.m_ID.m_Key << "--" << pi.m_Addr.m_Value;
 	return s;
 }
+
+/////////////////////////
+// FlyClient
+const Block::SystemState::Full* FlyClient::get_Tip() const
+{
+	return m_Hist.empty() ? NULL : &m_Hist.rbegin()->second;
+}
+
+FlyClient::Connection::Connection(FlyClient& x)
+	:m_This(x)
+{
+	ZeroObject(m_Tip);
+}
+
+bool FlyClient::Connection::ShouldSync() const
+{
+	const Block::SystemState::Full* pTip = m_This.get_Tip();
+	return !pTip || (pTip->m_ChainWork < m_Tip.m_ChainWork);
+}
+
+void FlyClient::Connection::OnConnectedSecure()
+{
+	proto::Config msgCfg;
+	msgCfg.m_CfgChecksum = Rules::get().Checksum;
+	msgCfg.m_SendPeers = true;
+	Send(msgCfg);
+}
+
+void FlyClient::Connection::OnMsg(proto::NewTip&& msg)
+{
+	if (m_Tip == msg.m_Description)
+		return; // redundant msg, might happen in older nodes
+
+	if (msg.m_Description.m_ChainWork <= m_Tip.m_ChainWork)
+		ThrowUnexpected();
+
+	if (!(msg.m_Description.IsValid()))
+		ThrowUnexpected();
+
+	if (m_pSync && m_pSync->m_vConfirming.empty() && !m_pSync->m_TipBeforeGap.m_Height && !m_Tip.IsNext(msg.m_Description))
+		m_pSync->m_TipBeforeGap = m_Tip;
+
+	m_Tip = msg.m_Description;
+
+	if (!m_pSync && ShouldSync())
+		StartSync();
+}
+
+void FlyClient::Connection::StartSync()
+{
+	assert(ShouldSync());
+
+	if (m_Tip.m_Height > Rules::HeightGenesis)
+	{
+		const Block::SystemState::Full* pTip = m_This.get_Tip();
+		if (!(pTip && pTip->IsNext(m_Tip)))
+		{
+			// starting search
+			m_pSync.reset(new SyncCtx);
+			SearchBelow(m_Tip.m_Height);
+			return;
+		}
+	}
+
+	// simple case
+	m_This.m_Hist[m_Tip.m_Height] = m_Tip;
+	m_This.OnNewTip();
+}
+
+void FlyClient::Connection::SearchBelow(Height h)
+{
+	assert(ShouldSync() && m_pSync && m_pSync->m_vConfirming.empty());
+
+	StateMap::iterator it = m_This.m_Hist.lower_bound(h);
+	if (m_This.m_Hist.begin() == it)
+	{
+		ZeroObject(m_pSync->m_Confirmed);
+		RequestChainworkProof();
+	}
+	else
+	{
+		--it;
+		const Block::SystemState::Full& s = it->second;
+		assert(s.m_Height == it->first);
+
+		proto::GetCommonState msg;
+		msg.m_IDs.resize(1);
+		s.get_ID(msg.m_IDs[0]);
+		Send(msg);
+
+		m_pSync->m_vConfirming.swap(msg.m_IDs);
+	}
+}
+
+void FlyClient::Connection::OnMsg(proto::ProofCommonState&& msg)
+{
+	if (!m_pSync || m_pSync->m_vConfirming.empty())
+		ThrowUnexpected();
+
+	if (!ShouldSync())
+	{
+		m_pSync.reset();
+		return; // other connection was faster
+	}
+
+	std::vector<Block::SystemState::ID> vIDs = std::move(m_pSync->m_vConfirming);
+
+	if (msg.m_iState >= vIDs.size())
+		SearchBelow(vIDs.front().m_Height);
+	else
+	{
+		const Block::SystemState::ID& id = vIDs[msg.m_iState];
+
+		if (!m_Tip.IsValidProofState(id, msg.m_Proof))
+			ThrowUnexpected();
+
+		StateMap::iterator it = m_This.m_Hist.find(id.m_Height);
+		if (m_This.m_Hist.end() != it)
+		{
+			Merkle::Hash hv;
+			it->second.get_Hash(hv);
+
+			if (id.m_Hash == hv)
+			{
+				m_pSync->m_Confirmed = it->second;
+				RequestChainworkProof();
+				return;
+			}
+		}
+
+		// restart the search
+		SearchBelow(m_Tip.m_Height);
+	}
+}
+void FlyClient::Connection::RequestChainworkProof()
+{
+	assert(ShouldSync() && m_pSync && m_pSync->m_vConfirming.empty());
+
+	proto::GetProofChainWork msg;
+	msg.m_LowerBound = m_pSync->m_Confirmed.m_ChainWork;
+	Send(msg);
+
+	m_pSync->m_TipBeforeGap.m_Height = 0;
+}
+
+struct FlyClient::Connection::StateArray
+{
+	std::vector<Block::SystemState::Full> m_vec;
+
+	void Unpack(const Block::ChainWorkProof&);
+	bool Find(const Block::SystemState::Full&) const;
+};
+
+void FlyClient::Connection::StateArray::Unpack(const Block::ChainWorkProof& proof)
+{
+	m_vec.reserve(proof.m_vArbitraryStates.size() + proof.m_Heading.m_vElements.size());
+
+	// copy reversed
+	m_vec.resize(proof.m_vArbitraryStates.size());
+	std::copy(proof.m_vArbitraryStates.rbegin(), proof.m_vArbitraryStates.rend(), m_vec.begin());
+
+	m_vec.emplace_back();
+	((Block::SystemState::Sequence::Prefix&) m_vec.back()) = proof.m_Heading.m_Prefix;
+	((Block::SystemState::Sequence::Element&)  m_vec.back()) = proof.m_Heading.m_vElements.back();
+
+	for (size_t i = proof.m_Heading.m_vElements.size() - 1; i--; )
+	{
+		Block::SystemState::Full& sLast = m_vec.emplace_back();
+
+		sLast = m_vec[m_vec.size() - 2];
+		sLast.NextPrefix();
+		((Block::SystemState::Sequence::Element&) sLast) = proof.m_Heading.m_vElements[i];
+		sLast.m_PoW.m_Difficulty.Inc(sLast.m_ChainWork);
+	}
+}
+
+bool FlyClient::Connection::StateArray::Find(const Block::SystemState::Full& s) const
+{
+	struct Cmp {
+		bool operator () (const Block::SystemState::Full& s, Height h) const { return s.m_Height < h; }
+	};
+
+	// the array should be sorted (this is verified by chaiworkproof verification)
+	std::vector<Block::SystemState::Full>::const_iterator it = std::lower_bound(m_vec.begin(), m_vec.end(), s.m_Height, Cmp());
+	return (m_vec.end() != it) && (*it == s);
+}
+
+void FlyClient::Connection::OnMsg(proto::ProofChainWork&& msg)
+{
+	if (!m_pSync || !m_pSync->m_vConfirming.empty())
+		ThrowUnexpected();
+
+	if (msg.m_Proof.m_LowerBound != m_pSync->m_Confirmed.m_ChainWork)
+		ThrowUnexpected();
+
+	Block::SystemState::Full sTip;
+	if (!msg.m_Proof.IsValid(&sTip))
+		ThrowUnexpected();
+
+	if (sTip != m_Tip)
+		ThrowUnexpected();
+
+	std::unique_ptr<SyncCtx> pSync = std::move(m_pSync);
+
+	if (!ShouldSync())
+		return;
+
+	// Unpack the proof, convert it to one sorted array. For convenience
+	StateArray arr;
+	arr.Unpack(msg.m_Proof);
+
+	if (pSync->m_TipBeforeGap.m_Height && pSync->m_Confirmed.m_Height)
+	{
+		// Since there was a gap in the tips reported by the node (which is typical in case of reorgs) - there is a possibility that our m_Confirmed is no longer valid.
+		// If either the m_Confirmed ot the m_TipBeforeGap are mentioned in the chainworkproof - then there's no problem with reorg.
+		// And since chainworkproof usually contains a "tail" of consecutive headers - there should be no problem, unless the reorg is huge
+		// Otherwise sync should be repeated
+		if (!arr.Find(pSync->m_TipBeforeGap) &&
+			!arr.Find(pSync->m_Confirmed))
+		{
+			StartSync(); // again
+			return;
+		}
+	}
+
+	bool bErased = false;
+	while (!m_This.m_Hist.empty())
+	{
+		StateMap::reverse_iterator it = m_This.m_Hist.rbegin();
+		const Block::SystemState::Full& s = (it++)->second;
+
+		if (s == pSync->m_Confirmed)
+			break;
+
+		if (arr.Find(s))
+			break;
+
+		bErased = true;
+		m_This.m_Hist.erase(it.base()); // according to docs - this is a correct conversion to a fwd-iterator. Call base() of an *advanced* reverse_iterator
+	}
+
+	if (bErased)
+		m_This.OnRolledBack();
+
+	for (size_t i = 0; i < arr.m_vec.size(); i++)
+	{
+		const Block::SystemState::Full& s = arr.m_vec[i];
+		m_This.m_Hist[s.m_Height] = std::move(s);
+	}
+	m_This.OnNewTip(); // finished!
+
+
+}
+
 
 } // namespace proto
 } // namespace beam

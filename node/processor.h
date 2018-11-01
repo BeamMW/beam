@@ -22,35 +22,20 @@ namespace beam {
 
 class NodeProcessor
 {
-	NodeDB m_DB;
+	struct DB
+		:public NodeDB
+	{
+		// NodeDB
+		virtual void OnModified() override { get_ParentObj().OnModified(); }
+		IMPLEMENT_GET_PARENT_OBJ(NodeProcessor, m_DB)
+	} m_DB;
+
+	NodeDB::Transaction m_DbTx;
+
 	UtxoTree m_Utxos;
 	RadixHashOnlyTree m_Kernels;
 
-	bool m_bShallowTx = false;
-
-	struct ShallowTx
-	{
-		bool* m_pDst;
-
-		ShallowTx(NodeProcessor& p)
-		{
-			if (p.m_bShallowTx)
-				m_pDst = NULL;
-			else
-				m_pDst = &(p.m_bShallowTx = true);
-		}
-
-		~ShallowTx()
-		{
-			if (m_pDst)
-				*m_pDst = false;
-		}
-	};
-
-	struct DbType {
-		static const uint8_t Utxo	= 0;
-		static const uint8_t Kernel	= 1;
-	};
+	size_t m_nSizeUtxoComission;
 
 	void TryGoUp();
 
@@ -58,17 +43,18 @@ class NodeProcessor
 	void Rollback();
 	void PruneOld();
 	void PruneAt(Height, bool bDeleteBody);
-	void DereferenceFossilBlock(uint64_t);
+	void InitializeFromBlocks();
 
 	struct RollbackData;
 
 	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
-	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, RollbackData&, const Height* = NULL);
-	void AdjustCumulativeParams(const Block::BodyBase&, bool bFwd);
-	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd, RollbackData&);
+	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, bool bAdjustInputMaturity, const Height* = NULL);
+	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, bool bAdjustInputMaturity, const Height* = NULL);
+	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd, bool bAdjustInputMaturity);
 	bool HandleBlockElement(const Output&, Height, const Height*, bool bFwd);
 	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
-	void OnSubsidyOptionChanged(bool);
+	void ToggleSubsidyOpened();
+	bool ValidateTxContextKernels(const std::vector<TxKernel::Ptr>&, bool bInp);
 
 	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
 
@@ -84,9 +70,31 @@ class NodeProcessor
 	struct UtxoSig;
 	struct UnspentWalker;
 
+	struct IBlockWalker
+	{
+		virtual bool OnBlock(const Block::BodyBase&, TxBase::IReader&&, uint64_t rowid, Height, const Height* pHMax) = 0;
+	};
+
+	struct IUtxoWalker
+		:public IBlockWalker
+	{
+		NodeProcessor& m_This;
+		IUtxoWalker(NodeProcessor& x) :m_This(x) {}
+
+		Block::SystemState::Full m_Hdr;
+
+		virtual bool OnBlock(const Block::BodyBase&, TxBase::IReader&&, uint64_t rowid, Height, const Height* pHMax) override;
+
+		virtual bool OnInput(const Input&) = 0;
+		virtual bool OnOutput(const Output&) = 0;
+	};
+
+	bool EnumBlocks(IBlockWalker&);
+
 public:
 
-	void Initialize(const char* szPath);
+	void Initialize(const char* szPath, bool bResetCursor = false);
+	virtual ~NodeProcessor();
 
 	struct Horizon {
 
@@ -106,10 +114,17 @@ public:
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
 		Difficulty m_DifficultyNext;
-		bool m_SubsidyOpen;
 		Height m_LoHorizon; // lowest accessible height
 
 	} m_Cursor;
+
+	struct Extra
+	{
+		bool m_SubsidyOpen;
+		AmountBig m_Subsidy; // total system value
+		ECC::Scalar::Native m_Offset; // not really necessary, but using it it's possible to assemble the whole macroblock from the live objects.
+
+	} m_Extra;
 
 	void get_CurrentLive(Merkle::Hash&);
 
@@ -129,15 +144,14 @@ public:
 	};
 
 	DataStatus::Enum OnState(const Block::SystemState::Full&, const PeerID&);
-	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const NodeDB::Blob& block, const PeerID&);
+	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const Blob& block, const PeerID&);
 
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }
 	UtxoTree& get_Utxos() { return m_Utxos; }
 	RadixHashOnlyTree& get_Kernels() { return m_Kernels; }
 
-	bool get_KernelHashPreimage(const Merkle::Hash& id, ECC::uintBig&);
-
+	void CommitDB();
 	void EnumCongestions();
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 
@@ -150,22 +164,70 @@ public:
 	virtual void AdjustFossilEnd(Height&) {}
 	virtual void OnStateData() {}
 	virtual void OnBlockData() {}
+	virtual bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) { return false; }
+	virtual void OnModified() {}
 
 	uint64_t FindActiveAtStrict(Height);
-
-	ECC::Kdf m_Kdf;
-
-	static void DeriveKeys(const ECC::Kdf&, Height, Amount fees, ECC::Scalar::Native& kCoinbase, ECC::Scalar::Native& kFee, ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset);
 
 	bool ValidateTxContext(const Transaction&); // assuming context-free validation is already performed, but 
 	static bool ValidateTxWrtHeight(const Transaction&, Height);
 
-	bool GenerateNewBlock(TxPool::Fluff&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body& blockInOut);
-	bool GenerateNewBlock(TxPool::Fluff&, Block::SystemState::Full&, ByteBuffer&, Amount& fees);
+	struct BlockContext
+	{
+		TxPool::Fluff& m_TxPool;
+		Key::IKdf& m_Kdf;
+		Block::SystemState::Full m_Hdr;
+		ByteBuffer m_Body;
+		Amount m_Fees;
+
+		BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf)
+			:m_TxPool(txp)
+			,m_Kdf(kdf)
+		{
+		}
+	};
+
+	bool GenerateNewBlock(BlockContext&, Block::Body& blockInOut);
+	bool GenerateNewBlock(BlockContext&);
+
+	struct UtxoRecoverSimple
+		:public IUtxoWalker
+	{
+		std::vector<Key::IPKdf::Ptr> m_vKeys;
+
+		UtxoRecoverSimple(NodeProcessor& x) :IUtxoWalker(x) {}
+
+		bool Proceed();
+
+		virtual bool OnInput(const Input&) override;
+		virtual bool OnOutput(const Output&) override;
+
+		virtual bool OnOutput(uint32_t iKey, const Key::IDV&, const Output&) = 0;
+	};
+
+	struct UtxoRecoverEx
+		:public UtxoRecoverSimple
+	{
+		struct Value {
+			Key::IDV m_Kidv;
+			uint32_t m_iKey;
+			Input::Count m_Count;
+
+			Value() :m_Count(0) {}
+		};
+		
+		typedef std::map<ECC::Point, Value> UtxoMap;
+		UtxoMap m_Map;
+
+		UtxoRecoverEx(NodeProcessor& x) :UtxoRecoverSimple(x) {}
+
+		virtual bool OnInput(const Input&) override;
+		virtual bool OnOutput(uint32_t iKey, const Key::IDV&, const Output&) override;
+	};
 
 private:
-	bool GenerateNewBlock(TxPool::Fluff&, Block::SystemState::Full&, Block::Body& block, Amount& fees, Height, RollbackData&);
-	bool GenerateNewBlock(TxPool::Fluff&, Block::SystemState::Full&, ByteBuffer&, Amount& fees, Block::Body&, bool bInitiallyEmpty);
+	size_t GenerateNewBlock(BlockContext&, Block::Body&, Height);
+	bool GenerateNewBlock(BlockContext&, Block::Body&, bool bInitiallyEmpty);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&);
 };
 

@@ -31,78 +31,17 @@ NodeProcessor::Horizon::Horizon()
 {
 }
 
-struct NodeProcessor::UnspentWalker
-	:public NodeDB::WalkerSpendable
-{
-	NodeProcessor& m_This;
-
-	UnspentWalker(NodeProcessor& me)
-		:NodeDB::WalkerSpendable(me.m_DB)
-		,m_This(me)
-	{
-	}
-
-	bool Traverse();
-
-	virtual bool OnUtxo(const UtxoTree::Key&) = 0;
-	virtual bool OnKernel(const Merkle::Hash&) = 0;
-};
-
-bool NodeProcessor::UnspentWalker::Traverse()
-{
-	for (m_Rs.m_DB.EnumUnpsent(*this); MoveNext(); )
-	{
-		assert(m_nUnspentCount);
-		if (!m_Key.n)
-			OnCorrupted();
-
-		uint8_t nType = *(uint8_t*) m_Key.p;
-		((uint8_t*&) m_Key.p)++;
-		m_Key.n--;
-
-		switch (nType)
-		{
-		case DbType::Utxo:
-		{
-			if (UtxoTree::Key::s_Bytes != m_Key.n)
-				OnCorrupted();
-
-			static_assert(sizeof(UtxoTree::Key) == UtxoTree::Key::s_Bytes, "");
-
-			if (!OnUtxo(*(UtxoTree::Key*) m_Key.p))
-				return false;
-		}
-		break;
-
-		case DbType::Kernel:
-		{
-			if (Merkle::Hash::nBytes != m_Key.n)
-				OnCorrupted();
-
-			if (!OnKernel(*(Merkle::Hash*) m_Key.p))
-				return false;
-
-		}
-		break;
-
-		default:
-			OnCorrupted();
-		}
-	}
-
-	return true;
-}
-
-void NodeProcessor::Initialize(const char* szPath)
+void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false */)
 {
 	m_DB.Open(szPath);
+	m_DbTx.Start(m_DB);
 
 	Merkle::Hash hv;
-	NodeDB::Blob blob(hv);
+	Blob blob(hv);
 
 	if (!m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob))
 	{
-		blob = NodeDB::Blob(Rules::get().Checksum);
+		blob = Blob(Rules::get().Checksum);
 		m_DB.ParamSet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	}
 	else
@@ -113,51 +52,43 @@ void NodeProcessor::Initialize(const char* szPath)
 			throw std::runtime_error(os.str());
 		}
 
+	m_nSizeUtxoComission = 0;
+	ZeroObject(m_Extra);
+	m_Extra.m_SubsidyOpen = true;
+
+	if (bResetCursor)
+		m_DB.ResetCursor();
+
 	InitCursor();
 
-	if (!m_Cursor.m_SubsidyOpen)
-		OnSubsidyOptionChanged(m_Cursor.m_SubsidyOpen);
-
-	// Load all the 'live' data
-	{
-		struct Walker
-			:public UnspentWalker
-		{
-			Walker(NodeProcessor& me) :UnspentWalker(me) {}
-
-			virtual bool OnUtxo(const UtxoTree::Key& key) override
-			{
-				UtxoTree::Cursor cu;
-				bool bCreate = true;
-
-				m_This.m_Utxos.Find(cu, key, bCreate)->m_Value.m_Count = m_nUnspentCount;
-				assert(bCreate);
-
-				return true;
-			}
-
-			virtual bool OnKernel(const Merkle::Hash& key) override
-			{
-				RadixHashOnlyTree::Cursor cu;
-				bool bCreate = true;
-
-				m_This.m_Kernels.Find(cu, key, bCreate);
-				assert(bCreate);
-
-				return true;
-			}
-		};
-
-		Walker wlk(*this);
-		wlk.Traverse();
-	}
+	InitializeFromBlocks();
 
 	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, m_Horizon.m_Branching);
 	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, (Height) Rules::get().MaxRollbackHeight);
 
-	NodeDB::Transaction t(m_DB);
-	TryGoUp();
-	t.Commit();
+	if (!bResetCursor)
+		TryGoUp();
+}
+
+NodeProcessor::~NodeProcessor()
+{
+	if (m_DbTx.IsInProgress())
+	{
+		try {
+			m_DbTx.Commit();
+		} catch (std::exception& e) {
+			LOG_ERROR() << "DB Commit failed: %s" << e.what();
+		}
+	}
+}
+
+void NodeProcessor::CommitDB()
+{
+	if (m_DbTx.IsInProgress())
+	{
+		m_DbTx.Commit();
+		m_DbTx.Start(m_DB);
+	}
 }
 
 void NodeProcessor::InitCursor()
@@ -181,7 +112,6 @@ void NodeProcessor::InitCursor()
 		ZeroObject(m_Cursor);
 
 	m_Cursor.m_DifficultyNext = get_NextDifficulty();
-	m_Cursor.m_SubsidyOpen = 0 != (m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyOpen, 1));
 }
 
 void NodeProcessor::EnumCongestions()
@@ -248,6 +178,7 @@ void NodeProcessor::EnumCongestions()
 void NodeProcessor::TryGoUp()
 {
 	bool bDirty = false;
+	uint64_t rowid = m_Cursor.m_Sid.m_Row;
 
 	while (true)
 	{
@@ -315,7 +246,8 @@ void NodeProcessor::TryGoUp()
 	if (bDirty)
 	{
 		PruneOld();
-		OnNewState();
+		if (m_Cursor.m_Sid.m_Row != rowid)
+			OnNewState();
 	}
 }
 
@@ -373,11 +305,7 @@ void NodeProcessor::PruneAt(Height h, bool bDeleteBody)
 	;
 	for (m_DB.EnumStatesAt(ws, h); ws.MoveNext(); )
 	{
-		if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
-		{
-			if (bDeleteBody)
-				DereferenceFossilBlock(ws.m_Sid.m_Row);
-		} else
+		if (!(NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row)))
 			m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
 
 		if (bDeleteBody)
@@ -417,28 +345,39 @@ struct NodeProcessor::RollbackData
 	};
 
 	ByteBuffer m_Buf;
-	uint32_t m_Inputs;
 
-	RollbackData() :m_Inputs(0) {}
-
-	Utxo& NextInput(bool bWrite)
+	void Import(const TxVectors& txv)
 	{
-		size_t nSize = (m_Inputs + 1) * sizeof(Utxo);
-		if (nSize > m_Buf.size())
+		if (txv.m_vInputs.empty())
+			m_Buf.push_back(0); // make sure it's not empty, even if there were no inputs, this is how we distinguish processed blocks.
+		else
 		{
-			if (!bWrite)
-				OnCorrupted();
-			m_Buf.resize(nSize);
-		}
+			m_Buf.resize(sizeof(Utxo) * txv.m_vInputs.size());
 
-		return ((Utxo*) &m_Buf.at(0))[m_Inputs++];
+			Utxo* pDst = reinterpret_cast<Utxo*>(&m_Buf.front());
+
+			for (size_t i = 0; i < txv.m_vInputs.size(); i++)
+				pDst[i].m_Maturity = txv.m_vInputs[i]->m_Maturity;
+		}
+	}
+
+	void Export(TxVectors& txv) const
+	{
+		if (txv.m_vInputs.empty())
+			return;
+
+		if (sizeof(Utxo) * txv.m_vInputs.size() != m_Buf.size())
+			OnCorrupted();
+
+		const Utxo* pDst = reinterpret_cast<const Utxo*>(&m_Buf.front());
+
+		for (size_t i = 0; i < txv.m_vInputs.size(); i++)
+			txv.m_vInputs[i]->m_Maturity = pDst[i].m_Maturity;
 	}
 };
 
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 {
-	assert(!m_bShallowTx);
-
 	ByteBuffer bb;
 	RollbackData rbData;
 	m_DB.GetStateBlock(sid.m_Row, bb, rbData.m_Buf);
@@ -480,12 +419,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				return false;
 			}
 
-			if (!m_Cursor.m_SubsidyOpen && block.m_SubsidyClosing)
-			{
-				LOG_WARNING() << id << " illegal subsidy-close flag";
-				return false;
-			}
-
 			if (m_Cursor.m_DifficultyNext.m_Packed != s.m_PoW.m_Difficulty.m_Packed)
 			{
 				LOG_WARNING() << id << " Difficulty expected=" << m_Cursor.m_DifficultyNext << ", actual=" << s.m_PoW.m_Difficulty;
@@ -504,16 +437,16 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				return false;
 			}
 		}
-	} else
+	}
+	else
+	{
 		assert(!rbData.m_Buf.empty());
+		rbData.Export(block);
+	}
 
-
-	bool bOk = HandleValidatedTx(block.get_Reader(), sid.m_Height, bFwd, rbData);
+	bool bOk = HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, bFwd, bFwd);
 	if (!bOk)
 		LOG_WARNING() << id << " invalid in its context";
-
-	if (block.m_SubsidyClosing)
-		OnSubsidyOptionChanged(!bFwd);
 
 	if (bFirstTime && bOk)
 	{
@@ -529,15 +462,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 		if (bOk)
 		{
-			if (rbData.m_Inputs)
-				m_DB.SetStateRollback(sid.m_Row, NodeDB::Blob(&rbData.m_Buf.at(0), sizeof(RollbackData::Utxo) * rbData.m_Inputs));
-			else
-			{
-				// make sure it's not empty, even if there were no inputs, this is how we distinguish processed blocks.
-				uint8_t zero = 0;
-				m_DB.SetStateRollback(sid.m_Row, NodeDB::Blob(&zero, 1));
+			rbData.Import(block);
+			m_DB.SetStateRollback(sid.m_Row, rbData.m_Buf);
 
-			}
 
 			assert(m_Cursor.m_LoHorizon <= m_Cursor.m_Sid.m_Height);
 			if (m_Cursor.m_Sid.m_Height - m_Cursor.m_LoHorizon > Rules::get().MaxRollbackHeight)
@@ -548,71 +475,25 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 		}
 		else
-		{
-			if (block.m_SubsidyClosing)
-			{
-				assert(bFwd);
-				OnSubsidyOptionChanged(bFwd);
-			}
-
-			rbData.m_Inputs = 0;
-			verify(HandleValidatedTx(block.get_Reader(), sid.m_Height, false, rbData));
-		}
+			verify(HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, false, false));
 	}
 
 	if (bOk)
 	{
-		AdjustCumulativeParams(block, bFwd);
 		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
 	}
 
 	return bOk;
 }
 
-void NodeProcessor::AdjustCumulativeParams(const Block::BodyBase& block, bool bFwd)
-{
-	ECC::Scalar kOffset;
-	NodeDB::Blob blob(kOffset.m_Value);
-
-	if (!m_DB.ParamGet(NodeDB::ParamID::StateExtra, NULL, &blob))
-		kOffset.m_Value = Zero;
-
-	ECC::Scalar::Native k(kOffset), k2(block.m_Offset);
-	if (!bFwd)
-		k2 = -k2;
-
-	k += k2;
-	kOffset = k;
-
-	m_DB.ParamSet(NodeDB::ParamID::StateExtra, NULL, &blob);
-
-	AmountBig subsidy;
-	subsidy.Lo = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyLo);
-	subsidy.Hi = m_DB.ParamIntGetDef(NodeDB::ParamID::SubsidyHi);
-
-	if (bFwd)
-		subsidy += block.m_Subsidy;
-	else
-		subsidy -= block.m_Subsidy;
-
-	m_DB.ParamSet(NodeDB::ParamID::SubsidyLo, &subsidy.Lo, NULL);
-	m_DB.ParamSet(NodeDB::ParamID::SubsidyHi, &subsidy.Hi, NULL);
-
-	if (block.m_SubsidyClosing)
-	{
-		uint64_t nVal = !bFwd;
-		m_DB.ParamSet(NodeDB::ParamID::SubsidyOpen, &nVal, NULL);
-	}
-}
-
-bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, RollbackData& rbData, const Height* pHMax)
+bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, bool bAdjustInputMaturity, const Height* pHMax)
 {
 	uint32_t nInp = 0, nOut = 0, nKrnInp = 0, nKrnOut = 0;
 	r.Reset();
 
 	bool bOk = true;
 	for (; r.m_pUtxoIn; r.NextUtxoIn(), nInp++)
-		if (!HandleBlockElement(*r.m_pUtxoIn, h, pHMax, bFwd, rbData))
+		if (!HandleBlockElement(*r.m_pUtxoIn, h, pHMax, bFwd, bAdjustInputMaturity))
 		{
 			bOk = false;
 			break;
@@ -660,34 +541,40 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 	for (; nOut--; r.NextUtxoOut())
 		HandleBlockElement(*r.m_pUtxoOut, h, pHMax, false);
 
-	rbData.m_Inputs -= nInp;
-	uint32_t n = rbData.m_Inputs;
-
 	for (; nInp--; r.NextUtxoIn())
-		HandleBlockElement(*r.m_pUtxoIn, h, pHMax, false, rbData);
-
-	rbData.m_Inputs = n;
+		HandleBlockElement(*r.m_pUtxoIn, h, pHMax, false, false);
 
 	return false;
 }
 
-template <typename T, uint8_t nType>
-struct SpendableKey
+bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyBase& body, Height h, bool bFwd, bool bAdjustInputMaturity, const Height* pHMax)
 {
-	uint8_t m_Type;
-	T m_Key;
+	if (body.m_SubsidyClosing && (m_Extra.m_SubsidyOpen != bFwd))
+		return false; // invalid subsidy close flag
 
-	SpendableKey()
-		:m_Type(nType)
+	if (!HandleValidatedTx(std::move(r), h, bFwd, bAdjustInputMaturity, pHMax))
+		return false;
+
+	if (body.m_SubsidyClosing)
+		ToggleSubsidyOpened();
+
+	ECC::Scalar::Native kOffset = body.m_Offset;
+
+	if (bFwd)
+		m_Extra.m_Subsidy += body.m_Subsidy;
+	else
 	{
-		static_assert(sizeof(*this) == sizeof(m_Type) + sizeof(m_Key), "");
+		m_Extra.m_Subsidy -= body.m_Subsidy;
+		kOffset = -kOffset;
 	}
-};
 
-bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* pHMax, bool bFwd, RollbackData& rbData)
+	m_Extra.m_Offset += kOffset;
+
+	return true;
+}
+
+bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* pHMax, bool bFwd, bool bAdjustInputMaturity)
 {
-	SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
-
 	UtxoTree::Cursor cu;
 	UtxoTree::MyLeaf* p;
 	UtxoTree::Key::Data d;
@@ -704,19 +591,25 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 
 		UtxoTree::Key kMin, kMax;
 
-		if (v.m_Maturity >= Rules::HeightGenesis)
+		if (bAdjustInputMaturity)
+		{
+			d.m_Maturity = 0;
+			kMin = d;
+			d.m_Maturity = pHMax ? *pHMax : h;
+			kMax = d;
+		}
+		else
 		{
 			if (!pHMax)
 				return false; // explicit maturity allowed only in macroblocks
 
 			if (v.m_Maturity > *pHMax)
 				return false;
-		}
 
-		d.m_Maturity = v.m_Maturity;
-		kMin = d;
-		d.m_Maturity = pHMax ? *pHMax : h;
-		kMax = d;
+			d.m_Maturity = v.m_Maturity;
+			kMin = d;
+			kMax = kMin;
+		}
 
 		t.m_pCu = &cu;
 		t.m_pBound[0] = kMin.m_pArr;
@@ -727,8 +620,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 
 		p = &(UtxoTree::MyLeaf&) cu.get_Leaf();
 
-		skey.m_Key = p->m_Key;
-		d = skey.m_Key;
+		d = p->m_Key;
 		assert(d.m_Commitment == v.m_Commitment);
 		assert(d.m_Maturity <= (pHMax ? *pHMax : h));
 
@@ -739,15 +631,17 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		else
 			cu.Invalidate();
 
-		rbData.NextInput(true).m_Maturity = d.m_Maturity;
-
+		if (bAdjustInputMaturity)
+			((Input&) v).m_Maturity = d.m_Maturity;
 	} else
 	{
-		d.m_Maturity = rbData.NextInput(false).m_Maturity;
-		skey.m_Key = d;
+		d.m_Maturity = v.m_Maturity;
 
 		bool bCreate = true;
-		p = m_Utxos.Find(cu, skey.m_Key, bCreate);
+		UtxoTree::Key key;
+		key = d;
+
+		p = m_Utxos.Find(cu, key, bCreate);
 
 		if (bCreate)
 			p->m_Value.m_Count = 1;
@@ -757,9 +651,6 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 			cu.Invalidate();
 		}
 	}
-
-	if (!m_bShallowTx)
-		m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), 0, bFwd ? -1 : 1);
 
 	return true;
 }
@@ -780,24 +671,19 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 		d.m_Maturity = v.m_Maturity;
 	}
 
-	SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
-	skey.m_Key = d;
-	NodeDB::Blob blob(&skey, sizeof(skey));
+	UtxoTree::Key key;
+	key = d;
 
 	UtxoTree::Cursor cu;
 	bool bCreate = true;
-	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, skey.m_Key, bCreate);
+	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
 
 	cu.Invalidate();
 
 	if (bFwd)
 	{
 		if (bCreate)
-		{
 			p->m_Value.m_Count = 1;
-			if (!m_bShallowTx)
-				m_DB.AddSpendable(blob, NULL, 1, 1);
-		}
 		else
 		{
 			// protect again overflow attacks, though it's highly unlikely (Input::Count is currently limited to 32 bits, it'd take millions of blocks)
@@ -806,8 +692,6 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 				return false;
 
 			p->m_Value.m_Count = nCountInc;
-			if (!m_bShallowTx)
-				m_DB.ModifySpendable(blob, 1, 1);
 		}
 	} else
 	{
@@ -815,26 +699,23 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 			m_Utxos.Delete(cu);
 		else
 			p->m_Value.m_Count--;
-
-		if (!m_bShallowTx)
-			m_DB.ModifySpendable(blob, -1, -1);
 	}
 
 	return true;
 }
 
-void NodeProcessor::OnSubsidyOptionChanged(bool bOpen)
+void NodeProcessor::ToggleSubsidyOpened()
 {
-	bool bAdd = !bOpen;
-
 	Merkle::Hash hv(Zero);
 
 	RadixHashOnlyTree::Cursor cu;
 	bool bCreate = true;
 	m_Kernels.Find(cu, hv, bCreate);
 
-	assert(bAdd == bCreate);
-	if (!bAdd)
+	assert(m_Extra.m_SubsidyOpen == bCreate);
+	m_Extra.m_SubsidyOpen = !bCreate;
+
+	if (!bCreate)
 		m_Kernels.Delete(cu);
 }
 
@@ -842,12 +723,12 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 {
 	bool bAdd = (bFwd != bIsInput);
 
-	SpendableKey<Merkle::Hash, DbType::Kernel> skey;
-	v.get_ID(skey.m_Key);
+	Merkle::Hash key;
+	v.get_ID(key);
 
 	RadixHashOnlyTree::Cursor cu;
 	bool bCreate = bAdd;
-	RadixHashOnlyTree::MyLeaf* p = m_Kernels.Find(cu, skey.m_Key, bCreate);
+	RadixHashOnlyTree::MyLeaf* p = m_Kernels.Find(cu, key, bCreate);
 
 	if (bAdd)
 	{
@@ -861,63 +742,7 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInp
 		m_Kernels.Delete(cu);
 	}
 
-	NodeDB::Blob blob(&skey, sizeof(skey));
-
-	if (!m_bShallowTx)
-	{
-		if (bIsInput)
-			m_DB.ModifySpendable(blob, 0, bFwd ? -1 : 1);
-		else
-			if (bFwd)
-			{
-				NodeDB::Blob body;
-				if (v.m_pHashLock)
-					body = NodeDB::Blob(v.m_pHashLock->m_Preimage);
-
-				m_DB.AddSpendable(blob, v.m_pHashLock ? &body : NULL, 1, 1);
-			}
-			else
-				m_DB.ModifySpendable(blob, -1, -1);
-	}
-
 	return true;
-}
-
-void NodeProcessor::DereferenceFossilBlock(uint64_t rowid)
-{
-	ByteBuffer bbBlock;
-	RollbackData rbData;
-
-	m_DB.GetStateBlock(rowid, bbBlock, rbData.m_Buf);
-
-	Block::Body block;
-
-	Deserializer der;
-	der.reset(&bbBlock.at(0), bbBlock.size());
-	der & block;
-
-	Block::Body::Reader r = block.get_Reader();
-	r.Reset();
-
-	for (; r.m_pUtxoIn; r.NextUtxoIn())
-	{
-		UtxoTree::Key::Data d;
-		d.m_Commitment = r.m_pUtxoIn->m_Commitment;
-		d.m_Maturity = rbData.NextInput(false).m_Maturity;
-
-		SpendableKey<UtxoTree::Key, DbType::Utxo> skey;
-		skey.m_Key = d;
-
-		m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), -1, 0);
-	}
-
-	for (; r.m_pKernelIn; r.NextKernelIn())
-	{
-		SpendableKey<Merkle::Hash, DbType::Kernel> skey;
-		r.m_pKernelIn->get_ID(skey.m_Key);
-
-		m_DB.ModifySpendable(NodeDB::Blob(&skey, sizeof(skey)), -1, 0);
-	}
 }
 
 bool NodeProcessor::GoForward(uint64_t row)
@@ -964,15 +789,9 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 {
 	s.get_ID(id);
 
-	if (!s.IsSane())
+	if (!s.IsValid())
 	{
-		LOG_WARNING() << id << " header insane!";
-		return DataStatus::Invalid;
-	}
-
-	if (!s.IsValidPoW())
-	{
-		LOG_WARNING() << id << " PoW invalid";
+		LOG_WARNING() << id << " header invalid!";
 		return DataStatus::Invalid;
 	}
 
@@ -1009,10 +828,8 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 	DataStatus::Enum ret = OnStateInternal(s, id);
 	if (DataStatus::Accepted == ret)
 	{
-		NodeDB::Transaction t(m_DB);
 		uint64_t rowid = m_DB.InsertState(s);
 		m_DB.set_Peer(rowid, &peer);
-		t.Commit();
 
 		LOG_INFO() << id << " Header accepted";
 	}
@@ -1020,7 +837,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 	return ret;
 }
 
-NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const NodeDB::Blob& block, const PeerID& peer)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const Blob& block, const PeerID& peer)
 {
 	OnBlockData();
 	if (block.n > Rules::get().MaxBodySize)
@@ -1047,16 +864,12 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 
 	LOG_INFO() << id << " Block received";
 
-	NodeDB::Transaction t(m_DB);
-
 	m_DB.SetStateBlock(rowid, block);
 	m_DB.SetStateFunctional(rowid);
 	m_DB.set_Peer(rowid, &peer);
 
 	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
 		TryGoUp();
-
-	t.Commit();
 
 	return DataStatus::Accepted;
 }
@@ -1134,33 +947,36 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return vTs[vTs.size() >> 1];
 }
 
-void NodeProcessor::DeriveKeys(const ECC::Kdf& kdf, Height h, Amount fees, ECC::Scalar::Native& kCoinbase, ECC::Scalar::Native& kFee, ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset)
-{
-	DeriveKey(kCoinbase, kdf, h, KeyType::Coinbase);
-
-	kKernel = kCoinbase;
-
-	if (fees)
-	{
-		DeriveKey(kFee, kdf, h, KeyType::Comission);
-		kKernel += kFee;
-	}
-	else
-		kFee = Zero;
-
-	kKernel = -kKernel;
-
-	ECC::Scalar::Native k2;
-	ExtractOffset(kKernel, k2, h);
-
-	kOffset += k2;
-}
-
 bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, Height h)
 {
 	for (size_t i = 0; i < tx.m_vKernelsOutput.size(); i++)
 		if (!tx.m_vKernelsOutput[i]->m_Height.IsInRange(h))
 			return false;
+
+	return true;
+}
+
+bool NodeProcessor::ValidateTxContextKernels(const std::vector<TxKernel::Ptr>& vec, bool bInp)
+{
+	Merkle::Hash phv[2];
+	phv[1] = Zero; // forbidden value for kernel ID
+
+	for (size_t i = 0; i < vec.size(); i++)
+	{
+		const TxKernel& v = *vec[i];
+		v.get_ID(phv[1 & i]);
+
+		if (phv[0] == phv[1])
+			return false; // consequent kernels have the same ID
+		// We don't check if non-consequent kernels have the same ID. Too low probability, and this is supposed to be a fast verification
+
+		RadixHashOnlyTree::Cursor cu;
+		bool bCreate = false;
+		RadixHashOnlyTree::MyLeaf* p = m_Kernels.Find(cu, phv[1 & i], bCreate);
+
+		if (bInp != (NULL != p))
+			return false;
+	}
 
 	return true;
 }
@@ -1171,193 +987,270 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 	if (!ValidateTxWrtHeight(tx, h))
 		return false;
 
-	ShallowTx stx(*this);
+	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
+	// Ensure input UTXOs are present
+	for (size_t i = 0; i < tx.m_vInputs.size(); i++)
+	{
+		struct Traveler :public UtxoTree::ITraveler
+		{
+			uint32_t m_Count;
+			virtual bool OnLeaf(const RadixTree::Leaf& x) override
+			{
+				const UtxoTree::MyLeaf& n = (UtxoTree::MyLeaf&) x;
+				assert(m_Count && n.m_Value.m_Count);
+				if (m_Count <= n.m_Value.m_Count)
+					return false; // stop iteration
 
-	RollbackData rbData;
-	if (!HandleValidatedTx(tx.get_Reader(), h, true, rbData))
-		return false;
+				m_Count -= n.m_Value.m_Count;
+				return true;
+			}
+		} t;
+		t.m_Count = 1;
+		const Input& v = *tx.m_vInputs[i];
 
-	rbData.m_Inputs = 0;
-	verify(HandleValidatedTx(tx.get_Reader(), h, false, rbData));
-	return true;
+		for (; i + 1 < tx.m_vInputs.size(); i++, t.m_Count++)
+			if (tx.m_vInputs[i + 1]->m_Commitment != v.m_Commitment)
+				break;
+
+		UtxoTree::Key kMin, kMax;
+
+		UtxoTree::Key::Data d;
+		d.m_Commitment = v.m_Commitment;
+		d.m_Maturity = 0;
+		kMin = d;
+		d.m_Maturity = h;
+		kMax = d;
+
+		UtxoTree::Cursor cu;
+		t.m_pCu = &cu;
+		t.m_pBound[0] = kMin.m_pArr;
+		t.m_pBound[1] = kMax.m_pArr;
+
+		if (m_Utxos.Traverse(t))
+			return false; // some input UTXOs are missing
+	}
+
+	// kernels
+	return
+		ValidateTxContextKernels(tx.m_vKernelsOutput, false) &&
+		ValidateTxContextKernels(tx.m_vKernelsInput, false);
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, Block::Body& res, Amount& fees, Height h, RollbackData& rbData)
+size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height h)
 {
-	assert(m_bShallowTx);
+	// Generate the block up to the allowed size.
+	// All block elements are serialized independently, their binary size can just be added to the size of the "empty" block.
 
-	fees = 0;
-	size_t nBlockSize = 0;
-	size_t nAmount = 0;
+	res.m_Subsidy += Rules::get().CoinbaseEmission;
+	if (!m_Extra.m_SubsidyOpen)
+		res.m_SubsidyClosing = false;
 
-	// due to (potential) inaccuracy in the block size estimation, our rough estimate - take no more than 95% of allowed block size, minus potential UTXOs to consume fees and coinbase.
-	const size_t nRoughExtra = sizeof(ECC::Point) * 2 + sizeof(ECC::RangeProof::Confidential) + sizeof(ECC::RangeProof::Public) + 300;
-	const size_t nSizeThreshold = Rules::get().MaxBodySize * 95 / 100 - nRoughExtra;
+	ECC::Scalar::Native sk, offset = res.m_Offset;
 
-	ECC::Scalar::Native offset = res.m_Offset;
+	// Add mandatory elements: coinbase UTXO and kernel
+	{
+		Output::Ptr pOutp(new Output);
+		pOutp->m_Coinbase = true;
+		pOutp->Create(sk, bc.m_Kdf, Key::IDV(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase));
 
-	for (TxPool::Fluff::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
+		if (!HandleBlockElement(*pOutp, h, NULL, true))
+			return 0;
+
+		res.m_vOutputs.push_back(std::move(pOutp));
+
+		sk = -sk;
+		offset += sk;
+
+		bc.m_Kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel, uint64_t(-1LL)));
+
+		TxKernel::Ptr pKrn(new TxKernel);
+		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * sk);
+		pKrn->m_Height.m_Min = h; // make it similar to others
+
+		ECC::Hash::Value hv;
+		pKrn->get_Hash(hv);
+		pKrn->m_Signature.Sign(hv, sk);
+
+		if (!HandleBlockElement(*pKrn, true, false))
+			return 0; // Will fail if kernel key duplicated!
+
+		res.m_vKernelsOutput.push_back(std::move(pKrn));
+
+		sk = -sk;
+		offset += sk;
+	}
+
+	SerializerSizeCounter ssc;
+	ssc & res;
+
+	const size_t nSizeMax = Rules::get().MaxBodySize;
+	if (ssc.m_Counter.m_Value > nSizeMax)
+	{
+		// the block may be non-empty (i.e. contain treasury)
+		LOG_WARNING() << "Block too large.";
+		return 0; //
+	}
+
+	 // estimate the size of the fees UTXO
+	if (!m_nSizeUtxoComission)
+	{
+		Output outp;
+		outp.m_pConfidential.reset(new ECC::RangeProof::Confidential);
+		ZeroObject(*outp.m_pConfidential);
+
+		SerializerSizeCounter ssc2;
+		ssc2 & outp;
+		m_nSizeUtxoComission = ssc2.m_Counter.m_Value;
+	}
+
+	bc.m_Fees = 0;
+	size_t nTxNum = 0;
+
+	for (TxPool::Fluff::ProfitSet::iterator it = bc.m_TxPool.m_setProfit.begin(); bc.m_TxPool.m_setProfit.end() != it; )
 	{
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
 
-		if (x.m_Profit.m_nSize > nSizeThreshold)
+		if (x.m_Profit.m_Fee.Hi)
 		{
-			LOG_INFO() << "Tx is very big. It's deleted.";
-			txp.Delete(x);
+			// huge fees are unsupported
+			bc.m_TxPool.Delete(x);
 			continue;
 		}
 
-		if (nBlockSize + x.m_Profit.m_nSize > nSizeThreshold)
+		Amount feesNext = bc.m_Fees + x.m_Profit.m_Fee.Lo;
+		if (feesNext < bc.m_Fees)
+			continue; // huge fees are unsupported
+
+		size_t nSizeNext = ssc.m_Counter.m_Value + x.m_Profit.m_nSize;
+		if (!bc.m_Fees && feesNext)
+			nSizeNext += m_nSizeUtxoComission;
+
+		if (nSizeNext > nSizeMax)
+		{
+			if (res.m_vInputs.empty() &&
+				res.m_vKernelsInput.empty() &&
+				(res.m_vOutputs.size() == 1) &&
+				(res.m_vKernelsOutput.size() == 1))
+			{
+				// won't fit in empty block
+				LOG_INFO() << "Tx is too big.";
+				bc.m_TxPool.Delete(x);
+			}
 			continue;
-			//break;
+		}
 
 		Transaction& tx = *x.m_pValue;
 
-		if (ValidateTxWrtHeight(tx, h) && HandleValidatedTx(tx.get_Reader(), h, true, rbData))
+		if (ValidateTxWrtHeight(tx, h) && HandleValidatedTx(tx.get_Reader(), h, true, true))
 		{
 			Block::Body::Writer(res).Dump(tx.get_Reader());
 
-			fees += x.m_Profit.m_Fee;
+			bc.m_Fees = feesNext;
+			ssc.m_Counter.m_Value = nSizeNext;
 			offset += ECC::Scalar::Native(tx.m_Offset);
-			nBlockSize += x.m_Profit.m_nSize;
-			++nAmount;
+			++nTxNum;
 		}
 		else
-			txp.Delete(x); // isn't available in this context
+			bc.m_TxPool.Delete(x); // isn't available in this context
 	}
 
-	LOG_INFO() << "GenerateNewBlock: size of block = " << nBlockSize << "; amount of tx = " << nAmount;
+	LOG_INFO() << "GenerateNewBlock: size of block = " << ssc.m_Counter.m_Value << "; amount of tx = " << nTxNum;
 
-	ECC::Scalar::Native kCoinbase, kFee, kKernel;
-	DeriveKeys(m_Kdf, h, fees, kCoinbase, kFee, kKernel, offset);
-
-	if (fees)
+	if (bc.m_Fees)
 	{
 		Output::Ptr pOutp(new Output);
-		pOutp->Create(kFee, fees);
+		pOutp->Create(sk, bc.m_Kdf, Key::IDV(bc.m_Fees, h, Key::Type::Comission));
 
 		if (!HandleBlockElement(*pOutp, h, NULL, true))
 			return false; // though should not happen!
 
 		res.m_vOutputs.push_back(std::move(pOutp));
+
+		sk = -sk;
+		offset += sk;
 	}
-
-	{
-		TxKernel::Ptr pKrn(new TxKernel);
-		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * kKernel);
-
-		ECC::Hash::Value hv;
-		pKrn->get_Hash(hv);
-		pKrn->m_Signature.Sign(hv, kKernel);
-
-		if (!HandleBlockElement(*pKrn, true, false))
-			return false; // Will fail if kernel key duplicated!
-
-		res.m_vKernelsOutput.push_back(std::move(pKrn));
-	}
-
-	{
-		Output::Ptr pOutp(new Output);
-		pOutp->m_Coinbase = true;
-		pOutp->Create(kCoinbase, Rules::get().CoinbaseEmission, true);
-
-		if (!HandleBlockElement(*pOutp, h, NULL, true))
-			return false;
-
-		res.m_vOutputs.push_back(std::move(pOutp));
-	}
-
-	res.m_Subsidy += Rules::get().CoinbaseEmission;
 
 	// Finalize block construction.
 	if (m_Cursor.m_Sid.m_Row)
-		s.m_Prev = m_Cursor.m_ID.m_Hash;
+		bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
 	else
-		ZeroObject(s.m_Prev);
-
-	if (!m_Cursor.m_SubsidyOpen)
-		res.m_SubsidyClosing = false;
+		ZeroObject(bc.m_Hdr.m_Prev);
 
 	if (res.m_SubsidyClosing)
-		OnSubsidyOptionChanged(false);
+		ToggleSubsidyOpened();
 
-	get_Definition(s.m_Definition, true);
+	get_Definition(bc.m_Hdr.m_Definition, true);
 
 	if (res.m_SubsidyClosing)
-		OnSubsidyOptionChanged(true);
+		ToggleSubsidyOpened();
 
-	s.m_Height = h;
-	s.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
-	s.m_TimeStamp = getTimestamp();
+	bc.m_Hdr.m_Height = h;
+	bc.m_Hdr.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
+	bc.m_Hdr.m_TimeStamp = getTimestamp();
 
-	s.m_PoW.m_Difficulty.Inc(s.m_ChainWork, m_Cursor.m_Full.m_ChainWork);
+	bc.m_Hdr.m_PoW.m_Difficulty.Inc(bc.m_Hdr.m_ChainWork, m_Cursor.m_Full.m_ChainWork);
 
 	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
 	Timestamp tm = get_MovingMedian() + 1;
-	s.m_TimeStamp = std::max(s.m_TimeStamp, tm);
+	bc.m_Hdr.m_TimeStamp = std::max(bc.m_Hdr.m_TimeStamp, tm);
 
 	res.m_Offset = offset;
 
-	return true;
+	return ssc.m_Counter.m_Value;
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees)
+bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 {
 	Block::Body block;
 	block.ZeroInit();
 	block.m_SubsidyClosing = true; // by default insist on it. If already closed - this flag will automatically be turned OFF
-	return GenerateNewBlock(txp, s, bbBlock, fees, block, true);
+	return GenerateNewBlock(bc, block, true);
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees, Block::Body& res)
+bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res)
 {
-	return GenerateNewBlock(txp, s, bbBlock, fees, res, false);
+	return GenerateNewBlock(bc, res, false);
 }
 
-bool NodeProcessor::GenerateNewBlock(TxPool::Fluff& txp, Block::SystemState::Full& s, ByteBuffer& bbBlock, Amount& fees, Block::Body& res, bool bInitiallyEmpty)
+bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, bool bInitiallyEmpty)
 {
-	ShallowTx stx(*this);
-
 	Height h = m_Cursor.m_Sid.m_Height + 1;
 
 	if (!bInitiallyEmpty && !VerifyBlock(res, res.get_Reader(), h))
 		return false;
 
+	if (!bInitiallyEmpty)
 	{
-		NodeDB::Transaction t(m_DB);
-
-		RollbackData rbData;
-
-		if (!bInitiallyEmpty)
-		{
-			if (!HandleValidatedTx(res.get_Reader(), h, true, rbData))
-				return false;
-		}
-
-		bool bRes = GenerateNewBlock(txp, s, res, fees, h, rbData);
-
-		rbData.m_Inputs = 0;
-		verify(HandleValidatedTx(res.get_Reader(), h, false, rbData)); // undo changes
-
-		if (!bRes)
+		if (!HandleValidatedTx(res.get_Reader(), h, true, true))
 			return false;
-
-		res.Sort(); // can sort only after the changes are undone.
-		res.DeleteIntermediateOutputs();
 	}
+
+	size_t nSizeEstimated = GenerateNewBlock(bc, res, h);
+
+	verify(HandleValidatedTx(res.get_Reader(), h, false, false)); // undo changes
+
+	if (!nSizeEstimated)
+		return false;
+
+	size_t nCutThrough = res.Normalize();
+	nCutThrough; // remove "unused var" warning
 
 	Serializer ser;
 
 	ser.reset();
 	ser & res;
-	ser.swap_buf(bbBlock);
+	ser.swap_buf(bc.m_Body);
 
-	return bbBlock.size() <= Rules::get().MaxBodySize;
+	assert(nCutThrough ?
+		(bc.m_Body.size() < nSizeEstimated) :
+		(bc.m_Body.size() == nSizeEstimated));
+
+	return bc.m_Body.size() <= Rules::get().MaxBodySize;
 }
 
 bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
 {
-	return block.IsValid(hr, m_Cursor.m_SubsidyOpen, std::move(r));
+	return block.IsValid(hr, m_Extra.m_SubsidyOpen, std::move(r));
 }
 
 void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::StateID& sid)
@@ -1370,8 +1263,7 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 	der.reset(bb.empty() ? NULL : &bb.at(0), bb.size());
 	der & block;
 
-	for (size_t i = 0; i < block.m_vInputs.size(); i++)
-		block.m_vInputs[i]->m_Maturity = rbData.NextInput(false).m_Maturity;
+	rbData.Export(block);
 
 	for (size_t i = 0; i < block.m_vOutputs.size(); i++)
 	{
@@ -1468,12 +1360,7 @@ void NodeProcessor::ExportHdrRange(const HeightRange& hr, Block::SystemState::Se
 
 bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 {
-	NodeDB::Transaction t(m_DB);
-
-	bool b = ImportMacroBlockInternal(r);
-
-	t.Commit(); // regardless to if succeeded or not
-	if (!b)
+	if (!ImportMacroBlockInternal(r))
 		return false;
 
 	TryGoUp();
@@ -1482,8 +1369,6 @@ bool NodeProcessor::ImportMacroBlock(Block::BodyBase::IMacroReader& r)
 
 bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 {
-	assert(!m_bShallowTx);
-
 	Block::BodyBase body;
 	Block::SystemState::Full s;
 	Block::SystemState::ID id;
@@ -1498,12 +1383,6 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	{
 		LOG_WARNING() << "Incompatible state for import. My Tip: " << m_Cursor.m_ID << ", Macroblock starts at " << id;
 		return false; // incompatible beginning state
-	}
-
-	if (!m_Cursor.m_SubsidyOpen && body.m_SubsidyClosing)
-	{
-		LOG_WARNING() << "Invald subsidy-close flag";
-		return false;
 	}
 
 	Merkle::CompactMmr cmmr;
@@ -1570,15 +1449,11 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 
 	LOG_INFO() << "Applying macroblock...";
 
-	RollbackData rbData;
-	if (!HandleValidatedTx(std::move(r), m_Cursor.m_ID.m_Height + 1, true, rbData, &id.m_Height))
+	if (!HandleValidatedBlock(std::move(r), body, m_Cursor.m_ID.m_Height + 1, true, false, &id.m_Height))
 	{
 		LOG_WARNING() << "Invalid in its context";
 		return false;
 	}
-
-	if (body.m_SubsidyClosing)
-		OnSubsidyOptionChanged(false);
 
 	// evaluate the Definition
 	Merkle::Hash hvDef, hv;
@@ -1589,11 +1464,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	{
 		LOG_WARNING() << "Definition mismatch";
 
-		if (body.m_SubsidyClosing)
-			OnSubsidyOptionChanged(true);
-
-		rbData.m_Inputs = 0;
-		verify(HandleValidatedTx(std::move(r), m_Cursor.m_ID.m_Height + 1, false, rbData, &id.m_Height));
+		verify(HandleValidatedBlock(std::move(r), body, m_Cursor.m_ID.m_Height + 1, false, false, &id.m_Height));
 
 		return false;
 	}
@@ -1628,7 +1499,6 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 
 	m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &id.m_Height, NULL);
 	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);
-	AdjustCumulativeParams(body, true);
 
 	InitCursor();
 
@@ -1637,14 +1507,188 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	return true;
 }
 
-bool NodeProcessor::get_KernelHashPreimage(const Merkle::Hash& id, ECC::uintBig& val)
+bool NodeProcessor::EnumBlocks(IBlockWalker& wlk)
 {
-	SpendableKey<Merkle::Hash, DbType::Kernel> skey;
-	skey.m_Key = id;
+	if (m_Cursor.m_ID.m_Height < Rules::HeightGenesis)
+		return true;
 
-	NodeDB::Blob blobKey(&skey, sizeof(skey)), blobVal(val);
+	NodeDB::WalkerState ws(m_DB);
+	Height h = 0;
 
-	return m_DB.GetSpendableBody(blobKey, blobVal);
+	for (m_DB.EnumMacroblocks(ws); ws.MoveNext(); )
+	{
+		if (ws.m_Sid.m_Height > m_Cursor.m_ID.m_Height)
+			continue; //?
+
+		Block::Body::RW rw;
+		if (!OpenMacroblock(rw, ws.m_Sid))
+			continue;
+
+		Block::BodyBase body;
+		Block::SystemState::Sequence::Prefix prefix;
+
+		rw.Reset();
+		rw.get_Start(body, prefix);
+
+		if (!wlk.OnBlock(body, std::move(rw), 0, Rules::HeightGenesis, &ws.m_Sid.m_Height))
+			return false;
+
+		h = ws.m_Sid.m_Height;
+		break;
+	}
+
+	std::vector<uint64_t> vPath;
+	vPath.reserve(m_Cursor.m_ID.m_Height - h);
+
+	for (Height h1 = h; h1 < m_Cursor.m_ID.m_Height; h1++)
+	{
+		uint64_t rowid;
+		if (vPath.empty())
+			rowid = FindActiveAtStrict(m_Cursor.m_ID.m_Height);
+		else
+		{
+			rowid = vPath.back();
+			if (!m_DB.get_Prev(rowid))
+				OnCorrupted();
+		}
+
+		vPath.push_back(rowid);
+	}
+
+	ByteBuffer bb;
+	RollbackData rbData;
+	for (; !vPath.empty(); vPath.pop_back())
+	{
+		bb.clear();
+		rbData.m_Buf.clear();
+
+		m_DB.GetStateBlock(vPath.back(), bb, rbData.m_Buf);
+
+		if (bb.empty())
+			OnCorrupted();
+
+		Block::Body block;
+
+		Deserializer der;
+		der.reset(&bb.at(0), bb.size());
+		der & block;
+
+		if (!wlk.OnBlock(block, block.get_Reader(), vPath.back(), ++h, NULL))
+			return false;
+	}
+
+	return true;
+}
+
+
+void NodeProcessor::InitializeFromBlocks()
+{
+	struct MyWalker
+		:public IBlockWalker
+	{
+		NodeProcessor* m_pThis;
+		bool m_bFirstBlock = true;
+
+		virtual bool OnBlock(const Block::BodyBase& body, TxBase::IReader&& r, uint64_t rowid, Height h, const Height* pHMax) override
+		{
+			if (pHMax)
+			{
+				LOG_INFO() << "Interpreting MB up to " << *pHMax << "...";
+			} else
+				if (m_bFirstBlock)
+				{
+					m_bFirstBlock = false;
+					LOG_INFO() << "Interpreting blocks up to " << m_pThis->m_Cursor.m_ID.m_Height << "...";
+				}
+
+			if (!m_pThis->HandleValidatedBlock(std::move(r), body, h, true, !pHMax, pHMax))
+				OnCorrupted();
+
+			return true;
+		}
+	};
+
+	MyWalker wlk;
+	wlk.m_pThis = this;
+	EnumBlocks(wlk);
+
+	if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
+	{
+		// final check
+		Merkle::Hash hv;
+		get_Definition(hv, false);
+		if (m_Cursor.m_Full.m_Definition != hv)
+			OnCorrupted();
+	}
+}
+
+bool NodeProcessor::IUtxoWalker::OnBlock(const Block::BodyBase&, TxBase::IReader&& r, uint64_t rowid, Height, const Height* pHMax)
+{
+	if (rowid)
+		m_This.get_DB().get_State(rowid, m_Hdr);
+	else
+		ZeroObject(m_Hdr);
+
+	for (r.Reset(); r.m_pUtxoIn; r.NextUtxoIn())
+		if (!OnInput(*r.m_pUtxoIn))
+			return false;
+
+	for ( ; r.m_pUtxoOut; r.NextUtxoOut())
+		if (!OnOutput(*r.m_pUtxoOut))
+			return false;
+
+	return true;
+}
+
+bool NodeProcessor::UtxoRecoverSimple::Proceed()
+{
+	ECC::Mode::Scope scope(ECC::Mode::Fast);
+	return m_This.EnumBlocks(*this);
+}
+
+bool NodeProcessor::UtxoRecoverEx::OnOutput(uint32_t iKey, const Key::IDV& kidv, const Output& x)
+{
+	Value& v0 = m_Map[x.m_Commitment];
+	if (v0.m_Count)
+		v0.m_Count++; // ignore overflow possibility
+	else
+	{
+		v0.m_Kidv = kidv;
+		v0.m_iKey = iKey;;
+		v0.m_Count = 1;
+	}
+
+	return true;
+}
+
+bool NodeProcessor::UtxoRecoverEx::OnInput(const Input& x)
+{
+	UtxoMap::iterator it = m_Map.find(x.m_Commitment);
+	if (m_Map.end() != it)
+	{
+		Value& v = it->second;
+		assert(v.m_Count);
+
+		if (! --v.m_Count)
+			m_Map.erase(it);
+	}
+	return true;
+}
+
+bool NodeProcessor::UtxoRecoverSimple::OnOutput(const Output& x)
+{
+	Key::IDV kidv;
+
+	for (uint32_t iKey = 0; iKey < m_vKeys.size(); iKey++)
+		if (x.Recover(*m_vKeys[iKey], kidv))
+			return OnOutput(iKey, kidv, x);
+
+	return true;
+}
+
+bool NodeProcessor::UtxoRecoverSimple::OnInput(const Input& x)
+{
+	return true; // ignore
 }
 
 } // namespace beam

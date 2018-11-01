@@ -27,6 +27,9 @@ T.TextField {
     selectedTextColor: control.palette.highlightedText
     verticalAlignment: TextInput.AlignVCenter
 
+    property alias backgroundColor : backgroundRect.color
+    backgroundColor: Style.white
+
 	selectByMouse: true
 	
     PlaceholderText {
@@ -47,10 +50,9 @@ T.TextField {
 
     background: Rectangle {
 	    id: backgroundRect
-        y: control.height - height - control.bottomPadding + 8
+        y: control.height - height - control.bottomPadding + 4
         implicitWidth: 120
         height: control.activeFocus || control.hovered ? 2 : 1
-        color: Style.white
 		opacity: (control.activeFocus || control.hovered)? 0.3 : 0.1
     }
 
@@ -78,9 +80,16 @@ T.TextField {
         Action {
             text: qsTr("copy")
             icon.source: "qrc:/assets/icon-copy.svg"
-            enabled: control.enabled && (control.selectedText.length > 0) && (control.echoMode === TextInput.Normal)
+            enabled: control.enabled && (control.echoMode === TextInput.Normal)
             onTriggered: {
-                control.copy()
+                if (control.selectedText.length > 0) {
+                    control.copy();
+                }
+                else {
+                    control.selectAll();
+                    control.copy();
+                    control.deselect();
+                }
             }
         }
         Action {

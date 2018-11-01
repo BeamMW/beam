@@ -204,7 +204,7 @@ namespace beam
 		for (size_t i = 0; i < d.m_Commitment.m_X.nBytes; i++)
 			d.m_Commitment.m_X.m_pData[i] = (uint8_t) rand();
 
-		d.m_Commitment.m_Y	= (1 & rand()) != 0;
+		d.m_Commitment.m_Y = (1 & rand());
 
 		for (size_t i = 0; i < sizeof(d.m_Maturity); i++)
 			((uint8_t*) &d.m_Maturity)[i] = (uint8_t) rand();

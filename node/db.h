@@ -35,11 +35,7 @@ public:
 			DbVer,
 			CursorRow,
 			CursorHeight,
-			StateExtra,
 			FossilHeight,
-			SubsidyLo,
-			SubsidyHi,
-			SubsidyOpen,
 			CfgChecksum,
 			MyID,
 			SyncTarget,
@@ -89,15 +85,11 @@ public:
 			EnumAncestors,
 			StateGetPrev,
 			Unactivate,
+			UnactivateAll,
 			Activate,
 			MmrGet,
 			MmrSet,
 			HashForHist,
-			SpendableAdd,
-			SpendableDel,
-			SpendableModify,
-			SpendableEnum,
-			SpendableGetBody,
 			StateGetBlock,
 			StateSetBlock,
 			StateDelBlock,
@@ -134,24 +126,12 @@ public:
 
 
 	NodeDB();
-	~NodeDB();
+	virtual ~NodeDB();
 
 	void Close();
 	void Open(const char* szPath);
 
-	struct Blob {
-		const void* p;
-		uint32_t n;
-
-		Blob() {}
-		Blob(const void* p_, uint32_t n_) :p(p_) ,n(n_) {}
-		Blob(const ByteBuffer& bb);
-
-		template <uint32_t nBits_>
-		Blob(const uintBig_t<nBits_>& x) :p(x.m_pData), n(x.nBytes) {}
-
-		void Export(ByteBuffer&) const;
-	};
+	virtual void OnModified() {}
 
 	class Recordset
 	{
@@ -205,6 +185,8 @@ public:
 		Transaction(NodeDB* = NULL);
 		Transaction(NodeDB& db) :Transaction(&db) {}
 		~Transaction(); // by default - rolls back
+
+		bool IsInProgress() const { return NULL != m_pDB; }
 
 		void Start(NodeDB&);
 		void Commit();
@@ -276,23 +258,6 @@ public:
 	void MoveBack(StateID&);
 	void MoveFwd(const StateID&);
 
-	// Utxos & kernels
-	struct WalkerSpendable
-	{
-		Recordset m_Rs;
-		Blob m_Key;
-		uint32_t m_nUnspentCount;
-
-		WalkerSpendable(NodeDB& db) :m_Rs(db) {}
-		bool MoveNext();
-	};
-
-	void EnumUnpsent(WalkerSpendable&);
-
-	void AddSpendable(const Blob& key, const Blob* pBody, uint32_t nRefs, uint32_t nUnspentCount);
-	void ModifySpendable(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta); // will delete iff refs=0
-	bool GetSpendableBody(const Blob& key, Blob&);
-
 	void assert_valid(); // diagnostic, for tests only
 
 	void SetMined(const StateID&, const Amount&);
@@ -360,6 +325,9 @@ public:
 
 	uint64_t FindStateWorkGreater(const Difficulty::Raw&);
 
+	// reset cursor to zero. Keep all the data: Mined, local macroblocks, peers, bbs, dummy UTXOs
+	void ResetCursor();
+
 private:
 
 	sqlite3* m_pDb;
@@ -387,7 +355,6 @@ private:
 	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, bool);
 	void BuildMmr(uint64_t rowid, uint64_t rowPrev, Height);
 	void put_Cursor(const StateID& sid); // jump
-	void ModifySpendableSafe(const Blob& key, int32_t nRefsDelta, int32_t nUnspentDelta);
 
 	void TestChanged1Row();
 

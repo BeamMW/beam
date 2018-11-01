@@ -87,7 +87,7 @@ namespace beam
         Timestamp m_createTime=0;
         Timestamp m_modifyTime=0;
         bool m_sender=false;
-        TxStatus m_status=TxStatus::Failed;
+        TxStatus m_status=TxStatus::Pending;
         ByteBuffer m_fsmState;
 
         bool canResume() const
@@ -114,47 +114,93 @@ namespace beam
         ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
 
         std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
+        Block::SystemState::ID GetEmptyID();
         const uint32_t MaxSignatures = 10;
-        enum class TxParameterID : uint32_t
+        enum class TxParameterID : uint8_t
         {
             // public parameters
             TransactionType = 0,
-            IsSender,
-            Amount,
-            Fee,
-            MinHeight,
-            Message,
-            MyID,
-            PeerID,
-            Inputs,
-            Outputs,
-            CreateTime,
-            IsInitiator,
+            IsSender = 1,
+            Amount = 2,
+            Fee = 3,
+            MinHeight = 4,
+            Message = 5,
+            MyID = 6,
+            PeerID = 7,
+            //Inputs = 8,
+            //Outputs = 9,
+            CreateTime = 10,
+            IsInitiator = 11,
 
-            AtomicSwapCoin = 100,
-            AtomicSwapAmount,
+            AtomicSwapCoin = 20,
+            AtomicSwapAmount = 21,
+
+            LockedAmount = 25,
+            LockedMinHeight = 26,
+            
+
+            PeerPublicSharedBlindingFactor = 23,
 
             // signature parameters
 
-            PeerPublicNonce = 1000,
-            PeerPublicExcess = PeerPublicNonce + MaxSignatures,
-            PeerSignature = PeerPublicExcess + MaxSignatures,
-            PeerOffset,
-            PeerInputs,
-            PeerOutputs,
+            PeerPublicNonce = 40,
+            SharedPeerPublicNonce = 41,
+            LockedPeerPublicNonce = 42,
 
-            TransactionRegistered,
-            KernelProof,
-            FailureReason,
+            PeerPublicExcess = 50,
+            SharedPeerPublicExcess = 51,
+            LockedPeerPublicExcess = 52,
+
+            PeerSignature = 60,
+            SharedPeerSignature = 61,
+            LockedPeerSignature = 62,
+
+            PeerOffset = 70,
+            SharedPeerOffset = 71,
+            LockedPeerOffset = 72,
+
+            PeerInputs = 80,
+            LockedPeerInputs = 82,
+            PeerOutputs = 81,
+            LockedPeerOutputs = 83,
+            SharedPeerInputs = 84,
+            SharedPeerOutputs = 85,
+
+            TransactionRegistered = 90,
+
+            FailureReason = 92,
 
             // private parameters
-            PrivateFirstParam = 1 << 16,
+            PrivateFirstParam = 128,
 
-            ModifyTime,
-            BlindingExcess = ModifyTime + MaxSignatures,
-            Offset         = BlindingExcess + MaxSignatures,
-            Change,
-            Status
+            ModifyTime = 128,
+            KernelProof = 129,
+
+            BlindingExcess = 130, // + MaxSignatures,
+            SharedBlindingExcess = 131,
+            LockedBlindingExcess = 132,
+
+            Offset = 140, // + MaxSignatures reserved
+            SharedOffset = 141,
+            LockedOffset = 142,
+
+            Change = 150,
+            Status = 151,
+
+            SharedBlindingFactor = 160,
+            LockedBlindingFactor = 161,
+			MyNonce = 162,
+            SharedPeerBlindingFactor = 170,
+
+            Inputs = 180,
+            SharedInputs = 181,
+            LockedInputs = 182,
+            
+            Outputs = 190,
+            SharedOutputs = 191,
+            LockedOutputs = 192,
+            State = 255
+
         };
 
         enum class TxType : uint8_t

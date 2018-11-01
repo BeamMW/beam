@@ -18,6 +18,7 @@
 #include "utility/string_helpers.h"
 #include "utility/helpers.h"
 #include "wallet/secstring.h"
+#include "mnemonic/mnemonic.h"
 
 using namespace std;
 using namespace ECC;
@@ -38,7 +39,6 @@ namespace beam
         const char* IMPORT = "import";
         const char* MINING_THREADS = "mining_threads";
         const char* VERIFICATION_THREADS = "verification_threads";
-        const char* MINER_ID = "miner_id";
         const char* NODE_PEER = "peer";
         const char* PASS = "pass";
         const char* BTC_PASS = "btc_pass";
@@ -54,11 +54,17 @@ namespace beam
         const char* LISTEN = "listen";
         const char* TREASURY = "treasury";
         const char* TREASURY_BLOCK = "treasury_path";
-        const char* INIT = "init";
+		const char* RESYNC = "resync";
+		const char* INIT = "init";
+        const char* NEW_ADDRESS = "new_addr";
+        const char* NEW_ADDRESS_LABEL = "label";
         const char* SEND = "send";
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
+        const char* CANCEL_TX = "cancel_tx";
+        const char* TX_ID = "tx_id";
         const char* WALLET_SEED = "wallet_seed";
+        const char* WALLET_PHRASES = "wallet_phrases";
         const char* FEE = "fee";
         const char* FEE_FULL = "fee,f";
         const char* RECEIVE = "receive";
@@ -97,6 +103,7 @@ namespace beam
             //(cli::MODE, po::value<string>()->required(), "mode to execute [node|wallet]")
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
             (cli::WALLET_SEED, po::value<string>(), "secret key generation seed")
+            (cli::WALLET_PHRASES, po::value<string>(), "phrases to generate secret key according to BIP-39. <wallet_seed> option will be ignored")
             (cli::LOG_LEVEL, po::value<string>(), "log level [info|debug|verbose]")
             (cli::FILE_LOG_LEVEL, po::value<string>(), "file log level [info|debug|verbose]")
             (cli::VERSION_FULL, "return project version")
@@ -110,10 +117,10 @@ namespace beam
             (cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block pack to import treasury from")
             (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
-            (cli::MINER_ID, po::value<uint32_t>()->default_value(0), "seed for miner nonce generation")
             (cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
             (cli::IMPORT, po::value<Height>()->default_value(0), "Specify the blockchain height to import. The compressed history is asumed to be downloaded the the specified directory")
-            ;
+			(cli::RESYNC, po::value<bool>()->default_value(false), "Enforce re-synchronization (soft reset)")
+			;
 
         po::options_description wallet_options("Wallet options");
         wallet_options.add_options()
@@ -129,11 +136,14 @@ namespace beam
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
             (cli::BBS_STORAGE, po::value<string>()->default_value("bbs_keys.db"), "path to file with bbs keys")
             (cli::TX_HISTORY, "print transacrions' history in info command")
+            (cli::LISTEN, "start listen after new_addr command")
+            (cli::TX_ID, po::value<string>()->default_value(""), "tx id")
+            (cli::NEW_ADDRESS_LABEL, po::value<string>()->default_value(""), "label for new own address")
 
             (cli::TR_COUNT, po::value<uint32_t>()->default_value(30), "treasury UTXO count")
             (cli::TR_DH, po::value<uint32_t>()->default_value(1440), "treasury UTXO height lock step")
             (cli::TR_BEAMS, po::value<uint32_t>()->default_value(10), "treasury value of each UTXO (in Beams)")
-            (cli::COMMAND, po::value<string>(), "command to execute [send|receive|listen|init|info|treasury]");
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|info|treasury]");
 
         po::options_description uioptions("UI options");
         uioptions.add_options()
@@ -272,7 +282,21 @@ namespace beam
     bool read_wallet_seed(NoLeak<uintBig>& walletSeed, po::variables_map& vm)
     {
         SecString seed;
-        if (!read_secret_impl(seed, "Enter seed: ", cli::WALLET_SEED, vm))
+
+        if (vm.count(cli::WALLET_PHRASES))
+        {
+            auto tempPhrases = vm[cli::WALLET_PHRASES].as<string>();
+            WordList phrases = string_helpers::split(tempPhrases, ';');
+            assert(phrases.size() == 12);
+            if (phrases.size() != 12)
+            {
+                LOG_ERROR() << "Invalid recovery phrases provided: " << tempPhrases;
+                return false;
+            }
+            auto buf = decodeMnemonic(phrases);
+            seed.assign(buf.data(), buf.size());
+        }
+        else if (!read_secret_impl(seed, "Enter seed: ", cli::WALLET_SEED, vm))
         {
             return false;
         }

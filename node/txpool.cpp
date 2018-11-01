@@ -20,16 +20,24 @@
 
 namespace beam {
 
-void TxPool::Profit::SetSize(const Transaction& tx)
+template <typename Archive, typename TPtr>
+void save_VecPtr(Archive& ar, const std::vector<TPtr>& v)
 {
-	SerializerSizeCounter ssc;
-	ssc & tx;
-	m_nSize = (uint32_t) ssc.m_Counter.m_Value;
+	for (uint32_t i = 0; i < v.size(); i++)
+		ar & *v[i];
 }
 
-void TxPool::Profit::SetFee(const Transaction::Context& ctx)
+void TxPool::Profit::SetSize(const Transaction& tx)
 {
-	m_Fee = ctx.m_Fee.Hi ? Amount(-1) : ctx.m_Fee.Lo; // ignore huge fees (which are  highly unlikely), saturate.
+	// account only for elements. Ignore offset and array sizes
+	SerializerSizeCounter ssc;
+
+	save_VecPtr(ssc, tx.m_vInputs);
+	save_VecPtr(ssc, tx.m_vOutputs);
+	save_VecPtr(ssc, tx.m_vKernelsInput);
+	save_VecPtr(ssc, tx.m_vKernelsOutput);
+
+	m_nSize = (uint32_t) ssc.m_Counter.m_Value;
 }
 
 bool TxPool::Profit::operator < (const Profit& t) const
@@ -37,9 +45,13 @@ bool TxPool::Profit::operator < (const Profit& t) const
 	// handle overflow. To be precise need to use big-int (96-bit) arithmetics
 	//	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;
 
+	uintBigFor<AmountBig>::Type fee0, fee1;
+	m_Fee.Export(fee0);
+	t.m_Fee.Export(fee1);
+
 	return
-		(uintBigFrom(m_Fee) * uintBigFrom(t.m_nSize)) >
-		(uintBigFrom(t.m_Fee) * uintBigFrom(m_nSize));
+		(fee0 * uintBigFrom(t.m_nSize)) >
+		(fee1 * uintBigFrom(m_nSize));
 }
 
 /////////////////////////////
@@ -51,7 +63,7 @@ void TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Con
 	Element* p = new Element;
 	p->m_pValue = std::move(pValue);
 	p->m_Threshold.m_Value	= ctx.m_Height.m_Max;
-	p->m_Profit.SetFee(ctx);
+	p->m_Profit.m_Fee = ctx.m_Fee;
 	p->m_Profit.SetSize(*p->m_pValue);
 	p->m_Tx.m_Key = key;
 
@@ -115,9 +127,6 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 		return false; // conflicting txs, can't merge
 
 	trg.m_Profit.m_Fee += src.m_Profit.m_Fee;
-	if (trg.m_Profit.m_Fee < src.m_Profit.m_Fee)
-		trg.m_Profit.m_Fee = Amount(-1); // overflow, set max
-
 	trg.m_Profit.SetSize(txNew);
 
 	Delete(src);

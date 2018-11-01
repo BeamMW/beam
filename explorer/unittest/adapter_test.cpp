@@ -48,10 +48,13 @@ WaitHandle run_node(const NodeParams& params) {
             node.m_Cfg.m_Listen.port(params.nodeAddress.port());
             node.m_Cfg.m_Listen.ip(params.nodeAddress.ip());
             node.m_Cfg.m_MiningThreads = 1;
-            node.m_Cfg.m_MinerID = 44;
             node.m_Cfg.m_VerificationThreads = 1;
             node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 500;
-            node.m_Cfg.m_WalletKey.V = params.walletSeed;
+
+			std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
+			pKdf->m_Secret.V = params.walletSeed;
+			node.m_pKdf = pKdf;
+
             if (!params.connectTo.empty()) {
                 node.m_Cfg.m_Connect.push_back(params.connectTo);
             }
@@ -87,9 +90,9 @@ int test_adapter(int seconds) {
     nodeParams.nodeAddress = io::Address::localhost().port(NODE_PORT);
     nodeParams.treasuryPath = FILENAME "_";
 
-    ECC::Hash::Processor hp;
-    hp.Write("xxx", 3);
-    hp >> nodeParams.walletSeed;
+    ECC::Hash::Processor()
+		<< Blob("xxx", 3)
+		>> nodeParams.walletSeed;
 
     IKeyChain::Ptr kc = init_keychain(FILENAME, &nodeParams.walletSeed);
 

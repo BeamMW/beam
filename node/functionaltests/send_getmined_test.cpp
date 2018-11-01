@@ -106,9 +106,6 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 int main(int argc, char* argv[])
 {
 	int logLevel = LOG_LEVEL_DEBUG;
-#if LOG_VERBOSE_ENABLED
-	logLevel = LOG_LEVEL_VERBOSE;
-#endif
 	auto logger = Logger::create(logLevel, logLevel);
 
 	TestNodeConnection connection(argc, argv);

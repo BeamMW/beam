@@ -22,8 +22,11 @@
 #include "wallet/secstring.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
+#include "unittests/util.h"
 
-#define LOG_VERBOSE_ENABLED 0
+#ifndef LOG_VERBOSE_ENABLED
+    #define LOG_VERBOSE_ENABLED 0
+#endif
 
 #include "utility/logger.h"
 #include "utility/options.h"
@@ -64,15 +67,15 @@ namespace beam
         return os;
     }
 
-    std::ostream& operator<<(std::ostream& os, KeyType keyType)
+    std::ostream& operator<<(std::ostream& os, Key::Type keyType)
     {
         os << "[";
         switch (keyType)
         {
-        case KeyType::Coinbase: os << "Coinbase"; break;
-        case KeyType::Comission: os << "Commission"; break;
-        case KeyType::Kernel: os << "Kernel"; break;
-        case KeyType::Regular: os << "Regular"; break;
+        case Key::Type::Coinbase: os << "Coinbase"; break;
+        case Key::Type::Comission: os << "Commission"; break;
+        case Key::Type::Kernel: os << "Kernel"; break;
+        case Key::Type::Regular: os << "Regular"; break;
         default:
             assert(false && "Unknown key type");
         }
@@ -111,21 +114,6 @@ namespace
         cout << options << std::endl;
     }
 
-    bool ReadTreasury(std::vector<Block::Body>& vBlocks, const string& sPath)
-    {
-        if (sPath.empty())
-            return false;
-
-        std::FStream f;
-        if (!f.Open(sPath.c_str(), true))
-            return false;
-
-        yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
-        arc & vBlocks;
-
-        return true;
-    }
-
     IKeyStore::Ptr createKeyStore(const string& path, const SecString& pass)
     {
         IKeyStore::Options options;
@@ -134,180 +122,28 @@ namespace
 
         return IKeyStore::create(options, pass.data(), pass.size());
     }
-}
 
-struct TreasuryBlockGenerator
-{
-    std::string m_sPath;
-    IKeyChain* m_pKeyChain;
-
-    std::vector<Block::Body> m_vBlocks;
-    ECC::Scalar::Native m_Offset;
-
-    std::vector<Coin> m_Coins;
-    std::vector<std::pair<Height, ECC::Scalar::Native> > m_vIncubationAndKeys;
-
-    std::mutex m_Mutex;
-    std::vector<std::thread> m_vThreads;
-
-    Block::Body& get_WriteBlock();
-    void FinishLastBlock();
-    int Generate(uint32_t nCount, Height dh, Amount);
-private:
-    void Proceed(uint32_t i);
-};
-
-int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
-{
-    if (m_sPath.empty())
+    void newAddress(
+        const IKeyChain::Ptr& keychain,
+        const std::string& label,
+        const std::string& bbsKeysPath, const SecString& pass)
     {
-        LOG_ERROR() << "Treasury block path not specified";
-        return -1;
-    }
+        IKeyStore::Ptr ks = createKeyStore(bbsKeysPath, pass);
+        WalletAddress address = {};
+        address.m_own = true;
+        address.m_label = label;
+        address.m_createTime = getTimestamp();
+        ks->gen_keypair(address.m_walletID);
+        ks->save_keypair(address.m_walletID, true);
+        keychain->saveAddress(address);
 
-    boost::filesystem::path path{ m_sPath };
-    boost::filesystem::path dir = path.parent_path();
-    if (!dir.empty() && !boost::filesystem::exists(dir) && !boost::filesystem::create_directory(dir))
-    {
-        LOG_ERROR() << "Failed to create directory: " << dir.c_str();
-        return -1;
-    }
+        char buf[uintBig::nBytes * 2 + 1];
+        to_hex(buf, address.m_walletID.m_pData, uintBig::nBytes);
 
-    if (ReadTreasury(m_vBlocks, m_sPath))
-        LOG_INFO() << "Treasury already contains " << m_vBlocks.size() << " blocks, appending.";
-
-    if (!m_vBlocks.empty())
-    {
-        m_Offset = m_vBlocks.back().m_Offset;
-        m_Offset = -m_Offset;
-    }
-
-    LOG_INFO() << "Generating coins...";
-
-    m_Coins.resize(nCount);
-    m_vIncubationAndKeys.resize(nCount);
-
-    Height h = 0;
-
-    for (uint32_t i = 0; i < nCount; i++, h += dh)
-    {
-        Coin& coin = m_Coins[i];
-        coin.m_key_type = KeyType::Regular;
-        coin.m_amount = v;
-        coin.m_status = Coin::Unconfirmed;
-        coin.m_createHeight = h + Rules::HeightGenesis;
-
-
-        m_vIncubationAndKeys[i].first = h;
-    }
-
-    m_pKeyChain->store(m_Coins); // we get coin id only after store
-
-    for (uint32_t i = 0; i < nCount; ++i)
-        m_vIncubationAndKeys[i].second = m_pKeyChain->calcKey(m_Coins[i]);
-
-    m_vThreads.resize(std::thread::hardware_concurrency());
-    assert(!m_vThreads.empty());
-
-    for (uint32_t i = 0; i < m_vThreads.size(); i++)
-        m_vThreads[i] = std::thread(&TreasuryBlockGenerator::Proceed, this, i);
-
-    for (uint32_t i = 0; i < m_vThreads.size(); i++)
-        m_vThreads[i].join();
-
-    // at least 1 kernel
-    {
-        Coin dummy; // not a coin actually
-        dummy.m_key_type = KeyType::Kernel;
-        dummy.m_status = Coin::Unconfirmed;
-
-        ECC::Scalar::Native k = m_pKeyChain->calcKey(dummy);
-
-        TxKernel::Ptr pKrn(new TxKernel);
-        pKrn->m_Excess = ECC::Point::Native(Context::get().G * k);
-
-        Merkle::Hash hv;
-        pKrn->get_Hash(hv);
-        pKrn->m_Signature.Sign(hv, k);
-
-        get_WriteBlock().m_vKernelsOutput.push_back(std::move(pKrn));
-        m_Offset += k;
-    }
-
-    FinishLastBlock();
-
-    for (auto i = 0u; i < m_vBlocks.size(); i++)
-    {
-        m_vBlocks[i].Sort();
-        m_vBlocks[i].DeleteIntermediateOutputs();
-    }
-
-    std::FStream f;
-    f.Open(m_sPath.c_str(), false, true);
-
-    yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
-    arc & m_vBlocks;
-    f.Flush();
-
-/*
-    for (auto i = 0; i < m_vBlocks.size(); i++)
-        m_vBlocks[i].IsValid(i + 1, true);
-*/
-
-    LOG_INFO() << "Done";
-
-    return 0;
-}
-
-void TreasuryBlockGenerator::FinishLastBlock()
-{
-    m_Offset = -m_Offset;
-    m_vBlocks.back().m_Offset = m_Offset;
-}
-
-Block::Body& TreasuryBlockGenerator::get_WriteBlock()
-{
-    if (m_vBlocks.empty() || m_vBlocks.back().m_vOutputs.size() >= 1000)
-    {
-        if (!m_vBlocks.empty())
-            FinishLastBlock();
-
-        m_vBlocks.resize(m_vBlocks.size() + 1);
-        m_vBlocks.back().ZeroInit();
-        m_Offset = ECC::Zero;
-    }
-    return m_vBlocks.back();
-}
-
-void TreasuryBlockGenerator::Proceed(uint32_t i0)
-{
-    std::vector<Output::Ptr> vOut;
-
-    for (size_t i = i0; i < m_Coins.size(); i += m_vThreads.size())
-    {
-        const Coin& coin = m_Coins[i];
-
-        Output::Ptr pOutp(new Output);
-        pOutp->m_Incubation = m_vIncubationAndKeys[i].first;
-
-        const ECC::Scalar::Native& k = m_vIncubationAndKeys[i].second;
-        pOutp->Create(k, coin.m_amount);
-
-        vOut.push_back(std::move(pOutp));
-        //offset += k;
-        //subBlock.m_Subsidy += coin.m_amount;
-    }
-
-    std::unique_lock<std::mutex> scope(m_Mutex);
-
-    uint32_t iOutp = 0;
-    for (size_t i = i0; i < m_Coins.size(); i += m_vThreads.size(), iOutp++)
-    {
-        Block::Body& block = get_WriteBlock();
-
-        block.m_vOutputs.push_back(std::move(vOut[iOutp]));
-        block.m_Subsidy += m_Coins[i].m_amount;
-        m_Offset += m_vIncubationAndKeys[i].second;
+        LOG_INFO() << "New address generated:\n\n" << buf << "\n";
+        if (!label.empty()) {
+            LOG_INFO() << "label = " << label;
+        }
     }
 }
 
@@ -354,11 +190,7 @@ int main_impl(int argc, char* argv[])
         }
 
         int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
-        int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_INFO);
-
-#if LOG_VERBOSE_ENABLED
-        logLevel = LOG_LEVEL_VERBOSE;
-#endif
+        int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
         const auto path = boost::filesystem::system_complete("./logs");
         auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "wallet_", path.string());
@@ -398,7 +230,9 @@ int main_impl(int argc, char* argv[])
                             && command != cli::RECEIVE
                             && command != cli::LISTEN
                             && command != cli::TREASURY
-                            && command != cli::INFO)
+                            && command != cli::INFO
+                            && command != cli::NEW_ADDRESS
+                            && command != cli::CANCEL_TX)
                         {
                             LOG_ERROR() << "unknown command: \'" << command << "\'";
                             return -1;
@@ -437,17 +271,8 @@ int main_impl(int argc, char* argv[])
                             {
                                 LOG_INFO() << "wallet successfully created...";
 
-                                IKeyStore::Ptr ks = createKeyStore(bbsKeysPath, pass);
-
                                 // generate default address
-                                WalletAddress defaultAddress = {};
-                                defaultAddress.m_own = true;
-                                defaultAddress.m_label = "default";
-                                defaultAddress.m_createTime = getTimestamp();
-                                defaultAddress.m_duration = numeric_limits<uint64_t>::max();
-                                ks->gen_keypair(defaultAddress.m_walletID);
-                                ks->save_keypair(defaultAddress.m_walletID, true);
-                                keychain->saveAddress(defaultAddress);
+                                newAddress(keychain, "default", bbsKeysPath, pass);
 
                                 return 0;
                             }
@@ -465,20 +290,27 @@ int main_impl(int argc, char* argv[])
                             return -1;
                         }
 
+                        if (command == cli::NEW_ADDRESS)
+                        {
+                            auto label = vm[cli::NEW_ADDRESS_LABEL].as<string>();
+                            newAddress(keychain, label, bbsKeysPath, pass);
+
+                            if (!vm.count(cli::LISTEN)) {
+                                return 0;
+                            }
+                        }
+
                         LOG_INFO() << "wallet sucessfully opened...";
 
                         if (command == cli::TREASURY)
                         {
-                            TreasuryBlockGenerator tbg;
-                            tbg.m_sPath = vm[cli::TREASURY_BLOCK].as<string>();
-                            tbg.m_pKeyChain = keychain.get();
+							uint32_t nCount = vm[cli::TR_COUNT].as<uint32_t>();
+							Height dh = vm[cli::TR_DH].as<uint32_t>();
 
-                            Amount v = vm[cli::TR_BEAMS].as<uint32_t>();
-                            v *= Rules::Coin;
-                            Height dh = vm[cli::TR_DH].as<uint32_t>();
-                            uint32_t nCount = vm[cli::TR_COUNT].as<uint32_t>();
+							Amount v = vm[cli::TR_BEAMS].as<uint32_t>();
+							v *= Rules::Coin;
 
-                            return tbg.Generate(nCount, dh, v);
+							return GenerateTreasury(keychain.get(), vm[cli::TREASURY_BLOCK].as<string>(), nCount, dh, v);
                         }
 
                         io::Address btcNodeAddr;
@@ -517,10 +349,10 @@ int main_impl(int argc, char* argv[])
                                 << "Unconfirmed..............." << PrintableAmount(wallet::getTotal(keychain, Coin::Unconfirmed)) << '\n'
                                 << "Locked...................." << PrintableAmount(wallet::getTotal(keychain, Coin::Locked)) << '\n'
                                 << "Draft....................." << PrintableAmount(wallet::getTotal(keychain, Coin::Draft)) << '\n'
-                                << "Available coinbase ......." << PrintableAmount(wallet::getAvailableByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
-                                << "Total coinbase............" << PrintableAmount(wallet::getTotalByType(keychain, Coin::Unspent, KeyType::Coinbase)) << '\n'
-                                << "Avaliable fee............." << PrintableAmount(wallet::getAvailableByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
-                                << "Total fee................." << PrintableAmount(wallet::getTotalByType(keychain, Coin::Unspent, KeyType::Comission)) << '\n'
+                                << "Available coinbase ......." << PrintableAmount(wallet::getAvailableByType(keychain, Coin::Unspent, Key::Type::Coinbase)) << '\n'
+                                << "Total coinbase............" << PrintableAmount(wallet::getTotalByType(keychain, Coin::Unspent, Key::Type::Coinbase)) << '\n'
+                                << "Avaliable fee............." << PrintableAmount(wallet::getAvailableByType(keychain, Coin::Unspent, Key::Type::Comission)) << '\n'
+                                << "Total fee................." << PrintableAmount(wallet::getTotalByType(keychain, Coin::Unspent, Key::Type::Comission)) << '\n'
                                 << "Total unspent............." << PrintableAmount(wallet::getTotal(keychain, Coin::Unspent)) << "\n\n";
                             if (vm.count(cli::TX_HISTORY))
                             {
@@ -532,12 +364,12 @@ int main_impl(int argc, char* argv[])
                                 }
 
                                 cout << "TRANSACTIONS\n\n"
-                                    << "| datetime          | amount, BEAM    | status\t|\n";
+                                    << "| datetime            | amount, BEAM        | status    | ID\t|\n";
                                 for (auto& tx : txHistory)
                                 {
                                     cout << "  " << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false)
                                         << setw(17) << PrintableAmount(tx.m_amount, true)
-                                        << "  " << getTxStatus(tx) << '\n';
+                                        << "  " << getTxStatus(tx) << "  " << tx.m_txId << '\n';
                                 }
                                 return 0;
                             }
@@ -620,7 +452,7 @@ int main_impl(int argc, char* argv[])
                             fee = static_cast<ECC::Amount>(signedFee);
                         }
 
-                        bool is_server = command == cli::LISTEN;
+                        bool is_server = (command == cli::LISTEN || vm.count(cli::LISTEN));
 
                         IKeyStore::Ptr keystore = createKeyStore(bbsKeysPath, pass);
 
@@ -639,6 +471,13 @@ int main_impl(int argc, char* argv[])
                             auto addresses = keychain->getAddresses(true);
                             assert(!addresses.empty());
                             wallet.transfer_money(addresses[0].m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
+                        }
+
+                        if (command == cli::CANCEL_TX) {
+                            auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
+                            TxID txId;
+                            std::copy_n(txIdVec.begin(), 16, txId.begin());
+                            wallet.cancel_tx(txId);
                         }
 
                         wallet_io->start();

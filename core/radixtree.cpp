@@ -508,11 +508,10 @@ void RadixHashTree::get_Proof(Merkle::Proof& proof, const CursorBase& cu)
 // UtxoTree
 void UtxoTree::Value::get_Hash(Merkle::Hash& hv, const Key& key) const
 {
-	ECC::Hash::Processor hp;
-	hp.Write(key.m_pArr, Key::s_Bytes); // whole description of the UTXO
-	hp << m_Count;
-
-	hp >> hv;
+	ECC::Hash::Processor()
+		<< Blob(key.m_pArr, Key::s_Bytes) // whole description of the UTXO
+		<< m_Count
+		>> hv;
 }
 
 void Input::State::get_ID(Merkle::Hash& hv, const Input& inp) const
@@ -598,7 +597,7 @@ UtxoTree::Key::Data& UtxoTree::Key::Data::operator = (const Key& key)
 	memcpy(m_Commitment.m_X.m_pData, key.m_pArr, m_Commitment.m_X.nBytes);
 	const uint8_t* pKey = key.m_pArr + m_Commitment.m_X.nBytes;
 
-	m_Commitment.m_Y	= (1 & (pKey[0] >> 7)) != 0;
+	m_Commitment.m_Y = 1 & (pKey[0] >> 7);
 
 	m_Maturity = 0;
 	for (size_t i = 0; i < sizeof(m_Maturity); i++, pKey++)

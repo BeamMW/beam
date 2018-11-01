@@ -42,7 +42,6 @@ struct Node
 		std::vector<io::Address> m_Connect;
 
 		std::string m_sPathLocal;
-		ECC::NoLeak<ECC::uintBig> m_WalletKey;
 		NodeProcessor::Horizon m_Horizon;
 
 		bool m_RestrictMinedReportToOwner = true;
@@ -64,7 +63,6 @@ struct Node
 		uint32_t m_BbsIdealChannelPopulation = 100;
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
-		uint32_t m_MinerID = 0; // used as a seed for miner nonce generation
 
 		// Number of verification threads for CPU-hungry cryptography. Currently used for block validation only.
 		// 0: single threaded
@@ -98,6 +96,9 @@ struct Node
 			// Our logic: decide when either examined enough peers, or timeout expires
 			uint32_t m_SrcPeers = 5;
 			uint32_t m_Timeout_ms = 10000;
+
+			bool m_ForceResync = false;
+
 		} m_Sync;
 
 		struct Dandelion
@@ -118,13 +119,15 @@ struct Node
 
 		Config()
 		{
-			m_WalletKey.V = Zero;
 			m_ControlState.m_Height = Rules::HeightGenesis - 1; // disabled
 		}
 
 		INodeObserver* m_Observer = nullptr;
 
 	} m_Cfg; // must not be changed after initialization
+
+	Key::IKdf::Ptr m_pKdf;
+	Key::IPKdf::Ptr m_pOwnerKdf;
 
 	~Node();
 	void Initialize();
@@ -147,6 +150,8 @@ private:
 		void AdjustFossilEnd(Height&) override;
 		void OnStateData() override;
 		void OnBlockData() override;
+		bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) override;
+		void OnModified() override;
 
 		void ReportProgress();
         void ReportNewState();
@@ -177,9 +182,17 @@ private:
 		Block::ChainWorkProof m_Cwp; // cached
 		bool BuildCwp();
 
+		void GenerateProofStateStrict(Merkle::HardProof&, Height);
+
 		int m_RequestedCount = 0;
 		int m_DownloadedHeaders = 0;
 		int m_DownloadedBlocks = 0;
+
+		bool m_bFlushPending = false;
+		io::Timer::Ptr m_pFlushTimer;
+		void OnFlushTimer();
+
+		void FlushDB();
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
@@ -427,7 +440,7 @@ private:
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
 
-		void SendTxGuard(Transaction::Ptr& ptx, bool bFluff);
+		void SendTx(Transaction::Ptr& ptx, bool bFluff);
 
 		// proto::NodeConnection
 		virtual void OnConnectedSecure() override;
@@ -436,6 +449,7 @@ private:
 		// messages
 		virtual void OnMsg(proto::Authentication&&) override;
 		virtual void OnMsg(proto::Config&&) override;
+		virtual void OnMsg(proto::Bye&&) override;
 		virtual void OnMsg(proto::Ping&&) override;
 		virtual void OnMsg(proto::NewTip&&) override;
 		virtual void OnMsg(proto::DataMissing&&) override;
@@ -449,6 +463,7 @@ private:
 		virtual void OnMsg(proto::HaveTransaction&&) override;
 		virtual void OnMsg(proto::GetTransaction&&) override;
 		virtual void OnMsg(proto::GetMined&&) override;
+		virtual void OnMsg(proto::GetCommonState&&) override;
 		virtual void OnMsg(proto::GetProofState&&) override;
 		virtual void OnMsg(proto::GetProofKernel&&) override;
 		virtual void OnMsg(proto::GetProofUtxo&&) override;
@@ -465,6 +480,7 @@ private:
 		virtual void OnMsg(proto::MacroblockGet&&) override;
 		virtual void OnMsg(proto::Macroblock&&) override;
 		virtual void OnMsg(proto::ProofChainWork&&) override;
+		virtual void OnMsg(proto::Recover&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
@@ -476,7 +492,7 @@ private:
 
 	uint32_t RandomUInt32(uint32_t threshold);
 
-	ECC::NoLeak<ECC::Scalar> m_MyPrivateID;
+	ECC::Scalar::Native m_MyPrivateID;
 	PeerID m_MyPublicID;
 	PeerID m_MyOwnerID;
 
@@ -540,6 +556,8 @@ private:
 			Amount m_Fees;
 
 			std::shared_ptr<volatile bool> m_pStop;
+
+			ECC::Hash::Value m_hvNonceSeed; // immutable
 		};
 
 		void Initialize();
@@ -588,6 +606,7 @@ private:
 		// current data exchanged
 		HeightRange m_hrNew; // requested range. If min is non-zero - should be merged with previously-generated
 		HeightRange m_hrInplaceRequest;
+		Merkle::Hash m_hvTag;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Compressor)
 	} m_Compressor;
