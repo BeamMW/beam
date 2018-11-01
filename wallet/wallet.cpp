@@ -153,6 +153,7 @@ namespace beam
         , m_synchronized{false}
         , m_holdNodeConnection{ holdNodeConnection }
         , m_recovering{ false }
+        , m_needRecover{false}
     {
         assert(keyChain);
         ZeroObject(m_newState);
@@ -220,9 +221,8 @@ namespace beam
     void Wallet::recover()
     {
         LOG_INFO() << "Recover coins from blockchain";
-        enter_sync();
-        m_recovering = true;
-        m_network->send_node_message(proto::Recover{ true, true});
+        m_keyChain->clear();
+        m_needRecover = true;
     }
 
     void Wallet::resume_tx(const TxDescription& tx)
@@ -485,9 +485,8 @@ namespace beam
                         {
                             LOG_INFO() << "Block reward received: " << PrintableAmount(coin.m_amount);
                         }
-                        else
+                        else if (coin.m_createTxId.is_initialized())
                         {
-                            assert(coin.m_createTxId.is_initialized());
                             updateTransaction(*(coin.m_createTxId));
                         }
                     }
@@ -518,7 +517,7 @@ namespace beam
         if (newID == m_knownStateID)
         {
             // here we may close connection with node
-            m_keyChain->setSystemStateID(m_knownStateID);
+            saveKnownState();
             return close_node_connection();
         }
 
@@ -586,11 +585,10 @@ namespace beam
         for (const auto& id : msg.m_Private)
         {
             Coin& c = coins.emplace_back(id.m_Value, Coin::Unconfirmed, id.m_Idx, MaxHeight, id.m_Type);
-            c.m_id = id.m_IdxSecondary;
+            c.m_keyIndex = id.m_IdxSecondary;
         }
-        m_keyChain->clear();
-        m_keyChain->store(coins);
-        m_recovering = false;
+        
+        getUtxoProofs(coins);
         return exit_sync();
     }
 
@@ -696,8 +694,22 @@ namespace beam
         m_newState.get_ID(id);
         LOG_INFO() << "Sync up to " << id;
         // fast-forward
-        enter_sync(); // Mined
-        m_network->send_node_message(proto::GetMined{ m_knownStateID.m_Height });
+        enter_sync(); // Mined 
+        if (m_needRecover)
+        {
+            m_recovering = true;
+            m_needRecover = false;
+            m_network->send_node_message(proto::Recover{ true, true });
+            return;
+        }
+        else if (m_recovering)
+        {
+            return;
+        }
+        else
+        {
+            m_network->send_node_message(proto::GetMined{ m_knownStateID.m_Height });
+        }
 
         auto t = m_transactions;
         for (auto& p : t)
@@ -766,23 +778,29 @@ namespace beam
             if (m_syncDone == m_syncTotal)
             {
                 m_newState.get_ID(m_knownStateID);
-                m_keyChain->setSystemStateID(m_knownStateID);
-                LOG_INFO() << "Current state is " << m_knownStateID;
-                m_synchronized = true;
-                m_syncDone = m_syncTotal = 0;
-                notifySyncProgress();
-                if (!m_pendingEvents.empty())
-                {
-                    for (auto& cb : m_pendingEvents)
-                    {
-                        cb();
-                    }
-                    m_pendingEvents.clear();
-                }
+                saveKnownState();
             }
         }
 
         return close_node_connection();
+    }
+
+    void Wallet::saveKnownState()
+    {
+        m_keyChain->setSystemStateID(m_knownStateID);
+        LOG_INFO() << "Current state is " << m_knownStateID;
+        m_synchronized = true;
+        m_recovering = false;
+        m_syncDone = m_syncTotal = 0;
+        notifySyncProgress();
+        if (!m_pendingEvents.empty())
+        {
+            for (auto& cb : m_pendingEvents)
+            {
+                cb();
+            }
+            m_pendingEvents.clear();
+        }
     }
 
     void Wallet::notifySyncProgress()

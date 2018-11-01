@@ -166,6 +166,7 @@ namespace beam
         void notifySyncProgress();
         void resetSystemState();
         void updateTransaction(const TxID& txID);
+        void saveKnownState();
 
         virtual bool IsTestMode() const { return false; }
 
@@ -204,6 +205,7 @@ namespace beam
         bool m_synchronized;
         bool m_holdNodeConnection;
         bool m_recovering;
+        bool m_needRecover;
 
         std::vector<IWalletObserver*> m_subscribers;
     };
