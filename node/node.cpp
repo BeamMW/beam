@@ -1696,7 +1696,13 @@ void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType&
 	}
 
 	for (size_t i = 0; i < tx.m_vKernelsOutput.size(); i++)
-		os << "\n\tK: Fee=" << tx.m_vKernelsOutput[i]->m_Fee;
+	{
+		const TxKernel& krn = *tx.m_vKernelsOutput[i];
+		Merkle::Hash hv;
+		krn.get_ID(hv);
+
+		os << "\n\tK: " << hv << " Fee=" << krn.m_Fee;
+	}
 
 	os << "\n\tValid: " << bValid;
 	LOG_INFO() << os.str();
