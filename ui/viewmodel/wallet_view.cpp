@@ -218,6 +218,7 @@ WalletViewModel::WalletViewModel()
     if (AppModel::getInstance()->shouldRestoreWallet())
     {
         _model.async->restoreFromBlockchain();
+        AppModel::getInstance()->setRestoreWallet(false);
     }
 }
 
