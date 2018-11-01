@@ -223,6 +223,8 @@ if (WIN32)
     set(CPACK_NSIS_INSTALLED_ICON_NAME "${CMAKE_SOURCE_DIR}/ui/icon.ico")
     set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "CreateShortCut \\\"$DESKTOP\\\\Beam Wallet.lnk\\\" \\\"$INSTDIR\\\\Beam Wallet.exe\\\"")
     set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "Delete \\\"$DESKTOP\\\\Beam Wallet.lnk\\\"")
+    set(CPACK_NSIS_EXECUTABLES_DIRECTORY .)
+    set(CPACK_NSIS_MUI_FINISHPAGE_RUN "Beam Wallet.exe") 
 
 elseif (APPLE)
     set(CPACK_GENERATOR "DragNDrop")
