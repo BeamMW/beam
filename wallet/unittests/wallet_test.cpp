@@ -522,6 +522,12 @@ namespace
             enqueueNetworkTask([this] {m_peers[0]->handle_node_message(proto::Mined{ }); });
         }
 
+        void send_node_message(proto::Recover&& data) override
+        {
+            cout << "Recover\n";
+            enqueueNetworkTask([this] {m_peers[0]->handle_node_message(proto::Recovered{ }); });
+        }
+
         void send_node_message(proto::GetProofUtxo&& msg) override
         {
             cout << "GetProofUtxo\n";
@@ -741,6 +747,11 @@ private:
         void OnMsg(proto::GetMined&&) override
         {
             Send(proto::Mined{});
+        }
+
+        void OnMsg(proto::Recover&&) override
+        {
+            Send(proto::Recovered{});
         }
 
         void OnMsg(proto::GetProofState&&) override

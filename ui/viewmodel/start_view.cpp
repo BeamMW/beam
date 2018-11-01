@@ -171,6 +171,7 @@ void StartViewModel::setIsRecoveryMode(bool value)
     {
         m_isRecoveryMode = value;
         m_recoveryPhrases.clear();
+        AppModel::getInstance()->setRestoreWallet(value);
         emit isRecoveryModeChanged();
     }
 }

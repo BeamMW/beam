@@ -152,6 +152,7 @@ namespace beam
         , m_syncTotal{0}
         , m_synchronized{false}
         , m_holdNodeConnection{ holdNodeConnection }
+        , m_recovering{ false }
     {
         assert(keyChain);
         ZeroObject(m_newState);
@@ -214,6 +215,14 @@ namespace beam
         updateTransaction(txID);
 
         return txID;
+    }
+
+    void Wallet::recover()
+    {
+        LOG_INFO() << "Recover coins from blockchain";
+        enter_sync();
+        m_recovering = true;
+        m_network->send_node_message(proto::Recover{ true, true});
     }
 
     void Wallet::resume_tx(const TxDescription& tx)
@@ -503,7 +512,7 @@ namespace beam
 
         Block::SystemState::ID newID;
         msg.m_Description.get_ID(newID);
-        
+
         m_newState = msg.m_Description;
 
         if (newID == m_knownStateID)
@@ -567,6 +576,21 @@ namespace beam
             m_network->send_node_message(proto::GetMined{ lastKnownCoinHeight });
         }
 
+        return exit_sync();
+    }
+
+    bool Wallet::handle_node_message(proto::Recovered&& msg)
+    {
+        vector<Coin> coins;
+        coins.reserve(msg.m_Private.size());
+        for (const auto& id : msg.m_Private)
+        {
+            Coin& c = coins.emplace_back(id.m_Value, Coin::Unconfirmed, id.m_Idx, MaxHeight, id.m_Type);
+            c.m_id = id.m_IdxSecondary;
+        }
+        m_keyChain->clear();
+        m_keyChain->store(coins);
+        m_recovering = false;
         return exit_sync();
     }
 
@@ -765,7 +789,14 @@ namespace beam
     {
         for (auto sub : m_subscribers)
         {
-            sub->onSyncProgress(m_syncDone, m_syncTotal);
+            if (m_recovering)
+            {
+                sub->onRecoverProgress(m_syncDone, m_syncTotal, "");
+            }
+            else
+            {
+                sub->onSyncProgress(m_syncDone, m_syncTotal);
+            }
         }
     }
 
