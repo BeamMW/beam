@@ -107,5 +107,6 @@
         <file>assets/icon-restore.svg</file>
         <file>assets/icon-restore-blue.svg</file>
         <file>assets/icon-try-again.svg</file>
+        <file>restore.qml</file>
     </qresource>
 </RCC>
