@@ -21,6 +21,7 @@
 #include "../../utility/serialize.h"
 #include "../../utility/test_helpers.h"
 #include "../../core/serialization_adapters.h"
+#include "../../core/unittest/mini_blockchain.h"
 
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
@@ -1346,114 +1347,12 @@ namespace beam
 	}
 
 
-	struct ChainContext
-	{
-		struct State
-		{
-			Block::SystemState::Full m_Hdr;
-			std::unique_ptr<uint8_t[]> m_pMmrData;
-		};
-
-		std::vector<State> m_vStates;
-		Merkle::Hash m_hvLive;
-
-		struct DMmr
-			:public Merkle::DistributedMmr
-		{
-			virtual const void* get_NodeData(Key key) const
-			{
-				return ((State*) key)->m_pMmrData.get();
-			}
-
-			virtual void get_NodeHash(Merkle::Hash& hv, Key key) const
-			{
-				((State*)key)->m_Hdr.get_Hash(hv);
-			}
-
-			IMPLEMENT_GET_PARENT_OBJ(ChainContext, m_Mmr)
-		} m_Mmr;
-
-		struct Source
-			:public Block::ChainWorkProof::ISource
-		{
-			virtual void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
-			{
-				// median search. The Hdr.m_ChainWork must be strictly bigger than d. (It's exclusive)
-				typedef std::vector<State>::const_iterator Iterator;
-				Iterator it0 = get_ParentObj().m_vStates.begin();
-				Iterator it1 = get_ParentObj().m_vStates.end();
-
-				while (it0 < it1)
-				{
-					Iterator itMid = it0 + (it1 - it0) / 2;
-					if (itMid->m_Hdr.m_ChainWork <= d)
-						it0 = itMid + 1;
-					else
-						it1 = itMid;
-				}
-
-				s = it0->m_Hdr;
-			}
-
-			virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
-			{
-				assert(h >= Rules::HeightGenesis);
-				h -= Rules::HeightGenesis;
-
-				assert(h < get_ParentObj().m_vStates.size());
-
-				get_ParentObj().m_Mmr.get_Proof(bld, h);
-			}
-
-			IMPLEMENT_GET_PARENT_OBJ(ChainContext, m_Source)
-		} m_Source;
-
-		void Init()
-		{
-			m_hvLive = 55U;
-
-			m_vStates.resize(200000);
-			Difficulty d = Rules::get().StartDifficulty;
-
-			for (size_t i = 0; i < m_vStates.size(); i++)
-			{
-				State& s = m_vStates[i];
-				if (i)
-				{
-					const State& s0 = m_vStates[i - 1];
-					s.m_Hdr = s0.m_Hdr;
-					s.m_Hdr.NextPrefix();
-
-					m_Mmr.Append(DMmr::Key(&s0), s0.m_pMmrData.get(), s.m_Hdr.m_Prev);
-				}
-				else
-				{
-					ZeroObject(s.m_Hdr);
-					s.m_Hdr.m_Height = Rules::HeightGenesis;
-				}
-
-				s.m_Hdr.m_PoW.m_Difficulty = d;
-				d.Inc(s.m_Hdr.m_ChainWork);
-
-				if (!((i + 1) % 8000))
-					d.Adjust(140, 150, 3); // slightly raise
-
-				m_Mmr.get_Hash(s.m_Hdr.m_Definition);
-				Merkle::Interpret(s.m_Hdr.m_Definition, m_hvLive, true);
-
-				uint32_t nSize = m_Mmr.get_NodeSize(i);
-				s.m_pMmrData.reset(new uint8_t[nSize]);
-			}
-		}
-	};
-
-
 	void TestChainworkProof()
 	{
-		ChainContext cc;
-
 		printf("Preparing blockchain ...\n");
-		cc.Init();
+
+		MiniBlockChain cc;
+		cc.Generate(200000);
 
 		const Block::SystemState::Full& sRoot = cc.m_vStates.back().m_Hdr;
 
