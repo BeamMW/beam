@@ -152,7 +152,6 @@ namespace beam
         , m_syncTotal{0}
         , m_synchronized{false}
         , m_holdNodeConnection{ holdNodeConnection }
-        , m_recovering{ false }
         , m_needRecover{false}
     {
         assert(keyChain);
@@ -697,13 +696,7 @@ namespace beam
         enter_sync(); // Mined 
         if (m_needRecover)
         {
-            m_recovering = true;
-            m_needRecover = false;
             m_network->send_node_message(proto::Recover{ true, true });
-            return;
-        }
-        else if (m_recovering)
-        {
             return;
         }
         else
@@ -790,7 +783,7 @@ namespace beam
         m_keyChain->setSystemStateID(m_knownStateID);
         LOG_INFO() << "Current state is " << m_knownStateID;
         m_synchronized = true;
-        m_recovering = false;
+        m_needRecover = false;
         m_syncDone = m_syncTotal = 0;
         notifySyncProgress();
         if (!m_pendingEvents.empty())
@@ -807,14 +800,7 @@ namespace beam
     {
         for (auto sub : m_subscribers)
         {
-            if (m_recovering)
-            {
-                sub->onRecoverProgress(m_syncDone, m_syncTotal, "");
-            }
-            else
-            {
-                sub->onSyncProgress(m_syncDone, m_syncTotal);
-            }
+            sub->onSyncProgress(m_syncDone, m_syncTotal);
         }
     }
 

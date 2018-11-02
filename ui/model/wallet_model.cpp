@@ -282,6 +282,12 @@ void WalletModel::run()
             subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
         }
 
+        if (AppModel::getInstance()->shouldRestoreWallet())
+        {
+            AppModel::getInstance()->setRestoreWallet(false);
+            restoreFromBlockchain();
+        }
+
         _reactor->run();
     }
     catch (const runtime_error& ex)
