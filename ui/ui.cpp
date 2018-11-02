@@ -76,6 +76,8 @@ using namespace beam;
 using namespace std;
 using namespace ECC;
 
+static const char* AppName = "Beam Wallet";
+
 int main (int argc, char* argv[])
 {
 #if defined Q_OS_WIN
@@ -87,7 +89,7 @@ int main (int argc, char* argv[])
 
 	app.setWindowIcon(QIcon(":/assets/icon.png"));
 
-    QApplication::setApplicationName("Beam Wallet");
+    QApplication::setApplicationName(AppName);
 
     QDir appDataDir(QStandardPaths::writableLocation(QStandardPaths::DataLocation));
 
@@ -131,6 +133,8 @@ int main (int argc, char* argv[])
 
         int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
         int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
+
+        beam::InstallCrashHandler(appDataDir.filePath(AppName).toStdString().c_str());
 
         auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_",
 			appDataDir.filePath(WalletSettings::LogsFolder).toStdString());
