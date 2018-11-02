@@ -640,8 +640,7 @@ namespace beam
     bool Coin::isValid() const
     {
         return m_createHeight <= m_maturity
-            && m_maturity <= m_lockedHeight
-            && m_createHeight <= m_confirmHeight;
+            && m_maturity <= m_lockedHeight;
     }
 
 	uint64_t IKeyChain::get_AutoIncrID()
