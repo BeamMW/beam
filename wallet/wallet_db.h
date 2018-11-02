@@ -60,7 +60,8 @@ namespace beam
         boost::optional<TxID> m_spentTxId;
         uint64_t m_keyIndex;
 
-		Key::IDV get_Kidv() const;
+        Key::IDV get_Kidv() const;
+        static Coin fromKidv(const Key::IDV& kidv);
     };
 
     struct TxPeer

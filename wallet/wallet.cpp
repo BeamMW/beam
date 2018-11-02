@@ -581,10 +581,9 @@ namespace beam
     {
         vector<Coin> coins;
         coins.reserve(msg.m_Private.size());
-        for (const auto& id : msg.m_Private)
+        for (const auto& kidv : msg.m_Private)
         {
-            Coin& c = coins.emplace_back(id.m_Value, Coin::Unconfirmed, id.m_Idx, MaxHeight, id.m_Type);
-            c.m_keyIndex = id.m_IdxSecondary;
+            coins.push_back(Coin::fromKidv(kidv));
         }
         
         getUtxoProofs(coins);

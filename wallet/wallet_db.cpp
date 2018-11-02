@@ -662,6 +662,32 @@ namespace beam
 		return res;
 	}
 
+    Key::IDV Coin::get_Kidv() const
+    {
+        // For coinbase and fee commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
+        Key::IDV kidv(m_amount, m_createHeight, m_key_type, m_keyIndex);
+
+        switch (m_key_type)
+        {
+        case Key::Type::Coinbase:
+        case Key::Type::Comission:
+            kidv.m_IdxSecondary = 0;
+            break;
+
+        default: // suppress warning
+            break;
+        }
+
+        return kidv;
+    }
+
+    Coin Coin::fromKidv(const Key::IDV& kidv)
+    {
+        Coin c(kidv.m_Value, Coin::Unconfirmed, kidv.m_Idx, MaxHeight, kidv.m_Type);
+        c.m_keyIndex = kidv.m_IdxSecondary;
+        assert(c.isValid());
+        return c;
+    }
 
     bool Keychain::isInitialized(const string& path)
     {
@@ -855,25 +881,6 @@ namespace beam
 	Key::IKdf::Ptr Keychain::get_Kdf() const
 	{
 		return m_pKdf;
-	}
-
-	Key::IDV Coin::get_Kidv() const
-	{
-		// For coinbase and fee commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
-		Key::IDV kidv(m_amount, m_createHeight, m_key_type, m_keyIndex);
-
-		switch (m_key_type)
-		{
-		case Key::Type::Coinbase:
-		case Key::Type::Comission:
-			kidv.m_IdxSecondary = 0;
-			break;
-
-		default: // suppress warning
-			break;
-		}
-
-		return kidv;
 	}
 
     ECC::Scalar::Native Keychain::calcKey(const beam::Coin& coin) const
