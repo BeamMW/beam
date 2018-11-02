@@ -277,6 +277,7 @@ namespace beam { namespace wallet
                 msg.AddParameter(TxParameterID::Amount, builder.m_Amount)
                     .AddParameter(TxParameterID::Fee, builder.m_Fee)
                     .AddParameter(TxParameterID::MinHeight, builder.m_MinHeight)
+                    .AddParameter(TxParameterID::MaxHeight, builder.m_MaxHeight)
                     .AddParameter(TxParameterID::IsSender, !sender)
                     .AddParameter(TxParameterID::PeerInputs, builder.m_Inputs)
                     .AddParameter(TxParameterID::PeerOutputs, builder.m_Outputs)
@@ -410,6 +411,7 @@ namespace beam { namespace wallet
         , m_Fee{ fee }
         , m_Change{0}
         , m_MinHeight{0}
+        , m_MaxHeight{MaxHeight}
     {
     }
 
@@ -490,7 +492,7 @@ namespace beam { namespace wallet
         m_Kernel = make_unique<TxKernel>();
         m_Kernel->m_Fee = m_Fee;
         m_Kernel->m_Height.m_Min = m_MinHeight;
-        m_Kernel->m_Height.m_Max = MaxHeight;
+        m_Kernel->m_Height.m_Max = m_MaxHeight;
         m_Kernel->m_Excess = Zero;
 
 		if (!m_Tx.GetParameter(TxParameterID::MyNonce, m_MultiSig.m_Nonce))
@@ -537,6 +539,7 @@ namespace beam { namespace wallet
         m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs);
         m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs);
         m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight);
+        m_Tx.GetParameter(TxParameterID::MaxHeight, m_MaxHeight);
         return m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess)
             && m_Tx.GetParameter(TxParameterID::Offset, m_Offset);
     }

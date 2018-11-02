@@ -170,6 +170,7 @@ namespace beam { namespace wallet
         Amount m_Fee;
         Amount m_Change;
         Height m_MinHeight;
+        Height m_MaxHeight;
         std::vector<Input::Ptr> m_Inputs;
         std::vector<Output::Ptr> m_Outputs;
         ECC::Scalar::Native m_BlindingExcess;
