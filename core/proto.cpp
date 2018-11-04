@@ -1369,10 +1369,17 @@ FlyClient::Request& FlyClient::NetworkStd::Connection::get_FirstRequestStrict(Re
 	return *n.m_pRequest;
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofUtxo&& msg)
-{
-	RequestUtxo& req = static_cast<RequestUtxo&>(get_FirstRequestStrict(Request::Type::Utxo));
+#define THE_MACRO(type, msgOut, msgIn) \
+void FlyClient::NetworkStd::Connection::OnMsg(proto::msgIn&& msg) \
+{  \
+	OnMsg(static_cast<Request##type&>(get_FirstRequestStrict(Request::Type::type)), std::move(msg)); \
+}
 
+REQUEST_TYPES_All(THE_MACRO)
+#undef THE_MACRO
+
+void FlyClient::NetworkStd::Connection::OnMsg(RequestUtxo& req, proto::ProofUtxo&& msg)
+{
 	for (size_t i = 0; i < msg.m_Proofs.size(); i++)
 		if (!m_Tip.IsValidProofUtxo(req.m_Msg.m_Utxo, msg.m_Proofs[i]))
 			ThrowUnexpected();
@@ -1381,15 +1388,26 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofUtxo&& msg)
 	OnFirstRequestDone();
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofKernel&& msg)
+void FlyClient::NetworkStd::Connection::OnMsg(RequestKernel& req, proto::ProofKernel&& msg)
 {
-	RequestKernel& req = static_cast<RequestKernel&>(get_FirstRequestStrict(Request::Type::Kernel));
-
 	if (!msg.m_Proof.empty())
 		if (!m_Tip.IsValidProofKernel(req.m_Msg.m_ID, msg.m_Proof))
 			ThrowUnexpected();
 
 	req.m_Res.m_Proof = std::move(msg.m_Proof);
+	OnFirstRequestDone();
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(RequestMined& req, proto::Mined&& msg)
+{
+	req.m_Res.m_Entries = std::move(msg.m_Entries);
+	OnFirstRequestDone();
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(RequestRecover& req, proto::Recovered&& msg)
+{
+	req.m_Res.m_Private = std::move(msg.m_Private);
+	req.m_Res.m_Public = std::move(msg.m_Public);
 	OnFirstRequestDone();
 }
 

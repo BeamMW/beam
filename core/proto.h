@@ -629,13 +629,20 @@ namespace proto {
 
 		const Block::SystemState::Full* get_Tip() const; // NULL if no hist
 
+#define REQUEST_TYPES_All(macro) \
+	macro(Utxo,		GetProofUtxo,	ProofUtxo) \
+	macro(Kernel,	GetProofKernel,	ProofKernel) \
+	macro(Mined,	GetMined,		Mined) \
+	macro(Recover,	Recover,		Recovered)
+
 		struct Request
 		{
 			typedef std::shared_ptr<Request> Ptr;
 
 			enum Type {
-				Utxo,
-				Kernel,
+#define THE_MACRO(type, msgOut, msgIn) type,
+				REQUEST_TYPES_All(THE_MACRO)
+#undef THE_MACRO
 				count
 			};
 
@@ -645,19 +652,17 @@ namespace proto {
 			FlyClient* m_pTrg = NULL; // set to NULL if aborted
 		};
 
-		struct RequestUtxo :public Request {
-			virtual ~RequestUtxo() {}
-			virtual Type get_Type() const { return Type::Utxo; }
-			proto::GetProofUtxo m_Msg;
-			proto::ProofUtxo m_Res;
+#define THE_MACRO(type, msgOut, msgIn) \
+		struct Request##type :public Request { \
+			typedef std::shared_ptr<Request##type> Ptr; \
+			virtual ~Request##type() {} \
+			virtual Type get_Type() const { return Type::type; } \
+			proto::msgOut m_Msg; \
+			proto::msgIn m_Res; \
 		};
 
-		struct RequestKernel :public Request {
-			virtual ~RequestKernel() {}
-			virtual Type get_Type() const { return Type::Kernel; }
-			proto::GetProofKernel m_Msg;
-			proto::ProofKernel m_Res;
-		};
+		REQUEST_TYPES_All(THE_MACRO)
+#undef THE_MACRO
 
 		virtual ~FlyClient() {}
 		virtual void OnNewTip() {} // tip already added
@@ -740,8 +745,11 @@ namespace proto {
 				virtual void OnMsg(proto::NewTip&& msg) override;
 				virtual void OnMsg(proto::ProofCommonState&& msg) override;
 				virtual void OnMsg(proto::ProofChainWork&& msg) override;
-				virtual void OnMsg(proto::ProofUtxo&& msg) override;
-				virtual void OnMsg(proto::ProofKernel&& msg) override;
+#define THE_MACRO(type, msgOut, msgIn) \
+				virtual void OnMsg(proto::msgIn&&) override; \
+				void OnMsg(Request##type&, proto::msgIn&&);
+				REQUEST_TYPES_All(THE_MACRO)
+#undef THE_MACRO
 			};
 
 			typedef boost::intrusive::list<Connection> ConnectionList;
@@ -750,7 +758,7 @@ namespace proto {
 			// INetwork
 			//virtual void Connect() override;
 			virtual void Disconnect() override;
-			virtual void RequestProof(Request::Ptr&&);
+			virtual void RequestProof(Request::Ptr&&) override;
 		};
 	};
 
