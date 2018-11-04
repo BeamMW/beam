@@ -1435,6 +1435,7 @@ namespace beam
 
 			bool m_bTip;
 			Height m_hRolledTo;
+			uint32_t m_nProofsExpected = 0;
 
 			MyFlyClient()
 			{
@@ -1444,7 +1445,13 @@ namespace beam
 			virtual void OnNewTip() override
 			{
 				m_bTip = true;
-				io::Reactor::get_Current().stop();
+				MaybeStop();
+			}
+
+			void MaybeStop()
+			{
+				if (m_bTip && !m_nProofsExpected)
+					io::Reactor::get_Current().stop();
 			}
 
 			virtual void OnRolledBack() override
@@ -1464,19 +1471,61 @@ namespace beam
 				m_pTimer->cancel();
 			}
 
+			virtual void OnProof(Request::Ptr&& pReq)
+			{
+				verify_test(pReq && (this == pReq->m_pTrg));
+				verify_test(m_nProofsExpected);
+				m_nProofsExpected--;
+				MaybeStop();
+			}
+
 			void SyncSync() // synchronize synchronously. Joky joke.
 			{
 				m_bTip = false;
 				m_hRolledTo = MaxHeight;
 
-				io::Address addr;
-				addr.resolve("127.0.0.1");
-				addr.port(g_Port);
 
-				Connection conn(*this);
-				conn.Connect(addr);
+				struct MyNetwork :public NetworkStd {
+					MyNetwork(FlyClient& fc) :NetworkStd(fc) {}
+					virtual void Connect() override
+					{
+						// create several connections, let the compete
+						for (int i = 0; i < 4; i++)
+						{
+							Connection* pConn = new NetworkStd::Connection(*this);
 
-				//SetTimer(90 * 1000);
+							io::Address addr;
+							addr.resolve("127.0.0.1");
+							addr.port(g_Port);
+							pConn->Connect(addr);
+						}
+					}
+				};
+
+				MyNetwork net(*this);
+				net.Connect();
+
+				// request several proofs
+				for (uint32_t i = 0; i < 10; i++)
+				{
+					std::shared_ptr<RequestUtxo> pUtxo(new RequestUtxo);
+					net.RequestProof(pUtxo);
+
+					if (1 & i)
+						pUtxo->m_pTrg = NULL;
+					else
+						m_nProofsExpected++;
+
+					std::shared_ptr<RequestKernel> pKrnl(new RequestKernel);
+					net.RequestProof(pKrnl);
+
+					if (1 & i)
+						pKrnl->m_pTrg = NULL;
+					else
+						m_nProofsExpected++;
+				}
+
+				SetTimer(90 * 1000);
 				io::Reactor::get_Current().run();
 				KillTimer();
 			}

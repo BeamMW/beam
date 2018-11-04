@@ -625,54 +625,133 @@ namespace proto {
 	{
 		typedef std::map<Height, Block::SystemState::Full> StateMap;
 		StateMap m_Hist; // some recent blocks of the current active branch
+		void ShrinkHist();
 
 		const Block::SystemState::Full* get_Tip() const; // NULL if no hist
 
-		virtual ~FlyClient();
-		void ShrinkHist();
-		virtual void OnNewTip() {} // tip already added
-		virtual void OnRolledBack() {} // reversed states are already removed
-
-		class Connection
-			:public NodeConnection
-			,public boost::intrusive::list_base_hook<>
+		struct Request
 		{
-			struct SyncCtx
-			{
-				std::vector<Block::SystemState::ID> m_vConfirming;
-				Block::SystemState::Full m_Confirmed;
-				Block::SystemState::Full m_TipBeforeGap;
-				Height m_LowHeightSinceConfirmed;
+			typedef std::shared_ptr<Request> Ptr;
+
+			enum Type {
+				Utxo,
+				Kernel,
+				count
 			};
 
-			std::unique_ptr<SyncCtx> m_pSync;
+			virtual ~Request() {}
+			virtual Type get_Type() const = 0;
 
-			struct StateArray;
-
-			bool ShouldSync() const;
-			void StartSync();
-			void SearchBelow(Height, uint32_t nCount);
-			void RequestChainworkProof();
-
-		public:
-			FlyClient& m_This;
-
-			Connection(FlyClient& x);
-			virtual ~Connection();
-
-			// most recent tip of the Node, according to which all the proofs are interpreted
-			Block::SystemState::Full m_Tip;
-
-			// NodeConnection
-			virtual void OnConnectedSecure() override;
-			virtual void OnMsg(proto::NewTip&& msg) override;
-			virtual void OnMsg(proto::ProofCommonState&& msg) override;
-			virtual void OnMsg(proto::ProofChainWork&& msg) override;
+			FlyClient* m_pTrg = NULL; // set to NULL if aborted
 		};
 
-		typedef boost::intrusive::list<Connection> ConnectionList;
-		ConnectionList m_Connections;
+		struct RequestUtxo :public Request {
+			virtual ~RequestUtxo() {}
+			virtual Type get_Type() const { return Type::Utxo; }
+			proto::GetProofUtxo m_Msg;
+			proto::ProofUtxo m_Res;
+		};
 
+		struct RequestKernel :public Request {
+			virtual ~RequestKernel() {}
+			virtual Type get_Type() const { return Type::Kernel; }
+			proto::GetProofKernel m_Msg;
+			proto::ProofKernel m_Res;
+		};
+
+		virtual ~FlyClient() {}
+		virtual void OnNewTip() {} // tip already added
+		virtual void OnRolledBack() {} // reversed states are already removed
+		virtual void OnProof(Request::Ptr&&) {}
+
+		struct INetwork
+		{
+			FlyClient& m_Client;
+			INetwork(FlyClient& fc) :m_Client(fc) {}
+			virtual ~INetwork() {}
+
+			virtual void Connect() = 0;
+			virtual void Disconnect() = 0;
+			virtual void RequestProof(Request::Ptr&&) = 0;
+		};
+
+		struct NetworkStd
+			:public INetwork
+		{
+			NetworkStd(FlyClient& fc) :INetwork(fc) {}
+			virtual ~NetworkStd();
+
+			struct RequestNode
+				:public boost::intrusive::list_base_hook<>
+			{
+				Request::Ptr m_pRequest;
+			};
+
+			struct RequestList
+				:public boost::intrusive::list<RequestNode>
+			{
+				void Delete(RequestNode& n);
+				void Finish(RequestNode& n);
+				void Clear();
+				~RequestList() { Clear(); }
+			};
+			
+			RequestList m_lst; // idle
+			void OnNewRequests();
+
+			class Connection
+				:public NodeConnection
+				,public boost::intrusive::list_base_hook<>
+			{
+				struct SyncCtx
+				{
+					std::vector<Block::SystemState::ID> m_vConfirming;
+					Block::SystemState::Full m_Confirmed;
+					Block::SystemState::Full m_TipBeforeGap;
+					Height m_LowHeightSinceConfirmed;
+				};
+
+				std::unique_ptr<SyncCtx> m_pSync;
+
+				struct StateArray;
+
+				bool ShouldSync() const;
+				void StartSync();
+				void SearchBelow(Height, uint32_t nCount);
+				void RequestChainworkProof();
+				void PrioritizeSelf();
+				Request& get_FirstRequestStrict(Request::Type);
+				void OnFirstRequestDone();
+
+			public:
+				NetworkStd& m_This;
+
+				Connection(NetworkStd& x);
+				virtual ~Connection();
+
+				// most recent tip of the Node, according to which all the proofs are interpreted
+				Block::SystemState::Full m_Tip;
+
+				RequestList m_lst; // in progress
+				void AssignRequests();
+
+				// NodeConnection
+				virtual void OnConnectedSecure() override;
+				virtual void OnMsg(proto::NewTip&& msg) override;
+				virtual void OnMsg(proto::ProofCommonState&& msg) override;
+				virtual void OnMsg(proto::ProofChainWork&& msg) override;
+				virtual void OnMsg(proto::ProofUtxo&& msg) override;
+				virtual void OnMsg(proto::ProofKernel&& msg) override;
+			};
+
+			typedef boost::intrusive::list<Connection> ConnectionList;
+			ConnectionList m_Connections;
+
+			// INetwork
+			//virtual void Connect() override;
+			virtual void Disconnect() override;
+			virtual void RequestProof(Request::Ptr&&);
+		};
 	};
 
 
