@@ -446,10 +446,15 @@ void NodeConnection::Accept(io::TcpStream::Ptr&& newStream)
 		);
 }
 
+bool NodeConnection::IsLive() const
+{
+	return m_Connection && !m_pAsyncFail;
+}
+
 #define THE_MACRO(code, msg) \
 void NodeConnection::Send(const msg& v) \
 { \
-	if (m_pAsyncFail || !m_Connection) \
+	if (!IsLive()) \
 		return; \
 	m_SerializeCache.clear(); \
 	MsgSerializer& ser = m_Protocol.serializeNoFinalize(m_SerializeCache, uint8_t(code), v); \

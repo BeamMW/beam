@@ -413,6 +413,7 @@ namespace proto {
 
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 
+		bool IsLive() const;
 		bool IsSecureIn() const;
 		bool IsSecureOut() const;
 

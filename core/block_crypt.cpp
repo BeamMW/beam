@@ -874,6 +874,13 @@ namespace beam
 
 	bool Block::SystemState::Sequence::Element::IsValidProofKernel(const TxKernel& krn, const Merkle::Proof& proof) const
 	{
+		Merkle::Hash hv;
+		krn.get_ID(hv);
+		return IsValidProofKernel(hv, proof);
+	}
+
+	bool Block::SystemState::Sequence::Element::IsValidProofKernel(const Merkle::Hash& hvID, const Merkle::Proof& proof) const
+	{
 		// verify known part. Last node should be at left, earlier should be at left
 		size_t n = proof.size();
 		if ((n < 2) ||
@@ -881,9 +888,8 @@ namespace beam
 			proof[n - 2].first)
 			return false;
 
-		Merkle::Hash hv;
-		krn.get_ID(hv);
 
+		Merkle::Hash hv = hvID;
 		Merkle::Interpret(hv, proof);
 		return hv == m_Definition;
 	}
