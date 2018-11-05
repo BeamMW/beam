@@ -25,6 +25,7 @@
 #include "block_crypt.h"
 #include <boost/intrusive/set.hpp>
 #include <boost/intrusive/list.hpp>
+#include <boost/intrusive_ptr.hpp>
 
 namespace beam {
 namespace proto {
@@ -638,9 +639,17 @@ namespace proto {
 		macro(BbsMsg,		BbsMsg,				Pong) \
 		macro(Recover,		Recover,			Recovered)
 
-		struct Request
+		class Request
 		{
-			typedef std::shared_ptr<Request> Ptr;
+			int m_Refs = 0;
+			friend void intrusive_ptr_add_ref(Request* p) { p->AddRef(); }
+			friend void intrusive_ptr_release(Request* p) { p->Release(); }
+		public:
+
+			typedef boost::intrusive_ptr<Request> Ptr;
+
+			void AddRef() { m_Refs++; }
+			void Release() { if (!--m_Refs) delete this; }
 
 			enum Type {
 #define THE_MACRO(type, msgOut, msgIn) type,
@@ -657,7 +666,7 @@ namespace proto {
 
 #define THE_MACRO(type, msgOut, msgIn) \
 		struct Request##type :public Request { \
-			typedef std::shared_ptr<Request##type> Ptr; \
+			typedef boost::intrusive_ptr<Request##type> Ptr; \
 			Request##type() :m_Res(Zero) {} \
 			virtual ~Request##type() {} \
 			virtual Type get_Type() const { return Type::type; } \
@@ -671,7 +680,7 @@ namespace proto {
 		virtual ~FlyClient() {}
 		virtual void OnNewTip() {} // tip already added
 		virtual void OnRolledBack() {} // reversed states are already removed
-		virtual void OnRequestComplete(Request::Ptr&&) {}
+		virtual void OnRequestComplete(Request&) {}
 		virtual void OnMsg(proto::BbsMsg&&) {}
 
 		struct INetwork
@@ -682,7 +691,7 @@ namespace proto {
 
 			virtual void Connect() = 0;
 			virtual void Disconnect() = 0;
-			virtual void PostRequest(Request::Ptr&&) = 0;
+			virtual void PostRequest(Request&) = 0;
 			virtual void BbsSubscribe(BbsChannel, bool) {} // duplicates should be handled internally
 		};
 
@@ -797,7 +806,7 @@ namespace proto {
 			// INetwork
 			virtual void Connect() override;
 			virtual void Disconnect() override;
-			virtual void PostRequest(Request::Ptr&&) override;
+			virtual void PostRequest(Request&) override;
 			virtual void BbsSubscribe(BbsChannel, bool) override;
 		};
 	};

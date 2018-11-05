@@ -1473,9 +1473,9 @@ namespace beam
 				m_pTimer->cancel();
 			}
 
-			virtual void OnRequestComplete(Request::Ptr&& pReq) override
+			virtual void OnRequestComplete(Request& r) override
 			{
-				verify_test(pReq && (this == pReq->m_pTrg));
+				verify_test(this == r.m_pTrg);
 				verify_test(m_nProofsExpected);
 				m_nProofsExpected--;
 				MaybeStop();
@@ -1508,7 +1508,7 @@ namespace beam
 				for (uint32_t i = 0; i < 10; i++)
 				{
 					RequestUtxo::Ptr pUtxo(new RequestUtxo);
-					net.PostRequest(pUtxo);
+					net.PostRequest(*pUtxo);
 
 					if (1 & i)
 						pUtxo->m_pTrg = NULL;
@@ -1516,7 +1516,7 @@ namespace beam
 						m_nProofsExpected++;
 
 					RequestKernel::Ptr pKrnl(new RequestKernel);
-					net.PostRequest(pKrnl);
+					net.PostRequest(*pKrnl);
 
 					if (1 & i)
 						pKrnl->m_pTrg = NULL;
@@ -1525,7 +1525,7 @@ namespace beam
 
 					RequestBbsMsg::Ptr pBbs(new RequestBbsMsg);
 					pBbs->m_Msg.m_Channel = m_LastBbsChannel;
-					net.PostRequest(pBbs);
+					net.PostRequest(*pBbs);
 					m_nProofsExpected++;
 				}
 

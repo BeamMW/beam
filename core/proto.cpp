@@ -1081,6 +1081,8 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::Authentication&& msg)
 
 		if (m_This.m_pKdf)
 		{
+			// TODO: Report your identity *only* to the owned nodes, otherwise it's very demasking!
+
 			ECC::Scalar::Native sk;
 			m_This.m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
 			ProveID(sk, IDType::Owner);
@@ -1367,14 +1369,14 @@ void FlyClient::NetworkStd::Connection::PrioritizeSelf()
 	m_This.m_Connections.push_front(*this);
 }
 
-void FlyClient::NetworkStd::PostRequest(Request::Ptr&& pReq)
+void FlyClient::NetworkStd::PostRequest(Request& r)
 {
-	assert(pReq && !pReq->m_pTrg);
-	pReq->m_pTrg = &m_Client;
+	assert(!r.m_pTrg);
+	r.m_pTrg = &m_Client;
 
 	RequestNode* pNode = new RequestNode;
 	m_lst.push_back(*pNode);
-	pNode->m_pRequest = std::move(pReq);
+	pNode->m_pRequest = &r;
 
 	OnNewRequests();
 }
@@ -1458,7 +1460,7 @@ void FlyClient::NetworkStd::RequestList::Finish(RequestNode& n)
 {
 	assert(n.m_pRequest);
 	if (n.m_pRequest->m_pTrg)
-		n.m_pRequest->m_pTrg->OnRequestComplete(std::move(n.m_pRequest));
+		n.m_pRequest->m_pTrg->OnRequestComplete(*n.m_pRequest);
 	Delete(n);
 }
 
