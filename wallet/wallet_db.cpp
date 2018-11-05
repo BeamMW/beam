@@ -1056,6 +1056,23 @@ namespace beam
             coin.m_keyIndex = getLastID(_db) + 1;
         }
 
+        {
+            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE createHeight=?1 AND key_type=?2 AND keyIndex=?3; ");
+            stm.bind(1, coin.m_createHeight);
+            stm.bind(2, coin.m_key_type);
+            stm.bind(3, coin.m_keyIndex);
+            if (stm.step())
+            {
+                Amount amount = coin.m_amount;
+                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+                if (amount != coin.m_amount)
+                {
+                    LOG_WARNING() << "Attempt to store invalid UTXO";
+                }
+                return;
+            }
+        }
+
         const char* req = "INSERT INTO " STORAGE_NAME " (" ENUM_STORAGE_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_STORAGE_FIELDS(BIND_LIST, COMMA, ) ");";
         sqlite::Statement stm(_db, req);
 

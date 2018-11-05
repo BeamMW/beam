@@ -75,11 +75,22 @@ void TestKeychain()
     keychain->store(coin1);
 
     WALLET_CHECK(coin1.m_id == 1);
+    WALLET_CHECK(coin1.m_keyIndex == 1);
 
     Coin coin2(2, Coin::Unspent, 0, 10);
     keychain->store(coin2);
 
     WALLET_CHECK(coin2.m_id == 2);
+    WALLET_CHECK(coin2.m_keyIndex == 2);
+
+    // attempt to insert duplicated coin
+    {
+        Coin duplicatedCoin2(2, Coin::Unspent, 0, 10);
+        duplicatedCoin2.m_keyIndex = 2;
+        keychain->store(duplicatedCoin2);
+        WALLET_CHECK(duplicatedCoin2.m_id == 2);
+        WALLET_CHECK(duplicatedCoin2.m_keyIndex == 2);
+    }
     
     {
         auto coins = keychain->selectCoins(7);
