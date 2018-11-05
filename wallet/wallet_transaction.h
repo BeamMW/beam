@@ -76,6 +76,7 @@ namespace beam { namespace wallet
         BaseTransaction(INegotiatorGateway& gateway
                       , beam::IKeyChain::Ptr keychain
                       , const TxID& txID);
+        virtual ~BaseTransaction(){}
 
         const TxID& GetTxID() const;
         void Update() override;
