@@ -630,11 +630,12 @@ namespace proto {
 		const Block::SystemState::Full* get_Tip() const; // NULL if no hist
 
 #define REQUEST_TYPES_All(macro) \
-	macro(Utxo,			GetProofUtxo,		ProofUtxo) \
-	macro(Kernel,		GetProofKernel,		ProofKernel) \
-	macro(Mined,		GetMined,			Mined) \
-	macro(Transaction,	NewTransaction,		Boolean) \
-	macro(Recover,		Recover,			Recovered)
+		macro(Utxo,			GetProofUtxo,		ProofUtxo) \
+		macro(Kernel,		GetProofKernel,		ProofKernel) \
+		macro(Mined,		GetMined,			Mined) \
+		macro(Transaction,	NewTransaction,		Boolean) \
+		macro(BbsMsg,		BbsMsg,				Pong) \
+		macro(Recover,		Recover,			Recovered)
 
 		struct Request
 		{
@@ -656,6 +657,7 @@ namespace proto {
 #define THE_MACRO(type, msgOut, msgIn) \
 		struct Request##type :public Request { \
 			typedef std::shared_ptr<Request##type> Ptr; \
+			Request##type() :m_Res(Zero) {} \
 			virtual ~Request##type() {} \
 			virtual Type get_Type() const { return Type::type; } \
 			proto::msgOut m_Msg; \
@@ -669,6 +671,7 @@ namespace proto {
 		virtual void OnNewTip() {} // tip already added
 		virtual void OnRolledBack() {} // reversed states are already removed
 		virtual void OnRequestComplete(Request::Ptr&&) {}
+		virtual void OnMsg(proto::BbsMsg&&) {}
 
 		struct INetwork
 		{
@@ -679,6 +682,7 @@ namespace proto {
 			virtual void Connect() = 0;
 			virtual void Disconnect() = 0;
 			virtual void PostRequest(Request::Ptr&&) = 0;
+			virtual void BbsSubscribe(BbsChannel, bool) {} // duplicates should be handled internally
 		};
 
 		struct NetworkStd
@@ -740,26 +744,44 @@ namespace proto {
 
 				RequestList m_lst; // in progress
 				void AssignRequests();
+				void AssignRequest(RequestNode&);
+
+				bool IsAtTip() const;
+
+				bool m_bBbs = false;
+				bool m_bTransactions = false;
+				bool m_bNode = false;
 
 				// NodeConnection
 				virtual void OnConnectedSecure() override;
+				virtual void OnMsg(proto::Authentication&& msg) override;
+				virtual void OnMsg(proto::Config&& msg) override;
 				virtual void OnMsg(proto::NewTip&& msg) override;
 				virtual void OnMsg(proto::ProofCommonState&& msg) override;
 				virtual void OnMsg(proto::ProofChainWork&& msg) override;
+				virtual void OnMsg(proto::BbsMsg&& msg) override;
 #define THE_MACRO(type, msgOut, msgIn) \
 				virtual void OnMsg(proto::msgIn&&) override; \
+				bool IsSupported(Request##type&); \
 				void OnRequestData(Request##type&);
 				REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
+
+				template <typename Req> void SendRequest(Req& r) { Send(r.m_Msg); }
+				void SendRequest(RequestBbsMsg&);
 			};
 
 			typedef boost::intrusive::list<Connection> ConnectionList;
 			ConnectionList m_Connections;
 
+			typedef std::map<BbsChannel, int32_t> BbsSubscriptions;
+			BbsSubscriptions m_BbsSubscriptions;
+
 			// INetwork
 			//virtual void Connect() override;
 			virtual void Disconnect() override;
 			virtual void PostRequest(Request::Ptr&&) override;
+			virtual void BbsSubscribe(BbsChannel, bool) override;
 		};
 	};
 

@@ -1435,7 +1435,9 @@ namespace beam
 
 			bool m_bTip;
 			Height m_hRolledTo;
-			uint32_t m_nProofsExpected = 0;
+			uint32_t m_nProofsExpected;
+			BbsChannel m_LastBbsChannel = 0;
+			bool m_bBbsReceived;
 
 			MyFlyClient()
 			{
@@ -1450,7 +1452,7 @@ namespace beam
 
 			void MaybeStop()
 			{
-				if (m_bTip && !m_nProofsExpected)
+				if (m_bTip && !m_nProofsExpected && m_bBbsReceived)
 					io::Reactor::get_Current().stop();
 			}
 
@@ -1471,7 +1473,7 @@ namespace beam
 				m_pTimer->cancel();
 			}
 
-			virtual void OnProof(Request::Ptr&& pReq) override
+			virtual void OnRequestComplete(Request::Ptr&& pReq) override
 			{
 				verify_test(pReq && (this == pReq->m_pTrg));
 				verify_test(m_nProofsExpected);
@@ -1479,11 +1481,19 @@ namespace beam
 				MaybeStop();
 			}
 
+			virtual void OnMsg(proto::BbsMsg&&) override
+			{
+				m_bBbsReceived = true;
+				MaybeStop();
+			}
+
 			void SyncSync() // synchronize synchronously. Joky joke.
 			{
 				m_bTip = false;
 				m_hRolledTo = MaxHeight;
-
+				m_nProofsExpected = 0;
+				m_bBbsReceived = false;
+				++m_LastBbsChannel;
 
 				struct MyNetwork :public NetworkStd {
 					MyNetwork(FlyClient& fc) :NetworkStd(fc) {}
@@ -1508,22 +1518,29 @@ namespace beam
 				// request several proofs
 				for (uint32_t i = 0; i < 10; i++)
 				{
-					std::shared_ptr<RequestUtxo> pUtxo(new RequestUtxo);
-					net.RequestProof(pUtxo);
+					RequestUtxo::Ptr pUtxo(new RequestUtxo);
+					net.PostRequest(pUtxo);
 
 					if (1 & i)
 						pUtxo->m_pTrg = NULL;
 					else
 						m_nProofsExpected++;
 
-					std::shared_ptr<RequestKernel> pKrnl(new RequestKernel);
-					net.RequestProof(pKrnl);
+					RequestKernel::Ptr pKrnl(new RequestKernel);
+					net.PostRequest(pKrnl);
 
 					if (1 & i)
 						pKrnl->m_pTrg = NULL;
 					else
 						m_nProofsExpected++;
+
+					RequestBbsMsg::Ptr pBbs(new RequestBbsMsg);
+					pBbs->m_Msg.m_Channel = m_LastBbsChannel;
+					net.PostRequest(pBbs);
+					m_nProofsExpected++;
 				}
+
+				net.BbsSubscribe(m_LastBbsChannel, true);
 
 				SetTimer(90 * 1000);
 				io::Reactor::get_Current().run();
