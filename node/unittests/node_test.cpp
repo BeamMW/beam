@@ -1471,7 +1471,7 @@ namespace beam
 				m_pTimer->cancel();
 			}
 
-			virtual void OnProof(Request::Ptr&& pReq)
+			virtual void OnProof(Request::Ptr&& pReq) override
 			{
 				verify_test(pReq && (this == pReq->m_pTrg));
 				verify_test(m_nProofsExpected);
