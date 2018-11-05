@@ -1495,24 +1495,13 @@ namespace beam
 				m_bBbsReceived = false;
 				++m_LastBbsChannel;
 
-				struct MyNetwork :public NetworkStd {
-					MyNetwork(FlyClient& fc) :NetworkStd(fc) {}
-					virtual void Connect() override
-					{
-						// create several connections, let the compete
-						for (int i = 0; i < 4; i++)
-						{
-							Connection* pConn = new NetworkStd::Connection(*this);
+				NetworkStd net(*this);
 
 							io::Address addr;
 							addr.resolve("127.0.0.1");
 							addr.port(g_Port);
-							pConn->Connect(addr);
-						}
-					}
-				};
+				net.m_Cfg.m_vNodes.resize(4, addr); // create several connections, let the compete
 
-				MyNetwork net(*this);
 				net.Connect();
 
 				// request several proofs

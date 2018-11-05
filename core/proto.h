@@ -20,6 +20,7 @@
 #include "../p2p/protocol.h"
 #include "../p2p/connection.h"
 #include "../utility/io/tcpserver.h"
+#include "../utility/io/timer.h"
 #include "aes.h"
 #include "block_crypt.h"
 #include <boost/intrusive/set.hpp>
@@ -709,6 +710,14 @@ namespace proto {
 			RequestList m_lst; // idle
 			void OnNewRequests();
 
+			struct Config {
+				std::vector<io::Address> m_vNodes;
+				uint32_t m_PollPeriod_ms = 0; // set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks
+				uint32_t m_ReconnectTimeout_ms = 5000;
+			} m_Cfg;
+
+			Key::IKdf::Ptr m_pKdf;
+
 			class Connection
 				:public NodeConnection
 				,public boost::intrusive::list_base_hook<>
@@ -733,11 +742,18 @@ namespace proto {
 				Request& get_FirstRequestStrict(Request::Type);
 				void OnFirstRequestDone(bool bMustBeAtTip = true);
 
+				io::Timer::Ptr m_pTimer;
+				void OnTimer();
+				void SetTimer(uint32_t);
+				void KillTimer();
+
 			public:
 				NetworkStd& m_This;
 
 				Connection(NetworkStd& x);
 				virtual ~Connection();
+
+				io::Address m_Addr;
 
 				// most recent tip of the Node, according to which all the proofs are interpreted
 				Block::SystemState::Full m_Tip;
@@ -754,6 +770,7 @@ namespace proto {
 
 				// NodeConnection
 				virtual void OnConnectedSecure() override;
+				virtual void OnDisconnect(const DisconnectReason&) override;
 				virtual void OnMsg(proto::Authentication&& msg) override;
 				virtual void OnMsg(proto::Config&& msg) override;
 				virtual void OnMsg(proto::NewTip&& msg) override;
@@ -778,7 +795,7 @@ namespace proto {
 			BbsSubscriptions m_BbsSubscriptions;
 
 			// INetwork
-			//virtual void Connect() override;
+			virtual void Connect() override;
 			virtual void Disconnect() override;
 			virtual void PostRequest(Request::Ptr&&) override;
 			virtual void BbsSubscribe(BbsChannel, bool) override;

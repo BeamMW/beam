@@ -953,6 +953,18 @@ FlyClient::NetworkStd::~NetworkStd()
 	Disconnect();
 }
 
+void FlyClient::NetworkStd::Connect()
+{
+	Disconnect();
+
+	for (size_t i = 0; i < m_Cfg.m_vNodes.size(); i++)
+	{
+		Connection* pConn = new Connection(*this);
+		pConn->m_Addr = m_Cfg.m_vNodes[i];
+		pConn->Connect(pConn->m_Addr);
+	}
+}
+
 void FlyClient::NetworkStd::Disconnect()
 {
 	while (!m_Connections.empty())
@@ -1015,10 +1027,48 @@ bool FlyClient::NetworkStd::Connection::ShouldSync() const
 
 void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 {
+	ZeroObject(m_Tip);
+	m_bNode = m_bBbs = m_bTransactions = false;
+
 	proto::Config msgCfg;
 	msgCfg.m_CfgChecksum = Rules::get().Checksum;
 	msgCfg.m_SendPeers = true;
 	Send(msgCfg);
+}
+
+void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)
+{
+	NodeConnection::Reset();
+	SetTimer(m_This.m_Cfg.m_ReconnectTimeout_ms);
+}
+
+void FlyClient::NetworkStd::Connection::SetTimer(uint32_t timeout_ms)
+{
+	if (!m_pTimer)
+		m_pTimer = io::Timer::create(io::Reactor::get_Current());
+
+	m_pTimer->start(timeout_ms, false, [this]() { OnTimer(); });
+}
+
+void FlyClient::NetworkStd::Connection::KillTimer()
+{
+	if (m_pTimer)
+		m_pTimer->cancel();
+}
+
+void FlyClient::NetworkStd::Connection::OnTimer()
+{
+	if (IsLive())
+	{
+		if (m_This.m_Cfg.m_PollPeriod_ms)
+		{
+			Reset();
+			uint32_t timeout_ms = std::max(Rules::get().DesiredRate_s * 1000, m_This.m_Cfg.m_PollPeriod_ms);
+			SetTimer(timeout_ms);
+		}
+	}
+	else
+		Connect(m_Addr);
 }
 
 void FlyClient::NetworkStd::Connection::OnMsg(proto::Authentication&& msg)
@@ -1026,7 +1076,16 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::Authentication&& msg)
 	NodeConnection::OnMsg(std::move(msg));
 
 	if (IDType::Node == msg.m_IDType)
+	{
 		m_bNode = true;
+
+		if (m_This.m_pKdf)
+		{
+			ECC::Scalar::Native sk;
+			m_This.m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
+			ProveID(sk, IDType::Owner);
+		}
+	}
 }
 
 void FlyClient::NetworkStd::Connection::OnMsg(proto::Config&& msg)
@@ -1073,6 +1132,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::NewTip&& msg)
 void FlyClient::NetworkStd::Connection::StartSync()
 {
 	assert(ShouldSync());
+	KillTimer();
 
 	if (m_Tip.m_Height > Rules::HeightGenesis)
 	{
@@ -1342,6 +1402,11 @@ void FlyClient::NetworkStd::Connection::AssignRequests()
 {
 	for (RequestList::iterator it = m_This.m_lst.begin(); m_This.m_lst.end() != it; )
 		AssignRequest(*it++);
+
+	if (m_lst.empty() && m_This.m_Cfg.m_PollPeriod_ms)
+		SetTimer(0);
+	else
+		KillTimer();
 }
 
 void FlyClient::NetworkStd::Connection::AssignRequest(RequestNode& n)
