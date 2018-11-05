@@ -1271,7 +1271,7 @@ void FlyClient::NetworkStd::Connection::PrioritizeSelf()
 	m_This.m_Connections.push_front(*this);
 }
 
-void FlyClient::NetworkStd::RequestProof(Request::Ptr&& pReq)
+void FlyClient::NetworkStd::PostRequest(Request::Ptr&& pReq)
 {
 	assert(pReq && !pReq->m_pTrg);
 	pReq->m_pTrg = &m_Client;
@@ -1352,7 +1352,7 @@ void FlyClient::NetworkStd::RequestList::Finish(RequestNode& n)
 {
 	assert(n.m_pRequest);
 	if (n.m_pRequest->m_pTrg)
-		n.m_pRequest->m_pTrg->OnProof(std::move(n.m_pRequest));
+		n.m_pRequest->m_pTrg->OnRequestComplete(std::move(n.m_pRequest));
 	Delete(n);
 }
 
@@ -1369,64 +1369,72 @@ FlyClient::Request& FlyClient::NetworkStd::Connection::get_FirstRequestStrict(Re
 	return *n.m_pRequest;
 }
 
+#define THE_MACRO_SWAP_FIELD(type, name) std::swap(req.m_Res.m_##name, msg.m_##name);
 #define THE_MACRO(type, msgOut, msgIn) \
 void FlyClient::NetworkStd::Connection::OnMsg(proto::msgIn&& msg) \
 {  \
-	OnMsg(static_cast<Request##type&>(get_FirstRequestStrict(Request::Type::type)), std::move(msg)); \
+	Request##type& req = static_cast<Request##type&>(get_FirstRequestStrict(Request::Type::type)); \
+	BeamNodeMsg_##msgIn(THE_MACRO_SWAP_FIELD) \
+	OnRequestData(req); \
 }
 
 REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
+#undef THE_MACRO_SWAP_FIELD
 
-void FlyClient::NetworkStd::Connection::OnMsg(RequestUtxo& req, proto::ProofUtxo&& msg)
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestUtxo& req)
 {
-	for (size_t i = 0; i < msg.m_Proofs.size(); i++)
-		if (!m_Tip.IsValidProofUtxo(req.m_Msg.m_Utxo, msg.m_Proofs[i]))
+	for (size_t i = 0; i < req.m_Res.m_Proofs.size(); i++)
+		if (!m_Tip.IsValidProofUtxo(req.m_Msg.m_Utxo, req.m_Res.m_Proofs[i]))
 			ThrowUnexpected();
 
-	req.m_Res.m_Proofs = std::move(msg.m_Proofs);
 	OnFirstRequestDone();
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(RequestKernel& req, proto::ProofKernel&& msg)
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel& req)
 {
-	if (!msg.m_Proof.empty())
-		if (!m_Tip.IsValidProofKernel(req.m_Msg.m_ID, msg.m_Proof))
+	if (!req.m_Res.m_Proof.empty())
+		if (!m_Tip.IsValidProofKernel(req.m_Msg.m_ID, req.m_Res.m_Proof))
 			ThrowUnexpected();
 
-	req.m_Res.m_Proof = std::move(msg.m_Proof);
 	OnFirstRequestDone();
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(RequestMined& req, proto::Mined&& msg)
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestMined& req)
 {
-	req.m_Res.m_Entries = std::move(msg.m_Entries);
 	OnFirstRequestDone();
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(RequestRecover& req, proto::Recovered&& msg)
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestRecover& req)
 {
-	req.m_Res.m_Private = std::move(msg.m_Private);
-	req.m_Res.m_Public = std::move(msg.m_Public);
 	OnFirstRequestDone();
 }
 
-void FlyClient::NetworkStd::Connection::OnFirstRequestDone()
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestTransaction& req)
+{
+	OnFirstRequestDone(false);
+}
+
+void FlyClient::NetworkStd::Connection::OnFirstRequestDone(bool bMustBeAtTip /* = true */)
 {
 	RequestNode& n = m_lst.front();
 	assert(n.m_pRequest);
 
 	if (n.m_pRequest->m_pTrg)
 	{
-		const Block::SystemState::Full* pTip = m_This.m_Client.get_Tip();
-		if (pTip && (*pTip == m_Tip))
-			m_lst.Finish(n);
-		else
+		if (bMustBeAtTip)
 		{
-			// should retry
-			m_lst.erase(RequestList::s_iterator_to(n));
-			m_This.m_lst.push_back(n);
+			const Block::SystemState::Full* pTip = m_This.m_Client.get_Tip();
+			if (!(pTip && (*pTip == m_Tip)))
+			{
+				// should retry
+				m_lst.erase(RequestList::s_iterator_to(n));
+				m_This.m_lst.push_back(n);
+				return;
+			}
 		}
+
+		m_lst.Finish(n);
 	}
 	else
 		m_lst.Delete(n); // aborted already

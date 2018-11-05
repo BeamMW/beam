@@ -630,10 +630,11 @@ namespace proto {
 		const Block::SystemState::Full* get_Tip() const; // NULL if no hist
 
 #define REQUEST_TYPES_All(macro) \
-	macro(Utxo,		GetProofUtxo,	ProofUtxo) \
-	macro(Kernel,	GetProofKernel,	ProofKernel) \
-	macro(Mined,	GetMined,		Mined) \
-	macro(Recover,	Recover,		Recovered)
+	macro(Utxo,			GetProofUtxo,		ProofUtxo) \
+	macro(Kernel,		GetProofKernel,		ProofKernel) \
+	macro(Mined,		GetMined,			Mined) \
+	macro(Transaction,	NewTransaction,		Boolean) \
+	macro(Recover,		Recover,			Recovered)
 
 		struct Request
 		{
@@ -667,7 +668,7 @@ namespace proto {
 		virtual ~FlyClient() {}
 		virtual void OnNewTip() {} // tip already added
 		virtual void OnRolledBack() {} // reversed states are already removed
-		virtual void OnProof(Request::Ptr&&) {}
+		virtual void OnRequestComplete(Request::Ptr&&) {}
 
 		struct INetwork
 		{
@@ -677,7 +678,7 @@ namespace proto {
 
 			virtual void Connect() = 0;
 			virtual void Disconnect() = 0;
-			virtual void RequestProof(Request::Ptr&&) = 0;
+			virtual void PostRequest(Request::Ptr&&) = 0;
 		};
 
 		struct NetworkStd
@@ -726,7 +727,7 @@ namespace proto {
 				void RequestChainworkProof();
 				void PrioritizeSelf();
 				Request& get_FirstRequestStrict(Request::Type);
-				void OnFirstRequestDone();
+				void OnFirstRequestDone(bool bMustBeAtTip = true);
 
 			public:
 				NetworkStd& m_This;
@@ -747,7 +748,7 @@ namespace proto {
 				virtual void OnMsg(proto::ProofChainWork&& msg) override;
 #define THE_MACRO(type, msgOut, msgIn) \
 				virtual void OnMsg(proto::msgIn&&) override; \
-				void OnMsg(Request##type&, proto::msgIn&&);
+				void OnRequestData(Request##type&);
 				REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
 			};
@@ -758,7 +759,7 @@ namespace proto {
 			// INetwork
 			//virtual void Connect() override;
 			virtual void Disconnect() override;
-			virtual void RequestProof(Request::Ptr&&) override;
+			virtual void PostRequest(Request::Ptr&&) override;
 		};
 	};
 
