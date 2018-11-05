@@ -24,6 +24,8 @@
 #include <QPrinter>
 #include <QPrintDialog>
 #include <QPainter>
+#include <QPaintEngine>
+#include <QPrinterInfo>
 #endif
 #include "settings_view.h"
 #include "model/app_model.h"
@@ -269,8 +271,14 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
 {
     try
     {
+        if (QPrinterInfo::availablePrinters().isEmpty())
+        {
+            AppModel::getInstance()->getMessages().addMessage(tr("Printer is not found. Please, check your printer preferences."));
+            return;
+        }
         QImage image = qvariant_cast<QImage>(viewData);
         QPrinter printer;
+        printer.setOutputFormat(QPrinter::NativeFormat);
         printer.setColorMode(QPrinter::GrayScale);
         QPrintDialog dialog(&printer);
         if (dialog.exec() == QDialog::Accepted) {
@@ -279,7 +287,7 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
             
             QRect rect = painter.viewport();
             QFont f;
-            f.setPixelSize(24);
+            f.setPixelSize(16);
             painter.setFont(f);
             int x = 60, y = 30;
 
@@ -313,7 +321,7 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
     }
     catch (...)
     {
-
+        AppModel::getInstance()->getMessages().addMessage(tr("Failed to print recovery phrases. Please, check your printer."));
     }
 }
 
