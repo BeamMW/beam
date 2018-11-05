@@ -131,6 +131,7 @@ namespace beam
             //Outputs = 9,
             CreateTime = 10,
             IsInitiator = 11,
+            MaxHeight = 12,
 
             AtomicSwapCoin = 20,
             AtomicSwapAmount = 21,

@@ -130,6 +130,8 @@ namespace beam
 			std::swap(m_var0, m_var1);
 		}
 	};
+
+	void InstallCrashHandler(const char* szLocation);
 }
 
 namespace std

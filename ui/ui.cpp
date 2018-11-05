@@ -20,6 +20,7 @@
 
 #include <qqmlcontext.h>
 #include "viewmodel/start_view.h"
+#include "viewmodel/restore_view.h"
 #include "viewmodel/main_view.h"
 #include "viewmodel/utxo_view.h"
 #include "viewmodel/dashboard_view.h"
@@ -161,6 +162,7 @@ int main (int argc, char* argv[])
             }
 
             qmlRegisterType<StartViewModel>("Beam.Wallet", 1, 0, "StartViewModel");
+            qmlRegisterType<RestoreViewModel>("Beam.Wallet", 1, 0, "RestoreViewModel");
             qmlRegisterType<MainViewModel>("Beam.Wallet", 1, 0, "MainViewModel");
             qmlRegisterType<DashboardViewModel>("Beam.Wallet", 1, 0, "DashboardViewModel");
             qmlRegisterType<WalletViewModel>("Beam.Wallet", 1, 0, "WalletViewModel");

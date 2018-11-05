@@ -627,17 +627,21 @@ namespace proto {
 
 		const Block::SystemState::Full* get_Tip() const; // NULL if no hist
 
+		virtual ~FlyClient();
+		void ShrinkHist();
 		virtual void OnNewTip() {} // tip already added
 		virtual void OnRolledBack() {} // reversed states are already removed
 
 		class Connection
 			:public NodeConnection
+			,public boost::intrusive::list_base_hook<>
 		{
 			struct SyncCtx
 			{
 				std::vector<Block::SystemState::ID> m_vConfirming;
 				Block::SystemState::Full m_Confirmed;
 				Block::SystemState::Full m_TipBeforeGap;
+				Height m_LowHeightSinceConfirmed;
 			};
 
 			std::unique_ptr<SyncCtx> m_pSync;
@@ -646,12 +650,14 @@ namespace proto {
 
 			bool ShouldSync() const;
 			void StartSync();
-			void SearchBelow(Height);
+			void SearchBelow(Height, uint32_t nCount);
 			void RequestChainworkProof();
 
 		public:
 			FlyClient& m_This;
+
 			Connection(FlyClient& x);
+			virtual ~Connection();
 
 			// most recent tip of the Node, according to which all the proofs are interpreted
 			Block::SystemState::Full m_Tip;
@@ -662,6 +668,10 @@ namespace proto {
 			virtual void OnMsg(proto::ProofCommonState&& msg) override;
 			virtual void OnMsg(proto::ProofChainWork&& msg) override;
 		};
+
+		typedef boost::intrusive::list<Connection> ConnectionList;
+		ConnectionList m_Connections;
+
 	};
 
 

@@ -1411,7 +1411,7 @@ void Node::SyncCycle(Peer& p, const ByteBuffer& buf)
 
 	if (buf.empty())
 	{
-		LOG_INFO() << "Sync cycle complete for Idx=" << m_pSync->m_iData;
+		LOG_INFO() << "Sync cycle complete for Idx=" << uint32_t(m_pSync->m_iData);
 
 		if (++m_pSync->m_iData == Block::Body::RW::Type::count)
 		{
@@ -1696,7 +1696,13 @@ void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType&
 	}
 
 	for (size_t i = 0; i < tx.m_vKernelsOutput.size(); i++)
-		os << "\n\tK: Fee=" << tx.m_vKernelsOutput[i]->m_Fee;
+	{
+		const TxKernel& krn = *tx.m_vKernelsOutput[i];
+		Merkle::Hash hv;
+		krn.get_ID(hv);
+
+		os << "\n\tK: " << hv << " Fee=" << krn.m_Fee;
+	}
 
 	os << "\n\tValid: " << bValid;
 	LOG_INFO() << os.str();

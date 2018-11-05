@@ -73,6 +73,7 @@ namespace beam
         void send_node_message(proto::GetProofUtxo&&) override;
         void send_node_message(proto::GetHdr&&) override;
         void send_node_message(proto::GetMined&&) override;
+        void send_node_message(proto::Recover&&) override;
         void send_node_message(proto::GetProofState&&) override;
         void send_node_message(proto::GetProofKernel&&) override;
 
@@ -165,6 +166,7 @@ namespace beam
             bool OnMsg2(proto::ProofKernel&& msg) override;
 			bool OnMsg2(proto::NewTip&& msg) override;
             bool OnMsg2(proto::Mined&& msg) override;
+            bool OnMsg2(proto::Recovered&& msg) override;
             bool OnMsg2(proto::BbsMsg&& msg) override;
 			bool OnMsg2(proto::Authentication&& msg) override;
 		private:

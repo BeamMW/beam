@@ -135,6 +135,11 @@ namespace beam {
         send_to_node(move(msg));
     }
 
+    void WalletNetworkIO::send_node_message(proto::Recover&& msg)
+    {
+        send_to_node(move(msg));
+    }
+
     void WalletNetworkIO::send_node_message(proto::GetProofState&& msg)
     {
         send_to_node(move(msg));
@@ -393,6 +398,11 @@ namespace beam {
     }
 
     bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Mined&& msg)
+    {
+        return m_wallet.handle_node_message(move(msg));
+    }
+
+    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Recovered&& msg)
     {
         return m_wallet.handle_node_message(move(msg));
     }

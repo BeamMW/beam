@@ -48,17 +48,49 @@ namespace
 
 void TestKeychain()
 {
+    {
+        Coin coin{ 1234 };
+        coin.m_id = 12;
+        coin.m_key_type = Key::Type::Regular;
+        coin.m_keyIndex = 132;
+        coin.m_createHeight = 54;
+        WALLET_CHECK(coin.isValid());
+        auto kidv = coin.get_Kidv();
+        WALLET_CHECK(kidv.m_IdxSecondary == 132);
+        WALLET_CHECK(kidv.m_Idx == 54);
+        WALLET_CHECK(kidv.m_Value == 1234);
+        WALLET_CHECK(kidv.m_Type == Key::Type::Regular);
+        
+        Coin coin2 = Coin::fromKidv(kidv);
+        WALLET_CHECK(coin2.isValid());
+        WALLET_CHECK(coin2.m_amount == coin.m_amount);
+        WALLET_CHECK(coin2.m_key_type == coin.m_key_type);
+        WALLET_CHECK(coin2.m_keyIndex == coin.m_keyIndex);
+        WALLET_CHECK(coin2.m_createHeight == coin.m_createHeight);
+    
+    }
     auto keychain = createSqliteKeychain();
 
     Coin coin1(5, Coin::Unspent, 0, 10);
     keychain->store(coin1);
 
     WALLET_CHECK(coin1.m_id == 1);
+    WALLET_CHECK(coin1.m_keyIndex == 1);
 
     Coin coin2(2, Coin::Unspent, 0, 10);
     keychain->store(coin2);
 
     WALLET_CHECK(coin2.m_id == 2);
+    WALLET_CHECK(coin2.m_keyIndex == 2);
+
+    // attempt to insert duplicated coin
+    {
+        Coin duplicatedCoin2(2, Coin::Unspent, 0, 10);
+        duplicatedCoin2.m_keyIndex = 2;
+        keychain->store(duplicatedCoin2);
+        WALLET_CHECK(duplicatedCoin2.m_id == 2);
+        WALLET_CHECK(duplicatedCoin2.m_keyIndex == 2);
+    }
     
     {
         auto coins = keychain->selectCoins(7);

@@ -42,11 +42,12 @@
     each(4, createHeight,  sep, INTEGER NOT NULL, obj) \
     each(5, maturity,      sep, INTEGER NOT NULL, obj) \
     each(6, key_type,      sep, INTEGER NOT NULL, obj) \
-    each(7, confirmHeight, sep, INTEGER, obj) \
-    each(8, confirmHash,   sep, BLOB, obj) \
-    each(9, createTxId,    sep, BLOB, obj) \
-    each(10, spentTxId,    sep, BLOB, obj) \
-    each(11, lockedHeight,    , BLOB, obj)            // last item without separator// last item without separator
+    each(7, keyIndex,      sep, INTEGER NOT NULL, obj) \
+    each(8, confirmHeight, sep, INTEGER, obj) \
+    each(9, confirmHash,   sep, BLOB, obj) \
+    each(10, createTxId,    sep, BLOB, obj) \
+    each(11, spentTxId,    sep, BLOB, obj) \
+    each(12, lockedHeight,    , BLOB, obj)            // last item without separator// last item without separator
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) \
@@ -607,7 +608,7 @@ namespace beam
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
-        const int DbVersion = 5;
+        const int DbVersion = 6;
     }
 
     Coin::Coin(const Amount& amount, Status status, const Height& createHeight, const Height& maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
@@ -620,6 +621,7 @@ namespace beam
         , m_confirmHeight{ confirmHeight }
         , m_confirmHash(Zero)
         , m_lockedHeight{ lockedHeight }
+        , m_keyIndex{0}
 	{
         assert(isValid());
     }
@@ -638,8 +640,7 @@ namespace beam
     bool Coin::isValid() const
     {
         return m_createHeight <= m_maturity
-            && m_maturity <= m_lockedHeight
-            && m_createHeight <= m_confirmHeight;
+            && m_maturity <= m_lockedHeight;
     }
 
 	uint64_t IKeyChain::get_AutoIncrID()
@@ -660,6 +661,32 @@ namespace beam
 		return res;
 	}
 
+    Key::IDV Coin::get_Kidv() const
+    {
+        // For coinbase and fee commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
+        Key::IDV kidv(m_amount, m_createHeight, m_key_type, m_keyIndex);
+
+        switch (m_key_type)
+        {
+        case Key::Type::Coinbase:
+        case Key::Type::Comission:
+            kidv.m_IdxSecondary = 0;
+            break;
+
+        default: // suppress warning
+            break;
+        }
+
+        return kidv;
+    }
+
+    Coin Coin::fromKidv(const Key::IDV& kidv)
+    {
+        Coin c(kidv.m_Value, Coin::Unconfirmed, kidv.m_Idx, MaxHeight, kidv.m_Type);
+        c.m_keyIndex = kidv.m_IdxSecondary;
+        assert(c.isValid());
+        return c;
+    }
 
     bool Keychain::isInitialized(const string& path)
     {
@@ -855,28 +882,9 @@ namespace beam
 		return m_pKdf;
 	}
 
-	Key::IDV Coin::get_Kidv() const
-	{
-		// For coinbase and fee commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
-		Key::IDV kidv(m_amount, m_createHeight, m_key_type, m_id);
-
-		switch (m_key_type)
-		{
-		case Key::Type::Coinbase:
-		case Key::Type::Comission:
-			kidv.m_IdxSecondary = 0;
-			break;
-
-		default: // suppress warning
-			break;
-		}
-
-		return kidv;
-	}
-
     ECC::Scalar::Native Keychain::calcKey(const beam::Coin& coin) const
     {
-		assert(coin.m_key_type != Key::Type::Regular || coin.m_id > 0);
+		assert(coin.m_key_type != Key::Type::Regular || coin.m_keyIndex > 0);
 
 		ECC::Scalar::Native key;
 		m_pKdf->DeriveKey(key, coin.get_Kidv());
@@ -1032,8 +1040,7 @@ namespace beam
     void Keychain::storeImpl(Coin& coin)
     {
         assert(coin.m_amount > 0 && coin.isValid());
-        if (coin.m_key_type == Key::Type::Coinbase
-            || coin.m_key_type == Key::Type::Comission)
+        if (coin.isReward())
         {
             const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE createHeight=?1 AND key_type=?2;";
             sqlite::Statement stm(_db, req);
@@ -1042,6 +1049,27 @@ namespace beam
             if (stm.step()) //has row
             {
                 return; // skip existing
+            }
+        }
+        else if (coin.m_keyIndex == 0)
+        {
+            coin.m_keyIndex = getLastID(_db) + 1;
+        }
+
+        {
+            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE createHeight=?1 AND key_type=?2 AND keyIndex=?3; ");
+            stm.bind(1, coin.m_createHeight);
+            stm.bind(2, coin.m_key_type);
+            stm.bind(3, coin.m_keyIndex);
+            if (stm.step())
+            {
+                Amount amount = coin.m_amount;
+                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+                if (amount != coin.m_amount)
+                {
+                    LOG_WARNING() << "Attempt to store invalid UTXO";
+                }
+                return;
             }
         }
 
