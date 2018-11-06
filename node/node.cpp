@@ -618,7 +618,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 	return pPeer;
 }
 
-void Node::Initialize()
+void Node::Initialize(IExternalPOW* externalPOW=nullptr)
 {
 	if (!m_pKdf)
 	{
@@ -663,7 +663,7 @@ void Node::Initialize()
 	}
 
 	m_PeerMan.Initialize();
-	m_Miner.Initialize();
+	m_Miner.Initialize(externalPOW);
 	m_Compressor.Init();
 	m_Bbs.Cleanup();
 }
@@ -2668,20 +2668,30 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 	}
 }
 
-void Node::Miner::Initialize()
+void Node::Miner::Initialize(IExternalPOW* externalPOW)
 {
 	const Config& cfg = get_ParentObj().m_Cfg;
-	if (!cfg.m_MiningThreads)
+	if (!cfg.m_MiningThreads || !externalPOW)
 		return;
 
 	m_pEvtMined = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
 
-	m_vThreads.resize(cfg.m_MiningThreads);
-	for (uint32_t i = 0; i < cfg.m_MiningThreads; i++)
-	{
-		PerThread& pt = m_vThreads[i];
+	auto nThreads = cfg.m_MiningThreads;
+	if (externalPOW) ++nThreads;
+
+	m_vThreads.resize(nThreads);
+	for (uint32_t i = 0; i < cfg.m_MiningThreads; i++) {
+		PerThread &pt = m_vThreads[i];
 		pt.m_pReactor = io::Reactor::create();
 		pt.m_pEvt = io::AsyncEvent::create(*pt.m_pReactor, [this, i]() { OnRefresh(i); });
+		pt.m_Thread = std::thread(&io::Reactor::run, pt.m_pReactor);
+	}
+
+	if (externalPOW) {
+		m_externalPOW = externalPOW;
+		PerThread& pt = m_vThreads[nThreads-1];
+		pt.m_pReactor = io::Reactor::create();
+		pt.m_pEvt = io::AsyncEvent::create(*pt.m_pReactor, [this]() { OnRefreshExternal(); });
 		pt.m_Thread = std::thread(&io::Reactor::run, pt.m_pReactor);
 	}
 
@@ -2776,6 +2786,62 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 	}
 }
 
+void Node::Miner::OnRefreshExternal()
+{
+	if (!m_externalPOW) return;
+
+	Task::Ptr pTask;
+	Block::SystemState::Full s;
+
+	{
+		std::scoped_lock<std::mutex> scope(m_Mutex);
+		if (!m_pTask) {
+			m_externalPOW->stop();
+			return;
+		}
+
+		if (*m_pTask->m_pStop) {
+			m_externalPOW->stop_current();
+			return;
+		}
+
+		pTask = m_pTask;
+		s = pTask->m_Hdr; // local copy
+	}
+
+	LOG_INFO() << "New job for external miner";
+
+	Block::PoW::Cancel fnCancel = [this, pTask](bool bRetrying)
+	{
+		if (*pTask->m_pStop)
+			return true;
+
+		if (bRetrying)
+		{
+			std::scoped_lock<std::mutex> scope(m_Mutex);
+			if (pTask != m_pTask)
+				return true; // soft restart triggered
+		}
+
+		return false;
+	};
+
+	if (!s.GeneratePoW(fnCancel, m_externalPOW)) {
+		return;
+	}
+
+	std::scoped_lock<std::mutex> scope(m_Mutex);
+// TODO
+	if (*pTask->m_pStop)
+		return;
+
+	pTask->m_Hdr = s; // save the result
+	*pTask->m_pStop = true;
+	m_pTask = pTask; // In case there was a soft restart we restore the one that we mined.
+
+	m_pEvtMined->post();
+}
+
 void Node::Miner::HardAbortSafe()
 {
 	std::scoped_lock<std::mutex> scope(m_Mutex);
@@ -2863,6 +2929,10 @@ bool Node::Miner::Restart()
 
 	for (size_t i = 0; i < m_vThreads.size(); i++)
 		m_vThreads[i].m_pEvt->post();
+
+	if (m_externalPOW) {
+
+	}
 
 	return true;
 }

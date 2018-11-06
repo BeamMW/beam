@@ -15,9 +15,9 @@
 #pragma once
 
 #include "processor.h"
-#include "../utility/io/timer.h"
-#include "../core/proto.h"
-#include "../core/block_crypt.h"
+#include "utility/io/timer.h"
+#include "core/proto.h"
+#include "core/block_crypt.h"
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/set.hpp>
 #include <condition_variable>
@@ -130,7 +130,7 @@ struct Node
 	Key::IPKdf::Ptr m_pOwnerKdf;
 
 	~Node();
-	void Initialize();
+	void Initialize(IExternalPOW* externalPOW=nullptr);
 	void ImportMacroblock(Height); // throws on err
 
 	NodeProcessor& get_Processor() { return m_Processor; } // for tests only!
@@ -544,6 +544,7 @@ private:
 	{
 		std::vector<PerThread> m_vThreads;
 		io::AsyncEvent::Ptr m_pEvtMined;
+		IExternalPOW* m_externalPOW=nullptr;
 
 		struct Task
 		{
@@ -560,8 +561,9 @@ private:
 			ECC::Hash::Value m_hvNonceSeed; // immutable
 		};
 
-		void Initialize();
+		void Initialize(IExternalPOW* externalPOW=nullptr);
 		void OnRefresh(uint32_t iIdx);
+		void OnRefreshExternal();
 		void OnMined();
 
 		void HardAbortSafe();

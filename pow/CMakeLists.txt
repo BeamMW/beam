@@ -20,4 +20,12 @@ target_link_libraries(pow crypto)
 target_include_directories(pow PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/crypto)
 target_compile_definitions(pow PRIVATE ENABLE_MINING)
 
+add_library(external_pow STATIC external_pow.cpp external_pow_stub.cpp)
+add_dependencies(external_pow core p2p pow)
+target_link_libraries(external_pow core p2p pow)
+
+add_executable(miner_client miner_client.cpp)
+add_dependencies(miner_client external_pow)
+target_link_libraries(miner_client external_pow)
+
 add_subdirectory(unittests)

@@ -18,7 +18,7 @@
 
 namespace beam
 {
-    const Height MaxHeight = static_cast<Height>(-1);
+	const Height MaxHeight = static_cast<Height>(-1);
 
 	typedef ECC::Hash::Value PeerID;
 	typedef uint64_t BbsChannel;
