@@ -86,7 +86,9 @@ endif()
 
 configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 
-add_dependencies(${TARGET_NAME} wallet mnemonic)
+add_subdirectory(qrcode)
+add_dependencies(${TARGET_NAME} wallet mnemonic qrcode)
+target_link_libraries(${TARGET_NAME} qrcode)
 
 if(LINUX)
 	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
