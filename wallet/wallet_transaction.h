@@ -45,7 +45,7 @@ namespace beam { namespace wallet
     MACRO(ExpiredAddressProvided, 8, "address is expired") \
     MACRO(FailedToGetParameter,   9, "failed to get parameter") \
 
-    enum TxFailureReason : int
+    enum TxFailureReason : int32_t
     {
         #define MACRO(name, code, _) name = code, 
         BEAM_TX_FAILURE_REASON_MAP(MACRO)
