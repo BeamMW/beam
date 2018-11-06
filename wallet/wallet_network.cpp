@@ -20,7 +20,7 @@
 #define WALLET_REV   2
 
 using namespace std;
-
+/*
 namespace
 {
     const char* BBS_TIMESTAMPS = "BbsTimestamps";
@@ -434,3 +434,4 @@ namespace beam {
     }
 
 }
+*/

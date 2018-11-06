@@ -25,6 +25,8 @@
 #include <boost/intrusive/set.hpp>
 #include "wallet.h"
 
+/*
+
 namespace beam
 {
     namespace bi = boost::intrusive;
@@ -209,3 +211,4 @@ namespace beam
         const WalletID* m_lastReceiver;
     };
 }
+*/
