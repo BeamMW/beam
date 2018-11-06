@@ -629,6 +629,8 @@ namespace proto {
 		StateMap m_Hist; // some recent blocks of the current active branch
 		void ShrinkHist();
 
+		Key::IKdf::Ptr m_pKdf; // used for auth
+
 		const Block::SystemState::Full* get_Tip() const; // NULL if no hist
 
 #define REQUEST_TYPES_All(macro) \
@@ -661,7 +663,7 @@ namespace proto {
 			virtual ~Request() {}
 			virtual Type get_Type() const = 0;
 
-			FlyClient* m_pTrg = NULL; // set to NULL if aborted
+			FlyClient* m_pTrg = NULL; // set to NULL if aborted. Can be different from the owner instance
 		};
 
 #define THE_MACRO(type, msgOut, msgIn) \
@@ -682,11 +684,10 @@ namespace proto {
 		virtual void OnRolledBack() {} // reversed states are already removed
 		virtual void OnRequestComplete(Request&) {}
 		virtual void OnMsg(proto::BbsMsg&&) {}
+		virtual bool IsOwnedNode(const PeerID&) { return true; }
 
 		struct INetwork
 		{
-			FlyClient& m_Client;
-			INetwork(FlyClient& fc) :m_Client(fc) {}
 			virtual ~INetwork() {}
 
 			virtual void Connect() = 0;
@@ -698,7 +699,9 @@ namespace proto {
 		struct NetworkStd
 			:public INetwork
 		{
-			NetworkStd(FlyClient& fc) :INetwork(fc) {}
+			FlyClient& m_Client;
+
+			NetworkStd(FlyClient& fc) :m_Client(fc) {}
 			virtual ~NetworkStd();
 
 			struct RequestNode
@@ -724,8 +727,6 @@ namespace proto {
 				uint32_t m_PollPeriod_ms = 0; // set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks
 				uint32_t m_ReconnectTimeout_ms = 5000;
 			} m_Cfg;
-
-			Key::IKdf::Ptr m_pKdf;
 
 			class Connection
 				:public NodeConnection
