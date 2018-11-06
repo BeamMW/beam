@@ -580,7 +580,7 @@ namespace beam { namespace wallet
         assert(m_Kernel);
         Merkle::Hash kernelID = { 0 };
         m_Kernel->get_ID(kernelID);
-        LOG_INFO() << "Transaction kernel: " << kernelID;
+        LOG_INFO() << "Transaction: " << m_Tx.GetTxID() << " kernel: " << kernelID;
         // create transaction
         auto transaction = make_shared<Transaction>();
         transaction->m_vKernelsOutput.push_back(move(m_Kernel));
