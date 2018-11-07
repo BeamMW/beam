@@ -20,6 +20,7 @@
 #include "wallet/wallet.h"
 #include "wallet/secstring.h"
 #include "utility/test_helpers.h"
+#include "../../core/radixtree.h"
 #include "../../core/unittest/mini_blockchain.h"
 #include <string_view>
 
@@ -602,7 +603,6 @@ struct TestWalletRig
 		, m_Wallet{ m_Keychain, move(action) }
 		, m_NodeNetwork(m_Wallet)
     {
-		m_Wallet.set_Network(m_NodeNetwork, m_WalletNetwork);
     }
 
     vector<Coin> GetCoins()
@@ -622,19 +622,6 @@ struct TestWalletRig
     int m_CompletedCount{1};
 	Wallet m_Wallet;
 	proto::FlyClient::NetworkStd m_NodeNetwork;
-
-	struct WalletNetwork
-		:public IWallet::INetwork
-	{
-		IWallet* m_pDst = NULL;
-
-		std::deque<wallet::SetTxParameter> m_que;
-
-		virtual void Send(const WalletID& peerID, wallet::SetTxParameter&& msg) override;
-
-		IMPLEMENT_GET_PARENT_OBJ(TestWalletRig, m_WalletNetwork)
-	} m_WalletNetwork;
-
 };
 
 struct TestWalletNetwork
@@ -782,7 +769,8 @@ public:
     TestNode(io::Address address)
     {
         m_Server.Listen(address);
-		BuildHdrs(134);
+		while (m_mcm.m_vStates.size() < 145)
+			AddBlock();
     }
 
     ~TestNode() {
@@ -795,100 +783,45 @@ public:
             DeleteClient(&m_lstClients.front());
     }
 
-	struct State
+	MiniBlockChain m_mcm;
+
+	UtxoTree m_Utxos;
+	RadixHashOnlyTree m_Kernels;
+
+	void AddBlock()
 	{
-		Block::SystemState::Full m_Hdr;
-		std::unique_ptr<uint8_t[]> m_pMmrData;
-	};
-	std::vector<State> m_vStates;
+		Merkle::Hash hvUtxo, hvKrn;
+		m_Utxos.get_Hash(hvUtxo);
+		m_Kernels.get_Hash(hvKrn);
 
-	struct DMmr
-		:public Merkle::DistributedMmr
-	{
-		virtual const void* get_NodeData(Key key) const
+		Merkle::Interpret(m_mcm.m_hvLive, hvUtxo, hvKrn);
+		m_mcm.Add();
+
+		for (auto it = m_lstClients.begin(); m_lstClients.end() != it; it++)
 		{
-			return ((State*)key)->m_pMmrData.get();
-		}
-
-		virtual void get_NodeHash(Merkle::Hash& hv, Key key) const
-		{
-			((State*)key)->m_Hdr.get_Hash(hv);
-		}
-
-		IMPLEMENT_GET_PARENT_OBJ(TestNode, m_Mmr)
-	} m_Mmr;
-
-	struct Source
-		:public Block::ChainWorkProof::ISource
-	{
-		virtual void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
-		{
-			// median search. The Hdr.m_ChainWork must be strictly bigger than d. (It's exclusive)
-			typedef std::vector<State>::const_iterator Iterator;
-			Iterator it0 = get_ParentObj().m_vStates.begin();
-			Iterator it1 = get_ParentObj().m_vStates.end();
-
-			while (it0 < it1)
+			Client& c = *it; // maybe this
+			if (c.IsSecureOut())
 			{
-				Iterator itMid = it0 + (it1 - it0) / 2;
-				if (itMid->m_Hdr.m_ChainWork <= d)
-					it0 = itMid + 1;
-				else
-					it1 = itMid;
+				proto::NewTip msg;
+				msg.m_Description = m_mcm.m_vStates.back().m_Hdr;
+				c.Send(msg);
 			}
-
-			s = it0->m_Hdr;
 		}
+	}
 
-		virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
-		{
-			assert(h >= Rules::HeightGenesis);
-			h -= Rules::HeightGenesis;
-
-			assert(h < get_ParentObj().m_vStates.size());
-
-			get_ParentObj().m_Mmr.get_Proof(bld, h);
-		}
-
-		IMPLEMENT_GET_PARENT_OBJ(TestNode, m_Source)
-	} m_Source;
-
-	void BuildHdrs(Height h)
+	void AddKernel(const TxKernel& krn)
 	{
-		Merkle::Hash hvLive = Zero;
+		Merkle::Hash hvKrn;
+		krn.get_Hash(hvKrn);
+		AddKernel(hvKrn);
+	}
 
-		m_vStates.resize(h);
-		Difficulty d = Rules::get().StartDifficulty;
-
-		for (size_t i = 0; i < m_vStates.size(); i++)
-		{
-			State& s = m_vStates[i];
-			if (i)
-			{
-				const State& s0 = m_vStates[i - 1];
-				s.m_Hdr = s0.m_Hdr;
-				s.m_Hdr.NextPrefix();
-
-				m_Mmr.Append(DMmr::Key(&s0), s0.m_pMmrData.get(), s.m_Hdr.m_Prev);
-			}
-			else
-			{
-				ZeroObject(s.m_Hdr);
-				s.m_Hdr.m_Height = Rules::HeightGenesis;
-			}
-
-			s.m_Hdr.m_PoW.m_Difficulty = d;
-			d.Inc(s.m_Hdr.m_ChainWork);
-
-			if (!((i + 1) % 8000))
-				d.Adjust(140, 150, 3); // slightly raise
-
-			m_Mmr.get_Hash(s.m_Hdr.m_Definition);
-			Merkle::Interpret(s.m_Hdr.m_Definition, hvLive, true);
-
-			uint32_t nSize = m_Mmr.get_NodeSize(i);
-			s.m_pMmrData.reset(new uint8_t[nSize]);
-		}
+	void AddKernel(const Merkle::Hash& hvKrn)
+	{
+		RadixHashOnlyTree::Cursor cu;
+		bool bCreate = true;
+		m_Kernels.Find(cu, hvKrn, bCreate);
+		WALLET_CHECK(bCreate);
 	}
 
 private:
@@ -908,6 +841,20 @@ private:
 
 
         // protocol handler
+		void OnConnectedSecure() override
+		{
+			ECC::Scalar::Native sk;
+			sk = 23U;
+			ProveID(sk, proto::IDType::Node);
+
+			proto::Config msgCfg;
+			msgCfg.m_CfgChecksum = Rules::get().Checksum;
+			msgCfg.m_SpreadingTransactions = true;
+			msgCfg.m_Bbs = true;
+			msgCfg.m_SendPeers = true;
+			Send(msgCfg);
+		}
+
         void OnMsg(proto::NewTransaction&& data) override
         {
             for (const auto& input : data.m_Transaction->m_vInputs)
@@ -918,33 +865,106 @@ private:
             {
                 m_This.AddCommitment(output->m_Commitment);
             }
+
             Send(proto::Boolean{ true });
+
+			for (size_t i = 0; i < data.m_Transaction->m_vKernelsOutput.size(); i++)
+				m_This.AddKernel(*data.m_Transaction->m_vKernelsOutput[i]);
+
+			m_This.AddBlock();
         }
 
         void OnMsg(proto::GetProofUtxo&& data) override
         {
-            if (m_This.HasCommitment(data.m_Utxo.m_Commitment))
-            {
-                Input::Proof proof = {};
-                proof.m_State.m_Maturity = 134 + 60;
-                Send(proto::ProofUtxo{ {proof} });
-            }
-            else
-            {
-                Send(proto::ProofUtxo{});
-            }
+			struct Traveler :public UtxoTree::ITraveler
+			{
+				proto::ProofUtxo m_Msg;
+				UtxoTree* m_pTree;
+				Merkle::Hash m_hvHistory;
+				Merkle::Hash m_hvKernels;
+
+				virtual bool OnLeaf(const RadixTree::Leaf& x) override {
+
+					const UtxoTree::MyLeaf& v = (UtxoTree::MyLeaf&) x;
+					UtxoTree::Key::Data d;
+					d = v.m_Key;
+
+					m_Msg.m_Proofs.resize(m_Msg.m_Proofs.size() + 1);
+					Input::Proof& ret = m_Msg.m_Proofs.back();
+
+					ret.m_State.m_Count = v.m_Value.m_Count;
+					ret.m_State.m_Maturity = d.m_Maturity;
+					m_pTree->get_Proof(ret.m_Proof, *m_pCu);
+
+					ret.m_Proof.reserve(ret.m_Proof.size() + 2);
+
+					ret.m_Proof.resize(ret.m_Proof.size() + 1);
+					ret.m_Proof.back().first = true;
+					ret.m_Proof.back().second = m_hvKernels;
+
+					ret.m_Proof.resize(ret.m_Proof.size() + 1);
+					ret.m_Proof.back().first = false;
+					ret.m_Proof.back().second = m_hvHistory;
+
+					return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
+				}
+			} t;
+
+			t.m_pTree = &m_This.m_Utxos;
+			m_This.m_Kernels.get_Hash(t.m_hvKernels);
+			m_This.m_mcm.m_Mmr.get_Hash(t.m_hvHistory);
+
+			UtxoTree::Cursor cu;
+			t.m_pCu = &cu;
+
+			// bounds
+			UtxoTree::Key kMin, kMax;
+
+			UtxoTree::Key::Data d;
+			d.m_Commitment = data.m_Utxo.m_Commitment;
+			d.m_Maturity = data.m_MaturityMin;
+			kMin = d;
+			d.m_Maturity = Height(-1);
+			kMax = d;
+
+			t.m_pBound[0] = kMin.m_pArr;
+			t.m_pBound[1] = kMax.m_pArr;
+
+			t.m_pTree->Traverse(t);
+
+			Send(t.m_Msg);
         }
 
-        void OnMsg(proto::GetProofKernel&& /*data*/) override
+        void OnMsg(proto::GetProofKernel&& data) override
         {
-            Send(proto::ProofKernel());
+			proto::ProofKernel msgOut;
+
+			RadixHashOnlyTree& t = m_This.m_Kernels;
+
+			RadixHashOnlyTree::Cursor cu;
+			bool bCreate = false;
+			if (t.Find(cu, data.m_ID, bCreate))
+			{
+				t.get_Proof(msgOut.m_Proof, cu);
+				msgOut.m_Proof.reserve(msgOut.m_Proof.size() + 2);
+
+				msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+				msgOut.m_Proof.back().first = false;
+				m_This.m_Utxos.get_Hash(msgOut.m_Proof.back().second);
+
+				msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+				msgOut.m_Proof.back().first = false;
+				m_This.m_mcm.m_Mmr.get_Hash(msgOut.m_Proof.back().second);
+			}
+
+            Send(msgOut);
         }
 
         void OnMsg(proto::Config&& /*data*/) override
         {
             proto::NewTip msg;
 
-			msg.m_Description = m_This.m_vStates.back().m_Hdr;
+			msg.m_Description = m_This.m_mcm.m_vStates.back().m_Hdr;
             Send(move(msg));
         }
 
@@ -967,7 +987,8 @@ private:
 		{
 			proto::ProofChainWork msgOut;
 			msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
-			msgOut.m_Proof.Create(m_This.m_Source, m_This.m_vStates.back().m_Hdr);
+			msgOut.m_Proof.m_hvRootLive = m_This.m_mcm.m_hvLive;
+			msgOut.m_Proof.Create(m_This.m_mcm.m_Source, m_This.m_mcm.m_vStates.back().m_Hdr);
 
 			Send(msgOut);
 		}
@@ -1029,22 +1050,77 @@ private:
         delete client;
     }
 
-    set<ECC::Point> m_Commitments;
-
-    void AddCommitment(const ECC::Point& c)
+    bool AddCommitment(const ECC::Point& c)
     {
-        m_Commitments.insert(c);
-    }
+		UtxoTree::Key::Data d;
+		d.m_Commitment = c;
+		d.m_Maturity = m_mcm.m_vStates.back().m_Hdr.m_Height;
 
-    void RemoveCommitment(const ECC::Point& c)
-    {
-        m_Commitments.erase(c);
-    }
+		UtxoTree::Key key;
+		key = d;
 
-    bool HasCommitment(const ECC::Point& c)
+		UtxoTree::Cursor cu;
+		bool bCreate = true;
+		UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
+
+		cu.Invalidate();
+
+		if (bCreate)
+			p->m_Value.m_Count = 1;
+		else
+		{
+			// protect again overflow attacks, though it's highly unlikely (Input::Count is currently limited to 32 bits, it'd take millions of blocks)
+			Input::Count nCountInc = p->m_Value.m_Count + 1;
+			if (!nCountInc)
+				return false;
+
+			p->m_Value.m_Count = nCountInc;
+		}
+
+		return true;
+	}
+
+    bool RemoveCommitment(const ECC::Point& c)
     {
-        return m_Commitments.find(c) != m_Commitments.end();
-    }
+		UtxoTree::Cursor cu;
+		UtxoTree::MyLeaf* p;
+		UtxoTree::Key::Data d;
+		d.m_Commitment = c;
+
+		struct Traveler :public UtxoTree::ITraveler {
+			virtual bool OnLeaf(const RadixTree::Leaf& x) override {
+				return false; // stop iteration
+			}
+		} t;
+
+
+		UtxoTree::Key kMin, kMax;
+
+		d.m_Maturity = 0;
+		kMin = d;
+		d.m_Maturity = m_mcm.m_vStates.back().m_Hdr.m_Height;
+		kMax = d;
+
+		t.m_pCu = &cu;
+		t.m_pBound[0] = kMin.m_pArr;
+		t.m_pBound[1] = kMax.m_pArr;
+
+		if (m_Utxos.Traverse(t))
+			return false;
+
+		p = &(UtxoTree::MyLeaf&) cu.get_Leaf();
+
+		d = p->m_Key;
+		assert(d.m_Commitment == c);
+		assert(p->m_Value.m_Count); // we don't store zeroes
+
+		if (!--p->m_Value.m_Count)
+			m_Utxos.Delete(cu);
+		else
+			cu.Invalidate();
+
+		return true;
+	}
 
     struct Server
         :public proto::NodeConnection::Server
@@ -1151,187 +1227,201 @@ private:
 //    cout << "\nFinish of testing Tx to himself...\n";
 //}
 //
-//void TestP2PWalletNegotiationST()
-//{
-//    cout << "\nTesting p2p wallets negotiation single thread...\n";
-//
-//    auto nodeAddress = io::Address::localhost().port(32125);
-//
-//    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-//    io::Reactor::Scope scope(*mainReactor);
-//
-//    int completedCount = 2;
-//    auto f = [&completedCount, mainReactor](auto)
-//    {
-//        --completedCount;
-//        if (completedCount == 0)
-//        {
-//            mainReactor->stop();
-//            completedCount = 2;
-//        }
-//    };
-//
-//    TestWalletRig sender("sender", createSenderKeychain(), mainReactor, f);
-//    TestWalletRig receiver("receiver", createReceiverKeychain(), mainReactor, f);
-//
-//    WALLET_CHECK(sender.m_Keychain->selectCoins(6, false).size() == 2);
-//    WALLET_CHECK(sender.m_Keychain->getTxHistory().empty());
-//    WALLET_CHECK(receiver.m_Keychain->getTxHistory().empty());
-//
-//    helpers::StopWatch sw;
-//    TestNode node{ nodeAddress };
-//    sw.start();
-//
-//    TxID txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2);
-//
-//    mainReactor->run();
-//    sw.stop();
-//    cout << "First transfer elapsed time: " << sw.milliseconds() << " ms\n";
-//
-//    // check coins
-//    vector<Coin> newSenderCoins = sender.GetCoins();
-//    vector<Coin> newReceiverCoins = receiver.GetCoins();
-//
-//    WALLET_CHECK(newSenderCoins.size() == 4);
-//    WALLET_CHECK(newReceiverCoins.size() == 1);
-//    WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
-//    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unspent);
-//    WALLET_CHECK(newReceiverCoins[0].m_key_type == Key::Type::Regular);
-//
-//    WALLET_CHECK(newSenderCoins[0].m_amount == 5);
-//    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
-//    WALLET_CHECK(newSenderCoins[0].m_key_type == Key::Type::Regular);
-//
-//    WALLET_CHECK(newSenderCoins[1].m_amount == 2);
-//    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Unspent);
-//    WALLET_CHECK(newSenderCoins[1].m_key_type == Key::Type::Regular);
-//
-//    WALLET_CHECK(newSenderCoins[2].m_amount == 1);
-//    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
-//    WALLET_CHECK(newSenderCoins[2].m_key_type == Key::Type::Regular);
-//
-//    WALLET_CHECK(newSenderCoins[3].m_amount == 9);
-//    WALLET_CHECK(newSenderCoins[3].m_status == Coin::Unspent);
-//    WALLET_CHECK(newSenderCoins[3].m_key_type == Key::Type::Regular);
-//
-//    // Tx history check
-//    auto sh = sender.m_Keychain->getTxHistory();
-//    WALLET_CHECK(sh.size() == 1);
-//    auto rh = receiver.m_Keychain->getTxHistory();
-//    WALLET_CHECK(rh.size() == 1);
-//    auto stx = sender.m_Keychain->getTx(txId);
-//    WALLET_CHECK(stx.is_initialized());
-//    auto rtx = receiver.m_Keychain->getTx(txId);
-//    WALLET_CHECK(rtx.is_initialized());
-//
-//    WALLET_CHECK(stx->m_txId == rtx->m_txId);
-//    WALLET_CHECK(stx->m_amount == rtx->m_amount);
-//    WALLET_CHECK(stx->m_status == TxStatus::Completed);
-//    WALLET_CHECK(stx->m_fee == rtx->m_fee);
-//    WALLET_CHECK(stx->m_message == rtx->m_message);
-//    WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
-//    WALLET_CHECK(stx->m_status == rtx->m_status);
-//    WALLET_CHECK(stx->m_fsmState.empty());
-//    WALLET_CHECK(rtx->m_fsmState.empty());
-//    WALLET_CHECK(stx->m_sender == true);
-//    WALLET_CHECK(rtx->m_sender == false);
-//
-//    // second transfer
-//    sw.start();
-//    txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6);
-//    mainReactor->run();
-//    sw.stop();
-//    cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
-//
-//    // check coins
-//    newSenderCoins = sender.GetCoins();
-//    newReceiverCoins = receiver.GetCoins();
-//
-//    WALLET_CHECK(newSenderCoins.size() == 5);
-//    WALLET_CHECK(newReceiverCoins.size() == 2);
-//
-//    WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
-//    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unspent);
-//    WALLET_CHECK(newReceiverCoins[0].m_key_type == Key::Type::Regular);
-//
-//    WALLET_CHECK(newReceiverCoins[1].m_amount == 6);
-//    WALLET_CHECK(newReceiverCoins[1].m_status == Coin::Unspent);
-//    WALLET_CHECK(newReceiverCoins[1].m_key_type == Key::Type::Regular);
-//
-//
-//    WALLET_CHECK(newSenderCoins[0].m_amount == 5);
-//    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
-//    WALLET_CHECK(newSenderCoins[0].m_key_type == Key::Type::Regular);
-//
-//    WALLET_CHECK(newSenderCoins[1].m_amount == 2);
-//    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Unspent);
-//    WALLET_CHECK(newSenderCoins[1].m_key_type == Key::Type::Regular);
-//
-//    WALLET_CHECK(newSenderCoins[2].m_amount == 1);
-//    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
-//    WALLET_CHECK(newSenderCoins[2].m_key_type == Key::Type::Regular);
-//
-//    WALLET_CHECK(newSenderCoins[3].m_amount == 9);
-//    WALLET_CHECK(newSenderCoins[3].m_status == Coin::Spent);
-//    WALLET_CHECK(newSenderCoins[3].m_key_type == Key::Type::Regular);
-//
-//    WALLET_CHECK(newSenderCoins[4].m_amount == 3);
-//    WALLET_CHECK(newSenderCoins[4].m_status == Coin::Unspent);
-//    WALLET_CHECK(newSenderCoins[4].m_key_type == Key::Type::Regular);
-//
-//    // Tx history check
-//    sh = sender.m_Keychain->getTxHistory();
-//    WALLET_CHECK(sh.size() == 2);
-//    rh = receiver.m_Keychain->getTxHistory();
-//    WALLET_CHECK(rh.size() == 2);
-//    stx = sender.m_Keychain->getTx(txId);
-//    WALLET_CHECK(stx.is_initialized());
-//    rtx = receiver.m_Keychain->getTx(txId);
-//    WALLET_CHECK(rtx.is_initialized());
-//
-//    WALLET_CHECK(stx->m_txId == rtx->m_txId);
-//    WALLET_CHECK(stx->m_amount == rtx->m_amount);
-//    WALLET_CHECK(stx->m_status == TxStatus::Completed);
-//    WALLET_CHECK(stx->m_message == rtx->m_message);
-//    WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
-//    WALLET_CHECK(stx->m_status == rtx->m_status);
-//    WALLET_CHECK(stx->m_fsmState.empty());
-//    WALLET_CHECK(rtx->m_fsmState.empty());
-//    WALLET_CHECK(stx->m_sender == true);
-//    WALLET_CHECK(rtx->m_sender == false);
-//
-//
-//    // third transfer. no enough money should appear
-//    sw.start();
-//    completedCount = 1;// only one wallet takes part in tx
-//    txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6);
-//    mainReactor->run();
-//    sw.stop();
-//    cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
-//    
-//    // check coins
-//    newSenderCoins = sender.GetCoins();
-//    newReceiverCoins = receiver.GetCoins();
-//
-//    // no coins 
-//    WALLET_CHECK(newSenderCoins.size() == 5);
-//    WALLET_CHECK(newReceiverCoins.size() == 2);
-//
-//    // Tx history check. New failed tx should be added to sender
-//    sh = sender.m_Keychain->getTxHistory();
-//    WALLET_CHECK(sh.size() == 3);
-//    rh = receiver.m_Keychain->getTxHistory();
-//    WALLET_CHECK(rh.size() == 2);
-//    stx = sender.m_Keychain->getTx(txId);
-//    WALLET_CHECK(stx.is_initialized());
-//    rtx = receiver.m_Keychain->getTx(txId);
-//    WALLET_CHECK(!rtx.is_initialized());
-//
-//    WALLET_CHECK(stx->m_amount == 6);
-//    WALLET_CHECK(stx->m_status == TxStatus::Failed);
-//    WALLET_CHECK(stx->m_fsmState.empty());
-//    WALLET_CHECK(stx->m_sender == true);
-//}
+void TestP2PWalletNegotiationST()
+{
+    cout << "\nTesting p2p wallets negotiation single thread...\n";
+
+    auto nodeAddress = io::Address::localhost().port(32125);
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    int completedCount = 2;
+    auto f = [&completedCount, mainReactor](auto)
+    {
+        --completedCount;
+        if (completedCount == 0)
+        {
+            mainReactor->stop();
+            completedCount = 2;
+        }
+    };
+
+    TestWalletRig sender("sender", createSenderKeychain(), mainReactor, f);
+    TestWalletRig receiver("receiver", createReceiverKeychain(), mainReactor, f);
+
+	TestWalletNetwork twn;
+	sender.m_NodeNetwork.m_Cfg.m_vNodes.push_back(nodeAddress);
+	receiver.m_NodeNetwork.m_Cfg.m_vNodes.push_back(nodeAddress);
+
+	twn.m_Map[sender.m_WalletID].m_pSink = &sender.m_Wallet;
+	twn.m_Map[receiver.m_WalletID].m_pSink = &receiver.m_Wallet;
+
+
+	sender.m_Wallet.set_Network(sender.m_NodeNetwork, twn);
+	receiver.m_Wallet.set_Network(receiver.m_NodeNetwork, twn);
+
+    WALLET_CHECK(sender.m_Keychain->selectCoins(6, false).size() == 2);
+    WALLET_CHECK(sender.m_Keychain->getTxHistory().empty());
+    WALLET_CHECK(receiver.m_Keychain->getTxHistory().empty());
+
+    helpers::StopWatch sw;
+    TestNode node{ nodeAddress };
+    sw.start();
+
+	sender.m_NodeNetwork.Connect();
+	receiver.m_NodeNetwork.Connect();
+
+    TxID txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2);
+
+    mainReactor->run();
+    sw.stop();
+    cout << "First transfer elapsed time: " << sw.milliseconds() << " ms\n";
+
+    // check coins
+    vector<Coin> newSenderCoins = sender.GetCoins();
+    vector<Coin> newReceiverCoins = receiver.GetCoins();
+
+    WALLET_CHECK(newSenderCoins.size() == 4);
+    WALLET_CHECK(newReceiverCoins.size() == 1);
+    WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
+    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unspent);
+    WALLET_CHECK(newReceiverCoins[0].m_key_type == Key::Type::Regular);
+
+    WALLET_CHECK(newSenderCoins[0].m_amount == 5);
+    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
+    WALLET_CHECK(newSenderCoins[0].m_key_type == Key::Type::Regular);
+
+    WALLET_CHECK(newSenderCoins[1].m_amount == 2);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Unspent);
+    WALLET_CHECK(newSenderCoins[1].m_key_type == Key::Type::Regular);
+
+    WALLET_CHECK(newSenderCoins[2].m_amount == 1);
+    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
+    WALLET_CHECK(newSenderCoins[2].m_key_type == Key::Type::Regular);
+
+    WALLET_CHECK(newSenderCoins[3].m_amount == 9);
+    WALLET_CHECK(newSenderCoins[3].m_status == Coin::Unspent);
+    WALLET_CHECK(newSenderCoins[3].m_key_type == Key::Type::Regular);
+
+    // Tx history check
+    auto sh = sender.m_Keychain->getTxHistory();
+    WALLET_CHECK(sh.size() == 1);
+    auto rh = receiver.m_Keychain->getTxHistory();
+    WALLET_CHECK(rh.size() == 1);
+    auto stx = sender.m_Keychain->getTx(txId);
+    WALLET_CHECK(stx.is_initialized());
+    auto rtx = receiver.m_Keychain->getTx(txId);
+    WALLET_CHECK(rtx.is_initialized());
+
+    WALLET_CHECK(stx->m_txId == rtx->m_txId);
+    WALLET_CHECK(stx->m_amount == rtx->m_amount);
+    WALLET_CHECK(stx->m_status == TxStatus::Completed);
+    WALLET_CHECK(stx->m_fee == rtx->m_fee);
+    WALLET_CHECK(stx->m_message == rtx->m_message);
+    WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
+    WALLET_CHECK(stx->m_status == rtx->m_status);
+    WALLET_CHECK(stx->m_fsmState.empty());
+    WALLET_CHECK(rtx->m_fsmState.empty());
+    WALLET_CHECK(stx->m_sender == true);
+    WALLET_CHECK(rtx->m_sender == false);
+
+    // second transfer
+    sw.start();
+    txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6);
+    mainReactor->run();
+    sw.stop();
+    cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
+
+    // check coins
+    newSenderCoins = sender.GetCoins();
+    newReceiverCoins = receiver.GetCoins();
+
+    WALLET_CHECK(newSenderCoins.size() == 5);
+    WALLET_CHECK(newReceiverCoins.size() == 2);
+
+    WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
+    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unspent);
+    WALLET_CHECK(newReceiverCoins[0].m_key_type == Key::Type::Regular);
+
+    WALLET_CHECK(newReceiverCoins[1].m_amount == 6);
+    WALLET_CHECK(newReceiverCoins[1].m_status == Coin::Unspent);
+    WALLET_CHECK(newReceiverCoins[1].m_key_type == Key::Type::Regular);
+
+
+    WALLET_CHECK(newSenderCoins[0].m_amount == 5);
+    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
+    WALLET_CHECK(newSenderCoins[0].m_key_type == Key::Type::Regular);
+
+    WALLET_CHECK(newSenderCoins[1].m_amount == 2);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Unspent);
+    WALLET_CHECK(newSenderCoins[1].m_key_type == Key::Type::Regular);
+
+    WALLET_CHECK(newSenderCoins[2].m_amount == 1);
+    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
+    WALLET_CHECK(newSenderCoins[2].m_key_type == Key::Type::Regular);
+
+    WALLET_CHECK(newSenderCoins[3].m_amount == 9);
+    WALLET_CHECK(newSenderCoins[3].m_status == Coin::Spent);
+    WALLET_CHECK(newSenderCoins[3].m_key_type == Key::Type::Regular);
+
+    WALLET_CHECK(newSenderCoins[4].m_amount == 3);
+    WALLET_CHECK(newSenderCoins[4].m_status == Coin::Unspent);
+    WALLET_CHECK(newSenderCoins[4].m_key_type == Key::Type::Regular);
+
+    // Tx history check
+    sh = sender.m_Keychain->getTxHistory();
+    WALLET_CHECK(sh.size() == 2);
+    rh = receiver.m_Keychain->getTxHistory();
+    WALLET_CHECK(rh.size() == 2);
+    stx = sender.m_Keychain->getTx(txId);
+    WALLET_CHECK(stx.is_initialized());
+    rtx = receiver.m_Keychain->getTx(txId);
+    WALLET_CHECK(rtx.is_initialized());
+
+    WALLET_CHECK(stx->m_txId == rtx->m_txId);
+    WALLET_CHECK(stx->m_amount == rtx->m_amount);
+    WALLET_CHECK(stx->m_status == TxStatus::Completed);
+    WALLET_CHECK(stx->m_message == rtx->m_message);
+    WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
+    WALLET_CHECK(stx->m_status == rtx->m_status);
+    WALLET_CHECK(stx->m_fsmState.empty());
+    WALLET_CHECK(rtx->m_fsmState.empty());
+    WALLET_CHECK(stx->m_sender == true);
+    WALLET_CHECK(rtx->m_sender == false);
+
+
+    // third transfer. no enough money should appear
+    sw.start();
+    completedCount = 1;// only one wallet takes part in tx
+    txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6);
+    mainReactor->run();
+    sw.stop();
+    cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
+    
+    // check coins
+    newSenderCoins = sender.GetCoins();
+    newReceiverCoins = receiver.GetCoins();
+
+    // no coins 
+    WALLET_CHECK(newSenderCoins.size() == 5);
+    WALLET_CHECK(newReceiverCoins.size() == 2);
+
+    // Tx history check. New failed tx should be added to sender
+    sh = sender.m_Keychain->getTxHistory();
+    WALLET_CHECK(sh.size() == 3);
+    rh = receiver.m_Keychain->getTxHistory();
+    WALLET_CHECK(rh.size() == 2);
+    stx = sender.m_Keychain->getTx(txId);
+    WALLET_CHECK(stx.is_initialized());
+    rtx = receiver.m_Keychain->getTx(txId);
+    WALLET_CHECK(!rtx.is_initialized());
+
+    WALLET_CHECK(stx->m_amount == 6);
+    WALLET_CHECK(stx->m_status == TxStatus::Failed);
+    WALLET_CHECK(stx->m_fsmState.empty());
+    WALLET_CHECK(stx->m_sender == true);
+}
 //
 //void TestP2PWalletReverseNegotiationST()
 //{
@@ -1732,7 +1822,7 @@ int main()
 	Rules::get().UpdateChecksum();
 
     TestSplitKey();
-    //TestP2PWalletNegotiationST();
+    TestP2PWalletNegotiationST();
     //TestP2PWalletReverseNegotiationST();
 
     TestWalletNegotiation(CreateKeychain<TestKeyChain>(), CreateKeychain<TestKeyChain2>());
