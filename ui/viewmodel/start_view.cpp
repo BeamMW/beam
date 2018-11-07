@@ -24,6 +24,8 @@
 #include <QPrinter>
 #include <QPrintDialog>
 #include <QPainter>
+#include <QPaintEngine>
+#include <QPrinterInfo>
 #endif
 #include "settings_view.h"
 #include "model/app_model.h"
@@ -39,52 +41,29 @@ namespace
     const char* Testnet[] =
     {
 #ifdef BEAM_TESTNET
-        "142.93.89.204:8101",
-        "188.166.148.169:8101",
-        "206.189.141.171:8101",
-        "138.68.130.189:8101",
-        "178.128.225.252:8101",
-        "128.199.142.41:8101",
-        "139.59.191.116:8101",
-        "206.189.3.9:8101",
-        "206.189.15.198:8101",
-        "204.48.26.118:8101",
-        "174.138.58:8101",
-        "142.93.241.66:8101",
-        "188.166.122.215:8101",
-        "142.93.17.121:8101",
-        "104.248.77.220:8101",
-        "104.248.27.246:8101",
-        "188.166.60.223:8101",
-        "128.199.144.164:8101",
-        "104.248.182.148:8101",
-        "104.248.182.152:8101",
-        "159.203.72.8:8101",
-        "178.128.233.252:8101",
-        "104.248.43.86:8101",
-        "104.248.43.99:8101",
-        "178.62.19.156:8101",
-        "104.248.75.183:8101",
-        "206.81.11.82:8101",
-        "206.189.138.82:8101",
-        "178.128.225.8:8101",
-        "142.93.246.182:8101",
-        "104.248.31.169:8101",
-        "128.199.144.48:8101",
-        "178.128.229.48:8101",
-        "128.199.144.196:8101",
-        "159.65.40.42:8101",
-        "178.128.229.50:8101",
-        "138.197.193.229:8101",
-        "128.199.144.206:8101",
-        "178.128.229.65:8101",
-        "159.89.234.65:8101",
-        "104.248.43.120:8101",
-        "104.248.186.25:8101",
-        "128.199.145.212:8101",
-        "188.166.15.205:8101",
-        "138.68.163.99:8101"
-#else
+        "139.59.174.80:8100",
+        "167.99.221.104:8100",
+        "159.65.201.244:8100",
+        "142.93.217.246:8100",
+        "142.93.221.22:8100",
+        "178.62.59.65:8100",
+        "139.59.169.77:8100",
+        "167.99.166.33:8100",
+        "159.65.119.216:8100",
+        "142.93.221.66:8100",
+        "206.189.10.149:8100",
+        "138.68.134.136:8100",
+        "159.65.119.226:8100",
+        "142.93.221.80:8100",
+        "104.248.159.97:8100",
+        "159.65.101.94:8100",
+        "68.183.103.130:8100",
+        "142.93.213.21:8100",
+        "104.248.159.154:8100",
+        "188.166.165.240:8100",
+        "159.65.104.75:8100",
+        "142.93.213.106:8100"
+ #else
         "172.104.249.212:8101",
         "23.239.23.209:8201",
         "172.105.211.232:8301",
@@ -269,8 +248,14 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
 {
     try
     {
+        if (QPrinterInfo::availablePrinters().isEmpty())
+        {
+            AppModel::getInstance()->getMessages().addMessage(tr("Printer is not found. Please, check your printer preferences."));
+            return;
+        }
         QImage image = qvariant_cast<QImage>(viewData);
         QPrinter printer;
+        printer.setOutputFormat(QPrinter::NativeFormat);
         printer.setColorMode(QPrinter::GrayScale);
         QPrintDialog dialog(&printer);
         if (dialog.exec() == QDialog::Accepted) {
@@ -279,7 +264,7 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
             
             QRect rect = painter.viewport();
             QFont f;
-            f.setPixelSize(24);
+            f.setPixelSize(16);
             painter.setFont(f);
             int x = 60, y = 30;
 
@@ -313,7 +298,7 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
     }
     catch (...)
     {
-
+        AppModel::getInstance()->getMessages().addMessage(tr("Failed to print recovery phrases. Please, check your printer."));
     }
 }
 
