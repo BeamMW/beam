@@ -757,6 +757,9 @@ namespace proto {
 				void SetTimer(uint32_t);
 				void KillTimer();
 
+				void ResetInternal();
+				void ResetVars();
+
 			public:
 				NetworkStd& m_This;
 

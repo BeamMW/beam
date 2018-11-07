@@ -1004,12 +1004,31 @@ FlyClient::NetworkStd::Connection::Connection(NetworkStd& x)
 	:m_This(x)
 {
 	m_This.m_Connections.push_back(*this);
-	ZeroObject(m_Tip);
+	ResetVars();
 }
 
 FlyClient::NetworkStd::Connection::~Connection()
 {
+	ResetInternal();
 	m_This.m_Connections.erase(ConnectionList::s_iterator_to(*this));
+
+}
+
+bool FlyClient::NetworkStd::Connection::ShouldSync() const
+{
+	const Block::SystemState::Full* pTip = m_This.m_Client.get_Tip();
+	return !pTip || (pTip->m_ChainWork < m_Tip.m_ChainWork);
+}
+
+void FlyClient::NetworkStd::Connection::ResetVars()
+{
+	ZeroObject(m_Tip);
+	m_bNode = m_bBbs = m_bTransactions = false;
+}
+
+void FlyClient::NetworkStd::Connection::ResetInternal()
+{
+	m_pSync.reset();
 
 	while (!m_lst.empty())
 	{
@@ -1019,17 +1038,8 @@ FlyClient::NetworkStd::Connection::~Connection()
 	}
 }
 
-bool FlyClient::NetworkStd::Connection::ShouldSync() const
-{
-	const Block::SystemState::Full* pTip = m_This.m_Client.get_Tip();
-	return !pTip || (pTip->m_ChainWork < m_Tip.m_ChainWork);
-}
-
 void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 {
-	ZeroObject(m_Tip);
-	m_bNode = m_bBbs = m_bTransactions = false;
-
 	proto::Config msgCfg;
 	msgCfg.m_CfgChecksum = Rules::get().Checksum;
 	msgCfg.m_SendPeers = true;
@@ -1039,6 +1049,9 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)
 {
 	NodeConnection::Reset();
+	ResetVars();
+	ResetInternal();
+
 	SetTimer(m_This.m_Cfg.m_ReconnectTimeout_ms);
 }
 
