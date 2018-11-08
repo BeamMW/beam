@@ -132,8 +132,9 @@ private:
     beam::IWalletDB::Ptr _walletDB;
     beam::IKeyStore::Ptr _keystore;
     beam::io::Reactor::Ptr _reactor;
-    std::weak_ptr<beam::INetworkIO> _wallet_io;
-    std::weak_ptr<beam::Wallet> _wallet;
+    std::weak_ptr<beam::proto::FlyClient::INetwork> _nnet;
+	std::weak_ptr<beam::Wallet::INetwork> _wnet;
+	std::weak_ptr<beam::Wallet> _wallet;
     beam::io::Timer::Ptr _logRotateTimer;
 
     std::string _nodeAddrStr;

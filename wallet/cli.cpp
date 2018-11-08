@@ -433,14 +433,15 @@ int main_impl(int argc, char* argv[])
 
                         IKeyStore::Ptr keystore = createKeyStore(bbsKeysPath, pass);
 
-                        auto wallet_io = make_shared<WalletNetworkIO >( node_addr
-                                                                      , walletDB
-                                                                      , keystore
-                                                                      , reactor);
-                        Wallet wallet{ walletDB
-                                     , wallet_io
-                                     , false
-                                     , is_server ? Wallet::TxCompletedAction() : [wallet_io](auto) { wallet_io->stop(); } };
+                        Wallet wallet{ walletDB, is_server ? Wallet::TxCompletedAction() : [](auto) { io::Reactor::get_Current().stop(); } };
+
+						proto::FlyClient::NetworkStd nnet(wallet);
+						nnet.m_Cfg.m_vNodes.push_back(node_addr);
+						nnet.Connect();
+
+						WalletNetworkViaBbs wnet(wallet, nnet, keystore, walletDB);
+						
+						wallet.set_Network(nnet, wnet);
 
                         if (isTxInitiator)
                         {
@@ -457,7 +458,8 @@ int main_impl(int argc, char* argv[])
                             wallet.cancel_tx(txId);
                         }
 
-                        wallet_io->start();
+						io::Reactor::get_Current().run();
+
                     }
                     else
                     {
