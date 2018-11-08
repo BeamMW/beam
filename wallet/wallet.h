@@ -104,30 +104,35 @@ namespace beam
 
     private:
 
-		struct ExtraRequestTransaction { TxID m_TxID; };
-		struct ExtraRequestUtxo { Coin m_Coin; };
-		struct ExtraRequestKernel { TxID m_TxID; };
-		struct ExtraRequestMined { };
-		struct ExtraRequestBbsMsg { };
-		struct ExtraRequestRecover { };
-
 #define REQUEST_TYPES_Sync(macro) \
 		macro(Utxo) \
 		macro(Kernel) \
 		macro(Mined) \
 		macro(Recover)
 
-		template <Request::Type type> struct IsSyncTask { static const bool b = false; };
-#define THE_MACRO(type) template <> struct IsSyncTask<Request::Type::type> { static const bool b = true; };
-		REQUEST_TYPES_Sync(THE_MACRO)
+		struct AllTasks {
+#define THE_MACRO(type, msgOut, msgIn) struct type { static const bool b = false; };
+			REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
+		};
 
+		struct SyncTasks :public AllTasks {
+#define THE_MACRO(type) struct type { static const bool b = true; };
+			REQUEST_TYPES_Sync(THE_MACRO)
+#undef THE_MACRO
+		};
+
+		struct ExtraData :public AllTasks {
+			struct Transaction { TxID m_TxID; };
+			struct Utxo { Coin m_Coin; };
+			struct Kernel { TxID m_TxID; };
+		};
 
 #define THE_MACRO(type, msgOut, msgIn) \
 		struct MyRequest##type \
 			:public Request##type \
 			,public boost::intrusive::set_base_hook<> \
-			,public ExtraRequest##type \
+			,public ExtraData::type \
 		{ \
 			typedef boost::intrusive_ptr<MyRequest##type> Ptr; \
 			bool operator < (const MyRequest##type&) const; \
@@ -157,7 +162,7 @@ namespace beam
 			AddReq(x); \
 			m_pNodeNetwork->PostRequest(x); \
 			 \
-			if (IsSyncTask<Request::Type::type>::b) \
+			if (SyncTasks::type::b) \
 				m_LastSyncTotal++; \
 			return true; \
 		}
