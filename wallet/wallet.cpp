@@ -106,6 +106,7 @@ namespace beam
 		, m_LastSyncTotal(0)
     {
         assert(walletDB);
+		m_pKdf = m_WalletDB->get_Kdf();
         resume_all_tx();
     }
 

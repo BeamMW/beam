@@ -697,7 +697,7 @@ namespace proto {
 			virtual void Connect() = 0;
 			virtual void Disconnect() = 0;
 			virtual void PostRequest(Request&) = 0;
-			virtual void BbsSubscribe(BbsChannel, IBbsReceiver*) {} // duplicates should be handled internally
+			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) {} // duplicates should be handled internally
 		};
 
 		struct NetworkStd
@@ -808,14 +808,14 @@ namespace proto {
 			typedef boost::intrusive::list<Connection> ConnectionList;
 			ConnectionList m_Connections;
 
-			typedef std::map<BbsChannel, IBbsReceiver*> BbsSubscriptions;
+			typedef std::map<BbsChannel, std::pair<IBbsReceiver*, Timestamp> > BbsSubscriptions;
 			BbsSubscriptions m_BbsSubscriptions;
 
 			// INetwork
 			virtual void Connect() override;
 			virtual void Disconnect() override;
 			virtual void PostRequest(Request&) override;
-			virtual void BbsSubscribe(BbsChannel, IBbsReceiver*) override;
+			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) override;
 		};
 	};
 

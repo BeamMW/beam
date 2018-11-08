@@ -33,6 +33,7 @@ namespace beam
 		IWallet& m_Wallet;
 		proto::FlyClient::INetwork& m_NodeNetwork;
 		IKeyStore::Ptr m_pKeyStore;
+		IWalletDB::Ptr m_WalletDB;
 
 		struct Addr
 		{
@@ -80,11 +81,18 @@ namespace beam
 			IMPLEMENT_GET_PARENT_OBJ(WalletNetworkViaBbs, m_BbsSentEvt)
 		} m_BbsSentEvt;
 
+		void OnMsg(const proto::BbsMsg&);
+
 		static BbsChannel channel_from_wallet_id(const WalletID& walletID);
+
+		std::map<BbsChannel, Timestamp> m_BbsTimestamps;
+		io::Timer::Ptr m_pTimerBbsTmSave;
+		void OnTimerBbsTmSave();
+		void SaveBbsTimestamps();
 
 	public:
 
-		WalletNetworkViaBbs(IWallet&, proto::FlyClient::INetwork&, const IKeyStore::Ptr&);
+		WalletNetworkViaBbs(IWallet&, proto::FlyClient::INetwork&, const IKeyStore::Ptr&, const IWalletDB::Ptr&);
 		virtual ~WalletNetworkViaBbs();
 
 		void new_own_address(const WalletID&);

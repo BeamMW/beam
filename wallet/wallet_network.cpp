@@ -20,20 +20,41 @@
 #define WALLET_REV   2
 
 using namespace std;
-/*
+
 namespace
 {
     const char* BBS_TIMESTAMPS = "BbsTimestamps";
 }
-*/
+
 
 namespace beam {
 
-	WalletNetworkViaBbs::WalletNetworkViaBbs(IWallet& w, proto::FlyClient::INetwork& net, const IKeyStore::Ptr& p)
+	WalletNetworkViaBbs::WalletNetworkViaBbs(IWallet& w, proto::FlyClient::INetwork& net, const IKeyStore::Ptr& pKeyStore, const IWalletDB::Ptr& pWalletDB)
 		:m_Wallet(w)
 		,m_NodeNetwork(net)
-		,m_pKeyStore(p)
+		,m_pKeyStore(pKeyStore)
+		,m_WalletDB(pWalletDB)
 	{
+		ByteBuffer buffer;
+		m_WalletDB->getBlob(BBS_TIMESTAMPS, buffer);
+		if (!buffer.empty())
+		{
+			Deserializer d;
+			d.reset(buffer.data(), buffer.size());
+
+			d & m_BbsTimestamps;
+		}
+
+		auto myAddresses = m_WalletDB->getAddresses(true);
+		for (const auto& address : myAddresses)
+			if (address.isExpired())
+				m_pKeyStore->disable_key(address.m_walletID);
+
+		std::set<PubKey> pubKeys;
+		m_pKeyStore->get_enabled_keys(pubKeys);
+		for (const auto& v : pubKeys)
+			new_own_address(v);
+
 	}
 
 	WalletNetworkViaBbs::~WalletNetworkViaBbs()
@@ -43,12 +64,37 @@ namespace beam {
 
 		while (!m_Addresses.empty())
 			DeleteAddr(m_Addresses.begin()->get_ParentObj());
+
+		try {
+			SaveBbsTimestamps();
+		} catch (...) {
+		}
+	}
+
+	void WalletNetworkViaBbs::SaveBbsTimestamps()
+	{
+		Timestamp tsThreshold = getTimestamp() - 3600 * 24 * 3;
+
+		for (auto it = m_BbsTimestamps.begin(); m_BbsTimestamps.end() != it; )
+		{
+			auto it2 = it++;
+			if (it2->second < tsThreshold)
+				m_BbsTimestamps.erase(it2);
+		}
+
+		Serializer s;
+		s & m_BbsTimestamps;
+
+		ByteBuffer buffer;
+		s.swap_buf(buffer);
+
+		m_WalletDB->setVarRaw(BBS_TIMESTAMPS, buffer.data(), static_cast<int>(buffer.size()));
 	}
 
 	void WalletNetworkViaBbs::DeleteAddr(Addr& v)
 	{
 		if (IsSingleChannelUser(v.m_Channel))
-			m_NodeNetwork.BbsSubscribe(v.m_Channel.m_Value, NULL);
+			m_NodeNetwork.BbsSubscribe(v.m_Channel.m_Value, 0, NULL);
 
 		m_Addresses.erase(WidSet::s_iterator_to(v.m_Wid));
 		m_Channels.erase(ChannelSet::s_iterator_to(v.m_Channel));
@@ -102,7 +148,14 @@ namespace beam {
 		m_Channels.insert(pAddr->m_Channel);
 
 		if (IsSingleChannelUser(pAddr->m_Channel))
-			m_NodeNetwork.BbsSubscribe(pAddr->m_Channel.m_Value, &m_BbsSentEvt);
+		{
+			Timestamp ts = 0;
+			auto it = m_BbsTimestamps.find(pAddr->m_Channel.m_Value);
+			if (m_BbsTimestamps.end() != it)
+				ts = it->second;
+
+			m_NodeNetwork.BbsSubscribe(pAddr->m_Channel.m_Value, ts, &m_BbsSentEvt);
+		}
 	}
 
 	void WalletNetworkViaBbs::address_deleted(const WalletID& wid)
@@ -115,6 +168,12 @@ namespace beam {
 			DeleteAddr(it->get_ParentObj());
 	}
 
+	void WalletNetworkViaBbs::OnTimerBbsTmSave()
+	{
+		m_pTimerBbsTmSave.reset();
+		SaveBbsTimestamps();
+	}
+
 	void WalletNetworkViaBbs::BbsSentEvt::OnRequestComplete(Request& r)
 	{
 		assert(r.get_Type() == Request::Type::BbsMsg);
@@ -123,19 +182,36 @@ namespace beam {
 
 	void WalletNetworkViaBbs::BbsSentEvt::OnMsg(proto::BbsMsg&& msg)
 	{
+		get_ParentObj().OnMsg(msg);
+	}
+
+	void WalletNetworkViaBbs::OnMsg(const proto::BbsMsg& msg)
+	{
+		auto itBbs = m_BbsTimestamps.find(msg.m_Channel);
+		if (m_BbsTimestamps.end() != itBbs)
+			itBbs->second = std::max(itBbs->second, msg.m_TimePosted);
+		else
+			m_BbsTimestamps[msg.m_Channel] = msg.m_TimePosted;
+
+		if (!m_pTimerBbsTmSave)
+		{
+			m_pTimerBbsTmSave = io::Timer::create(io::Reactor::get_Current());
+			m_pTimerBbsTmSave->start(60*1000, false, [this]() { OnTimerBbsTmSave(); });
+		}
+
 		Addr::Channel key;
 		key.m_Value = msg.m_Channel;
 
-		for (ChannelSet::iterator it = get_ParentObj().m_Channels.lower_bound(key); ; it++)
+		for (ChannelSet::iterator it = m_Channels.lower_bound(key); ; it++)
 		{
-			if (get_ParentObj().m_Channels.end() == it)
+			if (m_Channels.end() == it)
 				break;
 			if (it->m_Value != msg.m_Channel)
 				break; // as well
 
 			Blob blob;
 			ByteBuffer buf = msg.m_Message; // duplicate
-			if (get_ParentObj().m_pKeyStore->decrypt((uint8_t*&) blob.p, blob.n, buf, it->get_ParentObj().m_Wid.m_Value))
+			if (m_pKeyStore->decrypt((uint8_t*&) blob.p, blob.n, buf, it->get_ParentObj().m_Wid.m_Value))
 			{
 				wallet::SetTxParameter msgWallet;
 				bool bValid = false;
@@ -151,7 +227,7 @@ namespace beam {
 				
 				if (bValid)
 				{
-					get_ParentObj().m_Wallet.OnWalletMsg(it->get_ParentObj().m_Wid.m_Value, std::move(msgWallet));
+					m_Wallet.OnWalletMsg(it->get_ParentObj().m_Wid.m_Value, std::move(msgWallet));
 					break;
 				}
 			}

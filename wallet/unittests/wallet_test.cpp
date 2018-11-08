@@ -602,11 +602,9 @@ struct TestWalletRig
         , m_BBSKeystore{ CreateBbsKeystore(name + "-bbs", "123", m_WalletID) }
 		, m_Wallet{ m_WalletDB, move(action) }
 		, m_NodeNetwork(m_Wallet)
-		, m_WalletNetworkViaBbs(m_Wallet, m_NodeNetwork, m_BBSKeystore)
+		, m_WalletNetworkViaBbs(m_Wallet, m_NodeNetwork, m_BBSKeystore, m_WalletDB)
     {
 		m_Wallet.set_Network(m_NodeNetwork, m_WalletNetworkViaBbs);
-
-		m_WalletNetworkViaBbs.new_own_address(m_WalletID);
     }
 
     vector<Coin> GetCoins()

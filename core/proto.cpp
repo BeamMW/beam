@@ -1114,7 +1114,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::Config&& msg)
 		for (BbsSubscriptions::const_iterator it = m_This.m_BbsSubscriptions.begin(); m_This.m_BbsSubscriptions.end() != it; it++)
 		{
 			proto::BbsSubscribe msgOut;
-			// msg.m_TimeFrom - // TODO
+			msgOut.m_TimeFrom = it->second.second;
 			msgOut.m_Channel = it->first;
 			msgOut.m_On = true;
 			Send(msgOut);
@@ -1602,7 +1602,7 @@ void FlyClient::NetworkStd::Connection::OnFirstRequestDone(bool bMustBeAtTip /* 
 		m_lst.Delete(n); // aborted already
 }
 
-void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, IBbsReceiver* p)
+void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, Timestamp ts, IBbsReceiver* p)
 {
 	BbsSubscriptions::iterator it = m_BbsSubscriptions.find(ch);
 	if (m_BbsSubscriptions.end() == it)
@@ -1610,13 +1610,14 @@ void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, IBbsReceiver* p)
 		if (!p)
 			return;
 
-		m_BbsSubscriptions.insert(std::make_pair(ch, p));
+		m_BbsSubscriptions.insert(std::make_pair(ch, std::make_pair(p, ts)));
 	}
 	else
 	{
 		if (p)
 		{
-			it->second = p;
+			it->second.first = p;
+			it->second.second = ts;
 			return;
 		}
 
@@ -1624,7 +1625,7 @@ void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, IBbsReceiver* p)
 	}
 
 	proto::BbsSubscribe msg;
-	// msg.m_TimeFrom - // TODO
+	msg.m_TimeFrom = ts;
 	msg.m_Channel = ch;
 	msg.m_On = (NULL != p);
 
@@ -1638,8 +1639,10 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::BbsMsg&& msg)
 	BbsSubscriptions::iterator it = m_This.m_BbsSubscriptions.find(msg.m_Channel);
 	if (m_This.m_BbsSubscriptions.end() != it)
 	{
-		assert(it->second);
-		it->second->OnMsg(std::move(msg));
+		it->second.second = msg.m_TimePosted;
+
+		assert(it->second.first);
+		it->second.first->OnMsg(std::move(msg));
 	}
 }
 

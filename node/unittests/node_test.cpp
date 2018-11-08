@@ -1530,7 +1530,7 @@ namespace beam
 					m_nProofsExpected++;
 				}
 
-				net.BbsSubscribe(m_LastBbsChannel, this);
+				net.BbsSubscribe(m_LastBbsChannel, 0, this);
 
 				SetTimer(90 * 1000);
 				io::Reactor::get_Current().run();
