@@ -167,7 +167,7 @@ Item
                         }
                         SecurityNote{
                             iconSource: "qrc:/assets/copy-two-paper-sheets-interface-symbol.svg"
-                            text: qsTr("Make at least 2 copies of the phrase in case of emergency");
+                            text: qsTr("Keep the copies of your recovery phrase in a safe place");
                         }
                     }
                     
@@ -225,7 +225,7 @@ Item
                             anchors.left: parent.left
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("This set of 12 words allows you to recover your wallet from the blockchain. Print or write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.")
+                            text: qsTr("Your recovery phrase is the access key to all the cryptocurrencies in your wallet. Print or write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.")
                             color: Style.white
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
