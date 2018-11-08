@@ -219,22 +219,19 @@ WalletViewModel::~WalletViewModel()
 
 }
 
-void WalletViewModel::cancelTx(int index)
+void WalletViewModel::cancelTx(TxObject* pTxObject)
 {
-    auto *p = static_cast<TxObject*>(_txList[index]);
-    // TODO: temporary fix
-    if (p->canCancel())
+    if (pTxObject->canCancel())
     {
-        _model.async->cancelTx(p->_tx.m_txId);
+        _model.async->cancelTx(pTxObject->_tx.m_txId);
     }
 }
 
-void WalletViewModel::deleteTx(int index)
+void WalletViewModel::deleteTx(TxObject* pTxObject)
 {
-    auto *p = static_cast<TxObject*>(_txList[index]);
-    if (p->canDelete())
+    if (pTxObject->canDelete())
     {
-        _model.async->deleteTx(p->_tx.m_txId);
+        _model.async->deleteTx(pTxObject->_tx.m_txId);
     }
 }
 
