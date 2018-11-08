@@ -25,9 +25,165 @@ namespace
 {
     const char* BBS_TIMESTAMPS = "BbsTimestamps";
 }
+*/
 
 namespace beam {
 
+	WalletNetworkViaBbs::WalletNetworkViaBbs(IWallet& w, proto::FlyClient::INetwork& net, const IKeyStore::Ptr& p)
+		:m_Wallet(w)
+		,m_NodeNetwork(net)
+		,m_pKeyStore(p)
+	{
+	}
+
+	WalletNetworkViaBbs::~WalletNetworkViaBbs()
+	{
+		while (!m_PendingBbsMsgs.empty())
+			DeleteReq(m_PendingBbsMsgs.front());
+
+		while (!m_Addresses.empty())
+			DeleteAddr(m_Addresses.begin()->get_ParentObj());
+	}
+
+	void WalletNetworkViaBbs::DeleteAddr(Addr& v)
+	{
+		if (IsSingleChannelUser(v.m_Channel))
+			m_NodeNetwork.BbsSubscribe(v.m_Channel.m_Value, NULL);
+
+		m_Addresses.erase(WidSet::s_iterator_to(v.m_Wid));
+		m_Channels.erase(ChannelSet::s_iterator_to(v.m_Channel));
+		delete &v;
+	}
+
+	bool WalletNetworkViaBbs::IsSingleChannelUser(const Addr::Channel& c)
+	{
+		ChannelSet::const_iterator it = ChannelSet::s_iterator_to(c);
+		ChannelSet::const_iterator it2 = it;
+		if (((++it2) != m_Channels.end()) && (it2->m_Value == c.m_Value))
+			return false;
+
+		if (it != m_Channels.begin())
+		{
+			it2 = it;
+			if ((--it2)->m_Value == it->m_Value)
+				return false;
+		}
+
+		return true;
+	}
+
+	void WalletNetworkViaBbs::DeleteReq(MyRequestBbsMsg& r)
+	{
+		m_PendingBbsMsgs.erase(BbsMsgList::s_iterator_to(r));
+		r.m_pTrg = NULL;
+		r.Release();
+	}
+
+	BbsChannel WalletNetworkViaBbs::channel_from_wallet_id(const WalletID& walletID)
+	{
+		// TODO to be reviewed, 32 channels
+		return walletID.m_pData[0] >> 3;
+	}
+
+	void WalletNetworkViaBbs::new_own_address(const WalletID& wid)
+	{
+		Addr::Wid key;
+		key.m_Value = wid;
+
+		auto itW = m_Addresses.find(key);
+		if (m_Addresses.end() != itW)
+			return;
+
+		Addr* pAddr = new Addr;
+		pAddr->m_Wid.m_Value = wid;
+		pAddr->m_Channel.m_Value = channel_from_wallet_id(wid);
+
+		m_Addresses.insert(pAddr->m_Wid);
+		m_Channels.insert(pAddr->m_Channel);
+
+		if (IsSingleChannelUser(pAddr->m_Channel))
+			m_NodeNetwork.BbsSubscribe(pAddr->m_Channel.m_Value, &m_BbsSentEvt);
+	}
+
+	void WalletNetworkViaBbs::address_deleted(const WalletID& wid)
+	{
+		Addr::Wid key;
+		key.m_Value = wid;
+
+		auto it = m_Addresses.find(key);
+		if (m_Addresses.end() != it)
+			DeleteAddr(it->get_ParentObj());
+	}
+
+	void WalletNetworkViaBbs::BbsSentEvt::OnRequestComplete(Request& r)
+	{
+		assert(r.get_Type() == Request::Type::BbsMsg);
+		get_ParentObj().DeleteReq(static_cast<MyRequestBbsMsg&>(r));
+	}
+
+	void WalletNetworkViaBbs::BbsSentEvt::OnMsg(proto::BbsMsg&& msg)
+	{
+		Addr::Channel key;
+		key.m_Value = msg.m_Channel;
+
+		for (ChannelSet::iterator it = get_ParentObj().m_Channels.lower_bound(key); ; it++)
+		{
+			if (get_ParentObj().m_Channels.end() == it)
+				break;
+			if (it->m_Value != msg.m_Channel)
+				break; // as well
+
+			Blob blob;
+			ByteBuffer buf = msg.m_Message; // duplicate
+			if (get_ParentObj().m_pKeyStore->decrypt((uint8_t*&) blob.p, blob.n, buf, it->get_ParentObj().m_Wid.m_Value))
+			{
+				wallet::SetTxParameter msgWallet;
+				bool bValid = false;
+
+				try {
+					Deserializer der;
+					der.reset(blob.p, blob.n);
+					der & msgWallet;
+					bValid = true;
+				}  catch (const std::exception&) {
+					LOG_WARNING() << "BBS deserialization failed";
+				}
+				
+				if (bValid)
+				{
+					get_ParentObj().m_Wallet.OnWalletMsg(it->get_ParentObj().m_Wid.m_Value, std::move(msgWallet));
+					break;
+				}
+			}
+		}
+	}
+
+	void WalletNetworkViaBbs::Send(const WalletID& peerID, wallet::SetTxParameter&& msg)
+	{
+		Serializer ser;
+		ser & msg;
+		SerializeBuffer sb = ser.buffer();
+
+		MyRequestBbsMsg::Ptr pReq(new MyRequestBbsMsg);
+
+//		ECC::NoLeak<ECC::Scalar> s_;
+//		ECC::GenRandom(s_.V.m_Value.m_pData, s_.V.m_Value.nBytes);
+//		ECC::Scalar::Native nonce(s_);
+//		if (proto::BbsEncrypt(pReq->m_Msg.m_Message, peerID, nonce, sb.first, (uint32_t) sb.second))
+		if (m_pKeyStore->encrypt(pReq->m_Msg.m_Message, sb.first, sb.second, peerID))
+		{
+			pReq->m_Msg.m_Channel = channel_from_wallet_id(peerID);
+			pReq->m_Msg.m_TimePosted = getTimestamp();
+
+			MyRequestBbsMsg* pR = pReq.detach();
+			m_PendingBbsMsgs.push_back(*pR);
+
+			pR->m_pTrg = &m_BbsSentEvt;
+			m_NodeNetwork.PostRequest(*pR);
+		}
+	}
+
+/*
     WalletNetworkIO::WalletNetworkIO(io::Address node_address
                                    , IKeyChain::Ptr keychain
                                    , IKeyStore::Ptr keyStore
@@ -432,6 +588,6 @@ namespace beam {
 
         return true;
     }
+*/
 
 }
-*/

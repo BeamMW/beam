@@ -82,7 +82,6 @@ namespace beam
 		void OnNewTip() override;
 		void OnRolledBack() override;
 		void OnRequestComplete(Request&) override;
-		void OnMsg(proto::BbsMsg&&) override;
 
 		// IWallet
         void subscribe(IWalletObserver* observer) override;

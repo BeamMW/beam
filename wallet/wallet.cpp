@@ -306,11 +306,6 @@ namespace beam
         m_pWalletNetwork->Send(peerID, std::move(msg));
     }
 
-	void Wallet::OnMsg(proto::BbsMsg&&)
-	{
-		assert(false);
-	}
-
     void Wallet::OnWalletMsg(const WalletID& myID, wallet::SetTxParameter&& msg)
     {
         auto t = getTransaction(myID, msg);

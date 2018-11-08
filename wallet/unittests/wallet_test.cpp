@@ -602,7 +602,11 @@ struct TestWalletRig
         , m_BBSKeystore{ CreateBbsKeystore(name + "-bbs", "123", m_WalletID) }
 		, m_Wallet{ m_Keychain, move(action) }
 		, m_NodeNetwork(m_Wallet)
+		, m_WalletNetworkViaBbs(m_Wallet, m_NodeNetwork, m_BBSKeystore)
     {
+		m_Wallet.set_Network(m_NodeNetwork, m_WalletNetworkViaBbs);
+
+		m_WalletNetworkViaBbs.new_own_address(m_WalletID);
     }
 
     vector<Coin> GetCoins()
@@ -622,6 +626,7 @@ struct TestWalletRig
     int m_CompletedCount{1};
 	Wallet m_Wallet;
 	proto::FlyClient::NetworkStd m_NodeNetwork;
+	WalletNetworkViaBbs m_WalletNetworkViaBbs;
 };
 
 struct TestWalletNetwork
@@ -1022,6 +1027,12 @@ private:
             }
         }
 
+		void OnMsg(proto::Ping&& msg) override
+		{
+			proto::Pong msgOut(Zero);
+			Send(msgOut);
+		}
+
         void OnDisconnect(const DisconnectReason& r) override
         {
             switch (r.m_Type)
@@ -1250,16 +1261,8 @@ void TestP2PWalletNegotiationST()
     TestWalletRig sender("sender", createSenderKeychain(), mainReactor, f);
     TestWalletRig receiver("receiver", createReceiverKeychain(), mainReactor, f);
 
-	TestWalletNetwork twn;
 	sender.m_NodeNetwork.m_Cfg.m_vNodes.push_back(nodeAddress);
 	receiver.m_NodeNetwork.m_Cfg.m_vNodes.push_back(nodeAddress);
-
-	twn.m_Map[sender.m_WalletID].m_pSink = &sender.m_Wallet;
-	twn.m_Map[receiver.m_WalletID].m_pSink = &receiver.m_Wallet;
-
-
-	sender.m_Wallet.set_Network(sender.m_NodeNetwork, twn);
-	receiver.m_Wallet.set_Network(receiver.m_NodeNetwork, twn);
 
     WALLET_CHECK(sender.m_Keychain->selectCoins(6, false).size() == 2);
     WALLET_CHECK(sender.m_Keychain->getTxHistory().empty());
