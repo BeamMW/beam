@@ -621,7 +621,11 @@ namespace beam
 		txSet.swap(m_TransactionsToUpdate);
 
 		for (auto it = txSet.begin(); txSet.end() != it; it++)
-			(*it)->Update();
+		{
+			const wallet::BaseTransaction::Ptr& pTx = *it;
+			if (m_transactions.find(pTx->GetTxID()) != m_transactions.end())
+				pTx->Update();
+		}
 	}
 
     void Wallet::notifySyncProgress()
