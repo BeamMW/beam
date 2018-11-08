@@ -74,7 +74,7 @@ namespace beam { namespace wallet
     public:
         using Ptr = std::shared_ptr<BaseTransaction>;
         BaseTransaction(INegotiatorGateway& gateway
-                      , beam::IKeyChain::Ptr keychain
+                      , beam::IWalletDB::Ptr walletDB
                       , const TxID& txID);
         virtual ~BaseTransaction(){}
 
@@ -85,14 +85,14 @@ namespace beam { namespace wallet
         template <typename T>
         bool GetParameter(TxParameterID paramID, T& value) const
         {
-            return getTxParameter(m_Keychain, GetTxID(), paramID, value);
+            return getTxParameter(m_WalletDB, GetTxID(), paramID, value);
         }
 
         template <typename T>
         T GetMandatoryParameter(TxParameterID paramID) const
         {
             T value{};
-            if (!getTxParameter(m_Keychain, GetTxID(), paramID, value))
+            if (!getTxParameter(m_WalletDB, GetTxID(), paramID, value))
             {
                 throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
             }
@@ -102,7 +102,7 @@ namespace beam { namespace wallet
         template <typename T>
         bool SetParameter(TxParameterID paramID, const T& value)
         {
-            return setTxParameter(m_Keychain, GetTxID(), paramID, value);
+            return setTxParameter(m_WalletDB, GetTxID(), paramID, value);
         }
 
         template <typename T>
@@ -111,7 +111,7 @@ namespace beam { namespace wallet
             SetParameter(TxParameterID::State, state);
         }
 
-        IKeyChain::Ptr GetKeychain();
+        IWalletDB::Ptr GetWalletDB();
         bool IsInitiator() const;
     protected:
 
@@ -131,7 +131,7 @@ namespace beam { namespace wallet
     protected:
 
         INegotiatorGateway& m_Gateway;
-        beam::IKeyChain::Ptr m_Keychain;
+        beam::IWalletDB::Ptr m_WalletDB;
 
         TxID m_ID;
         mutable boost::optional<bool> m_IsInitiator;
@@ -154,7 +154,7 @@ namespace beam { namespace wallet
         };
     public:
         SimpleTransaction(INegotiatorGateway& gateway
-                        , beam::IKeyChain::Ptr keychain
+                        , beam::IWalletDB::Ptr walletDB
                         , const TxID& txID);
     private:
         TxType GetType() const override;
