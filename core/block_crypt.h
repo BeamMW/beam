@@ -18,6 +18,8 @@
 
 namespace beam
 {
+	class IExternalPOW;
+
 	const Height MaxHeight = static_cast<Height>(-1);
 
 	typedef ECC::Hash::Value PeerID;

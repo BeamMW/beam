@@ -943,15 +943,51 @@ std::ostream& operator << (std::ostream& s, const PeerManager::PeerInfo& pi)
 
 /////////////////////////
 // FlyClient
+FlyClient::~FlyClient()
+{
+	while (!m_Connections.empty())
+		delete &m_Connections.front();
+}
+
 const Block::SystemState::Full* FlyClient::get_Tip() const
 {
 	return m_Hist.empty() ? NULL : &m_Hist.rbegin()->second;
 }
 
+void FlyClient::ShrinkHist()
+{
+	const Block::SystemState::Full* pTip = get_Tip();
+	if (!pTip)
+		return;
+
+	// Currently - just keep a window of MaxRollbackHeight.
+	// In the future a more flexible model should be used, with variable density
+
+	const Height hThreshold = Rules::get().MaxRollbackHeight;
+
+	while (true)
+	{
+		StateMap::iterator it = m_Hist.begin();
+		assert(m_Hist.end() != it);
+
+		Height dh = pTip->m_Height - it->first;
+		if (dh <= hThreshold)
+			break;
+
+		m_Hist.erase(it);
+	}
+}
+
 FlyClient::Connection::Connection(FlyClient& x)
 	:m_This(x)
 {
+	m_This.m_Connections.push_back(*this);
 	ZeroObject(m_Tip);
+}
+
+FlyClient::Connection::~Connection()
+{
+	m_This.m_Connections.erase(ConnectionList::s_iterator_to(*this));
 }
 
 bool FlyClient::Connection::ShouldSync() const
@@ -999,37 +1035,43 @@ void FlyClient::Connection::StartSync()
 		{
 			// starting search
 			m_pSync.reset(new SyncCtx);
-			SearchBelow(m_Tip.m_Height);
+			SearchBelow(m_Tip.m_Height, 1);
 			return;
 		}
 	}
 
 	// simple case
 	m_This.m_Hist[m_Tip.m_Height] = m_Tip;
+	m_This.ShrinkHist();
 	m_This.OnNewTip();
 }
 
-void FlyClient::Connection::SearchBelow(Height h)
+void FlyClient::Connection::SearchBelow(Height h, uint32_t nCount)
 {
 	assert(ShouldSync() && m_pSync && m_pSync->m_vConfirming.empty());
+	assert(nCount);
 
-	StateMap::iterator it = m_This.m_Hist.lower_bound(h);
-	if (m_This.m_Hist.begin() == it)
+	proto::GetCommonState msg;
+	msg.m_IDs.reserve(nCount);
+
+	for (StateMap::iterator it = m_This.m_Hist.lower_bound(h); nCount-- && (m_This.m_Hist.begin() != it); )
+	{
+		--it;
+		const Block::SystemState::Full& s = it->second;
+		assert(s.m_Height == it->first);
+
+		msg.m_IDs.emplace_back();
+		s.get_ID(msg.m_IDs.back());
+	}
+
+	if (msg.m_IDs.empty())
 	{
 		ZeroObject(m_pSync->m_Confirmed);
 		RequestChainworkProof();
 	}
 	else
 	{
-		--it;
-		const Block::SystemState::Full& s = it->second;
-		assert(s.m_Height == it->first);
-
-		proto::GetCommonState msg;
-		msg.m_IDs.resize(1);
-		s.get_ID(msg.m_IDs[0]);
 		Send(msg);
-
 		m_pSync->m_vConfirming.swap(msg.m_IDs);
 	}
 }
@@ -1048,7 +1090,7 @@ void FlyClient::Connection::OnMsg(proto::ProofCommonState&& msg)
 	std::vector<Block::SystemState::ID> vIDs = std::move(m_pSync->m_vConfirming);
 
 	if (msg.m_iState >= vIDs.size())
-		SearchBelow(vIDs.front().m_Height);
+		SearchBelow(vIDs.front().m_Height, static_cast<uint32_t>(vIDs.size() * 2));
 	else
 	{
 		const Block::SystemState::ID& id = vIDs[msg.m_iState];
@@ -1071,7 +1113,7 @@ void FlyClient::Connection::OnMsg(proto::ProofCommonState&& msg)
 		}
 
 		// restart the search
-		SearchBelow(m_Tip.m_Height);
+		SearchBelow(m_Tip.m_Height, 1);
 	}
 }
 void FlyClient::Connection::RequestChainworkProof()
@@ -1083,6 +1125,7 @@ void FlyClient::Connection::RequestChainworkProof()
 	Send(msg);
 
 	m_pSync->m_TipBeforeGap.m_Height = 0;
+	m_pSync->m_LowHeightSinceConfirmed = m_pSync->m_Confirmed.m_Height;
 }
 
 struct FlyClient::Connection::StateArray
@@ -1171,7 +1214,7 @@ void FlyClient::Connection::OnMsg(proto::ProofChainWork&& msg)
 		StateMap::reverse_iterator it = m_This.m_Hist.rbegin();
 		const Block::SystemState::Full& s = (it++)->second;
 
-		if (s == pSync->m_Confirmed)
+		if (s.m_Height <= pSync->m_LowHeightSinceConfirmed)
 			break;
 
 		if (arr.Find(s))
@@ -1182,13 +1225,28 @@ void FlyClient::Connection::OnMsg(proto::ProofChainWork&& msg)
 	}
 
 	if (bErased)
+	{
+		const Block::SystemState::Full* pTip = m_This.get_Tip();
+		Height hLow = pTip ? pTip->m_Height : 0;
+
+		// if more connections are opened simultaneously - notify them
+		for (ConnectionList::iterator it = m_This.m_Connections.begin(); m_This.m_Connections.end() != it; it++)
+		{
+			const Connection& c = *it;
+			if (c.m_pSync)
+				c.m_pSync->m_LowHeightSinceConfirmed = hLow;
+		}
+
 		m_This.OnRolledBack();
+	}
 
 	for (size_t i = 0; i < arr.m_vec.size(); i++)
 	{
 		const Block::SystemState::Full& s = arr.m_vec[i];
 		m_This.m_Hist[s.m_Height] = std::move(s);
 	}
+
+	m_This.ShrinkHist();
 	m_This.OnNewTip(); // finished!
 
 

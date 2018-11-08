@@ -809,7 +809,8 @@ Item
                                     }
                                     else
                                     {
-                                        root.parent.source = "qrc:/main.qml";
+                                            root.parent.source = "qrc:/main.qml";
+                                        }
                                     }
                                 }
                             }
@@ -817,7 +818,6 @@ Item
                     }
                 }
             }
-        }
 
         Component {
             id: nodeSetup

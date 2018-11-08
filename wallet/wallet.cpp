@@ -152,6 +152,7 @@ namespace beam
         , m_syncTotal{0}
         , m_synchronized{false}
         , m_holdNodeConnection{ holdNodeConnection }
+        , m_needRecover{false}
     {
         assert(keyChain);
         ZeroObject(m_newState);
@@ -171,11 +172,13 @@ namespace beam
         auto txID = wallet::GenerateTxID();
         auto tx = constructTransaction(txID, TxType::Simple);
 
+        Height currentHeight = m_keyChain->getCurrentHeight();
         tx->SetParameter(TxParameterID::TransactionType, TxType::Simple);
         tx->SetParameter(TxParameterID::CreateTime, getTimestamp());
         tx->SetParameter(TxParameterID::Amount, amount);
         tx->SetParameter(TxParameterID::Fee, fee);
-        tx->SetParameter(TxParameterID::MinHeight, m_keyChain->getCurrentHeight());
+        tx->SetParameter(TxParameterID::MinHeight, currentHeight);
+        tx->SetParameter(TxParameterID::MaxHeight, currentHeight + 1440); // transaction is valid +24h from now
         tx->SetParameter(TxParameterID::PeerID, to);
         tx->SetParameter(TxParameterID::MyID, from);
         tx->SetParameter(TxParameterID::Message, move(message));
@@ -214,6 +217,13 @@ namespace beam
         updateTransaction(txID);
 
         return txID;
+    }
+
+    void Wallet::recover()
+    {
+        LOG_INFO() << "Recover coins from blockchain";
+        m_keyChain->clear();
+        m_needRecover = true;
     }
 
     void Wallet::resume_tx(const TxDescription& tx)
@@ -278,6 +288,7 @@ namespace beam
             state = m_newState;
             return true;
         }
+        LOG_ERROR() << "get_tip: Invalid state " ;
         return false;
     }
 
@@ -475,9 +486,8 @@ namespace beam
                         {
                             LOG_INFO() << "Block reward received: " << PrintableAmount(coin.m_amount);
                         }
-                        else
+                        else if (coin.m_createTxId.is_initialized())
                         {
-                            assert(coin.m_createTxId.is_initialized());
                             updateTransaction(*(coin.m_createTxId));
                         }
                     }
@@ -502,13 +512,13 @@ namespace beam
 
         Block::SystemState::ID newID;
         msg.m_Description.get_ID(newID);
-        
+
         m_newState = msg.m_Description;
 
         if (newID == m_knownStateID)
         {
             // here we may close connection with node
-            m_keyChain->setSystemStateID(m_knownStateID);
+            saveKnownState();
             return close_node_connection();
         }
 
@@ -566,6 +576,19 @@ namespace beam
             m_network->send_node_message(proto::GetMined{ lastKnownCoinHeight });
         }
 
+        return exit_sync();
+    }
+
+    bool Wallet::handle_node_message(proto::Recovered&& msg)
+    {
+        vector<Coin> coins;
+        coins.reserve(msg.m_Private.size());
+        for (const auto& kidv : msg.m_Private)
+        {
+            coins.push_back(Coin::fromKidv(kidv));
+        }
+        
+        getUtxoProofs(coins);
         return exit_sync();
     }
 
@@ -671,8 +694,16 @@ namespace beam
         m_newState.get_ID(id);
         LOG_INFO() << "Sync up to " << id;
         // fast-forward
-        enter_sync(); // Mined
-        m_network->send_node_message(proto::GetMined{ m_knownStateID.m_Height });
+        enter_sync(); // Mined 
+        if (m_needRecover)
+        {
+            m_network->send_node_message(proto::Recover{ true, true });
+            return;
+        }
+        else
+        {
+            m_network->send_node_message(proto::GetMined{ m_knownStateID.m_Height });
+        }
 
         auto t = m_transactions;
         for (auto& p : t)
@@ -741,23 +772,29 @@ namespace beam
             if (m_syncDone == m_syncTotal)
             {
                 m_newState.get_ID(m_knownStateID);
-                m_keyChain->setSystemStateID(m_knownStateID);
-                LOG_INFO() << "Current state is " << m_knownStateID;
-                m_synchronized = true;
-                m_syncDone = m_syncTotal = 0;
-                notifySyncProgress();
-                if (!m_pendingEvents.empty())
-                {
-                    for (auto& cb : m_pendingEvents)
-                    {
-                        cb();
-                    }
-                    m_pendingEvents.clear();
-                }
+                saveKnownState();
             }
         }
 
         return close_node_connection();
+    }
+
+    void Wallet::saveKnownState()
+    {
+        m_keyChain->setSystemStateID(m_knownStateID);
+        LOG_INFO() << "Current state is " << m_knownStateID;
+        m_synchronized = true;
+        m_needRecover = false;
+        m_syncDone = m_syncTotal = 0;
+        notifySyncProgress();
+        if (!m_pendingEvents.empty())
+        {
+            for (auto& cb : m_pendingEvents)
+            {
+                cb();
+            }
+            m_pendingEvents.clear();
+        }
     }
 
     void Wallet::notifySyncProgress()
@@ -837,8 +874,7 @@ namespace beam
             // we return only active transactions
             return BaseTransaction::Ptr();
         }
-        auto address = m_keyChain->getAddress(myID);
-        ByteBuffer message(address->m_label.begin(), address->m_label.end());
+
         auto t = constructTransaction(msg.m_txId, msg.m_Type);
 
         t->SetParameter(TxParameterID::TransactionType, msg.m_Type);
@@ -847,7 +883,13 @@ namespace beam
         t->SetParameter(TxParameterID::PeerID, msg.m_from);
         t->SetParameter(TxParameterID::IsInitiator, false);
         t->SetParameter(TxParameterID::Status, TxStatus::Pending);
-        t->SetParameter(TxParameterID::Message, message);
+
+        auto address = m_keyChain->getAddress(myID);
+        if (address.is_initialized())
+        {
+            ByteBuffer message(address->m_label.begin(), address->m_label.end());
+            t->SetParameter(TxParameterID::Message, message);
+        }
 
         m_transactions.emplace(msg.m_txId, t);
         return t;

@@ -1224,6 +1224,8 @@ namespace ECC {
 		m_kCoFactor = 1U; // by default
 	}
 
+	HKdf::~HKdf(){}
+
 	void HKdf::DeriveKey(Scalar::Native& out, const Hash::Value& hv)
 	{
 		DerivePKey(out, hv);

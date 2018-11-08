@@ -48,6 +48,8 @@ private:
         _cond.notify_one();
     }
 
+    void stop_current() override {}
+
     bool get_new_job(Job& job) {
         std::unique_lock<std::mutex> lk(_mutex);
         _cond.wait(lk, [this]() { return _changed.load(); });

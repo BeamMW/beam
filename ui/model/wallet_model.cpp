@@ -47,6 +47,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
+    void restoreFromBlockchain() override
+    {
+        tx.send([](BridgeInterface& receiver_) mutable
+        {
+            receiver_.restoreFromBlockchain();
+        });
+    }
+
     void syncWithNode() override
     {
         tx.send([](BridgeInterface& receiver_) mutable
@@ -274,6 +282,12 @@ void WalletModel::run()
             subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
         }
 
+        if (AppModel::getInstance()->shouldRestoreWallet())
+        {
+            AppModel::getInstance()->setRestoreWallet(false);
+            restoreFromBlockchain();
+        }
+
         _reactor->run();
     }
     catch (const runtime_error& ex)
@@ -326,6 +340,11 @@ void WalletModel::onSyncProgress(int done, int total)
     emit onSyncProgressUpdated(done, total);
 }
 
+void WalletModel::onRecoverProgress(int done, int total, const string& message)
+{
+    emit onRestoreProgressUpdated(done, total, QString::fromStdString(message));
+}
+
 void WalletModel::sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, Amount&& amount, Amount&& fee)
 {
     assert(!_wallet.expired());
@@ -357,6 +376,23 @@ void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& c
         if (s)
         {
             s->transfer_money(sender, receiver, move(amount), move(fee), true, move(message));
+        }
+    }
+    catch (...)
+    {
+
+    }
+}
+
+void WalletModel::restoreFromBlockchain()
+{
+    try
+    {
+        assert(!_wallet.expired());
+        auto s = _wallet.lock();
+        if (s)
+        {
+            s->recover();
         }
     }
     catch (...)

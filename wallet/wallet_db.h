@@ -58,8 +58,10 @@ namespace beam
         Height m_lockedHeight;
         boost::optional<TxID> m_createTxId;
         boost::optional<TxID> m_spentTxId;
+        uint64_t m_keyIndex;
 
-		Key::IDV get_Kidv() const;
+        Key::IDV get_Kidv() const;
+        static Coin fromKidv(const Key::IDV& kidv);
     };
 
     struct TxPeer
