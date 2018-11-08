@@ -243,7 +243,7 @@ private:
 
     WalletModel& _model;
 
-    WalletStatus _status;
+    WalletStatus _status ;
 
     QString _sendAmount;
     QString _feeMils;
