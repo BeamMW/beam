@@ -170,15 +170,13 @@ namespace beam
 		REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
 
+		IWalletDB::Ptr m_WalletDB;
 		proto::FlyClient::INetwork* m_pNodeNetwork;
 		INetwork* m_pWalletNetwork;
-        IWalletDB::Ptr m_WalletDB;
         std::map<TxID, wallet::BaseTransaction::Ptr> m_transactions;
         std::set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
         TxCompletedAction m_tx_completed_action;
-
-		uint32_t m_LastSyncTotal = 0;
-
+		uint32_t m_LastSyncTotal;
         bool m_needRecover;
 
         std::vector<IWalletObserver*> m_subscribers;

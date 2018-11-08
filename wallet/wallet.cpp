@@ -102,8 +102,8 @@ namespace beam
         , m_pNodeNetwork(NULL)
 		, m_pWalletNetwork(NULL)
 		, m_tx_completed_action{move(action)}
-        , m_needRecover{false}
 		, m_LastSyncTotal(0)
+		, m_needRecover{false}
     {
         assert(walletDB);
 		m_pKdf = m_WalletDB->get_Kdf();
