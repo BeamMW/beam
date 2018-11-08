@@ -104,10 +104,12 @@ namespace beam
 
     private:
 
-		template <typename T> struct Extra {};
-		template <> struct Extra<RequestTransaction> { TxID m_TxID; };
-		template <> struct Extra<RequestUtxo> { Coin m_Coin; };
-		template <> struct Extra<RequestKernel> { TxID m_TxID; };
+		struct ExtraRequestTransaction { TxID m_TxID; };
+		struct ExtraRequestUtxo { Coin m_Coin; };
+		struct ExtraRequestKernel { TxID m_TxID; };
+		struct ExtraRequestMined { };
+		struct ExtraRequestBbsMsg { };
+		struct ExtraRequestRecover { };
 
 #define REQUEST_TYPES_Sync(macro) \
 		macro(Utxo) \
@@ -125,7 +127,7 @@ namespace beam
 		struct MyRequest##type \
 			:public Request##type \
 			,public boost::intrusive::set_base_hook<> \
-			,public Extra<Request##type> \
+			,public ExtraRequest##type \
 		{ \
 			typedef boost::intrusive_ptr<MyRequest##type> Ptr; \
 			bool operator < (const MyRequest##type&) const; \
