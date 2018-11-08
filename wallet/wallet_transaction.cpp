@@ -308,6 +308,7 @@ namespace beam { namespace wallet
                     .AddParameter(TxParameterID::PeerSignature, builder.m_PartialSignature)
                     .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce());
 
+                UpdateTxDescription(TxStatus::Registered);
                 SendTxParameters(move(msg));
                 SetState(State::InvitationConfirmation);
             }
@@ -333,6 +334,8 @@ namespace beam { namespace wallet
                     // Confirm transaction
                     SetTxParameter msg;
                     msg.AddParameter(TxParameterID::PeerSignature, Scalar(builder.m_PartialSignature));
+
+                    UpdateTxDescription(TxStatus::Registered);
                     SendTxParameters(move(msg));
                     SetState(State::PeerConfirmation);
                 }
