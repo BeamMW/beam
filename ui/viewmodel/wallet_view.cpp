@@ -95,15 +95,12 @@ QString TxObject::status() const
 
 bool TxObject::canCancel() const
 {
-    return _tx.m_status == beam::TxStatus::InProgress
-        || _tx.m_status == beam::TxStatus::Pending;
+    return _tx.canCancel();
 }
 
 bool TxObject::canDelete() const
 {
-    return _tx.m_status == beam::TxStatus::Failed
-        || _tx.m_status == beam::TxStatus::Completed
-        || _tx.m_status == beam::TxStatus::Cancelled;
+    return _tx.canDelete();
 }
 
 void TxObject::setUserName(const QString& name)
