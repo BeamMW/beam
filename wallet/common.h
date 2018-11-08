@@ -96,6 +96,19 @@ namespace beam
                 || m_status == TxStatus::InProgress 
                 || m_status == TxStatus::Registered;
         }
+
+        bool canCancel() const
+        {
+            return m_status == beam::TxStatus::InProgress
+                || m_status == beam::TxStatus::Pending;
+        }
+
+        bool canDelete() const
+        {
+            return m_status == beam::TxStatus::Failed
+                || m_status == beam::TxStatus::Completed
+                || m_status == beam::TxStatus::Cancelled;
+        }
     };
 
     namespace wallet
@@ -131,6 +144,7 @@ namespace beam
             //Outputs = 9,
             CreateTime = 10,
             IsInitiator = 11,
+            MaxHeight = 12,
 
             AtomicSwapCoin = 20,
             AtomicSwapAmount = 21,
@@ -167,13 +181,14 @@ namespace beam
             SharedPeerOutputs = 85,
 
             TransactionRegistered = 90,
-            KernelProof = 91,
+
             FailureReason = 92,
 
             // private parameters
             PrivateFirstParam = 128,
 
             ModifyTime = 128,
+            KernelProof = 129,
 
             BlindingExcess = 130, // + MaxSignatures,
             SharedBlindingExcess = 131,
@@ -197,7 +212,8 @@ namespace beam
             
             Outputs = 190,
             SharedOutputs = 191,
-            LockedOutputs = 192
+            LockedOutputs = 192,
+            State = 255
 
         };
 

@@ -21,6 +21,7 @@
 #include "../../utility/serialize.h"
 #include "../../utility/test_helpers.h"
 #include "../../core/serialization_adapters.h"
+#include "../../core/unittest/mini_blockchain.h"
 
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
@@ -897,9 +898,6 @@ namespace beam
 			void SetTimer(uint32_t timeout_ms) {
 				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
 			}
-			void KillTimer() {
-				m_pTimer->cancel();
-			}
 		};
 
 		MyClient cl;
@@ -1235,9 +1233,6 @@ namespace beam
 			void SetTimer(uint32_t timeout_ms) {
 				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
 			}
-			void KillTimer() {
-				m_pTimer->cancel();
-			}
 		};
 
 		MyClient cl(pKdf);
@@ -1352,123 +1347,25 @@ namespace beam
 	}
 
 
-	struct ChainContext
-	{
-		struct State
-		{
-			Block::SystemState::Full m_Hdr;
-			std::unique_ptr<uint8_t[]> m_pMmrData;
-		};
-
-		std::vector<State> m_vStates;
-		Merkle::Hash m_hvLive;
-
-		struct DMmr
-			:public Merkle::DistributedMmr
-		{
-			virtual const void* get_NodeData(Key key) const
-			{
-				return ((State*) key)->m_pMmrData.get();
-			}
-
-			virtual void get_NodeHash(Merkle::Hash& hv, Key key) const
-			{
-				((State*)key)->m_Hdr.get_Hash(hv);
-			}
-
-			IMPLEMENT_GET_PARENT_OBJ(ChainContext, m_Mmr)
-		} m_Mmr;
-
-		struct Source
-			:public Block::ChainWorkProof::ISource
-		{
-			virtual void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
-			{
-				// median search. The Hdr.m_ChainWork must be strictly bigger than d. (It's exclusive)
-				typedef std::vector<State>::const_iterator Iterator;
-				Iterator it0 = get_ParentObj().m_vStates.begin();
-				Iterator it1 = get_ParentObj().m_vStates.end();
-
-				while (it0 < it1)
-				{
-					Iterator itMid = it0 + (it1 - it0) / 2;
-					if (itMid->m_Hdr.m_ChainWork <= d)
-						it0 = itMid + 1;
-					else
-						it1 = itMid;
-				}
-
-				s = it0->m_Hdr;
-			}
-
-			virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
-			{
-				assert(h >= Rules::HeightGenesis);
-				h -= Rules::HeightGenesis;
-
-				assert(h < get_ParentObj().m_vStates.size());
-
-				get_ParentObj().m_Mmr.get_Proof(bld, h);
-			}
-
-			IMPLEMENT_GET_PARENT_OBJ(ChainContext, m_Source)
-		} m_Source;
-
-		void Init()
-		{
-			m_hvLive = 55U;
-
-			m_vStates.resize(200000);
-			Difficulty d = Rules::get().StartDifficulty;
-
-			for (size_t i = 0; i < m_vStates.size(); i++)
-			{
-				State& s = m_vStates[i];
-				if (i)
-				{
-					const State& s0 = m_vStates[i - 1];
-					s.m_Hdr = s0.m_Hdr;
-					s.m_Hdr.NextPrefix();
-
-					m_Mmr.Append(DMmr::Key(&s0), s0.m_pMmrData.get(), s.m_Hdr.m_Prev);
-				}
-				else
-				{
-					ZeroObject(s.m_Hdr);
-					s.m_Hdr.m_Height = Rules::HeightGenesis;
-				}
-
-				s.m_Hdr.m_PoW.m_Difficulty = d;
-				d.Inc(s.m_Hdr.m_ChainWork);
-
-				if (!((i + 1) % 8000))
-					d.Adjust(140, 150, 3); // slightly raise
-
-				m_Mmr.get_Hash(s.m_Hdr.m_Definition);
-				Merkle::Interpret(s.m_Hdr.m_Definition, m_hvLive, true);
-
-				uint32_t nSize = m_Mmr.get_NodeSize(i);
-				s.m_pMmrData.reset(new uint8_t[nSize]);
-			}
-		}
-	};
-
-
 	void TestChainworkProof()
 	{
-		ChainContext cc;
-
 		printf("Preparing blockchain ...\n");
-		cc.Init();
+
+		MiniBlockChain cc;
+		cc.Generate(200000);
+
+		const Block::SystemState::Full& sRoot = cc.m_vStates.back().m_Hdr;
 
 		Block::ChainWorkProof cwp;
 		cwp.m_hvRootLive = cc.m_hvLive;
-		cwp.Create(cc.m_Source, cc.m_vStates.back().m_Hdr);
+		cwp.Create(cc.m_Source, sRoot);
 
 		uint32_t nStates = (uint32_t) cc.m_vStates.size();
 		for (size_t i0 = 0; ; i0++)
 		{
-			verify_test(cwp.IsValid());
+			Block::SystemState::Full sTip;
+			verify_test(cwp.IsValid(&sTip));
+			verify_test(sRoot == sTip);
 
 			printf("Blocks = %u. Proof: States = %u/%u, Hashes = %u, Size = %u\n",
 				nStates,
@@ -1489,10 +1386,156 @@ namespace beam
 			cwp.m_LowerBound = cwp2.m_LowerBound;
 			verify_test(cwp.Crop());
 
-			verify_test(cwp2.IsValid());
-			verify_test(cwp.IsValid());
+			verify_test(cwp2.IsValid(&sTip));
+			verify_test(sRoot == sTip);
+			verify_test(cwp.IsValid(&sTip));
+			verify_test(sRoot == sTip);
 		}
 	}
+
+	void RaiseHeightTo(Node& node, Height h)
+	{
+		TxPool::Fluff txPool;
+
+		while (node.get_Processor().m_Cursor.m_ID.m_Height < h)
+		{
+			NodeProcessor::BlockContext bc(txPool, *node.m_pKdf);
+			verify_test(node.get_Processor().GenerateNewBlock(bc));
+			node.get_Processor().OnState(bc.m_Hdr, PeerID());
+
+			Block::SystemState::ID id;
+			bc.m_Hdr.get_ID(id);
+			node.get_Processor().OnBlock(id, bc.m_Body, PeerID());
+		}
+	}
+
+	void TestFlyClient()
+	{
+		io::Reactor::Ptr pReactor(io::Reactor::create());
+		io::Reactor::Scope scope(*pReactor);
+
+		Node node;
+		node.m_Cfg.m_sPathLocal = g_sz;
+		node.m_Cfg.m_Listen.port(g_Port);
+		node.m_Cfg.m_Listen.ip(INADDR_ANY);
+		node.m_Cfg.m_MiningThreads = 0;
+		node.m_Cfg.m_vTreasury.resize(1);
+		node.m_Cfg.m_vTreasury[0].ZeroInit();
+
+		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
+		ECC::SetRandom(pKdf->m_Secret.V);
+		node.m_pKdf = pKdf;
+
+		node.Initialize();
+
+		struct MyFlyClient
+			:public proto::FlyClient
+		{
+			io::Timer::Ptr m_pTimer;
+
+			bool m_bTip;
+			Height m_hRolledTo;
+
+			MyFlyClient()
+			{
+				m_pTimer = io::Timer::create(io::Reactor::get_Current());
+			}
+
+			virtual void OnNewTip() override
+			{
+				m_bTip = true;
+				io::Reactor::get_Current().stop();
+			}
+
+			virtual void OnRolledBack() override
+			{
+				m_hRolledTo = m_Hist.empty() ? 0 : m_Hist.rbegin()->first;
+			}
+
+			void OnTimer() {
+				io::Reactor::get_Current().stop();
+			}
+
+			void SetTimer(uint32_t timeout_ms) {
+				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
+			}
+
+			void KillTimer() {
+				m_pTimer->cancel();
+			}
+
+			void SyncSync() // synchronize synchronously. Joky joke.
+			{
+				m_bTip = false;
+				m_hRolledTo = MaxHeight;
+
+				io::Address addr;
+				addr.resolve("127.0.0.1");
+				addr.port(g_Port);
+
+				Connection conn(*this);
+				conn.Connect(addr);
+
+				//SetTimer(90 * 1000);
+				io::Reactor::get_Current().run();
+				KillTimer();
+			}
+		};
+
+		const Height hThrd1 = 250;
+		RaiseHeightTo(node, hThrd1);
+
+
+		MyFlyClient fc;
+		// simple case
+		fc.SyncSync();
+
+		verify_test(fc.m_bTip);
+		verify_test(fc.m_hRolledTo == MaxHeight);
+		verify_test(!fc.m_Hist.empty() && fc.m_Hist.rbegin()->second.m_Height == hThrd1);
+
+		{
+			// pop last
+			auto it = fc.m_Hist.rbegin();
+			fc.m_Hist.erase((++it).base());
+		}
+
+		fc.SyncSync(); // should be trivial
+		verify_test(fc.m_bTip);
+		verify_test(fc.m_hRolledTo == MaxHeight);
+		verify_test(!fc.m_Hist.empty() && fc.m_Hist.rbegin()->second.m_Height == hThrd1);
+
+		const Height hThrd2 = 270;
+		RaiseHeightTo(node, hThrd2);
+
+		// should only fill the gap to the tip, not from the beginning. Should involve
+		fc.SyncSync();
+		verify_test(fc.m_bTip);
+		verify_test(fc.m_hRolledTo == MaxHeight);
+		verify_test(!fc.m_Hist.empty() && fc.m_Hist.rbegin()->second.m_Height == hThrd2);
+
+		// simulate branching, make it rollback
+		Height hBranch = 203;
+		while (!fc.m_Hist.empty())
+		{
+			proto::FlyClient::StateMap::reverse_iterator it = fc.m_Hist.rbegin();
+			if ((it++)->first <= hBranch)
+				break;
+			fc.m_Hist.erase(it.base());
+		}
+
+		Block::SystemState::Full s1;
+		ZeroObject(s1);
+		s1.m_Height = hBranch + 2;
+		fc.m_Hist[s1.m_Height] = s1;
+
+		fc.SyncSync();
+
+		verify_test(fc.m_bTip);
+		verify_test(fc.m_hRolledTo <= hBranch); // must rollback beyond the manually appended state
+		verify_test(!fc.m_Hist.empty() && fc.m_Hist.rbegin()->second.m_Height == hThrd2);
+	}
+
 
 }
 
@@ -1550,6 +1593,12 @@ int main()
 	beam::TestNodeClientProto();
 	beam::DeleteFile(beam::g_sz);
 	beam::DeleteFile(beam::g_sz2);
+
+	printf("Node <---> FlyClient test...\n");
+	fflush(stdout);
+
+	beam::TestFlyClient();
+	beam::DeleteFile(beam::g_sz);
 
 	return g_TestsFailed ? -1 : 0;
 }

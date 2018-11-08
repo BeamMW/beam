@@ -115,6 +115,7 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString change READ change NOTIFY changeChanged)
 
     Q_PROPERTY(QString newReceiverAddr READ getNewReceiverAddr NOTIFY newReceiverAddrChanged)
+    Q_PROPERTY(QString newReceiverAddrQR READ getNewReceiverAddrQR NOTIFY newReceiverAddrChanged)
     Q_PROPERTY(QString newReceiverName READ getNewReceiverName WRITE setNewReceiverName NOTIFY newReceiverNameChanged)
 
     Q_PROPERTY(QString comment READ getComment WRITE setComment NOTIFY commentChanged)
@@ -125,6 +126,7 @@ class WalletViewModel : public QObject
 
     Q_PROPERTY(QString incomeRole READ getIncomeRole CONSTANT)
     Q_PROPERTY(QString dateRole READ getDateRole CONSTANT)
+    Q_PROPERTY(QString userRole READ getUserRole CONSTANT)
     Q_PROPERTY(QString displayNameRole READ getDisplayNameRole CONSTANT)
     Q_PROPERTY(QString amountRole READ getAmountRole CONSTANT)
     Q_PROPERTY(QString statusRole READ getStatusRole CONSTANT)
@@ -169,6 +171,7 @@ public:
     bool isEnoughMoney() const;
     QString change() const;
     QString getNewReceiverAddr() const;
+    QString getNewReceiverAddrQR() const;
     void setNewReceiverName(const QString& value);
 	QString getNewReceiverName() const;
     int selectedAddr() const;
@@ -192,6 +195,7 @@ public:
     void setSortOrder(Qt::SortOrder);
     QString getIncomeRole() const;
     QString getDateRole() const;
+    QString getUserRole() const;
     QString getDisplayNameRole() const;
     QString getAmountRole() const;
     QString getStatusRole() const;
@@ -241,7 +245,7 @@ private:
 
     WalletModel& _model;
 
-    WalletStatus _status;
+    WalletStatus _status ;
 
     QString _sendAmount;
     QString _feeMils;
@@ -255,6 +259,7 @@ private:
     QString _receiverAddr;
     //QString _senderAddr;
     QString _newReceiverAddr;
+    QString _newReceiverAddrQR;
     QString _newReceiverName;
     QString _comment;
 

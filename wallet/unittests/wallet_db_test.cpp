@@ -29,7 +29,7 @@ WALLET_TEST_INIT
 
 namespace
 {
-    IKeyChain::Ptr createSqliteKeychain()
+    IWalletDB::Ptr createSqliteWalletDB()
     {
         const char* dbName = "wallet.db";
         if (boost::filesystem::exists(dbName))
@@ -38,30 +38,62 @@ namespace
         }
         ECC::NoLeak<ECC::uintBig> seed;
         seed.V = Zero;
-        auto keychain = Keychain::init(dbName, string("pass123"), seed);
+        auto walletDB = WalletDB::init(dbName, string("pass123"), seed);
         beam::Block::SystemState::ID id = { };
         id.m_Height = 134;
-        keychain->setSystemStateID(id);
-        return keychain;
+        walletDB->setSystemStateID(id);
+        return walletDB;
     }
 }
 
-void TestKeychain()
+void TestWalletDataBase()
 {
-    auto keychain = createSqliteKeychain();
+    {
+        Coin coin{ 1234 };
+        coin.m_id = 12;
+        coin.m_key_type = Key::Type::Regular;
+        coin.m_keyIndex = 132;
+        coin.m_createHeight = 54;
+        WALLET_CHECK(coin.isValid());
+        auto kidv = coin.get_Kidv();
+        WALLET_CHECK(kidv.m_IdxSecondary == 132);
+        WALLET_CHECK(kidv.m_Idx == 54);
+        WALLET_CHECK(kidv.m_Value == 1234);
+        WALLET_CHECK(kidv.m_Type == Key::Type::Regular);
+        
+        Coin coin2 = Coin::fromKidv(kidv);
+        WALLET_CHECK(coin2.isValid());
+        WALLET_CHECK(coin2.m_amount == coin.m_amount);
+        WALLET_CHECK(coin2.m_key_type == coin.m_key_type);
+        WALLET_CHECK(coin2.m_keyIndex == coin.m_keyIndex);
+        WALLET_CHECK(coin2.m_createHeight == coin.m_createHeight);
+    
+    }
+    auto walletDB = createSqliteWalletDB();
 
     Coin coin1(5, Coin::Unspent, 0, 10);
-    keychain->store(coin1);
+    walletDB->store(coin1);
 
     WALLET_CHECK(coin1.m_id == 1);
+    WALLET_CHECK(coin1.m_keyIndex == 1);
 
     Coin coin2(2, Coin::Unspent, 0, 10);
-    keychain->store(coin2);
+    walletDB->store(coin2);
 
     WALLET_CHECK(coin2.m_id == 2);
+    WALLET_CHECK(coin2.m_keyIndex == 2);
+
+    // attempt to insert duplicated coin
+    {
+        Coin duplicatedCoin2(2, Coin::Unspent, 0, 10);
+        duplicatedCoin2.m_keyIndex = 2;
+        walletDB->store(duplicatedCoin2);
+        WALLET_CHECK(duplicatedCoin2.m_id == 2);
+        WALLET_CHECK(duplicatedCoin2.m_keyIndex == 2);
+    }
     
     {
-        auto coins = keychain->selectCoins(7);
+        auto coins = walletDB->selectCoins(7);
         WALLET_CHECK(coins.size() == 2);
 
     
@@ -81,9 +113,9 @@ void TestKeychain()
         coin2.m_status = Coin::Spent;
         
 
-        keychain->update(coin2);
+        walletDB->update(coin2);
 
-        WALLET_CHECK(keychain->selectCoins(5).size() == 0);
+        WALLET_CHECK(walletDB->selectCoins(5).size() == 0);
     }
 
     {
@@ -92,11 +124,11 @@ void TestKeychain()
         a.m_Height = rand();
 
         const char* name = "SystemStateID";
-        keychain->setVar(name, "dummy");
-        keychain->setVar(name, a);
+        walletDB->setVar(name, "dummy");
+        walletDB->setVar(name, a);
 
         Block::SystemState::ID b;
-        WALLET_CHECK(keychain->getVar(name, b));
+        WALLET_CHECK(walletDB->getVar(name, b));
 
         WALLET_CHECK(a == b);
     }
@@ -104,31 +136,31 @@ void TestKeychain()
 
 void TestStoreCoins()
 {
-    auto keychain = createSqliteKeychain();
+    auto walletDB = createSqliteWalletDB();
 
   
     Coin coin = { 5, Coin::Unspent, 1, 10, Key::Type::Coinbase };
-    keychain->store(coin);
+    walletDB->store(coin);
     coin = { 4, Coin::Unspent, 1, 10, Key::Type::Comission };
-    keychain->store(coin);
+    walletDB->store(coin);
     coin = { 2, Coin::Unspent, 1, 10, Key::Type::Regular };
-    keychain->store(coin);
+    walletDB->store(coin);
     coin = { 5, Coin::Unspent, 1, 10, Key::Type::Coinbase };
-    keychain->store(coin);
+    walletDB->store(coin);
     coin = { 1, Coin::Unspent, 1, 10, Key::Type::Regular };
-    keychain->store(coin);
+    walletDB->store(coin);
     coin = { 5, Coin::Unspent, 1, 10, Key::Type::Coinbase };
-    keychain->store(coin);
+    walletDB->store(coin);
     coin = { 4, Coin::Unspent, 1, 10, Key::Type::Comission };
-    keychain->store(coin);
+    walletDB->store(coin);
     coin = { 1, Coin::Unspent, 1, 10, Key::Type::Regular };
-    keychain->store(coin);
+    walletDB->store(coin);
     coin = { 4, Coin::Unspent, 1, 10, Key::Type::Comission };
-    keychain->store(coin);
+    walletDB->store(coin);
     coin = { 1, Coin::Unspent, 1, 10, Key::Type::Regular };
-    keychain->store(coin);
+    walletDB->store(coin);
     coin = { 1, Coin::Unspent, 1, 10, Key::Type::Regular };
-    keychain->store(coin);
+    walletDB->store(coin);
 
     auto coins = vector<Coin>{
             Coin{ 5, Coin::Unspent, 1, 10, Key::Type::Coinbase },
@@ -142,13 +174,13 @@ void TestStoreCoins()
             Coin{ 4, Coin::Unspent, 3, 10, Key::Type::Comission },
             Coin{ 1, Coin::Unspent, 1, 10, Key::Type::Regular },
             Coin{ 1, Coin::Unspent, 1, 10, Key::Type::Regular } };
-    keychain->store(coins);
+    walletDB->store(coins);
 
 
     int coinBase = 0;
     int comission = 0;
     int regular = 0;
-    keychain->visit([&coinBase, &comission, &regular](const Coin& coin)->bool
+    walletDB->visit([&coinBase, &comission, &regular](const Coin& coin)->bool
     {
         if (coin.m_key_type == Key::Type::Coinbase)
         {
@@ -170,7 +202,7 @@ void TestStoreCoins()
     WALLET_CHECK(regular == 10);
 
     coins.clear();
-    keychain->visit([&coins](const auto& coin)->bool
+    walletDB->visit([&coins](const auto& coin)->bool
     {
         coins.push_back(coin);
         return false;
@@ -179,9 +211,9 @@ void TestStoreCoins()
     WALLET_CHECK(coins[0].m_confirmHeight == MaxHeight);
     coins[0].m_confirmHeight = 423;
     coins[0].m_confirmHash = 12345678U;
-    keychain->update(coins[0]);
+    walletDB->update(coins[0]);
     coins.clear();
-    keychain->visit([&coins](const auto& coin)->bool
+    walletDB->visit([&coins](const auto& coin)->bool
     {
         coins.push_back(coin);
         return false;
@@ -195,7 +227,7 @@ using namespace beam;
 using namespace beam::wallet;
 void TestStoreTxRecord()
 {
-    auto keychain = createSqliteKeychain();
+    auto walletDB = createSqliteWalletDB();
     TxID id = {{1, 3, 4, 5 ,65}};
     TxDescription tr;
     tr.m_txId = id;
@@ -208,8 +240,8 @@ void TestStoreTxRecord()
     tr.m_status = TxStatus::InProgress;
     tr.m_change = 5;
 
-    WALLET_CHECK_NO_THROW(keychain->saveTx(tr));
-    WALLET_CHECK_NO_THROW(keychain->saveTx(tr));
+    WALLET_CHECK_NO_THROW(walletDB->saveTx(tr));
+    WALLET_CHECK_NO_THROW(walletDB->saveTx(tr));
     TxDescription tr2 = tr;
     tr2.m_txId = id;
     tr2.m_amount = 43;
@@ -218,9 +250,9 @@ void TestStoreTxRecord()
     tr2.m_modifyTime = 12345644;
     tr2.m_status = TxStatus::Completed;
     tr2.m_change = 5;
-    WALLET_CHECK_NO_THROW(keychain->saveTx(tr2));
+    WALLET_CHECK_NO_THROW(walletDB->saveTx(tr2));
     
-    auto t = keychain->getTxHistory();
+    auto t = walletDB->getTxHistory();
     WALLET_CHECK(t.size() == 1);
     WALLET_CHECK(t[0].m_txId == tr.m_txId);
     WALLET_CHECK(t[0].m_amount == tr.m_amount);
@@ -233,13 +265,13 @@ void TestStoreTxRecord()
     WALLET_CHECK(t[0].m_status == tr2.m_status);
     WALLET_CHECK(t[0].m_change == tr.m_change);
     TxID id2 = {{ 3,4,5 }};
-    WALLET_CHECK_NO_THROW(keychain->deleteTx(id2));
-    WALLET_CHECK_NO_THROW(keychain->deleteTx(id));
+    WALLET_CHECK_NO_THROW(walletDB->deleteTx(id2));
+    WALLET_CHECK_NO_THROW(walletDB->deleteTx(id));
 
-    WALLET_CHECK_NO_THROW(keychain->saveTx(tr2));
-    WALLET_CHECK_NO_THROW(keychain->saveTx(tr2));
+    WALLET_CHECK_NO_THROW(walletDB->saveTx(tr2));
+    WALLET_CHECK_NO_THROW(walletDB->saveTx(tr2));
     boost::optional<TxDescription> tr3;
-    WALLET_CHECK_NO_THROW(tr3 = keychain->getTx(tr2.m_txId));
+    WALLET_CHECK_NO_THROW(tr3 = walletDB->getTx(tr2.m_txId));
     WALLET_CHECK(tr3.is_initialized());
     WALLET_CHECK(tr3->m_txId == tr2.m_txId);
     WALLET_CHECK(tr3->m_amount == tr2.m_amount);
@@ -251,40 +283,40 @@ void TestStoreTxRecord()
     WALLET_CHECK(tr3->m_sender == tr2.m_sender);
     WALLET_CHECK(tr3->m_status == tr2.m_status);
     WALLET_CHECK(tr3->m_fsmState == tr2.m_fsmState);
-    WALLET_CHECK_NO_THROW(keychain->deleteTx(tr2.m_txId));
-    WALLET_CHECK(keychain->getTxHistory().empty());
+    WALLET_CHECK_NO_THROW(walletDB->deleteTx(tr2.m_txId));
+    WALLET_CHECK(walletDB->getTxHistory().empty());
 
     for (uint8_t i = 0; i < 100; ++i)
     {
         tr.m_txId[0] = i;
-        WALLET_CHECK_NO_THROW(keychain->saveTx(tr));
+        WALLET_CHECK_NO_THROW(walletDB->saveTx(tr));
     }
-    WALLET_CHECK(keychain->getTxHistory().size() == 100);
-    t = keychain->getTxHistory(50, 2);
+    WALLET_CHECK(walletDB->getTxHistory().size() == 100);
+    t = walletDB->getTxHistory(50, 2);
     WALLET_CHECK(t.size() == 2);
-    t = keychain->getTxHistory(99, 10);
+    t = walletDB->getTxHistory(99, 10);
     WALLET_CHECK(t.size() == 1);
-    t = keychain->getTxHistory(9, 0);
+    t = walletDB->getTxHistory(9, 0);
     WALLET_CHECK(t.size() == 0);
-    t = keychain->getTxHistory(50, 2);
+    t = walletDB->getTxHistory(50, 2);
     id[0] = 50;
     WALLET_CHECK(t[0].m_txId == id);
     id[0] = 51;
     WALLET_CHECK(t[1].m_txId == id);
 
-    t = keychain->getTxHistory(0, 1);
+    t = walletDB->getTxHistory(0, 1);
     WALLET_CHECK(t.size() == 1 && t[0].m_txId[0] == 0);
 
-    t = keychain->getTxHistory(99, 1);
+    t = walletDB->getTxHistory(99, 1);
     WALLET_CHECK(t.size() == 1 && t[0].m_txId[0] == 99);
 
-    t = keychain->getTxHistory(100, 1);
+    t = walletDB->getTxHistory(100, 1);
     WALLET_CHECK(t.size() == 0);
 }
 
 void TestRollback()
 {
-    auto db = createSqliteKeychain();
+    auto db = createSqliteWalletDB();
     for (uint64_t i = 0; i < 9; ++i)
     {
         Coin coin1 = { 5, Coin::Unspent, i, i + 10, Key::Type::Regular, Height(i + 1) };
@@ -306,7 +338,7 @@ void TestRollback()
 
 
     // rewards
-    // should be deleted
+    // should not be deleted
     {
         Coin coin1 = { 5, Coin::Spent, 7, 8, Key::Type::Coinbase, Height(8) };
         db->store(coin1);
@@ -366,7 +398,7 @@ void TestRollback()
         return true;
     });
 
-    WALLET_CHECK(coins.size() == 17);
+    WALLET_CHECK(coins.size() == 21);
 
     for (int i = 0; i < 5; ++i)
     {
@@ -401,21 +433,21 @@ void TestRollback()
         WALLET_CHECK(c.m_confirmHash == Zero);
     }
 
-    for (int i = 11; i < 13; ++i)
+    for (int i = 11; i < 17; ++i)
     {
         auto& c = coins[i];
         WALLET_CHECK(c.m_status == Coin::Unconfirmed);
         WALLET_CHECK(c.m_confirmHeight == MaxHeight);
         WALLET_CHECK(c.m_lockedHeight == MaxHeight);
     }
-    for (int i = 13; i < 15; ++i)
+    for (int i = 17; i < 19; ++i)
     {
         auto& c = coins[i];
         WALLET_CHECK(c.m_status == Coin::Spent);
         WALLET_CHECK(c.m_confirmHeight != MaxHeight);
         WALLET_CHECK(c.m_lockedHeight == MaxHeight);
     }
-    for (int i = 15; i < 17; ++i)
+    for (int i = 19; i < 21; ++i)
     {
         auto& c = coins[i];
         WALLET_CHECK(c.m_status == Coin::Unspent);
@@ -426,25 +458,25 @@ void TestRollback()
 
 void TestTxRollback()
 {
-    auto keychain = createSqliteKeychain();
+    auto walletDB = createSqliteWalletDB();
     TxID id = { { 1, 3, 4, 5 ,65 } };
     TxID id2 = { {1, 3, 4} };
 
     Coin coin1 = { 5, Coin::Unspent, 1, 10, Key::Type::Coinbase };
-    keychain->store(coin1);
+    walletDB->store(coin1);
     Coin coin2 = { 6, Coin::Unspent, 2, 11, Key::Type::Coinbase };
-    keychain->store(coin2);
+    walletDB->store(coin2);
     
     coin2.m_spentTxId = id;
     coin2.m_status = Coin::Locked;
     
     Coin coin3 = { 3, Coin::Unconfirmed, 2 };
     coin3.m_createTxId = id;
-    keychain->store(coin3);
-    keychain->update({ coin2 });
+    walletDB->store(coin3);
+    walletDB->update({ coin2 });
 
     vector<Coin> coins;
-    keychain->visit([&coins](const Coin& c)->bool
+    walletDB->visit([&coins](const Coin& c)->bool
     {
         coins.push_back(c);
         return true;
@@ -457,20 +489,20 @@ void TestTxRollback()
     WALLET_CHECK(coins[2].m_status == Coin::Unconfirmed);
     WALLET_CHECK(coins[2].m_createTxId == id);
 
-    keychain->rollbackTx(id2);
+    walletDB->rollbackTx(id2);
 
     coins.clear();
-    keychain->visit([&coins](const Coin& c)->bool
+    walletDB->visit([&coins](const Coin& c)->bool
     {
         coins.push_back(c);
         return true;
     });
     WALLET_CHECK(coins.size() == 3);
 
-    keychain->rollbackTx(id);
+    walletDB->rollbackTx(id);
 
     coins.clear();
-    keychain->visit([&coins](const Coin& c)->bool
+    walletDB->visit([&coins](const Coin& c)->bool
     {
         coins.push_back(c);
         return true;
@@ -483,7 +515,7 @@ void TestTxRollback()
 
 void TestPeers()
 {
-    auto db = createSqliteKeychain();
+    auto db = createSqliteWalletDB();
     auto peers = db->getPeers();
     WALLET_CHECK(peers.empty());
     TxPeer peer = {};
@@ -508,7 +540,7 @@ void TestPeers()
 
 void TestAddresses()
 {
-    auto db = createSqliteKeychain();
+    auto db = createSqliteWalletDB();
     auto addresses = db->getAddresses(true);
     WALLET_CHECK(addresses.empty());
     addresses = db->getAddresses(false);
@@ -558,7 +590,7 @@ void TestAddresses()
 
 void TestSelect()
 {
-    auto db = createSqliteKeychain();
+    auto db = createSqliteWalletDB();
     const Amount c = 10;
     for (Amount i = 1; i <= c; ++i)
     {
@@ -716,7 +748,7 @@ void TestSelect()
 
 void TestSelect2()
 {
-    auto db = createSqliteKeychain();
+    auto db = createSqliteWalletDB();
     const Amount c = 1000000;
     vector<Coin> t;
     t.reserve(c);
@@ -741,7 +773,7 @@ void TestSelect2()
 
 void TestTxParameters()
 {
-    auto db = createSqliteKeychain();
+    auto db = createSqliteWalletDB();
     TxID txID = { {1, 3, 5} };
     // public parameter cannot be overriten
     Amount amount = 0;
@@ -798,7 +830,7 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
     ECC::InitializeContext();
 
-    TestKeychain();
+    TestWalletDataBase();
     TestStoreCoins();
     TestStoreTxRecord();
     TestTxRollback();

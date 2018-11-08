@@ -346,12 +346,22 @@ void NodeDB::Create()
 
 void NodeDB::ExecQuick(const char* szSql)
 {
+	int n = sqlite3_total_changes(m_pDb);
 	TestRet(sqlite3_exec(m_pDb, szSql, NULL, NULL, NULL));
+
+	if (sqlite3_total_changes(m_pDb) != n)
+		OnModified();
 }
 
 bool NodeDB::ExecStep(sqlite3_stmt* pStmt)
 {
+	int n = sqlite3_total_changes(m_pDb);
+
 	int nVal = sqlite3_step(pStmt);
+
+	if (sqlite3_total_changes(m_pDb) != n)
+		OnModified();
+
 	switch (nVal)
 	{
 

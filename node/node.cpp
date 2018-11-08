@@ -571,6 +571,36 @@ void Node::Processor::ReportNewState()
     }
 }
 
+void Node::Processor::OnModified()
+{
+	if (!m_bFlushPending)
+	{
+		if (!m_pFlushTimer)
+			m_pFlushTimer = io::Timer::create(io::Reactor::get_Current());
+
+		m_pFlushTimer->start(50, false, [this]() { OnFlushTimer(); });
+
+		m_bFlushPending = true;
+	}
+}
+
+void Node::Processor::OnFlushTimer()
+{
+	m_bFlushPending = false;
+	CommitDB();
+}
+
+void Node::Processor::FlushDB()
+{
+	if (m_bFlushPending)
+	{
+		assert(m_pFlushTimer);
+		m_pFlushTimer->cancel();
+
+		OnFlushTimer();
+	}
+}
+
 Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 {
 	Peer* pPeer = new Peer(*this);
@@ -1011,6 +1041,11 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	LOG_INFO() << *m_pInfo << " connected, info updated";
 }
 
+void Node::Peer::OnMsg(proto::Bye&& msg)
+{
+	LOG_INFO() << "Peer " << m_RemoteAddr << " Received Bye." << msg.m_Reason;
+}
+
 void Node::Peer::OnDisconnect(const DisconnectReason& dr)
 {
 	LOG_WARNING() << m_RemoteAddr << ": " << dr;
@@ -1376,7 +1411,7 @@ void Node::SyncCycle(Peer& p, const ByteBuffer& buf)
 
 	if (buf.empty())
 	{
-		LOG_INFO() << "Sync cycle complete for Idx=" << m_pSync->m_iData;
+		LOG_INFO() << "Sync cycle complete for Idx=" << uint32_t(m_pSync->m_iData);
 
 		if (++m_pSync->m_iData == Block::Body::RW::Type::count)
 		{
@@ -1661,7 +1696,13 @@ void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType&
 	}
 
 	for (size_t i = 0; i < tx.m_vKernelsOutput.size(); i++)
-		os << "\n\tK: Fee=" << tx.m_vKernelsOutput[i]->m_Fee;
+	{
+		const TxKernel& krn = *tx.m_vKernelsOutput[i];
+		Merkle::Hash hv;
+		krn.get_ID(hv);
+
+		os << "\n\tK: " << hv << " Fee=" << krn.m_Fee;
+	}
 
 	os << "\n\tValid: " << bValid;
 	LOG_INFO() << os.str();
@@ -1868,7 +1909,6 @@ void Node::PerformAggregation(TxPool::Stem::Element& x)
 
 void Node::AddDummyInputs(Transaction& tx)
 {
-	NodeDB::Transaction txScope;
 	bool bModified = false;
 
 	while (tx.m_vInputs.size() < m_Cfg.m_Dandelion.m_OutputsMax)
@@ -1881,11 +1921,7 @@ void Node::AddDummyInputs(Transaction& tx)
 		if (!rowid || (h > m_Processor.m_Cursor.m_ID.m_Height + 1))
 			break;
 
-		if (!bModified)
-		{
-			bModified = true;
-			txScope.Start(m_Processor.get_DB());
-		}
+		bModified = true;
 
 		ECC::Mode::Scope scope(ECC::Mode::Fast);
 
@@ -1934,7 +1970,7 @@ void Node::AddDummyInputs(Transaction& tx)
 
 	if (bModified)
 	{
-		txScope.Commit();
+		m_Processor.FlushDB(); // make sure they're not lost
 		tx.Normalize();
 	}
 }
@@ -1945,7 +1981,6 @@ void Node::AddDummyOutputs(Transaction& tx)
 		return;
 
 	// add dummy outputs
-	NodeDB::Transaction txScope;
 	bool bModified = false;
 
 	NodeDB& db = m_Processor.get_DB();
@@ -1955,11 +1990,7 @@ void Node::AddDummyOutputs(Transaction& tx)
 		ECC::Scalar::Native sk;
 		NextNonce(sk);
 
-		if (!bModified)
-		{
-			bModified = true;
-			txScope.Start(db);
-		}
+		bModified = true;
 
 		Output::Ptr pOutput(new Output);
 		pOutput->Create(sk, 0);
@@ -1979,7 +2010,7 @@ void Node::AddDummyOutputs(Transaction& tx)
 
 	if (bModified)
 	{
-		txScope.Commit();
+		m_Processor.FlushDB();
 		tx.Normalize();
 	}
 }
@@ -2883,6 +2914,8 @@ void Node::Miner::OnMined()
 
 	get_ParentObj().m_Processor.get_DB().SetMined(sid, pTask->m_Fees); // ding!
 
+	get_ParentObj().m_Processor.FlushDB();
+
 	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_Body, get_ParentObj().m_MyPublicID); // will likely trigger OnNewState(), and spread this block to the network
 	assert(NodeProcessor::DataStatus::Accepted == eStatus);
 }
@@ -3095,7 +3128,6 @@ void Node::PeerMan::Initialize()
 void Node::PeerMan::OnFlush()
 {
 	NodeDB& db = get_ParentObj().m_Processor.get_DB();
-	NodeDB::Transaction t(db);
 
 	db.PeersDel();
 
@@ -3113,8 +3145,6 @@ void Node::PeerMan::OnFlush()
 
 		db.PeerIns(d);
 	}
-
-	t.Commit();
 }
 
 void Node::PeerMan::ActivatePeer(PeerInfo& pi)

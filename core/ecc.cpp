@@ -1014,7 +1014,7 @@ namespace ECC {
 
 	/////////////////////
 	// Context
-	alignas(32) char g_pContextBuf[sizeof(Context)];
+	alignas(64) char g_pContextBuf[sizeof(Context)];
 
 	// Currently - auto-init in global obj c'tor
 	Initializer g_Initializer;
@@ -1223,6 +1223,8 @@ namespace ECC {
 		ZeroObject(m_Secret.V);
 		m_kCoFactor = 1U; // by default
 	}
+
+	HKdf::~HKdf(){}
 
 	void HKdf::DeriveKey(Scalar::Native& out, const Hash::Value& hv)
 	{

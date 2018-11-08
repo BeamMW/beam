@@ -38,6 +38,8 @@ set(UI_SRC
 	translator.cpp
 	viewmodel/start_view.h
 	viewmodel/start_view.cpp
+    viewmodel/restore_view.h
+	viewmodel/restore_view.cpp
 	viewmodel/utxo_view.h
 	viewmodel/utxo_view.cpp
 	viewmodel/main_view.h
@@ -84,7 +86,9 @@ endif()
 
 configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 
-add_dependencies(${TARGET_NAME} wallet mnemonic)
+add_subdirectory(qrcode)
+add_dependencies(${TARGET_NAME} wallet mnemonic qrcode)
+target_link_libraries(${TARGET_NAME} qrcode)
 
 if(LINUX)
 	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -212,7 +216,7 @@ if(BEAM_USE_STATIC)
 			${CMAKE_PREFIX_PATH}/qml/QtQuick/Templates.2/libqtquicktemplates2plugin.a
 
 			${CMAKE_PREFIX_PATH}/plugins/imageformats/libqsvg.a
-          #  ${CMAKE_PREFIX_PATH}/plugins/printsupport/libcupsprintersupport.a
+            #${CMAKE_PREFIX_PATH}/plugins/printsupport/libcupsprintersupport.a
 		)
 
 		foreach(lib

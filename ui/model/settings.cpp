@@ -106,15 +106,6 @@ void WalletSettings::setLockTimeout(int value)
     }
 }
 
-void WalletSettings::emergencyReset()
-{
-    auto walletModel = AppModel::getInstance()->getWallet();
-    if (walletModel)
-    {
-        walletModel->async->emergencyReset();
-    }
-}
-
 bool WalletSettings::getGenerateGenesys() const
 {
     Lock lock(m_mutex);
@@ -275,12 +266,27 @@ void WalletSettings::reportProblem()
         zipLogsFile.close();
 	}
 
-	QDirIterator it(m_appDataDir.filePath(LogsFolder));
+    {
+	    QDirIterator it(m_appDataDir.filePath(LogsFolder));
 
-	while (it.hasNext())
-	{
-		zipLocalFile(zip, it.next(), logsFolder);
-	}
+	    while (it.hasNext())
+	    {
+		    zipLocalFile(zip, it.next(), logsFolder);
+	    }
+    }
+
+    {
+        QDirIterator it(m_appDataDir);
+
+        while (it.hasNext())
+        {
+            const auto& name = it.next();
+            if (QFileInfo(name).completeSuffix() == "dmp")
+            {
+                zipLocalFile(zip, m_appDataDir.filePath(name));
+            }
+        }
+    }
 
 	zip.close();
 

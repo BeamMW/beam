@@ -17,6 +17,9 @@
 #ifndef WIN32
 #	include <unistd.h>
 #	include <errno.h>
+#else
+#	include <dbghelp.h>
+#	pragma comment (lib, "dbghelp")
 #endif // WIN32
 
 // misc
@@ -219,3 +222,112 @@ extern "C" FILE * __cdecl __iob_func(void) { return _iob; }
 #endif
 
 #endif
+
+#ifdef WIN32
+
+wchar_t g_szDumpPathTemplate[MAX_PATH];
+uint32_t g_DumpIdx = 0;
+
+void MiniDumpWriteGuarded(EXCEPTION_POINTERS* pExc)
+{
+	HANDLE hFile;
+
+	wchar_t szPath[MAX_PATH];
+	for ( ; ; g_DumpIdx++)
+	{
+		_snwprintf_s(szPath, _countof(szPath), _countof(szPath), L"%s%u.dmp", g_szDumpPathTemplate, g_DumpIdx);
+		szPath[_countof(szPath) - 1] = 0; // for more safety
+
+		hFile = CreateFileW(szPath, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+		if (INVALID_HANDLE_VALUE != hFile)
+			break; // ok
+
+		if (GetLastError() != ERROR_FILE_EXISTS)
+			return; // oops!
+	}
+
+	MINIDUMP_EXCEPTION_INFORMATION mdei = { 0 };
+	mdei.ThreadId = GetCurrentThreadId();
+	mdei.ExceptionPointers = pExc;
+
+	MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, MiniDumpNormal, &mdei, NULL, NULL);
+
+	verify(CloseHandle(hFile));
+
+}
+
+void MiniDumpWriteNoExc()
+{
+	__try {
+		RaiseException(0xC20A1000, EXCEPTION_NONCONTINUABLE, 0, NULL);
+	} __except (MiniDumpWriteGuarded(GetExceptionInformation()), EXCEPTION_EXECUTE_HANDLER) {
+	}
+}
+
+long WINAPI ExcFilter(EXCEPTION_POINTERS* pExc)
+{
+	__try {
+		MiniDumpWriteGuarded(pExc);
+	} __except (EXCEPTION_EXECUTE_HANDLER) {
+	}
+
+	return EXCEPTION_CONTINUE_SEARCH;
+}
+
+//void CrtInvHandler(const wchar_t* expression, const wchar_t* function, const wchar_t* file, unsigned int line, uintptr_t pReserved)
+//{
+//	if (IsDebuggerPresent())
+//		/*_invalid_parameter_handler(expression, function, file, line, pReserved)*/;
+//	else
+//		MiniDumpWriteNoExc();
+//}
+
+terminate_function g_pfnTerminate = NULL;
+
+void TerminateHandler()
+{
+	MiniDumpWriteNoExc();
+	g_pfnTerminate();
+}
+
+_CRT_REPORT_HOOK g_pfnCrtReport = NULL;
+
+int CrtReportHook(int n, char* sz, int* p)
+{
+	MiniDumpWriteNoExc();
+	return 0;
+}
+
+
+void beam::InstallCrashHandler(const char* szLocation)
+{
+	if (szLocation)
+	{
+		std::wstring s = beam::Utf8toUtf16(szLocation);
+		size_t nLen = s.size();
+		if (nLen >= _countof(g_szDumpPathTemplate))
+			nLen = _countof(g_szDumpPathTemplate) - 1;
+
+		memcpy(g_szDumpPathTemplate, s.c_str(), sizeof(wchar_t) * (nLen + 1));
+	}
+	else
+	{
+		GetModuleFileNameW(NULL, g_szDumpPathTemplate, _countof(g_szDumpPathTemplate));
+		g_szDumpPathTemplate[_countof(g_szDumpPathTemplate) - 1] = 0;
+	}
+
+	SetUnhandledExceptionFilter(ExcFilter);
+
+	// CRT-specific
+	//_set_invalid_parameter_handler(CrtInvHandler);
+	g_pfnTerminate = set_terminate(TerminateHandler);
+	_CrtSetReportHook(CrtReportHook);
+}
+
+#else // WIN32
+
+void beam::InstallCrashHandler(const char*)
+{
+}
+
+#endif // WIN32

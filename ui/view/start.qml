@@ -299,7 +299,10 @@ Item
                             CustomButton {
                                 text: qsTr("back");
                                 icon.source: "qrc:/assets/icon-back.svg"
-                                onClicked: startWizzardView.pop();
+                                onClicked: {
+                                    startWizzardView.pop();
+                                    viewModel.resetPhrases();
+                                }
                             }
 
                             CustomButton {
@@ -384,7 +387,7 @@ Item
                                     height: 20
                                     Rectangle {
                                         color: "transparent"
-                                        border.color: Style.dark_slate_blue
+                                        border.color: Style.bluey_grey
                                         width: 20
                                         height: 20
                                         radius: 10
@@ -393,7 +396,7 @@ Item
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             text: modelData.index + 1
                                             font.pixelSize: 10
-                                            color: Style.dark_slate_blue
+                                            color: Style.bluey_grey
                                         }
                                         visible: modelData.value.length == 0
                                     }
@@ -427,11 +430,11 @@ Item
                                 SFTextInput {
                                     id: phraseValue
                                     anchors.bottom: parent.bottom
-                                    anchors.bottomMargin: 10
+                                    anchors.bottomMargin: 6
                                     width: 121
-
                                     font.pixelSize: 14
                                     color: (modelData.isCorrect || modelData.value.length == 0) ? Style.white : Style.validator_color
+                                    backgroundColor: (modelData.isCorrect || modelData.value.length == 0) ? Style.white : Style.validator_color
                                     text: modelData.value
                                     Component.onCompleted: {
                                         modelData.value = "";
@@ -569,7 +572,7 @@ Item
                                 SFTextInput {
                                     id: phraseValue
                                     anchors.bottom: parent.bottom
-                                    anchors.bottomMargin: 10
+                                    anchors.bottomMargin: 6
                                     width: 121
 
                                     font.pixelSize: 14
@@ -806,7 +809,8 @@ Item
                                     }
                                     else
                                     {
-                                        root.parent.source = "qrc:/main.qml";
+                                            root.parent.source = "qrc:/main.qml";
+                                        }
                                     }
                                 }
                             }
@@ -814,7 +818,6 @@ Item
                     }
                 }
             }
-        }
 
         Component {
             id: nodeSetup

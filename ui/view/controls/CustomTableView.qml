@@ -1,19 +1,20 @@
 import QtQuick 2.11
 import QtQuick.Controls 1.2
+import QtQuick.Controls.impl 2.4
 import QtQuick.Layouts 1.0
 import QtQuick.Controls.Styles 1.2
 import "."
 
 TableView {
+    id: tableView
     property int headerHeight: 46
     property int headerTextFontSize: 14
     property int headerTextLeftMargin: 20
 
     style: TableViewStyle {
         transientScrollBars: true
-
+        minimumHandleLength: 20
         handle: Rectangle {
-            anchors.topMargin: headerHeight
             implicitWidth: 14
             implicitHeight: 16
             radius: 6
@@ -29,12 +30,21 @@ TableView {
 
         color: Style.dark_slate_blue
 
-        SFText {
+        IconLabel {
             anchors.verticalCenter: parent.verticalCenter
             anchors.left: parent.left
             anchors.leftMargin: headerTextLeftMargin
             font.pixelSize: headerTextFontSize
-            color: Style.bluey_grey
+            color: tableView.sortIndicatorColumn == styleData.column ? Style.white : Style.bluey_grey
+            font.weight: tableView.sortIndicatorColumn == styleData.column ? Font.Bold : Font.Normal
+            font.family: "SF Pro Display"
+            font.styleName: "Regular"
+
+            icon.source: styleData.value == "" ? "" : tableView.sortIndicatorColumn == styleData.column ? "qrc:/assets/icon-sort-active.svg" : "qrc:/assets/icon-sort.svg"
+            icon.width: 5
+            icon.height: 8
+            spacing: 6
+            mirrored: true
 
             text: styleData.value
         }

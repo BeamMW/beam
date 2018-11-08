@@ -33,14 +33,38 @@ namespace beam { namespace wallet
         virtual void Cancel() = 0;
     };
 
+#define BEAM_TX_FAILURE_REASON_MAP(MACRO) \
+    MACRO(Unknown,                0, "Unknown reason") \
+    MACRO(Cancelled,              1, "Transaction was cancelled") \
+    MACRO(InvalidPeerSignature,   2, "Peer's signature in not valid ") \
+    MACRO(FailedToRegister,       3, "Failed to register transaction") \
+    MACRO(InvalidTransaction,     4, "Transaction is not valid") \
+    MACRO(InvalidKernelProof,     5, "Invalid kernel proof provided") \
+    MACRO(FailedToSendParameters, 6, "Failed to send tx parameters") \
+    MACRO(NoInputs,               7, "No inputs") \
+    MACRO(ExpiredAddressProvided, 8, "address is expired") \
+    MACRO(FailedToGetParameter,   9, "failed to get parameter") \
+
+    enum TxFailureReason : int32_t
+    {
+        #define MACRO(name, code, _) name = code, 
+        BEAM_TX_FAILURE_REASON_MAP(MACRO)
+        #undef MACRO
+    };
+
+    std::string GetFailureMessage(TxFailureReason reason);
+
     class TransactionFailedException : public std::runtime_error
     {
     public:
-        TransactionFailedException(bool notify, const char* message = "");
+        TransactionFailedException(bool notify, TxFailureReason reason, const char* message = "");
         bool ShouldNofify() const;
+        TxFailureReason GetReason() const;
     private:
         bool m_Notify;
+        TxFailureReason m_Reason;
     };
+ 
 
     //
     // State machine for managing per transaction negotiations between wallets
@@ -50,8 +74,9 @@ namespace beam { namespace wallet
     public:
         using Ptr = std::shared_ptr<BaseTransaction>;
         BaseTransaction(INegotiatorGateway& gateway
-                      , beam::IKeyChain::Ptr keychain
+                      , beam::IWalletDB::Ptr walletDB
                       , const TxID& txID);
+        virtual ~BaseTransaction(){}
 
         const TxID& GetTxID() const;
         void Update() override;
@@ -60,18 +85,16 @@ namespace beam { namespace wallet
         template <typename T>
         bool GetParameter(TxParameterID paramID, T& value) const
         {
-            return getTxParameter(m_Keychain, GetTxID(), paramID, value);
+            return getTxParameter(m_WalletDB, GetTxID(), paramID, value);
         }
 
         template <typename T>
         T GetMandatoryParameter(TxParameterID paramID) const
         {
             T value{};
-            if (!getTxParameter(m_Keychain, GetTxID(), paramID, value))
+            if (!getTxParameter(m_WalletDB, GetTxID(), paramID, value))
             {
-                std::stringstream ss;
-                ss <<  " Failed to get parameter: " << static_cast<uint8_t>(paramID);
-                throw TransactionFailedException(true, ss.str().c_str());
+                throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
             }
             return value;
         }
@@ -79,9 +102,16 @@ namespace beam { namespace wallet
         template <typename T>
         bool SetParameter(TxParameterID paramID, const T& value)
         {
-            return setTxParameter(m_Keychain, GetTxID(), paramID, value);
+            return setTxParameter(m_WalletDB, GetTxID(), paramID, value);
         }
-        IKeyChain::Ptr GetKeychain();
+
+        template <typename T>
+        void SetState(T state)
+        {
+            SetParameter(TxParameterID::State, state);
+        }
+
+        IWalletDB::Ptr GetWalletDB();
         bool IsInitiator() const;
     protected:
 
@@ -92,7 +122,7 @@ namespace beam { namespace wallet
 
         std::vector<Coin> GetUnconfirmedOutputs() const;
 
-        void OnFailed(const std::string& message = "", bool notify = false);
+        void OnFailed(TxFailureReason reason, bool notify = false);
 
         bool GetTip(Block::SystemState::Full& state) const;
 
@@ -101,7 +131,7 @@ namespace beam { namespace wallet
     protected:
 
         INegotiatorGateway& m_Gateway;
-        beam::IKeyChain::Ptr m_Keychain;
+        beam::IWalletDB::Ptr m_WalletDB;
 
         TxID m_ID;
         mutable boost::optional<bool> m_IsInitiator;
@@ -110,13 +140,26 @@ namespace beam { namespace wallet
 
     class SimpleTransaction : public BaseTransaction
     {
+        enum State : uint8_t
+        {
+            Initial,
+            Invitation,
+            PeerConfirmation,
+            
+            InvitationConfirmation,
+            Registration,
+
+            KernelConfirmation,
+            OutputsConfirmation
+        };
     public:
         SimpleTransaction(INegotiatorGateway& gateway
-                        , beam::IKeyChain::Ptr keychain
+                        , beam::IWalletDB::Ptr walletDB
                         , const TxID& txID);
     private:
         TxType GetType() const override;
         void UpdateImpl() override;
+        State GetState() const;
     };
 
     struct TxBuilder
@@ -128,6 +171,7 @@ namespace beam { namespace wallet
         Amount m_Fee;
         Amount m_Change;
         Height m_MinHeight;
+        Height m_MaxHeight;
         std::vector<Input::Ptr> m_Inputs;
         std::vector<Output::Ptr> m_Outputs;
         ECC::Scalar::Native m_BlindingExcess;
@@ -137,6 +181,9 @@ namespace beam { namespace wallet
         ECC::Scalar::Native m_PartialSignature;
         ECC::Point::Native m_PeerPublicNonce;
         ECC::Point::Native m_PeerPublicExcess;
+        std::vector<Input::Ptr> m_PeerInputs;
+        std::vector<Output::Ptr> m_PeerOutputs;
+        ECC::Scalar::Native m_PeerOffset;
         
         // deduced values, 
         TxKernel::Ptr m_Kernel;
@@ -157,6 +204,7 @@ namespace beam { namespace wallet
         bool GetPeerPublicExcessAndNonce();
         bool GetPeerSignature();
         bool GetPeerInputsAndOutputs();
+        void FinalizeSignature();
         Transaction::Ptr CreateTransaction();
         void SignPartial();
         bool IsPeerSignatureValid() const;

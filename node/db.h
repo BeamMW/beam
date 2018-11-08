@@ -126,10 +126,12 @@ public:
 
 
 	NodeDB();
-	~NodeDB();
+	virtual ~NodeDB();
 
 	void Close();
 	void Open(const char* szPath);
+
+	virtual void OnModified() {}
 
 	class Recordset
 	{
@@ -183,6 +185,8 @@ public:
 		Transaction(NodeDB* = NULL);
 		Transaction(NodeDB& db) :Transaction(&db) {}
 		~Transaction(); // by default - rolls back
+
+		bool IsInProgress() const { return NULL != m_pDB; }
 
 		void Start(NodeDB&);
 		void Commit();

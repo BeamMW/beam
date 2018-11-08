@@ -236,65 +236,84 @@ Item {
 
             SFText {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.minimumHeight: 20
+                Layout.minimumHeight: 21
                 font.pixelSize: 18
                 font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
                 text: qsTr("Receive Beam")
             }
 
-            SFText {
-                font.pixelSize: 14
-                Layout.minimumHeight: 16
-                font.styleName: "Bold"; font.weight: Font.Bold
-                color: Style.white
-                text: qsTr("My address")
-            }
-
-            SFTextInput {
-                id: myAddressID
+            RowLayout {
                 Layout.fillWidth: true
-                font.pixelSize: 14
-                Layout.minimumHeight: 20
-                color: Style.disable_text_color
-                readOnly: true
-                activeFocusOnTab: false
-                text: viewModel.newReceiverAddr
-            }
 
-            SFText {
-                Layout.alignment: Qt.AlignLeft
-                Layout.minimumHeight: 16
-                Layout.topMargin: -24
-                font.pixelSize: 14
-                font.italic: true
-                color: Style.white
-                text: qsTr("The address will be valid for 24 hours")
-            }
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Column {
+                        anchors.fill: parent
+                        spacing: 10
 
-            SFText {
-                font.pixelSize: 14
-                Layout.minimumHeight: 16
-                font.styleName: "Bold"; font.weight: Font.Bold
-                color: Style.white
-                text: qsTr("Comment")
-            }
+                        SFText {
+                            font.pixelSize: 14
+                            font.styleName: "Bold"; font.weight: Font.Bold
+                            color: Style.white
+                            text: qsTr("My address")
+                        }
 
-            SFTextInput {
-                id: myAddressName
-                Layout.fillWidth: true
-                font.pixelSize: 14
-                Layout.minimumHeight: 20
-                color: Style.white
-                focus: true
-                text: viewModel.newReceiverName
-            }
+                        SFTextInput {
+                            id: myAddressID
+                            width: parent.width
+                            font.pixelSize: 14
+                            color: Style.disable_text_color
+                            readOnly: true
+                            activeFocusOnTab: false
+                            text: viewModel.newReceiverAddr
+                        }
 
-            Binding {
-                target: viewModel
-                property: "newReceiverName"
-                value: myAddressName.text
-            }
+                        SFText {
+                            Layout.topMargin: -24
+                            font.pixelSize: 14
+                            font.italic: true
+                            color: Style.white
+                            text: qsTr("The address will be valid for 24 hours")
+                        }
+
+                        SFText {
+                            font.pixelSize: 14
+                            font.styleName: "Bold"; font.weight: Font.Bold
+                            color: Style.white
+                            text: qsTr("Comment")
+                        }
+
+                        SFTextInput {
+                            id: myAddressName
+                            font.pixelSize: 14
+                            width: parent.width
+                            color: Style.white
+                            focus: true
+                            text: viewModel.newReceiverName
+                        }
+
+                        Binding {
+                            target: viewModel
+                            property: "newReceiverName"
+                            value: myAddressName.text
+                        }
+                    
+                    }
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Image {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        fillMode: Image.Pad
+                        
+                        source: viewModel.newReceiverAddrQR
+                    }
+                }
+            }            
 
             SFText {
                 Layout.alignment: Qt.AlignHCenter
@@ -303,7 +322,6 @@ Item {
                 color: Style.white
                 text: qsTr("Send this address to the sender over an external secure channel")
             }
-
             Row {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.minimumHeight: 40
@@ -323,7 +341,9 @@ Item {
 
                 CustomButton {
                     text: qsTr("copy")
-                    palette.buttonText: Style.white
+                    palette.buttonText: Style.marine
+                    icon.color: Style.marine
+                    palette.button: Style.bright_teal
                     icon.source: "qrc:/assets/icon-copy.svg"
                     onClicked: {
                         viewModel.copyToClipboard(myAddressID.text);
@@ -535,7 +555,7 @@ Item {
                             font.pixelSize: 14
                             color: Style.white
 
-                            maximumLength: 200
+                            maximumLength: 1024
                             selectByMouse: true
                         }
 
@@ -920,7 +940,7 @@ Item {
                 value: transactionsView.sortIndicatorOrder
             }
 
-            property int resizableWidth: parent.width - incomeColumn.width - actionsColumn.width - commentColumn.width
+            property int resizableWidth: parent.width - incomeColumn.width - actionsColumn.width
 
             TableViewColumn {
                 id: incomeColumn
@@ -948,7 +968,7 @@ Item {
 
             TableViewColumn {
                 role: viewModel.dateRole
-                title: qsTr("Date | Time")
+                title: qsTr("Date | time")
                 width: 160 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
                 resizable: false
@@ -976,8 +996,8 @@ Item {
             }
 
             TableViewColumn {
-                role: viewModel.displayNameRole
-                title: qsTr("Recipient / Sender ID")
+                role: viewModel.userRole
+                title: qsTr("Address")
                 width: 400 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideMiddle
                 resizable: false
@@ -999,31 +1019,6 @@ Item {
                             color: Style.white
                             copyMenuEnabled: true
                             onCopyText: viewModel.copyToClipboard(text)
-                        }
-                    }
-                }
-            }
-
-
-            TableViewColumn {
-                id: commentColumn
-                role: "comment"
-                title: qsTr("Comment")
-                width: 100
-                elideMode: Text.ElideRight
-                movable: false
-                resizable: false
-                delegate: Item {
-                    Item {
-                        width: parent.width
-                        height: transactionsView.rowHeight
-                        clip:true
-
-                        SvgImage {
-                            anchors.verticalCenter: parent.verticalCenter
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            source: "qrc:/assets/icon-comment.svg"
-                            visible: styleData.value !== null && styleData.value !== ""
                         }
                     }
                 }
@@ -1204,7 +1199,14 @@ Item {
                         width: parent.width
                         clip: true
 
-                        property int maximumHeight: 200
+                        property int maximumHeight: 180 + commentTx.contentHeight
+
+                        onMaximumHeightChanged: {
+                            if (!rowItem.collapsed) {
+                                rowItem.height = maximumHeight + transactionsView.rowHeight
+                                txDetails.height = maximumHeight
+                            }
+                        }
 
                         Rectangle {
                             anchors.fill: parent
@@ -1297,6 +1299,7 @@ Item {
                                     text: qsTr("Comment:")
                                 }
                                 SFLabel {
+                                    id: commentTx
                                     copyMenuEnabled: true
                                     font.pixelSize: 14
                                     color: Style.white
@@ -1308,7 +1311,6 @@ Item {
                                         return "";
                                     }
                                     font.styleName: "Italic"
-                                    maximumLineCount: 2
                                     Layout.fillWidth: true
                                     wrapMode : Text.Wrap
                                     elide: Text.ElideRight

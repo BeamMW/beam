@@ -13,13 +13,6 @@ Rectangle {
 
     SettingsViewModel {id: viewModel}
 
-    ConfirmationDialog {
-        id: emergencyConfirmation
-        text: "Transaction history will be deleted. This operation can not be undone"
-        okButtonText: "reset"
-        onAccepted: viewModel.emergencyReset()
-    }
-
     ChangePasswordDialog {
         id: changePasswordDialog
 
@@ -333,49 +326,71 @@ Rectangle {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 150
-
                     radius: 10
                     color: Style.dark_slate_blue
+                    //height: childrenRect.height + 40
+                    height: 150
 
-                    ColumnLayout {
-                        anchors.fill: parent
+                    Column {
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
                         anchors.margins: 20
                         spacing: 10
 
                         SFText {
-                            text: qsTr("Reset wallet data")
+                            text: qsTr("General settings")
                             color: Style.white
                             font.pixelSize: 18
                             font.styleName: "Bold"; font.weight: Font.Bold
                         }
 
-                        SFText {
-                            Layout.fillWidth: true
-                            text: qsTr("Clear all local data and retrieve most updated information from blockchain. Transaction history will be deleted.")
-                            color: Style.white
-                            font.pixelSize: 12
-                            font.styleName: "Bold"; font.weight: Font.Bold
-                            wrapMode: Text.WordWrap
+                        Row {
+                            width: parent.width
+
+                            spacing: 10
+
+                            SFText {
+                                text: qsTr("Lock screen in")
+                                color: Style.white
+                                font.pixelSize: 12
+                            }
+
+                            CustomComboBox {
+                                id: lockTimeoutControl
+                                width: 100
+                                height: 20
+                                anchors.top: parent.top
+                                anchors.topMargin: -3
+
+                                currentIndex: viewModel.lockTimeout
+
+                                Binding {
+                                    target: viewModel
+                                    property: "lockTimeout"
+                                    value: lockTimeoutControl.currentIndex
+                                }
+
+                                model: ["never", "1 minute", "5 minutes", "15 minutes", "30 minutes", "1 hour"]
+                            }
                         }
 
-                        PrimaryButton {
-                            Layout.minimumHeight: 38
-                            Layout.minimumWidth: 198
-                            text: "reset local data"
-                            palette.button: "#708090"
+
+                        CustomButton {
+                            text: "change wallet password"
                             palette.buttonText : "white"
-                            icon.source: "qrc:/assets/icon-reset.svg"
+                            palette.button: "#708090"
+                            icon.source: "qrc:/assets/icon-password.svg"
                             icon.width: 16
                             icon.height: 16
-                            onClicked: emergencyConfirmation.open();
+                            onClicked: changePasswordDialog.open()
                         }
                     }
                 }
 
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 210
+                    height: 360
                     radius: 10
                     color: Style.dark_slate_blue
 
@@ -443,72 +458,14 @@ Rectangle {
                             palette.button: "#708090"
                             onClicked: viewModel.reportProblem()
                         }
+                        Item {
+                            Layout.fillHeight: true;
+                        }
                     }
 
                 }
 
-                Rectangle {
-                    Layout.fillWidth: true
-                    radius: 10
-                    color: Style.dark_slate_blue
-                    height: childrenRect.height + 40
-
-                    Column {
-                        anchors.top: parent.top
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.margins: 20
-                        spacing: 10
-
-                        SFText {
-                            text: qsTr("General settings")
-                            color: Style.white
-                            font.pixelSize: 18
-                            font.styleName: "Bold"; font.weight: Font.Bold
-                        }
-
-                        Row {
-                            width: parent.width
-
-                            spacing: 10
-
-                            SFText {
-                                text: qsTr("Lock screen in")
-                                color: Style.white
-                                font.pixelSize: 12
-                            }
-
-                            CustomComboBox {
-                                id: lockTimeoutControl
-                                width: 100
-                                height: 20
-                                anchors.top: parent.top
-                                anchors.topMargin: -3
-
-                                currentIndex: viewModel.lockTimeout
-
-                                Binding {
-                                    target: viewModel
-                                    property: "lockTimeout"
-                                    value: lockTimeoutControl.currentIndex
-                                }
-
-                                model: ["never", "1 minute", "5 minutes", "15 minutes", "30 minutes", "1 hour"]
-                            }                            
-                        }
-
-
-                        CustomButton {
-                            text: "change wallet password"
-                            palette.buttonText : "white"
-                            palette.button: "#708090"
-                            icon.source: "qrc:/assets/icon-password.svg"
-                            icon.width: 16
-                            icon.height: 16
-                            onClicked: changePasswordDialog.open()
-                        }
-                    }
-                }
+                
             }
 
             Item {

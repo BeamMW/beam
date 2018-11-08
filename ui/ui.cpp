@@ -20,6 +20,7 @@
 
 #include <qqmlcontext.h>
 #include "viewmodel/start_view.h"
+#include "viewmodel/restore_view.h"
 #include "viewmodel/main_view.h"
 #include "viewmodel/utxo_view.h"
 #include "viewmodel/dashboard_view.h"
@@ -76,6 +77,8 @@ using namespace beam;
 using namespace std;
 using namespace ECC;
 
+static const char* AppName = "Beam Wallet";
+
 int main (int argc, char* argv[])
 {
 #if defined Q_OS_WIN
@@ -87,7 +90,7 @@ int main (int argc, char* argv[])
 
 	app.setWindowIcon(QIcon(":/assets/icon.png"));
 
-    QApplication::setApplicationName("Beam Wallet");
+    QApplication::setApplicationName(AppName);
 
     QDir appDataDir(QStandardPaths::writableLocation(QStandardPaths::DataLocation));
 
@@ -132,6 +135,8 @@ int main (int argc, char* argv[])
         int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
         int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
+        beam::InstallCrashHandler(appDataDir.filePath(AppName).toStdString().c_str());
+
         auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_",
 			appDataDir.filePath(WalletSettings::LogsFolder).toStdString());
 
@@ -157,6 +162,7 @@ int main (int argc, char* argv[])
             }
 
             qmlRegisterType<StartViewModel>("Beam.Wallet", 1, 0, "StartViewModel");
+            qmlRegisterType<RestoreViewModel>("Beam.Wallet", 1, 0, "RestoreViewModel");
             qmlRegisterType<MainViewModel>("Beam.Wallet", 1, 0, "MainViewModel");
             qmlRegisterType<DashboardViewModel>("Beam.Wallet", 1, 0, "DashboardViewModel");
             qmlRegisterType<WalletViewModel>("Beam.Wallet", 1, 0, "WalletViewModel");

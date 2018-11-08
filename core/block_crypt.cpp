@@ -747,6 +747,9 @@ namespace beam
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
 			<< uint32_t(9) // increment this whenever we change something in the protocol
+#ifndef BEAM_TESTNET
+            << "masternet"
+#endif
 			// out
 			>> Checksum;
 	}
@@ -755,8 +758,34 @@ namespace beam
 	int Block::SystemState::ID::cmp(const ID& v) const
 	{
 		CMP_MEMBER(m_Height)
-		CMP_MEMBER(m_Hash)
+		CMP_MEMBER_EX(m_Hash)
 		return 0;
+	}
+
+	int Block::SystemState::Full::cmp(const Full& v) const
+	{
+		CMP_MEMBER(m_Height)
+		CMP_MEMBER_EX(m_Definition)
+		CMP_MEMBER_EX(m_Prev)
+		CMP_MEMBER_EX(m_ChainWork)
+		CMP_MEMBER(m_TimeStamp)
+		CMP_MEMBER(m_PoW.m_Difficulty.m_Packed)
+		CMP_MEMBER_EX(m_PoW.m_Nonce)
+		CMP_MEMBER(m_PoW.m_Indices)
+		return 0;
+	}
+
+	bool Block::SystemState::Full::IsNext(const Full& sNext) const
+	{
+		if (m_Height + 1 != sNext.m_Height)
+			return false;
+
+		if (!m_Height)
+			return sNext.m_Prev == Zero;
+
+		Merkle::Hash hv;
+		get_Hash(hv);
+		return sNext.m_Prev == hv;
 	}
 
 	void Block::SystemState::Full::NextPrefix()

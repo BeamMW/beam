@@ -28,6 +28,7 @@ AppModel* AppModel::getInstance()
 
 AppModel::AppModel(WalletSettings& settings)
     : m_settings{settings}
+    , m_restoreWallet{false}
 {
     assert(s_instance == nullptr);
     s_instance = this;
@@ -40,7 +41,7 @@ AppModel::~AppModel()
 
 bool AppModel::createWallet(const SecString& seed, const SecString& pass)
 {
-    m_db = Keychain::init(m_settings.getWalletStorage(), pass, seed.hash());
+    m_db = WalletDB::init(m_settings.getWalletStorage(), pass, seed.hash());
 
     if (m_db)
     {
@@ -80,7 +81,7 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
 
 bool AppModel::openWallet(const beam::SecString& pass)
 {
-    m_db = Keychain::open(m_settings.getWalletStorage(), pass);
+    m_db = WalletDB::open(m_settings.getWalletStorage(), pass);
 
     if (m_db)
     {
@@ -191,4 +192,14 @@ void AppModel::changeWalletPassword(const std::string& pass)
     m_passwordHash.V = t.hash().V;
 
     m_wallet->async->changeWalletPassword(pass);
+}
+
+void AppModel::setRestoreWallet(bool value)
+{
+    m_restoreWallet = value;
+}
+
+bool AppModel::shouldRestoreWallet() const
+{
+    return m_restoreWallet;
 }

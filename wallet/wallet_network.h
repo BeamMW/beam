@@ -52,7 +52,7 @@ namespace beam
 
 
         WalletNetworkIO(io::Address node_address
-                      , IKeyChain::Ptr keychain
+                      , IWalletDB::Ptr walletDB
                       , IKeyStore::Ptr keyStore
                       , io::Reactor::Ptr reactor = io::Reactor::Ptr()
                       , unsigned reconnect_ms = 1000 // 1 sec
@@ -73,6 +73,7 @@ namespace beam
         void send_node_message(proto::GetProofUtxo&&) override;
         void send_node_message(proto::GetHdr&&) override;
         void send_node_message(proto::GetMined&&) override;
+        void send_node_message(proto::Recover&&) override;
         void send_node_message(proto::GetProofState&&) override;
         void send_node_message(proto::GetProofKernel&&) override;
 
@@ -165,6 +166,7 @@ namespace beam
             bool OnMsg2(proto::ProofKernel&& msg) override;
 			bool OnMsg2(proto::NewTip&& msg) override;
             bool OnMsg2(proto::Mined&& msg) override;
+            bool OnMsg2(proto::Recovered&& msg) override;
             bool OnMsg2(proto::BbsMsg&& msg) override;
 			bool OnMsg2(proto::Authentication&& msg) override;
 		private:
@@ -184,7 +186,7 @@ namespace beam
         WalletID m_walletID;
         io::Address m_node_address;
         io::Reactor::Ptr m_reactor;
-        IKeyChain::Ptr m_keychain;
+        IWalletDB::Ptr m_WalletDB;
 
         std::set<WalletID> m_wallets;
 
