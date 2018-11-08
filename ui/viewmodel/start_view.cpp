@@ -136,7 +136,7 @@ StartViewModel::~StartViewModel()
 
 bool StartViewModel::walletExists() const
 {
-    return Keychain::isInitialized(AppModel::getInstance()->getSettings().getWalletStorage());
+    return WalletDB::isInitialized(AppModel::getInstance()->getSettings().getWalletStorage());
 }
 
 bool StartViewModel::getIsRecoveryMode() const

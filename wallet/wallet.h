@@ -21,7 +21,7 @@
 
 namespace beam
 {
-    struct IWalletObserver : IKeyChainObserver
+    struct IWalletObserver : IWalletDbObserver
     {
         virtual void onSyncProgress(int done, int total) = 0;
         virtual void onRecoverProgress(int done, int total, const std::string& message) = 0;
@@ -114,7 +114,7 @@ namespace beam
     public:
         using TxCompletedAction = std::function<void(const TxID& tx_id)>;
 
-        Wallet(IKeyChain::Ptr keyChain, INetworkIO::Ptr network, bool holdNodeConnection = false, TxCompletedAction&& action = TxCompletedAction());
+        Wallet(IWalletDB::Ptr walletDB, INetworkIO::Ptr network, bool holdNodeConnection = false, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, ByteBuffer&& message = {} );
@@ -184,7 +184,7 @@ namespace beam
 
         struct StateFinder;
 
-        IKeyChain::Ptr m_keyChain;
+        IWalletDB::Ptr m_WalletDB;
         INetworkIO::Ptr m_network;
         std::map<TxID, wallet::BaseTransaction::Ptr> m_transactions;
         std::set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
