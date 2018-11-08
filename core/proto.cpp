@@ -1112,14 +1112,13 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::Config&& msg)
 
 	if (m_bBbs)
 		for (BbsSubscriptions::const_iterator it = m_This.m_BbsSubscriptions.begin(); m_This.m_BbsSubscriptions.end() != it; it++)
-			if (it->second > 0)
-			{
-				proto::BbsSubscribe msgOut;
-				// msg.m_TimeFrom - // TODO
-				msgOut.m_Channel = it->first;
-				msgOut.m_On = true;
-				Send(msgOut);
-			}
+		{
+			proto::BbsSubscribe msgOut;
+			// msg.m_TimeFrom - // TODO
+			msgOut.m_Channel = it->first;
+			msgOut.m_On = true;
+			Send(msgOut);
+		}
 }
 
 void FlyClient::NetworkStd::Connection::OnMsg(proto::NewTip&& msg)
@@ -1603,22 +1602,31 @@ void FlyClient::NetworkStd::Connection::OnFirstRequestDone(bool bMustBeAtTip /* 
 		m_lst.Delete(n); // aborted already
 }
 
-void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, bool b)
+void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, IBbsReceiver* p)
 {
 	BbsSubscriptions::iterator it = m_BbsSubscriptions.find(ch);
 	if (m_BbsSubscriptions.end() == it)
-		it = m_BbsSubscriptions.insert(BbsSubscriptions::value_type(ch, 0)).first;
+	{
+		if (!p)
+			return;
 
-	// we allow negative values. Assuming that sometimes unsubscription can preceed subscription
-	int32_t& n = it->second;
+		m_BbsSubscriptions.insert(std::make_pair(ch, p));
+	}
+	else
+	{
+		if (p)
+		{
+			it->second = p;
+			return;
+		}
 
-	if (b ? (n++) : (--n))
-		return;
+		m_BbsSubscriptions.erase(it);
+	}
 
 	proto::BbsSubscribe msg;
 	// msg.m_TimeFrom - // TODO
 	msg.m_Channel = ch;
-	msg.m_On = b;
+	msg.m_On = (NULL != p);
 
 	for (ConnectionList::iterator it2 = m_Connections.begin(); m_Connections.end() != it2; it2++)
 		if (it2->IsLive() && it2->IsSecureOut())
@@ -1627,7 +1635,12 @@ void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, bool b)
 
 void FlyClient::NetworkStd::Connection::OnMsg(proto::BbsMsg&& msg)
 {
-	m_This.m_Client.OnMsg(std::move(msg));
+	BbsSubscriptions::iterator it = m_This.m_BbsSubscriptions.find(msg.m_Channel);
+	if (m_This.m_BbsSubscriptions.end() != it)
+	{
+		assert(it->second);
+		it->second->OnMsg(std::move(msg));
+	}
 }
 
 } // namespace proto

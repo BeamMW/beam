@@ -683,8 +683,12 @@ namespace proto {
 		virtual void OnNewTip() {} // tip already added
 		virtual void OnRolledBack() {} // reversed states are already removed
 		virtual void OnRequestComplete(Request&) {}
-		virtual void OnMsg(proto::BbsMsg&&) {}
 		virtual bool IsOwnedNode(const PeerID&) { return true; }
+
+		struct IBbsReceiver
+		{
+			virtual void OnMsg(proto::BbsMsg&&) = 0;
+		};
 
 		struct INetwork
 		{
@@ -693,7 +697,7 @@ namespace proto {
 			virtual void Connect() = 0;
 			virtual void Disconnect() = 0;
 			virtual void PostRequest(Request&) = 0;
-			virtual void BbsSubscribe(BbsChannel, bool) {} // duplicates should be handled internally
+			virtual void BbsSubscribe(BbsChannel, IBbsReceiver*) {} // duplicates should be handled internally
 		};
 
 		struct NetworkStd
@@ -804,14 +808,14 @@ namespace proto {
 			typedef boost::intrusive::list<Connection> ConnectionList;
 			ConnectionList m_Connections;
 
-			typedef std::map<BbsChannel, int32_t> BbsSubscriptions;
+			typedef std::map<BbsChannel, IBbsReceiver*> BbsSubscriptions;
 			BbsSubscriptions m_BbsSubscriptions;
 
 			// INetwork
 			virtual void Connect() override;
 			virtual void Disconnect() override;
 			virtual void PostRequest(Request&) override;
-			virtual void BbsSubscribe(BbsChannel, bool) override;
+			virtual void BbsSubscribe(BbsChannel, IBbsReceiver*) override;
 		};
 	};
 

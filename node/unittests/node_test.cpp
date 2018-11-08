@@ -1430,6 +1430,7 @@ namespace beam
 
 		struct MyFlyClient
 			:public proto::FlyClient
+			,public proto::FlyClient::IBbsReceiver
 		{
 			io::Timer::Ptr m_pTimer;
 
@@ -1529,7 +1530,7 @@ namespace beam
 					m_nProofsExpected++;
 				}
 
-				net.BbsSubscribe(m_LastBbsChannel, true);
+				net.BbsSubscribe(m_LastBbsChannel, this);
 
 				SetTimer(90 * 1000);
 				io::Reactor::get_Current().run();
