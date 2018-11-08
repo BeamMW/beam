@@ -19,6 +19,9 @@
 #include <QApplication>
 #include <QClipboard>
 #include "model/app_model.h"
+#include "qrcode/QRCodeGenerator.h"
+#include <QtGui/qimage.h>
+#include <QtCore/qbuffer.h>
 #include "version.h"
 
 using namespace beam;
@@ -771,6 +774,11 @@ QString WalletViewModel::getNewReceiverAddr() const
     return _newReceiverAddr;
 }
 
+QString WalletViewModel::getNewReceiverAddrQR() const
+{
+    return _newReceiverAddrQR;
+}
+
 void WalletViewModel::setNewReceiverName(const QString& value)
 {
     auto trimmedValue = value.trimmed();
@@ -815,6 +823,35 @@ void WalletViewModel::onAdrresses(bool own, const std::vector<beam::WalletAddres
 void WalletViewModel::onGeneratedNewWalletID(const beam::WalletID& walletID)
 {
     _newReceiverAddr = toString(walletID);
+    _newReceiverAddrQR = "";
+
+    CQR_Encode qrEncode;
+    bool success = qrEncode.EncodeData(1, 0, true, -1, _newReceiverAddr.toUtf8().data());
+
+    if (success)
+    {
+        int qrImageSize = qrEncode.m_nSymbleSize;
+        int encodeImageSize = qrImageSize + (QR_MARGIN * 2);
+        QImage encodeImage(encodeImageSize, encodeImageSize, QImage::Format_ARGB32);
+        encodeImage.fill(Qt::transparent);
+        QColor color(Qt::white);
+
+        for (int i = 0; i < qrImageSize; i++)
+            for (int j = 0; j < qrImageSize; j++)
+                if (qrEncode.m_byModuleData[i][j])
+                    encodeImage.setPixel(i + QR_MARGIN, j + QR_MARGIN, color.rgba());
+
+        encodeImage = encodeImage.scaled(200, 200);
+
+        QByteArray bArray;
+        QBuffer buffer(&bArray);
+        buffer.open(QIODevice::WriteOnly);
+        encodeImage.save(&buffer, "png");
+
+        _newReceiverAddrQR = "data:image/png;base64,";
+        _newReceiverAddrQR.append(QString::fromLatin1(bArray.toBase64().data()));
+    }
+
     emit newReceiverAddrChanged();
     saveNewAddress();
 }
