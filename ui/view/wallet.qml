@@ -920,7 +920,7 @@ Item {
                 value: transactionsView.sortIndicatorOrder
             }
 
-            property int resizableWidth: parent.width - incomeColumn.width - actionsColumn.width - commentColumn.width
+            property int resizableWidth: parent.width - incomeColumn.width - actionsColumn.width
 
             TableViewColumn {
                 id: incomeColumn
@@ -948,7 +948,7 @@ Item {
 
             TableViewColumn {
                 role: viewModel.dateRole
-                title: qsTr("Date | Time")
+                title: qsTr("Date | time")
                 width: 160 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
                 resizable: false
@@ -999,31 +999,6 @@ Item {
                             color: Style.white
                             copyMenuEnabled: true
                             onCopyText: viewModel.copyToClipboard(text)
-                        }
-                    }
-                }
-            }
-
-
-            TableViewColumn {
-                id: commentColumn
-                role: "comment"
-                title: qsTr("Comment")
-                width: 100
-                elideMode: Text.ElideRight
-                movable: false
-                resizable: false
-                delegate: Item {
-                    Item {
-                        width: parent.width
-                        height: transactionsView.rowHeight
-                        clip:true
-
-                        SvgImage {
-                            anchors.verticalCenter: parent.verticalCenter
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            source: "qrc:/assets/icon-comment.svg"
-                            visible: styleData.value !== null && styleData.value !== ""
                         }
                     }
                 }
