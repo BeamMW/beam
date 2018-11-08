@@ -41,21 +41,29 @@ Dialog {
             radius: 10
             color: Style.dark_slate_blue
             anchors.fill: parent
-        }
-            
-        CustomButton {
-            id: okButton
-            palette.button: Style.bright_teal
-            text: qsTr("delete")
-            palette.buttonText: Style.marine
-            DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
-        }
+        }          
 
         CustomButton {
             id: cancelButton
             focus: true
             text: qsTr("cancel")
-            DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+            //DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+            onClicked: {                
+                rejected();
+                close();
+            }
+        }
+
+        CustomButton {
+            id: okButton
+            palette.button: Style.bright_teal
+            text: qsTr("delete")
+            palette.buttonText: Style.marine
+            //DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+            onClicked: {
+                accepted();
+                close();
+            }
         }
     }
 
