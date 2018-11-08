@@ -952,6 +952,9 @@ struct TestNodeNetwork
 				m_Shared.m_Blockchain.GetProof(v.m_Msg, v.m_Res);
 			}
 			break;
+
+		default:
+			break; // suppess warning
 		}
 	}
 };

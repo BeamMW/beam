@@ -251,11 +251,11 @@ namespace beam {
 			pReq->m_Msg.m_Channel = channel_from_wallet_id(peerID);
 			pReq->m_Msg.m_TimePosted = getTimestamp();
 
-			MyRequestBbsMsg* pR = pReq.detach();
-			m_PendingBbsMsgs.push_back(*pR);
+			m_PendingBbsMsgs.push_back(*pReq);
+			pReq->AddRef();
 
-			pR->m_pTrg = &m_BbsSentEvt;
-			m_NodeNetwork.PostRequest(*pR);
+			pReq->m_pTrg = &m_BbsSentEvt;
+			m_NodeNetwork.PostRequest(*pReq);
 		}
 	}
 
