@@ -97,15 +97,15 @@ namespace beam
         }
     }
 
-    Wallet::Wallet(IKeyChain::Ptr keyChain, TxCompletedAction&& action)
-        : m_keyChain{ keyChain }
+    Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action)
+        : m_WalletDB{ walletDB }
         , m_pNodeNetwork(NULL)
 		, m_pWalletNetwork(NULL)
 		, m_tx_completed_action{move(action)}
         , m_needRecover{false}
 		, m_LastSyncTotal(0)
     {
-        assert(keyChain);
+        assert(walletDB);
         resume_all_tx();
     }
 
@@ -131,7 +131,7 @@ namespace beam
         auto txID = wallet::GenerateTxID();
         auto tx = constructTransaction(txID, TxType::Simple);
 
-        Height currentHeight = m_keyChain->getCurrentHeight();
+        Height currentHeight = m_WalletDB->getCurrentHeight();
         tx->SetParameter(TxParameterID::TransactionType, TxType::Simple);
         tx->SetParameter(TxParameterID::CreateTime, getTimestamp());
         tx->SetParameter(TxParameterID::Amount, amount);
@@ -161,7 +161,7 @@ namespace beam
         tx->SetParameter(TxParameterID::CreateTime, getTimestamp());
         tx->SetParameter(TxParameterID::Amount, amount);
         tx->SetParameter(TxParameterID::Fee, fee);
-        tx->SetParameter(TxParameterID::MinHeight, m_keyChain->getCurrentHeight());
+        tx->SetParameter(TxParameterID::MinHeight, m_WalletDB->getCurrentHeight());
         tx->SetParameter(TxParameterID::PeerID, to);
         tx->SetParameter(TxParameterID::MyID, from);
         tx->SetParameter(TxParameterID::IsSender, true);
@@ -181,7 +181,7 @@ namespace beam
     void Wallet::recover()
     {
         LOG_INFO() << "Recover coins from blockchain";
-        m_keyChain->clear();
+        m_WalletDB->clear();
         m_needRecover = true;
     }
 
@@ -197,7 +197,7 @@ namespace beam
 
     void Wallet::resume_all_tx()
     {
-        auto txs = m_keyChain->getTxHistory();
+        auto txs = m_WalletDB->getTxHistory();
         for (auto& tx : txs)
         {
             resume_tx(tx);
@@ -353,7 +353,7 @@ namespace beam
         }
         else
         {
-            m_keyChain->deleteTx(txId);
+            m_WalletDB->deleteTx(txId);
         }
     }
 
@@ -362,7 +362,7 @@ namespace beam
         LOG_INFO() << "deleting tx " << txId;
         if (auto it = m_transactions.find(txId); it == m_transactions.end())
         {
-            m_keyChain->deleteTx(txId);
+            m_WalletDB->deleteTx(txId);
         }
         else
         {
@@ -398,14 +398,14 @@ namespace beam
 			if (r.m_Coin.m_status == Coin::Locked)
 			{
 				r.m_Coin.m_status = Coin::Spent;
-				m_keyChain->update(r.m_Coin);
+				m_WalletDB->update(r.m_Coin);
 				assert(r.m_Coin.m_spentTxId.is_initialized());
 				updateTransaction(*(r.m_Coin.m_spentTxId));
 			}
 			else if (r.m_Coin.m_status == Coin::Unconfirmed && r.m_Coin.isReward())
 			{
 				LOG_WARNING() << "Uncofirmed reward UTXO removed. Amount: " << r.m_Coin.m_amount << " Height: " << r.m_Coin.m_createHeight;
-				m_keyChain->remove(r.m_Coin);
+				m_WalletDB->remove(r.m_Coin);
 			}
 
 			return;
@@ -425,11 +425,11 @@ namespace beam
                 pTip->get_Hash(r.m_Coin.m_confirmHash);
                 if (r.m_Coin.m_id == 0)
                 {
-                    m_keyChain->store(r.m_Coin);
+					m_WalletDB->store(r.m_Coin);
                 }
                 else
                 {
-                    m_keyChain->update(r.m_Coin);
+					m_WalletDB->update(r.m_Coin);
                 }
                 if (r.m_Coin.isReward())
                 {
@@ -445,7 +445,7 @@ namespace beam
 
 	void Wallet::OnRequestComplete(MyRequestMined& r)
 	{
-        auto currentHeight = m_keyChain->getCurrentHeight();
+        auto currentHeight = m_WalletDB->getCurrentHeight();
         Height lastKnownCoinHeight = currentHeight;
         for (auto& minedCoin : r.m_Res.m_Entries)
         {
@@ -510,7 +510,7 @@ namespace beam
 	void Wallet::OnRolledBack()
 	{
 		const Block::SystemState::Full* pTip = get_Tip();
-		m_keyChain->rollbackConfirmedUtxo(pTip ? pTip->m_Height : 0);
+		m_WalletDB->rollbackConfirmedUtxo(pTip ? pTip->m_Height : 0);
 		saveKnownState();
 	}
 
@@ -524,7 +524,7 @@ namespace beam
         get_Tip()->get_ID(id);
         LOG_INFO() << "Sync up to " << id;
 
-		if (!m_keyChain->getSystemStateID(id2))
+		if (!m_WalletDB->getSystemStateID(id2))
 			id2.m_Height = 0;
 
         if (m_needRecover)
@@ -550,7 +550,7 @@ namespace beam
 
         // try to restore utxo state after reset, rollback and etc..
         uint32_t nUnconfirmed = 0;
-        m_keyChain->visit([&nUnconfirmed, this](const Coin& c)->bool
+		m_WalletDB->visit([&nUnconfirmed, this](const Coin& c)->bool
         {
             if (c.m_status == Coin::Unconfirmed
                 && ((c.m_createTxId.is_initialized()
@@ -574,7 +574,7 @@ namespace beam
     {
 		MyRequestUtxo::Ptr pReq(new MyRequestUtxo);
 		pReq->m_Coin = coin;
-		pReq->m_Msg.m_Utxo.m_Commitment = Commitment(m_keyChain->calcKey(coin), coin.m_amount);
+		pReq->m_Msg.m_Utxo.m_Commitment = Commitment(m_WalletDB->calcKey(coin), coin.m_amount);
 		LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo.m_Commitment;
 
 		PostReqUnique(*pReq);
@@ -612,7 +612,7 @@ namespace beam
 		else
 			ZeroObject(id);
 
-        m_keyChain->setSystemStateID(id);
+		m_WalletDB->setSystemStateID(id);
         LOG_INFO() << "Current state is " << id;
         m_needRecover = false;
         notifySyncProgress();
@@ -672,7 +672,7 @@ namespace beam
 
         m_subscribers.push_back(observer);
 
-        m_keyChain->subscribe(observer);
+        m_WalletDB->subscribe(observer);
     }
 
     void Wallet::unsubscribe(IWalletObserver* observer)
@@ -683,7 +683,7 @@ namespace beam
 
         m_subscribers.erase(it);
 
-        m_keyChain->unsubscribe(observer);
+        m_WalletDB->unsubscribe(observer);
     }
 
     wallet::BaseTransaction::Ptr Wallet::getTransaction(const WalletID& myID, const wallet::SetTxParameter& msg)
@@ -699,7 +699,7 @@ namespace beam
         }
 
         TxType type = TxType::Simple;
-        if (wallet::getTxParameter(m_keyChain, msg.m_txId, TxParameterID::TransactionType, type))
+        if (wallet::getTxParameter(m_WalletDB, msg.m_txId, TxParameterID::TransactionType, type))
         {
             // we return only active transactions
             return BaseTransaction::Ptr();
@@ -714,7 +714,7 @@ namespace beam
         t->SetParameter(TxParameterID::IsInitiator, false);
         t->SetParameter(TxParameterID::Status, TxStatus::Pending);
 
-        auto address = m_keyChain->getAddress(myID);
+        auto address = m_WalletDB->getAddress(myID);
         if (address.is_initialized())
         {
             ByteBuffer message(address->m_label.begin(), address->m_label.end());
@@ -730,9 +730,9 @@ namespace beam
         switch (type)
         {
         case TxType::Simple:
-                return make_shared<SimpleTransaction>(*this, m_keyChain, id);
+                return make_shared<SimpleTransaction>(*this, m_WalletDB, id);
         case TxType::AtomicSwap:
-            return make_shared<AtomicSwapTransaction>(*this, m_keyChain, id);
+            return make_shared<AtomicSwapTransaction>(*this, m_WalletDB, id);
         }
         return wallet::BaseTransaction::Ptr();
     }

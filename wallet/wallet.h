@@ -21,7 +21,7 @@
 
 namespace beam
 {
-    struct IWalletObserver : IKeyChainObserver
+    struct IWalletObserver : IWalletDbObserver
     {
         virtual void onSyncProgress(int done, int total) = 0;
         virtual void onRecoverProgress(int done, int total, const std::string& message) = 0;
@@ -57,7 +57,7 @@ namespace beam
     public:
         using TxCompletedAction = std::function<void(const TxID& tx_id)>;
 
-        Wallet(IKeyChain::Ptr keyChain, TxCompletedAction&& action = TxCompletedAction());
+        Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
 		void set_Network(proto::FlyClient::INetwork&, INetwork&);
@@ -165,7 +165,7 @@ namespace beam
 
 		proto::FlyClient::INetwork* m_pNodeNetwork;
 		INetwork* m_pWalletNetwork;
-        IKeyChain::Ptr m_keyChain;
+        IWalletDB::Ptr m_WalletDB;
         std::map<TxID, wallet::BaseTransaction::Ptr> m_transactions;
         std::set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
         TxCompletedAction m_tx_completed_action;
