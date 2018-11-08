@@ -228,9 +228,9 @@ namespace
         }
                
         auto keychain = Keychain::init(path, string("pass123"), seed);
-        beam::Block::SystemState::ID id = {};
-        id.m_Height = 134;
-        keychain->setSystemStateID(id);
+        //beam::Block::SystemState::ID id = {};
+        //id.m_Height = 134;
+        //keychain->setSystemStateID(id);
         return keychain;
     }
 
@@ -660,17 +660,244 @@ struct TestWalletNetwork
 	}
 };
 
+struct TestBlockchain
+{
+	MiniBlockChain m_mcm;
+
+	UtxoTree m_Utxos;
+	RadixHashOnlyTree m_Kernels;
+
+	void AddBlock()
+	{
+		Merkle::Hash hvUtxo, hvKrn;
+		m_Utxos.get_Hash(hvUtxo);
+		m_Kernels.get_Hash(hvKrn);
+
+		Merkle::Interpret(m_mcm.m_hvLive, hvUtxo, hvKrn);
+		m_mcm.Add();
+	}
+
+	bool AddCommitment(const ECC::Point& c)
+	{
+		UtxoTree::Key::Data d;
+		d.m_Commitment = c;
+		d.m_Maturity = m_mcm.m_vStates.back().m_Hdr.m_Height;
+
+		UtxoTree::Key key;
+		key = d;
+
+		UtxoTree::Cursor cu;
+		bool bCreate = true;
+		UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
+
+		cu.Invalidate();
+
+		if (bCreate)
+			p->m_Value.m_Count = 1;
+		else
+		{
+			// protect again overflow attacks, though it's highly unlikely (Input::Count is currently limited to 32 bits, it'd take millions of blocks)
+			Input::Count nCountInc = p->m_Value.m_Count + 1;
+			if (!nCountInc)
+				return false;
+
+			p->m_Value.m_Count = nCountInc;
+		}
+
+		return true;
+	}
+
+	bool RemoveCommitment(const ECC::Point& c)
+	{
+		UtxoTree::Cursor cu;
+		UtxoTree::MyLeaf* p;
+		UtxoTree::Key::Data d;
+		d.m_Commitment = c;
+
+		struct Traveler :public UtxoTree::ITraveler {
+			virtual bool OnLeaf(const RadixTree::Leaf& x) override {
+				return false; // stop iteration
+			}
+		} t;
+
+
+		UtxoTree::Key kMin, kMax;
+
+		d.m_Maturity = 0;
+		kMin = d;
+		d.m_Maturity = m_mcm.m_vStates.back().m_Hdr.m_Height;
+		kMax = d;
+
+		t.m_pCu = &cu;
+		t.m_pBound[0] = kMin.m_pArr;
+		t.m_pBound[1] = kMax.m_pArr;
+
+		if (m_Utxos.Traverse(t))
+			return false;
+
+		p = &(UtxoTree::MyLeaf&) cu.get_Leaf();
+
+		d = p->m_Key;
+		assert(d.m_Commitment == c);
+		assert(p->m_Value.m_Count); // we don't store zeroes
+
+		if (!--p->m_Value.m_Count)
+			m_Utxos.Delete(cu);
+		else
+			cu.Invalidate();
+
+		return true;
+	}
+
+
+	void GetProof(const proto::GetProofUtxo& data, proto::ProofUtxo& msgOut)
+	{
+		struct Traveler :public UtxoTree::ITraveler
+		{
+			proto::ProofUtxo m_Msg;
+			UtxoTree* m_pTree;
+			Merkle::Hash m_hvHistory;
+			Merkle::Hash m_hvKernels;
+
+			virtual bool OnLeaf(const RadixTree::Leaf& x) override {
+
+				const UtxoTree::MyLeaf& v = (UtxoTree::MyLeaf&) x;
+				UtxoTree::Key::Data d;
+				d = v.m_Key;
+
+				m_Msg.m_Proofs.resize(m_Msg.m_Proofs.size() + 1);
+				Input::Proof& ret = m_Msg.m_Proofs.back();
+
+				ret.m_State.m_Count = v.m_Value.m_Count;
+				ret.m_State.m_Maturity = d.m_Maturity;
+				m_pTree->get_Proof(ret.m_Proof, *m_pCu);
+
+				ret.m_Proof.reserve(ret.m_Proof.size() + 2);
+
+				ret.m_Proof.resize(ret.m_Proof.size() + 1);
+				ret.m_Proof.back().first = true;
+				ret.m_Proof.back().second = m_hvKernels;
+
+				ret.m_Proof.resize(ret.m_Proof.size() + 1);
+				ret.m_Proof.back().first = false;
+				ret.m_Proof.back().second = m_hvHistory;
+
+				return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
+			}
+		} t;
+
+		t.m_pTree = &m_Utxos;
+		m_Kernels.get_Hash(t.m_hvKernels);
+		m_mcm.m_Mmr.get_Hash(t.m_hvHistory);
+
+		UtxoTree::Cursor cu;
+		t.m_pCu = &cu;
+
+		// bounds
+		UtxoTree::Key kMin, kMax;
+
+		UtxoTree::Key::Data d;
+		d.m_Commitment = data.m_Utxo.m_Commitment;
+		d.m_Maturity = data.m_MaturityMin;
+		kMin = d;
+		d.m_Maturity = Height(-1);
+		kMax = d;
+
+		t.m_pBound[0] = kMin.m_pArr;
+		t.m_pBound[1] = kMax.m_pArr;
+
+		t.m_pTree->Traverse(t);
+		t.m_Msg.m_Proofs.swap(msgOut.m_Proofs);
+	}
+
+	void GetProof(const proto::GetProofKernel& data, proto::ProofKernel& msgOut)
+	{
+		RadixHashOnlyTree& t = m_Kernels;
+
+		RadixHashOnlyTree::Cursor cu;
+		bool bCreate = false;
+		if (t.Find(cu, data.m_ID, bCreate))
+		{
+			t.get_Proof(msgOut.m_Proof, cu);
+			msgOut.m_Proof.reserve(msgOut.m_Proof.size() + 2);
+
+			msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+			msgOut.m_Proof.back().first = false;
+			m_Utxos.get_Hash(msgOut.m_Proof.back().second);
+
+			msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
+			msgOut.m_Proof.back().first = false;
+			m_mcm.m_Mmr.get_Hash(msgOut.m_Proof.back().second);
+		}
+	}
+
+	void AddKernel(const TxKernel& krn)
+	{
+		Merkle::Hash hvKrn;
+		krn.get_Hash(hvKrn);
+		AddKernel(hvKrn);
+	}
+
+	void AddKernel(const Merkle::Hash& hvKrn)
+	{
+		RadixHashOnlyTree::Cursor cu;
+		bool bCreate = true;
+		m_Kernels.Find(cu, hvKrn, bCreate);
+		WALLET_CHECK(bCreate);
+	}
+
+	void HandleTx(const proto::NewTransaction& data)
+	{
+		for (const auto& input : data.m_Transaction->m_vInputs)
+			RemoveCommitment(input->m_Commitment);
+		for (const auto& output : data.m_Transaction->m_vOutputs)
+			AddCommitment(output->m_Commitment);
+		for (size_t i = 0; i < data.m_Transaction->m_vKernelsOutput.size(); i++)
+			AddKernel(*data.m_Transaction->m_vKernelsOutput[i]);
+	}
+};
+
 struct TestNodeNetwork
 	:public proto::FlyClient::INetwork
 	,public AsyncProcessor
+	,public boost::intrusive::list_base_hook<>
 {
+	typedef boost::intrusive::list<TestNodeNetwork> List;
 	typedef proto::FlyClient::Request Request;
 
 	proto::FlyClient& m_Client;
 
-	MiniBlockChain m_Mcm;
+	struct Shared
+	{
+		TestBlockchain m_Blockchain;
+		List m_lst;
 
-	TestNodeNetwork(proto::FlyClient& x) :m_Client(x) {}
+		void AddBlock()
+		{
+			m_Blockchain.m_mcm.Add();
+
+			for (List::iterator it = m_lst.begin(); m_lst.end() != it; it++)
+			{
+				proto::FlyClient& c = it->m_Client;
+				c.m_Hist[m_Blockchain.m_mcm.m_vStates.back().m_Hdr.m_Height] = m_Blockchain.m_mcm.m_vStates.back().m_Hdr;
+				c.OnNewTip();
+			}
+		}
+	};
+
+	Shared& m_Shared;
+
+	TestNodeNetwork(Shared& shared, proto::FlyClient& x)
+		:m_Client(x)
+		,m_Shared(shared)
+	{
+		m_Shared.m_lst.push_back(*this);
+	}
+
+	~TestNodeNetwork()
+	{
+		m_Shared.m_lst.erase(List::s_iterator_to(*this));
+	}
 
 	typedef std::deque<Request::Ptr> Queue;
 	Queue m_queReqs;
@@ -708,24 +935,26 @@ struct TestNodeNetwork
 			{
 				proto::FlyClient::RequestTransaction& v = static_cast<proto::FlyClient::RequestTransaction&>(r);
 				v.m_Res.m_Value = true;
+
+				m_Shared.m_Blockchain.HandleTx(v.m_Msg);
+				m_Shared.AddBlock();
 			}
 			break;
 
 		case Request::Type::Kernel:
 			{
-				// kernel proofs are assumed to be valid in the client. It'll also check if the proof is empty
 				proto::FlyClient::RequestKernel& v = static_cast<proto::FlyClient::RequestKernel&>(r);
-				v.m_Res.m_Proof.push_back(Merkle::Node(false, Zero));
+				m_Shared.m_Blockchain.GetProof(v.m_Msg, v.m_Res);
+			}
+			break;
+
+		case Request::Type::Utxo:
+			{
+				proto::FlyClient::RequestUtxo& v = static_cast<proto::FlyClient::RequestUtxo&>(r);
+				m_Shared.m_Blockchain.GetProof(v.m_Msg, v.m_Res);
 			}
 			break;
 		}
-	}
-
-	void AddTip()
-	{
-		m_Mcm.Add();
-		m_Client.m_Hist[m_Mcm.m_vStates.back().m_Hdr.m_Height] = m_Mcm.m_vStates.back().m_Hdr;
-		m_Client.OnNewTip();
 	}
 };
 
@@ -751,7 +980,8 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
     Wallet receiver(receiverKeychain, f);
 
 	TestWalletNetwork twn;
-	TestNodeNetwork netNodeS(sender), netNodeR(receiver);
+	TestNodeNetwork::Shared tnns;
+	TestNodeNetwork netNodeS(tnns, sender), netNodeR(tnns, receiver);
 
 	sender.set_Network(netNodeS, twn);
 	receiver.set_Network(netNodeR, twn);
@@ -759,8 +989,7 @@ void TestWalletNegotiation(IKeyChain::Ptr senderKeychain, IKeyChain::Ptr receive
 	twn.m_Map[sender_id].m_pSink = &sender;
 	twn.m_Map[receiver_id].m_pSink = &receiver;
 
-	netNodeS.AddTip();
-	netNodeR.AddTip();
+	tnns.AddBlock();
 
     sender.transfer_money(sender_id, receiver_id, 6, 1, true, {});
 	mainReactor->run();
@@ -774,8 +1003,8 @@ public:
     TestNode(io::Address address)
     {
         m_Server.Listen(address);
-		while (m_mcm.m_vStates.size() < 145)
-			AddBlock();
+		while (m_Blockchain.m_mcm.m_vStates.size() < 145)
+			m_Blockchain.AddBlock();
     }
 
     ~TestNode() {
@@ -788,47 +1017,19 @@ public:
             DeleteClient(&m_lstClients.front());
     }
 
-	MiniBlockChain m_mcm;
-
-	UtxoTree m_Utxos;
-	RadixHashOnlyTree m_Kernels;
+	TestBlockchain m_Blockchain;
 
 	void AddBlock()
 	{
-		Merkle::Hash hvUtxo, hvKrn;
-		m_Utxos.get_Hash(hvUtxo);
-		m_Kernels.get_Hash(hvKrn);
+		m_Blockchain.AddBlock();
 
-		Merkle::Interpret(m_mcm.m_hvLive, hvUtxo, hvKrn);
-		m_mcm.Add();
-
-		for (auto it = m_lstClients.begin(); m_lstClients.end() != it; it++)
+		for (ClientList::iterator it = m_lstClients.begin(); m_lstClients.end() != it; it++)
 		{
-			Client& c = *it; // maybe this
+			Client& c = *it;
 			if (c.IsSecureOut())
-			{
-				proto::NewTip msg;
-				msg.m_Description = m_mcm.m_vStates.back().m_Hdr;
-				c.Send(msg);
-			}
+				c.SendTip();
 		}
 	}
-
-	void AddKernel(const TxKernel& krn)
-	{
-		Merkle::Hash hvKrn;
-		krn.get_Hash(hvKrn);
-		AddKernel(hvKrn);
-	}
-
-	void AddKernel(const Merkle::Hash& hvKrn)
-	{
-		RadixHashOnlyTree::Cursor cu;
-		bool bCreate = true;
-		m_Kernels.Find(cu, hvKrn, bCreate);
-		WALLET_CHECK(bCreate);
-	}
-
 private:
 
     struct Client
@@ -860,117 +1061,38 @@ private:
 			Send(msgCfg);
 		}
 
+		void SendTip()
+		{
+			proto::NewTip msg;
+			msg.m_Description = m_This.m_Blockchain.m_mcm.m_vStates.back().m_Hdr;
+			Send(msg);
+		}
+
         void OnMsg(proto::NewTransaction&& data) override
         {
-            for (const auto& input : data.m_Transaction->m_vInputs)
-            {
-                m_This.RemoveCommitment(input->m_Commitment);
-            }
-            for (const auto& output : data.m_Transaction->m_vOutputs)
-            {
-                m_This.AddCommitment(output->m_Commitment);
-            }
+			m_This.m_Blockchain.HandleTx(data);
 
             Send(proto::Boolean{ true });
-
-			for (size_t i = 0; i < data.m_Transaction->m_vKernelsOutput.size(); i++)
-				m_This.AddKernel(*data.m_Transaction->m_vKernelsOutput[i]);
-
 			m_This.AddBlock();
         }
 
         void OnMsg(proto::GetProofUtxo&& data) override
         {
-			struct Traveler :public UtxoTree::ITraveler
-			{
-				proto::ProofUtxo m_Msg;
-				UtxoTree* m_pTree;
-				Merkle::Hash m_hvHistory;
-				Merkle::Hash m_hvKernels;
-
-				virtual bool OnLeaf(const RadixTree::Leaf& x) override {
-
-					const UtxoTree::MyLeaf& v = (UtxoTree::MyLeaf&) x;
-					UtxoTree::Key::Data d;
-					d = v.m_Key;
-
-					m_Msg.m_Proofs.resize(m_Msg.m_Proofs.size() + 1);
-					Input::Proof& ret = m_Msg.m_Proofs.back();
-
-					ret.m_State.m_Count = v.m_Value.m_Count;
-					ret.m_State.m_Maturity = d.m_Maturity;
-					m_pTree->get_Proof(ret.m_Proof, *m_pCu);
-
-					ret.m_Proof.reserve(ret.m_Proof.size() + 2);
-
-					ret.m_Proof.resize(ret.m_Proof.size() + 1);
-					ret.m_Proof.back().first = true;
-					ret.m_Proof.back().second = m_hvKernels;
-
-					ret.m_Proof.resize(ret.m_Proof.size() + 1);
-					ret.m_Proof.back().first = false;
-					ret.m_Proof.back().second = m_hvHistory;
-
-					return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
-				}
-			} t;
-
-			t.m_pTree = &m_This.m_Utxos;
-			m_This.m_Kernels.get_Hash(t.m_hvKernels);
-			m_This.m_mcm.m_Mmr.get_Hash(t.m_hvHistory);
-
-			UtxoTree::Cursor cu;
-			t.m_pCu = &cu;
-
-			// bounds
-			UtxoTree::Key kMin, kMax;
-
-			UtxoTree::Key::Data d;
-			d.m_Commitment = data.m_Utxo.m_Commitment;
-			d.m_Maturity = data.m_MaturityMin;
-			kMin = d;
-			d.m_Maturity = Height(-1);
-			kMax = d;
-
-			t.m_pBound[0] = kMin.m_pArr;
-			t.m_pBound[1] = kMax.m_pArr;
-
-			t.m_pTree->Traverse(t);
-
-			Send(t.m_Msg);
+			proto::ProofUtxo msgOut;
+			m_This.m_Blockchain.GetProof(data, msgOut);
+			Send(msgOut);
         }
 
         void OnMsg(proto::GetProofKernel&& data) override
         {
 			proto::ProofKernel msgOut;
-
-			RadixHashOnlyTree& t = m_This.m_Kernels;
-
-			RadixHashOnlyTree::Cursor cu;
-			bool bCreate = false;
-			if (t.Find(cu, data.m_ID, bCreate))
-			{
-				t.get_Proof(msgOut.m_Proof, cu);
-				msgOut.m_Proof.reserve(msgOut.m_Proof.size() + 2);
-
-				msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-				msgOut.m_Proof.back().first = false;
-				m_This.m_Utxos.get_Hash(msgOut.m_Proof.back().second);
-
-				msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-				msgOut.m_Proof.back().first = false;
-				m_This.m_mcm.m_Mmr.get_Hash(msgOut.m_Proof.back().second);
-			}
-
-            Send(msgOut);
+			m_This.m_Blockchain.GetProof(data, msgOut);
+			Send(msgOut);
         }
 
         void OnMsg(proto::Config&& /*data*/) override
         {
-            proto::NewTip msg;
-
-			msg.m_Description = m_This.m_mcm.m_vStates.back().m_Hdr;
-            Send(move(msg));
+			SendTip();
         }
 
         void OnMsg(proto::GetMined&&) override
@@ -992,8 +1114,8 @@ private:
 		{
 			proto::ProofChainWork msgOut;
 			msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
-			msgOut.m_Proof.m_hvRootLive = m_This.m_mcm.m_hvLive;
-			msgOut.m_Proof.Create(m_This.m_mcm.m_Source, m_This.m_mcm.m_vStates.back().m_Hdr);
+			msgOut.m_Proof.m_hvRootLive = m_This.m_Blockchain.m_mcm.m_hvLive;
+			msgOut.m_Proof.Create(m_This.m_Blockchain.m_mcm.m_Source, m_This.m_Blockchain.m_mcm.m_vStates.back().m_Hdr);
 
 			Send(msgOut);
 		}
@@ -1060,78 +1182,6 @@ private:
         m_lstClients.erase(ClientList::s_iterator_to(*client));
         delete client;
     }
-
-    bool AddCommitment(const ECC::Point& c)
-    {
-		UtxoTree::Key::Data d;
-		d.m_Commitment = c;
-		d.m_Maturity = m_mcm.m_vStates.back().m_Hdr.m_Height;
-
-		UtxoTree::Key key;
-		key = d;
-
-		UtxoTree::Cursor cu;
-		bool bCreate = true;
-		UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
-
-		cu.Invalidate();
-
-		if (bCreate)
-			p->m_Value.m_Count = 1;
-		else
-		{
-			// protect again overflow attacks, though it's highly unlikely (Input::Count is currently limited to 32 bits, it'd take millions of blocks)
-			Input::Count nCountInc = p->m_Value.m_Count + 1;
-			if (!nCountInc)
-				return false;
-
-			p->m_Value.m_Count = nCountInc;
-		}
-
-		return true;
-	}
-
-    bool RemoveCommitment(const ECC::Point& c)
-    {
-		UtxoTree::Cursor cu;
-		UtxoTree::MyLeaf* p;
-		UtxoTree::Key::Data d;
-		d.m_Commitment = c;
-
-		struct Traveler :public UtxoTree::ITraveler {
-			virtual bool OnLeaf(const RadixTree::Leaf& x) override {
-				return false; // stop iteration
-			}
-		} t;
-
-
-		UtxoTree::Key kMin, kMax;
-
-		d.m_Maturity = 0;
-		kMin = d;
-		d.m_Maturity = m_mcm.m_vStates.back().m_Hdr.m_Height;
-		kMax = d;
-
-		t.m_pCu = &cu;
-		t.m_pBound[0] = kMin.m_pArr;
-		t.m_pBound[1] = kMax.m_pArr;
-
-		if (m_Utxos.Traverse(t))
-			return false;
-
-		p = &(UtxoTree::MyLeaf&) cu.get_Leaf();
-
-		d = p->m_Key;
-		assert(d.m_Commitment == c);
-		assert(p->m_Value.m_Count); // we don't store zeroes
-
-		if (!--p->m_Value.m_Count)
-			m_Utxos.Delete(cu);
-		else
-			cu.Invalidate();
-
-		return true;
-	}
 
     struct Server
         :public proto::NodeConnection::Server
