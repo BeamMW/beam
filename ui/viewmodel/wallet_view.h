@@ -133,8 +133,8 @@ class WalletViewModel : public QObject
 
 public:
 
-    Q_INVOKABLE void cancelTx(int index);
-    Q_INVOKABLE void deleteTx(int index);
+    Q_INVOKABLE void cancelTx(TxObject* pTxObject);
+    Q_INVOKABLE void deleteTx(TxObject* pTxObject);
     Q_INVOKABLE void generateNewAddress();
     Q_INVOKABLE void saveNewAddress();
     Q_INVOKABLE void copyToClipboard(const QString& text);

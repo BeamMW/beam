@@ -1126,7 +1126,6 @@ Item {
                                 icon.source: "qrc:/assets/icon-actions.svg"
                                 ToolTip.text: qsTr("Actions")
                                 onClicked: {
-                                    txContextMenu.index = styleData.row;
                                     txContextMenu.transaction = viewModel.transactions[styleData.row];
                                     txContextMenu.popup();
                                 }
@@ -1141,7 +1140,6 @@ Item {
                 modal: true
                 dim: false
                 property TxObject transaction
-                property int index;
                 Action {
                     text: qsTr("copy address")
                     icon.source: "qrc:/assets/icon-copy.svg"
@@ -1155,7 +1153,7 @@ Item {
                 Action {
                     text: qsTr("cancel")
                     onTriggered: {
-                       viewModel.cancelTx(txContextMenu.index);
+                       viewModel.cancelTx(txContextMenu.transaction);
                     }
                     enabled: !!txContextMenu.transaction && txContextMenu.transaction.canCancel
                     icon.source: "qrc:/assets/icon-cancel.svg"
@@ -1172,7 +1170,7 @@ Item {
                 Connections {
                     target: deleteTransactionDialog
                     onAccepted: {
-                        viewModel.deleteTx(txContextMenu.index);
+                        viewModel.deleteTx(txContextMenu.transaction);
                     }
                 }
             }
@@ -1342,7 +1340,6 @@ Item {
                         }
                         if (mouse.button === Qt.RightButton )
                         {
-                            txContextMenu.index = styleData.row;
                             txContextMenu.transaction = viewModel.transactions[styleData.row];
                             txContextMenu.popup();
                         }
