@@ -108,7 +108,7 @@ Item
                     }
 
                     CustomButton {
-                        text: qsTr("restore wallet from blockchain")
+                        text: qsTr("restore wallet")
                         icon.source: "qrc:/assets/icon-restore.svg"
                         onClicked: {
                             viewModel.isRecoveryMode = true;
@@ -1087,11 +1087,6 @@ Item
                 //    text: qsTr("restore wallet from file")
                     // activeFocusOnTab: true
                 //}
-
-        //         DefaultButton {
-        //             text: qsTr("restore wallet from blockchain")
-                    // activeFocusOnTab: true
-        //         }
 
                 PrimaryButton {
                     anchors.verticalCenter: parent.verticalCenter
