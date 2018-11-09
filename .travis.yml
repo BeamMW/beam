@@ -88,7 +88,7 @@ matrix:
         - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
         - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - eval "CC=gcc-7 && CXX=g++-7"
-        - git clone --depth=1 https://github.com/nesbox/qt5-static-linux.git /home/travis/qt5-static
+        - git clone --depth=1 https://github.com/nesbox/qt5-static-linux2.git /home/travis/qt5-static
         - export QT5_ROOT_DIR="/home/travis/qt5-static"
         - export QML_IMPORT_PATH="/home/travis/qt5-static/qml"
         - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Linux.deb"
