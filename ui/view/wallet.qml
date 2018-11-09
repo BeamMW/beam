@@ -350,7 +350,7 @@ Item {
         ColumnLayout {
             anchors.fill: parent
 
-            spacing: 30
+            spacing: 20
 
             SFText {
                 Layout.alignment: Qt.AlignHCenter
