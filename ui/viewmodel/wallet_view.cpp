@@ -92,15 +92,12 @@ QString TxObject::status() const
 
 bool TxObject::canCancel() const
 {
-    return _tx.m_status == beam::TxStatus::InProgress
-        || _tx.m_status == beam::TxStatus::Pending;
+    return _tx.canCancel();
 }
 
 bool TxObject::canDelete() const
 {
-    return _tx.m_status == beam::TxStatus::Failed
-        || _tx.m_status == beam::TxStatus::Completed
-        || _tx.m_status == beam::TxStatus::Cancelled;
+    return _tx.canDelete();
 }
 
 void TxObject::setUserName(const QString& name)
@@ -222,22 +219,19 @@ WalletViewModel::~WalletViewModel()
 
 }
 
-void WalletViewModel::cancelTx(int index)
+void WalletViewModel::cancelTx(TxObject* pTxObject)
 {
-    auto *p = static_cast<TxObject*>(_txList[index]);
-    // TODO: temporary fix
-    if (p->canCancel())
+    if (pTxObject->canCancel())
     {
-        _model.async->cancelTx(p->_tx.m_txId);
+        _model.async->cancelTx(pTxObject->_tx.m_txId);
     }
 }
 
-void WalletViewModel::deleteTx(int index)
+void WalletViewModel::deleteTx(TxObject* pTxObject)
 {
-    auto *p = static_cast<TxObject*>(_txList[index]);
-    if (p->canDelete())
+    if (pTxObject->canDelete())
     {
-        _model.async->deleteTx(p->_tx.m_txId);
+        _model.async->deleteTx(pTxObject->_tx.m_txId);
     }
 }
 
@@ -546,8 +540,8 @@ QString WalletViewModel::sortRole() const
 
 void WalletViewModel::setSortRole(const QString& value)
 {
-    if (value != getIncomeRole() && value != getDateRole() && value != getAmountRole() &&
-        value != getStatusRole())
+    if (value != getDateRole() && value != getAmountRole() &&
+        value != getStatusRole() && value != getUserRole())
         return;
 
     _sortRole = value;
