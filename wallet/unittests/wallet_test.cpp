@@ -597,7 +597,7 @@ public:
 
 struct TestWalletRig
 {
-    TestWalletRig(const string& name, IWalletDB::Ptr walletDB, io::Reactor::Ptr reactor, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction())
+    TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction())
         : m_WalletDB{walletDB}
         , m_BBSKeystore{ CreateBbsKeystore(name + "-bbs", "123", m_WalletID) }
 		, m_Wallet{ m_WalletDB, move(action) }
@@ -1205,93 +1205,91 @@ private:
         }
     } m_Server;
 };
-//
-//void TestTxToHimself()
-//{
-//    cout << "\nTesting Tx to himself...\n";
-//
-//    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-//    io::Reactor::Scope scope(*mainReactor);
-//
-//    string keystorePass = "123";
-//    WalletID senderID = {};
-//    auto senderBbsKeys = CreateBbsKeystore("sender-bbs", keystorePass, senderID);
-//
-//    WalletID receiverID = {};
-//    senderBbsKeys->gen_keypair(receiverID);
-//
-//    auto senderWalletDB = createSqliteWalletDB("sender_wallet.db");
-//
-//    // add own address
-//    WalletAddress own_address = {};
-//    own_address.m_walletID = receiverID;
-//    own_address.m_label = "test label";
-//    own_address.m_category = "test category";
-//    own_address.m_createTime = beam::getTimestamp();
-//    own_address.m_duration = 23;
-//    own_address.m_own = true;
-//
-//    senderWalletDB->saveAddress(own_address);
-//
-//    // add coin with keyType - Coinbase
-//    beam::Amount coin_amount = 40;
-//    Coin coin(coin_amount);
-//    coin.m_maturity = 0;
-//    coin.m_status = Coin::Unspent;
-//    coin.m_key_type = Key::Type::Coinbase;
-//    senderWalletDB->store(coin);
-//
-//    auto coins = senderWalletDB->selectCoins(24, false);
-//    WALLET_CHECK(coins.size() == 1);
-//    WALLET_CHECK(coins[0].m_key_type == Key::Type::Coinbase);
-//    WALLET_CHECK(coins[0].m_status == Coin::Unspent);
-//    WALLET_CHECK(senderWalletDB->getTxHistory().empty());
-//
-//    auto nodeAddress = io::Address::localhost().port(32125);
-//    TestNode node{ nodeAddress };
-//    auto sender_io = make_shared<WalletNetworkIO>(nodeAddress, senderWalletDB, senderBbsKeys, mainReactor, 1000, 2000);
-//    TestWallet sender{ senderWalletDB, sender_io, true, [sender_io](auto) { sender_io->stop(); } };
-//    helpers::StopWatch sw;
-//
-//    sw.start();
-//    TxID txId = sender.transfer_money(senderID, receiverID, 24, 2);
-//    mainReactor->run();
-//    sw.stop();
-//
-//    cout << "Transfer elapsed time: " << sw.milliseconds() << " ms\n";
-//
-//    // check Tx
-//    auto txHistory = senderWalletDB->getTxHistory();
-//    WALLET_CHECK(txHistory.size() == 1);
-//    WALLET_CHECK(txHistory[0].m_txId == txId);
-//    WALLET_CHECK(txHistory[0].m_amount == 24);
-//    WALLET_CHECK(txHistory[0].m_change == 14);
-//    WALLET_CHECK(txHistory[0].m_fee == 2);
-//    WALLET_CHECK(txHistory[0].m_status == TxStatus::Completed);
-//
-//    // check coins
-//    vector<Coin> newSenderCoins;
-//    senderWalletDB->visit([&newSenderCoins](const Coin& c)->bool
-//    {
-//        newSenderCoins.push_back(c);
-//        return true;
-//    });
-//
-//    WALLET_CHECK(newSenderCoins.size() == 3);
-//    WALLET_CHECK(newSenderCoins[0].m_key_type == Key::Type::Coinbase);
-//    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
-//
-//    WALLET_CHECK(newSenderCoins[1].m_key_type == Key::Type::Regular);
-//    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Unspent);
-//    WALLET_CHECK(newSenderCoins[1].m_amount == 14);
-//
-//    WALLET_CHECK(newSenderCoins[2].m_key_type == Key::Type::Regular);
-//    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Unspent);
-//    WALLET_CHECK(newSenderCoins[2].m_amount == 24);
-//
-//    cout << "\nFinish of testing Tx to himself...\n";
-//}
-//
+
+void TestTxToHimself()
+{
+    cout << "\nTesting Tx to himself...\n";
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    string keystorePass = "123";
+    WalletID senderID = {};
+    auto senderBbsKeys = CreateBbsKeystore("sender-bbs", keystorePass, senderID);
+
+    WalletID receiverID = {};
+    senderBbsKeys->gen_keypair(receiverID);
+
+    auto senderWalletDB = createSqliteWalletDB("sender_wallet.db");
+
+    // add own address
+    WalletAddress own_address = {};
+    own_address.m_walletID = receiverID;
+    own_address.m_label = "test label";
+    own_address.m_category = "test category";
+    own_address.m_createTime = beam::getTimestamp();
+    own_address.m_duration = 23;
+    own_address.m_own = true;
+
+    senderWalletDB->saveAddress(own_address);
+
+    // add coin with keyType - Coinbase
+    beam::Amount coin_amount = 40;
+    Coin coin(coin_amount);
+    coin.m_maturity = 0;
+    coin.m_status = Coin::Unspent;
+    coin.m_key_type = Key::Type::Coinbase;
+    senderWalletDB->store(coin);
+
+    auto coins = senderWalletDB->selectCoins(24, false);
+    WALLET_CHECK(coins.size() == 1);
+    WALLET_CHECK(coins[0].m_key_type == Key::Type::Coinbase);
+    WALLET_CHECK(coins[0].m_status == Coin::Unspent);
+    WALLET_CHECK(senderWalletDB->getTxHistory().empty());
+
+    TestNode node;
+    TestWalletRig sender("sender", senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
+    helpers::StopWatch sw;
+
+    sw.start();
+    TxID txId = sender.m_Wallet.transfer_money(senderID, receiverID, 24, 2);
+    mainReactor->run();
+    sw.stop();
+
+    cout << "Transfer elapsed time: " << sw.milliseconds() << " ms\n";
+
+    // check Tx
+    auto txHistory = senderWalletDB->getTxHistory();
+    WALLET_CHECK(txHistory.size() == 1);
+    WALLET_CHECK(txHistory[0].m_txId == txId);
+    WALLET_CHECK(txHistory[0].m_amount == 24);
+    WALLET_CHECK(txHistory[0].m_change == 14);
+    WALLET_CHECK(txHistory[0].m_fee == 2);
+    WALLET_CHECK(txHistory[0].m_status == TxStatus::Completed);
+
+    // check coins
+    vector<Coin> newSenderCoins;
+    senderWalletDB->visit([&newSenderCoins](const Coin& c)->bool
+    {
+        newSenderCoins.push_back(c);
+        return true;
+    });
+
+    WALLET_CHECK(newSenderCoins.size() == 3);
+    WALLET_CHECK(newSenderCoins[0].m_key_type == Key::Type::Coinbase);
+    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
+
+    WALLET_CHECK(newSenderCoins[1].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Unspent);
+    WALLET_CHECK(newSenderCoins[1].m_amount == 14);
+
+    WALLET_CHECK(newSenderCoins[2].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Unspent);
+    WALLET_CHECK(newSenderCoins[2].m_amount == 24);
+
+    cout << "\nFinish of testing Tx to himself...\n";
+}
+
 void TestP2PWalletNegotiationST()
 {
     cout << "\nTesting p2p wallets negotiation single thread...\n";
@@ -1311,8 +1309,8 @@ void TestP2PWalletNegotiationST()
     };
 
 	TestNode node;
-	TestWalletRig sender("sender", createSenderWalletDB(), mainReactor, f);
-    TestWalletRig receiver("receiver", createReceiverWalletDB(), mainReactor, f);
+	TestWalletRig sender("sender", createSenderWalletDB(), f);
+    TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
 
     WALLET_CHECK(sender.m_WalletDB->selectCoins(6, false).size() == 2);
     WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
@@ -1491,8 +1489,8 @@ void TestP2PWalletReverseNegotiationST()
     };
 
 	TestNode node;
-	TestWalletRig sender("sender", createSenderWalletDB(), mainReactor, f);
-    TestWalletRig receiver("receiver", createReceiverWalletDB(), mainReactor, f);
+	TestWalletRig sender("sender", createSenderWalletDB(), f);
+    TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
   
     WALLET_CHECK(sender.m_WalletDB->selectCoins(6, false).size() == 2);
     WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
@@ -1676,8 +1674,8 @@ void TestSwapTransaction()
     };
 
 	TestNode node;
-	TestWalletRig sender("sender", createSenderWalletDB(), mainReactor, f);
-    TestWalletRig receiver("receiver", createReceiverWalletDB(), mainReactor, f);
+	TestWalletRig sender("sender", createSenderWalletDB(), f);
+    TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
 
     /*TxID txID =*/ sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, 4, 1, wallet::AtomicSwapCoin::Bitcoin, 2);
 
@@ -1878,7 +1876,7 @@ int main()
 
     //TestSwapTransaction();
 
-    //TestTxToHimself();
+    TestTxToHimself();
 
     //TestRollback();
 
