@@ -25,7 +25,8 @@ private:
         BlockFound callback;
     };
 
-    void new_job(const Merkle::Hash& input, const Block::PoW& pow, const BlockFound& callback) override {
+    void new_job(const Merkle::Hash& input, const Block::PoW& pow,
+        const BlockFound& callback, const CancelCallback& cancelCallback) override {
         {
             std::lock_guard<std::mutex> lk(_mutex);
             if (_currentJob.input == input) {
