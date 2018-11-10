@@ -446,7 +446,8 @@ namespace beam
 
 				struct Element
 				{
-					Merkle::Hash	m_Definition; // Defined as Hash[ History | Hash[Utxos | Kernels] ]
+					Merkle::Hash	m_Kernels; // of this block only
+					Merkle::Hash	m_Definition; // Defined as Hash[ History | Utxos ]
 					Timestamp		m_TimeStamp;
 					PoW				m_PoW;
 

@@ -902,7 +902,7 @@ bool NodeProcessor::IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote
 	if (n < 0)
 		return true;
 
-	return sTipMy.m_Definition != sTipRemote.m_Definition;
+	return sTipMy != sTipRemote;
 }
 
 uint64_t NodeProcessor::FindActiveAtStrict(Height h)
@@ -1197,6 +1197,7 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 		ToggleSubsidyOpened();
 
 	get_Definition(bc.m_Hdr.m_Definition, true);
+	bc.m_Hdr.m_Kernels = Zero;
 
 	if (res.m_SubsidyClosing)
 		ToggleSubsidyOpened();

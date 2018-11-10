@@ -28,6 +28,7 @@ namespace beam {
 #define TblStates_Hash			"Hash"
 #define TblStates_HashPrev		"HashPrev"
 #define TblStates_Timestamp		"Timestamp"
+#define TblStates_Kernels		"Kernels"
 #define TblStates_Definition	"Definition"
 #define TblStates_Flags			"Flags"
 #define TblStates_RowPrev		"RowPrev"
@@ -278,6 +279,7 @@ void NodeDB::Create()
 		"[" TblStates_Hash			"] BLOB NOT NULL,"
 		"[" TblStates_HashPrev		"] BLOB NOT NULL,"
 		"[" TblStates_Timestamp		"] INTEGER NOT NULL,"
+		"[" TblStates_Kernels		"] BLOB NOT NULL,"
 		"[" TblStates_Definition	"] BLOB NOT NULL,"
 		"[" TblStates_Flags			"] INTEGER NOT NULL,"
 		"[" TblStates_RowPrev		"] INTEGER,"
@@ -517,6 +519,7 @@ void NodeDB::Transaction::Rollback()
 	macro(Timestamp,	m_TimeStamp) sep \
 	macro(PoW,			m_PoW) sep \
 	macro(ChainWork,	m_ChainWork) sep \
+	macro(Kernels,		m_Kernels) sep \
 	macro(Definition,	m_Definition)
 
 #define THE_MACRO_NOP0

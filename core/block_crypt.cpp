@@ -737,6 +737,7 @@ namespace beam
 	int Block::SystemState::Full::cmp(const Full& v) const
 	{
 		CMP_MEMBER(m_Height)
+		CMP_MEMBER_EX(m_Kernels)
 		CMP_MEMBER_EX(m_Definition)
 		CMP_MEMBER_EX(m_Prev)
 		CMP_MEMBER_EX(m_ChainWork)
@@ -774,6 +775,7 @@ namespace beam
 			<< m_Height
 			<< m_Prev
 			<< m_ChainWork
+			<< m_Kernels
 			<< m_Definition
 			<< m_TimeStamp
 			<< m_PoW.m_Difficulty.m_Packed;

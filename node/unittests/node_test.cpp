@@ -133,8 +133,9 @@ namespace beam
 				cmmrFork = cmmr;
 
 			cmmr.get_Hash(s.m_Definition);
-
 			Merkle::Interpret(s.m_Definition, hvZero, true);
+
+			s.m_Kernels = Zero;
 		}
 
 		uint64_t pRows[hMax];

@@ -763,6 +763,7 @@ namespace detail
 		static Archive& save(Archive& ar, const beam::Block::SystemState::Sequence::Element& v)
 		{
 			ar
+				& v.m_Kernels
 				& v.m_Definition
 				& v.m_TimeStamp
 				& v.m_PoW;
@@ -774,6 +775,7 @@ namespace detail
 		static Archive& load(Archive& ar, beam::Block::SystemState::Sequence::Element& v)
 		{
 			ar
+				& v.m_Kernels
 				& v.m_Definition
 				& v.m_TimeStamp
 				& v.m_PoW;
