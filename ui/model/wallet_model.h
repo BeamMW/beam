@@ -75,7 +75,7 @@ public:
 
     using Ptr = std::shared_ptr<WalletModel>;
 
-    WalletModel(beam::IKeyChain::Ptr keychain, beam::IKeyStore::Ptr keystore, const std::string& nodeAddr);
+    WalletModel(beam::IWalletDB::Ptr walletDB, beam::IKeyStore::Ptr keystore, const std::string& nodeAddr);
     ~WalletModel();
 
     void run() override;
@@ -98,7 +98,7 @@ signals:
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
 
 private:
-    void onKeychainChanged() override;
+    void onCoinsChanged() override;
     void onTransactionChanged(beam::ChangeAction action, std::vector<beam::TxDescription>&& items) override;
     void onSystemStateChanged() override;
     void onTxPeerChanged() override;
@@ -129,7 +129,7 @@ private:
     std::vector<beam::Coin> getUtxos() const;
 private:
 
-    beam::IKeyChain::Ptr _keychain;
+    beam::IWalletDB::Ptr _walletDB;
     beam::IKeyStore::Ptr _keystore;
     beam::io::Reactor::Ptr _reactor;
     std::weak_ptr<beam::INetworkIO> _wallet_io;

@@ -19,6 +19,9 @@
 #include <QApplication>
 #include <QClipboard>
 #include "model/app_model.h"
+#include "qrcode/QRCodeGenerator.h"
+#include <QtGui/qimage.h>
+#include <QtCore/qbuffer.h>
 #include "version.h"
 
 using namespace beam;
@@ -92,15 +95,12 @@ QString TxObject::status() const
 
 bool TxObject::canCancel() const
 {
-    return _tx.m_status == beam::TxStatus::InProgress
-        || _tx.m_status == beam::TxStatus::Pending;
+    return _tx.canCancel();
 }
 
 bool TxObject::canDelete() const
 {
-    return _tx.m_status == beam::TxStatus::Failed
-        || _tx.m_status == beam::TxStatus::Completed
-        || _tx.m_status == beam::TxStatus::Cancelled;
+    return _tx.canDelete();
 }
 
 void TxObject::setUserName(const QString& name)
@@ -222,22 +222,19 @@ WalletViewModel::~WalletViewModel()
 
 }
 
-void WalletViewModel::cancelTx(int index)
+void WalletViewModel::cancelTx(TxObject* pTxObject)
 {
-    auto *p = static_cast<TxObject*>(_txList[index]);
-    // TODO: temporary fix
-    if (p->canCancel())
+    if (pTxObject->canCancel())
     {
-        _model.async->cancelTx(p->_tx.m_txId);
+        _model.async->cancelTx(pTxObject->_tx.m_txId);
     }
 }
 
-void WalletViewModel::deleteTx(int index)
+void WalletViewModel::deleteTx(TxObject* pTxObject)
 {
-    auto *p = static_cast<TxObject*>(_txList[index]);
-    if (p->canDelete())
+    if (pTxObject->canDelete())
     {
-        _model.async->deleteTx(p->_tx.m_txId);
+        _model.async->deleteTx(pTxObject->_tx.m_txId);
     }
 }
 
@@ -546,8 +543,8 @@ QString WalletViewModel::sortRole() const
 
 void WalletViewModel::setSortRole(const QString& value)
 {
-    if (value != getIncomeRole() && value != getDateRole() && value != getAmountRole() &&
-        value != getStatusRole())
+    if (value != getDateRole() && value != getAmountRole() &&
+        value != getStatusRole() && value != getUserRole())
         return;
 
     _sortRole = value;
@@ -771,6 +768,11 @@ QString WalletViewModel::getNewReceiverAddr() const
     return _newReceiverAddr;
 }
 
+QString WalletViewModel::getNewReceiverAddrQR() const
+{
+    return _newReceiverAddrQR;
+}
+
 void WalletViewModel::setNewReceiverName(const QString& value)
 {
     auto trimmedValue = value.trimmed();
@@ -815,6 +817,35 @@ void WalletViewModel::onAdrresses(bool own, const std::vector<beam::WalletAddres
 void WalletViewModel::onGeneratedNewWalletID(const beam::WalletID& walletID)
 {
     _newReceiverAddr = toString(walletID);
+    _newReceiverAddrQR = "";
+
+    CQR_Encode qrEncode;
+    bool success = qrEncode.EncodeData(1, 0, true, -1, _newReceiverAddr.toUtf8().data());
+
+    if (success)
+    {
+        int qrImageSize = qrEncode.m_nSymbleSize;
+        int encodeImageSize = qrImageSize + (QR_MARGIN * 2);
+        QImage encodeImage(encodeImageSize, encodeImageSize, QImage::Format_ARGB32);
+        encodeImage.fill(Qt::transparent);
+        QColor color(Qt::white);
+
+        for (int i = 0; i < qrImageSize; i++)
+            for (int j = 0; j < qrImageSize; j++)
+                if (qrEncode.m_byModuleData[i][j])
+                    encodeImage.setPixel(i + QR_MARGIN, j + QR_MARGIN, color.rgba());
+
+        encodeImage = encodeImage.scaled(200, 200);
+
+        QByteArray bArray;
+        QBuffer buffer(&bArray);
+        buffer.open(QIODevice::WriteOnly);
+        encodeImage.save(&buffer, "png");
+
+        _newReceiverAddrQR = "data:image/png;base64,";
+        _newReceiverAddrQR.append(QString::fromLatin1(bArray.toBase64().data()));
+    }
+
     emit newReceiverAddrChanged();
     saveNewAddress();
 }

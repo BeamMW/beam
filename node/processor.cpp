@@ -114,7 +114,7 @@ void NodeProcessor::InitCursor()
 	m_Cursor.m_DifficultyNext = get_NextDifficulty();
 }
 
-void NodeProcessor::EnumCongestions()
+void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 {
 	// request all potentially missing data
 	NodeDB::WalkerState ws(m_DB);
@@ -130,28 +130,56 @@ void NodeProcessor::EnumCongestions()
 		if (wrk < m_Cursor.m_Full.m_ChainWork)
 			continue; // not interested in tips behind the current cursor
 
-		bool bBlock = true;
+		Height nBlocks = 0;
+		const uint32_t nMaxBlocks = 32;
+		uint64_t pBlockRow[nMaxBlocks];
 
-		while (sid.m_Height > Rules::HeightGenesis)
+		while (true)
 		{
-			NodeDB::StateID sidThis = sid;
+			pBlockRow[nBlocks % nMaxBlocks] = sid.m_Row;
+			nBlocks++;
+
+			if (Rules::HeightGenesis == sid.m_Height)
+			{
+				sid.m_Height--;
+				break;
+			}
+
 			if (!m_DB.get_Prev(sid))
 			{
-				bBlock = false;
+				nBlocks = 0;
 				break;
 			}
 
 			if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(sid.m_Row))
-			{
-				sid = sidThis;
 				break;
-			}
 		}
 
 		Block::SystemState::ID id;
 
-		if (bBlock)
-			m_DB.get_StateID(sid, id);
+		if (nBlocks)
+		{
+			if (!nMaxBlocksBacklog)
+				nMaxBlocksBacklog = 1;
+			else
+			{
+				if (nMaxBlocksBacklog > nMaxBlocks)
+					nMaxBlocksBacklog = nMaxBlocks;
+
+				if (nMaxBlocksBacklog > nBlocks)
+					nMaxBlocksBacklog = static_cast<uint32_t>(nBlocks);
+			}
+
+			while (nMaxBlocksBacklog--)
+			{
+				sid.m_Height++;
+				sid.m_Row = pBlockRow[(--nBlocks) % nMaxBlocks];
+
+				m_DB.get_StateID(sid, id);
+
+				RequestDataInternal(id, sid.m_Row, true);
+			}
+		}
 		else
 		{
 			Block::SystemState::Full s;
@@ -159,19 +187,24 @@ void NodeProcessor::EnumCongestions()
 
 			id.m_Height = s.m_Height - 1;
 			id.m_Hash = s.m_Prev;
-		}
 
-		if (id.m_Height >= m_Cursor.m_LoHorizon)
-		{
-			PeerID peer;
-			bool bPeer = m_DB.get_Peer(sid.m_Row, peer);
+			RequestDataInternal(id, sid.m_Row, false);
+		}
+	}
+}
 
-			RequestData(id, bBlock, bPeer ? &peer : NULL);
-		}
-		else
-		{
-			LOG_WARNING() << id << " State unreachable!"; // probably will pollute the log, but it's a critical situation anyway
-		}
+void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64_t row, bool bBlock)
+{
+	if (id.m_Height >= m_Cursor.m_LoHorizon)
+	{
+		PeerID peer;
+		bool bPeer = m_DB.get_Peer(row, peer);
+
+		RequestData(id, bBlock, bPeer ? &peer : NULL);
+	}
+	else
+	{
+		LOG_WARNING() << id << " State unreachable!"; // probably will pollute the log, but it's a critical situation anyway
 	}
 }
 

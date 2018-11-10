@@ -52,7 +52,7 @@ namespace beam
 
 
         WalletNetworkIO(io::Address node_address
-                      , IKeyChain::Ptr keychain
+                      , IWalletDB::Ptr walletDB
                       , IKeyStore::Ptr keyStore
                       , io::Reactor::Ptr reactor = io::Reactor::Ptr()
                       , unsigned reconnect_ms = 1000 // 1 sec
@@ -186,7 +186,7 @@ namespace beam
         WalletID m_walletID;
         io::Address m_node_address;
         io::Reactor::Ptr m_reactor;
-        IKeyChain::Ptr m_keychain;
+        IWalletDB::Ptr m_WalletDB;
 
         std::set<WalletID> m_wallets;
 
