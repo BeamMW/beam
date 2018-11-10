@@ -543,8 +543,8 @@ QString WalletViewModel::sortRole() const
 
 void WalletViewModel::setSortRole(const QString& value)
 {
-    if (value != getIncomeRole() && value != getDateRole() && value != getAmountRole() &&
-        value != getStatusRole())
+    if (value != getDateRole() && value != getAmountRole() &&
+        value != getStatusRole() && value != getUserRole())
         return;
 
     _sortRole = value;

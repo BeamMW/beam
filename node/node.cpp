@@ -34,7 +34,7 @@ void Node::RefreshCongestions()
 	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
 		it->m_bRelevant = false;
 
-	m_Processor.EnumCongestions();
+	m_Processor.EnumCongestions(m_Cfg.m_MaxConcurrentBlocksRequest);
 
 	for (TaskList::iterator it = m_lstTasksUnassigned.begin(); m_lstTasksUnassigned.end() != it; )
 	{
@@ -193,46 +193,50 @@ void Node::Wanted::OnTimer()
 
 void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 {
-	while (true)
+	if (pPeerID)
 	{
-		Peer* pSel = NULL;
+		bool bCreate = false;
+		PeerMan::PeerInfoPlus* pInfo = (PeerMan::PeerInfoPlus*) m_PeerMan.Find(*pPeerID, bCreate);
 
-		if (pPeerID)
-		{
-			bool bCreate = false;
-			PeerMan::PeerInfoPlus* pInfo = (PeerMan::PeerInfoPlus*) m_PeerMan.Find(*pPeerID, bCreate);
+		if (pInfo && pInfo->m_pLive && TryAssignTask(t, *pInfo->m_pLive))
+			return;
+	}
 
-			if (pInfo && pInfo->m_pLive && (Peer::Flags::PiRcvd & pInfo->m_pLive->m_Flags))
-				pSel = pInfo->m_pLive;
-		}
-
-		for (PeerList::iterator it = m_lstPeers.begin(); !pSel && (m_lstPeers.end() != it); it++)
-		{
-			Peer& p = *it;
-			if (ShouldAssignTask(t, p))
-			{
-				pSel = &p;
-				break;
-			}
-		}
-
-		if (!pSel)
-			break;
-
-		try {
-			AssignTask(t, *pSel);
-			return; // done
-		}
-		catch (const std::exception& e) {
-			pSel->OnExc(e);
-		}
-
-		//  retry
+	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+	{
+		Peer& p = *it;
+		if (TryAssignTask(t, p))
+			return;
 	}
 }
 
-void Node::AssignTask(Task& t, Peer& p)
+bool Node::TryAssignTask(Task& t, Peer& p)
 {
+	if (!p.ShouldAssignTasks())
+		return false;
+
+	if (p.m_Tip.m_Height < t.m_Key.first.m_Height)
+		return false;
+
+	if (p.m_Tip.m_Height == t.m_Key.first.m_Height)
+	{
+		Merkle::Hash hv;
+		p.m_Tip.get_Hash(hv);
+
+		if (hv != t.m_Key.first.m_Hash)
+			return false;
+	}
+
+	if (p.m_setRejected.end() != p.m_setRejected.find(t.m_Key))
+		return false;
+
+	// check if the peer currently transfers a block
+	uint32_t nBlocks = 0;
+	for (TaskList::iterator it = p.m_lstTasks.begin(); p.m_lstTasks.end() != it; it++)
+		if (it->m_Key.second)
+			nBlocks++;
+
+	// assign
 	uint32_t nPackSize = 0;
 	if (t.m_Key.first.m_Height > m_Processor.m_Cursor.m_ID.m_Height)
 	{
@@ -250,12 +254,18 @@ void Node::AssignTask(Task& t, Peer& p)
 
 	if (t.m_Key.second)
 	{
+		if (nBlocks >= m_Cfg.m_MaxConcurrentBlocksRequest)
+			return false;
+
 		proto::GetBody msg;
 		msg.m_ID = t.m_Key.first;
 		p.Send(msg);
 	}
 	else
 	{
+		if (nBlocks)
+			return false; // don't requests headers from the peer that transfers a block
+
 		if (!m_nTasksPackHdr && nPackSize)
 		{
 			proto::GetHdrPack msg;
@@ -284,6 +294,8 @@ void Node::AssignTask(Task& t, Peer& p)
 
 	if (bEmpty)
 		p.SetTimerWrtFirstTask();
+
+	return true;
 }
 
 void Node::Peer::SetTimerWrtFirstTask()
@@ -292,32 +304,6 @@ void Node::Peer::SetTimerWrtFirstTask()
 		KillTimer();
 	else
 		SetTimer(m_lstTasks.front().m_Key.second ? m_This.m_Cfg.m_Timeout.m_GetBlock_ms : m_This.m_Cfg.m_Timeout.m_GetState_ms);
-}
-
-bool Node::ShouldAssignTask(Task& t, Peer& p)
-{
-	if (p.m_Tip.m_Height < t.m_Key.first.m_Height)
-		return false;
-
-	if (p.m_Tip.m_Height == t.m_Key.first.m_Height)
-	{
-		Merkle::Hash hv;
-		p.m_Tip.get_Hash(hv);
-
-		if (hv != t.m_Key.first.m_Hash)
-			return false;
-	}
-
-	// Current design: don't ask anything from non-authenticated peers
-	if (!((Peer::Flags::PiRcvd & p.m_Flags) && p.m_pInfo))
-		return false;
-
-	// check if the peer currently transfers a block
-	for (TaskList::iterator it = p.m_lstTasks.begin(); p.m_lstTasks.end() != it; it++)
-		if (it->m_Key.second)
-			return false;
-
-	return p.m_setRejected.end() == p.m_setRejected.find(t.m_Key);
 }
 
 void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock, const PeerID* pPreferredPeer)
@@ -965,6 +951,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 		if (m_pInfo->m_ID.m_Key == msg.m_ID)
 		{
 			pm.OnSeen(*m_pInfo);
+			TakeTasks();
 			return; // all settled (already)
 		}
 
@@ -1039,6 +1026,17 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	pm.OnSeen(*pPi);
 
 	LOG_INFO() << *m_pInfo << " connected, info updated";
+
+	TakeTasks();
+}
+
+bool Node::Peer::ShouldAssignTasks()
+{
+	// Current design: don't ask anything from non-authenticated peers
+	if (!((Peer::Flags::PiRcvd & m_Flags) && m_pInfo))
+		return false;
+
+	return true;
 }
 
 void Node::Peer::OnMsg(proto::Bye&& msg)
@@ -1159,13 +1157,11 @@ void Node::Peer::Unsubscribe()
 
 void Node::Peer::TakeTasks()
 {
-	for (TaskList::iterator it = m_This.m_lstTasksUnassigned.begin(); m_This.m_lstTasksUnassigned.end() != it; )
-	{
-		Task& t = *(it++);
+	if (!ShouldAssignTasks())
+		return;
 
-		if (m_This.ShouldAssignTask(t, *this))
-			m_This.AssignTask(t, *this);
-	}
+	for (TaskList::iterator it = m_This.m_lstTasksUnassigned.begin(); m_This.m_lstTasksUnassigned.end() != it; )
+		m_This.TryAssignTask(*it++, *this);
 }
 
 void Node::Peer::OnMsg(proto::Ping&&)
@@ -2186,7 +2182,7 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 {
 	proto::Mined msgOut;
 
-	if ((Flags::Owner & m_Flags) || !m_This.m_Cfg.m_RestrictMinedReportToOwner)
+	if (Flags::Owner & m_Flags)
 	{
 		NodeDB& db = m_This.m_Processor.get_DB();
 		NodeDB::WalkerMined wlk(db);
