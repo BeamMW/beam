@@ -139,7 +139,6 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 			pBlockRow[nBlocks % nMaxBlocks] = sid.m_Row;
 			nBlocks++;
 
-			NodeDB::StateID sidThis = sid;
 			if (!m_DB.get_Prev(sid))
 			{
 				nBlocks = 0;
