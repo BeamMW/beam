@@ -106,9 +106,25 @@ namespace beam
 		, m_needRecover{false}
     {
         assert(walletDB);
-		m_pKdf = m_WalletDB->get_Kdf();
         resume_all_tx();
     }
+
+	bool Wallet::IsOwnedNode(const PeerID&, Key::IKdf::Ptr& pKdf)
+	{
+		// TODO - check the node ID
+		pKdf = m_WalletDB->get_Kdf();
+		return true;
+	}
+
+	proto::FlyClient::IStateHistory& Wallet::get_History()
+	{
+		return m_Hist;
+	}
+
+	const Block::SystemState::Full* Wallet::get_Tip() const
+	{
+		return m_Hist.m_Map.empty() ? NULL : &m_Hist.m_Map.rbegin()->second;
+	}
 
 	void Wallet::set_Network(proto::FlyClient::INetwork& netNode, INetwork& netWallet)
 	{
@@ -250,9 +266,9 @@ namespace beam
 		return false;
 	}
 
-	void Wallet::OnRequestComplete(Request& r)
+	void Wallet::RequestHandler::OnComplete(Request& r)
 	{
-		uint32_t n = SyncRemains();
+		uint32_t n = get_ParentObj().SyncRemains();
 
 		switch (r.get_Type())
 		{
@@ -260,8 +276,8 @@ namespace beam
 		case Request::Type::type: \
 			{ \
 				MyRequest##type& x = static_cast<MyRequest##type&>(r); \
-				DeleteReq(x); \
-				OnRequestComplete(x); \
+				get_ParentObj().DeleteReq(x); \
+				get_ParentObj().OnRequestComplete(x); \
 			} \
 			break;
 
@@ -273,7 +289,7 @@ namespace beam
 		}
 
 		if (n)
-			CheckSyncDone();
+			get_ParentObj().CheckSyncDone();
 	}
 
     void Wallet::confirm_kernel(const TxID& txID, const TxKernel& kernel)

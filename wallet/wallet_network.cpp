@@ -174,9 +174,9 @@ namespace beam {
 		SaveBbsTimestamps();
 	}
 
-	void WalletNetworkViaBbs::BbsSentEvt::OnRequestComplete(Request& r)
+	void WalletNetworkViaBbs::BbsSentEvt::OnComplete(proto::FlyClient::Request& r)
 	{
-		assert(r.get_Type() == Request::Type::BbsMsg);
+		assert(r.get_Type() == proto::FlyClient::Request::Type::BbsMsg);
 		get_ParentObj().DeleteReq(static_cast<MyRequestBbsMsg&>(r));
 	}
 
@@ -254,8 +254,7 @@ namespace beam {
 			m_PendingBbsMsgs.push_back(*pReq);
 			pReq->AddRef();
 
-			pReq->m_pTrg = &m_BbsSentEvt;
-			m_NodeNetwork.PostRequest(*pReq);
+			m_NodeNetwork.PostRequest(*pReq, m_BbsSentEvt);
 		}
 	}
 

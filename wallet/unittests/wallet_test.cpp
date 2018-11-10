@@ -592,7 +592,7 @@ struct TestNodeNetwork
 			for (List::iterator it = m_lst.begin(); m_lst.end() != it; it++)
 			{
 				proto::FlyClient& c = it->m_Client;
-				c.m_Hist[m_Blockchain.m_mcm.m_vStates.back().m_Hdr.m_Height] = m_Blockchain.m_mcm.m_vStates.back().m_Hdr;
+				c.get_History().AddStates(&m_Blockchain.m_mcm.m_vStates.back().m_Hdr, 1);
 				c.OnNewTip();
 			}
 		}
@@ -618,10 +618,9 @@ struct TestNodeNetwork
 	virtual void Connect() override {}
 	virtual void Disconnect() override {}
 
-	virtual void PostRequest(Request& r) override
+	virtual void PostRequestInternal(Request& r) override
 	{
-		if (!r.m_pTrg)
-			r.m_pTrg = &m_Client;
+		assert(r.m_pTrg);
 
 		m_queReqs.push_back(&r);
 		PostAsync();
@@ -636,7 +635,8 @@ struct TestNodeNetwork
 		{
 			Request& r = *q.front();
 			PostProcess(r);
-			m_Client.OnRequestComplete(r);
+			if (r.m_pTrg)
+				r.m_pTrg->OnComplete(r);
 		}
 	}
 

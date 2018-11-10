@@ -625,13 +625,35 @@ namespace proto {
 
 	struct FlyClient
 	{
-		typedef std::map<Height, Block::SystemState::Full> StateMap;
-		StateMap m_Hist; // some recent blocks of the current active branch
-		void ShrinkHist();
+		struct IStateHistory
+		{
+			// should provide access to some recent states of the active branch
 
-		Key::IKdf::Ptr m_pKdf; // used for auth
+			struct IWalker {
+				virtual bool OnState(const Block::SystemState::Full&) = 0;
+			};
 
-		const Block::SystemState::Full* get_Tip() const; // NULL if no hist
+			virtual bool Enum(IWalker&, const Height* pBelow) = 0;
+			virtual bool get_At(Block::SystemState::Full&, Height) = 0;
+			virtual void AddStates(const Block::SystemState::Full*, size_t nCount) = 0;
+			virtual void DeleteFrom(Height) = 0;
+
+			bool get_Tip(Block::SystemState::Full&); // zero-init if no tip
+		};
+
+		struct StateHistoryMap
+			:public IStateHistory
+		{
+			// simple impl
+			std::map<Height, Block::SystemState::Full> m_Map;
+			void Shrink();
+
+			virtual bool Enum(IWalker&, const Height* pBelow) override;
+			virtual bool get_At(Block::SystemState::Full&, Height) override;
+			virtual void AddStates(const Block::SystemState::Full*, size_t nCount) override;
+			virtual void DeleteFrom(Height) override;
+		};
+
 
 #define REQUEST_TYPES_All(macro) \
 		macro(Utxo,			GetProofUtxo,		ProofUtxo) \
@@ -663,7 +685,11 @@ namespace proto {
 			virtual ~Request() {}
 			virtual Type get_Type() const = 0;
 
-			FlyClient* m_pTrg = NULL; // set to NULL if aborted. Can be different from the owner instance
+			struct IHandler {
+				virtual void OnComplete(Request&) = 0;
+			};
+
+			IHandler* m_pTrg = NULL; // set to NULL if aborted.
 		};
 
 #define THE_MACRO(type, msgOut, msgIn) \
@@ -682,8 +708,8 @@ namespace proto {
 		virtual ~FlyClient() {}
 		virtual void OnNewTip() {} // tip already added
 		virtual void OnRolledBack() {} // reversed states are already removed
-		virtual void OnRequestComplete(Request&) {}
-		virtual bool IsOwnedNode(const PeerID&) { return true; }
+		virtual bool IsOwnedNode(const PeerID&, Key::IKdf::Ptr& pKdf) { return false; }
+		virtual IStateHistory& get_History() = 0;
 
 		struct IBbsReceiver
 		{
@@ -696,8 +722,10 @@ namespace proto {
 
 			virtual void Connect() = 0;
 			virtual void Disconnect() = 0;
-			virtual void PostRequest(Request&) = 0;
+			virtual void PostRequestInternal(Request&) = 0;
 			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) {} // duplicates should be handled internally
+
+			void PostRequest(Request&, Request::IHandler&);
 		};
 
 		struct NetworkStd
@@ -814,7 +842,7 @@ namespace proto {
 			// INetwork
 			virtual void Connect() override;
 			virtual void Disconnect() override;
-			virtual void PostRequest(Request&) override;
+			virtual void PostRequestInternal(Request&) override;
 			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) override;
 		};
 	};

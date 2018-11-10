@@ -73,10 +73,10 @@ namespace beam
 		void DeleteReq(MyRequestBbsMsg& r);
 
 		struct BbsSentEvt
-			:public proto::FlyClient
+			:public proto::FlyClient::Request::IHandler
 			,public proto::FlyClient::IBbsReceiver
 		{
-			virtual void OnRequestComplete(Request&) override;
+			virtual void OnComplete(proto::FlyClient::Request&) override;
 			virtual void OnMsg(proto::BbsMsg&&) override;
 			IMPLEMENT_GET_PARENT_OBJ(WalletNetworkViaBbs, m_BbsSentEvt)
 		} m_BbsSentEvt;

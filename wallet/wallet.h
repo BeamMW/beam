@@ -81,7 +81,8 @@ namespace beam
 		// FlyClient
 		void OnNewTip() override;
 		void OnRolledBack() override;
-		void OnRequestComplete(Request&) override;
+		bool IsOwnedNode(const PeerID&, Key::IKdf::Ptr& pKdf) override;
+		IStateHistory& get_History() override;
 
 		// IWallet
         void subscribe(IWalletObserver* observer) override;
@@ -90,6 +91,13 @@ namespace beam
 		void delete_tx(const TxID& txId) override;
 
     private:
+
+		struct RequestHandler
+			:public proto::FlyClient::Request::IHandler
+		{
+			virtual void OnComplete(Request&) override;
+			IMPLEMENT_GET_PARENT_OBJ(Wallet, m_RequestHandler)
+		} m_RequestHandler;
 
 		uint32_t SyncRemains() const;
 		void CheckSyncDone();
@@ -160,7 +168,7 @@ namespace beam
 			if (m_Pending##type.end() != m_Pending##type.find(x)) \
 				return false; \
 			AddReq(x); \
-			m_pNodeNetwork->PostRequest(x); \
+			m_pNodeNetwork->PostRequest(x, m_RequestHandler); \
 			 \
 			if (SyncTasks::type::b) \
 				m_LastSyncTotal++; \
@@ -170,6 +178,8 @@ namespace beam
 		REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
 
+		const Block::SystemState::Full* get_Tip() const;
+
 		IWalletDB::Ptr m_WalletDB;
 		proto::FlyClient::INetwork* m_pNodeNetwork;
 		INetwork* m_pWalletNetwork;
@@ -177,6 +187,7 @@ namespace beam
         std::set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
         TxCompletedAction m_tx_completed_action;
 		uint32_t m_LastSyncTotal;
+		proto::FlyClient::StateHistoryMap m_Hist;
         bool m_needRecover;
 
         std::vector<IWalletObserver*> m_subscribers;
