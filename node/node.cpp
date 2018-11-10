@@ -34,7 +34,7 @@ void Node::RefreshCongestions()
 	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
 		it->m_bRelevant = false;
 
-	m_Processor.EnumCongestions();
+	m_Processor.EnumCongestions(m_Cfg.m_MaxConcurrentBlocksRequest);
 
 	for (TaskList::iterator it = m_lstTasksUnassigned.begin(); m_lstTasksUnassigned.end() != it; )
 	{
@@ -230,6 +230,12 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 	if (p.m_setRejected.end() != p.m_setRejected.find(t.m_Key))
 		return false;
 
+	// check if the peer currently transfers a block
+	uint32_t nBlocks = 0;
+	for (TaskList::iterator it = p.m_lstTasks.begin(); p.m_lstTasks.end() != it; it++)
+		if (it->m_Key.second)
+			nBlocks++;
+
 	// assign
 	uint32_t nPackSize = 0;
 	if (t.m_Key.first.m_Height > m_Processor.m_Cursor.m_ID.m_Height)
@@ -248,12 +254,18 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 
 	if (t.m_Key.second)
 	{
+		if (nBlocks >= m_Cfg.m_MaxConcurrentBlocksRequest)
+			return false;
+
 		proto::GetBody msg;
 		msg.m_ID = t.m_Key.first;
 		p.Send(msg);
 	}
 	else
 	{
+		if (nBlocks)
+			return false; // don't requests headers from the peer that transfers a block
+
 		if (!m_nTasksPackHdr && nPackSize)
 		{
 			proto::GetHdrPack msg;
@@ -1024,11 +1036,6 @@ bool Node::Peer::ShouldAssignTasks()
 	if (!((Peer::Flags::PiRcvd & m_Flags) && m_pInfo))
 		return false;
 
-	// check if the peer currently transfers a block
-	for (TaskList::iterator it = m_lstTasks.begin(); m_lstTasks.end() != it; it++)
-		if (it->m_Key.second)
-			return false;
-
 	return true;
 }
 
@@ -1150,12 +1157,11 @@ void Node::Peer::Unsubscribe()
 
 void Node::Peer::TakeTasks()
 {
+	if (!ShouldAssignTasks())
+		return;
+
 	for (TaskList::iterator it = m_This.m_lstTasksUnassigned.begin(); m_This.m_lstTasksUnassigned.end() != it; )
-	{
-		if (!ShouldAssignTasks())
-			return;
 		m_This.TryAssignTask(*it++, *this);
-	}
 }
 
 void Node::Peer::OnMsg(proto::Ping&&)

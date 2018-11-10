@@ -44,6 +44,7 @@ class NodeProcessor
 	void PruneOld();
 	void PruneAt(Height, bool bDeleteBody);
 	void InitializeFromBlocks();
+	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock);
 
 	struct RollbackData;
 
@@ -152,7 +153,7 @@ public:
 	RadixHashOnlyTree& get_Kernels() { return m_Kernels; }
 
 	void CommitDB();
-	void EnumCongestions();
+	void EnumCongestions(uint32_t nMaxBlocksBacklog);
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 
 	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) {}

@@ -58,6 +58,7 @@ struct Node
 			uint32_t m_BbsCleanupPeriod_ms = 3600 * 1000; // 1 hour
 		} m_Timeout;
 
+		uint32_t m_MaxConcurrentBlocksRequest = 5;
 		uint32_t m_BbsIdealChannelPopulation = 100;
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
