@@ -100,23 +100,16 @@ namespace beam
 
 	/////////////
 	// Input
-	thread_local bool CommitmentAndMaturity::SerializeMaturity::s_On = false;
-
-	int CommitmentAndMaturity::cmp_CaM(const CommitmentAndMaturity& v) const
+	int TxElement::cmp(const TxElement& v) const
 	{
-		CMP_MEMBER_EX(m_Commitment)
 		CMP_MEMBER(m_Maturity)
+		CMP_MEMBER_EX(m_Commitment)
 		return 0;
-	}
-
-	int CommitmentAndMaturity::cmp(const CommitmentAndMaturity& v) const
-	{
-		return cmp_CaM(v);
 	}
 
 	int Input::cmp(const Input& v) const
 	{
-		return cmp_CaM(v);
+		return Cast::Down<TxElement>(*this).cmp(v);
 	}
 
 	/////////////
@@ -151,7 +144,7 @@ namespace beam
 
 	void Output::operator = (const Output& v)
 	{
-		Cast::Down<CommitmentAndMaturity>(*this) = v;
+		Cast::Down<TxElement>(*this) = v;
 		m_Coinbase = v.m_Coinbase;
 		m_Incubation = v.m_Incubation;
 		ClonePtr(m_pConfidential, v.m_pConfidential);
@@ -161,7 +154,7 @@ namespace beam
 	int Output::cmp(const Output& v) const
 	{
 		{
-			int n = cmp_CaM(v);
+			int n = Cast::Down<TxElement>(*this).cmp(v);
 			if (n)
 				return n;
 		}
@@ -301,7 +294,7 @@ namespace beam
 		hp	<< m_Fee
 			<< m_Height.m_Min
 			<< m_Height.m_Max
-			<< m_Excess
+			<< m_Commitment
 			<< (bool) m_pHashLock;
 
 		if (m_pHashLock)
@@ -341,7 +334,7 @@ namespace beam
 		if (pExcess)
 		{
 			ECC::Point::Native pt;
-			if (!pt.Import(m_Excess))
+			if (!pt.Import(m_Commitment))
 				return false;
 
 			if (!m_Signature.IsValid(hv, pt))
@@ -382,7 +375,12 @@ namespace beam
 
 	int TxKernel::cmp(const TxKernel& v) const
 	{
-		CMP_MEMBER_EX(m_Excess)
+		{
+			int n = Cast::Down<TxElement>(*this).cmp(v);
+			if (n)
+				return n;
+		}
+
 		CMP_MEMBER_EX(m_Signature)
 		CMP_MEMBER(m_Fee)
 		CMP_MEMBER(m_Height.m_Min)
@@ -409,7 +407,7 @@ namespace beam
 
 	void TxKernel::operator = (const TxKernel& v)
 	{
-		m_Excess = v.m_Excess;
+		Cast::Down<TxElement>(*this) = v;
 		m_Signature = v.m_Signature;
 		m_Fee = v.m_Fee;
 		m_Height = v.m_Height;
@@ -438,7 +436,7 @@ namespace beam
 	int TxBase::CmpInOut(const Input& in, const Output& out)
 	{
 		if (in.m_Maturity)
-			return in.cmp_CaM(out);
+			return Cast::Down<TxElement>(in).cmp(out);
 
 		// if maturity isn't overridden (as in standard txs/blocks) - we consider the commitment and the coinbase flag.
 		// In such a case the maturity parameters (such as explicit incubation) - are ignored. There's just no way to prevent the in/out elimination.
@@ -540,7 +538,7 @@ namespace beam
 				key ^= m_vOutputs[i]->m_Commitment.m_X;
 
 			for (size_t i = 0; i < m_vKernels.size(); i++)
-				key ^= m_vKernels[i]->m_Excess.m_X;
+				key ^= m_vKernels[i]->m_Commitment.m_X;
 		}
 		else
 			key = m_Offset.m_Value;

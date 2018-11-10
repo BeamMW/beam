@@ -106,34 +106,6 @@ namespace beam
 		void AddTo(ECC::Point::Native&) const;
 	};
 
-	struct CommitmentAndMaturity
-	{
-		ECC::Point m_Commitment;
-		Height m_Maturity;
-
-		CommitmentAndMaturity() :m_Maturity(0) {}
-
-		int cmp_CaM(const CommitmentAndMaturity&) const;
-		int cmp(const CommitmentAndMaturity&) const;
-		COMPARISON_VIA_CMP
-
-        class SerializeMaturity {
-            bool m_Prev;
-        public:
-			static thread_local bool s_On;
-
-			SerializeMaturity(bool b)
-                :m_Prev(s_On)
-            {
-				s_On = b;
-            }
-            ~SerializeMaturity()
-            {
-				s_On = m_Prev;
-            }
-        };
-	};
-
 	struct Rules
 	{
 		static Rules& get();
@@ -166,13 +138,22 @@ namespace beam
 		void AdjustDifficulty(Difficulty&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const;
 	};
 
+	struct TxElement
+	{
+		ECC::Point m_Commitment;
+		Height m_Maturity; // Used in macroblocks only.
+
+		TxElement() :m_Maturity(0) {}
+
+		int cmp(const TxElement&) const;
+		COMPARISON_VIA_CMP
+	};
+
 	struct Input
-		:public CommitmentAndMaturity
+		:public TxElement
 	{
 		typedef std::unique_ptr<Input> Ptr;
 		typedef uint32_t Count; // the type for count of duplicate UTXOs in the system
-
-		static thread_local bool s_bAutoMaturity;
 
 		struct State
 		{
@@ -213,7 +194,7 @@ namespace beam
 	inline bool operator < (const Input::Ptr& a, const Input::Ptr& b) { return *a < *b; }
 
 	struct Output
-		:public CommitmentAndMaturity
+		:public TxElement
 	{
 		typedef std::unique_ptr<Output> Ptr;
 
@@ -252,11 +233,11 @@ namespace beam
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }
 
 	struct TxKernel
+		:public TxElement
 	{
 		typedef std::unique_ptr<TxKernel> Ptr;
 
 		// Mandatory
-		ECC::Point		m_Excess;
 		ECC::Signature	m_Signature;	// For the whole body, including nested kernels
 		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
 		HeightRange		m_Height;
@@ -279,7 +260,7 @@ namespace beam
 				throw std::runtime_error("recursion too deep");
 		}
 
-		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all, including the m_Excess (i.e. the public key)
+		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all, including the m_Commitment (i.e. the public key)
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
 		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
@@ -631,6 +612,8 @@ namespace beam
 		Input::Ptr m_pGuardUtxoIn[2];
 		Output::Ptr m_pGuardUtxoOut[2];
 		TxKernel::Ptr m_pGuardKernel[2];
+
+		Height m_pMaturity[Type::count]; // actually isn't needed for type==hd. nevermind.
 
 		template <typename T>
 		void LoadInternal(const T*& pPtr, int, typename T::Ptr* ppGuard);

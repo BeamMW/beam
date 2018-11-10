@@ -501,7 +501,7 @@ namespace beam
 			void Export(TxKernel& krn) const
 			{
 				krn.m_Fee = m_Fee;
-				krn.m_Excess = ECC::Point::Native(ECC::Context::get().G * m_k);
+				krn.m_Commitment = ECC::Point::Native(ECC::Context::get().G * m_k);
 
 				if (m_bUseHashlock)
 				{

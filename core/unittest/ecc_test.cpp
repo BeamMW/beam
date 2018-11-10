@@ -732,7 +732,7 @@ struct TransactionMaker
 
 		m_Trans.m_Offset = offset;
 
-		krn.m_Excess = kG;
+		krn.m_Commitment = kG;
 
 		Hash::Value msg;
 		krn.get_ID(msg, &hvLockImage);

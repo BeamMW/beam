@@ -113,7 +113,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 		ECC::Scalar::Native k = m_pWalletDB->calcKey(dummy);
 
 		TxKernel::Ptr pKrn(new TxKernel);
-		pKrn->m_Excess = ECC::Point::Native(Context::get().G * k);
+		pKrn->m_Commitment = ECC::Point::Native(Context::get().G * k);
 
 		Merkle::Hash hv;
 		pKrn->get_Hash(hv);

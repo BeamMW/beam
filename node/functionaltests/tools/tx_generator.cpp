@@ -61,7 +61,7 @@ void TxGenerator::GenerateKernel(Height h, Amount fee, uint32_t ind)
 		pKrn->m_Fee = fee;
 
 	m_Kdf.DeriveKey(key, Key::ID(h, Key::Type::Kernel, ind));
-	pKrn->m_Excess = Point::Native(ECC::Context::get().G * key);
+	pKrn->m_Commitment = Point::Native(ECC::Context::get().G * key);
 
 	ECC::Hash::Value hv;
 	pKrn->get_Hash(hv);

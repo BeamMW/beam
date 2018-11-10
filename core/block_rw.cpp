@@ -50,6 +50,7 @@ namespace beam
 		using namespace std;
 
 		m_bRead = bRead;
+		ZeroObject(m_pMaturity);
 
 		if (bRead)
 		{
@@ -138,6 +139,8 @@ namespace beam
 				m_pS[i].Restart();
 				PostOpen(i);
 			}
+
+		ZeroObject(m_pMaturity);
 
 		// preload
 		LoadInternal(m_pUtxoIn,		Type::ui, m_pGuardUtxoIn);
@@ -235,15 +238,41 @@ namespace beam
 			//if (!ppGuard[0])
 				ppGuard[0].reset(new T);
 
-			CommitmentAndMaturity::SerializeMaturity scope(true);
 			yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
+
+			Height dh;
+			arc & dh;
+			m_pMaturity[iData] += dh;
+
 			arc & *ppGuard[0];
+			ppGuard[0]->m_Maturity = m_pMaturity[iData];
 
 			pPtr = ppGuard[0].get();
 		}
 		else
 			pPtr = NULL;
 	}
+
+	template <bool bWrite>
+	struct WriteOrgHeight
+	{
+		template <typename Archieve, typename T>
+		static void Do(Archieve& arc, const T& v, Height& hPrev)
+		{
+			Height dh = v.m_Maturity - hPrev;
+			arc & dh;
+			hPrev = v.m_Maturity;
+		}
+	};
+
+	template <>
+	struct WriteOrgHeight<false>
+	{
+		template <typename Archieve, typename T>
+		static void Do(Archieve& arc, const T& v, Height& hPrev)
+		{
+		}
+	};
 
 	template <typename T>
 	void Block::BodyBase::RW::WriteInternal(const T& v, int iData)
@@ -252,8 +281,10 @@ namespace beam
 		if (!s.IsOpen() && !OpenInternal(iData))
 			std::ThrowIoError();
 
-		CommitmentAndMaturity::SerializeMaturity scope(true);
 		yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
+
+		WriteOrgHeight<std::is_base_of<TxElement, T>::value>::Do(arc, v, m_pMaturity[iData]);
+
 		arc & v;
 	}
 

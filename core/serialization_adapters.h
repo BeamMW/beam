@@ -387,18 +387,12 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Input& input)
         {
-			bool bMaturity = input.m_Maturity && beam::CommitmentAndMaturity::SerializeMaturity::s_On;
-
 			uint8_t nFlags =
-				(input.m_Commitment.m_Y ? 1 : 0) |
-				(bMaturity ? 0x2 : 0);
+				(input.m_Commitment.m_Y ? 1 : 0);
 
 			ar
 				& nFlags
 				& input.m_Commitment.m_X;
-
-			if (bMaturity)
-				ar & input.m_Maturity;
 
             return ar;
         }
@@ -413,9 +407,6 @@ namespace detail
 
 			input.m_Commitment.m_Y = (1 & nFlags);
 
-			if ((0x2 & nFlags) && beam::CommitmentAndMaturity::SerializeMaturity::s_On)
-				ar & input.m_Maturity;
-
             return ar;
         }
 
@@ -423,15 +414,12 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Output& output)
         {
-			bool bMaturity = output.m_Maturity && beam::CommitmentAndMaturity::SerializeMaturity::s_On;
-
 			uint8_t nFlags =
 				(output.m_Commitment.m_Y ? 1 : 0) |
 				(output.m_Coinbase ? 2 : 0) |
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
-				(output.m_Incubation ? 0x10 : 0) |
-				(bMaturity ? 0x20 : 0);
+				(output.m_Incubation ? 0x10 : 0);
 
 			ar
 				& nFlags
@@ -445,9 +433,6 @@ namespace detail
 
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
-
-			if (bMaturity)
-				ar & output.m_Maturity;
 
             return ar;
         }
@@ -478,9 +463,6 @@ namespace detail
 			if (0x10 & nFlags)
 				ar & output.m_Incubation;
 
-			if ((0x20 & nFlags) && beam::CommitmentAndMaturity::SerializeMaturity::s_On)
-				ar & output.m_Maturity;
-
             return ar;
         }
 
@@ -510,6 +492,7 @@ namespace detail
         static Archive& save(Archive& ar, const beam::TxKernel& val)
         {
 			uint8_t nFlags =
+				(val.m_Commitment.m_Y ? 1 : 0) |
 				(val.m_Fee ? 2 : 0) |
 				(val.m_Height.m_Min ? 4 : 0) |
 				((val.m_Height.m_Max != beam::Height(-1)) ? 8 : 0) |
@@ -519,7 +502,7 @@ namespace detail
 
 			ar
 				& nFlags
-				& val.m_Excess
+				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_k;
 
@@ -553,9 +536,11 @@ namespace detail
 			uint8_t nFlags;
 			ar
 				& nFlags
-				& val.m_Excess
+				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_k;
+
+			val.m_Commitment.m_Y = (1 & nFlags);
 
 			if (2 & nFlags)
 				ar & val.m_Fee;

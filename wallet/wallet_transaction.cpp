@@ -496,7 +496,7 @@ namespace beam { namespace wallet
         m_Kernel->m_Fee = m_Fee;
         m_Kernel->m_Height.m_Min = m_MinHeight;
         m_Kernel->m_Height.m_Max = m_MaxHeight;
-        m_Kernel->m_Excess = Zero;
+        m_Kernel->m_Commitment = Zero;
 
 		if (!m_Tx.GetParameter(TxParameterID::MyNonce, m_MultiSig.m_Nonce))
 		{
@@ -562,7 +562,7 @@ namespace beam { namespace wallet
         // create signature
         Point::Native totalPublicExcess = GetPublicExcess();
         totalPublicExcess += m_PeerPublicExcess;
-        m_Kernel->m_Excess = totalPublicExcess;
+        m_Kernel->m_Commitment = totalPublicExcess;
 
         m_Kernel->get_Hash(m_Message);
         m_MultiSig.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;

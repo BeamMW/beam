@@ -1077,7 +1077,7 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 		bc.m_Kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel, uint64_t(-1LL)));
 
 		TxKernel::Ptr pKrn(new TxKernel);
-		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * sk);
+		pKrn->m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
 		pKrn->m_Height.m_Min = h; // make it similar to others
 
 		ECC::Hash::Value hv;
@@ -1245,6 +1245,10 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, bool bI
 	if (!nSizeEstimated)
 		return false;
 
+	// reset input maturities
+	for (size_t i = 0; i < res.m_vInputs.size(); i++)
+		res.m_vInputs[i]->m_Maturity = 0;
+
 	size_t nCutThrough = res.Normalize();
 	nCutThrough; // remove "unused var" warning
 
@@ -1283,6 +1287,8 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 		Output& v = *block.m_vOutputs[i];
 		v.m_Maturity = v.get_MinMaturity(sid.m_Height);
 	}
+
+	block.Normalize(); // needed, since the maturity is adjusted non-even
 }
 
 void NodeProcessor::SquashOnce(std::vector<Block::Body>& v)
