@@ -248,8 +248,7 @@ private:
 	std::unique_ptr<FirstTimeSync> m_pSync;
 
 	void TryAssignTask(Task&, const PeerID*);
-	bool ShouldAssignTask(Task&, Peer&);
-	void AssignTask(Task&, Peer&);
+	bool TryAssignTask(Task&, Peer&);
 	void DeleteUnassignedTask(Task&);
 
 	void InitIDs();
@@ -436,6 +435,7 @@ private:
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, uint8_t nByeReason);
 
+		bool ShouldAssignTasks();
 		Task& get_FirstTask();
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
