@@ -384,7 +384,7 @@ namespace beam
 
 		virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
 		{
-			hv = ((MyMmr*) this)->get_At(pos);
+			hv = Cast::NotConst(this)->get_At(pos);
 		}
 
 		virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override

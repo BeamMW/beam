@@ -201,7 +201,6 @@ namespace ECC
 			}
 
 			void get_Hash(Hash::Value&) const;
-			ID& as_ID() { return *this; }
 
 #pragma pack (push, 1)
 			struct Packed

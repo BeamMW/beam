@@ -178,7 +178,7 @@ bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& re
 	if (pCipherIn)
 	{
 		PeerID myPublic;
-		Sk2Pk(myPublic, (ECC::Scalar::Native&) myPrivate); // my private must have been already normalized. Should not be modified.
+		Sk2Pk(myPublic, Cast::NotConst(myPrivate)); // my private must have been already normalized. Should not be modified.
 		InitCipherIV(*pCipherIn, hvSecret.V, myPublic);
 	}
 
@@ -267,7 +267,6 @@ union HighestMsgCode
 
 bool NotCalled_VerifyNoDuplicatedIDs(uint32_t id)
 {
-	// 
 	switch (id)
 	{
 #define THE_MACRO(code, msg) \
@@ -1253,8 +1252,8 @@ void FlyClient::NetworkStd::Connection::StateArray::Unpack(const Block::ChainWor
 	std::copy(proof.m_vArbitraryStates.rbegin(), proof.m_vArbitraryStates.rend(), m_vec.begin());
 
 	m_vec.emplace_back();
-	((Block::SystemState::Sequence::Prefix&) m_vec.back()) = proof.m_Heading.m_Prefix;
-	((Block::SystemState::Sequence::Element&)  m_vec.back()) = proof.m_Heading.m_vElements.back();
+	Cast::Down<Block::SystemState::Sequence::Prefix>(m_vec.back()) = proof.m_Heading.m_Prefix;
+	Cast::Down<Block::SystemState::Sequence::Element>(m_vec.back()) = proof.m_Heading.m_vElements.back();
 
 	for (size_t i = proof.m_Heading.m_vElements.size() - 1; i--; )
 	{
@@ -1262,7 +1261,7 @@ void FlyClient::NetworkStd::Connection::StateArray::Unpack(const Block::ChainWor
 
 		sLast = m_vec[m_vec.size() - 2];
 		sLast.NextPrefix();
-		((Block::SystemState::Sequence::Element&) sLast) = proof.m_Heading.m_vElements[i];
+		Cast::Down<Block::SystemState::Sequence::Element>(sLast) = proof.m_Heading.m_vElements[i];
 		sLast.m_PoW.m_Difficulty.Inc(sLast.m_ChainWork);
 	}
 }
@@ -1423,7 +1422,7 @@ void FlyClient::NetworkStd::Connection::AssignRequest(RequestNode& n)
 #define THE_MACRO(type, msgOut, msgIn) \
 	case Request::Type::type: \
 		{ \
-			Request##type& req = static_cast<Request##type&>(*n.m_pRequest); \
+			Request##type& req = Cast::Up<Request##type>(*n.m_pRequest); \
 			if (!IsSupported(req)) \
 				return; \
 			SendRequest(req); \
@@ -1479,7 +1478,7 @@ FlyClient::Request& FlyClient::NetworkStd::Connection::get_FirstRequestStrict(Re
 #define THE_MACRO(type, msgOut, msgIn) \
 void FlyClient::NetworkStd::Connection::OnMsg(proto::msgIn&& msg) \
 {  \
-	Request##type& req = static_cast<Request##type&>(get_FirstRequestStrict(Request::Type::type)); \
+	Request##type& req = Cast::Up<Request##type>(get_FirstRequestStrict(Request::Type::type)); \
 	BeamNodeMsg_##msgIn(THE_MACRO_SWAP_FIELD) \
 	OnRequestData(req); \
 }

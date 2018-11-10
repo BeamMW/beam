@@ -151,7 +151,7 @@ namespace beam
 
 	void Output::operator = (const Output& v)
 	{
-		*((CommitmentAndMaturity*) this) = v;
+		Cast::Down<CommitmentAndMaturity>(*this) = v;
 		m_Coinbase = v.m_Coinbase;
 		m_Incubation = v.m_Incubation;
 		ClonePtr(m_pConfidential, v.m_pConfidential);
@@ -187,12 +187,12 @@ namespace beam
 		if (pKdf)
 		{
 			assert(pKid);
-			cp.m_Kidv.as_ID() = *pKid;
+			Cast::Down<Key::ID>(cp.m_Kidv) = *pKid;
 			get_SeedKid(cp.m_Seed.V, *pKdf);
 		}
 		else
 		{
-			ZeroObject(cp.m_Kidv.as_ID());
+			ZeroObject(Cast::Down<Key::ID>(cp.m_Kidv));
 			ECC::Hash::Processor() << "outp" << sk << v >> cp.m_Seed.V;
 		}
 
