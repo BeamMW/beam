@@ -44,8 +44,6 @@ struct Node
 		std::string m_sPathLocal;
 		NodeProcessor::Horizon m_Horizon;
 
-		bool m_RestrictMinedReportToOwner = true;
-
 		struct Timeout {
 			uint32_t m_GetState_ms	= 1000 * 5;
 			uint32_t m_GetBlock_ms	= 1000 * 30;

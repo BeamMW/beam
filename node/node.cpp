@@ -2176,7 +2176,7 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 {
 	proto::Mined msgOut;
 
-	if ((Flags::Owner & m_Flags) || !m_This.m_Cfg.m_RestrictMinedReportToOwner)
+	if (Flags::Owner & m_Flags)
 	{
 		NodeDB& db = m_This.m_Processor.get_DB();
 		NodeDB::WalkerMined wlk(db);
