@@ -510,7 +510,6 @@ namespace detail
         static Archive& save(Archive& ar, const beam::TxKernel& val)
         {
 			uint8_t nFlags =
-				(val.m_Multiplier ? 1 : 0) |
 				(val.m_Fee ? 2 : 0) |
 				(val.m_Height.m_Min ? 4 : 0) |
 				((val.m_Height.m_Max != beam::Height(-1)) ? 8 : 0) |
@@ -524,14 +523,15 @@ namespace detail
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_k;
 
-			if (1 & nFlags)
-				ar & val.m_Multiplier;
 			if (2 & nFlags)
 				ar & val.m_Fee;
 			if (4 & nFlags)
 				ar & val.m_Height.m_Min;
 			if (8 & nFlags)
-				ar & val.m_Height.m_Max;
+			{
+				beam::Height dh = val.m_Height.m_Max - val.m_Height.m_Min;
+				ar & dh;
+			}
 			if (0x20 & nFlags)
 				ar & *val.m_pHashLock;
 
@@ -557,11 +557,6 @@ namespace detail
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_k;
 
-			if (1 & nFlags)
-				ar & val.m_Multiplier;
-			else
-				val.m_Multiplier = 0;
-
 			if (2 & nFlags)
 				ar & val.m_Fee;
 			else
@@ -573,7 +568,11 @@ namespace detail
 				val.m_Height.m_Min = 0;
 
 			if (8 & nFlags)
-				ar & val.m_Height.m_Max;
+			{
+				beam::Height dh;
+				ar & dh;
+				val.m_Height.m_Max = val.m_Height.m_Min + dh;
+			}
 			else
 				val.m_Height.m_Max = beam::Height(-1);
 
@@ -661,8 +660,7 @@ namespace detail
         {
 			save_VecPtr(ar, txv.m_vInputs);
 			save_VecPtr(ar, txv.m_vOutputs);
-			save_VecPtr(ar, txv.m_vKernelsInput);
-			save_VecPtr(ar, txv.m_vKernelsOutput);
+			save_VecPtr(ar, txv.m_vKernels);
 
             return ar;
         }
@@ -672,8 +670,7 @@ namespace detail
         {
 			load_VecPtr(ar, txv.m_vInputs);
 			load_VecPtr(ar, txv.m_vOutputs);
-			load_VecPtr(ar, txv.m_vKernelsInput);
-			load_VecPtr(ar, txv.m_vKernelsOutput);
+			load_VecPtr(ar, txv.m_vKernels);
 
             return ar;
         }

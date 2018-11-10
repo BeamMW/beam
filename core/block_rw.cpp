@@ -142,8 +142,7 @@ namespace beam
 		// preload
 		LoadInternal(m_pUtxoIn,		Type::ui, m_pGuardUtxoIn);
 		LoadInternal(m_pUtxoOut,	Type::uo, m_pGuardUtxoOut);
-		LoadInternal(m_pKernelIn,	Type::ki, m_pGuardKernelIn);
-		LoadInternal(m_pKernelOut,	Type::ko, m_pGuardKernelOut);
+		LoadInternal(m_pKernel,		Type::ko, m_pGuardKernel);
 	}
 
 	void Block::BodyBase::RW::Flush()
@@ -172,14 +171,9 @@ namespace beam
 		LoadInternal(m_pUtxoOut, Type::uo, m_pGuardUtxoOut);
 	}
 
-	void Block::BodyBase::RW::NextKernelIn()
+	void Block::BodyBase::RW::NextKernel()
 	{
-		LoadInternal(m_pKernelIn, Type::ki, m_pGuardKernelIn);
-	}
-
-	void Block::BodyBase::RW::NextKernelOut()
-	{
-		LoadInternal(m_pKernelOut, Type::ko, m_pGuardKernelOut);
+		LoadInternal(m_pKernel, Type::ko, m_pGuardKernel);
 	}
 
 	void Block::BodyBase::RW::get_Start(BodyBase& body, SystemState::Sequence::Prefix& prefix)
@@ -204,22 +198,17 @@ namespace beam
 		return true;
 	}
 
-	void Block::BodyBase::RW::WriteIn(const Input& v)
+	void Block::BodyBase::RW::Write(const Input& v)
 	{
 		WriteInternal(v, Type::ui);
 	}
 
-	void Block::BodyBase::RW::WriteIn(const TxKernel& v)
-	{
-		WriteInternal(v, Type::ki);
-	}
-
-	void Block::BodyBase::RW::WriteOut(const Output& v)
+	void Block::BodyBase::RW::Write(const Output& v)
 	{
 		WriteInternal(v, Type::uo);
 	}
 
-	void Block::BodyBase::RW::WriteOut(const TxKernel& v)
+	void Block::BodyBase::RW::Write(const TxKernel& v)
 	{
 		WriteInternal(v, Type::ko);
 	}
@@ -273,13 +262,11 @@ namespace beam
 		r.Reset();
 
 		for (; r.m_pUtxoIn; r.NextUtxoIn())
-			WriteIn(*r.m_pUtxoIn);
+			Write(*r.m_pUtxoIn);
 		for (; r.m_pUtxoOut; r.NextUtxoOut())
-			WriteOut(*r.m_pUtxoOut);
-		for (; r.m_pKernelIn; r.NextKernelIn())
-			WriteIn(*r.m_pKernelIn);
-		for (; r.m_pKernelOut; r.NextKernelOut())
-			WriteOut(*r.m_pKernelOut);
+			Write(*r.m_pUtxoOut);
+		for (; r.m_pKernel; r.NextKernel())
+			Write(*r.m_pKernel);
 	}
 
 	bool TxBase::IWriter::Combine(IReader&& r0, IReader&& r1, const volatile bool& bStop)
@@ -344,12 +331,12 @@ namespace beam
 
 			if (pInp)
 			{
-				WriteIn(*pInp);
+				Write(*pInp);
 				ppR[iInp]->NextUtxoIn();
 			}
 			else
 			{
-				WriteOut(*pOut);
+				Write(*pOut);
 				ppR[iOut]->NextUtxoOut();
 			}
 		}
@@ -361,59 +348,24 @@ namespace beam
 			if (bStop)
 				return false;
 
-			const TxKernel* pInp = NULL;
-			const TxKernel* pOut = NULL;
-			int iInp = 0, iOut = 0; // initialized just to suppress the warning, not really needed
+			const TxKernel* pKrn = NULL;
+			int iSrc = 0; // initialized just to suppress the warning, not really needed
 
 			for (int i = 0; i < nR; i++)
 			{
-				const TxKernel* pi = ppR[i]->m_pKernelIn;
-				if (pi && (!pInp || (*pInp > *pi)))
+				const TxKernel* po = ppR[i]->m_pKernel;
+				if (po && (!pKrn || (*pKrn > *po)))
 				{
-					pInp = pi;
-					iInp = i;
-				}
-
-				const TxKernel* po = ppR[i]->m_pKernelOut;
-				if (po && (!pOut || (*pOut > *po)))
-				{
-					pOut = po;
-					iOut = i;
+					pKrn = po;
+					iSrc = i;
 				}
 			}
 
-			if (pInp)
-			{
-				if (pOut)
-				{
-					int n = pInp->cmp(*pOut);
-					if (n > 0)
-						pInp = NULL;
-					else
-						if (!n)
-						{
-							// skip both
-							ppR[iInp]->NextUtxoIn();
-							ppR[iOut]->NextUtxoOut();
-							continue;
-						}
-				}
-			}
-			else
-				if (!pOut)
-					break;
+			if (!pKrn)
+				break;
 
-
-			if (pInp)
-			{
-				WriteIn(*pInp);
-				ppR[iInp]->NextKernelIn();
-			}
-			else
-			{
-				WriteOut(*pOut);
-				ppR[iOut]->NextKernelOut();
-			}
+			Write(*pKrn);
+			ppR[iSrc]->NextKernel();
 		}
 
 		return true;

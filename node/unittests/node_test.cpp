@@ -572,7 +572,7 @@ namespace beam
 
 			TxKernel::Ptr pKrn;
 			mk.Export(pKrn);
-			pTx->m_vKernelsOutput.push_back(std::move(pKrn));
+			pTx->m_vKernels.push_back(std::move(pKrn));
 
 
 			k = -mk.m_k;

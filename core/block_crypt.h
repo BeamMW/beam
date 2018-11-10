@@ -258,15 +258,10 @@ namespace beam
 		// Mandatory
 		ECC::Point		m_Excess;
 		ECC::Signature	m_Signature;	// For the whole body, including nested kernels
-		uint64_t		m_Multiplier;
 		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
 		HeightRange		m_Height;
 
-		TxKernel()
-			:m_Multiplier(0) // 0-based, 
-			,m_Fee(0)
-		{
-		}
+		TxKernel() :m_Fee(0) {}
 
 		struct HashLock
 		{
@@ -284,7 +279,7 @@ namespace beam
 				throw std::runtime_error("recursion too deep");
 		}
 
-		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all, including the m_Excess and m_Multiplier (i.e. the public key)
+		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all, including the m_Excess (i.e. the public key)
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
 		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
@@ -312,26 +307,23 @@ namespace beam
 			// during iterations those pointers are guaranteed to be valid during at least 1 consequent iteration
 			const Input* m_pUtxoIn;
 			const Output* m_pUtxoOut;
-			const TxKernel* m_pKernelIn;
-			const TxKernel* m_pKernelOut;
+			const TxKernel* m_pKernel;
 
 			virtual void Clone(Ptr&) = 0;
 			virtual void Reset() = 0;
 			// For all the following methods: the returned pointer should be valid during at least 2 consequent calls!
 			virtual void NextUtxoIn() = 0;
 			virtual void NextUtxoOut() = 0;
-			virtual void NextKernelIn() = 0;
-			virtual void NextKernelOut() = 0;
+			virtual void NextKernel() = 0;
 
 			void Compare(IReader&& rOther, bool& bICover, bool& bOtherCovers);
 		};
 
 		struct IWriter
 		{
-			virtual void WriteIn(const Input&) = 0;
-			virtual void WriteIn(const TxKernel&) = 0;
-			virtual void WriteOut(const Output&) = 0;
-			virtual void WriteOut(const TxKernel&) = 0;
+			virtual void Write(const Input&) = 0;
+			virtual void Write(const Output&) = 0;
+			virtual void Write(const TxKernel&) = 0;
 
 			void Dump(IReader&&);
 			bool Combine(IReader** ppR, int nR, const volatile bool& bStop); // combine consequent blocks, merge-sort and delete consumed outputs
@@ -347,13 +339,12 @@ namespace beam
 	{
 		std::vector<Input::Ptr> m_vInputs;
 		std::vector<Output::Ptr> m_vOutputs;
-		std::vector<TxKernel::Ptr> m_vKernelsInput;
-		std::vector<TxKernel::Ptr> m_vKernelsOutput;
+		std::vector<TxKernel::Ptr> m_vKernels;
 
 		size_t Normalize(); // w.r.t. the standard, delete spent outputs. Returns the num deleted
 
 		class Reader :public TxBase::IReader {
-			size_t m_pIdx[4];
+			size_t m_pIdx[3];
 		public:
 			const TxVectors& m_Txv;
 			Reader(const TxVectors& txv) :m_Txv(txv) {}
@@ -362,8 +353,7 @@ namespace beam
 			virtual void Reset() override;
 			virtual void NextUtxoIn() override;
 			virtual void NextUtxoOut() override;
-			virtual void NextKernelIn() override;
-			virtual void NextKernelOut() override;
+			virtual void NextKernel() override;
 		};
 
 		Reader get_Reader() const {
@@ -375,10 +365,9 @@ namespace beam
 			TxVectors& m_Txv;
 			Writer(TxVectors& txv) :m_Txv(txv) {}
 
-			virtual void WriteIn(const Input&) override;
-			virtual void WriteIn(const TxKernel&) override;
-			virtual void WriteOut(const Output&) override;
-			virtual void WriteOut(const TxKernel&) override;
+			virtual void Write(const Input&) override;
+			virtual void Write(const Output&) override;
+			virtual void Write(const TxKernel&) override;
 		};
 	};
 
@@ -571,14 +560,14 @@ namespace beam
 		//
 		// Validation formula
 		//
-		// Sum(Input UTXOs) + Sum(Input Kernels.Excess) = Sum(Output UTXOs) + Sum(Output Kernels.Excess) + m_Offset*G [ + Sum(Fee)*H ]
+		// Sum(Input UTXOs) = Sum(Output UTXOs) + Sum(Output Kernels.Excess) + m_Offset*G [ + Sum(Fee)*H ]
 		//
 		// For transaction validation fees are considered as implicit outputs (i.e. Sum(Fee)*H should be added for the right equation side)
 		//
 		// For a block validation Fees are not accounted for, since they are consumed by new outputs injected by the miner.
 		// However Each block contains extra outputs (coinbase) for block closure, which should be subtracted from the outputs for sum validation.
 		//
-		// Define: Sigma = Sum(Output UTXOs) - Sum(Input UTXOs) + Sum(Output Kernels.Excess) - Sum(Input Kernels.Excess) + m_Offset*G
+		// Define: Sigma = Sum(Output UTXOs) - Sum(Input UTXOs) + Sum(Output Kernels.Excess) + m_Offset*G
 		// In other words Sigma = <all outputs> - <all inputs>
 		// Sigma is either zero or -Sum(Fee)*H, depending on what we validate
 
@@ -620,7 +609,6 @@ namespace beam
 		macro(hd) \
 		macro(ui) \
 		macro(uo) \
-		macro(ki) \
 		macro(ko)
 
 		struct Type
@@ -641,8 +629,7 @@ namespace beam
 
 		Input::Ptr m_pGuardUtxoIn[2];
 		Output::Ptr m_pGuardUtxoOut[2];
-		TxKernel::Ptr m_pGuardKernelIn[2];
-		TxKernel::Ptr m_pGuardKernelOut[2];
+		TxKernel::Ptr m_pGuardKernel[2];
 
 		template <typename T>
 		void LoadInternal(const T*& pPtr, int, typename T::Ptr* ppGuard);
@@ -679,16 +666,14 @@ namespace beam
 		virtual void Reset() override;
 		virtual void NextUtxoIn() override;
 		virtual void NextUtxoOut() override;
-		virtual void NextKernelIn() override;
-		virtual void NextKernelOut() override;
+		virtual void NextKernel() override;
 		// IMacroReader
 		virtual void get_Start(BodyBase&, SystemState::Sequence::Prefix&) override;
 		virtual bool get_NextHdr(SystemState::Sequence::Element&) override;
 		// IWriter
-		virtual void WriteIn(const Input&) override;
-		virtual void WriteIn(const TxKernel&) override;
-		virtual void WriteOut(const Output&) override;
-		virtual void WriteOut(const TxKernel&) override;
+		virtual void Write(const Input&) override;
+		virtual void Write(const Output&) override;
+		virtual void Write(const TxKernel&) override;
 		// IMacroWriter
 		virtual void put_Start(const BodyBase&, const SystemState::Sequence::Prefix&) override;
 		virtual void put_NextHdr(const SystemState::Sequence::Element&) override;

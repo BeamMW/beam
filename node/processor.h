@@ -53,9 +53,9 @@ class NodeProcessor
 	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, bool bAdjustInputMaturity, const Height* = NULL);
 	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd, bool bAdjustInputMaturity);
 	bool HandleBlockElement(const Output&, Height, const Height*, bool bFwd);
-	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
+	bool HandleBlockElement(const TxKernel&, bool bFwd);
 	void ToggleSubsidyOpened();
-	bool ValidateTxContextKernels(const std::vector<TxKernel::Ptr>&, bool bInp);
+	bool ValidateTxContextKernels(const std::vector<TxKernel::Ptr>&);
 
 	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
 

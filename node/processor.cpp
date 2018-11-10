@@ -521,7 +521,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, bool bAdjustInputMaturity, const Height* pHMax)
 {
-	uint32_t nInp = 0, nOut = 0, nKrnInp = 0, nKrnOut = 0;
+	uint32_t nInp = 0, nOut = 0, nKrn = 0;
 	r.Reset();
 
 	bool bOk = true;
@@ -541,16 +541,8 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 			}
 
 	if (bOk)
-		for (; r.m_pKernelIn; r.NextKernelIn(), nKrnInp++)
-			if (!HandleBlockElement(*r.m_pKernelIn, bFwd, true))
-			{
-				bOk = false;
-				break;
-			}
-
-	if (bOk)
-		for (; r.m_pKernelOut; r.NextKernelOut(), nKrnOut++)
-			if (!HandleBlockElement(*r.m_pKernelOut, bFwd, false))
+		for (; r.m_pKernel; r.NextKernel(), nKrn++)
+			if (!HandleBlockElement(*r.m_pKernel, bFwd))
 			{
 				bOk = false;
 				break;
@@ -565,11 +557,8 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 	// Rollback all the changes. Must succeed!
 	r.Reset();
 
-	for (; nKrnOut--; r.NextKernelOut())
-		HandleBlockElement(*r.m_pKernelOut, false, false);
-
-	for (; nKrnInp--; r.NextKernelIn())
-		HandleBlockElement(*r.m_pKernelIn, false, true);
+	for (; nKrn--; r.NextKernel())
+		HandleBlockElement(*r.m_pKernel, false);
 
 	for (; nOut--; r.NextUtxoOut())
 		HandleBlockElement(*r.m_pUtxoOut, h, pHMax, false);
@@ -752,18 +741,16 @@ void NodeProcessor::ToggleSubsidyOpened()
 		m_Kernels.Delete(cu);
 }
 
-bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInput)
+bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd)
 {
-	bool bAdd = (bFwd != bIsInput);
-
 	Merkle::Hash key;
 	v.get_ID(key);
 
 	RadixHashOnlyTree::Cursor cu;
-	bool bCreate = bAdd;
+	bool bCreate = bFwd;
 	RadixHashOnlyTree::MyLeaf* p = m_Kernels.Find(cu, key, bCreate);
 
-	if (bAdd)
+	if (bFwd)
 	{
 		if (!bCreate)
 			return false; // attempt to use the same exactly kernel twice. This should be banned!
@@ -982,14 +969,14 @@ Timestamp NodeProcessor::get_MovingMedian()
 
 bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, Height h)
 {
-	for (size_t i = 0; i < tx.m_vKernelsOutput.size(); i++)
-		if (!tx.m_vKernelsOutput[i]->m_Height.IsInRange(h))
+	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
+		if (!tx.m_vKernels[i]->m_Height.IsInRange(h))
 			return false;
 
 	return true;
 }
 
-bool NodeProcessor::ValidateTxContextKernels(const std::vector<TxKernel::Ptr>& vec, bool bInp)
+bool NodeProcessor::ValidateTxContextKernels(const std::vector<TxKernel::Ptr>& vec)
 {
 	Merkle::Hash phv[2];
 	phv[1] = Zero; // forbidden value for kernel ID
@@ -1007,7 +994,7 @@ bool NodeProcessor::ValidateTxContextKernels(const std::vector<TxKernel::Ptr>& v
 		bool bCreate = false;
 		RadixHashOnlyTree::MyLeaf* p = m_Kernels.Find(cu, phv[1 & i], bCreate);
 
-		if (bInp != (NULL != p))
+		if (p)
 			return false;
 	}
 
@@ -1064,9 +1051,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 	}
 
 	// kernels
-	return
-		ValidateTxContextKernels(tx.m_vKernelsOutput, false) &&
-		ValidateTxContextKernels(tx.m_vKernelsInput, false);
+	return ValidateTxContextKernels(tx.m_vKernels);
 }
 
 size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height h)
@@ -1104,10 +1089,10 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 		pKrn->get_Hash(hv);
 		pKrn->m_Signature.Sign(hv, sk);
 
-		if (!HandleBlockElement(*pKrn, true, false))
+		if (!HandleBlockElement(*pKrn, true))
 			return 0; // Will fail if kernel key duplicated!
 
-		res.m_vKernelsOutput.push_back(std::move(pKrn));
+		res.m_vKernels.push_back(std::move(pKrn));
 
 		sk = -sk;
 		offset += sk;
@@ -1161,9 +1146,8 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 		if (nSizeNext > nSizeMax)
 		{
 			if (res.m_vInputs.empty() &&
-				res.m_vKernelsInput.empty() &&
 				(res.m_vOutputs.size() == 1) &&
-				(res.m_vKernelsOutput.size() == 1))
+				(res.m_vKernels.size() == 1))
 			{
 				// won't fit in empty block
 				LOG_INFO() << "Tx is too big.";

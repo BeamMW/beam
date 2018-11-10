@@ -586,7 +586,7 @@ namespace beam { namespace wallet
         LOG_INFO() << m_Tx.GetTxID() << " Transaction kernel: " << kernelID;
         // create transaction
         auto transaction = make_shared<Transaction>();
-        transaction->m_vKernelsOutput.push_back(move(m_Kernel));
+        transaction->m_vKernels.push_back(move(m_Kernel));
         transaction->m_Offset = m_Offset + m_PeerOffset;
         transaction->m_vInputs = move(m_Inputs);
         transaction->m_vOutputs = move(m_Outputs);

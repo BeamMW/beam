@@ -1691,9 +1691,9 @@ void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType&
 			os << ", Confidential";
 	}
 
-	for (size_t i = 0; i < tx.m_vKernelsOutput.size(); i++)
+	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
 	{
-		const TxKernel& krn = *tx.m_vKernelsOutput[i];
+		const TxKernel& krn = *tx.m_vKernels[i];
 		Merkle::Hash hv;
 		krn.get_ID(hv);
 
@@ -1742,7 +1742,7 @@ void CmpTx(const Transaction& tx1, const Transaction& tx2, bool& b1Covers, bool&
 
 bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 {
-	if (ptx->m_vInputs.empty() || ptx->m_vKernelsOutput.empty())
+	if (ptx->m_vInputs.empty() || ptx->m_vKernels.empty())
 		return false;
 
 	Transaction::Context ctx;
@@ -1750,9 +1750,9 @@ bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 	TxPool::Stem::Element* pDup = NULL;
 
 	// find match by kernels
-	for (size_t i = 0; i < ptx->m_vKernelsOutput.size(); i++)
+	for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
 	{
-		const TxKernel& krn = *ptx->m_vKernelsOutput[i];
+		const TxKernel& krn = *ptx->m_vKernels[i];
 
 		TxPool::Stem::Element::Kernel key;
 		krn.get_ID(key.m_hv);
@@ -2024,10 +2024,10 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 	}
 	else
 	{
-		for (size_t i = 0; i < ptx->m_vKernelsOutput.size(); i++)
+		for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
 		{
 			TxPool::Stem::Element::Kernel key;
-			ptx->m_vKernelsOutput[i]->get_ID(key.m_hv);
+			ptx->m_vKernels[i]->get_ID(key.m_hv);
 
 			TxPool::Stem::KrnSet::iterator it = m_Dandelion.m_setKrns.find(key);
 			if (m_Dandelion.m_setKrns.end() != it)

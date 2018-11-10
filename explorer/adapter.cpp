@@ -264,7 +264,7 @@ private:
             }
 
             json kernels = json::array();
-            for (const auto &v : block.m_vKernelsOutput) {
+            for (const auto &v : block.m_vKernels) {
                 kernels.push_back(
                 json{
                     {"fee", v->m_Fee},
