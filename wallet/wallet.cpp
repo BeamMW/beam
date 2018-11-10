@@ -442,11 +442,11 @@ namespace beam
         }
 
         Coin& coin = m_pendingUtxoProofs.front();
-        Input input;
-        input.m_Commitment = Commitment(m_WalletDB->calcKey(coin), coin.m_amount);
+        ECC::Point comm;
+		comm = Commitment(m_WalletDB->calcKey(coin), coin.m_amount);
         if (utxoProof.m_Proofs.empty())
         {
-            LOG_WARNING() << "Got empty utxo proof for: " << input.m_Commitment;
+            LOG_WARNING() << "Got empty utxo proof for: " << comm;
 
             if (coin.m_status == Coin::Locked)
             {
@@ -467,9 +467,9 @@ namespace beam
             {
                 if (coin.m_status == Coin::Unconfirmed)
                 {
-                    if (IsTestMode() || m_newState.IsValidProofUtxo(input, proof))
+                    if (IsTestMode() || m_newState.IsValidProofUtxo(comm, proof))
                     {
-                        LOG_INFO() << "Got utxo proof for: " << input.m_Commitment;
+                        LOG_INFO() << "Got utxo proof for: " << comm;
                         coin.m_status = Coin::Unspent;
                         coin.m_maturity = proof.m_State.m_Maturity;
                         coin.m_confirmHeight = m_newState.m_Height;
@@ -493,14 +493,14 @@ namespace beam
                     }
                     else
                     {
-                        LOG_ERROR() << "Invalid utxo proof provided: " << input.m_Commitment;
+                        LOG_ERROR() << "Invalid utxo proof provided: " << comm;
                     }
                 }
             }
         }
 
         m_pendingUtxoProofs.pop_front();
-        m_PendingUtxoUnique.erase(input.m_Commitment);
+        m_PendingUtxoUnique.erase(comm);
         assert(m_pendingUtxoProofs.size() == m_PendingUtxoUnique.size());
 
         return exit_sync();
@@ -735,19 +735,18 @@ namespace beam
     {
         for (auto& coin : coins)
         {
-            Input input;
-            input.m_Commitment = Commitment(m_WalletDB->calcKey(coin), coin.m_amount);
-            if (m_PendingUtxoUnique.find(input.m_Commitment) != m_PendingUtxoUnique.end())
+            ECC::Point comm = Commitment(m_WalletDB->calcKey(coin), coin.m_amount);
+            if (m_PendingUtxoUnique.find(comm) != m_PendingUtxoUnique.end())
             {
                 continue;
             }
 
             enter_sync();
             m_pendingUtxoProofs.push_back(coin);
-            m_PendingUtxoUnique.insert(input.m_Commitment);
+            m_PendingUtxoUnique.insert(comm);
             assert(m_pendingUtxoProofs.size() == m_PendingUtxoUnique.size());
-            LOG_DEBUG() << "Get utxo proof: " << input.m_Commitment;
-            m_network->send_node_message(proto::GetProofUtxo{ input, 0 });
+            LOG_DEBUG() << "Get utxo proof: " << comm;
+            m_network->send_node_message(proto::GetProofUtxo{ comm, 0 });
         }
     }
 

@@ -179,7 +179,7 @@ namespace beam
 			Height m_Maturity;
 			Input::Count m_Count;
 
-			void get_ID(Merkle::Hash&, const Input&) const;
+			void get_ID(Merkle::Hash&, const ECC::Point&) const;
 
 			template <typename Archive>
 			void serialize(Archive& ar)
@@ -452,7 +452,7 @@ namespace beam
 					PoW				m_PoW;
 
 					// The following not only interprets the proof, but also verifies the knwon part of its structure.
-					bool IsValidProofUtxo(const Input&, const Input::Proof&) const;
+					bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
 					bool IsValidProofKernel(const TxKernel&, const Merkle::Proof&) const;
 					bool IsValidProofKernel(const Merkle::Hash& hvID, const Merkle::Proof&) const;
 				};

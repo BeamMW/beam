@@ -533,7 +533,7 @@ namespace
             cout << "GetProofUtxo\n";
 
             Input::Proof proof = {};
-            if (HasCommitment(msg.m_Utxo.m_Commitment))
+            if (HasCommitment(msg.m_Utxo))
             {
                 proof.m_State.m_Maturity = 134 + 60;
                 enqueueNetworkTask([this, proof = move(proof)]() {m_peers[0]->handle_node_message(proto::ProofUtxo({ proof })); });
@@ -719,7 +719,7 @@ private:
 
         void OnMsg(proto::GetProofUtxo&& data) override
         {
-            if (m_This.HasCommitment(data.m_Utxo.m_Commitment))
+            if (m_This.HasCommitment(data.m_Utxo))
             {
                 Input::Proof proof = {};
                 proof.m_State.m_Maturity = 134 + 60;

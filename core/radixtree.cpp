@@ -514,10 +514,10 @@ void UtxoTree::Value::get_Hash(Merkle::Hash& hv, const Key& key) const
 		>> hv;
 }
 
-void Input::State::get_ID(Merkle::Hash& hv, const Input& inp) const
+void Input::State::get_ID(Merkle::Hash& hv, const ECC::Point& comm) const
 {
 	UtxoTree::Key::Data d;
-	d.m_Commitment = inp.m_Commitment;
+	d.m_Commitment = comm;
 	d.m_Maturity = m_Maturity;
 
 	UtxoTree::Key key;

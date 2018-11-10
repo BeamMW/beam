@@ -833,7 +833,7 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, hv.nBytes, fnCancel);
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const Input& inp, const Input::Proof& p) const
+	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
 	{
 		// verify known part. Last node should be at left, earlier should be at right
 		size_t n = p.m_Proof.size();
@@ -843,7 +843,7 @@ namespace beam
 			return false;
 
 		Merkle::Hash hv;
-		p.m_State.get_ID(hv, inp);
+		p.m_State.get_ID(hv, comm);
 
 		Merkle::Interpret(hv, p.m_Proof);
 		return hv == m_Definition;

@@ -1092,10 +1092,10 @@ namespace beam
 					const MiniWallet::MyUtxo& utxo = it->second;
 
 					proto::GetProofUtxo msgOut2;
-					msgOut2.m_Utxo.m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
+					msgOut2.m_Utxo = ECC::Commitment(utxo.m_Key, utxo.m_Value);
 					Send(msgOut2);
 
-					m_queProofsExpected.push_back(msgOut2.m_Utxo.m_Commitment);
+					m_queProofsExpected.push_back(msgOut2.m_Utxo);
 				}
 
 				for (uint32_t i = 0; i < m_Wallet.m_MyKernels.size(); i++)
@@ -1173,20 +1173,19 @@ namespace beam
 			{
 				if (!m_queProofsExpected.empty())
 				{
-					Input inp;
-					inp.m_Commitment = m_queProofsExpected.front();
+					const ECC::Point& comm = m_queProofsExpected.front();
 
-					auto it = m_UtxosConfirmed.find(inp.m_Commitment);
+					auto it = m_UtxosConfirmed.find(comm);
 
 					if (msg.m_Proofs.empty())
 						verify_test(m_UtxosConfirmed.end() == it);
 					else
 					{
 						for (uint32_t j = 0; j < msg.m_Proofs.size(); j++)
-							verify_test(m_vStates.back().IsValidProofUtxo(inp, msg.m_Proofs[j]));
+							verify_test(m_vStates.back().IsValidProofUtxo(comm, msg.m_Proofs[j]));
 
 						if (m_UtxosConfirmed.end() == it)
-							m_UtxosConfirmed.insert(inp.m_Commitment);
+							m_UtxosConfirmed.insert(comm);
 					}
 
 					m_queProofsExpected.pop_front();

@@ -120,6 +120,11 @@ namespace Cast
 	{
 		return x;
 	}
+
+	template <typename TT, typename T> inline const TT& Down(const T& x)
+	{
+		return x;
+	}
 } // namespace Cast
 
 

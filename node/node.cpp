@@ -2332,7 +2332,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	UtxoTree::Key kMin, kMax;
 
 	UtxoTree::Key::Data d;
-	d.m_Commitment = msg.m_Utxo.m_Commitment;
+	d.m_Commitment = msg.m_Utxo;
 	d.m_Maturity = msg.m_MaturityMin;
 	kMin = d;
 	d.m_Maturity = Height(-1);
