@@ -334,7 +334,7 @@ namespace beam
 
 			virtual bool OnLeaf(const RadixTree::Leaf& x) override
 			{
-				const UtxoTree::MyLeaf& v = (UtxoTree::MyLeaf&) x;
+				const UtxoTree::MyLeaf& v = Cast::Up<UtxoTree::MyLeaf>(x);
 				verify_test(v.m_Key >= m_Min);
 				verify_test(v.m_Key <= m_Max);
 				verify_test(v.m_Key > m_Last);

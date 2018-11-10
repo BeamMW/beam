@@ -1345,7 +1345,7 @@ void NodeDB::Dmmr::Goto(uint64_t rowid)
 
 const void* NodeDB::Dmmr::get_NodeData(Key rowid) const
 {
-	Dmmr* pThis = (Dmmr*) this;
+	Dmmr* pThis = Cast::NotConst(this);
 	pThis->Goto(rowid);
 
 	Blob b;
@@ -1355,7 +1355,7 @@ const void* NodeDB::Dmmr::get_NodeData(Key rowid) const
 
 void NodeDB::Dmmr::get_NodeHash(Merkle::Hash& hv, Key rowid) const
 {
-	Dmmr* pThis = (Dmmr*)this;
+	Dmmr* pThis = Cast::NotConst(this);
 
 	if (!pThis->m_This.get_Prev(rowid))
 		ThrowInconsistent();

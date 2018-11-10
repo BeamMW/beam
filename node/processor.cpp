@@ -640,7 +640,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		if (m_Utxos.Traverse(t))
 			return false;
 
-		p = &(UtxoTree::MyLeaf&) cu.get_Leaf();
+		p = &Cast::Up<UtxoTree::MyLeaf>(cu.get_Leaf());
 
 		d = p->m_Key;
 		assert(d.m_Commitment == v.m_Commitment);
@@ -654,7 +654,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 			cu.Invalidate();
 
 		if (bAdjustInputMaturity)
-			((Input&) v).m_Maturity = d.m_Maturity;
+			Cast::NotConst(v).m_Maturity = d.m_Maturity;
 	} else
 	{
 		d.m_Maturity = v.m_Maturity;
@@ -1016,7 +1016,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 			uint32_t m_Count;
 			virtual bool OnLeaf(const RadixTree::Leaf& x) override
 			{
-				const UtxoTree::MyLeaf& n = (UtxoTree::MyLeaf&) x;
+				const UtxoTree::MyLeaf& n = Cast::Up<UtxoTree::MyLeaf>(x);
 				assert(m_Count && n.m_Value.m_Count);
 				if (m_Count <= n.m_Value.m_Count)
 					return false; // stop iteration
