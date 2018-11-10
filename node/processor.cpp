@@ -134,10 +134,16 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 		const uint32_t nMaxBlocks = 32;
 		uint64_t pBlockRow[nMaxBlocks];
 
-		while (sid.m_Height > Rules::HeightGenesis)
+		while (true)
 		{
 			pBlockRow[nBlocks % nMaxBlocks] = sid.m_Row;
 			nBlocks++;
+
+			if (Rules::HeightGenesis == sid.m_Height)
+			{
+				sid.m_Height--;
+				break;
+			}
 
 			if (!m_DB.get_Prev(sid))
 			{
