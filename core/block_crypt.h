@@ -271,7 +271,6 @@ namespace beam
 
 	private:
 		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const;
-		void HashToID(Merkle::Hash& hv) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }

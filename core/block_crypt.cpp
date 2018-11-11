@@ -329,7 +329,6 @@ namespace beam
 			if (!v.Traverse(hv, pFee, pExcess ? &ptExcNested : NULL, this, NULL))
 				return false;
 
-			v.HashToID(hv);
 			hp << hv;
 		}
 
@@ -367,17 +366,9 @@ namespace beam
 		return Traverse(hv, &fee, &exc, NULL, NULL);
 	}
 
-	void TxKernel::HashToID(Merkle::Hash& hv) const
-	{
-		// Some kernel hash values are reserved for the system usage
-		if (hv == Zero)
-			hv.Inc();
-	}
-
 	void TxKernel::get_ID(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
 	{
 		get_Hash(out, pLockImage);
-		HashToID(out);
 	}
 
 	int TxKernel::cmp(const TxKernel& v) const

@@ -723,17 +723,22 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 
 void NodeProcessor::ToggleSubsidyOpened()
 {
-	Merkle::Hash hv(Zero);
+	UtxoTree::Key::Data d;
+	ZeroObject(d);
+	d.m_Commitment.m_Y = true; // invalid commitment
 
-	RadixHashOnlyTree::Cursor cu;
+	UtxoTree::Key key;
+	key = d;
+
+	UtxoTree::Cursor cu;
 	bool bCreate = true;
-	m_Kernels.Find(cu, hv, bCreate);
+	m_Utxos.Find(cu, key, bCreate);
 
 	assert(m_Extra.m_SubsidyOpen == bCreate);
 	m_Extra.m_SubsidyOpen = !bCreate;
 
 	if (!bCreate)
-		m_Kernels.Delete(cu);
+		m_Utxos.Delete(cu);
 }
 
 bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd)
