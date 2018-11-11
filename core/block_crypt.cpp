@@ -445,11 +445,10 @@ namespace beam
 		return out.m_Coinbase ? 1 : 0;
 	}
 
-	size_t TxVectors::Normalize()
+	size_t TxVectors::Perishable::NormalizeP()
 	{
 		std::sort(m_vInputs.begin(), m_vInputs.end());
 		std::sort(m_vOutputs.begin(), m_vOutputs.end());
-		std::sort(m_vKernels.begin(), m_vKernels.end());
 
 		size_t nDel = 0;
 
@@ -485,6 +484,17 @@ namespace beam
 		return nDel;
 	}
 
+	void TxVectors::Ethernal::NormalizeE()
+	{
+		std::sort(m_vKernels.begin(), m_vKernels.end());
+	}
+
+	size_t TxVectors::Full::Normalize()
+	{
+		NormalizeE();
+		return NormalizeP();
+	}
+
 	template <typename T>
 	int CmpPtrVectors(const std::vector<T>& a, const std::vector<T>& b)
 	{
@@ -504,15 +514,6 @@ namespace beam
 			if (n) \
 				return n; \
 		}
-
-	int Transaction::cmp(const Transaction& v) const
-	{
-		CMP_MEMBER(m_Offset)
-		CMP_MEMBER_VECPTR(m_vInputs)
-		CMP_MEMBER_VECPTR(m_vOutputs)
-		CMP_MEMBER_VECPTR(m_vKernels)
-		return 0;
-	}
 
 	bool Transaction::IsValid(Context& ctx) const
 	{
@@ -585,46 +586,46 @@ namespace beam
 
 	void TxVectors::Reader::Clone(Ptr& pOut)
 	{
-		pOut.reset(new Reader(m_Txv));
+		pOut.reset(new Reader(m_P, m_E));
 	}
 
 	void TxVectors::Reader::Reset()
 	{
 		ZeroObject(m_pIdx);
 
-		m_pUtxoIn = get_FromVector(m_Txv.m_vInputs, 0);
-		m_pUtxoOut = get_FromVector(m_Txv.m_vOutputs, 0);
-		m_pKernel = get_FromVector(m_Txv.m_vKernels, 0);
+		m_pUtxoIn = get_FromVector(m_P.m_vInputs, 0);
+		m_pUtxoOut = get_FromVector(m_P.m_vOutputs, 0);
+		m_pKernel = get_FromVector(m_E.m_vKernels, 0);
 	}
 
 	void TxVectors::Reader::NextUtxoIn()
 	{
-		m_pUtxoIn = get_FromVector(m_Txv.m_vInputs, ++m_pIdx[0]);
+		m_pUtxoIn = get_FromVector(m_P.m_vInputs, ++m_pIdx[0]);
 	}
 
 	void TxVectors::Reader::NextUtxoOut()
 	{
-		m_pUtxoOut = get_FromVector(m_Txv.m_vOutputs, ++m_pIdx[1]);
+		m_pUtxoOut = get_FromVector(m_P.m_vOutputs, ++m_pIdx[1]);
 	}
 
 	void TxVectors::Reader::NextKernel()
 	{
-		m_pKernel = get_FromVector(m_Txv.m_vKernels, ++m_pIdx[2]);
+		m_pKernel = get_FromVector(m_E.m_vKernels, ++m_pIdx[2]);
 	}
 
 	void TxVectors::Writer::Write(const Input& v)
 	{
-		PushVectorPtr(m_Txv.m_vInputs, v);
+		PushVectorPtr(m_P.m_vInputs, v);
 	}
 
 	void TxVectors::Writer::Write(const Output& v)
 	{
-		PushVectorPtr(m_Txv.m_vOutputs, v);
+		PushVectorPtr(m_P.m_vOutputs, v);
 	}
 
 	void TxVectors::Writer::Write(const TxKernel& v)
 	{
-		PushVectorPtr(m_Txv.m_vKernels, v);
+		PushVectorPtr(m_E.m_vKernels, v);
 	}
 
 	/////////////

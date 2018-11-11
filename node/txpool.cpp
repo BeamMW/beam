@@ -110,7 +110,7 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 	assert(trg.m_bAggregating && src.m_bAggregating);
 
 	Transaction txNew;
-	Transaction::Writer wtx(txNew);
+	TxVectors::Writer wtx(txNew, txNew);
 
 	volatile bool bStop = false;
 	wtx.Combine(trg.m_pValue->get_Reader(), src.m_pValue->get_Reader(), bStop);

@@ -457,7 +457,7 @@ namespace beam
 			ECC::Scalar m_Key;
 			Amount m_Value;
 
-			void ToOutput(TxVectors& txv, ECC::Scalar::Native& offset, Height hIncubation) const
+			void ToOutput(TxVectors::Perishable& txv, ECC::Scalar::Native& offset, Height hIncubation) const
 			{
 				ECC::Scalar::Native k = m_Key;
 

@@ -379,7 +379,7 @@ struct NodeProcessor::RollbackData
 
 	ByteBuffer m_Buf;
 
-	void Import(const TxVectors& txv)
+	void Import(const TxVectors::Perishable& txv)
 	{
 		if (txv.m_vInputs.empty())
 			m_Buf.push_back(0); // make sure it's not empty, even if there were no inputs, this is how we distinguish processed blocks.
@@ -394,7 +394,7 @@ struct NodeProcessor::RollbackData
 		}
 	}
 
-	void Export(TxVectors& txv) const
+	void Export(TxVectors::Perishable& txv) const
 	{
 		if (txv.m_vInputs.empty())
 			return;
@@ -1165,7 +1165,7 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 
 		if (ValidateTxWrtHeight(tx, h) && HandleValidatedTx(tx.get_Reader(), h, true))
 		{
-			Block::Body::Writer(res).Dump(tx.get_Reader());
+			TxVectors::Writer(res, res).Dump(tx.get_Reader());
 
 			bc.m_Fees = feesNext;
 			ssc.m_Counter.m_Value = nSizeNext;
@@ -1298,7 +1298,7 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 		v.m_Maturity = v.get_MinMaturity(sid.m_Height);
 	}
 
-	block.Normalize(); // needed, since the maturity is adjusted non-even
+	block.NormalizeP(); // needed, since the maturity is adjusted non-even
 }
 
 void NodeProcessor::SquashOnce(std::vector<Block::Body>& v)
@@ -1312,7 +1312,7 @@ void NodeProcessor::SquashOnce(std::vector<Block::Body>& v)
 	trg.Merge(src0);
 
 	bool bStop = false;
-	Block::Body::Writer(trg).Combine(src0.get_Reader(), src1.get_Reader(), bStop);
+	TxVectors::Writer(trg, trg).Combine(src0.get_Reader(), src1.get_Reader(), bStop);
 
 	v.pop_back();
 }
