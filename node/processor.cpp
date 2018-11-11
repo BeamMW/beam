@@ -326,25 +326,17 @@ void NodeProcessor::PruneOld()
 			if (++hFossil >= h)
 				break;
 
-			PruneAt(hFossil, true);
+			NodeDB::WalkerState ws(m_DB);
+			for (m_DB.EnumStatesAt(ws, hFossil); ws.MoveNext(); )
+			{
+				if (!(NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row)))
+					m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
+
+				m_DB.DelStateBlockPRB(ws.m_Sid.m_Row);
+				m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
+			}
+
 			m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
-		}
-	}
-}
-
-void NodeProcessor::PruneAt(Height h, bool bDeleteBody)
-{
-	NodeDB::WalkerState ws(m_DB);
-	;
-	for (m_DB.EnumStatesAt(ws, h); ws.MoveNext(); )
-	{
-		if (!(NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row)))
-			m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
-
-		if (bDeleteBody)
-		{
-			m_DB.DelStateBlock(ws.m_Sid.m_Row);
-			m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
 		}
 	}
 }
@@ -409,11 +401,22 @@ struct NodeProcessor::RollbackData
 	}
 };
 
+void NodeProcessor::ReadBody(Block::Body& res, const ByteBuffer& bbP, const ByteBuffer& bbE)
+{
+	Deserializer der;
+	der.reset(bbP);
+	der & Cast::Down<Block::BodyBase>(res);
+	der & Cast::Down<TxVectors::Perishable>(res);
+
+	der.reset(bbE);
+	der & Cast::Down<TxVectors::Ethernal>(res);
+}
+
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 {
-	ByteBuffer bb;
+	ByteBuffer bbP, bbE;
 	RollbackData rbData;
-	m_DB.GetStateBlock(sid.m_Row, bb, rbData.m_Buf);
+	m_DB.GetStateBlock(sid.m_Row, &bbP, &bbE, &rbData.m_Buf);
 
 	Block::SystemState::Full s;
 	m_DB.get_State(sid.m_Row, s); // need it for logging anyway
@@ -423,17 +426,12 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 	Block::Body block;
 	try {
-
-		Deserializer der;
-		der.reset(bb.empty() ? NULL : &bb.at(0), bb.size());
-		der & block;
+		ReadBody(block, bbP, bbE);
 	}
 	catch (const std::exception&) {
 		LOG_WARNING() << id << " Block deserialization failed";
 		return false;
 	}
-
-	bb.clear();
 
 	bool bFirstTime = false;
 
@@ -783,7 +781,7 @@ bool NodeProcessor::GoForward(uint64_t row)
 		return true;
 	}
 
-	m_DB.DelStateBlock(row);
+	m_DB.DelStateBlockAll(row);
 	m_DB.SetStateNotFunctional(row);
 
 	PeerID peer;
@@ -862,12 +860,13 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 	return ret;
 }
 
-NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const Blob& block, const PeerID& peer)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const Blob& bbP, const Blob& bbE, const PeerID& peer)
 {
 	OnBlockData();
-	if (block.n > Rules::get().MaxBodySize)
+	size_t nSize = size_t(bbP.n) + size_t(bbE.n);
+	if (nSize > Rules::get().MaxBodySize)
 	{
-		LOG_WARNING() << id << " Block too large: " << block.n;
+		LOG_WARNING() << id << " Block too large: " << nSize;
 		return DataStatus::Invalid;
 	}
 
@@ -889,7 +888,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 
 	LOG_INFO() << id << " Block received";
 
-	m_DB.SetStateBlock(rowid, block);
+	m_DB.SetStateBlock(rowid, bbP, bbE);
 	m_DB.SetStateFunctional(rowid);
 	m_DB.set_Peer(rowid, &peer);
 
@@ -1265,14 +1264,21 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, bool bI
 	Serializer ser;
 
 	ser.reset();
-	ser & res;
-	ser.swap_buf(bc.m_Body);
+	ser & Cast::Down<Block::BodyBase>(res);
+	ser & Cast::Down<TxVectors::Perishable>(res);
+	ser.swap_buf(bc.m_BodyP);
+
+	ser.reset();
+	ser & Cast::Down<TxVectors::Ethernal>(res);
+	ser.swap_buf(bc.m_BodyE);
+
+	size_t nSize = bc.m_BodyP.size() + bc.m_BodyE.size();
 
 	assert(nCutThrough ?
-		(bc.m_Body.size() < nSizeEstimated) :
-		(bc.m_Body.size() == nSizeEstimated));
+		(nSize < nSizeEstimated) :
+		(nSize == nSizeEstimated));
 
-	return bc.m_Body.size() <= Rules::get().MaxBodySize;
+	return nSize <= Rules::get().MaxBodySize;
 }
 
 bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
@@ -1282,14 +1288,11 @@ bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& 
 
 void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::StateID& sid)
 {
-	ByteBuffer bb;
+	ByteBuffer bbP, bbE;
 	RollbackData rbData;
-	m_DB.GetStateBlock(sid.m_Row, bb, rbData.m_Buf);
+	m_DB.GetStateBlock(sid.m_Row, &bbP, &bbE, &rbData.m_Buf);
 
-	Deserializer der;
-	der.reset(bb.empty() ? NULL : &bb.at(0), bb.size());
-	der & block;
-
+	ReadBody(block, bbP, bbE);
 	rbData.Export(block);
 
 	for (size_t i = 0; i < block.m_vOutputs.size(); i++)
@@ -1299,6 +1302,9 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 	}
 
 	block.NormalizeP(); // needed, since the maturity is adjusted non-even
+
+	for (size_t i = 0; i < block.m_vKernels.size(); i++)
+		block.m_vKernels[i]->m_Maturity = sid.m_Height;
 }
 
 void NodeProcessor::SquashOnce(std::vector<Block::Body>& v)
@@ -1519,7 +1525,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 
 		m_DB.SetStateFunctional(sid.m_Row);
 
-		m_DB.DelStateBlock(sid.m_Row); // if somehow it was downloaded
+		m_DB.DelStateBlockPRB(sid.m_Row); // if somehow it was downloaded
 		m_DB.set_Peer(sid.m_Row, NULL);
 
 		sid.m_Height = id.m_Height;
@@ -1584,23 +1590,16 @@ bool NodeProcessor::EnumBlocks(IBlockWalker& wlk)
 		vPath.push_back(rowid);
 	}
 
-	ByteBuffer bb;
-	RollbackData rbData;
+	ByteBuffer bbP, bbE;
 	for (; !vPath.empty(); vPath.pop_back())
 	{
-		bb.clear();
-		rbData.m_Buf.clear();
+		bbP.clear();
+		bbE.clear();
 
-		m_DB.GetStateBlock(vPath.back(), bb, rbData.m_Buf);
-
-		if (bb.empty())
-			OnCorrupted();
+		m_DB.GetStateBlock(vPath.back(), &bbP, &bbE, NULL);
 
 		Block::Body block;
-
-		Deserializer der;
-		der.reset(&bb.at(0), bb.size());
-		der & block;
+		ReadBody(block, bbP, bbE);
 
 		if (!wlk.OnBlock(block, block.get_Reader(), vPath.back(), ++h, NULL))
 			return false;

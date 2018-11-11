@@ -218,10 +218,11 @@ public:
 	void set_Peer(uint64_t rowid, const PeerID*);
 	bool get_Peer(uint64_t rowid, PeerID&);
 
-	void SetStateBlock(uint64_t rowid, const Blob& body);
-	void GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rollback);
+	void SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE);
+	void GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteBuffer* pRollback);
 	void SetStateRollback(uint64_t rowid, const Blob& rollback);
-	void DelStateBlock(uint64_t rowid);
+	void DelStateBlockPRB(uint64_t rowid); // perishable and rollback, but no ethernal
+	void DelStateBlockAll(uint64_t rowid);
 
 	struct StateID {
 		uint64_t m_Row;

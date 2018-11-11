@@ -55,7 +55,8 @@ namespace proto {
 	macro(Block::SystemState::ID, ID)
 
 #define BeamNodeMsg_Body(macro) \
-	macro(ByteBuffer, Buffer)
+	macro(ByteBuffer, Perishable) \
+	macro(ByteBuffer, Ethernal)
 
 #define BeamNodeMsg_GetProofState(macro) \
 	macro(Height, Height)

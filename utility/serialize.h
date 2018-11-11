@@ -149,6 +149,10 @@ public:
         _is.reset(buf, size);
     }
 
+	void reset(const std::vector<uint8_t>& bb) {
+		reset(bb.empty() ? nullptr : &bb.front(), bb.size());
+	}
+
     /// Returns bytes unconsumed from the buffer
     size_t bytes_left() {
         return _is.bytes_left();

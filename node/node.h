@@ -551,7 +551,8 @@ private:
 			// Task is mutable. But modifications are allowed only when holding the mutex.
 
 			Block::SystemState::Full m_Hdr;
-			ByteBuffer m_Body;
+			ByteBuffer m_BodyP;
+			ByteBuffer m_BodyE;
 			Amount m_Fees;
 
 			std::shared_ptr<volatile bool> m_pStop;

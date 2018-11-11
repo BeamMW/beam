@@ -214,23 +214,17 @@ private:
         blockState.get_ID(id);
 
         Block::Body block;
-        ByteBuffer bb;
+        ByteBuffer bbP, bbE;
         if (ok) {
-            ByteBuffer rollbackBuf;
-            db.GetStateBlock(row, bb, rollbackBuf);
-            if (bb.empty()) {
+            db.GetStateBlock(row, &bbP, &bbE, NULL);
+            if (bbP.empty()) {
                 ok = false;
-            }
-            if (!rollbackBuf.empty()) {
-                //LOG_WARNING() << "Rollback data not empty at " << blockState.m_Height;
             }
         }
 
         if (ok) {
             try {
-                Deserializer der;
-                der.reset(&bb.at(0), bb.size());
-                der & block;
+				NodeProcessor::ReadBody(block, bbP, bbE);
             }
             catch (const std::exception&) {
                 LOG_WARNING() << "Block deserialization failed at " << blockState.m_Height;

@@ -156,11 +156,11 @@ namespace beam
 			}
 		}
 
-		Blob bBody("body", 4);
+		Blob bBodyP("body", 4), bBodyE("abc", 3);
 		Merkle::Hash peer, peer2;
 		memset(peer.m_pData, 0x66, peer.nBytes);
 
-		db.SetStateBlock(pRows[0], bBody);
+		db.SetStateBlock(pRows[0], bBodyP, bBodyE);
 		verify_test(!db.get_Peer(pRows[0], peer2));
 
 		db.set_Peer(pRows[0], &peer);
@@ -170,13 +170,17 @@ namespace beam
 		db.set_Peer(pRows[0], NULL);
 		verify_test(!db.get_Peer(pRows[0], peer2));
 
-		ByteBuffer bbBody, bbRollback;
-		db.GetStateBlock(pRows[0], bbBody, bbRollback);
-		db.SetStateRollback(pRows[0], bBody);
-		db.GetStateBlock(pRows[0], bbBody, bbRollback);
+		ByteBuffer bbBodyP, bbBodyE, bbRollback;
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
 
-		db.DelStateBlock(pRows[0]);
-		db.GetStateBlock(pRows[0], bbBody, bbRollback);
+		db.SetStateRollback(pRows[0], bBodyP);
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
+
+		db.DelStateBlockPRB(pRows[0]);
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
+
+		db.DelStateBlockAll(pRows[0]);
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
 
 		tr.Commit();
 		tr.Start(db);
@@ -610,7 +614,8 @@ namespace beam
 		typedef std::unique_ptr<BlockPlus> Ptr;
 
 		Block::SystemState::Full m_Hdr;
-		ByteBuffer m_Body;
+		ByteBuffer m_BodyP;
+		ByteBuffer m_BodyE;
 	};
 
 	void TestNodeProcessor1(std::vector<BlockPlus::Ptr>& blockChain)
@@ -650,14 +655,15 @@ namespace beam
 			Block::SystemState::ID id;
 			bc.m_Hdr.get_ID(id);
 
-			np.OnBlock(id, bc.m_Body, PeerID());
+			np.OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
 
 			np.m_Wallet.AddMyUtxo(bc.m_Fees, h, Key::Type::Comission);
 			np.m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase);
 
 			BlockPlus::Ptr pBlock(new BlockPlus);
 			pBlock->m_Hdr = std::move(bc.m_Hdr);
-			pBlock->m_Body = std::move(bc.m_Body);
+			pBlock->m_BodyP = std::move(bc.m_BodyP);
+			pBlock->m_BodyE = std::move(bc.m_BodyE);
 			blockChain.push_back(std::move(pBlock));
 		}
 
@@ -705,6 +711,7 @@ namespace beam
 		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override {}
 		virtual void OnPeerInsane(const PeerID&) override {}
 		virtual void OnNewState() override {}
+		virtual void AdjustFossilEnd(Height& h) { h = 0; } // don't fossile anything, since we're not creating macroblocks
 
 	};
 
@@ -741,7 +748,7 @@ namespace beam
 			{
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
-				np.OnBlock(id, blockChain[i]->m_Body, peer);
+				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
 			}
 		}
 
@@ -769,7 +776,7 @@ namespace beam
 			{
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
-				np.OnBlock(id, blockChain[i]->m_Body, peer);
+				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
 			}
 		}
 
@@ -785,7 +792,7 @@ namespace beam
 			{
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
-				np.OnBlock(id, blockChain[i]->m_Body, peer);
+				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
 			}
 		}
 
@@ -870,7 +877,7 @@ namespace beam
 					Block::SystemState::ID id;
 					bc.m_Hdr.get_ID(id);
 
-					n.get_Processor().OnBlock(id, bc.m_Body, PeerID());
+					n.get_Processor().OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
 
 					m_HeightMax = std::max(m_HeightMax, bc.m_Hdr.m_Height);
 
@@ -1405,7 +1412,7 @@ namespace beam
 
 			Block::SystemState::ID id;
 			bc.m_Hdr.get_ID(id);
-			node.get_Processor().OnBlock(id, bc.m_Body, PeerID());
+			node.get_Processor().OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
 		}
 	}
 
