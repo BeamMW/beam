@@ -477,7 +477,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		rbData.Export(block);
 	}
 
-	bool bOk = HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, bFwd, bFwd);
+	bool bOk = HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, bFwd);
 	if (!bOk)
 		LOG_WARNING() << id << " invalid in its context";
 
@@ -508,7 +508,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 		}
 		else
-			verify(HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, false, false));
+			verify(HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, false));
 	}
 
 	if (bOk)
@@ -519,14 +519,14 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 	return bOk;
 }
 
-bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, bool bAdjustInputMaturity, const Height* pHMax)
+bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, const Height* pHMax)
 {
-	uint32_t nInp = 0, nOut = 0, nKrnInp = 0, nKrnOut = 0;
+	uint32_t nInp = 0, nOut = 0, nKrn = 0;
 	r.Reset();
 
 	bool bOk = true;
 	for (; r.m_pUtxoIn; r.NextUtxoIn(), nInp++)
-		if (!HandleBlockElement(*r.m_pUtxoIn, h, pHMax, bFwd, bAdjustInputMaturity))
+		if (!HandleBlockElement(*r.m_pUtxoIn, h, pHMax, bFwd))
 		{
 			bOk = false;
 			break;
@@ -541,16 +541,8 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 			}
 
 	if (bOk)
-		for (; r.m_pKernelIn; r.NextKernelIn(), nKrnInp++)
-			if (!HandleBlockElement(*r.m_pKernelIn, bFwd, true))
-			{
-				bOk = false;
-				break;
-			}
-
-	if (bOk)
-		for (; r.m_pKernelOut; r.NextKernelOut(), nKrnOut++)
-			if (!HandleBlockElement(*r.m_pKernelOut, bFwd, false))
+		for (; r.m_pKernel; r.NextKernel(), nKrn++)
+			if (!HandleBlockElement(*r.m_pKernel, bFwd))
 			{
 				bOk = false;
 				break;
@@ -565,27 +557,24 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 	// Rollback all the changes. Must succeed!
 	r.Reset();
 
-	for (; nKrnOut--; r.NextKernelOut())
-		HandleBlockElement(*r.m_pKernelOut, false, false);
-
-	for (; nKrnInp--; r.NextKernelIn())
-		HandleBlockElement(*r.m_pKernelIn, false, true);
+	for (; nKrn--; r.NextKernel())
+		HandleBlockElement(*r.m_pKernel, false);
 
 	for (; nOut--; r.NextUtxoOut())
 		HandleBlockElement(*r.m_pUtxoOut, h, pHMax, false);
 
 	for (; nInp--; r.NextUtxoIn())
-		HandleBlockElement(*r.m_pUtxoIn, h, pHMax, false, false);
+		HandleBlockElement(*r.m_pUtxoIn, h, pHMax, false);
 
 	return false;
 }
 
-bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyBase& body, Height h, bool bFwd, bool bAdjustInputMaturity, const Height* pHMax)
+bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyBase& body, Height h, bool bFwd, const Height* pHMax)
 {
 	if (body.m_SubsidyClosing && (m_Extra.m_SubsidyOpen != bFwd))
 		return false; // invalid subsidy close flag
 
-	if (!HandleValidatedTx(std::move(r), h, bFwd, bAdjustInputMaturity, pHMax))
+	if (!HandleValidatedTx(std::move(r), h, bFwd, pHMax))
 		return false;
 
 	if (body.m_SubsidyClosing)
@@ -606,7 +595,7 @@ bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyB
 	return true;
 }
 
-bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* pHMax, bool bFwd, bool bAdjustInputMaturity)
+bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* pHMax, bool bFwd)
 {
 	UtxoTree::Cursor cu;
 	UtxoTree::MyLeaf* p;
@@ -624,7 +613,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 
 		UtxoTree::Key kMin, kMax;
 
-		if (bAdjustInputMaturity)
+		if (!pHMax)
 		{
 			d.m_Maturity = 0;
 			kMin = d;
@@ -633,9 +622,6 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		}
 		else
 		{
-			if (!pHMax)
-				return false; // explicit maturity allowed only in macroblocks
-
 			if (v.m_Maturity > *pHMax)
 				return false;
 
@@ -651,7 +637,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		if (m_Utxos.Traverse(t))
 			return false;
 
-		p = &(UtxoTree::MyLeaf&) cu.get_Leaf();
+		p = &Cast::Up<UtxoTree::MyLeaf>(cu.get_Leaf());
 
 		d = p->m_Key;
 		assert(d.m_Commitment == v.m_Commitment);
@@ -664,8 +650,8 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		else
 			cu.Invalidate();
 
-		if (bAdjustInputMaturity)
-			((Input&) v).m_Maturity = d.m_Maturity;
+		if (!pHMax)
+			Cast::NotConst(v).m_Maturity = d.m_Maturity;
 	} else
 	{
 		d.m_Maturity = v.m_Maturity;
@@ -694,10 +680,8 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 	d.m_Commitment = v.m_Commitment;
 	d.m_Maturity = v.get_MinMaturity(h);
 
-	if (v.m_Maturity >= Rules::HeightGenesis)
+	if (pHMax)
 	{
-		if (!pHMax)
-			return false; // maturity forgery isn't allowed
 		if (v.m_Maturity < d.m_Maturity)
 			return false; // decrease not allowed
 
@@ -752,18 +736,16 @@ void NodeProcessor::ToggleSubsidyOpened()
 		m_Kernels.Delete(cu);
 }
 
-bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd, bool bIsInput)
+bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd)
 {
-	bool bAdd = (bFwd != bIsInput);
-
 	Merkle::Hash key;
 	v.get_ID(key);
 
 	RadixHashOnlyTree::Cursor cu;
-	bool bCreate = bAdd;
+	bool bCreate = bFwd;
 	RadixHashOnlyTree::MyLeaf* p = m_Kernels.Find(cu, key, bCreate);
 
-	if (bAdd)
+	if (bFwd)
 	{
 		if (!bCreate)
 			return false; // attempt to use the same exactly kernel twice. This should be banned!
@@ -915,7 +897,7 @@ bool NodeProcessor::IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote
 	if (n < 0)
 		return true;
 
-	return sTipMy.m_Definition != sTipRemote.m_Definition;
+	return sTipMy != sTipRemote;
 }
 
 uint64_t NodeProcessor::FindActiveAtStrict(Height h)
@@ -982,14 +964,14 @@ Timestamp NodeProcessor::get_MovingMedian()
 
 bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, Height h)
 {
-	for (size_t i = 0; i < tx.m_vKernelsOutput.size(); i++)
-		if (!tx.m_vKernelsOutput[i]->m_Height.IsInRange(h))
+	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
+		if (!tx.m_vKernels[i]->m_Height.IsInRange(h))
 			return false;
 
 	return true;
 }
 
-bool NodeProcessor::ValidateTxContextKernels(const std::vector<TxKernel::Ptr>& vec, bool bInp)
+bool NodeProcessor::ValidateTxContextKernels(const std::vector<TxKernel::Ptr>& vec)
 {
 	Merkle::Hash phv[2];
 	phv[1] = Zero; // forbidden value for kernel ID
@@ -1007,7 +989,7 @@ bool NodeProcessor::ValidateTxContextKernels(const std::vector<TxKernel::Ptr>& v
 		bool bCreate = false;
 		RadixHashOnlyTree::MyLeaf* p = m_Kernels.Find(cu, phv[1 & i], bCreate);
 
-		if (bInp != (NULL != p))
+		if (p)
 			return false;
 	}
 
@@ -1029,7 +1011,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 			uint32_t m_Count;
 			virtual bool OnLeaf(const RadixTree::Leaf& x) override
 			{
-				const UtxoTree::MyLeaf& n = (UtxoTree::MyLeaf&) x;
+				const UtxoTree::MyLeaf& n = Cast::Up<UtxoTree::MyLeaf>(x);
 				assert(m_Count && n.m_Value.m_Count);
 				if (m_Count <= n.m_Value.m_Count)
 					return false; // stop iteration
@@ -1064,9 +1046,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 	}
 
 	// kernels
-	return
-		ValidateTxContextKernels(tx.m_vKernelsOutput, false) &&
-		ValidateTxContextKernels(tx.m_vKernelsInput, false);
+	return ValidateTxContextKernels(tx.m_vKernels);
 }
 
 size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height h)
@@ -1097,17 +1077,17 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 		bc.m_Kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel, uint64_t(-1LL)));
 
 		TxKernel::Ptr pKrn(new TxKernel);
-		pKrn->m_Excess = ECC::Point::Native(ECC::Context::get().G * sk);
+		pKrn->m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
 		pKrn->m_Height.m_Min = h; // make it similar to others
 
 		ECC::Hash::Value hv;
 		pKrn->get_Hash(hv);
 		pKrn->m_Signature.Sign(hv, sk);
 
-		if (!HandleBlockElement(*pKrn, true, false))
+		if (!HandleBlockElement(*pKrn, true))
 			return 0; // Will fail if kernel key duplicated!
 
-		res.m_vKernelsOutput.push_back(std::move(pKrn));
+		res.m_vKernels.push_back(std::move(pKrn));
 
 		sk = -sk;
 		offset += sk;
@@ -1161,9 +1141,8 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 		if (nSizeNext > nSizeMax)
 		{
 			if (res.m_vInputs.empty() &&
-				res.m_vKernelsInput.empty() &&
 				(res.m_vOutputs.size() == 1) &&
-				(res.m_vKernelsOutput.size() == 1))
+				(res.m_vKernels.size() == 1))
 			{
 				// won't fit in empty block
 				LOG_INFO() << "Tx is too big.";
@@ -1174,7 +1153,7 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 
 		Transaction& tx = *x.m_pValue;
 
-		if (ValidateTxWrtHeight(tx, h) && HandleValidatedTx(tx.get_Reader(), h, true, true))
+		if (ValidateTxWrtHeight(tx, h) && HandleValidatedTx(tx.get_Reader(), h, true))
 		{
 			Block::Body::Writer(res).Dump(tx.get_Reader());
 
@@ -1213,6 +1192,7 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 		ToggleSubsidyOpened();
 
 	get_Definition(bc.m_Hdr.m_Definition, true);
+	bc.m_Hdr.m_Kernels = Zero;
 
 	if (res.m_SubsidyClosing)
 		ToggleSubsidyOpened();
@@ -1254,16 +1234,20 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, bool bI
 
 	if (!bInitiallyEmpty)
 	{
-		if (!HandleValidatedTx(res.get_Reader(), h, true, true))
+		if (!HandleValidatedTx(res.get_Reader(), h, true))
 			return false;
 	}
 
 	size_t nSizeEstimated = GenerateNewBlock(bc, res, h);
 
-	verify(HandleValidatedTx(res.get_Reader(), h, false, false)); // undo changes
+	verify(HandleValidatedTx(res.get_Reader(), h, false)); // undo changes
 
 	if (!nSizeEstimated)
 		return false;
+
+	// reset input maturities
+	for (size_t i = 0; i < res.m_vInputs.size(); i++)
+		res.m_vInputs[i]->m_Maturity = 0;
 
 	size_t nCutThrough = res.Normalize();
 	nCutThrough; // remove "unused var" warning
@@ -1303,6 +1287,8 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 		Output& v = *block.m_vOutputs[i];
 		v.m_Maturity = v.get_MinMaturity(sid.m_Height);
 	}
+
+	block.Normalize(); // needed, since the maturity is adjusted non-even
 }
 
 void NodeProcessor::SquashOnce(std::vector<Block::Body>& v)
@@ -1482,7 +1468,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 
 	LOG_INFO() << "Applying macroblock...";
 
-	if (!HandleValidatedBlock(std::move(r), body, m_Cursor.m_ID.m_Height + 1, true, false, &id.m_Height))
+	if (!HandleValidatedBlock(std::move(r), body, m_Cursor.m_ID.m_Height + 1, true, &id.m_Height))
 	{
 		LOG_WARNING() << "Invalid in its context";
 		return false;
@@ -1497,7 +1483,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	{
 		LOG_WARNING() << "Definition mismatch";
 
-		verify(HandleValidatedBlock(std::move(r), body, m_Cursor.m_ID.m_Height + 1, false, false, &id.m_Height));
+		verify(HandleValidatedBlock(std::move(r), body, m_Cursor.m_ID.m_Height + 1, false, &id.m_Height));
 
 		return false;
 	}
@@ -1634,7 +1620,7 @@ void NodeProcessor::InitializeFromBlocks()
 					LOG_INFO() << "Interpreting blocks up to " << m_pThis->m_Cursor.m_ID.m_Height << "...";
 				}
 
-			if (!m_pThis->HandleValidatedBlock(std::move(r), body, h, true, !pHMax, pHMax))
+			if (!m_pThis->HandleValidatedBlock(std::move(r), body, h, true, pHMax))
 				OnCorrupted();
 
 			return true;

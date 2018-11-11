@@ -133,8 +133,9 @@ namespace beam
 				cmmrFork = cmmr;
 
 			cmmr.get_Hash(s.m_Definition);
-
 			Merkle::Interpret(s.m_Definition, hvZero, true);
+
+			s.m_Kernels = Zero;
 		}
 
 		uint64_t pRows[hMax];
@@ -500,7 +501,7 @@ namespace beam
 			void Export(TxKernel& krn) const
 			{
 				krn.m_Fee = m_Fee;
-				krn.m_Excess = ECC::Point::Native(ECC::Context::get().G * m_k);
+				krn.m_Commitment = ECC::Point::Native(ECC::Context::get().G * m_k);
 
 				if (m_bUseHashlock)
 				{
@@ -572,7 +573,7 @@ namespace beam
 
 			TxKernel::Ptr pKrn;
 			mk.Export(pKrn);
-			pTx->m_vKernelsOutput.push_back(std::move(pKrn));
+			pTx->m_vKernels.push_back(std::move(pKrn));
 
 
 			k = -mk.m_k;
@@ -1091,10 +1092,10 @@ namespace beam
 					const MiniWallet::MyUtxo& utxo = it->second;
 
 					proto::GetProofUtxo msgOut2;
-					msgOut2.m_Utxo.m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
+					msgOut2.m_Utxo = ECC::Commitment(utxo.m_Key, utxo.m_Value);
 					Send(msgOut2);
 
-					m_queProofsExpected.push_back(msgOut2.m_Utxo.m_Commitment);
+					m_queProofsExpected.push_back(msgOut2.m_Utxo);
 				}
 
 				for (uint32_t i = 0; i < m_Wallet.m_MyKernels.size(); i++)
@@ -1172,20 +1173,19 @@ namespace beam
 			{
 				if (!m_queProofsExpected.empty())
 				{
-					Input inp;
-					inp.m_Commitment = m_queProofsExpected.front();
+					const ECC::Point& comm = m_queProofsExpected.front();
 
-					auto it = m_UtxosConfirmed.find(inp.m_Commitment);
+					auto it = m_UtxosConfirmed.find(comm);
 
 					if (msg.m_Proofs.empty())
 						verify_test(m_UtxosConfirmed.end() == it);
 					else
 					{
 						for (uint32_t j = 0; j < msg.m_Proofs.size(); j++)
-							verify_test(m_vStates.back().IsValidProofUtxo(inp, msg.m_Proofs[j]));
+							verify_test(m_vStates.back().IsValidProofUtxo(comm, msg.m_Proofs[j]));
 
 						if (m_UtxosConfirmed.end() == it)
-							m_UtxosConfirmed.insert(inp.m_Commitment);
+							m_UtxosConfirmed.insert(comm);
 					}
 
 					m_queProofsExpected.pop_front();

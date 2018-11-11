@@ -387,18 +387,12 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Input& input)
         {
-			bool bMaturity = input.m_Maturity && beam::CommitmentAndMaturity::SerializeMaturity::s_On;
-
 			uint8_t nFlags =
-				(input.m_Commitment.m_Y ? 1 : 0) |
-				(bMaturity ? 0x2 : 0);
+				(input.m_Commitment.m_Y ? 1 : 0);
 
 			ar
 				& nFlags
 				& input.m_Commitment.m_X;
-
-			if (bMaturity)
-				ar & input.m_Maturity;
 
             return ar;
         }
@@ -413,9 +407,6 @@ namespace detail
 
 			input.m_Commitment.m_Y = (1 & nFlags);
 
-			if ((0x2 & nFlags) && beam::CommitmentAndMaturity::SerializeMaturity::s_On)
-				ar & input.m_Maturity;
-
             return ar;
         }
 
@@ -423,15 +414,12 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::Output& output)
         {
-			bool bMaturity = output.m_Maturity && beam::CommitmentAndMaturity::SerializeMaturity::s_On;
-
 			uint8_t nFlags =
 				(output.m_Commitment.m_Y ? 1 : 0) |
 				(output.m_Coinbase ? 2 : 0) |
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
-				(output.m_Incubation ? 0x10 : 0) |
-				(bMaturity ? 0x20 : 0);
+				(output.m_Incubation ? 0x10 : 0);
 
 			ar
 				& nFlags
@@ -445,9 +433,6 @@ namespace detail
 
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
-
-			if (bMaturity)
-				ar & output.m_Maturity;
 
             return ar;
         }
@@ -478,9 +463,6 @@ namespace detail
 			if (0x10 & nFlags)
 				ar & output.m_Incubation;
 
-			if ((0x20 & nFlags) && beam::CommitmentAndMaturity::SerializeMaturity::s_On)
-				ar & output.m_Maturity;
-
             return ar;
         }
 
@@ -510,7 +492,7 @@ namespace detail
         static Archive& save(Archive& ar, const beam::TxKernel& val)
         {
 			uint8_t nFlags =
-				(val.m_Multiplier ? 1 : 0) |
+				(val.m_Commitment.m_Y ? 1 : 0) |
 				(val.m_Fee ? 2 : 0) |
 				(val.m_Height.m_Min ? 4 : 0) |
 				((val.m_Height.m_Max != beam::Height(-1)) ? 8 : 0) |
@@ -520,18 +502,19 @@ namespace detail
 
 			ar
 				& nFlags
-				& val.m_Excess
+				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_k;
 
-			if (1 & nFlags)
-				ar & val.m_Multiplier;
 			if (2 & nFlags)
 				ar & val.m_Fee;
 			if (4 & nFlags)
 				ar & val.m_Height.m_Min;
 			if (8 & nFlags)
-				ar & val.m_Height.m_Max;
+			{
+				beam::Height dh = val.m_Height.m_Max - val.m_Height.m_Min;
+				ar & dh;
+			}
 			if (0x20 & nFlags)
 				ar & *val.m_pHashLock;
 
@@ -553,14 +536,11 @@ namespace detail
 			uint8_t nFlags;
 			ar
 				& nFlags
-				& val.m_Excess
+				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_k;
 
-			if (1 & nFlags)
-				ar & val.m_Multiplier;
-			else
-				val.m_Multiplier = 0;
+			val.m_Commitment.m_Y = (1 & nFlags);
 
 			if (2 & nFlags)
 				ar & val.m_Fee;
@@ -573,7 +553,11 @@ namespace detail
 				val.m_Height.m_Min = 0;
 
 			if (8 & nFlags)
-				ar & val.m_Height.m_Max;
+			{
+				beam::Height dh;
+				ar & dh;
+				val.m_Height.m_Max = val.m_Height.m_Min + dh;
+			}
 			else
 				val.m_Height.m_Max = beam::Height(-1);
 
@@ -661,8 +645,7 @@ namespace detail
         {
 			save_VecPtr(ar, txv.m_vInputs);
 			save_VecPtr(ar, txv.m_vOutputs);
-			save_VecPtr(ar, txv.m_vKernelsInput);
-			save_VecPtr(ar, txv.m_vKernelsOutput);
+			save_VecPtr(ar, txv.m_vKernels);
 
             return ar;
         }
@@ -672,8 +655,7 @@ namespace detail
         {
 			load_VecPtr(ar, txv.m_vInputs);
 			load_VecPtr(ar, txv.m_vOutputs);
-			load_VecPtr(ar, txv.m_vKernelsInput);
-			load_VecPtr(ar, txv.m_vKernelsOutput);
+			load_VecPtr(ar, txv.m_vKernels);
 
             return ar;
         }
@@ -766,6 +748,7 @@ namespace detail
 		static Archive& save(Archive& ar, const beam::Block::SystemState::Sequence::Element& v)
 		{
 			ar
+				& v.m_Kernels
 				& v.m_Definition
 				& v.m_TimeStamp
 				& v.m_PoW;
@@ -777,6 +760,7 @@ namespace detail
 		static Archive& load(Archive& ar, beam::Block::SystemState::Sequence::Element& v)
 		{
 			ar
+				& v.m_Kernels
 				& v.m_Definition
 				& v.m_TimeStamp
 				& v.m_PoW;

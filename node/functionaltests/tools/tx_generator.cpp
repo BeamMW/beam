@@ -61,12 +61,12 @@ void TxGenerator::GenerateKernel(Height h, Amount fee, uint32_t ind)
 		pKrn->m_Fee = fee;
 
 	m_Kdf.DeriveKey(key, Key::ID(h, Key::Type::Kernel, ind));
-	pKrn->m_Excess = Point::Native(ECC::Context::get().G * key);
+	pKrn->m_Commitment = Point::Native(ECC::Context::get().G * key);
 
 	ECC::Hash::Value hv;
 	pKrn->get_Hash(hv);
 	pKrn->m_Signature.Sign(hv, key);
-	m_MsgTx.m_Transaction->m_vKernelsOutput.push_back(std::move(pKrn));
+	m_MsgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 
 	key = -key;
 	m_Offset += key;
@@ -77,7 +77,7 @@ void TxGenerator::GenerateKernel()
 {
 	TxKernel::Ptr pKrn(new TxKernel);
 
-	m_MsgTx.m_Transaction->m_vKernelsOutput.push_back(std::move(pKrn));
+	m_MsgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 }
 
 const proto::NewTransaction& TxGenerator::GetTransaction()
@@ -109,7 +109,7 @@ void TxGenerator::SortOutputs()
 
 void TxGenerator::SortKernels()
 {
-	std::sort(m_MsgTx.m_Transaction->m_vKernelsOutput.begin(), m_MsgTx.m_Transaction->m_vKernelsOutput.end());
+	std::sort(m_MsgTx.m_Transaction->m_vKernels.begin(), m_MsgTx.m_Transaction->m_vKernels.end());
 }
 
 void TxGenerator::ZeroOffset()

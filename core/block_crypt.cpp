@@ -100,23 +100,16 @@ namespace beam
 
 	/////////////
 	// Input
-	thread_local bool CommitmentAndMaturity::SerializeMaturity::s_On = false;
-
-	int CommitmentAndMaturity::cmp_CaM(const CommitmentAndMaturity& v) const
+	int TxElement::cmp(const TxElement& v) const
 	{
-		CMP_MEMBER_EX(m_Commitment)
 		CMP_MEMBER(m_Maturity)
+		CMP_MEMBER_EX(m_Commitment)
 		return 0;
-	}
-
-	int CommitmentAndMaturity::cmp(const CommitmentAndMaturity& v) const
-	{
-		return cmp_CaM(v);
 	}
 
 	int Input::cmp(const Input& v) const
 	{
-		return cmp_CaM(v);
+		return Cast::Down<TxElement>(*this).cmp(v);
 	}
 
 	/////////////
@@ -151,7 +144,7 @@ namespace beam
 
 	void Output::operator = (const Output& v)
 	{
-		*((CommitmentAndMaturity*) this) = v;
+		Cast::Down<TxElement>(*this) = v;
 		m_Coinbase = v.m_Coinbase;
 		m_Incubation = v.m_Incubation;
 		ClonePtr(m_pConfidential, v.m_pConfidential);
@@ -161,7 +154,7 @@ namespace beam
 	int Output::cmp(const Output& v) const
 	{
 		{
-			int n = cmp_CaM(v);
+			int n = Cast::Down<TxElement>(*this).cmp(v);
 			if (n)
 				return n;
 		}
@@ -187,12 +180,12 @@ namespace beam
 		if (pKdf)
 		{
 			assert(pKid);
-			cp.m_Kidv.as_ID() = *pKid;
+			Cast::Down<Key::ID>(cp.m_Kidv) = *pKid;
 			get_SeedKid(cp.m_Seed.V, *pKdf);
 		}
 		else
 		{
-			ZeroObject(cp.m_Kidv.as_ID());
+			ZeroObject(Cast::Down<Key::ID>(cp.m_Kidv));
 			ECC::Hash::Processor() << "outp" << sk << v >> cp.m_Seed.V;
 		}
 
@@ -292,9 +285,6 @@ namespace beam
 		if (pParent)
 		{
 			// nested kernel restrictions
-			if (m_Multiplier != pParent->m_Multiplier) // Multipliers must be equal
-				return false; 
-
 			if ((m_Height.m_Min > pParent->m_Height.m_Min) ||
 				(m_Height.m_Max < pParent->m_Height.m_Max))
 				return false; // parent Height range must be contained in ours.
@@ -304,8 +294,7 @@ namespace beam
 		hp	<< m_Fee
 			<< m_Height.m_Min
 			<< m_Height.m_Max
-			<< m_Excess
-			<< m_Multiplier
+			<< m_Commitment
 			<< (bool) m_pHashLock;
 
 		if (m_pHashLock)
@@ -318,6 +307,10 @@ namespace beam
 
 			hp << *pLockImage;
 		}
+
+		ECC::Point::Native ptExcNested;
+		if (pExcess)
+			ptExcNested = Zero;
 
 		const TxKernel* p0Krn = NULL;
 		for (auto it = m_vNested.begin(); ; it++)
@@ -333,7 +326,7 @@ namespace beam
 				return false;
 			p0Krn = &v;
 
-			if (!v.Traverse(hv, pFee, pExcess, this, NULL))
+			if (!v.Traverse(hv, pFee, pExcess ? &ptExcNested : NULL, this, NULL))
 				return false;
 
 			v.HashToID(hv);
@@ -345,18 +338,13 @@ namespace beam
 		if (pExcess)
 		{
 			ECC::Point::Native pt;
-			if (!pt.Import(m_Excess))
+			if (!pt.Import(m_Commitment))
 				return false;
 
-			if (m_Multiplier)
-			{
-				ECC::Mode::Scope scope(ECC::Mode::Fast);
+			ptExcNested = -ptExcNested;
+			ptExcNested += pt;
 
-				ECC::Point::Native pt2(pt);
-				pt = pt2 * (m_Multiplier + 1);
-			}
-
-			if (!m_Signature.IsValid(hv, pt))
+			if (!m_Signature.IsValid(hv, ptExcNested))
 				return false;
 
 			*pExcess += pt;
@@ -394,8 +382,12 @@ namespace beam
 
 	int TxKernel::cmp(const TxKernel& v) const
 	{
-		CMP_MEMBER_EX(m_Excess)
-		CMP_MEMBER(m_Multiplier)
+		{
+			int n = Cast::Down<TxElement>(*this).cmp(v);
+			if (n)
+				return n;
+		}
+
 		CMP_MEMBER_EX(m_Signature)
 		CMP_MEMBER(m_Fee)
 		CMP_MEMBER(m_Height.m_Min)
@@ -422,8 +414,7 @@ namespace beam
 
 	void TxKernel::operator = (const TxKernel& v)
 	{
-		m_Excess = v.m_Excess;
-		m_Multiplier = v.m_Multiplier;
+		Cast::Down<TxElement>(*this) = v;
 		m_Signature = v.m_Signature;
 		m_Fee = v.m_Fee;
 		m_Height = v.m_Height;
@@ -452,7 +443,7 @@ namespace beam
 	int TxBase::CmpInOut(const Input& in, const Output& out)
 	{
 		if (in.m_Maturity)
-			return in.cmp_CaM(out);
+			return Cast::Down<TxElement>(in).cmp(out);
 
 		// if maturity isn't overridden (as in standard txs/blocks) - we consider the commitment and the coinbase flag.
 		// In such a case the maturity parameters (such as explicit incubation) - are ignored. There's just no way to prevent the in/out elimination.
@@ -467,8 +458,7 @@ namespace beam
 	{
 		std::sort(m_vInputs.begin(), m_vInputs.end());
 		std::sort(m_vOutputs.begin(), m_vOutputs.end());
-		std::sort(m_vKernelsInput.begin(), m_vKernelsInput.end());
-		std::sort(m_vKernelsOutput.begin(), m_vKernelsOutput.end());
+		std::sort(m_vKernels.begin(), m_vKernels.end());
 
 		size_t nDel = 0;
 
@@ -529,8 +519,7 @@ namespace beam
 		CMP_MEMBER(m_Offset)
 		CMP_MEMBER_VECPTR(m_vInputs)
 		CMP_MEMBER_VECPTR(m_vOutputs)
-		CMP_MEMBER_VECPTR(m_vKernelsInput)
-		CMP_MEMBER_VECPTR(m_vKernelsOutput)
+		CMP_MEMBER_VECPTR(m_vKernels)
 		return 0;
 	}
 
@@ -555,8 +544,8 @@ namespace beam
 			for (size_t i = 0; i < m_vOutputs.size(); i++)
 				key ^= m_vOutputs[i]->m_Commitment.m_X;
 
-			for (size_t i = 0; i < m_vKernelsOutput.size(); i++)
-				key ^= m_vKernelsOutput[i]->m_Excess.m_X;
+			for (size_t i = 0; i < m_vKernels.size(); i++)
+				key ^= m_vKernels[i]->m_Commitment.m_X;
 		}
 		else
 			key = m_Offset.m_Value;
@@ -599,8 +588,7 @@ namespace beam
 
 		COMPARE_TYPE(m_pUtxoIn, NextUtxoIn)
 		COMPARE_TYPE(m_pUtxoOut, NextUtxoOut)
-		COMPARE_TYPE(m_pKernelIn, NextKernelIn)
-		COMPARE_TYPE(m_pKernelOut, NextKernelOut)
+		COMPARE_TYPE(m_pKernel, NextKernel)
 	}
 
 
@@ -615,8 +603,7 @@ namespace beam
 
 		m_pUtxoIn = get_FromVector(m_Txv.m_vInputs, 0);
 		m_pUtxoOut = get_FromVector(m_Txv.m_vOutputs, 0);
-		m_pKernelIn = get_FromVector(m_Txv.m_vKernelsInput, 0);
-		m_pKernelOut = get_FromVector(m_Txv.m_vKernelsOutput, 0);
+		m_pKernel = get_FromVector(m_Txv.m_vKernels, 0);
 	}
 
 	void TxVectors::Reader::NextUtxoIn()
@@ -629,34 +616,24 @@ namespace beam
 		m_pUtxoOut = get_FromVector(m_Txv.m_vOutputs, ++m_pIdx[1]);
 	}
 
-	void TxVectors::Reader::NextKernelIn()
+	void TxVectors::Reader::NextKernel()
 	{
-		m_pKernelIn = get_FromVector(m_Txv.m_vKernelsInput, ++m_pIdx[2]);
+		m_pKernel = get_FromVector(m_Txv.m_vKernels, ++m_pIdx[2]);
 	}
 
-	void TxVectors::Reader::NextKernelOut()
-	{
-		m_pKernelOut = get_FromVector(m_Txv.m_vKernelsOutput, ++m_pIdx[3]);
-	}
-
-	void TxVectors::Writer::WriteIn(const Input& v)
+	void TxVectors::Writer::Write(const Input& v)
 	{
 		PushVectorPtr(m_Txv.m_vInputs, v);
 	}
 
-	void TxVectors::Writer::WriteOut(const Output& v)
+	void TxVectors::Writer::Write(const Output& v)
 	{
 		PushVectorPtr(m_Txv.m_vOutputs, v);
 	}
 
-	void TxVectors::Writer::WriteIn(const TxKernel& v)
+	void TxVectors::Writer::Write(const TxKernel& v)
 	{
-		PushVectorPtr(m_Txv.m_vKernelsInput, v);
-	}
-
-	void TxVectors::Writer::WriteOut(const TxKernel& v)
-	{
-		PushVectorPtr(m_Txv.m_vKernelsOutput, v);
+		PushVectorPtr(m_Txv.m_vKernels, v);
 	}
 
 	/////////////
@@ -746,7 +723,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(9) // increment this whenever we change something in the protocol
+			<< uint32_t(10) // increment this whenever we change something in the protocol
 #ifndef BEAM_TESTNET
             << "masternet"
 #endif
@@ -765,6 +742,7 @@ namespace beam
 	int Block::SystemState::Full::cmp(const Full& v) const
 	{
 		CMP_MEMBER(m_Height)
+		CMP_MEMBER_EX(m_Kernels)
 		CMP_MEMBER_EX(m_Definition)
 		CMP_MEMBER_EX(m_Prev)
 		CMP_MEMBER_EX(m_ChainWork)
@@ -802,6 +780,7 @@ namespace beam
 			<< m_Height
 			<< m_Prev
 			<< m_ChainWork
+			<< m_Kernels
 			<< m_Definition
 			<< m_TimeStamp
 			<< m_PoW.m_Difficulty.m_Packed;
@@ -859,7 +838,7 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, hv.nBytes, fnCancel);
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const Input& inp, const Input::Proof& p) const
+	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
 	{
 		// verify known part. Last node should be at left, earlier should be at right
 		size_t n = p.m_Proof.size();
@@ -869,7 +848,7 @@ namespace beam
 			return false;
 
 		Merkle::Hash hv;
-		p.m_State.get_ID(hv, inp);
+		p.m_State.get_ID(hv, comm);
 
 		Merkle::Interpret(hv, p.m_Proof);
 		return hv == m_Definition;

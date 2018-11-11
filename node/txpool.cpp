@@ -34,8 +34,7 @@ void TxPool::Profit::SetSize(const Transaction& tx)
 
 	save_VecPtr(ssc, tx.m_vInputs);
 	save_VecPtr(ssc, tx.m_vOutputs);
-	save_VecPtr(ssc, tx.m_vKernelsInput);
-	save_VecPtr(ssc, tx.m_vKernelsOutput);
+	save_VecPtr(ssc, tx.m_vKernels);
 
 	m_nSize = (uint32_t) ssc.m_Counter.m_Value;
 }
@@ -134,8 +133,7 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 
 	trg.m_pValue->m_vInputs.swap(txNew.m_vInputs);
 	trg.m_pValue->m_vOutputs.swap(txNew.m_vOutputs);
-	trg.m_pValue->m_vKernelsInput.swap(txNew.m_vKernelsInput);
-	trg.m_pValue->m_vKernelsOutput.swap(txNew.m_vKernelsOutput);
+	trg.m_pValue->m_vKernels.swap(txNew.m_vKernels);
 	trg.m_pValue->m_Offset = txNew.m_Offset;
 
 	InsertKrn(trg);
@@ -205,12 +203,12 @@ void TxPool::Stem::DeleteTimer(Element& x)
 void TxPool::Stem::InsertKrn(Element& x)
 {
 	const Transaction& tx = *x.m_pValue;
-	x.m_vKrn.resize(tx.m_vKernelsOutput.size());
+	x.m_vKrn.resize(tx.m_vKernels.size());
 
 	for (size_t i = 0; i < x.m_vKrn.size(); i++)
 	{
 		Element::Kernel& n = x.m_vKrn[i];
-		tx.m_vKernelsOutput[i]->get_ID(n.m_hv);
+		tx.m_vKernels[i]->get_ID(n.m_hv);
 		m_setKrns.insert(n);
 		n.m_pThis = &x;
 	}

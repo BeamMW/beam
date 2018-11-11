@@ -510,7 +510,7 @@ struct TestBlockchain
 		UtxoTree::Key kMin, kMax;
 
 		UtxoTree::Key::Data d;
-		d.m_Commitment = data.m_Utxo.m_Commitment;
+		d.m_Commitment = data.m_Utxo;
 		d.m_Maturity = data.m_MaturityMin;
 		kMin = d;
 		d.m_Maturity = Height(-1);
@@ -565,8 +565,8 @@ struct TestBlockchain
 			RemoveCommitment(input->m_Commitment);
 		for (const auto& output : data.m_Transaction->m_vOutputs)
 			AddCommitment(output->m_Commitment);
-		for (size_t i = 0; i < data.m_Transaction->m_vKernelsOutput.size(); i++)
-			AddKernel(*data.m_Transaction->m_vKernelsOutput[i]);
+		for (size_t i = 0; i < data.m_Transaction->m_vKernels.size(); i++)
+			AddKernel(*data.m_Transaction->m_vKernels[i]);
 	}
 };
 

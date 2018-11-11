@@ -196,7 +196,7 @@ void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 	if (pPeerID)
 	{
 		bool bCreate = false;
-		PeerMan::PeerInfoPlus* pInfo = (PeerMan::PeerInfoPlus*) m_PeerMan.Find(*pPeerID, bCreate);
+		PeerMan::PeerInfoPlus* pInfo = Cast::Up<PeerMan::PeerInfoPlus>(m_PeerMan.Find(*pPeerID, bCreate));
 
 		if (pInfo && pInfo->m_pLive && TryAssignTask(t, *pInfo->m_pLive))
 			return;
@@ -341,7 +341,7 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 void Node::Processor::OnPeerInsane(const PeerID& peerID)
 {
 	bool bCreate = false;
-	PeerMan::PeerInfoPlus* pInfo = (PeerMan::PeerInfoPlus*) get_ParentObj().m_PeerMan.Find(peerID, bCreate);
+	PeerMan::PeerInfoPlus* pInfo = Cast::Up<PeerMan::PeerInfoPlus>(get_ParentObj().m_PeerMan.Find(peerID, bCreate));
 
 	if (pInfo)
 	{
@@ -991,7 +991,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 		LOG_INFO() << "No PI port"; // doesn't accept incoming connections?
 
 
-	PeerMan::PeerInfoPlus* pPi = (PeerMan::PeerInfoPlus*) pm.OnPeer(msg.m_ID, addr, bAddrValid);
+	PeerMan::PeerInfoPlus* pPi = Cast::Up<PeerMan::PeerInfoPlus>(pm.OnPeer(msg.m_ID, addr, bAddrValid));
 	assert(pPi);
 
 	if (pPi->m_pLive)
@@ -1545,8 +1545,8 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 		ThrowUnexpected();
 
 	Block::SystemState::Full s;
-	((Block::SystemState::Sequence::Prefix&) s) = msg.m_Prefix;
-	((Block::SystemState::Sequence::Element&) s) = msg.m_vElements.back();
+	Cast::Down<Block::SystemState::Sequence::Prefix>(s) = msg.m_Prefix;
+	Cast::Down<Block::SystemState::Sequence::Element>(s) = msg.m_vElements.back();
 
 	uint32_t nAccepted = 0;
 	bool bInvalid = false;
@@ -1571,7 +1571,7 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 			break;
 
 		s.NextPrefix();
-		((Block::SystemState::Sequence::Element&) s) = msg.m_vElements[i - 1];
+		Cast::Down<Block::SystemState::Sequence::Element>(s) = msg.m_vElements[i - 1];
 		s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
 	}
 
@@ -1691,9 +1691,9 @@ void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType&
 			os << ", Confidential";
 	}
 
-	for (size_t i = 0; i < tx.m_vKernelsOutput.size(); i++)
+	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
 	{
-		const TxKernel& krn = *tx.m_vKernelsOutput[i];
+		const TxKernel& krn = *tx.m_vKernels[i];
 		Merkle::Hash hv;
 		krn.get_ID(hv);
 
@@ -1742,7 +1742,7 @@ void CmpTx(const Transaction& tx1, const Transaction& tx2, bool& b1Covers, bool&
 
 bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 {
-	if (ptx->m_vInputs.empty() || ptx->m_vKernelsOutput.empty())
+	if (ptx->m_vInputs.empty() || ptx->m_vKernels.empty())
 		return false;
 
 	Transaction::Context ctx;
@@ -1750,9 +1750,9 @@ bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 	TxPool::Stem::Element* pDup = NULL;
 
 	// find match by kernels
-	for (size_t i = 0; i < ptx->m_vKernelsOutput.size(); i++)
+	for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
 	{
-		const TxKernel& krn = *ptx->m_vKernelsOutput[i];
+		const TxKernel& krn = *ptx->m_vKernels[i];
 
 		TxPool::Stem::Element::Kernel key;
 		krn.get_ID(key.m_hv);
@@ -2024,10 +2024,10 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 	}
 	else
 	{
-		for (size_t i = 0; i < ptx->m_vKernelsOutput.size(); i++)
+		for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
 		{
 			TxPool::Stem::Element::Kernel key;
-			ptx->m_vKernelsOutput[i]->get_ID(key.m_hv);
+			ptx->m_vKernels[i]->get_ID(key.m_hv);
 
 			TxPool::Stem::KrnSet::iterator it = m_Dandelion.m_setKrns.find(key);
 			if (m_Dandelion.m_setKrns.end() != it)
@@ -2296,7 +2296,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 
 		virtual bool OnLeaf(const RadixTree::Leaf& x) override {
 
-			const UtxoTree::MyLeaf& v = (UtxoTree::MyLeaf&) x;
+			const UtxoTree::MyLeaf& v = Cast::Up<UtxoTree::MyLeaf>(x);
 			UtxoTree::Key::Data d;
 			d = v.m_Key;
 
@@ -2332,7 +2332,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	UtxoTree::Key kMin, kMax;
 
 	UtxoTree::Key::Data d;
-	d.m_Commitment = msg.m_Utxo.m_Commitment;
+	d.m_Commitment = msg.m_Utxo;
 	d.m_Maturity = msg.m_MaturityMin;
 	kMin = d;
 	d.m_Maturity = Height(-1);

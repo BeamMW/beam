@@ -243,7 +243,7 @@ namespace beam
 
 	bool Wallet::MyRequestUtxo::operator < (const MyRequestUtxo& x) const
 	{
-		return m_Msg.m_Utxo.m_Commitment < x.m_Msg.m_Utxo.m_Commitment;
+		return m_Msg.m_Utxo < x.m_Msg.m_Utxo;
 	}
 
 	bool Wallet::MyRequestKernel::operator < (const MyRequestKernel& x) const
@@ -410,7 +410,7 @@ namespace beam
         // TODO: handle the maturity of the several proofs (> 1)
 		if (r.m_Res.m_Proofs.empty())
 		{
-			LOG_WARNING() << "Got empty utxo proof for: " << r.m_Msg.m_Utxo.m_Commitment;
+			LOG_WARNING() << "Got empty utxo proof for: " << r.m_Msg.m_Utxo;
 
 			if (r.m_Coin.m_status == Coin::Locked)
 			{
@@ -435,7 +435,7 @@ namespace beam
 				auto pTip = get_Tip();
 				assert(pTip);
 
-                LOG_INFO() << "Got utxo proof for: " << r.m_Msg.m_Utxo.m_Commitment;
+                LOG_INFO() << "Got utxo proof for: " << r.m_Msg.m_Utxo;
 				r.m_Coin.m_status = Coin::Unspent;
 				r.m_Coin.m_maturity = proof.m_State.m_Maturity;
 				r.m_Coin.m_confirmHeight = pTip->m_Height;
@@ -591,8 +591,8 @@ namespace beam
     {
 		MyRequestUtxo::Ptr pReq(new MyRequestUtxo);
 		pReq->m_Coin = coin;
-		pReq->m_Msg.m_Utxo.m_Commitment = Commitment(m_WalletDB->calcKey(coin), coin.m_amount);
-		LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo.m_Commitment;
+		pReq->m_Msg.m_Utxo = Commitment(m_WalletDB->calcKey(coin), coin.m_amount);
+		LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo;
 
 		PostReqUnique(*pReq);
     }

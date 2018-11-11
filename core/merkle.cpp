@@ -237,7 +237,7 @@ void DistributedMmr::Impl::LoadElement(Hash& hash, const Position& pos) const
 {
 	// index of the element that carries the information
 	uint64_t nIdx = ((pos.X + 1) << pos.H) - 1;
-	Key k = ((Impl*) this)->FindElement(nIdx);
+	Key k = Cast::NotConst(this)->FindElement(nIdx);
 
 	if (pos.H)
 		hash = ((const Hash*) m_This.get_NodeData(k))[pos.H - 1];
@@ -317,19 +317,19 @@ void DistributedMmr::Append(Key k, void* pBuf, const Hash& hash)
 
 void DistributedMmr::get_Hash(Hash& hv) const
 {
-	Impl impl((DistributedMmr&) *this);
+	Impl impl(Cast::NotConst(*this));
 	impl.get_Hash(hv);
 }
 
 void DistributedMmr::get_PredictedHash(Hash& hv, const Hash& hvAppend) const
 {
-	Impl impl((DistributedMmr&) *this);
+	Impl impl(Cast::NotConst(*this));
 	impl.get_PredictedHash(hv, hvAppend);
 }
 
 void DistributedMmr::get_Proof(IProofBuilder& bld, uint64_t i) const
 {
-	Impl impl((DistributedMmr&) *this);
+	Impl impl(Cast::NotConst(*this));
 	impl.get_Proof(bld, i);
 }
 

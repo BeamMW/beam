@@ -49,13 +49,13 @@ class NodeProcessor
 	struct RollbackData;
 
 	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
-	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, bool bAdjustInputMaturity, const Height* = NULL);
-	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, bool bAdjustInputMaturity, const Height* = NULL);
-	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd, bool bAdjustInputMaturity);
+	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, const Height* = NULL);
+	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, const Height* = NULL);
+	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd);
 	bool HandleBlockElement(const Output&, Height, const Height*, bool bFwd);
-	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
+	bool HandleBlockElement(const TxKernel&, bool bFwd);
 	void ToggleSubsidyOpened();
-	bool ValidateTxContextKernels(const std::vector<TxKernel::Ptr>&, bool bInp);
+	bool ValidateTxContextKernels(const std::vector<TxKernel::Ptr>&);
 
 	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
 

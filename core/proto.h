@@ -68,7 +68,7 @@ namespace proto {
 	macro(Merkle::Hash, ID)
 
 #define BeamNodeMsg_GetProofUtxo(macro) \
-	macro(Input, Utxo) \
+	macro(ECC::Point, Utxo) \
 	macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
 
 #define BeamNodeMsg_GetProofChainWork(macro) \
@@ -283,7 +283,7 @@ namespace proto {
 	inline void ZeroInit(Block::SystemState::Full& x) { ZeroObject(x); }
 	inline void ZeroInit(Block::SystemState::Sequence::Prefix& x) { ZeroObject(x); }
 	inline void ZeroInit(Block::ChainWorkProof& x) {}
-	inline void ZeroInit(Input& x) { ZeroObject(x); }
+	inline void ZeroInit(ECC::Point& x) { ZeroObject(x); }
 	inline void ZeroInit(ECC::Signature& x) { ZeroObject(x); }
 
 

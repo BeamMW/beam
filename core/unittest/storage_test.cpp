@@ -334,7 +334,7 @@ namespace beam
 
 			virtual bool OnLeaf(const RadixTree::Leaf& x) override
 			{
-				const UtxoTree::MyLeaf& v = (UtxoTree::MyLeaf&) x;
+				const UtxoTree::MyLeaf& v = Cast::Up<UtxoTree::MyLeaf>(x);
 				verify_test(v.m_Key >= m_Min);
 				verify_test(v.m_Key <= m_Max);
 				verify_test(v.m_Key > m_Last);
@@ -384,7 +384,7 @@ namespace beam
 
 		virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
 		{
-			hv = ((MyMmr*) this)->get_At(pos);
+			hv = Cast::NotConst(this)->get_At(pos);
 		}
 
 		virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override
