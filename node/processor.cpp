@@ -1458,7 +1458,13 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		return false; // incompatible beginning state
 	}
 
-	Merkle::CompactMmr cmmr;
+	if (r.m_pKernel && r.m_pKernel->m_Maturity < s.m_Height)
+	{
+		LOG_WARNING() << "Kernel maturity OOB";
+		return false; // incompatible beginning state
+	}
+
+	Merkle::CompactMmr cmmr, cmmrKrn;
 	if (m_Cursor.m_ID.m_Height > Rules::HeightGenesis)
 	{
 		Merkle::ProofBuilderHard bld;
@@ -1510,6 +1516,33 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		default: // suppress the warning of not handling all the enum values
 			break;
 		}
+
+		// verify kernel commitment
+		cmmrKrn.m_Count = 0;
+		cmmrKrn.m_vNodes.clear();
+
+		// don't care if kernels are out-of-order, this will be handled during the context-free validation.
+		for (; r.m_pKernel && (r.m_pKernel->m_Maturity == s.m_Height); r.NextKernel())
+		{
+			Merkle::Hash hv;
+			r.m_pKernel->get_ID(hv);
+			cmmrKrn.Append(hv);
+		}
+
+		Merkle::Hash hv;
+		cmmrKrn.get_Hash(hv);
+
+		if (s.m_Kernels != hv)
+		{
+			LOG_WARNING() << id << " Kernel commitment mismatch";
+			return false;
+		}
+	}
+
+	if (r.m_pKernel)
+	{
+		LOG_WARNING() << "Kernel maturity OOB";
+		return false;
 	}
 
 	LOG_INFO() << "Context-free validation...";
@@ -1545,6 +1578,10 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	// Update DB state flags and cursor. This will also buils the MMR for prev states
 	LOG_INFO() << "Building auxilliary datas...";
 
+	TxVectors::Ethernal txve;
+	TxVectors::Perishable txvp; // dummy
+	ByteBuffer krnBufCache;
+
 	r.Reset();
 	r.get_Start(body, s);
 	for (bool bFirstTime = true; r.get_NextHdr(s); s.NextPrefix())
@@ -1566,9 +1603,31 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		m_DB.DelStateBlockPRB(sid.m_Row); // if somehow it was downloaded
 		m_DB.set_Peer(sid.m_Row, NULL);
 
+		// kernels
+		txve.m_vKernels.clear();
+		for (; r.m_pKernel && (r.m_pKernel->m_Maturity == s.m_Height); r.NextKernel())
+			TxVectors::Writer(txvp, txve).Write(*r.m_pKernel); // not the fastest method (unneeded allocs, copying)
+
+		krnBufCache.clear();
+
+		Serializer ser;
+		ser.swap_buf(krnBufCache);
+		ser & txve;
+		ser.swap_buf(krnBufCache);
+
+		m_DB.SetStateBlock(sid.m_Row, Blob(NULL, 0), krnBufCache);
+
 		sid.m_Height = id.m_Height;
 		m_DB.MoveFwd(sid);
+
+		for (size_t i = 0; i < txve.m_vKernels.size(); i++)
+		{
+			txve.m_vKernels[i]->get_ID(hv);
+			m_DB.InsertKernel(hv, id.m_Height);
+		}
 	}
+
+	assert(!r.m_pKernel);
 
 	m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &id.m_Height, NULL);
 	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);
