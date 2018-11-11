@@ -1447,7 +1447,7 @@ namespace beam
 				m_pTimer = io::Timer::create(io::Reactor::get_Current());
 			}
 
-			virtual IStateHistory& get_History()
+			virtual IStateHistory& get_History() override
 			{
 				return m_Hist;
 			}
