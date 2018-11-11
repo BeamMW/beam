@@ -500,14 +500,18 @@ bool Node::Processor::ApproveState(const Block::SystemState::ID& id)
 
 void Node::Processor::AdjustFossilEnd(Height& h)
 {
+	// blocks above the oldest macroblock should be accessible
+	Height hOldest = 0;
+
 	if (get_ParentObj().m_Compressor.m_bEnabled)
 	{
-		// blocks above the oldest macroblock should be accessuble
 		NodeDB::WalkerState ws(get_DB());
 		for (get_DB().EnumMacroblocks(ws); ws.MoveNext(); )
-			if (h > ws.m_Sid.m_Height)
-				h = ws.m_Sid.m_Height;
+			hOldest = ws.m_Sid.m_Height;
 	}
+
+	if (h > hOldest)
+		h = hOldest;
 }
 
 void Node::Processor::OnStateData()
