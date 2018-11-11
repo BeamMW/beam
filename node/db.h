@@ -116,6 +116,7 @@ public:
 			KernelIns,
 			KernelFind,
 			KernelDel,
+			KernelDelAll,
 
 			Dbg0,
 			Dbg1,

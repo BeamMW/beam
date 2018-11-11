@@ -815,6 +815,12 @@ namespace beam
 			}
 		}
 
+		{
+			MyNodeProcessor2 np;
+			np.m_Horizon = horz;
+			np.Initialize(g_sz, true); // reset cursor
+		}
+
 	}
 
 	const uint16_t g_Port = 25003; // don't use the default port to prevent collisions with running nodes, beacons and etc.

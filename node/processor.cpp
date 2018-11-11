@@ -511,6 +511,20 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 	if (bOk)
 	{
+		for (size_t i = 0; i < block.m_vKernels.size(); i++)
+		{
+			const TxKernel& krn = *block.m_vKernels[i];
+			static_assert(sizeof(krn.m_Commitment) == ECC::uintBig::nBytes + 1, "");
+
+			Blob key(&krn.m_Commitment, sizeof(krn.m_Commitment));
+
+			if (bFwd)
+				m_DB.InsertKernel(key, sid.m_Height);
+			else
+				m_DB.DeleteKernel(key, sid.m_Height);
+			
+		}
+
 		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
 	}
 

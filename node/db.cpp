@@ -1667,6 +1667,9 @@ void NodeDB::ResetCursor()
 	rs.put(0, ~uint32_t(StateFlags::Active));
 	rs.Step();
 
+	rs.Reset(Query::KernelDelAll, "DELETE FROM " TblKernels);
+	rs.Step();
+
 	StateID sid;
 	sid.m_Row = 0;
 	sid.m_Height = Rules::HeightGenesis - 1;
