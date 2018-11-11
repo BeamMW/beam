@@ -428,6 +428,25 @@ namespace beam
 
 		verify_test(!db.FindDummy(h1, b0));
 
+		// Kernels
+		db.InsertKernel(bBodyP, 5);
+		db.InsertKernel(bBodyP, 5); // duplicate
+		db.InsertKernel(bBodyP, 7);
+		db.InsertKernel(bBodyP, 2);
+
+		verify_test(db.FindKernel(bBodyP) == 7);
+		verify_test(db.FindKernel(bBodyE) == 0);
+
+		db.DeleteKernel(bBodyP, 7);
+		verify_test(db.FindKernel(bBodyP) == 5);
+		db.DeleteKernel(bBodyP, 5);
+		verify_test(db.FindKernel(bBodyP) == 5);
+		db.DeleteKernel(bBodyP, 2);
+		verify_test(db.FindKernel(bBodyP) == 5);
+		db.DeleteKernel(bBodyP, 5);
+		verify_test(db.FindKernel(bBodyP) == 0);
+
+
 		tr.Commit();
 	}
 

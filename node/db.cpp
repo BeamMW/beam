@@ -48,6 +48,10 @@ namespace beam {
 #define TblTips_State			"State"
 #define TblTips_ChainWork		"ChainWork"
 
+#define TblKernels				"Kernels"
+#define TblKernels_Key			"Commitment"
+#define TblKernels_Height		"Height"
+
 #define TblMined				"Mined"
 #define TblMined_Height			"Height"
 #define TblMined_State			"State"
@@ -248,7 +252,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion = 11;
+	const uint64_t nVersion = 12;
 
 	if (bCreate)
 	{
@@ -312,6 +316,12 @@ void NodeDB::Create()
 		"FOREIGN KEY (" TblTips_ChainWork ") REFERENCES " TblStates "(" TblStates_ChainWork "))");
 
 	ExecQuick("CREATE INDEX [Idx" TblTipsReachable "Wrk] ON [" TblTipsReachable "] ([" TblTips_ChainWork "]);");
+
+	ExecQuick("CREATE TABLE [" TblKernels "] ("
+		"[" TblKernels_Key		"] BLOB NOT NULL,"
+		"[" TblKernels_Height	"] INTEGER NOT NULL)");
+
+	ExecQuick("CREATE INDEX [Idx" TblKernels "] ON [" TblKernels "] ([" TblKernels_Key "],[" TblKernels_Height "]  DESC);");
 
 	ExecQuick("CREATE TABLE [" TblMined "] ("
 		"[" TblMined_Height		"] INTEGER NOT NULL,"
@@ -1661,6 +1671,49 @@ void NodeDB::ResetCursor()
 	sid.m_Row = 0;
 	sid.m_Height = Rules::HeightGenesis - 1;
 	put_Cursor(sid);
+}
+
+void NodeDB::InsertKernel(const Blob& key, Height h)
+{
+	assert(h >= Rules::HeightGenesis);
+
+	Recordset rs(*this, Query::KernelIns, "INSERT INTO " TblKernels "(" TblKernels_Key "," TblKernels_Height ") VALUES(?,?)");
+	rs.put(0, key);
+	rs.put(1, h);
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::DeleteKernel(const Blob& key, Height h)
+{
+	assert(h >= Rules::HeightGenesis);
+
+	Recordset rs(*this, Query::KernelDel, "DELETE FROM " TblKernels " WHERE " TblKernels_Key "=? AND " TblKernels_Height "=?");
+	rs.put(0, key);
+	rs.put(1, h);
+	rs.Step();
+
+	uint32_t nRows = get_RowsChanged();
+	if (!nRows)
+		ThrowError("no krn");
+	else
+		// in the *very* unlikely case of kernel duplicate at the same height (!!!) - just re-insert it
+		while (--nRows)
+			InsertKernel(key, h);
+}
+
+Height NodeDB::FindKernel(const Blob& key)
+{
+	Recordset rs(*this, Query::KernelFind, "SELECT " TblKernels_Height " FROM " TblKernels " WHERE " TblKernels_Key "=? ORDER BY " TblKernels_Height " DESC LIMIT 1");
+	rs.put(0, key);
+	if (!rs.Step())
+		return Rules::HeightGenesis - 1;
+
+	Height h;
+	rs.get(0, h);
+
+	assert(h >= Rules::HeightGenesis);
+	return h;
 }
 
 } // namespace beam

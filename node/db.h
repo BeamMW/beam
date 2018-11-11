@@ -113,6 +113,9 @@ public:
 			DummyFind,
 			DummyUpdHeight,
 			DummyDel,
+			KernelIns,
+			KernelFind,
+			KernelDel,
 
 			Dbg0,
 			Dbg1,
@@ -323,6 +326,10 @@ public:
 	uint64_t FindDummy(Height& h, Blob&);
 	void DeleteDummy(uint64_t);
 	void SetDummyHeight(uint64_t, Height);
+
+	void InsertKernel(const Blob&, Height h);
+	void DeleteKernel(const Blob&, Height h);
+	Height FindKernel(const Blob&); // in case of duplicates - returning the one with the largest Height
 
 	uint64_t FindStateWorkGreater(const Difficulty::Raw&);
 
