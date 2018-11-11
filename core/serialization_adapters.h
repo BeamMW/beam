@@ -664,8 +664,8 @@ namespace detail
         static Archive& save(Archive& ar, const beam::Transaction& tx)
         {
 			ar
-				& (beam::TxVectors&) tx
-				& (beam::TxBase&) tx;
+				& Cast::Down<beam::TxVectors>(tx)
+				& Cast::Down<beam::TxBase>(tx);
 
             return ar;
         }
@@ -674,8 +674,8 @@ namespace detail
         static Archive& load(Archive& ar, beam::Transaction& tx)
         {
 			ar
-				& (beam::TxVectors&) tx
-				& (beam::TxBase&) tx;
+				& Cast::Down<beam::TxVectors>(tx)
+				& Cast::Down<beam::TxBase>(tx);
 
             return ar;
         }
@@ -771,8 +771,8 @@ namespace detail
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::Block::SystemState::Full& v)
 		{
-			save(ar, (const beam::Block::SystemState::Sequence::Prefix&) v);
-			save(ar, (const beam::Block::SystemState::Sequence::Element&) v);
+			save(ar, Cast::Down<beam::Block::SystemState::Sequence::Prefix>(v));
+			save(ar, Cast::Down<beam::Block::SystemState::Sequence::Element>(v));
 
 			return ar;
 		}
@@ -780,8 +780,8 @@ namespace detail
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::Block::SystemState::Full& v)
 		{
-			load(ar, (beam::Block::SystemState::Sequence::Prefix&) v);
-			load(ar, (beam::Block::SystemState::Sequence::Element&) v);
+			load(ar, Cast::Down<beam::Block::SystemState::Sequence::Prefix>(v));
+			load(ar, Cast::Down<beam::Block::SystemState::Sequence::Element>(v));
 
 			return ar;
 		}
@@ -825,8 +825,8 @@ namespace detail
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::Block::Body& bb)
 		{
-			ar & (const beam::Block::BodyBase&) bb;
-			ar & (const beam::TxVectors&) bb;
+			ar & Cast::Down<beam::Block::BodyBase>(bb);
+			ar & Cast::Down<beam::TxVectors>(bb);
 
 			return ar;
 		}
@@ -834,8 +834,8 @@ namespace detail
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::Block::Body& bb)
 		{
-			ar & (beam::Block::BodyBase&) bb;
-			ar & (beam::TxVectors&) bb;
+			ar & Cast::Down<beam::Block::BodyBase>(bb);
+			ar & Cast::Down<beam::TxVectors>(bb);
 
 			return ar;
 		}
