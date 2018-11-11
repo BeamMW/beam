@@ -732,6 +732,13 @@ struct TransactionMaker
 
 		m_Trans.m_Offset = offset;
 
+		for (size_t i = 0; i < krn.m_vNested.size(); i++)
+		{
+			Point::Native ptNested;
+			verify_test(ptNested.Import(krn.m_vNested[i]->m_Commitment));
+			kG += Point::Native(ptNested);
+		}
+
 		krn.m_Commitment = kG;
 
 		Hash::Value msg;
@@ -784,6 +791,8 @@ struct TransactionMaker
 
 		// finish HL: add hash preimage
 		pKrn->m_pHashLock->m_Preimage = hlPreimage;
+
+		verify_test(pKrn->IsValid(fee2, exc));
 
 		lstTrg.push_back(std::move(pKrn));
 	}

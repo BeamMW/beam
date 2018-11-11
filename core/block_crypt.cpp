@@ -308,6 +308,10 @@ namespace beam
 			hp << *pLockImage;
 		}
 
+		ECC::Point::Native ptExcNested;
+		if (pExcess)
+			ptExcNested = Zero;
+
 		const TxKernel* p0Krn = NULL;
 		for (auto it = m_vNested.begin(); ; it++)
 		{
@@ -322,7 +326,7 @@ namespace beam
 				return false;
 			p0Krn = &v;
 
-			if (!v.Traverse(hv, pFee, pExcess, this, NULL))
+			if (!v.Traverse(hv, pFee, pExcess ? &ptExcNested : NULL, this, NULL))
 				return false;
 
 			v.HashToID(hv);
@@ -337,7 +341,10 @@ namespace beam
 			if (!pt.Import(m_Commitment))
 				return false;
 
-			if (!m_Signature.IsValid(hv, pt))
+			ptExcNested = -ptExcNested;
+			ptExcNested += pt;
+
+			if (!m_Signature.IsValid(hv, ptExcNested))
 				return false;
 
 			*pExcess += pt;
