@@ -433,6 +433,11 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		return false;
 	}
 
+	std::vector<Merkle::Hash> vKrnID(block.m_vKernels.size()); // allocate mem for all kernel IDs, we need them for initial verification vs header, and at the end - to add to the kernel index.
+	// better to allocate the memory, then to calculate IDs twice
+	for (size_t i = 0; i < vKrnID.size(); i++)
+		block.m_vKernels[i]->get_ID(vKrnID[i]);
+
 	bool bFirstTime = false;
 
 	if (bFwd)
@@ -459,6 +464,19 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 			if (s.m_TimeStamp <= get_MovingMedian())
 			{
 				LOG_WARNING() << id << " Timestamp inconsistent wrt median";
+				return false;
+			}
+
+			Merkle::CompactMmr cmmr;
+			for (size_t i = 0; i < vKrnID.size(); i++)
+				cmmr.Append(vKrnID[i]);
+
+			Merkle::Hash hv;
+			cmmr.get_Hash(hv);
+
+			if (s.m_Kernels != hv)
+			{
+				LOG_WARNING() << id << " Kernel commitment mismatch";
 				return false;
 			}
 
@@ -511,18 +529,13 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 	if (bOk)
 	{
-		for (size_t i = 0; i < block.m_vKernels.size(); i++)
+		for (size_t i = 0; i < vKrnID.size(); i++)
 		{
-			const TxKernel& krn = *block.m_vKernels[i];
-			static_assert(sizeof(krn.m_Commitment) == ECC::uintBig::nBytes + 1, "");
-
-			Blob key(&krn.m_Commitment, sizeof(krn.m_Commitment));
-
+			const Merkle::Hash& hv = vKrnID[i];
 			if (bFwd)
-				m_DB.InsertKernel(key, sid.m_Height);
+				m_DB.InsertKernel(hv, sid.m_Height);
 			else
-				m_DB.DeleteKernel(key, sid.m_Height);
-			
+				m_DB.DeleteKernel(hv, sid.m_Height);
 		}
 
 		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
@@ -1215,7 +1228,18 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 		ToggleSubsidyOpened();
 
 	get_Definition(bc.m_Hdr.m_Definition, true);
-	bc.m_Hdr.m_Kernels = Zero;
+
+	res.NormalizeE();
+
+	Merkle::CompactMmr cmmr;
+
+	for (size_t i = 0; i < res.m_vKernels.size(); i++)
+	{
+		res.m_vKernels[i]->get_ID(bc.m_Hdr.m_Kernels);
+		cmmr.Append(bc.m_Hdr.m_Kernels);
+	}
+
+	cmmr.get_Hash(bc.m_Hdr.m_Kernels);
 
 	if (res.m_SubsidyClosing)
 		ToggleSubsidyOpened();
@@ -1272,7 +1296,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, bool bI
 	for (size_t i = 0; i < res.m_vInputs.size(); i++)
 		res.m_vInputs[i]->m_Maturity = 0;
 
-	size_t nCutThrough = res.Normalize();
+	size_t nCutThrough = res.NormalizeP(); // kernels must have already been normalized, this is needed for kernel commitment
 	nCutThrough; // remove "unused var" warning
 
 	Serializer ser;
