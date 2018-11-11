@@ -732,13 +732,18 @@ void NodeProcessor::ToggleSubsidyOpened()
 
 	UtxoTree::Cursor cu;
 	bool bCreate = true;
-	m_Utxos.Find(cu, key, bCreate);
+	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
 
 	assert(m_Extra.m_SubsidyOpen == bCreate);
 	m_Extra.m_SubsidyOpen = !bCreate;
 
-	if (!bCreate)
+	if (bCreate)
+		p->m_Value.m_Count = 1;
+	else
+	{
+		assert(1 == p->m_Value.m_Count);
 		m_Utxos.Delete(cu);
+	}
 }
 
 bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd)
