@@ -1624,34 +1624,39 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	return true;
 }
 
-bool NodeProcessor::EnumBlocks(IBlockWalker& wlk)
+Height NodeProcessor::OpenLatestMacroblock(Block::Body::RW& rw)
 {
-	if (m_Cursor.m_ID.m_Height < Rules::HeightGenesis)
-		return true;
-
 	NodeDB::WalkerState ws(m_DB);
-	Height h = 0;
-
 	for (m_DB.EnumMacroblocks(ws); ws.MoveNext(); )
 	{
 		if (ws.m_Sid.m_Height > m_Cursor.m_ID.m_Height)
 			continue; //?
 
-		Block::Body::RW rw;
-		if (!OpenMacroblock(rw, ws.m_Sid))
-			continue;
+		if (OpenMacroblock(rw, ws.m_Sid))
+			return ws.m_Sid.m_Height;
+	}
 
+	return Rules::HeightGenesis - 1;
+}
+
+bool NodeProcessor::EnumBlocks(IBlockWalker& wlk)
+{
+	if (m_Cursor.m_ID.m_Height < Rules::HeightGenesis)
+		return true;
+
+	Block::Body::RW rw;
+
+	Height h = OpenLatestMacroblock(rw);
+	if (h >= Rules::HeightGenesis)
+	{
 		Block::BodyBase body;
 		Block::SystemState::Sequence::Prefix prefix;
 
 		rw.Reset();
 		rw.get_Start(body, prefix);
 
-		if (!wlk.OnBlock(body, std::move(rw), 0, Rules::HeightGenesis, &ws.m_Sid.m_Height))
+		if (!wlk.OnBlock(body, std::move(rw), 0, Rules::HeightGenesis, &h))
 			return false;
-
-		h = ws.m_Sid.m_Height;
-		break;
 	}
 
 	std::vector<uint64_t> vPath;

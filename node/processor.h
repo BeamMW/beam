@@ -88,6 +88,7 @@ class NodeProcessor
 	};
 
 	bool EnumBlocks(IBlockWalker&);
+	Height OpenLatestMacroblock(Block::Body::RW&);
 
 public:
 
