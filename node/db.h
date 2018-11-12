@@ -92,7 +92,7 @@ public:
 			HashForHist,
 			StateGetBlock,
 			StateSetBlock,
-			StateDelBlock,
+			//StateDelBlock,
 			StateSetRollback,
 			MinedIns,
 			MinedUpd,
@@ -225,7 +225,7 @@ public:
 	void SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE);
 	void GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteBuffer* pRollback);
 	void SetStateRollback(uint64_t rowid, const Blob& rollback);
-	void DelStateBlockPRB(uint64_t rowid); // perishable and rollback, but no ethernal
+	//void DelStateBlockPRB(uint64_t rowid); // perishable and rollback, but no ethernal
 	void DelStateBlockAll(uint64_t rowid);
 
 	struct StateID {

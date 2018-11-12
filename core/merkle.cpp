@@ -383,9 +383,10 @@ void CompactMmr::Append(const Hash& hv)
 
 /////////////////////////////
 // FixedMmmr
-FixedMmmr::FixedMmmr(uint64_t nTotal)
-	:m_Total(nTotal)
+void FixedMmmr::Reset(uint64_t nTotal)
 {
+	m_Total = nTotal;
+
 	uint64_t nHashes = nTotal;
 	while (nTotal >>= 1)
 		nHashes += nTotal;

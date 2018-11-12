@@ -56,6 +56,7 @@ class NodeProcessor
 	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
 
 	static void SquashOnce(std::vector<Block::Body>&);
+	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, Height, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
 
 	void InitCursor();
 	static void OnCorrupted();
@@ -63,6 +64,7 @@ class NodeProcessor
 	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
 	Difficulty get_NextDifficulty();
 	Timestamp get_MovingMedian();
+	Height get_FossilHeight();
 
 	struct UtxoSig;
 	struct UnspentWalker;
@@ -87,6 +89,7 @@ class NodeProcessor
 	};
 
 	bool EnumBlocks(IBlockWalker&);
+	Height OpenLatestMacroblock(Block::Body::RW&);
 
 public:
 

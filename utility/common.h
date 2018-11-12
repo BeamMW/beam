@@ -195,7 +195,7 @@ namespace std
 		static void NotImpl();
 
 	public:
-
+		FStream();
 		bool Open(const char*, bool bRead, bool bStrict = false, bool bAppend = false); // strict - throw exc if error
 		bool IsOpen() const { return m_F.is_open(); }
 		void Close();
@@ -203,6 +203,7 @@ namespace std
 
 		void Restart(); // for read-stream - jump to the beginning of the file
 		void Seek(uint64_t);
+		uint64_t Tell() { return m_F.tellg(); }
 
 		// read/write always return the size requested. Exception is thrown if underflow or error
 		size_t read(void* pPtr, size_t nSize);

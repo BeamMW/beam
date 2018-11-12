@@ -110,8 +110,15 @@ namespace std
 			ThrowIoError();
 	}
 
+	FStream::FStream()
+		:m_Remaining(0)
+	{
+	}
+
 	bool FStream::Open(const char* sz, bool bRead, bool bStrict /* = false */, bool bAppend /* = false */)
 	{
+		m_Remaining = 0;
+
 		int mode = ios_base::binary;
 		mode |= bRead ? ios_base::ate : bAppend ? ios_base::app : ios_base::trunc;
 		mode |= bRead ? ios_base::in : ios_base::out;
@@ -143,7 +150,10 @@ namespace std
 	void FStream::Close()
 	{
 		if (m_F.is_open())
+		{
 			m_F.close();
+			m_Remaining = 0;
+		}
 	}
 
 	void FStream::Restart()

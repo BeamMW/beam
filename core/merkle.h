@@ -136,8 +136,8 @@ namespace Merkle {
 		uint64_t Pos2Idx(const Position& pos) const;
 
 	public:
-		FixedMmmr(uint64_t nTotal);
-
+		FixedMmmr(uint64_t nTotal = 0) { Reset(nTotal); }
+		void Reset(uint64_t nTotal);
 	protected:
 		// Mmr
 		virtual void LoadElement(Hash& hv, const Position& pos) const override;
