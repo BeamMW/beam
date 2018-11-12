@@ -502,12 +502,19 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				return false;
 			}
 
-			Merkle::CompactMmr cmmr;
-			for (size_t i = 0; i < vKrnID.size(); i++)
-				cmmr.Append(vKrnID[i]);
+			struct MyFlyMmr :public Merkle::FlyMmr {
+				const Merkle::Hash* m_pHashes;
+				virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
+					hv = m_pHashes[n];
+				}
+			};
+
+			MyFlyMmr fmmr;
+			fmmr.m_Count = vKrnID.size();
+			fmmr.m_pHashes = vKrnID.empty() ? NULL : &vKrnID.front();
 
 			Merkle::Hash hv;
-			cmmr.get_Hash(hv);
+			fmmr.get_Hash(hv);
 
 			if (s.m_Kernels != hv)
 			{
@@ -1202,15 +1209,17 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 
 	res.NormalizeE();
 
-	Merkle::CompactMmr cmmr;
+	struct MyFlyMmr :public Merkle::FlyMmr {
+		const TxKernel::Ptr* m_ppKrn;
+		virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
+			m_ppKrn[n]->get_ID(hv);
+		}
+	};
 
-	for (size_t i = 0; i < res.m_vKernels.size(); i++)
-	{
-		res.m_vKernels[i]->get_ID(bc.m_Hdr.m_Kernels);
-		cmmr.Append(bc.m_Hdr.m_Kernels);
-	}
-
-	cmmr.get_Hash(bc.m_Hdr.m_Kernels);
+	MyFlyMmr fmmr;
+	fmmr.m_Count = res.m_vKernels.size();
+	fmmr.m_ppKrn = res.m_vKernels.empty() ? NULL : &res.m_vKernels.front();
+	fmmr.get_Hash(bc.m_Hdr.m_Kernels);
 
 	if (res.m_SubsidyClosing)
 		ToggleSubsidyOpened();
