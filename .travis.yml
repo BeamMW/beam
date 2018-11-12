@@ -83,6 +83,8 @@ matrix:
             - libboost-all-dev
             - libssl-dev
             - curl
+            - libxi-dev
+            - libcups2-dev
       before_install:
         - export TZ=Etc/GMT-3
         - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
