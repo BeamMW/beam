@@ -694,7 +694,19 @@ namespace beam
 		{
 			DeleteFile(g_sz2);
 
-			NodeProcessor np2;
+			struct MyNodeProcessorX
+				:public NodeProcessor
+			{
+				std::string m_sPathMB;
+				virtual bool OpenMacroblock(Block::BodyBase::RW& rw, const NodeDB::StateID&) override
+				{
+					rw.m_sPath = m_sPathMB;
+					rw.ROpen();
+					return true;
+				}
+			};
+
+			MyNodeProcessorX np2;
 			np2.Initialize(g_sz2);
 
 			rwData.m_hvContentTag = Zero;
@@ -714,6 +726,28 @@ namespace beam
 			rwData.ROpen();
 			verify_test(np2.ImportMacroBlock(rwData));
 			rwData.Close();
+
+			np2.get_DB().MacroblockIns(np2.m_Cursor.m_Sid.m_Row);
+			np2.m_sPathMB = g_sz3;
+
+			// try kernel proofs. Must be retrieved from the macroblock
+			for (size_t i = 0; i < np.m_Wallet.m_MyKernels.size(); i++)
+			{
+				TxKernel krn;
+				np.m_Wallet.m_MyKernels[i].Export(krn);
+
+				Merkle::Hash id;
+				krn.get_ID(id);
+
+				Merkle::Proof proof;
+				TxKernel::Ptr pKrn;
+				Height h = np2.get_ProofKernel(proof, &pKrn, id);
+				verify_test(h >= Rules::HeightGenesis);
+
+				Merkle::Interpret(id, proof);
+				verify_test(blockChain[h - Rules::HeightGenesis]->m_Hdr.m_Kernels == id);
+			}
+			
 
 			rwData.Delete();
 		}

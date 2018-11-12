@@ -407,45 +407,81 @@ void NodeProcessor::ReadBody(Block::Body& res, const ByteBuffer& bbP, const Byte
 	der & Cast::Down<TxVectors::Ethernal>(res);
 }
 
+uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, TxBase::IReader&& r, Height h, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes)
+{
+	uint64_t iRet = uint64_t (-1);
+
+	for (uint64_t i = 0; r.m_pKernel && r.m_pKernel->m_Maturity == h; r.NextKernel(), i++)
+	{
+		Merkle::Hash hv;
+		r.m_pKernel->get_ID(hv);
+		mmr.Append(hv);
+
+		if (hv == idKrn)
+		{
+			iRet = i; // found
+			if (ppRes)
+			{
+				ppRes->reset(new TxKernel);
+				**ppRes = *r.m_pKernel;
+			}
+		}
+	}
+
+	return iRet;
+}
+
 Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes, const Merkle::Hash& idKrn)
 {
 	Height h = m_DB.FindKernel(idKrn);
 	if (h < Rules::HeightGenesis)
 		return h;
 
-	uint64_t rowid = FindActiveAtStrict(h);
+	Merkle::FixedMmmr mmr;
+	size_t iTrg;
 
-	ByteBuffer bbE;
-	m_DB.GetStateBlock(rowid, NULL, &bbE, NULL);
-
-	TxVectors::Ethernal txve;
-
-	Deserializer der;
-	der.reset(bbE);
-	der & txve;
-
-	// TODO - for a single proof there's no need to allocate the whole MMR, the proof can be calculated on-the-fly recursively.
-	// The number of calculations, however, is the same
-
-	Merkle::FixedMmmr mmr(txve.m_vKernels.size());
-
-	size_t iTrg = txve.m_vKernels.size();
-	for (size_t i = 0; i < txve.m_vKernels.size(); i++)
+	if (h <= get_FossilHeight())
 	{
-		TxKernel::Ptr& pKrn = txve.m_vKernels[i];
-		Merkle::Hash hv;
-		pKrn->get_ID(hv);
-		mmr.Append(hv);
+		Block::Body::RW rw;
+		if (!OpenLatestMacroblock(rw))
+			OnCorrupted();
 
-		if (hv == idKrn)
-		{
-			iTrg = i; // found
-			if (ppRes)
-				*ppRes = std::move(pKrn);
-		}
+		rw.Reset();
+		rw.NextKernelFF(h);
+
+		// 1st calculate the count
+		uint64_t nTotal = 0;
+		for (; rw.m_pKernel && rw.m_pKernel->m_Maturity == h; rw.NextKernel())
+			nTotal++;
+
+		mmr.Reset(nTotal);
+		rw.Reset();
+		rw.NextKernelFF(h);
+
+		iTrg = ProcessKrnMmr(mmr, std::move(rw), h, idKrn, ppRes);
+	}
+	else
+	{
+		uint64_t rowid = FindActiveAtStrict(h);
+
+		ByteBuffer bbE;
+		m_DB.GetStateBlock(rowid, NULL, &bbE, NULL);
+
+		TxVectors::Ethernal txve;
+		TxVectors::Perishable txvp; // dummy
+
+		Deserializer der;
+		der.reset(bbE);
+		der & txve;
+
+		TxVectors::Reader r(txvp, txve);
+		r.Reset();
+
+		mmr.Reset(txve.m_vKernels.size());
+		iTrg = ProcessKrnMmr(mmr, std::move(r), 0, idKrn, ppRes);
 	}
 
-	if (txve.m_vKernels.size() == iTrg)
+	if (uint64_t(-1) == iTrg)
 		OnCorrupted();
 
 	mmr.get_Proof(proof, iTrg);

@@ -56,6 +56,7 @@ class NodeProcessor
 	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
 
 	static void SquashOnce(std::vector<Block::Body>&);
+	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, Height, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
 
 	void InitCursor();
 	static void OnCorrupted();
