@@ -378,16 +378,40 @@ struct TestBlockchain
 	MiniBlockChain m_mcm;
 
 	UtxoTree m_Utxos;
-	RadixHashOnlyTree m_Kernels;
+
+	struct KrnPerBlock
+	{
+		std::vector<Merkle::Hash> m_vKrnIDs;
+
+		struct Mmr :public Merkle::FlyMmr
+		{
+			const Merkle::Hash* m_pHashes;
+
+			Mmr(const KrnPerBlock& kpb)
+				:Merkle::FlyMmr(kpb.m_vKrnIDs.size())
+			{
+				m_pHashes = kpb.m_vKrnIDs.empty() ? NULL : &kpb.m_vKrnIDs.front();
+			}
+
+			virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
+				hv = m_pHashes[n];
+			}
+		};
+
+	};
+	std::vector<KrnPerBlock> m_vBlockKernels;
 
 	void AddBlock()
 	{
-		Merkle::Hash hvUtxo, hvKrn;
-		m_Utxos.get_Hash(hvUtxo);
-		m_Kernels.get_Hash(hvKrn);
-
-		Merkle::Interpret(m_mcm.m_hvLive, hvUtxo, hvKrn);
+		m_Utxos.get_Hash(m_mcm.m_hvLive);
 		m_mcm.Add();
+
+		if (m_vBlockKernels.size() < m_mcm.m_vStates.size())
+			m_vBlockKernels.emplace_back();
+		assert(m_vBlockKernels.size() == m_mcm.m_vStates.size());
+
+		KrnPerBlock::Mmr fmmr(m_vBlockKernels.back());
+		fmmr.get_Hash(m_mcm.m_vStates.back().m_Hdr.m_Kernels);
 	}
 
 	bool AddCommitment(const ECC::Point& c)
@@ -470,7 +494,6 @@ struct TestBlockchain
 			proto::ProofUtxo m_Msg;
 			UtxoTree* m_pTree;
 			Merkle::Hash m_hvHistory;
-			Merkle::Hash m_hvKernels;
 
 			virtual bool OnLeaf(const RadixTree::Leaf& x) override {
 
@@ -485,13 +508,7 @@ struct TestBlockchain
 				ret.m_State.m_Maturity = d.m_Maturity;
 				m_pTree->get_Proof(ret.m_Proof, *m_pCu);
 
-				ret.m_Proof.reserve(ret.m_Proof.size() + 2);
-
-				ret.m_Proof.resize(ret.m_Proof.size() + 1);
-				ret.m_Proof.back().first = true;
-				ret.m_Proof.back().second = m_hvKernels;
-
-				ret.m_Proof.resize(ret.m_Proof.size() + 1);
+				ret.m_Proof.emplace_back();
 				ret.m_Proof.back().first = false;
 				ret.m_Proof.back().second = m_hvHistory;
 
@@ -500,7 +517,6 @@ struct TestBlockchain
 		} t;
 
 		t.m_pTree = &m_Utxos;
-		m_Kernels.get_Hash(t.m_hvKernels);
 		m_mcm.m_Mmr.get_Hash(t.m_hvHistory);
 
 		UtxoTree::Cursor cu;
@@ -525,22 +541,31 @@ struct TestBlockchain
 
 	void GetProof(const proto::GetProofKernel& data, proto::ProofKernel& msgOut)
 	{
-		RadixHashOnlyTree& t = m_Kernels;
-
-		RadixHashOnlyTree::Cursor cu;
-		bool bCreate = false;
-		if (t.Find(cu, data.m_ID, bCreate))
+		for (size_t iState = m_mcm.m_vStates.size(); iState--; )
 		{
-			t.get_Proof(msgOut.m_Proof, cu);
-			msgOut.m_Proof.reserve(msgOut.m_Proof.size() + 2);
+			const KrnPerBlock& kpb = m_vBlockKernels[iState];
 
-			msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-			msgOut.m_Proof.back().first = false;
-			m_Utxos.get_Hash(msgOut.m_Proof.back().second);
+			for (size_t i = 0; i < kpb.m_vKrnIDs.size(); i++)
+			{
+				if (kpb.m_vKrnIDs[i] == data.m_ID)
+				{
+					KrnPerBlock::Mmr fmmr(kpb);
+					Merkle::ProofBuilderStd bld;
+					fmmr.get_Proof(bld, i);
 
-			msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-			msgOut.m_Proof.back().first = false;
-			m_mcm.m_Mmr.get_Hash(msgOut.m_Proof.back().second);
+					msgOut.m_Proof.m_Inner.swap(bld.m_Proof);
+					msgOut.m_Proof.m_State = m_mcm.m_vStates[iState].m_Hdr;
+
+					if (iState + 1 != m_mcm.m_vStates.size())
+					{
+						Merkle::ProofBuilderHard bld2;
+						m_mcm.m_Mmr.get_Proof(bld2, iState);
+						msgOut.m_Proof.m_Outer.swap(bld2.m_Proof);
+					}
+
+					return;
+				}
+			}
 		}
 	}
 
@@ -553,10 +578,11 @@ struct TestBlockchain
 
 	void AddKernel(const Merkle::Hash& hvKrn)
 	{
-		RadixHashOnlyTree::Cursor cu;
-		bool bCreate = true;
-		m_Kernels.Find(cu, hvKrn, bCreate);
-		WALLET_CHECK(bCreate);
+		if (m_vBlockKernels.size() <= m_mcm.m_vStates.size())
+			m_vBlockKernels.emplace_back();
+
+		KrnPerBlock& kpb = m_vBlockKernels.back();
+		kpb.m_vKrnIDs.push_back(hvKrn);
 	}
 
 	void HandleTx(const proto::NewTransaction& data)
@@ -587,7 +613,7 @@ struct TestNodeNetwork
 
 		void AddBlock()
 		{
-			m_Blockchain.m_mcm.Add();
+			m_Blockchain.AddBlock();
 
 			for (List::iterator it = m_lst.begin(); m_lst.end() != it; it++)
 			{
