@@ -15,6 +15,8 @@
 #include "settings_view.h"
 #include "version.h"
 #include <QtQuick>
+#include <QApplication>
+#include <QClipboard>
 #include "model/app_model.h"
 #include <thread>
 #include "wallet/secstring.h"
@@ -148,6 +150,11 @@ void SettingsViewModel::openUrl(const QString& url)
     QDesktopServices::openUrl(QUrl(url));
 }
 
+void SettingsViewModel::copyToClipboard(const QString& text)
+{
+    QApplication::clipboard()->setText(text);
+}
+
 bool SettingsViewModel::isChanged() const
 {
     return m_nodeAddress != m_settings.getNodeAddress()
@@ -182,6 +189,11 @@ void SettingsViewModel::setLocalNodePeers(const QStringList& localNodePeers)
     m_localNodePeers = localNodePeers;
     emit localNodePeersChanged();
     emit propertiesChanged();
+}
+
+QString SettingsViewModel::getWalletLocation() const
+{
+    return QString::fromStdString(m_settings.getWalletStorage());
 }
 
 void SettingsViewModel::undoChanges()

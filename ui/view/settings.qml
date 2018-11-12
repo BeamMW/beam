@@ -464,6 +464,37 @@ Rectangle {
                                 palette.button: "#708090"
                                 onClicked: viewModel.reportProblem()
                             }
+
+                            SFText {
+                                Layout.topMargin: 20
+                                Layout.fillWidth: true
+                                Layout.minimumHeight: 20
+                                text: qsTr("Wallet location path:")
+                                color: Style.white
+                                font.pixelSize: 18
+                                font.styleName: "Bold"; font.weight: Font.Bold
+                                wrapMode: Text.WordWrap
+                            }
+
+                            SFTextInput {
+                                Layout.fillWidth: true
+                                
+                                font.pixelSize: 14
+                                color: Style.disable_text_color
+                                readOnly: true
+                                activeFocusOnTab: false
+                                text: viewModel.walletLocation
+                            }
+                            CustomButton {
+                                text: qsTr("copy")
+                                icon.color: Style.white
+                                palette.buttonText : Style.white
+                                palette.button: "#708090"
+                                icon.source: "qrc:/assets/icon-copy.svg"
+                                onClicked: {
+                                    viewModel.copyToClipboard(viewModel.walletLocation);
+                                }
+                            }
                             Item {
                                 Layout.fillHeight: true;
                             }
