@@ -321,7 +321,7 @@ void NodeProcessor::PruneOld()
 
 		AdjustFossilEnd(h);
 
-		for (Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1); ; )
+		for (Height hFossil = get_FossilHeight(); ; )
 		{
 			if (++hFossil >= h)
 				break;
@@ -339,6 +339,11 @@ void NodeProcessor::PruneOld()
 			m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
 		}
 	}
+}
+
+Height NodeProcessor::get_FossilHeight()
+{
+	return m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1);
 }
 
 void NodeProcessor::get_Definition(Merkle::Hash& hv, const Merkle::Hash& hvHist)
