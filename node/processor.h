@@ -152,6 +152,8 @@ public:
 	RadixHashOnlyTree& get_Kernels() { return m_Kernels; }
 	static void ReadBody(Block::Body&, const ByteBuffer& bbP, const ByteBuffer& bbE);
 
+	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);
+
 	void CommitDB();
 	void EnumCongestions(uint32_t nMaxBlocksBacklog);
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);

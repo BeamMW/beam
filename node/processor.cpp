@@ -412,6 +412,93 @@ void NodeProcessor::ReadBody(Block::Body& res, const ByteBuffer& bbP, const Byte
 	der & Cast::Down<TxVectors::Ethernal>(res);
 }
 
+Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes, const Merkle::Hash& idKrn)
+{
+	Height h = m_DB.FindKernel(idKrn);
+	if (h < Rules::HeightGenesis)
+		return h;
+
+	uint64_t rowid = FindActiveAtStrict(h);
+
+	ByteBuffer bbE;
+	m_DB.GetStateBlock(rowid, NULL, &bbE, NULL);
+
+	TxVectors::Ethernal txve;
+
+	Deserializer der;
+	der.reset(bbE);
+	der & txve;
+
+	// TODO - for a single proof there's no need to allocate the whole MMR, the proof can be calculated on-the-fly recursively.
+	// The number of calculations, however, is the same
+
+	struct MyMmr
+		:public Merkle::Mmr
+	{
+		std::vector<Merkle::Hash> m_vHashes;
+		uint64_t m_Total;
+
+		MyMmr(uint64_t nTotal)
+			:m_Total(nTotal)
+		{
+			uint64_t nHashes = nTotal;
+			while (nTotal >>= 1)
+				nHashes += nTotal;
+
+			m_vHashes.resize(nHashes);
+		}
+		
+		uint64_t Pos2Idx(const Merkle::Position& pos) const
+		{
+		    uint64_t nTotal = m_Total;
+		    uint64_t ret = pos.X;
+		
+		    for (uint8_t y = 0; y < pos.H; y++)
+		    {
+		        ret += nTotal;
+				nTotal >>= 1;
+			}
+		
+		    assert(pos.X < nTotal);
+		    assert(ret < m_vHashes.size());
+		    return ret;
+		}
+		
+		virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
+		{
+	        hv = m_vHashes[Pos2Idx(pos)];
+		}
+		virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override
+		{
+	        m_vHashes[Pos2Idx(pos)] = hv;
+		}
+	};
+
+	MyMmr mmr(txve.m_vKernels.size());
+
+	size_t iTrg = txve.m_vKernels.size();
+	for (size_t i = 0; i < txve.m_vKernels.size(); i++)
+	{
+		TxKernel::Ptr& pKrn = txve.m_vKernels[i];
+		Merkle::Hash hv;
+		pKrn->get_ID(hv);
+		mmr.Append(hv);
+
+		if (hv == idKrn)
+		{
+			iTrg = i; // found
+			if (ppRes)
+				*ppRes = std::move(pKrn);
+		}
+	}
+
+	if (txve.m_vKernels.size() == iTrg)
+		OnCorrupted();
+
+	mmr.get_Proof(proof, iTrg);
+	return h;
+}
+
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 {
 	ByteBuffer bbP, bbE;
