@@ -419,6 +419,64 @@ void FixedMmmr::SaveElement(const Hash& hv, const Position& pos)
 	m_vHashes[Pos2Idx(pos)] = hv;
 }
 
+/////////////////////////////
+// FlyMmr
+struct FlyMmr::Inner
+	:public Mmr
+{
+	const FlyMmr& m_This;
+
+	Inner(const FlyMmr& x)
+		:m_This(x)
+	{
+		m_Count = m_This.m_Count;
+	}
+
+	void Calculate(Hash& hv, const Position& pos) const
+	{
+		if (pos.H)
+		{
+			Position pos2;
+			pos2.X = pos.X << 1;
+			pos2.H = pos.H - 1;
+			Calculate(hv, pos2);
+
+			Hash hv2;
+			pos2.X++;
+			Calculate(hv2, pos2);
+
+			Interpret(hv, hv2, true);
+		}
+		else
+		{
+			assert(pos.X < m_Count);
+			m_This.LoadElement(hv, pos.X);
+		}
+	}
+
+	virtual void LoadElement(Hash& hv, const Position& pos) const
+	{
+		Calculate(hv, pos);
+	}
+
+	virtual void SaveElement(const Hash&, const Position&) override
+	{
+		assert(false); // not used
+	}
+};
+
+void FlyMmr::get_Hash(Hash& hv) const
+{
+	Inner x(*this);
+	x.get_Hash(hv);
+}
+
+bool FlyMmr::get_Proof(IProofBuilder& builder, uint64_t i) const
+{
+	Inner x(*this);
+	return x.get_Proof(builder, i);
+}
+
 
 /////////////////////////////
 // MultiProof
