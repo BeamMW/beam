@@ -846,7 +846,7 @@ Item
 
                     Column {
                         Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
-                        Layout.preferredWidth: 400
+                        Layout.preferredWidth: 440
                         topPadding: 50
 
                         clip: true
@@ -928,7 +928,7 @@ Item
                             SFTextInput {
                                 id:remoteNodeAddrInput
                                 visible: remoteNodeButton.checked
-                                width: parent.width
+                                width: parent.width - parent.spacing - remoteNodeButton.width
                                 font.pixelSize: 14
                                 color: Style.white
                                 text: "127.0.0.1:10000"
