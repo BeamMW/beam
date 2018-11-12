@@ -126,6 +126,24 @@ namespace Merkle {
 		void get_PredictedHash(Hash&, const Hash& hvAppend) const;
 	};
 
+	// A variant where the max number of elements is known in advance. All hashes are stored in a flat array.
+	class FixedMmmr
+		:public Mmr
+	{
+		std::vector<Hash> m_vHashes;
+		uint64_t m_Total;
+
+		uint64_t Pos2Idx(const Position& pos) const;
+
+	public:
+		FixedMmmr(uint64_t nTotal);
+
+	protected:
+		// Mmr
+		virtual void LoadElement(Hash& hv, const Position& pos) const override;
+		virtual void SaveElement(const Hash& hv, const Position& pos) override;
+	};
+
 	// Structure to effective encode proofs to multiple elements at-once.
 	// The elements must be specified in a sorter order (straight or reverse).
 	// All the proofs are "merged", so that no hash is added twice.

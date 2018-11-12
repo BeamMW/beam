@@ -382,6 +382,45 @@ void CompactMmr::Append(const Hash& hv)
 }
 
 /////////////////////////////
+// FixedMmmr
+FixedMmmr::FixedMmmr(uint64_t nTotal)
+	:m_Total(nTotal)
+{
+	uint64_t nHashes = nTotal;
+	while (nTotal >>= 1)
+		nHashes += nTotal;
+
+	m_vHashes.resize(nHashes);
+}
+
+uint64_t FixedMmmr::Pos2Idx(const Position& pos) const
+{
+	uint64_t nTotal = m_Total;
+	uint64_t ret = pos.X;
+
+	for (uint8_t y = 0; y < pos.H; y++)
+	{
+		ret += nTotal;
+		nTotal >>= 1;
+	}
+
+	assert(pos.X < nTotal);
+	assert(ret < m_vHashes.size());
+	return ret;
+}
+
+void FixedMmmr::LoadElement(Hash& hv, const Position& pos) const
+{
+	hv = m_vHashes[Pos2Idx(pos)];
+}
+
+void FixedMmmr::SaveElement(const Hash& hv, const Position& pos)
+{
+	m_vHashes[Pos2Idx(pos)] = hv;
+}
+
+
+/////////////////////////////
 // MultiProof
 MultiProof::Builder::Builder(MultiProof& x)
 	:m_This(x)
