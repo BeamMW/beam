@@ -2260,29 +2260,22 @@ void Node::Processor::GenerateProofStateStrict(Merkle::HardProof& proof, Height 
 	proof.swap(bld.m_Proof);
 
 	proof.resize(proof.size() + 1);
-	get_CurrentLive(proof.back());
+	get_Utxos().get_Hash(proof.back());
 }
 
 void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 {
 	proto::ProofKernel msgOut;
 
-	RadixHashOnlyTree& t = m_This.m_Processor.get_Kernels();
-
-	RadixHashOnlyTree::Cursor cu;
-	bool bCreate = false;
-	if (t.Find(cu, msg.m_ID, bCreate))
+	Processor& p = m_This.m_Processor;
+	Height h = p.get_ProofKernel(msgOut.m_Proof.m_Inner, NULL, msg.m_ID);
+	if (h)
 	{
-		t.get_Proof(msgOut.m_Proof, cu);
-		msgOut.m_Proof.reserve(msgOut.m_Proof.size() + 2);
+		uint64_t rowid = p.FindActiveAtStrict(h);
+		p.get_DB().get_State(rowid, msgOut.m_Proof.m_State);
 
-		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-		msgOut.m_Proof.back().first = false;
-		m_This.m_Processor.get_Utxos().get_Hash(msgOut.m_Proof.back().second);
-
-		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-		msgOut.m_Proof.back().first = false;
-		msgOut.m_Proof.back().second = m_This.m_Processor.m_Cursor.m_History;
+		if (h < p.m_Cursor.m_ID.m_Height)
+			p.GenerateProofStateStrict(msgOut.m_Proof.m_Outer, h);
 	}
 
 	Send(msgOut);
@@ -2302,7 +2295,6 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 		proto::ProofUtxo m_Msg;
 		UtxoTree* m_pTree;
 		Merkle::Hash m_hvHistory;
-		Merkle::Hash m_hvKernels;
 
 		virtual bool OnLeaf(const RadixTree::Leaf& x) override {
 
@@ -2317,12 +2309,6 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 			ret.m_State.m_Maturity = d.m_Maturity;
 			m_pTree->get_Proof(ret.m_Proof, *m_pCu);
 
-			ret.m_Proof.reserve(ret.m_Proof.size() + 2);
-
-			ret.m_Proof.resize(ret.m_Proof.size() + 1);
-			ret.m_Proof.back().first = true;
-			ret.m_Proof.back().second = m_hvKernels;
-
 			ret.m_Proof.resize(ret.m_Proof.size() + 1);
 			ret.m_Proof.back().first = false;
 			ret.m_Proof.back().second = m_hvHistory;
@@ -2332,7 +2318,6 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	} t;
 
 	t.m_pTree = &m_This.m_Processor.get_Utxos();
-	m_This.m_Processor.get_Kernels().get_Hash(t.m_hvKernels);
 	t.m_hvHistory = m_This.m_Processor.m_Cursor.m_History;
 
 	UtxoTree::Cursor cu;
@@ -2386,7 +2371,7 @@ bool Node::Processor::BuildCwp()
 	Source src(*this);
 
 	m_Cwp.Create(src, m_Cursor.m_Full);
-	get_CurrentLive(m_Cwp.m_hvRootLive);
+	get_Utxos().get_Hash(m_Cwp.m_hvRootLive);
 
 	return true;
 }

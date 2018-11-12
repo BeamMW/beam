@@ -265,6 +265,8 @@ namespace beam
 
 		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
 
+		struct LongProof; // legacy
+
 		void operator = (const TxKernel&);
 		int cmp(const TxKernel&) const;
 		COMPARISON_VIA_CMP
@@ -446,8 +448,6 @@ namespace beam
 
 					// The following not only interprets the proof, but also verifies the knwon part of its structure.
 					bool IsValidProofUtxo(const ECC::Point&, const Input::Proof&) const;
-					bool IsValidProofKernel(const TxKernel&, const Merkle::Proof&) const;
-					bool IsValidProofKernel(const Merkle::Hash& hvID, const Merkle::Proof&) const;
 				};
 			};
 
@@ -469,6 +469,9 @@ namespace beam
 
 				// the most robust proof verification - verifies the whole proof structure
 				bool IsValidProofState(const ID&, const Merkle::HardProof&) const;
+
+				bool IsValidProofKernel(const TxKernel&, const TxKernel::LongProof&) const;
+				bool IsValidProofKernel(const Merkle::Hash& hvID, const TxKernel::LongProof&) const;
 
 				int cmp(const Full&) const;
 				COMPARISON_VIA_CMP
@@ -533,6 +536,24 @@ namespace beam
 		};
 
 		struct ChainWorkProof;
+	};
+
+	struct TxKernel::LongProof
+	{
+		Merkle::Proof m_Inner;
+		Block::SystemState::Full m_State;
+		Merkle::HardProof m_Outer;
+
+		bool empty() const { return !m_State.m_Height; }
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_Inner
+				& m_State
+				& m_Outer;
+		}
 	};
 
 	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height = 0, uint32_t nIdx = 0);
