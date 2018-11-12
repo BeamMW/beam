@@ -647,7 +647,10 @@ namespace beam
 		Output::Ptr m_pGuardUtxoOut[2];
 		TxKernel::Ptr m_pGuardKernel[2];
 
-		Height m_pMaturity[Type::count];
+		Height m_pMaturity[Type::count]; // some are used as maturity, some have different meaning.
+		// Those are aliases, used in read mode
+		uint64_t& m_KrnSizeTotal() { return m_pMaturity[Type::hd]; }
+		uint64_t& m_KrnThresholdPos() { return m_pMaturity[Type::kx]; }
 
 		template <typename T>
 		void LoadInternal(const T*& pPtr, int, typename T::Ptr* ppGuard);
@@ -681,6 +684,8 @@ namespace beam
 		void Flush();
 		void Close();
 		void Delete(); // must be closed
+
+		void NextKernelFF(Height hMin);
 
 		// IReader
 		virtual void Clone(Ptr&) override;

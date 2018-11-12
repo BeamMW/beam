@@ -141,7 +141,7 @@ namespace beam
 			}
 
 		ZeroObject(m_pMaturity);
-		m_pMaturity[Type::hd] = m_pS[Type::ko].Tell() + m_pS[Type::ko].get_Remaining();
+		m_KrnSizeTotal() = m_pS[Type::ko].Tell() + m_pS[Type::ko].get_Remaining();
 
 		LoadMaturity(Type::ko); // maturity of the 1st kernel
 		NextKernelThreshold();
@@ -182,16 +182,43 @@ namespace beam
 
 	void Block::BodyBase::RW::NextKernel()
 	{
-		uint64_t nPos = m_pMaturity[Type::hd] - m_pS[Type::ko].get_Remaining();
+		uint64_t nPos = m_KrnSizeTotal() - m_pS[Type::ko].get_Remaining();
 
-		while (nPos == m_pMaturity[Type::kx])
+		while (nPos == m_KrnThresholdPos())
 		{
 			m_pMaturity[Type::ko]++;
 			NextKernelThreshold();
 		}
 
-		if (nPos > m_pMaturity[Type::kx])
+		if (nPos > m_KrnThresholdPos())
 			throw std::runtime_error("bad kx");
+
+		LoadInternal(m_pKernel, Type::ko, m_pGuardKernel);
+	}
+
+	void Block::BodyBase::RW::NextKernelFF(Height hMin)
+	{
+		if (m_pMaturity[Type::ko] >= hMin)
+			return;
+
+		Height dh = hMin - m_pMaturity[Type::ko];
+		if (dh > 1)
+		{
+			if (dh > 2)
+			{
+				uint64_t offs = (dh - 2) * sizeof(m_KrnThresholdPos());
+
+				std::FStream& s = m_pS[Type::kx];
+				s.Seek(s.Tell() + std::min(s.get_Remaining(), offs));
+			}
+			NextKernelThreshold();
+		}
+
+		std::FStream& s2 = m_pS[Type::ko];
+		s2.Seek(std::min(m_KrnThresholdPos(), m_KrnSizeTotal()));
+
+		m_pMaturity[Type::ko] = hMin;
+		NextKernelThreshold();
 
 		LoadInternal(m_pKernel, Type::ko, m_pGuardKernel);
 	}
@@ -287,10 +314,10 @@ namespace beam
 			uintBigFor<Height>::Type val;
 			arc & val;
 
-			val.Export(m_pMaturity[Type::kx]);
+			val.Export(m_KrnThresholdPos());
 		}
 		else
-			m_pMaturity[Type::kx] = MaxHeight;
+			m_KrnThresholdPos() = MaxHeight;
 	}
 
 	template <typename T>
