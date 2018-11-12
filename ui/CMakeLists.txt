@@ -217,7 +217,7 @@ if(BEAM_USE_STATIC)
 			${CMAKE_PREFIX_PATH}/qml/QtQuick/Templates.2/libqtquicktemplates2plugin.a
 
 			${CMAKE_PREFIX_PATH}/plugins/imageformats/libqsvg.a
-            #${CMAKE_PREFIX_PATH}/plugins/printsupport/libcupsprintersupport.a
+            ${CMAKE_PREFIX_PATH}/plugins/printsupport/libcupsprintersupport.a
 		)
 
 		foreach(lib
