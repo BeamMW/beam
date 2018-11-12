@@ -176,8 +176,8 @@ namespace beam
 		db.SetStateRollback(pRows[0], bBodyP);
 		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
 
-		db.DelStateBlockPRB(pRows[0]);
-		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
+		//db.DelStateBlockPRB(pRows[0]);
+		//db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
 
 		db.DelStateBlockAll(pRows[0]);
 		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);

@@ -332,7 +332,7 @@ void NodeProcessor::PruneOld()
 				if (!(NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row)))
 					m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
 
-				m_DB.DelStateBlockPRB(ws.m_Sid.m_Row);
+				m_DB.DelStateBlockAll(ws.m_Sid.m_Row);
 				m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
 			}
 
@@ -1599,10 +1599,6 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	// Update DB state flags and cursor. This will also buils the MMR for prev states
 	LOG_INFO() << "Building auxilliary datas...";
 
-	TxVectors::Ethernal txve;
-	TxVectors::Perishable txvp; // dummy
-	ByteBuffer krnBufCache;
-
 	r.Reset();
 	r.get_Start(body, s);
 	for (bool bFirstTime = true; r.get_NextHdr(s); s.NextPrefix())
@@ -1621,34 +1617,20 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 
 		m_DB.SetStateFunctional(sid.m_Row);
 
-		m_DB.DelStateBlockPRB(sid.m_Row); // if somehow it was downloaded
+		m_DB.DelStateBlockAll(sid.m_Row); // if somehow it was downloaded
 		m_DB.set_Peer(sid.m_Row, NULL);
-
-		// kernels
-		txve.m_vKernels.clear();
-		for (; r.m_pKernel && (r.m_pKernel->m_Maturity == s.m_Height); r.NextKernel())
-			TxVectors::Writer(txvp, txve).Write(*r.m_pKernel); // not the fastest method (unneeded allocs, copying)
-
-		krnBufCache.clear();
-
-		Serializer ser;
-		ser.swap_buf(krnBufCache);
-		ser & txve;
-		ser.swap_buf(krnBufCache);
-
-		m_DB.SetStateBlock(sid.m_Row, Blob(NULL, 0), krnBufCache);
 
 		sid.m_Height = id.m_Height;
 		m_DB.MoveFwd(sid);
-
-		for (size_t i = 0; i < txve.m_vKernels.size(); i++)
-		{
-			txve.m_vKernels[i]->get_ID(hv);
-			m_DB.InsertKernel(hv, id.m_Height);
-		}
 	}
 
-	assert(!r.m_pKernel);
+	// kernels
+	for (; r.m_pKernel; r.NextKernel())
+	{
+		r.m_pKernel->get_ID(hv);
+		m_DB.InsertKernel(hv, r.m_pKernel->m_Maturity);
+	}
+
 
 	m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &id.m_Height, NULL);
 	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);
