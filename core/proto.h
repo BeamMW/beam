@@ -56,7 +56,8 @@ namespace proto {
 	macro(Block::SystemState::ID, ID)
 
 #define BeamNodeMsg_Body(macro) \
-	macro(ByteBuffer, Buffer)
+	macro(ByteBuffer, Perishable) \
+	macro(ByteBuffer, Ethernal)
 
 #define BeamNodeMsg_GetProofState(macro) \
 	macro(Height, Height)
@@ -67,6 +68,10 @@ namespace proto {
 #define BeamNodeMsg_GetProofKernel(macro) \
 	macro(Merkle::Hash, ID)
 
+#define BeamNodeMsg_GetProofKernel2(macro) \
+	macro(Merkle::Hash, ID) \
+	macro(bool, Fetch)
+
 #define BeamNodeMsg_GetProofUtxo(macro) \
 	macro(ECC::Point, Utxo) \
 	macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
@@ -76,6 +81,11 @@ namespace proto {
 
 #define BeamNodeMsg_ProofKernel(macro) \
 	macro(Merkle::Proof, Proof)
+
+#define BeamNodeMsg_ProofKernel2(macro) \
+	macro(Merkle::Proof, Proof) \
+	macro(Height, Height) \
+	macro(TxKernel::Ptr, Kernel)
 
 #define BeamNodeMsg_ProofUtxo(macro) \
 	macro(std::vector<Input::Proof>, Proofs)
@@ -220,6 +230,8 @@ namespace proto {
 	macro(0x21, Macroblock) \
 	macro(0x22, GetCommonState) \
 	macro(0x23, ProofCommonState) \
+	macro(0x24, GetProofKernel2) \
+	macro(0x25, ProofKernel2) \
 	/* onwer-relevant */ \
 	macro(0x28, GetMined) \
 	macro(0x29, Mined) \
@@ -286,9 +298,19 @@ namespace proto {
 	inline void ZeroInit(ECC::Point& x) { ZeroObject(x); }
 	inline void ZeroInit(ECC::Signature& x) { ZeroObject(x); }
 
+	template <typename T> struct InitArg {
+		typedef const T& TArg;
+		static void Set(T& var, TArg arg) { var = arg; }
+	};
 
-#define THE_MACRO6(type, name) m_##name = name;
-#define THE_MACRO5(type, name) const type& name,
+	template <typename T> struct InitArg<std::unique_ptr<T> > {
+		typedef std::unique_ptr<T>& TArg;
+		static void Set(std::unique_ptr<T>& var, TArg arg) { var = std::move(arg); }
+	};
+
+
+#define THE_MACRO6(type, name) InitArg<type>::Set(m_##name, arg##name);
+#define THE_MACRO5(type, name) typename InitArg<type>::TArg arg##name,
 #define THE_MACRO4(type, name) ZeroInit(m_##name);
 #define THE_MACRO3(type, name) & m_##name
 #define THE_MACRO2(type, name) type m_##name;

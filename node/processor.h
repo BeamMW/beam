@@ -42,7 +42,6 @@ class NodeProcessor
 	bool GoForward(uint64_t);
 	void Rollback();
 	void PruneOld();
-	void PruneAt(Height, bool bDeleteBody);
 	void InitializeFromBlocks();
 	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock);
 
@@ -145,12 +144,15 @@ public:
 	};
 
 	DataStatus::Enum OnState(const Block::SystemState::Full&, const PeerID&);
-	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const Blob& block, const PeerID&);
+	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const Blob& bbP, const Blob& bbE, const PeerID&);
 
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }
 	UtxoTree& get_Utxos() { return m_Utxos; }
 	RadixHashOnlyTree& get_Kernels() { return m_Kernels; }
+	static void ReadBody(Block::Body&, const ByteBuffer& bbP, const ByteBuffer& bbE);
+
+	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);
 
 	void CommitDB();
 	void EnumCongestions(uint32_t nMaxBlocksBacklog);
@@ -178,7 +180,8 @@ public:
 		TxPool::Fluff& m_TxPool;
 		Key::IKdf& m_Kdf;
 		Block::SystemState::Full m_Hdr;
-		ByteBuffer m_Body;
+		ByteBuffer m_BodyP;
+		ByteBuffer m_BodyE;
 		Amount m_Fees;
 
 		BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf)

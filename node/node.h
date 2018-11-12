@@ -465,6 +465,7 @@ private:
 		virtual void OnMsg(proto::GetCommonState&&) override;
 		virtual void OnMsg(proto::GetProofState&&) override;
 		virtual void OnMsg(proto::GetProofKernel&&) override;
+		virtual void OnMsg(proto::GetProofKernel2&&) override;
 		virtual void OnMsg(proto::GetProofUtxo&&) override;
 		virtual void OnMsg(proto::GetProofChainWork&&) override;
 		virtual void OnMsg(proto::PeerInfoSelf&&) override;
@@ -551,7 +552,8 @@ private:
 			// Task is mutable. But modifications are allowed only when holding the mutex.
 
 			Block::SystemState::Full m_Hdr;
-			ByteBuffer m_Body;
+			ByteBuffer m_BodyP;
+			ByteBuffer m_BodyE;
 			Amount m_Fees;
 
 			std::shared_ptr<volatile bool> m_pStop;

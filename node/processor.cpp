@@ -326,25 +326,17 @@ void NodeProcessor::PruneOld()
 			if (++hFossil >= h)
 				break;
 
-			PruneAt(hFossil, true);
+			NodeDB::WalkerState ws(m_DB);
+			for (m_DB.EnumStatesAt(ws, hFossil); ws.MoveNext(); )
+			{
+				if (!(NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row)))
+					m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
+
+				m_DB.DelStateBlockPRB(ws.m_Sid.m_Row);
+				m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
+			}
+
 			m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
-		}
-	}
-}
-
-void NodeProcessor::PruneAt(Height h, bool bDeleteBody)
-{
-	NodeDB::WalkerState ws(m_DB);
-	;
-	for (m_DB.EnumStatesAt(ws, h); ws.MoveNext(); )
-	{
-		if (!(NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row)))
-			m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
-
-		if (bDeleteBody)
-		{
-			m_DB.DelStateBlock(ws.m_Sid.m_Row);
-			m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
 		}
 	}
 }
@@ -379,7 +371,7 @@ struct NodeProcessor::RollbackData
 
 	ByteBuffer m_Buf;
 
-	void Import(const TxVectors& txv)
+	void Import(const TxVectors::Perishable& txv)
 	{
 		if (txv.m_vInputs.empty())
 			m_Buf.push_back(0); // make sure it's not empty, even if there were no inputs, this is how we distinguish processed blocks.
@@ -394,7 +386,7 @@ struct NodeProcessor::RollbackData
 		}
 	}
 
-	void Export(TxVectors& txv) const
+	void Export(TxVectors::Perishable& txv) const
 	{
 		if (txv.m_vInputs.empty())
 			return;
@@ -409,11 +401,109 @@ struct NodeProcessor::RollbackData
 	}
 };
 
+void NodeProcessor::ReadBody(Block::Body& res, const ByteBuffer& bbP, const ByteBuffer& bbE)
+{
+	Deserializer der;
+	der.reset(bbP);
+	der & Cast::Down<Block::BodyBase>(res);
+	der & Cast::Down<TxVectors::Perishable>(res);
+
+	der.reset(bbE);
+	der & Cast::Down<TxVectors::Ethernal>(res);
+}
+
+Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes, const Merkle::Hash& idKrn)
+{
+	Height h = m_DB.FindKernel(idKrn);
+	if (h < Rules::HeightGenesis)
+		return h;
+
+	uint64_t rowid = FindActiveAtStrict(h);
+
+	ByteBuffer bbE;
+	m_DB.GetStateBlock(rowid, NULL, &bbE, NULL);
+
+	TxVectors::Ethernal txve;
+
+	Deserializer der;
+	der.reset(bbE);
+	der & txve;
+
+	// TODO - for a single proof there's no need to allocate the whole MMR, the proof can be calculated on-the-fly recursively.
+	// The number of calculations, however, is the same
+
+	struct MyMmr
+		:public Merkle::Mmr
+	{
+		std::vector<Merkle::Hash> m_vHashes;
+		uint64_t m_Total;
+
+		MyMmr(uint64_t nTotal)
+			:m_Total(nTotal)
+		{
+			uint64_t nHashes = nTotal;
+			while (nTotal >>= 1)
+				nHashes += nTotal;
+
+			m_vHashes.resize(nHashes);
+		}
+		
+		uint64_t Pos2Idx(const Merkle::Position& pos) const
+		{
+		    uint64_t nTotal = m_Total;
+		    uint64_t ret = pos.X;
+		
+		    for (uint8_t y = 0; y < pos.H; y++)
+		    {
+		        ret += nTotal;
+				nTotal >>= 1;
+			}
+		
+		    assert(pos.X < nTotal);
+		    assert(ret < m_vHashes.size());
+		    return ret;
+		}
+		
+		virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
+		{
+	        hv = m_vHashes[Pos2Idx(pos)];
+		}
+		virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override
+		{
+	        m_vHashes[Pos2Idx(pos)] = hv;
+		}
+	};
+
+	MyMmr mmr(txve.m_vKernels.size());
+
+	size_t iTrg = txve.m_vKernels.size();
+	for (size_t i = 0; i < txve.m_vKernels.size(); i++)
+	{
+		TxKernel::Ptr& pKrn = txve.m_vKernels[i];
+		Merkle::Hash hv;
+		pKrn->get_ID(hv);
+		mmr.Append(hv);
+
+		if (hv == idKrn)
+		{
+			iTrg = i; // found
+			if (ppRes)
+				*ppRes = std::move(pKrn);
+		}
+	}
+
+	if (txve.m_vKernels.size() == iTrg)
+		OnCorrupted();
+
+	mmr.get_Proof(proof, iTrg);
+	return h;
+}
+
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 {
-	ByteBuffer bb;
+	ByteBuffer bbP, bbE;
 	RollbackData rbData;
-	m_DB.GetStateBlock(sid.m_Row, bb, rbData.m_Buf);
+	m_DB.GetStateBlock(sid.m_Row, &bbP, &bbE, &rbData.m_Buf);
 
 	Block::SystemState::Full s;
 	m_DB.get_State(sid.m_Row, s); // need it for logging anyway
@@ -423,17 +513,17 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 	Block::Body block;
 	try {
-
-		Deserializer der;
-		der.reset(bb.empty() ? NULL : &bb.at(0), bb.size());
-		der & block;
+		ReadBody(block, bbP, bbE);
 	}
 	catch (const std::exception&) {
 		LOG_WARNING() << id << " Block deserialization failed";
 		return false;
 	}
 
-	bb.clear();
+	std::vector<Merkle::Hash> vKrnID(block.m_vKernels.size()); // allocate mem for all kernel IDs, we need them for initial verification vs header, and at the end - to add to the kernel index.
+	// better to allocate the memory, then to calculate IDs twice
+	for (size_t i = 0; i < vKrnID.size(); i++)
+		block.m_vKernels[i]->get_ID(vKrnID[i]);
 
 	bool bFirstTime = false;
 
@@ -461,6 +551,19 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 			if (s.m_TimeStamp <= get_MovingMedian())
 			{
 				LOG_WARNING() << id << " Timestamp inconsistent wrt median";
+				return false;
+			}
+
+			Merkle::CompactMmr cmmr;
+			for (size_t i = 0; i < vKrnID.size(); i++)
+				cmmr.Append(vKrnID[i]);
+
+			Merkle::Hash hv;
+			cmmr.get_Hash(hv);
+
+			if (s.m_Kernels != hv)
+			{
+				LOG_WARNING() << id << " Kernel commitment mismatch";
 				return false;
 			}
 
@@ -513,6 +616,15 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 	if (bOk)
 	{
+		for (size_t i = 0; i < vKrnID.size(); i++)
+		{
+			const Merkle::Hash& hv = vKrnID[i];
+			if (bFwd)
+				m_DB.InsertKernel(hv, sid.m_Height);
+			else
+				m_DB.DeleteKernel(hv, sid.m_Height);
+		}
+
 		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
 	}
 
@@ -723,17 +835,27 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 
 void NodeProcessor::ToggleSubsidyOpened()
 {
-	Merkle::Hash hv(Zero);
+	UtxoTree::Key::Data d;
+	ZeroObject(d);
+	d.m_Commitment.m_Y = true; // invalid commitment
 
-	RadixHashOnlyTree::Cursor cu;
+	UtxoTree::Key key;
+	key = d;
+
+	UtxoTree::Cursor cu;
 	bool bCreate = true;
-	m_Kernels.Find(cu, hv, bCreate);
+	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
 
 	assert(m_Extra.m_SubsidyOpen == bCreate);
 	m_Extra.m_SubsidyOpen = !bCreate;
 
-	if (!bCreate)
-		m_Kernels.Delete(cu);
+	if (bCreate)
+		p->m_Value.m_Count = 1;
+	else
+	{
+		assert(1 == p->m_Value.m_Count);
+		m_Utxos.Delete(cu);
+	}
 }
 
 bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd)
@@ -773,7 +895,7 @@ bool NodeProcessor::GoForward(uint64_t row)
 		return true;
 	}
 
-	m_DB.DelStateBlock(row);
+	m_DB.DelStateBlockAll(row);
 	m_DB.SetStateNotFunctional(row);
 
 	PeerID peer;
@@ -852,12 +974,13 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 	return ret;
 }
 
-NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const Blob& block, const PeerID& peer)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const Blob& bbP, const Blob& bbE, const PeerID& peer)
 {
 	OnBlockData();
-	if (block.n > Rules::get().MaxBodySize)
+	size_t nSize = size_t(bbP.n) + size_t(bbE.n);
+	if (nSize > Rules::get().MaxBodySize)
 	{
-		LOG_WARNING() << id << " Block too large: " << block.n;
+		LOG_WARNING() << id << " Block too large: " << nSize;
 		return DataStatus::Invalid;
 	}
 
@@ -879,7 +1002,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 
 	LOG_INFO() << id << " Block received";
 
-	m_DB.SetStateBlock(rowid, block);
+	m_DB.SetStateBlock(rowid, bbP, bbE);
 	m_DB.SetStateFunctional(rowid);
 	m_DB.set_Peer(rowid, &peer);
 
@@ -1155,7 +1278,7 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 
 		if (ValidateTxWrtHeight(tx, h) && HandleValidatedTx(tx.get_Reader(), h, true))
 		{
-			Block::Body::Writer(res).Dump(tx.get_Reader());
+			TxVectors::Writer(res, res).Dump(tx.get_Reader());
 
 			bc.m_Fees = feesNext;
 			ssc.m_Counter.m_Value = nSizeNext;
@@ -1192,7 +1315,18 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 		ToggleSubsidyOpened();
 
 	get_Definition(bc.m_Hdr.m_Definition, true);
-	bc.m_Hdr.m_Kernels = Zero;
+
+	res.NormalizeE();
+
+	Merkle::CompactMmr cmmr;
+
+	for (size_t i = 0; i < res.m_vKernels.size(); i++)
+	{
+		res.m_vKernels[i]->get_ID(bc.m_Hdr.m_Kernels);
+		cmmr.Append(bc.m_Hdr.m_Kernels);
+	}
+
+	cmmr.get_Hash(bc.m_Hdr.m_Kernels);
 
 	if (res.m_SubsidyClosing)
 		ToggleSubsidyOpened();
@@ -1249,20 +1383,27 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, bool bI
 	for (size_t i = 0; i < res.m_vInputs.size(); i++)
 		res.m_vInputs[i]->m_Maturity = 0;
 
-	size_t nCutThrough = res.Normalize();
+	size_t nCutThrough = res.NormalizeP(); // kernels must have already been normalized, this is needed for kernel commitment
 	nCutThrough; // remove "unused var" warning
 
 	Serializer ser;
 
 	ser.reset();
-	ser & res;
-	ser.swap_buf(bc.m_Body);
+	ser & Cast::Down<Block::BodyBase>(res);
+	ser & Cast::Down<TxVectors::Perishable>(res);
+	ser.swap_buf(bc.m_BodyP);
+
+	ser.reset();
+	ser & Cast::Down<TxVectors::Ethernal>(res);
+	ser.swap_buf(bc.m_BodyE);
+
+	size_t nSize = bc.m_BodyP.size() + bc.m_BodyE.size();
 
 	assert(nCutThrough ?
-		(bc.m_Body.size() < nSizeEstimated) :
-		(bc.m_Body.size() == nSizeEstimated));
+		(nSize < nSizeEstimated) :
+		(nSize == nSizeEstimated));
 
-	return bc.m_Body.size() <= Rules::get().MaxBodySize;
+	return nSize <= Rules::get().MaxBodySize;
 }
 
 bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
@@ -1272,14 +1413,11 @@ bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& 
 
 void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::StateID& sid)
 {
-	ByteBuffer bb;
+	ByteBuffer bbP, bbE;
 	RollbackData rbData;
-	m_DB.GetStateBlock(sid.m_Row, bb, rbData.m_Buf);
+	m_DB.GetStateBlock(sid.m_Row, &bbP, &bbE, &rbData.m_Buf);
 
-	Deserializer der;
-	der.reset(bb.empty() ? NULL : &bb.at(0), bb.size());
-	der & block;
-
+	ReadBody(block, bbP, bbE);
 	rbData.Export(block);
 
 	for (size_t i = 0; i < block.m_vOutputs.size(); i++)
@@ -1288,7 +1426,10 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 		v.m_Maturity = v.get_MinMaturity(sid.m_Height);
 	}
 
-	block.Normalize(); // needed, since the maturity is adjusted non-even
+	block.NormalizeP(); // needed, since the maturity is adjusted non-even
+
+	for (size_t i = 0; i < block.m_vKernels.size(); i++)
+		block.m_vKernels[i]->m_Maturity = sid.m_Height;
 }
 
 void NodeProcessor::SquashOnce(std::vector<Block::Body>& v)
@@ -1302,7 +1443,7 @@ void NodeProcessor::SquashOnce(std::vector<Block::Body>& v)
 	trg.Merge(src0);
 
 	bool bStop = false;
-	Block::Body::Writer(trg).Combine(src0.get_Reader(), src1.get_Reader(), bStop);
+	TxVectors::Writer(trg, trg).Combine(src0.get_Reader(), src1.get_Reader(), bStop);
 
 	v.pop_back();
 }
@@ -1404,7 +1545,13 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		return false; // incompatible beginning state
 	}
 
-	Merkle::CompactMmr cmmr;
+	if (r.m_pKernel && r.m_pKernel->m_Maturity < s.m_Height)
+	{
+		LOG_WARNING() << "Kernel maturity OOB";
+		return false; // incompatible beginning state
+	}
+
+	Merkle::CompactMmr cmmr, cmmrKrn;
 	if (m_Cursor.m_ID.m_Height > Rules::HeightGenesis)
 	{
 		Merkle::ProofBuilderHard bld;
@@ -1456,6 +1603,33 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		default: // suppress the warning of not handling all the enum values
 			break;
 		}
+
+		// verify kernel commitment
+		cmmrKrn.m_Count = 0;
+		cmmrKrn.m_vNodes.clear();
+
+		// don't care if kernels are out-of-order, this will be handled during the context-free validation.
+		for (; r.m_pKernel && (r.m_pKernel->m_Maturity == s.m_Height); r.NextKernel())
+		{
+			Merkle::Hash hv;
+			r.m_pKernel->get_ID(hv);
+			cmmrKrn.Append(hv);
+		}
+
+		Merkle::Hash hv;
+		cmmrKrn.get_Hash(hv);
+
+		if (s.m_Kernels != hv)
+		{
+			LOG_WARNING() << id << " Kernel commitment mismatch";
+			return false;
+		}
+	}
+
+	if (r.m_pKernel)
+	{
+		LOG_WARNING() << "Kernel maturity OOB";
+		return false;
 	}
 
 	LOG_INFO() << "Context-free validation...";
@@ -1491,6 +1665,10 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	// Update DB state flags and cursor. This will also buils the MMR for prev states
 	LOG_INFO() << "Building auxilliary datas...";
 
+	TxVectors::Ethernal txve;
+	TxVectors::Perishable txvp; // dummy
+	ByteBuffer krnBufCache;
+
 	r.Reset();
 	r.get_Start(body, s);
 	for (bool bFirstTime = true; r.get_NextHdr(s); s.NextPrefix())
@@ -1509,12 +1687,34 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 
 		m_DB.SetStateFunctional(sid.m_Row);
 
-		m_DB.DelStateBlock(sid.m_Row); // if somehow it was downloaded
+		m_DB.DelStateBlockPRB(sid.m_Row); // if somehow it was downloaded
 		m_DB.set_Peer(sid.m_Row, NULL);
+
+		// kernels
+		txve.m_vKernels.clear();
+		for (; r.m_pKernel && (r.m_pKernel->m_Maturity == s.m_Height); r.NextKernel())
+			TxVectors::Writer(txvp, txve).Write(*r.m_pKernel); // not the fastest method (unneeded allocs, copying)
+
+		krnBufCache.clear();
+
+		Serializer ser;
+		ser.swap_buf(krnBufCache);
+		ser & txve;
+		ser.swap_buf(krnBufCache);
+
+		m_DB.SetStateBlock(sid.m_Row, Blob(NULL, 0), krnBufCache);
 
 		sid.m_Height = id.m_Height;
 		m_DB.MoveFwd(sid);
+
+		for (size_t i = 0; i < txve.m_vKernels.size(); i++)
+		{
+			txve.m_vKernels[i]->get_ID(hv);
+			m_DB.InsertKernel(hv, id.m_Height);
+		}
 	}
+
+	assert(!r.m_pKernel);
 
 	m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &id.m_Height, NULL);
 	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);
@@ -1574,23 +1774,16 @@ bool NodeProcessor::EnumBlocks(IBlockWalker& wlk)
 		vPath.push_back(rowid);
 	}
 
-	ByteBuffer bb;
-	RollbackData rbData;
+	ByteBuffer bbP, bbE;
 	for (; !vPath.empty(); vPath.pop_back())
 	{
-		bb.clear();
-		rbData.m_Buf.clear();
+		bbP.clear();
+		bbE.clear();
 
-		m_DB.GetStateBlock(vPath.back(), bb, rbData.m_Buf);
-
-		if (bb.empty())
-			OnCorrupted();
+		m_DB.GetStateBlock(vPath.back(), &bbP, &bbE, NULL);
 
 		Block::Body block;
-
-		Deserializer der;
-		der.reset(&bb.at(0), bb.size());
-		der & block;
+		ReadBody(block, bbP, bbE);
 
 		if (!wlk.OnBlock(block, block.get_Reader(), vPath.back(), ++h, NULL))
 			return false;

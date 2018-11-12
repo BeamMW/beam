@@ -36,7 +36,8 @@ namespace beam {
 #define TblStates_CountNextF	"CountNextFunctional"
 #define TblStates_PoW			"PoW"
 #define TblStates_Mmr			"Mmr"
-#define TblStates_Body			"Body"
+#define TblStates_BodyP			"Perishable"
+#define TblStates_BodyE			"Ethernal"
 #define TblStates_Rollback		"Rollback"
 #define TblStates_Peer			"Peer"
 #define TblStates_ChainWork		"ChainWork"
@@ -46,6 +47,10 @@ namespace beam {
 #define TblTips_Height			"Height"
 #define TblTips_State			"State"
 #define TblTips_ChainWork		"ChainWork"
+
+#define TblKernels				"Kernels"
+#define TblKernels_Key			"Commitment"
+#define TblKernels_Height		"Height"
 
 #define TblMined				"Mined"
 #define TblMined_Height			"Height"
@@ -247,7 +252,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion = 10;
+	const uint64_t nVersion = 12;
 
 	if (bCreate)
 	{
@@ -287,7 +292,8 @@ void NodeDB::Create()
 		"[" TblStates_CountNextF	"] INTEGER NOT NULL,"
 		"[" TblStates_PoW			"] BLOB,"
 		"[" TblStates_Mmr			"] BLOB,"
-		"[" TblStates_Body			"] BLOB,"
+		"[" TblStates_BodyP			"] BLOB,"
+		"[" TblStates_BodyE			"] BLOB,"
 		"[" TblStates_Rollback		"] BLOB,"
 		"[" TblStates_Peer			"] BLOB,"
 		"[" TblStates_ChainWork		"] BLOB,"
@@ -310,6 +316,12 @@ void NodeDB::Create()
 		"FOREIGN KEY (" TblTips_ChainWork ") REFERENCES " TblStates "(" TblStates_ChainWork "))");
 
 	ExecQuick("CREATE INDEX [Idx" TblTipsReachable "Wrk] ON [" TblTipsReachable "] ([" TblTips_ChainWork "]);");
+
+	ExecQuick("CREATE TABLE [" TblKernels "] ("
+		"[" TblKernels_Key		"] BLOB NOT NULL,"
+		"[" TblKernels_Height	"] INTEGER NOT NULL)");
+
+	ExecQuick("CREATE INDEX [Idx" TblKernels "] ON [" TblKernels "] ([" TblKernels_Key "],[" TblKernels_Height "]  DESC);");
 
 	ExecQuick("CREATE TABLE [" TblMined "] ("
 		"[" TblMined_Height		"] INTEGER NOT NULL,"
@@ -986,29 +998,31 @@ bool NodeDB::get_Peer(uint64_t rowid, PeerID& peer)
 	return true;
 }
 
-void NodeDB::SetStateBlock(uint64_t rowid, const Blob& body)
+void NodeDB::SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE)
 {
-	Recordset rs(*this, Query::StateSetBlock, "UPDATE " TblStates " SET " TblStates_Body "=? WHERE rowid=?");
-	if (body.n)
-		rs.put(0, body);
-	rs.put(1, rowid);
+	Recordset rs(*this, Query::StateSetBlock, "UPDATE " TblStates " SET " TblStates_BodyP "=?," TblStates_BodyE "=? WHERE rowid=?");
+	if (bodyP.n)
+		rs.put(0, bodyP);
+	if (bodyE.n)
+		rs.put(1, bodyE);
+	rs.put(2, rowid);
 
 	rs.Step();
 	TestChanged1Row();
 }
 
-void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rollback)
+void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteBuffer* pRollback)
 {
-	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_Body "," TblStates_Rollback " FROM " TblStates " WHERE rowid=?");
+	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_BodyP "," TblStates_BodyE "," TblStates_Rollback " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 	rs.StepStrict();
 
-	if (!rs.IsNull(0))
-	{
-		rs.get(0, body);
-		if (!rs.IsNull(1))
-			rs.get(1, rollback);
-	}
+	if (pP && !rs.IsNull(0))
+		rs.get(0, *pP);
+	if (pE && !rs.IsNull(1))
+		rs.get(1, *pE);
+	if (pRollback && !rs.IsNull(2))
+		rs.get(2, *pRollback);
 }
 
 void NodeDB::SetStateRollback(uint64_t rowid, const Blob& rollback)
@@ -1021,10 +1035,18 @@ void NodeDB::SetStateRollback(uint64_t rowid, const Blob& rollback)
 	TestChanged1Row();
 }
 
-void NodeDB::DelStateBlock(uint64_t rowid)
+void NodeDB::DelStateBlockPRB(uint64_t rowid)
+{
+	Recordset rs(*this, Query::StateDelBlock, "UPDATE " TblStates " SET " TblStates_BodyP "=?," TblStates_Rollback "=? WHERE rowid=?");
+	rs.put(2, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::DelStateBlockAll(uint64_t rowid)
 {
 	Blob bEmpty(NULL, 0);
-	SetStateBlock(rowid, bEmpty);
+	SetStateBlock(rowid, bEmpty, bEmpty);
 	SetStateRollback(rowid, bEmpty);
 }
 
@@ -1645,10 +1667,56 @@ void NodeDB::ResetCursor()
 	rs.put(0, ~uint32_t(StateFlags::Active));
 	rs.Step();
 
+	rs.Reset(Query::KernelDelAll, "DELETE FROM " TblKernels);
+	rs.Step();
+
 	StateID sid;
 	sid.m_Row = 0;
 	sid.m_Height = Rules::HeightGenesis - 1;
 	put_Cursor(sid);
+}
+
+void NodeDB::InsertKernel(const Blob& key, Height h)
+{
+	assert(h >= Rules::HeightGenesis);
+
+	Recordset rs(*this, Query::KernelIns, "INSERT INTO " TblKernels "(" TblKernels_Key "," TblKernels_Height ") VALUES(?,?)");
+	rs.put(0, key);
+	rs.put(1, h);
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::DeleteKernel(const Blob& key, Height h)
+{
+	assert(h >= Rules::HeightGenesis);
+
+	Recordset rs(*this, Query::KernelDel, "DELETE FROM " TblKernels " WHERE " TblKernels_Key "=? AND " TblKernels_Height "=?");
+	rs.put(0, key);
+	rs.put(1, h);
+	rs.Step();
+
+	uint32_t nRows = get_RowsChanged();
+	if (!nRows)
+		ThrowError("no krn");
+	else
+		// in the *very* unlikely case of kernel duplicate at the same height (!!!) - just re-insert it
+		while (--nRows)
+			InsertKernel(key, h);
+}
+
+Height NodeDB::FindKernel(const Blob& key)
+{
+	Recordset rs(*this, Query::KernelFind, "SELECT " TblKernels_Height " FROM " TblKernels " WHERE " TblKernels_Key "=? ORDER BY " TblKernels_Height " DESC LIMIT 1");
+	rs.put(0, key);
+	if (!rs.Step())
+		return Rules::HeightGenesis - 1;
+
+	Height h;
+	rs.get(0, h);
+
+	assert(h >= Rules::HeightGenesis);
+	return h;
 }
 
 } // namespace beam

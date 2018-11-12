@@ -500,14 +500,18 @@ bool Node::Processor::ApproveState(const Block::SystemState::ID& id)
 
 void Node::Processor::AdjustFossilEnd(Height& h)
 {
+	// blocks above the oldest macroblock should be accessible
+	Height hOldest = 0;
+
 	if (get_ParentObj().m_Compressor.m_bEnabled)
 	{
-		// blocks above the oldest macroblock should be accessuble
 		NodeDB::WalkerState ws(get_DB());
 		for (get_DB().EnumMacroblocks(ws); ws.MoveNext(); )
-			if (h > ws.m_Sid.m_Height)
-				h = ws.m_Sid.m_Height;
+			hOldest = ws.m_Sid.m_Height;
 	}
+
+	if (h > hOldest)
+		h = hOldest;
 }
 
 void Node::Processor::OnStateData()
@@ -1601,10 +1605,9 @@ void Node::Peer::OnMsg(proto::GetBody&& msg)
 	if (rowid)
 	{
 		proto::Body msgBody;
-		ByteBuffer bbRollback;
-		m_This.m_Processor.get_DB().GetStateBlock(rowid, msgBody.m_Buffer, bbRollback);
+		m_This.m_Processor.get_DB().GetStateBlock(rowid, &msgBody.m_Perishable, &msgBody.m_Ethernal, NULL);
 
-		if (!msgBody.m_Buffer.empty())
+		if (!msgBody.m_Perishable.empty())
 		{
 			Send(msgBody);
 			return;
@@ -1628,7 +1631,7 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 
 	const Block::SystemState::ID& id = t.m_Key.first;
 
-	NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnBlock(id, msg.m_Buffer, m_pInfo->m_ID.m_Key);
+	NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnBlock(id, msg.m_Perishable, msg.m_Ethernal, m_pInfo->m_ID.m_Key);
 	OnFirstTaskDone(eStatus);
 }
 
@@ -2285,6 +2288,13 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 	Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::GetProofKernel2&& msg)
+{
+	proto::ProofKernel2 msgOut;
+	msgOut.m_Height = m_This.m_Processor.get_ProofKernel(msgOut.m_Proof, msg.m_Fetch ? &msgOut.m_Kernel : NULL, msg.m_ID);
+	Send(msgOut);
+}
+
 void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 {
 	struct Traveler :public UtxoTree::ITraveler
@@ -2837,11 +2847,12 @@ bool Node::Miner::Restart()
 		return false;
 	}
 
-	LOG_INFO() << "Block generated: Height=" << bc.m_Hdr.m_Height << ", Fee=" << bc.m_Fees << ", Difficulty=" << bc.m_Hdr.m_PoW.m_Difficulty << ", Size=" << bc.m_Body.size();
+	LOG_INFO() << "Block generated: Height=" << bc.m_Hdr.m_Height << ", Fee=" << bc.m_Fees << ", Difficulty=" << bc.m_Hdr.m_PoW.m_Difficulty << ", Size=" << (bc.m_BodyP.size() + bc.m_BodyE.size());
 
 	Task::Ptr pTask(std::make_shared<Task>());
 	pTask->m_Hdr = std::move(bc.m_Hdr);
-	pTask->m_Body = std::move(bc.m_Body);
+	pTask->m_BodyP = std::move(bc.m_BodyP);
+	pTask->m_BodyE = std::move(bc.m_BodyE);
 	pTask->m_Fees = bc.m_Fees;
 
 	pTask->m_hvNonceSeed = get_ParentObj().NextNonce();
@@ -2912,7 +2923,7 @@ void Node::Miner::OnMined()
 
 	get_ParentObj().m_Processor.FlushDB();
 
-	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_Body, get_ParentObj().m_MyPublicID); // will likely trigger OnNewState(), and spread this block to the network
+	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_BodyP, pTask->m_BodyE, get_ParentObj().m_MyPublicID); // will likely trigger OnNewState(), and spread this block to the network
 	assert(NodeProcessor::DataStatus::Accepted == eStatus);
 }
 

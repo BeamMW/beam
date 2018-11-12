@@ -271,7 +271,6 @@ namespace beam
 
 	private:
 		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const;
-		void HashToID(Merkle::Hash& hv) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
@@ -318,17 +317,25 @@ namespace beam
 
 	struct TxVectors
 	{
-		std::vector<Input::Ptr> m_vInputs;
-		std::vector<Output::Ptr> m_vOutputs;
-		std::vector<TxKernel::Ptr> m_vKernels;
+		struct Perishable
+		{
+			std::vector<Input::Ptr> m_vInputs;
+			std::vector<Output::Ptr> m_vOutputs;
+			size_t NormalizeP(); // w.r.t. the standard, delete spent outputs. Returns the num deleted
+		};
 
-		size_t Normalize(); // w.r.t. the standard, delete spent outputs. Returns the num deleted
+		struct Ethernal
+		{
+			std::vector<TxKernel::Ptr> m_vKernels;
+			void NormalizeE();
+		};
 
 		class Reader :public TxBase::IReader {
 			size_t m_pIdx[3];
 		public:
-			const TxVectors& m_Txv;
-			Reader(const TxVectors& txv) :m_Txv(txv) {}
+			const Perishable& m_P;
+			const Ethernal& m_E;
+			Reader(const Perishable& p, const Ethernal& e) :m_P(p) ,m_E(e) {}
 			// IReader
 			virtual void Clone(Ptr&) override;
 			virtual void Reset() override;
@@ -337,29 +344,34 @@ namespace beam
 			virtual void NextKernel() override;
 		};
 
-		Reader get_Reader() const {
-			return Reader(*this);
-		}
-
 		struct Writer :public TxBase::IWriter
 		{
-			TxVectors& m_Txv;
-			Writer(TxVectors& txv) :m_Txv(txv) {}
+			Perishable& m_P;
+			Ethernal& m_E;
+			Writer(Perishable& p, Ethernal& e) :m_P(p), m_E(e) {}
 
 			virtual void Write(const Input&) override;
 			virtual void Write(const Output&) override;
 			virtual void Write(const TxKernel&) override;
 		};
+
+		struct Full
+			:public TxVectors::Perishable
+			,public TxVectors::Ethernal
+		{
+			Reader get_Reader() const {
+				return Reader(*this, *this);
+			}
+
+			size_t Normalize();
+		};
 	};
 
 	struct Transaction
 		:public TxBase
-		,public TxVectors
+		,public TxVectors::Full
 	{
 		typedef std::shared_ptr<Transaction> Ptr;
-
-		int cmp(const Transaction&) const;
-		COMPARISON_VIA_CMP
 
 		bool IsValid(Context&) const; // Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
 
@@ -512,7 +524,7 @@ namespace beam
 
 		struct Body
 			:public BodyBase
-			,public TxVectors
+			,public TxVectors::Full
 		{
 			bool IsValid(const HeightRange& hr, bool bSubsidyOpen) const
 			{
