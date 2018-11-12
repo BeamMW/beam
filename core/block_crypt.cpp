@@ -832,11 +832,8 @@ namespace beam
 
 	bool Block::SystemState::Sequence::Element::IsValidProofUtxo(const ECC::Point& comm, const Input::Proof& p) const
 	{
-		// verify known part. Last node should be at left, earlier should be at right
-		size_t n = p.m_Proof.size();
-		if ((n < 2) ||
-			p.m_Proof[n - 1].first ||
-			!p.m_Proof[n - 2].first)
+		// verify known part. Last node (history) should be at left
+		if (p.m_Proof.empty() || p.m_Proof.back().first)
 			return false;
 
 		Merkle::Hash hv;

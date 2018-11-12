@@ -33,7 +33,6 @@ class NodeProcessor
 	NodeDB::Transaction m_DbTx;
 
 	UtxoTree m_Utxos;
-	RadixHashOnlyTree m_Kernels;
 
 	size_t m_nSizeUtxoComission;
 
@@ -52,9 +51,7 @@ class NodeProcessor
 	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, const Height* = NULL);
 	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd);
 	bool HandleBlockElement(const Output&, Height, const Height*, bool bFwd);
-	bool HandleBlockElement(const TxKernel&, bool bFwd);
 	void ToggleSubsidyOpened();
-	bool ValidateTxContextKernels(const std::vector<TxKernel::Ptr>&);
 
 	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
 
@@ -126,8 +123,6 @@ public:
 
 	} m_Extra;
 
-	void get_CurrentLive(Merkle::Hash&);
-
 	// Export compressed history elements. Suitable only for "small" ranges, otherwise may be both time & memory consumng.
 	void ExtractBlockWithExtra(Block::Body&, const NodeDB::StateID&);
 	void ExportMacroBlock(Block::BodyBase::IMacroWriter&, const HeightRange&);
@@ -149,7 +144,6 @@ public:
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }
 	UtxoTree& get_Utxos() { return m_Utxos; }
-	RadixHashOnlyTree& get_Kernels() { return m_Kernels; }
 	static void ReadBody(Block::Body&, const ByteBuffer& bbP, const ByteBuffer& bbE);
 
 	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);

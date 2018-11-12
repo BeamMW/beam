@@ -341,19 +341,9 @@ void NodeProcessor::PruneOld()
 	}
 }
 
-void NodeProcessor::get_CurrentLive(Merkle::Hash& hv)
-{
-	m_Utxos.get_Hash(hv);
-
-	Merkle::Hash hv2;
-	m_Kernels.get_Hash(hv2);
-
-	Merkle::Interpret(hv, hv2, true);
-}
-
 void NodeProcessor::get_Definition(Merkle::Hash& hv, const Merkle::Hash& hvHist)
 {
-	get_CurrentLive(hv);
+	m_Utxos.get_Hash(hv);
 	Merkle::Interpret(hv, hvHist, false);
 }
 
@@ -633,7 +623,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, const Height* pHMax)
 {
-	uint32_t nInp = 0, nOut = 0, nKrn = 0;
+	uint32_t nInp = 0, nOut = 0;
 	r.Reset();
 
 	bool bOk = true;
@@ -653,14 +643,6 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 			}
 
 	if (bOk)
-		for (; r.m_pKernel; r.NextKernel(), nKrn++)
-			if (!HandleBlockElement(*r.m_pKernel, bFwd))
-			{
-				bOk = false;
-				break;
-			}
-
-	if (bOk)
 		return true;
 
 	if (!bFwd)
@@ -668,9 +650,6 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 
 	// Rollback all the changes. Must succeed!
 	r.Reset();
-
-	for (; nKrn--; r.NextKernel())
-		HandleBlockElement(*r.m_pKernel, false);
 
 	for (; nOut--; r.NextUtxoOut())
 		HandleBlockElement(*r.m_pUtxoOut, h, pHMax, false);
@@ -856,30 +835,6 @@ void NodeProcessor::ToggleSubsidyOpened()
 		assert(1 == p->m_Value.m_Count);
 		m_Utxos.Delete(cu);
 	}
-}
-
-bool NodeProcessor::HandleBlockElement(const TxKernel& v, bool bFwd)
-{
-	Merkle::Hash key;
-	v.get_ID(key);
-
-	RadixHashOnlyTree::Cursor cu;
-	bool bCreate = bFwd;
-	RadixHashOnlyTree::MyLeaf* p = m_Kernels.Find(cu, key, bCreate);
-
-	if (bFwd)
-	{
-		if (!bCreate)
-			return false; // attempt to use the same exactly kernel twice. This should be banned!
-	} else
-	{
-		if (!p)
-			return false; // no such a kernel
-
-		m_Kernels.Delete(cu);
-	}
-
-	return true;
 }
 
 bool NodeProcessor::GoForward(uint64_t row)
@@ -1094,31 +1049,6 @@ bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, Height h)
 	return true;
 }
 
-bool NodeProcessor::ValidateTxContextKernels(const std::vector<TxKernel::Ptr>& vec)
-{
-	Merkle::Hash phv[2];
-	phv[1] = Zero; // forbidden value for kernel ID
-
-	for (size_t i = 0; i < vec.size(); i++)
-	{
-		const TxKernel& v = *vec[i];
-		v.get_ID(phv[1 & i]);
-
-		if (phv[0] == phv[1])
-			return false; // consequent kernels have the same ID
-		// We don't check if non-consequent kernels have the same ID. Too low probability, and this is supposed to be a fast verification
-
-		RadixHashOnlyTree::Cursor cu;
-		bool bCreate = false;
-		RadixHashOnlyTree::MyLeaf* p = m_Kernels.Find(cu, phv[1 & i], bCreate);
-
-		if (p)
-			return false;
-	}
-
-	return true;
-}
-
 bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 {
 	Height h = m_Cursor.m_Sid.m_Height + 1;
@@ -1168,8 +1098,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 			return false; // some input UTXOs are missing
 	}
 
-	// kernels
-	return ValidateTxContextKernels(tx.m_vKernels);
+	return true;
 }
 
 size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height h)
@@ -1206,9 +1135,6 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 		ECC::Hash::Value hv;
 		pKrn->get_Hash(hv);
 		pKrn->m_Signature.Sign(hv, sk);
-
-		if (!HandleBlockElement(*pKrn, true))
-			return 0; // Will fail if kernel key duplicated!
 
 		res.m_vKernels.push_back(std::move(pKrn));
 
