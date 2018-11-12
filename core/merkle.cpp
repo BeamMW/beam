@@ -382,6 +382,103 @@ void CompactMmr::Append(const Hash& hv)
 }
 
 /////////////////////////////
+// FixedMmmr
+FixedMmmr::FixedMmmr(uint64_t nTotal)
+	:m_Total(nTotal)
+{
+	uint64_t nHashes = nTotal;
+	while (nTotal >>= 1)
+		nHashes += nTotal;
+
+	m_vHashes.resize(nHashes);
+}
+
+uint64_t FixedMmmr::Pos2Idx(const Position& pos) const
+{
+	uint64_t nTotal = m_Total;
+	uint64_t ret = pos.X;
+
+	for (uint8_t y = 0; y < pos.H; y++)
+	{
+		ret += nTotal;
+		nTotal >>= 1;
+	}
+
+	assert(pos.X < nTotal);
+	assert(ret < m_vHashes.size());
+	return ret;
+}
+
+void FixedMmmr::LoadElement(Hash& hv, const Position& pos) const
+{
+	hv = m_vHashes[Pos2Idx(pos)];
+}
+
+void FixedMmmr::SaveElement(const Hash& hv, const Position& pos)
+{
+	m_vHashes[Pos2Idx(pos)] = hv;
+}
+
+/////////////////////////////
+// FlyMmr
+struct FlyMmr::Inner
+	:public Mmr
+{
+	const FlyMmr& m_This;
+
+	Inner(const FlyMmr& x)
+		:m_This(x)
+	{
+		m_Count = m_This.m_Count;
+	}
+
+	void Calculate(Hash& hv, const Position& pos) const
+	{
+		if (pos.H)
+		{
+			Position pos2;
+			pos2.X = pos.X << 1;
+			pos2.H = pos.H - 1;
+			Calculate(hv, pos2);
+
+			Hash hv2;
+			pos2.X++;
+			Calculate(hv2, pos2);
+
+			Interpret(hv, hv2, true);
+		}
+		else
+		{
+			assert(pos.X < m_Count);
+			m_This.LoadElement(hv, pos.X);
+		}
+	}
+
+	virtual void LoadElement(Hash& hv, const Position& pos) const
+	{
+		Calculate(hv, pos);
+	}
+
+	virtual void SaveElement(const Hash&, const Position&) override
+	{
+		assert(false); // not used
+	}
+};
+
+void FlyMmr::get_Hash(Hash& hv) const
+{
+	Inner x(*this);
+	x.get_Hash(hv);
+}
+
+bool FlyMmr::get_Proof(IProofBuilder& builder, uint64_t i) const
+{
+	Inner x(*this);
+	return x.get_Proof(builder, i);
+}
+
+
+/////////////////////////////
 // MultiProof
 MultiProof::Builder::Builder(MultiProof& x)
 	:m_This(x)

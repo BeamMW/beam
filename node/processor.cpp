@@ -422,49 +422,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 	// TODO - for a single proof there's no need to allocate the whole MMR, the proof can be calculated on-the-fly recursively.
 	// The number of calculations, however, is the same
 
-	struct MyMmr
-		:public Merkle::Mmr
-	{
-		std::vector<Merkle::Hash> m_vHashes;
-		uint64_t m_Total;
-
-		MyMmr(uint64_t nTotal)
-			:m_Total(nTotal)
-		{
-			uint64_t nHashes = nTotal;
-			while (nTotal >>= 1)
-				nHashes += nTotal;
-
-			m_vHashes.resize(nHashes);
-		}
-		
-		uint64_t Pos2Idx(const Merkle::Position& pos) const
-		{
-		    uint64_t nTotal = m_Total;
-		    uint64_t ret = pos.X;
-		
-		    for (uint8_t y = 0; y < pos.H; y++)
-		    {
-		        ret += nTotal;
-				nTotal >>= 1;
-			}
-		
-		    assert(pos.X < nTotal);
-		    assert(ret < m_vHashes.size());
-		    return ret;
-		}
-		
-		virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
-		{
-	        hv = m_vHashes[Pos2Idx(pos)];
-		}
-		virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override
-		{
-	        m_vHashes[Pos2Idx(pos)] = hv;
-		}
-	};
-
-	MyMmr mmr(txve.m_vKernels.size());
+	Merkle::FixedMmmr mmr(txve.m_vKernels.size());
 
 	size_t iTrg = txve.m_vKernels.size();
 	for (size_t i = 0; i < txve.m_vKernels.size(); i++)
@@ -544,12 +502,19 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				return false;
 			}
 
-			Merkle::CompactMmr cmmr;
-			for (size_t i = 0; i < vKrnID.size(); i++)
-				cmmr.Append(vKrnID[i]);
+			struct MyFlyMmr :public Merkle::FlyMmr {
+				const Merkle::Hash* m_pHashes;
+				virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
+					hv = m_pHashes[n];
+				}
+			};
+
+			MyFlyMmr fmmr;
+			fmmr.m_Count = vKrnID.size();
+			fmmr.m_pHashes = vKrnID.empty() ? NULL : &vKrnID.front();
 
 			Merkle::Hash hv;
-			cmmr.get_Hash(hv);
+			fmmr.get_Hash(hv);
 
 			if (s.m_Kernels != hv)
 			{
@@ -1244,15 +1209,17 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 
 	res.NormalizeE();
 
-	Merkle::CompactMmr cmmr;
+	struct MyFlyMmr :public Merkle::FlyMmr {
+		const TxKernel::Ptr* m_ppKrn;
+		virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
+			m_ppKrn[n]->get_ID(hv);
+		}
+	};
 
-	for (size_t i = 0; i < res.m_vKernels.size(); i++)
-	{
-		res.m_vKernels[i]->get_ID(bc.m_Hdr.m_Kernels);
-		cmmr.Append(bc.m_Hdr.m_Kernels);
-	}
-
-	cmmr.get_Hash(bc.m_Hdr.m_Kernels);
+	MyFlyMmr fmmr;
+	fmmr.m_Count = res.m_vKernels.size();
+	fmmr.m_ppKrn = res.m_vKernels.empty() ? NULL : &res.m_vKernels.front();
+	fmmr.get_Hash(bc.m_Hdr.m_Kernels);
 
 	if (res.m_SubsidyClosing)
 		ToggleSubsidyOpened();
