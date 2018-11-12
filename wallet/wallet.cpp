@@ -513,7 +513,7 @@ namespace beam
 			auto it = m_transactions.find(r.m_TxID);
 			if (m_transactions.end() != it)
 			{
-				if (it->second->SetParameter(TxParameterID::KernelProofHeight, get_Tip()->m_Height))
+				if (it->second->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Proof.m_State.m_Height))
 					it->second->Update();
 			}
         }
