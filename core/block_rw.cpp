@@ -141,11 +141,15 @@ namespace beam
 			}
 
 		ZeroObject(m_pMaturity);
+		m_pMaturity[Type::hd] = m_pS[Type::ko].Tell() + m_pS[Type::ko].get_Remaining();
+
+		LoadMaturity(Type::ko); // maturity of the 1st kernel
+		NextKernelThreshold();
 
 		// preload
-		LoadInternal(m_pUtxoIn,		Type::ui, m_pGuardUtxoIn);
-		LoadInternal(m_pUtxoOut,	Type::uo, m_pGuardUtxoOut);
-		LoadInternal(m_pKernel,		Type::ko, m_pGuardKernel);
+		RW::NextUtxoIn();
+		RW::NextUtxoOut();
+		RW::NextKernel();
 	}
 
 	void Block::BodyBase::RW::Flush()
@@ -166,16 +170,29 @@ namespace beam
 
 	void Block::BodyBase::RW::NextUtxoIn()
 	{
+		LoadMaturity(Type::ui);
 		LoadInternal(m_pUtxoIn, Type::ui, m_pGuardUtxoIn);
 	}
 
 	void Block::BodyBase::RW::NextUtxoOut()
 	{
+		LoadMaturity(Type::uo);
 		LoadInternal(m_pUtxoOut, Type::uo, m_pGuardUtxoOut);
 	}
 
 	void Block::BodyBase::RW::NextKernel()
 	{
+		uint64_t nPos = m_pMaturity[Type::hd] - m_pS[Type::ko].get_Remaining();
+
+		while (nPos == m_pMaturity[Type::kx])
+		{
+			m_pMaturity[Type::ko]++;
+			NextKernelThreshold();
+		}
+
+		if (nPos > m_pMaturity[Type::kx])
+			throw std::runtime_error("bad kx");
+
 		LoadInternal(m_pKernel, Type::ko, m_pGuardKernel);
 	}
 
@@ -203,16 +220,34 @@ namespace beam
 
 	void Block::BodyBase::RW::Write(const Input& v)
 	{
+		WriteMaturity(v, Type::ui);
 		WriteInternal(v, Type::ui);
 	}
 
 	void Block::BodyBase::RW::Write(const Output& v)
 	{
+		WriteMaturity(v, Type::uo);
 		WriteInternal(v, Type::uo);
 	}
 
 	void Block::BodyBase::RW::Write(const TxKernel& v)
 	{
+		if (!m_pMaturity[Type::ko])
+		{
+			if (!v.m_Maturity)
+				throw std::runtime_error("bad ko");
+			WriteMaturity(v, Type::ko);
+		}
+
+		if (v.m_Maturity < m_pMaturity[Type::ko])
+			throw std::runtime_error("bad ko");
+
+		for (; v.m_Maturity > m_pMaturity[Type::ko]; m_pMaturity[Type::ko]++)
+		{
+			uintBigFor<Height>::Type val = m_pS[Type::ko].Tell();
+			WriteInternal(val, Type::kx);
+		}
+
 		WriteInternal(v, Type::ko);
 	}
 
@@ -227,22 +262,49 @@ namespace beam
 		WriteInternal(elem, Type::hd);
 	}
 
+	bool Block::BodyBase::RW::LoadMaturity(int iData)
+	{
+		std::FStream& s = m_pS[iData];
+		if (!s.get_Remaining())
+			return false;
+
+		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
+
+		Height dh;
+		arc & dh;
+		m_pMaturity[iData] += dh;
+
+		return true;
+	}
+
+	void Block::BodyBase::RW::NextKernelThreshold()
+	{
+		std::FStream& s = m_pS[Type::kx];
+		if (s.get_Remaining())
+		{
+			yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
+
+			uintBigFor<Height>::Type val;
+			arc & val;
+
+			val.Export(m_pMaturity[Type::kx]);
+		}
+		else
+			m_pMaturity[Type::kx] = MaxHeight;
+	}
+
 	template <typename T>
 	void Block::BodyBase::RW::LoadInternal(const T*& pPtr, int iData, typename T::Ptr* ppGuard)
 	{
 		std::FStream& s = m_pS[iData];
 
-		if (s.IsOpen() && s.get_Remaining())
+		if (s.get_Remaining())
 		{
 			ppGuard[0].swap(ppGuard[1]);
 			//if (!ppGuard[0])
 				ppGuard[0].reset(new T);
 
 			yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
-
-			Height dh;
-			arc & dh;
-			m_pMaturity[iData] += dh;
 
 			arc & *ppGuard[0];
 			ppGuard[0]->m_Maturity = m_pMaturity[iData];
@@ -253,26 +315,12 @@ namespace beam
 			pPtr = NULL;
 	}
 
-	template <bool bWrite>
-	struct WriteOrgHeight
+	void Block::BodyBase::RW::WriteMaturity(const TxElement& v, int iData)
 	{
-		template <typename Archieve, typename T>
-		static void Do(Archieve& arc, const T& v, Height& hPrev)
-		{
-			Height dh = v.m_Maturity - hPrev;
-			arc & dh;
-			hPrev = v.m_Maturity;
-		}
-	};
-
-	template <>
-	struct WriteOrgHeight<false>
-	{
-		template <typename Archieve, typename T>
-		static void Do(Archieve& arc, const T& v, Height& hPrev)
-		{
-		}
-	};
+		Height dh = v.m_Maturity - m_pMaturity[iData];
+		WriteInternal(dh, iData);
+		m_pMaturity[iData] = v.m_Maturity;
+	}
 
 	template <typename T>
 	void Block::BodyBase::RW::WriteInternal(const T& v, int iData)
@@ -282,9 +330,6 @@ namespace beam
 			std::ThrowIoError();
 
 		yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
-
-		WriteOrgHeight<std::is_base_of<TxElement, T>::value>::Do(arc, v, m_pMaturity[iData]);
-
 		arc & v;
 	}
 

@@ -624,7 +624,8 @@ namespace beam
 		macro(hd) \
 		macro(ui) \
 		macro(uo) \
-		macro(ko)
+		macro(ko) \
+		macro(kx)
 
 		struct Type
 		{
@@ -646,13 +647,16 @@ namespace beam
 		Output::Ptr m_pGuardUtxoOut[2];
 		TxKernel::Ptr m_pGuardKernel[2];
 
-		Height m_pMaturity[Type::count]; // actually isn't needed for type==hd. nevermind.
+		Height m_pMaturity[Type::count];
 
 		template <typename T>
 		void LoadInternal(const T*& pPtr, int, typename T::Ptr* ppGuard);
+		bool LoadMaturity(int);
+		void NextKernelThreshold();
 
 		template <typename T>
 		void WriteInternal(const T&, int);
+		void WriteMaturity(const TxElement&, int);
 
 		bool OpenInternal(int iData);
 		void PostOpen(int iData);
