@@ -1143,6 +1143,12 @@ namespace beam
 					Send(msgOut2);
 
 					m_queProofsKrnExpected.push_back(i);
+
+					proto::GetProofKernel msgOut3;
+					krn.get_ID(msgOut3.m_ID);
+					Send(msgOut3);
+
+					m_queProofsKrnExpected.push_back(i);
 				}
 
 				{
@@ -1250,6 +1256,24 @@ namespace beam
 						verify_test(s.m_Height == msg.m_Height);
 
 						verify_test(s.m_Kernels == hv);
+					}
+				}
+				else
+					fail_test("unexpected proof");
+			}
+
+			virtual void OnMsg(proto::ProofKernel&& msg) override
+			{
+				if (!m_queProofsKrnExpected.empty())
+				{
+					const MiniWallet::MyKernel& mk = m_Wallet.m_MyKernels[m_queProofsKrnExpected.front()];
+					m_queProofsKrnExpected.pop_front();
+
+					if (!msg.m_Proof.empty())
+					{
+						TxKernel krn;
+						mk.Export(krn);
+						verify_test(m_vStates.back().IsValidProofKernel(krn, msg.m_Proof));
 					}
 				}
 				else

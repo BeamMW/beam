@@ -364,7 +364,7 @@ namespace beam { namespace wallet
             return;
         }
 
-        Merkle::Proof kernelProof;
+        TxKernel::LongProof kernelProof;
         if (!GetParameter(TxParameterID::KernelProof, kernelProof))
         {
             if (!IsInitiator() && txState == State::Registration)

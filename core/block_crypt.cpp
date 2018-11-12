@@ -846,26 +846,31 @@ namespace beam
 		return hv == m_Definition;
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofKernel(const TxKernel& krn, const Merkle::Proof& proof) const
+	bool Block::SystemState::Full::IsValidProofKernel(const TxKernel& krn, const TxKernel::LongProof& proof) const
 	{
 		Merkle::Hash hv;
 		krn.get_ID(hv);
 		return IsValidProofKernel(hv, proof);
 	}
 
-	bool Block::SystemState::Sequence::Element::IsValidProofKernel(const Merkle::Hash& hvID, const Merkle::Proof& proof) const
+	bool Block::SystemState::Full::IsValidProofKernel(const Merkle::Hash& hvID, const TxKernel::LongProof& proof) const
 	{
-		// verify known part. Last node should be at left, earlier should be at left
-		size_t n = proof.size();
-		if ((n < 2) ||
-			proof[n - 1].first ||
-			proof[n - 2].first)
+		if (!proof.m_State.IsValid())
 			return false;
 
-
 		Merkle::Hash hv = hvID;
-		Merkle::Interpret(hv, proof);
-		return hv == m_Definition;
+		Merkle::Interpret(hv, proof.m_Inner);
+		if (hv != proof.m_State.m_Kernels)
+			return false;
+
+		if (proof.m_State == *this)
+			return true;
+		if (proof.m_State.m_Height > m_Height)
+			return false;
+
+		ID id;
+		proof.m_State.get_ID(id);
+		return IsValidProofState(id, proof.m_Outer);
 	}
 
 	bool Block::SystemState::Full::IsValidProofState(const ID& id, const Merkle::HardProof& proof) const

@@ -79,7 +79,7 @@ namespace proto {
 	macro(Difficulty::Raw, LowerBound)
 
 #define BeamNodeMsg_ProofKernel(macro) \
-	macro(Merkle::Proof, Proof)
+	macro(TxKernel::LongProof, Proof)
 
 #define BeamNodeMsg_ProofKernel2(macro) \
 	macro(Merkle::Proof, Proof) \
@@ -296,6 +296,7 @@ namespace proto {
 	inline void ZeroInit(Block::ChainWorkProof& x) {}
 	inline void ZeroInit(ECC::Point& x) { ZeroObject(x); }
 	inline void ZeroInit(ECC::Signature& x) { ZeroObject(x); }
+	inline void ZeroInit(TxKernel::LongProof& x) { ZeroObject(x.m_State); }
 
 	template <typename T> struct InitArg {
 		typedef const T& TArg;

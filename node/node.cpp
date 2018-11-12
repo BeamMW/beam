@@ -2267,22 +2267,15 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 {
 	proto::ProofKernel msgOut;
 
-	RadixHashOnlyTree& t = m_This.m_Processor.get_Kernels();
-
-	RadixHashOnlyTree::Cursor cu;
-	bool bCreate = false;
-	if (t.Find(cu, msg.m_ID, bCreate))
+	Processor& p = m_This.m_Processor;
+	Height h = p.get_ProofKernel(msgOut.m_Proof.m_Inner, NULL, msg.m_ID);
+	if (h)
 	{
-		t.get_Proof(msgOut.m_Proof, cu);
-		msgOut.m_Proof.reserve(msgOut.m_Proof.size() + 2);
+		uint64_t rowid = p.FindActiveAtStrict(h);
+		p.get_DB().get_State(rowid, msgOut.m_Proof.m_State);
 
-		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-		msgOut.m_Proof.back().first = false;
-		m_This.m_Processor.get_Utxos().get_Hash(msgOut.m_Proof.back().second);
-
-		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-		msgOut.m_Proof.back().first = false;
-		msgOut.m_Proof.back().second = m_This.m_Processor.m_Cursor.m_History;
+		if (h < p.m_Cursor.m_ID.m_Height)
+			p.GenerateProofStateStrict(msgOut.m_Proof.m_Outer, h);
 	}
 
 	Send(msgOut);
