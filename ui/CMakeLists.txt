@@ -232,7 +232,7 @@ if(BEAM_USE_STATIC)
 			Qt5FbSupport Qt5Qml Qt5Test
 			Qt5Concurrent Qt5FontDatabaseSupport Qt5Network Qt5QmlDebug
 			Qt5Xml xcb-static Qt5Gamepad Qt5NetworkAuth Qt5QmlDevTools
-			Qt5Scxml Qt5ThemeSupport Qt5XmlPatterns Qt5LinuxAccessibilitySupport Qt5DBus
+			Qt5Scxml Qt5ThemeSupport Qt5XmlPatterns Qt5DBus
 			Qt5GlxSupport
 		)
 			target_link_libraries(${TARGET_NAME} ${CMAKE_PREFIX_PATH}/lib/lib${lib}.a)
