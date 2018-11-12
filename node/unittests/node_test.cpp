@@ -1137,8 +1137,9 @@ namespace beam
 					TxKernel krn;
 					mk.Export(krn);
 
-					proto::GetProofKernel msgOut2;
+					proto::GetProofKernel2 msgOut2;
 					krn.get_ID(msgOut2.m_ID);
+					msgOut2.m_Fetch = true;
 					Send(msgOut2);
 
 					m_queProofsKrnExpected.push_back(i);
@@ -1226,19 +1227,29 @@ namespace beam
 					fail_test("unexpected proof");
 			}
 
-			virtual void OnMsg(proto::ProofKernel&& msg) override
+			virtual void OnMsg(proto::ProofKernel2&& msg) override
 			{
 				if (!m_queProofsKrnExpected.empty())
 				{
-					const MiniWallet::MyKernel& mk = m_Wallet.m_MyKernels[m_queProofsKrnExpected.front()];
 					m_queProofsKrnExpected.pop_front();
 
 					if (!msg.m_Proof.empty())
 					{
-						TxKernel krn;
-						mk.Export(krn);
+						verify_test(msg.m_Kernel);
 
-						verify_test(m_vStates.back().IsValidProofKernel(krn, msg.m_Proof));
+						AmountBig fee;
+						ECC::Point::Native exc;
+						verify_test(msg.m_Kernel->IsValid(fee, exc));
+
+						Merkle::Hash hv;
+						msg.m_Kernel->get_ID(hv);
+						Merkle::Interpret(hv, msg.m_Proof);
+
+						verify_test(msg.m_Height <= m_vStates.size());
+						const Block::SystemState::Full& s = m_vStates[msg.m_Height - 1];
+						verify_test(s.m_Height == msg.m_Height);
+
+						verify_test(s.m_Kernels == hv);
 					}
 				}
 				else

@@ -2288,6 +2288,13 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 	Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::GetProofKernel2&& msg)
+{
+	proto::ProofKernel2 msgOut;
+	msgOut.m_Height = m_This.m_Processor.get_ProofKernel(msgOut.m_Proof, msg.m_Fetch ? &msgOut.m_Kernel : NULL, msg.m_ID);
+	Send(msgOut);
+}
+
 void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 {
 	struct Traveler :public UtxoTree::ITraveler
