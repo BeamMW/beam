@@ -109,18 +109,18 @@ before_script:
 after_success:
   # deploy using ftp server
   - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER
-  - tar -cvzf beam-node-$BEAM_VERSION.tar.gz --directory=$HOME/build/beam-mw/beam/beam beam-node beam-node.cfg
-  - tar -cvzf beam-wallet-cli-$BEAM_VERSION.tar.gz --directory=$HOME/build/beam-mw/beam/wallet beam-wallet beam-wallet.cfg
+  - tar -cvzf beam-node-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node beam-node.cfg
+  - tar -cvzf beam-wallet-cli-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet beam-wallet beam-wallet.cfg
 
   # create package for advanced users
   - mkdir pack && mkdir pack/wallet && mkdir pack/node && mkdir pack/ui
   - cp wallet/beam-wallet* pack/wallet && cp beam/beam-node* pack/node && cp "$BEAM_WALLET_UI_IN" pack/ui/$BEAM_WALLET_UI_OUT_VERLESS
-  - tar -cvzf beam-pack-$BEAM_VERSION.tar.gz --directory=$HOME/build/beam-mw/beam/pack wallet node ui
+  - tar -cvzf beam-pack-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/pack wallet node ui
 
   # upload binaries
   - curl --retry 3 --ftp-create-dirs -T beam-node-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
-  - curl --retry 3 --ftp-create-dirs -T "$HOME/build/beam-mw/beam/$BEAM_WALLET_UI_IN" "$BUILDS_SERVER_PATH/$BEAM_WALLET_UI_OUT"
+  - curl --retry 3 --ftp-create-dirs -T "$HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN" "$BUILDS_SERVER_PATH/$BEAM_WALLET_UI_OUT"
   - curl --retry 3 --ftp-create-dirs -T beam-pack-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/pack/
 
 notifications:
