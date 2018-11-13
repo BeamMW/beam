@@ -889,14 +889,14 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 		m_DB.set_Peer(rowid, &peer);
 
 		LOG_INFO() << id << " Header accepted";
+		OnStateData();
 	}
-	OnStateData();
+	
 	return ret;
 }
 
 NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const Blob& bbP, const Blob& bbE, const PeerID& peer)
 {
-	OnBlockData();
 	size_t nSize = size_t(bbP.n) + size_t(bbE.n);
 	if (nSize > Rules::get().MaxBodySize)
 	{
@@ -929,6 +929,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
 		TryGoUp();
 
+	OnBlockData();
 	return DataStatus::Accepted;
 }
 
