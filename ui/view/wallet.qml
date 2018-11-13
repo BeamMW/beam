@@ -57,7 +57,7 @@ Item {
                 qsTr("online")
         }
 
-        state: "offline"
+        state: "online"
 
         property int indicator_radius: 5
         property Item indicator: online_indicator
@@ -99,6 +99,7 @@ Item {
             anchors.top: parent.top
             anchors.left: parent.left
             width: childrenRect.width
+            visible: false
 
             property color color: Style.bluey_grey
             property int radius: status_bar.indicator_radius
@@ -176,6 +177,18 @@ Item {
             visible: viewModel.nodeSyncProgress > 0 && update_indicator.visible
         }
 
+        CustomProgressBar {
+            id: progress_bar
+            anchors.top: update_indicator.bottom
+            anchors.left: update_indicator.left
+            anchors.topMargin: 6
+            backgroundImplicitWidth: 200
+            contentItemImplicitWidth: 200
+
+            visible: viewModel.nodeSyncProgress > 0 && update_indicator.visible
+            value: viewModel.nodeSyncProgress / 100
+        }
+
         states: [
             State {
                 name: "online"
@@ -199,11 +212,15 @@ Item {
                 name: "updating"
                 when: (status_bar.status === "updating")
                 PropertyChanges {target: status_text; text: qsTr("updating...") + viewModel.branchName}
-                PropertyChanges {target: status_bar; indicator: update_indicator}
-                PropertyChanges {target: online_indicator; color: "red"}
-                PropertyChanges {target: online_indicator; visible: false}
-                PropertyChanges {target: offline_indicator; visible: false}
-                PropertyChanges {target: update_indicator; visible: true}
+                StateChangeScript {
+                    name: "updatingScript"
+                    script: {
+                        status_bar.indicator = update_indicator;
+                        online_indicator.visible = false;
+                        offline_indicator.visible = false;
+                        update_indicator.visible = true;
+                    }
+                }
             },
             State {
                 name: "error"
@@ -215,6 +232,16 @@ Item {
                 PropertyChanges {target: online_indicator; visible: true}
                 PropertyChanges {target: offline_indicator; visible: false}
                 PropertyChanges {target: update_indicator; visible: false}
+            }
+        ]
+        transitions: [
+            Transition {
+                from: "online"
+                to: "updating"
+                SequentialAnimation {
+                    PauseAnimation { duration: 1000 }
+                    ScriptAction { scriptName: "updatingScript" }
+                }
             }
         ]
     }
