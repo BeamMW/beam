@@ -94,7 +94,7 @@ class WalletViewModel : public QObject
 
     Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
 
-    Q_PROPERTY(QString feeMils READ feeMils WRITE setFeeMils NOTIFY feeMilsChanged)
+    Q_PROPERTY(QString feeGrothes READ feeGrothes WRITE setFeeGrothes NOTIFY feeGrothesChanged)
 
     Q_PROPERTY(QString receiverAddr READ getReceiverAddr WRITE setReceiverAddr NOTIFY receiverAddrChanged)
     //Q_PROPERTY(bool validReceiverAddress   READ isValidReceiverAddress CONSTANT)
@@ -153,7 +153,7 @@ public:
 
     QQmlListProperty<TxObject> getTransactions();
     QString sendAmount() const;
-    QString feeMils() const;
+    QString feeGrothes() const;
     QString receiverAddr() const;
     QString syncTime() const;
     bool getIsSyncInProgress() const;
@@ -184,7 +184,7 @@ public:
 
     void setSendAmount(const QString& text);
     void setSendAmountMils(const QString& text);
-    void setFeeMils(const QString& text);
+    void setFeeGrothes(const QString& text);
     void setSelectedAddr(int index);
     void setComment(const QString& value);
 	QString getComment() const;
@@ -217,7 +217,7 @@ signals:
     void stateChanged();
 
     void sendAmountChanged();
-    void feeMilsChanged();
+    void feeGrothesChanged();
     void transactionsChanged();
     void selectedAddrChanged();
     void actualAvailableChanged();
@@ -248,7 +248,7 @@ private:
     WalletStatus _status;
 
     QString _sendAmount;
-    QString _feeMils;
+    QString _feeGrothes;
 
     beam::Amount _change;
 

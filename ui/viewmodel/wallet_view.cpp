@@ -176,7 +176,7 @@ WalletViewModel::WalletViewModel()
     : _model(*AppModel::getInstance()->getWallet())
     , _status{ 0, 0, 0, 0, {0, 0, 0}, {} }
     , _sendAmount("0")
-    , _feeMils("0")
+    , _feeGrothes("0")
     , _change(0)
     , _isSyncInProgress{false}
     , _isOfflineStatus{false}
@@ -446,9 +446,9 @@ QString WalletViewModel::sendAmount() const
     return _sendAmount;
 }
 
-QString WalletViewModel::feeMils() const
+QString WalletViewModel::feeGrothes() const
 {
-    return _feeMils;
+    return _feeGrothes;
 }
 
 QString WalletViewModel::getReceiverAddr() const
@@ -493,14 +493,14 @@ void WalletViewModel::setSendAmount(const QString& value)
     }
 }
 
-void WalletViewModel::setFeeMils(const QString& value)
+void WalletViewModel::setFeeGrothes(const QString& value)
 {
     auto trimmedValue = value.trimmed();
-    if (trimmedValue != _feeMils)
+    if (trimmedValue != _feeGrothes)
     {
-        _feeMils = trimmedValue;
+        _feeGrothes = trimmedValue;
         _model.async->calcChange(calcTotalAmount());
-        emit feeMilsChanged();
+        emit feeGrothesChanged();
         emit actualAvailableChanged();
     }
 }
@@ -675,7 +675,7 @@ beam::Amount WalletViewModel::calcSendAmount() const
 
 beam::Amount WalletViewModel::calcFeeAmount() const
 {
-    return _feeMils.toDouble() * Rules::Coin;
+    return _feeGrothes.toULongLong();
 }
 
 beam::Amount WalletViewModel::calcTotalAmount() const
