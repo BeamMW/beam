@@ -64,6 +64,8 @@ namespace beam
         void stop();
 
         void add_wallet(const WalletID& walletID);
+        void subscribe(INetworkIOObserver* observer) override;
+        void unsubscribe(INetworkIOObserver* observer) override;
 
     private:
         // INetworkIO
@@ -82,6 +84,9 @@ namespace beam
         //void close_connection(const WalletID& id) override;
         void connect_node() override;
         void close_node_connection() override;
+
+        void notifyNodeConnectedChanged();
+        void notifyNodeDisconnected();
 
         void new_own_address(const WalletID& address) override;
         void address_deleted(const WalletID& address) override;
@@ -103,6 +108,8 @@ namespace beam
         void on_node_disconnected();
 
         void create_node_connection();
+
+        void set_is_node_connected(bool is_node_connected);
 
         template <typename T>
         void send(const WalletID& walletID, MsgType type, T&& msg)
@@ -207,5 +214,7 @@ namespace beam
         IKeyStore::Ptr m_keystore;
         std::set<PubKey> m_myPubKeys;
         const WalletID* m_lastReceiver;
+
+        std::vector<INetworkIOObserver*> m_subscribers;
     };
 }

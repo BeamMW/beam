@@ -173,6 +173,37 @@ namespace beam {
         }
     }
 
+    void WalletNetworkIO::subscribe(INetworkIOObserver* observer)
+    {
+        assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
+
+        m_subscribers.push_back(observer);
+    }
+
+    void WalletNetworkIO::unsubscribe(INetworkIOObserver* observer)
+    {
+        auto it = std::find(m_subscribers.begin(), m_subscribers.end(), observer);
+        assert(it != m_subscribers.end());
+
+        m_subscribers.erase(it);
+    }
+
+    void WalletNetworkIO::notifyNodeConnectedChanged()
+    {
+        for (auto sub : m_subscribers)
+        {
+            sub->onNodeConnectedStatusChanged(m_is_node_connected);
+        }
+    }
+
+    void WalletNetworkIO::notifyNodeDisconnected()
+    {
+        for (auto sub : m_subscribers)
+        {
+            sub->onNodeConnectionFailed();
+        }
+    }
+
     void WalletNetworkIO::on_close_connection_timer()
     {
         LOG_DEBUG() << "Close node connection";
@@ -222,7 +253,7 @@ namespace beam {
 
     void WalletNetworkIO::on_node_connected()
     {
-        m_is_node_connected = true;
+        set_is_node_connected(true);
         for (const auto& k : m_myPubKeys)
         {
             listen_to_bbs_channel(k);
@@ -238,7 +269,8 @@ namespace beam {
 
     void WalletNetworkIO::on_node_disconnected()
     {
-        m_is_node_connected = false;
+        set_is_node_connected(false);
+        notifyNodeDisconnected();
     }
 
     void WalletNetworkIO::on_protocol_error(uint64_t, ProtocolError error)
@@ -257,6 +289,12 @@ namespace beam {
     {
         assert(!m_node_connection && !m_is_node_connected);
         m_node_connection = make_unique<WalletNodeConnection>(m_node_address, get_wallet(), m_reactor, m_reconnect_ms, *this);
+    }
+
+    void WalletNetworkIO::set_is_node_connected(bool is_node_connected)
+    {
+        m_is_node_connected = is_node_connected;
+        notifyNodeConnectedChanged();
     }
 
     void WalletNetworkIO::update_wallets(const WalletID& walletID)
@@ -327,7 +365,7 @@ namespace beam {
         get_wallet().abort_sync();
 
         m_close_timer.reset();
-        m_is_node_connected = false;
+        set_is_node_connected(false);
         m_node_connection.reset();
     }
 
