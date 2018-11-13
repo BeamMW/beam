@@ -14,6 +14,7 @@ Item
     anchors.fill: parent
 
     property bool isRecoveryMode: false
+    property bool isCreated: false
 
     RestoreViewModel {
         id: viewModel 
@@ -86,7 +87,7 @@ Item
             SFText {
                 Layout.bottomMargin: 30
                 Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
-                text: isRecoveryMode ? qsTr("Restoring wallet...") : qsTr("Creating wallet...")
+                text: isCreated ? qsTr("Loading wallet...") : ( isRecoveryMode ? qsTr("Restoring wallet...") : qsTr("Creating wallet..."))
                 font.pixelSize: 14
                 color: Style.white
             }
