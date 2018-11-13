@@ -32,6 +32,7 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(bool isChanged READ isChanged NOTIFY propertiesChanged)
     Q_PROPERTY(QStringList localNodePeers READ getLocalNodePeers NOTIFY localNodePeersChanged)
     Q_PROPERTY(int lockTimeout READ getLockTimeout WRITE setLockTimeout NOTIFY lockTimeoutChanged)
+    Q_PROPERTY(QString walletLocation READ getWalletLocation CONSTANT)
 
 public:
 
@@ -53,6 +54,7 @@ public:
 
     QStringList getLocalNodePeers() const;
     void setLocalNodePeers(const QStringList& localNodePeers);
+    QString getWalletLocation() const;
 
     bool isChanged() const;
 
@@ -60,6 +62,7 @@ public:
     Q_INVOKABLE void addLocalNodePeer(const QString& localNodePeer);
     Q_INVOKABLE void deleteLocalNodePeer(int index);
     Q_INVOKABLE void openUrl(const QString& url);
+    Q_INVOKABLE void copyToClipboard(const QString& text);
 
 public slots:
     void applyChanges();

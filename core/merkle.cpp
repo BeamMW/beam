@@ -454,7 +454,7 @@ struct FlyMmr::Inner
 		}
 	}
 
-	virtual void LoadElement(Hash& hv, const Position& pos) const
+	virtual void LoadElement(Hash& hv, const Position& pos) const override
 	{
 		Calculate(hv, pos);
 	}
