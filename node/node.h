@@ -127,6 +127,7 @@ struct Node
 
 	Key::IKdf::Ptr m_pKdf;
 	Key::IPKdf::Ptr m_pOwnerKdf;
+	bool m_bSameKdf; // should be avoided actually
 
 	~Node();
 	void Initialize();

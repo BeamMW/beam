@@ -1216,6 +1216,18 @@ namespace ECC {
 		DeriveKey(out, hv);
 	}
 
+	bool Key::IPKdf::IsSame(IPKdf& x)
+	{
+		Hash::Value hv = Zero;
+
+		Scalar::Native k0, k1;
+		DerivePKey(k0, hv);
+		x.DerivePKey(k1, hv);
+
+		k0 += -k1;
+		return (k0 == Zero);
+	}
+
 	/////////////////////
 	// HKdf
 	HKdf::HKdf()

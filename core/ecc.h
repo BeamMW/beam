@@ -245,6 +245,8 @@ namespace ECC
 
 			virtual void DerivePKey(Point::Native&, const Hash::Value&) = 0;
 			virtual void DerivePKey(Scalar::Native&, const Hash::Value&) = 0;
+
+			bool IsSame(IPKdf&);
 		};
 
 		struct IKdf

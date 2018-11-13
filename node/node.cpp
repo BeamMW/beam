@@ -617,7 +617,12 @@ void Node::Initialize()
 	}
 
 	if (!m_pOwnerKdf)
+	{
 		m_pOwnerKdf = m_pKdf;
+		m_bSameKdf = true;
+	}
+	else
+		m_bSameKdf = m_pOwnerKdf->IsSame(*m_pKdf);
 
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_Sync.m_ForceResync);
@@ -2629,19 +2634,8 @@ void Node::Peer::OnMsg(proto::Recover&& msg)
 		if (msg.m_Private)
 			wlk.m_vKeys.push_back(m_This.m_pKdf);
 
-		if (msg.m_Public)
-		{
-			// make sure it's not the same
-			ECC::Hash::Value hv = Zero;
-
-			ECC::Scalar::Native k0, k1;
-			m_This.m_pKdf->DerivePKey(k0, hv);
-			m_This.m_pOwnerKdf->DerivePKey(k1, hv);
-
-			k0 += -k1;
-			if (!(k0 == Zero))
-				wlk.m_vKeys.push_back(m_This.m_pOwnerKdf);
-		}
+		if (msg.m_Public && !m_This.m_bSameKdf)
+			wlk.m_vKeys.push_back(m_This.m_pOwnerKdf);
 
 		wlk.Proceed();
 	}
