@@ -2214,9 +2214,9 @@ void Node::Peer::OnMsg(proto::GetCommonState&& msg)
 
 	Processor& p = m_This.m_Processor; // alias
 
-	for (msgOut.m_iState = 0; msgOut.m_iState < msg.m_IDs.size(); msgOut.m_iState++)
+	for (size_t i = 0; i < msg.m_IDs.size(); i++)
 	{
-		const Block::SystemState::ID& id = msg.m_IDs[msgOut.m_iState];
+		const Block::SystemState::ID& id = msg.m_IDs[i];
 		if (id.m_Height < Rules::HeightGenesis)
 			ThrowUnexpected();
 
@@ -2225,8 +2225,10 @@ void Node::Peer::OnMsg(proto::GetCommonState&& msg)
 			Merkle::Hash hv;
 			p.get_DB().get_StateHash(p.FindActiveAtStrict(id.m_Height), hv);
 
-			if (hv == id.m_Hash)
+			if ((hv == id.m_Hash) || (i + 1 == msg.m_IDs.size()))
 			{
+				msgOut.m_ID.m_Height = id.m_Height;
+				msgOut.m_ID.m_Hash = hv;
 				p.GenerateProofStateStrict(msgOut.m_Proof, id.m_Height);
 				break;
 			}
