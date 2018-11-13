@@ -400,7 +400,7 @@ void Node::Processor::OnNewState()
 
 	get_ParentObj().RefreshCongestions();
 
-    ReportNewState();
+	ReportNewState();
 }
 
 void Node::Processor::OnRolledBack()
@@ -526,14 +526,20 @@ void Node::Processor::AdjustFossilEnd(Height& h)
 
 void Node::Processor::OnStateData()
 {
-	++m_DownloadedHeaders;
-	ReportProgress();
+	if (m_RequestedCount > 0)
+	{
+		++m_DownloadedHeaders;
+		ReportProgress();
+	}
 }
 
 void Node::Processor::OnBlockData()
 {
-	++m_DownloadedBlocks;
-	ReportProgress();
+	if (m_RequestedCount > 0)
+	{
+		++m_DownloadedBlocks;
+		ReportProgress();
+	}
 }
 
 bool Node::Processor::OpenMacroblock(Block::BodyBase::RW& rw, const NodeDB::StateID& sid)
@@ -564,11 +570,11 @@ void Node::Processor::ReportProgress()
 
 void Node::Processor::ReportNewState()
 {
-    auto observer = get_ParentObj().m_Cfg.m_Observer;
+	auto observer = get_ParentObj().m_Cfg.m_Observer;
 	if (observer)
-    {
-        observer->OnStateChanged();
-    }
+	{
+		observer->OnStateChanged();
+	}
 }
 
 void Node::Processor::OnModified()

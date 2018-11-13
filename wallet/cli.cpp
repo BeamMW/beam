@@ -442,6 +442,8 @@ int main_impl(int argc, char* argv[])
                                      , false
                                      , is_server ? Wallet::TxCompletedAction() : [wallet_io](auto) { wallet_io->stop(); } };
 
+                        static_pointer_cast<INetworkIO>(wallet_io)->connect_node();
+
                         if (isTxInitiator)
                         {
                             // TODO: make db request by 'default' label

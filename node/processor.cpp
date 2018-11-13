@@ -832,6 +832,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 		m_DB.set_Peer(rowid, &peer);
 
 		LOG_INFO() << id << " Header accepted";
+		OnStateData();
 	}
 	OnStateData();
 	return ret;
@@ -839,7 +840,6 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 
 NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const Blob& block, const PeerID& peer)
 {
-	OnBlockData();
 	if (block.n > Rules::get().MaxBodySize)
 	{
 		LOG_WARNING() << id << " Block too large: " << block.n;
@@ -871,6 +871,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
 		TryGoUp();
 
+	OnBlockData();
 	return DataStatus::Accepted;
 }
 

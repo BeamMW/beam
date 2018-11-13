@@ -609,7 +609,7 @@ struct TestWalletRig
         , m_WalletIO{make_shared<WalletNetworkIO>(m_NodeAddress, m_Keychain, m_BBSKeystore, reactor, 1000, 2000)}
         , m_Wallet{m_Keychain, m_WalletIO, true, move(action) }
     {
-        
+        static_pointer_cast<INetworkIO>(m_WalletIO)->connect_node();
     }
 
     vector<Coin> GetCoins()
@@ -898,6 +898,8 @@ void TestTxToHimself()
     auto sender_io = make_shared<WalletNetworkIO>(nodeAddress, senderKeychain, senderBbsKeys, mainReactor, 1000, 2000);
     TestWallet sender{ senderKeychain, sender_io, true, [sender_io](auto) { sender_io->stop(); } };
     helpers::StopWatch sw;
+
+    static_pointer_cast<INetworkIO>(sender_io)->connect_node();
 
     sw.start();
     TxID txId = sender.transfer_money(senderID, receiverID, 24, 2);

@@ -101,7 +101,7 @@ namespace beam
             m_wallet = wallet;
             if (wallet != nullptr)
             {
-                connect_node();
+               // connect_node();
             }
         }
         IWallet* m_wallet; // wallet holds reference to INetworkIO
