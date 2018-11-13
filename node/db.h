@@ -98,6 +98,10 @@ public:
 			MinedUpd,
 			MinedDel,
 			MinedSel,
+			EventIns,
+			EventDel,
+			EventEnum,
+			EventFind,
 			MacroblockEnum,
 			MacroblockIns,
 			MacroblockDel,
@@ -282,6 +286,22 @@ public:
 	void EnumMacroblocks(WalkerState&); // highest to lowest
 	void MacroblockIns(uint64_t rowid);
 	void MacroblockDel(uint64_t rowid);
+
+	void InsertEvent(Height, const Blob&, const Blob& key);
+	void DeleteEventsAbove(Height);
+
+	struct WalkerEvent {
+		Recordset m_Rs;
+		Height m_Height;
+		Blob m_Body;
+		Blob m_Key;
+
+		WalkerEvent(NodeDB& db) :m_Rs(db) {}
+		bool MoveNext();
+	};
+
+	void EnumEvents(WalkerEvent&, Height hMin);
+	void FindEvents(WalkerEvent&, const Blob& key);
 
 	struct WalkerPeer
 	{
