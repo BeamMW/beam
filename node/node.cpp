@@ -569,6 +569,21 @@ void Node::Processor::OnModified()
 	}
 }
 
+Key::IPKdf* Node::Processor::get_Kdf(uint32_t i)
+{
+	switch (i)
+	{
+	case 0:
+		return get_ParentObj().m_pKdf.get();
+
+	case 1:
+		if (!get_ParentObj().m_bSameKdf)
+			return get_ParentObj().m_pOwnerKdf.get();
+	}
+
+	return NULL;
+}
+
 void Node::Processor::OnFlushTimer()
 {
 	m_bFlushPending = false;

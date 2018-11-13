@@ -54,6 +54,7 @@ class NodeProcessor
 	void ToggleSubsidyOpened();
 
 	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
+	void RecognizeUtxos(TxBase::IReader&&, Height hMax);
 
 	static void SquashOnce(std::vector<Block::Body>&);
 	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, Height, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
@@ -166,6 +167,7 @@ public:
 	virtual void OnBlockData() {}
 	virtual bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) { return false; }
 	virtual void OnModified() {}
+	virtual Key::IPKdf* get_Kdf(uint32_t i) { return NULL; }
 
 	uint64_t FindActiveAtStrict(Height);
 
