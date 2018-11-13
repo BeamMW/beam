@@ -14,8 +14,12 @@ T.ProgressBar {
     implicitHeight: Math.max(background ? background.implicitHeight : 0,
                              contentItem.implicitHeight + topPadding + bottomPadding)
 
+    property alias backgroundImplicitWidth: background_id.implicitWidth
+    property alias contentItemImplicitWidth: content_id.implicitWidth
+
     contentItem: 
     Item {
+        id: content_id
         implicitWidth: 200
         implicitHeight: 4
         Rectangle {
@@ -28,6 +32,7 @@ T.ProgressBar {
     }
 
     background: Rectangle {
+        id: background_id
         implicitWidth: 400
         implicitHeight: 4
         y: (control.height - height) / 2
