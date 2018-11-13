@@ -42,11 +42,13 @@ signals:
     void syncCompleted();
 private:
     void updateProgress();
+    void syncWithNode();
 private:
-    //WalletModel& _model;
     double _progress;
     int _nodeTotal;
     int _nodeDone;
     int _total;
     int _done;
+    bool _walletConnected;
+    bool _hasLocalNode;
 };

@@ -14,7 +14,6 @@ Item
     anchors.fill: parent
 
     StartViewModel { id: viewModel }
-    property bool showLoading: false
 
     Component
     {
@@ -810,14 +809,7 @@ Item
                                     }
                                     else
                                     {
-                                        if (root.showLoading)
-                                        {
-                                            root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode});
-                                        }
-                                        else
-                                        {
-                                            root.parent.source = "qrc:/main.qml";
-                                        }
+                                        root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreated" : false});
                                     }
                                 }
                             }
@@ -992,18 +984,15 @@ Item
                                         else {
                                             return;
                                         }
-                                        root.showLoading = true;
                                     }
                                     else if (remoteNodeButton.checked) {
                                         if (remoteNodeAddrInput.text.trim().length === 0) {
                                             remoteNodeAddrError.text = qsTr("Please, specify address of the remote node");
                                             return;
                                         }
-                                        root.showLoading = false;
                                         viewModel.setupRemoteNode(remoteNodeAddrInput.text.trim());
                                     }
                                     else if (testnetNodeButton.checked) {
-                                        root.showLoading = false;
                                         viewModel.setupTestnetNode();
                                     }
                                     startWizzardView.push(viewModel.isRecoveryMode ? restoreWallet : createWalletEntry);
@@ -1117,7 +1106,7 @@ Item
                             }
                             else
                             {
-                                 root.parent.source = "qrc:/main.qml";
+                                 root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : false, "isCreated" : true});
                             }
                         }
                     }

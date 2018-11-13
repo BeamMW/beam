@@ -21,15 +21,16 @@ using namespace beam;
 using namespace std;
 
 RestoreViewModel::RestoreViewModel()
-    : //_model(*AppModel::getInstance()->getWallet())
-    _progress{0.0}
+    : _progress{0.0}
     , _nodeTotal{0}
     , _nodeDone{0}
     , _total{0}
     , _done{0}
+    , _walletConnected{false}
+    , _hasLocalNode{ AppModel::getInstance()->getSettings().getRunLocalNode() }
 {
-  //  connect(&_model, SIGNAL(onSyncProgressUpdated(int, int)),
-  //      SLOT(onSyncProgressUpdated(int, int)));
+    connect(AppModel::getInstance()->getWallet().get(), SIGNAL(onSyncProgressUpdated(int, int)),
+        SLOT(onSyncProgressUpdated(int, int)));
 
     //connect(&_model, SIGNAL(onRecoverProgressUpdated(int, int, const QString&)),
     //    SLOT(onRestoreProgressUpdated(int, int, const QString&)));
@@ -39,7 +40,10 @@ RestoreViewModel::RestoreViewModel()
         connect(&AppModel::getInstance()->getNode(), SIGNAL(syncProgressUpdated(int, int)),
             SLOT(onNodeSyncProgressUpdated(int, int)));
     }
-
+    if (!_hasLocalNode && _walletConnected == false)
+    {
+        syncWithNode();
+    }
 }
 
 RestoreViewModel::~RestoreViewModel()
@@ -77,16 +81,41 @@ void RestoreViewModel::onNodeSyncProgressUpdated(int done, int total)
 
 void RestoreViewModel::updateProgress()
 {
-    int total = _nodeTotal + _total;
-    int done = _nodeDone + _done;
-    if (total > 0)
+    double nodeSyncProgress = 0.0;
+    if (_nodeTotal > 0)
     {
-        double p = static_cast<double>(done) / total;
-        setProgress(p);
-        if (total == done)
+        nodeSyncProgress = static_cast<double>(_nodeDone) / _nodeTotal;
+    }
+
+    if (nodeSyncProgress >= 1.0 && _walletConnected == false)
+    {
+        WalletModel& wallet = *AppModel::getInstance()->getWallet();
+        if (wallet.async)
         {
-            emit syncCompleted();
+            _walletConnected = true;
+            wallet.async->syncWithNode();
         }
+    }
+
+    double walletSyncProgress = 0.0;
+    if (_total)
+    {
+        walletSyncProgress = static_cast<double>(_done) / _total;
+    }
+    double p = 0.0;
+    if (AppModel::getInstance()->getSettings().getRunLocalNode())
+    {
+        p = nodeSyncProgress * 0.7 + walletSyncProgress * 0.3;
+    }
+    else
+    {
+        p = walletSyncProgress;
+    }
+    
+    setProgress(p);
+    if (p >= 1.0)
+    {
+        emit syncCompleted();
     }
 }
 
@@ -97,9 +126,19 @@ double RestoreViewModel::getProgress() const
 
 void RestoreViewModel::setProgress(double value)
 {
-    if (value != _progress)
+    if (value > _progress)
     {
         _progress = value;
         emit progressChanged();
+    }
+}
+
+void RestoreViewModel::syncWithNode()
+{
+    WalletModel& wallet = *AppModel::getInstance()->getWallet();
+    if (wallet.async)
+    {
+        _walletConnected = true;
+        wallet.async->syncWithNode();
     }
 }
