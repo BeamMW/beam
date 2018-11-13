@@ -219,7 +219,7 @@ WalletViewModel::WalletViewModel()
         connect(&AppModel::getInstance()->getNode(), SIGNAL(syncProgressUpdated(int, int)),
             SLOT(onNodeSyncProgressUpdated(int, int)));
     }
-    
+    _model.async->syncWithNode();
     _model.async->getWalletStatus();
 }
 
