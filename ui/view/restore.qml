@@ -85,10 +85,18 @@ Item
                 Layout.topMargin: 140
             }
             SFText {
-                Layout.bottomMargin: 30
+                Layout.bottomMargin: 6
                 Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
                 text: isCreated ? qsTr("Loading wallet...") : ( isRecoveryMode ? qsTr("Restoring wallet...") : qsTr("Creating wallet..."))
                 font.pixelSize: 14
+                color: Style.white
+            }
+            SFText {
+                Layout.bottomMargin: 30
+                Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+                text: viewModel.progressMessage
+                font.pixelSize: 14
+                opacity: 0.5
                 color: Style.white
             }
             CustomProgressBar {

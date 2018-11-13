@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <QObject>
-
 #include "restore_view.h"
 #include "model/app_model.h"
 
@@ -28,6 +26,7 @@ RestoreViewModel::RestoreViewModel()
     , _done{0}
     , _walletConnected{false}
     , _hasLocalNode{ AppModel::getInstance()->getSettings().getRunLocalNode() }
+    , _syncStart{getTimestamp()}
 {
     connect(AppModel::getInstance()->getWallet().get(), SIGNAL(onSyncProgressUpdated(int, int)),
         SLOT(onSyncProgressUpdated(int, int)));
@@ -44,6 +43,8 @@ RestoreViewModel::RestoreViewModel()
     {
         syncWithNode();
     }
+    connect(&_updateTimer, SIGNAL(timeout()), this, SLOT(onUpdateTimer()));
+    _updateTimer.start(1000);
 }
 
 RestoreViewModel::~RestoreViewModel()
@@ -82,8 +83,18 @@ void RestoreViewModel::onNodeSyncProgressUpdated(int done, int total)
 void RestoreViewModel::updateProgress()
 {
     double nodeSyncProgress = 0.0;
+    QString progressMessage;
     if (_nodeTotal > 0)
     {
+        int blocksDiff = _nodeTotal / 2;
+        if (_nodeDone <= blocksDiff)
+        {
+            progressMessage = QString::asprintf(tr("Downloading block headers %d/%d").toStdString().c_str(), _nodeDone, blocksDiff);
+        }
+        else
+        {
+            progressMessage = QString::asprintf(tr("Downloading blocks %d/%d").toStdString().c_str(), _nodeDone - blocksDiff, blocksDiff);
+        }
         nodeSyncProgress = static_cast<double>(_nodeDone) / _nodeTotal;
     }
 
@@ -100,6 +111,7 @@ void RestoreViewModel::updateProgress()
     double walletSyncProgress = 0.0;
     if (_total)
     {
+        progressMessage = QString::asprintf(tr("Scanning UTXO %d/%d").toStdString().c_str(), _done, _total);
         walletSyncProgress = static_cast<double>(_done) / _total;
     }
     double p = 0.0;
@@ -111,7 +123,29 @@ void RestoreViewModel::updateProgress()
     {
         p = walletSyncProgress;
     }
-    
+
+    if (p > 0)
+    {
+        progressMessage.append(tr(", estimated time:"));
+
+        auto d = getTimestamp() - _syncStart;
+        Timestamp estimateInSec = d * (1.0 / p - 1);
+
+        int hours = estimateInSec / 3600;
+        if (hours > 0)
+        {
+            progressMessage.append(QString::asprintf(tr(" %d h").toStdString().c_str(), hours));
+        }
+        int minutes = (estimateInSec - 3600 * hours) / 60;
+        if (minutes > 0)
+        {
+            progressMessage.append(QString::asprintf(tr(" %d min").toStdString().c_str(), minutes));
+        }
+        int seconds = estimateInSec % 60;
+        progressMessage.append(QString::asprintf(tr(" %d sec").toStdString().c_str(), seconds));
+    }
+
+    setProgressMessage(progressMessage);
     setProgress(p);
     if (p >= 1.0)
     {
@@ -133,6 +167,19 @@ void RestoreViewModel::setProgress(double value)
     }
 }
 
+const QString& RestoreViewModel::getProgressMessage() const
+{
+    return _progressMessage;
+}
+void RestoreViewModel::setProgressMessage(const QString& value)
+{
+    if (_progressMessage != value)
+    {
+        _progressMessage = value;
+        emit progressMessageChanged();
+    }
+}
+
 void RestoreViewModel::syncWithNode()
 {
     WalletModel& wallet = *AppModel::getInstance()->getWallet();
@@ -141,4 +188,9 @@ void RestoreViewModel::syncWithNode()
         _walletConnected = true;
         wallet.async->syncWithNode();
     }
+}
+
+void RestoreViewModel::onUpdateTimer()
+{
+    updateProgress();
 }
