@@ -31,5 +31,5 @@ Windows, Mac, Linux, Android or iOS
 **Build**
 Build number
 
-**Screenshots**
-If applicable, add screenshots that illustrate a problem you've found.
+**Screenshots (if applicable)**
+Add screenshots that illustrate a problem you've found.
