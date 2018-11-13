@@ -584,19 +584,65 @@ Item {
                             text: qsTr("Transaction fee")
                         }
 
-                        FeeSlider {
+                        /*FeeSlider {
                             id: feeSlider
                             Layout.fillWidth: true
 
                             to: 0.000010
                             stepSize: 0.000001
                             value: 0.0
+                        }*/
+
+                        RowLayout {
+                            Layout.fillWidth: true
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+
+                                SFTextInput {
+                                    Layout.fillWidth: true
+
+                                    id: fee
+
+                                    font.pixelSize: 36
+                                    font.styleName: "Light"; font.weight: Font.Light
+                                    color: Style.heliotrope
+                                    // TODO roman.strilec it's default value of fee
+                                    // need to move in best place
+                                    text: "10"
+
+                                    property double amount: 0
+
+                                    validator: RegExpValidator { regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))$/ }
+                                    selectByMouse: true
+                                    
+                                    onTextChanged: {
+                                        if (focus) {
+                                            amount = text ? text : 0;
+                                        }
+                                    }
+
+                                    onFocusChanged: {
+                                        if (amount > 0) {
+                                            // QLocale::FloatingPointShortest = -128
+                                            text = focus ? amount : amount.toLocaleString(Qt.locale(), 'f', -128);
+                                        }
+                                    }
+                                }
+                            }
+
+                            SFText {
+                                font.pixelSize: 24
+                                color: Style.white
+                                text: qsTr("GROTH")
+                            }
                         }
 
                         Binding {
                             target: viewModel
-                            property: "feeMils"
-                            value: feeSlider.value
+                            property: "feeGrothes"
+                            //value: feeSlider.value
+                            value: fee.text
                         }
 
                         Item {
@@ -735,7 +781,7 @@ Item {
                     onClicked: {
                         if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {
                             var message = "You are about to send %1 to address %2";
-                            var beams = (viewModel.sendAmount*1 + viewModel.feeMils*1) + " " + qsTr("BEAM");
+                            var beams = (viewModel.sendAmount*1 + 1 * viewModel.feeGrothes / 1000000) + " " + qsTr("BEAM");
 
                             confirmationDialog.text = message.arg(beams).arg(viewModel.receiverAddr);
                             confirmationDialog.open();
