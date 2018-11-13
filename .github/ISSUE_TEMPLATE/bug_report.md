@@ -9,9 +9,9 @@ A clear and concise description of what the bug is.
 
 **To Reproduce**
 Steps to reproduce the behavior:
-1. Run '...' (with '...' configuration file or command line parameters where applicable)
-2. Click on '....'
-3. Scroll down to '....'
+1. Run '....' (with '....' configuration file or command line parameters where applicable)
+2. Do '....'
+3. Do '....'
 
 **Current behavior**
 A clear and concise description of the erroneous behavior which currently happens.
@@ -32,4 +32,4 @@ Windows, Mac, Linux, Android or iOS
 Build number
 
 **Screenshots**
-If applicable, add screenshots to help explain your problem.
+If applicable, add screenshots that illustrate a problem you've found.
