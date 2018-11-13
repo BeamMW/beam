@@ -56,6 +56,12 @@ namespace beam
         virtual bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) = 0;
     };
 
+    struct INetworkIOObserver
+    {
+        virtual void onNodeConnectedStatusChanged(bool isNodeConnected) = 0;
+        virtual void onNodeConnectionFailed() = 0;
+    };
+
     struct INetworkIO 
     {
         using Ptr = std::shared_ptr<INetworkIO>;
@@ -76,6 +82,9 @@ namespace beam
         //virtual void close_connection(const WalletID& id) = 0;
         virtual void connect_node() = 0;
         virtual void close_node_connection() = 0;
+
+        virtual void subscribe(INetworkIOObserver* observer) = 0;
+        virtual void unsubscribe(INetworkIOObserver* observer) = 0;
 
         virtual void new_own_address(const WalletID& address) = 0;
         virtual void address_deleted(const WalletID& address) = 0;

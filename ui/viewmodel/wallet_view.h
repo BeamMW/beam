@@ -212,6 +212,8 @@ public slots:
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
 	void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
     void onGeneratedNewWalletID(const beam::WalletID& walletID);
+    void onNodeConnectedChanged(bool is_node_connected);
+    void onNodeConnectionFailed();
 
 signals:
     void stateChanged();
