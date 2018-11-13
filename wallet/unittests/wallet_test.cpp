@@ -463,6 +463,8 @@ namespace
         }
 
         void set_node_address(io::Address nodeAddress) override {}
+        void subscribe(INetworkIOObserver* observer) override {}
+        void unsubscribe(INetworkIOObserver* observer) override {}
 
         int m_peerCount;
 
