@@ -1143,12 +1143,13 @@ namespace beam
 					m_queProofsStateExpected.push_back((uint32_t) i);
 				}
 
+				if (m_vStates.size() > 1)
 				{
 					proto::GetCommonState msgOut2;
-					msgOut2.m_IDs.resize(m_vStates.size());
+					msgOut2.m_IDs.resize(m_vStates.size() - 1);
 
-					for (size_t i = 0; i < m_vStates.size(); i++)
-						m_vStates[i].get_ID(msgOut2.m_IDs[i]);
+					for (size_t i = 0; i < m_vStates.size() - 1; i++)
+						m_vStates[m_vStates.size() - i - 2].get_ID(msgOut2.m_IDs[i]);
 
 					Send(msgOut2);
 				}
@@ -1227,19 +1228,7 @@ namespace beam
 			virtual void OnMsg(proto::ProofCommonState&& msg) override
 			{
 				verify_test(!m_vStates.empty());
-				if (1 == m_vStates.size())
-				{
-					verify_test(msg.m_iState == 1);
-					verify_test(msg.m_Proof.empty());
-				}
-				else
-				{
-					verify_test(msg.m_iState == 0);
-
-					Block::SystemState::ID id;
-					m_vStates.front().get_ID(id);
-					verify_test(m_vStates.back().IsValidProofState(id, msg.m_Proof));
-				}
+				verify_test(m_vStates.back().IsValidProofState(msg.m_ID, msg.m_Proof));
 			}
 
 			virtual void OnMsg(proto::ProofUtxo&& msg) override

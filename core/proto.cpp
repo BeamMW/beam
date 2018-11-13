@@ -1223,37 +1223,46 @@ void FlyClient::NetworkStd::Connection::SearchBelow(Height h, uint32_t nCount)
 
 	struct Walker :public IStateHistory::IWalker
 	{
-		proto::GetCommonState m_Msg;
+		std::vector<Block::SystemState::Full> m_vStates;
 		uint32_t m_Count;
 
 		virtual bool OnState(const Block::SystemState::Full& s) override
 		{
-			m_Msg.m_IDs.emplace_back();
-			s.get_ID(m_Msg.m_IDs.back());
-			return m_Msg.m_IDs.size() < m_Count;
+			m_vStates.push_back(s);
+			return m_vStates.size() < m_Count;
 		}
-
 	} w;
 
 	w.m_Count = nCount;
-	w.m_Msg.m_IDs.reserve(nCount);
+	w.m_vStates.reserve(nCount);
 	m_This.m_Client.get_History().Enum(w, &h);
 
-	if (w.m_Msg.m_IDs.empty())
+	if (w.m_vStates.empty())
 	{
 		ZeroObject(m_pSync->m_Confirmed);
 		RequestChainworkProof();
 	}
 	else
 	{
-		Send(w.m_Msg);
-		m_pSync->m_vConfirming.swap(w.m_Msg.m_IDs);
+		proto::GetCommonState msg;
+		msg.m_IDs.resize(w.m_vStates.size());
+
+		for (size_t i = 0; i < msg.m_IDs.size(); i++)
+			w.m_vStates[i].get_ID(msg.m_IDs[i]);
+
+		Send(msg);
+
+		m_pSync->m_vConfirming.swap(w.m_vStates);
 	}
 }
 
 void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofCommonState&& msg)
 {
-	if (!m_pSync || m_pSync->m_vConfirming.empty())
+	if (!m_pSync)
+		ThrowUnexpected();
+
+	std::vector<Block::SystemState::Full> vStates = std::move(m_pSync->m_vConfirming);
+	if (vStates.empty())
 		ThrowUnexpected();
 
 	if (!ShouldSync())
@@ -1262,31 +1271,45 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofCommonState&& msg)
 		return; // other connection was faster
 	}
 
-	std::vector<Block::SystemState::ID> vIDs = std::move(m_pSync->m_vConfirming);
+	size_t iState;
+	for (iState = 0; ; iState++)
+	{
+		if (vStates.size() == iState)
+		{
+			// not found. Theoretically it's possible that the current tip is lower than the requested range (but highly unlikely)
+			if (m_Tip.m_Height > vStates.back().m_Height)
+				ThrowUnexpected();
 
-	if (msg.m_iState >= vIDs.size())
-		SearchBelow(vIDs.front().m_Height, static_cast<uint32_t>(vIDs.size() * 2));
+			SearchBelow(m_Tip.m_Height, 1); // restart
+			return;
+
+		}
+		if (vStates[iState].m_Height == msg.m_ID.m_Height)
+			break;
+	}
+
+	if (!m_Tip.IsValidProofState(msg.m_ID, msg.m_Proof))
+		ThrowUnexpected();
+
+	if ((m_pSync->m_LowHeight < vStates.front().m_Height) && iState)
+		SearchBelow(m_pSync->m_LowHeight + 1, 1); // restart the search from this height
 	else
 	{
-		const Block::SystemState::ID& id = vIDs[msg.m_iState];
-
-		if (!m_Tip.IsValidProofState(id, msg.m_Proof))
-			ThrowUnexpected();
-
-		if (m_This.m_Client.get_History().get_At(m_pSync->m_Confirmed, id.m_Height))
+		const Block::SystemState::Full& s = vStates[iState];
+		Merkle::Hash hv;
+		s.get_Hash(hv);
+		if (hv != msg.m_ID.m_Hash)
 		{
-			Merkle::Hash hv;
-			m_pSync->m_Confirmed.get_Hash(hv);
+			if (iState != vStates.size() - 1)
+				ThrowUnexpected(); // the disproof should have been for the last requested state
 
-			if (id.m_Hash == hv)
-			{
-				RequestChainworkProof();
-				return;
-			}
+			SearchBelow(vStates.back().m_Height, static_cast<uint32_t>(vStates.size() * 2)); // all the range disproven. Search below
 		}
-
-		// restart the search
-		SearchBelow(m_Tip.m_Height, 1);
+		else
+		{
+			m_pSync->m_Confirmed = s;
+			RequestChainworkProof();
+		}
 	}
 }
 void FlyClient::NetworkStd::Connection::RequestChainworkProof()
@@ -1298,7 +1321,7 @@ void FlyClient::NetworkStd::Connection::RequestChainworkProof()
 	Send(msg);
 
 	m_pSync->m_TipBeforeGap.m_Height = 0;
-	m_pSync->m_LowHeightSinceConfirmed = m_pSync->m_Confirmed.m_Height;
+	m_pSync->m_LowHeight = m_pSync->m_Confirmed.m_Height;
 }
 
 struct FlyClient::NetworkStd::Connection::StateArray
@@ -1383,13 +1406,13 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofChainWork&& msg)
 
 	struct Walker :public IStateHistory::IWalker
 	{
-		Height m_LowHeightSinceConfirmed;
+		Height m_LowHeight;
 		Height m_LowErase;
 		const StateArray* m_pArr;
 
 		virtual bool OnState(const Block::SystemState::Full& s) override
 		{
-			if (s.m_Height <= m_LowHeightSinceConfirmed)
+			if (s.m_Height <= m_LowHeight)
 				return false;
 
 			if (m_pArr->Find(s))
@@ -1401,7 +1424,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofChainWork&& msg)
 	} w;
 
 	w.m_LowErase = MaxHeight;
-	w.m_LowHeightSinceConfirmed = pSync->m_LowHeightSinceConfirmed;
+	w.m_LowHeight = pSync->m_LowHeight;
 	w.m_pArr = &arr;
 
 	m_This.m_Client.get_History().Enum(w, NULL);
@@ -1415,7 +1438,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofChainWork&& msg)
 		{
 			const Connection& c = *it;
 			if (c.m_pSync)
-				c.m_pSync->m_LowHeightSinceConfirmed = w.m_LowErase - 1;
+				c.m_pSync->m_LowHeight = std::min(c.m_pSync->m_LowHeight, w.m_LowErase - 1);
 		}
 
 		m_This.m_Client.OnRolledBack();

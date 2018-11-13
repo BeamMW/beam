@@ -94,7 +94,7 @@ namespace proto {
 	macro(Merkle::HardProof, Proof)
 
 #define BeamNodeMsg_ProofCommonState(macro) \
-	macro(uint32_t, iState) \
+	macro(Block::SystemState::ID, ID) \
 	macro(Merkle::HardProof, Proof)
 
 #define BeamNodeMsg_ProofChainWork(macro) \
@@ -789,10 +789,10 @@ namespace proto {
 			{
 				struct SyncCtx
 				{
-					std::vector<Block::SystemState::ID> m_vConfirming;
+					std::vector<Block::SystemState::Full> m_vConfirming;
 					Block::SystemState::Full m_Confirmed;
 					Block::SystemState::Full m_TipBeforeGap;
-					Height m_LowHeightSinceConfirmed;
+					Height m_LowHeight;
 				};
 
 				std::unique_ptr<SyncCtx> m_pSync;
