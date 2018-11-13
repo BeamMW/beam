@@ -516,20 +516,14 @@ void Node::Processor::AdjustFossilEnd(Height& h)
 
 void Node::Processor::OnStateData()
 {
-	if (m_RequestedCount > 0)
-	{
-		++m_DownloadedHeaders;
-		ReportProgress();
-	}
+	++m_DownloadedHeaders;
+	ReportProgress();
 }
 
 void Node::Processor::OnBlockData()
 {
-	if (m_RequestedCount > 0)
-	{
-		++m_DownloadedBlocks;
-		ReportProgress();
-	}
+	++m_DownloadedBlocks;
+	ReportProgress();
 }
 
 bool Node::Processor::OpenMacroblock(Block::BodyBase::RW& rw, const NodeDB::StateID& sid)
@@ -549,11 +543,6 @@ void Node::Processor::ReportProgress()
 		if (total >= done)
 		{
 			observer->OnSyncProgress(done, total);
-		}
-
-		if (done >= total)
-		{
-			m_RequestedCount = m_DownloadedHeaders = m_DownloadedBlocks;
 		}
 	}
 }
