@@ -11,7 +11,7 @@ using namespace beam;
 struct Options {
     std::string nodeDbFilename;
     std::string accessControlFile;
-    io::Address nodeConnectTo;
+    std::string nodeConnectTo;
     io::Address nodeListenTo;
     io::Address explorerListenTo;
     int logLevel;
@@ -66,7 +66,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
     o.nodeDbFilename = FILES_PREFIX "db";
     //o.accessControlFile = "api.keys";
 
-    o.nodeConnectTo.resolve("172.104.249.212:8101");
+    o.nodeConnectTo = "172.104.249.212:8101";
     o.nodeListenTo.port(10000);
     o.explorerListenTo.port(8888);
 
@@ -82,5 +82,7 @@ void setup_node(Node& node, const Options& o) {
     node.m_Cfg.m_Listen.ip(o.nodeListenTo.ip());
     node.m_Cfg.m_MiningThreads = 0;
     node.m_Cfg.m_VerificationThreads = 1;
-    node.m_Cfg.m_Connect.push_back(o.nodeConnectTo);
+
+    auto& address = node.m_Cfg.m_Connect.emplace_back();
+    address.resolve(o.nodeConnectTo.c_str());
 }
