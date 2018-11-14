@@ -92,11 +92,10 @@ extern "C" {
   ALIGN( 64 ) typedef struct __blake2b_state
   {
     uint64_t h[8];
-    uint64_t t[2];
-    uint64_t f[2];
-    uint8_t  buf[2 * BLAKE2B_BLOCKBYTES];
-    size_t   buflen;
-    uint8_t  last_node;
+    uint8_t  buf[BLAKE2B_BLOCKBYTES];
+    uint16_t counter;
+    uint8_t  buflen;
+    uint8_t  lastblock;
   } blake2b_state;
 
   ALIGN( 64 ) typedef struct __blake2sp_state
@@ -128,7 +127,6 @@ extern "C" {
 
   int blake2b_init( blake2b_state *S, const uint8_t outlen );
   int blake2b_init_key( blake2b_state *S, const uint8_t outlen, const void *key, const uint8_t keylen );
-  int blake2b_init_personal(blake2b_state *S, const uint8_t outlen, const void *personal);
   int blake2b_init_param( blake2b_state *S, const blake2b_param *P );
   int blake2b_update( blake2b_state *S, const uint8_t *in, uint64_t inlen );
   int blake2b_final( blake2b_state *S, uint8_t *out, uint8_t outlen );
@@ -146,7 +144,7 @@ extern "C" {
   // Simple API
   int blake2s( uint8_t *out, const void *in, const void *key, const uint8_t outlen, const uint64_t inlen, uint8_t keylen );
   int blake2b( uint8_t *out, const void *in, const void *key, const uint8_t outlen, const uint64_t inlen, uint8_t keylen );
-  //int blake2b_long(uint8_t *out, const void *in, const uint32_t outlen, const uint64_t inlen);
+  int blake2b_long(uint8_t *out, const void *in, const uint32_t outlen, const uint64_t inlen);
 
   int blake2sp( uint8_t *out, const void *in, const void *key, const uint8_t outlen, const uint64_t inlen, uint8_t keylen );
   int blake2bp( uint8_t *out, const void *in, const void *key, const uint8_t outlen, const uint64_t inlen, uint8_t keylen );

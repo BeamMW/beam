@@ -2801,8 +2801,20 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 		}
 		else
 		{
-			if (!s.GeneratePoW(fnCancel))
-				continue;
+            try
+            {
+#if defined(BEAM_USE_GPU)
+                if (!s.GeneratePoW(fnCancel, get_ParentObj().m_Cfg.m_UseGpu))
+#else
+                if (!s.GeneratePoW(fnCancel))
+#endif
+                    continue;
+            }
+            catch (const std::exception& ex)
+            {
+                LOG_DEBUG() << ex.what();
+                break;
+            }
 		}
 
 		std::scoped_lock<std::mutex> scope(m_Mutex);

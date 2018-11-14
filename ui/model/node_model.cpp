@@ -59,14 +59,22 @@ void NodeModel::run()
         node.m_Cfg.m_Listen.port(settings.getLocalNodePort());
         node.m_Cfg.m_Listen.ip(INADDR_ANY);
         node.m_Cfg.m_sPathLocal = settings.getLocalNodeStorage();
-        if (settings.getLocalNodeSynchronized())
         {
+#ifdef BEAM_USE_GPU
+            if (settings.getUseGpu())
+            {
+                node.m_Cfg.m_UseGpu = true;
+                node.m_Cfg.m_MiningThreads = 1;
+            }
+            else
+            {
+                node.m_Cfg.m_UseGpu = false;
+                node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
+            }
+#else
             node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
+#endif
             node.m_Cfg.m_VerificationThreads = settings.getLocalNodeVerificationThreads();
-        }
-        else
-        {
-            node.m_Cfg.m_MiningThreads = node.m_Cfg.m_VerificationThreads = 0;
         }
 
 		node.m_pKdf = m_pKdf;

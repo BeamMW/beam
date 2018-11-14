@@ -33,6 +33,7 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(QStringList localNodePeers READ getLocalNodePeers NOTIFY localNodePeersChanged)
     Q_PROPERTY(int lockTimeout READ getLockTimeout WRITE setLockTimeout NOTIFY lockTimeoutChanged)
     Q_PROPERTY(QString walletLocation READ getWalletLocation CONSTANT)
+    Q_PROPERTY(bool useGpu READ getUseGpu WRITE setUseGpu NOTIFY localNodeUseGpuChanged)
 
 public:
 
@@ -55,6 +56,8 @@ public:
     QStringList getLocalNodePeers() const;
     void setLocalNodePeers(const QStringList& localNodePeers);
     QString getWalletLocation() const;
+    void setUseGpu(bool value);
+    bool getUseGpu() const;
 
     bool isChanged() const;
 
@@ -63,6 +66,7 @@ public:
     Q_INVOKABLE void deleteLocalNodePeer(int index);
     Q_INVOKABLE void openUrl(const QString& url);
     Q_INVOKABLE void copyToClipboard(const QString& text);
+    Q_INVOKABLE bool showUseGpu() const;
 
 public slots:
     void applyChanges();
@@ -80,6 +84,7 @@ signals:
     void localNodePeersChanged();
     void propertiesChanged();
     void lockTimeoutChanged();
+    void localNodeUseGpuChanged();
 private:
     WalletSettings& m_settings;
 
@@ -90,4 +95,7 @@ private:
     uint m_localNodeVerificationThreads;
     QStringList m_localNodePeers;
     int m_lockTimeout;
+#ifdef BEAM_USE_GPU
+    bool m_useGpu;
+#endif
 };

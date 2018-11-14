@@ -203,10 +203,37 @@ QChar StartViewModel::getPhrasesSeparator()
     return PHRASES_SEPARATOR;
 }
 
+void StartViewModel::setUseGpu(bool value)
+{
+#ifdef BEAM_USE_GPU
+    AppModel::getInstance()->getSettings().setUseGpu(value);
+#endif
+}
+
+bool StartViewModel::getUseGpu() const
+{
+#ifdef BEAM_USE_GPU
+    return AppModel::getInstance()->getSettings().getUseGpu();
+#else
+    return false;
+#endif
+}
+
 void StartViewModel::setupLocalNode(int port, int miningThreads, bool generateGenesys)
 {
     auto& settings = AppModel::getInstance()->getSettings();
+#ifdef BEAM_USE_GPU
+    if (settings.getUseGpu())
+    {
+        settings.setLocalNodeMiningThreads(1);
+    }
+    else
+    {
+        settings.setLocalNodeMiningThreads(miningThreads);
+    }
+#else
     settings.setLocalNodeMiningThreads(miningThreads);
+#endif
     auto localAddress = QString::asprintf("127.0.0.1:%d", port);
     settings.setNodeAddress(localAddress);
     settings.setLocalNodePort(port);
@@ -308,6 +335,15 @@ void StartViewModel::resetPhrases()
     m_generatedPhrases.clear();
     m_checkPhrases.clear();
     emit recoveryPhrasesChanged();
+}
+
+bool StartViewModel::showUseGpu() const
+{
+#ifdef BEAM_USE_GPU
+    return true;
+#else
+    return false;
+#endif
 }
 
 bool StartViewModel::createWallet(const QString& pass)
