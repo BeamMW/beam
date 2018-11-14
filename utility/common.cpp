@@ -367,3 +367,76 @@ void beam::Crash::InstallHandler(const char*)
 }
 
 #endif // WIN32
+
+void beam::Crash::Induce(Type type)
+{
+	switch (type)
+	{
+	case StlInvalid:
+		// will invoke handler in checked version. Otherwise will just crash normally
+		{
+			std::vector<int> vv;
+			vv[4] = 0;
+		}
+		break;
+
+	case StackOverflow:
+		{
+			struct StackOverflow
+			{
+				// this is tricky: we need to prevent optimization of the buffer, and confuse the compiler and convience it that this code "might" work
+				uint8_t m_pArr[0x400];
+				uint8_t Do(uint8_t n)
+				{
+					m_pArr[0] = n ^ 1;
+
+					if (n)
+					{
+						StackOverflow v;
+						v.Do(n ^ 1);
+						memxor(m_pArr, v.m_pArr, sizeof(m_pArr));
+					}
+
+					for (size_t i = 0; i < _countof(m_pArr); i++)
+						n ^= m_pArr[i];
+
+					return n;
+				}
+			};
+
+			StackOverflow v;
+			size_t val = v.Do(7);
+
+			// make sure the retval is really needed, though this code shouldn't be reached
+			volatile int* p = reinterpret_cast<int*>(val);
+			*p = 0;
+
+		}
+		break;
+
+	case PureCall:
+		{
+			struct Base {
+				Base* m_pOther;
+
+				~Base() {
+					m_pOther->Func();
+				}
+
+				virtual void Func() = 0;
+			};
+
+			struct Derived :public Base {
+				virtual void Func() override {}
+			};
+
+			Derived d;
+			d.m_pOther = &d;
+		}
+		break;
+
+	default:
+		// default crash
+		*reinterpret_cast<int*>(0x48) = 15;
+	}
+}
