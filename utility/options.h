@@ -51,6 +51,7 @@ namespace beam
         extern const char* TREASURY;
         extern const char* TREASURY_BLOCK;
 		extern const char* RESYNC;
+		extern const char* CRASH;
 		extern const char* INIT;
         extern const char* NEW_ADDRESS;
         extern const char* CANCEL_TX;

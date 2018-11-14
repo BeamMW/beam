@@ -208,6 +208,18 @@ int main_impl(int argc, char* argv[])
 					if (hImport)
 						node.ImportMacroblock(hImport);
 
+					io::Timer::Ptr pCrashTimer;
+
+					int nCrash = vm.count(cli::CRASH) ? vm[cli::CRASH].as<int>() : 0;
+					if (nCrash)
+					{
+						pCrashTimer = io::Timer::create(*reactor);
+
+						pCrashTimer->start(5000, false, [nCrash]() {
+							Crash::Induce((Crash::Type) (nCrash - 1));
+						});
+					}
+
 					reactor->run();
 				}
 			}
