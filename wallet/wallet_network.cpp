@@ -242,10 +242,6 @@ namespace beam {
 
 		MyRequestBbsMsg::Ptr pReq(new MyRequestBbsMsg);
 
-//		ECC::NoLeak<ECC::Scalar> s_;
-//		ECC::GenRandom(s_.V.m_Value.m_pData, s_.V.m_Value.nBytes);
-//		ECC::Scalar::Native nonce(s_);
-//		if (proto::BbsEncrypt(pReq->m_Msg.m_Message, peerID, nonce, sb.first, (uint32_t) sb.second))
 		if (m_pKeyStore->encrypt(pReq->m_Msg.m_Message, sb.first, sb.second, peerID))
 		{
 			pReq->m_Msg.m_Channel = channel_from_wallet_id(peerID);
