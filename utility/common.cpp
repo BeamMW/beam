@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "common.h"
+#include <exception>
 
 #ifndef WIN32
 #	include <unistd.h>
@@ -436,7 +437,7 @@ void beam::Crash::Induce(Type type)
 		break;
 
 	case Terminate:
-		terminate();
+		std::terminate();
 		break;
 
 	default:

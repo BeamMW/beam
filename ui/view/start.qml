@@ -809,7 +809,7 @@ Item
                                     }
                                     else
                                     {
-                                        root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreated" : false});
+                                        root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true});
                                     }
                                 }
                             }
@@ -891,10 +891,22 @@ Item
                                 color: Style.validator_color
                                 font.pixelSize: 14
                             }
+                            CustomSwitch {
+                                id: useGpu
+                                text: qsTr("Use GPU")
+                                font.pixelSize: 12
+                                checked: viewModel.useGpu
+                                visible: viewModel.showUseGpu()
+                                Binding {
+                                    target: viewModel
+                                    property: "useGpu"
+                                    value: useGpu.checked
+                                }
+                            }
 
                             SFText {
                                 text: qsTr("Enter mining threads (0 - no mining)")
-                                color: Style.white
+                                color: !useGpu.checked ? Style.white : Style.disable_text_color
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
                             }
@@ -904,6 +916,7 @@ Item
                                 precision: 0
                                 showTicks: true
                                 width: parent.width
+                                enabled: !useGpu.checked
                                 value: 0
                                 to: {viewModel.coreAmount()}
                                 stepSize: 1
@@ -1106,7 +1119,7 @@ Item
                             }
                             else
                             {
-                                 root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : false, "isCreated" : true});
+                                 root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : false, "isCreating" : false});
                             }
                         }
                     }

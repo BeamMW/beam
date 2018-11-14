@@ -73,6 +73,9 @@ namespace beam
         extern const char* VERSION;
         extern const char* VERSION_FULL;
         extern const char* GIT_COMMIT_HASH;
+#if defined(BEAM_USE_GPU)
+        extern const char* MINER_TYPE;
+#endif
  // treasury
         extern const char* TR_BEAMS;
         extern const char* TR_DH;
