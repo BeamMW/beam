@@ -63,6 +63,14 @@ Item {
         property Item indicator: online_indicator
         property string error_msg: viewModel.walletStatusErrorMsg
 
+        function setIndicator(indicator) {
+            if (indicator !== status_bar.indicator) {
+                status_bar.indicator.visible = false;
+                status_bar.indicator = indicator;
+                status_bar.indicator.visible = true;
+            }
+        }
+
         Item {
             id: online_indicator
             anchors.top: parent.top
@@ -194,19 +202,23 @@ Item {
                 name: "online"
                 when: (status_bar.status === "online")
                 PropertyChanges {target: status_text; text: qsTr("online") + viewModel.branchName}
-                PropertyChanges {target: status_bar; indicator: online_indicator}
-                PropertyChanges {target: online_indicator; visible: true}
-                PropertyChanges {target: offline_indicator; visible: false}
-                PropertyChanges {target: update_indicator; visible: false}
+                StateChangeScript {
+                    name: "onlineScript"
+                    script: {
+                        status_bar.setIndicator(online_indicator);
+                    }
+                }
             },
             State {
                 name: "offline"
                 when: (status_bar.status === "offline")
                 PropertyChanges {target: status_text; text: qsTr("offline") + viewModel.branchName}
-                PropertyChanges {target: status_bar; indicator: offline_indicator}
-                PropertyChanges {target: online_indicator; visible: false}
-                PropertyChanges {target: offline_indicator; visible: true}
-                PropertyChanges {target: update_indicator; visible: false}
+                StateChangeScript {
+                    name: "offlineScript"
+                    script: {
+                        status_bar.setIndicator(offline_indicator);
+                    }
+                }
             },
             State {
                 name: "updating"
@@ -215,23 +227,21 @@ Item {
                 StateChangeScript {
                     name: "updatingScript"
                     script: {
-                        status_bar.indicator = update_indicator;
-                        online_indicator.visible = false;
-                        offline_indicator.visible = false;
-                        update_indicator.visible = true;
+                        status_bar.setIndicator(update_indicator);
                     }
                 }
             },
             State {
                 name: "error"
                 when: (status_bar.status === "error")
-                PropertyChanges {target: status_bar; indicator: online_indicator}
                 PropertyChanges {target: status_text; text: status_bar.error_msg + viewModel.branchName}
-                PropertyChanges {target: status_text; color: "red"}
-                PropertyChanges {target: online_indicator; color: "red"}
-                PropertyChanges {target: online_indicator; visible: true}
-                PropertyChanges {target: offline_indicator; visible: false}
-                PropertyChanges {target: update_indicator; visible: false}
+                StateChangeScript {
+                    name: "errorScript"
+                    script: {
+                        online_indicator.color = "red";
+                        status_bar.setIndicator(online_indicator);
+                    }
+                }
             }
         ]
         transitions: [
