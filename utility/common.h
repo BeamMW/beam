@@ -178,7 +178,10 @@ namespace beam
 		}
 	};
 
-	void InstallCrashHandler(const char* szLocation);
+	namespace Crash
+	{
+		void InstallHandler(const char* szLocation);
+	}
 }
 
 namespace std

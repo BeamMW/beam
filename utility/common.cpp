@@ -255,21 +255,53 @@ void MiniDumpWriteGuarded(EXCEPTION_POINTERS* pExc)
 
 }
 
-void MiniDumpWriteNoExc()
-{
-	__try {
-		RaiseException(0xC20A1000, EXCEPTION_NONCONTINUABLE, 0, NULL);
-	} __except (MiniDumpWriteGuarded(GetExceptionInformation()), EXCEPTION_EXECUTE_HANDLER) {
-	}
-}
-
-long WINAPI ExcFilter(EXCEPTION_POINTERS* pExc)
+void MiniDumpWriteWrap(EXCEPTION_POINTERS* pExc)
 {
 	__try {
 		MiniDumpWriteGuarded(pExc);
 	} __except (EXCEPTION_EXECUTE_HANDLER) {
 	}
+}
 
+
+void RaiseCustumExc()
+{
+	RaiseException(0xC20A1000, EXCEPTION_NONCONTINUABLE, 0, NULL);
+}
+
+void MiniDumpWriteNoExc()
+{
+	__try {
+		RaiseCustumExc();
+	} __except (MiniDumpWriteGuarded(GetExceptionInformation()), EXCEPTION_EXECUTE_HANDLER) {
+	}
+}
+
+DWORD WINAPI MiniDumpWriteInThread(PVOID pPtr)
+{
+	MiniDumpWriteWrap((EXCEPTION_POINTERS*) pPtr);
+	return 0;
+}
+
+long WINAPI ExcFilter(EXCEPTION_POINTERS* pExc)
+{
+	switch (pExc->ExceptionRecord->ExceptionCode)
+	{
+	case STATUS_STACK_OVERFLOW:
+		{
+			DWORD dwThreadID;
+			HANDLE hThread = CreateThread(NULL, 0, MiniDumpWriteInThread, pExc, 0, &dwThreadID);
+			if (hThread)
+			{
+				WaitForSingleObject(hThread, INFINITE);
+				CloseHandle(hThread);
+			}
+		}
+		break;
+
+	default:
+		MiniDumpWriteWrap(pExc);
+	}
 	return EXCEPTION_CONTINUE_SEARCH;
 }
 
@@ -289,7 +321,7 @@ void TerminateHandler()
 	g_pfnTerminate();
 }
 
-_CRT_REPORT_HOOK g_pfnCrtReport = NULL;
+//_CRT_REPORT_HOOK g_pfnCrtReport = NULL;
 
 int CrtReportHook(int n, char* sz, int* p)
 {
@@ -297,8 +329,12 @@ int CrtReportHook(int n, char* sz, int* p)
 	return 0;
 }
 
+void PureCallHandler()
+{
+	RaiseCustumExc(); // convert it to regular exc
+}
 
-void beam::InstallCrashHandler(const char* szLocation)
+void beam::Crash::InstallHandler(const char* szLocation)
 {
 	if (szLocation)
 	{
@@ -321,11 +357,12 @@ void beam::InstallCrashHandler(const char* szLocation)
 	//_set_invalid_parameter_handler(CrtInvHandler);
 	g_pfnTerminate = set_terminate(TerminateHandler);
 	_CrtSetReportHook(CrtReportHook);
+	_set_purecall_handler(PureCallHandler);
 }
 
 #else // WIN32
 
-void beam::InstallCrashHandler(const char*)
+void beam::Crash::InstallHandler(const char*)
 {
 }
 

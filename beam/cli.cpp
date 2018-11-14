@@ -67,7 +67,7 @@ static const unsigned LOG_ROTATION_PERIOD = 3*60*60*1000; // 3 hours
 
 int main_impl(int argc, char* argv[])
 {
-	beam::InstallCrashHandler(NULL);
+	beam::Crash::InstallHandler(NULL);
 
 	try
 	{
