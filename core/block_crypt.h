@@ -782,15 +782,6 @@ namespace beam
 		uintBigFor<uint32_t>::Type m_KdfIdx;
 		uint8_t m_Added; // added or deleted
 		ECC::Key::IDV::Packed m_Kidv;
-
-		template <typename Archive>
-		void serialize(Archive& ar)
-		{
-			ar
-				& m_KdfIdx
-				& m_Added
-				& m_Kidv;
-		}
 	};
 #pragma pack (pop)
 }

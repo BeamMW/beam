@@ -2660,6 +2660,38 @@ void Node::Peer::OnMsg(proto::Recover&& msg)
 	Send(wlk.m_MsgOut);
 }
 
+void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
+{
+	proto::UtxoEvents msgOut;
+
+	if (Flags::Owner & m_Flags)
+	{
+		NodeDB& db = m_This.m_Processor.get_DB();
+		NodeDB::WalkerEvent wlk(db);
+
+		Height hLast = 0;
+		for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
+		{
+			if ((msgOut.m_Events.size() >= proto::UtxoEventPlus::s_Max) && (wlk.m_Height != hLast))
+				break;
+
+			if (sizeof(UtxoEvent) != wlk.m_Body.n)
+				continue; // although shouldn't happen
+			const UtxoEvent& evt = *(UtxoEvent*) wlk.m_Body.p;
+
+			msgOut.m_Events.emplace_back();
+			proto::UtxoEventPlus& evtp = msgOut.m_Events.back();
+
+			evtp.m_Height = wlk.m_Height;
+			Cast::Down<UtxoEvent>(evtp) = evt;
+		}
+	}
+	else
+		LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";
+
+	Send(msgOut);
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
 	if (newStream)
