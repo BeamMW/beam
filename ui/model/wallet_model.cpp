@@ -46,7 +46,6 @@ namespace
     };
 
     using WalletSubscriber = ScopedSubscriber<IWalletObserver, beam::Wallet>;
-    using NetworkIOSubscriber = ScopedSubscriber<INetworkIOObserver, beam::WalletNetworkIO>;
 }
 
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
@@ -255,7 +254,6 @@ void WalletModel::run()
     try
     {
         std::unique_ptr<WalletSubscriber> wallet_subscriber;
-        std::unique_ptr<NetworkIOSubscriber> wallet_io_subscriber;
 
         _reactor = Reactor::create();
 		io::Reactor::Scope scope(*_reactor);
@@ -275,20 +273,42 @@ void WalletModel::run()
             Logger::get()->rotate();
         });
 
-        {
-            Address node_addr;
-            node_addr.resolve(_nodeAddrStr.c_str());
-            auto wallet_io = make_shared<WalletNetworkIO>(
-                node_addr
-                , _walletDB
-                , _keystore
-                , _reactor);
-            _wallet_io = wallet_io;
-            wallet_io_subscriber = make_unique<NetworkIOSubscriber>(static_cast<INetworkIOObserver*>(this), wallet_io);
-            auto wallet = make_shared<Wallet>(_walletDB, wallet_io);
-            _wallet = wallet;
-            wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
-        }
+        auto wallet = make_shared<Wallet>(_walletDB);
+        _wallet = wallet;
+
+		struct MyNodeNetwork :public proto::FlyClient::NetworkStd {
+
+			MyNodeNetwork(proto::FlyClient& fc, WalletModel& wm)
+				:proto::FlyClient::NetworkStd(fc)
+				,m_This(wm)
+			{
+			}
+
+			WalletModel& m_This;
+
+			void OnNodeConnected(size_t, bool bConnected) override {
+				m_This.onNodeConnectedStatusChanged(bConnected);
+			}
+
+			void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason&) override {
+				m_This.onNodeConnectionFailed();
+			}
+		};
+
+        auto nnet = make_shared<MyNodeNetwork>(*wallet, *this);
+
+        Address node_addr;
+        node_addr.resolve(_nodeAddrStr.c_str());
+        nnet->m_Cfg.m_vNodes.push_back(node_addr);
+
+        nnet->Connect();
+        _nnet = nnet;
+
+        auto wnet = make_shared<WalletNetworkViaBbs>(*wallet, *nnet, _keystore, _walletDB);
+        _wnet = wnet;
+        wallet->set_Network(*nnet, *wnet);
+
+        wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
         if (AppModel::getInstance()->shouldRestoreWallet())
         {
