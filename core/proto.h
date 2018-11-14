@@ -826,6 +826,9 @@ namespace proto {
 
 				std::unique_ptr<SyncCtx> m_pSync;
 
+				size_t m_iIndex; // for callbacks only
+				bool m_ReportedConnected;
+
 				struct StateArray;
 
 				bool ShouldSync() const;
@@ -847,7 +850,7 @@ namespace proto {
 			public:
 				NetworkStd& m_This;
 
-				Connection(NetworkStd& x);
+				Connection(NetworkStd& x, size_t iIndex);
 				virtual ~Connection();
 
 				io::Address m_Addr;
@@ -896,6 +899,10 @@ namespace proto {
 			virtual void Disconnect() override;
 			virtual void PostRequestInternal(Request&) override;
 			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) override;
+
+			// more events
+			virtual void OnNodeConnected(size_t iNodeIdx, bool) {}
+			virtual void OnConnectionFailed(size_t iNodeIdx, const NodeConnection::DisconnectReason&) {}
 		};
 	};
 

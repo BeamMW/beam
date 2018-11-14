@@ -958,7 +958,7 @@ void FlyClient::NetworkStd::Connect()
 
 	for (size_t i = 0; i < m_Cfg.m_vNodes.size(); i++)
 	{
-		Connection* pConn = new Connection(*this);
+		Connection* pConn = new Connection(*this, i);
 		pConn->m_Addr = m_Cfg.m_vNodes[i];
 		pConn->Connect(pConn->m_Addr);
 	}
@@ -1051,8 +1051,9 @@ void FlyClient::StateHistoryMap::Shrink()
 	}
 }
 
-FlyClient::NetworkStd::Connection::Connection(NetworkStd& x)
+FlyClient::NetworkStd::Connection::Connection(NetworkStd& x, size_t iIndex)
 	:m_This(x)
+	,m_iIndex(iIndex)
 {
 	m_This.m_Connections.push_back(*this);
 	ResetVars();
@@ -1073,6 +1074,7 @@ bool FlyClient::NetworkStd::Connection::ShouldSync() const
 
 void FlyClient::NetworkStd::Connection::ResetVars()
 {
+	m_ReportedConnected = false;
 	ZeroObject(m_Tip);
 	m_bNode = m_bBbs = m_bTransactions = false;
 }
@@ -1080,6 +1082,9 @@ void FlyClient::NetworkStd::Connection::ResetVars()
 void FlyClient::NetworkStd::Connection::ResetInternal()
 {
 	m_pSync.reset();
+
+	if (m_ReportedConnected)
+		m_This.OnNodeConnected(m_iIndex, false);
 
 	while (!m_lst.empty())
 	{
@@ -1095,10 +1100,19 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 	msgCfg.m_CfgChecksum = Rules::get().Checksum;
 	msgCfg.m_SendPeers = true;
 	Send(msgCfg);
+
+	if (!m_ReportedConnected)
+	{
+		m_ReportedConnected = true;
+		m_This.OnNodeConnected(m_iIndex, true);
+	}
 }
 
 void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)
 {
+	if (!m_ReportedConnected)
+		m_This.OnConnectionFailed(m_iIndex, dr);
+
 	NodeConnection::Reset();
 	ResetVars();
 	ResetInternal();
