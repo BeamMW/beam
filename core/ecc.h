@@ -380,6 +380,7 @@ namespace ECC
 
 
 		private:
+			struct ChallengeSetBase;
 			struct ChallengeSet;
 		};
 
