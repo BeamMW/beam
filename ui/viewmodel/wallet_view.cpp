@@ -30,13 +30,15 @@ using namespace beamui;
 
 namespace
 {
-template<typename T>
-bool compareTx(const T& lf, const T& rt, Qt::SortOrder sortOrder)
-{
-    if (sortOrder == Qt::DescendingOrder)
-        return lf > rt;
-    return lf < rt;
-}
+    const int kDefaultFeeInGroth = 10;
+
+    template<typename T>
+    bool compareTx(const T& lf, const T& rt, Qt::SortOrder sortOrder)
+    {
+        if (sortOrder == Qt::DescendingOrder)
+            return lf > rt;
+        return lf < rt;
+    }
 }
 
 TxObject::TxObject(const TxDescription& tx) : _tx(tx) {}
@@ -596,6 +598,11 @@ QString WalletViewModel::getAmountRole() const
 QString WalletViewModel::getStatusRole() const
 {
     return "status";
+}
+
+int WalletViewModel::getDefaultFeeInGroth() const
+{
+    return kDefaultFeeInGroth;
 }
 
 QString WalletViewModel::receiverAddr() const

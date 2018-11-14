@@ -131,6 +131,8 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString amountRole READ getAmountRole CONSTANT)
     Q_PROPERTY(QString statusRole READ getStatusRole CONSTANT)
 
+    Q_PROPERTY(int defaultFeeInGroth READ getDefaultFeeInGroth CONSTANT)
+
 public:
 
     Q_INVOKABLE void cancelTx(TxObject* pTxObject);
@@ -199,6 +201,8 @@ public:
     QString getDisplayNameRole() const;
     QString getAmountRole() const;
     QString getStatusRole() const;
+
+    int getDefaultFeeInGroth() const;
 
 public slots:
     void onStatus(const WalletStatus& amount);
