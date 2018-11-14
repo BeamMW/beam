@@ -52,11 +52,12 @@ struct Block::PoW::Helper
 
     bool Block::PoW::SolveGPU(const void* pInput, uint32_t nSizeInput, const Cancel& fnCancel)
     {
+        Helper hlp;
         EquihashGpu gpu;
 
-        std::function<bool(const beam::ByteBuffer&)> fnValid = [this](const beam::ByteBuffer& solution)
+        std::function<bool(const beam::ByteBuffer&)> fnValid = [this, &hlp](const beam::ByteBuffer& solution)
             {
-        	    if (!Helper::TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
+        	    if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
         		    return false;
         	    assert(solution.size() == m_Indices.size());
                 std::copy(solution.begin(), solution.end(), m_Indices.begin());
@@ -70,7 +71,6 @@ struct Block::PoW::Helper
 
         while (true)
         {
-            Helper hlp;
             hlp.Reset(pInput, nSizeInput, m_Nonce);
 
             if (gpu.solve(hlp.m_Blake, fnValid, fnCancelInternal))
