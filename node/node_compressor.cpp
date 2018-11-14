@@ -392,6 +392,8 @@ uint64_t Node::Compressor::get_SizeTotal(Height h)
 		if (fs.Open(sPath.c_str(), true))
 			ret += fs.get_Remaining();
 	}
+
+	return ret;
 }
 
 } // namespace beam
