@@ -39,10 +39,11 @@ RestoreViewModel::RestoreViewModel()
         connect(&AppModel::getInstance()->getNode(), SIGNAL(syncProgressUpdated(int, int)),
             SLOT(onNodeSyncProgressUpdated(int, int)));
     }
-    if (!_hasLocalNode && _walletConnected == false)
+    if (!_hasLocalNode)
     {
         syncWithNode();
     }
+
     connect(&_updateTimer, SIGNAL(timeout()), this, SLOT(onUpdateTimer()));
     _updateTimer.start(1000);
 }
@@ -83,7 +84,7 @@ void RestoreViewModel::onNodeSyncProgressUpdated(int done, int total)
 void RestoreViewModel::updateProgress()
 {
     double nodeSyncProgress = 0.0;
-    QString progressMessage;
+    QString progressMessage = tr("Waiting for node data...");
     if (_nodeTotal > 0)
     {
         int blocksDiff = _nodeTotal / 2;
