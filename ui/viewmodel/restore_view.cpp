@@ -27,6 +27,8 @@ RestoreViewModel::RestoreViewModel()
     , _walletConnected{false}
     , _hasLocalNode{ AppModel::getInstance()->getSettings().getRunLocalNode() }
     , _syncStart{getTimestamp()}
+    , _startTimeout{30} // sec
+    , _creating{false}
 {
     connect(AppModel::getInstance()->getWallet().get(), SIGNAL(onSyncProgressUpdated(int, int)),
         SLOT(onSyncProgressUpdated(int, int)));
@@ -145,6 +147,18 @@ void RestoreViewModel::updateProgress()
         int seconds = estimateInSec % 60;
         progressMessage.append(QString::asprintf(tr(" %d sec").toStdString().c_str(), seconds));
     }
+    else if  (!_creating)
+    {
+        --_startTimeout;
+        if (_startTimeout == 0)
+        {
+            progressMessage = tr("Failed to connect to node. Starting offline");
+        }
+        else if (_startTimeout < 0)
+        {
+            p = 1.0;
+        }
+    }
 
     setProgressMessage(progressMessage);
     setProgress(p);
@@ -165,6 +179,19 @@ void RestoreViewModel::setProgress(double value)
     {
         _progress = value;
         emit progressChanged();
+    }
+}
+
+bool RestoreViewModel::getCreating() const
+{
+    return _creating;
+}
+
+void RestoreViewModel::setCreating(bool value)
+{
+    if (_creating != value)
+    {
+        emit creatingChanged();
     }
 }
 

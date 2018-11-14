@@ -14,13 +14,14 @@ Item
     anchors.fill: parent
 
     property bool isRecoveryMode: false
-    property bool isCreated: false
+    property bool isCreating:false
 
     RestoreViewModel {
         id: viewModel 
         onSyncCompleted: {
             root.parent.source = "qrc:/main.qml";
         }
+        creating: parent.isCreating
     }
 
     Component
@@ -87,7 +88,7 @@ Item
             SFText {
                 Layout.bottomMargin: 6
                 Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
-                text: isCreated ? qsTr("Loading wallet...") : ( isRecoveryMode ? qsTr("Restoring wallet...") : qsTr("Creating wallet..."))
+                text: !isCreating ? qsTr("Loading wallet...") : ( isRecoveryMode ? qsTr("Restoring wallet...") : qsTr("Creating wallet..."))
                 font.pixelSize: 14
                 color: Style.white
             }
@@ -107,14 +108,15 @@ Item
 
             Row {
                 Layout.alignment: Qt.AlignBottom | Qt.AlignHCenter
+                Layout.topMargin: 52
                 Layout.bottomMargin: 143
 
                 CustomButton {
-                    visible: false
+                    visible: isRecoveryMode && isCreating
                     text: qsTr("cancel")
                     icon.source: "qrc:/assets/icon-cancel.svg"
                     onClicked: {
-                            
+                        root.parent.source = "qrc:/main.qml";
                     }
                 }
             }

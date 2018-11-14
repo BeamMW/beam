@@ -24,6 +24,7 @@ class RestoreViewModel : public QObject
     Q_OBJECT
     Q_PROPERTY(double progress READ getProgress WRITE setProgress NOTIFY progressChanged)
     Q_PROPERTY(QString progressMessage READ getProgressMessage WRITE setProgressMessage NOTIFY progressMessageChanged)
+    Q_PROPERTY(bool creating READ getCreating WRITE setCreating NOTIFY creatingChanged)
 
 public:
 
@@ -34,6 +35,9 @@ public:
     void setProgress(double value);
     const QString& getProgressMessage() const;
     void setProgressMessage(const QString& value);
+    bool getCreating() const;
+    void setCreating(bool value);
+
 
     Q_INVOKABLE void restoreFromBlockchain();
 
@@ -46,6 +50,7 @@ signals:
     void progressChanged();
     void progressMessageChanged();
     void syncCompleted();
+    void creatingChanged();
 private:
     void updateProgress();
     void syncWithNode();
@@ -60,4 +65,6 @@ private:
     QString _progressMessage;
     beam::Timestamp _syncStart;
     QTimer _updateTimer;
+    int _startTimeout;
+    bool _creating;
 };
