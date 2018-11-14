@@ -809,7 +809,7 @@ Item
                                     }
                                     else
                                     {
-                                        root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreated" : false});
+                                        root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true});
                                     }
                                 }
                             }
@@ -1119,7 +1119,7 @@ Item
                             }
                             else
                             {
-                                 root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : false, "isCreated" : true});
+                                 root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : false, "isCreating" : false});
                             }
                         }
                     }
