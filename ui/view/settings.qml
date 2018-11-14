@@ -208,7 +208,7 @@ Rectangle {
                                         value: viewModel.localNodeMiningThreads
                                         to: {viewModel.coreAmount()}
                                         stepSize: 1
-                                        enabled: localNodeRun.checked
+                                        enabled: localNodeRun.checked && !useGpu.checked
                                         Binding {
                                             target: viewModel
                                             property: "localNodeMiningThreads"
@@ -243,6 +243,21 @@ Rectangle {
                                     Layout.fillWidth: true
                                     Layout.alignment: Qt.AlignTop
                                     spacing: 10
+
+                                    CustomSwitch {
+                                        id: useGpu
+                                        text: qsTr("Use GPU")
+                                        font.pixelSize: 12
+                                        width: parent.width
+                                        checked: viewModel.useGpu
+                                        enabled: localNodeRun.checked
+                                        visible: viewModel.showUseGpu()
+                                        Binding {
+                                            target: viewModel
+                                            property: "useGpu"
+                                            value: useGpu.checked
+                                        }
+                                    }
 
                                     SFText {
                                         text: qsTr("Peers")

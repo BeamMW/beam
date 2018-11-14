@@ -58,6 +58,7 @@ class StartViewModel : public QObject
     Q_PROPERTY(QList<QObject*> recoveryPhrases READ getRecoveryPhrases NOTIFY recoveryPhrasesChanged)
     Q_PROPERTY(QList<QObject*> checkPhrases READ getCheckPhrases NOTIFY checkPhrasesChanged)
     Q_PROPERTY(QChar phrasesSeparator READ getPhrasesSeparator CONSTANT)
+    Q_PROPERTY(bool useGpu READ getUseGpu WRITE setUseGpu NOTIFY useGpuChanged)
 public:
 
     using DoneCallback = std::function<bool (beam::IKeyChain::Ptr db, const std::string& walletPass)>;
@@ -71,6 +72,8 @@ public:
     const QList<QObject*>& getRecoveryPhrases();
     const QList<QObject*>& getCheckPhrases();
     QChar getPhrasesSeparator();
+    void setUseGpu(bool value);
+    bool getUseGpu() const;
 
     Q_INVOKABLE void setupLocalNode(int port, int miningThreads, bool generateGenesys = false);
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
@@ -79,6 +82,7 @@ public:
     Q_INVOKABLE void copyPhrasesToClipboard();
     Q_INVOKABLE void printRecoveryPhrases(QVariant viewData);
     Q_INVOKABLE void resetPhrases();
+    Q_INVOKABLE bool showUseGpu() const;
 
 signals:
     void walletExistsChanged();
@@ -86,6 +90,7 @@ signals:
     void recoveryPhrasesChanged();
     void checkPhrasesChanged();
     void isRecoveryModeChanged();
+    void useGpuChanged();
 
 public slots:
     bool createWallet(const QString& pass);

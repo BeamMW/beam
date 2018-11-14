@@ -433,6 +433,10 @@ namespace beam
 			// returns false only if cancelled
 			bool Solve(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
 
+#if defined (BEAM_USE_GPU)
+            bool SolveGPU(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
+#endif
+
 		private:
 			struct Helper;
 		};
@@ -481,7 +485,11 @@ namespace beam
 				bool IsSane() const;
 				bool IsValidPoW() const;
 				bool IsValid() const { return IsSane() && IsValidPoW(); }
-				bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
+#if defined(BEAM_USE_GPU)
+                bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; }, bool useGpu = false);
+#else
+                bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
+#endif
 
 				// the most robust proof verification - verifies the whole proof structure
 				bool IsValidProofState(const ID&, const Merkle::HardProof&) const;

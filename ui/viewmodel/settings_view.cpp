@@ -155,6 +155,15 @@ void SettingsViewModel::copyToClipboard(const QString& text)
     QApplication::clipboard()->setText(text);
 }
 
+bool SettingsViewModel::showUseGpu() const
+{
+#ifdef BEAM_USE_GPU
+    return true;
+#else
+    return false;
+#endif
+}
+
 bool SettingsViewModel::isChanged() const
 {
     return m_nodeAddress != m_settings.getNodeAddress()
@@ -163,7 +172,12 @@ bool SettingsViewModel::isChanged() const
         || m_localNodeMiningThreads != m_settings.getLocalNodeMiningThreads()
         || m_localNodeVerificationThreads != m_settings.getLocalNodeVerificationThreads()
         || m_localNodePeers != m_settings.getLocalNodePeers()
+#ifdef BEAM_USE_GPU
+        || m_lockTimeout != m_settings.getLockTimeout()
+        || m_useGpu != m_settings.getUseGpu();
+#else
         || m_lockTimeout != m_settings.getLockTimeout();
+#endif
 }
 
 void SettingsViewModel::applyChanges()
@@ -175,6 +189,9 @@ void SettingsViewModel::applyChanges()
     m_settings.setLocalNodeVerificationThreads(m_localNodeVerificationThreads);
     m_settings.setLocalNodePeers(m_localNodePeers);
     m_settings.setLockTimeout(m_lockTimeout);
+#ifdef BEAM_USE_GPU
+    m_settings.setUseGpu(m_useGpu);
+#endif
     m_settings.applyChanges();
     emit propertiesChanged();
 }
@@ -196,6 +213,24 @@ QString SettingsViewModel::getWalletLocation() const
     return QString::fromStdString(m_settings.getAppDataPath());
 }
 
+void SettingsViewModel::setUseGpu(bool value)
+{
+#ifdef BEAM_USE_GPU
+    m_useGpu = value;
+    emit localNodeUseGpuChanged();
+    emit propertiesChanged();
+#endif
+}
+
+bool SettingsViewModel::getUseGpu() const
+{
+#ifdef BEAM_USE_GPU
+    return m_useGpu;
+#else
+    return false;
+#endif
+}
+
 void SettingsViewModel::undoChanges()
 {
     setNodeAddress(m_settings.getNodeAddress());
@@ -205,6 +240,9 @@ void SettingsViewModel::undoChanges()
     setLocalNodeVerificationThreads(m_settings.getLocalNodeVerificationThreads());
     setLockTimeout(m_settings.getLockTimeout());
     setLocalNodePeers(m_settings.getLocalNodePeers());
+#ifdef BEAM_USE_GPU
+    setUseGpu(m_settings.getUseGpu());
+#endif
 }
 
 
