@@ -188,6 +188,7 @@ namespace beam
 			StlInvalid,
 			StackOverflow,
 			PureCall,
+			Terminate,
 
 			count
 		};

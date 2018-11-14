@@ -435,6 +435,10 @@ void beam::Crash::Induce(Type type)
 		}
 		break;
 
+	case Terminate:
+		terminate();
+		break;
+
 	default:
 		// default crash
 		*reinterpret_cast<int*>(0x48) = 15;
