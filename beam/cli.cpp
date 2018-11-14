@@ -67,7 +67,7 @@ static const unsigned LOG_ROTATION_PERIOD = 3*60*60*1000; // 3 hours
 
 int main_impl(int argc, char* argv[])
 {
-	beam::InstallCrashHandler(NULL);
+	beam::Crash::InstallHandler(NULL);
 
 	try
 	{
@@ -207,6 +207,18 @@ int main_impl(int argc, char* argv[])
 					Height hImport = vm[cli::IMPORT].as<Height>();
 					if (hImport)
 						node.ImportMacroblock(hImport);
+
+					io::Timer::Ptr pCrashTimer;
+
+					int nCrash = vm.count(cli::CRASH) ? vm[cli::CRASH].as<int>() : 0;
+					if (nCrash)
+					{
+						pCrashTimer = io::Timer::create(*reactor);
+
+						pCrashTimer->start(5000, false, [nCrash]() {
+							Crash::Induce((Crash::Type) (nCrash - 1));
+						});
+					}
 
 					reactor->run();
 				}

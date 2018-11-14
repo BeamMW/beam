@@ -178,7 +178,23 @@ namespace beam
 		}
 	};
 
-	void InstallCrashHandler(const char* szLocation);
+	namespace Crash
+	{
+		void InstallHandler(const char* szLocation);
+
+		enum Type {
+
+			BadPtr,
+			StlInvalid,
+			StackOverflow,
+			PureCall,
+			Terminate,
+
+			count
+		};
+
+		void Induce(Type);
+	}
 }
 
 namespace std

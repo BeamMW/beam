@@ -25,6 +25,28 @@ using namespace std;
 namespace
 {
     static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
+
+    template<typename Observer, typename Notifier>
+    struct ScopedSubscriber
+    {
+        ScopedSubscriber(Observer* observer, const std::shared_ptr<Notifier>& notifier)
+            : m_observer(observer)
+            , m_notifier(notifier)
+        {
+            m_notifier->subscribe(m_observer);
+        }
+
+        ~ScopedSubscriber()
+        {
+            m_notifier->unsubscribe(m_observer);
+        }
+    private:
+        Observer * m_observer;
+        std::shared_ptr<Notifier> m_notifier;
+    };
+
+    using WalletSubscriber = ScopedSubscriber<IWalletObserver, beam::Wallet>;
+    using NetworkIOSubscriber = ScopedSubscriber<INetworkIOObserver, beam::WalletNetworkIO>;
 }
 
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
@@ -232,25 +254,8 @@ void WalletModel::run()
 {
     try
     {
-        struct WalletSubscriber
-        {
-            WalletSubscriber(IWalletObserver* client, std::shared_ptr<beam::Wallet> wallet)
-                : _client(client)
-                , _wallet(wallet)
-            {
-                _wallet->subscribe(_client);
-            }
-
-            ~WalletSubscriber()
-            {
-                _wallet->unsubscribe(_client);
-            }
-        private:
-            IWalletObserver * _client;
-            std::shared_ptr<beam::Wallet> _wallet;
-        };
-
-        std::unique_ptr<WalletSubscriber> subscriber;
+        std::unique_ptr<WalletSubscriber> wallet_subscriber;
+        std::unique_ptr<NetworkIOSubscriber> wallet_io_subscriber;
 
         _reactor = Reactor::create();
 		io::Reactor::Scope scope(*_reactor);
@@ -270,23 +275,20 @@ void WalletModel::run()
             Logger::get()->rotate();
         });
 
-		auto wallet = make_shared<Wallet>(_walletDB);
-		_wallet = wallet;
-
-		auto nnet = make_shared < proto::FlyClient::NetworkStd>(*wallet);
-
-		Address node_addr;
-		node_addr.resolve(_nodeAddrStr.c_str());
-		nnet->m_Cfg.m_vNodes.push_back(node_addr);
-
-		nnet->Connect();
-		_nnet = nnet;
-
-		auto wnet = make_shared<WalletNetworkViaBbs>(*wallet, *nnet, _keystore, _walletDB);
-		_wnet = wnet;
-		wallet->set_Network(*nnet, *wnet);
-
-		subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
+        {
+            Address node_addr;
+            node_addr.resolve(_nodeAddrStr.c_str());
+            auto wallet_io = make_shared<WalletNetworkIO>(
+                node_addr
+                , _walletDB
+                , _keystore
+                , _reactor);
+            _wallet_io = wallet_io;
+            wallet_io_subscriber = make_unique<NetworkIOSubscriber>(static_cast<INetworkIOObserver*>(this), wallet_io);
+            auto wallet = make_shared<Wallet>(_walletDB, wallet_io);
+            _wallet = wallet;
+            wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
+        }
 
         if (AppModel::getInstance()->shouldRestoreWallet())
         {
@@ -349,6 +351,16 @@ void WalletModel::onSyncProgress(int done, int total)
 void WalletModel::onRecoverProgress(int done, int total, const string& message)
 {
     emit onRestoreProgressUpdated(done, total, QString::fromStdString(message));
+}
+
+void WalletModel::onNodeConnectedStatusChanged(bool isNodeConnected)
+{
+    emit onNodeConnectedChanged(isNodeConnected);
+}
+
+void WalletModel::onNodeConnectionFailed()
+{
+    emit onNodeConnectionFailedSignal();
 }
 
 void WalletModel::sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, Amount&& amount, Amount&& fee)

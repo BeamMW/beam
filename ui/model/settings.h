@@ -36,7 +36,8 @@ public:
     void initModel(WalletModel::Ptr model);
     std::string getWalletStorage() const;
     std::string getBbsStorage() const;
-	void reportProblem();
+    std::string getAppDataPath() const;
+    void reportProblem();
 
     bool getGenerateGenesys() const;
     void setGenerateGenesys(bool value);
@@ -60,8 +61,8 @@ public:
     void setLocalNodeSynchronized(bool value);
 
 public:
-	static const char* WalletCfg;
-	static const char* LogsFolder;
+    static const char* WalletCfg;
+    static const char* LogsFolder;
 
     void applyChanges();
 

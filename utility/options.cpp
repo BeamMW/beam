@@ -52,6 +52,7 @@ namespace beam
         const char* TREASURY = "treasury";
         const char* TREASURY_BLOCK = "treasury_path";
 		const char* RESYNC = "resync";
+		const char* CRASH = "crash";
 		const char* INIT = "init";
         const char* NEW_ADDRESS = "new_addr";
         const char* NEW_ADDRESS_LABEL = "label";
@@ -117,6 +118,7 @@ namespace beam
             (cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
             (cli::IMPORT, po::value<Height>()->default_value(0), "Specify the blockchain height to import. The compressed history is asumed to be downloaded the the specified directory")
 			(cli::RESYNC, po::value<bool>()->default_value(false), "Enforce re-synchronization (soft reset)")
+			(cli::CRASH, po::value<int>()->default_value(0), "Induce crash (test proper handling)")
 			;
 
         po::options_description wallet_options("Wallet options");

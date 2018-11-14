@@ -131,6 +131,8 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString amountRole READ getAmountRole CONSTANT)
     Q_PROPERTY(QString statusRole READ getStatusRole CONSTANT)
 
+    Q_PROPERTY(int defaultFeeInGroth READ getDefaultFeeInGroth CONSTANT)
+
 public:
 
     Q_INVOKABLE void cancelTx(TxObject* pTxObject);
@@ -200,6 +202,8 @@ public:
     QString getAmountRole() const;
     QString getStatusRole() const;
 
+    int getDefaultFeeInGroth() const;
+
 public slots:
     void onStatus(const WalletStatus& amount);
     void onTxStatus(beam::ChangeAction action, const std::vector<beam::TxDescription>& items);
@@ -212,6 +216,8 @@ public slots:
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
 	void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
     void onGeneratedNewWalletID(const beam::WalletID& walletID);
+    void onNodeConnectedChanged(bool is_node_connected);
+    void onNodeConnectionFailed();
 
 signals:
     void stateChanged();

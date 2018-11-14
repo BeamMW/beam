@@ -386,7 +386,7 @@ void Node::Processor::OnNewState()
 
 	get_ParentObj().RefreshCongestions();
 
-    ReportNewState();
+	ReportNewState();
 }
 
 void Node::Processor::OnRolledBack()
@@ -544,21 +544,16 @@ void Node::Processor::ReportProgress()
 		{
 			observer->OnSyncProgress(done, total);
 		}
-
-		if (done >= total)
-		{
-			m_RequestedCount = m_DownloadedHeaders = m_DownloadedBlocks;
-		}
 	}
 }
 
 void Node::Processor::ReportNewState()
 {
-    auto observer = get_ParentObj().m_Cfg.m_Observer;
+	auto observer = get_ParentObj().m_Cfg.m_Observer;
 	if (observer)
-    {
-        observer->OnStateChanged();
-    }
+	{
+		observer->OnStateChanged();
+	}
 }
 
 void Node::Processor::OnModified()
@@ -572,6 +567,21 @@ void Node::Processor::OnModified()
 
 		m_bFlushPending = true;
 	}
+}
+
+Key::IPKdf* Node::Processor::get_Kdf(uint32_t i)
+{
+	switch (i)
+	{
+	case 0:
+		return get_ParentObj().m_pKdf.get();
+
+	case 1:
+		if (!get_ParentObj().m_bSameKdf)
+			return get_ParentObj().m_pOwnerKdf.get();
+	}
+
+	return NULL;
 }
 
 void Node::Processor::OnFlushTimer()
@@ -622,7 +632,12 @@ void Node::Initialize()
 	}
 
 	if (!m_pOwnerKdf)
+	{
 		m_pOwnerKdf = m_pKdf;
+		m_bSameKdf = true;
+	}
+	else
+		m_bSameKdf = m_pOwnerKdf->IsSame(*m_pKdf);
 
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_Sync.m_ForceResync);
@@ -713,6 +728,9 @@ void Node::InitMode()
 
 	if (m_pSync->m_Trg.m_Height)
 	{
+		m_pSync->m_SizeCompleted = m_Compressor.get_SizeTotal(m_pSync->m_Trg.m_Height);
+		m_pSync->m_SizeTotal = m_pSync->m_SizeCompleted; // will change when peer responds
+
 		LOG_INFO() << "Resuming sync up to " << m_pSync->m_Trg;
 	}
 	else
@@ -1288,6 +1306,7 @@ void Node::Peer::OnMsg(proto::Macroblock&& msg)
 		if (msg.m_ID == m_This.m_pSync->m_Trg)
 		{
 			LOG_INFO() << "Peer " << m_RemoteAddr << " DL Macroblock portion";
+			m_This.m_pSync->m_SizeTotal = msg.m_SizeTotal;
 			m_This.SyncCycle(*this, msg.m_Portion);
 		}
 		else
@@ -1313,6 +1332,7 @@ void Node::Peer::OnMsg(proto::Macroblock&& msg)
 
 			m_This.m_pSync->m_Trg = msg.m_ID;
 			m_This.m_pSync->m_Best = m_Tip.m_ChainWork;
+			m_This.m_pSync->m_SizeTotal = msg.m_SizeTotal;
 
 			if (!m_This.m_pSync->m_pTimer)
 			{
@@ -1438,8 +1458,11 @@ void Node::SyncCycle(Peer& p, const ByteBuffer& buf)
 		fs.Open(sPath.c_str(), false, true, true);
 
 		fs.write(&buf.at(0), buf.size());
+		m_pSync->m_SizeCompleted += buf.size();
 
 		LOG_INFO() << "Portion appended";
+
+		// Macroblock download progress should be reported here!
 	}
 
 	SyncCycle(p);
@@ -2634,19 +2657,8 @@ void Node::Peer::OnMsg(proto::Recover&& msg)
 		if (msg.m_Private)
 			wlk.m_vKeys.push_back(m_This.m_pKdf);
 
-		if (msg.m_Public)
-		{
-			// make sure it's not the same
-			ECC::Hash::Value hv = Zero;
-
-			ECC::Scalar::Native k0, k1;
-			m_This.m_pKdf->DerivePKey(k0, hv);
-			m_This.m_pOwnerKdf->DerivePKey(k1, hv);
-
-			k0 += -k1;
-			if (!(k0 == Zero))
-				wlk.m_vKeys.push_back(m_This.m_pOwnerKdf);
-		}
+		if (msg.m_Public && !m_This.m_bSameKdf)
+			wlk.m_vKeys.push_back(m_This.m_pOwnerKdf);
 
 		wlk.Proceed();
 	}
@@ -2654,6 +2666,38 @@ void Node::Peer::OnMsg(proto::Recover&& msg)
 		LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized recovery request.";
 
 	Send(wlk.m_MsgOut);
+}
+
+void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
+{
+	proto::UtxoEvents msgOut;
+
+	if (Flags::Owner & m_Flags)
+	{
+		NodeDB& db = m_This.m_Processor.get_DB();
+		NodeDB::WalkerEvent wlk(db);
+
+		Height hLast = 0;
+		for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
+		{
+			if ((msgOut.m_Events.size() >= proto::UtxoEventPlus::s_Max) && (wlk.m_Height != hLast))
+				break;
+
+			if (sizeof(UtxoEvent) != wlk.m_Body.n)
+				continue; // although shouldn't happen
+			const UtxoEvent& evt = *(UtxoEvent*) wlk.m_Body.p;
+
+			msgOut.m_Events.emplace_back();
+			proto::UtxoEventPlus& evtp = msgOut.m_Events.back();
+
+			evtp.m_Height = wlk.m_Height;
+			Cast::Down<UtxoEvent>(evtp) = evt;
+		}
+	}
+	else
+		LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";
+
+	Send(msgOut);
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)

@@ -809,8 +809,7 @@ Item
                                     }
                                     else
                                     {
-                                            root.parent.source = "qrc:/main.qml";
-                                        }
+                                        root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreated" : false});
                                     }
                                 }
                             }
@@ -818,6 +817,7 @@ Item
                     }
                 }
             }
+        }
 
         Component {
             id: nodeSetup
@@ -1106,7 +1106,7 @@ Item
                             }
                             else
                             {
-                                 root.parent.source = "qrc:/main.qml";
+                                 root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : false, "isCreated" : true});
                             }
                         }
                     }

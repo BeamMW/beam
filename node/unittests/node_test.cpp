@@ -1207,6 +1207,10 @@ namespace beam
 				msgRec.m_Public = true;
 				Send(msgRec);
 				m_nRecoveryPending++;
+
+				proto::GetUtxoEvents msgEvt;
+				Send(msgEvt);
+				m_nRecoveryPending++;
 			}
 
 			virtual void OnMsg(proto::ProofState&& msg) override
@@ -1318,6 +1322,14 @@ namespace beam
 
 				verify_test(msg.m_Public.empty()); // so far public and private is the same, hence only private should be reported
 				verify_test(!msg.m_Private.empty()); // at least coinbases must be present
+			}
+
+			virtual void OnMsg(proto::UtxoEvents&& msg) override
+			{
+				verify_test(m_nRecoveryPending);
+				m_nRecoveryPending--;
+
+				verify_test(!msg.m_Events.empty());
 			}
 
 			void SetTimer(uint32_t timeout_ms) {

@@ -13,7 +13,15 @@ Item
 
     anchors.fill: parent
 
-    RestoreViewModel { id: viewModel }
+    property bool isRecoveryMode: false
+    property bool isCreated: false
+
+    RestoreViewModel {
+        id: viewModel 
+        onSyncCompleted: {
+            root.parent.source = "qrc:/main.qml";
+        }
+    }
 
     Component
     {
@@ -65,31 +73,54 @@ Item
             source: "qrc:/assets/bg.svg"
         }
 
-        property Item defaultFocusItem: createNewWallet
 
-        Loader { 
-            sourceComponent: logoComponent 
-
+        ColumnLayout {
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: parent.top
-            anchors.topMargin: 140
-        }
+            anchors.fill: parent
+            anchors.topMargin: 50
 
-        Row {
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottomMargin: 143
-            anchors.bottom: parent.bottom
+            Loader { 
+                sourceComponent: logoComponent 
+                Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+                Layout.topMargin: 140
+            }
+            SFText {
+                Layout.bottomMargin: 6
+                Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+                text: isCreated ? qsTr("Loading wallet...") : ( isRecoveryMode ? qsTr("Restoring wallet...") : qsTr("Creating wallet..."))
+                font.pixelSize: 14
+                color: Style.white
+            }
+            SFText {
+                Layout.bottomMargin: 30
+                Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+                text: viewModel.progressMessage
+                font.pixelSize: 14
+                opacity: 0.5
+                color: Style.white
+            }
+            CustomProgressBar {
+                Layout.alignment: Qt.AlignHCenter
+                id: bar
+                value: viewModel.progress
+            }
 
-            CustomButton {
-                text: qsTr("cancel")
-                icon.source: "qrc:/assets/icon-cancel.svg"
-                onClicked: {
+            Row {
+                Layout.alignment: Qt.AlignBottom | Qt.AlignHCenter
+                Layout.bottomMargin: 143
+
+                CustomButton {
+                    visible: false
+                    text: qsTr("cancel")
+                    icon.source: "qrc:/assets/icon-cancel.svg"
+                    onClicked: {
                             
+                    }
                 }
             }
         }
         Component.onCompleted: {
-            viewModel.restoreFromBlockchain();
+            //viewModel.restoreFromBlockchain();
         }
     }
 }

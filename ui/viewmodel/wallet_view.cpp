@@ -30,13 +30,15 @@ using namespace beamui;
 
 namespace
 {
-template<typename T>
-bool compareTx(const T& lf, const T& rt, Qt::SortOrder sortOrder)
-{
-    if (sortOrder == Qt::DescendingOrder)
-        return lf > rt;
-    return lf < rt;
-}
+    const int kDefaultFeeInGroth = 10;
+
+    template<typename T>
+    bool compareTx(const T& lf, const T& rt, Qt::SortOrder sortOrder)
+    {
+        if (sortOrder == Qt::DescendingOrder)
+            return lf > rt;
+        return lf < rt;
+    }
 }
 
 TxObject::TxObject(const TxDescription& tx) : _tx(tx) {}
@@ -208,12 +210,18 @@ WalletViewModel::WalletViewModel()
     connect(&_model, SIGNAL(onGeneratedNewWalletID(const beam::WalletID&)),
         SLOT(onGeneratedNewWalletID(const beam::WalletID&)));
 
+    connect(&_model, SIGNAL(onNodeConnectedChanged(bool)),
+        SLOT(onNodeConnectedChanged(bool)));
+
+    connect(&_model, SIGNAL(onNodeConnectionFailedSignal()),
+        SLOT(onNodeConnectionFailed()));
+
     if (AppModel::getInstance()->getSettings().getRunLocalNode())
     {
         connect(&AppModel::getInstance()->getNode(), SIGNAL(syncProgressUpdated(int, int)),
             SLOT(onNodeSyncProgressUpdated(int, int)));
     }
-    
+    _model.async->syncWithNode();
     _model.async->getWalletStatus();
 }
 
@@ -592,6 +600,11 @@ QString WalletViewModel::getStatusRole() const
     return "status";
 }
 
+int WalletViewModel::getDefaultFeeInGroth() const
+{
+    return kDefaultFeeInGroth;
+}
+
 QString WalletViewModel::receiverAddr() const
 {
     if (_selectedAddr < 0 || _addrList.empty()) return "";
@@ -623,6 +636,11 @@ bool WalletViewModel::getIsFailedStatus() const
 
 void WalletViewModel::setIsOfflineStatus(bool value)
 {
+    if (_isOfflineStatus != value)
+    {
+        _isOfflineStatus = value;
+        emit isOfflineStatusChanged();
+    }
 }
 
 void WalletViewModel::setIsFailedStatus(bool value)
@@ -848,4 +866,17 @@ void WalletViewModel::onGeneratedNewWalletID(const beam::WalletID& walletID)
 
     emit newReceiverAddrChanged();
     saveNewAddress();
+}
+
+void WalletViewModel::onNodeConnectedChanged(bool is_node_connected)
+{
+    if (is_node_connected && getIsOfflineStatus())
+    {
+        setIsOfflineStatus(false);
+    }
+}
+
+void WalletViewModel::onNodeConnectionFailed()
+{
+    setIsOfflineStatus(true);
 }

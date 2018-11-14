@@ -193,7 +193,7 @@ void SettingsViewModel::setLocalNodePeers(const QStringList& localNodePeers)
 
 QString SettingsViewModel::getWalletLocation() const
 {
-    return QString::fromStdString(m_settings.getWalletStorage());
+    return QString::fromStdString(m_settings.getAppDataPath());
 }
 
 void SettingsViewModel::undoChanges()
@@ -210,13 +210,13 @@ void SettingsViewModel::undoChanges()
 
 void SettingsViewModel::reportProblem()
 {
-	m_settings.reportProblem();
+    m_settings.reportProblem();
 }
 
 bool SettingsViewModel::checkWalletPassword(const QString& oldPass) const
 {
-	SecString secretPass = oldPass.toStdString();
-	return AppModel::getInstance()->checkWalletPassword(secretPass);
+    SecString secretPass = oldPass.toStdString();
+    return AppModel::getInstance()->checkWalletPassword(secretPass);
 }
 
 void SettingsViewModel::changeWalletPassword(const QString& pass)

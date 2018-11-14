@@ -136,7 +136,7 @@ int main (int argc, char* argv[])
         int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
         int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
-        beam::InstallCrashHandler(appDataDir.filePath(AppName).toStdString().c_str());
+        beam::Crash::InstallHandler(appDataDir.filePath(AppName).toStdString().c_str());
 
         auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_",
 			appDataDir.filePath(WalletSettings::LogsFolder).toStdString());

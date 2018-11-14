@@ -57,7 +57,7 @@ Item {
                 qsTr("online")
         }
 
-        state: "offline"
+        state: "online"
 
         property int indicator_radius: 5
         property Item indicator: online_indicator
@@ -99,6 +99,7 @@ Item {
             anchors.top: parent.top
             anchors.left: parent.left
             width: childrenRect.width
+            visible: false
 
             property color color: Style.bluey_grey
             property int radius: status_bar.indicator_radius
@@ -176,6 +177,18 @@ Item {
             visible: viewModel.nodeSyncProgress > 0 && update_indicator.visible
         }
 
+        CustomProgressBar {
+            id: progress_bar
+            anchors.top: update_indicator.bottom
+            anchors.left: update_indicator.left
+            anchors.topMargin: 6
+            backgroundImplicitWidth: 200
+            contentItemImplicitWidth: 200
+
+            visible: viewModel.nodeSyncProgress > 0 && update_indicator.visible
+            value: viewModel.nodeSyncProgress / 100
+        }
+
         states: [
             State {
                 name: "online"
@@ -199,11 +212,15 @@ Item {
                 name: "updating"
                 when: (status_bar.status === "updating")
                 PropertyChanges {target: status_text; text: qsTr("updating...") + viewModel.branchName}
-                PropertyChanges {target: status_bar; indicator: update_indicator}
-                PropertyChanges {target: online_indicator; color: "red"}
-                PropertyChanges {target: online_indicator; visible: false}
-                PropertyChanges {target: offline_indicator; visible: false}
-                PropertyChanges {target: update_indicator; visible: true}
+                StateChangeScript {
+                    name: "updatingScript"
+                    script: {
+                        status_bar.indicator = update_indicator;
+                        online_indicator.visible = false;
+                        offline_indicator.visible = false;
+                        update_indicator.visible = true;
+                    }
+                }
             },
             State {
                 name: "error"
@@ -215,6 +232,16 @@ Item {
                 PropertyChanges {target: online_indicator; visible: true}
                 PropertyChanges {target: offline_indicator; visible: false}
                 PropertyChanges {target: update_indicator; visible: false}
+            }
+        ]
+        transitions: [
+            Transition {
+                from: "online"
+                to: "updating"
+                SequentialAnimation {
+                    PauseAnimation { duration: 1000 }
+                    ScriptAction { scriptName: "updatingScript" }
+                }
             }
         ]
     }
@@ -584,15 +611,6 @@ Item {
                             text: qsTr("Transaction fee")
                         }
 
-                        /*FeeSlider {
-                            id: feeSlider
-                            Layout.fillWidth: true
-
-                            to: 0.000010
-                            stepSize: 0.000001
-                            value: 0.0
-                        }*/
-
                         RowLayout {
                             Layout.fillWidth: true
 
@@ -601,19 +619,18 @@ Item {
 
                                 SFTextInput {
                                     Layout.fillWidth: true
-
-                                    id: fee
+                                    id: fee_input
 
                                     font.pixelSize: 36
                                     font.styleName: "Light"; font.weight: Font.Light
                                     color: Style.heliotrope
-                                    // TODO roman.strilec it's default value of fee
-                                    // need to move in best place
-                                    text: "10"
 
-                                    property double amount: 0
+                                    text: viewModel.defaultFeeInGroth.toLocaleString(Qt.locale(), 'f', -128)
 
-                                    validator: RegExpValidator { regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))$/ }
+                                    property int amount: viewModel.defaultFeeInGroth
+
+                                    validator: IntValidator {bottom: 0}
+                                    maximumLength: 15
                                     selectByMouse: true
                                     
                                     onTextChanged: {
@@ -623,7 +640,7 @@ Item {
                                     }
 
                                     onFocusChanged: {
-                                        if (amount > 0) {
+                                        if (amount >= 0) {
                                             // QLocale::FloatingPointShortest = -128
                                             text = focus ? amount : amount.toLocaleString(Qt.locale(), 'f', -128);
                                         }
@@ -642,7 +659,7 @@ Item {
                             target: viewModel
                             property: "feeGrothes"
                             //value: feeSlider.value
-                            value: fee.text
+                            value: fee_input.amount
                         }
 
                         Item {
@@ -1523,6 +1540,8 @@ Item {
             PropertyChanges {target: send_layout; visible: true}
             PropertyChanges {target: amount_input; text: ""}
             PropertyChanges {target: amount_input; amount: 0}
+            PropertyChanges {target: fee_input; text: viewModel.defaultFeeInGroth.toLocaleString(Qt.locale(), 'f', -128)}
+            PropertyChanges {target: fee_input; amount: viewModel.defaultFeeInGroth}
             PropertyChanges {target: receiverAddrInput; text: ""}
             PropertyChanges {target: comment_input; text: ""}
             StateChangeScript {

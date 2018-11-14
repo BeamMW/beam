@@ -68,6 +68,7 @@ struct WalletStatus
 class WalletModel
     : public QThread
     , private beam::IWalletObserver
+    , private beam::INetworkIOObserver
     , private IWalletModelAsync
 {
     Q_OBJECT
@@ -96,6 +97,8 @@ signals:
     void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
     void onGeneratedNewWalletID(const beam::WalletID& walletID);
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
+    void onNodeConnectedChanged(bool is_node_connected);
+    void onNodeConnectionFailedSignal();
 
 private:
     void onCoinsChanged() override;
@@ -123,6 +126,10 @@ private:
     void deleteOwnAddress(const beam::WalletID& id) override;
     void setNodeAddress(const std::string& addr) override;
     void changeWalletPassword(const beam::SecString& password) override;
+
+    // override beam::INetworkIOObserver
+    void onNodeConnectedStatusChanged(bool isNodeConnected) override;
+    void onNodeConnectionFailed() override;
 
     void onStatusChanged();
     WalletStatus getStatus() const;

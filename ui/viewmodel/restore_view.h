@@ -15,22 +15,49 @@
 #pragma once
 
 #include <QObject>
+#include <QTimer>
 
 #include "model/wallet_model.h"
 
 class RestoreViewModel : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(double progress READ getProgress WRITE setProgress NOTIFY progressChanged)
+    Q_PROPERTY(QString progressMessage READ getProgressMessage WRITE setProgressMessage NOTIFY progressMessageChanged)
 
 public:
 
     RestoreViewModel();
     ~RestoreViewModel();
 
+    double getProgress() const;
+    void setProgress(double value);
+    const QString& getProgressMessage() const;
+    void setProgressMessage(const QString& value);
+
     Q_INVOKABLE void restoreFromBlockchain();
 
 public slots:
     void onRestoreProgressUpdated(int, int, const QString&);
+    void onSyncProgressUpdated(int done, int total);
+    void onNodeSyncProgressUpdated(int done, int total);
+    void onUpdateTimer();
+signals:
+    void progressChanged();
+    void progressMessageChanged();
+    void syncCompleted();
 private:
-    WalletModel& _model;
+    void updateProgress();
+    void syncWithNode();
+private:
+    double _progress;
+    int _nodeTotal;
+    int _nodeDone;
+    int _total;
+    int _done;
+    bool _walletConnected;
+    bool _hasLocalNode;
+    QString _progressMessage;
+    beam::Timestamp _syncStart;
+    QTimer _updateTimer;
 };

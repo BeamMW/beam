@@ -621,10 +621,78 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				m_DB.DeleteKernel(hv, sid.m_Height);
 		}
 
+		if (bFwd)
+		{
+			auto r = block.get_Reader();
+			r.Reset();
+			RecognizeUtxos(std::move(r), sid.m_Height);
+		}
+		else
+			m_DB.DeleteEventsAbove(m_Cursor.m_ID.m_Height);
+
 		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
 	}
 
 	return bOk;
+}
+
+void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
+{
+	NodeDB::WalkerEvent wlk(m_DB);
+
+	for ( ; r.m_pUtxoIn; r.NextUtxoIn())
+	{
+		const Input& x = *r.m_pUtxoIn;
+
+		m_DB.FindEvents(wlk, Blob(&x.m_Commitment, sizeof(x.m_Commitment))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
+		if (wlk.MoveNext())
+		{
+			if (wlk.m_Body.n != sizeof(UtxoEvent))
+				OnCorrupted();
+
+			UtxoEvent evt = *(UtxoEvent*)wlk.m_Body.p; // copy
+			if (evt.m_Added != 1)
+				OnCorrupted();
+
+			// In case of macroblock we can't recover the original input height. But in our current implementation macroblocks always go from the beginning, hence they don't contain input.
+
+			evt.m_Added = 0;
+			m_DB.InsertEvent(hMax, Blob(&evt, sizeof(evt)), Blob(NULL, 0));
+		}
+	}
+
+	for (; r.m_pUtxoOut; r.NextUtxoOut())
+	{
+		const Output& x = *r.m_pUtxoOut;
+
+		for (uint32_t iKey = 0; ; iKey++)
+		{
+			Key::IPKdf* pKdf = get_Kdf(iKey);
+			if (!pKdf)
+				break;
+
+			Key::IDV kidv;
+			if (x.Recover(*pKdf, kidv))
+			{
+				// bingo!
+				UtxoEvent evt;
+				evt.m_KdfIdx = iKey;
+				evt.m_Kidv = kidv;
+				evt.m_Added = 1;
+
+				Height h;
+				if (x.m_Maturity)
+					// try to reverse-engineer the original block from the maturity
+					h = x.m_Maturity - x.get_MinMaturity(0);
+				else
+					h = hMax;
+
+				m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&x.m_Commitment, sizeof(x.m_Commitment)));
+
+				break;
+			}
+		}
+	}
 }
 
 bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, const Height* pHMax)
@@ -930,14 +998,14 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 		m_DB.set_Peer(rowid, &peer);
 
 		LOG_INFO() << id << " Header accepted";
+		OnStateData();
 	}
-	OnStateData();
+	
 	return ret;
 }
 
 NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const Blob& bbP, const Blob& bbE, const PeerID& peer)
 {
-	OnBlockData();
 	size_t nSize = size_t(bbP.n) + size_t(bbE.n);
 	if (nSize > Rules::get().MaxBodySize)
 	{
@@ -970,6 +1038,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
 		TryGoUp();
 
+	OnBlockData();
 	return DataStatus::Accepted;
 }
 
@@ -1631,6 +1700,8 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		m_DB.InsertKernel(hv, r.m_pKernel->m_Maturity);
 	}
 
+	LOG_INFO() << "Recovering owner UTXOs...";
+	RecognizeUtxos(std::move(r), id.m_Height);
 
 	m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &id.m_Height, NULL);
 	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);

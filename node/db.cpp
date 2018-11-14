@@ -52,6 +52,11 @@ namespace beam {
 #define TblKernels_Key			"Commitment"
 #define TblKernels_Height		"Height"
 
+#define TblEvents				"Events"
+#define TblEvents_Height		"Height"
+#define TblEvents_Body			"Body"
+#define TblEvents_Key			"Key"
+
 #define TblMined				"Mined"
 #define TblMined_Height			"Height"
 #define TblMined_State			"State"
@@ -322,6 +327,14 @@ void NodeDB::Create()
 		"[" TblKernels_Height	"] INTEGER NOT NULL)");
 
 	ExecQuick("CREATE INDEX [Idx" TblKernels "] ON [" TblKernels "] ([" TblKernels_Key "],[" TblKernels_Height "]  DESC);");
+
+	ExecQuick("CREATE TABLE [" TblEvents "] ("
+		"[" TblEvents_Height	"] INTEGER NOT NULL,"
+		"[" TblEvents_Body		"] BLOB NOT NULL,"
+		"[" TblEvents_Key		"] BLOB)");
+
+	ExecQuick("CREATE INDEX [Idx" TblEvents "] ON [" TblEvents "] ([" TblEvents_Height "],[" TblEvents_Body "]);");
+	ExecQuick("CREATE INDEX [Idx" TblEvents TblEvents_Key "] ON [" TblEvents "] ([" TblEvents_Key "]);");
 
 	ExecQuick("CREATE TABLE [" TblMined "] ("
 		"[" TblMined_Height		"] INTEGER NOT NULL,"
@@ -1455,6 +1468,49 @@ void NodeDB::get_PredictedStatesHash(Merkle::Hash& hv, const StateID& sid)
     dmmr.get_PredictedHash(hv, hv);
 }
 
+void NodeDB::InsertEvent(Height h, const Blob& b, const Blob& key)
+{
+	Recordset rs(*this, Query::EventIns, "INSERT INTO " TblEvents "(" TblEvents_Height "," TblEvents_Body "," TblEvents_Key ") VALUES (?,?,?)");
+	rs.put(0, h);
+	rs.put(1, b);
+	if (key.n)
+		rs.put(2, key);
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::DeleteEventsAbove(Height h)
+{
+	Recordset rs(*this, Query::EventDel, "DELETE FROM " TblEvents " WHERE " TblEvents_Height ">?");
+	rs.put(0, h);
+	rs.Step();
+}
+
+void NodeDB::EnumEvents(WalkerEvent& x, Height hMin)
+{
+	x.m_Rs.Reset(Query::EventEnum, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Height ">=? ORDER BY "  TblEvents_Height " ASC," TblEvents_Body " ASC");
+	x.m_Rs.put(0, hMin);
+}
+
+void NodeDB::FindEvents(WalkerEvent& x, const Blob& key)
+{
+	x.m_Rs.Reset(Query::EventEnum, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Key "=?");
+	x.m_Rs.put(0, key);
+}
+
+bool NodeDB::WalkerEvent::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+	m_Rs.get(0, m_Height);
+	m_Rs.get(1, m_Body);
+	if (m_Rs.IsNull(2))
+		ZeroObject(m_Key);
+	else
+		m_Rs.get(2, m_Key);
+	return true;
+}
+
 void NodeDB::SetMined(const StateID& sid, const Amount& v)
 {
 	Recordset rs(*this, Query::MinedUpd, "UPDATE " TblMined " SET " TblMined_Comission "=? WHERE " TblMined_Height "=? AND " TblMined_State "=?");
@@ -1669,6 +1725,8 @@ void NodeDB::ResetCursor()
 
 	rs.Reset(Query::KernelDelAll, "DELETE FROM " TblKernels);
 	rs.Step();
+
+	DeleteEventsAbove(Rules::HeightGenesis - 1);
 
 	StateID sid;
 	sid.m_Row = 0;
