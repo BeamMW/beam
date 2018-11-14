@@ -239,6 +239,9 @@ private:
 
 		uint32_t m_RequestsPending = 0;
 		uint8_t m_iData = 0;
+
+		uint64_t m_SizeTotal;
+		uint64_t m_SizeCompleted;
 	};
 
 	void OnSyncTimer();
@@ -598,6 +601,7 @@ private:
 		bool ProceedInternal();
 		bool SquashOnce(std::vector<HeightRange>&);
 		bool SquashOnce(Block::BodyBase::RW&, Block::BodyBase::RW& rwSrc0, Block::BodyBase::RW& rwSrc1);
+		uint64_t get_SizeTotal(Height);
 
 		PerThread m_Link;
 		std::mutex m_Mutex;

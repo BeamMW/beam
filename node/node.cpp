@@ -728,6 +728,9 @@ void Node::InitMode()
 
 	if (m_pSync->m_Trg.m_Height)
 	{
+		m_pSync->m_SizeCompleted = m_Compressor.get_SizeTotal(m_pSync->m_Trg.m_Height);
+		m_pSync->m_SizeTotal = m_pSync->m_SizeCompleted; // will change when peer responds
+
 		LOG_INFO() << "Resuming sync up to " << m_pSync->m_Trg;
 	}
 	else
@@ -1303,6 +1306,7 @@ void Node::Peer::OnMsg(proto::Macroblock&& msg)
 		if (msg.m_ID == m_This.m_pSync->m_Trg)
 		{
 			LOG_INFO() << "Peer " << m_RemoteAddr << " DL Macroblock portion";
+			m_This.m_pSync->m_SizeTotal = msg.m_SizeTotal;
 			m_This.SyncCycle(*this, msg.m_Portion);
 		}
 		else
@@ -1328,6 +1332,7 @@ void Node::Peer::OnMsg(proto::Macroblock&& msg)
 
 			m_This.m_pSync->m_Trg = msg.m_ID;
 			m_This.m_pSync->m_Best = m_Tip.m_ChainWork;
+			m_This.m_pSync->m_SizeTotal = msg.m_SizeTotal;
 
 			if (!m_This.m_pSync->m_pTimer)
 			{
@@ -1453,8 +1458,11 @@ void Node::SyncCycle(Peer& p, const ByteBuffer& buf)
 		fs.Open(sPath.c_str(), false, true, true);
 
 		fs.write(&buf.at(0), buf.size());
+		m_pSync->m_SizeCompleted += buf.size();
 
 		LOG_INFO() << "Portion appended";
+
+		// Macroblock download progress should be reported here!
 	}
 
 	SyncCycle(p);

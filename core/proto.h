@@ -182,7 +182,8 @@ namespace proto {
 
 #define BeamNodeMsg_Macroblock(macro) \
 	macro(Block::SystemState::ID, ID) \
-	macro(ByteBuffer, Portion)
+	macro(ByteBuffer, Portion) \
+	macro(uint64_t, SizeTotal)
 
 #define BeamNodeMsg_Recover(macro) \
 	macro(bool, Private) \
