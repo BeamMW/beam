@@ -954,13 +954,29 @@ FlyClient::NetworkStd::~NetworkStd()
 
 void FlyClient::NetworkStd::Connect()
 {
-	Disconnect();
-
-	for (size_t i = 0; i < m_Cfg.m_vNodes.size(); i++)
+	if (m_Connections.size() == m_Cfg.m_vNodes.size())
 	{
-		Connection* pConn = new Connection(*this, i);
-		pConn->m_Addr = m_Cfg.m_vNodes[i];
-		pConn->Connect(pConn->m_Addr);
+		// force (re) connect
+		for (ConnectionList::iterator it = m_Connections.begin(); m_Connections.end() != it; it++)
+		{
+			Connection& c = *it;
+			if (c.IsLive() && c.IsSecureOut())
+				continue;
+
+			c.Reset();
+			c.Connect(c.m_Addr);
+		}
+	}
+	else
+	{
+		Disconnect();
+
+		for (size_t i = 0; i < m_Cfg.m_vNodes.size(); i++)
+		{
+			Connection* pConn = new Connection(*this, i);
+			pConn->m_Addr = m_Cfg.m_vNodes[i];
+			pConn->Connect(pConn->m_Addr);
+		}
 	}
 }
 

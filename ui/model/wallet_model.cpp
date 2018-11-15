@@ -444,10 +444,7 @@ void WalletModel::syncWithNode()
     assert(!_nnet.expired());
     auto s = _nnet.lock();
     if (s)
-    {
-		s->Disconnect();
 		s->Connect();
-    }
 }
 
 void WalletModel::calcChange(beam::Amount&& amount)
