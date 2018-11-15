@@ -116,7 +116,7 @@ namespace beam
 		return true;
 	}
 
-	proto::FlyClient::IStateHistory& Wallet::get_History()
+	Block::SystemState::IHistory& Wallet::get_History()
 	{
 		return m_Hist;
 	}

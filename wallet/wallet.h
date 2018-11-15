@@ -82,7 +82,7 @@ namespace beam
 		void OnNewTip() override;
 		void OnRolledBack() override;
 		bool IsOwnedNode(const PeerID&, Key::IKdf::Ptr& pKdf) override;
-		IStateHistory& get_History() override;
+		Block::SystemState::IHistory& get_History() override;
 
 		// IWallet
         void subscribe(IWalletObserver* observer) override;
@@ -187,7 +187,7 @@ namespace beam
         std::set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
         TxCompletedAction m_tx_completed_action;
 		uint32_t m_LastSyncTotal;
-		proto::FlyClient::StateHistoryMap m_Hist;
+		Block::SystemState::HistoryMap m_Hist;
         bool m_needRecover;
 
         std::vector<IWalletObserver*> m_subscribers;

@@ -677,36 +677,6 @@ namespace proto {
 
 	struct FlyClient
 	{
-		struct IStateHistory
-		{
-			// should provide access to some recent states of the active branch
-
-			struct IWalker {
-				virtual bool OnState(const Block::SystemState::Full&) = 0;
-			};
-
-			virtual bool Enum(IWalker&, const Height* pBelow) = 0;
-			virtual bool get_At(Block::SystemState::Full&, Height) = 0;
-			virtual void AddStates(const Block::SystemState::Full*, size_t nCount) = 0;
-			virtual void DeleteFrom(Height) = 0;
-
-			bool get_Tip(Block::SystemState::Full&); // zero-init if no tip
-		};
-
-		struct StateHistoryMap
-			:public IStateHistory
-		{
-			// simple impl
-			std::map<Height, Block::SystemState::Full> m_Map;
-			void Shrink();
-
-			virtual bool Enum(IWalker&, const Height* pBelow) override;
-			virtual bool get_At(Block::SystemState::Full&, Height) override;
-			virtual void AddStates(const Block::SystemState::Full*, size_t nCount) override;
-			virtual void DeleteFrom(Height) override;
-		};
-
-
 #define REQUEST_TYPES_All(macro) \
 		macro(Utxo,			GetProofUtxo,		ProofUtxo) \
 		macro(Kernel,		GetProofKernel,		ProofKernel) \
@@ -761,7 +731,7 @@ namespace proto {
 		virtual void OnNewTip() {} // tip already added
 		virtual void OnRolledBack() {} // reversed states are already removed
 		virtual bool IsOwnedNode(const PeerID&, Key::IKdf::Ptr& pKdf) { return false; }
-		virtual IStateHistory& get_History() = 0;
+		virtual Block::SystemState::IHistory& get_History() = 0;
 
 		struct IBbsReceiver
 		{

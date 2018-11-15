@@ -489,6 +489,36 @@ namespace beam
 			private:
 				void get_HashInternal(Merkle::Hash&, bool bTotal) const;
 			};
+
+			struct IHistory
+			{
+				// should provide access to some recent states of the active branch
+
+				struct IWalker {
+					virtual bool OnState(const Block::SystemState::Full&) = 0;
+				};
+
+				virtual bool Enum(IWalker&, const Height* pBelow) = 0;
+				virtual bool get_At(Full&, Height) = 0;
+				virtual void AddStates(const Full*, size_t nCount) = 0;
+				virtual void DeleteFrom(Height) = 0;
+
+				bool get_Tip(Full&); // zero-inits if no tip
+			};
+
+			struct HistoryMap
+				:public IHistory
+			{
+				// simple impl
+				std::map<Height, Full> m_Map;
+				void ShrinkToWindow(Height dh);
+
+				virtual bool Enum(IWalker&, const Height* pBelow) override;
+				virtual bool get_At(Full&, Height) override;
+				virtual void AddStates(const Full*, size_t nCount) override;
+				virtual void DeleteFrom(Height) override;
+			};
+
 		};
 
 		struct BodyBase

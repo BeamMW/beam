@@ -1542,14 +1542,14 @@ namespace beam
 			uint32_t m_nProofsExpected;
 			BbsChannel m_LastBbsChannel = 0;
 			bool m_bBbsReceived;
-			StateHistoryMap m_Hist;
+			Block::SystemState::HistoryMap m_Hist;
 
 			MyFlyClient()
 			{
 				m_pTimer = io::Timer::create(io::Reactor::get_Current());
 			}
 
-			virtual IStateHistory& get_History() override
+			virtual Block::SystemState::IHistory& get_History() override
 			{
 				return m_Hist;
 			}

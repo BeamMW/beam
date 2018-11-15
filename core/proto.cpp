@@ -970,87 +970,6 @@ void FlyClient::NetworkStd::Disconnect()
 		delete &m_Connections.front();
 }
 
-bool FlyClient::IStateHistory::get_Tip(Block::SystemState::Full& s)
-{
-	struct Walker :public IWalker
-	{
-		Block::SystemState::Full& m_Res;
-		Walker(Block::SystemState::Full& s) :m_Res(s) {}
-
-		virtual bool OnState(const Block::SystemState::Full& s) override {
-			m_Res = s;
-			return false;
-		}
-	} w(s);
-
-	if (!Enum(w, NULL))
-		return true;
-
-	ZeroObject(s);
-	return false;
-}
-
-bool FlyClient::StateHistoryMap::Enum(IWalker& w, const Height* pBelow)
-{
-	for (auto it = (pBelow ? m_Map.upper_bound(*pBelow) : m_Map.end());  m_Map.begin() != it; )
-		if (!w.OnState((--it)->second))
-			return false;
-
-	return true;
-}
-
-bool FlyClient::StateHistoryMap::get_At(Block::SystemState::Full& s, Height h)
-{
-	auto it = m_Map.find(h);
-	if (m_Map.end() == it)
-		return false;
-
-	s = it->second;
-	return true;
-}
-
-void FlyClient::StateHistoryMap::AddStates(const Block::SystemState::Full* pS, size_t nCount)
-{
-	for (size_t i = 0; i < nCount; i++)
-	{
-		const Block::SystemState::Full& s = pS[i];
-		m_Map[s.m_Height] = s;
-	}
-}
-
-void FlyClient::StateHistoryMap::DeleteFrom(Height h)
-{
-	while (!m_Map.empty())
-	{
-		auto it = m_Map.end();
-		if ((--it)->first < h)
-			break;
-
-		m_Map.erase(it);
-	}
-}
-
-void FlyClient::StateHistoryMap::Shrink()
-{
-	if (m_Map.empty())
-		return;
-
-	Height h = m_Map.rbegin()->first;
-	const Height hThreshold = Rules::get().MaxRollbackHeight;
-	Height h0 = (h > hThreshold) ? (h - hThreshold) : 0;
-
-	while (true)
-	{
-		auto it = m_Map.begin();
-		assert(m_Map.end() != it);
-
-		if (it->first >= h0)
-			break;
-
-		m_Map.erase(it);
-	}
-}
-
 FlyClient::NetworkStd::Connection::Connection(NetworkStd& x, size_t iIndex)
 	:m_This(x)
 	,m_iIndex(iIndex)
@@ -1235,7 +1154,7 @@ void FlyClient::NetworkStd::Connection::SearchBelow(Height h, uint32_t nCount)
 	assert(ShouldSync() && m_pSync && m_pSync->m_vConfirming.empty());
 	assert(nCount);
 
-	struct Walker :public IStateHistory::IWalker
+	struct Walker :public Block::SystemState::IHistory::IWalker
 	{
 		std::vector<Block::SystemState::Full> m_vStates;
 		uint32_t m_Count;
@@ -1418,7 +1337,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofChainWork&& msg)
 		}
 	}
 
-	struct Walker :public IStateHistory::IWalker
+	struct Walker :public Block::SystemState::IHistory::IWalker
 	{
 		Height m_LowHeight;
 		Height m_LowErase;
