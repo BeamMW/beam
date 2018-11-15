@@ -191,6 +191,7 @@ void RestoreViewModel::setCreating(bool value)
 {
     if (_creating != value)
     {
+        _creating = value;
         emit creatingChanged();
     }
 }
