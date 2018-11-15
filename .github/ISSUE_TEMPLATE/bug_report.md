@@ -20,17 +20,20 @@ A clear and concise description of the erroneous behavior which currently happen
 **Expected behavior**
 A clear and concise description of what you expected to happen.
 
+**Platform**
+Windows, Mac, Linux, Android or iOS
+
+**Build**
+Build number
+
 **Configuration file (if applicable)**
 Add configuration file. The file with `cfg` extension is located in the same folder the main executable resides in.
 
 **Log file(s) (if applicable)**
 Add relevant log file(s),  located in the `logs` folder.
 
-**Platform**
-Windows, Mac, Linux, Android or iOS
-
-**Build**
-Build number
+**Memory dump (in case of crash on Windows)**
+Add file with extension `dmp`, located in the node directory.
 
 **Screenshots (if applicable)**
 Add screenshots that illustrate a problem you've found.
