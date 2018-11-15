@@ -36,4 +36,4 @@ Build number
 Add screenshots that illustrate a problem you've found.
 
 **Your contact details (if possible)**
-IF possible, please leave your Mail or Telegram, so we'll be able to ask for more information in more challenging cases :)
+IF possible, please leave your Mail or Telegram, so we'll be able to ask for more information in especially challenging cases :)
