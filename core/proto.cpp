@@ -987,8 +987,8 @@ void FlyClient::NetworkStd::Disconnect()
 }
 
 FlyClient::NetworkStd::Connection::Connection(NetworkStd& x, size_t iIndex)
-	:m_This(x)
-	,m_iIndex(iIndex)
+	:m_iIndex(iIndex)
+	,m_This(x)
 {
 	m_This.m_Connections.push_back(*this);
 	ResetVars();
