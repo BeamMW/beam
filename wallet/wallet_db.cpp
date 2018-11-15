@@ -1745,7 +1745,13 @@ namespace beam
 			const Height hMaxBacklog = Rules::get().MaxRollbackHeight * 2; // can actually be more
 
 			if (s.m_Height > hMaxBacklog)
-				m_History.DeleteFrom(s.m_Height - hMaxBacklog);
+			{
+				const char* req = "DELETE FROM " TblStates " WHERE " TblStates_Height "<=?";
+				sqlite::Statement stm(_db, req);
+				stm.bind(1, s.m_Height - hMaxBacklog);
+				stm.step();
+
+			}
 		}
 	}
 
