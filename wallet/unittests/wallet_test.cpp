@@ -48,6 +48,7 @@ namespace
     class BaseTestWalletDB : public IWalletDB
     {
 		Key::IKdf::Ptr m_pKdf;
+		Block::SystemState::HistoryMap m_Hist;
     public:
 
 		BaseTestWalletDB()
@@ -171,6 +172,9 @@ namespace
             }
             return false;
         }
+
+		Block::SystemState::IHistory& get_History() override { return m_Hist; }
+		void ShrinkHistory() override {}
 
     protected:
         std::vector<beam::Coin> m_coins;

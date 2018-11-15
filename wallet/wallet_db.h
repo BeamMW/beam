@@ -188,6 +188,9 @@ namespace beam
         virtual bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob) = 0;
         virtual bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) = 0;
 
+		virtual Block::SystemState::IHistory& get_History() = 0;
+		virtual void ShrinkHistory() = 0;
+
 		uint64_t get_AutoIncrID();
     };
 
@@ -252,6 +255,10 @@ namespace beam
 
         bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob) override;
         bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) override;
+
+		Block::SystemState::IHistory& get_History() override;
+		void ShrinkHistory() override;
+
     private:
         void storeImpl(Coin& coin);
         void notifyCoinsChanged();
@@ -264,6 +271,15 @@ namespace beam
         Key::IKdf::Ptr m_pKdf;
 
         std::vector<IWalletDbObserver*> m_subscribers;
+
+		struct History :public Block::SystemState::IHistory {
+			bool Enum(IWalker&, const Height* pBelow) override;
+			bool get_At(Block::SystemState::Full&, Height) override;
+			void AddStates(const Block::SystemState::Full*, size_t nCount) override;
+			void DeleteFrom(Height) override;
+
+			IMPLEMENT_GET_PARENT_OBJ(WalletDB, m_History)
+		} m_History;
     };
 
     namespace wallet
