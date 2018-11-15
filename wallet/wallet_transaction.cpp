@@ -365,7 +365,8 @@ namespace beam { namespace wallet
         }
 
         Height hProof = 0;
-        if (!GetParameter(TxParameterID::KernelProofHeight, hProof))
+		GetParameter(TxParameterID::KernelProofHeight, hProof);
+        if (!hProof)
         {
             if (!IsInitiator() && txState == State::Registration)
             {

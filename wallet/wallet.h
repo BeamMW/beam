@@ -178,8 +178,6 @@ namespace beam
 		REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
 
-		const Block::SystemState::Full* get_Tip() const;
-
 		IWalletDB::Ptr m_WalletDB;
 		proto::FlyClient::INetwork* m_pNodeNetwork;
 		INetwork* m_pWalletNetwork;
@@ -187,7 +185,6 @@ namespace beam
         std::set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
         TxCompletedAction m_tx_completed_action;
 		uint32_t m_LastSyncTotal;
-		Block::SystemState::HistoryMap m_Hist;
         bool m_needRecover;
 
         std::vector<IWalletObserver*> m_subscribers;

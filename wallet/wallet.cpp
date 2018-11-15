@@ -118,12 +118,7 @@ namespace beam
 
 	Block::SystemState::IHistory& Wallet::get_History()
 	{
-		return m_Hist;
-	}
-
-	const Block::SystemState::Full* Wallet::get_Tip() const
-	{
-		return m_Hist.m_Map.empty() ? NULL : &m_Hist.m_Map.rbegin()->second;
+		return m_WalletDB->get_History();
 	}
 
 	void Wallet::set_Network(proto::FlyClient::INetwork& netNode, INetwork& netWallet)
@@ -307,15 +302,7 @@ namespace beam
 
     bool Wallet::get_tip(Block::SystemState::Full& state) const
     {
-		auto pTip = get_Tip();
-		if (pTip)
-		{
-			state = *pTip;
-			return true;
-		}
-
-        LOG_ERROR() << "get_tip: Invalid state " ;
-        return false;
+		return m_WalletDB->get_History().get_Tip(state);
     }
 
     void Wallet::send_tx_params(const WalletID& peerID, SetTxParameter&& msg)
@@ -392,7 +379,7 @@ namespace beam
         auto it = m_transactions.find(txID);
         if (it != m_transactions.end())
         {
-			bool bSynced = /*get_Tip() && */!SyncRemains();
+			bool bSynced = !SyncRemains();
 
 			if (bSynced)
 				it->second->Update();
@@ -432,14 +419,14 @@ namespace beam
         {
             if (r.m_Coin.m_status == Coin::Unconfirmed)
             {
-				auto pTip = get_Tip();
-				assert(pTip);
+				Block::SystemState::Full sTip;
+				get_tip(sTip);
 
-                LOG_INFO() << "Got utxo proof for: " << r.m_Msg.m_Utxo;
+				LOG_INFO() << "Got utxo proof for: " << r.m_Msg.m_Utxo;
 				r.m_Coin.m_status = Coin::Unspent;
 				r.m_Coin.m_maturity = proof.m_State.m_Maturity;
-				r.m_Coin.m_confirmHeight = pTip->m_Height;
-                pTip->get_Hash(r.m_Coin.m_confirmHash);
+				r.m_Coin.m_confirmHeight = sTip.m_Height;
+                sTip.get_Hash(r.m_Coin.m_confirmHash);
                 if (r.m_Coin.m_id == 0)
                 {
 					m_WalletDB->store(r.m_Coin);
@@ -508,7 +495,7 @@ namespace beam
     {
         if (!r.m_Res.m_Proof.empty())
         {
-			assert(get_Tip());
+			m_WalletDB->get_History().AddStates(&r.m_Res.m_Proof.m_State, 1); // why not?
 
 			auto it = m_transactions.find(r.m_TxID);
 			if (m_transactions.end() != it)
@@ -526,19 +513,38 @@ namespace beam
 
 	void Wallet::OnRolledBack()
 	{
-		const Block::SystemState::Full* pTip = get_Tip();
-		m_WalletDB->rollbackConfirmedUtxo(pTip ? pTip->m_Height : 0);
-		saveKnownState();
+		Block::SystemState::Full sTip;
+		m_WalletDB->get_History().get_Tip(sTip);
+
+		m_WalletDB->get_History().DeleteFrom(sTip.m_Height + 1);
+
+		m_WalletDB->rollbackConfirmedUtxo(sTip.m_Height);
+
+		for (auto it = m_transactions.begin(); m_transactions.end() != it; it++)
+		{
+			const auto& pTx = it->second;
+
+			Height h;
+			if (pTx->GetParameter(TxParameterID::KernelProofHeight, h) && (h > sTip.m_Height))
+			{
+				h = 0;
+				pTx->SetParameter(TxParameterID::KernelProofHeight, h);
+				m_TransactionsToUpdate.insert(pTx);
+			}
+		}
 	}
 
 	void Wallet::OnNewTip()
 	{
-		const Block::SystemState::Full* pTip = get_Tip();
-		if (!pTip)
-			return;
+		m_WalletDB->ShrinkHistory();
+
+		Block::SystemState::Full sTip;
+		get_tip(sTip);
+		if (!sTip.m_Height)
+			return; //?!
 
 		Block::SystemState::ID id, id2;
-        get_Tip()->get_ID(id);
+        sTip.get_ID(id);
         LOG_INFO() << "Sync up to " << id;
 
 		if (!m_WalletDB->getSystemStateID(id2))
@@ -622,10 +628,12 @@ namespace beam
 
     void Wallet::saveKnownState()
     {
+		Block::SystemState::Full sTip;
+		get_tip(sTip);
+
 		Block::SystemState::ID id;
-		auto pTip = get_Tip();
-		if (pTip)
-			pTip->get_ID(id);
+		if (sTip.m_Height)
+			sTip.get_ID(id);
 		else
 			ZeroObject(id);
 
