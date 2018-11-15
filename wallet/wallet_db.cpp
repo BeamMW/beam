@@ -468,9 +468,7 @@ namespace beam
 
             void get(int col, TxID& id)
             {
-                int size = 0;
-                get(col, static_cast<void*>(id.data()), size);
-                assert(size == id.size());
+                getBlobStrict(col, static_cast<void*>(id.data()), static_cast<int>(id.size()));
             }
 
             void get(int col, boost::optional<TxID>& id)
@@ -524,7 +522,30 @@ namespace beam
                 }
             }
 
-            void get(int col, void* blob, int& size)
+			bool getBlobSafe(int col, void* blob, int size)
+			{
+				if (sqlite3_column_bytes(_stm, col) != size)
+					return false;
+
+				if (size)
+				{
+					const void* data = sqlite3_column_blob(_stm, col);
+					if (!data)
+						return false;
+
+					memcpy(blob, data, size);
+				}
+
+				return true;
+			}
+
+			void getBlobStrict(int col, void* blob, int size)
+			{
+				if (!getBlobSafe(col, blob, size))
+					throw std::runtime_error("wdb corruption");
+			}
+
+            void get_(int col, void* blob, int& size)
             {
                 size = sqlite3_column_bytes(_stm, col);
                 const void* data = sqlite3_column_blob(_stm, col);
@@ -1212,18 +1233,16 @@ namespace beam
         trans.commit();
     }
 
-    int WalletDB::getVarRaw(const char* name, void* data) const
+    bool WalletDB::getVarRaw(const char* name, void* data, int size) const
     {
         const char* req = "SELECT value FROM " VARIABLES_NAME " WHERE name=?1;";
 
         sqlite::Statement stm(_db, req);
         stm.bind(1, name);
-        stm.step();
 
-        int size = 0;
-        stm.get(0, data, size);
-
-        return size;
+        return
+			stm.step() &&
+			stm.getBlobSafe(0, data, size);
     }
 
     bool WalletDB::getBlob(const char* name, ByteBuffer& var) const

@@ -101,7 +101,7 @@ namespace
         void remove(const beam::Coin& ) override {}
         void visit(std::function<bool(const beam::Coin& coin)> ) override {}
         void setVarRaw(const char* , const void* , size_t ) override {}
-        int getVarRaw(const char* , void* ) const override { return 0; }
+        bool getVarRaw(const char* , void* , int) const override { return false; }
         bool getBlob(const char* name, ByteBuffer& var) const override { return false; }
         Timestamp getLastUpdateTime() const override { return 0; }
         void setSystemStateID(const Block::SystemState::ID& ) override {};
