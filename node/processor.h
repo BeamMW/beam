@@ -192,6 +192,7 @@ public:
 
 	bool GenerateNewBlock(BlockContext&, Block::Body& blockInOut);
 	bool GenerateNewBlock(BlockContext&);
+	void DeleteOutdated(TxPool::Fluff&);
 
 	struct UtxoRecoverSimple
 		:public IUtxoWalker
