@@ -3,10 +3,18 @@
 #include "node/node.h"
 #include "utility/logger.h"
 #include "utility/helpers.h"
+#include <boost/program_options.hpp>
 
 using namespace beam;
+using namespace std;
+namespace po = boost::program_options;
 
 #define FILES_PREFIX "explorer-node_"
+#define PEER_PARAMETER "peer"
+#define PORT_PARAMETER "port"
+#define API_PORT_PARAMETER "api_port"
+#define HELP_FULL_PARAMETER "help,h"
+#define HELP_PARAMETER "help"
 
 struct Options {
     std::string nodeDbFilename;
@@ -55,22 +63,54 @@ int main(int argc, char* argv[]) {
 }
 
 bool parse_cmdline(int argc, char* argv[], Options& o) {
-    // TODO cmdline
-
+    
+    po::options_description cliOptions("Node explorer options");
+    cliOptions.add_options()
+        (HELP_FULL_PARAMETER, "list of all options")
+        (PEER_PARAMETER, po::value<string>()->default_value("172.104.249.212:8101"), "peer address")
+        (PORT_PARAMETER, po::value<uint16_t>()->default_value(10000), "port to start the local node on")
+        (API_PORT_PARAMETER, po::value<uint16_t>()->default_value(8888), "port to start the local api server on");
+        
 #ifdef NDEBUG
     o.logLevel = LOG_LEVEL_INFO;
 #else
     o.logLevel = LOG_LEVEL_DEBUG;
 #endif
 
-    o.nodeDbFilename = FILES_PREFIX "db";
-    //o.accessControlFile = "api.keys";
 
-    o.nodeConnectTo = "172.104.249.212:8101";
-    o.nodeListenTo.port(10000);
-    o.explorerListenTo.port(8888);
+    po::variables_map vm;
+    try
+    {
+        po::store(po::command_line_parser(argc, argv) // value stored first is preferred
+            .options(cliOptions)
+            .run(), vm);
 
-    return true;
+        if (vm.count(HELP_PARAMETER))
+        {
+            cout << cliOptions << std::endl;
+            return false;
+        }
+
+        o.nodeDbFilename = FILES_PREFIX "db";
+        //o.accessControlFile = "api.keys";
+
+        o.nodeConnectTo = vm[PEER_PARAMETER].as<string>();
+        o.nodeListenTo.port(vm[PORT_PARAMETER].as<uint16_t>());
+        o.explorerListenTo.port(vm[API_PORT_PARAMETER].as<uint16_t>());
+
+        return true;
+    }
+    catch (const po::error& ex)
+    {
+        cout << ex.what();
+        cout << cliOptions << std::endl;
+    }
+    catch (const exception& ex)
+    {
+        cout << ex.what();
+    }
+
+    return false;
 }
 
 void setup_node(Node& node, const Options& o) {
