@@ -32,8 +32,8 @@ Add configuration file. The file with `cfg` extension is located in the same fol
 **Log file(s) (if applicable)**
 Add relevant log file(s),  located in the `logs` folder.
 
-**Memory dump (in case of crash on Windows)**
-Add file with extension `dmp`, located in the node directory.
+**Memory dump (in case of node crash on Windows)**
+Add file with extension `dmp`, located in the node directory. A dedicated memory dump file is created per each crash case.
 
 **Screenshots (if applicable)**
 Add screenshots that illustrate a problem you've found.
