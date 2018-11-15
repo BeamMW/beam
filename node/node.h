@@ -571,6 +571,8 @@ private:
 			ECC::Hash::Value m_hvNonceSeed; // immutable
 		};
 
+		bool IsEnabled() { return !m_vThreads.empty(); }
+
 		void Initialize();
 		void OnRefresh(uint32_t iIdx);
 		void OnMined();

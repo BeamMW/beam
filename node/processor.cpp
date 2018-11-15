@@ -170,10 +170,13 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 					nMaxBlocksBacklog = static_cast<uint32_t>(nBlocks);
 			}
 
-			while (nMaxBlocksBacklog--)
+			for (uint32_t i = 0; i < nMaxBlocksBacklog; i++)
 			{
 				sid.m_Height++;
 				sid.m_Row = pBlockRow[(--nBlocks) % nMaxBlocks];
+
+				if (i && (NodeDB::StateFlags::Functional & m_DB.GetStateFlags(sid.m_Row)))
+					break;
 
 				m_DB.get_StateID(sid, id);
 
@@ -1174,6 +1177,18 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 	}
 
 	return true;
+}
+
+void NodeProcessor::DeleteOutdated(TxPool::Fluff& txp)
+{
+	for (TxPool::Fluff::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
+	{
+		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
+		Transaction& tx = *x.m_pValue;
+
+		if (!ValidateTxContext(tx))
+			txp.Delete(x);
+	}
 }
 
 size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height h)
