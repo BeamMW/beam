@@ -363,9 +363,13 @@ void Node::Processor::OnNewState()
 
 	get_ParentObj().m_TxPool.DeleteOutOfBound(m_Cursor.m_Sid.m_Height + 1);
 
-	get_ParentObj().m_Miner.HardAbortSafe();
-
-	get_ParentObj().m_Miner.SetTimer(0, true); // don't start mined block construction, because we're called in the context of NodeProcessor, which holds the DB transaction.
+	if (get_ParentObj().m_Miner.IsEnabled())
+	{
+		get_ParentObj().m_Miner.HardAbortSafe();
+		get_ParentObj().m_Miner.SetTimer(0, true); // don't start mined block construction, because we're called in the context of NodeProcessor, which holds the DB transaction.
+	}
+	else
+		get_ParentObj().m_Processor.DeleteOutdated(get_ParentObj().m_TxPool);
 
 	proto::NewTip msg;
 	msg.m_Description = m_Cursor.m_Full;
@@ -2096,7 +2100,9 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 
 	m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key);
 	m_TxPool.ShrinkUpTo(m_Cfg.m_MaxPoolTransactions);
-	m_Miner.SetTimer(m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
+
+	if (m_Miner.IsEnabled())
+		m_Miner.SetTimer(m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
 
 	return true;
 }
@@ -2844,6 +2850,9 @@ void Node::Miner::HardAbortSafe()
 
 void Node::Miner::SetTimer(uint32_t timeout_ms, bool bHard)
 {
+	if (!IsEnabled())
+		return;
+
 	if (!m_pTimer)
 		m_pTimer = io::Timer::create(io::Reactor::get_Current());
 	else
@@ -2862,7 +2871,7 @@ void Node::Miner::OnTimer()
 
 bool Node::Miner::Restart()
 {
-	if (m_vThreads.empty())
+	if (!IsEnabled())
 		return false; //  n/a
 
 	Block::Body* pTreasury = NULL;

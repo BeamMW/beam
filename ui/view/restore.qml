@@ -14,14 +14,13 @@ Item
     anchors.fill: parent
 
     property bool isRecoveryMode: false
-    property bool isCreating:false
+    property alias isCreating:viewModel.creating
 
     RestoreViewModel {
         id: viewModel 
         onSyncCompleted: {
             root.parent.source = "qrc:/main.qml";
         }
-        creating: parent.isCreating
     }
 
     Component

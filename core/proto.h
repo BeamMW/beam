@@ -25,6 +25,7 @@
 #include "block_crypt.h"
 #include <boost/intrusive/set.hpp>
 #include <boost/intrusive/list.hpp>
+#include <boost/intrusive_ptr.hpp>
 
 namespace beam {
 namespace proto {
@@ -676,12 +677,6 @@ namespace proto {
 
 	struct FlyClient
 	{
-		typedef std::map<Height, Block::SystemState::Full> StateMap;
-		StateMap m_Hist; // some recent blocks of the current active branch
-		void ShrinkHist();
-
-		const Block::SystemState::Full* get_Tip() const; // NULL if no hist
-
 #define REQUEST_TYPES_All(macro) \
 		macro(Utxo,			GetProofUtxo,		ProofUtxo) \
 		macro(Kernel,		GetProofKernel,		ProofKernel) \
@@ -690,9 +685,17 @@ namespace proto {
 		macro(BbsMsg,		BbsMsg,				Pong) \
 		macro(Recover,		Recover,			Recovered)
 
-		struct Request
+		class Request
 		{
-			typedef std::shared_ptr<Request> Ptr;
+			int m_Refs = 0;
+			friend void intrusive_ptr_add_ref(Request* p) { p->AddRef(); }
+			friend void intrusive_ptr_release(Request* p) { p->Release(); }
+		public:
+
+			typedef boost::intrusive_ptr<Request> Ptr;
+
+			void AddRef() { m_Refs++; }
+			void Release() { if (!--m_Refs) delete this; }
 
 			enum Type {
 #define THE_MACRO(type, msgOut, msgIn) type,
@@ -704,12 +707,16 @@ namespace proto {
 			virtual ~Request() {}
 			virtual Type get_Type() const = 0;
 
-			FlyClient* m_pTrg = NULL; // set to NULL if aborted
+			struct IHandler {
+				virtual void OnComplete(Request&) = 0;
+			};
+
+			IHandler* m_pTrg = NULL; // set to NULL if aborted.
 		};
 
 #define THE_MACRO(type, msgOut, msgIn) \
 		struct Request##type :public Request { \
-			typedef std::shared_ptr<Request##type> Ptr; \
+			typedef boost::intrusive_ptr<Request##type> Ptr; \
 			Request##type() :m_Res(Zero) {} \
 			virtual ~Request##type() {} \
 			virtual Type get_Type() const { return Type::type; } \
@@ -723,25 +730,32 @@ namespace proto {
 		virtual ~FlyClient() {}
 		virtual void OnNewTip() {} // tip already added
 		virtual void OnRolledBack() {} // reversed states are already removed
-		virtual void OnRequestComplete(Request::Ptr&&) {}
-		virtual void OnMsg(proto::BbsMsg&&) {}
+		virtual bool IsOwnedNode(const PeerID&, Key::IKdf::Ptr& pKdf) { return false; }
+		virtual Block::SystemState::IHistory& get_History() = 0;
+
+		struct IBbsReceiver
+		{
+			virtual void OnMsg(proto::BbsMsg&&) = 0;
+		};
 
 		struct INetwork
 		{
-			FlyClient& m_Client;
-			INetwork(FlyClient& fc) :m_Client(fc) {}
 			virtual ~INetwork() {}
 
 			virtual void Connect() = 0;
 			virtual void Disconnect() = 0;
-			virtual void PostRequest(Request::Ptr&&) = 0;
-			virtual void BbsSubscribe(BbsChannel, bool) {} // duplicates should be handled internally
+			virtual void PostRequestInternal(Request&) = 0;
+			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) {} // duplicates should be handled internally
+
+			void PostRequest(Request&, Request::IHandler&);
 		};
 
 		struct NetworkStd
 			:public INetwork
 		{
-			NetworkStd(FlyClient& fc) :INetwork(fc) {}
+			FlyClient& m_Client;
+
+			NetworkStd(FlyClient& fc) :m_Client(fc) {}
 			virtual ~NetworkStd();
 
 			struct RequestNode
@@ -768,8 +782,6 @@ namespace proto {
 				uint32_t m_ReconnectTimeout_ms = 5000;
 			} m_Cfg;
 
-			Key::IKdf::Ptr m_pKdf;
-
 			class Connection
 				:public NodeConnection
 				,public boost::intrusive::list_base_hook<>
@@ -783,6 +795,9 @@ namespace proto {
 				};
 
 				std::unique_ptr<SyncCtx> m_pSync;
+
+				size_t m_iIndex; // for callbacks only
+				bool m_ReportedConnected;
 
 				struct StateArray;
 
@@ -799,10 +814,13 @@ namespace proto {
 				void SetTimer(uint32_t);
 				void KillTimer();
 
+				void ResetInternal();
+				void ResetVars();
+
 			public:
 				NetworkStd& m_This;
 
-				Connection(NetworkStd& x);
+				Connection(NetworkStd& x, size_t iIndex);
 				virtual ~Connection();
 
 				io::Address m_Addr;
@@ -843,14 +861,18 @@ namespace proto {
 			typedef boost::intrusive::list<Connection> ConnectionList;
 			ConnectionList m_Connections;
 
-			typedef std::map<BbsChannel, int32_t> BbsSubscriptions;
+			typedef std::map<BbsChannel, std::pair<IBbsReceiver*, Timestamp> > BbsSubscriptions;
 			BbsSubscriptions m_BbsSubscriptions;
 
 			// INetwork
 			virtual void Connect() override;
 			virtual void Disconnect() override;
-			virtual void PostRequest(Request::Ptr&&) override;
-			virtual void BbsSubscribe(BbsChannel, bool) override;
+			virtual void PostRequestInternal(Request&) override;
+			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) override;
+
+			// more events
+			virtual void OnNodeConnected(size_t iNodeIdx, bool) {}
+			virtual void OnConnectionFailed(size_t iNodeIdx, const NodeConnection::DisconnectReason&) {}
 		};
 	};
 

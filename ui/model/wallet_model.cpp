@@ -46,7 +46,6 @@ namespace
     };
 
     using WalletSubscriber = ScopedSubscriber<IWalletObserver, beam::Wallet>;
-    using NetworkIOSubscriber = ScopedSubscriber<INetworkIOObserver, beam::WalletNetworkIO>;
 }
 
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
@@ -255,9 +254,10 @@ void WalletModel::run()
     try
     {
         std::unique_ptr<WalletSubscriber> wallet_subscriber;
-        std::unique_ptr<NetworkIOSubscriber> wallet_io_subscriber;
 
         _reactor = Reactor::create();
+		io::Reactor::Scope scope(*_reactor);
+
         io::Reactor::GracefulIntHandler gih(*_reactor);
 
         async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *_reactor);
@@ -273,20 +273,42 @@ void WalletModel::run()
             Logger::get()->rotate();
         });
 
-        {
-            Address node_addr;
-            node_addr.resolve(_nodeAddrStr.c_str());
-            auto wallet_io = make_shared<WalletNetworkIO>(
-                node_addr
-                , _walletDB
-                , _keystore
-                , _reactor);
-            _wallet_io = wallet_io;
-            wallet_io_subscriber = make_unique<NetworkIOSubscriber>(static_cast<INetworkIOObserver*>(this), wallet_io);
-            auto wallet = make_shared<Wallet>(_walletDB, wallet_io);
-            _wallet = wallet;
-            wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
-        }
+        auto wallet = make_shared<Wallet>(_walletDB);
+        _wallet = wallet;
+
+		struct MyNodeNetwork :public proto::FlyClient::NetworkStd {
+
+			MyNodeNetwork(proto::FlyClient& fc, WalletModel& wm)
+				:proto::FlyClient::NetworkStd(fc)
+				,m_This(wm)
+			{
+			}
+
+			WalletModel& m_This;
+
+			void OnNodeConnected(size_t, bool bConnected) override {
+				m_This.onNodeConnectedStatusChanged(bConnected);
+			}
+
+			void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason&) override {
+				m_This.onNodeConnectionFailed();
+			}
+		};
+
+        auto nnet = make_shared<MyNodeNetwork>(*wallet, *this);
+
+        Address node_addr;
+        node_addr.resolve(_nodeAddrStr.c_str());
+        nnet->m_Cfg.m_vNodes.push_back(node_addr);
+
+        nnet->Connect();
+        _nnet = nnet;
+
+        auto wnet = make_shared<WalletNetworkViaBbs>(*wallet, *nnet, _keystore, _walletDB);
+        _wnet = wnet;
+        wallet->set_Network(*nnet, *wnet);
+
+        wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
         if (AppModel::getInstance()->shouldRestoreWallet())
         {
@@ -419,12 +441,10 @@ void WalletModel::restoreFromBlockchain()
 
 void WalletModel::syncWithNode()
 {
-    assert(!_wallet_io.expired());
-    auto s = _wallet_io.lock();
+    assert(!_nnet.expired());
+    auto s = _nnet.lock();
     if (s)
-    {
-        static_pointer_cast<INetworkIO>(s)->connect_node();
-    }
+		s->Connect();
 }
 
 void WalletModel::calcChange(beam::Amount&& amount)
@@ -489,10 +509,10 @@ void WalletModel::createNewAddress(WalletAddress&& address)
 
     if (address.m_own)
     {
-        auto s = _wallet_io.lock();
+        auto s = _wnet.lock();
         if (s)
         {
-            s->new_own_address(address.m_walletID);
+			static_cast<WalletNetworkViaBbs&>(*s).new_own_address(address.m_walletID);
         }
     }
 }
@@ -534,10 +554,10 @@ void WalletModel::deleteOwnAddress(const beam::WalletID& id)
     {
         _keystore->erase_key(id);
         _walletDB->deleteAddress(id);
-        auto s = _wallet_io.lock();
+        auto s = _wnet.lock();
         if (s)
         {
-            s->address_deleted(id);
+			static_cast<WalletNetworkViaBbs&>(*s).address_deleted(id);
         }
     }
     catch (...)
@@ -552,11 +572,16 @@ void WalletModel::setNodeAddress(const std::string& addr)
 
     if (nodeAddr.resolve(addr.c_str()))
     {
-        assert(!_wallet.expired());
-        auto s = _wallet.lock();
+        assert(!_nnet.expired());
+        auto s = _nnet.lock();
         if (s)
         {
-            s->set_node_address(nodeAddr);
+			s->Disconnect();
+
+			static_cast<proto::FlyClient::NetworkStd&>(*s).m_Cfg.m_vNodes.clear();
+			static_cast<proto::FlyClient::NetworkStd&>(*s).m_Cfg.m_vNodes.push_back(nodeAddr);
+
+			s->Connect();
         }
     }
     else

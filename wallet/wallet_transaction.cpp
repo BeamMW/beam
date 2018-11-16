@@ -364,8 +364,9 @@ namespace beam { namespace wallet
             return;
         }
 
-        TxKernel::LongProof kernelProof;
-        if (!GetParameter(TxParameterID::KernelProof, kernelProof))
+        Height hProof = 0;
+		GetParameter(TxParameterID::KernelProofHeight, hProof);
+        if (!hProof)
         {
             if (!IsInitiator() && txState == State::Registration)
             {
@@ -376,17 +377,6 @@ namespace beam { namespace wallet
             }
             SetState(State::KernelConfirmation);
             ConfirmKernel(*builder.m_Kernel);
-            return;
-        }
-
-        Block::SystemState::Full state;
-        if (!GetTip(state))
-        {
-            if (!state.IsValidProofKernel(*builder.m_Kernel, kernelProof) && !m_Gateway.isTestMode())
-            {
-                OnFailed(TxFailureReason::InvalidKernelProof, false);
-                return;
-            }
             return;
         }
 

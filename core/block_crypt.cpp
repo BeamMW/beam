@@ -980,6 +980,91 @@ namespace beam
 	}
 
 	/////////////
+	// SystemState::IHistory
+	bool Block::SystemState::IHistory::get_Tip(Full& s)
+	{
+		struct Walker :public IWalker
+		{
+			Full& m_Res;
+			Walker(Full& s) :m_Res(s) {}
+
+			virtual bool OnState(const Full& s) override {
+				m_Res = s;
+				return false;
+			}
+		} w(s);
+
+		if (!Enum(w, NULL))
+			return true;
+
+		ZeroObject(s);
+		return false;
+	}
+
+	bool Block::SystemState::HistoryMap::Enum(IWalker& w, const Height* pBelow)
+	{
+		for (auto it = (pBelow ? m_Map.upper_bound(*pBelow) : m_Map.end()); m_Map.begin() != it; )
+			if (!w.OnState((--it)->second))
+				return false;
+
+		return true;
+	}
+
+	bool Block::SystemState::HistoryMap::get_At(Full& s, Height h)
+	{
+		auto it = m_Map.find(h);
+		if (m_Map.end() == it)
+			return false;
+
+		s = it->second;
+		return true;
+	}
+
+	void Block::SystemState::HistoryMap::AddStates(const Full* pS, size_t nCount)
+	{
+		for (size_t i = 0; i < nCount; i++)
+		{
+			const Full& s = pS[i];
+			m_Map[s.m_Height] = s;
+		}
+	}
+
+	void Block::SystemState::HistoryMap::DeleteFrom(Height h)
+	{
+		while (!m_Map.empty())
+		{
+			auto it = m_Map.end();
+			if ((--it)->first < h)
+				break;
+
+			m_Map.erase(it);
+		}
+	}
+
+	void Block::SystemState::HistoryMap::ShrinkToWindow(Height dh)
+	{
+		if (m_Map.empty())
+			return;
+
+		Height h = m_Map.rbegin()->first;
+		if (h <= dh)
+			return;
+
+		Height h0 = h - dh;
+
+		while (true)
+		{
+			auto it = m_Map.begin();
+			assert(m_Map.end() != it);
+
+			if (it->first > h0)
+				break;
+
+			m_Map.erase(it);
+		}
+	}
+
+	/////////////
 	// Difficulty
 	void Rules::AdjustDifficulty(Difficulty& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const
 	{
