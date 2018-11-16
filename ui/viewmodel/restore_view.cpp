@@ -164,6 +164,7 @@ void RestoreViewModel::updateProgress()
     setProgress(p);
     if (p >= 1.0)
     {
+        _updateTimer.stop();
         emit syncCompleted();
     }
 }
