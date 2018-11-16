@@ -112,6 +112,7 @@ namespace beam {
 
 			m_Mmr.get_Hash(s.m_Hdr.m_Definition);
 			Merkle::Interpret(s.m_Hdr.m_Definition, m_hvLive, true);
+			s.m_Hdr.m_Kernels = Zero;
 		}
 
 		void Generate(Height dh)

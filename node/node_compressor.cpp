@@ -376,4 +376,24 @@ bool Node::Compressor::SquashOnce(Block::BodyBase::RW& rw, Block::BodyBase::RW& 
 	return true;
 }
 
+uint64_t Node::Compressor::get_SizeTotal(Height h)
+{
+	uint64_t ret = 0;
+
+	Block::Body::RW rw;
+	FmtPath(rw, h, NULL);
+
+	for (uint8_t iData = 0; iData < Block::Body::RW::Type::count; iData++)
+	{
+		std::string sPath;
+		rw.GetPath(sPath, iData);
+
+		std::FStream fs;
+		if (fs.Open(sPath.c_str(), true))
+			ret += fs.get_Remaining();
+	}
+
+	return ret;
+}
+
 } // namespace beam

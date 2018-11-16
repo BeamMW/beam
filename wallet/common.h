@@ -188,7 +188,7 @@ namespace beam
             PrivateFirstParam = 128,
 
             ModifyTime = 128,
-            KernelProof = 129,
+            KernelProofHeight = 129,
 
             BlindingExcess = 130, // + MaxSignatures,
             SharedBlindingExcess = 131,
@@ -257,7 +257,6 @@ namespace beam
             virtual void confirm_outputs(const std::vector<Coin>&) = 0;
             virtual void confirm_kernel(const TxID&, const TxKernel&) = 0;
             virtual bool get_tip(Block::SystemState::Full& state) const = 0;
-            virtual bool isTestMode() const = 0;
             virtual void send_tx_params(const WalletID& peerID, SetTxParameter&&) = 0;
         };
     }

@@ -139,7 +139,7 @@ namespace beam
         virtual void visit(std::function<bool(const beam::Coin& coin)> func) = 0;
 
         virtual void setVarRaw(const char* name, const void* data, size_t size) = 0;
-        virtual int getVarRaw(const char* name, void* data) const = 0;
+        virtual bool getVarRaw(const char* name, void* data, int size) const = 0;
         virtual bool getBlob(const char* name, ByteBuffer& var) const = 0;
         virtual Height getCurrentHeight() const = 0;
         virtual uint64_t getKnownStateCount() const = 0;
@@ -173,7 +173,7 @@ namespace beam
         template <typename Var>
         bool getVar(const char* name, Var& var) const
         {
-            return getVarRaw(name, &var) == sizeof(var);
+            return getVarRaw(name, &var, sizeof(var));
         }
 
         virtual Timestamp getLastUpdateTime() const = 0;
@@ -187,6 +187,9 @@ namespace beam
 
         virtual bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob) = 0;
         virtual bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) = 0;
+
+		virtual Block::SystemState::IHistory& get_History() = 0;
+		virtual void ShrinkHistory() = 0;
 
 		uint64_t get_AutoIncrID();
     };
@@ -218,7 +221,7 @@ namespace beam
         void visit(std::function<bool(const beam::Coin& coin)> func) override;
 
         void setVarRaw(const char* name, const void* data, size_t size) override;
-        int getVarRaw(const char* name, void* data) const override;
+        bool getVarRaw(const char* name, void* data, int size) const override;
         bool getBlob(const char* name, ByteBuffer& var) const override;
         Height getCurrentHeight() const override;
         uint64_t getKnownStateCount() const override;
@@ -252,6 +255,10 @@ namespace beam
 
         bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob) override;
         bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) override;
+
+		Block::SystemState::IHistory& get_History() override;
+		void ShrinkHistory() override;
+
     private:
         void storeImpl(Coin& coin);
         void notifyCoinsChanged();
@@ -264,6 +271,15 @@ namespace beam
         Key::IKdf::Ptr m_pKdf;
 
         std::vector<IWalletDbObserver*> m_subscribers;
+
+		struct History :public Block::SystemState::IHistory {
+			bool Enum(IWalker&, const Height* pBelow) override;
+			bool get_At(Block::SystemState::Full&, Height) override;
+			void AddStates(const Block::SystemState::Full*, size_t nCount) override;
+			void DeleteFrom(Height) override;
+
+			IMPLEMENT_GET_PARENT_OBJ(WalletDB, m_History)
+		} m_History;
     };
 
     namespace wallet

@@ -218,11 +218,11 @@ private:
         blockState.get_ID(id);
 
         Block::Body block;
-        ByteBuffer bb;
+        ByteBuffer bbP, bbE;
         if (ok) {
             ByteBuffer rollbackBuf;
-            db.GetStateBlock(row, bb, rollbackBuf);
-            if (bb.empty()) {
+            db.GetStateBlock(row, &bbP, &bbE, &rollbackBuf);
+            if (bbP.empty()) {
                 ok = false;
             }
             if (!rollbackBuf.empty()) {
@@ -232,9 +232,7 @@ private:
 
         if (ok) {
             try {
-                Deserializer der;
-                der.reset(&bb.at(0), bb.size());
-                der & block;
+                NodeProcessor::ReadBody(block, bbP, bbE);
             }
             catch (const std::exception&) {
                 LOG_WARNING() << "Block deserialization failed at " << blockState.m_Height;
@@ -268,7 +266,7 @@ private:
             }
 
             json kernels = json::array();
-            for (const auto &v : block.m_vKernelsOutput) {
+            for (const auto &v : block.m_vKernels) {
                 kernels.push_back(
                 json{
                     {"fee", v->m_Fee},

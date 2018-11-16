@@ -1216,6 +1216,18 @@ namespace ECC {
 		DeriveKey(out, hv);
 	}
 
+	bool Key::IPKdf::IsSame(IPKdf& x)
+	{
+		Hash::Value hv = Zero;
+
+		Scalar::Native k0, k1;
+		DerivePKey(k0, hv);
+		x.DerivePKey(k1, hv);
+
+		k0 += -k1;
+		return (k0 == Zero);
+	}
+
 	/////////////////////
 	// HKdf
 	HKdf::HKdf()
@@ -1414,7 +1426,7 @@ namespace ECC {
 			Key::ID::Packed kid = m_Kid;
 			XCryptKid(kid, cp);
 
-			cp.m_Kidv.as_ID() = kid;
+			Cast::Down<Key::ID>(cp.m_Kidv) = kid;
 			cp.m_Kidv.m_Value = m_Value;
 		}
 

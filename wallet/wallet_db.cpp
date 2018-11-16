@@ -116,6 +116,10 @@
 
 #define TX_PARAMS_FIELDS ENUM_TX_PARAMS_FIELDS(LIST, COMMA, )
 
+#define TblStates			"States"
+#define TblStates_Height	"Height"
+#define TblStates_Hdr		"State"
+
 namespace std
 {
     template<>
@@ -350,6 +354,11 @@ namespace beam
                 throwIfError(ret, _db);
             }
 
+			void Reset()
+			{
+				sqlite3_reset(_stm);
+			}
+
             void bind(int col, int val)
             {
                 int ret = sqlite3_bind_int(_stm, col, val);
@@ -416,6 +425,11 @@ namespace beam
                 throwIfError(ret, _db);
             }
 
+			void bind(int col, const Block::SystemState::Full& s)
+			{
+				bind(col, &s, sizeof(s));
+			}
+
             void bind(int col, const char* val)
             {
                 int ret = sqlite3_bind_text(_stm, col, val, -1, nullptr);
@@ -468,10 +482,14 @@ namespace beam
 
             void get(int col, TxID& id)
             {
-                int size = 0;
-                get(col, static_cast<void*>(id.data()), size);
-                assert(size == id.size());
+                getBlobStrict(col, static_cast<void*>(id.data()), static_cast<int>(id.size()));
             }
+
+			void get(int col, Block::SystemState::Full& s)
+			{
+				// read/write as a blob, skip serialization
+				getBlobStrict(col, &s, sizeof(s));
+			}
 
             void get(int col, boost::optional<TxID>& id)
             {
@@ -524,7 +542,30 @@ namespace beam
                 }
             }
 
-            void get(int col, void* blob, int& size)
+			bool getBlobSafe(int col, void* blob, int size)
+			{
+				if (sqlite3_column_bytes(_stm, col) != size)
+					return false;
+
+				if (size)
+				{
+					const void* data = sqlite3_column_blob(_stm, col);
+					if (!data)
+						return false;
+
+					memcpy(blob, data, size);
+				}
+
+				return true;
+			}
+
+			void getBlobStrict(int col, void* blob, int size)
+			{
+				if (!getBlobSafe(col, blob, size))
+					throw std::runtime_error("wdb corruption");
+			}
+
+            void get_(int col, void* blob, int& size)
             {
                 size = sqlite3_column_bytes(_stm, col);
                 const void* data = sqlite3_column_blob(_stm, col);
@@ -741,6 +782,14 @@ namespace beam
                 int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
                 throwIfError(ret, walletDB->_db);
             }
+
+			{
+				const char* req = "CREATE TABLE [" TblStates "] ("
+					"[" TblStates_Height	"] INTEGER NOT NULL PRIMARY KEY,"
+					"[" TblStates_Hdr		"] BLOB NOT NULL)";
+				int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
+				throwIfError(ret, walletDB->_db);
+			}
 
             {
                 walletDB->setVar(WalletSeed, secretKey.V);
@@ -1212,18 +1261,16 @@ namespace beam
         trans.commit();
     }
 
-    int WalletDB::getVarRaw(const char* name, void* data) const
+    bool WalletDB::getVarRaw(const char* name, void* data, int size) const
     {
         const char* req = "SELECT value FROM " VARIABLES_NAME " WHERE name=?1;";
 
         sqlite::Statement stm(_db, req);
         stm.bind(1, name);
-        stm.step();
 
-        int size = 0;
-        stm.get(0, data, size);
-
-        return size;
+        return
+			stm.step() &&
+			stm.getBlobSafe(0, data, size);
     }
 
     bool WalletDB::getBlob(const char* name, ByteBuffer& var) const
@@ -1684,6 +1731,95 @@ namespace beam
     {
         for (auto sub : m_subscribers) sub->onAddressChanged();
     }
+
+	Block::SystemState::IHistory& WalletDB::get_History()
+	{
+		return m_History;
+	}
+
+	void WalletDB::ShrinkHistory()
+	{
+		Block::SystemState::Full s;
+		if (m_History.get_Tip(s))
+		{
+			const Height hMaxBacklog = Rules::get().MaxRollbackHeight * 2; // can actually be more
+
+			if (s.m_Height > hMaxBacklog)
+			{
+				const char* req = "DELETE FROM " TblStates " WHERE " TblStates_Height "<=?";
+				sqlite::Statement stm(_db, req);
+				stm.bind(1, s.m_Height - hMaxBacklog);
+				stm.step();
+
+			}
+		}
+	}
+
+	bool WalletDB::History::Enum(IWalker& w, const Height* pBelow)
+	{
+		const char* req = pBelow ?
+			"SELECT " TblStates_Hdr " FROM " TblStates " WHERE " TblStates_Height "<? ORDER BY " TblStates_Height " DESC" :
+			"SELECT " TblStates_Hdr " FROM " TblStates " ORDER BY " TblStates_Height " DESC";
+
+		sqlite::Statement stm(get_ParentObj()._db, req);
+
+		if (pBelow)
+			stm.bind(1, *pBelow);
+
+		while (stm.step())
+		{
+			Block::SystemState::Full s;
+			stm.get(0, s);
+
+			if (!w.OnState(s))
+				return false;
+		}
+
+		return true;
+	}
+
+	bool WalletDB::History::get_At(Block::SystemState::Full& s, Height h)
+	{
+		const char* req = "SELECT " TblStates_Hdr " FROM " TblStates " WHERE " TblStates_Height "=?";
+
+		sqlite::Statement stm(get_ParentObj()._db, req);
+		stm.bind(1, h);
+
+		if (!stm.step())
+			return false;
+
+		stm.get(0, s);
+		return true;
+	}
+
+	void WalletDB::History::AddStates(const Block::SystemState::Full* pS, size_t nCount)
+	{
+		sqlite::Transaction trans(get_ParentObj()._db);
+
+		const char* req = "INSERT OR REPLACE INTO " TblStates " (" TblStates_Height "," TblStates_Hdr ") VALUES(?,?)";
+		sqlite::Statement stm(get_ParentObj()._db, req);
+
+		for (size_t i = 0; i < nCount; i++)
+		{
+			if (i)
+				stm.Reset();
+
+			stm.bind(1, pS[i].m_Height);
+			stm.bind(2, pS[i]);
+			stm.step();
+		}
+
+		trans.commit();
+
+	}
+
+	void WalletDB::History::DeleteFrom(Height h)
+	{
+		const char* req = "DELETE FROM " TblStates " WHERE " TblStates_Height ">=?";
+		sqlite::Statement stm(get_ParentObj()._db, req);
+		stm.bind(1, h);
+		stm.step();
+	}
 
     namespace wallet
     {

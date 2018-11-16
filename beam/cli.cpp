@@ -67,7 +67,7 @@ static const unsigned LOG_ROTATION_PERIOD = 3*60*60*1000; // 3 hours
 
 int main_impl(int argc, char* argv[])
 {
-	beam::InstallCrashHandler(NULL);
+	beam::Crash::InstallHandler(NULL);
 
 	try
 	{
@@ -140,7 +140,21 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_Listen.port(port);
 					node.m_Cfg.m_Listen.ip(INADDR_ANY);
 					node.m_Cfg.m_sPathLocal = vm[cli::STORAGE].as<string>();
+#if defined(BEAM_USE_GPU)
+                    if (vm[cli::MINER_TYPE].as<string>() == "gpu")
+                    {
+                        node.m_Cfg.m_UseGpu = true;
+                        // now for GPU only 1 thread
+                        node.m_Cfg.m_MiningThreads = 1;
+                    }
+                    else
+                    {
+                        node.m_Cfg.m_UseGpu = false;
+                        node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
+                    }
+#else
 					node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
+#endif
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
 					if (node.m_Cfg.m_MiningThreads > 0)
 					{
@@ -207,6 +221,18 @@ int main_impl(int argc, char* argv[])
 					Height hImport = vm[cli::IMPORT].as<Height>();
 					if (hImport)
 						node.ImportMacroblock(hImport);
+
+					io::Timer::Ptr pCrashTimer;
+
+					int nCrash = vm.count(cli::CRASH) ? vm[cli::CRASH].as<int>() : 0;
+					if (nCrash)
+					{
+						pCrashTimer = io::Timer::create(*reactor);
+
+						pCrashTimer->start(5000, false, [nCrash]() {
+							Crash::Induce((Crash::Type) (nCrash - 1));
+						});
+					}
 
 					reactor->run();
 				}

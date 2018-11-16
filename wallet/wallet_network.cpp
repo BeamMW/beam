@@ -26,8 +26,235 @@ namespace
     const char* BBS_TIMESTAMPS = "BbsTimestamps";
 }
 
+
 namespace beam {
 
+	WalletNetworkViaBbs::WalletNetworkViaBbs(IWallet& w, proto::FlyClient::INetwork& net, const IKeyStore::Ptr& pKeyStore, const IWalletDB::Ptr& pWalletDB)
+		:m_Wallet(w)
+		,m_NodeNetwork(net)
+		,m_pKeyStore(pKeyStore)
+		,m_WalletDB(pWalletDB)
+	{
+		ByteBuffer buffer;
+		m_WalletDB->getBlob(BBS_TIMESTAMPS, buffer);
+		if (!buffer.empty())
+		{
+			Deserializer d;
+			d.reset(buffer.data(), buffer.size());
+
+			d & m_BbsTimestamps;
+		}
+
+		auto myAddresses = m_WalletDB->getAddresses(true);
+		for (const auto& address : myAddresses)
+			if (address.isExpired())
+				m_pKeyStore->disable_key(address.m_walletID);
+
+		std::set<PubKey> pubKeys;
+		m_pKeyStore->get_enabled_keys(pubKeys);
+		for (const auto& v : pubKeys)
+			new_own_address(v);
+
+	}
+
+	WalletNetworkViaBbs::~WalletNetworkViaBbs()
+	{
+		while (!m_PendingBbsMsgs.empty())
+			DeleteReq(m_PendingBbsMsgs.front());
+
+		while (!m_Addresses.empty())
+			DeleteAddr(m_Addresses.begin()->get_ParentObj());
+
+		try {
+			SaveBbsTimestamps();
+		} catch (...) {
+		}
+	}
+
+	void WalletNetworkViaBbs::SaveBbsTimestamps()
+	{
+		Timestamp tsThreshold = getTimestamp() - 3600 * 24 * 3;
+
+		for (auto it = m_BbsTimestamps.begin(); m_BbsTimestamps.end() != it; )
+		{
+			auto it2 = it++;
+			if (it2->second < tsThreshold)
+				m_BbsTimestamps.erase(it2);
+		}
+
+		Serializer s;
+		s & m_BbsTimestamps;
+
+		ByteBuffer buffer;
+		s.swap_buf(buffer);
+
+		m_WalletDB->setVarRaw(BBS_TIMESTAMPS, buffer.data(), static_cast<int>(buffer.size()));
+	}
+
+	void WalletNetworkViaBbs::DeleteAddr(Addr& v)
+	{
+		if (IsSingleChannelUser(v.m_Channel))
+			m_NodeNetwork.BbsSubscribe(v.m_Channel.m_Value, 0, NULL);
+
+		m_Addresses.erase(WidSet::s_iterator_to(v.m_Wid));
+		m_Channels.erase(ChannelSet::s_iterator_to(v.m_Channel));
+		delete &v;
+	}
+
+	bool WalletNetworkViaBbs::IsSingleChannelUser(const Addr::Channel& c)
+	{
+		ChannelSet::const_iterator it = ChannelSet::s_iterator_to(c);
+		ChannelSet::const_iterator it2 = it;
+		if (((++it2) != m_Channels.end()) && (it2->m_Value == c.m_Value))
+			return false;
+
+		if (it != m_Channels.begin())
+		{
+			it2 = it;
+			if ((--it2)->m_Value == it->m_Value)
+				return false;
+		}
+
+		return true;
+	}
+
+	void WalletNetworkViaBbs::DeleteReq(MyRequestBbsMsg& r)
+	{
+		m_PendingBbsMsgs.erase(BbsMsgList::s_iterator_to(r));
+		r.m_pTrg = NULL;
+		r.Release();
+	}
+
+	BbsChannel WalletNetworkViaBbs::channel_from_wallet_id(const WalletID& walletID)
+	{
+		// TODO to be reviewed, 32 channels
+		return walletID.m_pData[0] >> 3;
+	}
+
+	void WalletNetworkViaBbs::new_own_address(const WalletID& wid)
+	{
+		Addr::Wid key;
+		key.m_Value = wid;
+
+		auto itW = m_Addresses.find(key);
+		if (m_Addresses.end() != itW)
+			return;
+
+		Addr* pAddr = new Addr;
+		pAddr->m_Wid.m_Value = wid;
+		pAddr->m_Channel.m_Value = channel_from_wallet_id(wid);
+
+		m_Addresses.insert(pAddr->m_Wid);
+		m_Channels.insert(pAddr->m_Channel);
+
+		if (IsSingleChannelUser(pAddr->m_Channel))
+		{
+			Timestamp ts = 0;
+			auto it = m_BbsTimestamps.find(pAddr->m_Channel.m_Value);
+			if (m_BbsTimestamps.end() != it)
+				ts = it->second;
+
+			m_NodeNetwork.BbsSubscribe(pAddr->m_Channel.m_Value, ts, &m_BbsSentEvt);
+		}
+	}
+
+	void WalletNetworkViaBbs::address_deleted(const WalletID& wid)
+	{
+		Addr::Wid key;
+		key.m_Value = wid;
+
+		auto it = m_Addresses.find(key);
+		if (m_Addresses.end() != it)
+			DeleteAddr(it->get_ParentObj());
+	}
+
+	void WalletNetworkViaBbs::OnTimerBbsTmSave()
+	{
+		m_pTimerBbsTmSave.reset();
+		SaveBbsTimestamps();
+	}
+
+	void WalletNetworkViaBbs::BbsSentEvt::OnComplete(proto::FlyClient::Request& r)
+	{
+		assert(r.get_Type() == proto::FlyClient::Request::Type::BbsMsg);
+		get_ParentObj().DeleteReq(static_cast<MyRequestBbsMsg&>(r));
+	}
+
+	void WalletNetworkViaBbs::BbsSentEvt::OnMsg(proto::BbsMsg&& msg)
+	{
+		get_ParentObj().OnMsg(msg);
+	}
+
+	void WalletNetworkViaBbs::OnMsg(const proto::BbsMsg& msg)
+	{
+		auto itBbs = m_BbsTimestamps.find(msg.m_Channel);
+		if (m_BbsTimestamps.end() != itBbs)
+			itBbs->second = std::max(itBbs->second, msg.m_TimePosted);
+		else
+			m_BbsTimestamps[msg.m_Channel] = msg.m_TimePosted;
+
+		if (!m_pTimerBbsTmSave)
+		{
+			m_pTimerBbsTmSave = io::Timer::create(io::Reactor::get_Current());
+			m_pTimerBbsTmSave->start(60*1000, false, [this]() { OnTimerBbsTmSave(); });
+		}
+
+		Addr::Channel key;
+		key.m_Value = msg.m_Channel;
+
+		for (ChannelSet::iterator it = m_Channels.lower_bound(key); ; it++)
+		{
+			if (m_Channels.end() == it)
+				break;
+			if (it->m_Value != msg.m_Channel)
+				break; // as well
+
+			Blob blob;
+			ByteBuffer buf = msg.m_Message; // duplicate
+			if (m_pKeyStore->decrypt((uint8_t*&) blob.p, blob.n, buf, it->get_ParentObj().m_Wid.m_Value))
+			{
+				wallet::SetTxParameter msgWallet;
+				bool bValid = false;
+
+				try {
+					Deserializer der;
+					der.reset(blob.p, blob.n);
+					der & msgWallet;
+					bValid = true;
+				}  catch (const std::exception&) {
+					LOG_WARNING() << "BBS deserialization failed";
+				}
+				
+				if (bValid)
+				{
+					m_Wallet.OnWalletMsg(it->get_ParentObj().m_Wid.m_Value, std::move(msgWallet));
+					break;
+				}
+			}
+		}
+	}
+
+	void WalletNetworkViaBbs::Send(const WalletID& peerID, wallet::SetTxParameter&& msg)
+	{
+		Serializer ser;
+		ser & msg;
+		SerializeBuffer sb = ser.buffer();
+
+		MyRequestBbsMsg::Ptr pReq(new MyRequestBbsMsg);
+
+		if (m_pKeyStore->encrypt(pReq->m_Msg.m_Message, sb.first, sb.second, peerID))
+		{
+			pReq->m_Msg.m_Channel = channel_from_wallet_id(peerID);
+			pReq->m_Msg.m_TimePosted = getTimestamp();
+
+			m_PendingBbsMsgs.push_back(*pReq);
+			pReq->AddRef();
+
+			m_NodeNetwork.PostRequest(*pReq, m_BbsSentEvt);
+		}
+	}
+
+/*
     WalletNetworkIO::WalletNetworkIO(io::Address node_address
                                    , IWalletDB::Ptr walletDB
                                    , IKeyStore::Ptr keyStore
@@ -173,6 +400,37 @@ namespace beam {
         }
     }
 
+    void WalletNetworkIO::subscribe(INetworkIOObserver* observer)
+    {
+        assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
+
+        m_subscribers.push_back(observer);
+    }
+
+    void WalletNetworkIO::unsubscribe(INetworkIOObserver* observer)
+    {
+        auto it = std::find(m_subscribers.begin(), m_subscribers.end(), observer);
+        assert(it != m_subscribers.end());
+
+        m_subscribers.erase(it);
+    }
+
+    void WalletNetworkIO::notifyNodeConnectedChanged()
+    {
+        for (auto sub : m_subscribers)
+        {
+            sub->onNodeConnectedStatusChanged(m_is_node_connected);
+        }
+    }
+
+    void WalletNetworkIO::notifyNodeDisconnected()
+    {
+        for (auto sub : m_subscribers)
+        {
+            sub->onNodeConnectionFailed();
+        }
+    }
+
     void WalletNetworkIO::on_close_connection_timer()
     {
         LOG_DEBUG() << "Close node connection";
@@ -222,7 +480,7 @@ namespace beam {
 
     void WalletNetworkIO::on_node_connected()
     {
-        m_is_node_connected = true;
+        set_is_node_connected(true);
         for (const auto& k : m_myPubKeys)
         {
             listen_to_bbs_channel(k);
@@ -238,7 +496,8 @@ namespace beam {
 
     void WalletNetworkIO::on_node_disconnected()
     {
-        m_is_node_connected = false;
+        set_is_node_connected(false);
+        notifyNodeDisconnected();
     }
 
     void WalletNetworkIO::on_protocol_error(uint64_t, ProtocolError error)
@@ -257,6 +516,12 @@ namespace beam {
     {
         assert(!m_node_connection && !m_is_node_connected);
         m_node_connection = make_unique<WalletNodeConnection>(m_node_address, get_wallet(), m_reactor, m_reconnect_ms, *this);
+    }
+
+    void WalletNetworkIO::set_is_node_connected(bool is_node_connected)
+    {
+        m_is_node_connected = is_node_connected;
+        notifyNodeConnectedChanged();
     }
 
     void WalletNetworkIO::update_wallets(const WalletID& walletID)
@@ -327,7 +592,7 @@ namespace beam {
         get_wallet().abort_sync();
 
         m_close_timer.reset();
-        m_is_node_connected = false;
+        set_is_node_connected(false);
         m_node_connection.reset();
     }
 
@@ -432,5 +697,6 @@ namespace beam {
 
         return true;
     }
+*/
 
 }

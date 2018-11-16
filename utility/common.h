@@ -82,6 +82,53 @@ inline void ZeroObject(T& x)
 	template <typename T> bool operator == (const T& x) const { return cmp(x) == 0; } \
 	template <typename T> bool operator != (const T& x) const { return cmp(x) != 0; }
 
+
+namespace Cast
+{
+	template <typename T> inline T& NotConst(const T& x) { return (T&) x; }
+	template <typename T> inline T* NotConst(const T* p) { return (T*) p; }
+
+	template <typename TT, typename T> inline const TT& Up(const T& x)
+	{
+		const TT& ret = (const TT&) x;
+		const T& unused = ret; unused;
+		return ret;
+	}
+
+	template <typename TT, typename T> inline TT& Up(T& x)
+	{
+		TT& ret = (TT&) x;
+		T& unused = ret; unused;
+		return ret;
+	}
+
+	template <typename TT, typename T> inline TT* Up(T* p)
+	{
+		TT* ret = (TT*) p;
+		T* unused = ret; unused;
+		return ret;
+	}
+
+	template <typename TT, typename T> inline const TT* Up(const T* p)
+	{
+		const TT* ret = (const TT*) p;
+		const T* unused = ret; unused;
+		return ret;
+	}
+
+	template <typename TT, typename T> inline TT& Down(T& x)
+	{
+		return x;
+	}
+
+	template <typename TT, typename T> inline const TT& Down(const T& x)
+	{
+		return x;
+	}
+} // namespace Cast
+
+
+
 namespace beam
 {
 	typedef uint64_t Timestamp;
@@ -131,7 +178,23 @@ namespace beam
 		}
 	};
 
-	void InstallCrashHandler(const char* szLocation);
+	namespace Crash
+	{
+		void InstallHandler(const char* szLocation);
+
+		enum Type {
+
+			BadPtr,
+			StlInvalid,
+			StackOverflow,
+			PureCall,
+			Terminate,
+
+			count
+		};
+
+		void Induce(Type);
+	}
 }
 
 namespace std
@@ -148,7 +211,7 @@ namespace std
 		static void NotImpl();
 
 	public:
-
+		FStream();
 		bool Open(const char*, bool bRead, bool bStrict = false, bool bAppend = false); // strict - throw exc if error
 		bool IsOpen() const { return m_F.is_open(); }
 		void Close();
@@ -156,6 +219,7 @@ namespace std
 
 		void Restart(); // for read-stream - jump to the beginning of the file
 		void Seek(uint64_t);
+		uint64_t Tell() { return m_F.tellg(); }
 
 		// read/write always return the size requested. Exception is thrown if underflow or error
 		size_t read(void* pPtr, size_t nSize);

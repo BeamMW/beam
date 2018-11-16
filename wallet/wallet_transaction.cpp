@@ -364,8 +364,9 @@ namespace beam { namespace wallet
             return;
         }
 
-        Merkle::Proof kernelProof;
-        if (!GetParameter(TxParameterID::KernelProof, kernelProof))
+        Height hProof = 0;
+		GetParameter(TxParameterID::KernelProofHeight, hProof);
+        if (!hProof)
         {
             if (!IsInitiator() && txState == State::Registration)
             {
@@ -376,17 +377,6 @@ namespace beam { namespace wallet
             }
             SetState(State::KernelConfirmation);
             ConfirmKernel(*builder.m_Kernel);
-            return;
-        }
-
-        Block::SystemState::Full state;
-        if (!GetTip(state))
-        {
-            if (!state.IsValidProofKernel(*builder.m_Kernel, kernelProof) && !m_Gateway.isTestMode())
-            {
-                OnFailed(TxFailureReason::InvalidKernelProof, false);
-                return;
-            }
             return;
         }
 
@@ -496,7 +486,7 @@ namespace beam { namespace wallet
         m_Kernel->m_Fee = m_Fee;
         m_Kernel->m_Height.m_Min = m_MinHeight;
         m_Kernel->m_Height.m_Max = m_MaxHeight;
-        m_Kernel->m_Excess = Zero;
+        m_Kernel->m_Commitment = Zero;
 
 		if (!m_Tx.GetParameter(TxParameterID::MyNonce, m_MultiSig.m_Nonce))
 		{
@@ -562,7 +552,7 @@ namespace beam { namespace wallet
         // create signature
         Point::Native totalPublicExcess = GetPublicExcess();
         totalPublicExcess += m_PeerPublicExcess;
-        m_Kernel->m_Excess = totalPublicExcess;
+        m_Kernel->m_Commitment = totalPublicExcess;
 
         m_Kernel->get_Hash(m_Message);
         m_MultiSig.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
@@ -586,7 +576,7 @@ namespace beam { namespace wallet
         LOG_INFO() << m_Tx.GetTxID() << " Transaction kernel: " << kernelID;
         // create transaction
         auto transaction = make_shared<Transaction>();
-        transaction->m_vKernelsOutput.push_back(move(m_Kernel));
+        transaction->m_vKernels.push_back(move(m_Kernel));
         transaction->m_Offset = m_Offset + m_PeerOffset;
         transaction->m_vInputs = move(m_Inputs);
         transaction->m_vOutputs = move(m_Outputs);

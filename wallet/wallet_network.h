@@ -27,7 +27,85 @@
 
 namespace beam
 {
-    namespace bi = boost::intrusive;
+	class WalletNetworkViaBbs
+		:public IWallet::INetwork
+	{
+		IWallet& m_Wallet;
+		proto::FlyClient::INetwork& m_NodeNetwork;
+		IKeyStore::Ptr m_pKeyStore;
+		IWalletDB::Ptr m_WalletDB;
+
+		struct Addr
+		{
+			struct Wid :public boost::intrusive::set_base_hook<> {
+				WalletID m_Value;
+				bool operator < (const Wid& x) const { return m_Value < x.m_Value; }
+				IMPLEMENT_GET_PARENT_OBJ(Addr, m_Wid)
+			} m_Wid;
+
+			struct Channel :public boost::intrusive::set_base_hook<> {
+				BbsChannel m_Value;
+				bool operator < (const Channel& x) const { return m_Value < x.m_Value; }
+				IMPLEMENT_GET_PARENT_OBJ(Addr, m_Channel)
+			} m_Channel;
+		};
+
+		typedef boost::intrusive::multiset<Addr::Wid> WidSet;
+		WidSet m_Addresses;
+
+		typedef  boost::intrusive::multiset<Addr::Channel> ChannelSet;
+		ChannelSet m_Channels;
+
+		void DeleteAddr(Addr&);
+		bool IsSingleChannelUser(const Addr::Channel&);
+
+		struct MyRequestBbsMsg
+			:public proto::FlyClient::RequestBbsMsg
+			,public boost::intrusive::list_base_hook<>
+		{
+			typedef boost::intrusive_ptr<MyRequestBbsMsg> Ptr;
+			virtual ~MyRequestBbsMsg() {}
+		};
+
+		typedef boost::intrusive::list<MyRequestBbsMsg> BbsMsgList;
+		BbsMsgList m_PendingBbsMsgs;
+
+		void DeleteReq(MyRequestBbsMsg& r);
+
+		struct BbsSentEvt
+			:public proto::FlyClient::Request::IHandler
+			,public proto::FlyClient::IBbsReceiver
+		{
+			virtual void OnComplete(proto::FlyClient::Request&) override;
+			virtual void OnMsg(proto::BbsMsg&&) override;
+			IMPLEMENT_GET_PARENT_OBJ(WalletNetworkViaBbs, m_BbsSentEvt)
+		} m_BbsSentEvt;
+
+		void OnMsg(const proto::BbsMsg&);
+
+		static BbsChannel channel_from_wallet_id(const WalletID& walletID);
+
+		std::map<BbsChannel, Timestamp> m_BbsTimestamps;
+		io::Timer::Ptr m_pTimerBbsTmSave;
+		void OnTimerBbsTmSave();
+		void SaveBbsTimestamps();
+
+	public:
+
+		WalletNetworkViaBbs(IWallet&, proto::FlyClient::INetwork&, const IKeyStore::Ptr&, const IWalletDB::Ptr&);
+		virtual ~WalletNetworkViaBbs();
+
+		void new_own_address(const WalletID&);
+		void address_deleted(const WalletID&);
+
+		// IWallet::INetwork
+		virtual void Send(const WalletID& peerID, wallet::SetTxParameter&& msg) override;
+
+	};
+
+	/*
+
+	namespace bi = boost::intrusive;
 
     enum WalletNetworkMessageCodes : uint8_t
     {
@@ -64,6 +142,8 @@ namespace beam
         void stop();
 
         void add_wallet(const WalletID& walletID);
+        void subscribe(INetworkIOObserver* observer) override;
+        void unsubscribe(INetworkIOObserver* observer) override;
 
     private:
         // INetworkIO
@@ -82,6 +162,9 @@ namespace beam
         //void close_connection(const WalletID& id) override;
         void connect_node() override;
         void close_node_connection() override;
+
+        void notifyNodeConnectedChanged();
+        void notifyNodeDisconnected();
 
         void new_own_address(const WalletID& address) override;
         void address_deleted(const WalletID& address) override;
@@ -103,6 +186,8 @@ namespace beam
         void on_node_disconnected();
 
         void create_node_connection();
+
+        void set_is_node_connected(bool is_node_connected);
 
         template <typename T>
         void send(const WalletID& walletID, MsgType type, T&& msg)
@@ -207,5 +292,8 @@ namespace beam
         IKeyStore::Ptr m_keystore;
         std::set<PubKey> m_myPubKeys;
         const WalletID* m_lastReceiver;
+
+        std::vector<INetworkIOObserver*> m_subscribers;
     };
+*/
 }

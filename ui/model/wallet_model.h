@@ -96,6 +96,8 @@ signals:
     void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
     void onGeneratedNewWalletID(const beam::WalletID& walletID);
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
+    void onNodeConnectedChanged(bool is_node_connected);
+    void onNodeConnectionFailedSignal();
 
 private:
     void onCoinsChanged() override;
@@ -124,6 +126,9 @@ private:
     void setNodeAddress(const std::string& addr) override;
     void changeWalletPassword(const beam::SecString& password) override;
 
+    void onNodeConnectedStatusChanged(bool isNodeConnected);
+    void onNodeConnectionFailed();
+
     void onStatusChanged();
     WalletStatus getStatus() const;
     std::vector<beam::Coin> getUtxos() const;
@@ -132,8 +137,9 @@ private:
     beam::IWalletDB::Ptr _walletDB;
     beam::IKeyStore::Ptr _keystore;
     beam::io::Reactor::Ptr _reactor;
-    std::weak_ptr<beam::INetworkIO> _wallet_io;
-    std::weak_ptr<beam::Wallet> _wallet;
+    std::weak_ptr<beam::proto::FlyClient::INetwork> _nnet;
+	std::weak_ptr<beam::Wallet::INetwork> _wnet;
+	std::weak_ptr<beam::Wallet> _wallet;
     beam::io::Timer::Ptr _logRotateTimer;
 
     std::string _nodeAddrStr;

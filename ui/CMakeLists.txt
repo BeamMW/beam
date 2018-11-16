@@ -203,6 +203,7 @@ if(BEAM_USE_STATIC)
 
 		target_link_libraries(${TARGET_NAME}
 			${CMAKE_PREFIX_PATH}/plugins/platforms/libqxcb.a
+			${CMAKE_PREFIX_PATH}/plugins/xcbglintegrations/libqxcb-glx-integration.a
 		)
 
 		target_link_libraries(${TARGET_NAME}
@@ -216,7 +217,7 @@ if(BEAM_USE_STATIC)
 			${CMAKE_PREFIX_PATH}/qml/QtQuick/Templates.2/libqtquicktemplates2plugin.a
 
 			${CMAKE_PREFIX_PATH}/plugins/imageformats/libqsvg.a
-            #${CMAKE_PREFIX_PATH}/plugins/printsupport/libcupsprintersupport.a
+            ${CMAKE_PREFIX_PATH}/plugins/printsupport/libcupsprintersupport.a
 		)
 
 		foreach(lib
@@ -231,12 +232,16 @@ if(BEAM_USE_STATIC)
 			Qt5FbSupport Qt5Qml Qt5Test
 			Qt5Concurrent Qt5FontDatabaseSupport Qt5Network Qt5QmlDebug
 			Qt5Xml xcb-static Qt5Gamepad Qt5NetworkAuth Qt5QmlDevTools
-			Qt5Scxml Qt5ThemeSupport Qt5XmlPatterns Qt5DBus qtfreetype
+			Qt5Scxml Qt5ThemeSupport Qt5XmlPatterns Qt5DBus Qt5GlxSupport
 		)
 			target_link_libraries(${TARGET_NAME} ${CMAKE_PREFIX_PATH}/lib/lib${lib}.a)
 		endforeach()
 
-		target_link_libraries(${TARGET_NAME} -lX11-xcb -lX11 -lxcb -licui18n -licuuc -licudata -lGL)
+		target_link_libraries(${TARGET_NAME} -lX11-xcb -lX11 -lxcb -lGL -lfreetype -lfontconfig -lXi -lXext -lXfixes -lXrender -lglib-2.0 -lSM -lICE -lcups -lxcb-glx)
+
+		foreach(lib icui18n icuuc icudata)
+			target_link_libraries(${TARGET_NAME} /usr/lib/x86_64-linux-gnu/lib${lib}.a)
+		endforeach()
 
 		set_property(TARGET ${TARGET_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 
