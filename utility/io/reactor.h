@@ -29,6 +29,7 @@ class CoarseTimer;
 class TcpConnectors;
 class TcpShutdowns;
 class PendingWrites;
+class SslStream;
 
 class Reactor : public std::enable_shared_from_this<Reactor> {
 public:
@@ -52,7 +53,14 @@ public:
 
     using ConnectCallback = std::function<void(uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode errorCode)>;
 
-    Result tcp_connect(Address address, uint64_t tag, const ConnectCallback& callback, int timeoutMsec=-1, Address bindTo=Address());
+    Result tcp_connect(
+        Address address,
+        uint64_t tag,
+        const ConnectCallback& callback,
+        int timeoutMsec=-1,
+        bool tlsConnect=false,
+        Address bindTo=Address()
+    );
 
     void cancel_tcp_connect(uint64_t tag);
 
@@ -138,7 +146,7 @@ private:
     ErrorCode init_tcpserver(Object* o, Address bindAddress, uv_connection_cb cb);
     ErrorCode init_tcpstream(Object* o);
     ErrorCode accept_tcpstream(Object* acceptor, Object* newConnection);
-    TcpStream* stream_connected(uv_handle_t* h);
+    TcpStream* stream_connected(TcpStream* stream, uv_handle_t* h);
     void shutdown_tcpstream(Object* o);
 
     using OnDataWritten = std::function<void(ErrorCode, size_t)>;

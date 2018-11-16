@@ -13,9 +13,9 @@
 // limitations under the License.
 
 #include "core/block_crypt.h"
-#include "impl/crypto/equihash.h"
-#include "impl/uint256.h"
-#include "impl/arith_uint256.h"
+#include "crypto/equihash.h"
+#include "uint256.h"
+#include "arith_uint256.h"
 #include <utility>
 
 #if defined (BEAM_USE_GPU)

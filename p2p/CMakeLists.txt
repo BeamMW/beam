@@ -8,11 +8,11 @@ set(P2P_SRC
     handshake.cpp
     rnd_gen.cpp
     connect_pool.cpp
-    picohttpparser/picohttpparser.c
     http_msg_reader.cpp
     http_msg_creator.cpp
     stratum.cpp
-    http_client.cpp)
+    http_client.cpp
+    ${PROJECT_SOURCE_DIR}/3rdparty/picohttpparser/picohttpparser.c)
 
 add_library(p2p STATIC ${P2P_SRC})
 add_dependencies(p2p utility)

@@ -68,14 +68,14 @@ void MsgReader::disable_all_msg_types() {
     _expectedMsgTypes.reset();
 }
 
-void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void* data, size_t size) {
+bool MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void* data, size_t size) {
     if (connectionStatus != 0) {
         _protocol.on_connection_error(_streamId, connectionStatus);
-        return;
+        return false;
     }
 
     if (!data || !size) {
-        return;
+        return true;
     }
 
 	std::shared_ptr<bool> pAlive(_pAlive);
@@ -99,19 +99,19 @@ void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void*
 			// header has just been read
 			if (!_protocol.approve_msg_header(_streamId, header))
 				// at this moment, the *this* may be deleted
-				return;
+				return false;
 
 			if (!bAlive)
-				return;
+				return false;
 
 			if (!_expectedMsgTypes.test(header.type)) {
 				_protocol.on_unexpected_msg(_streamId, header.type);
 				// at this moment, the *this* may be deleted
-				return;
+				return false;
 			}
 
 			if (!bAlive)
-				return;
+				return false;
 
 			// header deserialized successfully
 			_bytesLeft = header.size;
@@ -127,7 +127,7 @@ void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void*
 			if (!_protocol.VerifyMsg(_msgBuffer.data(), static_cast<uint32_t>(_msgBuffer.size())))
 			{
 				_protocol.on_corrupt_msg(_streamId);
-				return;
+				return false;
 			}
 
             if (!_protocol.on_new_message(_streamId, header.type, _msgBuffer.data() + MsgHeader::SIZE, header.size - _protocol.get_MacSize())) {
@@ -135,11 +135,11 @@ void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void*
                 if (bAlive) {
                     reset();
                 }
-                return;
+                return false;
             }
 
 			if (!bAlive)
-				return;
+				return false;
 
 			if (_msgBuffer.size() > 2 * _defaultSize) {
 				{
@@ -164,6 +164,8 @@ void MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void*
 		_cursor += sz;
 		_bytesLeft -= sz;
 	}
+
+	return true;
 }
 
 

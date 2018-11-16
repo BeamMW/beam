@@ -223,6 +223,17 @@ namespace std
 
 } // namespace std
 
+#if defined(BEAM_USE_STATIC)
+
+#if defined(_MSC_VER) && (_MSC_VER >= 1900)
+
+FILE _iob[] = { *stdin, *stdout, *stderr };
+extern "C" FILE * __cdecl __iob_func(void) { return _iob; }
+
+#endif
+
+#endif
+
 #ifdef WIN32
 
 wchar_t g_szDumpPathTemplate[MAX_PATH];

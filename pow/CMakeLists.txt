@@ -4,10 +4,10 @@ include_directories(impl)
 
 set(POW_SRC
     equihash.cpp
-    impl/crypto/equihash_impl.cpp
-    impl/arith_uint256.cpp
-    impl/uint256.cpp
-    impl/utilstrencodings.cpp
+    ${PROJECT_SOURCE_DIR}/3rdparty/crypto/equihash_impl.cpp
+    ${PROJECT_SOURCE_DIR}/3rdparty/arith_uint256.cpp
+    ${PROJECT_SOURCE_DIR}/3rdparty/uint256.cpp
+    ${PROJECT_SOURCE_DIR}/3rdparty/utilstrencodings.cpp
 )
 
 if(UNIX)
@@ -39,6 +39,6 @@ target_compile_definitions(pow PRIVATE ENABLE_MINING)
 add_dependencies(pow crypto)
 target_link_libraries(pow crypto)
 
-target_include_directories(pow PRIVATE ${PROJECT_SOURCE_DIR}/utility/crypto)
+target_include_directories(pow PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/crypto)
 
 add_subdirectory(unittests)

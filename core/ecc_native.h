@@ -26,11 +26,11 @@
 #	pragma warning (disable: 4706) // assignment within conditional expression
 #endif
 
-#include "../secp256k1-zkp/src/basic-config.h"
-#include "../secp256k1-zkp/include/secp256k1.h"
-#include "../secp256k1-zkp/src/scalar.h"
-#include "../secp256k1-zkp/src/group.h"
-#include "../secp256k1-zkp/src/hash.h"
+#include "secp256k1-zkp/src/basic-config.h"
+#include "secp256k1-zkp/include/secp256k1.h"
+#include "secp256k1-zkp/src/scalar.h"
+#include "secp256k1-zkp/src/group.h"
+#include "secp256k1-zkp/src/hash.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic pop

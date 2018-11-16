@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "logger_checkpoints.h"
-#include "helpers.h"
+#include "utility/logger_checkpoints.h"
+#include "utility/helpers.h"
 #include <thread>
 #include "wallet/secstring.h"
 

@@ -14,7 +14,7 @@
 
 #pragma once
 #include "errorhandling.h"
-#include "bufferchain.h"
+#include "buffer.h"
 #include <memory>
 #include <openssl/err.h>
 #include <openssl/dh.h>
@@ -48,16 +48,19 @@ private:
 
 class SSLIO {
 public:
-    /// Decrypted data received from stream
-    using OnDecryptedData = std::function<void(io::ErrorCode, void* data, size_t size)>;
+    /// Decrypted data received from stream. Returns whether to proceed
+    using OnDecryptedData = std::function<bool(void* data, size_t size)>;
 
     /// Encrypted data to be queued to stream
-    using OnEncryptedData = std::function<Result(SerializedMsg& data)>;
+    using OnEncryptedData = std::function<Result(const io::SharedBuffer& data, bool flush)>;
 
-    explicit SSLIO(
+    SSLIO(const SSLIO&) = delete;
+    SSLIO& operator=(const SSLIO&) = delete;
+
+    SSLIO(
         const SSLContext::Ptr& ctx,
-        OnDecryptedData&& onDecryptedData, OnEncryptedData&& onEncryptedData,
-        size_t fragmentSize=40000
+        const OnDecryptedData& onDecryptedData, const OnEncryptedData& onEncryptedData,
+        size_t fragmentSize=16384
     );
 
     ~SSLIO();
@@ -67,26 +70,29 @@ public:
 
     void enqueue(const SharedBuffer& buf);
 
-    Result flush_write_buffer();
+    Result flush();
+
+    void shutdown();
 private:
+    Result do_handshake();
+
+    Result send_pending_data(bool flush);
 
     OnDecryptedData _onDecryptedData;
     OnEncryptedData _onEncryptedData;
 
-    BufferChain _writeBuffer;
+    size_t _fragmentSize;
 
-    /// Output message, encrypted
-    SerializedMsg _outMsg;
+    /// Output message
+    io::SerializedMsg _outMsg;
 
     /// ssl ctx
     SSLContext::Ptr _ctx;
 
     /// connection ctx
-    SSL* _ssl=0;
-
-    /// in-memory BIOs read and write
-    BIO* _inMemoryIO=0;
-    BIO* _outMemoryIO=0;
+    SSL* _ssl = nullptr;
+    BIO* _rbio = nullptr;
+    BIO* _wbio = nullptr;
 };
 
 }} //namespaces

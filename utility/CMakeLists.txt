@@ -18,10 +18,10 @@ set(IO_SRC
     io/timer.cpp
     io/address.cpp
     io/tcpserver.cpp
-    #io/sslserver.cpp
-    #io/sslio.cpp
+    io/sslserver.cpp
+    io/sslio.cpp
     io/tcpstream.cpp
-    #io/sslstream.cpp
+    io/sslstream.cpp
     io/errorhandling.cpp
     io/coarsetimer.cpp
     io/fragment_writer.cpp
@@ -45,12 +45,10 @@ endif()
 add_library(utility STATIC ${UTILITY_SRC} ${IO_SRC})
 
 if(ANDROID OR NOT BEAM_USE_AVX)
-    add_library(crypto STATIC crypto/blake/ref/blake2b-ref.c)
+    add_library(crypto STATIC ${PROJECT_SOURCE_DIR}/3rdparty/crypto/blake/ref/blake2b-ref.c)
 else()
-    add_library(crypto STATIC crypto/blake/sse/blake2b.cpp)
+    add_library(crypto STATIC ${PROJECT_SOURCE_DIR}/3rdparty/crypto/blake/sse/blake2b.cpp)
 endif()
-
-include_directories(${PROJECT_SOURCE_DIR}/utility)
 
 if (UV_INTERNAL)
     include(io/libuv.cmake)
@@ -58,6 +56,12 @@ if (UV_INTERNAL)
     target_link_libraries(utility uvinternal)
 else()
     target_link_libraries(utility uv)
+endif()
+
+target_link_libraries(utility ${OPENSSL_LIBSSL} ${OPENSSL_LIBCRYPTO})
+
+if (UNIX)
+    target_link_libraries(utility dl)
 endif()
 
 target_link_libraries(utility mnemonic)

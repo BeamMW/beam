@@ -31,7 +31,7 @@ struct IAdapter {
 
     virtual bool get_block(io::SerializedMsg& out, uint64_t height) = 0;
 
-    virtual bool get_blocks(io::SerializedMsg& out, uint64_t startHeight, uint64_t endHeight) = 0;
+    virtual bool get_blocks(io::SerializedMsg& out, uint64_t startHeight, uint64_t n) = 0;
 };
 
 IAdapter::Ptr create_adapter(Node& node);

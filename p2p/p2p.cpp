@@ -139,7 +139,7 @@ void P2P::on_connect_to_peers() {
 
         for (auto& a: connectTo) {
             StreamId id(a);
-            auto result = _reactor->tcp_connect(a, id.u64, BIND_THIS_MEMFN(on_stream_connected), 10000, io::Address(_settings.bindToIp, 0));
+            auto result = _reactor->tcp_connect(a, id.u64, BIND_THIS_MEMFN(on_stream_connected), 10000, false, io::Address(_settings.bindToIp, 0));
             if (!result) {
                 _connectPool.schedule_reconnect(a, result.error());
             } else {
