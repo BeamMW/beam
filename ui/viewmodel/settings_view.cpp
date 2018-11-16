@@ -21,6 +21,10 @@
 #include <thread>
 #include "wallet/secstring.h"
 
+#ifdef BEAM_USE_GPU
+#include "utility/gpu/gpu_tools.h"
+#endif
+
 using namespace beam;
 using namespace ECC;
 using namespace std;
@@ -158,6 +162,20 @@ void SettingsViewModel::copyToClipboard(const QString& text)
 bool SettingsViewModel::showUseGpu() const
 {
 #ifdef BEAM_USE_GPU
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool SettingsViewModel::hasSupportedGpu()
+{
+#ifdef BEAM_USE_GPU
+    if (!HasSupportedCard())
+    {
+        setUseGpu(false);
+        return false;
+    }
     return true;
 #else
     return false;

@@ -67,6 +67,7 @@ public:
     Q_INVOKABLE void openUrl(const QString& url);
     Q_INVOKABLE void copyToClipboard(const QString& text);
     Q_INVOKABLE bool showUseGpu() const;
+    Q_INVOKABLE bool hasSupportedGpu();
 
 public slots:
     void applyChanges();

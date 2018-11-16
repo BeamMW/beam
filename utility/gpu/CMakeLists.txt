@@ -12,8 +12,6 @@ if(BEAM_USE_GPU)
         gpu_tools.cu
         gpu_tools.h)
 
-    CUDA_ADD_LIBRARY(gpu STATIC ${SRC})
+    CUDA_ADD_LIBRARY(gpu_tools STATIC ${SRC})
 
 endif()
-
-add_test_snippet(gpu_test gpu)

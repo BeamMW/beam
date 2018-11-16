@@ -90,6 +90,11 @@ add_subdirectory(qrcode)
 add_dependencies(${TARGET_NAME} wallet mnemonic qrcode)
 target_link_libraries(${TARGET_NAME} qrcode)
 
+if(BEAM_USE_GPU)
+    add_dependencies(${TARGET_NAME} gpu_tools)
+    target_link_libraries(${TARGET_NAME} gpu_tools)
+endif()
+
 if(LINUX)
 	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()

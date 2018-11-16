@@ -250,13 +250,20 @@ Rectangle {
                                         font.pixelSize: 12
                                         width: parent.width
                                         checked: viewModel.useGpu
-                                        enabled: localNodeRun.checked
+                                        enabled: localNodeRun.checked && viewModel.hasSupportedGpu()
                                         visible: viewModel.showUseGpu()
                                         Binding {
                                             target: viewModel
                                             property: "useGpu"
                                             value: useGpu.checked
                                         }
+                                    }
+                                    SFText {
+                                        id: gpuError
+                                        color: Style.validator_color
+                                        font.pixelSize: 14
+                                        visible: viewModel.showUseGpu() && !viewModel.hasSupportedGpu()
+                                        text: qsTr("You have unsupported videocard")
                                     }
 
                                     SFText {
