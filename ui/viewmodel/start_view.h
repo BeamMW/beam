@@ -83,6 +83,7 @@ public:
     Q_INVOKABLE void printRecoveryPhrases(QVariant viewData);
     Q_INVOKABLE void resetPhrases();
     Q_INVOKABLE bool showUseGpu() const;
+    Q_INVOKABLE bool hasSupportedGpu();
 
 signals:
     void walletExistsChanged();
