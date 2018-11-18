@@ -464,9 +464,7 @@ namespace ECC
 		:public Key::IKdf
 	{
 		HKdf();
-
 		virtual ~HKdf();
-
 		NoLeak<uintBig> m_Secret;
 		Scalar::Native m_kCoFactor;
 		// IPKdf

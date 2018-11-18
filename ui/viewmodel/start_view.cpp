@@ -32,6 +32,10 @@
 #include "wallet/secstring.h"
 #include <thread>
 
+#ifdef BEAM_USE_GPU
+#include "utility/gpu/gpu_tools.h"
+#endif
+
 using namespace beam;
 using namespace ECC;
 using namespace std;
@@ -136,7 +140,7 @@ StartViewModel::~StartViewModel()
 
 bool StartViewModel::walletExists() const
 {
-    return Keychain::isInitialized(AppModel::getInstance()->getSettings().getWalletStorage());
+    return WalletDB::isInitialized(AppModel::getInstance()->getSettings().getWalletStorage());
 }
 
 bool StartViewModel::getIsRecoveryMode() const
@@ -203,10 +207,41 @@ QChar StartViewModel::getPhrasesSeparator()
     return PHRASES_SEPARATOR;
 }
 
+void StartViewModel::setUseGpu(bool value)
+{
+#ifdef BEAM_USE_GPU
+    if (value != AppModel::getInstance()->getSettings().getUseGpu())
+    {
+        AppModel::getInstance()->getSettings().setUseGpu(value);
+        emit useGpuChanged();
+    }
+#endif
+}
+
+bool StartViewModel::getUseGpu() const
+{
+#ifdef BEAM_USE_GPU
+    return AppModel::getInstance()->getSettings().getUseGpu();
+#else
+    return false;
+#endif
+}
+
 void StartViewModel::setupLocalNode(int port, int miningThreads, bool generateGenesys)
 {
     auto& settings = AppModel::getInstance()->getSettings();
+#ifdef BEAM_USE_GPU
+    if (settings.getUseGpu())
+    {
+        settings.setLocalNodeMiningThreads(1);
+    }
+    else
+    {
+        settings.setLocalNodeMiningThreads(miningThreads);
+    }
+#else
     settings.setLocalNodeMiningThreads(miningThreads);
+#endif
     auto localAddress = QString::asprintf("127.0.0.1:%d", port);
     settings.setNodeAddress(localAddress);
     settings.setLocalNodePort(port);
@@ -308,6 +343,29 @@ void StartViewModel::resetPhrases()
     m_generatedPhrases.clear();
     m_checkPhrases.clear();
     emit recoveryPhrasesChanged();
+}
+
+bool StartViewModel::showUseGpu() const
+{
+#ifdef BEAM_USE_GPU
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool StartViewModel::hasSupportedGpu()
+{
+#ifdef BEAM_USE_GPU
+    if (!HasSupportedCard())
+    {
+        setUseGpu(false);
+        return false;
+    }
+    return true;
+#else
+    return false;
+#endif
 }
 
 bool StartViewModel::createWallet(const QString& pass)

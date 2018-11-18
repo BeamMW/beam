@@ -611,9 +611,17 @@ namespace ECC {
 		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet&) const;
 	};
 
-	struct RangeProof::Confidential::ChallengeSet
+	struct RangeProof::Confidential::ChallengeSetBase
 	{
-		Scalar::Native x, y, yInv, z, zz;
+		Scalar::Native x, y, z;
+		void Init(const Part1&, Oracle&);
+		void Init(const Part2&, Oracle&);
+	};
+
+	struct RangeProof::Confidential::ChallengeSet
+		:public ChallengeSetBase
+	{
+		Scalar::Native yInv, zz;
 		void Init(const Part1&, Oracle&);
 		void Init(const Part2&, Oracle&);
 	};
@@ -846,7 +854,7 @@ namespace ECC {
 		nonceGen >> ro;
 
 		// get challenges
-		ChallengeSet cs;
+		ChallengeSetBase cs;
 		cs.Init(m_Part1, oracle);
 		cs.Init(m_Part2, oracle);
 
@@ -938,22 +946,31 @@ namespace ECC {
 		p3.m_TauX = taux;
 	}
 
-	void RangeProof::Confidential::ChallengeSet::Init(const Part1& p1, Oracle& oracle)
+	void RangeProof::Confidential::ChallengeSetBase::Init(const Part1& p1, Oracle& oracle)
 	{
 		oracle << p1.m_A << p1.m_S;
-
 		oracle >> y;
 		oracle >> z;
+	}
+
+	void RangeProof::Confidential::ChallengeSet::Init(const Part1& p1, Oracle& oracle)
+	{
+		ChallengeSetBase::Init(p1, oracle);
 
 		yInv.SetInv(y);
 		zz = z;
 		zz *= z;
 	}
 
-	void RangeProof::Confidential::ChallengeSet::Init(const Part2& p2, Oracle& oracle)
+	void RangeProof::Confidential::ChallengeSetBase::Init(const Part2& p2, Oracle& oracle)
 	{
 		oracle << p2.m_T1 << p2.m_T2;
 		oracle >> x;
+	}
+
+	void RangeProof::Confidential::ChallengeSet::Init(const Part2& p2, Oracle& oracle)
+	{
+		ChallengeSetBase::Init(p2, oracle);
 	}
 
 	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle) const

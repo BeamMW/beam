@@ -92,12 +92,16 @@ public:
 			HashForHist,
 			StateGetBlock,
 			StateSetBlock,
-			StateDelBlock,
+			//StateDelBlock,
 			StateSetRollback,
 			MinedIns,
 			MinedUpd,
 			MinedDel,
 			MinedSel,
+			EventIns,
+			EventDel,
+			EventEnum,
+			EventFind,
 			MacroblockEnum,
 			MacroblockIns,
 			MacroblockDel,
@@ -113,6 +117,10 @@ public:
 			DummyFind,
 			DummyUpdHeight,
 			DummyDel,
+			KernelIns,
+			KernelFind,
+			KernelDel,
+			KernelDelAll,
 
 			Dbg0,
 			Dbg1,
@@ -218,10 +226,11 @@ public:
 	void set_Peer(uint64_t rowid, const PeerID*);
 	bool get_Peer(uint64_t rowid, PeerID&);
 
-	void SetStateBlock(uint64_t rowid, const Blob& body);
-	void GetStateBlock(uint64_t rowid, ByteBuffer& body, ByteBuffer& rollback);
+	void SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE);
+	void GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteBuffer* pRollback);
 	void SetStateRollback(uint64_t rowid, const Blob& rollback);
-	void DelStateBlock(uint64_t rowid);
+	//void DelStateBlockPRB(uint64_t rowid); // perishable and rollback, but no ethernal
+	void DelStateBlockAll(uint64_t rowid);
 
 	struct StateID {
 		uint64_t m_Row;
@@ -278,6 +287,22 @@ public:
 	void MacroblockIns(uint64_t rowid);
 	void MacroblockDel(uint64_t rowid);
 
+	void InsertEvent(Height, const Blob&, const Blob& key);
+	void DeleteEventsAbove(Height);
+
+	struct WalkerEvent {
+		Recordset m_Rs;
+		Height m_Height;
+		Blob m_Body;
+		Blob m_Key;
+
+		WalkerEvent(NodeDB& db) :m_Rs(db) {}
+		bool MoveNext();
+	};
+
+	void EnumEvents(WalkerEvent&, Height hMin);
+	void FindEvents(WalkerEvent&, const Blob& key);
+
 	struct WalkerPeer
 	{
 		Recordset m_Rs;
@@ -322,6 +347,10 @@ public:
 	uint64_t FindDummy(Height& h, Blob&);
 	void DeleteDummy(uint64_t);
 	void SetDummyHeight(uint64_t, Height);
+
+	void InsertKernel(const Blob&, Height h);
+	void DeleteKernel(const Blob&, Height h);
+	Height FindKernel(const Blob&); // in case of duplicates - returning the one with the largest Height
 
 	uint64_t FindStateWorkGreater(const Difficulty::Raw&);
 

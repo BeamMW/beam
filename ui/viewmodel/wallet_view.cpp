@@ -30,13 +30,15 @@ using namespace beamui;
 
 namespace
 {
-template<typename T>
-bool compareTx(const T& lf, const T& rt, Qt::SortOrder sortOrder)
-{
-    if (sortOrder == Qt::DescendingOrder)
-        return lf > rt;
-    return lf < rt;
-}
+    const int kDefaultFeeInGroth = 10;
+
+    template<typename T>
+    bool compareTx(const T& lf, const T& rt, Qt::SortOrder sortOrder)
+    {
+        if (sortOrder == Qt::DescendingOrder)
+            return lf > rt;
+        return lf < rt;
+    }
 }
 
 TxObject::TxObject(const TxDescription& tx) : _tx(tx) {}
@@ -176,7 +178,7 @@ WalletViewModel::WalletViewModel()
     : _model(*AppModel::getInstance()->getWallet())
     , _status{ 0, 0, 0, 0, {0, 0, 0}, {} }
     , _sendAmount("0")
-    , _feeMils("0")
+    , _feeGrothes("0")
     , _change(0)
     , _isSyncInProgress{false}
     , _isOfflineStatus{false}
@@ -208,12 +210,18 @@ WalletViewModel::WalletViewModel()
     connect(&_model, SIGNAL(onGeneratedNewWalletID(const beam::WalletID&)),
         SLOT(onGeneratedNewWalletID(const beam::WalletID&)));
 
+    connect(&_model, SIGNAL(onNodeConnectedChanged(bool)),
+        SLOT(onNodeConnectedChanged(bool)));
+
+    connect(&_model, SIGNAL(onNodeConnectionFailedSignal()),
+        SLOT(onNodeConnectionFailed()));
+
     if (AppModel::getInstance()->getSettings().getRunLocalNode())
     {
         connect(&AppModel::getInstance()->getNode(), SIGNAL(syncProgressUpdated(int, int)),
             SLOT(onNodeSyncProgressUpdated(int, int)));
     }
-    
+    _model.async->syncWithNode();
     _model.async->getWalletStatus();
 }
 
@@ -222,22 +230,19 @@ WalletViewModel::~WalletViewModel()
 
 }
 
-void WalletViewModel::cancelTx(int index)
+void WalletViewModel::cancelTx(TxObject* pTxObject)
 {
-    auto *p = static_cast<TxObject*>(_txList[index]);
-    // TODO: temporary fix
-    if (p->canCancel())
+    if (pTxObject->canCancel())
     {
-        _model.async->cancelTx(p->_tx.m_txId);
+        _model.async->cancelTx(pTxObject->_tx.m_txId);
     }
 }
 
-void WalletViewModel::deleteTx(int index)
+void WalletViewModel::deleteTx(TxObject* pTxObject)
 {
-    auto *p = static_cast<TxObject*>(_txList[index]);
-    if (p->canDelete())
+    if (pTxObject->canDelete())
     {
-        _model.async->deleteTx(p->_tx.m_txId);
+        _model.async->deleteTx(pTxObject->_tx.m_txId);
     }
 }
 
@@ -449,9 +454,9 @@ QString WalletViewModel::sendAmount() const
     return _sendAmount;
 }
 
-QString WalletViewModel::feeMils() const
+QString WalletViewModel::feeGrothes() const
 {
-    return _feeMils;
+    return _feeGrothes;
 }
 
 QString WalletViewModel::getReceiverAddr() const
@@ -496,14 +501,14 @@ void WalletViewModel::setSendAmount(const QString& value)
     }
 }
 
-void WalletViewModel::setFeeMils(const QString& value)
+void WalletViewModel::setFeeGrothes(const QString& value)
 {
     auto trimmedValue = value.trimmed();
-    if (trimmedValue != _feeMils)
+    if (trimmedValue != _feeGrothes)
     {
-        _feeMils = trimmedValue;
+        _feeGrothes = trimmedValue;
         _model.async->calcChange(calcTotalAmount());
-        emit feeMilsChanged();
+        emit feeGrothesChanged();
         emit actualAvailableChanged();
     }
 }
@@ -546,8 +551,8 @@ QString WalletViewModel::sortRole() const
 
 void WalletViewModel::setSortRole(const QString& value)
 {
-    if (value != getIncomeRole() && value != getDateRole() && value != getAmountRole() &&
-        value != getStatusRole())
+    if (value != getDateRole() && value != getAmountRole() &&
+        value != getStatusRole() && value != getUserRole())
         return;
 
     _sortRole = value;
@@ -595,6 +600,11 @@ QString WalletViewModel::getStatusRole() const
     return "status";
 }
 
+int WalletViewModel::getDefaultFeeInGroth() const
+{
+    return kDefaultFeeInGroth;
+}
+
 QString WalletViewModel::receiverAddr() const
 {
     if (_selectedAddr < 0 || _addrList.empty()) return "";
@@ -626,6 +636,11 @@ bool WalletViewModel::getIsFailedStatus() const
 
 void WalletViewModel::setIsOfflineStatus(bool value)
 {
+    if (_isOfflineStatus != value)
+    {
+        _isOfflineStatus = value;
+        emit isOfflineStatusChanged();
+    }
 }
 
 void WalletViewModel::setIsFailedStatus(bool value)
@@ -678,7 +693,7 @@ beam::Amount WalletViewModel::calcSendAmount() const
 
 beam::Amount WalletViewModel::calcFeeAmount() const
 {
-    return _feeMils.toDouble() * Rules::Coin;
+    return _feeGrothes.toULongLong();
 }
 
 beam::Amount WalletViewModel::calcTotalAmount() const
@@ -851,4 +866,17 @@ void WalletViewModel::onGeneratedNewWalletID(const beam::WalletID& walletID)
 
     emit newReceiverAddrChanged();
     saveNewAddress();
+}
+
+void WalletViewModel::onNodeConnectedChanged(bool is_node_connected)
+{
+    if (is_node_connected && getIsOfflineStatus())
+    {
+        setIsOfflineStatus(false);
+    }
+}
+
+void WalletViewModel::onNodeConnectionFailed()
+{
+    setIsOfflineStatus(true);
 }

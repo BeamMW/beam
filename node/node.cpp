@@ -36,7 +36,7 @@ void Node::RefreshCongestions()
 	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
 		it->m_bRelevant = false;
 
-	m_Processor.EnumCongestions();
+	m_Processor.EnumCongestions(m_Cfg.m_MaxConcurrentBlocksRequest);
 
 	for (TaskList::iterator it = m_lstTasksUnassigned.begin(); m_lstTasksUnassigned.end() != it; )
 	{
@@ -195,46 +195,50 @@ void Node::Wanted::OnTimer()
 
 void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 {
-	while (true)
+	if (pPeerID)
 	{
-		Peer* pSel = NULL;
+		bool bCreate = false;
+		PeerMan::PeerInfoPlus* pInfo = Cast::Up<PeerMan::PeerInfoPlus>(m_PeerMan.Find(*pPeerID, bCreate));
 
-		if (pPeerID)
-		{
-			bool bCreate = false;
-			PeerMan::PeerInfoPlus* pInfo = (PeerMan::PeerInfoPlus*) m_PeerMan.Find(*pPeerID, bCreate);
+		if (pInfo && pInfo->m_pLive && TryAssignTask(t, *pInfo->m_pLive))
+			return;
+	}
 
-			if (pInfo && pInfo->m_pLive && (Peer::Flags::PiRcvd & pInfo->m_pLive->m_Flags))
-				pSel = pInfo->m_pLive;
-		}
-
-		for (PeerList::iterator it = m_lstPeers.begin(); !pSel && (m_lstPeers.end() != it); it++)
-		{
-			Peer& p = *it;
-			if (ShouldAssignTask(t, p))
-			{
-				pSel = &p;
-				break;
-			}
-		}
-
-		if (!pSel)
-			break;
-
-		try {
-			AssignTask(t, *pSel);
-			return; // done
-		}
-		catch (const std::exception& e) {
-			pSel->OnExc(e);
-		}
-
-		//  retry
+	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+	{
+		Peer& p = *it;
+		if (TryAssignTask(t, p))
+			return;
 	}
 }
 
-void Node::AssignTask(Task& t, Peer& p)
+bool Node::TryAssignTask(Task& t, Peer& p)
 {
+	if (!p.ShouldAssignTasks())
+		return false;
+
+	if (p.m_Tip.m_Height < t.m_Key.first.m_Height)
+		return false;
+
+	if (p.m_Tip.m_Height == t.m_Key.first.m_Height)
+	{
+		Merkle::Hash hv;
+		p.m_Tip.get_Hash(hv);
+
+		if (hv != t.m_Key.first.m_Hash)
+			return false;
+	}
+
+	if (p.m_setRejected.end() != p.m_setRejected.find(t.m_Key))
+		return false;
+
+	// check if the peer currently transfers a block
+	uint32_t nBlocks = 0;
+	for (TaskList::iterator it = p.m_lstTasks.begin(); p.m_lstTasks.end() != it; it++)
+		if (it->m_Key.second)
+			nBlocks++;
+
+	// assign
 	uint32_t nPackSize = 0;
 	if (t.m_Key.first.m_Height > m_Processor.m_Cursor.m_ID.m_Height)
 	{
@@ -252,12 +256,18 @@ void Node::AssignTask(Task& t, Peer& p)
 
 	if (t.m_Key.second)
 	{
+		if (nBlocks >= m_Cfg.m_MaxConcurrentBlocksRequest)
+			return false;
+
 		proto::GetBody msg;
 		msg.m_ID = t.m_Key.first;
 		p.Send(msg);
 	}
 	else
 	{
+		if (nBlocks)
+			return false; // don't requests headers from the peer that transfers a block
+
 		if (!m_nTasksPackHdr && nPackSize)
 		{
 			proto::GetHdrPack msg;
@@ -286,6 +296,8 @@ void Node::AssignTask(Task& t, Peer& p)
 
 	if (bEmpty)
 		p.SetTimerWrtFirstTask();
+
+	return true;
 }
 
 void Node::Peer::SetTimerWrtFirstTask()
@@ -294,32 +306,6 @@ void Node::Peer::SetTimerWrtFirstTask()
 		KillTimer();
 	else
 		SetTimer(m_lstTasks.front().m_Key.second ? m_This.m_Cfg.m_Timeout.m_GetBlock_ms : m_This.m_Cfg.m_Timeout.m_GetState_ms);
-}
-
-bool Node::ShouldAssignTask(Task& t, Peer& p)
-{
-	if (p.m_Tip.m_Height < t.m_Key.first.m_Height)
-		return false;
-
-	if (p.m_Tip.m_Height == t.m_Key.first.m_Height)
-	{
-		Merkle::Hash hv;
-		p.m_Tip.get_Hash(hv);
-
-		if (hv != t.m_Key.first.m_Hash)
-			return false;
-	}
-
-	// Current design: don't ask anything from non-authenticated peers
-	if (!((Peer::Flags::PiRcvd & p.m_Flags) && p.m_pInfo))
-		return false;
-
-	// check if the peer currently transfers a block
-	for (TaskList::iterator it = p.m_lstTasks.begin(); p.m_lstTasks.end() != it; it++)
-		if (it->m_Key.second)
-			return false;
-
-	return p.m_setRejected.end() == p.m_setRejected.find(t.m_Key);
 }
 
 void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock, const PeerID* pPreferredPeer)
@@ -357,7 +343,7 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 void Node::Processor::OnPeerInsane(const PeerID& peerID)
 {
 	bool bCreate = false;
-	PeerMan::PeerInfoPlus* pInfo = (PeerMan::PeerInfoPlus*) get_ParentObj().m_PeerMan.Find(peerID, bCreate);
+	PeerMan::PeerInfoPlus* pInfo = Cast::Up<PeerMan::PeerInfoPlus>(get_ParentObj().m_PeerMan.Find(peerID, bCreate));
 
 	if (pInfo)
 	{
@@ -379,9 +365,13 @@ void Node::Processor::OnNewState()
 
 	get_ParentObj().m_TxPool.DeleteOutOfBound(m_Cursor.m_Sid.m_Height + 1);
 
-	get_ParentObj().m_Miner.HardAbortSafe();
-
-	get_ParentObj().m_Miner.SetTimer(0, true); // don't start mined block construction, because we're called in the context of NodeProcessor, which holds the DB transaction.
+	if (get_ParentObj().m_Miner.IsEnabled())
+	{
+		get_ParentObj().m_Miner.HardAbortSafe();
+		get_ParentObj().m_Miner.SetTimer(0, true); // don't start mined block construction, because we're called in the context of NodeProcessor, which holds the DB transaction.
+	}
+	else
+		get_ParentObj().m_Processor.DeleteOutdated(get_ParentObj().m_TxPool);
 
 	proto::NewTip msg;
 	msg.m_Description = m_Cursor.m_Full;
@@ -402,7 +392,7 @@ void Node::Processor::OnNewState()
 
 	get_ParentObj().RefreshCongestions();
 
-    ReportNewState();
+	ReportNewState();
 }
 
 void Node::Processor::OnRolledBack()
@@ -516,14 +506,18 @@ bool Node::Processor::ApproveState(const Block::SystemState::ID& id)
 
 void Node::Processor::AdjustFossilEnd(Height& h)
 {
+	// blocks above the oldest macroblock should be accessible
+	Height hOldest = 0;
+
 	if (get_ParentObj().m_Compressor.m_bEnabled)
 	{
-		// blocks above the oldest macroblock should be accessuble
 		NodeDB::WalkerState ws(get_DB());
 		for (get_DB().EnumMacroblocks(ws); ws.MoveNext(); )
-			if (h > ws.m_Sid.m_Height)
-				h = ws.m_Sid.m_Height;
+			hOldest = ws.m_Sid.m_Height;
 	}
+
+	if (h > hOldest)
+		h = hOldest;
 }
 
 void Node::Processor::OnStateData()
@@ -556,21 +550,16 @@ void Node::Processor::ReportProgress()
 		{
 			observer->OnSyncProgress(done, total);
 		}
-
-		if (done >= total)
-		{
-			m_RequestedCount = m_DownloadedHeaders = m_DownloadedBlocks;
-		}
 	}
 }
 
 void Node::Processor::ReportNewState()
 {
-    auto observer = get_ParentObj().m_Cfg.m_Observer;
+	auto observer = get_ParentObj().m_Cfg.m_Observer;
 	if (observer)
-    {
-        observer->OnStateChanged();
-    }
+	{
+		observer->OnStateChanged();
+	}
 }
 
 void Node::Processor::OnModified()
@@ -584,6 +573,21 @@ void Node::Processor::OnModified()
 
 		m_bFlushPending = true;
 	}
+}
+
+Key::IPKdf* Node::Processor::get_Kdf(uint32_t i)
+{
+	switch (i)
+	{
+	case 0:
+		return get_ParentObj().m_pKdf.get();
+
+	case 1:
+		if (!get_ParentObj().m_bSameKdf)
+			return get_ParentObj().m_pOwnerKdf.get();
+	}
+
+	return NULL;
 }
 
 void Node::Processor::OnFlushTimer()
@@ -634,7 +638,12 @@ void Node::Initialize(IExternalPOW* externalPOW)
 	}
 
 	if (!m_pOwnerKdf)
+	{
 		m_pOwnerKdf = m_pKdf;
+		m_bSameKdf = true;
+	}
+	else
+		m_bSameKdf = m_pOwnerKdf->IsSame(*m_pKdf);
 
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_Sync.m_ForceResync);
@@ -725,6 +734,9 @@ void Node::InitMode()
 
 	if (m_pSync->m_Trg.m_Height)
 	{
+		m_pSync->m_SizeCompleted = m_Compressor.get_SizeTotal(m_pSync->m_Trg.m_Height);
+		m_pSync->m_SizeTotal = m_pSync->m_SizeCompleted; // will change when peer responds
+
 		LOG_INFO() << "Resuming sync up to " << m_pSync->m_Trg;
 	}
 	else
@@ -967,6 +979,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 		if (m_pInfo->m_ID.m_Key == msg.m_ID)
 		{
 			pm.OnSeen(*m_pInfo);
+			TakeTasks();
 			return; // all settled (already)
 		}
 
@@ -1006,7 +1019,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 		LOG_INFO() << "No PI port"; // doesn't accept incoming connections?
 
 
-	PeerMan::PeerInfoPlus* pPi = (PeerMan::PeerInfoPlus*) pm.OnPeer(msg.m_ID, addr, bAddrValid);
+	PeerMan::PeerInfoPlus* pPi = Cast::Up<PeerMan::PeerInfoPlus>(pm.OnPeer(msg.m_ID, addr, bAddrValid));
 	assert(pPi);
 
 	if (pPi->m_pLive)
@@ -1041,6 +1054,17 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	pm.OnSeen(*pPi);
 
 	LOG_INFO() << *m_pInfo << " connected, info updated";
+
+	TakeTasks();
+}
+
+bool Node::Peer::ShouldAssignTasks()
+{
+	// Current design: don't ask anything from non-authenticated peers
+	if (!((Peer::Flags::PiRcvd & m_Flags) && m_pInfo))
+		return false;
+
+	return true;
 }
 
 void Node::Peer::OnMsg(proto::Bye&& msg)
@@ -1161,13 +1185,11 @@ void Node::Peer::Unsubscribe()
 
 void Node::Peer::TakeTasks()
 {
-	for (TaskList::iterator it = m_This.m_lstTasksUnassigned.begin(); m_This.m_lstTasksUnassigned.end() != it; )
-	{
-		Task& t = *(it++);
+	if (!ShouldAssignTasks())
+		return;
 
-		if (m_This.ShouldAssignTask(t, *this))
-			m_This.AssignTask(t, *this);
-	}
+	for (TaskList::iterator it = m_This.m_lstTasksUnassigned.begin(); m_This.m_lstTasksUnassigned.end() != it; )
+		m_This.TryAssignTask(*it++, *this);
 }
 
 void Node::Peer::OnMsg(proto::Ping&&)
@@ -1290,6 +1312,7 @@ void Node::Peer::OnMsg(proto::Macroblock&& msg)
 		if (msg.m_ID == m_This.m_pSync->m_Trg)
 		{
 			LOG_INFO() << "Peer " << m_RemoteAddr << " DL Macroblock portion";
+			m_This.m_pSync->m_SizeTotal = msg.m_SizeTotal;
 			m_This.SyncCycle(*this, msg.m_Portion);
 		}
 		else
@@ -1315,6 +1338,7 @@ void Node::Peer::OnMsg(proto::Macroblock&& msg)
 
 			m_This.m_pSync->m_Trg = msg.m_ID;
 			m_This.m_pSync->m_Best = m_Tip.m_ChainWork;
+			m_This.m_pSync->m_SizeTotal = msg.m_SizeTotal;
 
 			if (!m_This.m_pSync->m_pTimer)
 			{
@@ -1440,8 +1464,11 @@ void Node::SyncCycle(Peer& p, const ByteBuffer& buf)
 		fs.Open(sPath.c_str(), false, true, true);
 
 		fs.write(&buf.at(0), buf.size());
+		m_pSync->m_SizeCompleted += buf.size();
 
 		LOG_INFO() << "Portion appended";
+
+		// Macroblock download progress should be reported here!
 	}
 
 	SyncCycle(p);
@@ -1551,8 +1578,8 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 		ThrowUnexpected();
 
 	Block::SystemState::Full s;
-	((Block::SystemState::Sequence::Prefix&) s) = msg.m_Prefix;
-	((Block::SystemState::Sequence::Element&) s) = msg.m_vElements.back();
+	Cast::Down<Block::SystemState::Sequence::Prefix>(s) = msg.m_Prefix;
+	Cast::Down<Block::SystemState::Sequence::Element>(s) = msg.m_vElements.back();
 
 	uint32_t nAccepted = 0;
 	bool bInvalid = false;
@@ -1577,7 +1604,7 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 			break;
 
 		s.NextPrefix();
-		((Block::SystemState::Sequence::Element&) s) = msg.m_vElements[i - 1];
+		Cast::Down<Block::SystemState::Sequence::Element>(s) = msg.m_vElements[i - 1];
 		s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
 	}
 
@@ -1607,10 +1634,9 @@ void Node::Peer::OnMsg(proto::GetBody&& msg)
 	if (rowid)
 	{
 		proto::Body msgBody;
-		ByteBuffer bbRollback;
-		m_This.m_Processor.get_DB().GetStateBlock(rowid, msgBody.m_Buffer, bbRollback);
+		m_This.m_Processor.get_DB().GetStateBlock(rowid, &msgBody.m_Perishable, &msgBody.m_Ethernal, NULL);
 
-		if (!msgBody.m_Buffer.empty())
+		if (!msgBody.m_Perishable.empty())
 		{
 			Send(msgBody);
 			return;
@@ -1634,7 +1660,7 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 
 	const Block::SystemState::ID& id = t.m_Key.first;
 
-	NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnBlock(id, msg.m_Buffer, m_pInfo->m_ID.m_Key);
+	NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnBlock(id, msg.m_Perishable, msg.m_Ethernal, m_pInfo->m_ID.m_Key);
 	OnFirstTaskDone(eStatus);
 }
 
@@ -1697,9 +1723,9 @@ void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType&
 			os << ", Confidential";
 	}
 
-	for (size_t i = 0; i < tx.m_vKernelsOutput.size(); i++)
+	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
 	{
-		const TxKernel& krn = *tx.m_vKernelsOutput[i];
+		const TxKernel& krn = *tx.m_vKernels[i];
 		Merkle::Hash hv;
 		krn.get_ID(hv);
 
@@ -1748,7 +1774,7 @@ void CmpTx(const Transaction& tx1, const Transaction& tx2, bool& b1Covers, bool&
 
 bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 {
-	if (ptx->m_vInputs.empty() || ptx->m_vKernelsOutput.empty())
+	if (ptx->m_vInputs.empty() || ptx->m_vKernels.empty())
 		return false;
 
 	Transaction::Context ctx;
@@ -1756,9 +1782,9 @@ bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 	TxPool::Stem::Element* pDup = NULL;
 
 	// find match by kernels
-	for (size_t i = 0; i < ptx->m_vKernelsOutput.size(); i++)
+	for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
 	{
-		const TxKernel& krn = *ptx->m_vKernelsOutput[i];
+		const TxKernel& krn = *ptx->m_vKernels[i];
 
 		TxPool::Stem::Element::Kernel key;
 		krn.get_ID(key.m_hv);
@@ -2030,10 +2056,10 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 	}
 	else
 	{
-		for (size_t i = 0; i < ptx->m_vKernelsOutput.size(); i++)
+		for (size_t i = 0; i < ptx->m_vKernels.size(); i++)
 		{
 			TxPool::Stem::Element::Kernel key;
-			ptx->m_vKernelsOutput[i]->get_ID(key.m_hv);
+			ptx->m_vKernels[i]->get_ID(key.m_hv);
 
 			TxPool::Stem::KrnSet::iterator it = m_Dandelion.m_setKrns.find(key);
 			if (m_Dandelion.m_setKrns.end() != it)
@@ -2076,7 +2102,9 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 
 	m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key);
 	m_TxPool.ShrinkUpTo(m_Cfg.m_MaxPoolTransactions);
-	m_Miner.SetTimer(m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
+
+	if (m_Miner.IsEnabled())
+		m_Miner.SetTimer(m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
 
 	return true;
 }
@@ -2188,7 +2216,7 @@ void Node::Peer::OnMsg(proto::GetMined&& msg)
 {
 	proto::Mined msgOut;
 
-	if ((Flags::Owner & m_Flags) || !m_This.m_Cfg.m_RestrictMinedReportToOwner)
+	if (Flags::Owner & m_Flags)
 	{
 		NodeDB& db = m_This.m_Processor.get_DB();
 		NodeDB::WalkerMined wlk(db);
@@ -2217,9 +2245,9 @@ void Node::Peer::OnMsg(proto::GetCommonState&& msg)
 
 	Processor& p = m_This.m_Processor; // alias
 
-	for (msgOut.m_iState = 0; msgOut.m_iState < msg.m_IDs.size(); msgOut.m_iState++)
+	for (size_t i = 0; i < msg.m_IDs.size(); i++)
 	{
-		const Block::SystemState::ID& id = msg.m_IDs[msgOut.m_iState];
+		const Block::SystemState::ID& id = msg.m_IDs[i];
 		if (id.m_Height < Rules::HeightGenesis)
 			ThrowUnexpected();
 
@@ -2228,8 +2256,10 @@ void Node::Peer::OnMsg(proto::GetCommonState&& msg)
 			Merkle::Hash hv;
 			p.get_DB().get_StateHash(p.FindActiveAtStrict(id.m_Height), hv);
 
-			if (hv == id.m_Hash)
+			if ((hv == id.m_Hash) || (i + 1 == msg.m_IDs.size()))
 			{
+				msgOut.m_ID.m_Height = id.m_Height;
+				msgOut.m_ID.m_Hash = hv;
 				p.GenerateProofStateStrict(msgOut.m_Proof, id.m_Height);
 				break;
 			}
@@ -2263,31 +2293,31 @@ void Node::Processor::GenerateProofStateStrict(Merkle::HardProof& proof, Height 
 	proof.swap(bld.m_Proof);
 
 	proof.resize(proof.size() + 1);
-	get_CurrentLive(proof.back());
+	get_Utxos().get_Hash(proof.back());
 }
 
 void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 {
 	proto::ProofKernel msgOut;
 
-	RadixHashOnlyTree& t = m_This.m_Processor.get_Kernels();
-
-	RadixHashOnlyTree::Cursor cu;
-	bool bCreate = false;
-	if (t.Find(cu, msg.m_ID, bCreate))
+	Processor& p = m_This.m_Processor;
+	Height h = p.get_ProofKernel(msgOut.m_Proof.m_Inner, NULL, msg.m_ID);
+	if (h)
 	{
-		t.get_Proof(msgOut.m_Proof, cu);
-		msgOut.m_Proof.reserve(msgOut.m_Proof.size() + 2);
+		uint64_t rowid = p.FindActiveAtStrict(h);
+		p.get_DB().get_State(rowid, msgOut.m_Proof.m_State);
 
-		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-		msgOut.m_Proof.back().first = false;
-		m_This.m_Processor.get_Utxos().get_Hash(msgOut.m_Proof.back().second);
-
-		msgOut.m_Proof.resize(msgOut.m_Proof.size() + 1);
-		msgOut.m_Proof.back().first = false;
-		msgOut.m_Proof.back().second = m_This.m_Processor.m_Cursor.m_History;
+		if (h < p.m_Cursor.m_ID.m_Height)
+			p.GenerateProofStateStrict(msgOut.m_Proof.m_Outer, h);
 	}
 
+	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::GetProofKernel2&& msg)
+{
+	proto::ProofKernel2 msgOut;
+	msgOut.m_Height = m_This.m_Processor.get_ProofKernel(msgOut.m_Proof, msg.m_Fetch ? &msgOut.m_Kernel : NULL, msg.m_ID);
 	Send(msgOut);
 }
 
@@ -2298,11 +2328,10 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 		proto::ProofUtxo m_Msg;
 		UtxoTree* m_pTree;
 		Merkle::Hash m_hvHistory;
-		Merkle::Hash m_hvKernels;
 
 		virtual bool OnLeaf(const RadixTree::Leaf& x) override {
 
-			const UtxoTree::MyLeaf& v = (UtxoTree::MyLeaf&) x;
+			const UtxoTree::MyLeaf& v = Cast::Up<UtxoTree::MyLeaf>(x);
 			UtxoTree::Key::Data d;
 			d = v.m_Key;
 
@@ -2313,12 +2342,6 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 			ret.m_State.m_Maturity = d.m_Maturity;
 			m_pTree->get_Proof(ret.m_Proof, *m_pCu);
 
-			ret.m_Proof.reserve(ret.m_Proof.size() + 2);
-
-			ret.m_Proof.resize(ret.m_Proof.size() + 1);
-			ret.m_Proof.back().first = true;
-			ret.m_Proof.back().second = m_hvKernels;
-
 			ret.m_Proof.resize(ret.m_Proof.size() + 1);
 			ret.m_Proof.back().first = false;
 			ret.m_Proof.back().second = m_hvHistory;
@@ -2328,7 +2351,6 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	} t;
 
 	t.m_pTree = &m_This.m_Processor.get_Utxos();
-	m_This.m_Processor.get_Kernels().get_Hash(t.m_hvKernels);
 	t.m_hvHistory = m_This.m_Processor.m_Cursor.m_History;
 
 	UtxoTree::Cursor cu;
@@ -2338,7 +2360,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 	UtxoTree::Key kMin, kMax;
 
 	UtxoTree::Key::Data d;
-	d.m_Commitment = msg.m_Utxo.m_Commitment;
+	d.m_Commitment = msg.m_Utxo;
 	d.m_Maturity = msg.m_MaturityMin;
 	kMin = d;
 	d.m_Maturity = Height(-1);
@@ -2382,7 +2404,7 @@ bool Node::Processor::BuildCwp()
 	Source src(*this);
 
 	m_Cwp.Create(src, m_Cursor.m_Full);
-	get_CurrentLive(m_Cwp.m_hvRootLive);
+	get_Utxos().get_Hash(m_Cwp.m_hvRootLive);
 
 	return true;
 }
@@ -2643,19 +2665,8 @@ void Node::Peer::OnMsg(proto::Recover&& msg)
 		if (msg.m_Private)
 			wlk.m_vKeys.push_back(m_This.m_pKdf);
 
-		if (msg.m_Public)
-		{
-			// make sure it's not the same
-			ECC::Hash::Value hv = Zero;
-
-			ECC::Scalar::Native k0, k1;
-			m_This.m_pKdf->DerivePKey(k0, hv);
-			m_This.m_pOwnerKdf->DerivePKey(k1, hv);
-
-			k0 += -k1;
-			if (!(k0 == Zero))
-				wlk.m_vKeys.push_back(m_This.m_pOwnerKdf);
-		}
+		if (msg.m_Public && !m_This.m_bSameKdf)
+			wlk.m_vKeys.push_back(m_This.m_pOwnerKdf);
 
 		wlk.Proceed();
 	}
@@ -2663,6 +2674,38 @@ void Node::Peer::OnMsg(proto::Recover&& msg)
 		LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized recovery request.";
 
 	Send(wlk.m_MsgOut);
+}
+
+void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
+{
+	proto::UtxoEvents msgOut;
+
+	if (Flags::Owner & m_Flags)
+	{
+		NodeDB& db = m_This.m_Processor.get_DB();
+		NodeDB::WalkerEvent wlk(db);
+
+		Height hLast = 0;
+		for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
+		{
+			if ((msgOut.m_Events.size() >= proto::UtxoEventPlus::s_Max) && (wlk.m_Height != hLast))
+				break;
+
+			if (sizeof(UtxoEvent) != wlk.m_Body.n)
+				continue; // although shouldn't happen
+			const UtxoEvent& evt = *(UtxoEvent*) wlk.m_Body.p;
+
+			msgOut.m_Events.emplace_back();
+			proto::UtxoEventPlus& evtp = msgOut.m_Events.back();
+
+			evtp.m_Height = wlk.m_Height;
+			Cast::Down<UtxoEvent>(evtp) = evt;
+		}
+	}
+	else
+		LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";
+
+	Send(msgOut);
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
@@ -2776,8 +2819,20 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 		}
 		else
 		{
-			if (!s.GeneratePoW(fnCancel))
-				continue;
+            try
+            {
+#if defined(BEAM_USE_GPU)
+                if (!s.GeneratePoW(fnCancel, get_ParentObj().m_Cfg.m_UseGpu))
+#else
+                if (!s.GeneratePoW(fnCancel))
+#endif
+                    continue;
+            }
+            catch (const std::exception& ex)
+            {
+                LOG_DEBUG() << ex.what();
+                break;
+            }
 		}
 
 		std::scoped_lock<std::mutex> scope(m_Mutex);
@@ -2819,18 +2874,14 @@ void Node::Miner::OnRefreshExternal()
 
 	LOG_INFO() << "New job for external miner";
 
-	Block::PoW::Cancel fnCancel = [this, pTask](bool bRetrying)
+	auto fnCancel = [this, pTask]()
 	{
 		if (*pTask->m_pStop)
 			return true;
 
-		if (bRetrying)
-		{
-			std::scoped_lock<std::mutex> scope(m_Mutex);
-			if (pTask != m_pTask)
-				return true; // soft restart triggered
-		}
-
+		std::scoped_lock<std::mutex> scope(m_Mutex);
+		if (pTask != m_pTask)
+			return true; // soft restart triggered
 		return false;
 	};
 
@@ -2845,8 +2896,7 @@ void Node::Miner::OnRefreshExternal()
         }
     };
 
-// TODO fnCancel
-    m_externalPOW->new_job(hv, s.m_PoW, fnBlockFound);
+    m_externalPOW->new_job(hv, s.m_PoW, fnBlockFound, fnCancel);
 
     if (!blockFound) return;
 
@@ -2874,6 +2924,9 @@ void Node::Miner::HardAbortSafe()
 
 void Node::Miner::SetTimer(uint32_t timeout_ms, bool bHard)
 {
+	if (!IsEnabled())
+		return;
+
 	if (!m_pTimer)
 		m_pTimer = io::Timer::create(io::Reactor::get_Current());
 	else
@@ -2892,7 +2945,7 @@ void Node::Miner::OnTimer()
 
 bool Node::Miner::Restart()
 {
-	if (m_vThreads.empty())
+	if (!IsEnabled())
 		return false; //  n/a
 
 	Block::Body* pTreasury = NULL;
@@ -2920,11 +2973,12 @@ bool Node::Miner::Restart()
 		return false;
 	}
 
-	LOG_INFO() << "Block generated: Height=" << bc.m_Hdr.m_Height << ", Fee=" << bc.m_Fees << ", Difficulty=" << bc.m_Hdr.m_PoW.m_Difficulty << ", Size=" << bc.m_Body.size();
+	LOG_INFO() << "Block generated: Height=" << bc.m_Hdr.m_Height << ", Fee=" << bc.m_Fees << ", Difficulty=" << bc.m_Hdr.m_PoW.m_Difficulty << ", Size=" << (bc.m_BodyP.size() + bc.m_BodyE.size());
 
 	Task::Ptr pTask(std::make_shared<Task>());
 	pTask->m_Hdr = std::move(bc.m_Hdr);
-	pTask->m_Body = std::move(bc.m_Body);
+	pTask->m_BodyP = std::move(bc.m_BodyP);
+	pTask->m_BodyE = std::move(bc.m_BodyE);
 	pTask->m_Fees = bc.m_Fees;
 
 	pTask->m_hvNonceSeed = get_ParentObj().NextNonce();
@@ -2999,7 +3053,7 @@ void Node::Miner::OnMined()
 
 	get_ParentObj().m_Processor.FlushDB();
 
-	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_Body, get_ParentObj().m_MyPublicID); // will likely trigger OnNewState(), and spread this block to the network
+	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_BodyP, pTask->m_BodyE, get_ParentObj().m_MyPublicID); // will likely trigger OnNewState(), and spread this block to the network
 	assert(NodeProcessor::DataStatus::Accepted == eStatus);
 }
 

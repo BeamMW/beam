@@ -226,13 +226,13 @@ namespace beam
 			assert(iState); // root must remain!
 
 			SystemState::Full s;
-			((SystemState::Sequence::Prefix&) s) = src.m_Heading.m_Prefix;
-			((SystemState::Sequence::Element&) s) = src.m_Heading.m_vElements.back();
+			Cast::Down<SystemState::Sequence::Prefix>(s) = src.m_Heading.m_Prefix;
+			Cast::Down<SystemState::Sequence::Element>(s) = src.m_Heading.m_vElements.back();
 
 			for (size_t i = src.m_Heading.m_vElements.size() - 1; i >= iState; )
 			{
 				s.NextPrefix();
-				((SystemState::Sequence::Element&) s) = src.m_Heading.m_vElements[--i];
+				Cast::Down<SystemState::Sequence::Element>(s) = src.m_Heading.m_vElements[--i];
 				s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
 			}
 
@@ -264,8 +264,8 @@ namespace beam
 			return false;
 
 		SystemState::Full s;
-		((SystemState::Sequence::Prefix&) s) = m_Heading.m_Prefix;
-		((SystemState::Sequence::Element&) s) = m_Heading.m_vElements.back();
+		Cast::Down<SystemState::Sequence::Prefix>(s) = m_Heading.m_Prefix;
+		Cast::Down<SystemState::Sequence::Element>(s) = m_Heading.m_vElements.back();
 
 		for (size_t i = m_Heading.m_vElements.size() - 1; ; )
 		{
@@ -276,7 +276,7 @@ namespace beam
 				break;
 
 			s.NextPrefix();
-			((SystemState::Sequence::Element&) s) = m_Heading.m_vElements[i];
+			Cast::Down<SystemState::Sequence::Element>(s) = m_Heading.m_vElements[i];
 			s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
 		}
 

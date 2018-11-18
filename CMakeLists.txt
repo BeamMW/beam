@@ -74,6 +74,11 @@ if (BEAM_CPU_ARCH MATCHES "avx")
     set(BEAM_USE_AVX TRUE)
 endif()
 
+if(BEAM_USE_GPU)
+    add_definitions(-DBEAM_USE_GPU)
+    set(BEAM_USE_AVX TRUE)
+endif()
+
 if(BEAM_USE_AVX)
     add_definitions(-DBEAM_USE_AVX)
 endif()
@@ -277,6 +282,8 @@ if (WIN32)
     set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "CreateShortCut \\\"$DESKTOP\\\\Beam Wallet.lnk\\\" \\\"$INSTDIR\\\\Beam Wallet.exe\\\"")
     set(CPACK_NSIS_CREATE_ICONS_EXTRA "CreateShortCut \\\"$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\Beam Wallet.lnk\\\" \\\"$INSTDIR\\\\Beam Wallet.exe\\\"")
     set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "Delete \\\"$DESKTOP\\\\Beam Wallet.lnk\\\"")
+    set(CPACK_NSIS_DELETE_ICONS_EXTRA "Delete \\\"$SMPROGRAMS\\\\$MUI_TEMP\\\\Beam Wallet.lnk\\\"")
+
     set(CPACK_NSIS_EXECUTABLES_DIRECTORY .)
     set(CPACK_NSIS_MUI_FINISHPAGE_RUN "Beam Wallet.exe") 
 

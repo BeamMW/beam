@@ -51,6 +51,7 @@ namespace beam
         extern const char* TREASURY;
         extern const char* TREASURY_BLOCK;
 		extern const char* RESYNC;
+		extern const char* CRASH;
 		extern const char* INIT;
         extern const char* NEW_ADDRESS;
         extern const char* CANCEL_TX;
@@ -72,6 +73,9 @@ namespace beam
         extern const char* VERSION;
         extern const char* VERSION_FULL;
         extern const char* GIT_COMMIT_HASH;
+#if defined(BEAM_USE_GPU)
+        extern const char* MINER_TYPE;
+#endif
  // treasury
         extern const char* TR_BEAMS;
         extern const char* TR_DH;

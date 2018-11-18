@@ -57,7 +57,8 @@ Q_IMPORT_PLUGIN(QCocoaIntegrationPlugin)
 Q_IMPORT_PLUGIN(QCocoaPrinterSupportPlugin)
 #elif defined Q_OS_LINUX
 Q_IMPORT_PLUGIN(QXcbIntegrationPlugin)
-//Q_IMPORT_PLUGIN(QCupsPrinterSupportPlugin)
+Q_IMPORT_PLUGIN(QXcbGlxIntegrationPlugin)
+Q_IMPORT_PLUGIN(QCupsPrinterSupportPlugin)
 #endif
 
 Q_IMPORT_PLUGIN(QtQuick2Plugin)
@@ -135,7 +136,7 @@ int main (int argc, char* argv[])
         int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
         int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
-        beam::InstallCrashHandler(appDataDir.filePath(AppName).toStdString().c_str());
+        beam::Crash::InstallHandler(appDataDir.filePath(AppName).toStdString().c_str());
 
         auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_",
 			appDataDir.filePath(WalletSettings::LogsFolder).toStdString());
@@ -147,7 +148,7 @@ int main (int argc, char* argv[])
 
             QQuickView view;
             view.setResizeMode(QQuickView::SizeRootObjectToView);
-            view.setMinimumSize(QSize(860, 700));
+            view.setMinimumSize(QSize(800, 680));
             view.setFlag(Qt::WindowFullscreenButtonHint);
             WalletSettings settings(appDataDir);
             AppModel appModel(settings);

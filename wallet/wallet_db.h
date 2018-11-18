@@ -107,20 +107,20 @@ namespace beam
         Reset
     };
 
-    struct IKeyChainObserver
+    struct IWalletDbObserver
     {
         
-        virtual void onKeychainChanged() = 0;
+        virtual void onCoinsChanged() = 0;
         virtual void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) = 0;
         virtual void onSystemStateChanged() = 0;
         virtual void onTxPeerChanged() = 0;
         virtual void onAddressChanged() = 0;
     };
 
-    struct IKeyChain
+    struct IWalletDB
     {
-        using Ptr = std::shared_ptr<IKeyChain>;
-        virtual ~IKeyChain() {}
+        using Ptr = std::shared_ptr<IWalletDB>;
+        virtual ~IWalletDB() {}
 
 		virtual beam::Key::IKdf::Ptr get_Kdf() const = 0;
         virtual ECC::Scalar::Native calcKey(const beam::Coin& coin) const = 0;
@@ -139,7 +139,7 @@ namespace beam
         virtual void visit(std::function<bool(const beam::Coin& coin)> func) = 0;
 
         virtual void setVarRaw(const char* name, const void* data, size_t size) = 0;
-        virtual int getVarRaw(const char* name, void* data) const = 0;
+        virtual bool getVarRaw(const char* name, void* data, int size) const = 0;
         virtual bool getBlob(const char* name, ByteBuffer& var) const = 0;
         virtual Height getCurrentHeight() const = 0;
         virtual uint64_t getKnownStateCount() const = 0;
@@ -173,34 +173,37 @@ namespace beam
         template <typename Var>
         bool getVar(const char* name, Var& var) const
         {
-            return getVarRaw(name, &var) == sizeof(var);
+            return getVarRaw(name, &var, sizeof(var));
         }
 
         virtual Timestamp getLastUpdateTime() const = 0;
         virtual void setSystemStateID(const Block::SystemState::ID& stateID) = 0;
         virtual bool getSystemStateID(Block::SystemState::ID& stateID) const = 0;
 
-        virtual void subscribe(IKeyChainObserver* observer) = 0;
-        virtual void unsubscribe(IKeyChainObserver* observer) = 0;
+        virtual void subscribe(IWalletDbObserver* observer) = 0;
+        virtual void unsubscribe(IWalletDbObserver* observer) = 0;
 
         virtual void changePassword(const SecString& password) = 0;
 
         virtual bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob) = 0;
         virtual bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) = 0;
 
+		virtual Block::SystemState::IHistory& get_History() = 0;
+		virtual void ShrinkHistory() = 0;
+
 		uint64_t get_AutoIncrID();
     };
 
-    class Keychain : public IKeyChain, public std::enable_shared_from_this<Keychain>
+    class WalletDB : public IWalletDB, public std::enable_shared_from_this<WalletDB>
     {
-		Keychain();
+		WalletDB();
 	public:
         static bool isInitialized(const std::string& path);
         static Ptr init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey);
         static Ptr open(const std::string& path, const SecString& password);
 
-        Keychain(const ECC::NoLeak<ECC::uintBig>& secretKey);
-        ~Keychain();
+        WalletDB(const ECC::NoLeak<ECC::uintBig>& secretKey);
+        ~WalletDB();
 
 		beam::Key::IKdf::Ptr get_Kdf() const override;
 		ECC::Scalar::Native calcKey(const beam::Coin& coin) const override;
@@ -218,7 +221,7 @@ namespace beam
         void visit(std::function<bool(const beam::Coin& coin)> func) override;
 
         void setVarRaw(const char* name, const void* data, size_t size) override;
-        int getVarRaw(const char* name, void* data) const override;
+        bool getVarRaw(const char* name, void* data, int size) const override;
         bool getBlob(const char* name, ByteBuffer& var) const override;
         Height getCurrentHeight() const override;
         uint64_t getKnownStateCount() const override;
@@ -245,16 +248,20 @@ namespace beam
         void setSystemStateID(const Block::SystemState::ID& stateID) override;
         bool getSystemStateID(Block::SystemState::ID& stateID) const override;
 
-        void subscribe(IKeyChainObserver* observer) override;
-        void unsubscribe(IKeyChainObserver* observer) override;
+        void subscribe(IWalletDbObserver* observer) override;
+        void unsubscribe(IWalletDbObserver* observer) override;
 
         void changePassword(const SecString& password) override;
 
         bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob) override;
         bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) override;
+
+		Block::SystemState::IHistory& get_History() override;
+		void ShrinkHistory() override;
+
     private:
         void storeImpl(Coin& coin);
-        void notifyKeychainChanged();
+        void notifyCoinsChanged();
         void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
         void notifySystemStateChanged();
         void notifyAddressChanged();
@@ -263,13 +270,22 @@ namespace beam
         sqlite3* _db;
         Key::IKdf::Ptr m_pKdf;
 
-        std::vector<IKeyChainObserver*> m_subscribers;
+        std::vector<IWalletDbObserver*> m_subscribers;
+
+		struct History :public Block::SystemState::IHistory {
+			bool Enum(IWalker&, const Height* pBelow) override;
+			bool get_At(Block::SystemState::Full&, Height) override;
+			void AddStates(const Block::SystemState::Full*, size_t nCount) override;
+			void DeleteFrom(Height) override;
+
+			IMPLEMENT_GET_PARENT_OBJ(WalletDB, m_History)
+		} m_History;
     };
 
     namespace wallet
     {
         template <typename T>
-        bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, T& value)
+        bool getTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, T& value)
         {
             ByteBuffer b;
             if (db->getTxParameter(txID, paramID, b))
@@ -289,23 +305,23 @@ namespace beam
             return false;
         }
 
-        bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, ECC::Point::Native& value);
-        bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, ECC::Scalar::Native& value);
-        bool getTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, ByteBuffer& value);
+        bool getTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, ECC::Point::Native& value);
+        bool getTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, ECC::Scalar::Native& value);
+        bool getTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, ByteBuffer& value);
 
         template <typename T>
-        bool setTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, const T& value)
+        bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, const T& value)
         {
             return db->setTxParameter(txID, paramID, toByteBuffer(value));
         }
 
-        bool setTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, const ECC::Point::Native& value);
-        bool setTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, const ECC::Scalar::Native& value);
-        bool setTxParameter(IKeyChain::Ptr db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value);
+        bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, const ECC::Point::Native& value);
+        bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, const ECC::Scalar::Native& value);
+        bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value);
 
-        Amount getAvailable(beam::IKeyChain::Ptr keychain);
-        Amount getAvailableByType(beam::IKeyChain::Ptr keychain, Coin::Status status, Key::Type keyType);
-        Amount getTotal(beam::IKeyChain::Ptr keychain, Coin::Status status);
-        Amount getTotalByType(beam::IKeyChain::Ptr keychain, Coin::Status status, Key::Type keyType);
+        Amount getAvailable(beam::IWalletDB::Ptr walletDB);
+        Amount getAvailableByType(beam::IWalletDB::Ptr walletDB, Coin::Status status, Key::Type keyType);
+        Amount getTotal(beam::IWalletDB::Ptr walletDB, Coin::Status status);
+        Amount getTotalByType(beam::IWalletDB::Ptr walletDB, Coin::Status status, Key::Type keyType);
     }
 }

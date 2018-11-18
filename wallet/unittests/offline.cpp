@@ -23,8 +23,8 @@
 
 namespace beam {
 
-struct KeyChainObserver : IKeyChainObserver {
-    void onKeychainChanged() {
+struct WalletDBObserver : IWalletDbObserver {
+    void onCoinsChanged() {
         LOG_DEBUG() << _who << " " << __FUNCTION__;
     }
     void onTransactionChanged(ChangeAction, std::vector<TxDescription>&& )  {
@@ -40,7 +40,7 @@ struct KeyChainObserver : IKeyChainObserver {
         LOG_INFO() << _who << " " << __FUNCTION__;
     }
 
-    KeyChainObserver(std::string who) : _who(std::move(who)) {}
+    WalletDBObserver(std::string who) : _who(std::move(who)) {}
 
     std::string _who;
 };
@@ -51,7 +51,7 @@ struct WaitHandle {
 };
 
 struct WalletParams {
-    IKeyChain::Ptr keychain;
+    IWalletDB::Ptr walletDB;
     IKeyStore::Ptr keystore;
     io::Address nodeAddress;
     PubKey sendFrom, sendTo;
@@ -71,21 +71,23 @@ WaitHandle run_wallet(const WalletParams& params) {
             if (sender) {
                 TxPeer receiverPeer = {};
 //                 receiverPeer.m_walletID = sendTo;
-                params.keychain->addPeer(receiverPeer);
+                params.walletDB->addPeer(receiverPeer);
             }
 
-            auto wallet_io = std::make_shared<WalletNetworkIO>(params.nodeAddress, params.keychain, params.keystore, reactor);
+			Wallet wallet{ params.walletDB, [](auto) { io::Reactor::get_Current().stop(); } };
 
-            Wallet wallet{ params.keychain
-                 , wallet_io
-                 , false
-                 , [wallet_io](auto) { wallet_io->stop(); } };
+			proto::FlyClient::NetworkStd nnet(wallet);
+			nnet.m_Cfg.m_vNodes.push_back(params.nodeAddress);
+			nnet.Connect();
+
+			WalletNetworkViaBbs wnet(wallet, nnet, params.keystore, params.walletDB);
+			wallet.set_Network(nnet, wnet);
 
             if (sender) {
                 wallet.transfer_money(params.sendFrom, params.sendTo, 1000000, 100000, true);
             }
 
-            wallet_io->start();
+			io::Reactor::get_Current().run();
         }
     );
 
@@ -172,8 +174,8 @@ void test_offline(bool twoNodes) {
         receiverParams.nodeAddress = nodeAddress;
     }
 
-    senderParams.keychain = init_keychain("_sender", &nodeParams.walletSeed);
-    receiverParams.keychain = init_keychain("_receiver", 0);
+    senderParams.walletDB = init_wallet_db("_sender", &nodeParams.walletSeed);
+    receiverParams.walletDB = init_wallet_db("_receiver", 0);
 
     static const char KS_PASSWORD[] = "carbophos";
 
@@ -190,10 +192,10 @@ void test_offline(bool twoNodes) {
     receiverParams.keystore->gen_keypair(senderParams.sendTo);
     receiverParams.keystore->save_keypair(senderParams.sendTo, true);
 
-    KeyChainObserver senderObserver("AAAAAAAAAAAAAAAAAAAAAA"), receiverObserver("BBBBBBBBBBBBBBBBBBBBBB");
+    WalletDBObserver senderObserver("AAAAAAAAAAAAAAAAAAAAAA"), receiverObserver("BBBBBBBBBBBBBBBBBBBBBB");
 
-    senderParams.keychain->subscribe(&senderObserver);
-    receiverParams.keychain->subscribe(&receiverObserver);
+    senderParams.walletDB->subscribe(&senderObserver);
+    receiverParams.walletDB->subscribe(&receiverObserver);
 
     WaitHandle node2WH;
     if (twoNodes) {

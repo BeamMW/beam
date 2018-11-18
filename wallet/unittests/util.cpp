@@ -16,7 +16,7 @@ namespace beam {
 struct TreasuryBlockGenerator
 {
 	std::string m_sPath;
-	IKeyChain* m_pKeyChain;
+	IWalletDB* m_pWalletDB;
 
 	std::vector<Block::Body> m_vBlocks;
 	ECC::Scalar::Native m_Offset;
@@ -93,7 +93,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 		m_vIncubation[i] = h;
 	}
 
-	m_pKeyChain->store(m_Coins); // we get coin id only after store
+	m_pWalletDB->store(m_Coins); // we get coin id only after store
 
 	m_vThreads.resize(std::thread::hardware_concurrency());
 	assert(!m_vThreads.empty());
@@ -110,16 +110,16 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 		dummy.m_key_type = Key::Type::Kernel;
 		dummy.m_status = Coin::Unconfirmed;
 
-		ECC::Scalar::Native k = m_pKeyChain->calcKey(dummy);
+		ECC::Scalar::Native k = m_pWalletDB->calcKey(dummy);
 
 		TxKernel::Ptr pKrn(new TxKernel);
-		pKrn->m_Excess = ECC::Point::Native(Context::get().G * k);
+		pKrn->m_Commitment = ECC::Point::Native(Context::get().G * k);
 
 		Merkle::Hash hv;
 		pKrn->get_Hash(hv);
 		pKrn->m_Signature.Sign(hv, k);
 
-		get_WriteBlock().m_vKernelsOutput.push_back(std::move(pKrn));
+		get_WriteBlock().m_vKernels.push_back(std::move(pKrn));
 		m_Offset += k;
 	}
 
@@ -183,7 +183,7 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 		vSk.resize(vSk.size() + 1);
 
 		ECC::Scalar::Native& sk = vSk.back();;
-		pOutp->Create(sk, *m_pKeyChain->get_Kdf(), coin.get_Kidv());
+		pOutp->Create(sk, *m_pWalletDB->get_Kdf(), coin.get_Kidv());
 
 		vOut.push_back(std::move(pOutp));
 	}
@@ -201,17 +201,17 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 	}
 }
 
-int GenerateTreasury(IKeyChain* pKeyChain, const std::string& sPath, uint32_t nCount, Height dh, Amount v)
+int GenerateTreasury(IWalletDB* pWalletDB, const std::string& sPath, uint32_t nCount, Height dh, Amount v)
 {
 	TreasuryBlockGenerator tbg;
 	tbg.m_sPath = sPath;
-	tbg.m_pKeyChain = pKeyChain;
+	tbg.m_pWalletDB = pWalletDB;
 
 	return tbg.Generate(nCount, dh, v);
 }
 
 
-IKeyChain::Ptr init_keychain(const std::string& path, uintBig* walletSeed) {
+IWalletDB::Ptr init_wallet_db(const std::string& path, uintBig* walletSeed) {
     static const std::string TEST_PASSWORD("12321");
 
     if (boost::filesystem::exists(path)) boost::filesystem::remove_all(path);
@@ -224,19 +224,19 @@ IKeyChain::Ptr init_keychain(const std::string& path, uintBig* walletSeed) {
     Hash::Processor() << password >> hv;
     seed.V = hv;
 
-    auto keychain = Keychain::init(path, password, seed);
+    auto walletDB = WalletDB::init(path, password, seed);
 
     if (walletSeed) {
         TreasuryBlockGenerator tbg;
         tbg.m_sPath = path + "_";
-        tbg.m_pKeyChain = keychain.get();
+        tbg.m_pWalletDB = walletDB.get();
 		Height dh = 1;
 		uint32_t nCount = 10;
         tbg.Generate(nCount, dh, Rules::Coin * 10);
         *walletSeed = seed.V;
     }
 
-    return keychain;
+    return walletDB;
 }
 
 } //namespace

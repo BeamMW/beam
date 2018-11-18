@@ -49,7 +49,9 @@ private:
         _cond.notify_one();
     }
 
-    void stop_current() override {}
+    void stop_current() override {
+        // TODO
+    }
 
     bool get_new_job(Job& job) {
         std::unique_lock<std::mutex> lk(_mutex);
@@ -67,10 +69,17 @@ private:
     }
 
     void thread_func() {
+#if defined (BEAM_USE_GPU)
+        auto SolveFn = &Block::PoW::SolveGPU;
+#else
+        auto SolveFn = &Block::PoW::Solve;
+#endif
+
         Job job;
         Merkle::Hash hv;
         while (get_new_job(job)) {
-            if (job.pow.Solve(job.input.m_pData, Merkle::Hash::nBytes, [this](bool)->bool { return !_changed.load(); })) {
+
+            if ( (job.pow.*SolveFn) (job.input.m_pData, Merkle::Hash::nBytes, [this](bool)->bool { return !_changed.load(); })) {
                 job.callback(job.pow);
             }
         }

@@ -94,7 +94,7 @@ int test_adapter(int seconds) {
 		<< Blob("xxx", 3)
 		>> nodeParams.walletSeed;
 
-    IKeyChain::Ptr kc = init_keychain(FILENAME, &nodeParams.walletSeed);
+    IWalletDB::Ptr kc = init_wallet_db(FILENAME, &nodeParams.walletSeed);
 
     WaitHandle nodeWH = run_node(nodeParams);
 
