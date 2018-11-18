@@ -644,8 +644,6 @@ namespace beam
 		//np.m_Horizon.m_Schwarzschild = 40; - will prevent extracting some macroblock ranges
 		np.Initialize(g_sz);
 
-		NodeProcessor::BlockContext bc(np.m_TxPool, *np.m_Wallet.m_pKdf);
-
 		const Height hIncubation = 3; // artificial incubation period for outputs.
 
 		for (Height h = Rules::HeightGenesis; h < 96 + Rules::HeightGenesis; h++)
@@ -667,6 +665,7 @@ namespace beam
 				np.m_TxPool.AddValidTx(std::move(pTx), ctx, key);
 			}
 
+			NodeProcessor::BlockContext bc(np.m_TxPool, *np.m_Wallet.m_pKdf);
 			verify_test(np.GenerateNewBlock(bc));
 
 			np.OnState(bc.m_Hdr, PeerID());

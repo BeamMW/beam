@@ -182,15 +182,11 @@ public:
 		ByteBuffer m_BodyP;
 		ByteBuffer m_BodyE;
 		Amount m_Fees;
+		Block::Body m_Block; // in/out
 
-		BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf)
-			:m_TxPool(txp)
-			,m_Kdf(kdf)
-		{
-		}
+		BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf);
 	};
 
-	bool GenerateNewBlock(BlockContext&, Block::Body& blockInOut);
 	bool GenerateNewBlock(BlockContext&);
 	void DeleteOutdated(TxPool::Fluff&);
 
@@ -230,8 +226,7 @@ public:
 	};
 
 private:
-	size_t GenerateNewBlock(BlockContext&, Block::Body&, Height);
-	bool GenerateNewBlock(BlockContext&, Block::Body&, bool bInitiallyEmpty);
+	size_t GenerateNewBlockInternal(BlockContext&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&);
 };
 

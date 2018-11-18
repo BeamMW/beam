@@ -1191,16 +1191,17 @@ void NodeProcessor::DeleteOutdated(TxPool::Fluff& txp)
 	}
 }
 
-size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height h)
+size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 {
+	Height h = m_Cursor.m_Sid.m_Height + 1;
+
 	// Generate the block up to the allowed size.
 	// All block elements are serialized independently, their binary size can just be added to the size of the "empty" block.
-
-	res.m_Subsidy += Rules::get().CoinbaseEmission;
+	bc.m_Block.m_Subsidy += Rules::get().CoinbaseEmission;
 	if (!m_Extra.m_SubsidyOpen)
-		res.m_SubsidyClosing = false;
+		bc.m_Block.m_SubsidyClosing = false;
 
-	ECC::Scalar::Native sk, offset = res.m_Offset;
+	ECC::Scalar::Native sk, offset = bc.m_Block.m_Offset;
 
 	// Add mandatory elements: coinbase UTXO and kernel
 	{
@@ -1211,7 +1212,7 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 		if (!HandleBlockElement(*pOutp, h, NULL, true))
 			return 0;
 
-		res.m_vOutputs.push_back(std::move(pOutp));
+		bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
 
 		sk = -sk;
 		offset += sk;
@@ -1226,14 +1227,14 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 		pKrn->get_Hash(hv);
 		pKrn->m_Signature.Sign(hv, sk);
 
-		res.m_vKernels.push_back(std::move(pKrn));
+		bc.m_Block.m_vKernels.push_back(std::move(pKrn));
 
 		sk = -sk;
 		offset += sk;
 	}
 
 	SerializerSizeCounter ssc;
-	ssc & res;
+	ssc & bc.m_Block;
 
 	const size_t nSizeMax = Rules::get().MaxBodySize;
 	if (ssc.m_Counter.m_Value > nSizeMax)
@@ -1279,9 +1280,9 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 
 		if (nSizeNext > nSizeMax)
 		{
-			if (res.m_vInputs.empty() &&
-				(res.m_vOutputs.size() == 1) &&
-				(res.m_vKernels.size() == 1))
+			if (bc.m_Block.m_vInputs.empty() &&
+				(bc.m_Block.m_vOutputs.size() == 1) &&
+				(bc.m_Block.m_vKernels.size() == 1))
 			{
 				// won't fit in empty block
 				LOG_INFO() << "Tx is too big.";
@@ -1294,7 +1295,7 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 
 		if (ValidateTxWrtHeight(tx, h) && HandleValidatedTx(tx.get_Reader(), h, true))
 		{
-			TxVectors::Writer(res, res).Dump(tx.get_Reader());
+			TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(tx.get_Reader());
 
 			bc.m_Fees = feesNext;
 			ssc.m_Counter.m_Value = nSizeNext;
@@ -1315,7 +1316,7 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 		if (!HandleBlockElement(*pOutp, h, NULL, true))
 			return false; // though should not happen!
 
-		res.m_vOutputs.push_back(std::move(pOutp));
+		bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
 
 		sk = -sk;
 		offset += sk;
@@ -1327,12 +1328,12 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 	else
 		ZeroObject(bc.m_Hdr.m_Prev);
 
-	if (res.m_SubsidyClosing)
+	if (bc.m_Block.m_SubsidyClosing)
 		ToggleSubsidyOpened();
 
 	get_Definition(bc.m_Hdr.m_Definition, true);
 
-	res.NormalizeE();
+	bc.m_Block.NormalizeE();
 
 	struct MyFlyMmr :public Merkle::FlyMmr {
 		const TxKernel::Ptr* m_ppKrn;
@@ -1342,11 +1343,11 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 	};
 
 	MyFlyMmr fmmr;
-	fmmr.m_Count = res.m_vKernels.size();
-	fmmr.m_ppKrn = res.m_vKernels.empty() ? NULL : &res.m_vKernels.front();
+	fmmr.m_Count = bc.m_Block.m_vKernels.size();
+	fmmr.m_ppKrn = bc.m_Block.m_vKernels.empty() ? NULL : &bc.m_Block.m_vKernels.front();
 	fmmr.get_Hash(bc.m_Hdr.m_Kernels);
 
-	if (res.m_SubsidyClosing)
+	if (bc.m_Block.m_SubsidyClosing)
 		ToggleSubsidyOpened();
 
 	bc.m_Hdr.m_Height = h;
@@ -1359,60 +1360,60 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 	Timestamp tm = get_MovingMedian() + 1;
 	bc.m_Hdr.m_TimeStamp = std::max(bc.m_Hdr.m_TimeStamp, tm);
 
-	res.m_Offset = offset;
+	bc.m_Block.m_Offset = offset;
 
 	return ssc.m_Counter.m_Value;
 }
 
+NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf)
+	:m_TxPool(txp)
+	,m_Kdf(kdf)
+{
+	m_Block.ZeroInit();
+	m_Block.m_SubsidyClosing = true; // by default insist on it. If already closed - this flag will automatically be turned OFF
+}
+
 bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
-{
-	Block::Body block;
-	block.ZeroInit();
-	block.m_SubsidyClosing = true; // by default insist on it. If already closed - this flag will automatically be turned OFF
-	return GenerateNewBlock(bc, block, true);
-}
-
-bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res)
-{
-	return GenerateNewBlock(bc, res, false);
-}
-
-bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, bool bInitiallyEmpty)
 {
 	Height h = m_Cursor.m_Sid.m_Height + 1;
 
-	if (!bInitiallyEmpty && !VerifyBlock(res, res.get_Reader(), h))
-		return false;
+	bool bEmpty =
+		bc.m_Block.m_vInputs.empty() +
+		bc.m_Block.m_vOutputs.empty() +
+		bc.m_Block.m_vKernels.empty();
 
-	if (!bInitiallyEmpty)
+	if (!bEmpty)
 	{
-		if (!HandleValidatedTx(res.get_Reader(), h, true))
+		if (!VerifyBlock(bc.m_Block, bc.m_Block.get_Reader(), h))
+			return false;
+
+		if (!HandleValidatedTx(bc.m_Block.get_Reader(), h, true))
 			return false;
 	}
 
-	size_t nSizeEstimated = GenerateNewBlock(bc, res, h);
+	size_t nSizeEstimated = GenerateNewBlockInternal(bc);
 
-	verify(HandleValidatedTx(res.get_Reader(), h, false)); // undo changes
+	verify(HandleValidatedTx(bc.m_Block.get_Reader(), h, false)); // undo changes
 
 	if (!nSizeEstimated)
 		return false;
 
 	// reset input maturities
-	for (size_t i = 0; i < res.m_vInputs.size(); i++)
-		res.m_vInputs[i]->m_Maturity = 0;
+	for (size_t i = 0; i < bc.m_Block.m_vInputs.size(); i++)
+		bc.m_Block.m_vInputs[i]->m_Maturity = 0;
 
-	size_t nCutThrough = res.NormalizeP(); // kernels must have already been normalized, this is needed for kernel commitment
+	size_t nCutThrough = bc.m_Block.NormalizeP(); // kernels must have already been normalized, this is needed for kernel commitment
 	nCutThrough; // remove "unused var" warning
 
 	Serializer ser;
 
 	ser.reset();
-	ser & Cast::Down<Block::BodyBase>(res);
-	ser & Cast::Down<TxVectors::Perishable>(res);
+	ser & Cast::Down<Block::BodyBase>(bc.m_Block);
+	ser & Cast::Down<TxVectors::Perishable>(bc.m_Block);
 	ser.swap_buf(bc.m_BodyP);
 
 	ser.reset();
-	ser & Cast::Down<TxVectors::Ethernal>(res);
+	ser & Cast::Down<TxVectors::Ethernal>(bc.m_Block);
 	ser.swap_buf(bc.m_BodyE);
 
 	size_t nSize = bc.m_BodyP.size() + bc.m_BodyE.size();

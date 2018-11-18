@@ -2876,7 +2876,7 @@ bool Node::Miner::Restart()
 	if (!IsEnabled())
 		return false; //  n/a
 
-	Block::Body* pTreasury = NULL;
+	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, *get_ParentObj().m_pKdf);
 
 	if (get_ParentObj().m_Processor.m_Extra.m_SubsidyOpen)
 	{
@@ -2885,15 +2885,15 @@ bool Node::Miner::Restart()
 		if (dh >= vTreasury.size())
 			return false;
 
-		pTreasury = &vTreasury[dh];
-		pTreasury->m_SubsidyClosing = (dh + 1 == vTreasury.size());
+		const Block::Body& src = vTreasury[dh];
+		// copy
+		Cast::Down<TxBase>(bc.m_Block) = src;
+		Cast::Down<Block::BodyBase>(bc.m_Block) = src;
+		TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(vTreasury[dh].get_Reader());
+		bc.m_Block.m_SubsidyClosing = (dh + 1 == vTreasury.size());
 	}
 
-	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, *get_ParentObj().m_pKdf);
-
-	bool bRes = pTreasury ?
-		get_ParentObj().m_Processor.GenerateNewBlock(bc, *pTreasury) :
-		get_ParentObj().m_Processor.GenerateNewBlock(bc);
+	bool bRes = get_ParentObj().m_Processor.GenerateNewBlock(bc);
 
 	if (!bRes)
 	{
