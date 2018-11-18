@@ -1705,7 +1705,7 @@ int main()
 	beam::Rules::get().FakePoW = true;
 	beam::Rules::get().UpdateChecksum();
 
-//	beam::TestChainworkProof();
+	beam::TestChainworkProof();
 
 	// Make sure this test doesn't run in parallel. We have the following potential collisions for Nodes:
 	//	.db files
