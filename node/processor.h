@@ -177,14 +177,33 @@ public:
 	struct BlockContext
 	{
 		TxPool::Fluff& m_TxPool;
-		Key::IKdf& m_Kdf;
 		Block::SystemState::Full m_Hdr;
 		ByteBuffer m_BodyP;
 		ByteBuffer m_BodyE;
 		Amount m_Fees;
 		Block::Body m_Block; // in/out
 
-		BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf);
+		virtual bool IsSrcBlockVerified() { return false; }
+		virtual bool CreateCoinbase(Output&, Height, Amount nCoinbase) = 0;
+		virtual bool CreateFees(Output&, Height) = 0;
+		virtual bool CreateKernel(TxKernel&, Height) = 0;
+		virtual void UpdateOffset(ECC::Scalar::Native& offset) = 0;
+
+		BlockContext(TxPool::Fluff& txp);
+	};
+
+	struct BlockContextStd
+		:public BlockContext
+	{
+		Key::IKdf& m_Kdf;
+		BlockContextStd(TxPool::Fluff& txp, Key::IKdf& kdf);
+
+		ECC::Scalar::Native m_Offset;
+
+		virtual bool CreateCoinbase(Output&, Height, Amount nCoinbase) override;
+		virtual bool CreateFees(Output&, Height) override;
+		virtual bool CreateKernel(TxKernel&, Height) override;
+		virtual void UpdateOffset(ECC::Scalar::Native& offset) override;
 	};
 
 	bool GenerateNewBlock(BlockContext&);

@@ -1203,35 +1203,18 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 
 	ECC::Scalar::Native sk, offset = bc.m_Block.m_Offset;
 
-	// Add mandatory elements: coinbase UTXO and kernel
-	{
-		Output::Ptr pOutp(new Output);
-		pOutp->m_Coinbase = true;
-		pOutp->Create(sk, bc.m_Kdf, Key::IDV(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase));
+	Output::Ptr pOutp(new Output);
+	if (!bc.CreateCoinbase(*pOutp, h, Rules::get().CoinbaseEmission) ||
+		!HandleBlockElement(*pOutp, h, NULL, true))
+		return 0;
 
-		if (!HandleBlockElement(*pOutp, h, NULL, true))
-			return 0;
+	bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
 
-		bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
+	TxKernel::Ptr pKrn(new TxKernel);
+	if (!bc.CreateKernel(*pKrn, h))
+		return 0;
 
-		sk = -sk;
-		offset += sk;
-
-		bc.m_Kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel, uint64_t(-1LL)));
-
-		TxKernel::Ptr pKrn(new TxKernel);
-		pKrn->m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
-		pKrn->m_Height.m_Min = h; // make it similar to others
-
-		ECC::Hash::Value hv;
-		pKrn->get_Hash(hv);
-		pKrn->m_Signature.Sign(hv, sk);
-
-		bc.m_Block.m_vKernels.push_back(std::move(pKrn));
-
-		sk = -sk;
-		offset += sk;
-	}
+	bc.m_Block.m_vKernels.push_back(std::move(pKrn));
 
 	SerializerSizeCounter ssc;
 	ssc & bc.m_Block;
@@ -1256,7 +1239,6 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 		m_nSizeUtxoComission = ssc2.m_Counter.m_Value;
 	}
 
-	bc.m_Fees = 0;
 	size_t nTxNum = 0;
 
 	for (TxPool::Fluff::ProfitSet::iterator it = bc.m_TxPool.m_setProfit.begin(); bc.m_TxPool.m_setProfit.end() != it; )
@@ -1310,16 +1292,12 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 
 	if (bc.m_Fees)
 	{
-		Output::Ptr pOutp(new Output);
-		pOutp->Create(sk, bc.m_Kdf, Key::IDV(bc.m_Fees, h, Key::Type::Comission));
-
-		if (!HandleBlockElement(*pOutp, h, NULL, true))
-			return false; // though should not happen!
+		pOutp.reset(new Output);
+		if (!bc.CreateFees(*pOutp, h) ||
+			!HandleBlockElement(*pOutp, h, NULL, true))
+			return 0;
 
 		bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
-
-		sk = -sk;
-		offset += sk;
 	}
 
 	// Finalize block construction.
@@ -1360,17 +1338,67 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 	Timestamp tm = get_MovingMedian() + 1;
 	bc.m_Hdr.m_TimeStamp = std::max(bc.m_Hdr.m_TimeStamp, tm);
 
+	bc.UpdateOffset(offset);
 	bc.m_Block.m_Offset = offset;
 
 	return ssc.m_Counter.m_Value;
 }
 
-NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf)
+NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp)
 	:m_TxPool(txp)
-	,m_Kdf(kdf)
+	,m_Fees(0)
 {
 	m_Block.ZeroInit();
 	m_Block.m_SubsidyClosing = true; // by default insist on it. If already closed - this flag will automatically be turned OFF
+}
+
+NodeProcessor::BlockContextStd::BlockContextStd(TxPool::Fluff& txp, Key::IKdf& kdf)
+	:BlockContext(txp)
+	,m_Kdf(kdf)
+{
+	m_Offset = Zero;
+}
+
+bool NodeProcessor::BlockContextStd::CreateCoinbase(Output& out, Height h, Amount nCoinbase)
+{
+	ECC::Scalar::Native sk;
+
+	out.m_Coinbase = true;
+	out.Create(sk, m_Kdf, Key::IDV(nCoinbase, h, Key::Type::Coinbase));
+
+	m_Offset += sk;
+	return true;
+}
+
+bool NodeProcessor::BlockContextStd::CreateFees(Output& out, Height h)
+{
+	ECC::Scalar::Native sk;
+	out.Create(sk, m_Kdf, Key::IDV(m_Fees, h, Key::Type::Comission));
+
+	m_Offset += sk;
+	return true;
+}
+
+bool NodeProcessor::BlockContextStd::CreateKernel(TxKernel& krn, Height h)
+{
+	ECC::Scalar::Native sk;
+	m_Kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel, uint64_t(-1LL)));
+
+	krn.m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
+	krn.m_Height.m_Min = h; // make it similar to others
+
+	ECC::Hash::Value hv;
+	krn.get_Hash(hv);
+	krn.m_Signature.Sign(hv, sk);
+
+	m_Offset += sk;
+	return true;
+}
+
+void NodeProcessor::BlockContextStd::UpdateOffset(ECC::Scalar::Native& offset)
+{
+	ECC::Scalar::Native val = -m_Offset;
+	offset += val;
 }
 
 bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
@@ -1384,7 +1412,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 	if (!bEmpty)
 	{
-		if (!VerifyBlock(bc.m_Block, bc.m_Block.get_Reader(), h))
+		if (!bc.IsSrcBlockVerified() && !VerifyBlock(bc.m_Block, bc.m_Block.get_Reader(), h))
 			return false;
 
 		if (!HandleValidatedTx(bc.m_Block.get_Reader(), h, true))
@@ -1394,13 +1422,12 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	size_t nSizeEstimated = GenerateNewBlockInternal(bc);
 
 	verify(HandleValidatedTx(bc.m_Block.get_Reader(), h, false)); // undo changes
-
-	if (!nSizeEstimated)
-		return false;
-
 	// reset input maturities
 	for (size_t i = 0; i < bc.m_Block.m_vInputs.size(); i++)
 		bc.m_Block.m_vInputs[i]->m_Maturity = 0;
+
+	if (!nSizeEstimated)
+		return false;
 
 	size_t nCutThrough = bc.m_Block.NormalizeP(); // kernels must have already been normalized, this is needed for kernel commitment
 	nCutThrough; // remove "unused var" warning

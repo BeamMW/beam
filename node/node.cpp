@@ -2876,7 +2876,7 @@ bool Node::Miner::Restart()
 	if (!IsEnabled())
 		return false; //  n/a
 
-	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, *get_ParentObj().m_pKdf);
+	NodeProcessor::BlockContextStd bc(get_ParentObj().m_TxPool, *get_ParentObj().m_pKdf);
 
 	if (get_ParentObj().m_Processor.m_Extra.m_SubsidyOpen)
 	{
