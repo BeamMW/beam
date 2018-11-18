@@ -254,7 +254,7 @@ namespace ECC
 		{
 			typedef std::shared_ptr<IKdf> Ptr;
 
-			virtual void DeriveKey(Scalar::Native&, const Key::ID&);
+			void DeriveKey(Scalar::Native&, const Key::ID&);
 			virtual void DeriveKey(Scalar::Native&, const Hash::Value&) = 0;
 		};
 	};
