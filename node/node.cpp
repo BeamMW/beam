@@ -65,7 +65,7 @@ void Node::WantedTx::OnExpired(const KeyType& key)
 	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; it++)
 	{
 		Peer& peer = *it;
-		if (peer.m_Config.m_SpreadingTransactions)
+		if (peer.m_LoginFlags & proto::LoginFlags::SpreadingTransactions)
 			peer.Send(msg);
 	}
 }
@@ -91,7 +91,7 @@ void Node::Bbs::WantedMsg::OnExpired(const KeyType& key)
 	for (PeerList::iterator it = get_ParentObj().get_ParentObj().m_lstPeers.begin(); get_ParentObj().get_ParentObj().m_lstPeers.end() != it; it++)
 	{
 		Peer& peer = *it;
-		if (peer.m_Config.m_Bbs)
+		if (peer.m_LoginFlags & proto::LoginFlags::Bbs)
 			peer.Send(msg);
 	}
 
@@ -615,7 +615,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 	pPeer->m_Port = 0;
 	ZeroObject(pPeer->m_Tip);
 	pPeer->m_RemoteAddr = addr;
-	ZeroObject(pPeer->m_Config);
+	pPeer->m_LoginFlags = 0;
 
 	LOG_INFO() << "+Peer " << addr;
 
@@ -833,7 +833,7 @@ Node::~Node()
 	m_Compressor.StopCurrent();
 
 	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
-		ZeroObject(it->m_Config); // prevent re-assigning of tasks in the next loop
+		it->m_LoginFlags = 0; // prevent re-assigning of tasks in the next loop
 
 	m_pSync = NULL; // prevent reassign sync
 
@@ -934,12 +934,14 @@ void Node::Peer::OnConnectedSecure()
 
 	ProveID(m_This.m_MyPrivateID, proto::IDType::Node);
 
-	proto::Config msgCfg;
-	msgCfg.m_CfgChecksum = Rules::get().Checksum; // checksum of all consesnsus related configuration
-	msgCfg.m_SpreadingTransactions = true; // indicate ability to receive and broadcast transactions
-	msgCfg.m_Bbs = true; // indicate ability to receive and broadcast BBS messages
-	msgCfg.m_SendPeers = true; // request a another node to periodically send a list of recommended peers
-	Send(msgCfg);
+	proto::Login msgLogin;
+	msgLogin.m_CfgChecksum = Rules::get().Checksum; // checksum of all consesnsus related configuration
+	msgLogin.m_Flags =
+		proto::LoginFlags::SpreadingTransactions | // indicate ability to receive and broadcast transactions
+		proto::LoginFlags::Bbs | // indicate ability to receive and broadcast BBS messages
+		proto::LoginFlags::SendPeers; // request a another node to periodically send a list of recommended peers
+
+	Send(msgLogin);
 
 	if (m_This.m_Processor.m_Cursor.m_Sid.m_Row)
 	{
@@ -1853,7 +1855,7 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
 	uint32_t nStemPeers = 0;
 
 	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
-		if (it->m_Config.m_SpreadingTransactions)
+		if (it->m_LoginFlags & proto::LoginFlags::SpreadingTransactions)
 			nStemPeers++;
 
 	if (nStemPeers)
@@ -1870,7 +1872,7 @@ void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
 			uint32_t nRandomPeerIdx = RandomUInt32(nStemPeers);
 
 			for (PeerList::iterator it = m_lstPeers.begin(); ; it++)
-				if (it->m_Config.m_SpreadingTransactions && !nRandomPeerIdx--)
+				if ((it->m_LoginFlags & proto::LoginFlags::SpreadingTransactions) && !nRandomPeerIdx--)
 				{
 					it->SendTx(x.m_pValue, false);
 					break;
@@ -2092,7 +2094,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 		Peer& peer = *it2;
 		if (&peer == pPeer)
 			continue;
-		if (!peer.m_Config.m_SpreadingTransactions)
+		if (!(peer.m_LoginFlags & proto::LoginFlags::SpreadingTransactions))
 			continue;
 
 		peer.Send(msgOut);
@@ -2122,12 +2124,12 @@ bool Node::Dandelion::ValidateTxContext(const Transaction& tx)
 	return get_ParentObj().m_Processor.ValidateTxContext(tx);
 }
 
-void Node::Peer::OnMsg(proto::Config&& msg)
+void Node::Peer::OnMsg(proto::Login&& msg)
 {
 	if (msg.m_CfgChecksum != Rules::get().Checksum)
 		ThrowUnexpected("Incompatible peer cfg!");
 
-	if (!m_Config.m_SpreadingTransactions && msg.m_SpreadingTransactions)
+	if (!(m_LoginFlags & proto::LoginFlags::SpreadingTransactions) && (msg.m_Flags & proto::LoginFlags::SpreadingTransactions))
 	{
 		proto::HaveTransaction msgOut;
 
@@ -2138,9 +2140,9 @@ void Node::Peer::OnMsg(proto::Config&& msg)
 		}
 	}
 
-	if (m_Config.m_SendPeers != msg.m_SendPeers)
+	if ((m_LoginFlags ^ msg.m_Flags) & proto::LoginFlags::SendPeers)
 	{
-		if (msg.m_SendPeers)
+		if (msg.m_Flags & proto::LoginFlags::SendPeers)
 		{
 			if (!m_pTimerPeers)
 				m_pTimerPeers = io::Timer::create(io::Reactor::get_Current());
@@ -2154,7 +2156,7 @@ void Node::Peer::OnMsg(proto::Config&& msg)
 				m_pTimerPeers->cancel();
 	}
 
-	if (!m_Config.m_Bbs && msg.m_Bbs)
+	if (!(m_LoginFlags & proto::LoginFlags::Bbs) && (msg.m_Flags & proto::LoginFlags::Bbs))
 	{
 		proto::BbsHaveMsg msgOut;
 
@@ -2168,7 +2170,7 @@ void Node::Peer::OnMsg(proto::Config&& msg)
 		}
 	}
 
-	m_Config = msg;
+	m_LoginFlags = msg.m_Flags;
 }
 
 void Node::Peer::OnMsg(proto::HaveTransaction&& msg)
@@ -2482,7 +2484,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 		Peer& peer = *it;
 		if (this == &peer)
 			continue;
-		if (!peer.m_Config.m_Bbs)
+		if (!(peer.m_LoginFlags & proto::LoginFlags::Bbs))
 			continue;
 
 		peer.Send(msgOut);

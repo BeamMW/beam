@@ -418,7 +418,7 @@ private:
 		beam::io::Address m_RemoteAddr; // for logging only
 
 		Block::SystemState::Full m_Tip;
-		proto::Config m_Config;
+		uint8_t m_LoginFlags;
 
 		TaskList m_lstTasks;
 		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
@@ -456,7 +456,7 @@ private:
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&) override; // Must be overridden to support SChannel
 		// messages
 		virtual void OnMsg(proto::Authentication&&) override;
-		virtual void OnMsg(proto::Config&&) override;
+		virtual void OnMsg(proto::Login&&) override;
 		virtual void OnMsg(proto::Bye&&) override;
 		virtual void OnMsg(proto::Ping&&) override;
 		virtual void OnMsg(proto::NewTip&&) override;

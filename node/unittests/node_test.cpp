@@ -1041,9 +1041,9 @@ namespace beam
 			{
 				SetTimer(90 * 1000);
 
-				proto::Config msgCfg;
-				msgCfg.m_CfgChecksum = Rules::get().Checksum;
-				Send(msgCfg);
+				proto::Login msg;
+				msg.m_CfgChecksum = Rules::get().Checksum;
+				Send(msg);
 
 				Send(proto::GetTime(Zero));
 				Send(proto::GetExternalAddr(Zero));
@@ -1371,10 +1371,10 @@ namespace beam
 			MyClient* m_pOtherClient;
 
 			virtual void OnConnectedSecure() override {
-				proto::Config msgCfg;
-				msgCfg.m_CfgChecksum = Rules::get().Checksum;
-				msgCfg.m_SendPeers = true; // just for fun
-				Send(msgCfg);
+				proto::Login msg;
+				msg.m_CfgChecksum = Rules::get().Checksum;
+				msg.m_Flags = proto::LoginFlags::SendPeers; // just for fun
+				Send(msg);
 			}
 
 			virtual void OnDisconnect(const DisconnectReason&) override {

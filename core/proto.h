@@ -106,11 +106,9 @@ namespace proto {
 #define BeamNodeMsg_Mined(macro) \
 	macro(std::vector<PerMined>, Entries)
 
-#define BeamNodeMsg_Config(macro) \
+#define BeamNodeMsg_Login(macro) \
 	macro(ECC::Hash::Value, CfgChecksum) \
-	macro(bool, SpreadingTransactions) \
-	macro(bool, Bbs) \
-	macro(bool, SendPeers)
+	macro(uint8_t, Flags)
 
 #define BeamNodeMsg_Ping(macro)
 #define BeamNodeMsg_Pong(macro)
@@ -202,7 +200,7 @@ namespace proto {
 
 #define BeamNodeMsgsAll(macro) \
 	/* general msgs */ \
-	macro(0x00, Config) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
+	macro(0x00, Login) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
 	macro(0x01, Bye) \
 	macro(0x02, Ping) \
 	macro(0x03, Pong) \
@@ -258,6 +256,12 @@ namespace proto {
 	macro(0x3c, BbsPickChannel) \
 	macro(0x3d, BbsPickChannelRes) \
 
+
+	struct LoginFlags {
+		static const uint8_t SpreadingTransactions	= 0x1; // I'm spreading txs, please send
+		static const uint8_t Bbs					= 0x2; // I'm spreading bbs messages
+		static const uint8_t SendPeers				= 0x4; // Please send me periodically peers recommendations
+	};
 
 	struct PerMined
 	{
@@ -833,16 +837,14 @@ namespace proto {
 				void AssignRequest(RequestNode&);
 
 				bool IsAtTip() const;
-
-				bool m_bBbs = false;
-				bool m_bTransactions = false;
+				uint8_t m_LoginFlags;
 				bool m_bNode = false;
 
 				// NodeConnection
 				virtual void OnConnectedSecure() override;
 				virtual void OnDisconnect(const DisconnectReason&) override;
 				virtual void OnMsg(proto::Authentication&& msg) override;
-				virtual void OnMsg(proto::Config&& msg) override;
+				virtual void OnMsg(proto::Login&& msg) override;
 				virtual void OnMsg(proto::NewTip&& msg) override;
 				virtual void OnMsg(proto::ProofCommonState&& msg) override;
 				virtual void OnMsg(proto::ProofChainWork&& msg) override;

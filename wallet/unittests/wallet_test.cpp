@@ -799,12 +799,13 @@ private:
 			sk = 23U;
 			ProveID(sk, proto::IDType::Node);
 
-			proto::Config msgCfg;
-			msgCfg.m_CfgChecksum = Rules::get().Checksum;
-			msgCfg.m_SpreadingTransactions = true;
-			msgCfg.m_Bbs = true;
-			msgCfg.m_SendPeers = true;
-			Send(msgCfg);
+			proto::Login msg;
+			msg.m_CfgChecksum = Rules::get().Checksum;
+			msg.m_Flags =
+				proto::LoginFlags::SpreadingTransactions |
+				proto::LoginFlags::Bbs |
+				proto::LoginFlags::SendPeers;
+			Send(msg);
 		}
 
 		void SendTip()
@@ -836,7 +837,7 @@ private:
 			Send(msgOut);
         }
 
-        void OnMsg(proto::Config&& /*data*/) override
+        void OnMsg(proto::Login&& /*data*/) override
         {
 			SendTip();
         }

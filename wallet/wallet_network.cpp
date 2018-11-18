@@ -620,9 +620,9 @@ namespace beam {
     {
         LOG_INFO() << "Wallet connected to node";
         m_connecting = false;
-        proto::Config msgCfg;
-        msgCfg.m_CfgChecksum = Rules::get().Checksum;
-        Send(msgCfg);
+        proto::Login msg;
+        msg.m_CfgChecksum = Rules::get().Checksum;
+        Send(msg);
 
         for (auto& cb : m_callbacks)
         {

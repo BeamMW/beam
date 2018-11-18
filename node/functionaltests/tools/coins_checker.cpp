@@ -50,7 +50,7 @@ void CoinsChecker::InitChecker()
 
 void CoinsChecker::OnConnectedSecure()
 {
-	proto::Config msg;
+	proto::Login msg;
 	msg.m_CfgChecksum = Rules::get().Checksum;
 	Send(msg);
 }

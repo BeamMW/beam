@@ -1011,7 +1011,8 @@ void FlyClient::NetworkStd::Connection::ResetVars()
 {
 	m_ReportedConnected = false;
 	ZeroObject(m_Tip);
-	m_bNode = m_bBbs = m_bTransactions = false;
+	m_LoginFlags = 0;
+	m_bNode = false;
 }
 
 void FlyClient::NetworkStd::Connection::ResetInternal()
@@ -1031,10 +1032,10 @@ void FlyClient::NetworkStd::Connection::ResetInternal()
 
 void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 {
-	proto::Config msgCfg;
-	msgCfg.m_CfgChecksum = Rules::get().Checksum;
-	msgCfg.m_SendPeers = true;
-	Send(msgCfg);
+	proto::Login msg;
+	msg.m_CfgChecksum = Rules::get().Checksum;
+	msg.m_Flags = proto::LoginFlags::SendPeers;
+	Send(msg);
 
 	if (!m_ReportedConnected)
 	{
@@ -1102,16 +1103,15 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::Authentication&& msg)
 	}
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(proto::Config&& msg)
+void FlyClient::NetworkStd::Connection::OnMsg(proto::Login&& msg)
 {
 	if (msg.m_CfgChecksum != Rules::get().Checksum)
 		ThrowUnexpected("incompatible");
 
-	m_bBbs = msg.m_Bbs;
-	m_bTransactions = msg.m_SpreadingTransactions;
+	m_LoginFlags = msg.m_Flags;
 	AssignRequests();
 
-	if (m_bBbs)
+	if (proto::LoginFlags::Bbs & m_LoginFlags)
 		for (BbsSubscriptions::const_iterator it = m_This.m_BbsSubscriptions.begin(); m_This.m_BbsSubscriptions.end() != it; it++)
 		{
 			proto::BbsSubscribe msgOut;
@@ -1583,7 +1583,7 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestRecover& req)
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestTransaction& req)
 {
-	return m_bTransactions && IsAtTip();
+	return (proto::LoginFlags::SpreadingTransactions & m_LoginFlags) && IsAtTip();
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestTransaction& req)
@@ -1593,7 +1593,7 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestTransaction& req)
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsMsg& req)
 {
-	return m_bBbs && IsAtTip();
+	return (proto::LoginFlags::Bbs & m_LoginFlags) && IsAtTip();
 }
 
 void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
