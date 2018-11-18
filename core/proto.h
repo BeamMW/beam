@@ -285,6 +285,7 @@ namespace proto {
 	{
 		static const uint8_t Node		= 'N';
 		static const uint8_t Owner		= 'O';
+		static const uint8_t Viewer		= 'V';
 	};
 
 	static const uint32_t g_HdrPackMaxSize = 128;
@@ -448,6 +449,8 @@ namespace proto {
 		BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 
+		void HashAddNonce(ECC::Hash::Processor&, bool bRemote);
+
 	public:
 
 		NodeConnection();
@@ -463,6 +466,11 @@ namespace proto {
 		void SecureConnect(); // must be connected already
 
 		void ProveID(ECC::Scalar::Native&, uint8_t nIDType); // secure channel must be established
+		void ProveKdfObscured(Key::IKdf&, uint8_t nIDType); // prove ownership of the kdf to the one with pkdf, otherwise reveal no info
+		void ProvePKdfObscured(Key::IPKdf&, uint8_t nIDType);
+		bool IsKdfObscured(Key::IPKdf&, const PeerID&);
+		bool IsPKdfObscured(Key::IPKdf&, const PeerID&);
+
 
 		virtual void OnMsg(SChannelInitiate&&) override;
 		virtual void OnMsg(SChannelReady&&) override;

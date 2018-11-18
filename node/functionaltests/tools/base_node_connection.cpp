@@ -102,11 +102,7 @@ void BaseTestNode::OnMsg(proto::Authentication&& msg)
     proto::NodeConnection::OnMsg(std::move(msg));
 
     if (proto::IDType::Node == msg.m_IDType)
-    {
-        ECC::Scalar::Native sk;
-		m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
-        ProveID(sk, proto::IDType::Owner);
-    }
+		ProveKdfObscured(*m_pKdf, proto::IDType::Owner);
 
     if (m_Timeout > 0)
     {

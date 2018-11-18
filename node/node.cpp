@@ -958,8 +958,11 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 
 	if (proto::IDType::Owner == msg.m_IDType)
 	{
-		if (msg.m_ID == m_This.m_MyOwnerID)
+		if (IsKdfObscured(*m_This.m_pOwnerKdf, msg.m_ID))
+		{
 			m_Flags |= Flags::Owner;
+			ProvePKdfObscured(*m_This.m_pOwnerKdf, proto::IDType::Viewer);
+		}
 	}
 
 	if (proto::IDType::Node != msg.m_IDType)

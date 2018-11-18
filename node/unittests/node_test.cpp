@@ -1052,11 +1052,18 @@ namespace beam
 			{
 				proto::NodeConnection::OnMsg(std::move(msg));
 
-				if (proto::IDType::Node == msg.m_IDType)
+				switch (msg.m_IDType)
 				{
-					ECC::Scalar::Native sk;
-					m_Wallet.m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
-					ProveID(sk, proto::IDType::Owner);
+				case proto::IDType::Node:
+					ProveKdfObscured(*m_Wallet.m_pKdf, proto::IDType::Owner);
+					break;
+
+				case proto::IDType::Viewer:
+					verify_test(IsPKdfObscured(*m_Wallet.m_pKdf, msg.m_ID));
+					break;
+
+				default: // suppress warning
+					break;
 				}
 			}
 

@@ -33,8 +33,8 @@ ProtocolPlus::ProtocolPlus(uint8_t v0, uint8_t v1, uint8_t v2, size_t maxMessage
 void ProtocolPlus::ResetVars()
 {
 	m_Mode = Mode::Plaintext;
-	ZeroObject(m_MyNonce);
-	ZeroObject(m_RemoteNonce);
+	m_MyNonce = Zero;
+	m_RemoteNonce = Zero;
 }
 
 void ProtocolPlus::Decrypt(uint8_t* p, uint32_t nSize)
@@ -551,8 +551,10 @@ void NodeConnection::ProveID(ECC::Scalar::Native& sk, uint8_t nIDType)
 	assert(IsSecureOut());
 
 	// confirm our ID
+	ECC::Hash::Processor hp;
+	HashAddNonce(hp, true);
 	ECC::Hash::Value hv;
-	ECC::Hash::Processor() << m_Protocol.m_RemoteNonce >> hv;
+	hp >> hv;
 
 	Authentication msgOut;
 	msgOut.m_IDType = nIDType;
@@ -560,6 +562,104 @@ void NodeConnection::ProveID(ECC::Scalar::Native& sk, uint8_t nIDType)
 	msgOut.m_Sig.Sign(hv, sk);
 
 	Send(msgOut);
+}
+
+void NodeConnection::HashAddNonce(ECC::Hash::Processor& hp, bool bRemote)
+{
+	if (bRemote)
+		hp << m_Protocol.m_RemoteNonce;
+	else
+	{
+		ECC::Hash::Value hv;
+		Sk2Pk(hv, m_Protocol.m_MyNonce);
+		hp << hv;
+	}
+}
+
+void NodeConnection::ProveKdfObscured(Key::IKdf& kdf, uint8_t nIDType)
+{
+	ECC::Hash::Processor hp;
+	hp << (uint32_t) Key::Type::Identity;
+	HashAddNonce(hp, true);
+	HashAddNonce(hp, false);
+
+	ECC::Hash::Value hv;
+	hp >> hv;
+
+	ECC::Scalar::Native sk;
+	kdf.DeriveKey(sk, hv);
+
+	ProveID(sk, nIDType);
+
+}
+
+void NodeConnection::ProvePKdfObscured(Key::IPKdf& kdf, uint8_t nIDType)
+{
+	struct MyKdf
+		:public Key::IKdf
+	{
+		Key::IPKdf& m_Kdf;
+		MyKdf(Key::IPKdf& kdf) :m_Kdf(kdf) {}
+
+		virtual void DerivePKey(ECC::Point::Native&, const ECC::Hash::Value&) override
+		{
+			assert(false);
+		}
+
+		virtual void DerivePKey(ECC::Scalar::Native&, const ECC::Hash::Value&) override
+		{
+			assert(false);
+		}
+
+		virtual void DeriveKey(ECC::Scalar::Native& out, const ECC::Hash::Value& hv) override
+		{
+			m_Kdf.DerivePKey(out, hv);
+		}
+	};
+
+	MyKdf myKdf(kdf);
+	ProveKdfObscured(myKdf, nIDType);
+}
+
+bool NodeConnection::IsKdfObscured(Key::IPKdf& kdf, const PeerID& id)
+{
+	ECC::Hash::Processor hp;
+	hp << (uint32_t)Key::Type::Identity;
+	HashAddNonce(hp, false);
+	HashAddNonce(hp, true);
+
+	ECC::Hash::Value hv;
+	hp >> hv;
+
+	ECC::Point::Native pt;
+	kdf.DerivePKey(pt, hv);
+
+	return id == ECC::Point(pt).m_X;
+}
+
+bool NodeConnection::IsPKdfObscured(Key::IPKdf& kdf, const PeerID& id)
+{
+	struct MyPKdf
+		:public Key::IPKdf
+	{
+		Key::IPKdf& m_Kdf;
+		MyPKdf(Key::IPKdf& kdf) :m_Kdf(kdf) {}
+
+		virtual void DerivePKey(ECC::Point::Native& out, const ECC::Hash::Value& hv) override
+		{
+			ECC::Scalar::Native s;
+			m_Kdf.DerivePKey(s, hv);
+			out = ECC::Context::get().G * s;
+		}
+
+		virtual void DerivePKey(ECC::Scalar::Native&, const ECC::Hash::Value&) override
+		{
+			assert(false);
+		}
+	};
+
+	MyPKdf myKdf(kdf);
+	return IsKdfObscured(myKdf, id);
 }
 
 bool NodeConnection::IsSecureIn() const
@@ -578,11 +678,11 @@ void NodeConnection::OnMsg(Authentication&& msg)
 		ThrowUnexpected();
 
 	// verify ID
-	PeerID myPubNonce;
-	Sk2Pk(myPubNonce, m_Protocol.m_MyNonce);
+	ECC::Hash::Processor hp;
+	HashAddNonce(hp, false);
 
 	ECC::Hash::Value hv;
-	ECC::Hash::Processor() << myPubNonce >> hv;
+	hp >> hv;
 
 	ECC::Point pt;
 	pt.m_X = msg.m_ID;
@@ -1089,17 +1189,30 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::Authentication&& msg)
 {
 	NodeConnection::OnMsg(std::move(msg));
 
-	if (IDType::Node == msg.m_IDType)
+	switch (msg.m_IDType)
 	{
-		m_bNode = true;
-
-		Key::IKdf::Ptr pKdf;
-		if (m_This.m_Client.IsOwnedNode(msg.m_ID, pKdf))
+	case IDType::Node:
 		{
-			ECC::Scalar::Native sk;
-			pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
-			ProveID(sk, IDType::Owner);
+			m_bNode = true;
+
+			Key::IKdf::Ptr pKdf;
+			if (m_This.m_Client.IsOwnedNode(msg.m_ID, pKdf))
+				ProveKdfObscured(*pKdf, IDType::Owner);
 		}
+		break;
+
+	case IDType::Viewer:
+		{
+			Key::IKdf::Ptr pKdf;
+			if (m_This.m_Client.IsOwnedNode(msg.m_ID, pKdf) && IsPKdfObscured(*pKdf, msg.m_ID))
+			{
+				//  viewer confirmed!
+			}
+		}
+		break;
+
+	default: // suppress warning
+		break;
 	}
 }
 

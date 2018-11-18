@@ -129,7 +129,7 @@ struct Node
 
 	} m_Cfg; // must not be changed after initialization
 
-	Key::IKdf::Ptr m_pKdf;
+	Key::IKdf::Ptr m_pKdf; // used for internal nonce generation, and for mining, unless in "online wallet" mode
 	Key::IPKdf::Ptr m_pOwnerKdf;
 	bool m_bSameKdf; // should be avoided actually
 
