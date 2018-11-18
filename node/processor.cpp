@@ -1378,8 +1378,8 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	Height h = m_Cursor.m_Sid.m_Height + 1;
 
 	bool bEmpty =
-		bc.m_Block.m_vInputs.empty() +
-		bc.m_Block.m_vOutputs.empty() +
+		bc.m_Block.m_vInputs.empty() &&
+		bc.m_Block.m_vOutputs.empty() &&
 		bc.m_Block.m_vKernels.empty();
 
 	if (!bEmpty)
