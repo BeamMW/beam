@@ -754,8 +754,9 @@ namespace proto {
 		virtual ~FlyClient() {}
 		virtual void OnNewTip() {} // tip already added
 		virtual void OnRolledBack() {} // reversed states are already removed
-		virtual bool IsOwnedNode(const PeerID&, Key::IKdf::Ptr& pKdf) { return false; }
+		virtual void get_Kdf(Key::IKdf::Ptr&) {}
 		virtual Block::SystemState::IHistory& get_History() = 0;
+		virtual void OnOwnedNode(const PeerID&, bool bUp) {}
 
 		struct IBbsReceiver
 		{
@@ -821,7 +822,6 @@ namespace proto {
 				std::unique_ptr<SyncCtx> m_pSync;
 
 				size_t m_iIndex; // for callbacks only
-				bool m_ReportedConnected;
 
 				struct StateArray;
 
@@ -848,6 +848,7 @@ namespace proto {
 				virtual ~Connection();
 
 				io::Address m_Addr;
+				PeerID m_NodeID;
 
 				// most recent tip of the Node, according to which all the proofs are interpreted
 				Block::SystemState::Full m_Tip;
@@ -858,7 +859,13 @@ namespace proto {
 
 				bool IsAtTip() const;
 				uint8_t m_LoginFlags;
-				bool m_bNode = false;
+				uint8_t m_Flags;
+
+				struct Flags {
+					static const uint8_t Node = 1;
+					static const uint8_t Owned = 2;
+					static const uint8_t ReportedConnected = 4;
+				};
 
 				// NodeConnection
 				virtual void OnConnectedSecure() override;

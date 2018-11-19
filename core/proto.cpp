@@ -1109,17 +1109,20 @@ bool FlyClient::NetworkStd::Connection::ShouldSync() const
 
 void FlyClient::NetworkStd::Connection::ResetVars()
 {
-	m_ReportedConnected = false;
 	ZeroObject(m_Tip);
 	m_LoginFlags = 0;
-	m_bNode = false;
+	m_Flags = 0;
+	m_NodeID = Zero;
 }
 
 void FlyClient::NetworkStd::Connection::ResetInternal()
 {
 	m_pSync.reset();
 
-	if (m_ReportedConnected)
+	if (Flags::Owned & m_Flags)
+		m_This.m_Client.OnOwnedNode(m_NodeID, false);
+
+	if (Flags::ReportedConnected & m_Flags)
 		m_This.OnNodeConnected(m_iIndex, false);
 
 	while (!m_lst.empty())
@@ -1137,21 +1140,21 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 	msg.m_Flags = proto::LoginFlags::SendPeers;
 	Send(msg);
 
-	if (!m_ReportedConnected)
+	if (!(Flags::ReportedConnected & m_Flags))
 	{
-		m_ReportedConnected = true;
+		m_Flags |= Flags::ReportedConnected;
 		m_This.OnNodeConnected(m_iIndex, true);
 	}
 }
 
 void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)
 {
-	if (!m_ReportedConnected)
+	if (!(Flags::ReportedConnected & m_Flags))
 		m_This.OnConnectionFailed(m_iIndex, dr);
 
 	NodeConnection::Reset();
-	ResetVars();
 	ResetInternal();
+	ResetVars();
 
 	SetTimer(m_This.m_Cfg.m_ReconnectTimeout_ms);
 }
@@ -1193,21 +1196,32 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::Authentication&& msg)
 	{
 	case IDType::Node:
 		{
-			m_bNode = true;
+			if (Flags::Node & m_Flags)
+				ThrowUnexpected();
+
+			m_Flags |= Flags::Node;
+			m_NodeID = msg.m_ID;
 
 			Key::IKdf::Ptr pKdf;
-			if (m_This.m_Client.IsOwnedNode(msg.m_ID, pKdf))
+			m_This.m_Client.get_Kdf(pKdf);
+			if (pKdf)
 				ProveKdfObscured(*pKdf, IDType::Owner);
 		}
 		break;
 
 	case IDType::Viewer:
 		{
+			if (Flags::Owned & m_Flags)
+				ThrowUnexpected();
+
 			Key::IKdf::Ptr pKdf;
-			if (m_This.m_Client.IsOwnedNode(msg.m_ID, pKdf) && IsPKdfObscured(*pKdf, msg.m_ID))
-			{
-				//  viewer confirmed!
-			}
+			m_This.m_Client.get_Kdf(pKdf);
+			if (!(pKdf && IsPKdfObscured(*pKdf, msg.m_ID)))
+				ThrowUnexpected();
+
+			//  viewer confirmed!
+			m_Flags |= Flags::Owned;
+			m_This.m_Client.OnOwnedNode(m_NodeID, true);
 		}
 		break;
 
@@ -1662,7 +1676,7 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestUtxo& req)
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestKernel& req)
 {
-	return m_bNode && IsAtTip();
+	return (Flags::Node & m_Flags) && IsAtTip();
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel& req)
@@ -1676,7 +1690,7 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel& req)
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestMined& req)
 {
-	return m_bNode && IsAtTip();
+	return (Flags::Node & m_Flags) && IsAtTip();
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestMined& req)
@@ -1686,7 +1700,7 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestMined& req)
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestRecover& req)
 {
-	return m_bNode && IsAtTip(); // must also be owned
+	return (Flags::Node & m_Flags) && IsAtTip(); // must also be owned
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestRecover& req)

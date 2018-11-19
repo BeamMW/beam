@@ -81,8 +81,9 @@ namespace beam
 		// FlyClient
 		void OnNewTip() override;
 		void OnRolledBack() override;
-		bool IsOwnedNode(const PeerID&, Key::IKdf::Ptr& pKdf) override;
+		void get_Kdf(Key::IKdf::Ptr&) override;
 		Block::SystemState::IHistory& get_History() override;
+		void OnOwnedNode(const PeerID&, bool bUp) override;
 
 		// IWallet
         void subscribe(IWalletObserver* observer) override;

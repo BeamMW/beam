@@ -109,11 +109,14 @@ namespace beam
         resume_all_tx();
     }
 
-	bool Wallet::IsOwnedNode(const PeerID&, Key::IKdf::Ptr& pKdf)
+	void Wallet::get_Kdf(Key::IKdf::Ptr& pKdf)
 	{
-		// TODO - check the node ID
 		pKdf = m_WalletDB->get_Kdf();
-		return true;
+	}
+
+	void Wallet::OnOwnedNode(const PeerID& id, bool bUp)
+	{
+		// TODO
 	}
 
 	Block::SystemState::IHistory& Wallet::get_History()
