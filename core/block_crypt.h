@@ -585,7 +585,9 @@ namespace beam
 			Builder();
 
 			void AddCoinbaseAndKrn(Key::IKdf&, Height);
+			void AddCoinbaseAndKrn(Key::IKdf&, Height, Output::Ptr&, TxKernel::Ptr&);
 			void AddFees(Key::IKdf&, Height, Amount fees);
+			void AddFees(Key::IKdf&, Height, Amount fees, Output::Ptr&);
 		};
 	};
 

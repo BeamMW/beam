@@ -1094,20 +1094,19 @@ namespace beam
 		m_Offset = Zero;
 	}
 
-	void Block::Builder::AddCoinbaseAndKrn(Key::IKdf& kdf, Height h)
+	void Block::Builder::AddCoinbaseAndKrn(Key::IKdf& kdf, Height h, Output::Ptr& pOutp, TxKernel::Ptr& pKrn)
 	{
 		ECC::Scalar::Native sk;
 
-		Output::Ptr pOutp(new Output);
+		pOutp.reset(new Output);
 		pOutp->m_Coinbase = true;
 		pOutp->Create(sk, kdf, Key::IDV(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase));
 
 		m_Offset += sk;
-		m_Txv.m_vOutputs.push_back(std::move(pOutp));
 
 		kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel, uint64_t(-1LL)));
 
-		TxKernel::Ptr pKrn(new TxKernel);
+		pKrn.reset(new TxKernel);
 		pKrn->m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
 		pKrn->m_Height.m_Min = h; // make it similar to others
 
@@ -1116,19 +1115,35 @@ namespace beam
 		pKrn->m_Signature.Sign(hv, sk);
 
 		m_Offset += sk;
+	}
+
+	void Block::Builder::AddCoinbaseAndKrn(Key::IKdf& kdf, Height h)
+	{
+		Output::Ptr pOutp;
+		TxKernel::Ptr pKrn;
+		AddCoinbaseAndKrn(kdf, h, pOutp, pKrn);
+
+		m_Txv.m_vOutputs.push_back(std::move(pOutp));
 		m_Txv.m_vKernels.push_back(std::move(pKrn));
+	}
+
+	void Block::Builder::AddFees(Key::IKdf& kdf, Height h, Amount fees, Output::Ptr& pOutp)
+	{
+		ECC::Scalar::Native sk;
+
+		pOutp.reset(new Output);
+		pOutp->Create(sk, kdf, Key::IDV(fees, h, Key::Type::Comission));
+
+		m_Offset += sk;
 	}
 
 	void Block::Builder::AddFees(Key::IKdf& kdf, Height h, Amount fees)
 	{
 		if (fees)
 		{
-			ECC::Scalar::Native sk;
+			Output::Ptr pOutp;
+			AddFees(kdf, h, fees, pOutp);
 
-			Output::Ptr pOutp(new Output);
-			pOutp->Create(sk, kdf, Key::IDV(fees, h, Key::Type::Comission));
-
-			m_Offset += sk;
 			m_Txv.m_vOutputs.push_back(std::move(pOutp));
 		}
 	}
