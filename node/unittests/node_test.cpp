@@ -1712,7 +1712,7 @@ int main()
 	beam::Rules::get().FakePoW = true;
 	beam::Rules::get().UpdateChecksum();
 
-	//beam::TestChainworkProof();
+	beam::TestChainworkProof();
 
 	// Make sure this test doesn't run in parallel. We have the following potential collisions for Nodes:
 	//	.db files
@@ -1721,7 +1721,7 @@ int main()
 
 	beam::DeleteFile(beam::g_sz);
 	beam::DeleteFile(beam::g_sz2);
-/*
+
 	printf("NodeDB test...\n");
 	fflush(stdout);
 
@@ -1751,7 +1751,7 @@ int main()
 	beam::TestNodeConversation();
 	beam::DeleteFile(beam::g_sz);
 	beam::DeleteFile(beam::g_sz2);
-*/
+
 	printf("Node <---> Client test (with proofs)...\n");
 	fflush(stdout);
 
