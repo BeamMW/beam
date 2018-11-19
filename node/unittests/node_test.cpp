@@ -665,7 +665,7 @@ namespace beam
 				np.m_TxPool.AddValidTx(std::move(pTx), ctx, key);
 			}
 
-			NodeProcessor::BlockContextStd bc(np.m_TxPool, *np.m_Wallet.m_pKdf);
+			NodeProcessor::BlockContext bc(np.m_TxPool, *np.m_Wallet.m_pKdf);
 			verify_test(np.GenerateNewBlock(bc));
 
 			np.OnState(bc.m_Hdr, PeerID());
@@ -926,7 +926,7 @@ namespace beam
 					Node& n = *m_ppNode[m_iNode];
 
 					TxPool::Fluff txPool; // empty, no transactions
-					NodeProcessor::BlockContextStd bc(txPool, *n.m_pKdf);
+					NodeProcessor::BlockContext bc(txPool, *n.m_pKdf);
 
 					verify_test(n.get_Processor().GenerateNewBlock(bc));
 
@@ -1507,7 +1507,7 @@ namespace beam
 
 		while (node.get_Processor().m_Cursor.m_ID.m_Height < h)
 		{
-			NodeProcessor::BlockContextStd bc(txPool, *node.m_pKdf);
+			NodeProcessor::BlockContext bc(txPool, *node.m_pKdf);
 			verify_test(node.get_Processor().GenerateNewBlock(bc));
 			node.get_Processor().OnState(bc.m_Hdr, PeerID());
 

@@ -1201,33 +1201,30 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 	if (!m_Extra.m_SubsidyOpen)
 		bc.m_Block.m_SubsidyClosing = false;
 
-	ECC::Scalar::Native sk, offset = bc.m_Block.m_Offset;
-
-	Output::Ptr pOutp(new Output);
-	if (!bc.CreateCoinbase(*pOutp, h, Rules::get().CoinbaseEmission) ||
-		!HandleBlockElement(*pOutp, h, NULL, true))
-		return 0;
-
-	bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
-
-	TxKernel::Ptr pKrn(new TxKernel);
-	if (!bc.CreateKernel(*pKrn, h))
-		return 0;
-
-	bc.m_Block.m_vKernels.push_back(std::move(pKrn));
-
 	SerializerSizeCounter ssc;
 	ssc & bc.m_Block;
 
-	const size_t nSizeMax = Rules::get().MaxBodySize;
-	if (ssc.m_Counter.m_Value > nSizeMax)
+	Block::Builder bb;
+
+	Output::Ptr pOutp;
+	TxKernel::Ptr pKrn;
+
+	bb.AddCoinbaseAndKrn(bc.m_Kdf, h, pOutp, pKrn);
+	ssc & *pOutp;
+	ssc & *pKrn;
+
+	ECC::Scalar::Native offset = bc.m_Block.m_Offset;
+
+	if (BlockContext::Mode::Assemble != bc.m_Mode)
 	{
-		// the block may be non-empty (i.e. contain treasury)
-		LOG_WARNING() << "Block too large.";
-		return 0; //
+		if (!HandleBlockElement(*pOutp, h, NULL, true))
+			return 0;
+
+		bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
+		bc.m_Block.m_vKernels.push_back(std::move(pKrn));
 	}
 
-	 // estimate the size of the fees UTXO
+	// estimate the size of the fees UTXO
 	if (!m_nSizeUtxoComission)
 	{
 		Output outp;
@@ -1237,6 +1234,17 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 		SerializerSizeCounter ssc2;
 		ssc2 & outp;
 		m_nSizeUtxoComission = ssc2.m_Counter.m_Value;
+	}
+
+	if (bc.m_Fees)
+		ssc.m_Counter.m_Value += m_nSizeUtxoComission;
+
+	const size_t nSizeMax = Rules::get().MaxBodySize;
+	if (ssc.m_Counter.m_Value > nSizeMax)
+	{
+		// the block may be non-empty (i.e. contain treasury)
+		LOG_WARNING() << "Block too large.";
+		return 0; //
 	}
 
 	size_t nTxNum = 0;
@@ -1290,17 +1298,28 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 
 	LOG_INFO() << "GenerateNewBlock: size of block = " << ssc.m_Counter.m_Value << "; amount of tx = " << nTxNum;
 
-	if (bc.m_Fees)
+	if (BlockContext::Mode::Assemble != bc.m_Mode)
 	{
-		pOutp.reset(new Output);
-		if (!bc.CreateFees(*pOutp, h) ||
-			!HandleBlockElement(*pOutp, h, NULL, true))
-			return 0;
+		if (bc.m_Fees)
+		{
+			bb.AddFees(bc.m_Kdf, h, bc.m_Fees, pOutp);
+			if (!HandleBlockElement(*pOutp, h, NULL, true))
+				return 0;
 
-		bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
+			bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
+		}
+
+		bb.m_Offset = -bb.m_Offset;
+		offset += bb.m_Offset;
 	}
 
-	// Finalize block construction.
+	bc.m_Block.m_Offset = offset;
+
+	return ssc.m_Counter.m_Value;
+}
+
+void NodeProcessor::GenerateNewHdr(BlockContext& bc)
+{
 	if (m_Cursor.m_Sid.m_Row)
 		bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
 	else
@@ -1328,7 +1347,6 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 	if (bc.m_Block.m_SubsidyClosing)
 		ToggleSubsidyOpened();
 
-	bc.m_Hdr.m_Height = h;
 	bc.m_Hdr.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
 	bc.m_Hdr.m_TimeStamp = getTimestamp();
 
@@ -1337,68 +1355,15 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
 	Timestamp tm = get_MovingMedian() + 1;
 	bc.m_Hdr.m_TimeStamp = std::max(bc.m_Hdr.m_TimeStamp, tm);
-
-	bc.UpdateOffset(offset);
-	bc.m_Block.m_Offset = offset;
-
-	return ssc.m_Counter.m_Value;
 }
 
-NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp)
+NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf)
 	:m_TxPool(txp)
+	,m_Kdf(kdf)
 	,m_Fees(0)
 {
 	m_Block.ZeroInit();
 	m_Block.m_SubsidyClosing = true; // by default insist on it. If already closed - this flag will automatically be turned OFF
-}
-
-NodeProcessor::BlockContextStd::BlockContextStd(TxPool::Fluff& txp, Key::IKdf& kdf)
-	:BlockContext(txp)
-	,m_Kdf(kdf)
-{
-	m_Offset = Zero;
-}
-
-bool NodeProcessor::BlockContextStd::CreateCoinbase(Output& out, Height h, Amount nCoinbase)
-{
-	ECC::Scalar::Native sk;
-
-	out.m_Coinbase = true;
-	out.Create(sk, m_Kdf, Key::IDV(nCoinbase, h, Key::Type::Coinbase));
-
-	m_Offset += sk;
-	return true;
-}
-
-bool NodeProcessor::BlockContextStd::CreateFees(Output& out, Height h)
-{
-	ECC::Scalar::Native sk;
-	out.Create(sk, m_Kdf, Key::IDV(m_Fees, h, Key::Type::Comission));
-
-	m_Offset += sk;
-	return true;
-}
-
-bool NodeProcessor::BlockContextStd::CreateKernel(TxKernel& krn, Height h)
-{
-	ECC::Scalar::Native sk;
-	m_Kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel, uint64_t(-1LL)));
-
-	krn.m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
-	krn.m_Height.m_Min = h; // make it similar to others
-
-	ECC::Hash::Value hv;
-	krn.get_Hash(hv);
-	krn.m_Signature.Sign(hv, sk);
-
-	m_Offset += sk;
-	return true;
-}
-
-void NodeProcessor::BlockContextStd::UpdateOffset(ECC::Scalar::Native& offset)
-{
-	ECC::Scalar::Native val = -m_Offset;
-	offset += val;
 }
 
 bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
@@ -1412,16 +1377,31 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 	if (!bEmpty)
 	{
-		if (!bc.IsSrcBlockVerified() && !VerifyBlock(bc.m_Block, bc.m_Block.get_Reader(), h))
+		if ((BlockContext::Mode::Finalize != bc.m_Mode) && !VerifyBlock(bc.m_Block, bc.m_Block.get_Reader(), h))
 			return false;
 
 		if (!HandleValidatedTx(bc.m_Block.get_Reader(), h, true))
 			return false;
 	}
 
-	size_t nSizeEstimated = GenerateNewBlockInternal(bc);
+	size_t nSizeEstimated = 1;
+
+	if (BlockContext::Mode::Finalize != bc.m_Mode)
+		nSizeEstimated = GenerateNewBlockInternal(bc);
+
+	if (nSizeEstimated)
+	{
+		bc.m_Hdr.m_Height = h;
+
+		if (BlockContext::Mode::Assemble != bc.m_Mode)
+		{
+			bc.m_Block.NormalizeE(); // kernels must be normalized before the header is generated
+			GenerateNewHdr(bc);
+		}
+	}
 
 	verify(HandleValidatedTx(bc.m_Block.get_Reader(), h, false)); // undo changes
+
 	// reset input maturities
 	for (size_t i = 0; i < bc.m_Block.m_vInputs.size(); i++)
 		bc.m_Block.m_vInputs[i]->m_Maturity = 0;
@@ -1429,8 +1409,12 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	if (!nSizeEstimated)
 		return false;
 
-	size_t nCutThrough = bc.m_Block.NormalizeP(); // kernels must have already been normalized, this is needed for kernel commitment
+	if (BlockContext::Mode::Assemble == bc.m_Mode)
+		return true;
+
+	size_t nCutThrough = bc.m_Block.NormalizeP(); // right before serialization
 	nCutThrough; // remove "unused var" warning
+
 
 	Serializer ser;
 
@@ -1445,9 +1429,10 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 	size_t nSize = bc.m_BodyP.size() + bc.m_BodyE.size();
 
-	assert(nCutThrough ?
-		(nSize < nSizeEstimated) :
-		(nSize == nSizeEstimated));
+	if (BlockContext::Mode::SinglePass == bc.m_Mode)
+		assert(nCutThrough ?
+			(nSize < nSizeEstimated) :
+			(nSize == nSizeEstimated));
 
 	return nSize <= Rules::get().MaxBodySize;
 }

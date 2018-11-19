@@ -1142,7 +1142,7 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 		Send(msg);
 	}
 
-	ZeroObject(m_Tip); // prevent reassigning the tasks
+	m_Tip.m_Height = 0; // prevent reassigning the tasks
 
 	ReleaseTasks();
 	Unsubscribe();
@@ -2879,7 +2879,7 @@ bool Node::Miner::Restart()
 	if (!IsEnabled())
 		return false; //  n/a
 
-	NodeProcessor::BlockContextStd bc(get_ParentObj().m_TxPool, *get_ParentObj().m_pKdf);
+	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, *get_ParentObj().m_pKdf);
 
 	if (get_ParentObj().m_Processor.m_Extra.m_SubsidyOpen)
 	{
