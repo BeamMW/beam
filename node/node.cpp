@@ -425,7 +425,7 @@ bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&
 			v.m_vThreads[i] = std::thread(&Verifier::Thread, &v, i);
 	}
 
-
+	v.m_Context.Reset();
 	v.m_iTask ^= 2;
 	v.m_pTx = &block;
 	v.m_pR = &r;
