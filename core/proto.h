@@ -198,6 +198,15 @@ namespace proto {
 #define BeamNodeMsg_UtxoEvents(macro) \
 	macro(std::vector<UtxoEventPlus>, Events)
 
+#define BeamNodeMsg_GetBlockFinalization(macro) \
+	macro(Height, Height) \
+	macro(Amount, Fees)
+
+#define BeamNodeMsg_BlockFinalization(macro) \
+	macro(Height, Height) \
+	macro(Amount, Fees) \
+	macro(Transaction::Ptr, Value) \
+
 #define BeamNodeMsgsAll(macro) \
 	/* general msgs */ \
 	macro(0x00, Login) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
@@ -244,6 +253,8 @@ namespace proto {
 	macro(0x2b, Recovered) \
 	macro(0x2c, GetUtxoEvents) \
 	macro(0x2d, UtxoEvents) \
+	macro(0x2e, GetBlockFinalization) \
+	macro(0x2f, BlockFinalization) \
 	/* tx broadcast and replication */ \
 	macro(0x30, NewTransaction) \
 	macro(0x31, HaveTransaction) \
@@ -261,6 +272,7 @@ namespace proto {
 		static const uint8_t SpreadingTransactions	= 0x1; // I'm spreading txs, please send
 		static const uint8_t Bbs					= 0x2; // I'm spreading bbs messages
 		static const uint8_t SendPeers				= 0x4; // Please send me periodically peers recommendations
+		static const uint8_t MiningFinalization		= 0x8; // I want to finalize block construction for my owned node
 	};
 
 	struct PerMined

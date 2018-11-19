@@ -174,15 +174,21 @@ public:
 	bool ValidateTxContext(const Transaction&); // assuming context-free validation is already performed, but 
 	static bool ValidateTxWrtHeight(const Transaction&, Height);
 
-	struct BlockContext
+	struct GeneratedBlock
 	{
-		TxPool::Fluff& m_TxPool;
-		Key::IKdf& m_Kdf;
 		Block::SystemState::Full m_Hdr;
 		ByteBuffer m_BodyP;
 		ByteBuffer m_BodyE;
 		Amount m_Fees;
 		Block::Body m_Block; // in/out
+	};
+
+
+	struct BlockContext
+		:public GeneratedBlock
+	{
+		TxPool::Fluff& m_TxPool;
+		Key::IKdf& m_Kdf;
 
 		enum Mode {
 			Assemble,

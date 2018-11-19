@@ -1360,8 +1360,8 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf)
 	:m_TxPool(txp)
 	,m_Kdf(kdf)
-	,m_Fees(0)
 {
+	m_Fees = 0;
 	m_Block.ZeroInit();
 	m_Block.m_SubsidyClosing = true; // by default insist on it. If already closed - this flag will automatically be turned OFF
 }

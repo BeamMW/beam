@@ -958,11 +958,16 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 
 	if (proto::IDType::Owner == msg.m_IDType)
 	{
+		bool b = ShouldFinalizeMining();
+
 		if (IsKdfObscured(*m_This.m_pOwnerKdf, msg.m_ID))
 		{
 			m_Flags |= Flags::Owner;
 			ProvePKdfObscured(*m_This.m_pOwnerKdf, proto::IDType::Viewer);
 		}
+
+		if (!b && ShouldFinalizeMining())
+			m_This.m_Miner.OnFinalizerChanged(this);
 	}
 
 	if (proto::IDType::Node != msg.m_IDType)
@@ -1070,6 +1075,13 @@ bool Node::Peer::ShouldAssignTasks()
 	return true;
 }
 
+bool Node::Peer::ShouldFinalizeMining()
+{
+	return
+		(Flags::Owner & m_Flags) &&
+		(proto::LoginFlags::MiningFinalization & m_LoginFlags);
+}
+
 void Node::Peer::OnMsg(proto::Bye&& msg)
 {
 	LOG_INFO() << "Peer " << m_RemoteAddr << " Received Bye." << msg.m_Reason;
@@ -1140,6 +1152,15 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 		proto::Bye msg;
 		msg.m_Reason = nByeReason;
 		Send(msg);
+	}
+
+	if (this == m_This.m_Miner.m_pFinalizer)
+	{
+		m_Flags &= ~Flags::Owner;
+		m_LoginFlags &= proto::LoginFlags::MiningFinalization;
+
+		assert(!ShouldFinalizeMining());
+		m_This.m_Miner.OnFinalizerChanged(NULL);
 	}
 
 	m_Tip.m_Height = 0; // prevent reassigning the tasks
@@ -2173,7 +2194,12 @@ void Node::Peer::OnMsg(proto::Login&& msg)
 		}
 	}
 
+	bool b = ShouldFinalizeMining();
+
 	m_LoginFlags = msg.m_Flags;
+
+	if (b != ShouldFinalizeMining())
+		m_This.m_Miner.OnFinalizerChanged(b ? NULL : this);
 }
 
 void Node::Peer::OnMsg(proto::HaveTransaction&& msg)
@@ -2711,6 +2737,84 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 	Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
+{
+	if (!(Flags::Owner & m_Flags))
+		ThrowUnexpected();
+
+	if (!msg.m_Value)
+		ThrowUnexpected();
+	Transaction& tx = *msg.m_Value;
+
+	if (!m_This.m_Miner.m_pTaskToFinalize)
+		return;
+
+	NodeProcessor::GeneratedBlock& x = *m_This.m_Miner.m_pTaskToFinalize;
+
+	if ((x.m_Hdr.m_Height != msg.m_Height) ||
+		(x.m_Fees != msg.m_Fees))
+		return;
+
+	{
+		ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+		// verify that all the outputs correspond to our viewer's Kdf (in case our comm was hacked this'd prevent mining for someone else)
+		// and do the overall validation
+		TxBase::Context ctx;
+		ctx.m_bBlockMode = true;
+		if (!ctx.ValidateAndSummarize(*msg.m_Value, msg.m_Value->get_Reader()))
+			ThrowUnexpected();
+
+		if (ctx.m_Coinbase.Hi || (ctx.m_Coinbase.Lo != Rules::get().CoinbaseEmission))
+			ThrowUnexpected();
+
+		ctx.m_Sigma = -ctx.m_Sigma;
+		ctx.m_Coinbase += msg.m_Fees;
+		ctx.m_Coinbase.AddTo(ctx.m_Sigma);
+
+		if (!(ctx.m_Sigma == Zero))
+			ThrowUnexpected();
+
+		if (!tx.m_vInputs.empty())
+			ThrowUnexpected();
+
+		for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
+		{
+			Key::IDV kidv;
+			if (!tx.m_vOutputs[i]->Recover(*m_This.m_pOwnerKdf, kidv))
+				ThrowUnexpected();
+		}
+
+		tx.MoveInto(x.m_Block);
+
+		ECC::Scalar::Native offs = x.m_Block.m_Offset;
+		offs += ECC::Scalar::Native(tx.m_Offset);
+		x.m_Block.m_Offset = offs;
+
+	}
+
+	TxPool::Fluff txpEmpty;
+
+	NodeProcessor::BlockContext bc(txpEmpty, *m_This.m_pKdf);
+	bc.m_Mode = NodeProcessor::BlockContext::Mode::Finalize;
+	Cast::Down<NodeProcessor::GeneratedBlock>(bc) = std::move(x);
+
+	bool bRes = m_This.m_Processor.GenerateNewBlock(bc);
+
+	if (!bRes)
+	{
+		LOG_WARNING() << "Block finalization failed";
+		m_This.m_Miner.m_pTaskToFinalize.reset();
+		return;
+	}
+
+	Cast::Down<NodeProcessor::GeneratedBlock>(x) = std::move(bc);
+
+	LOG_INFO() << "Block Finalized by owner";
+
+	m_This.m_Miner.StartMining();
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
 	if (newStream)
@@ -2740,6 +2844,28 @@ void Node::Miner::Initialize()
 	}
 
 	SetTimer(0, true); // async start mining, since this method may be followed by ImportMacroblock.
+}
+
+void Node::Miner::OnFinalizerChanged(Peer* p)
+{
+	// always prefer newer (in case there are several ones)
+	m_pFinalizer = p;
+	if (!m_pFinalizer)
+	{
+		// try to find another one
+		for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; it++)
+			if (it->ShouldFinalizeMining())
+			{
+				m_pFinalizer = &(*it);
+				break;
+			}
+	}
+
+	if (m_pTaskToFinalize)
+		if (m_pFinalizer)
+			OnTaskCreated();
+		else
+			Restart();
 }
 
 void Node::Miner::OnRefresh(uint32_t iIdx)
@@ -2844,6 +2970,8 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 
 void Node::Miner::HardAbortSafe()
 {
+	m_pTaskToFinalize.reset();
+
 	std::scoped_lock<std::mutex> scope(m_Mutex);
 
 	if (m_pTask)
@@ -2880,6 +3008,8 @@ bool Node::Miner::Restart()
 		return false; //  n/a
 
 	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, *get_ParentObj().m_pKdf);
+	if (m_pFinalizer)
+		bc.m_Mode = NodeProcessor::BlockContext::Mode::Assemble;
 
 	if (get_ParentObj().m_Processor.m_Extra.m_SubsidyOpen)
 	{
@@ -2904,15 +3034,40 @@ bool Node::Miner::Restart()
 		return false;
 	}
 
-	LOG_INFO() << "Block generated: Height=" << bc.m_Hdr.m_Height << ", Fee=" << bc.m_Fees << ", Difficulty=" << bc.m_Hdr.m_PoW.m_Difficulty << ", Size=" << (bc.m_BodyP.size() + bc.m_BodyE.size());
-
 	Task::Ptr pTask(std::make_shared<Task>());
-	pTask->m_Hdr = std::move(bc.m_Hdr);
-	pTask->m_BodyP = std::move(bc.m_BodyP);
-	pTask->m_BodyE = std::move(bc.m_BodyE);
-	pTask->m_Fees = bc.m_Fees;
+	Cast::Down<NodeProcessor::GeneratedBlock>(*pTask) = std::move(bc);
 
-	pTask->m_hvNonceSeed = get_ParentObj().NextNonce();
+	m_pTaskToFinalize = std::move(pTask);
+	OnTaskCreated();
+	return true;
+}
+
+void Node::Miner::OnTaskCreated()
+{
+	assert(m_pTaskToFinalize);
+
+	if (m_pFinalizer)
+	{
+		const NodeProcessor::GeneratedBlock& x = *m_pTaskToFinalize;
+		LOG_INFO() << "Block generated: Height=" << x.m_Hdr.m_Height << ", Fee=" << x.m_Fees << ", Waiting for owner response...";
+
+		proto::GetBlockFinalization msg;
+		msg.m_Height = m_pTaskToFinalize->m_Hdr.m_Height;
+		msg.m_Fees = m_pTaskToFinalize->m_Fees;
+		m_pFinalizer->Send(msg);
+	}
+	else
+		StartMining();
+}
+
+void Node::Miner::StartMining()
+{
+	assert(m_pTaskToFinalize);
+
+	const NodeProcessor::GeneratedBlock& x = *m_pTaskToFinalize;
+	LOG_INFO() << "Block generated: Height=" << x.m_Hdr.m_Height << ", Fee=" << x.m_Fees << ", Difficulty=" << x.m_Hdr.m_PoW.m_Difficulty << ", Size=" << (x.m_BodyP.size() + x.m_BodyE.size());
+
+	m_pTaskToFinalize->m_hvNonceSeed = get_ParentObj().NextNonce();
 
 	// let's mine it.
 	std::scoped_lock<std::mutex> scope(m_Mutex);
@@ -2920,21 +3075,19 @@ bool Node::Miner::Restart()
 	if (m_pTask)
 	{
 		if (*m_pTask->m_pStop)
-			return true; // block already mined, probably notification to this thread on its way. Ignore the newly-constructed block
-		pTask->m_pStop = m_pTask->m_pStop; // use the same soft-restart indicator
+			return; // block already mined, probably notification to this thread on its way. Ignore the newly-constructed block
+		m_pTaskToFinalize->m_pStop = m_pTask->m_pStop; // use the same soft-restart indicator
 	}
 	else
 	{
-		pTask->m_pStop.reset(new volatile bool);
-		*pTask->m_pStop = false;
+		m_pTaskToFinalize->m_pStop.reset(new volatile bool);
+		*m_pTaskToFinalize->m_pStop = false;
 	}
 
-	m_pTask = pTask;
+	m_pTask = std::move(m_pTaskToFinalize);
 
 	for (size_t i = 0; i < m_vThreads.size(); i++)
 		m_vThreads[i].m_pEvt->post();
-
-	return true;
 }
 
 void Node::Miner::OnMined()

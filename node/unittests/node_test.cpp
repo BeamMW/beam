@@ -1217,6 +1217,17 @@ namespace beam
 				proto::GetUtxoEvents msgEvt;
 				Send(msgEvt);
 				m_nRecoveryPending++;
+
+				if (!(msg.m_Description.m_Height % 4))
+				{
+					// switch offline/online mining modes
+					proto::Login msgLogin;
+					msgLogin.m_CfgChecksum = Rules::get().Checksum;
+					if (msg.m_Description.m_Height % 8)
+						msgLogin.m_Flags = proto::LoginFlags::MiningFinalization;
+					Send(msgLogin);
+				}
+
 			}
 
 			virtual void OnMsg(proto::ProofState&& msg) override
@@ -1336,6 +1347,24 @@ namespace beam
 				m_nRecoveryPending--;
 
 				verify_test(!msg.m_Events.empty());
+			}
+
+			virtual void OnMsg(proto::GetBlockFinalization&& msg) override
+			{
+				Block::Builder bb;
+				bb.AddCoinbaseAndKrn(*m_Wallet.m_pKdf, msg.m_Height);
+				bb.AddFees(*m_Wallet.m_pKdf, msg.m_Height, msg.m_Fees);
+
+				proto::BlockFinalization msgOut;
+				msgOut.m_Height = msg.m_Height;
+				msgOut.m_Fees = msg.m_Fees;
+
+				msgOut.m_Value.reset(new Transaction);
+				bb.m_Txv.MoveInto(*msgOut.m_Value);
+				msgOut.m_Value->m_Offset = -bb.m_Offset;
+				msgOut.m_Value->Normalize();
+
+				Send(msgOut);
 			}
 
 			void SetTimer(uint32_t timeout_ms) {

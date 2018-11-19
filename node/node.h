@@ -444,6 +444,7 @@ private:
 		void DeleteSelf(bool bIsError, uint8_t nByeReason);
 
 		bool ShouldAssignTasks();
+		bool ShouldFinalizeMining();
 		Task& get_FirstTask();
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
@@ -491,6 +492,7 @@ private:
 		virtual void OnMsg(proto::ProofChainWork&&) override;
 		virtual void OnMsg(proto::Recover&&) override;
 		virtual void OnMsg(proto::GetUtxoEvents&&) override;
+		virtual void OnMsg(proto::BlockFinalization&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
@@ -556,15 +558,11 @@ private:
 		io::AsyncEvent::Ptr m_pEvtMined;
 
 		struct Task
+			:public NodeProcessor::GeneratedBlock
 		{
 			typedef std::shared_ptr<Task> Ptr;
 
 			// Task is mutable. But modifications are allowed only when holding the mutex.
-
-			Block::SystemState::Full m_Hdr;
-			ByteBuffer m_BodyP;
-			ByteBuffer m_BodyE;
-			Amount m_Fees;
 
 			std::shared_ptr<volatile bool> m_pStop;
 
@@ -576,9 +574,15 @@ private:
 		void Initialize();
 		void OnRefresh(uint32_t iIdx);
 		void OnMined();
+		void OnFinalizerChanged(Peer*);
 
 		void HardAbortSafe();
 		bool Restart();
+		void OnTaskCreated();
+		void StartMining();
+
+		Peer* m_pFinalizer = NULL;
+		Task::Ptr m_pTaskToFinalize;
 
 		std::mutex m_Mutex;
 		Task::Ptr m_pTask; // currently being-mined
