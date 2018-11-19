@@ -1,5 +1,6 @@
 #pragma once
 #include "utility/io/fragment_writer.h"
+#include "nlohmann/json_fwd.hpp"
 
 namespace beam {
 
@@ -67,5 +68,8 @@ private:
     io::FragmentWriter _fragmentWriter;
     io::SerializedMsg* _currentMsg;
 };
+
+// appends json msg to out by packer
+bool append_json_msg(io::SerializedMsg& out, HttpMsgCreator& packer, const nlohmann::json& o);
 
 } //namespace

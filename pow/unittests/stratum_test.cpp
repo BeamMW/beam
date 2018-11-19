@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "pow/stratum.h"
+#include "core/ecc.h"
 #include "p2p/http_msg_creator.h"
-#include "p2p/stratum.h"
 #include "utility/helpers.h"
 #include "utility/logger.h"
 
@@ -33,17 +34,17 @@ int json_creation_test() {
 
     try {
         HttpMsgCreator packer(400);
-        Response r(333, login, Error(message_corrupted));
+        Result r("xxx", ResultCode(login_failed));
         io::SerializedMsg m;
         append_json_msg(m, packer, r);
         io::SharedBuffer buf = io::normalize(m);
         LOG_DEBUG() << to_string(buf);
-        Response x;
-        int code = parse_json_msg(buf.data, buf.size, x);
+        Result x;
+        auto code = parse_json_msg(buf.data, buf.size, x);
         if (code != 0) {
-            LOG_ERROR() << "parse_json_msg failed, error=" << get_error_msg(code);
+            LOG_ERROR() << "parse_json_msg failed, error=" << get_result_msg(code);
             ++nErrors;
-        } else if (x.error.code != r.error.code || x.id != r.id || x.method != r.method) {
+        } else if (x.id != r.id || x.method != r.method) {
             LOG_ERROR() << "messages dont match";
         }
     } catch (const std::exception& e) {
@@ -54,6 +55,43 @@ int json_creation_test() {
     return nErrors;
 }
 
+void gen_examples() {
+    using namespace beam::stratum;
+
+    Block::PoW pow;
+    ECC::GenRandom(&pow.m_Nonce, Block::PoW::NonceType::nBytes);
+    ECC::GenRandom(pow.m_Indices.data(), Block::PoW::nSolutionBytes);
+    ECC::GenRandom(&pow.m_Difficulty.m_Packed, 4);
+    Merkle::Hash hash;
+    ECC::GenRandom(&hash.m_pData, 32);
+
+    Login loginMsg("skjdb7343636gucgjdjgd");
+    Job jobMsg(212, hash, pow);
+    Cancel cancelMsg(212);
+    Solution solMsg(212, pow);
+    Result res1("login", login_failed);
+    Result res2("212", solution_accepted);
+
+    io::SharedBuffer sep("\n", 1);
+
+    HttpMsgCreator packer(2000);
+    io::SerializedMsg m;
+    append_json_msg(m, packer, loginMsg);
+    m.push_back(sep);
+    append_json_msg(m, packer, jobMsg);
+    m.push_back(sep);
+    append_json_msg(m, packer, cancelMsg);
+    m.push_back(sep);
+    append_json_msg(m, packer, solMsg);
+    m.push_back(sep);
+    append_json_msg(m, packer, res1);
+    m.push_back(sep);
+    append_json_msg(m, packer, res2);
+
+    io::SharedBuffer buf = io::normalize(m);
+    LOG_DEBUG() << to_string(buf);
+}
+
 } //namespace
 
 int main() {
@@ -62,6 +100,8 @@ int main() {
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
-    return json_creation_test();
+    auto res = json_creation_test();
+    gen_examples();
+    return res;
 }
 

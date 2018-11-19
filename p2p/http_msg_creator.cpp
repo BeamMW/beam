@@ -1,7 +1,11 @@
 #include "http_msg_creator.h"
+#include "nlohmann/json.hpp"
+#include "utility/logger.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <assert.h>
+
+using json = nlohmann::json;
 
 namespace beam {
 
@@ -97,6 +101,43 @@ bool HttpMsgCreator::create_response(
     if (!write_fmt(_fragmentWriter, "HTTP/1.%d %d %s\r\n", http_minor_version, code, message)) return false;
 
     return create_message(_fragmentWriter, headers, num_headers, content_type, bodySize);
+}
+
+namespace {
+
+    struct JsonOutputAdapter : nlohmann::detail::output_adapter_protocol<char> {
+        JsonOutputAdapter(io::FragmentWriter& _fw) : fw(_fw) {}
+
+        void write_character(char c) override {
+            fw.write(&c, 1);
+        }
+
+        void write_characters(const char* s, std::size_t length) override {
+            fw.write(s, length);
+        }
+
+        io::FragmentWriter& fw;
+    };
+
+} //namespace
+
+bool append_json_msg(io::SerializedMsg& out, HttpMsgCreator& packer, const json& o) {
+    bool result = true;
+    size_t initialFragments = out.size();
+    io::FragmentWriter& fw = packer.acquire_writer(out);
+    try {
+        // TODO make stateful object out of these fns if performance issues occur
+        nlohmann::detail::serializer<json> s(std::make_shared<JsonOutputAdapter>(fw), ' ');
+        s.dump(o, false, false, 0);
+    } catch (const std::exception& e) {
+        LOG_ERROR() << "dump json: " << e.what();
+        result = false;
+    }
+
+    fw.finalize();
+    if (!result) out.resize(initialFragments);
+    packer.release_writer();
+    return result;
 }
 
 } //namepsace

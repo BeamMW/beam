@@ -10,7 +10,6 @@ set(P2P_SRC
     connect_pool.cpp
     http_msg_reader.cpp
     http_msg_creator.cpp
-    stratum.cpp
     http_client.cpp
     ${PROJECT_SOURCE_DIR}/3rdparty/picohttpparser/picohttpparser.c)
 
