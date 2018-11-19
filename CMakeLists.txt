@@ -233,6 +233,7 @@ if (WIN32)
 
     set(CPACK_NSIS_EXECUTABLES_DIRECTORY .)
     set(CPACK_NSIS_MUI_FINISHPAGE_RUN "Beam Wallet.exe") 
+    set(CPACK_NSIS_PACKAGE_NAME "Beam Wallet")
 
 elseif (APPLE)
     set(CPACK_GENERATOR "DragNDrop")
