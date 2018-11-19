@@ -24,6 +24,7 @@ using namespace std;
 namespace
 {
     const char* BBS_TIMESTAMPS = "BbsTimestamps";
+    const uint32_t kMsgSize = 1024 * 1024;   // 1 MB
 }
 
 namespace beam {
@@ -36,7 +37,7 @@ namespace beam {
                                    , unsigned sync_period_ms)
 
         : m_protocol{ WALLET_MAJOR, WALLET_MINOR, WALLET_REV, 150, *this, 20000 }
-        , m_msgReader{ m_protocol, 1, 20000 }
+        , m_msgReader{ m_protocol, 1, kMsgSize }
         , m_walletID(Zero)
         , m_node_address{node_address}
         , m_reactor{ !reactor ? io::Reactor::create() : reactor }
@@ -50,7 +51,7 @@ namespace beam {
         , m_keystore(keyStore)
         , m_lastReceiver(0)
     {
-        m_protocol.add_message_handler<WalletNetworkIO, wallet::SetTxParameter,     &WalletNetworkIO::on_message>(setTxParameterCode, this, 1, 20000);
+        m_protocol.add_message_handler<WalletNetworkIO, wallet::SetTxParameter,     &WalletNetworkIO::on_message>(setTxParameterCode, this, 1, kMsgSize);
 
         ByteBuffer buffer;
         m_keychain->getBlob(BBS_TIMESTAMPS, buffer);
