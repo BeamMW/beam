@@ -2862,10 +2862,12 @@ void Node::Miner::OnFinalizerChanged(Peer* p)
 	}
 
 	if (m_pTaskToFinalize)
+	{
 		if (m_pFinalizer)
 			OnTaskCreated();
 		else
 			Restart();
+	}
 }
 
 void Node::Miner::OnRefresh(uint32_t iIdx)
