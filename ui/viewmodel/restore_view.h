@@ -18,6 +18,7 @@
 #include <QTimer>
 
 #include "model/wallet_model.h"
+#include "ui_helpers.h"
 
 class RestoreViewModel : public QObject
 {
@@ -63,8 +64,12 @@ private:
     bool _walletConnected;
     bool _hasLocalNode;
     QString _progressMessage;
-    beam::Timestamp _syncStart;
+    uint64_t _estimationUpdateDeltaMs;
+    double _prevProgress;
+    uint64_t _prevUpdateTimeMs;
     QTimer _updateTimer;
     int _startTimeout;
     bool _creating;
+    beamui::Filter _speedFilter;
+    uint64_t _currentEstimationSec;
 };

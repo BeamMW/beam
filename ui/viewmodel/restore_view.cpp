@@ -26,9 +26,13 @@ RestoreViewModel::RestoreViewModel()
     , _done{0}
     , _walletConnected{false}
     , _hasLocalNode{ AppModel::getInstance()->getSettings().getRunLocalNode() }
-    , _syncStart{getTimestamp()}
+    , _estimationUpdateDeltaMs{ 0UL }
+    , _prevProgress{0.0}
+    , _prevUpdateTimeMs{ GetTime_ms() }
     , _startTimeout{30} // sec
     , _creating{false}
+    , _speedFilter{24}
+    , _currentEstimationSec{0}
 {
     connect(AppModel::getInstance()->getWallet().get(), SIGNAL(onSyncProgressUpdated(int, int)),
         SLOT(onSyncProgressUpdated(int, int)));
@@ -127,25 +131,46 @@ void RestoreViewModel::updateProgress()
         p = walletSyncProgress;
     }
 
+    auto currentTime = GetTime_ms();
+    uint64_t timeDelta = currentTime - _prevUpdateTimeMs;
+    _prevUpdateTimeMs = currentTime;
+    _estimationUpdateDeltaMs += timeDelta;
+
     if (p > 0)
     {
-        progressMessage.append(tr(", estimated time:"));
-
-        auto d = getTimestamp() - _syncStart;
-        Timestamp estimateInSec = d * (1.0 / p - 1);
-
-        int hours = estimateInSec / 3600;
-        if (hours > 0)
+        if (_estimationUpdateDeltaMs > 1000) // update estimation ~every  second
         {
-            progressMessage.append(QString::asprintf(tr(" %d h").toStdString().c_str(), hours));
+            double progressDelta = p - _prevProgress;
+            _prevProgress = p;
+
+            double speed = progressDelta / _estimationUpdateDeltaMs;
+            _speedFilter.addSample(speed);
+
+            _estimationUpdateDeltaMs = 0UL;
+            auto currentSpeed = _speedFilter.getAverage();
+            if (currentSpeed > 0.0)
+            {
+                _currentEstimationSec = ((1.0 - p) / currentSpeed) / 1000;
+            }
         }
-        int minutes = (estimateInSec - 3600 * hours) / 60;
-        if (minutes > 0)
+
+        if (_currentEstimationSec > 0 )
         {
-            progressMessage.append(QString::asprintf(tr(" %d min").toStdString().c_str(), minutes));
+            progressMessage.append(tr(", estimated time:"));
+
+            int hours = _currentEstimationSec / 3600;
+            if (hours > 0)
+            {
+                progressMessage.append(QString::asprintf(tr(" %d h").toStdString().c_str(), hours));
+            }
+            int minutes = (_currentEstimationSec - 3600 * hours) / 60;
+            if (minutes > 0)
+            {
+                progressMessage.append(QString::asprintf(tr(" %d min").toStdString().c_str(), minutes));
+            }
+            int seconds = _currentEstimationSec % 60;
+            progressMessage.append(QString::asprintf(tr(" %d sec").toStdString().c_str(), seconds));
         }
-        int seconds = estimateInSec % 60;
-        progressMessage.append(QString::asprintf(tr(" %d sec").toStdString().c_str(), seconds));
     }
     else if  (!_creating)
     {
