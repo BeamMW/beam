@@ -496,6 +496,29 @@ namespace beam
 	}
 
 	template <typename T>
+	void MoveIntoVec(std::vector<T>& trg, std::vector<T>& src)
+	{
+		if (trg.empty())
+			trg = std::move(src);
+		else
+		{
+			trg.reserve(trg.size() + src.size());
+
+			for (size_t i = 0; i < src.size(); i++)
+				trg.push_back(std::move(src[i]));
+
+			src.clear();
+		}
+	}
+
+	void TxVectors::Full::MoveInto(Full& trg)
+	{
+		MoveIntoVec(trg.m_vInputs, m_vInputs);
+		MoveIntoVec(trg.m_vOutputs, m_vOutputs);
+		MoveIntoVec(trg.m_vKernels, m_vKernels);
+	}
+
+	template <typename T>
 	int CmpPtrVectors(const std::vector<T>& a, const std::vector<T>& b)
 	{
 		CMP_SIMPLE(a.size(), b.size())
@@ -1061,6 +1084,52 @@ namespace beam
 				break;
 
 			m_Map.erase(it);
+		}
+	}
+
+	/////////////
+	// Builder
+	Block::Builder::Builder()
+	{
+		m_Offset = Zero;
+	}
+
+	void Block::Builder::AddCoinbaseAndKrn(Key::IKdf& kdf, Height h)
+	{
+		ECC::Scalar::Native sk;
+
+		Output::Ptr pOutp(new Output);
+		pOutp->m_Coinbase = true;
+		pOutp->Create(sk, kdf, Key::IDV(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase));
+
+		m_Offset += sk;
+		m_Txv.m_vOutputs.push_back(std::move(pOutp));
+
+		kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel, uint64_t(-1LL)));
+
+		TxKernel::Ptr pKrn(new TxKernel);
+		pKrn->m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
+		pKrn->m_Height.m_Min = h; // make it similar to others
+
+		ECC::Hash::Value hv;
+		pKrn->get_Hash(hv);
+		pKrn->m_Signature.Sign(hv, sk);
+
+		m_Offset += sk;
+		m_Txv.m_vKernels.push_back(std::move(pKrn));
+	}
+
+	void Block::Builder::AddFees(Key::IKdf& kdf, Height h, Amount fees)
+	{
+		if (fees)
+		{
+			ECC::Scalar::Native sk;
+
+			Output::Ptr pOutp(new Output);
+			pOutp->Create(sk, kdf, Key::IDV(fees, h, Key::Type::Comission));
+
+			m_Offset += sk;
+			m_Txv.m_vOutputs.push_back(std::move(pOutp));
 		}
 	}
 

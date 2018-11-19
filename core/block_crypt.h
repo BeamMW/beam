@@ -366,6 +366,8 @@ namespace beam
 			}
 
 			size_t Normalize();
+
+			void MoveInto(Full& trg);
 		};
 	};
 
@@ -574,6 +576,17 @@ namespace beam
 		};
 
 		struct ChainWorkProof;
+
+		struct Builder
+		{
+			ECC::Scalar::Native m_Offset; // the sign is opposite
+			TxVectors::Full m_Txv;
+
+			Builder();
+
+			void AddCoinbaseAndKrn(Key::IKdf&, Height);
+			void AddFees(Key::IKdf&, Height, Amount fees);
+		};
 	};
 
 	struct TxKernel::LongProof
