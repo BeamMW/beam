@@ -10,7 +10,7 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 
 
 **TESTNET IS LAUNCHED!** 
-http://beam-mw.com/downloads
+http://beam.mw/downloads
 
 
 Things that make BEAM special include:
@@ -33,8 +33,8 @@ years.
 # Roadmap
 
 - March 2018     : Project started
-- June 2018       : Internal POC featuring fully functional node and CLI wallet
-- September 2018 : Testnet 1 and Graphical Wallet
+- June 2018      : Internal POC featuring fully functional node and CLI wallet
+- September 2018 : Testnet 1 and Desktop Wallet App (Windows, Mac, Linux)
 - December 2018  : Mainnet launch
 
 # Current status
