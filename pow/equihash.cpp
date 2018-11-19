@@ -19,7 +19,7 @@
 #include <utility>
 
 #if defined (BEAM_USE_GPU)
-#include "impl/equihash_gpu.h"
+#include "3rdparty/equihash_gpu.h"
 #endif
 
 namespace beam
