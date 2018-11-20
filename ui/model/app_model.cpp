@@ -121,12 +121,12 @@ void AppModel::applySettingsChanges()
         io::Address nodeAddr = io::Address::LOCALHOST;
         nodeAddr.port(m_settings.getLocalNodePort());
 
-        m_wallet->async->setNodeAddress(nodeAddr.str());
+        m_wallet->getAsync()->setNodeAddress(nodeAddr.str());
     }
     else
     {
         auto nodeAddr = m_settings.getNodeAddress().toStdString();
-        m_wallet->async->setNodeAddress(nodeAddr);
+        m_wallet->getAsync()->setNodeAddress(nodeAddr);
     }
 }
 
@@ -191,7 +191,7 @@ void AppModel::changeWalletPassword(const std::string& pass)
     beam::SecString t = pass;
     m_passwordHash.V = t.hash().V;
 
-    m_wallet->async->changeWalletPassword(pass);
+    m_wallet->getAsync()->changeWalletPassword(pass);
 }
 
 void AppModel::setRestoreWallet(bool value)

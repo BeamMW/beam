@@ -1,16 +1,16 @@
 
 ![alt text](https://forum.beam-mw.com/uploads/beam_mw/original/1X/261e2a2eba2b6c8aadae678673f9e8e09a78f5cf.png "Beam Logo")
 
-BEAM is a next generation scalable, confidential cryptocurrency based on an elegant and innovative [Mimblewimble protocol](https://www.scribd.com/document/382681522/The-Mimblewimble-white-papers).
+BEAM is a next generation scalable, confidential cryptocurrency based on an elegant and innovative [Mimblewimble protocol](https://docs.beam.mw/Mimblewimble.pdf).
 
-[twitter](https://twitter.com/beamprivacy) | [medium](https://medium.com/beam-mw) | [reddit](https://www.reddit.com/r/beamprivacy/) | [beam forum](http://forum.beam-mw.com) | [gitter](https://gitter.im/beamprivacy/Lobby) | [telegram](https://t.me/BeamPrivacy) | [bitcointalk](https://bitcointalk.org/index.php?topic=4969510) | [youtube](https://www.youtube.com/channel/UCddqBnfSPWibf4f8OnEJm_w?) | [facebook](https://www.facebook.com/Beamprivacy)
-
-
-[Read our position paper](https://www.scribd.com/document/382680718/BEAM-Position-Paper-V-0-1)
+[twitter](https://twitter.com/beamprivacy) | [medium](https://medium.com/beam-mw) | [reddit](https://www.reddit.com/r/beamprivacy/) | [beam forum](http://forum.beam-mw.com) | [gitter](https://gitter.im/beamprivacy/Lobby) | [telegram](https://t.me/BeamPrivacy) | [bitcointalk](https://bitcointalk.org/index.php?topic=5052151.0) | [youtube](https://www.youtube.com/channel/UCddqBnfSPWibf4f8OnEJm_w?)
 
 
-**TESTNET IS LAUNCHED!** 
-http://beam-mw.com/downloads
+[Read our position paper](https://docs.beam.mw/BEAM_Position_Paper_v0.2.2.pdf)
+
+
+**TESTNET2 IS LAUNCHED!** 
+http://beam.mw/downloads
 
 
 Things that make BEAM special include:
@@ -33,8 +33,8 @@ years.
 # Roadmap
 
 - March 2018     : Project started
-- June 2018       : Internal POC featuring fully functional node and CLI wallet
-- September 2018 : Testnet 1 and Graphical Wallet
+- June 2018      : Internal POC featuring fully functional node and CLI wallet
+- September 2018 : Testnet 1 and Desktop Wallet App (Windows, Mac, Linux)
 - December 2018  : Mainnet launch
 
 # Current status
@@ -50,7 +50,7 @@ years.
 
 
 # Build status
-[![Build Status](https://travis-ci.org/beam-mw/beam.svg?branch=master)](https://travis-ci.org/beam-mw/beam)
-[![Build status](https://ci.appveyor.com/api/projects/status/i2vuy3bvjf31ocr2/branch/master?svg=true)](https://ci.appveyor.com/project/beam-mw/beam/branch/master)
+[![Build Status](https://travis-ci.org/BeamMW/beam.svg?branch=master)](https://travis-ci.org/BeamMW/beam)
+[![Build status](https://ci.appveyor.com/api/projects/status/0j424l1h61gwqddm/branch/master?svg=true)](https://ci.appveyor.com/project/beam-mw/beam/branch/master)
 
 See [How to build](https://github.com/BeamMW/beam/wiki/How-to-build)

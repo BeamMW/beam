@@ -26,7 +26,7 @@ if(BEAM_USE_GPU)
 
     set(POW_SRC ${POW_SRC}
         equihash.cpp
-        impl/equihash_gpu.cu)
+        ${PROJECT_SOURCE_DIR}/3rdparty/equihash_gpu.cu)
 
     CUDA_ADD_LIBRARY(pow STATIC ${POW_SRC})
 
