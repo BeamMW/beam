@@ -624,7 +624,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 
 void Node::Initialize()
 {
-	m_bAutoGenKdf = !!m_pKdf;
+	m_bAutoGenKdf = !m_pKdf;
 	if (m_bAutoGenKdf)
 	{
 		// use arbitrary, inited from system random. Needed for misc things, such as secure channel.
