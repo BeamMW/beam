@@ -35,10 +35,16 @@
 #	pragma warning (pop)
 #endif
 
-#ifndef WIN32
+#ifdef WIN32
+#	pragma comment (lib, "Bcrypt.lib")
+#else // WIN32
 #    include <unistd.h>
 #    include <fcntl.h>
 #endif // WIN32
+
+#ifdef __linux__
+#	include <sys/random.h>
+#endif // __linux__
 
 namespace ECC {
 
@@ -89,22 +95,26 @@ namespace ECC {
 
 	void GenRandom(void* p, uint32_t nSize)
 	{
-		bool bRet = false;
-
 		// checkpoint?
 
 #ifdef WIN32
 
-		HCRYPTPROV hProv;
-		if (CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_SCHANNEL, CRYPT_VERIFYCONTEXT))
-		{
-			if (CryptGenRandom(hProv, nSize, (uint8_t*)p))
-				bRet = true;
-			verify(CryptReleaseContext(hProv, 0));
-		}
+		NTSTATUS ntStatus = BCryptGenRandom(NULL, (PUCHAR) p, nSize, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+		if (ntStatus)
+			std::ThrowSystemError(ntStatus);
 
 #else // WIN32
 
+		bool bRet = false;
+
+#	ifdef __linux__ 
+
+		ssize_t nRet = getrandom(p, nSize, 0);
+		bRet = (nRet == nSize);
+
+#	else // __linux__ 
+
+		// use standard posix
 		int hFile = open("/dev/urandom", O_RDONLY);
 		if (hFile >= 0)
 		{
@@ -114,10 +124,12 @@ namespace ECC {
 			close(hFile);
 		}
 
-#endif // WIN32
+#	endif // __linux__ 
 
 		if (!bRet)
 			std::ThrowLastError();
+
+#endif // WIN32
 	}
 
 	/////////////////////

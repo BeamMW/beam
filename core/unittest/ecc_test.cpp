@@ -1057,6 +1057,23 @@ void TestDifficulty()
 	}
 }
 
+void TestRandom()
+{
+	uintBig pV[2];
+	ZeroObject(pV);
+
+	for (uint32_t i = 0; i < 10; i++)
+	{
+		uintBig& a = pV[1 & i];
+		uintBig& b = pV[1 & (i + 1)];
+
+		a = Zero;
+		GenRandom(a);
+		verify_test(!(a == Zero));
+		verify_test(!(a == b));
+	}
+}
+
 void TestAll()
 {
 	TestUintBig();
@@ -1071,6 +1088,7 @@ void TestAll()
 	TestKdf();
 	TestBbs();
 	TestDifficulty();
+	TestRandom();
 }
 
 
@@ -1526,6 +1544,19 @@ void RunBenchmark()
 				for (size_t nSize = 0; nSize < 0x100000; nSize += sizeof(pBuf))
 					asc.XCrypt(enc, pBuf, sizeof(pBuf));
 			}
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		uint8_t pBuf[0x400];
+
+		BenchmarkMeter bm("Random-1K");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				GenRandom(pBuf, sizeof(pBuf));
 
 		} while (bm.ShouldContinue());
 	}
