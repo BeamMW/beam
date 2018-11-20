@@ -153,7 +153,6 @@ namespace beam
         , m_synchronized{false}
         , m_holdNodeConnection{ holdNodeConnection }
         , m_needRecover{false}
-        , m_recovering{false}
     {
         assert(keyChain);
         ZeroObject(m_newState);
@@ -509,12 +508,6 @@ namespace beam
 
     bool Wallet::handle_node_message(proto::NewTip&& msg)
     {
-        if (m_recovering)
-        {
-            // ignore when recover is in progress
-            return true;
-        }
-
         m_pending_reg_requests.clear();
 
         Block::SystemState::ID newID;
@@ -705,7 +698,6 @@ namespace beam
         if (m_needRecover)
         {
             m_needRecover = false;
-            m_recovering = true;
             m_network->send_node_message(proto::Recover{ true, true });
             return;
         }
@@ -793,7 +785,6 @@ namespace beam
         m_keyChain->setSystemStateID(m_knownStateID);
         LOG_INFO() << "Current state is " << m_knownStateID;
         m_synchronized = true;
-        m_recovering = false;
         m_syncDone = m_syncTotal = 0;
         notifySyncProgress();
         if (!m_pendingEvents.empty())

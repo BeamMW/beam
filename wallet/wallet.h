@@ -214,7 +214,6 @@ namespace beam
         bool m_synchronized;
         bool m_holdNodeConnection;
         bool m_needRecover;
-        bool m_recovering;
 
         std::vector<IWalletObserver*> m_subscribers;
     };
