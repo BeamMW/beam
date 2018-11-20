@@ -14,7 +14,8 @@
 
 #include "pow/stratum.h"
 #include "core/ecc.h"
-#include "p2p/http_msg_creator.h"
+#include "p2p/json_serializer.h"
+#include "p2p/line_protocol.h"
 #include "utility/helpers.h"
 #include "utility/logger.h"
 
@@ -33,10 +34,15 @@ int json_creation_test() {
     using namespace beam::stratum;
 
     try {
-        HttpMsgCreator packer(400);
-        Result r("xxx", ResultCode(login_failed));
         io::SerializedMsg m;
-        append_json_msg(m, packer, r);
+
+        LineProtocol lineProtocol(
+            [](void*, size_t) -> bool { return false; },
+            [&m](io::SharedBuffer&& fragment) { m.push_back(fragment); }
+        );
+
+        Result r("xxx", ResultCode(login_failed));
+        append_json_msg(lineProtocol, r);
         io::SharedBuffer buf = io::normalize(m);
         LOG_DEBUG() << to_string(buf);
         Result x;
@@ -72,24 +78,32 @@ void gen_examples() {
     Result res1("login", login_failed);
     Result res2("212", solution_accepted);
 
-    io::SharedBuffer sep("\n", 1);
-
-    HttpMsgCreator packer(2000);
     io::SerializedMsg m;
-    append_json_msg(m, packer, loginMsg);
-    m.push_back(sep);
-    append_json_msg(m, packer, jobMsg);
-    m.push_back(sep);
-    append_json_msg(m, packer, cancelMsg);
-    m.push_back(sep);
-    append_json_msg(m, packer, solMsg);
-    m.push_back(sep);
-    append_json_msg(m, packer, res1);
-    m.push_back(sep);
-    append_json_msg(m, packer, res2);
+
+    LineProtocol packer(
+        [](void*, size_t) -> bool { return false; },
+        [&m](io::SharedBuffer&& fragment) {m.push_back(fragment);}
+    );
+
+    append_json_msg(packer, loginMsg);
+    append_json_msg(packer, jobMsg);
+    append_json_msg(packer, cancelMsg);
+    append_json_msg(packer, solMsg);
+    append_json_msg(packer, res1);
+    append_json_msg(packer, res2);
 
     io::SharedBuffer buf = io::normalize(m);
     LOG_DEBUG() << to_string(buf);
+
+    LineProtocol reader(
+        [](void* data, size_t size) -> bool {
+            LOG_DEBUG() << std::string((char*)data, size);
+            return true;
+        },
+        [](io::SharedBuffer&& fragment) {}
+    );
+
+    reader.new_data_from_stream((void*)buf.data, buf.size);
 }
 
 } //namespace

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "stratum.h"
-#include "p2p/http_msg_creator.h"
+#include "p2p/json_serializer.h"
 #include "nlohmann/json.hpp"
 #include "utility/helpers.h"
 #include "utility/logger.h"
@@ -80,7 +80,13 @@ ResultCode parse_json(const void* buf, size_t bufSize, json& o) {
     return no_error;
 }
 
-ResultCode parse_message(const json& o, Message& m) {
+void append_base(json& o, const Message& m) {
+    o[l_jsonrpc] = "2.0";
+    o[l_id] = m.id;
+    o[l_method] = m.method_str;
+}
+
+ResultCode parse_base(const json& o, Message& m) {
     m.id = o[l_id];
     if (m.id.empty()) return empty_id;
     m.method_str = o[l_method];
@@ -89,28 +95,44 @@ ResultCode parse_message(const json& o, Message& m) {
     return no_error;
 }
 
-void append_base(json& o, const Message& m) {
-    o[l_jsonrpc] = "2.0";
-    o[l_id] = m.id;
-    o[l_method] = m.method_str;
+template <typename M> void parse(const json& o, M& m)
+{}
+
+template<> void parse(const json& o, Login& m) {
+    m.api_key = o[l_api_key];
+}
+
+template<> void parse(const json& o, Job& m) {
+    m.input = o[l_input];
+    m.difficulty = o[l_difficulty];
+}
+
+template<> void parse(const json& o, Solution& m) {
+    m.nonce = o[l_nonce];
+    m.output = o[l_output];
+}
+
+template<> void parse(const json& o, Result& m) {
+    m.code = o[l_code];
+    m.description = o[l_description];
 }
 
 } //namespace
 
-bool append_json_msg(io::SerializedMsg& out, HttpMsgCreator& packer, const Login& m) {
+bool append_json_msg(io::FragmentWriter& packer, const Login& m) {
     json o;
     append_base(o, m);
     o[l_api_key] = m.api_key;
-    return append_json_msg(out, packer, o);
+    return serialize_json_msg(packer, o);
 }
 
-ResultCode parse_json_msg(const void* buf, size_t bufSize, Login& m) {
+template <typename M> ResultCode parse_json_msg(const void* buf, size_t bufSize, M& m) {
     json o;
     ResultCode r = parse_json(buf, bufSize, o);
     if (r != 0) return r;
-    r = parse_message(o, m);
+    r = parse_base(o, m);
     if (r != 0) return r;
-    m.api_key = o[l_api_key];
+    parse(m);
     return no_error;
 }
 
@@ -122,38 +144,18 @@ Job::Job(uint64_t _id, const Merkle::Hash& _input, const Block::PoW& _pow) :
     input = to_hex(buf, _input.m_pData, 32);
 }
 
-bool append_json_msg(io::SerializedMsg& out, HttpMsgCreator& packer, const Job& m) {
+bool append_json_msg(io::FragmentWriter& packer, const Job& m) {
     json o;
     append_base(o, m);
     o[l_input] = m.input;
     o[l_difficulty] = m.difficulty;
-    return append_json_msg(out, packer, o);
+    return serialize_json_msg(packer, o);
 }
 
-ResultCode parse_json_msg(const void* buf, size_t bufSize, Job& m) {
-    json o;
-    ResultCode r = parse_json(buf, bufSize, o);
-    if (r != 0) return r;
-    r = parse_message(o, m);
-    if (r != 0) return r;
-    m.input = o[l_input];
-    m.difficulty = o[l_difficulty];
-    return no_error;
-}
-
-bool append_json_msg(io::SerializedMsg& out, HttpMsgCreator& packer, const Cancel& m) {
+bool append_json_msg(io::FragmentWriter& packer, const Cancel& m) {
     json o;
     append_base(o, m);
-    return append_json_msg(out, packer, o);
-}
-
-ResultCode parse_json_msg(const void* buf, size_t bufSize, Cancel& m) {
-    json o;
-    ResultCode r = parse_json(buf, bufSize, o);
-    if (r != 0) return r;
-    r = parse_message(o, m);
-    if (r != 0) return r;
-    return no_error;
+    return serialize_json_msg(packer, o);
 }
 
 Solution::Solution(uint64_t _id, const Block::PoW& _pow) :
@@ -173,42 +175,61 @@ bool Solution::fill_pow(Block::PoW& pow) {
     return (ok && buf.size() == Block::PoW::NonceType::nBytes);
 }
 
-bool append_json_msg(io::SerializedMsg& out, HttpMsgCreator& packer, const Solution& m) {
+bool append_json_msg(io::FragmentWriter& packer, const Solution& m) {
     json o;
     append_base(o, m);
     o[l_nonce] = m.nonce;
     o[l_output] = m.output;
-    return append_json_msg(out, packer, o);
+    return serialize_json_msg(packer, o);
 }
 
-ResultCode parse_json_msg(const void* buf, size_t bufSize, Solution& m) {
-    json o;
-    ResultCode r = parse_json(buf, bufSize, o);
-    if (r != 0) return r;
-    r = parse_message(o, m);
-    if (r != 0) return r;
-    m.nonce = o[l_nonce];
-    m.output = o[l_output];
-    return no_error;
-}
-
-bool append_json_msg(io::SerializedMsg& out, HttpMsgCreator& packer, const Result& m) {
+bool append_json_msg(io::FragmentWriter& packer, const Result& m) {
     json o;
     append_base(o, m);
     o[l_code] = m.code;
     o[l_description] = m.description;
-    return append_json_msg(out, packer, o);
+    return serialize_json_msg(packer, o);
 }
 
-ResultCode parse_json_msg(const void* buf, size_t bufSize, Result& m) {
+#define DEF_PARSE_IMPL(_, __, struct_name) \
+    ResultCode parse_json_msg(const void* buf, size_t bufSize, struct_name& m) { \
+        json o; \
+        ResultCode r = parse_json(buf, bufSize, o); \
+        if (r != 0) return r; \
+        r = parse_base(o, m); \
+        if (r != 0) return r; \
+        parse(o, m); \
+        return no_error; }
+
+STRATUM_METHODS(DEF_PARSE_IMPL)
+
+#undef DEF_PARSE_IMPL
+
+namespace {
+
+template <typename M> void parse(const json& o, const Message& base, ParserCallback& callback) {
+    M m;
+    (Message&)m = base;
+    callback.on_message(m);
+}
+
+} //namespace
+
+void parse_json_msg(const void* buf, size_t bufSize, ParserCallback& callback) {
     json o;
     ResultCode r = parse_json(buf, bufSize, o);
-    if (r != 0) return r;
-    r = parse_message(o, m);
-    if (r != 0) return r;
-    m.code = o[l_code];
-    m.description = o[l_description];
-    return no_error;
+    if (r != 0) return;
+    Message m;
+    r = parse_base(o, m);
+    if (r != 0) return;
+
+    switch (m.method) {
+#define DEF_PARSE_IMPL(_, method_name, struct_name) case method_name: { parse<struct_name>(o, m, callback); break; }
+    STRATUM_METHODS(DEF_PARSE_IMPL)
+#undef DEF_PARSE_IMPL
+        default:
+            break;
+    }
 }
 
 } //namespaces

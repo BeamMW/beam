@@ -11,6 +11,8 @@ set(P2P_SRC
     http_msg_reader.cpp
     http_msg_creator.cpp
     http_client.cpp
+    line_protocol.h
+    json_serializer.cpp
     ${PROJECT_SOURCE_DIR}/3rdparty/picohttpparser/picohttpparser.c)
 
 add_library(p2p STATIC ${P2P_SRC})

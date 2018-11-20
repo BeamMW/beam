@@ -14,16 +14,11 @@
 
 #pragma once
 #include "core/block_crypt.h"
-#include "utility/io/buffer.h"
-#include "nlohmann/json_fwd.hpp"
+#include "utility/io/fragment_writer.h"
 
 namespace beam {
 
-class HttpMsgCreator;
-
 namespace stratum {
-
-struct Dummy {};
 
 #define STRATUM_METHODS(macro) \
     macro(0, null_method, Dummy) \
@@ -81,6 +76,8 @@ struct Message {
         method_str(get_method_str(_method))
     {}
 };
+
+struct Dummy : Message {};
 
 /// Miner logins to server
 struct Login : Message {
@@ -149,9 +146,12 @@ struct ParserCallback {
 #undef DEF_HANDLER
 };
 
+// common case of parse message
+void parse_json_msg(const void* buf, size_t bufSize, ParserCallback& callback);
+
 // serializers and deserializers that return negative ResultCode on parse error
 #define DEF_SERIALIZE_JSON(_, __, struct_name) \
-    bool append_json_msg(io::SerializedMsg& out, HttpMsgCreator& packer, const struct_name& m); \
+    bool append_json_msg(io::FragmentWriter& packer, const struct_name& m); \
     ResultCode parse_json_msg(const void* buf, size_t bufSize, struct_name& m);
 
 STRATUM_METHODS(DEF_SERIALIZE_JSON)

@@ -16,6 +16,7 @@
 #include "node/node.h"
 #include "core/serialization_adapters.h"
 #include "p2p/http_msg_creator.h"
+#include "p2p/json_serializer.h"
 #include "nlohmann/json.hpp"
 #include "utility/helpers.h"
 #include "utility/logger.h"
@@ -154,7 +155,7 @@ private:
             char buf[80];
 
             _sm.clear();
-            if (!append_json_msg(
+            if (!serialize_json_msg(
                 _sm,
                 _packer,
                 json{
@@ -321,7 +322,7 @@ private:
                 blockAvailable = false;
             } else {
                 _sm.clear();
-                if (append_json_msg(_sm, _packer, j)) {
+                if (serialize_json_msg(_sm, _packer, j)) {
                     body = io::normalize(_sm, false);
                     _cache.put_block(height, body);
                 } else {
@@ -336,7 +337,7 @@ private:
             return true;
         }
 
-        return append_json_msg(out, _packer, json{ { "found", false}, {"height", height } });
+        return serialize_json_msg(out, _packer, json{ { "found", false}, {"height", height } });
     }
 
     bool get_block(io::SerializedMsg& out, uint64_t height) override {
