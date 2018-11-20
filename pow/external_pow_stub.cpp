@@ -94,11 +94,6 @@ private:
     std::condition_variable _cond;
 };
 
-// TODO stub
-std::unique_ptr<IExternalPOW> IExternalPOW::create(uint16_t /*port*/) {
-    return create_local_solver();
-}
-
 std::unique_ptr<IExternalPOW> IExternalPOW::create_local_solver() {
     return std::make_unique<ExternalPOWStub>();
 }

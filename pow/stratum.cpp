@@ -207,29 +207,31 @@ STRATUM_METHODS(DEF_PARSE_IMPL)
 
 namespace {
 
-template <typename M> void parse(const json& o, const Message& base, ParserCallback& callback) {
+template <typename M> bool parse(const json& o, const Message& base, ParserCallback& callback) {
     M m;
     (Message&)m = base;
-    callback.on_message(m);
+    return callback.on_message(m);
 }
 
 } //namespace
 
-void parse_json_msg(const void* buf, size_t bufSize, ParserCallback& callback) {
+bool parse_json_msg(const void* buf, size_t bufSize, ParserCallback& callback) {
     json o;
     ResultCode r = parse_json(buf, bufSize, o);
-    if (r != 0) return;
+    if (r != 0) return false;
     Message m;
     r = parse_base(o, m);
-    if (r != 0) return;
+    if (r != 0) return false;
 
     switch (m.method) {
-#define DEF_PARSE_IMPL(_, method_name, struct_name) case method_name: { parse<struct_name>(o, m, callback); break; }
+#define DEF_PARSE_IMPL(_, method_name, struct_name) case method_name: { return parse<struct_name>(o, m, callback); }
     STRATUM_METHODS(DEF_PARSE_IMPL)
 #undef DEF_PARSE_IMPL
         default:
             break;
     }
+
+    return false;
 }
 
 } //namespaces

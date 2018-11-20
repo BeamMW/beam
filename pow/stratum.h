@@ -135,11 +135,11 @@ struct Result : Message {
 struct ParserCallback {
     virtual ~ParserCallback() = default;
 
-    virtual void on_stratum_error(ResultCode code) {}
-    virtual void on_unsupported_stratum_method(Method method) { on_stratum_error(unknown_method); }
+    virtual bool on_stratum_error(ResultCode code) { return true; }
+    virtual bool on_unsupported_stratum_method(Method method) { return on_stratum_error(unknown_method); }
 
 #define DEF_HANDLER(_, label, struct_name) \
-    virtual void on_message(const struct_name & r) { on_unsupported_stratum_method(label); }
+    virtual bool on_message(const struct_name & r) { return on_unsupported_stratum_method(label); }
 
     STRATUM_METHODS(DEF_HANDLER)
 
@@ -147,7 +147,7 @@ struct ParserCallback {
 };
 
 // common case of parse message
-void parse_json_msg(const void* buf, size_t bufSize, ParserCallback& callback);
+bool parse_json_msg(const void* buf, size_t bufSize, ParserCallback& callback);
 
 // serializers and deserializers that return negative ResultCode on parse error
 #define DEF_SERIALIZE_JSON(_, __, struct_name) \

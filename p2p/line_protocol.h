@@ -19,16 +19,13 @@
 namespace beam {
 
 /// Line protocol for stratum
-class LineProtocol : public io::FragmentWriter {
+class LineReader {
 public:
     using OnNewLine = std::function<bool(void* buf, size_t size)>;
-    using OnNewWriteFragment = io::FragmentWriter::OnNewFragment;
 
-    LineProtocol(
-        OnNewLine readCallback, const OnNewWriteFragment& writeCallback,
-        size_t _outFragmentSize=4096, size_t maxLineSize=65536
+    explicit LineReader(
+        OnNewLine readCallback, size_t maxLineSize=65536
     ) :
-        io::FragmentWriter(_outFragmentSize, 0, writeCallback),
         _maxLineSize(maxLineSize),
         _readCallback(std::move(readCallback))
     {}
@@ -83,6 +80,20 @@ private:
     const size_t _maxLineSize;
     std::string _lineBuffer;
     OnNewLine _readCallback;
+};
+
+class LineProtocol : public io::FragmentWriter, public LineReader {
+public:
+    using OnNewLine = LineReader::OnNewLine;
+    using OnNewWriteFragment = io::FragmentWriter::OnNewFragment;
+
+    LineProtocol(
+        OnNewLine readCallback, const OnNewWriteFragment& writeCallback,
+        size_t _outFragmentSize=4096, size_t maxLineSize=65536
+    ) :
+        io::FragmentWriter(_outFragmentSize, 0, writeCallback),
+        LineReader(std::move(readCallback), maxLineSize)
+    {}
 };
 
 } //namespace

@@ -45,7 +45,7 @@ add_library(external_pow STATIC
     external_pow.cpp
     external_pow_stub.cpp
     stratum.cpp
-    #stratum_server.cpp
+    stratum_server.cpp
 )
 
 add_dependencies(external_pow core p2p pow)

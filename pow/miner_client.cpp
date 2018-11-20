@@ -54,28 +54,30 @@ public:
 private:
     bool on_raw_message(void* data, size_t size) {
         LOG_DEBUG() << "got " << std::string((char*)data, size);
-        stratum::parse_json_msg(data, size, *this);
+        return stratum::parse_json_msg(data, size, *this);
+    }
+
+    bool on_message(const stratum::Job& job) override {
+        // TODO new job
+        LOG_INFO() << "new job here...";
         return true;
     }
 
-    void on_message(const stratum::Job& job) override {
-        // TODO new job
-        LOG_DEBUG() << "new job here...";
-    }
-
-    void on_stratum_error(stratum::ResultCode code) override {
+    bool on_stratum_error(stratum::ResultCode code) override {
         if (code == stratum::login_failed) {
             LOG_ERROR() << "Login to " << _serverAddress << " failed, try again later";
             _reactor.stop();
-            return;
+            return false;
         }
 
         // TODO what to do with other errors
         LOG_ERROR() << "got stratum error: " << code << " " << stratum::get_result_msg(code);
+        return true;
     }
 
-    void on_unsupported_stratum_method(stratum::Method method) override {
+    bool on_unsupported_stratum_method(stratum::Method method) override {
         LOG_INFO() << "ignoring unsupported stratum method: " << stratum::get_method_str(method);
+        return true;
     }
 
     void on_write(io::SharedBuffer&& msg) {
@@ -98,7 +100,7 @@ private:
 
     void on_reconnect() {
         LOG_INFO() << "connecting to " << _serverAddress;
-        if (!_reactor.tcp_connect(_serverAddress, 1, BIND_THIS_MEMFN(on_connected), 10000, true)) {
+        if (!_reactor.tcp_connect(_serverAddress, 1, BIND_THIS_MEMFN(on_connected), 10000, false)) {
             LOG_ERROR() << "connect attempt failed, rescheduling";
             _timer->start(RECONNECT_TIMEOUT, false, BIND_THIS_MEMFN(on_reconnect));
         }
