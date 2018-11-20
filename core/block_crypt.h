@@ -214,7 +214,7 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
 		void Create(const ECC::Scalar::Native&, Amount, bool bPublic = false);
-		void Create(ECC::Scalar::Native&, Key::IKdf&, const Key::IDV&);
+		void Create(ECC::Scalar::Native&, Key::IKdf&, const Key::IDV&, bool bPublic = false);
 
 		bool Recover(Key::IPKdf&, Key::IDV&) const;
 
