@@ -154,7 +154,7 @@ void AppModel::start(IKeyStore::Ptr keystore)
 void AppModel::startNode()
 {
     m_node = make_unique<NodeModel>();
-	m_node->m_pKdf = m_db->get_Kdf();
+	m_node->m_pKdf = m_db->get_MasterKdf();
     m_node->start();
 }
 

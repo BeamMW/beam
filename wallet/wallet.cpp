@@ -112,7 +112,7 @@ namespace beam
 
 	void Wallet::get_Kdf(Key::IKdf::Ptr& pKdf)
 	{
-		pKdf = m_WalletDB->get_Kdf();
+		pKdf = m_WalletDB->get_MasterKdf();
 	}
 
 	void Wallet::OnOwnedNode(const PeerID& id, bool bUp)

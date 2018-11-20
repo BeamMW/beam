@@ -122,8 +122,8 @@ namespace beam
         using Ptr = std::shared_ptr<IWalletDB>;
         virtual ~IWalletDB() {}
 
-		virtual beam::Key::IKdf::Ptr get_Kdf() const = 0;
-        virtual ECC::Scalar::Native calcKey(const beam::Coin& coin) const = 0;
+		virtual beam::Key::IKdf::Ptr get_MasterKdf() const = 0;
+		virtual ECC::Scalar::Native calcKey(const beam::Coin& coin) const = 0;
         virtual void get_IdentityKey(ECC::Scalar::Native&) const = 0;
 
         virtual std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) = 0;

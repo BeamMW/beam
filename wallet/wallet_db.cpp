@@ -905,7 +905,7 @@ namespace beam
         return lastId;
     }
 
-	Key::IKdf::Ptr WalletDB::get_Kdf() const
+	Key::IKdf::Ptr WalletDB::get_MasterKdf() const
 	{
 		return m_pKdf;
 	}

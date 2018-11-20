@@ -59,7 +59,7 @@ namespace
 		}
 
 
-		Key::IKdf::Ptr get_Kdf() const override
+		Key::IKdf::Ptr get_MasterKdf() const override
 		{
 			return m_pKdf;
 		}

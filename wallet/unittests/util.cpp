@@ -183,7 +183,7 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 		vSk.resize(vSk.size() + 1);
 
 		ECC::Scalar::Native& sk = vSk.back();;
-		pOutp->Create(sk, *m_pWalletDB->get_Kdf(), coin.get_Kidv());
+		pOutp->Create(sk, *m_pWalletDB->get_MasterKdf(), coin.get_Kidv());
 
 		vOut.push_back(std::move(pOutp));
 	}
