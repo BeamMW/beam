@@ -1494,7 +1494,7 @@ void NodeDB::EnumEvents(WalkerEvent& x, Height hMin)
 
 void NodeDB::FindEvents(WalkerEvent& x, const Blob& key)
 {
-	x.m_Rs.Reset(Query::EventEnum, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Key "=?");
+	x.m_Rs.Reset(Query::EventFind, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Key "=?");
 	x.m_Rs.put(0, key);
 }
 
