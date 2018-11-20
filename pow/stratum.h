@@ -135,11 +135,11 @@ struct Result : Message {
 struct ParserCallback {
     virtual ~ParserCallback() = default;
 
-    virtual void on_error(ResultCode code) {}
-    virtual void on_unsupported_method(Method method) { on_error(unknown_method); }
+    virtual void on_stratum_error(ResultCode code) {}
+    virtual void on_unsupported_stratum_method(Method method) { on_stratum_error(unknown_method); }
 
 #define DEF_HANDLER(_, label, struct_name) \
-    virtual void on_message(const struct_name & r) { on_unsupported_method(label); }
+    virtual void on_message(const struct_name & r) { on_unsupported_stratum_method(label); }
 
     STRATUM_METHODS(DEF_HANDLER)
 

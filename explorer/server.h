@@ -29,22 +29,6 @@ public:
     Server(IAdapter& adapter, io::Reactor& reactor, io::Address bindAddress, const std::string& keysFileName);
 
 private:
-    /*
-    class AccessControl {
-    public:
-        explicit AccessControl(const std::string& keysFileName);
-
-        bool check(const std::string_view& mask, const std::string_view& nonce, const std::string_view& hash);
-
-        void refresh();
-    private:
-        bool _enabled;
-        std::string _keysFileName;
-        time_t _lastModified;
-        std::map<std::string, std::string> _keys;
-    };
-     */
-
     class IPAccessControl {
     public:
         explicit IPAccessControl(const std::string& ipsFileName);
