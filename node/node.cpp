@@ -553,6 +553,10 @@ void Node::Processor::ReportProgress()
 		if (total >= done)
 		{
 			observer->OnSyncProgress(done, total);
+			if (total == done)
+			{
+				m_RequestedCount = m_DownloadedHeaders = m_DownloadedBlocks = 0;
+			}
 		}
 	}
 }
