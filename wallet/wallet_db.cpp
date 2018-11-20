@@ -866,16 +866,15 @@ namespace beam
                     throwIfError(ret, walletDB->_db);
                 }
 
-				std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
-
-                if (!walletDB->getVar(WalletSeed, pKdf->m_Secret.V))
+				ECC::NoLeak<ECC::Hash::Value> seed;
+                if (!walletDB->getVar(WalletSeed, seed.V))
                 {
 					assert(false && "there is no seed for walletDB");
 					//pKdf->m_Secret.V = Zero;
 					return Ptr();
 				}
 
-				walletDB->m_pKdf = pKdf;
+				ECC::HKdf::Generate(walletDB->m_pKdf, seed.V);
 
                 return static_pointer_cast<IWalletDB>(walletDB);
             }
@@ -898,9 +897,7 @@ namespace beam
     WalletDB::WalletDB(const ECC::NoLeak<ECC::uintBig>& secretKey)
         : _db(nullptr)
     {
-		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
-		pKdf->m_Secret = secretKey;
-		m_pKdf = pKdf;
+		ECC::HKdf::Generate(m_pKdf, secretKey.V);
 	}
 
     WalletDB::~WalletDB()

@@ -1232,11 +1232,31 @@ namespace ECC {
 	// HKdf
 	HKdf::HKdf()
 	{
-		ZeroObject(m_Secret.V);
+		m_Secret.V = Zero;
 		m_kCoFactor = 1U; // by default
 	}
 
 	HKdf::~HKdf(){}
+
+	void HKdf::Generate(const Hash::Value& hv)
+	{
+		Oracle o;
+		o
+			<< "HKdf"
+			<< hv
+			>> m_Secret.V;
+		o
+			<< "CoFactor"
+			<< hv
+			>> m_kCoFactor;
+	}
+
+	void HKdf::Generate(Ptr& pRes, const Hash::Value& hv)
+	{
+		std::shared_ptr<HKdf> pVal = std::make_shared<HKdf>();
+		pVal->Generate(hv);
+		pRes = std::move(pVal);
+	}
 
 	void HKdf::DeriveKey(Scalar::Native& out, const Hash::Value& hv)
 	{
@@ -1255,6 +1275,13 @@ namespace ECC {
 		DeriveKey(sk, hv);
 		out = Context::get().G * sk;
 	}
+
+	HKdfPub::HKdfPub()
+	{
+		ZeroObject(m_Secret.V);
+	}
+
+	HKdfPub::~HKdfPub() {}
 
 	void HKdfPub::DerivePKey(Scalar::Native& out, const Hash::Value& hv)
 	{
@@ -1292,6 +1319,12 @@ namespace ECC {
 		return m_Pk.ImportNnz(v.m_Pk);
 	}
 
+	void HKdfPub::GenerateFrom(const HKdf& v)
+	{
+		m_Secret.V = v.m_Secret.V;
+		m_Pk = Context::get().G * v.m_kCoFactor;
+	}
+
 	/////////////////////
 	// Oracle
 	void Oracle::Reset()
@@ -1307,11 +1340,11 @@ namespace ECC {
 
 	void Oracle::operator >> (Scalar::Native& out)
 	{
-		Scalar s; // not secret
+		NoLeak<Scalar> s; // not secret
 
 		do
-			operator >> (s.m_Value);
-		while ((s.m_Value == Zero) || out.Import(s));
+			operator >> (s.V.m_Value);
+		while ((s.V.m_Value == Zero) || out.Import(s.V));
 	}
 
 	/////////////////////

@@ -460,13 +460,17 @@ namespace ECC
 		void operator >> (Value& hv) { Finalize(hv); }
 	};
 
-	struct HKdf
+	class HKdf
 		:public Key::IKdf
 	{
-		HKdf();
-		virtual ~HKdf();
+		friend class HKdfPub;
+		HKdf(const HKdf&) = delete;
+
 		NoLeak<uintBig> m_Secret;
 		Scalar::Native m_kCoFactor;
+	public:
+		HKdf();
+		virtual ~HKdf();
 		// IPKdf
 		virtual void DerivePKey(Point::Native&, const Hash::Value&) override;
 		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
@@ -484,13 +488,23 @@ namespace ECC
 
 		void Export(Packed&) const;
 		bool Import(const Packed&);
+
+		void Generate(const Hash::Value&);
+		static void Generate(Ptr&, const Hash::Value&);
 	};
 
-	struct HKdfPub
+	class HKdfPub
 		:public Key::IPKdf
 	{
+		HKdfPub(const HKdfPub&) = delete;
+
 		NoLeak<uintBig> m_Secret;
 		Point::Native m_Pk;
+
+	public:
+		HKdfPub();
+		virtual ~HKdfPub();
+
 		// IPKdf
 		virtual void DerivePKey(Point::Native&, const Hash::Value&) override;
 		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
@@ -506,6 +520,8 @@ namespace ECC
 
 		void Export(Packed&) const;
 		bool Import(const Packed&);
+
+		void GenerateFrom(const HKdf&);
 	};
 
 	struct Context

@@ -51,6 +51,13 @@ namespace ECC {
 				break;
 		}
 	}
+
+	void SetRandom(Key::IKdf::Ptr& pRes)
+	{
+		uintBig seed;
+		SetRandom(seed);
+		HKdf::Generate(pRes, seed);
+	}
 }
 
 #ifndef WIN32
@@ -629,11 +636,8 @@ namespace beam
 
 		MyNodeProcessor1()
 		{
-			std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
-			ECC::SetRandom(pKdf->m_Secret.V);
-
-			m_Wallet.m_pKdf = pKdf;
-	}
+			ECC::SetRandom(m_Wallet.m_pKdf);
+		}
 	};
 
 	struct BlockPlus
@@ -890,13 +894,8 @@ namespace beam
 
 		node2.m_Cfg.m_BeaconPort = g_Port;
 
-		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
-		ECC::SetRandom(pKdf->m_Secret.V);
-		node.m_pKdf = pKdf;
-
-		pKdf.reset(new ECC::HKdf);
-		ECC::SetRandom(pKdf->m_Secret.V);
-		node2.m_pKdf = pKdf;
+		ECC::SetRandom(node.m_pKdf);
+		ECC::SetRandom(node2.m_pKdf);
 
 		node.Initialize();
 		node2.Initialize();
@@ -1007,9 +1006,7 @@ namespace beam
 		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
 		node.m_Cfg.m_MiningThreads = 1;
 
-		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
-		ECC::SetRandom(pKdf->m_Secret.V);
-		node.m_pKdf = pKdf;
+		ECC::SetRandom(node.m_pKdf);
 
 		node.m_Cfg.m_Horizon.m_Branching = 6;
 		node.m_Cfg.m_Horizon.m_Schwarzschild = 8;
@@ -1383,7 +1380,7 @@ namespace beam
 			}
 		};
 
-		MyClient cl(pKdf);
+		MyClient cl(node.m_pKdf);
 
 		io::Address addr;
 		addr.resolve("127.0.0.1");
@@ -1470,9 +1467,7 @@ namespace beam
 		node2.m_Cfg.m_Sync.m_Timeout_ms = 0; // sync immediately after seeing 1st peer
 		node2.m_Cfg.m_Dandelion = node.m_Cfg.m_Dandelion;
 
-		pKdf.reset(new ECC::HKdf);
-		ECC::SetRandom(pKdf->m_Secret.V);
-		node2.m_pKdf = pKdf;
+		ECC::SetRandom(node2.m_pKdf);
 		node2.Initialize();
 
 		pReactor->run();
@@ -1570,9 +1565,7 @@ namespace beam
 		node.m_Cfg.m_vTreasury.resize(1);
 		node.m_Cfg.m_vTreasury[0].ZeroInit();
 
-		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
-		ECC::SetRandom(pKdf->m_Secret.V);
-		node.m_pKdf = pKdf;
+		ECC::SetRandom(node.m_pKdf);
 
 		node.Initialize();
 

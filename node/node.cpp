@@ -628,9 +628,9 @@ void Node::Initialize()
 	if (m_bAutoGenKdf)
 	{
 		// use arbitrary, inited from system random. Needed for misc things, such as secure channel.
-		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
-		ECC::GenRandom(pKdf->m_Secret.V.m_pData, pKdf->m_Secret.V.nBytes);
-		m_pKdf = pKdf;
+		ECC::NoLeak<ECC::uintBig> seed;
+		ECC::GenRandom(seed.V.m_pData, seed.V.nBytes);
+		ECC::HKdf::Generate(m_pKdf, seed.V);
 	}
 
 	if (!m_pOwnerKdf)

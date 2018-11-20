@@ -53,9 +53,9 @@ namespace
 
 		BaseTestWalletDB()
 		{
-			std::shared_ptr<HKdf> pKdf(new HKdf);
-			pKdf->m_Secret.V = 10U;
-			m_pKdf = pKdf;
+			uintBig seed;
+			seed = 10U;
+			HKdf::Generate(m_pKdf, seed);
 		}
 
 
