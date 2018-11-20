@@ -42,10 +42,10 @@
 #    include <fcntl.h>
 #endif // WIN32
 
-#ifdef __linux__
-#	include <sys/syscall.h>
-#	include <linux/random.h>
-#endif // __linux__
+//#ifdef __linux__
+//#	include <sys/syscall.h>
+//#	include <linux/random.h>
+//#endif // __linux__
 
 
 namespace ECC {
@@ -109,12 +109,12 @@ namespace ECC {
 
 		bool bRet = false;
 
-#	ifdef __linux__ 
-
-		ssize_t nRet = syscall(SYS_getrandom, p, nSize, 0);
-		bRet = (nRet == nSize);
-
-#	else // __linux__ 
+//#	ifdef __linux__
+//
+//		ssize_t nRet = syscall(SYS_getrandom, p, nSize, 0);
+//		bRet = (nRet == nSize);
+//
+//#	else // __linux__
 
 		// use standard posix
 		int hFile = open("/dev/urandom", O_RDONLY);
@@ -126,7 +126,7 @@ namespace ECC {
 			close(hFile);
 		}
 
-#	endif // __linux__ 
+//#	endif // __linux__
 
 		if (!bRet)
 			std::ThrowLastError();
