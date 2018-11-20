@@ -877,7 +877,7 @@ void TestAES()
 	verify_test(!sd.zero0 && !sd.zero1);
 
 	sd.dec.Proceed(pBuf, pBuf); // inplace decode
-	verify_test(!memcmp(pBuf, pBuf, sizeof(pPlaintext)));
+	verify_test(!memcmp(pBuf, pPlaintext, sizeof(pPlaintext)));
 }
 
 void TestKdf()
