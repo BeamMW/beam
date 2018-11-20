@@ -163,7 +163,7 @@ namespace ECC {
 
 	bool Scalar::Native::operator == (Zero_) const
 	{
-		return secp256k1_scalar_is_zero(this) != 0;
+		return secp256k1_scalar_is_zero(this) != 0; // constant time guaranteed
 	}
 
 	bool Scalar::Native::operator == (const Native& v) const
@@ -1225,7 +1225,7 @@ namespace ECC {
 		x.DerivePKey(k1, hv);
 
 		k0 += -k1;
-		return (k0 == Zero);
+		return (k0 == Zero); // not secret, constant-time guarantee isn't requied
 	}
 
 	/////////////////////
@@ -1363,11 +1363,11 @@ namespace ECC {
 
 	void Oracle::operator >> (Scalar::Native& out)
 	{
-		NoLeak<Scalar> s; // not secret
+		NoLeak<Scalar> s;
 
 		do
 			operator >> (s.V.m_Value);
-		while ((s.V.m_Value == Zero) || out.Import(s.V));
+		while (out.Import(s.V) || (out == Zero));
 	}
 
 	/////////////////////
