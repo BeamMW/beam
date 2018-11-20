@@ -42,6 +42,12 @@
 #    include <fcntl.h>
 #endif // WIN32
 
+#ifdef __linux__
+#	include <sys/syscall.h>
+#	include <linux/random.h>
+#endif // __linux__
+
+
 namespace ECC {
 
 	//void* NoErase(void*, size_t) { return NULL; }
@@ -105,7 +111,7 @@ namespace ECC {
 
 #	ifdef __linux__ 
 
-		ssize_t nRet = getrandom(p, nSize, 0);
+		ssize_t nRet = syscall(SYS_getrandom, p, nSize, 0);
 		bRet = (nRet == nSize);
 
 #	else // __linux__ 
