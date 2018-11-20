@@ -196,9 +196,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 WalletModel::WalletModel(IKeyChain::Ptr keychain, IKeyStore::Ptr keystore, const std::string& nodeAddr)
     : _keychain(keychain)
     , _keystore(keystore)
-    , _nodeAddrStr(nodeAddr)
     , _reactor{ Reactor::create() }
     , _async{ make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *_reactor) }
+    , _nodeAddrStr(nodeAddr)
 {
     qRegisterMetaType<WalletStatus>("WalletStatus");
     qRegisterMetaType<ChangeAction>("beam::ChangeAction");
