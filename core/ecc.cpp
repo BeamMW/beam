@@ -1258,6 +1258,29 @@ namespace ECC {
 		pRes = std::move(pVal);
 	}
 
+	void HKdf::GenerateChild(HKdf& res, Key::Index iKdf) const
+	{
+		Hash::Value hv;
+		Hash::Processor()
+			<< "HKdf"
+			<< "Child"
+			<< iKdf
+			<< m_kCoFactor // must account for m_kCoFactor, so that appropriate viewer won't be able to derive the same child key.
+			<< hv;
+
+		NoLeak<Hash::Value> seed;
+		GenerateNonce(seed.V, m_Secret.V, hv, NULL, 0);
+
+		res.Generate(seed.V);
+	}
+
+	void HKdf::CreateChild(Ptr& pRes, Key::Index iKdf) const
+	{
+		std::shared_ptr<HKdf> pVal = std::make_shared<HKdf>();
+		pVal->GenerateChild(*pVal, iKdf);
+		pRes = std::move(pVal);
+	}
+
 	void HKdf::DeriveKey(Scalar::Native& out, const Hash::Value& hv)
 	{
 		DerivePKey(out, hv);
