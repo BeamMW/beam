@@ -41,7 +41,7 @@ bool write_fmt(io::FragmentWriter& fw, const char* fmt, ...) {
     va_start(ap, fmt);
     int n = vsnprintf(buf, MAX_BUFSIZE, fmt, ap);
     va_end(ap);
-    if (n < 0) {
+    if (n < 0 || n > MAX_BUFSIZE) {
         return false;
     }
     fw.write(buf, n);
