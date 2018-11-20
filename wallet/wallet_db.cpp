@@ -684,24 +684,6 @@ namespace beam
             && m_maturity <= m_lockedHeight;
     }
 
-	uint64_t IWalletDB::get_AutoIncrID()
-	{
-		uintBigFor<uint64_t>::Type val;
-
-		const char* szParamName = "auto_id";
-
-		if (getVar(szParamName, val))
-			val.Inc();
-		else
-			val = 1U;
-
-		setVar(szParamName, val);
-		
-		uint64_t res;
-		val.Export(res);
-		return res;
-	}
-
     Key::IDV Coin::get_Kidv() const
     {
         // For coinbase and fee commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions

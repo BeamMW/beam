@@ -190,8 +190,6 @@ namespace beam
 
 		virtual Block::SystemState::IHistory& get_History() = 0;
 		virtual void ShrinkHistory() = 0;
-
-		uint64_t get_AutoIncrID();
     };
 
     class WalletDB : public IWalletDB, public std::enable_shared_from_this<WalletDB>

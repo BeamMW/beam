@@ -490,12 +490,7 @@ namespace beam { namespace wallet
 
 		if (!m_Tx.GetParameter(TxParameterID::MyNonce, m_MultiSig.m_Nonce))
 		{
-			Coin c;
-			c.m_keyIndex = m_Tx.GetWalletDB()->get_AutoIncrID();
-			c.m_key_type = Key::Type::Nonce;
-
-			m_MultiSig.m_Nonce = m_Tx.GetWalletDB()->calcKey(c);
-
+			m_MultiSig.m_Nonce.GenRandomNnz();
 			m_Tx.SetParameter(TxParameterID::MyNonce, m_MultiSig.m_Nonce);
 		}
     }
