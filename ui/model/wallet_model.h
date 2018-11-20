@@ -81,8 +81,8 @@ public:
     void run() override;
 
 public:
-    IWalletModelAsync::Ptr async;
-
+    
+    IWalletModelAsync::Ptr getAsync();
     bool check_receiver_address(const std::string& addr);
 
 signals:
@@ -137,9 +137,10 @@ private:
     beam::IWalletDB::Ptr _walletDB;
     beam::IKeyStore::Ptr _keystore;
     beam::io::Reactor::Ptr _reactor;
+    IWalletModelAsync::Ptr _async;
     std::weak_ptr<beam::proto::FlyClient::INetwork> _nnet;
 	std::weak_ptr<beam::Wallet::INetwork> _wnet;
-	std::weak_ptr<beam::Wallet> _wallet;
+    std::weak_ptr<beam::Wallet> _wallet;
     beam::io::Timer::Ptr _logRotateTimer;
 
     std::string _nodeAddrStr;
