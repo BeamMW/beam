@@ -507,7 +507,6 @@ private:
 
 	ECC::Scalar::Native m_MyPrivateID;
 	PeerID m_MyPublicID;
-	PeerID m_MyOwnerID;
 
 	Peer* AllocPeer(const beam::io::Address&);
 

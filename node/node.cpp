@@ -655,7 +655,7 @@ void Node::Initialize()
 
 	InitIDs();
 
-	LOG_INFO() << "Node ID=" << m_MyPublicID << ", Owner=" << m_MyOwnerID;
+	LOG_INFO() << "Node ID=" << m_MyPublicID;
 	LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
 
 	InitMode();
@@ -693,14 +693,6 @@ void Node::InitIDs()
 		m_MyPrivateID = s.V;
 
 	proto::Sk2Pk(m_MyPublicID, m_MyPrivateID);
-
-
-	ECC::Hash::Value hv;
-	Key::ID(0, Key::Type::Identity).get_Hash(hv);
-
-	ECC::Point::Native pt;
-	m_pOwnerKdf->DerivePKey(pt, hv);
-	m_MyOwnerID = ECC::Point(pt).m_X;
 }
 
 void Node::InitMode()
