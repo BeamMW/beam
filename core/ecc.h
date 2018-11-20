@@ -23,6 +23,9 @@ namespace ECC
 
 	void GenRandom(void*, uint32_t nSize); // with OS support
 
+	template <uint32_t nBits_>
+	inline void GenRandom(beam::uintBig_t<nBits_>& x) { GenRandom(x.m_pData, x.nBytes); }
+
 	struct Mode {
 		enum Enum {
 			Secure, // maximum security. Constant-time guarantee whenever possible, protection from side-channel attacks

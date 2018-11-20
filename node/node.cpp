@@ -651,7 +651,7 @@ void Node::Initialize()
 		{
 			// use arbitrary, inited from system random. Needed for misc things, such as secure channel.
 			ECC::NoLeak<ECC::uintBig> seed;
-			ECC::GenRandom(seed.V.m_pData, seed.V.nBytes);
+			ECC::GenRandom(seed.V);
 			ECC::HKdf::Create(m_Keys.m_pGeneric, seed.V);
 		}
 	}
@@ -692,7 +692,7 @@ void Node::Initialize()
 
 void Node::InitIDs()
 {
-	ECC::GenRandom(m_NonceLast.V.m_pData, m_NonceLast.V.nBytes);
+	ECC::GenRandom(m_NonceLast.V);
 
 	ECC::NoLeak<ECC::Scalar> s;
 	Blob blob(s.V.m_Value);

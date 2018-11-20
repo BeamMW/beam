@@ -499,7 +499,7 @@ void NodeConnection::TestInputMsgContext(uint8_t code)
 void NodeConnection::GenerateSChannelNonce(ECC::Scalar::Native& sk)
 {
 	ECC::NoLeak<ECC::uintBig> secret;
-	ECC::GenRandom(secret.V.m_pData, secret.V.nBytes);
+	ECC::GenRandom(secret.V);
 
 	ECC::Hash::Value hv(Zero);
 	sk.GenerateNonce(secret.V, hv, NULL);
