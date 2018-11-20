@@ -994,10 +994,7 @@ namespace beam
 		ECC::Hash::Value hv;
 		ECC::Hash::Processor() << h << nIdx >> hv;
 
-		ECC::NoLeak<ECC::Scalar> s;
-		s.V = kKernel;
-
-		kOffset.GenerateNonce(s.V.m_Value, hv, NULL);
+		kOffset.GenerateNonceNnz(kKernel, hv, NULL);
 
 		kKernel += kOffset;
 		kOffset = -kOffset;

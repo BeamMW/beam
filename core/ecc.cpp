@@ -187,6 +187,22 @@ namespace ECC {
 		return overflow != 0;
 	}
 
+	bool Scalar::Native::ImportNnz(const Scalar& v)
+	{
+		return
+			!Import(v) &&
+			!(*this == Zero);
+
+	}
+
+	void Scalar::Native::GenRandomNnz()
+	{
+		NoLeak<Scalar> s;
+		do
+			GenRandom(s.V.m_Value);
+		while (!ImportNnz(s.V));
+	}
+
 	Scalar::Native& Scalar::Native::operator = (const Scalar& v)
 	{
 		Import(v);
@@ -1137,14 +1153,14 @@ namespace ECC {
 		}
 	}
 
-	void Scalar::Native::GenerateNonce(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
+	void Scalar::Native::GenerateNonceNnz(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
 	{
 		NoLeak<Scalar> s;
 
 		for (uint32_t i = 0; ; i++)
 		{
 			ECC::GenerateNonce(s.V.m_Value, sk, msg, pMsg2, i);
-			if (Import(s.V))
+			if (!ImportNnz(s.V))
 				continue;
 
 			if (!nAttempt--)
@@ -1152,11 +1168,11 @@ namespace ECC {
 		}
 	}
 
-	void Scalar::Native::GenerateNonce(const Scalar::Native& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
+	void Scalar::Native::GenerateNonceNnz(const Scalar::Native& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
 	{
 		NoLeak<Scalar> sk_;
 		sk_.V = sk;
-		GenerateNonce(sk_.V.m_Value, msg, pMsg2, nAttempt);
+		GenerateNonceNnz(sk_.V.m_Value, msg, pMsg2, nAttempt);
 	}
 
 	/////////////////////
@@ -1289,7 +1305,7 @@ namespace ECC {
 
 	void HKdf::DerivePKey(Scalar::Native& out, const Hash::Value& hv)
 	{
-		out.GenerateNonce(m_Secret.V, hv, NULL);
+		out.GenerateNonceNnz(m_Secret.V, hv, NULL);
 	}
 
 	void HKdf::DerivePKey(Point::Native& out, const Hash::Value& hv)
@@ -1308,7 +1324,7 @@ namespace ECC {
 
 	void HKdfPub::DerivePKey(Scalar::Native& out, const Hash::Value& hv)
 	{
-		out.GenerateNonce(m_Secret.V, hv, NULL);
+		out.GenerateNonceNnz(m_Secret.V, hv, NULL);
 	}
 
 	void HKdfPub::DerivePKey(Point::Native& out, const Hash::Value& hv)
@@ -1367,7 +1383,7 @@ namespace ECC {
 
 		do
 			operator >> (s.V.m_Value);
-		while (out.Import(s.V) || (out == Zero));
+		while (!out.ImportNnz(s.V));
 	}
 
 	/////////////////////
@@ -1389,7 +1405,7 @@ namespace ECC {
 	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
 	{
 		MultiSig msig;
-		msig.m_Nonce.GenerateNonce(sk, msg, NULL);
+		msig.m_Nonce.GenerateNonceNnz(sk, msg, NULL);
 		msig.m_NoncePub = Context::get().G * msig.m_Nonce;
 
 		Scalar::Native k;

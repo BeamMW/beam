@@ -13,17 +13,6 @@ using KeyPairs = std::map<PubKey, ECC::NoLeak<PrivKey>>;
 using Nonce = ECC::Scalar::Native;
 using PasswordHash = ECC::NoLeak<ECC::Hash::Value>;
 
-void gen_nonce(Nonce& nonce) {
-    ECC::Scalar sc;
-    uint64_t seed;
-
-    // here we want to read as little as possible from slow sources, TODO: review this
-    ECC::GenRandom(&seed, 8);
-    ECC::Hash::Processor() << seed >> sc.m_Value;
-
-    nonce.Import(sc);
-}
-
 void hash_from_password(PasswordHash& out, const void* password, size_t passwordLen) {
     ECC::Hash::Processor()
 		<< Blob(password, static_cast<uint32_t>(passwordLen))
@@ -193,10 +182,10 @@ private:
     }
 
     void gen_keypair(PubKey& pubKey) override {
-        ECC::NoLeak<PrivKey> privKey;
-        gen_nonce(privKey.V);
-        proto::Sk2Pk(pubKey, privKey.V);
-        memcpy(&(_unsaved[pubKey].V), &privKey.V, 32);
+        PrivKey privKey;
+		privKey.GenRandomNnz();
+        proto::Sk2Pk(pubKey, privKey);
+        memcpy(&(_unsaved[pubKey].V), &privKey, 32);
     }
 
     void save_keypair(const PubKey& pubKey, bool enable) override {
@@ -262,7 +251,7 @@ private:
 
     bool encrypt(ByteBuffer& out, const void* data, size_t size, const PubKey& pubKey) override {
         Nonce nonce;
-        gen_nonce(nonce);
+		nonce.GenRandomNnz();
         return proto::BbsEncrypt(out, pubKey, nonce, data, static_cast<uint32_t>(size));
     }
 

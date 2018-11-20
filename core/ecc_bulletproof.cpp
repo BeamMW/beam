@@ -582,7 +582,7 @@ namespace ECC {
 			NoLeak<Hash::Value> hv;
 			m_Oracle >> hv.V;
 
-			k.GenerateNonce(m_Seed, hv.V, NULL);
+			k.GenerateNonceNnz(m_Seed, hv.V, NULL);
 		}
 	};
 
