@@ -232,11 +232,12 @@ namespace beam
 		oracle << m_Incubation;
 
 		if (m_pPublic)
-			m_pPublic->Recover(cp);
-		else
 		{
-			if (!(m_pConfidential && m_pConfidential->Recover(oracle, cp)))
-				false;
+		    m_pPublic->Recover(cp);
+		}
+		else if (!(m_pConfidential && m_pConfidential->Recover(oracle, cp)))
+		{
+			return false;
 		}
 
 		// reconstruct the commitment
