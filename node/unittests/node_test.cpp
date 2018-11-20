@@ -477,40 +477,52 @@ namespace beam
 
 		struct MyUtxo
 		{
-			ECC::Scalar m_Key;
-			Amount m_Value;
-
-			void ToOutput(TxVectors::Perishable& txv, ECC::Scalar::Native& offset, Height hIncubation) const
-			{
-				ECC::Scalar::Native k = m_Key;
-
-				Output::Ptr pOut(new Output);
-				pOut->m_Incubation = hIncubation;
-				pOut->Create(k, m_Value, true); // confidential transactions will be too slow for test in debug mode.
-				txv.m_vOutputs.push_back(std::move(pOut));
-
-				k = -k;
-				offset += k;
-			}
+			Key::IDV m_Kidv;
 		};
+
+		void ToOutput(const MyUtxo& utxo, TxVectors::Perishable& txv, ECC::Scalar::Native& offset, Height hIncubation) const
+		{
+			ECC::Scalar::Native k;
+
+			Output::Ptr pOut(new Output);
+			pOut->m_Incubation = hIncubation;
+			pOut->Create(k, *m_pKdf, utxo.m_Kidv, true); // confidential transactions will be too slow for test in debug mode.
+			txv.m_vOutputs.push_back(std::move(pOut));
+
+			k = -k;
+			offset += k;
+		}
+
+		void ToCommtiment(const MyUtxo& utxo, ECC::Point& comm, ECC::Scalar::Native& k) const
+		{
+			m_pKdf->DeriveKey(k, utxo.m_Kidv);
+			comm = ECC::Commitment(k, utxo.m_Kidv.m_Value);
+		}
+
+		void ToInput(const MyUtxo& utxo, TxVectors::Perishable& txv, ECC::Scalar::Native& offset) const
+		{
+			ECC::Scalar::Native k;
+			Input::Ptr pInp(new Input);
+
+			ToCommtiment(utxo, pInp->m_Commitment, k);
+
+			txv.m_vInputs.push_back(std::move(pInp));
+			offset += k;
+		}
 
 		typedef std::multimap<Height, MyUtxo> UtxoQueue;
 		UtxoQueue m_MyUtxos;
 
-		const MyUtxo* AddMyUtxo(Amount n, Height h, Key::Type eType)
+		const MyUtxo* AddMyUtxo(const Key::IDV& kidv)
 		{
-			if (!n)
+			if (!kidv.m_Value)
 				return NULL;
 
-
-			ECC::Scalar::Native key;
-			m_pKdf->DeriveKey(key, Key::ID(h, eType));
-
 			MyUtxo utxo;
-			utxo.m_Key = key;
-			utxo.m_Value = n;
+			utxo.m_Kidv = kidv;
 
-			h += (Key::Type::Coinbase == eType) ? Rules::get().MaturityCoinbase : Rules::get().MaturityStd;
+			Height h = kidv.m_Idx; // this is our convention
+			h += (Key::Type::Coinbase == kidv.m_Type) ? Rules::get().MaturityCoinbase : Rules::get().MaturityStd;
 
 			return &m_MyUtxos.insert(std::make_pair(h, utxo))->second;
 		}
@@ -561,31 +573,28 @@ namespace beam
 			pTx = std::make_shared<Transaction>();
 
 			const MyUtxo& utxo = it->second;
-			assert(utxo.m_Value);
+			assert(utxo.m_Kidv.m_Value);
 
 			m_MyKernels.resize(m_MyKernels.size() + 1);
 			MyKernel& mk = m_MyKernels.back();
 			mk.m_Fee = 1090000;
 			mk.m_bUseHashlock = 0 != (1 & h);
 
-			Input::Ptr pInp(new Input);
-			pInp->m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
-			pTx->m_vInputs.push_back(std::move(pInp));
+			ECC::Scalar::Native kOffset = Zero;
 
-			ECC::Scalar::Native kOffset = utxo.m_Key;
-			ECC::Scalar::Native k;
+			ToInput(utxo, *pTx, kOffset);
 
-			if (mk.m_Fee >= utxo.m_Value)
-				mk.m_Fee = utxo.m_Value;
+			if (mk.m_Fee >= utxo.m_Kidv.m_Value)
+				mk.m_Fee = utxo.m_Kidv.m_Value;
 			else
 			{
 				MyUtxo utxoOut;
-				utxoOut.m_Value = utxo.m_Value - mk.m_Fee;
+				utxoOut.m_Kidv.m_Value = utxo.m_Kidv.m_Value - mk.m_Fee;
+				utxoOut.m_Kidv.m_IdxSecondary = 0;
+				utxoOut.m_Kidv.m_Idx = h;
+				utxoOut.m_Kidv.m_Type = Key::Type::Regular;
 
-				m_pKdf->DeriveKey(k, Key::ID(h, Key::Type::Regular));
-				utxoOut.m_Key = k;
-
-				utxoOut.ToOutput(*pTx, kOffset, hIncubation);
+				ToOutput(utxoOut, *pTx, kOffset, hIncubation);
 
 				m_MyUtxos.insert(std::make_pair(h + hIncubation, utxoOut));
 			}
@@ -598,8 +607,7 @@ namespace beam
 			mk.Export(pKrn);
 			pTx->m_vKernels.push_back(std::move(pKrn));
 
-
-			k = -mk.m_k;
+			ECC::Scalar::Native k = -mk.m_k;
 			kOffset += k;
 			pTx->m_Offset = kOffset;
 
@@ -675,8 +683,8 @@ namespace beam
 
 			np.OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
 
-			np.m_Wallet.AddMyUtxo(bc.m_Fees, h, Key::Type::Comission);
-			np.m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase);
+			np.m_Wallet.AddMyUtxo(Key::IDV(bc.m_Fees, h, Key::Type::Comission));
+			np.m_Wallet.AddMyUtxo(Key::IDV(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase));
 
 			BlockPlus::Ptr pBlock(new BlockPlus);
 			pBlock->m_Hdr = std::move(bc.m_Hdr);
@@ -1138,7 +1146,7 @@ namespace beam
 				m_nBbsMsgsPending++;
 
 				// assume we've mined this
-				m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, msg.m_Description.m_Height, Key::Type::Coinbase);
+				m_Wallet.AddMyUtxo(Key::IDV(Rules::get().CoinbaseEmission, msg.m_Description.m_Height, Key::Type::Coinbase));
 
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
@@ -1165,7 +1173,10 @@ namespace beam
 					const MiniWallet::MyUtxo& utxo = it->second;
 
 					proto::GetProofUtxo msgOut2;
-					msgOut2.m_Utxo = ECC::Commitment(utxo.m_Key, utxo.m_Value);
+
+					ECC::Scalar::Native sk;
+					m_Wallet.ToCommtiment(utxo, msgOut2.m_Utxo, sk);
+
 					Send(msgOut2);
 
 					m_queProofsExpected.push_back(msgOut2.m_Utxo);
@@ -1387,8 +1398,8 @@ namespace beam
 		for (int i = 0; i < 10; i++)
 		{
 			const Amount val = Rules::Coin * 10;
-			const MiniWallet::MyUtxo& utxo = *cl.m_Wallet.AddMyUtxo(val, i, Key::Type::Regular);
-			utxo.ToOutput(treasury, offset, i);
+			const MiniWallet::MyUtxo& utxo = *cl.m_Wallet.AddMyUtxo(Key::IDV(val, i, Key::Type::Regular));
+			cl.m_Wallet.ToOutput(utxo, treasury, offset, i);
 			treasury.m_Subsidy += val;
 		}
 
