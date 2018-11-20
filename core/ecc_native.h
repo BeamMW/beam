@@ -495,8 +495,8 @@ namespace ECC
 		void Generate(const Hash::Value&);
 		static void Create(Ptr&, const Hash::Value&);
 
-		void GenerateChild(HKdf&, Key::Index iKdf) const;
-		void CreateChild(Ptr&, Key::Index iKdf) const;
+		void GenerateChild(Key::IKdf&, Key::Index iKdf);
+		static void CreateChild(Ptr&, Key::IKdf&, Key::Index iKdf);
 	};
 
 	class HKdfPub
