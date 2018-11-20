@@ -624,11 +624,9 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 
 void Node::Initialize()
 {
-	if (!m_pKdf)
+	m_bAutoGenKdf = !!m_pKdf;
+	if (m_bAutoGenKdf)
 	{
-		if (m_Cfg.m_MiningThreads)
-			throw std::runtime_error("Mining enabled, but Kdf not specified!");
-
 		// use arbitrary, inited from system random. Needed for misc things, such as secure channel.
 		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
 		ECC::GenRandom(pKdf->m_Secret.V.m_pData, pKdf->m_Secret.V.nBytes);
@@ -2874,6 +2872,11 @@ void Node::Miner::OnFinalizerChanged(Peer* p)
 		else
 			Restart();
 	}
+	else
+	{
+		if (m_pFinalizer && IsEnabled() && get_ParentObj().m_bAutoGenKdf)
+			Restart(); // offline mining wasn't possible
+	}
 }
 
 void Node::Miner::OnRefresh(uint32_t iIdx)
@@ -3014,6 +3017,12 @@ bool Node::Miner::Restart()
 {
 	if (!IsEnabled())
 		return false; //  n/a
+
+	if (!m_pFinalizer && get_ParentObj().m_bAutoGenKdf)
+	{
+		m_pTaskToFinalize.reset();
+		return false; // offline mining is disabled
+	}
 
 	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, *get_ParentObj().m_pKdf);
 	if (m_pFinalizer)
