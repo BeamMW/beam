@@ -73,9 +73,12 @@ void RestoreViewModel::onSyncProgressUpdated(int done, int total)
 
 void RestoreViewModel::onNodeSyncProgressUpdated(int done, int total)
 {
-    _nodeDone = done;
-    _nodeTotal = total;
-    updateProgress();
+    if (!_walletConnected) // ignore node progress if wallet is connected
+    {
+        _nodeDone = done;
+        _nodeTotal = total;
+        updateProgress();
+    }
 }
 
 void RestoreViewModel::updateProgress()
@@ -95,7 +98,7 @@ void RestoreViewModel::updateProgress()
         }
         nodeSyncProgress = static_cast<double>(_nodeDone) / _nodeTotal;
     }
-
+    
     if (nodeSyncProgress >= 1.0 && _walletConnected == false)
     {
         syncWithNode();
