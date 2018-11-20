@@ -85,7 +85,7 @@ void WalletSettings::setNodeAddress(const QString& addr)
         auto walletModel = AppModel::getInstance()->getWallet();
         if (walletModel)
         {
-            walletModel->async->setNodeAddress(addr.toStdString());
+            walletModel->getAsync()->setNodeAddress(addr.toStdString());
         }
         {
             Lock lock(m_mutex);

@@ -39,9 +39,6 @@ public:
     bool getCreating() const;
     void setCreating(bool value);
 
-
-    Q_INVOKABLE void restoreFromBlockchain();
-
 public slots:
     void onRestoreProgressUpdated(int, int, const QString&);
     void onSyncProgressUpdated(int done, int total);
@@ -56,6 +53,7 @@ private:
     void updateProgress();
     void syncWithNode();
 private:
+    WalletModel::Ptr _walletModel;
     double _progress;
     int _nodeTotal;
     int _nodeDone;

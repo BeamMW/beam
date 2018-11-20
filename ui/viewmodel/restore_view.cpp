@@ -19,7 +19,8 @@ using namespace beam;
 using namespace std;
 
 RestoreViewModel::RestoreViewModel()
-    : _progress{0.0}
+    : _walletModel{ AppModel::getInstance()->getWallet() }
+    , _progress{0.0}
     , _nodeTotal{0}
     , _nodeDone{0}
     , _total{0}
@@ -55,16 +56,6 @@ RestoreViewModel::RestoreViewModel()
 
 RestoreViewModel::~RestoreViewModel()
 {
-}
-
-
-void RestoreViewModel::restoreFromBlockchain()
-{
-    WalletModel& wallet = *AppModel::getInstance()->getWallet();
-    if (wallet.async)
-    {
-        wallet.async->restoreFromBlockchain();
-    }
 }
 
 void RestoreViewModel::onRestoreProgressUpdated(int, int, const QString&)
@@ -106,12 +97,7 @@ void RestoreViewModel::updateProgress()
 
     if (nodeSyncProgress >= 1.0 && _walletConnected == false)
     {
-        WalletModel& wallet = *AppModel::getInstance()->getWallet();
-        if (wallet.async)
-        {
-            _walletConnected = true;
-            wallet.async->syncWithNode();
-        }
+        syncWithNode();
     }
 
     double walletSyncProgress = 0.0;
@@ -236,12 +222,8 @@ void RestoreViewModel::setProgressMessage(const QString& value)
 
 void RestoreViewModel::syncWithNode()
 {
-    WalletModel& wallet = *AppModel::getInstance()->getWallet();
-    if (wallet.async)
-    {
-        _walletConnected = true;
-        wallet.async->syncWithNode();
-    }
+    _walletConnected = true;
+    _walletModel->getAsync()->syncWithNode();
 }
 
 void RestoreViewModel::onUpdateTimer()

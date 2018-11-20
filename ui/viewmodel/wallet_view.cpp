@@ -221,8 +221,8 @@ WalletViewModel::WalletViewModel()
         connect(&AppModel::getInstance()->getNode(), SIGNAL(syncProgressUpdated(int, int)),
             SLOT(onNodeSyncProgressUpdated(int, int)));
     }
-    _model.async->syncWithNode();
-    _model.async->getWalletStatus();
+    _model.getAsync()->syncWithNode();
+    _model.getAsync()->getWalletStatus();
 }
 
 WalletViewModel::~WalletViewModel()
@@ -234,7 +234,7 @@ void WalletViewModel::cancelTx(TxObject* pTxObject)
 {
     if (pTxObject->canCancel())
     {
-        _model.async->cancelTx(pTxObject->_tx.m_txId);
+        _model.getAsync()->cancelTx(pTxObject->_tx.m_txId);
     }
 }
 
@@ -242,7 +242,7 @@ void WalletViewModel::deleteTx(TxObject* pTxObject)
 {
     if (pTxObject->canDelete())
     {
-        _model.async->deleteTx(pTxObject->_tx.m_txId);
+        _model.getAsync()->deleteTx(pTxObject->_tx.m_txId);
     }
 }
 
@@ -250,10 +250,8 @@ void WalletViewModel::generateNewAddress()
 {
     _newReceiverAddr = "";
     _newReceiverName = "";
-    if (_model.async)
-    {
-        _model.async->generateNewWalletID();
-    }
+
+    _model.getAsync()->generateNewWalletID();
 }
 
 void WalletViewModel::saveNewAddress()
@@ -271,10 +269,7 @@ void WalletViewModel::saveNewAddress()
     ownAddress.m_label = _newReceiverName.toStdString();
     ownAddress.m_createTime = beam::getTimestamp();
 
-    if (_model.async)
-    {
-        _model.async->createNewAddress(std::move(ownAddress));
-    }
+    _model.getAsync()->createNewAddress(std::move(ownAddress));
 }
 
 void WalletViewModel::copyToClipboard(const QString& text)
@@ -376,10 +371,8 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
     sortTx();
 
     // Get info for TxObject::_user_name (get wallets labels)
-    if (_model.async)
-    {
-        _model.async->getAddresses(false);
-    }
+    _model.getAsync()->getAddresses(false);
+
 }
 
 void WalletViewModel::onTxPeerUpdated(const std::vector<beam::TxPeer>& peers)
@@ -495,7 +488,7 @@ void WalletViewModel::setSendAmount(const QString& value)
     if (trimmedValue != _sendAmount)
     {
         _sendAmount = trimmedValue;
-        _model.async->calcChange(calcTotalAmount());
+        _model.getAsync()->calcChange(calcTotalAmount());
         emit sendAmountChanged();
         emit actualAvailableChanged();
     }
@@ -507,7 +500,7 @@ void WalletViewModel::setFeeGrothes(const QString& value)
     if (trimmedValue != _feeGrothes)
     {
         _feeGrothes = trimmedValue;
-        _model.async->calcChange(calcTotalAmount());
+        _model.getAsync()->calcChange(calcTotalAmount());
         emit feeGrothesChanged();
         emit actualAvailableChanged();
     }
@@ -755,15 +748,15 @@ void WalletViewModel::sendMoney()
         //WalletID ownAddr = from_hex(getSenderAddr().toStdString());
         WalletID peerAddr = from_hex(getReceiverAddr().toStdString());
         // TODO: show 'operation in process' animation here?
-        //_model.async->sendMoney(ownAddr, peerAddr, calcSendAmount(), calcFeeAmount());
-        _model.async->sendMoney(peerAddr, _comment.toStdString(), calcSendAmount(), calcFeeAmount());
+        //_model.getAsync()->sendMoney(ownAddr, peerAddr, calcSendAmount(), calcFeeAmount());
+        _model.getAsync()->sendMoney(peerAddr, _comment.toStdString(), calcSendAmount(), calcFeeAmount());
     }
 }
 
 void WalletViewModel::syncWithNode()
 {
     //setIsSyncInProgress(true);
-    _model.async->syncWithNode();
+    _model.getAsync()->syncWithNode();
 }
 
 QString WalletViewModel::actualAvailable() const

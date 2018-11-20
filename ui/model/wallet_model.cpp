@@ -197,6 +197,8 @@ WalletModel::WalletModel(IKeyChain::Ptr keychain, IKeyStore::Ptr keystore, const
     : _keychain(keychain)
     , _keystore(keystore)
     , _nodeAddrStr(nodeAddr)
+    , _reactor{ Reactor::create() }
+    , _async{ make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *_reactor) }
 {
     qRegisterMetaType<WalletStatus>("WalletStatus");
     qRegisterMetaType<ChangeAction>("beam::ChangeAction");
@@ -257,10 +259,7 @@ void WalletModel::run()
         std::unique_ptr<WalletSubscriber> wallet_subscriber;
         std::unique_ptr<NetworkIOSubscriber> wallet_io_subscriber;
 
-        _reactor = Reactor::create();
         io::Reactor::GracefulIntHandler gih(*_reactor);
-
-        async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *_reactor);
 
         emit onStatus(getStatus());
         emit onTxStatus(beam::ChangeAction::Reset, _keychain->getTxHistory());
@@ -305,6 +304,11 @@ void WalletModel::run()
     {
         LOG_ERROR() << "Unhandled exception";
     }
+}
+
+IWalletModelAsync::Ptr WalletModel::getAsync()
+{
+    return _async;
 }
 
 void WalletModel::onStatusChanged()
