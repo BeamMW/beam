@@ -202,7 +202,7 @@ namespace beam
         WalletDB(const ECC::NoLeak<ECC::uintBig>& secretKey);
         ~WalletDB();
 
-		beam::Key::IKdf::Ptr get_Kdf() const override;
+		beam::Key::IKdf::Ptr get_MasterKdf() const override;
 		ECC::Scalar::Native calcKey(const beam::Coin& coin) const override;
         std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) override;
         std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) override;
