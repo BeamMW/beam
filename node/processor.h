@@ -239,6 +239,20 @@ public:
 		virtual bool OnOutput(uint32_t iKey, const Key::IDV&, const Output&) override;
 	};
 
+#pragma pack (push, 1)
+	struct UtxoEvent
+	{
+		typedef ECC::Point Key;
+		static_assert(sizeof(Key) == sizeof(ECC::uintBig) + 1, "");
+
+		struct Value {
+			uintBigFor<uint32_t>::Type m_iKdf;
+			ECC::Key::IDV::Packed m_Kidv;
+			uintBigFor<Height>::Type m_Maturity;
+		};
+	};
+#pragma pack (pop)
+
 private:
 	size_t GenerateNewBlockInternal(BlockContext&);
 	void GenerateNewHdr(BlockContext&);

@@ -646,20 +646,20 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 	for ( ; r.m_pUtxoIn; r.NextUtxoIn())
 	{
 		const Input& x = *r.m_pUtxoIn;
+		assert(x.m_Maturity); // must've already been validated
 
-		m_DB.FindEvents(wlk, Blob(&x.m_Commitment, sizeof(x.m_Commitment))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
+		const UtxoEvent::Key& key = x.m_Commitment;
+
+		m_DB.FindEvents(wlk, Blob(&key, sizeof(key))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
 		if (wlk.MoveNext())
 		{
-			if (wlk.m_Body.n != sizeof(UtxoEvent))
+			if (wlk.m_Body.n < sizeof(UtxoEvent::Value))
 				OnCorrupted();
 
-			UtxoEvent evt = *(UtxoEvent*)wlk.m_Body.p; // copy
-			if (evt.m_Added != 1)
-				OnCorrupted();
+			UtxoEvent::Value evt = *reinterpret_cast<const UtxoEvent::Value*>(wlk.m_Body.p); // copy
+			evt.m_Maturity = x.m_Maturity;
 
 			// In case of macroblock we can't recover the original input height. But in our current implementation macroblocks always go from the beginning, hence they don't contain input.
-
-			evt.m_Added = 0;
 			m_DB.InsertEvent(hMax, Blob(&evt, sizeof(evt)), Blob(NULL, 0));
 		}
 	}
@@ -678,19 +678,25 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 			if (x.Recover(*pKdf, kidv))
 			{
 				// bingo!
-				UtxoEvent evt;
-				evt.m_KdfIdx = iKey;
+				UtxoEvent::Value evt;
+				evt.m_iKdf = iKey;
 				evt.m_Kidv = kidv;
-				evt.m_Added = 1;
 
 				Height h;
 				if (x.m_Maturity)
+				{
+					evt.m_Maturity = x.m_Maturity;
 					// try to reverse-engineer the original block from the maturity
 					h = x.m_Maturity - x.get_MinMaturity(0);
+				}
 				else
+				{
 					h = hMax;
+					evt.m_Maturity = x.get_MinMaturity(h);
+				}
 
-				m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&x.m_Commitment, sizeof(x.m_Commitment)));
+				const UtxoEvent::Key& key = x.m_Commitment;
+				m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
 
 				break;
 			}

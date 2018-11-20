@@ -2717,18 +2717,24 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 		Height hLast = 0;
 		for (db.EnumEvents(wlk, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
 		{
-			if ((msgOut.m_Events.size() >= proto::UtxoEventPlus::s_Max) && (wlk.m_Height != hLast))
+			typedef NodeProcessor::UtxoEvent UE;
+
+			if ((msgOut.m_Events.size() >= proto::UtxoEvent::s_Max) && (wlk.m_Height != hLast))
 				break;
 
-			if (sizeof(UtxoEvent) != wlk.m_Body.n)
+			if (wlk.m_Body.n < sizeof(UE::Value))
 				continue; // although shouldn't happen
-			const UtxoEvent& evt = *(UtxoEvent*) wlk.m_Body.p;
+			const UE::Value& evt = *reinterpret_cast<const UE::Value*>(wlk.m_Body.p);
 
 			msgOut.m_Events.emplace_back();
-			proto::UtxoEventPlus& evtp = msgOut.m_Events.back();
+			proto::UtxoEvent& res = msgOut.m_Events.back();
 
-			evtp.m_Height = wlk.m_Height;
-			Cast::Down<UtxoEvent>(evtp) = evt;
+			res.m_Height = wlk.m_Height;
+			res.m_Kidv = evt.m_Kidv;
+			evt.m_iKdf.Export(res.m_iKdf);
+			evt.m_Maturity.Export(res.m_Maturity);
+
+			res.m_Added = (sizeof(UE::Key) == wlk.m_Key.n);
 		}
 	}
 	else

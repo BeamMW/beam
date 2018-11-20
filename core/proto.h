@@ -196,7 +196,7 @@ namespace proto {
 	macro(Height, HeightMin)
 
 #define BeamNodeMsg_UtxoEvents(macro) \
-	macro(std::vector<UtxoEventPlus>, Events)
+	macro(std::vector<UtxoEvent>, Events)
 
 #define BeamNodeMsg_GetBlockFinalization(macro) \
 	macro(Height, Height) \
@@ -302,25 +302,30 @@ namespace proto {
 
 	static const uint32_t g_HdrPackMaxSize = 128;
 
-#pragma pack (push, 1)
-	struct UtxoEventPlus
-		:public UtxoEvent
+	struct UtxoEvent
 	{
-		static const uint32_t s_Max = 64; // may actually send more, if the remaining events are on the same height
+		static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
 
-		uintBigFor<Height>::Type m_Height;
+		uint32_t m_iKdf;
+		ECC::Key::IDV m_Kidv;
+
+		Height m_Height;
+		Height m_Maturity;
+
+		uint8_t m_Added; // 1 = add, 0 = spend
+
 
 		template <typename Archive>
 		void serialize(Archive& ar)
 		{
-			typedef uintBigFor<UtxoEventPlus>::Type TBlob;
-			static_assert(sizeof(TBlob) == sizeof(*this), "");
-
-			ar & reinterpret_cast<TBlob&>(*this);
+			ar
+				& m_iKdf
+				& m_Kidv
+				& m_Height
+				& m_Maturity
+				& m_Added;
 		}
 	};
-#pragma pack (pop)
-
 
 	enum Unused_ { Unused };
 	enum Uninitialized_ { Uninitialized };

@@ -828,13 +828,4 @@ namespace beam
 		void Export(void*, uint32_t, uint8_t nCode);
 		bool Import(void*, uint32_t, uint8_t nCode);
 	};
-
-#pragma pack (push, 1)
-	struct UtxoEvent
-	{
-		uintBigFor<uint32_t>::Type m_KdfIdx;
-		uint8_t m_Added; // added or deleted
-		ECC::Key::IDV::Packed m_Kidv;
-	};
-#pragma pack (pop)
 }
