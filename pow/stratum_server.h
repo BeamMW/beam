@@ -54,7 +54,9 @@ private:
     public:
         Connection(ConnectionToServer& owner, uint64_t id, io::TcpStream::Ptr&& newStream);
 
-        bool send_msg(const io::SerializedMsg& msg);
+        void set_logged_in() { _loggedIn = true; }
+
+        bool send_msg(const io::SerializedMsg& msg, bool onlyIfLoggedIn);
 
     private:
         bool on_message(const Login& login) override;
@@ -73,6 +75,7 @@ private:
         uint64_t _id;
         io::TcpStream::Ptr _stream;
         LineReader _lineReader;
+        bool _loggedIn;
     };
 
     struct JobCtx {

@@ -15,6 +15,8 @@
 #include "server.h"
 #include "adapter.h"
 #include "utility/logger.h"
+#include <boost/filesystem.hpp>
+#include <boost/algorithm/string/trim.hpp>
 
 namespace beam { namespace explorer {
 

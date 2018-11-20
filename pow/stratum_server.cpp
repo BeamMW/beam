@@ -22,6 +22,8 @@
 #define LOG_VERBOSE_ENABLED 1
 #include "utility/logger.h"
 
+#include <assert.h>
+
 namespace beam {
 
 std::unique_ptr<IExternalPOW> IExternalPOW::create(
@@ -92,9 +94,14 @@ void Server::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode er
 }
 
 bool Server::on_login(uint64_t from, const Login& login) {
+    assert(_connections.count(from) > 0);
+
     if (_acl.check(login.api_key)) {
+        auto& conn = _connections[from];
+        conn->set_logged_in();
+
         // TODO send result first
-        return _connections[from]->send_msg(_job.msg);
+        return _connections[from]->send_msg(_job.msg, true);
     }
     return false;
 }
@@ -123,7 +130,7 @@ void Server::new_job(
     _currentMsg.clear();
 
     for (auto& p : _connections) {
-        if (!p.second->send_msg(_job.msg)) {
+        if (!p.second->send_msg(_job.msg, true)) {
             _deadConnections.push_back(p.first);
         }
     }
@@ -182,7 +189,8 @@ Server::Connection::Connection(ConnectionToServer& owner, uint64_t id, io::TcpSt
     _owner(owner),
     _id(id),
     _stream(std::move(newStream)),
-    _lineReader(BIND_THIS_MEMFN(on_raw_message))
+    _lineReader(BIND_THIS_MEMFN(on_raw_message)),
+    _loggedIn(false)
 {
     _stream->enable_keepalive(2);
     _stream->enable_read(BIND_THIS_MEMFN(on_stream_data));
@@ -202,7 +210,8 @@ bool Server::Connection::on_stream_data(io::ErrorCode errorCode, void* data, siz
     return true;
 }
 
-bool Server::Connection::send_msg(const io::SerializedMsg& msg) {
+bool Server::Connection::send_msg(const io::SerializedMsg& msg, bool onlyIfLoggedIn) {
+    if (onlyIfLoggedIn && !_loggedIn) return true;
     return _stream && _stream->write(msg);
 }
 
