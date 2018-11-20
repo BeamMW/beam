@@ -42,10 +42,6 @@
 #    include <fcntl.h>
 #endif // WIN32
 
-#ifdef __linux__
-#	include <sys/random.h>
-#endif // __linux__
-
 namespace ECC {
 
 	//void* NoErase(void*, size_t) { return NULL; }
