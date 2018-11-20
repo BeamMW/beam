@@ -3236,13 +3236,13 @@ void Node::Beacon::Start()
 	addr.fill_sockaddr_in(sa);
 
 	if (uv_udp_bind(m_pUdp, (sockaddr*)&sa, UV_UDP_REUSEADDR)) // should allow multiple nodes on the same machine (for testing)
-		std::ThrowIoError();
+		std::ThrowLastError();
 
 	if (uv_udp_recv_start(m_pUdp, AllocBuf, OnRcv))
-		std::ThrowIoError();
+		std::ThrowLastError();
 
 	if (uv_udp_set_broadcast(m_pUdp, 1))
-		std::ThrowIoError();
+		std::ThrowLastError();
 
 	m_pTimer = io::Timer::create(io::Reactor::get_Current());
 	m_pTimer->start(get_ParentObj().m_Cfg.m_BeaconPeriod_ms, true, [this]() { OnTimer(); }); // periodic timer

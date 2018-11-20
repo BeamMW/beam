@@ -117,7 +117,7 @@ namespace ECC {
 #endif // WIN32
 
 		if (!bRet)
-			std::ThrowIoError();
+			std::ThrowLastError();
 	}
 
 	/////////////////////
