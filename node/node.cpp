@@ -573,7 +573,7 @@ void Node::Processor::OnModified()
 	}
 }
 
-Key::IPKdf* Node::Processor::get_Kdf(uint32_t i)
+Key::IPKdf* Node::Processor::get_Kdf(Key::Index i)
 {
 	switch (i)
 	{

@@ -157,7 +157,7 @@ private:
 		void OnBlockData() override;
 		bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) override;
 		void OnModified() override;
-		Key::IPKdf* get_Kdf(uint32_t i) override;
+		Key::IPKdf* get_Kdf(Key::Index i) override;
 
 		void ReportProgress();
         void ReportNewState();

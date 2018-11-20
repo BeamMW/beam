@@ -306,8 +306,8 @@ namespace proto {
 	{
 		static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
 
-		uint32_t m_iKdf;
-		ECC::Key::IDV m_Kidv;
+		Key::Index m_iKdf;
+		Key::IDV m_Kidv;
 
 		Height m_Height;
 		Height m_Maturity;

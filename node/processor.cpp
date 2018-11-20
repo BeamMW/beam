@@ -668,7 +668,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 	{
 		const Output& x = *r.m_pUtxoOut;
 
-		for (uint32_t iKey = 0; ; iKey++)
+		for (Key::Index iKey = 0; ; iKey++)
 		{
 			Key::IPKdf* pKdf = get_Kdf(iKey);
 			if (!pKdf)

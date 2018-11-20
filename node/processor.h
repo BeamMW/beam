@@ -167,7 +167,7 @@ public:
 	virtual void OnBlockData() {}
 	virtual bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) { return false; }
 	virtual void OnModified() {}
-	virtual Key::IPKdf* get_Kdf(uint32_t i) { return NULL; }
+	virtual Key::IPKdf* get_Kdf(Key::Index i) { return NULL; }
 
 	uint64_t FindActiveAtStrict(Height);
 
@@ -246,7 +246,7 @@ public:
 		static_assert(sizeof(Key) == sizeof(ECC::uintBig) + 1, "");
 
 		struct Value {
-			uintBigFor<uint32_t>::Type m_iKdf;
+			uintBigFor<ECC::Key::Index>::Type m_iKdf;
 			ECC::Key::IDV::Packed m_Kidv;
 			uintBigFor<Height>::Type m_Maturity;
 		};

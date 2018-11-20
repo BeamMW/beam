@@ -173,6 +173,8 @@ namespace ECC
 
 	struct Key
 	{
+		typedef uint32_t Index; // a 'short ID' used when different children are given different sub-keys.
+
 		enum struct Type
 		{
 			Comission	= 0,
