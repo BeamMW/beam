@@ -577,19 +577,18 @@ void Node::Processor::OnModified()
 	}
 }
 
-Key::IPKdf* Node::Processor::get_Kdf(Key::Index i)
+bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
 {
-	switch (i)
-	{
-	case 0:
-		return get_ParentObj().m_pKdf.get();
+	const Keys& keys = get_ParentObj().m_Keys;
 
-	case 1:
-		if (!get_ParentObj().m_bSameKdf)
-			return get_ParentObj().m_pOwnerKdf.get();
+	for (size_t i = 0; i < keys.m_vMonitored.size(); i++)
+	{
+		const Keys::Viewer& v = keys.m_vMonitored[i];
+		if (!w.OnKey(*v.second, v.first))
+			return false;
 	}
 
-	return NULL;
+	return true;
 }
 
 void Node::Processor::OnFlushTimer()
@@ -626,24 +625,36 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 	return pPeer;
 }
 
+void Node::Keys::InitSingleKey(const ECC::uintBig& seed)
+{
+	Key::IKdf::Ptr pKdf;
+	ECC::HKdf::Create(pKdf, seed);
+	SetSingleKey(pKdf);
+}
+
+void Node::Keys::SetSingleKey(const Key::IKdf::Ptr& pKdf)
+{
+	m_pMiner = pKdf;
+	m_pGeneric = pKdf;
+	m_pOwner = pKdf;
+
+	m_vMonitored.push_back(Viewer(m_MinerIdx, pKdf));
+}
+
 void Node::Initialize()
 {
-	m_bAutoGenKdf = !m_pKdf;
-	if (m_bAutoGenKdf)
+	if (!m_Keys.m_pGeneric)
 	{
-		// use arbitrary, inited from system random. Needed for misc things, such as secure channel.
-		ECC::NoLeak<ECC::uintBig> seed;
-		ECC::GenRandom(seed.V.m_pData, seed.V.nBytes);
-		ECC::HKdf::Create(m_pKdf, seed.V);
+		if (m_Keys.m_pMiner)
+			m_Keys.m_pGeneric = m_Keys.m_pMiner;
+		else
+		{
+			// use arbitrary, inited from system random. Needed for misc things, such as secure channel.
+			ECC::NoLeak<ECC::uintBig> seed;
+			ECC::GenRandom(seed.V.m_pData, seed.V.nBytes);
+			ECC::HKdf::Create(m_Keys.m_pGeneric, seed.V);
+		}
 	}
-
-	if (!m_pOwnerKdf)
-	{
-		m_pOwnerKdf = m_pKdf;
-		m_bSameKdf = true;
-	}
-	else
-		m_bSameKdf = m_pOwnerKdf->IsSame(*m_pKdf);
 
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_Sync.m_ForceResync);
@@ -954,10 +965,11 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	{
 		bool b = ShouldFinalizeMining();
 
-		if (IsKdfObscured(*m_This.m_pOwnerKdf, msg.m_ID))
+		Key::IPKdf* pOwner = m_This.m_Keys.m_pOwner.get();
+		if (pOwner && IsKdfObscured(*pOwner, msg.m_ID))
 		{
 			m_Flags |= Flags::Owner;
-			ProvePKdfObscured(*m_This.m_pOwnerKdf, proto::IDType::Viewer);
+			ProvePKdfObscured(*pOwner, proto::IDType::Viewer);
 		}
 
 		if (!b && ShouldFinalizeMining())
@@ -1763,7 +1775,7 @@ const ECC::uintBig& Node::NextNonce()
 
 void Node::NextNonce(ECC::Scalar::Native& sk)
 {
-	m_pKdf->DeriveKey(sk, m_NonceLast.V);
+	m_Keys.m_pGeneric->DeriveKey(sk, m_NonceLast.V);
 	ECC::Hash::Processor() << sk >> m_NonceLast.V;
 }
 
@@ -2685,11 +2697,11 @@ void Node::Peer::OnMsg(proto::Recover&& msg)
 
 	if (Flags::Owner & m_Flags)
 	{
-		if (msg.m_Private)
-			wlk.m_vKeys.push_back(m_This.m_pKdf);
+		if (msg.m_Private && m_This.m_Keys.m_pMiner)
+			wlk.m_vKeys.push_back(m_This.m_Keys.m_pMiner);
 
-		if (msg.m_Public && !m_This.m_bSameKdf)
-			wlk.m_vKeys.push_back(m_This.m_pOwnerKdf);
+		if (msg.m_Public && m_This.m_Keys.m_pOwner)
+			wlk.m_vKeys.push_back(m_This.m_Keys.m_pOwner);
 
 		wlk.Proceed();
 	}
@@ -2781,7 +2793,7 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 		for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
 		{
 			Key::IDV kidv;
-			if (!tx.m_vOutputs[i]->Recover(*m_This.m_pOwnerKdf, kidv))
+			if (!tx.m_vOutputs[i]->Recover(*m_This.m_Keys.m_pOwner, kidv))
 				ThrowUnexpected();
 		}
 
@@ -2795,7 +2807,7 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 
 	TxPool::Fluff txpEmpty;
 
-	NodeProcessor::BlockContext bc(txpEmpty, *m_This.m_pKdf);
+	NodeProcessor::BlockContext bc(txpEmpty, *m_This.m_Keys.m_pGeneric); // the key isn't used anyway
 	bc.m_Mode = NodeProcessor::BlockContext::Mode::Finalize;
 	Cast::Down<NodeProcessor::GeneratedBlock>(bc) = std::move(x);
 
@@ -2870,7 +2882,7 @@ void Node::Miner::OnFinalizerChanged(Peer* p)
 	}
 	else
 	{
-		if (m_pFinalizer && IsEnabled() && get_ParentObj().m_bAutoGenKdf)
+		if (m_pFinalizer && IsEnabled() && !get_ParentObj().m_Keys.m_pMiner)
 			Restart(); // offline mining wasn't possible
 	}
 }
@@ -3014,13 +3026,15 @@ bool Node::Miner::Restart()
 	if (!IsEnabled())
 		return false; //  n/a
 
-	if (!m_pFinalizer && get_ParentObj().m_bAutoGenKdf)
+	const Keys& keys = get_ParentObj().m_Keys;
+
+	if (!m_pFinalizer && !keys.m_pMiner)
 	{
 		m_pTaskToFinalize.reset();
 		return false; // offline mining is disabled
 	}
 
-	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, *get_ParentObj().m_pKdf);
+	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, keys.m_pMiner ? *keys.m_pMiner : *keys.m_pGeneric);
 	if (m_pFinalizer)
 		bc.m_Mode = NodeProcessor::BlockContext::Mode::Assemble;
 

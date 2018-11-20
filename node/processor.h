@@ -167,7 +167,11 @@ public:
 	virtual void OnBlockData() {}
 	virtual bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) { return false; }
 	virtual void OnModified() {}
-	virtual Key::IPKdf* get_Kdf(Key::Index i) { return NULL; }
+
+	struct IKeyWalker {
+		virtual bool OnKey(Key::IPKdf&, Key::Index) = 0;
+	};
+	virtual bool EnumViewerKeys(IKeyWalker&) { return true; }
 
 	uint64_t FindActiveAtStrict(Height);
 

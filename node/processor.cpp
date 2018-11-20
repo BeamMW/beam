@@ -668,38 +668,46 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 	{
 		const Output& x = *r.m_pUtxoOut;
 
-		for (Key::Index iKey = 0; ; iKey++)
+		struct Walker :public IKeyWalker
 		{
-			Key::IPKdf* pKdf = get_Kdf(iKey);
-			if (!pKdf)
-				break;
+			const Output& m_Output;
+			UtxoEvent::Value m_Value;
 
-			Key::IDV kidv;
-			if (x.Recover(*pKdf, kidv))
+			Walker(const Output& x) :m_Output(x) {}
+
+			virtual bool OnKey(Key::IPKdf& kdf, Key::Index iKdf) override
 			{
-				// bingo!
-				UtxoEvent::Value evt;
-				evt.m_iKdf = iKey;
-				evt.m_Kidv = kidv;
+				Key::IDV kidv;
+				if (!m_Output.Recover(kdf, kidv))
+					return true; // continue enumeration
 
-				Height h;
-				if (x.m_Maturity)
-				{
-					evt.m_Maturity = x.m_Maturity;
-					// try to reverse-engineer the original block from the maturity
-					h = x.m_Maturity - x.get_MinMaturity(0);
-				}
-				else
-				{
-					h = hMax;
-					evt.m_Maturity = x.get_MinMaturity(h);
-				}
-
-				const UtxoEvent::Key& key = x.m_Commitment;
-				m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
-
-				break;
+				m_Value.m_iKdf = iKdf;
+				m_Value.m_Kidv = kidv;
+				return false; // stop
 			}
+		};
+
+		Walker w(x);
+		if (!EnumViewerKeys(w))
+		{
+			// bingo!
+			Height h;
+			if (x.m_Maturity)
+			{
+				w.m_Value.m_Maturity = x.m_Maturity;
+				// try to reverse-engineer the original block from the maturity
+				h = x.m_Maturity - x.get_MinMaturity(0);
+			}
+			else
+			{
+				h = hMax;
+				w.m_Value.m_Maturity = x.get_MinMaturity(h);
+			}
+
+			const UtxoEvent::Key& key = x.m_Commitment;
+			m_DB.InsertEvent(h, Blob(&w.m_Value, sizeof(w.m_Value)), Blob(&key, sizeof(key)));
+
+			break;
 		}
 	}
 }

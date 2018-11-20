@@ -58,6 +58,14 @@ namespace ECC {
 		SetRandom(seed);
 		HKdf::Create(pRes, seed);
 	}
+
+	void SetRandom(beam::Node& n)
+	{
+		uintBig seed;
+		SetRandom(seed);
+
+		n.m_Keys.InitSingleKey(seed);
+	}
 }
 
 #ifndef WIN32
@@ -894,8 +902,8 @@ namespace beam
 
 		node2.m_Cfg.m_BeaconPort = g_Port;
 
-		ECC::SetRandom(node.m_pKdf);
-		ECC::SetRandom(node2.m_pKdf);
+		ECC::SetRandom(node);
+		ECC::SetRandom(node2);
 
 		node.Initialize();
 		node2.Initialize();
@@ -933,7 +941,7 @@ namespace beam
 					Node& n = *m_ppNode[m_iNode];
 
 					TxPool::Fluff txPool; // empty, no transactions
-					NodeProcessor::BlockContext bc(txPool, *n.m_pKdf);
+					NodeProcessor::BlockContext bc(txPool, *n.m_Keys.m_pMiner);
 
 					verify_test(n.get_Processor().GenerateNewBlock(bc));
 
@@ -1006,7 +1014,7 @@ namespace beam
 		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
 		node.m_Cfg.m_MiningThreads = 1;
 
-		ECC::SetRandom(node.m_pKdf);
+		ECC::SetRandom(node);
 
 		node.m_Cfg.m_Horizon.m_Branching = 6;
 		node.m_Cfg.m_Horizon.m_Schwarzschild = 8;
@@ -1380,7 +1388,7 @@ namespace beam
 			}
 		};
 
-		MyClient cl(node.m_pKdf);
+		MyClient cl(node.m_Keys.m_pMiner);
 
 		io::Address addr;
 		addr.resolve("127.0.0.1");
@@ -1467,7 +1475,7 @@ namespace beam
 		node2.m_Cfg.m_Sync.m_Timeout_ms = 0; // sync immediately after seeing 1st peer
 		node2.m_Cfg.m_Dandelion = node.m_Cfg.m_Dandelion;
 
-		ECC::SetRandom(node2.m_pKdf);
+		ECC::SetRandom(node2);
 		node2.Initialize();
 
 		pReactor->run();
@@ -1483,7 +1491,7 @@ namespace beam
 			fail_test("some recovery messages missing");
 
 		NodeProcessor::UtxoRecoverEx urec(node2.get_Processor());
-		urec.m_vKeys.push_back(node.m_pKdf);
+		urec.m_vKeys.push_back(node.m_Keys.m_pMiner);
 		urec.Proceed();
 
 		verify_test(!urec.m_Map.empty());
@@ -1542,7 +1550,7 @@ namespace beam
 
 		while (node.get_Processor().m_Cursor.m_ID.m_Height < h)
 		{
-			NodeProcessor::BlockContext bc(txPool, *node.m_pKdf);
+			NodeProcessor::BlockContext bc(txPool, *node.m_Keys.m_pMiner);
 			verify_test(node.get_Processor().GenerateNewBlock(bc));
 			node.get_Processor().OnState(bc.m_Hdr, PeerID());
 
@@ -1565,7 +1573,7 @@ namespace beam
 		node.m_Cfg.m_vTreasury.resize(1);
 		node.m_Cfg.m_vTreasury[0].ZeroInit();
 
-		ECC::SetRandom(node.m_pKdf);
+		ECC::SetRandom(node);
 
 		node.Initialize();
 

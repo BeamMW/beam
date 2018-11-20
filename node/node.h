@@ -129,10 +129,25 @@ struct Node
 
 	} m_Cfg; // must not be changed after initialization
 
-	Key::IKdf::Ptr m_pKdf; // used for internal nonce generation, and for mining, unless in "online wallet" mode
-	Key::IPKdf::Ptr m_pOwnerKdf;
-	bool m_bAutoGenKdf;
-	bool m_bSameKdf; // should be avoided actually
+	struct Keys
+	{
+		// There following Ptrs may point to the same object.
+
+		Key::IKdf::Ptr m_pGeneric; // used for internal nonce generation. Auto-generated from system random if not specified
+
+		Key::IKdf::Ptr m_pMiner; // if not set - offline mining would be impossible
+		Key::Index m_MinerIdx = 0;
+
+		Key::IPKdf::Ptr m_pOwner; // used for wallet authentication
+
+		typedef std::pair<Key::Index, Key::IPKdf::Ptr> Viewer;
+		std::vector<Viewer> m_vMonitored;
+
+		// legacy. To be removed!
+		void InitSingleKey(const ECC::uintBig& seed);
+		void SetSingleKey(const Key::IKdf::Ptr&);
+
+	} m_Keys;
 
 	~Node();
 	void Initialize();
@@ -157,7 +172,7 @@ private:
 		void OnBlockData() override;
 		bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) override;
 		void OnModified() override;
-		Key::IPKdf* get_Kdf(Key::Index i) override;
+		bool EnumViewerKeys(IKeyWalker&) override;
 
 		void ReportProgress();
         void ReportNewState();
