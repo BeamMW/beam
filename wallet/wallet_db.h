@@ -49,6 +49,7 @@ namespace beam
 
         uint64_t m_id;
         ECC::Amount m_amount;
+		Key::Index m_iKdf;
         Status m_status;
         Height m_createHeight;  // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
         Height m_maturity;      // coin can be spent only when chain is >= this value. Valid for confirmed coins (Unspent, Locked, Spent).
@@ -123,6 +124,7 @@ namespace beam
         virtual ~IWalletDB() {}
 
 		virtual beam::Key::IKdf::Ptr get_MasterKdf() const = 0;
+		virtual beam::Key::IKdf::Ptr get_ChildKdf(Key::Index) const;
 		virtual ECC::Scalar::Native calcKey(const beam::Coin& coin) const = 0;
 
         virtual std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) = 0;

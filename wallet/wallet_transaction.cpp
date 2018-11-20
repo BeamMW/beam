@@ -465,7 +465,7 @@ namespace beam { namespace wallet
 
         Scalar::Native blindingFactor;
         Output::Ptr output = make_unique<Output>();
-        output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_MasterKdf(), newUtxo.get_Kidv());
+        output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(newUtxo.m_iKdf), newUtxo.get_Kidv());
 
         auto[privateExcess, newOffset] = splitKey(blindingFactor, newUtxo.m_keyIndex);
         blindingFactor = -privateExcess;

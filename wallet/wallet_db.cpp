@@ -47,7 +47,8 @@
     each(9, confirmHash,   sep, BLOB, obj) \
     each(10, createTxId,    sep, BLOB, obj) \
     each(11, spentTxId,    sep, BLOB, obj) \
-    each(12, lockedHeight,    , BLOB, obj)            // last item without separator// last item without separator
+    each(12, lockedHeight,	sep, BLOB, obj) \
+    each(13, iKdf,			, INTEGER NOT NULL, obj)            // last item without separator// last item without separator
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) \
@@ -383,6 +384,12 @@ namespace beam
                 throwIfError(ret, _db);
             }
 
+			void bind(int col, uint32_t val)
+			{
+				int ret = sqlite3_bind_int(_stm, col, val);
+				throwIfError(ret, _db);
+			}
+
             void bind(int col, const TxID& id)
             {
                 bind(col, id.data(), id.size());
@@ -459,6 +466,11 @@ namespace beam
             {
                 val = sqlite3_column_int64(_stm, col);
             }
+
+			void get(int col, uint32_t& val)
+			{
+				val = sqlite3_column_int(_stm, col);
+			}
 
             void get(int col, int& val)
             {
@@ -655,7 +667,8 @@ namespace beam
     Coin::Coin(const Amount& amount, Status status, const Height& createHeight, const Height& maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
         : m_id{ 0 }
         , m_amount{ amount }
-        , m_status{ status }
+		, m_iKdf{ 0 }
+		, m_status{ status }
         , m_createHeight{ createHeight }
         , m_maturity{ maturity }
         , m_key_type{ keyType }
@@ -910,12 +923,23 @@ namespace beam
 		return m_pKdf;
 	}
 
+	Key::IKdf::Ptr IWalletDB::get_ChildKdf(Key::Index iKdf) const
+	{
+		Key::IKdf::Ptr pMaster = get_MasterKdf();
+		if (!iKdf)
+			return pMaster; // by convention 0 is not a childd
+
+		Key::IKdf::Ptr pRet;
+		ECC::HKdf::CreateChild(pRet, *pMaster, iKdf);
+		return pRet;
+	}
+
     ECC::Scalar::Native WalletDB::calcKey(const beam::Coin& coin) const
     {
 		assert(coin.m_key_type != Key::Type::Regular || coin.m_keyIndex > 0);
 
 		ECC::Scalar::Native key;
-		m_pKdf->DeriveKey(key, coin.get_Kidv());
+		get_ChildKdf(coin.m_iKdf)->DeriveKey(key, coin.get_Kidv());
         return key;
     }
 
