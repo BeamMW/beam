@@ -71,11 +71,6 @@ namespace
             return sk;
         }
 
-		void get_IdentityKey(ECC::Scalar::Native& sk) const override
-		{
-			sk = Zero;
-		}
-
         std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool /*lock*/) override
         {
             std::vector<beam::Coin> res;

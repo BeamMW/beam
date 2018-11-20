@@ -919,11 +919,6 @@ namespace beam
         return key;
     }
 
-    void WalletDB::get_IdentityKey(ECC::Scalar::Native& sk) const
-    {
-		m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
-    }
-
     vector<beam::Coin> WalletDB::selectCoins(const Amount& amount, bool lock)
     {
         vector<beam::Coin> coins;

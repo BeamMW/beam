@@ -124,7 +124,6 @@ namespace beam
 
 		virtual beam::Key::IKdf::Ptr get_MasterKdf() const = 0;
 		virtual ECC::Scalar::Native calcKey(const beam::Coin& coin) const = 0;
-        virtual void get_IdentityKey(ECC::Scalar::Native&) const = 0;
 
         virtual std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) = 0;
         virtual std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) = 0;
@@ -205,7 +204,6 @@ namespace beam
 
 		beam::Key::IKdf::Ptr get_Kdf() const override;
 		ECC::Scalar::Native calcKey(const beam::Coin& coin) const override;
-        void get_IdentityKey(ECC::Scalar::Native&) const override;
         std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) override;
         std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) override;
         void store(beam::Coin& coin) override;
