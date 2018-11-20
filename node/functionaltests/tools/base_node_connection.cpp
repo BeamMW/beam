@@ -54,7 +54,7 @@ void BaseNodeConnection::ParseCommandLine(int argc, char* argv[])
 void BaseNodeConnection::InitKdf()
 {
 	SecString seed(m_VM["wallet_seed"].as<std::string>());
-	ECC::HKdf::Generate(m_pKdf, seed.hash().V);
+	ECC::HKdf::Create(m_pKdf, seed.hash().V);
 }
 
 BaseTestNode::BaseTestNode(int argc, char* argv[])

@@ -874,7 +874,7 @@ namespace beam
 					return Ptr();
 				}
 
-				ECC::HKdf::Generate(walletDB->m_pKdf, seed.V);
+				ECC::HKdf::Create(walletDB->m_pKdf, seed.V);
 
                 return static_pointer_cast<IWalletDB>(walletDB);
             }
@@ -897,7 +897,7 @@ namespace beam
     WalletDB::WalletDB(const ECC::NoLeak<ECC::uintBig>& secretKey)
         : _db(nullptr)
     {
-		ECC::HKdf::Generate(m_pKdf, secretKey.V);
+		ECC::HKdf::Create(m_pKdf, secretKey.V);
 	}
 
     WalletDB::~WalletDB()

@@ -55,7 +55,7 @@ namespace
 		{
 			uintBig seed;
 			seed = 10U;
-			HKdf::Generate(m_pKdf, seed);
+			HKdf::Create(m_pKdf, seed);
 		}
 
 

@@ -164,7 +164,7 @@ int main_impl(int argc, char* argv[])
                             return -1;
                         }
 
-						ECC::HKdf::Generate(node.m_pKdf, seed.V);
+						ECC::HKdf::Create(node.m_pKdf, seed.V);
 					}
 
 					std::vector<std::string> vPeers = getCfgPeers(vm);

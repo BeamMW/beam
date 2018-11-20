@@ -118,7 +118,7 @@ WaitHandle run_node(const NodeParams& params) {
             node.m_Cfg.m_MiningThreads = 1;
             node.m_Cfg.m_VerificationThreads = 1;
 
-			ECC::HKdf::Generate(node.m_pKdf, params.walletSeed);
+			ECC::HKdf::Create(node.m_pKdf, params.walletSeed);
 
             node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 500;
 

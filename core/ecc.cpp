@@ -1251,7 +1251,7 @@ namespace ECC {
 			>> m_kCoFactor;
 	}
 
-	void HKdf::Generate(Ptr& pRes, const Hash::Value& hv)
+	void HKdf::Create(Ptr& pRes, const Hash::Value& hv)
 	{
 		std::shared_ptr<HKdf> pVal = std::make_shared<HKdf>();
 		pVal->Generate(hv);

@@ -490,7 +490,7 @@ namespace ECC
 		bool Import(const Packed&);
 
 		void Generate(const Hash::Value&);
-		static void Generate(Ptr&, const Hash::Value&);
+		static void Create(Ptr&, const Hash::Value&);
 	};
 
 	class HKdfPub

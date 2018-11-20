@@ -630,7 +630,7 @@ void Node::Initialize()
 		// use arbitrary, inited from system random. Needed for misc things, such as secure channel.
 		ECC::NoLeak<ECC::uintBig> seed;
 		ECC::GenRandom(seed.V.m_pData, seed.V.nBytes);
-		ECC::HKdf::Generate(m_pKdf, seed.V);
+		ECC::HKdf::Create(m_pKdf, seed.V);
 	}
 
 	if (!m_pOwnerKdf)

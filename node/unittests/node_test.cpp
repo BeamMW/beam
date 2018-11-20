@@ -56,7 +56,7 @@ namespace ECC {
 	{
 		uintBig seed;
 		SetRandom(seed);
-		HKdf::Generate(pRes, seed);
+		HKdf::Create(pRes, seed);
 	}
 }
 
