@@ -48,7 +48,10 @@ int main() {
         io::Reactor::GracefulIntHandler gih(*reactor);
         io::Timer::Ptr feedJobsTimer = io::Timer::create(*reactor);
         feedJobsTimer->start(1000, true, &gen_new_job);
-        server = IExternalPOW::create(IExternalPOW::Options{}, *reactor, listenTo);
+        IExternalPOW::Options options;
+        options.certFile = PROJECT_SOURCE_DIR "/utility/unittest/test.crt";
+        options.privKeyFile = PROJECT_SOURCE_DIR "/utility/unittest/test.key";
+        server = IExternalPOW::create(options, *reactor, listenTo);
         reactor->run();
         server.reset();
         LOG_INFO() << "Done";

@@ -96,6 +96,7 @@ private:
     void stop_current() override {}
     void stop() override {}
 
+    Options _options;
     io::Reactor& _reactor;
     io::Address _bindAddress;
     io::MultipleTimers _timers;

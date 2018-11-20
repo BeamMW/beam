@@ -25,6 +25,8 @@ public:
 
     struct Options {
         std::string apiKeysFile;
+        std::string certFile;
+        std::string privKeyFile;
     };
 
     // creates stratum server

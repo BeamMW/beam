@@ -36,9 +36,10 @@ class StratumClient : public stratum::ParserCallback {
     LineProtocol _lineProtocol;
     io::TcpStream::Ptr _connection;
     io::Timer::Ptr _timer;
+    bool _tls;
 
 public:
-    StratumClient(io::Reactor& reactor, const io::Address& serverAddress, std::string apiKey) :
+    StratumClient(io::Reactor& reactor, const io::Address& serverAddress, std::string apiKey, bool no_tls) :
         _reactor(reactor),
         _serverAddress(serverAddress),
         _apiKey(std::move(apiKey)),
@@ -46,7 +47,8 @@ public:
             BIND_THIS_MEMFN(on_raw_message),
             BIND_THIS_MEMFN(on_write)
         ),
-        _timer(io::Timer::create(_reactor))
+        _timer(io::Timer::create(_reactor)),
+        _tls(!no_tls)
     {
         _timer->start(0, false, BIND_THIS_MEMFN(on_reconnect));
     }
@@ -100,7 +102,7 @@ private:
 
     void on_reconnect() {
         LOG_INFO() << "connecting to " << _serverAddress;
-        if (!_reactor.tcp_connect(_serverAddress, 1, BIND_THIS_MEMFN(on_connected), 10000, false)) {
+        if (!_reactor.tcp_connect(_serverAddress, 1, BIND_THIS_MEMFN(on_connected), 10000, _tls)) {
             LOG_ERROR() << "connect attempt failed, rescheduling";
             _timer->start(RECONNECT_TIMEOUT, false, BIND_THIS_MEMFN(on_reconnect));
         }
@@ -141,7 +143,8 @@ private:
 struct Options {
     std::string apiKey;
     std::string serverAddress;
-    int logLevel;
+    bool no_tls=false;
+    int logLevel=LOG_LEVEL_DEBUG;
     static const unsigned logRotationPeriod = 3*60*60*1000; // 3 hours
 };
 
@@ -168,7 +171,7 @@ int main(int argc, char* argv[]) {
         logRotateTimer->start(
             options.logRotationPeriod, true, []() { Logger::get()->rotate(); }
         );
-        StratumClient client(*reactor, connectTo, options.apiKey);
+        StratumClient client(*reactor, connectTo, options.apiKey, options.no_tls);
         reactor->run();
         LOG_INFO() << "Done";
     } catch (const std::exception& e) {
@@ -188,6 +191,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
     ("help", "list of all options")
     ("server", po::value<std::string>(&o.serverAddress)->required(), "server address")
     ("key", po::value<std::string>(&o.apiKey)->required(), "api key")
+    ("no-tls", po::bool_switch(&o.no_tls)->default_value(false), "disable tls")
     ;
 
 #ifdef NDEBUG

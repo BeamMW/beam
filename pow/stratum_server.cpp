@@ -14,6 +14,7 @@
 
 #include "stratum_server.h"
 #include "utility/helpers.h"
+#include "utility/io/sslserver.h"
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <fstream>
@@ -39,6 +40,7 @@ static const unsigned ACL_REFRESH_INTERVAL = 5555;
 static const char STS[] = "stratum server ";
 
 Server::Server(const IExternalPOW::Options& o, io::Reactor& reactor, io::Address listenTo) :
+    _options(o),
     _reactor(reactor),
     _bindAddress(listenTo),
     _timers(reactor, 100),
@@ -51,11 +53,22 @@ Server::Server(const IExternalPOW::Options& o, io::Reactor& reactor, io::Address
 
 void Server::start_server() {
     try {
-        _server = io::TcpServer::create(
-            _reactor,
-            _bindAddress,
-            BIND_THIS_MEMFN(on_stream_accepted)
-        );
+        if (_options.privKeyFile.empty() || _options.certFile.empty()) {
+            LOG_WARNING() << STS << "TLS disabled!";
+            _server = io::TcpServer::create(
+                _reactor,
+                _bindAddress,
+                BIND_THIS_MEMFN(on_stream_accepted)
+            );
+        } else {
+            _server = io::SslServer::create(
+                _reactor,
+                _bindAddress,
+                BIND_THIS_MEMFN(on_stream_accepted),
+                _options.certFile.c_str(),
+                _options.privKeyFile.c_str()
+            );
+        }
         LOG_INFO() << STS << "listens to " << _bindAddress;
     } catch (const std::exception& e) {
         LOG_ERROR() << STS << "cannot start server: " << e.what() << " restarting in  " << SERVER_RESTART_INTERVAL << " msec";
