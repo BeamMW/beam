@@ -2,6 +2,10 @@ set (TARGET_NAME "quazip_static")
 
 set (CMAKE_PREFIX_PATH $ENV{QT5_ROOT_DIR})
 
+if(LINUX)
+	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
 find_package(Qt5 COMPONENTS Core REQUIRED)
 
 set(QUAZIP_SRCS
