@@ -22,6 +22,7 @@
 
 #define NOSEP
 #define COMMA ", "
+#define AND " AND "
 
 // Coin ID fields
 // id          - coin counter
@@ -34,36 +35,41 @@
 // maturity    - height where we can spend the coin
 
 #define ENUM_STORAGE_ID(each, sep, obj) \
-    each(1, id, INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, obj)
+    each(id, INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, obj)
 
 #define ENUM_STORAGE_FIELDS(each, sep, obj) \
-    each(2, amount,        INTEGER NOT NULL, obj) sep \
-    each(3, status,        INTEGER NOT NULL, obj) sep \
-    each(4, createHeight,  INTEGER NOT NULL, obj) sep \
-    each(5, maturity,      INTEGER NOT NULL, obj) sep \
-    each(6, key_type,      INTEGER NOT NULL, obj) sep \
-    each(7, keyIndex,      INTEGER NOT NULL, obj) sep \
-    each(8, confirmHeight, INTEGER, obj) sep \
-    each(9, confirmHash,   BLOB, obj) sep \
-    each(10, createTxId,   BLOB, obj) sep \
-    each(11, spentTxId,    BLOB, obj) sep \
-    each(12, lockedHeight, BLOB, obj) sep \
-    each(13, iKdf,			INTEGER NOT NULL, obj)            // last item without separator// last item without separator
+    each(amount,        INTEGER NOT NULL, obj) sep \
+    each(status,        INTEGER NOT NULL, obj) sep \
+    each(createHeight,  INTEGER NOT NULL, obj) sep \
+    each(maturity,      INTEGER NOT NULL, obj) sep \
+    each(key_type,      INTEGER NOT NULL, obj) sep \
+    each(keyIndex,      INTEGER NOT NULL, obj) sep \
+    each(confirmHeight, INTEGER, obj) sep \
+    each(confirmHash,   BLOB, obj) sep \
+    each(createTxId,    BLOB, obj) sep \
+    each(spentTxId,     BLOB, obj) sep \
+    each(lockedHeight,  BLOB, obj) sep \
+    each(iKdf,			INTEGER NOT NULL, obj)            // last item without separator// last item without separator
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) sep \
     ENUM_STORAGE_FIELDS(each, sep, obj)
 
-#define LIST(num, name, type, obj) #name
-#define LIST_WITH_TYPES(num, name, type, obj) #name " " #type
+#define LIST(name, type, obj) #name
+#define LIST_WITH_TYPES(name, type, obj) #name " " #type
 
-#define STM_BIND_LIST(num, name, type, obj) stm.bind(num, obj .m_ ## name);
-#define STM_GET_LIST(num, name, type, obj) stm.get(num-1, obj .m_ ## name);
+#define STM_BIND_LIST(name, type, obj) stm.bind(++colIdx, obj .m_ ## name);
+#define STM_GET_LIST(name, type, obj) stm.get(colIdx++, obj .m_ ## name);
 
-#define BIND_LIST(num, name, type, obj) "?" #num
-#define SET_LIST(num, name, type, obj) #name "=?" #num
+#define BIND_LIST(name, type, obj) "?"
+#define SET_LIST(name, type, obj) #name "=?"
 
 #define STORAGE_FIELDS ENUM_ALL_STORAGE_FIELDS(LIST, COMMA, )
+
+#define STORAGE_WHERE_ID " WHERE " ENUM_STORAGE_ID(SET_LIST, AND, )
+#define STORAGE_BIND_ID(obj) ENUM_STORAGE_ID(STM_BIND_LIST, NOSEP, obj)
+
+
 #define STORAGE_NAME "storage"
 #define VARIABLES_NAME "variables"
 #define PEERS_NAME "peers"
@@ -71,49 +77,50 @@
 #define TX_PARAMS_NAME "txparams"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
-    each(1, name,  TEXT UNIQUE, obj) sep \
-    each(2, value, BLOB, obj)
+    each(name,  TEXT UNIQUE, obj) sep \
+    each(value, BLOB, obj)
 
 #define VARIABLES_FIELDS ENUM_VARIABLES_FIELDS(LIST, COMMA, )
 
 #define ENUM_HISTORY_FIELDS(each, sep, obj) \
-    each(1, txId,       BLOB NOT NULL PRIMARY KEY, obj) sep \
-    each(2, amount,     INTEGER NOT NULL, obj) sep \
-    each(3, fee,        INTEGER NOT NULL, obj) sep \
-    each(4, minHeight,  INTEGER NOT NULL, obj) sep \
-    each(5, peerId,     BLOB NOT NULL, obj) sep \
-    each(6, myId,       BLOB NOT NULL, obj) sep \
-    each(7, message,    BLOB, obj) sep \
-    each(8, createTime, INTEGER NOT NULL, obj) sep \
-    each(9, modifyTime, INTEGER, obj) sep \
-    each(10, sender,    INTEGER NOT NULL, obj) sep \
-    each(11, status,    INTEGER NOT NULL, obj) sep \
-    each(12, fsmState,  BLOB, obj) sep \
-    each(13, change,    INTEGER NOT NULL, obj)
+    each(txId,       BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(amount,     INTEGER NOT NULL, obj) sep \
+    each(fee,        INTEGER NOT NULL, obj) sep \
+    each(minHeight,  INTEGER NOT NULL, obj) sep \
+    each(peerId,     BLOB NOT NULL, obj) sep \
+    each(myId,       BLOB NOT NULL, obj) sep \
+    each(message,    BLOB, obj) sep \
+    each(createTime, INTEGER NOT NULL, obj) sep \
+    each(modifyTime, INTEGER, obj) sep \
+    each(sender,     INTEGER NOT NULL, obj) sep \
+    each(status,     INTEGER NOT NULL, obj) sep \
+    each(fsmState,   BLOB, obj) sep \
+    each(change,     INTEGER NOT NULL, obj)
+
 #define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
 
 #define ENUM_PEER_FIELDS(each, sep, obj) \
-    each(1, walletID,    BLOB NOT NULL PRIMARY KEY, obj) sep \
-    each(2, address,     TEXT NOT NULL, obj) sep \
-    each(3, label,       TEXT NOT NULL , obj)
+    each(walletID,    BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(address,     TEXT NOT NULL, obj) sep \
+    each(label,       TEXT NOT NULL , obj)
 
 #define PEER_FIELDS ENUM_PEER_FIELDS(LIST, COMMA, )
 
 
 #define ENUM_ADDRESS_FIELDS(each, sep, obj) \
-    each(1, walletID ,      BLOB NOT NULL PRIMARY KEY, obj) sep \
-    each(2, label,          TEXT NOT NULL, obj) sep \
-    each(3, category,       TEXT, obj) sep \
-    each(4, createTime,     INTEGER, obj) sep \
-    each(5, duration,       INTEGER, obj) sep \
-    each(6, own,            INTEGER NOT NULL, obj)
+    each(walletID ,      BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(label,          TEXT NOT NULL, obj) sep \
+    each(category,       TEXT, obj) sep \
+    each(createTime,     INTEGER, obj) sep \
+    each(duration,       INTEGER, obj) sep \
+    each(own,            INTEGER NOT NULL, obj)
 
 #define ADDRESS_FIELDS ENUM_ADDRESS_FIELDS(LIST, COMMA, )
 
 #define ENUM_TX_PARAMS_FIELDS(each, sep, obj) \
-    each(1, txID ,          BLOB NOT NULL , obj) sep \
-    each(2, paramID,        INTEGER NOT NULL , obj) sep \
-    each(3, value,          BLOB, obj)
+    each(txID ,          BLOB NOT NULL , obj) sep \
+    each(paramID,        INTEGER NOT NULL , obj) sep \
+    each(value,          BLOB, obj)
 
 #define TX_PARAMS_FIELDS ENUM_TX_PARAMS_FIELDS(LIST, COMMA, )
 
@@ -985,6 +992,7 @@ namespace beam
             stm.bind(3, amount);
             if (stm.step())
             {
+				int colIdx = 0;
                 ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin2);
                 sum = coin2.m_amount;
             }
@@ -1005,7 +1013,8 @@ namespace beam
             while (stm.step())
             {
                 auto& coin = candidats.emplace_back();
-                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+				int colIdx = 0;
+				ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
                 smallSum += coin.m_amount;
             }
             if (smallSum == amount)
@@ -1040,12 +1049,13 @@ namespace beam
             for (auto& coin : coins)
             {
                 coin.m_status = Coin::Locked;
-                const char* req = "UPDATE " STORAGE_NAME " SET status=?2, lockedHeight=?3 WHERE id=?1;";
+                const char* req = "UPDATE " STORAGE_NAME " SET status=?, lockedHeight=?" STORAGE_WHERE_ID;
                 sqlite::Statement stm(_db, req);
 
-                stm.bind(1, coin.m_id);
-                stm.bind(2, coin.m_status);
-                stm.bind(3, stateID.m_Height);
+				int colIdx = 0;
+                stm.bind(++colIdx, coin.m_status);
+                stm.bind(++colIdx, stateID.m_Height);
+				STORAGE_BIND_ID(coin)
 
                 stm.step();
             }
@@ -1069,7 +1079,8 @@ namespace beam
         while (stm.step())
         {
             auto& coin = coins.emplace_back();
-            ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+			int colIdx = 0;
+			ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
         }
 
         return coins;
@@ -1078,21 +1089,19 @@ namespace beam
     void WalletDB::store(beam::Coin& coin)
     {
         sqlite::Transaction trans(_db);
-
         storeImpl(coin);
-
         trans.commit();
     }
 
     void WalletDB::store(vector<beam::Coin>& coins)
     {
-        if (coins.empty()) return;
+        if (coins.empty())
+			return;
 
         sqlite::Transaction trans(_db);
+
         for (auto& coin : coins)
-        {
             storeImpl(coin);
-        }
 
         trans.commit();
     }
@@ -1124,7 +1133,8 @@ namespace beam
             if (stm.step())
             {
                 Amount amount = coin.m_amount;
-                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+				int colIdx = 0;
+				ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
                 if (amount != coin.m_amount)
                 {
                     LOG_WARNING() << "Attempt to store invalid UTXO";
@@ -1136,7 +1146,10 @@ namespace beam
         const char* req = "INSERT INTO " STORAGE_NAME " (" ENUM_STORAGE_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_STORAGE_FIELDS(BIND_LIST, COMMA, ) ");";
         sqlite::Statement stm(_db, req);
 
-        ENUM_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
+		{
+			int colIdx = 0;
+			ENUM_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
+		}
 
         stm.step();
 
@@ -1145,24 +1158,25 @@ namespace beam
         notifyCoinsChanged();
     }
 
-    void WalletDB::update(const beam::Coin& coin)
+    void WalletDB::updateImpl(const beam::Coin& coin)
     {
         assert(coin.m_amount > 0 && coin.m_id > 0 && coin.isValid());
-        sqlite::Transaction trans(_db);
 
-        {
-            const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_STORAGE_FIELDS(SET_LIST, COMMA, ) " WHERE id=?1;";
-            sqlite::Statement stm(_db, req);
+        const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_STORAGE_FIELDS(SET_LIST, COMMA, ) STORAGE_WHERE_ID;
+        sqlite::Statement stm(_db, req);
 
-            ENUM_ALL_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
+		int colIdx = 0;
+		ENUM_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
+		STORAGE_BIND_ID(coin)
 
-            stm.step();
-        }
-
-        trans.commit();
-
-        notifyCoinsChanged();
+        stm.step();
     }
+
+	void WalletDB::update(const beam::Coin& coin)
+	{
+		updateImpl(coin);
+        notifyCoinsChanged();
+	}
 
     void WalletDB::update(const vector<beam::Coin>& coins)
     {
@@ -1170,16 +1184,8 @@ namespace beam
         {
             sqlite::Transaction trans(_db);
 
-            for (const auto& coin : coins)
-            {
-                assert(coin.m_amount > 0 && coin.m_id > 0 && coin.isValid());
-                const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_STORAGE_FIELDS(SET_LIST, COMMA, ) " WHERE id=?1;";
-                sqlite::Statement stm(_db, req);
-
-                ENUM_ALL_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
-
-                stm.step();
-            }
+			for (const auto& coin : coins)
+				updateImpl(coin);
 
             trans.commit();
             notifyCoinsChanged();
@@ -1192,34 +1198,28 @@ namespace beam
         {
             sqlite::Transaction trans(_db);
 
-            for (const auto& coin : coins)
-            {
-                const char* req = "DELETE FROM " STORAGE_NAME " WHERE id=?1;";
-                sqlite::Statement stm(_db, req);
-
-                stm.bind(1, coin.m_id);
-
-                stm.step();
-            }
+			for (const auto& coin : coins)
+				removeImpl(coin);
 
             trans.commit();
-
             notifyCoinsChanged();
         }
     }
 
+	void WalletDB::removeImpl(const beam::Coin& coin)
+	{
+		const char* req = "DELETE FROM " STORAGE_NAME STORAGE_WHERE_ID;
+		sqlite::Statement stm(_db, req);
+
+		int colIdx = 0;
+		STORAGE_BIND_ID(coin)
+
+		stm.step();
+	}
+
     void WalletDB::remove(const beam::Coin& coin)
     {
-        sqlite::Transaction trans(_db);
-
-        const char* req = "DELETE FROM " STORAGE_NAME " WHERE id=?1;";
-        sqlite::Statement stm(_db, req);
-
-        stm.bind(1, coin.m_id);
-
-        stm.step();
-        trans.commit();
-
+		removeImpl(coin);
         notifyCoinsChanged();
     }
 
@@ -1247,7 +1247,8 @@ namespace beam
         {
             Coin coin;
 
-            ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+			int colIdx = 0;
+			ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
 
             if (!func(coin))
                 break;
@@ -1517,7 +1518,8 @@ namespace beam
         while (stm.step())
         {
             auto& peer = peers.emplace_back();
-            ENUM_PEER_FIELDS(STM_GET_LIST, NOSEP, peer);
+			int colIdx = 0;
+			ENUM_PEER_FIELDS(STM_GET_LIST, NOSEP, peer);
         }
         return peers;
     }
@@ -1533,7 +1535,8 @@ namespace beam
         const char* insertReq = "INSERT INTO " PEERS_NAME " (" ENUM_PEER_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_PEER_FIELDS(BIND_LIST, COMMA, ) ");";
 
         sqlite::Statement stm(_db, stm2.step() ? updateReq : insertReq);
-        ENUM_PEER_FIELDS(STM_BIND_LIST, NOSEP, peer);
+		int colIdx = 0;
+		ENUM_PEER_FIELDS(STM_BIND_LIST, NOSEP, peer);
         stm.step();
 
         trans.commit();
@@ -1546,7 +1549,8 @@ namespace beam
         if (stm.step())
         {
             TxPeer peer = {};
-            ENUM_PEER_FIELDS(STM_GET_LIST, NOSEP, peer);
+			int colIdx = 0;
+			ENUM_PEER_FIELDS(STM_GET_LIST, NOSEP, peer);
             return peer;
         }
         return boost::optional<TxPeer>{};
@@ -1569,7 +1573,8 @@ namespace beam
         while (stm.step())
         {
             auto& a = res.emplace_back();
-            ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, a);
+			int colIdx = 0;
+			ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, a);
         }
         return res;
     }
@@ -1597,7 +1602,8 @@ namespace beam
             {
                 const char* insertReq = "INSERT INTO " ADDRESSES_NAME " (" ENUM_ADDRESS_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ADDRESS_FIELDS(BIND_LIST, COMMA, ) ");";
                 sqlite::Statement stm(_db, insertReq);
-                ENUM_ADDRESS_FIELDS(STM_BIND_LIST, NOSEP, address);
+				int colIdx = 0;
+				ENUM_ADDRESS_FIELDS(STM_BIND_LIST, NOSEP, address);
                 stm.step();
             }
         }
@@ -1617,7 +1623,8 @@ namespace beam
         if (stm.step())
         {
             WalletAddress address = {};
-            ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, address);
+			int colIdx = 0;
+			ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, address);
             return address;
         }
         return boost::optional<WalletAddress>{};
@@ -1693,7 +1700,8 @@ namespace beam
         parameter.m_txID = txID;
         parameter.m_paramID = static_cast<int>(paramID);
         parameter.m_value = blob;
-        ENUM_TX_PARAMS_FIELDS(STM_BIND_LIST, NOSEP, parameter);
+		int colIdx = 0;
+		ENUM_TX_PARAMS_FIELDS(STM_BIND_LIST, NOSEP, parameter);
         stm.step();
         auto tx = getTx(txID);
         if (tx.is_initialized())
@@ -1713,7 +1721,8 @@ namespace beam
         if (stm.step())
         {
             TxParameter parameter = {};
-            ENUM_TX_PARAMS_FIELDS(STM_GET_LIST, NOSEP, parameter);
+			int colIdx = 0;
+			ENUM_TX_PARAMS_FIELDS(STM_GET_LIST, NOSEP, parameter);
             blob = move(parameter.m_value);
             return true;
         }

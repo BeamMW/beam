@@ -267,7 +267,9 @@ namespace beam
 
     private:
         void storeImpl(Coin& coin);
-        void notifyCoinsChanged();
+		void updateImpl(const beam::Coin& coin);
+		void removeImpl(const Coin& coin);
+		void notifyCoinsChanged();
         void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
         void notifySystemStateChanged();
         void notifyAddressChanged();
