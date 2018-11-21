@@ -221,7 +221,28 @@ namespace detail
 			return ar;
 		}
 
-        /// ECC::Signature serialization
+		/// ECC::Key::IDVC serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const ECC::Key::IDVC& kidvc)
+		{
+			ar
+				& Cast::Down<ECC::Key::IDV>(kidvc);
+				& kidvc.m_iChild;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, ECC::Key::IDVC& kidvc)
+		{
+			ar
+				& Cast::Down<ECC::Key::IDV>(kidvc);
+				& kidvc.m_iChild;
+
+			return ar;
+		}
+
+		/// ECC::Signature serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const ECC::Signature& val)
         {

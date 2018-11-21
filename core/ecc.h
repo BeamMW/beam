@@ -244,6 +244,10 @@ namespace ECC
 			bool operator == (const IDV&) const;
 		};
 
+		struct IDVC :public IDV {
+			Index m_iChild = 0;
+		};
+
 		struct IPKdf
 		{
 			typedef std::shared_ptr<IPKdf> Ptr;
