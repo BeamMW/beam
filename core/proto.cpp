@@ -1713,6 +1713,26 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestMined& req)
 {
 }
 
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestUtxoEvents& req)
+{
+	return (Flags::Owned & m_Flags) && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestUtxoEvents& req)
+{
+	// make sure height order is obeyed
+	Height hPrev = req.m_Msg.m_HeightMin;
+
+	for (size_t i = 0; i < req.m_Res.m_Events.size(); i++)
+	{
+		const UtxoEvent& evt = req.m_Res.m_Events[i];
+		if ((evt.m_Height < hPrev) || (evt.m_Height > m_Tip.m_Height))
+			ThrowUnexpected();
+
+		hPrev = evt.m_Height;
+	}
+}
+
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestRecover& req)
 {
 	return (Flags::Node & m_Flags) && IsAtTip(); // must also be owned

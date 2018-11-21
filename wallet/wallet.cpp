@@ -260,7 +260,12 @@ namespace beam
         return false;
     }
 
-    bool Wallet::MyRequestRecover::operator < (const MyRequestRecover& x) const
+	bool Wallet::MyRequestUtxoEvents::operator < (const MyRequestUtxoEvents& x) const
+	{
+		return false;
+	}
+
+	bool Wallet::MyRequestRecover::operator < (const MyRequestRecover& x) const
     {
         return false;
     }
@@ -514,6 +519,10 @@ namespace beam
     {
         assert(false);
     }
+
+	void Wallet::OnRequestComplete(MyRequestUtxoEvents& r)
+	{
+	}
 
     void Wallet::OnRolledBack()
     {

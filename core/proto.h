@@ -708,6 +708,7 @@ namespace proto {
 		macro(Utxo,			GetProofUtxo,		ProofUtxo) \
 		macro(Kernel,		GetProofKernel,		ProofKernel) \
 		macro(Mined,		GetMined,			Mined) \
+		macro(UtxoEvents,	GetUtxoEvents,		UtxoEvents) \
 		macro(Transaction,	NewTransaction,		Boolean) \
 		macro(BbsMsg,		BbsMsg,				Pong) \
 		macro(Recover,		Recover,			Recovered)
