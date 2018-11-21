@@ -121,6 +121,10 @@
 #define TblStates_Height	"Height"
 #define TblStates_Hdr		"State"
 
+#define TblEvents			"UtxoEvents"
+#define TblEvents_Height	"Height"
+#define TblEvents_Data		"Data"
+
 namespace std
 {
     template<>
@@ -661,7 +665,7 @@ namespace beam
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
-        const int DbVersion = 6;
+        const int DbVersion = 7;
     }
 
     Coin::Coin(const Amount& amount, Status status, const Height& createHeight, const Height& maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
@@ -782,6 +786,14 @@ namespace beam
 				const char* req = "CREATE TABLE [" TblStates "] ("
 					"[" TblStates_Height	"] INTEGER NOT NULL PRIMARY KEY,"
 					"[" TblStates_Hdr		"] BLOB NOT NULL)";
+				int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
+				throwIfError(ret, walletDB->_db);
+			}
+
+			{
+				const char* req = "CREATE TABLE [" TblEvents "] ("
+					"[" TblEvents_Height	"] INTEGER NOT NULL PRIMARY KEY,"
+					"[" TblEvents_Data		"] BLOB)";
 				int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
 				throwIfError(ret, walletDB->_db);
 			}
@@ -1818,6 +1830,42 @@ namespace beam
 		stm.bind(1, h);
 		stm.step();
 	}
+
+	void WalletDB::UtxoEvtInsert(Height h, const Blob& data)
+	{
+		const char* req = "INSERT INTO " TblEvents " (" TblEvents_Height "," TblEvents_Data ") VALUES(?,?)";
+		sqlite::Statement stm(_db, req);
+
+		stm.bind(1, h);
+		stm.bind(2, data.p, data.n);
+		stm.step();
+	}
+
+	void WalletDB::UtxoEvtDelete(Height h)
+	{
+		const char* req = "DELETE FROM " TblEvents " WHERE " TblEvents_Height "=?";
+		sqlite::Statement stm(_db, req);
+		stm.bind(1, h);
+		stm.step();
+	}
+
+	Height WalletDB::UtxoEvtGetLast(ByteBuffer* pData /* = nullptr */)
+	{
+		const char* req = "SELECT " TblEvents_Height "," TblEvents_Data " FROM " TblEvents " ORDER BY " TblEvents_Height " DESC LIMIT 1";
+
+		Height ret = 0;
+
+		sqlite::Statement stm(_db, req);
+		if (stm.step())
+		{
+			stm.get(0, ret);
+			if (pData)
+				stm.get(1, *pData);
+		}
+
+		return ret;
+	}
+
 
     namespace wallet
     {

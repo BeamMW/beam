@@ -191,7 +191,11 @@ namespace beam
 
 		virtual Block::SystemState::IHistory& get_History() = 0;
 		virtual void ShrinkHistory() = 0;
-    };
+
+		virtual void UtxoEvtInsert(Height, const Blob&) = 0;
+		virtual void UtxoEvtDelete(Height) = 0; // must always be the last
+		virtual Height UtxoEvtGetLast(ByteBuffer* pData = nullptr) = 0;
+	};
 
     class WalletDB : public IWalletDB, public std::enable_shared_from_this<WalletDB>
     {
@@ -256,6 +260,10 @@ namespace beam
 
 		Block::SystemState::IHistory& get_History() override;
 		void ShrinkHistory() override;
+
+		void UtxoEvtInsert(Height, const Blob&) override;
+		void UtxoEvtDelete(Height) override;
+		Height UtxoEvtGetLast(ByteBuffer* pData) override;
 
     private:
         void storeImpl(Coin& coin);
