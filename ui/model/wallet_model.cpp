@@ -195,6 +195,8 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 WalletModel::WalletModel(IWalletDB::Ptr walletDB, IKeyStore::Ptr keystore, const std::string& nodeAddr)
     : _walletDB(walletDB)
     , _keystore(keystore)
+    , _reactor{ Reactor::create() }
+    , _async{ make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *_reactor) }
     , _nodeAddrStr(nodeAddr)
 {
     qRegisterMetaType<WalletStatus>("WalletStatus");
@@ -255,12 +257,8 @@ void WalletModel::run()
     {
         std::unique_ptr<WalletSubscriber> wallet_subscriber;
 
-        _reactor = Reactor::create();
 		io::Reactor::Scope scope(*_reactor);
-
         io::Reactor::GracefulIntHandler gih(*_reactor);
-
-        async = make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *_reactor);
 
         emit onStatus(getStatus());
         emit onTxStatus(beam::ChangeAction::Reset, _walletDB->getTxHistory());
@@ -281,7 +279,7 @@ void WalletModel::run()
 			MyNodeNetwork(proto::FlyClient& fc, WalletModel& wm)
 				:proto::FlyClient::NetworkStd(fc)
 				,m_This(wm)
-			{
+        {
 			}
 
 			WalletModel& m_This;
@@ -297,8 +295,8 @@ void WalletModel::run()
 
         auto nnet = make_shared<MyNodeNetwork>(*wallet, *this);
 
-        Address node_addr;
-        node_addr.resolve(_nodeAddrStr.c_str());
+            Address node_addr;
+            node_addr.resolve(_nodeAddrStr.c_str());
         nnet->m_Cfg.m_vNodes.push_back(node_addr);
 
         nnet->Connect();
@@ -308,7 +306,7 @@ void WalletModel::run()
         _wnet = wnet;
         wallet->set_Network(*nnet, *wnet);
 
-        wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
+            wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
         if (AppModel::getInstance()->shouldRestoreWallet())
         {
@@ -327,6 +325,11 @@ void WalletModel::run()
     {
         LOG_ERROR() << "Unhandled exception";
     }
+}
+
+IWalletModelAsync::Ptr WalletModel::getAsync()
+{
+    return _async;
 }
 
 void WalletModel::onStatusChanged()

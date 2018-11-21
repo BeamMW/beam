@@ -99,42 +99,43 @@ namespace beam
 
     Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action)
         : m_WalletDB{ walletDB }
-        , m_pNodeNetwork(NULL)
-		, m_pWalletNetwork(NULL)
-		, m_tx_completed_action{move(action)}
-		, m_LastSyncTotal(0)
-		, m_needRecover{false}
+        , m_pNodeNetwork(nullptr)
+        , m_pWalletNetwork(nullptr)
+        , m_tx_completed_action{move(action)}
+        , m_LastSyncTotal(0)
+        , m_needRecover{false}
+        , m_recovering{false}
     {
         assert(walletDB);
         resume_all_tx();
     }
 
-	bool Wallet::IsOwnedNode(const PeerID&, Key::IKdf::Ptr& pKdf)
-	{
-		// TODO - check the node ID
-		pKdf = m_WalletDB->get_Kdf();
-		return true;
-	}
+    bool Wallet::IsOwnedNode(const PeerID&, Key::IKdf::Ptr& pKdf)
+    {
+        // TODO - check the node ID
+        pKdf = m_WalletDB->get_Kdf();
+        return true;
+    }
 
-	Block::SystemState::IHistory& Wallet::get_History()
-	{
-		return m_WalletDB->get_History();
-	}
+    Block::SystemState::IHistory& Wallet::get_History()
+    {
+        return m_WalletDB->get_History();
+    }
 
-	void Wallet::set_Network(proto::FlyClient::INetwork& netNode, INetwork& netWallet)
-	{
-		m_pNodeNetwork = &netNode;
-		m_pWalletNetwork = &netWallet;
-	}
+    void Wallet::set_Network(proto::FlyClient::INetwork& netNode, INetwork& netWallet)
+    {
+        m_pNodeNetwork = &netNode;
+        m_pWalletNetwork = &netWallet;
+    }
 
     Wallet::~Wallet()
     {
-		// clear all requests
+        // clear all requests
 #define THE_MACRO(type, msgOut, msgIn) \
-		while (!m_Pending##type.empty()) \
-			DeleteReq(*m_Pending##type.begin());
+        while (!m_Pending##type.empty()) \
+            DeleteReq(*m_Pending##type.begin());
 
-		REQUEST_TYPES_All(THE_MACRO)
+        REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
     }
 
@@ -232,77 +233,77 @@ namespace beam
 
     void Wallet::confirm_outputs(const vector<Coin>& coins)
     {
-		for (auto& coin : coins)
-			getUtxoProof(coin);
+        for (auto& coin : coins)
+            getUtxoProof(coin);
     }
 
-	bool Wallet::MyRequestUtxo::operator < (const MyRequestUtxo& x) const
-	{
-		return m_Msg.m_Utxo < x.m_Msg.m_Utxo;
-	}
+    bool Wallet::MyRequestUtxo::operator < (const MyRequestUtxo& x) const
+    {
+        return m_Msg.m_Utxo < x.m_Msg.m_Utxo;
+    }
 
-	bool Wallet::MyRequestKernel::operator < (const MyRequestKernel& x) const
-	{
-		return m_TxID < x.m_TxID;
-	}
+    bool Wallet::MyRequestKernel::operator < (const MyRequestKernel& x) const
+    {
+        return m_TxID < x.m_TxID;
+    }
 
-	bool Wallet::MyRequestTransaction::operator < (const MyRequestTransaction& x) const
-	{
-		return m_TxID < x.m_TxID;
-	}
+    bool Wallet::MyRequestTransaction::operator < (const MyRequestTransaction& x) const
+    {
+        return m_TxID < x.m_TxID;
+    }
 
-	bool Wallet::MyRequestMined::operator < (const MyRequestMined& x) const
-	{
-		return false;
-	}
+    bool Wallet::MyRequestMined::operator < (const MyRequestMined& x) const
+    {
+        return false;
+    }
 
-	bool Wallet::MyRequestRecover::operator < (const MyRequestRecover& x) const
-	{
-		return false;
-	}
+    bool Wallet::MyRequestRecover::operator < (const MyRequestRecover& x) const
+    {
+        return false;
+    }
 
-	void Wallet::RequestHandler::OnComplete(Request& r)
-	{
-		uint32_t n = get_ParentObj().SyncRemains();
+    void Wallet::RequestHandler::OnComplete(Request& r)
+    {
+        uint32_t n = get_ParentObj().SyncRemains();
 
-		switch (r.get_Type())
-		{
+        switch (r.get_Type())
+        {
 #define THE_MACRO(type, msgOut, msgIn) \
-		case Request::Type::type: \
-			{ \
-				MyRequest##type& x = static_cast<MyRequest##type&>(r); \
-				get_ParentObj().DeleteReq(x); \
-				get_ParentObj().OnRequestComplete(x); \
-			} \
-			break;
+        case Request::Type::type: \
+            { \
+                MyRequest##type& x = static_cast<MyRequest##type&>(r); \
+                get_ParentObj().DeleteReq(x); \
+                get_ParentObj().OnRequestComplete(x); \
+            } \
+            break;
 
-		REQUEST_TYPES_All(THE_MACRO)
+        REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
 
-		default:
-			assert(false);
-		}
+        default:
+            assert(false);
+        }
 
-		if (n)
-			get_ParentObj().CheckSyncDone();
-	}
+        if (n)
+            get_ParentObj().CheckSyncDone();
+    }
 
     void Wallet::confirm_kernel(const TxID& txID, const TxKernel& kernel)
     {
         if (auto it = m_transactions.find(txID); it != m_transactions.end())
         {
-			MyRequestKernel::Ptr pVal(new MyRequestKernel);
-			pVal->m_TxID = txID;
+            MyRequestKernel::Ptr pVal(new MyRequestKernel);
+            pVal->m_TxID = txID;
             kernel.get_ID(pVal->m_Msg.m_ID);
 
-			if (PostReqUnique(*pVal))
-				LOG_INFO() << "Get proof for kernel: " << pVal->m_Msg.m_ID;
+            if (PostReqUnique(*pVal))
+                LOG_INFO() << "Get proof for kernel: " << pVal->m_Msg.m_ID;
         }
     }
 
     bool Wallet::get_tip(Block::SystemState::Full& state) const
     {
-		return m_WalletDB->get_History().get_Tip(state);
+        return m_WalletDB->get_History().get_Tip(state);
     }
 
     void Wallet::send_tx_params(const WalletID& peerID, SetTxParameter&& msg)
@@ -335,8 +336,8 @@ namespace beam
         }
     }
 
-	void Wallet::OnRequestComplete(MyRequestTransaction& r)
-	{
+    void Wallet::OnRequestComplete(MyRequestTransaction& r)
+    {
         LOG_DEBUG() << r.m_TxID << (r.m_Res.m_Value ? " has registered" : " has failed to register");
         
         auto it = m_transactions.find(r.m_TxID);
@@ -379,12 +380,12 @@ namespace beam
         auto it = m_transactions.find(txID);
         if (it != m_transactions.end())
         {
-			bool bSynced = !SyncRemains();
+            bool bSynced = !SyncRemains();
 
-			if (bSynced)
-				it->second->Update();
-			else
-				m_TransactionsToUpdate.insert(it->second);
+            if (bSynced)
+                it->second->Update();
+            else
+                m_TransactionsToUpdate.insert(it->second);
         }
         else
         {
@@ -392,48 +393,48 @@ namespace beam
         }
     }
 
-	void Wallet::OnRequestComplete(MyRequestUtxo& r)
-	{
+    void Wallet::OnRequestComplete(MyRequestUtxo& r)
+    {
         // TODO: handle the maturity of the several proofs (> 1)
-		if (r.m_Res.m_Proofs.empty())
-		{
-			LOG_WARNING() << "Got empty utxo proof for: " << r.m_Msg.m_Utxo;
+        if (r.m_Res.m_Proofs.empty())
+        {
+            LOG_WARNING() << "Got empty utxo proof for: " << r.m_Msg.m_Utxo;
 
-			if (r.m_Coin.m_status == Coin::Locked)
-			{
-				r.m_Coin.m_status = Coin::Spent;
-				m_WalletDB->update(r.m_Coin);
-				assert(r.m_Coin.m_spentTxId.is_initialized());
-				updateTransaction(*(r.m_Coin.m_spentTxId));
-			}
-			else if (r.m_Coin.m_status == Coin::Unconfirmed && r.m_Coin.isReward())
-			{
-				LOG_WARNING() << "Uncofirmed reward UTXO removed. Amount: " << r.m_Coin.m_amount << " Height: " << r.m_Coin.m_createHeight;
-				m_WalletDB->remove(r.m_Coin);
-			}
+            if (r.m_Coin.m_status == Coin::Locked)
+            {
+                r.m_Coin.m_status = Coin::Spent;
+                m_WalletDB->update(r.m_Coin);
+                assert(r.m_Coin.m_spentTxId.is_initialized());
+                updateTransaction(*(r.m_Coin.m_spentTxId));
+            }
+            else if (r.m_Coin.m_status == Coin::Unconfirmed && r.m_Coin.isReward())
+            {
+                LOG_WARNING() << "Uncofirmed reward UTXO removed. Amount: " << r.m_Coin.m_amount << " Height: " << r.m_Coin.m_createHeight;
+                m_WalletDB->remove(r.m_Coin);
+            }
 
-			return;
-		}
+            return;
+        }
 
-		for (const auto& proof : r.m_Res.m_Proofs)
+        for (const auto& proof : r.m_Res.m_Proofs)
         {
             if (r.m_Coin.m_status == Coin::Unconfirmed)
             {
-				Block::SystemState::Full sTip;
-				get_tip(sTip);
+                Block::SystemState::Full sTip;
+                get_tip(sTip);
 
-				LOG_INFO() << "Got utxo proof for: " << r.m_Msg.m_Utxo;
-				r.m_Coin.m_status = Coin::Unspent;
-				r.m_Coin.m_maturity = proof.m_State.m_Maturity;
-				r.m_Coin.m_confirmHeight = sTip.m_Height;
+                LOG_INFO() << "Got utxo proof for: " << r.m_Msg.m_Utxo;
+                r.m_Coin.m_status = Coin::Unspent;
+                r.m_Coin.m_maturity = proof.m_State.m_Maturity;
+                r.m_Coin.m_confirmHeight = sTip.m_Height;
                 sTip.get_Hash(r.m_Coin.m_confirmHash);
                 if (r.m_Coin.m_id == 0)
                 {
-					m_WalletDB->store(r.m_Coin);
+                    m_WalletDB->store(r.m_Coin);
                 }
                 else
                 {
-					m_WalletDB->update(r.m_Coin);
+                    m_WalletDB->update(r.m_Coin);
                 }
                 if (r.m_Coin.isReward())
                 {
@@ -447,8 +448,8 @@ namespace beam
         }
     }
 
-	void Wallet::OnRequestComplete(MyRequestMined& r)
-	{
+    void Wallet::OnRequestComplete(MyRequestMined& r)
+    {
         auto currentHeight = m_WalletDB->getCurrentHeight();
         Height lastKnownCoinHeight = currentHeight;
         for (auto& minedCoin : r.m_Res.m_Entries)
@@ -456,113 +457,119 @@ namespace beam
             if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
             {
                 // coinbase 
-				Coin c(Rules::get().CoinbaseEmission
-					, Coin::Unconfirmed
-					, minedCoin.m_ID.m_Height
-					, MaxHeight
-					, Key::Type::Coinbase);
+                Coin c(Rules::get().CoinbaseEmission
+                    , Coin::Unconfirmed
+                    , minedCoin.m_ID.m_Height
+                    , MaxHeight
+                    , Key::Type::Coinbase);
 
-				getUtxoProof(c);
+                getUtxoProof(c);
 
                 if (minedCoin.m_Fees > 0)
                 {
-					Coin cFee(minedCoin.m_Fees
-						, Coin::Unconfirmed
-						, minedCoin.m_ID.m_Height
-						, MaxHeight
-						, Key::Type::Comission);
+                    Coin cFee(minedCoin.m_Fees
+                        , Coin::Unconfirmed
+                        , minedCoin.m_ID.m_Height
+                        , MaxHeight
+                        , Key::Type::Comission);
 
-					getUtxoProof(cFee);
-				}
-                lastKnownCoinHeight = minedCoin.m_ID.m_Height;
+                    getUtxoProof(cFee);
+                }
+                lastKnownCoinHeight = max(lastKnownCoinHeight, minedCoin.m_ID.m_Height);
             }
         }
 
         if (r.m_Res.m_Entries.size() == proto::PerMined::s_EntriesMax)
         {
-			r.m_Msg.m_HeightMin = lastKnownCoinHeight;
-			PostReqUnique(r);
+            r.m_Msg.m_HeightMin = lastKnownCoinHeight;
+            PostReqUnique(r);
         }
     }
 
     void Wallet::OnRequestComplete(MyRequestRecover& r)
     {
         for (const auto& kidv : r.m_Res.m_Private)
-			getUtxoProof(Coin::fromKidv(kidv));
+            getUtxoProof(Coin::fromKidv(kidv));
     }
 
     void Wallet::OnRequestComplete(MyRequestKernel& r)
     {
         if (!r.m_Res.m_Proof.empty())
         {
-			m_WalletDB->get_History().AddStates(&r.m_Res.m_Proof.m_State, 1); // why not?
+            m_WalletDB->get_History().AddStates(&r.m_Res.m_Proof.m_State, 1); // why not?
 
-			auto it = m_transactions.find(r.m_TxID);
-			if (m_transactions.end() != it)
-			{
-				if (it->second->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Proof.m_State.m_Height))
-					it->second->Update();
-			}
+            auto it = m_transactions.find(r.m_TxID);
+            if (m_transactions.end() != it)
+            {
+                if (it->second->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Proof.m_State.m_Height))
+                    it->second->Update();
+            }
         }
     }
 
-	void Wallet::OnRequestComplete(MyRequestBbsMsg& r)
-	{
-		assert(false);
-	}
+    void Wallet::OnRequestComplete(MyRequestBbsMsg& r)
+    {
+        assert(false);
+    }
 
-	void Wallet::OnRolledBack()
-	{
-		Block::SystemState::Full sTip;
-		m_WalletDB->get_History().get_Tip(sTip);
+    void Wallet::OnRolledBack()
+    {
+        Block::SystemState::Full sTip;
+        m_WalletDB->get_History().get_Tip(sTip);
 
-		m_WalletDB->get_History().DeleteFrom(sTip.m_Height + 1);
+        m_WalletDB->get_History().DeleteFrom(sTip.m_Height + 1);
 
-		m_WalletDB->rollbackConfirmedUtxo(sTip.m_Height);
+        m_WalletDB->rollbackConfirmedUtxo(sTip.m_Height);
 
-		for (auto it = m_transactions.begin(); m_transactions.end() != it; it++)
-		{
-			const auto& pTx = it->second;
+        for (auto it = m_transactions.begin(); m_transactions.end() != it; it++)
+        {
+            const auto& pTx = it->second;
 
-			Height h;
-			if (pTx->GetParameter(TxParameterID::KernelProofHeight, h) && (h > sTip.m_Height))
-			{
-				h = 0;
-				pTx->SetParameter(TxParameterID::KernelProofHeight, h);
-				m_TransactionsToUpdate.insert(pTx);
-			}
-		}
-	}
+            Height h;
+            if (pTx->GetParameter(TxParameterID::KernelProofHeight, h) && (h > sTip.m_Height))
+            {
+                h = 0;
+                pTx->SetParameter(TxParameterID::KernelProofHeight, h);
+                m_TransactionsToUpdate.insert(pTx);
+            }
+        }
+    }
 
-	void Wallet::OnNewTip()
-	{
-		m_WalletDB->ShrinkHistory();
+    void Wallet::OnNewTip()
+    {
+        if (m_recovering)
+        {
+            // ignore when recover is in progress
+            return;
+        }
 
-		Block::SystemState::Full sTip;
-		get_tip(sTip);
-		if (!sTip.m_Height)
-			return; //?!
+        m_WalletDB->ShrinkHistory();
 
-		Block::SystemState::ID id, id2;
+        Block::SystemState::Full sTip;
+        get_tip(sTip);
+        if (!sTip.m_Height)
+            return; //?!
+
+        Block::SystemState::ID id, id2;
         sTip.get_ID(id);
         LOG_INFO() << "Sync up to " << id;
 
-		if (!m_WalletDB->getSystemStateID(id2))
-			id2.m_Height = 0;
+        if (!m_WalletDB->getSystemStateID(id2))
+            id2.m_Height = 0;
 
         if (m_needRecover)
         {
-			MyRequestRecover::Ptr pReq(new MyRequestRecover);
-			pReq->m_Msg.m_Private = true;
-			pReq->m_Msg.m_Public = true;
-			PostReqUnique(*pReq);
+            MyRequestRecover::Ptr pReq(new MyRequestRecover);
+            pReq->m_Msg.m_Private = true;
+            pReq->m_Msg.m_Public = true;
+            PostReqUnique(*pReq);
             return;
         }
 
         {
-			MyRequestMined::Ptr pReq(new MyRequestMined);
-			pReq->m_Msg.m_HeightMin = id2.m_Height;
-			PostReqUnique(*pReq);
+            MyRequestMined::Ptr pReq(new MyRequestMined);
+            pReq->m_Msg.m_HeightMin = id2.m_Height;
+            PostReqUnique(*pReq);
         }
 
         auto t = m_transactions;
@@ -573,14 +580,14 @@ namespace beam
 
         // try to restore utxo state after reset, rollback and etc..
         uint32_t nUnconfirmed = 0;
-		m_WalletDB->visit([&nUnconfirmed, this](const Coin& c)->bool
+        m_WalletDB->visit([&nUnconfirmed, this](const Coin& c)->bool
         {
             if (c.m_status == Coin::Unconfirmed
                 && ((c.m_createTxId.is_initialized()
                 && (m_transactions.find(*c.m_createTxId) == m_transactions.end())) || c.isReward()))
             {
-				getUtxoProof(c);
-				nUnconfirmed++;
+                getUtxoProof(c);
+                nUnconfirmed++;
             }
             return true;
         });
@@ -590,72 +597,72 @@ namespace beam
             LOG_INFO() << "Found " << nUnconfirmed << " unconfirmed utxo to proof";
         }
 
-		CheckSyncDone();
+        CheckSyncDone();
     }
 
     void Wallet::getUtxoProof(const Coin& coin)
     {
-		MyRequestUtxo::Ptr pReq(new MyRequestUtxo);
-		pReq->m_Coin = coin;
-		pReq->m_Msg.m_Utxo = Commitment(m_WalletDB->calcKey(coin), coin.m_amount);
-		LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo;
+        MyRequestUtxo::Ptr pReq(new MyRequestUtxo);
+        pReq->m_Coin = coin;
+        pReq->m_Msg.m_Utxo = Commitment(m_WalletDB->calcKey(coin), coin.m_amount);
+        LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo;
 
-		PostReqUnique(*pReq);
+        PostReqUnique(*pReq);
     }
 
-	uint32_t Wallet::SyncRemains() const
-	{
-		size_t val =
+    uint32_t Wallet::SyncRemains() const
+    {
+        size_t val =
 #define THE_MACRO(type) m_Pending##type.size() +
-			REQUEST_TYPES_Sync(THE_MACRO)
+            REQUEST_TYPES_Sync(THE_MACRO)
 #undef THE_MACRO
-			0;
+            0;
 
-		return static_cast<uint32_t>(val);
-	}
+        return static_cast<uint32_t>(val);
+    }
 
     void Wallet::CheckSyncDone()
     {
-		report_sync_progress();
+        report_sync_progress();
 
-		if (SyncRemains())
-			return;
+        if (SyncRemains())
+            return;
 
-		m_LastSyncTotal = 0;
+        m_LastSyncTotal = 0;
 
-		saveKnownState();
+        saveKnownState();
     }
 
     void Wallet::saveKnownState()
     {
-		Block::SystemState::Full sTip;
-		get_tip(sTip);
+        Block::SystemState::Full sTip;
+        get_tip(sTip);
 
-		Block::SystemState::ID id;
-		if (sTip.m_Height)
-			sTip.get_ID(id);
-		else
-			ZeroObject(id);
+        Block::SystemState::ID id;
+        if (sTip.m_Height)
+            sTip.get_ID(id);
+        else
+            ZeroObject(id);
 
-		m_WalletDB->setSystemStateID(id);
+        m_WalletDB->setSystemStateID(id);
         LOG_INFO() << "Current state is " << id;
-        m_needRecover = false;
+        m_recovering = false;
         notifySyncProgress();
 
-		std::set<wallet::BaseTransaction::Ptr> txSet;
-		txSet.swap(m_TransactionsToUpdate);
+        std::set<wallet::BaseTransaction::Ptr> txSet;
+        txSet.swap(m_TransactionsToUpdate);
 
-		for (auto it = txSet.begin(); txSet.end() != it; it++)
-		{
-			const wallet::BaseTransaction::Ptr& pTx = *it;
-			if (m_transactions.find(pTx->GetTxID()) != m_transactions.end())
-				pTx->Update();
-		}
-	}
+        for (auto it = txSet.begin(); txSet.end() != it; it++)
+        {
+            const wallet::BaseTransaction::Ptr& pTx = *it;
+            if (m_transactions.find(pTx->GetTxID()) != m_transactions.end())
+                pTx->Update();
+        }
+    }
 
     void Wallet::notifySyncProgress()
     {
-		uint32_t n = SyncRemains();
+        uint32_t n = SyncRemains();
         for (auto sub : m_subscribers)
         {
             sub->onSyncProgress(m_LastSyncTotal - n, m_LastSyncTotal);
@@ -664,10 +671,10 @@ namespace beam
 
     void Wallet::report_sync_progress()
     {
-		if (!m_LastSyncTotal)
-			return;
+        if (!m_LastSyncTotal)
+            return;
 
-		uint32_t nDone = m_LastSyncTotal - SyncRemains();
+        uint32_t nDone = m_LastSyncTotal - SyncRemains();
         assert(nDone <= m_LastSyncTotal);
         int p = static_cast<int>((nDone * 100) / m_LastSyncTotal);
         LOG_INFO() << "Synchronizing with node: " << p << "% (" << nDone << "/" << m_LastSyncTotal << ")";
@@ -684,11 +691,11 @@ namespace beam
         assert(data->IsValid(ctx));
 #endif // NDEBUG
 
-		MyRequestTransaction::Ptr pReq(new MyRequestTransaction);
-		pReq->m_TxID = txId;
-		pReq->m_Msg.m_Transaction = std::move(data);
+        MyRequestTransaction::Ptr pReq(new MyRequestTransaction);
+        pReq->m_TxID = txId;
+        pReq->m_Msg.m_Transaction = std::move(data);
 
-		PostReqUnique(*pReq);
+        PostReqUnique(*pReq);
     }
 
     void Wallet::subscribe(IWalletObserver* observer)
@@ -755,7 +762,7 @@ namespace beam
         switch (type)
         {
         case TxType::Simple:
-                return make_shared<SimpleTransaction>(*this, m_WalletDB, id);
+             return make_shared<SimpleTransaction>(*this, m_WalletDB, id);
         case TxType::AtomicSwap:
             return make_shared<AtomicSwapTransaction>(*this, m_WalletDB, id);
         }

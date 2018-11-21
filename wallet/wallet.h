@@ -28,7 +28,7 @@ namespace beam
     };
 
     struct IWallet
-		:public proto::FlyClient
+		: public proto::FlyClient
     {
         using Ptr = std::shared_ptr<IWallet>;
         virtual ~IWallet() {}
@@ -50,8 +50,8 @@ namespace beam
 
 
     class Wallet
-		:public IWallet
-        ,public wallet::INegotiatorGateway
+		: public IWallet
+        , public wallet::INegotiatorGateway
     {
         using Callback = std::function<void()>;
     public:
@@ -93,7 +93,7 @@ namespace beam
     private:
 
 		struct RequestHandler
-			:public proto::FlyClient::Request::IHandler
+			: public proto::FlyClient::Request::IHandler
 		{
 			virtual void OnComplete(Request&) override;
 			IMPLEMENT_GET_PARENT_OBJ(Wallet, m_RequestHandler)
@@ -186,6 +186,7 @@ namespace beam
         TxCompletedAction m_tx_completed_action;
 		uint32_t m_LastSyncTotal;
         bool m_needRecover;
+        bool m_recovering;
 
         std::vector<IWalletObserver*> m_subscribers;
     };

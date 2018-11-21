@@ -104,10 +104,7 @@ UtxoViewModel::UtxoViewModel()
         SLOT(onAllUtxoChanged(const std::vector<beam::Coin>&)));
     connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
-    if (_model.async)
-    {
-        _model.async->getUtxosStatus();
-    }
+    _model.getAsync()->getUtxosStatus();
 }
 
 UtxoViewModel::~UtxoViewModel()
