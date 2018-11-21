@@ -1131,9 +1131,9 @@ void FlyClient::NetworkStd::Connection::ResetInternal()
 
 void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 {
-	proto::Login msg;
+	Login msg;
 	msg.m_CfgChecksum = Rules::get().Checksum;
-	msg.m_Flags = proto::LoginFlags::SendPeers;
+	msg.m_Flags = LoginFlags::SendPeers;
 	Send(msg);
 
 	if (!(Flags::ReportedConnected & m_Flags))
@@ -1184,7 +1184,7 @@ void FlyClient::NetworkStd::Connection::OnTimer()
 		Connect(m_Addr);
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(proto::Authentication&& msg)
+void FlyClient::NetworkStd::Connection::OnMsg(Authentication&& msg)
 {
 	NodeConnection::OnMsg(std::move(msg));
 
@@ -1226,7 +1226,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::Authentication&& msg)
 	}
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(proto::Login&& msg)
+void FlyClient::NetworkStd::Connection::OnMsg(Login&& msg)
 {
 	if (msg.m_CfgChecksum != Rules::get().Checksum)
 		ThrowUnexpected("incompatible");
@@ -1234,7 +1234,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::Login&& msg)
 	m_LoginFlags = msg.m_Flags;
 	AssignRequests();
 
-	if (proto::LoginFlags::Bbs & m_LoginFlags)
+	if (LoginFlags::Bbs & m_LoginFlags)
 		for (BbsSubscriptions::const_iterator it = m_This.m_BbsSubscriptions.begin(); m_This.m_BbsSubscriptions.end() != it; it++)
 		{
 			proto::BbsSubscribe msgOut;
@@ -1245,7 +1245,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::Login&& msg)
 		}
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(proto::NewTip&& msg)
+void FlyClient::NetworkStd::Connection::OnMsg(NewTip&& msg)
 {
 	if (m_Tip == msg.m_Description)
 		return; // redundant msg, might happen in older nodes
@@ -1316,7 +1316,7 @@ void FlyClient::NetworkStd::Connection::SearchBelow(Height h, uint32_t nCount)
 	}
 	else
 	{
-		proto::GetCommonState msg;
+		GetCommonState msg;
 		msg.m_IDs.resize(w.m_vStates.size());
 
 		for (size_t i = 0; i < msg.m_IDs.size(); i++)
@@ -1328,7 +1328,7 @@ void FlyClient::NetworkStd::Connection::SearchBelow(Height h, uint32_t nCount)
 	}
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofCommonState&& msg)
+void FlyClient::NetworkStd::Connection::OnMsg(ProofCommonState&& msg)
 {
 	if (!m_pSync)
 		ThrowUnexpected();
@@ -1388,7 +1388,7 @@ void FlyClient::NetworkStd::Connection::RequestChainworkProof()
 {
 	assert(ShouldSync() && m_pSync && m_pSync->m_vConfirming.empty());
 
-	proto::GetProofChainWork msg;
+	GetProofChainWork msg;
 	msg.m_LowerBound = m_pSync->m_Confirmed.m_ChainWork;
 	Send(msg);
 
@@ -1438,7 +1438,7 @@ bool FlyClient::NetworkStd::Connection::StateArray::Find(const Block::SystemStat
 	return (m_vec.end() != it) && (*it == s);
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofChainWork&& msg)
+void FlyClient::NetworkStd::Connection::OnMsg(ProofChainWork&& msg)
 {
 	if (!m_pSync || !m_pSync->m_vConfirming.empty())
 		ThrowUnexpected();
@@ -1645,7 +1645,7 @@ FlyClient::Request& FlyClient::NetworkStd::Connection::get_FirstRequestStrict(Re
 
 #define THE_MACRO_SWAP_FIELD(type, name) std::swap(req.m_Res.m_##name, msg.m_##name);
 #define THE_MACRO(type, msgOut, msgIn) \
-void FlyClient::NetworkStd::Connection::OnMsg(proto::msgIn&& msg) \
+void FlyClient::NetworkStd::Connection::OnMsg(msgIn&& msg) \
 {  \
 	Request##type& req = Cast::Up<Request##type>(get_FirstRequestStrict(Request::Type::type)); \
 	BeamNodeMsg_##msgIn(THE_MACRO_SWAP_FIELD) \
@@ -1706,7 +1706,7 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestRecover& req)
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestTransaction& req)
 {
-	return (proto::LoginFlags::SpreadingTransactions & m_LoginFlags) && IsAtTip();
+	return (LoginFlags::SpreadingTransactions & m_LoginFlags) && IsAtTip();
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestTransaction& req)
@@ -1716,7 +1716,7 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestTransaction& req)
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsMsg& req)
 {
-	return (proto::LoginFlags::Bbs & m_LoginFlags) && IsAtTip();
+	return (LoginFlags::Bbs & m_LoginFlags) && IsAtTip();
 }
 
 void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
@@ -1724,7 +1724,7 @@ void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
 	req.m_Msg.m_TimePosted = getTimestamp();
 	Send(req.m_Msg);
 
-	proto::Ping msg2(Zero);
+	Ping msg2(Zero);
 	Send(msg2);
 }
 
@@ -1790,7 +1790,7 @@ void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, Timestamp ts, IBbsReceiv
 			it2->Send(msg);
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(proto::BbsMsg&& msg)
+void FlyClient::NetworkStd::Connection::OnMsg(BbsMsg&& msg)
 {
 	BbsSubscriptions::iterator it = m_This.m_BbsSubscriptions.find(msg.m_Channel);
 	if (m_This.m_BbsSubscriptions.end() != it)
