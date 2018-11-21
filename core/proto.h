@@ -834,7 +834,7 @@ namespace proto {
 				void RequestChainworkProof();
 				void PrioritizeSelf();
 				Request& get_FirstRequestStrict(Request::Type);
-				void OnFirstRequestDone(bool bMustBeAtTip = true);
+				void OnFirstRequestDone(bool bStillSupported);
 
 				io::Timer::Ptr m_pTimer;
 				void OnTimer();
