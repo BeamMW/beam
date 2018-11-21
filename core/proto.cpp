@@ -1629,7 +1629,7 @@ void FlyClient::NetworkStd::Connection::AssignRequest(RequestNode& n)
 		return;
 	}
 
-	m_This.m_lst.pop_front();
+	m_This.m_lst.erase(RequestList::s_iterator_to(n));
 	m_lst.push_back(n);
 }
 
