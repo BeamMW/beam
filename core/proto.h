@@ -875,6 +875,7 @@ namespace proto {
 				virtual void OnDisconnect(const DisconnectReason&) override;
 				virtual void OnMsg(proto::Authentication&& msg) override;
 				virtual void OnMsg(proto::Login&& msg) override;
+				virtual void OnMsg(proto::GetBlockFinalization&& msg) override;
 				virtual void OnMsg(proto::NewTip&& msg) override;
 				virtual void OnMsg(proto::ProofCommonState&& msg) override;
 				virtual void OnMsg(proto::ProofChainWork&& msg) override;

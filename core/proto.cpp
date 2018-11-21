@@ -1133,7 +1133,7 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 {
 	Login msg;
 	msg.m_CfgChecksum = Rules::get().Checksum;
-	msg.m_Flags = LoginFlags::SendPeers;
+	msg.m_Flags = LoginFlags::MiningFinalization  /*| LoginFlags::SendPeers*/;
 	Send(msg);
 
 	if (!(Flags::ReportedConnected & m_Flags))
@@ -1224,6 +1224,29 @@ void FlyClient::NetworkStd::Connection::OnMsg(Authentication&& msg)
 	default: // suppress warning
 		break;
 	}
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(GetBlockFinalization&& msg)
+{
+	if (!(Flags::Owned & m_Flags))
+		ThrowUnexpected();
+
+	Key::IKdf::Ptr pKdf;
+	m_This.m_Client.get_Kdf(pKdf);
+	if (!pKdf)
+		ThrowUnexpected(); // ?!
+
+	Block::Builder bb;
+	bb.AddCoinbaseAndKrn(*pKdf, msg.m_Height);
+	bb.AddFees(*pKdf, msg.m_Height, msg.m_Fees);
+
+	proto::BlockFinalization msgOut;
+	msgOut.m_Value.reset(new Transaction);
+	bb.m_Txv.MoveInto(*msgOut.m_Value);
+	msgOut.m_Value->m_Offset = -bb.m_Offset;
+	msgOut.m_Value->Normalize();
+
+	Send(msgOut);
 }
 
 void FlyClient::NetworkStd::Connection::OnMsg(Login&& msg)
