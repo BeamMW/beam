@@ -91,11 +91,14 @@ private:
     bool on_solution(uint64_t from, const Solution& solution) override;
     void on_bad_peer(uint64_t from) override;
 
-    void new_job(const Merkle::Hash& input, const Block::PoW& pow,
+    void new_job(
+        const std::string&,
+        const Merkle::Hash& input, const Block::PoW& pow,
         const BlockFound& callback,
         const CancelCallback& cancelCallback
     ) override;
 
+    void get_last_found_block(std::string& jobID, Block::PoW& pow) override {}
     void stop_current() override {}
     void stop() override {}
 

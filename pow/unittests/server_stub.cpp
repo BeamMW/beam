@@ -26,13 +26,14 @@ void gen_new_job() {
     ECC::GenRandom(&pow.m_Nonce, Block::PoW::NonceType::nBytes);
     ECC::GenRandom(pow.m_Indices.data(), Block::PoW::nSolutionBytes);
     //ECC::GenRandom(&pow.m_Difficulty.m_Packed, 4);
-    pow.m_Difficulty = Difficulty(1 << Difficulty::s_MantissaBits);
+    pow.m_Difficulty = 0; //Difficulty(1 << Difficulty::s_MantissaBits);
     Merkle::Hash hash;
     ECC::GenRandom(&hash.m_pData, 32);
 
     if (server) server->new_job(
+        "xxx",
         hash, pow,
-        [](const Block::PoW& pow) {},
+        []() {},
         []() { return false; }
     );
 }

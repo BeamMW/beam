@@ -2893,14 +2893,15 @@ void Node::Miner::OnRefreshExternal()
     s.get_HashForPoW(hv);
 
     bool blockFound = false;
-    auto fnBlockFound = [&blockFound, &s](const Block::PoW& pow) {
-        s.m_PoW = pow;
+    auto fnBlockFound = [this, &blockFound, &s]() {
+        std::string jobID; //TODO check this also
+        m_externalPOW->get_last_found_block(jobID, s.m_PoW);
         if (s.IsValidPoW()) {
             blockFound = true;
         }
     };
 
-    m_externalPOW->new_job(hv, s.m_PoW, fnBlockFound, fnCancel);
+    m_externalPOW->new_job("TODO_JOBID", hv, s.m_PoW, fnBlockFound, fnCancel);
 
     if (!blockFound) return;
 

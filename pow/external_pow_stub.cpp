@@ -3,6 +3,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include "utility/logger.h"
 
 namespace beam {
 
@@ -20,25 +21,38 @@ public:
 
 private:
     struct Job {
+        std::string jobID;
         Merkle::Hash input;
         Block::PoW pow;
         BlockFound callback;
     };
 
-    void new_job(const Merkle::Hash& input, const Block::PoW& pow,
-        const BlockFound& callback, const CancelCallback& cancelCallback
-    ) override {
+    void new_job(
+        const std::string& jobID,
+        const Merkle::Hash& input,
+        const Block::PoW& pow,
+        const BlockFound& callback,
+        const CancelCallback& cancelCallback
+    ) override
+    {
         {
             std::lock_guard<std::mutex> lk(_mutex);
             if (_currentJob.input == input) {
                 return;
             }
+            _currentJob.jobID = jobID;
             _currentJob.input = input;
             _currentJob.pow = pow;
             _currentJob.callback = callback;
             _changed = true;
         }
         _cond.notify_one();
+    }
+
+    void get_last_found_block(std::string& jobID, Block::PoW& pow) override {
+        std::lock_guard<std::mutex> lk(_mutex);
+        jobID = _lastFoundBlockID;
+        pow = _lastFoundBlock;
     }
 
     void stop() override {
@@ -60,12 +74,9 @@ private:
 
         if (_stop) return false;
 
+        _changed = false;
         job = _currentJob;
-
-        ECC::Hash::Value hv; // pick pseudo-random initial nonce for mining.
-        ECC::Hash::Processor() << ++_seed >> hv;
-        job.pow.m_Nonce = hv;
-
+        job.pow.m_Nonce = ++_seed;
         return true;
     }
 
@@ -79,14 +90,22 @@ private:
         Job job;
         Merkle::Hash hv;
         while (get_new_job(job)) {
+            LOG_INFO() << "Solving with" << TRACE(job.pow.m_Nonce) << TRACE(job.pow.m_Difficulty);
 
             if ( (job.pow.*SolveFn) (job.input.m_pData, Merkle::Hash::nBytes, [this](bool)->bool { return _changed.load(); })) {
-                job.callback(job.pow);
+                {
+                    std::lock_guard<std::mutex> lk(_mutex);
+                    _lastFoundBlock = job.pow;
+                    _lastFoundBlockID = job.jobID;
+                }
+                job.callback();
             }
         }
     }
 
     Job _currentJob;
+    std::string _lastFoundBlockID;
+    Block::PoW _lastFoundBlock;
     uint64_t _seed;
     std::atomic<bool> _changed;
     bool _stop;

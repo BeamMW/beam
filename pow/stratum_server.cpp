@@ -106,8 +106,8 @@ bool Server::on_login(uint64_t from, const Login& login) {
     return false;
 }
 
-bool Server::on_solution(uint64_t from, const Solution& solution) {
-    //TODO solution
+bool Server::on_solution(uint64_t from, const Solution& sol) {
+    LOG_INFO() << "solution to " << sol.id;
     return true;
 }
 
@@ -116,6 +116,7 @@ void Server::on_bad_peer(uint64_t from) {
 }
 
 void Server::new_job(
+    const std::string&,
     const Merkle::Hash& input,
     const Block::PoW& pow,
     const BlockFound& callback,
@@ -224,7 +225,7 @@ bool Server::Connection::on_message(const stratum::Solution& solution) {
 }
 
 bool Server::Connection::on_raw_message(void* data, size_t size) {
-    LOG_DEBUG() << "got " << std::string((char*)data, size);
+    LOG_INFO() << "got " << std::string((char*)data, size);
     return stratum::parse_json_msg(data, size, *this);
 }
 

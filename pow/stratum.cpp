@@ -158,8 +158,8 @@ bool append_json_msg(io::FragmentWriter& packer, const Cancel& m) {
     return serialize_json_msg(packer, o);
 }
 
-Solution::Solution(uint64_t _id, const Block::PoW& _pow) :
-    Message(std::to_string(_id), solution)
+Solution::Solution(const std::string& _id, const Block::PoW& _pow) :
+    Message(_id, solution)
 {
     char buf[Block::PoW::nSolutionBytes * 2 + 1];
     nonce = to_hex(buf, _pow.m_Nonce.m_pData, Block::PoW::NonceType::nBytes);

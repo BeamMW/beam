@@ -37,6 +37,10 @@ class StratumClient : public stratum::ParserCallback {
     LineProtocol _lineProtocol;
     io::TcpStream::Ptr _connection;
     io::Timer::Ptr _timer;
+    std::string _lastJobID;
+    Merkle::Hash _lastJobInput;
+    Block::PoW _lastFoundBlock;
+    bool _blockSent;
     bool _tls;
 
 public:
@@ -49,6 +53,7 @@ public:
             BIND_THIS_MEMFN(on_write)
         ),
         _timer(io::Timer::create(_reactor)),
+        _blockSent(false),
         _tls(!no_tls)
     {
         _timer->start(0, false, BIND_THIS_MEMFN(on_reconnect));
@@ -61,28 +66,57 @@ private:
         return stratum::parse_json_msg(data, size, *this);
     }
 
+    bool fill_job_info(const stratum::Job& job) {
+        bool ok = false;
+        std::vector<uint8_t> buf = from_hex(job.input, &ok);
+        if (!ok || buf.size() != 32) return false;
+        memcpy(_lastJobInput.m_pData, buf.data(), 32);
+        _lastJobID = job.id;
+        return true;
+    }
+
     bool on_message(const stratum::Job& job) override {
-        LOG_INFO() << "new job here...";
+        LOG_INFO() << "new job here..." << TRACE(job.input) << TRACE(job.difficulty);
 
         Block::PoW pow;
         pow.m_Difficulty.m_Packed = job.difficulty;
 
-        bool ok = false;
-        std::vector<uint8_t> buf = from_hex(job.input, &ok);
-        if (!ok || buf.size() != 32) return false;
-
-        Merkle::Hash hash;
-        memcpy(hash.m_pData, buf.data(), 32);
+        if (!fill_job_info(job)) return false;
 
         _miner->new_job(
-            hash, pow,
-            [](const Block::PoW& pow) {
-                LOG_WARNING() << "block found, TODO";
-                },
+            _lastJobID, _lastJobInput, pow,
+            BIND_THIS_MEMFN(on_block_found),
             []() { return false; }
-            );
+        );
 
         return true;
+    }
+
+    void on_block_found() {
+        std::string jobID;
+        _miner->get_last_found_block(jobID, _lastFoundBlock);
+        if (jobID != _lastJobID) {
+            LOG_INFO() << "solution expired" << TRACE(jobID);
+            return;
+        }
+        if (!_lastFoundBlock.IsValid(_lastJobInput.m_pData, 32)) {
+            LOG_ERROR() << "solution is invalid";
+            return;
+        }
+        LOG_INFO() << "block found id=" << _lastJobID;
+        _blockSent = false;
+        send_last_found_block();
+    }
+
+    void send_last_found_block() {
+        if (_blockSent || !_connection || !_connection->is_connected()) return;
+        stratum::Solution sol(_lastJobID, _lastFoundBlock);
+        if (!stratum::append_json_msg(_lineProtocol, sol)) {
+            LOG_ERROR() << "Internal error";
+            _reactor.stop();
+            return;
+        }
+        _lineProtocol.finalize();
     }
 
     bool on_stratum_error(stratum::ResultCode code) override {
@@ -108,6 +142,8 @@ private:
             auto result = _connection->write(msg);
             if (!result) {
                 on_disconnected(result.error());
+            } else {
+                _blockSent = true; //TODO ???
             }
         } else {
             LOG_DEBUG() << "ignoring message, no connection";
@@ -143,7 +179,11 @@ private:
             LOG_ERROR() << "Internal error";
             _reactor.stop();
         }
-        _lineProtocol.finalize();
+        if (!_blockSent) {
+            _lineProtocol.finalize();
+        } else {
+            send_last_found_block();
+        }
     }
 
     bool on_stream_data(io::ErrorCode errorCode, void* data, size_t size) {

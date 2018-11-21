@@ -114,7 +114,7 @@ struct Solution : Message {
 
     Solution() = default;
 
-    Solution(uint64_t _id, const Block::PoW& _pow);
+    Solution(const std::string& _id, const Block::PoW& _pow);
 
     bool fill_pow(Block::PoW& pow);
 };

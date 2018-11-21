@@ -74,7 +74,7 @@ void gen_examples() {
     Login loginMsg("skjdb7343636gucgjdjgd");
     Job jobMsg(212, hash, pow);
     Cancel cancelMsg(212);
-    Solution solMsg(212, pow);
+    Solution solMsg("212", pow);
     Result res1("login", login_failed);
     Result res2("212", solution_accepted);
 

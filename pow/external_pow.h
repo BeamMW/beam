@@ -20,7 +20,7 @@ namespace beam {
 
 class IExternalPOW {
 public:
-    using BlockFound = std::function<void(const Block::PoW& pow)>;
+    using BlockFound = std::function<void()>;
     using CancelCallback = std::function<bool()>;
 
     struct Options {
@@ -36,12 +36,18 @@ public:
     static std::unique_ptr<IExternalPOW> create_local_solver();
 
     virtual ~IExternalPOW() = default;
+
     virtual void new_job(
+        const std::string& jobID,
         const Merkle::Hash& input,
         const Block::PoW& pow,
         const BlockFound& callback,
         const CancelCallback& cancelCallback) = 0;
+
+    virtual void get_last_found_block(std::string& jobID, Block::PoW& pow) = 0;
+
     virtual void stop_current() = 0;
+
     virtual void stop() = 0;
 };
 
