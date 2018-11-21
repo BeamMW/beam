@@ -169,6 +169,7 @@ namespace beam
             using Result = pair<Amount, vector<Coin>>;
             CoinSelector2(const vector<Coin>& coins)
                 : m_coins{coins}
+                , m_amount(0)
             {
 
             }
