@@ -534,9 +534,6 @@ namespace beam { namespace wallet
 
     bool TxBuilder::GetPeerInputsAndOutputs()
     {
-        vector<Input::Ptr> inputs;
-        vector<Output::Ptr> outputs;
-        Scalar::Native peerOffset;
         return m_Tx.GetParameter(TxParameterID::PeerInputs, m_PeerInputs)
             && m_Tx.GetParameter(TxParameterID::PeerOutputs, m_PeerOutputs)
             && m_Tx.GetParameter(TxParameterID::PeerOffset, m_PeerOffset);
