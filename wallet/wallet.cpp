@@ -104,7 +104,6 @@ namespace beam
         , m_tx_completed_action{move(action)}
         , m_LastSyncTotal(0)
         , m_needRecover{false}
-        , m_recovering{false}
     {
         assert(walletDB);
         resume_all_tx();
@@ -537,12 +536,6 @@ namespace beam
 
     void Wallet::OnNewTip()
     {
-        if (m_recovering)
-        {
-            // ignore when recover is in progress
-            return;
-        }
-
         m_WalletDB->ShrinkHistory();
 
         Block::SystemState::Full sTip;
@@ -559,6 +552,7 @@ namespace beam
 
         if (m_needRecover)
         {
+            m_needRecover = false;
             MyRequestRecover::Ptr pReq(new MyRequestRecover);
             pReq->m_Msg.m_Private = true;
             pReq->m_Msg.m_Public = true;
@@ -598,6 +592,12 @@ namespace beam
         }
 
         CheckSyncDone();
+    }
+
+    void Wallet::OnTipUnchanged()
+    {
+        LOG_INFO() << "Tip has not been changed";
+        notifySyncProgress();
     }
 
     void Wallet::getUtxoProof(const Coin& coin)
@@ -646,7 +646,6 @@ namespace beam
 
         m_WalletDB->setSystemStateID(id);
         LOG_INFO() << "Current state is " << id;
-        m_recovering = false;
         notifySyncProgress();
 
         std::set<wallet::BaseTransaction::Ptr> txSet;

@@ -210,10 +210,10 @@ WalletViewModel::WalletViewModel()
     connect(&_model, SIGNAL(onGeneratedNewWalletID(const beam::WalletID&)),
         SLOT(onGeneratedNewWalletID(const beam::WalletID&)));
 
-    connect(&_model, SIGNAL(onNodeConnectedChanged(bool)),
-        SLOT(onNodeConnectedChanged(bool)));
+    connect(&_model, SIGNAL(nodeConnectionChanged(bool)),
+        SLOT(onNodeConnectionChanged(bool)));
 
-    connect(&_model, SIGNAL(onNodeConnectionFailedSignal()),
+    connect(&_model, SIGNAL(nodeConnectionFailed()),
         SLOT(onNodeConnectionFailed()));
 
     if (AppModel::getInstance()->getSettings().getRunLocalNode())
@@ -221,7 +221,6 @@ WalletViewModel::WalletViewModel()
         connect(&AppModel::getInstance()->getNode(), SIGNAL(syncProgressUpdated(int, int)),
             SLOT(onNodeSyncProgressUpdated(int, int)));
     }
-    _model.getAsync()->syncWithNode();
     _model.getAsync()->getWalletStatus();
 }
 
@@ -861,9 +860,9 @@ void WalletViewModel::onGeneratedNewWalletID(const beam::WalletID& walletID)
     saveNewAddress();
 }
 
-void WalletViewModel::onNodeConnectedChanged(bool is_node_connected)
+void WalletViewModel::onNodeConnectionChanged(bool isNodeConnected)
 {
-    if (is_node_connected && getIsOfflineStatus())
+    if (isNodeConnected && getIsOfflineStatus())
     {
         setIsOfflineStatus(false);
     }

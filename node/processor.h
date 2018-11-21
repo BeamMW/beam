@@ -165,6 +165,7 @@ public:
 	virtual void AdjustFossilEnd(Height&) {}
 	virtual void OnStateData() {}
 	virtual void OnBlockData() {}
+	virtual void OnUpToDate() {}
 	virtual bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) { return false; }
 	virtual void OnModified() {}
 	virtual Key::IPKdf* get_Kdf(uint32_t i) { return NULL; }

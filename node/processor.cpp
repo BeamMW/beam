@@ -116,6 +116,7 @@ void NodeProcessor::InitCursor()
 
 void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 {
+	bool noRequests = true;
 	// request all potentially missing data
 	NodeDB::WalkerState ws(m_DB);
 	for (m_DB.EnumTips(ws); ws.MoveNext(); )
@@ -155,6 +156,8 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 				break;
 		}
 
+		noRequests = false;
+
 		Block::SystemState::ID id;
 
 		if (nBlocks)
@@ -193,6 +196,10 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 
 			RequestDataInternal(id, sid.m_Row, false);
 		}
+	}
+	if (noRequests)
+	{
+		OnUpToDate();
 	}
 }
 

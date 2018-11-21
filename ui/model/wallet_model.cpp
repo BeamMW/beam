@@ -45,7 +45,7 @@ namespace
         std::shared_ptr<Notifier> m_notifier;
     };
 
-    using WalletSubscriber = ScopedSubscriber<IWalletObserver, beam::Wallet>;
+    using WalletSubscriber = ScopedSubscriber<IWalletObserver, beam::IWallet>;
 }
 
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
@@ -182,10 +182,10 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 
     void changeWalletPassword(const SecString& pass) override
     {
-		// TODO: should be investigated, don't know how to "move" SecString into lambda
-		std::string passStr(pass.data(), pass.size());
+        // TODO: should be investigated, don't know how to "move" SecString into lambda
+        std::string passStr(pass.data(), pass.size());
 
-		tx.send([passStr](BridgeInterface& receiver_) mutable
+        tx.send([passStr](BridgeInterface& receiver_) mutable
         {
             receiver_.changeWalletPassword(passStr);
         });
@@ -257,7 +257,7 @@ void WalletModel::run()
     {
         std::unique_ptr<WalletSubscriber> wallet_subscriber;
 
-		io::Reactor::Scope scope(*_reactor);
+        io::Reactor::Scope scope(*_reactor);
         io::Reactor::GracefulIntHandler gih(*_reactor);
 
         emit onStatus(getStatus());
@@ -274,32 +274,33 @@ void WalletModel::run()
         auto wallet = make_shared<Wallet>(_walletDB);
         _wallet = wallet;
 
-		struct MyNodeNetwork :public proto::FlyClient::NetworkStd {
+        struct MyNodeNetwork :public proto::FlyClient::NetworkStd {
 
-			MyNodeNetwork(proto::FlyClient& fc, WalletModel& wm)
-				:proto::FlyClient::NetworkStd(fc)
-				,m_This(wm)
-        {
-			}
+            MyNodeNetwork(proto::FlyClient& fc, WalletModel& wm)
+                :proto::FlyClient::NetworkStd(fc)
+                ,m_This(wm)
+            {
+            }
 
-			WalletModel& m_This;
+            WalletModel& m_This;
 
-			void OnNodeConnected(size_t, bool bConnected) override {
-				m_This.onNodeConnectedStatusChanged(bConnected);
-			}
+            void OnNodeConnected(size_t, bool bConnected) override
+            {
+                m_This.onNodeConnectedStatusChanged(bConnected);
+            }
 
-			void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason&) override {
-				m_This.onNodeConnectionFailed();
-			}
-		};
+            void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason&) override
+            {
+                m_This.onNodeConnectionFailed();
+            }
+        };
 
         auto nnet = make_shared<MyNodeNetwork>(*wallet, *this);
 
-            Address node_addr;
-            node_addr.resolve(_nodeAddrStr.c_str());
+        Address node_addr;
+        node_addr.resolve(_nodeAddrStr.c_str());
         nnet->m_Cfg.m_vNodes.push_back(node_addr);
 
-        nnet->Connect();
         _nnet = nnet;
 
         auto wnet = make_shared<WalletNetworkViaBbs>(*wallet, *nnet, _keystore, _walletDB);
@@ -371,19 +372,14 @@ void WalletModel::onSyncProgress(int done, int total)
     emit onSyncProgressUpdated(done, total);
 }
 
-void WalletModel::onRecoverProgress(int done, int total, const string& message)
-{
-    emit onRestoreProgressUpdated(done, total, QString::fromStdString(message));
-}
-
 void WalletModel::onNodeConnectedStatusChanged(bool isNodeConnected)
 {
-    emit onNodeConnectedChanged(isNodeConnected);
+    emit nodeConnectionChanged(isNodeConnected);
 }
 
 void WalletModel::onNodeConnectionFailed()
 {
-    emit onNodeConnectionFailedSignal();
+    emit nodeConnectionFailed();
 }
 
 void WalletModel::sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, Amount&& amount, Amount&& fee)
@@ -447,7 +443,7 @@ void WalletModel::syncWithNode()
     assert(!_nnet.expired());
     auto s = _nnet.lock();
     if (s)
-		s->Connect();
+        s->Connect();
 }
 
 void WalletModel::calcChange(beam::Amount&& amount)
@@ -492,7 +488,7 @@ void WalletModel::cancelTx(const beam::TxID& id)
     auto w = _wallet.lock();
     if (w)
     {
-        w->cancel_tx(id);
+        static_pointer_cast<IWallet>(w)->cancel_tx(id);
     }
 }
 
@@ -501,7 +497,7 @@ void WalletModel::deleteTx(const beam::TxID& id)
     auto w = _wallet.lock();
     if (w)
     {
-        w->delete_tx(id);
+        static_pointer_cast<IWallet>(w)->delete_tx(id);
     }
 }
 
@@ -515,7 +511,7 @@ void WalletModel::createNewAddress(WalletAddress&& address)
         auto s = _wnet.lock();
         if (s)
         {
-			static_cast<WalletNetworkViaBbs&>(*s).new_own_address(address.m_walletID);
+            static_cast<WalletNetworkViaBbs&>(*s).new_own_address(address.m_walletID);
         }
     }
 }
@@ -560,7 +556,7 @@ void WalletModel::deleteOwnAddress(const beam::WalletID& id)
         auto s = _wnet.lock();
         if (s)
         {
-			static_cast<WalletNetworkViaBbs&>(*s).address_deleted(id);
+            static_cast<WalletNetworkViaBbs&>(*s).address_deleted(id);
         }
     }
     catch (...)
@@ -579,12 +575,12 @@ void WalletModel::setNodeAddress(const std::string& addr)
         auto s = _nnet.lock();
         if (s)
         {
-			s->Disconnect();
+            s->Disconnect();
 
-			static_cast<proto::FlyClient::NetworkStd&>(*s).m_Cfg.m_vNodes.clear();
-			static_cast<proto::FlyClient::NetworkStd&>(*s).m_Cfg.m_vNodes.push_back(nodeAddr);
+            static_cast<proto::FlyClient::NetworkStd&>(*s).m_Cfg.m_vNodes.clear();
+            static_cast<proto::FlyClient::NetworkStd&>(*s).m_Cfg.m_vNodes.push_back(nodeAddr);
 
-			s->Connect();
+            s->Connect();
         }
     }
     else
@@ -607,8 +603,8 @@ vector<Coin> WalletModel::getUtxos() const
 
 void WalletModel::changeWalletPassword(const SecString& pass)
 {
-	_walletDB->changePassword(pass);
-	_keystore->change_password(pass.data(), pass.size());
+    _walletDB->changePassword(pass);
+    _keystore->change_password(pass.data(), pass.size());
 }
 
 bool WalletModel::check_receiver_address(const std::string& addr) {
