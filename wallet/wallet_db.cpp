@@ -34,34 +34,34 @@
 // maturity    - height where we can spend the coin
 
 #define ENUM_STORAGE_ID(each, sep, obj) \
-    each(1, id, sep, INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, obj)
+    each(1, id, INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, obj)
 
 #define ENUM_STORAGE_FIELDS(each, sep, obj) \
-    each(2, amount,        sep, INTEGER NOT NULL, obj) \
-    each(3, status,        sep, INTEGER NOT NULL, obj) \
-    each(4, createHeight,  sep, INTEGER NOT NULL, obj) \
-    each(5, maturity,      sep, INTEGER NOT NULL, obj) \
-    each(6, key_type,      sep, INTEGER NOT NULL, obj) \
-    each(7, keyIndex,      sep, INTEGER NOT NULL, obj) \
-    each(8, confirmHeight, sep, INTEGER, obj) \
-    each(9, confirmHash,   sep, BLOB, obj) \
-    each(10, createTxId,    sep, BLOB, obj) \
-    each(11, spentTxId,    sep, BLOB, obj) \
-    each(12, lockedHeight,	sep, BLOB, obj) \
-    each(13, iKdf,			, INTEGER NOT NULL, obj)            // last item without separator// last item without separator
+    each(2, amount,        INTEGER NOT NULL, obj) sep \
+    each(3, status,        INTEGER NOT NULL, obj) sep \
+    each(4, createHeight,  INTEGER NOT NULL, obj) sep \
+    each(5, maturity,      INTEGER NOT NULL, obj) sep \
+    each(6, key_type,      INTEGER NOT NULL, obj) sep \
+    each(7, keyIndex,      INTEGER NOT NULL, obj) sep \
+    each(8, confirmHeight, INTEGER, obj) sep \
+    each(9, confirmHash,   BLOB, obj) sep \
+    each(10, createTxId,   BLOB, obj) sep \
+    each(11, spentTxId,    BLOB, obj) sep \
+    each(12, lockedHeight, BLOB, obj) sep \
+    each(13, iKdf,			INTEGER NOT NULL, obj)            // last item without separator// last item without separator
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
-    ENUM_STORAGE_ID(each, sep, obj) \
+    ENUM_STORAGE_ID(each, sep, obj) sep \
     ENUM_STORAGE_FIELDS(each, sep, obj)
 
-#define LIST(num, name, sep, type, obj) #name sep
-#define LIST_WITH_TYPES(num, name, sep, type, obj) #name " " #type sep
+#define LIST(num, name, type, obj) #name
+#define LIST_WITH_TYPES(num, name, type, obj) #name " " #type
 
-#define STM_BIND_LIST(num, name, sep, type, obj) stm.bind(num, obj .m_ ## name);
-#define STM_GET_LIST(num, name, sep, type, obj) stm.get(num-1, obj .m_ ## name);
+#define STM_BIND_LIST(num, name, type, obj) stm.bind(num, obj .m_ ## name);
+#define STM_GET_LIST(num, name, type, obj) stm.get(num-1, obj .m_ ## name);
 
-#define BIND_LIST(num, name, sep, type, obj) "?" #num sep
-#define SET_LIST(num, name, sep, type, obj) #name "=?" #num sep
+#define BIND_LIST(num, name, type, obj) "?" #num
+#define SET_LIST(num, name, type, obj) #name "=?" #num
 
 #define STORAGE_FIELDS ENUM_ALL_STORAGE_FIELDS(LIST, COMMA, )
 #define STORAGE_NAME "storage"
@@ -71,49 +71,49 @@
 #define TX_PARAMS_NAME "txparams"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
-    each(1, name, sep, TEXT UNIQUE, obj) \
-    each(2, value,   , BLOB, obj)
+    each(1, name,  TEXT UNIQUE, obj) sep \
+    each(2, value, BLOB, obj)
 
 #define VARIABLES_FIELDS ENUM_VARIABLES_FIELDS(LIST, COMMA, )
 
 #define ENUM_HISTORY_FIELDS(each, sep, obj) \
-    each(1, txId,       sep, BLOB NOT NULL PRIMARY KEY, obj) \
-    each(2, amount,     sep, INTEGER NOT NULL, obj) \
-    each(3, fee,        sep, INTEGER NOT NULL, obj) \
-    each(4, minHeight,  sep, INTEGER NOT NULL, obj) \
-    each(5, peerId,     sep, BLOB NOT NULL, obj) \
-    each(6, myId,       sep, BLOB NOT NULL, obj) \
-    each(7, message,    sep, BLOB, obj) \
-    each(8, createTime, sep, INTEGER NOT NULL, obj) \
-    each(9, modifyTime, sep, INTEGER, obj) \
-    each(10, sender,    sep, INTEGER NOT NULL, obj) \
-    each(11, status,    sep, INTEGER NOT NULL, obj) \
-    each(12, fsmState,  sep, BLOB, obj) \
-    each(13, change,       , INTEGER NOT NULL, obj)
+    each(1, txId,       BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(2, amount,     INTEGER NOT NULL, obj) sep \
+    each(3, fee,        INTEGER NOT NULL, obj) sep \
+    each(4, minHeight,  INTEGER NOT NULL, obj) sep \
+    each(5, peerId,     BLOB NOT NULL, obj) sep \
+    each(6, myId,       BLOB NOT NULL, obj) sep \
+    each(7, message,    BLOB, obj) sep \
+    each(8, createTime, INTEGER NOT NULL, obj) sep \
+    each(9, modifyTime, INTEGER, obj) sep \
+    each(10, sender,    INTEGER NOT NULL, obj) sep \
+    each(11, status,    INTEGER NOT NULL, obj) sep \
+    each(12, fsmState,  BLOB, obj) sep \
+    each(13, change,    INTEGER NOT NULL, obj)
 #define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
 
 #define ENUM_PEER_FIELDS(each, sep, obj) \
-    each(1, walletID,    sep, BLOB NOT NULL PRIMARY KEY, obj) \
-    each(2, address,     sep, TEXT NOT NULL, obj) \
-    each(3, label,          , TEXT NOT NULL , obj)
+    each(1, walletID,    BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(2, address,     TEXT NOT NULL, obj) sep \
+    each(3, label,       TEXT NOT NULL , obj)
 
 #define PEER_FIELDS ENUM_PEER_FIELDS(LIST, COMMA, )
 
 
 #define ENUM_ADDRESS_FIELDS(each, sep, obj) \
-    each(1, walletID ,      sep, BLOB NOT NULL PRIMARY KEY, obj) \
-    each(2, label,          sep, TEXT NOT NULL, obj) \
-    each(3, category,       sep, TEXT, obj) \
-    each(4, createTime,     sep, INTEGER, obj) \
-    each(5, duration,       sep, INTEGER, obj) \
-    each(6, own,               , INTEGER NOT NULL, obj)
+    each(1, walletID ,      BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(2, label,          TEXT NOT NULL, obj) sep \
+    each(3, category,       TEXT, obj) sep \
+    each(4, createTime,     INTEGER, obj) sep \
+    each(5, duration,       INTEGER, obj) sep \
+    each(6, own,            INTEGER NOT NULL, obj)
 
 #define ADDRESS_FIELDS ENUM_ADDRESS_FIELDS(LIST, COMMA, )
 
 #define ENUM_TX_PARAMS_FIELDS(each, sep, obj) \
-    each(1, txID ,          sep, BLOB NOT NULL , obj) \
-    each(2, paramID,        sep, INTEGER NOT NULL , obj) \
-    each(3, value,             , BLOB, obj) \
+    each(1, txID ,          BLOB NOT NULL , obj) sep \
+    each(2, paramID,        INTEGER NOT NULL , obj) sep \
+    each(3, value,          BLOB, obj)
 
 #define TX_PARAMS_FIELDS ENUM_TX_PARAMS_FIELDS(LIST, COMMA, )
 
