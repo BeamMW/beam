@@ -25,7 +25,8 @@ void gen_new_job() {
     Block::PoW pow;
     ECC::GenRandom(&pow.m_Nonce, Block::PoW::NonceType::nBytes);
     ECC::GenRandom(pow.m_Indices.data(), Block::PoW::nSolutionBytes);
-    ECC::GenRandom(&pow.m_Difficulty.m_Packed, 4);
+    //ECC::GenRandom(&pow.m_Difficulty.m_Packed, 4);
+    pow.m_Difficulty = Difficulty(1 << Difficulty::s_MantissaBits);
     Merkle::Hash hash;
     ECC::GenRandom(&hash.m_pData, 32);
 
@@ -47,11 +48,12 @@ int main() {
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
         io::Timer::Ptr feedJobsTimer = io::Timer::create(*reactor);
-        feedJobsTimer->start(1000, true, &gen_new_job);
+        feedJobsTimer->start(200000, true, &gen_new_job);
         IExternalPOW::Options options;
         options.certFile = PROJECT_SOURCE_DIR "/utility/unittest/test.crt";
         options.privKeyFile = PROJECT_SOURCE_DIR "/utility/unittest/test.key";
         server = IExternalPOW::create(options, *reactor, listenTo);
+        gen_new_job();
         reactor->run();
         server.reset();
         LOG_INFO() << "Done";

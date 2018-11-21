@@ -26,7 +26,8 @@ private:
     };
 
     void new_job(const Merkle::Hash& input, const Block::PoW& pow,
-        const BlockFound& callback, const CancelCallback& cancelCallback) override {
+        const BlockFound& callback, const CancelCallback& cancelCallback
+    ) override {
         {
             std::lock_guard<std::mutex> lk(_mutex);
             if (_currentJob.input == input) {
@@ -79,7 +80,7 @@ private:
         Merkle::Hash hv;
         while (get_new_job(job)) {
 
-            if ( (job.pow.*SolveFn) (job.input.m_pData, Merkle::Hash::nBytes, [this](bool)->bool { return !_changed.load(); })) {
+            if ( (job.pow.*SolveFn) (job.input.m_pData, Merkle::Hash::nBytes, [this](bool)->bool { return _changed.load(); })) {
                 job.callback(job.pow);
             }
         }

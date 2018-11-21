@@ -30,6 +30,7 @@ namespace beam {
 static const unsigned RECONNECT_TIMEOUT = 1000;
 
 class StratumClient : public stratum::ParserCallback {
+    std::unique_ptr<IExternalPOW> _miner;
     io::Reactor& _reactor;
     io::Address _serverAddress;
     std::string _apiKey;
@@ -51,6 +52,7 @@ public:
         _tls(!no_tls)
     {
         _timer->start(0, false, BIND_THIS_MEMFN(on_reconnect));
+        _miner = IExternalPOW::create_local_solver();
     }
 
 private:
@@ -60,8 +62,26 @@ private:
     }
 
     bool on_message(const stratum::Job& job) override {
-        // TODO new job
         LOG_INFO() << "new job here...";
+
+        Block::PoW pow;
+        pow.m_Difficulty.m_Packed = job.difficulty;
+
+        bool ok = false;
+        std::vector<uint8_t> buf = from_hex(job.input, &ok);
+        if (!ok || buf.size() != 32) return false;
+
+        Merkle::Hash hash;
+        memcpy(hash.m_pData, buf.data(), 32);
+
+        _miner->new_job(
+            hash, pow,
+            [](const Block::PoW& pow) {
+                LOG_WARNING() << "block found, TODO";
+                },
+            []() { return false; }
+            );
+
         return true;
     }
 

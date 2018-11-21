@@ -210,6 +210,7 @@ namespace {
 template <typename M> bool parse(const json& o, const Message& base, ParserCallback& callback) {
     M m;
     (Message&)m = base;
+    parse<M>(o, m);
     return callback.on_message(m);
 }
 
