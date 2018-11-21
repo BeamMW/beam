@@ -203,9 +203,7 @@ namespace proto {
 	macro(Amount, Fees)
 
 #define BeamNodeMsg_BlockFinalization(macro) \
-	macro(Height, Height) \
-	macro(Amount, Fees) \
-	macro(Transaction::Ptr, Value) \
+	macro(Transaction::Ptr, Value)
 
 #define BeamNodeMsgsAll(macro) \
 	/* general msgs */ \

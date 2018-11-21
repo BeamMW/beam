@@ -2133,7 +2133,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 	m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key);
 	m_TxPool.ShrinkUpTo(m_Cfg.m_MaxPoolTransactions);
 
-	if (m_Miner.IsEnabled())
+	if (m_Miner.IsEnabled() && !m_Miner.m_pTaskToFinalize)
 		m_Miner.SetTimer(m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
 
 	return true;
@@ -2751,21 +2751,28 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 
 void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 {
-	if (!(Flags::Owner & m_Flags))
+	if (!(Flags::Owner & m_Flags) ||
+		!(Flags::Finalizing & m_Flags))
 		ThrowUnexpected();
+
+	m_Flags &= ~Flags::Finalizing;
 
 	if (!msg.m_Value)
 		ThrowUnexpected();
 	Transaction& tx = *msg.m_Value;
 
+	if (this != m_This.m_Miner.m_pFinalizer)
+		return; // outdated
+
 	if (!m_This.m_Miner.m_pTaskToFinalize)
+	{
+		m_This.m_Miner.Restart(); // time to restart
 		return;
+	}
 
-	NodeProcessor::GeneratedBlock& x = *m_This.m_Miner.m_pTaskToFinalize;
-
-	if ((x.m_Hdr.m_Height != msg.m_Height) ||
-		(x.m_Fees != msg.m_Fees))
-		return;
+	Miner::Task::Ptr pTask;
+	pTask.swap(m_This.m_Miner.m_pTaskToFinalize);
+	NodeProcessor::GeneratedBlock& x = *pTask;
 
 	{
 		ECC::Mode::Scope scope(ECC::Mode::Fast);
@@ -2781,7 +2788,7 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 			ThrowUnexpected();
 
 		ctx.m_Sigma = -ctx.m_Sigma;
-		ctx.m_Coinbase += msg.m_Fees;
+		ctx.m_Coinbase += x.m_Fees;
 		ctx.m_Coinbase.AddTo(ctx.m_Sigma);
 
 		if (!(ctx.m_Sigma == Zero))
@@ -2816,7 +2823,6 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 	if (!bRes)
 	{
 		LOG_WARNING() << "Block finalization failed";
-		m_This.m_Miner.m_pTaskToFinalize.reset();
 		return;
 	}
 
@@ -2824,7 +2830,7 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 
 	LOG_INFO() << "Block Finalized by owner";
 
-	m_This.m_Miner.StartMining();
+	m_This.m_Miner.StartMining(std::move(pTask));
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
@@ -2873,18 +2879,7 @@ void Node::Miner::OnFinalizerChanged(Peer* p)
 			}
 	}
 
-	if (m_pTaskToFinalize)
-	{
-		if (m_pFinalizer)
-			OnTaskCreated();
-		else
-			Restart();
-	}
-	else
-	{
-		if (m_pFinalizer && IsEnabled() && !get_ParentObj().m_Keys.m_pMiner)
-			Restart(); // offline mining wasn't possible
-	}
+	Restart();
 }
 
 void Node::Miner::OnRefresh(uint32_t iIdx)
@@ -3026,13 +3021,18 @@ bool Node::Miner::Restart()
 	if (!IsEnabled())
 		return false; //  n/a
 
+	m_pTaskToFinalize.reset();
+
 	const Keys& keys = get_ParentObj().m_Keys;
 
-	if (!m_pFinalizer && !keys.m_pMiner)
+	if (m_pFinalizer)
 	{
-		m_pTaskToFinalize.reset();
-		return false; // offline mining is disabled
+		if (Peer::Flags::Finalizing & m_pFinalizer->m_Flags)
+			return false; // wait until we receive that outdated finalization
 	}
+	else
+		if (!keys.m_pMiner)
+			return false; // offline mining is disabled
 
 	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, keys.m_pMiner ? *keys.m_pMiner : *keys.m_pGeneric);
 	if (m_pFinalizer)
@@ -3064,37 +3064,35 @@ bool Node::Miner::Restart()
 	Task::Ptr pTask(std::make_shared<Task>());
 	Cast::Down<NodeProcessor::GeneratedBlock>(*pTask) = std::move(bc);
 
-	m_pTaskToFinalize = std::move(pTask);
-	OnTaskCreated();
-	return true;
-}
-
-void Node::Miner::OnTaskCreated()
-{
-	assert(m_pTaskToFinalize);
-
 	if (m_pFinalizer)
 	{
-		const NodeProcessor::GeneratedBlock& x = *m_pTaskToFinalize;
+		const NodeProcessor::GeneratedBlock& x = *pTask;
 		LOG_INFO() << "Block generated: Height=" << x.m_Hdr.m_Height << ", Fee=" << x.m_Fees << ", Waiting for owner response...";
 
 		proto::GetBlockFinalization msg;
-		msg.m_Height = m_pTaskToFinalize->m_Hdr.m_Height;
-		msg.m_Fees = m_pTaskToFinalize->m_Fees;
+		msg.m_Height = pTask->m_Hdr.m_Height;
+		msg.m_Fees = pTask->m_Fees;
 		m_pFinalizer->Send(msg);
+
+		assert(!(Peer::Flags::Finalizing & m_pFinalizer->m_Flags));
+		m_pFinalizer->m_Flags |= Peer::Flags::Finalizing;
+
+		m_pTaskToFinalize = std::move(pTask);
 	}
 	else
-		StartMining();
+		StartMining(std::move(pTask));
+
+	return true;
 }
 
-void Node::Miner::StartMining()
+void Node::Miner::StartMining(Task::Ptr&& pTask)
 {
-	assert(m_pTaskToFinalize);
+	assert(pTask && !m_pTaskToFinalize);
 
-	const NodeProcessor::GeneratedBlock& x = *m_pTaskToFinalize;
+	const NodeProcessor::GeneratedBlock& x = *pTask;
 	LOG_INFO() << "Block generated: Height=" << x.m_Hdr.m_Height << ", Fee=" << x.m_Fees << ", Difficulty=" << x.m_Hdr.m_PoW.m_Difficulty << ", Size=" << (x.m_BodyP.size() + x.m_BodyE.size());
 
-	m_pTaskToFinalize->m_hvNonceSeed = get_ParentObj().NextNonce();
+	pTask->m_hvNonceSeed = get_ParentObj().NextNonce();
 
 	// let's mine it.
 	std::scoped_lock<std::mutex> scope(m_Mutex);
@@ -3103,15 +3101,15 @@ void Node::Miner::StartMining()
 	{
 		if (*m_pTask->m_pStop)
 			return; // block already mined, probably notification to this thread on its way. Ignore the newly-constructed block
-		m_pTaskToFinalize->m_pStop = m_pTask->m_pStop; // use the same soft-restart indicator
+		pTask->m_pStop = m_pTask->m_pStop; // use the same soft-restart indicator
 	}
 	else
 	{
-		m_pTaskToFinalize->m_pStop.reset(new volatile bool);
-		*m_pTaskToFinalize->m_pStop = false;
+		pTask->m_pStop.reset(new volatile bool);
+		*pTask->m_pStop = false;
 	}
 
-	m_pTask = std::move(m_pTaskToFinalize);
+	m_pTask = std::move(pTask);
 
 	for (size_t i = 0; i < m_vThreads.size(); i++)
 		m_vThreads[i].m_pEvt->post();

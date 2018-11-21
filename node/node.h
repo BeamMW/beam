@@ -427,6 +427,7 @@ private:
 			static const uint8_t ProvenWork		= 0x10;
 			static const uint8_t SyncPending	= 0x20;
 			static const uint8_t DontSync		= 0x40;
+			static const uint8_t Finalizing		= 0x80;
 		};
 
 		uint8_t m_Flags;
@@ -593,8 +594,7 @@ private:
 
 		void HardAbortSafe();
 		bool Restart();
-		void OnTaskCreated();
-		void StartMining();
+		void StartMining(Task::Ptr&&);
 
 		Peer* m_pFinalizer = NULL;
 		Task::Ptr m_pTaskToFinalize;
@@ -603,7 +603,7 @@ private:
 		Task::Ptr m_pTask; // currently being-mined
 
 		io::Timer::Ptr m_pTimer;
-		bool m_bTimerPending;
+		bool m_bTimerPending = false;
 		void OnTimer();
 		void SetTimer(uint32_t timeout_ms, bool bHard);
 

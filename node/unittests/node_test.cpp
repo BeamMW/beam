@@ -1372,9 +1372,6 @@ namespace beam
 				bb.AddFees(*m_Wallet.m_pKdf, msg.m_Height, msg.m_Fees);
 
 				proto::BlockFinalization msgOut;
-				msgOut.m_Height = msg.m_Height;
-				msgOut.m_Fees = msg.m_Fees;
-
 				msgOut.m_Value.reset(new Transaction);
 				bb.m_Txv.MoveInto(*msgOut.m_Value);
 				msgOut.m_Value->m_Offset = -bb.m_Offset;
