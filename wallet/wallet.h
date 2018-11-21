@@ -107,6 +107,9 @@ namespace beam
         void notifySyncProgress();
         void updateTransaction(const TxID& txID);
         void saveKnownState();
+		void RequestUtxoEvents();
+		void AbortUtxoEvents();
+		void ProcessUtxoEvent(const proto::UtxoEvent&, bool bFwd);
 
         wallet::BaseTransaction::Ptr getTransaction(const WalletID& myID, const wallet::SetTxParameter& msg);
         wallet::BaseTransaction::Ptr constructTransaction(const TxID& id, wallet::TxType type);
@@ -117,6 +120,7 @@ namespace beam
 		macro(Utxo) \
 		macro(Kernel) \
 		macro(Mined) \
+		macro(UtxoEvents) \
 		macro(Recover)
 
 		struct AllTasks {
@@ -188,6 +192,7 @@ namespace beam
 		uint32_t m_LastSyncTotal;
         bool m_needRecover;
         bool m_recovering;
+		uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
     };

@@ -105,6 +105,7 @@ namespace beam
         , m_LastSyncTotal(0)
         , m_needRecover{false}
         , m_recovering{false}
+		, m_OwnedNodesOnline(0)
     {
         assert(walletDB);
         resume_all_tx();
@@ -117,7 +118,19 @@ namespace beam
 
 	void Wallet::OnOwnedNode(const PeerID& id, bool bUp)
 	{
-		// TODO
+		if (bUp)
+		{
+			if (!m_OwnedNodesOnline)
+				RequestUtxoEvents(); // maybe time to refresh
+
+			m_OwnedNodesOnline++;
+		}
+		else
+		{
+			assert(m_OwnedNodesOnline);
+			if (!--m_OwnedNodesOnline)
+				AbortUtxoEvents();
+		}
 	}
 
     Block::SystemState::IHistory& Wallet::get_History()
@@ -520,14 +533,126 @@ namespace beam
         assert(false);
     }
 
+	void Wallet::RequestUtxoEvents()
+	{
+		if (!m_OwnedNodesOnline)
+			return;
+
+		Block::SystemState::Full sTip;
+		m_WalletDB->get_History().get_Tip(sTip);
+
+		Height h = m_WalletDB->UtxoEvtGetLast() + 1;
+		if (h > sTip.m_Height)
+		{
+			assert(h == sTip.m_Height + 1);
+			return;
+		}
+
+		if (!m_PendingUtxoEvents.empty())
+		{
+			if (m_PendingUtxoEvents.begin()->m_Msg.m_HeightMin == h)
+				return; // already pending
+			DeleteReq(*m_PendingUtxoEvents.begin());
+		}
+
+		MyRequestUtxoEvents::Ptr pReq(new MyRequestUtxoEvents);
+		pReq->m_Msg.m_HeightMin = h;
+		PostReqUnique(*pReq);
+	}
+
+	void Wallet::AbortUtxoEvents()
+	{
+		if (!m_PendingUtxoEvents.empty())
+			DeleteReq(*m_PendingUtxoEvents.begin());
+	}
+
 	void Wallet::OnRequestComplete(MyRequestUtxoEvents& r)
 	{
+		ByteBuffer bb;
+		Height h = m_WalletDB->UtxoEvtGetLast(&bb);
+		if (h && bb.empty())
+			m_WalletDB->UtxoEvtDelete(h); // it's the previous marker, remove it
+
+		// the heights order must have already been verified. Group the events by heights
+		const std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
+		size_t i0 = 0;
+		for (size_t i1 = 0; ; i1++)
+		{
+			bool bFin = (i1 == r.m_Res.m_Events.size());
+
+			bool bGroupComplete = (i0 < i1) && (bFin || (v[i0].m_Height != v[i1].m_Height));
+			if (bGroupComplete)
+			{
+				size_t di = i1 - i0;
+
+				Serializer ser;
+				bb.clear();
+				ser.swap_buf(bb);
+				ser & di;
+
+				for (; i0 < i1; i0++)
+				{
+					ProcessUtxoEvent(v[i0], true);
+					ser & v[i0];
+				}
+
+				ser.swap_buf(bb);
+
+				m_WalletDB->UtxoEvtInsert(v[i0].m_Height, bb);
+			}
+
+			if (bFin)
+				break;
+		}
+
+		if (r.m_Res.m_Events.size() < proto::UtxoEvent::s_Max)
+		{
+			Block::SystemState::Full sTip;
+			m_WalletDB->get_History().get_Tip(sTip);
+
+			if (r.m_Res.m_Events.empty() || (r.m_Res.m_Events.back().m_Height < sTip.m_Height))
+				m_WalletDB->UtxoEvtInsert(sTip.m_Height, Blob(NULL, 0)); // add marker
+		}
+		else
+			RequestUtxoEvents(); // maybe more events pending
+	}
+
+	void Wallet::ProcessUtxoEvent(const proto::UtxoEvent& evt, bool bFwd)
+	{
+		// TODO
 	}
 
     void Wallet::OnRolledBack()
     {
         Block::SystemState::Full sTip;
         m_WalletDB->get_History().get_Tip(sTip);
+
+		for (ByteBuffer bb; ; bb.clear())
+		{
+			Height h = m_WalletDB->UtxoEvtGetLast(&bb);
+			if (h <= sTip.m_Height)
+				break;
+
+			if (!bb.empty())
+			{
+				Deserializer der;
+				der.reset(&bb.front(), bb.size());
+
+				size_t di;
+				der & di;
+
+				while (di--)
+				{
+					proto::UtxoEvent evt;
+					der & evt;
+
+					ProcessUtxoEvent(evt, false);
+				}
+			}
+
+			if (h && bb.empty())
+				m_WalletDB->UtxoEvtDelete(h); // it's the previous marker, remove it
+		}
 
         m_WalletDB->get_History().DeleteFrom(sTip.m_Height + 1);
 
@@ -577,6 +702,8 @@ namespace beam
             PostReqUnique(*pReq);
             return;
         }
+
+		RequestUtxoEvents();
 
         {
             MyRequestMined::Ptr pReq(new MyRequestMined);
