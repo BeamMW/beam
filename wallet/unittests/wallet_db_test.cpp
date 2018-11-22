@@ -114,7 +114,7 @@ void TestStoreCoins()
     auto walletDB = createSqliteWalletDB();
 
   
-    Coin coin = { 5, Coin::Unspent, 10, Key::Type::Coinbase };
+    Coin coin = { 5, Coin::Available, 10, Key::Type::Coinbase };
     walletDB->store(coin);
     coin = { 4, Coin::Available, 10, Key::Type::Comission };
     walletDB->store(coin);
