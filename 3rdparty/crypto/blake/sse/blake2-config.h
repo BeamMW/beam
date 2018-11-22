@@ -20,7 +20,9 @@
         #ifndef HAVE_AVX
             #define HAVE_AVX
         #endif
-    #endif 
+    #endif
+#elif defined(_M_AMD64) || defined(_M_X64)
+    #define HAVE_SSSE3
 #endif
 
 // These don't work everywhere
