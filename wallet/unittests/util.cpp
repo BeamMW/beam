@@ -86,7 +86,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 		Coin& coin = m_Coins[i];
 		coin.m_ID.m_Type = Key::Type::Regular;
 		coin.m_ID.m_Value = v;
-		coin.m_status = Coin::Unconfirmed;
+		coin.m_status = Coin::Maturing;
 		coin.m_createHeight = h + Rules::HeightGenesis;
 
 		m_vIncubation[i] = h;

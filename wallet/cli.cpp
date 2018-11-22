@@ -51,11 +51,13 @@ namespace beam
         ss << "[";
         switch (s)
         {
-        case Coin::Locked: ss << "Locked"; break;
+        case Coin::Available: ss << "Available"; break;
+        case Coin::Unavailable: ss << "Unavailable"; break;
         case Coin::Spent: ss << "Spent"; break;
-        case Coin::Unconfirmed: ss << "Unconfirmed"; break;
-        case Coin::Unspent: ss << "Unspent"; break;
-        case Coin::Draft: ss << "Draft"; break;
+        case Coin::Maturing: ss << "Maturing"; break;
+        case Coin::Outgoing: ss << "In progress(outgoing)"; break;
+        case Coin::Incoming: ss << "In progress(incoming)"; break;
+        case Coin::Change: ss << "In progress(change)"; break;
         default:
             assert(false && "Unknown coin status");
         }
@@ -319,18 +321,26 @@ int main_impl(int argc, char* argv[])
                         {
                             Block::SystemState::ID stateID = {};
                             walletDB->getSystemStateID(stateID);
+                            auto totalInProgress = wallet::getTotal(walletDB, Coin::Incoming) + 
+                                wallet::getTotal(walletDB, Coin::Outgoing) + wallet::getTotal(walletDB, Coin::Change);
+                            auto totalCoinbase = wallet::getTotalByType(walletDB, Coin::Available, Key::Type::Coinbase) + 
+                                wallet::getTotalByType(walletDB, Coin::Maturing, Key::Type::Coinbase);
+                            auto totalFee = wallet::getTotalByType(walletDB, Coin::Available, Key::Type::Comission) + 
+                                wallet::getTotalByType(walletDB, Coin::Maturing, Key::Type::Comission);
+                            auto totalUnspent = wallet::getTotal(walletDB, Coin::Available) + wallet::getTotal(walletDB, Coin::Maturing);
+
                             cout << "____Wallet summary____\n\n"
                                 << "Current height............" << stateID.m_Height << '\n'
                                 << "Current state ID.........." << stateID.m_Hash << "\n\n"
                                 << "Available................." << PrintableAmount(wallet::getAvailable(walletDB)) << '\n'
-                                << "Unconfirmed..............." << PrintableAmount(wallet::getTotal(walletDB, Coin::Unconfirmed)) << '\n'
-                                << "Locked...................." << PrintableAmount(wallet::getTotal(walletDB, Coin::Locked)) << '\n'
-                                << "Draft....................." << PrintableAmount(wallet::getTotal(walletDB, Coin::Draft)) << '\n'
-                                << "Available coinbase ......." << PrintableAmount(wallet::getAvailableByType(walletDB, Coin::Unspent, Key::Type::Coinbase)) << '\n'
-                                << "Total coinbase............" << PrintableAmount(wallet::getTotalByType(walletDB, Coin::Unspent, Key::Type::Coinbase)) << '\n'
-                                << "Avaliable fee............." << PrintableAmount(wallet::getAvailableByType(walletDB, Coin::Unspent, Key::Type::Comission)) << '\n'
-                                << "Total fee................." << PrintableAmount(wallet::getTotalByType(walletDB, Coin::Unspent, Key::Type::Comission)) << '\n'
-                                << "Total unspent............." << PrintableAmount(wallet::getTotal(walletDB, Coin::Unspent)) << "\n\n";
+                                << "Maturing.................." << PrintableAmount(wallet::getTotal(walletDB, Coin::Maturing)) << '\n'
+                                << "In progress..............." << PrintableAmount(totalInProgress) << '\n'
+                                << "Unavailable..............." << PrintableAmount(wallet::getTotal(walletDB, Coin::Unavailable)) << '\n'
+                                << "Available coinbase ......." << PrintableAmount(wallet::getAvailableByType(walletDB, Coin::Available, Key::Type::Coinbase)) << '\n'
+                                << "Total coinbase............" << PrintableAmount(totalCoinbase) << '\n'
+                                << "Avaliable fee............." << PrintableAmount(wallet::getAvailableByType(walletDB, Coin::Available, Key::Type::Comission)) << '\n'
+                                << "Total fee................." << PrintableAmount(totalFee) << '\n'
+                                << "Total unspent............." << PrintableAmount(totalUnspent) << "\n\n";
                             if (vm.count(cli::TX_HISTORY))
                             {
                                 auto txHistory = walletDB->getTxHistory();

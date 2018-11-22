@@ -242,7 +242,7 @@ WalletStatus WalletModel::getStatus() const
         }
     }
 
-    status.unconfirmed += wallet::getTotal(_walletDB, Coin::Unconfirmed);
+    status.unconfirmed += wallet::getTotal(_walletDB, Coin::Incoming) + wallet::getTotal(_walletDB, Coin::Change);
 
     status.update.lastTime = _walletDB->getLastUpdateTime();
     ZeroObject(status.stateID);

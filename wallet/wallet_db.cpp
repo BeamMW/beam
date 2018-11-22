@@ -680,7 +680,7 @@ namespace beam
     }
 
     Coin::Coin()
-        : Coin(0, Coin::Unspent, MaxHeight, Key::Type::Regular, MaxHeight)
+        : Coin(0, Coin::Available, MaxHeight, Key::Type::Regular, MaxHeight)
     {
         assert(isValid());
     }
@@ -921,7 +921,7 @@ namespace beam
         getSystemStateID(stateID);
         {
             sqlite::Statement stm(_db, "SELECT SUM(amount)" STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 ;");
-            stm.bind(1, Coin::Unspent);
+            stm.bind(1, Coin::Available);
             stm.bind(2, stateID.m_Height);
             Amount avalableAmount = 0;
             if (stm.step())
@@ -938,7 +938,7 @@ namespace beam
         {
             // get one coin >= amount
             sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount>=?3 ORDER BY amount ASC LIMIT 1;");
-            stm.bind(1, Coin::Unspent);
+            stm.bind(1, Coin::Available);
             stm.bind(2, stateID.m_Height);
             stm.bind(3, amount);
             if (stm.step())
@@ -956,7 +956,7 @@ namespace beam
         {
             // select all coins less than needed amount in sorted order
             sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount<?3 ORDER BY amount DESC;");
-            stm.bind(1, Coin::Unspent);
+            stm.bind(1, Coin::Available);
             stm.bind(2, stateID.m_Height);
             stm.bind(3, amount);
             vector<Coin> candidats;
@@ -999,7 +999,7 @@ namespace beam
 
             for (auto& coin : coins)
             {
-                coin.m_status = Coin::Locked;
+                coin.m_status = Coin::Outgoing;
                 const char* req = "UPDATE " STORAGE_NAME " SET status=?, lockedHeight=?" STORAGE_WHERE_ID;
                 sqlite::Statement stm(_db, req);
 
@@ -1187,8 +1187,27 @@ namespace beam
 		return true;
 	}
 
-    void WalletDB::visit(function<bool(const Coin& coin)> func)
+    void WalletDB::maturingCoins()
     {
+        sqlite::Transaction trans(_db);
+
+        {
+            const char* req = "UPDATE " STORAGE_NAME " SET status=?3 WHERE status=?1 AND maturity <= ?2;";
+            sqlite::Statement stm(_db, req);
+
+            stm.bind(1, Coin::Maturing);
+            stm.bind(2, getCurrentHeight());
+            stm.bind(3, Coin::Available);
+
+            stm.step();
+        }
+
+        trans.commit();
+        notifyCoinsChanged();
+    }
+
+	void WalletDB::visit(function<bool(const Coin& coin)> func)
+	{
         const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " ORDER BY " ENUM_STORAGE_ID(LIST, COMMA, ) ";";
         sqlite::Statement stm(_db, req);
 
@@ -1257,6 +1276,8 @@ namespace beam
         setVar(SystemStateIDName, stateID);
         setVar(LastUpdateTimeName, getTimestamp());
         notifySystemStateChanged();
+        // update coins
+        maturingCoins();
     }
 
     bool WalletDB::getSystemStateID(Block::SystemState::ID& stateID) const
@@ -1281,7 +1302,7 @@ namespace beam
         {
             const char* req = "UPDATE " STORAGE_NAME " SET status=?1, confirmHeight=?2, lockedHeight=?2 WHERE confirmHeight > ?3 ;";
             sqlite::Statement stm(_db, req);
-            stm.bind(1, Coin::Unconfirmed);
+            stm.bind(1, Coin::Unavailable);
             stm.bind(2, MaxHeight);
             stm.bind(3, minHeight);
             stm.step();
@@ -1290,7 +1311,7 @@ namespace beam
         {
             const char* req = "UPDATE " STORAGE_NAME " SET status=?1, lockedHeight=?2 WHERE lockedHeight > ?3 AND confirmHeight <= ?3 ;";
             sqlite::Statement stm(_db, req);
-            stm.bind(1, Coin::Unspent);
+            stm.bind(1, Coin::Available);
             stm.bind(2, MaxHeight);
             stm.bind(3, minHeight);
             stm.step();
@@ -1413,8 +1434,8 @@ namespace beam
             const char* req = "UPDATE " STORAGE_NAME " SET status=?3, spentTxId=NULL WHERE spentTxId=?1 AND status=?2;";
             sqlite::Statement stm(_db, req);
             stm.bind(1, txId);
-            stm.bind(2, Coin::Locked);
-            stm.bind(3, Coin::Unspent);
+            stm.bind(2, Coin::Outgoing);
+            stm.bind(3, Coin::Available);
             stm.step();
         }
         {
@@ -1868,7 +1889,7 @@ namespace beam
             {
                 Height lockHeight = c.m_maturity;
 
-                if (c.m_status == Coin::Unspent
+                if (c.m_status == Coin::Available
                     && lockHeight <= currentHeight)
                 {
                     total += c.m_ID.m_Value;

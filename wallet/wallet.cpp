@@ -425,7 +425,7 @@ namespace beam
         {
             LOG_WARNING() << "Got empty utxo proof for: " << r.m_Msg.m_Utxo;
 
-            if (c.m_status == Coin::Locked)
+            if (c.m_status == Coin::Outgoing)
             {
 				assert(bExists);
 
@@ -434,7 +434,7 @@ namespace beam
                 assert(c.m_spentTxId.is_initialized());
                 updateTransaction(*c.m_spentTxId);
             }
-            else if (c.m_status == Coin::Unconfirmed && c.isReward())
+            else if (c.m_status == Coin::Unavailable && c.isReward())
             {
                 LOG_WARNING() << "Uncofirmed reward UTXO removed. Amount: " << c.m_ID.m_Value << " Height: " << c.m_ID.m_Idx;
 
@@ -447,13 +447,14 @@ namespace beam
 
         for (const auto& proof : r.m_Res.m_Proofs)
         {
-            if (c.m_status == Coin::Unconfirmed)
+            if ((c.m_status == Coin::Unavailable)
+                || (c.m_status == Coin::Incoming) || (c.m_status == Coin::Change))
             {
                 Block::SystemState::Full sTip;
                 get_tip(sTip);
 
                 LOG_INFO() << "Got utxo proof for: " << r.m_Msg.m_Utxo;
-                c.m_status = Coin::Unspent;
+				c.m_status = Coin::Available;
                 c.m_maturity = proof.m_State.m_Maturity;
                 c.m_confirmHeight = sTip.m_Height;
 
@@ -728,7 +729,7 @@ namespace beam
         uint32_t nUnconfirmed = 0;
         m_WalletDB->visit([&nUnconfirmed, this](const Coin& c)->bool
         {
-            if (c.m_status == Coin::Unconfirmed
+            if (c.m_status == Coin::Unavailable
                 && ((c.m_createTxId.is_initialized()
                 && (m_transactions.find(*c.m_createTxId) == m_transactions.end())) || c.isReward()))
             {

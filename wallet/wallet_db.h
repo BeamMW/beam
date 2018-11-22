@@ -29,15 +29,17 @@ namespace beam
     {
         enum Status
         {
-            Unconfirmed,
-            Unspent,
-            Locked,
-            Spent,
-            Draft
+            Unavailable,
+            Available,
+            Maturing,
+            Outgoing,
+            Incoming,
+            Change,
+            Spent
         };
 
         Coin(Amount amount
-           , Status status = Coin::Unspent
+           , Status status = Coin::Maturing
            , Height maturity = MaxHeight
            , Key::Type keyType = Key::Type::Regular
            , Height confirmHeight = MaxHeight
@@ -50,8 +52,8 @@ namespace beam
 		ID m_ID;
 
         Status m_status;
-		Height m_createHeight;  // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
-		Height m_maturity;      // coin can be spent only when chain is >= this value. Valid for confirmed coins (Unspent, Locked, Spent).
+        Height m_createHeight;  // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
+        Height m_maturity;      // coin can be spent only when chain is >= this value. Valid for confirmed coins (Available, Outgoing, Incoming, Change, Spent, Maturing).
         Height m_confirmHeight;
         Height m_lockedHeight;
         boost::optional<TxID> m_createTxId;
@@ -130,6 +132,7 @@ namespace beam
 		virtual void remove(const std::vector<Coin::ID>&) = 0;
 		virtual bool find(Coin& coin) = 0;
 		virtual void clear() = 0;
+		virtual void maturingCoins() = 0;
 
         virtual void visit(std::function<bool(const Coin& coin)> func) = 0;
 
@@ -213,6 +216,7 @@ namespace beam
 		void remove(const std::vector<Coin::ID>&) override;
 		bool find(Coin& coin) override;
 		void clear() override;
+		void maturingCoins() override;
 
         void visit(std::function<bool(const Coin& coin)> func) override;
 
