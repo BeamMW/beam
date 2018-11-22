@@ -552,7 +552,8 @@ namespace beam
 		if (evt.m_Added)
 		{
 			c.m_maturity = evt.m_Maturity;
-			c.m_confirmHeight = evt.m_Height;
+			if (!c.m_confirmHeight || (c.m_confirmHeight > evt.m_Height)) // in case of std utxo proofs - the event height may be bigger than actual utxo height
+				c.m_confirmHeight = evt.m_Height;
 			c.m_status = (evt.m_Maturity <= hTip) ? Coin::Status::Available : Coin::Status::Maturing;
 
 			if (c.m_createTxId)
