@@ -184,14 +184,6 @@ namespace proto {
 	macro(ByteBuffer, Portion) \
 	macro(uint64_t, SizeTotal)
 
-#define BeamNodeMsg_Recover(macro) \
-	macro(bool, Private) \
-	macro(bool, Public)
-
-#define BeamNodeMsg_Recovered(macro) \
-	macro(std::vector<Key::IDV>, Private) \
-	macro(std::vector<Key::IDV>, Public)
-
 #define BeamNodeMsg_GetUtxoEvents(macro) \
 	macro(Height, HeightMin)
 
@@ -247,8 +239,6 @@ namespace proto {
 	/* onwer-relevant */ \
 	macro(0x28, GetMined) \
 	macro(0x29, Mined) \
-	macro(0x2a, Recover) \
-	macro(0x2b, Recovered) \
 	macro(0x2c, GetUtxoEvents) \
 	macro(0x2d, UtxoEvents) \
 	macro(0x2e, GetBlockFinalization) \
@@ -708,8 +698,7 @@ namespace proto {
 		macro(Mined,		GetMined,			Mined) \
 		macro(UtxoEvents,	GetUtxoEvents,		UtxoEvents) \
 		macro(Transaction,	NewTransaction,		Boolean) \
-		macro(BbsMsg,		BbsMsg,				Pong) \
-		macro(Recover,		Recover,			Recovered)
+		macro(BbsMsg,		BbsMsg,				Pong)
 
 		class Request
 		{

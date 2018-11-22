@@ -1745,15 +1745,6 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestUtxoEvents& req)
 	}
 }
 
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestRecover& req)
-{
-	return (Flags::Node & m_Flags) && IsAtTip(); // must also be owned
-}
-
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestRecover& req)
-{
-}
-
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestTransaction& req)
 {
 	return (LoginFlags::SpreadingTransactions & m_LoginFlags) && IsAtTip();

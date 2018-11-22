@@ -105,7 +105,6 @@ namespace beam
         , m_pWalletNetwork(nullptr)
         , m_tx_completed_action{move(action)}
         , m_LastSyncTotal(0)
-        , m_needRecover{false}
 		, m_OwnedNodesOnline(0)
     {
         assert(walletDB);
@@ -206,13 +205,6 @@ namespace beam
         return txID;
     }
 
-    void Wallet::recover()
-    {
-        LOG_INFO() << "Recover coins from blockchain";
-        m_WalletDB->clear();
-        m_needRecover = true;
-    }
-
     void Wallet::resume_tx(const TxDescription& tx)
     {
         if (tx.canResume() && m_transactions.find(tx.m_txId) == m_transactions.end())
@@ -276,11 +268,6 @@ namespace beam
 	{
 		return false;
 	}
-
-	bool Wallet::MyRequestRecover::operator < (const MyRequestRecover& x) const
-    {
-        return false;
-    }
 
     void Wallet::RequestHandler::OnComplete(Request& r)
     {
@@ -466,16 +453,6 @@ namespace beam
         }
     }
 
-    void Wallet::OnRequestComplete(MyRequestRecover& r)
-    {
-		for (const auto& kidv : r.m_Res.m_Private)
-		{
-			Coin::ID cid;
-			Cast::Down<Key::IDV>(cid) = kidv; // legacy, doesn't have the iKdf. To be removed
-			getUtxoProof(cid);
-		}
-    }
-
     void Wallet::OnRequestComplete(MyRequestKernel& r)
     {
         if (!r.m_Res.m_Proof.empty())
@@ -654,16 +631,6 @@ namespace beam
 
         if (!m_WalletDB->getSystemStateID(id2))
             id2.m_Height = 0;
-
-        if (m_needRecover)
-        {
-            m_needRecover = false;
-            MyRequestRecover::Ptr pReq(new MyRequestRecover);
-            pReq->m_Msg.m_Private = true;
-            pReq->m_Msg.m_Public = true;
-            PostReqUnique(*pReq);
-            return;
-        }
 
 		RequestUtxoEvents();
 

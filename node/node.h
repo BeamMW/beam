@@ -509,7 +509,6 @@ private:
 		virtual void OnMsg(proto::MacroblockGet&&) override;
 		virtual void OnMsg(proto::Macroblock&&) override;
 		virtual void OnMsg(proto::ProofChainWork&&) override;
-		virtual void OnMsg(proto::Recover&&) override;
 		virtual void OnMsg(proto::GetUtxoEvents&&) override;
 		virtual void OnMsg(proto::BlockFinalization&&) override;
 	};

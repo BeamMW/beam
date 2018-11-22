@@ -68,14 +68,6 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
-    void restoreFromBlockchain() override
-    {
-        tx.send([](BridgeInterface& receiver_) mutable
-        {
-            receiver_.restoreFromBlockchain();
-        });
-    }
-
     void syncWithNode() override
     {
         tx.send([](BridgeInterface& receiver_) mutable
@@ -312,7 +304,7 @@ void WalletModel::run()
         if (AppModel::getInstance()->shouldRestoreWallet())
         {
             AppModel::getInstance()->setRestoreWallet(false);
-            restoreFromBlockchain();
+            // no additional actions required, restoration is automatic and contiguous
         }
 
 		nnet->Connect();
@@ -415,23 +407,6 @@ void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& c
         if (s)
         {
             s->transfer_money(sender, receiver, move(amount), move(fee), true, move(message));
-        }
-    }
-    catch (...)
-    {
-
-    }
-}
-
-void WalletModel::restoreFromBlockchain()
-{
-    try
-    {
-        assert(!_wallet.expired());
-        auto s = _wallet.lock();
-        if (s)
-        {
-            s->recover();
         }
     }
     catch (...)

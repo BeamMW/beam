@@ -842,11 +842,6 @@ private:
             Send(proto::Mined{});
         }
 
-        void OnMsg(proto::Recover&&) override
-        {
-            Send(proto::Recovered{});
-        }
-
         void OnMsg(proto::GetProofState&&) override
         {
             Send(proto::ProofState{});

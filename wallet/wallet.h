@@ -64,7 +64,6 @@ namespace beam
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, ByteBuffer&& message = {} );
         TxID swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount);
         void resume_tx(const TxDescription& tx);
-        void recover();
         void resume_all_tx();
 
         // IWallet
@@ -121,8 +120,7 @@ namespace beam
 		macro(Utxo) \
 		macro(Kernel) \
 		macro(Mined) \
-		macro(UtxoEvents) \
-		macro(Recover)
+		macro(UtxoEvents)
 
 		struct AllTasks {
 #define THE_MACRO(type, msgOut, msgIn) struct type { static const bool b = false; };
@@ -191,7 +189,6 @@ namespace beam
         std::set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
         TxCompletedAction m_tx_completed_action;
 		uint32_t m_LastSyncTotal;
-        bool m_needRecover;
 		uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;

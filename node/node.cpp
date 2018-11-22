@@ -2696,41 +2696,6 @@ void Node::Peer::OnMsg(proto::MacroblockGet&& msg)
 	Send(msgOut);
 }
 
-void Node::Peer::OnMsg(proto::Recover&& msg)
-{
-	struct Walker
-		:public NodeProcessor::UtxoRecoverSimple
-	{
-		Walker(NodeProcessor& p) :NodeProcessor::UtxoRecoverSimple(p) {}
-
-		proto::Recovered m_MsgOut;
-
-		virtual bool OnOutput(uint32_t iKey, const Key::IDV& kidv, const Output&) override
-		{
-			assert(iKey < 1);
-			std::vector<Key::IDV>& trg = iKey ? m_MsgOut.m_Public : m_MsgOut.m_Private;
-			trg.push_back(kidv);
-			return true;
-		}
-
-	} wlk(m_This.m_Processor);
-
-	if (Flags::Owner & m_Flags)
-	{
-		if (msg.m_Private && m_This.m_Keys.m_pMiner)
-			wlk.m_vKeys.push_back(m_This.m_Keys.m_pMiner);
-
-		if (msg.m_Public && m_This.m_Keys.m_pOwner)
-			wlk.m_vKeys.push_back(m_This.m_Keys.m_pOwner);
-
-		wlk.Proceed();
-	}
-	else
-		LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized recovery request.";
-
-	Send(wlk.m_MsgOut);
-}
-
 void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 {
 	proto::UtxoEvents msgOut;
