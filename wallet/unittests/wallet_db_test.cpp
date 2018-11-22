@@ -55,8 +55,7 @@ void TestWalletDataBase()
         coin.m_createHeight = 54;
         WALLET_CHECK(coin.isValid());
         auto kidv = coin.get_Kidv();
-        WALLET_CHECK(kidv.m_IdxSecondary == 132);
-        WALLET_CHECK(kidv.m_Idx == 54);
+        WALLET_CHECK(kidv.m_Idx == 132);
         WALLET_CHECK(kidv.m_Value == 1234);
         WALLET_CHECK(kidv.m_Type == Key::Type::Regular);
         
@@ -65,7 +64,6 @@ void TestWalletDataBase()
         WALLET_CHECK(coin2.m_amount == coin.m_amount);
         WALLET_CHECK(coin2.m_key_type == coin.m_key_type);
         WALLET_CHECK(coin2.m_keyIndex == coin.m_keyIndex);
-        WALLET_CHECK(coin2.m_createHeight == coin.m_createHeight);
     
     }
     auto walletDB = createSqliteWalletDB();

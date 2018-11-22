@@ -434,7 +434,6 @@ void TestRangeProof()
 {
 	RangeProof::CreatorParams cp;
 	SetRandomOrd(cp.m_Kidv.m_Idx);
-	SetRandomOrd(cp.m_Kidv.m_IdxSecondary);
 	SetRandomOrd(cp.m_Kidv.m_Type);
 	SetRandom(cp.m_Seed.V);
 	cp.m_Kidv.m_Value = 345000;
@@ -692,7 +691,6 @@ struct TransactionMaker
 
 			Key::IDV kidv;
 			SetRandomOrd(kidv.m_Idx);
-			SetRandomOrd(kidv.m_IdxSecondary);
 			kidv.m_Type = Key::Type::Regular;
 			kidv.m_Value = val;
 

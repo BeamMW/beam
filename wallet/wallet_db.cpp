@@ -707,27 +707,13 @@ namespace beam
 
     Key::IDV Coin::get_Kidv() const
     {
-        // For coinbase and fee commitments we generate key as function of (height and type), for regular coins we add id, to solve collisions
-        Key::IDV kidv(m_amount, m_createHeight, m_key_type, m_keyIndex);
-
-        switch (m_key_type)
-        {
-        case Key::Type::Coinbase:
-        case Key::Type::Comission:
-            kidv.m_IdxSecondary = 0;
-            break;
-
-        default: // suppress warning
-            break;
-        }
-
-        return kidv;
+        return Key::IDV(m_amount, m_keyIndex, m_key_type);
     }
 
     Coin Coin::fromKidv(const Key::IDV& kidv)
     {
         Coin c(kidv.m_Value, Coin::Unconfirmed, kidv.m_Idx, MaxHeight, kidv.m_Type);
-        c.m_keyIndex = kidv.m_IdxSecondary;
+        c.m_keyIndex = kidv.m_Idx;
         assert(c.isValid());
         return c;
     }

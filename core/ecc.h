@@ -187,21 +187,20 @@ namespace ECC
 			Identity	= 4,
 			Nonce		= 5,
 			ChildKey	= 6,
+			Kernel2		= 7, // used by the miner
 		};
 
 		struct ID
 		{
 			uint64_t	m_Idx;
-			uint64_t	m_IdxSecondary;
 			Type		m_Type;
 
 			ID() {}
 			ID(Zero_) { ZeroObject(*this); }
 
-			ID(beam::Height h, Type type, uint64_t nIdxSecondary = 0) // most common c'tor
+			ID(uint64_t nIdx, Type type) // most common c'tor
 			{
-				m_Idx = h;
-				m_IdxSecondary = nIdxSecondary;
+				m_Idx = nIdx;
 				m_Type = type;
 			}
 
@@ -211,7 +210,6 @@ namespace ECC
 			struct Packed
 			{
 				beam::uintBigFor<uint64_t>::Type m_Idx;
-				beam::uintBigFor<uint64_t>::Type m_Idx2;
 				beam::uintBigFor<uint32_t>::Type m_Type;
 				void operator = (const ID&);
 			};
@@ -225,8 +223,8 @@ namespace ECC
 		{
 			Amount m_Value;
 			IDV() {}
-			IDV(Amount v, beam::Height h, Type type, uint64_t nIdxSecondary = 0)
-				:ID(h, type, nIdxSecondary)
+			IDV(Amount v, uint64_t nIdx, Type type)
+				:ID(nIdx, type)
 				,m_Value(v)
 			{
 			}

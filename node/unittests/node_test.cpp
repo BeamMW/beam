@@ -488,7 +488,7 @@ namespace beam
 	struct MiniWallet
 	{
 		Key::IKdf::Ptr m_pKdf;
-		uint32_t m_nKernelSubIdx = 1;
+		uint32_t m_nRunningIndex = 0;
 
 		struct MyUtxo
 		{
@@ -605,8 +605,7 @@ namespace beam
 			{
 				MyUtxo utxoOut;
 				utxoOut.m_Kidv.m_Value = utxo.m_Kidv.m_Value - mk.m_Fee;
-				utxoOut.m_Kidv.m_IdxSecondary = 0;
-				utxoOut.m_Kidv.m_Idx = h;
+				utxoOut.m_Kidv.m_Idx = ++m_nRunningIndex;
 				utxoOut.m_Kidv.m_Type = Key::Type::Regular;
 
 				ToOutput(utxoOut, *pTx, kOffset, hIncubation);
@@ -616,7 +615,7 @@ namespace beam
 
 			m_MyUtxos.erase(it);
 
-			m_pKdf->DeriveKey(mk.m_k, Key::ID(h, Key::Type::Kernel, m_nKernelSubIdx++));
+			m_pKdf->DeriveKey(mk.m_k, Key::ID(++m_nRunningIndex, Key::Type::Kernel));
 
 			TxKernel::Ptr pKrn;
 			mk.Export(pKrn);

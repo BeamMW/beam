@@ -202,7 +202,6 @@ namespace detail
 		{
 			ar
 				& kidv.m_Idx
-				& kidv.m_IdxSecondary
 				& kidv.m_Type
 				& kidv.m_Value;
 
@@ -214,7 +213,6 @@ namespace detail
 		{
 			ar
 				& kidv.m_Idx
-				& kidv.m_IdxSecondary
 				& kidv.m_Type
 				& kidv.m_Value;
 
@@ -379,7 +377,6 @@ namespace detail
                 & val.m_Value
                 & val.m_Signature
 				& val.m_Kid.m_Idx
-				& val.m_Kid.m_Idx2
 				& val.m_Kid.m_Type
             ;
 
@@ -393,7 +390,6 @@ namespace detail
                 & val.m_Value
                 & val.m_Signature
 				& val.m_Kid.m_Idx
-				& val.m_Kid.m_Idx2
 				& val.m_Kid.m_Type
             ;
 

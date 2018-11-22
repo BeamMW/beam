@@ -1102,7 +1102,7 @@ namespace beam
 
 		m_Offset += sk;
 
-		kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel, uint64_t(-1LL)));
+		kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel2));
 
 		pKrn.reset(new TxKernel);
 		pKrn->m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);

@@ -1196,7 +1196,6 @@ namespace ECC {
 		Hash::Processor()
 			<< "kid"
 			<< m_Idx
-			<< m_IdxSecondary
 			<< static_cast<uint32_t>(m_Type)
 			>> hv;
 	}
@@ -1206,14 +1205,12 @@ namespace ECC {
 		return
 			(m_Value == x.m_Value) &&
 			(m_Idx == x.m_Idx) &&
-			(m_IdxSecondary == x.m_IdxSecondary) &&
 			(m_Type == x.m_Type);
 	}
 
 	void Key::ID::operator = (const Packed& x)
 	{
 		x.m_Idx.Export(m_Idx);
-		x.m_Idx2.Export(m_IdxSecondary);
 
 		uint32_t val;
 		x.m_Type.Export(val);
@@ -1223,7 +1220,6 @@ namespace ECC {
 	void Key::ID::Packed::operator = (const ID& x)
 	{
 		m_Idx = x.m_Idx;
-		m_Idx2 = x.m_IdxSecondary;
 		m_Type = static_cast<uint32_t>(x.m_Type);
 	}
 
