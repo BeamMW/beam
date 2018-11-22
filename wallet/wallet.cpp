@@ -121,10 +121,8 @@ namespace beam
 	{
 		if (bUp)
 		{
-			if (!m_OwnedNodesOnline)
+			if (!m_OwnedNodesOnline++)
 				RequestUtxoEvents(); // maybe time to refresh
-
-			m_OwnedNodesOnline++;
 		}
 		else
 		{
