@@ -126,7 +126,7 @@ namespace beam
         wallet_options.add_options()
             (cli::PASS, po::value<string>(), "password for the wallet")
             (cli::BTC_PASS, po::value<string>(), "password for the bitcoin node")
-            (cli::BTC_USER, po::value<string>(), "user name for the bitcoin node")
+            (cli::BTC_USER_NAME, po::value<string>(), "user name for the bitcoin node")
             (cli::AMOUNT_FULL, po::value<double>(), "amount to send (in Beams, 1 Beam = 1000000 chattle)")
             (cli::FEE_FULL, po::value<double>()->default_value(0), "fee (in Beams, 1 Beam = 1000000 chattle)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
@@ -303,6 +303,11 @@ namespace beam
 
         walletSeed.V = seed.hash().V;
         return true;
+    }
+
+    bool read_wallet_pass(SecString& pass, po::variables_map& vm)
+    {
+        return read_secret_impl(pass, "Enter password: ", cli::PASS, vm);
     }
 
     bool read_btc_pass(SecString& pass, po::variables_map& vm)

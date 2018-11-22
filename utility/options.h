@@ -39,7 +39,7 @@ namespace beam
         extern const char* NODE_PEER;
         extern const char* PASS;
         extern const char* BTC_PASS;
-        extern const char* BTC_USER;
+        extern const char* BTC_USER_NAME;
         extern const char* AMOUNT;
         extern const char* AMOUNT_FULL;
         extern const char* RECEIVER_ADDR;

@@ -325,12 +325,12 @@ int main_impl(int argc, char* argv[])
                                 return -1;
                             }
 
-                            if (vm.count(cli::BTC_USER) == 0)
+                            if (vm.count(cli::BTC_USER_NAME) == 0)
                             {
                                 LOG_ERROR() << "user name of bitcoin node should be specified";
                                 return -1;
                             }
-                            btcUserName = vm[cli::BTC_USER].as<string>();
+                            btcUserName = vm[cli::BTC_USER_NAME].as<string>();
                             if (!beam::read_btc_pass(btcPass, vm))
                             {
                                 LOG_ERROR() << "Please, provide password for the bitcoin node.";
