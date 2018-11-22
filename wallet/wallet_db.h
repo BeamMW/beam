@@ -38,7 +38,6 @@ namespace beam
 
         Coin(const ECC::Amount& amount
            , Status status = Coin::Unspent
-           , const Height& createHeight = 0
            , const Height& maturity = MaxHeight
            , Key::Type keyType = Key::Type::Regular
            , Height confirmHeight = MaxHeight
@@ -50,11 +49,9 @@ namespace beam
         ECC::Amount m_amount;
 		Key::Index m_iKdf;
         Status m_status;
-        Height m_createHeight;  // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
         Height m_maturity;      // coin can be spent only when chain is >= this value. Valid for confirmed coins (Unspent, Locked, Spent).
 		Key::Type m_key_type;
         Height m_confirmHeight;
-        Merkle::Hash m_confirmHash;
         Height m_lockedHeight;
         boost::optional<TxID> m_createTxId;
         boost::optional<TxID> m_spentTxId;
@@ -143,8 +140,6 @@ namespace beam
         virtual bool getVarRaw(const char* name, void* data, int size) const = 0;
         virtual bool getBlob(const char* name, ByteBuffer& var) const = 0;
         virtual Height getCurrentHeight() const = 0;
-        virtual uint64_t getKnownStateCount() const = 0;
-        virtual Block::SystemState::ID getKnownStateID(Height height) = 0;
         virtual void rollbackConfirmedUtxo(Height minHeight) = 0;
 
         virtual std::vector<TxDescription> getTxHistory(uint64_t start = 0, int count = std::numeric_limits<int>::max()) = 0;
@@ -228,8 +223,6 @@ namespace beam
         bool getVarRaw(const char* name, void* data, int size) const override;
         bool getBlob(const char* name, ByteBuffer& var) const override;
         Height getCurrentHeight() const override;
-        uint64_t getKnownStateCount() const override;
-        Block::SystemState::ID getKnownStateID(Height height) override;
         void rollbackConfirmedUtxo(Height minHeight) override;
 
         std::vector<TxDescription> getTxHistory(uint64_t start, int count) override;

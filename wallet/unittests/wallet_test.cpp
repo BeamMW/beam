@@ -138,16 +138,6 @@ namespace
             return 134;
         }
 
-        uint64_t getKnownStateCount() const override
-        {
-            return 0;
-        }
-
-        Block::SystemState::ID getKnownStateID(Height height) override
-        {
-            return {};
-        }
-
         void rollbackConfirmedUtxo(Height /*minHeight*/) override
         {}
 

@@ -39,10 +39,8 @@
 #define ENUM_STORAGE_FIELDS(each, sep, obj) \
     each(amount,        INTEGER NOT NULL, obj) sep \
     each(status,        INTEGER NOT NULL, obj) sep \
-    each(createHeight,  INTEGER NOT NULL, obj) sep \
     each(maturity,      INTEGER NOT NULL, obj) sep \
     each(confirmHeight, INTEGER, obj) sep \
-    each(confirmHash,   BLOB, obj) sep \
     each(createTxId,    BLOB, obj) sep \
     each(spentTxId,     BLOB, obj) sep \
     each(lockedHeight,  BLOB, obj) sep \
@@ -673,15 +671,13 @@ namespace beam
         const int DbVersion = 7;
     }
 
-    Coin::Coin(const Amount& amount, Status status, const Height& createHeight, const Height& maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
+    Coin::Coin(const Amount& amount, Status status, const Height& maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
         : m_amount{ amount }
 		, m_iKdf{ 0 }
 		, m_status{ status }
-        , m_createHeight{ createHeight }
         , m_maturity{ maturity }
         , m_key_type{ keyType }
         , m_confirmHeight{ confirmHeight }
-        , m_confirmHash(Zero)
         , m_lockedHeight{ lockedHeight }
         , m_keyIndex{0}
 	{
@@ -689,7 +685,7 @@ namespace beam
     }
 
     Coin::Coin()
-        : Coin(0, Coin::Unspent, 0, MaxHeight, Key::Type::Regular, MaxHeight)
+        : Coin(0, Coin::Unspent, MaxHeight, Key::Type::Regular, MaxHeight)
     {
         assert(isValid());
     }
@@ -701,8 +697,7 @@ namespace beam
 
     bool Coin::isValid() const
     {
-        return m_createHeight <= m_maturity
-            && m_maturity <= m_lockedHeight;
+        return m_maturity <= m_lockedHeight;
     }
 
     Key::IDV Coin::get_Kidv() const
@@ -712,7 +707,7 @@ namespace beam
 
     Coin Coin::fromKidv(const Key::IDV& kidv)
     {
-        Coin c(kidv.m_Value, Coin::Unconfirmed, kidv.m_Idx, MaxHeight, kidv.m_Type);
+        Coin c(kidv.m_Value, Coin::Unconfirmed, MaxHeight, kidv.m_Type);
         c.m_keyIndex = kidv.m_Idx;
         assert(c.isValid());
         return c;
@@ -1299,39 +1294,12 @@ namespace beam
         return 0;
     }
 
-    uint64_t WalletDB::getKnownStateCount() const
-    {
-        uint64_t count = 0;
-        {
-            sqlite::Statement stm(_db, "SELECT COUNT(DISTINCT confirmHash) FROM " STORAGE_NAME " ;");
-            stm.step();
-            stm.get(0, count);
-        }
-        return count;
-    }
-
-    Block::SystemState::ID WalletDB::getKnownStateID(Height height)
-    {
-        Block::SystemState::ID id = wallet::GetEmptyID();
-        const char* req = "SELECT DISTINCT confirmHeight, confirmHash FROM " STORAGE_NAME " WHERE confirmHeight >= ?2 LIMIT 1 OFFSET ?1;";
-
-        sqlite::Statement stm(_db, req);
-        stm.bind(1, height);
-        stm.bind(2, Rules::HeightGenesis);
-        if (stm.step())
-        {
-            stm.get(0, id.m_Height);
-            stm.get(1, id.m_Hash);
-        }
-        return id;
-    }
-
     void WalletDB::rollbackConfirmedUtxo(Height minHeight)
     {
         sqlite::Transaction trans(_db);
 
         {
-            const char* req = "UPDATE " STORAGE_NAME " SET status=?1, confirmHeight=?2, lockedHeight=?2, confirmHash=NULL WHERE confirmHeight > ?3 ;";
+            const char* req = "UPDATE " STORAGE_NAME " SET status=?1, confirmHeight=?2, lockedHeight=?2 WHERE confirmHeight > ?3 ;";
             sqlite::Statement stm(_db, req);
             stm.bind(1, Coin::Unconfirmed);
             stm.bind(2, MaxHeight);

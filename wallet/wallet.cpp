@@ -435,7 +435,7 @@ namespace beam
             }
             else if (r.m_Coin.m_status == Coin::Unconfirmed && r.m_Coin.isReward())
             {
-                LOG_WARNING() << "Uncofirmed reward UTXO removed. Amount: " << r.m_Coin.m_amount << " Height: " << r.m_Coin.m_createHeight;
+                LOG_WARNING() << "Uncofirmed reward UTXO removed. Amount: " << r.m_Coin.m_amount << " Height: " << r.m_Coin.m_keyIndex;
 
 				if (bExists)
 					m_WalletDB->remove(r.m_Coin);
@@ -455,15 +455,9 @@ namespace beam
                 r.m_Coin.m_status = Coin::Unspent;
                 r.m_Coin.m_maturity = proof.m_State.m_Maturity;
                 r.m_Coin.m_confirmHeight = sTip.m_Height;
-                sTip.get_Hash(r.m_Coin.m_confirmHash);
 
 				if (!r.m_Coin.m_keyIndex)
-				{
-					if (r.m_Coin.isReward())
-						r.m_Coin.m_keyIndex = r.m_Coin.m_createHeight;
-					else
-						r.m_Coin.m_keyIndex = m_WalletDB->AllocateKidRange(1);
-				}
+					r.m_Coin.m_keyIndex = m_WalletDB->AllocateKidRange(1); // could be recovery
 
 				m_WalletDB->save(r.m_Coin);
 
@@ -490,21 +484,18 @@ namespace beam
                 // coinbase 
                 Coin c(Rules::get().CoinbaseEmission
                     , Coin::Unconfirmed
-                    , minedCoin.m_ID.m_Height
                     , MaxHeight
                     , Key::Type::Coinbase);
+				c.m_keyIndex = minedCoin.m_ID.m_Height;
 
                 getUtxoProof(c);
 
                 if (minedCoin.m_Fees > 0)
                 {
-                    Coin cFee(minedCoin.m_Fees
-                        , Coin::Unconfirmed
-                        , minedCoin.m_ID.m_Height
-                        , MaxHeight
-                        , Key::Type::Comission);
+					c.m_amount = minedCoin.m_Fees;
+					c.m_key_type = Key::Type::Comission;
 
-                    getUtxoProof(cFee);
+                    getUtxoProof(c);
                 }
                 lastKnownCoinHeight = max(lastKnownCoinHeight, minedCoin.m_ID.m_Height);
             }
