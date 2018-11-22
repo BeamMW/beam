@@ -371,13 +371,23 @@ namespace beam { namespace wallet
             return;
         }
 
+
         vector<Coin> unconfirmed = GetUnconfirmedOutputs();
-        if (!unconfirmed.empty())
-        {
-            SetState(State::OutputsConfirmation);
-            m_Gateway.confirm_outputs(unconfirmed);
-            return;
-        }
+
+		// Current design: don't request separate proofs for coins. Tx confirmation is enough.
+		for (Coin& c : unconfirmed)
+		{
+			if (Coin::Outgoing == c.m_status)
+				c.m_status = Coin::Spent;
+			else
+			{
+				c.m_status = Coin::Available;
+				c.m_confirmHeight = hProof;
+				c.m_maturity = hProof + Rules::get().MaturityStd; // so far we don't use incubation for our created outputs
+			}
+		}
+
+		GetWalletDB()->save(unconfirmed);
 
         CompleteTx();
     }

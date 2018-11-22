@@ -619,6 +619,8 @@ namespace beam
 
 		bool bExists = m_WalletDB->find(c);
 
+		const TxID* pTxID = NULL;
+
 		if (evt.m_Added)
 		{
 			c.m_maturity = evt.m_Maturity;
@@ -627,12 +629,36 @@ namespace beam
 
 			if (c.m_createTxId)
 				updateTransaction(*c.m_createTxId);
+			pTxID = c.m_createTxId.get_ptr();
 		}
 		else
 		{
 			if (!bExists)
 				return; // should alert!
 
+			c.m_maturity = evt.m_Maturity;
+			c.m_status = Coin::Status::Spent;
+			pTxID = c.m_spentTxId.get_ptr();
+		}
+
+		m_WalletDB->save(c);
+
+		if (!pTxID)
+			return;
+
+		auto it = m_transactions.find(*pTxID);
+		if (it == m_transactions.end())
+			return;
+
+		Height h = 0;
+		const auto& pTx = it->second;
+		pTx->GetParameter(TxParameterID::KernelProofHeight, h);
+
+		if (!h || (h > evt.m_Height))
+		{
+			h = evt.m_Height;
+			pTx->SetParameter(TxParameterID::KernelProofHeight, h);
+			m_TransactionsToUpdate.insert(pTx);
 		}
 	}
 
