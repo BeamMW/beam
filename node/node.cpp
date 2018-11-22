@@ -3107,11 +3107,6 @@ void Node::Miner::OnMined()
 	}
 	assert(NodeProcessor::DataStatus::Accepted == eStatus);
 
-	NodeDB::StateID sid;
-	sid.m_Row = get_ParentObj().m_Processor.get_DB().StateFindSafe(id);
-	assert(sid.m_Row);
-	sid.m_Height = id.m_Height;
-
 	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_BodyP, pTask->m_BodyE, get_ParentObj().m_MyPublicID); // will likely trigger OnNewState(), and spread this block to the network
 	assert(NodeProcessor::DataStatus::Accepted == eStatus);
 
