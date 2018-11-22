@@ -3112,12 +3112,10 @@ void Node::Miner::OnMined()
 	assert(sid.m_Row);
 	sid.m_Height = id.m_Height;
 
-	get_ParentObj().m_Processor.get_DB().SetMined(sid, pTask->m_Fees); // ding!
-
-	get_ParentObj().m_Processor.FlushDB();
-
 	eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_BodyP, pTask->m_BodyE, get_ParentObj().m_MyPublicID); // will likely trigger OnNewState(), and spread this block to the network
 	assert(NodeProcessor::DataStatus::Accepted == eStatus);
+
+	get_ParentObj().m_Processor.FlushDB();
 }
 
 struct Node::Beacon::OutCtx

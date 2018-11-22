@@ -231,27 +231,6 @@ namespace beam
 		verify_test(CountTips(db, false, &sid) == 2);
 		verify_test(sid.m_Height == hMax-1 + Rules::HeightGenesis);
 
-		db.SetMined(sid, 200000);
-		db.SetMined(sid, 250000);
-
-		{
-			NodeDB::WalkerMined wlkMined(db);
-			db.EnumMined(wlkMined, 0);
-			verify_test(wlkMined.MoveNext());
-			verify_test(wlkMined.m_Sid.m_Height == sid.m_Height && wlkMined.m_Sid.m_Row == sid.m_Row);
-			verify_test(wlkMined.m_Amount == 250000);
-			verify_test(!wlkMined.MoveNext());
-		}
-
-		db.DeleteMinedSafe(sid);
-		{
-			NodeDB::WalkerMined wlkMined(db);
-			db.EnumMined(wlkMined, 0);
-			verify_test(!wlkMined.MoveNext());
-		}
-
-		db.DeleteMinedSafe(sid);
-
 		db.SetStateFunctional(rowLast1);
 		db.assert_valid();
 
