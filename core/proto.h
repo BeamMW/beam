@@ -778,13 +778,15 @@ namespace proto {
 			{
 				struct SyncCtx
 				{
+					typedef std::unique_ptr<SyncCtx> Ptr;
+
 					std::vector<Block::SystemState::Full> m_vConfirming;
 					Block::SystemState::Full m_Confirmed;
 					Block::SystemState::Full m_TipBeforeGap;
 					Height m_LowHeight;
 				};
 
-				std::unique_ptr<SyncCtx> m_pSync;
+				SyncCtx::Ptr m_pSync;
 
 				size_t m_iIndex; // for callbacks only
 
@@ -794,6 +796,7 @@ namespace proto {
 				void StartSync();
 				void SearchBelow(Height, uint32_t nCount);
 				void RequestChainworkProof();
+				void PostChainworkProof(const StateArray&, Height hLowHeight);
 				void PrioritizeSelf();
 				Request& get_FirstRequestStrict(Request::Type);
 				void OnFirstRequestDone(bool bStillSupported);

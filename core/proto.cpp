@@ -1420,17 +1420,6 @@ void FlyClient::NetworkStd::Connection::OnMsg(ProofCommonState&& msg)
 		}
 	}
 }
-void FlyClient::NetworkStd::Connection::RequestChainworkProof()
-{
-	assert(ShouldSync() && m_pSync && m_pSync->m_vConfirming.empty());
-
-	GetProofChainWork msg;
-	msg.m_LowerBound = m_pSync->m_Confirmed.m_ChainWork;
-	Send(msg);
-
-	m_pSync->m_TipBeforeGap.m_Height = 0;
-	m_pSync->m_LowHeight = m_pSync->m_Confirmed.m_Height;
-}
 
 struct FlyClient::NetworkStd::Connection::StateArray
 {
@@ -1474,6 +1463,28 @@ bool FlyClient::NetworkStd::Connection::StateArray::Find(const Block::SystemStat
 	return (m_vec.end() != it) && (*it == s);
 }
 
+void FlyClient::NetworkStd::Connection::RequestChainworkProof()
+{
+	assert(ShouldSync() && m_pSync && m_pSync->m_vConfirming.empty());
+
+	if (Flags::Owned & m_Flags)
+	{
+		// for trusted nodes this is not required. Go straight to finish
+		SyncCtx::Ptr pSync = std::move(m_pSync);
+		StateArray arr;
+		PostChainworkProof(arr, pSync->m_Confirmed.m_Height);
+	}
+	else
+	{
+		GetProofChainWork msg;
+		msg.m_LowerBound = m_pSync->m_Confirmed.m_ChainWork;
+		Send(msg);
+
+		m_pSync->m_TipBeforeGap.m_Height = 0;
+		m_pSync->m_LowHeight = m_pSync->m_Confirmed.m_Height;
+	}
+}
+
 void FlyClient::NetworkStd::Connection::OnMsg(ProofChainWork&& msg)
 {
 	if (!m_pSync || !m_pSync->m_vConfirming.empty())
@@ -1489,7 +1500,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(ProofChainWork&& msg)
 	if (sTip != m_Tip)
 		ThrowUnexpected();
 
-	std::unique_ptr<SyncCtx> pSync = std::move(m_pSync);
+	SyncCtx::Ptr pSync = std::move(m_pSync);
 
 	if (!ShouldSync())
 		return;
@@ -1512,6 +1523,11 @@ void FlyClient::NetworkStd::Connection::OnMsg(ProofChainWork&& msg)
 		}
 	}
 
+	PostChainworkProof(arr, pSync->m_LowHeight);
+}
+
+void FlyClient::NetworkStd::Connection::PostChainworkProof(const StateArray& arr, Height hLowHeight)
+{
 	struct Walker :public Block::SystemState::IHistory::IWalker
 	{
 		Height m_LowHeight;
@@ -1532,7 +1548,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(ProofChainWork&& msg)
 	} w;
 
 	w.m_LowErase = MaxHeight;
-	w.m_LowHeight = pSync->m_LowHeight;
+	w.m_LowHeight = hLowHeight;
 	w.m_pArr = &arr;
 
 	m_This.m_Client.get_History().Enum(w, NULL);
@@ -1552,7 +1568,10 @@ void FlyClient::NetworkStd::Connection::OnMsg(ProofChainWork&& msg)
 		m_This.m_Client.OnRolledBack();
 	}
 
-	m_This.m_Client.get_History().AddStates(&arr.m_vec.at(0), arr.m_vec.size());
+	if (arr.m_vec.empty())
+		m_This.m_Client.get_History().AddStates(&m_Tip, 1);
+	else
+		m_This.m_Client.get_History().AddStates(&arr.m_vec.front(), arr.m_vec.size());
 	PrioritizeSelf();
 	AssignRequests();
 	m_This.m_Client.OnNewTip(); // finished!
