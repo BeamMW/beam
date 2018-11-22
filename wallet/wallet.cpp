@@ -259,11 +259,6 @@ namespace beam
         return m_TxID < x.m_TxID;
     }
 
-    bool Wallet::MyRequestMined::operator < (const MyRequestMined& x) const
-    {
-        return false;
-    }
-
 	bool Wallet::MyRequestUtxoEvents::operator < (const MyRequestUtxoEvents& x) const
 	{
 		return false;
@@ -417,40 +412,6 @@ namespace beam
 		evt.m_Height = sTip.m_Height;
 
 		ProcessUtxoEvent(evt, sTip.m_Height); // uniform processing for all confirmed utxos
-    }
-
-    void Wallet::OnRequestComplete(MyRequestMined& r)
-    {
-        auto currentHeight = m_WalletDB->getCurrentHeight();
-        Height lastKnownCoinHeight = currentHeight;
-        for (auto& minedCoin : r.m_Res.m_Entries)
-        {
-            if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
-            {
-                // coinbase 
-				Coin::ID cid;
-				cid.m_Type = Key::Type::Coinbase;
-				cid.m_Idx = minedCoin.m_ID.m_Height;
-				cid.m_Value = Rules::get().CoinbaseEmission;
-
-                getUtxoProof(cid);
-
-                if (minedCoin.m_Fees > 0)
-                {
-					cid.m_Value = minedCoin.m_Fees;
-					cid.m_Type = Key::Type::Comission;
-
-                    getUtxoProof(cid);
-                }
-                lastKnownCoinHeight = max(lastKnownCoinHeight, minedCoin.m_ID.m_Height);
-            }
-        }
-
-        if (r.m_Res.m_Entries.size() == proto::PerMined::s_EntriesMax)
-        {
-            r.m_Msg.m_HeightMin = lastKnownCoinHeight;
-            PostReqUnique(r);
-        }
     }
 
     void Wallet::OnRequestComplete(MyRequestKernel& r)
@@ -634,12 +595,6 @@ namespace beam
             id2.m_Height = 0;
 
 		RequestUtxoEvents();
-
-        {
-            MyRequestMined::Ptr pReq(new MyRequestMined);
-            pReq->m_Msg.m_HeightMin = id2.m_Height;
-            PostReqUnique(*pReq);
-        }
 
         auto t = m_transactions;
         for (auto& p : t)

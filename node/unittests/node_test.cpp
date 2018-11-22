@@ -1137,9 +1137,6 @@ namespace beam
 					return;
 				}
 
-				proto::GetMined msgOut;
-				Send(msgOut);
-
 				proto::BbsMsg msgBbs;
 				msgBbs.m_Channel = 11;
 				msgBbs.m_TimePosted = getTimestamp();

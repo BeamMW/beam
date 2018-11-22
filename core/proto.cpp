@@ -1716,15 +1716,6 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel& req)
 			ThrowUnexpected();
 }
 
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestMined& req)
-{
-	return (Flags::Node & m_Flags) && IsAtTip();
-}
-
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestMined& req)
-{
-}
-
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestUtxoEvents& req)
 {
 	return (Flags::Owned & m_Flags) && IsAtTip();

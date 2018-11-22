@@ -119,7 +119,6 @@ namespace beam
 #define REQUEST_TYPES_Sync(macro) \
 		macro(Utxo) \
 		macro(Kernel) \
-		macro(Mined) \
 		macro(UtxoEvents)
 
 		struct AllTasks {

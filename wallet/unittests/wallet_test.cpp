@@ -837,11 +837,6 @@ private:
 			SendTip();
         }
 
-        void OnMsg(proto::GetMined&&) override
-        {
-            Send(proto::Mined{});
-        }
-
         void OnMsg(proto::GetProofState&&) override
         {
             Send(proto::ProofState{});

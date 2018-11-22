@@ -2267,33 +2267,6 @@ void Node::Peer::SendTx(Transaction::Ptr& ptx, bool bFluff)
 	Send(msg);
 }
 
-void Node::Peer::OnMsg(proto::GetMined&& msg)
-{
-	proto::Mined msgOut;
-
-	if (Flags::Owner & m_Flags)
-	{
-		NodeDB& db = m_This.m_Processor.get_DB();
-		NodeDB::WalkerMined wlk(db);
-		for (db.EnumMined(wlk, msg.m_HeightMin); wlk.MoveNext(); )
-		{
-			msgOut.m_Entries.resize(msgOut.m_Entries.size() + 1);
-			proto::PerMined& x = msgOut.m_Entries.back();
-
-			x.m_Fees = wlk.m_Amount;
-			x.m_Active = 0 != (db.GetStateFlags(wlk.m_Sid.m_Row) & NodeDB::StateFlags::Active);
-
-			db.get_StateID(wlk.m_Sid, x.m_ID);
-
-			if (msgOut.m_Entries.size() == proto::PerMined::s_EntriesMax)
-				break;
-		}
-	} else
-		LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Mining report request. Returned empty result.";
-
-	Send(msgOut);
-}
-
 void Node::Peer::OnMsg(proto::GetCommonState&& msg)
 {
 	proto::ProofCommonState msgOut;

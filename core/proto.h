@@ -100,12 +100,6 @@ namespace proto {
 #define BeamNodeMsg_ProofChainWork(macro) \
 	macro(Block::ChainWorkProof, Proof)
 
-#define BeamNodeMsg_GetMined(macro) \
-	macro(Height, HeightMin)
-
-#define BeamNodeMsg_Mined(macro) \
-	macro(std::vector<PerMined>, Entries)
-
 #define BeamNodeMsg_Login(macro) \
 	macro(ECC::Hash::Value, CfgChecksum) \
 	macro(uint8_t, Flags)
@@ -237,8 +231,6 @@ namespace proto {
 	macro(0x24, GetProofKernel2) \
 	macro(0x25, ProofKernel2) \
 	/* onwer-relevant */ \
-	macro(0x28, GetMined) \
-	macro(0x29, Mined) \
 	macro(0x2c, GetUtxoEvents) \
 	macro(0x2d, UtxoEvents) \
 	macro(0x2e, GetBlockFinalization) \
@@ -261,24 +253,6 @@ namespace proto {
 		static const uint8_t Bbs					= 0x2; // I'm spreading bbs messages
 		static const uint8_t SendPeers				= 0x4; // Please send me periodically peers recommendations
 		static const uint8_t MiningFinalization		= 0x8; // I want to finalize block construction for my owned node
-	};
-
-	struct PerMined
-	{
-		Block::SystemState::ID m_ID;
-		Amount m_Fees;
-		bool m_Active; // mined on active(longest) branch
-
-		template <typename Archive>
-		void serialize(Archive& ar)
-		{
-			ar
-				& m_ID
-				& m_Fees
-				& m_Active;
-		}
-
-		static const uint32_t s_EntriesMax = 200; // if this is the size of the vector - the result is probably trunacted
 	};
 
 	struct IDType
@@ -695,7 +669,6 @@ namespace proto {
 #define REQUEST_TYPES_All(macro) \
 		macro(Utxo,			GetProofUtxo,		ProofUtxo) \
 		macro(Kernel,		GetProofKernel,		ProofKernel) \
-		macro(Mined,		GetMined,			Mined) \
 		macro(UtxoEvents,	GetUtxoEvents,		UtxoEvents) \
 		macro(Transaction,	NewTransaction,		Boolean) \
 		macro(BbsMsg,		BbsMsg,				Pong)
