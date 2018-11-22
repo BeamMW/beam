@@ -266,6 +266,8 @@ namespace ECC
 		};
 	};
 
+	std::ostream& operator << (std::ostream&, const Key::IDVC&);
+
 	struct InnerProduct
 	{
 		// Compact proof that the inner product of 2 vectors is a specified scalar.

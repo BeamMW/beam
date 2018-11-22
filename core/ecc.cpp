@@ -95,6 +95,12 @@ namespace ECC {
 		return operator << (s, x.m_X);
 	}
 
+	std::ostream& operator << (std::ostream& s, const Key::IDVC& x)
+	{
+		s << "Key=" << x.m_iChild << "/" << static_cast<uint32_t>(x.m_Type) << "-" << x.m_Idx << ", Value=" << x.m_Value;
+		return s;
+	}
+
 	void GenRandom(void* p, uint32_t nSize)
 	{
 		// checkpoint?
