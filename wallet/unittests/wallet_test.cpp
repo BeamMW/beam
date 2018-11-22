@@ -170,38 +170,6 @@ namespace
 		Block::SystemState::IHistory& get_History() override { return m_Hist; }
 		void ShrinkHistory() override {}
 
-		std::map<Height, ByteBuffer> m_UtxoEvts;
-
-		void UtxoEvtInsert(Height h, const Blob& blob) override
-		{
-			ByteBuffer bb;
-			if (blob.n)
-			{
-				const uint8_t* pPtr = reinterpret_cast<const uint8_t*>(blob.p);
-				bb.assign(pPtr, pPtr + blob.n);
-			}
-
-			m_UtxoEvts[h] = std::move(bb);
-		}
-
-		void UtxoEvtDelete(Height h) override
-		{
-			auto it = m_UtxoEvts.find(h);
-			if (m_UtxoEvts.end() != it)
-				m_UtxoEvts.erase(it);
-		}
-
-		Height UtxoEvtGetLast(ByteBuffer* pData) override
-		{
-			auto it = m_UtxoEvts.rbegin();
-			if (m_UtxoEvts.rend() == it)
-				return 0;
-
-			if (pData)
-				*pData = it->second;
-			return it->first;
-		}
-
     protected:
         std::vector<beam::Coin> m_coins;
         std::map<wallet::TxParameterID, ByteBuffer> m_params;

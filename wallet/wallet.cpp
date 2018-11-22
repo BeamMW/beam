@@ -97,6 +97,8 @@ namespace beam
         }
     }
 
+	const char Wallet::s_szLastUtxoEvt[] = "LastUtxoEvent";
+
     Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action)
         : m_WalletDB{ walletDB }
         , m_pNodeNetwork(nullptr)
@@ -554,12 +556,18 @@ namespace beam
 		Block::SystemState::Full sTip;
 		m_WalletDB->get_History().get_Tip(sTip);
 
-		Height h = m_WalletDB->UtxoEvtGetLast() + 1;
-		if (h > sTip.m_Height)
-		{
-			assert(h == sTip.m_Height + 1);
+		Height h;
+		uintBigFor<Height>::Type var;
+		if (!m_WalletDB->getVar(s_szLastUtxoEvt, var))
+			var.Export(h);
+		else
+			h = 0;
+
+		assert(h <= sTip.m_Height);
+		if (h >= sTip.m_Height)
 			return;
-		}
+
+		++h;
 
 		if (!m_PendingUtxoEvents.empty())
 		{
@@ -581,91 +589,57 @@ namespace beam
 
 	void Wallet::OnRequestComplete(MyRequestUtxoEvents& r)
 	{
-		ByteBuffer bb;
-		Height h = m_WalletDB->UtxoEvtGetLast(&bb);
-		if (h && bb.empty())
-			m_WalletDB->UtxoEvtDelete(h); // it's the previous marker, remove it
+		Block::SystemState::Full sTip;
+		m_WalletDB->get_History().get_Tip(sTip);
 
-		// the heights order must have already been verified. Group the events by heights
 		const std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
-		size_t i0 = 0;
-		for (size_t i1 = 0; ; i1++)
-		{
-			bool bFin = (i1 == r.m_Res.m_Events.size());
-
-			bool bGroupComplete = (i0 < i1) && (bFin || (v[i0].m_Height != v[i1].m_Height));
-			if (bGroupComplete)
-			{
-				size_t di = i1 - i0;
-
-				Serializer ser;
-				bb.clear();
-				ser.swap_buf(bb);
-				ser & di;
-
-				for (; i0 < i1; i0++)
-				{
-					ProcessUtxoEvent(v[i0], true);
-					ser & v[i0];
-				}
-
-				ser.swap_buf(bb);
-
-				m_WalletDB->UtxoEvtInsert(v[i0].m_Height, bb);
-			}
-
-			if (bFin)
-				break;
-		}
+		for (size_t i = 0; i < v.size(); i++)
+			ProcessUtxoEvent(v[i], sTip.m_Height);
 
 		if (r.m_Res.m_Events.size() < proto::UtxoEvent::s_Max)
 		{
-			Block::SystemState::Full sTip;
-			m_WalletDB->get_History().get_Tip(sTip);
+			uintBigFor<Height>::Type var;
+			var = sTip.m_Height;
 
-			if (r.m_Res.m_Events.empty() || (r.m_Res.m_Events.back().m_Height < sTip.m_Height))
-				m_WalletDB->UtxoEvtInsert(sTip.m_Height, Blob(NULL, 0)); // add marker
+			m_WalletDB->setVar(s_szLastUtxoEvt, var);
 		}
 		else
+		{
+			uintBigFor<Height>::Type var;
+			var = r.m_Res.m_Events.back().m_Height;
+
 			RequestUtxoEvents(); // maybe more events pending
+		}
 	}
 
-	void Wallet::ProcessUtxoEvent(const proto::UtxoEvent& evt, bool bFwd)
+	void Wallet::ProcessUtxoEvent(const proto::UtxoEvent& evt, Height hTip)
 	{
-		// TODO
+		Coin c;
+		c.m_ID = evt.m_Kidvc;
+
+		bool bExists = m_WalletDB->find(c);
+
+		if (evt.m_Added)
+		{
+			c.m_maturity = evt.m_Maturity;
+			c.m_confirmHeight = evt.m_Height;
+			c.m_status = (evt.m_Maturity <= hTip) ? Coin::Status::Available : Coin::Status::Maturing;
+
+			if (c.m_createTxId)
+				updateTransaction(*c.m_createTxId);
+		}
+		else
+		{
+			if (!bExists)
+				return; // should alert!
+
+		}
 	}
 
     void Wallet::OnRolledBack()
     {
         Block::SystemState::Full sTip;
         m_WalletDB->get_History().get_Tip(sTip);
-
-		for (ByteBuffer bb; ; bb.clear())
-		{
-			Height h = m_WalletDB->UtxoEvtGetLast(&bb);
-			if (h <= sTip.m_Height)
-				break;
-
-			if (!bb.empty())
-			{
-				Deserializer der;
-				der.reset(&bb.front(), bb.size());
-
-				size_t di;
-				der & di;
-
-				while (di--)
-				{
-					proto::UtxoEvent evt;
-					der & evt;
-
-					ProcessUtxoEvent(evt, false);
-				}
-			}
-
-			if (h && bb.empty())
-				m_WalletDB->UtxoEvtDelete(h); // it's the previous marker, remove it
-		}
 
         m_WalletDB->get_History().DeleteFrom(sTip.m_Height + 1);
 
