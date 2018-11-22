@@ -739,7 +739,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(10) // increment this whenever we change something in the protocol
+			<< uint32_t(11) // increment this whenever we change something in the protocol
 #ifndef BEAM_TESTNET
             << "masternet"
 #endif

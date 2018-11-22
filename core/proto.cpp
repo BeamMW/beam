@@ -281,7 +281,7 @@ bool NotCalled_VerifyNoDuplicatedIDs(uint32_t id)
 /////////////////////////
 // NodeConnection
 NodeConnection::NodeConnection()
-	:m_Protocol('B', 'm', 7, sizeof(HighestMsgCode), *this, 20000)
+	:m_Protocol('B', 'm', 8, sizeof(HighestMsgCode), *this, 20000)
 	,m_ConnectPending(false)
 {
 #define THE_MACRO(code, msg) \
