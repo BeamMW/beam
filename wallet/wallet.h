@@ -108,6 +108,8 @@ namespace beam
 		void RequestUtxoEvents();
 		void AbortUtxoEvents();
 		void ProcessUtxoEvent(const proto::UtxoEvent&, Height hTip);
+		void SetUtxoEventsHeight(Height);
+		Height GetUtxoEventsHeight();
 
         wallet::BaseTransaction::Ptr getTransaction(const WalletID& myID, const wallet::SetTxParameter& msg);
         wallet::BaseTransaction::Ptr constructTransaction(const TxID& id, wallet::TxType type);

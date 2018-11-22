@@ -1097,7 +1097,10 @@ namespace beam
 		if (getVar(szName, var))
 			var.Export(nLast);
 		else
-			nLast = getTimestamp(); // by default initialize by current time (1sec resolution) to prevent collisions after reinitialization. Should be ok if creating less than 1key / sec average
+		{
+			nLast = getTimestamp(); // by default initialize by current time X1M (1sec resolution) to prevent collisions after reinitialization. Should be ok if creating less than 1M keys / sec average
+			nLast *= 1000000;
+		}
 
 		var = nLast + nCount;
 		setVar(szName, var);

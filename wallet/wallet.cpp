@@ -442,13 +442,7 @@ namespace beam
 		Block::SystemState::Full sTip;
 		m_WalletDB->get_History().get_Tip(sTip);
 
-		Height h;
-		uintBigFor<Height>::Type var;
-		if (m_WalletDB->getVar(s_szLastUtxoEvt, var))
-			var.Export(h);
-		else
-			h = 0;
-
+		Height h = GetUtxoEventsHeight();
 		assert(h <= sTip.m_Height);
 		if (h >= sTip.m_Height)
 			return;
@@ -483,19 +477,30 @@ namespace beam
 			ProcessUtxoEvent(v[i], sTip.m_Height);
 
 		if (r.m_Res.m_Events.size() < proto::UtxoEvent::s_Max)
-		{
-			uintBigFor<Height>::Type var;
-			var = sTip.m_Height;
-
-			m_WalletDB->setVar(s_szLastUtxoEvt, var);
-		}
+			SetUtxoEventsHeight(sTip.m_Height);
 		else
 		{
-			uintBigFor<Height>::Type var;
-			var = r.m_Res.m_Events.back().m_Height;
-
+			SetUtxoEventsHeight(r.m_Res.m_Events.back().m_Height);
 			RequestUtxoEvents(); // maybe more events pending
 		}
+	}
+
+	void Wallet::SetUtxoEventsHeight(Height h)
+	{
+		uintBigFor<Height>::Type var;
+		var = h;
+		m_WalletDB->setVar(s_szLastUtxoEvt, var);
+	}
+
+	Height Wallet::GetUtxoEventsHeight()
+	{
+		uintBigFor<Height>::Type var;
+		if (!m_WalletDB->getVar(s_szLastUtxoEvt, var))
+			return 0;
+
+		Height h;
+		var.Export(h);
+		return h;
 	}
 
 	void Wallet::ProcessUtxoEvent(const proto::UtxoEvent& evt, Height hTip)
@@ -576,6 +581,10 @@ namespace beam
                 m_TransactionsToUpdate.insert(pTx);
             }
         }
+
+		Height h = GetUtxoEventsHeight();
+		if (h > sTip.m_Height)
+			SetUtxoEventsHeight(sTip.m_Height);
     }
 
     void Wallet::OnNewTip()
