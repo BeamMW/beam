@@ -415,71 +415,21 @@ namespace beam
 
     void Wallet::OnRequestComplete(MyRequestUtxo& r)
     {
-        // TODO: handle the maturity of the several proofs (> 1)
+		if (r.m_Res.m_Proofs.empty())
+			return; // Right now nothing is concluded from empty proofs
 
-		Coin c;
-		c.m_ID = r.m_CoinID;
-		bool bExists = m_WalletDB->find(c);
+		const auto& proof = r.m_Res.m_Proofs.front(); // Currently - no handling for multiple coins for the same commitment.
 
-        if (r.m_Res.m_Proofs.empty())
-        {
-            LOG_WARNING() << "Got empty utxo proof for: " << r.m_Msg.m_Utxo;
+		Block::SystemState::Full sTip;
+		get_tip(sTip);
 
-            if (c.m_status == Coin::Outgoing)
-            {
-				assert(bExists);
+		proto::UtxoEvent evt;
+		evt.m_Added = 1;
+		evt.m_Kidvc = r.m_CoinID;
+		evt.m_Maturity = proof.m_State.m_Maturity;
+		evt.m_Height = sTip.m_Height;
 
-                c.m_status = Coin::Spent;
-                m_WalletDB->save(c);
-                assert(c.m_spentTxId.is_initialized());
-                updateTransaction(*c.m_spentTxId);
-            }
-            else if (c.m_status == Coin::Unavailable && c.isReward())
-            {
-                LOG_WARNING() << "Uncofirmed reward UTXO removed. Amount: " << c.m_ID.m_Value << " Height: " << c.m_ID.m_Idx;
-
-				if (bExists)
-					m_WalletDB->remove(c.m_ID);
-            }
-
-            return;
-        }
-
-        for (const auto& proof : r.m_Res.m_Proofs)
-        {
-            if ((c.m_status == Coin::Unavailable)
-                || (c.m_status == Coin::Incoming) || (c.m_status == Coin::Change))
-            {
-                Block::SystemState::Full sTip;
-                get_tip(sTip);
-
-                LOG_INFO() << "Got utxo proof for: " << r.m_Msg.m_Utxo;
-				c.m_status = Coin::Available;
-                c.m_maturity = proof.m_State.m_Maturity;
-                c.m_confirmHeight = sTip.m_Height;
-
-				if (!c.m_ID.m_Idx)
-					c.m_ID.m_Idx = m_WalletDB->AllocateKidRange(1); // could be recovery
-				if (!c.m_createHeight)
-				{
-					if (c.isReward())
-						c.m_createHeight = c.m_ID.m_Idx;
-					else
-						c.m_createHeight = sTip.m_Height;
-				}
-
-				m_WalletDB->save(c);
-
-				if (c.isReward())
-                {
-                    LOG_INFO() << "Block reward received: " << PrintableAmount(c.m_ID.m_Value);
-                }
-                else if (c.m_createTxId.is_initialized())
-                {
-                    updateTransaction(*c.m_createTxId);
-                }
-            }
-        }
+		ProcessUtxoEvent(evt, sTip.m_Height); // uniform processing for all confirmed utxos
     }
 
     void Wallet::OnRequestComplete(MyRequestMined& r)
@@ -619,6 +569,9 @@ namespace beam
 
 		const TxID* pTxID = NULL;
 
+
+		LOG_INFO() << "CoinID: " << evt.m_Kidvc << " Maturity=" << evt.m_Maturity << (evt.m_Added ? " Confirmed" : " Spent");
+
 		if (evt.m_Added)
 		{
 			c.m_maturity = evt.m_Maturity;
@@ -628,6 +581,9 @@ namespace beam
 			if (c.m_createTxId)
 				updateTransaction(*c.m_createTxId);
 			pTxID = c.m_createTxId.get_ptr();
+
+			if (!bExists)
+				c.m_createHeight = evt.m_Height;
 		}
 		else
 		{
