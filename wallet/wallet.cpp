@@ -457,6 +457,11 @@ namespace beam
 
 				if (!r.m_Coin.m_keyIndex)
 					r.m_Coin.m_keyIndex = m_WalletDB->AllocateKidRange(1); // could be recovery
+				if (!r.m_Coin.m_createHeight)
+					if (r.m_Coin.isReward())
+						r.m_Coin.m_createHeight = r.m_Coin.m_keyIndex;
+					else
+						r.m_Coin.m_createHeight = sTip.m_Height;
 
 				m_WalletDB->save(r.m_Coin);
 

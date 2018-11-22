@@ -39,6 +39,7 @@
 #define ENUM_STORAGE_FIELDS(each, sep, obj) \
     each(amount,        INTEGER NOT NULL, obj) sep \
     each(status,        INTEGER NOT NULL, obj) sep \
+    each(createHeight,  INTEGER NOT NULL, obj) sep \
     each(maturity,      INTEGER NOT NULL, obj) sep \
     each(confirmHeight, INTEGER, obj) sep \
     each(createTxId,    BLOB, obj) sep \
@@ -675,6 +676,7 @@ namespace beam
         : m_amount{ amount }
 		, m_iKdf{ 0 }
 		, m_status{ status }
+		, m_createHeight(0)
         , m_maturity{ maturity }
         , m_key_type{ keyType }
         , m_confirmHeight{ confirmHeight }

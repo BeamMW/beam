@@ -459,8 +459,9 @@ namespace beam { namespace wallet
 
     Output::Ptr TxBuilder::CreateOutput(Amount amount, bool shared, Height incubation)
     {
-        Coin newUtxo{ amount, Coin::Draft, m_MinHeight };
+        Coin newUtxo{ amount, Coin::Draft };
         newUtxo.m_createTxId = m_Tx.GetTxID();
+		newUtxo.m_confirmHeight = m_MinHeight;
         m_Tx.GetWalletDB()->store(newUtxo);
 
         Scalar::Native blindingFactor;

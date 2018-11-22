@@ -49,7 +49,8 @@ namespace beam
         ECC::Amount m_amount;
 		Key::Index m_iKdf;
         Status m_status;
-        Height m_maturity;      // coin can be spent only when chain is >= this value. Valid for confirmed coins (Unspent, Locked, Spent).
+		Height m_createHeight;  // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
+		Height m_maturity;      // coin can be spent only when chain is >= this value. Valid for confirmed coins (Unspent, Locked, Spent).
 		Key::Type m_key_type;
         Height m_confirmHeight;
         Height m_lockedHeight;
