@@ -424,11 +424,11 @@ namespace beam { namespace wallet
         {
             coin.m_spentTxId = m_Tx.GetTxID();
 
-            Scalar::Native blindingFactor = m_Tx.GetWalletDB()->calcKey(coin);
+            Scalar::Native blindingFactor = m_Tx.GetWalletDB()->calcKey(coin.m_ID);
             auto& input = m_Inputs.emplace_back(make_unique<Input>());
-            input->m_Commitment = Commitment(blindingFactor, coin.m_amount);
+            input->m_Commitment = Commitment(blindingFactor, coin.m_ID.m_Value);
             m_BlindingExcess += blindingFactor;
-            total += coin.m_amount;
+            total += coin.m_ID.m_Value;
         }
 
         m_Change += total - amountWithFee;
@@ -466,9 +466,9 @@ namespace beam { namespace wallet
 
         Scalar::Native blindingFactor;
         Output::Ptr output = make_unique<Output>();
-        output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(newUtxo.m_iKdf), newUtxo.get_Kidv());
+        output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(newUtxo.m_ID.m_iChild), newUtxo.m_ID);
 
-        auto[privateExcess, newOffset] = splitKey(blindingFactor, newUtxo.m_keyIndex);
+        auto[privateExcess, newOffset] = splitKey(blindingFactor, newUtxo.m_ID.m_Idx);
         blindingFactor = -privateExcess;
         m_BlindingExcess += blindingFactor;
         m_Offset += newOffset;

@@ -354,13 +354,13 @@ int main_impl(int argc, char* argv[])
                             cout << "| id\t| amount(Beam)\t| amount(c)\t| height\t| maturity\t| status \t| key type\t|\n";
                             walletDB->visit([](const Coin& c)->bool
                             {
-                                cout << setw(8) << c.m_keyIndex
-                                    << setw(16) << PrintableAmount(Rules::Coin * ((Amount)(c.m_amount / Rules::Coin)))
-                                    << setw(16) << PrintableAmount(c.m_amount % Rules::Coin)
+                                cout << setw(8) << c.m_ID.m_Idx
+                                    << setw(16) << PrintableAmount(Rules::Coin * ((Amount)(c.m_ID.m_Value / Rules::Coin)))
+                                    << setw(16) << PrintableAmount(c.m_ID.m_Value % Rules::Coin)
                                     << setw(16) << static_cast<int64_t>(c.m_createHeight)
                                     << setw(16) << static_cast<int64_t>(c.m_maturity)
                                     << "  " << c.m_status
-                                    << "  " << c.m_key_type << '\n';
+                                    << "  " << c.m_ID.m_Type << '\n';
                                 return true;
                             });
                             return 0;

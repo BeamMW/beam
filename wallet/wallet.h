@@ -101,7 +101,7 @@ namespace beam
 
 		uint32_t SyncRemains() const;
 		void CheckSyncDone();
-		void getUtxoProof(const Coin&);
+		void getUtxoProof(const Coin::ID&);
         void report_sync_progress();
         void notifySyncProgress();
         void updateTransaction(const TxID& txID);
@@ -136,7 +136,7 @@ namespace beam
 
 		struct ExtraData :public AllTasks {
 			struct Transaction { TxID m_TxID; };
-			struct Utxo { Coin m_Coin; };
+			struct Utxo { Coin::ID m_CoinID; };
 			struct Kernel { TxID m_TxID; };
 		};
 

@@ -36,9 +36,9 @@ namespace beam
             Draft
         };
 
-        Coin(const ECC::Amount& amount
+        Coin(Amount amount
            , Status status = Coin::Unspent
-           , const Height& maturity = MaxHeight
+           , Height maturity = MaxHeight
            , Key::Type keyType = Key::Type::Regular
            , Height confirmHeight = MaxHeight
            , Height lockedHeight = MaxHeight);
@@ -46,20 +46,16 @@ namespace beam
         bool isReward() const;
         bool isValid() const;
 
-        ECC::Amount m_amount;
-		Key::Index m_iKdf;
+		typedef Key::IDVC ID;
+		ID m_ID;
+
         Status m_status;
 		Height m_createHeight;  // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
 		Height m_maturity;      // coin can be spent only when chain is >= this value. Valid for confirmed coins (Unspent, Locked, Spent).
-		Key::Type m_key_type;
         Height m_confirmHeight;
         Height m_lockedHeight;
         boost::optional<TxID> m_createTxId;
         boost::optional<TxID> m_spentTxId;
-        uint64_t m_keyIndex;
-
-        Key::IDV get_Kidv() const;
-        static Coin fromKidv(const Key::IDV& kidv);
     };
 
     struct TxPeer
@@ -122,16 +118,16 @@ namespace beam
 
 		virtual beam::Key::IKdf::Ptr get_MasterKdf() const = 0;
 		virtual beam::Key::IKdf::Ptr get_ChildKdf(Key::Index) const;
-		virtual ECC::Scalar::Native calcKey(const Coin& coin) const = 0;
+		virtual ECC::Scalar::Native calcKey(const Coin::ID&) const = 0;
 		virtual uint64_t AllocateKidRange(uint64_t nCount) = 0;
-        virtual std::vector<Coin> selectCoins(const ECC::Amount& amount, bool lock = true) = 0;
+        virtual std::vector<Coin> selectCoins(const Amount& amount, bool lock = true) = 0;
         virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) = 0;
 		virtual void store(Coin& coin) = 0;
 		virtual void store(std::vector<Coin>&) = 0;
 		virtual void save(const Coin& coin) = 0;
         virtual void save(const std::vector<Coin>& coins) = 0;
-        virtual void remove(const Coin& coin) = 0;
-		virtual void remove(const std::vector<Coin>& coins) = 0;
+        virtual void remove(const Coin::ID&) = 0;
+		virtual void remove(const std::vector<Coin::ID>&) = 0;
 		virtual bool find(Coin& coin) = 0;
 		virtual void clear() = 0;
 
@@ -205,16 +201,16 @@ namespace beam
         ~WalletDB();
 
 		beam::Key::IKdf::Ptr get_MasterKdf() const override;
-		ECC::Scalar::Native calcKey(const Coin& coin) const override;
+		ECC::Scalar::Native calcKey(const Coin::ID&) const override;
 		uint64_t AllocateKidRange(uint64_t nCount) override;
-		std::vector<Coin> selectCoins(const ECC::Amount& amount, bool lock = true) override;
+		std::vector<Coin> selectCoins(const Amount& amount, bool lock = true) override;
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override;
 		void store(Coin& coin) override;
 		void store(std::vector<Coin>&) override;
 		void save(const Coin& coin) override;
 		void save(const std::vector<Coin>& coins) override;
-		void remove(const Coin& coin) override;
-		void remove(const std::vector<Coin>& coins) override;
+		void remove(const Coin::ID&) override;
+		void remove(const std::vector<Coin::ID>&) override;
 		bool find(Coin& coin) override;
 		void clear() override;
 
@@ -263,7 +259,7 @@ namespace beam
 
     private:
         void storeImpl(const Coin& coin);
-		void removeImpl(const Coin& coin);
+		void removeImpl(const Coin::ID& cid);
 		void notifyCoinsChanged();
         void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
         void notifySystemStateChanged();

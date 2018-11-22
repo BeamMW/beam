@@ -24,41 +24,34 @@
 #define COMMA ", "
 #define AND " AND "
 
-// Coin ID fields
-// key_type    - key type
-// keyIndex    - coin counter
-//
-// amount      - amount
-// status      - spent/unspent/unconfirmed/locked/draft
-// maturity    - height where we can spend the coin
 
 #define ENUM_STORAGE_ID(each, sep, obj) \
-    each(key_type,      INTEGER NOT NULL, obj) sep \
-    each(keyIndex,      INTEGER NOT NULL, obj)
+    each(Type,           ID.m_Type,     INTEGER NOT NULL, obj) sep \
+    each(SubKey,         ID.m_iChild,   INTEGER NOT NULL, obj) sep \
+    each(Number,         ID.m_Idx,      INTEGER NOT NULL, obj)
 
 #define ENUM_STORAGE_FIELDS(each, sep, obj) \
-    each(amount,        INTEGER NOT NULL, obj) sep \
-    each(status,        INTEGER NOT NULL, obj) sep \
-    each(createHeight,  INTEGER NOT NULL, obj) sep \
-    each(maturity,      INTEGER NOT NULL, obj) sep \
-    each(confirmHeight, INTEGER, obj) sep \
-    each(createTxId,    BLOB, obj) sep \
-    each(spentTxId,     BLOB, obj) sep \
-    each(lockedHeight,  BLOB, obj) sep \
-    each(iKdf,			INTEGER NOT NULL, obj)            // last item without separator// last item without separator
+    each(amount,         ID.m_Value,    INTEGER NOT NULL, obj) sep \
+    each(status,         status,        INTEGER NOT NULL, obj) sep \
+    each(maturity,       maturity,      INTEGER NOT NULL, obj) sep \
+    each(createHeight,   createHeight,  INTEGER NOT NULL, obj) sep \
+    each(confirmHeight,  confirmHeight, INTEGER, obj) sep \
+    each(lockedHeight,   lockedHeight,  BLOB, obj) sep \
+    each(createTxId,     createTxId,    BLOB, obj) sep \
+    each(spentTxId,      spentTxId,     BLOB, obj)
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) sep \
     ENUM_STORAGE_FIELDS(each, sep, obj)
 
-#define LIST(name, type, obj) #name
-#define LIST_WITH_TYPES(name, type, obj) #name " " #type
+#define LIST(name, member, type, obj) #name
+#define LIST_WITH_TYPES(name, member, type, obj) #name " " #type
 
-#define STM_BIND_LIST(name, type, obj) stm.bind(++colIdx, obj .m_ ## name);
-#define STM_GET_LIST(name, type, obj) stm.get(colIdx++, obj .m_ ## name);
+#define STM_BIND_LIST(name, member, type, obj) stm.bind(++colIdx, obj .m_ ## member);
+#define STM_GET_LIST(name, member, type, obj) stm.get(colIdx++, obj .m_ ## member);
 
-#define BIND_LIST(name, type, obj) "?"
-#define SET_LIST(name, type, obj) #name "=?"
+#define BIND_LIST(name, member, type, obj) "?"
+#define SET_LIST(name, member, type, obj) #name "=?"
 
 #define STORAGE_FIELDS ENUM_ALL_STORAGE_FIELDS(LIST, COMMA, )
 
@@ -73,50 +66,50 @@
 #define TX_PARAMS_NAME "txparams"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
-    each(name,  TEXT UNIQUE, obj) sep \
-    each(value, BLOB, obj)
+    each(name,  name,  TEXT UNIQUE, obj) sep \
+    each(value, value, BLOB, obj)
 
 #define VARIABLES_FIELDS ENUM_VARIABLES_FIELDS(LIST, COMMA, )
 
 #define ENUM_HISTORY_FIELDS(each, sep, obj) \
-    each(txId,       BLOB NOT NULL PRIMARY KEY, obj) sep \
-    each(amount,     INTEGER NOT NULL, obj) sep \
-    each(fee,        INTEGER NOT NULL, obj) sep \
-    each(minHeight,  INTEGER NOT NULL, obj) sep \
-    each(peerId,     BLOB NOT NULL, obj) sep \
-    each(myId,       BLOB NOT NULL, obj) sep \
-    each(message,    BLOB, obj) sep \
-    each(createTime, INTEGER NOT NULL, obj) sep \
-    each(modifyTime, INTEGER, obj) sep \
-    each(sender,     INTEGER NOT NULL, obj) sep \
-    each(status,     INTEGER NOT NULL, obj) sep \
-    each(fsmState,   BLOB, obj) sep \
-    each(change,     INTEGER NOT NULL, obj)
+    each(txId,       txId,       BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(amount,     amount,     INTEGER NOT NULL, obj) sep \
+    each(fee,        fee,        INTEGER NOT NULL, obj) sep \
+    each(minHeight,  minHeight,  INTEGER NOT NULL, obj) sep \
+    each(peerId,     peerId,     BLOB NOT NULL, obj) sep \
+    each(myId,       myId,       BLOB NOT NULL, obj) sep \
+    each(message,    message,    BLOB, obj) sep \
+    each(createTime, createTime, INTEGER NOT NULL, obj) sep \
+    each(modifyTime, modifyTime, INTEGER, obj) sep \
+    each(sender,     sender,     INTEGER NOT NULL, obj) sep \
+    each(status,     status,     INTEGER NOT NULL, obj) sep \
+    each(fsmState,   fsmState,   BLOB, obj) sep \
+    each(change,     change,     INTEGER NOT NULL, obj)
 
 #define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
 
 #define ENUM_PEER_FIELDS(each, sep, obj) \
-    each(walletID,    BLOB NOT NULL PRIMARY KEY, obj) sep \
-    each(address,     TEXT NOT NULL, obj) sep \
-    each(label,       TEXT NOT NULL , obj)
+    each(walletID,    walletID,    BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(address,     address,     TEXT NOT NULL, obj) sep \
+    each(label,       label,       TEXT NOT NULL , obj)
 
 #define PEER_FIELDS ENUM_PEER_FIELDS(LIST, COMMA, )
 
 
 #define ENUM_ADDRESS_FIELDS(each, sep, obj) \
-    each(walletID ,      BLOB NOT NULL PRIMARY KEY, obj) sep \
-    each(label,          TEXT NOT NULL, obj) sep \
-    each(category,       TEXT, obj) sep \
-    each(createTime,     INTEGER, obj) sep \
-    each(duration,       INTEGER, obj) sep \
-    each(own,            INTEGER NOT NULL, obj)
+    each(walletID,       walletID,       BLOB NOT NULL PRIMARY KEY, obj) sep \
+    each(label,          label,          TEXT NOT NULL, obj) sep \
+    each(category,       category,       TEXT, obj) sep \
+    each(createTime,     createTime,     INTEGER, obj) sep \
+    each(duration,       duration,       INTEGER, obj) sep \
+    each(own,            own,            INTEGER NOT NULL, obj)
 
 #define ADDRESS_FIELDS ENUM_ADDRESS_FIELDS(LIST, COMMA, )
 
 #define ENUM_TX_PARAMS_FIELDS(each, sep, obj) \
-    each(txID ,          BLOB NOT NULL , obj) sep \
-    each(paramID,        INTEGER NOT NULL , obj) sep \
-    each(value,          BLOB, obj)
+    each(txID,           txID,           BLOB NOT NULL , obj) sep \
+    each(paramID,        paramID,        INTEGER NOT NULL , obj) sep \
+    each(value,          value,          BLOB, obj)
 
 #define TX_PARAMS_FIELDS ENUM_TX_PARAMS_FIELDS(LIST, COMMA, )
 
@@ -200,32 +193,32 @@ namespace beam
             {
                 for (auto coin = m_coins.begin(); coin != m_coins.end(); ++coin)
                 {
-                    if (coin->m_amount > m_amount)
+                    if (coin->m_ID.m_Value > m_amount)
                     {
-                        m_Combinations[coin->m_amount] = coin->m_amount;
+                        m_Combinations[coin->m_ID.m_Value] = coin->m_ID.m_Value;
                         continue;
                     }
 
-                    if (coin->m_amount == m_amount)
+                    if (coin->m_ID.m_Value == m_amount)
                     {
-                        m_Combinations[coin->m_amount] = coin->m_amount;
+                        m_Combinations[coin->m_ID.m_Value] = coin->m_ID.m_Value;
                         break;
                     }
 
                     vector<Amount> newCombinations;
 
                     {
-                        auto it = m_Combinations.find(coin->m_amount);
+                        auto it = m_Combinations.find(coin->m_ID.m_Value);
                         if (it == m_Combinations.end())
                         {
-                            newCombinations.push_back(coin->m_amount);
+                            newCombinations.push_back(coin->m_ID.m_Value);
                         }
                     }
 
                     for (const auto& sum : m_Combinations)
                     {
                         if (sum.first < m_amount)
-                            newCombinations.push_back(sum.first + coin->m_amount);
+                            newCombinations.push_back(sum.first + coin->m_ID.m_Value);
                     }
 
                     for (const auto& sum : newCombinations)
@@ -233,7 +226,7 @@ namespace beam
                         auto it = m_Combinations.find(sum);
                         if (it == m_Combinations.end())
                         {
-                            m_Combinations[sum] = coin->m_amount;
+                            m_Combinations[sum] = coin->m_ID.m_Value;
                         }
                     }
                 }
@@ -270,7 +263,7 @@ namespace beam
                 {
                     auto it = find_if(m_coins.begin(), m_coins.end(), [amount = p.first](const Coin& c)
                     {
-                        return c.m_amount == amount;
+                        return c.m_ID.m_Value == amount;
                     });
 
                     for (Amount i = 0; i < p.second; ++i, ++it)
@@ -316,7 +309,7 @@ namespace beam
                     return it->second;
                 }
 
-                Amount coinAmount = m_it->m_amount;
+                Amount coinAmount = m_it->m_ID.m_Value;
                 Amount newLeft = left - coinAmount;
 
                 ++m_it;
@@ -672,17 +665,17 @@ namespace beam
         const int DbVersion = 7;
     }
 
-    Coin::Coin(const Amount& amount, Status status, const Height& maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
-        : m_amount{ amount }
-		, m_iKdf{ 0 }
-		, m_status{ status }
+    Coin::Coin(Amount amount, Status status, Height maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
+		: m_status{ status }
 		, m_createHeight(0)
         , m_maturity{ maturity }
-        , m_key_type{ keyType }
         , m_confirmHeight{ confirmHeight }
         , m_lockedHeight{ lockedHeight }
-        , m_keyIndex{0}
 	{
+		ZeroObject(m_ID);
+		m_ID.m_Value = amount;
+		m_ID.m_Type = keyType;
+
         assert(isValid());
     }
 
@@ -694,25 +687,19 @@ namespace beam
 
     bool Coin::isReward() const
     {
-        return m_key_type == Key::Type::Coinbase || m_key_type == Key::Type::Comission;
+		switch (m_ID.m_Type)
+		{
+		case Key::Type::Coinbase:
+		case Key::Type::Comission:
+			return true;
+		default:
+			return false;
+		}
     }
 
     bool Coin::isValid() const
     {
         return m_maturity <= m_lockedHeight;
-    }
-
-    Key::IDV Coin::get_Kidv() const
-    {
-        return Key::IDV(m_amount, m_keyIndex, m_key_type);
-    }
-
-    Coin Coin::fromKidv(const Key::IDV& kidv)
-    {
-        Coin c(kidv.m_Value, Coin::Unconfirmed, MaxHeight, kidv.m_Type);
-        c.m_keyIndex = kidv.m_Idx;
-        assert(c.isValid());
-        return c;
     }
 
     bool WalletDB::isInitialized(const string& path)
@@ -920,18 +907,16 @@ namespace beam
 		return pRet;
 	}
 
-    ECC::Scalar::Native WalletDB::calcKey(const beam::Coin& coin) const
+    ECC::Scalar::Native WalletDB::calcKey(const Coin::ID& cid) const
     {
-		assert(coin.m_key_type != Key::Type::Regular || coin.m_keyIndex > 0);
-
 		ECC::Scalar::Native key;
-		get_ChildKdf(coin.m_iKdf)->DeriveKey(key, coin.get_Kidv());
+		get_ChildKdf(cid.m_iChild)->DeriveKey(key, cid);
         return key;
     }
 
-    vector<beam::Coin> WalletDB::selectCoins(const Amount& amount, bool lock)
+    vector<Coin> WalletDB::selectCoins(const Amount& amount, bool lock)
     {
-        vector<beam::Coin> coins;
+        vector<Coin> coins;
         Block::SystemState::ID stateID = {};
         getSystemStateID(stateID);
         {
@@ -960,7 +945,7 @@ namespace beam
             {
 				int colIdx = 0;
                 ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin2);
-                sum = coin2.m_amount;
+                sum = coin2.m_ID.m_Value;
             }
         }
         if (sum == amount)
@@ -981,7 +966,7 @@ namespace beam
                 auto& coin = candidats.emplace_back();
 				int colIdx = 0;
 				ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
-                smallSum += coin.m_amount;
+                smallSum += coin.m_ID.m_Value;
             }
             if (smallSum == amount)
             {
@@ -1030,11 +1015,11 @@ namespace beam
 
             notifyCoinsChanged();
         }
-        std::sort(coins.begin(), coins.end(), [](const Coin& lhs, const Coin& rhs) {return lhs.m_amount < rhs.m_amount; });
+        std::sort(coins.begin(), coins.end(), [](const Coin& lhs, const Coin& rhs) {return lhs.m_ID.m_Value < rhs.m_ID.m_Value; });
         return coins;
     }
 
-    std::vector<beam::Coin> WalletDB::getCoinsCreatedByTx(const TxID& txId)
+    std::vector<Coin> WalletDB::getCoinsCreatedByTx(const TxID& txId)
     {
         // select all coins for TxID
         sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE createTxID=?1 ORDER BY amount DESC;");
@@ -1056,7 +1041,7 @@ namespace beam
 	{
 		sqlite::Transaction trans(_db);
 
-		coin.m_keyIndex = AllocateKidRange(1);
+		coin.m_ID.m_Idx = AllocateKidRange(1);
 		storeImpl(coin);
 
 		trans.commit();
@@ -1074,7 +1059,7 @@ namespace beam
 
 		for (auto& coin : coins)
 		{
-			coin.m_keyIndex = nKeyIndex++;
+			coin.m_ID.m_Idx = nKeyIndex++;
 			storeImpl(coin);
 		}
 
@@ -1088,7 +1073,7 @@ namespace beam
 		notifyCoinsChanged();
 	}
 
-    void WalletDB::save(const vector<beam::Coin>& coins)
+    void WalletDB::save(const vector<Coin>& coins)
     {
         if (coins.empty())
 			return;
@@ -1104,8 +1089,6 @@ namespace beam
 
     void WalletDB::storeImpl(const Coin& coin)
     {
-		assert(coin.m_keyIndex); // must be preallocated in advance according to current convention. TODO - remove this later
-
 		const char* req = "INSERT OR REPLACE INTO " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ALL_STORAGE_FIELDS(BIND_LIST, COMMA, ) ");";
 		sqlite::Statement stm(_db, req);
 
@@ -1114,18 +1097,6 @@ namespace beam
 
 		stm.step();
     }
-
-  //  void WalletDB::updateImpl(const beam::Coin& coin)
-  //  {
-  //      const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_STORAGE_FIELDS(SET_LIST, COMMA, ) STORAGE_WHERE_ID;
-  //      sqlite::Statement stm(_db, req);
-
-		//int colIdx = 0;
-		//ENUM_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
-		//STORAGE_BIND_ID(coin)
-
-  //      stm.step();
-  //  }
 
 	uint64_t WalletDB::AllocateKidRange(uint64_t nCount)
 	{
@@ -1146,34 +1117,41 @@ namespace beam
 		return nLast;
 	}
 
-    void WalletDB::remove(const vector<beam::Coin>& coins)
+    void WalletDB::remove(const vector<Coin::ID>& coins)
     {
         if (coins.size())
         {
             sqlite::Transaction trans(_db);
 
-			for (const auto& coin : coins)
-				removeImpl(coin);
+			for (const auto& cid : coins)
+				removeImpl(cid);
 
             trans.commit();
             notifyCoinsChanged();
         }
     }
 
-	void WalletDB::removeImpl(const beam::Coin& coin)
+	void WalletDB::removeImpl(const Coin::ID& cid)
 	{
 		const char* req = "DELETE FROM " STORAGE_NAME STORAGE_WHERE_ID;
 		sqlite::Statement stm(_db, req);
 
+		struct DummyWrapper {
+			Coin::ID m_ID;
+		};
+
+		static_assert(sizeof(DummyWrapper) == sizeof(cid), "");
+		const DummyWrapper& wrp = reinterpret_cast<const DummyWrapper&>(cid);
+
 		int colIdx = 0;
-		STORAGE_BIND_ID(coin)
+		STORAGE_BIND_ID(wrp)
 
 		stm.step();
 	}
 
-    void WalletDB::remove(const beam::Coin& coin)
+    void WalletDB::remove(const Coin::ID& cid)
     {
-		removeImpl(coin);
+		removeImpl(cid);
         notifyCoinsChanged();
     }
 
@@ -1192,7 +1170,7 @@ namespace beam
         }
     }
 
-	bool WalletDB::find(beam::Coin& coin)
+	bool WalletDB::find(Coin& coin)
 	{
 		const char* req = "SELECT " ENUM_STORAGE_FIELDS(LIST, COMMA, ) " FROM " STORAGE_NAME STORAGE_WHERE_ID;
 		sqlite::Statement stm(_db, req);
@@ -1209,7 +1187,7 @@ namespace beam
 		return true;
 	}
 
-    void WalletDB::visit(function<bool(const beam::Coin& coin)> func)
+    void WalletDB::visit(function<bool(const Coin& coin)> func)
     {
         const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " ORDER BY " ENUM_STORAGE_ID(LIST, COMMA, ) ";";
         sqlite::Statement stm(_db, req);
@@ -1893,7 +1871,7 @@ namespace beam
                 if (c.m_status == Coin::Unspent
                     && lockHeight <= currentHeight)
                 {
-                    total += c.m_amount;
+                    total += c.m_ID.m_Value;
                 }
                 return true;
             });
@@ -1909,10 +1887,10 @@ namespace beam
                 Height lockHeight = c.m_maturity;
 
                 if (c.m_status == status
-                    && c.m_key_type == keyType
+                    && c.m_ID.m_Type == keyType
                     && lockHeight <= currentHeight)
                 {
-                    total += c.m_amount;
+                    total += c.m_ID.m_Value;
                 }
                 return true;
             });
@@ -1926,7 +1904,7 @@ namespace beam
             {
                 if (c.m_status == status)
                 {
-                    total += c.m_amount;
+                    total += c.m_ID.m_Value;
                 }
                 return true;
             });
@@ -1938,9 +1916,9 @@ namespace beam
             Amount total = 0;
             walletDB->visit([&total, &status, &keyType](const Coin& c)->bool
             {
-                if (c.m_status == status && c.m_key_type == keyType)
+                if (c.m_status == status && c.m_ID.m_Type == keyType)
                 {
-                    total += c.m_amount;
+                    total += c.m_ID.m_Value;
                 }
                 return true;
             });

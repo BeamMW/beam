@@ -38,7 +38,7 @@ UtxoItem::UtxoItem(const beam::Coin& coin)
 
 QString UtxoItem::amount() const
 {
-    return BeamToString(_coin.m_amount) + " BEAM";
+    return BeamToString(_coin.m_ID.m_Value) + " BEAM";
 }
 
 QString UtxoItem::height() const
@@ -77,12 +77,12 @@ QString UtxoItem::type() const
         "Identity",
         "SChannelNonce"
     };
-    return Names[static_cast<int>(_coin.m_key_type)];
+    return Names[static_cast<int>(_coin.m_ID.m_Type)];
 }
 
 beam::Amount UtxoItem::rawAmount() const
 {
-    return _coin.m_amount;
+    return _coin.m_ID.m_Value;
 }
 
 beam::Height UtxoItem::rawHeight() const

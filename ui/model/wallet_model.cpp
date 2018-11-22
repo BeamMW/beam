@@ -452,7 +452,7 @@ void WalletModel::calcChange(beam::Amount&& amount)
     Amount sum = 0;
     for (auto& c : coins)
     {
-        sum += c.m_amount;
+        sum += c.m_ID.m_Value;
     }
     if (sum < amount)
     {

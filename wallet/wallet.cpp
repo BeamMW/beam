@@ -249,7 +249,7 @@ namespace beam
     void Wallet::confirm_outputs(const vector<Coin>& coins)
     {
         for (auto& coin : coins)
-            getUtxoProof(coin);
+            getUtxoProof(coin.m_ID);
     }
 
     bool Wallet::MyRequestUtxo::operator < (const MyRequestUtxo& x) const
@@ -417,27 +417,29 @@ namespace beam
     {
         // TODO: handle the maturity of the several proofs (> 1)
 
-		bool bExists = m_WalletDB->find(r.m_Coin);
+		Coin c;
+		c.m_ID = r.m_CoinID;
+		bool bExists = m_WalletDB->find(c);
 
         if (r.m_Res.m_Proofs.empty())
         {
             LOG_WARNING() << "Got empty utxo proof for: " << r.m_Msg.m_Utxo;
 
-            if (r.m_Coin.m_status == Coin::Locked)
+            if (c.m_status == Coin::Locked)
             {
 				assert(bExists);
 
-                r.m_Coin.m_status = Coin::Spent;
-                m_WalletDB->save(r.m_Coin);
-                assert(r.m_Coin.m_spentTxId.is_initialized());
-                updateTransaction(*(r.m_Coin.m_spentTxId));
+                c.m_status = Coin::Spent;
+                m_WalletDB->save(c);
+                assert(c.m_spentTxId.is_initialized());
+                updateTransaction(*c.m_spentTxId);
             }
-            else if (r.m_Coin.m_status == Coin::Unconfirmed && r.m_Coin.isReward())
+            else if (c.m_status == Coin::Unconfirmed && c.isReward())
             {
-                LOG_WARNING() << "Uncofirmed reward UTXO removed. Amount: " << r.m_Coin.m_amount << " Height: " << r.m_Coin.m_keyIndex;
+                LOG_WARNING() << "Uncofirmed reward UTXO removed. Amount: " << c.m_ID.m_Value << " Height: " << c.m_ID.m_Idx;
 
 				if (bExists)
-					m_WalletDB->remove(r.m_Coin);
+					m_WalletDB->remove(c.m_ID);
             }
 
             return;
@@ -445,33 +447,33 @@ namespace beam
 
         for (const auto& proof : r.m_Res.m_Proofs)
         {
-            if (r.m_Coin.m_status == Coin::Unconfirmed)
+            if (c.m_status == Coin::Unconfirmed)
             {
                 Block::SystemState::Full sTip;
                 get_tip(sTip);
 
                 LOG_INFO() << "Got utxo proof for: " << r.m_Msg.m_Utxo;
-                r.m_Coin.m_status = Coin::Unspent;
-                r.m_Coin.m_maturity = proof.m_State.m_Maturity;
-                r.m_Coin.m_confirmHeight = sTip.m_Height;
+                c.m_status = Coin::Unspent;
+                c.m_maturity = proof.m_State.m_Maturity;
+                c.m_confirmHeight = sTip.m_Height;
 
-				if (!r.m_Coin.m_keyIndex)
-					r.m_Coin.m_keyIndex = m_WalletDB->AllocateKidRange(1); // could be recovery
-				if (!r.m_Coin.m_createHeight)
-					if (r.m_Coin.isReward())
-						r.m_Coin.m_createHeight = r.m_Coin.m_keyIndex;
+				if (!c.m_ID.m_Idx)
+					c.m_ID.m_Idx = m_WalletDB->AllocateKidRange(1); // could be recovery
+				if (!c.m_createHeight)
+					if (c.isReward())
+						c.m_createHeight = c.m_ID.m_Idx;
 					else
-						r.m_Coin.m_createHeight = sTip.m_Height;
+						c.m_createHeight = sTip.m_Height;
 
-				m_WalletDB->save(r.m_Coin);
+				m_WalletDB->save(c);
 
-				if (r.m_Coin.isReward())
+				if (c.isReward())
                 {
-                    LOG_INFO() << "Block reward received: " << PrintableAmount(r.m_Coin.m_amount);
+                    LOG_INFO() << "Block reward received: " << PrintableAmount(c.m_ID.m_Value);
                 }
-                else if (r.m_Coin.m_createTxId.is_initialized())
+                else if (c.m_createTxId.is_initialized())
                 {
-                    updateTransaction(*(r.m_Coin.m_createTxId));
+                    updateTransaction(*c.m_createTxId);
                 }
             }
         }
@@ -486,20 +488,19 @@ namespace beam
             if (minedCoin.m_Active && minedCoin.m_ID.m_Height >= currentHeight) // we store coins from active branch
             {
                 // coinbase 
-                Coin c(Rules::get().CoinbaseEmission
-                    , Coin::Unconfirmed
-                    , MaxHeight
-                    , Key::Type::Coinbase);
-				c.m_keyIndex = minedCoin.m_ID.m_Height;
+				Coin::ID cid;
+				cid.m_Type = Key::Type::Coinbase;
+				cid.m_Idx = minedCoin.m_ID.m_Height;
+				cid.m_Value = Rules::get().CoinbaseEmission;
 
-                getUtxoProof(c);
+                getUtxoProof(cid);
 
                 if (minedCoin.m_Fees > 0)
                 {
-					c.m_amount = minedCoin.m_Fees;
-					c.m_key_type = Key::Type::Comission;
+					cid.m_Value = minedCoin.m_Fees;
+					cid.m_Type = Key::Type::Comission;
 
-                    getUtxoProof(c);
+                    getUtxoProof(cid);
                 }
                 lastKnownCoinHeight = max(lastKnownCoinHeight, minedCoin.m_ID.m_Height);
             }
@@ -514,8 +515,12 @@ namespace beam
 
     void Wallet::OnRequestComplete(MyRequestRecover& r)
     {
-        for (const auto& kidv : r.m_Res.m_Private)
-            getUtxoProof(Coin::fromKidv(kidv));
+		for (const auto& kidv : r.m_Res.m_Private)
+		{
+			Coin::ID cid;
+			Cast::Down<Key::IDV>(cid) = kidv; // legacy, doesn't have the iKdf. To be removed
+			getUtxoProof(cid);
+		}
     }
 
     void Wallet::OnRequestComplete(MyRequestKernel& r)
@@ -725,7 +730,7 @@ namespace beam
                 && ((c.m_createTxId.is_initialized()
                 && (m_transactions.find(*c.m_createTxId) == m_transactions.end())) || c.isReward()))
             {
-                getUtxoProof(c);
+                getUtxoProof(c.m_ID);
                 nUnconfirmed++;
             }
             return true;
@@ -745,11 +750,11 @@ namespace beam
         notifySyncProgress();
     }
 
-    void Wallet::getUtxoProof(const Coin& coin)
+    void Wallet::getUtxoProof(const Coin::ID& cid)
     {
         MyRequestUtxo::Ptr pReq(new MyRequestUtxo);
-        pReq->m_Coin = coin;
-        pReq->m_Msg.m_Utxo = Commitment(m_WalletDB->calcKey(coin), coin.m_amount);
+        pReq->m_CoinID = cid;
+        pReq->m_Msg.m_Utxo = Commitment(m_WalletDB->calcKey(cid), cid.m_Value);
         LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo;
 
         PostReqUnique(*pReq);
