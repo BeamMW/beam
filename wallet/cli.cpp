@@ -451,7 +451,8 @@ int main_impl(int argc, char* argv[])
                             wallet.transfer_money(addresses[0].m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
                         }
 
-                        if (command == cli::CANCEL_TX) {
+                        if (command == cli::CANCEL_TX) 
+                        {
                             auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
                             TxID txId;
                             std::copy_n(txIdVec.begin(), 16, txId.begin());

@@ -27,7 +27,7 @@ namespace beam
 	struct INodeObserver
 	{
 		virtual void OnSyncProgress(int done, int total) = 0;
-        virtual void OnStateChanged() {}
+		virtual void OnStateChanged() {}
 	};
 
 struct Node
@@ -45,7 +45,7 @@ struct Node
 		NodeProcessor::Horizon m_Horizon;
 
 #if defined(BEAM_USE_GPU)
-        bool m_UseGpu;
+		bool m_UseGpu;
 #endif
 
 		struct Timeout {
@@ -170,12 +170,13 @@ private:
 		void AdjustFossilEnd(Height&) override;
 		void OnStateData() override;
 		void OnBlockData() override;
+		void OnUpToDate() override;
 		bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) override;
 		void OnModified() override;
 		bool EnumViewerKeys(IKeyWalker&) override;
 
 		void ReportProgress();
-        void ReportNewState();
+		void ReportNewState();
 
 		struct Verifier
 		{
@@ -205,7 +206,8 @@ private:
 
 		void GenerateProofStateStrict(Merkle::HardProof&, Height);
 
-		int m_RequestedCount = 0;
+		int m_RequestedHeadersCount = 0;
+		int m_RequestedBlocksCount = 0;
 		int m_DownloadedHeaders = 0;
 		int m_DownloadedBlocks = 0;
 

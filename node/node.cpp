@@ -330,7 +330,15 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 
 
 		int diff = static_cast<int>(id.m_Height - m_Cursor.m_ID.m_Height);
-		m_RequestedCount = std::max(m_RequestedCount, diff);
+		if (bBlock)
+		{
+			m_RequestedBlocksCount = std::max(m_RequestedBlocksCount, diff);
+		}
+		else
+		{
+			m_RequestedHeadersCount = std::max(m_RequestedHeadersCount, diff);
+		}
+		
 
 		ReportProgress();
 
@@ -520,13 +528,25 @@ void Node::Processor::AdjustFossilEnd(Height& h)
 
 void Node::Processor::OnStateData()
 {
-	++m_DownloadedHeaders;
-	ReportProgress();
+	if (m_DownloadedHeaders < m_RequestedHeadersCount)
+	{
+		++m_DownloadedHeaders;
+		ReportProgress();
+	}
 }
 
 void Node::Processor::OnBlockData()
 {
-	++m_DownloadedBlocks;
+	if (m_DownloadedBlocks < m_RequestedBlocksCount 
+	 || m_DownloadedBlocks < m_RequestedHeadersCount)
+	{
+		++m_DownloadedBlocks;
+		ReportProgress();
+	}
+}
+
+void Node::Processor::OnUpToDate()
+{
 	ReportProgress();
 }
 
@@ -542,14 +562,14 @@ void Node::Processor::ReportProgress()
 	auto observer = get_ParentObj().m_Cfg.m_Observer;
 	if (observer)
 	{
-		int total = m_RequestedCount * 2;
+		int total = m_RequestedHeadersCount > 0 ? m_RequestedHeadersCount * 2 : m_RequestedBlocksCount;
 		int done = m_DownloadedHeaders + m_DownloadedBlocks;
 		if (total >= done)
 		{
 			observer->OnSyncProgress(done, total);
 			if (total == done)
 			{
-				m_RequestedCount = m_DownloadedHeaders = m_DownloadedBlocks = 0;
+				m_RequestedHeadersCount = m_RequestedBlocksCount = m_DownloadedHeaders = m_DownloadedBlocks = 0;
 			}
 		}
 	}
