@@ -558,7 +558,7 @@ namespace beam
 
 		Height h;
 		uintBigFor<Height>::Type var;
-		if (!m_WalletDB->getVar(s_szLastUtxoEvt, var))
+		if (m_WalletDB->getVar(s_szLastUtxoEvt, var))
 			var.Export(h);
 		else
 			h = 0;
