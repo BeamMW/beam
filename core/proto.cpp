@@ -439,7 +439,7 @@ void NodeConnection::Accept(io::TcpStream::Ptr&& newStream)
 	m_Connection = std::make_unique<Connection>(
 		m_Protocol,
 		uint64_t(this),
-        Connection::inbound,
+		Connection::inbound,
 		100,
 		std::move(newStream)
 		);
@@ -469,7 +469,7 @@ bool NodeConnection::OnMsgInternal(uint64_t, msg##_NoInit&& v) \
 	try { \
 		/* checkpoint */ \
 		TestInputMsgContext(code); \
-        return OnMsg2(std::move(v)); \
+		return OnMsg2(std::move(v)); \
 	} catch (const std::exception& e) { \
 		OnExc(e); \
 		return false; \
@@ -1138,8 +1138,17 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::NewTip&& msg)
 
 	m_Tip = msg.m_Description;
 
-	if (!m_pSync && ShouldSync())
-		StartSync();
+	if (!m_pSync)
+	{
+		if (ShouldSync())
+		{
+			StartSync();
+		}
+		else
+		{
+			m_This.m_Client.OnTipUnchanged();
+		}
+	}
 }
 
 void FlyClient::NetworkStd::Connection::StartSync()

@@ -14,7 +14,7 @@ Item
     anchors.fill: parent
 
     property bool isRecoveryMode: false
-    property alias isCreating:viewModel.creating
+    property bool isCreating: false
 
     RestoreViewModel {
         id: viewModel 

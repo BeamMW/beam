@@ -27,7 +27,7 @@ class TxObject : public QObject
     Q_PROPERTY(QString date          READ date         NOTIFY dateChanged)
     Q_PROPERTY(QString user          READ user         NOTIFY userChanged)
     Q_PROPERTY(QString userName      READ userName     NOTIFY userChanged)
-	Q_PROPERTY(QString displayName   READ displayName  NOTIFY displayNameChanged)
+    Q_PROPERTY(QString displayName   READ displayName  NOTIFY displayNameChanged)
     Q_PROPERTY(QString comment       READ comment      NOTIFY commentChanged)
     Q_PROPERTY(QString amount        READ amount       NOTIFY amountChanged)
     Q_PROPERTY(QString change        READ change       NOTIFY changeChanged)
@@ -46,8 +46,8 @@ public:
     bool income() const;
     QString date() const;
     QString user() const;
-	QString userName() const;
-	QString displayName() const;
+    QString userName() const;
+    QString displayName() const;
     QString comment() const;
     QString amount() const;
     QString change() const;
@@ -57,9 +57,9 @@ public:
     QString getSendingAddress() const;
     QString getReceivingAddress() const;
     QString getFee() const;
-	beam::WalletID peerId() const;
+    beam::WalletID peerId() const;
 
-	void setUserName(const QString& name);
+    void setUserName(const QString& name);
     void setDisplayName(const QString& name);
     void setStatus(beam::TxStatus status);
 
@@ -71,7 +71,7 @@ signals:
     void incomeChanged();
     void dateChanged();
     void userChanged();
-	void displayNameChanged();
+    void displayNameChanged();
     void commentChanged();
     void amountChanged();
     void changeChanged();
@@ -79,7 +79,7 @@ signals:
 
 public:
     beam::TxDescription _tx;
-	QString _userName;
+    QString _userName;
     QString _displayName;
 };
 
@@ -175,7 +175,7 @@ public:
     QString getNewReceiverAddr() const;
     QString getNewReceiverAddrQR() const;
     void setNewReceiverName(const QString& value);
-	QString getNewReceiverName() const;
+    QString getNewReceiverName() const;
     int selectedAddr() const;
 
     QString getReceiverAddr() const;
@@ -189,7 +189,7 @@ public:
     void setFeeGrothes(const QString& text);
     void setSelectedAddr(int index);
     void setComment(const QString& value);
-	QString getComment() const;
+    QString getComment() const;
     QString getBranchName() const;
     QString sortRole() const;
     void setSortRole(const QString&);
@@ -214,9 +214,9 @@ public slots:
     void onNodeSyncProgressUpdated(int done, int total);
     void onChangeCalculated(beam::Amount change);
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
-	void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
+    void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
     void onGeneratedNewWalletID(const beam::WalletID& walletID);
-    void onNodeConnectedChanged(bool is_node_connected);
+    void onNodeConnectionChanged(bool isNodeConnected);
     void onNodeConnectionFailed();
 
 signals:

@@ -15,7 +15,7 @@
 #include "mnemonic.h"
 
 #include "core/ecc_native.h"
-#include "external/pkcs5_pbkdf2.h"
+#include "pkcs5_pbkdf2.h"
 
 #include <boost/algorithm/string.hpp>
 #include <random>

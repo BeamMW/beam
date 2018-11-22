@@ -90,14 +90,14 @@ signals:
     void onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>& items);
     void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers);
     void onSyncProgressUpdated(int done, int total);
-    void onRestoreProgressUpdated(int done, int total, const QString& message);
     void onChangeCalculated(beam::Amount change);
     void onAllUtxoChanged(const std::vector<beam::Coin>& utxos);
     void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
     void onGeneratedNewWalletID(const beam::WalletID& walletID);
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
-    void onNodeConnectedChanged(bool is_node_connected);
-    void onNodeConnectionFailedSignal();
+    void nodeConnectionChanged(bool isNodeConnected);
+    void nodeConnectionFailed();
+
 
 private:
     void onCoinsChanged() override;
@@ -106,7 +106,6 @@ private:
     void onTxPeerChanged() override;
     void onAddressChanged() override;
     void onSyncProgress(int done, int total) override;
-    void onRecoverProgress(int done, int total, const std::string& message) override;
 
     void sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, beam::Amount&& amount, beam::Amount&& fee) override;
     void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee) override;

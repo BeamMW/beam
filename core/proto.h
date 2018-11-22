@@ -729,6 +729,7 @@ namespace proto {
 
 		virtual ~FlyClient() {}
 		virtual void OnNewTip() {} // tip already added
+		virtual void OnTipUnchanged() {} // we have connected to node, but the tip has not changed
 		virtual void OnRolledBack() {} // reversed states are already removed
 		virtual bool IsOwnedNode(const PeerID&, Key::IKdf::Ptr& pKdf) { return false; }
 		virtual Block::SystemState::IHistory& get_History() = 0;

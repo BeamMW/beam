@@ -24,7 +24,6 @@ namespace beam
     struct IWalletObserver : IWalletDbObserver
     {
         virtual void onSyncProgress(int done, int total) = 0;
-        virtual void onRecoverProgress(int done, int total, const std::string& message) = 0;
     };
 
     struct IWallet
@@ -68,6 +67,13 @@ namespace beam
         void recover();
         void resume_all_tx();
 
+        // IWallet
+        void subscribe(IWalletObserver* observer) override;
+        void unsubscribe(IWalletObserver* observer) override;
+        void cancel_tx(const TxID& txId) override;
+        void delete_tx(const TxID& txId) override;
+        
+    private:
         void on_tx_completed(const TxID& txID) override;
 
         void confirm_outputs(const std::vector<Coin>&) override;
@@ -80,17 +86,10 @@ namespace beam
 
 		// FlyClient
 		void OnNewTip() override;
+        void OnTipUnchanged() override;
 		void OnRolledBack() override;
 		bool IsOwnedNode(const PeerID&, Key::IKdf::Ptr& pKdf) override;
 		Block::SystemState::IHistory& get_History() override;
-
-		// IWallet
-        void subscribe(IWalletObserver* observer) override;
-        void unsubscribe(IWalletObserver* observer) override;
-		void cancel_tx(const TxID& txId) override;
-		void delete_tx(const TxID& txId) override;
-
-    private:
 
 		struct RequestHandler
 			: public proto::FlyClient::Request::IHandler
@@ -186,7 +185,6 @@ namespace beam
         TxCompletedAction m_tx_completed_action;
 		uint32_t m_LastSyncTotal;
         bool m_needRecover;
-        bool m_recovering;
 
         std::vector<IWalletObserver*> m_subscribers;
     };
