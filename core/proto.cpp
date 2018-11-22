@@ -1319,6 +1319,7 @@ void FlyClient::NetworkStd::Connection::StartSync()
 	{
 		// starting search
 		m_pSync.reset(new SyncCtx);
+		m_pSync->m_LowHeight = m_Tip.m_Height;
 		SearchBelow(m_Tip.m_Height, 1);
 	}
 }

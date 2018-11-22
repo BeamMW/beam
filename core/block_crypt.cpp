@@ -1024,7 +1024,7 @@ namespace beam
 
 	bool Block::SystemState::HistoryMap::Enum(IWalker& w, const Height* pBelow)
 	{
-		for (auto it = (pBelow ? m_Map.upper_bound(*pBelow) : m_Map.end()); m_Map.begin() != it; )
+		for (auto it = (pBelow ? m_Map.lower_bound(*pBelow) : m_Map.end()); m_Map.begin() != it; )
 			if (!w.OnState((--it)->second))
 				return false;
 
