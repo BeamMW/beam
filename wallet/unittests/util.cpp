@@ -108,7 +108,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 	{
 		Coin dummy; // not a coin actually
 		dummy.m_key_type = Key::Type::Kernel;
-		dummy.m_status = Coin::Unconfirmed;
+		dummy.m_keyIndex = m_pWalletDB->AllocateKidRange(1);
 
 		ECC::Scalar::Native k = m_pWalletDB->calcKey(dummy);
 

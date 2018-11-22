@@ -49,6 +49,7 @@ namespace
     {
 		Key::IKdf::Ptr m_pKdf;
 		Block::SystemState::HistoryMap m_Hist;
+		uint64_t m_KeyIndex = 1;
     public:
 
 		BaseTestWalletDB()
@@ -88,11 +89,18 @@ namespace
             return res;
         }
 
-        virtual std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) override { return {}; };
+		uint64_t AllocateKidRange(uint64_t nCount) override
+		{
+			uint64_t ret = m_KeyIndex;
+			m_KeyIndex += nCount;
+			return ret;
+		}
+		bool find(Coin& coin) override { return false; }
+		virtual std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) override { return {}; };
         void store(beam::Coin& ) override {}
-        void store(std::vector<beam::Coin>& ) override {}
-        void update(const vector<beam::Coin>& coins) override {}
-        void update(const beam::Coin& ) override {}
+		void store(std::vector<beam::Coin>&) override {}
+		void save(const beam::Coin&) override {}
+		void save(const std::vector<beam::Coin>& ) override {}
         void remove(const std::vector<beam::Coin>& ) override {}
         void remove(const beam::Coin& ) override {}
         void visit(std::function<bool(const beam::Coin& coin)> ) override {}

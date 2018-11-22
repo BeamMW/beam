@@ -154,7 +154,7 @@ namespace beam { namespace wallet
         {
             coin.m_status = Coin::Unconfirmed;
         }
-        m_WalletDB->update(coins);
+        m_WalletDB->save(coins);
 
         m_Gateway.confirm_kernel(GetTxID(), kernel);
     }
@@ -438,7 +438,7 @@ namespace beam { namespace wallet
         m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs);
         m_Tx.SetParameter(TxParameterID::Offset, m_Offset);
 
-        m_Tx.GetWalletDB()->update(coins);
+        m_Tx.GetWalletDB()->save(coins);
     }
 
     void TxBuilder::AddChangeOutput()

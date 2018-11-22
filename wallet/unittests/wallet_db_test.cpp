@@ -50,7 +50,6 @@ void TestWalletDataBase()
 {
     {
         Coin coin{ 1234 };
-        coin.m_id = 12;
         coin.m_key_type = Key::Type::Regular;
         coin.m_keyIndex = 132;
         coin.m_createHeight = 54;
@@ -74,24 +73,11 @@ void TestWalletDataBase()
     Coin coin1(5, Coin::Unspent, 0, 10);
     walletDB->store(coin1);
 
-    WALLET_CHECK(coin1.m_id == 1);
-    WALLET_CHECK(coin1.m_keyIndex == 1);
-
     Coin coin2(2, Coin::Unspent, 0, 10);
     walletDB->store(coin2);
 
-    WALLET_CHECK(coin2.m_id == 2);
-    WALLET_CHECK(coin2.m_keyIndex == 2);
+    WALLET_CHECK(coin2.m_keyIndex == coin1.m_keyIndex + 1);
 
-    // attempt to insert duplicated coin
-    {
-        Coin duplicatedCoin2(2, Coin::Unspent, 0, 10);
-        duplicatedCoin2.m_keyIndex = 2;
-        walletDB->store(duplicatedCoin2);
-        WALLET_CHECK(duplicatedCoin2.m_id == 2);
-        WALLET_CHECK(duplicatedCoin2.m_keyIndex == 2);
-    }
-    
     {
         auto coins = walletDB->selectCoins(7);
         WALLET_CHECK(coins.size() == 2);
@@ -103,7 +89,7 @@ void TestWalletDataBase()
 
         for (size_t i = 0; i < coins.size(); ++i)
         {
-            WALLET_CHECK(localCoins[i].m_id == coins[i].m_id);
+            WALLET_CHECK(localCoins[i].m_keyIndex == coins[i].m_keyIndex);
             WALLET_CHECK(localCoins[i].m_amount == coins[i].m_amount);
             WALLET_CHECK(coins[i].m_status == Coin::Locked);
         }
@@ -113,7 +99,7 @@ void TestWalletDataBase()
         coin2.m_status = Coin::Spent;
         
 
-        walletDB->update(coin2);
+        walletDB->save(coin2);
 
         WALLET_CHECK(walletDB->selectCoins(5).size() == 0);
     }
@@ -197,11 +183,11 @@ void TestStoreCoins()
         return true;
     });
 
-    WALLET_CHECK(coinBase == 2);
-    WALLET_CHECK(comission == 2);
+    WALLET_CHECK(coinBase == 6);
+    WALLET_CHECK(comission == 6);
     WALLET_CHECK(regular == 10);
 
-    coins.clear();
+	coins.clear();
     walletDB->visit([&coins](const auto& coin)->bool
     {
         coins.push_back(coin);
@@ -211,7 +197,7 @@ void TestStoreCoins()
     WALLET_CHECK(coins[0].m_confirmHeight == MaxHeight);
     coins[0].m_confirmHeight = 423;
     coins[0].m_confirmHash = 12345678U;
-    walletDB->update(coins[0]);
+    walletDB->save(coins[0]);
     coins.clear();
     walletDB->visit([&coins](const auto& coin)->bool
     {
@@ -340,52 +326,52 @@ void TestRollback()
     // rewards
     // should not be deleted
     {
-        Coin coin1 = { 5, Coin::Spent, 7, 8, Key::Type::Coinbase, Height(8) };
+        Coin coin1 = { 5, Coin::Spent, 7, 8, Key::Type::Regular, Height(8) };
         db->store(coin1);
     }
 
     {
-        Coin coin1 = { 5, Coin::Spent, 7, 8, Key::Type::Comission, Height(8) };
+        Coin coin1 = { 5, Coin::Spent, 7, 8, Key::Type::Regular, Height(8) };
         db->store(coin1);
     }
 
     {
-        Coin coin1 = { 5, Coin::Unspent, 8, 9, Key::Type::Coinbase, Height(9) };
+        Coin coin1 = { 5, Coin::Unspent, 8, 9, Key::Type::Regular, Height(9) };
         db->store(coin1);
     }
 
     {
-        Coin coin1 = { 5, Coin::Unspent, 8, 9, Key::Type::Comission, Height(9) };
+        Coin coin1 = { 5, Coin::Unspent, 8, 9, Key::Type::Regular, Height(9) };
         db->store(coin1);
     }
     // should be preserved
     {
-        Coin coin1 = { 5, Coin::Spent, 6, 7, Key::Type::Coinbase, Height(7) };
+        Coin coin1 = { 5, Coin::Spent, 6, 7, Key::Type::Regular, Height(7) };
         db->store(coin1);
     }
 
     {
-        Coin coin1 = { 5, Coin::Spent, 6, 7, Key::Type::Comission, Height(7) };
+        Coin coin1 = { 5, Coin::Spent, 6, 7, Key::Type::Regular, Height(7) };
         db->store(coin1);
     }
 
     {
-        Coin coin1 = { 5, Coin::Spent, 4, 5, Key::Type::Coinbase, Height(5) };
+        Coin coin1 = { 5, Coin::Spent, 4, 5, Key::Type::Regular, Height(5) };
         db->store(coin1);
     }
 
     {
-        Coin coin1 = { 5, Coin::Spent, 4, 5, Key::Type::Comission, Height(5) };
+        Coin coin1 = { 5, Coin::Spent, 4, 5, Key::Type::Regular, Height(5) };
         db->store(coin1);
     }
 
     {
-        Coin coin1 = { 5, Coin::Unspent, 3, 4, Key::Type::Coinbase, Height(4) };
+        Coin coin1 = { 5, Coin::Unspent, 3, 4, Key::Type::Regular, Height(4) };
         db->store(coin1);
     }
 
     {
-        Coin coin1 = { 5, Coin::Unspent, 3, 4, Key::Type::Comission, Height(4) };
+        Coin coin1 = { 5, Coin::Unspent, 3, 4, Key::Type::Regular, Height(4) };
         db->store(coin1);
     }
 
@@ -473,7 +459,7 @@ void TestTxRollback()
     Coin coin3 = { 3, Coin::Unconfirmed, 2 };
     coin3.m_createTxId = id;
     walletDB->store(coin3);
-    walletDB->update({ coin2 });
+    walletDB->save({ coin2 });
 
     vector<Coin> coins;
     walletDB->visit([&coins](const Coin& c)->bool

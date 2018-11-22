@@ -47,7 +47,6 @@ namespace beam
         bool isReward() const;
         bool isValid() const;
 
-        uint64_t m_id;
         ECC::Amount m_amount;
 		Key::Index m_iKdf;
         Status m_status;
@@ -125,19 +124,20 @@ namespace beam
 
 		virtual beam::Key::IKdf::Ptr get_MasterKdf() const = 0;
 		virtual beam::Key::IKdf::Ptr get_ChildKdf(Key::Index) const;
-		virtual ECC::Scalar::Native calcKey(const beam::Coin& coin) const = 0;
+		virtual ECC::Scalar::Native calcKey(const Coin& coin) const = 0;
+		virtual uint64_t AllocateKidRange(uint64_t nCount) = 0;
+        virtual std::vector<Coin> selectCoins(const ECC::Amount& amount, bool lock = true) = 0;
+        virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) = 0;
+		virtual void store(Coin& coin) = 0;
+		virtual void store(std::vector<Coin>&) = 0;
+		virtual void save(const Coin& coin) = 0;
+        virtual void save(const std::vector<Coin>& coins) = 0;
+        virtual void remove(const Coin& coin) = 0;
+		virtual void remove(const std::vector<Coin>& coins) = 0;
+		virtual bool find(Coin& coin) = 0;
+		virtual void clear() = 0;
 
-        virtual std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) = 0;
-        virtual std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) = 0;
-        virtual void store(beam::Coin& coin) = 0;
-        virtual void store(std::vector<beam::Coin>& coins) = 0;
-        virtual void update(const std::vector<beam::Coin>& coins) = 0;
-        virtual void update(const beam::Coin& coin) = 0;
-        virtual void remove(const std::vector<beam::Coin>& coins) = 0;
-        virtual void remove(const beam::Coin& coin) = 0;
-        virtual void clear() = 0;
-
-        virtual void visit(std::function<bool(const beam::Coin& coin)> func) = 0;
+        virtual void visit(std::function<bool(const Coin& coin)> func) = 0;
 
         virtual void setVarRaw(const char* name, const void* data, size_t size) = 0;
         virtual bool getVarRaw(const char* name, void* data, int size) const = 0;
@@ -209,18 +209,20 @@ namespace beam
         ~WalletDB();
 
 		beam::Key::IKdf::Ptr get_MasterKdf() const override;
-		ECC::Scalar::Native calcKey(const beam::Coin& coin) const override;
-        std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) override;
-        std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) override;
-        void store(beam::Coin& coin) override;
-        void store(std::vector<beam::Coin>& coins) override;
-        void update(const std::vector<beam::Coin>& coins) override;
-        void update(const beam::Coin& coin) override;
-        void remove(const std::vector<beam::Coin>& coins) override;
-        void remove(const beam::Coin& coin) override;
-        void clear() override;
+		ECC::Scalar::Native calcKey(const Coin& coin) const override;
+		uint64_t AllocateKidRange(uint64_t nCount) override;
+		std::vector<Coin> selectCoins(const ECC::Amount& amount, bool lock = true) override;
+        std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override;
+		void store(Coin& coin) override;
+		void store(std::vector<Coin>&) override;
+		void save(const Coin& coin) override;
+		void save(const std::vector<Coin>& coins) override;
+		void remove(const Coin& coin) override;
+		void remove(const std::vector<Coin>& coins) override;
+		bool find(Coin& coin) override;
+		void clear() override;
 
-        void visit(std::function<bool(const beam::Coin& coin)> func) override;
+        void visit(std::function<bool(const Coin& coin)> func) override;
 
         void setVarRaw(const char* name, const void* data, size_t size) override;
         bool getVarRaw(const char* name, void* data, int size) const override;
@@ -266,8 +268,7 @@ namespace beam
 		Height UtxoEvtGetLast(ByteBuffer* pData) override;
 
     private:
-        void storeImpl(Coin& coin);
-		void updateImpl(const beam::Coin& coin);
+        void storeImpl(const Coin& coin);
 		void removeImpl(const Coin& coin);
 		void notifyCoinsChanged();
         void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);

@@ -25,25 +25,22 @@
 #define AND " AND "
 
 // Coin ID fields
-// id          - coin counter
-// height      - block height where we got the coin(coinbase) or the height of the latest known block
 // key_type    - key type
+// keyIndex    - coin counter
 //
 // amount      - amount
-// count       - number of coins with same commitment
 // status      - spent/unspent/unconfirmed/locked/draft
 // maturity    - height where we can spend the coin
 
 #define ENUM_STORAGE_ID(each, sep, obj) \
-    each(id, INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, obj)
+    each(key_type,      INTEGER NOT NULL, obj) sep \
+    each(keyIndex,      INTEGER NOT NULL, obj)
 
 #define ENUM_STORAGE_FIELDS(each, sep, obj) \
     each(amount,        INTEGER NOT NULL, obj) sep \
     each(status,        INTEGER NOT NULL, obj) sep \
     each(createHeight,  INTEGER NOT NULL, obj) sep \
     each(maturity,      INTEGER NOT NULL, obj) sep \
-    each(key_type,      INTEGER NOT NULL, obj) sep \
-    each(keyIndex,      INTEGER NOT NULL, obj) sep \
     each(confirmHeight, INTEGER, obj) sep \
     each(confirmHash,   BLOB, obj) sep \
     each(createTxId,    BLOB, obj) sep \
@@ -677,8 +674,7 @@ namespace beam
     }
 
     Coin::Coin(const Amount& amount, Status status, const Height& createHeight, const Height& maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
-        : m_id{ 0 }
-        , m_amount{ amount }
+        : m_amount{ amount }
 		, m_iKdf{ 0 }
 		, m_status{ status }
         , m_createHeight{ createHeight }
@@ -760,6 +756,7 @@ namespace beam
 
             {
                 const char* req = "CREATE TABLE " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST_WITH_TYPES, COMMA,) ");"
+                                  "CREATE UNIQUE INDEX CoinIndex ON " STORAGE_NAME "(" ENUM_STORAGE_ID(LIST, COMMA, )  ");"
                                   "CREATE INDEX ConfirmIndex ON " STORAGE_NAME"(confirmHeight);"
                                   "CREATE INDEX SpentIndex ON " STORAGE_NAME"(lockedHeight);";
                 int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
@@ -924,20 +921,6 @@ namespace beam
         }
     }
 
-    uint64_t getLastID(sqlite3* db)
-    {
-        int lastId = 0;
-
-        {
-            const char* req = "SELECT seq FROM sqlite_sequence WHERE name = '" STORAGE_NAME "';";
-            sqlite::Statement stm(db, req);
-            if (stm.step())
-                stm.get(0, lastId);
-        }
-
-        return lastId;
-    }
-
 	Key::IKdf::Ptr WalletDB::get_MasterKdf() const
 	{
 		return m_pKdf;
@@ -1086,14 +1069,43 @@ namespace beam
         return coins;
     }
 
-    void WalletDB::store(beam::Coin& coin)
-    {
-        sqlite::Transaction trans(_db);
-        storeImpl(coin);
-        trans.commit();
-    }
+	void WalletDB::store(Coin& coin)
+	{
+		sqlite::Transaction trans(_db);
 
-    void WalletDB::store(vector<beam::Coin>& coins)
+		coin.m_keyIndex = AllocateKidRange(1);
+		storeImpl(coin);
+
+		trans.commit();
+		notifyCoinsChanged();
+	}
+
+	void WalletDB::store(std::vector<Coin>& coins)
+	{
+		if (coins.empty())
+			return;
+
+		sqlite::Transaction trans(_db);
+
+		uint64_t nKeyIndex = AllocateKidRange(coins.size());
+
+		for (auto& coin : coins)
+		{
+			coin.m_keyIndex = nKeyIndex++;
+			storeImpl(coin);
+		}
+
+		trans.commit();
+		notifyCoinsChanged();
+	}
+
+	void WalletDB::save(const Coin& coin)
+    {
+        storeImpl(coin);
+		notifyCoinsChanged();
+	}
+
+    void WalletDB::save(const vector<beam::Coin>& coins)
     {
         if (coins.empty())
 			return;
@@ -1104,93 +1116,52 @@ namespace beam
             storeImpl(coin);
 
         trans.commit();
-    }
-
-    void WalletDB::storeImpl(Coin& coin)
-    {
-        assert(coin.m_amount > 0 && coin.isValid());
-        if (coin.isReward())
-        {
-            const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE createHeight=?1 AND key_type=?2;";
-            sqlite::Statement stm(_db, req);
-            stm.bind(1, coin.m_createHeight);
-            stm.bind(2, coin.m_key_type);
-            if (stm.step()) //has row
-            {
-                return; // skip existing
-            }
-        }
-        else if (coin.m_keyIndex == 0)
-        {
-            coin.m_keyIndex = getLastID(_db) + 1;
-        }
-
-        {
-            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE createHeight=?1 AND key_type=?2 AND keyIndex=?3; ");
-            stm.bind(1, coin.m_createHeight);
-            stm.bind(2, coin.m_key_type);
-            stm.bind(3, coin.m_keyIndex);
-            if (stm.step())
-            {
-                Amount amount = coin.m_amount;
-				int colIdx = 0;
-				ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
-                if (amount != coin.m_amount)
-                {
-                    LOG_WARNING() << "Attempt to store invalid UTXO";
-                }
-                return;
-            }
-        }
-
-        const char* req = "INSERT INTO " STORAGE_NAME " (" ENUM_STORAGE_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_STORAGE_FIELDS(BIND_LIST, COMMA, ) ");";
-        sqlite::Statement stm(_db, req);
-
-		{
-			int colIdx = 0;
-			ENUM_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
-		}
-
-        stm.step();
-
-        coin.m_id = getLastID(_db);
-
-        notifyCoinsChanged();
-    }
-
-    void WalletDB::updateImpl(const beam::Coin& coin)
-    {
-        assert(coin.m_amount > 0 && coin.m_id > 0 && coin.isValid());
-
-        const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_STORAGE_FIELDS(SET_LIST, COMMA, ) STORAGE_WHERE_ID;
-        sqlite::Statement stm(_db, req);
-
-		int colIdx = 0;
-		ENUM_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
-		STORAGE_BIND_ID(coin)
-
-        stm.step();
-    }
-
-	void WalletDB::update(const beam::Coin& coin)
-	{
-		updateImpl(coin);
-        notifyCoinsChanged();
+		notifyCoinsChanged();
 	}
 
-    void WalletDB::update(const vector<beam::Coin>& coins)
+    void WalletDB::storeImpl(const Coin& coin)
     {
-        if (coins.size())
-        {
-            sqlite::Transaction trans(_db);
+		assert(coin.m_keyIndex); // must be preallocated in advance according to current convention. TODO - remove this later
 
-			for (const auto& coin : coins)
-				updateImpl(coin);
+		const char* req = "INSERT OR REPLACE INTO " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ALL_STORAGE_FIELDS(BIND_LIST, COMMA, ) ");";
+		sqlite::Statement stm(_db, req);
 
-            trans.commit();
-            notifyCoinsChanged();
-        }
+		int colIdx = 0;
+		ENUM_ALL_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
+
+		stm.step();
     }
+
+  //  void WalletDB::updateImpl(const beam::Coin& coin)
+  //  {
+  //      const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_STORAGE_FIELDS(SET_LIST, COMMA, ) STORAGE_WHERE_ID;
+  //      sqlite::Statement stm(_db, req);
+
+		//int colIdx = 0;
+		//ENUM_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
+		//STORAGE_BIND_ID(coin)
+
+  //      stm.step();
+  //  }
+
+	uint64_t WalletDB::AllocateKidRange(uint64_t nCount)
+	{
+		// a bit akward, but ok
+		static const char szName[] = "LastKid";
+
+		uint64_t nLast;
+		uintBigFor<uint64_t>::Type var;
+
+		if (getVar(szName, var))
+			var.Export(nLast);
+		else
+			nLast = getTimestamp(); // by default initialize by current time (1sec resolution) to prevent collisions after reinitialization. Should be ok if creating less than 1key / sec average
+
+		var = nLast + nCount;
+		setVar(szName, var);
+
+		return nLast;
+	}
 
     void WalletDB::remove(const vector<beam::Coin>& coins)
     {
@@ -1238,9 +1209,26 @@ namespace beam
         }
     }
 
+	bool WalletDB::find(beam::Coin& coin)
+	{
+		const char* req = "SELECT " ENUM_STORAGE_FIELDS(LIST, COMMA, ) " FROM " STORAGE_NAME STORAGE_WHERE_ID;
+		sqlite::Statement stm(_db, req);
+
+		int colIdx = 0;
+		STORAGE_BIND_ID(coin)
+
+		if (!stm.step())
+			return false;
+
+		colIdx = 0;
+		ENUM_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+
+		return true;
+	}
+
     void WalletDB::visit(function<bool(const beam::Coin& coin)> func)
     {
-        const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME ";";
+        const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " ORDER BY " ENUM_STORAGE_ID(LIST, COMMA, ) ";";
         sqlite::Statement stm(_db, req);
 
         while (stm.step())
@@ -1257,20 +1245,14 @@ namespace beam
 
     void WalletDB::setVarRaw(const char* name, const void* data, size_t size)
     {
-        sqlite::Transaction trans(_db);
+        const char* req = "INSERT or REPLACE INTO " VARIABLES_NAME " (" VARIABLES_FIELDS ") VALUES(?1, ?2);";
 
-        {
-            const char* req = "INSERT or REPLACE INTO " VARIABLES_NAME " (" VARIABLES_FIELDS ") VALUES(?1, ?2);";
+        sqlite::Statement stm(_db, req);
 
-            sqlite::Statement stm(_db, req);
+        stm.bind(1, name);
+        stm.bind(2, data, size);
 
-            stm.bind(1, name);
-            stm.bind(2, data, size);
-
-            stm.step();
-        }
-
-        trans.commit();
+        stm.step();
     }
 
     bool WalletDB::getVarRaw(const char* name, void* data, int size) const
