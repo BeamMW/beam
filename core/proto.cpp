@@ -788,6 +788,9 @@ void PeerManager::ActivatePeerInternal(PeerInfo& pi, uint32_t nTicks_ms, uint32_
 	if (!pi.m_Active.m_Now && (nTicks_ms - pi.m_LastActivity_ms < m_Cfg.m_TimeoutReconnect_ms))
 		return; // too early for reconnect
 
+	if (!pi.m_RawRating.m_Value)
+		return; // banned so far
+
 	nSelected++;
 
 	pi.m_Active.m_Next = true;
