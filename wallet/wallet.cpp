@@ -400,14 +400,14 @@ namespace beam
         {
             LOG_WARNING() << "Got empty utxo proof for: " << r.m_Msg.m_Utxo;
 
-            if (r.m_Coin.m_status == Coin::Locked)
+            if (r.m_Coin.m_status == Coin::Outgoing)
             {
                 r.m_Coin.m_status = Coin::Spent;
                 m_WalletDB->update(r.m_Coin);
                 assert(r.m_Coin.m_spentTxId.is_initialized());
                 updateTransaction(*(r.m_Coin.m_spentTxId));
             }
-            else if (r.m_Coin.m_status == Coin::Unconfirmed && r.m_Coin.isReward())
+            else if (r.m_Coin.m_status == Coin::Unavailable && r.m_Coin.isReward())
             {
                 LOG_WARNING() << "Uncofirmed reward UTXO removed. Amount: " << r.m_Coin.m_amount << " Height: " << r.m_Coin.m_createHeight;
                 m_WalletDB->remove(r.m_Coin);
@@ -418,16 +418,21 @@ namespace beam
 
         for (const auto& proof : r.m_Res.m_Proofs)
         {
-            if (r.m_Coin.m_status == Coin::Unconfirmed)
+            if ((r.m_Coin.m_status == Coin::Unavailable) 
+                || (r.m_Coin.m_status == Coin::Incoming) || (r.m_Coin.m_status == Coin::Change))
             {
                 Block::SystemState::Full sTip;
                 get_tip(sTip);
 
                 LOG_INFO() << "Got utxo proof for: " << r.m_Msg.m_Utxo;
-                r.m_Coin.m_status = Coin::Unspent;
+                r.m_Coin.m_status = Coin::Available;
                 r.m_Coin.m_maturity = proof.m_State.m_Maturity;
                 r.m_Coin.m_confirmHeight = sTip.m_Height;
                 sTip.get_Hash(r.m_Coin.m_confirmHash);
+                if (r.m_Coin.isReward() && (r.m_Coin.m_maturity > sTip.m_Height))
+                {
+                    r.m_Coin.m_status = Coin::Maturing;
+                }
                 if (r.m_Coin.m_id == 0)
                 {
                     m_WalletDB->store(r.m_Coin);
@@ -458,7 +463,7 @@ namespace beam
             {
                 // coinbase 
                 Coin c(Rules::get().CoinbaseEmission
-                    , Coin::Unconfirmed
+                    , Coin::Unavailable
                     , minedCoin.m_ID.m_Height
                     , MaxHeight
                     , Key::Type::Coinbase);
@@ -468,7 +473,7 @@ namespace beam
                 if (minedCoin.m_Fees > 0)
                 {
                     Coin cFee(minedCoin.m_Fees
-                        , Coin::Unconfirmed
+                        , Coin::Unavailable
                         , minedCoin.m_ID.m_Height
                         , MaxHeight
                         , Key::Type::Comission);
@@ -582,7 +587,7 @@ namespace beam
         uint32_t nUnconfirmed = 0;
         m_WalletDB->visit([&nUnconfirmed, this](const Coin& c)->bool
         {
-            if (c.m_status == Coin::Unconfirmed
+            if (c.m_status == Coin::Unavailable
                 && ((c.m_createTxId.is_initialized()
                 && (m_transactions.find(*c.m_createTxId) == m_transactions.end())) || c.isReward()))
             {

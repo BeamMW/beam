@@ -86,7 +86,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 		Coin& coin = m_Coins[i];
 		coin.m_key_type = Key::Type::Regular;
 		coin.m_amount = v;
-		coin.m_status = Coin::Unconfirmed;
+		coin.m_status = Coin::Maturing;
 		coin.m_createHeight = h + Rules::HeightGenesis;
 
 
@@ -108,7 +108,7 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 	{
 		Coin dummy; // not a coin actually
 		dummy.m_key_type = Key::Type::Kernel;
-		dummy.m_status = Coin::Unconfirmed;
+		dummy.m_status = Coin::Unavailable;
 
 		ECC::Scalar::Native k = m_pWalletDB->calcKey(dummy);
 

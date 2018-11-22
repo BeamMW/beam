@@ -147,15 +147,6 @@ namespace beam { namespace wallet
     void BaseTransaction::ConfirmKernel(const TxKernel& kernel)
     {
         UpdateTxDescription(TxStatus::Registered);
-
-        auto coins = m_WalletDB->getCoinsCreatedByTx(GetTxID());
-
-        for (auto& coin : coins)
-        {
-            coin.m_status = Coin::Unconfirmed;
-        }
-        m_WalletDB->update(coins);
-
         m_Gateway.confirm_kernel(GetTxID(), kernel);
     }
 
@@ -196,8 +187,8 @@ namespace beam { namespace wallet
         vector<Coin> outputs;
         m_WalletDB->visit([&](const Coin& coin)
         {
-            if ((coin.m_createTxId == GetTxID() && coin.m_status == Coin::Unconfirmed)
-                || (coin.m_spentTxId == GetTxID() && coin.m_status == Coin::Locked))
+            if ((coin.m_createTxId == GetTxID() && (coin.m_status == Coin::Incoming || coin.m_status == Coin::Change))
+                || (coin.m_spentTxId == GetTxID() && coin.m_status == Coin::Outgoing))
             {
                 outputs.emplace_back(coin);
             }
@@ -259,7 +250,7 @@ namespace beam { namespace wallet
             if (isSelfTx || !sender)
             {
                 // create receiver utxo
-                builder.AddOutput(amount);
+                builder.AddOutput(amount, Coin::Incoming);
 
                 LOG_INFO() << GetTxID() << " Invitation accepted";
             }
@@ -448,18 +439,18 @@ namespace beam { namespace wallet
             return;
         }
 
-        AddOutput(m_Change);
+        AddOutput(m_Change, Coin::Change);
     }
 
-    void TxBuilder::AddOutput(Amount amount)
+    void TxBuilder::AddOutput(Amount amount, Coin::Status status)
     {
-        m_Outputs.push_back(CreateOutput(amount, m_MinHeight));
+        m_Outputs.push_back(CreateOutput(amount, status, m_MinHeight));
         m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs);
     }
 
-    Output::Ptr TxBuilder::CreateOutput(Amount amount, bool shared, Height incubation)
+    Output::Ptr TxBuilder::CreateOutput(Amount amount, Coin::Status status, bool shared, Height incubation)
     {
-        Coin newUtxo{ amount, Coin::Draft, m_MinHeight };
+        Coin newUtxo{ amount, status, m_MinHeight };
         newUtxo.m_createTxId = m_Tx.GetTxID();
         m_Tx.GetWalletDB()->store(newUtxo);
 
