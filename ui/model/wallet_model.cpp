@@ -315,6 +315,8 @@ void WalletModel::run()
             restoreFromBlockchain();
         }
 
+		nnet->Connect();
+
         _reactor->run();
     }
     catch (const runtime_error& ex)
