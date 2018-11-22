@@ -460,10 +460,12 @@ namespace beam
 				if (!c.m_ID.m_Idx)
 					c.m_ID.m_Idx = m_WalletDB->AllocateKidRange(1); // could be recovery
 				if (!c.m_createHeight)
+				{
 					if (c.isReward())
 						c.m_createHeight = c.m_ID.m_Idx;
 					else
 						c.m_createHeight = sTip.m_Height;
+				}
 
 				m_WalletDB->save(c);
 
