@@ -147,7 +147,7 @@ public:
 protected:
 	// RadixTree
 	virtual Joint* CreateJoint() override { return new MyJoint; }
-	virtual void DeleteJoint(Joint* p) override { delete (MyJoint*) p; }
+	virtual void DeleteJoint(Joint* p) override { delete Cast::Up<MyJoint>(p); }
 
 	const Merkle::Hash& get_Hash(Node&, Merkle::Hash&);
 
@@ -171,16 +171,16 @@ public:
 	MyLeaf* Find(CursorBase& cu, const Merkle::Hash& key, bool& bCreate)
 	{
 		static_assert(Merkle::Hash::nBits == ECC::nBits, "");
-		return (MyLeaf*) RadixTree::Find(cu, key.m_pData, ECC::nBits, bCreate);
+		return Cast::Up<MyLeaf>(RadixTree::Find(cu, key.m_pData, ECC::nBits, bCreate));
 	}
 
 	~RadixHashOnlyTree() { Clear(); }
 
 protected:
 	virtual Leaf* CreateLeaf() override { return new MyLeaf; }
-	virtual uint8_t* GetLeafKey(const Leaf& x) const override { return ((MyLeaf&) x).m_Hash.m_pData; }
-	virtual void DeleteLeaf(Leaf* p) override { delete (MyLeaf*) p; }
-	virtual const Merkle::Hash& get_LeafHash(Node& n, Merkle::Hash&) override { return ((MyLeaf&) n).m_Hash; }
+	virtual uint8_t* GetLeafKey(const Leaf& x) const override { return Cast::Up<MyLeaf>(Cast::NotConst(x)).m_Hash.m_pData; }
+	virtual void DeleteLeaf(Leaf* p) override { delete Cast::Up<MyLeaf>(p); }
+	virtual const Merkle::Hash& get_LeafHash(Node& n, Merkle::Hash&) override { return Cast::Up<MyLeaf>(n).m_Hash; }
 };
 
 
@@ -230,7 +230,7 @@ public:
 
 	MyLeaf* Find(CursorBase& cu, const Key& key, bool& bCreate)
 	{
-		return (MyLeaf*) RadixTree::Find(cu, key.m_pArr, key.s_Bits, bCreate);
+		return Cast::Up<MyLeaf>(RadixTree::Find(cu, key.m_pArr, key.s_Bits, bCreate));
 	}
 
 	~UtxoTree() { Clear(); }
@@ -254,8 +254,8 @@ public:
 
 protected:
 	virtual Leaf* CreateLeaf() override { return new MyLeaf; }
-	virtual uint8_t* GetLeafKey(const Leaf& x) const override { return ((MyLeaf&) x).m_Key.m_pArr; }
-	virtual void DeleteLeaf(Leaf* p) override { delete (MyLeaf*) p; }
+	virtual uint8_t* GetLeafKey(const Leaf& x) const override { return Cast::Up<MyLeaf>(Cast::NotConst(x)).m_Key.m_pArr; }
+	virtual void DeleteLeaf(Leaf* p) override { delete Cast::Up<MyLeaf>(p); }
 	virtual const Merkle::Hash& get_LeafHash(Node&, Merkle::Hash&) override;
 
 	struct ISerializer {

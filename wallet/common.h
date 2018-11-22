@@ -96,6 +96,19 @@ namespace beam
                 || m_status == TxStatus::InProgress 
                 || m_status == TxStatus::Registered;
         }
+
+        bool canCancel() const
+        {
+            return m_status == beam::TxStatus::InProgress
+                || m_status == beam::TxStatus::Pending;
+        }
+
+        bool canDelete() const
+        {
+            return m_status == beam::TxStatus::Failed
+                || m_status == beam::TxStatus::Completed
+                || m_status == beam::TxStatus::Cancelled;
+        }
     };
 
     namespace wallet
@@ -131,6 +144,7 @@ namespace beam
             //Outputs = 9,
             CreateTime = 10,
             IsInitiator = 11,
+            MaxHeight = 12,
 
             AtomicSwapCoin = 20,
             AtomicSwapAmount = 21,
@@ -174,7 +188,7 @@ namespace beam
             PrivateFirstParam = 128,
 
             ModifyTime = 128,
-            KernelProof = 129,
+            KernelProofHeight = 129,
 
             BlindingExcess = 130, // + MaxSignatures,
             SharedBlindingExcess = 131,
@@ -243,7 +257,6 @@ namespace beam
             virtual void confirm_outputs(const std::vector<Coin>&) = 0;
             virtual void confirm_kernel(const TxID&, const TxKernel&) = 0;
             virtual bool get_tip(Block::SystemState::Full& state) const = 0;
-            virtual bool isTestMode() const = 0;
             virtual void send_tx_params(const WalletID& peerID, SetTxParameter&&) = 0;
         };
     }

@@ -201,7 +201,6 @@ namespace ECC
 			}
 
 			void get_Hash(Hash::Value&) const;
-			ID& as_ID() { return *this; }
 
 #pragma pack (push, 1)
 			struct Packed
@@ -246,6 +245,8 @@ namespace ECC
 
 			virtual void DerivePKey(Point::Native&, const Hash::Value&) = 0;
 			virtual void DerivePKey(Scalar::Native&, const Hash::Value&) = 0;
+
+			bool IsSame(IPKdf&);
 		};
 
 		struct IKdf
@@ -379,6 +380,7 @@ namespace ECC
 
 
 		private:
+			struct ChallengeSetBase;
 			struct ChallengeSet;
 		};
 

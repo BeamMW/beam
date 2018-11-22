@@ -24,4 +24,8 @@ if (Boost_FOUND)
     target_link_libraries(${TARGET_NAME} Boost::system Boost::thread Boost::regex Boost::filesystem Boost::program_options Boost::log Boost::locale)
 endif()
 
+if(MSVC)
+    target_compile_options(${TARGET_NAME} PRIVATE "/wd4273")    
+endif()
+
 add_subdirectory(examples)

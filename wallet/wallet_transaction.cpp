@@ -59,13 +59,13 @@ namespace beam { namespace wallet
     }
 
     BaseTransaction::BaseTransaction(INegotiatorGateway& gateway
-                                   , beam::IKeyChain::Ptr keychain
+                                   , beam::IWalletDB::Ptr walletDB
                                    , const TxID& txID)
         : m_Gateway{ gateway }
-        , m_Keychain{ keychain }
+        , m_WalletDB{ walletDB }
         , m_ID{ txID }
     {
-        assert(keychain);
+        assert(walletDB);
     }
 
     bool BaseTransaction::IsInitiator() const
@@ -99,7 +99,7 @@ namespace beam { namespace wallet
             }
 
             WalletID myID = GetMandatoryParameter<WalletID>(TxParameterID::MyID);
-            auto address = m_Keychain->getAddress(myID);
+            auto address = m_WalletDB->getAddress(myID);
             if (address.is_initialized() && address->isExpired())
             {
                 OnFailed(TxFailureReason::ExpiredAddressProvided);
@@ -125,7 +125,7 @@ namespace beam { namespace wallet
         GetParameter(TxParameterID::Status, s);
         if (s == TxStatus::Pending)
         {
-            m_Keychain->deleteTx(GetTxID());
+            m_WalletDB->deleteTx(GetTxID());
         }
         else
         {
@@ -141,21 +141,12 @@ namespace beam { namespace wallet
     void BaseTransaction::RollbackTx()
     {
         LOG_INFO() << GetTxID() << " Transaction failed. Rollback...";
-        m_Keychain->rollbackTx(GetTxID());
+        m_WalletDB->rollbackTx(GetTxID());
     }
 
     void BaseTransaction::ConfirmKernel(const TxKernel& kernel)
     {
         UpdateTxDescription(TxStatus::Registered);
-
-        auto coins = m_Keychain->getCoinsCreatedByTx(GetTxID());
-
-        for (auto& coin : coins)
-        {
-            coin.m_status = Coin::Unconfirmed;
-        }
-        m_Keychain->update(coins);
-
         m_Gateway.confirm_kernel(GetTxID(), kernel);
     }
 
@@ -186,18 +177,18 @@ namespace beam { namespace wallet
         m_Gateway.on_tx_completed(GetTxID());
     }
 
-    IKeyChain::Ptr BaseTransaction::GetKeychain()
+    IWalletDB::Ptr BaseTransaction::GetWalletDB()
     {
-        return m_Keychain;
+        return m_WalletDB;
     }
 
     vector<Coin> BaseTransaction::GetUnconfirmedOutputs() const
     {
         vector<Coin> outputs;
-        m_Keychain->visit([&](const Coin& coin)
+        m_WalletDB->visit([&](const Coin& coin)
         {
-            if ((coin.m_createTxId == GetTxID() && coin.m_status == Coin::Unconfirmed)
-                || (coin.m_spentTxId == GetTxID() && coin.m_status == Coin::Locked))
+            if ((coin.m_createTxId == GetTxID() && (coin.m_status == Coin::Incoming || coin.m_status == Coin::Change))
+                || (coin.m_spentTxId == GetTxID() && coin.m_status == Coin::Outgoing))
             {
                 outputs.emplace_back(coin);
             }
@@ -223,9 +214,9 @@ namespace beam { namespace wallet
     }
 
     SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway
-        , beam::IKeyChain::Ptr keychain
+        , beam::IWalletDB::Ptr walletDB
         , const TxID& txID)
-        : BaseTransaction{ gateway, keychain, txID }
+        : BaseTransaction{ gateway, walletDB, txID }
     {
 
     }
@@ -242,7 +233,7 @@ namespace beam { namespace wallet
         Amount fee = GetMandatoryParameter<Amount>(TxParameterID::Fee);
 
         WalletID peerID = GetMandatoryParameter<WalletID>(TxParameterID::PeerID);
-        auto address = m_Keychain->getAddress(peerID);
+        auto address = m_WalletDB->getAddress(peerID);
         bool isSelfTx = address.is_initialized() && address->m_own;
         State txState = GetState();
         TxBuilder builder{ *this, amount, fee };
@@ -259,7 +250,7 @@ namespace beam { namespace wallet
             if (isSelfTx || !sender)
             {
                 // create receiver utxo
-                builder.AddOutput(amount);
+                builder.AddOutput(amount, Coin::Incoming);
 
                 LOG_INFO() << GetTxID() << " Invitation accepted";
             }
@@ -277,6 +268,7 @@ namespace beam { namespace wallet
                 msg.AddParameter(TxParameterID::Amount, builder.m_Amount)
                     .AddParameter(TxParameterID::Fee, builder.m_Fee)
                     .AddParameter(TxParameterID::MinHeight, builder.m_MinHeight)
+                    .AddParameter(TxParameterID::MaxHeight, builder.m_MaxHeight)
                     .AddParameter(TxParameterID::IsSender, !sender)
                     .AddParameter(TxParameterID::PeerInputs, builder.m_Inputs)
                     .AddParameter(TxParameterID::PeerOutputs, builder.m_Outputs)
@@ -307,6 +299,7 @@ namespace beam { namespace wallet
                     .AddParameter(TxParameterID::PeerSignature, builder.m_PartialSignature)
                     .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce());
 
+                UpdateTxDescription(TxStatus::Registered);
                 SendTxParameters(move(msg));
                 SetState(State::InvitationConfirmation);
             }
@@ -332,11 +325,13 @@ namespace beam { namespace wallet
                     // Confirm transaction
                     SetTxParameter msg;
                     msg.AddParameter(TxParameterID::PeerSignature, Scalar(builder.m_PartialSignature));
+
+                    UpdateTxDescription(TxStatus::Registered);
                     SendTxParameters(move(msg));
                     SetState(State::PeerConfirmation);
                 }
             }
-            else if ((isSelfTx && txState == State::Initial) || txState == State::InvitationConfirmation)
+            else //if ((isSelfTx && txState == State::Initial) || txState == State::InvitationConfirmation)
             {
                 // Construct and verify transaction
                 auto transaction = builder.CreateTransaction();
@@ -360,8 +355,9 @@ namespace beam { namespace wallet
             return;
         }
 
-        Merkle::Proof kernelProof;
-        if (!GetParameter(TxParameterID::KernelProof, kernelProof))
+        Height hProof = 0;
+		GetParameter(TxParameterID::KernelProofHeight, hProof);
+        if (!hProof)
         {
             if (!IsInitiator() && txState == State::Registration)
             {
@@ -372,17 +368,6 @@ namespace beam { namespace wallet
             }
             SetState(State::KernelConfirmation);
             ConfirmKernel(*builder.m_Kernel);
-            return;
-        }
-
-        Block::SystemState::Full state;
-        if (!GetTip(state))
-        {
-            if (!state.IsValidProofKernel(*builder.m_Kernel, kernelProof) && !m_Gateway.isTestMode())
-            {
-                OnFailed(TxFailureReason::InvalidKernelProof, false);
-                return;
-            }
             return;
         }
 
@@ -410,16 +395,17 @@ namespace beam { namespace wallet
         , m_Fee{ fee }
         , m_Change{0}
         , m_MinHeight{0}
+        , m_MaxHeight{MaxHeight}
     {
     }
 
     void TxBuilder::SelectInputs()
     {
         Amount amountWithFee = m_Amount + m_Fee;
-        auto coins = m_Tx.GetKeychain()->selectCoins(amountWithFee);
+        auto coins = m_Tx.GetWalletDB()->selectCoins(amountWithFee);
         if (coins.empty())
         {
-            LOG_ERROR() << "You only have " << PrintableAmount(getAvailable(m_Tx.GetKeychain()));
+            LOG_ERROR() << "You only have " << PrintableAmount(getAvailable(m_Tx.GetWalletDB()));
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
         }
 
@@ -429,7 +415,7 @@ namespace beam { namespace wallet
         {
             coin.m_spentTxId = m_Tx.GetTxID();
 
-            Scalar::Native blindingFactor = m_Tx.GetKeychain()->calcKey(coin);
+            Scalar::Native blindingFactor = m_Tx.GetWalletDB()->calcKey(coin);
             auto& input = m_Inputs.emplace_back(make_unique<Input>());
             input->m_Commitment = Commitment(blindingFactor, coin.m_amount);
             m_BlindingExcess += blindingFactor;
@@ -443,7 +429,7 @@ namespace beam { namespace wallet
         m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs);
         m_Tx.SetParameter(TxParameterID::Offset, m_Offset);
 
-        m_Tx.GetKeychain()->update(coins);
+        m_Tx.GetWalletDB()->update(coins);
     }
 
     void TxBuilder::AddChangeOutput()
@@ -453,26 +439,26 @@ namespace beam { namespace wallet
             return;
         }
 
-        AddOutput(m_Change);
+        AddOutput(m_Change, Coin::Change);
     }
 
-    void TxBuilder::AddOutput(Amount amount)
+    void TxBuilder::AddOutput(Amount amount, Coin::Status status)
     {
-        m_Outputs.push_back(CreateOutput(amount, m_MinHeight));
+        m_Outputs.push_back(CreateOutput(amount, status, m_MinHeight));
         m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs);
     }
 
-    Output::Ptr TxBuilder::CreateOutput(Amount amount, bool shared, Height incubation)
+    Output::Ptr TxBuilder::CreateOutput(Amount amount, Coin::Status status, bool shared, Height incubation)
     {
-        Coin newUtxo{ amount, Coin::Draft, m_MinHeight };
+        Coin newUtxo{ amount, status, m_MinHeight };
         newUtxo.m_createTxId = m_Tx.GetTxID();
-        m_Tx.GetKeychain()->store(newUtxo);
+        m_Tx.GetWalletDB()->store(newUtxo);
 
         Scalar::Native blindingFactor;
         Output::Ptr output = make_unique<Output>();
-        output->Create(blindingFactor, *m_Tx.GetKeychain()->get_Kdf(), newUtxo.get_Kidv());
+        output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_Kdf(), newUtxo.get_Kidv());
 
-        auto[privateExcess, newOffset] = splitKey(blindingFactor, newUtxo.m_id);
+        auto[privateExcess, newOffset] = splitKey(blindingFactor, newUtxo.m_keyIndex);
         blindingFactor = -privateExcess;
         m_BlindingExcess += blindingFactor;
         m_Offset += newOffset;
@@ -490,16 +476,16 @@ namespace beam { namespace wallet
         m_Kernel = make_unique<TxKernel>();
         m_Kernel->m_Fee = m_Fee;
         m_Kernel->m_Height.m_Min = m_MinHeight;
-        m_Kernel->m_Height.m_Max = MaxHeight;
-        m_Kernel->m_Excess = Zero;
+        m_Kernel->m_Height.m_Max = m_MaxHeight;
+        m_Kernel->m_Commitment = Zero;
 
 		if (!m_Tx.GetParameter(TxParameterID::MyNonce, m_MultiSig.m_Nonce))
 		{
 			Coin c;
-			c.m_id = m_Tx.GetKeychain()->get_AutoIncrID();
+			c.m_keyIndex = m_Tx.GetWalletDB()->get_AutoIncrID();
 			c.m_key_type = Key::Type::Nonce;
 
-			m_MultiSig.m_Nonce = m_Tx.GetKeychain()->calcKey(c);
+			m_MultiSig.m_Nonce = m_Tx.GetWalletDB()->calcKey(c);
 
 			m_Tx.SetParameter(TxParameterID::MyNonce, m_MultiSig.m_Nonce);
 		}
@@ -537,15 +523,13 @@ namespace beam { namespace wallet
         m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs);
         m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs);
         m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight);
+        m_Tx.GetParameter(TxParameterID::MaxHeight, m_MaxHeight);
         return m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess)
             && m_Tx.GetParameter(TxParameterID::Offset, m_Offset);
     }
 
     bool TxBuilder::GetPeerInputsAndOutputs()
     {
-        vector<Input::Ptr> inputs;
-        vector<Output::Ptr> outputs;
-        Scalar::Native peerOffset;
         return m_Tx.GetParameter(TxParameterID::PeerInputs, m_PeerInputs)
             && m_Tx.GetParameter(TxParameterID::PeerOutputs, m_PeerOutputs)
             && m_Tx.GetParameter(TxParameterID::PeerOffset, m_PeerOffset);
@@ -556,7 +540,7 @@ namespace beam { namespace wallet
         // create signature
         Point::Native totalPublicExcess = GetPublicExcess();
         totalPublicExcess += m_PeerPublicExcess;
-        m_Kernel->m_Excess = totalPublicExcess;
+        m_Kernel->m_Commitment = totalPublicExcess;
 
         m_Kernel->get_Hash(m_Message);
         m_MultiSig.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
@@ -577,10 +561,10 @@ namespace beam { namespace wallet
         assert(m_Kernel);
         Merkle::Hash kernelID = { 0 };
         m_Kernel->get_ID(kernelID);
-        LOG_INFO() << "Transaction kernel: " << kernelID;
+        LOG_INFO() << m_Tx.GetTxID() << " Transaction kernel: " << kernelID;
         // create transaction
         auto transaction = make_shared<Transaction>();
-        transaction->m_vKernelsOutput.push_back(move(m_Kernel));
+        transaction->m_vKernels.push_back(move(m_Kernel));
         transaction->m_Offset = m_Offset + m_PeerOffset;
         transaction->m_vInputs = move(m_Inputs);
         transaction->m_vOutputs = move(m_Outputs);

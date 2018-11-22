@@ -45,7 +45,7 @@ namespace beam { namespace wallet
     MACRO(ExpiredAddressProvided, 8, "address is expired") \
     MACRO(FailedToGetParameter,   9, "failed to get parameter") \
 
-    enum TxFailureReason
+    enum TxFailureReason : int32_t
     {
         #define MACRO(name, code, _) name = code, 
         BEAM_TX_FAILURE_REASON_MAP(MACRO)
@@ -74,8 +74,9 @@ namespace beam { namespace wallet
     public:
         using Ptr = std::shared_ptr<BaseTransaction>;
         BaseTransaction(INegotiatorGateway& gateway
-                      , beam::IKeyChain::Ptr keychain
+                      , beam::IWalletDB::Ptr walletDB
                       , const TxID& txID);
+        virtual ~BaseTransaction(){}
 
         const TxID& GetTxID() const;
         void Update() override;
@@ -84,14 +85,14 @@ namespace beam { namespace wallet
         template <typename T>
         bool GetParameter(TxParameterID paramID, T& value) const
         {
-            return getTxParameter(m_Keychain, GetTxID(), paramID, value);
+            return getTxParameter(m_WalletDB, GetTxID(), paramID, value);
         }
 
         template <typename T>
         T GetMandatoryParameter(TxParameterID paramID) const
         {
             T value{};
-            if (!getTxParameter(m_Keychain, GetTxID(), paramID, value))
+            if (!getTxParameter(m_WalletDB, GetTxID(), paramID, value))
             {
                 throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
             }
@@ -101,7 +102,7 @@ namespace beam { namespace wallet
         template <typename T>
         bool SetParameter(TxParameterID paramID, const T& value)
         {
-            return setTxParameter(m_Keychain, GetTxID(), paramID, value);
+            return setTxParameter(m_WalletDB, GetTxID(), paramID, value);
         }
 
         template <typename T>
@@ -110,7 +111,7 @@ namespace beam { namespace wallet
             SetParameter(TxParameterID::State, state);
         }
 
-        IKeyChain::Ptr GetKeychain();
+        IWalletDB::Ptr GetWalletDB();
         bool IsInitiator() const;
     protected:
 
@@ -130,7 +131,7 @@ namespace beam { namespace wallet
     protected:
 
         INegotiatorGateway& m_Gateway;
-        beam::IKeyChain::Ptr m_Keychain;
+        beam::IWalletDB::Ptr m_WalletDB;
 
         TxID m_ID;
         mutable boost::optional<bool> m_IsInitiator;
@@ -153,7 +154,7 @@ namespace beam { namespace wallet
         };
     public:
         SimpleTransaction(INegotiatorGateway& gateway
-                        , beam::IKeyChain::Ptr keychain
+                        , beam::IWalletDB::Ptr walletDB
                         , const TxID& txID);
     private:
         TxType GetType() const override;
@@ -170,6 +171,7 @@ namespace beam { namespace wallet
         Amount m_Fee;
         Amount m_Change;
         Height m_MinHeight;
+        Height m_MaxHeight;
         std::vector<Input::Ptr> m_Inputs;
         std::vector<Output::Ptr> m_Outputs;
         ECC::Scalar::Native m_BlindingExcess;
@@ -193,8 +195,8 @@ namespace beam { namespace wallet
 
         void SelectInputs();
         void AddChangeOutput();
-        void AddOutput(Amount amount);
-        Output::Ptr CreateOutput(Amount amount, bool shared = false, Height incubation = 0);
+        void AddOutput(Amount amount, Coin::Status status);
+        Output::Ptr CreateOutput(Amount amount, Coin::Status status, bool shared = false, Height incubation = 0);
         void GenerateNonce();
         ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;

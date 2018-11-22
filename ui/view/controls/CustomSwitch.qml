@@ -23,7 +23,7 @@ T.Switch {
         rightPadding: control.indicator.width + control.spacing
         text: control.text
         font: control.font
-        color: control.checked ? control.palette.text : Style.bluey_grey
+        color: control.checked && control.enabled ? control.palette.text : Style.bluey_grey
         elide: Text.ElideRight
         verticalAlignment: Text.AlignVCenter
     }
@@ -43,7 +43,7 @@ T.Switch {
             width: 16
             height: 16
             radius: 10
-            color: control.checked ? Style.bright_teal : Style.bluey_grey
+            color: control.checked && control.enabled ? Style.bright_teal : Style.bluey_grey
         }
     }
 }

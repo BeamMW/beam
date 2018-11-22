@@ -732,7 +732,14 @@ struct TransactionMaker
 
 		m_Trans.m_Offset = offset;
 
-		krn.m_Excess = kG;
+		for (size_t i = 0; i < krn.m_vNested.size(); i++)
+		{
+			Point::Native ptNested;
+			verify_test(ptNested.Import(krn.m_vNested[i]->m_Commitment));
+			kG += Point::Native(ptNested);
+		}
+
+		krn.m_Commitment = kG;
 
 		Hash::Value msg;
 		krn.get_ID(msg, &hvLockImage);
@@ -785,6 +792,8 @@ struct TransactionMaker
 		// finish HL: add hash preimage
 		pKrn->m_pHashLock->m_Preimage = hlPreimage;
 
+		verify_test(pKrn->IsValid(fee2, exc));
+
 		lstTrg.push_back(std::move(pKrn));
 	}
 
@@ -817,65 +826,13 @@ void TestTransaction()
 
 	tm.AddOutput(0, 738);
 	tm.AddInput(1, 740);
-	tm.CreateTxKernel(tm.m_Trans.m_vKernelsOutput, fee2, lstNested);
+	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested);
 
 	tm.m_Trans.Normalize();
 
 	beam::TxBase::Context ctx;
 	verify_test(tm.m_Trans.IsValid(ctx));
 	verify_test(!ctx.m_Fee.Hi && (ctx.m_Fee.Lo == fee1 + fee2));
-}
-
-void TestTransactionKernelConsuming()
-{
-	beam::Transaction t;
-
-	Scalar::Native kOffs = Zero;
-
-	for (int i = 0; i < 20; i++)
-	{
-		Scalar::Native kExc;
-		SetRandom(kExc);
-
-		Hash::Value hv;
-		Point::Native p = Context::get().G * kExc;
-
-		Amount mul0 = i, mul1 = (i + 10) * (i + 2);
-
-		// input kernel
-		Scalar::Native sk0 = kExc * (mul0 + 1);
-
-		beam::TxKernel::Ptr pKrn(new beam::TxKernel);
-		pKrn->m_Excess = p;
-		pKrn->m_Multiplier = mul0;
-		pKrn->get_ID(hv);
-		pKrn->m_Signature.Sign(hv, sk0);
-
-		t.m_vKernelsInput.push_back(std::move(pKrn));
-
-		kOffs += sk0;
-
-		// output kernel
-		Scalar::Native sk1 = kExc * (mul1 + 1);
-
-		pKrn.reset(new beam::TxKernel);
-		pKrn->m_Excess = p;
-		pKrn->m_Multiplier = mul1;
-		pKrn->get_ID(hv);
-		pKrn->m_Signature.Sign(hv, sk1);
-
-		t.m_vKernelsOutput.push_back(std::move(pKrn));
-
-		sk1 = -sk1;
-		kOffs += sk1;
-	}
-
-	t.m_Offset = kOffs;
-	t.Normalize();
-
-	beam::TxBase::Context ctx;
-	verify_test(t.IsValid(ctx));
-	verify_test(ctx.m_Fee.Lo == 0);
 }
 
 void TestAES()
@@ -920,7 +877,7 @@ void TestAES()
 	verify_test(!sd.zero0 && !sd.zero1);
 
 	sd.dec.Proceed(pBuf, pBuf); // inplace decode
-	verify_test(!memcmp(pBuf, pBuf, sizeof(pPlaintext)));
+	verify_test(!memcmp(pBuf, pPlaintext, sizeof(pPlaintext)));
 }
 
 void TestKdf()
@@ -1109,7 +1066,6 @@ void TestAll()
 	TestCommitments();
 	TestRangeProof();
 	TestTransaction();
-	TestTransactionKernelConsuming();
 	TestAES();
 	TestKdf();
 	TestBbs();

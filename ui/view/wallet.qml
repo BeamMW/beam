@@ -57,11 +57,19 @@ Item {
                 qsTr("online")
         }
 
-        state: "offline"
+        state: "online"
 
         property int indicator_radius: 5
         property Item indicator: online_indicator
         property string error_msg: viewModel.walletStatusErrorMsg
+
+        function setIndicator(indicator) {
+            if (indicator !== status_bar.indicator) {
+                status_bar.indicator.visible = false;
+                status_bar.indicator = indicator;
+                status_bar.indicator.visible = true;
+            }
+        }
 
         Item {
             id: online_indicator
@@ -99,6 +107,7 @@ Item {
             anchors.top: parent.top
             anchors.left: parent.left
             width: childrenRect.width
+            visible: false
 
             property color color: Style.bluey_grey
             property int radius: status_bar.indicator_radius
@@ -176,45 +185,73 @@ Item {
             visible: viewModel.nodeSyncProgress > 0 && update_indicator.visible
         }
 
+        CustomProgressBar {
+            id: progress_bar
+            anchors.top: update_indicator.bottom
+            anchors.left: update_indicator.left
+            anchors.topMargin: 6
+            backgroundImplicitWidth: 200
+            contentItemImplicitWidth: 200
+
+            visible: viewModel.nodeSyncProgress > 0 && update_indicator.visible
+            value: viewModel.nodeSyncProgress / 100
+        }
+
         states: [
             State {
                 name: "online"
                 when: (status_bar.status === "online")
                 PropertyChanges {target: status_text; text: qsTr("online") + viewModel.branchName}
-                PropertyChanges {target: status_bar; indicator: online_indicator}
-                PropertyChanges {target: online_indicator; visible: true}
-                PropertyChanges {target: offline_indicator; visible: false}
-                PropertyChanges {target: update_indicator; visible: false}
+                StateChangeScript {
+                    name: "onlineScript"
+                    script: {
+                        status_bar.setIndicator(online_indicator);
+                    }
+                }
             },
             State {
                 name: "offline"
                 when: (status_bar.status === "offline")
                 PropertyChanges {target: status_text; text: qsTr("offline") + viewModel.branchName}
-                PropertyChanges {target: status_bar; indicator: offline_indicator}
-                PropertyChanges {target: online_indicator; visible: false}
-                PropertyChanges {target: offline_indicator; visible: true}
-                PropertyChanges {target: update_indicator; visible: false}
+                StateChangeScript {
+                    name: "offlineScript"
+                    script: {
+                        status_bar.setIndicator(offline_indicator);
+                    }
+                }
             },
             State {
                 name: "updating"
                 when: (status_bar.status === "updating")
                 PropertyChanges {target: status_text; text: qsTr("updating...") + viewModel.branchName}
-                PropertyChanges {target: status_bar; indicator: update_indicator}
-                PropertyChanges {target: online_indicator; color: "red"}
-                PropertyChanges {target: online_indicator; visible: false}
-                PropertyChanges {target: offline_indicator; visible: false}
-                PropertyChanges {target: update_indicator; visible: true}
+                StateChangeScript {
+                    name: "updatingScript"
+                    script: {
+                        status_bar.setIndicator(update_indicator);
+                    }
+                }
             },
             State {
                 name: "error"
                 when: (status_bar.status === "error")
-                PropertyChanges {target: status_bar; indicator: online_indicator}
                 PropertyChanges {target: status_text; text: status_bar.error_msg + viewModel.branchName}
-                PropertyChanges {target: status_text; color: "red"}
-                PropertyChanges {target: online_indicator; color: "red"}
-                PropertyChanges {target: online_indicator; visible: true}
-                PropertyChanges {target: offline_indicator; visible: false}
-                PropertyChanges {target: update_indicator; visible: false}
+                StateChangeScript {
+                    name: "errorScript"
+                    script: {
+                        online_indicator.color = "red";
+                        status_bar.setIndicator(online_indicator);
+                    }
+                }
+            }
+        ]
+        transitions: [
+            Transition {
+                from: "online"
+                to: "updating"
+                SequentialAnimation {
+                    PauseAnimation { duration: 1000 }
+                    ScriptAction { scriptName: "updatingScript" }
+                }
             }
         ]
     }
@@ -236,65 +273,84 @@ Item {
 
             SFText {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.minimumHeight: 20
+                Layout.minimumHeight: 21
                 font.pixelSize: 18
                 font.styleName: "Bold"; font.weight: Font.Bold
                 color: Style.white
                 text: qsTr("Receive Beam")
             }
 
-            SFText {
-                font.pixelSize: 14
-                Layout.minimumHeight: 16
-                font.styleName: "Bold"; font.weight: Font.Bold
-                color: Style.white
-                text: qsTr("My address")
-            }
-
-            SFTextInput {
-                id: myAddressID
+            RowLayout {
                 Layout.fillWidth: true
-                font.pixelSize: 14
-                Layout.minimumHeight: 20
-                color: Style.disable_text_color
-                readOnly: true
-                activeFocusOnTab: false
-                text: viewModel.newReceiverAddr
-            }
 
-            SFText {
-                Layout.alignment: Qt.AlignLeft
-                Layout.minimumHeight: 16
-                Layout.topMargin: -24
-                font.pixelSize: 14
-                font.italic: true
-                color: Style.white
-                text: qsTr("The address will be valid for 24 hours")
-            }
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Column {
+                        anchors.fill: parent
+                        spacing: 10
 
-            SFText {
-                font.pixelSize: 14
-                Layout.minimumHeight: 16
-                font.styleName: "Bold"; font.weight: Font.Bold
-                color: Style.white
-                text: qsTr("Comment")
-            }
+                        SFText {
+                            font.pixelSize: 14
+                            font.styleName: "Bold"; font.weight: Font.Bold
+                            color: Style.white
+                            text: qsTr("My address")
+                        }
 
-            SFTextInput {
-                id: myAddressName
-                Layout.fillWidth: true
-                font.pixelSize: 14
-                Layout.minimumHeight: 20
-                color: Style.white
-                focus: true
-                text: viewModel.newReceiverName
-            }
+                        SFTextInput {
+                            id: myAddressID
+                            width: parent.width
+                            font.pixelSize: 14
+                            color: Style.disable_text_color
+                            readOnly: true
+                            activeFocusOnTab: false
+                            text: viewModel.newReceiverAddr
+                        }
 
-            Binding {
-                target: viewModel
-                property: "newReceiverName"
-                value: myAddressName.text
-            }
+                        SFText {
+                            Layout.topMargin: -24
+                            font.pixelSize: 14
+                            font.italic: true
+                            color: Style.white
+                            text: qsTr("The address will be valid for 24 hours")
+                        }
+
+                        SFText {
+                            font.pixelSize: 14
+                            font.styleName: "Bold"; font.weight: Font.Bold
+                            color: Style.white
+                            text: qsTr("Comment")
+                        }
+
+                        SFTextInput {
+                            id: myAddressName
+                            font.pixelSize: 14
+                            width: parent.width
+                            color: Style.white
+                            focus: true
+                            text: viewModel.newReceiverName
+                        }
+
+                        Binding {
+                            target: viewModel
+                            property: "newReceiverName"
+                            value: myAddressName.text
+                        }
+                    
+                    }
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Image {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        fillMode: Image.Pad
+                        
+                        source: viewModel.newReceiverAddrQR
+                    }
+                }
+            }            
 
             SFText {
                 Layout.alignment: Qt.AlignHCenter
@@ -303,7 +359,6 @@ Item {
                 color: Style.white
                 text: qsTr("Send this address to the sender over an external secure channel")
             }
-
             Row {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.minimumHeight: 40
@@ -323,7 +378,9 @@ Item {
 
                 CustomButton {
                     text: qsTr("copy")
-                    palette.buttonText: Style.white
+                    palette.buttonText: Style.marine
+                    icon.color: Style.marine
+                    palette.button: Style.bright_teal
                     icon.source: "qrc:/assets/icon-copy.svg"
                     onClicked: {
                         viewModel.copyToClipboard(myAddressID.text);
@@ -350,7 +407,7 @@ Item {
         ColumnLayout {
             anchors.fill: parent
 
-            spacing: 30
+            spacing: 20
 
             SFText {
                 Layout.alignment: Qt.AlignHCenter
@@ -564,19 +621,55 @@ Item {
                             text: qsTr("Transaction fee")
                         }
 
-                        FeeSlider {
-                            id: feeSlider
+                        RowLayout {
                             Layout.fillWidth: true
 
-                            to: 0.000010
-                            stepSize: 0.000001
-                            value: 0.0
+                            ColumnLayout {
+                                Layout.fillWidth: true
+
+                                SFTextInput {
+                                    Layout.fillWidth: true
+                                    id: fee_input
+
+                                    font.pixelSize: 36
+                                    font.styleName: "Light"; font.weight: Font.Light
+                                    color: Style.heliotrope
+
+                                    text: viewModel.defaultFeeInGroth.toLocaleString(Qt.locale(), 'f', -128)
+
+                                    property int amount: viewModel.defaultFeeInGroth
+
+                                    validator: IntValidator {bottom: 0}
+                                    maximumLength: 15
+                                    selectByMouse: true
+                                    
+                                    onTextChanged: {
+                                        if (focus) {
+                                            amount = text ? text : 0;
+                                        }
+                                    }
+
+                                    onFocusChanged: {
+                                        if (amount >= 0) {
+                                            // QLocale::FloatingPointShortest = -128
+                                            text = focus ? amount : amount.toLocaleString(Qt.locale(), 'f', -128);
+                                        }
+                                    }
+                                }
+                            }
+
+                            SFText {
+                                font.pixelSize: 24
+                                color: Style.white
+                                text: qsTr("GROTH")
+                            }
                         }
 
                         Binding {
                             target: viewModel
-                            property: "feeMils"
-                            value: feeSlider.value
+                            property: "feeGrothes"
+                            //value: feeSlider.value
+                            value: fee_input.amount
                         }
 
                         Item {
@@ -715,7 +808,7 @@ Item {
                     onClicked: {
                         if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {
                             var message = "You are about to send %1 to address %2";
-                            var beams = (viewModel.sendAmount*1 + viewModel.feeMils*1) + " " + qsTr("BEAM");
+                            var beams = (viewModel.sendAmount*1 + 1 * viewModel.feeGrothes / 1000000) + " " + qsTr("BEAM");
 
                             confirmationDialog.text = message.arg(beams).arg(viewModel.receiverAddr);
                             confirmationDialog.open();
@@ -920,7 +1013,7 @@ Item {
                 value: transactionsView.sortIndicatorOrder
             }
 
-            property int resizableWidth: parent.width - incomeColumn.width - actionsColumn.width - commentColumn.width
+            property int resizableWidth: parent.width - incomeColumn.width - actionsColumn.width
 
             TableViewColumn {
                 id: incomeColumn
@@ -948,7 +1041,7 @@ Item {
 
             TableViewColumn {
                 role: viewModel.dateRole
-                title: qsTr("Date | Time")
+                title: qsTr("Date | time")
                 width: 160 * transactionsView.resizableWidth / 870
                 elideMode: Text.ElideRight
                 resizable: false
@@ -999,31 +1092,6 @@ Item {
                             color: Style.white
                             copyMenuEnabled: true
                             onCopyText: viewModel.copyToClipboard(text)
-                        }
-                    }
-                }
-            }
-
-
-            TableViewColumn {
-                id: commentColumn
-                role: "comment"
-                title: qsTr("Comment")
-                width: 100
-                elideMode: Text.ElideRight
-                movable: false
-                resizable: false
-                delegate: Item {
-                    Item {
-                        width: parent.width
-                        height: transactionsView.rowHeight
-                        clip:true
-
-                        SvgImage {
-                            anchors.verticalCenter: parent.verticalCenter
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            source: "qrc:/assets/icon-comment.svg"
-                            visible: styleData.value !== null && styleData.value !== ""
                         }
                     }
                 }
@@ -1131,7 +1199,6 @@ Item {
                                 icon.source: "qrc:/assets/icon-actions.svg"
                                 ToolTip.text: qsTr("Actions")
                                 onClicked: {
-                                    txContextMenu.index = styleData.row;
                                     txContextMenu.transaction = viewModel.transactions[styleData.row];
                                     txContextMenu.popup();
                                 }
@@ -1146,7 +1213,6 @@ Item {
                 modal: true
                 dim: false
                 property TxObject transaction
-                property int index;
                 Action {
                     text: qsTr("copy address")
                     icon.source: "qrc:/assets/icon-copy.svg"
@@ -1160,7 +1226,7 @@ Item {
                 Action {
                     text: qsTr("cancel")
                     onTriggered: {
-                       viewModel.cancelTx(txContextMenu.index);
+                       viewModel.cancelTx(txContextMenu.transaction);
                     }
                     enabled: !!txContextMenu.transaction && txContextMenu.transaction.canCancel
                     icon.source: "qrc:/assets/icon-cancel.svg"
@@ -1177,7 +1243,7 @@ Item {
                 Connections {
                     target: deleteTransactionDialog
                     onAccepted: {
-                        viewModel.deleteTx(txContextMenu.index);
+                        viewModel.deleteTx(txContextMenu.transaction);
                     }
                 }
             }
@@ -1347,7 +1413,6 @@ Item {
                         }
                         if (mouse.button === Qt.RightButton )
                         {
-                            txContextMenu.index = styleData.row;
                             txContextMenu.transaction = viewModel.transactions[styleData.row];
                             txContextMenu.popup();
                         }
@@ -1485,6 +1550,8 @@ Item {
             PropertyChanges {target: send_layout; visible: true}
             PropertyChanges {target: amount_input; text: ""}
             PropertyChanges {target: amount_input; amount: 0}
+            PropertyChanges {target: fee_input; text: viewModel.defaultFeeInGroth.toLocaleString(Qt.locale(), 'f', -128)}
+            PropertyChanges {target: fee_input; amount: viewModel.defaultFeeInGroth}
             PropertyChanges {target: receiverAddrInput; text: ""}
             PropertyChanges {target: comment_input; text: ""}
             StateChangeScript {

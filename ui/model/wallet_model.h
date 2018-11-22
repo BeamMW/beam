@@ -27,6 +27,7 @@ struct IWalletModelAsync
 
     virtual void sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
     virtual void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
+    virtual void restoreFromBlockchain() = 0;
     virtual void syncWithNode() = 0;
     virtual void calcChange(beam::Amount&& amount) = 0;
     virtual void getWalletStatus() = 0;
@@ -74,14 +75,14 @@ public:
 
     using Ptr = std::shared_ptr<WalletModel>;
 
-    WalletModel(beam::IKeyChain::Ptr keychain, beam::IKeyStore::Ptr keystore, const std::string& nodeAddr);
+    WalletModel(beam::IWalletDB::Ptr walletDB, beam::IKeyStore::Ptr keystore, const std::string& nodeAddr);
     ~WalletModel();
 
     void run() override;
 
 public:
-    IWalletModelAsync::Ptr async;
-
+    
+    IWalletModelAsync::Ptr getAsync();
     bool check_receiver_address(const std::string& addr);
 
 signals:
@@ -94,9 +95,12 @@ signals:
     void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
     void onGeneratedNewWalletID(const beam::WalletID& walletID);
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
+    void nodeConnectionChanged(bool isNodeConnected);
+    void nodeConnectionFailed();
+
 
 private:
-    void onKeychainChanged() override;
+    void onCoinsChanged() override;
     void onTransactionChanged(beam::ChangeAction action, std::vector<beam::TxDescription>&& items) override;
     void onSystemStateChanged() override;
     void onTxPeerChanged() override;
@@ -105,6 +109,7 @@ private:
 
     void sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, beam::Amount&& amount, beam::Amount&& fee) override;
     void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee) override;
+    void restoreFromBlockchain() override;
     void syncWithNode() override;
     void calcChange(beam::Amount&& amount) override;
     void getWalletStatus() override;
@@ -120,15 +125,20 @@ private:
     void setNodeAddress(const std::string& addr) override;
     void changeWalletPassword(const beam::SecString& password) override;
 
+    void onNodeConnectedStatusChanged(bool isNodeConnected);
+    void onNodeConnectionFailed();
+
     void onStatusChanged();
     WalletStatus getStatus() const;
     std::vector<beam::Coin> getUtxos() const;
 private:
 
-    beam::IKeyChain::Ptr _keychain;
+    beam::IWalletDB::Ptr _walletDB;
     beam::IKeyStore::Ptr _keystore;
     beam::io::Reactor::Ptr _reactor;
-    std::weak_ptr<beam::INetworkIO> _wallet_io;
+    IWalletModelAsync::Ptr _async;
+    std::weak_ptr<beam::proto::FlyClient::INetwork> _nnet;
+	std::weak_ptr<beam::Wallet::INetwork> _wnet;
     std::weak_ptr<beam::Wallet> _wallet;
     beam::io::Timer::Ptr _logRotateTimer;
 

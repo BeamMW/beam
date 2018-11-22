@@ -26,7 +26,7 @@
 #	pragma warning (disable: 4706 4701) // assignment within conditional expression
 #endif
 
-#include "../secp256k1-zkp/src/secp256k1.c"
+#include "secp256k1-zkp/src/secp256k1.c"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic pop
@@ -1216,6 +1216,18 @@ namespace ECC {
 		DeriveKey(out, hv);
 	}
 
+	bool Key::IPKdf::IsSame(IPKdf& x)
+	{
+		Hash::Value hv = Zero;
+
+		Scalar::Native k0, k1;
+		DerivePKey(k0, hv);
+		x.DerivePKey(k1, hv);
+
+		k0 += -k1;
+		return (k0 == Zero);
+	}
+
 	/////////////////////
 	// HKdf
 	HKdf::HKdf()
@@ -1223,6 +1235,8 @@ namespace ECC {
 		ZeroObject(m_Secret.V);
 		m_kCoFactor = 1U; // by default
 	}
+
+	HKdf::~HKdf(){}
 
 	void HKdf::DeriveKey(Scalar::Native& out, const Hash::Value& hv)
 	{
@@ -1412,7 +1426,7 @@ namespace ECC {
 			Key::ID::Packed kid = m_Kid;
 			XCryptKid(kid, cp);
 
-			cp.m_Kidv.as_ID() = kid;
+			Cast::Down<Key::ID>(cp.m_Kidv) = kid;
 			cp.m_Kidv.m_Value = m_Value;
 		}
 

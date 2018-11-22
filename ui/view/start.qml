@@ -108,7 +108,7 @@ Item
                     }
 
                     CustomButton {
-                        text: qsTr("restore wallet from blockchain")
+                        text: qsTr("restore wallet")
                         icon.source: "qrc:/assets/icon-restore.svg"
                         onClicked: {
                             viewModel.isRecoveryMode = true;
@@ -167,7 +167,7 @@ Item
                         }
                         SecurityNote{
                             iconSource: "qrc:/assets/copy-two-paper-sheets-interface-symbol.svg"
-                            text: qsTr("Make at least 2 copies of the phrase in case of emergency");
+                            text: qsTr("Keep the copies of your recovery phrase in a safe place");
                         }
                     }
                     
@@ -225,7 +225,7 @@ Item
                             anchors.left: parent.left
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("This set of 12 words allows you to recover your wallet from the blockchain. Print or write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.")
+                            text: qsTr("Your recovery phrase is the access key to all the cryptocurrencies in your wallet. Print or write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.")
                             color: Style.white
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
@@ -809,7 +809,7 @@ Item
                                     }
                                     else
                                     {
-                                        root.parent.source = "qrc:/main.qml";
+                                        root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true});
                                     }
                                 }
                             }
@@ -846,7 +846,7 @@ Item
 
                     Column {
                         Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
-                        Layout.preferredWidth: 400
+                        Layout.preferredWidth: 440
                         topPadding: 50
 
                         clip: true
@@ -891,10 +891,32 @@ Item
                                 color: Style.validator_color
                                 font.pixelSize: 14
                             }
+                            RowLayout {
+                                CustomSwitch {
+                                    id: useGpu
+                                    text: qsTr("Use GPU")
+                                    font.pixelSize: 12
+                                    checked: viewModel.useGpu
+                                    visible: viewModel.showUseGpu()
+                                    enabled: viewModel.hasSupportedGpu()
+                                    Binding {
+                                        target: viewModel
+                                        property: "useGpu"
+                                        value: useGpu.checked
+                                    }
+                                }
+                                SFText {
+                                    id: gpuError
+                                    color: Style.validator_color
+                                    font.pixelSize: 14
+                                    visible: viewModel.showUseGpu() && !viewModel.hasSupportedGpu()
+                                    text: qsTr("You have unsupported videocard")
+                                }
+                            }
 
                             SFText {
                                 text: qsTr("Enter mining threads (0 - no mining)")
-                                color: Style.white
+                                color: !useGpu.checked ? Style.white : Style.disable_text_color
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
                             }
@@ -904,6 +926,7 @@ Item
                                 precision: 0
                                 showTicks: true
                                 width: parent.width
+                                enabled: !useGpu.checked
                                 value: 0
                                 to: {viewModel.coreAmount()}
                                 stepSize: 1
@@ -928,7 +951,7 @@ Item
                             SFTextInput {
                                 id:remoteNodeAddrInput
                                 visible: remoteNodeButton.checked
-                                width: parent.width
+                                width: parent.width - parent.spacing - remoteNodeButton.width
                                 font.pixelSize: 14
                                 color: Style.white
                                 text: "127.0.0.1:10000"
@@ -1088,11 +1111,6 @@ Item
                     // activeFocusOnTab: true
                 //}
 
-        //         DefaultButton {
-        //             text: qsTr("restore wallet from blockchain")
-                    // activeFocusOnTab: true
-        //         }
-
                 PrimaryButton {
                     anchors.verticalCenter: parent.verticalCenter
                     id: btnCurrentWallet
@@ -1111,7 +1129,7 @@ Item
                             }
                             else
                             {
-                                 root.parent.source = "qrc:/main.qml";
+                                 root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : false, "isCreating" : false});
                             }
                         }
                     }

@@ -33,7 +33,6 @@ class NodeProcessor
 	NodeDB::Transaction m_DbTx;
 
 	UtxoTree m_Utxos;
-	RadixHashOnlyTree m_Kernels;
 
 	size_t m_nSizeUtxoComission;
 
@@ -42,23 +41,23 @@ class NodeProcessor
 	bool GoForward(uint64_t);
 	void Rollback();
 	void PruneOld();
-	void PruneAt(Height, bool bDeleteBody);
 	void InitializeFromBlocks();
+	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock);
 
 	struct RollbackData;
 
 	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
-	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, bool bAdjustInputMaturity, const Height* = NULL);
-	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, bool bAdjustInputMaturity, const Height* = NULL);
-	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd, bool bAdjustInputMaturity);
+	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, const Height* = NULL);
+	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, const Height* = NULL);
+	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd);
 	bool HandleBlockElement(const Output&, Height, const Height*, bool bFwd);
-	bool HandleBlockElement(const TxKernel&, bool bFwd, bool bIsInput);
 	void ToggleSubsidyOpened();
-	bool ValidateTxContextKernels(const std::vector<TxKernel::Ptr>&, bool bInp);
 
 	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
+	void RecognizeUtxos(TxBase::IReader&&, Height hMax);
 
 	static void SquashOnce(std::vector<Block::Body>&);
+	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, Height, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
 
 	void InitCursor();
 	static void OnCorrupted();
@@ -66,6 +65,7 @@ class NodeProcessor
 	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
 	Difficulty get_NextDifficulty();
 	Timestamp get_MovingMedian();
+	Height get_FossilHeight();
 
 	struct UtxoSig;
 	struct UnspentWalker;
@@ -90,6 +90,7 @@ class NodeProcessor
 	};
 
 	bool EnumBlocks(IBlockWalker&);
+	Height OpenLatestMacroblock(Block::Body::RW&);
 
 public:
 
@@ -126,8 +127,6 @@ public:
 
 	} m_Extra;
 
-	void get_CurrentLive(Merkle::Hash&);
-
 	// Export compressed history elements. Suitable only for "small" ranges, otherwise may be both time & memory consumng.
 	void ExtractBlockWithExtra(Block::Body&, const NodeDB::StateID&);
 	void ExportMacroBlock(Block::BodyBase::IMacroWriter&, const HeightRange&);
@@ -144,15 +143,17 @@ public:
 	};
 
 	DataStatus::Enum OnState(const Block::SystemState::Full&, const PeerID&);
-	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const Blob& block, const PeerID&);
+	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const Blob& bbP, const Blob& bbE, const PeerID&);
 
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }
 	UtxoTree& get_Utxos() { return m_Utxos; }
-	RadixHashOnlyTree& get_Kernels() { return m_Kernels; }
+	static void ReadBody(Block::Body&, const ByteBuffer& bbP, const ByteBuffer& bbE);
+
+	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);
 
 	void CommitDB();
-	void EnumCongestions();
+	void EnumCongestions(uint32_t nMaxBlocksBacklog);
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 
 	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) {}
@@ -164,8 +165,10 @@ public:
 	virtual void AdjustFossilEnd(Height&) {}
 	virtual void OnStateData() {}
 	virtual void OnBlockData() {}
+	virtual void OnUpToDate() {}
 	virtual bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) { return false; }
 	virtual void OnModified() {}
+	virtual Key::IPKdf* get_Kdf(uint32_t i) { return NULL; }
 
 	uint64_t FindActiveAtStrict(Height);
 
@@ -177,7 +180,8 @@ public:
 		TxPool::Fluff& m_TxPool;
 		Key::IKdf& m_Kdf;
 		Block::SystemState::Full m_Hdr;
-		ByteBuffer m_Body;
+		ByteBuffer m_BodyP;
+		ByteBuffer m_BodyE;
 		Amount m_Fees;
 
 		BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf)
@@ -189,6 +193,7 @@ public:
 
 	bool GenerateNewBlock(BlockContext&, Block::Body& blockInOut);
 	bool GenerateNewBlock(BlockContext&);
+	void DeleteOutdated(TxPool::Fluff&);
 
 	struct UtxoRecoverSimple
 		:public IUtxoWalker

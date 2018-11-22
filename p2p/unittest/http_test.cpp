@@ -14,7 +14,7 @@
 
 #include "p2p/http_connection.h"
 #include "p2p/http_msg_creator.h"
-#include "utility/io/tcpserver.h"
+#include "utility/io/sslserver.h"
 #include "utility/io/asyncevent.h"
 #include "utility/io/timer.h"
 #include "utility/helpers.h"
@@ -30,15 +30,24 @@ io::AsyncEvent::Trigger g_stopEvent;
 
 class DummyHttpServer {
 public:
-    DummyHttpServer(io::Reactor& reactor) :
+    DummyHttpServer(io::Reactor& reactor, bool ssl) :
         _msgCreator(2000),
         _reactor(reactor)
     {
-        _server = io::TcpServer::create(
-            _reactor,
-            io::Address::localhost().port(PORT),
-            BIND_THIS_MEMFN(on_stream_accepted)
-        );
+        if (ssl) {
+            _server = io::SslServer::create(
+                _reactor,
+                io::Address::localhost().port(PORT),
+                BIND_THIS_MEMFN(on_stream_accepted),
+                PROJECT_SOURCE_DIR "/utility/unittest/test.crt", PROJECT_SOURCE_DIR "/utility/unittest/test.key"
+            );
+        } else {
+            _server = io::TcpServer::create(
+                _reactor,
+                io::Address::localhost().port(PORT),
+                BIND_THIS_MEMFN(on_stream_accepted)
+            );
+        }
     }
 private:
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode) {
@@ -121,10 +130,11 @@ private:
 
 class DummyHttpClient {
 public:
-    DummyHttpClient(io::Reactor& reactor) :
+    DummyHttpClient(io::Reactor& reactor, bool ssl) :
         _msgCreator(1000),
         _reactor(reactor),
-        _timer(io::Timer::create(_reactor))
+        _timer(io::Timer::create(_reactor)),
+        _ssl(ssl)
     {
         _timer->start(100, false, BIND_THIS_MEMFN(on_timer));
     }
@@ -133,7 +143,7 @@ public:
 
 private:
     void on_timer() {
-        if (!_reactor.tcp_connect(io::Address::localhost().port(PORT), 333, BIND_THIS_MEMFN(on_connected), 1000)) {
+        if (!_reactor.tcp_connect(io::Address::localhost().port(PORT), 333, BIND_THIS_MEMFN(on_connected), 1000, _ssl)) {
             LOG_ERROR() << "Connect failed";
             g_stopEvent();
         }
@@ -150,7 +160,7 @@ private:
             222,
             BaseConnection::outbound,
             BIND_THIS_MEMFN(on_response),
-            10*1024*1024,
+            30*1024*1024,
             1024,
             std::move(newStream)
         );
@@ -175,6 +185,8 @@ private:
 
     bool on_response(uint64_t, const HttpMsgReader::Message& msg) {
         if (msg.what != HttpMsgReader::http_message || !msg.msg) {
+            LOG_ERROR() << __FUNCTION__ << " " << msg.error_str();
+
             if (msg.what == HttpMsgReader::connection_error && msg.connectionError == io::EC_EOF) {
                 _theConnection.reset();
             }
@@ -210,6 +222,7 @@ private:
     io::Reactor& _reactor;
     HttpConnection::Ptr _theConnection;
     io::Timer::Ptr _timer;
+    bool _ssl;
 };
 
 void get_this_path() {
@@ -219,7 +232,7 @@ void get_this_path() {
     THIS_PATH = std::string(buf);
 }
 
-int http_server_test() {
+int http_server_test(bool ssl) {
     int nErrors = 0;
 
     io::Reactor::Ptr reactor;
@@ -232,8 +245,8 @@ int http_server_test() {
         io::AsyncEvent::Ptr stopEvent = io::AsyncEvent::create(r, [&r]() {r.stop();});
         LOG_DEBUG() << reactor.use_count();
         g_stopEvent = stopEvent;
-        DummyHttpServer server(r);
-        DummyHttpClient client(r);
+        DummyHttpServer server(r, ssl);
+        DummyHttpClient client(r, ssl);
         reactor->run();
         nErrors = client.uncompleted;
         LOG_DEBUG() << reactor.use_count();
@@ -254,5 +267,7 @@ int main() {
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
-    return http_server_test();
+    int r = http_server_test(true);
+    r += http_server_test(false);
+    return r;
 }

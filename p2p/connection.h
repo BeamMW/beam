@@ -28,7 +28,10 @@ public:
         BaseConnection(d, std::move(stream)),
         _msgReader(protocol, peerId, defaultMsgSize)
     {
-        _stream->enable_read([this](io::ErrorCode what, void* data, size_t size){ _msgReader.new_data_from_stream(what, data, size); });
+        _stream->enable_read(
+            [this](io::ErrorCode what, void* data, size_t size) -> bool
+            { return _msgReader.new_data_from_stream(what, data, size); }
+        );
     }
 
     uint64_t id() const override { return _msgReader.id(); }

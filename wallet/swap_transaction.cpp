@@ -19,9 +19,9 @@ using namespace ECC;
 namespace beam {namespace wallet
 {
     AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
-                                               , beam::IKeyChain::Ptr keychain
+                                               , beam::IWalletDB::Ptr walletDB
                                                , const TxID& txID)
-        : BaseTransaction(gateway, keychain, txID)
+        : BaseTransaction(gateway, walletDB, txID)
     {
 
     }
@@ -69,7 +69,7 @@ namespace beam {namespace wallet
     //        || !GetParameter(TxParameterID::SharedOutputs, sharedOutputs))
     //    {
     //        LOG_INFO() << GetTxID() << (" Sending ") << PrintableAmount(amount) << " (fee: " << PrintableAmount(fee) << ")";
-    //        minHeight = m_Keychain->getCurrentHeight();
+    //        minHeight = m_WalletDB->getCurrentHeight();
     //        SetParameter(TxParameterID::MinHeight, minHeight);
 
     //        // select and lock input utxos
@@ -83,9 +83,9 @@ namespace beam {namespace wallet
     //        {
     //            Coin newUtxo{ amount, Coin::Draft, minHeight };
     //            newUtxo.m_createTxId = GetTxID();
-    //            m_Keychain->store(newUtxo);
+    //            m_WalletDB->store(newUtxo);
 
-    //            Scalar::Native blindingFactor = m_Keychain->calcKey(newUtxo);
+    //            Scalar::Native blindingFactor = m_WalletDB->calcKey(newUtxo);
     //            auto[privateFactor, newOffset] = splitKey(blindingFactor, newUtxo.m_id);
 
     //            blindingFactor = -privateFactor;
@@ -137,9 +137,9 @@ namespace beam {namespace wallet
     //            {
     //                Coin newUtxo{ amount, Coin::Draft, minHeight };
     //                newUtxo.m_createTxId = GetTxID();
-    //                m_Keychain->store(newUtxo);
+    //                m_WalletDB->store(newUtxo);
 
-    //                Scalar::Native blindingFactor = m_Keychain->calcKey(newUtxo);
+    //                Scalar::Native blindingFactor = m_WalletDB->calcKey(newUtxo);
     //                auto[privateFactor, newOffset] = splitKey(blindingFactor, newUtxo.m_id);
 
     //                blindingFactor = -privateFactor;
@@ -253,16 +253,16 @@ namespace beam {namespace wallet
     //        || !GetParameter(TxParameterID::SharedBlindingFactor, sharedBlindingFactor))
     //    {
     //        LOG_INFO() << GetTxID() << (" Receiving ") << PrintableAmount(amount) << " (fee: " << PrintableAmount(fee) << ")";
-    //        minHeight = m_Keychain->getCurrentHeight();
+    //        minHeight = m_WalletDB->getCurrentHeight();
     //        SetParameter(TxParameterID::MinHeight, minHeight);
 
     //        // create shared output. the same for sender and receiver
     //        {
     //            Coin newUtxo{ amount, Coin::Draft, minHeight };
     //            newUtxo.m_createTxId = GetTxID();
-    //            m_Keychain->store(newUtxo);
+    //            m_WalletDB->store(newUtxo);
 
-    //            Scalar::Native blindingFactor = m_Keychain->calcKey(newUtxo);
+    //            Scalar::Native blindingFactor = m_WalletDB->calcKey(newUtxo);
     //            auto[privateFactor, newOffset] = splitKey(blindingFactor, newUtxo.m_id);
 
     //            blindingFactor = -privateFactor;

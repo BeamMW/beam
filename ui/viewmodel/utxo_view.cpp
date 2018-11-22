@@ -55,15 +55,27 @@ QString UtxoItem::maturity() const
 
 QString UtxoItem::status() const
 {
-    static const char* Names[] =
+    switch(_coin.m_status)
     {
-        "Unconfirmed",
-        "Unspent",
-        "Locked",
-        "Spent",
-        "Draft"
-    };
-    return Names[_coin.m_status];
+        case Coin::Available:
+            return tr("available");
+        case Coin::Maturing:
+            return tr("maturing\n(till block height ") + QString::number(_coin.m_maturity) + ")";
+        case Coin::Unavailable:
+            return tr("unavailable\n(mining result rollback)");
+        case Coin::Change:
+            return tr("in progress\n(change)");
+        case Coin::Outgoing:
+            return tr("in progress\n(outgoing)");
+        case Coin::Incoming:
+            return tr("in progress\n(incoming)");
+        case Coin::Spent:
+            return tr("spent");
+        default:
+            assert(false && "Unknown key type");
+    }
+
+    return "";
 }
 
 QString UtxoItem::type() const
@@ -104,10 +116,7 @@ UtxoViewModel::UtxoViewModel()
         SLOT(onAllUtxoChanged(const std::vector<beam::Coin>&)));
     connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
-    if (_model.async)
-    {
-        _model.async->getUtxosStatus();
-    }
+    _model.getAsync()->getUtxosStatus();
 }
 
 UtxoViewModel::~UtxoViewModel()

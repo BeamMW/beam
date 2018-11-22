@@ -38,6 +38,8 @@ set(UI_SRC
 	translator.cpp
 	viewmodel/start_view.h
 	viewmodel/start_view.cpp
+    viewmodel/restore_view.h
+	viewmodel/restore_view.cpp
 	viewmodel/utxo_view.h
 	viewmodel/utxo_view.cpp
 	viewmodel/main_view.h
@@ -84,31 +86,22 @@ endif()
 
 configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 
-add_dependencies(${TARGET_NAME} wallet mnemonic)
+add_dependencies(${TARGET_NAME} wallet mnemonic qrcode)
+target_link_libraries(${TARGET_NAME} qrcode)
+
+if(BEAM_USE_GPU)
+    add_dependencies(${TARGET_NAME} gpu_tools)
+    target_link_libraries(${TARGET_NAME} gpu_tools)
+endif()
 
 if(LINUX)
 	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()
 
 # link with QuaZip library
-include_directories(${CMAKE_PREFIX_PATH}/include/QtZlib)
-include_directories(quazip)
+target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_PREFIX_PATH}/include/QtZlib)
+target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/quazip)
 add_definitions(-DQUAZIP_STATIC)
-file(GLOB QUAZIP_SRCS "quazip/quazip/*.c" "quazip/quazip/*.cpp")
-file(GLOB PUBLIC_HEADERS "quazip/quazip/*.h")
-qt_wrap_cpp(MOC_SRCS ${PUBLIC_HEADERS})
-set(QUAZIP_ALL_SRCS ${QUAZIP_SRCS} ${MOC_SRCS})
-include_directories(${Qt5Core_INCLUDE_DIRS})
-add_library(quazip_static STATIC ${QUAZIP_ALL_SRCS})
-
-if(MSVC)
-    target_compile_options(quazip_static PRIVATE "/wd4456")
-    target_compile_options(quazip_static PRIVATE "/wd4131")
-    target_compile_options(quazip_static PRIVATE "/wd4244")
-endif()
-if(UNIX)
-	target_link_libraries(quazip_static z)
-endif()
 
 add_dependencies(${TARGET_NAME} quazip_static)
 target_link_libraries(${TARGET_NAME} quazip_static)
@@ -199,6 +192,7 @@ if(BEAM_USE_STATIC)
 
 		target_link_libraries(${TARGET_NAME}
 			${CMAKE_PREFIX_PATH}/plugins/platforms/libqxcb.a
+			${CMAKE_PREFIX_PATH}/plugins/xcbglintegrations/libqxcb-glx-integration.a
 		)
 
 		target_link_libraries(${TARGET_NAME}
@@ -212,7 +206,7 @@ if(BEAM_USE_STATIC)
 			${CMAKE_PREFIX_PATH}/qml/QtQuick/Templates.2/libqtquicktemplates2plugin.a
 
 			${CMAKE_PREFIX_PATH}/plugins/imageformats/libqsvg.a
-          #  ${CMAKE_PREFIX_PATH}/plugins/printsupport/libcupsprintersupport.a
+            ${CMAKE_PREFIX_PATH}/plugins/printsupport/libcupsprintersupport.a
 		)
 
 		foreach(lib
@@ -227,12 +221,16 @@ if(BEAM_USE_STATIC)
 			Qt5FbSupport Qt5Qml Qt5Test
 			Qt5Concurrent Qt5FontDatabaseSupport Qt5Network Qt5QmlDebug
 			Qt5Xml xcb-static Qt5Gamepad Qt5NetworkAuth Qt5QmlDevTools
-			Qt5Scxml Qt5ThemeSupport Qt5XmlPatterns Qt5DBus qtfreetype
+			Qt5Scxml Qt5ThemeSupport Qt5XmlPatterns Qt5DBus Qt5GlxSupport
 		)
 			target_link_libraries(${TARGET_NAME} ${CMAKE_PREFIX_PATH}/lib/lib${lib}.a)
 		endforeach()
 
-		target_link_libraries(${TARGET_NAME} -lX11-xcb -lX11 -lxcb -licui18n -licuuc -licudata -lGL)
+		target_link_libraries(${TARGET_NAME} -lX11-xcb -lX11 -lxcb -lGL -lfreetype -lfontconfig -lXi -lXext -lXfixes -lXrender -lglib-2.0 -lSM -lICE -lcups -lxcb-glx)
+
+		foreach(lib icui18n icuuc icudata)
+			target_link_libraries(${TARGET_NAME} /usr/lib/x86_64-linux-gnu/lib${lib}.a)
+		endforeach()
 
 		set_property(TARGET ${TARGET_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 

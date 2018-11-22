@@ -21,6 +21,7 @@
 #include "../../utility/serialize.h"
 #include "../../utility/test_helpers.h"
 #include "../../core/serialization_adapters.h"
+#include "../../core/unittest/mini_blockchain.h"
 
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
@@ -132,8 +133,9 @@ namespace beam
 				cmmrFork = cmmr;
 
 			cmmr.get_Hash(s.m_Definition);
-
 			Merkle::Interpret(s.m_Definition, hvZero, true);
+
+			s.m_Kernels = Zero;
 		}
 
 		uint64_t pRows[hMax];
@@ -154,11 +156,11 @@ namespace beam
 			}
 		}
 
-		Blob bBody("body", 4);
+		Blob bBodyP("body", 4), bBodyE("abc", 3);
 		Merkle::Hash peer, peer2;
 		memset(peer.m_pData, 0x66, peer.nBytes);
 
-		db.SetStateBlock(pRows[0], bBody);
+		db.SetStateBlock(pRows[0], bBodyP, bBodyE);
 		verify_test(!db.get_Peer(pRows[0], peer2));
 
 		db.set_Peer(pRows[0], &peer);
@@ -168,13 +170,17 @@ namespace beam
 		db.set_Peer(pRows[0], NULL);
 		verify_test(!db.get_Peer(pRows[0], peer2));
 
-		ByteBuffer bbBody, bbRollback;
-		db.GetStateBlock(pRows[0], bbBody, bbRollback);
-		db.SetStateRollback(pRows[0], bBody);
-		db.GetStateBlock(pRows[0], bbBody, bbRollback);
+		ByteBuffer bbBodyP, bbBodyE, bbRollback;
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
 
-		db.DelStateBlock(pRows[0]);
-		db.GetStateBlock(pRows[0], bbBody, bbRollback);
+		db.SetStateRollback(pRows[0], bBodyP);
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
+
+		//db.DelStateBlockPRB(pRows[0]);
+		//db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
+
+		db.DelStateBlockAll(pRows[0]);
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
 
 		tr.Commit();
 		tr.Start(db);
@@ -422,6 +428,25 @@ namespace beam
 
 		verify_test(!db.FindDummy(h1, b0));
 
+		// Kernels
+		db.InsertKernel(bBodyP, 5);
+		db.InsertKernel(bBodyP, 5); // duplicate
+		db.InsertKernel(bBodyP, 7);
+		db.InsertKernel(bBodyP, 2);
+
+		verify_test(db.FindKernel(bBodyP) == 7);
+		verify_test(db.FindKernel(bBodyE) == 0);
+
+		db.DeleteKernel(bBodyP, 7);
+		verify_test(db.FindKernel(bBodyP) == 5);
+		db.DeleteKernel(bBodyP, 5);
+		verify_test(db.FindKernel(bBodyP) == 5);
+		db.DeleteKernel(bBodyP, 2);
+		verify_test(db.FindKernel(bBodyP) == 5);
+		db.DeleteKernel(bBodyP, 5);
+		verify_test(db.FindKernel(bBodyP) == 0);
+
+
 		tr.Commit();
 	}
 
@@ -455,7 +480,7 @@ namespace beam
 			ECC::Scalar m_Key;
 			Amount m_Value;
 
-			void ToOutput(TxVectors& txv, ECC::Scalar::Native& offset, Height hIncubation) const
+			void ToOutput(TxVectors::Perishable& txv, ECC::Scalar::Native& offset, Height hIncubation) const
 			{
 				ECC::Scalar::Native k = m_Key;
 
@@ -499,7 +524,7 @@ namespace beam
 			void Export(TxKernel& krn) const
 			{
 				krn.m_Fee = m_Fee;
-				krn.m_Excess = ECC::Point::Native(ECC::Context::get().G * m_k);
+				krn.m_Commitment = ECC::Point::Native(ECC::Context::get().G * m_k);
 
 				if (m_bUseHashlock)
 				{
@@ -571,7 +596,7 @@ namespace beam
 
 			TxKernel::Ptr pKrn;
 			mk.Export(pKrn);
-			pTx->m_vKernelsOutput.push_back(std::move(pKrn));
+			pTx->m_vKernels.push_back(std::move(pKrn));
 
 
 			k = -mk.m_k;
@@ -608,7 +633,8 @@ namespace beam
 		typedef std::unique_ptr<BlockPlus> Ptr;
 
 		Block::SystemState::Full m_Hdr;
-		ByteBuffer m_Body;
+		ByteBuffer m_BodyP;
+		ByteBuffer m_BodyE;
 	};
 
 	void TestNodeProcessor1(std::vector<BlockPlus::Ptr>& blockChain)
@@ -648,14 +674,15 @@ namespace beam
 			Block::SystemState::ID id;
 			bc.m_Hdr.get_ID(id);
 
-			np.OnBlock(id, bc.m_Body, PeerID());
+			np.OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
 
 			np.m_Wallet.AddMyUtxo(bc.m_Fees, h, Key::Type::Comission);
 			np.m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase);
 
 			BlockPlus::Ptr pBlock(new BlockPlus);
 			pBlock->m_Hdr = std::move(bc.m_Hdr);
-			pBlock->m_Body = std::move(bc.m_Body);
+			pBlock->m_BodyP = std::move(bc.m_BodyP);
+			pBlock->m_BodyE = std::move(bc.m_BodyE);
 			blockChain.push_back(std::move(pBlock));
 		}
 
@@ -667,7 +694,19 @@ namespace beam
 		{
 			DeleteFile(g_sz2);
 
-			NodeProcessor np2;
+			struct MyNodeProcessorX
+				:public NodeProcessor
+			{
+				std::string m_sPathMB;
+				virtual bool OpenMacroblock(Block::BodyBase::RW& rw, const NodeDB::StateID&) override
+				{
+					rw.m_sPath = m_sPathMB;
+					rw.ROpen();
+					return true;
+				}
+			};
+
+			MyNodeProcessorX np2;
 			np2.Initialize(g_sz2);
 
 			rwData.m_hvContentTag = Zero;
@@ -688,6 +727,28 @@ namespace beam
 			verify_test(np2.ImportMacroBlock(rwData));
 			rwData.Close();
 
+			np2.get_DB().MacroblockIns(np2.m_Cursor.m_Sid.m_Row);
+			np2.m_sPathMB = g_sz3;
+
+			// try kernel proofs. Must be retrieved from the macroblock
+			for (size_t i = 0; i < np.m_Wallet.m_MyKernels.size(); i++)
+			{
+				TxKernel krn;
+				np.m_Wallet.m_MyKernels[i].Export(krn);
+
+				Merkle::Hash id;
+				krn.get_ID(id);
+
+				Merkle::Proof proof;
+				TxKernel::Ptr pKrn;
+				Height h = np2.get_ProofKernel(proof, &pKrn, id);
+				verify_test(h >= Rules::HeightGenesis);
+
+				Merkle::Interpret(id, proof);
+				verify_test(blockChain[h - Rules::HeightGenesis]->m_Hdr.m_Kernels == id);
+			}
+			
+
 			rwData.Delete();
 		}
 	}
@@ -703,6 +764,7 @@ namespace beam
 		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override {}
 		virtual void OnPeerInsane(const PeerID&) override {}
 		virtual void OnNewState() override {}
+		virtual void AdjustFossilEnd(Height& h) override { h = 0; } // don't fossile anything, since we're not creating macroblocks
 
 	};
 
@@ -739,7 +801,7 @@ namespace beam
 			{
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
-				np.OnBlock(id, blockChain[i]->m_Body, peer);
+				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
 			}
 		}
 
@@ -767,7 +829,7 @@ namespace beam
 			{
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
-				np.OnBlock(id, blockChain[i]->m_Body, peer);
+				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
 			}
 		}
 
@@ -783,8 +845,14 @@ namespace beam
 			{
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
-				np.OnBlock(id, blockChain[i]->m_Body, peer);
+				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
 			}
+		}
+
+		{
+			MyNodeProcessor2 np;
+			np.m_Horizon = horz;
+			np.Initialize(g_sz, true); // reset cursor
 		}
 
 	}
@@ -868,7 +936,7 @@ namespace beam
 					Block::SystemState::ID id;
 					bc.m_Hdr.get_ID(id);
 
-					n.get_Processor().OnBlock(id, bc.m_Body, PeerID());
+					n.get_Processor().OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
 
 					m_HeightMax = std::max(m_HeightMax, bc.m_Hdr.m_Height);
 
@@ -1075,12 +1143,13 @@ namespace beam
 					m_queProofsStateExpected.push_back((uint32_t) i);
 				}
 
+				if (m_vStates.size() > 1)
 				{
 					proto::GetCommonState msgOut2;
-					msgOut2.m_IDs.resize(m_vStates.size());
+					msgOut2.m_IDs.resize(m_vStates.size() - 1);
 
-					for (size_t i = 0; i < m_vStates.size(); i++)
-						m_vStates[i].get_ID(msgOut2.m_IDs[i]);
+					for (size_t i = 0; i < m_vStates.size() - 1; i++)
+						m_vStates[m_vStates.size() - i - 2].get_ID(msgOut2.m_IDs[i]);
 
 					Send(msgOut2);
 				}
@@ -1090,10 +1159,10 @@ namespace beam
 					const MiniWallet::MyUtxo& utxo = it->second;
 
 					proto::GetProofUtxo msgOut2;
-					msgOut2.m_Utxo.m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
+					msgOut2.m_Utxo = ECC::Commitment(utxo.m_Key, utxo.m_Value);
 					Send(msgOut2);
 
-					m_queProofsExpected.push_back(msgOut2.m_Utxo.m_Commitment);
+					m_queProofsExpected.push_back(msgOut2.m_Utxo);
 				}
 
 				for (uint32_t i = 0; i < m_Wallet.m_MyKernels.size(); i++)
@@ -1103,9 +1172,16 @@ namespace beam
 					TxKernel krn;
 					mk.Export(krn);
 
-					proto::GetProofKernel msgOut2;
+					proto::GetProofKernel2 msgOut2;
 					krn.get_ID(msgOut2.m_ID);
+					msgOut2.m_Fetch = true;
 					Send(msgOut2);
+
+					m_queProofsKrnExpected.push_back(i);
+
+					proto::GetProofKernel msgOut3;
+					krn.get_ID(msgOut3.m_ID);
+					Send(msgOut3);
 
 					m_queProofsKrnExpected.push_back(i);
 				}
@@ -1131,6 +1207,10 @@ namespace beam
 				msgRec.m_Public = true;
 				Send(msgRec);
 				m_nRecoveryPending++;
+
+				proto::GetUtxoEvents msgEvt;
+				Send(msgEvt);
+				m_nRecoveryPending++;
 			}
 
 			virtual void OnMsg(proto::ProofState&& msg) override
@@ -1152,42 +1232,58 @@ namespace beam
 			virtual void OnMsg(proto::ProofCommonState&& msg) override
 			{
 				verify_test(!m_vStates.empty());
-				if (1 == m_vStates.size())
-				{
-					verify_test(msg.m_iState == 1);
-					verify_test(msg.m_Proof.empty());
-				}
-				else
-				{
-					verify_test(msg.m_iState == 0);
-
-					Block::SystemState::ID id;
-					m_vStates.front().get_ID(id);
-					verify_test(m_vStates.back().IsValidProofState(id, msg.m_Proof));
-				}
+				verify_test(m_vStates.back().IsValidProofState(msg.m_ID, msg.m_Proof));
 			}
 
 			virtual void OnMsg(proto::ProofUtxo&& msg) override
 			{
 				if (!m_queProofsExpected.empty())
 				{
-					Input inp;
-					inp.m_Commitment = m_queProofsExpected.front();
+					const ECC::Point& comm = m_queProofsExpected.front();
 
-					auto it = m_UtxosConfirmed.find(inp.m_Commitment);
+					auto it = m_UtxosConfirmed.find(comm);
 
 					if (msg.m_Proofs.empty())
 						verify_test(m_UtxosConfirmed.end() == it);
 					else
 					{
 						for (uint32_t j = 0; j < msg.m_Proofs.size(); j++)
-							verify_test(m_vStates.back().IsValidProofUtxo(inp, msg.m_Proofs[j]));
+							verify_test(m_vStates.back().IsValidProofUtxo(comm, msg.m_Proofs[j]));
 
 						if (m_UtxosConfirmed.end() == it)
-							m_UtxosConfirmed.insert(inp.m_Commitment);
+							m_UtxosConfirmed.insert(comm);
 					}
 
 					m_queProofsExpected.pop_front();
+				}
+				else
+					fail_test("unexpected proof");
+			}
+
+			virtual void OnMsg(proto::ProofKernel2&& msg) override
+			{
+				if (!m_queProofsKrnExpected.empty())
+				{
+					m_queProofsKrnExpected.pop_front();
+
+					if (!msg.m_Proof.empty())
+					{
+						verify_test(msg.m_Kernel);
+
+						AmountBig fee;
+						ECC::Point::Native exc;
+						verify_test(msg.m_Kernel->IsValid(fee, exc));
+
+						Merkle::Hash hv;
+						msg.m_Kernel->get_ID(hv);
+						Merkle::Interpret(hv, msg.m_Proof);
+
+						verify_test(msg.m_Height <= m_vStates.size());
+						const Block::SystemState::Full& s = m_vStates[msg.m_Height - 1];
+						verify_test(s.m_Height == msg.m_Height);
+
+						verify_test(s.m_Kernels == hv);
+					}
 				}
 				else
 					fail_test("unexpected proof");
@@ -1204,7 +1300,6 @@ namespace beam
 					{
 						TxKernel krn;
 						mk.Export(krn);
-
 						verify_test(m_vStates.back().IsValidProofKernel(krn, msg.m_Proof));
 					}
 				}
@@ -1227,6 +1322,14 @@ namespace beam
 
 				verify_test(msg.m_Public.empty()); // so far public and private is the same, hence only private should be reported
 				verify_test(!msg.m_Private.empty()); // at least coinbases must be present
+			}
+
+			virtual void OnMsg(proto::UtxoEvents&& msg) override
+			{
+				verify_test(m_nRecoveryPending);
+				m_nRecoveryPending--;
+
+				verify_test(!msg.m_Events.empty());
 			}
 
 			void SetTimer(uint32_t timeout_ms) {
@@ -1346,114 +1449,12 @@ namespace beam
 	}
 
 
-	struct ChainContext
-	{
-		struct State
-		{
-			Block::SystemState::Full m_Hdr;
-			std::unique_ptr<uint8_t[]> m_pMmrData;
-		};
-
-		std::vector<State> m_vStates;
-		Merkle::Hash m_hvLive;
-
-		struct DMmr
-			:public Merkle::DistributedMmr
-		{
-			virtual const void* get_NodeData(Key key) const
-			{
-				return ((State*) key)->m_pMmrData.get();
-			}
-
-			virtual void get_NodeHash(Merkle::Hash& hv, Key key) const
-			{
-				((State*)key)->m_Hdr.get_Hash(hv);
-			}
-
-			IMPLEMENT_GET_PARENT_OBJ(ChainContext, m_Mmr)
-		} m_Mmr;
-
-		struct Source
-			:public Block::ChainWorkProof::ISource
-		{
-			virtual void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
-			{
-				// median search. The Hdr.m_ChainWork must be strictly bigger than d. (It's exclusive)
-				typedef std::vector<State>::const_iterator Iterator;
-				Iterator it0 = get_ParentObj().m_vStates.begin();
-				Iterator it1 = get_ParentObj().m_vStates.end();
-
-				while (it0 < it1)
-				{
-					Iterator itMid = it0 + (it1 - it0) / 2;
-					if (itMid->m_Hdr.m_ChainWork <= d)
-						it0 = itMid + 1;
-					else
-						it1 = itMid;
-				}
-
-				s = it0->m_Hdr;
-			}
-
-			virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
-			{
-				assert(h >= Rules::HeightGenesis);
-				h -= Rules::HeightGenesis;
-
-				assert(h < get_ParentObj().m_vStates.size());
-
-				get_ParentObj().m_Mmr.get_Proof(bld, h);
-			}
-
-			IMPLEMENT_GET_PARENT_OBJ(ChainContext, m_Source)
-		} m_Source;
-
-		void Init()
-		{
-			m_hvLive = 55U;
-
-			m_vStates.resize(200000);
-			Difficulty d = Rules::get().StartDifficulty;
-
-			for (size_t i = 0; i < m_vStates.size(); i++)
-			{
-				State& s = m_vStates[i];
-				if (i)
-				{
-					const State& s0 = m_vStates[i - 1];
-					s.m_Hdr = s0.m_Hdr;
-					s.m_Hdr.NextPrefix();
-
-					m_Mmr.Append(DMmr::Key(&s0), s0.m_pMmrData.get(), s.m_Hdr.m_Prev);
-				}
-				else
-				{
-					ZeroObject(s.m_Hdr);
-					s.m_Hdr.m_Height = Rules::HeightGenesis;
-				}
-
-				s.m_Hdr.m_PoW.m_Difficulty = d;
-				d.Inc(s.m_Hdr.m_ChainWork);
-
-				if (!((i + 1) % 8000))
-					d.Adjust(140, 150, 3); // slightly raise
-
-				m_Mmr.get_Hash(s.m_Hdr.m_Definition);
-				Merkle::Interpret(s.m_Hdr.m_Definition, m_hvLive, true);
-
-				uint32_t nSize = m_Mmr.get_NodeSize(i);
-				s.m_pMmrData.reset(new uint8_t[nSize]);
-			}
-		}
-	};
-
-
 	void TestChainworkProof()
 	{
-		ChainContext cc;
-
 		printf("Preparing blockchain ...\n");
-		cc.Init();
+
+		MiniBlockChain cc;
+		cc.Generate(200000);
 
 		const Block::SystemState::Full& sRoot = cc.m_vStates.back().m_Hdr;
 
@@ -1506,7 +1507,7 @@ namespace beam
 
 			Block::SystemState::ID id;
 			bc.m_Hdr.get_ID(id);
-			node.get_Processor().OnBlock(id, bc.m_Body, PeerID());
+			node.get_Processor().OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
 		}
 	}
 
@@ -1531,26 +1532,43 @@ namespace beam
 
 		struct MyFlyClient
 			:public proto::FlyClient
+			,public proto::FlyClient::Request::IHandler
+			,public proto::FlyClient::IBbsReceiver
 		{
 			io::Timer::Ptr m_pTimer;
 
 			bool m_bTip;
 			Height m_hRolledTo;
+			uint32_t m_nProofsExpected;
+			BbsChannel m_LastBbsChannel = 0;
+			bool m_bBbsReceived;
+			Block::SystemState::HistoryMap m_Hist;
 
 			MyFlyClient()
 			{
 				m_pTimer = io::Timer::create(io::Reactor::get_Current());
 			}
 
+			virtual Block::SystemState::IHistory& get_History() override
+			{
+				return m_Hist;
+			}
+
 			virtual void OnNewTip() override
 			{
 				m_bTip = true;
-				io::Reactor::get_Current().stop();
+				MaybeStop();
+			}
+
+			void MaybeStop()
+			{
+				if (m_bTip && !m_nProofsExpected && m_bBbsReceived)
+					io::Reactor::get_Current().stop();
 			}
 
 			virtual void OnRolledBack() override
 			{
-				m_hRolledTo = m_Hist.empty() ? 0 : m_Hist.rbegin()->first;
+				m_hRolledTo = m_Hist.m_Map.empty() ? 0 : m_Hist.m_Map.rbegin()->first;
 			}
 
 			void OnTimer() {
@@ -1565,19 +1583,65 @@ namespace beam
 				m_pTimer->cancel();
 			}
 
+			virtual void OnComplete(Request& r) override
+			{
+				verify_test(this == r.m_pTrg);
+				verify_test(m_nProofsExpected);
+				m_nProofsExpected--;
+				MaybeStop();
+			}
+
+			virtual void OnMsg(proto::BbsMsg&&) override
+			{
+				m_bBbsReceived = true;
+				MaybeStop();
+			}
+
 			void SyncSync() // synchronize synchronously. Joky joke.
 			{
 				m_bTip = false;
 				m_hRolledTo = MaxHeight;
+				m_nProofsExpected = 0;
+				m_bBbsReceived = false;
+				++m_LastBbsChannel;
 
-				io::Address addr;
-				addr.resolve("127.0.0.1");
-				addr.port(g_Port);
+				NetworkStd net(*this);
 
-				Connection conn(*this);
-				conn.Connect(addr);
+							io::Address addr;
+							addr.resolve("127.0.0.1");
+							addr.port(g_Port);
+				net.m_Cfg.m_vNodes.resize(4, addr); // create several connections, let the compete
 
-				//SetTimer(90 * 1000);
+				net.Connect();
+
+				// request several proofs
+				for (uint32_t i = 0; i < 10; i++)
+				{
+					RequestUtxo::Ptr pUtxo(new RequestUtxo);
+					net.PostRequest(*pUtxo, *this);
+
+					if (1 & i)
+						pUtxo->m_pTrg = NULL;
+					else
+						m_nProofsExpected++;
+
+					RequestKernel::Ptr pKrnl(new RequestKernel);
+					net.PostRequest(*pKrnl, *this);
+
+					if (1 & i)
+						pKrnl->m_pTrg = NULL;
+					else
+						m_nProofsExpected++;
+
+					RequestBbsMsg::Ptr pBbs(new RequestBbsMsg);
+					pBbs->m_Msg.m_Channel = m_LastBbsChannel;
+					net.PostRequest(*pBbs, *this);
+					m_nProofsExpected++;
+				}
+
+				net.BbsSubscribe(m_LastBbsChannel, 0, this);
+
+				SetTimer(90 * 1000);
 				io::Reactor::get_Current().run();
 				KillTimer();
 			}
@@ -1593,18 +1657,18 @@ namespace beam
 
 		verify_test(fc.m_bTip);
 		verify_test(fc.m_hRolledTo == MaxHeight);
-		verify_test(!fc.m_Hist.empty() && fc.m_Hist.rbegin()->second.m_Height == hThrd1);
+		verify_test(!fc.m_Hist.m_Map.empty() && fc.m_Hist.m_Map.rbegin()->second.m_Height == hThrd1);
 
 		{
 			// pop last
-			auto it = fc.m_Hist.rbegin();
-			fc.m_Hist.erase((++it).base());
+			auto it = fc.m_Hist.m_Map.rbegin();
+			fc.m_Hist.m_Map.erase((++it).base());
 		}
 
 		fc.SyncSync(); // should be trivial
 		verify_test(fc.m_bTip);
 		verify_test(fc.m_hRolledTo == MaxHeight);
-		verify_test(!fc.m_Hist.empty() && fc.m_Hist.rbegin()->second.m_Height == hThrd1);
+		verify_test(!fc.m_Hist.m_Map.empty() && fc.m_Hist.m_Map.rbegin()->second.m_Height == hThrd1);
 
 		const Height hThrd2 = 270;
 		RaiseHeightTo(node, hThrd2);
@@ -1613,28 +1677,22 @@ namespace beam
 		fc.SyncSync();
 		verify_test(fc.m_bTip);
 		verify_test(fc.m_hRolledTo == MaxHeight);
-		verify_test(!fc.m_Hist.empty() && fc.m_Hist.rbegin()->second.m_Height == hThrd2);
+		verify_test(!fc.m_Hist.m_Map.empty() && fc.m_Hist.m_Map.rbegin()->second.m_Height == hThrd2);
 
 		// simulate branching, make it rollback
 		Height hBranch = 203;
-		while (!fc.m_Hist.empty())
-		{
-			proto::FlyClient::StateMap::reverse_iterator it = fc.m_Hist.rbegin();
-			if ((it++)->first <= hBranch)
-				break;
-			fc.m_Hist.erase(it.base());
-		}
+		fc.m_Hist.DeleteFrom(hBranch + 1);
 
 		Block::SystemState::Full s1;
 		ZeroObject(s1);
 		s1.m_Height = hBranch + 2;
-		fc.m_Hist[s1.m_Height] = s1;
+		fc.m_Hist.m_Map[s1.m_Height] = s1;
 
 		fc.SyncSync();
 
 		verify_test(fc.m_bTip);
 		verify_test(fc.m_hRolledTo <= hBranch); // must rollback beyond the manually appended state
-		verify_test(!fc.m_Hist.empty() && fc.m_Hist.rbegin()->second.m_Height == hThrd2);
+		verify_test(!fc.m_Hist.m_Map.empty() && fc.m_Hist.m_Map.rbegin()->second.m_Height == hThrd2);
 	}
 
 
@@ -1648,7 +1706,7 @@ int main()
 	beam::Rules::get().FakePoW = true;
 	beam::Rules::get().UpdateChecksum();
 
-	beam::TestChainworkProof();
+//	beam::TestChainworkProof();
 
 	// Make sure this test doesn't run in parallel. We have the following potential collisions for Nodes:
 	//	.db files

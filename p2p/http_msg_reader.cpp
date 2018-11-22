@@ -368,17 +368,16 @@ HttpMsgReader::~HttpMsgReader() {
     delete _msg;
 }
 
-void HttpMsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void* data, size_t size) {
+bool HttpMsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void* data, size_t size) {
     if (connectionStatus != io::EC_OK) {
-        _callback(_streamId, Message(connectionStatus));
-        return;
+        return _callback(_streamId, Message(connectionStatus));
     }
 
     if (!data || !size) {
-        return;
+        return true;
     }
 
-    const uint8_t* p = (const uint8_t*)data;
+    const auto* p = (const uint8_t*)data;
     size_t sz = size;
     size_t consumed = 0;
     while (sz > 0) {
@@ -386,12 +385,14 @@ void HttpMsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const v
         if (consumed == 0) {
             // error occured, no more reads from this stream
             // at this moment, the *this* may be deleted
-            return;
+            return false;
         }
         assert(consumed <= sz);
         sz -= consumed;
         p += consumed;
     }
+
+    return true;
 }
 
 size_t HttpMsgReader::feed_header(const uint8_t* p, size_t sz) {
