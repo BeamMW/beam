@@ -217,6 +217,10 @@ private:
 
 		void FlushDB();
 
+		std::deque<PeerID> m_lstInsanePeers;
+		io::AsyncEvent::Ptr m_pAsyncPeerInsane;
+		void FlushInsanePeers();
+
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Processor)
 	} m_Processor;
 

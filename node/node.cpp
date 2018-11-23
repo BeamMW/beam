@@ -348,15 +348,34 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 
 void Node::Processor::OnPeerInsane(const PeerID& peerID)
 {
-	bool bCreate = false;
-	PeerMan::PeerInfoPlus* pInfo = Cast::Up<PeerMan::PeerInfoPlus>(get_ParentObj().m_PeerMan.Find(peerID, bCreate));
-
-	if (pInfo)
+	// Deleting the insane peer in-place is dangerous, because we may be invoked in its context.
+	// Use "async-delete mechanism
+	if (!m_pAsyncPeerInsane)
 	{
-		if (pInfo->m_pLive)
-			pInfo->m_pLive->DeleteSelf(true, proto::NodeConnection::ByeReason::Ban);
-		else
-			get_ParentObj().m_PeerMan.Ban(*pInfo);
+		io::AsyncEvent::Callback cb = [this]() { FlushInsanePeers(); };
+		m_pAsyncPeerInsane = io::AsyncEvent::create(io::Reactor::get_Current(), std::move(cb));
+	}
+
+	m_lstInsanePeers.push_back(peerID);
+	m_pAsyncPeerInsane->get_trigger()();
+}
+
+void Node::Processor::FlushInsanePeers()
+{
+	for (; !m_lstInsanePeers.empty(); m_lstInsanePeers.pop_front())
+	{
+		bool bCreate = false;
+		PeerMan::PeerInfoPlus* pInfo = Cast::Up<PeerMan::PeerInfoPlus>(get_ParentObj().m_PeerMan.Find(m_lstInsanePeers.front(), bCreate));
+
+		if (pInfo)
+		{
+			Peer* pPeer = pInfo->m_pLive;
+			if (pPeer)
+				pPeer->DeleteSelf(true, proto::NodeConnection::ByeReason::Ban);
+			else
+				get_ParentObj().m_PeerMan.Ban(*pInfo);
+
+		}
 	}
 }
 
@@ -1284,7 +1303,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 			if (bSyncMode)
 				break;
 
-			m_This.RefreshCongestions(); // NOTE! Can call OnPeerInsane()
+			m_This.RefreshCongestions();
 			return;
 
 		case NodeProcessor::DataStatus::Unreachable:
@@ -1723,7 +1742,7 @@ void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
 	OnFirstTaskDone();
 
 	if (NodeProcessor::DataStatus::Accepted == eStatus)
-		m_This.RefreshCongestions(); // NOTE! Can call OnPeerInsane()
+		m_This.RefreshCongestions();
 }
 
 void Node::Peer::OnMsg(proto::NewTransaction&& msg)
