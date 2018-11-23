@@ -85,6 +85,7 @@ QString UtxoItem::type() const
 	case Key::Type::Comission: return "Comission";
 	case Key::Type::Coinbase: return "Coinbase";
 	case Key::Type::Regular: return "Regular";
+	case Key::Type::Change: return "Change";
 	}
 
 	return FourCC::Text(_coin.m_ID.m_Type).m_sz;

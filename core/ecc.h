@@ -186,8 +186,9 @@ namespace ECC
 
 			// definitions for common types, that are used in several places. But values can be arbitrary, not only for this list
 			static const uint32_t Comission = FOURCC_FROM(fees);
-			static const uint32_t Coinbase  = FOURCC_FROM(cBas);
+			static const uint32_t Coinbase  = FOURCC_FROM(mine);
 			static const uint32_t Regular   = FOURCC_FROM(norm);
+			static const uint32_t Change    = FOURCC_FROM(chng);
 			static const uint32_t Kernel    = FOURCC_FROM(kern); // tests only
 			static const uint32_t Kernel2   = FOURCC_FROM(kerM); // used by the miner
 			static const uint32_t Identity  = FOURCC_FROM(iden); // Node-Wallet auth

@@ -484,6 +484,8 @@ namespace beam { namespace wallet
         Coin newUtxo{ amount, status };
         newUtxo.m_createTxId = m_Tx.GetTxID();
         newUtxo.m_createHeight = m_MinHeight;
+		if (Coin::Status::Change == status)
+			newUtxo.m_ID.m_Type = Key::Type::Change;
         m_Tx.GetWalletDB()->store(newUtxo);
 
         Scalar::Native blindingFactor;
