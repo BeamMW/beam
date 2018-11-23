@@ -13,9 +13,12 @@ environment:
   - arch: Win64
 
 before_build:
+  - cmd: appveyor DownloadFile https://developer.nvidia.com/compute/cuda/10.0/Prod/local_installers/cuda_10.0.130_411.31_win10 -FileName cuda.exe    
+  - cmd: cuda.exe -s nvcc_10.0 nvprune_10.0 cublas_dev_10.0 cufft_dev_10.0 curand_dev_10.0 cusolver_dev_10.0 cusparse_dev_10.0 nvgraph_dev_10.0 npp_dev_10.0 nvrtc_dev_10.0 nvml_dev_10.0
+  - cmd: set PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v10.0\bin;%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v10.0\libnvvp;%PATH%
   - cmd: git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
   - cmd: git clone --depth=1 https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
-  - cmd: cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=%APPVEYOR_REPO_BRANCH%
+  - cmd: cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=%APPVEYOR_REPO_BRANCH% -DBEAM_USE_GPU=On
 
 test_script:
   - cmd: ctest -C %BUILD_CONFIG% --verbose

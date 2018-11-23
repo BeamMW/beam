@@ -138,6 +138,8 @@ namespace beam { namespace wallet
 
     };
 
+    class TxBuilder;
+
     class SimpleTransaction : public BaseTransaction
     {
         enum State : uint8_t
@@ -159,11 +161,46 @@ namespace beam { namespace wallet
     private:
         TxType GetType() const override;
         void UpdateImpl() override;
+        void SendInvitation(const TxBuilder& builder, bool isSender);
+        void ConfirmInvitation(const TxBuilder& builder);
+        void ConfirmTransaction(const TxBuilder& builder);
+        void NotifyTransactionRegistered();
+        bool IsSelfTx() const;
         State GetState() const;
     };
 
-    struct TxBuilder
+    class TxBuilder
     {
+    public:
+        TxBuilder(BaseTransaction& tx, Amount amount, Amount fee);
+
+        void SelectInputs();
+        void AddChangeOutput();
+        void AddOutput(Amount amount, Coin::Status status);
+        Output::Ptr CreateOutput(Amount amount, Coin::Status status, bool shared = false, Height incubation = 0);
+        void GenerateNonce();
+        ECC::Point::Native GetPublicExcess() const;
+        ECC::Point::Native GetPublicNonce() const;
+        bool GetInitialTxParams();
+        bool GetPeerPublicExcessAndNonce();
+        bool GetPeerSignature();
+        bool GetPeerInputsAndOutputs();
+        void FinalizeSignature();
+        Transaction::Ptr CreateTransaction();
+        void SignPartial();
+        bool IsPeerSignatureValid() const;
+
+        Amount GetAmount() const;
+        Amount GetFee() const;
+        Height GetMinHeight() const;
+        Height GetMaxHeight() const;
+        const std::vector<Input::Ptr>& GetInputs() const;
+        const std::vector<Output::Ptr>& GetOutputs() const;
+        const ECC::Scalar::Native& GetOffset() const;
+        const ECC::Scalar::Native& GetPartialSignature() const;
+        const TxKernel& GetKernel() const;
+
+    private:
         BaseTransaction& m_Tx;
 
         // input
@@ -184,30 +221,11 @@ namespace beam { namespace wallet
         std::vector<Input::Ptr> m_PeerInputs;
         std::vector<Output::Ptr> m_PeerOutputs;
         ECC::Scalar::Native m_PeerOffset;
-        
+
         // deduced values, 
         TxKernel::Ptr m_Kernel;
         ECC::Scalar::Native m_PeerSignature;
         ECC::Hash::Value m_Message;
         ECC::Signature::MultiSig m_MultiSig;
-
-        TxBuilder(BaseTransaction& tx, Amount amount, Amount fee);
-
-        void SelectInputs();
-        void AddChangeOutput();
-        void AddOutput(Amount amount, Coin::Status status);
-        Output::Ptr CreateOutput(Amount amount, Coin::Status status, bool shared = false, Height incubation = 0);
-        void GenerateNonce();
-        ECC::Point::Native GetPublicExcess() const;
-        ECC::Point::Native GetPublicNonce() const;
-        bool GetInitialTxParams();
-        bool GetPeerPublicExcessAndNonce();
-        bool GetPeerSignature();
-        bool GetPeerInputsAndOutputs();
-        void FinalizeSignature();
-        Transaction::Ptr CreateTransaction();
-        void SignPartial();
-        bool IsPeerSignatureValid() const;
     };
-
 }}
