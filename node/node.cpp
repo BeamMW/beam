@@ -2726,28 +2726,19 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 void Node::Miner::Initialize(IExternalPOW* externalPOW)
 {
 	const Config& cfg = get_ParentObj().m_Cfg;
-	if (!cfg.m_MiningThreads || !externalPOW)
+	if (!cfg.m_MiningThreads && !externalPOW)
 		return;
 
 	m_pEvtMined = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
 
-	auto nThreads = cfg.m_MiningThreads;
-	if (externalPOW) ++nThreads;
-
-	m_vThreads.resize(nThreads);
-	for (uint32_t i = 0; i < cfg.m_MiningThreads; i++) {
-		PerThread &pt = m_vThreads[i];
-		pt.m_pReactor = io::Reactor::create();
-		pt.m_pEvt = io::AsyncEvent::create(*pt.m_pReactor, [this, i]() { OnRefresh(i); });
-		pt.m_Thread = std::thread(&io::Reactor::run, pt.m_pReactor);
-	}
-
-	if (externalPOW) {
-		m_externalPOW = externalPOW;
-		PerThread& pt = m_vThreads[nThreads-1];
-		pt.m_pReactor = io::Reactor::create();
-		pt.m_pEvt = io::AsyncEvent::create(*pt.m_pReactor, [this]() { OnRefreshExternal(); });
-		pt.m_Thread = std::thread(&io::Reactor::run, pt.m_pReactor);
+	if (cfg.m_MiningThreads) {
+		m_vThreads.resize(cfg.m_MiningThreads);
+		for (uint32_t i = 0; i < cfg.m_MiningThreads; i++) {
+			PerThread &pt = m_vThreads[i];
+			pt.m_pReactor = io::Reactor::create();
+			pt.m_pEvt = io::AsyncEvent::create(*pt.m_pReactor, [this, i]() { OnRefresh(i); });
+			pt.m_Thread = std::thread(&io::Reactor::run, pt.m_pReactor);
+		}
 	}
 
 	SetTimer(0, true); // async start mining, since this method may be followed by ImportMacroblock.
@@ -2853,69 +2844,6 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
 	}
 }
 
-void Node::Miner::OnRefreshExternal()
-{
-	if (!m_externalPOW) return;
-
-	Task::Ptr pTask;
-	Block::SystemState::Full s;
-
-	{
-		std::scoped_lock<std::mutex> scope(m_Mutex);
-		if (!m_pTask) {
-			m_externalPOW->stop();
-			return;
-		}
-
-		if (*m_pTask->m_pStop) {
-			m_externalPOW->stop_current();
-			return;
-		}
-
-		pTask = m_pTask;
-		s = pTask->m_Hdr; // local copy
-	}
-
-	LOG_INFO() << "New job for external miner";
-
-	auto fnCancel = [this, pTask]()
-	{
-		if (*pTask->m_pStop)
-			return true;
-
-		std::scoped_lock<std::mutex> scope(m_Mutex);
-		if (pTask != m_pTask)
-			return true; // soft restart triggered
-		return false;
-	};
-
-    Merkle::Hash hv;
-    s.get_HashForPoW(hv);
-
-    bool blockFound = false;
-    auto fnBlockFound = [this, &blockFound, &s]() {
-        std::string jobID; //TODO check this also
-        m_externalPOW->get_last_found_block(jobID, s.m_PoW);
-        if (s.IsValidPoW()) {
-            blockFound = true;
-        }
-    };
-
-    m_externalPOW->new_job("TODO_JOBID", hv, s.m_PoW, fnBlockFound, fnCancel);
-
-    if (!blockFound) return;
-
-	std::scoped_lock<std::mutex> scope(m_Mutex);
-	if (*pTask->m_pStop)
-		return;
-
-	pTask->m_Hdr = s; // save the result
-	*pTask->m_pStop = true;
-	m_pTask = pTask; // In case there was a soft restart we restore the one that we mined.
-
-	m_pEvtMined->post();
-}
-
 void Node::Miner::HardAbortSafe()
 {
 	std::scoped_lock<std::mutex> scope(m_Mutex);
@@ -3008,11 +2936,56 @@ bool Node::Miner::Restart()
 	for (size_t i = 0; i < m_vThreads.size(); i++)
 		m_vThreads[i].m_pEvt->post();
 
-	if (m_externalPOW) {
+	OnRefreshExternal();
+	return true;
+}
 
+void Node::Miner::OnRefreshExternal()
+{
+	if (!m_externalPOW) return;
+
+	// NOTE the mutex is locked here
+
+	LOG_INFO() << "New job for external miner";
+
+	m_savedState = m_pTask->m_Hdr;
+
+	// TODO
+	auto fnCancel = []() { return false; };
+
+	Merkle::Hash hv;
+	m_savedState.get_HashForPoW(hv);
+
+	m_externalPOW->new_job(std::to_string(++m_jobID), hv, m_savedState.m_PoW, BIND_THIS_MEMFN(OnMinedExternal), fnCancel);
+}
+
+void Node::Miner::OnMinedExternal()
+{
+	if (!m_externalPOW) return;
+
+	std::string jobID;
+	Block::PoW POW;
+	m_externalPOW->get_last_found_block(jobID, POW);
+
+	if (jobID == std::to_string(m_jobID)) {
+		LOG_INFO() << "expired solution from external miner";
+		return;
 	}
 
-	return true;
+	std::scoped_lock<std::mutex> scope(m_Mutex);
+
+	m_savedState.m_PoW.m_Nonce = POW.m_Nonce;
+	m_savedState.m_PoW.m_Indices = POW.m_Indices;
+
+	if (!m_savedState.IsValidPoW()) {
+		LOG_INFO() << "invalid solution from external miner";
+		return;
+	}
+
+	m_pTask->m_Hdr = m_savedState; // save the result
+	*m_pTask->m_pStop = true;
+
+	m_pEvtMined->post();
 }
 
 void Node::Miner::OnMined()

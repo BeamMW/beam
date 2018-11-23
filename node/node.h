@@ -554,7 +554,6 @@ private:
 	{
 		std::vector<PerThread> m_vThreads;
 		io::AsyncEvent::Ptr m_pEvtMined;
-		IExternalPOW* m_externalPOW=nullptr;
 
 		struct Task
 		{
@@ -579,12 +578,18 @@ private:
 		void OnRefresh(uint32_t iIdx);
 		void OnRefreshExternal();
 		void OnMined();
+		void OnMinedExternal();
 
 		void HardAbortSafe();
 		bool Restart();
 
 		std::mutex m_Mutex;
 		Task::Ptr m_pTask; // currently being-mined
+
+		// external miner stuff
+		IExternalPOW* m_externalPOW=nullptr;
+		uint64_t m_jobID=0;
+		Block::SystemState::Full m_savedState;
 
 		io::Timer::Ptr m_pTimer;
 		bool m_bTimerPending;

@@ -13,31 +13,34 @@
 // limitations under the License.
 
 #include "pow/external_pow.h"
+#include "node/node.h"
 #include "utility/io/reactor.h"
 #include "utility/io/timer.h"
 #include "utility/logger.h"
+#include <future>
+#include <boost/filesystem.hpp>
 
 using namespace beam;
 
 std::unique_ptr<IExternalPOW> server;
 int id = 0;
 Merkle::Hash hash;
-Block::PoW pow;
+Block::PoW POW;
 static const unsigned TIMER_MSEC = 280000;
 io::Timer::Ptr feedJobsTimer;
 
 void got_new_block();
 
 void gen_new_job() {
-    ECC::GenRandom(&pow.m_Nonce, Block::PoW::NonceType::nBytes);
-    ECC::GenRandom(pow.m_Indices.data(), Block::PoW::nSolutionBytes);
+    ECC::GenRandom(&POW.m_Nonce, Block::PoW::NonceType::nBytes);
+    ECC::GenRandom(POW.m_Indices.data(), Block::PoW::nSolutionBytes);
     //ECC::GenRandom(&pow.m_Difficulty.m_Packed, 4);
-    pow.m_Difficulty = 0; //Difficulty(1 << Difficulty::s_MantissaBits);
+    POW.m_Difficulty = 0; //Difficulty(1 << Difficulty::s_MantissaBits);
     ECC::GenRandom(&hash.m_pData, 32);
 
     if (server) server->new_job(
         std::to_string(++id),
-        hash, pow,
+        hash, POW,
         &got_new_block,
         []() { return false; }
     );
@@ -49,33 +52,84 @@ void got_new_block() {
     feedJobsTimer->cancel();
     if (server) {
         std::string id;
-        server->get_last_found_block(id, pow);
-        if (pow.IsValid(hash.m_pData, 32)) {
+        server->get_last_found_block(id, POW);
+        if (POW.IsValid(hash.m_pData, 32)) {
             LOG_INFO() << "got valid block" << TRACE(id);
         }
         gen_new_job();
     }
 }
 
-int main() {
+void run_without_node() {
+    io::Address listenTo = io::Address::localhost().port(20000);
+    io::Reactor::Ptr reactor = io::Reactor::create();
+    io::Reactor::Scope scope(*reactor);
+    io::Reactor::GracefulIntHandler gih(*reactor);
+    feedJobsTimer = io::Timer::create(*reactor);
+    IExternalPOW::Options options;
+    options.certFile = PROJECT_SOURCE_DIR "/utility/unittest/test.crt";
+    options.privKeyFile = PROJECT_SOURCE_DIR "/utility/unittest/test.key";
+    server = IExternalPOW::create(options, *reactor, listenTo);
+    gen_new_job();
+    reactor->run();
+    feedJobsTimer.reset();
+    server.reset();
+}
+
+void run_with_node() {
+    boost::filesystem::remove_all("xxxxx");
+    boost::filesystem::remove_all("yyyyy");
+
+    io::Address listenTo = io::Address::localhost().port(20000);
+    io::Reactor::Ptr reactor = io::Reactor::create();
+    io::Reactor::Scope scope(*reactor);
+    io::Reactor::GracefulIntHandler gih(*reactor);
+    feedJobsTimer = io::Timer::create(*reactor);
+    IExternalPOW::Options options;
+    options.certFile = PROJECT_SOURCE_DIR "/utility/unittest/test.crt";
+    options.privKeyFile = PROJECT_SOURCE_DIR "/utility/unittest/test.key";
+    server = IExternalPOW::create(options, *reactor, listenTo);
+
+    Rules::get().StartDifficulty = 0;
+    Rules::get().UpdateChecksum();
+    LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+
+    Node node;
+    node.m_Cfg.m_sPathLocal = "xxxxx";
+    node.m_Cfg.m_Listen.port(10000);
+    node.m_Cfg.m_Listen.ip(0);
+    node.m_Cfg.m_MiningThreads = 0;
+    node.m_Cfg.m_VerificationThreads = 1;
+    std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
+    pKdf->m_Secret.V.m_pData[0] = 33;
+    node.m_pKdf = pKdf;
+
+    Node dummyNode;
+    dummyNode.m_Cfg.m_sPathLocal = "yyyyy";
+    dummyNode.m_Cfg.m_Listen.port(10001);
+    dummyNode.m_Cfg.m_Listen.ip(0);
+    dummyNode.m_Cfg.m_MiningThreads = 0;
+    dummyNode.m_Cfg.m_VerificationThreads = 1;
+    dummyNode.m_Cfg.m_Connect.push_back(io::Address::localhost().port(10000));
+
+    node.Initialize(server.get());
+    node.get_Processor().m_Extra.m_SubsidyOpen = false;
+
+    dummyNode.Initialize();
+    reactor->run();
+}
+
+int main(int argc, char* argv[]) {
     ECC::InitializeContext();
 
     auto logger = Logger::create(LOG_LEVEL_INFO, LOG_LEVEL_VERBOSE);
     int retCode = 0;
     try {
-        io::Address listenTo = io::Address::localhost().port(20000);
-        io::Reactor::Ptr reactor = io::Reactor::create();
-        io::Reactor::Scope scope(*reactor);
-        io::Reactor::GracefulIntHandler gih(*reactor);
-        feedJobsTimer = io::Timer::create(*reactor);
-        IExternalPOW::Options options;
-        options.certFile = PROJECT_SOURCE_DIR "/utility/unittest/test.crt";
-        options.privKeyFile = PROJECT_SOURCE_DIR "/utility/unittest/test.key";
-        server = IExternalPOW::create(options, *reactor, listenTo);
-        gen_new_job();
-        reactor->run();
-        feedJobsTimer.reset();
-        server.reset();
+        if (argc > 1 && argv[1] == std::string("-n")) {
+            run_with_node();
+        } else {
+            run_without_node();
+        }
         LOG_INFO() << "Done";
     } catch (const std::exception& e) {
         LOG_ERROR() << "EXCEPTION: " << e.what();
