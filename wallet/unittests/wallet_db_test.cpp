@@ -732,7 +732,7 @@ void TestSelect2()
     t.reserve(c);
     for (Amount i = 1; i <= c; ++i)
     {
-        t.emplace_back( 40000000, Coin::Available, 10, Key::Type::Regular );
+        t.push_back(Coin( 40000000, Coin::Available, 10, Key::Type::Regular ));
     }
     db->store(t);
     {

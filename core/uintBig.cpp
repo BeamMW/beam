@@ -225,7 +225,7 @@ namespace beam {
 		m_sz[_countof(m_sz) - 1] = 0;
 
 		// fix illegal chars
-		for (int i = 0; i < _countof(m_sz) - 1; i++)
+		for (size_t i = 0; i < _countof(m_sz) - 1; i++)
 		{
 			char& c = m_sz[i];
 			if ((c < ' ') || (c > '~'))
