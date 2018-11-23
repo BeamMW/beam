@@ -1004,12 +1004,13 @@ void TestTxToHimself()
     });
 
     WALLET_CHECK(newSenderCoins.size() == 3);
-    WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Coinbase);
-    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
+	WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Change);
+	WALLET_CHECK(newSenderCoins[0].m_status == Coin::Available);
+	WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 14);
 
-    WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
-    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
-    WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 14);
+	WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Coinbase);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Spent);
+	WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 40);
 
     WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
     WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
@@ -1124,24 +1125,24 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newReceiverCoins[1].m_ID.m_Type == Key::Type::Regular);
 
 
-    WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 5);
-    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Regular);
+	WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 3);
+	WALLET_CHECK(newSenderCoins[0].m_status == Coin::Available);
+	WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Change);
 
-    WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 2);
-    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
+	WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 5);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Spent);
     WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 1);
-    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 2);
+    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
     WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 9);
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 1);
     WALLET_CHECK(newSenderCoins[3].m_status == Coin::Spent);
     WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 3);
-    WALLET_CHECK(newSenderCoins[4].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 9);
+    WALLET_CHECK(newSenderCoins[4].m_status == Coin::Spent);
     WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Regular);
 
     // Tx history check
@@ -1304,25 +1305,25 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(newReceiverCoins[1].m_ID.m_Type == Key::Type::Regular);
 
 
-    WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 5);
-    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Regular);
+	WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 3);
+	WALLET_CHECK(newSenderCoins[0].m_status == Coin::Available);
+	WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Change);
 
-    WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 2);
-    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
-    WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
+	WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 5);
+	WALLET_CHECK(newSenderCoins[1].m_status == Coin::Spent);
+	WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 1);
-    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
+	WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 2);
+	WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
+	WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 9);
-    WALLET_CHECK(newSenderCoins[3].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
+	WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 1);
+	WALLET_CHECK(newSenderCoins[3].m_status == Coin::Spent);
+	WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 3);
-    WALLET_CHECK(newSenderCoins[4].m_status == Coin::Available);
-    WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Regular);
+	WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 9);
+	WALLET_CHECK(newSenderCoins[4].m_status == Coin::Spent);
+	WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Regular);
 
     // Tx history check
     sh = sender.m_WalletDB->getTxHistory();
