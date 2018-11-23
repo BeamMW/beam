@@ -713,8 +713,6 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 
 			const UtxoEvent::Key& key = x.m_Commitment;
 			m_DB.InsertEvent(h, Blob(&w.m_Value, sizeof(w.m_Value)), Blob(&key, sizeof(key)));
-
-			break;
 		}
 	}
 }
