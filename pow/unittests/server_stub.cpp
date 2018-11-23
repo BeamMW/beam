@@ -20,22 +20,41 @@
 using namespace beam;
 
 std::unique_ptr<IExternalPOW> server;
+int id = 0;
+Merkle::Hash hash;
+Block::PoW pow;
+static const unsigned TIMER_MSEC = 280000;
+io::Timer::Ptr feedJobsTimer;
+
+void got_new_block();
 
 void gen_new_job() {
-    Block::PoW pow;
     ECC::GenRandom(&pow.m_Nonce, Block::PoW::NonceType::nBytes);
     ECC::GenRandom(pow.m_Indices.data(), Block::PoW::nSolutionBytes);
     //ECC::GenRandom(&pow.m_Difficulty.m_Packed, 4);
     pow.m_Difficulty = 0; //Difficulty(1 << Difficulty::s_MantissaBits);
-    Merkle::Hash hash;
     ECC::GenRandom(&hash.m_pData, 32);
 
     if (server) server->new_job(
-        "xxx",
+        std::to_string(++id),
         hash, pow,
-        []() {},
+        &got_new_block,
         []() { return false; }
     );
+
+    feedJobsTimer->start(TIMER_MSEC, false, &gen_new_job);
+}
+
+void got_new_block() {
+    feedJobsTimer->cancel();
+    if (server) {
+        std::string id;
+        server->get_last_found_block(id, pow);
+        if (pow.IsValid(hash.m_pData, 32)) {
+            LOG_INFO() << "got valid block" << TRACE(id);
+        }
+        gen_new_job();
+    }
 }
 
 int main() {
@@ -48,14 +67,14 @@ int main() {
         io::Reactor::Ptr reactor = io::Reactor::create();
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
-        io::Timer::Ptr feedJobsTimer = io::Timer::create(*reactor);
-        feedJobsTimer->start(200000, true, &gen_new_job);
+        feedJobsTimer = io::Timer::create(*reactor);
         IExternalPOW::Options options;
         options.certFile = PROJECT_SOURCE_DIR "/utility/unittest/test.crt";
         options.privKeyFile = PROJECT_SOURCE_DIR "/utility/unittest/test.key";
         server = IExternalPOW::create(options, *reactor, listenTo);
         gen_new_job();
         reactor->run();
+        feedJobsTimer.reset();
         server.reset();
         LOG_INFO() << "Done";
     } catch (const std::exception& e) {

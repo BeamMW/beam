@@ -136,8 +136,8 @@ template <typename M> ResultCode parse_json_msg(const void* buf, size_t bufSize,
     return no_error;
 }
 
-Job::Job(uint64_t _id, const Merkle::Hash& _input, const Block::PoW& _pow) :
-    Message(std::to_string(_id), job),
+Job::Job(const std::string& _id, const Merkle::Hash& _input, const Block::PoW& _pow) :
+    Message(_id, job),
     difficulty(_pow.m_Difficulty.m_Packed)
 {
     char buf[72];
@@ -166,7 +166,7 @@ Solution::Solution(const std::string& _id, const Block::PoW& _pow) :
     output = to_hex(buf, _pow.m_Indices.data(), Block::PoW::nSolutionBytes);
 }
 
-bool Solution::fill_pow(Block::PoW& pow) {
+bool Solution::fill_pow(Block::PoW& pow) const {
     bool ok = false;
     std::vector<uint8_t> buf = from_hex(output, &ok);
     if (!ok || buf.size() != Block::PoW::nSolutionBytes) return false;

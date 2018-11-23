@@ -72,7 +72,7 @@ void gen_examples() {
     ECC::GenRandom(&hash.m_pData, 32);
 
     Login loginMsg("skjdb7343636gucgjdjgd");
-    Job jobMsg(212, hash, pow);
+    Job jobMsg("212", hash, pow);
     Cancel cancelMsg(212);
     Solution solMsg("212", pow);
     Result res1("login", login_failed);

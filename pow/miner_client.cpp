@@ -255,7 +255,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
     ;
 
 #ifdef NDEBUG
-    o.logLevel = LOG_LEVEL_INFO;
+    o.logLevel = LOG_LEVEL_DEBUG;
 #else
 #if LOG_VERBOSE_ENABLED
     o.logLevel = LOG_LEVEL_VERBOSE;

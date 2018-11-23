@@ -96,7 +96,7 @@ struct Job : Message {
 
     Job() = default;
 
-    Job(uint64_t _id, const Merkle::Hash& _input, const Block::PoW& _pow);
+    Job(const std::string& _id, const Merkle::Hash& _input, const Block::PoW& _pow);
 };
 
 /// Servers cancel job with given id
@@ -116,7 +116,8 @@ struct Solution : Message {
 
     Solution(const std::string& _id, const Block::PoW& _pow);
 
-    bool fill_pow(Block::PoW& pow);
+    // fills only indices and nonce fields of pow
+    bool fill_pow(Block::PoW& pow) const;
 };
 
 struct Result : Message {

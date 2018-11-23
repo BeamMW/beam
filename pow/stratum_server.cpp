@@ -107,7 +107,12 @@ bool Server::on_login(uint64_t from, const Login& login) {
 }
 
 bool Server::on_solution(uint64_t from, const Solution& sol) {
-    LOG_INFO() << "solution to " << sol.id;
+    if (sol.id != _job.id) {
+        LOG_INFO() << "ignoring solution to " << sol.id << " from " << io::Address::from_u64(from) << ", current is " << _job.id;
+    }
+    sol.fill_pow(_job.pow);
+    LOG_INFO() << "solution to " << sol.id << " from " << io::Address::from_u64(from);
+    _job.onBlockFound();
     return true;
 }
 
@@ -116,14 +121,18 @@ void Server::on_bad_peer(uint64_t from) {
 }
 
 void Server::new_job(
-    const std::string&,
+    const std::string& id,
     const Merkle::Hash& input,
     const Block::PoW& pow,
     const BlockFound& callback,
     const CancelCallback& cancelCallback
 ) {
-    ++_job.id;
-    LOG_INFO() << "New job #" << _job.id << " will be sent to " << _connections.size() << " connected peers";
+    _job.id = id;
+    _job.pow = pow;
+    _job.onBlockFound = callback;
+    _job.cancelFn = cancelCallback;
+
+    LOG_INFO() << "New job " << _job.id << " will be sent to " << _connections.size() << " connected peers";
 
     Job jobMsg(_job.id, input, pow);
     append_json_msg(_fw, jobMsg);
@@ -142,6 +151,20 @@ void Server::new_job(
     _deadConnections.clear();
 
     // TODO job cancel policy - timer
+}
+
+void Server::get_last_found_block(std::string& jobID, Block::PoW& pow) {
+    jobID = _job.id;
+    pow = _job.pow;
+}
+
+void Server::stop_current() {
+    _job.id.clear();
+}
+
+void Server::stop() {
+    stop_current();
+    _server.reset();
 }
 
 Server::AccessControl::AccessControl(const std::string &keysFileName) :

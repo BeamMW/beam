@@ -80,7 +80,10 @@ private:
 
     struct JobCtx {
         io::SerializedMsg msg;
-        uint64_t id=0;
+        std::string id;
+        Block::PoW pow;
+        BlockFound onBlockFound;
+        CancelCallback cancelFn;
     };
 
     void start_server();
@@ -98,9 +101,9 @@ private:
         const CancelCallback& cancelCallback
     ) override;
 
-    void get_last_found_block(std::string& jobID, Block::PoW& pow) override {}
-    void stop_current() override {}
-    void stop() override {}
+    void get_last_found_block(std::string& jobID, Block::PoW& pow) override;
+    void stop_current() override;
+    void stop() override;
 
     Options _options;
     io::Reactor& _reactor;

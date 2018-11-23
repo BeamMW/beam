@@ -29,7 +29,7 @@ Timer::Ptr Timer::create(Reactor& reactor) {
     return timer;
 }
 
-Result Timer::start(unsigned intervalMsec, bool isPeriodic, Callback&& callback) {
+Result Timer::start(unsigned intervalMsec, bool isPeriodic, Callback callback) {
     assert(callback);
     _callback = std::move(callback);
     if (intervalMsec == unsigned(-1)) {
