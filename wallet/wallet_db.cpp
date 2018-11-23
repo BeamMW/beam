@@ -365,7 +365,7 @@ namespace beam
 
             void bind(int col, Key::Type val)
             {
-                int ret = sqlite3_bind_int(_stm, col, static_cast<int>(val));
+                int ret = sqlite3_bind_int(_stm, col, val);
                 throwIfError(ret, _db);
             }
 
@@ -584,7 +584,7 @@ namespace beam
 
             void get(int col, Key::Type& type)
             {
-                type = static_cast<Key::Type>(sqlite3_column_int(_stm, col));
+                type = sqlite3_column_int(_stm, col);
             }
 
             void get(int col, string& str) // utf-8

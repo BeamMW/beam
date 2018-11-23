@@ -80,16 +80,14 @@ QString UtxoItem::status() const
 
 QString UtxoItem::type() const
 {
-    static const char* Names[] =
-    {
-        "Comission",
-        "Coinbase",
-        "Kernel",
-        "Regular",
-        "Identity",
-        "SChannelNonce"
-    };
-    return Names[static_cast<int>(_coin.m_ID.m_Type)];
+	switch (_coin.m_ID.m_Type)
+	{
+	case Key::Type::Comission: return "Comission";
+	case Key::Type::Coinbase: return "Coinbase";
+	case Key::Type::Regular: return "Regular";
+	}
+
+	return FourCC::Text(_coin.m_ID.m_Type).m_sz;
 }
 
 beam::Amount UtxoItem::rawAmount() const

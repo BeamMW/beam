@@ -69,22 +69,6 @@ namespace beam
         return os;
     }
 
-    std::ostream& operator<<(std::ostream& os, Key::Type keyType)
-    {
-        os << "[";
-        switch (keyType)
-        {
-        case Key::Type::Coinbase: os << "Coinbase"; break;
-        case Key::Type::Comission: os << "Commission"; break;
-        case Key::Type::Kernel: os << "Kernel"; break;
-        case Key::Type::Regular: os << "Regular"; break;
-        default:
-            assert(false && "Unknown key type");
-        }
-        os << "]";
-        return os;
-    }
-
     const char* getTxStatus(const TxDescription& tx)
     {
         static const char* Pending = "Pending";

@@ -97,7 +97,7 @@ namespace ECC {
 
 	std::ostream& operator << (std::ostream& s, const Key::IDVC& x)
 	{
-		s << "Key=" << x.m_iChild << "/" << static_cast<uint32_t>(x.m_Type) << "-" << x.m_Idx << ", Value=" << x.m_Value;
+		s << "Key=" << x.m_iChild << "/" << x.m_Type << "-" << x.m_Idx << ", Value=" << x.m_Value;
 		return s;
 	}
 
@@ -1202,7 +1202,7 @@ namespace ECC {
 		Hash::Processor()
 			<< "kid"
 			<< m_Idx
-			<< static_cast<uint32_t>(m_Type)
+			<< m_Type.V
 			>> hv;
 	}
 
@@ -1217,16 +1217,13 @@ namespace ECC {
 	void Key::ID::operator = (const Packed& x)
 	{
 		x.m_Idx.Export(m_Idx);
-
-		uint32_t val;
-		x.m_Type.Export(val);
-		m_Type = static_cast<Key::Type>(val);
+		x.m_Type.Export(m_Type.V);
 	}
 
 	void Key::ID::Packed::operator = (const ID& x)
 	{
 		m_Idx = x.m_Idx;
-		m_Type = static_cast<uint32_t>(x.m_Type);
+		m_Type = x.m_Type.V;
 	}
 
 	void Key::IDV::operator = (const Packed& x)

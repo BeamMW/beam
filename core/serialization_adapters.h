@@ -178,7 +178,24 @@ namespace detail
             return ar;
         }
 
-        /// ECC::Scalar serialization
+		/// beam::FourCC serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::FourCC& val)
+		{
+			ar & beam::uintBigFrom(val.V);
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::FourCC& val)
+		{
+			beam::uintBigFor<uint32_t>::Type x;
+			ar & x;
+			x.Export(val.V);
+			return ar;
+		}
+
+		/// ECC::Scalar serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const ECC::Scalar& scalar)
         {
