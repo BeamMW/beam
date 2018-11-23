@@ -294,4 +294,32 @@ namespace beam
 		return typename uintBigFor<T>::Type(x);
 	}
 
+	struct FourCC
+	{
+		uint32_t V; // In "host" order, i.e. platform-dependent
+		operator uint32_t () const { return V; }
+
+		FourCC() {}
+		FourCC(uint32_t x) :V(x) {}
+
+		struct Text
+		{
+			char m_sz[sizeof(uint32_t) + 1];
+			Text(uint32_t);
+			operator const char* () const { return m_sz; }
+		};
+
+		template <uint8_t a, uint8_t b, uint8_t c, uint8_t d>
+		struct Const {
+			static const uint32_t V = (((((a << 8) | b) << 8) | c) << 8) | d;
+		};
+
+	};
+
+	std::ostream& operator << (std::ostream& s, const FourCC::Text& x);
+	std::ostream& operator << (std::ostream& s, const FourCC& x);
+
+#define ARRAY_ELEMENT_SAFE(arr, index) ((arr)[(((index) < _countof(arr)) ? (index) : (_countof(arr) - 1))])
+#define FOURCC_FROM(name) beam::FourCC::Const<ARRAY_ELEMENT_SAFE(#name,0), ARRAY_ELEMENT_SAFE(#name,1), ARRAY_ELEMENT_SAFE(#name,2), ARRAY_ELEMENT_SAFE(#name,3)>::V
+
 } // namespace beam

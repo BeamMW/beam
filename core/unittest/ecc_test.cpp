@@ -1072,6 +1072,37 @@ void TestRandom()
 	}
 }
 
+bool IsOkFourCC(const char* szRes, const char* szSrc)
+{
+	// the formatted FourCC always consists of 4 characters. If source is shorter - spaced are appended
+	size_t n = strlen(szSrc);
+	for (size_t i = 0; i < 4; i++)
+	{
+		char c = (i < n) ? szSrc[i] : ' ';
+		if (szRes[i] != c)
+			return false;
+	}
+
+	return !szRes[4];
+
+}
+
+void TestFourCC()
+{
+#define TEST_FOURCC(name) \
+	{ \
+		uint32_t nFourCC = FOURCC_FROM(name); \
+		beam::FourCC::Text txt(nFourCC); \
+		verify_test(IsOkFourCC(txt, #name)); \
+	}
+
+	// compile-time FourCC should support shorter strings
+	TEST_FOURCC(help)
+	TEST_FOURCC(hel)
+	TEST_FOURCC(he)
+	TEST_FOURCC(h)
+}
+
 void TestAll()
 {
 	TestUintBig();
@@ -1087,6 +1118,7 @@ void TestAll()
 	TestBbs();
 	TestDifficulty();
 	TestRandom();
+	TestFourCC();
 }
 
 
