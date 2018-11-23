@@ -2741,6 +2741,8 @@ void Node::Miner::Initialize(IExternalPOW* externalPOW)
 		}
 	}
 
+	m_externalPOW = externalPOW;
+
 	SetTimer(0, true); // async start mining, since this method may be followed by ImportMacroblock.
 }
 
@@ -2967,7 +2969,7 @@ void Node::Miner::OnMinedExternal()
 	Block::PoW POW;
 	m_externalPOW->get_last_found_block(jobID, POW);
 
-	if (jobID == std::to_string(m_jobID)) {
+	if (jobID != std::to_string(m_jobID)) {
 		LOG_INFO() << "expired solution from external miner";
 		return;
 	}
@@ -2986,6 +2988,8 @@ void Node::Miner::OnMinedExternal()
 	*m_pTask->m_pStop = true;
 
 	m_pEvtMined->post();
+
+	//TODO restart miner (as inside threads cycle)
 }
 
 void Node::Miner::OnMined()

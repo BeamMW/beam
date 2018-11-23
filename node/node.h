@@ -571,7 +571,7 @@ private:
 			ECC::Hash::Value m_hvNonceSeed; // immutable
 		};
 
-		bool IsEnabled() { return !m_vThreads.empty(); }
+		bool IsEnabled() { return m_externalPOW || !m_vThreads.empty(); }
 
 		void Initialize(IExternalPOW* externalPOW=nullptr);
 

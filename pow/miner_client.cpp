@@ -99,11 +99,18 @@ private:
             LOG_INFO() << "solution expired" << TRACE(jobID);
             return;
         }
+
+        char buf[72];
+        LOG_DEBUG() << "input=" << to_hex(buf, _lastJobInput.m_pData, 32);
+
         if (!_lastFoundBlock.IsValid(_lastJobInput.m_pData, 32)) {
             LOG_ERROR() << "solution is invalid";
             return;
         }
         LOG_INFO() << "block found id=" << _lastJobID;
+
+
+
         _blockSent = false;
         send_last_found_block();
     }

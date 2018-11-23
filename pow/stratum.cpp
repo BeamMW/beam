@@ -170,9 +170,12 @@ bool Solution::fill_pow(Block::PoW& pow) const {
     bool ok = false;
     std::vector<uint8_t> buf = from_hex(output, &ok);
     if (!ok || buf.size() != Block::PoW::nSolutionBytes) return false;
+    memcpy(pow.m_Indices.data(), buf.data(), Block::PoW::nSolutionBytes);
     buf.clear();
     buf = from_hex(nonce, &ok);
-    return (ok && buf.size() == Block::PoW::NonceType::nBytes);
+    if (!ok || buf.size() != Block::PoW::NonceType::nBytes) return false;
+    memcpy(pow.m_Nonce.m_pData, buf.data(), Block::PoW::NonceType::nBytes);
+    return true;
 }
 
 bool append_json_msg(io::FragmentWriter& packer, const Solution& m) {
