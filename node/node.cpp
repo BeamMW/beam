@@ -1080,8 +1080,9 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 		LOG_INFO() << "Duplicate connection with the same PI.";
 		// Duplicate connection. In this case we have to choose wether to terminate this connection, or the previous. The best is to do it asymmetrically.
 		// We decide this based on our Node IDs.
+		// In addition, if the older connection isn't completed yet (i.e. it's our connect attempt) - it's prefered for deletion, because such a connection may be impossible (firewalls and friends).
 
-		if (m_This.m_MyPublicID > msg.m_ID)
+		if (!pPi->m_pLive->IsSecureOut() || (m_This.m_MyPublicID > msg.m_ID))
 		{
 			pPi->m_pLive->DeleteSelf(false, ByeReason::Duplicate);
 			assert(!pPi->m_pLive);
@@ -1554,6 +1555,8 @@ void Node::Peer::OnFirstTaskDone()
 {
 	ReleaseTask(get_FirstTask());
 	SetTimerWrtFirstTask();
+
+	TakeTasks(); // maybe can take more
 }
 
 void Node::Peer::OnMsg(proto::DataMissing&&)
