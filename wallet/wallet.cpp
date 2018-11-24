@@ -77,26 +77,6 @@ namespace beam
         return os;
     }
 
-    namespace wallet
-    {
-        pair<Scalar::Native, Scalar::Native> splitKey(const Scalar::Native& key, uint64_t index)
-        {
-            pair<Scalar::Native, Scalar::Native> res;
-            res.first = key;
-            ExtractOffset(res.first, res.second, index);
-            res.second = -res.second; // different convention
-            return res;
-        }
-
-        Block::SystemState::ID GetEmptyID()
-        {
-            Block::SystemState::ID id;
-            ZeroObject(id);
-            id.m_Height = Rules::HeightGenesis;
-            return id;
-        }
-    }
-
 	const char Wallet::s_szLastUtxoEvt[] = "LastUtxoEvent";
 
     Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action)

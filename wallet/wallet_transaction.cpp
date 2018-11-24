@@ -252,7 +252,7 @@ namespace beam { namespace wallet
             UpdateTxDescription(TxStatus::InProgress);
         }
 
-        builder.GenerateNonce();
+        builder.CreateKernel();
         
         if (!isSelfTx && !builder.GetPeerPublicExcessAndNonce())
         {
@@ -449,13 +449,12 @@ namespace beam { namespace wallet
             Scalar::Native blindingFactor = m_Tx.GetWalletDB()->calcKey(coin.m_ID);
             auto& input = m_Inputs.emplace_back(make_unique<Input>());
             input->m_Commitment = Commitment(blindingFactor, coin.m_ID.m_Value);
-            m_BlindingExcess += blindingFactor;
+            m_Offset += blindingFactor;
             total += coin.m_ID.m_Value;
         }
 
         m_Change += total - amountWithFee;
 
-        m_Tx.SetParameter(TxParameterID::BlindingExcess, m_BlindingExcess);
         m_Tx.SetParameter(TxParameterID::Change, m_Change);
         m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs);
         m_Tx.SetParameter(TxParameterID::Offset, m_Offset);
@@ -492,18 +491,14 @@ namespace beam { namespace wallet
         Output::Ptr output = make_unique<Output>();
         output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(newUtxo.m_ID.m_iChild), newUtxo.m_ID);
 
-        auto[privateExcess, newOffset] = splitKey(blindingFactor, newUtxo.m_ID.m_Idx);
-        blindingFactor = -privateExcess;
-        m_BlindingExcess += blindingFactor;
-        m_Offset += newOffset;
-
-        m_Tx.SetParameter(TxParameterID::BlindingExcess, m_BlindingExcess);
+        blindingFactor = -blindingFactor;
+		m_Offset += blindingFactor;
         m_Tx.SetParameter(TxParameterID::Offset, m_Offset);
 
         return output;
     }
 
-    void TxBuilder::GenerateNonce()
+    void TxBuilder::CreateKernel()
     {
         // create kernel
         assert(!m_Kernel);
@@ -512,6 +507,20 @@ namespace beam { namespace wallet
         m_Kernel->m_Height.m_Min = m_MinHeight;
         m_Kernel->m_Height.m_Max = m_MaxHeight;
         m_Kernel->m_Commitment = Zero;
+
+		if (!m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess))
+		{
+			Coin::ID cid;
+			ZeroObject(cid);
+			cid.m_Type = FOURCC_FROM(KerW);
+			cid.m_Idx = m_Tx.GetWalletDB()->AllocateKidRange(1);
+
+			m_BlindingExcess = m_Tx.GetWalletDB()->calcKey(cid);
+			m_Tx.SetParameter(TxParameterID::BlindingExcess, m_BlindingExcess);
+		}
+
+		m_Offset += m_BlindingExcess;
+		m_BlindingExcess = -m_BlindingExcess;
 
         if (!m_Tx.GetParameter(TxParameterID::MyNonce, m_MultiSig.m_Nonce))
         {

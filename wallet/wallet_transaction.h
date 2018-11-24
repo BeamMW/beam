@@ -178,7 +178,7 @@ namespace beam { namespace wallet
         void AddChangeOutput();
         void AddOutput(Amount amount, Coin::Status status);
         Output::Ptr CreateOutput(Amount amount, Coin::Status status, bool shared = false, Height incubation = 0);
-        void GenerateNonce();
+        void CreateKernel();
         ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
         bool GetInitialTxParams();
@@ -211,8 +211,8 @@ namespace beam { namespace wallet
         Height m_MaxHeight;
         std::vector<Input::Ptr> m_Inputs;
         std::vector<Output::Ptr> m_Outputs;
-        ECC::Scalar::Native m_BlindingExcess;
-        ECC::Scalar::Native m_Offset;
+        ECC::Scalar::Native m_BlindingExcess; // goes to kernel
+        ECC::Scalar::Native m_Offset; // goes to offset
 
         // peer values
         ECC::Scalar::Native m_PartialSignature;

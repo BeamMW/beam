@@ -1418,22 +1418,6 @@ void TestSwapTransaction()
     WALLET_CHECK(receiverCoins[0].m_ID.m_Value == 4);
 }
 
-void TestSplitKey()
-{
-    Scalar::Native nonce;
-    nonce = (uint64_t) 0xa231234f92381353UL;
-
-    auto res1 = beam::wallet::splitKey(nonce, 123456789);
-    auto res2 = beam::wallet::splitKey(nonce, 123456789);
-    auto res3 = beam::wallet::splitKey(nonce, 123456789);
-    WALLET_CHECK(res1.first == res2.first && res2.first == res3.first);
-    WALLET_CHECK(res1.second == res2.second && res2.second == res3.second);
-    Scalar::Native s2 = res1.second;
-    s2 = -s2;
-    Scalar::Native s1 = res1.first+s2;
-    WALLET_CHECK(s1 == nonce);
-}
-
 struct MyMmr : public Merkle::Mmr
 {
     typedef std::vector<Merkle::Hash> HashVector;
@@ -1596,7 +1580,6 @@ int main()
 	Rules::get().FakePoW = true;
 	Rules::get().UpdateChecksum();
 
-    TestSplitKey();
     TestP2PWalletNegotiationST();
     TestP2PWalletReverseNegotiationST();
 

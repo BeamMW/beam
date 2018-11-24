@@ -989,17 +989,6 @@ namespace beam
 			ctx.IsValidBlock(*this, bSubsidyOpen);
 	}
 
-	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height h /* = 0 */, uint32_t nIdx /* = 0 */)
-	{
-		ECC::Hash::Value hv;
-		ECC::Hash::Processor() << h << nIdx >> hv;
-
-		kOffset.GenerateNonceNnz(kKernel, hv, NULL);
-
-		kKernel += kOffset;
-		kOffset = -kOffset;
-	}
-
 	/////////////
 	// SystemState::IHistory
 	bool Block::SystemState::IHistory::get_Tip(Full& s)
