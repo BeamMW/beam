@@ -502,34 +502,14 @@ namespace beam
 
             void get(int col, boost::optional<TxID>& id)
             {
-                int size = sqlite3_column_bytes(_stm, col);
-                if (size > 0)
-                {
-                    size = sqlite3_column_bytes(_stm, col);
-                    const void* data = sqlite3_column_blob(_stm, col);
-
-                    if (data)
-                    {
-                        id = TxID{};
-                        memcpy(id->data(), data, size);
-                    }
-                }
+				TxID val;
+				if (getBlobSafe(col, &val, sizeof(val)))
+					id = val;
             }
 
             void get(int col, ECC::Hash::Value& hash)
             {
-                int size = sqlite3_column_bytes(_stm, col);
-                if (size > 0)
-                {
-                    size = sqlite3_column_bytes(_stm, col);
-                    const void* data = sqlite3_column_blob(_stm, col);
-
-                    if (data)
-                    {
-                        assert(size == hash.nBytes);
-                        memcpy(hash.m_pData, data, size);
-                    }
-                }
+				getBlobStrict(col, hash.m_pData, hash.nBytes);
             }
 
             void get(int col, io::Address& address)
@@ -540,14 +520,13 @@ namespace beam
             }
             void get(int col, ByteBuffer& b)
             {
-                int size = sqlite3_column_bytes(_stm, col);
-                const void* data = sqlite3_column_blob(_stm, col);
+				b.clear();
 
-                if (data)
+				int size = sqlite3_column_bytes(_stm, col);
+				if (size > 0)
                 {
-                    b.clear();
                     b.resize(size);
-                    memcpy(&b[0], data, size);
+					memcpy(&b.front(), sqlite3_column_blob(_stm, col), size);
                 }
             }
 
@@ -556,15 +535,7 @@ namespace beam
 				if (sqlite3_column_bytes(_stm, col) != size)
 					return false;
 
-				if (size)
-				{
-					const void* data = sqlite3_column_blob(_stm, col);
-					if (!data)
-						return false;
-
-					memcpy(blob, data, size);
-				}
-
+				memcpy(blob, sqlite3_column_blob(_stm, col), size);
 				return true;
 			}
 
@@ -574,14 +545,6 @@ namespace beam
 					throw std::runtime_error("wdb corruption");
 			}
 
-            void get_(int col, void* blob, int& size)
-            {
-                size = sqlite3_column_bytes(_stm, col);
-                const void* data = sqlite3_column_blob(_stm, col);
-
-                if (data) memcpy(blob, data, size);
-            }
-
             void get(int col, Key::Type& type)
             {
                 type = sqlite3_column_int(_stm, col);
@@ -590,10 +553,10 @@ namespace beam
             void get(int col, string& str) // utf-8
             {
                 int size = sqlite3_column_bytes(_stm, col);
-                const unsigned char* data = sqlite3_column_text(_stm, col);
-                if (data && size)
+                if (size > 0)
                 {
-                    str.assign(reinterpret_cast<const string::value_type*>(data));
+					const unsigned char* data = sqlite3_column_text(_stm, col);
+					str.assign(reinterpret_cast<const string::value_type*>(data));
                 }
             }
 
