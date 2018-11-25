@@ -33,7 +33,6 @@ namespace beam
         const char* PORT_FULL = "port,p";
         const char* STORAGE = "storage";
         const char* WALLET_STORAGE = "wallet_path";
-        const char* BBS_STORAGE = "bbs_keystore_path";
         const char* HISTORY = "history_dir";
         const char* TEMP = "temp_dir";
         const char* IMPORT = "import";
@@ -136,7 +135,6 @@ namespace beam
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
             (cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
-            (cli::BBS_STORAGE, po::value<string>()->default_value("bbs_keys.db"), "path to file with bbs keys")
             (cli::TX_HISTORY, "print transacrions' history in info command")
             (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "tx id")

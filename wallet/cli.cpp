@@ -18,7 +18,6 @@
 #include "wallet/wallet.h"
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
-#include "wallet/keystore.h"
 #include "wallet/secstring.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
@@ -100,21 +99,11 @@ namespace
         cout << options << std::endl;
     }
 
-    IKeyStore::Ptr createKeyStore(const string& path, const SecString& pass)
-    {
-        IKeyStore::Options options;
-        options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-        options.fileName = path;
-
-        return IKeyStore::create(options, pass.data(), pass.size());
-    }
-
     void newAddress(
         const IWalletDB::Ptr& walletDB,
         const std::string& label,
-        const std::string& bbsKeysPath, const SecString& pass)
+        const SecString& pass)
     {
-        IKeyStore::Ptr ks = createKeyStore(bbsKeysPath, pass);
         WalletAddress address = {};
         address.m_label = label;
         address.m_createTime = getTimestamp();
@@ -226,9 +215,6 @@ int main_impl(int argc, char* argv[])
                         assert(vm.count(cli::WALLET_STORAGE) > 0);
                         auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
 
-                        assert(vm.count(cli::BBS_STORAGE) > 0);
-                        auto bbsKeysPath = vm[cli::BBS_STORAGE].as<string>();
-
                         if (!WalletDB::isInitialized(walletPath) && command != cli::INIT)
                         {
                             LOG_ERROR() << "Please initialize your wallet first... \nExample: beam-wallet --command=init";
@@ -257,7 +243,7 @@ int main_impl(int argc, char* argv[])
                                 LOG_INFO() << "wallet successfully created...";
 
                                 // generate default address
-                                newAddress(walletDB, "default", bbsKeysPath, pass);
+                                newAddress(walletDB, "default", pass);
 
                                 return 0;
                             }
@@ -278,7 +264,7 @@ int main_impl(int argc, char* argv[])
                         if (command == cli::NEW_ADDRESS)
                         {
                             auto label = vm[cli::NEW_ADDRESS_LABEL].as<string>();
-                            newAddress(walletDB, label, bbsKeysPath, pass);
+                            newAddress(walletDB, label, pass);
 
                             if (!vm.count(cli::LISTEN)) {
                                 return 0;
@@ -421,8 +407,6 @@ int main_impl(int argc, char* argv[])
                         }
 
                         bool is_server = (command == cli::LISTEN || vm.count(cli::LISTEN));
-
-                        IKeyStore::Ptr keystore = createKeyStore(bbsKeysPath, pass);
 
                         Wallet wallet{ walletDB, is_server ? Wallet::TxCompletedAction() : [](auto) { io::Reactor::get_Current().stop(); } };
 

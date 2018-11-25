@@ -17,7 +17,6 @@
 #include "p2p/protocol.h"
 #include "p2p/connection.h"
 #include "p2p/msg_reader.h"
-#include "keystore.h"
 #include "utility/bridge.h"
 #include "utility/logger.h"
 #include "core/proto.h"

@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "start_view.h"
-#include "wallet/keystore.h"
 #include <QMessageBox>
 #include <QStringBuilder>
 #include <QApplication>

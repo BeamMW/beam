@@ -184,7 +184,7 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     }
 };
 
-WalletModel::WalletModel(IWalletDB::Ptr walletDB, IKeyStore::Ptr keystore, const std::string& nodeAddr)
+WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr)
     : _walletDB(walletDB)
     , _reactor{ Reactor::create() }
     , _async{ make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *_reactor) }

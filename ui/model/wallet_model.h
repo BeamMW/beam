@@ -74,7 +74,7 @@ public:
 
     using Ptr = std::shared_ptr<WalletModel>;
 
-    WalletModel(beam::IWalletDB::Ptr walletDB, beam::IKeyStore::Ptr keystore, const std::string& nodeAddr);
+    WalletModel(beam::IWalletDB::Ptr walletDB, const std::string& nodeAddr);
     ~WalletModel();
 
     void run() override;
@@ -132,7 +132,6 @@ private:
 private:
 
     beam::IWalletDB::Ptr _walletDB;
-    beam::IKeyStore::Ptr _keystore;
     beam::io::Reactor::Ptr _reactor;
     IWalletModelAsync::Ptr _async;
     std::weak_ptr<beam::proto::FlyClient::INetwork> _nnet;
