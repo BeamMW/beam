@@ -229,7 +229,7 @@ bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& 
 	return true;
 }
 
-bool BbsDecrypt(uint8_t*& p, uint32_t& n, ECC::Scalar::Native& privateAddr)
+bool BbsDecrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr)
 {
 	PeerID remotePublic;
 	ECC::Hash::Value hvMac, hvMac2;
