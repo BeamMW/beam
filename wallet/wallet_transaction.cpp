@@ -410,7 +410,7 @@ namespace beam { namespace wallet
     {
         WalletID peerID = GetMandatoryParameter<WalletID>(TxParameterID::PeerID);
         auto address = m_WalletDB->getAddress(peerID);
-        return address.is_initialized() && address->m_own;
+        return address.is_initialized() && address->m_OwnID;
     }
 
     SimpleTransaction::State SimpleTransaction::GetState() const

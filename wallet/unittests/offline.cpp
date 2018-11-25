@@ -80,7 +80,7 @@ WaitHandle run_wallet(const WalletParams& params) {
 			nnet.m_Cfg.m_vNodes.push_back(params.nodeAddress);
 			nnet.Connect();
 
-			WalletNetworkViaBbs wnet(wallet, nnet, params.keystore, params.walletDB);
+			WalletNetworkViaBbs wnet(wallet, nnet, params.walletDB);
 			wallet.set_Network(nnet, wnet);
 
             if (sender) {

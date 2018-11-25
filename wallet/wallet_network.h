@@ -32,14 +32,13 @@ namespace beam
 	{
 		IWallet& m_Wallet;
 		proto::FlyClient::INetwork& m_NodeNetwork;
-		IKeyStore::Ptr m_pKeyStore;
 		IWalletDB::Ptr m_WalletDB;
 
 		struct Addr
 		{
 			struct Wid :public boost::intrusive::set_base_hook<> {
-				WalletID m_Value;
-				bool operator < (const Wid& x) const { return m_Value < x.m_Value; }
+				uint64_t m_OwnID;
+				bool operator < (const Wid& x) const { return m_OwnID < x.m_OwnID; }
 				IMPLEMENT_GET_PARENT_OBJ(Addr, m_Wid)
 			} m_Wid;
 
@@ -48,6 +47,9 @@ namespace beam
 				bool operator < (const Channel& x) const { return m_Value < x.m_Value; }
 				IMPLEMENT_GET_PARENT_OBJ(Addr, m_Channel)
 			} m_Channel;
+
+			ECC::Scalar::Native m_sk; // private addr
+			PeerID m_Pk; // self public addr
 		};
 
 		typedef boost::intrusive::multiset<Addr::Wid> WidSet;
@@ -92,11 +94,11 @@ namespace beam
 
 	public:
 
-		WalletNetworkViaBbs(IWallet&, proto::FlyClient::INetwork&, const IKeyStore::Ptr&, const IWalletDB::Ptr&);
+		WalletNetworkViaBbs(IWallet&, proto::FlyClient::INetwork&, const IWalletDB::Ptr&);
 		virtual ~WalletNetworkViaBbs();
 
-		void new_own_address(const WalletID&);
-		void address_deleted(const WalletID&);
+		void new_own_address(uint64_t ownID);
+		void address_deleted(uint64_t ownID);
 
 		// IWallet::INetwork
 		virtual void Send(const WalletID& peerID, wallet::SetTxParameter&& msg) override;

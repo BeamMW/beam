@@ -193,6 +193,7 @@ namespace ECC
 			static const uint32_t Kernel2   = FOURCC_FROM(kerM); // used by the miner
 			static const uint32_t Identity  = FOURCC_FROM(iden); // Node-Wallet auth
 			static const uint32_t ChildKey  = FOURCC_FROM(SubK);
+			static const uint32_t Bbs       = FOURCC_FROM(BbsM);
 		};
 
 		struct ID

@@ -521,7 +521,7 @@ void TestAddresses()
     a.m_category = "test category";
     a.m_createTime = beam::getTimestamp();
     a.m_duration = 23;
-    a.m_own = true;
+    a.m_OwnID = 44;
 
     db->saveAddress(a);
 
@@ -532,7 +532,7 @@ void TestAddresses()
     WALLET_CHECK(addresses[0].m_category == a.m_category);
     WALLET_CHECK(addresses[0].m_createTime == a.m_createTime);
     WALLET_CHECK(addresses[0].m_duration == a.m_duration);
-    WALLET_CHECK(addresses[0].m_own == a.m_own);
+    WALLET_CHECK(addresses[0].m_OwnID == a.m_OwnID);
 
     a.m_category = "cat2";
 
@@ -545,7 +545,7 @@ void TestAddresses()
     WALLET_CHECK(addresses[0].m_category == a.m_category);
     WALLET_CHECK(addresses[0].m_createTime == a.m_createTime);
     WALLET_CHECK(addresses[0].m_duration == a.m_duration);
-    WALLET_CHECK(addresses[0].m_own == a.m_own);
+    WALLET_CHECK(addresses[0].m_OwnID == a.m_OwnID);
 
     auto a2 = db->getAddress(a.m_walletID);
     WALLET_CHECK(a2.is_initialized());

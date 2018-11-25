@@ -74,7 +74,7 @@ namespace beam
         std::string m_category;
         Timestamp m_createTime;
         uint64_t  m_duration;
-        bool m_own;
+		uint64_t  m_OwnID; // set for own address
 
         bool isExpired() const
         {
@@ -84,7 +84,7 @@ namespace beam
         WalletAddress() 
             : m_createTime(0)
             , m_duration(24 * 60 * 60) // 24h
-            , m_own(false)
+            , m_OwnID(false)
         {}
     };
 
@@ -159,6 +159,9 @@ namespace beam
         virtual void saveAddress(const WalletAddress&) = 0;
         virtual boost::optional<WalletAddress> getAddress(const WalletID&) = 0;
         virtual void deleteAddress(const WalletID&) = 0;
+
+		void createAddress(WalletAddress&);
+		void createAndSaveAddress(WalletAddress&);
 
         template <typename Var>
         void setVar(const char* name, const Var& var)

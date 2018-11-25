@@ -264,11 +264,11 @@ void WalletViewModel::saveNewAddress()
     WalletAddress ownAddress{};
 
     ownAddress.m_walletID = id;
-    ownAddress.m_own = true;
+    ownAddress.m_OwnID = 0;
     ownAddress.m_label = _newReceiverName.toStdString();
     ownAddress.m_createTime = beam::getTimestamp();
 
-    _model.getAsync()->createNewAddress(std::move(ownAddress));
+    _model.getAsync()->createNewAddress(std::move(ownAddress), true);
 }
 
 void WalletViewModel::copyToClipboard(const QString& text)

@@ -116,12 +116,9 @@ namespace
     {
         IKeyStore::Ptr ks = createKeyStore(bbsKeysPath, pass);
         WalletAddress address = {};
-        address.m_own = true;
         address.m_label = label;
         address.m_createTime = getTimestamp();
-        ks->gen_keypair(address.m_walletID);
-        ks->save_keypair(address.m_walletID, true);
-        walletDB->saveAddress(address);
+        walletDB->createAndSaveAddress(address);
 
         char buf[uintBig::nBytes * 2 + 1];
         to_hex(buf, address.m_walletID.m_pData, uintBig::nBytes);
@@ -433,7 +430,7 @@ int main_impl(int argc, char* argv[])
 						nnet.m_Cfg.m_vNodes.push_back(node_addr);
 						nnet.Connect();
 
-						WalletNetworkViaBbs wnet(wallet, nnet, keystore, walletDB);
+						WalletNetworkViaBbs wnet(wallet, nnet, walletDB);
 						
 						wallet.set_Network(nnet, wnet);
 

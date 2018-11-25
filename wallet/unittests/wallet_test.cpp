@@ -202,20 +202,6 @@ namespace
         return std::static_pointer_cast<IWalletDB>(std::make_shared<T>());
     }
 
-    IKeyStore::Ptr CreateBbsKeystore(const string& path, const string& pass, WalletID& outWalletID)
-    {
-        boost::filesystem::remove_all(path);
-        IKeyStore::Options options;
-        options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-        options.fileName = path;
-
-        auto ks = IKeyStore::create(options, pass.c_str(), pass.size());
-        //WalletID senderID = {};
-        ks->gen_keypair(outWalletID);
-        ks->save_keypair(outWalletID, true);
-        return ks;
-    }
-
     IWalletDB::Ptr createSqliteWalletDB(const string& path)
     {
         ECC::NoLeak<ECC::uintBig> seed;
@@ -310,15 +296,21 @@ struct TestWalletRig
 {
     TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction())
         : m_WalletDB{walletDB}
-        , m_BBSKeystore{ CreateBbsKeystore(name + "-bbs", "123", m_WalletID) }
 		, m_Wallet{ m_WalletDB, move(action) }
 		, m_NodeNetwork(m_Wallet)
-		, m_WalletNetworkViaBbs(m_Wallet, m_NodeNetwork, m_BBSKeystore, m_WalletDB)
+		, m_WalletNetworkViaBbs(m_Wallet, m_NodeNetwork, m_WalletDB)
     {
+		WalletAddress wa;
+		wa.m_createTime = getTimestamp();
+		m_WalletDB->createAndSaveAddress(wa);
+		m_WalletID = wa.m_walletID;
+
 		m_Wallet.set_Network(m_NodeNetwork, m_WalletNetworkViaBbs);
 
 		m_NodeNetwork.m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
 		m_NodeNetwork.Connect();
+
+		m_WalletNetworkViaBbs.new_own_address(wa.m_OwnID);
     }
 
     vector<Coin> GetCoins()
@@ -334,7 +326,6 @@ struct TestWalletRig
 
     WalletID m_WalletID;
     IWalletDB::Ptr m_WalletDB;
-    IKeyStore::Ptr m_BBSKeystore;
     int m_CompletedCount{1};
 	Wallet m_Wallet;
 	proto::FlyClient::NetworkStd m_NodeNetwork;
@@ -707,8 +698,8 @@ void TestWalletNegotiation(IWalletDB::Ptr senderWalletDB, IWalletDB::Ptr receive
 	io::Reactor::Scope scope(*mainReactor);
 
     WalletID receiver_id, sender_id;
-    receiver_id = 4U;
-    sender_id = 5U;
+	receiver_id = 4U;
+	sender_id = 5U;
 
     int count = 0;
     auto f = [&count](const auto& /*id*/)
@@ -941,25 +932,7 @@ void TestTxToHimself()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    string keystorePass = "123";
-    WalletID senderID = {};
-    auto senderBbsKeys = CreateBbsKeystore("sender-bbs", keystorePass, senderID);
-
-    WalletID receiverID = {};
-    senderBbsKeys->gen_keypair(receiverID);
-
     auto senderWalletDB = createSqliteWalletDB("sender_wallet.db");
-
-    // add own address
-    WalletAddress own_address = {};
-    own_address.m_walletID = receiverID;
-    own_address.m_label = "test label";
-    own_address.m_category = "test category";
-    own_address.m_createTime = beam::getTimestamp();
-    own_address.m_duration = 23;
-    own_address.m_own = true;
-
-    senderWalletDB->saveAddress(own_address);
 
     // add coin with keyType - Coinbase
     beam::Amount coin_amount = 40;
@@ -980,7 +953,7 @@ void TestTxToHimself()
     helpers::StopWatch sw;
 
     sw.start();
-    TxID txId = sender.m_Wallet.transfer_money(senderID, receiverID, 24, 2);
+    TxID txId = sender.m_Wallet.transfer_money(sender.m_WalletID, sender.m_WalletID, 24, 2);
     mainReactor->run();
     sw.stop();
 

@@ -102,7 +102,7 @@
     each(category,       category,       TEXT, obj) sep \
     each(createTime,     createTime,     INTEGER, obj) sep \
     each(duration,       duration,       INTEGER, obj) sep \
-    each(own,            own,            INTEGER NOT NULL, obj)
+    each(OwnID,          OwnID,          INTEGER NOT NULL, obj)
 
 #define ADDRESS_FIELDS ENUM_ADDRESS_FIELDS(LIST, COMMA, )
 
@@ -621,7 +621,7 @@ namespace beam
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
-        const int DbVersion = 7;
+        const int DbVersion = 8;
     }
 
     Coin::Coin(Amount amount, Status status, Height maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
@@ -864,6 +864,25 @@ namespace beam
 		get_ChildKdf(cid.m_iChild)->DeriveKey(key, cid);
         return key;
     }
+
+	void IWalletDB::createAddress(WalletAddress& wa)
+	{
+		wa.m_OwnID = AllocateKidRange(1);
+
+		Coin::ID cid;
+		ZeroObject(cid);
+		cid.m_Type = Key::Type::Bbs;
+		cid.m_Idx = wa.m_OwnID;
+
+		ECC::Scalar::Native sk = calcKey(cid);
+		proto::Sk2Pk(wa.m_walletID, sk);
+	}
+
+	void IWalletDB::createAndSaveAddress(WalletAddress& wa)
+	{
+		createAddress(wa);
+		saveAddress(wa);
+	}
 
     vector<Coin> WalletDB::selectCoins(const Amount& amount, bool lock)
     {
@@ -1456,16 +1475,18 @@ namespace beam
     std::vector<WalletAddress> WalletDB::getAddresses(bool own)
     {
         vector<WalletAddress> res;
-        const char* req = "SELECT * FROM " ADDRESSES_NAME " WHERE own=?1 ORDER BY createTime DESC;";
+        const char* req = "SELECT * FROM " ADDRESSES_NAME " ORDER BY createTime DESC;";
 
         sqlite::Statement stm(_db, req);
-        stm.bind(1, own);
 
         while (stm.step())
         {
             auto& a = res.emplace_back();
 			int colIdx = 0;
 			ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, a);
+
+			if ((!a.m_OwnID) == own)
+				res.pop_back(); // akward, but ok
         }
         return res;
     }

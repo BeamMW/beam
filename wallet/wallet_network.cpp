@@ -29,10 +29,9 @@ namespace
 
 namespace beam {
 
-	WalletNetworkViaBbs::WalletNetworkViaBbs(IWallet& w, proto::FlyClient::INetwork& net, const IKeyStore::Ptr& pKeyStore, const IWalletDB::Ptr& pWalletDB)
+	WalletNetworkViaBbs::WalletNetworkViaBbs(IWallet& w, proto::FlyClient::INetwork& net, const IWalletDB::Ptr& pWalletDB)
 		:m_Wallet(w)
 		,m_NodeNetwork(net)
-		,m_pKeyStore(pKeyStore)
 		,m_WalletDB(pWalletDB)
 	{
 		ByteBuffer buffer;
@@ -48,13 +47,9 @@ namespace beam {
 		auto myAddresses = m_WalletDB->getAddresses(true);
 		for (const auto& address : myAddresses)
 			if (address.isExpired())
-				m_pKeyStore->disable_key(address.m_walletID);
-
-		std::set<PubKey> pubKeys;
-		m_pKeyStore->get_enabled_keys(pubKeys);
-		for (const auto& v : pubKeys)
-			new_own_address(v);
-
+				m_WalletDB->deleteAddress(address.m_walletID);
+			else
+				new_own_address(address.m_OwnID);
 	}
 
 	WalletNetworkViaBbs::~WalletNetworkViaBbs()
@@ -131,18 +126,26 @@ namespace beam {
 		return walletID.m_pData[0] >> 3;
 	}
 
-	void WalletNetworkViaBbs::new_own_address(const WalletID& wid)
+	void WalletNetworkViaBbs::new_own_address(uint64_t ownID)
 	{
 		Addr::Wid key;
-		key.m_Value = wid;
+		key.m_OwnID = ownID;
 
 		auto itW = m_Addresses.find(key);
 		if (m_Addresses.end() != itW)
 			return;
 
+		Coin::ID cid;
+		ZeroObject(cid);
+		cid.m_Idx = ownID;
+		cid.m_Type = Key::Type::Bbs;
+
 		Addr* pAddr = new Addr;
-		pAddr->m_Wid.m_Value = wid;
-		pAddr->m_Channel.m_Value = channel_from_wallet_id(wid);
+		pAddr->m_Wid.m_OwnID = ownID;
+		pAddr->m_sk = m_WalletDB->calcKey(cid);
+		proto::Sk2Pk(pAddr->m_Pk, pAddr->m_sk); // needed to "normalize" the sk, and calculate the channel
+
+		pAddr->m_Channel.m_Value = channel_from_wallet_id(pAddr->m_Pk);
 
 		m_Addresses.insert(pAddr->m_Wid);
 		m_Channels.insert(pAddr->m_Channel);
@@ -158,10 +161,10 @@ namespace beam {
 		}
 	}
 
-	void WalletNetworkViaBbs::address_deleted(const WalletID& wid)
+	void WalletNetworkViaBbs::address_deleted(uint64_t ownID)
 	{
 		Addr::Wid key;
-		key.m_Value = wid;
+		key.m_OwnID = ownID;
 
 		auto it = m_Addresses.find(key);
 		if (m_Addresses.end() != it)
@@ -187,6 +190,9 @@ namespace beam {
 
 	void WalletNetworkViaBbs::OnMsg(const proto::BbsMsg& msg)
 	{
+		if (msg.m_Message.empty())
+			return;
+
 		auto itBbs = m_BbsTimestamps.find(msg.m_Channel);
 		if (m_BbsTimestamps.end() != itBbs)
 			itBbs->second = std::max(itBbs->second, msg.m_TimePosted);
@@ -209,27 +215,30 @@ namespace beam {
 			if (it->m_Value != msg.m_Channel)
 				break; // as well
 
-			Blob blob;
 			ByteBuffer buf = msg.m_Message; // duplicate
-			if (m_pKeyStore->decrypt((uint8_t*&) blob.p, blob.n, buf, it->get_ParentObj().m_Wid.m_Value))
-			{
-				wallet::SetTxParameter msgWallet;
-				bool bValid = false;
 
-				try {
-					Deserializer der;
-					der.reset(blob.p, blob.n);
-					der & msgWallet;
-					bValid = true;
-				}  catch (const std::exception&) {
-					LOG_WARNING() << "BBS deserialization failed";
-				}
+			uint8_t* pMsg = &buf.front();
+			uint32_t nSize = static_cast<uint32_t>(buf.size());
+
+			if (!proto::BbsDecrypt(pMsg, nSize, it->get_ParentObj().m_sk))
+				continue;
+
+			wallet::SetTxParameter msgWallet;
+			bool bValid = false;
+
+			try {
+				Deserializer der;
+				der.reset(pMsg, nSize);
+				der & msgWallet;
+				bValid = true;
+			}  catch (const std::exception&) {
+				LOG_WARNING() << "BBS deserialization failed";
+			}
 				
-				if (bValid)
-				{
-					m_Wallet.OnWalletMsg(it->get_ParentObj().m_Wid.m_Value, std::move(msgWallet));
-					break;
-				}
+			if (bValid)
+			{
+				m_Wallet.OnWalletMsg(it->get_ParentObj().m_Pk, std::move(msgWallet));
+				break;
 			}
 		}
 	}
@@ -242,7 +251,10 @@ namespace beam {
 
 		MyRequestBbsMsg::Ptr pReq(new MyRequestBbsMsg);
 
-		if (m_pKeyStore->encrypt(pReq->m_Msg.m_Message, sb.first, sb.second, peerID))
+		ECC::Scalar::Native nonce;
+		nonce.GenRandomNnz();
+		
+		if (proto::BbsEncrypt(pReq->m_Msg.m_Message, peerID, nonce, sb.first, static_cast<uint32_t>(sb.second)))
 		{
 			pReq->m_Msg.m_Channel = channel_from_wallet_id(peerID);
 			pReq->m_Msg.m_TimePosted = getTimestamp();
@@ -251,6 +263,10 @@ namespace beam {
 			pReq->AddRef();
 
 			m_NodeNetwork.PostRequest(*pReq, m_BbsSentEvt);
+		}
+		else
+		{
+			LOG_WARNING() << "BBS serialization failed (bad peerID?)";
 		}
 	}
 }
