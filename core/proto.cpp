@@ -151,16 +151,20 @@ void InitCipherIV(AES::StreamCipher& c, const ECC::Hash::Value& hvSecret, const 
 	c.m_nBuf = 0;
 }
 
+bool ImportPeerID(ECC::Point::Native& res, const PeerID& pid)
+{
+	ECC::Point pt;
+	pt.m_X = pid;
+	pt.m_Y = 0;
+
+	return res.ImportNnz(pt);
+}
+
 bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& remotePublic, AES::Encoder& enc, ECC::Hash::Mac& hmac, AES::StreamCipher* pCipherOut, AES::StreamCipher* pCipherIn)
 {
 	// Diffie-Hellman
-	ECC::Point pt;
-	pt.m_X = remotePublic;
-	pt.m_Y = 0;
-
 	ECC::Point::Native p;
-	if (!p.Import(pt))
-		return false;
+	ImportPeerID(p, remotePublic);
 
 	ECC::Point::Native ptSecret = p * myPrivate;
 

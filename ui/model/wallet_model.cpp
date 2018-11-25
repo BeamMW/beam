@@ -590,6 +590,7 @@ bool WalletModel::check_receiver_address(const std::string& addr) {
     bool wholeStringIsNumber = false;
     WalletID peerAddr = from_hex(addr, &wholeStringIsNumber);
     if (!wholeStringIsNumber) return false;
-    ByteBuffer buff;
-    return _keystore->encrypt(buff, "whatever", 8, peerAddr);
+
+	ECC::Point::Native p;
+	return proto::ImportPeerID(p, peerAddr);
 }
