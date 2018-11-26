@@ -804,7 +804,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		{
 			d.m_Maturity = 0;
 			kMin = d;
-			d.m_Maturity = pHMax ? *pHMax : h;
+			d.m_Maturity = h;
 			kMax = d;
 		}
 		else
@@ -835,7 +835,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		if (!--p->m_Value.m_Count)
 			m_Utxos.Delete(cu);
 		else
-			cu.Invalidate();
+			cu.InvalidateElement();
 
 		if (!pHMax)
 			Cast::NotConst(v).m_Maturity = d.m_Maturity;
@@ -854,7 +854,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		else
 		{
 			p->m_Value.m_Count++;
-			cu.Invalidate();
+			cu.InvalidateElement();
 		}
 	}
 
@@ -882,7 +882,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 	bool bCreate = true;
 	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
 
-	cu.Invalidate();
+	cu.InvalidateElement();
 
 	if (bFwd)
 	{

@@ -301,6 +301,7 @@ namespace beam
 			virtual void NextKernel() = 0;
 
 			void Compare(IReader&& rOther, bool& bICover, bool& bOtherCovers);
+			size_t get_SizeNetto(); // account only for elements. Ignore offset and array sizes
 		};
 
 		struct IWriter
