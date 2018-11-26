@@ -178,7 +178,24 @@ namespace detail
             return ar;
         }
 
-        /// ECC::Scalar serialization
+		/// beam::FourCC serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::FourCC& val)
+		{
+			ar & beam::uintBigFrom(val.V);
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::FourCC& val)
+		{
+			beam::uintBigFor<uint32_t>::Type x;
+			ar & x;
+			x.Export(val.V);
+			return ar;
+		}
+
+		/// ECC::Scalar serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const ECC::Scalar& scalar)
         {
@@ -202,7 +219,6 @@ namespace detail
 		{
 			ar
 				& kidv.m_Idx
-				& kidv.m_IdxSecondary
 				& kidv.m_Type
 				& kidv.m_Value;
 
@@ -214,14 +230,34 @@ namespace detail
 		{
 			ar
 				& kidv.m_Idx
-				& kidv.m_IdxSecondary
 				& kidv.m_Type
 				& kidv.m_Value;
 
 			return ar;
 		}
 
-        /// ECC::Signature serialization
+		/// ECC::Key::IDVC serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const ECC::Key::IDVC& kidvc)
+		{
+			ar
+				& Cast::Down<ECC::Key::IDV>(kidvc);
+				& kidvc.m_iChild;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, ECC::Key::IDVC& kidvc)
+		{
+			ar
+				& Cast::Down<ECC::Key::IDV>(kidvc);
+				& kidvc.m_iChild;
+
+			return ar;
+		}
+
+		/// ECC::Signature serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const ECC::Signature& val)
         {
@@ -358,7 +394,6 @@ namespace detail
                 & val.m_Value
                 & val.m_Signature
 				& val.m_Kid.m_Idx
-				& val.m_Kid.m_Idx2
 				& val.m_Kid.m_Type
             ;
 
@@ -372,7 +407,6 @@ namespace detail
                 & val.m_Value
                 & val.m_Signature
 				& val.m_Kid.m_Idx
-				& val.m_Kid.m_Idx2
 				& val.m_Kid.m_Type
             ;
 

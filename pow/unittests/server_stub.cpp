@@ -100,9 +100,13 @@ void run_with_node() {
     node.m_Cfg.m_Listen.ip(0);
     node.m_Cfg.m_MiningThreads = 0;
     node.m_Cfg.m_VerificationThreads = 1;
-    std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
-    pKdf->m_Secret.V.m_pData[0] = 33;
-    node.m_pKdf = pKdf;
+    uintBig_t<256> fakeKdf;
+    fakeKdf.m_pData[0] = 33;
+    node.m_Keys.InitSingleKey(fakeKdf);
+
+    //std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
+    //pKdf->m_Secret.V.m_pData[0] = 33;
+    //node.m_pKdf = pKdf;
 
     Node dummyNode;
     dummyNode.m_Cfg.m_sPathLocal = "yyyyy";

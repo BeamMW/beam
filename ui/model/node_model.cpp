@@ -77,7 +77,7 @@ void NodeModel::run()
             node.m_Cfg.m_VerificationThreads = settings.getLocalNodeVerificationThreads();
         }
 
-		node.m_pKdf = m_pKdf;
+		node.m_Keys.SetSingleKey(m_pKdf);
 
 
         node.m_Cfg.m_HistoryCompression.m_sPathOutput = settings.getTempDir();

@@ -14,7 +14,6 @@
 
 
 #include "util.h"
-#include "wallet/keystore.h"
 #include "wallet/wallet_network.h"
 #include "node/node.h"
 #include "utility/logger.h"
@@ -52,9 +51,9 @@ struct WaitHandle {
 
 struct WalletParams {
     IWalletDB::Ptr walletDB;
-    IKeyStore::Ptr keystore;
     io::Address nodeAddress;
-    PubKey sendFrom, sendTo;
+
+	WalletID sendFrom, sendTo;
 };
 
 WaitHandle run_wallet(const WalletParams& params) {
@@ -80,7 +79,7 @@ WaitHandle run_wallet(const WalletParams& params) {
 			nnet.m_Cfg.m_vNodes.push_back(params.nodeAddress);
 			nnet.Connect();
 
-			WalletNetworkViaBbs wnet(wallet, nnet, params.keystore, params.walletDB);
+			WalletNetworkViaBbs wnet(wallet, nnet, params.walletDB);
 			wallet.set_Network(nnet, wnet);
 
             if (sender) {
@@ -118,9 +117,7 @@ WaitHandle run_node(const NodeParams& params) {
             node.m_Cfg.m_MiningThreads = 1;
             node.m_Cfg.m_VerificationThreads = 1;
 
-			std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
-			pKdf->m_Secret.V = params.walletSeed;
-			node.m_pKdf = pKdf;
+			node.m_Keys.InitSingleKey(params.walletSeed);
 
             node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 500;
 
@@ -177,20 +174,12 @@ void test_offline(bool twoNodes) {
     senderParams.walletDB = init_wallet_db("_sender", &nodeParams.walletSeed);
     receiverParams.walletDB = init_wallet_db("_receiver", 0);
 
-    static const char KS_PASSWORD[] = "carbophos";
-
-    IKeyStore::Options ksOptions;
-    ksOptions.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-    ksOptions.fileName = "_sender_ks";
-    senderParams.keystore = IKeyStore::create(ksOptions, KS_PASSWORD, sizeof(KS_PASSWORD));
-    ksOptions.fileName = "_receiver_ks";
-    receiverParams.keystore = IKeyStore::create(ksOptions, KS_PASSWORD, sizeof(KS_PASSWORD));
-
-    senderParams.keystore->gen_keypair(senderParams.sendFrom);
-    senderParams.keystore->save_keypair(senderParams.sendFrom, true);
-
-    receiverParams.keystore->gen_keypair(senderParams.sendTo);
-    receiverParams.keystore->save_keypair(senderParams.sendTo, true);
+	WalletAddress wa;
+	wa.m_createTime = getTimestamp();
+	senderParams.walletDB->createAndSaveAddress(wa);
+	senderParams.sendFrom = wa.m_walletID;
+	receiverParams.walletDB->createAndSaveAddress(wa);
+	senderParams.sendTo = wa.m_walletID;
 
     WalletDBObserver senderObserver("AAAAAAAAAAAAAAAAAAAAAA"), receiverObserver("BBBBBBBBBBBBBBBBBBBBBB");
 

@@ -434,7 +434,6 @@ void TestRangeProof()
 {
 	RangeProof::CreatorParams cp;
 	SetRandomOrd(cp.m_Kidv.m_Idx);
-	SetRandomOrd(cp.m_Kidv.m_IdxSecondary);
 	SetRandomOrd(cp.m_Kidv.m_Type);
 	SetRandom(cp.m_Seed.V);
 	cp.m_Kidv.m_Value = 345000;
@@ -692,7 +691,6 @@ struct TransactionMaker
 
 			Key::IDV kidv;
 			SetRandomOrd(kidv.m_Idx);
-			SetRandomOrd(kidv.m_IdxSecondary);
 			kidv.m_Type = Key::Type::Regular;
 			kidv.m_Value = val;
 
@@ -885,11 +883,11 @@ void TestKdf()
 	HKdf skdf;
 	HKdfPub pkdf;
 
-	SetRandom(skdf.m_Secret.V);
-	pkdf.m_Secret.V = skdf.m_Secret.V;
+	uintBig seed;
+	SetRandom(seed);
 
-	SetRandom(skdf.m_kCoFactor);
-	pkdf.m_Pk = Context::get().G * skdf.m_kCoFactor;
+	skdf.Generate(seed);
+	pkdf.GenerateFrom(skdf);
 
 	for (uint32_t i = 0; i < 10; i++)
 	{
@@ -920,16 +918,17 @@ void TestKdf()
 	HKdf skdf2;
 	ks1.m_sMeta.clear();
 	verify_test(ks1.Import(skdf2));
-	verify_test((skdf2.m_Secret.V == skdf.m_Secret.V) && (skdf2.m_kCoFactor == skdf.m_kCoFactor));
+
+	verify_test(skdf2.IsSame(skdf));
 
 	ks1.Export(pkdf);
 	HKdfPub pkdf2;
 	verify_test(ks1.Import(pkdf2));
-	verify_test(pkdf2.m_Secret.V == pkdf.m_Secret.V);
+	verify_test(pkdf2.IsSame(pkdf));
 
-	pkdf2.m_Pk = -pkdf2.m_Pk;
-	pkdf2.m_Pk += pkdf.m_Pk;
-	verify_test(pkdf2.m_Pk == Zero);
+	seed.Inc();
+	skdf2.Generate(seed);
+	verify_test(!skdf2.IsSame(skdf));
 }
 
 void TestBbs()
@@ -1056,6 +1055,54 @@ void TestDifficulty()
 	}
 }
 
+void TestRandom()
+{
+	uintBig pV[2];
+	ZeroObject(pV);
+
+	for (uint32_t i = 0; i < 10; i++)
+	{
+		uintBig& a = pV[1 & i];
+		uintBig& b = pV[1 & (i + 1)];
+
+		a = Zero;
+		GenRandom(a);
+		verify_test(!(a == Zero));
+		verify_test(!(a == b));
+	}
+}
+
+bool IsOkFourCC(const char* szRes, const char* szSrc)
+{
+	// the formatted FourCC always consists of 4 characters. If source is shorter - spaced are appended
+	size_t n = strlen(szSrc);
+	for (size_t i = 0; i < 4; i++)
+	{
+		char c = (i < n) ? szSrc[i] : ' ';
+		if (szRes[i] != c)
+			return false;
+	}
+
+	return !szRes[4];
+
+}
+
+void TestFourCC()
+{
+#define TEST_FOURCC(name) \
+	{ \
+		uint32_t nFourCC = FOURCC_FROM(name); \
+		beam::FourCC::Text txt(nFourCC); \
+		verify_test(IsOkFourCC(txt, #name)); \
+	}
+
+	// compile-time FourCC should support shorter strings
+	TEST_FOURCC(help)
+	TEST_FOURCC(hel)
+	TEST_FOURCC(he)
+	TEST_FOURCC(h)
+}
+
 void TestAll()
 {
 	TestUintBig();
@@ -1070,6 +1117,8 @@ void TestAll()
 	TestKdf();
 	TestBbs();
 	TestDifficulty();
+	TestRandom();
+	TestFourCC();
 }
 
 
@@ -1525,6 +1574,19 @@ void RunBenchmark()
 				for (size_t nSize = 0; nSize < 0x100000; nSize += sizeof(pBuf))
 					asc.XCrypt(enc, pBuf, sizeof(pBuf));
 			}
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		uint8_t pBuf[0x400];
+
+		BenchmarkMeter bm("Random-1K");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				GenRandom(pBuf, sizeof(pBuf));
 
 		} while (bm.ShouldContinue());
 	}

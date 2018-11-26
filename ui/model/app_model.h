@@ -20,7 +20,6 @@
 #include "node_model.h"
 #include "wallet/secstring.h"
 #include <memory>
-#include "wallet/keystore.h"
 
 class AppModel
 {
@@ -46,7 +45,7 @@ public:
     MessageManager& getMessages();
     NodeModel& getNode();
 private:
-    void start(beam::IKeyStore::Ptr);
+    void start();
 
     void startNode();
 

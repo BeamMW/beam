@@ -33,8 +33,8 @@ ProtocolPlus::ProtocolPlus(uint8_t v0, uint8_t v1, uint8_t v2, size_t maxMessage
 void ProtocolPlus::ResetVars()
 {
 	m_Mode = Mode::Plaintext;
-	ZeroObject(m_MyNonce);
-	ZeroObject(m_RemoteNonce);
+	m_MyNonce = Zero;
+	m_RemoteNonce = Zero;
 }
 
 void ProtocolPlus::Decrypt(uint8_t* p, uint32_t nSize)
@@ -151,16 +151,20 @@ void InitCipherIV(AES::StreamCipher& c, const ECC::Hash::Value& hvSecret, const 
 	c.m_nBuf = 0;
 }
 
+bool ImportPeerID(ECC::Point::Native& res, const PeerID& pid)
+{
+	ECC::Point pt;
+	pt.m_X = pid;
+	pt.m_Y = 0;
+
+	return res.ImportNnz(pt);
+}
+
 bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& remotePublic, AES::Encoder& enc, ECC::Hash::Mac& hmac, AES::StreamCipher* pCipherOut, AES::StreamCipher* pCipherIn)
 {
 	// Diffie-Hellman
-	ECC::Point pt;
-	pt.m_X = remotePublic;
-	pt.m_Y = 0;
-
 	ECC::Point::Native p;
-	if (!p.Import(pt))
-		return false;
+	ImportPeerID(p, remotePublic);
 
 	ECC::Point::Native ptSecret = p * myPrivate;
 
@@ -229,7 +233,7 @@ bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& 
 	return true;
 }
 
-bool BbsDecrypt(uint8_t*& p, uint32_t& n, ECC::Scalar::Native& privateAddr)
+bool BbsDecrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr)
 {
 	PeerID remotePublic;
 	ECC::Hash::Value hvMac, hvMac2;
@@ -281,7 +285,7 @@ bool NotCalled_VerifyNoDuplicatedIDs(uint32_t id)
 /////////////////////////
 // NodeConnection
 NodeConnection::NodeConnection()
-	:m_Protocol('B', 'm', 7, sizeof(HighestMsgCode), *this, 20000)
+	:m_Protocol('B', 'm', 8, sizeof(HighestMsgCode), *this, 20000)
 	,m_ConnectPending(false)
 {
 #define THE_MACRO(code, msg) \
@@ -439,7 +443,7 @@ void NodeConnection::Accept(io::TcpStream::Ptr&& newStream)
 	m_Connection = std::make_unique<Connection>(
 		m_Protocol,
 		uint64_t(this),
-        Connection::inbound,
+		Connection::inbound,
 		100,
 		std::move(newStream)
 		);
@@ -469,7 +473,7 @@ bool NodeConnection::OnMsgInternal(uint64_t, msg##_NoInit&& v) \
 	try { \
 		/* checkpoint */ \
 		TestInputMsgContext(code); \
-        return OnMsg2(std::move(v)); \
+		return OnMsg2(std::move(v)); \
 	} catch (const std::exception& e) { \
 		OnExc(e); \
 		return false; \
@@ -498,11 +502,7 @@ void NodeConnection::TestInputMsgContext(uint8_t code)
 
 void NodeConnection::GenerateSChannelNonce(ECC::Scalar::Native& sk)
 {
-	ECC::NoLeak<ECC::uintBig> secret;
-	ECC::GenRandom(secret.V.m_pData, secret.V.nBytes);
-
-	ECC::Hash::Value hv(Zero);
-	sk.GenerateNonce(secret.V, hv, NULL);
+	sk.GenRandomNnz();
 }
 
 void NodeConnection::SecureConnect()
@@ -551,8 +551,10 @@ void NodeConnection::ProveID(ECC::Scalar::Native& sk, uint8_t nIDType)
 	assert(IsSecureOut());
 
 	// confirm our ID
+	ECC::Hash::Processor hp;
+	HashAddNonce(hp, true);
 	ECC::Hash::Value hv;
-	ECC::Hash::Processor() << m_Protocol.m_RemoteNonce >> hv;
+	hp >> hv;
 
 	Authentication msgOut;
 	msgOut.m_IDType = nIDType;
@@ -560,6 +562,104 @@ void NodeConnection::ProveID(ECC::Scalar::Native& sk, uint8_t nIDType)
 	msgOut.m_Sig.Sign(hv, sk);
 
 	Send(msgOut);
+}
+
+void NodeConnection::HashAddNonce(ECC::Hash::Processor& hp, bool bRemote)
+{
+	if (bRemote)
+		hp << m_Protocol.m_RemoteNonce;
+	else
+	{
+		ECC::Hash::Value hv;
+		Sk2Pk(hv, m_Protocol.m_MyNonce);
+		hp << hv;
+	}
+}
+
+void NodeConnection::ProveKdfObscured(Key::IKdf& kdf, uint8_t nIDType)
+{
+	ECC::Hash::Processor hp;
+	hp << (uint32_t) Key::Type::Identity;
+	HashAddNonce(hp, true);
+	HashAddNonce(hp, false);
+
+	ECC::Hash::Value hv;
+	hp >> hv;
+
+	ECC::Scalar::Native sk;
+	kdf.DeriveKey(sk, hv);
+
+	ProveID(sk, nIDType);
+
+}
+
+void NodeConnection::ProvePKdfObscured(Key::IPKdf& kdf, uint8_t nIDType)
+{
+	struct MyKdf
+		:public Key::IKdf
+	{
+		Key::IPKdf& m_Kdf;
+		MyKdf(Key::IPKdf& kdf) :m_Kdf(kdf) {}
+
+		virtual void DerivePKey(ECC::Point::Native&, const ECC::Hash::Value&) override
+		{
+			assert(false);
+		}
+
+		virtual void DerivePKey(ECC::Scalar::Native&, const ECC::Hash::Value&) override
+		{
+			assert(false);
+		}
+
+		virtual void DeriveKey(ECC::Scalar::Native& out, const ECC::Hash::Value& hv) override
+		{
+			m_Kdf.DerivePKey(out, hv);
+		}
+	};
+
+	MyKdf myKdf(kdf);
+	ProveKdfObscured(myKdf, nIDType);
+}
+
+bool NodeConnection::IsKdfObscured(Key::IPKdf& kdf, const PeerID& id)
+{
+	ECC::Hash::Processor hp;
+	hp << (uint32_t)Key::Type::Identity;
+	HashAddNonce(hp, false);
+	HashAddNonce(hp, true);
+
+	ECC::Hash::Value hv;
+	hp >> hv;
+
+	ECC::Point::Native pt;
+	kdf.DerivePKey(pt, hv);
+
+	return id == ECC::Point(pt).m_X;
+}
+
+bool NodeConnection::IsPKdfObscured(Key::IPKdf& kdf, const PeerID& id)
+{
+	struct MyPKdf
+		:public Key::IPKdf
+	{
+		Key::IPKdf& m_Kdf;
+		MyPKdf(Key::IPKdf& kdf) :m_Kdf(kdf) {}
+
+		virtual void DerivePKey(ECC::Point::Native& out, const ECC::Hash::Value& hv) override
+		{
+			ECC::Scalar::Native s;
+			m_Kdf.DerivePKey(s, hv);
+			out = ECC::Context::get().G * s;
+		}
+
+		virtual void DerivePKey(ECC::Scalar::Native&, const ECC::Hash::Value&) override
+		{
+			assert(false);
+		}
+	};
+
+	MyPKdf myKdf(kdf);
+	return IsKdfObscured(myKdf, id);
 }
 
 bool NodeConnection::IsSecureIn() const
@@ -578,11 +678,11 @@ void NodeConnection::OnMsg(Authentication&& msg)
 		ThrowUnexpected();
 
 	// verify ID
-	PeerID myPubNonce;
-	Sk2Pk(myPubNonce, m_Protocol.m_MyNonce);
+	ECC::Hash::Processor hp;
+	HashAddNonce(hp, false);
 
 	ECC::Hash::Value hv;
-	ECC::Hash::Processor() << myPubNonce >> hv;
+	hp >> hv;
 
 	ECC::Point pt;
 	pt.m_X = msg.m_ID;
@@ -691,6 +791,9 @@ void PeerManager::ActivatePeerInternal(PeerInfo& pi, uint32_t nTicks_ms, uint32_
 
 	if (!pi.m_Active.m_Now && (nTicks_ms - pi.m_LastActivity_ms < m_Cfg.m_TimeoutReconnect_ms))
 		return; // too early for reconnect
+
+	if (!pi.m_RawRating.m_Value)
+		return; // banned so far
 
 	nSelected++;
 
@@ -1009,16 +1112,20 @@ bool FlyClient::NetworkStd::Connection::ShouldSync() const
 
 void FlyClient::NetworkStd::Connection::ResetVars()
 {
-	m_ReportedConnected = false;
 	ZeroObject(m_Tip);
-	m_bNode = m_bBbs = m_bTransactions = false;
+	m_LoginFlags = 0;
+	m_Flags = 0;
+	m_NodeID = Zero;
 }
 
 void FlyClient::NetworkStd::Connection::ResetInternal()
 {
 	m_pSync.reset();
 
-	if (m_ReportedConnected)
+	if (Flags::Owned & m_Flags)
+		m_This.m_Client.OnOwnedNode(m_NodeID, false);
+
+	if (Flags::ReportedConnected & m_Flags)
 		m_This.OnNodeConnected(m_iIndex, false);
 
 	while (!m_lst.empty())
@@ -1031,26 +1138,26 @@ void FlyClient::NetworkStd::Connection::ResetInternal()
 
 void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 {
-	proto::Config msgCfg;
-	msgCfg.m_CfgChecksum = Rules::get().Checksum;
-	msgCfg.m_SendPeers = true;
-	Send(msgCfg);
+	Login msg;
+	msg.m_CfgChecksum = Rules::get().Checksum;
+	msg.m_Flags = LoginFlags::MiningFinalization  /*| LoginFlags::SendPeers*/;
+	Send(msg);
 
-	if (!m_ReportedConnected)
+	if (!(Flags::ReportedConnected & m_Flags))
 	{
-		m_ReportedConnected = true;
+		m_Flags |= Flags::ReportedConnected;
 		m_This.OnNodeConnected(m_iIndex, true);
 	}
 }
 
 void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)
 {
-	if (!m_ReportedConnected)
+	if (!(Flags::ReportedConnected & m_Flags))
 		m_This.OnConnectionFailed(m_iIndex, dr);
 
 	NodeConnection::Reset();
-	ResetVars();
 	ResetInternal();
+	ResetVars();
 
 	SetTimer(m_This.m_Cfg.m_ReconnectTimeout_ms);
 }
@@ -1084,34 +1191,80 @@ void FlyClient::NetworkStd::Connection::OnTimer()
 		Connect(m_Addr);
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(proto::Authentication&& msg)
+void FlyClient::NetworkStd::Connection::OnMsg(Authentication&& msg)
 {
 	NodeConnection::OnMsg(std::move(msg));
 
-	if (IDType::Node == msg.m_IDType)
+	switch (msg.m_IDType)
 	{
-		m_bNode = true;
-
-		Key::IKdf::Ptr pKdf;
-		if (m_This.m_Client.IsOwnedNode(msg.m_ID, pKdf))
+	case IDType::Node:
 		{
-			ECC::Scalar::Native sk;
-			pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
-			ProveID(sk, IDType::Owner);
+			if (Flags::Node & m_Flags)
+				ThrowUnexpected();
+
+			m_Flags |= Flags::Node;
+			m_NodeID = msg.m_ID;
+
+			Key::IKdf::Ptr pKdf;
+			m_This.m_Client.get_Kdf(pKdf);
+			if (pKdf)
+				ProveKdfObscured(*pKdf, IDType::Owner);
 		}
+		break;
+
+	case IDType::Viewer:
+		{
+			if (Flags::Owned & m_Flags)
+				ThrowUnexpected();
+
+			Key::IKdf::Ptr pKdf;
+			m_This.m_Client.get_Kdf(pKdf);
+			if (!(pKdf && IsPKdfObscured(*pKdf, msg.m_ID)))
+				ThrowUnexpected();
+
+			//  viewer confirmed!
+			m_Flags |= Flags::Owned;
+			m_This.m_Client.OnOwnedNode(m_NodeID, true);
+		}
+		break;
+
+	default: // suppress warning
+		break;
 	}
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(proto::Config&& msg)
+void FlyClient::NetworkStd::Connection::OnMsg(GetBlockFinalization&& msg)
+{
+	if (!(Flags::Owned & m_Flags))
+		ThrowUnexpected();
+
+	Key::IKdf::Ptr pKdf;
+	m_This.m_Client.get_Kdf(pKdf);
+	if (!pKdf)
+		ThrowUnexpected(); // ?!
+
+	Block::Builder bb;
+	bb.AddCoinbaseAndKrn(*pKdf, msg.m_Height);
+	bb.AddFees(*pKdf, msg.m_Height, msg.m_Fees);
+
+	proto::BlockFinalization msgOut;
+	msgOut.m_Value.reset(new Transaction);
+	bb.m_Txv.MoveInto(*msgOut.m_Value);
+	msgOut.m_Value->m_Offset = -bb.m_Offset;
+	msgOut.m_Value->Normalize();
+
+	Send(msgOut);
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(Login&& msg)
 {
 	if (msg.m_CfgChecksum != Rules::get().Checksum)
 		ThrowUnexpected("incompatible");
 
-	m_bBbs = msg.m_Bbs;
-	m_bTransactions = msg.m_SpreadingTransactions;
+	m_LoginFlags = msg.m_Flags;
 	AssignRequests();
 
-	if (m_bBbs)
+	if (LoginFlags::Bbs & m_LoginFlags)
 		for (BbsSubscriptions::const_iterator it = m_This.m_BbsSubscriptions.begin(); m_This.m_BbsSubscriptions.end() != it; it++)
 		{
 			proto::BbsSubscribe msgOut;
@@ -1122,7 +1275,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::Config&& msg)
 		}
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(proto::NewTip&& msg)
+void FlyClient::NetworkStd::Connection::OnMsg(NewTip&& msg)
 {
 	if (m_Tip == msg.m_Description)
 		return; // redundant msg, might happen in older nodes
@@ -1138,8 +1291,17 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::NewTip&& msg)
 
 	m_Tip = msg.m_Description;
 
-	if (!m_pSync && ShouldSync())
-		StartSync();
+	if (!m_pSync)
+	{
+		if (ShouldSync())
+		{
+			StartSync();
+		}
+		else
+		{
+			m_This.m_Client.OnTipUnchanged();
+		}
+	}
 }
 
 void FlyClient::NetworkStd::Connection::StartSync()
@@ -1161,6 +1323,7 @@ void FlyClient::NetworkStd::Connection::StartSync()
 	{
 		// starting search
 		m_pSync.reset(new SyncCtx);
+		m_pSync->m_LowHeight = m_Tip.m_Height;
 		SearchBelow(m_Tip.m_Height, 1);
 	}
 }
@@ -1193,7 +1356,7 @@ void FlyClient::NetworkStd::Connection::SearchBelow(Height h, uint32_t nCount)
 	}
 	else
 	{
-		proto::GetCommonState msg;
+		GetCommonState msg;
 		msg.m_IDs.resize(w.m_vStates.size());
 
 		for (size_t i = 0; i < msg.m_IDs.size(); i++)
@@ -1205,7 +1368,7 @@ void FlyClient::NetworkStd::Connection::SearchBelow(Height h, uint32_t nCount)
 	}
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofCommonState&& msg)
+void FlyClient::NetworkStd::Connection::OnMsg(ProofCommonState&& msg)
 {
 	if (!m_pSync)
 		ThrowUnexpected();
@@ -1261,17 +1424,6 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofCommonState&& msg)
 		}
 	}
 }
-void FlyClient::NetworkStd::Connection::RequestChainworkProof()
-{
-	assert(ShouldSync() && m_pSync && m_pSync->m_vConfirming.empty());
-
-	proto::GetProofChainWork msg;
-	msg.m_LowerBound = m_pSync->m_Confirmed.m_ChainWork;
-	Send(msg);
-
-	m_pSync->m_TipBeforeGap.m_Height = 0;
-	m_pSync->m_LowHeight = m_pSync->m_Confirmed.m_Height;
-}
 
 struct FlyClient::NetworkStd::Connection::StateArray
 {
@@ -1315,7 +1467,29 @@ bool FlyClient::NetworkStd::Connection::StateArray::Find(const Block::SystemStat
 	return (m_vec.end() != it) && (*it == s);
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofChainWork&& msg)
+void FlyClient::NetworkStd::Connection::RequestChainworkProof()
+{
+	assert(ShouldSync() && m_pSync && m_pSync->m_vConfirming.empty());
+
+	if (Flags::Owned & m_Flags)
+	{
+		// for trusted nodes this is not required. Go straight to finish
+		SyncCtx::Ptr pSync = std::move(m_pSync);
+		StateArray arr;
+		PostChainworkProof(arr, pSync->m_Confirmed.m_Height);
+	}
+	else
+	{
+		GetProofChainWork msg;
+		msg.m_LowerBound = m_pSync->m_Confirmed.m_ChainWork;
+		Send(msg);
+
+		m_pSync->m_TipBeforeGap.m_Height = 0;
+		m_pSync->m_LowHeight = m_pSync->m_Confirmed.m_Height;
+	}
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(ProofChainWork&& msg)
 {
 	if (!m_pSync || !m_pSync->m_vConfirming.empty())
 		ThrowUnexpected();
@@ -1330,7 +1504,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofChainWork&& msg)
 	if (sTip != m_Tip)
 		ThrowUnexpected();
 
-	std::unique_ptr<SyncCtx> pSync = std::move(m_pSync);
+	SyncCtx::Ptr pSync = std::move(m_pSync);
 
 	if (!ShouldSync())
 		return;
@@ -1353,6 +1527,11 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofChainWork&& msg)
 		}
 	}
 
+	PostChainworkProof(arr, pSync->m_LowHeight);
+}
+
+void FlyClient::NetworkStd::Connection::PostChainworkProof(const StateArray& arr, Height hLowHeight)
+{
 	struct Walker :public Block::SystemState::IHistory::IWalker
 	{
 		Height m_LowHeight;
@@ -1373,7 +1552,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofChainWork&& msg)
 	} w;
 
 	w.m_LowErase = MaxHeight;
-	w.m_LowHeight = pSync->m_LowHeight;
+	w.m_LowHeight = hLowHeight;
 	w.m_pArr = &arr;
 
 	m_This.m_Client.get_History().Enum(w, NULL);
@@ -1393,7 +1572,10 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::ProofChainWork&& msg)
 		m_This.m_Client.OnRolledBack();
 	}
 
-	m_This.m_Client.get_History().AddStates(&arr.m_vec.at(0), arr.m_vec.size());
+	if (arr.m_vec.empty())
+		m_This.m_Client.get_History().AddStates(&m_Tip, 1);
+	else
+		m_This.m_Client.get_History().AddStates(&arr.m_vec.front(), arr.m_vec.size());
 	PrioritizeSelf();
 	AssignRequests();
 	m_This.m_Client.OnNewTip(); // finished!
@@ -1483,7 +1665,7 @@ void FlyClient::NetworkStd::Connection::AssignRequest(RequestNode& n)
 		return;
 	}
 
-	m_This.m_lst.pop_front();
+	m_This.m_lst.erase(RequestList::s_iterator_to(n));
 	m_lst.push_back(n);
 }
 
@@ -1522,11 +1704,12 @@ FlyClient::Request& FlyClient::NetworkStd::Connection::get_FirstRequestStrict(Re
 
 #define THE_MACRO_SWAP_FIELD(type, name) std::swap(req.m_Res.m_##name, msg.m_##name);
 #define THE_MACRO(type, msgOut, msgIn) \
-void FlyClient::NetworkStd::Connection::OnMsg(proto::msgIn&& msg) \
+void FlyClient::NetworkStd::Connection::OnMsg(msgIn&& msg) \
 {  \
 	Request##type& req = Cast::Up<Request##type>(get_FirstRequestStrict(Request::Type::type)); \
 	BeamNodeMsg_##msgIn(THE_MACRO_SWAP_FIELD) \
 	OnRequestData(req); \
+	OnFirstRequestDone(IsSupported(req)); \
 }
 
 REQUEST_TYPES_All(THE_MACRO)
@@ -1543,13 +1726,11 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestUtxo& req)
 	for (size_t i = 0; i < req.m_Res.m_Proofs.size(); i++)
 		if (!m_Tip.IsValidProofUtxo(req.m_Msg.m_Utxo, req.m_Res.m_Proofs[i]))
 			ThrowUnexpected();
-
-	OnFirstRequestDone();
 }
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestKernel& req)
 {
-	return m_bNode && IsAtTip();
+	return (Flags::Node & m_Flags) && IsAtTip();
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel& req)
@@ -1557,43 +1738,40 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel& req)
 	if (!req.m_Res.m_Proof.empty())
 		if (!m_Tip.IsValidProofKernel(req.m_Msg.m_ID, req.m_Res.m_Proof))
 			ThrowUnexpected();
-
-	OnFirstRequestDone();
 }
 
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestMined& req)
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestUtxoEvents& req)
 {
-	return m_bNode && IsAtTip();
+	return (Flags::Owned & m_Flags) && IsAtTip();
 }
 
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestMined& req)
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestUtxoEvents& req)
 {
-	OnFirstRequestDone();
-}
+	// make sure height order is obeyed
+	Height hPrev = req.m_Msg.m_HeightMin;
 
-bool FlyClient::NetworkStd::Connection::IsSupported(RequestRecover& req)
-{
-	return m_bNode && IsAtTip(); // must also be owned
-}
+	for (size_t i = 0; i < req.m_Res.m_Events.size(); i++)
+	{
+		const UtxoEvent& evt = req.m_Res.m_Events[i];
+		if ((evt.m_Height < hPrev) || (evt.m_Height > m_Tip.m_Height))
+			ThrowUnexpected();
 
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestRecover& req)
-{
-	OnFirstRequestDone();
+		hPrev = evt.m_Height;
+	}
 }
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestTransaction& req)
 {
-	return m_bTransactions && IsAtTip();
+	return (LoginFlags::SpreadingTransactions & m_LoginFlags) && IsAtTip();
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestTransaction& req)
 {
-	OnFirstRequestDone(false);
 }
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsMsg& req)
 {
-	return m_bBbs && IsAtTip();
+	return (LoginFlags::Bbs & m_LoginFlags) && IsAtTip();
 }
 
 void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
@@ -1601,32 +1779,28 @@ void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
 	req.m_Msg.m_TimePosted = getTimestamp();
 	Send(req.m_Msg);
 
-	proto::Ping msg2(Zero);
+	Ping msg2(Zero);
 	Send(msg2);
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestBbsMsg& req)
 {
-	OnFirstRequestDone(false);
 }
 
-void FlyClient::NetworkStd::Connection::OnFirstRequestDone(bool bMustBeAtTip /* = true */)
+void FlyClient::NetworkStd::Connection::OnFirstRequestDone(bool bStillSupported)
 {
 	RequestNode& n = m_lst.front();
 	assert(n.m_pRequest);
 
 	if (n.m_pRequest->m_pTrg)
 	{
-		if (bMustBeAtTip)
+		if (!bStillSupported)
 		{
-			if (!IsAtTip())
-			{
-				// should retry
-				m_lst.erase(RequestList::s_iterator_to(n));
-				m_This.m_lst.push_back(n);
-				m_This.OnNewRequests();
-				return;
-			}
+			// should retry
+			m_lst.erase(RequestList::s_iterator_to(n));
+			m_This.m_lst.push_back(n);
+			m_This.OnNewRequests();
+			return;
 		}
 
 		m_lst.Finish(n);
@@ -1667,7 +1841,7 @@ void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, Timestamp ts, IBbsReceiv
 			it2->Send(msg);
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(proto::BbsMsg&& msg)
+void FlyClient::NetworkStd::Connection::OnMsg(BbsMsg&& msg)
 {
 	BbsSubscriptions::iterator it = m_This.m_BbsSubscriptions.find(msg.m_Channel);
 	if (m_This.m_BbsSubscriptions.end() != it)

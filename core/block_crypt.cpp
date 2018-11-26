@@ -202,10 +202,10 @@ namespace beam
 		}
 	}
 
-	void Output::Create(ECC::Scalar::Native& sk, Key::IKdf& kdf, const Key::IDV& kidv)
+	void Output::Create(ECC::Scalar::Native& sk, Key::IKdf& kdf, const Key::IDV& kidv, bool bPublic /* = false */)
 	{
 		kdf.DeriveKey(sk, kidv);
-		CreateInternal(sk, kidv.m_Value, m_Coinbase, &kdf, &kidv);
+		CreateInternal(sk, kidv.m_Value, bPublic || m_Coinbase, &kdf, &kidv);
 	}
 
 	void Output::Create(const ECC::Scalar::Native& sk, Amount v, bool bPublic /* = false */)
@@ -497,6 +497,29 @@ namespace beam
 	}
 
 	template <typename T>
+	void MoveIntoVec(std::vector<T>& trg, std::vector<T>& src)
+	{
+		if (trg.empty())
+			trg = std::move(src);
+		else
+		{
+			trg.reserve(trg.size() + src.size());
+
+			for (size_t i = 0; i < src.size(); i++)
+				trg.push_back(std::move(src[i]));
+
+			src.clear();
+		}
+	}
+
+	void TxVectors::Full::MoveInto(Full& trg)
+	{
+		MoveIntoVec(trg.m_vInputs, m_vInputs);
+		MoveIntoVec(trg.m_vOutputs, m_vOutputs);
+		MoveIntoVec(trg.m_vKernels, m_vKernels);
+	}
+
+	template <typename T>
 	int CmpPtrVectors(const std::vector<T>& a, const std::vector<T>& b)
 	{
 		CMP_SIMPLE(a.size(), b.size())
@@ -716,7 +739,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(10) // increment this whenever we change something in the protocol
+			<< uint32_t(11) // increment this whenever we change something in the protocol
 #ifndef BEAM_TESTNET
             << "masternet"
 #endif
@@ -966,20 +989,6 @@ namespace beam
 			ctx.IsValidBlock(*this, bSubsidyOpen);
 	}
 
-	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height h /* = 0 */, uint32_t nIdx /* = 0 */)
-	{
-		ECC::Hash::Value hv;
-		ECC::Hash::Processor() << h << nIdx >> hv;
-
-		ECC::NoLeak<ECC::Scalar> s;
-		s.V = kKernel;
-
-		kOffset.GenerateNonce(s.V.m_Value, hv, NULL);
-
-		kKernel += kOffset;
-		kOffset = -kOffset;
-	}
-
 	/////////////
 	// SystemState::IHistory
 	bool Block::SystemState::IHistory::get_Tip(Full& s)
@@ -1004,7 +1013,7 @@ namespace beam
 
 	bool Block::SystemState::HistoryMap::Enum(IWalker& w, const Height* pBelow)
 	{
-		for (auto it = (pBelow ? m_Map.upper_bound(*pBelow) : m_Map.end()); m_Map.begin() != it; )
+		for (auto it = (pBelow ? m_Map.lower_bound(*pBelow) : m_Map.end()); m_Map.begin() != it; )
 			if (!w.OnState((--it)->second))
 				return false;
 
@@ -1062,6 +1071,67 @@ namespace beam
 				break;
 
 			m_Map.erase(it);
+		}
+	}
+
+	/////////////
+	// Builder
+	Block::Builder::Builder()
+	{
+		m_Offset = Zero;
+	}
+
+	void Block::Builder::AddCoinbaseAndKrn(Key::IKdf& kdf, Height h, Output::Ptr& pOutp, TxKernel::Ptr& pKrn)
+	{
+		ECC::Scalar::Native sk;
+
+		pOutp.reset(new Output);
+		pOutp->m_Coinbase = true;
+		pOutp->Create(sk, kdf, Key::IDV(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase));
+
+		m_Offset += sk;
+
+		kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel2));
+
+		pKrn.reset(new TxKernel);
+		pKrn->m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
+		pKrn->m_Height.m_Min = h; // make it similar to others
+
+		ECC::Hash::Value hv;
+		pKrn->get_Hash(hv);
+		pKrn->m_Signature.Sign(hv, sk);
+
+		m_Offset += sk;
+	}
+
+	void Block::Builder::AddCoinbaseAndKrn(Key::IKdf& kdf, Height h)
+	{
+		Output::Ptr pOutp;
+		TxKernel::Ptr pKrn;
+		AddCoinbaseAndKrn(kdf, h, pOutp, pKrn);
+
+		m_Txv.m_vOutputs.push_back(std::move(pOutp));
+		m_Txv.m_vKernels.push_back(std::move(pKrn));
+	}
+
+	void Block::Builder::AddFees(Key::IKdf& kdf, Height h, Amount fees, Output::Ptr& pOutp)
+	{
+		ECC::Scalar::Native sk;
+
+		pOutp.reset(new Output);
+		pOutp->Create(sk, kdf, Key::IDV(fees, h, Key::Type::Comission));
+
+		m_Offset += sk;
+	}
+
+	void Block::Builder::AddFees(Key::IKdf& kdf, Height h, Amount fees)
+	{
+		if (fees)
+		{
+			Output::Ptr pOutp;
+			AddFees(kdf, h, fees, pOutp);
+
+			m_Txv.m_vOutputs.push_back(std::move(pOutp));
 		}
 	}
 

@@ -57,11 +57,6 @@ namespace beam {
 #define TblEvents_Body			"Body"
 #define TblEvents_Key			"Key"
 
-#define TblMined				"Mined"
-#define TblMined_Height			"Height"
-#define TblMined_State			"State"
-#define TblMined_Comission		"Comission"
-
 #define TblCompressed			"Macroblocks"
 #define TblCompressed_Row1		"RowLast"
 
@@ -257,7 +252,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion = 12;
+	const uint64_t nVersion = 13;
 
 	if (bCreate)
 	{
@@ -335,13 +330,6 @@ void NodeDB::Create()
 
 	ExecQuick("CREATE INDEX [Idx" TblEvents "] ON [" TblEvents "] ([" TblEvents_Height "],[" TblEvents_Body "]);");
 	ExecQuick("CREATE INDEX [Idx" TblEvents TblEvents_Key "] ON [" TblEvents "] ([" TblEvents_Key "]);");
-
-	ExecQuick("CREATE TABLE [" TblMined "] ("
-		"[" TblMined_Height		"] INTEGER NOT NULL,"
-		"[" TblMined_State		"] INTEGER NOT NULL,"
-		"[" TblMined_Comission	"] INTEGER NOT NULL,"
-		"PRIMARY KEY (" TblMined_Height "," TblMined_State "),"
-		"FOREIGN KEY (" TblMined_State ") REFERENCES " TblStates "(OID))");
 
 	ExecQuick("CREATE TABLE [" TblCompressed "] ("
 		"[" TblCompressed_Row1	"] INTEGER NOT NULL,"
@@ -733,11 +721,6 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 
 	if (StateFlags::Reachable & nFlags)
 		TipReachableDel(rowid);
-
-	StateID sid;
-	sid.m_Height = h;
-	sid.m_Row = rowid;
-	DeleteMinedSafe(sid);
 
 	rs.Reset(Query::StateDel, "DELETE FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
@@ -1494,7 +1477,7 @@ void NodeDB::EnumEvents(WalkerEvent& x, Height hMin)
 
 void NodeDB::FindEvents(WalkerEvent& x, const Blob& key)
 {
-	x.m_Rs.Reset(Query::EventEnum, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Key "=?");
+	x.m_Rs.Reset(Query::EventFind, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Key "=?");
 	x.m_Rs.put(0, key);
 }
 
@@ -1508,51 +1491,6 @@ bool NodeDB::WalkerEvent::MoveNext()
 		ZeroObject(m_Key);
 	else
 		m_Rs.get(2, m_Key);
-	return true;
-}
-
-void NodeDB::SetMined(const StateID& sid, const Amount& v)
-{
-	Recordset rs(*this, Query::MinedUpd, "UPDATE " TblMined " SET " TblMined_Comission "=? WHERE " TblMined_Height "=? AND " TblMined_State "=?");
-	rs.put(0, v);
-	rs.put(1, sid.m_Height);
-	rs.put(2, sid.m_Row);
-	rs.Step();
-
-	if (!get_RowsChanged())
-	{
-		rs.Reset(Query::MinedIns, "INSERT INTO " TblMined "(" TblMined_Height "," TblMined_State "," TblMined_Comission ") VALUES (?,?,?)");
-		rs.put(0, sid.m_Height);
-		rs.put(1, sid.m_Row);
-		rs.put(2, v);
-		rs.Step();
-	}
-}
-
-bool NodeDB::DeleteMinedSafe(const StateID& sid)
-{
-	Recordset rs(*this, Query::MinedDel, "DELETE FROM " TblMined " WHERE " TblMined_Height "=? AND " TblMined_State "=?");
-	rs.put(0, sid.m_Height);
-	rs.put(1, sid.m_Row);
-	rs.Step();
-	return get_RowsChanged() > 0;
-}
-
-void NodeDB::EnumMined(WalkerMined& x, Height hMin)
-{
-	x.m_Rs.Reset(Query::MinedSel, "SELECT " TblMined_Height "," TblMined_State "," TblMined_Comission " FROM " TblMined
-		" WHERE " TblMined_Height ">=?"
-		" ORDER BY "  TblMined_Height " ASC," TblMined_State " ASC");
-	x.m_Rs.put(0, hMin);
-}
-
-bool NodeDB::WalkerMined::MoveNext()
-{
-	if (!m_Rs.Step())
-		return false;
-	m_Rs.get(0, m_Sid.m_Height);
-	m_Rs.get(1, m_Sid.m_Row);
-	m_Rs.get(2, m_Amount);
 	return true;
 }
 
@@ -1573,7 +1511,7 @@ void NodeDB::MacroblockIns(uint64_t rowid)
 
 void NodeDB::MacroblockDel(uint64_t rowid)
 {
-	Recordset rs(*this, Query::MinedDel, "DELETE FROM " TblCompressed " WHERE " TblCompressed_Row1 "=?");
+	Recordset rs(*this, Query::MacroblockDel, "DELETE FROM " TblCompressed " WHERE " TblCompressed_Row1 "=?");
 	rs.put(0, rowid);
 	rs.Step();
 	TestChanged1Row();

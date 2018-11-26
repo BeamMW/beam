@@ -116,6 +116,7 @@ void NodeProcessor::InitCursor()
 
 void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 {
+	bool noRequests = true;
 	// request all potentially missing data
 	NodeDB::WalkerState ws(m_DB);
 	for (m_DB.EnumTips(ws); ws.MoveNext(); )
@@ -155,6 +156,8 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 				break;
 		}
 
+		noRequests = false;
+
 		Block::SystemState::ID id;
 
 		if (nBlocks)
@@ -193,6 +196,10 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 
 			RequestDataInternal(id, sid.m_Row, false);
 		}
+	}
+	if (noRequests)
+	{
+		OnUpToDate();
 	}
 }
 
@@ -646,20 +653,20 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 	for ( ; r.m_pUtxoIn; r.NextUtxoIn())
 	{
 		const Input& x = *r.m_pUtxoIn;
+		assert(x.m_Maturity); // must've already been validated
 
-		m_DB.FindEvents(wlk, Blob(&x.m_Commitment, sizeof(x.m_Commitment))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
+		const UtxoEvent::Key& key = x.m_Commitment;
+
+		m_DB.FindEvents(wlk, Blob(&key, sizeof(key))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
 		if (wlk.MoveNext())
 		{
-			if (wlk.m_Body.n != sizeof(UtxoEvent))
+			if (wlk.m_Body.n < sizeof(UtxoEvent::Value))
 				OnCorrupted();
 
-			UtxoEvent evt = *(UtxoEvent*)wlk.m_Body.p; // copy
-			if (evt.m_Added != 1)
-				OnCorrupted();
+			UtxoEvent::Value evt = *reinterpret_cast<const UtxoEvent::Value*>(wlk.m_Body.p); // copy
+			evt.m_Maturity = x.m_Maturity;
 
 			// In case of macroblock we can't recover the original input height. But in our current implementation macroblocks always go from the beginning, hence they don't contain input.
-
-			evt.m_Added = 0;
 			m_DB.InsertEvent(hMax, Blob(&evt, sizeof(evt)), Blob(NULL, 0));
 		}
 	}
@@ -668,32 +675,44 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 	{
 		const Output& x = *r.m_pUtxoOut;
 
-		for (uint32_t iKey = 0; ; iKey++)
+		struct Walker :public IKeyWalker
 		{
-			Key::IPKdf* pKdf = get_Kdf(iKey);
-			if (!pKdf)
-				break;
+			const Output& m_Output;
+			UtxoEvent::Value m_Value;
 
-			Key::IDV kidv;
-			if (x.Recover(*pKdf, kidv))
+			Walker(const Output& x) :m_Output(x) {}
+
+			virtual bool OnKey(Key::IPKdf& kdf, Key::Index iKdf) override
 			{
-				// bingo!
-				UtxoEvent evt;
-				evt.m_KdfIdx = iKey;
-				evt.m_Kidv = kidv;
-				evt.m_Added = 1;
+				Key::IDV kidv;
+				if (!m_Output.Recover(kdf, kidv))
+					return true; // continue enumeration
 
-				Height h;
-				if (x.m_Maturity)
-					// try to reverse-engineer the original block from the maturity
-					h = x.m_Maturity - x.get_MinMaturity(0);
-				else
-					h = hMax;
-
-				m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&x.m_Commitment, sizeof(x.m_Commitment)));
-
-				break;
+				m_Value.m_iKdf = iKdf;
+				m_Value.m_Kidv = kidv;
+				return false; // stop
 			}
+		};
+
+		Walker w(x);
+		if (!EnumViewerKeys(w))
+		{
+			// bingo!
+			Height h;
+			if (x.m_Maturity)
+			{
+				w.m_Value.m_Maturity = x.m_Maturity;
+				// try to reverse-engineer the original block from the maturity
+				h = x.m_Maturity - x.get_MinMaturity(0);
+			}
+			else
+			{
+				h = hMax;
+				w.m_Value.m_Maturity = x.get_MinMaturity(h);
+			}
+
+			const UtxoEvent::Key& key = x.m_Commitment;
+			m_DB.InsertEvent(h, Blob(&w.m_Value, sizeof(w.m_Value)), Blob(&key, sizeof(key)));
 		}
 	}
 }
@@ -1191,59 +1210,40 @@ void NodeProcessor::DeleteOutdated(TxPool::Fluff& txp)
 	}
 }
 
-size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height h)
+size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 {
+	Height h = m_Cursor.m_Sid.m_Height + 1;
+
 	// Generate the block up to the allowed size.
 	// All block elements are serialized independently, their binary size can just be added to the size of the "empty" block.
-
-	res.m_Subsidy += Rules::get().CoinbaseEmission;
+	bc.m_Block.m_Subsidy += Rules::get().CoinbaseEmission;
 	if (!m_Extra.m_SubsidyOpen)
-		res.m_SubsidyClosing = false;
+		bc.m_Block.m_SubsidyClosing = false;
 
-	ECC::Scalar::Native sk, offset = res.m_Offset;
+	SerializerSizeCounter ssc;
+	ssc & bc.m_Block;
 
-	// Add mandatory elements: coinbase UTXO and kernel
+	Block::Builder bb;
+
+	Output::Ptr pOutp;
+	TxKernel::Ptr pKrn;
+
+	bb.AddCoinbaseAndKrn(bc.m_Kdf, h, pOutp, pKrn);
+	ssc & *pOutp;
+	ssc & *pKrn;
+
+	ECC::Scalar::Native offset = bc.m_Block.m_Offset;
+
+	if (BlockContext::Mode::Assemble != bc.m_Mode)
 	{
-		Output::Ptr pOutp(new Output);
-		pOutp->m_Coinbase = true;
-		pOutp->Create(sk, bc.m_Kdf, Key::IDV(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase));
-
 		if (!HandleBlockElement(*pOutp, h, NULL, true))
 			return 0;
 
-		res.m_vOutputs.push_back(std::move(pOutp));
-
-		sk = -sk;
-		offset += sk;
-
-		bc.m_Kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel, uint64_t(-1LL)));
-
-		TxKernel::Ptr pKrn(new TxKernel);
-		pKrn->m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
-		pKrn->m_Height.m_Min = h; // make it similar to others
-
-		ECC::Hash::Value hv;
-		pKrn->get_Hash(hv);
-		pKrn->m_Signature.Sign(hv, sk);
-
-		res.m_vKernels.push_back(std::move(pKrn));
-
-		sk = -sk;
-		offset += sk;
+		bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
+		bc.m_Block.m_vKernels.push_back(std::move(pKrn));
 	}
 
-	SerializerSizeCounter ssc;
-	ssc & res;
-
-	const size_t nSizeMax = Rules::get().MaxBodySize;
-	if (ssc.m_Counter.m_Value > nSizeMax)
-	{
-		// the block may be non-empty (i.e. contain treasury)
-		LOG_WARNING() << "Block too large.";
-		return 0; //
-	}
-
-	 // estimate the size of the fees UTXO
+	// estimate the size of the fees UTXO
 	if (!m_nSizeUtxoComission)
 	{
 		Output outp;
@@ -1255,7 +1255,17 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 		m_nSizeUtxoComission = ssc2.m_Counter.m_Value;
 	}
 
-	bc.m_Fees = 0;
+	if (bc.m_Fees)
+		ssc.m_Counter.m_Value += m_nSizeUtxoComission;
+
+	const size_t nSizeMax = Rules::get().MaxBodySize;
+	if (ssc.m_Counter.m_Value > nSizeMax)
+	{
+		// the block may be non-empty (i.e. contain treasury)
+		LOG_WARNING() << "Block too large.";
+		return 0; //
+	}
+
 	size_t nTxNum = 0;
 
 	for (TxPool::Fluff::ProfitSet::iterator it = bc.m_TxPool.m_setProfit.begin(); bc.m_TxPool.m_setProfit.end() != it; )
@@ -1279,9 +1289,9 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 
 		if (nSizeNext > nSizeMax)
 		{
-			if (res.m_vInputs.empty() &&
-				(res.m_vOutputs.size() == 1) &&
-				(res.m_vKernels.size() == 1))
+			if (bc.m_Block.m_vInputs.empty() &&
+				(bc.m_Block.m_vOutputs.size() == 1) &&
+				(bc.m_Block.m_vKernels.size() == 1))
 			{
 				// won't fit in empty block
 				LOG_INFO() << "Tx is too big.";
@@ -1294,7 +1304,7 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 
 		if (ValidateTxWrtHeight(tx, h) && HandleValidatedTx(tx.get_Reader(), h, true))
 		{
-			TxVectors::Writer(res, res).Dump(tx.get_Reader());
+			TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(tx.get_Reader());
 
 			bc.m_Fees = feesNext;
 			ssc.m_Counter.m_Value = nSizeNext;
@@ -1307,32 +1317,39 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 
 	LOG_INFO() << "GenerateNewBlock: size of block = " << ssc.m_Counter.m_Value << "; amount of tx = " << nTxNum;
 
-	if (bc.m_Fees)
+	if (BlockContext::Mode::Assemble != bc.m_Mode)
 	{
-		Output::Ptr pOutp(new Output);
-		pOutp->Create(sk, bc.m_Kdf, Key::IDV(bc.m_Fees, h, Key::Type::Comission));
+		if (bc.m_Fees)
+		{
+			bb.AddFees(bc.m_Kdf, h, bc.m_Fees, pOutp);
+			if (!HandleBlockElement(*pOutp, h, NULL, true))
+				return 0;
 
-		if (!HandleBlockElement(*pOutp, h, NULL, true))
-			return false; // though should not happen!
+			bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
+		}
 
-		res.m_vOutputs.push_back(std::move(pOutp));
-
-		sk = -sk;
-		offset += sk;
+		bb.m_Offset = -bb.m_Offset;
+		offset += bb.m_Offset;
 	}
 
-	// Finalize block construction.
+	bc.m_Block.m_Offset = offset;
+
+	return ssc.m_Counter.m_Value;
+}
+
+void NodeProcessor::GenerateNewHdr(BlockContext& bc)
+{
 	if (m_Cursor.m_Sid.m_Row)
 		bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
 	else
 		ZeroObject(bc.m_Hdr.m_Prev);
 
-	if (res.m_SubsidyClosing)
+	if (bc.m_Block.m_SubsidyClosing)
 		ToggleSubsidyOpened();
 
 	get_Definition(bc.m_Hdr.m_Definition, true);
 
-	res.NormalizeE();
+	bc.m_Block.NormalizeE();
 
 	struct MyFlyMmr :public Merkle::FlyMmr {
 		const TxKernel::Ptr* m_ppKrn;
@@ -1342,14 +1359,13 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 	};
 
 	MyFlyMmr fmmr;
-	fmmr.m_Count = res.m_vKernels.size();
-	fmmr.m_ppKrn = res.m_vKernels.empty() ? NULL : &res.m_vKernels.front();
+	fmmr.m_Count = bc.m_Block.m_vKernels.size();
+	fmmr.m_ppKrn = bc.m_Block.m_vKernels.empty() ? NULL : &bc.m_Block.m_vKernels.front();
 	fmmr.get_Hash(bc.m_Hdr.m_Kernels);
 
-	if (res.m_SubsidyClosing)
+	if (bc.m_Block.m_SubsidyClosing)
 		ToggleSubsidyOpened();
 
-	bc.m_Hdr.m_Height = h;
 	bc.m_Hdr.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
 	bc.m_Hdr.m_TimeStamp = getTimestamp();
 
@@ -1358,68 +1374,84 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
 	Timestamp tm = get_MovingMedian() + 1;
 	bc.m_Hdr.m_TimeStamp = std::max(bc.m_Hdr.m_TimeStamp, tm);
+}
 
-	res.m_Offset = offset;
-
-	return ssc.m_Counter.m_Value;
+NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf)
+	:m_TxPool(txp)
+	,m_Kdf(kdf)
+{
+	m_Fees = 0;
+	m_Block.ZeroInit();
+	m_Block.m_SubsidyClosing = true; // by default insist on it. If already closed - this flag will automatically be turned OFF
 }
 
 bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 {
-	Block::Body block;
-	block.ZeroInit();
-	block.m_SubsidyClosing = true; // by default insist on it. If already closed - this flag will automatically be turned OFF
-	return GenerateNewBlock(bc, block, true);
-}
-
-bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res)
-{
-	return GenerateNewBlock(bc, res, false);
-}
-
-bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, bool bInitiallyEmpty)
-{
 	Height h = m_Cursor.m_Sid.m_Height + 1;
 
-	if (!bInitiallyEmpty && !VerifyBlock(res, res.get_Reader(), h))
-		return false;
+	bool bEmpty =
+		bc.m_Block.m_vInputs.empty() &&
+		bc.m_Block.m_vOutputs.empty() &&
+		bc.m_Block.m_vKernels.empty();
 
-	if (!bInitiallyEmpty)
+	if (!bEmpty)
 	{
-		if (!HandleValidatedTx(res.get_Reader(), h, true))
+		if ((BlockContext::Mode::Finalize != bc.m_Mode) && !VerifyBlock(bc.m_Block, bc.m_Block.get_Reader(), h))
+			return false;
+
+		if (!HandleValidatedTx(bc.m_Block.get_Reader(), h, true))
 			return false;
 	}
 
-	size_t nSizeEstimated = GenerateNewBlock(bc, res, h);
+	size_t nSizeEstimated = 1;
 
-	verify(HandleValidatedTx(res.get_Reader(), h, false)); // undo changes
+	if (BlockContext::Mode::Finalize != bc.m_Mode)
+		nSizeEstimated = GenerateNewBlockInternal(bc);
+
+	if (nSizeEstimated)
+	{
+		bc.m_Hdr.m_Height = h;
+
+		if (BlockContext::Mode::Assemble != bc.m_Mode)
+		{
+			bc.m_Block.NormalizeE(); // kernels must be normalized before the header is generated
+			GenerateNewHdr(bc);
+		}
+	}
+
+	verify(HandleValidatedTx(bc.m_Block.get_Reader(), h, false)); // undo changes
+
+	// reset input maturities
+	for (size_t i = 0; i < bc.m_Block.m_vInputs.size(); i++)
+		bc.m_Block.m_vInputs[i]->m_Maturity = 0;
 
 	if (!nSizeEstimated)
 		return false;
 
-	// reset input maturities
-	for (size_t i = 0; i < res.m_vInputs.size(); i++)
-		res.m_vInputs[i]->m_Maturity = 0;
+	if (BlockContext::Mode::Assemble == bc.m_Mode)
+		return true;
 
-	size_t nCutThrough = res.NormalizeP(); // kernels must have already been normalized, this is needed for kernel commitment
+	size_t nCutThrough = bc.m_Block.NormalizeP(); // right before serialization
 	nCutThrough; // remove "unused var" warning
+
 
 	Serializer ser;
 
 	ser.reset();
-	ser & Cast::Down<Block::BodyBase>(res);
-	ser & Cast::Down<TxVectors::Perishable>(res);
+	ser & Cast::Down<Block::BodyBase>(bc.m_Block);
+	ser & Cast::Down<TxVectors::Perishable>(bc.m_Block);
 	ser.swap_buf(bc.m_BodyP);
 
 	ser.reset();
-	ser & Cast::Down<TxVectors::Ethernal>(res);
+	ser & Cast::Down<TxVectors::Ethernal>(bc.m_Block);
 	ser.swap_buf(bc.m_BodyE);
 
 	size_t nSize = bc.m_BodyP.size() + bc.m_BodyE.size();
 
-	assert(nCutThrough ?
-		(nSize < nSizeEstimated) :
-		(nSize == nSizeEstimated));
+	if (BlockContext::Mode::SinglePass == bc.m_Mode)
+		assert(nCutThrough ?
+			(nSize < nSizeEstimated) :
+			(nSize == nSizeEstimated));
 
 	return nSize <= Rules::get().MaxBodySize;
 }

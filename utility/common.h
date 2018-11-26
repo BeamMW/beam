@@ -199,8 +199,9 @@ namespace beam
 
 namespace std
 {
-	void ThrowIoError();
+	void ThrowLastError();
 	void TestNoError(const ios& obj);
+	void ThrowSystemError(int);
 
 	// wrapper for std::fstream, with semantics suitable for serialization
 	class FStream

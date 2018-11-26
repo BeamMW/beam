@@ -29,17 +29,18 @@ namespace beam
     {
         enum Status
         {
-            Unconfirmed,
-            Unspent,
-            Locked,
-            Spent,
-            Draft
+            Unavailable,
+            Available,
+            Maturing,
+            Outgoing,
+            Incoming,
+            Change,
+            Spent
         };
 
-        Coin(const ECC::Amount& amount
-           , Status status = Coin::Unspent
-           , const Height& createHeight = 0
-           , const Height& maturity = MaxHeight
+        Coin(Amount amount
+           , Status status = Coin::Maturing
+           , Height maturity = MaxHeight
            , Key::Type keyType = Key::Type::Regular
            , Height confirmHeight = MaxHeight
            , Height lockedHeight = MaxHeight);
@@ -47,21 +48,16 @@ namespace beam
         bool isReward() const;
         bool isValid() const;
 
-        uint64_t m_id;
-        ECC::Amount m_amount;
+		typedef Key::IDVC ID;
+		ID m_ID;
+
         Status m_status;
         Height m_createHeight;  // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
-        Height m_maturity;      // coin can be spent only when chain is >= this value. Valid for confirmed coins (Unspent, Locked, Spent).
-		Key::Type m_key_type;
+        Height m_maturity;      // coin can be spent only when chain is >= this value. Valid for confirmed coins (Available, Outgoing, Incoming, Change, Spent, Maturing).
         Height m_confirmHeight;
-        Merkle::Hash m_confirmHash;
         Height m_lockedHeight;
         boost::optional<TxID> m_createTxId;
         boost::optional<TxID> m_spentTxId;
-        uint64_t m_keyIndex;
-
-        Key::IDV get_Kidv() const;
-        static Coin fromKidv(const Key::IDV& kidv);
     };
 
     struct TxPeer
@@ -78,7 +74,7 @@ namespace beam
         std::string m_category;
         Timestamp m_createTime;
         uint64_t  m_duration;
-        bool m_own;
+		uint64_t  m_OwnID; // set for own address
 
         bool isExpired() const
         {
@@ -88,7 +84,7 @@ namespace beam
         WalletAddress() 
             : m_createTime(0)
             , m_duration(24 * 60 * 60) // 24h
-            , m_own(false)
+            , m_OwnID(false)
         {}
     };
 
@@ -122,28 +118,28 @@ namespace beam
         using Ptr = std::shared_ptr<IWalletDB>;
         virtual ~IWalletDB() {}
 
-		virtual beam::Key::IKdf::Ptr get_Kdf() const = 0;
-        virtual ECC::Scalar::Native calcKey(const beam::Coin& coin) const = 0;
-        virtual void get_IdentityKey(ECC::Scalar::Native&) const = 0;
+		virtual beam::Key::IKdf::Ptr get_MasterKdf() const = 0;
+		virtual beam::Key::IKdf::Ptr get_ChildKdf(Key::Index) const;
+		virtual ECC::Scalar::Native calcKey(const Coin::ID&) const = 0;
+		virtual uint64_t AllocateKidRange(uint64_t nCount) = 0;
+        virtual std::vector<Coin> selectCoins(const Amount& amount, bool lock = true) = 0;
+        virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) = 0;
+		virtual void store(Coin& coin) = 0;
+		virtual void store(std::vector<Coin>&) = 0;
+		virtual void save(const Coin& coin) = 0;
+        virtual void save(const std::vector<Coin>& coins) = 0;
+        virtual void remove(const Coin::ID&) = 0;
+		virtual void remove(const std::vector<Coin::ID>&) = 0;
+		virtual bool find(Coin& coin) = 0;
+		virtual void clear() = 0;
+		virtual void maturingCoins() = 0;
 
-        virtual std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) = 0;
-        virtual std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) = 0;
-        virtual void store(beam::Coin& coin) = 0;
-        virtual void store(std::vector<beam::Coin>& coins) = 0;
-        virtual void update(const std::vector<beam::Coin>& coins) = 0;
-        virtual void update(const beam::Coin& coin) = 0;
-        virtual void remove(const std::vector<beam::Coin>& coins) = 0;
-        virtual void remove(const beam::Coin& coin) = 0;
-        virtual void clear() = 0;
-
-        virtual void visit(std::function<bool(const beam::Coin& coin)> func) = 0;
+        virtual void visit(std::function<bool(const Coin& coin)> func) = 0;
 
         virtual void setVarRaw(const char* name, const void* data, size_t size) = 0;
         virtual bool getVarRaw(const char* name, void* data, int size) const = 0;
         virtual bool getBlob(const char* name, ByteBuffer& var) const = 0;
         virtual Height getCurrentHeight() const = 0;
-        virtual uint64_t getKnownStateCount() const = 0;
-        virtual Block::SystemState::ID getKnownStateID(Height height) = 0;
         virtual void rollbackConfirmedUtxo(Height minHeight) = 0;
 
         virtual std::vector<TxDescription> getTxHistory(uint64_t start = 0, int count = std::numeric_limits<int>::max()) = 0;
@@ -163,6 +159,9 @@ namespace beam
         virtual void saveAddress(const WalletAddress&) = 0;
         virtual boost::optional<WalletAddress> getAddress(const WalletID&) = 0;
         virtual void deleteAddress(const WalletID&) = 0;
+
+		void createAddress(WalletAddress&);
+		void createAndSaveAddress(WalletAddress&);
 
         template <typename Var>
         void setVar(const char* name, const Var& var)
@@ -190,9 +189,7 @@ namespace beam
 
 		virtual Block::SystemState::IHistory& get_History() = 0;
 		virtual void ShrinkHistory() = 0;
-
-		uint64_t get_AutoIncrID();
-    };
+	};
 
     class WalletDB : public IWalletDB, public std::enable_shared_from_this<WalletDB>
     {
@@ -205,27 +202,27 @@ namespace beam
         WalletDB(const ECC::NoLeak<ECC::uintBig>& secretKey);
         ~WalletDB();
 
-		beam::Key::IKdf::Ptr get_Kdf() const override;
-		ECC::Scalar::Native calcKey(const beam::Coin& coin) const override;
-        void get_IdentityKey(ECC::Scalar::Native&) const override;
-        std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool lock = true) override;
-        std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) override;
-        void store(beam::Coin& coin) override;
-        void store(std::vector<beam::Coin>& coins) override;
-        void update(const std::vector<beam::Coin>& coins) override;
-        void update(const beam::Coin& coin) override;
-        void remove(const std::vector<beam::Coin>& coins) override;
-        void remove(const beam::Coin& coin) override;
-        void clear() override;
+		beam::Key::IKdf::Ptr get_MasterKdf() const override;
+		ECC::Scalar::Native calcKey(const Coin::ID&) const override;
+		uint64_t AllocateKidRange(uint64_t nCount) override;
+		std::vector<Coin> selectCoins(const Amount& amount, bool lock = true) override;
+        std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override;
+		void store(Coin& coin) override;
+		void store(std::vector<Coin>&) override;
+		void save(const Coin& coin) override;
+		void save(const std::vector<Coin>& coins) override;
+		void remove(const Coin::ID&) override;
+		void remove(const std::vector<Coin::ID>&) override;
+		bool find(Coin& coin) override;
+		void clear() override;
+		void maturingCoins() override;
 
-        void visit(std::function<bool(const beam::Coin& coin)> func) override;
+        void visit(std::function<bool(const Coin& coin)> func) override;
 
         void setVarRaw(const char* name, const void* data, size_t size) override;
         bool getVarRaw(const char* name, void* data, int size) const override;
         bool getBlob(const char* name, ByteBuffer& var) const override;
         Height getCurrentHeight() const override;
-        uint64_t getKnownStateCount() const override;
-        Block::SystemState::ID getKnownStateID(Height height) override;
         void rollbackConfirmedUtxo(Height minHeight) override;
 
         std::vector<TxDescription> getTxHistory(uint64_t start, int count) override;
@@ -260,8 +257,9 @@ namespace beam
 		void ShrinkHistory() override;
 
     private:
-        void storeImpl(Coin& coin);
-        void notifyCoinsChanged();
+        void storeImpl(const Coin& coin);
+		void removeImpl(const Coin::ID& cid);
+		void notifyCoinsChanged();
         void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
         void notifySystemStateChanged();
         void notifyAddressChanged();

@@ -84,11 +84,10 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 	for (uint32_t i = 0; i < nCount; i++, h += dh)
 	{
 		Coin& coin = m_Coins[i];
-		coin.m_key_type = Key::Type::Regular;
-		coin.m_amount = v;
-		coin.m_status = Coin::Unconfirmed;
+		coin.m_ID.m_Type = Key::Type::Regular;
+		coin.m_ID.m_Value = v;
+		coin.m_status = Coin::Maturing;
 		coin.m_createHeight = h + Rules::HeightGenesis;
-
 
 		m_vIncubation[i] = h;
 	}
@@ -106,11 +105,11 @@ int TreasuryBlockGenerator::Generate(uint32_t nCount, Height dh, Amount v)
 
 	// at least 1 kernel
 	{
-		Coin dummy; // not a coin actually
-		dummy.m_key_type = Key::Type::Kernel;
-		dummy.m_status = Coin::Unconfirmed;
+		Coin::ID cid;
+		cid.m_Type = Key::Type::Kernel;
+		cid.m_Idx = m_pWalletDB->AllocateKidRange(1);
 
-		ECC::Scalar::Native k = m_pWalletDB->calcKey(dummy);
+		ECC::Scalar::Native k = m_pWalletDB->calcKey(cid);
 
 		TxKernel::Ptr pKrn(new TxKernel);
 		pKrn->m_Commitment = ECC::Point::Native(Context::get().G * k);
@@ -183,7 +182,7 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 		vSk.resize(vSk.size() + 1);
 
 		ECC::Scalar::Native& sk = vSk.back();;
-		pOutp->Create(sk, *m_pWalletDB->get_Kdf(), coin.get_Kidv());
+		pOutp->Create(sk, *m_pWalletDB->get_ChildKdf(coin.m_ID.m_iChild), coin.m_ID);
 
 		vOut.push_back(std::move(pOutp));
 	}
@@ -197,7 +196,7 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 
 		block.m_vOutputs.push_back(std::move(vOut[iOutp]));
 		m_Offset += vSk[iOutp];
-		block.m_Subsidy += m_Coins[i].m_amount;
+		block.m_Subsidy += m_Coins[i].m_ID.m_Value;
 	}
 }
 

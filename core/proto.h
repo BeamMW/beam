@@ -100,17 +100,9 @@ namespace proto {
 #define BeamNodeMsg_ProofChainWork(macro) \
 	macro(Block::ChainWorkProof, Proof)
 
-#define BeamNodeMsg_GetMined(macro) \
-	macro(Height, HeightMin)
-
-#define BeamNodeMsg_Mined(macro) \
-	macro(std::vector<PerMined>, Entries)
-
-#define BeamNodeMsg_Config(macro) \
+#define BeamNodeMsg_Login(macro) \
 	macro(ECC::Hash::Value, CfgChecksum) \
-	macro(bool, SpreadingTransactions) \
-	macro(bool, Bbs) \
-	macro(bool, SendPeers)
+	macro(uint8_t, Flags)
 
 #define BeamNodeMsg_Ping(macro)
 #define BeamNodeMsg_Pong(macro)
@@ -186,23 +178,22 @@ namespace proto {
 	macro(ByteBuffer, Portion) \
 	macro(uint64_t, SizeTotal)
 
-#define BeamNodeMsg_Recover(macro) \
-	macro(bool, Private) \
-	macro(bool, Public)
-
-#define BeamNodeMsg_Recovered(macro) \
-	macro(std::vector<Key::IDV>, Private) \
-	macro(std::vector<Key::IDV>, Public)
-
 #define BeamNodeMsg_GetUtxoEvents(macro) \
 	macro(Height, HeightMin)
 
 #define BeamNodeMsg_UtxoEvents(macro) \
-	macro(std::vector<UtxoEventPlus>, Events)
+	macro(std::vector<UtxoEvent>, Events)
+
+#define BeamNodeMsg_GetBlockFinalization(macro) \
+	macro(Height, Height) \
+	macro(Amount, Fees)
+
+#define BeamNodeMsg_BlockFinalization(macro) \
+	macro(Transaction::Ptr, Value)
 
 #define BeamNodeMsgsAll(macro) \
 	/* general msgs */ \
-	macro(0x00, Config) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
+	macro(0x00, Login) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
 	macro(0x01, Bye) \
 	macro(0x02, Ping) \
 	macro(0x03, Pong) \
@@ -240,12 +231,10 @@ namespace proto {
 	macro(0x24, GetProofKernel2) \
 	macro(0x25, ProofKernel2) \
 	/* onwer-relevant */ \
-	macro(0x28, GetMined) \
-	macro(0x29, Mined) \
-	macro(0x2a, Recover) \
-	macro(0x2b, Recovered) \
 	macro(0x2c, GetUtxoEvents) \
 	macro(0x2d, UtxoEvents) \
+	macro(0x2e, GetBlockFinalization) \
+	macro(0x2f, BlockFinalization) \
 	/* tx broadcast and replication */ \
 	macro(0x30, NewTransaction) \
 	macro(0x31, HaveTransaction) \
@@ -259,51 +248,44 @@ namespace proto {
 	macro(0x3d, BbsPickChannelRes) \
 
 
-	struct PerMined
-	{
-		Block::SystemState::ID m_ID;
-		Amount m_Fees;
-		bool m_Active; // mined on active(longest) branch
-
-		template <typename Archive>
-		void serialize(Archive& ar)
-		{
-			ar
-				& m_ID
-				& m_Fees
-				& m_Active;
-		}
-
-		static const uint32_t s_EntriesMax = 200; // if this is the size of the vector - the result is probably trunacted
+	struct LoginFlags {
+		static const uint8_t SpreadingTransactions	= 0x1; // I'm spreading txs, please send
+		static const uint8_t Bbs					= 0x2; // I'm spreading bbs messages
+		static const uint8_t SendPeers				= 0x4; // Please send me periodically peers recommendations
+		static const uint8_t MiningFinalization		= 0x8; // I want to finalize block construction for my owned node
 	};
 
 	struct IDType
 	{
 		static const uint8_t Node		= 'N';
 		static const uint8_t Owner		= 'O';
+		static const uint8_t Viewer		= 'V';
 	};
 
 	static const uint32_t g_HdrPackMaxSize = 128;
 
-#pragma pack (push, 1)
-	struct UtxoEventPlus
-		:public UtxoEvent
+	struct UtxoEvent
 	{
-		static const uint32_t s_Max = 64; // may actually send more, if the remaining events are on the same height
+		static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
 
-		uintBigFor<Height>::Type m_Height;
+		Key::IDVC m_Kidvc;
+
+		Height m_Height;
+		Height m_Maturity;
+
+		uint8_t m_Added; // 1 = add, 0 = spend
+
 
 		template <typename Archive>
 		void serialize(Archive& ar)
 		{
-			typedef uintBigFor<UtxoEventPlus>::Type TBlob;
-			static_assert(sizeof(TBlob) == sizeof(*this), "");
-
-			ar & reinterpret_cast<TBlob&>(*this);
+			ar
+				& m_Kidvc
+				& m_Height
+				& m_Maturity
+				& m_Added;
 		}
 	};
-#pragma pack (pop)
-
 
 	enum Unused_ { Unused };
 	enum Uninitialized_ { Uninitialized };
@@ -403,8 +385,9 @@ namespace proto {
 	};
 
 	void Sk2Pk(PeerID&, ECC::Scalar::Native&); // will negate the scalar iff necessary
+	bool ImportPeerID(ECC::Point::Native&, const PeerID&);
 	bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void*, uint32_t); // will fail iff addr is invalid
-	bool BbsDecrypt(uint8_t*& p, uint32_t& n, ECC::Scalar::Native& privateAddr);
+	bool BbsDecrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr);
 
 	struct INodeMsgHandler
 		:public IErrorHandler
@@ -444,6 +427,8 @@ namespace proto {
 		BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 
+		void HashAddNonce(ECC::Hash::Processor&, bool bRemote);
+
 	public:
 
 		NodeConnection();
@@ -459,6 +444,11 @@ namespace proto {
 		void SecureConnect(); // must be connected already
 
 		void ProveID(ECC::Scalar::Native&, uint8_t nIDType); // secure channel must be established
+		void ProveKdfObscured(Key::IKdf&, uint8_t nIDType); // prove ownership of the kdf to the one with pkdf, otherwise reveal no info
+		void ProvePKdfObscured(Key::IPKdf&, uint8_t nIDType);
+		bool IsKdfObscured(Key::IPKdf&, const PeerID&);
+		bool IsPKdfObscured(Key::IPKdf&, const PeerID&);
+
 
 		virtual void OnMsg(SChannelInitiate&&) override;
 		virtual void OnMsg(SChannelReady&&) override;
@@ -680,10 +670,9 @@ namespace proto {
 #define REQUEST_TYPES_All(macro) \
 		macro(Utxo,			GetProofUtxo,		ProofUtxo) \
 		macro(Kernel,		GetProofKernel,		ProofKernel) \
-		macro(Mined,		GetMined,			Mined) \
+		macro(UtxoEvents,	GetUtxoEvents,		UtxoEvents) \
 		macro(Transaction,	NewTransaction,		Boolean) \
-		macro(BbsMsg,		BbsMsg,				Pong) \
-		macro(Recover,		Recover,			Recovered)
+		macro(BbsMsg,		BbsMsg,				Pong)
 
 		class Request
 		{
@@ -729,9 +718,11 @@ namespace proto {
 
 		virtual ~FlyClient() {}
 		virtual void OnNewTip() {} // tip already added
+		virtual void OnTipUnchanged() {} // we have connected to node, but the tip has not changed
 		virtual void OnRolledBack() {} // reversed states are already removed
-		virtual bool IsOwnedNode(const PeerID&, Key::IKdf::Ptr& pKdf) { return false; }
+		virtual void get_Kdf(Key::IKdf::Ptr&) {}
 		virtual Block::SystemState::IHistory& get_History() = 0;
+		virtual void OnOwnedNode(const PeerID&, bool bUp) {}
 
 		struct IBbsReceiver
 		{
@@ -788,16 +779,17 @@ namespace proto {
 			{
 				struct SyncCtx
 				{
+					typedef std::unique_ptr<SyncCtx> Ptr;
+
 					std::vector<Block::SystemState::Full> m_vConfirming;
 					Block::SystemState::Full m_Confirmed;
 					Block::SystemState::Full m_TipBeforeGap;
 					Height m_LowHeight;
 				};
 
-				std::unique_ptr<SyncCtx> m_pSync;
+				SyncCtx::Ptr m_pSync;
 
 				size_t m_iIndex; // for callbacks only
-				bool m_ReportedConnected;
 
 				struct StateArray;
 
@@ -805,9 +797,10 @@ namespace proto {
 				void StartSync();
 				void SearchBelow(Height, uint32_t nCount);
 				void RequestChainworkProof();
+				void PostChainworkProof(const StateArray&, Height hLowHeight);
 				void PrioritizeSelf();
 				Request& get_FirstRequestStrict(Request::Type);
-				void OnFirstRequestDone(bool bMustBeAtTip = true);
+				void OnFirstRequestDone(bool bStillSupported);
 
 				io::Timer::Ptr m_pTimer;
 				void OnTimer();
@@ -824,6 +817,7 @@ namespace proto {
 				virtual ~Connection();
 
 				io::Address m_Addr;
+				PeerID m_NodeID;
 
 				// most recent tip of the Node, according to which all the proofs are interpreted
 				Block::SystemState::Full m_Tip;
@@ -833,16 +827,21 @@ namespace proto {
 				void AssignRequest(RequestNode&);
 
 				bool IsAtTip() const;
+				uint8_t m_LoginFlags;
+				uint8_t m_Flags;
 
-				bool m_bBbs = false;
-				bool m_bTransactions = false;
-				bool m_bNode = false;
+				struct Flags {
+					static const uint8_t Node = 1;
+					static const uint8_t Owned = 2;
+					static const uint8_t ReportedConnected = 4;
+				};
 
 				// NodeConnection
 				virtual void OnConnectedSecure() override;
 				virtual void OnDisconnect(const DisconnectReason&) override;
 				virtual void OnMsg(proto::Authentication&& msg) override;
-				virtual void OnMsg(proto::Config&& msg) override;
+				virtual void OnMsg(proto::Login&& msg) override;
+				virtual void OnMsg(proto::GetBlockFinalization&& msg) override;
 				virtual void OnMsg(proto::NewTip&& msg) override;
 				virtual void OnMsg(proto::ProofCommonState&& msg) override;
 				virtual void OnMsg(proto::ProofChainWork&& msg) override;

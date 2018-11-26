@@ -165,32 +165,47 @@ public:
 	virtual void AdjustFossilEnd(Height&) {}
 	virtual void OnStateData() {}
 	virtual void OnBlockData() {}
+	virtual void OnUpToDate() {}
 	virtual bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) { return false; }
 	virtual void OnModified() {}
-	virtual Key::IPKdf* get_Kdf(uint32_t i) { return NULL; }
+
+	struct IKeyWalker {
+		virtual bool OnKey(Key::IPKdf&, Key::Index) = 0;
+	};
+	virtual bool EnumViewerKeys(IKeyWalker&) { return true; }
 
 	uint64_t FindActiveAtStrict(Height);
 
 	bool ValidateTxContext(const Transaction&); // assuming context-free validation is already performed, but 
 	static bool ValidateTxWrtHeight(const Transaction&, Height);
 
-	struct BlockContext
+	struct GeneratedBlock
 	{
-		TxPool::Fluff& m_TxPool;
-		Key::IKdf& m_Kdf;
 		Block::SystemState::Full m_Hdr;
 		ByteBuffer m_BodyP;
 		ByteBuffer m_BodyE;
 		Amount m_Fees;
-
-		BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf)
-			:m_TxPool(txp)
-			,m_Kdf(kdf)
-		{
-		}
+		Block::Body m_Block; // in/out
 	};
 
-	bool GenerateNewBlock(BlockContext&, Block::Body& blockInOut);
+
+	struct BlockContext
+		:public GeneratedBlock
+	{
+		TxPool::Fluff& m_TxPool;
+		Key::IKdf& m_Kdf;
+
+		enum Mode {
+			Assemble,
+			Finalize,
+			SinglePass
+		};
+
+		Mode m_Mode = Mode::SinglePass;
+
+		BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf);
+	};
+
 	bool GenerateNewBlock(BlockContext&);
 	void DeleteOutdated(TxPool::Fluff&);
 
@@ -229,9 +244,23 @@ public:
 		virtual bool OnOutput(uint32_t iKey, const Key::IDV&, const Output&) override;
 	};
 
+#pragma pack (push, 1)
+	struct UtxoEvent
+	{
+		typedef ECC::Point Key;
+		static_assert(sizeof(Key) == sizeof(ECC::uintBig) + 1, "");
+
+		struct Value {
+			uintBigFor<ECC::Key::Index>::Type m_iKdf;
+			ECC::Key::IDV::Packed m_Kidv;
+			uintBigFor<Height>::Type m_Maturity;
+		};
+	};
+#pragma pack (pop)
+
 private:
-	size_t GenerateNewBlock(BlockContext&, Block::Body&, Height);
-	bool GenerateNewBlock(BlockContext&, Block::Body&, bool bInitiallyEmpty);
+	size_t GenerateNewBlockInternal(BlockContext&);
+	void GenerateNewHdr(BlockContext&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&);
 };
 

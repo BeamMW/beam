@@ -24,7 +24,6 @@ namespace beam
     struct IWalletObserver : IWalletDbObserver
     {
         virtual void onSyncProgress(int done, int total) = 0;
-        virtual void onRecoverProgress(int done, int total, const std::string& message) = 0;
     };
 
     struct IWallet
@@ -65,9 +64,15 @@ namespace beam
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, ByteBuffer&& message = {} );
         TxID swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount);
         void resume_tx(const TxDescription& tx);
-        void recover();
         void resume_all_tx();
 
+        // IWallet
+        void subscribe(IWalletObserver* observer) override;
+        void unsubscribe(IWalletObserver* observer) override;
+        void cancel_tx(const TxID& txId) override;
+        void delete_tx(const TxID& txId) override;
+        
+    private:
         void on_tx_completed(const TxID& txID) override;
 
         void confirm_outputs(const std::vector<Coin>&) override;
@@ -80,17 +85,11 @@ namespace beam
 
 		// FlyClient
 		void OnNewTip() override;
+        void OnTipUnchanged() override;
 		void OnRolledBack() override;
-		bool IsOwnedNode(const PeerID&, Key::IKdf::Ptr& pKdf) override;
+		void get_Kdf(Key::IKdf::Ptr&) override;
 		Block::SystemState::IHistory& get_History() override;
-
-		// IWallet
-        void subscribe(IWalletObserver* observer) override;
-        void unsubscribe(IWalletObserver* observer) override;
-		void cancel_tx(const TxID& txId) override;
-		void delete_tx(const TxID& txId) override;
-
-    private:
+		void OnOwnedNode(const PeerID&, bool bUp) override;
 
 		struct RequestHandler
 			: public proto::FlyClient::Request::IHandler
@@ -101,22 +100,28 @@ namespace beam
 
 		uint32_t SyncRemains() const;
 		void CheckSyncDone();
-		void getUtxoProof(const Coin&);
+		void getUtxoProof(const Coin::ID&);
         void report_sync_progress();
         void notifySyncProgress();
         void updateTransaction(const TxID& txID);
         void saveKnownState();
+		void RequestUtxoEvents();
+		void AbortUtxoEvents();
+		void ProcessUtxoEvent(const proto::UtxoEvent&, Height hTip);
+		void SetUtxoEventsHeight(Height);
+		Height GetUtxoEventsHeight();
 
         wallet::BaseTransaction::Ptr getTransaction(const WalletID& myID, const wallet::SetTxParameter& msg);
         wallet::BaseTransaction::Ptr constructTransaction(const TxID& id, wallet::TxType type);
 
     private:
 
+		static const char s_szLastUtxoEvt[];
+
 #define REQUEST_TYPES_Sync(macro) \
 		macro(Utxo) \
 		macro(Kernel) \
-		macro(Mined) \
-		macro(Recover)
+		macro(UtxoEvents)
 
 		struct AllTasks {
 #define THE_MACRO(type, msgOut, msgIn) struct type { static const bool b = false; };
@@ -132,7 +137,7 @@ namespace beam
 
 		struct ExtraData :public AllTasks {
 			struct Transaction { TxID m_TxID; };
-			struct Utxo { Coin m_Coin; };
+			struct Utxo { Coin::ID m_CoinID; };
 			struct Kernel { TxID m_TxID; };
 		};
 
@@ -185,8 +190,7 @@ namespace beam
         std::set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
         TxCompletedAction m_tx_completed_action;
 		uint32_t m_LastSyncTotal;
-        bool m_needRecover;
-        bool m_recovering;
+		uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
     };

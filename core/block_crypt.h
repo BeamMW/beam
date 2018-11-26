@@ -216,7 +216,7 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
 		void Create(const ECC::Scalar::Native&, Amount, bool bPublic = false);
-		void Create(ECC::Scalar::Native&, Key::IKdf&, const Key::IDV&);
+		void Create(ECC::Scalar::Native&, Key::IKdf&, const Key::IDV&, bool bPublic = false);
 
 		bool Recover(Key::IPKdf&, Key::IDV&) const;
 
@@ -368,6 +368,8 @@ namespace beam
 			}
 
 			size_t Normalize();
+
+			void MoveInto(Full& trg);
 		};
 	};
 
@@ -576,6 +578,19 @@ namespace beam
 		};
 
 		struct ChainWorkProof;
+
+		struct Builder
+		{
+			ECC::Scalar::Native m_Offset; // the sign is opposite
+			TxVectors::Full m_Txv;
+
+			Builder();
+
+			void AddCoinbaseAndKrn(Key::IKdf&, Height);
+			void AddCoinbaseAndKrn(Key::IKdf&, Height, Output::Ptr&, TxKernel::Ptr&);
+			void AddFees(Key::IKdf&, Height, Amount fees);
+			void AddFees(Key::IKdf&, Height, Amount fees, Output::Ptr&);
+		};
 	};
 
 	struct TxKernel::LongProof
@@ -595,8 +610,6 @@ namespace beam
 				& m_Outer;
 		}
 	};
-
-	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height = 0, uint32_t nIdx = 0);
 
 	std::ostream& operator << (std::ostream&, const Block::SystemState::ID&);
 
@@ -814,13 +827,4 @@ namespace beam
 		void Export(void*, uint32_t, uint8_t nCode);
 		bool Import(void*, uint32_t, uint8_t nCode);
 	};
-
-#pragma pack (push, 1)
-	struct UtxoEvent
-	{
-		uintBigFor<uint32_t>::Type m_KdfIdx;
-		uint8_t m_Added; // added or deleted
-		ECC::Key::IDV::Packed m_Kidv;
-	};
-#pragma pack (pop)
 }

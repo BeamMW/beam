@@ -219,4 +219,30 @@ namespace beam {
 		return true;
 	}
 
+	FourCC::Text::Text(uint32_t n)
+	{
+		reinterpret_cast<uintBigFor<uint32_t>::Type&>(m_sz) = n; // convertion
+		m_sz[_countof(m_sz) - 1] = 0;
+
+		// fix illegal chars
+		for (size_t i = 0; i < _countof(m_sz) - 1; i++)
+		{
+			char& c = m_sz[i];
+			if ((c < ' ') || (c > '~'))
+				c = ' ';
+		}
+	}
+
+	std::ostream& operator << (std::ostream& s, const FourCC& x)
+	{
+		s << FourCC::Text(x);
+		return s;
+	}
+
+	std::ostream& operator << (std::ostream& s, const FourCC::Text& x)
+	{
+		s << x.m_sz;
+		return s;
+	}
+
 } // namespace beam

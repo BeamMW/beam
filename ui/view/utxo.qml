@@ -6,8 +6,8 @@ import "controls"
 import Beam.Wallet 1.0;
 
 ColumnLayout {
-	anchors.fill: parent
-	UtxoViewModel {id: viewModel}
+    anchors.fill: parent
+    UtxoViewModel {id: viewModel}
 
     RowLayout {
         Layout.fillWidth: true
@@ -17,7 +17,7 @@ ColumnLayout {
         height: 80
         spacing: 10
 
-	    SFText {
+        SFText {
             Layout.alignment: Qt.AlignTop
             Layout.minimumHeight: 40
             Layout.maximumHeight: 40
@@ -50,7 +50,7 @@ ColumnLayout {
                     text: qsTr("Height")
                 }
 
-	            SFText {
+                SFText {
                     Layout.minimumHeight: 20
                     Layout.maximumHeight: 20
                     font.pixelSize: 16
@@ -79,7 +79,7 @@ ColumnLayout {
                 anchors.bottomMargin: 20
                 spacing: 5
 
-	            SFText {
+                SFText {
                     Layout.fillWidth: true
                     Layout.minimumHeight: 20
                     Layout.maximumHeight: 20
@@ -89,7 +89,7 @@ ColumnLayout {
                     text: qsTr("Hash")
                 }
 
-	            SFText {
+                SFText {
                     Layout.fillWidth: true
                     Layout.minimumHeight: 20
                     Layout.maximumHeight: 20
@@ -109,15 +109,16 @@ ColumnLayout {
         }
     }
 
-	CustomTableView {
+    CustomTableView {
         id: tableView
-		Layout.fillWidth: true
-		Layout.fillHeight: true
-		Layout.bottomMargin: 9
-		frameVisible: false
+        property int rowHeight: 69
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        Layout.bottomMargin: 9
+        frameVisible: false
         selectionMode: SelectionMode.NoSelection
         backgroundVisible: false
-		model: viewModel.allUtxos
+        model: viewModel.allUtxos
         sortIndicatorVisible: true
         sortIndicatorColumn: 1
         sortIndicatorOrder: Qt.DescendingOrder
@@ -134,44 +135,115 @@ ColumnLayout {
             value: tableView.sortIndicatorOrder
         }
 
-		TableViewColumn {
-			role: viewModel.amountRole
-			title: qsTr("Amount")
-			width: 150 * parent.width / 800
-			movable: false
-		}
+        TableViewColumn {
+            role: viewModel.amountRole
+            title: qsTr("Amount")
+            width: 150 * parent.width / 800
+            movable: false
+        }
 
-		TableViewColumn {
-			role: viewModel.heightRole
-			title: qsTr("Height")
-			width: 150 * parent.width / 800
-			movable: false
-		}
+        TableViewColumn {
+            role: viewModel.heightRole
+            title: qsTr("Height")
+            width: 150 * parent.width / 800
+            movable: false
+        }
 
-		TableViewColumn {
-			role: viewModel.maturityRole
-			title: qsTr("Maturity")
-			width: 150 * parent.width / 800
-			movable: false
-		}
+        TableViewColumn {
+            role: viewModel.maturityRole
+            title: qsTr("Maturity")
+            width: 150 * parent.width / 800
+            movable: false
+        }
 
-		TableViewColumn {
-			role: viewModel.statusRole
-			title: qsTr("Status")
-			width: 200 * parent.width / 800
-			movable: false
-		}
+        TableViewColumn {
+            role: viewModel.statusRole
+            title: qsTr("Status")
+            width: 200 * parent.width / 800
+            movable: false
+            resizable: false
+            delegate: Item {
+                id: delegate_id
+                width: parent.width
+                height: tableView.rowHeight
+                readonly property var lineSeparator: "\n"
+                property var texts: styleData.value.split(lineSeparator)
+                property color secondLineColor: "#879daa"
 
-		TableViewColumn {
-			role: viewModel.typeRole
-			title: qsTr("Type")
-			width: 150 * parent.width / 800
-			movable: false
-		}
+                ColumnLayout {
+                    anchors.right: parent.right
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
 
-		rowDelegate: Item {
+                    SFLabel {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.topMargin: secondLineEnabled() ? 0 : 20
+                        color: getTextColor(delegate_id.texts)
+                        elide: Text.ElideRight
+                        text: delegate_id.texts[0]
+                        textFormat: Text.StyledText
+                        font.italic: true
+                        font.pixelSize: 14
+                    }
 
-            height: 69
+                    SFLabel {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: secondLineEnabled()
+                        enabled: secondLineEnabled()
+                        color: delegate_id.secondLineColor
+                        elide: Text.ElideRight
+                        text: secondLineEnabled() ? delegate_id.texts[1] : ""
+                        textFormat: Text.StyledText
+                        font.italic: true
+                        font.pixelSize: 14
+                    }
+                }
+
+                function getTextColor(texts) {
+                    if (texts[0] === "available") {
+                        return Style.bright_teal;
+                    }
+                    else if (texts[0] == "maturing") {
+                        return Style.heliotrope;
+                    }
+                    else if (texts[0] === "spent") {
+                        return Style.heliotrope;
+                    }
+                    else if (texts[0] === "unavailable") {
+                        return Style.white;
+                    }
+                    else if (texts[0] === "in progress") {
+                        if (texts[1] === "(change)" || texts[1] === "(outgoing)") {
+                            return Style.heliotrope;
+                        }
+                        else {
+                            return Style.bright_sky_blue;
+                        }
+                    }
+                    else {
+                        console.log("Unknown status!");
+                        return Style.white;
+                    }
+                }
+
+                function secondLineEnabled() {
+                    return delegate_id.texts[1] !== undefined;
+                }
+            }
+        }
+
+
+        TableViewColumn {
+            role: viewModel.typeRole
+            title: qsTr("Type")
+            width: 150 * parent.width / 800
+            movable: false
+        }
+
+        rowDelegate: Item {
+
+            height: tableView.rowHeight
 
             anchors.left: parent.left
             anchors.right: parent.right
@@ -184,9 +256,9 @@ ColumnLayout {
             }
         }
 
-		itemDelegate: TableItem {
+        itemDelegate: TableItem {
             text: styleData.value
             elide: Text.ElideRight
         }
-	}
+    }
 }

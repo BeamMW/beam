@@ -38,7 +38,7 @@ UtxoItem::UtxoItem(const beam::Coin& coin)
 
 QString UtxoItem::amount() const
 {
-    return BeamToString(_coin.m_amount) + " BEAM";
+    return BeamToString(_coin.m_ID.m_Value) + " BEAM";
 }
 
 QString UtxoItem::height() const
@@ -55,34 +55,45 @@ QString UtxoItem::maturity() const
 
 QString UtxoItem::status() const
 {
-    static const char* Names[] =
+    switch(_coin.m_status)
     {
-        "Unconfirmed",
-        "Unspent",
-        "Locked",
-        "Spent",
-        "Draft"
-    };
-    return Names[_coin.m_status];
+        case Coin::Available:
+            return tr("available");
+        case Coin::Maturing:
+            return tr("maturing\n(till block height ") + QString::number(_coin.m_maturity) + ")";
+        case Coin::Unavailable:
+            return tr("unavailable\n(mining result rollback)");
+        case Coin::Change:
+            return tr("in progress\n(change)");
+        case Coin::Outgoing:
+            return tr("in progress\n(outgoing)");
+        case Coin::Incoming:
+            return tr("in progress\n(incoming)");
+        case Coin::Spent:
+            return tr("spent");
+        default:
+            assert(false && "Unknown key type");
+    }
+
+    return "";
 }
 
 QString UtxoItem::type() const
 {
-    static const char* Names[] =
-    {
-        "Comission",
-        "Coinbase",
-        "Kernel",
-        "Regular",
-        "Identity",
-        "SChannelNonce"
-    };
-    return Names[static_cast<int>(_coin.m_key_type)];
+	switch (_coin.m_ID.m_Type)
+	{
+	case Key::Type::Comission: return "Comission";
+	case Key::Type::Coinbase: return "Coinbase";
+	case Key::Type::Regular: return "Regular";
+	case Key::Type::Change: return "Change";
+	}
+
+	return FourCC::Text(_coin.m_ID.m_Type).m_sz;
 }
 
 beam::Amount UtxoItem::rawAmount() const
 {
-    return _coin.m_amount;
+    return _coin.m_ID.m_Value;
 }
 
 beam::Height UtxoItem::rawHeight() const

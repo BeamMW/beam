@@ -25,7 +25,6 @@ class RestoreViewModel : public QObject
     Q_OBJECT
     Q_PROPERTY(double progress READ getProgress WRITE setProgress NOTIFY progressChanged)
     Q_PROPERTY(QString progressMessage READ getProgressMessage WRITE setProgressMessage NOTIFY progressMessageChanged)
-    Q_PROPERTY(bool creating READ getCreating WRITE setCreating NOTIFY creatingChanged)
 
 public:
 
@@ -36,38 +35,35 @@ public:
     void setProgress(double value);
     const QString& getProgressMessage() const;
     void setProgressMessage(const QString& value);
-    bool getCreating() const;
-    void setCreating(bool value);
 
 public slots:
-    void onRestoreProgressUpdated(int, int, const QString&);
     void onSyncProgressUpdated(int done, int total);
     void onNodeSyncProgressUpdated(int done, int total);
     void onUpdateTimer();
+    void onNodeConnectionChanged(bool isNodeConnected);
+    void onNodeConnectionFailed();
 signals:
     void progressChanged();
     void progressMessageChanged();
     void syncCompleted();
-    void creatingChanged();
 private:
     void updateProgress();
     void syncWithNode();
 private:
-    WalletModel::Ptr _walletModel;
-    double _progress;
-    int _nodeTotal;
-    int _nodeDone;
-    int _total;
-    int _done;
-    bool _walletConnected;
-    bool _hasLocalNode;
-    QString _progressMessage;
-    uint64_t _estimationUpdateDeltaMs;
-    double _prevProgress;
-    uint64_t _prevUpdateTimeMs;
-    QTimer _updateTimer;
-    int _startTimeout;
-    bool _creating;
-    beamui::Filter _speedFilter;
-    uint64_t _currentEstimationSec;
+    WalletModel::Ptr m_walletModel;
+    double m_progress;
+    int m_nodeTotal;
+    int m_nodeDone;
+    int m_total;
+    int m_done;
+    bool m_walletConnected;
+    bool m_hasLocalNode;
+    QString m_progressMessage;
+    uint64_t m_estimationUpdateDeltaMs;
+    double m_prevProgress;
+    uint64_t m_prevUpdateTimeMs;
+    QTimer m_updateTimer;
+    beamui::Filter m_speedFilter;
+    uint64_t m_currentEstimationSec;
+    bool m_skipProgress;
 };

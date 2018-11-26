@@ -175,12 +175,12 @@ void AddressBookViewModel::createNewPeerAddress()
     WalletAddress peerAddress{};
 
     peerAddress.m_walletID = walletID;
-    peerAddress.m_own = false;
+    peerAddress.m_OwnID = 0;
     peerAddress.m_label = m_newPeerAddress.getName().toStdString();
     peerAddress.m_createTime = beam::getTimestamp();
     peerAddress.m_category = m_newPeerAddress.getCategory().toStdString();
 
-    m_model.getAsync()->createNewAddress(std::move(peerAddress));
+    m_model.getAsync()->createNewAddress(std::move(peerAddress), false);
 }
 
 void AddressBookViewModel::createNewOwnAddress()
@@ -194,14 +194,14 @@ void AddressBookViewModel::createNewOwnAddress()
     WalletAddress ownAddress{};
 
     ownAddress.m_walletID = id;
-    ownAddress.m_own = true;
+    ownAddress.m_OwnID = 0; // would be corrected
     ownAddress.m_label = m_newOwnAddress.getName().toStdString();
     ownAddress.m_createTime = beam::getTimestamp();
     // TODO implement expiration date and duration
     //ownAddress.m_duration = m_newOwnAddress.getExpirationDate
     ownAddress.m_category = m_newOwnAddress.getCategory().toStdString();
 
-    m_model.getAsync()->createNewAddress(std::move(ownAddress));
+    m_model.getAsync()->createNewAddress(std::move(ownAddress), true);
 }
 
 void AddressBookViewModel::changeCurrentPeerAddress(int index)

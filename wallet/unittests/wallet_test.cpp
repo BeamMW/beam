@@ -49,32 +49,28 @@ namespace
     {
 		Key::IKdf::Ptr m_pKdf;
 		Block::SystemState::HistoryMap m_Hist;
+		uint64_t m_KeyIndex = 1;
     public:
 
 		BaseTestWalletDB()
 		{
-			std::shared_ptr<HKdf> pKdf(new HKdf);
-			pKdf->m_Secret.V = 10U;
-			m_pKdf = pKdf;
+			uintBig seed;
+			seed = 10U;
+			HKdf::Create(m_pKdf, seed);
 		}
 
 
-		Key::IKdf::Ptr get_Kdf() const override
+		Key::IKdf::Ptr get_MasterKdf() const override
 		{
 			return m_pKdf;
 		}
 
-        ECC::Scalar::Native calcKey(const Coin& c) const override
+        ECC::Scalar::Native calcKey(const Coin::ID& cid) const override
         {
 			ECC::Scalar::Native sk;
-			m_pKdf->DeriveKey(sk, c.get_Kidv());
+			m_pKdf->DeriveKey(sk, cid);
             return sk;
         }
-
-		void get_IdentityKey(ECC::Scalar::Native& sk) const override
-		{
-			sk = Zero;
-		}
 
         std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool /*lock*/) override
         {
@@ -82,8 +78,8 @@ namespace
             ECC::Amount t = 0;
             for (auto& c : m_coins)
             {
-                t += c.m_amount;
-                c.m_status = Coin::Locked;
+                t += c.m_ID.m_Value;
+                c.m_status = Coin::Outgoing;
                 res.push_back(c);
                 if (t >= amount)
                 {
@@ -93,13 +89,21 @@ namespace
             return res;
         }
 
-        virtual std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) override { return {}; };
+		uint64_t AllocateKidRange(uint64_t nCount) override
+		{
+			uint64_t ret = m_KeyIndex;
+			m_KeyIndex += nCount;
+			return ret;
+		}
+		bool find(Coin& coin) override { return false; }
+		virtual std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) override { return {}; };
         void store(beam::Coin& ) override {}
-        void store(std::vector<beam::Coin>& ) override {}
-        void update(const vector<beam::Coin>& coins) override {}
-        void update(const beam::Coin& ) override {}
-        void remove(const std::vector<beam::Coin>& ) override {}
-        void remove(const beam::Coin& ) override {}
+		void store(std::vector<beam::Coin>&) override {}
+		void save(const beam::Coin&) override {}
+		void save(const std::vector<beam::Coin>& ) override {}
+        void remove(const std::vector<beam::Coin::ID>&) override {}
+        void remove(const beam::Coin::ID&) override {}
+        void maturingCoins() override {};
         void visit(std::function<bool(const beam::Coin& coin)> ) override {}
         void setVarRaw(const char* , const void* , size_t ) override {}
         bool getVarRaw(const char* , void* , int) const override { return false; }
@@ -133,16 +137,6 @@ namespace
         Height getCurrentHeight() const override
         {
             return 134;
-        }
-
-        uint64_t getKnownStateCount() const override
-        {
-            return 0;
-        }
-
-        Block::SystemState::ID getKnownStateID(Height height) override
-        {
-            return {};
         }
 
         void rollbackConfirmedUtxo(Height /*minHeight*/) override
@@ -208,20 +202,6 @@ namespace
         return std::static_pointer_cast<IWalletDB>(std::make_shared<T>());
     }
 
-    IKeyStore::Ptr CreateBbsKeystore(const string& path, const string& pass, WalletID& outWalletID)
-    {
-        boost::filesystem::remove_all(path);
-        IKeyStore::Options options;
-        options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-        options.fileName = path;
-
-        auto ks = IKeyStore::create(options, pass.c_str(), pass.size());
-        //WalletID senderID = {};
-        ks->gen_keypair(outWalletID);
-        ks->save_keypair(outWalletID, true);
-        return ks;
-    }
-
     IWalletDB::Ptr createSqliteWalletDB(const string& path)
     {
         ECC::NoLeak<ECC::uintBig> seed;
@@ -245,6 +225,7 @@ namespace
         {
             Coin coin(amount);
             coin.m_maturity = 0;
+            coin.m_status = Coin::Available;
             db->store(coin);
         }
         return db;
@@ -315,15 +296,21 @@ struct TestWalletRig
 {
     TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction())
         : m_WalletDB{walletDB}
-        , m_BBSKeystore{ CreateBbsKeystore(name + "-bbs", "123", m_WalletID) }
 		, m_Wallet{ m_WalletDB, move(action) }
 		, m_NodeNetwork(m_Wallet)
-		, m_WalletNetworkViaBbs(m_Wallet, m_NodeNetwork, m_BBSKeystore, m_WalletDB)
+		, m_WalletNetworkViaBbs(m_Wallet, m_NodeNetwork, m_WalletDB)
     {
+		WalletAddress wa;
+		wa.m_createTime = getTimestamp();
+		m_WalletDB->createAndSaveAddress(wa);
+		m_WalletID = wa.m_walletID;
+
 		m_Wallet.set_Network(m_NodeNetwork, m_WalletNetworkViaBbs);
 
 		m_NodeNetwork.m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
 		m_NodeNetwork.Connect();
+
+		m_WalletNetworkViaBbs.new_own_address(wa.m_OwnID);
     }
 
     vector<Coin> GetCoins()
@@ -339,7 +326,6 @@ struct TestWalletRig
 
     WalletID m_WalletID;
     IWalletDB::Ptr m_WalletDB;
-    IKeyStore::Ptr m_BBSKeystore;
     int m_CompletedCount{1};
 	Wallet m_Wallet;
 	proto::FlyClient::NetworkStd m_NodeNetwork;
@@ -712,8 +698,8 @@ void TestWalletNegotiation(IWalletDB::Ptr senderWalletDB, IWalletDB::Ptr receive
 	io::Reactor::Scope scope(*mainReactor);
 
     WalletID receiver_id, sender_id;
-    receiver_id = 4U;
-    sender_id = 5U;
+	receiver_id = 4U;
+	sender_id = 5U;
 
     int count = 0;
     auto f = [&count](const auto& /*id*/)
@@ -799,12 +785,13 @@ private:
 			sk = 23U;
 			ProveID(sk, proto::IDType::Node);
 
-			proto::Config msgCfg;
-			msgCfg.m_CfgChecksum = Rules::get().Checksum;
-			msgCfg.m_SpreadingTransactions = true;
-			msgCfg.m_Bbs = true;
-			msgCfg.m_SendPeers = true;
-			Send(msgCfg);
+			proto::Login msg;
+			msg.m_CfgChecksum = Rules::get().Checksum;
+			msg.m_Flags =
+				proto::LoginFlags::SpreadingTransactions |
+				proto::LoginFlags::Bbs |
+				proto::LoginFlags::SendPeers;
+			Send(msg);
 		}
 
 		void SendTip()
@@ -836,19 +823,9 @@ private:
 			Send(msgOut);
         }
 
-        void OnMsg(proto::Config&& /*data*/) override
+        void OnMsg(proto::Login&& /*data*/) override
         {
 			SendTip();
-        }
-
-        void OnMsg(proto::GetMined&&) override
-        {
-            Send(proto::Mined{});
-        }
-
-        void OnMsg(proto::Recover&&) override
-        {
-            Send(proto::Recovered{});
         }
 
         void OnMsg(proto::GetProofState&&) override
@@ -955,38 +932,20 @@ void TestTxToHimself()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    string keystorePass = "123";
-    WalletID senderID = {};
-    auto senderBbsKeys = CreateBbsKeystore("sender-bbs", keystorePass, senderID);
-
-    WalletID receiverID = {};
-    senderBbsKeys->gen_keypair(receiverID);
-
     auto senderWalletDB = createSqliteWalletDB("sender_wallet.db");
-
-    // add own address
-    WalletAddress own_address = {};
-    own_address.m_walletID = receiverID;
-    own_address.m_label = "test label";
-    own_address.m_category = "test category";
-    own_address.m_createTime = beam::getTimestamp();
-    own_address.m_duration = 23;
-    own_address.m_own = true;
-
-    senderWalletDB->saveAddress(own_address);
 
     // add coin with keyType - Coinbase
     beam::Amount coin_amount = 40;
     Coin coin(coin_amount);
     coin.m_maturity = 0;
-    coin.m_status = Coin::Unspent;
-    coin.m_key_type = Key::Type::Coinbase;
+    coin.m_status = Coin::Available;
+    coin.m_ID.m_Type = Key::Type::Coinbase;
     senderWalletDB->store(coin);
 
     auto coins = senderWalletDB->selectCoins(24, false);
     WALLET_CHECK(coins.size() == 1);
-    WALLET_CHECK(coins[0].m_key_type == Key::Type::Coinbase);
-    WALLET_CHECK(coins[0].m_status == Coin::Unspent);
+    WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
+    WALLET_CHECK(coins[0].m_status == Coin::Available);
     WALLET_CHECK(senderWalletDB->getTxHistory().empty());
 
     TestNode node;
@@ -994,7 +953,7 @@ void TestTxToHimself()
     helpers::StopWatch sw;
 
     sw.start();
-    TxID txId = sender.m_Wallet.transfer_money(senderID, receiverID, 24, 2);
+    TxID txId = sender.m_Wallet.transfer_money(sender.m_WalletID, sender.m_WalletID, 24, 2);
     mainReactor->run();
     sw.stop();
 
@@ -1018,16 +977,17 @@ void TestTxToHimself()
     });
 
     WALLET_CHECK(newSenderCoins.size() == 3);
-    WALLET_CHECK(newSenderCoins[0].m_key_type == Key::Type::Coinbase);
-    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
+	WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Change);
+	WALLET_CHECK(newSenderCoins[0].m_status == Coin::Available);
+	WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 14);
 
-    WALLET_CHECK(newSenderCoins[1].m_key_type == Key::Type::Regular);
-    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[1].m_amount == 14);
+	WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Coinbase);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Spent);
+	WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 40);
 
-    WALLET_CHECK(newSenderCoins[2].m_key_type == Key::Type::Regular);
-    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[2].m_amount == 24);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 24);
 
     cout << "\nFinish of testing Tx to himself...\n";
 }
@@ -1073,25 +1033,25 @@ void TestP2PWalletNegotiationST()
 
     WALLET_CHECK(newSenderCoins.size() == 4);
     WALLET_CHECK(newReceiverCoins.size() == 1);
-    WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
-    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unspent);
-    WALLET_CHECK(newReceiverCoins[0].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newReceiverCoins[0].m_ID.m_Value == 4);
+    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Available);
+    WALLET_CHECK(newReceiverCoins[0].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[0].m_amount == 5);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 5);
     WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[0].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[1].m_amount == 2);
-    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[1].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 2);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[2].m_amount == 1);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 1);
     WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[2].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[3].m_amount == 9);
-    WALLET_CHECK(newSenderCoins[3].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[3].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 9);
+    WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
 
     // Tx history check
     auto sh = sender.m_WalletDB->getTxHistory();
@@ -1129,34 +1089,34 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newSenderCoins.size() == 5);
     WALLET_CHECK(newReceiverCoins.size() == 2);
 
-    WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
-    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unspent);
-    WALLET_CHECK(newReceiverCoins[0].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newReceiverCoins[0].m_ID.m_Value == 4);
+    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Available);
+    WALLET_CHECK(newReceiverCoins[0].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newReceiverCoins[1].m_amount == 6);
-    WALLET_CHECK(newReceiverCoins[1].m_status == Coin::Unspent);
-    WALLET_CHECK(newReceiverCoins[1].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newReceiverCoins[1].m_ID.m_Value == 6);
+    WALLET_CHECK(newReceiverCoins[1].m_status == Coin::Available);
+    WALLET_CHECK(newReceiverCoins[1].m_ID.m_Type == Key::Type::Regular);
 
 
-    WALLET_CHECK(newSenderCoins[0].m_amount == 5);
-    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[0].m_key_type == Key::Type::Regular);
+	WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 3);
+	WALLET_CHECK(newSenderCoins[0].m_status == Coin::Available);
+	WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Change);
 
-    WALLET_CHECK(newSenderCoins[1].m_amount == 2);
-    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[1].m_key_type == Key::Type::Regular);
+	WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 5);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Spent);
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[2].m_amount == 1);
-    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[2].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 2);
+    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[3].m_amount == 9);
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 1);
     WALLET_CHECK(newSenderCoins[3].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[3].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[4].m_amount == 3);
-    WALLET_CHECK(newSenderCoins[4].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[4].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 9);
+    WALLET_CHECK(newSenderCoins[4].m_status == Coin::Spent);
+    WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Regular);
 
     // Tx history check
     sh = sender.m_WalletDB->getTxHistory();
@@ -1253,25 +1213,25 @@ void TestP2PWalletReverseNegotiationST()
 
     WALLET_CHECK(newSenderCoins.size() == 4);
     WALLET_CHECK(newReceiverCoins.size() == 1);
-    WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
-    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unspent);
-    WALLET_CHECK(newReceiverCoins[0].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newReceiverCoins[0].m_ID.m_Value == 4);
+    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Available);
+    WALLET_CHECK(newReceiverCoins[0].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[0].m_amount == 5);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 5);
     WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[0].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[1].m_amount == 2);
-    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[1].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 2);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[2].m_amount == 1);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 1);
     WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[2].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[3].m_amount == 9);
-    WALLET_CHECK(newSenderCoins[3].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[3].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 9);
+    WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
 
     // Tx history check
     auto sh = sender.m_WalletDB->getTxHistory();
@@ -1309,34 +1269,34 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(newSenderCoins.size() == 5);
     WALLET_CHECK(newReceiverCoins.size() == 2);
 
-    WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
-    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unspent);
-    WALLET_CHECK(newReceiverCoins[0].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newReceiverCoins[0].m_ID.m_Value == 4);
+    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Available);
+    WALLET_CHECK(newReceiverCoins[0].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newReceiverCoins[1].m_amount == 6);
-    WALLET_CHECK(newReceiverCoins[1].m_status == Coin::Unspent);
-    WALLET_CHECK(newReceiverCoins[1].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newReceiverCoins[1].m_ID.m_Value == 6);
+    WALLET_CHECK(newReceiverCoins[1].m_status == Coin::Available);
+    WALLET_CHECK(newReceiverCoins[1].m_ID.m_Type == Key::Type::Regular);
 
 
-    WALLET_CHECK(newSenderCoins[0].m_amount == 5);
-    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[0].m_key_type == Key::Type::Regular);
+	WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 3);
+	WALLET_CHECK(newSenderCoins[0].m_status == Coin::Available);
+	WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Change);
 
-    WALLET_CHECK(newSenderCoins[1].m_amount == 2);
-    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[1].m_key_type == Key::Type::Regular);
+	WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 5);
+	WALLET_CHECK(newSenderCoins[1].m_status == Coin::Spent);
+	WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[2].m_amount == 1);
-    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[2].m_key_type == Key::Type::Regular);
+	WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 2);
+	WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
+	WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[3].m_amount == 9);
-    WALLET_CHECK(newSenderCoins[3].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[3].m_key_type == Key::Type::Regular);
+	WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 1);
+	WALLET_CHECK(newSenderCoins[3].m_status == Coin::Spent);
+	WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[4].m_amount == 3);
-    WALLET_CHECK(newSenderCoins[4].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[4].m_key_type == Key::Type::Regular);
+	WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 9);
+	WALLET_CHECK(newSenderCoins[4].m_status == Coin::Spent);
+	WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Regular);
 
     // Tx history check
     sh = sender.m_WalletDB->getTxHistory();
@@ -1428,23 +1388,7 @@ void TestSwapTransaction()
 
     receiverCoins = receiver.GetCoins();
     WALLET_CHECK(receiverCoins.size() == 1);
-    WALLET_CHECK(receiverCoins[0].m_amount == 4);
-}
-
-void TestSplitKey()
-{
-    Scalar::Native nonce;
-    nonce = (uint64_t) 0xa231234f92381353UL;
-
-    auto res1 = beam::wallet::splitKey(nonce, 123456789);
-    auto res2 = beam::wallet::splitKey(nonce, 123456789);
-    auto res3 = beam::wallet::splitKey(nonce, 123456789);
-    WALLET_CHECK(res1.first == res2.first && res2.first == res3.first);
-    WALLET_CHECK(res1.second == res2.second && res2.second == res3.second);
-    Scalar::Native s2 = res1.second;
-    s2 = -s2;
-    Scalar::Native s1 = res1.first+s2;
-    WALLET_CHECK(s1 == nonce);
+    WALLET_CHECK(receiverCoins[0].m_ID.m_Value == 4);
 }
 
 struct MyMmr : public Merkle::Mmr
@@ -1609,7 +1553,6 @@ int main()
 	Rules::get().FakePoW = true;
 	Rules::get().UpdateChecksum();
 
-    TestSplitKey();
     TestP2PWalletNegotiationST();
     TestP2PWalletReverseNegotiationST();
 

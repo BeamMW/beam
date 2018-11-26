@@ -149,6 +149,8 @@ else()
     if(NOT ANDROID)
         if(ARCH_NATIVE)
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
+        else()
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=core2")
         endif()
     endif()
 
@@ -268,6 +270,8 @@ add_subdirectory(mnemonic)
 
 # TODO: uncomment this later
 if(NOT ANDROID AND BEAM_QT_UI_WALLET)
+    add_subdirectory(3rdparty/qrcode)
+    add_subdirectory(3rdparty/quazip)
     add_subdirectory(ui)
 endif()
 

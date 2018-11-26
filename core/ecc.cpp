@@ -35,10 +35,18 @@
 #	pragma warning (pop)
 #endif
 
-#ifndef WIN32
+#ifdef WIN32
+#	pragma comment (lib, "Bcrypt.lib")
+#else // WIN32
 #    include <unistd.h>
 #    include <fcntl.h>
 #endif // WIN32
+
+//#ifdef __linux__
+//#	include <sys/syscall.h>
+//#	include <linux/random.h>
+//#endif // __linux__
+
 
 namespace ECC {
 
@@ -87,24 +95,34 @@ namespace ECC {
 		return operator << (s, x.m_X);
 	}
 
+	std::ostream& operator << (std::ostream& s, const Key::IDVC& x)
+	{
+		s << "Key=" << x.m_iChild << "/" << x.m_Type << "-" << x.m_Idx << ", Value=" << x.m_Value;
+		return s;
+	}
+
 	void GenRandom(void* p, uint32_t nSize)
 	{
-		bool bRet = false;
-
 		// checkpoint?
 
 #ifdef WIN32
 
-		HCRYPTPROV hProv;
-		if (CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_SCHANNEL, CRYPT_VERIFYCONTEXT))
-		{
-			if (CryptGenRandom(hProv, nSize, (uint8_t*)p))
-				bRet = true;
-			verify(CryptReleaseContext(hProv, 0));
-		}
+		NTSTATUS ntStatus = BCryptGenRandom(NULL, (PUCHAR) p, nSize, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+		if (ntStatus)
+			std::ThrowSystemError(ntStatus);
 
 #else // WIN32
 
+		bool bRet = false;
+
+//#	ifdef __linux__
+//
+//		ssize_t nRet = syscall(SYS_getrandom, p, nSize, 0);
+//		bRet = (nRet == nSize);
+//
+//#	else // __linux__
+
+		// use standard posix
 		int hFile = open("/dev/urandom", O_RDONLY);
 		if (hFile >= 0)
 		{
@@ -114,10 +132,12 @@ namespace ECC {
 			close(hFile);
 		}
 
-#endif // WIN32
+//#	endif // __linux__
 
 		if (!bRet)
-			std::ThrowIoError();
+			std::ThrowLastError();
+
+#endif // WIN32
 	}
 
 	/////////////////////
@@ -163,7 +183,7 @@ namespace ECC {
 
 	bool Scalar::Native::operator == (Zero_) const
 	{
-		return secp256k1_scalar_is_zero(this) != 0;
+		return secp256k1_scalar_is_zero(this) != 0; // constant time guaranteed
 	}
 
 	bool Scalar::Native::operator == (const Native& v) const
@@ -185,6 +205,22 @@ namespace ECC {
 		int overflow;
 		secp256k1_scalar_set_b32(this, v.m_Value.m_pData, &overflow);
 		return overflow != 0;
+	}
+
+	bool Scalar::Native::ImportNnz(const Scalar& v)
+	{
+		return
+			!Import(v) &&
+			!(*this == Zero);
+
+	}
+
+	void Scalar::Native::GenRandomNnz()
+	{
+		NoLeak<Scalar> s;
+		do
+			GenRandom(s.V.m_Value);
+		while (!ImportNnz(s.V));
 	}
 
 	Scalar::Native& Scalar::Native::operator = (const Scalar& v)
@@ -1137,14 +1173,14 @@ namespace ECC {
 		}
 	}
 
-	void Scalar::Native::GenerateNonce(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
+	void Scalar::Native::GenerateNonceNnz(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
 	{
 		NoLeak<Scalar> s;
 
 		for (uint32_t i = 0; ; i++)
 		{
 			ECC::GenerateNonce(s.V.m_Value, sk, msg, pMsg2, i);
-			if (Import(s.V))
+			if (!ImportNnz(s.V))
 				continue;
 
 			if (!nAttempt--)
@@ -1152,11 +1188,11 @@ namespace ECC {
 		}
 	}
 
-	void Scalar::Native::GenerateNonce(const Scalar::Native& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
+	void Scalar::Native::GenerateNonceNnz(const Scalar::Native& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
 	{
 		NoLeak<Scalar> sk_;
 		sk_.V = sk;
-		GenerateNonce(sk_.V.m_Value, msg, pMsg2, nAttempt);
+		GenerateNonceNnz(sk_.V.m_Value, msg, pMsg2, nAttempt);
 	}
 
 	/////////////////////
@@ -1166,8 +1202,7 @@ namespace ECC {
 		Hash::Processor()
 			<< "kid"
 			<< m_Idx
-			<< m_IdxSecondary
-			<< static_cast<uint32_t>(m_Type)
+			<< m_Type.V
 			>> hv;
 	}
 
@@ -1176,25 +1211,19 @@ namespace ECC {
 		return
 			(m_Value == x.m_Value) &&
 			(m_Idx == x.m_Idx) &&
-			(m_IdxSecondary == x.m_IdxSecondary) &&
 			(m_Type == x.m_Type);
 	}
 
 	void Key::ID::operator = (const Packed& x)
 	{
 		x.m_Idx.Export(m_Idx);
-		x.m_Idx2.Export(m_IdxSecondary);
-
-		uint32_t val;
-		x.m_Type.Export(val);
-		m_Type = static_cast<Key::Type>(val);
+		x.m_Type.Export(m_Type.V);
 	}
 
 	void Key::ID::Packed::operator = (const ID& x)
 	{
 		m_Idx = x.m_Idx;
-		m_Idx2 = x.m_IdxSecondary;
-		m_Type = static_cast<uint32_t>(x.m_Type);
+		m_Type = x.m_Type.V;
 	}
 
 	void Key::IDV::operator = (const Packed& x)
@@ -1225,18 +1254,55 @@ namespace ECC {
 		x.DerivePKey(k1, hv);
 
 		k0 += -k1;
-		return (k0 == Zero);
+		return (k0 == Zero); // not secret, constant-time guarantee isn't requied
 	}
 
 	/////////////////////
 	// HKdf
 	HKdf::HKdf()
 	{
-		ZeroObject(m_Secret.V);
+		m_Secret.V = Zero;
 		m_kCoFactor = 1U; // by default
 	}
 
 	HKdf::~HKdf(){}
+
+	void HKdf::Generate(const Hash::Value& hv)
+	{
+		Oracle o;
+		o
+			<< "HKdf"
+			<< hv
+			>> m_Secret.V;
+		o
+			<< "CoFactor"
+			<< hv
+			>> m_kCoFactor;
+	}
+
+	void HKdf::Create(Ptr& pRes, const Hash::Value& hv)
+	{
+		std::shared_ptr<HKdf> pVal = std::make_shared<HKdf>();
+		pVal->Generate(hv);
+		pRes = std::move(pVal);
+	}
+
+	void HKdf::GenerateChild(Key::IKdf& kdf, Key::Index iKdf)
+	{
+		Scalar::Native sk;
+		kdf.DeriveKey(sk, Key::ID(iKdf, Key::Type::ChildKey));
+
+		NoLeak<Scalar> sk_;
+		sk_.V = sk;
+		Generate(sk_.V.m_Value);
+	}
+
+	void HKdf::CreateChild(Ptr& pRes, Key::IKdf& kdf, Key::Index iKdf)
+	{
+		std::shared_ptr<HKdf> pVal = std::make_shared<HKdf>();
+		pVal->GenerateChild(kdf, iKdf);
+		pRes = std::move(pVal);
+	}
 
 	void HKdf::DeriveKey(Scalar::Native& out, const Hash::Value& hv)
 	{
@@ -1246,7 +1312,7 @@ namespace ECC {
 
 	void HKdf::DerivePKey(Scalar::Native& out, const Hash::Value& hv)
 	{
-		out.GenerateNonce(m_Secret.V, hv, NULL);
+		out.GenerateNonceNnz(m_Secret.V, hv, NULL);
 	}
 
 	void HKdf::DerivePKey(Point::Native& out, const Hash::Value& hv)
@@ -1256,9 +1322,16 @@ namespace ECC {
 		out = Context::get().G * sk;
 	}
 
+	HKdfPub::HKdfPub()
+	{
+		ZeroObject(m_Secret.V);
+	}
+
+	HKdfPub::~HKdfPub() {}
+
 	void HKdfPub::DerivePKey(Scalar::Native& out, const Hash::Value& hv)
 	{
-		out.GenerateNonce(m_Secret.V, hv, NULL);
+		out.GenerateNonceNnz(m_Secret.V, hv, NULL);
 	}
 
 	void HKdfPub::DerivePKey(Point::Native& out, const Hash::Value& hv)
@@ -1292,6 +1365,12 @@ namespace ECC {
 		return m_Pk.ImportNnz(v.m_Pk);
 	}
 
+	void HKdfPub::GenerateFrom(const HKdf& v)
+	{
+		m_Secret.V = v.m_Secret.V;
+		m_Pk = Context::get().G * v.m_kCoFactor;
+	}
+
 	/////////////////////
 	// Oracle
 	void Oracle::Reset()
@@ -1307,11 +1386,11 @@ namespace ECC {
 
 	void Oracle::operator >> (Scalar::Native& out)
 	{
-		Scalar s; // not secret
+		NoLeak<Scalar> s;
 
 		do
-			operator >> (s.m_Value);
-		while ((s.m_Value == Zero) || out.Import(s));
+			operator >> (s.V.m_Value);
+		while (!out.ImportNnz(s.V));
 	}
 
 	/////////////////////
@@ -1333,7 +1412,7 @@ namespace ECC {
 	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
 	{
 		MultiSig msig;
-		msig.m_Nonce.GenerateNonce(sk, msg, NULL);
+		msig.m_Nonce.GenerateNonceNnz(sk, msg, NULL);
 		msig.m_NoncePub = Context::get().G * msig.m_Nonce;
 
 		Scalar::Native k;

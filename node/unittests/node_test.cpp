@@ -51,6 +51,21 @@ namespace ECC {
 				break;
 		}
 	}
+
+	void SetRandom(Key::IKdf::Ptr& pRes)
+	{
+		uintBig seed;
+		SetRandom(seed);
+		HKdf::Create(pRes, seed);
+	}
+
+	void SetRandom(beam::Node& n)
+	{
+		uintBig seed;
+		SetRandom(seed);
+
+		n.m_Keys.InitSingleKey(seed);
+	}
 }
 
 #ifndef WIN32
@@ -215,27 +230,6 @@ namespace beam
 		NodeDB::StateID sid;
 		verify_test(CountTips(db, false, &sid) == 2);
 		verify_test(sid.m_Height == hMax-1 + Rules::HeightGenesis);
-
-		db.SetMined(sid, 200000);
-		db.SetMined(sid, 250000);
-
-		{
-			NodeDB::WalkerMined wlkMined(db);
-			db.EnumMined(wlkMined, 0);
-			verify_test(wlkMined.MoveNext());
-			verify_test(wlkMined.m_Sid.m_Height == sid.m_Height && wlkMined.m_Sid.m_Row == sid.m_Row);
-			verify_test(wlkMined.m_Amount == 250000);
-			verify_test(!wlkMined.MoveNext());
-		}
-
-		db.DeleteMinedSafe(sid);
-		{
-			NodeDB::WalkerMined wlkMined(db);
-			db.EnumMined(wlkMined, 0);
-			verify_test(!wlkMined.MoveNext());
-		}
-
-		db.DeleteMinedSafe(sid);
 
 		db.SetStateFunctional(rowLast1);
 		db.assert_valid();
@@ -473,44 +467,56 @@ namespace beam
 	struct MiniWallet
 	{
 		Key::IKdf::Ptr m_pKdf;
-		uint32_t m_nKernelSubIdx = 1;
+		uint32_t m_nRunningIndex = 0;
 
 		struct MyUtxo
 		{
-			ECC::Scalar m_Key;
-			Amount m_Value;
-
-			void ToOutput(TxVectors::Perishable& txv, ECC::Scalar::Native& offset, Height hIncubation) const
-			{
-				ECC::Scalar::Native k = m_Key;
-
-				Output::Ptr pOut(new Output);
-				pOut->m_Incubation = hIncubation;
-				pOut->Create(k, m_Value, true); // confidential transactions will be too slow for test in debug mode.
-				txv.m_vOutputs.push_back(std::move(pOut));
-
-				k = -k;
-				offset += k;
-			}
+			Key::IDV m_Kidv;
 		};
+
+		void ToOutput(const MyUtxo& utxo, TxVectors::Perishable& txv, ECC::Scalar::Native& offset, Height hIncubation) const
+		{
+			ECC::Scalar::Native k;
+
+			Output::Ptr pOut(new Output);
+			pOut->m_Incubation = hIncubation;
+			pOut->Create(k, *m_pKdf, utxo.m_Kidv, true); // confidential transactions will be too slow for test in debug mode.
+			txv.m_vOutputs.push_back(std::move(pOut));
+
+			k = -k;
+			offset += k;
+		}
+
+		void ToCommtiment(const MyUtxo& utxo, ECC::Point& comm, ECC::Scalar::Native& k) const
+		{
+			m_pKdf->DeriveKey(k, utxo.m_Kidv);
+			comm = ECC::Commitment(k, utxo.m_Kidv.m_Value);
+		}
+
+		void ToInput(const MyUtxo& utxo, TxVectors::Perishable& txv, ECC::Scalar::Native& offset) const
+		{
+			ECC::Scalar::Native k;
+			Input::Ptr pInp(new Input);
+
+			ToCommtiment(utxo, pInp->m_Commitment, k);
+
+			txv.m_vInputs.push_back(std::move(pInp));
+			offset += k;
+		}
 
 		typedef std::multimap<Height, MyUtxo> UtxoQueue;
 		UtxoQueue m_MyUtxos;
 
-		const MyUtxo* AddMyUtxo(Amount n, Height h, Key::Type eType)
+		const MyUtxo* AddMyUtxo(const Key::IDV& kidv)
 		{
-			if (!n)
+			if (!kidv.m_Value)
 				return NULL;
 
-
-			ECC::Scalar::Native key;
-			m_pKdf->DeriveKey(key, Key::ID(h, eType));
-
 			MyUtxo utxo;
-			utxo.m_Key = key;
-			utxo.m_Value = n;
+			utxo.m_Kidv = kidv;
 
-			h += (Key::Type::Coinbase == eType) ? Rules::get().MaturityCoinbase : Rules::get().MaturityStd;
+			Height h = kidv.m_Idx; // this is our convention
+			h += (Key::Type::Coinbase == kidv.m_Type) ? Rules::get().MaturityCoinbase : Rules::get().MaturityStd;
 
 			return &m_MyUtxos.insert(std::make_pair(h, utxo))->second;
 		}
@@ -561,45 +567,40 @@ namespace beam
 			pTx = std::make_shared<Transaction>();
 
 			const MyUtxo& utxo = it->second;
-			assert(utxo.m_Value);
+			assert(utxo.m_Kidv.m_Value);
 
 			m_MyKernels.resize(m_MyKernels.size() + 1);
 			MyKernel& mk = m_MyKernels.back();
 			mk.m_Fee = 1090000;
 			mk.m_bUseHashlock = 0 != (1 & h);
 
-			Input::Ptr pInp(new Input);
-			pInp->m_Commitment = ECC::Commitment(utxo.m_Key, utxo.m_Value);
-			pTx->m_vInputs.push_back(std::move(pInp));
+			ECC::Scalar::Native kOffset = Zero;
 
-			ECC::Scalar::Native kOffset = utxo.m_Key;
-			ECC::Scalar::Native k;
+			ToInput(utxo, *pTx, kOffset);
 
-			if (mk.m_Fee >= utxo.m_Value)
-				mk.m_Fee = utxo.m_Value;
+			if (mk.m_Fee >= utxo.m_Kidv.m_Value)
+				mk.m_Fee = utxo.m_Kidv.m_Value;
 			else
 			{
 				MyUtxo utxoOut;
-				utxoOut.m_Value = utxo.m_Value - mk.m_Fee;
+				utxoOut.m_Kidv.m_Value = utxo.m_Kidv.m_Value - mk.m_Fee;
+				utxoOut.m_Kidv.m_Idx = ++m_nRunningIndex;
+				utxoOut.m_Kidv.m_Type = Key::Type::Regular;
 
-				m_pKdf->DeriveKey(k, Key::ID(h, Key::Type::Regular));
-				utxoOut.m_Key = k;
-
-				utxoOut.ToOutput(*pTx, kOffset, hIncubation);
+				ToOutput(utxoOut, *pTx, kOffset, hIncubation);
 
 				m_MyUtxos.insert(std::make_pair(h + hIncubation, utxoOut));
 			}
 
 			m_MyUtxos.erase(it);
 
-			m_pKdf->DeriveKey(mk.m_k, Key::ID(h, Key::Type::Kernel, m_nKernelSubIdx++));
+			m_pKdf->DeriveKey(mk.m_k, Key::ID(++m_nRunningIndex, Key::Type::Kernel));
 
 			TxKernel::Ptr pKrn;
 			mk.Export(pKrn);
 			pTx->m_vKernels.push_back(std::move(pKrn));
 
-
-			k = -mk.m_k;
+			ECC::Scalar::Native k = -mk.m_k;
 			kOffset += k;
 			pTx->m_Offset = kOffset;
 
@@ -621,11 +622,8 @@ namespace beam
 
 		MyNodeProcessor1()
 		{
-			std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
-			ECC::SetRandom(pKdf->m_Secret.V);
-
-			m_Wallet.m_pKdf = pKdf;
-	}
+			ECC::SetRandom(m_Wallet.m_pKdf);
+		}
 	};
 
 	struct BlockPlus
@@ -643,8 +641,6 @@ namespace beam
 		np.m_Horizon.m_Branching = 35;
 		//np.m_Horizon.m_Schwarzschild = 40; - will prevent extracting some macroblock ranges
 		np.Initialize(g_sz);
-
-		NodeProcessor::BlockContext bc(np.m_TxPool, *np.m_Wallet.m_pKdf);
 
 		const Height hIncubation = 3; // artificial incubation period for outputs.
 
@@ -667,6 +663,7 @@ namespace beam
 				np.m_TxPool.AddValidTx(std::move(pTx), ctx, key);
 			}
 
+			NodeProcessor::BlockContext bc(np.m_TxPool, *np.m_Wallet.m_pKdf);
 			verify_test(np.GenerateNewBlock(bc));
 
 			np.OnState(bc.m_Hdr, PeerID());
@@ -676,8 +673,8 @@ namespace beam
 
 			np.OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
 
-			np.m_Wallet.AddMyUtxo(bc.m_Fees, h, Key::Type::Comission);
-			np.m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase);
+			np.m_Wallet.AddMyUtxo(Key::IDV(bc.m_Fees, h, Key::Type::Comission));
+			np.m_Wallet.AddMyUtxo(Key::IDV(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase));
 
 			BlockPlus::Ptr pBlock(new BlockPlus);
 			pBlock->m_Hdr = std::move(bc.m_Hdr);
@@ -883,13 +880,8 @@ namespace beam
 
 		node2.m_Cfg.m_BeaconPort = g_Port;
 
-		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
-		ECC::SetRandom(pKdf->m_Secret.V);
-		node.m_pKdf = pKdf;
-
-		pKdf.reset(new ECC::HKdf);
-		ECC::SetRandom(pKdf->m_Secret.V);
-		node2.m_pKdf = pKdf;
+		ECC::SetRandom(node);
+		ECC::SetRandom(node2);
 
 		node.Initialize();
 		node2.Initialize();
@@ -927,7 +919,7 @@ namespace beam
 					Node& n = *m_ppNode[m_iNode];
 
 					TxPool::Fluff txPool; // empty, no transactions
-					NodeProcessor::BlockContext bc(txPool, *n.m_pKdf);
+					NodeProcessor::BlockContext bc(txPool, *n.m_Keys.m_pMiner);
 
 					verify_test(n.get_Processor().GenerateNewBlock(bc));
 
@@ -1000,9 +992,7 @@ namespace beam
 		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
 		node.m_Cfg.m_MiningThreads = 1;
 
-		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
-		ECC::SetRandom(pKdf->m_Secret.V);
-		node.m_pKdf = pKdf;
+		ECC::SetRandom(node);
 
 		node.m_Cfg.m_Horizon.m_Branching = 6;
 		node.m_Cfg.m_Horizon.m_Schwarzschild = 8;
@@ -1041,9 +1031,9 @@ namespace beam
 			{
 				SetTimer(90 * 1000);
 
-				proto::Config msgCfg;
-				msgCfg.m_CfgChecksum = Rules::get().Checksum;
-				Send(msgCfg);
+				proto::Login msg;
+				msg.m_CfgChecksum = Rules::get().Checksum;
+				Send(msg);
 
 				Send(proto::GetTime(Zero));
 				Send(proto::GetExternalAddr(Zero));
@@ -1053,11 +1043,18 @@ namespace beam
 			{
 				proto::NodeConnection::OnMsg(std::move(msg));
 
-				if (proto::IDType::Node == msg.m_IDType)
+				switch (msg.m_IDType)
 				{
-					ECC::Scalar::Native sk;
-					m_Wallet.m_pKdf->DeriveKey(sk, Key::ID(0, Key::Type::Identity));
-					ProveID(sk, proto::IDType::Owner);
+				case proto::IDType::Node:
+					ProveKdfObscured(*m_Wallet.m_pKdf, proto::IDType::Owner);
+					break;
+
+				case proto::IDType::Viewer:
+					verify_test(IsPKdfObscured(*m_Wallet.m_pKdf, msg.m_ID));
+					break;
+
+				default: // suppress warning
+					break;
 				}
 			}
 
@@ -1119,9 +1116,6 @@ namespace beam
 					return;
 				}
 
-				proto::GetMined msgOut;
-				Send(msgOut);
-
 				proto::BbsMsg msgBbs;
 				msgBbs.m_Channel = 11;
 				msgBbs.m_TimePosted = getTimestamp();
@@ -1132,7 +1126,7 @@ namespace beam
 				m_nBbsMsgsPending++;
 
 				// assume we've mined this
-				m_Wallet.AddMyUtxo(Rules::get().CoinbaseEmission, msg.m_Description.m_Height, Key::Type::Coinbase);
+				m_Wallet.AddMyUtxo(Key::IDV(Rules::get().CoinbaseEmission, msg.m_Description.m_Height, Key::Type::Coinbase));
 
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
@@ -1159,7 +1153,10 @@ namespace beam
 					const MiniWallet::MyUtxo& utxo = it->second;
 
 					proto::GetProofUtxo msgOut2;
-					msgOut2.m_Utxo = ECC::Commitment(utxo.m_Key, utxo.m_Value);
+
+					ECC::Scalar::Native sk;
+					m_Wallet.ToCommtiment(utxo, msgOut2.m_Utxo, sk);
+
 					Send(msgOut2);
 
 					m_queProofsExpected.push_back(msgOut2.m_Utxo);
@@ -1202,15 +1199,20 @@ namespace beam
 					Send(msgTx);
 				}
 
-				proto::Recover msgRec;
-				msgRec.m_Private = true;
-				msgRec.m_Public = true;
-				Send(msgRec);
-				m_nRecoveryPending++;
-
 				proto::GetUtxoEvents msgEvt;
 				Send(msgEvt);
 				m_nRecoveryPending++;
+
+				if (!(msg.m_Description.m_Height % 4))
+				{
+					// switch offline/online mining modes
+					proto::Login msgLogin;
+					msgLogin.m_CfgChecksum = Rules::get().Checksum;
+					if (msg.m_Description.m_Height % 8)
+						msgLogin.m_Flags = proto::LoginFlags::MiningFinalization;
+					Send(msgLogin);
+				}
+
 			}
 
 			virtual void OnMsg(proto::ProofState&& msg) override
@@ -1315,15 +1317,6 @@ namespace beam
 				m_nChainWorkProofsPending--;
 			}
 
-			virtual void OnMsg(proto::Recovered&& msg) override
-			{
-				verify_test(m_nRecoveryPending);
-				m_nRecoveryPending--;
-
-				verify_test(msg.m_Public.empty()); // so far public and private is the same, hence only private should be reported
-				verify_test(!msg.m_Private.empty()); // at least coinbases must be present
-			}
-
 			virtual void OnMsg(proto::UtxoEvents&& msg) override
 			{
 				verify_test(m_nRecoveryPending);
@@ -1332,12 +1325,27 @@ namespace beam
 				verify_test(!msg.m_Events.empty());
 			}
 
+			virtual void OnMsg(proto::GetBlockFinalization&& msg) override
+			{
+				Block::Builder bb;
+				bb.AddCoinbaseAndKrn(*m_Wallet.m_pKdf, msg.m_Height);
+				bb.AddFees(*m_Wallet.m_pKdf, msg.m_Height, msg.m_Fees);
+
+				proto::BlockFinalization msgOut;
+				msgOut.m_Value.reset(new Transaction);
+				bb.m_Txv.MoveInto(*msgOut.m_Value);
+				msgOut.m_Value->m_Offset = -bb.m_Offset;
+				msgOut.m_Value->Normalize();
+
+				Send(msgOut);
+			}
+
 			void SetTimer(uint32_t timeout_ms) {
 				m_pTimer->start(timeout_ms, false, [this]() { return (this->OnTimer)(); });
 			}
 		};
 
-		MyClient cl(pKdf);
+		MyClient cl(node.m_Keys.m_pMiner);
 
 		io::Address addr;
 		addr.resolve("127.0.0.1");
@@ -1352,8 +1360,8 @@ namespace beam
 		for (int i = 0; i < 10; i++)
 		{
 			const Amount val = Rules::Coin * 10;
-			const MiniWallet::MyUtxo& utxo = *cl.m_Wallet.AddMyUtxo(val, i, Key::Type::Regular);
-			utxo.ToOutput(treasury, offset, i);
+			const MiniWallet::MyUtxo& utxo = *cl.m_Wallet.AddMyUtxo(Key::IDV(val, i, Key::Type::Regular));
+			cl.m_Wallet.ToOutput(utxo, treasury, offset, i);
 			treasury.m_Subsidy += val;
 		}
 
@@ -1371,10 +1379,10 @@ namespace beam
 			MyClient* m_pOtherClient;
 
 			virtual void OnConnectedSecure() override {
-				proto::Config msgCfg;
-				msgCfg.m_CfgChecksum = Rules::get().Checksum;
-				msgCfg.m_SendPeers = true; // just for fun
-				Send(msgCfg);
+				proto::Login msg;
+				msg.m_CfgChecksum = Rules::get().Checksum;
+				msg.m_Flags = proto::LoginFlags::SendPeers; // just for fun
+				Send(msg);
 			}
 
 			virtual void OnDisconnect(const DisconnectReason&) override {
@@ -1424,9 +1432,7 @@ namespace beam
 		node2.m_Cfg.m_Sync.m_Timeout_ms = 0; // sync immediately after seeing 1st peer
 		node2.m_Cfg.m_Dandelion = node.m_Cfg.m_Dandelion;
 
-		pKdf.reset(new ECC::HKdf);
-		ECC::SetRandom(pKdf->m_Secret.V);
-		node2.m_pKdf = pKdf;
+		ECC::SetRandom(node2);
 		node2.Initialize();
 
 		pReactor->run();
@@ -1442,7 +1448,7 @@ namespace beam
 			fail_test("some recovery messages missing");
 
 		NodeProcessor::UtxoRecoverEx urec(node2.get_Processor());
-		urec.m_vKeys.push_back(node.m_pKdf);
+		urec.m_vKeys.push_back(node.m_Keys.m_pMiner);
 		urec.Proceed();
 
 		verify_test(!urec.m_Map.empty());
@@ -1501,7 +1507,7 @@ namespace beam
 
 		while (node.get_Processor().m_Cursor.m_ID.m_Height < h)
 		{
-			NodeProcessor::BlockContext bc(txPool, *node.m_pKdf);
+			NodeProcessor::BlockContext bc(txPool, *node.m_Keys.m_pMiner);
 			verify_test(node.get_Processor().GenerateNewBlock(bc));
 			node.get_Processor().OnState(bc.m_Hdr, PeerID());
 
@@ -1524,9 +1530,7 @@ namespace beam
 		node.m_Cfg.m_vTreasury.resize(1);
 		node.m_Cfg.m_vTreasury[0].ZeroInit();
 
-		std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
-		ECC::SetRandom(pKdf->m_Secret.V);
-		node.m_pKdf = pKdf;
+		ECC::SetRandom(node);
 
 		node.Initialize();
 
@@ -1706,7 +1710,7 @@ int main()
 	beam::Rules::get().FakePoW = true;
 	beam::Rules::get().UpdateChecksum();
 
-//	beam::TestChainworkProof();
+	beam::TestChainworkProof();
 
 	// Make sure this test doesn't run in parallel. We have the following potential collisions for Nodes:
 	//	.db files

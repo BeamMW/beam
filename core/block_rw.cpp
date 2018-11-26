@@ -226,7 +226,7 @@ namespace beam
 	void Block::BodyBase::RW::get_Start(BodyBase& body, SystemState::Sequence::Prefix& prefix)
 	{
 		if (!m_pS[Type::hd].IsOpen())
-			std::ThrowIoError();
+			std::ThrowLastError();
 		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(m_pS[Type::hd]);
 
 		arc & body;
@@ -354,7 +354,7 @@ namespace beam
 	{
 		std::FStream& s = m_pS[iData];
 		if (!s.IsOpen() && !OpenInternal(iData))
-			std::ThrowIoError();
+			std::ThrowLastError();
 
 		yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
 		arc & v;

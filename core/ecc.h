@@ -23,6 +23,9 @@ namespace ECC
 
 	void GenRandom(void*, uint32_t nSize); // with OS support
 
+	template <uint32_t nBits_>
+	inline void GenRandom(beam::uintBig_t<nBits_>& x) { GenRandom(x.m_pData, x.nBytes); }
+
 	struct Mode {
 		enum Enum {
 			Secure, // maximum security. Constant-time guarantee whenever possible, protection from side-channel attacks
@@ -173,30 +176,37 @@ namespace ECC
 
 	struct Key
 	{
-		enum struct Type
+		typedef uint32_t Index; // a 'short ID' used when different children are given different sub-keys.
+
+		struct Type
+			:public beam::FourCC
 		{
-			Comission	= 0,
-			Coinbase	= 1,
-			Kernel		= 2,
-			Regular		= 3,
-			Identity	= 4,
-			Nonce		= 5,
-			ChildKey	= 6,
+			Type() {}
+			Type(uint32_t x) :FourCC(x) {}
+
+			// definitions for common types, that are used in several places. But values can be arbitrary, not only for this list
+			static const uint32_t Comission = FOURCC_FROM(fees);
+			static const uint32_t Coinbase  = FOURCC_FROM(mine);
+			static const uint32_t Regular   = FOURCC_FROM(norm);
+			static const uint32_t Change    = FOURCC_FROM(chng);
+			static const uint32_t Kernel    = FOURCC_FROM(kern); // tests only
+			static const uint32_t Kernel2   = FOURCC_FROM(kerM); // used by the miner
+			static const uint32_t Identity  = FOURCC_FROM(iden); // Node-Wallet auth
+			static const uint32_t ChildKey  = FOURCC_FROM(SubK);
+			static const uint32_t Bbs       = FOURCC_FROM(BbsM);
 		};
 
 		struct ID
 		{
 			uint64_t	m_Idx;
-			uint64_t	m_IdxSecondary;
 			Type		m_Type;
 
 			ID() {}
 			ID(Zero_) { ZeroObject(*this); }
 
-			ID(beam::Height h, Type type, uint64_t nIdxSecondary = 0) // most common c'tor
+			ID(uint64_t nIdx, Type type) // most common c'tor
 			{
-				m_Idx = h;
-				m_IdxSecondary = nIdxSecondary;
+				m_Idx = nIdx;
 				m_Type = type;
 			}
 
@@ -206,7 +216,6 @@ namespace ECC
 			struct Packed
 			{
 				beam::uintBigFor<uint64_t>::Type m_Idx;
-				beam::uintBigFor<uint64_t>::Type m_Idx2;
 				beam::uintBigFor<uint32_t>::Type m_Type;
 				void operator = (const ID&);
 			};
@@ -220,8 +229,8 @@ namespace ECC
 		{
 			Amount m_Value;
 			IDV() {}
-			IDV(Amount v, beam::Height h, Type type, uint64_t nIdxSecondary = 0)
-				:ID(h, type, nIdxSecondary)
+			IDV(Amount v, uint64_t nIdx, Type type)
+				:ID(nIdx, type)
 				,m_Value(v)
 			{
 			}
@@ -239,6 +248,10 @@ namespace ECC
 			bool operator == (const IDV&) const;
 		};
 
+		struct IDVC :public IDV {
+			Index m_iChild = 0;
+		};
+
 		struct IPKdf
 		{
 			typedef std::shared_ptr<IPKdf> Ptr;
@@ -254,10 +267,12 @@ namespace ECC
 		{
 			typedef std::shared_ptr<IKdf> Ptr;
 
-			virtual void DeriveKey(Scalar::Native&, const Key::ID&);
+			void DeriveKey(Scalar::Native&, const Key::ID&);
 			virtual void DeriveKey(Scalar::Native&, const Hash::Value&) = 0;
 		};
 	};
+
+	std::ostream& operator << (std::ostream&, const Key::IDVC&);
 
 	struct InnerProduct
 	{
