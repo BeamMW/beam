@@ -333,7 +333,7 @@ struct TestWalletRig
 };
 
 struct TestWalletNetwork
-	:public IWallet::INetwork
+	: public IWalletNetwork
 	, public AsyncProcessor
 {
 	struct Entry
@@ -359,7 +359,7 @@ struct TestWalletNetwork
 	{
 		for (WalletMap::iterator it = m_Map.begin(); m_Map.end() != it; it++)
 			for (Entry& v = it->second; !v.m_Msgs.empty(); v.m_Msgs.pop_front())
-				v.m_pSink->OnWalletMsg(v.m_Msgs.front().first, std::move(v.m_Msgs.front().second));
+				v.m_pSink->OnWalletMessage(v.m_Msgs.front().first, std::move(v.m_Msgs.front().second));
 	}
 };
 
