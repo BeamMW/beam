@@ -66,7 +66,9 @@ private:
             _lineBuffer.append(p, fragmentSize);
             data = _lineBuffer.data();
         }
-        return _readCallback(data, lineSize);
+        bool r = _readCallback(data, lineSize);
+        _lineBuffer.clear();
+        return r;
     }
 
     bool line_not_found(char* p, size_t fragmentSize) {
