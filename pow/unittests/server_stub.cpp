@@ -51,10 +51,10 @@ void gen_new_job() {
 void got_new_block() {
     feedJobsTimer->cancel();
     if (server) {
-        std::string id;
-        server->get_last_found_block(id, POW);
+        std::string blockId;
+        server->get_last_found_block(blockId, POW);
         if (POW.IsValid(hash.m_pData, 32)) {
-            LOG_INFO() << "got valid block" << TRACE(id);
+            LOG_INFO() << "got valid block" << TRACE(blockId);
         }
         gen_new_job();
     }

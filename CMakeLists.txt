@@ -200,7 +200,7 @@ if (WIN32)
 endif()
 
 include_directories(${PROJECT_SOURCE_DIR})
-add_definitions(-DPROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+add_definitions(-DPROJECT_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\")
 
 include_directories(${PROJECT_SOURCE_DIR}/3rdparty)
 

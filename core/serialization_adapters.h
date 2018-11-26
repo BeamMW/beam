@@ -241,7 +241,7 @@ namespace detail
 		static Archive& save(Archive& ar, const ECC::Key::IDVC& kidvc)
 		{
 			ar
-				& Cast::Down<ECC::Key::IDV>(kidvc);
+				& Cast::Down<ECC::Key::IDV>(kidvc)
 				& kidvc.m_iChild;
 
 			return ar;
@@ -251,7 +251,7 @@ namespace detail
 		static Archive& load(Archive& ar, ECC::Key::IDVC& kidvc)
 		{
 			ar
-				& Cast::Down<ECC::Key::IDV>(kidvc);
+				& Cast::Down<ECC::Key::IDV>(kidvc)
 				& kidvc.m_iChild;
 
 			return ar;
