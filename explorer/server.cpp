@@ -17,6 +17,7 @@
 #include "utility/logger.h"
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/trim.hpp>
+#include <fstream>
 
 namespace beam { namespace explorer {
 
