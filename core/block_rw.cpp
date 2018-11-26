@@ -360,6 +360,21 @@ namespace beam
 		arc & v;
 	}
 
+	size_t TxBase::IReader::get_SizeNetto()
+	{
+		SerializerSizeCounter ssc;
+		Reset();
+
+		for (; m_pUtxoIn; NextUtxoIn())
+			ssc & *m_pUtxoIn;
+		for (; m_pUtxoOut; NextUtxoOut())
+			ssc & *m_pUtxoOut;
+		for (; m_pKernel; NextKernel())
+			ssc & *m_pKernel;
+
+		return ssc.m_Counter.m_Value;
+	}
+
 	void TxBase::IWriter::Dump(IReader&& r)
 	{
 		r.Reset();
