@@ -417,7 +417,7 @@ struct TestBlockchain
 		bool bCreate = true;
 		UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
 
-		cu.Invalidate();
+		cu.InvalidateElement();
 
 		if (bCreate)
 			p->m_Value.m_Count = 1;
@@ -471,7 +471,7 @@ struct TestBlockchain
 		if (!--p->m_Value.m_Count)
 			m_Utxos.Delete(cu);
 		else
-			cu.Invalidate();
+			cu.InvalidateElement();
 
 		return true;
 	}
