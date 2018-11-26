@@ -24,6 +24,8 @@
 #include "utility/helpers.h"
 #include <iomanip>
 
+#include "pow/external_pow.h"
+
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <iterator>
@@ -134,6 +136,16 @@ int main_impl(int argc, char* argv[])
 					}
 				);
 
+				std::unique_ptr<IExternalPOW> stratumServer;
+				auto stratumPort = vm[cli::STRATUM_PORT].as<uint16_t>();
+
+				if (stratumPort > 0) {
+					IExternalPOW::Options options;
+					options.certFile = PROJECT_SOURCE_DIR "/utility/unittest/test.crt";
+					options.privKeyFile = PROJECT_SOURCE_DIR "/utility/unittest/test.key";
+					stratumServer = IExternalPOW::create(options, *reactor, io::Address().port(stratumPort));
+				}
+
 				{
 					beam::Node node;
 
@@ -216,7 +228,7 @@ int main_impl(int argc, char* argv[])
 					if (vm.count(cli::RESYNC))
 						node.m_Cfg.m_Sync.m_ForceResync = vm[cli::RESYNC].as<bool>();
 
-					node.Initialize();
+					node.Initialize(stratumServer.get());
 
 					Height hImport = vm[cli::IMPORT].as<Height>();
 					if (hImport)
