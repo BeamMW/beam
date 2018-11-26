@@ -804,7 +804,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		{
 			d.m_Maturity = 0;
 			kMin = d;
-			d.m_Maturity = pHMax ? *pHMax : h;
+			d.m_Maturity = h;
 			kMax = d;
 		}
 		else
