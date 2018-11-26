@@ -46,7 +46,8 @@ bool serialize_json_msg(io::FragmentWriter& packer, const nlohmann::json& o) {
         nlohmann::detail::serializer<json> s(std::make_shared<JsonOutputAdapter>(packer), ' ');
         s.dump(o, false, false, 0);
         // for stratum
-        packer.write("\n", 1);
+        static const char eol = 10;
+        packer.write(&eol, 1);
     } catch (const std::exception& e) {
         LOG_ERROR() << "dump json: " << e.what();
         result = false;
