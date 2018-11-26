@@ -267,7 +267,7 @@ int main() {
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
-    int r = http_server_test(true);
-    r += http_server_test(false);
+    int r = http_server_test(false);
+    r += http_server_test(true);
     return r;
 }
