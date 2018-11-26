@@ -140,10 +140,10 @@ int main_impl(int argc, char* argv[])
 				auto stratumPort = vm[cli::STRATUM_PORT].as<uint16_t>();
 
 				if (stratumPort > 0) {
-					IExternalPOW::Options options;
-					options.certFile = PROJECT_SOURCE_DIR "/utility/unittest/test.crt";
-					options.privKeyFile = PROJECT_SOURCE_DIR "/utility/unittest/test.key";
-					stratumServer = IExternalPOW::create(options, *reactor, io::Address().port(stratumPort));
+					IExternalPOW::Options powOptions;
+                    powOptions.certFile = PROJECT_SOURCE_DIR "/utility/unittest/test.crt";
+                    powOptions.privKeyFile = PROJECT_SOURCE_DIR "/utility/unittest/test.key";
+					stratumServer = IExternalPOW::create(powOptions, *reactor, io::Address().port(stratumPort));
 				}
 
 				{
