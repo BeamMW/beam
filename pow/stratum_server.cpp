@@ -147,8 +147,8 @@ void Server::new_job(
         }
     }
 
-    for (auto id : _deadConnections) {
-        _connections.erase(id);
+    for (auto connectionId : _deadConnections) {
+        _connections.erase(connectionId);
     }
     _deadConnections.clear();
 

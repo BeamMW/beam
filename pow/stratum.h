@@ -15,6 +15,7 @@
 #pragma once
 #include "core/block_crypt.h"
 #include "utility/io/fragment_writer.h"
+#include <string>
 
 namespace beam {
 
