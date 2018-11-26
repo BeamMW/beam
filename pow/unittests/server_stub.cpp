@@ -60,6 +60,23 @@ void got_new_block() {
     }
 }
 
+void find_certificates(IExternalPOW::Options& o) {
+#define CERT_FILE_NAME "test.crt"
+#define KEY_FILE_NAME "test.key"
+#define UNITTEST_PATH PROJECT_SOURCE_DIR "/utility/unittest/"
+    using namespace boost::filesystem;
+    if (exists("./" CERT_FILE_NAME) && exists("./" KEY_FILE_NAME)) {
+        o.certFile = CERT_FILE_NAME;
+        o.privKeyFile = KEY_FILE_NAME;
+    } else if (exists(UNITTEST_PATH CERT_FILE_NAME) && exists(UNITTEST_PATH KEY_FILE_NAME)) {
+        o.certFile = UNITTEST_PATH CERT_FILE_NAME;
+        o.privKeyFile = UNITTEST_PATH KEY_FILE_NAME;
+    }
+#undef UNITTEST_PATH
+#undef CERT_FILE_NAME
+#undef KEY_FILE_NAME
+}
+
 void run_without_node() {
     io::Address listenTo = io::Address::localhost().port(20000);
     io::Reactor::Ptr reactor = io::Reactor::create();
@@ -67,8 +84,7 @@ void run_without_node() {
     io::Reactor::GracefulIntHandler gih(*reactor);
     feedJobsTimer = io::Timer::create(*reactor);
     IExternalPOW::Options options;
-    options.certFile = PROJECT_SOURCE_DIR "/utility/unittest/test.crt";
-    options.privKeyFile = PROJECT_SOURCE_DIR "/utility/unittest/test.key";
+    find_certificates(options);
     server = IExternalPOW::create(options, *reactor, listenTo);
     gen_new_job();
     reactor->run();
@@ -80,14 +96,13 @@ void run_with_node() {
     boost::filesystem::remove_all("xxxxx");
     boost::filesystem::remove_all("yyyyy");
 
-    io::Address listenTo = io::Address::localhost().port(20000);
+    io::Address listenTo = io::Address().port(20000);
     io::Reactor::Ptr reactor = io::Reactor::create();
     io::Reactor::Scope scope(*reactor);
     io::Reactor::GracefulIntHandler gih(*reactor);
     feedJobsTimer = io::Timer::create(*reactor);
     IExternalPOW::Options options;
-    options.certFile = PROJECT_SOURCE_DIR "/utility/unittest/test.crt";
-    options.privKeyFile = PROJECT_SOURCE_DIR "/utility/unittest/test.key";
+    find_certificates(options);
     server = IExternalPOW::create(options, *reactor, listenTo);
 
     Rules::get().StartDifficulty = 0;
