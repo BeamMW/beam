@@ -23,7 +23,7 @@
 using namespace beam;
 
 std::unique_ptr<IExternalPOW> server;
-int id = 0;
+int idInt = 0;
 Merkle::Hash hash;
 Block::PoW POW;
 static const unsigned TIMER_MSEC = 280000;
@@ -39,7 +39,7 @@ void gen_new_job() {
     ECC::GenRandom(&hash.m_pData, 32);
 
     if (server) server->new_job(
-        std::to_string(++id),
+        std::to_string(++idInt),
         hash, POW,
         &got_new_block,
         []() { return false; }
