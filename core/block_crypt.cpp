@@ -1345,9 +1345,21 @@ namespace beam
 
 	std::ostream& operator << (std::ostream& s, const Difficulty& d)
 	{
-		uint32_t order = d.m_Packed >> Difficulty::s_MantissaBits;
-		uint32_t mantissa = d.m_Packed & ((1U << Difficulty::s_MantissaBits) - 1);
-		s << std::hex << order << '-' << mantissa << std::dec;
+		typedef uintBig_t<sizeof(Difficulty) * 8 - Difficulty::s_MantissaBits> uintOrder;
+		typedef uintBig_t<Difficulty::s_MantissaBits> uintMantissa;
+
+		uintOrder n0;
+		n0.AssignSafe(d.m_Packed >> Difficulty::s_MantissaBits, 0);
+		char sz0[uintOrder::nTxtLen + 1];
+		n0.Print(sz0);
+
+		uintMantissa n1;
+		n1.AssignSafe(d.m_Packed & ((1U << Difficulty::s_MantissaBits) - 1), 0);
+		char sz1[uintMantissa::nTxtLen + 1];
+		n1.Print(sz1);
+
+		s << sz0 << '-' << sz1 << '(' << d.ToFloat() << ')';
+
 		return s;
 	}
 
