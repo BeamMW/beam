@@ -38,13 +38,14 @@ namespace beam
         virtual void cancel_tx(const TxID& id) = 0;
         virtual void delete_tx(const TxID& id) = 0;
 
-		virtual void OnWalletMsg(const WalletID& peerID, wallet::SetTxParameter&&) = 0;
+		virtual void OnWalletMessage(const WalletID& peerID, wallet::SetTxParameter&&) = 0;
 
-		// wallet-wallet comm
-		struct INetwork
-		{
-			virtual void Send(const WalletID& peerID, wallet::SetTxParameter&& msg) = 0;
-		};
+    };
+
+    // wallet-wallet comm
+    struct IWalletNetwork
+    {
+        virtual void Send(const WalletID& peerID, wallet::SetTxParameter&& msg) = 0;
     };
 
 
@@ -59,7 +60,7 @@ namespace beam
         Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
-		void set_Network(proto::FlyClient::INetwork&, INetwork&);
+		void set_Network(proto::FlyClient::INetwork&, IWalletNetwork&);
 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, ByteBuffer&& message = {} );
         TxID swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount);
@@ -81,7 +82,7 @@ namespace beam
         void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override;
         void register_tx(const TxID& txId, Transaction::Ptr) override;
 
-		void OnWalletMsg(const WalletID& peerID, wallet::SetTxParameter&&) override;
+		void OnWalletMessage(const WalletID& peerID, wallet::SetTxParameter&&) override;
 
 		// FlyClient
 		void OnNewTip() override;
@@ -185,7 +186,7 @@ namespace beam
 
 		IWalletDB::Ptr m_WalletDB;
 		proto::FlyClient::INetwork* m_pNodeNetwork;
-		INetwork* m_pWalletNetwork;
+		IWalletNetwork* m_pWalletNetwork;
         std::map<TxID, wallet::BaseTransaction::Ptr> m_transactions;
         std::set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
         TxCompletedAction m_tx_completed_action;

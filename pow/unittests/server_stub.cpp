@@ -23,7 +23,7 @@
 using namespace beam;
 
 std::unique_ptr<IExternalPOW> server;
-int id = 0;
+int idInt = 0;
 Merkle::Hash hash;
 Block::PoW POW;
 static const unsigned TIMER_MSEC = 280000;
@@ -39,7 +39,7 @@ void gen_new_job() {
     ECC::GenRandom(&hash.m_pData, 32);
 
     if (server) server->new_job(
-        std::to_string(++id),
+        std::to_string(++idInt),
         hash, POW,
         &got_new_block,
         []() { return false; }
@@ -60,6 +60,21 @@ void got_new_block() {
     }
 }
 
+void find_certificates(IExternalPOW::Options& o) {
+    static const std::string certFileName("test.crt");
+    static const std::string keyFileName("test.key");
+    static const std::string unittestPath(PROJECT_SOURCE_DIR "/utility/unittest/");
+
+    using namespace boost::filesystem;
+    if (exists(certFileName) && exists(keyFileName)) {
+        o.certFile = certFileName;
+        o.privKeyFile = keyFileName;
+    } else if (exists(path(unittestPath + certFileName)) && exists(path(unittestPath + keyFileName))) {
+        o.certFile = unittestPath + certFileName;
+        o.privKeyFile = unittestPath + keyFileName;
+    }
+}
+
 void run_without_node() {
     io::Address listenTo = io::Address::localhost().port(20000);
     io::Reactor::Ptr reactor = io::Reactor::create();
@@ -67,8 +82,7 @@ void run_without_node() {
     io::Reactor::GracefulIntHandler gih(*reactor);
     feedJobsTimer = io::Timer::create(*reactor);
     IExternalPOW::Options options;
-    options.certFile = PROJECT_SOURCE_DIR "/utility/unittest/test.crt";
-    options.privKeyFile = PROJECT_SOURCE_DIR "/utility/unittest/test.key";
+    find_certificates(options);
     server = IExternalPOW::create(options, *reactor, listenTo);
     gen_new_job();
     reactor->run();
@@ -80,14 +94,13 @@ void run_with_node() {
     boost::filesystem::remove_all("xxxxx");
     boost::filesystem::remove_all("yyyyy");
 
-    io::Address listenTo = io::Address::localhost().port(20000);
+    io::Address listenTo = io::Address().port(20000);
     io::Reactor::Ptr reactor = io::Reactor::create();
     io::Reactor::Scope scope(*reactor);
     io::Reactor::GracefulIntHandler gih(*reactor);
     feedJobsTimer = io::Timer::create(*reactor);
     IExternalPOW::Options options;
-    options.certFile = PROJECT_SOURCE_DIR "/utility/unittest/test.crt";
-    options.privKeyFile = PROJECT_SOURCE_DIR "/utility/unittest/test.key";
+    find_certificates(options);
     server = IExternalPOW::create(options, *reactor, listenTo);
 
     Rules::get().StartDifficulty = 0;

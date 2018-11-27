@@ -227,11 +227,11 @@ int main(int argc, char* argv[]) {
     auto logger = Logger::create(LOG_LEVEL_INFO, options.logLevel, options.logLevel, "miner_client_");
     int retCode = 0;
     try {
+        io::Reactor::Ptr reactor = io::Reactor::create();
         io::Address connectTo;
         if (!connectTo.resolve(options.serverAddress.c_str())) {
             throw std::runtime_error(std::string("cannot resolve server address ") + options.serverAddress);
         }
-        io::Reactor::Ptr reactor = io::Reactor::create();
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
         io::Timer::Ptr logRotateTimer = io::Timer::create(*reactor);

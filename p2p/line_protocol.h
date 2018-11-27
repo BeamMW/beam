@@ -32,10 +32,11 @@ public:
 
     // returns false if line not found within max line size OR read callback returns false
     bool new_data_from_stream(void* data, size_t size) {
+        static const char EOL = 10;
         auto n = size;
         auto p = (char*)data;
         while (n > 0) {
-            auto q = (char*)memchr(p, '\n', n);
+            auto q = (char*)memchr(p, EOL, n);
             if (q) {
                 ++q;
                 size_t fragmentSize = q - p;
@@ -65,7 +66,9 @@ private:
             _lineBuffer.append(p, fragmentSize);
             data = _lineBuffer.data();
         }
-        return _readCallback(data, lineSize);
+        bool r = _readCallback(data, lineSize);
+        _lineBuffer.clear();
+        return r;
     }
 
     bool line_not_found(char* p, size_t fragmentSize) {

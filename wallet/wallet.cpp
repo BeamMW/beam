@@ -116,7 +116,7 @@ namespace beam
         return m_WalletDB->get_History();
     }
 
-    void Wallet::set_Network(proto::FlyClient::INetwork& netNode, INetwork& netWallet)
+    void Wallet::set_Network(proto::FlyClient::INetwork& netNode, IWalletNetwork& netWallet)
     {
         m_pNodeNetwork = &netNode;
         m_pWalletNetwork = &netWallet;
@@ -293,7 +293,7 @@ namespace beam
         m_pWalletNetwork->Send(peerID, std::move(msg));
     }
 
-    void Wallet::OnWalletMsg(const WalletID& myID, wallet::SetTxParameter&& msg)
+    void Wallet::OnWalletMessage(const WalletID& myID, wallet::SetTxParameter&& msg)
     {
         auto t = getTransaction(myID, msg);
         if (!t)

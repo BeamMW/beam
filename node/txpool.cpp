@@ -13,8 +13,6 @@
 // limitations under the License.
 
 #include "processor.h"
-#include "../utility/serialize.h"
-#include "../core/serialization_adapters.h"
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
 
@@ -29,14 +27,7 @@ void save_VecPtr(Archive& ar, const std::vector<TPtr>& v)
 
 void TxPool::Profit::SetSize(const Transaction& tx)
 {
-	// account only for elements. Ignore offset and array sizes
-	SerializerSizeCounter ssc;
-
-	save_VecPtr(ssc, tx.m_vInputs);
-	save_VecPtr(ssc, tx.m_vOutputs);
-	save_VecPtr(ssc, tx.m_vKernels);
-
-	m_nSize = (uint32_t) ssc.m_Counter.m_Value;
+	m_nSize = (uint32_t) tx.get_Reader().get_SizeNetto();
 }
 
 bool TxPool::Profit::operator < (const Profit& t) const
