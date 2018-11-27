@@ -60,6 +60,9 @@ namespace beam
 		friend Raw& operator += (Raw&, const Difficulty&);
 		friend Raw& operator -= (Raw&, const Difficulty&);
 
+		double ToFloat() const;
+		static double ToFloat(Raw&);
+
 	private:
 		static void Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange, uint32_t& order, uint32_t& mantissa);
 	};
