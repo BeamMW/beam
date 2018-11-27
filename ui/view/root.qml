@@ -6,8 +6,8 @@ import "controls"
 import Beam.Wallet 1.0
 
 Item {
-    width: 1024
-    height: Math.min(768, Screen.desktopAvailableHeight - 40)
+    width: Math.min(1024, Screen.desktopAvailableWidth - 10)
+    height: Math.min(768, Screen.desktopAvailableHeight - 80)
     property alias source: rootLoader.source
 
     SFFontLoader {}
