@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #pragma once
-#include "utility/io/fragment_writer.h"
 #include "nlohmann/json_fwd.hpp"
+#include "utility/io/buffer.h"
 
 namespace beam {
 
@@ -22,9 +22,6 @@ class HttpMsgCreator;
 
 // appends json msg to out by http packer
 bool serialize_json_msg(io::SerializedMsg& out, HttpMsgCreator& packer, const nlohmann::json& o);
-
-// appends json msg to out by fragment writer
-bool serialize_json_msg(io::FragmentWriter& packer, const nlohmann::json& o);
 
 } //namespace
 

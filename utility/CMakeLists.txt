@@ -25,6 +25,7 @@ set(IO_SRC
     io/errorhandling.cpp
     io/coarsetimer.cpp
     io/fragment_writer.cpp
+    io/json_serializer.cpp
 # ~etc
 )
 

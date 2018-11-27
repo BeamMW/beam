@@ -87,7 +87,7 @@ struct ReadOnlyMappedFileWin32 : AllocatedMemory {
             CloseHandle(mappingHandle);
         }
         if (fileHandle != INVALID_HANDLE_VALUE) {
-            CloseHandle(mappingHandle);
+            CloseHandle(fileHandle);
         }
     }
 

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "p2p/http_connection.h"
-#include "p2p/http_msg_creator.h"
+#include "http/http_connection.h"
+#include "http/http_msg_creator.h"
 #include "utility/io/tcpserver.h"
 #include "utility/io/coarsetimer.h"
 #include "utility/helpers.h"

@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "json_serializer.h"
-#include "http_msg_creator.h"
 #include "nlohmann/json.hpp"
 #include "utility/logger.h"
 
@@ -53,15 +52,6 @@ bool serialize_json_msg(io::FragmentWriter& packer, const nlohmann::json& o) {
         result = false;
     }
     packer.finalize();
-    return result;
-}
-
-bool serialize_json_msg(io::SerializedMsg& out, HttpMsgCreator& packer, const json& o) {
-    size_t initialFragments = out.size();
-    io::FragmentWriter& fw = packer.acquire_writer(out);
-    bool result = serialize_json_msg(fw, o);
-    packer.release_writer();
-    if (!result) out.resize(initialFragments);
     return result;
 }
 

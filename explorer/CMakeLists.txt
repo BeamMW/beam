@@ -4,8 +4,8 @@ set(EXPLORER_SRC
 )
 
 add_library(explorer STATIC ${EXPLORER_SRC})
-add_dependencies(explorer node)
-target_link_libraries(explorer node)
+add_dependencies(explorer node http)
+target_link_libraries(explorer node http)
 
 add_executable(explorer-node explorer_node.cpp)
 add_dependencies(explorer-node explorer)
