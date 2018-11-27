@@ -1298,7 +1298,7 @@ namespace beam
 
 		if (bIncrease)
 		{
-			assert(nLeadingBit && (nLeadingBit <= 2));
+			assert(nLeadingBit && (nLeadingBit < 4));
 
 			if (nLeadingBit > 1)
 			{
