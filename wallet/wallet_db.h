@@ -162,6 +162,8 @@ namespace beam
 
 		void createAddress(WalletAddress&);
 		void createAndSaveAddress(WalletAddress&);
+		Timestamp GetLastChannel(BbsChannel&);
+		void SetLastChannel(BbsChannel);
 
         template <typename Var>
         void setVar(const char* name, const Var& var)
