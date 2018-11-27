@@ -493,7 +493,7 @@ void WalletModel::createNewAddress(WalletAddress&& address, bool bOwn)
         auto s = _wnet.lock();
         if (s)
         {
-            static_pointer_cast<WalletNetworkViaBbs>(s)->new_own_address(address.m_OwnID);
+            static_pointer_cast<WalletNetworkViaBbs>(s)->new_own_address(address.m_OwnID, address.m_walletID);
         }
     }
 }
@@ -596,13 +596,10 @@ void WalletModel::changeWalletPassword(const SecString& pass)
     _walletDB->changePassword(pass);
 }
 
-bool WalletModel::check_receiver_address(const std::string& addr) {
-    size_t sz = addr.size();
-    if (sz == 0 || sz > 64) return false;
-    bool wholeStringIsNumber = false;
-    WalletID peerAddr = from_hex(addr, &wholeStringIsNumber);
-    if (!wholeStringIsNumber) return false;
-
-	ECC::Point::Native p;
-	return proto::ImportPeerID(p, peerAddr);
+bool WalletModel::check_receiver_address(const std::string& addr)
+{
+	WalletID walletID;
+	return
+		walletID.FromHex(addr) &&
+		walletID.IsValid();
 }

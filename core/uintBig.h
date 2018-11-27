@@ -132,9 +132,9 @@ namespace beam
 			_Assign(m_pData, nBytes, v.begin(), static_cast<uint32_t>(v.size()));
         }
 
-		uintBig_t(const std::vector<uint8_t>& v)
+		uintBig_t(const Blob& v)
 		{
-			_Assign(m_pData, nBytes, v.empty() ? NULL : &v.at(0), static_cast<uint32_t>(v.size()));
+			operator = (v);
 		}
 
 		template <typename T>
@@ -156,6 +156,12 @@ namespace beam
 		uintBig_t& operator = (const uintBig_t<nBitsOther_>& v)
 		{
 			_Assign(m_pData, nBytes, v.m_pData, v.nBytes);
+			return *this;
+		}
+
+		uintBig_t& operator = (const Blob& v)
+		{
+			_Assign(m_pData, nBytes, static_cast<const uint8_t*>(v.p), v.n);
 			return *this;
 		}
 

@@ -166,15 +166,10 @@ void AddressBookViewModel::generateNewEmptyAddress()
 
 void AddressBookViewModel::createNewPeerAddress()
 {
-    auto bytes = from_hex(m_newPeerAddress.getWalletID().toStdString());
-    if (bytes.size() > sizeof(WalletID))
-    {
+	WalletAddress peerAddress{};
+	if (!peerAddress.m_walletID.FromHex(m_newPeerAddress.getWalletID().toStdString()))
         return;
-    }
-    WalletID walletID = bytes;
-    WalletAddress peerAddress{};
 
-    peerAddress.m_walletID = walletID;
     peerAddress.m_OwnID = 0;
     peerAddress.m_label = m_newPeerAddress.getName().toStdString();
     peerAddress.m_createTime = beam::getTimestamp();
@@ -185,15 +180,10 @@ void AddressBookViewModel::createNewPeerAddress()
 
 void AddressBookViewModel::createNewOwnAddress()
 {
-    auto bytes = from_hex(m_newOwnAddress.getWalletID().toStdString());
-    if (bytes.size() != sizeof(WalletID))
-    {
-        return;
-    }
-    WalletID id = bytes;
-    WalletAddress ownAddress{};
+	WalletAddress ownAddress{};
+	if (!ownAddress.m_walletID.FromHex(m_newOwnAddress.getWalletID().toStdString()))
+		return;
 
-    ownAddress.m_walletID = id;
     ownAddress.m_OwnID = 0; // would be corrected
     ownAddress.m_label = m_newOwnAddress.getName().toStdString();
     ownAddress.m_createTime = beam::getTimestamp();
@@ -208,8 +198,9 @@ void AddressBookViewModel::changeCurrentPeerAddress(int index)
 {
     if (m_model.getAsync())
     {
-        WalletID senderID = from_hex(m_ownAddresses.at(0)->getWalletID().toStdString());
-        WalletID receivedID = from_hex(m_peerAddresses.at(index)->getWalletID().toStdString());
+		WalletID senderID(Zero), receivedID(Zero);
+		senderID.FromHex(m_ownAddresses.at(0)->getWalletID().toStdString());
+		receivedID.FromHex(m_peerAddresses.at(index)->getWalletID().toStdString());
 
         m_model.getAsync()->changeCurrentWalletIDs(senderID, receivedID);
     }
@@ -217,14 +208,16 @@ void AddressBookViewModel::changeCurrentPeerAddress(int index)
 
 void AddressBookViewModel::deletePeerAddress(int index)
 {
-    WalletID peerID = from_hex(m_peerAddresses.at(index)->getWalletID().toStdString());
-    m_model.getAsync()->deleteAddress(peerID);
+	WalletID peerID;
+	if (peerID.FromHex(m_peerAddresses.at(index)->getWalletID().toStdString()))
+		m_model.getAsync()->deleteAddress(peerID);
 }
 
 void AddressBookViewModel::deleteOwnAddress(int index)
 {
-    WalletID peerID = from_hex(m_ownAddresses.at(index)->getWalletID().toStdString());
-    m_model.getAsync()->deleteOwnAddress(peerID);
+	WalletID peerID;
+	if (peerID.FromHex(m_ownAddresses.at(index)->getWalletID().toStdString()))
+		m_model.getAsync()->deleteOwnAddress(peerID);
 }
 
 void AddressBookViewModel::copyToClipboard(const QString& text)

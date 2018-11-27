@@ -34,7 +34,8 @@ namespace std
 {
     string to_string(const beam::WalletID& id)
     {
-        return beam::to_hex(id.m_pData, id.nBytes);
+		static_assert(sizeof(id) == sizeof(id.m_Channel) + sizeof(id.m_Pk), "");
+        return beam::to_hex(&id, sizeof(id));
     }
 }
 
@@ -43,6 +44,40 @@ namespace beam
     using namespace wallet;
     using namespace std;
     using namespace ECC;
+
+	int WalletID::cmp(const WalletID& x) const
+	{
+		int n = m_Channel.cmp(x.m_Channel);
+		if (n)
+			return n;
+		return m_Pk.cmp(x.m_Pk);
+	}
+
+	bool WalletID::FromBuf(const ByteBuffer& x)
+	{
+		if (x.size() > sizeof(*this))
+			return false;
+
+		typedef uintBig_t<sizeof(*this) * 8> BigSelf;
+		static_assert(sizeof(BigSelf) == sizeof(*this), "");
+
+		*reinterpret_cast<BigSelf*>(this) = Blob(x);
+		return true;
+	}
+
+	bool WalletID::FromHex(const std::string& s)
+	{
+		bool bValid = true;
+		ByteBuffer bb = from_hex(s, &bValid);
+
+		return bValid && FromBuf(bb);
+	}
+
+	bool WalletID::IsValid() const
+	{
+		ECC::Point::Native p;
+		return proto::ImportPeerID(p, m_Pk);
+	}
 
     std::ostream& operator<<(std::ostream& os, const TxID& uuid)
     {

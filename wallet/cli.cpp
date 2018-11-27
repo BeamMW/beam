@@ -109,10 +109,7 @@ namespace
         address.m_createTime = getTimestamp();
         walletDB->createAndSaveAddress(address);
 
-        char buf[uintBig::nBytes * 2 + 1];
-        to_hex(buf, address.m_walletID.m_pData, uintBig::nBytes);
-
-        LOG_INFO() << "New address generated:\n\n" << buf << "\n";
+        LOG_INFO() << "New address generated:\n\n" << std::to_string(address.m_walletID) << "\n";
         if (!label.empty()) {
             LOG_INFO() << "label = " << label;
         }
@@ -360,7 +357,7 @@ int main_impl(int argc, char* argv[])
                         io::Address receiverAddr;
                         Amount amount = 0;
                         Amount fee = 0;
-                        ECC::Hash::Value receiverWalletID;
+                        WalletID receiverWalletID(Zero);
                         bool isTxInitiator = command == cli::SEND || command == cli::RECEIVE;
                         if (isTxInitiator)
                         {
@@ -375,8 +372,7 @@ int main_impl(int argc, char* argv[])
                                 return -1;
                             }
 
-                            ECC::Hash::Value receiverID = from_hex(vm[cli::RECEIVER_ADDR].as<string>());
-                            receiverWalletID = receiverID;
+							receiverWalletID.FromHex(vm[cli::RECEIVER_ADDR].as<string>());
 
                             auto signedAmount = vm[cli::AMOUNT].as<double>();
                             if (signedAmount < 0)

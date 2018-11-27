@@ -310,7 +310,7 @@ struct TestWalletRig
 		m_NodeNetwork.m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
 		m_NodeNetwork.Connect();
 
-		m_WalletNetworkViaBbs.new_own_address(wa.m_OwnID);
+		m_WalletNetworkViaBbs.new_own_address(wa.m_OwnID, 0);
     }
 
     vector<Coin> GetCoins()
@@ -698,8 +698,10 @@ void TestWalletNegotiation(IWalletDB::Ptr senderWalletDB, IWalletDB::Ptr receive
 	io::Reactor::Scope scope(*mainReactor);
 
     WalletID receiver_id, sender_id;
-	receiver_id = 4U;
-	sender_id = 5U;
+	receiver_id.m_Pk = 4U;
+	receiver_id.m_Channel = 12U;
+	sender_id.m_Pk = 5U;
+	sender_id.m_Channel = 102U;
 
     int count = 0;
     auto f = [&count](const auto& /*id*/)

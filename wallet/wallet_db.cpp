@@ -409,6 +409,11 @@ namespace beam
                 bind(col, hash.m_pData, hash.nBytes);
             }
 
+			void bind(int col, const WalletID& x)
+			{
+				bind(col, &x, sizeof(x));
+			}
+
             void bind(int col, const io::Address& address)
             {
                 bind(col, address.u64());
@@ -512,7 +517,12 @@ namespace beam
 				getBlobStrict(col, hash.m_pData, hash.nBytes);
             }
 
-            void get(int col, io::Address& address)
+			void get(int col, WalletID& x)
+			{
+				getBlobStrict(col, &x, sizeof(x));
+			}
+
+			void get(int col, io::Address& address)
             {
                 uint64_t t = 0;;
                 get(col, t);
@@ -875,7 +885,8 @@ namespace beam
 		cid.m_Idx = wa.m_OwnID;
 
 		ECC::Scalar::Native sk = calcKey(cid);
-		proto::Sk2Pk(wa.m_walletID, sk);
+		proto::Sk2Pk(wa.m_walletID.m_Pk, sk);
+		wa.m_walletID.m_Channel = (BbsChannel) wa.m_walletID.m_Pk.m_pData[0] >> 3; // ?!?
 	}
 
 	void IWalletDB::createAndSaveAddress(WalletAddress& wa)
