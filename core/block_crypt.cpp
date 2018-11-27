@@ -14,6 +14,7 @@
 
 #include <ctime>
 #include <chrono>
+#include <cmath>
 #include "block_crypt.h"
 
 namespace beam
