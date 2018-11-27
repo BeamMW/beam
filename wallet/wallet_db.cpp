@@ -886,7 +886,32 @@ namespace beam
 
 		ECC::Scalar::Native sk = calcKey(cid);
 		proto::Sk2Pk(wa.m_walletID.m_Pk, sk);
-		wa.m_walletID.m_Channel = (BbsChannel) wa.m_walletID.m_Pk.m_pData[0] >> 3; // ?!?
+
+		BbsChannel ch;
+		if (!GetLastChannel(ch))
+			ch = (BbsChannel) wa.m_walletID.m_Pk.m_pData[0] >> 3; // fallback
+
+		wa.m_walletID.m_Channel = ch;
+	}
+
+	static const char g_szBbsTime[] = "Bbs-Channel-Upd";
+	static const char g_szBbsChannel[] = "Bbs-Channel";
+
+	Timestamp IWalletDB::GetLastChannel(BbsChannel& ch)
+	{
+		Timestamp t;
+
+		bool b =
+			getVar(g_szBbsTime, t) &&
+			getVar(g_szBbsChannel, ch);
+
+		return b ? t : 0;
+	}
+
+	void IWalletDB::SetLastChannel(BbsChannel ch)
+	{
+		setVar(g_szBbsChannel, ch);
+		setVar(g_szBbsTime, getTimestamp());
 	}
 
 	void IWalletDB::createAndSaveAddress(WalletAddress& wa)

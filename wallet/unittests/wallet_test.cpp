@@ -880,6 +880,13 @@ private:
 			Send(msgOut);
 		}
 
+		void OnMsg(proto::BbsPickChannel&&) override
+		{
+			proto::BbsPickChannelRes msgOut;
+			msgOut.m_Channel = 77;
+			Send(msgOut);
+		}
+
         void OnDisconnect(const DisconnectReason& r) override
         {
             switch (r.m_Type)
