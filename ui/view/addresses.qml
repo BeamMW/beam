@@ -11,8 +11,8 @@ ColumnLayout {
 
 	AddressBookViewModel {id: viewModel}
 
-    width: 800
-    height: 600
+    //width: 800
+    //height: 600
     anchors.fill: parent
     state: "peers"
 	SFText {
@@ -20,7 +20,7 @@ ColumnLayout {
         Layout.maximumHeight: 40
         font.pixelSize: 36
         color: Style.white
-        text: qsTr("Address book")
+        text: qsTr("Addresses")
     }
 
     ConfirmationDialog {
