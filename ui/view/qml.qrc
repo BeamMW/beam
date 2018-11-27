@@ -111,5 +111,6 @@
         <file>assets/icon-sort-active.svg</file>
         <file>assets/icon-sort.svg</file>
         <file>controls/CustomProgressBar.qml</file>
+        <file>controls/LogoComponent.qml</file>
     </qresource>
 </RCC>
