@@ -14,44 +14,9 @@ Item
     anchors.fill: parent
 
     StartViewModel { id: viewModel }
-
-    Component
-    {
+    
+    LogoComponent {
         id: logoComponent
-
-        Column
-        {
-            spacing: 20
-
-            Image {
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                source: "qrc:/assets/start-logo.svg"
-                width: 242
-                height: 170
-            }
-
-            SFText {
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                text: qsTr("BEAM")
-                color: "#25c1ff"
-                font.pixelSize: 32
-                font.styleName: "Bold"; font.weight: Font.Bold
-                font.letterSpacing: 20
-            }
-
-            SFText {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.topMargin: 20
-
-                text: qsTr("Scalable confidential cryptocurrency")
-
-                color: "#25c1ff"
-                font.pixelSize: 18
-                font.styleName: "Bold"; font.weight: Font.Bold
-            }
-        }
     }
 
     StackView {
@@ -78,42 +43,55 @@ Item
 
                 property Item defaultFocusItem: createNewWallet
 
-                Loader { 
-                    sourceComponent: logoComponent 
+                ColumnLayout {
+                    anchors.fill: parent
 
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 140
-                }
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.maximumHeight: 140
+                    }
 
+                    Loader { 
+                        sourceComponent: logoComponent 
 
-                Row {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.bottomMargin: 143
-                    anchors.bottom: parent.bottom
+                        Layout.alignment: Qt.AlignHCenter
+                    }
 
-                    spacing: 30
+                    Item {
+                        Layout.fillHeight: true
+                    }
 
-                    PrimaryButton {
-                        id: createNewWallet
-                        anchors.verticalCenter: parent.verticalCenter
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
+                        
+                        spacing: 30
 
-                        text: qsTr("create new wallet")
-                        icon.source: "qrc:/assets/icon-add-blue.svg"
-                        onClicked: 
-                        {
-                            viewModel.isRecoveryMode = false;
-                            startWizzardView.push(nodeSetup);
+                        PrimaryButton {
+                            id: createNewWallet
+                            anchors.verticalCenter: parent.verticalCenter
+
+                            text: qsTr("create new wallet")
+                            icon.source: "qrc:/assets/icon-add-blue.svg"
+                            onClicked: 
+                            {
+                                viewModel.isRecoveryMode = false;
+                                startWizzardView.push(nodeSetup);
+                            }
+                        }
+
+                        CustomButton {
+                            text: qsTr("restore wallet")
+                            icon.source: "qrc:/assets/icon-restore.svg"
+                            onClicked: {
+                                viewModel.isRecoveryMode = true;
+                                startWizzardView.push(nodeSetup);
+                            }
                         }
                     }
 
-                    CustomButton {
-                        text: qsTr("restore wallet")
-                        icon.source: "qrc:/assets/icon-restore.svg"
-                        onClicked: {
-                            viewModel.isRecoveryMode = true;
-                            startWizzardView.push(nodeSetup);
-                        }
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.maximumHeight: 143
                     }
                 }
             }
