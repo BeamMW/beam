@@ -1205,24 +1205,38 @@ namespace beam
 			res.Inv();
 	}
 
-	void Difficulty::Inc(Raw& res, const Raw& base) const
+	Difficulty::Raw operator + (const Difficulty::Raw& base, const Difficulty& d)
 	{
-		Unpack(res);
+		Difficulty::Raw res;
+		d.Unpack(res);
 		res += base;
+		return res;
 	}
 
-	void Difficulty::Inc(Raw& res) const
+	Difficulty::Raw& operator += (Difficulty::Raw& res, const Difficulty& d)
 	{
-		Raw d;
-		Unpack(d);
-		res += d;
+		Difficulty::Raw base;
+		d.Unpack(base);
+		res += base;
+		return res;
 	}
 
-	void Difficulty::Dec(Raw& res, const Raw& base) const
+	Difficulty::Raw operator - (const Difficulty::Raw& base, const Difficulty& d)
 	{
-		Unpack(res);
+		Difficulty::Raw res;
+		d.Unpack(res);
 		res.Negate();
 		res += base;
+		return res;
+	}
+
+	Difficulty::Raw& operator -= (Difficulty::Raw& res, const Difficulty& d)
+	{
+		Difficulty::Raw base;
+		d.Unpack(base);
+		base.Negate();
+		res += base;
+		return res;
 	}
 
 	void Difficulty::Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange)

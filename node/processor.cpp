@@ -532,8 +532,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		{
 			bFirstTime = true;
 
-			Difficulty::Raw wrk;
-			s.m_PoW.m_Difficulty.Inc(wrk, m_Cursor.m_Full.m_ChainWork);
+			Difficulty::Raw wrk = m_Cursor.m_Full.m_ChainWork + s.m_PoW.m_Difficulty;
 
 			if (wrk != s.m_ChainWork)
 			{
@@ -1369,7 +1368,7 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 	bc.m_Hdr.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
 	bc.m_Hdr.m_TimeStamp = getTimestamp();
 
-	bc.m_Hdr.m_PoW.m_Difficulty.Inc(bc.m_Hdr.m_ChainWork, m_Cursor.m_Full.m_ChainWork);
+	bc.m_Hdr.m_ChainWork = m_Cursor.m_Full.m_ChainWork + bc.m_Hdr.m_PoW.m_Difficulty;
 
 	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
 	Timestamp tm = get_MovingMedian() + 1;
@@ -1624,8 +1623,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		{
 			bFirstTime = false;
 
-			Difficulty::Raw wrk;
-			s.m_PoW.m_Difficulty.Inc(wrk, m_Cursor.m_Full.m_ChainWork);
+			Difficulty::Raw wrk = m_Cursor.m_Full.m_ChainWork + s.m_PoW.m_Difficulty;
 
 			if (wrk != s.m_ChainWork)
 			{
@@ -1634,7 +1632,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 			}
 		}
 		else
-			s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+			s.m_ChainWork += s.m_PoW.m_Difficulty;
 
 		if (id.m_Height >= Rules::HeightGenesis)
 			cmmr.Append(id.m_Hash);
@@ -1722,7 +1720,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		if (bFirstTime)
 			bFirstTime = false;
 		else
-			s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+			s.m_ChainWork += s.m_PoW.m_Difficulty;
 
 		s.get_ID(id);
 

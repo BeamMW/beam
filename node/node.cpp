@@ -1679,7 +1679,7 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 
 		s.NextPrefix();
 		Cast::Down<Block::SystemState::Sequence::Element>(s) = msg.m_vElements[i - 1];
-		s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+		s.m_ChainWork += s.m_PoW.m_Difficulty;
 	}
 
 	// just to be pedantic

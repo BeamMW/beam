@@ -108,7 +108,7 @@ namespace beam {
 			if (!((i + 1) % 8000))
 				s.m_Hdr.m_PoW.m_Difficulty.Adjust(140, 150, 3); // slightly raise
 
-			s.m_Hdr.m_PoW.m_Difficulty.Inc(s.m_Hdr.m_ChainWork);
+			s.m_Hdr.m_ChainWork += s.m_Hdr.m_PoW.m_Difficulty;
 
 			m_Mmr.get_Hash(s.m_Hdr.m_Definition);
 			Merkle::Interpret(s.m_Hdr.m_Definition, m_hvLive, true);
