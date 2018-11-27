@@ -135,7 +135,7 @@ private:
     beam::io::Reactor::Ptr _reactor;
     IWalletModelAsync::Ptr _async;
     std::weak_ptr<beam::proto::FlyClient::INetwork> _nnet;
-	std::weak_ptr<beam::Wallet::INetwork> _wnet;
+	std::weak_ptr<beam::IWalletNetwork> _wnet;
     std::weak_ptr<beam::Wallet> _wallet;
     beam::io::Timer::Ptr _logRotateTimer;
 

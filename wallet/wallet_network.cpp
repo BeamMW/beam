@@ -237,7 +237,7 @@ namespace beam {
 				
 			if (bValid)
 			{
-				m_Wallet.OnWalletMsg(it->get_ParentObj().m_Pk, std::move(msgWallet));
+				m_Wallet.OnWalletMessage(it->get_ParentObj().m_Pk, std::move(msgWallet));
 				break;
 			}
 		}
