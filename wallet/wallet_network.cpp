@@ -49,7 +49,7 @@ namespace beam {
 			if (address.isExpired())
 				m_WalletDB->deleteAddress(address.m_walletID);
 			else
-				new_own_address(address.m_OwnID);
+				new_own_address(address.m_OwnID, address.m_walletID);
 	}
 
 	WalletNetworkViaBbs::~WalletNetworkViaBbs()
@@ -122,11 +122,17 @@ namespace beam {
 
 	BbsChannel WalletNetworkViaBbs::channel_from_wallet_id(const WalletID& walletID)
 	{
-		// TODO to be reviewed, 32 channels
-		return walletID.m_pData[0] >> 3;
+		BbsChannel ret;
+		walletID.m_Channel.Export(ret);
+		return ret;
 	}
 
-	void WalletNetworkViaBbs::new_own_address(uint64_t ownID)
+	void WalletNetworkViaBbs::new_own_address(uint64_t ownID, const WalletID& walletID)
+	{
+		new_own_address(ownID, channel_from_wallet_id(walletID));
+	}
+
+	void WalletNetworkViaBbs::new_own_address(uint64_t ownID, BbsChannel nChannel)
 	{
 		Addr::Wid key;
 		key.m_OwnID = ownID;
@@ -145,7 +151,7 @@ namespace beam {
 		pAddr->m_sk = m_WalletDB->calcKey(cid);
 		proto::Sk2Pk(pAddr->m_Pk, pAddr->m_sk); // needed to "normalize" the sk, and calculate the channel
 
-		pAddr->m_Channel.m_Value = channel_from_wallet_id(pAddr->m_Pk);
+		pAddr->m_Channel.m_Value = nChannel;
 
 		m_Addresses.insert(pAddr->m_Wid);
 		m_Channels.insert(pAddr->m_Channel);
@@ -237,7 +243,10 @@ namespace beam {
 				
 			if (bValid)
 			{
-				m_Wallet.OnWalletMessage(it->get_ParentObj().m_Pk, std::move(msgWallet));
+				WalletID wid;
+				wid.m_Pk = it->get_ParentObj().m_Pk;
+				wid.m_Channel = it->m_Value;
+				m_Wallet.OnWalletMessage(wid, std::move(msgWallet));
 				break;
 			}
 		}
@@ -254,7 +263,7 @@ namespace beam {
 		ECC::Scalar::Native nonce;
 		nonce.GenRandomNnz();
 		
-		if (proto::BbsEncrypt(pReq->m_Msg.m_Message, peerID, nonce, sb.first, static_cast<uint32_t>(sb.second)))
+		if (proto::BbsEncrypt(pReq->m_Msg.m_Message, peerID.m_Pk, nonce, sb.first, static_cast<uint32_t>(sb.second)))
 		{
 			pReq->m_Msg.m_Channel = channel_from_wallet_id(peerID);
 			pReq->m_Msg.m_TimePosted = getTimestamp();

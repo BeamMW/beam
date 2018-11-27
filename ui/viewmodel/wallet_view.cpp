@@ -255,15 +255,10 @@ void WalletViewModel::generateNewAddress()
 
 void WalletViewModel::saveNewAddress()
 {
-    auto bytes = from_hex(_newReceiverAddr.toStdString());
-    if (bytes.size() != sizeof(WalletID))
-    {
-        return;
-    }
-    WalletID id = bytes;
-    WalletAddress ownAddress{};
+	WalletAddress ownAddress{};
+	if (!ownAddress.m_walletID.FromHex(_newReceiverAddr.toStdString()))
+		return;
 
-    ownAddress.m_walletID = id;
     ownAddress.m_OwnID = 0;
     ownAddress.m_label = _newReceiverName.toStdString();
     ownAddress.m_createTime = beam::getTimestamp();
@@ -599,11 +594,10 @@ int WalletViewModel::getDefaultFeeInGroth() const
 
 QString WalletViewModel::receiverAddr() const
 {
-    if (_selectedAddr < 0 || _addrList.empty()) return "";
+    if ((_selectedAddr < 0) || (_addrList.size() <= static_cast<size_t>(_selectedAddr)))
+		return "";
 
-    stringstream str;
-    str << _addrList[_selectedAddr].m_walletID;
-    return QString::fromStdString(str.str());
+    return QString::fromStdString(std::to_string(_addrList[_selectedAddr].m_walletID));
 }
 
 QQmlListProperty<TxObject> WalletViewModel::getTransactions()
@@ -745,7 +739,8 @@ void WalletViewModel::sendMoney()
     if (/*!_senderAddr.isEmpty() && */isValidReceiverAddress(getReceiverAddr()))
     {
         //WalletID ownAddr = from_hex(getSenderAddr().toStdString());
-        WalletID peerAddr = from_hex(getReceiverAddr().toStdString());
+		WalletID peerAddr(Zero);
+		peerAddr.FromHex(getReceiverAddr().toStdString());
         // TODO: show 'operation in process' animation here?
         //_model.getAsync()->sendMoney(ownAddr, peerAddr, calcSendAmount(), calcFeeAmount());
         _model.getAsync()->sendMoney(peerAddr, _comment.toStdString(), calcSendAmount(), calcFeeAmount());

@@ -23,7 +23,37 @@
 namespace beam
 {
     using TxID = std::array<uint8_t, 16>;
-    using WalletID = PeerID;
+
+#pragma pack (push, 1)
+	struct WalletID
+	{
+		uintBigFor<BbsChannel>::Type m_Channel;
+		PeerID m_Pk;
+
+		WalletID() {}
+		WalletID(Zero_)
+		{
+			m_Channel = Zero;
+			m_Pk = Zero;
+		}
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_Channel
+				& m_Pk;
+		}
+
+		bool FromBuf(const ByteBuffer&);
+		bool FromHex(const std::string&);
+
+		bool IsValid() const; // isn't cheap
+
+		int cmp(const WalletID&) const;
+		COMPARISON_VIA_CMP
+	};
+#pragma pack (pop)
 
     struct PrintableAmount
     {
@@ -81,8 +111,8 @@ namespace beam
         Amount m_fee=0;
 		Amount m_change=0;
         Height m_minHeight=0;
-        WalletID m_peerId = {0};
-        WalletID m_myId = {0};
+        WalletID m_peerId = Zero;
+        WalletID m_myId = Zero;
         ByteBuffer m_message;
         Timestamp m_createTime=0;
         Timestamp m_modifyTime=0;
