@@ -102,13 +102,20 @@ namespace beam { namespace wallet
         template <typename T>
         bool SetParameter(TxParameterID paramID, const T& value)
         {
-            return setTxParameter(m_WalletDB, GetTxID(), paramID, value);
+            bool shouldNotifyAboutChanges = isShouldNotifyAboutChanges(paramID);
+            return SetParameter(paramID, value, shouldNotifyAboutChanges);
+        }
+
+        template <typename T>
+        bool SetParameter(TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges)
+        {
+            return setTxParameter(m_WalletDB, GetTxID(), paramID, value, shouldNotifyAboutChanges);
         }
 
         template <typename T>
         void SetState(T state)
         {
-            SetParameter(TxParameterID::State, state);
+            SetParameter(TxParameterID::State, state, true);
         }
 
         IWalletDB::Ptr GetWalletDB();
@@ -128,6 +135,8 @@ namespace beam { namespace wallet
 
         bool SendTxParameters(SetTxParameter&& msg) const;
         virtual void UpdateImpl() = 0;
+
+        virtual bool isShouldNotifyAboutChanges(TxParameterID paramID) const { return true; };
     protected:
 
         INegotiatorGateway& m_Gateway;
@@ -161,6 +170,7 @@ namespace beam { namespace wallet
     private:
         TxType GetType() const override;
         void UpdateImpl() override;
+        bool isShouldNotifyAboutChanges(TxParameterID paramID) const override;
         void SendInvitation(const TxBuilder& builder, bool isSender);
         void ConfirmInvitation(const TxBuilder& builder);
         void ConfirmTransaction(const TxBuilder& builder);

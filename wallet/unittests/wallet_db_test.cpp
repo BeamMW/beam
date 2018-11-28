@@ -176,7 +176,7 @@ void TestStoreCoins()
     WALLET_CHECK(comission == 6);
     WALLET_CHECK(regular == 10);
 
-	coins.clear();
+    coins.clear();
     walletDB->visit([&coins](const auto& coin)->bool
     {
         coins.push_back(coin);
@@ -205,9 +205,9 @@ void TestStoreTxRecord()
     tr.m_txId = id;
     tr.m_amount = 34;
     tr.m_peerId.m_Pk = unsigned(23);
-	tr.m_peerId.m_Channel = 0U;
+    tr.m_peerId.m_Channel = 0U;
     tr.m_myId.m_Pk = unsigned(42);
-	tr.m_myId.m_Channel = 0U;
+    tr.m_myId.m_Channel = 0U;
     tr.m_createTime = 123456;
     tr.m_minHeight = 134;
     tr.m_sender = true;
@@ -491,7 +491,7 @@ void TestPeers()
     WALLET_CHECK(peers.empty());
     TxPeer peer = {};
     peer.m_walletID.m_Pk = unsigned(1234567890);
-	peer.m_walletID.m_Channel = 0U;
+    peer.m_walletID.m_Channel = 0U;
     peer.m_label = u8"test peer";
     auto p = db->getPeer(peer.m_walletID);
     WALLET_CHECK(p.is_initialized() == false);
@@ -520,7 +520,7 @@ void TestAddresses()
 
     WalletAddress a = {};
     a.m_walletID.m_Pk = unsigned(9876543);
-	a.m_walletID.m_Channel = 0U;
+    a.m_walletID.m_Channel = 0U;
     a.m_label = "test label";
     a.m_category = "test category";
     a.m_createTime = beam::getTimestamp();
@@ -563,11 +563,11 @@ void TestAddresses()
 
 vector<Coin::ID> ExtractIDs(const vector<Coin>& src)
 {
-	vector<Coin::ID> res;
-	res.reserve(src.size());
-	for (const Coin& c : src)
-		res.push_back(c.m_ID);
-	return res;
+    vector<Coin::ID> res;
+    res.reserve(src.size());
+    for (const Coin& c : src)
+        res.push_back(c.m_ID);
+    return res;
 }
 
 void TestSelect()
@@ -761,10 +761,10 @@ void TestTxParameters()
     Amount amount = 0;
     WALLET_CHECK(!wallet::getTxParameter(db, txID, TxParameterID::Amount, amount));
     WALLET_CHECK(amount == 0);
-    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::Amount, 8765));
+    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::Amount, 8765, false));
     WALLET_CHECK(wallet::getTxParameter(db, txID, TxParameterID::Amount, amount));
     WALLET_CHECK(amount == 8765);
-    WALLET_CHECK(!wallet::setTxParameter(db, txID, TxParameterID::Amount, 786));
+    WALLET_CHECK(!wallet::setTxParameter(db, txID, TxParameterID::Amount, 786, false));
     WALLET_CHECK(wallet::getTxParameter(db, txID, TxParameterID::Amount, amount));
     WALLET_CHECK(amount == 8765);
 
@@ -772,24 +772,24 @@ void TestTxParameters()
     TxStatus status = TxStatus::Pending;
     WALLET_CHECK(!wallet::getTxParameter(db, txID, TxParameterID::Status, status));
     WALLET_CHECK(status == TxStatus::Pending);
-    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::Status, TxStatus::Completed));
+    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::Status, TxStatus::Completed, false));
     WALLET_CHECK(wallet::getTxParameter(db, txID, TxParameterID::Status, status));
     WALLET_CHECK(status == TxStatus::Completed);
-    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::Status, TxStatus::InProgress));
+    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::Status, TxStatus::InProgress, false));
     WALLET_CHECK(wallet::getTxParameter(db, txID, TxParameterID::Status, status));
     WALLET_CHECK(status == TxStatus::InProgress);
 
     // check different types
 
     ByteBuffer b = { 1, 2, 3 };
-    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::Status, b));
+    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::Status, b, false));
     ByteBuffer b2;
     WALLET_CHECK(wallet::getTxParameter(db, txID, TxParameterID::Status, b2));
     WALLET_CHECK(equal(b.begin(), b.end(), b2.begin(), b2.end()));
 
     ECC::Scalar::Native s, s2;
     s.GenerateNonceNnz(uintBig(123U), uintBig(321U), nullptr);
-    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::BlindingExcess, s));
+    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::BlindingExcess, s, false));
     WALLET_CHECK(wallet::getTxParameter(db, txID, TxParameterID::BlindingExcess, s2));
     WALLET_CHECK(s == s2);
 
@@ -798,7 +798,7 @@ void TestTxParameters()
     p.m_Y = 0;
     ECC::Point::Native pt, pt2;
     pt.Import(p);
-    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::PeerPublicNonce, pt));
+    WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::PeerPublicNonce, pt, false));
     WALLET_CHECK(wallet::getTxParameter(db, txID, TxParameterID::PeerPublicNonce, pt2));
     WALLET_CHECK(p == pt2);
 }
