@@ -448,7 +448,7 @@ Item {
                             color: Style.white
                             text: viewModel.receiverAddr
 
-                            validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,64}/ }
+                            validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,80}/ }
                             selectByMouse: true
 
                             placeholderText: qsTr("Please specify contact")

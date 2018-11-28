@@ -203,7 +203,7 @@ namespace beam { namespace wallet
         msg.m_txId = GetTxID();
         msg.m_Type = GetType();
         
-        WalletID peerID = {0};
+        WalletID peerID;
         if (GetParameter(TxParameterID::MyID, msg.m_from) 
             && GetParameter(TxParameterID::PeerID, peerID))
         {

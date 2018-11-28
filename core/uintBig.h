@@ -38,6 +38,7 @@ namespace beam
 		static void _Mul(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
 		static int _Cmp(const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
 		static void _Print(const uint8_t* pDst, uint32_t nDst, std::ostream&);
+		static void _Print(const uint8_t* pDst, uint32_t nDst, char*);
 
 		static uint32_t _GetOrder(const uint8_t* pDst, uint32_t nDst);
 		static bool _Accept(uint8_t* pDst, const uint8_t* pThr, uint32_t nDst, uint32_t nThrOrder);
@@ -132,9 +133,9 @@ namespace beam
 			_Assign(m_pData, nBytes, v.begin(), static_cast<uint32_t>(v.size()));
         }
 
-		uintBig_t(const std::vector<uint8_t>& v)
+		uintBig_t(const Blob& v)
 		{
-			_Assign(m_pData, nBytes, v.empty() ? NULL : &v.at(0), static_cast<uint32_t>(v.size()));
+			operator = (v);
 		}
 
 		template <typename T>
@@ -156,6 +157,12 @@ namespace beam
 		uintBig_t& operator = (const uintBig_t<nBitsOther_>& v)
 		{
 			_Assign(m_pData, nBytes, v.m_pData, v.nBytes);
+			return *this;
+		}
+
+		uintBig_t& operator = (const Blob& v)
+		{
+			_Assign(m_pData, nBytes, static_cast<const uint8_t*>(v.p), v.n);
 			return *this;
 		}
 
@@ -276,6 +283,13 @@ namespace beam
 		};
 
 		COMPARISON_VIA_CMP
+
+		static const uint32_t nTxtLen = nBytes * 2; // not including 0-term
+
+		void Print(char* sz) const
+		{
+			_Print(m_pData, nBytes, sz);
+		}
 
 		friend std::ostream& operator << (std::ostream& s, const uintBig_t& x)
 		{

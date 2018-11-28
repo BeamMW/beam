@@ -388,7 +388,7 @@ void Node::Processor::OnNewState()
 	if (!m_Cursor.m_Sid.m_Row)
 		return;
 
-	LOG_INFO() << "My Tip: " << m_Cursor.m_ID;
+	LOG_INFO() << "My Tip: " << m_Cursor.m_ID << ", Work = " << Difficulty::ToFloat(m_Cursor.m_Full.m_ChainWork);
 
 	get_ParentObj().m_TxPool.DeleteOutOfBound(m_Cursor.m_Sid.m_Height + 1);
 
@@ -1679,7 +1679,7 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 
 		s.NextPrefix();
 		Cast::Down<Block::SystemState::Sequence::Element>(s) = msg.m_vElements[i - 1];
-		s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+		s.m_ChainWork += s.m_PoW.m_Difficulty;
 	}
 
 	// just to be pedantic

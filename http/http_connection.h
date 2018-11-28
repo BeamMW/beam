@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #pragma once
-#include "base_connection.h"
+#include "utility/io/base_connection.h"
 #include "http_msg_reader.h"
 
 namespace beam {

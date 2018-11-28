@@ -672,6 +672,7 @@ namespace proto {
 		macro(Kernel,		GetProofKernel,		ProofKernel) \
 		macro(UtxoEvents,	GetUtxoEvents,		UtxoEvents) \
 		macro(Transaction,	NewTransaction,		Boolean) \
+		macro(BbsChannel,	BbsPickChannel,		BbsPickChannelRes) \
 		macro(BbsMsg,		BbsMsg,				Pong)
 
 		class Request
@@ -706,7 +707,7 @@ namespace proto {
 #define THE_MACRO(type, msgOut, msgIn) \
 		struct Request##type :public Request { \
 			typedef boost::intrusive_ptr<Request##type> Ptr; \
-			Request##type() :m_Res(Zero) {} \
+			Request##type() :m_Msg(Zero), m_Res(Zero) {} \
 			virtual ~Request##type() {} \
 			virtual Type get_Type() const { return Type::type; } \
 			proto::msgOut m_Msg; \

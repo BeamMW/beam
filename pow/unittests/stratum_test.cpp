@@ -14,7 +14,7 @@
 
 #include "pow/stratum.h"
 #include "core/ecc.h"
-#include "p2p/json_serializer.h"
+#include "utility/io/json_serializer.h"
 #include "p2p/line_protocol.h"
 #include "utility/helpers.h"
 #include "utility/logger.h"

@@ -49,15 +49,19 @@ namespace beam
 		bool IsTargetReached(const ECC::uintBig&) const;
 
 		void Unpack(Raw&) const;
-		void Inc(Raw&) const;
-		void Inc(Raw&, const Raw& base) const;
-		void Dec(Raw&, const Raw& base) const;
-
 
 		void Unpack(uint32_t& order, uint32_t& mantissa) const;
 		void Pack(uint32_t order, uint32_t mantissa);
 
 		void Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange);
+
+		friend Raw operator + (const Raw&, const Difficulty&);
+		friend Raw operator - (const Raw&, const Difficulty&);
+		friend Raw& operator += (Raw&, const Difficulty&);
+		friend Raw& operator -= (Raw&, const Difficulty&);
+
+		double ToFloat() const;
+		static double ToFloat(Raw&);
 
 	private:
 		static void Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange, uint32_t& order, uint32_t& mantissa);
@@ -531,7 +535,7 @@ namespace beam
 		{
 			AmountBig m_Subsidy; // the overall amount created by the block
 								 // For standard blocks this should be equal to the coinbase emission.
-								 // Genesis block(s) may have higher emission (aka premined)
+								 // Genesis block(s) may have higher emission
 
 			bool m_SubsidyClosing; // Last block that contains arbitrary subsidy.
 

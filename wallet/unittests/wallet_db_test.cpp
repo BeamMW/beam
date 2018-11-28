@@ -204,8 +204,10 @@ void TestStoreTxRecord()
     TxDescription tr;
     tr.m_txId = id;
     tr.m_amount = 34;
-    tr.m_peerId = unsigned(23);
-    tr.m_myId = unsigned(42);
+    tr.m_peerId.m_Pk = unsigned(23);
+	tr.m_peerId.m_Channel = 0U;
+    tr.m_myId.m_Pk = unsigned(42);
+	tr.m_myId.m_Channel = 0U;
     tr.m_createTime = 123456;
     tr.m_minHeight = 134;
     tr.m_sender = true;
@@ -488,7 +490,8 @@ void TestPeers()
     auto peers = db->getPeers();
     WALLET_CHECK(peers.empty());
     TxPeer peer = {};
-    peer.m_walletID = unsigned(1234567890);
+    peer.m_walletID.m_Pk = unsigned(1234567890);
+	peer.m_walletID.m_Channel = 0U;
     peer.m_label = u8"test peer";
     auto p = db->getPeer(peer.m_walletID);
     WALLET_CHECK(p.is_initialized() == false);
@@ -516,7 +519,8 @@ void TestAddresses()
     WALLET_CHECK(addresses.empty());
 
     WalletAddress a = {};
-    a.m_walletID = unsigned(9876543);
+    a.m_walletID.m_Pk = unsigned(9876543);
+	a.m_walletID.m_Channel = 0U;
     a.m_label = "test label";
     a.m_category = "test category";
     a.m_createTime = beam::getTimestamp();

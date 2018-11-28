@@ -30,6 +30,12 @@ namespace beam {
 
 		char sz[nDigitsMax * 2 + 1];
 
+		_Print(pDst, nDst, sz);
+		s << sz;
+	}
+
+	void uintBigImpl::_Print(const uint8_t* pDst, uint32_t nDst, char* sz)
+	{
 		for (uint32_t i = 0; i < nDst; i++)
 		{
 			sz[i * 2] = ChFromHex(pDst[i] >> 4);
@@ -37,7 +43,6 @@ namespace beam {
 		}
 
 		sz[nDst << 1] = 0;
-		s << sz;
 	}
 
 	void uintBigImpl::_Assign(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc)

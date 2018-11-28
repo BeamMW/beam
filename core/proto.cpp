@@ -1452,7 +1452,7 @@ void FlyClient::NetworkStd::Connection::StateArray::Unpack(const Block::ChainWor
 		sLast = m_vec[m_vec.size() - 2];
 		sLast.NextPrefix();
 		Cast::Down<Block::SystemState::Sequence::Element>(sLast) = proof.m_Heading.m_vElements[i];
-		sLast.m_PoW.m_Difficulty.Inc(sLast.m_ChainWork);
+		sLast.m_ChainWork += sLast.m_PoW.m_Difficulty;
 	}
 }
 
@@ -1766,6 +1766,15 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestTransaction& req)
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestTransaction& req)
+{
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsChannel& req)
+{
+	return 0 != (LoginFlags::Bbs & m_LoginFlags);
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestBbsChannel& req)
 {
 }
 
