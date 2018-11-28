@@ -310,7 +310,7 @@ struct TestWalletRig
 		m_NodeNetwork.m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
 		m_NodeNetwork.Connect();
 
-		m_WalletNetworkViaBbs.new_own_address(wa.m_OwnID, m_WalletID);
+		m_WalletNetworkViaBbs.AddOwnAddress(wa.m_OwnID, m_WalletID);
     }
 
     vector<Coin> GetCoins()

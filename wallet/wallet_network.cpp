@@ -49,7 +49,7 @@ namespace beam {
 			if (address.isExpired())
 				m_WalletDB->deleteAddress(address.m_walletID);
 			else
-				new_own_address(address.m_OwnID, address.m_walletID);
+				AddOwnAddress(address.m_OwnID, address.m_walletID);
 	}
 
 	WalletNetworkViaBbs::~WalletNetworkViaBbs()
@@ -127,12 +127,12 @@ namespace beam {
 		return ret;
 	}
 
-	void WalletNetworkViaBbs::new_own_address(uint64_t ownID, const WalletID& walletID)
+	void WalletNetworkViaBbs::AddOwnAddress(uint64_t ownID, const WalletID& walletID)
 	{
-		new_own_address(ownID, channel_from_wallet_id(walletID));
+		AddOwnAddress(ownID, channel_from_wallet_id(walletID));
 	}
 
-	void WalletNetworkViaBbs::new_own_address(uint64_t ownID, BbsChannel nChannel)
+	void WalletNetworkViaBbs::AddOwnAddress(uint64_t ownID, BbsChannel nChannel)
 	{
 		Addr::Wid key;
 		key.m_OwnID = ownID;
@@ -167,7 +167,7 @@ namespace beam {
 		}
 	}
 
-	void WalletNetworkViaBbs::address_deleted(uint64_t ownID)
+	void WalletNetworkViaBbs::DeleteOwnAddress(uint64_t ownID)
 	{
 		Addr::Wid key;
 		key.m_OwnID = ownID;
