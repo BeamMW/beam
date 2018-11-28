@@ -65,7 +65,7 @@ public:
 
     ~SSLIO();
 
-    /// Encrypted data received from stream
+    /// Encrypted data received from stream. Returns whether to proceed
     Result on_encrypted_data_from_stream(const void* data, size_t size);
 
     void enqueue(const SharedBuffer& buf);
@@ -73,6 +73,7 @@ public:
     Result flush();
 
     void shutdown();
+
 private:
     Result do_handshake();
 

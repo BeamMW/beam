@@ -270,6 +270,6 @@ int main() {
     int r = http_server_test(true);
 
     // TODO some misbehavior appeared under windows, to be investigated
-    //r += http_server_test(false);
+    r += http_server_test(false);
     return r;
 }
