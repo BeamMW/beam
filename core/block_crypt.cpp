@@ -405,6 +405,15 @@ namespace beam
 		return 0;
 	}
 
+	void TxKernel::Sign(const ECC::Scalar::Native& sk)
+	{
+		m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
+
+		ECC::Hash::Value hv;
+		get_Hash(hv);
+		m_Signature.Sign(hv, sk);
+	}
+
 	void TxKernel::operator = (const TxKernel& v)
 	{
 		Cast::Down<TxElement>(*this) = v;
@@ -1092,16 +1101,11 @@ namespace beam
 
 		m_Offset += sk;
 
-		kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel2));
-
 		pKrn.reset(new TxKernel);
-		pKrn->m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
 		pKrn->m_Height.m_Min = h; // make it similar to others
 
-		ECC::Hash::Value hv;
-		pKrn->get_Hash(hv);
-		pKrn->m_Signature.Sign(hv, sk);
-
+		kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel2));
+		pKrn->Sign(sk);
 		m_Offset += sk;
 	}
 

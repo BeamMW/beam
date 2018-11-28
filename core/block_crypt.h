@@ -270,6 +270,7 @@ namespace beam
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
 		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
+		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
 
 		struct LongProof; // legacy
 
@@ -653,6 +654,8 @@ namespace beam
 		bool m_bBlockMode; // in 'block' mode the hMin/hMax on input denote the range of heights. Each element is verified wrt it independently.
 		// i.e. different elements may have non-overlapping valid range, and it's valid.
 		// Suitable for merged block validation
+
+		bool m_bVerifyOrder; // check the correct order, as well as elimination of spent outputs. On by default. Turned Off only for specific internal validations (such as treasury).
 
 		// for multi-tasking, parallel verification
 		uint32_t m_nVerifiers;

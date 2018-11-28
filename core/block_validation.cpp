@@ -26,6 +26,7 @@ namespace beam
 		ZeroObject(m_Coinbase);
 		m_Height.Reset();
 		m_bBlockMode = false;
+		m_bVerifyOrder = true;
 		m_nVerifiers = 1;
 		m_iVerifier = 0;
 		m_pAbort = NULL;
@@ -96,18 +97,21 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (pPrev && (*pPrev > *r.m_pUtxoIn))
-					return false;
-
-				// make sure no redundant outputs
-				for (; r.m_pUtxoOut; r.NextUtxoOut())
+				if (m_bVerifyOrder)
 				{
-					int n = CmpInOut(*r.m_pUtxoIn, *r.m_pUtxoOut);
-					if (n < 0)
-						break;
+					if (pPrev && (*pPrev > *r.m_pUtxoIn))
+						return false;
 
-					if (!n)
-						return false; // duplicate!
+					// make sure no redundant outputs
+					for (; r.m_pUtxoOut; r.NextUtxoOut())
+					{
+						int n = CmpInOut(*r.m_pUtxoIn, *r.m_pUtxoOut);
+						if (n < 0)
+							break;
+
+						if (!n)
+							return false; // duplicate!
+					}
 				}
 
 				if (!pt.Import(r.m_pUtxoIn->m_Commitment))
@@ -129,7 +133,7 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (pPrev && (*pPrev > *r.m_pUtxoOut))
+				if (m_bVerifyOrder && pPrev && (*pPrev > *r.m_pUtxoOut))
 					return false;
 
 				if (!r.m_pUtxoOut->IsValid(pt))
@@ -155,7 +159,7 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (pPrev && (*pPrev > *r.m_pKernel))
+				if (m_bVerifyOrder && pPrev && (*pPrev > *r.m_pKernel))
 					return false;
 
 				if (!r.m_pKernel->IsValid(m_Fee, m_Sigma))
