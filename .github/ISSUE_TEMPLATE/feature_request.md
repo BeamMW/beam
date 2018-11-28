@@ -5,7 +5,7 @@ about: Suggest an idea for this project
 ---
 
 **Feature title**
-Express the feature in a single and concise sentence
+Express the feature in a single concise sentence
 
 **Describe the current situation we have**
 Please bring in the relevant context: what are you suggesting to achieve vs what the current situation is. 
