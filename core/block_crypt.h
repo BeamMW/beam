@@ -535,7 +535,7 @@ namespace beam
 		{
 			AmountBig m_Subsidy; // the overall amount created by the block
 								 // For standard blocks this should be equal to the coinbase emission.
-								 // Genesis block(s) may have higher emission (aka premined)
+								 // Genesis block(s) may have higher emission
 
 			bool m_SubsidyClosing; // Last block that contains arbitrary subsidy.
 
