@@ -17,7 +17,7 @@
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_transaction.h"
 #include <deque>
-#include "core/proto.h"
+#include "core/fly_client.h"
 
 namespace beam
 {

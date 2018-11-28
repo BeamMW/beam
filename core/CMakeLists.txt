@@ -12,6 +12,7 @@ set(CORE_SRC
     merkle.cpp
     proto.cpp
     peer_manager.cpp
+    fly_client.cpp
 # ~etc
 )
 
