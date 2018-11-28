@@ -1452,7 +1452,7 @@ void FlyClient::NetworkStd::Connection::StateArray::Unpack(const Block::ChainWor
 		sLast = m_vec[m_vec.size() - 2];
 		sLast.NextPrefix();
 		Cast::Down<Block::SystemState::Sequence::Element>(sLast) = proof.m_Heading.m_vElements[i];
-		sLast.m_PoW.m_Difficulty.Inc(sLast.m_ChainWork);
+		sLast.m_ChainWork += sLast.m_PoW.m_Difficulty;
 	}
 }
 

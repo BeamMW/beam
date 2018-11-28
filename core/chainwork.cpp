@@ -80,7 +80,7 @@ namespace beam
 			m_Oracle << hv;
 
 			m_End = sTip.m_ChainWork;
-			sTip.m_PoW.m_Difficulty.Dec(m_Begin, sTip.m_ChainWork);
+			m_Begin = sTip.m_ChainWork - sTip.m_PoW.m_Difficulty;
 		}
 
 		static void TakeFraction(Difficulty::Raw& v)
@@ -181,7 +181,7 @@ namespace beam
 			if (bJump || !m_vArbitraryStates.empty())
 				m_vArbitraryStates.push_back(s);
 
-			s.m_PoW.m_Difficulty.Dec(d, s.m_ChainWork);
+			d = s.m_ChainWork - s.m_PoW.m_Difficulty;
 
 			if (samp.m_Begin > d)
 				samp.m_Begin = d;
@@ -233,7 +233,7 @@ namespace beam
 			{
 				s.NextPrefix();
 				Cast::Down<SystemState::Sequence::Element>(s) = src.m_Heading.m_vElements[--i];
-				s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+				s.m_ChainWork += s.m_PoW.m_Difficulty;
 			}
 
 			m_Heading.m_Prefix = s;
@@ -277,7 +277,7 @@ namespace beam
 
 			s.NextPrefix();
 			Cast::Down<SystemState::Sequence::Element>(s) = m_Heading.m_vElements[i];
-			s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+			s.m_ChainWork += s.m_PoW.m_Difficulty;
 		}
 
 		for (size_t i = 0; i < m_vArbitraryStates.size(); i++)
@@ -314,8 +314,7 @@ namespace beam
 		if (pTip)
 			*pTip = s;
 
-		Difficulty::Raw dLoPrev;
-		s.m_PoW.m_Difficulty.Dec(dLoPrev, s.m_ChainWork);
+		Difficulty::Raw dLoPrev = s.m_ChainWork - s.m_PoW.m_Difficulty;
 
 		for (iState = 1; ; iState++)
 		{
@@ -345,8 +344,7 @@ namespace beam
 			if (dSamp >= s.m_ChainWork)
 				return false;
 
-			Difficulty::Raw dLo;
-			s.m_PoW.m_Difficulty.Dec(dLo, s.m_ChainWork);
+			Difficulty::Raw dLo = s.m_ChainWork - s.m_PoW.m_Difficulty;
 
 			if (dSamp < dLo)
 				return false;

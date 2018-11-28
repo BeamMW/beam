@@ -1053,6 +1053,21 @@ void TestDifficulty()
 		if (!d.m_Packed)
 			break;
 	}
+
+	d = 0;
+	verify_test(d.ToFloat() == 1.);
+	r1 = Zero;
+	verify_test(Difficulty::ToFloat(r1) == 0.);
+
+	d.m_Packed = 8 << Difficulty::s_MantissaBits;
+	verify_test(d.ToFloat() == 256.);
+	d.Unpack(r1);
+	verify_test(Difficulty::ToFloat(r1) == 256.);
+
+	d.m_Packed |= 0xffffff;
+	verify_test(d.ToFloat() < 512.);
+	d.Unpack(r1);
+	verify_test(Difficulty::ToFloat(r1) < 512.);
 }
 
 void TestRandom()
