@@ -200,11 +200,11 @@ namespace beam { namespace wallet
 
     bool BaseTransaction::SendTxParameters(SetTxParameter&& msg) const
     {
-        msg.m_txId = GetTxID();
+        msg.m_TxID = GetTxID();
         msg.m_Type = GetType();
         
         WalletID peerID;
-        if (GetParameter(TxParameterID::MyID, msg.m_from) 
+        if (GetParameter(TxParameterID::MyID, msg.m_From) 
             && GetParameter(TxParameterID::PeerID, peerID))
         {
             m_Gateway.send_tx_params(peerID, move(msg));

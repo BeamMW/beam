@@ -354,7 +354,7 @@ namespace beam
         }
         if (txChanged)
         {
-            updateTransaction(msg.m_txId);
+            updateTransaction(msg.m_TxID);
         }
     }
 
@@ -796,29 +796,29 @@ namespace beam
 
     wallet::BaseTransaction::Ptr Wallet::getTransaction(const WalletID& myID, const wallet::SetTxParameter& msg)
     {
-        auto it = m_transactions.find(msg.m_txId);
+        auto it = m_transactions.find(msg.m_TxID);
         if (it != m_transactions.end())
         {
             if (it->second->GetType() != msg.m_Type)
             {
-                LOG_WARNING() << msg.m_txId << " Parameters for invalid tx type";
+                LOG_WARNING() << msg.m_TxID << " Parameters for invalid tx type";
             }
             return it->second;
         }
 
         TxType type = TxType::Simple;
-        if (wallet::getTxParameter(m_WalletDB, msg.m_txId, TxParameterID::TransactionType, type))
+        if (wallet::getTxParameter(m_WalletDB, msg.m_TxID, TxParameterID::TransactionType, type))
         {
             // we return only active transactions
             return BaseTransaction::Ptr();
         }
 
-        auto t = constructTransaction(msg.m_txId, msg.m_Type);
+        auto t = constructTransaction(msg.m_TxID, msg.m_Type);
 
         t->SetParameter(TxParameterID::TransactionType, msg.m_Type);
         t->SetParameter(TxParameterID::CreateTime, getTimestamp());
         t->SetParameter(TxParameterID::MyID, myID);
-        t->SetParameter(TxParameterID::PeerID, msg.m_from);
+        t->SetParameter(TxParameterID::PeerID, msg.m_From);
         t->SetParameter(TxParameterID::IsInitiator, false);
         t->SetParameter(TxParameterID::Status, TxStatus::Pending);
 
@@ -829,7 +829,7 @@ namespace beam
             t->SetParameter(TxParameterID::Message, message);
         }
 
-        m_transactions.emplace(msg.m_txId, t);
+        m_transactions.emplace(msg.m_TxID, t);
         return t;
     }
 

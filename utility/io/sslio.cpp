@@ -237,7 +237,8 @@ Result SSLIO::on_encrypted_data_from_stream(const void *data, size_t size) {
             r = SSL_read(_ssl, buf, (int) _fragmentSize);
             if (r > 0) {
                 if (!_onDecryptedData(buf, (size_t) r)) {
-                    return make_unexpected(EC_EOF);
+                    // at this time, the object may be deleted
+                    return make_unexpected(EC_ENOTCONN);
                 }
             }
         } while (r > 0);

@@ -493,7 +493,7 @@ void WalletModel::createNewAddress(WalletAddress&& address, bool bOwn)
         auto s = _wnet.lock();
         if (s)
         {
-            static_pointer_cast<WalletNetworkViaBbs>(s)->new_own_address(address.m_OwnID, address.m_walletID);
+            static_pointer_cast<WalletNetworkViaBbs>(s)->AddOwnAddress(address.m_OwnID, address.m_walletID);
         }
     }
 }
@@ -542,7 +542,7 @@ void WalletModel::deleteOwnAddress(const beam::WalletID& id)
 				auto s = _wnet.lock();
 				if (s)
 				{
-					static_pointer_cast<WalletNetworkViaBbs>(s)->address_deleted(pVal->m_OwnID);
+					static_pointer_cast<WalletNetworkViaBbs>(s)->DeleteOwnAddress(pVal->m_OwnID);
 				}
 			}
 			_walletDB->deleteAddress(id);

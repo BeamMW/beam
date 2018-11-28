@@ -156,7 +156,6 @@ namespace beam
         ByteBuffer toByteBuffer(const ECC::Point::Native& value);
         ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
 
-        const uint32_t MaxSignatures = 10;
         enum class TxParameterID : uint8_t
         {
             // public parameters
@@ -218,11 +217,11 @@ namespace beam
             ModifyTime = 128,
             KernelProofHeight = 129,
 
-            BlindingExcess = 130, // + MaxSignatures,
+            BlindingExcess = 130,
             SharedBlindingExcess = 131,
             LockedBlindingExcess = 132,
 
-            Offset = 140, // + MaxSignatures reserved
+            Offset = 140,
             SharedOffset = 141,
             LockedOffset = 142,
 
@@ -259,8 +258,8 @@ namespace beam
         // messages
         struct SetTxParameter
         {
-            WalletID m_from;
-            TxID m_txId;
+            WalletID m_From;
+            TxID m_TxID;
 
             TxType m_Type;
 
@@ -273,7 +272,7 @@ namespace beam
                 return *this;
             }
 
-            SERIALIZE(m_from, m_txId, m_Type, m_Parameters);
+            SERIALIZE(m_From, m_TxID, m_Type, m_Parameters);
             static const size_t MaxParams = 20;
         };
 
