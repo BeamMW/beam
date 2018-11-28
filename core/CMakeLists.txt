@@ -13,6 +13,7 @@ set(CORE_SRC
     proto.cpp
     peer_manager.cpp
     fly_client.cpp
+    treasury.cpp
 # ~etc
 )
 
