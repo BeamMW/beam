@@ -3442,7 +3442,7 @@ void Node::PeerMan::DeactivatePeer(PeerInfo& pi)
 	pip.m_pLive->DeleteSelf(false, proto::NodeConnection::ByeReason::Other);
 }
 
-proto::PeerManager::PeerInfo* Node::PeerMan::AllocPeer()
+PeerManager::PeerInfo* Node::PeerMan::AllocPeer()
 {
 	PeerInfoPlus* p = new PeerInfoPlus;
 	p->m_pLive = NULL;

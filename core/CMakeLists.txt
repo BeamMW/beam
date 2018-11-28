@@ -11,6 +11,7 @@ set(CORE_SRC
     radixtree.cpp
     merkle.cpp
     proto.cpp
+    peer_manager.cpp
 # ~etc
 )
 
