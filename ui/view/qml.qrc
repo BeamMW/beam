@@ -112,5 +112,7 @@
         <file>assets/icon-sort.svg</file>
         <file>controls/CustomProgressBar.qml</file>
         <file>controls/LogoComponent.qml</file>
+        <file>controls/AddressTable.qml</file>
+        <file>assets/icon-transactions.svg</file>
     </qresource>
 </RCC>

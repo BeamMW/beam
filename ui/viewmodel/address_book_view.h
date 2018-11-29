@@ -21,99 +21,85 @@
 #include "wallet/wallet_db.h"
 #include "model/wallet_model.h"
 
-class PeerAddressItem : public QObject
+class AddressItem : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QString walletID      READ getWalletID   WRITE setWalletID NOTIFY onWalletIDChanged)
-    Q_PROPERTY(QString name          READ getName       WRITE setName     NOTIFY onNameChanged)
-    Q_PROPERTY(QString category      READ getCategory   WRITE setCategory NOTIFY onCategoryChanged)
+    Q_PROPERTY(QString address          READ getAddress         CONSTANT)
+    Q_PROPERTY(QString name             READ getName            CONSTANT)
+    Q_PROPERTY(QString category         READ getCategory        CONSTANT)
+    Q_PROPERTY(QString expirationDate   READ getExpirationDate  CONSTANT)
+    Q_PROPERTY(QString createDate       READ getCreateDate      CONSTANT)
+
 public:
-	PeerAddressItem();
-    PeerAddressItem(const beam::WalletAddress&);
-    virtual ~PeerAddressItem()
-    {
 
-    };
+    AddressItem() = default;
+    AddressItem(const beam::WalletAddress&);
 
-	QString getWalletID() const;
-	void setWalletID(const QString& value);
+    QString getAddress() const;
     QString getName() const;
-    void setName(const QString& value);
     QString getCategory() const;
-    void setCategory(const QString& value);
-
-	virtual void clean();
-
-signals:
-    void onWalletIDChanged();
-    void onNameChanged();
-    void onCategoryChanged();
-
-private:
-    QString m_walletID;
-    QString m_name;
-    QString m_category;
-};
-
-class OwnAddressItem : public PeerAddressItem
-{
-    Q_OBJECT
-    Q_PROPERTY(QString expirationDate      READ getExpirationDate         NOTIFY onDateChanged)
-    Q_PROPERTY(QString createDate          READ getCreateDate             NOTIFY onDateChanged)
-public:
-	OwnAddressItem();
-    OwnAddressItem(const beam::WalletAddress&);
-	void setExpirationDate(const QString&);
-	void setCreateDate(const QString&);
     QString getExpirationDate() const;
     QString getCreateDate() const;
 
-	void clean() override;
+    bool isExpired() const;
 
-signals:
-    void onDateChanged();
 private:
-    QString m_expirationDate;
+    QString m_address;
+    QString m_name;
+    QString m_category;
     QString m_createDate;
+    beam::Timestamp m_expirationDate;
+};
+
+class ContactItem : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(QString contact       READ getContact    CONSTANT)
+    Q_PROPERTY(QString name          READ getName       CONSTANT)
+    Q_PROPERTY(QString category      READ getCategory   CONSTANT)
+
+public:
+    ContactItem() = default;
+    ContactItem(const beam::WalletAddress&);
+
+    QString getContact() const;
+    QString getName() const;
+    QString getCategory() const;
+
+private:
+    QString m_contact;
+    QString m_name;
+    QString m_category;
 };
 
 class AddressBookViewModel : public QObject
 {
     Q_OBJECT
-
-    Q_PROPERTY(QQmlListProperty<PeerAddressItem> peerAddresses   READ getPeerAddresses   NOTIFY addressesChanged)
-    Q_PROPERTY(QQmlListProperty<OwnAddressItem>  ownAddresses    READ getOwnAddresses    NOTIFY addressesChanged)
-
-	Q_PROPERTY(PeerAddressItem*                  newPeerAddress  READ getNewPeerAddress  CONSTANT)
-	Q_PROPERTY(OwnAddressItem*                   newOwnAddress   READ getNewOwnAddress   CONSTANT)
+    Q_PROPERTY(QQmlListProperty<ContactItem> contacts   READ getContacts   NOTIFY contactsChanged)
+    Q_PROPERTY(QQmlListProperty<AddressItem> activeAddresses   READ getActiveAddresses   NOTIFY activeAddressesChanged)
+    Q_PROPERTY(QQmlListProperty<AddressItem> expiredAddresses   READ getExpiredAddresses   NOTIFY expiredAddressesChanged)
 
 public:
 
-	Q_INVOKABLE void createNewPeerAddress();
-	Q_INVOKABLE void createNewOwnAddress();
-	Q_INVOKABLE void changeCurrentPeerAddress(int index);
-    Q_INVOKABLE void deletePeerAddress(int index);
-    Q_INVOKABLE void deleteOwnAddress(int index);
+	Q_INVOKABLE void deleteAddress(const QString& addr);
     Q_INVOKABLE void copyToClipboard(const QString& text);
-
-	Q_INVOKABLE void generateNewEmptyAddress();
 
 public:
 
     AddressBookViewModel();
 
-	QQmlListProperty<PeerAddressItem> getPeerAddresses();
-	QQmlListProperty<OwnAddressItem> getOwnAddresses();
-	PeerAddressItem* getNewPeerAddress();
-	OwnAddressItem* getNewOwnAddress();
+    QQmlListProperty<ContactItem> getContacts();
+    QQmlListProperty<AddressItem> getActiveAddresses();
+    QQmlListProperty<AddressItem> getExpiredAddresses();
 
 public slots:
     void onStatus(const WalletStatus& amount);
     void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
-	void onGeneratedNewWalletID(const beam::WalletID& walletID);
 
 signals:
-    void addressesChanged();
+    void contactsChanged();
+    void activeAddressesChanged();
+    void expiredAddressesChanged();
 
 private:
 
@@ -121,9 +107,7 @@ private:
 
 private:
     WalletModel& m_model;
-    QList<PeerAddressItem*> m_peerAddresses;
-    QList<OwnAddressItem*> m_ownAddresses;
-
-	OwnAddressItem m_newOwnAddress;
-	PeerAddressItem m_newPeerAddress;
+    QList<ContactItem*> m_contacts;
+    QList<AddressItem*> m_activeAddresses;
+    QList<AddressItem*> m_expiredAddresses;
 };

@@ -987,7 +987,7 @@ Item {
 
             id: transactionsView
 
-            anchors.fill: parent;
+            anchors.fill: parent
             anchors.topMargin: 394-33
             Layout.bottomMargin: 9
 
