@@ -74,7 +74,6 @@ CustomTableView {
     }
 
     TableViewColumn {
-        //role: "status"
         title: ""
         width: 40
         movable: false
@@ -94,18 +93,6 @@ CustomTableView {
 
             color: styleData.selected ? Style.bright_sky_blue : Style.light_navy
             visible: styleData.selected ? true : styleData.alternate
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            acceptedButtons: Qt.RightButton
-            onClicked: {
-                /*if (mouse.button === Qt.RightButton && styleData.row !== undefined)
-                {
-                    peerAddressContextMenu.index = styleData.row;
-                    peerAddressContextMenu.popup();
-                }*/
-            }
         }
     }
 
@@ -130,8 +117,8 @@ CustomTableView {
                         icon.source: "qrc:/assets/icon-actions.svg"
                         ToolTip.text: qsTr("Actions")
                         onClicked: {
-                            /*txContextMenu.transaction = viewModel.transactions[styleData.row];
-                            txContextMenu.popup();*/
+                            contextMenu.address = rootControl.model[styleData.row].address;
+                            contextMenu.popup();
                         }
                     }
                 }
@@ -140,34 +127,24 @@ CustomTableView {
     }
 
     ContextMenu {
-        id: txContextMenu
+        id: contextMenu
         modal: true
         dim: false
-        //property TxObject transaction
+        property string address
         Action {
             text: qsTr("transactions list")
             icon.source: "qrc:/assets/icon-transactions.svg"
             onTriggered: {
-                /*if (!!txContextMenu.transaction)
-                {
-                    viewModel.copyToClipboard(txContextMenu.transaction.user);
-                }*/
+                // go to list transaction (wallet page)
+                main.updateItem(0)
             }
         }
         Action {
             text: qsTr("delete")
             icon.source: "qrc:/assets/icon-delete.svg"
-            enabled: !!txContextMenu.transaction && txContextMenu.transaction.canDelete
             onTriggered: {
-                /*deleteTransactionDialog.text = qsTr("The transaction will be deleted. This operation can not be undone");
-                deleteTransactionDialog.open();*/
+                viewModel.deleteAddress(contextMenu.address);
             }
         }
-        /*Connections {
-            target: deleteTransactionDialog
-            onAccepted: {
-                viewModel.deleteTx(txContextMenu.transaction);
-            }
-        }*/
     }
 }

@@ -112,9 +112,12 @@ QQmlListProperty<AddressItem> AddressBookViewModel::getExpiredAddresses()
     return QQmlListProperty<AddressItem>(this, m_expiredAddresses);
 }
 
-void AddressBookViewModel::deleteAddress(const QString& /*addr*/)
+void AddressBookViewModel::deleteAddress(const QString& addr)
 {
+    WalletID walletID;
+    walletID.FromHex(addr.toStdString());
 
+    m_model.getAsync()->deleteAddress(walletID);
 }
 
 void AddressBookViewModel::copyToClipboard(const QString& text)

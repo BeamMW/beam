@@ -156,14 +156,6 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
-    void deleteOwnAddress(const beam::WalletID& id) override
-    {
-        tx.send([id](BridgeInterface& receiver_) mutable
-        {
-            receiver_.deleteOwnAddress(id);
-        });
-    }
-
     void setNodeAddress(const std::string& addr) override
     {
         tx.send([addr](BridgeInterface& receiver_) mutable
@@ -523,35 +515,22 @@ void WalletModel::deleteAddress(const beam::WalletID& id)
 {
     try
     {
-        _walletDB->deleteAddress(id);
+        auto pVal = _walletDB->getAddress(id);
+        if (pVal)
+        {
+            if (pVal->m_OwnID)
+            {
+                auto s = _wnet.lock();
+                if (s)
+                {
+                    static_pointer_cast<WalletNetworkViaBbs>(s)->address_deleted(pVal->m_OwnID);
+                }
+            }
+            _walletDB->deleteAddress(id);
+        }
     }
     catch (...)
     {
-    }
-}
-
-void WalletModel::deleteOwnAddress(const beam::WalletID& id)
-{
-    try
-    {
-		auto pVal = _walletDB->getAddress(id);
-		if (pVal)
-		{
-			if (pVal->m_OwnID)
-			{
-				auto s = _wnet.lock();
-				if (s)
-				{
-					static_pointer_cast<WalletNetworkViaBbs>(s)->address_deleted(pVal->m_OwnID);
-				}
-			}
-			_walletDB->deleteAddress(id);
-		}
-
-    }
-    catch (...)
-    {
-
     }
 }
 

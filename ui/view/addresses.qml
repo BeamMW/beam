@@ -146,18 +146,6 @@ ColumnLayout {
                     color: styleData.selected ? Style.bright_sky_blue : Style.light_navy
                     visible: styleData.selected ? true : styleData.alternate
                 }
-
-                MouseArea {
-                    anchors.fill: parent
-                    acceptedButtons: Qt.RightButton
-                    onClicked: {
-                        /*if (mouse.button === Qt.RightButton && styleData.row !== undefined)
-                        {
-                            peerAddressContextMenu.index = styleData.row;
-                            peerAddressContextMenu.popup();
-                        }*/
-                    }
-                }
             }
 
             itemDelegate: TableItem {
@@ -181,8 +169,8 @@ ColumnLayout {
                                 icon.source: "qrc:/assets/icon-actions.svg"
                                 ToolTip.text: qsTr("Actions")
                                 onClicked: {
-                                    /*txContextMenu.transaction = viewModel.transactions[styleData.row];
-                                    txContextMenu.popup();*/
+                                    //txContextMenu.transaction = viewModel.transactions[styleData.row];
+                                    txContextMenu.popup();
                                 }
                             }
                         }
