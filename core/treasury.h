@@ -100,15 +100,15 @@ namespace beam
 
 				struct Reader;
 
-				bool IsValid(const Request::Group&, ECC::Oracle& oracle) const;
-
-				void Create(const Request::Group&, ECC::Oracle& oracle, Key::IKdf&, uint64_t& nIndex);
+				bool IsValid(const Request::Group&) const;
+				void Create(const Request::Group&, Key::IKdf&, uint64_t& nIndex);
 			};
 
 			std::vector<Group> m_vGroups;
 
 			ECC::Signature m_Sig; // signs all the output commitments, with the key of WalletID
 
+			void HashOutputs(ECC::Hash::Value&) const;
 			bool Create(const Request&, Key::IKdf&, uint64_t& nIndex);
 			bool IsValid(const Request&) const;
 
@@ -157,6 +157,8 @@ namespace beam
 		{
 			ar & m_Entries;
 		}
+
+		class ThreadPool;
 
 	private:
 		static size_t get_OverheadFor(const AmountBig&);

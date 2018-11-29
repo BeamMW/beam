@@ -72,6 +72,59 @@ namespace beam
 		}
 	};
 
+	class Treasury::ThreadPool
+	{
+		std::vector<std::thread> m_vThreads;
+	public:
+
+		struct Context
+		{
+			virtual void Do(size_t iTask) = 0;
+
+			void DoRange(size_t i0, size_t i1)
+			{
+				for (; i0 < i1; i0++)
+					Do(i0);
+			}
+
+			void DoAll(size_t nTasks)
+			{
+				ThreadPool tp(*this, nTasks);
+			}
+		};
+
+		ThreadPool(Context& ctx, size_t nTasks)
+		{
+			size_t numCores = std::thread::hardware_concurrency();
+			if (!numCores)
+				numCores = 1; //?
+			if (numCores > nTasks)
+				numCores = nTasks;
+
+			m_vThreads.resize(numCores);
+			size_t iTask0 = 0;
+
+			for (size_t i = 0; i < m_vThreads.size(); i++)
+			{
+				size_t iTask1 = nTasks * (i + 1) / numCores;
+				assert(iTask1 > iTask0); // otherwise it means that redundant threads were created
+
+				m_vThreads[i] = std::thread(&Context::DoRange, &ctx, iTask0, iTask1);
+
+				iTask0 = iTask1;
+			}
+
+			assert(iTask0 == nTasks);
+		}
+
+		~ThreadPool()
+		{
+			for (size_t i = 0; i < m_vThreads.size(); i++)
+				if (m_vThreads[i].joinable())
+					m_vThreads[i].join();
+		}
+	};
+
 	void Treasury::Request::Group::AddSubsidy(AmountBig& res) const
 	{
 		for (size_t i = 0; i < m_vCoins.size(); i++)
@@ -93,7 +146,7 @@ namespace beam
 		proto::Sk2Pk(pid, sk);
 	}
 
-	void Treasury::Response::Group::Create(const Request::Group& g, Oracle& oracle, Key::IKdf& kdf, uint64_t& nIndex)
+	void Treasury::Response::Group::Create(const Request::Group& g, Key::IKdf& kdf, uint64_t& nIndex)
 	{
 		m_vCoins.resize(g.m_vCoins.size());
 
@@ -119,8 +172,6 @@ namespace beam
 			Hash::Value hv;
 			c.get_SigMsg(hv);
 			c.m_Sig.Sign(hv, sk);
-
-			oracle << c.m_pOutput->m_Commitment;
 		}
 
 		Key::ID kid;
@@ -137,7 +188,7 @@ namespace beam
 
 	}
 
-	bool Treasury::Response::Group::IsValid(const Request::Group& g, Oracle& oracle) const
+	bool Treasury::Response::Group::IsValid(const Request::Group& g) const
 	{
 		if (m_vCoins.size() != g.m_vCoins.size())
 			return false;
@@ -180,11 +231,21 @@ namespace beam
 			c.get_SigMsg(hv);
 			if (!c.m_Sig.IsValid(hv, comm))
 				return false;
-
-			oracle << c.m_pOutput->m_Commitment;
 		}
 
 		return (ctx.m_Sigma == Zero);
+	}
+
+	void Treasury::Response::HashOutputs(Hash::Value& hv) const
+	{
+		Hash::Processor hp;
+		for (size_t iG = 0; iG < m_vGroups.size(); iG++)
+		{
+			const Group& g = m_vGroups[iG];
+			for (size_t iC = 0; iC < g.m_vCoins.size(); iC++)
+				hp << g.m_vCoins[iC].m_pOutput->m_Commitment;
+		}
+		hp >> hv;
 	}
 
 	bool Treasury::Response::Create(const Request& r, Key::IKdf& kdf, uint64_t& nIndex)
@@ -200,13 +261,44 @@ namespace beam
 
 		m_vGroups.resize(r.m_vGroups.size());
 
-		Oracle oracle;
+		struct Context
+			:public ThreadPool::Context
+		{
+			const Request& m_Req;
+			Response& m_Resp;
+			Key::IKdf& m_Kdf;
+			uint64_t m_Index0;
 
-		for (size_t iG = 0; iG < m_vGroups.size(); iG++)
-			m_vGroups[iG].Create(r.m_vGroups[iG], oracle, kdf, nIndex);
+			Context(const Request& req, Response& resp, Key::IKdf& kdf, uint64_t nIndex)
+				:m_Req(req)
+				,m_Resp(resp)
+				,m_Kdf(kdf)
+				,m_Index0(nIndex)
+			{}
+
+			uint64_t get_IndexAt(size_t iG) const
+			{
+				uint64_t nIndex = m_Index0;
+				for (size_t i = 0; i < iG; i++)
+					nIndex += m_Req.m_vGroups[i].m_vCoins.size() + 1;
+
+				return nIndex;
+			}
+
+			virtual void Do(size_t iTask) override
+			{
+				uint64_t nIndex = get_IndexAt(iTask);
+				m_Resp.m_vGroups[iTask].Create(m_Req.m_vGroups[iTask], m_Kdf, nIndex);
+				assert(get_IndexAt(iTask + 1) == nIndex);
+			}
+
+		} ctx(r, *this, kdf, nIndex);
+
+		ctx.DoAll(m_vGroups.size());
+		nIndex = ctx.get_IndexAt(m_vGroups.size());
 
 		Hash::Value hv;
-		oracle >> hv;
+		HashOutputs(hv);
 
 		m_Sig.Sign(hv, sk);
 		return true;
@@ -218,11 +310,30 @@ namespace beam
 			(m_WalletID != r.m_WalletID))
 			return false;
 
-		Oracle oracle;
+		struct Context
+			:public ThreadPool::Context
+		{
+			const Request& m_Req;
+			const Response& m_Resp;
+			bool m_bValid;
 
-		for (size_t iG = 0; iG < m_vGroups.size(); iG++)
-			if (!m_vGroups[iG].IsValid(r.m_vGroups[iG], oracle))
-				return false;
+			Context(const Request& req, const Response& resp)
+				:m_Req(req)
+				,m_Resp(resp)
+				,m_bValid(true)
+			{}
+
+			virtual void Do(size_t iTask) override
+			{
+				if (!m_Resp.m_vGroups[iTask].IsValid(m_Req.m_vGroups[iTask]))
+					m_bValid = false; // assume synchronization isn't required
+			}
+
+		} ctx(r, *this);
+
+		ctx.DoAll(m_vGroups.size());
+		if (!ctx.m_bValid)
+			return false;
 
 		// finally verify the signature
 		Point::Native pk;
@@ -230,7 +341,7 @@ namespace beam
 			return false;
 
 		Hash::Value hv;
-		oracle >> hv;
+		HashOutputs(hv);
 
 		return m_Sig.IsValid(hv, pk);
 	}
@@ -355,12 +466,30 @@ namespace beam
 		}
 
 		// finalize
-		for (size_t i = 0; i < res.size(); i++)
+		struct Context
+			:public ThreadPool::Context
 		{
-			res[i].Normalize();
-			if (!res[i].IsValid(HeightRange(Rules::HeightGenesis + i), true))
-				throw std::runtime_error("Invalid block generated");
-		}
+			std::vector<Block::Body>& m_Res;
+			bool m_bValid;
+
+			Context(std::vector<Block::Body>& res)
+				:m_Res(res)
+				,m_bValid(true)
+			{}
+
+			virtual void Do(size_t iTask) override
+			{
+				m_Res[iTask].Normalize();
+
+				if (!m_Res[iTask].IsValid(HeightRange(Rules::HeightGenesis + iTask), true))
+					m_bValid = false; // assume synchronization isn't required
+			}
+
+		} ctx(res);
+
+		ctx.DoAll(res.size());
+		if (!ctx.m_bValid)
+			throw std::runtime_error("Invalid block generated");
 	}
 
 } // namespace beam
