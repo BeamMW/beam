@@ -32,6 +32,7 @@ namespace beam
         const char* PORT = "port";
         const char* PORT_FULL = "port,p";
         const char* STRATUM_PORT = "stratum_port";
+        const char* STRATUM_SECRETS_PATH = "stratum_secrets_path";
         const char* STORAGE = "storage";
         const char* WALLET_STORAGE = "wallet_path";
         const char* HISTORY = "history_dir";
@@ -104,6 +105,7 @@ namespace beam
             //(cli::MODE, po::value<string>()->required(), "mode to execute [node|wallet]")
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
             (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
+            (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
             (cli::WALLET_SEED, po::value<string>(), "secret key generation seed")
             (cli::WALLET_PHRASES, po::value<string>(), "phrases to generate secret key according to BIP-39. <wallet_seed> option will be ignored")
             (cli::LOG_LEVEL, po::value<string>(), "log level [info|debug|verbose]")

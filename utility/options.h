@@ -29,6 +29,7 @@ namespace beam
         extern const char* PORT;
         extern const char* PORT_FULL;
         extern const char* STRATUM_PORT;
+        extern const char* STRATUM_SECRETS_PATH;
         extern const char* STORAGE;
         extern const char* WALLET_STORAGE;
         extern const char* HISTORY;
