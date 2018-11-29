@@ -89,6 +89,42 @@ void SetRandomOrd(T& x)
 	GenerateRandom(&x, sizeof(x));
 }
 
+uint32_t get_LsBit(const uint8_t* pSrc, uint32_t nSrc, uint32_t iBit)
+{
+	uint32_t iByte = iBit >> 3;
+	if (iByte >= nSrc)
+		return 0;
+
+	return 1 & (pSrc[nSrc - 1 - iByte] >> (7 & iBit));
+}
+
+void TestShifted2(const uint8_t* pSrc, uint32_t nSrc, const uint8_t* pDst, uint32_t nDst, int nShift)
+{
+	for (uint32_t iBitDst = 0; iBitDst < (nDst << 3); iBitDst++)
+	{
+		uint32_t a = get_LsBit(pSrc, nSrc, iBitDst - nShift);
+		uint32_t b = get_LsBit(pDst, nDst, iBitDst);
+		verify_test(a == b);
+	}
+}
+
+template <uint32_t n0, uint32_t n1>
+void TestShifted(const beam::uintBig_t<n0>& x0, const beam::uintBig_t<n1>& x1, int nShift)
+{
+	TestShifted2(x0.m_pData, x0.nBytes, x1.m_pData, x1.nBytes, nShift);
+}
+
+template <uint32_t n0, uint32_t n1>
+void TestShifts(const beam::uintBig_t<n0>& src, beam::uintBig_t<n0>& src2, beam::uintBig_t<n1>& trg, int nShift)
+{
+	src2 = src;
+	src2.ShiftLeft(nShift, trg);
+	TestShifted(src, trg, nShift);
+	src2 = src;
+	src2.ShiftRight(nShift, trg);
+	TestShifted(src, trg, -nShift);
+}
+
 void TestUintBig()
 {
 	for (int i = 0; i < 100; i++)
@@ -118,6 +154,25 @@ void TestUintBig()
 		v1 = ab;
 
 		verify_test(v0 == v1);
+	}
+
+	// test shifts, when src/dst types is smaller/bigger/equal
+	for (int j = 0; j < 20; j++)
+	{
+		beam::uintBig_t<256> a;
+		beam::uintBig_t<256 - 64> b;
+		beam::uintBig_t<256 + 64> c;
+		beam::uintBig_t<256> d;
+
+		SetRandom(a);
+
+		for (int i = 0; i < 512; i++)
+		{
+			TestShifts(a, a, b, i);
+			TestShifts(a, a, c, i);
+			TestShifts(a, a, d, i);
+			TestShifts(a, d, d, i); // inplace shift
+		}
 	}
 }
 

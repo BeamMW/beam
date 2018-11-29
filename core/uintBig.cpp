@@ -250,4 +250,97 @@ namespace beam {
 		return s;
 	}
 
+	void uintBigImpl::_ShiftRight(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc, uint32_t nBits)
+	{
+		// assuming pDst and pSrc may be the same
+
+		uint32_t nBytes = nBits >> 3;
+		if (nBytes >= nSrc)
+			nSrc = nBits = 0;
+		else
+		{
+			nSrc -= nBytes;
+			nBits &= 7;
+		}
+
+		uint8_t* pDst0 = pDst;
+
+		if (nDst > nSrc)
+		{
+			pDst += nDst - nSrc;
+			nDst = nSrc;
+		}
+		else
+			pSrc += nSrc - nDst;
+
+		if (nBits)
+		{
+			uint32_t nLShift = 8 - nBits;
+
+			for (uint32_t i = nDst; i--; )
+			{
+				// pSrc and pDst may be the same
+				pDst[i] = pSrc[i] >> nBits;
+				if (nSrc + i > nDst)
+					pDst[i] |= (pSrc[int32_t(i - 1)] << nLShift);
+			}
+		}
+		else
+			memmove(pDst, pSrc, nDst);
+
+		memset0(pDst0, pDst - pDst0);
+	}
+
+	void uintBigImpl::_ShiftLeft(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc, uint32_t nBits)
+	{
+		// assuming pDst and pSrc may be the same
+
+		uint32_t nBytes = nBits >> 3;
+		if (nBytes >= nDst)
+		{
+			nBytes = nDst;
+			nDst = nBits = 0;
+		}
+		else
+		{
+			nBits &= 7;
+			nDst -= nBytes;
+		}
+
+		uint8_t* pDst0 = pDst;
+
+		if (nSrc > nDst)
+		{
+			pSrc += nSrc - nDst;
+			nSrc = nDst;
+		}
+		else
+		{
+			memset0(pDst, nDst - nSrc);
+			pDst += nDst - nSrc;
+		}
+
+		if (nBits)
+		{
+			if (nSrc)
+			{
+				uint32_t nRShift = 8 - nBits;
+
+				if (nDst > nSrc)
+					pDst[-1] = pSrc[0] >> nRShift;
+
+				for (size_t i = 0; i < nSrc; i++)
+				{
+					pDst[i] = pSrc[i] << nBits;
+					if (i + 1 < nSrc)
+						pDst[i] |= pSrc[i + 1] >> nRShift;
+				}
+			}
+		}
+		else
+			memmove(pDst, pSrc, nSrc);
+
+		memset0(pDst0 + nDst, nBytes);
+	}
+
 } // namespace beam

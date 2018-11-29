@@ -100,6 +100,9 @@ namespace beam
 				out = (out << 8) | pDst[i];
 		}
 
+		static void _ShiftRight(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc, uint32_t nBits);
+		static void _ShiftLeft(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc, uint32_t nBits);
+
 	};
 
 	template <uint32_t nBits_>
@@ -260,6 +263,18 @@ namespace beam
 			// how much the number should be shifted to reach zero.
 			// returns 0 iff the number is already zero.
 			return _GetOrder(m_pData, nBytes);
+		}
+
+		template <uint32_t nBitsOther_>
+		void ShiftRight(uint32_t nBits, uintBig_t<nBitsOther_>& res) const
+		{
+			_ShiftRight(res.m_pData, res.nBytes, m_pData, nBytes, nBits);
+		}
+
+		template <uint32_t nBitsOther_>
+		void ShiftLeft(uint32_t nBits, uintBig_t<nBitsOther_>& res) const
+		{
+			_ShiftLeft(res.m_pData, res.nBytes, m_pData, nBytes, nBits);
 		}
 
 		// helper, for uniform random generation within specific bounds
