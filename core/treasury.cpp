@@ -93,6 +93,28 @@ namespace beam
 			}
 		};
 
+		struct Verifier
+			:public Context
+		{
+			volatile bool m_bValid;
+			Verifier() :m_bValid(true) {}
+
+			virtual void Do(size_t iTask) override
+			{
+				typedef InnerProduct::BatchContextEx<100> MyBatch;
+
+				std::unique_ptr<MyBatch> p(new MyBatch);
+				p->m_bEnableBatch = true;
+				MyBatch::Scope scope(*p);
+
+				if (!Verify(iTask) || !p->Flush())
+					m_bValid = false; // sync isn't required
+			}
+
+			virtual bool Verify(size_t iTask) = 0;
+
+		};
+
 		ThreadPool(Context& ctx, size_t nTasks)
 		{
 			size_t numCores = std::thread::hardware_concurrency();
@@ -311,22 +333,19 @@ namespace beam
 			return false;
 
 		struct Context
-			:public ThreadPool::Context
+			:public ThreadPool::Verifier
 		{
 			const Request& m_Req;
 			const Response& m_Resp;
-			bool m_bValid;
 
 			Context(const Request& req, const Response& resp)
 				:m_Req(req)
 				,m_Resp(resp)
-				,m_bValid(true)
 			{}
 
-			virtual void Do(size_t iTask) override
+			virtual bool Verify(size_t iTask) override
 			{
-				if (!m_Resp.m_vGroups[iTask].IsValid(m_Req.m_vGroups[iTask]))
-					m_bValid = false; // assume synchronization isn't required
+				return m_Resp.m_vGroups[iTask].IsValid(m_Req.m_vGroups[iTask]);
 			}
 
 		} ctx(r, *this);
@@ -467,22 +486,19 @@ namespace beam
 
 		// finalize
 		struct Context
-			:public ThreadPool::Context
+			:public ThreadPool::Verifier
 		{
 			std::vector<Block::Body>& m_Res;
-			bool m_bValid;
 
 			Context(std::vector<Block::Body>& res)
 				:m_Res(res)
-				,m_bValid(true)
 			{}
 
-			virtual void Do(size_t iTask) override
+			virtual bool Verify(size_t iTask) override
 			{
 				m_Res[iTask].Normalize();
 
-				if (!m_Res[iTask].IsValid(HeightRange(Rules::HeightGenesis + iTask), true))
-					m_bValid = false; // assume synchronization isn't required
+				return m_Res[iTask].IsValid(HeightRange(Rules::HeightGenesis + iTask), true);
 			}
 
 		} ctx(res);
