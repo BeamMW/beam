@@ -43,7 +43,7 @@ on_success:
 
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.exe c:/projects/beam/wallet/beam-wallet.cfg
 
-    7z a c:/projects/beam/beam/%BUILD_CONFIG%/miner-client-%BEAM_VERSION%.zip c:/projects/beam/pow/%BUILD_CONFIG%/miner-client.exe
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/miner-client-%BEAM_VERSION%.zip c:/projects/beam/pow/%BUILD_CONFIG%/miner_client.exe
 
     mkdir pack && cd pack && mkdir wallet && mkdir node && mkdir ui && cd ..
 
