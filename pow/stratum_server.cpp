@@ -37,7 +37,7 @@ namespace stratum {
 static const uint64_t SERVER_RESTART_TIMER = 1;
 static const uint64_t ACL_REFRESH_TIMER = 2;
 static const unsigned SERVER_RESTART_INTERVAL = 1000;
-static const unsigned ACL_REFRESH_INTERVAL = 5555;
+static const unsigned ACL_REFRESH_INTERVAL = 5000;
 
 static const char STS[] = "stratum server ";
 
@@ -50,7 +50,9 @@ Server::Server(const IExternalPOW::Options& o, io::Reactor& reactor, io::Address
     _acl(o.apiKeysFile)
 {
     _timers.set_timer(SERVER_RESTART_TIMER, 0, BIND_THIS_MEMFN(start_server));
-    //_timers.set_timer(ACL_REFRESH_TIMER, ACL_REFRESH_INTERVAL, BIND_THIS_MEMFN(refresh_acl));
+    if (!o.apiKeysFile.empty()) {
+        _timers.set_timer(ACL_REFRESH_TIMER, 0, BIND_THIS_MEMFN(refresh_acl));
+    }
 }
 
 void Server::start_server() {
@@ -78,6 +80,11 @@ void Server::start_server() {
     }
 }
 
+void Server::refresh_acl() {
+    _acl.refresh();
+    _timers.set_timer(ACL_REFRESH_TIMER, ACL_REFRESH_INTERVAL, BIND_THIS_MEMFN(refresh_acl));
+}
+
 void Server::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode) {
     if (errorCode == 0) {
         auto peer = newStream->peer_address();
@@ -102,23 +109,30 @@ bool Server::on_login(uint64_t from, const Login& login) {
 
         // TODO send result first
         return _connections[from]->send_msg(_job.msg, true);
+    } else {
+        LOG_INFO() << STS << "peer login failed, key=" << login.api_key;
+        Result res(login.id, login_failed);
+        append_json_msg(_fw, res);
+        _connections[from]->send_msg(_currentMsg, false, true);
+        _currentMsg.clear();
     }
     return false;
 }
 
 bool Server::on_solution(uint64_t from, const Solution& sol) {
     if (sol.id != _job.id) {
-        LOG_INFO() << "ignoring solution to " << sol.id << " from " << io::Address::from_u64(from) << ", current is " << _job.id;
+        LOG_INFO() << STS << "ignoring solution to " << sol.id << " from " << io::Address::from_u64(from) << ", current is " << _job.id;
     }
     LOG_DEBUG() << TRACE(sol.nonce) << TRACE(sol.output);
     sol.fill_pow(_job.pow);
 
-    LOG_INFO() << "solution to " << sol.id << " from " << io::Address::from_u64(from);
+    LOG_INFO() << STS << "solution to " << sol.id << " from " << io::Address::from_u64(from);
     _job.onBlockFound();
     return true;
 }
 
 void Server::on_bad_peer(uint64_t from) {
+    LOG_INFO() << STS << "-peer " << io::Address::from_u64(from);
     _connections.erase(from);
 }
 
@@ -134,7 +148,7 @@ void Server::new_job(
     _job.onBlockFound = callback;
     _job.cancelFn = cancelCallback;
 
-    LOG_INFO() << "New job " << _job.id << " will be sent to " << _connections.size() << " connected peers";
+    LOG_INFO() << STS << "new job " << _job.id << " will be sent to " << _connections.size() << " connected peers";
 
     Job jobMsg(_job.id, input, pow);
     append_json_msg(_fw, jobMsg);
@@ -197,12 +211,12 @@ void Server::AccessControl::refresh() {
 
             //TODO 1) min key length as a parameter 2) storing hashes in the file
 
-            if (line.size() < 4) continue;
+            if (line.size() < 8) continue;
             keys.insert(line);
         }
         _keys.swap(keys);
     } catch (std::exception& e) {
-        LOG_ERROR() << e.what();
+        LOG_ERROR() << STS << e.what();
     }
 }
 
@@ -224,21 +238,24 @@ Server::Connection::Connection(ConnectionToServer& owner, uint64_t id, io::TcpSt
 
 bool Server::Connection::on_stream_data(io::ErrorCode errorCode, void* data, size_t size) {
     if (errorCode != 0) {
-        LOG_INFO() << "peer disconnected, code=" << io::error_str(errorCode);
+        LOG_INFO() << STS << "peer disconnected, code=" << io::error_str(errorCode);
         _owner.on_bad_peer(_id);
         return false;
     }
     if (!_lineReader.new_data_from_stream(data, size)) {
-        LOG_INFO() << "stream corrupted";
         _owner.on_bad_peer(_id);
         return false;
     }
     return true;
 }
 
-bool Server::Connection::send_msg(const io::SerializedMsg& msg, bool onlyIfLoggedIn) {
+bool Server::Connection::send_msg(const io::SerializedMsg& msg, bool onlyIfLoggedIn, bool shutdown) {
     if (onlyIfLoggedIn && !_loggedIn) return true;
-    return _stream && _stream->write(msg);
+    bool sent = _stream && _stream->write(msg);
+    if (sent && shutdown) {
+        _stream->shutdown();
+    }
+    return sent;
 }
 
 bool Server::Connection::on_message(const stratum::Login& login) {
@@ -250,18 +267,18 @@ bool Server::Connection::on_message(const stratum::Solution& solution) {
 }
 
 bool Server::Connection::on_raw_message(void* data, size_t size) {
-    LOG_INFO() << "got " << std::string((char*)data, size);
+    LOG_VERBOSE() << "got " << std::string((char*)data, size-1);
     return stratum::parse_json_msg(data, size, *this);
 }
 
 bool Server::Connection::on_stratum_error(stratum::ResultCode code) {
     // TODO what to do with other errors
-    LOG_ERROR() << "got stratum error: " << code << " " << stratum::get_result_msg(code);
+    LOG_ERROR() << STS << "got stratum error: " << code << " " << stratum::get_result_msg(code);
     return true;
 }
 
 bool Server::Connection::on_unsupported_stratum_method(stratum::Method method) {
-    LOG_INFO() << "ignoring unsupported stratum method: " << stratum::get_method_str(method);
+    LOG_INFO() << STS << "ignoring unsupported stratum method: " << stratum::get_method_str(method);
     return true;
 }
 

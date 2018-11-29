@@ -79,7 +79,7 @@ private:
         Block::PoW pow;
         pow.m_Difficulty.m_Packed = job.difficulty;
 
-        LOG_INFO() << "new job here..." << TRACE(job.id) << TRACE(pow.m_Difficulty);
+        LOG_INFO() << "new job here: id=" << job.id;
 
         if (!fill_job_info(job)) return false;
 
@@ -89,6 +89,14 @@ private:
             []() { return false; }
         );
 
+        return true;
+    }
+
+    bool on_message(const stratum::Result& res) override {
+        if (res.code < 0) {
+            return on_stratum_error(res.code);
+        }
+        LOG_DEBUG() << "ignoring result message, code=" << res.code << " description=" << res.description;
         return true;
     }
 
@@ -126,8 +134,7 @@ private:
 
     bool on_stratum_error(stratum::ResultCode code) override {
         if (code == stratum::login_failed) {
-            LOG_ERROR() << "Login to " << _serverAddress << " failed, try again later";
-            _reactor.stop();
+            LOG_ERROR() << "login to " << _serverAddress << " failed, try again later";
             return false;
         }
 
@@ -197,7 +204,7 @@ private:
             return false;
         }
         if (!_lineProtocol.new_data_from_stream(data, size)) {
-            LOG_ERROR() << "protocol error";
+            LOG_ERROR() << "closing connection";
             _reactor.stop();
             return false;
         }
@@ -243,7 +250,7 @@ int main(int argc, char* argv[]) {
         );
         StratumClient client(*reactor, connectTo, options.apiKey, options.no_tls);
         reactor->run();
-        LOG_INFO() << "Done";
+        LOG_INFO() << "stopping...";
     } catch (const std::exception& e) {
         LOG_ERROR() << "EXCEPTION: " << e.what();
         retCode = 255;

@@ -17,6 +17,7 @@ public:
     ~ExternalPOWStub() override {
         stop();
         _thread.join();
+        LOG_INFO() << "Done";
     }
 
 private:
