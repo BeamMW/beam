@@ -14,6 +14,7 @@
 
 #include "treasury.h"
 #include "proto.h"
+#include "serialization_adapters.h"
 
 namespace beam
 {
@@ -71,7 +72,7 @@ namespace beam
 		}
 	};
 
-	void Treasury::Request::Group::AddSubsidy(AmountBig& res)
+	void Treasury::Request::Group::AddSubsidy(AmountBig& res) const
 	{
 		for (size_t i = 0; i < m_vCoins.size(); i++)
 			res += m_vCoins[i].m_Value;
@@ -186,16 +187,6 @@ namespace beam
 		return (ctx.m_Sigma == Zero);
 	}
 
-	void Treasury::Response::Group::Dump(TxBase::IWriter& w, TxBase& txb) const
-	{
-		w.Dump(Reader(*this));
-
-		Scalar::Native off = txb.m_Offset;
-		off += m_Base.m_Offset;
-		txb.m_Offset = off;
-		
-	}
-
 	bool Treasury::Response::Create(const Request& r, Key::IKdf& kdf, uint64_t& nIndex)
 	{
 		PeerID pid;
@@ -204,6 +195,8 @@ namespace beam
 
 		if (pid != r.m_WalletID)
 			return false;
+
+		m_WalletID = r.m_WalletID;
 
 		m_vGroups.resize(r.m_vGroups.size());
 
@@ -221,7 +214,8 @@ namespace beam
 
 	bool Treasury::Response::IsValid(const Request& r) const
 	{
-		if (m_vGroups.size() != r.m_vGroups.size())
+		if ((m_vGroups.size() != r.m_vGroups.size()) ||
+			(m_WalletID != r.m_WalletID))
 			return false;
 
 		Oracle oracle;
@@ -239,6 +233,134 @@ namespace beam
 		oracle >> hv;
 
 		return m_Sig.IsValid(hv, pk);
+	}
+
+	Treasury::Entry* Treasury::CreatePlan(const PeerID& pid, Amount nPerBlockAvg, const Parameters& pars)
+	{
+		EntryMap::iterator it = m_Entries.find(pid);
+		if (m_Entries.end() != it)
+			m_Entries.erase(it);
+
+		Entry& e = m_Entries[pid];
+		Request& r = e.m_Request;
+		r.m_WalletID = pid;
+
+		assert(pars.m_StepMin);
+		nPerBlockAvg *= pars.m_StepMin;
+
+		Height h0 = 0;
+		for (Height h = 0; h < pars.m_MaxHeight; h += pars.m_StepMin)
+		{
+			if (r.m_vGroups.empty() || (h - h0 >= pars.m_MaxDiffPerBlock))
+			{
+				r.m_vGroups.emplace_back();
+				h0 = h;
+			}
+
+			Request::Group::Coin& c = r.m_vGroups.back().m_vCoins.emplace_back();
+			c.m_Incubation = h;
+			c.m_Value = nPerBlockAvg;
+		}
+
+		return &e;
+	}
+
+	size_t Treasury::get_OverheadFor(const AmountBig& x)
+	{
+		Block::Body body;
+		body.ZeroInit();
+		body.m_Subsidy = x;
+
+		return get_BlockSize(body);
+	}
+
+	size_t Treasury::get_BlockSize(const Block::Body& body)
+	{
+		SerializerSizeCounter ssc;
+		ssc & body;
+		return ssc.m_Counter.m_Value;
+	}
+
+	void Treasury::Build(std::vector<Block::Body>& res) const
+	{
+		// Assuming all the plans are generated with the same group/incubation parameters.
+		for (size_t iG = 0; ; iG++)
+		{
+			bool bNoPeers = true, bNoBlock = true;
+
+			Block::Body body;
+			size_t nOverhead = 0, nSizeTotal = 0;
+
+			for (EntryMap::const_iterator it = m_Entries.begin(); m_Entries.end() != it; )
+			{
+				const Entry& e = (it++)->second;
+				if (!e.m_pResponse)
+					continue;
+				const Response& resp = *e.m_pResponse;
+
+				if (iG >= resp.m_vGroups.size())
+					continue;
+				bNoPeers = false;
+
+				if (bNoBlock)
+				{
+					body.ZeroInit();
+					nOverhead = get_OverheadFor(body.m_Subsidy); // the BodyBase size slightly depends on its subsidy. Hence it should be recalculated after adding every peer
+					nSizeTotal = nOverhead;
+				}
+
+				const Response::Group& g = resp.m_vGroups[iG];
+				Response::Group::Reader r(g);
+				size_t nSizeNetto = r.get_SizeNetto();
+
+				AmountBig subsNext = body.m_Subsidy;
+				e.m_Request.m_vGroups[iG].AddSubsidy(subsNext);
+
+				size_t nOverheadNext = get_OverheadFor(subsNext);
+
+				size_t nSizeAfterMerge = nSizeTotal + nSizeNetto + nOverheadNext - nOverhead;
+				if (nSizeAfterMerge <= Rules::get().MaxBodySize)
+				{
+					// merge
+					TxVectors::Writer(body, body).Dump(std::move(r));
+
+					Scalar::Native off = body.m_Offset;
+					off += g.m_Base.m_Offset;
+					body.m_Offset = off;
+
+					bNoBlock = false;
+
+					body.m_Subsidy = subsNext;
+					nSizeTotal = nSizeAfterMerge;
+					nOverhead = nOverheadNext;
+
+					assert(get_BlockSize(body) == nSizeTotal);
+				}
+				else
+				{
+					if (bNoBlock)
+						throw std::runtime_error("treasury group too large");
+
+					res.push_back(std::move(body));
+					bNoBlock = true;
+					it--; // retry
+				}
+			}
+
+			if (bNoPeers)
+				break;
+
+			if (!bNoBlock)
+				res.push_back(std::move(body));
+		}
+
+		// finalize
+		for (size_t i = 0; i < res.size(); i++)
+		{
+			res[i].Normalize();
+			if (!res[i].IsValid(HeightRange(Rules::HeightGenesis + i), true))
+				throw std::runtime_error("Invalid block generated");
+		}
 	}
 
 } // namespace beam

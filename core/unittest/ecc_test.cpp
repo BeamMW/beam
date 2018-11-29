@@ -1121,42 +1121,65 @@ void TestFourCC()
 
 void TestTreasury()
 {
-	uintBig seed;
-	SetRandom(seed);
+	beam::Treasury::Parameters pars;
+	pars.m_MaxHeight = 1440 * 360; // 1 year, make it shorter
 
-	// 1. target wallet is initialized, generates its PeerID
-	HKdf kdf;
-	kdf.Generate(seed);
+	beam::Rules::get().MaxBodySize = 6 * 1024; // enforce more rapid block splitting
 
-	beam::PeerID pid;
-	Scalar::Native sk;
-	beam::Treasury::get_ID(kdf, pid, sk);
+	beam::Treasury tres;
 
-	// 2. Generate the treasury request for this PeerID
-	beam::Treasury::Request treq;
-	treq.m_WalletID = pid;
-
-	treq.m_vGroups.resize(5);
-
-	for (size_t iG = 0; iG < treq.m_vGroups.size(); iG++)
+	const uint32_t nPeers = 3;
+	for (uint32_t i = 0; i < nPeers; i++)
 	{
-		beam::Treasury::Request::Group& g = treq.m_vGroups[iG];
-		g.m_vCoins.resize(10);
+		// 1. target wallet is initialized, generates its PeerID
+		uintBig seed;
+		SetRandom(seed);
+		HKdf kdf;
+		kdf.Generate(seed);
 
-		for (size_t iC = 0; iC < g.m_vCoins.size(); iC++)
-		{
-			g.m_vCoins[iC].m_Value = (15 + iC) * beam::Rules::Coin;
-			g.m_vCoins[iC].m_Incubation = (iG + 1) * 1440 * 30 + iC * 60;
-		}
+		beam::PeerID pid;
+		Scalar::Native sk;
+		beam::Treasury::get_ID(kdf, pid, sk);
+
+		// 2. Plan is created
+		beam::Treasury::Entry* pE = tres.CreatePlan(pid, 5 * beam::Rules::get().CoinbaseEmission, pars);
+		verify_test(pE->m_Request.m_WalletID == pid);
+
+		// test Request serialization
+		beam::Serializer ser0;
+		ser0 & pE->m_Request;
+
+		beam::Deserializer der0;
+		der0.reset(ser0.buffer().first, ser0.buffer().second);
+
+		beam::Treasury::Request req;
+		der0 & req;
+
+		// 3. Plan is appvoved by the wallet, response is generated
+		pE->m_pResponse.reset(new beam::Treasury::Response);
+		uint64_t nIndex = 1;
+		verify_test(pE->m_pResponse->Create(req, kdf, nIndex));
+		verify_test(pE->m_pResponse->m_WalletID == pid);
+
+		// 4. Reponse is verified
+		verify_test(pE->m_pResponse->IsValid(pE->m_Request));
 	}
 
-	// 3. Response is generated
-	beam::Treasury::Response tresp;
-	uint64_t nIndex = 1;
-	verify_test(tresp.Create(treq, kdf, nIndex));
+	// test serialization
+	beam::Serializer ser1;
+	ser1 & tres;
 
-	// 4. Verification
-	verify_test(tresp.IsValid(treq));
+	tres.m_Entries.clear();
+
+	beam::Deserializer der1;
+	der1.reset(ser1.buffer().first, ser1.buffer().second);
+	der1 & tres;
+
+	verify_test(tres.m_Entries.size() == nPeers);
+
+	std::vector<beam::Block::Body> res;
+	tres.Build(res);
+	verify_test(!res.empty());
 }
 
 void TestAll()
