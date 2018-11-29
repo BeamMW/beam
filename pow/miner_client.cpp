@@ -20,7 +20,7 @@
 #include "utility/helpers.h"
 #include <boost/program_options.hpp>
 
-#define LOG_VERBOSE_ENABLED 1
+#define LOG_VERBOSE_ENABLED 0
 #include "utility/logger.h"
 
 namespace po = boost::program_options;
@@ -62,7 +62,7 @@ public:
 
 private:
     bool on_raw_message(void* data, size_t size) {
-        LOG_DEBUG() << "got " << std::string((char*)data, size);
+        LOG_VERBOSE() << "got " << std::string((char*)data, size-1);
         return stratum::parse_json_msg(data, size, *this);
     }
 
@@ -76,10 +76,10 @@ private:
     }
 
     bool on_message(const stratum::Job& job) override {
-        LOG_INFO() << "new job here..." << TRACE(job.input) << TRACE(job.difficulty);
-
         Block::PoW pow;
         pow.m_Difficulty.m_Packed = job.difficulty;
+
+        LOG_INFO() << "new job here..." << TRACE(job.id) << TRACE(pow.m_Difficulty);
 
         if (!fill_job_info(job)) return false;
 
@@ -100,16 +100,14 @@ private:
             return;
         }
 
-        char buf[72];
-        LOG_DEBUG() << "input=" << to_hex(buf, _lastJobInput.m_pData, 32);
+        //char buf[72];
+        //LOG_DEBUG() << "input=" << to_hex(buf, _lastJobInput.m_pData, 32);
 
         if (!_lastFoundBlock.IsValid(_lastJobInput.m_pData, 32)) {
-            LOG_ERROR() << "solution is invalid";
+            LOG_ERROR() << "solution is invalid, id=" << _lastJobID;
             return;
         }
         LOG_INFO() << "block found id=" << _lastJobID;
-
-
 
         _blockSent = false;
         send_last_found_block();
@@ -199,7 +197,9 @@ private:
             return false;
         }
         if (!_lineProtocol.new_data_from_stream(data, size)) {
-            //TODO stream corrupted
+            LOG_ERROR() << "protocol error";
+            _reactor.stop();
+            return false;
         }
         return true;
     }
@@ -224,7 +224,10 @@ int main(int argc, char* argv[]) {
     if (!parse_cmdline(argc, argv, options)) {
         return 1;
     }
-    auto logger = Logger::create(LOG_LEVEL_INFO, options.logLevel, options.logLevel, "miner_client_");
+    std::string logFilePrefix("miner_client_");
+    logFilePrefix += std::to_string(uv_os_getpid());
+    logFilePrefix += "_";
+    auto logger = Logger::create(LOG_LEVEL_INFO, options.logLevel, options.logLevel, logFilePrefix);
     int retCode = 0;
     try {
         io::Reactor::Ptr reactor = io::Reactor::create();
