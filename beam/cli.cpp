@@ -65,9 +65,11 @@ namespace
 
 		boost::filesystem::path p(stratumDir);
 		p = boost::filesystem::canonical(p);
-		o.apiKeysFile = (p / apiKeysFileName).string();
 		o.privKeyFile = (p / keyFileName).string();
 		o.certFile = (p / certFileName).string();
+
+		if (boost::filesystem::exists(p / apiKeysFileName))
+			o.apiKeysFile = (p / apiKeysFileName).string();
 	}
 }
 
