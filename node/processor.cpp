@@ -414,7 +414,7 @@ void NodeProcessor::ReadBody(Block::Body& res, const ByteBuffer& bbP, const Byte
 	der & Cast::Down<TxVectors::Perishable>(res);
 
 	der.reset(bbE);
-	der & Cast::Down<TxVectors::Ethernal>(res);
+	der & Cast::Down<TxVectors::Eternal>(res);
 }
 
 uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, TxBase::IReader&& r, Height h, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes)
@@ -477,7 +477,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 		ByteBuffer bbE;
 		m_DB.GetStateBlock(rowid, NULL, &bbE, NULL);
 
-		TxVectors::Ethernal txve;
+		TxVectors::Eternal txve;
 		TxVectors::Perishable txvp; // dummy
 
 		Deserializer der;
@@ -1442,7 +1442,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	ser.swap_buf(bc.m_BodyP);
 
 	ser.reset();
-	ser & Cast::Down<TxVectors::Ethernal>(bc.m_Block);
+	ser & Cast::Down<TxVectors::Eternal>(bc.m_Block);
 	ser.swap_buf(bc.m_BodyE);
 
 	size_t nSize = bc.m_BodyP.size() + bc.m_BodyE.size();

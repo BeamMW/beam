@@ -495,7 +495,7 @@ namespace beam
 		return nDel;
 	}
 
-	void TxVectors::Ethernal::NormalizeE()
+	void TxVectors::Eternal::NormalizeE()
 	{
 		std::sort(m_vKernels.begin(), m_vKernels.end());
 	}

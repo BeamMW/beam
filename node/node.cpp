@@ -1708,7 +1708,7 @@ void Node::Peer::OnMsg(proto::GetBody&& msg)
 	if (rowid)
 	{
 		proto::Body msgBody;
-		m_This.m_Processor.get_DB().GetStateBlock(rowid, &msgBody.m_Perishable, &msgBody.m_Ethernal, NULL);
+		m_This.m_Processor.get_DB().GetStateBlock(rowid, &msgBody.m_Perishable, &msgBody.m_Eternal, NULL);
 
 		if (!msgBody.m_Perishable.empty())
 		{
@@ -1734,7 +1734,7 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 
 	const Block::SystemState::ID& id = t.m_Key.first;
 
-	NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnBlock(id, msg.m_Perishable, msg.m_Ethernal, m_pInfo->m_ID.m_Key);
+	NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnBlock(id, msg.m_Perishable, msg.m_Eternal, m_pInfo->m_ID.m_Key);
 	OnFirstTaskDone(eStatus);
 }
 

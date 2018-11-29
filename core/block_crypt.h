@@ -334,7 +334,7 @@ namespace beam
 			size_t NormalizeP(); // w.r.t. the standard, delete spent outputs. Returns the num deleted
 		};
 
-		struct Ethernal
+		struct Eternal
 		{
 			std::vector<TxKernel::Ptr> m_vKernels;
 			void NormalizeE();
@@ -344,8 +344,8 @@ namespace beam
 			size_t m_pIdx[3];
 		public:
 			const Perishable& m_P;
-			const Ethernal& m_E;
-			Reader(const Perishable& p, const Ethernal& e) :m_P(p) ,m_E(e) {}
+			const Eternal& m_E;
+			Reader(const Perishable& p, const Eternal& e) :m_P(p) ,m_E(e) {}
 			// IReader
 			virtual void Clone(Ptr&) override;
 			virtual void Reset() override;
@@ -357,8 +357,8 @@ namespace beam
 		struct Writer :public TxBase::IWriter
 		{
 			Perishable& m_P;
-			Ethernal& m_E;
-			Writer(Perishable& p, Ethernal& e) :m_P(p), m_E(e) {}
+			Eternal& m_E;
+			Writer(Perishable& p, Eternal& e) :m_P(p), m_E(e) {}
 
 			virtual void Write(const Input&) override;
 			virtual void Write(const Output&) override;
@@ -367,7 +367,7 @@ namespace beam
 
 		struct Full
 			:public TxVectors::Perishable
-			,public TxVectors::Ethernal
+			,public TxVectors::Eternal
 		{
 			Reader get_Reader() const {
 				return Reader(*this, *this);
