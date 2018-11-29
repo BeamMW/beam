@@ -56,7 +56,7 @@ private:
 
         void set_logged_in() { _loggedIn = true; }
 
-        bool send_msg(const io::SerializedMsg& msg, bool onlyIfLoggedIn);
+        bool send_msg(const io::SerializedMsg& msg, bool onlyIfLoggedIn, bool shutdown=false);
 
     private:
         bool on_message(const Login& login) override;
@@ -87,6 +87,8 @@ private:
     };
 
     void start_server();
+
+    void refresh_acl();
 
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
 

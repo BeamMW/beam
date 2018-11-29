@@ -17,6 +17,7 @@ public:
     ~ExternalPOWStub() override {
         stop();
         _thread.join();
+        LOG_INFO() << "Done";
     }
 
 private:
@@ -65,7 +66,7 @@ private:
     }
 
     void stop_current() override {
-        // TODO
+        // TODO do we need it?
     }
 
     bool get_new_job(Job& job) {
@@ -89,10 +90,20 @@ private:
 
         Job job;
         Merkle::Hash hv;
-        while (get_new_job(job)) {
-            LOG_INFO() << "Solving with" << TRACE(job.pow.m_Nonce) << TRACE(job.pow.m_Difficulty);
 
-            if ( (job.pow.*SolveFn) (job.input.m_pData, Merkle::Hash::nBytes, [this](bool)->bool { return _changed.load(); })) {
+        auto cancelFn = [this, &job](bool)->bool {
+            if (_changed.load()) {
+                LOG_INFO() << "job id=" << job.jobID << " cancelled";
+                return true;
+            }
+            return false;
+        };
+
+        while (get_new_job(job)) {
+            LOG_INFO() << "solving job id=" << job.jobID
+                       << " with nonce=" << job.pow.m_Nonce << " and difficulty=" << job.pow.m_Difficulty;
+
+            if ( (job.pow.*SolveFn) (job.input.m_pData, Merkle::Hash::nBytes, cancelFn)) {
                 {
                     std::lock_guard<std::mutex> lk(_mutex);
                     _lastFoundBlock = job.pow;
