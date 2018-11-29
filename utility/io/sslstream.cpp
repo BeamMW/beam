@@ -43,7 +43,12 @@ bool SslStream::on_read(ErrorCode ec, void *data, size_t size) {
     if (ec == EC_OK) {
         Result res = _ssl.on_encrypted_data_from_stream(data, size);
         if (!res) {
-            return TcpStream::on_read(res.error(), 0, 0);
+            auto errorCode = res.error();
+            if (errorCode != EC_ENOTCONN) {
+                return TcpStream::on_read(errorCode, 0, 0);
+            } else {
+                return false;
+            }
         }
     } else {
         return TcpStream::on_read(ec, 0, 0);

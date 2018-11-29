@@ -73,6 +73,8 @@ void find_certificates(IExternalPOW::Options& o) {
         o.certFile = unittestPath + certFileName;
         o.privKeyFile = unittestPath + keyFileName;
     }
+
+    o.apiKeysFile = "api.keys";
 }
 
 void run_without_node() {

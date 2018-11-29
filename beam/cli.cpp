@@ -58,19 +58,18 @@ namespace
 		return true;
     }
 
-	void find_certificates(IExternalPOW::Options& o) {
-		static const std::string certFileName("test.crt");
-		static const std::string keyFileName("test.key");
-		static const std::string unittestPath(PROJECT_SOURCE_DIR "/utility/unittest/");
+	void find_certificates(IExternalPOW::Options& o, const std::string& stratumDir) {
+		static const std::string certFileName("stratum.crt");
+		static const std::string keyFileName("stratum.key");
+		static const std::string apiKeysFileName("stratum.api.keys");
 
-		using namespace boost::filesystem;
-		if (exists(certFileName) && exists(keyFileName)) {
-			o.certFile = certFileName;
-			o.privKeyFile = keyFileName;
-		} else if (exists(path(unittestPath + certFileName)) && exists(path(unittestPath + keyFileName))) {
-			o.certFile = unittestPath + certFileName;
-			o.privKeyFile = unittestPath + keyFileName;
-		}
+		boost::filesystem::path p(stratumDir);
+		p = boost::filesystem::canonical(p);
+		o.privKeyFile = (p / keyFileName).string();
+		o.certFile = (p / certFileName).string();
+
+		if (boost::filesystem::exists(p / apiKeysFileName))
+			o.apiKeysFile = (p / apiKeysFileName).string();
 	}
 }
 
@@ -156,7 +155,7 @@ int main_impl(int argc, char* argv[])
 
 				if (stratumPort > 0) {
 					IExternalPOW::Options powOptions;
-                    find_certificates(powOptions);
+                    find_certificates(powOptions, vm[cli::STRATUM_SECRETS_PATH].as<string>());
 					stratumServer = IExternalPOW::create(powOptions, *reactor, io::Address().port(stratumPort));
 				}
 

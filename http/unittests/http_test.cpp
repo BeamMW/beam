@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "p2p/http_connection.h"
-#include "p2p/http_msg_creator.h"
+#include "http/http_connection.h"
+#include "http/http_msg_creator.h"
 #include "utility/io/sslserver.h"
 #include "utility/io/asyncevent.h"
 #include "utility/io/timer.h"
@@ -71,6 +71,7 @@ private:
         if (msg.what != HttpMsgReader::http_message || !msg.msg) {
             LOG_ERROR() << "Request error";
             g_stopEvent();
+            return false;
         }
 
         const std::string& path = msg.msg->get_path();
@@ -270,6 +271,6 @@ int main() {
     int r = http_server_test(true);
 
     // TODO some misbehavior appeared under windows, to be investigated
-    //r += http_server_test(false);
+    r += http_server_test(false);
     return r;
 }

@@ -414,7 +414,7 @@ void NodeProcessor::ReadBody(Block::Body& res, const ByteBuffer& bbP, const Byte
 	der & Cast::Down<TxVectors::Perishable>(res);
 
 	der.reset(bbE);
-	der & Cast::Down<TxVectors::Ethernal>(res);
+	der & Cast::Down<TxVectors::Eternal>(res);
 }
 
 uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, TxBase::IReader&& r, Height h, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes)
@@ -477,7 +477,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 		ByteBuffer bbE;
 		m_DB.GetStateBlock(rowid, NULL, &bbE, NULL);
 
-		TxVectors::Ethernal txve;
+		TxVectors::Eternal txve;
 		TxVectors::Perishable txvp; // dummy
 
 		Deserializer der;
@@ -532,8 +532,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		{
 			bFirstTime = true;
 
-			Difficulty::Raw wrk;
-			s.m_PoW.m_Difficulty.Inc(wrk, m_Cursor.m_Full.m_ChainWork);
+			Difficulty::Raw wrk = m_Cursor.m_Full.m_ChainWork + s.m_PoW.m_Difficulty;
 
 			if (wrk != s.m_ChainWork)
 			{
@@ -1369,7 +1368,7 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 	bc.m_Hdr.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
 	bc.m_Hdr.m_TimeStamp = getTimestamp();
 
-	bc.m_Hdr.m_PoW.m_Difficulty.Inc(bc.m_Hdr.m_ChainWork, m_Cursor.m_Full.m_ChainWork);
+	bc.m_Hdr.m_ChainWork = m_Cursor.m_Full.m_ChainWork + bc.m_Hdr.m_PoW.m_Difficulty;
 
 	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
 	Timestamp tm = get_MovingMedian() + 1;
@@ -1443,7 +1442,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	ser.swap_buf(bc.m_BodyP);
 
 	ser.reset();
-	ser & Cast::Down<TxVectors::Ethernal>(bc.m_Block);
+	ser & Cast::Down<TxVectors::Eternal>(bc.m_Block);
 	ser.swap_buf(bc.m_BodyE);
 
 	size_t nSize = bc.m_BodyP.size() + bc.m_BodyE.size();
@@ -1624,8 +1623,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		{
 			bFirstTime = false;
 
-			Difficulty::Raw wrk;
-			s.m_PoW.m_Difficulty.Inc(wrk, m_Cursor.m_Full.m_ChainWork);
+			Difficulty::Raw wrk = m_Cursor.m_Full.m_ChainWork + s.m_PoW.m_Difficulty;
 
 			if (wrk != s.m_ChainWork)
 			{
@@ -1634,7 +1632,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 			}
 		}
 		else
-			s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+			s.m_ChainWork += s.m_PoW.m_Difficulty;
 
 		if (id.m_Height >= Rules::HeightGenesis)
 			cmmr.Append(id.m_Hash);
@@ -1722,7 +1720,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		if (bFirstTime)
 			bFirstTime = false;
 		else
-			s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+			s.m_ChainWork += s.m_PoW.m_Difficulty;
 
 		s.get_ID(id);
 

@@ -15,6 +15,7 @@
 #include <iostream>
 #include "../ecc_native.h"
 #include "../block_crypt.h"
+#include "../treasury.h"
 #include "../../utility/serialize.h"
 #include "../serialization_adapters.h"
 #include "../aes.h"
@@ -1053,6 +1054,21 @@ void TestDifficulty()
 		if (!d.m_Packed)
 			break;
 	}
+
+	d = 0;
+	verify_test(d.ToFloat() == 1.);
+	r1 = Zero;
+	verify_test(Difficulty::ToFloat(r1) == 0.);
+
+	d.m_Packed = 8 << Difficulty::s_MantissaBits;
+	verify_test(d.ToFloat() == 256.);
+	d.Unpack(r1);
+	verify_test(Difficulty::ToFloat(r1) == 256.);
+
+	d.m_Packed |= 0xffffff;
+	verify_test(d.ToFloat() < 512.);
+	d.Unpack(r1);
+	verify_test(Difficulty::ToFloat(r1) < 512.);
 }
 
 void TestRandom()
@@ -1103,6 +1119,46 @@ void TestFourCC()
 	TEST_FOURCC(h)
 }
 
+void TestTreasury()
+{
+	uintBig seed;
+	SetRandom(seed);
+
+	// 1. target wallet is initialized, generates its PeerID
+	HKdf kdf;
+	kdf.Generate(seed);
+
+	beam::PeerID pid;
+	Scalar::Native sk;
+	beam::Treasury::get_ID(kdf, pid, sk);
+
+	// 2. Generate the treasury request for this PeerID
+	beam::Treasury::Request treq;
+	treq.m_WalletID = pid;
+
+	treq.m_vGroups.resize(5);
+
+	for (size_t iG = 0; iG < treq.m_vGroups.size(); iG++)
+	{
+		beam::Treasury::Request::Group& g = treq.m_vGroups[iG];
+		g.m_vCoins.resize(10);
+
+		for (size_t iC = 0; iC < g.m_vCoins.size(); iC++)
+		{
+			g.m_vCoins[iC].m_Value = (15 + iC) * beam::Rules::Coin;
+			g.m_vCoins[iC].m_Incubation = (iG + 1) * 1440 * 30 + iC * 60;
+		}
+	}
+
+	// 3. Response is generated
+	beam::Treasury::Response tresp;
+	uint64_t nIndex = 1;
+	verify_test(tresp.Create(treq, kdf, nIndex));
+
+	// 4. Verification
+	verify_test(tresp.IsValid(treq));
+}
+
 void TestAll()
 {
 	TestUintBig();
@@ -1119,6 +1175,7 @@ void TestAll()
 	TestDifficulty();
 	TestRandom();
 	TestFourCC();
+	TestTreasury();
 }
 
 

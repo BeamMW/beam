@@ -691,14 +691,14 @@ namespace detail
         }
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::TxVectors::Ethernal& txv)
+		static Archive& save(Archive& ar, const beam::TxVectors::Eternal& txv)
 		{
 			save_VecPtr(ar, txv.m_vKernels);
 			return ar;
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::TxVectors::Ethernal& txv)
+		static Archive& load(Archive& ar, beam::TxVectors::Eternal& txv)
 		{
 			load_VecPtr(ar, txv.m_vKernels);
 			return ar;
@@ -709,7 +709,7 @@ namespace detail
         {
 			ar
 				& Cast::Down<beam::TxVectors::Perishable>(tx)
-				& Cast::Down<beam::TxVectors::Ethernal>(tx)
+				& Cast::Down<beam::TxVectors::Eternal>(tx)
 				& Cast::Down<beam::TxBase>(tx);
 
             return ar;
@@ -720,7 +720,7 @@ namespace detail
         {
 			ar
 				& Cast::Down<beam::TxVectors::Perishable>(tx)
-				& Cast::Down<beam::TxVectors::Ethernal>(tx)
+				& Cast::Down<beam::TxVectors::Eternal>(tx)
 				& Cast::Down<beam::TxBase>(tx);
 
             return ar;
@@ -873,7 +873,7 @@ namespace detail
 		{
 			ar & Cast::Down<beam::Block::BodyBase>(bb);
 			ar & Cast::Down<beam::TxVectors::Perishable>(bb);
-			ar & Cast::Down<beam::TxVectors::Ethernal>(bb);
+			ar & Cast::Down<beam::TxVectors::Eternal>(bb);
 
 			return ar;
 		}
@@ -883,7 +883,7 @@ namespace detail
 		{
 			ar & Cast::Down<beam::Block::BodyBase>(bb);
 			ar & Cast::Down<beam::TxVectors::Perishable>(bb);
-			ar & Cast::Down<beam::TxVectors::Ethernal>(bb);
+			ar & Cast::Down<beam::TxVectors::Eternal>(bb);
 
 			return ar;
 		}

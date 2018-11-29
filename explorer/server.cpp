@@ -163,7 +163,7 @@ bool Server::send_block(const HttpConnection::Ptr &conn) {
 bool Server::send_blocks(const HttpConnection::Ptr& conn) {
     auto start = _currentUrl.get_int_arg("height", 0);
     auto n = _currentUrl.get_int_arg("n", 0);
-    if (start == 0 || n < 1) {
+    if (start <= 0 || n < 0) {
         return send(conn, 400, "Bad request");
     }
     if (!_backend.get_blocks(_body, start, n)) {

@@ -17,10 +17,8 @@
 #include "../node.h"
 #include "../db.h"
 #include "../processor.h"
-#include "../../core/block_crypt.h"
-#include "../../utility/serialize.h"
+#include "../../core/fly_client.h"
 #include "../../utility/test_helpers.h"
-#include "../../core/serialization_adapters.h"
 #include "../../core/unittest/mini_blockchain.h"
 
 #ifndef LOG_VERBOSE_ENABLED

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "stratum.h"
-#include "p2p/json_serializer.h"
+#include "utility/io/json_serializer.h"
 #include "nlohmann/json.hpp"
 #include "utility/helpers.h"
 #include "utility/logger.h"

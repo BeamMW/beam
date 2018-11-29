@@ -14,6 +14,7 @@
 
 #include <ctime>
 #include <chrono>
+#include <cmath>
 #include "block_crypt.h"
 
 namespace beam
@@ -404,6 +405,15 @@ namespace beam
 		return 0;
 	}
 
+	void TxKernel::Sign(const ECC::Scalar::Native& sk)
+	{
+		m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
+
+		ECC::Hash::Value hv;
+		get_Hash(hv);
+		m_Signature.Sign(hv, sk);
+	}
+
 	void TxKernel::operator = (const TxKernel& v)
 	{
 		Cast::Down<TxElement>(*this) = v;
@@ -485,7 +495,7 @@ namespace beam
 		return nDel;
 	}
 
-	void TxVectors::Ethernal::NormalizeE()
+	void TxVectors::Eternal::NormalizeE()
 	{
 		std::sort(m_vKernels.begin(), m_vKernels.end());
 	}
@@ -1091,16 +1101,11 @@ namespace beam
 
 		m_Offset += sk;
 
-		kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel2));
-
 		pKrn.reset(new TxKernel);
-		pKrn->m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
 		pKrn->m_Height.m_Min = h; // make it similar to others
 
-		ECC::Hash::Value hv;
-		pKrn->get_Hash(hv);
-		pKrn->m_Signature.Sign(hv, sk);
-
+		kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel2));
+		pKrn->Sign(sk);
 		m_Offset += sk;
 	}
 
@@ -1205,24 +1210,38 @@ namespace beam
 			res.Inv();
 	}
 
-	void Difficulty::Inc(Raw& res, const Raw& base) const
+	Difficulty::Raw operator + (const Difficulty::Raw& base, const Difficulty& d)
 	{
-		Unpack(res);
+		Difficulty::Raw res;
+		d.Unpack(res);
 		res += base;
+		return res;
 	}
 
-	void Difficulty::Inc(Raw& res) const
+	Difficulty::Raw& operator += (Difficulty::Raw& res, const Difficulty& d)
 	{
-		Raw d;
-		Unpack(d);
-		res += d;
+		Difficulty::Raw base;
+		d.Unpack(base);
+		res += base;
+		return res;
 	}
 
-	void Difficulty::Dec(Raw& res, const Raw& base) const
+	Difficulty::Raw operator - (const Difficulty::Raw& base, const Difficulty& d)
 	{
-		Unpack(res);
+		Difficulty::Raw res;
+		d.Unpack(res);
 		res.Negate();
 		res += base;
+		return res;
+	}
+
+	Difficulty::Raw& operator -= (Difficulty::Raw& res, const Difficulty& d)
+	{
+		Difficulty::Raw base;
+		d.Unpack(base);
+		base.Negate();
+		res += base;
+		return res;
 	}
 
 	void Difficulty::Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange)
@@ -1284,7 +1303,7 @@ namespace beam
 
 		if (bIncrease)
 		{
-			assert(nLeadingBit && (nLeadingBit <= 2));
+			assert(nLeadingBit && (nLeadingBit < 4));
 
 			if (nLeadingBit > 1)
 			{
@@ -1305,11 +1324,47 @@ namespace beam
 		}
 	}
 
+	double Difficulty::ToFloat() const
+	{
+		uint32_t order, mantissa;
+		Unpack(order, mantissa);
+
+		int nOrderCorrected = order - s_MantissaBits; // must be signed
+		return ldexp(mantissa, nOrderCorrected);
+	}
+
+	double Difficulty::ToFloat(Raw& x)
+	{
+		double res = 0;
+
+		int nOrder = x.nBits - 8 - s_MantissaBits;
+		for (uint32_t i = 0; i < x.nBytes; i++, nOrder -= 8)
+		{
+			uint8_t n = x.m_pData[i];
+			if (n)
+				res += ldexp(n, nOrder);
+		}
+
+		return res;
+	}
+
 	std::ostream& operator << (std::ostream& s, const Difficulty& d)
 	{
-		uint32_t order = d.m_Packed >> Difficulty::s_MantissaBits;
-		uint32_t mantissa = d.m_Packed & ((1U << Difficulty::s_MantissaBits) - 1);
-		s << std::hex << order << '-' << mantissa << std::dec;
+		typedef uintBig_t<sizeof(Difficulty) * 8 - Difficulty::s_MantissaBits> uintOrder;
+		typedef uintBig_t<Difficulty::s_MantissaBits> uintMantissa;
+
+		uintOrder n0;
+		n0.AssignSafe(d.m_Packed >> Difficulty::s_MantissaBits, 0);
+		char sz0[uintOrder::nTxtLen + 1];
+		n0.Print(sz0);
+
+		uintMantissa n1;
+		n1.AssignSafe(d.m_Packed & ((1U << Difficulty::s_MantissaBits) - 1), 0);
+		char sz1[uintMantissa::nTxtLen + 1];
+		n1.Print(sz1);
+
+		s << sz0 << '-' << sz1 << '(' << d.ToFloat() << ')';
+
 		return s;
 	}
 

@@ -159,8 +159,8 @@ namespace beam { namespace wallet
 
     void BaseTransaction::UpdateTxDescription(TxStatus s)
     {
-        SetParameter(TxParameterID::Status, s);
-        SetParameter(TxParameterID::ModifyTime, getTimestamp());
+        SetParameter(TxParameterID::Status, s, true);
+        SetParameter(TxParameterID::ModifyTime, getTimestamp(), false);
     }
 
     void BaseTransaction::OnFailed(TxFailureReason reason, bool notify)
@@ -200,11 +200,11 @@ namespace beam { namespace wallet
 
     bool BaseTransaction::SendTxParameters(SetTxParameter&& msg) const
     {
-        msg.m_txId = GetTxID();
+        msg.m_TxID = GetTxID();
         msg.m_Type = GetType();
         
         WalletID peerID;
-        if (GetParameter(TxParameterID::MyID, msg.m_from) 
+        if (GetParameter(TxParameterID::MyID, msg.m_From) 
             && GetParameter(TxParameterID::PeerID, peerID))
         {
             m_Gateway.send_tx_params(peerID, move(msg));
@@ -420,6 +420,25 @@ namespace beam { namespace wallet
         return state;
     }
 
+    bool SimpleTransaction::isShouldNotifyAboutChanges(TxParameterID paramID) const
+    {
+        switch (paramID)
+        {
+        case TxParameterID::Amount:
+        case TxParameterID::Fee:
+        case TxParameterID::MinHeight:
+        case TxParameterID::PeerID:
+        case TxParameterID::MyID:
+        case TxParameterID::CreateTime:
+        case TxParameterID::IsSender:
+        case TxParameterID::Status:
+        case TxParameterID::TransactionType:
+            return true;
+        default:
+            return false;
+        }
+    }
+
     TxBuilder::TxBuilder(BaseTransaction& tx, Amount amount, Amount fee)
         : m_Tx{ tx }
         , m_Amount{ amount }
@@ -455,9 +474,9 @@ namespace beam { namespace wallet
 
         m_Change += total - amountWithFee;
 
-        m_Tx.SetParameter(TxParameterID::Change, m_Change);
-        m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs);
-        m_Tx.SetParameter(TxParameterID::Offset, m_Offset);
+        m_Tx.SetParameter(TxParameterID::Change, m_Change, false);
+        m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false);
+        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false);
 
         m_Tx.GetWalletDB()->save(coins);
     }
@@ -475,7 +494,8 @@ namespace beam { namespace wallet
     void TxBuilder::AddOutput(Amount amount, Coin::Status status)
     {
         m_Outputs.push_back(CreateOutput(amount, status, m_MinHeight));
-        m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs);
+        m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false);
+        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false);
     }
 
     Output::Ptr TxBuilder::CreateOutput(Amount amount, Coin::Status status, bool shared, Height incubation)
@@ -483,8 +503,8 @@ namespace beam { namespace wallet
         Coin newUtxo{ amount, status };
         newUtxo.m_createTxId = m_Tx.GetTxID();
         newUtxo.m_createHeight = m_MinHeight;
-		if (Coin::Status::Change == status)
-			newUtxo.m_ID.m_Type = Key::Type::Change;
+        if (Coin::Status::Change == status)
+            newUtxo.m_ID.m_Type = Key::Type::Change;
         m_Tx.GetWalletDB()->store(newUtxo);
 
         Scalar::Native blindingFactor;
@@ -492,8 +512,7 @@ namespace beam { namespace wallet
         output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(newUtxo.m_ID.m_iChild), newUtxo.m_ID);
 
         blindingFactor = -blindingFactor;
-		m_Offset += blindingFactor;
-        m_Tx.SetParameter(TxParameterID::Offset, m_Offset);
+        m_Offset += blindingFactor;
 
         return output;
     }
@@ -508,24 +527,24 @@ namespace beam { namespace wallet
         m_Kernel->m_Height.m_Max = m_MaxHeight;
         m_Kernel->m_Commitment = Zero;
 
-		if (!m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess))
-		{
-			Coin::ID cid;
-			ZeroObject(cid);
-			cid.m_Type = FOURCC_FROM(KerW);
-			cid.m_Idx = m_Tx.GetWalletDB()->AllocateKidRange(1);
+        if (!m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess))
+        {
+            Coin::ID cid;
+            ZeroObject(cid);
+            cid.m_Type = FOURCC_FROM(KerW);
+            cid.m_Idx = m_Tx.GetWalletDB()->AllocateKidRange(1);
 
-			m_BlindingExcess = m_Tx.GetWalletDB()->calcKey(cid);
-			m_Tx.SetParameter(TxParameterID::BlindingExcess, m_BlindingExcess);
-		}
+            m_BlindingExcess = m_Tx.GetWalletDB()->calcKey(cid);
+            m_Tx.SetParameter(TxParameterID::BlindingExcess, m_BlindingExcess, false);
+        }
 
-		m_Offset += m_BlindingExcess;
-		m_BlindingExcess = -m_BlindingExcess;
+        m_Offset += m_BlindingExcess;
+        m_BlindingExcess = -m_BlindingExcess;
 
         if (!m_Tx.GetParameter(TxParameterID::MyNonce, m_MultiSig.m_Nonce))
         {
             m_MultiSig.m_Nonce.GenRandomNnz();
-            m_Tx.SetParameter(TxParameterID::MyNonce, m_MultiSig.m_Nonce);
+            m_Tx.SetParameter(TxParameterID::MyNonce, m_MultiSig.m_Nonce, false);
         }
     }
 

@@ -49,15 +49,19 @@ namespace beam
 		bool IsTargetReached(const ECC::uintBig&) const;
 
 		void Unpack(Raw&) const;
-		void Inc(Raw&) const;
-		void Inc(Raw&, const Raw& base) const;
-		void Dec(Raw&, const Raw& base) const;
-
 
 		void Unpack(uint32_t& order, uint32_t& mantissa) const;
 		void Pack(uint32_t order, uint32_t mantissa);
 
 		void Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange);
+
+		friend Raw operator + (const Raw&, const Difficulty&);
+		friend Raw operator - (const Raw&, const Difficulty&);
+		friend Raw& operator += (Raw&, const Difficulty&);
+		friend Raw& operator -= (Raw&, const Difficulty&);
+
+		double ToFloat() const;
+		static double ToFloat(Raw&);
 
 	private:
 		static void Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange, uint32_t& order, uint32_t& mantissa);
@@ -266,6 +270,7 @@ namespace beam
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
 		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
+		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
 
 		struct LongProof; // legacy
 
@@ -329,7 +334,7 @@ namespace beam
 			size_t NormalizeP(); // w.r.t. the standard, delete spent outputs. Returns the num deleted
 		};
 
-		struct Ethernal
+		struct Eternal
 		{
 			std::vector<TxKernel::Ptr> m_vKernels;
 			void NormalizeE();
@@ -339,8 +344,8 @@ namespace beam
 			size_t m_pIdx[3];
 		public:
 			const Perishable& m_P;
-			const Ethernal& m_E;
-			Reader(const Perishable& p, const Ethernal& e) :m_P(p) ,m_E(e) {}
+			const Eternal& m_E;
+			Reader(const Perishable& p, const Eternal& e) :m_P(p) ,m_E(e) {}
 			// IReader
 			virtual void Clone(Ptr&) override;
 			virtual void Reset() override;
@@ -352,8 +357,8 @@ namespace beam
 		struct Writer :public TxBase::IWriter
 		{
 			Perishable& m_P;
-			Ethernal& m_E;
-			Writer(Perishable& p, Ethernal& e) :m_P(p), m_E(e) {}
+			Eternal& m_E;
+			Writer(Perishable& p, Eternal& e) :m_P(p), m_E(e) {}
 
 			virtual void Write(const Input&) override;
 			virtual void Write(const Output&) override;
@@ -362,7 +367,7 @@ namespace beam
 
 		struct Full
 			:public TxVectors::Perishable
-			,public TxVectors::Ethernal
+			,public TxVectors::Eternal
 		{
 			Reader get_Reader() const {
 				return Reader(*this, *this);
@@ -531,7 +536,7 @@ namespace beam
 		{
 			AmountBig m_Subsidy; // the overall amount created by the block
 								 // For standard blocks this should be equal to the coinbase emission.
-								 // Genesis block(s) may have higher emission (aka premined)
+								 // Genesis block(s) may have higher emission
 
 			bool m_SubsidyClosing; // Last block that contains arbitrary subsidy.
 
@@ -649,6 +654,8 @@ namespace beam
 		bool m_bBlockMode; // in 'block' mode the hMin/hMax on input denote the range of heights. Each element is verified wrt it independently.
 		// i.e. different elements may have non-overlapping valid range, and it's valid.
 		// Suitable for merged block validation
+
+		bool m_bVerifyOrder; // check the correct order, as well as elimination of spent outputs. On by default. Turned Off only for specific internal validations (such as treasury).
 
 		// for multi-tasking, parallel verification
 		uint32_t m_nVerifiers;

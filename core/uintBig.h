@@ -38,6 +38,7 @@ namespace beam
 		static void _Mul(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
 		static int _Cmp(const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
 		static void _Print(const uint8_t* pDst, uint32_t nDst, std::ostream&);
+		static void _Print(const uint8_t* pDst, uint32_t nDst, char*);
 
 		static uint32_t _GetOrder(const uint8_t* pDst, uint32_t nDst);
 		static bool _Accept(uint8_t* pDst, const uint8_t* pThr, uint32_t nDst, uint32_t nThrOrder);
@@ -282,6 +283,13 @@ namespace beam
 		};
 
 		COMPARISON_VIA_CMP
+
+		static const uint32_t nTxtLen = nBytes * 2; // not including 0-term
+
+		void Print(char* sz) const
+		{
+			_Print(m_pData, nBytes, sz);
+		}
 
 		friend std::ostream& operator << (std::ostream& s, const uintBig_t& x)
 		{
