@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "difficulty.h"
+#include <cmath>
 
 namespace beam
 {
