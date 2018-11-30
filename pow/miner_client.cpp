@@ -219,7 +219,7 @@ struct Options {
     std::string serverAddress;
     bool no_tls=false;
     int logLevel=LOG_LEVEL_DEBUG;
-    static const unsigned logRotationPeriod = 3*60*60*1000; // 3 hours
+    unsigned logRotationPeriod = 3*60*60*1000; // 3 hours
 };
 
 static bool parse_cmdline(int argc, char* argv[], Options& o);
@@ -234,7 +234,7 @@ int main(int argc, char* argv[]) {
     std::string logFilePrefix("miner_client_");
     logFilePrefix += std::to_string(uv_os_getpid());
     logFilePrefix += "_";
-    auto logger = Logger::create(LOG_LEVEL_INFO, options.logLevel, options.logLevel, logFilePrefix);
+    auto logger = Logger::create(LOG_LEVEL_INFO, options.logLevel, options.logLevel, logFilePrefix, "logs");
     int retCode = 0;
     try {
         io::Reactor::Ptr reactor = io::Reactor::create();
