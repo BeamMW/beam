@@ -174,11 +174,11 @@ void test_offline(bool twoNodes) {
     senderParams.walletDB = init_wallet_db("_sender", &nodeParams.walletSeed);
     receiverParams.walletDB = init_wallet_db("_receiver", 0);
 
-	WalletAddress wa;
-	wa.m_createTime = getTimestamp();
-	senderParams.walletDB->createAndSaveAddress(wa);
+	WalletAddress wa = wallet::createAddress(senderParams.walletDB);
+	senderParams.walletDB->saveAddress(wa);
 	senderParams.sendFrom = wa.m_walletID;
-	receiverParams.walletDB->createAndSaveAddress(wa);
+    wa = wallet::createAddress(senderParams.walletDB);
+    receiverParams.walletDB->saveAddress(wa);
 	senderParams.sendTo = wa.m_walletID;
 
     WalletDBObserver senderObserver("AAAAAAAAAAAAAAAAAAAAAA"), receiverObserver("BBBBBBBBBBBBBBBBBBBBBB");

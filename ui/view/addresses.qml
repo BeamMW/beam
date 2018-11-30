@@ -66,6 +66,22 @@ ColumnLayout {
             id: activeAddressesView
             model: viewModel.activeAddresses
             visible: false
+
+            /*sortIndicatorVisible: true
+            sortIndicatorColumn: 1
+            sortIndicatorOrder: Qt.DescendingOrder
+
+            Binding{
+                target: viewModel
+                property: "sortRole"
+                value: transactionsView.getColumn(transactionsView.sortIndicatorColumn).role
+            }
+
+            Binding{
+                target: viewModel
+                property: "sortOrder"
+                value: transactionsView.sortIndicatorOrder
+            }*/
         }
 
         AddressTable {
@@ -209,7 +225,6 @@ ColumnLayout {
                     }
                 }*/
             }
-
         }
     }
 

@@ -138,6 +138,9 @@ namespace beam
 
     namespace
     {
+        static const char g_szBbsTime[] = "Bbs-Channel-Upd";
+        static const char g_szBbsChannel[] = "Bbs-Channel";
+
         void throwIfError(int res, sqlite3* db)
         {
             if (res == SQLITE_OK)
@@ -735,8 +738,8 @@ namespace beam
             }
 
             {
-                walletDB->setVar(WalletSeed, secretKey.V);
-                walletDB->setVar(Version, DbVersion);
+                wallet::setVar(walletDB, WalletSeed, secretKey.V);
+                wallet::setVar(walletDB, Version, DbVersion);
             }
 
             return static_pointer_cast<IWalletDB>(walletDB);
@@ -767,7 +770,7 @@ namespace beam
                 }
                 {
                     int version = 0;
-                    if (!walletDB->getVar(Version, version) || version > DbVersion)
+                    if (!wallet::getVar(walletDB, Version, version) || version > DbVersion)
                     {
                         LOG_DEBUG() << "Invalid DB version: " << version << ". Expected: " << DbVersion;
                         return Ptr();
@@ -810,7 +813,7 @@ namespace beam
                 }
 
                 ECC::NoLeak<ECC::Hash::Value> seed;
-                if (!walletDB->getVar(WalletSeed, seed.V))
+                if (!wallet::getVar(walletDB, WalletSeed, seed.V))
                 {
                     assert(false && "there is no seed for walletDB");
                     //pKdf->m_Secret.V = Zero;
@@ -873,51 +876,6 @@ namespace beam
         ECC::Scalar::Native key;
         get_ChildKdf(cid.m_iChild)->DeriveKey(key, cid);
         return key;
-    }
-
-    void IWalletDB::createAddress(WalletAddress& wa)
-    {
-        wa.m_OwnID = AllocateKidRange(1);
-
-        Coin::ID cid;
-        ZeroObject(cid);
-        cid.m_Type = Key::Type::Bbs;
-        cid.m_Idx = wa.m_OwnID;
-
-        ECC::Scalar::Native sk = calcKey(cid);
-        proto::Sk2Pk(wa.m_walletID.m_Pk, sk);
-
-        BbsChannel ch;
-        if (!GetLastChannel(ch))
-            ch = (BbsChannel) wa.m_walletID.m_Pk.m_pData[0] >> 3; // fallback
-
-        wa.m_walletID.m_Channel = ch;
-    }
-
-    static const char g_szBbsTime[] = "Bbs-Channel-Upd";
-    static const char g_szBbsChannel[] = "Bbs-Channel";
-
-    Timestamp IWalletDB::GetLastChannel(BbsChannel& ch)
-    {
-        Timestamp t;
-
-        bool b =
-            getVar(g_szBbsTime, t) &&
-            getVar(g_szBbsChannel, ch);
-
-        return b ? t : 0;
-    }
-
-    void IWalletDB::SetLastChannel(BbsChannel ch)
-    {
-        setVar(g_szBbsChannel, ch);
-        setVar(g_szBbsTime, getTimestamp());
-    }
-
-    void IWalletDB::createAndSaveAddress(WalletAddress& wa)
-    {
-        createAddress(wa);
-        saveAddress(wa);
     }
 
     vector<Coin> WalletDB::selectCoins(const Amount& amount, bool lock)
@@ -1111,8 +1069,9 @@ namespace beam
 
         uint64_t nLast;
         uintBigFor<uint64_t>::Type var;
+        auto thisPtr = shared_from_this();
 
-        if (getVar(szName, var))
+        if (wallet::getVar(thisPtr, szName, var))
             var.Export(nLast);
         else
         {
@@ -1121,7 +1080,7 @@ namespace beam
         }
 
         var = nLast + nCount;
-        setVar(szName, var);
+        wallet::setVar(thisPtr, szName, var);
 
         return nLast;
     }
@@ -1273,7 +1232,8 @@ namespace beam
     Timestamp WalletDB::getLastUpdateTime() const
     {
         Timestamp timestamp = {};
-        if (getVar(LastUpdateTimeName, timestamp))
+        
+        if (wallet::getVar(shared_from_this(), LastUpdateTimeName, timestamp))
         {
             return timestamp;
         }
@@ -1282,8 +1242,9 @@ namespace beam
 
     void WalletDB::setSystemStateID(const Block::SystemState::ID& stateID)
     {
-        setVar(SystemStateIDName, stateID);
-        setVar(LastUpdateTimeName, getTimestamp());
+        auto thisPtr = shared_from_this();
+        wallet::setVar(thisPtr, SystemStateIDName, stateID);
+        wallet::setVar(thisPtr, LastUpdateTimeName, getTimestamp());
         notifySystemStateChanged();
         // update coins
         maturingCoins();
@@ -1291,7 +1252,7 @@ namespace beam
 
     bool WalletDB::getSystemStateID(Block::SystemState::ID& stateID) const
     {
-        return getVar(SystemStateIDName, stateID);
+        return wallet::getVar(shared_from_this(), SystemStateIDName, stateID);
     }
 
     Height WalletDB::getCurrentHeight() const
@@ -1588,6 +1549,25 @@ namespace beam
         stm.step();
 
         notifyAddressChanged();
+    }
+
+    Timestamp WalletDB::GetLastChannel(BbsChannel& ch)
+    {
+        Timestamp t;
+        auto thisPtr = shared_from_this();
+        bool b =
+            wallet::getVar(thisPtr, g_szBbsTime, t) &&
+            wallet::getVar(thisPtr, g_szBbsChannel, ch);
+
+            return b ? t : 0;
+    }
+
+    void WalletDB::SetLastChannel(BbsChannel ch)
+    {
+        auto thisPtr = shared_from_this();
+
+        wallet::setVar(thisPtr, g_szBbsChannel, ch);
+        wallet::setVar(thisPtr, g_szBbsTime, getTimestamp());
     }
 
     void WalletDB::subscribe(IWalletDbObserver* observer)
@@ -1927,6 +1907,28 @@ namespace beam
                 return true;
             });
             return total;
+        }
+
+        WalletAddress createAddress(beam::IWalletDB::Ptr walletDB)
+        {
+            WalletAddress newAddress;
+            newAddress.m_createTime = beam::getTimestamp();
+            newAddress.m_OwnID = walletDB->AllocateKidRange(1);
+
+            Coin::ID cid;
+            ZeroObject(cid);
+            cid.m_Type = Key::Type::Bbs;
+            cid.m_Idx = newAddress.m_OwnID;
+
+            ECC::Scalar::Native sk = walletDB->calcKey(cid);
+            proto::Sk2Pk(newAddress.m_walletID.m_Pk, sk);
+
+            BbsChannel ch;
+            if (!walletDB->GetLastChannel(ch))
+                ch = (BbsChannel)newAddress.m_walletID.m_Pk.m_pData[0] >> 3; // fallback
+
+            newAddress.m_walletID.m_Channel = ch;
+            return newAddress;
         }
     }
 }

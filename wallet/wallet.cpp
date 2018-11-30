@@ -519,13 +519,13 @@ namespace beam
     {
         uintBigFor<Height>::Type var;
         var = h;
-        m_WalletDB->setVar(s_szLastUtxoEvt, var);
+        wallet::setVar(m_WalletDB, s_szLastUtxoEvt, var);
     }
 
     Height Wallet::GetUtxoEventsHeight()
     {
         uintBigFor<Height>::Type var;
-        if (!m_WalletDB->getVar(s_szLastUtxoEvt, var))
+        if (!wallet::getVar(m_WalletDB, s_szLastUtxoEvt, var))
             return 0;
 
         Height h;
