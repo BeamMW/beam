@@ -93,6 +93,9 @@ ColumnLayout {
         CustomTableView {
             id: contactsView
 
+            property int rowHeight: 69
+            property int resizableWidth: parent.width - actions.width
+
             anchors.fill: parent
             frameVisible: false
             selectionMode: SelectionMode.NoSelection
@@ -102,14 +105,14 @@ ColumnLayout {
             TableViewColumn {
                 role: "name"
                 title: qsTr("Name")
-                width: 150 * parent.width / 800
+                width: 280 * contactsView.resizableWidth / 740
                 movable: false
             }
 
             TableViewColumn {
                 role: "contact"
                 title: qsTr("Contact")
-                width: 150 * parent.width / 800
+                width: 170 * contactsView.resizableWidth / 740
                 movable: false
                 delegate: Item {
                     Item {
@@ -136,12 +139,13 @@ ColumnLayout {
             TableViewColumn {
                 role: "category"
                 title: qsTr("Category")
-                width: 150 * parent.width / 800
+                width: 290 * contactsView.resizableWidth / 740
                 movable: false
             }
 
             TableViewColumn {
                 //role: "status"
+                id: actions
                 title: ""
                 width: 40
                 movable: false

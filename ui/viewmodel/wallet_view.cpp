@@ -702,12 +702,16 @@ void WalletViewModel::sendMoney()
 {
     if (/*!_senderAddr.isEmpty() && */isValidReceiverAddress(getReceiverAddr()))
     {
-        //WalletID ownAddr = from_hex(getSenderAddr().toStdString());
-		WalletID peerAddr(Zero);
-		peerAddr.FromHex(getReceiverAddr().toStdString());
+        WalletAddress peerAddr;
+        peerAddr.m_walletID.FromHex(getReceiverAddr().toStdString());
+        peerAddr.m_createTime = getTimestamp();
+
+        // TODO: implement UI for this situation
+        // TODO: don't save if you send to yourself
+        _model.getAsync()->saveAddress(peerAddr, false);
+
         // TODO: show 'operation in process' animation here?
-        //_model.getAsync()->sendMoney(ownAddr, peerAddr, calcSendAmount(), calcFeeAmount());
-        _model.getAsync()->sendMoney(peerAddr, _comment.toStdString(), calcSendAmount(), calcFeeAmount());
+        _model.getAsync()->sendMoney(peerAddr.m_walletID, _comment.toStdString(), calcSendAmount(), calcFeeAmount());
     }
 }
 
