@@ -54,4 +54,9 @@ add_executable(miner_client miner_client.cpp ../core/block_crypt.cpp) # ????????
 add_dependencies(miner_client external_pow)
 target_link_libraries(miner_client external_pow)
 
+if(BEAM_USE_GPU)
+    add_dependencies(miner_client gpu_tools)
+    target_link_libraries(miner_client gpu_tools)
+endif()
+
 add_subdirectory(unittests)
