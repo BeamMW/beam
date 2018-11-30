@@ -15,6 +15,7 @@
 #pragma once
 #include "ecc_native.h"
 #include "merkle.h"
+#include "difficulty.h"
 
 namespace beam
 {
@@ -31,43 +32,6 @@ namespace beam
 	Timestamp getTimestamp();
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
-
-	struct Difficulty
-	{
-		uint32_t m_Packed;
-		static const uint32_t s_MantissaBits = 24;
-
-		Difficulty(uint32_t d = 0) :m_Packed(d) {}
-
-		typedef ECC::uintBig Raw;
-
-		// maximum theoretical difficulty value, which corresponds to 'infinite' (only Zero hash value meet the target).
-		// Corresponds to 0xffff...fff raw value.
-		static const uint32_t s_MaxOrder = Raw::nBits - s_MantissaBits - 1;
-		static const uint32_t s_Inf = (s_MaxOrder + 1) << s_MantissaBits;
-
-		bool IsTargetReached(const ECC::uintBig&) const;
-
-		void Unpack(Raw&) const;
-
-		void Unpack(uint32_t& order, uint32_t& mantissa) const;
-		void Pack(uint32_t order, uint32_t mantissa);
-
-		void Calculate(const Raw& wrk, uint32_t dh, uint32_t dtTrg_s, uint32_t dtSrc_s);
-
-		friend Raw operator + (const Raw&, const Difficulty&);
-		friend Raw operator - (const Raw&, const Difficulty&);
-		friend Raw& operator += (Raw&, const Difficulty&);
-		friend Raw& operator -= (Raw&, const Difficulty&);
-
-		double ToFloat() const;
-		static double ToFloat(Raw&);
-
-		struct BigFloat;
-
-	};
-
-	std::ostream& operator << (std::ostream&, const Difficulty&);
 
 	struct HeightRange
 	{
