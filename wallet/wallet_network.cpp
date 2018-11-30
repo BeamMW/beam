@@ -46,9 +46,7 @@ namespace beam {
 
 		auto myAddresses = m_WalletDB->getAddresses(true);
 		for (const auto& address : myAddresses)
-			if (address.isExpired())
-				m_WalletDB->deleteAddress(address.m_walletID);
-			else
+			if (!address.isExpired())
 				AddOwnAddress(address.m_OwnID, address.m_walletID);
 	}
 

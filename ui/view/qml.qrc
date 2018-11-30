@@ -28,7 +28,7 @@
         <file>notification.qml</file>
         <file>info.qml</file>
         <file>settings.qml</file>
-        <file>address-book.qml</file>
+        <file>addresses.qml</file>
         <file>utxo.qml</file>
         <file>assets/fonts/SF-Pro-Display-Black.otf</file>
         <file>assets/fonts/SF-Pro-Display-Light.otf</file>
@@ -55,8 +55,8 @@
         <file>assets/b-grey.svg</file>
         <file>assets/icon-dashboard.svg</file>
         <file>assets/icon-dashboard-active.svg</file>
-        <file>assets/icon-address-book.svg</file>
-        <file>assets/icon-address-book-active.svg</file>
+        <file>assets/icon-addresses.svg</file>
+        <file>assets/icon-addresses-active.svg</file>
         <file>assets/icon-wallet.svg</file>
         <file>assets/icon-wallet-active.svg</file>
         <file>assets/icon-wallet-small.svg</file>
@@ -112,5 +112,7 @@
         <file>assets/icon-sort.svg</file>
         <file>controls/CustomProgressBar.qml</file>
         <file>controls/LogoComponent.qml</file>
+        <file>controls/AddressTable.qml</file>
+        <file>assets/icon-transactions.svg</file>
     </qresource>
 </RCC>

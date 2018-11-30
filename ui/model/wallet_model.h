@@ -39,7 +39,6 @@ struct IWalletModelAsync
     virtual void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) = 0;
 
     virtual void deleteAddress(const beam::WalletID& id) = 0;
-    virtual void deleteOwnAddress(const beam::WalletID& id) = 0 ;
 
     virtual void setNodeAddress(const std::string& addr) = 0;
 
@@ -119,7 +118,6 @@ private:
     void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override;
     void generateNewWalletID() override;
     void deleteAddress(const beam::WalletID& id) override;
-    void deleteOwnAddress(const beam::WalletID& id) override;
     void setNodeAddress(const std::string& addr) override;
     void changeWalletPassword(const beam::SecString& password) override;
 
