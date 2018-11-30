@@ -310,7 +310,7 @@ private:
         }
 
         io::SharedBuffer body;
-        bool blockAvailable = (height >= _cache.lowHorizon && height <= _cache.currentHeight);
+        bool blockAvailable = (/*height >= _cache.lowHorizon && */height <= _cache.currentHeight);
         if (blockAvailable) {
             json j;
             if (!extract_block(j, height, row, prevRow)) {
