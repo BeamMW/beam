@@ -103,14 +103,14 @@ ColumnLayout {
             model: viewModel.contacts
 
             TableViewColumn {
-                role: "name"
+                role: viewModel.nameRole
                 title: qsTr("Name")
                 width: 280 * contactsView.resizableWidth / 740
                 movable: false
             }
 
             TableViewColumn {
-                role: "contact"
+                role: viewModel.addressRole
                 title: qsTr("Contact")
                 width: 170 * contactsView.resizableWidth / 740
                 movable: false
@@ -137,7 +137,7 @@ ColumnLayout {
             }
 
             TableViewColumn {
-                role: "category"
+                role: viewModel.categoryRole
                 title: qsTr("Category")
                 width: 290 * contactsView.resizableWidth / 740
                 movable: false

@@ -54,7 +54,7 @@ private:
 class ContactItem : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QString contact       READ getContact    CONSTANT)
+    Q_PROPERTY(QString address       READ getAddress    CONSTANT)
     Q_PROPERTY(QString name          READ getName       CONSTANT)
     Q_PROPERTY(QString category      READ getCategory   CONSTANT)
 
@@ -62,12 +62,12 @@ public:
     ContactItem() = default;
     ContactItem(const beam::WalletAddress&);
 
-    QString getContact() const;
+    QString getAddress() const;
     QString getName() const;
     QString getCategory() const;
 
 private:
-    QString m_contact;
+    QString m_address;
     QString m_name;
     QString m_category;
 };
@@ -78,6 +78,11 @@ class AddressBookViewModel : public QObject
     Q_PROPERTY(QQmlListProperty<ContactItem> contacts   READ getContacts   NOTIFY contactsChanged)
     Q_PROPERTY(QQmlListProperty<AddressItem> activeAddresses   READ getActiveAddresses   NOTIFY activeAddressesChanged)
     Q_PROPERTY(QQmlListProperty<AddressItem> expiredAddresses   READ getExpiredAddresses   NOTIFY expiredAddressesChanged)
+    Q_PROPERTY(QString nameRole READ nameRole CONSTANT)
+    Q_PROPERTY(QString addressRole READ addressRole CONSTANT)
+    Q_PROPERTY(QString categoryRole READ categoryRole CONSTANT)
+    Q_PROPERTY(QString expirationRole READ expirationRole CONSTANT)
+    Q_PROPERTY(QString createdRole READ createdRole CONSTANT)
 
 public:
 
@@ -91,6 +96,12 @@ public:
     QQmlListProperty<ContactItem> getContacts();
     QQmlListProperty<AddressItem> getActiveAddresses();
     QQmlListProperty<AddressItem> getExpiredAddresses();
+
+    QString nameRole() const;
+    QString addressRole() const;
+    QString categoryRole() const;
+    QString expirationRole() const;
+    QString createdRole() const;
 
 public slots:
     void onStatus(const WalletStatus& amount);

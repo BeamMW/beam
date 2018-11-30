@@ -15,7 +15,7 @@ CustomTableView {
     backgroundVisible: false    
 
     TableViewColumn {
-        role: "name"
+        role: viewModel.nameRole
         title: qsTr("Name")
         width: 150 * rootControl.resizableWidth / 750
         resizable: false
@@ -23,7 +23,7 @@ CustomTableView {
     }
 
     TableViewColumn {
-        role: "address"
+        role: viewModel.addressRole
         title: qsTr("Address")
         width: 150 *  rootControl.resizableWidth / 750
         movable: false
@@ -51,7 +51,7 @@ CustomTableView {
     }
 
     TableViewColumn {
-        role: "category"
+        role: viewModel.categoryRole
         title: qsTr("Category")
         width: 150 *  rootControl.resizableWidth / 750
         resizable: false
@@ -59,7 +59,7 @@ CustomTableView {
     }
 
     TableViewColumn {
-        role: "expirationDate"
+        role: viewModel.expirationRole
         title: qsTr("Expiration date")
         width: 150 *  rootControl.resizableWidth / 750
         resizable: false
@@ -67,7 +67,7 @@ CustomTableView {
     }
 
     TableViewColumn {
-        role: "createDate"
+        role:viewModel.createdRole
         title: qsTr("Created")
         width: 150 *  rootControl.resizableWidth / 750
         resizable: false
