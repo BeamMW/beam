@@ -89,7 +89,8 @@ Item
                     text: qsTr("cancel")
                     icon.source: "qrc:/assets/icon-cancel.svg"
                     onClicked: {
-                        root.parent.source = "qrc:/main.qml";
+                        viewModel.cancelRestore();
+                        root.parent.setSource("qrc:/start.qml", {"isRestoreCancelled": true});
                     }
                 }
             }

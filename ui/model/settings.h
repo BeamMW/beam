@@ -68,6 +68,7 @@ public:
 public:
     static const char* WalletCfg;
     static const char* LogsFolder;
+    static const char* SettingsFile;
 
     void applyChanges();
 

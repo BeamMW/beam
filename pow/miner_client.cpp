@@ -18,6 +18,11 @@
 #include "utility/io/tcpstream.h"
 #include "utility/io/timer.h"
 #include "utility/helpers.h"
+
+#ifdef BEAM_USE_GPU
+#include "utility/gpu/gpu_tools.h"
+#endif
+
 #include <boost/program_options.hpp>
 
 #define LOG_VERBOSE_ENABLED 0
@@ -219,7 +224,7 @@ struct Options {
     std::string serverAddress;
     bool no_tls=false;
     int logLevel=LOG_LEVEL_DEBUG;
-    static const unsigned logRotationPeriod = 3*60*60*1000; // 3 hours
+    unsigned logRotationPeriod = 3*60*60*1000; // 3 hours
 };
 
 static bool parse_cmdline(int argc, char* argv[], Options& o);
@@ -234,9 +239,16 @@ int main(int argc, char* argv[]) {
     std::string logFilePrefix("miner_client_");
     logFilePrefix += std::to_string(uv_os_getpid());
     logFilePrefix += "_";
-    auto logger = Logger::create(LOG_LEVEL_INFO, options.logLevel, options.logLevel, logFilePrefix);
+    auto logger = Logger::create(LOG_LEVEL_INFO, options.logLevel, options.logLevel, logFilePrefix, "logs");
     int retCode = 0;
     try {
+#ifdef BEAM_USE_GPU
+        if (!HasSupportedCard()) {
+            LOG_ERROR() << "Your GPU device is not supported at the moment. You may use miner client for CPU";
+            return 1;
+        }
+#endif
+
         io::Reactor::Ptr reactor = io::Reactor::create();
         io::Address connectTo;
         if (!connectTo.resolve(options.serverAddress.c_str())) {

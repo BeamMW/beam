@@ -13,6 +13,8 @@ Item
 
     anchors.fill: parent
 
+    property bool isRestoreCancelled: false
+
     StartViewModel { id: viewModel }
     
     LogoComponent {
@@ -29,6 +31,15 @@ Item
                 currentItem.defaultFocusItem.focus = true;
             }
         }
+
+        Component.onCompleted: {
+            if (root.isRestoreCancelled) {
+                viewModel.isRecoveryMode = true;
+                startWizzardView.push(nodeSetup);
+                startWizzardView.push(restoreWallet);
+            }
+        }
+
         Component {
             id: start
             Rectangle
@@ -912,7 +923,7 @@ Item
                         }
 
                         CustomRadioButton {
-                            id: testnetNodeButton
+                            id: randomNodeButton
                             text: qsTr("Connect to random remote node")
                             ButtonGroup.group: nodePreferencesGroup
                             font.pixelSize: 14
@@ -993,8 +1004,8 @@ Item
                                         }
                                         viewModel.setupRemoteNode(remoteNodeAddrInput.text.trim());
                                     }
-                                    else if (testnetNodeButton.checked) {
-                                        viewModel.setupTestnetNode();
+                                    else if (randomNodeButton.checked) {
+                                        viewModel.setupRandomNode();
                                     }
                                     startWizzardView.push(viewModel.isRecoveryMode ? restoreWallet : createWalletEntry);
                                 }

@@ -44,6 +44,7 @@ public:
     WalletSettings& getSettings();
     MessageManager& getMessages();
     NodeModel& getNode();
+    void cancelRestoreWallet();
 private:
     void start();
 
