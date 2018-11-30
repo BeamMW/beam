@@ -18,6 +18,11 @@
 #include "utility/io/tcpstream.h"
 #include "utility/io/timer.h"
 #include "utility/helpers.h"
+
+#ifdef BEAM_USE_GPU
+#include "utility/gpu/gpu_tools.h"
+#endif
+
 #include <boost/program_options.hpp>
 
 #define LOG_VERBOSE_ENABLED 0
@@ -237,6 +242,13 @@ int main(int argc, char* argv[]) {
     auto logger = Logger::create(LOG_LEVEL_INFO, options.logLevel, options.logLevel, logFilePrefix, "logs");
     int retCode = 0;
     try {
+#ifdef BEAM_USE_GPU
+        if (!HasSupportedCard()) {
+            LOG_ERROR() << "Your GPU device is not supported at the moment. You may use miner client for CPU";
+            return 1;
+        }
+#endif
+
         io::Reactor::Ptr reactor = io::Reactor::create();
         io::Address connectTo;
         if (!connectTo.resolve(options.serverAddress.c_str())) {
