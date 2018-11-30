@@ -134,7 +134,7 @@ namespace beam
 		template <typename T>
 		void operator = (T val)
 		{
-			*this = uintBigFor<T>::Type(val);
+			*this = typename uintBigFor<T>::Type(val);
 		}
 
 		BigFloat operator * (const BigFloat& x) const
