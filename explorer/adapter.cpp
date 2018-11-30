@@ -275,7 +275,7 @@ private:
                 {"height",     blockState.m_Height},
                 {"hash",       hash_to_hex(buf, id.m_Hash)},
                 {"prev",       hash_to_hex(buf, blockState.m_Prev)},
-                {"difficulty", difficulty_to_hex(buf, blockState.m_PoW.m_Difficulty)},
+                {"difficulty", blockState.m_PoW.m_Difficulty.ToFloat()},
                 {"chainwork",  uint256_to_hex(buf, blockState.m_ChainWork)},
                 {"subsidy",    block.m_Subsidy.Lo},
                 {"inputs",     inputs},
