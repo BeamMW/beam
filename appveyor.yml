@@ -43,6 +43,8 @@ on_success:
 
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.exe c:/projects/beam/wallet/beam-wallet.cfg
 
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/miner-client-%BEAM_VERSION%.zip c:/projects/beam/pow/%BUILD_CONFIG%/miner_client.exe
+
     mkdir pack && cd pack && mkdir wallet && mkdir node && mkdir ui && cd ..
 
     copy "c:\projects\beam\BeamWallet-0.0.1-win64.exe" "pack\ui\Beam-Wallet.exe"
@@ -66,6 +68,8 @@ on_success:
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/beam-pack-%BEAM_VERSION%.zip" %BUILDS_SERVER_PATH%/pack/
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/beam-pdb-%BEAM_VERSION%.zip" %BUILDS_SERVER_PATH%/pdb/
+
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/miner-client-%BEAM_VERSION%.zip" %BUILDS_SERVER_PATH%/
 
 notifications:
   - provider: Email

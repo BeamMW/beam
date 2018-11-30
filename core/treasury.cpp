@@ -14,6 +14,7 @@
 
 #include "treasury.h"
 #include "proto.h"
+#include "serialization_adapters.h"
 
 namespace beam
 {
@@ -71,7 +72,82 @@ namespace beam
 		}
 	};
 
-	void Treasury::Request::Group::AddSubsidy(AmountBig& res)
+	class Treasury::ThreadPool
+	{
+		std::vector<std::thread> m_vThreads;
+	public:
+
+		struct Context
+		{
+			virtual void Do(size_t iTask) = 0;
+
+			void DoRange(size_t i0, size_t i1)
+			{
+				for (; i0 < i1; i0++)
+					Do(i0);
+			}
+
+			void DoAll(size_t nTasks)
+			{
+				ThreadPool tp(*this, nTasks);
+			}
+		};
+
+		struct Verifier
+			:public Context
+		{
+			volatile bool m_bValid;
+			Verifier() :m_bValid(true) {}
+
+			virtual void Do(size_t iTask) override
+			{
+				typedef InnerProduct::BatchContextEx<100> MyBatch;
+
+				std::unique_ptr<MyBatch> p(new MyBatch);
+				p->m_bEnableBatch = true;
+				MyBatch::Scope scope(*p);
+
+				if (!Verify(iTask) || !p->Flush())
+					m_bValid = false; // sync isn't required
+			}
+
+			virtual bool Verify(size_t iTask) = 0;
+
+		};
+
+		ThreadPool(Context& ctx, size_t nTasks)
+		{
+			size_t numCores = std::thread::hardware_concurrency();
+			if (!numCores)
+				numCores = 1; //?
+			if (numCores > nTasks)
+				numCores = nTasks;
+
+			m_vThreads.resize(numCores);
+			size_t iTask0 = 0;
+
+			for (size_t i = 0; i < m_vThreads.size(); i++)
+			{
+				size_t iTask1 = nTasks * (i + 1) / numCores;
+				assert(iTask1 > iTask0); // otherwise it means that redundant threads were created
+
+				m_vThreads[i] = std::thread(&Context::DoRange, &ctx, iTask0, iTask1);
+
+				iTask0 = iTask1;
+			}
+
+			assert(iTask0 == nTasks);
+		}
+
+		~ThreadPool()
+		{
+			for (size_t i = 0; i < m_vThreads.size(); i++)
+				if (m_vThreads[i].joinable())
+					m_vThreads[i].join();
+		}
+	};
+
+	void Treasury::Request::Group::AddSubsidy(AmountBig& res) const
 	{
 		for (size_t i = 0; i < m_vCoins.size(); i++)
 			res += m_vCoins[i].m_Value;
@@ -92,7 +168,7 @@ namespace beam
 		proto::Sk2Pk(pid, sk);
 	}
 
-	void Treasury::Response::Group::Create(const Request::Group& g, Oracle& oracle, Key::IKdf& kdf, uint64_t& nIndex)
+	void Treasury::Response::Group::Create(const Request::Group& g, Key::IKdf& kdf, uint64_t& nIndex)
 	{
 		m_vCoins.resize(g.m_vCoins.size());
 
@@ -118,8 +194,6 @@ namespace beam
 			Hash::Value hv;
 			c.get_SigMsg(hv);
 			c.m_Sig.Sign(hv, sk);
-
-			oracle << c.m_pOutput->m_Commitment;
 		}
 
 		Key::ID kid;
@@ -136,7 +210,7 @@ namespace beam
 
 	}
 
-	bool Treasury::Response::Group::IsValid(const Request::Group& g, Oracle& oracle) const
+	bool Treasury::Response::Group::IsValid(const Request::Group& g) const
 	{
 		if (m_vCoins.size() != g.m_vCoins.size())
 			return false;
@@ -179,21 +253,21 @@ namespace beam
 			c.get_SigMsg(hv);
 			if (!c.m_Sig.IsValid(hv, comm))
 				return false;
-
-			oracle << c.m_pOutput->m_Commitment;
 		}
 
 		return (ctx.m_Sigma == Zero);
 	}
 
-	void Treasury::Response::Group::Dump(TxBase::IWriter& w, TxBase& txb) const
+	void Treasury::Response::HashOutputs(Hash::Value& hv) const
 	{
-		w.Dump(Reader(*this));
-
-		Scalar::Native off = txb.m_Offset;
-		off += m_Base.m_Offset;
-		txb.m_Offset = off;
-		
+		Hash::Processor hp;
+		for (size_t iG = 0; iG < m_vGroups.size(); iG++)
+		{
+			const Group& g = m_vGroups[iG];
+			for (size_t iC = 0; iC < g.m_vCoins.size(); iC++)
+				hp << g.m_vCoins[iC].m_pOutput->m_Commitment;
+		}
+		hp >> hv;
 	}
 
 	bool Treasury::Response::Create(const Request& r, Key::IKdf& kdf, uint64_t& nIndex)
@@ -205,15 +279,48 @@ namespace beam
 		if (pid != r.m_WalletID)
 			return false;
 
+		m_WalletID = r.m_WalletID;
+
 		m_vGroups.resize(r.m_vGroups.size());
 
-		Oracle oracle;
+		struct Context
+			:public ThreadPool::Context
+		{
+			const Request& m_Req;
+			Response& m_Resp;
+			Key::IKdf& m_Kdf;
+			uint64_t m_Index0;
 
-		for (size_t iG = 0; iG < m_vGroups.size(); iG++)
-			m_vGroups[iG].Create(r.m_vGroups[iG], oracle, kdf, nIndex);
+			Context(const Request& req, Response& resp, Key::IKdf& kdf, uint64_t nIndex)
+				:m_Req(req)
+				,m_Resp(resp)
+				,m_Kdf(kdf)
+				,m_Index0(nIndex)
+			{}
+
+			uint64_t get_IndexAt(size_t iG) const
+			{
+				uint64_t nIndex = m_Index0;
+				for (size_t i = 0; i < iG; i++)
+					nIndex += m_Req.m_vGroups[i].m_vCoins.size() + 1;
+
+				return nIndex;
+			}
+
+			virtual void Do(size_t iTask) override
+			{
+				uint64_t nIndex = get_IndexAt(iTask);
+				m_Resp.m_vGroups[iTask].Create(m_Req.m_vGroups[iTask], m_Kdf, nIndex);
+				assert(get_IndexAt(iTask + 1) == nIndex);
+			}
+
+		} ctx(r, *this, kdf, nIndex);
+
+		ctx.DoAll(m_vGroups.size());
+		nIndex = ctx.get_IndexAt(m_vGroups.size());
 
 		Hash::Value hv;
-		oracle >> hv;
+		HashOutputs(hv);
 
 		m_Sig.Sign(hv, sk);
 		return true;
@@ -221,14 +328,31 @@ namespace beam
 
 	bool Treasury::Response::IsValid(const Request& r) const
 	{
-		if (m_vGroups.size() != r.m_vGroups.size())
+		if ((m_vGroups.size() != r.m_vGroups.size()) ||
+			(m_WalletID != r.m_WalletID))
 			return false;
 
-		Oracle oracle;
+		struct Context
+			:public ThreadPool::Verifier
+		{
+			const Request& m_Req;
+			const Response& m_Resp;
 
-		for (size_t iG = 0; iG < m_vGroups.size(); iG++)
-			if (!m_vGroups[iG].IsValid(r.m_vGroups[iG], oracle))
-				return false;
+			Context(const Request& req, const Response& resp)
+				:m_Req(req)
+				,m_Resp(resp)
+			{}
+
+			virtual bool Verify(size_t iTask) override
+			{
+				return m_Resp.m_vGroups[iTask].IsValid(m_Req.m_vGroups[iTask]);
+			}
+
+		} ctx(r, *this);
+
+		ctx.DoAll(m_vGroups.size());
+		if (!ctx.m_bValid)
+			return false;
 
 		// finally verify the signature
 		Point::Native pk;
@@ -236,9 +360,152 @@ namespace beam
 			return false;
 
 		Hash::Value hv;
-		oracle >> hv;
+		HashOutputs(hv);
 
 		return m_Sig.IsValid(hv, pk);
+	}
+
+	Treasury::Entry* Treasury::CreatePlan(const PeerID& pid, Amount nPerBlockAvg, const Parameters& pars)
+	{
+		EntryMap::iterator it = m_Entries.find(pid);
+		if (m_Entries.end() != it)
+			m_Entries.erase(it);
+
+		Entry& e = m_Entries[pid];
+		Request& r = e.m_Request;
+		r.m_WalletID = pid;
+
+		assert(pars.m_StepMin);
+		nPerBlockAvg *= pars.m_StepMin;
+
+		Height h0 = 0;
+		for (Height h = 0; h < pars.m_MaxHeight; h += pars.m_StepMin)
+		{
+			if (r.m_vGroups.empty() || (h - h0 >= pars.m_MaxDiffPerBlock))
+			{
+				r.m_vGroups.emplace_back();
+				h0 = h;
+			}
+
+			Request::Group::Coin& c = r.m_vGroups.back().m_vCoins.emplace_back();
+			c.m_Incubation = h;
+			c.m_Value = nPerBlockAvg;
+		}
+
+		return &e;
+	}
+
+	size_t Treasury::get_OverheadFor(const AmountBig& x)
+	{
+		Block::Body body;
+		body.ZeroInit();
+		body.m_Subsidy = x;
+
+		return get_BlockSize(body);
+	}
+
+	size_t Treasury::get_BlockSize(const Block::Body& body)
+	{
+		SerializerSizeCounter ssc;
+		ssc & body;
+		return ssc.m_Counter.m_Value;
+	}
+
+	void Treasury::Build(std::vector<Block::Body>& res) const
+	{
+		// Assuming all the plans are generated with the same group/incubation parameters.
+		for (size_t iG = 0; ; iG++)
+		{
+			bool bNoPeers = true, bNoBlock = true;
+
+			Block::Body body;
+			size_t nOverhead = 0, nSizeTotal = 0;
+
+			for (EntryMap::const_iterator it = m_Entries.begin(); m_Entries.end() != it; )
+			{
+				const Entry& e = (it++)->second;
+				if (!e.m_pResponse)
+					continue;
+				const Response& resp = *e.m_pResponse;
+
+				if (iG >= resp.m_vGroups.size())
+					continue;
+				bNoPeers = false;
+
+				if (bNoBlock)
+				{
+					body.ZeroInit();
+					nOverhead = get_OverheadFor(body.m_Subsidy); // the BodyBase size slightly depends on its subsidy. Hence it should be recalculated after adding every peer
+					nSizeTotal = nOverhead;
+				}
+
+				const Response::Group& g = resp.m_vGroups[iG];
+				Response::Group::Reader r(g);
+				size_t nSizeNetto = r.get_SizeNetto();
+
+				AmountBig subsNext = body.m_Subsidy;
+				e.m_Request.m_vGroups[iG].AddSubsidy(subsNext);
+
+				size_t nOverheadNext = get_OverheadFor(subsNext);
+
+				size_t nSizeAfterMerge = nSizeTotal + nSizeNetto + nOverheadNext - nOverhead;
+				if (nSizeAfterMerge <= Rules::get().MaxBodySize)
+				{
+					// merge
+					TxVectors::Writer(body, body).Dump(std::move(r));
+
+					Scalar::Native off = body.m_Offset;
+					off += g.m_Base.m_Offset;
+					body.m_Offset = off;
+
+					bNoBlock = false;
+
+					body.m_Subsidy = subsNext;
+					nSizeTotal = nSizeAfterMerge;
+					nOverhead = nOverheadNext;
+
+					assert(get_BlockSize(body) == nSizeTotal);
+				}
+				else
+				{
+					if (bNoBlock)
+						throw std::runtime_error("treasury group too large");
+
+					res.push_back(std::move(body));
+					bNoBlock = true;
+					it--; // retry
+				}
+			}
+
+			if (bNoPeers)
+				break;
+
+			if (!bNoBlock)
+				res.push_back(std::move(body));
+		}
+
+		// finalize
+		struct Context
+			:public ThreadPool::Verifier
+		{
+			std::vector<Block::Body>& m_Res;
+
+			Context(std::vector<Block::Body>& res)
+				:m_Res(res)
+			{}
+
+			virtual bool Verify(size_t iTask) override
+			{
+				m_Res[iTask].Normalize();
+
+				return m_Res[iTask].IsValid(HeightRange(Rules::HeightGenesis + iTask), true);
+			}
+
+		} ctx(res);
+
+		ctx.DoAll(res.size());
+		if (!ctx.m_bValid)
+			throw std::runtime_error("Invalid block generated");
 	}
 
 } // namespace beam

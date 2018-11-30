@@ -6,6 +6,7 @@ set(CORE_SRC
     block_crypt.cpp
     block_rw.cpp
     block_validation.cpp
+    difficulty.cpp
     chainwork.cpp
     navigator.cpp
     radixtree.cpp

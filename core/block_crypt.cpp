@@ -14,7 +14,6 @@
 
 #include <ctime>
 #include <chrono>
-#include <cmath>
 #include "block_crypt.h"
 
 namespace beam
@@ -739,8 +738,7 @@ namespace beam
 			<< FakePoW
 			<< AllowPublicUtxos
 			<< DesiredRate_s
-			<< DifficultyReviewCycle
-			<< MaxDifficultyChange
+			<< DifficultyReviewWindow
 			<< TimestampAheadThreshold_s
 			<< WindowForMedian
 			<< StartDifficulty.m_Packed
@@ -749,7 +747,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(11) // increment this whenever we change something in the protocol
+			<< uint32_t(12) // increment this whenever we change something in the protocol
 #ifndef BEAM_TESTNET
             << "masternet"
 #endif
@@ -1138,234 +1136,6 @@ namespace beam
 
 			m_Txv.m_vOutputs.push_back(std::move(pOutp));
 		}
-	}
-
-	/////////////
-	// Difficulty
-	void Rules::AdjustDifficulty(Difficulty& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const
-	{
-		//static_assert(DesiredRate_s * DifficultyReviewCycle < uint32_t(-1), "overflow?");
-		const uint32_t dtTrg_s = DesiredRate_s * DifficultyReviewCycle;
-
-		uint32_t dt_s; // evaluate carefully, avoid possible overflow
-		if (tCycleEnd_s <= tCycleBegin_s)
-			dt_s = 0;
-		else
-		{
-			tCycleEnd_s -= tCycleBegin_s;
-			dt_s = (tCycleEnd_s < uint32_t(-1)) ? uint32_t(tCycleEnd_s) : uint32_t(-1);
-		}
-
-		d.Adjust(dt_s, dtTrg_s, MaxDifficultyChange);
-	}
-
-	void Difficulty::Pack(uint32_t order, uint32_t mantissa)
-	{
-		if (order <= s_MaxOrder)
-		{
-			assert((mantissa >> s_MantissaBits) == 1U);
-			mantissa &= (1U << s_MantissaBits) - 1;
-
-			m_Packed = mantissa | (order << s_MantissaBits);
-		}
-		else
-			m_Packed = s_Inf;
-	}
-
-	void Difficulty::Unpack(uint32_t& order, uint32_t& mantissa) const
-	{
-		order = (m_Packed >> s_MantissaBits);
-
-		const uint32_t nLeadingBit = 1U << s_MantissaBits;
-		mantissa = nLeadingBit | (m_Packed & (nLeadingBit - 1));
-	}
-
-	bool Difficulty::IsTargetReached(const ECC::uintBig& hv) const
-	{
-		if (m_Packed > s_Inf)
-			return false; // invalid
-
-		// multiply by (raw) difficulty, check if the result fits wrt normalization.
-		Raw val;
-		Unpack(val);
-
-		auto a = hv * val; // would be 512 bits
-
-		static_assert(!(s_MantissaBits & 7), ""); // fix the following code lines to support non-byte-aligned mantissa size
-
-		return memis0(a.m_pData, Raw::nBytes - (s_MantissaBits >> 3));
-	}
-
-	void Difficulty::Unpack(Raw& res) const
-	{
-		res = Zero;
-		if (m_Packed < s_Inf)
-		{
-			uint32_t order, mantissa;
-			Unpack(order, mantissa);
-			res.AssignSafe(mantissa, order);
-
-		}
-		else
-			res.Inv();
-	}
-
-	Difficulty::Raw operator + (const Difficulty::Raw& base, const Difficulty& d)
-	{
-		Difficulty::Raw res;
-		d.Unpack(res);
-		res += base;
-		return res;
-	}
-
-	Difficulty::Raw& operator += (Difficulty::Raw& res, const Difficulty& d)
-	{
-		Difficulty::Raw base;
-		d.Unpack(base);
-		res += base;
-		return res;
-	}
-
-	Difficulty::Raw operator - (const Difficulty::Raw& base, const Difficulty& d)
-	{
-		Difficulty::Raw res;
-		d.Unpack(res);
-		res.Negate();
-		res += base;
-		return res;
-	}
-
-	Difficulty::Raw& operator -= (Difficulty::Raw& res, const Difficulty& d)
-	{
-		Difficulty::Raw base;
-		d.Unpack(base);
-		base.Negate();
-		res += base;
-		return res;
-	}
-
-	void Difficulty::Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange)
-	{
-		if (!(src || trg))
-			return; // degenerate case
-
-		uint32_t order, mantissa;
-		Unpack(order, mantissa);
-
-		Adjust(src, trg, nMaxOrderChange, order, mantissa);
-
-		if (signed(order) >= 0)
-			Pack(order, mantissa);
-		else
-			m_Packed = 0;
-
-	}
-
-	void Difficulty::Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange, uint32_t& order, uint32_t& mantissa)
-	{
-		bool bIncrease = (src < trg);
-
-		// order adjustment (rough)
-		for (uint32_t i = 0; ; i++)
-		{
-			if (i == nMaxOrderChange)
-				return;
-
-			uint32_t srcAdj = src;
-			if (bIncrease)
-			{
-				if ((srcAdj <<= 1) > trg)
-					break;
-
-				if (++order > s_MaxOrder)
-					return;
-			}
-			else
-			{
-				if ((srcAdj >>= 1) < trg)
-					break;
-
-				if (!order--)
-					return;
-			}
-
-			src = srcAdj;
-		}
-
-		// By now the ratio between src/trg is less than 2. Adjust the mantissa
-		uint64_t val = trg;
-		val *= uint64_t(mantissa);
-		val /= uint64_t(src);
-
-		mantissa = (uint32_t) val;
-
-		uint32_t nLeadingBit = mantissa >> Difficulty::s_MantissaBits;
-
-		if (bIncrease)
-		{
-			assert(nLeadingBit && (nLeadingBit < 4));
-
-			if (nLeadingBit > 1)
-			{
-				order++;
-				mantissa >>= 1;
-			}
-		}
-		else
-		{
-			assert(nLeadingBit <= 1);
-
-			if (!nLeadingBit)
-			{
-				order--;
-				mantissa <<= 1;
-				assert(mantissa >> Difficulty::s_MantissaBits);
-			}
-		}
-	}
-
-	double Difficulty::ToFloat() const
-	{
-		uint32_t order, mantissa;
-		Unpack(order, mantissa);
-
-		int nOrderCorrected = order - s_MantissaBits; // must be signed
-		return ldexp(mantissa, nOrderCorrected);
-	}
-
-	double Difficulty::ToFloat(Raw& x)
-	{
-		double res = 0;
-
-		int nOrder = x.nBits - 8 - s_MantissaBits;
-		for (uint32_t i = 0; i < x.nBytes; i++, nOrder -= 8)
-		{
-			uint8_t n = x.m_pData[i];
-			if (n)
-				res += ldexp(n, nOrder);
-		}
-
-		return res;
-	}
-
-	std::ostream& operator << (std::ostream& s, const Difficulty& d)
-	{
-		typedef uintBig_t<sizeof(Difficulty) * 8 - Difficulty::s_MantissaBits> uintOrder;
-		typedef uintBig_t<Difficulty::s_MantissaBits> uintMantissa;
-
-		uintOrder n0;
-		n0.AssignSafe(d.m_Packed >> Difficulty::s_MantissaBits, 0);
-		char sz0[uintOrder::nTxtLen + 1];
-		n0.Print(sz0);
-
-		uintMantissa n1;
-		n1.AssignSafe(d.m_Packed & ((1U << Difficulty::s_MantissaBits) - 1), 0);
-		char sz1[uintMantissa::nTxtLen + 1];
-		n1.Print(sz1);
-
-		s << sz0 << '-' << sz1 << '(' << d.ToFloat() << ')';
-
-		return s;
 	}
 
 	std::ostream& operator << (std::ostream& s, const Block::SystemState::ID& id)

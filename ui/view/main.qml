@@ -32,7 +32,7 @@ Rectangle {
     property var contentItems : [
 		//"dashboard",
 		"wallet", 
-		//"address-book", 
+		"addresses", 
 		"utxo",
 		//"notification", 
 		//"info",

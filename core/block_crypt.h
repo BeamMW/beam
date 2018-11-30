@@ -15,6 +15,7 @@
 #pragma once
 #include "ecc_native.h"
 #include "merkle.h"
+#include "difficulty.h"
 
 namespace beam
 {
@@ -31,43 +32,6 @@ namespace beam
 	Timestamp getTimestamp();
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
-
-	struct Difficulty
-	{
-		uint32_t m_Packed;
-		static const uint32_t s_MantissaBits = 24;
-
-		Difficulty(uint32_t d = 0) :m_Packed(d) {}
-
-		typedef ECC::uintBig Raw;
-
-		// maximum theoretical difficulty value, which corresponds to 'infinite' (only Zero hash value meet the target).
-		// Corresponds to 0xffff...fff raw value.
-		static const uint32_t s_MaxOrder = Raw::nBits - s_MantissaBits - 1;
-		static const uint32_t s_Inf = (s_MaxOrder + 1) << s_MantissaBits;
-
-		bool IsTargetReached(const ECC::uintBig&) const;
-
-		void Unpack(Raw&) const;
-
-		void Unpack(uint32_t& order, uint32_t& mantissa) const;
-		void Pack(uint32_t order, uint32_t mantissa);
-
-		void Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange);
-
-		friend Raw operator + (const Raw&, const Difficulty&);
-		friend Raw operator - (const Raw&, const Difficulty&);
-		friend Raw& operator += (Raw&, const Difficulty&);
-		friend Raw& operator -= (Raw&, const Difficulty&);
-
-		double ToFloat() const;
-		static double ToFloat(Raw&);
-
-	private:
-		static void Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange, uint32_t& order, uint32_t& mantissa);
-	};
-
-	std::ostream& operator << (std::ostream&, const Difficulty&);
 
 	struct HeightRange
 	{
@@ -127,8 +91,7 @@ namespace beam
 
 		// timestamp & difficulty. Basically very close to those from bitcoin, except the desired rate is 1 minute (instead of 10 minutes)
 		uint32_t DesiredRate_s				= 60; // 1 minute
-		uint32_t DifficultyReviewCycle		= 24 * 60; // 1,440 blocks, 1 day roughly
-		uint32_t MaxDifficultyChange		= 2; // (x4, same as in bitcoin).
+		uint32_t DifficultyReviewWindow		= 24 * 60; // 1,440 blocks, 1 day roughly
 		uint32_t TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
 		uint32_t WindowForMedian			= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
 		Difficulty StartDifficulty			= Difficulty(2 << Difficulty::s_MantissaBits); // FAST start, good for QA
@@ -141,7 +104,6 @@ namespace beam
 		ECC::Hash::Value Checksum;
 
 		void UpdateChecksum();
-		void AdjustDifficulty(Difficulty&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const;
 	};
 
 	struct TxElement
