@@ -82,7 +82,8 @@ namespace beam
         }
 
         WalletAddress() 
-            : m_createTime(0)
+            : m_walletID(Zero)
+            , m_createTime(0)
             , m_duration(24 * 60 * 60) // 24h
             , m_OwnID(false)
         {}
