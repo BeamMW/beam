@@ -53,7 +53,7 @@ namespace beam
 		void Unpack(uint32_t& order, uint32_t& mantissa) const;
 		void Pack(uint32_t order, uint32_t mantissa);
 
-		void Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange);
+		void Calculate(const Raw& wrk, uint32_t dh, uint32_t dtTrg_s, uint32_t dtSrc_s);
 
 		friend Raw operator + (const Raw&, const Difficulty&);
 		friend Raw operator - (const Raw&, const Difficulty&);
@@ -63,8 +63,8 @@ namespace beam
 		double ToFloat() const;
 		static double ToFloat(Raw&);
 
-	private:
-		static void Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange, uint32_t& order, uint32_t& mantissa);
+		struct BigFloat;
+
 	};
 
 	std::ostream& operator << (std::ostream&, const Difficulty&);
@@ -127,8 +127,7 @@ namespace beam
 
 		// timestamp & difficulty. Basically very close to those from bitcoin, except the desired rate is 1 minute (instead of 10 minutes)
 		uint32_t DesiredRate_s				= 60; // 1 minute
-		uint32_t DifficultyReviewCycle		= 24 * 60; // 1,440 blocks, 1 day roughly
-		uint32_t MaxDifficultyChange		= 2; // (x4, same as in bitcoin).
+		uint32_t DifficultyReviewWindow		= 24 * 60; // 1,440 blocks, 1 day roughly
 		uint32_t TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
 		uint32_t WindowForMedian			= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
 		Difficulty StartDifficulty			= Difficulty(2 << Difficulty::s_MantissaBits); // FAST start, good for QA
@@ -141,7 +140,6 @@ namespace beam
 		ECC::Hash::Value Checksum;
 
 		void UpdateChecksum();
-		void AdjustDifficulty(Difficulty&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const;
 	};
 
 	struct TxElement

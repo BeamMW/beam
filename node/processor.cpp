@@ -1092,48 +1092,80 @@ uint64_t NodeProcessor::FindActiveAtStrict(Height h)
 // Block generation
 Difficulty NodeProcessor::get_NextDifficulty()
 {
+	const Rules& r = Rules::get(); // alias
+
 	if (!m_Cursor.m_Sid.m_Row)
-		return Rules::get().StartDifficulty; // 1st block difficulty 0
+		return r.StartDifficulty; // 1st block difficulty 0
 
-	Height dh = m_Cursor.m_Full.m_Height - Rules::HeightGenesis;
+	if (m_Cursor.m_Full.m_Height - Rules::HeightGenesis < r.DifficultyReviewWindow)
+		return r.StartDifficulty; // 1st block difficulty 0
 
-	if (!dh || (dh % Rules::get().DifficultyReviewCycle))
-		return m_Cursor.m_Full.m_PoW.m_Difficulty; // no change
+	Block::SystemState::Full s0, s1;
 
-	// review the difficulty
-	uint64_t rowid = FindActiveAtStrict(m_Cursor.m_Full.m_Height - Rules::get().DifficultyReviewCycle);
+	uint64_t row1 = m_Cursor.m_Sid.m_Row;
+	get_MovingMedianEx(row1);
+	m_DB.get_State(row1, s1);
+	uint64_t row0 = FindActiveAtStrict(m_Cursor.m_Full.m_Height - r.DifficultyReviewWindow);
+	get_MovingMedianEx(row0);
+	m_DB.get_State(row0, s0);
 
-	Block::SystemState::Full s2;
-	m_DB.get_State(rowid, s2);
+	assert(r.DifficultyReviewWindow > r.WindowForMedian); // when getting median - the target height can be shifted by some value, ensure it's smaller than the window
+	// means, the height diff should always be positive
+	uint32_t dh = static_cast<uint32_t>(s1.m_Height - s0.m_Height);
+	assert(s1.m_Height > s0.m_Height);
 
-	Difficulty ret = m_Cursor.m_Full.m_PoW.m_Difficulty;
-	Rules::get().AdjustDifficulty(ret, s2.m_TimeStamp, m_Cursor.m_Full.m_TimeStamp);
-	return ret;
+	uint32_t dtTrg_s = r.DesiredRate_s * dh;
+	uint32_t dtSrc_s =
+		(s1.m_TimeStamp >= s0.m_TimeStamp + dtTrg_s * 2) ? (dtTrg_s * 2) :
+		(s1.m_TimeStamp <= s0.m_TimeStamp + dtTrg_s / 2) ? (dtTrg_s / 2) :
+		static_cast<uint32_t>(s1.m_TimeStamp - s0.m_TimeStamp);
+
+	assert(s0.m_ChainWork < s1.m_ChainWork);
+	Difficulty::Raw dWrk = s0.m_ChainWork;
+	dWrk.Negate();
+	dWrk += s1.m_ChainWork;
+
+	Difficulty res;
+	res.Calculate(dWrk, dh, dtTrg_s, dtSrc_s);
+
+	return res;
 }
 
-Timestamp NodeProcessor::get_MovingMedian()
+Timestamp NodeProcessor::get_MovingMedianEx(uint64_t& row)
 {
-	if (!m_Cursor.m_Sid.m_Row)
-		return 0;
+	assert(row);
 
-	std::vector<Timestamp> vTs;
+	typedef std::pair<Timestamp, std::pair<Height, uint64_t> > THR; // Time-Height-Row. The Height is needed for the case of duplicate Time, to resolve ambiguity
 
-	for (uint64_t row = m_Cursor.m_Sid.m_Row; ; )
+	const uint32_t nWndMax = Rules::get().WindowForMedian;
+	std::vector<THR> v;
+	v.reserve(nWndMax);
+
+	for (uint32_t iPos = 0; iPos < nWndMax; iPos++)
 	{
 		Block::SystemState::Full s;
 		m_DB.get_State(row, s);
-		vTs.push_back(s.m_TimeStamp);
 
-		if (vTs.size() >= Rules::get().WindowForMedian)
-			break;
+		v.emplace_back();
+		v.back().first = s.m_TimeStamp;
+		v.back().second.first = s.m_Height;
+		v.back().second.second = row;
 
 		if (!m_DB.get_Prev(row))
 			break;
 	}
 
-	std::sort(vTs.begin(), vTs.end()); // there's a better algorithm to find a median (or whatever order), however our array isn't too big, so it's ok.
+	std::sort(v.begin(), v.end()); // there's a better algorithm to find a median (or whatever order), however our array isn't too big, so it's ok.
 
-	return vTs[vTs.size() >> 1];
+	const THR& val = v[v.size() >> 1];
+	row = val.second.second;
+	return val.first;
+}
+
+Timestamp NodeProcessor::get_MovingMedian()
+{
+	uint64_t row = m_Cursor.m_Sid.m_Row;
+	return row ? get_MovingMedianEx(row) : 0;
 }
 
 bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, Height h)

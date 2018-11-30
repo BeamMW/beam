@@ -160,8 +160,7 @@ namespace beam
     macro(Height, MaturityStd, "num of blocks before non-coinbase UTXO can be spent") \
     macro(size_t, MaxBodySize, "Max block body size [bytes]") \
     macro(uint32_t, DesiredRate_s, "Desired rate of generated blocks [seconds]") \
-    macro(uint32_t, DifficultyReviewCycle, "num of blocks after which the mining difficulty can be adjusted") \
-    macro(uint32_t, MaxDifficultyChange, "Max difficulty change after each cycle (each step is roughly x2 complexity)") \
+    macro(uint32_t, DifficultyReviewWindow, "num of blocks in the window for the mining difficulty adjustment") \
     macro(uint32_t, TimestampAheadThreshold_s, "Block timestamp tolerance [seconds]") \
     macro(uint32_t, WindowForMedian, "How many blocks are considered in calculating the timestamp median") \
     macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \

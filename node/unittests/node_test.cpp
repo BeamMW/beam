@@ -1706,6 +1706,8 @@ int main()
 
 	beam::Rules::get().AllowPublicUtxos = true;
 	beam::Rules::get().FakePoW = true;
+	beam::Rules::get().DifficultyReviewWindow = 35;
+	beam::Rules::get().WindowForMedian = 3;
 	beam::Rules::get().UpdateChecksum();
 
 	beam::TestChainworkProof();

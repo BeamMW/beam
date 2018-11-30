@@ -106,7 +106,12 @@ namespace beam {
 			}
 
 			if (!((i + 1) % 8000))
-				s.m_Hdr.m_PoW.m_Difficulty.Adjust(140, 150, 3); // slightly raise
+			{
+				// slightly raise
+				Difficulty::Raw raw;
+				s.m_Hdr.m_PoW.m_Difficulty.Unpack(raw);
+				s.m_Hdr.m_PoW.m_Difficulty.Calculate(raw, 1, 150, 140);
+			}
 
 			s.m_Hdr.m_ChainWork += s.m_Hdr.m_PoW.m_Difficulty;
 

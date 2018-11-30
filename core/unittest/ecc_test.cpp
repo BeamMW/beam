@@ -1015,6 +1015,13 @@ void TestBbs()
 	verify_test(!beam::proto::BbsDecrypt(p, n, privateAddr));
 }
 
+void TestRatio(const beam::Difficulty& d0, const beam::Difficulty& d1, double k)
+{
+	const double tol = 1.000001;
+	double k_ = d0.ToFloat() / d1.ToFloat();
+	verify_test((k_ < k * tol) && (k < k_ * tol));
+}
+
 void TestDifficulty()
 {
 	using namespace beam;
@@ -1039,91 +1046,44 @@ void TestDifficulty()
 	verify_test(Difficulty(0x1000000).IsTargetReached(val));
 
 	// Adjustments
-	Difficulty d = 0;
+	Difficulty d, d2;
+	d.m_Packed = 3 << Difficulty::s_MantissaBits;
 
-	// slight adjustments
-	while (true)
-	{
-		Difficulty d0 = d;
+	Difficulty::Raw raw, wrk;
+	d.Unpack(raw);
+	uint32_t dh = 1440;
+	wrk.AssignMul(raw, uintBigFrom(dh));
 
-		d.Adjust(790000, 860000, 2);
-		verify_test(d.m_Packed > d0.m_Packed);
+	d2.Calculate(wrk, dh, 100500, 100500);
+	TestRatio(d2, d, 1.);
 
-		if (d.m_Packed == Difficulty::s_Inf)
-			break;
-	}
+	// slight increase
+	d2.Calculate(wrk, dh, 100500, 100000);
+	TestRatio(d2, d, 1.005);
 
-	while (true)
-	{
-		Difficulty d0 = d;
+	// strong increase
+	d2.Calculate(wrk, dh, 180000, 100000);
+	TestRatio(d2, d, 1.8);
 
-		d.Adjust(790000, 760000, 2);
-		verify_test(d.m_Packed < d0.m_Packed);
+	// huge increase
+	d2.Calculate(wrk, dh, 7380000, 100000);
+	TestRatio(d2, d, 73.8);
 
-		if (!d.m_Packed)
-			break;
-	}
+	// insane increase (1.7 billions). Still must fit
+	d2.Calculate(wrk, dh, 1794380000, 1);
+	TestRatio(d2, d, 1794380000);
 
-	// strong adjustments
-	while (true)
-	{
-		Difficulty d0 = d;
+	// slight decrease
+	d2.Calculate(wrk, dh, 100000, 100500);
+	TestRatio(d, d2, 1.005);
 
-		d.Adjust(790000, 860000*4, 3);
-		verify_test(d.m_Packed > d0.m_Packed);
+	// strong decrease
+	d2.Calculate(wrk, dh, 100000, 180000);
+	TestRatio(d, d2, 1.8);
 
-		if (d.m_Packed == Difficulty::s_Inf)
-			break;
-	}
-
-	while (true)
-	{
-		Difficulty d0 = d;
-
-		d.Adjust(790000, 760000/4, 3);
-		verify_test(d.m_Packed < d0.m_Packed);
-
-		if (!d.m_Packed)
-			break;
-	}
-
-	// extreme adjustments, should be bounded by max order change
-	while (true)
-	{
-		Difficulty d0 = d;
-
-		d.Adjust(1, 1000, 3);
-		verify_test(d.m_Packed > d0.m_Packed);
-
-		if (d.m_Packed == Difficulty::s_Inf)
-			break;
-	}
-
-	while (true)
-	{
-		Difficulty d0 = d;
-
-		d.Adjust(1000, 1, 3);
-		verify_test(d.m_Packed < d0.m_Packed);
-
-		if (!d.m_Packed)
-			break;
-	}
-
-	d = 0;
-	verify_test(d.ToFloat() == 1.);
-	r1 = Zero;
-	verify_test(Difficulty::ToFloat(r1) == 0.);
-
-	d.m_Packed = 8 << Difficulty::s_MantissaBits;
-	verify_test(d.ToFloat() == 256.);
-	d.Unpack(r1);
-	verify_test(Difficulty::ToFloat(r1) == 256.);
-
-	d.m_Packed |= 0xffffff;
-	verify_test(d.ToFloat() < 512.);
-	d.Unpack(r1);
-	verify_test(Difficulty::ToFloat(r1) < 512.);
+	// insane decrease, out-of-bound
+	d2.Calculate(wrk, dh, 100000, 7380000);
+	verify_test(!d2.m_Packed);
 }
 
 void TestRandom()

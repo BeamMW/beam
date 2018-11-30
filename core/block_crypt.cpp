@@ -739,8 +739,7 @@ namespace beam
 			<< FakePoW
 			<< AllowPublicUtxos
 			<< DesiredRate_s
-			<< DifficultyReviewCycle
-			<< MaxDifficultyChange
+			<< DifficultyReviewWindow
 			<< TimestampAheadThreshold_s
 			<< WindowForMedian
 			<< StartDifficulty.m_Packed
@@ -749,7 +748,7 @@ namespace beam
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(11) // increment this whenever we change something in the protocol
+			<< uint32_t(12) // increment this whenever we change something in the protocol
 #ifndef BEAM_TESTNET
             << "masternet"
 #endif
@@ -1142,23 +1141,6 @@ namespace beam
 
 	/////////////
 	// Difficulty
-	void Rules::AdjustDifficulty(Difficulty& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const
-	{
-		//static_assert(DesiredRate_s * DifficultyReviewCycle < uint32_t(-1), "overflow?");
-		const uint32_t dtTrg_s = DesiredRate_s * DifficultyReviewCycle;
-
-		uint32_t dt_s; // evaluate carefully, avoid possible overflow
-		if (tCycleEnd_s <= tCycleBegin_s)
-			dt_s = 0;
-		else
-		{
-			tCycleEnd_s -= tCycleBegin_s;
-			dt_s = (tCycleEnd_s < uint32_t(-1)) ? uint32_t(tCycleEnd_s) : uint32_t(-1);
-		}
-
-		d.Adjust(dt_s, dtTrg_s, MaxDifficultyChange);
-	}
-
 	void Difficulty::Pack(uint32_t order, uint32_t mantissa)
 	{
 		if (order <= s_MaxOrder)
@@ -1244,82 +1226,87 @@ namespace beam
 		return res;
 	}
 
-	void Difficulty::Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange)
+	struct Difficulty::BigFloat
 	{
-		if (!(src || trg))
-			return; // degenerate case
+		int m_Order; // signed
+		uint32_t m_Value;
+		static const uint32_t nBits = sizeof(uint32_t) << 3;
 
-		uint32_t order, mantissa;
-		Unpack(order, mantissa);
-
-		Adjust(src, trg, nMaxOrderChange, order, mantissa);
-
-		if (signed(order) >= 0)
-			Pack(order, mantissa);
-		else
-			m_Packed = 0;
-
-	}
-
-	void Difficulty::Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange, uint32_t& order, uint32_t& mantissa)
-	{
-		bool bIncrease = (src < trg);
-
-		// order adjustment (rough)
-		for (uint32_t i = 0; ; i++)
+		template <uint32_t nBits_>
+		void operator = (const uintBig_t<nBits_>& val)
 		{
-			if (i == nMaxOrderChange)
-				return;
-
-			uint32_t srcAdj = src;
-			if (bIncrease)
+			uint32_t nOrder = val.get_Order();
+			if (nOrder)
 			{
-				if ((srcAdj <<= 1) > trg)
-					break;
+				m_Order = nOrder - nBits;
 
-				if (++order > s_MaxOrder)
-					return;
+				uintBigFor<uint32_t>::Type x;
+				if (m_Order > 0)
+					val.ShiftRight(m_Order, x);
+				else
+					val.ShiftLeft(-m_Order, x);
+
+				x.Export(m_Value);
 			}
 			else
 			{
-				if ((srcAdj >>= 1) < trg)
-					break;
-
-				if (!order--)
-					return;
-			}
-
-			src = srcAdj;
-		}
-
-		// By now the ratio between src/trg is less than 2. Adjust the mantissa
-		uint64_t val = trg;
-		val *= uint64_t(mantissa);
-		val /= uint64_t(src);
-
-		mantissa = (uint32_t) val;
-
-		uint32_t nLeadingBit = mantissa >> Difficulty::s_MantissaBits;
-
-		if (bIncrease)
-		{
-			assert(nLeadingBit && (nLeadingBit < 4));
-
-			if (nLeadingBit > 1)
-			{
-				order++;
-				mantissa >>= 1;
+				m_Order = 0;
+				m_Value = 0;
 			}
 		}
-		else
-		{
-			assert(nLeadingBit <= 1);
 
-			if (!nLeadingBit)
+		template <typename T>
+		void operator = (T val)
+		{
+			*this = uintBigFor<T>::Type(val);
+		}
+
+		BigFloat operator * (const BigFloat& x) const
+		{
+			uint64_t val = m_Value;
+			val *= x.m_Value;
+
+			BigFloat res(val);
+			res.m_Order += m_Order + x.m_Order;
+
+			return res;
+		}
+
+		BigFloat operator / (const BigFloat& x) const
+		{
+			assert(x.m_Value); // otherwise div-by-zero exc
+
+			uint64_t val = m_Value;
+			val <<= nBits;
+			val /= x.m_Value;
+
+			BigFloat res(val);
+			res.m_Order += m_Order - (x.m_Order + nBits);
+			return res;
+		}
+
+		template <typename T>
+		BigFloat(const T& x) { *this = x; }
+	};
+
+	void Difficulty::Calculate(const Raw& ref, uint32_t dh, uint32_t dtTrg_s, uint32_t dtSrc_s)
+	{
+		uint64_t div = dtSrc_s;
+		div *= dh;
+
+		BigFloat x = BigFloat(ref) * BigFloat(dtTrg_s) / BigFloat(div);
+
+		// to packed.
+		m_Packed = 0;
+
+		if (x.m_Value)
+		{
+			assert(1 & (x.m_Value >> (BigFloat::nBits - 1)));
+			x.m_Order += (BigFloat::nBits - 1 - s_MantissaBits);
+			if (x.m_Order >= 0)
 			{
-				order--;
-				mantissa <<= 1;
-				assert(mantissa >> Difficulty::s_MantissaBits);
+				x.m_Value >>= (BigFloat::nBits - 1 - s_MantissaBits);
+				Pack(x.m_Order, x.m_Value);
 			}
 		}
 	}
