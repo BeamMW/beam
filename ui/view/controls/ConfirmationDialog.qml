@@ -8,7 +8,9 @@ Dialog {
     property alias text: messageText.text
     property alias okButtonText: okButton.text
     property alias okButtonIconSource: okButton.icon.source
+    property alias okButtonColor: okButton.palette.button
     property alias cancelVisible : cancelButton.visible
+    property alias cancelButtonIconSource: cancelButton.icon.source
 
     modal: true
 
