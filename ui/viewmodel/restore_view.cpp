@@ -19,7 +19,7 @@ using namespace beam;
 using namespace std;
 
 RestoreViewModel::RestoreViewModel()
-    : m_walletModel{ AppModel::getInstance()->getWallet() }
+    : m_walletModel{ *AppModel::getInstance()->getWallet() }
     , m_progress{0.0}
     , m_nodeTotal{0}
     , m_nodeDone{0}
@@ -34,7 +34,7 @@ RestoreViewModel::RestoreViewModel()
     , m_currentEstimationSec{0}
     , m_skipProgress{false}
 {
-    connect(AppModel::getInstance()->getWallet().get(), SIGNAL(onSyncProgressUpdated(int, int)),
+    connect(&m_walletModel, SIGNAL(onSyncProgressUpdated(int, int)),
         SLOT(onSyncProgressUpdated(int, int)));
 
     if (AppModel::getInstance()->getSettings().getRunLocalNode())
@@ -43,10 +43,10 @@ RestoreViewModel::RestoreViewModel()
             SLOT(onNodeSyncProgressUpdated(int, int)));
     }
 
-    connect(m_walletModel.get(), SIGNAL(nodeConnectionChanged(bool)),
+    connect(&m_walletModel, SIGNAL(nodeConnectionChanged(bool)),
         SLOT(onNodeConnectionChanged(bool)));
 
-    connect(m_walletModel.get(), SIGNAL(nodeConnectionFailed()),
+    connect(&m_walletModel, SIGNAL(nodeConnectionFailed()),
         SLOT(onNodeConnectionFailed()));
 
     connect(&m_updateTimer, SIGNAL(timeout()), this, SLOT(onUpdateTimer()));
@@ -86,6 +86,11 @@ void RestoreViewModel::onNodeSyncProgressUpdated(int done, int total)
         }
         updateProgress();
     }
+}
+
+void RestoreViewModel::cancelRestore()
+{
+    AppModel::getInstance()->cancelRestoreWallet();
 }
 
 void RestoreViewModel::updateProgress()
@@ -207,7 +212,7 @@ void RestoreViewModel::setProgressMessage(const QString& value)
 
 void RestoreViewModel::syncWithNode()
 {
-    m_walletModel->getAsync()->syncWithNode();
+    m_walletModel.getAsync()->syncWithNode();
 }
 
 void RestoreViewModel::onUpdateTimer()

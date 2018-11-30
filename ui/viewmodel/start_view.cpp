@@ -257,7 +257,7 @@ void StartViewModel::setupRemoteNode(const QString& nodeAddress)
     AppModel::getInstance()->getSettings().setNodeAddress(nodeAddress);
 }
 
-void StartViewModel::setupTestnetNode()
+void StartViewModel::setupRandomNode()
 {
     AppModel::getInstance()->getSettings().setRunLocalNode(false);
     AppModel::getInstance()->getSettings().setNodeAddress(chooseRandomNode());

@@ -40,15 +40,14 @@ namespace
 #ifdef BEAM_USE_GPU
     const char* LocalNodeUseGpu = "localnode/use_gpu";
 #endif
-
-    const char* SettingsIni = "settings.ini";
 }
 
 const char* WalletSettings::WalletCfg = "beam-wallet.cfg";
 const char* WalletSettings::LogsFolder = "logs";
+const char* WalletSettings::SettingsFile = "settings.ini";
 
 WalletSettings::WalletSettings(const QDir& appDataDir)
-    : m_data{ appDataDir.filePath(SettingsIni), QSettings::IniFormat }
+    : m_data{ appDataDir.filePath(SettingsFile), QSettings::IniFormat }
     , m_appDataDir{appDataDir}
 {
 
@@ -280,7 +279,7 @@ void WalletSettings::reportProblem()
     zip.open(QuaZip::mdCreate);
 
     // save settings.ini
-    zipLocalFile(zip, m_appDataDir.filePath(SettingsIni));
+    zipLocalFile(zip, m_appDataDir.filePath(SettingsFile));
 
     // save .cfg
     zipLocalFile(zip, QDir(QDir::currentPath()).filePath(WalletCfg));
