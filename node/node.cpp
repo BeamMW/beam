@@ -764,6 +764,8 @@ void Node::InitMode()
 {
 	if (m_Processor.m_Cursor.m_ID.m_Height)
 		return;
+	if (!m_Processor.m_Extra.m_TreasuryHandled)
+		return; // first get the treasury, then decide how to sync.
 
 	if (!m_Cfg.m_vTreasury.empty())
 	{
@@ -1758,12 +1760,16 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
 
 	const Block::SystemState::ID& id = t.m_Key.first;
+	Height h = id.m_Height;
 
-	NodeProcessor::DataStatus::Enum eStatus = id.m_Height ?
+	NodeProcessor::DataStatus::Enum eStatus = h ?
 		m_This.m_Processor.OnBlock(id, msg.m_Perishable, msg.m_Eternal, m_pInfo->m_ID.m_Key) :
 		m_This.m_Processor.OnTreasury(msg.m_Eternal);
 
 	OnFirstTaskDone(eStatus);
+
+	if (!h)
+		m_This.InitMode(); // maybe fast-sync now
 }
 
 void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
