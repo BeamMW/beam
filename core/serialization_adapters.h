@@ -836,8 +836,7 @@ namespace detail
 		static Archive& save(Archive& ar, const beam::Block::BodyBase& bb)
 		{
 			uint8_t nFlags =
-				(bb.m_Subsidy.Hi ? 1 : 0) |
-				(bb.m_SubsidyClosing ? 2 : 0);
+				(bb.m_Subsidy.Hi ? 1 : 0);
 
 			ar & (const beam::TxBase&) bb;
 			ar & nFlags;
@@ -862,8 +861,6 @@ namespace detail
 				ar & bb.m_Subsidy.Hi;
 			else
 				bb.m_Subsidy.Hi = 0;
-
-			bb.m_SubsidyClosing = ((2 & nFlags) != 0);
 
 			return ar;
 		}

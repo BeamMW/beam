@@ -55,7 +55,6 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 
 	m_nSizeUtxoComission = 0;
 	ZeroObject(m_Extra);
-	m_Extra.m_SubsidyOpen = true;
 
 	if (bResetCursor)
 		m_DB.ResetCursor();
@@ -837,14 +836,8 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 
 bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyBase& body, Height h, bool bFwd, const Height* pHMax)
 {
-	if (body.m_SubsidyClosing && (m_Extra.m_SubsidyOpen != bFwd))
-		return false; // invalid subsidy close flag
-
 	if (!HandleValidatedTx(std::move(r), h, bFwd, pHMax))
 		return false;
-
-	if (body.m_SubsidyClosing)
-		ToggleSubsidyOpened();
 
 	ECC::Scalar::Native kOffset = body.m_Offset;
 
@@ -987,31 +980,6 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 	return true;
 }
 
-void NodeProcessor::ToggleSubsidyOpened()
-{
-	UtxoTree::Key::Data d;
-	ZeroObject(d);
-	d.m_Commitment.m_Y = true; // invalid commitment
-
-	UtxoTree::Key key;
-	key = d;
-
-	UtxoTree::Cursor cu;
-	bool bCreate = true;
-	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
-
-	assert(m_Extra.m_SubsidyOpen == bCreate);
-	m_Extra.m_SubsidyOpen = !bCreate;
-
-	if (bCreate)
-		p->m_Value.m_Count = 1;
-	else
-	{
-		assert(1 == p->m_Value.m_Count);
-		m_Utxos.Delete(cu);
-	}
-}
-
 bool NodeProcessor::GoForward(uint64_t row)
 {
 	NodeDB::StateID sid;
@@ -1046,8 +1014,6 @@ void NodeProcessor::Rollback()
 
 	if (!HandleBlock(sid, false))
 		OnCorrupted();
-
-	InitCursor(); // needed to refresh subsidy-open flag. Otherwise isn't necessary
 
 	OnRolledBack();
 }
@@ -1359,8 +1325,6 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 	// Generate the block up to the allowed size.
 	// All block elements are serialized independently, their binary size can just be added to the size of the "empty" block.
 	bc.m_Block.m_Subsidy += Rules::get().CoinbaseEmission;
-	if (!m_Extra.m_SubsidyOpen)
-		bc.m_Block.m_SubsidyClosing = false;
 
 	SerializerSizeCounter ssc;
 	ssc & bc.m_Block;
@@ -1486,9 +1450,6 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 	else
 		ZeroObject(bc.m_Hdr.m_Prev);
 
-	if (bc.m_Block.m_SubsidyClosing)
-		ToggleSubsidyOpened();
-
 	get_Definition(bc.m_Hdr.m_Definition, true);
 
 	bc.m_Block.NormalizeE();
@@ -1504,9 +1465,6 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 	fmmr.m_Count = bc.m_Block.m_vKernels.size();
 	fmmr.m_ppKrn = bc.m_Block.m_vKernels.empty() ? NULL : &bc.m_Block.m_vKernels.front();
 	fmmr.get_Hash(bc.m_Hdr.m_Kernels);
-
-	if (bc.m_Block.m_SubsidyClosing)
-		ToggleSubsidyOpened();
 
 	bc.m_Hdr.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
 	bc.m_Hdr.m_TimeStamp = getTimestamp();
@@ -1524,7 +1482,6 @@ NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf)
 {
 	m_Fees = 0;
 	m_Block.ZeroInit();
-	m_Block.m_SubsidyClosing = true; // by default insist on it. If already closed - this flag will automatically be turned OFF
 }
 
 bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
@@ -1600,7 +1557,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
 {
-	return block.IsValid(hr, m_Extra.m_SubsidyOpen, std::move(r));
+	return block.IsValid(hr, std::move(r));
 }
 
 void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::StateID& sid)

@@ -502,8 +502,6 @@ namespace beam
 								 // For standard blocks this should be equal to the coinbase emission.
 								 // Genesis block(s) may have higher emission
 
-			bool m_SubsidyClosing; // Last block that contains arbitrary subsidy.
-
 			void ZeroInit();
 
 			// Test the following:
@@ -513,7 +511,7 @@ namespace beam
 			// Not tested by this function (but should be tested by nodes!)
 			//		Existence of all the input UTXOs
 			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
-			bool IsValid(const HeightRange&, bool bSubsidyOpen, TxBase::IReader&&) const;
+			bool IsValid(const HeightRange&, TxBase::IReader&&) const;
 
 			struct IMacroReader
 				:public IReader
@@ -541,9 +539,9 @@ namespace beam
 			:public BodyBase
 			,public TxVectors::Full
 		{
-			bool IsValid(const HeightRange& hr, bool bSubsidyOpen) const
+			bool IsValid(const HeightRange& hr) const
 			{
-				return BodyBase::IsValid(hr, bSubsidyOpen, get_Reader());
+				return BodyBase::IsValid(hr, get_Reader());
 			}
 		};
 
@@ -634,7 +632,7 @@ namespace beam
 
 		// hi-level functions, should be used after all parts were validated and merged
 		bool IsValidTransaction();
-		bool IsValidBlock(const Block::BodyBase&, bool bSubsidyOpen);
+		bool IsValidBlock(const Block::BodyBase&);
 	};
 
 	class Block::BodyBase::RW

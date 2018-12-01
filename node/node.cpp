@@ -478,7 +478,7 @@ bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&
 	while (v.m_Remaining)
 		v.m_TaskFinished.wait(scope);
 
-	return !v.m_bFail && v.m_Context.IsValidBlock(block, m_Extra.m_SubsidyOpen);
+	return !v.m_bFail && v.m_Context.IsValidBlock(block);
 }
 
 void Node::Processor::Verifier::Thread(uint32_t iVerifier)
