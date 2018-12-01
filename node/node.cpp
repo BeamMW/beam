@@ -723,6 +723,9 @@ void Node::Initialize(IExternalPOW* externalPOW)
 	LOG_INFO() << "Node ID=" << m_MyPublicID;
 	LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
 
+	if (!m_Cfg.m_Treasury.empty() && !m_Processor.m_Extra.m_TreasuryHandled)
+		m_Processor.OnTreasury(Blob(m_Cfg.m_Treasury));
+
 	InitMode();
 
 	RefreshCongestions();
@@ -766,12 +769,6 @@ void Node::InitMode()
 		return;
 	if (!m_Processor.m_Extra.m_TreasuryHandled)
 		return; // first get the treasury, then decide how to sync.
-
-	if (!m_Cfg.m_vTreasury.empty())
-	{
-		LOG_INFO() << "Creating new blockchain from treasury";
-		return;
-	}
 
 	if (m_Cfg.m_Sync.m_NoFastSync || !m_Cfg.m_Sync.m_SrcPeers)
 		return;
@@ -3041,6 +3038,9 @@ bool Node::Miner::Restart()
 	if (!IsEnabled())
 		return false; //  n/a
 
+	if (!get_ParentObj().m_Processor.m_Extra.m_TreasuryHandled)
+		return false;
+
 	m_pTaskToFinalize.reset();
 
 	const Keys& keys = get_ParentObj().m_Keys;
@@ -3057,21 +3057,6 @@ bool Node::Miner::Restart()
 	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, keys.m_pMiner ? *keys.m_pMiner : *keys.m_pGeneric);
 	if (m_pFinalizer)
 		bc.m_Mode = NodeProcessor::BlockContext::Mode::Assemble;
-
-	if (get_ParentObj().m_Processor.m_Extra.m_SubsidyOpen)
-	{
-		Height dh = get_ParentObj().m_Processor.m_Cursor.m_Sid.m_Height + 1 - Rules::HeightGenesis;
-		std::vector<Block::Body>& vTreasury = get_ParentObj().m_Cfg.m_vTreasury;
-		if (dh >= vTreasury.size())
-			return false;
-
-		const Block::Body& src = vTreasury[dh];
-		// copy
-		Cast::Down<TxBase>(bc.m_Block) = src;
-		Cast::Down<Block::BodyBase>(bc.m_Block) = src;
-		TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(vTreasury[dh].get_Reader());
-		bc.m_Block.m_SubsidyClosing = (dh + 1 == vTreasury.size());
-	}
 
 	bool bRes = get_ParentObj().m_Processor.GenerateNewBlock(bc);
 

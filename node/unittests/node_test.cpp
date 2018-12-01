@@ -910,6 +910,7 @@ namespace beam
 		node.m_Cfg.m_Listen.port(g_Port);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
 		node.m_Cfg.m_Sync.m_SrcPeers = 0;
+		node.m_Cfg.m_Treasury = g_Treasury;
 
 		node.m_Cfg.m_Timeout.m_GetBlock_ms = 1000 * 60;
 		node.m_Cfg.m_Timeout.m_GetState_ms = 1000 * 60;
@@ -919,6 +920,7 @@ namespace beam
 		node2.m_Cfg.m_Listen.ip(INADDR_ANY);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
 		node2.m_Cfg.m_Sync.m_SrcPeers = 0;
+		node2.m_Cfg.m_Treasury = g_Treasury;
 
 		node2.m_Cfg.m_BeaconPort = g_Port;
 
@@ -926,9 +928,7 @@ namespace beam
 		ECC::SetRandom(node2);
 
 		node.Initialize();
-		node.get_Processor().OnTreasury(g_Treasury);
 		node2.Initialize();
-		node2.get_Processor().OnTreasury(g_Treasury); // give treasury for both. In this test they both need to create blocks, and then synchronize, rollback & etc.
 
 		struct MyClient
 			:public proto::NodeConnection
@@ -1398,25 +1398,8 @@ namespace beam
 		addr.resolve("127.0.0.1");
 		addr.port(g_Port);
 
-		node.m_Cfg.m_vTreasury.resize(1);
-		Block::Body& treasury = node.m_Cfg.m_vTreasury[0];
-
-		treasury.ZeroInit();
-		ECC::Scalar::Native offset(Zero);
-
-		for (int i = 0; i < 10; i++)
-		{
-			const Amount val = Rules::Coin * 10;
-			const MiniWallet::MyUtxo& utxo = *cl.m_Wallet.AddMyUtxo(Key::IDV(val, i, Key::Type::Regular));
-			cl.m_Wallet.ToOutput(utxo, treasury, offset, i);
-			treasury.m_Subsidy += val;
-		}
-
-		treasury.m_Offset = offset;
-		treasury.Normalize();
-
+		node.m_Cfg.m_Treasury = g_Treasury;
 		node.Initialize();
-		node.get_Processor().OnTreasury(g_Treasury);
 
 		cl.Connect(addr);
 
@@ -1575,13 +1558,11 @@ namespace beam
 		node.m_Cfg.m_Listen.port(g_Port);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
 		node.m_Cfg.m_MiningThreads = 0;
-		node.m_Cfg.m_vTreasury.resize(1);
-		node.m_Cfg.m_vTreasury[0].ZeroInit();
+		node.m_Cfg.m_Treasury = g_Treasury;
 
 		ECC::SetRandom(node);
 
 		node.Initialize();
-		node.get_Processor().OnTreasury(g_Treasury);
 
 		struct MyFlyClient
 			:public proto::FlyClient
@@ -1761,6 +1742,7 @@ int main()
 	beam::Rules::get().FakePoW = true;
 	beam::Rules::get().DifficultyReviewWindow = 35;
 	beam::Rules::get().WindowForMedian = 3;
+	beam::Rules::get().MaturityCoinbase = 35; // lowered to see more txs
 	beam::Rules::get().UpdateChecksum();
 
 	beam::TestChainworkProof();
