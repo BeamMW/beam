@@ -558,6 +558,7 @@ namespace beam
 			Amount m_Fee;
 			ECC::Scalar::Native m_k;
 			bool m_bUseHashlock;
+			Height m_Height = 0;
 
 			void Export(TxKernel& krn) const
 			{
@@ -601,10 +602,11 @@ namespace beam
 			const MyUtxo& utxo = it->second;
 			assert(utxo.m_Kidv.m_Value);
 
-			m_MyKernels.resize(m_MyKernels.size() + 1);
+			m_MyKernels.emplace_back();
 			MyKernel& mk = m_MyKernels.back();
 			mk.m_Fee = 1090000;
 			mk.m_bUseHashlock = 0 != (1 & h);
+			mk.m_Height = h;
 
 			ECC::Scalar::Native kOffset = Zero;
 
@@ -761,9 +763,14 @@ namespace beam
 			np2.get_DB().MacroblockIns(np2.m_Cursor.m_Sid.m_Row);
 			np2.m_sPathMB = g_sz3;
 
-			// try kernel proofs. Must be retrieved from the macroblock
+			// Although NodeProcessor can import macroblocks not from the beginning - currently this mode is not supported, it will consider only the most recent
+			// macroblock during initialization, and kernel retrieval.
+			// try kernel proofs. Must be retrieved from the macroblock. Because of the above this test is only for kernels which are mature enough
 			for (size_t i = 0; i < np.m_Wallet.m_MyKernels.size(); i++)
 			{
+				if (np.m_Wallet.m_MyKernels[i].m_Height <= hMid)
+					continue;
+
 				TxKernel krn;
 				np.m_Wallet.m_MyKernels[i].Export(krn);
 
