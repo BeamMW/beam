@@ -18,7 +18,10 @@
 #include "../db.h"
 #include "../processor.h"
 #include "../../core/fly_client.h"
+#include "../../core/serialization_adapters.h"
+#include "../../core/treasury.h"
 #include "../../utility/test_helpers.h"
+#include "../../utility/serialize.h"
 #include "../../core/unittest/mini_blockchain.h"
 
 #ifndef LOG_VERBOSE_ENABLED
@@ -89,6 +92,37 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 
 namespace beam
 {
+	ByteBuffer g_Treasury;
+
+	void PrepareTreasury()
+	{
+		Key::IKdf::Ptr pKdf;
+		ECC::SetRandom(pKdf);
+
+		PeerID pid;
+		ECC::Scalar::Native sk;
+		Treasury::get_ID(*pKdf, pid, sk);
+
+		Treasury tres;
+		Treasury::Parameters pars;
+		pars.m_MaxHeight = pars.m_StepMin * 2;
+		Treasury::Entry* pE = tres.CreatePlan(pid, 5 * Rules::get().CoinbaseEmission, pars);
+
+		pE->m_pResponse.reset(new Treasury::Response);
+		uint64_t nIndex = 1;
+		verify_test(pE->m_pResponse->Create(pE->m_Request, *pKdf, nIndex));
+
+		Treasury::Data data;
+		data.m_sCustomMsg = "test treasury";
+		tres.Build(data);
+
+		beam::Serializer ser;
+		ser & data;
+
+		ser.swap_buf(g_Treasury);
+
+		ECC::Hash::Processor() << Blob(g_Treasury) >> Rules::get().TreasuryChecksum;
+	}
 
 	uint32_t CountTips(NodeDB& db, bool bFunctional, NodeDB::StateID* pLast = NULL)
 	{
@@ -639,6 +673,7 @@ namespace beam
 		np.m_Horizon.m_Branching = 35;
 		//np.m_Horizon.m_Schwarzschild = 40; - will prevent extracting some macroblock ranges
 		np.Initialize(g_sz);
+		np.OnTreasury(g_Treasury);
 
 		const Height hIncubation = 3; // artificial incubation period for outputs.
 
@@ -703,6 +738,7 @@ namespace beam
 
 			MyNodeProcessorX np2;
 			np2.Initialize(g_sz2);
+			np2.OnTreasury(g_Treasury);
 
 			rwData.m_hvContentTag = Zero;
 			rwData.WCreate();
@@ -776,6 +812,7 @@ namespace beam
 			MyNodeProcessor2 np;
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
+			np.OnTreasury(g_Treasury);
 
 			PeerID peer;
 			ZeroObject(peer);
@@ -882,7 +919,9 @@ namespace beam
 		ECC::SetRandom(node2);
 
 		node.Initialize();
+		node.get_Processor().OnTreasury(g_Treasury);
 		node2.Initialize();
+		node2.get_Processor().OnTreasury(g_Treasury); // give treasury for both. In this test they both need to create blocks, and then synchronize, rollback & etc.
 
 		struct MyClient
 			:public proto::NodeConnection
@@ -1370,6 +1409,7 @@ namespace beam
 		treasury.Normalize();
 
 		node.Initialize();
+		node.get_Processor().OnTreasury(g_Treasury);
 
 		cl.Connect(addr);
 
@@ -1534,6 +1574,7 @@ namespace beam
 		ECC::SetRandom(node);
 
 		node.Initialize();
+		node.get_Processor().OnTreasury(g_Treasury);
 
 		struct MyFlyClient
 			:public proto::FlyClient
@@ -1706,6 +1747,8 @@ namespace beam
 int main()
 {
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+
+	beam::PrepareTreasury();
 
 	beam::Rules::get().AllowPublicUtxos = true;
 	beam::Rules::get().FakePoW = true;
