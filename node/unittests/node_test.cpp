@@ -1102,6 +1102,9 @@ namespace beam
 
 			virtual void OnMsg(proto::NewTip&& msg) override
 			{
+				if (!msg.m_Description.m_Height)
+					return; // skip the treasury-received notification
+
 				printf("Tip Height=%u\n", (unsigned int) msg.m_Description.m_Height);
 				verify_test(m_vStates.size() + 1 == msg.m_Description.m_Height);
 

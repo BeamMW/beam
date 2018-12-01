@@ -78,6 +78,7 @@ namespace beam
 
 	struct Rules
 	{
+		Rules();
 		static Rules& get();
 
 		static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
@@ -101,6 +102,7 @@ namespace beam
 		uint32_t MaxRollbackHeight = 1440; // 1 day roughly
 		uint32_t MacroblockGranularity = 720; // i.e. should be created for heights that are multiples of this. This should make it more likely for different nodes to have the same macroblocks
 
+		ECC::Hash::Value TreasuryChecksum;
 		ECC::Hash::Value Checksum;
 
 		void UpdateChecksum();

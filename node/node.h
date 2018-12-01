@@ -435,6 +435,7 @@ private:
 			static const uint16_t SyncPending	= 0x020;
 			static const uint16_t DontSync		= 0x040;
 			static const uint16_t Finalizing	= 0x080;
+			static const uint16_t HasTreasury	= 0x100;
 		};
 
 		uint16_t m_Flags;

@@ -724,11 +724,17 @@ namespace beam
 	const Height Rules::HeightGenesis	= 1;
 	const Amount Rules::Coin			= 1000000;
 
+	Rules::Rules()
+	{
+		TreasuryChecksum = Zero;
+	}
+
 	void Rules::UpdateChecksum()
 	{
 		// all parameters, including const (in case they'll be hardcoded to different values in later versions)
 		ECC::Hash::Processor()
 			<< ECC::Context::get().m_hvChecksum
+			<< TreasuryChecksum
 			<< HeightGenesis
 			<< Coin
 			<< CoinbaseEmission

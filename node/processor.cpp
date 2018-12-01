@@ -13,8 +13,9 @@
 // limitations under the License.
 
 #include "processor.h"
-#include "../utility/serialize.h"
+#include "../core/treasury.h"
 #include "../core/serialization_adapters.h"
+#include "../utility/serialize.h"
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
 
@@ -116,6 +117,14 @@ void NodeProcessor::InitCursor()
 
 void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 {
+	if (!EnsureTreasuryHandled())
+	{
+		Block::SystemState::ID id;
+		ZeroObject(id);
+		RequestData(id, true, NULL);
+		return;
+	}
+
 	bool noRequests = true;
 	// request all potentially missing data
 	NodeDB::WalkerState ws(m_DB);
@@ -220,6 +229,9 @@ void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64
 
 void NodeProcessor::TryGoUp()
 {
+	if (!EnsureTreasuryHandled())
+		return;
+
 	bool bDirty = false;
 	uint64_t rowid = m_Cursor.m_Sid.m_Row;
 
@@ -496,6 +508,70 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 
 	mmr.get_Proof(proof, iTrg);
 	return h;
+}
+
+bool NodeProcessor::EnsureTreasuryHandled()
+{
+	if (!m_Extra.m_TreasuryHandled)
+	{
+		if (Rules::get().TreasuryChecksum == Zero)
+			m_Extra.m_TreasuryHandled = true;
+		else
+		{
+			ByteBuffer bb;
+			if (m_DB.ParamGet(NodeDB::ParamID::Treasury, NULL, NULL, &bb))
+				HandleTreasury(bb, false);
+		}
+	}
+
+	return m_Extra.m_TreasuryHandled;
+}
+
+bool NodeProcessor::HandleTreasury(const Blob& blob, bool bFirstTime)
+{
+	assert(!m_Extra.m_TreasuryHandled);
+
+	Deserializer der;
+	der.reset(blob.p, blob.n);
+	Treasury::Data td;
+
+	try {
+		der & td;
+	} catch (const std::exception&) {
+		LOG_WARNING() << "Treasury corrupt";
+		return false;
+	}
+
+	if (bFirstTime && !td.IsValid())
+	{
+		LOG_WARNING() << "Treasury validation failed";
+		return false;
+	}
+
+	for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
+	{
+		if (!HandleValidatedTx(td.m_vGroups[iG].m_Data.get_Reader(), 0, true, NULL))
+		{
+			// undo partial changes
+			while (iG--)
+			{
+				if (!HandleValidatedTx(td.m_vGroups[iG].m_Data.get_Reader(), 0, false, NULL))
+					OnCorrupted(); // although should not happen anyway
+			}
+
+			LOG_WARNING() << "Treasury invalid";
+			return false;
+		}
+	}
+
+	if (bFirstTime)
+	{
+		for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
+			RecognizeUtxos(td.m_vGroups[iG].m_Data.get_Reader(), 0);
+	}
+
+	m_Extra.m_TreasuryHandled = true;
+	return true;
 }
 
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
@@ -1060,6 +1136,35 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 		TryGoUp();
 
 	OnBlockData();
+	return DataStatus::Accepted;
+}
+
+NodeProcessor::DataStatus::Enum NodeProcessor::OnTreasury(const Blob& blob)
+{
+	if (Rules::get().TreasuryChecksum == Zero)
+		return DataStatus::Invalid; // should be no treasury
+
+	ECC::Hash::Value hv;
+	ECC::Hash::Processor()
+		<< blob
+		>> hv;
+
+	if (Rules::get().TreasuryChecksum != hv)
+		return DataStatus::Invalid;
+
+	if (m_Extra.m_TreasuryHandled)
+		return DataStatus::Rejected;
+
+	if (!HandleTreasury(blob, true))
+		return DataStatus::Invalid;
+
+	assert(m_Extra.m_TreasuryHandled);
+
+	LOG_INFO() << "Treasury verified";
+
+	OnNewState();
+	TryGoUp();
+
 	return DataStatus::Accepted;
 }
 
@@ -1889,9 +1994,12 @@ void NodeProcessor::InitializeFromBlocks()
 		}
 	};
 
-	MyWalker wlk;
-	wlk.m_pThis = this;
-	EnumBlocks(wlk);
+	if (EnsureTreasuryHandled())
+	{
+		MyWalker wlk;
+		wlk.m_pThis = this;
+		EnumBlocks(wlk);
+	}
 
 	if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
 	{

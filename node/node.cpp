@@ -222,11 +222,20 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 
 	if (p.m_Tip.m_Height == t.m_Key.first.m_Height)
 	{
-		Merkle::Hash hv;
-		p.m_Tip.get_Hash(hv);
+		if (t.m_Key.first.m_Height)
+		{
+			Merkle::Hash hv;
+			p.m_Tip.get_Hash(hv);
 
-		if (hv != t.m_Key.first.m_Hash)
-			return false;
+			if (hv != t.m_Key.first.m_Hash)
+				return false;
+		}
+		else
+		{
+			// treasury
+			if (!(Peer::Flags::HasTreasury & p.m_Flags))
+				return false;
+		}
 	}
 
 	if (p.m_setRejected.end() != p.m_setRejected.find(t.m_Key))
@@ -385,7 +394,7 @@ void Node::Processor::OnNewState()
 {
 	m_Cwp.Reset();
 
-	if (!m_Cursor.m_Sid.m_Row)
+	if (!m_Extra.m_TreasuryHandled)
 		return;
 
 	LOG_INFO() << "My Tip: " << m_Cursor.m_ID << ", Work = " << Difficulty::ToFloat(m_Cursor.m_Full.m_ChainWork);
@@ -395,7 +404,7 @@ void Node::Processor::OnNewState()
 	if (get_ParentObj().m_Miner.IsEnabled())
 	{
 		get_ParentObj().m_Miner.HardAbortSafe();
-		get_ParentObj().m_Miner.SetTimer(0, true); // don't start mined block construction, because we're called in the context of NodeProcessor, which holds the DB transaction.
+		get_ParentObj().m_Miner.SetTimer(0, true); // async start mining
 	}
 	else
 		get_ParentObj().m_Processor.DeleteOutdated(get_ParentObj().m_TxPool);
@@ -989,7 +998,7 @@ void Node::Peer::OnConnectedSecure()
 
 	Send(msgLogin);
 
-	if (m_This.m_Processor.m_Cursor.m_Sid.m_Row)
+	if (m_This.m_Processor.m_Extra.m_TreasuryHandled) // even if height is 0 - we notify the peer that we have the treasury
 	{
 		proto::NewTip msg;
 		msg.m_Description = m_This.m_Processor.m_Cursor.m_Full;
@@ -1277,6 +1286,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 
 	m_Tip = msg.m_Description;
 	m_setRejected.clear();
+	m_Flags |= Flags::HasTreasury;
 
 	Block::SystemState::ID id;
 	m_Tip.get_ID(id);
@@ -1704,18 +1714,33 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 
 void Node::Peer::OnMsg(proto::GetBody&& msg)
 {
-	uint64_t rowid = m_This.m_Processor.get_DB().StateFindSafe(msg.m_ID);
-	if (rowid)
+	if (msg.m_ID.m_Height)
 	{
-		proto::Body msgBody;
-		m_This.m_Processor.get_DB().GetStateBlock(rowid, &msgBody.m_Perishable, &msgBody.m_Eternal, NULL);
-
-		if (!msgBody.m_Perishable.empty())
+		uint64_t rowid = m_This.m_Processor.get_DB().StateFindSafe(msg.m_ID);
+		if (rowid)
 		{
-			Send(msgBody);
-			return;
-		}
+			proto::Body msgBody;
+			m_This.m_Processor.get_DB().GetStateBlock(rowid, &msgBody.m_Perishable, &msgBody.m_Eternal, NULL);
 
+			if (!msgBody.m_Perishable.empty())
+			{
+				Send(msgBody);
+				return;
+			}
+
+		}
+	}
+	else
+	{
+		if ((msg.m_ID.m_Hash == Zero) && m_This.m_Processor.m_Extra.m_TreasuryHandled)
+		{
+			proto::Body msgBody;
+			if (m_This.m_Processor.get_DB().ParamGet(NodeDB::ParamID::Treasury, NULL, NULL, &msgBody.m_Eternal))
+			{
+				Send(msgBody);
+				return;
+			}
+		}
 	}
 
 	proto::DataMissing msgMiss(Zero);
@@ -1734,7 +1759,10 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 
 	const Block::SystemState::ID& id = t.m_Key.first;
 
-	NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnBlock(id, msg.m_Perishable, msg.m_Eternal, m_pInfo->m_ID.m_Key);
+	NodeProcessor::DataStatus::Enum eStatus = id.m_Height ?
+		m_This.m_Processor.OnBlock(id, msg.m_Perishable, msg.m_Eternal, m_pInfo->m_ID.m_Key) :
+		m_This.m_Processor.OnTreasury(msg.m_Eternal);
+
 	OnFirstTaskDone(eStatus);
 }
 
