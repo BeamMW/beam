@@ -462,7 +462,7 @@ void NodeDB::ParamSet(uint32_t ID, const uint64_t* p0, const Blob* p1)
 	}
 }
 
-bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, Blob* p1)
+bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, Blob* p1, ByteBuffer* p2 /* = NULL */)
 {
 	Recordset rs(*this, Query::ParamGet, "SELECT " TblParams_Int "," TblParams_Blob " FROM " TblParams " WHERE " TblParams_ID "=?");
 	rs.put(0, ID);
@@ -477,6 +477,8 @@ bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, Blob* p1)
 		const void* pPtr = rs.get_BlobStrict(1, p1->n);
 		memcpy((void*) p1->p, pPtr, p1->n);
 	}
+	if (p2)
+		rs.get(1, *p2);
 
 	return true;
 }
