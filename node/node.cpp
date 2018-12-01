@@ -1223,6 +1223,7 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 	}
 
 	m_Tip.m_Height = 0; // prevent reassigning the tasks
+	m_Flags &= ~Flags::HasTreasury;
 
 	ReleaseTasks();
 	Unsubscribe();
@@ -1319,7 +1320,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 				break;
 
 			m_This.RefreshCongestions();
-			return;
+			break; // since we made OnPeerInsane handling asynchronous - no need to return rapidly
 
 		case NodeProcessor::DataStatus::Unreachable:
 			LOG_WARNING() << id << " Tip unreachable!";
