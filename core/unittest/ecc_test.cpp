@@ -1192,9 +1192,26 @@ void TestTreasury()
 
 	verify_test(tres.m_Entries.size() == nPeers);
 
-	std::vector<beam::Block::Body> res;
-	tres.Build(res);
-	verify_test(!res.empty());
+	std::string msg = "cool treasury";
+	beam::Treasury::Data data;
+	data.m_sCustomMsg = msg;
+	tres.Build(data);
+	verify_test(!data.m_vGroups.empty());
+
+	// test serialization
+	beam::ByteBuffer bb;
+	ser1.swap_buf(bb);
+	ser1 & data;
+
+	data.m_vGroups.clear();
+	data.m_sCustomMsg.clear();
+
+	der1.reset(ser1.buffer().first, ser1.buffer().second);
+	der1 & data;
+
+	verify_test(!data.m_vGroups.empty());
+	verify_test(data.m_sCustomMsg == msg);
+	verify_test(data.IsValid());
 }
 
 void TestAll()
