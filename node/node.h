@@ -427,17 +427,17 @@ private:
 
 		struct Flags
 		{
-			static const uint8_t Connected		= 0x01;
-			static const uint8_t PiRcvd			= 0x02;
-			static const uint8_t Owner			= 0x04;
-			static const uint8_t ProvenWorkReq	= 0x08;
-			static const uint8_t ProvenWork		= 0x10;
-			static const uint8_t SyncPending	= 0x20;
-			static const uint8_t DontSync		= 0x40;
-			static const uint8_t Finalizing		= 0x80;
+			static const uint16_t Connected		= 0x001;
+			static const uint16_t PiRcvd		= 0x002;
+			static const uint16_t Owner			= 0x004;
+			static const uint16_t ProvenWorkReq	= 0x008;
+			static const uint16_t ProvenWork	= 0x010;
+			static const uint16_t SyncPending	= 0x020;
+			static const uint16_t DontSync		= 0x040;
+			static const uint16_t Finalizing	= 0x080;
 		};
 
-		uint8_t m_Flags;
+		uint16_t m_Flags;
 		uint16_t m_Port; // to connect to
 		beam::io::Address m_RemoteAddr; // for logging only
 
