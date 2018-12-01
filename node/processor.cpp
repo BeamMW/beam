@@ -567,7 +567,11 @@ bool NodeProcessor::HandleTreasury(const Blob& blob, bool bFirstTime)
 	if (bFirstTime)
 	{
 		for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
-			RecognizeUtxos(td.m_vGroups[iG].m_Data.get_Reader(), 0);
+		{
+			TxVectors::Reader r = td.m_vGroups[iG].m_Data.get_Reader();
+			r.Reset();
+			RecognizeUtxos(std::move(r), 0);
+		}
 	}
 
 	m_Extra.m_TreasuryHandled = true;
@@ -1159,6 +1163,8 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnTreasury(const Blob& blob)
 		return DataStatus::Invalid;
 
 	assert(m_Extra.m_TreasuryHandled);
+	m_DB.ParamSet(NodeDB::ParamID::Treasury, NULL, &blob);
+
 
 	LOG_INFO() << "Treasury verified";
 
