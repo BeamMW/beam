@@ -54,7 +54,6 @@ class NodeProcessor
 	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, const Height* = NULL);
 	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd);
 	bool HandleBlockElement(const Output&, Height, const Height*, bool bFwd);
-	void ToggleSubsidyOpened();
 
 	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
 	void RecognizeUtxos(TxBase::IReader&&, Height hMax);
@@ -126,7 +125,6 @@ public:
 	struct Extra
 	{
 		bool m_TreasuryHandled;
-		bool m_SubsidyOpen;
 		AmountBig m_Subsidy; // total system value
 		ECC::Scalar::Native m_Offset; // not really necessary, but using it it's possible to assemble the whole macroblock from the live objects.
 

@@ -972,25 +972,18 @@ namespace beam
 	{
 		ZeroObject(m_Subsidy);
 		ZeroObject(m_Offset);
-		m_SubsidyClosing = false;
 	}
 
 	void Block::BodyBase::Merge(const BodyBase& next)
 	{
 		m_Subsidy += next.m_Subsidy;
 
-		if (next.m_SubsidyClosing)
-		{
-			assert(!m_SubsidyClosing);
-			m_SubsidyClosing = true;
-		}
-
 		ECC::Scalar::Native offs(m_Offset);
 		offs += next.m_Offset;
 		m_Offset = offs;
 	}
 
-	bool Block::BodyBase::IsValid(const HeightRange& hr, bool bSubsidyOpen, TxBase::IReader&& r) const
+	bool Block::BodyBase::IsValid(const HeightRange& hr, TxBase::IReader&& r) const
 	{
 		assert((hr.m_Min >= Rules::HeightGenesis) && !hr.IsEmpty());
 
@@ -1000,7 +993,7 @@ namespace beam
 
 		return
 			ctx.ValidateAndSummarize(*this, std::move(r)) &&
-			ctx.IsValidBlock(*this, bSubsidyOpen);
+			ctx.IsValidBlock(*this);
 	}
 
 	/////////////

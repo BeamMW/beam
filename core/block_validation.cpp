@@ -186,7 +186,7 @@ namespace beam
 		return m_Sigma == Zero;
 	}
 
-	bool TxBase::Context::IsValidBlock(const Block::BodyBase& bb, bool bSubsidyOpen)
+	bool TxBase::Context::IsValidBlock(const Block::BodyBase& bb)
 	{
 		m_Sigma = -m_Sigma;
 
@@ -195,13 +195,6 @@ namespace beam
 		if (!(m_Sigma == Zero))
 			return false;
 
-		if (bSubsidyOpen)
-			return true;
-
-		if (bb.m_SubsidyClosing)
-			return false; // already closed
-
-		// For non-genesis blocks we have the following restrictions:
 		// Subsidy is bounded by num of blocks multiplied by coinbase emission
 		// There must at least some unspent coinbase UTXOs wrt maturity settings
 
