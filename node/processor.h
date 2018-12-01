@@ -46,6 +46,9 @@ class NodeProcessor
 
 	struct RollbackData;
 
+	bool EnsureTreasuryHandled();
+	bool HandleTreasury(const Blob&, bool bFirstTime);
+
 	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
 	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, const Height* = NULL);
 	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, const Height* = NULL);
@@ -122,6 +125,7 @@ public:
 
 	struct Extra
 	{
+		bool m_TreasuryHandled;
 		bool m_SubsidyOpen;
 		AmountBig m_Subsidy; // total system value
 		ECC::Scalar::Native m_Offset; // not really necessary, but using it it's possible to assemble the whole macroblock from the live objects.
@@ -145,6 +149,7 @@ public:
 
 	DataStatus::Enum OnState(const Block::SystemState::Full&, const PeerID&);
 	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const Blob& bbP, const Blob& bbE, const PeerID&);
+	DataStatus::Enum OnTreasury(const Blob&);
 
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }
