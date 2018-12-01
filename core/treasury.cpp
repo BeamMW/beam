@@ -14,7 +14,6 @@
 
 #include "treasury.h"
 #include "proto.h"
-#include "serialization_adapters.h"
 
 namespace beam
 {
@@ -395,31 +394,50 @@ namespace beam
 		return &e;
 	}
 
-	size_t Treasury::get_OverheadFor(const AmountBig& x)
+	bool Treasury::Data::Group::IsValid() const
 	{
-		Block::Body body;
-		body.ZeroInit();
-		body.m_Subsidy = x;
+		Mode::Scope scope(Mode::Fast);
 
-		return get_BlockSize(body);
+		TxBase::Context ctx;
+		ZeroObject(ctx.m_Height); // current height is zero
+		if (!ctx.ValidateAndSummarize(m_Data, m_Data.get_Reader()))
+			return false;
+
+		if (ctx.m_Fee.Lo || ctx.m_Fee.Hi)
+			return false; // doesn't make sense for treasury
+
+		ctx.m_Sigma = -ctx.m_Sigma;
+		m_Value.AddTo(ctx.m_Sigma);
+
+		return (ctx.m_Sigma == Zero);
 	}
 
-	size_t Treasury::get_BlockSize(const Block::Body& body)
+	bool Treasury::Data::IsValid() const
 	{
-		SerializerSizeCounter ssc;
-		ssc & body;
-		return ssc.m_Counter.m_Value;
+		// finalize
+		struct Context
+			:public ThreadPool::Verifier
+		{
+			const Data& m_Data;
+			Context(const Data& d) :m_Data(d) {}
+
+			virtual bool Verify(size_t iTask) override
+			{
+				return m_Data.m_vGroups[iTask].IsValid();
+			}
+
+		} ctx(*this);
+
+		ctx.DoAll(m_vGroups.size());
+		return ctx.m_bValid;
 	}
 
-	void Treasury::Build(std::vector<Block::Body>& res) const
+	void Treasury::Build(Data& d) const
 	{
 		// Assuming all the plans are generated with the same group/incubation parameters.
 		for (size_t iG = 0; ; iG++)
 		{
 			bool bNoPeers = true, bNoBlock = true;
-
-			Block::Body body;
-			size_t nOverhead = 0, nSizeTotal = 0;
 
 			for (EntryMap::const_iterator it = m_Entries.begin(); m_Entries.end() != it; )
 			{
@@ -433,78 +451,38 @@ namespace beam
 				bNoPeers = false;
 
 				if (bNoBlock)
+					d.m_vGroups.emplace_back();
+
+				Data::Group& gOut = d.m_vGroups.back();
+
+				if (bNoBlock)
 				{
-					body.ZeroInit();
-					nOverhead = get_OverheadFor(body.m_Subsidy); // the BodyBase size slightly depends on its subsidy. Hence it should be recalculated after adding every peer
-					nSizeTotal = nOverhead;
+					ZeroObject(gOut.m_Value);
+					gOut.m_Data.m_Offset = Zero;
+					bNoBlock = false;
 				}
 
 				const Response::Group& g = resp.m_vGroups[iG];
 				Response::Group::Reader r(g);
-				size_t nSizeNetto = r.get_SizeNetto();
 
-				AmountBig subsNext = body.m_Subsidy;
-				e.m_Request.m_vGroups[iG].AddSubsidy(subsNext);
+				// merge
+				TxVectors::Writer(gOut.m_Data, gOut.m_Data).Dump(std::move(r));
+				e.m_Request.m_vGroups[iG].AddSubsidy(gOut.m_Value);
 
-				size_t nOverheadNext = get_OverheadFor(subsNext);
-
-				size_t nSizeAfterMerge = nSizeTotal + nSizeNetto + nOverheadNext - nOverhead;
-				if (nSizeAfterMerge <= Rules::get().MaxBodySize)
-				{
-					// merge
-					TxVectors::Writer(body, body).Dump(std::move(r));
-
-					Scalar::Native off = body.m_Offset;
-					off += g.m_Base.m_Offset;
-					body.m_Offset = off;
-
-					bNoBlock = false;
-
-					body.m_Subsidy = subsNext;
-					nSizeTotal = nSizeAfterMerge;
-					nOverhead = nOverheadNext;
-
-					assert(get_BlockSize(body) == nSizeTotal);
-				}
-				else
-				{
-					if (bNoBlock)
-						throw std::runtime_error("treasury group too large");
-
-					res.push_back(std::move(body));
-					bNoBlock = true;
-					it--; // retry
-				}
+				Scalar::Native off = gOut.m_Data.m_Offset;
+				off += g.m_Base.m_Offset;
+				gOut.m_Data.m_Offset = off;
 			}
 
 			if (bNoPeers)
 				break;
 
 			if (!bNoBlock)
-				res.push_back(std::move(body));
+				d.m_vGroups.back().m_Data.Normalize();
 		}
 
 		// finalize
-		struct Context
-			:public ThreadPool::Verifier
-		{
-			std::vector<Block::Body>& m_Res;
-
-			Context(std::vector<Block::Body>& res)
-				:m_Res(res)
-			{}
-
-			virtual bool Verify(size_t iTask) override
-			{
-				m_Res[iTask].Normalize();
-
-				return m_Res[iTask].IsValid(HeightRange(Rules::HeightGenesis + iTask), true);
-			}
-
-		} ctx(res);
-
-		ctx.DoAll(res.size());
-		if (!ctx.m_bValid)
+		if (!d.IsValid())
 			throw std::runtime_error("Invalid block generated");
 	}
 

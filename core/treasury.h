@@ -149,8 +149,40 @@ namespace beam
 		typedef std::map<PeerID, Entry> EntryMap;
 		EntryMap m_Entries;
 
+		struct Data
+		{
+			struct Group
+			{
+				Transaction m_Data;
+				AmountBig m_Value;
+
+				bool IsValid() const;
+
+				template <typename Archive>
+				void serialize(Archive& ar)
+				{
+					ar & m_Data;
+					ar & m_Value.Lo;
+					ar & m_Value.Hi;
+				}
+			};
+
+			std::string m_sCustomMsg;
+			std::vector<Group> m_vGroups;
+
+			template <typename Archive>
+			void serialize(Archive& ar)
+			{
+				ar
+					& m_sCustomMsg
+					& m_vGroups;
+			}
+
+			bool IsValid() const;
+		};
+
 		Entry* CreatePlan(const PeerID&, Amount nPerBlockAvg, const Parameters&);
-		void Build(std::vector<Block::Body>&) const;
+		void Build(Data&) const;
 
 		template <typename Archive>
 		void serialize(Archive& ar)
@@ -159,10 +191,6 @@ namespace beam
 		}
 
 		class ThreadPool;
-
-	private:
-		static size_t get_OverheadFor(const AmountBig&);
-		static size_t get_BlockSize(const Block::Body&);
 	};
 
 }
