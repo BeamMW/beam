@@ -715,14 +715,14 @@ namespace beam
 		TreasuryChecksum = Zero;
 	}
 
-	Amount Rules::get_EmissionEx(Height h, Height& hEnd) const
+	Amount Rules::get_EmissionEx(Height h, Height& hEnd, Amount base) const
 	{
 		h -= Rules::HeightGenesis; // may overflow, but it's ok. If h < HeightGenesis (which must not happen anyway) - then it'll give a huge height, for which the emission would be zero anyway.
 
 		if (h < EmissionDrop0)
 		{
 			hEnd = Rules::HeightGenesis + EmissionDrop0;
-			return EmissionValue0;
+			return base;
 		}
 
 		assert(EmissionDrop1);
@@ -736,22 +736,27 @@ namespace beam
 		}
 
 		hEnd = Rules::HeightGenesis + EmissionDrop0 + n * EmissionDrop1;
-		return EmissionValue0 >> n;
+		return base >> n;
 	}
 
 	Amount Rules::get_Emission(Height h)
 	{
-		return get().get_EmissionEx(h, h);
+		return get().get_EmissionEx(h, h, get().EmissionValue0);
 	}
 
 	void Rules::get_Emission(AmountBig::Type& res, const HeightRange& hr)
+	{
+		get_Emission(res, hr, get().EmissionValue0);
+	}
+
+	void Rules::get_Emission(AmountBig::Type& res, const HeightRange& hr, Amount base)
 	{
 		res = Zero;
 
 		for (Height hPos = hr.m_Min; ; )
 		{
 			Height hEnd;
-			Amount nCurrent = get().get_EmissionEx(hPos, hEnd);
+			Amount nCurrent = get().get_EmissionEx(hPos, hEnd, base);
 			if (!nCurrent)
 				break;
 

@@ -374,21 +374,25 @@ namespace beam
 		Request& r = e.m_Request;
 		r.m_WalletID = pid;
 
-		assert(pars.m_StepMin);
-		nPerBlockAvg *= pars.m_StepMin;
+		HeightRange hr;
+		hr.m_Max = Rules::HeightGenesis - 1;
 
-		Height h0 = 0;
-		for (Height h = 0; h < pars.m_MaxHeight; h += pars.m_StepMin)
+		for (uint32_t iBurst = 0; iBurst < pars.m_Bursts; iBurst++)
 		{
-			if (r.m_vGroups.empty() || (h - h0 >= pars.m_MaxDiffPerBlock))
-			{
-				r.m_vGroups.emplace_back();
-				h0 = h;
-			}
+			hr.m_Min = hr.m_Max + 1;
+			hr.m_Max += pars.m_MaturityStep;
 
+			AmountBig::Type valBig;
+			Rules::get_Emission(valBig, hr, nPerBlockAvg);
+			if (AmountBig::get_Hi(valBig))
+				throw std::runtime_error("too large");
+
+			Amount val = AmountBig::get_Lo(valBig);
+
+			r.m_vGroups.emplace_back();
 			Request::Group::Coin& c = r.m_vGroups.back().m_vCoins.emplace_back();
-			c.m_Incubation = h;
-			c.m_Value = nPerBlockAvg;
+			c.m_Incubation = hr.m_Max;
+			c.m_Value = val;
 		}
 
 		return &e;

@@ -105,8 +105,8 @@ namespace beam
 
 		Treasury tres;
 		Treasury::Parameters pars;
-		pars.m_MaxHeight = pars.m_StepMin * 2;
-		Treasury::Entry* pE = tres.CreatePlan(pid, 5 * Rules::get().EmissionValue0, pars);
+		pars.m_Bursts = 1;
+		Treasury::Entry* pE = tres.CreatePlan(pid, Rules::get().EmissionValue0 / 5, pars);
 
 		pE->m_pResponse.reset(new Treasury::Response);
 		uint64_t nIndex = 1;
