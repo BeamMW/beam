@@ -1157,7 +1157,7 @@ void TestTreasury()
 		beam::Treasury::get_ID(kdf, pid, sk);
 
 		// 2. Plan is created
-		beam::Treasury::Entry* pE = tres.CreatePlan(pid, 5 * beam::Rules::get().CoinbaseEmission, pars);
+		beam::Treasury::Entry* pE = tres.CreatePlan(pid, 5 * beam::Rules::get().EmissionValue0, pars);
 		verify_test(pE->m_Request.m_WalletID == pid);
 
 		// test Request serialization

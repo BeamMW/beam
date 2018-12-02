@@ -155,7 +155,7 @@ namespace beam
             (cli::APPDATA_PATH, po::value<string>());
 
 #define RulesParams(macro) \
-    macro(Amount, CoinbaseEmission, "coinbase emission in a single block") \
+    macro(Amount, EmissionValue0, "initial coinbase emission in a single block") \
     macro(Height, MaturityCoinbase, "num of blocks before coinbase UTXO can be spent") \
     macro(Height, MaturityStd, "num of blocks before non-coinbase UTXO can be spent") \
     macro(size_t, MaxBodySize, "Max block body size [bytes]") \
