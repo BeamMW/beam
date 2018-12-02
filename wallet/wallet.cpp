@@ -58,7 +58,7 @@ namespace beam
         if (x.size() > sizeof(*this))
             return false;
 
-        typedef uintBig_t<sizeof(*this) * 8> BigSelf;
+        typedef uintBig_t<sizeof(*this)> BigSelf;
         static_assert(sizeof(BigSelf) == sizeof(*this), "");
 
         *reinterpret_cast<BigSelf*>(this) = Blob(x);

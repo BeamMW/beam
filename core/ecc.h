@@ -23,8 +23,8 @@ namespace ECC
 
 	void GenRandom(void*, uint32_t nSize); // with OS support
 
-	template <uint32_t nBits_>
-	inline void GenRandom(beam::uintBig_t<nBits_>& x) { GenRandom(x.m_pData, x.nBytes); }
+	template <uint32_t nBytes_>
+	inline void GenRandom(beam::uintBig_t<nBytes_>& x) { GenRandom(x.m_pData, x.nBytes); }
 
 	struct Mode {
 		enum Enum {
@@ -85,8 +85,9 @@ namespace ECC
 		~NoLeak() { SecureErase(V); }
 	};
 
-	static const uint32_t nBits = 256;
-	typedef beam::uintBig_t<nBits> uintBig;
+	static const uint32_t nBytes = 32;
+	static const uint32_t nBits = nBytes << 3;
+	typedef beam::uintBig_t<nBytes> uintBig;
 
 
 	class Commitment;
