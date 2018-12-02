@@ -986,14 +986,11 @@ namespace beam
 
 	void Block::BodyBase::ZeroInit()
 	{
-		ZeroObject(m_Subsidy);
 		ZeroObject(m_Offset);
 	}
 
 	void Block::BodyBase::Merge(const BodyBase& next)
 	{
-		m_Subsidy += next.m_Subsidy;
-
 		ECC::Scalar::Native offs(m_Offset);
 		offs += next.m_Offset;
 		m_Offset = offs;

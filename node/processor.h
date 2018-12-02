@@ -125,8 +125,6 @@ public:
 	struct Extra
 	{
 		bool m_TreasuryHandled;
-		AmountBig m_Subsidy; // total system value
-		ECC::Scalar::Native m_Offset; // not really necessary, but using it it's possible to assemble the whole macroblock from the live objects.
 
 	} m_Extra;
 

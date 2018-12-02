@@ -191,9 +191,6 @@ namespace beam
 		AmountBig subsTotal, subsLocked;
 		Rules::get_Emission(subsTotal, m_Height);
 
-		if ((subsTotal.Lo != bb.m_Subsidy.Lo) || (subsTotal.Hi != bb.m_Subsidy.Hi))
-			return false;
-
 		m_Sigma = -m_Sigma;
 
 		subsTotal.AddTo(m_Sigma);

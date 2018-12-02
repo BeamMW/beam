@@ -839,17 +839,7 @@ bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyB
 	if (!HandleValidatedTx(std::move(r), h, bFwd, pHMax))
 		return false;
 
-	ECC::Scalar::Native kOffset = body.m_Offset;
-
-	if (bFwd)
-		m_Extra.m_Subsidy += body.m_Subsidy;
-	else
-	{
-		m_Extra.m_Subsidy -= body.m_Subsidy;
-		kOffset = -kOffset;
-	}
-
-	m_Extra.m_Offset += kOffset;
+	// currently there's no extra info in the block that's needed
 
 	return true;
 }
@@ -1324,7 +1314,6 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 
 	// Generate the block up to the allowed size.
 	// All block elements are serialized independently, their binary size can just be added to the size of the "empty" block.
-	bc.m_Block.m_Subsidy += Rules::get_Emission(h);
 
 	SerializerSizeCounter ssc;
 	ssc & bc.m_Block;
