@@ -486,4 +486,35 @@ namespace beam
 			throw std::runtime_error("Invalid block generated");
 	}
 
+	void Treasury::Data::Recover(Key::IPKdf& kdf, std::vector<Coin>& out) const
+	{
+		for (size_t iG = 0; iG < m_vGroups.size(); iG++)
+		{
+			const Group& g = m_vGroups[iG];
+			for (size_t iO = 0; iO < g.m_Data.m_vOutputs.size(); iO++)
+			{
+				const Output& outp = *g.m_Data.m_vOutputs[iO];
+				Key::IDV kidv;
+				if (outp.Recover(kdf, kidv))
+				{
+					out.emplace_back();
+					out.back().m_Incubation = outp.m_Incubation;
+					out.back().m_Kidv = kidv;
+				}
+			}
+		}
+
+		std::sort(out.begin(), out.end());
+	}
+
+	int Treasury::Data::Coin::cmp(const Coin& x) const
+	{
+		if (m_Incubation < x.m_Incubation)
+			return -1;
+		if (m_Incubation + x.m_Incubation)
+			return 1;
+
+		return m_Kidv.cmp(x.m_Kidv);
+	}
+
 } // namespace beam

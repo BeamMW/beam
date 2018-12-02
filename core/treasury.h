@@ -178,6 +178,17 @@ namespace beam
 			}
 
 			bool IsValid() const;
+
+			struct Coin
+			{
+				Height m_Incubation;
+				Key::IDV m_Kidv;
+
+				int cmp(const Coin&) const;
+				COMPARISON_VIA_CMP
+			};
+
+			void Recover(Key::IPKdf&, std::vector<Coin>&) const;
 		};
 
 		Entry* CreatePlan(const PeerID&, Amount nPerBlockAvg, const Parameters&);
