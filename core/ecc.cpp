@@ -1257,6 +1257,45 @@ namespace ECC {
 		return (k0 == Zero); // not secret, constant-time guarantee isn't requied
 	}
 
+	int Key::ID::cmp(const ID& x) const
+	{
+		if (m_Type < x.m_Type)
+			return -1;
+		if (m_Type > x.m_Type)
+			return 1;
+		if (m_Idx < x.m_Idx)
+			return -1;
+		if (m_Idx > x.m_Idx)
+			return 1;
+		return 0;
+	}
+
+	int Key::IDV::cmp(const IDV& x) const
+	{
+		int n = ID::cmp(x);
+		if (n)
+			return n;
+
+		if (m_Value < x.m_Value)
+			return -1;
+		if (m_Value > x.m_Value)
+			return 1;
+		return 0;
+	}
+
+	int Key::IDVC::cmp(const IDVC& x) const
+	{
+		int n = IDV::cmp(x);
+		if (n)
+			return n;
+
+		if (m_iChild < x.m_iChild)
+			return -1;
+		if (m_iChild > x.m_iChild)
+			return 1;
+		return 0;
+	}
+
 	/////////////////////
 	// HKdf
 	HKdf::HKdf()

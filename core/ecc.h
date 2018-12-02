@@ -223,6 +223,9 @@ namespace ECC
 #pragma pack (pop)
 
 			void operator = (const Packed&);
+
+			int cmp(const ID&) const;
+			COMPARISON_VIA_CMP
 		};
 
 		struct IDV
@@ -247,10 +250,16 @@ namespace ECC
 
 			void operator = (const Packed&);
 			bool operator == (const IDV&) const;
+
+			int cmp(const IDV&) const;
+			COMPARISON_VIA_CMP
 		};
 
 		struct IDVC :public IDV {
 			Index m_iChild = 0;
+
+			int cmp(const IDVC&) const;
+			COMPARISON_VIA_CMP
 		};
 
 		struct IPKdf
