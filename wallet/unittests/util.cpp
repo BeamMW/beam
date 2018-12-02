@@ -196,7 +196,7 @@ void TreasuryBlockGenerator::Proceed(uint32_t i0)
 
 		block.m_vOutputs.push_back(std::move(vOut[iOutp]));
 		m_Offset += vSk[iOutp];
-		block.m_Subsidy += m_Coins[i].m_ID.m_Value;
+		// block.m_Subsidy += m_Coins[i].m_ID.m_Value; - oops!
 	}
 }
 

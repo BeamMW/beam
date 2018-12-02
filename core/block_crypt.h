@@ -501,10 +501,6 @@ namespace beam
 		struct BodyBase
 			:public TxBase
 		{
-			AmountBig m_Subsidy; // the overall amount created by the block
-								 // For standard blocks this should be equal to the coinbase emission.
-								 // Genesis block(s) may have higher emission
-
 			void ZeroInit();
 
 			// Test the following:
