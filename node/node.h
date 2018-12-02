@@ -94,8 +94,6 @@ struct Node
 		std::vector<Block::Body> m_vTreasury;
 		ByteBuffer m_Treasury; // needed only for the 1st run
 
-		Block::SystemState::ID m_ControlState;
-
 		struct Sync {
 			// during sync phase we try to pick the best peer to sync from.
 			// Our logic: decide when either examined enough peers, or timeout expires
@@ -121,11 +119,6 @@ struct Node
 			uint32_t m_DummyLifetimeHi = 1440 * 7; // set to 0 to disable
 
 		} m_Dandelion;
-
-		Config()
-		{
-			m_ControlState.m_Height = Rules::HeightGenesis - 1; // disabled
-		}
 
 		INodeObserver* m_Observer = nullptr;
 
@@ -168,7 +161,6 @@ private:
 		void OnNewState() override;
 		void OnRolledBack() override;
 		bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&) override;
-		bool ApproveState(const Block::SystemState::ID&) override;
 		void AdjustFossilEnd(Height&) override;
 		void OnStateData() override;
 		void OnBlockData() override;
