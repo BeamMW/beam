@@ -96,12 +96,6 @@ void NodeModel::run()
 
         LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
-        if (settings.getGenerateGenesys())
-        {
-            node.m_Cfg.m_vTreasury.resize(1);
-            node.m_Cfg.m_vTreasury[0].ZeroInit();
-        }
-
         node.m_Cfg.m_Observer = this;
 
         node.Initialize();

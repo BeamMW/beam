@@ -13,7 +13,7 @@ using namespace ECC;
 
 namespace beam {
 
-bool ReadTreasury(std::vector<Block::Body>& vBlocks, const string& sPath)
+bool ReadTreasury(ByteBuffer& bb, const string& sPath)
 {
 	if (sPath.empty())
 		return false;
@@ -22,10 +22,12 @@ bool ReadTreasury(std::vector<Block::Body>& vBlocks, const string& sPath)
 	if (!f.Open(sPath.c_str(), true))
 		return false;
 
-	yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
-    arc & vBlocks;
+	size_t nSize = static_cast<size_t>(f.get_Remaining());
+	if (!nSize)
+		return false;
 
-	return true;
+	bb.resize(f.get_Remaining());
+	return f.read(&bb.front(), nSize) == nSize;
 }
 
 IWalletDB::Ptr init_wallet_db(const std::string& path, uintBig* walletSeed) {

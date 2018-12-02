@@ -91,7 +91,6 @@ struct Node
 
 		} m_TestMode;
 
-		std::vector<Block::Body> m_vTreasury;
 		ByteBuffer m_Treasury; // needed only for the 1st run
 
 		struct Sync {

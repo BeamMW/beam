@@ -57,8 +57,8 @@ WaitHandle run_node(const NodeParams& params) {
                 node.m_Cfg.m_Connect.push_back(params.connectTo);
             }
             if (!params.treasuryPath.empty()) {
-                ReadTreasury(node.m_Cfg.m_vTreasury, params.treasuryPath);
-                LOG_INFO() << "Treasury blocks read: " << node.m_Cfg.m_vTreasury.size();
+                ReadTreasury(node.m_Cfg.m_Treasury, params.treasuryPath);
+                LOG_INFO() << "Treasury blocks read: " << node.m_Cfg.m_Treasury.size();
             }
 
             explorer::IAdapter::Ptr adapter = explorer::create_adapter(node);
