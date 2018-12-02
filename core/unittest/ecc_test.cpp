@@ -840,7 +840,7 @@ struct TransactionMaker
 		CoSignKernel(*pKrn, hvLockImage);
 
 		Point::Native exc;
-		beam::AmountBig fee2;
+		beam::AmountBig::Type fee2;
 		verify_test(!pKrn->IsValid(fee2, exc)); // should not pass validation unless correct hash preimage is specified
 
 		// finish HL: add hash preimage
@@ -886,7 +886,7 @@ void TestTransaction()
 
 	beam::TxBase::Context ctx;
 	verify_test(tm.m_Trans.IsValid(ctx));
-	verify_test(!ctx.m_Fee.Hi && (ctx.m_Fee.Lo == fee1 + fee2));
+	verify_test(ctx.m_Fee == beam::AmountBig::Type(fee1 + fee2));
 }
 
 void TestAES()

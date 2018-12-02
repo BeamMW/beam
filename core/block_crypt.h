@@ -60,20 +60,14 @@ namespace beam
 		bool IsInRangeRelative(Height) const; // assuming m_Min was already subtracted
 	};
 
-	struct AmountBig
+	namespace AmountBig
 	{
-		Amount Lo;
-		Amount Hi;
 
-		typedef uintBig_t<sizeof(Amount) + sizeof(Height)> uintBig; // 128 bits
+		typedef uintBig_t<sizeof(Amount) + sizeof(Height)> Type; // 128 bits
+		Amount get_Lo(const Type&);
+		Amount get_Hi(const Type&);
 
-		void operator += (const Amount);
-		void operator -= (const Amount);
-		void operator += (const AmountBig&);
-		void operator -= (const AmountBig&);
-
-		void Export(uintBig&) const;
-		void AddTo(ECC::Point::Native&) const;
+		void AddTo(ECC::Point::Native&, const Type&);
 	};
 
 	struct Rules
@@ -108,7 +102,7 @@ namespace beam
 		void UpdateChecksum();
 
 		static Amount get_Emission(Height);
-		static void get_Emission(AmountBig&, const HeightRange&);
+		static void get_Emission(AmountBig::Type&, const HeightRange&);
 	};
 
 	struct TxElement
@@ -236,7 +230,7 @@ namespace beam
 		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all, including the m_Commitment (i.e. the public key)
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
-		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
+		bool IsValid(AmountBig::Type& fee, ECC::Point::Native& exc) const;
 		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
 
 		struct LongProof; // legacy
@@ -246,7 +240,7 @@ namespace beam
 		COMPARISON_VIA_CMP
 
 	private:
-		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const;
+		bool Traverse(ECC::Hash::Value&, AmountBig::Type*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
@@ -607,8 +601,8 @@ namespace beam
 
 		ECC::Point::Native m_Sigma;
 
-		AmountBig m_Fee;
-		AmountBig m_Coinbase;
+		AmountBig::Type m_Fee;
+		AmountBig::Type m_Coinbase;
 		HeightRange m_Height;
 
 		bool m_bBlockMode; // in 'block' mode the hMin/hMax on input denote the range of heights. Each element is verified wrt it independently.

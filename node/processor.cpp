@@ -1367,14 +1367,14 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 	{
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
 
-		if (x.m_Profit.m_Fee.Hi)
+		if (AmountBig::get_Hi(x.m_Profit.m_Fee))
 		{
 			// huge fees are unsupported
 			bc.m_TxPool.Delete(x);
 			continue;
 		}
 
-		Amount feesNext = bc.m_Fees + x.m_Profit.m_Fee.Lo;
+		Amount feesNext = bc.m_Fees + AmountBig::get_Lo(x.m_Profit.m_Fee);
 		if (feesNext < bc.m_Fees)
 			continue; // huge fees are unsupported
 

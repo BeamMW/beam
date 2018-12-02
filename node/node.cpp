@@ -2798,12 +2798,12 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 		if (!ctx.ValidateAndSummarize(*msg.m_Value, msg.m_Value->get_Reader()))
 			ThrowUnexpected();
 
-		if (ctx.m_Coinbase.Hi || (ctx.m_Coinbase.Lo != Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
+		if (ctx.m_Coinbase != AmountBig::Type(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
 			ThrowUnexpected();
 
 		ctx.m_Sigma = -ctx.m_Sigma;
-		ctx.m_Coinbase += x.m_Fees;
-		ctx.m_Coinbase.AddTo(ctx.m_Sigma);
+		ctx.m_Coinbase += AmountBig::Type(x.m_Fees);
+		AmountBig::AddTo(ctx.m_Sigma, ctx.m_Coinbase);
 
 		if (!(ctx.m_Sigma == Zero))
 			ThrowUnexpected();
