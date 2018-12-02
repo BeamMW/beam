@@ -21,6 +21,7 @@
 #include "wallet/secstring.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
+#include "core/treasury.h"
 #include "unittests/util.h"
 
 #ifndef LOG_VERBOSE_ENABLED
@@ -115,6 +116,170 @@ namespace
         }
     }
 }
+
+void ResolveWID(PeerID& res, const std::string& s)
+{
+	bool bValid = true;
+	ByteBuffer bb = from_hex(s, &bValid);
+
+	if ((bb.size() != res.nBytes) || !bValid)
+		throw std::runtime_error("invalid WID");
+
+	memcpy(res.m_pData, &bb.front(), res.nBytes);
+}
+
+template <typename T>
+bool FLoad(T& x, const std::string& sPath, bool bStrict = true)
+{
+	std::FStream f;
+	if (!f.Open(sPath.c_str(), true, bStrict))
+		return false;
+
+	yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
+	arc & x;
+	return true;
+}
+
+template <typename T>
+void FSave(const T& x, const std::string& sPath)
+{
+	std::FStream f;
+	f.Open(sPath.c_str(), false, true);
+
+	yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
+	arc & x;
+}
+
+int HandleTreasury(const po::variables_map& vm, Key::IKdf& kdf)
+{
+	PeerID wid;
+	Scalar::Native sk;
+	Treasury::get_ID(kdf, wid, sk);
+
+	char szID[PeerID::nTxtLen + 1];
+	wid.Print(szID);
+
+	static const char* szPlans = "treasury_plans.bin";
+	static const char* szRequest = "-plan.bin";
+	static const char* szResponse = "-response.bin";
+	static const char* szData = "treasury_data.bin";
+
+	Treasury tres;
+	FLoad(tres, szPlans, false);
+
+
+	auto nCode = vm[cli::TR_OPCODE].as<uint32_t>();
+	switch (nCode)
+	{
+	default:
+		cout << "ID: " << szID << std::endl;
+		break;
+
+	case 1:
+		{
+			// generate plan
+			std::string sID = vm[cli::TR_WID].as<std::string>();
+			ResolveWID(wid, sID);
+
+			auto perc = vm[cli::TR_PERC].as<double>();
+			perc *= 0.01;
+
+			Amount val = static_cast<Amount>(Rules::get().EmissionValue0 * perc); // rounded down
+
+			Treasury::Parameters pars; // default
+			Treasury::Entry* pE = tres.CreatePlan(wid, val, pars);
+
+			FSave(pE->m_Request, sID + szRequest);
+			FSave(tres, szPlans);
+		}
+		break;
+
+	case 2:
+		{
+			// generate response
+			Treasury::Request treq;
+			FLoad(treq, std::string(szID) + szRequest);
+
+			Treasury::Response tresp;
+			uint64_t nIndex = 1;
+			tresp.Create(treq, kdf, nIndex);
+
+			FSave(tresp, std::string(szID) + szResponse);
+		}
+		break;
+
+	case 3:
+		{
+			// verify & import reponse
+			std::string sID = vm[cli::TR_WID].as<std::string>();
+			ResolveWID(wid, sID);
+
+			Treasury::EntryMap::iterator it = tres.m_Entries.find(wid);
+			if (tres.m_Entries.end() == it)
+				throw std::runtime_error("plan not found");
+
+			Treasury::Entry& e = it->second;
+			e.m_pResponse.reset(new Treasury::Response);
+			FLoad(*e.m_pResponse, sID + szResponse);
+
+			if (!e.m_pResponse->IsValid(e.m_Request))
+				throw std::runtime_error("invalid response");
+
+			FSave(tres, szPlans);
+		}
+		break;
+
+	case 4:
+		{
+			// Finally generate treasury
+			Treasury::Data data;
+			data.m_sCustomMsg = vm[cli::TR_COMMENT].as<std::string>();
+			tres.Build(data);
+
+			FSave(data, szData);
+
+			Serializer ser;
+			ser & data;
+
+			ByteBuffer bb;
+			ser.swap_buf(bb);
+
+			Hash::Value hv;
+			Hash::Processor() << Blob(bb) >> hv;
+
+			char szHash[Hash::Value::nTxtLen + 1];
+			hv.Print(szHash);
+
+			cout << "Treasury data hash: " << szHash << std::endl;
+
+		}
+		break;
+
+	case 5:
+		{
+			// recover and print
+			Treasury::Data data;
+			FLoad(data, szData);
+
+			std::vector<Treasury::Data::Coin> vCoins;
+			data.Recover(kdf, vCoins);
+
+			cout << "Recovered coins: " << vCoins.size() << std::endl;
+
+			for (size_t i = 0; i < vCoins.size(); i++)
+			{
+				const Treasury::Data::Coin& coin = vCoins[i];
+				cout << "\t" << coin.m_Kidv.m_Value << ", Height=" << coin.m_Incubation << std::endl;
+
+			}
+		}
+		break;
+
+	}
+
+	return 0;
+}
+
 
 io::Reactor::Ptr reactor;
 
@@ -267,16 +432,8 @@ int main_impl(int argc, char* argv[])
 
                         LOG_INFO() << "wallet sucessfully opened...";
 
-                        if (command == cli::TREASURY)
-                        {
-							uint32_t nCount = vm[cli::TR_COUNT].as<uint32_t>();
-							Height dh = vm[cli::TR_DH].as<uint32_t>();
-
-							Amount v = vm[cli::TR_BEAMS].as<uint32_t>();
-							v *= Rules::Coin;
-
-							return GenerateTreasury(walletDB.get(), vm[cli::TREASURY_BLOCK].as<string>(), nCount, dh, v);
-                        }
+						if (command == cli::TREASURY)
+							return HandleTreasury(vm, *walletDB->get_MasterKdf());
 
                         if (command == cli::INFO)
                         {
