@@ -192,7 +192,15 @@ namespace beam
 		template <typename T>
 		void Export(T& x) const
 		{
+			static_assert(sizeof(T) >= nBytes, "");
 			_ExportAligned(x, m_pData, nBytes);
+		}
+
+		template <uint32_t iWord, typename T>
+		void ExportWord(T& x) const
+		{
+			static_assert(sizeof(T) * (iWord + 1) <= nBytes, "");
+			_ExportAligned(x, m_pData + sizeof(T) * iWord, sizeof(T));
 		}
 
 		template <typename T, uint32_t nOffset>
