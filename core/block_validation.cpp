@@ -188,45 +188,39 @@ namespace beam
 
 	bool TxBase::Context::IsValidBlock(const Block::BodyBase& bb)
 	{
+		AmountBig subsTotal, subsLocked;
+		Rules::get_Emission(subsTotal, m_Height);
+
+		if ((subsTotal.Lo != bb.m_Subsidy.Lo) || (subsTotal.Hi != bb.m_Subsidy.Hi))
+			return false;
+
 		m_Sigma = -m_Sigma;
 
-		bb.m_Subsidy.AddTo(m_Sigma);
+		subsTotal.AddTo(m_Sigma);
 
 		if (!(m_Sigma == Zero))
 			return false;
 
 		// Subsidy is bounded by num of blocks multiplied by coinbase emission
 		// There must at least some unspent coinbase UTXOs wrt maturity settings
-
-		// check the subsidy is within allowed range
-		Height nBlocksInRange = m_Height.m_Max - m_Height.m_Min + 1;
-
-		AmountBig::uintBig ubSubsidy;
-		bb.m_Subsidy.Export(ubSubsidy);
-
-		auto ubBlockEmission = uintBigFrom(Rules::get().CoinbaseEmission);
-
-		if (ubSubsidy > uintBigFrom(nBlocksInRange) * ubBlockEmission)
-			return false;
-
-		// ensure there's a minimal unspent coinbase UTXOs
-		if (nBlocksInRange > Rules::get().MaturityCoinbase)
+		if (m_Height.m_Max - m_Height.m_Min + 1 < Rules::get().MaturityCoinbase)
+			subsLocked = subsTotal;
+		else
 		{
-			// some UTXOs may be spent already. Calculate the minimum remaining
-			auto ubCoinbaseMaxSpent = uintBigFrom(nBlocksInRange - Rules::get().MaturityCoinbase) * ubBlockEmission;
-
-			if (ubSubsidy > ubCoinbaseMaxSpent)
-			{
-				ubCoinbaseMaxSpent.Negate();
-				ubSubsidy += ubCoinbaseMaxSpent;
-
-			} else
-				ubSubsidy = Zero;
+			HeightRange hr;
+			hr.m_Min = m_Height.m_Max - Rules::get().MaturityCoinbase + 1;
+			hr.m_Max = m_Height.m_Max;
+			Rules::get_Emission(subsLocked, hr);
 		}
 
-		AmountBig::uintBig ubCoinbase;
-		m_Coinbase.Export(ubCoinbase);
-		return (ubCoinbase >= ubSubsidy);
+		AmountBig::uintBig v0, v1;
+		m_Coinbase.Export(v0);
+		subsLocked.Export(v1);
+
+		if (v0 < v1)
+			return false;
+
+		return true;
 	}
 
 } // namespace beam

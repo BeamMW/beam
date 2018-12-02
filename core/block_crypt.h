@@ -106,6 +106,9 @@ namespace beam
 		ECC::Hash::Value Checksum;
 
 		void UpdateChecksum();
+
+		static Amount get_Emission(Height);
+		static void get_Emission(AmountBig&, const HeightRange&);
 	};
 
 	struct TxElement

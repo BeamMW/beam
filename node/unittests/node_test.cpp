@@ -709,7 +709,7 @@ namespace beam
 			np.OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
 
 			np.m_Wallet.AddMyUtxo(Key::IDV(bc.m_Fees, h, Key::Type::Comission));
-			np.m_Wallet.AddMyUtxo(Key::IDV(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase));
+			np.m_Wallet.AddMyUtxo(Key::IDV(Rules::get_Emission(h), h, Key::Type::Coinbase));
 
 			BlockPlus::Ptr pBlock(new BlockPlus);
 			pBlock->m_Hdr = std::move(bc.m_Hdr);
@@ -1173,7 +1173,7 @@ namespace beam
 				m_nBbsMsgsPending++;
 
 				// assume we've mined this
-				m_Wallet.AddMyUtxo(Key::IDV(Rules::get().CoinbaseEmission, msg.m_Description.m_Height, Key::Type::Coinbase));
+				m_Wallet.AddMyUtxo(Key::IDV(Rules::get_Emission(msg.m_Description.m_Height), msg.m_Description.m_Height, Key::Type::Coinbase));
 
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
