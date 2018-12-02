@@ -281,7 +281,7 @@ namespace beam
 
 	/////////////
 	// TxKernel
-	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const
+	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig::Type* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const
 	{
 		if (pParent)
 		{
@@ -351,7 +351,7 @@ namespace beam
 		}
 
 		if (pFee)
-			*pFee += m_Fee;
+			*pFee += uintBigFrom(m_Fee);
 
 		return true;
 	}
@@ -361,7 +361,7 @@ namespace beam
 		Traverse(out, NULL, NULL, NULL, pLockImage);
 	}
 
-	bool TxKernel::IsValid(AmountBig& fee, ECC::Point::Native& exc) const
+	bool TxKernel::IsValid(AmountBig::Type& fee, ECC::Point::Native& exc) const
 	{
 		ECC::Hash::Value hv;
 		return Traverse(hv, &fee, &exc, NULL, NULL);
@@ -662,55 +662,41 @@ namespace beam
 	}
 
 	/////////////
-	// AmoutBig
-	void AmountBig::operator += (Amount x)
+	// AmountBig
+	namespace AmountBig
 	{
-		Lo += x;
-		if (Lo < x)
-			Hi++;
-	}
-
-	void AmountBig::operator -= (Amount x)
-	{
-		if (Lo < x)
-			Hi--;
-		Lo -= x;
-	}
-
-	void AmountBig::operator += (const AmountBig& x)
-	{
-		operator += (x.Lo);
-		Hi += x.Hi;
-	}
-
-	void AmountBig::operator -= (const AmountBig& x)
-	{
-		operator -= (x.Lo);
-		Hi -= x.Hi;
-	}
-
-	void AmountBig::Export(uintBig& x) const
-	{
-		x = Zero;
-		x.AssignRange<Amount, 0>(Lo);
-		x.AssignRange<Amount, (sizeof(Lo) << 3) >(Hi);
-	}
-
-	void AmountBig::AddTo(ECC::Point::Native& res) const
-	{
-		if (Hi)
+		Amount get_Lo(const Type& x)
 		{
-			uintBig val;
-			Export(val);
-
-			ECC::Scalar s;
-			s.m_Value = val;
-			res += ECC::Context::get().H_Big * s;
+			Amount res;
+			x.ExportWord<1>(res);
+			return res;
 		}
-		else
-			if (Lo)
-				res += ECC::Context::get().H * Lo;
-	}
+
+		Amount get_Hi(const Type& x)
+		{
+			Amount res;
+			x.ExportWord<0>(res);
+			return res;
+		}
+
+		void AddTo(ECC::Point::Native& res, const Type& x)
+		{
+			if (get_Hi(x))
+			{
+				ECC::Scalar s;
+				s.m_Value = x;
+				res += ECC::Context::get().H_Big * s;
+			}
+			else
+			{
+				Amount lo = get_Lo(x);
+				if (lo)
+					res += ECC::Context::get().H * lo;
+			}
+		}
+
+	} // namespace AmountBig
+
 
 	/////////////
 	// Block
@@ -735,14 +721,11 @@ namespace beam
 		return get().CoinbaseEmission;
 	}
 
-	void Rules::get_Emission(AmountBig& res, const HeightRange& hr)
+	void Rules::get_Emission(AmountBig::Type& res, const HeightRange& hr)
 	{
 		// would be more complex in case of halving
 		Height dh = hr.m_Max - hr.m_Min + 1;
-
-		AmountBig::uintBig val = uintBigFrom(dh) * uintBigFrom(get().CoinbaseEmission);
-		val.ExportWord<0>(res.Hi);
-		val.ExportWord<1>(res.Lo);
+		res = uintBigFrom(dh) * uintBigFrom(get().CoinbaseEmission);
 	}
 
 	void Rules::UpdateChecksum()

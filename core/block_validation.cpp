@@ -147,7 +147,7 @@ namespace beam
 						return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
 
 					assert(r.m_pUtxoOut->m_pPublic); // must have already been checked
-					m_Coinbase += r.m_pUtxoOut->m_pPublic->m_Value;
+					m_Coinbase += uintBigFrom(r.m_pUtxoOut->m_pPublic->m_Value);
 				}
 			}
 		}
@@ -179,21 +179,20 @@ namespace beam
 
 	bool TxBase::Context::IsValidTransaction()
 	{
-		assert(!(m_Coinbase.Lo || m_Coinbase.Hi)); // must have already been checked
+		assert(m_Coinbase == Zero); // must have already been checked
 
-		m_Fee.AddTo(m_Sigma);
-
+		AmountBig::AddTo(m_Sigma, m_Fee);
 		return m_Sigma == Zero;
 	}
 
 	bool TxBase::Context::IsValidBlock(const Block::BodyBase& bb)
 	{
-		AmountBig subsTotal, subsLocked;
+		AmountBig::Type subsTotal, subsLocked;
 		Rules::get_Emission(subsTotal, m_Height);
 
 		m_Sigma = -m_Sigma;
 
-		subsTotal.AddTo(m_Sigma);
+		AmountBig::AddTo(m_Sigma, subsTotal);
 
 		if (!(m_Sigma == Zero))
 			return false;
@@ -210,11 +209,7 @@ namespace beam
 			Rules::get_Emission(subsLocked, hr);
 		}
 
-		AmountBig::uintBig v0, v1;
-		m_Coinbase.Export(v0);
-		subsLocked.Export(v1);
-
-		if (v0 < v1)
+		if (m_Coinbase < subsLocked)
 			return false;
 
 		return true;
