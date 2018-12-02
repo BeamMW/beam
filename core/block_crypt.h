@@ -65,7 +65,7 @@ namespace beam
 		Amount Lo;
 		Amount Hi;
 
-		typedef uintBig_t<(sizeof(Amount) << 4)> uintBig; // 128 bits
+		typedef uintBig_t<sizeof(Amount) + sizeof(Height)> uintBig; // 128 bits
 
 		void operator += (const Amount);
 		void operator -= (const Amount);
@@ -354,8 +354,7 @@ namespace beam
 
 		bool IsValid(Context&) const; // Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
 
-		static const uint32_t s_KeyBits = ECC::nBits; // key len for map of transactions. Can actually be less than 256 bits.
-		typedef uintBig_t<s_KeyBits> KeyType;
+		typedef uintBig_t<ECC::nBytes> KeyType; // key len for map of transactions. Can actually be less than 256 bits.
 
 		void get_Key(KeyType&) const;
 	};
@@ -383,7 +382,7 @@ namespace beam
 
 			std::array<uint8_t, nSolutionBytes>	m_Indices;
 
-			typedef uintBig_t<64> NonceType;
+			typedef uintBig_t<8> NonceType;
 			NonceType m_Nonce; // 8 bytes. The overall solution size is 96 bytes.
 			Difficulty m_Difficulty;
 
@@ -790,7 +789,7 @@ namespace beam
 		bool Import(ECC::HKdfPub&);
 
 	private:
-		typedef uintBig_t<64> MacValue;
+		typedef uintBig_t<8> MacValue;
 		void XCrypt(MacValue&, uint32_t nSize, bool bEnc) const;
 
 		void Export(void*, uint32_t, uint8_t nCode);

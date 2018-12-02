@@ -159,10 +159,10 @@ void TestUintBig()
 	// test shifts, when src/dst types is smaller/bigger/equal
 	for (int j = 0; j < 20; j++)
 	{
-		beam::uintBig_t<256> a;
-		beam::uintBig_t<256 - 64> b;
-		beam::uintBig_t<256 + 64> c;
-		beam::uintBig_t<256> d;
+		beam::uintBig_t<32> a;
+		beam::uintBig_t<32 - 8> b;
+		beam::uintBig_t<32 + 8> c;
+		beam::uintBig_t<32> d;
 
 		SetRandom(a);
 
