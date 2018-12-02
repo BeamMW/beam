@@ -1324,7 +1324,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 
 	// Generate the block up to the allowed size.
 	// All block elements are serialized independently, their binary size can just be added to the size of the "empty" block.
-	bc.m_Block.m_Subsidy += Rules::get().CoinbaseEmission;
+	bc.m_Block.m_Subsidy += Rules::get_Emission(h);
 
 	SerializerSizeCounter ssc;
 	ssc & bc.m_Block;

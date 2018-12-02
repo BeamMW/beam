@@ -729,6 +729,22 @@ namespace beam
 		TreasuryChecksum = Zero;
 	}
 
+	Amount Rules::get_Emission(Height)
+	{
+		// TODO - halving
+		return get().CoinbaseEmission;
+	}
+
+	void Rules::get_Emission(AmountBig& res, const HeightRange& hr)
+	{
+		// would be more complex in case of halving
+		Height dh = hr.m_Max - hr.m_Min + 1;
+
+		AmountBig::uintBig val = uintBigFrom(dh) * uintBigFrom(get().CoinbaseEmission);
+		val.ExportWord<0>(res.Hi);
+		val.ExportWord<1>(res.Lo);
+	}
+
 	void Rules::UpdateChecksum()
 	{
 		// all parameters, including const (in case they'll be hardcoded to different values in later versions)
@@ -1092,11 +1108,15 @@ namespace beam
 	{
 		ECC::Scalar::Native sk;
 
-		pOutp.reset(new Output);
-		pOutp->m_Coinbase = true;
-		pOutp->Create(sk, kdf, Key::IDV(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase));
+		Amount val = Rules::get_Emission(h);
+		if (val)
+		{
+			pOutp.reset(new Output);
+			pOutp->m_Coinbase = true;
+			pOutp->Create(sk, kdf, Key::IDV(val, h, Key::Type::Coinbase));
 
-		m_Offset += sk;
+			m_Offset += sk;
+		}
 
 		pKrn.reset(new TxKernel);
 		pKrn->m_Height.m_Min = h; // make it similar to others
