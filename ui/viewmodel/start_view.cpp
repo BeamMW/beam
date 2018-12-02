@@ -246,7 +246,7 @@ QString StartViewModel::getRemoteNodeAddress() const
     return AppModel::getInstance()->getSettings().getNodeAddress();
 }
 
-void StartViewModel::setupLocalNode(int port, int miningThreads, bool generateGenesys)
+void StartViewModel::setupLocalNode(int port, int miningThreads)
 {
     auto& settings = AppModel::getInstance()->getSettings();
 #ifdef BEAM_USE_GPU
@@ -265,7 +265,6 @@ void StartViewModel::setupLocalNode(int port, int miningThreads, bool generateGe
     settings.setNodeAddress(localAddress);
     settings.setLocalNodePort(port);
     settings.setRunLocalNode(true);
-    settings.setGenerateGenesys(generateGenesys);
     QStringList peers;
     peers.push_back(chooseRandomNode());
     settings.setLocalNodePeers(peers);

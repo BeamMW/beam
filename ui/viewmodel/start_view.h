@@ -83,7 +83,7 @@ public:
     int getLocalMiningThreads() const;
     QString getRemoteNodeAddress() const;
 
-    Q_INVOKABLE void setupLocalNode(int port, int miningThreads, bool generateGenesys = false);
+    Q_INVOKABLE void setupLocalNode(int port, int miningThreads);
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
     Q_INVOKABLE void setupRandomNode();
     Q_INVOKABLE uint coreAmount() const;
