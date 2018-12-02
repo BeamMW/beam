@@ -106,7 +106,7 @@ namespace beam
 		Treasury tres;
 		Treasury::Parameters pars;
 		pars.m_MaxHeight = pars.m_StepMin * 2;
-		Treasury::Entry* pE = tres.CreatePlan(pid, 5 * Rules::get().CoinbaseEmission, pars);
+		Treasury::Entry* pE = tres.CreatePlan(pid, 5 * Rules::get().EmissionValue0, pars);
 
 		pE->m_pResponse.reset(new Treasury::Response);
 		uint64_t nIndex = 1;
@@ -1729,6 +1729,32 @@ namespace beam
 		verify_test(!fc.m_Hist.m_Map.empty() && fc.m_Hist.m_Map.rbegin()->second.m_Height == hThrd2);
 	}
 
+	void TestHalving()
+	{
+		HeightRange hr;
+		for (hr.m_Min = Rules::HeightGenesis; ; hr.m_Min++)
+		{
+			Amount v = Rules::get_Emission(hr.m_Min);
+			if (!v)
+				break;
+
+			AmountBig::Type sum0(v);
+
+			uint32_t nZeroTest = 200;
+			for (hr.m_Max = hr.m_Min; nZeroTest; )
+			{
+				AmountBig::Type sum1;
+				Rules::get_Emission(sum1, hr);
+				verify_test(sum0 == sum1);
+
+				v = Rules::get_Emission(++hr.m_Max);
+				if (v)
+					sum0 += uintBigFrom(v);
+				else
+					nZeroTest--;
+			}
+		}
+	}
 
 }
 
@@ -1743,8 +1769,11 @@ int main()
 	beam::Rules::get().DifficultyReviewWindow = 35;
 	beam::Rules::get().WindowForMedian = 3;
 	beam::Rules::get().MaturityCoinbase = 35; // lowered to see more txs
+	beam::Rules::get().EmissionDrop0 = 5;
+	beam::Rules::get().EmissionDrop1 = 8;
 	beam::Rules::get().UpdateChecksum();
 
+	beam::TestHalving();
 	beam::TestChainworkProof();
 
 	// Make sure this test doesn't run in parallel. We have the following potential collisions for Nodes:

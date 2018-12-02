@@ -78,7 +78,11 @@ namespace beam
 		static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
 		static const Amount Coin; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
 
-		Amount CoinbaseEmission	= Coin * 80; // the maximum allowed coinbase in a single block
+		// emission parameters
+		Amount EmissionValue0	= Coin * 80; // Initial emission. Each drop it will be halved. In case of odd num it's rounded to the lower value.
+		Height EmissionDrop0	= 525000; // 1 year roughly. This is the height of the last block that still has the initial emission, the drop is starting from the next block
+		Height EmissionDrop1	= 2100000; // 4 years roughly. Each such a cycle there's a new drop
+
 		Height MaturityCoinbase = 60; // 1 hour
 		Height MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
 
@@ -103,6 +107,9 @@ namespace beam
 
 		static Amount get_Emission(Height);
 		static void get_Emission(AmountBig::Type&, const HeightRange&);
+
+	private:
+		Amount get_EmissionEx(Height, Height& hEnd) const;
 	};
 
 	struct TxElement

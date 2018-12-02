@@ -715,17 +715,57 @@ namespace beam
 		TreasuryChecksum = Zero;
 	}
 
-	Amount Rules::get_Emission(Height)
+	Amount Rules::get_EmissionEx(Height h, Height& hEnd) const
 	{
-		// TODO - halving
-		return get().CoinbaseEmission;
+		h -= Rules::HeightGenesis; // may overflow, but it's ok. If h < HeightGenesis (which must not happen anyway) - then it'll give a huge height, for which the emission would be zero anyway.
+
+		if (h < EmissionDrop0)
+		{
+			hEnd = Rules::HeightGenesis + EmissionDrop0;
+			return EmissionValue0;
+		}
+
+		assert(EmissionDrop1);
+		Height n = 1 + (h - EmissionDrop0) / EmissionDrop1;
+
+		const uint32_t nBitsMax = sizeof(Amount) << 3;
+		if (n >= nBitsMax)
+		{
+			hEnd = MaxHeight;
+			return 0;
+		}
+
+		hEnd = Rules::HeightGenesis + EmissionDrop0 + n * EmissionDrop1;
+		return EmissionValue0 >> n;
+	}
+
+	Amount Rules::get_Emission(Height h)
+	{
+		return get().get_EmissionEx(h, h);
 	}
 
 	void Rules::get_Emission(AmountBig::Type& res, const HeightRange& hr)
 	{
-		// would be more complex in case of halving
-		Height dh = hr.m_Max - hr.m_Min + 1;
-		res = uintBigFrom(dh) * uintBigFrom(get().CoinbaseEmission);
+		res = Zero;
+
+		for (Height hPos = hr.m_Min; ; )
+		{
+			Height hEnd;
+			Amount nCurrent = get().get_EmissionEx(hPos, hEnd);
+			if (!nCurrent)
+				break;
+
+			assert(hEnd > hPos);
+
+			if (hr.m_Max < hEnd)
+			{
+				res += uintBigFrom(nCurrent) * uintBigFrom(hr.m_Max - hPos + 1);
+				break;
+			}
+
+			res += uintBigFrom(nCurrent) * uintBigFrom(hEnd - hPos);
+			hPos = hEnd;
+		}
 	}
 
 	void Rules::UpdateChecksum()
@@ -736,7 +776,9 @@ namespace beam
 			<< TreasuryChecksum
 			<< HeightGenesis
 			<< Coin
-			<< CoinbaseEmission
+			<< EmissionValue0
+			<< EmissionDrop0
+			<< EmissionDrop1
 			<< MaturityCoinbase
 			<< MaturityStd
 			<< MaxBodySize
