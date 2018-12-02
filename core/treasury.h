@@ -126,9 +126,8 @@ namespace beam
 
 		struct Parameters
 		{
-			Height m_StepMin = 1440 * 30; // 1 month
-			Height m_MaxDiffPerBlock = 1440 * 90; // 3 months
-			Height m_MaxHeight = 1440 * 360 * 5; // 5 years plan
+			Height m_MaturityStep = 1440 * 30; // 1 month roughly
+			uint32_t m_Bursts = 12 * 5; // 5 years plan
 
 		};
 

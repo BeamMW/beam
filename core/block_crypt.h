@@ -107,9 +107,10 @@ namespace beam
 
 		static Amount get_Emission(Height);
 		static void get_Emission(AmountBig::Type&, const HeightRange&);
+		static void get_Emission(AmountBig::Type&, const HeightRange&, Amount base);
 
 	private:
-		Amount get_EmissionEx(Height, Height& hEnd) const;
+		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
 	};
 
 	struct TxElement

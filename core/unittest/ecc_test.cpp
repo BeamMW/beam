@@ -1137,7 +1137,8 @@ void TestFourCC()
 void TestTreasury()
 {
 	beam::Treasury::Parameters pars;
-	pars.m_MaxHeight = 1440 * 360; // 1 year, make it shorter
+	pars.m_Bursts = 12;
+	pars.m_MaturityStep = 1440 * 30 * 4;
 
 	beam::Treasury tres;
 
@@ -1155,8 +1156,8 @@ void TestTreasury()
 		Scalar::Native sk;
 		beam::Treasury::get_ID(pKdfs[i], pid, sk);
 
-		// 2. Plan is created
-		beam::Treasury::Entry* pE = tres.CreatePlan(pid, 5 * beam::Rules::get().EmissionValue0, pars);
+		// 2. Plan is created (2%, 3%, 4% of the total emission)
+		beam::Treasury::Entry* pE = tres.CreatePlan(pid, beam::Rules::get().EmissionValue0 * (i + 2)/100, pars);
 		verify_test(pE->m_Request.m_WalletID == pid);
 
 		// test Request serialization
@@ -1216,7 +1217,7 @@ void TestTreasury()
 	{
 		std::vector<beam::Treasury::Data::Coin> vCoins;
 		data.Recover(pKdfs[i], vCoins);
-		verify_test(vCoins.size() == 12);
+		verify_test(vCoins.size() == pars.m_Bursts);
 	}
 }
 
