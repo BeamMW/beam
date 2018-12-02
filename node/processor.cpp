@@ -1324,17 +1324,21 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 	TxKernel::Ptr pKrn;
 
 	bb.AddCoinbaseAndKrn(bc.m_Kdf, h, pOutp, pKrn);
-	ssc & *pOutp;
+	if (pOutp)
+		ssc & *pOutp;
 	ssc & *pKrn;
 
 	ECC::Scalar::Native offset = bc.m_Block.m_Offset;
 
 	if (BlockContext::Mode::Assemble != bc.m_Mode)
 	{
-		if (!HandleBlockElement(*pOutp, h, NULL, true))
-			return 0;
+		if (pOutp)
+		{
+			if (!HandleBlockElement(*pOutp, h, NULL, true))
+				return 0;
 
-		bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
+			bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
+		}
 		bc.m_Block.m_vKernels.push_back(std::move(pKrn));
 	}
 
