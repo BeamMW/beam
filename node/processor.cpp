@@ -1229,8 +1229,10 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return row ? get_MovingMedianEx(row) : 0;
 }
 
-bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, Height h)
+bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx) const
 {
+	Height h = m_Cursor.m_Sid.m_Height + 1;
+
 	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
 		if (!tx.m_vKernels[i]->m_Height.IsInRange(h))
 			return false;
@@ -1241,7 +1243,7 @@ bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, Height h)
 bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 {
 	Height h = m_Cursor.m_Sid.m_Height + 1;
-	if (!ValidateTxWrtHeight(tx, h))
+	if (!ValidateTxWrtHeight(tx))
 		return false;
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
@@ -1395,7 +1397,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 
 		Transaction& tx = *x.m_pValue;
 
-		if (ValidateTxWrtHeight(tx, h) && HandleValidatedTx(tx.get_Reader(), h, true))
+		if (ValidateTxWrtHeight(tx) && HandleValidatedTx(tx.get_Reader(), h, true))
 		{
 			TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(tx.get_Reader());
 
