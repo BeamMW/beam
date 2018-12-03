@@ -167,32 +167,22 @@ namespace beam
 		return 0;
 	}
 
-	void Output::CreateInternal(const ECC::Scalar::Native& sk, Amount v, bool bPublic, Key::IKdf* pKdf, const Key::ID* pKid)
+	void Output::Create(ECC::Scalar::Native& sk, Key::IKdf& kdf, const Key::IDV& kidv, bool bPublic /* = false */)
 	{
-		m_Commitment = ECC::Commitment(sk, v);
+		kdf.DeriveKey(sk, kidv);
+		m_Commitment = ECC::Commitment(sk, kidv.m_Value);
 
 		ECC::Oracle oracle;
 		oracle << m_Incubation;
 
 		ECC::RangeProof::CreatorParams cp;
-		cp.m_Kidv.m_Value = v;
+		cp.m_Kidv = kidv;
+		get_SeedKid(cp.m_Seed.V, kdf);
 
-		if (pKdf)
-		{
-			assert(pKid);
-			Cast::Down<Key::ID>(cp.m_Kidv) = *pKid;
-			get_SeedKid(cp.m_Seed.V, *pKdf);
-		}
-		else
-		{
-			ZeroObject(Cast::Down<Key::ID>(cp.m_Kidv));
-			ECC::Hash::Processor() << "outp" << sk << v >> cp.m_Seed.V;
-		}
-
-		if (bPublic)
+		if (bPublic || m_Coinbase)
 		{
 			m_pPublic.reset(new ECC::RangeProof::Public);
-			m_pPublic->m_Value = v;
+			m_pPublic->m_Value = kidv.m_Value;
 			m_pPublic->Create(sk, cp, oracle);
 		}
 		else
@@ -200,17 +190,6 @@ namespace beam
 			m_pConfidential.reset(new ECC::RangeProof::Confidential);
 			m_pConfidential->Create(sk, cp, oracle);
 		}
-	}
-
-	void Output::Create(ECC::Scalar::Native& sk, Key::IKdf& kdf, const Key::IDV& kidv, bool bPublic /* = false */)
-	{
-		kdf.DeriveKey(sk, kidv);
-		CreateInternal(sk, kidv.m_Value, bPublic || m_Coinbase, &kdf, &kidv);
-	}
-
-	void Output::Create(const ECC::Scalar::Native& sk, Amount v, bool bPublic /* = false */)
-	{
-		CreateInternal(sk, v, bPublic, NULL, NULL);
 	}
 
 	void Output::get_SeedKid(ECC::uintBig& seed, Key::IPKdf& kdf) const

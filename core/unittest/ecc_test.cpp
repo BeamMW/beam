@@ -668,17 +668,21 @@ void TestRangeProof()
 		}
 	}
 
+	HKdf kdf;
+	uintBig seed;
+	SetRandom(seed);
+	kdf.Generate(seed);
 
 	{
 		beam::Output outp;
-		outp.Create(1U, 20300, true);
+		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), true);
 		outp.m_Coinbase = true; // others may be disallowed
 		verify_test(outp.IsValid(comm));
 		WriteSizeSerialized("Out-UTXO-Public", outp);
 	}
 	{
 		beam::Output outp;
-		outp.Create(1U, 20300, false);
+		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular));
 		verify_test(outp.IsValid(comm));
 		WriteSizeSerialized("Out-UTXO-Confidential", outp);
 	}
