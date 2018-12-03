@@ -112,7 +112,7 @@ namespace beam
         return os;
     }
 
-    const char Wallet::s_szLastUtxoEvt[] = "LastUtxoEvent";
+    const char Wallet::s_szNextUtxoEvt[] = "NextUtxoEvent";
 
     Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action)
         : m_WalletDB{ walletDB }
@@ -472,12 +472,10 @@ namespace beam
         Block::SystemState::Full sTip;
         m_WalletDB->get_History().get_Tip(sTip);
 
-        Height h = GetUtxoEventsHeight();
-        assert(h <= sTip.m_Height);
-        if (h >= sTip.m_Height)
+        Height h = GetUtxoEventsHeightNext();
+        assert(h <= sTip.m_Height + 1);
+        if (h > sTip.m_Height)
             return;
-
-        ++h;
 
         if (!m_PendingUtxoEvents.empty())
         {
@@ -518,14 +516,14 @@ namespace beam
     void Wallet::SetUtxoEventsHeight(Height h)
     {
         uintBigFor<Height>::Type var;
-        var = h;
-        wallet::setVar(m_WalletDB, s_szLastUtxoEvt, var);
+        var = h + 1; // we're actually saving the next
+        wallet::setVar(m_WalletDB, s_szNextUtxoEvt, var);
     }
 
-    Height Wallet::GetUtxoEventsHeight()
+    Height Wallet::GetUtxoEventsHeightNext()
     {
         uintBigFor<Height>::Type var;
-        if (!wallet::getVar(m_WalletDB, s_szLastUtxoEvt, var))
+        if (!wallet::getVar(m_WalletDB, s_szNextUtxoEvt, var))
             return 0;
 
         Height h;
@@ -612,8 +610,8 @@ namespace beam
             }
         }
 
-        Height h = GetUtxoEventsHeight();
-        if (h > sTip.m_Height)
+        Height h = GetUtxoEventsHeightNext();
+        if (h > sTip.m_Height + 1)
             SetUtxoEventsHeight(sTip.m_Height);
     }
 

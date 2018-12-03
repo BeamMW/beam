@@ -110,14 +110,14 @@ namespace beam
         void AbortUtxoEvents();
         void ProcessUtxoEvent(const proto::UtxoEvent&, Height hTip);
         void SetUtxoEventsHeight(Height);
-        Height GetUtxoEventsHeight();
+        Height GetUtxoEventsHeightNext();
 
         wallet::BaseTransaction::Ptr getTransaction(const WalletID& myID, const wallet::SetTxParameter& msg);
         wallet::BaseTransaction::Ptr constructTransaction(const TxID& id, wallet::TxType type);
 
     private:
 
-        static const char s_szLastUtxoEvt[];
+        static const char s_szNextUtxoEvt[];
 
 #define REQUEST_TYPES_Sync(macro) \
         macro(Utxo) \

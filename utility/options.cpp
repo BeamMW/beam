@@ -158,6 +158,8 @@ namespace beam
 
 #define RulesParams(macro) \
     macro(Amount, EmissionValue0, "initial coinbase emission in a single block") \
+    macro(Amount, EmissionDrop0, "height of the last block that still has the initial emission, the drop is starting from the next block") \
+    macro(Amount, EmissionDrop1, "Each such a cycle there's a new drop") \
     macro(Height, MaturityCoinbase, "num of blocks before coinbase UTXO can be spent") \
     macro(Height, MaturityStd, "num of blocks before non-coinbase UTXO can be spent") \
     macro(size_t, MaxBodySize, "Max block body size [bytes]") \
