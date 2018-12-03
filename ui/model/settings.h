@@ -49,8 +49,6 @@ public:
     void setLocalNodePort(uint port);
     uint getLocalNodeMiningThreads() const;
     void setLocalNodeMiningThreads(uint n);
-    uint getLocalNodeVerificationThreads() const;
-    void setLocalNodeVerificationThreads(uint n);
     std::string getLocalNodeStorage() const;
     std::string getTempDir() const;
 
@@ -78,7 +76,6 @@ signals:
     void localNodeRunChanged();
     void localNodePortChanged();
     void localNodeMiningThreadsChanged();
-    void localNodeVerificationThreadsChanged();
     void localNodeGenerateGenesysChanged();
     void localNodePeersChanged();
     void localNodeSynchronizedChanged();
