@@ -244,6 +244,8 @@ const void* NodeDB::Recordset::get_BlobStrict(int col, uint32_t n)
 void NodeDB::Open(const char* szPath)
 {
 	TestRet(sqlite3_open_v2(szPath, &m_pDb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL));
+	// Attempt to fix the "busy" error when PC goes to sleep and then awakes. Try the busy handler with non-zero timeout (maybe a single retry would be enough)
+	sqlite3_busy_timeout(m_pDb, 5000);
 
 	bool bCreate;
 	{
