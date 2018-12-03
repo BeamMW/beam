@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "start_view.h"
-#include "wallet/keystore.h"
 #include <QMessageBox>
 #include <QStringBuilder>
 #include <QApplication>
@@ -227,7 +226,27 @@ bool StartViewModel::getUseGpu() const
 #endif
 }
 
-void StartViewModel::setupLocalNode(int port, int miningThreads, bool generateGenesys)
+bool StartViewModel::getIsRunLocalNode() const
+{
+    return AppModel::getInstance()->getSettings().getRunLocalNode();
+}
+
+int StartViewModel::getLocalPort() const
+{
+    return AppModel::getInstance()->getSettings().getLocalNodePort();
+}
+
+int StartViewModel::getLocalMiningThreads() const
+{
+    return AppModel::getInstance()->getSettings().getLocalNodeMiningThreads();
+}
+
+QString StartViewModel::getRemoteNodeAddress() const
+{
+    return AppModel::getInstance()->getSettings().getNodeAddress();
+}
+
+void StartViewModel::setupLocalNode(int port, int miningThreads)
 {
     auto& settings = AppModel::getInstance()->getSettings();
 #ifdef BEAM_USE_GPU
@@ -246,7 +265,6 @@ void StartViewModel::setupLocalNode(int port, int miningThreads, bool generateGe
     settings.setNodeAddress(localAddress);
     settings.setLocalNodePort(port);
     settings.setRunLocalNode(true);
-    settings.setGenerateGenesys(generateGenesys);
     QStringList peers;
     peers.push_back(chooseRandomNode());
     settings.setLocalNodePeers(peers);
@@ -258,7 +276,7 @@ void StartViewModel::setupRemoteNode(const QString& nodeAddress)
     AppModel::getInstance()->getSettings().setNodeAddress(nodeAddress);
 }
 
-void StartViewModel::setupTestnetNode()
+void StartViewModel::setupRandomNode()
 {
     AppModel::getInstance()->getSettings().setRunLocalNode(false);
     AppModel::getInstance()->getSettings().setNodeAddress(chooseRandomNode());

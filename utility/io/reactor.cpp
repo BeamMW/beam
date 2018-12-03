@@ -694,7 +694,7 @@ void Reactor::GracefulIntHandler::SetHandler(bool bSet)
 
 void Reactor::GracefulIntHandler::Handler(int sig)
 {
-	if (sig != SIGPIPE && sig != SIGHUP) {
+	if (sig != SIGPIPE /*&& sig != SIGHUP*/) {
         assert(s_pAppReactor);
         s_pAppReactor->stop();
     }

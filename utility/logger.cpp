@@ -172,10 +172,7 @@ private:
         else
         {
 #ifdef WIN32
-            if (fopen_s(&_sink, fileName.c_str(), "ab") != 0)
-            {
-                _sink = nullptr;
-            }
+            _sink = _wfsopen(Utf8toUtf16(fileName.c_str()).c_str(), L"ab", _SH_DENYNO);
 #else
             _sink = fopen(fileName.c_str(), "ab");
 #endif

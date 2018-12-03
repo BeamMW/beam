@@ -24,6 +24,8 @@
 #include "utility/helpers.h"
 #include <iomanip>
 
+#include "pow/external_pow.h"
+
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <iterator>
@@ -41,7 +43,7 @@ namespace
         cout << options << std::endl;
     }
 
-    bool ReadTreasury(std::vector<Block::Body>& vBlocks, const string& sPath)
+    bool ReadTreasury(ByteBuffer& bb, const string& sPath)
     {
 		if (sPath.empty())
 			return false;
@@ -50,11 +52,27 @@ namespace
 		if (!f.Open(sPath.c_str(), true))
 			return false;
 
-		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
-        arc & vBlocks;
+		size_t nSize = static_cast<size_t>(f.get_Remaining());
+		if (!nSize)
+			return false;
 
-		return true;
+		bb.resize(f.get_Remaining());
+		return f.read(&bb.front(), nSize) == nSize;
     }
+
+	void find_certificates(IExternalPOW::Options& o, const std::string& stratumDir) {
+		static const std::string certFileName("stratum.crt");
+		static const std::string keyFileName("stratum.key");
+		static const std::string apiKeysFileName("stratum.api.keys");
+
+		boost::filesystem::path p(stratumDir);
+		p = boost::filesystem::canonical(p);
+		o.privKeyFile = (p / keyFileName).string();
+		o.certFile = (p / certFileName).string();
+
+		if (boost::filesystem::exists(p / apiKeysFileName))
+			o.apiKeysFile = (p / apiKeysFileName).string();
+	}
 }
 
 #ifndef LOG_VERBOSE_ENABLED
@@ -134,6 +152,15 @@ int main_impl(int argc, char* argv[])
 					}
 				);
 
+				std::unique_ptr<IExternalPOW> stratumServer;
+				auto stratumPort = vm[cli::STRATUM_PORT].as<uint16_t>();
+
+				if (stratumPort > 0) {
+					IExternalPOW::Options powOptions;
+                    find_certificates(powOptions, vm[cli::STRATUM_SECRETS_PATH].as<string>());
+					stratumServer = IExternalPOW::create(powOptions, *reactor, io::Address().port(stratumPort));
+				}
+
 				{
 					beam::Node node;
 
@@ -156,15 +183,15 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
 #endif
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
-					if (node.m_Cfg.m_MiningThreads > 0)
+					if (node.m_Cfg.m_MiningThreads > 0 || stratumServer)
 					{
-						std::shared_ptr<ECC::HKdf> pKdf(new ECC::HKdf);
-						node.m_pKdf = pKdf;
-
-						if (!beam::read_wallet_seed(pKdf->m_Secret, vm)) {
+						ECC::NoLeak<ECC::uintBig> seed;
+						if (!beam::read_wallet_seed(seed, vm)) {
                             LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
                             return -1;
                         }
+
+						node.m_Keys.InitSingleKey(seed.V);
 					}
 
 					std::vector<std::string> vPeers = getCfgPeers(vm);
@@ -199,24 +226,19 @@ int main_impl(int argc, char* argv[])
 					if (vm.count(cli::TREASURY_BLOCK))
 					{
 						string sPath = vm[cli::TREASURY_BLOCK].as<string>();
-						ReadTreasury(node.m_Cfg.m_vTreasury, sPath);
-
-						if (!node.m_Cfg.m_vTreasury.empty())
-							LOG_INFO() << "Treasury blocs read: " << node.m_Cfg.m_vTreasury.size();
+						if (!ReadTreasury(node.m_Cfg.m_Treasury, sPath))
+							node.m_Cfg.m_Treasury.clear();
+						else
+						{
+							if (!node.m_Cfg.m_Treasury.empty())
+								LOG_INFO() << "Treasury size: " << node.m_Cfg.m_Treasury.size();
+						}
 					}
-
-#ifdef BEAM_TESTNET
-                    node.m_Cfg.m_ControlState.m_Height = Rules::HeightGenesis;
-					node.m_Cfg.m_ControlState.m_Hash = {
-						0xf6, 0xf9, 0x01, 0x39, 0x3a, 0x10, 0x30, 0x80, 0x86, 0x4f, 0x75, 0xb6, 0x6b, 0x78, 0xa9, 0x6e,
-						0x6d, 0xf0, 0x10, 0xb5, 0x3f, 0x9a, 0xaf, 0x32, 0xe3, 0xcb, 0xc7, 0x5f, 0xa3, 0x6a, 0x21, 0x97
-					};
-#endif
 
 					if (vm.count(cli::RESYNC))
 						node.m_Cfg.m_Sync.m_ForceResync = vm[cli::RESYNC].as<bool>();
 
-					node.Initialize();
+					node.Initialize(stratumServer.get());
 
 					Height hImport = vm[cli::IMPORT].as<Height>();
 					if (hImport)

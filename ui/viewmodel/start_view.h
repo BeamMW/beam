@@ -59,6 +59,11 @@ class StartViewModel : public QObject
     Q_PROPERTY(QList<QObject*> checkPhrases READ getCheckPhrases NOTIFY checkPhrasesChanged)
     Q_PROPERTY(QChar phrasesSeparator READ getPhrasesSeparator CONSTANT)
     Q_PROPERTY(bool useGpu READ getUseGpu WRITE setUseGpu NOTIFY useGpuChanged)
+
+    Q_PROPERTY(int localPort READ getLocalPort CONSTANT)
+    Q_PROPERTY(int localMiningThreads READ getLocalMiningThreads CONSTANT)
+    Q_PROPERTY(QString remoteNodeAddress READ getRemoteNodeAddress CONSTANT)
+
 public:
 
     using DoneCallback = std::function<bool (beam::IWalletDB::Ptr db, const std::string& walletPass)>;
@@ -74,16 +79,20 @@ public:
     QChar getPhrasesSeparator();
     void setUseGpu(bool value);
     bool getUseGpu() const;
+    int getLocalPort() const;
+    int getLocalMiningThreads() const;
+    QString getRemoteNodeAddress() const;
 
-    Q_INVOKABLE void setupLocalNode(int port, int miningThreads, bool generateGenesys = false);
+    Q_INVOKABLE void setupLocalNode(int port, int miningThreads);
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
-    Q_INVOKABLE void setupTestnetNode();
+    Q_INVOKABLE void setupRandomNode();
     Q_INVOKABLE uint coreAmount() const;
     Q_INVOKABLE void copyPhrasesToClipboard();
     Q_INVOKABLE void printRecoveryPhrases(QVariant viewData);
     Q_INVOKABLE void resetPhrases();
     Q_INVOKABLE bool showUseGpu() const;
     Q_INVOKABLE bool hasSupportedGpu();
+    Q_INVOKABLE bool getIsRunLocalNode() const;
 
 signals:
     void walletExistsChanged();

@@ -16,6 +16,7 @@
     #define LOG_VERBOSE_ENABLED 0
 #endif
 
+#include "wallet/common.h"
 #include "wallet/wallet_network.h"
 #include "wallet/wallet.h"
 #include "wallet/secstring.h"
@@ -47,34 +48,30 @@ namespace
 {
     class BaseTestWalletDB : public IWalletDB
     {
-		Key::IKdf::Ptr m_pKdf;
-		Block::SystemState::HistoryMap m_Hist;
+        Key::IKdf::Ptr m_pKdf;
+        Block::SystemState::HistoryMap m_Hist;
+        uint64_t m_KeyIndex = 1;
     public:
 
-		BaseTestWalletDB()
-		{
-			std::shared_ptr<HKdf> pKdf(new HKdf);
-			pKdf->m_Secret.V = 10U;
-			m_pKdf = pKdf;
-		}
-
-
-		Key::IKdf::Ptr get_Kdf() const override
-		{
-			return m_pKdf;
-		}
-
-        ECC::Scalar::Native calcKey(const Coin& c) const override
+        BaseTestWalletDB()
         {
-			ECC::Scalar::Native sk;
-			m_pKdf->DeriveKey(sk, c.get_Kidv());
-            return sk;
+            uintBig seed;
+            seed = 10U;
+            HKdf::Create(m_pKdf, seed);
         }
 
-		void get_IdentityKey(ECC::Scalar::Native& sk) const override
-		{
-			sk = Zero;
-		}
+
+        Key::IKdf::Ptr get_MasterKdf() const override
+        {
+            return m_pKdf;
+        }
+
+        ECC::Scalar::Native calcKey(const Coin::ID& cid) const override
+        {
+            ECC::Scalar::Native sk;
+            m_pKdf->DeriveKey(sk, cid);
+            return sk;
+        }
 
         std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool /*lock*/) override
         {
@@ -82,8 +79,8 @@ namespace
             ECC::Amount t = 0;
             for (auto& c : m_coins)
             {
-                t += c.m_amount;
-                c.m_status = Coin::Locked;
+                t += c.m_ID.m_Value;
+                c.m_status = Coin::Outgoing;
                 res.push_back(c);
                 if (t >= amount)
                 {
@@ -93,13 +90,21 @@ namespace
             return res;
         }
 
+        uint64_t AllocateKidRange(uint64_t nCount) override
+        {
+            uint64_t ret = m_KeyIndex;
+            m_KeyIndex += nCount;
+            return ret;
+        }
+        bool find(Coin& coin) override { return false; }
         virtual std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) override { return {}; };
         void store(beam::Coin& ) override {}
-        void store(std::vector<beam::Coin>& ) override {}
-        void update(const vector<beam::Coin>& coins) override {}
-        void update(const beam::Coin& ) override {}
-        void remove(const std::vector<beam::Coin>& ) override {}
-        void remove(const beam::Coin& ) override {}
+        void store(std::vector<beam::Coin>&) override {}
+        void save(const beam::Coin&) override {}
+        void save(const std::vector<beam::Coin>& ) override {}
+        void remove(const std::vector<beam::Coin::ID>&) override {}
+        void remove(const beam::Coin::ID&) override {}
+        void maturingCoins() override {};
         void visit(std::function<bool(const beam::Coin& coin)> ) override {}
         void setVarRaw(const char* , const void* , size_t ) override {}
         bool getVarRaw(const char* , void* , int) const override { return false; }
@@ -113,7 +118,20 @@ namespace
 
         std::vector<TxDescription> getTxHistory(uint64_t , int ) override { return {}; };
         boost::optional<TxDescription> getTx(const TxID& ) override { return boost::optional<TxDescription>{}; };
-        void saveTx(const TxDescription &) override {};
+        void saveTx(const TxDescription& p) override
+        {
+            setTxParameter(p.m_txId, wallet::TxParameterID::Amount, wallet::toByteBuffer(p.m_amount), false);
+            setTxParameter(p.m_txId, wallet::TxParameterID::Fee, wallet::toByteBuffer(p.m_fee), false);
+            setTxParameter(p.m_txId, wallet::TxParameterID::Change, wallet::toByteBuffer(p.m_change), false);
+            setTxParameter(p.m_txId, wallet::TxParameterID::MinHeight, wallet::toByteBuffer(p.m_minHeight), false);
+            setTxParameter(p.m_txId, wallet::TxParameterID::PeerID, wallet::toByteBuffer(p.m_peerId), false);
+            setTxParameter(p.m_txId, wallet::TxParameterID::MyID, wallet::toByteBuffer(p.m_myId), false);
+            setTxParameter(p.m_txId, wallet::TxParameterID::Message, wallet::toByteBuffer(p.m_message), false);
+            setTxParameter(p.m_txId, wallet::TxParameterID::CreateTime, wallet::toByteBuffer(p.m_createTime), false);
+            setTxParameter(p.m_txId, wallet::TxParameterID::ModifyTime, wallet::toByteBuffer(p.m_modifyTime), false);
+            setTxParameter(p.m_txId, wallet::TxParameterID::IsSender, wallet::toByteBuffer(p.m_sender), false);
+            setTxParameter(p.m_txId, wallet::TxParameterID::Status, wallet::toByteBuffer(p.m_status), false);
+        };
         void deleteTx(const TxID& ) override {};
         void rollbackTx(const TxID&) override {}
 
@@ -130,19 +148,12 @@ namespace
         }
         void deleteAddress(const WalletID&) override {}
 
+        Timestamp GetLastChannel(BbsChannel&) override { return {}; }
+        void SetLastChannel(BbsChannel) override {}
+
         Height getCurrentHeight() const override
         {
             return 134;
-        }
-
-        uint64_t getKnownStateCount() const override
-        {
-            return 0;
-        }
-
-        Block::SystemState::ID getKnownStateID(Height height) override
-        {
-            return {};
         }
 
         void rollbackConfirmedUtxo(Height /*minHeight*/) override
@@ -150,9 +161,10 @@ namespace
 
         void clear() override {}
 
-		void changePassword(const SecString& password) override {}
+        void changePassword(const SecString& password) override {}
 
-        bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob) override
+        bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID,
+            const ByteBuffer& blob, bool shouldNotifyAboutChanges) override
         {
             if (paramID < wallet::TxParameterID::PrivateFirstParam)
             {
@@ -173,8 +185,8 @@ namespace
             return false;
         }
 
-		Block::SystemState::IHistory& get_History() override { return m_Hist; }
-		void ShrinkHistory() override {}
+        Block::SystemState::IHistory& get_History() override { return m_Hist; }
+        void ShrinkHistory() override {}
 
     protected:
         std::vector<beam::Coin> m_coins;
@@ -208,20 +220,6 @@ namespace
         return std::static_pointer_cast<IWalletDB>(std::make_shared<T>());
     }
 
-    IKeyStore::Ptr CreateBbsKeystore(const string& path, const string& pass, WalletID& outWalletID)
-    {
-        boost::filesystem::remove_all(path);
-        IKeyStore::Options options;
-        options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-        options.fileName = path;
-
-        auto ks = IKeyStore::create(options, pass.c_str(), pass.size());
-        //WalletID senderID = {};
-        ks->gen_keypair(outWalletID);
-        ks->save_keypair(outWalletID, true);
-        return ks;
-    }
-
     IWalletDB::Ptr createSqliteWalletDB(const string& path)
     {
         ECC::NoLeak<ECC::uintBig> seed;
@@ -245,6 +243,7 @@ namespace
         {
             Coin coin(amount);
             coin.m_maturity = 0;
+            coin.m_status = Coin::Available;
             db->store(coin);
         }
         return db;
@@ -288,42 +287,47 @@ namespace
 
 class AsyncProcessor
 {
-	io::Timer::Ptr m_pTimer;
-	bool m_bPending = false;
+    io::Timer::Ptr m_pTimer;
+    bool m_bPending = false;
 
 public:
-	virtual void Proceed() = 0;
+    virtual void Proceed() = 0;
 
-	void PostAsync()
-	{
-		if (!m_bPending)
-		{
-			if (!m_pTimer)
-				m_pTimer = io::Timer::create(io::Reactor::get_Current());
+    void PostAsync()
+    {
+        if (!m_bPending)
+        {
+            if (!m_pTimer)
+                m_pTimer = io::Timer::create(io::Reactor::get_Current());
 
-			m_bPending = true;
-			m_pTimer->start(0, false, [this]() {
-				assert(m_bPending);
-				m_bPending = false;
-				Proceed();
-			});
-		}
-	}
+            m_bPending = true;
+            m_pTimer->start(0, false, [this]() {
+                assert(m_bPending);
+                m_bPending = false;
+                Proceed();
+            });
+        }
+    }
 };
 
 struct TestWalletRig
 {
     TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction())
         : m_WalletDB{walletDB}
-        , m_BBSKeystore{ CreateBbsKeystore(name + "-bbs", "123", m_WalletID) }
-		, m_Wallet{ m_WalletDB, move(action) }
-		, m_NodeNetwork(m_Wallet)
-		, m_WalletNetworkViaBbs(m_Wallet, m_NodeNetwork, m_BBSKeystore, m_WalletDB)
+        , m_Wallet{ m_WalletDB, move(action) }
+        , m_NodeNetwork(m_Wallet)
+        , m_WalletNetworkViaBbs(m_Wallet, m_NodeNetwork, m_WalletDB)
     {
-		m_Wallet.set_Network(m_NodeNetwork, m_WalletNetworkViaBbs);
+        WalletAddress wa = wallet::createAddress(m_WalletDB);
+        m_WalletDB->saveAddress(wa);
+        m_WalletID = wa.m_walletID;
 
-		m_NodeNetwork.m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
-		m_NodeNetwork.Connect();
+        m_Wallet.set_Network(m_NodeNetwork, m_WalletNetworkViaBbs);
+
+        m_NodeNetwork.m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
+        m_NodeNetwork.Connect();
+
+        m_WalletNetworkViaBbs.AddOwnAddress(wa.m_OwnID, m_WalletID);
     }
 
     vector<Coin> GetCoins()
@@ -339,408 +343,409 @@ struct TestWalletRig
 
     WalletID m_WalletID;
     IWalletDB::Ptr m_WalletDB;
-    IKeyStore::Ptr m_BBSKeystore;
     int m_CompletedCount{1};
-	Wallet m_Wallet;
-	proto::FlyClient::NetworkStd m_NodeNetwork;
-	WalletNetworkViaBbs m_WalletNetworkViaBbs;
+    Wallet m_Wallet;
+    proto::FlyClient::NetworkStd m_NodeNetwork;
+    WalletNetworkViaBbs m_WalletNetworkViaBbs;
 };
 
 struct TestWalletNetwork
-	:public IWallet::INetwork
-	, public AsyncProcessor
+    : public IWalletNetwork
+    , public AsyncProcessor
 {
-	struct Entry
-	{
-		IWallet* m_pSink;
-		std::deque<std::pair<WalletID, wallet::SetTxParameter> > m_Msgs;
-	};
+    struct Entry
+    {
+        IWallet* m_pSink;
+        std::deque<std::pair<WalletID, wallet::SetTxParameter> > m_Msgs;
+    };
 
-	typedef std::map<WalletID, Entry> WalletMap;
-	WalletMap m_Map;
+    typedef std::map<WalletID, Entry> WalletMap;
+    WalletMap m_Map;
 
-	virtual void Send(const WalletID& peerID, wallet::SetTxParameter&& msg) override
-	{
-		WalletMap::iterator it = m_Map.find(peerID);
-		WALLET_CHECK(m_Map.end() != it);
+    virtual void Send(const WalletID& peerID, wallet::SetTxParameter&& msg) override
+    {
+        WalletMap::iterator it = m_Map.find(peerID);
+        WALLET_CHECK(m_Map.end() != it);
 
-		it->second.m_Msgs.push_back(std::make_pair(peerID, std::move(msg)));
+        it->second.m_Msgs.push_back(std::make_pair(peerID, std::move(msg)));
 
-		PostAsync();
-	}
+        PostAsync();
+    }
 
-	virtual void Proceed() override
-	{
-		for (WalletMap::iterator it = m_Map.begin(); m_Map.end() != it; it++)
-			for (Entry& v = it->second; !v.m_Msgs.empty(); v.m_Msgs.pop_front())
-				v.m_pSink->OnWalletMsg(v.m_Msgs.front().first, std::move(v.m_Msgs.front().second));
-	}
+    virtual void Proceed() override
+    {
+        for (WalletMap::iterator it = m_Map.begin(); m_Map.end() != it; it++)
+            for (Entry& v = it->second; !v.m_Msgs.empty(); v.m_Msgs.pop_front())
+                v.m_pSink->OnWalletMessage(v.m_Msgs.front().first, std::move(v.m_Msgs.front().second));
+    }
 };
 
 struct TestBlockchain
 {
-	MiniBlockChain m_mcm;
+    MiniBlockChain m_mcm;
 
-	UtxoTree m_Utxos;
+    UtxoTree m_Utxos;
 
-	struct KrnPerBlock
-	{
-		std::vector<Merkle::Hash> m_vKrnIDs;
+    struct KrnPerBlock
+    {
+        std::vector<Merkle::Hash> m_vKrnIDs;
 
-		struct Mmr :public Merkle::FlyMmr
-		{
-			const Merkle::Hash* m_pHashes;
+        struct Mmr :public Merkle::FlyMmr
+        {
+            const Merkle::Hash* m_pHashes;
 
-			Mmr(const KrnPerBlock& kpb)
-				:Merkle::FlyMmr(kpb.m_vKrnIDs.size())
-			{
-				m_pHashes = kpb.m_vKrnIDs.empty() ? NULL : &kpb.m_vKrnIDs.front();
-			}
+            Mmr(const KrnPerBlock& kpb)
+                :Merkle::FlyMmr(kpb.m_vKrnIDs.size())
+            {
+                m_pHashes = kpb.m_vKrnIDs.empty() ? NULL : &kpb.m_vKrnIDs.front();
+            }
 
-			virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
-				hv = m_pHashes[n];
-			}
-		};
+            virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
+                hv = m_pHashes[n];
+            }
+        };
 
-	};
-	std::vector<KrnPerBlock> m_vBlockKernels;
+    };
+    std::vector<KrnPerBlock> m_vBlockKernels;
 
-	void AddBlock()
-	{
-		m_Utxos.get_Hash(m_mcm.m_hvLive);
-		m_mcm.Add();
+    void AddBlock()
+    {
+        m_Utxos.get_Hash(m_mcm.m_hvLive);
+        m_mcm.Add();
 
-		if (m_vBlockKernels.size() < m_mcm.m_vStates.size())
-			m_vBlockKernels.emplace_back();
-		assert(m_vBlockKernels.size() == m_mcm.m_vStates.size());
+        if (m_vBlockKernels.size() < m_mcm.m_vStates.size())
+            m_vBlockKernels.emplace_back();
+        assert(m_vBlockKernels.size() == m_mcm.m_vStates.size());
 
-		KrnPerBlock::Mmr fmmr(m_vBlockKernels.back());
-		fmmr.get_Hash(m_mcm.m_vStates.back().m_Hdr.m_Kernels);
-	}
+        KrnPerBlock::Mmr fmmr(m_vBlockKernels.back());
+        fmmr.get_Hash(m_mcm.m_vStates.back().m_Hdr.m_Kernels);
+    }
 
-	bool AddCommitment(const ECC::Point& c)
-	{
-		UtxoTree::Key::Data d;
-		d.m_Commitment = c;
-		d.m_Maturity = m_mcm.m_vStates.back().m_Hdr.m_Height;
+    bool AddCommitment(const ECC::Point& c)
+    {
+        UtxoTree::Key::Data d;
+        d.m_Commitment = c;
+        d.m_Maturity = m_mcm.m_vStates.back().m_Hdr.m_Height;
 
-		UtxoTree::Key key;
-		key = d;
+        UtxoTree::Key key;
+        key = d;
 
-		UtxoTree::Cursor cu;
-		bool bCreate = true;
-		UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
+        UtxoTree::Cursor cu;
+        bool bCreate = true;
+        UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
 
-		cu.Invalidate();
+        cu.InvalidateElement();
 
-		if (bCreate)
-			p->m_Value.m_Count = 1;
-		else
-		{
-			// protect again overflow attacks, though it's highly unlikely (Input::Count is currently limited to 32 bits, it'd take millions of blocks)
-			Input::Count nCountInc = p->m_Value.m_Count + 1;
-			if (!nCountInc)
-				return false;
+        if (bCreate)
+            p->m_Value.m_Count = 1;
+        else
+        {
+            // protect again overflow attacks, though it's highly unlikely (Input::Count is currently limited to 32 bits, it'd take millions of blocks)
+            Input::Count nCountInc = p->m_Value.m_Count + 1;
+            if (!nCountInc)
+                return false;
 
-			p->m_Value.m_Count = nCountInc;
-		}
+            p->m_Value.m_Count = nCountInc;
+        }
 
-		return true;
-	}
+        return true;
+    }
 
-	bool RemoveCommitment(const ECC::Point& c)
-	{
-		UtxoTree::Cursor cu;
-		UtxoTree::MyLeaf* p;
-		UtxoTree::Key::Data d;
-		d.m_Commitment = c;
+    bool RemoveCommitment(const ECC::Point& c)
+    {
+        UtxoTree::Cursor cu;
+        UtxoTree::MyLeaf* p;
+        UtxoTree::Key::Data d;
+        d.m_Commitment = c;
 
-		struct Traveler :public UtxoTree::ITraveler {
-			virtual bool OnLeaf(const RadixTree::Leaf& x) override {
-				return false; // stop iteration
-			}
-		} t;
-
-
-		UtxoTree::Key kMin, kMax;
-
-		d.m_Maturity = 0;
-		kMin = d;
-		d.m_Maturity = m_mcm.m_vStates.back().m_Hdr.m_Height;
-		kMax = d;
-
-		t.m_pCu = &cu;
-		t.m_pBound[0] = kMin.m_pArr;
-		t.m_pBound[1] = kMax.m_pArr;
-
-		if (m_Utxos.Traverse(t))
-			return false;
-
-		p = &(UtxoTree::MyLeaf&) cu.get_Leaf();
-
-		d = p->m_Key;
-		assert(d.m_Commitment == c);
-		assert(p->m_Value.m_Count); // we don't store zeroes
-
-		if (!--p->m_Value.m_Count)
-			m_Utxos.Delete(cu);
-		else
-			cu.Invalidate();
-
-		return true;
-	}
+        struct Traveler :public UtxoTree::ITraveler {
+            virtual bool OnLeaf(const RadixTree::Leaf& x) override {
+                return false; // stop iteration
+            }
+        } t;
 
 
-	void GetProof(const proto::GetProofUtxo& data, proto::ProofUtxo& msgOut)
-	{
-		struct Traveler :public UtxoTree::ITraveler
-		{
-			proto::ProofUtxo m_Msg;
-			UtxoTree* m_pTree;
-			Merkle::Hash m_hvHistory;
+        UtxoTree::Key kMin, kMax;
 
-			virtual bool OnLeaf(const RadixTree::Leaf& x) override {
+        d.m_Maturity = 0;
+        kMin = d;
+        d.m_Maturity = m_mcm.m_vStates.back().m_Hdr.m_Height;
+        kMax = d;
 
-				const UtxoTree::MyLeaf& v = (UtxoTree::MyLeaf&) x;
-				UtxoTree::Key::Data d;
-				d = v.m_Key;
+        t.m_pCu = &cu;
+        t.m_pBound[0] = kMin.m_pArr;
+        t.m_pBound[1] = kMax.m_pArr;
 
-				m_Msg.m_Proofs.resize(m_Msg.m_Proofs.size() + 1);
-				Input::Proof& ret = m_Msg.m_Proofs.back();
+        if (m_Utxos.Traverse(t))
+            return false;
 
-				ret.m_State.m_Count = v.m_Value.m_Count;
-				ret.m_State.m_Maturity = d.m_Maturity;
-				m_pTree->get_Proof(ret.m_Proof, *m_pCu);
+        p = &(UtxoTree::MyLeaf&) cu.get_Leaf();
 
-				ret.m_Proof.emplace_back();
-				ret.m_Proof.back().first = false;
-				ret.m_Proof.back().second = m_hvHistory;
+        d = p->m_Key;
+        assert(d.m_Commitment == c);
+        assert(p->m_Value.m_Count); // we don't store zeroes
 
-				return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
-			}
-		} t;
+        if (!--p->m_Value.m_Count)
+            m_Utxos.Delete(cu);
+        else
+            cu.InvalidateElement();
 
-		t.m_pTree = &m_Utxos;
-		m_mcm.m_Mmr.get_Hash(t.m_hvHistory);
+        return true;
+    }
 
-		UtxoTree::Cursor cu;
-		t.m_pCu = &cu;
 
-		// bounds
-		UtxoTree::Key kMin, kMax;
+    void GetProof(const proto::GetProofUtxo& data, proto::ProofUtxo& msgOut)
+    {
+        struct Traveler :public UtxoTree::ITraveler
+        {
+            proto::ProofUtxo m_Msg;
+            UtxoTree* m_pTree;
+            Merkle::Hash m_hvHistory;
 
-		UtxoTree::Key::Data d;
-		d.m_Commitment = data.m_Utxo;
-		d.m_Maturity = data.m_MaturityMin;
-		kMin = d;
-		d.m_Maturity = Height(-1);
-		kMax = d;
+            virtual bool OnLeaf(const RadixTree::Leaf& x) override {
 
-		t.m_pBound[0] = kMin.m_pArr;
-		t.m_pBound[1] = kMax.m_pArr;
+                const UtxoTree::MyLeaf& v = (UtxoTree::MyLeaf&) x;
+                UtxoTree::Key::Data d;
+                d = v.m_Key;
 
-		t.m_pTree->Traverse(t);
-		t.m_Msg.m_Proofs.swap(msgOut.m_Proofs);
-	}
+                m_Msg.m_Proofs.resize(m_Msg.m_Proofs.size() + 1);
+                Input::Proof& ret = m_Msg.m_Proofs.back();
 
-	void GetProof(const proto::GetProofKernel& data, proto::ProofKernel& msgOut)
-	{
-		for (size_t iState = m_mcm.m_vStates.size(); iState--; )
-		{
-			const KrnPerBlock& kpb = m_vBlockKernels[iState];
+                ret.m_State.m_Count = v.m_Value.m_Count;
+                ret.m_State.m_Maturity = d.m_Maturity;
+                m_pTree->get_Proof(ret.m_Proof, *m_pCu);
 
-			for (size_t i = 0; i < kpb.m_vKrnIDs.size(); i++)
-			{
-				if (kpb.m_vKrnIDs[i] == data.m_ID)
-				{
-					KrnPerBlock::Mmr fmmr(kpb);
-					Merkle::ProofBuilderStd bld;
-					fmmr.get_Proof(bld, i);
+                ret.m_Proof.emplace_back();
+                ret.m_Proof.back().first = false;
+                ret.m_Proof.back().second = m_hvHistory;
 
-					msgOut.m_Proof.m_Inner.swap(bld.m_Proof);
-					msgOut.m_Proof.m_State = m_mcm.m_vStates[iState].m_Hdr;
+                return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
+            }
+        } t;
 
-					if (iState + 1 != m_mcm.m_vStates.size())
-					{
-						Merkle::ProofBuilderHard bld2;
-						m_mcm.m_Mmr.get_Proof(bld2, iState);
-						msgOut.m_Proof.m_Outer.swap(bld2.m_Proof);
-					}
+        t.m_pTree = &m_Utxos;
+        m_mcm.m_Mmr.get_Hash(t.m_hvHistory);
 
-					return;
-				}
-			}
-		}
-	}
+        UtxoTree::Cursor cu;
+        t.m_pCu = &cu;
 
-	void AddKernel(const TxKernel& krn)
-	{
-		Merkle::Hash hvKrn;
-		krn.get_Hash(hvKrn);
-		AddKernel(hvKrn);
-	}
+        // bounds
+        UtxoTree::Key kMin, kMax;
 
-	void AddKernel(const Merkle::Hash& hvKrn)
-	{
-		if (m_vBlockKernels.size() <= m_mcm.m_vStates.size())
-			m_vBlockKernels.emplace_back();
+        UtxoTree::Key::Data d;
+        d.m_Commitment = data.m_Utxo;
+        d.m_Maturity = data.m_MaturityMin;
+        kMin = d;
+        d.m_Maturity = Height(-1);
+        kMax = d;
 
-		KrnPerBlock& kpb = m_vBlockKernels.back();
-		kpb.m_vKrnIDs.push_back(hvKrn);
-	}
+        t.m_pBound[0] = kMin.m_pArr;
+        t.m_pBound[1] = kMax.m_pArr;
 
-	void HandleTx(const proto::NewTransaction& data)
-	{
-		for (const auto& input : data.m_Transaction->m_vInputs)
-			RemoveCommitment(input->m_Commitment);
-		for (const auto& output : data.m_Transaction->m_vOutputs)
-			AddCommitment(output->m_Commitment);
-		for (size_t i = 0; i < data.m_Transaction->m_vKernels.size(); i++)
-			AddKernel(*data.m_Transaction->m_vKernels[i]);
-	}
+        t.m_pTree->Traverse(t);
+        t.m_Msg.m_Proofs.swap(msgOut.m_Proofs);
+    }
+
+    void GetProof(const proto::GetProofKernel& data, proto::ProofKernel& msgOut)
+    {
+        for (size_t iState = m_mcm.m_vStates.size(); iState--; )
+        {
+            const KrnPerBlock& kpb = m_vBlockKernels[iState];
+
+            for (size_t i = 0; i < kpb.m_vKrnIDs.size(); i++)
+            {
+                if (kpb.m_vKrnIDs[i] == data.m_ID)
+                {
+                    KrnPerBlock::Mmr fmmr(kpb);
+                    Merkle::ProofBuilderStd bld;
+                    fmmr.get_Proof(bld, i);
+
+                    msgOut.m_Proof.m_Inner.swap(bld.m_Proof);
+                    msgOut.m_Proof.m_State = m_mcm.m_vStates[iState].m_Hdr;
+
+                    if (iState + 1 != m_mcm.m_vStates.size())
+                    {
+                        Merkle::ProofBuilderHard bld2;
+                        m_mcm.m_Mmr.get_Proof(bld2, iState);
+                        msgOut.m_Proof.m_Outer.swap(bld2.m_Proof);
+                    }
+
+                    return;
+                }
+            }
+        }
+    }
+
+    void AddKernel(const TxKernel& krn)
+    {
+        Merkle::Hash hvKrn;
+        krn.get_Hash(hvKrn);
+        AddKernel(hvKrn);
+    }
+
+    void AddKernel(const Merkle::Hash& hvKrn)
+    {
+        if (m_vBlockKernels.size() <= m_mcm.m_vStates.size())
+            m_vBlockKernels.emplace_back();
+
+        KrnPerBlock& kpb = m_vBlockKernels.back();
+        kpb.m_vKrnIDs.push_back(hvKrn);
+    }
+
+    void HandleTx(const proto::NewTransaction& data)
+    {
+        for (const auto& input : data.m_Transaction->m_vInputs)
+            RemoveCommitment(input->m_Commitment);
+        for (const auto& output : data.m_Transaction->m_vOutputs)
+            AddCommitment(output->m_Commitment);
+        for (size_t i = 0; i < data.m_Transaction->m_vKernels.size(); i++)
+            AddKernel(*data.m_Transaction->m_vKernels[i]);
+    }
 };
 
 struct TestNodeNetwork
-	:public proto::FlyClient::INetwork
-	,public AsyncProcessor
-	,public boost::intrusive::list_base_hook<>
+    :public proto::FlyClient::INetwork
+    ,public AsyncProcessor
+    ,public boost::intrusive::list_base_hook<>
 {
-	typedef boost::intrusive::list<TestNodeNetwork> List;
-	typedef proto::FlyClient::Request Request;
+    typedef boost::intrusive::list<TestNodeNetwork> List;
+    typedef proto::FlyClient::Request Request;
 
-	proto::FlyClient& m_Client;
+    proto::FlyClient& m_Client;
 
-	struct Shared
-	{
-		TestBlockchain m_Blockchain;
-		List m_lst;
+    struct Shared
+    {
+        TestBlockchain m_Blockchain;
+        List m_lst;
 
-		void AddBlock()
-		{
-			m_Blockchain.AddBlock();
+        void AddBlock()
+        {
+            m_Blockchain.AddBlock();
 
-			for (List::iterator it = m_lst.begin(); m_lst.end() != it; it++)
-			{
-				proto::FlyClient& c = it->m_Client;
-				c.get_History().AddStates(&m_Blockchain.m_mcm.m_vStates.back().m_Hdr, 1);
-				c.OnNewTip();
-			}
-		}
-	};
+            for (List::iterator it = m_lst.begin(); m_lst.end() != it; it++)
+            {
+                proto::FlyClient& c = it->m_Client;
+                c.get_History().AddStates(&m_Blockchain.m_mcm.m_vStates.back().m_Hdr, 1);
+                c.OnNewTip();
+            }
+        }
+    };
 
-	Shared& m_Shared;
+    Shared& m_Shared;
 
-	TestNodeNetwork(Shared& shared, proto::FlyClient& x)
-		:m_Client(x)
-		,m_Shared(shared)
-	{
-		m_Shared.m_lst.push_back(*this);
-	}
+    TestNodeNetwork(Shared& shared, proto::FlyClient& x)
+        :m_Client(x)
+        ,m_Shared(shared)
+    {
+        m_Shared.m_lst.push_back(*this);
+    }
 
-	~TestNodeNetwork()
-	{
-		m_Shared.m_lst.erase(List::s_iterator_to(*this));
-	}
+    ~TestNodeNetwork()
+    {
+        m_Shared.m_lst.erase(List::s_iterator_to(*this));
+    }
 
-	typedef std::deque<Request::Ptr> Queue;
-	Queue m_queReqs;
+    typedef std::deque<Request::Ptr> Queue;
+    Queue m_queReqs;
 
-	virtual void Connect() override {}
-	virtual void Disconnect() override {}
+    virtual void Connect() override {}
+    virtual void Disconnect() override {}
 
-	virtual void PostRequestInternal(Request& r) override
-	{
-		assert(r.m_pTrg);
+    virtual void PostRequestInternal(Request& r) override
+    {
+        assert(r.m_pTrg);
 
-		m_queReqs.push_back(&r);
-		PostAsync();
-	}
+        m_queReqs.push_back(&r);
+        PostAsync();
+    }
 
-	virtual void Proceed() override
-	{
-		Queue q;
-		q.swap(m_queReqs);
+    virtual void Proceed() override
+    {
+        Queue q;
+        q.swap(m_queReqs);
 
-		for (; !q.empty(); q.pop_front())
-		{
-			Request& r = *q.front();
-			PostProcess(r);
-			if (r.m_pTrg)
-				r.m_pTrg->OnComplete(r);
-		}
-	}
+        for (; !q.empty(); q.pop_front())
+        {
+            Request& r = *q.front();
+            PostProcess(r);
+            if (r.m_pTrg)
+                r.m_pTrg->OnComplete(r);
+        }
+    }
 
-	virtual void PostProcess(Request& r)
-	{
-		switch (r.get_Type())
-		{
-		case Request::Type::Transaction:
-			{
-				proto::FlyClient::RequestTransaction& v = static_cast<proto::FlyClient::RequestTransaction&>(r);
-				v.m_Res.m_Value = true;
+    virtual void PostProcess(Request& r)
+    {
+        switch (r.get_Type())
+        {
+        case Request::Type::Transaction:
+            {
+                proto::FlyClient::RequestTransaction& v = static_cast<proto::FlyClient::RequestTransaction&>(r);
+                v.m_Res.m_Value = true;
 
-				m_Shared.m_Blockchain.HandleTx(v.m_Msg);
-				m_Shared.AddBlock();
-			}
-			break;
+                m_Shared.m_Blockchain.HandleTx(v.m_Msg);
+                m_Shared.AddBlock();
+            }
+            break;
 
-		case Request::Type::Kernel:
-			{
-				proto::FlyClient::RequestKernel& v = static_cast<proto::FlyClient::RequestKernel&>(r);
-				m_Shared.m_Blockchain.GetProof(v.m_Msg, v.m_Res);
-			}
-			break;
+        case Request::Type::Kernel:
+            {
+                proto::FlyClient::RequestKernel& v = static_cast<proto::FlyClient::RequestKernel&>(r);
+                m_Shared.m_Blockchain.GetProof(v.m_Msg, v.m_Res);
+            }
+            break;
 
-		case Request::Type::Utxo:
-			{
-				proto::FlyClient::RequestUtxo& v = static_cast<proto::FlyClient::RequestUtxo&>(r);
-				m_Shared.m_Blockchain.GetProof(v.m_Msg, v.m_Res);
-			}
-			break;
+        case Request::Type::Utxo:
+            {
+                proto::FlyClient::RequestUtxo& v = static_cast<proto::FlyClient::RequestUtxo&>(r);
+                m_Shared.m_Blockchain.GetProof(v.m_Msg, v.m_Res);
+            }
+            break;
 
-		default:
-			break; // suppess warning
-		}
-	}
+        default:
+            break; // suppess warning
+        }
+    }
 };
 
 void TestWalletNegotiation(IWalletDB::Ptr senderWalletDB, IWalletDB::Ptr receiverWalletDB)
 {
     cout << "\nTesting wallets negotiation...\n";
 
-	io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-	io::Reactor::Scope scope(*mainReactor);
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
 
     WalletID receiver_id, sender_id;
-    receiver_id = 4U;
-    sender_id = 5U;
+    receiver_id.m_Pk = 4U;
+    receiver_id.m_Channel = 12U;
+    sender_id.m_Pk = 5U;
+    sender_id.m_Channel = 102U;
 
     int count = 0;
     auto f = [&count](const auto& /*id*/)
     {
-		if (++count >= 2)
-			io::Reactor::get_Current().stop();
+        if (++count >= 2)
+            io::Reactor::get_Current().stop();
     };
 
     Wallet sender(senderWalletDB, f);
     Wallet receiver(receiverWalletDB, f);
 
-	TestWalletNetwork twn;
-	TestNodeNetwork::Shared tnns;
-	TestNodeNetwork netNodeS(tnns, sender), netNodeR(tnns, receiver);
+    TestWalletNetwork twn;
+    TestNodeNetwork::Shared tnns;
+    TestNodeNetwork netNodeS(tnns, sender), netNodeR(tnns, receiver);
 
-	sender.set_Network(netNodeS, twn);
-	receiver.set_Network(netNodeR, twn);
+    sender.set_Network(netNodeS, twn);
+    receiver.set_Network(netNodeR, twn);
 
-	twn.m_Map[sender_id].m_pSink = &sender;
-	twn.m_Map[receiver_id].m_pSink = &receiver;
+    twn.m_Map[sender_id].m_pSink = &sender;
+    twn.m_Map[receiver_id].m_pSink = &receiver;
 
-	tnns.AddBlock();
+    tnns.AddBlock();
 
     sender.transfer_money(sender_id, receiver_id, 6, 1, true, {});
-	mainReactor->run();
+    mainReactor->run();
 
-	WALLET_CHECK(count == 2);
+    WALLET_CHECK(count == 2);
 }
 
 class TestNode
@@ -749,8 +754,8 @@ public:
     TestNode()
     {
         m_Server.Listen(io::Address::localhost().port(32125));
-		while (m_Blockchain.m_mcm.m_vStates.size() < 145)
-			m_Blockchain.AddBlock();
+        while (m_Blockchain.m_mcm.m_vStates.size() < 145)
+            m_Blockchain.AddBlock();
     }
 
     ~TestNode() {
@@ -763,19 +768,19 @@ public:
             DeleteClient(&m_lstClients.front());
     }
 
-	TestBlockchain m_Blockchain;
+    TestBlockchain m_Blockchain;
 
-	void AddBlock()
-	{
-		m_Blockchain.AddBlock();
+    void AddBlock()
+    {
+        m_Blockchain.AddBlock();
 
-		for (ClientList::iterator it = m_lstClients.begin(); m_lstClients.end() != it; it++)
-		{
-			Client& c = *it;
-			if (c.IsSecureOut())
-				c.SendTip();
-		}
-	}
+        for (ClientList::iterator it = m_lstClients.begin(); m_lstClients.end() != it; it++)
+        {
+            Client& c = *it;
+            if (c.IsSecureOut())
+                c.SendTip();
+        }
+    }
 private:
 
     struct Client
@@ -793,62 +798,53 @@ private:
 
 
         // protocol handler
-		void OnConnectedSecure() override
-		{
-			ECC::Scalar::Native sk;
-			sk = 23U;
-			ProveID(sk, proto::IDType::Node);
+        void OnConnectedSecure() override
+        {
+            ECC::Scalar::Native sk;
+            sk = 23U;
+            ProveID(sk, proto::IDType::Node);
 
-			proto::Config msgCfg;
-			msgCfg.m_CfgChecksum = Rules::get().Checksum;
-			msgCfg.m_SpreadingTransactions = true;
-			msgCfg.m_Bbs = true;
-			msgCfg.m_SendPeers = true;
-			Send(msgCfg);
-		}
+            proto::Login msg;
+            msg.m_CfgChecksum = Rules::get().Checksum;
+            msg.m_Flags =
+                proto::LoginFlags::SpreadingTransactions |
+                proto::LoginFlags::Bbs |
+                proto::LoginFlags::SendPeers;
+            Send(msg);
+        }
 
-		void SendTip()
-		{
-			proto::NewTip msg;
-			msg.m_Description = m_This.m_Blockchain.m_mcm.m_vStates.back().m_Hdr;
-			Send(msg);
-		}
+        void SendTip()
+        {
+            proto::NewTip msg;
+            msg.m_Description = m_This.m_Blockchain.m_mcm.m_vStates.back().m_Hdr;
+            Send(msg);
+        }
 
         void OnMsg(proto::NewTransaction&& data) override
         {
-			m_This.m_Blockchain.HandleTx(data);
+            m_This.m_Blockchain.HandleTx(data);
 
             Send(proto::Boolean{ true });
-			m_This.AddBlock();
+            m_This.AddBlock();
         }
 
         void OnMsg(proto::GetProofUtxo&& data) override
         {
-			proto::ProofUtxo msgOut;
-			m_This.m_Blockchain.GetProof(data, msgOut);
-			Send(msgOut);
+            proto::ProofUtxo msgOut;
+            m_This.m_Blockchain.GetProof(data, msgOut);
+            Send(msgOut);
         }
 
         void OnMsg(proto::GetProofKernel&& data) override
         {
-			proto::ProofKernel msgOut;
-			m_This.m_Blockchain.GetProof(data, msgOut);
-			Send(msgOut);
+            proto::ProofKernel msgOut;
+            m_This.m_Blockchain.GetProof(data, msgOut);
+            Send(msgOut);
         }
 
-        void OnMsg(proto::Config&& /*data*/) override
+        void OnMsg(proto::Login&& /*data*/) override
         {
-			SendTip();
-        }
-
-        void OnMsg(proto::GetMined&&) override
-        {
-            Send(proto::Mined{});
-        }
-
-        void OnMsg(proto::Recover&&) override
-        {
-            Send(proto::Recovered{});
+            SendTip();
         }
 
         void OnMsg(proto::GetProofState&&) override
@@ -856,15 +852,15 @@ private:
             Send(proto::ProofState{});
         }
 
-		void OnMsg(proto::GetProofChainWork&& msg) override
-		{
-			proto::ProofChainWork msgOut;
-			msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
-			msgOut.m_Proof.m_hvRootLive = m_This.m_Blockchain.m_mcm.m_hvLive;
-			msgOut.m_Proof.Create(m_This.m_Blockchain.m_mcm.m_Source, m_This.m_Blockchain.m_mcm.m_vStates.back().m_Hdr);
+        void OnMsg(proto::GetProofChainWork&& msg) override
+        {
+            proto::ProofChainWork msgOut;
+            msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
+            msgOut.m_Proof.m_hvRootLive = m_This.m_Blockchain.m_mcm.m_hvLive;
+            msgOut.m_Proof.Create(m_This.m_Blockchain.m_mcm.m_Source, m_This.m_Blockchain.m_mcm.m_vStates.back().m_Hdr);
 
-			Send(msgOut);
-		}
+            Send(msgOut);
+        }
 
         void OnMsg(proto::BbsSubscribe&& msg) override
         {
@@ -895,11 +891,18 @@ private:
             }
         }
 
-		void OnMsg(proto::Ping&& msg) override
-		{
-			proto::Pong msgOut(Zero);
-			Send(msgOut);
-		}
+        void OnMsg(proto::Ping&& msg) override
+        {
+            proto::Pong msgOut(Zero);
+            Send(msgOut);
+        }
+
+        void OnMsg(proto::BbsPickChannel&&) override
+        {
+            proto::BbsPickChannelRes msgOut;
+            msgOut.m_Channel = 77;
+            Send(msgOut);
+        }
 
         void OnDisconnect(const DisconnectReason& r) override
         {
@@ -955,38 +958,20 @@ void TestTxToHimself()
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    string keystorePass = "123";
-    WalletID senderID = {};
-    auto senderBbsKeys = CreateBbsKeystore("sender-bbs", keystorePass, senderID);
-
-    WalletID receiverID = {};
-    senderBbsKeys->gen_keypair(receiverID);
-
     auto senderWalletDB = createSqliteWalletDB("sender_wallet.db");
-
-    // add own address
-    WalletAddress own_address = {};
-    own_address.m_walletID = receiverID;
-    own_address.m_label = "test label";
-    own_address.m_category = "test category";
-    own_address.m_createTime = beam::getTimestamp();
-    own_address.m_duration = 23;
-    own_address.m_own = true;
-
-    senderWalletDB->saveAddress(own_address);
 
     // add coin with keyType - Coinbase
     beam::Amount coin_amount = 40;
     Coin coin(coin_amount);
     coin.m_maturity = 0;
-    coin.m_status = Coin::Unspent;
-    coin.m_key_type = Key::Type::Coinbase;
+    coin.m_status = Coin::Available;
+    coin.m_ID.m_Type = Key::Type::Coinbase;
     senderWalletDB->store(coin);
 
     auto coins = senderWalletDB->selectCoins(24, false);
     WALLET_CHECK(coins.size() == 1);
-    WALLET_CHECK(coins[0].m_key_type == Key::Type::Coinbase);
-    WALLET_CHECK(coins[0].m_status == Coin::Unspent);
+    WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
+    WALLET_CHECK(coins[0].m_status == Coin::Available);
     WALLET_CHECK(senderWalletDB->getTxHistory().empty());
 
     TestNode node;
@@ -994,7 +979,7 @@ void TestTxToHimself()
     helpers::StopWatch sw;
 
     sw.start();
-    TxID txId = sender.m_Wallet.transfer_money(senderID, receiverID, 24, 2);
+    TxID txId = sender.m_Wallet.transfer_money(sender.m_WalletID, sender.m_WalletID, 24, 2);
     mainReactor->run();
     sw.stop();
 
@@ -1018,16 +1003,17 @@ void TestTxToHimself()
     });
 
     WALLET_CHECK(newSenderCoins.size() == 3);
-    WALLET_CHECK(newSenderCoins[0].m_key_type == Key::Type::Coinbase);
-    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Change);
+    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 14);
 
-    WALLET_CHECK(newSenderCoins[1].m_key_type == Key::Type::Regular);
-    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[1].m_amount == 14);
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Coinbase);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Spent);
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 40);
 
-    WALLET_CHECK(newSenderCoins[2].m_key_type == Key::Type::Regular);
-    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[2].m_amount == 24);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 24);
 
     cout << "\nFinish of testing Tx to himself...\n";
 }
@@ -1050,8 +1036,8 @@ void TestP2PWalletNegotiationST()
         }
     };
 
-	TestNode node;
-	TestWalletRig sender("sender", createSenderWalletDB(), f);
+    TestNode node;
+    TestWalletRig sender("sender", createSenderWalletDB(), f);
     TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
 
     WALLET_CHECK(sender.m_WalletDB->selectCoins(6, false).size() == 2);
@@ -1073,25 +1059,25 @@ void TestP2PWalletNegotiationST()
 
     WALLET_CHECK(newSenderCoins.size() == 4);
     WALLET_CHECK(newReceiverCoins.size() == 1);
-    WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
-    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unspent);
-    WALLET_CHECK(newReceiverCoins[0].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newReceiverCoins[0].m_ID.m_Value == 4);
+    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Available);
+    WALLET_CHECK(newReceiverCoins[0].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[0].m_amount == 5);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 5);
     WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[0].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[1].m_amount == 2);
-    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[1].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 2);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[2].m_amount == 1);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 1);
     WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[2].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[3].m_amount == 9);
-    WALLET_CHECK(newSenderCoins[3].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[3].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 9);
+    WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
 
     // Tx history check
     auto sh = sender.m_WalletDB->getTxHistory();
@@ -1129,34 +1115,34 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(newSenderCoins.size() == 5);
     WALLET_CHECK(newReceiverCoins.size() == 2);
 
-    WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
-    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unspent);
-    WALLET_CHECK(newReceiverCoins[0].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newReceiverCoins[0].m_ID.m_Value == 4);
+    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Available);
+    WALLET_CHECK(newReceiverCoins[0].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newReceiverCoins[1].m_amount == 6);
-    WALLET_CHECK(newReceiverCoins[1].m_status == Coin::Unspent);
-    WALLET_CHECK(newReceiverCoins[1].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newReceiverCoins[1].m_ID.m_Value == 6);
+    WALLET_CHECK(newReceiverCoins[1].m_status == Coin::Available);
+    WALLET_CHECK(newReceiverCoins[1].m_ID.m_Type == Key::Type::Regular);
 
 
-    WALLET_CHECK(newSenderCoins[0].m_amount == 5);
-    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[0].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 3);
+    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Change);
 
-    WALLET_CHECK(newSenderCoins[1].m_amount == 2);
-    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[1].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 5);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Spent);
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[2].m_amount == 1);
-    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[2].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 2);
+    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[3].m_amount == 9);
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 1);
     WALLET_CHECK(newSenderCoins[3].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[3].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[4].m_amount == 3);
-    WALLET_CHECK(newSenderCoins[4].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[4].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 9);
+    WALLET_CHECK(newSenderCoins[4].m_status == Coin::Spent);
+    WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Regular);
 
     // Tx history check
     sh = sender.m_WalletDB->getTxHistory();
@@ -1230,8 +1216,8 @@ void TestP2PWalletReverseNegotiationST()
         }
     };
 
-	TestNode node;
-	TestWalletRig sender("sender", createSenderWalletDB(), f);
+    TestNode node;
+    TestWalletRig sender("sender", createSenderWalletDB(), f);
     TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
   
     WALLET_CHECK(sender.m_WalletDB->selectCoins(6, false).size() == 2);
@@ -1253,25 +1239,25 @@ void TestP2PWalletReverseNegotiationST()
 
     WALLET_CHECK(newSenderCoins.size() == 4);
     WALLET_CHECK(newReceiverCoins.size() == 1);
-    WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
-    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unspent);
-    WALLET_CHECK(newReceiverCoins[0].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newReceiverCoins[0].m_ID.m_Value == 4);
+    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Available);
+    WALLET_CHECK(newReceiverCoins[0].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[0].m_amount == 5);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 5);
     WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[0].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[1].m_amount == 2);
-    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[1].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 2);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[2].m_amount == 1);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 1);
     WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[2].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[3].m_amount == 9);
-    WALLET_CHECK(newSenderCoins[3].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[3].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 9);
+    WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
 
     // Tx history check
     auto sh = sender.m_WalletDB->getTxHistory();
@@ -1309,34 +1295,34 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(newSenderCoins.size() == 5);
     WALLET_CHECK(newReceiverCoins.size() == 2);
 
-    WALLET_CHECK(newReceiverCoins[0].m_amount == 4);
-    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Unspent);
-    WALLET_CHECK(newReceiverCoins[0].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newReceiverCoins[0].m_ID.m_Value == 4);
+    WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Available);
+    WALLET_CHECK(newReceiverCoins[0].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newReceiverCoins[1].m_amount == 6);
-    WALLET_CHECK(newReceiverCoins[1].m_status == Coin::Unspent);
-    WALLET_CHECK(newReceiverCoins[1].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newReceiverCoins[1].m_ID.m_Value == 6);
+    WALLET_CHECK(newReceiverCoins[1].m_status == Coin::Available);
+    WALLET_CHECK(newReceiverCoins[1].m_ID.m_Type == Key::Type::Regular);
 
 
-    WALLET_CHECK(newSenderCoins[0].m_amount == 5);
-    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[0].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 3);
+    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Change);
 
-    WALLET_CHECK(newSenderCoins[1].m_amount == 2);
-    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[1].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 5);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Spent);
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[2].m_amount == 1);
-    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[2].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 2);
+    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[3].m_amount == 9);
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 1);
     WALLET_CHECK(newSenderCoins[3].m_status == Coin::Spent);
-    WALLET_CHECK(newSenderCoins[3].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
 
-    WALLET_CHECK(newSenderCoins[4].m_amount == 3);
-    WALLET_CHECK(newSenderCoins[4].m_status == Coin::Unspent);
-    WALLET_CHECK(newSenderCoins[4].m_key_type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 9);
+    WALLET_CHECK(newSenderCoins[4].m_status == Coin::Spent);
+    WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Regular);
 
     // Tx history check
     sh = sender.m_WalletDB->getTxHistory();
@@ -1415,8 +1401,8 @@ void TestSwapTransaction()
         }
     };
 
-	TestNode node;
-	TestWalletRig sender("sender", createSenderWalletDB(), f);
+    TestNode node;
+    TestWalletRig sender("sender", createSenderWalletDB(), f);
     TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
 
     /*TxID txID =*/ sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, 4, 1, wallet::AtomicSwapCoin::Bitcoin, 2);
@@ -1428,23 +1414,7 @@ void TestSwapTransaction()
 
     receiverCoins = receiver.GetCoins();
     WALLET_CHECK(receiverCoins.size() == 1);
-    WALLET_CHECK(receiverCoins[0].m_amount == 4);
-}
-
-void TestSplitKey()
-{
-    Scalar::Native nonce;
-    nonce = (uint64_t) 0xa231234f92381353UL;
-
-    auto res1 = beam::wallet::splitKey(nonce, 123456789);
-    auto res2 = beam::wallet::splitKey(nonce, 123456789);
-    auto res3 = beam::wallet::splitKey(nonce, 123456789);
-    WALLET_CHECK(res1.first == res2.first && res2.first == res3.first);
-    WALLET_CHECK(res1.second == res2.second && res2.second == res3.second);
-    Scalar::Native s2 = res1.second;
-    s2 = -s2;
-    Scalar::Native s1 = res1.first+s2;
-    WALLET_CHECK(s1 == nonce);
+    WALLET_CHECK(receiverCoins[0].m_ID.m_Value == 4);
 }
 
 struct MyMmr : public Merkle::Mmr
@@ -1496,31 +1466,31 @@ struct MyMmr : public Merkle::Mmr
 //
 //    void InitHdr(proto::FlyClient& fc) override
 //    {
-//		size_t i = 0;
-//		for ( ; i < m_mcm.m_vStates.size(); i++)
-//		{
-//			const Block::SystemState::Full& s = m_mcm.m_vStates[i].m_Hdr;
-//			if (s.m_Height >= m_branch)
-//				break;
+//        size_t i = 0;
+//        for ( ; i < m_mcm.m_vStates.size(); i++)
+//        {
+//            const Block::SystemState::Full& s = m_mcm.m_vStates[i].m_Hdr;
+//            if (s.m_Height >= m_branch)
+//                break;
 //
-//			fc.m_Hist[s.m_Height] = s;
-//		}
+//            fc.m_Hist[s.m_Height] = s;
+//        }
 //
-//		fc.OnRolledBack();
+//        fc.OnRolledBack();
 //
-//		for (; i < m_mcm.m_vStates.size(); i++)
-//		{
-//			const Block::SystemState::Full& s = m_mcm.m_vStates[i].m_Hdr;
-//			fc.m_Hist[s.m_Height] = s;
-//		}
+//        for (; i < m_mcm.m_vStates.size(); i++)
+//        {
+//            const Block::SystemState::Full& s = m_mcm.m_vStates[i].m_Hdr;
+//            fc.m_Hist[s.m_Height] = s;
+//        }
 //
-//		fc.OnNewTip();
+//        fc.OnNewTip();
 //    }
 //
 //    void send_node_message(proto::GetMined&& data) override
 //    {
-//		WALLET_CHECK(data.m_HeightMin < m_branch);
-//		WALLET_CHECK(data.m_HeightMin >= m_step * Height((m_branch - 1) / m_step));
+//        WALLET_CHECK(data.m_HeightMin < m_branch);
+//        WALLET_CHECK(data.m_HeightMin >= m_step * Height((m_branch - 1) / m_step));
 //
 //        TestNetwork::send_node_message(move(data));
 //    }
@@ -1606,10 +1576,9 @@ int main()
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
 
-	Rules::get().FakePoW = true;
-	Rules::get().UpdateChecksum();
+    Rules::get().FakePoW = true;
+    Rules::get().UpdateChecksum();
 
-    TestSplitKey();
     TestP2PWalletNegotiationST();
     TestP2PWalletReverseNegotiationST();
 

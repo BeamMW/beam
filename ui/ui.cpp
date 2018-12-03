@@ -148,7 +148,7 @@ int main (int argc, char* argv[])
 
             QQuickView view;
             view.setResizeMode(QQuickView::SizeRootObjectToView);
-            view.setMinimumSize(QSize(800, 680));
+            view.setMinimumSize(QSize(780, 500));
             view.setFlag(Qt::WindowFullscreenButtonHint);
             WalletSettings settings(appDataDir);
             AppModel appModel(settings);
@@ -174,8 +174,8 @@ int main (int argc, char* argv[])
             qmlRegisterType<HelpViewModel>("Beam.Wallet", 1, 0, "HelpViewModel");
             qmlRegisterType<MessagesViewModel>("Beam.Wallet", 1, 0, "MessagesViewModel");
 
-            qmlRegisterType<PeerAddressItem>("Beam.Wallet", 1, 0, "PeerAddressItem");
-            qmlRegisterType<OwnAddressItem>("Beam.Wallet", 1, 0, "OwnAddressItem");
+            qmlRegisterType<AddressItem>("Beam.Wallet", 1, 0, "AddressItem");
+            qmlRegisterType<ContactItem>("Beam.Wallet", 1, 0, "ContactItem");
             qmlRegisterType<TxObject>("Beam.Wallet", 1, 0, "TxObject");
             qmlRegisterType<UtxoItem>("Beam.Wallet", 1, 0, "UtxoItem");
 

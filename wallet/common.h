@@ -23,7 +23,37 @@
 namespace beam
 {
     using TxID = std::array<uint8_t, 16>;
-    using WalletID = PeerID;
+
+#pragma pack (push, 1)
+	struct WalletID
+	{
+		uintBigFor<BbsChannel>::Type m_Channel;
+		PeerID m_Pk;
+
+		WalletID() {}
+		WalletID(Zero_)
+		{
+			m_Channel = Zero;
+			m_Pk = Zero;
+		}
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar
+				& m_Channel
+				& m_Pk;
+		}
+
+		bool FromBuf(const ByteBuffer&);
+		bool FromHex(const std::string&);
+
+		bool IsValid() const; // isn't cheap
+
+		int cmp(const WalletID&) const;
+		COMPARISON_VIA_CMP
+	};
+#pragma pack (pop)
 
     struct PrintableAmount
     {
@@ -81,8 +111,8 @@ namespace beam
         Amount m_fee=0;
 		Amount m_change=0;
         Height m_minHeight=0;
-        WalletID m_peerId = {0};
-        WalletID m_myId = {0};
+        WalletID m_peerId = Zero;
+        WalletID m_myId = Zero;
         ByteBuffer m_message;
         Timestamp m_createTime=0;
         Timestamp m_modifyTime=0;
@@ -126,9 +156,6 @@ namespace beam
         ByteBuffer toByteBuffer(const ECC::Point::Native& value);
         ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
 
-        std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
-        Block::SystemState::ID GetEmptyID();
-        const uint32_t MaxSignatures = 10;
         enum class TxParameterID : uint8_t
         {
             // public parameters
@@ -190,11 +217,11 @@ namespace beam
             ModifyTime = 128,
             KernelProofHeight = 129,
 
-            BlindingExcess = 130, // + MaxSignatures,
+            BlindingExcess = 130,
             SharedBlindingExcess = 131,
             LockedBlindingExcess = 132,
 
-            Offset = 140, // + MaxSignatures reserved
+            Offset = 140,
             SharedOffset = 141,
             LockedOffset = 142,
 
@@ -231,8 +258,8 @@ namespace beam
         // messages
         struct SetTxParameter
         {
-            WalletID m_from;
-            TxID m_txId;
+            WalletID m_From;
+            TxID m_TxID;
 
             TxType m_Type;
 
@@ -245,7 +272,7 @@ namespace beam
                 return *this;
             }
 
-            SERIALIZE(m_from, m_txId, m_Type, m_Parameters);
+            SERIALIZE(m_From, m_TxID, m_Type, m_Parameters);
             static const size_t MaxParams = 20;
         };
 

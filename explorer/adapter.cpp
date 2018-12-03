@@ -15,8 +15,8 @@
 #include "adapter.h"
 #include "node/node.h"
 #include "core/serialization_adapters.h"
-#include "p2p/stratum.h"
-#include "p2p/http_msg_creator.h"
+#include "http/http_msg_creator.h"
+#include "http/http_json_serializer.h"
 #include "nlohmann/json.hpp"
 #include "utility/helpers.h"
 #include "utility/logger.h"
@@ -147,7 +147,6 @@ private:
     bool get_status(io::SerializedMsg& out) override {
         if (_statusDirty) {
             const auto& cursor = _nodeBackend.m_Cursor;
-            const auto& extra = _nodeBackend.m_Extra;
 
             _cache.currentHeight = cursor.m_Sid.m_Height;
             _cache.lowHorizon = cursor.m_LoHorizon;
@@ -155,19 +154,15 @@ private:
             char buf[80];
 
             _sm.clear();
-            if (!stratum::append_json_msg(
+            if (!serialize_json_msg(
                 _sm,
                 _packer,
                 json{
-                    { "is_syncing", _nodeIsSyncing },
                     { "timestamp", cursor.m_Full.m_TimeStamp },
                     { "height", _cache.currentHeight },
                     { "low_horizon", cursor.m_LoHorizon },
                     { "hash", hash_to_hex(buf, cursor.m_ID.m_Hash) },
-                    { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) },
-                    { "subsidy",  extra.m_Subsidy.Lo },
-                    { "subsidy_hi",  extra.m_Subsidy.Hi },
-                    { "subsidy_open",  extra.m_SubsidyOpen }
+                    { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) }
                 }
             )) {
                 return false;
@@ -280,9 +275,9 @@ private:
                 {"height",     blockState.m_Height},
                 {"hash",       hash_to_hex(buf, id.m_Hash)},
                 {"prev",       hash_to_hex(buf, blockState.m_Prev)},
-                {"difficulty", difficulty_to_hex(buf, blockState.m_PoW.m_Difficulty)},
+                {"difficulty", blockState.m_PoW.m_Difficulty.ToFloat()},
                 {"chainwork",  uint256_to_hex(buf, blockState.m_ChainWork)},
-                {"subsidy",    block.m_Subsidy.Lo},
+                {"subsidy",    Rules::get_Emission(blockState.m_Height)},
                 {"inputs",     inputs},
                 {"outputs",    outputs},
                 {"kernels",    kernels}
@@ -315,14 +310,14 @@ private:
         }
 
         io::SharedBuffer body;
-        bool blockAvailable = (height >= _cache.lowHorizon && height <= _cache.currentHeight);
+        bool blockAvailable = (/*height >= _cache.lowHorizon && */height <= _cache.currentHeight);
         if (blockAvailable) {
             json j;
             if (!extract_block(j, height, row, prevRow)) {
                 blockAvailable = false;
             } else {
                 _sm.clear();
-                if (stratum::append_json_msg(_sm, _packer, j)) {
+                if (serialize_json_msg(_sm, _packer, j)) {
                     body = io::normalize(_sm, false);
                     _cache.put_block(height, body);
                 } else {
@@ -337,7 +332,7 @@ private:
             return true;
         }
 
-        return stratum::append_json_msg(out, _packer, json{ { "found", false}, {"height", height } });
+        return serialize_json_msg(out, _packer, json{ { "found", false}, {"height", height } });
     }
 
     bool get_block(io::SerializedMsg& out, uint64_t height) override {

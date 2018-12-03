@@ -31,9 +31,10 @@ namespace beam
         const char* HELP_FULL = "help,h";
         const char* PORT = "port";
         const char* PORT_FULL = "port,p";
+        const char* STRATUM_PORT = "stratum_port";
+        const char* STRATUM_SECRETS_PATH = "stratum_secrets_path";
         const char* STORAGE = "storage";
         const char* WALLET_STORAGE = "wallet_path";
-        const char* BBS_STORAGE = "bbs_keystore_path";
         const char* HISTORY = "history_dir";
         const char* TEMP = "temp_dir";
         const char* IMPORT = "import";
@@ -78,10 +79,11 @@ namespace beam
         const char* MINER_TYPE = "miner_type";
 #endif
         // treasury
-        const char* TR_BEAMS = "tr_BeamsPerUtxo";
-        const char* TR_DH = "tr_HeightStep";
-        const char* TR_COUNT = "tr_Count";
-        // ui
+        const char* TR_OPCODE = "tr_op";
+        const char* TR_WID = "tr_wid";
+        const char* TR_PERC = "tr_pecents";
+		const char* TR_COMMENT = "tr_comment";
+		// ui
         const char* WALLET_ADDR = "addr";
         const char* APPDATA_PATH = "appdata";
     }
@@ -103,6 +105,8 @@ namespace beam
             (cli::HELP_FULL, "list of all options")
             //(cli::MODE, po::value<string>()->required(), "mode to execute [node|wallet]")
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
+            (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
+            (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
             (cli::WALLET_SEED, po::value<string>(), "secret key generation seed")
             (cli::WALLET_PHRASES, po::value<string>(), "phrases to generate secret key according to BIP-39. <wallet_seed> option will be ignored")
             (cli::LOG_LEVEL, po::value<string>(), "log level [info|debug|verbose]")
@@ -136,16 +140,16 @@ namespace beam
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
             (cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
-            (cli::BBS_STORAGE, po::value<string>()->default_value("bbs_keys.db"), "path to file with bbs keys")
             (cli::TX_HISTORY, "print transacrions' history in info command")
             (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "tx id")
             (cli::NEW_ADDRESS_LABEL, po::value<string>()->default_value(""), "label for new own address")
 
-            (cli::TR_COUNT, po::value<uint32_t>()->default_value(30), "treasury UTXO count")
-            (cli::TR_DH, po::value<uint32_t>()->default_value(1440), "treasury UTXO height lock step")
-            (cli::TR_BEAMS, po::value<uint32_t>()->default_value(10), "treasury value of each UTXO (in Beams)")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|info|treasury]");
+            (cli::TR_OPCODE, po::value<uint32_t>()->default_value(0), "treasury operation: 0=print ID, 1=plan, 2=response, 3=import, 4=generate, 5=print")
+            (cli::TR_WID, po::value<std::string>(), "treasury WalletID")
+            (cli::TR_PERC, po::value<double>(), "treasury percent of the total emission, designated to this WalletID")
+			(cli::TR_COMMENT, po::value<std::string>(), "treasury custom message")
+			(cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|info|treasury]");
 
         po::options_description uioptions("UI options");
         uioptions.add_options()
@@ -153,13 +157,12 @@ namespace beam
             (cli::APPDATA_PATH, po::value<string>());
 
 #define RulesParams(macro) \
-    macro(Amount, CoinbaseEmission, "coinbase emission in a single block") \
+    macro(Amount, EmissionValue0, "initial coinbase emission in a single block") \
     macro(Height, MaturityCoinbase, "num of blocks before coinbase UTXO can be spent") \
     macro(Height, MaturityStd, "num of blocks before non-coinbase UTXO can be spent") \
     macro(size_t, MaxBodySize, "Max block body size [bytes]") \
     macro(uint32_t, DesiredRate_s, "Desired rate of generated blocks [seconds]") \
-    macro(uint32_t, DifficultyReviewCycle, "num of blocks after which the mining difficulty can be adjusted") \
-    macro(uint32_t, MaxDifficultyChange, "Max difficulty change after each cycle (each step is roughly x2 complexity)") \
+    macro(uint32_t, DifficultyReviewWindow, "num of blocks in the window for the mining difficulty adjustment") \
     macro(uint32_t, TimestampAheadThreshold_s, "Block timestamp tolerance [seconds]") \
     macro(uint32_t, WindowForMedian, "How many blocks are considered in calculating the timestamp median") \
     macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \

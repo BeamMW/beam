@@ -28,9 +28,10 @@ namespace beam
         extern const char* MODE;
         extern const char* PORT;
         extern const char* PORT_FULL;
+        extern const char* STRATUM_PORT;
+        extern const char* STRATUM_SECRETS_PATH;
         extern const char* STORAGE;
         extern const char* WALLET_STORAGE;
-        extern const char* BBS_STORAGE;
         extern const char* HISTORY;
         extern const char* TEMP;
         extern const char* IMPORT;
@@ -77,10 +78,11 @@ namespace beam
         extern const char* MINER_TYPE;
 #endif
  // treasury
-        extern const char* TR_BEAMS;
-        extern const char* TR_DH;
-        extern const char* TR_COUNT;
- // ui
+        extern const char* TR_OPCODE;
+        extern const char* TR_WID;
+        extern const char* TR_PERC;
+		extern const char* TR_COMMENT;
+		// ui
         extern const char* WALLET_ADDR;
 		extern const char* APPDATA_PATH;
     }

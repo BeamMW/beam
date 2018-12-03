@@ -20,6 +20,11 @@ using namespace beam;
 using namespace beam::io;
 using namespace std;
 
+namespace 
+{
+    constexpr int kVerificationThreadsMaxAvailable = -1;
+}
+
 NodeModel::NodeModel()
 {
 }
@@ -74,10 +79,10 @@ void NodeModel::run()
 #else
             node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
 #endif
-            node.m_Cfg.m_VerificationThreads = settings.getLocalNodeVerificationThreads();
+            node.m_Cfg.m_VerificationThreads = kVerificationThreadsMaxAvailable;
         }
 
-		node.m_pKdf = m_pKdf;
+        node.m_Keys.SetSingleKey(m_pKdf);
 
 
         node.m_Cfg.m_HistoryCompression.m_sPathOutput = settings.getTempDir();
@@ -95,12 +100,6 @@ void NodeModel::run()
         }
 
         LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
-
-        if (settings.getGenerateGenesys())
-        {
-            node.m_Cfg.m_vTreasury.resize(1);
-            node.m_Cfg.m_vTreasury[0].ZeroInit();
-        }
 
         node.m_Cfg.m_Observer = this;
 

@@ -25,15 +25,16 @@ set(IO_SRC
     io/errorhandling.cpp
     io/coarsetimer.cpp
     io/fragment_writer.cpp
+    io/json_serializer.cpp
 # ~etc
 )
 
 if (BEAM_USE_AVX)   
     if (MSVC)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     elseif(ANDROID)
     else()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse3")
     endif()
 endif()
 

@@ -1,7 +1,20 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "server.h"
 #include "adapter.h"
 #include "utility/logger.h"
-// TODO suppress warnings #include "secp256k1-zkp/src/hash_impl.h"
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <fstream>
@@ -150,7 +163,7 @@ bool Server::send_block(const HttpConnection::Ptr &conn) {
 bool Server::send_blocks(const HttpConnection::Ptr& conn) {
     auto start = _currentUrl.get_int_arg("height", 0);
     auto n = _currentUrl.get_int_arg("n", 0);
-    if (start == 0 || n < 1) {
+    if (start <= 0 || n < 0) {
         return send(conn, 400, "Bad request");
     }
     if (!_backend.get_blocks(_body, start, n)) {
@@ -191,21 +204,6 @@ bool Server::send(const HttpConnection::Ptr& conn, int code, const char* message
     return (ok && code == 200);
 }
 
-namespace {
-    /*
-
-void sha(const std::string_view& left, const std::string_view& right, char* outBase16) {
-    secp256k1_sha256_t ctx;
-    secp256k1_sha256_initialize(&ctx);
-    secp256k1_sha256_write(&ctx, (const unsigned char*)left.data(), left.size());
-    secp256k1_sha256_write(&ctx, (const unsigned char*)right.data(), right.size());
-    unsigned char out32[32];
-    secp256k1_sha256_finalize(&ctx, out32);
-    to_hex(outBase16, out32, 32);
-}
-*/
-} //namespace
-
 Server::IPAccessControl::IPAccessControl(const std::string &ipsFileName) :
     _enabled(!ipsFileName.empty()),
     _ipsFileName(ipsFileName),
@@ -245,57 +243,5 @@ bool Server::IPAccessControl::check(io::Address peerAddress) {
     if (!_enabled || peerAddress.ip() == localhostIP) return true;
     return _ips.count(peerAddress.ip()) > 0;
 }
-
-/*
-Server::AccessControl::AccessControl(const std::string &keysFileName) :
-    _enabled(!keysFileName.empty()),
-    _keysFileName(keysFileName),
-    _lastModified(0)
-{
-    refresh();
-}
-
-void Server::AccessControl::refresh() {
-    using namespace boost::filesystem;
-
-    if (!_enabled) return;
-
-    try {
-        path p(_keysFileName);
-        auto t = last_write_time(p);
-        if (t <= _lastModified) {
-            return;
-        }
-        _lastModified = t;
-        std::ifstream file(_keysFileName);
-        std::string line;
-        char maskBuf[80];
-        while (std::getline(file, line)) {
-            boost::algorithm::trim(line);
-            if (line.size() < 8) continue;
-            sha(line, line, maskBuf);
-            _keys[std::string(maskBuf)] = line;
-        }
-    } catch (std::exception& e) {
-        LOG_ERROR() << e.what();
-    }
-}
-
-bool Server::AccessControl::check(
-    const std::string_view& mask, const std::string_view& nonce, const std::string_view& hash
-) {
-    if (!_enabled) return true;
-
-    if (mask.size() != 64 || hash.size() != 64 || nonce.empty()) {
-        return false;
-    }
-    std::string k(mask);
-    auto it = _keys.find(k);
-    if (it == _keys.end()) return false;
-    char buf[80];
-    sha(it->second, nonce, buf);
-    return memcmp(hash.data(), buf, 64) == 0;
-}
-*/
 
 }} //namespaces

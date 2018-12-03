@@ -15,6 +15,7 @@
 #include <iostream>
 #include "../ecc_native.h"
 #include "../block_crypt.h"
+#include "../treasury.h"
 #include "../../utility/serialize.h"
 #include "../serialization_adapters.h"
 #include "../aes.h"
@@ -88,6 +89,42 @@ void SetRandomOrd(T& x)
 	GenerateRandom(&x, sizeof(x));
 }
 
+uint32_t get_LsBit(const uint8_t* pSrc, uint32_t nSrc, uint32_t iBit)
+{
+	uint32_t iByte = iBit >> 3;
+	if (iByte >= nSrc)
+		return 0;
+
+	return 1 & (pSrc[nSrc - 1 - iByte] >> (7 & iBit));
+}
+
+void TestShifted2(const uint8_t* pSrc, uint32_t nSrc, const uint8_t* pDst, uint32_t nDst, int nShift)
+{
+	for (uint32_t iBitDst = 0; iBitDst < (nDst << 3); iBitDst++)
+	{
+		uint32_t a = get_LsBit(pSrc, nSrc, iBitDst - nShift);
+		uint32_t b = get_LsBit(pDst, nDst, iBitDst);
+		verify_test(a == b);
+	}
+}
+
+template <uint32_t n0, uint32_t n1>
+void TestShifted(const beam::uintBig_t<n0>& x0, const beam::uintBig_t<n1>& x1, int nShift)
+{
+	TestShifted2(x0.m_pData, x0.nBytes, x1.m_pData, x1.nBytes, nShift);
+}
+
+template <uint32_t n0, uint32_t n1>
+void TestShifts(const beam::uintBig_t<n0>& src, beam::uintBig_t<n0>& src2, beam::uintBig_t<n1>& trg, int nShift)
+{
+	src2 = src;
+	src2.ShiftLeft(nShift, trg);
+	TestShifted(src, trg, nShift);
+	src2 = src;
+	src2.ShiftRight(nShift, trg);
+	TestShifted(src, trg, -nShift);
+}
+
 void TestUintBig()
 {
 	for (int i = 0; i < 100; i++)
@@ -117,6 +154,25 @@ void TestUintBig()
 		v1 = ab;
 
 		verify_test(v0 == v1);
+	}
+
+	// test shifts, when src/dst types is smaller/bigger/equal
+	for (int j = 0; j < 20; j++)
+	{
+		beam::uintBig_t<32> a;
+		beam::uintBig_t<32 - 8> b;
+		beam::uintBig_t<32 + 8> c;
+		beam::uintBig_t<32> d;
+
+		SetRandom(a);
+
+		for (int i = 0; i < 512; i++)
+		{
+			TestShifts(a, a, b, i);
+			TestShifts(a, a, c, i);
+			TestShifts(a, a, d, i);
+			TestShifts(a, d, d, i); // inplace shift
+		}
 	}
 }
 
@@ -434,7 +490,6 @@ void TestRangeProof()
 {
 	RangeProof::CreatorParams cp;
 	SetRandomOrd(cp.m_Kidv.m_Idx);
-	SetRandomOrd(cp.m_Kidv.m_IdxSecondary);
 	SetRandomOrd(cp.m_Kidv.m_Type);
 	SetRandom(cp.m_Seed.V);
 	cp.m_Kidv.m_Value = 345000;
@@ -692,7 +747,6 @@ struct TransactionMaker
 
 			Key::IDV kidv;
 			SetRandomOrd(kidv.m_Idx);
-			SetRandomOrd(kidv.m_IdxSecondary);
 			kidv.m_Type = Key::Type::Regular;
 			kidv.m_Value = val;
 
@@ -786,7 +840,7 @@ struct TransactionMaker
 		CoSignKernel(*pKrn, hvLockImage);
 
 		Point::Native exc;
-		beam::AmountBig fee2;
+		beam::AmountBig::Type fee2;
 		verify_test(!pKrn->IsValid(fee2, exc)); // should not pass validation unless correct hash preimage is specified
 
 		// finish HL: add hash preimage
@@ -832,7 +886,7 @@ void TestTransaction()
 
 	beam::TxBase::Context ctx;
 	verify_test(tm.m_Trans.IsValid(ctx));
-	verify_test(!ctx.m_Fee.Hi && (ctx.m_Fee.Lo == fee1 + fee2));
+	verify_test(ctx.m_Fee == beam::AmountBig::Type(fee1 + fee2));
 }
 
 void TestAES()
@@ -877,7 +931,7 @@ void TestAES()
 	verify_test(!sd.zero0 && !sd.zero1);
 
 	sd.dec.Proceed(pBuf, pBuf); // inplace decode
-	verify_test(!memcmp(pBuf, pBuf, sizeof(pPlaintext)));
+	verify_test(!memcmp(pBuf, pPlaintext, sizeof(pPlaintext)));
 }
 
 void TestKdf()
@@ -885,11 +939,11 @@ void TestKdf()
 	HKdf skdf;
 	HKdfPub pkdf;
 
-	SetRandom(skdf.m_Secret.V);
-	pkdf.m_Secret.V = skdf.m_Secret.V;
+	uintBig seed;
+	SetRandom(seed);
 
-	SetRandom(skdf.m_kCoFactor);
-	pkdf.m_Pk = Context::get().G * skdf.m_kCoFactor;
+	skdf.Generate(seed);
+	pkdf.GenerateFrom(skdf);
 
 	for (uint32_t i = 0; i < 10; i++)
 	{
@@ -920,16 +974,17 @@ void TestKdf()
 	HKdf skdf2;
 	ks1.m_sMeta.clear();
 	verify_test(ks1.Import(skdf2));
-	verify_test((skdf2.m_Secret.V == skdf.m_Secret.V) && (skdf2.m_kCoFactor == skdf.m_kCoFactor));
+
+	verify_test(skdf2.IsSame(skdf));
 
 	ks1.Export(pkdf);
 	HKdfPub pkdf2;
 	verify_test(ks1.Import(pkdf2));
-	verify_test(pkdf2.m_Secret.V == pkdf.m_Secret.V);
+	verify_test(pkdf2.IsSame(pkdf));
 
-	pkdf2.m_Pk = -pkdf2.m_Pk;
-	pkdf2.m_Pk += pkdf.m_Pk;
-	verify_test(pkdf2.m_Pk == Zero);
+	seed.Inc();
+	skdf2.Generate(seed);
+	verify_test(!skdf2.IsSame(skdf));
 }
 
 void TestBbs()
@@ -960,6 +1015,13 @@ void TestBbs()
 	verify_test(!beam::proto::BbsDecrypt(p, n, privateAddr));
 }
 
+void TestRatio(const beam::Difficulty& d0, const beam::Difficulty& d1, double k)
+{
+	const double tol = 1.000001;
+	double k_ = d0.ToFloat() / d1.ToFloat();
+	verify_test((k_ < k * tol) && (k < k_ * tol));
+}
+
 void TestDifficulty()
 {
 	using namespace beam;
@@ -984,75 +1046,178 @@ void TestDifficulty()
 	verify_test(Difficulty(0x1000000).IsTargetReached(val));
 
 	// Adjustments
-	Difficulty d = 0;
+	Difficulty d, d2;
+	d.m_Packed = 3 << Difficulty::s_MantissaBits;
 
-	// slight adjustments
-	while (true)
+	Difficulty::Raw raw, wrk;
+	d.Unpack(raw);
+	uint32_t dh = 1440;
+	wrk.AssignMul(raw, uintBigFrom(dh));
+
+	d2.Calculate(wrk, dh, 100500, 100500);
+	TestRatio(d2, d, 1.);
+
+	// slight increase
+	d2.Calculate(wrk, dh, 100500, 100000);
+	TestRatio(d2, d, 1.005);
+
+	// strong increase
+	d2.Calculate(wrk, dh, 180000, 100000);
+	TestRatio(d2, d, 1.8);
+
+	// huge increase
+	d2.Calculate(wrk, dh, 7380000, 100000);
+	TestRatio(d2, d, 73.8);
+
+	// insane increase (1.7 billions). Still must fit
+	d2.Calculate(wrk, dh, 1794380000, 1);
+	TestRatio(d2, d, 1794380000);
+
+	// slight decrease
+	d2.Calculate(wrk, dh, 100000, 100500);
+	TestRatio(d, d2, 1.005);
+
+	// strong decrease
+	d2.Calculate(wrk, dh, 100000, 180000);
+	TestRatio(d, d2, 1.8);
+
+	// insane decrease, out-of-bound
+	d2.Calculate(wrk, dh, 100000, 7380000);
+	verify_test(!d2.m_Packed);
+}
+
+void TestRandom()
+{
+	uintBig pV[2];
+	ZeroObject(pV);
+
+	for (uint32_t i = 0; i < 10; i++)
 	{
-		Difficulty d0 = d;
+		uintBig& a = pV[1 & i];
+		uintBig& b = pV[1 & (i + 1)];
 
-		d.Adjust(790000, 860000, 2);
-		verify_test(d.m_Packed > d0.m_Packed);
+		a = Zero;
+		GenRandom(a);
+		verify_test(!(a == Zero));
+		verify_test(!(a == b));
+	}
+}
 
-		if (d.m_Packed == Difficulty::s_Inf)
-			break;
+bool IsOkFourCC(const char* szRes, const char* szSrc)
+{
+	// the formatted FourCC always consists of 4 characters. If source is shorter - spaced are appended
+	size_t n = strlen(szSrc);
+	for (size_t i = 0; i < 4; i++)
+	{
+		char c = (i < n) ? szSrc[i] : ' ';
+		if (szRes[i] != c)
+			return false;
 	}
 
-	while (true)
-	{
-		Difficulty d0 = d;
+	return !szRes[4];
 
-		d.Adjust(790000, 760000, 2);
-		verify_test(d.m_Packed < d0.m_Packed);
+}
 
-		if (!d.m_Packed)
-			break;
+void TestFourCC()
+{
+#define TEST_FOURCC(name) \
+	{ \
+		uint32_t nFourCC = FOURCC_FROM(name); \
+		beam::FourCC::Text txt(nFourCC); \
+		verify_test(IsOkFourCC(txt, #name)); \
 	}
 
-	// strong adjustments
-	while (true)
+	// compile-time FourCC should support shorter strings
+	TEST_FOURCC(help)
+	TEST_FOURCC(hel)
+	TEST_FOURCC(he)
+	TEST_FOURCC(h)
+}
+
+void TestTreasury()
+{
+	beam::Treasury::Parameters pars;
+	pars.m_Bursts = 12;
+	pars.m_MaturityStep = 1440 * 30 * 4;
+
+	beam::Treasury tres;
+
+	const uint32_t nPeers = 3;
+	HKdf pKdfs[nPeers];
+
+	for (uint32_t i = 0; i < nPeers; i++)
 	{
-		Difficulty d0 = d;
+		// 1. target wallet is initialized, generates its PeerID
+		uintBig seed;
+		SetRandom(seed);
+		pKdfs[i].Generate(seed);
 
-		d.Adjust(790000, 860000*4, 3);
-		verify_test(d.m_Packed > d0.m_Packed);
+		beam::PeerID pid;
+		Scalar::Native sk;
+		beam::Treasury::get_ID(pKdfs[i], pid, sk);
 
-		if (d.m_Packed == Difficulty::s_Inf)
-			break;
+		// 2. Plan is created (2%, 3%, 4% of the total emission)
+		beam::Treasury::Entry* pE = tres.CreatePlan(pid, beam::Rules::get().EmissionValue0 * (i + 2)/100, pars);
+		verify_test(pE->m_Request.m_WalletID == pid);
+
+		// test Request serialization
+		beam::Serializer ser0;
+		ser0 & pE->m_Request;
+
+		beam::Deserializer der0;
+		der0.reset(ser0.buffer().first, ser0.buffer().second);
+
+		beam::Treasury::Request req;
+		der0 & req;
+
+		// 3. Plan is appvoved by the wallet, response is generated
+		pE->m_pResponse.reset(new beam::Treasury::Response);
+		uint64_t nIndex = 1;
+		verify_test(pE->m_pResponse->Create(req, pKdfs[i], nIndex));
+		verify_test(pE->m_pResponse->m_WalletID == pid);
+
+		// 4. Reponse is verified
+		verify_test(pE->m_pResponse->IsValid(pE->m_Request));
 	}
 
-	while (true)
+	// test serialization
+	beam::Serializer ser1;
+	ser1 & tres;
+
+	tres.m_Entries.clear();
+
+	beam::Deserializer der1;
+	der1.reset(ser1.buffer().first, ser1.buffer().second);
+	der1 & tres;
+
+	verify_test(tres.m_Entries.size() == nPeers);
+
+	std::string msg = "cool treasury";
+	beam::Treasury::Data data;
+	data.m_sCustomMsg = msg;
+	tres.Build(data);
+	verify_test(!data.m_vGroups.empty());
+
+	// test serialization
+	beam::ByteBuffer bb;
+	ser1.swap_buf(bb);
+	ser1 & data;
+
+	data.m_vGroups.clear();
+	data.m_sCustomMsg.clear();
+
+	der1.reset(ser1.buffer().first, ser1.buffer().second);
+	der1 & data;
+
+	verify_test(!data.m_vGroups.empty());
+	verify_test(data.m_sCustomMsg == msg);
+	verify_test(data.IsValid());
+
+	for (uint32_t i = 0; i < nPeers; i++)
 	{
-		Difficulty d0 = d;
-
-		d.Adjust(790000, 760000/4, 3);
-		verify_test(d.m_Packed < d0.m_Packed);
-
-		if (!d.m_Packed)
-			break;
-	}
-
-	// extreme adjustments, should be bounded by max order change
-	while (true)
-	{
-		Difficulty d0 = d;
-
-		d.Adjust(1, 1000, 3);
-		verify_test(d.m_Packed > d0.m_Packed);
-
-		if (d.m_Packed == Difficulty::s_Inf)
-			break;
-	}
-
-	while (true)
-	{
-		Difficulty d0 = d;
-
-		d.Adjust(1000, 1, 3);
-		verify_test(d.m_Packed < d0.m_Packed);
-
-		if (!d.m_Packed)
-			break;
+		std::vector<beam::Treasury::Data::Coin> vCoins;
+		data.Recover(pKdfs[i], vCoins);
+		verify_test(vCoins.size() == pars.m_Bursts);
 	}
 }
 
@@ -1070,6 +1235,9 @@ void TestAll()
 	TestKdf();
 	TestBbs();
 	TestDifficulty();
+	TestRandom();
+	TestFourCC();
+	TestTreasury();
 }
 
 
@@ -1525,6 +1693,19 @@ void RunBenchmark()
 				for (size_t nSize = 0; nSize < 0x100000; nSize += sizeof(pBuf))
 					asc.XCrypt(enc, pBuf, sizeof(pBuf));
 			}
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		uint8_t pBuf[0x400];
+
+		BenchmarkMeter bm("Random-1K");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				GenRandom(pBuf, sizeof(pBuf));
 
 		} while (bm.ShouldContinue());
 	}

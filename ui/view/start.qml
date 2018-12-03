@@ -13,45 +13,13 @@ Item
 
     anchors.fill: parent
 
+    property bool isRestoreCancelled: false
+    property bool isRandomNodeSelected: false
+
     StartViewModel { id: viewModel }
-
-    Component
-    {
+    
+    LogoComponent {
         id: logoComponent
-
-        Column
-        {
-            spacing: 20
-
-            Image {
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                source: "qrc:/assets/start-logo.svg"
-                width: 242
-                height: 170
-            }
-
-            SFText {
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                text: qsTr("BEAM")
-                color: "#25c1ff"
-                font.pixelSize: 32
-                font.styleName: "Bold"; font.weight: Font.Bold
-                font.letterSpacing: 20
-            }
-
-            SFText {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.topMargin: 20
-
-                text: qsTr("Scalable confidential cryptocurrency")
-
-                color: "#25c1ff"
-                font.pixelSize: 18
-                font.styleName: "Bold"; font.weight: Font.Bold
-            }
-        }
     }
 
     StackView {
@@ -64,6 +32,15 @@ Item
                 currentItem.defaultFocusItem.focus = true;
             }
         }
+
+        Component.onCompleted: {
+            if (root.isRestoreCancelled) {
+                viewModel.isRecoveryMode = true;
+                startWizzardView.push(nodeSetup);
+                startWizzardView.push(restoreWallet);
+            }
+        }
+
         Component {
             id: start
             Rectangle
@@ -78,42 +55,55 @@ Item
 
                 property Item defaultFocusItem: createNewWallet
 
-                Loader { 
-                    sourceComponent: logoComponent 
+                ColumnLayout {
+                    anchors.fill: parent
 
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 140
-                }
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.maximumHeight: 140
+                    }
 
+                    Loader { 
+                        sourceComponent: logoComponent 
 
-                Row {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.bottomMargin: 143
-                    anchors.bottom: parent.bottom
+                        Layout.alignment: Qt.AlignHCenter
+                    }
 
-                    spacing: 30
+                    Item {
+                        Layout.fillHeight: true
+                    }
 
-                    PrimaryButton {
-                        id: createNewWallet
-                        anchors.verticalCenter: parent.verticalCenter
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
+                        
+                        spacing: 30
 
-                        text: qsTr("create new wallet")
-                        icon.source: "qrc:/assets/icon-add-blue.svg"
-                        onClicked: 
-                        {
-                            viewModel.isRecoveryMode = false;
-                            startWizzardView.push(nodeSetup);
+                        PrimaryButton {
+                            id: createNewWallet
+                            anchors.verticalCenter: parent.verticalCenter
+
+                            text: qsTr("create new wallet")
+                            icon.source: "qrc:/assets/icon-add-blue.svg"
+                            onClicked: 
+                            {
+                                viewModel.isRecoveryMode = false;
+                                startWizzardView.push(nodeSetup);
+                            }
+                        }
+
+                        CustomButton {
+                            text: qsTr("restore wallet")
+                            icon.source: "qrc:/assets/icon-restore.svg"
+                            onClicked: {
+                                viewModel.isRecoveryMode = true;
+                                startWizzardView.push(nodeSetup);
+                            }
                         }
                     }
 
-                    CustomButton {
-                        text: qsTr("restore wallet")
-                        icon.source: "qrc:/assets/icon-restore.svg"
-                        onClicked: {
-                            viewModel.isRecoveryMode = true;
-                            startWizzardView.push(nodeSetup);
-                        }
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.maximumHeight: 143
                     }
                 }
             }
@@ -809,7 +799,7 @@ Item
                                     }
                                     else
                                     {
-                                        root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true});
+                                        root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true, "isConnectToRandomNode": root.isRandomNodeSelected});
                                     }
                                 }
                             }
@@ -823,9 +813,37 @@ Item
             id: nodeSetup
 
             Rectangle
-            {
+            {   
+                id: nodeSetupRectangle
                 color: Style.marine
                 property Item defaultFocusItem: localNodeButton
+
+                Component.onCompleted: {
+                    if (root.isRestoreCancelled) {
+                        // restore settings on nodeSetup page
+                        onRestoreCancelled(root.isRandomNodeSelected);
+                        root.isRestoreCancelled = false;
+                    }
+                }
+
+                function onRestoreCancelled(useRandomNode) {
+                    if (useRandomNode) {
+                        nodeSetupRectangle.defaultFocusItem = randomNodeButton;
+                        randomNodeButton.checked = true;
+                    } else if (viewModel.getIsRunLocalNode()) {
+                        nodeSetupRectangle.defaultFocusItem = localNodeButton;
+                        localNodeButton.checked = true;
+
+                        portInput.text = viewModel.localPort;
+                        miningInput.value = viewModel.localMiningThreads;
+                    } else {
+                        nodeSetupRectangle.defaultFocusItem = remoteNodeButton;
+                        remoteNodeButton.checked = true;
+
+                        remoteNodeAddrInput.text = viewModel.remoteNodeAddress;
+                    }
+                    nodeSetupRectangle.defaultFocusItem.focus = true;
+                }
 
                 ColumnLayout {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -934,7 +952,7 @@ Item
                         }
 
                         CustomRadioButton {
-                            id: testnetNodeButton
+                            id: randomNodeButton
                             text: qsTr("Connect to random remote node")
                             ButtonGroup.group: nodePreferencesGroup
                             font.pixelSize: 14
@@ -1015,9 +1033,10 @@ Item
                                         }
                                         viewModel.setupRemoteNode(remoteNodeAddrInput.text.trim());
                                     }
-                                    else if (testnetNodeButton.checked) {
-                                        viewModel.setupTestnetNode();
+                                    else if (randomNodeButton.checked) {
+                                        viewModel.setupRandomNode();
                                     }
+                                    root.isRandomNodeSelected = randomNodeButton.checked;
                                     startWizzardView.push(viewModel.isRecoveryMode ? restoreWallet : createWalletEntry);
                                 }
                             }

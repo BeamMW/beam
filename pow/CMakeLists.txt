@@ -26,7 +26,7 @@ if(BEAM_USE_GPU)
 
     set(POW_SRC ${POW_SRC}
         equihash.cpp
-        impl/equihash_gpu.cu)
+        ${PROJECT_SOURCE_DIR}/3rdparty/equihash_gpu.cu)
 
     CUDA_ADD_LIBRARY(pow STATIC ${POW_SRC})
 
@@ -40,5 +40,23 @@ add_dependencies(pow crypto)
 target_link_libraries(pow crypto)
 
 target_include_directories(pow PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/crypto)
+
+add_library(external_pow STATIC
+    external_pow_stub.cpp
+    stratum.cpp
+    stratum_server.cpp
+)
+
+add_dependencies(external_pow core p2p pow)
+target_link_libraries(external_pow p2p pow core)
+
+add_executable(miner_client miner_client.cpp ../core/block_crypt.cpp) # ???????????????????????????
+add_dependencies(miner_client external_pow)
+target_link_libraries(miner_client external_pow)
+
+if(BEAM_USE_GPU)
+    add_dependencies(miner_client gpu_tools)
+    target_link_libraries(miner_client gpu_tools)
+endif()
 
 add_subdirectory(unittests)

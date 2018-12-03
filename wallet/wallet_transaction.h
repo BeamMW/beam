@@ -102,13 +102,20 @@ namespace beam { namespace wallet
         template <typename T>
         bool SetParameter(TxParameterID paramID, const T& value)
         {
-            return setTxParameter(m_WalletDB, GetTxID(), paramID, value);
+            bool shouldNotifyAboutChanges = isShouldNotifyAboutChanges(paramID);
+            return SetParameter(paramID, value, shouldNotifyAboutChanges);
+        }
+
+        template <typename T>
+        bool SetParameter(TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges)
+        {
+            return setTxParameter(m_WalletDB, GetTxID(), paramID, value, shouldNotifyAboutChanges);
         }
 
         template <typename T>
         void SetState(T state)
         {
-            SetParameter(TxParameterID::State, state);
+            SetParameter(TxParameterID::State, state, true);
         }
 
         IWalletDB::Ptr GetWalletDB();
@@ -128,6 +135,8 @@ namespace beam { namespace wallet
 
         bool SendTxParameters(SetTxParameter&& msg) const;
         virtual void UpdateImpl() = 0;
+
+        virtual bool isShouldNotifyAboutChanges(TxParameterID paramID) const { return true; };
     protected:
 
         INegotiatorGateway& m_Gateway;
@@ -137,6 +146,8 @@ namespace beam { namespace wallet
         mutable boost::optional<bool> m_IsInitiator;
 
     };
+
+    class TxBuilder;
 
     class SimpleTransaction : public BaseTransaction
     {
@@ -159,45 +170,25 @@ namespace beam { namespace wallet
     private:
         TxType GetType() const override;
         void UpdateImpl() override;
+        bool isShouldNotifyAboutChanges(TxParameterID paramID) const override;
+        void SendInvitation(const TxBuilder& builder, bool isSender);
+        void ConfirmInvitation(const TxBuilder& builder);
+        void ConfirmTransaction(const TxBuilder& builder);
+        void NotifyTransactionRegistered();
+        bool IsSelfTx() const;
         State GetState() const;
     };
 
-    struct TxBuilder
+    class TxBuilder
     {
-        BaseTransaction& m_Tx;
-
-        // input
-        Amount m_Amount;
-        Amount m_Fee;
-        Amount m_Change;
-        Height m_MinHeight;
-        Height m_MaxHeight;
-        std::vector<Input::Ptr> m_Inputs;
-        std::vector<Output::Ptr> m_Outputs;
-        ECC::Scalar::Native m_BlindingExcess;
-        ECC::Scalar::Native m_Offset;
-
-        // peer values
-        ECC::Scalar::Native m_PartialSignature;
-        ECC::Point::Native m_PeerPublicNonce;
-        ECC::Point::Native m_PeerPublicExcess;
-        std::vector<Input::Ptr> m_PeerInputs;
-        std::vector<Output::Ptr> m_PeerOutputs;
-        ECC::Scalar::Native m_PeerOffset;
-        
-        // deduced values, 
-        TxKernel::Ptr m_Kernel;
-        ECC::Scalar::Native m_PeerSignature;
-        ECC::Hash::Value m_Message;
-        ECC::Signature::MultiSig m_MultiSig;
-
+    public:
         TxBuilder(BaseTransaction& tx, Amount amount, Amount fee);
 
         void SelectInputs();
         void AddChangeOutput();
-        void AddOutput(Amount amount);
-        Output::Ptr CreateOutput(Amount amount, bool shared = false, Height incubation = 0);
-        void GenerateNonce();
+        void AddOutput(Amount amount, Coin::Status status);
+        Output::Ptr CreateOutput(Amount amount, Coin::Status status, bool shared = false, Height incubation = 0);
+        void CreateKernel();
         ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
         bool GetInitialTxParams();
@@ -208,6 +199,43 @@ namespace beam { namespace wallet
         Transaction::Ptr CreateTransaction();
         void SignPartial();
         bool IsPeerSignatureValid() const;
-    };
 
+        Amount GetAmount() const;
+        Amount GetFee() const;
+        Height GetMinHeight() const;
+        Height GetMaxHeight() const;
+        const std::vector<Input::Ptr>& GetInputs() const;
+        const std::vector<Output::Ptr>& GetOutputs() const;
+        const ECC::Scalar::Native& GetOffset() const;
+        const ECC::Scalar::Native& GetPartialSignature() const;
+        const TxKernel& GetKernel() const;
+
+    private:
+        BaseTransaction& m_Tx;
+
+        // input
+        Amount m_Amount;
+        Amount m_Fee;
+        Amount m_Change;
+        Height m_MinHeight;
+        Height m_MaxHeight;
+        std::vector<Input::Ptr> m_Inputs;
+        std::vector<Output::Ptr> m_Outputs;
+        ECC::Scalar::Native m_BlindingExcess; // goes to kernel
+        ECC::Scalar::Native m_Offset; // goes to offset
+
+        // peer values
+        ECC::Scalar::Native m_PartialSignature;
+        ECC::Point::Native m_PeerPublicNonce;
+        ECC::Point::Native m_PeerPublicExcess;
+        std::vector<Input::Ptr> m_PeerInputs;
+        std::vector<Output::Ptr> m_PeerOutputs;
+        ECC::Scalar::Native m_PeerOffset;
+
+        // deduced values, 
+        TxKernel::Ptr m_Kernel;
+        ECC::Scalar::Native m_PeerSignature;
+        ECC::Hash::Value m_Message;
+        ECC::Signature::MultiSig m_MultiSig;
+    };
 }}

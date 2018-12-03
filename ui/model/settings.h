@@ -39,9 +39,6 @@ public:
     std::string getAppDataPath() const;
     void reportProblem();
 
-    bool getGenerateGenesys() const;
-    void setGenerateGenesys(bool value);
-
     bool getRunLocalNode() const;
     void setRunLocalNode(bool value);
 
@@ -49,8 +46,6 @@ public:
     void setLocalNodePort(uint port);
     uint getLocalNodeMiningThreads() const;
     void setLocalNodeMiningThreads(uint n);
-    uint getLocalNodeVerificationThreads() const;
-    void setLocalNodeVerificationThreads(uint n);
     std::string getLocalNodeStorage() const;
     std::string getTempDir() const;
 
@@ -68,6 +63,7 @@ public:
 public:
     static const char* WalletCfg;
     static const char* LogsFolder;
+    static const char* SettingsFile;
 
     void applyChanges();
 
@@ -77,8 +73,6 @@ signals:
     void localNodeRunChanged();
     void localNodePortChanged();
     void localNodeMiningThreadsChanged();
-    void localNodeVerificationThreadsChanged();
-    void localNodeGenerateGenesysChanged();
     void localNodePeersChanged();
     void localNodeSynchronizedChanged();
 #ifdef BEAM_USE_GPU

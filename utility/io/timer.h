@@ -26,7 +26,7 @@ public:
     static Ptr create(Reactor& reactor);
 
     /// Starts the timer
-    Result start(unsigned intervalMsec, bool isPeriodic, Callback&& callback);
+    Result start(unsigned intervalMsec, bool isPeriodic, Callback callback);
 
     /// Restarts the timer if callbackis already set
     Result restart(unsigned intervalMsec, bool isPeriodic);

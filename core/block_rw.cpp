@@ -14,9 +14,9 @@
 
 //#include <ctime>
 #include "block_crypt.h"
-#include "../utility/serialize.h"
+#include "utility/serialize.h"
 #include "utilstrencodings.h"
-#include "../core/serialization_adapters.h"
+#include "core/serialization_adapters.h"
 #include "aes.h"
 
 namespace beam
@@ -226,7 +226,7 @@ namespace beam
 	void Block::BodyBase::RW::get_Start(BodyBase& body, SystemState::Sequence::Prefix& prefix)
 	{
 		if (!m_pS[Type::hd].IsOpen())
-			std::ThrowIoError();
+			std::ThrowLastError();
 		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(m_pS[Type::hd]);
 
 		arc & body;
@@ -354,10 +354,25 @@ namespace beam
 	{
 		std::FStream& s = m_pS[iData];
 		if (!s.IsOpen() && !OpenInternal(iData))
-			std::ThrowIoError();
+			std::ThrowLastError();
 
 		yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
 		arc & v;
+	}
+
+	size_t TxBase::IReader::get_SizeNetto()
+	{
+		SerializerSizeCounter ssc;
+		Reset();
+
+		for (; m_pUtxoIn; NextUtxoIn())
+			ssc & *m_pUtxoIn;
+		for (; m_pUtxoOut; NextUtxoOut())
+			ssc & *m_pUtxoOut;
+		for (; m_pKernel; NextKernel())
+			ssc & *m_pKernel;
+
+		return ssc.m_Counter.m_Value;
 	}
 
 	void TxBase::IWriter::Dump(IReader&& r)

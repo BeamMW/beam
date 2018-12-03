@@ -17,18 +17,17 @@
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_transaction.h"
 #include <deque>
-#include "core/proto.h"
+#include "core/fly_client.h"
 
 namespace beam
 {
     struct IWalletObserver : IWalletDbObserver
     {
         virtual void onSyncProgress(int done, int total) = 0;
-        virtual void onRecoverProgress(int done, int total, const std::string& message) = 0;
     };
 
     struct IWallet
-		:public proto::FlyClient
+        : public proto::FlyClient
     {
         using Ptr = std::shared_ptr<IWallet>;
         virtual ~IWallet() {}
@@ -39,19 +38,20 @@ namespace beam
         virtual void cancel_tx(const TxID& id) = 0;
         virtual void delete_tx(const TxID& id) = 0;
 
-		virtual void OnWalletMsg(const WalletID& peerID, wallet::SetTxParameter&&) = 0;
+        virtual void OnWalletMessage(const WalletID& peerID, wallet::SetTxParameter&&) = 0;
 
-		// wallet-wallet comm
-		struct INetwork
-		{
-			virtual void Send(const WalletID& peerID, wallet::SetTxParameter&& msg) = 0;
-		};
+    };
+
+    // wallet-wallet comm
+    struct IWalletNetwork
+    {
+        virtual void Send(const WalletID& peerID, wallet::SetTxParameter&& msg) = 0;
     };
 
 
     class Wallet
-		:public IWallet
-        ,public wallet::INegotiatorGateway
+        : public IWallet
+        , public wallet::INegotiatorGateway
     {
         using Callback = std::function<void()>;
     public:
@@ -60,14 +60,20 @@ namespace beam
         Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
-		void set_Network(proto::FlyClient::INetwork&, INetwork&);
+        void set_Network(proto::FlyClient::INetwork&, IWalletNetwork&);
 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, ByteBuffer&& message = {} );
         TxID swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount);
         void resume_tx(const TxDescription& tx);
-        void recover();
         void resume_all_tx();
 
+        // IWallet
+        void subscribe(IWalletObserver* observer) override;
+        void unsubscribe(IWalletObserver* observer) override;
+        void cancel_tx(const TxID& txId) override;
+        void delete_tx(const TxID& txId) override;
+        
+    private:
         void on_tx_completed(const TxID& txID) override;
 
         void confirm_outputs(const std::vector<Coin>&) override;
@@ -76,116 +82,116 @@ namespace beam
         void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override;
         void register_tx(const TxID& txId, Transaction::Ptr) override;
 
-		void OnWalletMsg(const WalletID& peerID, wallet::SetTxParameter&&) override;
+        void OnWalletMessage(const WalletID& peerID, wallet::SetTxParameter&&) override;
 
-		// FlyClient
-		void OnNewTip() override;
-		void OnRolledBack() override;
-		bool IsOwnedNode(const PeerID&, Key::IKdf::Ptr& pKdf) override;
-		Block::SystemState::IHistory& get_History() override;
+        // FlyClient
+        void OnNewTip() override;
+        void OnTipUnchanged() override;
+        void OnRolledBack() override;
+        void get_Kdf(Key::IKdf::Ptr&) override;
+        Block::SystemState::IHistory& get_History() override;
+        void OnOwnedNode(const PeerID&, bool bUp) override;
 
-		// IWallet
-        void subscribe(IWalletObserver* observer) override;
-        void unsubscribe(IWalletObserver* observer) override;
-		void cancel_tx(const TxID& txId) override;
-		void delete_tx(const TxID& txId) override;
+        struct RequestHandler
+            : public proto::FlyClient::Request::IHandler
+        {
+            virtual void OnComplete(Request&) override;
+            IMPLEMENT_GET_PARENT_OBJ(Wallet, m_RequestHandler)
+        } m_RequestHandler;
 
-    private:
-
-		struct RequestHandler
-			:public proto::FlyClient::Request::IHandler
-		{
-			virtual void OnComplete(Request&) override;
-			IMPLEMENT_GET_PARENT_OBJ(Wallet, m_RequestHandler)
-		} m_RequestHandler;
-
-		uint32_t SyncRemains() const;
-		void CheckSyncDone();
-		void getUtxoProof(const Coin&);
+        uint32_t SyncRemains() const;
+        void CheckSyncDone();
+        void getUtxoProof(const Coin::ID&);
         void report_sync_progress();
         void notifySyncProgress();
         void updateTransaction(const TxID& txID);
         void saveKnownState();
+        void RequestUtxoEvents();
+        void AbortUtxoEvents();
+        void ProcessUtxoEvent(const proto::UtxoEvent&, Height hTip);
+        void SetUtxoEventsHeight(Height);
+        Height GetUtxoEventsHeight();
 
         wallet::BaseTransaction::Ptr getTransaction(const WalletID& myID, const wallet::SetTxParameter& msg);
         wallet::BaseTransaction::Ptr constructTransaction(const TxID& id, wallet::TxType type);
 
     private:
 
+        static const char s_szLastUtxoEvt[];
+
 #define REQUEST_TYPES_Sync(macro) \
-		macro(Utxo) \
-		macro(Kernel) \
-		macro(Mined) \
-		macro(Recover)
+        macro(Utxo) \
+        macro(Kernel) \
+        macro(UtxoEvents)
 
-		struct AllTasks {
+        struct AllTasks {
 #define THE_MACRO(type, msgOut, msgIn) struct type { static const bool b = false; };
-			REQUEST_TYPES_All(THE_MACRO)
+            REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
-		};
+        };
 
-		struct SyncTasks :public AllTasks {
+        struct SyncTasks :public AllTasks {
 #define THE_MACRO(type) struct type { static const bool b = true; };
-			REQUEST_TYPES_Sync(THE_MACRO)
+            REQUEST_TYPES_Sync(THE_MACRO)
 #undef THE_MACRO
-		};
+        };
 
-		struct ExtraData :public AllTasks {
-			struct Transaction { TxID m_TxID; };
-			struct Utxo { Coin m_Coin; };
-			struct Kernel { TxID m_TxID; };
-		};
+        struct ExtraData :public AllTasks {
+            struct Transaction { TxID m_TxID; };
+            struct Utxo { Coin::ID m_CoinID; };
+            struct Kernel { TxID m_TxID; };
+        };
 
 #define THE_MACRO(type, msgOut, msgIn) \
-		struct MyRequest##type \
-			:public Request##type \
-			,public boost::intrusive::set_base_hook<> \
-			,public ExtraData::type \
-		{ \
-			typedef boost::intrusive_ptr<MyRequest##type> Ptr; \
-			bool operator < (const MyRequest##type&) const; \
-			virtual ~MyRequest##type() {} \
-		}; \
-		 \
-		typedef boost::intrusive::multiset<MyRequest##type> RequestSet##type; \
-		RequestSet##type m_Pending##type; \
-		 \
-		void DeleteReq(MyRequest##type& r) \
-		{ \
-			m_Pending##type.erase(RequestSet##type::s_iterator_to(r)); \
-			r.m_pTrg = NULL; \
-			r.Release(); \
-		} \
-		void OnRequestComplete(MyRequest##type&); \
-		 \
-		void AddReq(MyRequest##type& x) \
-		{ \
-			m_Pending##type.insert(x); \
-			x.AddRef(); \
-		} \
-		bool PostReqUnique(MyRequest##type& x) \
-		{ \
-			if (m_Pending##type.end() != m_Pending##type.find(x)) \
-				return false; \
-			AddReq(x); \
-			m_pNodeNetwork->PostRequest(x, m_RequestHandler); \
-			 \
-			if (SyncTasks::type::b) \
-				m_LastSyncTotal++; \
-			return true; \
-		}
+        struct MyRequest##type \
+            :public Request##type \
+            ,public boost::intrusive::set_base_hook<> \
+            ,public ExtraData::type \
+        { \
+            typedef boost::intrusive_ptr<MyRequest##type> Ptr; \
+            bool operator < (const MyRequest##type&) const; \
+            virtual ~MyRequest##type() {} \
+        }; \
+         \
+        typedef boost::intrusive::multiset<MyRequest##type> RequestSet##type; \
+        RequestSet##type m_Pending##type; \
+         \
+        void DeleteReq(MyRequest##type& r) \
+        { \
+            m_Pending##type.erase(RequestSet##type::s_iterator_to(r)); \
+            r.m_pTrg = NULL; \
+            r.Release(); \
+        } \
+        void OnRequestComplete(MyRequest##type&); \
+         \
+        void AddReq(MyRequest##type& x) \
+        { \
+            m_Pending##type.insert(x); \
+            x.AddRef(); \
+        } \
+        bool PostReqUnique(MyRequest##type& x) \
+        { \
+            if (m_Pending##type.end() != m_Pending##type.find(x)) \
+                return false; \
+            AddReq(x); \
+            m_pNodeNetwork->PostRequest(x, m_RequestHandler); \
+             \
+            if (SyncTasks::type::b) \
+                m_LastSyncTotal++; \
+            return true; \
+        }
 
-		REQUEST_TYPES_All(THE_MACRO)
+        REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
 
-		IWalletDB::Ptr m_WalletDB;
-		proto::FlyClient::INetwork* m_pNodeNetwork;
-		INetwork* m_pWalletNetwork;
+        IWalletDB::Ptr m_WalletDB;
+        proto::FlyClient::INetwork* m_pNodeNetwork;
+        IWalletNetwork* m_pWalletNetwork;
         std::map<TxID, wallet::BaseTransaction::Ptr> m_transactions;
-        std::set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
+        std::unordered_set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
         TxCompletedAction m_tx_completed_action;
-		uint32_t m_LastSyncTotal;
-        bool m_needRecover;
+        uint32_t m_LastSyncTotal;
+        uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
     };

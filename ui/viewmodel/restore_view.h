@@ -18,13 +18,13 @@
 #include <QTimer>
 
 #include "model/wallet_model.h"
+#include "ui_helpers.h"
 
 class RestoreViewModel : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(double progress READ getProgress WRITE setProgress NOTIFY progressChanged)
     Q_PROPERTY(QString progressMessage READ getProgressMessage WRITE setProgressMessage NOTIFY progressMessageChanged)
-    Q_PROPERTY(bool creating READ getCreating WRITE setCreating NOTIFY creatingChanged)
 
 public:
 
@@ -35,36 +35,37 @@ public:
     void setProgress(double value);
     const QString& getProgressMessage() const;
     void setProgressMessage(const QString& value);
-    bool getCreating() const;
-    void setCreating(bool value);
 
-
-    Q_INVOKABLE void restoreFromBlockchain();
+    Q_INVOKABLE void cancelRestore();
 
 public slots:
-    void onRestoreProgressUpdated(int, int, const QString&);
     void onSyncProgressUpdated(int done, int total);
     void onNodeSyncProgressUpdated(int done, int total);
     void onUpdateTimer();
+    void onNodeConnectionChanged(bool isNodeConnected);
+    void onNodeConnectionFailed();
 signals:
     void progressChanged();
     void progressMessageChanged();
     void syncCompleted();
-    void creatingChanged();
 private:
     void updateProgress();
     void syncWithNode();
 private:
-    double _progress;
-    int _nodeTotal;
-    int _nodeDone;
-    int _total;
-    int _done;
-    bool _walletConnected;
-    bool _hasLocalNode;
-    QString _progressMessage;
-    beam::Timestamp _syncStart;
-    QTimer _updateTimer;
-    int _startTimeout;
-    bool _creating;
+    WalletModel& m_walletModel;
+    double m_progress;
+    int m_nodeTotal;
+    int m_nodeDone;
+    int m_total;
+    int m_done;
+    bool m_walletConnected;
+    bool m_hasLocalNode;
+    QString m_progressMessage;
+    uint64_t m_estimationUpdateDeltaMs;
+    double m_prevProgress;
+    uint64_t m_prevUpdateTimeMs;
+    QTimer m_updateTimer;
+    beamui::Filter m_speedFilter;
+    uint64_t m_currentEstimationSec;
+    bool m_skipProgress;
 };

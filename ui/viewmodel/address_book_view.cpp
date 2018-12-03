@@ -22,103 +22,67 @@ using namespace std;
 using namespace beam;
 using namespace beamui;
 
-PeerAddressItem::PeerAddressItem()
-    : m_walletID{}
-    , m_name{}
-    , m_category{}
+AddressItem::AddressItem(const beam::WalletAddress& address)
+    : m_address{ beamui::toString(address.m_walletID) }
+    , m_name{ QString::fromStdString(address.m_label) }
+    , m_category{ QString::fromStdString(address.m_category) }
+    , m_createDate{ toString(address.m_createTime) }
+    , m_expirationDate{ address.m_createTime + address.m_duration }
 {
 
 }
 
-PeerAddressItem::PeerAddressItem(const beam::WalletAddress& address)
-    : m_walletID{beamui::toString(address.m_walletID)}
-    , m_name{QString::fromStdString(address.m_label)}
-    , m_category(QString::fromStdString(address.m_category))
+QString AddressItem::getAddress() const
 {
-
+    return m_address;
 }
 
-QString PeerAddressItem::getWalletID() const
-{
-    return m_walletID;
-}
-
-void PeerAddressItem::setWalletID(const QString& value)
-{
-    m_walletID = value;
-    emit onWalletIDChanged();
-}
-
-QString PeerAddressItem::getName() const
+QString AddressItem::getName() const
 {
     return m_name;
 }
 
-void PeerAddressItem::setName(const QString& value)
-{
-    m_name = value;
-    emit onNameChanged();
-}
-
-QString PeerAddressItem::getCategory() const
+QString AddressItem::getCategory() const
 {
     return m_category;
 }
 
-void PeerAddressItem::setCategory(const QString& value)
+QString AddressItem::getExpirationDate() const
 {
-    m_category = value;
-    emit onCategoryChanged();
+    return toString(m_expirationDate);
 }
 
-void PeerAddressItem::clean()
-{
-    setWalletID(QString{});
-    setName(QString{});
-    setCategory(QString{});
-}
-
-OwnAddressItem::OwnAddressItem()
-    : PeerAddressItem{}
-    , m_expirationDate{}
-    , m_createDate{}
-{
-
-}
-
-OwnAddressItem::OwnAddressItem(const beam::WalletAddress& address)
-    : PeerAddressItem{ address }
-    , m_expirationDate{toString(address.m_createTime + address.m_duration)}
-    , m_createDate{ toString(address.m_createTime) }
-{
-
-}
-
-void OwnAddressItem::setExpirationDate(const QString& value)
-{
-    m_expirationDate = value;
-}
-
-void OwnAddressItem::setCreateDate(const QString& value)
-{
-    m_createDate = value;
-}
-
-QString OwnAddressItem::getExpirationDate() const
-{
-    return m_expirationDate;
-}
-
-QString OwnAddressItem::getCreateDate() const
+QString AddressItem::getCreateDate() const
 {
     return m_createDate;
 }
 
-void OwnAddressItem::clean()
+bool AddressItem::isExpired() const
 {
-    PeerAddressItem::clean();
-    setExpirationDate(QString{});
-    setCreateDate(QString{});
+    return getTimestamp() > m_expirationDate;
+}
+
+ContactItem::ContactItem(const beam::WalletAddress& address)
+    : m_address{ beamui::toString(address.m_walletID) }
+    , m_name{ QString::fromStdString(address.m_label) }
+    , m_category{ QString::fromStdString(address.m_category) }
+{
+
+}
+
+QString ContactItem::getAddress() const
+{
+    return m_address;
+}
+
+QString ContactItem::getName() const
+{
+    return m_name;
+}
+
+QString ContactItem::getCategory() const
+{
+    return m_category;
 }
 
 AddressBookViewModel::AddressBookViewModel()
@@ -130,116 +94,57 @@ AddressBookViewModel::AddressBookViewModel()
     connect(&m_model, SIGNAL(onAdrresses(bool, const std::vector<beam::WalletAddress>&)),
         SLOT(onAdrresses(bool, const std::vector<beam::WalletAddress>&)));
 
-    connect(&m_model, SIGNAL(onGeneratedNewWalletID(const beam::WalletID&)),
-        SLOT(onGeneratedNewWalletID(const beam::WalletID&)));
-
     getAddressesFromModel();
+
+    startTimer(3 * 1000);
 }
 
-QQmlListProperty<PeerAddressItem> AddressBookViewModel::getPeerAddresses()
+QQmlListProperty<ContactItem> AddressBookViewModel::getContacts()
 {
-    return QQmlListProperty<PeerAddressItem>(this, m_peerAddresses);
+    return QQmlListProperty<ContactItem>(this, m_contacts);
 }
 
-QQmlListProperty<OwnAddressItem> AddressBookViewModel::getOwnAddresses()
+QQmlListProperty<AddressItem> AddressBookViewModel::getActiveAddresses()
 {
-    return QQmlListProperty<OwnAddressItem>(this, m_ownAddresses);
+    return QQmlListProperty<AddressItem>(this, m_activeAddresses);
 }
 
-PeerAddressItem* AddressBookViewModel::getNewPeerAddress()
+QQmlListProperty<AddressItem> AddressBookViewModel::getExpiredAddresses()
 {
-    return &m_newPeerAddress;
+    return QQmlListProperty<AddressItem>(this, m_expiredAddresses);
 }
 
-OwnAddressItem* AddressBookViewModel::getNewOwnAddress()
+QString AddressBookViewModel::nameRole() const
 {
-    return &m_newOwnAddress;
+    return "name";
 }
 
-void AddressBookViewModel::generateNewEmptyAddress()
+QString AddressBookViewModel::addressRole() const
 {
-    m_newOwnAddress.clean();
-    m_newPeerAddress.clean();
-
-    if (m_model.async)
-    {
-        m_model.async->generateNewWalletID();
-    }
+    return "address";
 }
 
-void AddressBookViewModel::createNewPeerAddress()
+QString AddressBookViewModel::categoryRole() const
 {
-    auto bytes = from_hex(m_newPeerAddress.getWalletID().toStdString());
-    if (bytes.size() > sizeof(WalletID))
-    {
-        return;
-    }
-    WalletID walletID = bytes;
-    WalletAddress peerAddress{};
-
-    peerAddress.m_walletID = walletID;
-    peerAddress.m_own = false;
-    peerAddress.m_label = m_newPeerAddress.getName().toStdString();
-    peerAddress.m_createTime = beam::getTimestamp();
-    peerAddress.m_category = m_newPeerAddress.getCategory().toStdString();
-
-    if (m_model.async)
-    {
-        m_model.async->createNewAddress(std::move(peerAddress));
-    }
+    return "category";
 }
 
-void AddressBookViewModel::createNewOwnAddress()
+QString AddressBookViewModel::expirationRole() const
 {
-    auto bytes = from_hex(m_newOwnAddress.getWalletID().toStdString());
-    if (bytes.size() != sizeof(WalletID))
-    {
-        return;
-    }
-    WalletID id = bytes;
-    WalletAddress ownAddress{};
-
-    ownAddress.m_walletID = id;
-    ownAddress.m_own = true;
-    ownAddress.m_label = m_newOwnAddress.getName().toStdString();
-    ownAddress.m_createTime = beam::getTimestamp();
-    // TODO implement expiration date and duration
-    //ownAddress.m_duration = m_newOwnAddress.getExpirationDate
-    ownAddress.m_category = m_newOwnAddress.getCategory().toStdString();
-
-    if (m_model.async)
-    {
-        m_model.async->createNewAddress(std::move(ownAddress));
-    }
+    return "expirationDate";
 }
 
-void AddressBookViewModel::changeCurrentPeerAddress(int index)
+QString AddressBookViewModel::createdRole() const
 {
-    if (m_model.async)
-    {
-        WalletID senderID = from_hex(m_ownAddresses.at(0)->getWalletID().toStdString());
-        WalletID receivedID = from_hex(m_peerAddresses.at(index)->getWalletID().toStdString());
-
-        m_model.async->changeCurrentWalletIDs(senderID, receivedID);
-    }
+    return "createDate";
 }
 
-void AddressBookViewModel::deletePeerAddress(int index)
+void AddressBookViewModel::deleteAddress(const QString& addr)
 {
-    if (m_model.async)
-    {
-        WalletID peerID = from_hex(m_peerAddresses.at(index)->getWalletID().toStdString());
-        m_model.async->deleteAddress(peerID);
-    }
-}
+    WalletID walletID;
+    walletID.FromHex(addr.toStdString());
 
-void AddressBookViewModel::deleteOwnAddress(int index)
-{
-    if (m_model.async)
-    {
-        WalletID peerID = from_hex(m_ownAddresses.at(index)->getWalletID().toStdString());
-        m_model.async->deleteOwnAddress(peerID);
-    }
+    m_model.getAsync()->deleteAddress(walletID);
 }
 
 void AddressBookViewModel::copyToClipboard(const QString& text)
@@ -256,36 +161,59 @@ void AddressBookViewModel::onAdrresses(bool own, const std::vector<WalletAddress
 {
     if (own)
     {
-        m_ownAddresses.clear();
+        m_activeAddresses.clear();
+        m_expiredAddresses.clear();
 
         for (const auto& addr : addresses)
         {
-            m_ownAddresses.push_back(new OwnAddressItem(addr));
+            if (addr.isExpired())
+            {
+                m_expiredAddresses.push_back(new AddressItem(addr));
+            }
+            else
+            {
+                m_activeAddresses.push_back(new AddressItem(addr));
+            }
         }
+
+        emit activeAddressesChanged();
+        emit expiredAddressesChanged();
     }
     else
     {
-        m_peerAddresses.clear();
+        m_contacts.clear();
 
         for (const auto& addr : addresses)
         {
-            m_peerAddresses.push_back(new PeerAddressItem(addr));
+            m_contacts.push_back(new ContactItem(addr));
         }
-    }
 
-    emit addressesChanged();
+        emit contactsChanged();
+    }
 }
 
-void AddressBookViewModel::onGeneratedNewWalletID(const beam::WalletID& walletID)
+void AddressBookViewModel::timerEvent(QTimerEvent *event)
 {
-    m_newOwnAddress.setWalletID(toString(walletID));
+    auto firstExpired = std::remove_if(
+        m_activeAddresses.begin(), m_activeAddresses.end(), 
+        [](const AddressItem* addr) { return addr->isExpired(); });
+
+    if (firstExpired != m_activeAddresses.end())
+    {
+        for (auto it = firstExpired; it != m_activeAddresses.end(); ++it)
+        {
+            m_expiredAddresses.push_back(*it);
+        }
+
+        m_activeAddresses.erase(firstExpired, m_activeAddresses.end());
+
+        emit activeAddressesChanged();
+        emit expiredAddressesChanged();
+    }
 }
 
 void AddressBookViewModel::getAddressesFromModel()
 {
-    if (m_model.async)
-    {
-        m_model.async->getAddresses(true);
-        m_model.async->getAddresses(false);
-    }
+    m_model.getAsync()->getAddresses(true);
+    m_model.getAsync()->getAddresses(false);
 }

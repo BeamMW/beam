@@ -46,12 +46,14 @@ class NodeProcessor
 
 	struct RollbackData;
 
+	bool EnsureTreasuryHandled();
+	bool HandleTreasury(const Blob&, bool bFirstTime);
+
 	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
 	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, const Height* = NULL);
 	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, const Height* = NULL);
 	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd);
 	bool HandleBlockElement(const Output&, Height, const Height*, bool bFwd);
-	void ToggleSubsidyOpened();
 
 	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
 	void RecognizeUtxos(TxBase::IReader&&, Height hMax);
@@ -65,6 +67,7 @@ class NodeProcessor
 	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
 	Difficulty get_NextDifficulty();
 	Timestamp get_MovingMedian();
+	Timestamp get_MovingMedianEx(uint64_t& row); // in-out
 	Height get_FossilHeight();
 
 	struct UtxoSig;
@@ -121,9 +124,7 @@ public:
 
 	struct Extra
 	{
-		bool m_SubsidyOpen;
-		AmountBig m_Subsidy; // total system value
-		ECC::Scalar::Native m_Offset; // not really necessary, but using it it's possible to assemble the whole macroblock from the live objects.
+		bool m_TreasuryHandled;
 
 	} m_Extra;
 
@@ -144,6 +145,7 @@ public:
 
 	DataStatus::Enum OnState(const Block::SystemState::Full&, const PeerID&);
 	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const Blob& bbP, const Blob& bbE, const PeerID&);
+	DataStatus::Enum OnTreasury(const Blob&);
 
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }
@@ -161,36 +163,50 @@ public:
 	virtual void OnNewState() {}
 	virtual void OnRolledBack() {}
 	virtual bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
-	virtual bool ApproveState(const Block::SystemState::ID&) { return true; }
 	virtual void AdjustFossilEnd(Height&) {}
 	virtual void OnStateData() {}
 	virtual void OnBlockData() {}
+	virtual void OnUpToDate() {}
 	virtual bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) { return false; }
 	virtual void OnModified() {}
-	virtual Key::IPKdf* get_Kdf(uint32_t i) { return NULL; }
+
+	struct IKeyWalker {
+		virtual bool OnKey(Key::IPKdf&, Key::Index) = 0;
+	};
+	virtual bool EnumViewerKeys(IKeyWalker&) { return true; }
 
 	uint64_t FindActiveAtStrict(Height);
 
 	bool ValidateTxContext(const Transaction&); // assuming context-free validation is already performed, but 
-	static bool ValidateTxWrtHeight(const Transaction&, Height);
+	bool ValidateTxWrtHeight(const Transaction&) const;
 
-	struct BlockContext
+	struct GeneratedBlock
 	{
-		TxPool::Fluff& m_TxPool;
-		Key::IKdf& m_Kdf;
 		Block::SystemState::Full m_Hdr;
 		ByteBuffer m_BodyP;
 		ByteBuffer m_BodyE;
 		Amount m_Fees;
-
-		BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf)
-			:m_TxPool(txp)
-			,m_Kdf(kdf)
-		{
-		}
+		Block::Body m_Block; // in/out
 	};
 
-	bool GenerateNewBlock(BlockContext&, Block::Body& blockInOut);
+
+	struct BlockContext
+		:public GeneratedBlock
+	{
+		TxPool::Fluff& m_TxPool;
+		Key::IKdf& m_Kdf;
+
+		enum Mode {
+			Assemble,
+			Finalize,
+			SinglePass
+		};
+
+		Mode m_Mode = Mode::SinglePass;
+
+		BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf);
+	};
+
 	bool GenerateNewBlock(BlockContext&);
 	void DeleteOutdated(TxPool::Fluff&);
 
@@ -229,9 +245,23 @@ public:
 		virtual bool OnOutput(uint32_t iKey, const Key::IDV&, const Output&) override;
 	};
 
+#pragma pack (push, 1)
+	struct UtxoEvent
+	{
+		typedef ECC::Point Key;
+		static_assert(sizeof(Key) == sizeof(ECC::uintBig) + 1, "");
+
+		struct Value {
+			uintBigFor<ECC::Key::Index>::Type m_iKdf;
+			ECC::Key::IDV::Packed m_Kidv;
+			uintBigFor<Height>::Type m_Maturity;
+		};
+	};
+#pragma pack (pop)
+
 private:
-	size_t GenerateNewBlock(BlockContext&, Block::Body&, Height);
-	bool GenerateNewBlock(BlockContext&, Block::Body&, bool bInitiallyEmpty);
+	size_t GenerateNewBlockInternal(BlockContext&);
+	void GenerateNewHdr(BlockContext&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&);
 };
 

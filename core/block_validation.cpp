@@ -26,6 +26,7 @@ namespace beam
 		ZeroObject(m_Coinbase);
 		m_Height.Reset();
 		m_bBlockMode = false;
+		m_bVerifyOrder = true;
 		m_nVerifiers = 1;
 		m_iVerifier = 0;
 		m_pAbort = NULL;
@@ -96,18 +97,21 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (pPrev && (*pPrev > *r.m_pUtxoIn))
-					return false;
-
-				// make sure no redundant outputs
-				for (; r.m_pUtxoOut; r.NextUtxoOut())
+				if (m_bVerifyOrder)
 				{
-					int n = CmpInOut(*r.m_pUtxoIn, *r.m_pUtxoOut);
-					if (n < 0)
-						break;
+					if (pPrev && (*pPrev > *r.m_pUtxoIn))
+						return false;
 
-					if (!n)
-						return false; // duplicate!
+					// make sure no redundant outputs
+					for (; r.m_pUtxoOut; r.NextUtxoOut())
+					{
+						int n = CmpInOut(*r.m_pUtxoIn, *r.m_pUtxoOut);
+						if (n < 0)
+							break;
+
+						if (!n)
+							return false; // duplicate!
+					}
 				}
 
 				if (!pt.Import(r.m_pUtxoIn->m_Commitment))
@@ -129,7 +133,7 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (pPrev && (*pPrev > *r.m_pUtxoOut))
+				if (m_bVerifyOrder && pPrev && (*pPrev > *r.m_pUtxoOut))
 					return false;
 
 				if (!r.m_pUtxoOut->IsValid(pt))
@@ -143,7 +147,7 @@ namespace beam
 						return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
 
 					assert(r.m_pUtxoOut->m_pPublic); // must have already been checked
-					m_Coinbase += r.m_pUtxoOut->m_pPublic->m_Value;
+					m_Coinbase += uintBigFrom(r.m_pUtxoOut->m_pPublic->m_Value);
 				}
 			}
 		}
@@ -155,7 +159,7 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (pPrev && (*pPrev > *r.m_pKernel))
+				if (m_bVerifyOrder && pPrev && (*pPrev > *r.m_pKernel))
 					return false;
 
 				if (!r.m_pKernel->IsValid(m_Fee, m_Sigma))
@@ -175,61 +179,40 @@ namespace beam
 
 	bool TxBase::Context::IsValidTransaction()
 	{
-		assert(!(m_Coinbase.Lo || m_Coinbase.Hi)); // must have already been checked
+		assert(m_Coinbase == Zero); // must have already been checked
 
-		m_Fee.AddTo(m_Sigma);
-
+		AmountBig::AddTo(m_Sigma, m_Fee);
 		return m_Sigma == Zero;
 	}
 
-	bool TxBase::Context::IsValidBlock(const Block::BodyBase& bb, bool bSubsidyOpen)
+	bool TxBase::Context::IsValidBlock(const Block::BodyBase& bb)
 	{
+		AmountBig::Type subsTotal, subsLocked;
+		Rules::get_Emission(subsTotal, m_Height);
+
 		m_Sigma = -m_Sigma;
 
-		bb.m_Subsidy.AddTo(m_Sigma);
+		AmountBig::AddTo(m_Sigma, subsTotal);
 
 		if (!(m_Sigma == Zero))
 			return false;
 
-		if (bSubsidyOpen)
-			return true;
-
-		if (bb.m_SubsidyClosing)
-			return false; // already closed
-
-		// For non-genesis blocks we have the following restrictions:
 		// Subsidy is bounded by num of blocks multiplied by coinbase emission
 		// There must at least some unspent coinbase UTXOs wrt maturity settings
-
-		// check the subsidy is within allowed range
-		Height nBlocksInRange = m_Height.m_Max - m_Height.m_Min + 1;
-
-		AmountBig::uintBig ubSubsidy;
-		bb.m_Subsidy.Export(ubSubsidy);
-
-		auto ubBlockEmission = uintBigFrom(Rules::get().CoinbaseEmission);
-
-		if (ubSubsidy > uintBigFrom(nBlocksInRange) * ubBlockEmission)
-			return false;
-
-		// ensure there's a minimal unspent coinbase UTXOs
-		if (nBlocksInRange > Rules::get().MaturityCoinbase)
+		if (m_Height.m_Max - m_Height.m_Min < Rules::get().MaturityCoinbase)
+			subsLocked = subsTotal;
+		else
 		{
-			// some UTXOs may be spent already. Calculate the minimum remaining
-			auto ubCoinbaseMaxSpent = uintBigFrom(nBlocksInRange - Rules::get().MaturityCoinbase) * ubBlockEmission;
-
-			if (ubSubsidy > ubCoinbaseMaxSpent)
-			{
-				ubCoinbaseMaxSpent.Negate();
-				ubSubsidy += ubCoinbaseMaxSpent;
-
-			} else
-				ubSubsidy = Zero;
+			HeightRange hr;
+			hr.m_Min = m_Height.m_Max - Rules::get().MaturityCoinbase;
+			hr.m_Max = m_Height.m_Max;
+			Rules::get_Emission(subsLocked, hr);
 		}
 
-		AmountBig::uintBig ubCoinbase;
-		m_Coinbase.Export(ubCoinbase);
-		return (ubCoinbase >= ubSubsidy);
+		if (m_Coinbase < subsLocked)
+			return false;
+
+		return true;
 	}
 
 } // namespace beam

@@ -27,7 +27,7 @@ class TxObject : public QObject
     Q_PROPERTY(QString date          READ date         NOTIFY dateChanged)
     Q_PROPERTY(QString user          READ user         NOTIFY userChanged)
     Q_PROPERTY(QString userName      READ userName     NOTIFY userChanged)
-	Q_PROPERTY(QString displayName   READ displayName  NOTIFY displayNameChanged)
+    Q_PROPERTY(QString displayName   READ displayName  NOTIFY displayNameChanged)
     Q_PROPERTY(QString comment       READ comment      NOTIFY commentChanged)
     Q_PROPERTY(QString amount        READ amount       NOTIFY amountChanged)
     Q_PROPERTY(QString change        READ change       NOTIFY changeChanged)
@@ -46,8 +46,8 @@ public:
     bool income() const;
     QString date() const;
     QString user() const;
-	QString userName() const;
-	QString displayName() const;
+    QString userName() const;
+    QString displayName() const;
     QString comment() const;
     QString amount() const;
     QString change() const;
@@ -57,9 +57,9 @@ public:
     QString getSendingAddress() const;
     QString getReceivingAddress() const;
     QString getFee() const;
-	beam::WalletID peerId() const;
+    beam::WalletID peerId() const;
 
-	void setUserName(const QString& name);
+    void setUserName(const QString& name);
     void setDisplayName(const QString& name);
     void setStatus(beam::TxStatus status);
 
@@ -71,7 +71,7 @@ signals:
     void incomeChanged();
     void dateChanged();
     void userChanged();
-	void displayNameChanged();
+    void displayNameChanged();
     void commentChanged();
     void amountChanged();
     void changeChanged();
@@ -79,7 +79,7 @@ signals:
 
 public:
     beam::TxDescription _tx;
-	QString _userName;
+    QString _userName;
     QString _displayName;
 };
 
@@ -97,10 +97,7 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString feeGrothes READ feeGrothes WRITE setFeeGrothes NOTIFY feeGrothesChanged)
 
     Q_PROPERTY(QString receiverAddr READ getReceiverAddr WRITE setReceiverAddr NOTIFY receiverAddrChanged)
-    //Q_PROPERTY(bool validReceiverAddress   READ isValidReceiverAddress CONSTANT)
-    //Q_PROPERTY(QString senderAddr READ getSenderAddr WRITE setSenderAddr NOTIFY senderAddrChanged)
     Q_PROPERTY(QQmlListProperty<TxObject> transactions READ getTransactions NOTIFY transactionsChanged)
-    Q_PROPERTY(int selectedAddr READ selectedAddr WRITE setSelectedAddr NOTIFY selectedAddrChanged)
 
     Q_PROPERTY(QString walletStatusErrorMsg READ getWalletStatusErrorMsg NOTIFY stateChanged)
     Q_PROPERTY(bool isOfflineStatus READ getIsOfflineStatus WRITE setIsOfflineStatus NOTIFY isOfflineStatusChanged)
@@ -156,7 +153,6 @@ public:
     QQmlListProperty<TxObject> getTransactions();
     QString sendAmount() const;
     QString feeGrothes() const;
-    QString receiverAddr() const;
     QString syncTime() const;
     bool getIsSyncInProgress() const;
     void setIsSyncInProgress(bool value);
@@ -175,21 +171,15 @@ public:
     QString getNewReceiverAddr() const;
     QString getNewReceiverAddrQR() const;
     void setNewReceiverName(const QString& value);
-	QString getNewReceiverName() const;
-    int selectedAddr() const;
+    QString getNewReceiverName() const;
 
     QString getReceiverAddr() const;
     void setReceiverAddr(const QString& value);
 
-    /*QString getSenderAddr() const;
-    void setSenderAddr(const QString& value);*/
-
     void setSendAmount(const QString& text);
-    void setSendAmountMils(const QString& text);
     void setFeeGrothes(const QString& text);
-    void setSelectedAddr(int index);
     void setComment(const QString& value);
-	QString getComment() const;
+    QString getComment() const;
     QString getBranchName() const;
     QString sortRole() const;
     void setSortRole(const QString&);
@@ -209,14 +199,13 @@ public slots:
     void onTxStatus(beam::ChangeAction action, const std::vector<beam::TxDescription>& items);
     void sendMoney();
     void syncWithNode();
-    void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers);
     void onSyncProgressUpdated(int done, int total);
     void onNodeSyncProgressUpdated(int done, int total);
     void onChangeCalculated(beam::Amount change);
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
-	void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
-    void onGeneratedNewWalletID(const beam::WalletID& walletID);
-    void onNodeConnectedChanged(bool is_node_connected);
+    void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
+    void onGeneratedNewAddress(const beam::WalletAddress& addr);
+    void onNodeConnectionChanged(bool isNodeConnected);
     void onNodeConnectionFailed();
 
 signals:
@@ -225,11 +214,9 @@ signals:
     void sendAmountChanged();
     void feeGrothesChanged();
     void transactionsChanged();
-    void selectedAddrChanged();
     void actualAvailableChanged();
     void changeChanged();
     void receiverAddrChanged();
-    void senderAddrChanged();
     void isSyncInProgressChanged();
     void nodeSyncProgressChanged();
     void newReceiverAddrChanged();
@@ -260,16 +247,12 @@ private:
 
     TxList _txList;
 
-    std::vector<beam::TxPeer> _addrList;
-
     QString _receiverAddr;
-    //QString _senderAddr;
-    QString _newReceiverAddr;
+    beam::WalletAddress _newReceiverAddr;
     QString _newReceiverAddrQR;
     QString _newReceiverName;
     QString _comment;
 
-    int _selectedAddr;
     bool _isSyncInProgress;
     bool _isOfflineStatus;
     bool _isFailedStatus;

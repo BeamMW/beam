@@ -23,9 +23,6 @@
 #include "../utility/io/timer.h"
 #include "aes.h"
 #include "block_crypt.h"
-#include <boost/intrusive/set.hpp>
-#include <boost/intrusive/list.hpp>
-#include <boost/intrusive_ptr.hpp>
 
 namespace beam {
 namespace proto {
@@ -57,7 +54,7 @@ namespace proto {
 
 #define BeamNodeMsg_Body(macro) \
 	macro(ByteBuffer, Perishable) \
-	macro(ByteBuffer, Ethernal)
+	macro(ByteBuffer, Eternal)
 
 #define BeamNodeMsg_GetProofState(macro) \
 	macro(Height, Height)
@@ -100,17 +97,9 @@ namespace proto {
 #define BeamNodeMsg_ProofChainWork(macro) \
 	macro(Block::ChainWorkProof, Proof)
 
-#define BeamNodeMsg_GetMined(macro) \
-	macro(Height, HeightMin)
-
-#define BeamNodeMsg_Mined(macro) \
-	macro(std::vector<PerMined>, Entries)
-
-#define BeamNodeMsg_Config(macro) \
+#define BeamNodeMsg_Login(macro) \
 	macro(ECC::Hash::Value, CfgChecksum) \
-	macro(bool, SpreadingTransactions) \
-	macro(bool, Bbs) \
-	macro(bool, SendPeers)
+	macro(uint8_t, Flags)
 
 #define BeamNodeMsg_Ping(macro)
 #define BeamNodeMsg_Pong(macro)
@@ -186,23 +175,22 @@ namespace proto {
 	macro(ByteBuffer, Portion) \
 	macro(uint64_t, SizeTotal)
 
-#define BeamNodeMsg_Recover(macro) \
-	macro(bool, Private) \
-	macro(bool, Public)
-
-#define BeamNodeMsg_Recovered(macro) \
-	macro(std::vector<Key::IDV>, Private) \
-	macro(std::vector<Key::IDV>, Public)
-
 #define BeamNodeMsg_GetUtxoEvents(macro) \
 	macro(Height, HeightMin)
 
 #define BeamNodeMsg_UtxoEvents(macro) \
-	macro(std::vector<UtxoEventPlus>, Events)
+	macro(std::vector<UtxoEvent>, Events)
+
+#define BeamNodeMsg_GetBlockFinalization(macro) \
+	macro(Height, Height) \
+	macro(Amount, Fees)
+
+#define BeamNodeMsg_BlockFinalization(macro) \
+	macro(Transaction::Ptr, Value)
 
 #define BeamNodeMsgsAll(macro) \
 	/* general msgs */ \
-	macro(0x00, Config) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
+	macro(0x00, Login) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
 	macro(0x01, Bye) \
 	macro(0x02, Ping) \
 	macro(0x03, Pong) \
@@ -240,12 +228,10 @@ namespace proto {
 	macro(0x24, GetProofKernel2) \
 	macro(0x25, ProofKernel2) \
 	/* onwer-relevant */ \
-	macro(0x28, GetMined) \
-	macro(0x29, Mined) \
-	macro(0x2a, Recover) \
-	macro(0x2b, Recovered) \
 	macro(0x2c, GetUtxoEvents) \
 	macro(0x2d, UtxoEvents) \
+	macro(0x2e, GetBlockFinalization) \
+	macro(0x2f, BlockFinalization) \
 	/* tx broadcast and replication */ \
 	macro(0x30, NewTransaction) \
 	macro(0x31, HaveTransaction) \
@@ -259,51 +245,44 @@ namespace proto {
 	macro(0x3d, BbsPickChannelRes) \
 
 
-	struct PerMined
-	{
-		Block::SystemState::ID m_ID;
-		Amount m_Fees;
-		bool m_Active; // mined on active(longest) branch
-
-		template <typename Archive>
-		void serialize(Archive& ar)
-		{
-			ar
-				& m_ID
-				& m_Fees
-				& m_Active;
-		}
-
-		static const uint32_t s_EntriesMax = 200; // if this is the size of the vector - the result is probably trunacted
+	struct LoginFlags {
+		static const uint8_t SpreadingTransactions	= 0x1; // I'm spreading txs, please send
+		static const uint8_t Bbs					= 0x2; // I'm spreading bbs messages
+		static const uint8_t SendPeers				= 0x4; // Please send me periodically peers recommendations
+		static const uint8_t MiningFinalization		= 0x8; // I want to finalize block construction for my owned node
 	};
 
 	struct IDType
 	{
 		static const uint8_t Node		= 'N';
 		static const uint8_t Owner		= 'O';
+		static const uint8_t Viewer		= 'V';
 	};
 
 	static const uint32_t g_HdrPackMaxSize = 128;
 
-#pragma pack (push, 1)
-	struct UtxoEventPlus
-		:public UtxoEvent
+	struct UtxoEvent
 	{
-		static const uint32_t s_Max = 64; // may actually send more, if the remaining events are on the same height
+		static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
 
-		uintBigFor<Height>::Type m_Height;
+		Key::IDVC m_Kidvc;
+
+		Height m_Height;
+		Height m_Maturity;
+
+		uint8_t m_Added; // 1 = add, 0 = spend
+
 
 		template <typename Archive>
 		void serialize(Archive& ar)
 		{
-			typedef uintBigFor<UtxoEventPlus>::Type TBlob;
-			static_assert(sizeof(TBlob) == sizeof(*this), "");
-
-			ar & reinterpret_cast<TBlob&>(*this);
+			ar
+				& m_Kidvc
+				& m_Height
+				& m_Maturity
+				& m_Added;
 		}
 	};
-#pragma pack (pop)
-
 
 	enum Unused_ { Unused };
 	enum Uninitialized_ { Uninitialized };
@@ -316,8 +295,8 @@ namespace proto {
 	inline void ZeroInit(std::shared_ptr<T>&) { }
 	template <typename T>
 	inline void ZeroInit(std::unique_ptr<T>&) { }
-	template <uint32_t nBits_>
-	inline void ZeroInit(uintBig_t<nBits_>& x) { x = ECC::Zero; }
+	template <uint32_t nBytes_>
+	inline void ZeroInit(uintBig_t<nBytes_>& x) { x = ECC::Zero; }
 	inline void ZeroInit(io::Address& x) { }
 	inline void ZeroInit(ByteBuffer&) { }
 	inline void ZeroInit(Block::SystemState::ID& x) { ZeroObject(x); }
@@ -387,7 +366,7 @@ namespace proto {
 
 		Mode::Enum m_Mode;
 
-		typedef uintBig_t<64> MacValue;
+		typedef uintBig_t<8> MacValue;
 		static void get_HMac(ECC::Hash::Mac&, MacValue&);
 
 		ProtocolPlus(uint8_t v0, uint8_t v1, uint8_t v2, size_t maxMessageTypes, IErrorHandler& errorHandler, size_t serializedFragmentsSize);
@@ -403,8 +382,9 @@ namespace proto {
 	};
 
 	void Sk2Pk(PeerID&, ECC::Scalar::Native&); // will negate the scalar iff necessary
+	bool ImportPeerID(ECC::Point::Native&, const PeerID&);
 	bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void*, uint32_t); // will fail iff addr is invalid
-	bool BbsDecrypt(uint8_t*& p, uint32_t& n, ECC::Scalar::Native& privateAddr);
+	bool BbsDecrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr);
 
 	struct INodeMsgHandler
 		:public IErrorHandler
@@ -444,6 +424,8 @@ namespace proto {
 		BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 
+		void HashAddNonce(ECC::Hash::Processor&, bool bRemote);
+
 	public:
 
 		NodeConnection();
@@ -459,6 +441,11 @@ namespace proto {
 		void SecureConnect(); // must be connected already
 
 		void ProveID(ECC::Scalar::Native&, uint8_t nIDType); // secure channel must be established
+		void ProveKdfObscured(Key::IKdf&, uint8_t nIDType); // prove ownership of the kdf to the one with pkdf, otherwise reveal no info
+		void ProvePKdfObscured(Key::IPKdf&, uint8_t nIDType);
+		bool IsKdfObscured(Key::IPKdf&, const PeerID&);
+		bool IsPKdfObscured(Key::IPKdf&, const PeerID&);
+
 
 		virtual void OnMsg(SChannelInitiate&&) override;
 		virtual void OnMsg(SChannelReady&&) override;
@@ -523,359 +510,6 @@ namespace proto {
 	};
 
 	std::ostream& operator << (std::ostream& s, const NodeConnection::DisconnectReason&);
-
-
-	class PeerManager
-	{
-	public:
-
-		// Rating system:
-		//	Initially set to default (non-zero)
-		//	Increased after a valid data is received from this peer (minor for header and transaction, major for a block)
-		//	Decreased if the peer fails to accomplish the data request ()
-		//	Decreased on network error shortly after connect/accept (or inability to connect)
-		//	Reset to 0 for banned peers. Triggered upon:
-		//		Any protocol violation (including running with incompatible configuration)
-		//		invalid block received from this peer
-		//
-		// Policy wrt peers:
-		//	Connection to banned peers is disallowed for at least specified time period (even if no other options left)
-		//	We calculate two ratings for all the peers:
-		//		Raw rating, based on its behavior
-		//		Adjusted rating, which is increased with the starvation time, i.e. how long ago it was connected
-		//	The selection of the peer to performed by selecting two (non-overlapping) groups.
-		//		Those with highest ratings
-		//		Those with highest *adjusted* ratings.
-		//	So that we effectively always try to maintain connection with the best peers, but also shuffle and connect to others.
-		//
-		//	There is a min threshold for connection time, i.e. we won't disconnect shortly after connecting because the rating of this peer went slightly below another candidate
-
-		struct Rating
-		{
-			static const uint32_t Initial = 1024;
-			static const uint32_t RewardHeader = 64;
-			static const uint32_t RewardTx = 16;
-			static const uint32_t RewardBlock = 512;
-			static const uint32_t PenaltyTimeout = 256;
-			static const uint32_t PenaltyNetworkErr = 128;
-			static const uint32_t Max = 10240; // saturation
-
-			static uint32_t Saturate(uint32_t);
-			static void Inc(uint32_t& r, uint32_t delta);
-			static void Dec(uint32_t& r, uint32_t delta);
-		};
-
-		struct Cfg {
-			uint32_t m_DesiredHighest = 5;
-			uint32_t m_DesiredTotal = 10;
-			uint32_t m_TimeoutDisconnect_ms = 1000 * 60 * 2; // connected for less than 2 minutes -> penalty
-			uint32_t m_TimeoutReconnect_ms	= 1000;
-			uint32_t m_TimeoutBan_ms		= 1000 * 60 * 10;
-			uint32_t m_TimeoutAddrChange_s	= 60 * 60 * 2;
-			uint32_t m_StarvationRatioInc	= 1; // increase per second while not connected
-			uint32_t m_StarvationRatioDec	= 2; // decrease per second while connected (until starvation reward is zero)
-		} m_Cfg;
-
-
-		struct PeerInfo
-		{
-			struct ID
-				:public boost::intrusive::set_base_hook<>
-			{
-				PeerID m_Key;
-				bool operator < (const ID& x) const { return (m_Key < x.m_Key); }
-
-				IMPLEMENT_GET_PARENT_OBJ(PeerInfo, m_ID)
-			} m_ID;
-
-			struct RawRating
-				:public boost::intrusive::set_base_hook<>
-			{
-				uint32_t m_Value;
-				bool operator < (const RawRating& x) const { return (m_Value > x.m_Value); } // reverse order, begin - max
-
-				IMPLEMENT_GET_PARENT_OBJ(PeerInfo, m_RawRating)
-			} m_RawRating;
-
-			struct AdjustedRating
-				:public boost::intrusive::set_base_hook<>
-			{
-				uint32_t m_Increment;
-				uint32_t get() const;
-				bool operator < (const AdjustedRating& x) const { return (get() > x.get()); } // reverse order, begin - max
-
-				IMPLEMENT_GET_PARENT_OBJ(PeerInfo, m_AdjustedRating)
-			} m_AdjustedRating;
-
-			struct Active
-				:public boost::intrusive::list_base_hook<>
-			{
-				bool m_Now;
-				bool m_Next; // used internally during switching
-				IMPLEMENT_GET_PARENT_OBJ(PeerInfo, m_Active)
-			} m_Active;
-
-			struct Addr
-				:public boost::intrusive::set_base_hook<>
-			{
-				io::Address m_Value;
-				bool operator < (const Addr& x) const { return (m_Value < x.m_Value); }
-
-				IMPLEMENT_GET_PARENT_OBJ(PeerInfo, m_Addr)
-			} m_Addr;
-
-			Timestamp m_LastSeen; // needed to filter-out dead peers, and to know when to update the address
-			uint32_t m_LastActivity_ms; // updated on connection attempt, and disconnection.
-		};
-
-		typedef boost::intrusive::multiset<PeerInfo::ID> PeerIDSet;
-		typedef boost::intrusive::multiset<PeerInfo::RawRating> RawRatingSet;
-		typedef boost::intrusive::multiset<PeerInfo::AdjustedRating> AdjustedRatingSet;
-		typedef boost::intrusive::multiset<PeerInfo::Addr> AddrSet;
-		typedef boost::intrusive::list<PeerInfo::Active> ActiveList;
-
-		void Update(); // will trigger activation/deactivation of peers
-		PeerInfo* Find(const PeerID& id, bool& bCreate);
-
-		void OnActive(PeerInfo&, bool bActive);
-		void ModifyRating(PeerInfo&, uint32_t, bool bAdd);
-		void Ban(PeerInfo&);
-		void OnSeen(PeerInfo&);
-		void OnRemoteError(PeerInfo&, bool bShouldBan);
-
-		void ModifyAddr(PeerInfo&, const io::Address&);
-		void RemoveAddr(PeerInfo&);
-
-		PeerInfo* OnPeer(const PeerID&, const io::Address&, bool bAddrVerified);
-
-		void Delete(PeerInfo&);
-		void Clear();
-
-		virtual void ActivatePeer(PeerInfo&) {}
-		virtual void DeactivatePeer(PeerInfo&) {}
-		virtual PeerInfo* AllocPeer() = 0;
-		virtual void DeletePeer(PeerInfo&) = 0;
-
-		const RawRatingSet& get_Ratings() const { return m_Ratings; }
-
-	private:
-		PeerIDSet m_IDs;
-		RawRatingSet m_Ratings;
-		AdjustedRatingSet m_AdjustedRatings;
-		AddrSet m_Addr;
-		ActiveList m_Active;
-		uint32_t m_TicksLast_ms = 0;
-
-		void UpdateRatingsInternal(uint32_t t_ms);
-
-		void ActivatePeerInternal(PeerInfo&, uint32_t nTicks_ms, uint32_t& nSelected);
-		void ModifyRatingInternal(PeerInfo&, uint32_t, bool bAdd, bool ban);
-	};
-
-
-	std::ostream& operator << (std::ostream& s, const PeerManager::PeerInfo&);
-
-	struct FlyClient
-	{
-#define REQUEST_TYPES_All(macro) \
-		macro(Utxo,			GetProofUtxo,		ProofUtxo) \
-		macro(Kernel,		GetProofKernel,		ProofKernel) \
-		macro(Mined,		GetMined,			Mined) \
-		macro(Transaction,	NewTransaction,		Boolean) \
-		macro(BbsMsg,		BbsMsg,				Pong) \
-		macro(Recover,		Recover,			Recovered)
-
-		class Request
-		{
-			int m_Refs = 0;
-			friend void intrusive_ptr_add_ref(Request* p) { p->AddRef(); }
-			friend void intrusive_ptr_release(Request* p) { p->Release(); }
-		public:
-
-			typedef boost::intrusive_ptr<Request> Ptr;
-
-			void AddRef() { m_Refs++; }
-			void Release() { if (!--m_Refs) delete this; }
-
-			enum Type {
-#define THE_MACRO(type, msgOut, msgIn) type,
-				REQUEST_TYPES_All(THE_MACRO)
-#undef THE_MACRO
-				count
-			};
-
-			virtual ~Request() {}
-			virtual Type get_Type() const = 0;
-
-			struct IHandler {
-				virtual void OnComplete(Request&) = 0;
-			};
-
-			IHandler* m_pTrg = NULL; // set to NULL if aborted.
-		};
-
-#define THE_MACRO(type, msgOut, msgIn) \
-		struct Request##type :public Request { \
-			typedef boost::intrusive_ptr<Request##type> Ptr; \
-			Request##type() :m_Res(Zero) {} \
-			virtual ~Request##type() {} \
-			virtual Type get_Type() const { return Type::type; } \
-			proto::msgOut m_Msg; \
-			proto::msgIn m_Res; \
-		};
-
-		REQUEST_TYPES_All(THE_MACRO)
-#undef THE_MACRO
-
-		virtual ~FlyClient() {}
-		virtual void OnNewTip() {} // tip already added
-		virtual void OnRolledBack() {} // reversed states are already removed
-		virtual bool IsOwnedNode(const PeerID&, Key::IKdf::Ptr& pKdf) { return false; }
-		virtual Block::SystemState::IHistory& get_History() = 0;
-
-		struct IBbsReceiver
-		{
-			virtual void OnMsg(proto::BbsMsg&&) = 0;
-		};
-
-		struct INetwork
-		{
-			virtual ~INetwork() {}
-
-			virtual void Connect() = 0;
-			virtual void Disconnect() = 0;
-			virtual void PostRequestInternal(Request&) = 0;
-			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) {} // duplicates should be handled internally
-
-			void PostRequest(Request&, Request::IHandler&);
-		};
-
-		struct NetworkStd
-			:public INetwork
-		{
-			FlyClient& m_Client;
-
-			NetworkStd(FlyClient& fc) :m_Client(fc) {}
-			virtual ~NetworkStd();
-
-			struct RequestNode
-				:public boost::intrusive::list_base_hook<>
-			{
-				Request::Ptr m_pRequest;
-			};
-
-			struct RequestList
-				:public boost::intrusive::list<RequestNode>
-			{
-				void Delete(RequestNode& n);
-				void Finish(RequestNode& n);
-				void Clear();
-				~RequestList() { Clear(); }
-			};
-			
-			RequestList m_lst; // idle
-			void OnNewRequests();
-
-			struct Config {
-				std::vector<io::Address> m_vNodes;
-				uint32_t m_PollPeriod_ms = 0; // set to 0 to keep connection. Anyway poll period would be no less than the expected rate of blocks
-				uint32_t m_ReconnectTimeout_ms = 5000;
-			} m_Cfg;
-
-			class Connection
-				:public NodeConnection
-				,public boost::intrusive::list_base_hook<>
-			{
-				struct SyncCtx
-				{
-					std::vector<Block::SystemState::Full> m_vConfirming;
-					Block::SystemState::Full m_Confirmed;
-					Block::SystemState::Full m_TipBeforeGap;
-					Height m_LowHeight;
-				};
-
-				std::unique_ptr<SyncCtx> m_pSync;
-
-				size_t m_iIndex; // for callbacks only
-				bool m_ReportedConnected;
-
-				struct StateArray;
-
-				bool ShouldSync() const;
-				void StartSync();
-				void SearchBelow(Height, uint32_t nCount);
-				void RequestChainworkProof();
-				void PrioritizeSelf();
-				Request& get_FirstRequestStrict(Request::Type);
-				void OnFirstRequestDone(bool bMustBeAtTip = true);
-
-				io::Timer::Ptr m_pTimer;
-				void OnTimer();
-				void SetTimer(uint32_t);
-				void KillTimer();
-
-				void ResetInternal();
-				void ResetVars();
-
-			public:
-				NetworkStd& m_This;
-
-				Connection(NetworkStd& x, size_t iIndex);
-				virtual ~Connection();
-
-				io::Address m_Addr;
-
-				// most recent tip of the Node, according to which all the proofs are interpreted
-				Block::SystemState::Full m_Tip;
-
-				RequestList m_lst; // in progress
-				void AssignRequests();
-				void AssignRequest(RequestNode&);
-
-				bool IsAtTip() const;
-
-				bool m_bBbs = false;
-				bool m_bTransactions = false;
-				bool m_bNode = false;
-
-				// NodeConnection
-				virtual void OnConnectedSecure() override;
-				virtual void OnDisconnect(const DisconnectReason&) override;
-				virtual void OnMsg(proto::Authentication&& msg) override;
-				virtual void OnMsg(proto::Config&& msg) override;
-				virtual void OnMsg(proto::NewTip&& msg) override;
-				virtual void OnMsg(proto::ProofCommonState&& msg) override;
-				virtual void OnMsg(proto::ProofChainWork&& msg) override;
-				virtual void OnMsg(proto::BbsMsg&& msg) override;
-#define THE_MACRO(type, msgOut, msgIn) \
-				virtual void OnMsg(proto::msgIn&&) override; \
-				bool IsSupported(Request##type&); \
-				void OnRequestData(Request##type&);
-				REQUEST_TYPES_All(THE_MACRO)
-#undef THE_MACRO
-
-				template <typename Req> void SendRequest(Req& r) { Send(r.m_Msg); }
-				void SendRequest(RequestBbsMsg&);
-			};
-
-			typedef boost::intrusive::list<Connection> ConnectionList;
-			ConnectionList m_Connections;
-
-			typedef std::map<BbsChannel, std::pair<IBbsReceiver*, Timestamp> > BbsSubscriptions;
-			BbsSubscriptions m_BbsSubscriptions;
-
-			// INetwork
-			virtual void Connect() override;
-			virtual void Disconnect() override;
-			virtual void PostRequestInternal(Request&) override;
-			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) override;
-
-			// more events
-			virtual void OnNodeConnected(size_t iNodeIdx, bool) {}
-			virtual void OnConnectionFailed(size_t iNodeIdx, const NodeConnection::DisconnectReason&) {}
-		};
-	};
-
 
 } // namespace proto
 } // namespace beam

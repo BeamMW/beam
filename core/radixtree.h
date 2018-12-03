@@ -80,7 +80,7 @@ public:
 		CursorBase(Node** pp) :m_pp(pp) {}
 
 		Leaf& get_Leaf() const;
-		void Invalidate();
+		void InvalidateElement();
 
 		Node** get_pp() const { return m_pp; }
 		uint16_t get_Depth() const { return m_nPtrs; }

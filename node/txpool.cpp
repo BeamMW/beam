@@ -13,8 +13,6 @@
 // limitations under the License.
 
 #include "processor.h"
-#include "../utility/serialize.h"
-#include "../core/serialization_adapters.h"
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
 
@@ -29,14 +27,7 @@ void save_VecPtr(Archive& ar, const std::vector<TPtr>& v)
 
 void TxPool::Profit::SetSize(const Transaction& tx)
 {
-	// account only for elements. Ignore offset and array sizes
-	SerializerSizeCounter ssc;
-
-	save_VecPtr(ssc, tx.m_vInputs);
-	save_VecPtr(ssc, tx.m_vOutputs);
-	save_VecPtr(ssc, tx.m_vKernels);
-
-	m_nSize = (uint32_t) ssc.m_Counter.m_Value;
+	m_nSize = (uint32_t) tx.get_Reader().get_SizeNetto();
 }
 
 bool TxPool::Profit::operator < (const Profit& t) const
@@ -44,13 +35,9 @@ bool TxPool::Profit::operator < (const Profit& t) const
 	// handle overflow. To be precise need to use big-int (96-bit) arithmetics
 	//	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;
 
-	uintBigFor<AmountBig>::Type fee0, fee1;
-	m_Fee.Export(fee0);
-	t.m_Fee.Export(fee1);
-
 	return
-		(fee0 * uintBigFrom(t.m_nSize)) >
-		(fee1 * uintBigFrom(m_nSize));
+		(m_Fee * uintBigFrom(t.m_nSize)) >
+		(t.m_Fee * uintBigFrom(m_nSize));
 }
 
 /////////////////////////////

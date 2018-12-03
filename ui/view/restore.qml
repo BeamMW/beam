@@ -14,7 +14,8 @@ Item
     anchors.fill: parent
 
     property bool isRecoveryMode: false
-    property alias isCreating:viewModel.creating
+    property bool isCreating: false
+    property bool isConnectToRandomNode: false
 
     RestoreViewModel {
         id: viewModel 
@@ -23,44 +24,9 @@ Item
         }
     }
 
-    Component
-    {
+    LogoComponent {
         id: logoComponent
-
-        Column
-        {
-            spacing: 20
-
-            Image {
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                source: "qrc:/assets/start-logo.svg"
-                width: 242
-                height: 170
-            }
-
-            SFText {
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                text: qsTr("BEAM")
-                color: "#25c1ff"
-                font.pixelSize: 32
-                font.styleName: "Bold"; font.weight: Font.Bold
-                font.letterSpacing: 20
-            }
-
-            SFText {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.topMargin: 20
-
-                text: qsTr("Scalable confidential cryptocurrency")
-
-                color: "#25c1ff"
-                font.pixelSize: 18
-                font.styleName: "Bold"; font.weight: Font.Bold
-            }
-        }
-    }
+    }    
 
     Rectangle
     {
@@ -79,10 +45,15 @@ Item
             anchors.fill: parent
             anchors.topMargin: 50
 
+            Item {
+                Layout.fillHeight: true
+                Layout.maximumHeight: 140
+            }
+
             Loader { 
                 sourceComponent: logoComponent 
                 Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
-                Layout.topMargin: 140
+                //Layout.topMargin: 140
             }
             SFText {
                 Layout.bottomMargin: 6
@@ -105,19 +76,29 @@ Item
                 value: viewModel.progress
             }
 
+            Item {
+                Layout.fillHeight: true
+            }
+
             Row {
                 Layout.alignment: Qt.AlignBottom | Qt.AlignHCenter
                 Layout.topMargin: 52
-                Layout.bottomMargin: 143
+                //Layout.bottomMargin: 143
 
                 CustomButton {
                     visible: isRecoveryMode && isCreating
                     text: qsTr("cancel")
                     icon.source: "qrc:/assets/icon-cancel.svg"
                     onClicked: {
-                        root.parent.source = "qrc:/main.qml";
+                        viewModel.cancelRestore();
+                        root.parent.setSource("qrc:/start.qml", {"isRestoreCancelled": true, "isRandomNodeSelected": isConnectToRandomNode});
                     }
                 }
+            }
+
+            Item {
+                Layout.fillHeight: true
+                Layout.maximumHeight: 143
             }
         }
         Component.onCompleted: {

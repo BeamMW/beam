@@ -164,21 +164,38 @@ namespace detail
         }
 
         /// ECC::uintBig serialization
-        template<typename Archive, uint32_t nBits_>
-        static Archive& save(Archive& ar, const beam::uintBig_t<nBits_>& val)
+        template<typename Archive, uint32_t nBytes_>
+        static Archive& save(Archive& ar, const beam::uintBig_t<nBytes_>& val)
         {
             ar & val.m_pData;
             return ar;
         }
 
-        template<typename Archive, uint32_t nBits_>
-        static Archive& load(Archive& ar, beam::uintBig_t<nBits_>& val)
+        template<typename Archive, uint32_t nBytes_>
+        static Archive& load(Archive& ar, beam::uintBig_t<nBytes_>& val)
         {
             ar & val.m_pData;
             return ar;
         }
 
-        /// ECC::Scalar serialization
+		/// beam::FourCC serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::FourCC& val)
+		{
+			ar & beam::uintBigFrom(val.V);
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::FourCC& val)
+		{
+			beam::uintBigFor<uint32_t>::Type x;
+			ar & x;
+			x.Export(val.V);
+			return ar;
+		}
+
+		/// ECC::Scalar serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const ECC::Scalar& scalar)
         {
@@ -202,7 +219,6 @@ namespace detail
 		{
 			ar
 				& kidv.m_Idx
-				& kidv.m_IdxSecondary
 				& kidv.m_Type
 				& kidv.m_Value;
 
@@ -214,14 +230,34 @@ namespace detail
 		{
 			ar
 				& kidv.m_Idx
-				& kidv.m_IdxSecondary
 				& kidv.m_Type
 				& kidv.m_Value;
 
 			return ar;
 		}
 
-        /// ECC::Signature serialization
+		/// ECC::Key::IDVC serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const ECC::Key::IDVC& kidvc)
+		{
+			ar
+				& Cast::Down<ECC::Key::IDV>(kidvc)
+				& kidvc.m_iChild;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, ECC::Key::IDVC& kidvc)
+		{
+			ar
+				& Cast::Down<ECC::Key::IDV>(kidvc)
+				& kidvc.m_iChild;
+
+			return ar;
+		}
+
+		/// ECC::Signature serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const ECC::Signature& val)
         {
@@ -358,7 +394,6 @@ namespace detail
                 & val.m_Value
                 & val.m_Signature
 				& val.m_Kid.m_Idx
-				& val.m_Kid.m_Idx2
 				& val.m_Kid.m_Type
             ;
 
@@ -372,7 +407,6 @@ namespace detail
                 & val.m_Value
                 & val.m_Signature
 				& val.m_Kid.m_Idx
-				& val.m_Kid.m_Idx2
 				& val.m_Kid.m_Type
             ;
 
@@ -657,14 +691,14 @@ namespace detail
         }
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::TxVectors::Ethernal& txv)
+		static Archive& save(Archive& ar, const beam::TxVectors::Eternal& txv)
 		{
 			save_VecPtr(ar, txv.m_vKernels);
 			return ar;
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::TxVectors::Ethernal& txv)
+		static Archive& load(Archive& ar, beam::TxVectors::Eternal& txv)
 		{
 			load_VecPtr(ar, txv.m_vKernels);
 			return ar;
@@ -675,7 +709,7 @@ namespace detail
         {
 			ar
 				& Cast::Down<beam::TxVectors::Perishable>(tx)
-				& Cast::Down<beam::TxVectors::Ethernal>(tx)
+				& Cast::Down<beam::TxVectors::Eternal>(tx)
 				& Cast::Down<beam::TxBase>(tx);
 
             return ar;
@@ -686,7 +720,7 @@ namespace detail
         {
 			ar
 				& Cast::Down<beam::TxVectors::Perishable>(tx)
-				& Cast::Down<beam::TxVectors::Ethernal>(tx)
+				& Cast::Down<beam::TxVectors::Eternal>(tx)
 				& Cast::Down<beam::TxBase>(tx);
 
             return ar;
@@ -801,36 +835,14 @@ namespace detail
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::Block::BodyBase& bb)
 		{
-			uint8_t nFlags =
-				(bb.m_Subsidy.Hi ? 1 : 0) |
-				(bb.m_SubsidyClosing ? 2 : 0);
-
-			ar & (const beam::TxBase&) bb;
-			ar & nFlags;
-			ar & bb.m_Subsidy.Lo;
-
-			if (bb.m_Subsidy.Hi)
-				ar & bb.m_Subsidy.Hi;
-
+			ar & Cast::Down<beam::TxBase>(bb);
 			return ar;
 		}
 
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::Block::BodyBase& bb)
 		{
-			uint8_t nFlags;
-
-			ar & (beam::TxBase&) bb;
-			ar & nFlags;
-			ar & bb.m_Subsidy.Lo;
-
-			if (1 & nFlags)
-				ar & bb.m_Subsidy.Hi;
-			else
-				bb.m_Subsidy.Hi = 0;
-
-			bb.m_SubsidyClosing = ((2 & nFlags) != 0);
-
+			ar & Cast::Down<beam::TxBase>(bb);
 			return ar;
 		}
 
@@ -839,7 +851,7 @@ namespace detail
 		{
 			ar & Cast::Down<beam::Block::BodyBase>(bb);
 			ar & Cast::Down<beam::TxVectors::Perishable>(bb);
-			ar & Cast::Down<beam::TxVectors::Ethernal>(bb);
+			ar & Cast::Down<beam::TxVectors::Eternal>(bb);
 
 			return ar;
 		}
@@ -849,7 +861,7 @@ namespace detail
 		{
 			ar & Cast::Down<beam::Block::BodyBase>(bb);
 			ar & Cast::Down<beam::TxVectors::Perishable>(bb);
-			ar & Cast::Down<beam::TxVectors::Ethernal>(bb);
+			ar & Cast::Down<beam::TxVectors::Eternal>(bb);
 
 			return ar;
 		}

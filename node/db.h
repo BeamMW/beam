@@ -40,6 +40,7 @@ public:
 			MyID,
 			SyncTarget,
 			LoHorizon,
+			Treasury
 		};
 	};
 
@@ -94,10 +95,6 @@ public:
 			StateSetBlock,
 			//StateDelBlock,
 			StateSetRollback,
-			MinedIns,
-			MinedUpd,
-			MinedDel,
-			MinedSel,
 			EventIns,
 			EventDel,
 			EventEnum,
@@ -204,7 +201,7 @@ public:
 	// Hi-level functions
 
 	void ParamSet(uint32_t ID, const uint64_t*, const Blob*);
-	bool ParamGet(uint32_t ID, uint64_t*, Blob*);
+	bool ParamGet(uint32_t ID, uint64_t*, Blob*, ByteBuffer* = NULL);
 
 	uint64_t ParamIntGetDef(int ID, uint64_t def = 0);
 
@@ -268,20 +265,6 @@ public:
 	void MoveFwd(const StateID&);
 
 	void assert_valid(); // diagnostic, for tests only
-
-	void SetMined(const StateID&, const Amount&);
-	bool DeleteMinedSafe(const StateID&);
-
-	struct WalkerMined {
-		Recordset m_Rs;
-		StateID m_Sid;
-		Amount m_Amount;
-
-		WalkerMined(NodeDB& db) :m_Rs(db) {}
-		bool MoveNext();
-	};
-
-	void EnumMined(WalkerMined&, Height hMin); // from low to high
 
 	void EnumMacroblocks(WalkerState&); // highest to lowest
 	void MacroblockIns(uint64_t rowid);
@@ -354,7 +337,7 @@ public:
 
 	uint64_t FindStateWorkGreater(const Difficulty::Raw&);
 
-	// reset cursor to zero. Keep all the data: Mined, local macroblocks, peers, bbs, dummy UTXOs
+	// reset cursor to zero. Keep all the data: local macroblocks, peers, bbs, dummy UTXOs
 	void ResetCursor();
 
 private:
