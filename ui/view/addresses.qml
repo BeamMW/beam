@@ -67,27 +67,43 @@ ColumnLayout {
             model: viewModel.activeAddresses
             visible: false
 
-            /*sortIndicatorVisible: true
-            sortIndicatorColumn: 1
+            sortIndicatorVisible: true
+            sortIndicatorColumn: 4
             sortIndicatorOrder: Qt.DescendingOrder
 
             Binding{
                 target: viewModel
-                property: "sortRole"
-                value: transactionsView.getColumn(transactionsView.sortIndicatorColumn).role
+                property: "activeAddrSortRole"
+                value: activeAddressesView.getColumn(activeAddressesView.sortIndicatorColumn).role
             }
 
             Binding{
                 target: viewModel
-                property: "sortOrder"
-                value: transactionsView.sortIndicatorOrder
-            }*/
+                property: "activeAddrSortOrder"
+                value: activeAddressesView.sortIndicatorOrder
+            }
         }
 
         AddressTable {
             id: expiredAddressesView
             model: viewModel.expiredAddresses
             visible: false
+
+            sortIndicatorVisible: true
+            sortIndicatorColumn: 4
+            sortIndicatorOrder: Qt.DescendingOrder
+
+            Binding{
+                target: viewModel
+                property: "expiredAddrSortRole"
+                value: expiredAddressesView.getColumn(expiredAddressesView.sortIndicatorColumn).role
+            }
+
+            Binding{
+                target: viewModel
+                property: "expiredAddrSortOrder"
+                value: expiredAddressesView.sortIndicatorOrder
+            }
         }
         
         CustomTableView {

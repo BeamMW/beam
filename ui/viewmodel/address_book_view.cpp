@@ -22,67 +22,90 @@ using namespace std;
 using namespace beam;
 using namespace beamui;
 
+namespace
+{
+    template<typename T>
+    bool compare(const T& lf, const T& rt, Qt::SortOrder sortOrder)
+    {
+        if (sortOrder == Qt::DescendingOrder)
+            return lf > rt;
+        return lf < rt;
+    }
+}
+
 AddressItem::AddressItem(const beam::WalletAddress& address)
-    : m_address{ beamui::toString(address.m_walletID) }
+    : m_walletAddress(address)
+    /*m_address{ beamui::toString(address.m_walletID) }
     , m_name{ QString::fromStdString(address.m_label) }
     , m_category{ QString::fromStdString(address.m_category) }
     , m_createDate{ toString(address.m_createTime) }
-    , m_expirationDate{ address.m_createTime + address.m_duration }
+    , m_expirationDate{ address.m_createTime + address.m_duration }*/
 {
 
 }
 
 QString AddressItem::getAddress() const
 {
-    return m_address;
+    return beamui::toString(m_walletAddress.m_walletID);
 }
 
 QString AddressItem::getName() const
 {
-    return m_name;
+    return QString::fromStdString(m_walletAddress.m_label);
 }
 
 QString AddressItem::getCategory() const
 {
-    return m_category;
+    return QString::fromStdString(m_walletAddress.m_category);
 }
 
 QString AddressItem::getExpirationDate() const
 {
-    return toString(m_expirationDate);
+    return toString(m_walletAddress.m_createTime + m_walletAddress.m_duration);
 }
 
 QString AddressItem::getCreateDate() const
 {
-    return m_createDate;
+    return toString(m_walletAddress.m_createTime);
 }
 
 bool AddressItem::isExpired() const
 {
-    return getTimestamp() > m_expirationDate;
+    return m_walletAddress.isExpired();
+}
+
+beam::Timestamp AddressItem::getCreateTimestamp() const
+{
+    return m_walletAddress.m_createTime;
+}
+
+beam::Timestamp AddressItem::getExpirationTimestamp() const
+{
+    return m_walletAddress.m_createTime + m_walletAddress.m_duration;
 }
 
 ContactItem::ContactItem(const beam::WalletAddress& address)
-    : m_address{ beamui::toString(address.m_walletID) }
+    :m_walletAddress(address)
+    /*: m_address{ beamui::toString(address.m_walletID) }
     , m_name{ QString::fromStdString(address.m_label) }
-    , m_category{ QString::fromStdString(address.m_category) }
+    , m_category{ QString::fromStdString(address.m_category) }*/
 {
 
 }
 
 QString ContactItem::getAddress() const
 {
-    return m_address;
+    return beamui::toString(m_walletAddress.m_walletID);
 }
 
 QString ContactItem::getName() const
 {
-    return m_name;
+    return QString::fromStdString(m_walletAddress.m_label);
 }
 
 QString ContactItem::getCategory() const
 {
-    return m_category;
+    return QString::fromStdString(m_walletAddress.m_category);
 }
 
 AddressBookViewModel::AddressBookViewModel()
@@ -139,6 +162,72 @@ QString AddressBookViewModel::createdRole() const
     return "createDate";
 }
 
+Qt::SortOrder AddressBookViewModel::activeAddrSortOrder() const
+{
+    return m_activeAddrSortOrder;
+}
+
+Qt::SortOrder AddressBookViewModel::expiredAddrSortOrder() const
+{
+    return m_expiredAddrSortOrder;
+}
+
+Qt::SortOrder AddressBookViewModel::contactSortOrder() const
+{
+    return m_contactSortOrder;
+}
+
+void AddressBookViewModel::setActiveAddrSortOrder(Qt::SortOrder value)
+{
+    m_activeAddrSortOrder = value;
+    sortActiveAddresses();
+}
+
+void AddressBookViewModel::setExpiredAddrSortOrder(Qt::SortOrder value)
+{
+    m_expiredAddrSortOrder = value;
+    sortExpiredAddresses();
+}
+
+void AddressBookViewModel::setContactSortOrder(Qt::SortOrder value)
+{
+    m_contactSortOrder = value;
+    sortContacts();
+}
+
+QString AddressBookViewModel::activeAddrSortRole() const
+{
+    return m_activeAddrSortRole;
+}
+
+QString AddressBookViewModel::expiredAddrSortRole() const
+{
+    return m_expiredAddrSortRole;
+}
+
+QString AddressBookViewModel::contactSortRole() const
+{
+    return m_contactSortRole;
+}
+
+void AddressBookViewModel::setActiveAddrSortRole(QString value)
+{
+    m_activeAddrSortRole = value;
+    sortActiveAddresses();
+}
+
+void AddressBookViewModel::setExpiredAddrSortRole(QString value)
+{
+    m_expiredAddrSortRole = value;
+    sortExpiredAddresses();
+}
+
+void AddressBookViewModel::setContactSortRole(QString value)
+{
+    m_contactSortRole = value;
+    sortContacts();
+}
+
 void AddressBookViewModel::deleteAddress(const QString& addr)
 {
     WalletID walletID;
@@ -176,8 +265,10 @@ void AddressBookViewModel::onAdrresses(bool own, const std::vector<WalletAddress
             }
         }
 
-        emit activeAddressesChanged();
-        emit expiredAddressesChanged();
+        //emit activeAddressesChanged();
+        //emit expiredAddressesChanged();
+        sortActiveAddresses();
+        sortExpiredAddresses();
     }
     else
     {
@@ -188,7 +279,8 @@ void AddressBookViewModel::onAdrresses(bool own, const std::vector<WalletAddress
             m_contacts.push_back(new ContactItem(addr));
         }
 
-        emit contactsChanged();
+        sortContacts();
+        //emit contactsChanged();
     }
 }
 
@@ -208,7 +300,8 @@ void AddressBookViewModel::timerEvent(QTimerEvent *event)
         m_activeAddresses.erase(firstExpired, m_activeAddresses.end());
 
         emit activeAddressesChanged();
-        emit expiredAddressesChanged();
+        //emit expiredAddressesChanged();
+        sortExpiredAddresses();
     }
 }
 
@@ -216,4 +309,82 @@ void AddressBookViewModel::getAddressesFromModel()
 {
     m_model.getAsync()->getAddresses(true);
     m_model.getAsync()->getAddresses(false);
+}
+
+void AddressBookViewModel::sortActiveAddresses()
+{
+    auto cmp = generateAddrComparer(m_activeAddrSortRole, m_activeAddrSortOrder);
+    std::sort(m_activeAddresses.begin(), m_activeAddresses.end(), cmp);
+
+    emit activeAddressesChanged();
+}
+
+void AddressBookViewModel::sortExpiredAddresses()
+{
+    auto cmp = generateAddrComparer(m_expiredAddrSortRole, m_expiredAddrSortOrder);
+    std::sort(m_expiredAddresses.begin(), m_expiredAddresses.end(), cmp);
+
+    emit expiredAddressesChanged();
+}
+
+void AddressBookViewModel::sortContacts()
+{
+    auto cmp = generateContactComparer();
+    std::sort(m_contacts.begin(), m_contacts.end(), cmp);
+
+    emit contactsChanged();
+}
+
+std::function<bool(const AddressItem*, const AddressItem*)> AddressBookViewModel::generateAddrComparer(QString role, Qt::SortOrder order)
+{
+    if (role == nameRole())
+        return [sortOrder = order](const AddressItem* lf, const AddressItem* rt)
+    {
+        return compare(lf->getName(), rt->getName(), sortOrder);
+    };
+
+    if (role == addressRole())
+        return [sortOrder = order](const AddressItem* lf, const AddressItem* rt)
+    {
+        return compare(lf->getAddress(), rt->getAddress(), sortOrder);
+    };
+
+    if (role == categoryRole())
+        return [sortOrder = order](const AddressItem* lf, const AddressItem* rt)
+    {
+        return compare(lf->getCategory(), rt->getCategory(), sortOrder);
+    };
+
+    if (role == expirationRole())
+        return [sortOrder = order](const AddressItem* lf, const AddressItem* rt)
+    {
+        return compare(lf->getExpirationTimestamp(), rt->getExpirationTimestamp(), sortOrder);
+    };
+
+    // default for createdRole
+    return [sortOrder = order](const AddressItem* lf, const AddressItem* rt)
+    {
+        return compare(lf->getCreateTimestamp(), rt->getCreateTimestamp(), sortOrder);
+    };
+}
+
+std::function<bool(const ContactItem*, const ContactItem*)> AddressBookViewModel::generateContactComparer()
+{
+    if (m_contactSortRole == addressRole())
+        return [sortOrder = m_contactSortOrder](const ContactItem* lf, const ContactItem* rt)
+    {
+        return compare(lf->getAddress(), rt->getAddress(), sortOrder);
+    };
+
+    if (m_contactSortRole == categoryRole())
+        return [sortOrder = m_contactSortOrder](const ContactItem* lf, const ContactItem* rt)
+    {
+        return compare(lf->getCategory(), rt->getCategory(), sortOrder);
+    };
+
+    // default for nameRole
+    return [sortOrder = m_contactSortOrder](const ContactItem* lf, const ContactItem* rt)
+    {
+        return compare(lf->getName(), rt->getName(), sortOrder);
+    };
 }
