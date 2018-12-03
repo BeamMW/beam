@@ -113,6 +113,64 @@ namespace beam
 	}
 
 	/////////////
+	// SwitchCommitment
+	namespace SwitchCommitment
+	{
+		void get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J)
+		{
+			ECC::Oracle()
+				<< comm0
+				<< sk0_J
+				>> res;
+		}
+
+		void CreateInternal(ECC::Scalar::Native& sk, ECC::Point::Native& comm, bool bComm, Key::IKdf& kdf, const Key::IDV& kidv)
+		{
+			kdf.DeriveKey(sk, kidv);
+
+			comm = ECC::Commitment(sk, kidv.m_Value);
+			ECC::Point::Native sk0_J = ECC::Context::get().J * sk;
+
+			ECC::Scalar::Native sk1;
+			get_sk1(sk1, comm, sk0_J);
+
+			sk += sk1;
+			if (bComm)
+				comm += ECC::Context::get().G * sk1;
+		}
+
+
+		void Create(ECC::Scalar::Native& sk, Key::IKdf& kdf, const Key::IDV& kidv)
+		{
+			ECC::Point::Native comm;
+			CreateInternal(sk, comm, false, kdf, kidv);
+		}
+
+		void Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf& kdf, const Key::IDV& kidv)
+		{
+			CreateInternal(sk, comm, true, kdf, kidv);
+		}
+
+		void Recover(ECC::Point::Native& res, Key::IPKdf& pkdf, const Key::IDV& kidv)
+		{
+			ECC::Hash::Value hv;
+			kidv.get_Hash(hv);
+
+			ECC::Point::Native sk0_J;
+			pkdf.DerivePKeyJ(sk0_J, hv);
+			pkdf.DerivePKeyG(res, hv);
+			res += ECC::Context::get().H * kidv.m_Value;
+
+			ECC::Scalar::Native sk1;
+			get_sk1(sk1, res, sk0_J);
+
+			res += ECC::Context::get().G * sk1;
+		}
+
+
+	} // namespace SwitchCommitment
+
+	/////////////
 	// Output
 	bool Output::IsValid(ECC::Point::Native& comm) const
 	{

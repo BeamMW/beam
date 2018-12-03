@@ -113,6 +113,13 @@ namespace beam
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
 	};
 
+	namespace SwitchCommitment
+	{
+		void Create(ECC::Scalar::Native& sk, Key::IKdf&, const Key::IDV&);
+		void Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf&, const Key::IDV&);
+		void Recover(ECC::Point::Native& comm, Key::IPKdf&, const Key::IDV&);
+	}
+
 	struct TxElement
 	{
 		ECC::Point m_Commitment;

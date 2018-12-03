@@ -475,6 +475,28 @@ void TestCommitments()
 	sigma += commInp;
 
 	verify_test(sigma == Zero);
+
+	// switch commitment
+	HKdf kdf;
+	uintBig seed;
+	SetRandom(seed);
+	kdf.Generate(seed);
+
+	Key::IDV kidv(100500, 15, Key::Type::Regular);
+
+	Scalar::Native sk;
+	ECC::Point::Native comm;
+	beam::SwitchCommitment::Create(sk, comm, kdf, kidv);
+
+	sigma = Commitment(sk, kidv.m_Value);
+	sigma = -sigma;
+	sigma += comm;
+	verify_test(sigma == Zero);
+
+	beam::SwitchCommitment::Recover(sigma, kdf, kidv);
+	sigma = -sigma;
+	sigma += comm;
+	verify_test(sigma == Zero);
 }
 
 template <typename T>
