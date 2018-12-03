@@ -623,7 +623,7 @@ namespace beam
 
 				ToOutput(utxoOut, *pTx, kOffset, hIncubation);
 
-				m_MyUtxos.insert(std::make_pair(h + hIncubation, utxoOut));
+				m_MyUtxos.insert(std::make_pair(h + 1 + hIncubation, utxoOut));
 			}
 
 			m_MyUtxos.erase(it);
@@ -685,8 +685,11 @@ namespace beam
 			{
 				// Spend it in a transaction
 				Transaction::Ptr pTx;
-				if (!np.m_Wallet.MakeTx(pTx, h, hIncubation))
+				if (!np.m_Wallet.MakeTx(pTx, np.m_Cursor.m_ID.m_Height, hIncubation))
 					break;
+
+				verify_test(np.ValidateTxContext(*pTx));
+				verify_test(np.ValidateTxWrtHeight(*pTx));
 
 				Transaction::Context ctx;
 				ctx.m_Height.m_Min = ctx.m_Height.m_Max = np.m_Cursor.m_Sid.m_Height + 1;
