@@ -1,8 +1,8 @@
 [Desktop Entry]
-Version=0.1
+Version=1.0
 Name=Beam Wallet
 Comment=Scalable confidential cryptocurrency
-Exec="/usr/bin/BeamWallet" %U
+Exec=/usr/bin/BeamWallet %U
 Icon=beam
 Terminal=false
 Type=Application
