@@ -959,8 +959,14 @@ void TestKdf()
 		verify_test(Scalar(sk0) != Scalar(sk1));
 
 		Point::Native pk0, pk1;
-		skdf.DerivePKey(pk0, hv);
-		pkdf.DerivePKey(pk1, hv);
+		skdf.DerivePKeyG(pk0, hv);
+		pkdf.DerivePKeyG(pk1, hv);
+		pk1 = -pk1;
+		pk0 += pk1;
+		verify_test(pk0 == Zero);
+
+		skdf.DerivePKeyJ(pk0, hv);
+		pkdf.DerivePKeyJ(pk1, hv);
 		pk1 = -pk1;
 		pk0 += pk1;
 		verify_test(pk0 == Zero);

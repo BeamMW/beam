@@ -1356,11 +1356,18 @@ namespace ECC {
 		out.GenerateNonceNnz(m_Secret.V, hv, NULL);
 	}
 
-	void HKdf::DerivePKey(Point::Native& out, const Hash::Value& hv)
+	void Key::IKdf::DerivePKeyG(Point::Native& out, const Hash::Value& hv)
 	{
 		Scalar::Native sk;
 		DeriveKey(sk, hv);
 		out = Context::get().G * sk;
+	}
+
+	void Key::IKdf::DerivePKeyJ(Point::Native& out, const Hash::Value& hv)
+	{
+		Scalar::Native sk;
+		DeriveKey(sk, hv);
+		out = Context::get().J * sk;
 	}
 
 	HKdfPub::HKdfPub()
@@ -1375,11 +1382,18 @@ namespace ECC {
 		out.GenerateNonceNnz(m_Secret.V, hv, NULL);
 	}
 
-	void HKdfPub::DerivePKey(Point::Native& out, const Hash::Value& hv)
+	void HKdfPub::DerivePKeyG(Point::Native& out, const Hash::Value& hv)
 	{
 		Scalar::Native sk;
 		DerivePKey(sk, hv);
-		out = m_Pk * sk;
+		out = m_PkG * sk;
+	}
+
+	void HKdfPub::DerivePKeyJ(Point::Native& out, const Hash::Value& hv)
+	{
+		Scalar::Native sk;
+		DerivePKey(sk, hv);
+		out = m_PkJ * sk;
 	}
 
 	void HKdf::Export(Packed& v) const
@@ -1397,19 +1411,23 @@ namespace ECC {
 	void HKdfPub::Export(Packed& v) const
 	{
 		v.m_Secret = m_Secret.V;
-		v.m_Pk = m_Pk;
+		v.m_PkG = m_PkG;
+		v.m_PkJ = m_PkJ;
 	}
 
 	bool HKdfPub::Import(const Packed& v)
 	{
 		m_Secret.V = v.m_Secret;
-		return m_Pk.ImportNnz(v.m_Pk);
+		return
+			m_PkG.ImportNnz(v.m_PkG) &&
+			m_PkJ.ImportNnz(v.m_PkJ);
 	}
 
 	void HKdfPub::GenerateFrom(const HKdf& v)
 	{
 		m_Secret.V = v.m_Secret.V;
-		m_Pk = Context::get().G * v.m_kCoFactor;
+		m_PkG = Context::get().G * v.m_kCoFactor;
+		m_PkJ = Context::get().J * v.m_kCoFactor;
 	}
 
 	/////////////////////

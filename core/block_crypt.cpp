@@ -247,7 +247,7 @@ namespace beam
 		cp.m_Kidv.get_Hash(hv);
 
 		ECC::Point::Native comm, comm2;
-		kdf.DerivePKey(comm, hv);
+		kdf.DerivePKeyG(comm, hv);
 
 		comm += ECC::Context::get().H * cp.m_Kidv.m_Value;
 

@@ -266,8 +266,9 @@ namespace ECC
 		{
 			typedef std::shared_ptr<IPKdf> Ptr;
 
-			virtual void DerivePKey(Point::Native&, const Hash::Value&) = 0;
 			virtual void DerivePKey(Scalar::Native&, const Hash::Value&) = 0;
+			virtual void DerivePKeyG(Point::Native&, const Hash::Value&) = 0;
+			virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) = 0;
 
 			bool IsSame(IPKdf&);
 		};
@@ -279,6 +280,9 @@ namespace ECC
 
 			void DeriveKey(Scalar::Native&, const Key::ID&);
 			virtual void DeriveKey(Scalar::Native&, const Hash::Value&) = 0;
+
+			virtual void DerivePKeyG(Point::Native&, const Hash::Value&) override;
+			virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) override;
 		};
 	};
 

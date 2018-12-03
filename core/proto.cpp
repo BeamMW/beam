@@ -599,11 +599,6 @@ void NodeConnection::ProvePKdfObscured(Key::IPKdf& kdf, uint8_t nIDType)
 		Key::IPKdf& m_Kdf;
 		MyKdf(Key::IPKdf& kdf) :m_Kdf(kdf) {}
 
-		virtual void DerivePKey(ECC::Point::Native&, const ECC::Hash::Value&) override
-		{
-			assert(false);
-		}
-
 		virtual void DerivePKey(ECC::Scalar::Native&, const ECC::Hash::Value&) override
 		{
 			assert(false);
@@ -630,7 +625,7 @@ bool NodeConnection::IsKdfObscured(Key::IPKdf& kdf, const PeerID& id)
 	hp >> hv;
 
 	ECC::Point::Native pt;
-	kdf.DerivePKey(pt, hv);
+	kdf.DerivePKeyG(pt, hv);
 
 	return id == ECC::Point(pt).m_X;
 }
@@ -643,11 +638,16 @@ bool NodeConnection::IsPKdfObscured(Key::IPKdf& kdf, const PeerID& id)
 		Key::IPKdf& m_Kdf;
 		MyPKdf(Key::IPKdf& kdf) :m_Kdf(kdf) {}
 
-		virtual void DerivePKey(ECC::Point::Native& out, const ECC::Hash::Value& hv) override
+		virtual void DerivePKeyG(ECC::Point::Native& out, const ECC::Hash::Value& hv) override
 		{
 			ECC::Scalar::Native s;
 			m_Kdf.DerivePKey(s, hv);
 			out = ECC::Context::get().G * s;
+		}
+
+		virtual void DerivePKeyJ(ECC::Point::Native& out, const ECC::Hash::Value& hv) override
+		{
+			assert(false);
 		}
 
 		virtual void DerivePKey(ECC::Scalar::Native&, const ECC::Hash::Value&) override
