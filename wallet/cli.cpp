@@ -104,10 +104,10 @@ namespace
         const std::string& label,
         const SecString& pass)
     {
-        WalletAddress address = {};
+        WalletAddress address = wallet::createAddress(walletDB);
+
         address.m_label = label;
-        address.m_createTime = getTimestamp();
-        walletDB->createAndSaveAddress(address);
+        walletDB->saveAddress(address);
 
         LOG_INFO() << "New address generated:\n\n" << std::to_string(address.m_walletID) << "\n";
         if (!label.empty()) {
@@ -238,9 +238,6 @@ int main_impl(int argc, char* argv[])
                             if (walletDB)
                             {
                                 LOG_INFO() << "wallet successfully created...";
-
-                                // generate default address
-                                newAddress(walletDB, "default", pass);
 
                                 return 0;
                             }

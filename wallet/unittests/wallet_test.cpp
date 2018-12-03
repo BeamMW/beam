@@ -148,6 +148,9 @@ namespace
         }
         void deleteAddress(const WalletID&) override {}
 
+        Timestamp GetLastChannel(BbsChannel&) override { return {}; }
+        void SetLastChannel(BbsChannel) override {}
+
         Height getCurrentHeight() const override
         {
             return 134;
@@ -315,9 +318,8 @@ struct TestWalletRig
         , m_NodeNetwork(m_Wallet)
         , m_WalletNetworkViaBbs(m_Wallet, m_NodeNetwork, m_WalletDB)
     {
-        WalletAddress wa;
-        wa.m_createTime = getTimestamp();
-        m_WalletDB->createAndSaveAddress(wa);
+        WalletAddress wa = wallet::createAddress(m_WalletDB);
+        m_WalletDB->saveAddress(wa);
         m_WalletID = wa.m_walletID;
 
         m_Wallet.set_Network(m_NodeNetwork, m_WalletNetworkViaBbs);

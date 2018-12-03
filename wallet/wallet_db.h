@@ -82,7 +82,8 @@ namespace beam
         }
 
         WalletAddress() 
-            : m_createTime(0)
+            : m_walletID(Zero)
+            , m_createTime(0)
             , m_duration(24 * 60 * 60) // 24h
             , m_OwnID(false)
         {}
@@ -160,22 +161,8 @@ namespace beam
         virtual boost::optional<WalletAddress> getAddress(const WalletID&) = 0;
         virtual void deleteAddress(const WalletID&) = 0;
 
-        void createAddress(WalletAddress&);
-        void createAndSaveAddress(WalletAddress&);
-        Timestamp GetLastChannel(BbsChannel&);
-        void SetLastChannel(BbsChannel);
-
-        template <typename Var>
-        void setVar(const char* name, const Var& var)
-        {
-            setVarRaw(name, &var, sizeof(var));
-        }
-
-        template <typename Var>
-        bool getVar(const char* name, Var& var) const
-        {
-            return getVarRaw(name, &var, sizeof(var));
-        }
+        virtual Timestamp GetLastChannel(BbsChannel&) = 0;
+        virtual void SetLastChannel(BbsChannel) = 0;
 
         virtual Timestamp getLastUpdateTime() const = 0;
         virtual void setSystemStateID(const Block::SystemState::ID& stateID) = 0;
@@ -244,6 +231,9 @@ namespace beam
         boost::optional<WalletAddress> getAddress(const WalletID&) override;
         void deleteAddress(const WalletID&) override;
 
+        Timestamp GetLastChannel(BbsChannel&) override;
+        void SetLastChannel(BbsChannel) override;
+
         Timestamp getLastUpdateTime() const override;
         void setSystemStateID(const Block::SystemState::ID& stateID) override;
         bool getSystemStateID(Block::SystemState::ID& stateID) const override;
@@ -286,6 +276,18 @@ namespace beam
 
     namespace wallet
     {
+        template <typename Db, typename Var>
+        void setVar(Db db, const char* name, const Var& var)
+        {
+            db->setVarRaw(name, &var, sizeof(var));
+        }
+
+        template <typename Db, typename Var>
+        bool getVar(Db db, const char* name, Var& var)
+        {
+            return db->getVarRaw(name, &var, sizeof(var));
+        }
+
         template <typename T>
         bool getTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, T& value)
         {
@@ -325,5 +327,7 @@ namespace beam
         Amount getAvailableByType(beam::IWalletDB::Ptr walletDB, Coin::Status status, Key::Type keyType);
         Amount getTotal(beam::IWalletDB::Ptr walletDB, Coin::Status status);
         Amount getTotalByType(beam::IWalletDB::Ptr walletDB, Coin::Status status, Key::Type keyType);
+
+        WalletAddress createAddress(beam::IWalletDB::Ptr walletDB);
     }
 }

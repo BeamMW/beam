@@ -99,11 +99,11 @@ void TestWalletDataBase()
         a.m_Height = rand();
 
         const char* name = "SystemStateID";
-        walletDB->setVar(name, "dummy");
-        walletDB->setVar(name, a);
+        wallet::setVar(walletDB, name, "dummy");
+        wallet::setVar(walletDB, name, a);
 
         Block::SystemState::ID b;
-        WALLET_CHECK(walletDB->getVar(name, b));
+        WALLET_CHECK(wallet::getVar(walletDB, name, b));
 
         WALLET_CHECK(a == b);
     }

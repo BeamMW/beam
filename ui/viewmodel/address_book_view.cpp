@@ -63,16 +63,16 @@ bool AddressItem::isExpired() const
 }
 
 ContactItem::ContactItem(const beam::WalletAddress& address)
-    : m_contact{ beamui::toString(address.m_walletID) }
+    : m_address{ beamui::toString(address.m_walletID) }
     , m_name{ QString::fromStdString(address.m_label) }
     , m_category{ QString::fromStdString(address.m_category) }
 {
 
 }
 
-QString ContactItem::getContact() const
+QString ContactItem::getAddress() const
 {
-    return m_contact;
+    return m_address;
 }
 
 QString ContactItem::getName() const
@@ -110,6 +110,31 @@ QQmlListProperty<AddressItem> AddressBookViewModel::getActiveAddresses()
 QQmlListProperty<AddressItem> AddressBookViewModel::getExpiredAddresses()
 {
     return QQmlListProperty<AddressItem>(this, m_expiredAddresses);
+}
+
+QString AddressBookViewModel::nameRole() const
+{
+    return "name";
+}
+
+QString AddressBookViewModel::addressRole() const
+{
+    return "address";
+}
+
+QString AddressBookViewModel::categoryRole() const
+{
+    return "category";
+}
+
+QString AddressBookViewModel::expirationRole() const
+{
+    return "expirationDate";
+}
+
+QString AddressBookViewModel::createdRole() const
+{
+    return "createDate";
 }
 
 void AddressBookViewModel::deleteAddress(const QString& addr)

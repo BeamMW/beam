@@ -102,7 +102,7 @@ struct Node
 			uint32_t m_Timeout_ms = 10000;
 
 			bool m_ForceResync = false;
-
+			bool m_NoFastSync = false;
 		} m_Sync;
 
 		struct Dandelion

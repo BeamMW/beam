@@ -762,7 +762,7 @@ void Node::InitMode()
 		return;
 	}
 
-	if (!m_Cfg.m_Sync.m_SrcPeers)
+	if (m_Cfg.m_Sync.m_NoFastSync || !m_Cfg.m_Sync.m_SrcPeers)
 		return;
 
 	LOG_INFO() << "Sync mode";

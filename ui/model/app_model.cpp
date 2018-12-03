@@ -14,6 +14,11 @@
 
 #include "app_model.h"
 
+#include "utility/common.h"
+#include "utility/logger.h"
+
+#include <boost/filesystem.hpp>
+
 using namespace beam;
 using namespace ECC;
 using namespace std;
@@ -46,12 +51,6 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
 		return false;
 
     m_passwordHash = pass.hash();
-
-    // generate default address
-    WalletAddress defaultAddress = {};
-    defaultAddress.m_label = "default";
-    defaultAddress.m_createTime = getTimestamp();
-    m_db->createAndSaveAddress(defaultAddress);
 
     start();
 
@@ -140,6 +139,56 @@ NodeModel& AppModel::getNode()
 {
     assert(m_node);
     return *m_node;
+}
+
+void AppModel::cancelRestoreWallet()
+{
+    if (m_settings.getRunLocalNode())
+    {
+        assert(m_node);
+        m_node.reset();
+    }
+
+    assert(m_db);
+    m_db.reset();
+
+    assert(m_wallet.use_count() == 1);
+    assert(m_wallet);
+    m_wallet.reset();
+
+    try
+    {
+#ifdef WIN32
+        boost::filesystem::path appDataPath{ Utf8toUtf16(getSettings().getAppDataPath().c_str()) };
+#else
+        boost::filesystem::path appDataPath{ getSettings().getAppDataPath() };
+#endif
+        boost::filesystem::path logsFolderPath = appDataPath;
+        logsFolderPath /= WalletSettings::LogsFolder;
+
+        boost::filesystem::path settingsPath = appDataPath;
+        settingsPath /= WalletSettings::SettingsFile;
+        
+        for (boost::filesystem::directory_iterator endDirIt, it{ appDataPath }; it != endDirIt; ++it)
+        {
+            // don't delete settings and logs files
+            if ((it->path() == logsFolderPath) || (it->path() == settingsPath))
+            {
+                continue;
+            }
+
+            boost::system::error_code error;
+            boost::filesystem::remove_all(it->path(), error);
+            if (error)
+            {
+                LOG_ERROR() << error.message();
+            }            
+        }
+    }
+    catch (std::exception &e)
+    {
+        LOG_ERROR() << e.what();
+    }
 }
 
 bool AppModel::checkWalletPassword(const beam::SecString& pass) const

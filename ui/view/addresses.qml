@@ -66,6 +66,22 @@ ColumnLayout {
             id: activeAddressesView
             model: viewModel.activeAddresses
             visible: false
+
+            /*sortIndicatorVisible: true
+            sortIndicatorColumn: 1
+            sortIndicatorOrder: Qt.DescendingOrder
+
+            Binding{
+                target: viewModel
+                property: "sortRole"
+                value: transactionsView.getColumn(transactionsView.sortIndicatorColumn).role
+            }
+
+            Binding{
+                target: viewModel
+                property: "sortOrder"
+                value: transactionsView.sortIndicatorOrder
+            }*/
         }
 
         AddressTable {
@@ -77,6 +93,9 @@ ColumnLayout {
         CustomTableView {
             id: contactsView
 
+            property int rowHeight: 69
+            property int resizableWidth: parent.width - actions.width
+
             anchors.fill: parent
             frameVisible: false
             selectionMode: SelectionMode.NoSelection
@@ -84,16 +103,16 @@ ColumnLayout {
             model: viewModel.contacts
 
             TableViewColumn {
-                role: "name"
+                role: viewModel.nameRole
                 title: qsTr("Name")
-                width: 150 * parent.width / 800
+                width: 280 * contactsView.resizableWidth / 740
                 movable: false
             }
 
             TableViewColumn {
-                role: "contact"
+                role: viewModel.addressRole
                 title: qsTr("Contact")
-                width: 150 * parent.width / 800
+                width: 170 * contactsView.resizableWidth / 740
                 movable: false
                 delegate: Item {
                     Item {
@@ -118,14 +137,15 @@ ColumnLayout {
             }
 
             TableViewColumn {
-                role: "category"
+                role: viewModel.categoryRole
                 title: qsTr("Category")
-                width: 150 * parent.width / 800
+                width: 290 * contactsView.resizableWidth / 740
                 movable: false
             }
 
             TableViewColumn {
                 //role: "status"
+                id: actions
                 title: ""
                 width: 40
                 movable: false
@@ -209,7 +229,6 @@ ColumnLayout {
                     }
                 }*/
             }
-
         }
     }
 

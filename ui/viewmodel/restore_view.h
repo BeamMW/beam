@@ -36,6 +36,8 @@ public:
     const QString& getProgressMessage() const;
     void setProgressMessage(const QString& value);
 
+    Q_INVOKABLE void cancelRestore();
+
 public slots:
     void onSyncProgressUpdated(int done, int total);
     void onNodeSyncProgressUpdated(int done, int total);
@@ -50,7 +52,7 @@ private:
     void updateProgress();
     void syncWithNode();
 private:
-    WalletModel::Ptr m_walletModel;
+    WalletModel& m_walletModel;
     double m_progress;
     int m_nodeTotal;
     int m_nodeDone;

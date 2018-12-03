@@ -52,14 +52,6 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 {
     BRIDGE_INIT(WalletModelBridge);
 
-    void sendMoney(const beam::WalletID& senderID, const beam::WalletID& receiverID, Amount&& amount, Amount&& fee) override
-    {
-        tx.send([senderID, receiverID, amount{ move(amount) }, fee{ move(fee) }](BridgeInterface& receiver_) mutable
-        {
-            receiver_.sendMoney(senderID, receiverID, move(amount), move(fee));
-        });
-    }
-
     void sendMoney(const beam::WalletID& receiverID, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee) override
     {
         tx.send([receiverID, comment, amount{ move(amount) }, fee{ move(fee) }](BridgeInterface& receiver_) mutable
@@ -124,11 +116,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
-    void createNewAddress(WalletAddress&& address, bool bOwn) override
+    void saveAddress(const WalletAddress& address, bool bOwn) override
     {
-        tx.send([address{ move(address) }, bOwn](BridgeInterface& receiver_) mutable
+        tx.send([address, bOwn](BridgeInterface& receiver_) mutable
         {
-            receiver_.createNewAddress(move(address), bOwn);
+            receiver_.saveAddress(address, bOwn);
         });
     }
 
@@ -140,11 +132,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
-    void generateNewWalletID() override
+    void generateNewAddress() override
     {
         tx.send([](BridgeInterface& receiver_) mutable
         {
-            receiver_.generateNewWalletID();
+            receiver_.generateNewAddress();
         });
     }
 
@@ -190,6 +182,7 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr)
     qRegisterMetaType<vector<Coin>>("std::vector<beam::Coin>");
     qRegisterMetaType<vector<WalletAddress>>("std::vector<beam::WalletAddress>");
     qRegisterMetaType<WalletID>("beam::WalletID");
+    qRegisterMetaType<WalletAddress>("beam::WalletAddress");
 }
 
 WalletModel::~WalletModel()
@@ -367,25 +360,13 @@ void WalletModel::onNodeConnectionFailed()
     emit nodeConnectionFailed();
 }
 
-void WalletModel::sendMoney(const beam::WalletID& sender, const beam::WalletID& receiver, Amount&& amount, Amount&& fee)
-{
-    assert(!_wallet.expired());
-    auto s = _wallet.lock();
-    if (s)
-    {
-        s->transfer_money(sender, receiver, move(amount), move(fee));
-    }
-}
-
 void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee)
 {
     try
     {
-        WalletAddress senderAddress;
-        senderAddress.m_createTime = beam::getTimestamp();
-		_walletDB->createAndSaveAddress(senderAddress);
+        WalletAddress senderAddress = wallet::createAddress(_walletDB);
 
-        createNewAddress(std::move(senderAddress), true); // should update the wallet_network
+        saveAddress(senderAddress, true); // should update the wallet_network
 
         ByteBuffer message(comment.begin(), comment.end());
 
@@ -465,23 +446,12 @@ void WalletModel::deleteTx(const beam::TxID& id)
     }
 }
 
-void WalletModel::createNewAddress(WalletAddress&& address, bool bOwn)
+void WalletModel::saveAddress(const WalletAddress& address, bool bOwn)
 {
-	auto pVal = _walletDB->getAddress(address.m_walletID);
-	if (pVal)
-		address.m_OwnID = pVal->m_OwnID;
-	else
-	{
-		if (bOwn)
-			_walletDB->createAddress(address);
-		else
-			address.m_OwnID = 0;
-	}
+    _walletDB->saveAddress(address);
 
-	_walletDB->saveAddress(address);
-
-	if (bOwn)
-	{
+    if (bOwn)
+    {
         auto s = _wnet.lock();
         if (s)
         {
@@ -495,15 +465,13 @@ void WalletModel::changeCurrentWalletIDs(const beam::WalletID& senderID, const b
     emit onChangeCurrentWalletIDs(senderID, receiverID);
 }
 
-void WalletModel::generateNewWalletID()
+void WalletModel::generateNewAddress()
 {
     try
     {
-		WalletAddress wa;
-		wa.m_createTime = getTimestamp();
-		_walletDB->createAndSaveAddress(wa);
+		WalletAddress address = wallet::createAddress(_walletDB);
 
-        emit onGeneratedNewWalletID(wa.m_walletID);
+        emit onGeneratedNewAddress(address);
     }
     catch (...)
     {

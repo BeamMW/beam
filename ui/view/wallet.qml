@@ -19,7 +19,108 @@ Item {
 
     ConfirmationDialog {
         id: confirmationDialog
+        okButtonColor: Style.heliotrope
         okButtonText: qsTr("send")
+        okButtonIconSource: "qrc:/assets/icon-send.svg"
+        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+
+        property alias addressText: addressLabel.text
+        property alias amountText: amountLabel.text
+        property alias feeText: feeLabel.text
+
+        contentItem: Item {
+            id: sendConfirmationContent
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: 30
+
+                SFText {
+                    id: title
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.minimumHeight: 21
+                    Layout.leftMargin: 68
+                    Layout.rightMargin: 68
+                    Layout.topMargin: 14
+                    font.pixelSize: 18
+                    font.styleName: "Bold";
+                    font.weight: Font.Bold
+                    color: Style.white
+                    text: qsTr("Please review the transaction details")
+                }
+
+                GridLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.leftMargin: 18
+                    Layout.rightMargin: 18
+                    columnSpacing: 14
+                    rowSpacing: 12
+                    columns: 2
+                    rows: 3
+
+                    SFText {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 16
+                        font.pixelSize: 14
+                        color: Style.disable_text_color
+                        text: qsTr("Recipient:")
+                        verticalAlignment: Text.AlignTop
+                    }
+
+                    SFText {
+                        id: addressLabel
+                        Layout.fillWidth: true
+                        Layout.maximumWidth: 290
+                        Layout.minimumHeight: 16
+                        wrapMode: Text.Wrap
+                        maximumLineCount: 2
+                        font.pixelSize: 14
+                        color: Style.white
+                    }
+
+                    SFText {
+                        Layout.row: 2
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 16
+                        Layout.bottomMargin: 3
+                        font.pixelSize: 14
+                        color: Style.disable_text_color
+                        text: qsTr("Amount:")
+                        verticalAlignment: Text.AlignBottom
+                    }
+
+                    SFText {
+                        id: amountLabel
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 29
+                        font.pixelSize: 24
+                        color: Style.heliotrope
+                        verticalAlignment: Text.AlignBottom
+                    }
+
+                    SFText {
+                        Layout.row: 3
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 16
+                        font.pixelSize: 14
+                        color: Style.disable_text_color
+                        text: qsTr("Transaction fee:")
+                    }
+
+                    SFText {
+                        id: feeLabel
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 16
+                        font.pixelSize: 14
+                        color: Style.white
+                    }
+                }
+            }
+        }
+
         onAccepted: {
             viewModel.sendMoney()
             root.state = "wallet"
@@ -807,10 +908,10 @@ Item {
                     enabled: {viewModel.isEnoughMoney && amount_input.amount > 0 && receiverAddrInput.acceptableInput }
                     onClicked: {
                         if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {
-                            var message = "You are about to send %1 to address %2";
-                            var beams = (viewModel.sendAmount*1 + 1 * viewModel.feeGrothes / 1000000) + " " + qsTr("BEAM");
+                            confirmationDialog.addressText = viewModel.receiverAddr;
+                            confirmationDialog.amountText = amount_input.amount.toLocaleString(Qt.locale(), 'f', -128) + " " + qsTr("BEAM");
+                            confirmationDialog.feeText = fee_input.amount.toLocaleString(Qt.locale(), 'f', -128) + " " + qsTr("GROTH");
 
-                            confirmationDialog.text = message.arg(beams).arg(viewModel.receiverAddr);
                             confirmationDialog.open();
                         } else {
                             var message = "Address %1 is invalid";

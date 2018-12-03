@@ -7,6 +7,7 @@ CustomTableView {
     id: rootControl
 
     property int rowHeight: 69
+    property int resizableWidth: parent.width - actions.width
 
     anchors.fill: parent
     frameVisible: false
@@ -14,17 +15,17 @@ CustomTableView {
     backgroundVisible: false    
 
     TableViewColumn {
-        role: "name"
+        role: viewModel.nameRole
         title: qsTr("Name")
-        width: 150 * parent.width / 800
+        width: 150 * rootControl.resizableWidth / 750
         resizable: false
         movable: false
     }
 
     TableViewColumn {
-        role: "address"
+        role: viewModel.addressRole
         title: qsTr("Address")
-        width: 150 * parent.width / 800
+        width: 150 *  rootControl.resizableWidth / 750
         movable: false
         resizable: false
         delegate: Item {
@@ -50,30 +51,31 @@ CustomTableView {
     }
 
     TableViewColumn {
-        role: "category"
+        role: viewModel.categoryRole
         title: qsTr("Category")
-        width: 150 * parent.width / 800
+        width: 150 *  rootControl.resizableWidth / 750
         resizable: false
         movable: false
     }
 
     TableViewColumn {
-        role: "expirationDate"
+        role: viewModel.expirationRole
         title: qsTr("Expiration date")
-        width: 150 * parent.width / 800
+        width: 150 *  rootControl.resizableWidth / 750
         resizable: false
         movable: false
     }
 
     TableViewColumn {
-        role: "createDate"
+        role:viewModel.createdRole
         title: qsTr("Created")
-        width: 150 * parent.width / 800
+        width: 150 *  rootControl.resizableWidth / 750
         resizable: false
         movable: false
     }
 
     TableViewColumn {
+        id: actions
         title: ""
         width: 40
         movable: false
