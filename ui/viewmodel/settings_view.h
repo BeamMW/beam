@@ -28,7 +28,6 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(bool localNodeRun READ getLocalNodeRun WRITE setLocalNodeRun NOTIFY localNodeRunChanged)
     Q_PROPERTY(uint localNodePort READ getLocalNodePort WRITE setLocalNodePort NOTIFY localNodePortChanged)
     Q_PROPERTY(uint localNodeMiningThreads READ getLocalNodeMiningThreads WRITE setLocalNodeMiningThreads NOTIFY localNodeMiningThreadsChanged)
-    Q_PROPERTY(uint localNodeVerificationThreads READ getLocalNodeVerificationThreads WRITE setLocalNodeVerificationThreads NOTIFY localNodeVerificationThreadsChanged)
     Q_PROPERTY(bool isChanged READ isChanged NOTIFY propertiesChanged)
     Q_PROPERTY(QStringList localNodePeers READ getLocalNodePeers NOTIFY localNodePeersChanged)
     Q_PROPERTY(int lockTimeout READ getLockTimeout WRITE setLockTimeout NOTIFY lockTimeoutChanged)
@@ -48,8 +47,6 @@ public:
     void setLocalNodePort(uint value);
     uint getLocalNodeMiningThreads() const;
     void setLocalNodeMiningThreads(uint value);
-    uint getLocalNodeVerificationThreads() const;
-    void setLocalNodeVerificationThreads(uint value);
     int getLockTimeout() const;
     void setLockTimeout(int value);
 
@@ -81,7 +78,6 @@ signals:
     void localNodeRunChanged();
     void localNodePortChanged();
     void localNodeMiningThreadsChanged();
-    void localNodeVerificationThreadsChanged();
     void localNodePeersChanged();
     void propertiesChanged();
     void lockTimeoutChanged();
@@ -93,7 +89,6 @@ private:
     bool m_localNodeRun;
     uint m_localNodePort;
     uint m_localNodeMiningThreads;
-    uint m_localNodeVerificationThreads;
     QStringList m_localNodePeers;
     int m_lockTimeout;
 #ifdef BEAM_USE_GPU

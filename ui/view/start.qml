@@ -1020,7 +1020,7 @@ Item
                                             portError.text = qsTr("Please, specify port to listen ");
                                         }
                                         if (!portEmpty) {
-                                            viewModel.setupLocalNode(parseInt(portInput.text));
+                                            viewModel.setupLocalNode(parseInt(portInput.text), parseInt(miningInput.value));
                                         }
                                         else {
                                             return;

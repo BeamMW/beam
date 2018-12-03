@@ -33,7 +33,6 @@ namespace
     const char* LocalNodeRun = "localnode/run";
     const char* LocalNodePort = "localnode/port";
     const char* LocalNodeMiningThreads = "localnode/mining_threads";
-    const char* LocalNodeVerificationThreads = "localnode/verification_threads";
     const char* LocalNodeSynchronized = "localnode/synchronized";
     const char* LocalNodePeers = "localnode/peers";
 #ifdef BEAM_USE_GPU
@@ -156,21 +155,6 @@ void WalletSettings::setLocalNodeMiningThreads(uint n)
         m_data.setValue(LocalNodeMiningThreads, n);
     }
     emit localNodeMiningThreadsChanged();
-}
-
-uint WalletSettings::getLocalNodeVerificationThreads() const
-{
-    Lock lock(m_mutex);
-    return m_data.value(LocalNodeVerificationThreads, 1).toUInt();
-}
-
-void WalletSettings::setLocalNodeVerificationThreads(uint n)
-{
-    {
-        Lock lock(m_mutex);
-        m_data.setValue(LocalNodeVerificationThreads, n);
-    }
-    emit localNodeVerificationThreadsChanged();
 }
 
 bool WalletSettings::getLocalNodeSynchronized() const

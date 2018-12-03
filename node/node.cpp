@@ -394,7 +394,7 @@ void Node::Processor::OnNewState()
 {
 	m_Cwp.Reset();
 
-	if (!m_Extra.m_TreasuryHandled)
+	if (m_Cursor.m_Sid.m_Height < Rules::HeightGenesis)
 		return;
 
 	LOG_INFO() << "My Tip: " << m_Cursor.m_ID << ", Work = " << Difficulty::ToFloat(m_Cursor.m_Full.m_ChainWork);
@@ -989,7 +989,7 @@ void Node::Peer::OnConnectedSecure()
 
 	Send(msgLogin);
 
-	if (m_This.m_Processor.m_Extra.m_TreasuryHandled) // even if height is 0 - we notify the peer that we have the treasury
+	if (m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
 	{
 		proto::NewTip msg;
 		msg.m_Description = m_This.m_Processor.m_Cursor.m_Full;
