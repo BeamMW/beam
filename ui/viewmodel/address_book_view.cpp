@@ -95,6 +95,8 @@ AddressBookViewModel::AddressBookViewModel()
         SLOT(onAdrresses(bool, const std::vector<beam::WalletAddress>&)));
 
     getAddressesFromModel();
+
+    startTimer(3 * 1000);
 }
 
 QQmlListProperty<ContactItem> AddressBookViewModel::getContacts()
@@ -187,6 +189,26 @@ void AddressBookViewModel::onAdrresses(bool own, const std::vector<WalletAddress
         }
 
         emit contactsChanged();
+    }
+}
+
+void AddressBookViewModel::timerEvent(QTimerEvent *event)
+{
+    auto firstExpired = std::remove_if(
+        m_activeAddresses.begin(), m_activeAddresses.end(), 
+        [](const AddressItem* addr) { return addr->isExpired(); });
+
+    if (firstExpired != m_activeAddresses.end())
+    {
+        for (auto it = firstExpired; it != m_activeAddresses.end(); ++it)
+        {
+            m_expiredAddresses.push_back(*it);
+        }
+
+        m_activeAddresses.erase(firstExpired, m_activeAddresses.end());
+
+        emit activeAddressesChanged();
+        emit expiredAddressesChanged();
     }
 }
 
