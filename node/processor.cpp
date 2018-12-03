@@ -866,12 +866,12 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		{
 			d.m_Maturity = 0;
 			kMin = d;
-			d.m_Maturity = h;
+			d.m_Maturity = h - 1;
 			kMax = d;
 		}
 		else
 		{
-			if (v.m_Maturity > *pHMax)
+			if (v.m_Maturity >= *pHMax)
 				return false;
 
 			d.m_Maturity = v.m_Maturity;
@@ -1242,9 +1242,10 @@ bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx) const
 
 bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 {
-	Height h = m_Cursor.m_Sid.m_Height + 1;
 	if (!ValidateTxWrtHeight(tx))
 		return false;
+
+	Height h = m_Cursor.m_Sid.m_Height;
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
 	// Ensure input UTXOs are present
