@@ -226,6 +226,26 @@ bool StartViewModel::getUseGpu() const
 #endif
 }
 
+bool StartViewModel::getIsRunLocalNode() const
+{
+    return AppModel::getInstance()->getSettings().getRunLocalNode();
+}
+
+int StartViewModel::getLocalPort() const
+{
+    return AppModel::getInstance()->getSettings().getLocalNodePort();
+}
+
+int StartViewModel::getLocalMiningThreads() const
+{
+    return AppModel::getInstance()->getSettings().getLocalNodeMiningThreads();
+}
+
+QString StartViewModel::getRemoteNodeAddress() const
+{
+    return AppModel::getInstance()->getSettings().getNodeAddress();
+}
+
 void StartViewModel::setupLocalNode(int port, int miningThreads)
 {
     auto& settings = AppModel::getInstance()->getSettings();

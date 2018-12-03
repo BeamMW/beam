@@ -909,8 +909,8 @@ Item {
                     onClicked: {
                         if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {
                             confirmationDialog.addressText = viewModel.receiverAddr;
-                            confirmationDialog.amountText = viewModel.sendAmount.toLocaleString(Qt.locale(), 'f', -128) + " " + qsTr("BEAM");
-                            confirmationDialog.feeText = viewModel.feeGrothes.toLocaleString(Qt.locale(), 'f', -128) + " " + qsTr("GROTH");
+                            confirmationDialog.amountText = amount_input.amount.toLocaleString(Qt.locale(), 'f', -128) + " " + qsTr("BEAM");
+                            confirmationDialog.feeText = fee_input.amount.toLocaleString(Qt.locale(), 'f', -128) + " " + qsTr("GROTH");
 
                             confirmationDialog.open();
                         } else {
