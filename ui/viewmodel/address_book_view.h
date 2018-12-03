@@ -112,6 +112,10 @@ signals:
     void activeAddressesChanged();
     void expiredAddressesChanged();
 
+protected:
+
+    void timerEvent(QTimerEvent *event) override;
+
 private:
 
     void getAddressesFromModel();
