@@ -189,8 +189,8 @@ ColumnLayout {
                                 icon.source: "qrc:/assets/icon-actions.svg"
                                 ToolTip.text: qsTr("Actions")
                                 onClicked: {
-                                    //txContextMenu.transaction = viewModel.transactions[styleData.row];
-                                    txContextMenu.popup();
+                                    contextMenu.address = contactsView.model[styleData.row].address;
+                                    contextMenu.popup();
                                 }
                             }
                         }
@@ -199,35 +199,25 @@ ColumnLayout {
             }
 
             ContextMenu {
-                id: txContextMenu
+                id: contextMenu
                 modal: true
                 dim: false
-                //property TxObject transaction
+                property string address
                 Action {
                     text: qsTr("transactions list")
                     icon.source: "qrc:/assets/icon-transactions.svg"
                     onTriggered: {
-                        /*if (!!txContextMenu.transaction)
-                        {
-                            viewModel.copyToClipboard(txContextMenu.transaction.user);
-                        }*/
+                        // go to list transaction (wallet page)
+                        main.updateItem(0)
                     }
                 }
                 Action {
-                    text: qsTr("delete")
+                    text: qsTr("delete contact")
                     icon.source: "qrc:/assets/icon-delete.svg"
-                    enabled: !!txContextMenu.transaction && txContextMenu.transaction.canDelete
                     onTriggered: {
-                        /*deleteTransactionDialog.text = qsTr("The transaction will be deleted. This operation can not be undone");
-                        deleteTransactionDialog.open();*/
+                        viewModel.deleteAddress(contextMenu.address);
                     }
                 }
-                /*Connections {
-                    target: deleteTransactionDialog
-                    onAccepted: {
-                        viewModel.deleteTx(txContextMenu.transaction);
-                    }
-                }*/
             }
         }
     }

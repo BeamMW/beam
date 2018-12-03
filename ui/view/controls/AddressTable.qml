@@ -142,7 +142,7 @@ CustomTableView {
             }
         }
         Action {
-            text: qsTr("delete")
+            text: qsTr("delete address")
             icon.source: "qrc:/assets/icon-delete.svg"
             onTriggered: {
                 viewModel.deleteAddress(contextMenu.address);
