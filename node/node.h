@@ -91,9 +91,7 @@ struct Node
 
 		} m_TestMode;
 
-		std::vector<Block::Body> m_vTreasury;
-
-		Block::SystemState::ID m_ControlState;
+		ByteBuffer m_Treasury; // needed only for the 1st run
 
 		struct Sync {
 			// during sync phase we try to pick the best peer to sync from.
@@ -120,11 +118,6 @@ struct Node
 			uint32_t m_DummyLifetimeHi = 1440 * 7; // set to 0 to disable
 
 		} m_Dandelion;
-
-		Config()
-		{
-			m_ControlState.m_Height = Rules::HeightGenesis - 1; // disabled
-		}
 
 		INodeObserver* m_Observer = nullptr;
 
@@ -167,7 +160,6 @@ private:
 		void OnNewState() override;
 		void OnRolledBack() override;
 		bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&) override;
-		bool ApproveState(const Block::SystemState::ID&) override;
 		void AdjustFossilEnd(Height&) override;
 		void OnStateData() override;
 		void OnBlockData() override;
@@ -427,17 +419,18 @@ private:
 
 		struct Flags
 		{
-			static const uint8_t Connected		= 0x01;
-			static const uint8_t PiRcvd			= 0x02;
-			static const uint8_t Owner			= 0x04;
-			static const uint8_t ProvenWorkReq	= 0x08;
-			static const uint8_t ProvenWork		= 0x10;
-			static const uint8_t SyncPending	= 0x20;
-			static const uint8_t DontSync		= 0x40;
-			static const uint8_t Finalizing		= 0x80;
+			static const uint16_t Connected		= 0x001;
+			static const uint16_t PiRcvd		= 0x002;
+			static const uint16_t Owner			= 0x004;
+			static const uint16_t ProvenWorkReq	= 0x008;
+			static const uint16_t ProvenWork	= 0x010;
+			static const uint16_t SyncPending	= 0x020;
+			static const uint16_t DontSync		= 0x040;
+			static const uint16_t Finalizing	= 0x080;
+			static const uint16_t HasTreasury	= 0x100;
 		};
 
-		uint8_t m_Flags;
+		uint16_t m_Flags;
 		uint16_t m_Port; // to connect to
 		beam::io::Address m_RemoteAddr; // for logging only
 

@@ -222,11 +222,20 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 
 	if (p.m_Tip.m_Height == t.m_Key.first.m_Height)
 	{
-		Merkle::Hash hv;
-		p.m_Tip.get_Hash(hv);
+		if (t.m_Key.first.m_Height)
+		{
+			Merkle::Hash hv;
+			p.m_Tip.get_Hash(hv);
 
-		if (hv != t.m_Key.first.m_Hash)
-			return false;
+			if (hv != t.m_Key.first.m_Hash)
+				return false;
+		}
+		else
+		{
+			// treasury
+			if (!(Peer::Flags::HasTreasury & p.m_Flags))
+				return false;
+		}
 	}
 
 	if (p.m_setRejected.end() != p.m_setRejected.find(t.m_Key))
@@ -385,7 +394,7 @@ void Node::Processor::OnNewState()
 {
 	m_Cwp.Reset();
 
-	if (!m_Cursor.m_Sid.m_Row)
+	if (!m_Extra.m_TreasuryHandled)
 		return;
 
 	LOG_INFO() << "My Tip: " << m_Cursor.m_ID << ", Work = " << Difficulty::ToFloat(m_Cursor.m_Full.m_ChainWork);
@@ -395,7 +404,7 @@ void Node::Processor::OnNewState()
 	if (get_ParentObj().m_Miner.IsEnabled())
 	{
 		get_ParentObj().m_Miner.HardAbortSafe();
-		get_ParentObj().m_Miner.SetTimer(0, true); // don't start mined block construction, because we're called in the context of NodeProcessor, which holds the DB transaction.
+		get_ParentObj().m_Miner.SetTimer(0, true); // async start mining
 	}
 	else
 		get_ParentObj().m_Processor.DeleteOutdated(get_ParentObj().m_TxPool);
@@ -469,7 +478,7 @@ bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&
 	while (v.m_Remaining)
 		v.m_TaskFinished.wait(scope);
 
-	return !v.m_bFail && v.m_Context.IsValidBlock(block, m_Extra.m_SubsidyOpen);
+	return !v.m_bFail && v.m_Context.IsValidBlock(block);
 }
 
 void Node::Processor::Verifier::Thread(uint32_t iVerifier)
@@ -521,14 +530,6 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 		if (!m_Remaining)
 			m_TaskFinished.notify_one();
 	}
-}
-
-bool Node::Processor::ApproveState(const Block::SystemState::ID& id)
-{
-	const Block::SystemState::ID& idCtl = get_ParentObj().m_Cfg.m_ControlState;
-	return
-		(idCtl.m_Height != id.m_Height) ||
-		(idCtl.m_Hash == id.m_Hash);
 }
 
 void Node::Processor::AdjustFossilEnd(Height& h)
@@ -714,6 +715,9 @@ void Node::Initialize(IExternalPOW* externalPOW)
 	LOG_INFO() << "Node ID=" << m_MyPublicID;
 	LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
 
+	if (!m_Cfg.m_Treasury.empty() && !m_Processor.m_Extra.m_TreasuryHandled)
+		m_Processor.OnTreasury(Blob(m_Cfg.m_Treasury));
+
 	InitMode();
 
 	RefreshCongestions();
@@ -755,12 +759,8 @@ void Node::InitMode()
 {
 	if (m_Processor.m_Cursor.m_ID.m_Height)
 		return;
-
-	if (!m_Cfg.m_vTreasury.empty())
-	{
-		LOG_INFO() << "Creating new blockchain from treasury";
-		return;
-	}
+	if (!m_Processor.m_Extra.m_TreasuryHandled)
+		return; // first get the treasury, then decide how to sync.
 
 	if (m_Cfg.m_Sync.m_NoFastSync || !m_Cfg.m_Sync.m_SrcPeers)
 		return;
@@ -989,7 +989,7 @@ void Node::Peer::OnConnectedSecure()
 
 	Send(msgLogin);
 
-	if (m_This.m_Processor.m_Cursor.m_Sid.m_Row)
+	if (m_This.m_Processor.m_Extra.m_TreasuryHandled) // even if height is 0 - we notify the peer that we have the treasury
 	{
 		proto::NewTip msg;
 		msg.m_Description = m_This.m_Processor.m_Cursor.m_Full;
@@ -1212,6 +1212,7 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 	}
 
 	m_Tip.m_Height = 0; // prevent reassigning the tasks
+	m_Flags &= ~Flags::HasTreasury;
 
 	ReleaseTasks();
 	Unsubscribe();
@@ -1277,6 +1278,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 
 	m_Tip = msg.m_Description;
 	m_setRejected.clear();
+	m_Flags |= Flags::HasTreasury;
 
 	Block::SystemState::ID id;
 	m_Tip.get_ID(id);
@@ -1307,7 +1309,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 				break;
 
 			m_This.RefreshCongestions();
-			return;
+			break; // since we made OnPeerInsane handling asynchronous - no need to return rapidly
 
 		case NodeProcessor::DataStatus::Unreachable:
 			LOG_WARNING() << id << " Tip unreachable!";
@@ -1704,18 +1706,33 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 
 void Node::Peer::OnMsg(proto::GetBody&& msg)
 {
-	uint64_t rowid = m_This.m_Processor.get_DB().StateFindSafe(msg.m_ID);
-	if (rowid)
+	if (msg.m_ID.m_Height)
 	{
-		proto::Body msgBody;
-		m_This.m_Processor.get_DB().GetStateBlock(rowid, &msgBody.m_Perishable, &msgBody.m_Eternal, NULL);
-
-		if (!msgBody.m_Perishable.empty())
+		uint64_t rowid = m_This.m_Processor.get_DB().StateFindSafe(msg.m_ID);
+		if (rowid)
 		{
-			Send(msgBody);
-			return;
-		}
+			proto::Body msgBody;
+			m_This.m_Processor.get_DB().GetStateBlock(rowid, &msgBody.m_Perishable, &msgBody.m_Eternal, NULL);
 
+			if (!msgBody.m_Perishable.empty())
+			{
+				Send(msgBody);
+				return;
+			}
+
+		}
+	}
+	else
+	{
+		if ((msg.m_ID.m_Hash == Zero) && m_This.m_Processor.m_Extra.m_TreasuryHandled)
+		{
+			proto::Body msgBody;
+			if (m_This.m_Processor.get_DB().ParamGet(NodeDB::ParamID::Treasury, NULL, NULL, &msgBody.m_Eternal))
+			{
+				Send(msgBody);
+				return;
+			}
+		}
 	}
 
 	proto::DataMissing msgMiss(Zero);
@@ -1733,9 +1750,16 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
 
 	const Block::SystemState::ID& id = t.m_Key.first;
+	Height h = id.m_Height;
 
-	NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnBlock(id, msg.m_Perishable, msg.m_Eternal, m_pInfo->m_ID.m_Key);
+	NodeProcessor::DataStatus::Enum eStatus = h ?
+		m_This.m_Processor.OnBlock(id, msg.m_Perishable, msg.m_Eternal, m_pInfo->m_ID.m_Key) :
+		m_This.m_Processor.OnTreasury(msg.m_Eternal);
+
 	OnFirstTaskDone(eStatus);
+
+	if (!h)
+		m_This.InitMode(); // maybe fast-sync now
 }
 
 void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
@@ -2766,12 +2790,12 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 		if (!ctx.ValidateAndSummarize(*msg.m_Value, msg.m_Value->get_Reader()))
 			ThrowUnexpected();
 
-		if (ctx.m_Coinbase.Hi || (ctx.m_Coinbase.Lo != Rules::get().CoinbaseEmission))
+		if (ctx.m_Coinbase != AmountBig::Type(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
 			ThrowUnexpected();
 
 		ctx.m_Sigma = -ctx.m_Sigma;
-		ctx.m_Coinbase += x.m_Fees;
-		ctx.m_Coinbase.AddTo(ctx.m_Sigma);
+		ctx.m_Coinbase += AmountBig::Type(x.m_Fees);
+		AmountBig::AddTo(ctx.m_Sigma, ctx.m_Coinbase);
 
 		if (!(ctx.m_Sigma == Zero))
 			ThrowUnexpected();
@@ -3006,6 +3030,9 @@ bool Node::Miner::Restart()
 	if (!IsEnabled())
 		return false; //  n/a
 
+	if (!get_ParentObj().m_Processor.m_Extra.m_TreasuryHandled)
+		return false;
+
 	m_pTaskToFinalize.reset();
 
 	const Keys& keys = get_ParentObj().m_Keys;
@@ -3022,21 +3049,6 @@ bool Node::Miner::Restart()
 	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, keys.m_pMiner ? *keys.m_pMiner : *keys.m_pGeneric);
 	if (m_pFinalizer)
 		bc.m_Mode = NodeProcessor::BlockContext::Mode::Assemble;
-
-	if (get_ParentObj().m_Processor.m_Extra.m_SubsidyOpen)
-	{
-		Height dh = get_ParentObj().m_Processor.m_Cursor.m_Sid.m_Height + 1 - Rules::HeightGenesis;
-		std::vector<Block::Body>& vTreasury = get_ParentObj().m_Cfg.m_vTreasury;
-		if (dh >= vTreasury.size())
-			return false;
-
-		const Block::Body& src = vTreasury[dh];
-		// copy
-		Cast::Down<TxBase>(bc.m_Block) = src;
-		Cast::Down<Block::BodyBase>(bc.m_Block) = src;
-		TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(vTreasury[dh].get_Reader());
-		bc.m_Block.m_SubsidyClosing = (dh + 1 == vTreasury.size());
-	}
 
 	bool bRes = get_ParentObj().m_Processor.GenerateNewBlock(bc);
 

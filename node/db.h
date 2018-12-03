@@ -40,6 +40,7 @@ public:
 			MyID,
 			SyncTarget,
 			LoHorizon,
+			Treasury
 		};
 	};
 
@@ -200,7 +201,7 @@ public:
 	// Hi-level functions
 
 	void ParamSet(uint32_t ID, const uint64_t*, const Blob*);
-	bool ParamGet(uint32_t ID, uint64_t*, Blob*);
+	bool ParamGet(uint32_t ID, uint64_t*, Blob*, ByteBuffer* = NULL);
 
 	uint64_t ParamIntGetDef(int ID, uint64_t def = 0);
 

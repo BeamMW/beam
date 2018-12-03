@@ -46,12 +46,14 @@ class NodeProcessor
 
 	struct RollbackData;
 
+	bool EnsureTreasuryHandled();
+	bool HandleTreasury(const Blob&, bool bFirstTime);
+
 	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
 	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, const Height* = NULL);
 	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, const Height* = NULL);
 	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd);
 	bool HandleBlockElement(const Output&, Height, const Height*, bool bFwd);
-	void ToggleSubsidyOpened();
 
 	bool ImportMacroBlockInternal(Block::BodyBase::IMacroReader&);
 	void RecognizeUtxos(TxBase::IReader&&, Height hMax);
@@ -122,9 +124,7 @@ public:
 
 	struct Extra
 	{
-		bool m_SubsidyOpen;
-		AmountBig m_Subsidy; // total system value
-		ECC::Scalar::Native m_Offset; // not really necessary, but using it it's possible to assemble the whole macroblock from the live objects.
+		bool m_TreasuryHandled;
 
 	} m_Extra;
 
@@ -145,6 +145,7 @@ public:
 
 	DataStatus::Enum OnState(const Block::SystemState::Full&, const PeerID&);
 	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const Blob& bbP, const Blob& bbE, const PeerID&);
+	DataStatus::Enum OnTreasury(const Blob&);
 
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }
@@ -162,7 +163,6 @@ public:
 	virtual void OnNewState() {}
 	virtual void OnRolledBack() {}
 	virtual bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
-	virtual bool ApproveState(const Block::SystemState::ID&) { return true; }
 	virtual void AdjustFossilEnd(Height&) {}
 	virtual void OnStateData() {}
 	virtual void OnBlockData() {}
@@ -178,7 +178,7 @@ public:
 	uint64_t FindActiveAtStrict(Height);
 
 	bool ValidateTxContext(const Transaction&); // assuming context-free validation is already performed, but 
-	static bool ValidateTxWrtHeight(const Transaction&, Height);
+	bool ValidateTxWrtHeight(const Transaction&) const;
 
 	struct GeneratedBlock
 	{

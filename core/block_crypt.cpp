@@ -281,7 +281,7 @@ namespace beam
 
 	/////////////
 	// TxKernel
-	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const
+	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig::Type* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const
 	{
 		if (pParent)
 		{
@@ -351,7 +351,7 @@ namespace beam
 		}
 
 		if (pFee)
-			*pFee += m_Fee;
+			*pFee += uintBigFrom(m_Fee);
 
 		return true;
 	}
@@ -361,7 +361,7 @@ namespace beam
 		Traverse(out, NULL, NULL, NULL, pLockImage);
 	}
 
-	bool TxKernel::IsValid(AmountBig& fee, ECC::Point::Native& exc) const
+	bool TxKernel::IsValid(AmountBig::Type& fee, ECC::Point::Native& exc) const
 	{
 		ECC::Hash::Value hv;
 		return Traverse(hv, &fee, &exc, NULL, NULL);
@@ -662,55 +662,41 @@ namespace beam
 	}
 
 	/////////////
-	// AmoutBig
-	void AmountBig::operator += (Amount x)
+	// AmountBig
+	namespace AmountBig
 	{
-		Lo += x;
-		if (Lo < x)
-			Hi++;
-	}
-
-	void AmountBig::operator -= (Amount x)
-	{
-		if (Lo < x)
-			Hi--;
-		Lo -= x;
-	}
-
-	void AmountBig::operator += (const AmountBig& x)
-	{
-		operator += (x.Lo);
-		Hi += x.Hi;
-	}
-
-	void AmountBig::operator -= (const AmountBig& x)
-	{
-		operator -= (x.Lo);
-		Hi -= x.Hi;
-	}
-
-	void AmountBig::Export(uintBig& x) const
-	{
-		x = Zero;
-		x.AssignRange<Amount, 0>(Lo);
-		x.AssignRange<Amount, (sizeof(Lo) << 3) >(Hi);
-	}
-
-	void AmountBig::AddTo(ECC::Point::Native& res) const
-	{
-		if (Hi)
+		Amount get_Lo(const Type& x)
 		{
-			uintBig val;
-			Export(val);
-
-			ECC::Scalar s;
-			s.m_Value = val;
-			res += ECC::Context::get().H_Big * s;
+			Amount res;
+			x.ExportWord<1>(res);
+			return res;
 		}
-		else
-			if (Lo)
-				res += ECC::Context::get().H * Lo;
-	}
+
+		Amount get_Hi(const Type& x)
+		{
+			Amount res;
+			x.ExportWord<0>(res);
+			return res;
+		}
+
+		void AddTo(ECC::Point::Native& res, const Type& x)
+		{
+			if (get_Hi(x))
+			{
+				ECC::Scalar s;
+				s.m_Value = x;
+				res += ECC::Context::get().H_Big * s;
+			}
+			else
+			{
+				Amount lo = get_Lo(x);
+				if (lo)
+					res += ECC::Context::get().H * lo;
+			}
+		}
+
+	} // namespace AmountBig
+
 
 	/////////////
 	// Block
@@ -724,14 +710,80 @@ namespace beam
 	const Height Rules::HeightGenesis	= 1;
 	const Amount Rules::Coin			= 1000000;
 
+	Rules::Rules()
+	{
+		TreasuryChecksum = Zero;
+	}
+
+	Amount Rules::get_EmissionEx(Height h, Height& hEnd, Amount base) const
+	{
+		h -= Rules::HeightGenesis; // may overflow, but it's ok. If h < HeightGenesis (which must not happen anyway) - then it'll give a huge height, for which the emission would be zero anyway.
+
+		if (h < EmissionDrop0)
+		{
+			hEnd = Rules::HeightGenesis + EmissionDrop0;
+			return base;
+		}
+
+		assert(EmissionDrop1);
+		Height n = 1 + (h - EmissionDrop0) / EmissionDrop1;
+
+		const uint32_t nBitsMax = sizeof(Amount) << 3;
+		if (n >= nBitsMax)
+		{
+			hEnd = MaxHeight;
+			return 0;
+		}
+
+		hEnd = Rules::HeightGenesis + EmissionDrop0 + n * EmissionDrop1;
+		return base >> n;
+	}
+
+	Amount Rules::get_Emission(Height h)
+	{
+		return get().get_EmissionEx(h, h, get().EmissionValue0);
+	}
+
+	void Rules::get_Emission(AmountBig::Type& res, const HeightRange& hr)
+	{
+		get_Emission(res, hr, get().EmissionValue0);
+	}
+
+	void Rules::get_Emission(AmountBig::Type& res, const HeightRange& hr, Amount base)
+	{
+		res = Zero;
+
+		for (Height hPos = hr.m_Min; ; )
+		{
+			Height hEnd;
+			Amount nCurrent = get().get_EmissionEx(hPos, hEnd, base);
+			if (!nCurrent)
+				break;
+
+			assert(hEnd > hPos);
+
+			if (hr.m_Max < hEnd)
+			{
+				res += uintBigFrom(nCurrent) * uintBigFrom(hr.m_Max - hPos + 1);
+				break;
+			}
+
+			res += uintBigFrom(nCurrent) * uintBigFrom(hEnd - hPos);
+			hPos = hEnd;
+		}
+	}
+
 	void Rules::UpdateChecksum()
 	{
 		// all parameters, including const (in case they'll be hardcoded to different values in later versions)
 		ECC::Hash::Processor()
 			<< ECC::Context::get().m_hvChecksum
+			<< TreasuryChecksum
 			<< HeightGenesis
 			<< Coin
-			<< CoinbaseEmission
+			<< EmissionValue0
+			<< EmissionDrop0
+			<< EmissionDrop1
 			<< MaturityCoinbase
 			<< MaturityStd
 			<< MaxBodySize
@@ -964,27 +1016,17 @@ namespace beam
 
 	void Block::BodyBase::ZeroInit()
 	{
-		ZeroObject(m_Subsidy);
 		ZeroObject(m_Offset);
-		m_SubsidyClosing = false;
 	}
 
 	void Block::BodyBase::Merge(const BodyBase& next)
 	{
-		m_Subsidy += next.m_Subsidy;
-
-		if (next.m_SubsidyClosing)
-		{
-			assert(!m_SubsidyClosing);
-			m_SubsidyClosing = true;
-		}
-
 		ECC::Scalar::Native offs(m_Offset);
 		offs += next.m_Offset;
 		m_Offset = offs;
 	}
 
-	bool Block::BodyBase::IsValid(const HeightRange& hr, bool bSubsidyOpen, TxBase::IReader&& r) const
+	bool Block::BodyBase::IsValid(const HeightRange& hr, TxBase::IReader&& r) const
 	{
 		assert((hr.m_Min >= Rules::HeightGenesis) && !hr.IsEmpty());
 
@@ -994,7 +1036,7 @@ namespace beam
 
 		return
 			ctx.ValidateAndSummarize(*this, std::move(r)) &&
-			ctx.IsValidBlock(*this, bSubsidyOpen);
+			ctx.IsValidBlock(*this);
 	}
 
 	/////////////
@@ -1093,11 +1135,15 @@ namespace beam
 	{
 		ECC::Scalar::Native sk;
 
-		pOutp.reset(new Output);
-		pOutp->m_Coinbase = true;
-		pOutp->Create(sk, kdf, Key::IDV(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase));
+		Amount val = Rules::get_Emission(h);
+		if (val)
+		{
+			pOutp.reset(new Output);
+			pOutp->m_Coinbase = true;
+			pOutp->Create(sk, kdf, Key::IDV(val, h, Key::Type::Coinbase));
 
-		m_Offset += sk;
+			m_Offset += sk;
+		}
 
 		pKrn.reset(new TxKernel);
 		pKrn->m_Height.m_Min = h; // make it similar to others

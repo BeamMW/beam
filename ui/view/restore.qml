@@ -15,6 +15,7 @@ Item
 
     property bool isRecoveryMode: false
     property bool isCreating: false
+    property bool isConnectToRandomNode: false
 
     RestoreViewModel {
         id: viewModel 
@@ -90,7 +91,7 @@ Item
                     icon.source: "qrc:/assets/icon-cancel.svg"
                     onClicked: {
                         viewModel.cancelRestore();
-                        root.parent.setSource("qrc:/start.qml", {"isRestoreCancelled": true});
+                        root.parent.setSource("qrc:/start.qml", {"isRestoreCancelled": true, "isRandomNodeSelected": isConnectToRandomNode});
                     }
                 }
             }

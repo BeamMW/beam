@@ -14,7 +14,6 @@
 
 #include "treasury.h"
 #include "proto.h"
-#include "serialization_adapters.h"
 
 namespace beam
 {
@@ -147,10 +146,10 @@ namespace beam
 		}
 	};
 
-	void Treasury::Request::Group::AddSubsidy(AmountBig& res) const
+	void Treasury::Request::Group::AddSubsidy(AmountBig::Type& res) const
 	{
 		for (size_t i = 0; i < m_vCoins.size(); i++)
-			res += m_vCoins[i].m_Value;
+			res += uintBigFrom(m_vCoins[i].m_Value);
 	}
 
 	void Treasury::Response::Group::Coin::get_SigMsg(Hash::Value& hv) const
@@ -375,51 +374,74 @@ namespace beam
 		Request& r = e.m_Request;
 		r.m_WalletID = pid;
 
-		assert(pars.m_StepMin);
-		nPerBlockAvg *= pars.m_StepMin;
+		HeightRange hr;
+		hr.m_Max = Rules::HeightGenesis - 1;
 
-		Height h0 = 0;
-		for (Height h = 0; h < pars.m_MaxHeight; h += pars.m_StepMin)
+		for (uint32_t iBurst = 0; iBurst < pars.m_Bursts; iBurst++)
 		{
-			if (r.m_vGroups.empty() || (h - h0 >= pars.m_MaxDiffPerBlock))
-			{
-				r.m_vGroups.emplace_back();
-				h0 = h;
-			}
+			hr.m_Min = hr.m_Max + 1;
+			hr.m_Max += pars.m_MaturityStep;
 
+			AmountBig::Type valBig;
+			Rules::get_Emission(valBig, hr, nPerBlockAvg);
+			if (AmountBig::get_Hi(valBig))
+				throw std::runtime_error("too large");
+
+			Amount val = AmountBig::get_Lo(valBig);
+
+			r.m_vGroups.emplace_back();
 			Request::Group::Coin& c = r.m_vGroups.back().m_vCoins.emplace_back();
-			c.m_Incubation = h;
-			c.m_Value = nPerBlockAvg;
+			c.m_Incubation = hr.m_Max;
+			c.m_Value = val;
 		}
 
 		return &e;
 	}
 
-	size_t Treasury::get_OverheadFor(const AmountBig& x)
+	bool Treasury::Data::Group::IsValid() const
 	{
-		Block::Body body;
-		body.ZeroInit();
-		body.m_Subsidy = x;
+		Mode::Scope scope(Mode::Fast);
 
-		return get_BlockSize(body);
+		TxBase::Context ctx;
+		ZeroObject(ctx.m_Height); // current height is zero
+		if (!ctx.ValidateAndSummarize(m_Data, m_Data.get_Reader()))
+			return false;
+
+		if (!(ctx.m_Fee == Zero))
+			return false; // doesn't make sense for treasury
+
+		ctx.m_Sigma = -ctx.m_Sigma;
+		AmountBig::AddTo(ctx.m_Sigma, m_Value);
+
+		return (ctx.m_Sigma == Zero);
 	}
 
-	size_t Treasury::get_BlockSize(const Block::Body& body)
+	bool Treasury::Data::IsValid() const
 	{
-		SerializerSizeCounter ssc;
-		ssc & body;
-		return ssc.m_Counter.m_Value;
+		// finalize
+		struct Context
+			:public ThreadPool::Verifier
+		{
+			const Data& m_Data;
+			Context(const Data& d) :m_Data(d) {}
+
+			virtual bool Verify(size_t iTask) override
+			{
+				return m_Data.m_vGroups[iTask].IsValid();
+			}
+
+		} ctx(*this);
+
+		ctx.DoAll(m_vGroups.size());
+		return ctx.m_bValid;
 	}
 
-	void Treasury::Build(std::vector<Block::Body>& res) const
+	void Treasury::Build(Data& d) const
 	{
 		// Assuming all the plans are generated with the same group/incubation parameters.
 		for (size_t iG = 0; ; iG++)
 		{
 			bool bNoPeers = true, bNoBlock = true;
-
-			Block::Body body;
-			size_t nOverhead = 0, nSizeTotal = 0;
 
 			for (EntryMap::const_iterator it = m_Entries.begin(); m_Entries.end() != it; )
 			{
@@ -433,79 +455,70 @@ namespace beam
 				bNoPeers = false;
 
 				if (bNoBlock)
+					d.m_vGroups.emplace_back();
+
+				Data::Group& gOut = d.m_vGroups.back();
+
+				if (bNoBlock)
 				{
-					body.ZeroInit();
-					nOverhead = get_OverheadFor(body.m_Subsidy); // the BodyBase size slightly depends on its subsidy. Hence it should be recalculated after adding every peer
-					nSizeTotal = nOverhead;
+					ZeroObject(gOut.m_Value);
+					gOut.m_Data.m_Offset = Zero;
+					bNoBlock = false;
 				}
 
 				const Response::Group& g = resp.m_vGroups[iG];
 				Response::Group::Reader r(g);
-				size_t nSizeNetto = r.get_SizeNetto();
 
-				AmountBig subsNext = body.m_Subsidy;
-				e.m_Request.m_vGroups[iG].AddSubsidy(subsNext);
+				// merge
+				TxVectors::Writer(gOut.m_Data, gOut.m_Data).Dump(std::move(r));
+				e.m_Request.m_vGroups[iG].AddSubsidy(gOut.m_Value);
 
-				size_t nOverheadNext = get_OverheadFor(subsNext);
-
-				size_t nSizeAfterMerge = nSizeTotal + nSizeNetto + nOverheadNext - nOverhead;
-				if (nSizeAfterMerge <= Rules::get().MaxBodySize)
-				{
-					// merge
-					TxVectors::Writer(body, body).Dump(std::move(r));
-
-					Scalar::Native off = body.m_Offset;
-					off += g.m_Base.m_Offset;
-					body.m_Offset = off;
-
-					bNoBlock = false;
-
-					body.m_Subsidy = subsNext;
-					nSizeTotal = nSizeAfterMerge;
-					nOverhead = nOverheadNext;
-
-					assert(get_BlockSize(body) == nSizeTotal);
-				}
-				else
-				{
-					if (bNoBlock)
-						throw std::runtime_error("treasury group too large");
-
-					res.push_back(std::move(body));
-					bNoBlock = true;
-					it--; // retry
-				}
+				Scalar::Native off = gOut.m_Data.m_Offset;
+				off += g.m_Base.m_Offset;
+				gOut.m_Data.m_Offset = off;
 			}
 
 			if (bNoPeers)
 				break;
 
 			if (!bNoBlock)
-				res.push_back(std::move(body));
+				d.m_vGroups.back().m_Data.Normalize();
 		}
 
 		// finalize
-		struct Context
-			:public ThreadPool::Verifier
-		{
-			std::vector<Block::Body>& m_Res;
-
-			Context(std::vector<Block::Body>& res)
-				:m_Res(res)
-			{}
-
-			virtual bool Verify(size_t iTask) override
-			{
-				m_Res[iTask].Normalize();
-
-				return m_Res[iTask].IsValid(HeightRange(Rules::HeightGenesis + iTask), true);
-			}
-
-		} ctx(res);
-
-		ctx.DoAll(res.size());
-		if (!ctx.m_bValid)
+		if (!d.IsValid())
 			throw std::runtime_error("Invalid block generated");
+	}
+
+	void Treasury::Data::Recover(Key::IPKdf& kdf, std::vector<Coin>& out) const
+	{
+		for (size_t iG = 0; iG < m_vGroups.size(); iG++)
+		{
+			const Group& g = m_vGroups[iG];
+			for (size_t iO = 0; iO < g.m_Data.m_vOutputs.size(); iO++)
+			{
+				const Output& outp = *g.m_Data.m_vOutputs[iO];
+				Key::IDV kidv;
+				if (outp.Recover(kdf, kidv))
+				{
+					out.emplace_back();
+					out.back().m_Incubation = outp.m_Incubation;
+					out.back().m_Kidv = kidv;
+				}
+			}
+		}
+
+		std::sort(out.begin(), out.end());
+	}
+
+	int Treasury::Data::Coin::cmp(const Coin& x) const
+	{
+		if (m_Incubation < x.m_Incubation)
+			return -1;
+		if (m_Incubation + x.m_Incubation)
+			return 1;
+
+		return m_Kidv.cmp(x.m_Kidv);
 	}
 
 } // namespace beam

@@ -1075,7 +1075,7 @@ namespace ECC {
 		oracle << "Let the generator generation begin!";
 
 		// make sure we get the same G,H for different generator kinds
-		Point::Native G_raw, H_raw;
+		Point::Native G_raw, H_raw, J_raw;
 
 		secp256k1_gej_set_ge(&G_raw.get_Raw(), &secp256k1_ge_const_g);
 		Point ptG;
@@ -1085,11 +1085,13 @@ namespace ECC {
 		hpRes << ptG;
 
 		Generator::CreatePointNnz(H_raw, oracle, &hpRes);
+		Generator::CreatePointNnz(J_raw, oracle, &hpRes);
 
 
 		ctx.G.Initialize(G_raw, oracle);
 		ctx.H.Initialize(H_raw, oracle);
 		ctx.H_Big.Initialize(H_raw, oracle);
+		ctx.J.Initialize(J_raw, oracle);
 
 		Point::Native pt, ptAux2(Zero);
 
@@ -1255,6 +1257,45 @@ namespace ECC {
 
 		k0 += -k1;
 		return (k0 == Zero); // not secret, constant-time guarantee isn't requied
+	}
+
+	int Key::ID::cmp(const ID& x) const
+	{
+		if (m_Type < x.m_Type)
+			return -1;
+		if (m_Type > x.m_Type)
+			return 1;
+		if (m_Idx < x.m_Idx)
+			return -1;
+		if (m_Idx > x.m_Idx)
+			return 1;
+		return 0;
+	}
+
+	int Key::IDV::cmp(const IDV& x) const
+	{
+		int n = ID::cmp(x);
+		if (n)
+			return n;
+
+		if (m_Value < x.m_Value)
+			return -1;
+		if (m_Value > x.m_Value)
+			return 1;
+		return 0;
+	}
+
+	int Key::IDVC::cmp(const IDVC& x) const
+	{
+		int n = IDV::cmp(x);
+		if (n)
+			return n;
+
+		if (m_iChild < x.m_iChild)
+			return -1;
+		if (m_iChild > x.m_iChild)
+			return 1;
+		return 0;
 	}
 
 	/////////////////////

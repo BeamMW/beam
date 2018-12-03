@@ -60,30 +60,29 @@ namespace beam
 		bool IsInRangeRelative(Height) const; // assuming m_Min was already subtracted
 	};
 
-	struct AmountBig
+	namespace AmountBig
 	{
-		Amount Lo;
-		Amount Hi;
 
-		typedef uintBig_t<(sizeof(Amount) << 4)> uintBig; // 128 bits
+		typedef uintBig_t<sizeof(Amount) + sizeof(Height)> Type; // 128 bits
+		Amount get_Lo(const Type&);
+		Amount get_Hi(const Type&);
 
-		void operator += (const Amount);
-		void operator -= (const Amount);
-		void operator += (const AmountBig&);
-		void operator -= (const AmountBig&);
-
-		void Export(uintBig&) const;
-		void AddTo(ECC::Point::Native&) const;
+		void AddTo(ECC::Point::Native&, const Type&);
 	};
 
 	struct Rules
 	{
+		Rules();
 		static Rules& get();
 
 		static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
 		static const Amount Coin; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
 
-		Amount CoinbaseEmission	= Coin * 80; // the maximum allowed coinbase in a single block
+		// emission parameters
+		Amount EmissionValue0	= Coin * 80; // Initial emission. Each drop it will be halved. In case of odd num it's rounded to the lower value.
+		Height EmissionDrop0	= 525000; // 1 year roughly. This is the height of the last block that still has the initial emission, the drop is starting from the next block
+		Height EmissionDrop1	= 2100000; // 4 years roughly. Each such a cycle there's a new drop
+
 		Height MaturityCoinbase = 60; // 1 hour
 		Height MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
 
@@ -101,9 +100,17 @@ namespace beam
 		uint32_t MaxRollbackHeight = 1440; // 1 day roughly
 		uint32_t MacroblockGranularity = 720; // i.e. should be created for heights that are multiples of this. This should make it more likely for different nodes to have the same macroblocks
 
+		ECC::Hash::Value TreasuryChecksum;
 		ECC::Hash::Value Checksum;
 
 		void UpdateChecksum();
+
+		static Amount get_Emission(Height);
+		static void get_Emission(AmountBig::Type&, const HeightRange&);
+		static void get_Emission(AmountBig::Type&, const HeightRange&, Amount base);
+
+	private:
+		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
 	};
 
 	struct TxElement
@@ -231,7 +238,7 @@ namespace beam
 		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all, including the m_Commitment (i.e. the public key)
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
-		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
+		bool IsValid(AmountBig::Type& fee, ECC::Point::Native& exc) const;
 		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
 
 		struct LongProof; // legacy
@@ -241,7 +248,7 @@ namespace beam
 		COMPARISON_VIA_CMP
 
 	private:
-		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const;
+		bool Traverse(ECC::Hash::Value&, AmountBig::Type*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
@@ -349,8 +356,7 @@ namespace beam
 
 		bool IsValid(Context&) const; // Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
 
-		static const uint32_t s_KeyBits = ECC::nBits; // key len for map of transactions. Can actually be less than 256 bits.
-		typedef uintBig_t<s_KeyBits> KeyType;
+		typedef uintBig_t<ECC::nBytes> KeyType; // key len for map of transactions. Can actually be less than 256 bits.
 
 		void get_Key(KeyType&) const;
 	};
@@ -378,7 +384,7 @@ namespace beam
 
 			std::array<uint8_t, nSolutionBytes>	m_Indices;
 
-			typedef uintBig_t<64> NonceType;
+			typedef uintBig_t<8> NonceType;
 			NonceType m_Nonce; // 8 bytes. The overall solution size is 96 bytes.
 			Difficulty m_Difficulty;
 
@@ -496,12 +502,6 @@ namespace beam
 		struct BodyBase
 			:public TxBase
 		{
-			AmountBig m_Subsidy; // the overall amount created by the block
-								 // For standard blocks this should be equal to the coinbase emission.
-								 // Genesis block(s) may have higher emission
-
-			bool m_SubsidyClosing; // Last block that contains arbitrary subsidy.
-
 			void ZeroInit();
 
 			// Test the following:
@@ -511,7 +511,7 @@ namespace beam
 			// Not tested by this function (but should be tested by nodes!)
 			//		Existence of all the input UTXOs
 			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
-			bool IsValid(const HeightRange&, bool bSubsidyOpen, TxBase::IReader&&) const;
+			bool IsValid(const HeightRange&, TxBase::IReader&&) const;
 
 			struct IMacroReader
 				:public IReader
@@ -539,9 +539,9 @@ namespace beam
 			:public BodyBase
 			,public TxVectors::Full
 		{
-			bool IsValid(const HeightRange& hr, bool bSubsidyOpen) const
+			bool IsValid(const HeightRange& hr) const
 			{
-				return BodyBase::IsValid(hr, bSubsidyOpen, get_Reader());
+				return BodyBase::IsValid(hr, get_Reader());
 			}
 		};
 
@@ -609,8 +609,8 @@ namespace beam
 
 		ECC::Point::Native m_Sigma;
 
-		AmountBig m_Fee;
-		AmountBig m_Coinbase;
+		AmountBig::Type m_Fee;
+		AmountBig::Type m_Coinbase;
 		HeightRange m_Height;
 
 		bool m_bBlockMode; // in 'block' mode the hMin/hMax on input denote the range of heights. Each element is verified wrt it independently.
@@ -632,7 +632,7 @@ namespace beam
 
 		// hi-level functions, should be used after all parts were validated and merged
 		bool IsValidTransaction();
-		bool IsValidBlock(const Block::BodyBase&, bool bSubsidyOpen);
+		bool IsValidBlock(const Block::BodyBase&);
 	};
 
 	class Block::BodyBase::RW
@@ -791,7 +791,7 @@ namespace beam
 		bool Import(ECC::HKdfPub&);
 
 	private:
-		typedef uintBig_t<64> MacValue;
+		typedef uintBig_t<8> MacValue;
 		void XCrypt(MacValue&, uint32_t nSize, bool bEnc) const;
 
 		void Export(void*, uint32_t, uint8_t nCode);

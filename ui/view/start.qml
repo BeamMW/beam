@@ -14,6 +14,7 @@ Item
     anchors.fill: parent
 
     property bool isRestoreCancelled: false
+    property bool isRandomNodeSelected: false
 
     StartViewModel { id: viewModel }
     
@@ -798,7 +799,7 @@ Item
                                     }
                                     else
                                     {
-                                        root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true});
+                                        root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true, "isConnectToRandomNode": root.isRandomNodeSelected});
                                     }
                                 }
                             }
@@ -812,9 +813,37 @@ Item
             id: nodeSetup
 
             Rectangle
-            {
+            {   
+                id: nodeSetupRectangle
                 color: Style.marine
                 property Item defaultFocusItem: localNodeButton
+
+                Component.onCompleted: {
+                    if (root.isRestoreCancelled) {
+                        // restore settings on nodeSetup page
+                        onRestoreCancelled(root.isRandomNodeSelected);
+                        root.isRestoreCancelled = false;
+                    }
+                }
+
+                function onRestoreCancelled(useRandomNode) {
+                    if (useRandomNode) {
+                        nodeSetupRectangle.defaultFocusItem = randomNodeButton;
+                        randomNodeButton.checked = true;
+                    } else if (viewModel.getIsRunLocalNode()) {
+                        nodeSetupRectangle.defaultFocusItem = localNodeButton;
+                        localNodeButton.checked = true;
+
+                        portInput.text = viewModel.localPort;
+                        miningInput.value = viewModel.localMiningThreads;
+                    } else {
+                        nodeSetupRectangle.defaultFocusItem = remoteNodeButton;
+                        remoteNodeButton.checked = true;
+
+                        remoteNodeAddrInput.text = viewModel.remoteNodeAddress;
+                    }
+                    nodeSetupRectangle.defaultFocusItem.focus = true;
+                }
 
                 ColumnLayout {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -991,7 +1020,7 @@ Item
                                             portError.text = qsTr("Please, specify port to listen ");
                                         }
                                         if (!portEmpty) {
-                                            viewModel.setupLocalNode(parseInt(portInput.text), parseInt(miningInput.value));
+                                            viewModel.setupLocalNode(parseInt(portInput.text));
                                         }
                                         else {
                                             return;
@@ -1007,6 +1036,7 @@ Item
                                     else if (randomNodeButton.checked) {
                                         viewModel.setupRandomNode();
                                     }
+                                    root.isRandomNodeSelected = randomNodeButton.checked;
                                     startWizzardView.push(viewModel.isRecoveryMode ? restoreWallet : createWalletEntry);
                                 }
                             }

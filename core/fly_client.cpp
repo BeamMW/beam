@@ -245,7 +245,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(Login&& msg)
 void FlyClient::NetworkStd::Connection::OnMsg(NewTip&& msg)
 {
 	if (m_Tip == msg.m_Description)
-		return; // redundant msg, might happen in older nodes
+		return; // redundant msg, might happen when only treasury is received
 
 	if (msg.m_Description.m_ChainWork <= m_Tip.m_ChainWork)
 		ThrowUnexpected();

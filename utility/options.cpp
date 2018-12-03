@@ -79,10 +79,11 @@ namespace beam
         const char* MINER_TYPE = "miner_type";
 #endif
         // treasury
-        const char* TR_BEAMS = "tr_BeamsPerUtxo";
-        const char* TR_DH = "tr_HeightStep";
-        const char* TR_COUNT = "tr_Count";
-        // ui
+        const char* TR_OPCODE = "tr_op";
+        const char* TR_WID = "tr_wid";
+        const char* TR_PERC = "tr_pecents";
+		const char* TR_COMMENT = "tr_comment";
+		// ui
         const char* WALLET_ADDR = "addr";
         const char* APPDATA_PATH = "appdata";
     }
@@ -144,10 +145,11 @@ namespace beam
             (cli::TX_ID, po::value<string>()->default_value(""), "tx id")
             (cli::NEW_ADDRESS_LABEL, po::value<string>()->default_value(""), "label for new own address")
 
-            (cli::TR_COUNT, po::value<uint32_t>()->default_value(30), "treasury UTXO count")
-            (cli::TR_DH, po::value<uint32_t>()->default_value(1440), "treasury UTXO height lock step")
-            (cli::TR_BEAMS, po::value<uint32_t>()->default_value(10), "treasury value of each UTXO (in Beams)")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|info|treasury]");
+            (cli::TR_OPCODE, po::value<uint32_t>()->default_value(0), "treasury operation: 0=print ID, 1=plan, 2=response, 3=import, 4=generate, 5=print")
+            (cli::TR_WID, po::value<std::string>(), "treasury WalletID")
+            (cli::TR_PERC, po::value<double>(), "treasury percent of the total emission, designated to this WalletID")
+			(cli::TR_COMMENT, po::value<std::string>(), "treasury custom message")
+			(cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|info|treasury]");
 
         po::options_description uioptions("UI options");
         uioptions.add_options()
@@ -155,7 +157,7 @@ namespace beam
             (cli::APPDATA_PATH, po::value<string>());
 
 #define RulesParams(macro) \
-    macro(Amount, CoinbaseEmission, "coinbase emission in a single block") \
+    macro(Amount, EmissionValue0, "initial coinbase emission in a single block") \
     macro(Height, MaturityCoinbase, "num of blocks before coinbase UTXO can be spent") \
     macro(Height, MaturityStd, "num of blocks before non-coinbase UTXO can be spent") \
     macro(size_t, MaxBodySize, "Max block body size [bytes]") \

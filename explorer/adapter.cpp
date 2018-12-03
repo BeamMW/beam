@@ -277,7 +277,7 @@ private:
                 {"prev",       hash_to_hex(buf, blockState.m_Prev)},
                 {"difficulty", blockState.m_PoW.m_Difficulty.ToFloat()},
                 {"chainwork",  uint256_to_hex(buf, blockState.m_ChainWork)},
-                {"subsidy",    block.m_Subsidy.Lo},
+                {"subsidy",    Rules::get_Emission(blockState.m_Height)},
                 {"inputs",     inputs},
                 {"outputs",    outputs},
                 {"kernels",    kernels}

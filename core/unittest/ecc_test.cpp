@@ -159,10 +159,10 @@ void TestUintBig()
 	// test shifts, when src/dst types is smaller/bigger/equal
 	for (int j = 0; j < 20; j++)
 	{
-		beam::uintBig_t<256> a;
-		beam::uintBig_t<256 - 64> b;
-		beam::uintBig_t<256 + 64> c;
-		beam::uintBig_t<256> d;
+		beam::uintBig_t<32> a;
+		beam::uintBig_t<32 - 8> b;
+		beam::uintBig_t<32 + 8> c;
+		beam::uintBig_t<32> d;
 
 		SetRandom(a);
 
@@ -840,7 +840,7 @@ struct TransactionMaker
 		CoSignKernel(*pKrn, hvLockImage);
 
 		Point::Native exc;
-		beam::AmountBig fee2;
+		beam::AmountBig::Type fee2;
 		verify_test(!pKrn->IsValid(fee2, exc)); // should not pass validation unless correct hash preimage is specified
 
 		// finish HL: add hash preimage
@@ -886,7 +886,7 @@ void TestTransaction()
 
 	beam::TxBase::Context ctx;
 	verify_test(tm.m_Trans.IsValid(ctx));
-	verify_test(!ctx.m_Fee.Hi && (ctx.m_Fee.Lo == fee1 + fee2));
+	verify_test(ctx.m_Fee == beam::AmountBig::Type(fee1 + fee2));
 }
 
 void TestAES()
@@ -1137,27 +1137,27 @@ void TestFourCC()
 void TestTreasury()
 {
 	beam::Treasury::Parameters pars;
-	pars.m_MaxHeight = 1440 * 360; // 1 year, make it shorter
-
-	beam::Rules::get().MaxBodySize = 6 * 1024; // enforce more rapid block splitting
+	pars.m_Bursts = 12;
+	pars.m_MaturityStep = 1440 * 30 * 4;
 
 	beam::Treasury tres;
 
 	const uint32_t nPeers = 3;
+	HKdf pKdfs[nPeers];
+
 	for (uint32_t i = 0; i < nPeers; i++)
 	{
 		// 1. target wallet is initialized, generates its PeerID
 		uintBig seed;
 		SetRandom(seed);
-		HKdf kdf;
-		kdf.Generate(seed);
+		pKdfs[i].Generate(seed);
 
 		beam::PeerID pid;
 		Scalar::Native sk;
-		beam::Treasury::get_ID(kdf, pid, sk);
+		beam::Treasury::get_ID(pKdfs[i], pid, sk);
 
-		// 2. Plan is created
-		beam::Treasury::Entry* pE = tres.CreatePlan(pid, 5 * beam::Rules::get().CoinbaseEmission, pars);
+		// 2. Plan is created (2%, 3%, 4% of the total emission)
+		beam::Treasury::Entry* pE = tres.CreatePlan(pid, beam::Rules::get().EmissionValue0 * (i + 2)/100, pars);
 		verify_test(pE->m_Request.m_WalletID == pid);
 
 		// test Request serialization
@@ -1173,7 +1173,7 @@ void TestTreasury()
 		// 3. Plan is appvoved by the wallet, response is generated
 		pE->m_pResponse.reset(new beam::Treasury::Response);
 		uint64_t nIndex = 1;
-		verify_test(pE->m_pResponse->Create(req, kdf, nIndex));
+		verify_test(pE->m_pResponse->Create(req, pKdfs[i], nIndex));
 		verify_test(pE->m_pResponse->m_WalletID == pid);
 
 		// 4. Reponse is verified
@@ -1192,9 +1192,33 @@ void TestTreasury()
 
 	verify_test(tres.m_Entries.size() == nPeers);
 
-	std::vector<beam::Block::Body> res;
-	tres.Build(res);
-	verify_test(!res.empty());
+	std::string msg = "cool treasury";
+	beam::Treasury::Data data;
+	data.m_sCustomMsg = msg;
+	tres.Build(data);
+	verify_test(!data.m_vGroups.empty());
+
+	// test serialization
+	beam::ByteBuffer bb;
+	ser1.swap_buf(bb);
+	ser1 & data;
+
+	data.m_vGroups.clear();
+	data.m_sCustomMsg.clear();
+
+	der1.reset(ser1.buffer().first, ser1.buffer().second);
+	der1 & data;
+
+	verify_test(!data.m_vGroups.empty());
+	verify_test(data.m_sCustomMsg == msg);
+	verify_test(data.IsValid());
+
+	for (uint32_t i = 0; i < nPeers; i++)
+	{
+		std::vector<beam::Treasury::Data::Coin> vCoins;
+		data.Recover(pKdfs[i], vCoins);
+		verify_test(vCoins.size() == pars.m_Bursts);
+	}
 }
 
 void TestAll()

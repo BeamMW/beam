@@ -153,8 +153,8 @@ namespace beam
 		Blob(const void* p_, uint32_t n_) :p(p_), n(n_) {}
 		Blob(const ByteBuffer& bb);
 
-		template <uint32_t nBits_>
-		Blob(const uintBig_t<nBits_>& x) :p(x.m_pData), n(x.nBytes) {}
+		template <uint32_t nBytes_>
+		Blob(const uintBig_t<nBytes_>& x) :p(x.m_pData), n(x.nBytes) {}
 
 		void Export(ByteBuffer&) const;
 	};

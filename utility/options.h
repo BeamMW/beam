@@ -78,10 +78,11 @@ namespace beam
         extern const char* MINER_TYPE;
 #endif
  // treasury
-        extern const char* TR_BEAMS;
-        extern const char* TR_DH;
-        extern const char* TR_COUNT;
- // ui
+        extern const char* TR_OPCODE;
+        extern const char* TR_WID;
+        extern const char* TR_PERC;
+		extern const char* TR_COMMENT;
+		// ui
         extern const char* WALLET_ADDR;
 		extern const char* APPDATA_PATH;
     }

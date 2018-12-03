@@ -414,8 +414,8 @@ namespace ECC
 		void Write(const Point&);
 		void Write(const Point::Native&);
 		void Write(const beam::Blob&);
-		template <uint32_t nBits_>
-		void Write(const beam::uintBig_t<nBits_>& x) { Write(x.m_pData, x.nBytes); }
+		template <uint32_t nBytes_>
+		void Write(const beam::uintBig_t<nBytes_>& x) { Write(x.m_pData, x.nBytes); }
 		template <uint32_t n>
 		void Write(const char(&sz)[n]) { Write(sz, n); }
 		void Write(const std::string& str) { Write(str.c_str(), static_cast<uint32_t>(str.size() + 1)); }
@@ -537,6 +537,7 @@ namespace ECC
 		Generator::Obscured						G;
 		Generator::Obscured						H_Big;
 		Generator::Simple<sizeof(Amount) << 3>	H;
+		Generator::Obscured						J; // for switch/ElGamal commitment
 
 		struct IppCalculator
 		{

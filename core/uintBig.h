@@ -105,14 +105,12 @@ namespace beam
 
 	};
 
-	template <uint32_t nBits_>
+	template <uint32_t nBytes_>
 	struct uintBig_t
 		:public uintBigImpl
 	{
-		static_assert(!(7 & nBits_), "should be byte-aligned");
-
-		static const uint32_t nBits = nBits_;
-		static const uint32_t nBytes = nBits_ >> 3;
+		static const uint32_t nBits = nBytes_ << 3;
+		static const uint32_t nBytes = nBytes_;
 
         uintBig_t()
         {
@@ -156,8 +154,8 @@ namespace beam
 			return *this;
 		}
 
-		template <uint32_t nBitsOther_>
-		uintBig_t& operator = (const uintBig_t<nBitsOther_>& v)
+		template <uint32_t nBytesOther_>
+		uintBig_t& operator = (const uintBig_t<nBytesOther_>& v)
 		{
 			_Assign(m_pData, nBytes, v.m_pData, v.nBytes);
 			return *this;
@@ -192,7 +190,15 @@ namespace beam
 		template <typename T>
 		void Export(T& x) const
 		{
+			static_assert(sizeof(T) >= nBytes, "");
 			_ExportAligned(x, m_pData, nBytes);
+		}
+
+		template <uint32_t iWord, typename T>
+		void ExportWord(T& x) const
+		{
+			static_assert(sizeof(T) * (iWord + 1) <= nBytes, "");
+			_ExportAligned(x, m_pData + sizeof(T) * iWord, sizeof(T));
 		}
 
 		template <typename T, uint32_t nOffset>
@@ -215,22 +221,22 @@ namespace beam
 			_Inc(m_pData, nBytes);
 		}
 
-		template <uint32_t nBitsOther_>
-		void operator += (const uintBig_t<nBitsOther_>& x)
+		template <uint32_t nBytesOther_>
+		void operator += (const uintBig_t<nBytesOther_>& x)
 		{
 			_Inc(m_pData, nBytes, x.m_pData, x.nBytes);
 		}
 
-		template <uint32_t nBits0, uint32_t nBits1>
-		void AssignMul(const uintBig_t<nBits0>& x0, const uintBig_t<nBits1> & x1)
+		template <uint32_t nBytes0, uint32_t nBytes1>
+		void AssignMul(const uintBig_t<nBytes0>& x0, const uintBig_t<nBytes1> & x1)
 		{
 			_Mul(m_pData, nBytes, x0.m_pData, x0.nBytes, x1.m_pData, x1.nBytes);
 		}
 
-		template <uint32_t nBitsOther_>
-		uintBig_t<nBits + nBitsOther_> operator * (const uintBig_t<nBitsOther_>& x) const
+		template <uint32_t nBytesOther_>
+		uintBig_t<nBytes + nBytesOther_> operator * (const uintBig_t<nBytesOther_>& x) const
 		{
-			uintBig_t<nBits + nBitsOther_> res;
+			uintBig_t<nBytes + nBytesOther_> res;
 			res.AssignMul(*this, x);
 			return res;
 		}
@@ -246,14 +252,14 @@ namespace beam
 			Inc();
 		}
 
-		template <uint32_t nBitsOther_>
-		void operator ^= (const uintBig_t<nBitsOther_>& x)
+		template <uint32_t nBytesOther_>
+		void operator ^= (const uintBig_t<nBytesOther_>& x)
 		{
 			_Xor(m_pData, nBytes, x.m_pData, x.nBytes);
 		}
 
-		template <uint32_t nBitsOther_>
-		int cmp(const uintBig_t<nBitsOther_>& x) const
+		template <uint32_t nBytesOther_>
+		int cmp(const uintBig_t<nBytesOther_>& x) const
 		{
 			return _Cmp(m_pData, nBytes, x.m_pData, x.nBytes);
 		}
@@ -265,14 +271,14 @@ namespace beam
 			return _GetOrder(m_pData, nBytes);
 		}
 
-		template <uint32_t nBitsOther_>
-		void ShiftRight(uint32_t nBits, uintBig_t<nBitsOther_>& res) const
+		template <uint32_t nBytesOther_>
+		void ShiftRight(uint32_t nBits, uintBig_t<nBytesOther_>& res) const
 		{
 			_ShiftRight(res.m_pData, res.nBytes, m_pData, nBytes, nBits);
 		}
 
-		template <uint32_t nBitsOther_>
-		void ShiftLeft(uint32_t nBits, uintBig_t<nBitsOther_>& res) const
+		template <uint32_t nBytesOther_>
+		void ShiftLeft(uint32_t nBits, uintBig_t<nBytesOther_>& res) const
 		{
 			_ShiftLeft(res.m_pData, res.nBytes, m_pData, nBytes, nBits);
 		}
@@ -315,7 +321,7 @@ namespace beam
 
 	template <typename T>
 	struct uintBigFor {
-		typedef uintBig_t<(sizeof(T) << 3)> Type;
+		typedef uintBig_t<sizeof(T)> Type;
 	};
 
 	template <typename T>

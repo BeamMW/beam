@@ -13,8 +13,9 @@
 // limitations under the License.
 
 #include "processor.h"
-#include "../utility/serialize.h"
+#include "../core/treasury.h"
 #include "../core/serialization_adapters.h"
+#include "../utility/serialize.h"
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
 
@@ -54,7 +55,6 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 
 	m_nSizeUtxoComission = 0;
 	ZeroObject(m_Extra);
-	m_Extra.m_SubsidyOpen = true;
 
 	if (bResetCursor)
 		m_DB.ResetCursor();
@@ -116,6 +116,14 @@ void NodeProcessor::InitCursor()
 
 void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 {
+	if (!EnsureTreasuryHandled())
+	{
+		Block::SystemState::ID id;
+		ZeroObject(id);
+		RequestData(id, true, NULL);
+		return;
+	}
+
 	bool noRequests = true;
 	// request all potentially missing data
 	NodeDB::WalkerState ws(m_DB);
@@ -220,6 +228,9 @@ void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64
 
 void NodeProcessor::TryGoUp()
 {
+	if (!EnsureTreasuryHandled())
+		return;
+
 	bool bDirty = false;
 	uint64_t rowid = m_Cursor.m_Sid.m_Row;
 
@@ -498,6 +509,74 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 	return h;
 }
 
+bool NodeProcessor::EnsureTreasuryHandled()
+{
+	if (!m_Extra.m_TreasuryHandled)
+	{
+		if (Rules::get().TreasuryChecksum == Zero)
+			m_Extra.m_TreasuryHandled = true;
+		else
+		{
+			ByteBuffer bb;
+			if (m_DB.ParamGet(NodeDB::ParamID::Treasury, NULL, NULL, &bb))
+				HandleTreasury(bb, false);
+		}
+	}
+
+	return m_Extra.m_TreasuryHandled;
+}
+
+bool NodeProcessor::HandleTreasury(const Blob& blob, bool bFirstTime)
+{
+	assert(!m_Extra.m_TreasuryHandled);
+
+	Deserializer der;
+	der.reset(blob.p, blob.n);
+	Treasury::Data td;
+
+	try {
+		der & td;
+	} catch (const std::exception&) {
+		LOG_WARNING() << "Treasury corrupt";
+		return false;
+	}
+
+	if (bFirstTime && !td.IsValid())
+	{
+		LOG_WARNING() << "Treasury validation failed";
+		return false;
+	}
+
+	for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
+	{
+		if (!HandleValidatedTx(td.m_vGroups[iG].m_Data.get_Reader(), 0, true, NULL))
+		{
+			// undo partial changes
+			while (iG--)
+			{
+				if (!HandleValidatedTx(td.m_vGroups[iG].m_Data.get_Reader(), 0, false, NULL))
+					OnCorrupted(); // although should not happen anyway
+			}
+
+			LOG_WARNING() << "Treasury invalid";
+			return false;
+		}
+	}
+
+	if (bFirstTime)
+	{
+		for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
+		{
+			TxVectors::Reader r = td.m_vGroups[iG].m_Data.get_Reader();
+			r.Reset();
+			RecognizeUtxos(std::move(r), 0);
+		}
+	}
+
+	m_Extra.m_TreasuryHandled = true;
+	return true;
+}
+
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 {
 	ByteBuffer bbP, bbE;
@@ -757,26 +836,10 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 
 bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyBase& body, Height h, bool bFwd, const Height* pHMax)
 {
-	if (body.m_SubsidyClosing && (m_Extra.m_SubsidyOpen != bFwd))
-		return false; // invalid subsidy close flag
-
 	if (!HandleValidatedTx(std::move(r), h, bFwd, pHMax))
 		return false;
 
-	if (body.m_SubsidyClosing)
-		ToggleSubsidyOpened();
-
-	ECC::Scalar::Native kOffset = body.m_Offset;
-
-	if (bFwd)
-		m_Extra.m_Subsidy += body.m_Subsidy;
-	else
-	{
-		m_Extra.m_Subsidy -= body.m_Subsidy;
-		kOffset = -kOffset;
-	}
-
-	m_Extra.m_Offset += kOffset;
+	// currently there's no extra info in the block that's needed
 
 	return true;
 }
@@ -803,12 +866,12 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		{
 			d.m_Maturity = 0;
 			kMin = d;
-			d.m_Maturity = h;
+			d.m_Maturity = h - 1;
 			kMax = d;
 		}
 		else
 		{
-			if (v.m_Maturity > *pHMax)
+			if (v.m_Maturity >= *pHMax)
 				return false;
 
 			d.m_Maturity = v.m_Maturity;
@@ -907,31 +970,6 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 	return true;
 }
 
-void NodeProcessor::ToggleSubsidyOpened()
-{
-	UtxoTree::Key::Data d;
-	ZeroObject(d);
-	d.m_Commitment.m_Y = true; // invalid commitment
-
-	UtxoTree::Key key;
-	key = d;
-
-	UtxoTree::Cursor cu;
-	bool bCreate = true;
-	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
-
-	assert(m_Extra.m_SubsidyOpen == bCreate);
-	m_Extra.m_SubsidyOpen = !bCreate;
-
-	if (bCreate)
-		p->m_Value.m_Count = 1;
-	else
-	{
-		assert(1 == p->m_Value.m_Count);
-		m_Utxos.Delete(cu);
-	}
-}
-
 bool NodeProcessor::GoForward(uint64_t row)
 {
 	NodeDB::StateID sid;
@@ -967,8 +1005,6 @@ void NodeProcessor::Rollback()
 	if (!HandleBlock(sid, false))
 		OnCorrupted();
 
-	InitCursor(); // needed to refresh subsidy-open flag. Otherwise isn't necessary
-
 	OnRolledBack();
 }
 
@@ -991,12 +1027,6 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 			LOG_WARNING() << id << " Timestamp ahead by " << ts;
 			return DataStatus::Invalid;
 		}
-	}
-
-	if (!ApproveState(id))
-	{
-		LOG_WARNING() << "State " << id << " not approved";
-		return DataStatus::Invalid;
 	}
 
 	if (s.m_Height < m_Cursor.m_LoHorizon)
@@ -1060,6 +1090,37 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 		TryGoUp();
 
 	OnBlockData();
+	return DataStatus::Accepted;
+}
+
+NodeProcessor::DataStatus::Enum NodeProcessor::OnTreasury(const Blob& blob)
+{
+	if (Rules::get().TreasuryChecksum == Zero)
+		return DataStatus::Invalid; // should be no treasury
+
+	ECC::Hash::Value hv;
+	ECC::Hash::Processor()
+		<< blob
+		>> hv;
+
+	if (Rules::get().TreasuryChecksum != hv)
+		return DataStatus::Invalid;
+
+	if (m_Extra.m_TreasuryHandled)
+		return DataStatus::Rejected;
+
+	if (!HandleTreasury(blob, true))
+		return DataStatus::Invalid;
+
+	assert(m_Extra.m_TreasuryHandled);
+	m_DB.ParamSet(NodeDB::ParamID::Treasury, NULL, &blob);
+
+
+	LOG_INFO() << "Treasury verified";
+
+	OnNewState();
+	TryGoUp();
+
 	return DataStatus::Accepted;
 }
 
@@ -1168,8 +1229,10 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return row ? get_MovingMedianEx(row) : 0;
 }
 
-bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, Height h)
+bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx) const
 {
+	Height h = m_Cursor.m_Sid.m_Height + 1;
+
 	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
 		if (!tx.m_vKernels[i]->m_Height.IsInRange(h))
 			return false;
@@ -1179,9 +1242,10 @@ bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, Height h)
 
 bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 {
-	Height h = m_Cursor.m_Sid.m_Height + 1;
-	if (!ValidateTxWrtHeight(tx, h))
+	if (!ValidateTxWrtHeight(tx))
 		return false;
+
+	Height h = m_Cursor.m_Sid.m_Height;
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
 	// Ensure input UTXOs are present
@@ -1247,9 +1311,6 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 
 	// Generate the block up to the allowed size.
 	// All block elements are serialized independently, their binary size can just be added to the size of the "empty" block.
-	bc.m_Block.m_Subsidy += Rules::get().CoinbaseEmission;
-	if (!m_Extra.m_SubsidyOpen)
-		bc.m_Block.m_SubsidyClosing = false;
 
 	SerializerSizeCounter ssc;
 	ssc & bc.m_Block;
@@ -1260,17 +1321,21 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 	TxKernel::Ptr pKrn;
 
 	bb.AddCoinbaseAndKrn(bc.m_Kdf, h, pOutp, pKrn);
-	ssc & *pOutp;
+	if (pOutp)
+		ssc & *pOutp;
 	ssc & *pKrn;
 
 	ECC::Scalar::Native offset = bc.m_Block.m_Offset;
 
 	if (BlockContext::Mode::Assemble != bc.m_Mode)
 	{
-		if (!HandleBlockElement(*pOutp, h, NULL, true))
-			return 0;
+		if (pOutp)
+		{
+			if (!HandleBlockElement(*pOutp, h, NULL, true))
+				return 0;
 
-		bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
+			bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
+		}
 		bc.m_Block.m_vKernels.push_back(std::move(pKrn));
 	}
 
@@ -1303,14 +1368,14 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 	{
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
 
-		if (x.m_Profit.m_Fee.Hi)
+		if (AmountBig::get_Hi(x.m_Profit.m_Fee))
 		{
 			// huge fees are unsupported
 			bc.m_TxPool.Delete(x);
 			continue;
 		}
 
-		Amount feesNext = bc.m_Fees + x.m_Profit.m_Fee.Lo;
+		Amount feesNext = bc.m_Fees + AmountBig::get_Lo(x.m_Profit.m_Fee);
 		if (feesNext < bc.m_Fees)
 			continue; // huge fees are unsupported
 
@@ -1333,7 +1398,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 
 		Transaction& tx = *x.m_pValue;
 
-		if (ValidateTxWrtHeight(tx, h) && HandleValidatedTx(tx.get_Reader(), h, true))
+		if (ValidateTxWrtHeight(tx) && HandleValidatedTx(tx.get_Reader(), h, true))
 		{
 			TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(tx.get_Reader());
 
@@ -1375,9 +1440,6 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 	else
 		ZeroObject(bc.m_Hdr.m_Prev);
 
-	if (bc.m_Block.m_SubsidyClosing)
-		ToggleSubsidyOpened();
-
 	get_Definition(bc.m_Hdr.m_Definition, true);
 
 	bc.m_Block.NormalizeE();
@@ -1393,9 +1455,6 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 	fmmr.m_Count = bc.m_Block.m_vKernels.size();
 	fmmr.m_ppKrn = bc.m_Block.m_vKernels.empty() ? NULL : &bc.m_Block.m_vKernels.front();
 	fmmr.get_Hash(bc.m_Hdr.m_Kernels);
-
-	if (bc.m_Block.m_SubsidyClosing)
-		ToggleSubsidyOpened();
 
 	bc.m_Hdr.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
 	bc.m_Hdr.m_TimeStamp = getTimestamp();
@@ -1413,7 +1472,6 @@ NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf)
 {
 	m_Fees = 0;
 	m_Block.ZeroInit();
-	m_Block.m_SubsidyClosing = true; // by default insist on it. If already closed - this flag will automatically be turned OFF
 }
 
 bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
@@ -1489,7 +1547,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
 {
-	return block.IsValid(hr, m_Extra.m_SubsidyOpen, std::move(r));
+	return block.IsValid(hr, std::move(r));
 }
 
 void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::StateID& sid)
@@ -1889,9 +1947,12 @@ void NodeProcessor::InitializeFromBlocks()
 		}
 	};
 
-	MyWalker wlk;
-	wlk.m_pThis = this;
-	EnumBlocks(wlk);
+	if (EnsureTreasuryHandled())
+	{
+		MyWalker wlk;
+		wlk.m_pThis = this;
+		EnumBlocks(wlk);
+	}
 
 	if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
 	{

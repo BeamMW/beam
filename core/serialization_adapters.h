@@ -164,15 +164,15 @@ namespace detail
         }
 
         /// ECC::uintBig serialization
-        template<typename Archive, uint32_t nBits_>
-        static Archive& save(Archive& ar, const beam::uintBig_t<nBits_>& val)
+        template<typename Archive, uint32_t nBytes_>
+        static Archive& save(Archive& ar, const beam::uintBig_t<nBytes_>& val)
         {
             ar & val.m_pData;
             return ar;
         }
 
-        template<typename Archive, uint32_t nBits_>
-        static Archive& load(Archive& ar, beam::uintBig_t<nBits_>& val)
+        template<typename Archive, uint32_t nBytes_>
+        static Archive& load(Archive& ar, beam::uintBig_t<nBytes_>& val)
         {
             ar & val.m_pData;
             return ar;
@@ -835,36 +835,14 @@ namespace detail
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::Block::BodyBase& bb)
 		{
-			uint8_t nFlags =
-				(bb.m_Subsidy.Hi ? 1 : 0) |
-				(bb.m_SubsidyClosing ? 2 : 0);
-
-			ar & (const beam::TxBase&) bb;
-			ar & nFlags;
-			ar & bb.m_Subsidy.Lo;
-
-			if (bb.m_Subsidy.Hi)
-				ar & bb.m_Subsidy.Hi;
-
+			ar & Cast::Down<beam::TxBase>(bb);
 			return ar;
 		}
 
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::Block::BodyBase& bb)
 		{
-			uint8_t nFlags;
-
-			ar & (beam::TxBase&) bb;
-			ar & nFlags;
-			ar & bb.m_Subsidy.Lo;
-
-			if (1 & nFlags)
-				ar & bb.m_Subsidy.Hi;
-			else
-				bb.m_Subsidy.Hi = 0;
-
-			bb.m_SubsidyClosing = ((2 & nFlags) != 0);
-
+			ar & Cast::Down<beam::TxBase>(bb);
 			return ar;
 		}
 
