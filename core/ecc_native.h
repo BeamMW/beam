@@ -537,6 +537,7 @@ namespace ECC
 		Generator::Obscured						G;
 		Generator::Obscured						H_Big;
 		Generator::Simple<sizeof(Amount) << 3>	H;
+		Generator::Obscured						J; // for switch/ElGamal commitment
 
 		struct IppCalculator
 		{
