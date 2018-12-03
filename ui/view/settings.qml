@@ -128,7 +128,7 @@ Rectangle {
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.alignment: Qt.AlignTop
-                        height: 360
+                        height: 320
                         radius: 10
                         color: Style.dark_slate_blue
 
@@ -213,29 +213,6 @@ Rectangle {
                                             target: viewModel
                                             property: "localNodeMiningThreads"
                                             value: localNodeMiningThreads.value
-                                        }
-                                    }
-
-                                    SFText {
-                                        text: qsTr("Verification threads")
-                                        color: localNodeRun.checked ? Style.white : Style.disable_text_color
-                                        font.pixelSize: 12
-                                        font.styleName: "Bold"; font.weight: Font.Bold
-                                    }
-
-                                    FeeSlider {
-                                        id: localNodeVerificationThreads
-                                        precision: 0
-                                        showTicks: true
-                                        Layout.fillWidth: true
-                                        value: viewModel.localNodeVerificationThreads
-                                        to: {viewModel.coreAmount()}
-                                        stepSize: 1
-                                        enabled: localNodeRun.checked
-                                        Binding {
-                                            target: viewModel
-                                            property: "localNodeVerificationThreads"
-                                            value: localNodeVerificationThreads.value
                                         }
                                     }
                                 }
@@ -418,7 +395,7 @@ Rectangle {
 
                     Rectangle {
                         Layout.fillWidth: true
-                        height: 360
+                        height: 320
                         radius: 10
                         color: Style.dark_slate_blue
 
