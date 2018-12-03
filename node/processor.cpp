@@ -775,6 +775,15 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 		Walker w(x);
 		if (!EnumViewerKeys(w))
 		{
+			// filter-out dummies
+			if (w.m_Value.m_Kidv.m_Value == Zero)
+			{
+				uint32_t nType;
+				w.m_Value.m_Kidv.m_Type.Export(nType);
+				if (Key::Type::Decoy == nType)
+					continue;
+			}
+
 			// bingo!
 			Height h;
 			if (x.m_Maturity)

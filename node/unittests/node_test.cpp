@@ -420,39 +420,36 @@ namespace beam
 		for (db.EnumAllBbs(wlkbbs); wlkbbs.MoveNext(); )
 			;
 
-		Merkle::Hash hv;
-		Blob b0(hv);
-		hv = 345U;
+		verify_test(db.GetDummyLastID() == 0);
 
-		db.InsertDummy(176, b0);
-
-		hv = 346U;
-		db.InsertDummy(568, b0);
+		db.InsertDummy(176, 345);
+		db.InsertDummy(568, 346);
+		verify_test(db.GetDummyLastID() == 346);
 
 		Height h1;
 
-		uint64_t rowid = db.FindDummy(h1, b0);
-		verify_test(rowid);
+		uint64_t id = db.GetLowestDummy(h1);
+		verify_test(id);
 		verify_test(h1 == 176);
-		verify_test(hv == Merkle::Hash(345U));
+		verify_test(id == 345U);
 
-		db.SetDummyHeight(rowid, 1055);
+		db.SetDummyHeight(id, 1055);
 
-		rowid = db.FindDummy(h1, b0);
-		verify_test(rowid);
+		id = db.GetLowestDummy(h1);
+		verify_test(id);
 		verify_test(h1 == 568);
-		verify_test(hv == Merkle::Hash(346U));
+		verify_test(id == 346U);
 		
-		db.DeleteDummy(rowid);
+		db.DeleteDummy(id);
 
-		rowid = db.FindDummy(h1, b0);
-		verify_test(rowid);
+		id = db.GetLowestDummy(h1);
+		verify_test(id);
 		verify_test(h1 == 1055);
-		verify_test(hv == Merkle::Hash(345U));
+		verify_test(id == 345U);
 
-		db.DeleteDummy(rowid);
+		db.DeleteDummy(id);
 
-		verify_test(!db.FindDummy(h1, b0));
+		verify_test(!db.GetLowestDummy(h1));
 
 		// Kernels
 		db.InsertKernel(bBodyP, 5);

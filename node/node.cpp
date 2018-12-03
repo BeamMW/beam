@@ -2040,16 +2040,16 @@ void Node::AddDummyInputs(Transaction& tx)
 	while (tx.m_vInputs.size() < m_Cfg.m_Dandelion.m_OutputsMax)
 	{
 		Height h;
-		ECC::Scalar sk;
-		Blob blob(sk.m_Value);
-
-		uint64_t rowid = m_Processor.get_DB().FindDummy(h, blob);
-		if (!rowid || (h > m_Processor.m_Cursor.m_ID.m_Height + 1))
+		uint64_t id = m_Processor.get_DB().GetLowestDummy(h);
+		if (!id || (h > m_Processor.m_Cursor.m_ID.m_Height))
 			break;
 
 		bModified = true;
 
-		ECC::Mode::Scope scope(ECC::Mode::Fast);
+		// ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+		ECC::Scalar::Native sk;
+		m_Keys.m_pGeneric->DeriveKey(sk, Key::ID(id, Key::Type::Decoy));
 
 		// bounds
 		UtxoTree::Key kMin, kMax;
@@ -2059,7 +2059,7 @@ void Node::AddDummyInputs(Transaction& tx)
 		d.m_Maturity = 0;
 		kMin = d;
 
-		d.m_Maturity = m_Processor.m_Cursor.m_ID.m_Height + 1;
+		d.m_Maturity = m_Processor.m_Cursor.m_ID.m_Height;
 		kMax = d;
 
 		// check if it's still unspent
@@ -2077,7 +2077,7 @@ void Node::AddDummyInputs(Transaction& tx)
 		if (m_Processor.get_Utxos().Traverse(t))
 		{
 			// spent
-			m_Processor.get_DB().DeleteDummy(rowid);
+			m_Processor.get_DB().DeleteDummy(id);
 		}
 		else
 		{
@@ -2089,7 +2089,7 @@ void Node::AddDummyInputs(Transaction& tx)
 			tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + ECC::Scalar::Native(sk);
 
 			/// in the (unlikely) case the tx will be lost - we'll retry spending this UTXO after the following num of blocks
-			m_Processor.get_DB().SetDummyHeight(rowid, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
+			m_Processor.get_DB().SetDummyHeight(id, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
 		}
 
 	}
@@ -2113,20 +2113,21 @@ void Node::AddDummyOutputs(Transaction& tx)
 
 	while (tx.m_vOutputs.size() < m_Cfg.m_Dandelion.m_OutputsMin)
 	{
-		ECC::Scalar::Native sk;
-		NextNonce(sk);
+		if (!m_LastDummyID)
+			m_LastDummyID = db.GetDummyLastID();
 
+		++m_LastDummyID;
 		bModified = true;
 
 		Output::Ptr pOutput(new Output);
-		pOutput->Create(sk, 0);
+		ECC::Scalar::Native sk;
+		pOutput->Create(sk, *m_Keys.m_pGeneric, Key::IDV(0, m_LastDummyID, Key::Type::Decoy));
 
 		Height h = m_Processor.m_Cursor.m_ID.m_Height + 1 + m_Cfg.m_Dandelion.m_DummyLifetimeLo;
 		if (m_Cfg.m_Dandelion.m_DummyLifetimeHi > m_Cfg.m_Dandelion.m_DummyLifetimeLo)
 			h += RandomUInt32(m_Cfg.m_Dandelion.m_DummyLifetimeHi - m_Cfg.m_Dandelion.m_DummyLifetimeLo);
 
-		ECC::Scalar sk_(sk); // not so secret
-		db.InsertDummy(h, Blob(sk_.m_Value));
+		db.InsertDummy(h, m_LastDummyID);
 
 		tx.m_vOutputs.push_back(std::move(pOutput));
 
