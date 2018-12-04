@@ -233,8 +233,7 @@ namespace beam
 
 	void Output::Create(ECC::Scalar::Native& sk, Key::IKdf& kdf, const Key::IDV& kidv, bool bPublic /* = false */)
 	{
-		kdf.DeriveKey(sk, kidv);
-		m_Commitment = ECC::Commitment(sk, kidv.m_Value);
+		SwitchCommitment::Create(sk, m_Commitment, kdf, kidv);
 
 		ECC::Oracle oracle;
 		oracle << m_Incubation;
@@ -275,27 +274,21 @@ namespace beam
 		oracle << m_Incubation;
 
 		if (m_pPublic)
-		{
 		    m_pPublic->Recover(cp);
-		}
-		else if (!(m_pConfidential && m_pConfidential->Recover(oracle, cp)))
+		else
 		{
-			return false;
+			if (!(m_pConfidential && m_pConfidential->Recover(oracle, cp)))
+				return false;
 		}
 
 		// reconstruct the commitment
-		ECC::Mode::Scope scope(ECC::Mode::Fast);
-
-		ECC::Hash::Value hv;
-		cp.m_Kidv.get_Hash(hv);
+		ECC::Mode::Scope scope(ECC::Mode::Fast); //?
 
 		ECC::Point::Native comm, comm2;
-		kdf.DerivePKeyG(comm, hv);
-
-		comm += ECC::Context::get().H * cp.m_Kidv.m_Value;
 
 		if (!comm2.Import(m_Commitment))
 			return false;
+		SwitchCommitment::Recover(comm, kdf, cp.m_Kidv);
 
 		comm = -comm;
 		comm += comm2;

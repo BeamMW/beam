@@ -518,8 +518,7 @@ namespace beam
 
 		void ToCommtiment(const MyUtxo& utxo, ECC::Point& comm, ECC::Scalar::Native& k) const
 		{
-			m_pKdf->DeriveKey(k, utxo.m_Kidv);
-			comm = ECC::Commitment(k, utxo.m_Kidv.m_Value);
+			SwitchCommitment::Create(k, comm, *m_pKdf, utxo.m_Kidv);
 		}
 
 		void ToInput(const MyUtxo& utxo, TxVectors::Perishable& txv, ECC::Scalar::Native& offset) const

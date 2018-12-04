@@ -2049,13 +2049,12 @@ void Node::AddDummyInputs(Transaction& tx)
 		// ECC::Mode::Scope scope(ECC::Mode::Fast);
 
 		ECC::Scalar::Native sk;
-		m_Keys.m_pGeneric->DeriveKey(sk, Key::ID(id, Key::Type::Decoy));
 
 		// bounds
 		UtxoTree::Key kMin, kMax;
 
 		UtxoTree::Key::Data d;
-		d.m_Commitment = ECC::Context::get().G * sk;
+		SwitchCommitment::Create(sk, d.m_Commitment, *m_Keys.m_pGeneric, Key::IDV(0, id, Key::Type::Decoy));
 		d.m_Maturity = 0;
 		kMin = d;
 
