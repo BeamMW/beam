@@ -166,12 +166,31 @@ namespace beam
 
         struct CoinSelector2
         {
+            struct CoinEx
+            {
+                Coin m_coin;
+                Amount m_lowerTotal;
+            };
+
             using Result = pair<Amount, vector<Coin>>;
             CoinSelector2(const vector<Coin>& coins)
-                : m_coins{coins}
-                , m_amount(0)
+                :/* m_coins(coins.size())
+                , */m_amount(0)
+                , m_lowerBorder(0)
             {
+                Amount sum = 0;
+                /*for (const auto& coin : coins)
+                {
+                    sum += coin.m_ID.m_Value;
+                    m_coins.emplace_back({coin, });
+                }*/
+                for (auto idx = coins.rbegin(); idx != coins.rend(); idx++)
+                {
+                    sum += idx->m_ID.m_Value;
+                    m_coins.push_back({ *idx, sum});
+                }
 
+                std::reverse(m_coins.begin(), m_coins.end());
             }
 
             Result select(Amount amount)
@@ -180,44 +199,75 @@ namespace beam
                 m_result.first = 0;
                 m_result.second.clear();
 
+                FindLowerBorder();
                 GenerateCombinations();
                 FindBestResult();
                 SelectCoins();
+
+                LOG_INFO() << "m_result.first = " << m_result.first << " size = " << m_result.second.size();
                 return m_result;
             }
 
         private:
 
+            void FindLowerBorder()
+            {
+                Amount sum = 0;
+
+                //for (const auto& coin : m_coins)
+                for (auto idx = m_coins.rbegin(); idx != m_coins.rend(); ++idx)
+                {
+                    if (sum + idx->m_coin.m_ID.m_Value >= m_amount)
+                    {
+                        break;
+                    }
+                    m_lowerBorder = idx->m_coin.m_ID.m_Value;
+                    sum += m_lowerBorder;
+                }
+
+                sum = 0;
+
+                for (const auto& coin : m_coins)
+                {
+                    sum += coin.m_coin.m_ID.m_Value;
+                }
+
+                LOG_INFO() << "amount = " << m_amount << " all sum = " << sum;
+            }
+
             void GenerateCombinations()
             {
-                for (auto coin = m_coins.begin(); coin != m_coins.end(); ++coin)
+                int i = 0;
+                for (auto coin = m_coins.begin(); coin != m_coins.end(); ++coin, ++i)
                 {
-                    if (coin->m_ID.m_Value > m_amount)
+                    if (coin->m_coin.m_ID.m_Value > m_amount)
                     {
-                        m_Combinations[coin->m_ID.m_Value] = coin->m_ID.m_Value;
+                        m_Combinations[coin->m_coin.m_ID.m_Value] = coin->m_coin.m_ID.m_Value;
                         continue;
                     }
 
-                    if (coin->m_ID.m_Value == m_amount)
+                    if (coin->m_coin.m_ID.m_Value == m_amount)
                     {
-                        m_Combinations[coin->m_ID.m_Value] = coin->m_ID.m_Value;
+                        m_Combinations[coin->m_coin.m_ID.m_Value] = coin->m_coin.m_ID.m_Value;
                         break;
                     }
 
                     vector<Amount> newCombinations;
 
+                    newCombinations.reserve(m_Combinations.size() + 100);
+                    if (coin->m_coin.m_ID.m_Value >= m_lowerBorder)
                     {
-                        auto it = m_Combinations.find(coin->m_ID.m_Value);
+                        auto it = m_Combinations.find(coin->m_coin.m_ID.m_Value);
                         if (it == m_Combinations.end())
                         {
-                            newCombinations.push_back(coin->m_ID.m_Value);
+                            newCombinations.push_back(coin->m_coin.m_ID.m_Value);
                         }
                     }
 
                     for (const auto& sum : m_Combinations)
                     {
-                        if (sum.first < m_amount)
-                            newCombinations.push_back(sum.first + coin->m_ID.m_Value);
+                        if (sum.first < m_amount && m_amount <= sum.first + coin->m_lowerTotal)
+                            newCombinations.push_back(sum.first + coin->m_coin.m_ID.m_Value);
                     }
 
                     for (const auto& sum : newCombinations)
@@ -225,9 +275,12 @@ namespace beam
                         auto it = m_Combinations.find(sum);
                         if (it == m_Combinations.end())
                         {
-                            m_Combinations[sum] = coin->m_ID.m_Value;
+                            m_Combinations[sum] = coin->m_coin.m_ID.m_Value;
                         }
                     }
+
+                    if (m_Combinations.find(m_amount) != m_Combinations.end())
+                        break;
                 }
             }
 
@@ -260,23 +313,24 @@ namespace beam
             {
                 for (const auto& p : m_intermediateResult)
                 {
-                    auto it = find_if(m_coins.begin(), m_coins.end(), [amount = p.first](const Coin& c)
+                    auto it = find_if(m_coins.begin(), m_coins.end(), [amount = p.first](const CoinEx& c)
                     {
-                        return c.m_ID.m_Value == amount;
+                        return c.m_coin.m_ID.m_Value == amount;
                     });
 
                     for (Amount i = 0; i < p.second; ++i, ++it)
                     {
-                        m_result.second.push_back(*it);
+                        m_result.second.push_back(it->m_coin);
                     }
                 }
             }
 
-            const vector<Coin>& m_coins;
+            vector<CoinEx> m_coins;
             Result m_result;
             Amount m_amount;
             map<Amount, Amount> m_Combinations;
-            unordered_map<Amount, Amount> m_intermediateResult;
+            map<Amount, Amount> m_intermediateResult;
+            Amount m_lowerBorder;
         };
 
         struct CoinSelector
