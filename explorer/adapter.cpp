@@ -67,6 +67,7 @@ struct ResponseCache {
         auto it = b;
         while (it != blocks.end()) {
             if (it->first >= horizon) break;
+            ++it;
         }
         blocks.erase(b, it);
     }
