@@ -803,6 +803,35 @@ void TestTxParameters()
     WALLET_CHECK(p == pt2);
 }
 
+void TestSelect3()
+{
+    auto db = createSqliteWalletDB();
+    const uint32_t count = 2500;
+    const uint32_t part_count = 100;
+    Amount start_amount = 80'000'000;
+    vector<Coin> coins;
+    coins.reserve(count);
+
+    for (uint32_t i = 1; i <= count; ++i)
+    {
+        Amount a = Amount(start_amount / pow(2, i / part_count));
+
+        coins.push_back(Coin(a, Coin::Available, 10, Key::Type::Regular));
+    }
+
+    db->store(coins);
+    {
+        Coin coin{ 30'000'000, Coin::Available, 10, Key::Type::Regular };
+        db->store(coin);
+    }
+    helpers::StopWatch sw;
+
+    sw.start();
+    auto selected_coins = db->selectCoins(45'678'910, false);
+    sw.stop();
+    cout << "TestSelect3 elapsed time: " << sw.milliseconds() << " ms\n";
+}
+
 int main() 
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -823,6 +852,8 @@ int main()
     TestAddresses();
 
     TestTxParameters();
+
+    TestSelect3();
 
     return WALLET_CHECK_RESULT;
 }
