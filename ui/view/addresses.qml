@@ -219,14 +219,14 @@ ColumnLayout {
                 modal: true
                 dim: false
                 property string address
-                Action {
+                /*Action {
                     text: qsTr("transactions list")
                     icon.source: "qrc:/assets/icon-transactions.svg"
                     onTriggered: {
                         // go to list transaction (wallet page)
                         main.updateItem(0)
                     }
-                }
+                }*/
                 Action {
                     text: qsTr("delete contact")
                     icon.source: "qrc:/assets/icon-delete.svg"

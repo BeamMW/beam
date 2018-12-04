@@ -705,6 +705,7 @@ void WalletViewModel::sendMoney()
         WalletAddress peerAddr;
         peerAddr.m_walletID.FromHex(getReceiverAddr().toStdString());
         peerAddr.m_createTime = getTimestamp();
+        peerAddr.m_label = _comment.toStdString();
 
         // TODO: implement UI for this situation
         // TODO: don't save if you send to yourself

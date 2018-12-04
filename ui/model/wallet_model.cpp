@@ -365,7 +365,7 @@ void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& c
     try
     {
         WalletAddress senderAddress = wallet::createAddress(_walletDB);
-
+        senderAddress.m_label = comment;
         saveAddress(senderAddress, true); // should update the wallet_network
 
         ByteBuffer message(comment.begin(), comment.end());
