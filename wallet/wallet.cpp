@@ -684,7 +684,10 @@ namespace beam
     {
         MyRequestUtxo::Ptr pReq(new MyRequestUtxo);
         pReq->m_CoinID = cid;
-        pReq->m_Msg.m_Utxo = Commitment(m_WalletDB->calcKey(cid), cid.m_Value);
+
+		Scalar::Native sk;
+		m_WalletDB->calcCommitment(sk, pReq->m_Msg.m_Utxo, cid);
+
         LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo;
 
         PostReqUnique(*pReq);

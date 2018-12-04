@@ -139,14 +139,10 @@ namespace beam {
 		if (m_Addresses.end() != itW)
 			return;
 
-		Coin::ID cid;
-		ZeroObject(cid);
-		cid.m_Idx = ownID;
-		cid.m_Type = Key::Type::Bbs;
-
 		Addr* pAddr = new Addr;
 		pAddr->m_Wid.m_OwnID = ownID;
-		pAddr->m_sk = m_WalletDB->calcKey(cid);
+		m_WalletDB->get_MasterKdf()->DeriveKey(pAddr->m_sk, Key::ID(ownID, Key::Type::Bbs));
+
 		proto::Sk2Pk(pAddr->m_Pk, pAddr->m_sk); // needed to "normalize" the sk, and calculate the channel
 
 		pAddr->m_Channel.m_Value = nChannel;

@@ -871,11 +871,10 @@ namespace beam
         return pRet;
     }
 
-    ECC::Scalar::Native WalletDB::calcKey(const Coin::ID& cid) const
+	void IWalletDB::calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID& cid)
     {
-        ECC::Scalar::Native key;
-        get_ChildKdf(cid.m_iChild)->DeriveKey(key, cid);
-        return key;
+		get_ChildKdf(cid.m_iChild)->DeriveKey(sk, cid);
+		comm = ECC::Commitment(sk, cid.m_Value);
     }
 
     vector<Coin> WalletDB::selectCoins(const Amount& amount, bool lock)
@@ -1915,12 +1914,9 @@ namespace beam
             newAddress.m_createTime = beam::getTimestamp();
             newAddress.m_OwnID = walletDB->AllocateKidRange(1);
 
-            Coin::ID cid;
-            ZeroObject(cid);
-            cid.m_Type = Key::Type::Bbs;
-            cid.m_Idx = newAddress.m_OwnID;
+			ECC::Scalar::Native sk;
+			walletDB->get_MasterKdf()->DeriveKey(sk, Key::ID(newAddress.m_OwnID, Key::Type::Bbs));
 
-            ECC::Scalar::Native sk = walletDB->calcKey(cid);
             proto::Sk2Pk(newAddress.m_walletID.m_Pk, sk);
 
             BbsChannel ch;
