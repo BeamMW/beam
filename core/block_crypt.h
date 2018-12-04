@@ -100,6 +100,7 @@ namespace beam
 		uint32_t MaxRollbackHeight = 1440; // 1 day roughly
 		uint32_t MacroblockGranularity = 720; // i.e. should be created for heights that are multiples of this. This should make it more likely for different nodes to have the same macroblocks
 
+		ECC::Hash::Value Prehistoric; // Prev hash of the 1st block
 		ECC::Hash::Value TreasuryChecksum;
 		ECC::Hash::Value Checksum;
 
