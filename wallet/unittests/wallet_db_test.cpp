@@ -73,8 +73,8 @@ void TestWalletDataBase()
 
     
         vector<Coin> localCoins;
-        localCoins.push_back(coin2);
         localCoins.push_back(coin1);
+        localCoins.push_back(coin2);
 
         for (size_t i = 0; i < coins.size(); ++i)
         {
