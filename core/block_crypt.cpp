@@ -1195,8 +1195,10 @@ namespace beam
 		TxKernel::Ptr pKrn;
 		AddCoinbaseAndKrn(kdf, h, pOutp, pKrn);
 
-		m_Txv.m_vOutputs.push_back(std::move(pOutp));
-		m_Txv.m_vKernels.push_back(std::move(pKrn));
+		if (pOutp)
+			m_Txv.m_vOutputs.push_back(std::move(pOutp));
+		if (pKrn)
+			m_Txv.m_vKernels.push_back(std::move(pKrn));
 	}
 
 	void Block::Builder::AddFees(Key::IKdf& kdf, Height h, Amount fees, Output::Ptr& pOutp)
