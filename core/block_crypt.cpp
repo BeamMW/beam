@@ -139,7 +139,6 @@ namespace beam
 				comm += ECC::Context::get().G * sk1;
 		}
 
-
 		void Create(ECC::Scalar::Native& sk, Key::IKdf& kdf, const Key::IDV& kidv)
 		{
 			ECC::Point::Native comm;
@@ -149,6 +148,13 @@ namespace beam
 		void Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf& kdf, const Key::IDV& kidv)
 		{
 			CreateInternal(sk, comm, true, kdf, kidv);
+		}
+
+		void Create(ECC::Scalar::Native& sk, ECC::Point& comm, Key::IKdf& kdf, const Key::IDV& kidv)
+		{
+			ECC::Point::Native comm2;
+			Create(sk, comm2, kdf, kidv);
+			comm = comm2;
 		}
 
 		void Recover(ECC::Point::Native& res, Key::IPKdf& pkdf, const Key::IDV& kidv)

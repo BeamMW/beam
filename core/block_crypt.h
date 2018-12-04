@@ -117,6 +117,7 @@ namespace beam
 	{
 		void Create(ECC::Scalar::Native& sk, Key::IKdf&, const Key::IDV&);
 		void Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf&, const Key::IDV&);
+		void Create(ECC::Scalar::Native& sk, ECC::Point& comm, Key::IKdf&, const Key::IDV&);
 		void Recover(ECC::Point::Native& comm, Key::IPKdf&, const Key::IDV&);
 	}
 
