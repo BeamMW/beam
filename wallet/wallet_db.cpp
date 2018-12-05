@@ -184,26 +184,16 @@ namespace beam
 			{
 				static const Amount s_Inf = Amount(-1);
 
-				struct Link {
-					size_t m_iNext; // 1-based, to distinguish "NULL" pointers
-					size_t m_iElement;
-				};
-
-				std::vector<Link> m_vLinks;
-
-				struct Slot {
-					size_t m_iHead;
-					size_t m_iTail;
-					Amount m_Sum;
-				};
-
-				Slot m_pSlots[s_Factor + 1];
+				Result m_pSlots[s_Factor + 1];
 				Amount m_Goal;
 
 				void Reset()
 				{
-					m_vLinks.clear();
-					ZeroObject(m_pSlots);
+					for (uint32_t i = 0; i < _countof(m_pSlots); i++)
+					{
+						m_pSlots[i].first = 0;
+						m_pSlots[i].second.clear();
+					}
 				}
 
 				uint32_t get_Slot(Amount v) const
@@ -212,25 +202,18 @@ namespace beam
 					return (i >= s_Factor) ? s_Factor : static_cast<uint32_t>(i);
 				}
 
-				void Append(Slot& rDst, Amount v, size_t i0)
+				static void Append(Result& rDst, Amount v, size_t i0)
 				{
-					m_vLinks.emplace_back();
-					m_vLinks.back().m_iElement = i0;
-					m_vLinks.back().m_iNext = rDst.m_iTail;
-
-					rDst.m_iTail = m_vLinks.size();
-					if (!rDst.m_iHead)
-						rDst.m_iHead = rDst.m_iTail;
-
-					rDst.m_Sum += v;
+					rDst.first += v;
+					rDst.second.push_back(i0);
 				}
 
 				bool IsBetter(Amount v, uint32_t iDst) const
 				{
-					const Slot& rDst = m_pSlots[iDst];
+					const Result& rDst = m_pSlots[iDst];
 					return (s_Factor == iDst) ?
-						(!rDst.m_Sum || (v < rDst.m_Sum)) :
-						(v > rDst.m_Sum);
+						(!rDst.first || (v < rDst.first)) :
+						(v > rDst.first);
 				}
 
 				void AddItem(Amount v, size_t i0)
@@ -238,17 +221,17 @@ namespace beam
 					// try combining first. Go from higher to lower, to make sure we don't process a slot which already contains this item
 					for (uint32_t iSrc = s_Factor; iSrc--; )
 					{
-						Slot& rSrc = m_pSlots[iSrc];
-						if (!rSrc.m_Sum)
+						Result& rSrc = m_pSlots[iSrc];
+						if (!rSrc.first)
 							continue;
 
-						Amount v2 = rSrc.m_Sum + v;
+						Amount v2 = rSrc.first + v;
 						uint32_t iDst = get_Slot(v2);
 
 						if (!IsBetter(v2, iDst))
 							continue;
 
-						Slot& rDst = m_pSlots[iDst];
+						Result& rDst = m_pSlots[iDst];
 
 						// improve
 						if (iSrc != iDst)
@@ -261,8 +244,9 @@ namespace beam
 					uint32_t iDst = get_Slot(v);
 					if (IsBetter(v, iDst))
 					{
-						Slot& rDst = m_pSlots[iDst];
-						ZeroObject(rDst);
+						Result& rDst = m_pSlots[iDst];
+						rDst.first = 0;
+						rDst.second.clear();
 						Append(rDst, v, i0);
 					}
 				}
@@ -290,47 +274,34 @@ namespace beam
 				{
 					Amount goal = amount - res.first;
 					SolveOnce(part, goal, iEnd);
-					Partial::Slot& r1 = part.m_pSlots[s_Factor];
+					Result& r1 = part.m_pSlots[s_Factor];
 
-					if (r1.m_Sum < goal)
+					if (r1.first < goal)
 					{
 						// no solution
-						assert(!r1.m_Sum && !res.first);
+						assert(!r1.first && !res.first);
 
 						// return the maximum we have
 						uint32_t iSlot = s_Factor - 1;
 						for ( ; iSlot > 0; iSlot--)
-							if (part.m_pSlots[iSlot].m_Sum)
+							if (part.m_pSlots[iSlot].first)
 								break;
 
-						res.first = part.m_pSlots[iSlot].m_Sum;
-
-						for (size_t iLink = part.m_pSlots[iSlot].m_iHead; iLink; )
-						{
-							const Partial::Link& link = part.m_vLinks[iLink - 1];
-							iLink = link.m_iNext;
-
-							assert(link.m_iElement < iEnd);
-							res.second.push_back(link.m_iElement);
-						}
-
-						return res;
+						return part.m_pSlots[iSlot];
 					}
 
-					Amount nOvershoot = r1.m_Sum - goal;
+					Amount nOvershoot = r1.first - goal;
 					bool bShouldRetry = (nOvershoot < nOvershootPrev);
 					nOvershootPrev = nOvershoot;
 
-					for (size_t iLink = r1.m_iHead; iLink; )
+					for (size_t j = 0; j < r1.second.size(); j++)
 					{
-						const Partial::Link& link = part.m_vLinks[iLink - 1];
-						iLink = link.m_iNext;
+						size_t i0 = r1.second[j];
+						assert(i0 < iEnd);
+						res.second.push_back(i0);
+						iEnd = i0;
 
-						assert(link.m_iElement < iEnd);
-						res.second.push_back(link.m_iElement);
-						iEnd = link.m_iElement;
-
-						Amount v = m_Coins[link.m_iElement].m_ID.m_Value;
+						Amount v = m_Coins[i0].m_ID.m_Value;
 						res.first += v;
 
 						if (bShouldRetry && (amount <= res.first + nOvershoot*2))
