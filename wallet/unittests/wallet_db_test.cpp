@@ -652,7 +652,7 @@ void TestSelect()
         db->store(coins);
         coins = db->selectCoins(5, false);
         WALLET_CHECK(coins.size() == 2);
-        WALLET_CHECK(coins.back().m_ID.m_Value == 2);
+        WALLET_CHECK(coins[0].m_ID.m_Value == 2);
     }
     {
         db->remove(ExtractIDs(db->selectCoins(18, false)));
@@ -692,8 +692,8 @@ void TestSelect()
 
         coins = db->selectCoins(7, false);
         WALLET_CHECK(coins.size() == 2);
-        WALLET_CHECK(coins[0].m_ID.m_Value == 4);
-        WALLET_CHECK(coins[1].m_ID.m_Value == 3);
+        WALLET_CHECK(coins[0].m_ID.m_Value == 3);
+        WALLET_CHECK(coins[1].m_ID.m_Value == 4);
     }
     {
         db->remove(ExtractIDs(db->selectCoins(10, false)));
@@ -720,8 +720,8 @@ void TestSelect()
         db->store(coins);
         coins = db->selectCoins(41000000, false);
         WALLET_CHECK(coins.size() == 2);
-        WALLET_CHECK(coins[1].m_ID.m_Value == 2999057);
-        WALLET_CHECK(coins[0].m_ID.m_Value == 40000000);
+        WALLET_CHECK(coins[0].m_ID.m_Value == 2999057);
+        WALLET_CHECK(coins[1].m_ID.m_Value == 40000000);
         coins = db->selectCoins(4000000, false);
         WALLET_CHECK(coins.size() == 1);
         WALLET_CHECK(coins[0].m_ID.m_Value == 5000000);
