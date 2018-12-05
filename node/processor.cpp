@@ -109,7 +109,10 @@ void NodeProcessor::InitCursor()
 		m_Cursor.m_LoHorizon = m_DB.ParamIntGetDef(NodeDB::ParamID::LoHorizon);
 	}
 	else
+	{
 		ZeroObject(m_Cursor);
+		m_Cursor.m_ID.m_Hash = Rules::get().Prehistoric;
+	}
 
 	m_Cursor.m_DifficultyNext = get_NextDifficulty();
 }
@@ -1444,10 +1447,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 
 void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 {
-	if (m_Cursor.m_Sid.m_Row)
-		bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
-	else
-		ZeroObject(bc.m_Hdr.m_Prev);
+	bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
 
 	get_Definition(bc.m_Hdr.m_Definition, true);
 

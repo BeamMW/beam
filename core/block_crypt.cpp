@@ -749,6 +749,7 @@ namespace beam
 	Rules::Rules()
 	{
 		TreasuryChecksum = Zero;
+		Prehistoric = 100500U; // use non-zero to test it's handled correctly. Before launch should be set to something meaningful
 	}
 
 	Amount Rules::get_EmissionEx(Height h, Height& hEnd, Amount base) const
@@ -814,6 +815,7 @@ namespace beam
 		// all parameters, including const (in case they'll be hardcoded to different values in later versions)
 		ECC::Hash::Processor()
 			<< ECC::Context::get().m_hvChecksum
+			<< Prehistoric
 			<< TreasuryChecksum
 			<< HeightGenesis
 			<< Coin
@@ -870,9 +872,6 @@ namespace beam
 		if (m_Height + 1 != sNext.m_Height)
 			return false;
 
-		if (!m_Height)
-			return sNext.m_Prev == Zero;
-
 		Merkle::Hash hv;
 		get_Hash(hv);
 		return sNext.m_Prev == hv;
@@ -914,14 +913,17 @@ namespace beam
 
 	void Block::SystemState::Full::get_Hash(Merkle::Hash& hv) const
 	{
-		get_HashInternal(hv, true);
+		if (m_Height >= Rules::HeightGenesis)
+			get_HashInternal(hv, true);
+		else
+			hv = Rules::get().Prehistoric;
 	}
 
 	bool Block::SystemState::Full::IsSane() const
 	{
 		if (m_Height < Rules::HeightGenesis)
 			return false;
-		if ((m_Height == Rules::HeightGenesis) && !(m_Prev == Zero))
+		if ((m_Height == Rules::HeightGenesis) && !(m_Prev == Rules::get().Prehistoric))
 			return false;
 
 		return true;
