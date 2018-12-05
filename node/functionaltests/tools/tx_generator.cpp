@@ -28,10 +28,9 @@ TxGenerator::TxGenerator(Key::IKdf& kdf)
 void TxGenerator::GenerateInputInTx(Height h, Amount v, beam::Key::Type keyType, uint32_t ind)
 {
 	Scalar::Native key;
-	m_Kdf.DeriveKey(key, Key::ID(h, keyType, ind));
 
 	Input::Ptr pInp(new Input);
-	pInp->m_Commitment = ECC::Commitment(key, v);
+	SwitchCommitment::Create(key, pInp->m_Commitment, m_Kdf, Key::IDV(v, ind, keyType));
 	m_MsgTx.m_Transaction->m_vInputs.push_back(std::move(pInp));
 	m_Offset += key;
 	m_MsgTx.m_Transaction->m_Offset = m_Offset;
@@ -42,9 +41,8 @@ void TxGenerator::GenerateOutputInTx(Height h, Amount v, beam::Key::Type keyType
 	Output::Ptr pOut(new Output);
 	ECC::Scalar::Native key;
 
-	m_Kdf.DeriveKey(key, Key::ID(h, keyType, ind));
 	pOut->m_Incubation = 2;
-	pOut->Create(key, v, isPublic);
+	pOut->Create(key, m_Kdf, Key::ID(v, keyType, ind), isPublic);
 	m_MsgTx.m_Transaction->m_vOutputs.push_back(std::move(pOut));
 
 	key = -key;
@@ -60,7 +58,7 @@ void TxGenerator::GenerateKernel(Height h, Amount fee, uint32_t ind)
 	if (fee > 0)
 		pKrn->m_Fee = fee;
 
-	m_Kdf.DeriveKey(key, Key::ID(h, Key::Type::Kernel, ind));
+	m_Kdf.DeriveKey(key, Key::ID(ind, Key::Type::Kernel));
 	pKrn->m_Commitment = Point::Native(ECC::Context::get().G * key);
 
 	ECC::Hash::Value hv;

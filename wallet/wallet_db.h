@@ -120,8 +120,8 @@ namespace beam
         virtual ~IWalletDB() {}
 
         virtual beam::Key::IKdf::Ptr get_MasterKdf() const = 0;
-        virtual beam::Key::IKdf::Ptr get_ChildKdf(Key::Index) const;
-        virtual ECC::Scalar::Native calcKey(const Coin::ID&) const = 0;
+        beam::Key::IKdf::Ptr get_ChildKdf(Key::Index) const;
+		void calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID&);
         virtual uint64_t AllocateKidRange(uint64_t nCount) = 0;
         virtual std::vector<Coin> selectCoins(const Amount& amount, bool lock = true) = 0;
         virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) = 0;
@@ -193,7 +193,6 @@ namespace beam
         ~WalletDB();
 
         beam::Key::IKdf::Ptr get_MasterKdf() const override;
-        ECC::Scalar::Native calcKey(const Coin::ID&) const override;
         uint64_t AllocateKidRange(uint64_t nCount) override;
         std::vector<Coin> selectCoins(const Amount& amount, bool lock = true) override;
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override;

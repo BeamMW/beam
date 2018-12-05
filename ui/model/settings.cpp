@@ -33,7 +33,6 @@ namespace
     const char* LocalNodeRun = "localnode/run";
     const char* LocalNodePort = "localnode/port";
     const char* LocalNodeMiningThreads = "localnode/mining_threads";
-    const char* LocalNodeGenerateGenesys = "localnode/generate_genesys";
     const char* LocalNodeSynchronized = "localnode/synchronized";
     const char* LocalNodePeers = "localnode/peers";
 #ifdef BEAM_USE_GPU
@@ -110,24 +109,6 @@ void WalletSettings::setLockTimeout(int value)
             m_data.setValue(LockTimeoutName, value);
         }
         emit lockTimeoutChanged();
-    }
-}
-
-bool WalletSettings::getGenerateGenesys() const
-{
-    Lock lock(m_mutex);
-    return m_data.value(LocalNodeGenerateGenesys, false).toBool();
-}
-
-void WalletSettings::setGenerateGenesys(bool value)
-{
-    if (getGenerateGenesys() != value)
-    {
-        {
-            Lock lock(m_mutex);
-            m_data.setValue(LocalNodeGenerateGenesys, value);
-        }
-        emit localNodeGenerateGenesysChanged();
     }
 }
 

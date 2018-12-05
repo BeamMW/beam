@@ -124,8 +124,8 @@ WaitHandle run_node(const NodeParams& params) {
             if (!params.connectTo.empty()) {
                 node.m_Cfg.m_Connect.push_back(params.connectTo);
             } else {
-                ReadTreasury(node.m_Cfg.m_vTreasury, "_sender_");
-                LOG_INFO() << "Treasury blocs read: " << node.m_Cfg.m_vTreasury.size();
+                ReadTreasury(node.m_Cfg.m_Treasury, "_sender_");
+                LOG_INFO() << "Treasury blocs read: " << node.m_Cfg.m_Treasury.size();
             }
 
             LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";

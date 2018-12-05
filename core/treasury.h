@@ -42,7 +42,7 @@ namespace beam
 
 				std::vector<Coin> m_vCoins;
 
-				void AddSubsidy(AmountBig& res) const;
+				void AddSubsidy(AmountBig::Type& res) const;
 
 				template <typename Archive>
 				void serialize(Archive& ar)
@@ -126,9 +126,8 @@ namespace beam
 
 		struct Parameters
 		{
-			Height m_StepMin = 1440 * 30; // 1 month
-			Height m_MaxDiffPerBlock = 1440 * 90; // 3 months
-			Height m_MaxHeight = 1440 * 360 * 5; // 5 years plan
+			Height m_MaturityStep = 1440 * 30; // 1 month roughly
+			uint32_t m_Bursts = 12 * 5; // 5 years plan
 
 		};
 
@@ -149,8 +148,50 @@ namespace beam
 		typedef std::map<PeerID, Entry> EntryMap;
 		EntryMap m_Entries;
 
+		struct Data
+		{
+			struct Group
+			{
+				Transaction m_Data;
+				AmountBig::Type m_Value;
+
+				bool IsValid() const;
+
+				template <typename Archive>
+				void serialize(Archive& ar)
+				{
+					ar & m_Data;
+					ar & m_Value;
+				}
+			};
+
+			std::string m_sCustomMsg;
+			std::vector<Group> m_vGroups;
+
+			template <typename Archive>
+			void serialize(Archive& ar)
+			{
+				ar
+					& m_sCustomMsg
+					& m_vGroups;
+			}
+
+			bool IsValid() const;
+
+			struct Coin
+			{
+				Height m_Incubation;
+				Key::IDV m_Kidv;
+
+				int cmp(const Coin&) const;
+				COMPARISON_VIA_CMP
+			};
+
+			void Recover(Key::IPKdf&, std::vector<Coin>&) const;
+		};
+
 		Entry* CreatePlan(const PeerID&, Amount nPerBlockAvg, const Parameters&);
-		void Build(std::vector<Block::Body>&) const;
+		void Build(Data&) const;
 
 		template <typename Archive>
 		void serialize(Archive& ar)
@@ -159,10 +200,6 @@ namespace beam
 		}
 
 		class ThreadPool;
-
-	private:
-		static size_t get_OverheadFor(const AmountBig&);
-		static size_t get_BlockSize(const Block::Body&);
 	};
 
 }

@@ -465,9 +465,11 @@ namespace beam { namespace wallet
         {
             coin.m_spentTxId = m_Tx.GetTxID();
 
-            Scalar::Native blindingFactor = m_Tx.GetWalletDB()->calcKey(coin.m_ID);
             auto& input = m_Inputs.emplace_back(make_unique<Input>());
-            input->m_Commitment = Commitment(blindingFactor, coin.m_ID.m_Value);
+
+			Scalar::Native blindingFactor;
+			m_Tx.GetWalletDB()->calcCommitment(blindingFactor, input->m_Commitment, coin.m_ID);
+
             m_Offset += blindingFactor;
             total += coin.m_ID.m_Value;
         }
@@ -529,12 +531,12 @@ namespace beam { namespace wallet
 
         if (!m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess))
         {
-            Coin::ID cid;
-            ZeroObject(cid);
-            cid.m_Type = FOURCC_FROM(KerW);
-            cid.m_Idx = m_Tx.GetWalletDB()->AllocateKidRange(1);
+			Key::ID kid;
+			kid.m_Idx = m_Tx.GetWalletDB()->AllocateKidRange(1);
+			kid.m_Type = FOURCC_FROM(KerW);
 
-            m_BlindingExcess = m_Tx.GetWalletDB()->calcKey(cid);
+			m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_BlindingExcess, kid);
+
             m_Tx.SetParameter(TxParameterID::BlindingExcess, m_BlindingExcess, false);
         }
 

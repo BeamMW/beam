@@ -295,8 +295,8 @@ namespace proto {
 	inline void ZeroInit(std::shared_ptr<T>&) { }
 	template <typename T>
 	inline void ZeroInit(std::unique_ptr<T>&) { }
-	template <uint32_t nBits_>
-	inline void ZeroInit(uintBig_t<nBits_>& x) { x = ECC::Zero; }
+	template <uint32_t nBytes_>
+	inline void ZeroInit(uintBig_t<nBytes_>& x) { x = ECC::Zero; }
 	inline void ZeroInit(io::Address& x) { }
 	inline void ZeroInit(ByteBuffer&) { }
 	inline void ZeroInit(Block::SystemState::ID& x) { ZeroObject(x); }
@@ -366,7 +366,7 @@ namespace proto {
 
 		Mode::Enum m_Mode;
 
-		typedef uintBig_t<64> MacValue;
+		typedef uintBig_t<8> MacValue;
 		static void get_HMac(ECC::Hash::Mac&, MacValue&);
 
 		ProtocolPlus(uint8_t v0, uint8_t v1, uint8_t v2, size_t maxMessageTypes, IErrorHandler& errorHandler, size_t serializedFragmentsSize);

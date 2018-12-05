@@ -1075,7 +1075,7 @@ namespace ECC {
 		oracle << "Let the generator generation begin!";
 
 		// make sure we get the same G,H for different generator kinds
-		Point::Native G_raw, H_raw;
+		Point::Native G_raw, H_raw, J_raw;
 
 		secp256k1_gej_set_ge(&G_raw.get_Raw(), &secp256k1_ge_const_g);
 		Point ptG;
@@ -1085,11 +1085,13 @@ namespace ECC {
 		hpRes << ptG;
 
 		Generator::CreatePointNnz(H_raw, oracle, &hpRes);
+		Generator::CreatePointNnz(J_raw, oracle, &hpRes);
 
 
 		ctx.G.Initialize(G_raw, oracle);
 		ctx.H.Initialize(H_raw, oracle);
 		ctx.H_Big.Initialize(H_raw, oracle);
+		ctx.J.Initialize(J_raw, oracle);
 
 		Point::Native pt, ptAux2(Zero);
 
@@ -1257,6 +1259,45 @@ namespace ECC {
 		return (k0 == Zero); // not secret, constant-time guarantee isn't requied
 	}
 
+	int Key::ID::cmp(const ID& x) const
+	{
+		if (m_Type < x.m_Type)
+			return -1;
+		if (m_Type > x.m_Type)
+			return 1;
+		if (m_Idx < x.m_Idx)
+			return -1;
+		if (m_Idx > x.m_Idx)
+			return 1;
+		return 0;
+	}
+
+	int Key::IDV::cmp(const IDV& x) const
+	{
+		int n = ID::cmp(x);
+		if (n)
+			return n;
+
+		if (m_Value < x.m_Value)
+			return -1;
+		if (m_Value > x.m_Value)
+			return 1;
+		return 0;
+	}
+
+	int Key::IDVC::cmp(const IDVC& x) const
+	{
+		int n = IDV::cmp(x);
+		if (n)
+			return n;
+
+		if (m_iChild < x.m_iChild)
+			return -1;
+		if (m_iChild > x.m_iChild)
+			return 1;
+		return 0;
+	}
+
 	/////////////////////
 	// HKdf
 	HKdf::HKdf()
@@ -1315,11 +1356,18 @@ namespace ECC {
 		out.GenerateNonceNnz(m_Secret.V, hv, NULL);
 	}
 
-	void HKdf::DerivePKey(Point::Native& out, const Hash::Value& hv)
+	void Key::IKdf::DerivePKeyG(Point::Native& out, const Hash::Value& hv)
 	{
 		Scalar::Native sk;
 		DeriveKey(sk, hv);
 		out = Context::get().G * sk;
+	}
+
+	void Key::IKdf::DerivePKeyJ(Point::Native& out, const Hash::Value& hv)
+	{
+		Scalar::Native sk;
+		DeriveKey(sk, hv);
+		out = Context::get().J * sk;
 	}
 
 	HKdfPub::HKdfPub()
@@ -1334,11 +1382,18 @@ namespace ECC {
 		out.GenerateNonceNnz(m_Secret.V, hv, NULL);
 	}
 
-	void HKdfPub::DerivePKey(Point::Native& out, const Hash::Value& hv)
+	void HKdfPub::DerivePKeyG(Point::Native& out, const Hash::Value& hv)
 	{
 		Scalar::Native sk;
 		DerivePKey(sk, hv);
-		out = m_Pk * sk;
+		out = m_PkG * sk;
+	}
+
+	void HKdfPub::DerivePKeyJ(Point::Native& out, const Hash::Value& hv)
+	{
+		Scalar::Native sk;
+		DerivePKey(sk, hv);
+		out = m_PkJ * sk;
 	}
 
 	void HKdf::Export(Packed& v) const
@@ -1356,19 +1411,23 @@ namespace ECC {
 	void HKdfPub::Export(Packed& v) const
 	{
 		v.m_Secret = m_Secret.V;
-		v.m_Pk = m_Pk;
+		v.m_PkG = m_PkG;
+		v.m_PkJ = m_PkJ;
 	}
 
 	bool HKdfPub::Import(const Packed& v)
 	{
 		m_Secret.V = v.m_Secret;
-		return m_Pk.ImportNnz(v.m_Pk);
+		return
+			m_PkG.ImportNnz(v.m_PkG) &&
+			m_PkJ.ImportNnz(v.m_PkJ);
 	}
 
 	void HKdfPub::GenerateFrom(const HKdf& v)
 	{
 		m_Secret.V = v.m_Secret.V;
-		m_Pk = Context::get().G * v.m_kCoFactor;
+		m_PkG = Context::get().G * v.m_kCoFactor;
+		m_PkJ = Context::get().J * v.m_kCoFactor;
 	}
 
 	/////////////////////

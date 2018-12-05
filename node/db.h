@@ -40,6 +40,7 @@ public:
 			MyID,
 			SyncTarget,
 			LoHorizon,
+			Treasury
 		};
 	};
 
@@ -110,7 +111,8 @@ public:
 			BbsDelOld,
 			BbsIns,
 			DummyIns,
-			DummyFind,
+			DummyFindLowest,
+			DummyFindLastID,
 			DummyUpdHeight,
 			DummyDel,
 			KernelIns,
@@ -200,7 +202,7 @@ public:
 	// Hi-level functions
 
 	void ParamSet(uint32_t ID, const uint64_t*, const Blob*);
-	bool ParamGet(uint32_t ID, uint64_t*, Blob*);
+	bool ParamGet(uint32_t ID, uint64_t*, Blob*, ByteBuffer* = NULL);
 
 	uint64_t ParamIntGetDef(int ID, uint64_t def = 0);
 
@@ -325,8 +327,9 @@ public:
 	bool BbsFind(WalkerBbs&); // set Key
 	void BbsDelOld(Timestamp tMinToRemain);
 
-	void InsertDummy(Height h, const Blob&);
-	uint64_t FindDummy(Height& h, Blob&);
+	void InsertDummy(Height h, uint64_t);
+	uint64_t GetLowestDummy(Height& h);
+	uint64_t GetDummyLastID();
 	void DeleteDummy(uint64_t);
 	void SetDummyHeight(uint64_t, Height);
 

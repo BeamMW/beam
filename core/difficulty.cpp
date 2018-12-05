@@ -108,8 +108,8 @@ namespace beam
 		uint32_t m_Value;
 		static const uint32_t nBits = sizeof(uint32_t) << 3;
 
-		template <uint32_t nBits_>
-		void operator = (const uintBig_t<nBits_>& val)
+		template <uint32_t nBytes_>
+		void operator = (const uintBig_t<nBytes_>& val)
 		{
 			uint32_t nOrder = val.get_Order();
 			if (nOrder)
@@ -213,8 +213,8 @@ namespace beam
 
 	std::ostream& operator << (std::ostream& s, const Difficulty& d)
 	{
-		typedef uintBig_t<sizeof(Difficulty) * 8 - Difficulty::s_MantissaBits> uintOrder;
-		typedef uintBig_t<Difficulty::s_MantissaBits> uintMantissa;
+		typedef uintBig_t<sizeof(Difficulty) - Difficulty::s_MantissaBits/8> uintOrder;
+		typedef uintBig_t<Difficulty::s_MantissaBits/8> uintMantissa;
 
 		uintOrder n0;
 		n0.AssignSafe(d.m_Packed >> Difficulty::s_MantissaBits, 0);

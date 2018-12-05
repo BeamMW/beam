@@ -58,7 +58,7 @@ namespace beam
         if (x.size() > sizeof(*this))
             return false;
 
-        typedef uintBig_t<sizeof(*this) * 8> BigSelf;
+        typedef uintBig_t<sizeof(*this)> BigSelf;
         static_assert(sizeof(BigSelf) == sizeof(*this), "");
 
         *reinterpret_cast<BigSelf*>(this) = Blob(x);
@@ -112,7 +112,7 @@ namespace beam
         return os;
     }
 
-    const char Wallet::s_szLastUtxoEvt[] = "LastUtxoEvent";
+    const char Wallet::s_szNextUtxoEvt[] = "NextUtxoEvent";
 
     Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action)
         : m_WalletDB{ walletDB }
@@ -472,12 +472,10 @@ namespace beam
         Block::SystemState::Full sTip;
         m_WalletDB->get_History().get_Tip(sTip);
 
-        Height h = GetUtxoEventsHeight();
-        assert(h <= sTip.m_Height);
-        if (h >= sTip.m_Height)
+        Height h = GetUtxoEventsHeightNext();
+        assert(h <= sTip.m_Height + 1);
+        if (h > sTip.m_Height)
             return;
-
-        ++h;
 
         if (!m_PendingUtxoEvents.empty())
         {
@@ -518,14 +516,14 @@ namespace beam
     void Wallet::SetUtxoEventsHeight(Height h)
     {
         uintBigFor<Height>::Type var;
-        var = h;
-        wallet::setVar(m_WalletDB, s_szLastUtxoEvt, var);
+        var = h + 1; // we're actually saving the next
+        wallet::setVar(m_WalletDB, s_szNextUtxoEvt, var);
     }
 
-    Height Wallet::GetUtxoEventsHeight()
+    Height Wallet::GetUtxoEventsHeightNext()
     {
         uintBigFor<Height>::Type var;
-        if (!wallet::getVar(m_WalletDB, s_szLastUtxoEvt, var))
+        if (!wallet::getVar(m_WalletDB, s_szNextUtxoEvt, var))
             return 0;
 
         Height h;
@@ -612,8 +610,8 @@ namespace beam
             }
         }
 
-        Height h = GetUtxoEventsHeight();
-        if (h > sTip.m_Height)
+        Height h = GetUtxoEventsHeightNext();
+        if (h > sTip.m_Height + 1)
             SetUtxoEventsHeight(sTip.m_Height);
     }
 
@@ -686,7 +684,10 @@ namespace beam
     {
         MyRequestUtxo::Ptr pReq(new MyRequestUtxo);
         pReq->m_CoinID = cid;
-        pReq->m_Msg.m_Utxo = Commitment(m_WalletDB->calcKey(cid), cid.m_Value);
+
+		Scalar::Native sk;
+		m_WalletDB->calcCommitment(sk, pReq->m_Msg.m_Utxo, cid);
+
         LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo;
 
         PostReqUnique(*pReq);

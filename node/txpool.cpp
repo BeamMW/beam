@@ -35,13 +35,9 @@ bool TxPool::Profit::operator < (const Profit& t) const
 	// handle overflow. To be precise need to use big-int (96-bit) arithmetics
 	//	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;
 
-	uintBigFor<AmountBig>::Type fee0, fee1;
-	m_Fee.Export(fee0);
-	t.m_Fee.Export(fee1);
-
 	return
-		(fee0 * uintBigFrom(t.m_nSize)) >
-		(fee1 * uintBigFrom(m_nSize));
+		(m_Fee * uintBigFrom(t.m_nSize)) >
+		(t.m_Fee * uintBigFrom(m_nSize));
 }
 
 /////////////////////////////

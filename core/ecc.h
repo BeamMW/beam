@@ -23,8 +23,8 @@ namespace ECC
 
 	void GenRandom(void*, uint32_t nSize); // with OS support
 
-	template <uint32_t nBits_>
-	inline void GenRandom(beam::uintBig_t<nBits_>& x) { GenRandom(x.m_pData, x.nBytes); }
+	template <uint32_t nBytes_>
+	inline void GenRandom(beam::uintBig_t<nBytes_>& x) { GenRandom(x.m_pData, x.nBytes); }
 
 	struct Mode {
 		enum Enum {
@@ -85,8 +85,9 @@ namespace ECC
 		~NoLeak() { SecureErase(V); }
 	};
 
-	static const uint32_t nBits = 256;
-	typedef beam::uintBig_t<nBits> uintBig;
+	static const uint32_t nBytes = 32;
+	static const uint32_t nBits = nBytes << 3;
+	typedef beam::uintBig_t<nBytes> uintBig;
 
 
 	class Commitment;
@@ -194,6 +195,7 @@ namespace ECC
 			static const uint32_t Identity  = FOURCC_FROM(iden); // Node-Wallet auth
 			static const uint32_t ChildKey  = FOURCC_FROM(SubK);
 			static const uint32_t Bbs       = FOURCC_FROM(BbsM);
+			static const uint32_t Decoy     = FOURCC_FROM(dcoy);
 		};
 
 		struct ID
@@ -222,6 +224,9 @@ namespace ECC
 #pragma pack (pop)
 
 			void operator = (const Packed&);
+
+			int cmp(const ID&) const;
+			COMPARISON_VIA_CMP
 		};
 
 		struct IDV
@@ -246,18 +251,25 @@ namespace ECC
 
 			void operator = (const Packed&);
 			bool operator == (const IDV&) const;
+
+			int cmp(const IDV&) const;
+			COMPARISON_VIA_CMP
 		};
 
 		struct IDVC :public IDV {
 			Index m_iChild = 0;
+
+			int cmp(const IDVC&) const;
+			COMPARISON_VIA_CMP
 		};
 
 		struct IPKdf
 		{
 			typedef std::shared_ptr<IPKdf> Ptr;
 
-			virtual void DerivePKey(Point::Native&, const Hash::Value&) = 0;
 			virtual void DerivePKey(Scalar::Native&, const Hash::Value&) = 0;
+			virtual void DerivePKeyG(Point::Native&, const Hash::Value&) = 0;
+			virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) = 0;
 
 			bool IsSame(IPKdf&);
 		};
@@ -269,6 +281,9 @@ namespace ECC
 
 			void DeriveKey(Scalar::Native&, const Key::ID&);
 			virtual void DeriveKey(Scalar::Native&, const Hash::Value&) = 0;
+
+			virtual void DerivePKeyG(Point::Native&, const Hash::Value&) override;
+			virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) override;
 		};
 	};
 

@@ -414,8 +414,8 @@ namespace ECC
 		void Write(const Point&);
 		void Write(const Point::Native&);
 		void Write(const beam::Blob&);
-		template <uint32_t nBits_>
-		void Write(const beam::uintBig_t<nBits_>& x) { Write(x.m_pData, x.nBytes); }
+		template <uint32_t nBytes_>
+		void Write(const beam::uintBig_t<nBytes_>& x) { Write(x.m_pData, x.nBytes); }
 		template <uint32_t n>
 		void Write(const char(&sz)[n]) { Write(sz, n); }
 		void Write(const std::string& str) { Write(str.c_str(), static_cast<uint32_t>(str.size() + 1)); }
@@ -475,7 +475,6 @@ namespace ECC
 		HKdf();
 		virtual ~HKdf();
 		// IPKdf
-		virtual void DerivePKey(Point::Native&, const Hash::Value&) override;
 		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
 		// IKdf
 		virtual void DeriveKey(Scalar::Native&, const Hash::Value&) override;
@@ -505,23 +504,26 @@ namespace ECC
 		HKdfPub(const HKdfPub&) = delete;
 
 		NoLeak<uintBig> m_Secret;
-		Point::Native m_Pk;
+		Point::Native m_PkG;
+		Point::Native m_PkJ;
 
 	public:
 		HKdfPub();
 		virtual ~HKdfPub();
 
 		// IPKdf
-		virtual void DerivePKey(Point::Native&, const Hash::Value&) override;
 		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
+		virtual void DerivePKeyG(Point::Native&, const Hash::Value&) override;
+		virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) override;
 
 #pragma pack (push, 1)
 		struct Packed
 		{
 			uintBig m_Secret;
-			Point m_Pk;
+			Point m_PkG;
+			Point m_PkJ;
 		};
-		static_assert(sizeof(Packed) == uintBig::nBytes * 2 + 1, "");
+		static_assert(sizeof(Packed) == uintBig::nBytes * 3 + 2, "");
 #pragma pack (pop)
 
 		void Export(Packed&) const;
@@ -537,6 +539,7 @@ namespace ECC
 		Generator::Obscured						G;
 		Generator::Obscured						H_Big;
 		Generator::Simple<sizeof(Amount) << 3>	H;
+		Generator::Obscured						J; // for switch/ElGamal commitment
 
 		struct IppCalculator
 		{

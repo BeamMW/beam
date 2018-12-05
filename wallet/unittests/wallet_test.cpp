@@ -66,13 +66,6 @@ namespace
             return m_pKdf;
         }
 
-        ECC::Scalar::Native calcKey(const Coin::ID& cid) const override
-        {
-            ECC::Scalar::Native sk;
-            m_pKdf->DeriveKey(sk, cid);
-            return sk;
-        }
-
         std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool /*lock*/) override
         {
             std::vector<beam::Coin> res;

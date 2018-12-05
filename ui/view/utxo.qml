@@ -47,7 +47,7 @@ ColumnLayout {
                     font.pixelSize: 18
                     font.styleName: "Bold"; font.weight: Font.Bold
                     color: Style.white
-                    text: qsTr("Height")
+                    text: qsTr("Blockchain Height")
                 }
 
                 SFText {
@@ -86,7 +86,7 @@ ColumnLayout {
                     font.pixelSize: 18
                     font.styleName: "Bold"; font.weight: Font.Bold
                     color: Style.white
-                    text: qsTr("Hash")
+                    text: qsTr("Last block hash")
                 }
 
                 SFText {

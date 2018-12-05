@@ -115,7 +115,7 @@ void run_with_node() {
     node.m_Cfg.m_Listen.ip(0);
     node.m_Cfg.m_MiningThreads = 0;
     node.m_Cfg.m_VerificationThreads = 1;
-    uintBig_t<256> fakeKdf;
+    ECC::uintBig fakeKdf;
     fakeKdf.m_pData[0] = 33;
     node.m_Keys.InitSingleKey(fakeKdf);
 
@@ -132,7 +132,6 @@ void run_with_node() {
     dummyNode.m_Cfg.m_Connect.push_back(io::Address::localhost().port(10000));
 
     node.Initialize(server.get());
-    node.get_Processor().m_Extra.m_SubsidyOpen = false;
 
     dummyNode.Initialize();
     reactor->run();

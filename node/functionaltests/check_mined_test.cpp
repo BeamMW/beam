@@ -86,10 +86,8 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 	proto::PerMined mined = msg.m_Entries.front();
 	
 	Scalar::Native key;
-	m_pKdf->DeriveKey(key, Key::ID(mined.m_ID.m_Height, Key::Type::Coinbase));
-
 	Input input;
-	input.m_Commitment = Commitment(key, Rules::get().CoinbaseEmission);
+	SwitchCommitment::Create(key, input.m_Commitment, *m_pKdf, Key::IDV(Rules::get().CoinbaseEmission, mined.m_ID.m_Height, Key::Type::Coinbase));
 
 	m_CoinsChecker.Check(CoinsChecker::Inputs{ input },
 		[this](bool isOk, Height)

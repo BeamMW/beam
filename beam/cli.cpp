@@ -43,7 +43,7 @@ namespace
         cout << options << std::endl;
     }
 
-    bool ReadTreasury(std::vector<Block::Body>& vBlocks, const string& sPath)
+    bool ReadTreasury(ByteBuffer& bb, const string& sPath)
     {
 		if (sPath.empty())
 			return false;
@@ -52,10 +52,12 @@ namespace
 		if (!f.Open(sPath.c_str(), true))
 			return false;
 
-		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
-        arc & vBlocks;
+		size_t nSize = static_cast<size_t>(f.get_Remaining());
+		if (!nSize)
+			return false;
 
-		return true;
+		bb.resize(f.get_Remaining());
+		return f.read(&bb.front(), nSize) == nSize;
     }
 
 	void find_certificates(IExternalPOW::Options& o, const std::string& stratumDir) {
@@ -224,19 +226,14 @@ int main_impl(int argc, char* argv[])
 					if (vm.count(cli::TREASURY_BLOCK))
 					{
 						string sPath = vm[cli::TREASURY_BLOCK].as<string>();
-						ReadTreasury(node.m_Cfg.m_vTreasury, sPath);
-
-						if (!node.m_Cfg.m_vTreasury.empty())
-							LOG_INFO() << "Treasury blocs read: " << node.m_Cfg.m_vTreasury.size();
+						if (!ReadTreasury(node.m_Cfg.m_Treasury, sPath))
+							node.m_Cfg.m_Treasury.clear();
+						else
+						{
+							if (!node.m_Cfg.m_Treasury.empty())
+								LOG_INFO() << "Treasury size: " << node.m_Cfg.m_Treasury.size();
+						}
 					}
-
-#ifdef BEAM_TESTNET
-                    node.m_Cfg.m_ControlState.m_Height = Rules::HeightGenesis;
-					node.m_Cfg.m_ControlState.m_Hash = {
-						0xf6, 0xf9, 0x01, 0x39, 0x3a, 0x10, 0x30, 0x80, 0x86, 0x4f, 0x75, 0xb6, 0x6b, 0x78, 0xa9, 0x6e,
-						0x6d, 0xf0, 0x10, 0xb5, 0x3f, 0x9a, 0xaf, 0x32, 0xe3, 0xcb, 0xc7, 0x5f, 0xa3, 0x6a, 0x21, 0x97
-					};
-#endif
 
 					if (vm.count(cli::RESYNC))
 						node.m_Cfg.m_Sync.m_ForceResync = vm[cli::RESYNC].as<bool>();

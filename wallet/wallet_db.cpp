@@ -164,6 +164,186 @@ namespace beam
             throwIfError(ret, db);
         }
 
+		struct CoinSelector3
+		{
+			typedef std::vector<Coin> Coins;
+			typedef std::vector<size_t> Indexes;
+
+			using Result = pair<Amount, Indexes>;
+
+			const Coins& m_Coins; // input coins must be in ascending order, without zeroes
+			
+			CoinSelector3(const Coins& coins)
+				:m_Coins(coins)
+			{
+			}
+
+			static const uint32_t s_Factor = 16;
+
+			struct Partial
+			{
+				static const Amount s_Inf = Amount(-1);
+
+				struct Link {
+					size_t m_iNext; // 1-based, to distinguish "NULL" pointers
+					size_t m_iElement;
+				};
+
+				std::vector<Link> m_vLinks;
+
+				struct Slot {
+					size_t m_iHead;
+					size_t m_iTail;
+					Amount m_Sum;
+				};
+
+				Slot m_pSlots[s_Factor + 1];
+				Amount m_Goal;
+
+				void Reset()
+				{
+					m_vLinks.clear();
+					ZeroObject(m_pSlots);
+				}
+
+				uint32_t get_Slot(Amount v) const
+				{
+					uint64_t i = v * s_Factor / m_Goal; // TODO - overflow check!
+					return (i >= s_Factor) ? s_Factor : static_cast<uint32_t>(i);
+				}
+
+				void Append(Slot& rDst, Amount v, size_t i0)
+				{
+					m_vLinks.emplace_back();
+					m_vLinks.back().m_iElement = i0;
+					m_vLinks.back().m_iNext = rDst.m_iTail;
+
+					rDst.m_iTail = m_vLinks.size();
+					if (!rDst.m_iHead)
+						rDst.m_iHead = rDst.m_iTail;
+
+					rDst.m_Sum += v;
+				}
+
+				bool IsBetter(Amount v, uint32_t iDst) const
+				{
+					const Slot& rDst = m_pSlots[iDst];
+					return (s_Factor == iDst) ?
+						(!rDst.m_Sum || (v < rDst.m_Sum)) :
+						(v > rDst.m_Sum);
+				}
+
+				void AddItem(Amount v, size_t i0)
+				{
+					// try combining first. Go from higher to lower, to make sure we don't process a slot which already contains this item
+					for (uint32_t iSrc = s_Factor; iSrc--; )
+					{
+						Slot& rSrc = m_pSlots[iSrc];
+						if (!rSrc.m_Sum)
+							continue;
+
+						Amount v2 = rSrc.m_Sum + v;
+						uint32_t iDst = get_Slot(v2);
+
+						if (!IsBetter(v2, iDst))
+							continue;
+
+						Slot& rDst = m_pSlots[iDst];
+
+						// improve
+						if (iSrc != iDst)
+							rDst = rSrc; // copy
+
+						Append(rDst, v, i0);
+					}
+
+					// try as-is
+					uint32_t iDst = get_Slot(v);
+					if (IsBetter(v, iDst))
+					{
+						Slot& rDst = m_pSlots[iDst];
+						ZeroObject(rDst);
+						Append(rDst, v, i0);
+					}
+				}
+			};
+
+			void SolveOnce(Partial& part, Amount goal, size_t iEnd)
+			{
+				assert((goal > 0) && (iEnd <= m_Coins.size()));
+				part.Reset();
+				part.m_Goal = goal;
+
+				for (size_t i = iEnd; i--; )
+					part.AddItem(m_Coins[i].m_ID.m_Value, i);
+			}
+
+			Result Select(Amount amount)
+			{
+				Partial part;
+				size_t iEnd = m_Coins.size();
+
+				Amount nOvershootPrev = Amount(-1);
+
+				Result res;
+				for (res.first = 0; (res.first < amount) && iEnd; )
+				{
+					Amount goal = amount - res.first;
+					SolveOnce(part, goal, iEnd);
+					Partial::Slot& r1 = part.m_pSlots[s_Factor];
+
+					if (r1.m_Sum < goal)
+					{
+						// no solution
+						assert(!r1.m_Sum && !res.first);
+
+						// return the maximum we have
+						uint32_t iSlot = s_Factor - 1;
+						for ( ; iSlot > 0; iSlot--)
+							if (part.m_pSlots[iSlot].m_Sum)
+								break;
+
+						res.first = part.m_pSlots[iSlot].m_Sum;
+
+						for (size_t iLink = part.m_pSlots[iSlot].m_iHead; iLink; )
+						{
+							const Partial::Link& link = part.m_vLinks[iLink - 1];
+							iLink = link.m_iNext;
+
+							assert(link.m_iElement < iEnd);
+							res.second.push_back(link.m_iElement);
+						}
+
+						return res;
+					}
+
+					Amount nOvershoot = r1.m_Sum - goal;
+					bool bShouldRetry = (nOvershoot < nOvershootPrev);
+					nOvershootPrev = nOvershoot;
+
+					for (size_t iLink = r1.m_iHead; iLink; )
+					{
+						const Partial::Link& link = part.m_vLinks[iLink - 1];
+						iLink = link.m_iNext;
+
+						assert(link.m_iElement < iEnd);
+						res.second.push_back(link.m_iElement);
+						iEnd = link.m_iElement;
+
+						Amount v = m_Coins[link.m_iElement].m_ID.m_Value;
+						res.first += v;
+
+						if (bShouldRetry && (amount <= res.first + nOvershoot*2))
+							break; // leave enough window for reorgs
+					}
+				}
+
+				return res;
+			}
+
+
+		};
+
         struct CoinSelector2
         {
             struct CoinEx
@@ -925,116 +1105,69 @@ namespace beam
         return pRet;
     }
 
-    ECC::Scalar::Native WalletDB::calcKey(const Coin::ID& cid) const
-    {
-        ECC::Scalar::Native key;
-        get_ChildKdf(cid.m_iChild)->DeriveKey(key, cid);
-        return key;
-    }
+	void IWalletDB::calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID& cid)
+	{
+		SwitchCommitment::Create(sk, comm, *get_ChildKdf(cid.m_iChild), cid);
+	}
 
     vector<Coin> WalletDB::selectCoins(const Amount& amount, bool lock)
     {
-        vector<Coin> coins;
+        vector<Coin> coins, coinsSel;
         Block::SystemState::ID stateID = {};
         getSystemStateID(stateID);
-        {
-            sqlite::Statement stm(_db, "SELECT SUM(amount)" STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 ;");
-            stm.bind(1, Coin::Available);
-            stm.bind(2, stateID.m_Height);
-            Amount avalableAmount = 0;
-            if (stm.step())
-            {
-                stm.get(0, avalableAmount);
-            }
-            if (avalableAmount < amount)
-            {
-                return coins;
-            }
-        }
-        Amount sum = 0;
-        Coin coin2;
-        {
-            // get one coin >= amount
-            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount>=?3 ORDER BY amount ASC LIMIT 1;");
-            stm.bind(1, Coin::Available);
-            stm.bind(2, stateID.m_Height);
-            stm.bind(3, amount);
-            if (stm.step())
-            {
-                int colIdx = 0;
-                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin2);
-                sum = coin2.m_ID.m_Value;
-            }
-        }
-        if (sum == amount)
-        {
-            coins.push_back(coin2);
-        }
-        else
-        {
-            // select all coins less than needed amount in sorted order
-            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount<?3 ORDER BY amount DESC;");
-            stm.bind(1, Coin::Available);
-            stm.bind(2, stateID.m_Height);
-            stm.bind(3, amount);
-            vector<Coin> candidats;
-            Amount smallSum = 0;
-            while (stm.step())
-            {
-                auto& coin = candidats.emplace_back();
-                int colIdx = 0;
-                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
-                smallSum += coin.m_ID.m_Value;
-            }
-            if (smallSum == amount)
-            {
-                coins.swap(candidats);
-            }
-            else if (smallSum > amount)
-            {
-                CoinSelector2 s{ candidats };
-                auto t = s.select(amount);
 
-                if (sum > amount && sum <= t.first)
-                {
-                    // prefer one coin instead on many
-                    coins.push_back(coin2);
-                }
-                else
-                {
-                    coins = t.second;
-                }
-            }
-            else if (sum > amount)
-            {
-                coins.push_back(coin2);
-            }
-        }
+		{
+			sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 ORDER BY amount ASC");
+			stm.bind(1, Coin::Available);
+			stm.bind(2, stateID.m_Height);
 
-        if (lock)
-        {
-            sqlite::Transaction trans(_db);
+			while (stm.step())
+			{
+				auto& coin = coins.emplace_back();
+				int colIdx = 0;
+				ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
 
-            for (auto& coin : coins)
-            {
-                coin.m_status = Coin::Outgoing;
-                const char* req = "UPDATE " STORAGE_NAME " SET status=?, lockedHeight=?" STORAGE_WHERE_ID;
-                sqlite::Statement stm(_db, req);
+				if (coin.m_ID.m_Value >= amount)
+					break;
+			}
+		}
 
-                int colIdx = 0;
-                stm.bind(++colIdx, coin.m_status);
-                stm.bind(++colIdx, stateID.m_Height);
-                STORAGE_BIND_ID(coin)
+		CoinSelector3 csel(coins);
+		CoinSelector3::Result res = csel.Select(amount);
 
-                stm.step();
-            }
+		if (res.first >= amount)
+		{
+			coinsSel.reserve(res.second.size());
 
-            trans.commit();
+			for (size_t j = 0; j < res.second.size(); j++)
+				coinsSel.push_back(std::move(coins[res.second[j]]));
 
-            notifyCoinsChanged();
-        }
-        std::sort(coins.begin(), coins.end(), [](const Coin& lhs, const Coin& rhs) {return lhs.m_ID.m_Value < rhs.m_ID.m_Value; });
-        return coins;
+			if (lock)
+			{
+				sqlite::Transaction trans(_db);
+
+				for (auto& coin : coinsSel)
+				{
+					coin.m_status = Coin::Outgoing;
+					const char* req = "UPDATE " STORAGE_NAME " SET status=?, lockedHeight=?" STORAGE_WHERE_ID;
+					sqlite::Statement stm(_db, req);
+
+					int colIdx = 0;
+					stm.bind(++colIdx, coin.m_status);
+					stm.bind(++colIdx, stateID.m_Height);
+					STORAGE_BIND_ID(coin)
+
+					stm.step();
+				}
+
+				trans.commit();
+
+				notifyCoinsChanged();
+			}
+		}
+
+
+		return coinsSel;
     }
 
     std::vector<Coin> WalletDB::getCoinsCreatedByTx(const TxID& txId)
@@ -1969,12 +2102,9 @@ namespace beam
             newAddress.m_createTime = beam::getTimestamp();
             newAddress.m_OwnID = walletDB->AllocateKidRange(1);
 
-            Coin::ID cid;
-            ZeroObject(cid);
-            cid.m_Type = Key::Type::Bbs;
-            cid.m_Idx = newAddress.m_OwnID;
+			ECC::Scalar::Native sk;
+			walletDB->get_MasterKdf()->DeriveKey(sk, Key::ID(newAddress.m_OwnID, Key::Type::Bbs));
 
-            ECC::Scalar::Native sk = walletDB->calcKey(cid);
             proto::Sk2Pk(newAddress.m_walletID.m_Pk, sk);
 
             BbsChannel ch;
