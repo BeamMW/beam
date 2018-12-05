@@ -832,6 +832,67 @@ void TestSelect3()
     cout << "TestSelect3 elapsed time: " << sw.milliseconds() << " ms\n";
 }
 
+void TestSelect4()
+{
+    auto db = createSqliteWalletDB();
+    vector<Coin> coins;
+
+    coins.push_back(Coin(2, Coin::Available, 10, Key::Type::Regular));
+
+    coins.push_back(Coin(30101, Coin::Available, 10, Key::Type::Regular));
+    coins.push_back(Coin(30102, Coin::Available, 10, Key::Type::Regular));
+    coins.push_back(Coin(32000, Coin::Available, 10, Key::Type::Regular));
+
+    db->store(coins);
+
+    auto selected_coins = db->selectCoins(60203, false);
+
+    Amount sum = 0;
+    for (auto coin : selected_coins)
+    {
+        sum += coin.m_ID.m_Value;
+        LOG_INFO() << coin.m_ID.m_Value;
+    }
+    LOG_INFO() << "sum = " << sum;
+}
+
+void TestSelect5()
+{
+    auto db = createSqliteWalletDB();
+    const uint32_t count = 10000;
+    const uint32_t part_count = 400;
+    Amount start_amount = 40'000'000;
+    vector<Coin> coins;
+    coins.reserve(count);
+
+    for (uint32_t i = 1; i <= count; ++i)
+    {
+        Amount a = Amount(start_amount / pow(2, i / part_count));
+
+        coins.push_back(Coin(a, Coin::Available, 10, Key::Type::Regular));
+    }
+
+    db->store(coins);
+    {
+        Coin coin{ 30'000'000, Coin::Available, 10, Key::Type::Regular };
+        db->store(coin);
+    }
+    helpers::StopWatch sw;
+
+    sw.start();
+    auto selected_coins = db->selectCoins(45'678'910, false);
+    sw.stop();
+    cout << "TestSelect3 elapsed time: " << sw.milliseconds() << " ms\n";
+
+    Amount sum = 0;
+    for (auto coin : selected_coins)
+    {
+        sum += coin.m_ID.m_Value;
+        LOG_INFO() << coin.m_ID.m_Value;
+    }
+    LOG_INFO() << "sum = " << sum;
+}
+
 int main() 
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -853,7 +914,8 @@ int main()
 
     TestTxParameters();
 
-    TestSelect3();
+    //TestSelect4();
+    //TestSelect5();
 
     return WALLET_CHECK_RESULT;
 }
