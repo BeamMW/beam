@@ -790,6 +790,9 @@ namespace beam
 	{
 		res = Zero;
 
+		if (hr.IsEmpty())
+			return;
+
 		for (Height hPos = hr.m_Min; ; )
 		{
 			Height hEnd;
@@ -1066,7 +1069,8 @@ namespace beam
 
 	bool Block::BodyBase::IsValid(const HeightRange& hr, TxBase::IReader&& r) const
 	{
-		assert((hr.m_Min >= Rules::HeightGenesis) && !hr.IsEmpty());
+		if ((hr.m_Min < Rules::HeightGenesis) || hr.IsEmpty())
+			return false;
 
 		TxBase::Context ctx;
 		ctx.m_Height = hr;
