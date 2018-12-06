@@ -337,8 +337,6 @@ namespace ECC
 		struct CreatorParams
 		{
 			NoLeak<uintBig> m_Seed; // must be a function of the commitment and master secret
-			void InitSeed(Key::IPKdf&, const ECC::Point& comm);
-
 			Key::IDV m_Kidv;
 
 			struct Padded;
