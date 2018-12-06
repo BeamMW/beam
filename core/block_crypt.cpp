@@ -744,7 +744,7 @@ namespace beam
 	}
 
 	const Height Rules::HeightGenesis	= 1;
-	const Amount Rules::Coin			= 1000000;
+	const Amount Rules::Coin			= 100000000;
 
 	Rules::Rules()
 	{
