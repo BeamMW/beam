@@ -15,12 +15,6 @@
 #include "wallet.h"
 #include <boost/uuid/uuid.hpp>
 
-// TODO: getrandom not available until API 28 in the Android NDK 17b
-// https://github.com/boostorg/uuid/issues/76
-#if defined(__ANDROID__)
-#define BOOST_UUID_RANDOM_PROVIDER_DISABLE_GETRANDOM 1
-#endif
-
 #include "core/ecc_native.h"
 #include "core/block_crypt.h"
 #include "utility/logger.h"

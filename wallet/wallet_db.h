@@ -14,7 +14,17 @@
 
 #pragma once
 
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wdelete-non-virtual-dtor"
+#endif
+
 #include <boost/optional.hpp>
+
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#endif
+
 #include "core/common.h"
 #include "core/ecc_native.h"
 #include "wallet/common.h"
