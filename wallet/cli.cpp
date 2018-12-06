@@ -23,6 +23,7 @@
 #include "core/serialization_adapters.h"
 #include "core/treasury.h"
 #include "unittests/util.h"
+#include "mnemonic/mnemonic.h"
 
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
@@ -336,7 +337,6 @@ int main_impl(int argc, char* argv[])
             po::notify(vm);
 
             Rules::get().UpdateChecksum();
-            LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
             // TODO later auto port = vm[cli::PORT].as<uint16_t>();
 
@@ -368,11 +368,24 @@ int main_impl(int argc, char* argv[])
                             && command != cli::TREASURY
                             && command != cli::INFO
                             && command != cli::NEW_ADDRESS
-                            && command != cli::CANCEL_TX)
+                            && command != cli::CANCEL_TX
+                            && command != cli::GENERATE_PHRASE)
                         {
                             LOG_ERROR() << "unknown command: \'" << command << "\'";
                             return -1;
                         }
+
+                        if (command == cli::GENERATE_PHRASE)
+                        {
+                            auto phrase = createMnemonic(getEntropy(), language::en);
+                            for (const auto& word : phrase)
+                            {
+                                cout << word << ';';
+                            }
+                            return 0;
+                        }
+
+                        LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
                         assert(vm.count(cli::WALLET_STORAGE) > 0);
                         auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
@@ -425,7 +438,8 @@ int main_impl(int argc, char* argv[])
                             auto label = vm[cli::NEW_ADDRESS_LABEL].as<string>();
                             newAddress(walletDB, label, pass);
 
-                            if (!vm.count(cli::LISTEN)) {
+                            if (!vm.count(cli::LISTEN)) 
+                            {
                                 return 0;
                             }
                         }
