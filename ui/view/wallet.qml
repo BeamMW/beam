@@ -685,8 +685,8 @@ Item {
                 spacing: 30
 
                 CustomButton {
-                    text: qsTr("cancel")
-                    icon.source: "qrc:/assets/icon-cancel.svg"
+                    text: qsTr("back")
+                    icon.source: "qrc:/assets/icon-back.svg"
                     onClicked: root.state = "wallet"
                 }
 
@@ -694,7 +694,7 @@ Item {
                     text: qsTr("send")
                     palette.buttonText: Style.marine
                     palette.button: Style.heliotrope
-                    icon.source: "qrc:/assets/icon-send.svg"
+                    icon.source: "qrc:/assets/icon-send-blue.svg"
                     enabled: {viewModel.isEnoughMoney && amount_input.amount > 0 && receiverAddrInput.acceptableInput }
                     onClicked: {
                         if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {

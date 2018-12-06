@@ -744,7 +744,7 @@ namespace beam
 	}
 
 	const Height Rules::HeightGenesis	= 1;
-	const Amount Rules::Coin			= 1000000;
+	const Amount Rules::Coin			= 100000000;
 
 	Rules::Rules()
 	{
@@ -789,6 +789,9 @@ namespace beam
 	void Rules::get_Emission(AmountBig::Type& res, const HeightRange& hr, Amount base)
 	{
 		res = Zero;
+
+		if (hr.IsEmpty())
+			return;
 
 		for (Height hPos = hr.m_Min; ; )
 		{
@@ -1066,7 +1069,8 @@ namespace beam
 
 	bool Block::BodyBase::IsValid(const HeightRange& hr, TxBase::IReader&& r) const
 	{
-		assert((hr.m_Min >= Rules::HeightGenesis) && !hr.IsEmpty());
+		if ((hr.m_Min < Rules::HeightGenesis) || hr.IsEmpty())
+			return false;
 
 		TxBase::Context ctx;
 		ctx.m_Height = hr;

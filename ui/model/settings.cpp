@@ -54,13 +54,14 @@ WalletSettings::WalletSettings(const QDir& appDataDir)
 string WalletSettings::getWalletStorage() const
 {
     Lock lock(m_mutex);
-    return m_appDataDir.filePath("wallet.db").toStdString();
-}
 
-string WalletSettings::getBbsStorage() const
-{
-    Lock lock(m_mutex);
-    return m_appDataDir.filePath("keys.bbs").toStdString();
+    auto version = QString::fromStdString(PROJECT_VERSION);
+    if (!m_appDataDir.exists(version))
+    {
+        m_appDataDir.mkdir(version);
+    }
+    
+    return m_appDataDir.filePath(version + "/wallet.db").toStdString();
 }
 
 string WalletSettings::getAppDataPath() const

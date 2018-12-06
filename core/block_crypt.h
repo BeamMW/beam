@@ -36,6 +36,7 @@ namespace beam
 	struct HeightRange
 	{
 		// Convention: inclusive, i.e. both endings are part of the range.
+		// m_Min == m_Max means the range includes a single height. Therefore (m_Min > m_Max) is NOT invalid, it just denotes an empty range.
 		Height m_Min;
 		Height m_Max;
 

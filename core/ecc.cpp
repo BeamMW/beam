@@ -188,10 +188,10 @@ namespace ECC {
 
 	bool Scalar::Native::operator == (const Native& v) const
 	{
-		for (size_t i = 0; i < _countof(d); i++)
-			if (d[i] != v.d[i])
-				return false;
-		return true;
+		// Used in tests only, but implemented with constant mem-time guarantee
+		Native x = - *this;
+		x += v;
+		return x == Zero;
 	}
 
 	Scalar::Native& Scalar::Native::operator = (Minus v)
