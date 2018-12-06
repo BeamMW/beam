@@ -1470,8 +1470,11 @@ namespace ECC {
 
 	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
 	{
+		NoLeak<Hash::Value> hvRandom;
+		GenRandom(hvRandom.V); // add extra randomness to the nonce, so it's derived from both deterministic and random parts
+
 		MultiSig msig;
-		msig.m_Nonce.GenerateNonceNnz(sk, msg, NULL);
+		msig.m_Nonce.GenerateNonceNnz(sk, msg, &hvRandom.V);
 		msig.m_NoncePub = Context::get().G * msig.m_Nonce;
 
 		Scalar::Native k;

@@ -550,11 +550,15 @@ namespace beam { namespace wallet
         m_Offset += m_BlindingExcess;
         m_BlindingExcess = -m_BlindingExcess;
 
-        if (!m_Tx.GetParameter(TxParameterID::MyNonce, m_MultiSig.m_Nonce))
+		// Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
+		NoLeak<Hash::Value> hvRandom;
+        if (!m_Tx.GetParameter(TxParameterID::MyNonce, hvRandom.V))
         {
-            m_MultiSig.m_Nonce.GenRandomNnz();
-            m_Tx.SetParameter(TxParameterID::MyNonce, m_MultiSig.m_Nonce, false);
+			ECC::GenRandom(hvRandom.V);
+            m_Tx.SetParameter(TxParameterID::MyNonce, hvRandom.V, false);
         }
+
+		m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_MultiSig.m_Nonce, hvRandom.V);
     }
 
     Point::Native TxBuilder::GetPublicExcess() const

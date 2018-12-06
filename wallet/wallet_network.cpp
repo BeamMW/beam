@@ -254,8 +254,11 @@ namespace beam {
 
 		MyRequestBbsMsg::Ptr pReq(new MyRequestBbsMsg);
 
+		ECC::NoLeak<ECC::Hash::Value> hvRandom;
+		ECC::GenRandom(hvRandom.V);
+
 		ECC::Scalar::Native nonce;
-		nonce.GenRandomNnz();
+		m_WalletDB->get_MasterKdf()->DeriveKey(nonce, hvRandom.V);
 		
 		if (proto::BbsEncrypt(pReq->m_Msg.m_Message, peerID.m_Pk, nonce, sb.first, static_cast<uint32_t>(sb.second)))
 		{
