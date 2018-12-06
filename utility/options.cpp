@@ -63,7 +63,8 @@ namespace beam
         const char* CANCEL_TX = "cancel_tx";
         const char* TX_ID = "tx_id";
         const char* WALLET_SEED = "wallet_seed";
-        const char* WALLET_PHRASES = "wallet_phrases";
+        const char* WALLET_PHRASE = "wallet_phrase";
+        const char* GENERATE_PHRASE = "generate_phrase";
         const char* FEE = "fee";
         const char* FEE_FULL = "fee,f";
         const char* RECEIVE = "receive";
@@ -108,7 +109,7 @@ namespace beam
             (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
             (cli::WALLET_SEED, po::value<string>(), "secret key generation seed")
-            (cli::WALLET_PHRASES, po::value<string>(), "phrases to generate secret key according to BIP-39. <wallet_seed> option will be ignored")
+            (cli::WALLET_PHRASE, po::value<string>(), "phrase to generate secret key according to BIP-39. <wallet_seed> option will be ignored")
             (cli::LOG_LEVEL, po::value<string>(), "log level [info|debug|verbose]")
             (cli::FILE_LOG_LEVEL, po::value<string>(), "file log level [info|debug|verbose]")
             (cli::VERSION_FULL, "return project version")
@@ -144,12 +145,13 @@ namespace beam
             (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "tx id")
             (cli::NEW_ADDRESS_LABEL, po::value<string>()->default_value(""), "label for new own address")
+            (cli::GENERATE_PHRASE, "command to generate phrases which will be used to create a secret according to BIP-39")
 
             (cli::TR_OPCODE, po::value<uint32_t>()->default_value(0), "treasury operation: 0=print ID, 1=plan, 2=response, 3=import, 4=generate, 5=print")
             (cli::TR_WID, po::value<std::string>(), "treasury WalletID")
             (cli::TR_PERC, po::value<double>(), "treasury percent of the total emission, designated to this WalletID")
 			(cli::TR_COMMENT, po::value<std::string>(), "treasury custom message")
-			(cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|info|treasury]");
+			(cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|info|treasury|generate_phrase]");
 
         po::options_description uioptions("UI options");
         uioptions.add_options()
@@ -290,17 +292,17 @@ namespace beam
     {
         SecString seed;
 
-        if (vm.count(cli::WALLET_PHRASES))
+        if (vm.count(cli::WALLET_PHRASE))
         {
-            auto tempPhrases = vm[cli::WALLET_PHRASES].as<string>();
-            WordList phrases = string_helpers::split(tempPhrases, ';');
-            assert(phrases.size() == 12);
-            if (phrases.size() != 12)
+            auto tempPhrase = vm[cli::WALLET_PHRASE].as<string>();
+            WordList phrase = string_helpers::split(tempPhrase, ';');
+            assert(phrase.size() == 12);
+            if (phrase.size() != 12)
             {
-                LOG_ERROR() << "Invalid recovery phrases provided: " << tempPhrases;
+                LOG_ERROR() << "Invalid recovery phrases provided: " << tempPhrase;
                 return false;
             }
-            auto buf = decodeMnemonic(phrases);
+            auto buf = decodeMnemonic(phrase);
             seed.assign(buf.data(), buf.size());
         }
         else if (!read_secret_impl(seed, "Enter seed: ", cli::WALLET_SEED, vm))
