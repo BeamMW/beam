@@ -114,5 +114,6 @@
         <file>controls/LogoComponent.qml</file>
         <file>controls/AddressTable.qml</file>
         <file>assets/icon-transactions.svg</file>
+        <file>controls/StatusBar.qml</file>
     </qresource>
 </RCC>

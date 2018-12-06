@@ -30,6 +30,7 @@
 #include "viewmodel/help_view.h"
 #include "viewmodel/settings_view.h"
 #include "viewmodel/messages_view.h"
+#include "viewmodel/statusbar_view.h"
 #include "model/app_model.h"
 
 #include "wallet/wallet_db.h"
@@ -173,6 +174,7 @@ int main (int argc, char* argv[])
             qmlRegisterType<NotificationsViewModel>("Beam.Wallet", 1, 0, "NotificationsViewModel");
             qmlRegisterType<HelpViewModel>("Beam.Wallet", 1, 0, "HelpViewModel");
             qmlRegisterType<MessagesViewModel>("Beam.Wallet", 1, 0, "MessagesViewModel");
+            qmlRegisterType<StatusbarViewModel>("Beam.Wallet", 1, 0, "StatusbarViewModel");
 
             qmlRegisterType<AddressItem>("Beam.Wallet", 1, 0, "AddressItem");
             qmlRegisterType<ContactItem>("Beam.Wallet", 1, 0, "ContactItem");

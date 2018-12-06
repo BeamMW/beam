@@ -99,14 +99,6 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString receiverAddr READ getReceiverAddr WRITE setReceiverAddr NOTIFY receiverAddrChanged)
     Q_PROPERTY(QQmlListProperty<TxObject> transactions READ getTransactions NOTIFY transactionsChanged)
 
-    Q_PROPERTY(QString walletStatusErrorMsg READ getWalletStatusErrorMsg NOTIFY stateChanged)
-    Q_PROPERTY(bool isOfflineStatus READ getIsOfflineStatus WRITE setIsOfflineStatus NOTIFY isOfflineStatusChanged)
-    Q_PROPERTY(bool isFailedStatus READ getIsFailedStatus WRITE setIsFailedStatus NOTIFY isFailedStatusChanged)
-
-    Q_PROPERTY(QString syncTime READ syncTime NOTIFY stateChanged)
-    Q_PROPERTY(bool isSyncInProgress READ getIsSyncInProgress WRITE setIsSyncInProgress NOTIFY isSyncInProgressChanged)
-    Q_PROPERTY(int nodeSyncProgress READ getNodeSyncProgress WRITE setNodeSyncProgress NOTIFY nodeSyncProgressChanged)
-
     Q_PROPERTY(QString actualAvailable READ actualAvailable NOTIFY actualAvailableChanged)
     Q_PROPERTY(bool isEnoughMoney READ isEnoughMoney NOTIFY actualAvailableChanged)
     Q_PROPERTY(QString change READ change NOTIFY changeChanged)
@@ -116,7 +108,6 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString newReceiverName READ getNewReceiverName WRITE setNewReceiverName NOTIFY newReceiverNameChanged)
 
     Q_PROPERTY(QString comment READ getComment WRITE setComment NOTIFY commentChanged)
-    Q_PROPERTY(QString branchName READ getBranchName CONSTANT)
 
     Q_PROPERTY(QString sortRole READ sortRole WRITE setSortRole)
     Q_PROPERTY(Qt::SortOrder sortOrder READ sortOrder WRITE setSortOrder)
@@ -153,17 +144,9 @@ public:
     QQmlListProperty<TxObject> getTransactions();
     QString sendAmount() const;
     QString feeGrothes() const;
-    QString syncTime() const;
-    bool getIsSyncInProgress() const;
-    void setIsSyncInProgress(bool value);
     bool getIsOfflineStatus() const;
     bool getIsFailedStatus() const;
-    void setIsOfflineStatus(bool value);
-    void setIsFailedStatus(bool value);
     QString getWalletStatusErrorMsg() const;
-
-    int getNodeSyncProgress() const;
-    void setNodeSyncProgress(int value);
 
     QString actualAvailable() const;
     bool isEnoughMoney() const;
@@ -180,7 +163,6 @@ public:
     void setFeeGrothes(const QString& text);
     void setComment(const QString& value);
     QString getComment() const;
-    QString getBranchName() const;
     QString sortRole() const;
     void setSortRole(const QString&);
     Qt::SortOrder sortOrder() const;
@@ -199,14 +181,10 @@ public slots:
     void onTxStatus(beam::ChangeAction action, const std::vector<beam::TxDescription>& items);
     void sendMoney();
     void syncWithNode();
-    void onSyncProgressUpdated(int done, int total);
-    void onNodeSyncProgressUpdated(int done, int total);
     void onChangeCalculated(beam::Amount change);
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
     void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
     void onGeneratedNewAddress(const beam::WalletAddress& addr);
-    void onNodeConnectionChanged(bool isNodeConnected);
-    void onNodeConnectionFailed();
 
 signals:
     void stateChanged();
@@ -217,14 +195,10 @@ signals:
     void actualAvailableChanged();
     void changeChanged();
     void receiverAddrChanged();
-    void isSyncInProgressChanged();
-    void nodeSyncProgressChanged();
     void newReceiverAddrChanged();
     void newReceiverNameChanged();
     void commentChanged();
 
-    void isOfflineStatusChanged();
-    void isFailedStatusChanged();
 private:
     beam::Amount calcSendAmount() const;
     beam::Amount calcFeeAmount() const;
@@ -253,12 +227,6 @@ private:
     QString _newReceiverName;
     QString _comment;
 
-    bool _isSyncInProgress;
-    bool _isOfflineStatus;
-    bool _isFailedStatus;
-    int _nodeDone;
-    int _nodeTotal;
-    int _nodeSyncProgress;
     Qt::SortOrder _sortOrder;
     QString _sortRole;
 };

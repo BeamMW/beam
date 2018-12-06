@@ -109,6 +109,10 @@ ColumnLayout {
         }
     }
 
+    StatusBar {
+        id: status_bar
+    }
+
     CustomTableView {
         id: tableView
         property int rowHeight: 69

@@ -8,14 +8,14 @@ CustomTableView {
 
     property int rowHeight: 69
     property int resizableWidth: parent.width - actions.width
-
+    property var parentModel
     anchors.fill: parent
     frameVisible: false
     selectionMode: SelectionMode.NoSelection
     backgroundVisible: false    
 
     TableViewColumn {
-        role: viewModel.nameRole
+        role: parentModel.nameRole
         title: qsTr("Name")
         width: 150 * rootControl.resizableWidth / 750
         resizable: false
@@ -23,7 +23,7 @@ CustomTableView {
     }
 
     TableViewColumn {
-        role: viewModel.addressRole
+        role: parentModel.addressRole
         title: qsTr("Address")
         width: 150 *  rootControl.resizableWidth / 750
         movable: false
@@ -44,14 +44,14 @@ CustomTableView {
                     text: styleData.value
                     color: Style.white
                     copyMenuEnabled: true
-                    onCopyText: viewModel.copyToClipboard(text)
+                    onCopyText: parentModel.copyToClipboard(text)
                 }
             }
         }
     }
 
     TableViewColumn {
-        role: viewModel.categoryRole
+        role: parentModel.categoryRole
         title: qsTr("Category")
         width: 150 *  rootControl.resizableWidth / 750
         resizable: false
@@ -59,7 +59,7 @@ CustomTableView {
     }
 
     TableViewColumn {
-        role: viewModel.expirationRole
+        role: parentModel.expirationRole
         title: qsTr("Expiration date")
         width: 150 *  rootControl.resizableWidth / 750
         resizable: false
@@ -67,7 +67,7 @@ CustomTableView {
     }
 
     TableViewColumn {
-        role:viewModel.createdRole
+        role:parentModel.createdRole
         title: qsTr("Created")
         width: 150 *  rootControl.resizableWidth / 750
         resizable: false
@@ -145,7 +145,7 @@ CustomTableView {
             text: qsTr("delete address")
             icon.source: "qrc:/assets/icon-delete.svg"
             onTriggered: {
-                viewModel.deleteAddress(contextMenu.address);
+                parentModel.deleteAddress(contextMenu.address);
             }
         }
     }

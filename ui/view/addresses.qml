@@ -21,6 +21,10 @@ ColumnLayout {
         text: qsTr("Addresses")
     }
 
+    StatusBar {
+        id: status_bar
+    }
+
     ConfirmationDialog {
 		id: confirmationDialog
         property bool isOwn
@@ -30,6 +34,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.minimumHeight: 40
         Layout.maximumHeight: 40
+        Layout.topMargin: 54
         spacing: 40
 
         TxFilter{
@@ -65,6 +70,7 @@ ColumnLayout {
         AddressTable {
             id: activeAddressesView
             model: viewModel.activeAddresses
+            parentModel: viewModel
             visible: false
 
             sortIndicatorVisible: true
@@ -88,6 +94,7 @@ ColumnLayout {
             id: expiredAddressesView
             model: viewModel.expiredAddresses
             visible: false
+            parentModel: viewModel
 
             sortIndicatorVisible: true
             sortIndicatorColumn: 4
