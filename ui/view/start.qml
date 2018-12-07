@@ -839,6 +839,7 @@ Item
 
                         portInput.text = viewModel.localPort;
                         miningInput.value = viewModel.localMiningThreads;
+                        localNodePeer.text = viewModel.localNodePeer;
                     } else {
                         nodeSetupRectangle.defaultFocusItem = remoteNodeButton;
                         remoteNodeButton.checked = true;
@@ -952,6 +953,33 @@ Item
                                 to: {viewModel.coreAmount()}
                                 stepSize: 1
                             }
+                            RowLayout {
+                                width: parent.width
+                                spacing: 10
+
+                                SFText {
+                                    text: qsTr("Peer")
+                                    color: Style.white
+                                    font.pixelSize: 14
+                                    font.styleName: "Bold"; font.weight: Font.Bold
+                                }
+
+                                SFTextInput {
+                                    id: localNodePeer
+                                    Layout.fillWidth: true
+                                    activeFocusOnTab: true
+                                    font.pixelSize: 12
+                                    color: Style.white
+                                    text: viewModel.chooseRandomNode()
+                                    validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
+                                    onTextChanged: if (peerError.text.length > 0) peerError.text = ""
+                                }
+                            }
+                            SFText {
+                                id: peerError
+                                color: Style.validator_color
+                                font.pixelSize: 14
+                            }
                         }
 
                         CustomRadioButton {
@@ -1018,16 +1046,20 @@ Item
                                 enabled: nodePreferencesGroup.checkState != Qt.Unchecked
                                 onClicked:{
                                     if (localNodeButton.checked) {
-                                        var portEmpty = portInput.text.trim().length === 0;
-                                        if (portEmpty) {
+                                        if (portInput.text.trim().length === 0) {
                                             portError.text = qsTr("Please, specify port to listen ");
-                                        }
-                                        if (!portEmpty) {
-                                            viewModel.setupLocalNode(parseInt(portInput.text), parseInt(miningInput.value));
-                                        }
-                                        else {
                                             return;
                                         }
+                                        if (localNodePeer.text.trim().length === 0) {
+                                            peerError.text = qsTr("Please, specify correct peer");
+                                            return;
+                                        }
+                                        if (!localNodePeer.acceptableInput) {
+                                            peerError.text = qsTr("Please, specify peer");
+                                            return;
+                                        }
+
+                                        viewModel.setupLocalNode(parseInt(portInput.text), parseInt(miningInput.value), localNodePeer.text);
                                     }
                                     else if (remoteNodeButton.checked) {
                                         if (remoteNodeAddrInput.text.trim().length === 0) {
