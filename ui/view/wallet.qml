@@ -21,7 +21,7 @@ Item {
         id: confirmationDialog
         okButtonColor: Style.heliotrope
         okButtonText: qsTr("send")
-        okButtonIconSource: "qrc:/assets/icon-send.svg"
+        okButtonIconSource: "qrc:/assets/icon-send-blue.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
 
         property alias addressText: addressLabel.text

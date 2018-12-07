@@ -26,6 +26,7 @@ Component
             font.pixelSize: 32
             font.styleName: "Bold"; font.weight: Font.Bold
             font.letterSpacing: 20
+            leftPadding: 20
         }
 
         SFText {
