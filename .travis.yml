@@ -148,6 +148,10 @@ matrix:
       script:
         - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
         - make wallet-jni -j4
+      after_success:
+        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
+        - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
+        - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
 
 ###############################################################################
 # Android ARMv7 Release
@@ -176,6 +180,10 @@ matrix:
       script:
         - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
         - make wallet-jni -j4
+      after_success:
+        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
+        - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
+        - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
 
 ###############################################################################
 # Common part
