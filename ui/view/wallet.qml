@@ -198,12 +198,31 @@ Item {
                             text: viewModel.newReceiverAddr
                         }
 
-                        SFText {
-                            Layout.topMargin: -24
-                            font.pixelSize: 14
-                            font.italic: true
-                            color: Style.white
-                            text: qsTr("The address will be valid for 24 hours")
+                        Row {
+                            spacing: 10
+                            SFText {
+                                font.pixelSize: 14
+                                font.italic: true
+                                color: Style.white
+                                text: qsTr("Expires:")
+                            }
+                            CustomComboBox {
+                                id: expiresControl
+                                width: 100
+                                height: 20
+                                anchors.top: parent.top
+                                anchors.topMargin: -3
+
+                                currentIndex: viewModel.expires
+
+                                Binding {
+                                    target: viewModel
+                                    property: "expires"
+                                    value: expiresControl.currentIndex
+                                }
+
+                                model: ["24 hours", "never"]
+                            }
                         }
 
                         SFText {
@@ -227,21 +246,35 @@ Item {
                             property: "newReceiverName"
                             value: myAddressName.text
                         }
-                    
                     }
                 }
 
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Image {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        fillMode: Image.Pad
+                    Column {
+                        anchors.fill: parent
+                        //spacing: 10
+                        Image {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            fillMode: Image.Pad
                         
-                        source: viewModel.newReceiverAddrQR
+                            source: viewModel.newReceiverAddrQR
+                        }
+                        SFText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            font.pixelSize: 14
+                            font.italic: true
+                            color: Style.white
+                            text: qsTr("Scan to send")
+                        }
                     }
                 }
-            }            
+            }
+
+            Item {
+                Layout.minimumHeight: 30
+            }
 
             SFText {
                 Layout.alignment: Qt.AlignHCenter

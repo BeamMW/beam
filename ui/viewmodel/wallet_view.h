@@ -121,6 +121,8 @@ class WalletViewModel : public QObject
 
     Q_PROPERTY(int defaultFeeInGroth READ getDefaultFeeInGroth CONSTANT)
 
+    Q_PROPERTY(int expires READ getExpires WRITE setExpires NOTIFY expiresChanged)
+
 public:
 
     Q_INVOKABLE void cancelTx(TxObject* pTxObject);
@@ -176,6 +178,9 @@ public:
 
     int getDefaultFeeInGroth() const;
 
+    void setExpires(int value);
+    int getExpires() const;
+
 public slots:
     void onStatus(const WalletStatus& amount);
     void onTxStatus(beam::ChangeAction action, const std::vector<beam::TxDescription>& items);
@@ -198,6 +203,7 @@ signals:
     void newReceiverAddrChanged();
     void newReceiverNameChanged();
     void commentChanged();
+    void expiresChanged();
 
 private:
     beam::Amount calcSendAmount() const;
@@ -229,4 +235,5 @@ private:
 
     Qt::SortOrder _sortOrder;
     QString _sortRole;
+    int _expires;
 };

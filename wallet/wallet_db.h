@@ -83,12 +83,12 @@ namespace beam
         std::string m_label;
         std::string m_category;
         Timestamp m_createTime;
-        uint64_t  m_duration;
+        uint64_t  m_duration; // if it equals 0 then address never expires
         uint64_t  m_OwnID; // set for own address
 
         bool isExpired() const
         {
-            return getTimestamp() > (m_createTime + m_duration);
+            return (m_duration != 0) && (getTimestamp() > (m_createTime + m_duration));
         }
 
         WalletAddress() 

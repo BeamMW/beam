@@ -179,6 +179,7 @@ WalletViewModel::WalletViewModel()
     , _sendAmount("0")
     , _feeGrothes("0")
     , _change(0)
+    , _expires(0)
 {
     connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
@@ -232,6 +233,10 @@ void WalletViewModel::generateNewAddress()
 void WalletViewModel::saveNewAddress()
 {
     _newReceiverAddr.m_label = _newReceiverName.toStdString();
+    if (_expires == 1)
+    {
+        _newReceiverAddr.m_duration = 0;
+    }
 
     _model.getAsync()->saveAddress(_newReceiverAddr, true);
 }
@@ -500,6 +505,20 @@ int WalletViewModel::getDefaultFeeInGroth() const
     return kDefaultFeeInGroth;
 }
 
+void WalletViewModel::setExpires(int value)
+{
+    if (value != _expires)
+    {
+        _expires = value;
+        emit expiresChanged();
+    }
+}
+
+int WalletViewModel::getExpires() const
+{
+    return _expires;
+}
+
 QQmlListProperty<TxObject> WalletViewModel::getTransactions()
 {
     return QQmlListProperty<TxObject>(this, _txList);
@@ -661,6 +680,7 @@ void WalletViewModel::onGeneratedNewAddress(const beam::WalletAddress& addr)
 {
     _newReceiverAddr = addr;
     _newReceiverAddrQR = "";
+    setExpires(0);
 
     CQR_Encode qrEncode;
     QString strAddr(toString(_newReceiverAddr.m_walletID));
@@ -691,5 +711,4 @@ void WalletViewModel::onGeneratedNewAddress(const beam::WalletAddress& addr)
     }
 
     emit newReceiverAddrChanged();
-    saveNewAddress();
 }
