@@ -462,7 +462,7 @@ namespace beam { namespace wallet
         auto coins = m_Tx.GetWalletDB()->selectCoins(amountWithFee);
         if (coins.empty())
         {
-            LOG_ERROR() << "You only have " << PrintableAmount(getAvailable(m_Tx.GetWalletDB()));
+            LOG_ERROR() << "You only have " << PrintableAmount(m_Tx.GetWalletDB()->getAvailable());
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
         }
 
