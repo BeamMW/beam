@@ -1895,6 +1895,72 @@ namespace beam
         }
     }
 
+    Amount WalletDB::getAvailable()
+    {
+        auto currentHeight = getCurrentHeight();
+        const char* req = "SELECT SUM(amount) FROM " STORAGE_NAME " WHERE status = ?1 AND maturity <= ?2;";
+        sqlite::Statement stm(_db, req);
+        stm.bind(1, Coin::Available);
+        stm.bind(2, currentHeight);
+
+        Amount result = 0;
+
+        if (stm.step())
+        {
+            stm.get(0, result);
+        }
+        return result;
+    }
+
+    Amount WalletDB::getAvailableByType(Key::Type keyType)
+    {
+        auto currentHeight = getCurrentHeight();
+        const char* req = "SELECT SUM(amount) FROM " STORAGE_NAME " WHERE status = ?1 AND type = ?2 AND maturity <= ?3;";
+        sqlite::Statement stm(_db, req);
+        stm.bind(1, Coin::Available);
+        stm.bind(2, keyType);
+        stm.bind(3, currentHeight);
+
+        Amount result = 0;
+
+        if (stm.step())
+        {
+            stm.get(0, result);
+        }
+        return result;
+    }
+
+    Amount WalletDB::getTotal(Coin::Status status)
+    {
+        const char* req = "SELECT SUM(amount) FROM " STORAGE_NAME " WHERE status = ?1;";
+        sqlite::Statement stm(_db, req);
+        stm.bind(1, status);
+
+        Amount result = 0;
+
+        if (stm.step())
+        {
+            stm.get(0, result);
+        }
+        return result;
+    }
+    
+    Amount WalletDB::getTotalByType(Coin::Status status, Key::Type keyType)
+    {
+        const char* req = "SELECT SUM(amount) FROM " STORAGE_NAME " WHERE status = ?1 AND type = ?2;";
+        sqlite::Statement stm(_db, req);
+        stm.bind(1, status);
+        stm.bind(2, keyType);
+
+        Amount result = 0;
+
+        if (stm.step())
+        {
+            stm.get(0, result);
+        }
+        return result;
+    }
+
     bool WalletDB::History::Enum(IWalker& w, const Height* pBelow)
     {
         const char* req = pBelow ?
@@ -2029,71 +2095,6 @@ namespace beam
             ECC::Scalar s;
             value.Export(s);
             return toByteBuffer(s);
-        }
-
-        Amount getAvailable(beam::IWalletDB::Ptr walletDB)
-        {
-            auto currentHeight = walletDB->getCurrentHeight();
-            Amount total = 0;
-            walletDB->visit([&total, &currentHeight](const Coin& c)->bool
-            {
-                Height lockHeight = c.m_maturity;
-
-                if (c.m_status == Coin::Available
-                    && lockHeight <= currentHeight)
-                {
-                    total += c.m_ID.m_Value;
-                }
-                return true;
-            });
-            return total;
-        }
-
-        Amount getAvailableByType(beam::IWalletDB::Ptr walletDB, Coin::Status status, Key::Type keyType)
-        {
-            auto currentHeight = walletDB->getCurrentHeight();
-            Amount total = 0;
-            walletDB->visit([&total, &currentHeight, &status, &keyType](const Coin& c)->bool
-            {
-                Height lockHeight = c.m_maturity;
-
-                if (c.m_status == status
-                    && c.m_ID.m_Type == keyType
-                    && lockHeight <= currentHeight)
-                {
-                    total += c.m_ID.m_Value;
-                }
-                return true;
-            });
-            return total;
-        }
-
-        Amount getTotal(beam::IWalletDB::Ptr walletDB, Coin::Status status)
-        {
-            Amount total = 0;
-            walletDB->visit([&total, &status](const Coin& c)->bool
-            {
-                if (c.m_status == status)
-                {
-                    total += c.m_ID.m_Value;
-                }
-                return true;
-            });
-            return total;
-        }
-
-        Amount getTotalByType(beam::IWalletDB::Ptr walletDB, Coin::Status status, Key::Type keyType)
-        {
-            Amount total = 0;
-            walletDB->visit([&total, &status, &keyType](const Coin& c)->bool
-            {
-                if (c.m_status == status && c.m_ID.m_Type == keyType)
-                {
-                    total += c.m_ID.m_Value;
-                }
-                return true;
-            });
-            return total;
         }
 
         WalletAddress createAddress(beam::IWalletDB::Ptr walletDB)

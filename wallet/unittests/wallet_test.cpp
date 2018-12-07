@@ -181,6 +181,11 @@ namespace
         Block::SystemState::IHistory& get_History() override { return m_Hist; }
         void ShrinkHistory() override {}
 
+        Amount getAvailable() override { return 0; };
+        Amount getAvailableByType(Key::Type keyType) override { return 0; };
+        Amount getTotal(Coin::Status status) override { return 0; };
+        Amount getTotalByType(Coin::Status status, Key::Type keyType) override { return 0; };
+
     protected:
         std::vector<beam::Coin> m_coins;
         std::map<wallet::TxParameterID, ByteBuffer> m_params;

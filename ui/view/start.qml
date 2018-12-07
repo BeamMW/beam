@@ -13,9 +13,6 @@ Item
 
     anchors.fill: parent
 
-    property bool isRestoreCancelled: false
-    property bool isRandomNodeSelected: false
-
     StartViewModel { id: viewModel }
     
     LogoComponent {
@@ -30,14 +27,6 @@ Item
         onCurrentItemChanged: {
             if (currentItem && currentItem.defaultFocusItem) {
                 currentItem.defaultFocusItem.focus = true;
-            }
-        }
-
-        Component.onCompleted: {
-            if (root.isRestoreCancelled) {
-                viewModel.isRecoveryMode = true;
-                startWizzardView.push(nodeSetup);
-                startWizzardView.push(restoreWallet);
             }
         }
 
@@ -87,7 +76,7 @@ Item
                             onClicked: 
                             {
                                 viewModel.isRecoveryMode = false;
-                                startWizzardView.push(nodeSetup);
+                                startWizzardView.push(createWalletEntry);
                             }
                         }
 
@@ -96,7 +85,7 @@ Item
                             icon.source: "qrc:/assets/icon-restore.svg"
                             onClicked: {
                                 viewModel.isRecoveryMode = true;
-                                startWizzardView.push(nodeSetup);
+                                startWizzardView.push(restoreWallet);
                             }
                         }
                     }
@@ -608,7 +597,7 @@ Item
 
                             PrimaryButton {
                                 id: checkRecoveryNextButton
-                                text: qsTr("restore wallet")
+                                text: qsTr("next")
                                 enabled: {
                                     var enable = true;
                                     for(var i = 0; i < viewModel.recoveryPhrases.length; ++i)
@@ -617,7 +606,7 @@ Item
                                     }
                                     return enable;
                                 }
-                                icon.source: "qrc:/assets/icon-restore-blue.svg"
+                                icon.source: "qrc:/assets/icon-next-blue.svg"
                                 onClicked: startWizzardView.push(create);
                             }
                         }
@@ -785,7 +774,7 @@ Item
                                 onClicked: startWizzardView.pop();
                             }
                             PrimaryButton {
-                                text: qsTr("proceed to your wallet")
+                                text: qsTr("next")
                                 icon.source : "qrc:/assets/icon-next-blue.svg"
                                 onClicked: {
                                     if(password.text.length == 0)
@@ -796,13 +785,10 @@ Item
                                     {
                                         passwordError.text = qsTr("Passwords do not match");
                                     }
-                                    else if(!viewModel.createWallet(password.text))
-                                    {
-                                        passwordError.text = qsTr("Error, something went wrong, wallet not created :(");
-                                    }
                                     else
                                     {
-                                        root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true, "isConnectToRandomNode": root.isRandomNodeSelected});
+                                        viewModel.setPassword(password.text);
+                                        startWizzardView.push(nodeSetup);
                                     }
                                 }
                             }
@@ -820,14 +806,6 @@ Item
                 id: nodeSetupRectangle
                 color: Style.marine
                 property Item defaultFocusItem: localNodeButton
-
-                Component.onCompleted: {
-                    if (root.isRestoreCancelled) {
-                        // restore settings on nodeSetup page
-                        onRestoreCancelled(root.isRandomNodeSelected);
-                        root.isRestoreCancelled = false;
-                    }
-                }
 
                 function onRestoreCancelled(useRandomNode) {
                     if (useRandomNode) {
@@ -1041,8 +1019,8 @@ Item
                             }
 
                             PrimaryButton {
-                                text: qsTr("next");
-                                icon.source: "qrc:/assets/icon-next-blue.svg"
+                                text: viewModel.isRecoveryMode ? qsTr("restore wallet") : qsTr("proceed to your wallet");
+                                icon.source: viewModel.isRecoveryMode ? "qrc:/assets/icon-restore-blue.svg" : "qrc:/assets/icon-next-blue.svg"
                                 enabled: nodePreferencesGroup.checkState != Qt.Unchecked
                                 onClicked:{
                                     if (localNodeButton.checked) {
@@ -1071,8 +1049,13 @@ Item
                                     else if (randomNodeButton.checked) {
                                         viewModel.setupRandomNode();
                                     }
-                                    root.isRandomNodeSelected = randomNodeButton.checked;
-                                    startWizzardView.push(viewModel.isRecoveryMode ? restoreWallet : createWalletEntry);
+
+                                    if (viewModel.createWallet()) {
+                                        startWizzardView.push("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true, "cancelCallback": startWizzardView.pop});
+                                    }
+                                    else {
+                                        // TODO(alex.starun): error message if wallet not created
+                                    }
                                 }
                             }
                         }

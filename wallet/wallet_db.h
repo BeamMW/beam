@@ -189,6 +189,11 @@ namespace beam
 
         virtual Block::SystemState::IHistory& get_History() = 0;
         virtual void ShrinkHistory() = 0;
+
+        virtual Amount getAvailable() = 0;
+        virtual Amount getAvailableByType(Key::Type keyType) = 0;
+        virtual Amount getTotal(Coin::Status status) = 0;
+        virtual Amount getTotalByType(Coin::Status status, Key::Type keyType) = 0;
     };
 
     class WalletDB : public IWalletDB, public std::enable_shared_from_this<WalletDB>
@@ -258,6 +263,11 @@ namespace beam
 
         Block::SystemState::IHistory& get_History() override;
         void ShrinkHistory() override;
+
+        Amount getAvailable() override;
+        Amount getAvailableByType(Key::Type keyType) override;
+        Amount getTotal(Coin::Status status) override;
+        Amount getTotalByType(Coin::Status status, Key::Type keyType) override;
 
     private:
         void storeImpl(const Coin& coin);
@@ -331,11 +341,6 @@ namespace beam
         bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, const ECC::Point::Native& value, bool shouldNotifyAboutChanges);
         bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, const ECC::Scalar::Native& value, bool shouldNotifyAboutChanges);
         bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value, bool shouldNotifyAboutChanges);
-
-        Amount getAvailable(beam::IWalletDB::Ptr walletDB);
-        Amount getAvailableByType(beam::IWalletDB::Ptr walletDB, Coin::Status status, Key::Type keyType);
-        Amount getTotal(beam::IWalletDB::Ptr walletDB, Coin::Status status);
-        Amount getTotalByType(beam::IWalletDB::Ptr walletDB, Coin::Status status, Key::Type keyType);
 
         WalletAddress createAddress(beam::IWalletDB::Ptr walletDB);
     }

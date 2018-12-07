@@ -203,7 +203,7 @@ WalletModel::~WalletModel()
 
 WalletStatus WalletModel::getStatus() const
 {
-    WalletStatus status{ wallet::getAvailable(_walletDB), 0, 0, 0};
+    WalletStatus status{ _walletDB->getAvailable(), 0, 0, 0};
 
     auto history = _walletDB->getTxHistory();
 
@@ -218,7 +218,7 @@ WalletStatus WalletModel::getStatus() const
         }
     }
 
-    status.unconfirmed += wallet::getTotal(_walletDB, Coin::Incoming) + wallet::getTotal(_walletDB, Coin::Change);
+    status.unconfirmed += _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
 
     status.update.lastTime = _walletDB->getLastUpdateTime();
     ZeroObject(status.stateID);

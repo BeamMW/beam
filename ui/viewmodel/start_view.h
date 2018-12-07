@@ -106,11 +106,15 @@ signals:
     void useGpuChanged();
 
 public slots:
-    bool createWallet(const QString& pass);
+    bool createWallet();
     bool openWallet(const QString& pass);
+    void setPassword(const QString& pass);
+
 private:
     QList<QObject*> m_recoveryPhrases;
     QList<QObject*> m_checkPhrases;
     beam::WordList m_generatedPhrases;
+    std::string m_password;
+    
     bool m_isRecoveryMode;
 };

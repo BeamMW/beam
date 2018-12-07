@@ -9,18 +9,19 @@ import QtQuick.Layouts 1.3
 
 Item
 {
-    id: root
-
-    anchors.fill: parent
+    id: root_restore
 
     property bool isRecoveryMode: false
     property bool isCreating: false
-    property bool isConnectToRandomNode: false
+    property var cancelCallback: undefined
 
     RestoreViewModel {
         id: viewModel 
         onSyncCompleted: {
-            root.parent.source = "qrc:/main.qml";
+            if (isRecoveryMode || isCreating)
+                root.parent.source = "qrc:/main.qml";
+            else
+                root_restore.parent.source = "qrc:/main.qml";
         }
     }
 
@@ -91,7 +92,7 @@ Item
                     icon.source: "qrc:/assets/icon-cancel.svg"
                     onClicked: {
                         viewModel.cancelRestore();
-                        root.parent.setSource("qrc:/start.qml", {"isRestoreCancelled": true, "isRandomNodeSelected": isConnectToRandomNode});
+                        cancelCallback();
                     }
                 }
             }

@@ -385,7 +385,7 @@ bool StartViewModel::hasSupportedGpu()
 #endif
 }
 
-bool StartViewModel::createWallet(const QString& pass)
+bool StartViewModel::createWallet()
 {
     if (m_isRecoveryMode)
     {
@@ -400,7 +400,7 @@ bool StartViewModel::createWallet(const QString& pass)
 
     SecString secretSeed;
     secretSeed.assign(buf.data(), buf.size());
-    SecString sectretPass = pass.toStdString();
+    SecString sectretPass = m_password;
     return AppModel::getInstance()->createWallet(secretSeed, sectretPass);
 }
 
@@ -409,4 +409,9 @@ bool StartViewModel::openWallet(const QString& pass)
     // TODO make this secure
     SecString secretPass = pass.toStdString();
     return AppModel::getInstance()->openWallet(secretPass);
+}
+
+void StartViewModel::setPassword(const QString& pass)
+{
+    m_password = pass.toStdString();
 }
