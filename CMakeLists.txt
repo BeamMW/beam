@@ -280,7 +280,7 @@ add_subdirectory(beam)
 add_subdirectory(explorer)
 add_subdirectory(mnemonic)
 
-if(ANDROID)
+if(ANDROID OR BEAM_BUILD_JNI)
     add_subdirectory(android)
 endif()
 

@@ -15,6 +15,7 @@
 #include "wallet/wallet.h"
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
+#include "wallet/wallet_model_async.h"
 
 #include "utility/bridge.h"
 #include "utility/string_helpers.h"
@@ -46,37 +47,34 @@ namespace fs = boost::filesystem;
 
 namespace
 {
-    namespace
+    string to_string(const beam::WalletID& id)
     {
-        string to_string(const beam::WalletID& id)
+        static_assert(sizeof(id) == sizeof(id.m_Channel) + sizeof(id.m_Pk), "");
+        return beam::to_hex(&id, sizeof(id));
+    }
+
+    static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
+
+    template<typename Observer, typename Notifier>
+    struct ScopedSubscriber
+    {
+        ScopedSubscriber(Observer* observer, const std::shared_ptr<Notifier>& notifier)
+            : m_observer(observer)
+            , m_notifier(notifier)
         {
-            static_assert(sizeof(id) == sizeof(id.m_Channel) + sizeof(id.m_Pk), "");
-            return beam::to_hex(&id, sizeof(id));
+            m_notifier->subscribe(m_observer);
         }
 
-        static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
-
-        template<typename Observer, typename Notifier>
-        struct ScopedSubscriber
+        ~ScopedSubscriber()
         {
-            ScopedSubscriber(Observer* observer, const std::shared_ptr<Notifier>& notifier)
-                : m_observer(observer)
-                , m_notifier(notifier)
-            {
-                m_notifier->subscribe(m_observer);
-            }
+            m_notifier->unsubscribe(m_observer);
+        }
+    private:
+        Observer * m_observer;
+        std::shared_ptr<Notifier> m_notifier;
+    };
 
-            ~ScopedSubscriber()
-            {
-                m_notifier->unsubscribe(m_observer);
-            }
-        private:
-            Observer * m_observer;
-            std::shared_ptr<Notifier> m_notifier;
-        };
-
-        using WalletSubscriber = ScopedSubscriber<IWalletObserver, beam::Wallet>;
-    }
+    using WalletSubscriber = ScopedSubscriber<IWalletObserver, beam::Wallet>;
 
 	struct JString
 	{
@@ -202,32 +200,6 @@ namespace
 
         return 0;
     }
-
-	// TODO: remove copy paste from UI
-    struct IWalletModelAsync
-    {
-        using Ptr = std::shared_ptr<IWalletModelAsync>;
-
-        virtual void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee = 0) = 0;
-        virtual void syncWithNode() = 0;
-        virtual void calcChange(beam::Amount&& amount) = 0;
-        virtual void getWalletStatus() = 0;
-        virtual void getUtxosStatus() = 0;
-        virtual void getAddresses(bool own) = 0;
-        virtual void cancelTx(const beam::TxID& id) = 0;
-        virtual void deleteTx(const beam::TxID& id) = 0;
-        virtual void saveAddress(const beam::WalletAddress& address, bool bOwn) = 0;
-        virtual void generateNewAddress() = 0;
-        virtual void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) = 0;
-
-        virtual void deleteAddress(const beam::WalletID& id) = 0;
-
-        virtual void setNodeAddress(const std::string& addr) = 0;
-
-        virtual void changeWalletPassword(const beam::SecString& password) = 0;
-
-        virtual ~IWalletModelAsync() {}
-    };
 
 	struct WalletStatus
 	{
