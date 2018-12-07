@@ -149,7 +149,7 @@ int main (int argc, char* argv[])
 
             QQuickView view;
             view.setResizeMode(QQuickView::SizeRootObjectToView);
-            view.setMinimumSize(QSize(780, 500));
+            view.setMinimumSize(QSize(1000, 700));
             view.setFlag(Qt::WindowFullscreenButtonHint);
             WalletSettings settings(appDataDir);
             AppModel appModel(settings);

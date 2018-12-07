@@ -61,6 +61,9 @@ QString AddressItem::getCategory() const
 
 QString AddressItem::getExpirationDate() const
 {
+    if (m_walletAddress.m_duration == 0)
+        return tr("never");
+
     return toString(m_walletAddress.m_createTime + m_walletAddress.m_duration);
 }
 
@@ -81,6 +84,9 @@ beam::Timestamp AddressItem::getCreateTimestamp() const
 
 beam::Timestamp AddressItem::getExpirationTimestamp() const
 {
+    if (m_walletAddress.m_duration == 0)
+        return beam::Timestamp(-1);
+
     return m_walletAddress.m_createTime + m_walletAddress.m_duration;
 }
 

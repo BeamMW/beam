@@ -590,12 +590,18 @@ namespace ECC {
 	// Bulletproof
 	void RangeProof::Confidential::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle)
 	{
-		// single-pass - use deterministic seed for key blinding.
+		// single-pass - use both deterministic and random seed for key blinding.
 		// For more safety - use the current oracle state
 
 		Oracle o(oracle); // copy
 		NoLeak<uintBig> seedSk;
-		o << sk << cp.m_Kidv.m_Value >> seedSk.V;
+		GenRandom(seedSk.V);
+
+		o
+			<< sk
+			<< seedSk.V
+			<< cp.m_Kidv.m_Value
+			>> seedSk.V;
 
 		verify(CoSign(seedSk.V, sk, cp, oracle, Phase::SinglePass));
 	}

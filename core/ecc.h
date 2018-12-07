@@ -337,8 +337,6 @@ namespace ECC
 		struct CreatorParams
 		{
 			NoLeak<uintBig> m_Seed; // must be a function of the commitment and master secret
-			void InitSeed(Key::IPKdf&, const ECC::Point& comm);
-
 			Key::IDV m_Kidv;
 
 			struct Padded;
@@ -373,10 +371,9 @@ namespace ECC
 			// Nonce generation policy for signing. There are two distinct nonce generators, both need to be initialized with seeds. One for value blinding and Key::IDV embedding, and the other one that blinds the secret key.
 			// Seed for value and Key::IDV is always specified explicitly, and should be deducible from the public Kdf and the commitment.
 			// Regaring the seed for secret keys:
-			//		In case of single-sig it's derived directly from the secret key itself.
-			//		In case of multi-sig it should be specified explicitly by the caller.
-			//			If it's guaranteed to be a single-usage key - the seed can be derived from the secret key (as with single-sig)
-			//			Otherwise - the seed *must* use external source of randomness.
+			//		In case of single-sig it's derived directly from the secret key itself AND external nonce source
+			//		In case of multi-sig it should be specified explicitly by the caller (the resulting nonce must be the same for multiple invocations).
+			//			Means - the caller must take care of constructing the nonce, which has external randomness
 
 			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&); // single-pass
 			bool IsValid(const Point::Native&, Oracle&) const;
