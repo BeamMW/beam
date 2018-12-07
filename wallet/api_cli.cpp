@@ -160,7 +160,7 @@ namespace beam
                 LOG_DEBUG() << "Balance(" << id << "," << data.type << "," << std::to_string(data.address) << ")";
 
                 json msg;
-                Balance::Response response{wallet::getAvailable(_walletDB)};
+                Balance::Response response{ _walletDB->getAvailable()};
                 _api.getResponse(id, response, msg);
                 serialize_json_msg(_lineProtocol, msg);
             }
