@@ -102,6 +102,31 @@ matrix:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static  -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
 
+    - os: linux
+      env:
+        - ANDROID_ABI=armeabi-v7a
+        - BUILD_TYPE=Release
+      android:
+        components:
+          - tools
+          - platform-tools
+      install:
+        - echo y | sdkmanager "ndk-bundle"
+      before_install:
+        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
+        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
+        - sudo git clone --depth=1 https://github.com/nesbox/boost_1_68-android.git /usr/local/boost_1_68-android
+        - sudo git clone --depth=1 https://github.com/nesbox/Prebuilt-OpenSSL-Android.git /usr/local/Prebuilt-OpenSSL-Android
+      before_script:
+        - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
+        - export BOOST_ROOT_ANDROID=/usr/local/boost_1_68-android
+        - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android/Prebuilt
+        - export PATH=$ANDROID_NDK_HOME:$PATH
+        - BEAM_VERSION="1.0.$(git rev-list HEAD --count)"
+      script:
+        - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
+        - make wallet-jni -j4        
+
 # TODO: version detection should be in one place
 before_script:
   - BEAM_VERSION="1.0.$(git rev-list HEAD --count)"
