@@ -17,8 +17,6 @@ else()
 	include(UseJava)
 	include_directories(${JNI_INCLUDE_DIRS})
 
-	set(CMAKE_JAVA_COMPILE_FLAGS "-source" "1.8" "-target" "1.8")
-
 	set(CMAKE_JAVA_JAR_ENTRY_POINT WalletJNI)
 
 	add_jar(WalletJNI 
