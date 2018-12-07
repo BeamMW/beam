@@ -1,11 +1,10 @@
-language: cpp
-
 git:
   depth: false
 
 matrix:
   include:
     - os: osx
+      language: cpp
       osx_image: xcode9.3
       before_install: 
         - export TZ=Etc/GMT-3
@@ -25,6 +24,7 @@ matrix:
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.dmg"
 
     - os: osx
+      language: cpp
       osx_image: xcode9.3
       before_install:
         - export TZ=Etc/GMT-3
@@ -46,6 +46,7 @@ matrix:
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.dmg"
 
     - os: linux
+      language: cpp
       addons:
         apt:
           sources:
@@ -74,6 +75,7 @@ matrix:
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
 
     - os: linux
+      language: cpp
       addons:
         apt:
           sources:
@@ -103,6 +105,7 @@ matrix:
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
 
     - os: linux
+      language: android
       env:
         - ANDROID_ABI=armeabi-v7a
         - BUILD_TYPE=Release
