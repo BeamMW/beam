@@ -46,20 +46,26 @@ Item
 
                 ColumnLayout {
                     anchors.fill: parent
-
+                    spacing: 0
                     Item {
                         Layout.fillHeight: true
-                        Layout.maximumHeight: 140
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 100
+                        Layout.maximumHeight: 280
                     }
 
                     Loader { 
                         sourceComponent: logoComponent 
-
                         Layout.alignment: Qt.AlignHCenter
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 200//187
+                        Layout.maximumHeight: 269
                     }
 
                     Item {
                         Layout.fillHeight: true
+                        Layout.minimumHeight: 122
+                        Layout.maximumHeight: 237
                     }
 
                     Row {
@@ -92,7 +98,7 @@ Item
 
                     Item {
                         Layout.fillHeight: true
-                        Layout.maximumHeight: 143
+                        Layout.minimumHeight: 67
                     }
                 }
             }
@@ -149,31 +155,34 @@ Item
                             text: qsTr("Keep the copies of your recovery phrase in a safe place");
                         }
                     }
-                    
+
                     Item {
                         Layout.fillHeight: true
-                        Layout.fillWidth: true
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.bottom: parent.bottom
-                            bottomPadding: 143
+                    }
 
-                            spacing: 30
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
+                        spacing: 30
 
-                            CustomButton {
-                                text: qsTr("back");
-                                icon.source: "qrc:/assets/icon-back.svg"
-                                onClicked: startWizzardView.pop();
-                            }
-
-                            PrimaryButton {
-                                id: generateRecoveryPhraseButton
-
-                                text: qsTr("generate recovery phrase")
-                                icon.source: "qrc:/assets/icon-recovery.svg"
-                                onClicked: startWizzardView.push(generateRecoveryPhrase);
-                            }
+                        CustomButton {
+                            text: qsTr("back");
+                            icon.source: "qrc:/assets/icon-back.svg"
+                            onClicked: startWizzardView.pop();
                         }
+
+                        PrimaryButton {
+                            id: generateRecoveryPhraseButton
+
+                            text: qsTr("generate recovery phrase")
+                            icon.source: "qrc:/assets/icon-recovery.svg"
+                            onClicked: startWizzardView.push(generateRecoveryPhrase);
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 67
+                        Layout.maximumHeight: 143
                     }
                 }
             }
@@ -267,48 +276,53 @@ Item
                     
                     Item {
                         Layout.fillHeight: true
-                        Layout.fillWidth: true
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.bottom: parent.bottom
-                            bottomPadding: 143
+                        Layout.minimumHeight: 50
+                    }
 
-                            spacing: 30
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
 
-                            CustomButton {
-                                text: qsTr("back");
-                                icon.source: "qrc:/assets/icon-back.svg"
-                                onClicked: {
-                                    startWizzardView.pop();
-                                    viewModel.resetPhrases();
-                                }
-                            }
+                        spacing: 30
 
-                            CustomButton {
-                                text: qsTr("copy to clipboard")
-                                icon.source: "qrc:/assets/icon-copy.svg"
-                                onClicked: {viewModel.copyPhrasesToClipboard();}
-                            }
-
-                            CustomButton {
-                                text: qsTr("print")
-                                icon.source: "qrc:/assets/icon-print.svg"
-                                
-                                onClicked: {
-                                    phrasesView.grabToImage(function(result) {
-                                        viewModel.printRecoveryPhrases(result.image); //result.image holds the QVariant
-                                    });
-
-                                }
-                            }
-
-                            PrimaryButton {
-                                id: nextButton
-                                text: qsTr("next")
-                                icon.source: "qrc:/assets/icon-next-blue.svg"
-                                onClicked: {confirRecoveryPhrasesDialog.open();}
+                        CustomButton {
+                            text: qsTr("back");
+                            icon.source: "qrc:/assets/icon-back.svg"
+                            onClicked: {
+                                startWizzardView.pop();
+                                viewModel.resetPhrases();
                             }
                         }
+
+                        CustomButton {
+                            text: qsTr("copy to clipboard")
+                            icon.source: "qrc:/assets/icon-copy.svg"
+                            onClicked: {viewModel.copyPhrasesToClipboard();}
+                        }
+
+                        CustomButton {
+                            text: qsTr("print")
+                            icon.source: "qrc:/assets/icon-print.svg"
+                                
+                            onClicked: {
+                                phrasesView.grabToImage(function(result) {
+                                    viewModel.printRecoveryPhrases(result.image); //result.image holds the QVariant
+                                });
+
+                            }
+                        }
+
+                        PrimaryButton {
+                            id: nextButton
+                            text: qsTr("next")
+                            icon.source: "qrc:/assets/icon-next-blue.svg"
+                            onClicked: {confirRecoveryPhrasesDialog.open();}
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 67
+                        Layout.maximumHeight: 143
                     }
                 }
             }
@@ -427,41 +441,46 @@ Item
                             }
                         }
                     }
-                    
+
                     Item {
                         Layout.fillHeight: true
-                        Layout.fillWidth: true
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.bottom: parent.bottom
-                            bottomPadding: 143
+                        Layout.minimumHeight: 120
+                    }
 
-                            spacing: 30
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
 
-                            CustomButton {
-                                text: qsTr("back");
-                                icon.source: "qrc:/assets/icon-back.svg"
-                                onClicked: {
-                                    startWizzardView.pop();
-                                    viewModel.resetPhrases();
-                                }
-                            }
+                        spacing: 30
 
-                            PrimaryButton {
-                                id: checkRecoveryNextButton
-                                text: qsTr("next")
-                                enabled: {
-                                    var enable = true;
-                                    for(var i = 0; i < viewModel.checkPhrases.length; ++i)
-                                    {
-                                        enable &= viewModel.checkPhrases[i].isCorrect;
-                                    }
-                                    return enable;
-                                }
-                                icon.source: "qrc:/assets/icon-next-blue.svg"
-                                onClicked: startWizzardView.push(create);
+                        CustomButton {
+                            text: qsTr("back");
+                            icon.source: "qrc:/assets/icon-back.svg"
+                            onClicked: {
+                                startWizzardView.pop();
+                                viewModel.resetPhrases();
                             }
                         }
+
+                        PrimaryButton {
+                            id: checkRecoveryNextButton
+                            text: qsTr("next")
+                            enabled: {
+                                var enable = true;
+                                for(var i = 0; i < viewModel.checkPhrases.length; ++i)
+                                {
+                                    enable &= viewModel.checkPhrases[i].isCorrect;
+                                }
+                                return enable;
+                            }
+                            icon.source: "qrc:/assets/icon-next-blue.svg"
+                            onClicked: startWizzardView.push(create);
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 67
+                        Layout.maximumHeight: 143
                     }
                 }
             }
@@ -581,35 +600,40 @@ Item
                     
                     Item {
                         Layout.fillHeight: true
-                        Layout.fillWidth: true
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.bottom: parent.bottom
-                            bottomPadding: 143
+                        Layout.minimumHeight: 50
+                    }
 
-                            spacing: 30
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
 
-                            CustomButton {
-                                text: qsTr("back");
-                                icon.source: "qrc:/assets/icon-back.svg"
-                                onClicked: startWizzardView.pop();
-                            }
+                        spacing: 30
 
-                            PrimaryButton {
-                                id: checkRecoveryNextButton
-                                text: qsTr("next")
-                                enabled: {
-                                    var enable = true;
-                                    for(var i = 0; i < viewModel.recoveryPhrases.length; ++i)
-                                    {
-                                        enable &= viewModel.recoveryPhrases[i].value.length > 0;
-                                    }
-                                    return enable;
-                                }
-                                icon.source: "qrc:/assets/icon-next-blue.svg"
-                                onClicked: startWizzardView.push(create);
-                            }
+                        CustomButton {
+                            text: qsTr("back");
+                            icon.source: "qrc:/assets/icon-back.svg"
+                            onClicked: startWizzardView.pop();
                         }
+
+                        PrimaryButton {
+                            id: checkRecoveryNextButton
+                            text: qsTr("next")
+                            enabled: {
+                                var enable = true;
+                                for(var i = 0; i < viewModel.recoveryPhrases.length; ++i)
+                                {
+                                    enable &= viewModel.recoveryPhrases[i].value.length > 0;
+                                }
+                                return enable;
+                            }
+                            icon.source: "qrc:/assets/icon-next-blue.svg"
+                            onClicked: startWizzardView.push(create);
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 67
+                        Layout.maximumHeight: 143
                     }
                 }
             }
@@ -760,39 +784,44 @@ Item
 
                     Item {
                         Layout.fillHeight: true
-                        Layout.fillWidth: true
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.bottom: parent.bottom
-                            bottomPadding: 143
-                    
-                            spacing: 30
+                        Layout.minimumHeight: 50
+                    }
 
-                            CustomButton {
-                                text: qsTr("back");
-                                icon.source: "qrc:/assets/icon-back.svg"
-                                onClicked: startWizzardView.pop();
-                            }
-                            PrimaryButton {
-                                text: qsTr("next")
-                                icon.source : "qrc:/assets/icon-next-blue.svg"
-                                onClicked: {
-                                    if(password.text.length == 0)
-                                    {
-                                        passwordError.text = qsTr("Please, enter password");
-                                    }
-                                    else if(password.text != confirmPassword.text)
-                                    {
-                                        passwordError.text = qsTr("Passwords do not match");
-                                    }
-                                    else
-                                    {
-                                        viewModel.setPassword(password.text);
-                                        startWizzardView.push(nodeSetup);
-                                    }
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
+                    
+                        spacing: 30
+
+                        CustomButton {
+                            text: qsTr("back");
+                            icon.source: "qrc:/assets/icon-back.svg"
+                            onClicked: startWizzardView.pop();
+                        }
+                        PrimaryButton {
+                            text: qsTr("next")
+                            icon.source : "qrc:/assets/icon-next-blue.svg"
+                            onClicked: {
+                                if(password.text.length == 0)
+                                {
+                                    passwordError.text = qsTr("Please, enter password");
+                                }
+                                else if(password.text != confirmPassword.text)
+                                {
+                                    passwordError.text = qsTr("Passwords do not match");
+                                }
+                                else
+                                {
+                                    viewModel.setPassword(password.text);
+                                    startWizzardView.push(nodeSetup);
                                 }
                             }
                         }
+                    }
+                     
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 67
+                        Layout.maximumHeight: 143
                     }
                 }
             }
@@ -851,7 +880,7 @@ Item
 
                         clip: true
 
-                        spacing: 30
+                        spacing: 15
                         ButtonGroup {
                             id: nodePreferencesGroup
                         }
@@ -867,6 +896,7 @@ Item
                             id: localNodePanel
                             visible: localNodeButton.checked
                             width: parent.width
+                            leftPadding: 34
 
                             spacing: 10
 
@@ -1005,60 +1035,64 @@ Item
 
                     Item {
                         Layout.fillHeight: true
-                        Layout.fillWidth: true
+                        Layout.minimumHeight: 20
+                    }
 
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: 30
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
+                        spacing: 30
 
-                            CustomButton {
-                                text: qsTr("back");
-                                icon.source: "qrc:/assets/icon-back.svg"
-                                onClicked: startWizzardView.pop();
-                            }
+                        CustomButton {
+                            text: qsTr("back");
+                            icon.source: "qrc:/assets/icon-back.svg"
+                            onClicked: startWizzardView.pop();
+                        }
 
-                            PrimaryButton {
-                                text: viewModel.isRecoveryMode ? qsTr("restore wallet") : qsTr("proceed to your wallet");
-                                icon.source: viewModel.isRecoveryMode ? "qrc:/assets/icon-restore-blue.svg" : "qrc:/assets/icon-next-blue.svg"
-                                enabled: nodePreferencesGroup.checkState != Qt.Unchecked
-                                onClicked:{
-                                    if (localNodeButton.checked) {
-                                        if (portInput.text.trim().length === 0) {
-                                            portError.text = qsTr("Please, specify port to listen ");
-                                            return;
-                                        }
-                                        if (localNodePeer.text.trim().length === 0) {
-                                            peerError.text = qsTr("Please, specify correct peer");
-                                            return;
-                                        }
-                                        if (!localNodePeer.acceptableInput) {
-                                            peerError.text = qsTr("Please, specify peer");
-                                            return;
-                                        }
-
-                                        viewModel.setupLocalNode(parseInt(portInput.text), parseInt(miningInput.value), localNodePeer.text);
+                        PrimaryButton {
+                            text: viewModel.isRecoveryMode ? qsTr("restore wallet") : qsTr("proceed to your wallet");
+                            icon.source: viewModel.isRecoveryMode ? "qrc:/assets/icon-restore-blue.svg" : "qrc:/assets/icon-next-blue.svg"
+                            enabled: nodePreferencesGroup.checkState != Qt.Unchecked
+                            onClicked:{
+                                if (localNodeButton.checked) {
+                                    if (portInput.text.trim().length === 0) {
+                                        portError.text = qsTr("Please, specify port to listen ");
+                                        return;
                                     }
-                                    else if (remoteNodeButton.checked) {
-                                        if (remoteNodeAddrInput.text.trim().length === 0) {
-                                            remoteNodeAddrError.text = qsTr("Please, specify address of the remote node");
-                                            return;
-                                        }
-                                        viewModel.setupRemoteNode(remoteNodeAddrInput.text.trim());
+                                    if (localNodePeer.text.trim().length === 0) {
+                                        peerError.text = qsTr("Please, specify correct peer");
+                                        return;
                                     }
-                                    else if (randomNodeButton.checked) {
-                                        viewModel.setupRandomNode();
+                                    if (!localNodePeer.acceptableInput) {
+                                        peerError.text = qsTr("Please, specify peer");
+                                        return;
                                     }
 
-                                    if (viewModel.createWallet()) {
-                                        startWizzardView.push("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true, "cancelCallback": startWizzardView.pop});
+                                    viewModel.setupLocalNode(parseInt(portInput.text), parseInt(miningInput.value), localNodePeer.text);
+                                }
+                                else if (remoteNodeButton.checked) {
+                                    if (remoteNodeAddrInput.text.trim().length === 0) {
+                                        remoteNodeAddrError.text = qsTr("Please, specify address of the remote node");
+                                        return;
                                     }
-                                    else {
-                                        // TODO(alex.starun): error message if wallet not created
-                                    }
+                                    viewModel.setupRemoteNode(remoteNodeAddrInput.text.trim());
+                                }
+                                else if (randomNodeButton.checked) {
+                                    viewModel.setupRandomNode();
+                                }
+
+                                if (viewModel.createWallet()) {
+                                    startWizzardView.push("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true, "cancelCallback": startWizzardView.pop});
+                                }
+                                else {
+                                    // TODO(alex.starun): error message if wallet not created
                                 }
                             }
                         }
+                    }
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 67
+                        Layout.maximumHeight: 143
                     }
                 }
             }
@@ -1081,35 +1115,74 @@ Item
             source: "qrc:/assets/bg.svg"
         }
 
-        Loader { 
-            sourceComponent: logoComponent 
-            
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: parent.top
-            anchors.topMargin: 140
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
+            Item {
+                Layout.fillHeight: true
+                Layout.fillWidth: true
+                Layout.minimumHeight: 70
+                Layout.maximumHeight: 280
+            }
+
+            Loader { 
+                sourceComponent: logoComponent 
+                Layout.alignment: Qt.AlignHCenter
+                Layout.fillHeight: true
+                Layout.minimumHeight: 200//187
+                Layout.maximumHeight: 269
+            }
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 30
+                Layout.maximumHeight: 89
+
+            }
+            Item {
+                Layout.preferredHeight: 186 
+            }
+
+            Item {
+                Layout.fillHeight: true
+                Layout.fillWidth: true
+                Layout.minimumHeight: 67
+            }
         }
 
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 70
+                Layout.maximumHeight: 280
+            }
 
-        Column {
-            
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: parent.top
-            anchors.topMargin: 439
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 200
+                Layout.maximumHeight: 269
+            }
 
-            spacing: 50
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 30
+                Layout.maximumHeight: 89
+            }
 
             SFText {
+                Layout.alignment: Qt.AlignHCenter
+                
                 text: qsTr("Enter your password to access the current wallet")
                 color: Style.white
                 font.pixelSize: 14
-
-                anchors.horizontalCenter: parent.horizontalCenter
             }
 
             Column {
-                width: 400
-
-                spacing: 10
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: 400
+                Layout.topMargin: 50
+                spacing: 2
 
                 SFText {
                     text: qsTr("Enter password")
@@ -1139,15 +1212,8 @@ Item
             }
 
             Row {
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                spacing: 30
-
-                //DefaultButton {
-                //    text: qsTr("restore wallet from file")
-                    // activeFocusOnTab: true
-                //}
-
+                Layout.alignment: Qt.AlignHCenter
+                Layout.topMargin: 33
                 PrimaryButton {
                     anchors.verticalCenter: parent.verticalCenter
                     id: btnCurrentWallet
@@ -1166,14 +1232,17 @@ Item
                             }
                             else
                             {
-                                 root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : false, "isCreating" : false});
+                                root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : false, "isCreating" : false});
                             }
                         }
                     }
                 }
             }
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 67
+            }
         }
-
     }
 
     Component.onCompleted:{

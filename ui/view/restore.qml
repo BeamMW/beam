@@ -40,24 +40,62 @@ Item
             source: "qrc:/assets/bg.svg"
         }
 
-
         ColumnLayout {
-            anchors.horizontalCenter: parent.horizontalCenter
             anchors.fill: parent
-            anchors.topMargin: 50
-
+            spacing: 0
             Item {
                 Layout.fillHeight: true
-                Layout.maximumHeight: 140
+                Layout.fillWidth: true
+                Layout.minimumHeight: 70
+                Layout.maximumHeight: 280
             }
 
             Loader { 
                 sourceComponent: logoComponent 
-                Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
-                //Layout.topMargin: 140
+                Layout.alignment: Qt.AlignHCenter
+                Layout.fillHeight: true
+                Layout.minimumHeight: 200//187
+                Layout.maximumHeight: 269
+            }
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 30
+                Layout.maximumHeight: 89
+
+            }
+            Item {
+                Layout.preferredHeight: 186 
+            }
+
+            Item {
+                Layout.fillHeight: true
+                Layout.fillWidth: true
+                Layout.minimumHeight: 67
+            }
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 70
+                Layout.maximumHeight: 280
+            }
+
+            Item { 
+                Layout.fillHeight: true
+                Layout.minimumHeight: 200//187
+                Layout.maximumHeight: 269
+            }
+
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 30
+                Layout.maximumHeight: 89
             }
             SFText {
-                Layout.bottomMargin: 6
+                  Layout.bottomMargin: 6
                 Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
                 text: !isCreating ? qsTr("Loading wallet...") : ( isRecoveryMode ? qsTr("Restoring wallet...") : qsTr("Creating wallet..."))
                 font.pixelSize: 14
@@ -84,7 +122,6 @@ Item
             Row {
                 Layout.alignment: Qt.AlignBottom | Qt.AlignHCenter
                 Layout.topMargin: 52
-                //Layout.bottomMargin: 143
 
                 CustomButton {
                     visible: isRecoveryMode && isCreating
@@ -96,14 +133,10 @@ Item
                     }
                 }
             }
-
             Item {
                 Layout.fillHeight: true
-                Layout.maximumHeight: 143
+                Layout.minimumHeight: 67
             }
-        }
-        Component.onCompleted: {
-            //viewModel.restoreFromBlockchain();
         }
     }
 }
