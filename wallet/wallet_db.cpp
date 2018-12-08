@@ -183,8 +183,7 @@ namespace beam
 				std::vector<Link> m_vLinks;
 
 				struct Slot {
-					size_t m_iHead;
-					size_t m_iTail;
+					size_t m_iTop;
 					Amount m_Sum;
 				};
 
@@ -200,20 +199,19 @@ namespace beam
 				uint32_t get_Slot(Amount v) const
 				{
 					uint64_t i = v * s_Factor / m_Goal; // TODO - overflow check!
-					return (i >= s_Factor) ? s_Factor : static_cast<uint32_t>(i);
+                    uint32_t res = (i >= s_Factor) ? s_Factor : static_cast<uint32_t>(i);
+                    assert(res <= s_Factor + 1);
+                    return res;
 				}
 
 				void Append(Slot& rDst, Amount v, size_t i0)
 				{
 					m_vLinks.emplace_back();
 					m_vLinks.back().m_iElement = i0;
-					m_vLinks.back().m_iNext = rDst.m_iTail;
+					m_vLinks.back().m_iNext = rDst.m_iTop;
 
-					rDst.m_iTail = m_vLinks.size();
-					if (!rDst.m_iHead)
-						rDst.m_iHead = rDst.m_iTail;
-
-					rDst.m_Sum += v;
+                    rDst.m_iTop = m_vLinks.size();
+                    rDst.m_Sum += v;
 				}
 
 				bool IsBetter(Amount v, uint32_t iDst) const
@@ -281,7 +279,19 @@ namespace beam
 				{
 					Amount goal = amount - res.first;
 					SolveOnce(part, goal, iEnd);
+
 					Partial::Slot& r1 = part.m_pSlots[s_Factor];
+                    // reverse list direction
+                    size_t iPrev = 0;
+                    for (size_t i = r1.m_iTop; i; )
+                    {
+                        Partial::Link& link = part.m_vLinks[i - 1];
+                        size_t iNext = link.m_iNext;
+                        link.m_iNext = iPrev;
+                        iPrev = i;
+                        i = iNext;
+                    }
+                    r1.m_iTop = iPrev;
 
 					if (r1.m_Sum < goal)
 					{
@@ -296,7 +306,7 @@ namespace beam
 
 						res.first = part.m_pSlots[iSlot].m_Sum;
 
-						for (size_t iLink = part.m_pSlots[iSlot].m_iHead; iLink; )
+						for (size_t iLink = part.m_pSlots[iSlot].m_iTop; iLink; )
 						{
 							const Partial::Link& link = part.m_vLinks[iLink - 1];
 							iLink = link.m_iNext;
@@ -309,10 +319,10 @@ namespace beam
 					}
 
 					Amount nOvershoot = r1.m_Sum - goal;
-					bool bShouldRetry = (nOvershoot < nOvershootPrev);
+                    bool bShouldRetry = (nOvershoot < nOvershootPrev);
 					nOvershootPrev = nOvershoot;
 
-					for (size_t iLink = r1.m_iHead; iLink; )
+					for (size_t iLink = r1.m_iTop; iLink; )
 					{
 						const Partial::Link& link = part.m_vLinks[iLink - 1];
 						iLink = link.m_iNext;
