@@ -9,7 +9,7 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 [Read our position paper](https://docs.beam.mw/BEAM_Position_Paper_v0.2.2.pdf)
 
 
-**TESTNET2 IS LAUNCHED!** 
+**TESTNET3 IS LAUNCHED!** 
 http://beam.mw/downloads
 
 
