@@ -17,7 +17,6 @@ package com.mw.beam.beamwallet.core.listeners;
 import com.mw.beam.beamwallet.core.entities.WalletStatus;
 import com.mw.beam.beamwallet.core.entities.Utxo;
 import com.mw.beam.beamwallet.core.entities.TxDescription;
-import com.mw.beam.beamwallet.core.entities.TxPeer;
 import com.mw.beam.beamwallet.core.entities.WalletAddress;
 
 import com.mw.beam.beamwallet.core.entities.Wallet;
@@ -68,16 +67,6 @@ public class WalletListener
 			}
 
 			System.out.println("+-------------------------------------------------------");			
-		}
-	}
-
-	static void onTxPeerUpdated(TxPeer[] peers)
-	{
-		System.out.println(">>>>>>>>>>>>>> async onTxPeerUpdated in Java");
-
-		for(int i = 0; i < peers.length; i++)
-		{
-			System.out.println("peer.label: " + peers[i].label + " peer.address: " + peers[i].address);
 		}
 	}
 

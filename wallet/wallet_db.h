@@ -70,13 +70,6 @@ namespace beam
         boost::optional<TxID> m_spentTxId;
     };
 
-    struct TxPeer
-    {
-        WalletID m_walletID;
-        std::string m_label;
-        std::string m_address;
-    };
-
     struct WalletAddress
     {
         WalletID m_walletID;
@@ -116,11 +109,9 @@ namespace beam
 
     struct IWalletDbObserver
     {
-        
         virtual void onCoinsChanged() = 0;
         virtual void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) = 0;
         virtual void onSystemStateChanged() = 0;
-        virtual void onTxPeerChanged() = 0;
         virtual void onAddressChanged() = 0;
     };
 
@@ -160,11 +151,6 @@ namespace beam
 
         // Rolls back coin changes in db concerning given tx
         virtual void rollbackTx(const TxID& txId) = 0;
-
-        virtual std::vector<TxPeer> getPeers() = 0;
-        virtual void addPeer(const TxPeer&) = 0;
-        virtual boost::optional<TxPeer> getPeer(const WalletID&) = 0;
-        virtual void clearPeers() = 0;
 
         virtual std::vector<WalletAddress> getAddresses(bool own) = 0;
         virtual void saveAddress(const WalletAddress&) = 0;
@@ -235,11 +221,6 @@ namespace beam
         void deleteTx(const TxID& txId) override;
         void rollbackTx(const TxID& txId) override;
 
-        std::vector<TxPeer> getPeers() override;
-        void addPeer(const TxPeer&) override;
-        boost::optional<TxPeer> getPeer(const WalletID&) override;
-        void clearPeers() override;
-
         std::vector<WalletAddress> getAddresses(bool own) override;
         void saveAddress(const WalletAddress&) override;
         boost::optional<WalletAddress> getAddress(const WalletID&) override;
@@ -270,7 +251,6 @@ namespace beam
         Amount getTotalByType(Coin::Status status, Key::Type keyType) override;
 
     private:
-        void storeImpl(const Coin& coin);
         void removeImpl(const Coin::ID& cid);
         void notifyCoinsChanged();
         void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);

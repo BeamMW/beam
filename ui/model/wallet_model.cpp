@@ -177,7 +177,6 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr)
     qRegisterMetaType<WalletStatus>("WalletStatus");
     qRegisterMetaType<ChangeAction>("beam::ChangeAction");
     qRegisterMetaType<vector<TxDescription>>("std::vector<beam::TxDescription>");
-    qRegisterMetaType<vector<TxPeer>>("std::vector<beam::TxPeer>");
     qRegisterMetaType<Amount>("beam::Amount");
     qRegisterMetaType<vector<Coin>>("std::vector<beam::Coin>");
     qRegisterMetaType<vector<WalletAddress>>("std::vector<beam::WalletAddress>");
@@ -238,7 +237,6 @@ void WalletModel::run()
 
         emit onStatus(getStatus());
         emit onTxStatus(beam::ChangeAction::Reset, _walletDB->getTxHistory());
-        emit onTxPeerUpdated(_walletDB->getPeers());
 
         _logRotateTimer = io::Timer::create(*_reactor);
         _logRotateTimer->start(
@@ -334,11 +332,6 @@ void WalletModel::onSystemStateChanged()
     onStatusChanged();
 }
 
-void WalletModel::onTxPeerChanged()
-{
-    emit onTxPeerUpdated(_walletDB->getPeers());
-}
-
 void WalletModel::onAddressChanged()
 {
     emit onAdrresses(true, _walletDB->getAddresses(true));
@@ -413,7 +406,6 @@ void WalletModel::getWalletStatus()
 {
     emit onStatus(getStatus());
     emit onTxStatus(beam::ChangeAction::Reset, _walletDB->getTxHistory());
-    emit onTxPeerUpdated(_walletDB->getPeers());
     emit onAdrresses(false, _walletDB->getAddresses(false));
 }
 

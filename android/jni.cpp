@@ -395,7 +395,6 @@ namespace
 
                 //emit onStatus(getStatus());
                 //emit onTxStatus(beam::ChangeAction::Reset, _walletDB->getTxHistory());
-                //emit onTxPeerUpdated(_walletDB->getPeers());
 
                 _logRotateTimer = io::Timer::create(*_reactor);
                 _logRotateTimer->start(
@@ -574,7 +573,6 @@ namespace
 			onStatus(getStatus());
 
 			onTxStatus(beam::ChangeAction::Reset, _walletDB->getTxHistory());
-			onTxPeerUpdated(_walletDB->getPeers());
 			onAdrresses(false, _walletDB->getAddresses(false));
 		}
 
@@ -683,37 +681,6 @@ namespace
 			}
 
 			env->CallStaticVoidMethod(WalletListenerClass, callback, action, txItems);
-		}
-
-		void onTxPeerUpdated(const std::vector<beam::TxPeer>& peers) 
-		{
-			LOG_DEBUG() << "onTxPeerUpdated()";
-
-			JNIEnv* env = Android_JNI_getEnv();
-
-			jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onTxPeerUpdated", "([L" BEAM_JAVA_PATH "/entities/TxPeer;)V");
-			
-			jobjectArray peerItems = 0;
-
-			if(!peers.empty())
-			{
-				peerItems = env->NewObjectArray(static_cast<jsize>(peers.size()), TxPeerClass, NULL);
-
-				for(int i = 0; i < peers.size(); ++i)
-				{
-					const auto& item = peers[i];
-
-					jobject tx = env->AllocObject(TxPeerClass);
-
-                    setStringField(env, TxPeerClass, tx, "walletID", to_string(item.m_walletID));
-                    setStringField(env, TxPeerClass, tx, "label", item.m_label);
-                    setStringField(env, TxPeerClass, tx, "address", item.m_address);
-
-					env->SetObjectArrayElement(peerItems, i, tx);
-				}				
-			}
-
-			env->CallStaticVoidMethod(WalletListenerClass, callback, peerItems);			
 		}
 
 		void onSyncProgressUpdated(int done, int total)
@@ -834,11 +801,6 @@ namespace
 		void onSystemStateChanged() override
 		{
 			onStatus(getStatus());
-		}
-
-		void onTxPeerChanged() override
-		{
-			onTxPeerUpdated(_walletDB->getPeers());
 		}
 
 		void onAddressChanged() override
@@ -1155,11 +1117,6 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 	{
 		jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/TxDescription");
 		TxDescriptionClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
-	}
-
-	{
-		jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/TxPeer");
-		TxPeerClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
 	}
 
 	{

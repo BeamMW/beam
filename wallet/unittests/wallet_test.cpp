@@ -128,11 +128,6 @@ namespace
         void deleteTx(const TxID& ) override {};
         void rollbackTx(const TxID&) override {}
 
-        std::vector<TxPeer> getPeers() override { return {}; };
-        void addPeer(const TxPeer&) override {}
-        boost::optional<TxPeer> getPeer(const WalletID&) override { return boost::optional<TxPeer>{}; }
-        void clearPeers() override {}
-
         std::vector<WalletAddress> getAddresses(bool own) override { return {}; }
         void saveAddress(const WalletAddress&) override {}
         boost::optional<WalletAddress> getAddress(const WalletID& id) override

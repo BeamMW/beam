@@ -25,7 +25,6 @@ else()
 			com/mw/beam/beamwallet/core/Api.java
 			com/mw/beam/beamwallet/core/entities/Wallet.java
 			com/mw/beam/beamwallet/core/entities/Utxo.java
-			com/mw/beam/beamwallet/core/entities/TxPeer.java
 			com/mw/beam/beamwallet/core/entities/TxDescription.java
 			com/mw/beam/beamwallet/core/entities/SystemState.java
 			com/mw/beam/beamwallet/core/entities/WalletStatus.java

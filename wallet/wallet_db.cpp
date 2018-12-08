@@ -61,7 +61,6 @@
 
 #define STORAGE_NAME "storage"
 #define VARIABLES_NAME "variables"
-#define PEERS_NAME "peers"
 #define ADDRESSES_NAME "addresses"
 #define TX_PARAMS_NAME "txparams"
 
@@ -87,14 +86,6 @@
     each(change,     change,     INTEGER NOT NULL, obj)
 
 #define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
-
-#define ENUM_PEER_FIELDS(each, sep, obj) \
-    each(walletID,    walletID,    BLOB NOT NULL PRIMARY KEY, obj) sep \
-    each(address,     address,     TEXT NOT NULL, obj) sep \
-    each(label,       label,       TEXT NOT NULL , obj)
-
-#define PEER_FIELDS ENUM_PEER_FIELDS(LIST, COMMA, )
-
 
 #define ENUM_ADDRESS_FIELDS(each, sep, obj) \
     each(walletID,       walletID,       BLOB NOT NULL PRIMARY KEY, obj) sep \
@@ -591,6 +582,7 @@ namespace beam
 
             void Reset()
             {
+                sqlite3_clear_bindings(_stm);
                 sqlite3_reset(_stm);
             }
 
@@ -868,7 +860,7 @@ namespace beam
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
-        const int DbVersion = 8;
+        const int DbVersion = 9;
     }
 
     Coin::Coin(Amount amount, Status status, Height maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
@@ -941,12 +933,6 @@ namespace beam
 
             {
                 const char* req = "CREATE TABLE " VARIABLES_NAME " (" ENUM_VARIABLES_FIELDS(LIST_WITH_TYPES, COMMA,) ");";
-                int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
-                throwIfError(ret, walletDB->_db);
-            }
-
-            {
-                const char* req = "CREATE TABLE " PEERS_NAME " (" ENUM_PEER_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
                 int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
                 throwIfError(ret, walletDB->_db);
             }
@@ -1188,12 +1174,34 @@ namespace beam
         return coins;
     }
 
+    namespace
+    {
+        struct InsertCoinStatement : public sqlite::Statement
+        {
+            InsertCoinStatement(sqlite3* db)
+                : sqlite::Statement(db, "INSERT OR REPLACE INTO " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ALL_STORAGE_FIELDS(BIND_LIST, COMMA, ) ");")
+            {
+            }
+
+            void apply(const Coin& coin)
+            {
+                sqlite::Statement& stm = *this;
+                int colIdx = 0;
+                ENUM_ALL_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
+                stm.step();
+
+                Reset();
+            }
+        };
+    }
+
     void WalletDB::store(Coin& coin)
     {
         sqlite::Transaction trans(_db);
 
         coin.m_ID.m_Idx = AllocateKidRange(1);
-        storeImpl(coin);
+        InsertCoinStatement stm(_db);
+        stm.apply(coin);
 
         trans.commit();
         notifyCoinsChanged();
@@ -1207,11 +1215,11 @@ namespace beam
         sqlite::Transaction trans(_db);
 
         uint64_t nKeyIndex = AllocateKidRange(coins.size());
-
+        InsertCoinStatement stm(_db);
         for (auto& coin : coins)
         {
             coin.m_ID.m_Idx = nKeyIndex++;
-            storeImpl(coin);
+            stm.apply(coin);
         }
 
         trans.commit();
@@ -1220,7 +1228,8 @@ namespace beam
 
     void WalletDB::save(const Coin& coin)
     {
-        storeImpl(coin);
+        InsertCoinStatement stm(_db);
+        stm.apply(coin);
         notifyCoinsChanged();
     }
 
@@ -1230,23 +1239,14 @@ namespace beam
             return;
 
         sqlite::Transaction trans(_db);
-
+        InsertCoinStatement stm(_db);
         for (auto& coin : coins)
-            storeImpl(coin);
+        {
+            stm.apply(coin);
+        }
 
         trans.commit();
         notifyCoinsChanged();
-    }
-
-    void WalletDB::storeImpl(const Coin& coin)
-    {
-        const char* req = "INSERT OR REPLACE INTO " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ALL_STORAGE_FIELDS(BIND_LIST, COMMA, ) ");";
-        sqlite::Statement stm(_db, req);
-
-        int colIdx = 0;
-        ENUM_ALL_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
-
-        stm.step();
     }
 
     uint64_t WalletDB::AllocateKidRange(uint64_t nCount)
@@ -1603,57 +1603,6 @@ namespace beam
         }
         trans.commit();
         notifyCoinsChanged();
-    }
-
-    std::vector<TxPeer> WalletDB::getPeers()
-    {
-        std::vector<TxPeer> peers;
-        sqlite::Statement stm(_db, "SELECT * FROM " PEERS_NAME ";");
-        while (stm.step())
-        {
-            auto& peer = peers.emplace_back();
-            int colIdx = 0;
-            ENUM_PEER_FIELDS(STM_GET_LIST, NOSEP, peer);
-        }
-        return peers;
-    }
-
-    void WalletDB::addPeer(const TxPeer& peer)
-    {
-        sqlite::Transaction trans(_db);
-
-        sqlite::Statement stm2(_db, "SELECT * FROM " PEERS_NAME " WHERE walletID=?1;");
-        stm2.bind(1, peer.m_walletID);
-
-        const char* updateReq = "UPDATE " PEERS_NAME " SET address=?2, label=?3 WHERE walletID=?1;";
-        const char* insertReq = "INSERT INTO " PEERS_NAME " (" ENUM_PEER_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_PEER_FIELDS(BIND_LIST, COMMA, ) ");";
-
-        sqlite::Statement stm(_db, stm2.step() ? updateReq : insertReq);
-        int colIdx = 0;
-        ENUM_PEER_FIELDS(STM_BIND_LIST, NOSEP, peer);
-        stm.step();
-
-        trans.commit();
-    }
-
-    boost::optional<TxPeer> WalletDB::getPeer(const WalletID& peerID)
-    {
-        sqlite::Statement stm(_db, "SELECT * FROM " PEERS_NAME " WHERE walletID=?1;");
-        stm.bind(1, peerID);
-        if (stm.step())
-        {
-            TxPeer peer = {};
-            int colIdx = 0;
-            ENUM_PEER_FIELDS(STM_GET_LIST, NOSEP, peer);
-            return peer;
-        }
-        return boost::optional<TxPeer>{};
-    }
-
-    void WalletDB::clearPeers()
-    {
-        sqlite::Statement stm(_db, "DELETE FROM " PEERS_NAME ";");
-        stm.step();
     }
 
     std::vector<WalletAddress> WalletDB::getAddresses(bool own)
