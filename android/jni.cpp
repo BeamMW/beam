@@ -344,7 +344,6 @@ namespace
 	static jclass WalletStatusClass = 0;
 	static jclass SystemStateClass = 0;
 	static jclass TxDescriptionClass = 0;
-	static jclass TxPeerClass = 0;
 	static jclass UtxoClass = 0;
     static jclass WalletAddressClass = 0;
 
