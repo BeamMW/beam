@@ -331,8 +331,6 @@ Item {
         ColumnLayout {
             anchors.fill: parent
 
-            spacing: 20
-
             SFText {
                 Layout.alignment: Qt.AlignHCenter
                 font.pixelSize: 18
@@ -341,9 +339,15 @@ Item {
                 text: qsTr("Send Beam")
             }
 
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 10
+                Layout.maximumHeight: 30
+            }
+
             RowLayout {
                 Layout.fillWidth: true
-                Layout.topMargin: 50
+                //Layout.topMargin: 50
 
                 spacing: 70
 
@@ -599,7 +603,7 @@ Item {
                         Item {
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignTop
-                            Layout.topMargin: 30
+                            Layout.topMargin: 20
                             height: 96
 
                             Item {
@@ -711,9 +715,15 @@ Item {
                 }
             }
 
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 10
+                Layout.maximumHeight: 30
+            }
+
             Row {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 30
+                //Layout.topMargin: 30
 
                 spacing: 30
 
