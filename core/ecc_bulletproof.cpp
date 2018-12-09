@@ -26,6 +26,8 @@ namespace ECC {
 		:m_CasualTotal(nCasualTotal)
 		,m_bEnableBatch(false)
 	{
+		m_Multiplier = Zero;
+
 		m_ppPrepared = m_Bufs.m_ppPrepared;
 		m_pKPrep = m_Bufs.m_pKPrep;
 		m_pAuxPrepared = m_Bufs.m_pAuxPrepared;
@@ -112,6 +114,15 @@ namespace ECC {
 		{
 			if (!Flush())
 				return false;
+		}
+
+		if (m_bEnableBatch)
+		{
+			// mutate multiplier
+			if (m_Multiplier == Zero)
+				m_Multiplier.GenRandomNnz();
+			else
+				Oracle() << m_Multiplier >> m_Multiplier;
 		}
 
 		m_bDirty = true;
@@ -996,29 +1007,6 @@ namespace ECC {
 	{
 		Mode::Scope scope(Mode::Fast);
 
-		if (bc.m_bEnableBatch)
-		{
-			Oracle o;
-
-			for (uint32_t j = 0; j < 2; j++)
-			{
-				o << m_P_Tag.m_pCondensed[j];
-
-				for (uint32_t i = 0; i < InnerProduct::nCycles; i++)
-					o << m_P_Tag.m_pLR[i][j];
-			}
-
-			o
-				<< m_Part1.m_A
-				<< m_Part1.m_S
-				<< m_Part2.m_T1
-				<< m_Part2.m_T2
-				<< m_Part3.m_TauX
-				<< m_Mu
-				<< m_tDot
-				>> bc.m_Multiplier;
-		}
-
 		ChallengeSet cs;
 		cs.Init(m_Part1, oracle);
 		cs.Init(m_Part2, oracle);
@@ -1077,9 +1065,6 @@ namespace ECC {
 			return false;
 
 		// (P - m_Mu*G) + m_Mu*G =?= m_A + m_S*x - vec(G)*vec(z) + vec(H)*( vec(z) + vec(z^2*2^n*y^-n) )
-
-		if (bc.m_bEnableBatch)
-			Oracle() << bc.m_Multiplier >> bc.m_Multiplier;
 
 		if (!bc.EquationBegin(2))
 			return false;
