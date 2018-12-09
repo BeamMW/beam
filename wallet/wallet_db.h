@@ -81,7 +81,21 @@ namespace beam
 
         bool isExpired() const
         {
-            return (m_duration != 0) && (getTimestamp() > (m_createTime + m_duration));
+            return getTimestamp() > getExpirationTime();
+        }
+
+        Timestamp getCreateTime() const
+        {
+            return m_createTime;
+        }
+
+        Timestamp getExpirationTime() const
+        {
+            if (m_duration == 0)
+            {
+                return Timestamp(-1);
+            } 
+            return m_createTime + m_duration;
         }
 
         WalletAddress() 

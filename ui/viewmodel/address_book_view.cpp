@@ -64,12 +64,12 @@ QString AddressItem::getExpirationDate() const
     if (m_walletAddress.m_duration == 0)
         return tr("never");
 
-    return toString(m_walletAddress.m_createTime + m_walletAddress.m_duration);
+    return toString(m_walletAddress.getExpirationTime());
 }
 
 QString AddressItem::getCreateDate() const
 {
-    return toString(m_walletAddress.m_createTime);
+    return toString(m_walletAddress.getCreateTime());
 }
 
 bool AddressItem::isExpired() const
@@ -79,15 +79,12 @@ bool AddressItem::isExpired() const
 
 beam::Timestamp AddressItem::getCreateTimestamp() const
 {
-    return m_walletAddress.m_createTime;
+    return m_walletAddress.getCreateTime();
 }
 
 beam::Timestamp AddressItem::getExpirationTimestamp() const
 {
-    if (m_walletAddress.m_duration == 0)
-        return beam::Timestamp(-1);
-
-    return m_walletAddress.m_createTime + m_walletAddress.m_duration;
+    return m_walletAddress.getExpirationTime();
 }
 
 ContactItem::ContactItem(const beam::WalletAddress& address)

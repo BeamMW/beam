@@ -26,6 +26,7 @@
 
 namespace beam
 {
+    namespace bi = boost::intrusive;
     class WalletNetworkViaBbs
         : public IWalletNetwork
     {
@@ -47,17 +48,23 @@ namespace beam
                 IMPLEMENT_GET_PARENT_OBJ(Addr, m_Channel)
             } m_Channel;
 
+            bool IsExpired() const
+            {
+                return getTimestamp() > m_ExpirationTime;
+            }
+
             ECC::Scalar::Native m_sk; // private addr
             PeerID m_Pk; // self public addr
+            Timestamp m_ExpirationTime;
         };
 
-        typedef boost::intrusive::multiset<Addr::Wid> WidSet;
+        typedef bi::multiset<Addr::Wid> WidSet;
         WidSet m_Addresses;
 
-        typedef  boost::intrusive::multiset<Addr::Channel> ChannelSet;
+        typedef  bi::multiset<Addr::Channel> ChannelSet;
         ChannelSet m_Channels;
 
-        void DeleteAddr(Addr&);
+        void DeleteAddr(const Addr&);
         bool IsSingleChannelUser(const Addr::Channel&);
 
         struct MyRequestBbsMsg
@@ -96,12 +103,15 @@ namespace beam
         WalletNetworkViaBbs(IWallet&, proto::FlyClient::INetwork&, const IWalletDB::Ptr&);
         virtual ~WalletNetworkViaBbs();
 
-        void AddOwnAddress(uint64_t ownID, BbsChannel);
-        void AddOwnAddress(uint64_t ownID, const WalletID&);
+        void AddOwnAddress(uint64_t ownID, BbsChannel, Timestamp expirationTime);
+        void AddOwnAddress(const WalletAddress& address);
         void DeleteOwnAddress(uint64_t ownID);
-
+    private:
         // IWalletNetwork
         virtual void Send(const WalletID& peerID, wallet::SetTxParameter&& msg) override;
 
+        void OnAddressTimer();
+    private:
+        io::Timer::Ptr m_AddressExpirationTimer;
     };
 }

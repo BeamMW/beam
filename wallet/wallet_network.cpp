@@ -14,25 +14,22 @@
 
 #include "wallet_network.h"
 
-// protocol version
-#define WALLET_MAJOR 0
-#define WALLET_MINOR 0
-#define WALLET_REV   2
-
 using namespace std;
 
 namespace
 {
     const char* BBS_TIMESTAMPS = "BbsTimestamps";
+    const unsigned AddressUpdateInterval_ms = 60 * 1000; // check addresses every minute
 }
 
 
 namespace beam {
 
 	WalletNetworkViaBbs::WalletNetworkViaBbs(IWallet& w, proto::FlyClient::INetwork& net, const IWalletDB::Ptr& pWalletDB)
-		:m_Wallet(w)
-		,m_NodeNetwork(net)
-		,m_WalletDB(pWalletDB)
+		: m_Wallet(w)
+		, m_NodeNetwork(net)
+		, m_WalletDB(pWalletDB)
+        , m_AddressExpirationTimer(io::Timer::create(io::Reactor::get_Current()))
 	{
 		ByteBuffer buffer;
 		m_WalletDB->getBlob(BBS_TIMESTAMPS, buffer);
@@ -47,7 +44,9 @@ namespace beam {
 		auto myAddresses = m_WalletDB->getAddresses(true);
 		for (const auto& address : myAddresses)
 			if (!address.isExpired())
-				AddOwnAddress(address.m_OwnID, address.m_walletID);
+				AddOwnAddress(address);
+
+        m_AddressExpirationTimer->start(AddressUpdateInterval_ms, false, [this] { OnAddressTimer(); });
 	}
 
 	WalletNetworkViaBbs::~WalletNetworkViaBbs()
@@ -84,7 +83,7 @@ namespace beam {
 		m_WalletDB->setVarRaw(BBS_TIMESTAMPS, buffer.data(), static_cast<int>(buffer.size()));
 	}
 
-	void WalletNetworkViaBbs::DeleteAddr(Addr& v)
+	void WalletNetworkViaBbs::DeleteAddr(const Addr& v)
 	{
 		if (IsSingleChannelUser(v.m_Channel))
 			m_NodeNetwork.BbsSubscribe(v.m_Channel.m_Value, 0, NULL);
@@ -125,12 +124,12 @@ namespace beam {
 		return ret;
 	}
 
-	void WalletNetworkViaBbs::AddOwnAddress(uint64_t ownID, const WalletID& walletID)
+	void WalletNetworkViaBbs::AddOwnAddress(const WalletAddress& address)
 	{
-		AddOwnAddress(ownID, channel_from_wallet_id(walletID));
+        AddOwnAddress(address.m_OwnID, channel_from_wallet_id(address.m_walletID), address.getExpirationTime());
 	}
 
-	void WalletNetworkViaBbs::AddOwnAddress(uint64_t ownID, BbsChannel nChannel)
+	void WalletNetworkViaBbs::AddOwnAddress(uint64_t ownID, BbsChannel nChannel, Timestamp expirationTime)
 	{
 		Addr::Wid key;
 		key.m_OwnID = ownID;
@@ -140,6 +139,7 @@ namespace beam {
 			return;
 
 		Addr* pAddr = new Addr;
+        pAddr->m_ExpirationTime = expirationTime;
 		pAddr->m_Wid.m_OwnID = ownID;
 		m_WalletDB->get_MasterKdf()->DeriveKey(pAddr->m_sk, Key::ID(ownID, Key::Type::Bbs));
 
@@ -275,4 +275,21 @@ namespace beam {
 			LOG_WARNING() << "BBS serialization failed (bad peerID?)";
 		}
 	}
+
+    void WalletNetworkViaBbs::OnAddressTimer()
+    {
+        vector<Addr*> addressesToDelete;
+        for (const auto& address : m_Addresses)
+        {
+            if (address.get_ParentObj().IsExpired())
+            {
+                addressesToDelete.push_back(&address.get_ParentObj());
+            }
+        }
+        for (const auto& address : addressesToDelete)
+        {
+            DeleteAddr(*address);
+        }
+        m_AddressExpirationTimer->start(AddressUpdateInterval_ms, false, [this] { OnAddressTimer(); });
+    }
 }

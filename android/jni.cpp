@@ -512,7 +512,7 @@ namespace
                 auto s = _wnet.lock();
                 if (s)
                 {
-                    static_pointer_cast<WalletNetworkViaBbs>(s)->AddOwnAddress(address.m_OwnID, address.m_walletID);
+                    static_pointer_cast<WalletNetworkViaBbs>(s)->AddOwnAddress(address);
                 }
             }
         }
