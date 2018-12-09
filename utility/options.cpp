@@ -312,7 +312,7 @@ namespace beam
             auto buf = decodeMnemonic(phrase);
             seed.assign(buf.data(), buf.size());
         }
-        else if (!read_secret_impl(seed, "Enter seed: ", cli::WALLET_SEED, vm))
+        else
         {
             return false;
         }
