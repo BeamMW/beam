@@ -105,14 +105,6 @@ namespace beam { namespace wallet
                 return;
             }
 
-            WalletID myID = GetMandatoryParameter<WalletID>(TxParameterID::MyID);
-            auto address = m_WalletDB->getAddress(myID);
-            if (address.is_initialized() && address->isExpired())
-            {
-                OnFailed(TxFailureReason::ExpiredAddressProvided);
-                return;
-            }
-
             UpdateImpl();
         }
         catch (const TransactionFailedException& ex)
@@ -513,7 +505,9 @@ namespace beam { namespace wallet
         newUtxo.m_createTxId = m_Tx.GetTxID();
         newUtxo.m_createHeight = m_MinHeight;
         if (Coin::Status::Change == status)
+        {
             newUtxo.m_ID.m_Type = Key::Type::Change;
+        }
         m_Tx.GetWalletDB()->store(newUtxo);
 
         Scalar::Native blindingFactor;
