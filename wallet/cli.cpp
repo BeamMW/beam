@@ -442,6 +442,7 @@ int main_impl(int argc, char* argv[])
 
 							KeyString ks;
 							ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
+							ks.m_sMeta = std::to_string(subKey);
 
 							ks.Export(kdf);
 							cout << "Secret key: " << ks.m_sRes << std::endl;

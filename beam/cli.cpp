@@ -183,15 +183,71 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
 #endif
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
-					if (node.m_Cfg.m_MiningThreads > 0 || stratumServer)
-					{
-						ECC::NoLeak<ECC::uintBig> seed;
-						if (!beam::read_wallet_seed(seed, vm)) {
-                            LOG_ERROR() << " wallet seed is not provided. You have pass wallet seed for mining node.";
-                            return -1;
-                        }
 
-						node.m_Keys.InitSingleKey(seed.V);
+					std::vector<std::string> vKeysView;
+					{
+						const auto& var = vm[cli::KEY_VIEW];
+						if (!var.empty())
+							vKeysView = var.as<std::vector<std::string> >();
+					}
+					std::string sKeyMine;
+					{
+						const auto& var = vm[cli::KEY_MINE];
+						if (!var.empty())
+							sKeyMine = var.as<std::string>();
+					}
+
+					if (!(vKeysView.empty() && sKeyMine.empty()))
+					{
+						SecString pass;
+						if (!beam::read_wallet_pass(pass, vm))
+						{
+							LOG_ERROR() << "Please, provide password for the keys.";
+							return -1;
+						}
+
+						KeyString ks;
+						ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
+
+						std::map<uint32_t, Key::IPKdf::Ptr> mapViews;
+
+						if (!sKeyMine.empty())
+						{
+							ks.m_sRes = sKeyMine;
+
+							std::shared_ptr<HKdf> pKdf = std::make_shared<HKdf>();
+							if (!ks.Import(*pKdf))
+								throw std::runtime_error("miner key import failed");
+
+							node.m_Keys.m_pMiner = pKdf;
+
+							mapViews[atoi(ks.m_sMeta.c_str())] = pKdf;
+						}
+
+						for (size_t i = 0; i < vKeysView.size(); i++)
+						{
+							ks.m_sRes = vKeysView[i];
+
+							std::shared_ptr<HKdfPub> pKdf = std::make_shared<HKdfPub>();
+							if (!ks.Import(*pKdf))
+								throw std::runtime_error("view key import failed");
+
+							mapViews[atoi(ks.m_sMeta.c_str())] = pKdf;
+						}
+
+						{
+							auto it = mapViews.find(0);
+							if (mapViews.end() != it)
+								node.m_Keys.m_pOwner = it->second;
+						}
+
+						node.m_Keys.m_vMonitored.reserve(mapViews.size());
+						for (auto it = mapViews.begin(); mapViews.end() != it; it++)
+						{
+							node.m_Keys.m_vMonitored.emplace_back();
+							node.m_Keys.m_vMonitored.back().first = it->first;
+							node.m_Keys.m_vMonitored.back().second = it->second;
+						}
 					}
 
 					std::vector<std::string> vPeers = getCfgPeers(vm);
