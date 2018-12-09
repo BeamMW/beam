@@ -998,13 +998,16 @@ void TestKdf()
 		verify_test(pk0 == Zero);
 	}
 
+	const std::string sPass("test password");
+
 	beam::KeyString ks1;
-	SetRandom(ks1.m_hvSecret.V);
+	ks1.SetPassword(sPass);
 	ks1.m_sMeta = "hello, World!";
 
 	ks1.Export(skdf);
 	HKdf skdf2;
 	ks1.m_sMeta.clear();
+	ks1.SetPassword(sPass);
 	verify_test(ks1.Import(skdf2));
 
 	verify_test(skdf2.IsSame(skdf));

@@ -797,6 +797,7 @@ namespace beam
 		void Export(const ECC::HKdfPub&);
 		bool Import(ECC::HKdf&);
 		bool Import(ECC::HKdfPub&);
+		void SetPassword(const std::string&);
 
 	private:
 		typedef uintBig_t<8> MacValue;
