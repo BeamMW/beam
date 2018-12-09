@@ -731,6 +731,10 @@ vector<Coin> SelectCoins(IWalletDB::Ptr db, Amount amount, bool printCoins = tru
     }
     LOG_INFO() << "sum = " << sum << " change = " << sum - amount;
     WALLET_CHECK(amount <= sum);
+#ifdef NDEBUG
+    WALLET_CHECK(sw.milliseconds() <= 1000);
+#endif // !NDEBUG
+
     return selectedCoins;
 }
 
@@ -738,7 +742,7 @@ void TestSelect2()
 {
     cout << "\nWallet database coin selection 2 test\n";
     auto db = createSqliteWalletDB();
-    const Amount c = 1000000;
+    const Amount c = 100000;
     vector<Coin> t;
     t.reserve(c);
     for (Amount i = 1; i <= c; ++i)
@@ -880,19 +884,72 @@ void TestSelect5()
 void TestSelect6()
 {
     cout << "\nWallet database coin selection 6 test\n";
-    auto db = createSqliteWalletDB();
     const uint32_t count = 100000;
-    vector<Coin> coins;
-    coins.reserve(count);
-
-    for (uint32_t i = 1; i <= count; ++i)
     {
-        coins.push_back(Coin(Amount(i), Coin::Available, 10, Key::Type::Regular));
+        auto db = createSqliteWalletDB();
+        
+        vector<Coin> coins;
+        coins.reserve(count);
+
+        for (uint32_t i = 1; i <= count; ++i)
+        {
+            coins.push_back(Coin(Amount(i), Coin::Available, 10, Key::Type::Regular));
+        }
+
+        db->store(coins);
+
+        SelectCoins(db, 450'678'910, false);
     }
 
-    db->store(coins);
+    {
+        auto db = createSqliteWalletDB();
 
-    SelectCoins(db, 450'678'910, false);
+        vector<Coin> coins;
+        coins.reserve(count);
+
+        for (uint32_t i = 1; i <= count; ++i)
+        {
+            Amount amount = rand();
+            coins.push_back(Coin(amount, Coin::Available, 10, Key::Type::Regular));
+        }
+
+        db->store(coins);
+
+        SelectCoins(db, 450'678'910, false);
+    }
+
+    {
+        auto db = createSqliteWalletDB();
+
+        vector<Coin> coins;
+        coins.reserve(count);
+
+        for (uint32_t i = 1; i <= count; ++i)
+        {
+            Amount amount = rand() % 10000;
+            coins.push_back(Coin(amount, Coin::Available, 10, Key::Type::Regular));
+        }
+
+        db->store(coins);
+
+        SelectCoins(db, 450'678'910, false);
+    }
+    {
+        auto db = createSqliteWalletDB();
+
+        vector<Coin> coins;
+        coins.reserve(count);
+
+        for (uint32_t i = 1; i <= count; ++i)
+        {
+            Amount amount = 1000000 + rand() % 100000;
+            coins.push_back(Coin(amount, Coin::Available, 10, Key::Type::Regular));
+        }
+
+        db->store(coins);
+
+        SelectCoins(db, 450'678'910, false);
+    }
 }
 
 int main() 
