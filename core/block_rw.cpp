@@ -623,9 +623,14 @@ namespace beam
 
 	void KeyString::SetPassword(const std::string& s)
 	{
+		SetPassword(Blob(s.data(), static_cast<uint32_t>(s.size())));
+	}
+
+	void KeyString::SetPassword(const Blob& b)
+	{
 		int nRes = pkcs5_pbkdf2(
-			reinterpret_cast<const uint8_t*>(s.c_str()),
-			s.size(),
+			reinterpret_cast<const uint8_t*>(b.p),
+			b.n,
 			NULL,
 			0,
 			m_hvSecret.V.m_pData,

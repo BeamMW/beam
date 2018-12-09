@@ -367,6 +367,7 @@ int main_impl(int argc, char* argv[])
                             && command != cli::LISTEN
                             && command != cli::TREASURY
                             && command != cli::INFO
+							&& command != cli::KEY_EXPORT
                             && command != cli::NEW_ADDRESS
                             && command != cli::CANCEL_TX
                             && command != cli::GENERATE_PHRASE)
@@ -432,6 +433,27 @@ int main_impl(int argc, char* argv[])
                             LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet";
                             return -1;
                         }
+
+						if (command == cli::KEY_EXPORT)
+						{
+							uint32_t subKey = vm[cli::KEY_SUBKEY].as<uint32_t>();
+							Key::IKdf::Ptr pKey = walletDB->get_ChildKdf(subKey);
+							const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
+
+							KeyString ks;
+							ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
+
+							ks.Export(kdf);
+							cout << "Secret key: " << ks.m_sRes << std::endl;
+
+							ECC::HKdfPub pkdf;
+							pkdf.GenerateFrom(kdf);
+
+							ks.Export(pkdf);
+							cout << "Viewer key: " << ks.m_sRes << std::endl;
+
+							return 0;
+						}
 
                         if (command == cli::NEW_ADDRESS)
                         {
