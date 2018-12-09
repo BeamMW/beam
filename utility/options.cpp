@@ -136,6 +136,7 @@ namespace beam
 			(cli::CRASH, po::value<int>()->default_value(0), "Induce crash (test proper handling)")
 			(cli::KEY_VIEW, po::value<vector<string>>()->multitoken(), "Viewer key(s)")
 			(cli::KEY_MINE, po::value<string>(), "Standalone miner key")
+			(cli::PASS, po::value<string>(), "password for keys")
 			;
 
         po::options_description wallet_options("Wallet options");
