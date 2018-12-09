@@ -1488,10 +1488,23 @@ namespace ECC {
 	{
 		Mode::Scope scope(Mode::Fast);
 
-		Point::Native pt = Context::get().G * m_k;
-
 		Scalar::Native e;
 		get_Challenge(e, m_NoncePub, msg);
+
+		InnerProduct::BatchContext* pBc = InnerProduct::BatchContext::s_pInstance;
+		if (pBc)
+		{
+			if (!pBc->EquationBegin(2))
+				return false;
+
+			pBc->AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_k);
+			pBc->AddCasual(pk, e);
+			pBc->AddCasual(pubNonce, 1U);
+
+			return pBc->EquationEnd();
+		}
+
+		Point::Native pt = Context::get().G * m_k;
 
 		pt += pk * e;
 		pt += pubNonce;
