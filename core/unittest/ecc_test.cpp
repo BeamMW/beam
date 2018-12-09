@@ -1684,7 +1684,9 @@ void RunBenchmark()
 
 	{
 		BenchmarkMeter bm("BulletProof.Verify x100");
-		bm.N = 10;
+
+		const uint32_t nBatch = 100;
+		bm.N = 10 * nBatch;
 
 		typedef InnerProduct::BatchContextEx<100> MyBatch;
 		std::unique_ptr<MyBatch> p(new MyBatch);
@@ -1694,9 +1696,9 @@ void RunBenchmark()
 
 		do
 		{
-			for (uint32_t i = 0; i < bm.N; i++)
+			for (uint32_t i = 0; i < bm.N; i += nBatch)
 			{
-				for (int n = 0; n < 100; n++)
+				for (int n = 0; n < nBatch; n++)
 				{
 					Oracle oracle;
 					bp.IsValid(comm, oracle);
