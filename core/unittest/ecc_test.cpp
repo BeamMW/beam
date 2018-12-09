@@ -1701,7 +1701,7 @@ void RunBenchmark()
 		{
 			for (uint32_t i = 0; i < bm.N; i += nBatch)
 			{
-				for (int n = 0; n < nBatch; n++)
+				for (uint32_t n = 0; n < nBatch; n++)
 				{
 					Oracle oracle;
 					bp.IsValid(comm, oracle);
