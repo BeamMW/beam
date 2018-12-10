@@ -124,7 +124,7 @@ Item
                 Layout.topMargin: 52
 
                 CustomButton {
-                    visible: isRecoveryMode && isCreating
+                    visible: isCreating
                     text: qsTr("cancel")
                     icon.source: "qrc:/assets/icon-cancel.svg"
                     onClicked: {
