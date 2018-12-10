@@ -263,10 +263,16 @@ private:
 
             json kernels = json::array();
             for (const auto &v : block.m_vKernels) {
+                Merkle::Hash kernelID;
+                v->get_ID(kernelID);
                 kernels.push_back(
-                json{
-                    {"fee", v->m_Fee},
-                }
+                    json{
+                        {"id", hash_to_hex(buf, kernelID)},
+                        {"excess", uint256_to_hex(buf, v->m_Commitment.m_X)},
+                        {"minHeight", v->m_Height.m_Min},
+                        {"maxHeight", v->m_Height.m_Max},
+                        {"fee", v->m_Fee}
+                    }
                 );
             }
 
