@@ -705,10 +705,8 @@ void Node::Initialize(IExternalPOW* externalPOW)
 		m_Processor.get_DB().ParamSet(NodeDB::ParamID::SyncTarget, NULL, NULL);
 
 	if (m_Cfg.m_VerificationThreads < 0)
-	{
-		uint32_t numCores = std::thread::hardware_concurrency();
-		m_Cfg.m_VerificationThreads = (numCores > m_Cfg.m_MiningThreads + 1) ? (numCores - m_Cfg.m_MiningThreads) : 0;
-	}
+		// use all the cores, don't subtract 'mining threads'. Verification has higher priority
+		m_Cfg.m_VerificationThreads = std::thread::hardware_concurrency();
 
 	InitIDs();
 
