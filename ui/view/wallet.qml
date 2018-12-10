@@ -176,7 +176,8 @@ Item {
 
                 Item {
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    // TODO: find better solution, because it's bad
+                    Layout.minimumHeight: 220
                     Column {
                         anchors.fill: parent
                         spacing: 10
@@ -251,7 +252,8 @@ Item {
 
                 Item {
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    // TODO: find better solution, because it's bad
+                    Layout.minimumHeight: 220
                     Column {
                         anchors.fill: parent
                         //spacing: 10
@@ -270,10 +272,6 @@ Item {
                         }
                     }
                 }
-            }
-
-            Item {
-                Layout.minimumHeight: 30
             }
 
             SFText {
@@ -314,6 +312,7 @@ Item {
 
             Item {
                 Layout.fillHeight: true
+                
             }
         }
     }
