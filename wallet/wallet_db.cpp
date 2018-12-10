@@ -1352,7 +1352,7 @@ namespace beam
         return true;
     }
 
-    void WalletDB::maturingCoins()
+    void WalletDB::updateCoinMaturityStatus()
     {
         sqlite::Transaction trans(_db);
 
@@ -1444,7 +1444,7 @@ namespace beam
         wallet::setVar(thisPtr, LastUpdateTimeName, getTimestamp());
         notifySystemStateChanged();
         // update coins
-        maturingCoins();
+        updateCoinMaturityStatus();
     }
 
     bool WalletDB::getSystemStateID(Block::SystemState::ID& stateID) const

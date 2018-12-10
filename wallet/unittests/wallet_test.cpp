@@ -97,7 +97,6 @@ namespace
         void save(const std::vector<beam::Coin>& ) override {}
         void remove(const std::vector<beam::Coin::ID>&) override {}
         void remove(const beam::Coin::ID&) override {}
-        void maturingCoins() override {};
         void visit(std::function<bool(const beam::Coin& coin)> ) override {}
         void setVarRaw(const char* , const void* , size_t ) override {}
         bool getVarRaw(const char* , void* , int) const override { return false; }

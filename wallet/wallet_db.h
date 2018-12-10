@@ -148,7 +148,6 @@ namespace beam
         virtual void remove(const std::vector<Coin::ID>&) = 0;
         virtual bool find(Coin& coin) = 0;
         virtual void clear() = 0;
-        virtual void maturingCoins() = 0;
 
         virtual void visit(std::function<bool(const Coin& coin)> func) = 0;
 
@@ -219,7 +218,6 @@ namespace beam
         void remove(const std::vector<Coin::ID>&) override;
         bool find(Coin& coin) override;
         void clear() override;
-        void maturingCoins() override;
 
         void visit(std::function<bool(const Coin& coin)> func) override;
 
@@ -270,6 +268,7 @@ namespace beam
         void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
         void notifySystemStateChanged();
         void notifyAddressChanged();
+        void updateCoinMaturityStatus();
     private:
 
         sqlite3* _db;
