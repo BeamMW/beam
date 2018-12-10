@@ -109,6 +109,10 @@ namespace ECC {
 			return false; // won't fit!
 		}
 
+#ifndef NDEBUG
+        m_CasualAtEndExpected = nCasualNeeded;
+#endif // NDEBUG
+
 		nCasualNeeded += m_Casual;
 		if (nCasualNeeded > m_CasualTotal)
 		{
@@ -125,6 +129,10 @@ namespace ECC {
 				Oracle() << m_Multiplier >> m_Multiplier;
 		}
 
+#ifndef NDEBUG
+        m_CasualAtEndExpected += m_Casual;
+#endif // NDEBUG
+
 		m_bDirty = true;
 		return true;
 	}
@@ -132,6 +140,7 @@ namespace ECC {
 	bool InnerProduct::BatchContext::EquationEnd()
 	{
 		assert(m_bDirty);
+        assert(m_Casual == m_CasualAtEndExpected);
 
 		if (!m_bEnableBatch)
 			return Flush();
@@ -486,7 +495,7 @@ namespace ECC {
 		Challenges cs_;
 		cs_.Init(oracle, dotAB, *this);
 
-		if (!bc.EquationBegin(1))
+		if (!bc.EquationBegin(1 + nCycles * 2))
 			return false;
 
 		bc.AddCasual(commAB, cs_.m_Mul2);
@@ -1066,7 +1075,7 @@ namespace ECC {
 
 		// (P - m_Mu*G) + m_Mu*G =?= m_A + m_S*x - vec(G)*vec(z) + vec(H)*( vec(z) + vec(z^2*2^n*y^-n) )
 
-		if (!bc.EquationBegin(2))
+		if (!bc.EquationBegin(2 + InnerProduct::nCycles * 2))
 			return false;
 
 		InnerProduct::Challenges cs_;
