@@ -456,6 +456,31 @@ int main_impl(int argc, char* argv[])
 							return 0;
 						}
 
+						{
+							const auto& var = vm[cli::KEY_LIST];
+							if (!var.empty())
+							{
+								auto arr = var.as<std::vector<uint32_t> >();
+
+								std::set< uint32_t> keySet;
+								for (size_t i = 0; i < arr.size(); i++)
+									keySet.insert(arr[i]);
+
+								cout << "Viewer subkeys: ";
+
+								for (const uint32_t& iSubkey : keySet)
+									cout << std::to_string(iSubkey) << ',';
+									
+								cout << std::endl;
+
+								Serializer ser;
+								ser & keySet;
+
+								auto buf = ser.buffer();
+								walletDB->setVarRaw("Subkeys", buf.first, buf.second);
+							}
+						}
+
                         if (command == cli::NEW_ADDRESS)
                         {
                             auto label = vm[cli::NEW_ADDRESS_LABEL].as<string>();

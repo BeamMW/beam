@@ -117,6 +117,18 @@ void AppModel::startNode()
 {
     m_node = make_unique<NodeModel>();
 	m_node->m_pKdf = m_db->get_MasterKdf();
+
+	ByteBuffer bb;
+	m_db->getBlob("Subkeys", bb);
+
+	if (!bb.empty())
+	{
+		Deserializer der;
+		der.reset(bb);
+
+		der & m_node->m_Subkeys;
+	}
+
     m_node->start();
 }
 
