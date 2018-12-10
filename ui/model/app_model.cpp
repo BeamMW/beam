@@ -153,7 +153,7 @@ NodeModel& AppModel::getNode()
     return *m_node;
 }
 
-void AppModel::cancelRestoreWallet()
+void AppModel::resetWallet()
 {
     if (m_settings.getRunLocalNode())
     {

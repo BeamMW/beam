@@ -36,7 +36,7 @@ public:
     const QString& getProgressMessage() const;
     void setProgressMessage(const QString& value);
 
-    Q_INVOKABLE void cancelRestore();
+    Q_INVOKABLE void resetWallet();
 
 public slots:
     void onSyncProgressUpdated(int done, int total);

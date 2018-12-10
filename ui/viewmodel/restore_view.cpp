@@ -88,9 +88,9 @@ void RestoreViewModel::onNodeSyncProgressUpdated(int done, int total)
     }
 }
 
-void RestoreViewModel::cancelRestore()
+void RestoreViewModel::resetWallet()
 {
-    AppModel::getInstance()->cancelRestoreWallet();
+    AppModel::getInstance()->resetWallet();
 }
 
 void RestoreViewModel::updateProgress()

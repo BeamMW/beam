@@ -128,7 +128,7 @@ Item
                     text: qsTr("cancel")
                     icon.source: "qrc:/assets/icon-cancel.svg"
                     onClicked: {
-                        viewModel.cancelRestore();
+                        viewModel.resetWallet();
                         cancelCallback();
                     }
                 }
