@@ -56,6 +56,8 @@ namespace beam
 		extern const char* INIT;
 		extern const char* KEY_EXPORT;
 		extern const char* KEY_SUBKEY;
+		extern const char* KEY_VIEW;
+		extern const char* KEY_MINE;
         extern const char* NEW_ADDRESS;
         extern const char* CANCEL_TX;
         extern const char* SEND;

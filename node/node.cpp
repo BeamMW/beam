@@ -680,7 +680,7 @@ void Node::Keys::SetSingleKey(const Key::IKdf::Ptr& pKdf)
 	m_pGeneric = pKdf;
 	m_pOwner = pKdf;
 
-	m_vMonitored.push_back(Viewer(m_MinerIdx, pKdf));
+	m_vMonitored.push_back(Viewer(0, pKdf));
 }
 
 void Node::Initialize(IExternalPOW* externalPOW)

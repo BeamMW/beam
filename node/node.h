@@ -128,10 +128,7 @@ struct Node
 		// There following Ptrs may point to the same object.
 
 		Key::IKdf::Ptr m_pGeneric; // used for internal nonce generation. Auto-generated from system random if not specified
-
 		Key::IKdf::Ptr m_pMiner; // if not set - offline mining would be impossible
-		Key::Index m_MinerIdx = 0;
-
 		Key::IPKdf::Ptr m_pOwner; // used for wallet authentication
 
 		typedef std::pair<Key::Index, Key::IPKdf::Ptr> Viewer;
