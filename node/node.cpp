@@ -437,52 +437,69 @@ void Node::Processor::OnRolledBack()
 	get_ParentObj().m_Compressor.OnRolledBack();
 }
 
-bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
+bool Node::Processor::Verifier::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r)
 {
-	uint32_t nThreads = get_ParentObj().m_Cfg.m_VerificationThreads;
+	uint32_t nThreads = get_ParentObj().get_ParentObj().m_Cfg.m_VerificationThreads;
 	if (!nThreads)
 	{
-		std::unique_ptr<Verifier::MyBatch> p(new Verifier::MyBatch);
-		p->m_bEnableBatch = true;
-		Verifier::MyBatch::Scope scope(*p);
+		if (m_pBc)
+			m_pBc->Reset();
+		else
+		{
+			m_pBc.reset(new Verifier::MyBatch);
+			m_pBc->m_bEnableBatch = true;
+		}
+		Verifier::MyBatch::Scope scope(*m_pBc);
 
 		return
-			NodeProcessor::VerifyBlock(block, std::move(r), hr) &&
-			p->Flush();
+			ctx.ValidateAndSummarize(txb, std::move(r)) &&
+			m_pBc->Flush();
 	}
 
-	Verifier& v = m_Verifier; // alias
-	std::unique_lock<std::mutex> scope(v.m_Mutex);
+	std::unique_lock<std::mutex> scope(m_Mutex);
 
-	if (v.m_vThreads.empty())
+	if (m_vThreads.empty())
 	{
-		v.m_iTask = 1;
+		m_iTask = 1;
 
-		v.m_vThreads.resize(nThreads);
+		m_vThreads.resize(nThreads);
 		for (uint32_t i = 0; i < nThreads; i++)
-			v.m_vThreads[i] = std::thread(&Verifier::Thread, &v, i);
+			m_vThreads[i] = std::thread(&Verifier::Thread, this, i);
 	}
 
-	v.m_Context.Reset();
-	v.m_iTask ^= 2;
-	v.m_pTx = &block;
-	v.m_pR = &r;
-	v.m_bFail = false;
-	v.m_Remaining = nThreads;
-	v.m_Context.m_bBlockMode = true;
-	v.m_Context.m_Height = hr;
-	v.m_Context.m_nVerifiers = nThreads;
+	m_iTask ^= 2;
+	m_pTx = &txb;
+	m_pR = &r;
+	m_pCtx = &ctx;
+	m_bFail = false;
+	m_Remaining = nThreads;
 
-	v.m_TaskNew.notify_all();
+	m_TaskNew.notify_all();
 
-	while (v.m_Remaining)
-		v.m_TaskFinished.wait(scope);
+	while (m_Remaining)
+		m_TaskFinished.wait(scope);
 
-	return !v.m_bFail && v.m_Context.IsValidBlock(block);
+	return !m_bFail;
+}
+
+bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
+{
+	if (hr.m_Min < Rules::HeightGenesis)
+		return false;
+
+	TxBase::Context ctx;
+	ctx.m_Height = hr;
+	ctx.m_bBlockMode = true;
+
+	return
+		m_Verifier.ValidateAndSummarize(ctx, block, std::move(r)) &&
+		ctx.IsValidBlock(block);
 }
 
 void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 {
+	uint32_t nThreads = get_ParentObj().get_ParentObj().m_Cfg.m_VerificationThreads;
+
 	std::unique_ptr<Verifier::MyBatch> p(new Verifier::MyBatch);
 	p->m_bEnableBatch = true;
 	Verifier::MyBatch::Scope scope(*p);
@@ -507,8 +524,8 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 
 		TxBase::Context ctx;
 		ctx.m_bBlockMode = true;
-		ctx.m_Height = m_Context.m_Height;
-		ctx.m_nVerifiers = m_Context.m_nVerifiers;
+		ctx.m_Height = m_pCtx->m_Height;
+		ctx.m_nVerifiers = nThreads;
 		ctx.m_iVerifier = iVerifier;
 		ctx.m_pAbort = &m_bFail; // obsolete actually
 
@@ -522,7 +539,7 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 		verify(m_Remaining--);
 
 		if (bValid && !m_bFail)
-			bValid = m_Context.Merge(ctx);
+			bValid = m_pCtx->Merge(ctx);
 
 		if (!bValid)
 			m_bFail = true;

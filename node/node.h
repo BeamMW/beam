@@ -174,7 +174,7 @@ private:
 
 			const TxBase* m_pTx;
 			TxBase::IReader* m_pR;
-			TxBase::Context m_Context;
+			TxBase::Context* m_pCtx;
 
 			bool m_bFail;
 			uint32_t m_iTask;
@@ -185,7 +185,9 @@ private:
 			std::condition_variable m_TaskFinished;
 
 			std::vector<std::thread> m_vThreads;
+			std::unique_ptr<MyBatch> m_pBc;
 
+			bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
 			void Thread(uint32_t);
 
 			IMPLEMENT_GET_PARENT_OBJ(Processor, m_Verifier)
