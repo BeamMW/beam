@@ -523,7 +523,7 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 		assert(m_Remaining);
 
 		TxBase::Context ctx;
-		ctx.m_bBlockMode = true;
+		ctx.m_bBlockMode = m_pCtx->m_bBlockMode;
 		ctx.m_Height = m_pCtx->m_Height;
 		ctx.m_nVerifiers = nThreads;
 		ctx.m_iVerifier = iVerifier;
@@ -1808,7 +1808,8 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 bool Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 {
 	return
-		tx.IsValid(ctx) &&
+		m_Processor.m_Verifier.ValidateAndSummarize(ctx, tx, tx.get_Reader()) &&
+		ctx.IsValidTransaction() &&
 		m_Processor.ValidateTxContext(tx);
 }
 
@@ -2802,7 +2803,7 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 		// and do the overall validation
 		TxBase::Context ctx;
 		ctx.m_bBlockMode = true;
-		if (!ctx.ValidateAndSummarize(*msg.m_Value, msg.m_Value->get_Reader()))
+		if (!m_This.m_Processor.m_Verifier.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader()))
 			ThrowUnexpected();
 
 		if (ctx.m_Coinbase != AmountBig::Type(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
