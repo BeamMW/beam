@@ -179,6 +179,7 @@ namespace
         Amount getAvailableByType(Key::Type keyType) override { return 0; };
         Amount getTotal(Coin::Status status) override { return 0; };
         Amount getTotalByType(Coin::Status status, Key::Type keyType) override { return 0; };
+        Amount getTransferredByTx(TxStatus status, bool isSender) override { return 0; };
 
     protected:
         std::vector<beam::Coin> m_coins;

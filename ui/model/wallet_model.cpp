@@ -204,22 +204,11 @@ WalletStatus WalletModel::getStatus() const
 {
     WalletStatus status{ _walletDB->getAvailable(), 0, 0, 0};
 
-    auto history = _walletDB->getTxHistory();
-
-    for (const auto& item : history)
-    {
-        switch (item.m_status)
-        {
-        case TxStatus::Completed:
-            (item.m_sender ? status.sent : status.received) += item.m_amount;
-            break;
-        default: break;
-        }
-    }
-
-    status.unconfirmed += _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
-
+    status.sent =  wallet::getSpentByTx(_walletDB, TxStatus::Completed);
+    status.received = wallet::getReceivedByTx(_walletDB, TxStatus::Completed);
+    status.unconfirmed = _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
     status.update.lastTime = _walletDB->getLastUpdateTime();
+
     ZeroObject(status.stateID);
     _walletDB->getSystemStateID(status.stateID);
 
@@ -289,7 +278,7 @@ void WalletModel::run()
             // no additional actions required, restoration is automatic and contiguous
         }
 
-		nnet->Connect();
+        nnet->Connect();
 
         _reactor->run();
     }
@@ -461,7 +450,7 @@ void WalletModel::generateNewAddress()
 {
     try
     {
-		WalletAddress address = wallet::createAddress(_walletDB);
+        WalletAddress address = wallet::createAddress(_walletDB);
 
         emit onGeneratedNewAddress(address);
     }
@@ -538,8 +527,8 @@ void WalletModel::changeWalletPassword(const SecString& pass)
 
 bool WalletModel::check_receiver_address(const std::string& addr)
 {
-	WalletID walletID;
-	return
-		walletID.FromHex(addr) &&
-		walletID.IsValid();
+    WalletID walletID;
+    return
+        walletID.FromHex(addr) &&
+        walletID.IsValid();
 }

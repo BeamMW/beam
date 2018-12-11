@@ -30,11 +30,11 @@
 #define DEF2STR2(x) #x
 #define DEF2STR(x) DEF2STR2(x)
 
-#define BEAM_JAVA_PACKAGE(sep) 					com ## sep ## mw ## sep ## beam ## sep ## beamwallet ## sep ## core
-#define BEAM_JAVA_PREFIX 						BEAM_JAVA_PACKAGE(_)
-#define BEAM_JAVA_PATH 							"com/mw/beam/beamwallet/core" // doesn't work on clang DEF2STR(BEAM_JAVA_PACKAGE(/))
-#define BEAM_JAVA_API_INTERFACE(function) 		CONCAT1(BEAM_JAVA_PREFIX, Api, function)
-#define BEAM_JAVA_WALLET_INTERFACE(function) 	CONCAT1(BEAM_JAVA_PREFIX, entities_Wallet, function)
+#define BEAM_JAVA_PACKAGE(sep)                     com ## sep ## mw ## sep ## beam ## sep ## beamwallet ## sep ## core
+#define BEAM_JAVA_PREFIX                         BEAM_JAVA_PACKAGE(_)
+#define BEAM_JAVA_PATH                             "com/mw/beam/beamwallet/core" // doesn't work on clang DEF2STR(BEAM_JAVA_PACKAGE(/))
+#define BEAM_JAVA_API_INTERFACE(function)         CONCAT1(BEAM_JAVA_PREFIX, Api, function)
+#define BEAM_JAVA_WALLET_INTERFACE(function)     CONCAT1(BEAM_JAVA_PREFIX, entities_Wallet, function)
 
 #define WALLET_FILENAME "wallet.db"
 #define BBS_FILENAME "keys.bbs"
@@ -76,55 +76,55 @@ namespace
 
     using WalletSubscriber = ScopedSubscriber<IWalletObserver, beam::Wallet>;
 
-	struct JString
-	{
-		JString(JNIEnv *envVal, jstring nameVal)
-			: env(envVal)
-			, name(nameVal)
-			, isCopy(JNI_FALSE)
-			, data(env->GetStringUTFChars(name, &isCopy))
-		{
-		}
+    struct JString
+    {
+        JString(JNIEnv *envVal, jstring nameVal)
+            : env(envVal)
+            , name(nameVal)
+            , isCopy(JNI_FALSE)
+            , data(env->GetStringUTFChars(name, &isCopy))
+        {
+        }
 
-		~JString()
-		{
-			if (isCopy == JNI_TRUE)
-			{
-				env->ReleaseStringUTFChars(name, data);
-			}
-		}
+        ~JString()
+        {
+            if (isCopy == JNI_TRUE)
+            {
+                env->ReleaseStringUTFChars(name, data);
+            }
+        }
 
-		string value() const
-		{
-			return data;
-		}
-	private:
-		JNIEnv* env;
-		jstring name;
-		jboolean isCopy;
-		const char* data;
-	};
+        string value() const
+        {
+            return data;
+        }
+    private:
+        JNIEnv* env;
+        jstring name;
+        jboolean isCopy;
+        const char* data;
+    };
 
-	//////////////
-	inline void setByteField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jbyte value)
-	{
-		env->SetByteField(obj, env->GetFieldID(clazz, name, "B"), value);
-	}
+    //////////////
+    inline void setByteField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jbyte value)
+    {
+        env->SetByteField(obj, env->GetFieldID(clazz, name, "B"), value);
+    }
 
-	inline void setLongField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jlong value)
-	{
-		env->SetLongField(obj, env->GetFieldID(clazz, name, "J"), value);
-	}
+    inline void setLongField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jlong value)
+    {
+        env->SetLongField(obj, env->GetFieldID(clazz, name, "J"), value);
+    }
 
-	inline void setIntField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jint value)
-	{
-		env->SetIntField(obj, env->GetFieldID(clazz, name, "I"), value);
-	}
+    inline void setIntField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jint value)
+    {
+        env->SetIntField(obj, env->GetFieldID(clazz, name, "I"), value);
+    }
 
-	inline void setBooleanField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jboolean value)
-	{
-		env->SetBooleanField(obj, env->GetFieldID(clazz, name, "Z"), value);
-	}
+    inline void setBooleanField(JNIEnv *env, jclass clazz, jobject obj, const char* name, jboolean value)
+    {
+        env->SetBooleanField(obj, env->GetFieldID(clazz, name, "Z"), value);
+    }
 
     inline void setStringField(JNIEnv *env, jclass clazz, jobject obj, const char* name, const std::string& value)
     {
@@ -132,29 +132,29 @@ namespace
         env->SetObjectField(obj, fieldId, env->NewStringUTF(value.c_str()));
     }
 
-	template <typename T>
-	inline void setByteArrayField(JNIEnv *env, jclass clazz, jobject obj, const char* name, const T& value)
-	{
-		if (value.size())
-		{
-			jbyteArray hash = env->NewByteArray(static_cast<jsize>(value.size()));
-			jbyte* hashBytes = env->GetByteArrayElements(hash, NULL);
+    template <typename T>
+    inline void setByteArrayField(JNIEnv *env, jclass clazz, jobject obj, const char* name, const T& value)
+    {
+        if (value.size())
+        {
+            jbyteArray hash = env->NewByteArray(static_cast<jsize>(value.size()));
+            jbyte* hashBytes = env->GetByteArrayElements(hash, NULL);
 
-			memcpy(hashBytes, &value[0], value.size());
+            memcpy(hashBytes, &value[0], value.size());
 
-			env->SetObjectField(obj, env->GetFieldID(clazz, name, "[B"), hash);
+            env->SetObjectField(obj, env->GetFieldID(clazz, name, "[B"), hash);
 
-			env->ReleaseByteArrayElements(hash, hashBytes, 0);
-		}
-	}
+            env->ReleaseByteArrayElements(hash, hashBytes, 0);
+        }
+    }
 
-	template <>
-	inline void setByteArrayField<ECC::uintBig>(JNIEnv *env, jclass clazz, jobject obj, const char* name, const ECC::uintBig& value)
-	{
-		vector<uint8_t> data;
-		data.assign(value.m_pData, value.m_pData + ECC::uintBig::nBytes);
-		setByteArrayField(env, clazz, obj, name, data);
-	}
+    template <>
+    inline void setByteArrayField<ECC::uintBig>(JNIEnv *env, jclass clazz, jobject obj, const char* name, const ECC::uintBig& value)
+    {
+        vector<uint8_t> data;
+        data.assign(value.m_pData, value.m_pData + ECC::uintBig::nBytes);
+        setByteArrayField(env, clazz, obj, name, data);
+    }
 
     inline std::string getStringField(JNIEnv *env, jclass clazz, jobject obj, const char* name)
     {
@@ -201,89 +201,89 @@ namespace
         return 0;
     }
 
-	struct WalletStatus
-	{
-		beam::Amount available;
-		beam::Amount received;
-		beam::Amount sent;
-		beam::Amount unconfirmed;
-		struct
-		{
-			beam::Timestamp lastTime;
-			int done;
-			int total;
-		} update;
+    struct WalletStatus
+    {
+        beam::Amount available;
+        beam::Amount received;
+        beam::Amount sent;
+        beam::Amount unconfirmed;
+        struct
+        {
+            beam::Timestamp lastTime;
+            int done;
+            int total;
+        } update;
 
-		beam::Block::SystemState::ID stateID;
-	};
+        beam::Block::SystemState::ID stateID;
+    };
 
-	struct WalletModelBridge : public Bridge<IWalletModelAsync>
-	{
-		BRIDGE_INIT(WalletModelBridge);
+    struct WalletModelBridge : public Bridge<IWalletModelAsync>
+    {
+        BRIDGE_INIT(WalletModelBridge);
 
-		void sendMoney(const beam::WalletID& receiverId, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee) override
-		{
-			tx.send([receiverId, comment, amount{ move(amount) }, fee{ move(fee) }](BridgeInterface& receiver_) mutable
-			{
-				receiver_.sendMoney(receiverId, comment, move(amount), move(fee));
-			});
-		}
+        void sendMoney(const beam::WalletID& receiverId, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee) override
+        {
+            tx.send([receiverId, comment, amount{ move(amount) }, fee{ move(fee) }](BridgeInterface& receiver_) mutable
+            {
+                receiver_.sendMoney(receiverId, comment, move(amount), move(fee));
+            });
+        }
 
-		void syncWithNode() override
-		{
-			tx.send([](BridgeInterface& receiver_) mutable
-			{
-				receiver_.syncWithNode();
-			});
-		}
+        void syncWithNode() override
+        {
+            tx.send([](BridgeInterface& receiver_) mutable
+            {
+                receiver_.syncWithNode();
+            });
+        }
 
-		void calcChange(beam::Amount&& amount) override
-		{
-			tx.send([amount{move(amount)}](BridgeInterface& receiver_) mutable
-			{
-				receiver_.calcChange(move(amount));
-			});
-		}
+        void calcChange(beam::Amount&& amount) override
+        {
+            tx.send([amount{move(amount)}](BridgeInterface& receiver_) mutable
+            {
+                receiver_.calcChange(move(amount));
+            });
+        }
 
-		void getWalletStatus() override
-		{
-			tx.send([](BridgeInterface& receiver_) mutable
-			{
-				receiver_.getWalletStatus();
-			});
-		}
+        void getWalletStatus() override
+        {
+            tx.send([](BridgeInterface& receiver_) mutable
+            {
+                receiver_.getWalletStatus();
+            });
+        }
 
-		void getUtxosStatus() override
-		{
-			tx.send([](BridgeInterface& receiver_) mutable
-			{
-				receiver_.getUtxosStatus();
-			});
-		}
+        void getUtxosStatus() override
+        {
+            tx.send([](BridgeInterface& receiver_) mutable
+            {
+                receiver_.getUtxosStatus();
+            });
+        }
 
-		void getAddresses(bool own) override
-		{
-			tx.send([own](BridgeInterface& receiver_) mutable
-			{
-				receiver_.getAddresses(own);
-			});
-		}
+        void getAddresses(bool own) override
+        {
+            tx.send([own](BridgeInterface& receiver_) mutable
+            {
+                receiver_.getAddresses(own);
+            });
+        }
 
-		void cancelTx(const beam::TxID& id) override
-		{
-			tx.send([id](BridgeInterface& receiver_) mutable
-			{
-				receiver_.cancelTx(id);
-			});
-		}
+        void cancelTx(const beam::TxID& id) override
+        {
+            tx.send([id](BridgeInterface& receiver_) mutable
+            {
+                receiver_.cancelTx(id);
+            });
+        }
 
-		void deleteTx(const beam::TxID& id) override
-		{
-			tx.send([id](BridgeInterface& receiver_) mutable
-			{
-				receiver_.deleteTx(id);
-			});
-		}
+        void deleteTx(const beam::TxID& id) override
+        {
+            tx.send([id](BridgeInterface& receiver_) mutable
+            {
+                receiver_.deleteTx(id);
+            });
+        }
 
         void generateNewAddress() override
         {
@@ -301,81 +301,81 @@ namespace
             });
         }
 
-		void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override
-		{
-			tx.send([senderID, receiverID](BridgeInterface& receiver_) mutable
-			{
-				receiver_.changeCurrentWalletIDs(senderID, receiverID);
-			});
-		}
+        void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override
+        {
+            tx.send([senderID, receiverID](BridgeInterface& receiver_) mutable
+            {
+                receiver_.changeCurrentWalletIDs(senderID, receiverID);
+            });
+        }
 
-		void deleteAddress(const beam::WalletID& id) override
-		{
-			tx.send([id](BridgeInterface& receiver_) mutable
-			{
-				receiver_.deleteAddress(id);
-			});
-		}
+        void deleteAddress(const beam::WalletID& id) override
+        {
+            tx.send([id](BridgeInterface& receiver_) mutable
+            {
+                receiver_.deleteAddress(id);
+            });
+        }
 
-		void setNodeAddress(const std::string& addr) override
-		{
-			tx.send([addr](BridgeInterface& receiver_) mutable
-			{
-				receiver_.setNodeAddress(addr);
-			});
-		}
+        void setNodeAddress(const std::string& addr) override
+        {
+            tx.send([addr](BridgeInterface& receiver_) mutable
+            {
+                receiver_.setNodeAddress(addr);
+            });
+        }
 
-		void changeWalletPassword(const SecString& pass) override
-		{
-			// TODO: should be investigated, don't know how to "move" SecString into lambda
-			std::string passStr(pass.data(), pass.size());
+        void changeWalletPassword(const SecString& pass) override
+        {
+            // TODO: should be investigated, don't know how to "move" SecString into lambda
+            std::string passStr(pass.data(), pass.size());
 
-			tx.send([passStr](BridgeInterface& receiver_) mutable
-			{
-				receiver_.changeWalletPassword(passStr);
-			});
-		}
-	};
+            tx.send([passStr](BridgeInterface& receiver_) mutable
+            {
+                receiver_.changeWalletPassword(passStr);
+            });
+        }
+    };
 
-	static JavaVM* JVM = NULL;
+    static JavaVM* JVM = NULL;
 
-	static jclass WalletListenerClass = 0;
-	static jclass WalletClass = 0;
-	static jclass WalletStatusClass = 0;
-	static jclass SystemStateClass = 0;
-	static jclass TxDescriptionClass = 0;
-	static jclass UtxoClass = 0;
+    static jclass WalletListenerClass = 0;
+    static jclass WalletClass = 0;
+    static jclass WalletStatusClass = 0;
+    static jclass SystemStateClass = 0;
+    static jclass TxDescriptionClass = 0;
+    static jclass UtxoClass = 0;
     static jclass WalletAddressClass = 0;
 
-	static JNIEnv* Android_JNI_getEnv(void)
-	{
-	    JNIEnv *env;
+    static JNIEnv* Android_JNI_getEnv(void)
+    {
+        JNIEnv *env;
 #if defined (__ANDROID__)
-		JVM->AttachCurrentThread(&env, NULL);
+        JVM->AttachCurrentThread(&env, NULL);
 #else
-		JVM->AttachCurrentThread((void**)&env, NULL);
+        JVM->AttachCurrentThread((void**)&env, NULL);
 #endif
 
-		return env;
-	}
+        return env;
+    }
 
-	struct WalletModel : IWalletModelAsync, IWalletObserver
-	{
-		WalletModel()
-		{
-			_startMutex = make_shared<mutex>();
-			_startCV = make_shared<condition_variable>();
-		}
+    struct WalletModel : IWalletModelAsync, IWalletObserver
+    {
+        WalletModel()
+        {
+            _startMutex = make_shared<mutex>();
+            _startCV = make_shared<condition_variable>();
+        }
 
-		void start(const string& nodeAddr, IWalletDB::Ptr WalletDB)
-		{
-			_thread = make_shared<thread>(&WalletModel::run, this, nodeAddr, WalletDB);
+        void start(const string& nodeAddr, IWalletDB::Ptr WalletDB)
+        {
+            _thread = make_shared<thread>(&WalletModel::run, this, nodeAddr, WalletDB);
 
-			{
-				unique_lock<mutex> lock(*_startMutex);
-				_startCV->wait(lock);
-			}
-		}
+            {
+                unique_lock<mutex> lock(*_startMutex);
+                _startCV->wait(lock);
+            }
+        }
 
         void run(const string& nodeURI, IWalletDB::Ptr walletDB)
         {
@@ -500,9 +500,9 @@ namespace
             env->CallStaticVoidMethod(WalletListenerClass, callback, addr);
         }
 
-		///////////////////////////////////////////////
-		// IWalletModelAsync impl
-		///////////////////////////////////////////////
+        ///////////////////////////////////////////////
+        // IWalletModelAsync impl
+        ///////////////////////////////////////////////
         void saveAddress(const WalletAddress& address, bool bOwn) override
         {
             _walletDB->saveAddress(address);
@@ -517,7 +517,7 @@ namespace
             }
         }
 
-		void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee) override
+        void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee) override
         {
             try
             {
@@ -540,7 +540,7 @@ namespace
             }
         }
 
-		void syncWithNode() override 
+        void syncWithNode() override 
         {
             assert(!_nnet.expired());
             auto s = _nnet.lock();
@@ -548,7 +548,7 @@ namespace
                 s->Connect();
         }
 
-		void calcChange(beam::Amount&& amount) override 
+        void calcChange(beam::Amount&& amount) override 
         {
             auto coins = _walletDB->selectCoins(amount, false);
             Amount sum = 0;
@@ -566,30 +566,30 @@ namespace
             }
         }
 
-		void getWalletStatus() override 
-		{
-			LOG_DEBUG() << "getWalletStatus()";
-			onStatus(getStatus());
+        void getWalletStatus() override 
+        {
+            LOG_DEBUG() << "getWalletStatus()";
+            onStatus(getStatus());
 
-			onTxStatus(beam::ChangeAction::Reset, _walletDB->getTxHistory());
-			onAdrresses(false, _walletDB->getAddresses(false));
-		}
+            onTxStatus(beam::ChangeAction::Reset, _walletDB->getTxHistory());
+            onAdrresses(false, _walletDB->getAddresses(false));
+        }
 
-		void getUtxosStatus() override 
-		{
-			LOG_DEBUG() << "getUtxosStatus()";
-			onAllUtxoChanged(getUtxos());
-		}
+        void getUtxosStatus() override 
+        {
+            LOG_DEBUG() << "getUtxosStatus()";
+            onAllUtxoChanged(getUtxos());
+        }
 
-		void getAddresses(bool own) override 
+        void getAddresses(bool own) override 
         {
             LOG_DEBUG() << "getAddresses()";
 
             onAdrresses(own, _walletDB->getAddresses(own));
         }
 
-		void cancelTx(const beam::TxID& id) override {}
-		void deleteTx(const beam::TxID& id) override {}
+        void cancelTx(const beam::TxID& id) override {}
+        void deleteTx(const beam::TxID& id) override {}
 
         void generateNewAddress() override 
         {
@@ -605,84 +605,84 @@ namespace
             }
         }
 
-		void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override {}
-		void deleteAddress(const beam::WalletID& id) override {}
-		void setNodeAddress(const std::string& addr) override {}
-		void changeWalletPassword(const beam::SecString& password) override {}
+        void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override {}
+        void deleteAddress(const beam::WalletID& id) override {}
+        void setNodeAddress(const std::string& addr) override {}
+        void changeWalletPassword(const beam::SecString& password) override {}
 
-		///////////////////////////////////////////////
-		// callbacks
-		///////////////////////////////////////////////
+        ///////////////////////////////////////////////
+        // callbacks
+        ///////////////////////////////////////////////
 
-		void onStatus(const WalletStatus& status)
-		{
+        void onStatus(const WalletStatus& status)
+        {
 
-			JNIEnv* env = Android_JNI_getEnv();
+            JNIEnv* env = Android_JNI_getEnv();
 
-			jobject walletStatus = env->AllocObject(WalletStatusClass);
+            jobject walletStatus = env->AllocObject(WalletStatusClass);
 
-			setLongField(env, WalletStatusClass, walletStatus, "available", status.available);
-			setLongField(env, WalletStatusClass, walletStatus, "unconfirmed", status.unconfirmed);
+            setLongField(env, WalletStatusClass, walletStatus, "available", status.available);
+            setLongField(env, WalletStatusClass, walletStatus, "unconfirmed", status.unconfirmed);
 
-			{
-				jobject systemState = env->AllocObject(SystemStateClass);
+            {
+                jobject systemState = env->AllocObject(SystemStateClass);
 
-				setLongField(env, SystemStateClass, systemState, "height", status.stateID.m_Height);
-				setByteArrayField(env, SystemStateClass, systemState, "hash", status.stateID.m_Hash);
+                setLongField(env, SystemStateClass, systemState, "height", status.stateID.m_Height);
+                setByteArrayField(env, SystemStateClass, systemState, "hash", status.stateID.m_Hash);
 
                 jfieldID systemStateID = env->GetFieldID(WalletStatusClass, "system", "L" BEAM_JAVA_PATH "/entities/SystemState;");
-				env->SetObjectField(walletStatus, systemStateID, systemState);
-			}
+                env->SetObjectField(walletStatus, systemStateID, systemState);
+            }
 
-			////////////////
+            ////////////////
 
-			jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onStatus", "(L" BEAM_JAVA_PATH "/entities/WalletStatus;)V");
-			env->CallStaticVoidMethod(WalletListenerClass, callback, walletStatus);
-		}
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onStatus", "(L" BEAM_JAVA_PATH "/entities/WalletStatus;)V");
+            env->CallStaticVoidMethod(WalletListenerClass, callback, walletStatus);
+        }
 
-		void onTxStatus(beam::ChangeAction action, const std::vector<beam::TxDescription>& items) 
-		{
-			LOG_DEBUG() << "onTxStatus()";
+        void onTxStatus(beam::ChangeAction action, const std::vector<beam::TxDescription>& items) 
+        {
+            LOG_DEBUG() << "onTxStatus()";
 
-			JNIEnv* env = Android_JNI_getEnv();
+            JNIEnv* env = Android_JNI_getEnv();
 
-			jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onTxStatus", "(I[L" BEAM_JAVA_PATH "/entities/TxDescription;)V");
-			
-			jobjectArray txItems = 0;
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onTxStatus", "(I[L" BEAM_JAVA_PATH "/entities/TxDescription;)V");
+            
+            jobjectArray txItems = 0;
 
-			if(!items.empty())
-			{
-				txItems = env->NewObjectArray(static_cast<jsize>(items.size()), TxDescriptionClass, NULL);
+            if(!items.empty())
+            {
+                txItems = env->NewObjectArray(static_cast<jsize>(items.size()), TxDescriptionClass, NULL);
 
-				for(int i = 0; i < items.size(); ++i)
-				{
-					const auto& item = items[i];
+                for(int i = 0; i < items.size(); ++i)
+                {
+                    const auto& item = items[i];
 
-					jobject tx = env->AllocObject(TxDescriptionClass);
+                    jobject tx = env->AllocObject(TxDescriptionClass);
 
-					setByteArrayField(env, 		TxDescriptionClass, tx, "id", item.m_txId);
-					setLongField(env, 			TxDescriptionClass, tx, "amount", item.m_amount);
-					setLongField(env, 			TxDescriptionClass, tx, "fee", item.m_fee);
-					setLongField(env, 			TxDescriptionClass, tx, "change", item.m_change);
-					setLongField(env, 			TxDescriptionClass, tx, "minHeight", item.m_minHeight);
+                    setByteArrayField(env,         TxDescriptionClass, tx, "id", item.m_txId);
+                    setLongField(env,             TxDescriptionClass, tx, "amount", item.m_amount);
+                    setLongField(env,             TxDescriptionClass, tx, "fee", item.m_fee);
+                    setLongField(env,             TxDescriptionClass, tx, "change", item.m_change);
+                    setLongField(env,             TxDescriptionClass, tx, "minHeight", item.m_minHeight);
 
-					setStringField(env, 		TxDescriptionClass, tx, "peerId", to_string(item.m_peerId));
-                    setStringField(env, 		TxDescriptionClass, tx, "myId", to_string(item.m_myId));
+                    setStringField(env,         TxDescriptionClass, tx, "peerId", to_string(item.m_peerId));
+                    setStringField(env,         TxDescriptionClass, tx, "myId", to_string(item.m_myId));
 
-					setByteArrayField(env, 		TxDescriptionClass, tx, "message", item.m_message);
-					setLongField(env, 			TxDescriptionClass, tx, "createTime", item.m_createTime);
-					setLongField(env, 			TxDescriptionClass, tx, "modifyTime", item.m_modifyTime);
-					setBooleanField(env, 		TxDescriptionClass, tx, "sender", item.m_sender);
-					setIntField(env, 			TxDescriptionClass, tx, "status", static_cast<jint>(item.m_status));
+                    setByteArrayField(env,         TxDescriptionClass, tx, "message", item.m_message);
+                    setLongField(env,             TxDescriptionClass, tx, "createTime", item.m_createTime);
+                    setLongField(env,             TxDescriptionClass, tx, "modifyTime", item.m_modifyTime);
+                    setBooleanField(env,         TxDescriptionClass, tx, "sender", item.m_sender);
+                    setIntField(env,             TxDescriptionClass, tx, "status", static_cast<jint>(item.m_status));
 
-					env->SetObjectArrayElement(txItems, i, tx);
-				}				
-			}
+                    env->SetObjectArrayElement(txItems, i, tx);
+                }                
+            }
 
-			env->CallStaticVoidMethod(WalletListenerClass, callback, action, txItems);
-		}
+            env->CallStaticVoidMethod(WalletListenerClass, callback, action, txItems);
+        }
 
-		void onSyncProgressUpdated(int done, int total)
+        void onSyncProgressUpdated(int done, int total)
         {
             LOG_DEBUG() << "onSyncProgressUpdated(" << done << ", " << total << ")";
 
@@ -693,7 +693,7 @@ namespace
             env->CallStaticVoidMethod(WalletListenerClass, callback, done, total);
         }
 
-		void onChangeCalculated(beam::Amount change) 
+        void onChangeCalculated(beam::Amount change) 
         {
             LOG_DEBUG() << "onChangeCalculated(" << change << ")";
 
@@ -704,50 +704,50 @@ namespace
             env->CallStaticVoidMethod(WalletListenerClass, callback, change);
         }
 
-		void onAllUtxoChanged(const std::vector<beam::Coin>& utxosVec) 
-		{
+        void onAllUtxoChanged(const std::vector<beam::Coin>& utxosVec) 
+        {
             LOG_DEBUG() << "onAllUtxoChanged()";
 
-			JNIEnv* env = Android_JNI_getEnv();
+            JNIEnv* env = Android_JNI_getEnv();
 
-			jobjectArray utxos = 0;
+            jobjectArray utxos = 0;
 
-			if(!utxosVec.empty())
-			{
-				utxos = env->NewObjectArray(static_cast<jsize>(utxosVec.size()), UtxoClass, NULL);
+            if(!utxosVec.empty())
+            {
+                utxos = env->NewObjectArray(static_cast<jsize>(utxosVec.size()), UtxoClass, NULL);
 
-				for(int i = 0; i < utxosVec.size(); ++i)
-				{
-					const auto& coin = utxosVec[i];
+                for(int i = 0; i < utxosVec.size(); ++i)
+                {
+                    const auto& coin = utxosVec[i];
 
-					jobject utxo = env->AllocObject(UtxoClass);
+                    jobject utxo = env->AllocObject(UtxoClass);
 
-					setLongField(env, UtxoClass, utxo, "id", coin.m_ID.m_Idx);
-					setLongField(env, UtxoClass, utxo, "amount", coin.m_ID.m_Value);
-					setIntField(env, UtxoClass, utxo, "status", coin.m_status);
-					setLongField(env, UtxoClass, utxo, "createHeight", coin.m_createHeight);
-					setLongField(env, UtxoClass, utxo, "maturity", coin.m_maturity);
-					setIntField(env, UtxoClass, utxo, "keyType", static_cast<jint>(coin.m_ID.m_Type));
-					setLongField(env, UtxoClass, utxo, "confirmHeight", coin.m_confirmHeight);
-					setLongField(env, UtxoClass, utxo, "lockHeight", coin.m_lockedHeight);
+                    setLongField(env, UtxoClass, utxo, "id", coin.m_ID.m_Idx);
+                    setLongField(env, UtxoClass, utxo, "amount", coin.m_ID.m_Value);
+                    setIntField(env, UtxoClass, utxo, "status", coin.m_status);
+                    setLongField(env, UtxoClass, utxo, "createHeight", coin.m_createHeight);
+                    setLongField(env, UtxoClass, utxo, "maturity", coin.m_maturity);
+                    setIntField(env, UtxoClass, utxo, "keyType", static_cast<jint>(coin.m_ID.m_Type));
+                    setLongField(env, UtxoClass, utxo, "confirmHeight", coin.m_confirmHeight);
+                    setLongField(env, UtxoClass, utxo, "lockHeight", coin.m_lockedHeight);
 
-					if(coin.m_createTxId)
-						setByteArrayField(env, UtxoClass, utxo, "createTxId", *coin.m_createTxId);
+                    if(coin.m_createTxId)
+                        setByteArrayField(env, UtxoClass, utxo, "createTxId", *coin.m_createTxId);
 
-					if (coin.m_spentTxId)
-						setByteArrayField(env, UtxoClass, utxo, "spentTxId", *coin.m_spentTxId);
+                    if (coin.m_spentTxId)
+                        setByteArrayField(env, UtxoClass, utxo, "spentTxId", *coin.m_spentTxId);
 
-					env->SetObjectArrayElement(utxos, i, utxo);
-				}
-			}
+                    env->SetObjectArrayElement(utxos, i, utxo);
+                }
+            }
 
-			//////////////////////////////////
+            //////////////////////////////////
 
-			jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAllUtxoChanged", "([L" BEAM_JAVA_PATH "/entities/Utxo;)V");
-			env->CallStaticVoidMethod(WalletListenerClass, callback, utxos);
-		}
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAllUtxoChanged", "([L" BEAM_JAVA_PATH "/entities/Utxo;)V");
+            env->CallStaticVoidMethod(WalletListenerClass, callback, utxos);
+        }
 
-		void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses) 
+        void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses) 
         {
             LOG_DEBUG() << "onAdrresses(" << own << ")";
 
@@ -782,79 +782,68 @@ namespace
             env->CallStaticVoidMethod(WalletListenerClass, callback, own, addrArray);
         }
 
-		///////////////////////////////////////////////
-		// IWalletObserver impl
-		///////////////////////////////////////////////
-		void onCoinsChanged() override
-		{
-			onAllUtxoChanged(getUtxos());
-			onStatus(getStatus());
-		}
+        ///////////////////////////////////////////////
+        // IWalletObserver impl
+        ///////////////////////////////////////////////
+        void onCoinsChanged() override
+        {
+            onAllUtxoChanged(getUtxos());
+            onStatus(getStatus());
+        }
 
-		void onTransactionChanged(beam::ChangeAction action, vector<beam::TxDescription>&& items) override
-		{
-			onTxStatus(action, move(items));
-    		onStatus(getStatus());
-		}
+        void onTransactionChanged(beam::ChangeAction action, vector<beam::TxDescription>&& items) override
+        {
+            onTxStatus(action, move(items));
+            onStatus(getStatus());
+        }
 
-		void onSystemStateChanged() override
-		{
-			onStatus(getStatus());
-		}
+        void onSystemStateChanged() override
+        {
+            onStatus(getStatus());
+        }
 
-		void onAddressChanged() override
-		{
-			onAdrresses(true, _walletDB->getAddresses(true));
-    		onAdrresses(false, _walletDB->getAddresses(false));
-		}
+        void onAddressChanged() override
+        {
+            onAdrresses(true, _walletDB->getAddresses(true));
+            onAdrresses(false, _walletDB->getAddresses(false));
+        }
 
-		void onSyncProgress(int done, int total) override
-		{
-			onSyncProgressUpdated(done, total);
-		}
+        void onSyncProgress(int done, int total) override
+        {
+            onSyncProgressUpdated(done, total);
+        }
 
-		WalletStatus getStatus() const
-		{
+        WalletStatus getStatus() const
+        {
             WalletStatus status{ _walletDB->getAvailable(), 0, 0, 0 };
 
-            auto history = _walletDB->getTxHistory();
-
-            for (const auto& item : history)
-            {
-                switch (item.m_status)
-                {
-                case TxStatus::Completed:
-                    (item.m_sender ? status.sent : status.received) += item.m_amount;
-                    break;
-                default: break;
-                }
-            }
-
-            status.unconfirmed += _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
-
+            status.sent = wallet::getSpentByTx(_walletDB, TxStatus::Completed);
+            status.received = wallet::getReceivedByTx(_walletDB, TxStatus::Completed);
+            status.unconfirmed = _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
             status.update.lastTime = _walletDB->getLastUpdateTime();
+
             ZeroObject(status.stateID);
             _walletDB->getSystemStateID(status.stateID);
 
             return status;
-		}
+        }
 
-		vector<Coin> getUtxos() const
-		{
-			vector<Coin> utxos;
-			_walletDB->visit([&utxos](const Coin& c)->bool
-			{
-				utxos.push_back(c);
-				return true;
-			});
-			return utxos;
-		}
+        vector<Coin> getUtxos() const
+        {
+            vector<Coin> utxos;
+            _walletDB->visit([&utxos](const Coin& c)->bool
+            {
+                utxos.push_back(c);
+                return true;
+            });
+            return utxos;
+        }
 
-		IWalletModelAsync::Ptr async;
-		
-	private:
+        IWalletModelAsync::Ptr async;
+        
+    private:
 
-		shared_ptr<thread> _thread;
+        shared_ptr<thread> _thread;
 
         beam::IWalletDB::Ptr _walletDB;
         beam::io::Reactor::Ptr _reactor;
@@ -866,36 +855,36 @@ namespace
 
         std::string _nodeAddrStr;
 
-		shared_ptr<mutex> _startMutex;
-		shared_ptr<condition_variable> _startCV;
-	};
+        shared_ptr<mutex> _startMutex;
+        shared_ptr<condition_variable> _startCV;
+    };
 
-	vector<WalletModel> wallets;
+    vector<WalletModel> wallets;
 
-	jobject regWallet(JNIEnv *env, jobject thiz)
-	{
-		wallets.push_back({});
+    jobject regWallet(JNIEnv *env, jobject thiz)
+    {
+        wallets.push_back({});
 
-		jobject walletObj = env->AllocObject(WalletClass);
+        jobject walletObj = env->AllocObject(WalletClass);
 
-		setLongField(env, WalletClass, walletObj, "_this", wallets.size() - 1);
+        setLongField(env, WalletClass, walletObj, "_this", wallets.size() - 1);
 
-		return walletObj;
-	}
+        return walletObj;
+    }
 
-	WalletModel& getWallet(JNIEnv *env, jobject thiz)
-	{
-		jfieldID _this = env->GetFieldID(WalletClass, "_this", "J");
-		return wallets[env->GetLongField(thiz, _this)];
-	}
+    WalletModel& getWallet(JNIEnv *env, jobject thiz)
+    {
+        jfieldID _this = env->GetFieldID(WalletClass, "_this", "J");
+        return wallets[env->GetLongField(thiz, _this)];
+    }
 
-	void initLogger(const string& appData)
-	{
-		static auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_INFO, "wallet_", (fs::path(appData) / fs::path("logs")).string());
+    void initLogger(const string& appData)
+    {
+        static auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_INFO, "wallet_", (fs::path(appData) / fs::path("logs")).string());
 
-		Rules::get().UpdateChecksum();
-		LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
-	}
+        Rules::get().UpdateChecksum();
+        LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+    }
 }
 
 
@@ -904,19 +893,19 @@ extern "C" {
 #endif
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, jobject thiz, 
-	jstring nodeAddrStr, jstring appDataStr, jstring passStr, jstring phrasesStr)
+    jstring nodeAddrStr, jstring appDataStr, jstring passStr, jstring phrasesStr)
 {
-	auto appData = JString(env, appDataStr).value();
+    auto appData = JString(env, appDataStr).value();
 
-	initLogger(appData);
-	
-	LOG_DEBUG() << "creating wallet...";
+    initLogger(appData);
+    
+    LOG_DEBUG() << "creating wallet...";
 
-	auto pass = JString(env, passStr).value();
+    auto pass = JString(env, passStr).value();
 
-	SecString seed;
-	
-	{
+    SecString seed;
+    
+    {
 
         WordList phrases = string_helpers::split(JString(env, phrasesStr).value(), ';');
         assert(phrases.size() == 12);
@@ -928,68 +917,68 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
         auto buf = decodeMnemonic(phrases);
         seed.assign(buf.data(), buf.size());
-	}
+    }
 
-	auto wallet = WalletDB::init(
-		appData + "/" WALLET_FILENAME,
-		pass,
-		seed.hash());
+    auto wallet = WalletDB::init(
+        appData + "/" WALLET_FILENAME,
+        pass,
+        seed.hash());
 
-	if(wallet)
-	{
-		LOG_DEBUG() << "wallet successfully created.";
+    if(wallet)
+    {
+        LOG_DEBUG() << "wallet successfully created.";
 
-		jobject walletObj = regWallet(env, thiz);
+        jobject walletObj = regWallet(env, thiz);
 
-		getWallet(env, walletObj).start(JString(env, nodeAddrStr).value(), wallet);
+        getWallet(env, walletObj).start(JString(env, nodeAddrStr).value(), wallet);
 
-		return walletObj;
-	}
+        return walletObj;
+    }
 
-	LOG_ERROR() << "wallet creation error.";
+    LOG_ERROR() << "wallet creation error.";
 
-	return nullptr;
+    return nullptr;
 }
 
 JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(isWalletInitialized)(JNIEnv *env, jobject thiz, 
-	jstring appData)
+    jstring appData)
 {
-	LOG_DEBUG() << "checking if wallet exists...";
+    LOG_DEBUG() << "checking if wallet exists...";
 
-	return WalletDB::isInitialized(JString(env, appData).value() + "/" WALLET_FILENAME) ? JNI_TRUE : JNI_FALSE;
+    return WalletDB::isInitialized(JString(env, appData).value() + "/" WALLET_FILENAME) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobject thiz, 
-	jstring nodeAddrStr, jstring appDataStr, jstring passStr)
+    jstring nodeAddrStr, jstring appDataStr, jstring passStr)
 {
-	auto appData = JString(env, appDataStr).value();
+    auto appData = JString(env, appDataStr).value();
 
-	initLogger(appData);
+    initLogger(appData);
 
-	LOG_DEBUG() << "opening wallet...";
+    LOG_DEBUG() << "opening wallet...";
 
-	string pass = JString(env, passStr).value();
-	auto wallet = WalletDB::open(appData + "/" WALLET_FILENAME, pass);
+    string pass = JString(env, passStr).value();
+    auto wallet = WalletDB::open(appData + "/" WALLET_FILENAME, pass);
 
-	if(wallet)
-	{
-		LOG_DEBUG() << "wallet successfully opened.";
+    if(wallet)
+    {
+        LOG_DEBUG() << "wallet successfully opened.";
 
-		jobject walletObj = regWallet(env, thiz);
+        jobject walletObj = regWallet(env, thiz);
 
-		getWallet(env, walletObj).start(JString(env, nodeAddrStr).value(), wallet);
+        getWallet(env, walletObj).start(JString(env, nodeAddrStr).value(), wallet);
 
-		return walletObj;
-	}
+        return walletObj;
+    }
 
-	LOG_ERROR() << "wallet not opened.";
+    LOG_ERROR() << "wallet not opened.";
 
-	return nullptr;
+    return nullptr;
 }
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createMnemonic)(JNIEnv *env, jobject thiz)
 {
-	auto phrases = beam::createMnemonic(beam::getEntropy(), beam::language::en);
+    auto phrases = beam::createMnemonic(beam::getEntropy(), beam::language::en);
 
     jobjectArray phrasesArray = env->NewObjectArray(static_cast<jsize>(phrases.size()), env->FindClass("java/lang/String"), 0);
 
@@ -1000,34 +989,34 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createMnemonic)(JNIEnv *env, j
         env->SetObjectArrayElement(phrasesArray, i++, str);
     }
 
-	return phrasesArray;
+    return phrasesArray;
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getWalletStatus)(JNIEnv *env, jobject thiz)
 {
-	LOG_DEBUG() << "getWalletStatus()";
+    LOG_DEBUG() << "getWalletStatus()";
 
-	getWallet(env, thiz).async->getWalletStatus();
+    getWallet(env, thiz).async->getWalletStatus();
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getUtxosStatus)(JNIEnv *env, jobject thiz)
 {
-	LOG_DEBUG() << "getUtxosStatus()";
+    LOG_DEBUG() << "getUtxosStatus()";
 
-	getWallet(env, thiz).async->getUtxosStatus();
+    getWallet(env, thiz).async->getUtxosStatus();
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(syncWithNode)(JNIEnv *env, jobject thiz)
 {
-	LOG_DEBUG() << "syncWithNode()";
+    LOG_DEBUG() << "syncWithNode()";
 
-	getWallet(env, thiz).async->syncWithNode();
+    getWallet(env, thiz).async->syncWithNode();
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendMoney)(JNIEnv *env, jobject thiz,
     jstring receiverAddr, jstring comment, jlong amount, jlong fee)
 {
-	LOG_DEBUG() << "sendMoney(" << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
+    LOG_DEBUG() << "sendMoney(" << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
 
     WalletAddress peerAddr;
     peerAddr.m_walletID.FromHex(JString(env, receiverAddr).value());
@@ -1038,7 +1027,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendMoney)(JNIEnv *env, jobjec
     getWallet(env, thiz).async->saveAddress(peerAddr, false);
 
     // TODO: show 'operation in process' animation here?
-	getWallet(env, thiz).async->sendMoney(peerAddr.m_walletID
+    getWallet(env, thiz).async->sendMoney(peerAddr.m_walletID
         , JString(env, comment).value()
         , beam::Amount(amount)
         , beam::Amount(fee));
@@ -1062,66 +1051,66 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getAddresses)(JNIEnv *env, job
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(generateNewAddress)(JNIEnv *env, jobject thiz)
 {
-	LOG_DEBUG() << "generateNewAddress()";
+    LOG_DEBUG() << "generateNewAddress()";
 
-	getWallet(env, thiz).async->generateNewAddress();
+    getWallet(env, thiz).async->generateNewAddress();
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobject thiz,
-	jobject walletAddrObj, jboolean own)
+    jobject walletAddrObj, jboolean own)
 {
-	LOG_DEBUG() << "saveAddress()";
+    LOG_DEBUG() << "saveAddress()";
 
     WalletAddress addr;
 
     addr.m_walletID.FromHex(getStringField(env, WalletAddressClass, walletAddrObj, "walletID"));
-	addr.m_label = getStringField(env, WalletAddressClass, walletAddrObj, "label");
-	addr.m_category = getStringField(env, WalletAddressClass, walletAddrObj, "category");
-	addr.m_createTime = getLongField(env, WalletAddressClass, walletAddrObj, "createTime");
-	addr.m_duration = getLongField(env, WalletAddressClass, walletAddrObj, "duration");
-	addr.m_OwnID = getLongField(env, WalletAddressClass, walletAddrObj, "own");
+    addr.m_label = getStringField(env, WalletAddressClass, walletAddrObj, "label");
+    addr.m_category = getStringField(env, WalletAddressClass, walletAddrObj, "category");
+    addr.m_createTime = getLongField(env, WalletAddressClass, walletAddrObj, "createTime");
+    addr.m_duration = getLongField(env, WalletAddressClass, walletAddrObj, "duration");
+    addr.m_OwnID = getLongField(env, WalletAddressClass, walletAddrObj, "own");
 
-	getWallet(env, thiz).async->saveAddress(addr, own);
+    getWallet(env, thiz).async->saveAddress(addr, own);
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
-	JNIEnv *env;
+    JNIEnv *env;
     JVM = vm;
 
-	JVM->GetEnv((void**) &env, JNI_VERSION_1_6);
+    JVM->GetEnv((void**) &env, JNI_VERSION_1_6);
 
-	Android_JNI_getEnv();
+    Android_JNI_getEnv();
 
-	{
-		jclass cls = env->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
-		WalletListenerClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
-	}
+    {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
+        WalletListenerClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+    }
 
-	{
-		jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/Wallet");
-		WalletClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
-	}
+    {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/Wallet");
+        WalletClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+    }
 
-	{
-		jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/WalletStatus");
-		WalletStatusClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
-	}
+    {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/WalletStatus");
+        WalletStatusClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+    }
 
-	{
-		jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/SystemState");
-		SystemStateClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
-	}
+    {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/SystemState");
+        SystemStateClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+    }
 
-	{
-		jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/TxDescription");
-		TxDescriptionClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
-	}
+    {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/TxDescription");
+        TxDescriptionClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+    }
 
-	{
-		jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/Utxo");
-		UtxoClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
-	}
+    {
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/Utxo");
+        UtxoClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+    }
 
     {
         jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/WalletAddress");

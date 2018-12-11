@@ -155,132 +155,132 @@ namespace beam
             throwIfError(ret, db);
         }
 
-		struct CoinSelector3
-		{
-			typedef std::vector<Coin> Coins;
-			typedef std::vector<size_t> Indexes;
+        struct CoinSelector3
+        {
+            typedef std::vector<Coin> Coins;
+            typedef std::vector<size_t> Indexes;
 
-			using Result = pair<Amount, Indexes>;
+            using Result = pair<Amount, Indexes>;
 
-			const Coins& m_Coins; // input coins must be in ascending order, without zeroes
-			
-			CoinSelector3(const Coins& coins)
-				:m_Coins(coins)
-			{
-			}
+            const Coins& m_Coins; // input coins must be in ascending order, without zeroes
+            
+            CoinSelector3(const Coins& coins)
+                :m_Coins(coins)
+            {
+            }
 
-			static const uint32_t s_Factor = 16;
+            static const uint32_t s_Factor = 16;
 
-			struct Partial
-			{
-				static const Amount s_Inf = Amount(-1);
+            struct Partial
+            {
+                static const Amount s_Inf = Amount(-1);
 
-				struct Link {
-					size_t m_iNext; // 1-based, to distinguish "NULL" pointers
-					size_t m_iElement;
-				};
+                struct Link {
+                    size_t m_iNext; // 1-based, to distinguish "NULL" pointers
+                    size_t m_iElement;
+                };
 
-				std::vector<Link> m_vLinks;
+                std::vector<Link> m_vLinks;
 
-				struct Slot {
-					size_t m_iTop;
-					Amount m_Sum;
-				};
+                struct Slot {
+                    size_t m_iTop;
+                    Amount m_Sum;
+                };
 
-				Slot m_pSlots[s_Factor + 1];
-				Amount m_Goal;
+                Slot m_pSlots[s_Factor + 1];
+                Amount m_Goal;
 
-				void Reset()
-				{
-					m_vLinks.clear();
-					ZeroObject(m_pSlots);
-				}
+                void Reset()
+                {
+                    m_vLinks.clear();
+                    ZeroObject(m_pSlots);
+                }
 
-				uint32_t get_Slot(Amount v) const
-				{
-					uint64_t i = v * s_Factor / m_Goal; // TODO - overflow check!
+                uint32_t get_Slot(Amount v) const
+                {
+                    uint64_t i = v * s_Factor / m_Goal; // TODO - overflow check!
                     uint32_t res = (i >= s_Factor) ? s_Factor : static_cast<uint32_t>(i);
                     assert(res <= s_Factor + 1);
                     return res;
-				}
+                }
 
-				void Append(Slot& rDst, Amount v, size_t i0)
-				{
-					m_vLinks.emplace_back();
-					m_vLinks.back().m_iElement = i0;
-					m_vLinks.back().m_iNext = rDst.m_iTop;
+                void Append(Slot& rDst, Amount v, size_t i0)
+                {
+                    m_vLinks.emplace_back();
+                    m_vLinks.back().m_iElement = i0;
+                    m_vLinks.back().m_iNext = rDst.m_iTop;
 
                     rDst.m_iTop = m_vLinks.size();
                     rDst.m_Sum += v;
-				}
+                }
 
-				bool IsBetter(Amount v, uint32_t iDst) const
-				{
-					const Slot& rDst = m_pSlots[iDst];
-					return (s_Factor == iDst) ?
-						(!rDst.m_Sum || (v < rDst.m_Sum)) :
-						(v > rDst.m_Sum);
-				}
+                bool IsBetter(Amount v, uint32_t iDst) const
+                {
+                    const Slot& rDst = m_pSlots[iDst];
+                    return (s_Factor == iDst) ?
+                        (!rDst.m_Sum || (v < rDst.m_Sum)) :
+                        (v > rDst.m_Sum);
+                }
 
-				void AddItem(Amount v, size_t i0)
-				{
-					// try combining first. Go from higher to lower, to make sure we don't process a slot which already contains this item
-					for (uint32_t iSrc = s_Factor; iSrc--; )
-					{
-						Slot& rSrc = m_pSlots[iSrc];
-						if (!rSrc.m_Sum)
-							continue;
+                void AddItem(Amount v, size_t i0)
+                {
+                    // try combining first. Go from higher to lower, to make sure we don't process a slot which already contains this item
+                    for (uint32_t iSrc = s_Factor; iSrc--; )
+                    {
+                        Slot& rSrc = m_pSlots[iSrc];
+                        if (!rSrc.m_Sum)
+                            continue;
 
-						Amount v2 = rSrc.m_Sum + v;
-						uint32_t iDst = get_Slot(v2);
+                        Amount v2 = rSrc.m_Sum + v;
+                        uint32_t iDst = get_Slot(v2);
 
-						if (!IsBetter(v2, iDst))
-							continue;
+                        if (!IsBetter(v2, iDst))
+                            continue;
 
-						Slot& rDst = m_pSlots[iDst];
+                        Slot& rDst = m_pSlots[iDst];
 
-						// improve
-						if (iSrc != iDst)
-							rDst = rSrc; // copy
+                        // improve
+                        if (iSrc != iDst)
+                            rDst = rSrc; // copy
 
-						Append(rDst, v, i0);
-					}
+                        Append(rDst, v, i0);
+                    }
 
-					// try as-is
-					uint32_t iDst = get_Slot(v);
-					if (IsBetter(v, iDst))
-					{
-						Slot& rDst = m_pSlots[iDst];
-						ZeroObject(rDst);
-						Append(rDst, v, i0);
-					}
-				}
-			};
+                    // try as-is
+                    uint32_t iDst = get_Slot(v);
+                    if (IsBetter(v, iDst))
+                    {
+                        Slot& rDst = m_pSlots[iDst];
+                        ZeroObject(rDst);
+                        Append(rDst, v, i0);
+                    }
+                }
+            };
 
-			void SolveOnce(Partial& part, Amount goal, size_t iEnd)
-			{
-				assert((goal > 0) && (iEnd <= m_Coins.size()));
-				part.Reset();
-				part.m_Goal = goal;
+            void SolveOnce(Partial& part, Amount goal, size_t iEnd)
+            {
+                assert((goal > 0) && (iEnd <= m_Coins.size()));
+                part.Reset();
+                part.m_Goal = goal;
 
-				for (size_t i = iEnd; i--; )
-					part.AddItem(m_Coins[i].m_ID.m_Value, i);
-			}
+                for (size_t i = iEnd; i--; )
+                    part.AddItem(m_Coins[i].m_ID.m_Value, i);
+            }
 
-			Result Select(Amount amount)
-			{
-				Partial part;
-				size_t iEnd = m_Coins.size();
+            Result Select(Amount amount)
+            {
+                Partial part;
+                size_t iEnd = m_Coins.size();
 
-				Amount nOvershootPrev = Amount(-1);
+                Amount nOvershootPrev = Amount(-1);
 
-				Result res;
-				for (res.first = 0; (res.first < amount) && iEnd; )
-				{
-					Amount goal = amount - res.first;
-					SolveOnce(part, goal, iEnd);
+                Result res;
+                for (res.first = 0; (res.first < amount) && iEnd; )
+                {
+                    Amount goal = amount - res.first;
+                    SolveOnce(part, goal, iEnd);
 
-					Partial::Slot& r1 = part.m_pSlots[s_Factor];
+                    Partial::Slot& r1 = part.m_pSlots[s_Factor];
                     // reverse list direction
                     size_t iPrev = 0;
                     for (size_t i = r1.m_iTop; i; )
@@ -293,57 +293,57 @@ namespace beam
                     }
                     r1.m_iTop = iPrev;
 
-					if (r1.m_Sum < goal)
-					{
-						// no solution
-						assert(!r1.m_Sum && !res.first);
+                    if (r1.m_Sum < goal)
+                    {
+                        // no solution
+                        assert(!r1.m_Sum && !res.first);
 
-						// return the maximum we have
-						uint32_t iSlot = s_Factor - 1;
-						for ( ; iSlot > 0; iSlot--)
-							if (part.m_pSlots[iSlot].m_Sum)
-								break;
+                        // return the maximum we have
+                        uint32_t iSlot = s_Factor - 1;
+                        for ( ; iSlot > 0; iSlot--)
+                            if (part.m_pSlots[iSlot].m_Sum)
+                                break;
 
-						res.first = part.m_pSlots[iSlot].m_Sum;
+                        res.first = part.m_pSlots[iSlot].m_Sum;
 
-						for (size_t iLink = part.m_pSlots[iSlot].m_iTop; iLink; )
-						{
-							const Partial::Link& link = part.m_vLinks[iLink - 1];
-							iLink = link.m_iNext;
+                        for (size_t iLink = part.m_pSlots[iSlot].m_iTop; iLink; )
+                        {
+                            const Partial::Link& link = part.m_vLinks[iLink - 1];
+                            iLink = link.m_iNext;
 
-							assert(link.m_iElement < iEnd);
-							res.second.push_back(link.m_iElement);
-						}
+                            assert(link.m_iElement < iEnd);
+                            res.second.push_back(link.m_iElement);
+                        }
 
-						return res;
-					}
+                        return res;
+                    }
 
-					Amount nOvershoot = r1.m_Sum - goal;
+                    Amount nOvershoot = r1.m_Sum - goal;
                     bool bShouldRetry = (nOvershoot < nOvershootPrev);
-					nOvershootPrev = nOvershoot;
+                    nOvershootPrev = nOvershoot;
 
-					for (size_t iLink = r1.m_iTop; iLink; )
-					{
-						const Partial::Link& link = part.m_vLinks[iLink - 1];
-						iLink = link.m_iNext;
+                    for (size_t iLink = r1.m_iTop; iLink; )
+                    {
+                        const Partial::Link& link = part.m_vLinks[iLink - 1];
+                        iLink = link.m_iNext;
 
-						assert(link.m_iElement < iEnd);
-						res.second.push_back(link.m_iElement);
-						iEnd = link.m_iElement;
+                        assert(link.m_iElement < iEnd);
+                        res.second.push_back(link.m_iElement);
+                        iEnd = link.m_iElement;
 
-						Amount v = m_Coins[link.m_iElement].m_ID.m_Value;
-						res.first += v;
+                        Amount v = m_Coins[link.m_iElement].m_ID.m_Value;
+                        res.first += v;
 
-						if (bShouldRetry && (amount <= res.first + nOvershoot*2))
-							break; // leave enough window for reorgs
-					}
-				}
+                        if (bShouldRetry && (amount <= res.first + nOvershoot*2))
+                            break; // leave enough window for reorgs
+                    }
+                }
 
-				return res;
-			}
+                return res;
+            }
 
 
-		};
+        };
 
         struct CoinSelector2
         {
@@ -576,6 +576,21 @@ namespace beam
             unordered_map<pair<Amount, Amount>, pair<Amount, vector<Coin>>> m_memory;
             pair<Amount, vector<Coin>> m_empty;
         };
+
+        template<typename T>
+        void deserialize(T& value, ByteBuffer& blob)
+        {
+            if (!blob.empty())
+            {
+                Deserializer d;
+                d.reset(blob.data(), blob.size());
+                d & value;
+            }
+            else
+            {
+                ZeroObject(value);
+            }
+        }
     }
 
     namespace sqlite
@@ -687,6 +702,12 @@ namespace beam
             void bind(int col, const string& val) // utf-8
             {
                 int ret = sqlite3_bind_text(_stm, col, val.data(), -1, nullptr);
+                throwIfError(ret, _db);
+            }
+
+            void bind(int col, wallet::TxParameterID val)
+            {
+                int ret = sqlite3_bind_int(_stm, col, static_cast<int>(val));
                 throwIfError(ret, _db);
             }
 
@@ -807,6 +828,11 @@ namespace beam
                     const unsigned char* data = sqlite3_column_text(_stm, col);
                     str.assign(reinterpret_cast<const string::value_type*>(data));
                 }
+            }
+
+            const char* retrieveSQL()
+            {
+                return sqlite3_expanded_sql(_stm);
             }
 
             ~Statement()
@@ -1101,10 +1127,10 @@ namespace beam
         return pRet;
     }
 
-	void IWalletDB::calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID& cid)
-	{
-		SwitchCommitment::Create(sk, comm, *get_ChildKdf(cid.m_iChild), cid);
-	}
+    void IWalletDB::calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID& cid)
+    {
+        SwitchCommitment::Create(sk, comm, *get_ChildKdf(cid.m_iChild), cid);
+    }
 
     vector<Coin> WalletDB::selectCoins(const Amount& amount, bool lock)
     {
@@ -1112,58 +1138,58 @@ namespace beam
         Block::SystemState::ID stateID = {};
         getSystemStateID(stateID);
 
-		{
-			sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 ORDER BY amount ASC");
-			stm.bind(1, Coin::Available);
-			stm.bind(2, stateID.m_Height);
+        {
+            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 ORDER BY amount ASC");
+            stm.bind(1, Coin::Available);
+            stm.bind(2, stateID.m_Height);
 
-			while (stm.step())
-			{
-				auto& coin = coins.emplace_back();
-				int colIdx = 0;
-				ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+            while (stm.step())
+            {
+                auto& coin = coins.emplace_back();
+                int colIdx = 0;
+                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
 
-				if (coin.m_ID.m_Value >= amount)
-					break;
-			}
-		}
+                if (coin.m_ID.m_Value >= amount)
+                    break;
+            }
+        }
 
-		CoinSelector3 csel(coins);
-		CoinSelector3::Result res = csel.Select(amount);
+        CoinSelector3 csel(coins);
+        CoinSelector3::Result res = csel.Select(amount);
 
-		if (res.first >= amount)
-		{
-			coinsSel.reserve(res.second.size());
+        if (res.first >= amount)
+        {
+            coinsSel.reserve(res.second.size());
 
-			for (size_t j = 0; j < res.second.size(); j++)
-				coinsSel.push_back(std::move(coins[res.second[j]]));
+            for (size_t j = 0; j < res.second.size(); j++)
+                coinsSel.push_back(std::move(coins[res.second[j]]));
 
-			if (lock)
-			{
-				sqlite::Transaction trans(_db);
+            if (lock)
+            {
+                sqlite::Transaction trans(_db);
 
-				for (auto& coin : coinsSel)
-				{
-					coin.m_status = Coin::Outgoing;
-					const char* req = "UPDATE " STORAGE_NAME " SET status=?, lockedHeight=?" STORAGE_WHERE_ID;
-					sqlite::Statement stm(_db, req);
+                for (auto& coin : coinsSel)
+                {
+                    coin.m_status = Coin::Outgoing;
+                    const char* req = "UPDATE " STORAGE_NAME " SET status=?, lockedHeight=?" STORAGE_WHERE_ID;
+                    sqlite::Statement stm(_db, req);
 
-					int colIdx = 0;
-					stm.bind(++colIdx, coin.m_status);
-					stm.bind(++colIdx, stateID.m_Height);
-					STORAGE_BIND_ID(coin)
+                    int colIdx = 0;
+                    stm.bind(++colIdx, coin.m_status);
+                    stm.bind(++colIdx, stateID.m_Height);
+                    STORAGE_BIND_ID(coin)
 
-					stm.step();
-				}
+                    stm.step();
+                }
 
-				trans.commit();
+                trans.commit();
 
-				notifyCoinsChanged();
-			}
-		}
+                notifyCoinsChanged();
+            }
+        }
 
 
-		return coinsSel;
+        return coinsSel;
     }
 
     std::vector<Coin> WalletDB::getCoinsCreatedByTx(const TxID& txId)
@@ -1745,7 +1771,7 @@ namespace beam
             sqlite::Statement stm(_db, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND paramID=?2;");
 
             stm.bind(1, txID);
-            stm.bind(2, static_cast<int>(paramID));
+            stm.bind(2, paramID);
             if (stm.step())
             {
                 // already set
@@ -1756,7 +1782,7 @@ namespace beam
 
                 sqlite::Statement stm2(_db, "UPDATE " TX_PARAMS_NAME  " SET value = ?3 WHERE txID = ?1 AND paramID = ?2;");
                 stm2.bind(1, txID);
-                stm2.bind(2, static_cast<int>(paramID));
+                stm2.bind(2, paramID);
                 stm2.bind(3, blob);
                 stm2.step();
                 if (shouldNotifyAboutChanges)
@@ -1795,7 +1821,7 @@ namespace beam
         sqlite::Statement stm(_db, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND paramID=?2;");
 
         stm.bind(1, txID);
-        stm.bind(2, static_cast<int>(paramID));
+        stm.bind(2, paramID);
 
         if (stm.step())
         {
@@ -1918,6 +1944,36 @@ namespace beam
             stm.get(0, result);
         }
         return result;
+    }
+
+    Amount WalletDB::getTransferredByTx(TxStatus status, bool isSender)
+    {
+        const char* req = "SELECT value FROM " TX_PARAMS_NAME " WHERE paramID = ?5 AND txID IN (SELECT txID FROM " TX_PARAMS_NAME " WHERE paramID= ?1 AND value = ?2 AND txID IN (SELECT txID FROM " TX_PARAMS_NAME " WHERE paramID= ?3 AND value = ?4 ));";
+
+        sqlite::Statement stm(_db, req);
+        ByteBuffer blobStatus = wallet::toByteBuffer(status);
+        ByteBuffer blobIsSender = wallet::toByteBuffer(isSender);
+
+        stm.bind(1, wallet::TxParameterID::Status);
+        stm.bind(2, blobStatus);
+        stm.bind(3, wallet::TxParameterID::IsSender);
+        stm.bind(4, blobIsSender);
+        stm.bind(5, wallet::TxParameterID::Amount);
+
+        Amount totalAmount = 0;
+
+        LOG_DEBUG() << stm.retrieveSQL();
+
+        while (stm.step())
+        {
+            ByteBuffer blob;
+            stm.get(0, blob);
+            Amount amount = 0;
+            deserialize(amount, blob);
+            totalAmount += amount;
+        }
+
+        return totalAmount;
     }
 
     bool WalletDB::History::Enum(IWalker& w, const Height* pBelow)
@@ -2062,8 +2118,8 @@ namespace beam
             newAddress.m_createTime = beam::getTimestamp();
             newAddress.m_OwnID = walletDB->AllocateKidRange(1);
 
-			ECC::Scalar::Native sk;
-			walletDB->get_MasterKdf()->DeriveKey(sk, Key::ID(newAddress.m_OwnID, Key::Type::Bbs));
+            ECC::Scalar::Native sk;
+            walletDB->get_MasterKdf()->DeriveKey(sk, Key::ID(newAddress.m_OwnID, Key::Type::Bbs));
 
             proto::Sk2Pk(newAddress.m_walletID.m_Pk, sk);
 
@@ -2073,6 +2129,16 @@ namespace beam
 
             newAddress.m_walletID.m_Channel = ch;
             return newAddress;
+        }
+
+        Amount getSpentByTx(beam::IWalletDB::Ptr walletDB, TxStatus status)
+        {
+            return walletDB->getTransferredByTx(status, true);
+        }
+
+        Amount getReceivedByTx(beam::IWalletDB::Ptr walletDB, TxStatus status)
+        {
+            return walletDB->getTransferredByTx(status, false);
         }
     }
 }

@@ -136,7 +136,7 @@ namespace beam
 
         virtual beam::Key::IKdf::Ptr get_MasterKdf() const = 0;
         beam::Key::IKdf::Ptr get_ChildKdf(Key::Index) const;
-		void calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID&);
+        void calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID&);
         virtual uint64_t AllocateKidRange(uint64_t nCount) = 0;
         virtual std::vector<Coin> selectCoins(const Amount& amount, bool lock = true) = 0;
         virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) = 0;
@@ -193,6 +193,7 @@ namespace beam
         virtual Amount getAvailableByType(Key::Type keyType) = 0;
         virtual Amount getTotal(Coin::Status status) = 0;
         virtual Amount getTotalByType(Coin::Status status, Key::Type keyType) = 0;
+        virtual Amount getTransferredByTx(TxStatus status, bool isSender) = 0;
     };
 
     class WalletDB : public IWalletDB, public std::enable_shared_from_this<WalletDB>
@@ -261,6 +262,7 @@ namespace beam
         Amount getAvailableByType(Key::Type keyType) override;
         Amount getTotal(Coin::Status status) override;
         Amount getTotalByType(Coin::Status status, Key::Type keyType) override;
+        Amount getTransferredByTx(TxStatus status, bool isSender) override;
 
     private:
         void removeImpl(const Coin::ID& cid);
@@ -336,5 +338,7 @@ namespace beam
         bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value, bool shouldNotifyAboutChanges);
 
         WalletAddress createAddress(beam::IWalletDB::Ptr walletDB);
+        Amount getSpentByTx(beam::IWalletDB::Ptr walletDB, TxStatus status);
+        Amount getReceivedByTx(beam::IWalletDB::Ptr walletDB, TxStatus status);
     }
 }

@@ -952,6 +952,80 @@ void TestSelect6()
     }
 }
 
+void TestTransferredByTx()
+{
+    cout << "\nWallet database test: calculate sums of spent & received in transactions\n";
+    auto walletDB = createSqliteWalletDB();
+
+    Amount amount = 10;
+    Amount kAmountStep = 5;
+    uint64_t kMaxCount = 1000;
+    Amount totalAmount = 0;
+
+    TxDescription txTemplate;
+    txTemplate.m_peerId.m_Pk = unsigned(23);
+    txTemplate.m_peerId.m_Channel = 0U;
+    txTemplate.m_myId.m_Pk = unsigned(42);
+    txTemplate.m_myId.m_Channel = 0U;
+    txTemplate.m_createTime = 123456;
+    txTemplate.m_minHeight = 134;
+    txTemplate.m_status = TxStatus::Completed;
+    txTemplate.m_change = 10;
+
+    cout << "Create & Save " << kMaxCount << " transactions to database" << "\n";
+
+    for (uint64_t i = 0; i < kMaxCount; ++i, amount += kAmountStep)
+    {
+        // i -> txID
+        std::copy((uint8_t*)&i, ((uint8_t*)&i) + sizeof(uint64_t), txTemplate.m_txId.begin());
+
+        txTemplate.m_amount = amount;
+        txTemplate.m_sender = (i > kMaxCount / 2);
+
+        WALLET_CHECK_NO_THROW(walletDB->saveTx(txTemplate));
+
+        totalAmount += amount;
+
+        if (i == kMaxCount / 2) 
+        {
+            amount = kAmountStep;
+        }
+    }
+
+    // calculate sum
+    helpers::StopWatch sw;
+
+    cout << "Calculate sums using GetTxHistory" << "\n";
+    sw.start();
+    auto txHistory = walletDB->getTxHistory();
+    Amount historySumSent = 0;
+    Amount historySumReceived = 0;
+
+    for (const auto& item : txHistory)
+    {
+        switch (item.m_status)
+        {
+        case TxStatus::Completed:
+            (item.m_sender ? historySumSent : historySumReceived) += item.m_amount;
+            break;
+        default: break;
+        }
+    }
+    sw.stop();
+    cout << "Elapsed time: " << sw.milliseconds() << " ms\n";
+
+    cout << "Calculate sums using getTransferredByTx" << "\n";
+    sw.start();
+    auto sumSent = wallet::getSpentByTx(walletDB, TxStatus::Completed);
+    auto sumReceived = wallet::getReceivedByTx(walletDB, TxStatus::Completed);
+
+    sw.stop();
+    cout << "Elapsed time: " << sw.milliseconds() << " ms\n";
+
+    WALLET_CHECK(historySumReceived == sumReceived);
+    WALLET_CHECK(historySumSent == sumSent);
+}
+
 int main() 
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -976,6 +1050,7 @@ int main()
 
     TestTxParameters();
 
+    /*TestTransferredByTx();*/
 
 
     return WALLET_CHECK_RESULT;
