@@ -9,10 +9,8 @@ Item {
     x: 5
     y: 53
 
-    StatusbarViewModel {
-        id: model
-    }
-
+    property var model
+    
     property string status: {
         if (model.isisFailedStatus)
             qsTr("error")

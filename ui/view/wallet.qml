@@ -145,6 +145,7 @@ Item {
 
     StatusBar {
         id: status_bar
+        model: statusbarModel
     }
 
     /////////////////////////////////////////////////////////////

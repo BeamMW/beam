@@ -111,6 +111,7 @@ ColumnLayout {
 
     StatusBar {
         id: status_bar
+        model: statusbarModel
     }
 
     CustomTableView {
