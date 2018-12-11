@@ -438,6 +438,8 @@ void NodeConnection::Accept(io::TcpStream::Ptr&& newStream)
 {
 	assert(!m_Connection && !m_ConnectPending);
 
+	newStream->enable_keepalive(Rules::get().DesiredRate_s); // it should be comparable to the block rate
+
 	m_Connection = std::make_unique<Connection>(
 		m_Protocol,
 		uint64_t(this),
