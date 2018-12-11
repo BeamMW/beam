@@ -2000,8 +2000,6 @@ namespace beam
 
         Amount totalAmount = 0;
 
-        LOG_DEBUG() << stm.retrieveSQL();
-
         while (stm.step())
         {
             ByteBuffer blob;
