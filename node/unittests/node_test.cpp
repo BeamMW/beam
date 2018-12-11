@@ -518,7 +518,7 @@ namespace beam
 
 		void ToCommtiment(const MyUtxo& utxo, ECC::Point& comm, ECC::Scalar::Native& k) const
 		{
-			SwitchCommitment::Create(k, comm, *m_pKdf, utxo.m_Kidv);
+			SwitchCommitment().Create(k, comm, *m_pKdf, utxo.m_Kidv);
 		}
 
 		void ToInput(const MyUtxo& utxo, TxVectors::Perishable& txv, ECC::Scalar::Native& offset) const

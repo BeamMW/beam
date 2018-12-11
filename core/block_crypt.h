@@ -115,13 +115,17 @@ namespace beam
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
 	};
 
-	namespace SwitchCommitment
+	class SwitchCommitment
 	{
-		void Create(ECC::Scalar::Native& sk, Key::IKdf&, const Key::IDV&);
-		void Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf&, const Key::IDV&);
-		void Create(ECC::Scalar::Native& sk, ECC::Point& comm, Key::IKdf&, const Key::IDV&);
-		void Recover(ECC::Point::Native& comm, Key::IPKdf&, const Key::IDV&);
-	}
+		static void get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J);
+		void CreateInternal(ECC::Scalar::Native&, ECC::Point::Native&, bool bComm, Key::IKdf& kdf, const Key::IDV& kidv) const;
+	public:
+
+		void Create(ECC::Scalar::Native& sk, Key::IKdf&, const Key::IDV&) const;
+		void Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf&, const Key::IDV&) const;
+		void Create(ECC::Scalar::Native& sk, ECC::Point& comm, Key::IKdf&, const Key::IDV&) const;
+		void Recover(ECC::Point::Native& comm, Key::IPKdf&, const Key::IDV&) const;
+	};
 
 	struct TxElement
 	{

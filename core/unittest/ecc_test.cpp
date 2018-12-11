@@ -486,14 +486,14 @@ void TestCommitments()
 
 	Scalar::Native sk;
 	ECC::Point::Native comm;
-	beam::SwitchCommitment::Create(sk, comm, kdf, kidv);
+	beam::SwitchCommitment().Create(sk, comm, kdf, kidv);
 
 	sigma = Commitment(sk, kidv.m_Value);
 	sigma = -sigma;
 	sigma += comm;
 	verify_test(sigma == Zero);
 
-	beam::SwitchCommitment::Recover(sigma, kdf, kidv);
+	beam::SwitchCommitment().Recover(sigma, kdf, kidv);
 	sigma = -sigma;
 	sigma += comm;
 	verify_test(sigma == Zero);

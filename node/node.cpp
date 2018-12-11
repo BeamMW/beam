@@ -2070,7 +2070,7 @@ void Node::AddDummyInputs(Transaction& tx)
 		UtxoTree::Key kMin, kMax;
 
 		UtxoTree::Key::Data d;
-		SwitchCommitment::Create(sk, d.m_Commitment, *m_Keys.m_pGeneric, Key::IDV(0, id, Key::Type::Decoy));
+		SwitchCommitment().Create(sk, d.m_Commitment, *m_Keys.m_pGeneric, Key::IDV(0, id, Key::Type::Decoy));
 		d.m_Maturity = 0;
 		kMin = d;
 
