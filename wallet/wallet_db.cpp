@@ -1551,30 +1551,68 @@ namespace beam
 
     boost::optional<TxDescription> WalletDB::getTx(const TxID& txId)
     {
-        const char* req = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 LIMIT 1;";
+        const char* req = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1;";
         sqlite::Statement stm(_db, req);
         stm.bind(1, txId);
 
-        if (stm.step())
+        TxDescription txDescription;
+        txDescription.m_txId = txId;
+
+        const std::set<wallet::TxParameterID> mandatoryParams{ wallet::TxParameterID::Amount, wallet::TxParameterID::Fee,
+            wallet::TxParameterID::MinHeight, wallet::TxParameterID::PeerID,
+            wallet::TxParameterID::MyID, wallet::TxParameterID::CreateTime,
+            wallet::TxParameterID::IsSender };
+        std::set<wallet::TxParameterID> gottenParams;
+
+        while (stm.step())
         {
-            auto thisPtr = shared_from_this();
-            TxDescription tx;
-            tx.m_txId = txId;
-            bool hasMandatory = wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Amount, tx.m_amount)
-            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Fee, tx.m_fee)
-            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::MinHeight, tx.m_minHeight)
-            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::PeerID, tx.m_peerId)
-            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::MyID, tx.m_myId)
-            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::CreateTime, tx.m_createTime)
-            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::IsSender, tx.m_sender);
-            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Message, tx.m_message);
-            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Change, tx.m_change);
-            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::ModifyTime, tx.m_modifyTime);
-            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Status, tx.m_status);
-            if (hasMandatory)
+            TxParameter parameter = {};
+            int colIdx = 0;
+            ENUM_TX_PARAMS_FIELDS(STM_GET_LIST, NOSEP, parameter);
+
+            gottenParams.emplace(static_cast<wallet::TxParameterID>(parameter.m_paramID));
+
+            switch (static_cast<wallet::TxParameterID>(parameter.m_paramID))
             {
-                return tx;
+            case wallet::TxParameterID::Amount:
+                deserialize(txDescription.m_amount, parameter.m_value);
+                break;
+            case wallet::TxParameterID::Fee:
+                deserialize(txDescription.m_fee, parameter.m_value);
+                break;
+            case wallet::TxParameterID::MinHeight:
+                deserialize(txDescription.m_minHeight, parameter.m_value);
+                break;
+            case wallet::TxParameterID::PeerID:
+                deserialize(txDescription.m_peerId, parameter.m_value);
+                break;
+            case wallet::TxParameterID::MyID:
+                deserialize(txDescription.m_myId, parameter.m_value);
+                break;
+            case wallet::TxParameterID::CreateTime:
+                deserialize(txDescription.m_createTime, parameter.m_value);
+                break;
+            case wallet::TxParameterID::IsSender:
+                deserialize(txDescription.m_sender, parameter.m_value);
+                break;
+            case wallet::TxParameterID::Message:
+                deserialize(txDescription.m_message, parameter.m_value);
+                break;
+            case wallet::TxParameterID::Change:
+                deserialize(txDescription.m_change, parameter.m_value);
+                break;
+            case wallet::TxParameterID::ModifyTime:
+                deserialize(txDescription.m_modifyTime, parameter.m_value);
+                break;
+            case wallet::TxParameterID::Status:
+                deserialize(txDescription.m_status, parameter.m_value);
+                break;
             }
+        }
+
+        if (std::includes(gottenParams.begin(), gottenParams.end(), mandatoryParams.begin(), mandatoryParams.end()))
+        {
+            return txDescription;
         }
 
         return boost::optional<TxDescription>{};
