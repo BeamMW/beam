@@ -50,10 +50,7 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
     if (!m_db)
 		return false;
 
-    m_passwordHash = pass.hash();
-
-    start();
-
+	OnWalledOpened(pass);
     return true;
 }
 
@@ -63,10 +60,15 @@ bool AppModel::openWallet(const beam::SecString& pass)
 	if (!m_db)
 		return false;
 
+	OnWalledOpened(pass);
+	return true;
+}
+
+void AppModel::OnWalledOpened(const beam::SecString& pass)
+{
 	m_passwordHash = pass.hash();
 
-    start();
-    return true;
+	start();
 }
 
 void AppModel::applySettingsChanges()

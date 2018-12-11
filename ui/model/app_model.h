@@ -47,7 +47,7 @@ public:
     void resetWallet();
 private:
     void start();
-
+	void OnWalledOpened(const beam::SecString& pass);
     void startNode();
 
 private:
