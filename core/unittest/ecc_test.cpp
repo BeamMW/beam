@@ -526,11 +526,14 @@ void TestRangeProof(bool bCustomTag)
 	SetRandom(cp.m_Seed.V);
 	cp.m_Kidv.m_Value = 345000;
 
-	AssetTag tag;
+	beam::AssetID aid;
 	if (bCustomTag)
-		tag.m_hGen = Context::get().G * Scalar(100500U);
+		SetRandom(aid);
 	else
-		tag.m_hGen = Zero;
+		aid = Zero;
+
+	AssetTag tag;
+	tag.m_hGen = beam::SwitchCommitment(&aid).m_hGen;
 
 	Scalar::Native sk;
 	SetRandom(sk);
@@ -715,6 +718,7 @@ void TestRangeProof(bool bCustomTag)
 
 	{
 		beam::Output outp;
+		outp.m_AssetID = aid;
 		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), true);
 		outp.m_Coinbase = true; // others may be disallowed
 		verify_test(outp.IsValid(comm));
@@ -722,6 +726,7 @@ void TestRangeProof(bool bCustomTag)
 	}
 	{
 		beam::Output outp;
+		outp.m_AssetID = aid;
 		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular));
 		verify_test(outp.IsValid(comm));
 		WriteSizeSerialized("Out-UTXO-Confidential", outp);

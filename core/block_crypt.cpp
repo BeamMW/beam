@@ -114,6 +114,24 @@ namespace beam
 
 	/////////////
 	// SwitchCommitment
+	SwitchCommitment::SwitchCommitment(const AssetID* pAssetID /* = nullptr */)
+	{
+		if (pAssetID && !(*pAssetID == Zero))
+		{
+			ECC::Oracle oracle;
+			oracle << *pAssetID;
+
+			ECC::Point pt;
+			pt.m_Y = 0;
+
+			do
+				oracle >> pt.m_X;
+			while (!m_hGen.ImportNnz(pt));
+		}
+		else
+			m_hGen = Zero;
+	}
+
 	void SwitchCommitment::get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J)
 	{
 		ECC::Oracle()
@@ -122,11 +140,19 @@ namespace beam
 			>> res;
 	}
 
+	void SwitchCommitment::AddValue(ECC::Point::Native& comm, Amount v) const
+	{
+		ECC::Tag::AddValue(comm, &m_hGen, v);
+	}
+
+
 	void SwitchCommitment::CreateInternal(ECC::Scalar::Native& sk, ECC::Point::Native& comm, bool bComm, Key::IKdf& kdf, const Key::IDV& kidv) const
 	{
 		kdf.DeriveKey(sk, kidv);
 
-		comm = ECC::Commitment(sk, kidv.m_Value);
+		comm = ECC::Context::get().G * sk;
+		AddValue(comm, kidv.m_Value);
+
 		ECC::Point::Native sk0_J = ECC::Context::get().J * sk;
 
 		ECC::Scalar::Native sk1;
@@ -163,7 +189,7 @@ namespace beam
 		ECC::Point::Native sk0_J;
 		pkdf.DerivePKeyJ(sk0_J, hv);
 		pkdf.DerivePKeyG(res, hv);
-		res += ECC::Context::get().H * kidv.m_Value;
+		AddValue(res, kidv.m_Value);
 
 		ECC::Scalar::Native sk1;
 		get_sk1(sk1, res, sk0_J);
@@ -178,6 +204,8 @@ namespace beam
 		if (!comm.Import(m_Commitment))
 			return false;
 
+		SwitchCommitment sc(&m_AssetID);
+
 		ECC::Oracle oracle;
 		oracle << m_Incubation;
 
@@ -189,7 +217,7 @@ namespace beam
 			if (m_pPublic)
 				return false;
 
-			return m_pConfidential->IsValid(comm, oracle);
+			return m_pConfidential->IsValid(comm, oracle, &sc.m_hGen);
 		}
 
 		if (!m_pPublic)
@@ -198,7 +226,7 @@ namespace beam
 		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
 			return false;
 
-		return m_pPublic->IsValid(comm, oracle);
+		return m_pPublic->IsValid(comm, oracle, &sc.m_hGen);
 	}
 
 	void Output::operator = (const Output& v)
@@ -206,6 +234,7 @@ namespace beam
 		Cast::Down<TxElement>(*this) = v;
 		m_Coinbase = v.m_Coinbase;
 		m_Incubation = v.m_Incubation;
+		m_AssetID = v.m_AssetID;
 		ClonePtr(m_pConfidential, v.m_pConfidential);
 		ClonePtr(m_pPublic, v.m_pPublic);
 	}
@@ -220,6 +249,7 @@ namespace beam
 
 		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER(m_Incubation)
+		CMP_MEMBER_EX(m_AssetID)
 		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)
 
@@ -228,7 +258,8 @@ namespace beam
 
 	void Output::Create(ECC::Scalar::Native& sk, Key::IKdf& kdf, const Key::IDV& kidv, bool bPublic /* = false */)
 	{
-		SwitchCommitment().Create(sk, m_Commitment, kdf, kidv);
+		SwitchCommitment sc(&m_AssetID);
+		sc.Create(sk, m_Commitment, kdf, kidv);
 
 		ECC::Oracle oracle;
 		oracle << m_Incubation;
@@ -246,7 +277,7 @@ namespace beam
 		else
 		{
 			m_pConfidential.reset(new ECC::RangeProof::Confidential);
-			m_pConfidential->Create(sk, cp, oracle);
+			m_pConfidential->Create(sk, cp, oracle, &sc.m_hGen);
 		}
 	}
 
@@ -283,7 +314,7 @@ namespace beam
 
 		if (!comm2.Import(m_Commitment))
 			return false;
-		SwitchCommitment().Recover(comm, kdf, cp.m_Kidv);
+		SwitchCommitment(&m_AssetID).Recover(comm, kdf, cp.m_Kidv);
 
 		comm = -comm;
 		comm += comm2;

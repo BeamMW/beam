@@ -453,7 +453,8 @@ namespace detail
 				(output.m_Coinbase ? 2 : 0) |
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
-				(output.m_Incubation ? 0x10 : 0);
+				(output.m_Incubation ? 0x10 : 0) |
+				((output.m_AssetID == beam::Zero) ? 0 : 0x20);
 
 			ar
 				& nFlags
@@ -467,6 +468,9 @@ namespace detail
 
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
+
+			if (0x20 & nFlags)
+				ar & output.m_AssetID;
 
             return ar;
         }
@@ -496,6 +500,11 @@ namespace detail
 
 			if (0x10 & nFlags)
 				ar & output.m_Incubation;
+
+			if (0x20 & nFlags)
+				ar & output.m_AssetID;
+			else
+				output.m_AssetID = beam::Zero;
 
             return ar;
         }

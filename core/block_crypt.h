@@ -26,6 +26,7 @@ namespace beam
 	typedef ECC::Hash::Value PeerID;
 	typedef uint64_t BbsChannel;
 	typedef ECC::Hash::Value BbsMsgID;
+	typedef PeerID AssetID;
 
 	using ECC::Key;
 
@@ -119,7 +120,11 @@ namespace beam
 	{
 		static void get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J);
 		void CreateInternal(ECC::Scalar::Native&, ECC::Point::Native&, bool bComm, Key::IKdf& kdf, const Key::IDV& kidv) const;
+		void AddValue(ECC::Point::Native& comm, Amount) const;
 	public:
+
+		ECC::Point::Native m_hGen;
+		SwitchCommitment(const AssetID* pAssetID = nullptr);
 
 		void Create(ECC::Scalar::Native& sk, Key::IKdf&, const Key::IDV&) const;
 		void Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf&, const Key::IDV&) const;
@@ -189,11 +194,13 @@ namespace beam
 
 		bool		m_Coinbase;
 		Height		m_Incubation; // # of blocks before it's mature
+		AssetID		m_AssetID;
 
 		Output()
 			:m_Coinbase(false)
 			,m_Incubation(0)
 		{
+			m_AssetID = Zero;
 		}
 
 		static const Amount s_MinimumValue = 1;
