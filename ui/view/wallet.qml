@@ -257,7 +257,6 @@ Item {
                     Layout.minimumHeight: 220
                     Column {
                         anchors.fill: parent
-                        //spacing: 10
                         Image {
                             anchors.horizontalCenter: parent.horizontalCenter
                             fillMode: Image.Pad
@@ -723,7 +722,6 @@ Item {
 
             Row {
                 Layout.alignment: Qt.AlignHCenter
-                //Layout.topMargin: 30
 
                 spacing: 30
 
@@ -856,56 +854,6 @@ Item {
 
                 text: qsTr("Transactions")
             }
-
-//            Row {
-//
-//                anchors.right: parent.right
-//                spacing: 20
-//                state: "all"
-//
-//                TxFilter{
-//                    id: all
-//                    label: "ALL"
-//                    onClicked: parent.state = "all"
-//                }
-//
-//                TxFilter{
-//                    id: sent
-//                    label: "SENT"
-//                    onClicked: parent.state = "sent"
-//                }
-//
-//                TxFilter{
-//                    id: received
-//                    label: "RECEIVED"
-//                    onClicked: parent.state = "received"
-//                }
-//
-//                TxFilter{
-//                    id: in_progress
-//                    label: "IN PROGRESS"
-//                    onClicked: parent.state = "in_progress"
-//                }
-//
-//                states: [
-//                    State {
-//                        name: "all"
-//                        PropertyChanges {target: all; state: "active"}
-//                    },
-//                    State {
-//                        name: "sent"
-//                        PropertyChanges {target: sent; state: "active"}
-//                    },
-//                    State {
-//                        name: "received"
-//                        PropertyChanges {target: received; state: "active"}
-//                    },
-//                    State {
-//                        name: "in_progress"
-//                        PropertyChanges {target: in_progress; state: "active"}
-//                    }
-//                ]
-//            }
         }
 
         Rectangle {
@@ -1120,15 +1068,6 @@ Item {
                             anchors.rightMargin: 12
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 10
-                        /*    CustomToolButton {
-                                visible: styleData.row >= 0 && viewModel.transactions[styleData.row].canCancel
-                                icon.source: "qrc:/assets/icon-cancel.svg"
-                                ToolTip.text: qsTr("Cancel transaction")
-                                onClicked: {
-                                    viewModel.cancelTx(styleData.row);
-                                }
-                            }
-                            */
                             CustomToolButton {
                                 icon.source: "qrc:/assets/icon-actions.svg"
                                 ToolTip.text: qsTr("Actions")
@@ -1412,27 +1351,6 @@ Item {
                 }
             }
 
-/*            Transition {
-                id: addAnim
-                PropertyAction { target: rowItem; property: "height"; value: 0 }
-                NumberAnimation { target: rowItem; property: "height"; to: 80; duration: 250; easing.type: Easing.InOutQuad }
-            }
-
-            Transition {
-                id: removeAnim
-                PropertyAction { target: rowItem; property: "ListView.delayRemove"; value: true }
-                NumberAnimation { target: rowItem; property: "height"; to: 0; duration: 250; easing.type: Easing.InOutQuad }
-
-                // Make sure delayRemove is set back to false so that the item can be destroyed
-                PropertyAction { target: rowItem; property: "ListView.delayRemove"; value: false }
-            }
-
-            Component.onCompleted: {
-               // this.__listView.populate = addAnim
-                this.__listView.add = addAnim
-                this.__listView.remove = removeAnim
-            }
-            */
             itemDelegate: Item {
                 Item {
                     width: parent.width
@@ -1453,15 +1371,11 @@ Item {
             State {
                 when: wallet_layout.visible && wallet_layout.width < (1440-70-2*30)
                 name: "medium"
-                // PropertyChanges {target: wide_panels; visible: false}
-                // PropertyChanges {target: medium_panels; visible: true}
             },
 
             State {
                 when: wallet_layout.visible && wallet_layout.width < (1440-70-2*30)
                 name: "small"
-                // PropertyChanges {target: wide_panels; visible: false}
-                // PropertyChanges {target: medium_panels; visible: true}
             }
         ]
     }
