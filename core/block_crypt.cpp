@@ -464,6 +464,7 @@ namespace beam
 			return -1;
 
 		CMP_MEMBER_PTR(m_pHashLock)
+		CMP_MEMBER_PTR(m_pAssetCtl)
 
 		return 0;
 	}
@@ -471,6 +472,15 @@ namespace beam
 	int TxKernel::HashLock::cmp(const HashLock& v) const
 	{
 		CMP_MEMBER_EX(m_Preimage)
+		return 0;
+	}
+
+	int TxKernel::AssetControl::cmp(const AssetControl& v) const
+	{
+		CMP_MEMBER_EX(m_ID)
+		CMP_MEMBER(m_Value)
+		CMP_MEMBER(m_IsEmission)
+		CMP_MEMBER_EX(m_Signature)
 		return 0;
 	}
 
@@ -495,6 +505,8 @@ namespace beam
 
 		for (size_t i = 0; i < v.m_vNested.size(); i++)
 			ClonePtr(m_vNested[i], v.m_vNested[i]);
+
+		ClonePtr(m_pAssetCtl, v.m_pAssetCtl);
 	}
 
 	/////////////
