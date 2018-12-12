@@ -414,13 +414,16 @@ namespace beam
 
 			if (m_AssetEmission)
 			{
+				if (!Rules::get().AllowCA)
+					return false;
+
 				if (pParent || !m_vNested.empty())
 					return false; // Ban complex cases. Emission kernels must be simple
 
 				const AssetID& aid = m_Commitment.m_X;
 				if (aid == Zero)
 				{
-					assert(false); // Currently zero kernels are not allowed, but if we change this eventually - this will allow attacker to emit default asset (i.e. Beams) for free.
+					assert(false); // Currently zero kernels are not allowed, but if we change this eventually - this will allow attacker to emit default asset (i.e. Beams).
 					// hence - extra verification
 					return false;
 				}
@@ -899,6 +902,7 @@ namespace beam
 			<< MaxBodySize
 			<< FakePoW
 			<< AllowPublicUtxos
+			<< AllowCA
 			<< DesiredRate_s
 			<< DifficultyReviewWindow
 			<< TimestampAheadThreshold_s
