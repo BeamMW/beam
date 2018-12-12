@@ -230,6 +230,8 @@ namespace ECC
 
 			void Initialize(Oracle&, Hash::Processor& hpRes);
 			void Initialize(Point::Native&, Oracle&);
+
+			void Assign(Point::Native&, bool bSet) const;
 		};
 
 		Casual* m_pCasual;
