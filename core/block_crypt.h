@@ -72,6 +72,9 @@ namespace beam
 		void AddTo(ECC::Point::Native&, const Type&);
 	};
 
+	typedef int64_t AmountSigned;
+	static_assert(sizeof(Amount) == sizeof(AmountSigned), "");
+
 	struct Rules
 	{
 		Rules();
@@ -235,8 +238,12 @@ namespace beam
 		ECC::Signature	m_Signature;	// For the whole body, including nested kernels
 		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
 		HeightRange		m_Height;
+		AmountSigned	m_AssetEmission; // in case it's non-zero - the kernel commitment is the AssetID
 
-		TxKernel() :m_Fee(0) {}
+		TxKernel()
+			:m_Fee(0)
+			,m_AssetEmission(0)
+		{}
 
 		struct HashLock
 		{
@@ -246,20 +253,8 @@ namespace beam
 			COMPARISON_VIA_CMP
 		};
 
-		struct AssetControl
-		{
-			AssetID m_ID;
-			Amount m_Value;
-			uint8_t m_IsEmission; // 1 = emission, 0 = collection
-			ECC::Signature m_Signature; // signs the whole kernel with the pk derived from the m_ID
-
-			int cmp(const AssetControl&) const;
-			COMPARISON_VIA_CMP
-		};
-
 		std::unique_ptr<HashLock> m_pHashLock;
 		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
-		std::unique_ptr<AssetControl> m_pAssetCtl;
 
 		static const uint32_t s_MaxRecursionDepth = 2;
 

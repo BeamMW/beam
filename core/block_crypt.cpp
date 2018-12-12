@@ -348,8 +348,7 @@ namespace beam
 		if (pParent)
 		{
 			// nested kernel restrictions
-			if (m_pAssetCtl ||
-				(m_Height.m_Min > pParent->m_Height.m_Min) ||
+			if ((m_Height.m_Min > pParent->m_Height.m_Min) ||
 				(m_Height.m_Max < pParent->m_Height.m_Max))
 				return false; // parent Height range must be contained in ours.
 		}
@@ -358,9 +357,9 @@ namespace beam
 		hp	<< m_Fee
 			<< m_Height.m_Min
 			<< m_Height.m_Max
+			<< Amount(m_AssetEmission)
 			<< m_Commitment
-			<< (bool) m_pHashLock
-			<< (bool) m_pAssetCtl;
+			<< (bool) m_pHashLock;
 
 		if (m_pHashLock)
 		{
@@ -371,14 +370,6 @@ namespace beam
 			}
 
 			hp << *pLockImage;
-		}
-
-		if (m_pAssetCtl)
-		{
-			hp
-				<< m_pAssetCtl->m_ID
-				<< m_pAssetCtl->m_Value
-				<< m_pAssetCtl->m_IsEmission;
 		}
 
 		ECC::Point::Native ptExcNested;
@@ -410,7 +401,7 @@ namespace beam
 		if (pExcess)
 		{
 			ECC::Point::Native pt;
-			if (!pt.Import(m_Commitment))
+			if (!pt.ImportNnz(m_Commitment))
 				return false;
 
 			ptExcNested = -ptExcNested;
@@ -421,33 +412,32 @@ namespace beam
 
 			*pExcess += pt;
 
-			if (m_pAssetCtl)
+			if (m_AssetEmission)
 			{
-				if (m_pAssetCtl->m_ID == Zero)
-					return false; // attempt to emit default asset (beams)
+				if (pParent || !m_vNested.empty())
+					return false; // Ban complex cases. Emission kernels must be simple
 
-				if (!m_pAssetCtl->m_Value || (m_pAssetCtl->m_IsEmission > 1))
+				const AssetID& aid = m_Commitment.m_X;
+				if (aid == Zero)
+				{
+					assert(false); // Currently zero kernels are not allowed, but if we change this eventually - this will allow attacker to emit default asset (i.e. Beams) for free.
+					// hence - extra verification
 					return false;
+				}
 
-				SwitchCommitment sc(&m_pAssetCtl->m_ID);
+				SwitchCommitment sc(&aid);
 				assert(ECC::Tag::IsCustom(&sc.m_hGen));
 
-				// asset emission should be signed by the preimage of the AssetID
-				ECC::Point pt_;
-				pt_.m_X = m_pAssetCtl->m_ID;
-				pt_.m_Y = 0;
-				if (!pt.ImportNnz(pt_))
-					return false;
-
-				if (!m_pAssetCtl->m_Signature.IsValid(hv, pt))
-					return false;
-
-				pt = Zero;
-				ECC::Tag::AddValue(pt, &sc.m_hGen, m_pAssetCtl->m_Value); // In case of block validation with multiple asset instructions it's better to calculate this via MultiMac
-				if (m_pAssetCtl->m_IsEmission)
+				// In case of block validation with multiple asset instructions it's better to calculate this via MultiMac
+				if (m_AssetEmission > 0)
+				{
+					pt = Zero;
+					ECC::Tag::AddValue(pt, &sc.m_hGen, Amount(m_AssetEmission));
 					pt = -pt;
 
-				*pExcess += pt;
+					*pExcess += pt;
+				} else
+					ECC::Tag::AddValue(*pExcess, &sc.m_hGen, Amount(-m_AssetEmission));
 			}
 		}
 
@@ -485,6 +475,7 @@ namespace beam
 		CMP_MEMBER(m_Fee)
 		CMP_MEMBER(m_Height.m_Min)
 		CMP_MEMBER(m_Height.m_Max)
+		CMP_MEMBER(m_AssetEmission)
 
 		auto it0 = m_vNested.begin();
 		auto it1 = v.m_vNested.begin();
@@ -503,7 +494,6 @@ namespace beam
 			return -1;
 
 		CMP_MEMBER_PTR(m_pHashLock)
-		CMP_MEMBER_PTR(m_pAssetCtl)
 
 		return 0;
 	}
@@ -511,15 +501,6 @@ namespace beam
 	int TxKernel::HashLock::cmp(const HashLock& v) const
 	{
 		CMP_MEMBER_EX(m_Preimage)
-		return 0;
-	}
-
-	int TxKernel::AssetControl::cmp(const AssetControl& v) const
-	{
-		CMP_MEMBER_EX(m_ID)
-		CMP_MEMBER(m_Value)
-		CMP_MEMBER(m_IsEmission)
-		CMP_MEMBER_EX(m_Signature)
 		return 0;
 	}
 
@@ -538,14 +519,13 @@ namespace beam
 		m_Signature = v.m_Signature;
 		m_Fee = v.m_Fee;
 		m_Height = v.m_Height;
+		m_AssetEmission = v.m_AssetEmission;
 		ClonePtr(m_pHashLock, v.m_pHashLock);
 
 		m_vNested.resize(v.m_vNested.size());
 
 		for (size_t i = 0; i < v.m_vNested.size(); i++)
 			ClonePtr(m_vNested[i], v.m_vNested[i]);
-
-		ClonePtr(m_pAssetCtl, v.m_pAssetCtl);
 	}
 
 	/////////////

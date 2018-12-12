@@ -530,33 +530,6 @@ namespace detail
 			return ar;
 		}
 
-		/// beam::TxKernel::AssetControl serialization
-		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::TxKernel::AssetControl& val)
-		{
-			ar
-				& val.m_ID
-				& val.m_Value
-				& val.m_IsEmission
-				& val.m_Signature
-				;
-
-			return ar;
-		}
-
-		template<typename Archive>
-		static Archive& load(Archive& ar, beam::TxKernel::AssetControl& val)
-		{
-			ar
-				& val.m_ID
-				& val.m_Value
-				& val.m_IsEmission
-				& val.m_Signature
-				;
-
-			return ar;
-		}
-
         /// beam::TxKernel serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::TxKernel& val)
@@ -569,7 +542,7 @@ namespace detail
 				(val.m_Signature.m_NoncePub.m_Y ? 0x10 : 0) |
 				(val.m_pHashLock ? 0x20 : 0) |
 				(val.m_vNested.empty() ? 0 : 0x40) |
-				(val.m_pAssetCtl ? 0x80 : 0);
+				(val.m_AssetEmission ? 0x80 : 0);
 
 			ar
 				& nFlags
@@ -599,7 +572,7 @@ namespace detail
 			}
 
 			if (0x80 & nFlags)
-				ar & *val.m_pAssetCtl;
+				ar & val.m_AssetEmission;
 
             return ar;
         }
@@ -660,10 +633,9 @@ namespace detail
 			}
 
 			if (0x80 & nFlags)
-			{
-				val.m_pAssetCtl.reset(new beam::TxKernel::AssetControl);
-				ar & *val.m_pAssetCtl;
-			}
+				ar & val.m_AssetEmission;
+			else
+				val.m_AssetEmission = 0;
 
             return ar;
         }

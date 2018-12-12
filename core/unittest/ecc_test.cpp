@@ -885,32 +885,32 @@ struct TransactionMaker
 		Hash::Value hvLockImage;
 		Hash::Processor() << hlPreimage >> hvLockImage;
 
-		// emit some asset
-		Scalar::Native skAsset;
-		beam::AssetID aid;
-		Amount valAsset = 4431;
-
 		if (bEmitCustomTag)
 		{
+			// emit some asset
+			Scalar::Native skAsset;
+			beam::AssetID aid;
+			Amount valAsset = 4431;
+
 			SetRandom(skAsset);
 			beam::proto::Sk2Pk(aid, skAsset);
 
 			m_pPeers[0].AddOutput(m_Trans, valAsset, m_Kdf, &aid); // add output UTXO to consume the created asset
 
-			pKrn->m_pAssetCtl.reset(new beam::TxKernel::AssetControl);
-			pKrn->m_pAssetCtl->m_ID = aid;
-			pKrn->m_pAssetCtl->m_IsEmission = 1;
-			pKrn->m_pAssetCtl->m_Value = valAsset;
+			std::unique_ptr<beam::TxKernel> pKrnEmission(new beam::TxKernel);
+			pKrnEmission->m_AssetEmission = valAsset;
+			pKrnEmission->m_Commitment.m_X = aid;
+			pKrnEmission->m_Commitment.m_Y = 0;
+			pKrnEmission->Sign(skAsset);
+
+			lstTrg.push_back(std::move(pKrnEmission));
+
+			skAsset = -skAsset;
+			m_pPeers[0].m_k += skAsset;
 		}
 
 		CoSignKernel(*pKrn, hvLockImage);
 
-		if (bEmitCustomTag)
-		{
-			Hash::Value hv;
-			pKrn->get_Hash(hv, &hvLockImage);
-			pKrn->m_pAssetCtl->m_Signature.Sign(hv, skAsset);
-		}
 
 		Point::Native exc;
 		beam::AmountBig::Type fee2;

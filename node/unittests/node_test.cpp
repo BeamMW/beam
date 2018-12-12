@@ -1251,33 +1251,23 @@ namespace beam
 						ZeroObject(kidv);
 						kidv.m_Value = 21420;
 
-						ECC::Scalar::Native skAsset, skKrn, skOut;
+						ECC::Scalar::Native skAsset, skOut;
 						ECC::SetRandom(skAsset);
 						proto::Sk2Pk(m_AssetEmitted, skAsset);
 
-						ECC::SetRandom(skKrn);
-
 						TxKernel::Ptr pKrn(new TxKernel);
-						pKrn->m_Commitment = ECC::Context::get().G * skKrn;
-						pKrn->m_pAssetCtl.reset(new TxKernel::AssetControl);
-						pKrn->m_pAssetCtl->m_ID = m_AssetEmitted;
-						pKrn->m_pAssetCtl->m_IsEmission = 1;
-						pKrn->m_pAssetCtl->m_Value = kidv.m_Value;
-
-						Merkle::Hash hv;
-						pKrn->get_Hash(hv);
-						pKrn->m_Signature.Sign(hv, skKrn);
-						pKrn->m_pAssetCtl->m_Signature.Sign(hv, skAsset);
+						pKrn->m_Commitment.m_X = m_AssetEmitted;
+						pKrn->m_Commitment.m_Y = 0;
+						pKrn->m_AssetEmission = kidv.m_Value;
+						pKrn->Sign(skAsset);
 
 						Output::Ptr pOutp(new Output);
-						pOutp->m_AssetID = pKrn->m_pAssetCtl->m_ID;
+						pOutp->m_AssetID = m_AssetEmitted;
 						pOutp->Create(skOut, *m_Wallet.m_pKdf, kidv);
 
-						skAsset = msgTx.m_Transaction->m_Offset;
-						skAsset = -skAsset;
-						skAsset += skKrn;
 						skAsset += skOut;
 						skAsset = -skAsset;
+						skAsset += msgTx.m_Transaction->m_Offset;
 						msgTx.m_Transaction->m_Offset = skAsset;
 
 						msgTx.m_Transaction->m_vOutputs.push_back(std::move(pOutp));
