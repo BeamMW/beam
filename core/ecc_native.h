@@ -647,6 +647,12 @@ namespace ECC
 		void Assign(Point::Native& res, bool bSet) const;
 	};
 
+	namespace Tag
+	{
+		bool IsCustom(const Point::Native* pHGen);
+		void AddValue(Point::Native&, const Point::Native* pHGen, Amount);
+	}
+
 	class Oracle
 	{
 		Hash::Processor m_hp;

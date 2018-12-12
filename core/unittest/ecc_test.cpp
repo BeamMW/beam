@@ -508,13 +508,29 @@ void WriteSizeSerialized(const char* sz, const T& t)
 	printf("%s size = %u\n", sz, (uint32_t) ssc.m_Counter.m_Value);
 }
 
-void TestRangeProof()
+struct AssetTag
+{
+	Point::Native m_hGen;
+	void Commit(Point::Native& out, const Scalar::Native& sk, Amount v)
+	{
+		out = Context::get().G * sk;
+		Tag::AddValue(out, &m_hGen, v);
+	}
+};
+
+void TestRangeProof(bool bCustomTag)
 {
 	RangeProof::CreatorParams cp;
 	SetRandomOrd(cp.m_Kidv.m_Idx);
 	SetRandomOrd(cp.m_Kidv.m_Type);
 	SetRandom(cp.m_Seed.V);
 	cp.m_Kidv.m_Value = 345000;
+
+	AssetTag tag;
+	if (bCustomTag)
+		tag.m_hGen = Context::get().G * Scalar(100500U);
+	else
+		tag.m_hGen = Zero;
 
 	Scalar::Native sk;
 	SetRandom(sk);
@@ -526,11 +542,12 @@ void TestRangeProof()
 		verify_test(rp.m_Value == cp.m_Kidv.m_Value);
 	}
 
-	Point::Native comm = Commitment(sk, rp.m_Value);
+	Point::Native comm;
+	tag.Commit(comm, sk, rp.m_Value);
 
 	{
 		Oracle oracle;
-		verify_test(rp.IsValid(comm, oracle));
+		verify_test(rp.IsValid(comm, oracle, &tag.m_hGen));
 	}
 
 	{
@@ -545,18 +562,18 @@ void TestRangeProof()
 	rp.m_Value++;
 	{
 		Oracle oracle;
-		verify_test(!rp.IsValid(comm, oracle));
+		verify_test(!rp.IsValid(comm, oracle, &tag.m_hGen));
 	}
 	rp.m_Value--;
 
 	// try with invalid key
 	SetRandom(sk);
 
-	comm = Commitment(sk, rp.m_Value);
+	tag.Commit(comm, sk, rp.m_Value);
 
 	{
 		Oracle oracle;
-		verify_test(!rp.IsValid(comm, oracle));
+		verify_test(!rp.IsValid(comm, oracle, &tag.m_hGen));
 	}
 
 	Scalar::Native pA[InnerProduct::nDim];
@@ -586,15 +603,15 @@ void TestRangeProof()
 	RangeProof::Confidential bp;
 	cp.m_Kidv.m_Value = 23110;
 
-	comm = Commitment(sk, cp.m_Kidv.m_Value);
+	tag.Commit(comm, sk, cp.m_Kidv.m_Value);
 
 	{
 		Oracle oracle;
-		bp.Create(sk, cp, oracle);
+		bp.Create(sk, cp, oracle, &tag.m_hGen);
 	}
 	{
 		Oracle oracle;
-		verify_test(bp.IsValid(comm, oracle));
+		verify_test(bp.IsValid(comm, oracle, &tag.m_hGen));
 	}
 	{
 		Oracle oracle;
@@ -610,21 +627,21 @@ void TestRangeProof()
 
 	{
 		Oracle oracle;
-		verify_test(bp.IsValid(comm, oracle, bc)); // add to batch
+		verify_test(bp.IsValid(comm, oracle, bc, &tag.m_hGen)); // add to batch
 	}
 
 	SetRandom(sk);
 	cp.m_Kidv.m_Value = 7223110;
 	SetRandom(cp.m_Seed.V); // another seed for this bulletproof
-	comm = Commitment(sk, cp.m_Kidv.m_Value);
+	tag.Commit(comm, sk, cp.m_Kidv.m_Value);
 
 	{
 		Oracle oracle;
-		bp.Create(sk, cp, oracle);
+		bp.Create(sk, cp, oracle, &tag.m_hGen);
 	}
 	{
 		Oracle oracle;
-		verify_test(bp.IsValid(comm, oracle, bc)); // add to batch
+		verify_test(bp.IsValid(comm, oracle, bc, &tag.m_hGen)); // add to batch
 	}
 
 	verify_test(bc.Flush()); // verify at once
@@ -656,7 +673,7 @@ void TestRangeProof()
 			{
 				Oracle oracle;
 				bp.m_Part2 = p2;
-				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Step2, &msig)); // add last p2, produce msig
+				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Step2, &msig, &tag.m_hGen)); // add last p2, produce msig
 				p2 = bp.m_Part2;
 			}
 		}
@@ -665,7 +682,8 @@ void TestRangeProof()
 		RangeProof::Confidential::Part3 p3;
 		ZeroObject(p3);
 
-		comm = Context::get().H * cp.m_Kidv.m_Value;
+		comm = Zero;
+		Tag::AddValue(comm, &tag.m_hGen, cp.m_Kidv.m_Value);
 
 		for (uint32_t i = 0; i < nSigners; i++)
 		{
@@ -678,7 +696,7 @@ void TestRangeProof()
 				Oracle oracle;
 				bp.m_Part2 = p2;
 				bp.m_Part3 = p3;
-				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Finalize));
+				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Finalize, nullptr, &tag.m_hGen));
 			}
 		}
 
@@ -686,7 +704,7 @@ void TestRangeProof()
 		{
 			// test
 			Oracle oracle;
-			verify_test(bp.IsValid(comm, oracle));
+			verify_test(bp.IsValid(comm, oracle, &tag.m_hGen));
 		}
 	}
 
@@ -1264,7 +1282,8 @@ void TestAll()
 	TestPoints();
 	TestSigning();
 	TestCommitments();
-	TestRangeProof();
+	TestRangeProof(false);
+	TestRangeProof(true);
 	TestTransaction();
 	TestAES();
 	TestKdf();

@@ -375,9 +375,9 @@ namespace ECC
 			//		In case of multi-sig it should be specified explicitly by the caller (the resulting nonce must be the same for multiple invocations).
 			//			Means - the caller must take care of constructing the nonce, which has external randomness
 
-			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&); // single-pass
-			bool IsValid(const Point::Native&, Oracle&) const;
-			bool IsValid(const Point::Native&, Oracle&, InnerProduct::BatchContext&) const;
+			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&, const Point::Native* pHGen = nullptr); // single-pass
+			bool IsValid(const Point::Native&, Oracle&, const Point::Native* pHGen = nullptr) const;
+			bool IsValid(const Point::Native&, Oracle&, InnerProduct::BatchContext&, const Point::Native* pHGen = nullptr) const;
 
 			bool Recover(Oracle&, CreatorParams&) const;
 
@@ -403,7 +403,7 @@ namespace ECC
 				};
 			};
 
-			bool CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, MultiSig* pMsigOut = NULL); // for multi-sig use 1,2,3 for 1st-pass
+			bool CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, MultiSig* pMsigOut = nullptr, const Point::Native* pHGen = nullptr); // for multi-sig use 1,2,3 for 1st-pass
 
 
 		private:
@@ -418,7 +418,7 @@ namespace ECC
 			Key::ID::Packed m_Kid; // encoded of course
 
 			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&); // amount should have been set
-			bool IsValid(const Point::Native&, Oracle&) const;
+			bool IsValid(const Point::Native&, Oracle&, const Point::Native* pHGen = nullptr) const;
 			void Recover(CreatorParams&) const;
 
 			int cmp(const Public&) const;

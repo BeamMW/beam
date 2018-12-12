@@ -1162,6 +1162,25 @@ namespace ECC {
 	}
 
 	/////////////////////
+	// Tag
+	namespace Tag {
+
+		bool IsCustom(const Point::Native* pHGen)
+		{
+			return pHGen && !(*pHGen == Zero);
+		}
+
+		void AddValue(Point::Native& out, const Point::Native* pHGen, Amount v)
+		{
+			if (IsCustom(pHGen))
+				out += *pHGen * v;
+			else
+				out += Context::get().H * v;
+		}
+
+	} // namespace Tag
+
+	/////////////////////
 	// Nonce and key generation
 	void GenerateNonce(uintBig& res, const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
 	{
@@ -1534,18 +1553,19 @@ namespace ECC {
 	// RangeProof
 	namespace RangeProof
 	{
-		void get_PtMinusVal(Point::Native& out, const Point::Native& comm, Amount val)
+		void get_PtMinusVal(Point::Native& out, const Point::Native& comm, Amount val, const Point::Native* pHGen)
 		{
 			out = comm;
 
-			Point::Native ptAmount = Context::get().H * val;
+			Point::Native ptAmount;
+			Tag::AddValue(ptAmount, pHGen, val);
 
 			ptAmount = -ptAmount;
 			out += ptAmount;
 		}
 
 		// Public
-		bool Public::IsValid(const Point::Native& comm, Oracle& oracle) const
+		bool Public::IsValid(const Point::Native& comm, Oracle& oracle, const Point::Native* pHGen /* = nullptr */) const
 		{
 			Mode::Scope scope(Mode::Fast);
 
@@ -1553,7 +1573,7 @@ namespace ECC {
 				return false;
 
 			Point::Native pk;
-			get_PtMinusVal(pk, comm, m_Value);
+			get_PtMinusVal(pk, comm, m_Value, pHGen);
 
 			Hash::Value hv;
 			get_Msg(hv, oracle);
