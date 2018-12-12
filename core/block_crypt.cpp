@@ -348,7 +348,8 @@ namespace beam
 		if (pParent)
 		{
 			// nested kernel restrictions
-			if ((m_Height.m_Min > pParent->m_Height.m_Min) ||
+			if (m_pAssetCtl ||
+				(m_Height.m_Min > pParent->m_Height.m_Min) ||
 				(m_Height.m_Max < pParent->m_Height.m_Max))
 				return false; // parent Height range must be contained in ours.
 		}
@@ -358,7 +359,8 @@ namespace beam
 			<< m_Height.m_Min
 			<< m_Height.m_Max
 			<< m_Commitment
-			<< (bool) m_pHashLock;
+			<< (bool) m_pHashLock
+			<< (bool) m_pAssetCtl;
 
 		if (m_pHashLock)
 		{
@@ -369,6 +371,14 @@ namespace beam
 			}
 
 			hp << *pLockImage;
+		}
+
+		if (m_pAssetCtl)
+		{
+			hp
+				<< m_pAssetCtl->m_ID
+				<< m_pAssetCtl->m_Value
+				<< m_pAssetCtl->m_IsEmission;
 		}
 
 		ECC::Point::Native ptExcNested;
@@ -410,6 +420,35 @@ namespace beam
 				return false;
 
 			*pExcess += pt;
+
+			if (m_pAssetCtl)
+			{
+				if (m_pAssetCtl->m_ID == Zero)
+					return false; // attempt to emit default asset (beams)
+
+				if (!m_pAssetCtl->m_Value || (m_pAssetCtl->m_IsEmission > 1))
+					return false;
+
+				SwitchCommitment sc(&m_pAssetCtl->m_ID);
+				assert(ECC::Tag::IsCustom(&sc.m_hGen));
+
+				// asset emission should be signed by the preimage of the AssetID
+				ECC::Point pt_;
+				pt_.m_X = m_pAssetCtl->m_ID;
+				pt_.m_Y = 0;
+				if (!pt.ImportNnz(pt_))
+					return false;
+
+				if (!m_pAssetCtl->m_Signature.IsValid(hv, pt))
+					return false;
+
+				pt = Zero;
+				ECC::Tag::AddValue(pt, &sc.m_hGen, m_pAssetCtl->m_Value); // In case of block validation with multiple asset instructions it's better to calculate this via MultiMac
+				if (m_pAssetCtl->m_IsEmission)
+					pt = -pt;
+
+				*pExcess += pt;
+			}
 		}
 
 		if (pFee)

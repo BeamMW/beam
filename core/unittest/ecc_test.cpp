@@ -796,6 +796,8 @@ struct TransactionMaker
 			kidv.m_Type = Key::Type::Regular;
 			kidv.m_Value = val;
 
+			if (pAssetID)
+				pOut->m_AssetID = *pAssetID;
 			pOut->Create(k, kdf, kidv);
 
 			// test recovery
@@ -867,7 +869,7 @@ struct TransactionMaker
 		krn.m_Signature.m_k = kSig;
 	}
 
-	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested)
+	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested, bool bEmitCustomTag)
 	{
 		std::unique_ptr<beam::TxKernel> pKrn(new beam::TxKernel);
 		pKrn->m_Fee = fee;
@@ -883,7 +885,32 @@ struct TransactionMaker
 		Hash::Value hvLockImage;
 		Hash::Processor() << hlPreimage >> hvLockImage;
 
+		// emit some asset
+		Scalar::Native skAsset;
+		beam::AssetID aid;
+		Amount valAsset = 4431;
+
+		if (bEmitCustomTag)
+		{
+			SetRandom(skAsset);
+			beam::proto::Sk2Pk(aid, skAsset);
+
+			m_pPeers[0].AddOutput(m_Trans, valAsset, m_Kdf, &aid); // add output UTXO to consume the created asset
+
+			pKrn->m_pAssetCtl.reset(new beam::TxKernel::AssetControl);
+			pKrn->m_pAssetCtl->m_ID = aid;
+			pKrn->m_pAssetCtl->m_IsEmission = 1;
+			pKrn->m_pAssetCtl->m_Value = valAsset;
+		}
+
 		CoSignKernel(*pKrn, hvLockImage);
+
+		if (bEmitCustomTag)
+		{
+			Hash::Value hv;
+			pKrn->get_Hash(hv, &hvLockImage);
+			pKrn->m_pAssetCtl->m_Signature.Sign(hv, skAsset);
+		}
 
 		Point::Native exc;
 		beam::AmountBig::Type fee2;
@@ -921,11 +948,11 @@ void TestTransaction()
 
 	Amount fee1 = 100, fee2 = 2;
 
-	tm.CreateTxKernel(lstNested, fee1, lstDummy);
+	tm.CreateTxKernel(lstNested, fee1, lstDummy, false);
 
 	tm.AddOutput(0, 738);
 	tm.AddInput(1, 740);
-	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested);
+	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested, true);
 
 	tm.m_Trans.Normalize();
 
