@@ -1062,6 +1062,8 @@ namespace beam
 			uint32_t m_nChainWorkProofsPending = 0;
 			uint32_t m_nBbsMsgsPending = 0;
 			uint32_t m_nRecoveryPending = 0;
+			AssetID m_AssetEmitted = Zero;
+			bool m_bCustomAssetRecognized = false;
 
 
 			MyClient(const Key::IKdf::Ptr& pKdf)
@@ -1157,7 +1159,7 @@ namespace beam
 
 				if (IsHeightReached())
 				{
-					if (IsAllProofsReceived() && IsAllBbsReceived() && IsAllRecoveryReceived())
+					if (IsAllProofsReceived() && IsAllBbsReceived() && IsAllRecoveryReceived() && m_bCustomAssetRecognized)
 						io::Reactor::get_Current().stop();
 					return;
 				}
@@ -1242,6 +1244,51 @@ namespace beam
 						break;
 
 					assert(msgTx.m_Transaction);
+
+					if (m_AssetEmitted == Zero)
+					{
+						Key::IDV kidv;
+						ZeroObject(kidv);
+						kidv.m_Value = 21420;
+
+						ECC::Scalar::Native skAsset, skKrn, skOut;
+						ECC::SetRandom(skAsset);
+						proto::Sk2Pk(m_AssetEmitted, skAsset);
+
+						ECC::SetRandom(skKrn);
+
+						TxKernel::Ptr pKrn(new TxKernel);
+						pKrn->m_Commitment = ECC::Context::get().G * skKrn;
+						pKrn->m_pAssetCtl.reset(new TxKernel::AssetControl);
+						pKrn->m_pAssetCtl->m_ID = m_AssetEmitted;
+						pKrn->m_pAssetCtl->m_IsEmission = 1;
+						pKrn->m_pAssetCtl->m_Value = kidv.m_Value;
+
+						Merkle::Hash hv;
+						pKrn->get_Hash(hv);
+						pKrn->m_Signature.Sign(hv, skKrn);
+						pKrn->m_pAssetCtl->m_Signature.Sign(hv, skAsset);
+
+						Output::Ptr pOutp(new Output);
+						pOutp->m_AssetID = pKrn->m_pAssetCtl->m_ID;
+						pOutp->Create(skOut, *m_Wallet.m_pKdf, kidv);
+
+						skAsset = msgTx.m_Transaction->m_Offset;
+						skAsset = -skAsset;
+						skAsset += skKrn;
+						skAsset += skOut;
+						skAsset = -skAsset;
+						msgTx.m_Transaction->m_Offset = skAsset;
+
+						msgTx.m_Transaction->m_vOutputs.push_back(std::move(pOutp));
+						msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+
+						msgTx.m_Transaction->Normalize();
+
+						Transaction::Context ctx;
+						verify_test(msgTx.m_Transaction->IsValid(ctx));
+					}
+
 					Send(msgTx);
 				}
 
@@ -1369,6 +1416,13 @@ namespace beam
 				m_nRecoveryPending--;
 
 				verify_test(!msg.m_Events.empty());
+
+				for (size_t i = 0; i < msg.m_Events.size(); i++)
+					if (!(msg.m_Events[i].m_AssetID == Zero))
+					{
+						verify_test(msg.m_Events[i].m_AssetID == m_AssetEmitted);
+						m_bCustomAssetRecognized = true;
+					}
 			}
 
 			virtual void OnMsg(proto::GetBlockFinalization&& msg) override
@@ -1476,6 +1530,8 @@ namespace beam
 			fail_test("some BBS messages missing");
 		if (!cl.IsAllRecoveryReceived())
 			fail_test("some recovery messages missing");
+		if (!cl.m_bCustomAssetRecognized)
+			fail_test("CA not recognized");
 
 		NodeProcessor::UtxoRecoverEx urec(node2.get_Processor());
 		urec.m_vKeys.push_back(node.m_Keys.m_pMiner);

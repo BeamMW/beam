@@ -747,7 +747,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 			UtxoEvent::Value evt = *reinterpret_cast<const UtxoEvent::Value*>(wlk.m_Body.p); // copy
 			evt.m_Maturity = x.m_Maturity;
 
-			// In case of macroblock we can't recover the original input height. But in our current implementation macroblocks always go from the beginning, hence they don't contain input.
+			// In case of macroblock we can't recover the original input height.
 			m_DB.InsertEvent(hMax, Blob(&evt, sizeof(evt)), Blob(NULL, 0));
 		}
 	}
@@ -800,6 +800,8 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 				h = hMax;
 				w.m_Value.m_Maturity = x.get_MinMaturity(h);
 			}
+
+			w.m_Value.m_AssetID = r.m_pUtxoOut->m_AssetID;
 
 			const UtxoEvent::Key& key = x.m_Commitment;
 			m_DB.InsertEvent(h, Blob(&w.m_Value, sizeof(w.m_Value)), Blob(&key, sizeof(key)));

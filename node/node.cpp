@@ -2762,6 +2762,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 			evt.m_iKdf.Export(res.m_Kidvc.m_iChild);
 			evt.m_Maturity.Export(res.m_Maturity);
 
+			res.m_AssetID = evt.m_AssetID;
 			res.m_Added = (sizeof(UE::Key) == wlk.m_Key.n);
 		}
 	}
