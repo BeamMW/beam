@@ -241,6 +241,9 @@ namespace beam
 		struct HashLock
 		{
 			ECC::uintBig m_Preimage;
+
+			int cmp(const HashLock&) const;
+			COMPARISON_VIA_CMP
 		};
 
 		std::unique_ptr<HashLock> m_pHashLock;

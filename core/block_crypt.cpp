@@ -463,6 +463,14 @@ namespace beam
 		if (v.m_vNested.end() != it1)
 			return -1;
 
+		CMP_MEMBER_PTR(m_pHashLock)
+
+		return 0;
+	}
+
+	int TxKernel::HashLock::cmp(const HashLock& v) const
+	{
+		CMP_MEMBER_EX(m_Preimage)
 		return 0;
 	}
 
