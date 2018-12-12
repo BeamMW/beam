@@ -353,13 +353,21 @@ namespace beam
 				return false; // parent Height range must be contained in ours.
 		}
 
+		bool bExtFeatures = m_AssetEmission || m_pHashLock;
+
 		ECC::Hash::Processor hp;
 		hp	<< m_Fee
 			<< m_Height.m_Min
 			<< m_Height.m_Max
-			<< Amount(m_AssetEmission)
 			<< m_Commitment
-			<< (bool) m_pHashLock;
+			<< bExtFeatures;
+
+		if (bExtFeatures)
+		{
+			hp
+				<< Amount(m_AssetEmission)
+				<< (bool) m_pHashLock;
+		}
 
 		if (m_pHashLock)
 		{
