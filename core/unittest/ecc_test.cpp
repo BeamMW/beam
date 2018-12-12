@@ -758,12 +758,6 @@ struct TransactionMaker
 			m_k = Zero;
 		}
 
-		void EncodeAmount(Point& out, Scalar::Native& k, Amount val)
-		{
-			SetRandom(k);
-			out = Point::Native(Commitment(k, val));
-		}
-
 		void FinalizeExcess(Point::Native& kG, Scalar::Native& kOffset)
 		{
 			kOffset += m_k;
@@ -775,20 +769,23 @@ struct TransactionMaker
 			kG += Context::get().G * m_k;
 		}
 
-
-		void AddInput(beam::Transaction& t, Amount val)
+		void AddInput(beam::Transaction& t, Amount val, Key::IKdf& kdf, const beam::AssetID* pAssetID = nullptr)
 		{
 			std::unique_ptr<beam::Input> pInp(new beam::Input);
 
+			Key::IDV kidv;
+			SetRandomOrd(kidv.m_Idx);
+			kidv.m_Type = Key::Type::Regular;
+			kidv.m_Value = val;
+
 			Scalar::Native k;
-			EncodeAmount(pInp->m_Commitment, k, val);
+			beam::SwitchCommitment(pAssetID).Create(k, pInp->m_Commitment, kdf, kidv);
 
 			t.m_vInputs.push_back(std::move(pInp));
-
 			m_k += k;
 		}
 
-		void AddOutput(beam::Transaction& t, Amount val, Key::IKdf& kdf)
+		void AddOutput(beam::Transaction& t, Amount val, Key::IKdf& kdf, const beam::AssetID* pAssetID = nullptr)
 		{
 			std::unique_ptr<beam::Output> pOut(new beam::Output);
 
@@ -877,13 +874,13 @@ struct TransactionMaker
 
 		pKrn->m_vNested.swap(lstNested);
 
+		// hashlock
 		pKrn->m_pHashLock.reset(new beam::TxKernel::HashLock);
 
 		uintBig hlPreimage;
 		SetRandom(hlPreimage);
 
 		Hash::Value hvLockImage;
-
 		Hash::Processor() << hlPreimage >> hvLockImage;
 
 		CoSignKernel(*pKrn, hvLockImage);
@@ -894,7 +891,6 @@ struct TransactionMaker
 
 		// finish HL: add hash preimage
 		pKrn->m_pHashLock->m_Preimage = hlPreimage;
-
 		verify_test(pKrn->IsValid(fee2, exc));
 
 		lstTrg.push_back(std::move(pKrn));
@@ -902,7 +898,7 @@ struct TransactionMaker
 
 	void AddInput(int i, Amount val)
 	{
-		m_pPeers[i].AddInput(m_Trans, val);
+		m_pPeers[i].AddInput(m_Trans, val, m_Kdf);
 	}
 
 	void AddOutput(int i, Amount val)
