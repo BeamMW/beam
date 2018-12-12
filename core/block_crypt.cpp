@@ -428,16 +428,20 @@ namespace beam
 				SwitchCommitment sc(&aid);
 				assert(ECC::Tag::IsCustom(&sc.m_hGen));
 
-				// In case of block validation with multiple asset instructions it's better to calculate this via MultiMac
-				if (m_AssetEmission > 0)
-				{
-					pt = Zero;
-					ECC::Tag::AddValue(pt, &sc.m_hGen, Amount(m_AssetEmission));
-					pt = -pt;
+				sc.m_hGen = -sc.m_hGen;
+				sc.m_hGen += ECC::Context::get().m_Ipp.H_; // Asset is traded for beam!
 
-					*pExcess += pt;
-				} else
-					ECC::Tag::AddValue(*pExcess, &sc.m_hGen, Amount(-m_AssetEmission));
+				// In case of block validation with multiple asset instructions it's better to calculate this via MultiMac than multiplying each point separately
+				Amount val;
+				if (m_AssetEmission > 0)
+					val = m_AssetEmission;
+				else
+				{
+					val = -m_AssetEmission;
+					sc.m_hGen = -sc.m_hGen;
+				}
+
+				ECC::Tag::AddValue(*pExcess, &sc.m_hGen, val);
 			}
 		}
 
