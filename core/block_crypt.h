@@ -85,10 +85,10 @@ namespace beam
 
 		// emission parameters
 		Amount EmissionValue0	= Coin * 80; // Initial emission. Each drop it will be halved. In case of odd num it's rounded to the lower value.
-		Height EmissionDrop0	= 525000; // 1 year roughly. This is the height of the last block that still has the initial emission, the drop is starting from the next block
-		Height EmissionDrop1	= 2100000; // 4 years roughly. Each such a cycle there's a new drop
+		Height EmissionDrop0	= 1440 * 365; // 1 year roughly. This is the height of the last block that still has the initial emission, the drop is starting from the next block
+		Height EmissionDrop1	= 1440 * 365 * 4; // 4 years roughly. Each such a cycle there's a new drop
 
-		Height MaturityCoinbase = 60; // 1 hour
+		Height MaturityCoinbase = 240; // 4 hours
 		Height MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
 
 		size_t MaxBodySize		= 0x100000; // 1MB
