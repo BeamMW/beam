@@ -19,7 +19,6 @@
 StatusbarViewModel::StatusbarViewModel()
     : m_model(*AppModel::getInstance()->getWallet())
     , m_isSyncInProgress(false)
-    , m_isOfflineStatus(false)
     , m_isFailedStatus(false)
     , m_nodeSyncProgress(0)
     , m_nodeDone(0)
@@ -49,11 +48,6 @@ bool StatusbarViewModel::getIsFailedStatus() const
     return m_isFailedStatus;
 }
 
-bool StatusbarViewModel::getIsOfflineStatus() const
-{
-    return m_isOfflineStatus;
-}
-
 bool StatusbarViewModel::getIsSyncInProgress() const
 {
     return m_isSyncInProgress;
@@ -81,15 +75,6 @@ void StatusbarViewModel::setIsFailedStatus(bool value)
 {
 }
 
-void StatusbarViewModel::setIsOfflineStatus(bool value)
-{
-    if (m_isOfflineStatus != value)
-    {
-        m_isOfflineStatus = value;
-        emit isOfflineStatusChanged();
-    }
-}
-
 void StatusbarViewModel::setNodeSyncProgress(int value)
 {
     if (m_nodeSyncProgress != value)
@@ -108,17 +93,12 @@ void StatusbarViewModel::setIsSyncInProgress(bool value)
     }
 }
 
-void StatusbarViewModel::onNodeConnectionChanged(bool isNodeConnected)
-{
-    if (isNodeConnected && getIsOfflineStatus())
-    {
-        setIsOfflineStatus(false);
-    }
+void StatusbarViewModel::onNodeConnectionChanged(bool /*isNodeConnected*/)
+{    
 }
 
 void StatusbarViewModel::onNodeConnectionFailed()
-{
-    setIsOfflineStatus(true);
+{    
 }
 
 void StatusbarViewModel::onSyncProgressUpdated(int done, int total)

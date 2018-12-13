@@ -14,8 +14,6 @@ Item {
     property string status: {
         if (model.isFailedStatus)
             qsTr("error")
-        else if (model.isOfflineStatus)
-            qsTr("offline")
         else if(model.isSyncInProgress)
             qsTr("updating")
         else
@@ -64,33 +62,6 @@ Item {
             samples: 9
             source: online_rect
             color: parent.color
-        }
-    }
-
-    Item {
-        id: offline_indicator
-        anchors.top: parent.top
-        anchors.left: parent.left
-        width: childrenRect.width
-        visible: false
-
-        property color color: Style.bluey_grey
-        property int radius: rootControl.indicator_radius
-
-
-        Rectangle {
-            id: offline_rect
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.leftMargin: 0
-            anchors.topMargin: 2
-
-            color: "transparent"
-            width: parent.radius * 2
-            height: parent.radius * 2
-            radius: parent.radius
-            border.color: parent.color
-            border.width: 1
         }
     }
 
@@ -171,17 +142,6 @@ Item {
                 name: "onlineScript"
                 script: {
                     rootControl.setIndicator(online_indicator);
-                }
-            }
-        },
-        State {
-            name: "offline"
-            when: (rootControl.status === "offline")
-            PropertyChanges {target: status_text; text: qsTr("offline") + model.branchName}
-            StateChangeScript {
-                name: "offlineScript"
-                script: {
-                    rootControl.setIndicator(offline_indicator);
                 }
             }
         },
