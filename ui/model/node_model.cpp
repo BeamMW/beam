@@ -84,22 +84,6 @@ void NodeModel::run()
 
         node.m_Keys.SetSingleKey(m_pKdf);
 
-		for (auto it = m_Subkeys.begin(); m_Subkeys.end() != it; it++)
-		{
-			uint32_t iSubkey = *it;
-			if (!iSubkey)
-				continue;
-
-			Key::IKdf::Ptr pRes;
-			ECC::HKdf::CreateChild(pRes, *m_pKdf, iSubkey);
-
-			node.m_Keys.m_vMonitored.emplace_back();
-			node.m_Keys.m_vMonitored.back().first = iSubkey;
-			node.m_Keys.m_vMonitored.back().second = std::move(pRes);
-		}
-
-		// add child keys?
-
         node.m_Cfg.m_HistoryCompression.m_sPathOutput = settings.getTempDir();
         node.m_Cfg.m_HistoryCompression.m_sPathTmp = settings.getTempDir();
 

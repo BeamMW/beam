@@ -55,7 +55,6 @@ namespace beam
 		const char* RESYNC = "resync";
 		const char* CRASH = "crash";
 		const char* INIT = "init";
-		const char* KEY_LIST = "subkeys";
 		const char* KEY_EXPORT = "key_export";
 		const char* KEY_SUBKEY = "subkey";
 		const char* KEY_VIEW = "key_view";
@@ -155,7 +154,6 @@ namespace beam
             (cli::NEW_ADDRESS_LABEL, po::value<string>()->default_value(""), "label for new own address")
             (cli::GENERATE_PHRASE, "command to generate phrases which will be used to create a secret according to BIP-39")
 			(cli::KEY_SUBKEY, po::value<uint32_t>()->default_value(0), "Child key index. 0 == Master key")
-			(cli::KEY_LIST, po::value<vector<uint32_t> >()->multitoken(), "Set all the viewer subkeys for the local node")
             (cli::TR_OPCODE, po::value<uint32_t>()->default_value(0), "treasury operation: 0=print ID, 1=plan, 2=response, 3=import, 4=generate, 5=print")
             (cli::TR_WID, po::value<std::string>(), "treasury WalletID")
             (cli::TR_PERC, po::value<double>(), "treasury percent of the total emission, designated to this WalletID")

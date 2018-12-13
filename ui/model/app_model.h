@@ -58,7 +58,6 @@ private:
     MessageManager m_messages;
 	ECC::NoLeak<ECC::uintBig> m_passwordHash;
     beam::IWalletDB::Ptr m_db;
-	std::set<uint32_t> m_Subkeys;
     static AppModel* s_instance;
     bool m_restoreWallet;
 };
