@@ -1178,7 +1178,7 @@ namespace beam
 
 				if (IsHeightReached())
 				{
-					if (IsAllProofsReceived() && IsAllBbsReceived() && IsAllRecoveryReceived() && m_bCustomAssetRecognized)
+					if (IsAllProofsReceived() && IsAllBbsReceived() && IsAllRecoveryReceived() /* && m_bCustomAssetRecognized*/)
 						io::Reactor::get_Current().stop();
 					return;
 				}
@@ -1542,8 +1542,8 @@ namespace beam
 			fail_test("some BBS messages missing");
 		if (!cl.IsAllRecoveryReceived())
 			fail_test("some recovery messages missing");
-		if (!cl.m_bCustomAssetRecognized)
-			fail_test("CA not recognized");
+		//if (!cl.m_bCustomAssetRecognized)
+		//	fail_test("CA not recognized");
 
 		NodeProcessor::UtxoRecoverEx urec(node2.get_Processor());
 		urec.m_vKeys.push_back(node.m_Keys.m_pMiner);
