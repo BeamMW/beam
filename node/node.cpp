@@ -399,15 +399,15 @@ void Node::Processor::OnNewState()
 
 	LOG_INFO() << "My Tip: " << m_Cursor.m_ID << ", Work = " << Difficulty::ToFloat(m_Cursor.m_Full.m_ChainWork);
 
-	get_ParentObj().m_TxPool.DeleteOutOfBound(m_Cursor.m_Sid.m_Height + 1);
+	//get_ParentObj().m_TxPool.DeleteOutOfBound(m_Cursor.m_Sid.m_Height + 1);
+	get_ParentObj().m_Processor.DeleteOutdated(get_ParentObj().m_TxPool); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
+	// because in practice mining could be OFF (for instance, if miner key isn't defined, and owner wallet is offline).
 
 	if (get_ParentObj().m_Miner.IsEnabled())
 	{
 		get_ParentObj().m_Miner.HardAbortSafe();
 		get_ParentObj().m_Miner.SetTimer(0, true); // async start mining
 	}
-	else
-		get_ParentObj().m_Processor.DeleteOutdated(get_ParentObj().m_TxPool);
 
 	proto::NewTip msg;
 	msg.m_Description = m_Cursor.m_Full;
