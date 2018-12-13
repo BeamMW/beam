@@ -792,8 +792,6 @@ Item {
 
                 onClicked: root.state = "send"
             }
-
-
         }
 
         Item {
@@ -862,8 +860,6 @@ Item {
 
             color: "#0a344d"
         }
-
-
 
         CustomTableView {
 
@@ -1268,7 +1264,6 @@ Item {
                         }
                     }
                 }
-
 
                 MouseArea {
                     anchors.top: parent.top

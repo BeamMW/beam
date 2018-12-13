@@ -12,7 +12,7 @@ Item {
     property var model
     
     property string status: {
-        if (model.isisFailedStatus)
+        if (model.isFailedStatus)
             qsTr("error")
         else if (model.isOfflineStatus)
             qsTr("offline")
@@ -209,6 +209,7 @@ Item {
             }
         }
     ]
+
     transitions: [
         Transition {
             from: "online"
