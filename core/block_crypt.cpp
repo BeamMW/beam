@@ -119,13 +119,19 @@ namespace beam
 		if (pAssetID && !(*pAssetID == Zero))
 		{
 			ECC::Oracle oracle;
-			oracle << *pAssetID;
+			oracle
+				<< "a-id"
+				<< *pAssetID;
 
 			ECC::Point pt;
 			pt.m_Y = 0;
 
 			do
-				oracle >> pt.m_X;
+			{
+				oracle
+					<< "a-gen"
+					>> pt.m_X;
+			}
 			while (!m_hGen.ImportNnz(pt));
 		}
 		else
