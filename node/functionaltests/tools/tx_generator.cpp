@@ -30,7 +30,7 @@ void TxGenerator::GenerateInputInTx(Height h, Amount v, beam::Key::Type keyType,
 	Scalar::Native key;
 
 	Input::Ptr pInp(new Input);
-	SwitchCommitment::Create(key, pInp->m_Commitment, m_Kdf, Key::IDV(v, ind, keyType));
+	SwitchCommitment().Create(key, pInp->m_Commitment, m_Kdf, Key::IDV(v, ind, keyType));
 	m_MsgTx.m_Transaction->m_vInputs.push_back(std::move(pInp));
 	m_Offset += key;
 	m_MsgTx.m_Transaction->m_Offset = m_Offset;

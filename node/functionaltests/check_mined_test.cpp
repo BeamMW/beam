@@ -87,7 +87,7 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 	
 	Scalar::Native key;
 	Input input;
-	SwitchCommitment::Create(key, input.m_Commitment, *m_pKdf, Key::IDV(Rules::get().CoinbaseEmission, mined.m_ID.m_Height, Key::Type::Coinbase));
+	SwitchCommitment().Create(key, input.m_Commitment, *m_pKdf, Key::IDV(Rules::get().CoinbaseEmission, mined.m_ID.m_Height, Key::Type::Coinbase));
 
 	m_CoinsChecker.Check(CoinsChecker::Inputs{ input },
 		[this](bool isOk, Height)

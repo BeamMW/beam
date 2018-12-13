@@ -230,6 +230,8 @@ namespace ECC
 
 			void Initialize(Oracle&, Hash::Processor& hpRes);
 			void Initialize(Point::Native&, Oracle&);
+
+			void Assign(Point::Native&, bool bSet) const;
 		};
 
 		Casual* m_pCasual;
@@ -646,6 +648,12 @@ namespace ECC
 		Commitment(const Scalar::Native& k_, const Amount& val_) :k(k_) ,val(val_) {}
 		void Assign(Point::Native& res, bool bSet) const;
 	};
+
+	namespace Tag
+	{
+		bool IsCustom(const Point::Native* pHGen);
+		void AddValue(Point::Native&, const Point::Native* pHGen, Amount);
+	}
 
 	class Oracle
 	{

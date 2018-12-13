@@ -789,6 +789,12 @@ namespace ECC {
 		}
 	}
 
+	void MultiMac::Prepared::Assign(Point::Native& out, bool bSet) const
+	{
+		secp256k1_ge ge; // not secret
+		Generator::ToPt(out, ge, m_Fast.m_pPt[0], bSet);
+	}
+
 	void MultiMac::Casual::Init(const Point::Native& p)
 	{
 		if (Mode::Fast == g_Mode)
@@ -1102,17 +1108,28 @@ namespace ECC {
 		{
 			for (uint32_t j = 0; j < 2; j++)
 			{
-				ctx.m_Ipp.m_pGen_[j][i].Initialize(oracle, hpRes);
-
-				secp256k1_ge ge;
+				MultiMac::Prepared& p = ctx.m_Ipp.m_pGen_[j][i];
+				p.Initialize(oracle, hpRes);
 
 				if (1 == j)
 				{
-					Generator::ToPt(pt, ge, ctx.m_Ipp.m_pGen_[j][i].m_Fast.m_pPt[0], true);
+#ifdef ECC_COMPACT_GEN
+
+					secp256k1_ge ge;
+					secp256k1_ge_from_storage(&ge, &p.m_Fast.m_pPt[0]);
+					secp256k1_ge_neg(&ge, &ge);
+					secp256k1_ge_to_storage(&ctx.m_Ipp.m_pGet1_Minus[i], &ge);
+
+#else // ECC_COMPACT_GEN
+
+					pt = p;
 					pt = -pt;
 					Generator::FromPt(ctx.m_Ipp.m_pGet1_Minus[i], pt);
-				} else
-					Generator::ToPt(ptAux2, ge, ctx.m_Ipp.m_pGen_[j][i].m_Fast.m_pPt[0], false);
+
+#endif // ECC_COMPACT_GEN
+				}
+				else
+					ptAux2 += p;
 			}
 		}
 
@@ -1160,6 +1177,25 @@ namespace ECC {
 		(Context::get().G * k).Assign(res, bSet);
 		res += Context::get().H * val;
 	}
+
+	/////////////////////
+	// Tag
+	namespace Tag {
+
+		bool IsCustom(const Point::Native* pHGen)
+		{
+			return pHGen && !(*pHGen == Zero);
+		}
+
+		void AddValue(Point::Native& out, const Point::Native* pHGen, Amount v)
+		{
+			if (IsCustom(pHGen))
+				out += *pHGen * v;
+			else
+				out += Context::get().H * v;
+		}
+
+	} // namespace Tag
 
 	/////////////////////
 	// Nonce and key generation
@@ -1534,18 +1570,19 @@ namespace ECC {
 	// RangeProof
 	namespace RangeProof
 	{
-		void get_PtMinusVal(Point::Native& out, const Point::Native& comm, Amount val)
+		void get_PtMinusVal(Point::Native& out, const Point::Native& comm, Amount val, const Point::Native* pHGen)
 		{
 			out = comm;
 
-			Point::Native ptAmount = Context::get().H * val;
+			Point::Native ptAmount;
+			Tag::AddValue(ptAmount, pHGen, val);
 
 			ptAmount = -ptAmount;
 			out += ptAmount;
 		}
 
 		// Public
-		bool Public::IsValid(const Point::Native& comm, Oracle& oracle) const
+		bool Public::IsValid(const Point::Native& comm, Oracle& oracle, const Point::Native* pHGen /* = nullptr */) const
 		{
 			Mode::Scope scope(Mode::Fast);
 
@@ -1553,7 +1590,7 @@ namespace ECC {
 				return false;
 
 			Point::Native pk;
-			get_PtMinusVal(pk, comm, m_Value);
+			get_PtMinusVal(pk, comm, m_Value, pHGen);
 
 			Hash::Value hv;
 			get_Msg(hv, oracle);

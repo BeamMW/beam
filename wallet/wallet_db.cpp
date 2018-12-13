@@ -1129,7 +1129,7 @@ namespace beam
 
     void IWalletDB::calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID& cid)
     {
-        SwitchCommitment::Create(sk, comm, *get_ChildKdf(cid.m_iChild), cid);
+        SwitchCommitment().Create(sk, comm, *get_ChildKdf(cid.m_iChild), cid);
     }
 
     vector<Coin> WalletDB::selectCoins(const Amount& amount, bool lock)

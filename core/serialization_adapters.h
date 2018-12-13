@@ -453,7 +453,8 @@ namespace detail
 				(output.m_Coinbase ? 2 : 0) |
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
-				(output.m_Incubation ? 0x10 : 0);
+				(output.m_Incubation ? 0x10 : 0) |
+				((output.m_AssetID == beam::Zero) ? 0 : 0x20);
 
 			ar
 				& nFlags
@@ -467,6 +468,9 @@ namespace detail
 
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
+
+			if (0x20 & nFlags)
+				ar & output.m_AssetID;
 
             return ar;
         }
@@ -496,6 +500,11 @@ namespace detail
 
 			if (0x10 & nFlags)
 				ar & output.m_Incubation;
+
+			if (0x20 & nFlags)
+				ar & output.m_AssetID;
+			else
+				output.m_AssetID = beam::Zero;
 
             return ar;
         }
@@ -532,7 +541,8 @@ namespace detail
 				((val.m_Height.m_Max != beam::Height(-1)) ? 8 : 0) |
 				(val.m_Signature.m_NoncePub.m_Y ? 0x10 : 0) |
 				(val.m_pHashLock ? 0x20 : 0) |
-				(val.m_vNested.empty() ? 0 : 0x40);
+				(val.m_vNested.empty() ? 0 : 0x40) |
+				(val.m_AssetEmission ? 0x80 : 0);
 
 			ar
 				& nFlags
@@ -560,6 +570,9 @@ namespace detail
 				for (uint32_t i = 0; i < nCount; i++)
 					save(ar, *val.m_vNested[i]);
 			}
+
+			if (0x80 & nFlags)
+				ar & val.m_AssetEmission;
 
             return ar;
         }
@@ -618,6 +631,11 @@ namespace detail
 					load_Recursive(ar, *v, nRecusion);
 				}
 			}
+
+			if (0x80 & nFlags)
+				ar & val.m_AssetEmission;
+			else
+				val.m_AssetEmission = 0;
 
             return ar;
         }

@@ -518,7 +518,7 @@ namespace beam
 
 		void ToCommtiment(const MyUtxo& utxo, ECC::Point& comm, ECC::Scalar::Native& k) const
 		{
-			SwitchCommitment::Create(k, comm, *m_pKdf, utxo.m_Kidv);
+			SwitchCommitment().Create(k, comm, *m_pKdf, utxo.m_Kidv);
 		}
 
 		void ToInput(const MyUtxo& utxo, TxVectors::Perishable& txv, ECC::Scalar::Native& offset) const
@@ -583,62 +583,81 @@ namespace beam
 		typedef std::vector<MyKernel> KernelList;
 		KernelList m_MyKernels;
 
-
 		bool MakeTx(Transaction::Ptr& pTx, Height h, Height hIncubation)
+		{
+			Amount val = MakeTxInput(pTx, h);
+			if (!val)
+				return false;
+
+			MakeTxOutput(*pTx, h, hIncubation, val);
+			return true;
+		}
+
+
+		Amount MakeTxInput(Transaction::Ptr& pTx, Height h)
 		{
 			UtxoQueue::iterator it = m_MyUtxos.begin();
 			if (m_MyUtxos.end() == it)
-				return false;
+				return 0;
 
 			if (it->first > h)
-				return false; // not spendable yet
+				return 0; // not spendable yet
 
 			pTx = std::make_shared<Transaction>();
 
 			const MyUtxo& utxo = it->second;
 			assert(utxo.m_Kidv.m_Value);
 
+			ECC::Scalar::Native kOffset = Zero;
+			ToInput(utxo, *pTx, kOffset);
+			pTx->m_Offset = kOffset;
+
+			Amount ret = utxo.m_Kidv.m_Value;
+			m_MyUtxos.erase(it);
+
+			return ret;
+		}
+
+		void MakeTxOutput(Transaction& tx, Height h, Height hIncubation, Amount val)
+		{
+			ECC::Scalar::Native kOffset = tx.m_Offset;
+
 			m_MyKernels.emplace_back();
 			MyKernel& mk = m_MyKernels.back();
-			mk.m_Fee = 1090000;
+			mk.m_Fee = 10900000;
 			mk.m_bUseHashlock = 0 != (1 & h);
 			mk.m_Height = h;
 
-			ECC::Scalar::Native kOffset = Zero;
-
-			ToInput(utxo, *pTx, kOffset);
-
-			if (mk.m_Fee >= utxo.m_Kidv.m_Value)
-				mk.m_Fee = utxo.m_Kidv.m_Value;
+			if (mk.m_Fee >= val)
+				mk.m_Fee = val;
 			else
 			{
 				MyUtxo utxoOut;
-				utxoOut.m_Kidv.m_Value = utxo.m_Kidv.m_Value - mk.m_Fee;
+				utxoOut.m_Kidv.m_Value = val - mk.m_Fee;
 				utxoOut.m_Kidv.m_Idx = ++m_nRunningIndex;
 				utxoOut.m_Kidv.m_Type = Key::Type::Regular;
 
-				ToOutput(utxoOut, *pTx, kOffset, hIncubation);
+				ToOutput(utxoOut, tx, kOffset, hIncubation);
 
 				m_MyUtxos.insert(std::make_pair(h + 1 + hIncubation, utxoOut));
 			}
 
-			m_MyUtxos.erase(it);
 
 			m_pKdf->DeriveKey(mk.m_k, Key::ID(++m_nRunningIndex, Key::Type::Kernel));
 
 			TxKernel::Ptr pKrn;
 			mk.Export(pKrn);
-			pTx->m_vKernels.push_back(std::move(pKrn));
+			tx.m_vKernels.push_back(std::move(pKrn));
 
 			ECC::Scalar::Native k = -mk.m_k;
 			kOffset += k;
-			pTx->m_Offset = kOffset;
+			tx.m_Offset = kOffset;
 
-			pTx->Normalize();
+			tx.Normalize();
+
 			Transaction::Context ctx;
-			bool isTxValid = pTx->IsValid(ctx);
+			bool isTxValid = tx.IsValid(ctx);
 			verify_test(isTxValid);
-			return isTxValid;
 		}
 	};
 
@@ -1062,6 +1081,8 @@ namespace beam
 			uint32_t m_nChainWorkProofsPending = 0;
 			uint32_t m_nBbsMsgsPending = 0;
 			uint32_t m_nRecoveryPending = 0;
+			AssetID m_AssetEmitted = Zero;
+			bool m_bCustomAssetRecognized = false;
 
 
 			MyClient(const Key::IKdf::Ptr& pKdf)
@@ -1157,7 +1178,7 @@ namespace beam
 
 				if (IsHeightReached())
 				{
-					if (IsAllProofsReceived() && IsAllBbsReceived() && IsAllRecoveryReceived())
+					if (IsAllProofsReceived() && IsAllBbsReceived() && IsAllRecoveryReceived() /* && m_bCustomAssetRecognized*/)
 						io::Reactor::get_Current().stop();
 					return;
 				}
@@ -1238,10 +1259,48 @@ namespace beam
 				proto::NewTransaction msgTx;
 				while (true)
 				{
-					if (!m_Wallet.MakeTx(msgTx.m_Transaction, msg.m_Description.m_Height, 2))
+					Amount val = m_Wallet.MakeTxInput(msgTx.m_Transaction, msg.m_Description.m_Height);
+					if (!val)
 						break;
 
 					assert(msgTx.m_Transaction);
+
+					if (m_AssetEmitted == Zero)
+					{
+						Key::IDV kidv;
+						ZeroObject(kidv);
+						kidv.m_Value = val;
+
+						ECC::Scalar::Native skAsset, skOut;
+						ECC::SetRandom(skAsset);
+						proto::Sk2Pk(m_AssetEmitted, skAsset);
+
+						TxKernel::Ptr pKrn(new TxKernel);
+						pKrn->m_Commitment.m_X = m_AssetEmitted;
+						pKrn->m_Commitment.m_Y = 0;
+						pKrn->m_AssetEmission = kidv.m_Value;
+						pKrn->Sign(skAsset);
+
+						Output::Ptr pOutp(new Output);
+						pOutp->m_AssetID = m_AssetEmitted;
+						pOutp->Create(skOut, *m_Wallet.m_pKdf, kidv);
+
+						skAsset += skOut;
+						skAsset = -skAsset;
+						skAsset += msgTx.m_Transaction->m_Offset;
+						msgTx.m_Transaction->m_Offset = skAsset;
+
+						msgTx.m_Transaction->m_vOutputs.push_back(std::move(pOutp));
+						msgTx.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+
+						msgTx.m_Transaction->Normalize();
+					}
+					else
+						m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
+
+					Transaction::Context ctx;
+					verify_test(msgTx.m_Transaction->IsValid(ctx));
+
 					Send(msgTx);
 				}
 
@@ -1369,6 +1428,13 @@ namespace beam
 				m_nRecoveryPending--;
 
 				verify_test(!msg.m_Events.empty());
+
+				for (size_t i = 0; i < msg.m_Events.size(); i++)
+					if (!(msg.m_Events[i].m_AssetID == Zero))
+					{
+						verify_test(msg.m_Events[i].m_AssetID == m_AssetEmitted);
+						m_bCustomAssetRecognized = true;
+					}
 			}
 
 			virtual void OnMsg(proto::GetBlockFinalization&& msg) override
@@ -1476,6 +1542,8 @@ namespace beam
 			fail_test("some BBS messages missing");
 		if (!cl.IsAllRecoveryReceived())
 			fail_test("some recovery messages missing");
+		//if (!cl.m_bCustomAssetRecognized)
+		//	fail_test("CA not recognized");
 
 		NodeProcessor::UtxoRecoverEx urec(node2.get_Processor());
 		urec.m_vKeys.push_back(node.m_Keys.m_pMiner);

@@ -608,7 +608,7 @@ namespace ECC {
 
 	/////////////////////
 	// Bulletproof
-	void RangeProof::Confidential::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle)
+	void RangeProof::Confidential::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, const Point::Native* pHGen /* = nullptr */)
 	{
 		// single-pass - use both deterministic and random seed for key blinding.
 		// For more safety - use the current oracle state
@@ -623,7 +623,7 @@ namespace ECC {
 			<< cp.m_Kidv.m_Value
 			>> seedSk.V;
 
-		verify(CoSign(seedSk.V, sk, cp, oracle, Phase::SinglePass));
+		verify(CoSign(seedSk.V, sk, cp, oracle, Phase::SinglePass, NULL, pHGen));
 	}
 
 	struct RangeProof::Confidential::MultiSig::Impl
@@ -661,7 +661,7 @@ namespace ECC {
 
 #pragma pack (pop)
 
-	bool RangeProof::Confidential::CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, MultiSig* pMsigOut /* = NULL */)
+	bool RangeProof::Confidential::CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, MultiSig* pMsigOut /* = nullptr */, const Point::Native* pHGen /* = nullptr */)
 	{
 		NonceGenerator nonceGen(cp.m_Seed.V);
 
@@ -774,8 +774,30 @@ namespace ECC {
 			Point::Native comm2;
 			msig.AddInfo1(comm, comm2);
 
-			comm += Context::get().H_Big * t1;
-			comm2 += Context::get().H_Big * t2;
+			if (Tag::IsCustom(pHGen))
+			{
+				// since we need 2 multiplications - prepare it explicitly.
+				MultiMac::Casual mc;
+				mc.Init(*pHGen);
+
+				MultiMac mm2;
+				mm2.m_pCasual = &mc;
+				mm2.m_Casual = 1;
+				Point::Native comm3;
+
+				mc.m_K = t1;
+				mm2.Calculate(comm3);
+				comm += comm3;
+
+				mc.m_K = t2;
+				mm2.Calculate(comm3);
+				comm2 += comm3;
+			}
+			else
+			{
+				comm += Context::get().H_Big * t1;
+				comm2 += Context::get().H_Big * t2;
+			}
 
 			if (Phase::SinglePass != ePhase)
 			{
@@ -999,21 +1021,23 @@ namespace ECC {
 		ChallengeSetBase::Init(p2, oracle);
 	}
 
-	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle) const
+	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle, const Point::Native* pHGen /* = nullptr */) const
 	{
 		if (InnerProduct::BatchContext::s_pInstance)
-			return IsValid(commitment, oracle, *InnerProduct::BatchContext::s_pInstance);
+			return IsValid(commitment, oracle, *InnerProduct::BatchContext::s_pInstance, pHGen);
 
 		InnerProduct::BatchContextEx<1> bc;
 		bc.m_bEnableBatch = true; // why not?
 
 		return
-			IsValid(commitment, oracle, bc) &&
+			IsValid(commitment, oracle, bc, pHGen) &&
 			bc.Flush();
 	}
 
-	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle, InnerProduct::BatchContext& bc) const
+	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle, InnerProduct::BatchContext& bc, const Point::Native* pHGen /* = nullptr */) const
 	{
+		bool bCustom = Tag::IsCustom(pHGen);
+
 		Mode::Scope scope(Mode::Fast);
 
 		ChallengeSet cs;
@@ -1054,7 +1078,7 @@ namespace ECC {
 
 		Point::Native p;
 
-		if (!bc.EquationBegin(3))
+		if (!bc.EquationBegin(3 + (bCustom != false)))
 			return false;
 
 		bc.AddCasual(commitment, -zz);
@@ -1068,7 +1092,11 @@ namespace ECC {
 		sumY += -delta;
 
 		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Part3.m_TauX);
-		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, sumY);
+
+		if (bCustom)
+			bc.AddCasual(*pHGen, sumY);
+		else
+			bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, sumY);
 
 		if (!bc.EquationEnd())
 			return false;
