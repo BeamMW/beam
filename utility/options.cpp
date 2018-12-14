@@ -57,7 +57,7 @@ namespace beam
 		const char* INIT = "init";
 		const char* KEY_EXPORT = "key_export";
 		const char* KEY_SUBKEY = "subkey";
-		const char* KEY_VIEW = "key_view";
+		const char* KEY_OWNER = "key_owner";
 		const char* KEY_MINE= "key_mine";
         const char* NEW_ADDRESS = "new_addr";
         const char* NEW_ADDRESS_LABEL = "label";
@@ -134,7 +134,7 @@ namespace beam
             (cli::IMPORT, po::value<Height>()->default_value(0), "Specify the blockchain height to import. The compressed history is asumed to be downloaded the the specified directory")
 			(cli::RESYNC, po::value<bool>()->default_value(false), "Enforce re-synchronization (soft reset)")
 			(cli::CRASH, po::value<int>()->default_value(0), "Induce crash (test proper handling)")
-			(cli::KEY_VIEW, po::value<vector<string>>()->multitoken(), "Viewer key(s)")
+			(cli::KEY_OWNER, po::value<string>(), "Owner viewer key")
 			(cli::KEY_MINE, po::value<string>(), "Standalone miner key")
 			(cli::PASS, po::value<string>(), "password for keys")
 			;

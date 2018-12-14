@@ -184,11 +184,11 @@ int main_impl(int argc, char* argv[])
 #endif
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
 
-					std::vector<std::string> vKeysView;
+					std::string sKeyOwner;
 					{
-						const auto& var = vm[cli::KEY_VIEW];
+						const auto& var = vm[cli::KEY_OWNER];
 						if (!var.empty())
-							vKeysView = var.as<std::vector<std::string> >();
+							sKeyOwner = var.as<std::string>();
 					}
 					std::string sKeyMine;
 					{
@@ -197,7 +197,7 @@ int main_impl(int argc, char* argv[])
 							sKeyMine = var.as<std::string>();
 					}
 
-					if (!(vKeysView.empty() && sKeyMine.empty()))
+					if (!(sKeyOwner.empty() && sKeyMine.empty()))
 					{
 						SecString pass;
 						if (!beam::read_wallet_pass(pass, vm))
@@ -209,8 +209,6 @@ int main_impl(int argc, char* argv[])
 						KeyString ks;
 						ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
 
-						std::map<uint32_t, Key::IPKdf::Ptr> mapViews;
-
 						if (!sKeyMine.empty())
 						{
 							ks.m_sRes = sKeyMine;
@@ -220,33 +218,18 @@ int main_impl(int argc, char* argv[])
 								throw std::runtime_error("miner key import failed");
 
 							node.m_Keys.m_pMiner = pKdf;
-
-							mapViews[atoi(ks.m_sMeta.c_str())] = pKdf;
+							node.m_Keys.m_nMinerSubIndex = atoi(ks.m_sMeta.c_str());
 						}
 
-						for (size_t i = 0; i < vKeysView.size(); i++)
+						if (!sKeyOwner.empty())
 						{
-							ks.m_sRes = vKeysView[i];
+							ks.m_sRes = sKeyOwner;
 
 							std::shared_ptr<HKdfPub> pKdf = std::make_shared<HKdfPub>();
 							if (!ks.Import(*pKdf))
 								throw std::runtime_error("view key import failed");
 
-							mapViews[atoi(ks.m_sMeta.c_str())] = pKdf;
-						}
-
-						{
-							auto it = mapViews.find(0);
-							if (mapViews.end() != it)
-								node.m_Keys.m_pOwner = it->second;
-						}
-
-						node.m_Keys.m_vMonitored.reserve(mapViews.size());
-						for (auto it = mapViews.begin(); mapViews.end() != it; it++)
-						{
-							node.m_Keys.m_vMonitored.emplace_back();
-							node.m_Keys.m_vMonitored.back().first = it->first;
-							node.m_Keys.m_vMonitored.back().second = it->second;
+							node.m_Keys.m_pOwner = pKdf;
 						}
 					}
 

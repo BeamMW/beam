@@ -640,13 +640,10 @@ bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
 {
 	const Keys& keys = get_ParentObj().m_Keys;
 
-	for (size_t i = 0; i < keys.m_vMonitored.size(); i++)
-	{
-		const Keys::Viewer& v = keys.m_vMonitored[i];
-		if (!w.OnKey(*v.second, v.first))
-			return false;
-	}
-
+	// according to current design - a single master viewer key is enough
+	if (keys.m_pOwner && !w.OnKey(*keys.m_pOwner, 0))
+		return false;
+		
 	return true;
 }
 
@@ -697,24 +694,11 @@ void Node::Keys::SetSingleKey(const Key::IKdf::Ptr& pKdf)
 	m_pMiner = pKdf;
 	m_pGeneric = pKdf;
 	m_pOwner = pKdf;
-
-	m_vMonitored.push_back(Viewer(0, pKdf));
 }
 
 void Node::Initialize(IExternalPOW* externalPOW)
 {
-	if (!m_Keys.m_pGeneric)
-	{
-		if (m_Keys.m_pMiner)
-			m_Keys.m_pGeneric = m_Keys.m_pMiner;
-		else
-		{
-			// use arbitrary, inited from system random. Needed for misc things, such as secure channel.
-			ECC::NoLeak<ECC::uintBig> seed;
-			ECC::GenRandom(seed.V);
-			ECC::HKdf::Create(m_Keys.m_pGeneric, seed.V);
-		}
-	}
+	InitKeys();
 
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_Sync.m_ForceResync);
@@ -749,6 +733,25 @@ void Node::Initialize(IExternalPOW* externalPOW)
 	m_Miner.Initialize(externalPOW);
 	m_Compressor.Init();
 	m_Bbs.Cleanup();
+}
+
+void Node::InitKeys()
+{
+	if (!m_Keys.m_pOwner)
+		m_Keys.m_pMiner = NULL; // can't mine without owner view key, because it's used for Tagging
+
+	if (!m_Keys.m_pGeneric)
+	{
+		if (m_Keys.m_pMiner)
+			m_Keys.m_pGeneric = m_Keys.m_pMiner;
+		else
+		{
+			// use arbitrary, inited from system random. Needed for misc things, such as secure channel, decoys and etc.
+			ECC::NoLeak<ECC::uintBig> seed;
+			ECC::GenRandom(seed.V);
+			ECC::HKdf::Create(m_Keys.m_pGeneric, seed.V);
+		}
+	}
 }
 
 void Node::InitIDs()

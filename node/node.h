@@ -128,14 +128,11 @@ struct Node
 		// There following Ptrs may point to the same object.
 
 		Key::IKdf::Ptr m_pGeneric; // used for internal nonce generation. Auto-generated from system random if not specified
+		Key::IPKdf::Ptr m_pOwner; // used for wallet authentication and UTXO tagging (this is the master view key)
 		Key::IKdf::Ptr m_pMiner; // if not set - offline mining would be impossible
-		Key::IPKdf::Ptr m_pOwner; // used for wallet authentication
 
-		typedef std::pair<Key::Index, Key::IPKdf::Ptr> Viewer;
-		std::vector<Viewer> m_vMonitored;
 		Key::Index m_nMinerSubIndex = 0;
 
-		// legacy. To be removed!
 		void InitSingleKey(const ECC::uintBig& seed);
 		void SetSingleKey(const Key::IKdf::Ptr&);
 
@@ -276,6 +273,7 @@ private:
 	bool TryAssignTask(Task&, Peer&);
 	void DeleteUnassignedTask(Task&);
 
+	void InitKeys();
 	void InitIDs();
 	void InitMode();
 
