@@ -2758,8 +2758,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 			proto::UtxoEvent& res = msgOut.m_Events.back();
 
 			res.m_Height = wlk.m_Height;
-			Cast::Down<Key::IDV>(res.m_Kidvc) = evt.m_Kidv;
-			evt.m_iKdf.Export(res.m_Kidvc.m_iChild);
+			res.m_Kidv = evt.m_Kidv;
 			evt.m_Maturity.Export(res.m_Maturity);
 
 			res.m_AssetID = evt.m_AssetID;

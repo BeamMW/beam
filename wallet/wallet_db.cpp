@@ -27,7 +27,7 @@
 
 #define ENUM_STORAGE_ID(each, sep, obj) \
     each(Type,           ID.m_Type,     INTEGER NOT NULL, obj) sep \
-    each(SubKey,         ID.m_iChild,   INTEGER NOT NULL, obj) sep \
+    each(SubKey,         ID.m_SubIdx,   INTEGER NOT NULL, obj) sep \
     each(Number,         ID.m_Idx,      INTEGER NOT NULL, obj)
 
 #define ENUM_STORAGE_FIELDS(each, sep, obj) \
@@ -1129,7 +1129,7 @@ namespace beam
 
     void IWalletDB::calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID& cid)
     {
-        SwitchCommitment().Create(sk, comm, *get_ChildKdf(cid.m_iChild), cid);
+        SwitchCommitment().Create(sk, comm, *get_ChildKdf(cid.m_SubIdx), cid);
     }
 
     vector<Coin> WalletDB::selectCoins(const Amount& amount, bool lock)

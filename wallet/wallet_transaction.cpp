@@ -535,6 +535,7 @@ namespace beam { namespace wallet
 			Key::ID kid;
 			kid.m_Idx = m_Tx.GetWalletDB()->AllocateKidRange(1);
 			kid.m_Type = FOURCC_FROM(KerW);
+			kid.m_SubIdx = 0;
 
 			m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_BlindingExcess, kid);
 

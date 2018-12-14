@@ -252,7 +252,6 @@ public:
 		static_assert(sizeof(Key) == sizeof(ECC::uintBig) + 1, "");
 
 		struct Value {
-			uintBigFor<ECC::Key::Index>::Type m_iKdf;
 			ECC::Key::IDV::Packed m_Kidv;
 			uintBigFor<Height>::Type m_Maturity;
 			AssetID m_AssetID;

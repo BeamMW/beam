@@ -769,7 +769,6 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 				if (!m_Output.Recover(kdf, kidv))
 					return true; // continue enumeration
 
-				m_Value.m_iKdf = iKdf;
 				m_Value.m_Kidv = kidv;
 				return false; // stop
 			}

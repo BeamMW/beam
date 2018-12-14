@@ -482,7 +482,7 @@ void TestCommitments()
 	SetRandom(seed);
 	kdf.Generate(seed);
 
-	Key::IDV kidv(100500, 15, Key::Type::Regular);
+	Key::IDV kidv(100500, 15, Key::Type::Regular, 7);
 
 	Scalar::Native sk;
 	ECC::Point::Native comm;
@@ -523,6 +523,7 @@ void TestRangeProof(bool bCustomTag)
 	RangeProof::CreatorParams cp;
 	SetRandomOrd(cp.m_Kidv.m_Idx);
 	SetRandomOrd(cp.m_Kidv.m_Type);
+	SetRandomOrd(cp.m_Kidv.m_SubIdx);
 	SetRandom(cp.m_Seed.V);
 	cp.m_Kidv.m_Value = 345000;
 
@@ -776,6 +777,7 @@ struct TransactionMaker
 			Key::IDV kidv;
 			SetRandomOrd(kidv.m_Idx);
 			kidv.m_Type = Key::Type::Regular;
+			kidv.m_SubIdx = 0;
 			kidv.m_Value = val;
 
 			Scalar::Native k;
@@ -794,6 +796,7 @@ struct TransactionMaker
 			Key::IDV kidv;
 			SetRandomOrd(kidv.m_Idx);
 			kidv.m_Type = Key::Type::Regular;
+			kidv.m_SubIdx = 0;
 			kidv.m_Value = val;
 
 			if (pAssetID)

@@ -95,9 +95,9 @@ namespace ECC {
 		return operator << (s, x.m_X);
 	}
 
-	std::ostream& operator << (std::ostream& s, const Key::IDVC& x)
+	std::ostream& operator << (std::ostream& s, const Key::IDV& x)
 	{
-		s << "Key=" << x.m_iChild << "/" << x.m_Type << "-" << x.m_Idx << ", Value=" << x.m_Value;
+		s << "Key=" << x.m_Type << "-" << x.m_SubIdx << ":" << x.m_Idx << ", Value=" << x.m_Value;
 		return s;
 	}
 
@@ -1241,27 +1241,22 @@ namespace ECC {
 			<< "kid"
 			<< m_Idx
 			<< m_Type.V
+			<< m_SubIdx
 			>> hv;
-	}
-
-	bool Key::IDV::operator == (const IDV& x) const
-	{
-		return
-			(m_Value == x.m_Value) &&
-			(m_Idx == x.m_Idx) &&
-			(m_Type == x.m_Type);
 	}
 
 	void Key::ID::operator = (const Packed& x)
 	{
 		x.m_Idx.Export(m_Idx);
 		x.m_Type.Export(m_Type.V);
+		x.m_SubIdx.Export(m_SubIdx);
 	}
 
 	void Key::ID::Packed::operator = (const ID& x)
 	{
 		m_Idx = x.m_Idx;
 		m_Type = x.m_Type.V;
+		m_SubIdx = x.m_SubIdx;
 	}
 
 	void Key::IDV::operator = (const Packed& x)
@@ -1301,6 +1296,10 @@ namespace ECC {
 			return -1;
 		if (m_Type > x.m_Type)
 			return 1;
+		if (m_SubIdx < x.m_SubIdx)
+			return -1;
+		if (m_SubIdx > x.m_SubIdx)
+			return 1;
 		if (m_Idx < x.m_Idx)
 			return -1;
 		if (m_Idx > x.m_Idx)
@@ -1317,19 +1316,6 @@ namespace ECC {
 		if (m_Value < x.m_Value)
 			return -1;
 		if (m_Value > x.m_Value)
-			return 1;
-		return 0;
-	}
-
-	int Key::IDVC::cmp(const IDVC& x) const
-	{
-		int n = IDV::cmp(x);
-		if (n)
-			return n;
-
-		if (m_iChild < x.m_iChild)
-			return -1;
-		if (m_iChild > x.m_iChild)
 			return 1;
 		return 0;
 	}

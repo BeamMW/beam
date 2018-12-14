@@ -270,7 +270,7 @@ int HandleTreasury(const po::variables_map& vm, Key::IKdf& kdf)
 			for (size_t i = 0; i < vCoins.size(); i++)
 			{
 				const Treasury::Data::Coin& coin = vCoins[i];
-				cout << "\t" << coin.m_Kidv.m_Value << ", Height=" << coin.m_Incubation << std::endl;
+				cout << "\t" << coin.m_Kidv << ", Height=" << coin.m_Incubation << std::endl;
 
 			}
 		}

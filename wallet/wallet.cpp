@@ -426,7 +426,7 @@ namespace beam
 
         proto::UtxoEvent evt;
         evt.m_Added = 1;
-        evt.m_Kidvc = r.m_CoinID;
+        evt.m_Kidv = r.m_CoinID;
         evt.m_Maturity = proof.m_State.m_Maturity;
         evt.m_Height = sTip.m_Height;
 
@@ -528,14 +528,14 @@ namespace beam
     void Wallet::ProcessUtxoEvent(const proto::UtxoEvent& evt, Height hTip)
     {
         Coin c;
-        c.m_ID = evt.m_Kidvc;
+        c.m_ID = evt.m_Kidv;
 
         bool bExists = m_WalletDB->find(c);
 
         const TxID* pTxID = NULL;
 
 
-        LOG_INFO() << "CoinID: " << evt.m_Kidvc << " Maturity=" << evt.m_Maturity << (evt.m_Added ? " Confirmed" : " Spent");
+        LOG_INFO() << "CoinID: " << evt.m_Kidv << " Maturity=" << evt.m_Maturity << (evt.m_Added ? " Confirmed" : " Spent");
 
         if (evt.m_Added)
         {

@@ -635,6 +635,7 @@ namespace beam
 				MyUtxo utxoOut;
 				utxoOut.m_Kidv.m_Value = val - mk.m_Fee;
 				utxoOut.m_Kidv.m_Idx = ++m_nRunningIndex;
+				utxoOut.m_Kidv.m_SubIdx = 0;
 				utxoOut.m_Kidv.m_Type = Key::Type::Regular;
 
 				ToOutput(utxoOut, tx, kOffset, hIncubation);
@@ -1267,8 +1268,7 @@ namespace beam
 
 					if (m_AssetEmitted == Zero)
 					{
-						Key::IDV kidv;
-						ZeroObject(kidv);
+						Key::IDV kidv(Zero);
 						kidv.m_Value = val;
 
 						ECC::Scalar::Native skAsset, skOut;
