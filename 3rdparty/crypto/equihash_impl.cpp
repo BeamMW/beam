@@ -29,6 +29,35 @@
 
 EhSolverCancelledException solver_cancelled;
 
+namespace
+{
+    constexpr size_t GetSizeInBytes(size_t N)
+    {
+        size_t res = N / 8;
+        if (N % 8)
+        {
+            res += 1;
+        }
+
+        return res;
+    }
+
+    constexpr void ZeroizeUnusedBits(size_t N, unsigned char* hash, size_t hLen)
+    {
+        size_t rem = N % 8;
+        if (rem)
+        {
+            // clear lowest 8-rem bits
+            const size_t step = GetSizeInBytes(N);
+            for (size_t i = step - 1; i < hLen; i += step)
+            {
+                uint8_t b = 0xff << (8-rem);
+                hash[i] &= b;
+            }
+        }
+    }
+}
+
 template<unsigned int N, unsigned int K>
 int Equihash<N,K>::InitialiseState(eh_HashState& base_state)
 {
@@ -55,7 +84,7 @@ int Equihash<N,K>::InitialiseState(eh_HashState& base_state)
 }
 
 void GenerateHash(const eh_HashState& base_state, eh_index g,
-                  unsigned char* hash, size_t hLen)
+                  unsigned char* hash, size_t hLen, size_t N)
 {
     eh_HashState state;
     state = base_state;
@@ -63,6 +92,8 @@ void GenerateHash(const eh_HashState& base_state, eh_index g,
     blake2b_update(&state, (const unsigned char*) &lei,
                                       sizeof(eh_index));
     blake2b_final(&state, hash, static_cast<uint8_t>(hLen));
+
+    ZeroizeUnusedBits(N, hash, hLen);
 }
 
 void ExpandArray(const unsigned char* in, size_t in_len,
@@ -350,9 +381,9 @@ bool Equihash<N,K>::BasicSolve(const eh_HashState& base_state,
     X.reserve(init_size);
     unsigned char tmpHash[HashOutput];
     for (eh_index g = 0; X.size() < init_size; g++) {
-        GenerateHash(base_state, g, tmpHash, HashOutput);
+        GenerateHash(base_state, g, tmpHash, HashOutput, N);
         for (eh_index i = 0; i < IndicesPerHashOutput && X.size() < init_size; i++) {
-            X.emplace_back(tmpHash+(i*N/8), N/8, HashLength,
+            X.emplace_back(tmpHash+(i*GetSizeInBytes(N)), GetSizeInBytes(N), HashLength,
                            CollisionBitLength, static_cast<int>(g*IndicesPerHashOutput)+i);
         }
         if (cancelled(ListGeneration)) throw solver_cancelled;
@@ -530,9 +561,9 @@ bool Equihash<N,K>::OptimisedSolve(const eh_HashState& base_state,
         Xt.reserve(init_size);
         unsigned char tmpHash[HashOutput];
         for (eh_index g = 0; Xt.size() < init_size; g++) {
-            GenerateHash(base_state, g, tmpHash, HashOutput);
+            GenerateHash(base_state, g, tmpHash, HashOutput, N);
             for (eh_index i = 0; i < IndicesPerHashOutput && Xt.size() < init_size; i++) {
-                Xt.emplace_back(tmpHash+(i*N/8), N/8, HashLength, CollisionBitLength,
+                Xt.emplace_back(tmpHash+(i*GetSizeInBytes(N)), GetSizeInBytes(N), HashLength, CollisionBitLength,
                     static_cast<eh_index>(g*IndicesPerHashOutput)+i, static_cast<unsigned int>(CollisionBitLength + 1));
             }
             if (cancelled(ListGeneration)) throw solver_cancelled;
@@ -659,10 +690,10 @@ bool Equihash<N,K>::OptimisedSolve(const eh_HashState& base_state,
                 eh_index newIndex { UntruncateIndex(partialSoln.get()[i], j, CollisionBitLength + 1) };
                 if (j == 0 || newIndex % IndicesPerHashOutput == 0) {
                     GenerateHash(base_state, newIndex/IndicesPerHashOutput,
-                                 tmpHash, HashOutput);
+                                 tmpHash, HashOutput, N);
                 }
-                icv.emplace_back(tmpHash+((newIndex % IndicesPerHashOutput) * N/8),
-                                 N/8, HashLength, CollisionBitLength, newIndex);
+                icv.emplace_back(tmpHash+((newIndex % IndicesPerHashOutput) * GetSizeInBytes(N)),
+                                 GetSizeInBytes(N), HashLength, CollisionBitLength, newIndex);
                 if (cancelled(PartialGeneration)) throw solver_cancelled;
             }
             boost::optional<std::vector<FullStepRow<FinalFullWidth>>> ic = icv;
@@ -743,9 +774,9 @@ bool Equihash<N,K>::IsValidSolution(const eh_HashState& base_state, std::vector<
     X.reserve(1 << K);
     unsigned char tmpHash[HashOutput];
     for (eh_index i : GetIndicesFromMinimal(soln, CollisionBitLength)) {
-        GenerateHash(base_state, i/IndicesPerHashOutput, tmpHash, HashOutput);
-        X.emplace_back(tmpHash+((i % IndicesPerHashOutput) * N/8),
-                       N/8, HashLength, CollisionBitLength, i);
+        GenerateHash(base_state, i/IndicesPerHashOutput, tmpHash, HashOutput, N);
+        X.emplace_back(tmpHash+((i % IndicesPerHashOutput) * GetSizeInBytes(N)),
+                       GetSizeInBytes(N), HashLength, CollisionBitLength, i);
     }
 
     size_t hashLen = HashLength;
