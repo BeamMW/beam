@@ -680,25 +680,7 @@ namespace ECC {
 
 		alpha += ro;
 
-		Point::Native comm = Context::get().G * alpha;
-
-		{
-			NoLeak<secp256k1_ge> ge;
-			NoLeak<CompactPoint> ge_s;
-
-			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
-			{
-				uint32_t iBit = 1 & (cp.m_Kidv.m_Value >> i);
-
-				// protection against side-channel attacks
-				object_cmov(ge_s.V, Context::get().m_Ipp.m_pGet1_Minus[i], 0 == iBit);
-				object_cmov(ge_s.V, Context::get().m_Ipp.m_pGen_[0][i].m_Fast.m_pPt[0], 1 == iBit);
-
-				Generator::ToPt(comm, ge.V, ge_s.V, false);
-			}
-		}
-
-		m_Part1.m_A = comm;
+		CalcA(m_Part1.m_A, alpha, cp.m_Kidv.m_Value);
 
 		// S = G*ro + vec(sL)*vec(G) + vec(sR)*vec(H)
 		nonceGen >> ro;
@@ -718,6 +700,7 @@ namespace ECC {
 				mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][i];
 			}
 
+		Point::Native comm;
 		mm.Calculate(comm);
 
 		m_Part1.m_S = comm;
@@ -893,6 +876,29 @@ namespace ECC {
 		return true;
 	}
 
+	void RangeProof::Confidential::CalcA(Point& res, const Scalar::Native& alpha, Amount v)
+	{
+		Point::Native comm = Context::get().G * alpha;
+
+		{
+			NoLeak<secp256k1_ge> ge;
+			NoLeak<CompactPoint> ge_s;
+
+			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+			{
+				uint32_t iBit = 1 & (v >> i);
+
+				// protection against side-channel attacks
+				object_cmov(ge_s.V, Context::get().m_Ipp.m_pGet1_Minus[i], 0 == iBit);
+				object_cmov(ge_s.V, Context::get().m_Ipp.m_pGen_[0][i].m_Fast.m_pPt[0], 1 == iBit);
+
+				Generator::ToPt(comm, ge.V, ge_s.V, false);
+			}
+		}
+
+		res = comm;
+	}
+
 	bool RangeProof::Confidential::Recover(Oracle& oracle, CreatorParams& cp) const
 	{
 		NonceGenerator nonceGen(cp.m_Seed.V);
@@ -911,19 +917,28 @@ namespace ECC {
 		// params = m_Mu - ro*x - alpha_minus_params
 
 		ro *= cs.x;
-		alpha_minus_params += ro;
-		alpha_minus_params = -alpha_minus_params;
-		alpha_minus_params += m_Mu;
+		Scalar::Native params = alpha_minus_params;
+		params += ro;
+		params = -params;
+		params += m_Mu;
 
 		CreatorParams::Padded pad;
 		static_assert(sizeof(CreatorParams::Padded) == sizeof(Scalar), "");
-		((Scalar&) pad) = alpha_minus_params;
+		((Scalar&) pad) = params;
 
 		if (!memis0(pad.m_Padding, sizeof(pad.m_Padding)))
 			return false;
 
 		cp.m_Kidv = pad.V;
-		return true;
+
+		// by now the probability of false positive if 2^-8, which is quite a lot
+		// Calculate m_Part1.m_A, which depends on alpha and the value.
+
+		alpha_minus_params += params; // just alpha
+		Point ptA;
+		CalcA(ptA, alpha_minus_params, cp.m_Kidv.m_Value);
+
+		return ptA == m_Part1.m_A; // the probability of false positive should be negligible
 	}
 
 	void RangeProof::Confidential::MultiSig::Impl::Init(const uintBig& seedSk)

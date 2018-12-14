@@ -409,23 +409,31 @@ namespace ECC
 		private:
 			struct ChallengeSetBase;
 			struct ChallengeSet;
+			static void CalcA(Point&, const Scalar::Native& alpha, Amount v);
 		};
 
 		struct Public
 		{
 			Signature m_Signature;
 			Amount m_Value;
-			Key::ID::Packed m_Kid; // encoded of course
+
+#pragma pack (push, 1)
+			struct Recovery // encoded of course
+			{
+				Key::ID::Packed m_Kid;
+				Hash::Value m_Checksum;
+			} m_Recovery;
+#pragma pack (pop)
 
 			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&); // amount should have been set
 			bool IsValid(const Point::Native&, Oracle&, const Point::Native* pHGen = nullptr) const;
-			void Recover(CreatorParams&) const;
+			bool Recover(CreatorParams&) const;
 
 			int cmp(const Public&) const;
 			COMPARISON_VIA_CMP
 
 		private:
-			static void XCryptKid(Key::ID::Packed&, const CreatorParams&);
+			static void XCryptKid(Key::ID::Packed&, const CreatorParams&, Hash::Value& hvChecksum);
 			void get_Msg(Hash::Value&, Oracle&) const;
 		};
 	}

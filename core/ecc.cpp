@@ -1603,8 +1603,8 @@ namespace ECC {
 			m_Value = cp.m_Kidv.m_Value;
 			assert(m_Value >= s_MinimumValue);
 
-			m_Kid = cp.m_Kidv;
-			XCryptKid(m_Kid, cp);
+			m_Recovery.m_Kid = cp.m_Kidv;
+			XCryptKid(m_Recovery.m_Kid, cp, m_Recovery.m_Checksum);
 
 			Hash::Value hv;
 			get_Msg(hv, oracle);
@@ -1612,13 +1612,18 @@ namespace ECC {
 			m_Signature.Sign(hv, sk);
 		}
 
-		void Public::Recover(CreatorParams& cp) const
+		bool Public::Recover(CreatorParams& cp) const
 		{
-			Key::ID::Packed kid = m_Kid;
-			XCryptKid(kid, cp);
+			Key::ID::Packed kid = m_Recovery.m_Kid;
+			Hash::Value hvChecksum;
+			XCryptKid(kid, cp, hvChecksum);
+
+			if (!(m_Recovery.m_Checksum == hvChecksum))
+				return false;
 
 			Cast::Down<Key::ID>(cp.m_Kidv) = kid;
 			cp.m_Kidv.m_Value = m_Value;
+			return true;
 		}
 
 		int Public::cmp(const Public& x) const
@@ -1627,7 +1632,7 @@ namespace ECC {
 			if (n)
 				return n;
 
-			n = memcmp(&m_Kid, &x.m_Kid, sizeof(m_Kid));
+			n = memcmp(&m_Recovery, &x.m_Recovery, sizeof(m_Recovery));
 			if (n)
 				return n;
 
@@ -1639,23 +1644,25 @@ namespace ECC {
 			return 0;
 		}
 
-		void Public::XCryptKid(Key::ID::Packed& kid, const CreatorParams& cp)
+		void Public::XCryptKid(Key::ID::Packed& kid, const CreatorParams& cp, Hash::Value& hvChecksum)
 		{
-			Hash::Value hv;
-			Hash::Processor()
+			Oracle oracle;
+			oracle
 				<< "p-xc"
 				<< cp.m_Seed.V
-				>> hv;
+				>> hvChecksum;
 
-			static_assert(hv.nBytes >= sizeof(kid), "");
-			memxor(reinterpret_cast<uint8_t*>(&kid), hv.m_pData, sizeof(kid));
+			static_assert(hvChecksum.nBytes >= sizeof(kid), "");
+			memxor(reinterpret_cast<uint8_t*>(&kid), hvChecksum.m_pData, sizeof(kid));
+
+			oracle >> hvChecksum;
 		}
 
 		void Public::get_Msg(Hash::Value& hv, Oracle& oracle) const
 		{
 			oracle
 				<< m_Value
-				<< beam::Blob(&m_Kid, sizeof(m_Kid))
+				<< beam::Blob(&m_Recovery, sizeof(m_Recovery))
 				>> hv;
 		}
 
