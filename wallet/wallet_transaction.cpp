@@ -251,6 +251,14 @@ namespace beam { namespace wallet
             UpdateTxDescription(TxStatus::InProgress);
         }
 
+        Block::SystemState::Full state;
+        if (GetTip(state) && state.m_Height > builder.GetMaxHeight())
+        {
+            LOG_INFO() << GetTxID() << " transaction expired. Current height: " << state.m_Height << ", max kernel height: " << builder.GetMaxHeight();
+            OnFailed(TxFailureReason::TransactionExpired);
+            return;
+        }
+
         builder.CreateKernel();
         
         if (!isSelfTx && !builder.GetPeerPublicExcessAndNonce())
