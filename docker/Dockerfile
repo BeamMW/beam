@@ -15,4 +15,6 @@ RUN git clone https://github.com/Whiteblock/beam
 WORKDIR /beam
 RUN git checkout testnet3_cpu_mining && cmake -DCMAKE_BUILD_TYPE=RELEASE -DBEAM_NO_QT_UI_WALLET=On . && make -j8
 
+ENV PATH="/beam/beam/:/beam/wallet/:${PATH}"
+
 ENTRYPOINT ["/bin/bash"]
