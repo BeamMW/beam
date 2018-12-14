@@ -1638,7 +1638,7 @@ namespace ECC {
 				<< cp.m_Seed.V
 				>> hvChecksum;
 
-			static_assert(hvChecksum.nBytes >= sizeof(kid), "");
+			static_assert(sizeof(hvChecksum) >= sizeof(kid), "");
 			memxor(reinterpret_cast<uint8_t*>(&kid), hvChecksum.m_pData, sizeof(kid));
 
 			oracle >> hvChecksum;
