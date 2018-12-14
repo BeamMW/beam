@@ -509,7 +509,7 @@ namespace beam
 
 			Output::Ptr pOut(new Output);
 			pOut->m_Incubation = hIncubation;
-			pOut->Create(k, *m_pKdf, utxo.m_Kidv, true); // confidential transactions will be too slow for test in debug mode.
+			pOut->Create(k, *m_pKdf, utxo.m_Kidv, *m_pKdf, true); // confidential transactions will be too slow for test in debug mode.
 			txv.m_vOutputs.push_back(std::move(pOut));
 
 			k = -k;
@@ -717,7 +717,7 @@ namespace beam
 				np.m_TxPool.AddValidTx(std::move(pTx), ctx, key);
 			}
 
-			NodeProcessor::BlockContext bc(np.m_TxPool, *np.m_Wallet.m_pKdf);
+			NodeProcessor::BlockContext bc(np.m_TxPool, 0, *np.m_Wallet.m_pKdf, *np.m_Wallet.m_pKdf);
 			verify_test(np.GenerateNewBlock(bc));
 
 			np.OnState(bc.m_Hdr, PeerID());
@@ -982,7 +982,7 @@ namespace beam
 					Node& n = *m_ppNode[m_iNode];
 
 					TxPool::Fluff txPool; // empty, no transactions
-					NodeProcessor::BlockContext bc(txPool, *n.m_Keys.m_pMiner);
+					NodeProcessor::BlockContext bc(txPool, 0, *n.m_Keys.m_pMiner, *n.m_Keys.m_pMiner);
 
 					verify_test(n.get_Processor().GenerateNewBlock(bc));
 
@@ -1283,7 +1283,7 @@ namespace beam
 
 						Output::Ptr pOutp(new Output);
 						pOutp->m_AssetID = m_AssetEmitted;
-						pOutp->Create(skOut, *m_Wallet.m_pKdf, kidv);
+						pOutp->Create(skOut, *m_Wallet.m_pKdf, kidv, *m_Wallet.m_pKdf);
 
 						skAsset += skOut;
 						skAsset = -skAsset;
@@ -1439,9 +1439,9 @@ namespace beam
 
 			virtual void OnMsg(proto::GetBlockFinalization&& msg) override
 			{
-				Block::Builder bb;
-				bb.AddCoinbaseAndKrn(*m_Wallet.m_pKdf, msg.m_Height);
-				bb.AddFees(*m_Wallet.m_pKdf, msg.m_Height, msg.m_Fees);
+				Block::Builder bb(0, *m_Wallet.m_pKdf, *m_Wallet.m_pKdf, msg.m_Height);
+				bb.AddCoinbaseAndKrn();
+				bb.AddFees(msg.m_Fees);
 
 				proto::BlockFinalization msgOut;
 				msgOut.m_Value.reset(new Transaction);
@@ -1605,7 +1605,7 @@ namespace beam
 
 		while (node.get_Processor().m_Cursor.m_ID.m_Height < h)
 		{
-			NodeProcessor::BlockContext bc(txPool, *node.m_Keys.m_pMiner);
+			NodeProcessor::BlockContext bc(txPool, 0, *node.m_Keys.m_pMiner, *node.m_Keys.m_pMiner);
 			verify_test(node.get_Processor().GenerateNewBlock(bc));
 			node.get_Processor().OnState(bc.m_Hdr, PeerID());
 

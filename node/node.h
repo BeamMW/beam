@@ -133,6 +133,7 @@ struct Node
 
 		typedef std::pair<Key::Index, Key::IPKdf::Ptr> Viewer;
 		std::vector<Viewer> m_vMonitored;
+		Key::Index m_nMinerSubIndex = 0;
 
 		// legacy. To be removed!
 		void InitSingleKey(const ECC::uintBig& seed);

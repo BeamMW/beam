@@ -194,7 +194,10 @@ public:
 		:public GeneratedBlock
 	{
 		TxPool::Fluff& m_TxPool;
-		Key::IKdf& m_Kdf;
+
+		Key::Index m_SubIdx;
+		Key::IKdf& m_Coin;
+		Key::IPKdf& m_Tag;
 
 		enum Mode {
 			Assemble,
@@ -204,7 +207,7 @@ public:
 
 		Mode m_Mode = Mode::SinglePass;
 
-		BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf);
+		BlockContext(TxPool::Fluff& txp, Key::Index, Key::IKdf& coin, Key::IPKdf& tag);
 	};
 
 	bool GenerateNewBlock(BlockContext&);

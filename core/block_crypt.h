@@ -214,7 +214,7 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
-		void Create(ECC::Scalar::Native&, Key::IKdf&, const Key::IDV&, bool bPublic = false);
+		void Create(ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
 
 		bool Recover(Key::IPKdf& tagKdf, Key::IDV&) const;
 		bool VerifyRecovered(Key::IPKdf& coinKdf, const Key::IDV&) const;
@@ -584,12 +584,17 @@ namespace beam
 			ECC::Scalar::Native m_Offset; // the sign is opposite
 			TxVectors::Full m_Txv;
 
-			Builder();
+			Key::Index m_SubIdx;
+			Key::IKdf& m_Coin;
+			Key::IPKdf& m_Tag;
+			Height m_Height;
 
-			void AddCoinbaseAndKrn(Key::IKdf&, Height);
-			void AddCoinbaseAndKrn(Key::IKdf&, Height, Output::Ptr&, TxKernel::Ptr&);
-			void AddFees(Key::IKdf&, Height, Amount fees);
-			void AddFees(Key::IKdf&, Height, Amount fees, Output::Ptr&);
+			Builder(Key::Index, Key::IKdf& coin, Key::IPKdf& tag, Height);
+
+			void AddCoinbaseAndKrn();
+			void AddCoinbaseAndKrn(Output::Ptr&, TxKernel::Ptr&);
+			void AddFees(Amount fees);
+			void AddFees(Amount fees, Output::Ptr&);
 		};
 	};
 

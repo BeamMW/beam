@@ -185,7 +185,7 @@ namespace beam
 			kidv.m_Type = FOURCC_FROM(Tres);
 			kidv.m_Value = c0.m_Value;
 
-			c.m_pOutput->Create(sk, kdf, kidv);
+			c.m_pOutput->Create(sk, kdf, kidv, kdf);
 			offset += sk;
 
 			Hash::Value hv;

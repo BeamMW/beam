@@ -693,6 +693,7 @@ void Node::Keys::InitSingleKey(const ECC::uintBig& seed)
 
 void Node::Keys::SetSingleKey(const Key::IKdf::Ptr& pKdf)
 {
+	m_nMinerSubIndex = 0;
 	m_pMiner = pKdf;
 	m_pGeneric = pKdf;
 	m_pOwner = pKdf;
@@ -2136,7 +2137,7 @@ void Node::AddDummyOutputs(Transaction& tx)
 
 		Output::Ptr pOutput(new Output);
 		ECC::Scalar::Native sk;
-		pOutput->Create(sk, *m_Keys.m_pGeneric, Key::IDV(0, m_LastDummyID, Key::Type::Decoy));
+		pOutput->Create(sk, *m_Keys.m_pGeneric, Key::IDV(0, m_LastDummyID, Key::Type::Decoy), *m_Keys.m_pGeneric);
 
 		Height h = m_Processor.m_Cursor.m_ID.m_Height + 1 + m_Cfg.m_Dandelion.m_DummyLifetimeLo;
 		if (m_Cfg.m_Dandelion.m_DummyLifetimeHi > m_Cfg.m_Dandelion.m_DummyLifetimeLo)
@@ -2836,7 +2837,7 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 
 	TxPool::Fluff txpEmpty;
 
-	NodeProcessor::BlockContext bc(txpEmpty, *m_This.m_Keys.m_pGeneric); // the key isn't used anyway
+	NodeProcessor::BlockContext bc(txpEmpty, 0, *m_This.m_Keys.m_pGeneric, *m_This.m_Keys.m_pGeneric); // the key isn't used anyway
 	bc.m_Mode = NodeProcessor::BlockContext::Mode::Finalize;
 	Cast::Down<NodeProcessor::GeneratedBlock>(bc) = std::move(x);
 
@@ -3062,7 +3063,12 @@ bool Node::Miner::Restart()
 		if (!keys.m_pMiner)
 			return false; // offline mining is disabled
 
-	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, keys.m_pMiner ? *keys.m_pMiner : *keys.m_pGeneric);
+	NodeProcessor::BlockContext bc(
+		get_ParentObj().m_TxPool,
+		keys.m_nMinerSubIndex,
+		keys.m_pMiner ? *keys.m_pMiner : *keys.m_pGeneric,
+		keys.m_pOwner ? *keys.m_pOwner : *keys.m_pGeneric);
+
 	if (m_pFinalizer)
 		bc.m_Mode = NodeProcessor::BlockContext::Mode::Assemble;
 

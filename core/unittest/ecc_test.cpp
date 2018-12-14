@@ -720,7 +720,7 @@ void TestRangeProof(bool bCustomTag)
 	{
 		beam::Output outp;
 		outp.m_AssetID = aid;
-		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), true);
+		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf, true);
 		outp.m_Coinbase = true; // others may be disallowed
 		verify_test(outp.IsValid(comm));
 		WriteSizeSerialized("Out-UTXO-Public", outp);
@@ -728,7 +728,7 @@ void TestRangeProof(bool bCustomTag)
 	{
 		beam::Output outp;
 		outp.m_AssetID = aid;
-		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular));
+		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf);
 		verify_test(outp.IsValid(comm));
 		WriteSizeSerialized("Out-UTXO-Confidential", outp);
 	}
@@ -801,7 +801,7 @@ struct TransactionMaker
 
 			if (pAssetID)
 				pOut->m_AssetID = *pAssetID;
-			pOut->Create(k, kdf, kidv);
+			pOut->Create(k, kdf, kidv, kdf);
 
 			// test recovery
 			Key::IDV kidv2;

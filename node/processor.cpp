@@ -763,10 +763,10 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 
 			Walker(const Output& x) :m_Output(x) {}
 
-			virtual bool OnKey(Key::IPKdf& kdf, Key::Index iKdf) override
+			virtual bool OnKey(Key::IPKdf& tag, Key::Index) override
 			{
 				Key::IDV kidv;
-				if (!m_Output.Recover(kdf, kidv))
+				if (!m_Output.Recover(tag, kidv))
 					return true; // continue enumeration
 
 				m_Value.m_Kidv = kidv;
@@ -1328,12 +1328,12 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 	SerializerSizeCounter ssc;
 	ssc & bc.m_Block;
 
-	Block::Builder bb;
+	Block::Builder bb(bc.m_SubIdx, bc.m_Coin, bc.m_Tag, h);
 
 	Output::Ptr pOutp;
 	TxKernel::Ptr pKrn;
 
-	bb.AddCoinbaseAndKrn(bc.m_Kdf, h, pOutp, pKrn);
+	bb.AddCoinbaseAndKrn(pOutp, pKrn);
 	if (pOutp)
 		ssc & *pOutp;
 	ssc & *pKrn;
@@ -1430,7 +1430,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 	{
 		if (bc.m_Fees)
 		{
-			bb.AddFees(bc.m_Kdf, h, bc.m_Fees, pOutp);
+			bb.AddFees(bc.m_Fees, pOutp);
 			if (!HandleBlockElement(*pOutp, h, NULL, true))
 				return 0;
 
@@ -1476,9 +1476,11 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 	bc.m_Hdr.m_TimeStamp = std::max(bc.m_Hdr.m_TimeStamp, tm);
 }
 
-NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf)
+NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::Index nSubKey, Key::IKdf& coin, Key::IPKdf& tag)
 	:m_TxPool(txp)
-	,m_Kdf(kdf)
+	,m_SubIdx(nSubKey)
+	,m_Coin(coin)
+	,m_Tag(tag)
 {
 	m_Fees = 0;
 	m_Block.ZeroInit();
