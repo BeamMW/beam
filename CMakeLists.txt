@@ -4,6 +4,7 @@ set(VERSION_MAJOR 1)
 set(VERSION_MINOR 0)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
+set(BEAM_NO_QT_UI_WALLET)
 
 find_package(Git)
 if(Git_FOUND)
