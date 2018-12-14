@@ -182,6 +182,7 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr)
     qRegisterMetaType<vector<WalletAddress>>("std::vector<beam::WalletAddress>");
     qRegisterMetaType<WalletID>("beam::WalletID");
     qRegisterMetaType<WalletAddress>("beam::WalletAddress");
+    qRegisterMetaType<proto::NodeConnection::DisconnectReason>("beam::proto::NodeConnection::DisconnectReason");
 }
 
 WalletModel::~WalletModel()

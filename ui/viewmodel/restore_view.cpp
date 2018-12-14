@@ -46,8 +46,8 @@ RestoreViewModel::RestoreViewModel()
     connect(&m_walletModel, SIGNAL(nodeConnectionChanged(bool)),
         SLOT(onNodeConnectionChanged(bool)));
 
-    connect(&m_walletModel, SIGNAL(nodeConnectionFailed(const proto::NodeConnection::DisconnectReason&)),
-        SLOT(onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&)));
+    connect(&m_walletModel, SIGNAL(nodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason&)),
+        SLOT(onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason&)));
 
     connect(&m_updateTimer, SIGNAL(timeout()), this, SLOT(onUpdateTimer()));
 
