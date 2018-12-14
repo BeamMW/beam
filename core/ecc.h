@@ -202,14 +202,16 @@ namespace ECC
 		{
 			uint64_t	m_Idx;
 			Type		m_Type;
+			Index		m_SubIdx; // currently set to the Kdf child index
 
 			ID() {}
 			ID(Zero_) { ZeroObject(*this); }
 
-			ID(uint64_t nIdx, Type type) // most common c'tor
+			ID(uint64_t nIdx, Type type, uint32_t nSubIdx = 0) // most common c'tor
 			{
 				m_Idx = nIdx;
 				m_Type = type;
+				m_SubIdx = nSubIdx;
 			}
 
 			void get_Hash(Hash::Value&) const;
@@ -219,6 +221,7 @@ namespace ECC
 			{
 				beam::uintBigFor<uint64_t>::Type m_Idx;
 				beam::uintBigFor<uint32_t>::Type m_Type;
+				beam::uintBigFor<uint32_t>::Type m_SubIdx;
 				void operator = (const ID&);
 			};
 #pragma pack (pop)
@@ -234,8 +237,13 @@ namespace ECC
 		{
 			Amount m_Value;
 			IDV() {}
-			IDV(Amount v, uint64_t nIdx, Type type)
-				:ID(nIdx, type)
+			IDV(Zero_)
+				:ID(Zero)
+				,m_Value(0)
+			{}
+
+			IDV(Amount v, uint64_t nIdx, Type type, Index nSubIdx = 0)
+				:ID(nIdx, type, nSubIdx)
 				,m_Value(v)
 			{
 			}
@@ -250,16 +258,8 @@ namespace ECC
 #pragma pack (pop)
 
 			void operator = (const Packed&);
-			bool operator == (const IDV&) const;
 
 			int cmp(const IDV&) const;
-			COMPARISON_VIA_CMP
-		};
-
-		struct IDVC :public IDV {
-			Index m_iChild = 0;
-
-			int cmp(const IDVC&) const;
 			COMPARISON_VIA_CMP
 		};
 
@@ -287,7 +287,7 @@ namespace ECC
 		};
 	};
 
-	std::ostream& operator << (std::ostream&, const Key::IDVC&);
+	std::ostream& operator << (std::ostream&, const Key::IDV&);
 
 	struct InnerProduct
 	{
@@ -409,23 +409,31 @@ namespace ECC
 		private:
 			struct ChallengeSetBase;
 			struct ChallengeSet;
+			static void CalcA(Point&, const Scalar::Native& alpha, Amount v);
 		};
 
 		struct Public
 		{
 			Signature m_Signature;
 			Amount m_Value;
-			Key::ID::Packed m_Kid; // encoded of course
+
+#pragma pack (push, 1)
+			struct Recovery // encoded of course
+			{
+				Key::ID::Packed m_Kid;
+				Hash::Value m_Checksum;
+			} m_Recovery;
+#pragma pack (pop)
 
 			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&); // amount should have been set
 			bool IsValid(const Point::Native&, Oracle&, const Point::Native* pHGen = nullptr) const;
-			void Recover(CreatorParams&) const;
+			bool Recover(CreatorParams&) const;
 
 			int cmp(const Public&) const;
 			COMPARISON_VIA_CMP
 
 		private:
-			static void XCryptKid(Key::ID::Packed&, const CreatorParams&);
+			static void XCryptKid(Key::ID::Packed&, const CreatorParams&, Hash::Value& hvChecksum);
 			void get_Msg(Hash::Value&, Oracle&) const;
 		};
 	}

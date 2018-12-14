@@ -512,7 +512,7 @@ namespace beam { namespace wallet
 
         Scalar::Native blindingFactor;
         Output::Ptr output = make_unique<Output>();
-        output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(newUtxo.m_ID.m_iChild), newUtxo.m_ID);
+        output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(newUtxo.m_ID.m_SubIdx), newUtxo.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
 
         blindingFactor = -blindingFactor;
         m_Offset += blindingFactor;
@@ -535,6 +535,7 @@ namespace beam { namespace wallet
 			Key::ID kid;
 			kid.m_Idx = m_Tx.GetWalletDB()->AllocateKidRange(1);
 			kid.m_Type = FOURCC_FROM(KerW);
+			kid.m_SubIdx = 0;
 
 			m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_BlindingExcess, kid);
 

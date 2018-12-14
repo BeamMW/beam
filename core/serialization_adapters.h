@@ -220,6 +220,7 @@ namespace detail
 			ar
 				& kidv.m_Idx
 				& kidv.m_Type
+				& kidv.m_SubIdx
 				& kidv.m_Value;
 
 			return ar;
@@ -231,28 +232,8 @@ namespace detail
 			ar
 				& kidv.m_Idx
 				& kidv.m_Type
+				& kidv.m_SubIdx
 				& kidv.m_Value;
-
-			return ar;
-		}
-
-		/// ECC::Key::IDVC serialization
-		template<typename Archive>
-		static Archive& save(Archive& ar, const ECC::Key::IDVC& kidvc)
-		{
-			ar
-				& Cast::Down<ECC::Key::IDV>(kidvc)
-				& kidvc.m_iChild;
-
-			return ar;
-		}
-
-		template<typename Archive>
-		static Archive& load(Archive& ar, ECC::Key::IDVC& kidvc)
-		{
-			ar
-				& Cast::Down<ECC::Key::IDV>(kidvc)
-				& kidvc.m_iChild;
 
 			return ar;
 		}
@@ -393,9 +374,11 @@ namespace detail
             ar
                 & val.m_Value
                 & val.m_Signature
-				& val.m_Kid.m_Idx
-				& val.m_Kid.m_Type
-            ;
+				& val.m_Recovery.m_Kid.m_Idx
+				& val.m_Recovery.m_Kid.m_Type
+				& val.m_Recovery.m_Kid.m_SubIdx
+				& val.m_Recovery.m_Checksum
+				;
 
             return ar;
         }
@@ -406,9 +389,11 @@ namespace detail
             ar
                 & val.m_Value
                 & val.m_Signature
-				& val.m_Kid.m_Idx
-				& val.m_Kid.m_Type
-            ;
+				& val.m_Recovery.m_Kid.m_Idx
+				& val.m_Recovery.m_Kid.m_Type
+				& val.m_Recovery.m_Kid.m_SubIdx
+				& val.m_Recovery.m_Checksum
+				;
 
             return ar;
         }

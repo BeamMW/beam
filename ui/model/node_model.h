@@ -28,7 +28,6 @@ public:
     NodeModel();
     ~NodeModel();
 	beam::Key::IKdf::Ptr m_pKdf;
-	std::set<uint32_t> m_Subkeys;
 private:
     void run() override;
     void OnSyncProgress(int done, int total) override;

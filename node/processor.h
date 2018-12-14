@@ -194,7 +194,10 @@ public:
 		:public GeneratedBlock
 	{
 		TxPool::Fluff& m_TxPool;
-		Key::IKdf& m_Kdf;
+
+		Key::Index m_SubIdx;
+		Key::IKdf& m_Coin;
+		Key::IPKdf& m_Tag;
 
 		enum Mode {
 			Assemble,
@@ -204,7 +207,7 @@ public:
 
 		Mode m_Mode = Mode::SinglePass;
 
-		BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf);
+		BlockContext(TxPool::Fluff& txp, Key::Index, Key::IKdf& coin, Key::IPKdf& tag);
 	};
 
 	bool GenerateNewBlock(BlockContext&);
@@ -252,7 +255,6 @@ public:
 		static_assert(sizeof(Key) == sizeof(ECC::uintBig) + 1, "");
 
 		struct Value {
-			uintBigFor<ECC::Key::Index>::Type m_iKdf;
 			ECC::Key::IDV::Packed m_Kidv;
 			uintBigFor<Height>::Type m_Maturity;
 			AssetID m_AssetID;

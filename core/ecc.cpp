@@ -95,9 +95,9 @@ namespace ECC {
 		return operator << (s, x.m_X);
 	}
 
-	std::ostream& operator << (std::ostream& s, const Key::IDVC& x)
+	std::ostream& operator << (std::ostream& s, const Key::IDV& x)
 	{
-		s << "Key=" << x.m_iChild << "/" << x.m_Type << "-" << x.m_Idx << ", Value=" << x.m_Value;
+		s << "Key=" << x.m_Type << "-" << x.m_SubIdx << ":" << x.m_Idx << ", Value=" << x.m_Value;
 		return s;
 	}
 
@@ -1241,27 +1241,22 @@ namespace ECC {
 			<< "kid"
 			<< m_Idx
 			<< m_Type.V
+			<< m_SubIdx
 			>> hv;
-	}
-
-	bool Key::IDV::operator == (const IDV& x) const
-	{
-		return
-			(m_Value == x.m_Value) &&
-			(m_Idx == x.m_Idx) &&
-			(m_Type == x.m_Type);
 	}
 
 	void Key::ID::operator = (const Packed& x)
 	{
 		x.m_Idx.Export(m_Idx);
 		x.m_Type.Export(m_Type.V);
+		x.m_SubIdx.Export(m_SubIdx);
 	}
 
 	void Key::ID::Packed::operator = (const ID& x)
 	{
 		m_Idx = x.m_Idx;
 		m_Type = x.m_Type.V;
+		m_SubIdx = x.m_SubIdx;
 	}
 
 	void Key::IDV::operator = (const Packed& x)
@@ -1301,6 +1296,10 @@ namespace ECC {
 			return -1;
 		if (m_Type > x.m_Type)
 			return 1;
+		if (m_SubIdx < x.m_SubIdx)
+			return -1;
+		if (m_SubIdx > x.m_SubIdx)
+			return 1;
 		if (m_Idx < x.m_Idx)
 			return -1;
 		if (m_Idx > x.m_Idx)
@@ -1317,19 +1316,6 @@ namespace ECC {
 		if (m_Value < x.m_Value)
 			return -1;
 		if (m_Value > x.m_Value)
-			return 1;
-		return 0;
-	}
-
-	int Key::IDVC::cmp(const IDVC& x) const
-	{
-		int n = IDV::cmp(x);
-		if (n)
-			return n;
-
-		if (m_iChild < x.m_iChild)
-			return -1;
-		if (m_iChild > x.m_iChild)
 			return 1;
 		return 0;
 	}
@@ -1603,8 +1589,8 @@ namespace ECC {
 			m_Value = cp.m_Kidv.m_Value;
 			assert(m_Value >= s_MinimumValue);
 
-			m_Kid = cp.m_Kidv;
-			XCryptKid(m_Kid, cp);
+			m_Recovery.m_Kid = cp.m_Kidv;
+			XCryptKid(m_Recovery.m_Kid, cp, m_Recovery.m_Checksum);
 
 			Hash::Value hv;
 			get_Msg(hv, oracle);
@@ -1612,13 +1598,18 @@ namespace ECC {
 			m_Signature.Sign(hv, sk);
 		}
 
-		void Public::Recover(CreatorParams& cp) const
+		bool Public::Recover(CreatorParams& cp) const
 		{
-			Key::ID::Packed kid = m_Kid;
-			XCryptKid(kid, cp);
+			Key::ID::Packed kid = m_Recovery.m_Kid;
+			Hash::Value hvChecksum;
+			XCryptKid(kid, cp, hvChecksum);
+
+			if (!(m_Recovery.m_Checksum == hvChecksum))
+				return false;
 
 			Cast::Down<Key::ID>(cp.m_Kidv) = kid;
 			cp.m_Kidv.m_Value = m_Value;
+			return true;
 		}
 
 		int Public::cmp(const Public& x) const
@@ -1627,7 +1618,7 @@ namespace ECC {
 			if (n)
 				return n;
 
-			n = memcmp(&m_Kid, &x.m_Kid, sizeof(m_Kid));
+			n = memcmp(&m_Recovery, &x.m_Recovery, sizeof(m_Recovery));
 			if (n)
 				return n;
 
@@ -1639,23 +1630,25 @@ namespace ECC {
 			return 0;
 		}
 
-		void Public::XCryptKid(Key::ID::Packed& kid, const CreatorParams& cp)
+		void Public::XCryptKid(Key::ID::Packed& kid, const CreatorParams& cp, Hash::Value& hvChecksum)
 		{
-			Hash::Value hv;
-			Hash::Processor()
+			Oracle oracle;
+			oracle
 				<< "p-xc"
 				<< cp.m_Seed.V
-				>> hv;
+				>> hvChecksum;
 
-			static_assert(hv.nBytes >= sizeof(kid), "");
-			memxor(reinterpret_cast<uint8_t*>(&kid), hv.m_pData, sizeof(kid));
+			static_assert(sizeof(hvChecksum) >= sizeof(kid), "");
+			memxor(reinterpret_cast<uint8_t*>(&kid), hvChecksum.m_pData, sizeof(kid));
+
+			oracle >> hvChecksum;
 		}
 
 		void Public::get_Msg(Hash::Value& hv, Oracle& oracle) const
 		{
 			oracle
 				<< m_Value
-				<< beam::Blob(&m_Kid, sizeof(m_Kid))
+				<< beam::Blob(&m_Recovery, sizeof(m_Recovery))
 				>> hv;
 		}
 

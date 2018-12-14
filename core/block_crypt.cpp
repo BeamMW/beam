@@ -262,17 +262,17 @@ namespace beam
 		return 0;
 	}
 
-	void Output::Create(ECC::Scalar::Native& sk, Key::IKdf& kdf, const Key::IDV& kidv, bool bPublic /* = false */)
+	void Output::Create(ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const Key::IDV& kidv, Key::IPKdf& tagKdf, bool bPublic /* = false */)
 	{
 		SwitchCommitment sc(&m_AssetID);
-		sc.Create(sk, m_Commitment, kdf, kidv);
+		sc.Create(sk, m_Commitment, coinKdf, kidv);
 
 		ECC::Oracle oracle;
 		oracle << m_Incubation;
 
 		ECC::RangeProof::CreatorParams cp;
 		cp.m_Kidv = kidv;
-		get_SeedKid(cp.m_Seed.V, kdf);
+		get_SeedKid(cp.m_Seed.V, tagKdf);
 
 		if (bPublic || m_Coinbase)
 		{
@@ -287,50 +287,51 @@ namespace beam
 		}
 	}
 
-	void Output::get_SeedKid(ECC::uintBig& seed, Key::IPKdf& kdf) const
+	void Output::get_SeedKid(ECC::uintBig& seed, Key::IPKdf& tagKdf) const
 	{
 		ECC::Hash::Processor() << m_Commitment >> seed;
 
 		ECC::Scalar::Native sk;
-		kdf.DerivePKey(sk, seed);
+		tagKdf.DerivePKey(sk, seed);
 
 		ECC::Hash::Processor() << sk >> seed;
 	}
 
-	bool Output::Recover(Key::IPKdf& kdf, Key::IDV& kidv) const
+	bool Output::Recover(Key::IPKdf& tagKdf, Key::IDV& kidv) const
 	{
 		ECC::RangeProof::CreatorParams cp;
-		get_SeedKid(cp.m_Seed.V, kdf);
+		get_SeedKid(cp.m_Seed.V, tagKdf);
 
 		ECC::Oracle oracle;
 		oracle << m_Incubation;
 
-		if (m_pPublic)
-		    m_pPublic->Recover(cp);
-		else
-		{
-			if (!(m_pConfidential && m_pConfidential->Recover(oracle, cp)))
-				return false;
-		}
+		bool bSuccess =
+			m_pConfidential ? m_pConfidential->Recover(oracle, cp) :
+			m_pPublic ? m_pPublic->Recover(cp) :
+			false;
 
+		if (bSuccess)
+			// Skip further verification, assuming no need to fully reconstruct the commitment
+			kidv = cp.m_Kidv;
+
+		return bSuccess;
+	}
+
+	bool Output::VerifyRecovered(Key::IPKdf& coinKdf, const Key::IDV& kidv) const
+	{
 		// reconstruct the commitment
-		ECC::Mode::Scope scope(ECC::Mode::Fast); //?
+		ECC::Mode::Scope scope(ECC::Mode::Fast);
 
 		ECC::Point::Native comm, comm2;
-
 		if (!comm2.Import(m_Commitment))
 			return false;
-		SwitchCommitment(&m_AssetID).Recover(comm, kdf, cp.m_Kidv);
+
+		SwitchCommitment(&m_AssetID).Recover(comm, coinKdf, kidv);
 
 		comm = -comm;
 		comm += comm2;
 		
-		if (!(comm == Zero))
-			return false;
-
-		// bingo!
-		kidv = cp.m_Kidv;
-		return true;
+		return (comm == Zero);
 	}
 
 	void HeightAdd(Height& trg, Height val)
@@ -1260,38 +1261,42 @@ namespace beam
 
 	/////////////
 	// Builder
-	Block::Builder::Builder()
+	Block::Builder::Builder(Key::Index subIdx, Key::IKdf& coin, Key::IPKdf& tag, Height h)
+		:m_SubIdx(subIdx)
+		,m_Coin(coin)
+		,m_Tag(tag)
+		,m_Height(h)
 	{
 		m_Offset = Zero;
 	}
 
-	void Block::Builder::AddCoinbaseAndKrn(Key::IKdf& kdf, Height h, Output::Ptr& pOutp, TxKernel::Ptr& pKrn)
+	void Block::Builder::AddCoinbaseAndKrn(Output::Ptr& pOutp, TxKernel::Ptr& pKrn)
 	{
 		ECC::Scalar::Native sk;
 
-		Amount val = Rules::get_Emission(h);
+		Amount val = Rules::get_Emission(m_Height);
 		if (val)
 		{
 			pOutp.reset(new Output);
 			pOutp->m_Coinbase = true;
-			pOutp->Create(sk, kdf, Key::IDV(val, h, Key::Type::Coinbase));
+			pOutp->Create(sk, m_Coin, Key::IDV(val, m_Height, Key::Type::Coinbase, m_SubIdx), m_Tag);
 
 			m_Offset += sk;
 		}
 
 		pKrn.reset(new TxKernel);
-		pKrn->m_Height.m_Min = h; // make it similar to others
+		pKrn->m_Height.m_Min = m_Height; // make it similar to others
 
-		kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel2));
+		m_Coin.DeriveKey(sk, Key::ID(m_Height, Key::Type::Kernel2, m_SubIdx));
 		pKrn->Sign(sk);
 		m_Offset += sk;
 	}
 
-	void Block::Builder::AddCoinbaseAndKrn(Key::IKdf& kdf, Height h)
+	void Block::Builder::AddCoinbaseAndKrn()
 	{
 		Output::Ptr pOutp;
 		TxKernel::Ptr pKrn;
-		AddCoinbaseAndKrn(kdf, h, pOutp, pKrn);
+		AddCoinbaseAndKrn(pOutp, pKrn);
 
 		if (pOutp)
 			m_Txv.m_vOutputs.push_back(std::move(pOutp));
@@ -1299,22 +1304,22 @@ namespace beam
 			m_Txv.m_vKernels.push_back(std::move(pKrn));
 	}
 
-	void Block::Builder::AddFees(Key::IKdf& kdf, Height h, Amount fees, Output::Ptr& pOutp)
+	void Block::Builder::AddFees(Amount fees, Output::Ptr& pOutp)
 	{
 		ECC::Scalar::Native sk;
 
 		pOutp.reset(new Output);
-		pOutp->Create(sk, kdf, Key::IDV(fees, h, Key::Type::Comission));
+		pOutp->Create(sk, m_Coin, Key::IDV(fees, m_Height, Key::Type::Comission, m_SubIdx), m_Tag);
 
 		m_Offset += sk;
 	}
 
-	void Block::Builder::AddFees(Key::IKdf& kdf, Height h, Amount fees)
+	void Block::Builder::AddFees(Amount fees)
 	{
 		if (fees)
 		{
 			Output::Ptr pOutp;
-			AddFees(kdf, h, fees, pOutp);
+			AddFees(fees, pOutp);
 
 			m_Txv.m_vOutputs.push_back(std::move(pOutp));
 		}

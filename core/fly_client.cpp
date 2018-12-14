@@ -210,9 +210,9 @@ void FlyClient::NetworkStd::Connection::OnMsg(GetBlockFinalization&& msg)
 	if (!pKdf)
 		ThrowUnexpected(); // ?!
 
-	Block::Builder bb;
-	bb.AddCoinbaseAndKrn(*pKdf, msg.m_Height);
-	bb.AddFees(*pKdf, msg.m_Height, msg.m_Fees);
+	Block::Builder bb(0, *pKdf, *pKdf, msg.m_Height);
+	bb.AddCoinbaseAndKrn();
+	bb.AddFees(msg.m_Fees);
 
 	proto::BlockFinalization msgOut;
 	msgOut.m_Value.reset(new Transaction);

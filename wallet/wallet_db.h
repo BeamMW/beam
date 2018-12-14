@@ -58,7 +58,7 @@ namespace beam
         bool isReward() const;
         bool isValid() const;
 
-        typedef Key::IDVC ID;
+        typedef Key::IDV ID;
         ID m_ID;
 
         Status m_status;

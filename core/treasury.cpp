@@ -159,8 +159,7 @@ namespace beam
 
 	void Treasury::get_ID(Key::IKdf& kdf, PeerID& pid, Scalar::Native& sk)
 	{
-		Key::ID kid;
-		kid.m_Idx = 0;
+		Key::ID kid(Zero);
 		kid.m_Type = FOURCC_FROM(tRid);
 
 		kdf.DeriveKey(sk, kid);
@@ -181,13 +180,12 @@ namespace beam
 			c.m_pOutput.reset(new Output);
 			c.m_pOutput->m_Incubation = c0.m_Incubation;
 
-			Key::IDV kidv;
-			ZeroObject(kidv);
+			Key::IDV kidv(Zero);
 			kidv.m_Idx = nIndex++;
 			kidv.m_Type = FOURCC_FROM(Tres);
 			kidv.m_Value = c0.m_Value;
 
-			c.m_pOutput->Create(sk, kdf, kidv);
+			c.m_pOutput->Create(sk, kdf, kidv, kdf);
 			offset += sk;
 
 			Hash::Value hv;
@@ -195,10 +193,7 @@ namespace beam
 			c.m_Sig.Sign(hv, sk);
 		}
 
-		Key::ID kid;
-		kid.m_Idx = nIndex++;
-		kid.m_Type = FOURCC_FROM(KeR3);
-		kdf.DeriveKey(sk, kid);
+		kdf.DeriveKey(sk, Key::ID(nIndex++, FOURCC_FROM(KeR3)));
 
 		m_pKernel.reset(new TxKernel);
 		m_pKernel->Sign(sk);
