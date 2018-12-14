@@ -431,10 +431,10 @@ namespace
                 nnet->m_Cfg.m_vNodes.push_back(node_addr);
 
                 nnet->Connect();
-                _nnet = nnet;
+                _nodeNetwork = nnet;
 
                 auto wnet = make_shared<WalletNetworkViaBbs>(*wallet, *nnet, _walletDB);
-                _wnet = wnet;
+                _walletNetwork = wnet;
                 wallet->set_Network(*nnet, *wnet);
 
                 wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
@@ -509,7 +509,7 @@ namespace
 
             if (bOwn)
             {
-                auto s = _wnet.lock();
+                auto s = _walletNetwork.lock();
                 if (s)
                 {
                     static_pointer_cast<WalletNetworkViaBbs>(s)->AddOwnAddress(address);
@@ -542,8 +542,8 @@ namespace
 
         void syncWithNode() override 
         {
-            assert(!_nnet.expired());
-            auto s = _nnet.lock();
+            assert(!_nodeNetwork.expired());
+            auto s = _nodeNetwork.lock();
             if (s)
                 s->Connect();
         }
@@ -848,8 +848,8 @@ namespace
         beam::IWalletDB::Ptr _walletDB;
         beam::io::Reactor::Ptr _reactor;
         IWalletModelAsync::Ptr _async;
-        std::weak_ptr<beam::proto::FlyClient::INetwork> _nnet;
-        std::weak_ptr<beam::IWalletNetwork> _wnet;
+        std::weak_ptr<beam::proto::FlyClient::INetwork> _nodeNetwork;
+        std::weak_ptr<beam::IWalletNetwork> _walletNetwork;
         std::weak_ptr<beam::Wallet> _wallet;
         beam::io::Timer::Ptr _logRotateTimer;
 

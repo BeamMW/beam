@@ -68,7 +68,7 @@ signals:
     void onGeneratedNewAddress(const beam::WalletAddress& walletAddr);
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
     void nodeConnectionChanged(bool isNodeConnected);
-    void nodeConnectionFailed();
+    void nodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason& reason);
 
 
 private:
@@ -94,7 +94,7 @@ private:
     void changeWalletPassword(const beam::SecString& password) override;
 
     void onNodeConnectedStatusChanged(bool isNodeConnected);
-    void onNodeConnectionFailed();
+    void onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason&);
 
     void onStatusChanged();
     WalletStatus getStatus() const;
@@ -104,8 +104,8 @@ private:
     beam::IWalletDB::Ptr _walletDB;
     beam::io::Reactor::Ptr _reactor;
     IWalletModelAsync::Ptr _async;
-    std::weak_ptr<beam::proto::FlyClient::INetwork> _nnet;
-	std::weak_ptr<beam::IWalletNetwork> _wnet;
+    std::weak_ptr<beam::proto::FlyClient::INetwork> _nodeNetwork;
+	std::weak_ptr<beam::IWalletNetwork> _walletNetwork;
     std::weak_ptr<beam::Wallet> _wallet;
     beam::io::Timer::Ptr _logRotateTimer;
 

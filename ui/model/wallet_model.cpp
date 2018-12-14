@@ -240,37 +240,37 @@ void WalletModel::run()
         struct MyNodeNetwork :public proto::FlyClient::NetworkStd {
 
             MyNodeNetwork(proto::FlyClient& fc, WalletModel& wm)
-                :proto::FlyClient::NetworkStd(fc)
-                ,m_This(wm)
+                : proto::FlyClient::NetworkStd(fc)
+                , m_walletModel(wm)
             {
             }
 
-            WalletModel& m_This;
+            WalletModel& m_walletModel;
 
             void OnNodeConnected(size_t, bool bConnected) override
             {
-                m_This.onNodeConnectedStatusChanged(bConnected);
+                m_walletModel.onNodeConnectedStatusChanged(bConnected);
             }
 
-            void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason&) override
+            void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason& reason) override
             {
-                m_This.onNodeConnectionFailed();
+                m_walletModel.onNodeConnectionFailed(reason);
             }
         };
 
-        auto nnet = make_shared<MyNodeNetwork>(*wallet, *this);
+        auto nodeNetwork = make_shared<MyNodeNetwork>(*wallet, *this);
 
         Address node_addr;
         node_addr.resolve(_nodeAddrStr.c_str());
-        nnet->m_Cfg.m_vNodes.push_back(node_addr);
+        nodeNetwork->m_Cfg.m_vNodes.push_back(node_addr);
 
-        _nnet = nnet;
+        _nodeNetwork = nodeNetwork;
 
-        auto wnet = make_shared<WalletNetworkViaBbs>(*wallet, *nnet, _walletDB);
-        _wnet = wnet;
-        wallet->set_Network(*nnet, *wnet);
+        auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, *nodeNetwork, _walletDB);
+        _walletNetwork = walletNetwork;
+        wallet->set_Network(*nodeNetwork, *walletNetwork);
 
-            wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
+        wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
         if (AppModel::getInstance()->shouldRestoreWallet())
         {
@@ -278,7 +278,7 @@ void WalletModel::run()
             // no additional actions required, restoration is automatic and contiguous
         }
 
-        nnet->Connect();
+        nodeNetwork->Connect();
 
         _reactor->run();
     }
@@ -337,9 +337,9 @@ void WalletModel::onNodeConnectedStatusChanged(bool isNodeConnected)
     emit nodeConnectionChanged(isNodeConnected);
 }
 
-void WalletModel::onNodeConnectionFailed()
+void WalletModel::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
 {
-    emit nodeConnectionFailed();
+    emit nodeConnectionFailed(reason);
 }
 
 void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee)
@@ -367,8 +367,8 @@ void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& c
 
 void WalletModel::syncWithNode()
 {
-    assert(!_nnet.expired());
-    auto s = _nnet.lock();
+    assert(!_nodeNetwork.expired());
+    auto s = _nodeNetwork.lock();
     if (s)
         s->Connect();
 }
@@ -433,7 +433,7 @@ void WalletModel::saveAddress(const WalletAddress& address, bool bOwn)
 
     if (bOwn)
     {
-        auto s = _wnet.lock();
+        auto s = _walletNetwork.lock();
         if (s)
         {
             static_pointer_cast<WalletNetworkViaBbs>(s)->AddOwnAddress(address);
@@ -469,7 +469,7 @@ void WalletModel::deleteAddress(const beam::WalletID& id)
         {
             if (pVal->m_OwnID)
             {
-                auto s = _wnet.lock();
+                auto s = _walletNetwork.lock();
                 if (s)
                 {
                     static_pointer_cast<WalletNetworkViaBbs>(s)->DeleteOwnAddress(pVal->m_OwnID);
@@ -490,8 +490,8 @@ void WalletModel::setNodeAddress(const std::string& addr)
 
     if (nodeAddr.resolve(addr.c_str()))
     {
-        assert(!_nnet.expired());
-        auto s = _nnet.lock();
+        assert(!_nodeNetwork.expired());
+        auto s = _nodeNetwork.lock();
         if (s)
         {
             s->Disconnect();

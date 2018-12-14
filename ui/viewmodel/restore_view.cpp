@@ -46,8 +46,8 @@ RestoreViewModel::RestoreViewModel()
     connect(&m_walletModel, SIGNAL(nodeConnectionChanged(bool)),
         SLOT(onNodeConnectionChanged(bool)));
 
-    connect(&m_walletModel, SIGNAL(nodeConnectionFailed()),
-        SLOT(onNodeConnectionFailed()));
+    connect(&m_walletModel, SIGNAL(nodeConnectionFailed(const proto::NodeConnection::DisconnectReason&)),
+        SLOT(onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&)));
 
     connect(&m_updateTimer, SIGNAL(timeout()), this, SLOT(onUpdateTimer()));
 
@@ -225,7 +225,7 @@ void RestoreViewModel::onNodeConnectionChanged(bool isNodeConnected)
     m_walletConnected = isNodeConnected;
 }
 
-void RestoreViewModel::onNodeConnectionFailed()
+void RestoreViewModel::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&)
 {
     m_skipProgress = true;
     updateProgress();

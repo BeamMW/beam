@@ -31,8 +31,8 @@ StatusbarViewModel::StatusbarViewModel()
     connect(&m_model, SIGNAL(nodeConnectionChanged(bool)),
         SLOT(onNodeConnectionChanged(bool)));
 
-    connect(&m_model, SIGNAL(nodeConnectionFailed()),
-        SLOT(onNodeConnectionFailed()));
+    connect(&m_model, SIGNAL(nodeConnectionFailed(const proto::NodeConnection::DisconnectReason&)),
+        SLOT(onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&)));
 
     connect(&m_model, SIGNAL(onSyncProgressUpdated(int, int)),
         SLOT(onSyncProgressUpdated(int, int)));
@@ -120,7 +120,7 @@ void StatusbarViewModel::onNodeConnectionChanged(bool isNodeConnected)
     setIsFailedStatus(true);
 }
 
-void StatusbarViewModel::onNodeConnectionFailed()
+void StatusbarViewModel::onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason& reason)
 {
     setWalletStatusErrorMsg(tr("error"));
     setIsFailedStatus(true);
