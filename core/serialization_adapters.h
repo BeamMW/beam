@@ -393,9 +393,11 @@ namespace detail
             ar
                 & val.m_Value
                 & val.m_Signature
-				& val.m_Kid.m_Idx
-				& val.m_Kid.m_Type
-            ;
+				& val.m_Recovery.m_Kid.m_Idx
+				& val.m_Recovery.m_Kid.m_Type
+				& val.m_Recovery.m_Kid.m_SubIdx
+				& val.m_Recovery.m_Checksum
+				;
 
             return ar;
         }
@@ -406,9 +408,11 @@ namespace detail
             ar
                 & val.m_Value
                 & val.m_Signature
-				& val.m_Kid.m_Idx
-				& val.m_Kid.m_Type
-            ;
+				& val.m_Recovery.m_Kid.m_Idx
+				& val.m_Recovery.m_Kid.m_Type
+				& val.m_Recovery.m_Kid.m_SubIdx
+				& val.m_Recovery.m_Checksum
+				;
 
             return ar;
         }
