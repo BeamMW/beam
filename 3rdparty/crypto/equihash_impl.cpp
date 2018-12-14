@@ -69,7 +69,7 @@ int Equihash<N,K>::InitialiseState(eh_HashState& base_state)
     memcpy(personalization+8,  &le_N, 4);
     memcpy(personalization+12, &le_K, 4);
 
-    const uint8_t outlen = (512 / N)*N / 8;
+    const uint8_t outlen = 512 / 8;
 
     static_assert(!((!outlen) || (outlen > BLAKE2B_OUTBYTES)));
 
