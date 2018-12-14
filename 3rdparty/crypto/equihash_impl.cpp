@@ -31,9 +31,9 @@ EhSolverCancelledException solver_cancelled;
 
 namespace
 {
-    constexpr size_t GetSizeInBytes(size_t N)
+    constexpr uint8_t GetSizeInBytes(size_t N)
     {
-        size_t res = N / 8;
+        uint8_t res = static_cast<uint8_t>(N / 8);
         if (N % 8)
         {
             res += 1;
@@ -44,7 +44,7 @@ namespace
 
     constexpr void ZeroizeUnusedBits(size_t N, unsigned char* hash, size_t hLen)
     {
-        size_t rem = N % 8;
+        uint8_t rem = N % 8;
         if (rem)
         {
             // clear lowest 8-rem bits
@@ -69,7 +69,7 @@ int Equihash<N,K>::InitialiseState(eh_HashState& base_state)
     memcpy(personalization+8,  &le_N, 4);
     memcpy(personalization+12, &le_K, 4);
 
-    const uint8_t outlen = 512 / 8;
+    const uint8_t outlen = (512 / N) * GetSizeInBytes(N);
 
     static_assert(!((!outlen) || (outlen > BLAKE2B_OUTBYTES)));
 
