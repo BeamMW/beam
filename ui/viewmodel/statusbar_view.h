@@ -20,11 +20,11 @@
 class StatusbarViewModel : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(bool isFailedStatus READ getIsFailedStatus WRITE setIsFailedStatus NOTIFY isFailedStatusChanged)
-    Q_PROPERTY(bool isSyncInProgress READ getIsSyncInProgress WRITE setIsSyncInProgress NOTIFY isSyncInProgressChanged)
-    Q_PROPERTY(int nodeSyncProgress READ getNodeSyncProgress WRITE setNodeSyncProgress NOTIFY nodeSyncProgressChanged)
+    Q_PROPERTY(bool isFailedStatus READ getIsFailedStatus NOTIFY isFailedStatusChanged)
+    Q_PROPERTY(bool isSyncInProgress READ getIsSyncInProgress NOTIFY isSyncInProgressChanged)
+    Q_PROPERTY(int nodeSyncProgress READ getNodeSyncProgress NOTIFY nodeSyncProgressChanged)
     Q_PROPERTY(QString branchName READ getBranchName CONSTANT)
-    Q_PROPERTY(QString walletStatusErrorMsg READ getWalletStatusErrorMsg NOTIFY stateChanged)
+    Q_PROPERTY(QString walletStatusErrorMsg READ getWalletStatusErrorMsg NOTIFY statusErrorChanged)
 
 public:
 
@@ -39,6 +39,7 @@ public:
     void setIsFailedStatus(bool value);
     void setIsSyncInProgress(bool value);
     void setNodeSyncProgress(int value);
+    void setWalletStatusErrorMsg(const QString& value);
 
 public slots:
 
@@ -52,7 +53,7 @@ signals:
     void isFailedStatusChanged();
     void isSyncInProgressChanged();
     void nodeSyncProgressChanged();
-    void stateChanged();
+    void statusErrorChanged();
 
 private:
     WalletModel& m_model;
@@ -65,4 +66,6 @@ private:
     int m_nodeTotal;
     int m_done;
     int m_total;
+
+    QString m_errorMsg;
 };

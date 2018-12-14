@@ -25,6 +25,7 @@ StatusbarViewModel::StatusbarViewModel()
     , m_nodeTotal(0)
     , m_done(0)
     , m_total(0)
+    , m_errorMsg{}
 
 {
     connect(&m_model, SIGNAL(nodeConnectionChanged(bool)),
@@ -68,11 +69,16 @@ QString StatusbarViewModel::getBranchName() const
 
 QString StatusbarViewModel::getWalletStatusErrorMsg() const
 {
-    return QString{};
+    return m_errorMsg;
 }
 
 void StatusbarViewModel::setIsFailedStatus(bool value)
 {
+    if (m_isFailedStatus != value)
+    {
+        m_isFailedStatus = value;
+        emit isFailedStatusChanged();
+    }
 }
 
 void StatusbarViewModel::setNodeSyncProgress(int value)
@@ -93,12 +99,31 @@ void StatusbarViewModel::setIsSyncInProgress(bool value)
     }
 }
 
-void StatusbarViewModel::onNodeConnectionChanged(bool /*isNodeConnected*/)
-{    
+void StatusbarViewModel::setWalletStatusErrorMsg(const QString& value)
+{
+    if (m_errorMsg != value)
+    {
+        m_errorMsg = value;
+        emit statusErrorChanged();
+    }
+}
+
+void StatusbarViewModel::onNodeConnectionChanged(bool isNodeConnected)
+{
+    if (isNodeConnected)
+    {
+        setIsFailedStatus(false);
+        return;
+    }
+
+    setWalletStatusErrorMsg(tr("Wallet is not connected to the node"));
+    setIsFailedStatus(true);
 }
 
 void StatusbarViewModel::onNodeConnectionFailed()
-{    
+{
+    setWalletStatusErrorMsg(tr("error"));
+    setIsFailedStatus(true);
 }
 
 void StatusbarViewModel::onSyncProgressUpdated(int done, int total)
@@ -106,8 +131,6 @@ void StatusbarViewModel::onSyncProgressUpdated(int done, int total)
     m_done = done;
     m_total = total;
     setIsSyncInProgress(!((m_done + m_nodeDone) == (m_total + m_nodeTotal)));
-
-    emit stateChanged();
 }
 
 void StatusbarViewModel::onNodeSyncProgressUpdated(int done, int total)
