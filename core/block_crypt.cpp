@@ -297,40 +297,41 @@ namespace beam
 		ECC::Hash::Processor() << sk >> seed;
 	}
 
-	bool Output::Recover(Key::IPKdf& kdf, Key::IDV& kidv) const
+	bool Output::Recover(Key::IPKdf& tagKdf, Key::IDV& kidv) const
 	{
 		ECC::RangeProof::CreatorParams cp;
-		get_SeedKid(cp.m_Seed.V, kdf);
+		get_SeedKid(cp.m_Seed.V, tagKdf);
 
 		ECC::Oracle oracle;
 		oracle << m_Incubation;
 
-		if (m_pPublic)
-		    m_pPublic->Recover(cp);
-		else
-		{
-			if (!(m_pConfidential && m_pConfidential->Recover(oracle, cp)))
-				return false;
-		}
+		bool bSuccess =
+			m_pConfidential ? m_pConfidential->Recover(oracle, cp) :
+			m_pPublic ? m_pPublic->Recover(cp) :
+			false;
 
+		if (bSuccess)
+			// Skip further verification, assuming no need to fully reconstruct the commitment
+			kidv = cp.m_Kidv;
+
+		return bSuccess;
+	}
+
+	bool Output::VerifyRecovered(Key::IPKdf& coinKdf, const Key::IDV& kidv) const
+	{
 		// reconstruct the commitment
-		ECC::Mode::Scope scope(ECC::Mode::Fast); //?
+		ECC::Mode::Scope scope(ECC::Mode::Fast);
 
 		ECC::Point::Native comm, comm2;
-
 		if (!comm2.Import(m_Commitment))
 			return false;
-		SwitchCommitment(&m_AssetID).Recover(comm, kdf, cp.m_Kidv);
+
+		SwitchCommitment(&m_AssetID).Recover(comm, coinKdf, kidv);
 
 		comm = -comm;
 		comm += comm2;
 		
-		if (!(comm == Zero))
-			return false;
-
-		// bingo!
-		kidv = cp.m_Kidv;
-		return true;
+		return (comm == Zero);
 	}
 
 	void HeightAdd(Height& trg, Height val)
