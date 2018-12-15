@@ -119,7 +119,7 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 
 void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)
 {
-	if (!(Flags::ReportedConnected & m_Flags))
+	//if (!(Flags::ReportedConnected & m_Flags))
 		m_This.OnConnectionFailed(m_iIndex, dr);
 
 	NodeConnection::Reset();

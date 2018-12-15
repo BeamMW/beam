@@ -116,8 +116,10 @@ void StatusbarViewModel::onNodeConnectionChanged(bool isNodeConnected)
         return;
     }
 
-    setWalletStatusErrorMsg(tr("Wallet is not connected to the node"));
-    setIsFailedStatus(true);
+	// Failed status must have arrived already
+
+    //setWalletStatusErrorMsg(tr("Wallet is not connected to the node"));
+    //setIsFailedStatus(true);
 }
 
 void StatusbarViewModel::onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason::Marshal& reason)
