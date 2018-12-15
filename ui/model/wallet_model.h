@@ -68,7 +68,7 @@ signals:
     void onGeneratedNewAddress(const beam::WalletAddress& walletAddr);
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
     void nodeConnectionChanged(bool isNodeConnected);
-    void nodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason& reason);
+    void nodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason::Marshal& reason);
 
 
 private:

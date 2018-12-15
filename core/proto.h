@@ -476,6 +476,9 @@ namespace proto {
 
 		struct DisconnectReason
 		{
+			DisconnectReason() {}
+			DisconnectReason(const DisconnectReason&) = delete;
+
 			enum Enum {
 				Io,
 				Protocol,
@@ -493,6 +496,17 @@ namespace proto {
 				uint8_t m_ByeReason;
 				const ECC::Hash::Value* m_pCfg;
 			};
+
+			struct Marshal;
+		};
+
+		struct DisconnectReason::Marshal
+			:public DisconnectReason
+		{
+			ByteBuffer m_Buffer;
+			Marshal() {}
+			Marshal(const DisconnectReason&);
+			Marshal(const Marshal&);
 		};
 
 		virtual void OnDisconnect(const DisconnectReason&) {}

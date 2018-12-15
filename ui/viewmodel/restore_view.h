@@ -43,7 +43,7 @@ public slots:
     void onNodeSyncProgressUpdated(int done, int total);
     void onUpdateTimer();
     void onNodeConnectionChanged(bool isNodeConnected);
-    void onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason& reason);
+    void onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason::Marshal& reason);
 signals:
     void progressChanged();
     void progressMessageChanged();
