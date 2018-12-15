@@ -1322,25 +1322,89 @@ namespace ECC {
 
 	/////////////////////
 	// HKdf
-	HKdf::HKdf()
+	void Rfc5869::Reset(const char* szSalt, uint32_t nSalt, const beam::Blob& ikm)
+	{
+		// Extract
+		Hash::Mac hmac(szSalt, nSalt);
+		hmac.Write(ikm.p, ikm.n);
+		hmac >> m_Pkr.V;
+
+		m_bFirstTime = true;
+		m_Counter = Zero;
+		ZeroObject(m_Context);
+	}
+
+	void Rfc5869::Next()
+	{
+		// Expand
+		Hash::Mac hmac(m_Pkr.V.m_pData, m_Pkr.V.nBytes);
+
+		if (m_bFirstTime)
+			m_bFirstTime = false;
+		else
+			hmac.Write(m_Out.V.m_pData, m_Out.V.nBytes);
+
+		hmac.Write(m_Context.p, m_Context.n);
+
+		m_Counter.Inc();
+		hmac.Write(m_Counter.m_pData, m_Counter.nBytes);
+
+		hmac >> m_Out.V;
+	}
+
+	void Rfc5869::operator >> (Scalar::Native& sk)
+	{
+		static_assert(sizeof(Scalar) == sizeof(m_Out.V), "");
+		const Scalar& s = reinterpret_cast<const Scalar&>(m_Out.V);
+
+		do
+			Next();
+		while (!sk.ImportNnz(s));
+	}
+
+	HKdf::Generator::Generator()
 	{
 		m_Secret.V = Zero;
+	}
+
+	void HKdf::Generator::Generate(Scalar::Native& out, const Hash::Value& hv) const
+	{
+		struct Ikm {
+			Hash::Value m_Secret;
+			Hash::Value m_Params;
+		};
+
+		NoLeak<Ikm> ikm;
+		ikm.V.m_Secret = m_Secret.V;
+		ikm.V.m_Params = hv;
+
+		Rfc5869 gen("beam-Key", beam::Blob(&ikm.V, sizeof(ikm.V)));
+		gen >> out;
+	}
+
+	HKdf::HKdf()
+	{
 		m_kCoFactor = 1U; // by default
 	}
 
-	HKdf::~HKdf(){}
+	HKdf::~HKdf()
+	{
+	}
 
 	void HKdf::Generate(const Hash::Value& hv)
 	{
-		Oracle o;
-		o
-			<< "HKdf"
-			<< hv
-			>> m_Secret.V;
-		o
-			<< "CoFactor"
-			<< hv
-			>> m_kCoFactor;
+		static const char szCtx1[] = "gen";
+		static const char szCtx2[] = "coF";
+
+		Rfc5869 gen1("beam-HKdf", hv);
+		Rfc5869 gen2 = gen1;
+
+		gen1.m_Context = beam::Blob(szCtx1, sizeof(szCtx1));
+		gen1.Next();
+		m_Generator.m_Secret = gen1.m_Out;
+
+		gen2.m_Context = beam::Blob(szCtx2, sizeof(szCtx2));
+		gen2 >> m_kCoFactor;
 	}
 
 	void HKdf::Create(Ptr& pRes, const Hash::Value& hv)
@@ -1369,13 +1433,13 @@ namespace ECC {
 
 	void HKdf::DeriveKey(Scalar::Native& out, const Hash::Value& hv)
 	{
-		DerivePKey(out, hv);
+		m_Generator.Generate(out, hv);
 		out *= m_kCoFactor;
 	}
 
 	void HKdf::DerivePKey(Scalar::Native& out, const Hash::Value& hv)
 	{
-		out.GenerateNonceNnz(m_Secret.V, hv, NULL);
+		m_Generator.Generate(out, hv);
 	}
 
 	void Key::IKdf::DerivePKeyG(Point::Native& out, const Hash::Value& hv)
@@ -1394,52 +1458,53 @@ namespace ECC {
 
 	HKdfPub::HKdfPub()
 	{
-		ZeroObject(m_Secret.V);
 	}
 
-	HKdfPub::~HKdfPub() {}
+	HKdfPub::~HKdfPub()
+	{
+	}
 
 	void HKdfPub::DerivePKey(Scalar::Native& out, const Hash::Value& hv)
 	{
-		out.GenerateNonceNnz(m_Secret.V, hv, NULL);
+		m_Generator.Generate(out, hv);
 	}
 
 	void HKdfPub::DerivePKeyG(Point::Native& out, const Hash::Value& hv)
 	{
 		Scalar::Native sk;
-		DerivePKey(sk, hv);
+		m_Generator.Generate(sk, hv);
 		out = m_PkG * sk;
 	}
 
 	void HKdfPub::DerivePKeyJ(Point::Native& out, const Hash::Value& hv)
 	{
 		Scalar::Native sk;
-		DerivePKey(sk, hv);
+		m_Generator.Generate(sk, hv);
 		out = m_PkJ * sk;
 	}
 
 	void HKdf::Export(Packed& v) const
 	{
-		v.m_Secret = m_Secret.V;
+		v.m_Secret = m_Generator.m_Secret.V;
 		v.m_kCoFactor = m_kCoFactor;
 	}
 
 	bool HKdf::Import(const Packed& v)
 	{
-		m_Secret.V = v.m_Secret;
+		m_Generator.m_Secret.V = v.m_Secret;
 		return !m_kCoFactor.Import(v.m_kCoFactor);
 	}
 
 	void HKdfPub::Export(Packed& v) const
 	{
-		v.m_Secret = m_Secret.V;
+		v.m_Secret = m_Generator.m_Secret.V;
 		v.m_PkG = m_PkG;
 		v.m_PkJ = m_PkJ;
 	}
 
 	bool HKdfPub::Import(const Packed& v)
 	{
-		m_Secret.V = v.m_Secret;
+		m_Generator.m_Secret.V = v.m_Secret;
 		return
 			m_PkG.ImportNnz(v.m_PkG) &&
 			m_PkJ.ImportNnz(v.m_PkJ);
@@ -1447,7 +1512,7 @@ namespace ECC {
 
 	void HKdfPub::GenerateFrom(const HKdf& v)
 	{
-		m_Secret.V = v.m_Secret.V;
+		m_Generator = v.m_Generator;
 		m_PkG = Context::get().G * v.m_kCoFactor;
 		m_PkJ = Context::get().J * v.m_kCoFactor;
 	}

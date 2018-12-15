@@ -465,13 +465,40 @@ namespace ECC
 		void operator >> (Value& hv) { Finalize(hv); }
 	};
 
+	class Rfc5869
+	{
+		NoLeak<Hash::Value> m_Pkr;
+		beam::uintBig_t<1> m_Counter; // wraps-around, it's fine
+		bool m_bFirstTime;
+
+		void Reset(const char* szSalt, uint32_t nSalt, const beam::Blob& ikm);
+
+	public:
+		template <uint32_t nSalt>
+		Rfc5869(const char(&szSalt)[nSalt], const beam::Blob& ikm) { Reset(szSalt, nSalt, ikm); }
+
+		beam::Blob m_Context;
+		NoLeak<Hash::Value> m_Out;
+
+		void Next();
+		void operator >> (Scalar::Native&);
+	};
+
 	class HKdf
 		:public Key::IKdf
 	{
 		friend class HKdfPub;
 		HKdf(const HKdf&) = delete;
 
-		NoLeak<uintBig> m_Secret;
+		struct Generator
+		{
+			Generator();
+			// according to rfc5869
+			NoLeak<uintBig> m_Secret;
+			void Generate(Scalar::Native&, const Hash::Value&) const;
+
+		} m_Generator;
+
 		Scalar::Native m_kCoFactor;
 	public:
 		HKdf();
@@ -505,7 +532,7 @@ namespace ECC
 	{
 		HKdfPub(const HKdfPub&) = delete;
 
-		NoLeak<uintBig> m_Secret;
+		HKdf::Generator m_Generator;
 		Point::Native m_PkG;
 		Point::Native m_PkJ;
 
