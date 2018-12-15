@@ -497,17 +497,7 @@ namespace proto {
 				const ECC::Hash::Value* m_pCfg;
 			};
 
-			struct Marshal;
-		};
-
-		struct DisconnectReason::Marshal
-			:public DisconnectReason
-		{
-			std::shared_ptr<uint8_t[]> m_pBuffer;
-
-			Marshal() {}
-			Marshal(const DisconnectReason&);
-			Marshal(const Marshal&);
+			class Marshal;
 		};
 
 		virtual void OnDisconnect(const DisconnectReason&) {}
@@ -526,6 +516,19 @@ namespace proto {
 
 			virtual void OnAccepted(io::TcpStream::Ptr&&, int errorCode) = 0;
 		};
+	};
+
+	class NodeConnection::DisconnectReason::Marshal
+		:public DisconnectReason
+	{
+		std::shared_ptr<uint8_t> m_pBuffer;
+		const uint8_t* Duplicate(const Blob&);
+
+	public:
+
+		Marshal() {}
+		Marshal(const DisconnectReason&);
+		Marshal(const Marshal&);
 	};
 
 	std::ostream& operator << (std::ostream& s, const NodeConnection::DisconnectReason&);

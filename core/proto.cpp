@@ -414,26 +414,29 @@ std::ostream& operator << (std::ostream& s, const NodeConnection::DisconnectReas
 	return s;
 }
 
+const uint8_t* NodeConnection::DisconnectReason::Marshal::Duplicate(const Blob& b)
+{
+	m_pBuffer.reset(new uint8_t[b.n], [](uint8_t* p) { delete[] p; });
+	uint8_t* p = &*m_pBuffer;
+
+	memcpy(p, b.p, b.n);
+	return  p;
+}
+
 NodeConnection::DisconnectReason::Marshal::Marshal(const DisconnectReason& dr)
 {
 	Cast::Down<DisconnectReason>(*this) = dr;
 	switch (m_Type)
 	{
 	case ProcessingExc:
-		{
-			size_t nLen = strlen(m_szErrorMsg);
-			m_pBuffer.reset(new uint8_t[nLen + 1]);
-			memcpy(&m_pBuffer[0], m_szErrorMsg, nLen + 1);
-			m_szErrorMsg = reinterpret_cast<const char*>(&m_pBuffer[0]);
-		}
+		m_szErrorMsg = reinterpret_cast<const char*>(Duplicate(Blob(
+			m_szErrorMsg,
+			static_cast<uint32_t>(strlen(m_szErrorMsg) + 1)
+		)));
 		break;
 
 	case Incompatible:
-		{
-			m_pBuffer.reset(new uint8_t[sizeof(*m_pCfg)]);
-			memcpy(&m_pBuffer[0], m_pCfg, sizeof(*m_pCfg));
-			m_pCfg = reinterpret_cast<const ECC::Hash::Value*>(&m_pBuffer[0]);
-		}
+		m_pCfg = reinterpret_cast<const ECC::Hash::Value*>(Duplicate(*m_pCfg));
 		break;
 
 	default:
