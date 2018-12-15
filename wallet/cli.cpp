@@ -444,14 +444,19 @@ int main_impl(int argc, char* argv[])
 							ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
 							ks.m_sMeta = std::to_string(subKey);
 
-							ks.Export(kdf);
-							cout << "Secret key: " << ks.m_sRes << std::endl;
+							if (subKey)
+							{
+								ks.Export(kdf);
+								cout << "Secret Subkey " << subKey <<  ": " << ks.m_sRes << std::endl;
+							}
+							else
+							{
+								ECC::HKdfPub pkdf;
+								pkdf.GenerateFrom(kdf);
 
-							ECC::HKdfPub pkdf;
-							pkdf.GenerateFrom(kdf);
-
-							ks.Export(pkdf);
-							cout << "Viewer key: " << ks.m_sRes << std::endl;
+								ks.Export(pkdf);
+								cout << "Owner Viewer key: " << ks.m_sRes << std::endl;
+							}
 
 							return 0;
 						}
