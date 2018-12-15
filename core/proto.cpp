@@ -422,16 +422,17 @@ NodeConnection::DisconnectReason::Marshal::Marshal(const DisconnectReason& dr)
 	case ProcessingExc:
 		{
 			size_t nLen = strlen(m_szErrorMsg);
-			m_Buffer.assign(m_szErrorMsg, m_szErrorMsg + nLen + 1);
-			m_szErrorMsg = reinterpret_cast<const char*>(m_Buffer.data());
+			m_pBuffer.reset(new uint8_t[nLen + 1]);
+			memcpy(&m_pBuffer[0], m_szErrorMsg, nLen + 1);
+			m_szErrorMsg = reinterpret_cast<const char*>(&m_pBuffer[0]);
 		}
 		break;
 
 	case Incompatible:
 		{
-			m_Buffer.resize(sizeof(*m_pCfg));
-			memcpy(&m_Buffer.front(), m_pCfg, sizeof(*m_pCfg));
-			m_pCfg = reinterpret_cast<const ECC::Hash::Value*>(m_Buffer.data());
+			m_pBuffer.reset(new uint8_t[sizeof(*m_pCfg)]);
+			memcpy(&m_pBuffer[0], m_pCfg, sizeof(*m_pCfg));
+			m_pCfg = reinterpret_cast<const ECC::Hash::Value*>(&m_pBuffer[0]);
 		}
 		break;
 
@@ -443,7 +444,7 @@ NodeConnection::DisconnectReason::Marshal::Marshal(const DisconnectReason& dr)
 NodeConnection::DisconnectReason::Marshal::Marshal(const Marshal& x)
 {
 	Cast::Down<DisconnectReason>(*this) = x;
-	m_Buffer = x.m_Buffer; // qt seems not use move-semantics c'tor
+	m_pBuffer = x.m_pBuffer;
 }
 
 void NodeConnection::on_connection_error(uint64_t, io::ErrorCode errorCode)

@@ -503,7 +503,8 @@ namespace proto {
 		struct DisconnectReason::Marshal
 			:public DisconnectReason
 		{
-			ByteBuffer m_Buffer;
+			std::shared_ptr<uint8_t[]> m_pBuffer;
+
 			Marshal() {}
 			Marshal(const DisconnectReason&);
 			Marshal(const Marshal&);
