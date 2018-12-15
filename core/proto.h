@@ -447,7 +447,7 @@ namespace proto {
 		void ProvePKdfObscured(Key::IPKdf&, uint8_t nIDType);
 		bool IsKdfObscured(Key::IPKdf&, const PeerID&);
 		bool IsPKdfObscured(Key::IPKdf&, const PeerID&);
-
+		bool VerifyCfg(const Login&); // will call OnDisconnect if incompatible
 
 		virtual void OnMsg(SChannelInitiate&&) override;
 		virtual void OnMsg(SChannelReady&&) override;
@@ -481,6 +481,7 @@ namespace proto {
 				Protocol,
 				ProcessingExc,
 				Bye,
+				Incompatible,
 			};
 
 			Enum m_Type;
@@ -490,6 +491,7 @@ namespace proto {
 				ProtocolError m_eProtoCode;
 				const char* m_szErrorMsg;
 				uint8_t m_ByeReason;
+				const ECC::Hash::Value* m_pCfg;
 			};
 		};
 

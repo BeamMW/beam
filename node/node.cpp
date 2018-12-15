@@ -1174,6 +1174,7 @@ void Node::Peer::OnDisconnect(const DisconnectReason& dr)
 
 	case DisconnectReason::ProcessingExc:
 	case DisconnectReason::Protocol:
+	case DisconnectReason::Incompatible:
 		nByeReason = ByeReason::Ban;
 		break;
 	}
@@ -2244,8 +2245,8 @@ bool Node::Dandelion::ValidateTxContext(const Transaction& tx)
 
 void Node::Peer::OnMsg(proto::Login&& msg)
 {
-	if (msg.m_CfgChecksum != Rules::get().Checksum)
-		ThrowUnexpected("Incompatible peer cfg!");
+	if (!VerifyCfg(msg))
+		return;
 
 	if (!(m_LoginFlags & proto::LoginFlags::SpreadingTransactions) && (msg.m_Flags & proto::LoginFlags::SpreadingTransactions))
 	{

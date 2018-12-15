@@ -404,6 +404,10 @@ std::ostream& operator << (std::ostream& s, const NodeConnection::DisconnectReas
 		s << "Bye " << r.m_ByeReason;
 		break;
 
+	case NodeConnection::DisconnectReason::Incompatible:
+		s << "Incompatible: " << *r.m_pCfg;
+		break;
+
 	default:
 		assert(false);
 	}
@@ -702,6 +706,19 @@ void NodeConnection::OnMsg(Bye&& msg)
 	r.m_Type = DisconnectReason::Bye;
 	r.m_ByeReason = msg.m_Reason;
 	OnDisconnect(r);
+}
+
+bool NodeConnection::VerifyCfg(const Login& msg)
+{
+	if (msg.m_CfgChecksum == Rules::get().Checksum)
+		return true;
+
+	DisconnectReason r;
+	r.m_Type = DisconnectReason::Incompatible;
+	r.m_pCfg = &msg.m_CfgChecksum;
+	OnDisconnect(r);
+
+	return false;
 }
 
 /////////////////////////

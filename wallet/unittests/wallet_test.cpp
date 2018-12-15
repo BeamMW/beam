@@ -903,6 +903,7 @@ private:
             {
             case DisconnectReason::Protocol:
             case DisconnectReason::ProcessingExc:
+			case DisconnectReason::Incompatible:
                 LOG_ERROR() << "Disconnect: " << r;
                 g_failureCount++;
 

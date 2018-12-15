@@ -225,8 +225,8 @@ void FlyClient::NetworkStd::Connection::OnMsg(GetBlockFinalization&& msg)
 
 void FlyClient::NetworkStd::Connection::OnMsg(Login&& msg)
 {
-	if (msg.m_CfgChecksum != Rules::get().Checksum)
-		ThrowUnexpected("incompatible");
+	if (!VerifyCfg(msg))
+		return;
 
 	m_LoginFlags = msg.m_Flags;
 	AssignRequests();
