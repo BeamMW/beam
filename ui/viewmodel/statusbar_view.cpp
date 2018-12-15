@@ -122,7 +122,10 @@ void StatusbarViewModel::onNodeConnectionChanged(bool isNodeConnected)
 
 void StatusbarViewModel::onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason::Marshal& reason)
 {
-    setWalletStatusErrorMsg(tr("error"));
+	std::ostringstream os;
+	os << "Error: " << reason;
+
+    setWalletStatusErrorMsg(tr(os.str().c_str()));
     setIsFailedStatus(true);
 }
 
