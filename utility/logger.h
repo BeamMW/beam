@@ -192,7 +192,7 @@ public:
 
     LogMessage(const LogMessageHeader& h);
 
-    template <class T> LogMessage& operator<<(T x) {
+    template <class T> LogMessage& operator<<(const T& x) {
         if constexpr (std::is_same<T, FlushAllCheckpoints>::value) {
             flush_all_checkpoints(this);
         }
