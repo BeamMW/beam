@@ -102,9 +102,6 @@ namespace ECC
 
 		bool ImportNnz(const Scalar&); // returns true if succeeded: i.e. must not overflow & non-zero. Constant time guaranteed.
 		void GenRandomNnz();
-
-		void GenerateNonceNnz(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt = 0);
-		void GenerateNonceNnz(const Scalar::Native& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt = 0);
 	};
 
 	class Point::Native
@@ -467,18 +464,19 @@ namespace ECC
 
 	class Rfc5869
 	{
-		NoLeak<Hash::Value> m_Pkr;
+		Hash::Value m_Pkr;
 		beam::uintBig_t<1> m_Counter; // wraps-around, it's fine
 		bool m_bFirstTime;
 
-		void Reset(const char* szSalt, uint32_t nSalt, const beam::Blob& ikm);
+		void Reset(const char* szSalt, uint32_t nSalt, const beam::Blob& secret, const beam::Blob& ikm);
 
 	public:
 		template <uint32_t nSalt>
-		Rfc5869(const char(&szSalt)[nSalt], const beam::Blob& ikm) { Reset(szSalt, nSalt, ikm); }
+		Rfc5869(const char(&szSalt)[nSalt], const beam::Blob& secret, const beam::Blob& ikm) { Reset(szSalt, nSalt, secret, ikm); }
+		~Rfc5869() { SecureErase(*this); }
 
 		beam::Blob m_Context;
-		NoLeak<Hash::Value> m_Out;
+		Hash::Value m_Out;
 
 		void Next();
 		void operator >> (Scalar::Native&);

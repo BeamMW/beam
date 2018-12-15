@@ -1198,42 +1198,6 @@ namespace ECC {
 	} // namespace Tag
 
 	/////////////////////
-	// Nonce and key generation
-	void GenerateNonce(uintBig& res, const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
-	{
-		for (uint32_t i = 0; ; i++)
-		{
-			if (!nonce_function_rfc6979(res.m_pData, msg.m_pData, sk.m_pData, NULL, pMsg2 ? (void*) pMsg2->m_pData : NULL, i))
-				continue;
-
-			if (!nAttempt--)
-				break;
-		}
-	}
-
-	void Scalar::Native::GenerateNonceNnz(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
-	{
-		NoLeak<Scalar> s;
-
-		for (uint32_t i = 0; ; i++)
-		{
-			ECC::GenerateNonce(s.V.m_Value, sk, msg, pMsg2, i);
-			if (!ImportNnz(s.V))
-				continue;
-
-			if (!nAttempt--)
-				break;
-		}
-	}
-
-	void Scalar::Native::GenerateNonceNnz(const Scalar::Native& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
-	{
-		NoLeak<Scalar> sk_;
-		sk_.V = sk;
-		GenerateNonceNnz(sk_.V.m_Value, msg, pMsg2, nAttempt);
-	}
-
-	/////////////////////
 	// Key::ID
 	void Key::ID::get_Hash(Hash::Value& hv) const
 	{
@@ -1322,12 +1286,13 @@ namespace ECC {
 
 	/////////////////////
 	// HKdf
-	void Rfc5869::Reset(const char* szSalt, uint32_t nSalt, const beam::Blob& ikm)
+	void Rfc5869::Reset(const char* szSalt, uint32_t nSalt, const beam::Blob& secret, const beam::Blob& ikm)
 	{
 		// Extract
 		Hash::Mac hmac(szSalt, nSalt);
+		hmac.Write(secret.p, secret.n);
 		hmac.Write(ikm.p, ikm.n);
-		hmac >> m_Pkr.V;
+		hmac >> m_Pkr;
 
 		m_bFirstTime = true;
 		m_Counter = Zero;
@@ -1337,25 +1302,25 @@ namespace ECC {
 	void Rfc5869::Next()
 	{
 		// Expand
-		Hash::Mac hmac(m_Pkr.V.m_pData, m_Pkr.V.nBytes);
+		Hash::Mac hmac(m_Pkr.m_pData, m_Pkr.nBytes);
 
 		if (m_bFirstTime)
 			m_bFirstTime = false;
 		else
-			hmac.Write(m_Out.V.m_pData, m_Out.V.nBytes);
+			hmac.Write(m_Out.m_pData, m_Out.nBytes);
 
 		hmac.Write(m_Context.p, m_Context.n);
 
 		m_Counter.Inc();
 		hmac.Write(m_Counter.m_pData, m_Counter.nBytes);
 
-		hmac >> m_Out.V;
+		hmac >> m_Out;
 	}
 
 	void Rfc5869::operator >> (Scalar::Native& sk)
 	{
-		static_assert(sizeof(Scalar) == sizeof(m_Out.V), "");
-		const Scalar& s = reinterpret_cast<const Scalar&>(m_Out.V);
+		static_assert(sizeof(Scalar) == sizeof(m_Out), "");
+		const Scalar& s = reinterpret_cast<const Scalar&>(m_Out);
 
 		do
 			Next();
@@ -1369,16 +1334,7 @@ namespace ECC {
 
 	void HKdf::Generator::Generate(Scalar::Native& out, const Hash::Value& hv) const
 	{
-		struct Ikm {
-			Hash::Value m_Secret;
-			Hash::Value m_Params;
-		};
-
-		NoLeak<Ikm> ikm;
-		ikm.V.m_Secret = m_Secret.V;
-		ikm.V.m_Params = hv;
-
-		Rfc5869 gen("beam-Key", beam::Blob(&ikm.V, sizeof(ikm.V)));
+		Rfc5869 gen("beam-Key", m_Secret.V, hv);
 		gen >> out;
 	}
 
@@ -1396,12 +1352,12 @@ namespace ECC {
 		static const char szCtx1[] = "gen";
 		static const char szCtx2[] = "coF";
 
-		Rfc5869 gen1("beam-HKdf", hv);
+		Rfc5869 gen1("beam-HKdf", beam::Blob(NULL, 0), hv);
 		Rfc5869 gen2 = gen1;
 
 		gen1.m_Context = beam::Blob(szCtx1, sizeof(szCtx1));
 		gen1.Next();
-		m_Generator.m_Secret = gen1.m_Out;
+		m_Generator.m_Secret.V = gen1.m_Out;
 
 		gen2.m_Context = beam::Blob(szCtx2, sizeof(szCtx2));
 		gen2 >> m_kCoFactor;
@@ -1557,11 +1513,19 @@ namespace ECC {
 
 	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
 	{
-		NoLeak<Hash::Value> hvRandom;
-		GenRandom(hvRandom.V); // add extra randomness to the nonce, so it's derived from both deterministic and random parts
+		struct Secret {
+			Hash::Value m_hvRandom;
+			Scalar m_Sk;
+		};
+		NoLeak<Secret> s;
+
+		GenRandom(s.V.m_hvRandom); // add extra randomness to the nonce, so it's derived from both deterministic and random parts
+		s.V.m_Sk = sk;
+
+		Rfc5869 gen("Schnorr", beam::Blob(&s, sizeof(s)), msg);
 
 		MultiSig msig;
-		msig.m_Nonce.GenerateNonceNnz(sk, msg, &hvRandom.V);
+		gen >> msig.m_Nonce;
 		msig.m_NoncePub = Context::get().G * msig.m_Nonce;
 
 		Scalar::Native k;

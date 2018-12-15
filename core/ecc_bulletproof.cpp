@@ -591,18 +591,11 @@ namespace ECC {
 	}
 
 	struct NonceGenerator
+		:public Rfc5869
 	{
-		Oracle m_Oracle;
-		const uintBig& m_Seed;
-
-		NonceGenerator(const uintBig& seed) :m_Seed(seed) {}
-
-		void operator >> (Scalar::Native& k)
+		NonceGenerator(const uintBig& seed)
+			:Rfc5869("bulletproof", seed, beam::Blob(NULL, 0))
 		{
-			NoLeak<Hash::Value> hv;
-			m_Oracle >> hv.V;
-
-			k.GenerateNonceNnz(m_Seed, hv.V, NULL);
 		}
 	};
 

@@ -797,7 +797,7 @@ void TestTxParameters()
     WALLET_CHECK(equal(b.begin(), b.end(), b2.begin(), b2.end()));
 
     ECC::Scalar::Native s, s2;
-    s.GenerateNonceNnz(uintBig(123U), uintBig(321U), nullptr);
+	s = 123U;
     WALLET_CHECK(wallet::setTxParameter(db, txID, TxParameterID::BlindingExcess, s, false));
     WALLET_CHECK(wallet::getTxParameter(db, txID, TxParameterID::BlindingExcess, s2));
     WALLET_CHECK(s == s2);

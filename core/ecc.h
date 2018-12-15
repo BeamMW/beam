@@ -94,8 +94,6 @@ namespace ECC
 	class Oracle;
 	struct NonceGenerator;
 
-	void GenerateNonce(uintBig&, const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */);
-
 	struct Scalar
 	{
 		static const uintBig s_Order;
