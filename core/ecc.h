@@ -92,7 +92,6 @@ namespace ECC
 
 	class Commitment;
 	class Oracle;
-	struct NonceGenerator;
 
 	struct Scalar
 	{

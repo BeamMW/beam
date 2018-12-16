@@ -462,24 +462,48 @@ namespace ECC
 		void operator >> (Value& hv) { Finalize(hv); }
 	};
 
-	class Rfc5869
+	class NonceGenerator
 	{
-		Hash::Value m_Pkr;
+		// RFC-5869
+		Hash::Mac m_HMac;
+
+		Hash::Value m_Prk;
+		Hash::Value m_Okm;
 		beam::uintBig_t<1> m_Counter; // wraps-around, it's fine
 		bool m_bFirstTime;
 
-		void Reset(const char* szSalt, uint32_t nSalt, const beam::Blob& secret, const beam::Blob& ikm);
+		void Reset();
+		void WriteIkm(const beam::Blob&);
 
 	public:
+
 		template <uint32_t nSalt>
-		Rfc5869(const char(&szSalt)[nSalt], const beam::Blob& secret, const beam::Blob& ikm) { Reset(szSalt, nSalt, secret, ikm); }
-		~Rfc5869() { SecureErase(*this); }
+		NonceGenerator(const char(&szSalt)[nSalt])
+			:m_HMac(szSalt, nSalt)
+		{
+			Reset();
+		}
+
+		~NonceGenerator() { SecureErase(*this); }
 
 		beam::Blob m_Context;
-		Hash::Value m_Out;
 
-		void Next();
-		void operator >> (Scalar::Native&);
+		template <uint32_t nContext>
+		NonceGenerator& SetContext(const char(&szContext)[nContext]) {
+			m_Context.p = szContext;
+			m_Context.n = nContext;
+			return *this;
+		}
+
+		template <typename T>
+		NonceGenerator& operator << (const T& t) {
+			WriteIkm(t);
+			return *this;
+		}
+
+		const Hash::Value& get_Okm();
+		NonceGenerator& operator >> (Hash::Value&);
+		NonceGenerator& operator >> (Scalar::Native&);
 	};
 
 	class HKdf

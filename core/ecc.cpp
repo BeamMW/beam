@@ -1285,48 +1285,63 @@ namespace ECC {
 	}
 
 	/////////////////////
-	// HKdf
-	void Rfc5869::Reset(const char* szSalt, uint32_t nSalt, const beam::Blob& secret, const beam::Blob& ikm)
+	// NonceGenerator
+	void NonceGenerator::Reset()
 	{
-		// Extract
-		Hash::Mac hmac(szSalt, nSalt);
-		hmac.Write(secret.p, secret.n);
-		hmac.Write(ikm.p, ikm.n);
-		hmac >> m_Pkr;
-
+		ZeroObject(m_Context);
 		m_bFirstTime = true;
 		m_Counter = Zero;
-		ZeroObject(m_Context);
 	}
 
-	void Rfc5869::Next()
+	void NonceGenerator::WriteIkm(const beam::Blob& b)
 	{
+		assert(m_bFirstTime);
+		m_HMac.Write(b.p, b.n);
+	}
+
+	const Hash::Value& NonceGenerator::get_Okm()
+	{
+		if (m_bFirstTime)
+			// Extract
+			m_HMac >> m_Prk;
+
 		// Expand
-		Hash::Mac hmac(m_Pkr.m_pData, m_Pkr.nBytes);
+		m_HMac.Reset(m_Prk.m_pData, m_Prk.nBytes);
 
 		if (m_bFirstTime)
 			m_bFirstTime = false;
 		else
-			hmac.Write(m_Out.m_pData, m_Out.nBytes);
+			m_HMac.Write(m_Okm.m_pData, m_Okm.nBytes);
 
-		hmac.Write(m_Context.p, m_Context.n);
+		m_HMac.Write(m_Context.p, m_Context.n);
 
 		m_Counter.Inc();
-		hmac.Write(m_Counter.m_pData, m_Counter.nBytes);
+		m_HMac.Write(m_Counter.m_pData, m_Counter.nBytes);
 
-		hmac >> m_Out;
+		m_HMac >> m_Okm;
+		return m_Okm;
 	}
 
-	void Rfc5869::operator >> (Scalar::Native& sk)
+	NonceGenerator& NonceGenerator::operator >> (Hash::Value& hv)
 	{
-		static_assert(sizeof(Scalar) == sizeof(m_Out), "");
-		const Scalar& s = reinterpret_cast<const Scalar&>(m_Out);
+		hv = get_Okm();
+		return *this;
+	}
+
+	NonceGenerator& NonceGenerator::operator >> (Scalar::Native& sk)
+	{
+		static_assert(sizeof(Scalar) == sizeof(m_Okm), "");
+		const Scalar& s = reinterpret_cast<const Scalar&>(m_Okm);
 
 		do
-			Next();
+			get_Okm();
 		while (!sk.ImportNnz(s));
+
+		return *this;
 	}
 
+	/////////////////////
+	// HKdf
 	HKdf::Generator::Generator()
 	{
 		m_Secret.V = Zero;
@@ -1334,8 +1349,10 @@ namespace ECC {
 
 	void HKdf::Generator::Generate(Scalar::Native& out, const Hash::Value& hv) const
 	{
-		Rfc5869 gen("beam-Key", m_Secret.V, hv);
-		gen >> out;
+		NonceGenerator("beam-Key")
+			<< m_Secret.V
+			<< hv
+			>> out;
 	}
 
 	HKdf::HKdf()
@@ -1349,18 +1366,12 @@ namespace ECC {
 
 	void HKdf::Generate(const Hash::Value& hv)
 	{
-		static const char szCtx1[] = "gen";
-		static const char szCtx2[] = "coF";
+		NonceGenerator nonceGen1("beam-HKdf");
+		nonceGen1 << hv;
+		NonceGenerator nonceGen2 = nonceGen1;
 
-		Rfc5869 gen1("beam-HKdf", beam::Blob(NULL, 0), hv);
-		Rfc5869 gen2 = gen1;
-
-		gen1.m_Context = beam::Blob(szCtx1, sizeof(szCtx1));
-		gen1.Next();
-		m_Generator.m_Secret.V = gen1.m_Out;
-
-		gen2.m_Context = beam::Blob(szCtx2, sizeof(szCtx2));
-		gen2 >> m_kCoFactor;
+		nonceGen1.SetContext("gen") >> m_Generator.m_Secret.V;
+		nonceGen2.SetContext("coF") >> m_kCoFactor;
 	}
 
 	void HKdf::Create(Ptr& pRes, const Hash::Value& hv)
@@ -1513,19 +1524,17 @@ namespace ECC {
 
 	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
 	{
-		struct Secret {
-			Hash::Value m_hvRandom;
-			Scalar m_Sk;
-		};
-		NoLeak<Secret> s;
+		NonceGenerator nonceGen("beam-Schnorr");
 
-		GenRandom(s.V.m_hvRandom); // add extra randomness to the nonce, so it's derived from both deterministic and random parts
-		s.V.m_Sk = sk;
+		NoLeak<Scalar> s_;
+		s_.V = sk;
+		nonceGen << s_.V.m_Value;
 
-		Rfc5869 gen("Schnorr", beam::Blob(&s, sizeof(s)), msg);
+		GenRandom(s_.V.m_Value); // add extra randomness to the nonce, so it's derived from both deterministic and random parts
+		nonceGen << s_.V.m_Value;
 
 		MultiSig msig;
-		gen >> msig.m_Nonce;
+		nonceGen >> msig.m_Nonce;
 		msig.m_NoncePub = Context::get().G * msig.m_Nonce;
 
 		Scalar::Native k;
@@ -1661,16 +1670,14 @@ namespace ECC {
 
 		void Public::XCryptKid(Key::ID::Packed& kid, const CreatorParams& cp, Hash::Value& hvChecksum)
 		{
-			Oracle oracle;
-			oracle
-				<< "p-xc"
-				<< cp.m_Seed.V
-				>> hvChecksum;
+			NonceGenerator nonceGen("beam-psig");
+			nonceGen << cp.m_Seed.V;
 
-			static_assert(sizeof(hvChecksum) >= sizeof(kid), "");
-			memxor(reinterpret_cast<uint8_t*>(&kid), hvChecksum.m_pData, sizeof(kid));
+			const Hash::Value& okm = nonceGen.get_Okm();
+			static_assert(sizeof(okm) >= sizeof(kid), "");
+			memxor(reinterpret_cast<uint8_t*>(&kid), okm.m_pData, sizeof(kid));
 
-			oracle >> hvChecksum;
+			nonceGen >> hvChecksum;
 		}
 
 		void Public::get_Msg(Hash::Value& hv, Oracle& oracle) const

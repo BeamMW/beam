@@ -590,12 +590,13 @@ namespace ECC {
 		return true;
 	}
 
-	struct NonceGenerator
-		:public Rfc5869
+	struct NonceGeneratorBp
+		:public NonceGenerator
 	{
-		NonceGenerator(const uintBig& seed)
-			:Rfc5869("bulletproof", seed, beam::Blob(NULL, 0))
+		NonceGeneratorBp(const uintBig& seed)
+			:NonceGenerator("bulletproof")
 		{
+			*this << seed;
 		}
 	};
 
@@ -656,7 +657,7 @@ namespace ECC {
 
 	bool RangeProof::Confidential::CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, MultiSig* pMsigOut /* = nullptr */, const Point::Native* pHGen /* = nullptr */)
 	{
-		NonceGenerator nonceGen(cp.m_Seed.V);
+		NonceGeneratorBp nonceGen(cp.m_Seed.V);
 
 		// A = G*alpha + vec(aL)*vec(G) + vec(aR)*vec(H)
 		Scalar::Native alpha, ro;
@@ -894,7 +895,7 @@ namespace ECC {
 
 	bool RangeProof::Confidential::Recover(Oracle& oracle, CreatorParams& cp) const
 	{
-		NonceGenerator nonceGen(cp.m_Seed.V);
+		NonceGeneratorBp nonceGen(cp.m_Seed.V);
 
 		Scalar::Native alpha_minus_params, ro;
 		nonceGen >> alpha_minus_params;
@@ -936,10 +937,10 @@ namespace ECC {
 
 	void RangeProof::Confidential::MultiSig::Impl::Init(const uintBig& seedSk)
 	{
-		NonceGenerator nonceGen(seedSk);
-
-		nonceGen >> m_tau1;
-		nonceGen >> m_tau2;
+		NonceGenerator("bp-key")
+			<< seedSk
+			>> m_tau1
+			>> m_tau2;
 	}
 
 	void RangeProof::Confidential::MultiSig::Impl::AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const
