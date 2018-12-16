@@ -709,8 +709,8 @@ void Node::Initialize(IExternalPOW* externalPOW)
 		// use all the cores, don't subtract 'mining threads'. Verification has higher priority
 		m_Cfg.m_VerificationThreads = std::thread::hardware_concurrency();
 
-	InitIDs();
 	InitKeys();
+	InitIDs();
 
 	LOG_INFO() << "Node ID=" << m_MyPublicID;
 	LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
@@ -752,17 +752,6 @@ void Node::InitKeys()
 			ECC::HKdf::Create(m_Keys.m_pGeneric, seed.V);
 		}
 	}
-
-	if (!m_Keys.m_pDummy)
-	{
-		// create it using Node-ID
-		ECC::NoLeak<ECC::Hash::Value> hv;
-		ECC::Hash::Processor() << m_MyPrivateID >> hv.V;
-
-		std::shared_ptr<ECC::HKdf> pKdf = std::make_shared<ECC::HKdf>();
-		pKdf->Generate(hv.V);
-		m_Keys.m_pDummy = std::move(pKdf);
-	}
 }
 
 void Node::InitIDs()
@@ -783,6 +772,17 @@ void Node::InitIDs()
 		m_MyPrivateID = s.V;
 
 	proto::Sk2Pk(m_MyPublicID, m_MyPrivateID);
+
+	if (!m_Keys.m_pDummy)
+	{
+		// create it using Node-ID
+		ECC::NoLeak<ECC::Hash::Value> hv;
+		ECC::Hash::Processor() << m_MyPrivateID >> hv.V;
+
+		std::shared_ptr<ECC::HKdf> pKdf = std::make_shared<ECC::HKdf>();
+		pKdf->Generate(hv.V);
+		m_Keys.m_pDummy = std::move(pKdf);
+	}
 }
 
 void Node::InitMode()
