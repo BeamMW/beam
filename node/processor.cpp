@@ -746,9 +746,10 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 
 			UtxoEvent::Value evt = *reinterpret_cast<const UtxoEvent::Value*>(wlk.m_Body.p); // copy
 			evt.m_Maturity = x.m_Maturity;
+			evt.m_Added = 0;
 
 			// In case of macroblock we can't recover the original input height.
-			m_DB.InsertEvent(hMax, Blob(&evt, sizeof(evt)), Blob(NULL, 0));
+			m_DB.InsertEvent(hMax, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
 		}
 	}
 
@@ -775,6 +776,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 		};
 
 		Walker w(x);
+		w.m_Value.m_Added = 1;
 		if (!EnumViewerKeys(w))
 		{
 			// filter-out dummies

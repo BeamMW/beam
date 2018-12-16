@@ -328,7 +328,7 @@ void NodeDB::Create()
 	ExecQuick("CREATE TABLE [" TblEvents "] ("
 		"[" TblEvents_Height	"] INTEGER NOT NULL,"
 		"[" TblEvents_Body		"] BLOB NOT NULL,"
-		"[" TblEvents_Key		"] BLOB)");
+		"[" TblEvents_Key		"] BLOB NOT NULL)");
 
 	ExecQuick("CREATE INDEX [Idx" TblEvents "] ON [" TblEvents "] ([" TblEvents_Height "],[" TblEvents_Body "]);");
 	ExecQuick("CREATE INDEX [Idx" TblEvents TblEvents_Key "] ON [" TblEvents "] ([" TblEvents_Key "]);");

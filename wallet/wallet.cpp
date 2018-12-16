@@ -495,8 +495,18 @@ namespace beam
         m_WalletDB->get_History().get_Tip(sTip);
 
         const std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
-        for (size_t i = 0; i < v.size(); i++)
-            ProcessUtxoEvent(v[i], sTip.m_Height);
+		for (size_t i = 0; i < v.size(); i++)
+		{
+			const proto::UtxoEvent& evt = v[i];
+
+			// filter-out false positives
+			Scalar::Native sk;
+			Point comm;
+			m_WalletDB->calcCommitment(sk, comm, evt.m_Kidv);
+
+			if (comm == evt.m_Commitment)
+				ProcessUtxoEvent(evt, sTip.m_Height);
+		}
 
         if (r.m_Res.m_Events.size() < proto::UtxoEvent::s_Max)
             SetUtxoEventsHeight(sTip.m_Height);

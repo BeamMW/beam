@@ -1433,11 +1433,21 @@ namespace beam
 				verify_test(!msg.m_Events.empty());
 
 				for (size_t i = 0; i < msg.m_Events.size(); i++)
-					if (!(msg.m_Events[i].m_AssetID == Zero))
+				{
+					const proto::UtxoEvent& evt = msg.m_Events[i];
+
+					if (!(evt.m_AssetID == Zero))
 					{
-						verify_test(msg.m_Events[i].m_AssetID == m_AssetEmitted);
+						verify_test(evt.m_AssetID == m_AssetEmitted);
 						m_bCustomAssetRecognized = true;
 					}
+
+					ECC::Scalar::Native sk;
+					ECC::Point comm;
+					SwitchCommitment(&evt.m_AssetID).Create(sk, comm, *m_Wallet.m_pKdf, evt.m_Kidv);
+					verify_test(comm == evt.m_Commitment);
+
+				}
 			}
 
 			virtual void OnMsg(proto::GetBlockFinalization&& msg) override

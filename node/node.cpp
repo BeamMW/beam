@@ -2755,7 +2755,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 			if ((msgOut.m_Events.size() >= proto::UtxoEvent::s_Max) && (wlk.m_Height != hLast))
 				break;
 
-			if (wlk.m_Body.n < sizeof(UE::Value))
+			if (wlk.m_Body.n < sizeof(UE::Value) || (wlk.m_Key.n != sizeof(ECC::Point)))
 				continue; // although shouldn't happen
 			const UE::Value& evt = *reinterpret_cast<const UE::Value*>(wlk.m_Body.p);
 
@@ -2766,8 +2766,9 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 			res.m_Kidv = evt.m_Kidv;
 			evt.m_Maturity.Export(res.m_Maturity);
 
+			res.m_Commitment = *reinterpret_cast<const ECC::Point*>(wlk.m_Key.p);
 			res.m_AssetID = evt.m_AssetID;
-			res.m_Added = (sizeof(UE::Key) == wlk.m_Key.n);
+			res.m_Added = evt.m_Added;
 		}
 	}
 	else

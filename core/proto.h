@@ -266,6 +266,7 @@ namespace proto {
 		static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
 
 		Key::IDV m_Kidv;
+		ECC::Point m_Commitment;
 		AssetID m_AssetID;
 
 		Height m_Height;
@@ -278,6 +279,7 @@ namespace proto {
 		void serialize(Archive& ar)
 		{
 			ar
+				& m_Commitment
 				& m_Kidv
 				& m_AssetID
 				& m_Height
