@@ -103,6 +103,7 @@ namespace beam
 		bool AllowPublicUtxos = false;
 		bool FakePoW = false;
 		bool AllowCA = true;
+		bool DepositForCA = true; // CA emission in exchage for beams. If not specified - the emission is free
 
 		uint32_t MaxRollbackHeight = 1440; // 1 day roughly
 		uint32_t MacroblockGranularity = 720; // i.e. should be created for heights that are multiples of this. This should make it more likely for different nodes to have the same macroblocks

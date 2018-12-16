@@ -898,7 +898,9 @@ struct TransactionMaker
 			SetRandom(skAsset);
 			beam::proto::Sk2Pk(aid, skAsset);
 
-			m_pPeers[0].AddInput(m_Trans, valAsset, m_Kdf); // input being-deposited
+			if (beam::Rules::get().DepositForCA)
+				m_pPeers[0].AddInput(m_Trans, valAsset, m_Kdf); // input being-deposited
+
 			m_pPeers[0].AddOutput(m_Trans, valAsset, m_Kdf, &aid); // output UTXO to consume the created asset
 
 			std::unique_ptr<beam::TxKernel> pKrnEmission(new beam::TxKernel);

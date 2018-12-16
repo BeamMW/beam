@@ -1266,7 +1266,9 @@ namespace beam
 
 					assert(msgTx.m_Transaction);
 
-					if (m_AssetEmitted == Zero)
+					bool bEmitAsset = (m_AssetEmitted == Zero);
+
+					if (bEmitAsset)
 					{
 						Key::IDV kidv(Zero);
 						kidv.m_Value = val;
@@ -1295,7 +1297,8 @@ namespace beam
 
 						msgTx.m_Transaction->Normalize();
 					}
-					else
+
+					if (!(bEmitAsset && Rules::get().DepositForCA))
 						m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
 
 					Transaction::Context ctx;
@@ -1838,6 +1841,7 @@ int main()
 	beam::Rules::get().MaturityCoinbase = 35; // lowered to see more txs
 	beam::Rules::get().EmissionDrop0 = 5;
 	beam::Rules::get().EmissionDrop1 = 8;
+	beam::Rules::get().AllowCA = true;
 	beam::Rules::get().UpdateChecksum();
 
 	beam::TestHalving();

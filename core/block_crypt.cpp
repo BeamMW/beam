@@ -360,21 +360,13 @@ namespace beam
 				return false; // parent Height range must be contained in ours.
 		}
 
-		bool bExtFeatures = m_AssetEmission || m_pHashLock;
-
 		ECC::Hash::Processor hp;
 		hp	<< m_Fee
 			<< m_Height.m_Min
 			<< m_Height.m_Max
 			<< m_Commitment
-			<< bExtFeatures;
-
-		if (bExtFeatures)
-		{
-			hp
-				<< Amount(m_AssetEmission)
-				<< (bool) m_pHashLock;
-		}
+			<< Amount(m_AssetEmission)
+			<< (bool) m_pHashLock;
 
 		if (m_pHashLock)
 		{
@@ -447,7 +439,9 @@ namespace beam
 				assert(ECC::Tag::IsCustom(&sc.m_hGen));
 
 				sc.m_hGen = -sc.m_hGen;
-				sc.m_hGen += ECC::Context::get().m_Ipp.H_; // Asset is traded for beam!
+
+				if (Rules::get().DepositForCA)
+					sc.m_hGen += ECC::Context::get().m_Ipp.H_; // Asset is traded for beam!
 
 				// In case of block validation with multiple asset instructions it's better to calculate this via MultiMac than multiplying each point separately
 				Amount val;
@@ -923,6 +917,7 @@ namespace beam
 			<< FakePoW
 			<< AllowPublicUtxos
 			<< AllowCA
+			<< DepositForCA
 			<< DesiredRate_s
 			<< DifficultyReviewWindow
 			<< TimestampAheadThreshold_s
