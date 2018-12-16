@@ -130,6 +130,7 @@ struct Node
 		Key::IKdf::Ptr m_pGeneric; // used for internal nonce generation. Auto-generated from system random if not specified
 		Key::IPKdf::Ptr m_pOwner; // used for wallet authentication and UTXO tagging (this is the master view key)
 		Key::IKdf::Ptr m_pMiner; // if not set - offline mining would be impossible
+		Key::IKdf::Ptr m_pDummy;
 
 		Key::Index m_nMinerSubIndex = 0;
 

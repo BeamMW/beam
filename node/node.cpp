@@ -693,13 +693,12 @@ void Node::Keys::SetSingleKey(const Key::IKdf::Ptr& pKdf)
 	m_nMinerSubIndex = 0;
 	m_pMiner = pKdf;
 	m_pGeneric = pKdf;
+	m_pDummy = pKdf;
 	m_pOwner = pKdf;
 }
 
 void Node::Initialize(IExternalPOW* externalPOW)
 {
-	InitKeys();
-
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_Sync.m_ForceResync);
 
@@ -711,6 +710,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
 		m_Cfg.m_VerificationThreads = std::thread::hardware_concurrency();
 
 	InitIDs();
+	InitKeys();
 
 	LOG_INFO() << "Node ID=" << m_MyPublicID;
 	LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
@@ -751,6 +751,17 @@ void Node::InitKeys()
 			ECC::GenRandom(seed.V);
 			ECC::HKdf::Create(m_Keys.m_pGeneric, seed.V);
 		}
+	}
+
+	if (!m_Keys.m_pDummy)
+	{
+		// create it using Node-ID
+		ECC::NoLeak<ECC::Hash::Value> hv;
+		ECC::Hash::Processor() << m_MyPrivateID >> hv.V;
+
+		std::shared_ptr<ECC::HKdf> pKdf = std::make_shared<ECC::HKdf>();
+		pKdf->Generate(hv.V);
+		m_Keys.m_pDummy = std::move(pKdf);
 	}
 }
 
@@ -2075,7 +2086,7 @@ void Node::AddDummyInputs(Transaction& tx)
 		UtxoTree::Key kMin, kMax;
 
 		UtxoTree::Key::Data d;
-		SwitchCommitment().Create(sk, d.m_Commitment, *m_Keys.m_pGeneric, Key::IDV(0, id, Key::Type::Decoy));
+		SwitchCommitment().Create(sk, d.m_Commitment, *m_Keys.m_pDummy, Key::IDV(0, id, Key::Type::Decoy));
 		d.m_Maturity = 0;
 		kMin = d;
 
@@ -2141,7 +2152,7 @@ void Node::AddDummyOutputs(Transaction& tx)
 
 		Output::Ptr pOutput(new Output);
 		ECC::Scalar::Native sk;
-		pOutput->Create(sk, *m_Keys.m_pGeneric, Key::IDV(0, m_LastDummyID, Key::Type::Decoy), *m_Keys.m_pGeneric);
+		pOutput->Create(sk, *m_Keys.m_pDummy, Key::IDV(0, m_LastDummyID, Key::Type::Decoy), *m_Keys.m_pDummy);
 
 		Height h = m_Processor.m_Cursor.m_ID.m_Height + 1 + m_Cfg.m_Dandelion.m_DummyLifetimeLo;
 		if (m_Cfg.m_Dandelion.m_DummyLifetimeHi > m_Cfg.m_Dandelion.m_DummyLifetimeLo)
