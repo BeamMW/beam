@@ -31,17 +31,6 @@ EhSolverCancelledException solver_cancelled;
 
 namespace
 {
-    constexpr uint8_t GetSizeInBytes(size_t N)
-    {
-        uint8_t res = static_cast<uint8_t>(N / 8);
-        if (N % 8)
-        {
-            res += 1;
-        }
-
-        return res;
-    }
-
     constexpr void ZeroizeUnusedBits(size_t N, unsigned char* hash, size_t hLen)
     {
         uint8_t rem = N % 8;
@@ -101,7 +90,7 @@ void ExpandArray(const unsigned char* in, size_t in_len,
                  size_t bit_len, size_t byte_pad)
 {
     assert(bit_len >= 8);
-    assert(8*sizeof(uint32_t) >= 7+bit_len);
+    assert(8*sizeof(uint32_t) >= bit_len);
 
     size_t out_width { (bit_len+7)/8 + byte_pad };
     assert(out_len == 8*out_width*in_len/bit_len);
@@ -144,10 +133,10 @@ void CompressArray(const unsigned char* in, size_t in_len,
                    size_t bit_len, size_t byte_pad)
 {
     assert(bit_len >= 8);
-    assert(8*sizeof(uint32_t) >= 7+bit_len);
+    assert(8*sizeof(uint32_t) >= bit_len);
 
     size_t in_width { (bit_len+7)/8 + byte_pad };
-    assert(out_len == bit_len*in_len/(8*in_width));
+    assert(out_len == (bit_len*in_len/in_width + 7)/8);
 
     uint32_t bit_len_mask { ((uint32_t)1 << bit_len) - 1 };
 
@@ -161,16 +150,22 @@ void CompressArray(const unsigned char* in, size_t in_len,
         // When we have fewer than 8 bits left in the accumulator, read the next
         // input element.
         if (acc_bits < 8) {
+            if (j < in_len) {
             acc_value = acc_value << bit_len;
             for (size_t x = byte_pad; x < in_width; x++) {
                 acc_value = acc_value | (
                     (
                         // Apply bit_len_mask across byte boundaries
-                        in[j+x] & ((bit_len_mask >> (8*(in_width-x-1))) & 0xFF)
-                    ) << (8*(in_width-x-1))); // Big-endian
+                            in[j + x] & ((bit_len_mask >> (8 * (in_width - x - 1))) & 0xFF)
+                        ) << (8 * (in_width - x - 1))); // Big-endian
             }
             j += in_width;
             acc_bits += bit_len;
+        }
+            else {
+                acc_value <<= 8 - acc_bits;
+                acc_bits += 8 - acc_bits;;
+            }
         }
 
         acc_bits -= 8;
@@ -371,7 +366,7 @@ bool Equihash<N,K>::BasicSolve(const eh_HashState& base_state,
                                const std::function<bool(const std::vector<unsigned char>&)> validBlock,
                                const std::function<bool(EhSolverCancelCheck)> cancelled)
 {
-    eh_index init_size { 1 << (CollisionBitLength + 1) };
+    eh_index init_size { 1U << (CollisionBitLength + 1) };
 
     // 1) Generate first list
     LogPrint("pow", "Generating first list\n");
@@ -543,7 +538,7 @@ bool Equihash<N,K>::OptimisedSolve(const eh_HashState& base_state,
                                    const std::function<bool(const std::vector<unsigned char>&)> validBlock,
                                    const std::function<bool(EhSolverCancelCheck)> cancelled)
 {
-    eh_index init_size { 1 << (CollisionBitLength + 1) };
+    eh_index init_size { 1U << (CollisionBitLength + 1) };
     eh_index recreate_size { UntruncateIndex(1, 0, CollisionBitLength + 1) };
 
     // First run the algorithm with truncated indices

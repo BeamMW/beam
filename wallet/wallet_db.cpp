@@ -591,6 +591,11 @@ namespace beam
                 ZeroObject(value);
             }
         }
+
+        void deserialize(ByteBuffer& value, ByteBuffer& blob)
+        {
+            value = blob;
+        }
     }
 
     namespace sqlite
