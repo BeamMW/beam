@@ -152,6 +152,7 @@ matrix:
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
         - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+        - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni-$BEAM_VERSION.tar.gz
 
 ###############################################################################
 # Android ARMv7 Release
@@ -184,6 +185,7 @@ matrix:
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
         - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+        - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni-$BEAM_VERSION.tar.gz
 
 ###############################################################################
 # Common part
@@ -192,6 +194,7 @@ matrix:
 # TODO: version detection should be in one place
 before_script:
   - BEAM_VERSION="1.0.$(git rev-list HEAD --count)"
+  - curl -sL https://raw.githubusercontent.com/travis-ci/artifacts/master/install | bash
 
 after_success:
   # deploy using ftp server
@@ -199,8 +202,7 @@ after_success:
   - tar -cvzf beam-node-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node beam-node.cfg
   - tar -cvzf beam-wallet-cli-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet beam-wallet beam-wallet.cfg
 
-  # deploy to AWS S3
-  - curl -sL https://raw.githubusercontent.com/travis-ci/artifacts/master/install | bash
+  # prep for deploy to AWS S3
   - cp $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT
    
   # create package for advanced users
