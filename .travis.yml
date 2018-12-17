@@ -112,16 +112,27 @@ after_success:
   - tar -cvzf beam-node-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node beam-node.cfg
   - tar -cvzf beam-wallet-cli-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet beam-wallet beam-wallet.cfg
 
+  # deploy to AWS S3
+  - curl -sL https://raw.githubusercontent.com/travis-ci/artifacts/master/install | bash
+  - cp $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT
+   
   # create package for advanced users
   - mkdir pack && mkdir pack/wallet && mkdir pack/node && mkdir pack/ui
   - cp wallet/beam-wallet* pack/wallet && cp beam/beam-node* pack/node && cp "$BEAM_WALLET_UI_IN" pack/ui/$BEAM_WALLET_UI_OUT_VERLESS
   - tar -cvzf beam-pack-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/pack wallet node ui
 
-  # upload binaries
+  # upload binaries to FTP
   - curl --retry 3 --ftp-create-dirs -T beam-node-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T "$HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN" "$BUILDS_SERVER_PATH/$BEAM_WALLET_UI_OUT"
   - curl --retry 3 --ftp-create-dirs -T beam-pack-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/pack/
+
+  # upload binaries to S3
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-node-$BEAM_VERSION.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-cli-$BEAM_VERSION.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/pack/" beam-pack-$BEAM_VERSION.tar.gz
+
 
 notifications:
   email:
