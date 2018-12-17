@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "app_model.h"
-
 #include "utility/common.h"
 #include "utility/logger.h"
 
@@ -46,7 +45,16 @@ AppModel::~AppModel()
 
 bool AppModel::createWallet(const SecString& seed, const SecString& pass)
 {
-    m_db = WalletDB::init(m_settings.getWalletStorage(), pass, seed.hash());
+    auto dbFilePath = m_settings.getWalletStorage();
+    if (WalletDB::isInitialized(dbFilePath))
+    {
+        // it seems that we are trying to restore or login to another wallet.
+        // Rename existing db 
+        boost::filesystem::path p = dbFilePath;
+        boost::filesystem::path newName = dbFilePath + "_" + to_string(getTimestamp());
+        boost::filesystem::rename(p, newName);
+    }
+    m_db = WalletDB::init(dbFilePath, pass, seed.hash());
     if (!m_db)
 		return false;
 

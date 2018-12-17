@@ -115,5 +115,7 @@
         <file>controls/AddressTable.qml</file>
         <file>assets/icon-transactions.svg</file>
         <file>controls/StatusBar.qml</file>
+        <file>assets/icon-change.svg</file>
+        <file>assets/icon-change-blue.svg</file>
     </qresource>
 </RCC>

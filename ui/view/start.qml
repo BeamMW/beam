@@ -22,7 +22,6 @@ Item
     StackView {
         id: startWizzardView
         anchors.fill: parent
-        initialItem: start
         focus: true
         onCurrentItemChanged: {
             if (currentItem && currentItem.defaultFocusItem) {
@@ -755,6 +754,8 @@ Item
                                 text: strengthChecker.strength > 0 ? strengthChecker.strengthTests[strengthChecker.strength-1].msg : ""
                                 color: "#84a5b2"
                                 font.pixelSize: 14
+                                height: 16
+                                width: parent.width
                             }
                         }
 
@@ -784,6 +785,8 @@ Item
                                 id: passwordError
                                 color: Style.validator_color
                                 font.pixelSize: 14
+                                height: 16
+                                width: parent.width
                             }
                         }
                     }
@@ -1103,171 +1106,215 @@ Item
                 }
             }
         }
-    }
 
-    Rectangle
-    {
-        id: open
+        Component {
+            id: open
+            Rectangle
+            {
+                property Item defaultFocusItem: openPassword
+                color: Style.marine
 
-        visible: false
+                Image {
+                    fillMode: Image.PreserveAspectCrop
+                    anchors.fill: parent
+                    source: "qrc:/assets/bg.svg"
+                }
 
-        anchors.fill: parent
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 70
+                        Layout.maximumHeight: 280
+                    }
 
-        color: Style.marine
+                    Loader { 
+                        sourceComponent: logoComponent 
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 200//187
+                        Layout.maximumHeight: 269
+                    }
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                        Layout.maximumHeight: 89
 
-        Image {
-            fillMode: Image.PreserveAspectCrop
-            anchors.fill: parent
-            source: "qrc:/assets/bg.svg"
-        }
+                    }
+                    Item {
+                        Layout.preferredHeight: 186 
+                    }
 
-        ColumnLayout {
-            anchors.fill: parent
-            spacing: 0
-            Item {
-                Layout.fillHeight: true
-                Layout.fillWidth: true
-                Layout.minimumHeight: 70
-                Layout.maximumHeight: 280
-            }
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 67
+                    }
+                }
 
-            Loader { 
-                sourceComponent: logoComponent 
-                Layout.alignment: Qt.AlignHCenter
-                Layout.fillHeight: true
-                Layout.minimumHeight: 200//187
-                Layout.maximumHeight: 269
-            }
-            Item {
-                Layout.fillHeight: true
-                Layout.minimumHeight: 30
-                Layout.maximumHeight: 89
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 70
+                        Layout.maximumHeight: 280
+                    }
 
-            }
-            Item {
-                Layout.preferredHeight: 186 
-            }
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 200
+                        Layout.maximumHeight: 269
+                    }
 
-            Item {
-                Layout.fillHeight: true
-                Layout.fillWidth: true
-                Layout.minimumHeight: 67
-            }
-        }
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                        Layout.maximumHeight: 89
+                    }
 
-        ColumnLayout {
-            anchors.fill: parent
-            spacing: 0
-            Item {
-                Layout.fillHeight: true
-                Layout.minimumHeight: 70
-                Layout.maximumHeight: 280
-            }
-
-            Item {
-                Layout.fillHeight: true
-                Layout.minimumHeight: 200
-                Layout.maximumHeight: 269
-            }
-
-            Item {
-                Layout.fillHeight: true
-                Layout.minimumHeight: 30
-                Layout.maximumHeight: 89
-            }
-
-            SFText {
-                Layout.alignment: Qt.AlignHCenter
+                    SFText {
+                        Layout.alignment: Qt.AlignHCenter
                 
-                text: qsTr("Enter your password to access the current wallet")
-                color: Style.white
-                font.pixelSize: 14
-            }
+                        text: qsTr("Enter your password to access the current wallet")
+                        color: Style.white
+                        font.pixelSize: 14
+                    }
 
-            Column {
-                Layout.alignment: Qt.AlignHCenter
-                Layout.preferredWidth: 400
-                Layout.topMargin: 50
-                spacing: 2
+                    Column {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.preferredWidth: 400
+                        Layout.topMargin: 50
+                        spacing: 2
 
-                SFText {
-                    text: qsTr("Enter password")
-                    color: Style.white
-                    font.pixelSize: 14
-                    font.styleName: "Bold"; font.weight: Font.Bold
-                }
-
-                SFTextInput {
-                    id: openPassword
-                    width: parent.width
-                    focus: true
-                    activeFocusOnTab: true
-                    font.pixelSize: 14
-                    color: Style.white
-                    echoMode: TextInput.Password
-                    onAccepted: btnCurrentWallet.clicked()
-                    onTextChanged: if (openPassword.text.length > 0) openPasswordError.text = ""
-
-                }
-
-                SFText {
-                    id: openPasswordError
-                    color: Style.validator_color
-                    font.pixelSize: 14
-                }
-            }
-
-            Row {
-                Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 33
-                PrimaryButton {
-                    anchors.verticalCenter: parent.verticalCenter
-                    id: btnCurrentWallet
-                    text: qsTr("show my wallet")
-                    icon.source: "qrc:/assets/icon-wallet-small.svg"
-                    onClicked: {
-                        if(openPassword.text.length == 0)
-                        {
-                            openPasswordError.text = qsTr("Please, enter password");
+                        SFText {
+                            text: qsTr("Enter password")
+                            color: Style.white
+                            font.pixelSize: 14
+                            font.styleName: "Bold"; font.weight: Font.Bold
                         }
-                        else
-                        {
-                            if(!viewModel.openWallet(openPassword.text))
-                            {
-                                openPasswordError.text = qsTr("Invalid password or wallet data unreadable.\nRestore wallet.db from latest backup or delete it and reinitialize the wallet.");
+
+                        SFTextInput {
+                            id: openPassword
+                            width: parent.width
+                            focus: true
+                            activeFocusOnTab: true
+                            font.pixelSize: 14
+                            color: Style.white
+                            echoMode: TextInput.Password
+                            onAccepted: btnCurrentWallet.clicked()
+                            onTextChanged: if (openPassword.text.length > 0) openPasswordError.text = ""
+
+                        }
+
+                        SFText {
+                            height: 16
+                            width: parent.width
+                            id: openPasswordError
+                            color: Style.validator_color
+                            font.pixelSize: 14
+                        }
+                    }
+
+                    ConfirmationDialog {
+                        id: confirmChangeWalletDialog
+                        okButtonText: qsTr("change wallet")
+                        okButtonIconSource: "qrc:/assets/icon-change-blue.svg"
+                        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+                        cancelVisible: true
+                        width: 460
+                        text: qsTr("If you login to another wallet, all unsaved transaction history for the current wallet will be lost.")
+                        onAccepted: {
+                            viewModel.isRecoveryMode = true;
+                            startWizzardView.push(restoreWallet);
+                        }
+                    }
+
+                    ConfirmationDialog {
+                        id: confirmFogotPassDialog
+                        okButtonText: qsTr("restore wallet")
+                        okButtonIconSource: "qrc:/assets/icon-restore-blue.svg"
+                        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+                        cancelVisible: true
+                        width: 460
+                        text: qsTr("You can restore you wallet using your recovery phrase but all transaction history will be lost.")
+                        onAccepted: {
+                            viewModel.isRecoveryMode = true;
+                            startWizzardView.push(restoreWallet);
+                        }
+                    }
+                    
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.topMargin: 33
+                        spacing: 19
+                        
+
+                        CustomButton {
+                            text: qsTr("login to another wallet")
+                            icon.source: "qrc:/assets/icon-change.svg"
+                            onClicked: {
+                                confirmChangeWalletDialog.open();
                             }
-                            else
-                            {
-                                root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : false, "isCreating" : false});
+                        }
+                        PrimaryButton {
+                            anchors.verticalCenter: parent.verticalCenter
+                            id: btnCurrentWallet
+                            text: qsTr("show my wallet")
+                            icon.source: "qrc:/assets/icon-wallet-small.svg"
+                            onClicked: {
+                                if(openPassword.text.length == 0)
+                                {
+                                    openPasswordError.text = qsTr("Please, enter password");
+                                }
+                                else
+                                {
+                                    if(!viewModel.openWallet(openPassword.text))
+                                    {
+                                        openPasswordError.text = qsTr("Invalid password provided.");
+                                    }
+                                    else
+                                    {
+                                        root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : false, "isCreating" : false});
+                                    }
+                                }
                             }
                         }
                     }
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                        Layout.maximumHeight: 65
+                    }
+
+                    SFText {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: qsTr("Forgot password?")
+                        color: Style.bright_teal
+                        font.pixelSize: 14
+                
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                confirmFogotPassDialog.open();
+                            }
+                            hoverEnabled: true
+                        }
+                    }
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 19
+                    }
                 }
             }
-            Item {
-                Layout.fillHeight: true
-                Layout.minimumHeight: 67
-            }
+        }
+        Component.onCompleted:{
+            startWizzardView.push(viewModel.walletExists ? open : start)
         }
     }
-
-    Component.onCompleted:{
-        root.state = viewModel.walletExists ? "open" : "start"
-    }
-
-    states: [
-        State {
-            name: "start"
-        },
-
-        State {
-            name: "open"
-            PropertyChanges {target: startWizzardView; visible: false}
-            PropertyChanges {target: open; visible: true}
-            StateChangeScript {
-                script: openPassword.forceActiveFocus(Qt.TabFocusReason);
-            }
-        }
-    ]
 }
 
