@@ -42,13 +42,16 @@ public:
     QString getCreateDate() const;
 
     bool isExpired() const;
+    beam::Timestamp getCreateTimestamp() const;
+    beam::Timestamp getExpirationTimestamp() const;
 
 private:
-    QString m_address;
+    beam::WalletAddress m_walletAddress;
+    /*QString m_address;
     QString m_name;
     QString m_category;
     QString m_createDate;
-    beam::Timestamp m_expirationDate;
+    beam::Timestamp m_expirationDate;*/
 };
 
 class ContactItem : public QObject
@@ -67,9 +70,10 @@ public:
     QString getCategory() const;
 
 private:
-    QString m_address;
+    beam::WalletAddress m_walletAddress;
+    /*QString m_address;
     QString m_name;
-    QString m_category;
+    QString m_category;*/
 };
 
 class AddressBookViewModel : public QObject
@@ -78,11 +82,20 @@ class AddressBookViewModel : public QObject
     Q_PROPERTY(QQmlListProperty<ContactItem> contacts   READ getContacts   NOTIFY contactsChanged)
     Q_PROPERTY(QQmlListProperty<AddressItem> activeAddresses   READ getActiveAddresses   NOTIFY activeAddressesChanged)
     Q_PROPERTY(QQmlListProperty<AddressItem> expiredAddresses   READ getExpiredAddresses   NOTIFY expiredAddressesChanged)
+
     Q_PROPERTY(QString nameRole READ nameRole CONSTANT)
     Q_PROPERTY(QString addressRole READ addressRole CONSTANT)
     Q_PROPERTY(QString categoryRole READ categoryRole CONSTANT)
     Q_PROPERTY(QString expirationRole READ expirationRole CONSTANT)
     Q_PROPERTY(QString createdRole READ createdRole CONSTANT)
+
+    Q_PROPERTY(Qt::SortOrder activeAddrSortOrder READ activeAddrSortOrder WRITE setActiveAddrSortOrder)
+    Q_PROPERTY(Qt::SortOrder expiredAddrSortOrder READ expiredAddrSortOrder WRITE setExpiredAddrSortOrder)
+    Q_PROPERTY(Qt::SortOrder contactSortOrder READ contactSortOrder WRITE setContactSortOrder)
+
+    Q_PROPERTY(QString activeAddrSortRole READ activeAddrSortRole WRITE setActiveAddrSortRole)
+    Q_PROPERTY(QString expiredAddrSortRole READ expiredAddrSortRole WRITE setExpiredAddrSortRole)
+    Q_PROPERTY(QString contactSortRole READ contactSortRole WRITE setContactSortRole)
 
 public:
 
@@ -103,6 +116,20 @@ public:
     QString expirationRole() const;
     QString createdRole() const;
 
+    Qt::SortOrder activeAddrSortOrder() const;
+    Qt::SortOrder expiredAddrSortOrder() const;
+    Qt::SortOrder contactSortOrder() const;
+    void setActiveAddrSortOrder(Qt::SortOrder);
+    void setExpiredAddrSortOrder(Qt::SortOrder);
+    void setContactSortOrder(Qt::SortOrder);
+
+    QString activeAddrSortRole() const;
+    QString expiredAddrSortRole() const;
+    QString contactSortRole() const;
+    void setActiveAddrSortRole(QString);
+    void setExpiredAddrSortRole(QString);
+    void setContactSortRole(QString);
+
 public slots:
     void onStatus(const WalletStatus& amount);
     void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
@@ -119,10 +146,22 @@ protected:
 private:
 
     void getAddressesFromModel();
+    void sortActiveAddresses();
+    void sortExpiredAddresses();
+    void sortContacts();
+
+    std::function<bool(const AddressItem*, const AddressItem*)> generateAddrComparer(QString, Qt::SortOrder);
+    std::function<bool(const ContactItem*, const ContactItem*)> generateContactComparer();
 
 private:
     WalletModel& m_model;
     QList<ContactItem*> m_contacts;
     QList<AddressItem*> m_activeAddresses;
     QList<AddressItem*> m_expiredAddresses;
+    Qt::SortOrder m_activeAddrSortOrder;
+    Qt::SortOrder m_expiredAddrSortOrder;
+    Qt::SortOrder m_contactSortOrder;
+    QString m_activeAddrSortRole;
+    QString m_expiredAddrSortRole;
+    QString m_contactSortRole;
 };

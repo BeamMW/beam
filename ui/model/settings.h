@@ -35,7 +35,6 @@ public:
 
     void initModel(WalletModel::Ptr model);
     std::string getWalletStorage() const;
-    std::string getBbsStorage() const;
     std::string getAppDataPath() const;
     void reportProblem();
 

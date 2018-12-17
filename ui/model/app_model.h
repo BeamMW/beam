@@ -44,10 +44,10 @@ public:
     WalletSettings& getSettings();
     MessageManager& getMessages();
     NodeModel& getNode();
-    void cancelRestoreWallet();
+    void resetWallet();
 private:
     void start();
-
+	void OnWalledOpened(const beam::SecString& pass);
     void startNode();
 
 private:

@@ -21,6 +21,11 @@ ColumnLayout {
         text: qsTr("Addresses")
     }
 
+    StatusBar {
+        id: status_bar
+        model: statusbarModel
+    }
+
     ConfirmationDialog {
 		id: confirmationDialog
         property bool isOwn
@@ -30,6 +35,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.minimumHeight: 40
         Layout.maximumHeight: 40
+        Layout.topMargin: 54
         spacing: 40
 
         TxFilter{
@@ -65,29 +71,47 @@ ColumnLayout {
         AddressTable {
             id: activeAddressesView
             model: viewModel.activeAddresses
+            parentModel: viewModel
             visible: false
 
-            /*sortIndicatorVisible: true
-            sortIndicatorColumn: 1
+            sortIndicatorVisible: true
+            sortIndicatorColumn: 4
             sortIndicatorOrder: Qt.DescendingOrder
 
             Binding{
                 target: viewModel
-                property: "sortRole"
-                value: transactionsView.getColumn(transactionsView.sortIndicatorColumn).role
+                property: "activeAddrSortRole"
+                value: activeAddressesView.getColumn(activeAddressesView.sortIndicatorColumn).role
             }
 
             Binding{
                 target: viewModel
-                property: "sortOrder"
-                value: transactionsView.sortIndicatorOrder
-            }*/
+                property: "activeAddrSortOrder"
+                value: activeAddressesView.sortIndicatorOrder
+            }
         }
 
         AddressTable {
             id: expiredAddressesView
             model: viewModel.expiredAddresses
             visible: false
+            parentModel: viewModel
+
+            sortIndicatorVisible: true
+            sortIndicatorColumn: 4
+            sortIndicatorOrder: Qt.DescendingOrder
+
+            Binding{
+                target: viewModel
+                property: "expiredAddrSortRole"
+                value: expiredAddressesView.getColumn(expiredAddressesView.sortIndicatorColumn).role
+            }
+
+            Binding{
+                target: viewModel
+                property: "expiredAddrSortOrder"
+                value: expiredAddressesView.sortIndicatorOrder
+            }
         }
         
         CustomTableView {
@@ -203,14 +227,14 @@ ColumnLayout {
                 modal: true
                 dim: false
                 property string address
-                Action {
+                /*Action {
                     text: qsTr("transactions list")
                     icon.source: "qrc:/assets/icon-transactions.svg"
                     onTriggered: {
                         // go to list transaction (wallet page)
                         main.updateItem(0)
                     }
-                }
+                }*/
                 Action {
                     text: qsTr("delete contact")
                     icon.source: "qrc:/assets/icon-delete.svg"

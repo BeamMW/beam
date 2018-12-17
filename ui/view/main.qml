@@ -13,6 +13,10 @@ Rectangle {
 
 	MainViewModel {id: viewModel}
 
+    StatusbarViewModel {
+        id: statusbarModel
+    }
+
     color: Style.marine
 
     MouseArea {

@@ -84,7 +84,6 @@ void NodeModel::run()
 
         node.m_Keys.SetSingleKey(m_pKdf);
 
-
         node.m_Cfg.m_HistoryCompression.m_sPathOutput = settings.getTempDir();
         node.m_Cfg.m_HistoryCompression.m_sPathTmp = settings.getTempDir();
 

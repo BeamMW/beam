@@ -92,9 +92,6 @@ namespace ECC
 
 	class Commitment;
 	class Oracle;
-	struct NonceGenerator;
-
-	void GenerateNonce(uintBig&, const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */);
 
 	struct Scalar
 	{
@@ -195,20 +192,23 @@ namespace ECC
 			static const uint32_t Identity  = FOURCC_FROM(iden); // Node-Wallet auth
 			static const uint32_t ChildKey  = FOURCC_FROM(SubK);
 			static const uint32_t Bbs       = FOURCC_FROM(BbsM);
+			static const uint32_t Decoy     = FOURCC_FROM(dcoy);
 		};
 
 		struct ID
 		{
 			uint64_t	m_Idx;
 			Type		m_Type;
+			Index		m_SubIdx; // currently set to the Kdf child index
 
 			ID() {}
 			ID(Zero_) { ZeroObject(*this); }
 
-			ID(uint64_t nIdx, Type type) // most common c'tor
+			ID(uint64_t nIdx, Type type, uint32_t nSubIdx = 0) // most common c'tor
 			{
 				m_Idx = nIdx;
 				m_Type = type;
+				m_SubIdx = nSubIdx;
 			}
 
 			void get_Hash(Hash::Value&) const;
@@ -218,6 +218,7 @@ namespace ECC
 			{
 				beam::uintBigFor<uint64_t>::Type m_Idx;
 				beam::uintBigFor<uint32_t>::Type m_Type;
+				beam::uintBigFor<uint32_t>::Type m_SubIdx;
 				void operator = (const ID&);
 			};
 #pragma pack (pop)
@@ -233,8 +234,13 @@ namespace ECC
 		{
 			Amount m_Value;
 			IDV() {}
-			IDV(Amount v, uint64_t nIdx, Type type)
-				:ID(nIdx, type)
+			IDV(Zero_)
+				:ID(Zero)
+				,m_Value(0)
+			{}
+
+			IDV(Amount v, uint64_t nIdx, Type type, Index nSubIdx = 0)
+				:ID(nIdx, type, nSubIdx)
 				,m_Value(v)
 			{
 			}
@@ -249,16 +255,8 @@ namespace ECC
 #pragma pack (pop)
 
 			void operator = (const Packed&);
-			bool operator == (const IDV&) const;
 
 			int cmp(const IDV&) const;
-			COMPARISON_VIA_CMP
-		};
-
-		struct IDVC :public IDV {
-			Index m_iChild = 0;
-
-			int cmp(const IDVC&) const;
 			COMPARISON_VIA_CMP
 		};
 
@@ -266,8 +264,9 @@ namespace ECC
 		{
 			typedef std::shared_ptr<IPKdf> Ptr;
 
-			virtual void DerivePKey(Point::Native&, const Hash::Value&) = 0;
 			virtual void DerivePKey(Scalar::Native&, const Hash::Value&) = 0;
+			virtual void DerivePKeyG(Point::Native&, const Hash::Value&) = 0;
+			virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) = 0;
 
 			bool IsSame(IPKdf&);
 		};
@@ -279,10 +278,13 @@ namespace ECC
 
 			void DeriveKey(Scalar::Native&, const Key::ID&);
 			virtual void DeriveKey(Scalar::Native&, const Hash::Value&) = 0;
+
+			virtual void DerivePKeyG(Point::Native&, const Hash::Value&) override;
+			virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) override;
 		};
 	};
 
-	std::ostream& operator << (std::ostream&, const Key::IDVC&);
+	std::ostream& operator << (std::ostream&, const Key::IDV&);
 
 	struct InnerProduct
 	{
@@ -332,8 +334,6 @@ namespace ECC
 		struct CreatorParams
 		{
 			NoLeak<uintBig> m_Seed; // must be a function of the commitment and master secret
-			void InitSeed(Key::IPKdf&, const ECC::Point& comm);
-
 			Key::IDV m_Kidv;
 
 			struct Padded;
@@ -368,14 +368,13 @@ namespace ECC
 			// Nonce generation policy for signing. There are two distinct nonce generators, both need to be initialized with seeds. One for value blinding and Key::IDV embedding, and the other one that blinds the secret key.
 			// Seed for value and Key::IDV is always specified explicitly, and should be deducible from the public Kdf and the commitment.
 			// Regaring the seed for secret keys:
-			//		In case of single-sig it's derived directly from the secret key itself.
-			//		In case of multi-sig it should be specified explicitly by the caller.
-			//			If it's guaranteed to be a single-usage key - the seed can be derived from the secret key (as with single-sig)
-			//			Otherwise - the seed *must* use external source of randomness.
+			//		In case of single-sig it's derived directly from the secret key itself AND external nonce source
+			//		In case of multi-sig it should be specified explicitly by the caller (the resulting nonce must be the same for multiple invocations).
+			//			Means - the caller must take care of constructing the nonce, which has external randomness
 
-			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&); // single-pass
-			bool IsValid(const Point::Native&, Oracle&) const;
-			bool IsValid(const Point::Native&, Oracle&, InnerProduct::BatchContext&) const;
+			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&, const Point::Native* pHGen = nullptr); // single-pass
+			bool IsValid(const Point::Native&, Oracle&, const Point::Native* pHGen = nullptr) const;
+			bool IsValid(const Point::Native&, Oracle&, InnerProduct::BatchContext&, const Point::Native* pHGen = nullptr) const;
 
 			bool Recover(Oracle&, CreatorParams&) const;
 
@@ -401,29 +400,37 @@ namespace ECC
 				};
 			};
 
-			bool CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, MultiSig* pMsigOut = NULL); // for multi-sig use 1,2,3 for 1st-pass
+			bool CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, MultiSig* pMsigOut = nullptr, const Point::Native* pHGen = nullptr); // for multi-sig use 1,2,3 for 1st-pass
 
 
 		private:
 			struct ChallengeSetBase;
 			struct ChallengeSet;
+			static void CalcA(Point&, const Scalar::Native& alpha, Amount v);
 		};
 
 		struct Public
 		{
 			Signature m_Signature;
 			Amount m_Value;
-			Key::ID::Packed m_Kid; // encoded of course
+
+#pragma pack (push, 1)
+			struct Recovery // encoded of course
+			{
+				Key::ID::Packed m_Kid;
+				Hash::Value m_Checksum;
+			} m_Recovery;
+#pragma pack (pop)
 
 			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&); // amount should have been set
-			bool IsValid(const Point::Native&, Oracle&) const;
-			void Recover(CreatorParams&) const;
+			bool IsValid(const Point::Native&, Oracle&, const Point::Native* pHGen = nullptr) const;
+			bool Recover(CreatorParams&) const;
 
 			int cmp(const Public&) const;
 			COMPARISON_VIA_CMP
 
 		private:
-			static void XCryptKid(Key::ID::Packed&, const CreatorParams&);
+			static void XCryptKid(Key::ID::Packed&, const CreatorParams&, Hash::Value& hvChecksum);
 			void get_Msg(Hash::Value&, Oracle&) const;
 		};
 	}

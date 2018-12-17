@@ -66,13 +66,6 @@ namespace
             return m_pKdf;
         }
 
-        ECC::Scalar::Native calcKey(const Coin::ID& cid) const override
-        {
-            ECC::Scalar::Native sk;
-            m_pKdf->DeriveKey(sk, cid);
-            return sk;
-        }
-
         std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool /*lock*/) override
         {
             std::vector<beam::Coin> res;
@@ -104,7 +97,6 @@ namespace
         void save(const std::vector<beam::Coin>& ) override {}
         void remove(const std::vector<beam::Coin::ID>&) override {}
         void remove(const beam::Coin::ID&) override {}
-        void maturingCoins() override {};
         void visit(std::function<bool(const beam::Coin& coin)> ) override {}
         void setVarRaw(const char* , const void* , size_t ) override {}
         bool getVarRaw(const char* , void* , int) const override { return false; }
@@ -134,11 +126,6 @@ namespace
         };
         void deleteTx(const TxID& ) override {};
         void rollbackTx(const TxID&) override {}
-
-        std::vector<TxPeer> getPeers() override { return {}; };
-        void addPeer(const TxPeer&) override {}
-        boost::optional<TxPeer> getPeer(const WalletID&) override { return boost::optional<TxPeer>{}; }
-        void clearPeers() override {}
 
         std::vector<WalletAddress> getAddresses(bool own) override { return {}; }
         void saveAddress(const WalletAddress&) override {}
@@ -187,6 +174,12 @@ namespace
 
         Block::SystemState::IHistory& get_History() override { return m_Hist; }
         void ShrinkHistory() override {}
+
+        Amount getAvailable() override { return 0; };
+        Amount getAvailableByType(Key::Type keyType) override { return 0; };
+        Amount getTotal(Coin::Status status) override { return 0; };
+        Amount getTotalByType(Coin::Status status, Key::Type keyType) override { return 0; };
+        Amount getTransferredByTx(TxStatus status, bool isSender) override { return 0; };
 
     protected:
         std::vector<beam::Coin> m_coins;
@@ -327,7 +320,7 @@ struct TestWalletRig
         m_NodeNetwork.m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
         m_NodeNetwork.Connect();
 
-        m_WalletNetworkViaBbs.AddOwnAddress(wa.m_OwnID, m_WalletID);
+        m_WalletNetworkViaBbs.AddOwnAddress(wa);
     }
 
     vector<Coin> GetCoins()
@@ -910,6 +903,7 @@ private:
             {
             case DisconnectReason::Protocol:
             case DisconnectReason::ProcessingExc:
+			case DisconnectReason::Incompatible:
                 LOG_ERROR() << "Disconnect: " << r;
                 g_failureCount++;
 

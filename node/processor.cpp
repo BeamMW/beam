@@ -109,7 +109,10 @@ void NodeProcessor::InitCursor()
 		m_Cursor.m_LoHorizon = m_DB.ParamIntGetDef(NodeDB::ParamID::LoHorizon);
 	}
 	else
+	{
 		ZeroObject(m_Cursor);
+		m_Cursor.m_ID.m_Hash = Rules::get().Prehistoric;
+	}
 
 	m_Cursor.m_DifficultyNext = get_NextDifficulty();
 }
@@ -743,9 +746,10 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 
 			UtxoEvent::Value evt = *reinterpret_cast<const UtxoEvent::Value*>(wlk.m_Body.p); // copy
 			evt.m_Maturity = x.m_Maturity;
+			evt.m_Added = 0;
 
-			// In case of macroblock we can't recover the original input height. But in our current implementation macroblocks always go from the beginning, hence they don't contain input.
-			m_DB.InsertEvent(hMax, Blob(&evt, sizeof(evt)), Blob(NULL, 0));
+			// In case of macroblock we can't recover the original input height.
+			m_DB.InsertEvent(hMax, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
 		}
 	}
 
@@ -760,21 +764,30 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 
 			Walker(const Output& x) :m_Output(x) {}
 
-			virtual bool OnKey(Key::IPKdf& kdf, Key::Index iKdf) override
+			virtual bool OnKey(Key::IPKdf& tag, Key::Index) override
 			{
 				Key::IDV kidv;
-				if (!m_Output.Recover(kdf, kidv))
+				if (!m_Output.Recover(tag, kidv))
 					return true; // continue enumeration
 
-				m_Value.m_iKdf = iKdf;
 				m_Value.m_Kidv = kidv;
 				return false; // stop
 			}
 		};
 
 		Walker w(x);
+		w.m_Value.m_Added = 1;
 		if (!EnumViewerKeys(w))
 		{
+			// filter-out dummies
+			if (w.m_Value.m_Kidv.m_Value == Zero)
+			{
+				uint32_t nType;
+				w.m_Value.m_Kidv.m_Type.Export(nType);
+				if (Key::Type::Decoy == nType)
+					continue;
+			}
+
 			// bingo!
 			Height h;
 			if (x.m_Maturity)
@@ -788,6 +801,8 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 				h = hMax;
 				w.m_Value.m_Maturity = x.get_MinMaturity(h);
 			}
+
+			w.m_Value.m_AssetID = r.m_pUtxoOut->m_AssetID;
 
 			const UtxoEvent::Key& key = x.m_Commitment;
 			m_DB.InsertEvent(h, Blob(&w.m_Value, sizeof(w.m_Value)), Blob(&key, sizeof(key)));
@@ -1315,12 +1330,12 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 	SerializerSizeCounter ssc;
 	ssc & bc.m_Block;
 
-	Block::Builder bb;
+	Block::Builder bb(bc.m_SubIdx, bc.m_Coin, bc.m_Tag, h);
 
 	Output::Ptr pOutp;
 	TxKernel::Ptr pKrn;
 
-	bb.AddCoinbaseAndKrn(bc.m_Kdf, h, pOutp, pKrn);
+	bb.AddCoinbaseAndKrn(pOutp, pKrn);
 	if (pOutp)
 		ssc & *pOutp;
 	ssc & *pKrn;
@@ -1417,7 +1432,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 	{
 		if (bc.m_Fees)
 		{
-			bb.AddFees(bc.m_Kdf, h, bc.m_Fees, pOutp);
+			bb.AddFees(bc.m_Fees, pOutp);
 			if (!HandleBlockElement(*pOutp, h, NULL, true))
 				return 0;
 
@@ -1435,10 +1450,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 
 void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 {
-	if (m_Cursor.m_Sid.m_Row)
-		bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
-	else
-		ZeroObject(bc.m_Hdr.m_Prev);
+	bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
 
 	get_Definition(bc.m_Hdr.m_Definition, true);
 
@@ -1466,9 +1478,11 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 	bc.m_Hdr.m_TimeStamp = std::max(bc.m_Hdr.m_TimeStamp, tm);
 }
 
-NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::IKdf& kdf)
+NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::Index nSubKey, Key::IKdf& coin, Key::IPKdf& tag)
 	:m_TxPool(txp)
-	,m_Kdf(kdf)
+	,m_SubIdx(nSubKey)
+	,m_Coin(coin)
+	,m_Tag(tag)
 {
 	m_Fees = 0;
 	m_Block.ZeroInit();

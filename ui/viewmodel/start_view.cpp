@@ -44,28 +44,21 @@ namespace
     const char* Testnet[] =
     {
 #ifdef BEAM_TESTNET
-        "139.59.174.80:8100",
-        "167.99.221.104:8100",
-        "159.65.201.244:8100",
-        "142.93.217.246:8100",
-        "142.93.221.22:8100",
-        "178.62.59.65:8100",
-        "139.59.169.77:8100",
-        "167.99.166.33:8100",
-        "159.65.119.216:8100",
-        "142.93.221.66:8100",
-        "206.189.10.149:8100",
-        "138.68.134.136:8100",
-        "159.65.119.226:8100",
-        "142.93.221.80:8100",
-        "104.248.159.97:8100",
-        "159.65.101.94:8100",
-        "68.183.103.130:8100",
-        "142.93.213.21:8100",
-        "104.248.159.154:8100",
-        "188.166.165.240:8100",
-        "159.65.104.75:8100",
-        "142.93.213.106:8100"
+        "3.0.151.23:8100",
+        "3.0.112.100:8100",
+        "52.76.251.61:8100",
+        "3.0.82.115:8100",
+        "13.250.70.207:8100",
+        "3.121.25.231:8100",
+        "52.29.133.183:8100",
+        "3.122.16.126:8100",
+        "3.122.5.247:8100",
+        "18.197.244.193:8100",
+        "52.52.228.242:8100",
+        "13.52.69.164:8100",
+        "52.52.207.165:8100",
+        "13.52.91.89:8100",
+        "54.177.6.19:8100"
  #else
         "172.104.249.212:8101",
         "23.239.23.209:8201",
@@ -74,12 +67,6 @@ namespace
         "176.58.98.195:8501"
 #endif
     };
-
-    QString chooseRandomNode()
-    {
-        srand(time(0));
-        return QString(Testnet[rand() % (sizeof(Testnet) / sizeof(Testnet[0]))]);
-    }
 
     const QChar PHRASES_SEPARATOR = ';';
 }
@@ -231,6 +218,12 @@ bool StartViewModel::getIsRunLocalNode() const
     return AppModel::getInstance()->getSettings().getRunLocalNode();
 }
 
+QString StartViewModel::chooseRandomNode() const
+{
+    srand(time(0));
+    return QString(Testnet[rand() % (sizeof(Testnet) / sizeof(Testnet[0]))]);
+}
+
 int StartViewModel::getLocalPort() const
 {
     return AppModel::getInstance()->getSettings().getLocalNodePort();
@@ -246,7 +239,13 @@ QString StartViewModel::getRemoteNodeAddress() const
     return AppModel::getInstance()->getSettings().getNodeAddress();
 }
 
-void StartViewModel::setupLocalNode(int port, int miningThreads)
+QString StartViewModel::getLocalNodePeer() const
+{
+    auto peers = AppModel::getInstance()->getSettings().getLocalNodePeers();
+    return !peers.empty() ? peers.first() : "";
+}
+
+void StartViewModel::setupLocalNode(int port, int miningThreads, const QString& localNodePeer)
 {
     auto& settings = AppModel::getInstance()->getSettings();
 #ifdef BEAM_USE_GPU
@@ -266,7 +265,7 @@ void StartViewModel::setupLocalNode(int port, int miningThreads)
     settings.setLocalNodePort(port);
     settings.setRunLocalNode(true);
     QStringList peers;
-    peers.push_back(chooseRandomNode());
+    peers.push_back(localNodePeer);
     settings.setLocalNodePeers(peers);
 }
 
@@ -386,7 +385,7 @@ bool StartViewModel::hasSupportedGpu()
 #endif
 }
 
-bool StartViewModel::createWallet(const QString& pass)
+bool StartViewModel::createWallet()
 {
     if (m_isRecoveryMode)
     {
@@ -401,7 +400,7 @@ bool StartViewModel::createWallet(const QString& pass)
 
     SecString secretSeed;
     secretSeed.assign(buf.data(), buf.size());
-    SecString sectretPass = pass.toStdString();
+    SecString sectretPass = m_password;
     return AppModel::getInstance()->createWallet(secretSeed, sectretPass);
 }
 
@@ -410,4 +409,9 @@ bool StartViewModel::openWallet(const QString& pass)
     // TODO make this secure
     SecString secretPass = pass.toStdString();
     return AppModel::getInstance()->openWallet(secretPass);
+}
+
+void StartViewModel::setPassword(const QString& pass)
+{
+    m_password = pass.toStdString();
 }

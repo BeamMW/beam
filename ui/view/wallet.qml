@@ -21,7 +21,7 @@ Item {
         id: confirmationDialog
         okButtonColor: Style.heliotrope
         okButtonText: qsTr("send")
-        okButtonIconSource: "qrc:/assets/icon-send.svg"
+        okButtonIconSource: "qrc:/assets/icon-send-blue.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
 
         property alias addressText: addressLabel.text
@@ -143,218 +143,9 @@ Item {
         text: qsTr("Wallet")
     }
 
-    Item {
+    StatusBar {
         id: status_bar
-        x: 5
-        y: 53
-        property string status: {
-             if (viewModel.isisFailedStatus)
-                qsTr("error")
-             else if (viewModel.isOfflineStatus)
-                qsTr("offline")
-             else if(viewModel.isSyncInProgress)
-                qsTr("updating")
-             else
-                qsTr("online")
-        }
-
-        state: "online"
-
-        property int indicator_radius: 5
-        property Item indicator: online_indicator
-        property string error_msg: viewModel.walletStatusErrorMsg
-
-        function setIndicator(indicator) {
-            if (indicator !== status_bar.indicator) {
-                status_bar.indicator.visible = false;
-                status_bar.indicator = indicator;
-                status_bar.indicator.visible = true;
-            }
-        }
-
-        Item {
-            id: online_indicator
-            anchors.top: parent.top
-            anchors.left: parent.left
-            width: childrenRect.width
-
-            property color color: Style.bright_teal
-            property int radius: status_bar.indicator_radius
-
-            Rectangle {
-                id: online_rect
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.leftMargin: 0
-                anchors.topMargin: 2
-
-                width: status_bar.indicator_radius * 2
-                height: status_bar.indicator_radius * 2
-                radius: status_bar.indicator_radius
-                color: parent.color
-            }
-
-            DropShadow {
-                anchors.fill: online_rect
-                radius: 5
-                samples: 9
-                source: online_rect
-                color: parent.color
-            }
-        }
-
-        Item {
-            id: offline_indicator
-            anchors.top: parent.top
-            anchors.left: parent.left
-            width: childrenRect.width
-            visible: false
-
-            property color color: Style.bluey_grey
-            property int radius: status_bar.indicator_radius
-
-
-            Rectangle {
-                id: offline_rect
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.leftMargin: 0
-                anchors.topMargin: 2
-
-                color: "transparent"
-                width: parent.radius * 2
-                height: parent.radius * 2
-                radius: parent.radius
-                border.color: parent.color
-                border.width: 1
-            }
-        }
-
-        Item {
-            id: update_indicator
-            anchors.top: parent.top
-            anchors.left: parent.left
-            visible: false
-
-            property color color: Style.bright_teal
-            property int circle_line_width: 2
-            property int animation_duration: 2000
-
-            width: 2 * status_bar.indicator_radius + circle_line_width
-            height: 2 * status_bar.indicator_radius + circle_line_width
-
-            Canvas {
-                id: canvas_
-                anchors.fill: parent
-                onPaint: {
-                    var context = getContext("2d");
-                    context.arc(width/2, height/2, width/2 - parent.circle_line_width, 0, 1.6 * Math.PI);
-                    context.strokeStyle = parent.color;
-                    context.lineWidth = parent.circle_line_width;
-                    context.stroke();
-                }
-            }
-
-            RotationAnimator {
-                target: update_indicator
-                from: 0
-                to: 360
-                duration: update_indicator.animation_duration
-                running: update_indicator.visible
-                loops: Animation.Infinite
-            }
-        }
-
-        SFText {
-            id: status_text
-            anchors.top: parent.top
-            anchors.left: parent.indicator.right
-            anchors.leftMargin: 5
-            anchors.topMargin: -3
-            color: Style.bluey_grey
-            font.pixelSize: 14
-        }
-        SFText {
-            id: progressText
-            anchors.top: parent.top
-            anchors.left: status_text.right
-            anchors.leftMargin: 5
-            anchors.topMargin: -3
-            color: Style.bluey_grey
-            font.pixelSize: 14
-            text: "(" + viewModel.nodeSyncProgress + "%)"
-            visible: viewModel.nodeSyncProgress > 0 && update_indicator.visible
-        }
-
-        CustomProgressBar {
-            id: progress_bar
-            anchors.top: update_indicator.bottom
-            anchors.left: update_indicator.left
-            anchors.topMargin: 6
-            backgroundImplicitWidth: 200
-            contentItemImplicitWidth: 200
-
-            visible: viewModel.nodeSyncProgress > 0 && update_indicator.visible
-            value: viewModel.nodeSyncProgress / 100
-        }
-
-        states: [
-            State {
-                name: "online"
-                when: (status_bar.status === "online")
-                PropertyChanges {target: status_text; text: qsTr("online") + viewModel.branchName}
-                StateChangeScript {
-                    name: "onlineScript"
-                    script: {
-                        status_bar.setIndicator(online_indicator);
-                    }
-                }
-            },
-            State {
-                name: "offline"
-                when: (status_bar.status === "offline")
-                PropertyChanges {target: status_text; text: qsTr("offline") + viewModel.branchName}
-                StateChangeScript {
-                    name: "offlineScript"
-                    script: {
-                        status_bar.setIndicator(offline_indicator);
-                    }
-                }
-            },
-            State {
-                name: "updating"
-                when: (status_bar.status === "updating")
-                PropertyChanges {target: status_text; text: qsTr("updating...") + viewModel.branchName}
-                StateChangeScript {
-                    name: "updatingScript"
-                    script: {
-                        status_bar.setIndicator(update_indicator);
-                    }
-                }
-            },
-            State {
-                name: "error"
-                when: (status_bar.status === "error")
-                PropertyChanges {target: status_text; text: status_bar.error_msg + viewModel.branchName}
-                StateChangeScript {
-                    name: "errorScript"
-                    script: {
-                        online_indicator.color = "red";
-                        status_bar.setIndicator(online_indicator);
-                    }
-                }
-            }
-        ]
-        transitions: [
-            Transition {
-                from: "online"
-                to: "updating"
-                SequentialAnimation {
-                    PauseAnimation { duration: 1000 }
-                    ScriptAction { scriptName: "updatingScript" }
-                }
-            }
-        ]
+        model: statusbarModel
     }
 
     /////////////////////////////////////////////////////////////
@@ -386,7 +177,8 @@ Item {
 
                 Item {
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    // TODO: find better solution, because it's bad
+                    Layout.minimumHeight: 220
                     Column {
                         anchors.fill: parent
                         spacing: 10
@@ -408,12 +200,31 @@ Item {
                             text: viewModel.newReceiverAddr
                         }
 
-                        SFText {
-                            Layout.topMargin: -24
-                            font.pixelSize: 14
-                            font.italic: true
-                            color: Style.white
-                            text: qsTr("The address will be valid for 24 hours")
+                        Row {
+                            spacing: 10
+                            SFText {
+                                font.pixelSize: 14
+                                font.italic: true
+                                color: Style.white
+                                text: qsTr("Expires:")
+                            }
+                            CustomComboBox {
+                                id: expiresControl
+                                width: 100
+                                height: 20
+                                anchors.top: parent.top
+                                anchors.topMargin: -3
+
+                                currentIndex: viewModel.expires
+
+                                Binding {
+                                    target: viewModel
+                                    property: "expires"
+                                    value: expiresControl.currentIndex
+                                }
+
+                                model: ["24 hours", "never"]
+                            }
                         }
 
                         SFText {
@@ -437,21 +248,31 @@ Item {
                             property: "newReceiverName"
                             value: myAddressName.text
                         }
-                    
                     }
                 }
 
                 Item {
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Image {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        fillMode: Image.Pad
+                    // TODO: find better solution, because it's bad
+                    Layout.minimumHeight: 220
+                    Column {
+                        anchors.fill: parent
+                        Image {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            fillMode: Image.Pad
                         
-                        source: viewModel.newReceiverAddrQR
+                            source: viewModel.newReceiverAddrQR
+                        }
+                        SFText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            font.pixelSize: 14
+                            font.italic: true
+                            color: Style.white
+                            text: qsTr("Scan to send")
+                        }
                     }
                 }
-            }            
+            }
 
             SFText {
                 Layout.alignment: Qt.AlignHCenter
@@ -491,6 +312,7 @@ Item {
 
             Item {
                 Layout.fillHeight: true
+                
             }
         }
     }
@@ -508,8 +330,6 @@ Item {
         ColumnLayout {
             anchors.fill: parent
 
-            spacing: 20
-
             SFText {
                 Layout.alignment: Qt.AlignHCenter
                 font.pixelSize: 18
@@ -518,9 +338,15 @@ Item {
                 text: qsTr("Send Beam")
             }
 
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 10
+                Layout.maximumHeight: 30
+            }
+
             RowLayout {
                 Layout.fillWidth: true
-                Layout.topMargin: 50
+                //Layout.topMargin: 50
 
                 spacing: 70
 
@@ -776,7 +602,7 @@ Item {
                         Item {
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignTop
-                            Layout.topMargin: 30
+                            Layout.topMargin: 20
                             height: 96
 
                             Item {
@@ -888,15 +714,20 @@ Item {
                 }
             }
 
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 10
+                Layout.maximumHeight: 30
+            }
+
             Row {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 30
 
                 spacing: 30
 
                 CustomButton {
-                    text: qsTr("cancel")
-                    icon.source: "qrc:/assets/icon-cancel.svg"
+                    text: qsTr("back")
+                    icon.source: "qrc:/assets/icon-back.svg"
                     onClicked: root.state = "wallet"
                 }
 
@@ -904,7 +735,7 @@ Item {
                     text: qsTr("send")
                     palette.buttonText: Style.marine
                     palette.button: Style.heliotrope
-                    icon.source: "qrc:/assets/icon-send.svg"
+                    icon.source: "qrc:/assets/icon-send-blue.svg"
                     enabled: {viewModel.isEnoughMoney && amount_input.amount > 0 && receiverAddrInput.acceptableInput }
                     onClicked: {
                         if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {
@@ -961,8 +792,6 @@ Item {
 
                 onClicked: root.state = "send"
             }
-
-
         }
 
         Item {
@@ -1023,56 +852,6 @@ Item {
 
                 text: qsTr("Transactions")
             }
-
-//            Row {
-//
-//                anchors.right: parent.right
-//                spacing: 20
-//                state: "all"
-//
-//                TxFilter{
-//                    id: all
-//                    label: "ALL"
-//                    onClicked: parent.state = "all"
-//                }
-//
-//                TxFilter{
-//                    id: sent
-//                    label: "SENT"
-//                    onClicked: parent.state = "sent"
-//                }
-//
-//                TxFilter{
-//                    id: received
-//                    label: "RECEIVED"
-//                    onClicked: parent.state = "received"
-//                }
-//
-//                TxFilter{
-//                    id: in_progress
-//                    label: "IN PROGRESS"
-//                    onClicked: parent.state = "in_progress"
-//                }
-//
-//                states: [
-//                    State {
-//                        name: "all"
-//                        PropertyChanges {target: all; state: "active"}
-//                    },
-//                    State {
-//                        name: "sent"
-//                        PropertyChanges {target: sent; state: "active"}
-//                    },
-//                    State {
-//                        name: "received"
-//                        PropertyChanges {target: received; state: "active"}
-//                    },
-//                    State {
-//                        name: "in_progress"
-//                        PropertyChanges {target: in_progress; state: "active"}
-//                    }
-//                ]
-//            }
         }
 
         Rectangle {
@@ -1081,8 +860,6 @@ Item {
 
             color: "#0a344d"
         }
-
-
 
         CustomTableView {
 
@@ -1287,15 +1064,6 @@ Item {
                             anchors.rightMargin: 12
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 10
-                        /*    CustomToolButton {
-                                visible: styleData.row >= 0 && viewModel.transactions[styleData.row].canCancel
-                                icon.source: "qrc:/assets/icon-cancel.svg"
-                                ToolTip.text: qsTr("Cancel transaction")
-                                onClicked: {
-                                    viewModel.cancelTx(styleData.row);
-                                }
-                            }
-                            */
                             CustomToolButton {
                                 icon.source: "qrc:/assets/icon-actions.svg"
                                 ToolTip.text: qsTr("Actions")
@@ -1497,7 +1265,6 @@ Item {
                     }
                 }
 
-
                 MouseArea {
                     anchors.top: parent.top
                     anchors.left: parent.left
@@ -1579,27 +1346,6 @@ Item {
                 }
             }
 
-/*            Transition {
-                id: addAnim
-                PropertyAction { target: rowItem; property: "height"; value: 0 }
-                NumberAnimation { target: rowItem; property: "height"; to: 80; duration: 250; easing.type: Easing.InOutQuad }
-            }
-
-            Transition {
-                id: removeAnim
-                PropertyAction { target: rowItem; property: "ListView.delayRemove"; value: true }
-                NumberAnimation { target: rowItem; property: "height"; to: 0; duration: 250; easing.type: Easing.InOutQuad }
-
-                // Make sure delayRemove is set back to false so that the item can be destroyed
-                PropertyAction { target: rowItem; property: "ListView.delayRemove"; value: false }
-            }
-
-            Component.onCompleted: {
-               // this.__listView.populate = addAnim
-                this.__listView.add = addAnim
-                this.__listView.remove = removeAnim
-            }
-            */
             itemDelegate: Item {
                 Item {
                     width: parent.width
@@ -1620,15 +1366,11 @@ Item {
             State {
                 when: wallet_layout.visible && wallet_layout.width < (1440-70-2*30)
                 name: "medium"
-                // PropertyChanges {target: wide_panels; visible: false}
-                // PropertyChanges {target: medium_panels; visible: true}
             },
 
             State {
                 when: wallet_layout.visible && wallet_layout.width < (1440-70-2*30)
                 name: "small"
-                // PropertyChanges {target: wide_panels; visible: false}
-                // PropertyChanges {target: medium_panels; visible: true}
             }
         ]
     }

@@ -63,6 +63,7 @@ class StartViewModel : public QObject
     Q_PROPERTY(int localPort READ getLocalPort CONSTANT)
     Q_PROPERTY(int localMiningThreads READ getLocalMiningThreads CONSTANT)
     Q_PROPERTY(QString remoteNodeAddress READ getRemoteNodeAddress CONSTANT)
+    Q_PROPERTY(QString localNodePeer READ getLocalNodePeer CONSTANT)
 
 public:
 
@@ -82,8 +83,9 @@ public:
     int getLocalPort() const;
     int getLocalMiningThreads() const;
     QString getRemoteNodeAddress() const;
+    QString getLocalNodePeer() const;
 
-    Q_INVOKABLE void setupLocalNode(int port, int miningThreads);
+    Q_INVOKABLE void setupLocalNode(int port, int miningThreads, const QString& localNodePeer);
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
     Q_INVOKABLE void setupRandomNode();
     Q_INVOKABLE uint coreAmount() const;
@@ -93,6 +95,7 @@ public:
     Q_INVOKABLE bool showUseGpu() const;
     Q_INVOKABLE bool hasSupportedGpu();
     Q_INVOKABLE bool getIsRunLocalNode() const;
+    Q_INVOKABLE QString chooseRandomNode() const;
 
 signals:
     void walletExistsChanged();
@@ -103,11 +106,15 @@ signals:
     void useGpuChanged();
 
 public slots:
-    bool createWallet(const QString& pass);
+    bool createWallet();
     bool openWallet(const QString& pass);
+    void setPassword(const QString& pass);
+
 private:
     QList<QObject*> m_recoveryPhrases;
     QList<QObject*> m_checkPhrases;
     beam::WordList m_generatedPhrases;
+    std::string m_password;
+    
     bool m_isRecoveryMode;
 };

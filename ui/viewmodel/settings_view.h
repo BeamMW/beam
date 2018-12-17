@@ -24,7 +24,7 @@ class SettingsViewModel : public QObject
     Q_OBJECT
 
     Q_PROPERTY(QString nodeAddress READ getNodeAddress WRITE setNodeAddress NOTIFY nodeAddressChanged)
-    Q_PROPERTY(QString version READ version CONSTANT)
+    Q_PROPERTY(QString version READ getVersion CONSTANT)
     Q_PROPERTY(bool localNodeRun READ getLocalNodeRun WRITE setLocalNodeRun NOTIFY localNodeRunChanged)
     Q_PROPERTY(uint localNodePort READ getLocalNodePort WRITE setLocalNodePort NOTIFY localNodePortChanged)
     Q_PROPERTY(uint localNodeMiningThreads READ getLocalNodeMiningThreads WRITE setLocalNodeMiningThreads NOTIFY localNodeMiningThreadsChanged)
@@ -40,7 +40,7 @@ public:
 
     QString getNodeAddress() const;
     void setNodeAddress(const QString& value);
-    QString version() const;
+    QString getVersion() const;
     bool getLocalNodeRun() const;
     void setLocalNodeRun(bool value);
     uint getLocalNodePort() const;

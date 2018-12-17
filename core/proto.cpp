@@ -404,10 +404,50 @@ std::ostream& operator << (std::ostream& s, const NodeConnection::DisconnectReas
 		s << "Bye " << r.m_ByeReason;
 		break;
 
+	case NodeConnection::DisconnectReason::Incompatible:
+		s << "Incompatible: " << *r.m_pCfg;
+		break;
+
 	default:
 		assert(false);
 	}
 	return s;
+}
+
+const uint8_t* NodeConnection::DisconnectReason::Marshal::Duplicate(const Blob& b)
+{
+	m_pBuffer.reset(new uint8_t[b.n], [](uint8_t* p) { delete[] p; });
+	uint8_t* p = &*m_pBuffer;
+
+	memcpy(p, b.p, b.n);
+	return  p;
+}
+
+NodeConnection::DisconnectReason::Marshal::Marshal(const DisconnectReason& dr)
+{
+	Cast::Down<DisconnectReason>(*this) = dr;
+	switch (m_Type)
+	{
+	case ProcessingExc:
+		m_szErrorMsg = reinterpret_cast<const char*>(Duplicate(Blob(
+			m_szErrorMsg,
+			static_cast<uint32_t>(strlen(m_szErrorMsg) + 1)
+		)));
+		break;
+
+	case Incompatible:
+		m_pCfg = reinterpret_cast<const ECC::Hash::Value*>(Duplicate(*m_pCfg));
+		break;
+
+	default:
+		break; // suppress warning
+	}
+}
+
+NodeConnection::DisconnectReason::Marshal::Marshal(const Marshal& x)
+{
+	Cast::Down<DisconnectReason>(*this) = x;
+	m_pBuffer = x.m_pBuffer;
 }
 
 void NodeConnection::on_connection_error(uint64_t, io::ErrorCode errorCode)
@@ -437,6 +477,8 @@ void NodeConnection::Connect(const io::Address& addr)
 void NodeConnection::Accept(io::TcpStream::Ptr&& newStream)
 {
 	assert(!m_Connection && !m_ConnectPending);
+
+	newStream->enable_keepalive(Rules::get().DesiredRate_s); // it should be comparable to the block rate
 
 	m_Connection = std::make_unique<Connection>(
 		m_Protocol,
@@ -599,11 +641,6 @@ void NodeConnection::ProvePKdfObscured(Key::IPKdf& kdf, uint8_t nIDType)
 		Key::IPKdf& m_Kdf;
 		MyKdf(Key::IPKdf& kdf) :m_Kdf(kdf) {}
 
-		virtual void DerivePKey(ECC::Point::Native&, const ECC::Hash::Value&) override
-		{
-			assert(false);
-		}
-
 		virtual void DerivePKey(ECC::Scalar::Native&, const ECC::Hash::Value&) override
 		{
 			assert(false);
@@ -630,7 +667,7 @@ bool NodeConnection::IsKdfObscured(Key::IPKdf& kdf, const PeerID& id)
 	hp >> hv;
 
 	ECC::Point::Native pt;
-	kdf.DerivePKey(pt, hv);
+	kdf.DerivePKeyG(pt, hv);
 
 	return id == ECC::Point(pt).m_X;
 }
@@ -643,11 +680,16 @@ bool NodeConnection::IsPKdfObscured(Key::IPKdf& kdf, const PeerID& id)
 		Key::IPKdf& m_Kdf;
 		MyPKdf(Key::IPKdf& kdf) :m_Kdf(kdf) {}
 
-		virtual void DerivePKey(ECC::Point::Native& out, const ECC::Hash::Value& hv) override
+		virtual void DerivePKeyG(ECC::Point::Native& out, const ECC::Hash::Value& hv) override
 		{
 			ECC::Scalar::Native s;
 			m_Kdf.DerivePKey(s, hv);
 			out = ECC::Context::get().G * s;
+		}
+
+		virtual void DerivePKeyJ(ECC::Point::Native& out, const ECC::Hash::Value& hv) override
+		{
+			assert(false);
 		}
 
 		virtual void DerivePKey(ECC::Scalar::Native&, const ECC::Hash::Value&) override
@@ -700,6 +742,19 @@ void NodeConnection::OnMsg(Bye&& msg)
 	r.m_Type = DisconnectReason::Bye;
 	r.m_ByeReason = msg.m_Reason;
 	OnDisconnect(r);
+}
+
+bool NodeConnection::VerifyCfg(const Login& msg)
+{
+	if (msg.m_CfgChecksum == Rules::get().Checksum)
+		return true;
+
+	DisconnectReason r;
+	r.m_Type = DisconnectReason::Incompatible;
+	r.m_pCfg = &msg.m_CfgChecksum;
+	OnDisconnect(r);
+
+	return false;
 }
 
 /////////////////////////

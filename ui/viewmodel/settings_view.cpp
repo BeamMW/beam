@@ -50,7 +50,7 @@ void SettingsViewModel::setNodeAddress(const QString& value)
     }
 }
 
-QString SettingsViewModel::version() const
+QString SettingsViewModel::getVersion() const
 {
     return QString::fromStdString(PROJECT_VERSION);
 }

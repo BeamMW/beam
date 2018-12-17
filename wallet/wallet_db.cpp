@@ -27,7 +27,7 @@
 
 #define ENUM_STORAGE_ID(each, sep, obj) \
     each(Type,           ID.m_Type,     INTEGER NOT NULL, obj) sep \
-    each(SubKey,         ID.m_iChild,   INTEGER NOT NULL, obj) sep \
+    each(SubKey,         ID.m_SubIdx,   INTEGER NOT NULL, obj) sep \
     each(Number,         ID.m_Idx,      INTEGER NOT NULL, obj)
 
 #define ENUM_STORAGE_FIELDS(each, sep, obj) \
@@ -61,7 +61,6 @@
 
 #define STORAGE_NAME "storage"
 #define VARIABLES_NAME "variables"
-#define PEERS_NAME "peers"
 #define ADDRESSES_NAME "addresses"
 #define TX_PARAMS_NAME "txparams"
 
@@ -87,14 +86,6 @@
     each(change,     change,     INTEGER NOT NULL, obj)
 
 #define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
-
-#define ENUM_PEER_FIELDS(each, sep, obj) \
-    each(walletID,    walletID,    BLOB NOT NULL PRIMARY KEY, obj) sep \
-    each(address,     address,     TEXT NOT NULL, obj) sep \
-    each(label,       label,       TEXT NOT NULL , obj)
-
-#define PEER_FIELDS ENUM_PEER_FIELDS(LIST, COMMA, )
-
 
 #define ENUM_ADDRESS_FIELDS(each, sep, obj) \
     each(walletID,       walletID,       BLOB NOT NULL PRIMARY KEY, obj) sep \
@@ -164,14 +155,223 @@ namespace beam
             throwIfError(ret, db);
         }
 
+        struct CoinSelector3
+        {
+            typedef std::vector<Coin> Coins;
+            typedef std::vector<size_t> Indexes;
+
+            using Result = pair<Amount, Indexes>;
+
+            const Coins& m_Coins; // input coins must be in ascending order, without zeroes
+            
+            CoinSelector3(const Coins& coins)
+                :m_Coins(coins)
+            {
+            }
+
+            static const uint32_t s_Factor = 16;
+
+            struct Partial
+            {
+                static const Amount s_Inf = Amount(-1);
+
+                struct Link {
+                    size_t m_iNext; // 1-based, to distinguish "NULL" pointers
+                    size_t m_iElement;
+                };
+
+                std::vector<Link> m_vLinks;
+
+                struct Slot {
+                    size_t m_iTop;
+                    Amount m_Sum;
+                };
+
+                Slot m_pSlots[s_Factor + 1];
+                Amount m_Goal;
+
+                void Reset()
+                {
+                    m_vLinks.clear();
+                    ZeroObject(m_pSlots);
+                }
+
+                uint32_t get_Slot(Amount v) const
+                {
+                    uint64_t i = v * s_Factor / m_Goal; // TODO - overflow check!
+                    uint32_t res = (i >= s_Factor) ? s_Factor : static_cast<uint32_t>(i);
+                    assert(res <= s_Factor + 1);
+                    return res;
+                }
+
+                void Append(Slot& rDst, Amount v, size_t i0)
+                {
+                    m_vLinks.emplace_back();
+                    m_vLinks.back().m_iElement = i0;
+                    m_vLinks.back().m_iNext = rDst.m_iTop;
+
+                    rDst.m_iTop = m_vLinks.size();
+                    rDst.m_Sum += v;
+                }
+
+                bool IsBetter(Amount v, uint32_t iDst) const
+                {
+                    const Slot& rDst = m_pSlots[iDst];
+                    return (s_Factor == iDst) ?
+                        (!rDst.m_Sum || (v < rDst.m_Sum)) :
+                        (v > rDst.m_Sum);
+                }
+
+                void AddItem(Amount v, size_t i0)
+                {
+                    // try combining first. Go from higher to lower, to make sure we don't process a slot which already contains this item
+                    for (uint32_t iSrc = s_Factor; iSrc--; )
+                    {
+                        Slot& rSrc = m_pSlots[iSrc];
+                        if (!rSrc.m_Sum)
+                            continue;
+
+                        Amount v2 = rSrc.m_Sum + v;
+                        uint32_t iDst = get_Slot(v2);
+
+                        if (!IsBetter(v2, iDst))
+                            continue;
+
+                        Slot& rDst = m_pSlots[iDst];
+
+                        // improve
+                        if (iSrc != iDst)
+                            rDst = rSrc; // copy
+
+                        Append(rDst, v, i0);
+                    }
+
+                    // try as-is
+                    uint32_t iDst = get_Slot(v);
+                    if (IsBetter(v, iDst))
+                    {
+                        Slot& rDst = m_pSlots[iDst];
+                        ZeroObject(rDst);
+                        Append(rDst, v, i0);
+                    }
+                }
+            };
+
+            void SolveOnce(Partial& part, Amount goal, size_t iEnd)
+            {
+                assert((goal > 0) && (iEnd <= m_Coins.size()));
+                part.Reset();
+                part.m_Goal = goal;
+
+                for (size_t i = iEnd; i--; )
+                    part.AddItem(m_Coins[i].m_ID.m_Value, i);
+            }
+
+            Result Select(Amount amount)
+            {
+                Partial part;
+                size_t iEnd = m_Coins.size();
+
+                Amount nOvershootPrev = Amount(-1);
+
+                Result res;
+                for (res.first = 0; (res.first < amount) && iEnd; )
+                {
+                    Amount goal = amount - res.first;
+                    SolveOnce(part, goal, iEnd);
+
+                    Partial::Slot& r1 = part.m_pSlots[s_Factor];
+                    // reverse list direction
+                    size_t iPrev = 0;
+                    for (size_t i = r1.m_iTop; i; )
+                    {
+                        Partial::Link& link = part.m_vLinks[i - 1];
+                        size_t iNext = link.m_iNext;
+                        link.m_iNext = iPrev;
+                        iPrev = i;
+                        i = iNext;
+                    }
+                    r1.m_iTop = iPrev;
+
+                    if (r1.m_Sum < goal)
+                    {
+                        // no solution
+                        assert(!r1.m_Sum && !res.first);
+
+                        // return the maximum we have
+                        uint32_t iSlot = s_Factor - 1;
+                        for ( ; iSlot > 0; iSlot--)
+                            if (part.m_pSlots[iSlot].m_Sum)
+                                break;
+
+                        res.first = part.m_pSlots[iSlot].m_Sum;
+
+                        for (size_t iLink = part.m_pSlots[iSlot].m_iTop; iLink; )
+                        {
+                            const Partial::Link& link = part.m_vLinks[iLink - 1];
+                            iLink = link.m_iNext;
+
+                            assert(link.m_iElement < iEnd);
+                            res.second.push_back(link.m_iElement);
+                        }
+
+                        return res;
+                    }
+
+                    Amount nOvershoot = r1.m_Sum - goal;
+                    bool bShouldRetry = (nOvershoot < nOvershootPrev);
+                    nOvershootPrev = nOvershoot;
+
+                    for (size_t iLink = r1.m_iTop; iLink; )
+                    {
+                        const Partial::Link& link = part.m_vLinks[iLink - 1];
+                        iLink = link.m_iNext;
+
+                        assert(link.m_iElement < iEnd);
+                        res.second.push_back(link.m_iElement);
+                        iEnd = link.m_iElement;
+
+                        Amount v = m_Coins[link.m_iElement].m_ID.m_Value;
+                        res.first += v;
+
+                        if (bShouldRetry && (amount <= res.first + nOvershoot*2))
+                            break; // leave enough window for reorgs
+                    }
+                }
+
+                return res;
+            }
+
+
+        };
+
         struct CoinSelector2
         {
+            struct CoinEx
+            {
+                Coin m_coin;
+                Amount m_lowerTotal;
+            };
+
             using Result = pair<Amount, vector<Coin>>;
             CoinSelector2(const vector<Coin>& coins)
-                : m_coins{coins}
-                , m_amount(0)
+                :/* m_coins(coins.size())
+                , */m_amount(0)
+                , m_lowerBorder(0)
             {
+                Amount sum = 0;
+                /*for (const auto& coin : coins)
+                {
+                    sum += coin.m_ID.m_Value;
+                    m_coins.emplace_back({coin, });
+                }*/
+                for (auto idx = coins.rbegin(); idx != coins.rend(); idx++)
+                {
+                    sum += idx->m_ID.m_Value;
+                    m_coins.push_back({ *idx, sum});
+                }
 
+                std::reverse(m_coins.begin(), m_coins.end());
             }
 
             Result select(Amount amount)
@@ -180,44 +380,75 @@ namespace beam
                 m_result.first = 0;
                 m_result.second.clear();
 
+                FindLowerBorder();
                 GenerateCombinations();
                 FindBestResult();
                 SelectCoins();
+
+                LOG_INFO() << "m_result.first = " << m_result.first << " size = " << m_result.second.size();
                 return m_result;
             }
 
         private:
 
+            void FindLowerBorder()
+            {
+                Amount sum = 0;
+
+                //for (const auto& coin : m_coins)
+                for (auto idx = m_coins.rbegin(); idx != m_coins.rend(); ++idx)
+                {
+                    if (sum + idx->m_coin.m_ID.m_Value >= m_amount)
+                    {
+                        break;
+                    }
+                    m_lowerBorder = idx->m_coin.m_ID.m_Value;
+                    sum += m_lowerBorder;
+                }
+
+                sum = 0;
+
+                for (const auto& coin : m_coins)
+                {
+                    sum += coin.m_coin.m_ID.m_Value;
+                }
+
+                LOG_INFO() << "amount = " << m_amount << " all sum = " << sum;
+            }
+
             void GenerateCombinations()
             {
-                for (auto coin = m_coins.begin(); coin != m_coins.end(); ++coin)
+                int i = 0;
+                for (auto coin = m_coins.begin(); coin != m_coins.end(); ++coin, ++i)
                 {
-                    if (coin->m_ID.m_Value > m_amount)
+                    if (coin->m_coin.m_ID.m_Value > m_amount)
                     {
-                        m_Combinations[coin->m_ID.m_Value] = coin->m_ID.m_Value;
+                        m_Combinations[coin->m_coin.m_ID.m_Value] = coin->m_coin.m_ID.m_Value;
                         continue;
                     }
 
-                    if (coin->m_ID.m_Value == m_amount)
+                    if (coin->m_coin.m_ID.m_Value == m_amount)
                     {
-                        m_Combinations[coin->m_ID.m_Value] = coin->m_ID.m_Value;
+                        m_Combinations[coin->m_coin.m_ID.m_Value] = coin->m_coin.m_ID.m_Value;
                         break;
                     }
 
                     vector<Amount> newCombinations;
 
+                    newCombinations.reserve(m_Combinations.size() + 100);
+                    if (coin->m_coin.m_ID.m_Value >= m_lowerBorder)
                     {
-                        auto it = m_Combinations.find(coin->m_ID.m_Value);
+                        auto it = m_Combinations.find(coin->m_coin.m_ID.m_Value);
                         if (it == m_Combinations.end())
                         {
-                            newCombinations.push_back(coin->m_ID.m_Value);
+                            newCombinations.push_back(coin->m_coin.m_ID.m_Value);
                         }
                     }
 
                     for (const auto& sum : m_Combinations)
                     {
-                        if (sum.first < m_amount)
-                            newCombinations.push_back(sum.first + coin->m_ID.m_Value);
+                        if (sum.first < m_amount && m_amount <= sum.first + coin->m_lowerTotal)
+                            newCombinations.push_back(sum.first + coin->m_coin.m_ID.m_Value);
                     }
 
                     for (const auto& sum : newCombinations)
@@ -225,9 +456,12 @@ namespace beam
                         auto it = m_Combinations.find(sum);
                         if (it == m_Combinations.end())
                         {
-                            m_Combinations[sum] = coin->m_ID.m_Value;
+                            m_Combinations[sum] = coin->m_coin.m_ID.m_Value;
                         }
                     }
+
+                    if (m_Combinations.find(m_amount) != m_Combinations.end())
+                        break;
                 }
             }
 
@@ -260,23 +494,24 @@ namespace beam
             {
                 for (const auto& p : m_intermediateResult)
                 {
-                    auto it = find_if(m_coins.begin(), m_coins.end(), [amount = p.first](const Coin& c)
+                    auto it = find_if(m_coins.begin(), m_coins.end(), [amount = p.first](const CoinEx& c)
                     {
-                        return c.m_ID.m_Value == amount;
+                        return c.m_coin.m_ID.m_Value == amount;
                     });
 
                     for (Amount i = 0; i < p.second; ++i, ++it)
                     {
-                        m_result.second.push_back(*it);
+                        m_result.second.push_back(it->m_coin);
                     }
                 }
             }
 
-            const vector<Coin>& m_coins;
+            vector<CoinEx> m_coins;
             Result m_result;
             Amount m_amount;
             map<Amount, Amount> m_Combinations;
-            unordered_map<Amount, Amount> m_intermediateResult;
+            map<Amount, Amount> m_intermediateResult;
+            Amount m_lowerBorder;
         };
 
         struct CoinSelector
@@ -341,6 +576,26 @@ namespace beam
             unordered_map<pair<Amount, Amount>, pair<Amount, vector<Coin>>> m_memory;
             pair<Amount, vector<Coin>> m_empty;
         };
+
+        template<typename T>
+        void deserialize(T& value, ByteBuffer& blob)
+        {
+            if (!blob.empty())
+            {
+                Deserializer d;
+                d.reset(blob.data(), blob.size());
+                d & value;
+            }
+            else
+            {
+                ZeroObject(value);
+            }
+        }
+
+        void deserialize(ByteBuffer& value, ByteBuffer& blob)
+        {
+            value = blob;
+        }
     }
 
     namespace sqlite
@@ -357,6 +612,7 @@ namespace beam
 
             void Reset()
             {
+                sqlite3_clear_bindings(_stm);
                 sqlite3_reset(_stm);
             }
 
@@ -451,6 +707,12 @@ namespace beam
             void bind(int col, const string& val) // utf-8
             {
                 int ret = sqlite3_bind_text(_stm, col, val.data(), -1, nullptr);
+                throwIfError(ret, _db);
+            }
+
+            void bind(int col, wallet::TxParameterID val)
+            {
+                int ret = sqlite3_bind_int(_stm, col, static_cast<int>(val));
                 throwIfError(ret, _db);
             }
 
@@ -573,6 +835,11 @@ namespace beam
                 }
             }
 
+            const char* retrieveSQL()
+            {
+                return sqlite3_expanded_sql(_stm);
+            }
+
             ~Statement()
             {
                 sqlite3_finalize(_stm);
@@ -634,7 +901,7 @@ namespace beam
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
-        const int DbVersion = 8;
+        const int DbVersion = 9;
     }
 
     Coin::Coin(Amount amount, Status status, Height maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
@@ -707,12 +974,6 @@ namespace beam
 
             {
                 const char* req = "CREATE TABLE " VARIABLES_NAME " (" ENUM_VARIABLES_FIELDS(LIST_WITH_TYPES, COMMA,) ");";
-                int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
-                throwIfError(ret, walletDB->_db);
-            }
-
-            {
-                const char* req = "CREATE TABLE " PEERS_NAME " (" ENUM_PEER_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
                 int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
                 throwIfError(ret, walletDB->_db);
             }
@@ -871,116 +1132,69 @@ namespace beam
         return pRet;
     }
 
-    ECC::Scalar::Native WalletDB::calcKey(const Coin::ID& cid) const
+    void IWalletDB::calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID& cid)
     {
-        ECC::Scalar::Native key;
-        get_ChildKdf(cid.m_iChild)->DeriveKey(key, cid);
-        return key;
+        SwitchCommitment().Create(sk, comm, *get_ChildKdf(cid.m_SubIdx), cid);
     }
 
     vector<Coin> WalletDB::selectCoins(const Amount& amount, bool lock)
     {
-        vector<Coin> coins;
+        vector<Coin> coins, coinsSel;
         Block::SystemState::ID stateID = {};
         getSystemStateID(stateID);
+
         {
-            sqlite::Statement stm(_db, "SELECT SUM(amount)" STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 ;");
+            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 ORDER BY amount ASC");
             stm.bind(1, Coin::Available);
             stm.bind(2, stateID.m_Height);
-            Amount avalableAmount = 0;
-            if (stm.step())
-            {
-                stm.get(0, avalableAmount);
-            }
-            if (avalableAmount < amount)
-            {
-                return coins;
-            }
-        }
-        Amount sum = 0;
-        Coin coin2;
-        {
-            // get one coin >= amount
-            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount>=?3 ORDER BY amount ASC LIMIT 1;");
-            stm.bind(1, Coin::Available);
-            stm.bind(2, stateID.m_Height);
-            stm.bind(3, amount);
-            if (stm.step())
-            {
-                int colIdx = 0;
-                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin2);
-                sum = coin2.m_ID.m_Value;
-            }
-        }
-        if (sum == amount)
-        {
-            coins.push_back(coin2);
-        }
-        else
-        {
-            // select all coins less than needed amount in sorted order
-            sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE status=?1 AND maturity<=?2 AND amount<?3 ORDER BY amount DESC;");
-            stm.bind(1, Coin::Available);
-            stm.bind(2, stateID.m_Height);
-            stm.bind(3, amount);
-            vector<Coin> candidats;
-            Amount smallSum = 0;
+
             while (stm.step())
             {
-                auto& coin = candidats.emplace_back();
+                auto& coin = coins.emplace_back();
                 int colIdx = 0;
                 ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
-                smallSum += coin.m_ID.m_Value;
-            }
-            if (smallSum == amount)
-            {
-                coins.swap(candidats);
-            }
-            else if (smallSum > amount)
-            {
-                CoinSelector2 s{ candidats };
-                auto t = s.select(amount);
 
-                if (sum > amount && sum <= t.first)
-                {
-                    // prefer one coin instead on many
-                    coins.push_back(coin2);
-                }
-                else
-                {
-                    coins = t.second;
-                }
-            }
-            else if (sum > amount)
-            {
-                coins.push_back(coin2);
+                if (coin.m_ID.m_Value >= amount)
+                    break;
             }
         }
 
-        if (lock)
+        CoinSelector3 csel(coins);
+        CoinSelector3::Result res = csel.Select(amount);
+
+        if (res.first >= amount)
         {
-            sqlite::Transaction trans(_db);
+            coinsSel.reserve(res.second.size());
 
-            for (auto& coin : coins)
+            for (size_t j = 0; j < res.second.size(); j++)
+                coinsSel.push_back(std::move(coins[res.second[j]]));
+
+            if (lock)
             {
-                coin.m_status = Coin::Outgoing;
-                const char* req = "UPDATE " STORAGE_NAME " SET status=?, lockedHeight=?" STORAGE_WHERE_ID;
-                sqlite::Statement stm(_db, req);
+                sqlite::Transaction trans(_db);
 
-                int colIdx = 0;
-                stm.bind(++colIdx, coin.m_status);
-                stm.bind(++colIdx, stateID.m_Height);
-                STORAGE_BIND_ID(coin)
+                for (auto& coin : coinsSel)
+                {
+                    coin.m_status = Coin::Outgoing;
+                    const char* req = "UPDATE " STORAGE_NAME " SET status=?, lockedHeight=?" STORAGE_WHERE_ID;
+                    sqlite::Statement stm(_db, req);
 
-                stm.step();
+                    int colIdx = 0;
+                    stm.bind(++colIdx, coin.m_status);
+                    stm.bind(++colIdx, stateID.m_Height);
+                    STORAGE_BIND_ID(coin)
+
+                    stm.step();
+                }
+
+                trans.commit();
+
+                notifyCoinsChanged();
             }
-
-            trans.commit();
-
-            notifyCoinsChanged();
         }
-        std::sort(coins.begin(), coins.end(), [](const Coin& lhs, const Coin& rhs) {return lhs.m_ID.m_Value < rhs.m_ID.m_Value; });
-        return coins;
+
+
+        return coinsSel;
     }
 
     std::vector<Coin> WalletDB::getCoinsCreatedByTx(const TxID& txId)
@@ -1001,12 +1215,34 @@ namespace beam
         return coins;
     }
 
+    namespace
+    {
+        struct InsertCoinStatement : public sqlite::Statement
+        {
+            InsertCoinStatement(sqlite3* db)
+                : sqlite::Statement(db, "INSERT OR REPLACE INTO " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ALL_STORAGE_FIELDS(BIND_LIST, COMMA, ) ");")
+            {
+            }
+
+            void apply(const Coin& coin)
+            {
+                sqlite::Statement& stm = *this;
+                int colIdx = 0;
+                ENUM_ALL_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
+                stm.step();
+
+                Reset();
+            }
+        };
+    }
+
     void WalletDB::store(Coin& coin)
     {
         sqlite::Transaction trans(_db);
 
         coin.m_ID.m_Idx = AllocateKidRange(1);
-        storeImpl(coin);
+        InsertCoinStatement stm(_db);
+        stm.apply(coin);
 
         trans.commit();
         notifyCoinsChanged();
@@ -1020,11 +1256,11 @@ namespace beam
         sqlite::Transaction trans(_db);
 
         uint64_t nKeyIndex = AllocateKidRange(coins.size());
-
+        InsertCoinStatement stm(_db);
         for (auto& coin : coins)
         {
             coin.m_ID.m_Idx = nKeyIndex++;
-            storeImpl(coin);
+            stm.apply(coin);
         }
 
         trans.commit();
@@ -1033,7 +1269,8 @@ namespace beam
 
     void WalletDB::save(const Coin& coin)
     {
-        storeImpl(coin);
+        InsertCoinStatement stm(_db);
+        stm.apply(coin);
         notifyCoinsChanged();
     }
 
@@ -1043,23 +1280,14 @@ namespace beam
             return;
 
         sqlite::Transaction trans(_db);
-
+        InsertCoinStatement stm(_db);
         for (auto& coin : coins)
-            storeImpl(coin);
+        {
+            stm.apply(coin);
+        }
 
         trans.commit();
         notifyCoinsChanged();
-    }
-
-    void WalletDB::storeImpl(const Coin& coin)
-    {
-        const char* req = "INSERT OR REPLACE INTO " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ALL_STORAGE_FIELDS(BIND_LIST, COMMA, ) ");";
-        sqlite::Statement stm(_db, req);
-
-        int colIdx = 0;
-        ENUM_ALL_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
-
-        stm.step();
     }
 
     uint64_t WalletDB::AllocateKidRange(uint64_t nCount)
@@ -1155,7 +1383,7 @@ namespace beam
         return true;
     }
 
-    void WalletDB::maturingCoins()
+    void WalletDB::updateCoinMaturityStatus()
     {
         sqlite::Transaction trans(_db);
 
@@ -1247,7 +1475,7 @@ namespace beam
         wallet::setVar(thisPtr, LastUpdateTimeName, getTimestamp());
         notifySystemStateChanged();
         // update coins
-        maturingCoins();
+        updateCoinMaturityStatus();
     }
 
     bool WalletDB::getSystemStateID(Block::SystemState::ID& stateID) const
@@ -1328,30 +1556,70 @@ namespace beam
 
     boost::optional<TxDescription> WalletDB::getTx(const TxID& txId)
     {
-        const char* req = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 LIMIT 1;";
+        const char* req = "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1;";
         sqlite::Statement stm(_db, req);
         stm.bind(1, txId);
 
-        if (stm.step())
+        TxDescription txDescription;
+        txDescription.m_txId = txId;
+
+        const std::set<wallet::TxParameterID> mandatoryParams{ wallet::TxParameterID::Amount, wallet::TxParameterID::Fee,
+            wallet::TxParameterID::MinHeight, wallet::TxParameterID::PeerID,
+            wallet::TxParameterID::MyID, wallet::TxParameterID::CreateTime,
+            wallet::TxParameterID::IsSender };
+        std::set<wallet::TxParameterID> gottenParams;
+
+        while (stm.step())
         {
-            auto thisPtr = shared_from_this();
-            TxDescription tx;
-            tx.m_txId = txId;
-            bool hasMandatory = wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Amount, tx.m_amount)
-            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Fee, tx.m_fee)
-            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::MinHeight, tx.m_minHeight)
-            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::PeerID, tx.m_peerId)
-            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::MyID, tx.m_myId)
-            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::CreateTime, tx.m_createTime)
-            && wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::IsSender, tx.m_sender);
-            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Message, tx.m_message);
-            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Change, tx.m_change);
-            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::ModifyTime, tx.m_modifyTime);
-            wallet::getTxParameter(thisPtr, txId, wallet::TxParameterID::Status, tx.m_status);
-            if (hasMandatory)
+            TxParameter parameter = {};
+            int colIdx = 0;
+            ENUM_TX_PARAMS_FIELDS(STM_GET_LIST, NOSEP, parameter);
+
+            gottenParams.emplace(static_cast<wallet::TxParameterID>(parameter.m_paramID));
+
+            switch (static_cast<wallet::TxParameterID>(parameter.m_paramID))
             {
-                return tx;
+            case wallet::TxParameterID::Amount:
+                deserialize(txDescription.m_amount, parameter.m_value);
+                break;
+            case wallet::TxParameterID::Fee:
+                deserialize(txDescription.m_fee, parameter.m_value);
+                break;
+            case wallet::TxParameterID::MinHeight:
+                deserialize(txDescription.m_minHeight, parameter.m_value);
+                break;
+            case wallet::TxParameterID::PeerID:
+                deserialize(txDescription.m_peerId, parameter.m_value);
+                break;
+            case wallet::TxParameterID::MyID:
+                deserialize(txDescription.m_myId, parameter.m_value);
+                break;
+            case wallet::TxParameterID::CreateTime:
+                deserialize(txDescription.m_createTime, parameter.m_value);
+                break;
+            case wallet::TxParameterID::IsSender:
+                deserialize(txDescription.m_sender, parameter.m_value);
+                break;
+            case wallet::TxParameterID::Message:
+                deserialize(txDescription.m_message, parameter.m_value);
+                break;
+            case wallet::TxParameterID::Change:
+                deserialize(txDescription.m_change, parameter.m_value);
+                break;
+            case wallet::TxParameterID::ModifyTime:
+                deserialize(txDescription.m_modifyTime, parameter.m_value);
+                break;
+            case wallet::TxParameterID::Status:
+                deserialize(txDescription.m_status, parameter.m_value);
+                break;
+			default:
+				break; // suppress warning
             }
+        }
+
+        if (std::includes(gottenParams.begin(), gottenParams.end(), mandatoryParams.begin(), mandatoryParams.end()))
+        {
+            return txDescription;
         }
 
         return boost::optional<TxDescription>{};
@@ -1416,57 +1684,6 @@ namespace beam
         }
         trans.commit();
         notifyCoinsChanged();
-    }
-
-    std::vector<TxPeer> WalletDB::getPeers()
-    {
-        std::vector<TxPeer> peers;
-        sqlite::Statement stm(_db, "SELECT * FROM " PEERS_NAME ";");
-        while (stm.step())
-        {
-            auto& peer = peers.emplace_back();
-            int colIdx = 0;
-            ENUM_PEER_FIELDS(STM_GET_LIST, NOSEP, peer);
-        }
-        return peers;
-    }
-
-    void WalletDB::addPeer(const TxPeer& peer)
-    {
-        sqlite::Transaction trans(_db);
-
-        sqlite::Statement stm2(_db, "SELECT * FROM " PEERS_NAME " WHERE walletID=?1;");
-        stm2.bind(1, peer.m_walletID);
-
-        const char* updateReq = "UPDATE " PEERS_NAME " SET address=?2, label=?3 WHERE walletID=?1;";
-        const char* insertReq = "INSERT INTO " PEERS_NAME " (" ENUM_PEER_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_PEER_FIELDS(BIND_LIST, COMMA, ) ");";
-
-        sqlite::Statement stm(_db, stm2.step() ? updateReq : insertReq);
-        int colIdx = 0;
-        ENUM_PEER_FIELDS(STM_BIND_LIST, NOSEP, peer);
-        stm.step();
-
-        trans.commit();
-    }
-
-    boost::optional<TxPeer> WalletDB::getPeer(const WalletID& peerID)
-    {
-        sqlite::Statement stm(_db, "SELECT * FROM " PEERS_NAME " WHERE walletID=?1;");
-        stm.bind(1, peerID);
-        if (stm.step())
-        {
-            TxPeer peer = {};
-            int colIdx = 0;
-            ENUM_PEER_FIELDS(STM_GET_LIST, NOSEP, peer);
-            return peer;
-        }
-        return boost::optional<TxPeer>{};
-    }
-
-    void WalletDB::clearPeers()
-    {
-        sqlite::Statement stm(_db, "DELETE FROM " PEERS_NAME ";");
-        stm.step();
     }
 
     std::vector<WalletAddress> WalletDB::getAddresses(bool own)
@@ -1599,7 +1816,7 @@ namespace beam
             sqlite::Statement stm(_db, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND paramID=?2;");
 
             stm.bind(1, txID);
-            stm.bind(2, static_cast<int>(paramID));
+            stm.bind(2, paramID);
             if (stm.step())
             {
                 // already set
@@ -1610,7 +1827,7 @@ namespace beam
 
                 sqlite::Statement stm2(_db, "UPDATE " TX_PARAMS_NAME  " SET value = ?3 WHERE txID = ?1 AND paramID = ?2;");
                 stm2.bind(1, txID);
-                stm2.bind(2, static_cast<int>(paramID));
+                stm2.bind(2, paramID);
                 stm2.bind(3, blob);
                 stm2.step();
                 if (shouldNotifyAboutChanges)
@@ -1649,7 +1866,7 @@ namespace beam
         sqlite::Statement stm(_db, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND paramID=?2;");
 
         stm.bind(1, txID);
-        stm.bind(2, static_cast<int>(paramID));
+        stm.bind(2, paramID);
 
         if (stm.step())
         {
@@ -1706,6 +1923,100 @@ namespace beam
 
             }
         }
+    }
+
+    Amount WalletDB::getAvailable()
+    {
+        auto currentHeight = getCurrentHeight();
+        const char* req = "SELECT SUM(amount) FROM " STORAGE_NAME " WHERE status = ?1 AND maturity <= ?2;";
+        sqlite::Statement stm(_db, req);
+        stm.bind(1, Coin::Available);
+        stm.bind(2, currentHeight);
+
+        Amount result = 0;
+
+        if (stm.step())
+        {
+            stm.get(0, result);
+        }
+        return result;
+    }
+
+    Amount WalletDB::getAvailableByType(Key::Type keyType)
+    {
+        auto currentHeight = getCurrentHeight();
+        const char* req = "SELECT SUM(amount) FROM " STORAGE_NAME " WHERE status = ?1 AND type = ?2 AND maturity <= ?3;";
+        sqlite::Statement stm(_db, req);
+        stm.bind(1, Coin::Available);
+        stm.bind(2, keyType);
+        stm.bind(3, currentHeight);
+
+        Amount result = 0;
+
+        if (stm.step())
+        {
+            stm.get(0, result);
+        }
+        return result;
+    }
+
+    Amount WalletDB::getTotal(Coin::Status status)
+    {
+        const char* req = "SELECT SUM(amount) FROM " STORAGE_NAME " WHERE status = ?1;";
+        sqlite::Statement stm(_db, req);
+        stm.bind(1, status);
+
+        Amount result = 0;
+
+        if (stm.step())
+        {
+            stm.get(0, result);
+        }
+        return result;
+    }
+    
+    Amount WalletDB::getTotalByType(Coin::Status status, Key::Type keyType)
+    {
+        const char* req = "SELECT SUM(amount) FROM " STORAGE_NAME " WHERE status = ?1 AND type = ?2;";
+        sqlite::Statement stm(_db, req);
+        stm.bind(1, status);
+        stm.bind(2, keyType);
+
+        Amount result = 0;
+
+        if (stm.step())
+        {
+            stm.get(0, result);
+        }
+        return result;
+    }
+
+    Amount WalletDB::getTransferredByTx(TxStatus status, bool isSender)
+    {
+        const char* req = "SELECT value FROM " TX_PARAMS_NAME " WHERE paramID = ?5 AND txID IN (SELECT txID FROM " TX_PARAMS_NAME " WHERE paramID= ?1 AND value = ?2 AND txID IN (SELECT txID FROM " TX_PARAMS_NAME " WHERE paramID= ?3 AND value = ?4 ));";
+
+        sqlite::Statement stm(_db, req);
+        ByteBuffer blobStatus = wallet::toByteBuffer(status);
+        ByteBuffer blobIsSender = wallet::toByteBuffer(isSender);
+
+        stm.bind(1, wallet::TxParameterID::Status);
+        stm.bind(2, blobStatus);
+        stm.bind(3, wallet::TxParameterID::IsSender);
+        stm.bind(4, blobIsSender);
+        stm.bind(5, wallet::TxParameterID::Amount);
+
+        Amount totalAmount = 0;
+
+        while (stm.step())
+        {
+            ByteBuffer blob;
+            stm.get(0, blob);
+            Amount amount = 0;
+            deserialize(amount, blob);
+            totalAmount += amount;
+        }
+
+        return totalAmount;
     }
 
     bool WalletDB::History::Enum(IWalker& w, const Height* pBelow)
@@ -1844,83 +2155,15 @@ namespace beam
             return toByteBuffer(s);
         }
 
-        Amount getAvailable(beam::IWalletDB::Ptr walletDB)
-        {
-            auto currentHeight = walletDB->getCurrentHeight();
-            Amount total = 0;
-            walletDB->visit([&total, &currentHeight](const Coin& c)->bool
-            {
-                Height lockHeight = c.m_maturity;
-
-                if (c.m_status == Coin::Available
-                    && lockHeight <= currentHeight)
-                {
-                    total += c.m_ID.m_Value;
-                }
-                return true;
-            });
-            return total;
-        }
-
-        Amount getAvailableByType(beam::IWalletDB::Ptr walletDB, Coin::Status status, Key::Type keyType)
-        {
-            auto currentHeight = walletDB->getCurrentHeight();
-            Amount total = 0;
-            walletDB->visit([&total, &currentHeight, &status, &keyType](const Coin& c)->bool
-            {
-                Height lockHeight = c.m_maturity;
-
-                if (c.m_status == status
-                    && c.m_ID.m_Type == keyType
-                    && lockHeight <= currentHeight)
-                {
-                    total += c.m_ID.m_Value;
-                }
-                return true;
-            });
-            return total;
-        }
-
-        Amount getTotal(beam::IWalletDB::Ptr walletDB, Coin::Status status)
-        {
-            Amount total = 0;
-            walletDB->visit([&total, &status](const Coin& c)->bool
-            {
-                if (c.m_status == status)
-                {
-                    total += c.m_ID.m_Value;
-                }
-                return true;
-            });
-            return total;
-        }
-
-        Amount getTotalByType(beam::IWalletDB::Ptr walletDB, Coin::Status status, Key::Type keyType)
-        {
-            Amount total = 0;
-            walletDB->visit([&total, &status, &keyType](const Coin& c)->bool
-            {
-                if (c.m_status == status && c.m_ID.m_Type == keyType)
-                {
-                    total += c.m_ID.m_Value;
-                }
-                return true;
-            });
-            return total;
-        }
-
         WalletAddress createAddress(beam::IWalletDB::Ptr walletDB)
         {
             WalletAddress newAddress;
             newAddress.m_createTime = beam::getTimestamp();
             newAddress.m_OwnID = walletDB->AllocateKidRange(1);
 
-            Coin::ID cid;
-            ZeroObject(cid);
-            cid.m_Type = Key::Type::Bbs;
-            cid.m_Idx = newAddress.m_OwnID;
+            ECC::Scalar::Native sk;
+            walletDB->get_MasterKdf()->DeriveKey(sk, Key::ID(newAddress.m_OwnID, Key::Type::Bbs));
 
-            ECC::Scalar::Native sk = walletDB->calcKey(cid);
             proto::Sk2Pk(newAddress.m_walletID.m_Pk, sk);
 
             BbsChannel ch;
@@ -1929,6 +2172,16 @@ namespace beam
 
             newAddress.m_walletID.m_Channel = ch;
             return newAddress;
+        }
+
+        Amount getSpentByTx(beam::IWalletDB::Ptr walletDB, TxStatus status)
+        {
+            return walletDB->getTransferredByTx(status, true);
+        }
+
+        Amount getReceivedByTx(beam::IWalletDB::Ptr walletDB, TxStatus status)
+        {
+            return walletDB->getTransferredByTx(status, false);
         }
     }
 }

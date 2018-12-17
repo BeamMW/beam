@@ -32,9 +32,6 @@ struct WalletDBObserver : IWalletDbObserver {
     void onSystemStateChanged()  {
         LOG_INFO() << _who << " " << __FUNCTION__;
     }
-    void onTxPeerChanged()  {
-        LOG_INFO() << _who << " " << __FUNCTION__;
-    }
     void onAddressChanged()  {
         LOG_INFO() << _who << " " << __FUNCTION__;
     }
@@ -67,11 +64,11 @@ WaitHandle run_wallet(const WalletParams& params) {
 
             bool sender = !(params.sendTo == Zero);
 
-            if (sender) {
-                TxPeer receiverPeer = {};
-//                 receiverPeer.m_walletID = sendTo;
-                params.walletDB->addPeer(receiverPeer);
-            }
+//            if (sender) {
+//                TxPeer receiverPeer = {};
+////                 receiverPeer.m_walletID = sendTo;
+//                params.walletDB->addPeer(receiverPeer);
+//            }
 
 			Wallet wallet{ params.walletDB, [](auto) { io::Reactor::get_Current().stop(); } };
 

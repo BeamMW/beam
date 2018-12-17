@@ -111,7 +111,8 @@ public:
 			BbsDelOld,
 			BbsIns,
 			DummyIns,
-			DummyFind,
+			DummyFindLowest,
+			DummyFindLastID,
 			DummyUpdHeight,
 			DummyDel,
 			KernelIns,
@@ -326,8 +327,9 @@ public:
 	bool BbsFind(WalkerBbs&); // set Key
 	void BbsDelOld(Timestamp tMinToRemain);
 
-	void InsertDummy(Height h, const Blob&);
-	uint64_t FindDummy(Height& h, Blob&);
+	void InsertDummy(Height h, uint64_t);
+	uint64_t GetLowestDummy(Height& h);
+	uint64_t GetDummyLastID();
 	void DeleteDummy(uint64_t);
 	void SetDummyHeight(uint64_t, Height);
 

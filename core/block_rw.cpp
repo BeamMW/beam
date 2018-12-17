@@ -18,6 +18,7 @@
 #include "utilstrencodings.h"
 #include "core/serialization_adapters.h"
 #include "aes.h"
+#include "pkcs5_pbkdf2.h"
 
 namespace beam
 {
@@ -620,5 +621,24 @@ namespace beam
 		mv = hvIV.V;
 	}
 
+	void KeyString::SetPassword(const std::string& s)
+	{
+		SetPassword(Blob(s.data(), static_cast<uint32_t>(s.size())));
+	}
+
+	void KeyString::SetPassword(const Blob& b)
+	{
+		int nRes = pkcs5_pbkdf2(
+			reinterpret_cast<const uint8_t*>(b.p),
+			b.n,
+			NULL,
+			0,
+			m_hvSecret.V.m_pData,
+			m_hvSecret.V.nBytes,
+			65536);
+
+		if (nRes)
+			throw std::runtime_error("pbkdf2 fail");
+	}
 
 } // namespace beam

@@ -220,6 +220,7 @@ namespace detail
 			ar
 				& kidv.m_Idx
 				& kidv.m_Type
+				& kidv.m_SubIdx
 				& kidv.m_Value;
 
 			return ar;
@@ -231,28 +232,8 @@ namespace detail
 			ar
 				& kidv.m_Idx
 				& kidv.m_Type
+				& kidv.m_SubIdx
 				& kidv.m_Value;
-
-			return ar;
-		}
-
-		/// ECC::Key::IDVC serialization
-		template<typename Archive>
-		static Archive& save(Archive& ar, const ECC::Key::IDVC& kidvc)
-		{
-			ar
-				& Cast::Down<ECC::Key::IDV>(kidvc)
-				& kidvc.m_iChild;
-
-			return ar;
-		}
-
-		template<typename Archive>
-		static Archive& load(Archive& ar, ECC::Key::IDVC& kidvc)
-		{
-			ar
-				& Cast::Down<ECC::Key::IDV>(kidvc)
-				& kidvc.m_iChild;
 
 			return ar;
 		}
@@ -393,9 +374,11 @@ namespace detail
             ar
                 & val.m_Value
                 & val.m_Signature
-				& val.m_Kid.m_Idx
-				& val.m_Kid.m_Type
-            ;
+				& val.m_Recovery.m_Kid.m_Idx
+				& val.m_Recovery.m_Kid.m_Type
+				& val.m_Recovery.m_Kid.m_SubIdx
+				& val.m_Recovery.m_Checksum
+				;
 
             return ar;
         }
@@ -406,9 +389,11 @@ namespace detail
             ar
                 & val.m_Value
                 & val.m_Signature
-				& val.m_Kid.m_Idx
-				& val.m_Kid.m_Type
-            ;
+				& val.m_Recovery.m_Kid.m_Idx
+				& val.m_Recovery.m_Kid.m_Type
+				& val.m_Recovery.m_Kid.m_SubIdx
+				& val.m_Recovery.m_Checksum
+				;
 
             return ar;
         }
@@ -453,7 +438,8 @@ namespace detail
 				(output.m_Coinbase ? 2 : 0) |
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
-				(output.m_Incubation ? 0x10 : 0);
+				(output.m_Incubation ? 0x10 : 0) |
+				((output.m_AssetID == beam::Zero) ? 0 : 0x20);
 
 			ar
 				& nFlags
@@ -467,6 +453,9 @@ namespace detail
 
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
+
+			if (0x20 & nFlags)
+				ar & output.m_AssetID;
 
             return ar;
         }
@@ -496,6 +485,11 @@ namespace detail
 
 			if (0x10 & nFlags)
 				ar & output.m_Incubation;
+
+			if (0x20 & nFlags)
+				ar & output.m_AssetID;
+			else
+				output.m_AssetID = beam::Zero;
 
             return ar;
         }
@@ -532,7 +526,8 @@ namespace detail
 				((val.m_Height.m_Max != beam::Height(-1)) ? 8 : 0) |
 				(val.m_Signature.m_NoncePub.m_Y ? 0x10 : 0) |
 				(val.m_pHashLock ? 0x20 : 0) |
-				(val.m_vNested.empty() ? 0 : 0x40);
+				(val.m_vNested.empty() ? 0 : 0x40) |
+				(val.m_AssetEmission ? 0x80 : 0);
 
 			ar
 				& nFlags
@@ -560,6 +555,9 @@ namespace detail
 				for (uint32_t i = 0; i < nCount; i++)
 					save(ar, *val.m_vNested[i]);
 			}
+
+			if (0x80 & nFlags)
+				ar & val.m_AssetEmission;
 
             return ar;
         }
@@ -618,6 +616,11 @@ namespace detail
 					load_Recursive(ar, *v, nRecusion);
 				}
 			}
+
+			if (0x80 & nFlags)
+				ar & val.m_AssetEmission;
+			else
+				val.m_AssetEmission = 0;
 
             return ar;
         }

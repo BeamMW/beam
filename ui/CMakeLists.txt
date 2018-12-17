@@ -60,6 +60,8 @@ set(UI_SRC
 	viewmodel/ui_helpers.cpp
 	viewmodel/messages_view.h
     viewmodel/messages_view.cpp
+    viewmodel/statusbar_view.h
+    viewmodel/statusbar_view.cpp
 
 	model/wallet_model.h
 	model/wallet_model.cpp

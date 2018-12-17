@@ -177,12 +177,12 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr)
     qRegisterMetaType<WalletStatus>("WalletStatus");
     qRegisterMetaType<ChangeAction>("beam::ChangeAction");
     qRegisterMetaType<vector<TxDescription>>("std::vector<beam::TxDescription>");
-    qRegisterMetaType<vector<TxPeer>>("std::vector<beam::TxPeer>");
     qRegisterMetaType<Amount>("beam::Amount");
     qRegisterMetaType<vector<Coin>>("std::vector<beam::Coin>");
     qRegisterMetaType<vector<WalletAddress>>("std::vector<beam::WalletAddress>");
     qRegisterMetaType<WalletID>("beam::WalletID");
     qRegisterMetaType<WalletAddress>("beam::WalletAddress");
+    qRegisterMetaType<proto::NodeConnection::DisconnectReason::Marshal>("beam::proto::NodeConnection::DisconnectReason::Marshal");
 }
 
 WalletModel::~WalletModel()
@@ -203,24 +203,13 @@ WalletModel::~WalletModel()
 
 WalletStatus WalletModel::getStatus() const
 {
-    WalletStatus status{ wallet::getAvailable(_walletDB), 0, 0, 0};
+    WalletStatus status{ _walletDB->getAvailable(), 0, 0, 0};
 
-    auto history = _walletDB->getTxHistory();
-
-    for (const auto& item : history)
-    {
-        switch (item.m_status)
-        {
-        case TxStatus::Completed:
-            (item.m_sender ? status.sent : status.received) += item.m_amount;
-            break;
-        default: break;
-        }
-    }
-
-    status.unconfirmed += wallet::getTotal(_walletDB, Coin::Incoming) + wallet::getTotal(_walletDB, Coin::Change);
-
+    status.sent =  wallet::getSpentByTx(_walletDB, TxStatus::Completed);
+    status.received = wallet::getReceivedByTx(_walletDB, TxStatus::Completed);
+    status.unconfirmed = _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
     status.update.lastTime = _walletDB->getLastUpdateTime();
+
     ZeroObject(status.stateID);
     _walletDB->getSystemStateID(status.stateID);
 
@@ -238,7 +227,6 @@ void WalletModel::run()
 
         emit onStatus(getStatus());
         emit onTxStatus(beam::ChangeAction::Reset, _walletDB->getTxHistory());
-        emit onTxPeerUpdated(_walletDB->getPeers());
 
         _logRotateTimer = io::Timer::create(*_reactor);
         _logRotateTimer->start(
@@ -253,37 +241,37 @@ void WalletModel::run()
         struct MyNodeNetwork :public proto::FlyClient::NetworkStd {
 
             MyNodeNetwork(proto::FlyClient& fc, WalletModel& wm)
-                :proto::FlyClient::NetworkStd(fc)
-                ,m_This(wm)
+                : proto::FlyClient::NetworkStd(fc)
+                , m_walletModel(wm)
             {
             }
 
-            WalletModel& m_This;
+            WalletModel& m_walletModel;
 
             void OnNodeConnected(size_t, bool bConnected) override
             {
-                m_This.onNodeConnectedStatusChanged(bConnected);
+                m_walletModel.onNodeConnectedStatusChanged(bConnected);
             }
 
-            void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason&) override
+            void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason& reason) override
             {
-                m_This.onNodeConnectionFailed();
+                m_walletModel.onNodeConnectionFailed(reason);
             }
         };
 
-        auto nnet = make_shared<MyNodeNetwork>(*wallet, *this);
+        auto nodeNetwork = make_shared<MyNodeNetwork>(*wallet, *this);
 
         Address node_addr;
         node_addr.resolve(_nodeAddrStr.c_str());
-        nnet->m_Cfg.m_vNodes.push_back(node_addr);
+        nodeNetwork->m_Cfg.m_vNodes.push_back(node_addr);
 
-        _nnet = nnet;
+        _nodeNetwork = nodeNetwork;
 
-        auto wnet = make_shared<WalletNetworkViaBbs>(*wallet, *nnet, _walletDB);
-        _wnet = wnet;
-        wallet->set_Network(*nnet, *wnet);
+        auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, *nodeNetwork, _walletDB);
+        _walletNetwork = walletNetwork;
+        wallet->set_Network(*nodeNetwork, *walletNetwork);
 
-            wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
+        wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
         if (AppModel::getInstance()->shouldRestoreWallet())
         {
@@ -291,7 +279,7 @@ void WalletModel::run()
             // no additional actions required, restoration is automatic and contiguous
         }
 
-		nnet->Connect();
+        nodeNetwork->Connect();
 
         _reactor->run();
     }
@@ -334,11 +322,6 @@ void WalletModel::onSystemStateChanged()
     onStatusChanged();
 }
 
-void WalletModel::onTxPeerChanged()
-{
-    emit onTxPeerUpdated(_walletDB->getPeers());
-}
-
 void WalletModel::onAddressChanged()
 {
     emit onAdrresses(true, _walletDB->getAddresses(true));
@@ -355,9 +338,9 @@ void WalletModel::onNodeConnectedStatusChanged(bool isNodeConnected)
     emit nodeConnectionChanged(isNodeConnected);
 }
 
-void WalletModel::onNodeConnectionFailed()
+void WalletModel::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
 {
-    emit nodeConnectionFailed();
+    emit nodeConnectionFailed(reason);
 }
 
 void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee)
@@ -365,7 +348,7 @@ void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& c
     try
     {
         WalletAddress senderAddress = wallet::createAddress(_walletDB);
-
+        senderAddress.m_label = comment;
         saveAddress(senderAddress, true); // should update the wallet_network
 
         ByteBuffer message(comment.begin(), comment.end());
@@ -385,8 +368,8 @@ void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& c
 
 void WalletModel::syncWithNode()
 {
-    assert(!_nnet.expired());
-    auto s = _nnet.lock();
+    assert(!_nodeNetwork.expired());
+    auto s = _nodeNetwork.lock();
     if (s)
         s->Connect();
 }
@@ -413,7 +396,6 @@ void WalletModel::getWalletStatus()
 {
     emit onStatus(getStatus());
     emit onTxStatus(beam::ChangeAction::Reset, _walletDB->getTxHistory());
-    emit onTxPeerUpdated(_walletDB->getPeers());
     emit onAdrresses(false, _walletDB->getAddresses(false));
 }
 
@@ -452,10 +434,10 @@ void WalletModel::saveAddress(const WalletAddress& address, bool bOwn)
 
     if (bOwn)
     {
-        auto s = _wnet.lock();
+        auto s = _walletNetwork.lock();
         if (s)
         {
-            static_pointer_cast<WalletNetworkViaBbs>(s)->AddOwnAddress(address.m_OwnID, address.m_walletID);
+            static_pointer_cast<WalletNetworkViaBbs>(s)->AddOwnAddress(address);
         }
     }
 }
@@ -469,7 +451,7 @@ void WalletModel::generateNewAddress()
 {
     try
     {
-		WalletAddress address = wallet::createAddress(_walletDB);
+        WalletAddress address = wallet::createAddress(_walletDB);
 
         emit onGeneratedNewAddress(address);
     }
@@ -488,7 +470,7 @@ void WalletModel::deleteAddress(const beam::WalletID& id)
         {
             if (pVal->m_OwnID)
             {
-                auto s = _wnet.lock();
+                auto s = _walletNetwork.lock();
                 if (s)
                 {
                     static_pointer_cast<WalletNetworkViaBbs>(s)->DeleteOwnAddress(pVal->m_OwnID);
@@ -509,8 +491,8 @@ void WalletModel::setNodeAddress(const std::string& addr)
 
     if (nodeAddr.resolve(addr.c_str()))
     {
-        assert(!_nnet.expired());
-        auto s = _nnet.lock();
+        assert(!_nodeNetwork.expired());
+        auto s = _nodeNetwork.lock();
         if (s)
         {
             s->Disconnect();
@@ -546,8 +528,8 @@ void WalletModel::changeWalletPassword(const SecString& pass)
 
 bool WalletModel::check_receiver_address(const std::string& addr)
 {
-	WalletID walletID;
-	return
-		walletID.FromHex(addr) &&
-		walletID.IsValid();
+    WalletID walletID;
+    return
+        walletID.FromHex(addr) &&
+        walletID.IsValid();
 }

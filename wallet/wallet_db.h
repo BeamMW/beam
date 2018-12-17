@@ -14,7 +14,17 @@
 
 #pragma once
 
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wdelete-non-virtual-dtor"
+#endif
+
 #include <boost/optional.hpp>
+
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#endif
+
 #include "core/common.h"
 #include "core/ecc_native.h"
 #include "wallet/common.h"
@@ -48,7 +58,7 @@ namespace beam
         bool isReward() const;
         bool isValid() const;
 
-        typedef Key::IDVC ID;
+        typedef Key::IDV ID;
         ID m_ID;
 
         Status m_status;
@@ -60,25 +70,32 @@ namespace beam
         boost::optional<TxID> m_spentTxId;
     };
 
-    struct TxPeer
-    {
-        WalletID m_walletID;
-        std::string m_label;
-        std::string m_address;
-    };
-
     struct WalletAddress
     {
         WalletID m_walletID;
         std::string m_label;
         std::string m_category;
         Timestamp m_createTime;
-        uint64_t  m_duration;
+        uint64_t  m_duration; // if it equals 0 then address never expires
         uint64_t  m_OwnID; // set for own address
 
         bool isExpired() const
         {
-            return getTimestamp() > (m_createTime + m_duration);
+            return getTimestamp() > getExpirationTime();
+        }
+
+        Timestamp getCreateTime() const
+        {
+            return m_createTime;
+        }
+
+        Timestamp getExpirationTime() const
+        {
+            if (m_duration == 0)
+            {
+                return Timestamp(-1);
+            } 
+            return m_createTime + m_duration;
         }
 
         WalletAddress() 
@@ -106,11 +123,9 @@ namespace beam
 
     struct IWalletDbObserver
     {
-        
         virtual void onCoinsChanged() = 0;
         virtual void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) = 0;
         virtual void onSystemStateChanged() = 0;
-        virtual void onTxPeerChanged() = 0;
         virtual void onAddressChanged() = 0;
     };
 
@@ -120,8 +135,8 @@ namespace beam
         virtual ~IWalletDB() {}
 
         virtual beam::Key::IKdf::Ptr get_MasterKdf() const = 0;
-        virtual beam::Key::IKdf::Ptr get_ChildKdf(Key::Index) const;
-        virtual ECC::Scalar::Native calcKey(const Coin::ID&) const = 0;
+        beam::Key::IKdf::Ptr get_ChildKdf(Key::Index) const;
+        void calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID&);
         virtual uint64_t AllocateKidRange(uint64_t nCount) = 0;
         virtual std::vector<Coin> selectCoins(const Amount& amount, bool lock = true) = 0;
         virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) = 0;
@@ -133,7 +148,6 @@ namespace beam
         virtual void remove(const std::vector<Coin::ID>&) = 0;
         virtual bool find(Coin& coin) = 0;
         virtual void clear() = 0;
-        virtual void maturingCoins() = 0;
 
         virtual void visit(std::function<bool(const Coin& coin)> func) = 0;
 
@@ -150,11 +164,6 @@ namespace beam
 
         // Rolls back coin changes in db concerning given tx
         virtual void rollbackTx(const TxID& txId) = 0;
-
-        virtual std::vector<TxPeer> getPeers() = 0;
-        virtual void addPeer(const TxPeer&) = 0;
-        virtual boost::optional<TxPeer> getPeer(const WalletID&) = 0;
-        virtual void clearPeers() = 0;
 
         virtual std::vector<WalletAddress> getAddresses(bool own) = 0;
         virtual void saveAddress(const WalletAddress&) = 0;
@@ -179,6 +188,12 @@ namespace beam
 
         virtual Block::SystemState::IHistory& get_History() = 0;
         virtual void ShrinkHistory() = 0;
+
+        virtual Amount getAvailable() = 0;
+        virtual Amount getAvailableByType(Key::Type keyType) = 0;
+        virtual Amount getTotal(Coin::Status status) = 0;
+        virtual Amount getTotalByType(Coin::Status status, Key::Type keyType) = 0;
+        virtual Amount getTransferredByTx(TxStatus status, bool isSender) = 0;
     };
 
     class WalletDB : public IWalletDB, public std::enable_shared_from_this<WalletDB>
@@ -193,7 +208,6 @@ namespace beam
         ~WalletDB();
 
         beam::Key::IKdf::Ptr get_MasterKdf() const override;
-        ECC::Scalar::Native calcKey(const Coin::ID&) const override;
         uint64_t AllocateKidRange(uint64_t nCount) override;
         std::vector<Coin> selectCoins(const Amount& amount, bool lock = true) override;
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override;
@@ -205,7 +219,6 @@ namespace beam
         void remove(const std::vector<Coin::ID>&) override;
         bool find(Coin& coin) override;
         void clear() override;
-        void maturingCoins() override;
 
         void visit(std::function<bool(const Coin& coin)> func) override;
 
@@ -220,11 +233,6 @@ namespace beam
         void saveTx(const TxDescription& p) override;
         void deleteTx(const TxID& txId) override;
         void rollbackTx(const TxID& txId) override;
-
-        std::vector<TxPeer> getPeers() override;
-        void addPeer(const TxPeer&) override;
-        boost::optional<TxPeer> getPeer(const WalletID&) override;
-        void clearPeers() override;
 
         std::vector<WalletAddress> getAddresses(bool own) override;
         void saveAddress(const WalletAddress&) override;
@@ -250,13 +258,19 @@ namespace beam
         Block::SystemState::IHistory& get_History() override;
         void ShrinkHistory() override;
 
+        Amount getAvailable() override;
+        Amount getAvailableByType(Key::Type keyType) override;
+        Amount getTotal(Coin::Status status) override;
+        Amount getTotalByType(Coin::Status status, Key::Type keyType) override;
+        Amount getTransferredByTx(TxStatus status, bool isSender) override;
+
     private:
-        void storeImpl(const Coin& coin);
         void removeImpl(const Coin::ID& cid);
         void notifyCoinsChanged();
         void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
         void notifySystemStateChanged();
         void notifyAddressChanged();
+        void updateCoinMaturityStatus();
     private:
 
         sqlite3* _db;
@@ -323,11 +337,8 @@ namespace beam
         bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, const ECC::Scalar::Native& value, bool shouldNotifyAboutChanges);
         bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value, bool shouldNotifyAboutChanges);
 
-        Amount getAvailable(beam::IWalletDB::Ptr walletDB);
-        Amount getAvailableByType(beam::IWalletDB::Ptr walletDB, Coin::Status status, Key::Type keyType);
-        Amount getTotal(beam::IWalletDB::Ptr walletDB, Coin::Status status);
-        Amount getTotalByType(beam::IWalletDB::Ptr walletDB, Coin::Status status, Key::Type keyType);
-
         WalletAddress createAddress(beam::IWalletDB::Ptr walletDB);
+        Amount getSpentByTx(beam::IWalletDB::Ptr walletDB, TxStatus status);
+        Amount getReceivedByTx(beam::IWalletDB::Ptr walletDB, TxStatus status);
     }
 }

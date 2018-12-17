@@ -265,7 +265,9 @@ namespace proto {
 	{
 		static const uint32_t s_Max = 64; // will send more, if the remaining events are on the same height
 
-		Key::IDVC m_Kidvc;
+		Key::IDV m_Kidv;
+		ECC::Point m_Commitment;
+		AssetID m_AssetID;
 
 		Height m_Height;
 		Height m_Maturity;
@@ -277,7 +279,9 @@ namespace proto {
 		void serialize(Archive& ar)
 		{
 			ar
-				& m_Kidvc
+				& m_Commitment
+				& m_Kidv
+				& m_AssetID
 				& m_Height
 				& m_Maturity
 				& m_Added;
@@ -445,7 +449,7 @@ namespace proto {
 		void ProvePKdfObscured(Key::IPKdf&, uint8_t nIDType);
 		bool IsKdfObscured(Key::IPKdf&, const PeerID&);
 		bool IsPKdfObscured(Key::IPKdf&, const PeerID&);
-
+		bool VerifyCfg(const Login&); // will call OnDisconnect if incompatible
 
 		virtual void OnMsg(SChannelInitiate&&) override;
 		virtual void OnMsg(SChannelReady&&) override;
@@ -474,11 +478,15 @@ namespace proto {
 
 		struct DisconnectReason
 		{
+			DisconnectReason() {}
+			DisconnectReason(const DisconnectReason&) = delete;
+
 			enum Enum {
 				Io,
 				Protocol,
 				ProcessingExc,
 				Bye,
+				Incompatible,
 			};
 
 			Enum m_Type;
@@ -488,7 +496,10 @@ namespace proto {
 				ProtocolError m_eProtoCode;
 				const char* m_szErrorMsg;
 				uint8_t m_ByeReason;
+				const ECC::Hash::Value* m_pCfg;
 			};
+
+			class Marshal;
 		};
 
 		virtual void OnDisconnect(const DisconnectReason&) {}
@@ -507,6 +518,19 @@ namespace proto {
 
 			virtual void OnAccepted(io::TcpStream::Ptr&&, int errorCode) = 0;
 		};
+	};
+
+	class NodeConnection::DisconnectReason::Marshal
+		:public DisconnectReason
+	{
+		std::shared_ptr<uint8_t> m_pBuffer;
+		const uint8_t* Duplicate(const Blob&);
+
+	public:
+
+		Marshal() {}
+		Marshal(const DisconnectReason&);
+		Marshal(const Marshal&);
 	};
 
 	std::ostream& operator << (std::ostream& s, const NodeConnection::DisconnectReason&);

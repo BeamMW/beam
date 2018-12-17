@@ -54,6 +54,10 @@ namespace beam
 		extern const char* RESYNC;
 		extern const char* CRASH;
 		extern const char* INIT;
+		extern const char* KEY_EXPORT;
+		extern const char* KEY_SUBKEY;
+		extern const char* KEY_OWNER;
+		extern const char* KEY_MINE;
         extern const char* NEW_ADDRESS;
         extern const char* CANCEL_TX;
         extern const char* SEND;
@@ -62,7 +66,8 @@ namespace beam
         extern const char* TX_HISTORY;
         extern const char* TX_ID;
         extern const char* WALLET_SEED;
-        extern const char* WALLET_PHRASES;
+        extern const char* WALLET_PHRASE;
+        extern const char* GENERATE_PHRASE;
         extern const char* FEE;
         extern const char* FEE_FULL;
         extern const char* RECEIVE;

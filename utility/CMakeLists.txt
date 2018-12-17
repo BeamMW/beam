@@ -68,10 +68,17 @@ endif()
 target_link_libraries(utility mnemonic)
 
 if(ANDROID)
-    target_link_libraries(utility
-        $ENV{BOOST_ROOT_ANDROID}/lib/libboost_program_options-clang-mt-a32-1_68.a
-        $ENV{BOOST_ROOT_ANDROID}/lib/libboost_filesystem-clang-mt-a32-1_68.a
-        $ENV{BOOST_ROOT_ANDROID}/lib/libboost_system-clang-mt-a32-1_68.a)
+    if(ANDROID_ABI STREQUAL "armeabi-v7a")
+        target_link_libraries(utility 
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_program_options-clang-mt-a32-1_68.a 
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_filesystem-clang-mt-a32-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_system-clang-mt-a32-1_68.a)
+    elseif(ANDROID_ABI STREQUAL "x86")
+        target_link_libraries(utility 
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_program_options-clang-mt-x32-1_68.a 
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_filesystem-clang-mt-x32-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_system-clang-mt-x32-1_68.a)
+    endif()
 
 else()
     if (Boost_FOUND)

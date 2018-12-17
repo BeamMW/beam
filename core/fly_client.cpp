@@ -119,7 +119,7 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 
 void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)
 {
-	if (!(Flags::ReportedConnected & m_Flags))
+	//if (!(Flags::ReportedConnected & m_Flags))
 		m_This.OnConnectionFailed(m_iIndex, dr);
 
 	NodeConnection::Reset();
@@ -210,9 +210,9 @@ void FlyClient::NetworkStd::Connection::OnMsg(GetBlockFinalization&& msg)
 	if (!pKdf)
 		ThrowUnexpected(); // ?!
 
-	Block::Builder bb;
-	bb.AddCoinbaseAndKrn(*pKdf, msg.m_Height);
-	bb.AddFees(*pKdf, msg.m_Height, msg.m_Fees);
+	Block::Builder bb(0, *pKdf, *pKdf, msg.m_Height);
+	bb.AddCoinbaseAndKrn();
+	bb.AddFees(msg.m_Fees);
 
 	proto::BlockFinalization msgOut;
 	msgOut.m_Value.reset(new Transaction);
@@ -225,8 +225,8 @@ void FlyClient::NetworkStd::Connection::OnMsg(GetBlockFinalization&& msg)
 
 void FlyClient::NetworkStd::Connection::OnMsg(Login&& msg)
 {
-	if (msg.m_CfgChecksum != Rules::get().Checksum)
-		ThrowUnexpected("incompatible");
+	if (!VerifyCfg(msg))
+		return;
 
 	m_LoginFlags = msg.m_Flags;
 	AssignRequests();

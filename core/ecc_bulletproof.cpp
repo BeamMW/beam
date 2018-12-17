@@ -26,6 +26,8 @@ namespace ECC {
 		:m_CasualTotal(nCasualTotal)
 		,m_bEnableBatch(false)
 	{
+		m_Multiplier = Zero;
+
 		m_ppPrepared = m_Bufs.m_ppPrepared;
 		m_pKPrep = m_Bufs.m_pKPrep;
 		m_pAuxPrepared = m_Bufs.m_pAuxPrepared;
@@ -107,12 +109,29 @@ namespace ECC {
 			return false; // won't fit!
 		}
 
+#ifndef NDEBUG
+        m_CasualAtEndExpected = nCasualNeeded;
+#endif // NDEBUG
+
 		nCasualNeeded += m_Casual;
 		if (nCasualNeeded > m_CasualTotal)
 		{
 			if (!Flush())
 				return false;
 		}
+
+		if (m_bEnableBatch)
+		{
+			// mutate multiplier
+			if (m_Multiplier == Zero)
+				m_Multiplier.GenRandomNnz();
+			else
+				Oracle() << m_Multiplier >> m_Multiplier;
+		}
+
+#ifndef NDEBUG
+        m_CasualAtEndExpected += m_Casual;
+#endif // NDEBUG
 
 		m_bDirty = true;
 		return true;
@@ -121,6 +140,7 @@ namespace ECC {
 	bool InnerProduct::BatchContext::EquationEnd()
 	{
 		assert(m_bDirty);
+        assert(m_Casual == m_CasualAtEndExpected);
 
 		if (!m_bEnableBatch)
 			return Flush();
@@ -475,7 +495,7 @@ namespace ECC {
 		Challenges cs_;
 		cs_.Init(oracle, dotAB, *this);
 
-		if (!bc.EquationBegin(1))
+		if (!bc.EquationBegin(1 + nCycles * 2))
 			return false;
 
 		bc.AddCasual(commAB, cs_.m_Mul2);
@@ -570,34 +590,34 @@ namespace ECC {
 		return true;
 	}
 
-	struct NonceGenerator
+	struct NonceGeneratorBp
+		:public NonceGenerator
 	{
-		Oracle m_Oracle;
-		const uintBig& m_Seed;
-
-		NonceGenerator(const uintBig& seed) :m_Seed(seed) {}
-
-		void operator >> (Scalar::Native& k)
+		NonceGeneratorBp(const uintBig& seed)
+			:NonceGenerator("bulletproof")
 		{
-			NoLeak<Hash::Value> hv;
-			m_Oracle >> hv.V;
-
-			k.GenerateNonceNnz(m_Seed, hv.V, NULL);
+			*this << seed;
 		}
 	};
 
 	/////////////////////
 	// Bulletproof
-	void RangeProof::Confidential::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle)
+	void RangeProof::Confidential::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, const Point::Native* pHGen /* = nullptr */)
 	{
-		// single-pass - use deterministic seed for key blinding.
+		// single-pass - use both deterministic and random seed for key blinding.
 		// For more safety - use the current oracle state
 
 		Oracle o(oracle); // copy
 		NoLeak<uintBig> seedSk;
-		o << sk << cp.m_Kidv.m_Value >> seedSk.V;
+		GenRandom(seedSk.V);
 
-		verify(CoSign(seedSk.V, sk, cp, oracle, Phase::SinglePass));
+		o
+			<< sk
+			<< seedSk.V
+			<< cp.m_Kidv.m_Value
+			>> seedSk.V;
+
+		verify(CoSign(seedSk.V, sk, cp, oracle, Phase::SinglePass, NULL, pHGen));
 	}
 
 	struct RangeProof::Confidential::MultiSig::Impl
@@ -635,9 +655,9 @@ namespace ECC {
 
 #pragma pack (pop)
 
-	bool RangeProof::Confidential::CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, MultiSig* pMsigOut /* = NULL */)
+	bool RangeProof::Confidential::CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, MultiSig* pMsigOut /* = nullptr */, const Point::Native* pHGen /* = nullptr */)
 	{
-		NonceGenerator nonceGen(cp.m_Seed.V);
+		NonceGeneratorBp nonceGen(cp.m_Seed.V);
 
 		// A = G*alpha + vec(aL)*vec(G) + vec(aR)*vec(H)
 		Scalar::Native alpha, ro;
@@ -654,25 +674,7 @@ namespace ECC {
 
 		alpha += ro;
 
-		Point::Native comm = Context::get().G * alpha;
-
-		{
-			NoLeak<secp256k1_ge> ge;
-			NoLeak<CompactPoint> ge_s;
-
-			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
-			{
-				uint32_t iBit = 1 & (cp.m_Kidv.m_Value >> i);
-
-				// protection against side-channel attacks
-				object_cmov(ge_s.V, Context::get().m_Ipp.m_pGet1_Minus[i], 0 == iBit);
-				object_cmov(ge_s.V, Context::get().m_Ipp.m_pGen_[0][i].m_Fast.m_pPt[0], 1 == iBit);
-
-				Generator::ToPt(comm, ge.V, ge_s.V, false);
-			}
-		}
-
-		m_Part1.m_A = comm;
+		CalcA(m_Part1.m_A, alpha, cp.m_Kidv.m_Value);
 
 		// S = G*ro + vec(sL)*vec(G) + vec(sR)*vec(H)
 		nonceGen >> ro;
@@ -692,6 +694,7 @@ namespace ECC {
 				mm.m_ppPrepared[mm.m_Prepared++] = &Context::get().m_Ipp.m_pGen_[j][i];
 			}
 
+		Point::Native comm;
 		mm.Calculate(comm);
 
 		m_Part1.m_S = comm;
@@ -748,8 +751,30 @@ namespace ECC {
 			Point::Native comm2;
 			msig.AddInfo1(comm, comm2);
 
-			comm += Context::get().H_Big * t1;
-			comm2 += Context::get().H_Big * t2;
+			if (Tag::IsCustom(pHGen))
+			{
+				// since we need 2 multiplications - prepare it explicitly.
+				MultiMac::Casual mc;
+				mc.Init(*pHGen);
+
+				MultiMac mm2;
+				mm2.m_pCasual = &mc;
+				mm2.m_Casual = 1;
+				Point::Native comm3;
+
+				mc.m_K = t1;
+				mm2.Calculate(comm3);
+				comm += comm3;
+
+				mc.m_K = t2;
+				mm2.Calculate(comm3);
+				comm2 += comm3;
+			}
+			else
+			{
+				comm += Context::get().H_Big * t1;
+				comm2 += Context::get().H_Big * t2;
+			}
 
 			if (Phase::SinglePass != ePhase)
 			{
@@ -845,9 +870,32 @@ namespace ECC {
 		return true;
 	}
 
+	void RangeProof::Confidential::CalcA(Point& res, const Scalar::Native& alpha, Amount v)
+	{
+		Point::Native comm = Context::get().G * alpha;
+
+		{
+			NoLeak<secp256k1_ge> ge;
+			NoLeak<CompactPoint> ge_s;
+
+			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
+			{
+				uint32_t iBit = 1 & (v >> i);
+
+				// protection against side-channel attacks
+				object_cmov(ge_s.V, Context::get().m_Ipp.m_pGet1_Minus[i], 0 == iBit);
+				object_cmov(ge_s.V, Context::get().m_Ipp.m_pGen_[0][i].m_Fast.m_pPt[0], 1 == iBit);
+
+				Generator::ToPt(comm, ge.V, ge_s.V, false);
+			}
+		}
+
+		res = comm;
+	}
+
 	bool RangeProof::Confidential::Recover(Oracle& oracle, CreatorParams& cp) const
 	{
-		NonceGenerator nonceGen(cp.m_Seed.V);
+		NonceGeneratorBp nonceGen(cp.m_Seed.V);
 
 		Scalar::Native alpha_minus_params, ro;
 		nonceGen >> alpha_minus_params;
@@ -863,27 +911,36 @@ namespace ECC {
 		// params = m_Mu - ro*x - alpha_minus_params
 
 		ro *= cs.x;
-		alpha_minus_params += ro;
-		alpha_minus_params = -alpha_minus_params;
-		alpha_minus_params += m_Mu;
+		Scalar::Native params = alpha_minus_params;
+		params += ro;
+		params = -params;
+		params += m_Mu;
 
 		CreatorParams::Padded pad;
 		static_assert(sizeof(CreatorParams::Padded) == sizeof(Scalar), "");
-		((Scalar&) pad) = alpha_minus_params;
+		((Scalar&) pad) = params;
 
 		if (!memis0(pad.m_Padding, sizeof(pad.m_Padding)))
 			return false;
 
 		cp.m_Kidv = pad.V;
-		return true;
+
+		// by now the probability of false positive if 2^-8, which is quite a lot
+		// Calculate m_Part1.m_A, which depends on alpha and the value.
+
+		alpha_minus_params += params; // just alpha
+		Point ptA;
+		CalcA(ptA, alpha_minus_params, cp.m_Kidv.m_Value);
+
+		return ptA == m_Part1.m_A; // the probability of false positive should be negligible
 	}
 
 	void RangeProof::Confidential::MultiSig::Impl::Init(const uintBig& seedSk)
 	{
-		NonceGenerator nonceGen(seedSk);
-
-		nonceGen >> m_tau1;
-		nonceGen >> m_tau2;
+		NonceGenerator("bp-key")
+			<< seedSk
+			>> m_tau1
+			>> m_tau2;
 	}
 
 	void RangeProof::Confidential::MultiSig::Impl::AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const
@@ -973,45 +1030,24 @@ namespace ECC {
 		ChallengeSetBase::Init(p2, oracle);
 	}
 
-	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle) const
+	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle, const Point::Native* pHGen /* = nullptr */) const
 	{
 		if (InnerProduct::BatchContext::s_pInstance)
-			return IsValid(commitment, oracle, *InnerProduct::BatchContext::s_pInstance);
+			return IsValid(commitment, oracle, *InnerProduct::BatchContext::s_pInstance, pHGen);
 
 		InnerProduct::BatchContextEx<1> bc;
 		bc.m_bEnableBatch = true; // why not?
 
 		return
-			IsValid(commitment, oracle, bc) &&
+			IsValid(commitment, oracle, bc, pHGen) &&
 			bc.Flush();
 	}
 
-	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle, InnerProduct::BatchContext& bc) const
+	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle, InnerProduct::BatchContext& bc, const Point::Native* pHGen /* = nullptr */) const
 	{
+		bool bCustom = Tag::IsCustom(pHGen);
+
 		Mode::Scope scope(Mode::Fast);
-
-		if (bc.m_bEnableBatch)
-		{
-			Oracle o;
-
-			for (uint32_t j = 0; j < 2; j++)
-			{
-				o << m_P_Tag.m_pCondensed[j];
-
-				for (uint32_t i = 0; i < InnerProduct::nCycles; i++)
-					o << m_P_Tag.m_pLR[i][j];
-			}
-
-			o
-				<< m_Part1.m_A
-				<< m_Part1.m_S
-				<< m_Part2.m_T1
-				<< m_Part2.m_T2
-				<< m_Part3.m_TauX
-				<< m_Mu
-				<< m_tDot
-				>> bc.m_Multiplier;
-		}
 
 		ChallengeSet cs;
 		cs.Init(m_Part1, oracle);
@@ -1051,7 +1087,7 @@ namespace ECC {
 
 		Point::Native p;
 
-		if (!bc.EquationBegin(3))
+		if (!bc.EquationBegin(3 + (bCustom != false)))
 			return false;
 
 		bc.AddCasual(commitment, -zz);
@@ -1065,17 +1101,18 @@ namespace ECC {
 		sumY += -delta;
 
 		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_Part3.m_TauX);
-		bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, sumY);
+
+		if (bCustom)
+			bc.AddCasual(*pHGen, sumY);
+		else
+			bc.AddPrepared(InnerProduct::BatchContext::s_Idx_H, sumY);
 
 		if (!bc.EquationEnd())
 			return false;
 
 		// (P - m_Mu*G) + m_Mu*G =?= m_A + m_S*x - vec(G)*vec(z) + vec(H)*( vec(z) + vec(z^2*2^n*y^-n) )
 
-		if (bc.m_bEnableBatch)
-			Oracle() << bc.m_Multiplier >> bc.m_Multiplier;
-
-		if (!bc.EquationBegin(2))
+		if (!bc.EquationBegin(2 + InnerProduct::nCycles * 2))
 			return false;
 
 		InnerProduct::Challenges cs_;

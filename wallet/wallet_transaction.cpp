@@ -14,6 +14,13 @@
 
 #include "wallet_transaction.h"
 #include "core/block_crypt.h"
+
+// TODO: getrandom not available until API 28 in the Android NDK 17b
+// https://github.com/boostorg/uuid/issues/76
+#if defined(__ANDROID__)
+#define BOOST_UUID_RANDOM_PROVIDER_DISABLE_GETRANDOM 1
+#endif
+
 #include <boost/uuid/uuid_generators.hpp>
 
 namespace beam { namespace wallet
@@ -95,14 +102,6 @@ namespace beam { namespace wallet
             if (GetParameter(TxParameterID::FailureReason, reason))
             {
                 OnFailed(reason);
-                return;
-            }
-
-            WalletID myID = GetMandatoryParameter<WalletID>(TxParameterID::MyID);
-            auto address = m_WalletDB->getAddress(myID);
-            if (address.is_initialized() && address->isExpired())
-            {
-                OnFailed(TxFailureReason::ExpiredAddressProvided);
                 return;
             }
 
@@ -250,6 +249,14 @@ namespace beam { namespace wallet
                 LOG_INFO() << GetTxID() << " Invitation accepted";
             }
             UpdateTxDescription(TxStatus::InProgress);
+        }
+
+        Block::SystemState::Full state;
+        if (GetTip(state) && state.m_Height > builder.GetMaxHeight())
+        {
+            LOG_INFO() << GetTxID() << " transaction expired. Current height: " << state.m_Height << ", max kernel height: " << builder.GetMaxHeight();
+            OnFailed(TxFailureReason::TransactionExpired);
+            return;
         }
 
         builder.CreateKernel();
@@ -455,7 +462,7 @@ namespace beam { namespace wallet
         auto coins = m_Tx.GetWalletDB()->selectCoins(amountWithFee);
         if (coins.empty())
         {
-            LOG_ERROR() << "You only have " << PrintableAmount(getAvailable(m_Tx.GetWalletDB()));
+            LOG_ERROR() << "You only have " << PrintableAmount(m_Tx.GetWalletDB()->getAvailable());
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
         }
 
@@ -465,9 +472,11 @@ namespace beam { namespace wallet
         {
             coin.m_spentTxId = m_Tx.GetTxID();
 
-            Scalar::Native blindingFactor = m_Tx.GetWalletDB()->calcKey(coin.m_ID);
             auto& input = m_Inputs.emplace_back(make_unique<Input>());
-            input->m_Commitment = Commitment(blindingFactor, coin.m_ID.m_Value);
+
+			Scalar::Native blindingFactor;
+			m_Tx.GetWalletDB()->calcCommitment(blindingFactor, input->m_Commitment, coin.m_ID);
+
             m_Offset += blindingFactor;
             total += coin.m_ID.m_Value;
         }
@@ -504,12 +513,14 @@ namespace beam { namespace wallet
         newUtxo.m_createTxId = m_Tx.GetTxID();
         newUtxo.m_createHeight = m_MinHeight;
         if (Coin::Status::Change == status)
+        {
             newUtxo.m_ID.m_Type = Key::Type::Change;
+        }
         m_Tx.GetWalletDB()->store(newUtxo);
 
         Scalar::Native blindingFactor;
         Output::Ptr output = make_unique<Output>();
-        output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(newUtxo.m_ID.m_iChild), newUtxo.m_ID);
+        output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(newUtxo.m_ID.m_SubIdx), newUtxo.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
 
         blindingFactor = -blindingFactor;
         m_Offset += blindingFactor;
@@ -529,23 +540,28 @@ namespace beam { namespace wallet
 
         if (!m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess))
         {
-            Coin::ID cid;
-            ZeroObject(cid);
-            cid.m_Type = FOURCC_FROM(KerW);
-            cid.m_Idx = m_Tx.GetWalletDB()->AllocateKidRange(1);
+			Key::ID kid;
+			kid.m_Idx = m_Tx.GetWalletDB()->AllocateKidRange(1);
+			kid.m_Type = FOURCC_FROM(KerW);
+			kid.m_SubIdx = 0;
 
-            m_BlindingExcess = m_Tx.GetWalletDB()->calcKey(cid);
+			m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_BlindingExcess, kid);
+
             m_Tx.SetParameter(TxParameterID::BlindingExcess, m_BlindingExcess, false);
         }
 
         m_Offset += m_BlindingExcess;
         m_BlindingExcess = -m_BlindingExcess;
 
-        if (!m_Tx.GetParameter(TxParameterID::MyNonce, m_MultiSig.m_Nonce))
+		// Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
+		NoLeak<Hash::Value> hvRandom;
+        if (!m_Tx.GetParameter(TxParameterID::MyNonce, hvRandom.V))
         {
-            m_MultiSig.m_Nonce.GenRandomNnz();
-            m_Tx.SetParameter(TxParameterID::MyNonce, m_MultiSig.m_Nonce, false);
+			ECC::GenRandom(hvRandom.V);
+            m_Tx.SetParameter(TxParameterID::MyNonce, hvRandom.V, false);
         }
+
+		m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_MultiSig.m_Nonce, hvRandom.V);
     }
 
     Point::Native TxBuilder::GetPublicExcess() const

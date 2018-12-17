@@ -475,6 +475,28 @@ void TestCommitments()
 	sigma += commInp;
 
 	verify_test(sigma == Zero);
+
+	// switch commitment
+	HKdf kdf;
+	uintBig seed;
+	SetRandom(seed);
+	kdf.Generate(seed);
+
+	Key::IDV kidv(100500, 15, Key::Type::Regular, 7);
+
+	Scalar::Native sk;
+	ECC::Point::Native comm;
+	beam::SwitchCommitment().Create(sk, comm, kdf, kidv);
+
+	sigma = Commitment(sk, kidv.m_Value);
+	sigma = -sigma;
+	sigma += comm;
+	verify_test(sigma == Zero);
+
+	beam::SwitchCommitment().Recover(sigma, kdf, kidv);
+	sigma = -sigma;
+	sigma += comm;
+	verify_test(sigma == Zero);
 }
 
 template <typename T>
@@ -486,13 +508,33 @@ void WriteSizeSerialized(const char* sz, const T& t)
 	printf("%s size = %u\n", sz, (uint32_t) ssc.m_Counter.m_Value);
 }
 
-void TestRangeProof()
+struct AssetTag
+{
+	Point::Native m_hGen;
+	void Commit(Point::Native& out, const Scalar::Native& sk, Amount v)
+	{
+		out = Context::get().G * sk;
+		Tag::AddValue(out, &m_hGen, v);
+	}
+};
+
+void TestRangeProof(bool bCustomTag)
 {
 	RangeProof::CreatorParams cp;
 	SetRandomOrd(cp.m_Kidv.m_Idx);
 	SetRandomOrd(cp.m_Kidv.m_Type);
+	SetRandomOrd(cp.m_Kidv.m_SubIdx);
 	SetRandom(cp.m_Seed.V);
 	cp.m_Kidv.m_Value = 345000;
+
+	beam::AssetID aid;
+	if (bCustomTag)
+		SetRandom(aid);
+	else
+		aid = Zero;
+
+	AssetTag tag;
+	tag.m_hGen = beam::SwitchCommitment(&aid).m_hGen;
 
 	Scalar::Native sk;
 	SetRandom(sk);
@@ -504,11 +546,12 @@ void TestRangeProof()
 		verify_test(rp.m_Value == cp.m_Kidv.m_Value);
 	}
 
-	Point::Native comm = Commitment(sk, rp.m_Value);
+	Point::Native comm;
+	tag.Commit(comm, sk, rp.m_Value);
 
 	{
 		Oracle oracle;
-		verify_test(rp.IsValid(comm, oracle));
+		verify_test(rp.IsValid(comm, oracle, &tag.m_hGen));
 	}
 
 	{
@@ -523,18 +566,18 @@ void TestRangeProof()
 	rp.m_Value++;
 	{
 		Oracle oracle;
-		verify_test(!rp.IsValid(comm, oracle));
+		verify_test(!rp.IsValid(comm, oracle, &tag.m_hGen));
 	}
 	rp.m_Value--;
 
 	// try with invalid key
 	SetRandom(sk);
 
-	comm = Commitment(sk, rp.m_Value);
+	tag.Commit(comm, sk, rp.m_Value);
 
 	{
 		Oracle oracle;
-		verify_test(!rp.IsValid(comm, oracle));
+		verify_test(!rp.IsValid(comm, oracle, &tag.m_hGen));
 	}
 
 	Scalar::Native pA[InnerProduct::nDim];
@@ -564,15 +607,15 @@ void TestRangeProof()
 	RangeProof::Confidential bp;
 	cp.m_Kidv.m_Value = 23110;
 
-	comm = Commitment(sk, cp.m_Kidv.m_Value);
+	tag.Commit(comm, sk, cp.m_Kidv.m_Value);
 
 	{
 		Oracle oracle;
-		bp.Create(sk, cp, oracle);
+		bp.Create(sk, cp, oracle, &tag.m_hGen);
 	}
 	{
 		Oracle oracle;
-		verify_test(bp.IsValid(comm, oracle));
+		verify_test(bp.IsValid(comm, oracle, &tag.m_hGen));
 	}
 	{
 		Oracle oracle;
@@ -588,21 +631,21 @@ void TestRangeProof()
 
 	{
 		Oracle oracle;
-		verify_test(bp.IsValid(comm, oracle, bc)); // add to batch
+		verify_test(bp.IsValid(comm, oracle, bc, &tag.m_hGen)); // add to batch
 	}
 
 	SetRandom(sk);
 	cp.m_Kidv.m_Value = 7223110;
 	SetRandom(cp.m_Seed.V); // another seed for this bulletproof
-	comm = Commitment(sk, cp.m_Kidv.m_Value);
+	tag.Commit(comm, sk, cp.m_Kidv.m_Value);
 
 	{
 		Oracle oracle;
-		bp.Create(sk, cp, oracle);
+		bp.Create(sk, cp, oracle, &tag.m_hGen);
 	}
 	{
 		Oracle oracle;
-		verify_test(bp.IsValid(comm, oracle, bc)); // add to batch
+		verify_test(bp.IsValid(comm, oracle, bc, &tag.m_hGen)); // add to batch
 	}
 
 	verify_test(bc.Flush()); // verify at once
@@ -634,7 +677,7 @@ void TestRangeProof()
 			{
 				Oracle oracle;
 				bp.m_Part2 = p2;
-				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Step2, &msig)); // add last p2, produce msig
+				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Step2, &msig, &tag.m_hGen)); // add last p2, produce msig
 				p2 = bp.m_Part2;
 			}
 		}
@@ -643,7 +686,8 @@ void TestRangeProof()
 		RangeProof::Confidential::Part3 p3;
 		ZeroObject(p3);
 
-		comm = Context::get().H * cp.m_Kidv.m_Value;
+		comm = Zero;
+		Tag::AddValue(comm, &tag.m_hGen, cp.m_Kidv.m_Value);
 
 		for (uint32_t i = 0; i < nSigners; i++)
 		{
@@ -656,7 +700,7 @@ void TestRangeProof()
 				Oracle oracle;
 				bp.m_Part2 = p2;
 				bp.m_Part3 = p3;
-				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Finalize));
+				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Finalize, nullptr, &tag.m_hGen));
 			}
 		}
 
@@ -664,21 +708,27 @@ void TestRangeProof()
 		{
 			// test
 			Oracle oracle;
-			verify_test(bp.IsValid(comm, oracle));
+			verify_test(bp.IsValid(comm, oracle, &tag.m_hGen));
 		}
 	}
 
+	HKdf kdf;
+	uintBig seed;
+	SetRandom(seed);
+	kdf.Generate(seed);
 
 	{
 		beam::Output outp;
-		outp.Create(1U, 20300, true);
+		outp.m_AssetID = aid;
+		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf, true);
 		outp.m_Coinbase = true; // others may be disallowed
 		verify_test(outp.IsValid(comm));
 		WriteSizeSerialized("Out-UTXO-Public", outp);
 	}
 	{
 		beam::Output outp;
-		outp.Create(1U, 20300, false);
+		outp.m_AssetID = aid;
+		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf);
 		verify_test(outp.IsValid(comm));
 		WriteSizeSerialized("Out-UTXO-Confidential", outp);
 	}
@@ -709,12 +759,6 @@ struct TransactionMaker
 			m_k = Zero;
 		}
 
-		void EncodeAmount(Point& out, Scalar::Native& k, Amount val)
-		{
-			SetRandom(k);
-			out = Point::Native(Commitment(k, val));
-		}
-
 		void FinalizeExcess(Point::Native& kG, Scalar::Native& kOffset)
 		{
 			kOffset += m_k;
@@ -726,20 +770,24 @@ struct TransactionMaker
 			kG += Context::get().G * m_k;
 		}
 
-
-		void AddInput(beam::Transaction& t, Amount val)
+		void AddInput(beam::Transaction& t, Amount val, Key::IKdf& kdf, const beam::AssetID* pAssetID = nullptr)
 		{
 			std::unique_ptr<beam::Input> pInp(new beam::Input);
 
+			Key::IDV kidv;
+			SetRandomOrd(kidv.m_Idx);
+			kidv.m_Type = Key::Type::Regular;
+			kidv.m_SubIdx = 0;
+			kidv.m_Value = val;
+
 			Scalar::Native k;
-			EncodeAmount(pInp->m_Commitment, k, val);
+			beam::SwitchCommitment(pAssetID).Create(k, pInp->m_Commitment, kdf, kidv);
 
 			t.m_vInputs.push_back(std::move(pInp));
-
 			m_k += k;
 		}
 
-		void AddOutput(beam::Transaction& t, Amount val, Key::IKdf& kdf)
+		void AddOutput(beam::Transaction& t, Amount val, Key::IKdf& kdf, const beam::AssetID* pAssetID = nullptr)
 		{
 			std::unique_ptr<beam::Output> pOut(new beam::Output);
 
@@ -748,9 +796,12 @@ struct TransactionMaker
 			Key::IDV kidv;
 			SetRandomOrd(kidv.m_Idx);
 			kidv.m_Type = Key::Type::Regular;
+			kidv.m_SubIdx = 0;
 			kidv.m_Value = val;
 
-			pOut->Create(k, kdf, kidv);
+			if (pAssetID)
+				pOut->m_AssetID = *pAssetID;
+			pOut->Create(k, kdf, kidv, kdf);
 
 			// test recovery
 			Key::IDV kidv2;
@@ -821,23 +872,51 @@ struct TransactionMaker
 		krn.m_Signature.m_k = kSig;
 	}
 
-	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested)
+	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested, bool bEmitCustomTag)
 	{
 		std::unique_ptr<beam::TxKernel> pKrn(new beam::TxKernel);
 		pKrn->m_Fee = fee;
 
 		pKrn->m_vNested.swap(lstNested);
 
+		// hashlock
 		pKrn->m_pHashLock.reset(new beam::TxKernel::HashLock);
 
 		uintBig hlPreimage;
 		SetRandom(hlPreimage);
 
 		Hash::Value hvLockImage;
-
 		Hash::Processor() << hlPreimage >> hvLockImage;
 
+		if (bEmitCustomTag)
+		{
+			// emit some asset
+			Scalar::Native skAsset;
+			beam::AssetID aid;
+			Amount valAsset = 4431;
+
+			SetRandom(skAsset);
+			beam::proto::Sk2Pk(aid, skAsset);
+
+			if (beam::Rules::get().DepositForCA)
+				m_pPeers[0].AddInput(m_Trans, valAsset, m_Kdf); // input being-deposited
+
+			m_pPeers[0].AddOutput(m_Trans, valAsset, m_Kdf, &aid); // output UTXO to consume the created asset
+
+			std::unique_ptr<beam::TxKernel> pKrnEmission(new beam::TxKernel);
+			pKrnEmission->m_AssetEmission = valAsset;
+			pKrnEmission->m_Commitment.m_X = aid;
+			pKrnEmission->m_Commitment.m_Y = 0;
+			pKrnEmission->Sign(skAsset);
+
+			lstTrg.push_back(std::move(pKrnEmission));
+
+			skAsset = -skAsset;
+			m_pPeers[0].m_k += skAsset;
+		}
+
 		CoSignKernel(*pKrn, hvLockImage);
+
 
 		Point::Native exc;
 		beam::AmountBig::Type fee2;
@@ -845,7 +924,6 @@ struct TransactionMaker
 
 		// finish HL: add hash preimage
 		pKrn->m_pHashLock->m_Preimage = hlPreimage;
-
 		verify_test(pKrn->IsValid(fee2, exc));
 
 		lstTrg.push_back(std::move(pKrn));
@@ -853,7 +931,7 @@ struct TransactionMaker
 
 	void AddInput(int i, Amount val)
 	{
-		m_pPeers[i].AddInput(m_Trans, val);
+		m_pPeers[i].AddInput(m_Trans, val, m_Kdf);
 	}
 
 	void AddOutput(int i, Amount val)
@@ -876,11 +954,11 @@ void TestTransaction()
 
 	Amount fee1 = 100, fee2 = 2;
 
-	tm.CreateTxKernel(lstNested, fee1, lstDummy);
+	tm.CreateTxKernel(lstNested, fee1, lstDummy, false);
 
 	tm.AddOutput(0, 738);
 	tm.AddInput(1, 740);
-	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested);
+	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested, true);
 
 	tm.m_Trans.Normalize();
 
@@ -959,20 +1037,29 @@ void TestKdf()
 		verify_test(Scalar(sk0) != Scalar(sk1));
 
 		Point::Native pk0, pk1;
-		skdf.DerivePKey(pk0, hv);
-		pkdf.DerivePKey(pk1, hv);
+		skdf.DerivePKeyG(pk0, hv);
+		pkdf.DerivePKeyG(pk1, hv);
+		pk1 = -pk1;
+		pk0 += pk1;
+		verify_test(pk0 == Zero);
+
+		skdf.DerivePKeyJ(pk0, hv);
+		pkdf.DerivePKeyJ(pk1, hv);
 		pk1 = -pk1;
 		pk0 += pk1;
 		verify_test(pk0 == Zero);
 	}
 
+	const std::string sPass("test password");
+
 	beam::KeyString ks1;
-	SetRandom(ks1.m_hvSecret.V);
+	ks1.SetPassword(sPass);
 	ks1.m_sMeta = "hello, World!";
 
 	ks1.Export(skdf);
 	HKdf skdf2;
 	ks1.m_sMeta.clear();
+	ks1.SetPassword(sPass);
 	verify_test(ks1.Import(skdf2));
 
 	verify_test(skdf2.IsSame(skdf));
@@ -1229,7 +1316,8 @@ void TestAll()
 	TestPoints();
 	TestSigning();
 	TestCommitments();
-	TestRangeProof();
+	TestRangeProof(false);
+	TestRangeProof(true);
 	TestTransaction();
 	TestAES();
 	TestKdf();
@@ -1652,7 +1740,9 @@ void RunBenchmark()
 
 	{
 		BenchmarkMeter bm("BulletProof.Verify x100");
-		bm.N = 10;
+
+		const uint32_t nBatch = 100;
+		bm.N = 10 * nBatch;
 
 		typedef InnerProduct::BatchContextEx<100> MyBatch;
 		std::unique_ptr<MyBatch> p(new MyBatch);
@@ -1662,9 +1752,9 @@ void RunBenchmark()
 
 		do
 		{
-			for (uint32_t i = 0; i < bm.N; i++)
+			for (uint32_t i = 0; i < bm.N; i += nBatch)
 			{
-				for (int n = 0; n < 100; n++)
+				for (uint32_t n = 0; n < nBatch; n++)
 				{
 					Oracle oracle;
 					bp.IsValid(comm, oracle);

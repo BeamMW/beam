@@ -102,9 +102,6 @@ namespace ECC
 
 		bool ImportNnz(const Scalar&); // returns true if succeeded: i.e. must not overflow & non-zero. Constant time guaranteed.
 		void GenRandomNnz();
-
-		void GenerateNonceNnz(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt = 0);
-		void GenerateNonceNnz(const Scalar::Native& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt = 0);
 	};
 
 	class Point::Native
@@ -230,6 +227,8 @@ namespace ECC
 
 			void Initialize(Oracle&, Hash::Processor& hpRes);
 			void Initialize(Point::Native&, Oracle&);
+
+			void Assign(Point::Native&, bool bSet) const;
 		};
 
 		Casual* m_pCasual;
@@ -463,19 +462,70 @@ namespace ECC
 		void operator >> (Value& hv) { Finalize(hv); }
 	};
 
+	class NonceGenerator
+	{
+		// RFC-5869
+		Hash::Mac m_HMac;
+
+		Hash::Value m_Prk;
+		Hash::Value m_Okm;
+		beam::uintBig_t<1> m_Counter; // wraps-around, it's fine
+		bool m_bFirstTime;
+
+		void Reset();
+		void WriteIkm(const beam::Blob&);
+
+	public:
+
+		template <uint32_t nSalt>
+		NonceGenerator(const char(&szSalt)[nSalt])
+			:m_HMac(szSalt, nSalt)
+		{
+			Reset();
+		}
+
+		~NonceGenerator() { SecureErase(*this); }
+
+		beam::Blob m_Context;
+
+		template <uint32_t nContext>
+		NonceGenerator& SetContext(const char(&szContext)[nContext]) {
+			m_Context.p = szContext;
+			m_Context.n = nContext;
+			return *this;
+		}
+
+		template <typename T>
+		NonceGenerator& operator << (const T& t) {
+			WriteIkm(t);
+			return *this;
+		}
+
+		const Hash::Value& get_Okm();
+		NonceGenerator& operator >> (Hash::Value&);
+		NonceGenerator& operator >> (Scalar::Native&);
+	};
+
 	class HKdf
 		:public Key::IKdf
 	{
 		friend class HKdfPub;
 		HKdf(const HKdf&) = delete;
 
-		NoLeak<uintBig> m_Secret;
+		struct Generator
+		{
+			Generator();
+			// according to rfc5869
+			NoLeak<uintBig> m_Secret;
+			void Generate(Scalar::Native&, const Hash::Value&) const;
+
+		} m_Generator;
+
 		Scalar::Native m_kCoFactor;
 	public:
 		HKdf();
 		virtual ~HKdf();
 		// IPKdf
-		virtual void DerivePKey(Point::Native&, const Hash::Value&) override;
 		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
 		// IKdf
 		virtual void DeriveKey(Scalar::Native&, const Hash::Value&) override;
@@ -504,24 +554,27 @@ namespace ECC
 	{
 		HKdfPub(const HKdfPub&) = delete;
 
-		NoLeak<uintBig> m_Secret;
-		Point::Native m_Pk;
+		HKdf::Generator m_Generator;
+		Point::Native m_PkG;
+		Point::Native m_PkJ;
 
 	public:
 		HKdfPub();
 		virtual ~HKdfPub();
 
 		// IPKdf
-		virtual void DerivePKey(Point::Native&, const Hash::Value&) override;
 		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
+		virtual void DerivePKeyG(Point::Native&, const Hash::Value&) override;
+		virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) override;
 
 #pragma pack (push, 1)
 		struct Packed
 		{
 			uintBig m_Secret;
-			Point m_Pk;
+			Point m_PkG;
+			Point m_PkJ;
 		};
-		static_assert(sizeof(Packed) == uintBig::nBytes * 2 + 1, "");
+		static_assert(sizeof(Packed) == uintBig::nBytes * 3 + 2, "");
 #pragma pack (pop)
 
 		void Export(Packed&) const;
@@ -606,6 +659,10 @@ namespace ECC
 		bool m_bDirty;
 		Scalar::Native m_Multiplier; // must be initialized in a non-trivial way
 
+#ifndef NDEBUG
+        int m_CasualAtEndExpected;
+#endif // NDEBUG
+
 		bool AddCasual(const Point& p, const Scalar::Native& k);
 		void AddCasual(const Point::Native& pt, const Scalar::Native& k);
 		void AddPrepared(uint32_t i, const Scalar::Native& k);
@@ -640,6 +697,12 @@ namespace ECC
 		Commitment(const Scalar::Native& k_, const Amount& val_) :k(k_) ,val(val_) {}
 		void Assign(Point::Native& res, bool bSet) const;
 	};
+
+	namespace Tag
+	{
+		bool IsCustom(const Point::Native* pHGen);
+		void AddValue(Point::Native&, const Point::Native* pHGen, Amount);
+	}
 
 	class Oracle
 	{

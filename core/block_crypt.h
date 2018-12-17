@@ -26,6 +26,7 @@ namespace beam
 	typedef ECC::Hash::Value PeerID;
 	typedef uint64_t BbsChannel;
 	typedef ECC::Hash::Value BbsMsgID;
+	typedef PeerID AssetID;
 
 	using ECC::Key;
 
@@ -36,6 +37,7 @@ namespace beam
 	struct HeightRange
 	{
 		// Convention: inclusive, i.e. both endings are part of the range.
+		// m_Min == m_Max means the range includes a single height. Therefore (m_Min > m_Max) is NOT invalid, it just denotes an empty range.
 		Height m_Min;
 		Height m_Max;
 
@@ -70,6 +72,9 @@ namespace beam
 		void AddTo(ECC::Point::Native&, const Type&);
 	};
 
+	typedef int64_t AmountSigned;
+	static_assert(sizeof(Amount) == sizeof(AmountSigned), "");
+
 	struct Rules
 	{
 		Rules();
@@ -80,10 +85,10 @@ namespace beam
 
 		// emission parameters
 		Amount EmissionValue0	= Coin * 80; // Initial emission. Each drop it will be halved. In case of odd num it's rounded to the lower value.
-		Height EmissionDrop0	= 525000; // 1 year roughly. This is the height of the last block that still has the initial emission, the drop is starting from the next block
-		Height EmissionDrop1	= 2100000; // 4 years roughly. Each such a cycle there's a new drop
+		Height EmissionDrop0	= 1440 * 365; // 1 year roughly. This is the height of the last block that still has the initial emission, the drop is starting from the next block
+		Height EmissionDrop1	= 1440 * 365 * 4; // 4 years roughly. Each such a cycle there's a new drop
 
-		Height MaturityCoinbase = 60; // 1 hour
+		Height MaturityCoinbase = 240; // 4 hours
 		Height MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
 
 		size_t MaxBodySize		= 0x100000; // 1MB
@@ -97,9 +102,13 @@ namespace beam
 
 		bool AllowPublicUtxos = false;
 		bool FakePoW = false;
+		bool AllowCA = true;
+		bool DepositForCA = true; // CA emission in exchage for beams. If not specified - the emission is free
+
 		uint32_t MaxRollbackHeight = 1440; // 1 day roughly
 		uint32_t MacroblockGranularity = 720; // i.e. should be created for heights that are multiples of this. This should make it more likely for different nodes to have the same macroblocks
 
+		ECC::Hash::Value Prehistoric; // Prev hash of the 1st block
 		ECC::Hash::Value TreasuryChecksum;
 		ECC::Hash::Value Checksum;
 
@@ -111,6 +120,22 @@ namespace beam
 
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
+	};
+
+	class SwitchCommitment
+	{
+		static void get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J);
+		void CreateInternal(ECC::Scalar::Native&, ECC::Point::Native&, bool bComm, Key::IKdf& kdf, const Key::IDV& kidv) const;
+		void AddValue(ECC::Point::Native& comm, Amount) const;
+	public:
+
+		ECC::Point::Native m_hGen;
+		SwitchCommitment(const AssetID* pAssetID = nullptr);
+
+		void Create(ECC::Scalar::Native& sk, Key::IKdf&, const Key::IDV&) const;
+		void Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf&, const Key::IDV&) const;
+		void Create(ECC::Scalar::Native& sk, ECC::Point& comm, Key::IKdf&, const Key::IDV&) const;
+		void Recover(ECC::Point::Native& comm, Key::IPKdf&, const Key::IDV&) const;
 	};
 
 	struct TxElement
@@ -175,11 +200,13 @@ namespace beam
 
 		bool		m_Coinbase;
 		Height		m_Incubation; // # of blocks before it's mature
+		AssetID		m_AssetID;
 
 		Output()
 			:m_Coinbase(false)
 			,m_Incubation(0)
 		{
+			m_AssetID = Zero;
 		}
 
 		static const Amount s_MinimumValue = 1;
@@ -188,10 +215,10 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
-		void Create(const ECC::Scalar::Native&, Amount, bool bPublic = false);
-		void Create(ECC::Scalar::Native&, Key::IKdf&, const Key::IDV&, bool bPublic = false);
+		void Create(ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
 
-		bool Recover(Key::IPKdf&, Key::IDV&) const;
+		bool Recover(Key::IPKdf& tagKdf, Key::IDV&) const;
+		bool VerifyRecovered(Key::IPKdf& coinKdf, const Key::IDV&) const;
 
 		bool IsValid(ECC::Point::Native& comm) const;
 		Height get_MinMaturity(Height h) const; // regardless to the explicitly-overridden
@@ -201,7 +228,6 @@ namespace beam
 		COMPARISON_VIA_CMP
 
 	private:
-		void CreateInternal(const ECC::Scalar::Native&, Amount, bool bPublic, Key::IKdf*, const Key::ID*);
 		void get_SeedKid(ECC::uintBig&, Key::IPKdf&) const;
 	};
 
@@ -216,12 +242,19 @@ namespace beam
 		ECC::Signature	m_Signature;	// For the whole body, including nested kernels
 		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
 		HeightRange		m_Height;
+		AmountSigned	m_AssetEmission; // in case it's non-zero - the kernel commitment is the AssetID
 
-		TxKernel() :m_Fee(0) {}
+		TxKernel()
+			:m_Fee(0)
+			,m_AssetEmission(0)
+		{}
 
 		struct HashLock
 		{
 			ECC::uintBig m_Preimage;
+
+			int cmp(const HashLock&) const;
+			COMPARISON_VIA_CMP
 		};
 
 		std::unique_ptr<HashLock> m_pHashLock;
@@ -552,12 +585,17 @@ namespace beam
 			ECC::Scalar::Native m_Offset; // the sign is opposite
 			TxVectors::Full m_Txv;
 
-			Builder();
+			Key::Index m_SubIdx;
+			Key::IKdf& m_Coin;
+			Key::IPKdf& m_Tag;
+			Height m_Height;
 
-			void AddCoinbaseAndKrn(Key::IKdf&, Height);
-			void AddCoinbaseAndKrn(Key::IKdf&, Height, Output::Ptr&, TxKernel::Ptr&);
-			void AddFees(Key::IKdf&, Height, Amount fees);
-			void AddFees(Key::IKdf&, Height, Amount fees, Output::Ptr&);
+			Builder(Key::Index, Key::IKdf& coin, Key::IPKdf& tag, Height);
+
+			void AddCoinbaseAndKrn();
+			void AddCoinbaseAndKrn(Output::Ptr&, TxKernel::Ptr&);
+			void AddFees(Amount fees);
+			void AddFees(Amount fees, Output::Ptr&);
 		};
 	};
 
@@ -789,6 +827,8 @@ namespace beam
 		void Export(const ECC::HKdfPub&);
 		bool Import(ECC::HKdf&);
 		bool Import(ECC::HKdfPub&);
+		void SetPassword(const std::string&);
+		void SetPassword(const Blob&);
 
 	private:
 		typedef uintBig_t<8> MacValue;

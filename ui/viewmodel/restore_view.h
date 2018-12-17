@@ -36,14 +36,14 @@ public:
     const QString& getProgressMessage() const;
     void setProgressMessage(const QString& value);
 
-    Q_INVOKABLE void cancelRestore();
+    Q_INVOKABLE void resetWallet();
 
 public slots:
     void onSyncProgressUpdated(int done, int total);
     void onNodeSyncProgressUpdated(int done, int total);
     void onUpdateTimer();
     void onNodeConnectionChanged(bool isNodeConnected);
-    void onNodeConnectionFailed();
+    void onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason::Marshal& reason);
 signals:
     void progressChanged();
     void progressMessageChanged();

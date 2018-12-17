@@ -64,7 +64,7 @@
 #endif // _countof
 
 inline void memset0(void* p, size_t n) { memset(p, 0, n); }
-bool memis0(const void* p, size_t n);
+bool memis0(const void* p, size_t n); // Not "secure", not constant-time guarantee. Must not be used for secret datas
 void memxor(uint8_t* pDst, const uint8_t* pSrc, size_t n);
 
 

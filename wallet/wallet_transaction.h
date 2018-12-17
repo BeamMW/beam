@@ -42,8 +42,9 @@ namespace beam { namespace wallet
     MACRO(InvalidKernelProof,     5, "Invalid kernel proof provided") \
     MACRO(FailedToSendParameters, 6, "Failed to send tx parameters") \
     MACRO(NoInputs,               7, "No inputs") \
-    MACRO(ExpiredAddressProvided, 8, "address is expired") \
-    MACRO(FailedToGetParameter,   9, "failed to get parameter") \
+    MACRO(ExpiredAddressProvided, 8, "Address is expired") \
+    MACRO(FailedToGetParameter,   9, "Failed to get parameter") \
+    MACRO(TransactionExpired,     10, "Transaction has expired") \
 
     enum TxFailureReason : int32_t
     {

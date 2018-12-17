@@ -394,20 +394,20 @@ void Node::Processor::OnNewState()
 {
 	m_Cwp.Reset();
 
-	if (!m_Extra.m_TreasuryHandled)
+	if (m_Cursor.m_Sid.m_Height < Rules::HeightGenesis)
 		return;
 
 	LOG_INFO() << "My Tip: " << m_Cursor.m_ID << ", Work = " << Difficulty::ToFloat(m_Cursor.m_Full.m_ChainWork);
 
-	get_ParentObj().m_TxPool.DeleteOutOfBound(m_Cursor.m_Sid.m_Height + 1);
+	//get_ParentObj().m_TxPool.DeleteOutOfBound(m_Cursor.m_Sid.m_Height + 1);
+	get_ParentObj().m_Processor.DeleteOutdated(get_ParentObj().m_TxPool); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
+	// because in practice mining could be OFF (for instance, if miner key isn't defined, and owner wallet is offline).
 
 	if (get_ParentObj().m_Miner.IsEnabled())
 	{
 		get_ParentObj().m_Miner.HardAbortSafe();
 		get_ParentObj().m_Miner.SetTimer(0, true); // async start mining
 	}
-	else
-		get_ParentObj().m_Processor.DeleteOutdated(get_ParentObj().m_TxPool);
 
 	proto::NewTip msg;
 	msg.m_Description = m_Cursor.m_Full;
@@ -437,52 +437,69 @@ void Node::Processor::OnRolledBack()
 	get_ParentObj().m_Compressor.OnRolledBack();
 }
 
-bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
+bool Node::Processor::Verifier::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r)
 {
-	uint32_t nThreads = get_ParentObj().m_Cfg.m_VerificationThreads;
+	uint32_t nThreads = get_ParentObj().get_ParentObj().m_Cfg.m_VerificationThreads;
 	if (!nThreads)
 	{
-		std::unique_ptr<Verifier::MyBatch> p(new Verifier::MyBatch);
-		p->m_bEnableBatch = true;
-		Verifier::MyBatch::Scope scope(*p);
+		if (m_pBc)
+			m_pBc->Reset();
+		else
+		{
+			m_pBc.reset(new Verifier::MyBatch);
+			m_pBc->m_bEnableBatch = true;
+		}
+		Verifier::MyBatch::Scope scope(*m_pBc);
 
 		return
-			NodeProcessor::VerifyBlock(block, std::move(r), hr) &&
-			p->Flush();
+			ctx.ValidateAndSummarize(txb, std::move(r)) &&
+			m_pBc->Flush();
 	}
 
-	Verifier& v = m_Verifier; // alias
-	std::unique_lock<std::mutex> scope(v.m_Mutex);
+	std::unique_lock<std::mutex> scope(m_Mutex);
 
-	if (v.m_vThreads.empty())
+	if (m_vThreads.empty())
 	{
-		v.m_iTask = 1;
+		m_iTask = 1;
 
-		v.m_vThreads.resize(nThreads);
+		m_vThreads.resize(nThreads);
 		for (uint32_t i = 0; i < nThreads; i++)
-			v.m_vThreads[i] = std::thread(&Verifier::Thread, &v, i);
+			m_vThreads[i] = std::thread(&Verifier::Thread, this, i);
 	}
 
-	v.m_Context.Reset();
-	v.m_iTask ^= 2;
-	v.m_pTx = &block;
-	v.m_pR = &r;
-	v.m_bFail = false;
-	v.m_Remaining = nThreads;
-	v.m_Context.m_bBlockMode = true;
-	v.m_Context.m_Height = hr;
-	v.m_Context.m_nVerifiers = nThreads;
+	m_iTask ^= 2;
+	m_pTx = &txb;
+	m_pR = &r;
+	m_pCtx = &ctx;
+	m_bFail = false;
+	m_Remaining = nThreads;
 
-	v.m_TaskNew.notify_all();
+	m_TaskNew.notify_all();
 
-	while (v.m_Remaining)
-		v.m_TaskFinished.wait(scope);
+	while (m_Remaining)
+		m_TaskFinished.wait(scope);
 
-	return !v.m_bFail && v.m_Context.IsValidBlock(block);
+	return !m_bFail;
+}
+
+bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
+{
+	if (hr.m_Min < Rules::HeightGenesis)
+		return false;
+
+	TxBase::Context ctx;
+	ctx.m_Height = hr;
+	ctx.m_bBlockMode = true;
+
+	return
+		m_Verifier.ValidateAndSummarize(ctx, block, std::move(r)) &&
+		ctx.IsValidBlock(block);
 }
 
 void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 {
+	uint32_t nThreads = get_ParentObj().get_ParentObj().m_Cfg.m_VerificationThreads;
+
 	std::unique_ptr<Verifier::MyBatch> p(new Verifier::MyBatch);
 	p->m_bEnableBatch = true;
 	Verifier::MyBatch::Scope scope(*p);
@@ -506,9 +523,9 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 		assert(m_Remaining);
 
 		TxBase::Context ctx;
-		ctx.m_bBlockMode = true;
-		ctx.m_Height = m_Context.m_Height;
-		ctx.m_nVerifiers = m_Context.m_nVerifiers;
+		ctx.m_bBlockMode = m_pCtx->m_bBlockMode;
+		ctx.m_Height = m_pCtx->m_Height;
+		ctx.m_nVerifiers = nThreads;
 		ctx.m_iVerifier = iVerifier;
 		ctx.m_pAbort = &m_bFail; // obsolete actually
 
@@ -522,7 +539,7 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 		verify(m_Remaining--);
 
 		if (bValid && !m_bFail)
-			bValid = m_Context.Merge(ctx);
+			bValid = m_pCtx->Merge(ctx);
 
 		if (!bValid)
 			m_bFail = true;
@@ -623,13 +640,10 @@ bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
 {
 	const Keys& keys = get_ParentObj().m_Keys;
 
-	for (size_t i = 0; i < keys.m_vMonitored.size(); i++)
-	{
-		const Keys::Viewer& v = keys.m_vMonitored[i];
-		if (!w.OnKey(*v.second, v.first))
-			return false;
-	}
-
+	// according to current design - a single master viewer key is enough
+	if (keys.m_pOwner && !w.OnKey(*keys.m_pOwner, 0))
+		return false;
+		
 	return true;
 }
 
@@ -676,28 +690,15 @@ void Node::Keys::InitSingleKey(const ECC::uintBig& seed)
 
 void Node::Keys::SetSingleKey(const Key::IKdf::Ptr& pKdf)
 {
+	m_nMinerSubIndex = 0;
 	m_pMiner = pKdf;
 	m_pGeneric = pKdf;
+	m_pDummy = pKdf;
 	m_pOwner = pKdf;
-
-	m_vMonitored.push_back(Viewer(m_MinerIdx, pKdf));
 }
 
 void Node::Initialize(IExternalPOW* externalPOW)
 {
-	if (!m_Keys.m_pGeneric)
-	{
-		if (m_Keys.m_pMiner)
-			m_Keys.m_pGeneric = m_Keys.m_pMiner;
-		else
-		{
-			// use arbitrary, inited from system random. Needed for misc things, such as secure channel.
-			ECC::NoLeak<ECC::uintBig> seed;
-			ECC::GenRandom(seed.V);
-			ECC::HKdf::Create(m_Keys.m_pGeneric, seed.V);
-		}
-	}
-
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
 	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_Sync.m_ForceResync);
 
@@ -705,11 +706,10 @@ void Node::Initialize(IExternalPOW* externalPOW)
 		m_Processor.get_DB().ParamSet(NodeDB::ParamID::SyncTarget, NULL, NULL);
 
 	if (m_Cfg.m_VerificationThreads < 0)
-	{
-		uint32_t numCores = std::thread::hardware_concurrency();
-		m_Cfg.m_VerificationThreads = (numCores > m_Cfg.m_MiningThreads + 1) ? (numCores - m_Cfg.m_MiningThreads) : 0;
-	}
+		// use all the cores, don't subtract 'mining threads'. Verification has higher priority
+		m_Cfg.m_VerificationThreads = std::thread::hardware_concurrency();
 
+	InitKeys();
 	InitIDs();
 
 	LOG_INFO() << "Node ID=" << m_MyPublicID;
@@ -735,6 +735,25 @@ void Node::Initialize(IExternalPOW* externalPOW)
 	m_Bbs.Cleanup();
 }
 
+void Node::InitKeys()
+{
+	if (!m_Keys.m_pOwner)
+		m_Keys.m_pMiner = NULL; // can't mine without owner view key, because it's used for Tagging
+
+	if (!m_Keys.m_pGeneric)
+	{
+		if (m_Keys.m_pMiner)
+			m_Keys.m_pGeneric = m_Keys.m_pMiner;
+		else
+		{
+			// use arbitrary, inited from system random. Needed for misc things, such as secure channel, decoys and etc.
+			ECC::NoLeak<ECC::uintBig> seed;
+			ECC::GenRandom(seed.V);
+			ECC::HKdf::Create(m_Keys.m_pGeneric, seed.V);
+		}
+	}
+}
+
 void Node::InitIDs()
 {
 	ECC::GenRandom(m_NonceLast.V);
@@ -753,6 +772,17 @@ void Node::InitIDs()
 		m_MyPrivateID = s.V;
 
 	proto::Sk2Pk(m_MyPublicID, m_MyPrivateID);
+
+	if (!m_Keys.m_pDummy)
+	{
+		// create it using Node-ID
+		ECC::NoLeak<ECC::Hash::Value> hv;
+		ECC::Hash::Processor() << m_MyPrivateID >> hv.V;
+
+		std::shared_ptr<ECC::HKdf> pKdf = std::make_shared<ECC::HKdf>();
+		pKdf->Generate(hv.V);
+		m_Keys.m_pDummy = std::move(pKdf);
+	}
 }
 
 void Node::InitMode()
@@ -989,7 +1019,7 @@ void Node::Peer::OnConnectedSecure()
 
 	Send(msgLogin);
 
-	if (m_This.m_Processor.m_Extra.m_TreasuryHandled) // even if height is 0 - we notify the peer that we have the treasury
+	if (m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
 	{
 		proto::NewTip msg;
 		msg.m_Description = m_This.m_Processor.m_Cursor.m_Full;
@@ -1155,6 +1185,7 @@ void Node::Peer::OnDisconnect(const DisconnectReason& dr)
 
 	case DisconnectReason::ProcessingExc:
 	case DisconnectReason::Protocol:
+	case DisconnectReason::Incompatible:
 		nByeReason = ByeReason::Ban;
 		break;
 	}
@@ -1793,7 +1824,8 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 bool Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 {
 	return
-		tx.IsValid(ctx) &&
+		m_Processor.m_Verifier.ValidateAndSummarize(ctx, tx, tx.get_Reader()) &&
+		ctx.IsValidTransaction() &&
 		m_Processor.ValidateTxContext(tx);
 }
 
@@ -2040,26 +2072,25 @@ void Node::AddDummyInputs(Transaction& tx)
 	while (tx.m_vInputs.size() < m_Cfg.m_Dandelion.m_OutputsMax)
 	{
 		Height h;
-		ECC::Scalar sk;
-		Blob blob(sk.m_Value);
-
-		uint64_t rowid = m_Processor.get_DB().FindDummy(h, blob);
-		if (!rowid || (h > m_Processor.m_Cursor.m_ID.m_Height + 1))
+		uint64_t id = m_Processor.get_DB().GetLowestDummy(h);
+		if (!id || (h > m_Processor.m_Cursor.m_ID.m_Height))
 			break;
 
 		bModified = true;
 
-		ECC::Mode::Scope scope(ECC::Mode::Fast);
+		// ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+		ECC::Scalar::Native sk;
 
 		// bounds
 		UtxoTree::Key kMin, kMax;
 
 		UtxoTree::Key::Data d;
-		d.m_Commitment = ECC::Context::get().G * sk;
+		SwitchCommitment().Create(sk, d.m_Commitment, *m_Keys.m_pDummy, Key::IDV(0, id, Key::Type::Decoy));
 		d.m_Maturity = 0;
 		kMin = d;
 
-		d.m_Maturity = m_Processor.m_Cursor.m_ID.m_Height + 1;
+		d.m_Maturity = m_Processor.m_Cursor.m_ID.m_Height;
 		kMax = d;
 
 		// check if it's still unspent
@@ -2077,7 +2108,7 @@ void Node::AddDummyInputs(Transaction& tx)
 		if (m_Processor.get_Utxos().Traverse(t))
 		{
 			// spent
-			m_Processor.get_DB().DeleteDummy(rowid);
+			m_Processor.get_DB().DeleteDummy(id);
 		}
 		else
 		{
@@ -2089,7 +2120,7 @@ void Node::AddDummyInputs(Transaction& tx)
 			tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + ECC::Scalar::Native(sk);
 
 			/// in the (unlikely) case the tx will be lost - we'll retry spending this UTXO after the following num of blocks
-			m_Processor.get_DB().SetDummyHeight(rowid, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
+			m_Processor.get_DB().SetDummyHeight(id, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
 		}
 
 	}
@@ -2113,20 +2144,21 @@ void Node::AddDummyOutputs(Transaction& tx)
 
 	while (tx.m_vOutputs.size() < m_Cfg.m_Dandelion.m_OutputsMin)
 	{
-		ECC::Scalar::Native sk;
-		NextNonce(sk);
+		if (!m_LastDummyID)
+			m_LastDummyID = db.GetDummyLastID();
 
+		++m_LastDummyID;
 		bModified = true;
 
 		Output::Ptr pOutput(new Output);
-		pOutput->Create(sk, 0);
+		ECC::Scalar::Native sk;
+		pOutput->Create(sk, *m_Keys.m_pDummy, Key::IDV(0, m_LastDummyID, Key::Type::Decoy), *m_Keys.m_pDummy);
 
 		Height h = m_Processor.m_Cursor.m_ID.m_Height + 1 + m_Cfg.m_Dandelion.m_DummyLifetimeLo;
 		if (m_Cfg.m_Dandelion.m_DummyLifetimeHi > m_Cfg.m_Dandelion.m_DummyLifetimeLo)
 			h += RandomUInt32(m_Cfg.m_Dandelion.m_DummyLifetimeHi - m_Cfg.m_Dandelion.m_DummyLifetimeLo);
 
-		ECC::Scalar sk_(sk); // not so secret
-		db.InsertDummy(h, Blob(sk_.m_Value));
+		db.InsertDummy(h, m_LastDummyID);
 
 		tx.m_vOutputs.push_back(std::move(pOutput));
 
@@ -2224,8 +2256,8 @@ bool Node::Dandelion::ValidateTxContext(const Transaction& tx)
 
 void Node::Peer::OnMsg(proto::Login&& msg)
 {
-	if (msg.m_CfgChecksum != Rules::get().Checksum)
-		ThrowUnexpected("Incompatible peer cfg!");
+	if (!VerifyCfg(msg))
+		return;
 
 	if (!(m_LoginFlags & proto::LoginFlags::SpreadingTransactions) && (msg.m_Flags & proto::LoginFlags::SpreadingTransactions))
 	{
@@ -2734,7 +2766,7 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 			if ((msgOut.m_Events.size() >= proto::UtxoEvent::s_Max) && (wlk.m_Height != hLast))
 				break;
 
-			if (wlk.m_Body.n < sizeof(UE::Value))
+			if (wlk.m_Body.n < sizeof(UE::Value) || (wlk.m_Key.n != sizeof(ECC::Point)))
 				continue; // although shouldn't happen
 			const UE::Value& evt = *reinterpret_cast<const UE::Value*>(wlk.m_Body.p);
 
@@ -2742,11 +2774,12 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 			proto::UtxoEvent& res = msgOut.m_Events.back();
 
 			res.m_Height = wlk.m_Height;
-			Cast::Down<Key::IDV>(res.m_Kidvc) = evt.m_Kidv;
-			evt.m_iKdf.Export(res.m_Kidvc.m_iChild);
+			res.m_Kidv = evt.m_Kidv;
 			evt.m_Maturity.Export(res.m_Maturity);
 
-			res.m_Added = (sizeof(UE::Key) == wlk.m_Key.n);
+			res.m_Commitment = *reinterpret_cast<const ECC::Point*>(wlk.m_Key.p);
+			res.m_AssetID = evt.m_AssetID;
+			res.m_Added = evt.m_Added;
 		}
 	}
 	else
@@ -2787,7 +2820,7 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 		// and do the overall validation
 		TxBase::Context ctx;
 		ctx.m_bBlockMode = true;
-		if (!ctx.ValidateAndSummarize(*msg.m_Value, msg.m_Value->get_Reader()))
+		if (!m_This.m_Processor.m_Verifier.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader()))
 			ThrowUnexpected();
 
 		if (ctx.m_Coinbase != AmountBig::Type(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
@@ -2820,7 +2853,7 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 
 	TxPool::Fluff txpEmpty;
 
-	NodeProcessor::BlockContext bc(txpEmpty, *m_This.m_Keys.m_pGeneric); // the key isn't used anyway
+	NodeProcessor::BlockContext bc(txpEmpty, 0, *m_This.m_Keys.m_pGeneric, *m_This.m_Keys.m_pGeneric); // the key isn't used anyway
 	bc.m_Mode = NodeProcessor::BlockContext::Mode::Finalize;
 	Cast::Down<NodeProcessor::GeneratedBlock>(bc) = std::move(x);
 
@@ -3046,7 +3079,12 @@ bool Node::Miner::Restart()
 		if (!keys.m_pMiner)
 			return false; // offline mining is disabled
 
-	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, keys.m_pMiner ? *keys.m_pMiner : *keys.m_pGeneric);
+	NodeProcessor::BlockContext bc(
+		get_ParentObj().m_TxPool,
+		keys.m_nMinerSubIndex,
+		keys.m_pMiner ? *keys.m_pMiner : *keys.m_pGeneric,
+		keys.m_pOwner ? *keys.m_pOwner : *keys.m_pGeneric);
+
 	if (m_pFinalizer)
 		bc.m_Mode = NodeProcessor::BlockContext::Mode::Assemble;
 
