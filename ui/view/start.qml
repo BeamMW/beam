@@ -332,6 +332,7 @@ Item
             id: checkRecoveryPhrase
             Rectangle {
                 color: Style.marine
+                property Item defaultFocusItem: null
 
                 ColumnLayout {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -490,6 +491,7 @@ Item
             id: restoreWallet
             Rectangle {
                 color: Style.marine
+                property Item defaultFocusItem: null
 
                 ColumnLayout {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -575,7 +577,6 @@ Item
                                     anchors.bottom: parent.bottom
                                     anchors.bottomMargin: 6
                                     width: 121
-
                                     font.pixelSize: 14
                                     color: Style.white
                                     text: modelData.value
@@ -588,12 +589,17 @@ Item
                                             }
                                         }
                                     }
+                                    Component.onCompleted: {
+                                        if (modelData.index == 0) {
+                                            defaultFocusItem = phraseValue;
+                                        }
+                                    }
                                 }
                                 Binding {
                                     target: modelData
                                     property: "value"
                                     value: phraseValue.text
-                               }
+                                }
                             }
                         }
                     }
