@@ -842,6 +842,11 @@ namespace beam
 	{
 		h -= Rules::HeightGenesis; // may overflow, but it's ok. If h < HeightGenesis (which must not happen anyway) - then it'll give a huge height, for which the emission would be zero anyway.
 
+		// Current emission strategy:
+		// at EmissionDrop0 - 1/2
+		// at EmissionDrop1 - 5/8
+		// each EmissionDrop1 cycle - 1/2
+
 		if (h < EmissionDrop0)
 		{
 			hEnd = Rules::HeightGenesis + EmissionDrop0;
@@ -859,6 +864,10 @@ namespace beam
 		}
 
 		hEnd = Rules::HeightGenesis + EmissionDrop0 + n * EmissionDrop1;
+
+		if (n >= 2)
+			base += (base >> 2); // the unusual part - add 1/4
+
 		return base >> n;
 	}
 

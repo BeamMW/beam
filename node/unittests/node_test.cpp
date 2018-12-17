@@ -94,6 +94,77 @@ namespace beam
 {
 	ByteBuffer g_Treasury;
 
+	Amount get_Emission(const HeightRange& hr, Amount base = Rules::get().EmissionValue0)
+	{
+		AmountBig::Type vbig;
+		Rules::get().get_Emission(vbig, hr, base);
+
+		Amount res;
+		vbig.ExportWord<1>(res);
+		return res;
+	}
+
+	void PrintEmissionSchedule()
+	{
+		struct Year
+		{
+			Amount m_PerBlockMiner;
+			Amount m_PerBlockTreasury;
+			Amount m_PerBlock;
+			Amount m_Total;
+		};
+
+		std::vector<Year> vYears;
+		HeightRange hr(0, 0);
+		const uint32_t nYearBlocks = 1440 * 365;
+
+		Amount nCumulative = 0;
+
+		for (uint32_t iY = 0; ; iY++)
+		{
+			hr.m_Min = hr.m_Max + 1;
+			hr.m_Max += nYearBlocks;
+
+			Amount val = get_Emission(hr);
+			if (!val)
+				break;
+
+			vYears.emplace_back();
+			Year& y = vYears.back();
+
+			y.m_PerBlock = val / nYearBlocks;
+			y.m_PerBlockMiner = y.m_PerBlock;
+
+			if (iY < 5)
+			{
+				y.m_PerBlockTreasury = y.m_PerBlockMiner / 4;
+				y.m_PerBlock += y.m_PerBlockTreasury;
+				val += y.m_PerBlockTreasury * nYearBlocks;
+			}
+			else
+				y.m_PerBlockTreasury = 0;
+
+			y.m_Total = val;
+			nCumulative += val;
+		}
+
+		std::cout << "Emission schedule" << std::endl;
+		std::cout << "Year, Miner emission per block, Treasury emission per block, Total coins emitted per block, Total coins emitted per year, Cumulative Coins Emitted, Cumulative % of total" << std::endl;
+
+		Amount nEmitted = 0;
+		uint32_t nYear = 2019;
+		for (size_t i = 0; i < vYears.size(); i++)
+		{
+			const Year& y = vYears[i];
+
+			std::cout << (nYear++) << "," << y.m_PerBlockMiner << "," << y.m_PerBlockTreasury << "," << y.m_PerBlock << "," << y.m_Total << ",";
+			std::cout << (nEmitted += y.m_Total) << ",";
+			std::cout << double(nEmitted) * 100. / double(nCumulative) << std::endl;
+		}
+
+		nCumulative++;
+	}
+
 	void PrepareTreasury()
 	{
 		Key::IKdf::Ptr pKdf;
@@ -1843,6 +1914,7 @@ int main()
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
 
 	beam::PrepareTreasury();
+	beam::PrintEmissionSchedule();
 
 	beam::Rules::get().AllowPublicUtxos = true;
 	beam::Rules::get().FakePoW = true;
