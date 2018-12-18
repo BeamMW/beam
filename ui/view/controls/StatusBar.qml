@@ -179,6 +179,14 @@ Item {
                 PauseAnimation { duration: 1000 }
                 ScriptAction { scriptName: "updatingScript" }
             }
+        },
+        Transition {
+            from: "error"
+            to: "online"
+            SequentialAnimation {
+                PauseAnimation { duration: 500 }
+                ScriptAction { scriptName: "onlineScript" }
+            }
         }
     ]
 }
