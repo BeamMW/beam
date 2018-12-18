@@ -1090,8 +1090,6 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(stx->m_message == rtx->m_message);
     WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
     WALLET_CHECK(stx->m_status == rtx->m_status);
-    WALLET_CHECK(stx->m_fsmState.empty());
-    WALLET_CHECK(rtx->m_fsmState.empty());
     WALLET_CHECK(stx->m_sender == true);
     WALLET_CHECK(rtx->m_sender == false);
 
@@ -1154,8 +1152,6 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(stx->m_message == rtx->m_message);
     WALLET_CHECK(stx->m_createTime <= rtx->m_createTime);
     WALLET_CHECK(stx->m_status == rtx->m_status);
-    WALLET_CHECK(stx->m_fsmState.empty());
-    WALLET_CHECK(rtx->m_fsmState.empty());
     WALLET_CHECK(stx->m_sender == true);
     WALLET_CHECK(rtx->m_sender == false);
 
@@ -1188,7 +1184,6 @@ void TestP2PWalletNegotiationST()
 
     WALLET_CHECK(stx->m_amount == 6);
     WALLET_CHECK(stx->m_status == TxStatus::Failed);
-    WALLET_CHECK(stx->m_fsmState.empty());
     WALLET_CHECK(stx->m_sender == true);
 }
 
@@ -1270,8 +1265,6 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(stx->m_message == rtx->m_message);
     WALLET_CHECK(stx->m_createTime >= rtx->m_createTime);
     WALLET_CHECK(stx->m_status == rtx->m_status);
-    WALLET_CHECK(stx->m_fsmState.empty());
-    WALLET_CHECK(rtx->m_fsmState.empty());
     WALLET_CHECK(stx->m_sender == true);
     WALLET_CHECK(rtx->m_sender == false);
 
@@ -1334,8 +1327,6 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(stx->m_message == rtx->m_message);
     WALLET_CHECK(stx->m_createTime >= rtx->m_createTime);
     WALLET_CHECK(stx->m_status == rtx->m_status);
-    WALLET_CHECK(stx->m_fsmState.empty());
-    WALLET_CHECK(rtx->m_fsmState.empty());
     WALLET_CHECK(stx->m_sender == true);
     WALLET_CHECK(rtx->m_sender == false);
 
@@ -1367,13 +1358,11 @@ void TestP2PWalletReverseNegotiationST()
 
     WALLET_CHECK(rtx->m_amount == 6);
     WALLET_CHECK(rtx->m_status == TxStatus::Failed);
-    WALLET_CHECK(rtx->m_fsmState.empty());
     WALLET_CHECK(rtx->m_sender == false);
 
 
     WALLET_CHECK(stx->m_amount == 6);
     WALLET_CHECK(stx->m_status == TxStatus::Failed);
-    WALLET_CHECK(stx->m_fsmState.empty());
     WALLET_CHECK(stx->m_sender == true);
 }
 

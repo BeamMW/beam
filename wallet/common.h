@@ -103,8 +103,9 @@ namespace beam
             , m_modifyTime{ createTime }
             , m_sender{ sender }
             , m_status{ TxStatus::Pending }
-            , m_fsmState{}
-        {}
+        {
+
+        }
 
         TxID m_txId;
         Amount m_amount=0;
@@ -118,7 +119,7 @@ namespace beam
         Timestamp m_modifyTime=0;
         bool m_sender=false;
         TxStatus m_status=TxStatus::Pending;
-        ByteBuffer m_fsmState;
+        Merkle::Hash m_kernelID = Zero;
 
         bool canResume() const
         {
@@ -227,6 +228,7 @@ namespace beam
 
             Change = 150,
             Status = 151,
+            KernelID = 152,
 
             SharedBlindingFactor = 160,
             LockedBlindingFactor = 161,

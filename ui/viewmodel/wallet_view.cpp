@@ -40,7 +40,11 @@ namespace
     }
 }
 
-TxObject::TxObject(const TxDescription& tx) : _tx(tx) {}
+TxObject::TxObject(const TxDescription& tx) : _tx(tx) 
+{
+    auto kernelID = QString::fromStdString(to_hex(_tx.m_kernelID.m_pData, _tx.m_kernelID.nBytes));
+    setKernelID(kernelID);
+}
 
 bool TxObject::income() const
 {
@@ -168,9 +172,25 @@ void TxObject::setStatus(beam::TxStatus status)
     }
 }
 
+QString TxObject::getKernelID() const
+{
+    return _kernelID;
+}
+
+void TxObject::setKernelID(const QString& value)
+{
+    if (_kernelID != value)
+    {
+        _kernelID = value;
+        emit kernelIDChanged();
+    }
+}
+
 void TxObject::update(const beam::TxDescription& tx)
 {
     setStatus(tx.m_status);
+    auto kernelID = QString::fromStdString(to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes));
+    setKernelID(kernelID);
 }
 
 WalletViewModel::WalletViewModel()

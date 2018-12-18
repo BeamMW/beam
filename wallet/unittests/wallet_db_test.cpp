@@ -260,7 +260,6 @@ void TestStoreTxRecord()
     WALLET_CHECK(tr3->m_modifyTime == tr2.m_modifyTime);
     WALLET_CHECK(tr3->m_sender == tr2.m_sender);
     WALLET_CHECK(tr3->m_status == tr2.m_status);
-    WALLET_CHECK(tr3->m_fsmState == tr2.m_fsmState);
     WALLET_CHECK_NO_THROW(walletDB->deleteTx(tr2.m_txId));
     WALLET_CHECK(walletDB->getTxHistory().empty());
 

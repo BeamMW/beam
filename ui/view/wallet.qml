@@ -1139,7 +1139,7 @@ Item {
                         width: parent.width
                         clip: true
 
-                        property int maximumHeight: 180 + commentTx.contentHeight
+                        property int maximumHeight: 200 + commentTx.contentHeight
 
                         onMaximumHeightChanged: {
                             if (!rowItem.collapsed) {
@@ -1247,6 +1247,30 @@ Item {
                                         if(!!viewModel.transactions[styleData.row])
                                         {
                                             return viewModel.transactions[styleData.row].comment;
+                                        }
+                                        return "";
+                                    }
+                                    font.styleName: "Italic"
+                                    Layout.fillWidth: true
+                                    wrapMode : Text.Wrap
+                                    elide: Text.ElideRight
+                                    onCopyText: viewModel.copyToClipboard(text)
+                                }
+                                SFText {
+                                   Layout.row: 5
+                                    font.pixelSize: 14
+                                    color: Style.bluey_grey
+                                    text: qsTr("Kernel ID:")
+                                }
+                                SFLabel {
+                                    id: kernelID
+                                    copyMenuEnabled: true
+                                    font.pixelSize: 14
+                                    color: Style.white
+                                    text: {
+                                        if(!!viewModel.transactions[styleData.row])
+                                        {
+                                            return viewModel.transactions[styleData.row].kernelID;
                                         }
                                         return "";
                                     }
