@@ -141,6 +141,7 @@ Item {
             StateChangeScript {
                 name: "onlineScript"
                 script: {
+                    online_indicator.color = Style.bright_teal;
                     rootControl.setIndicator(online_indicator);
                 }
             }
