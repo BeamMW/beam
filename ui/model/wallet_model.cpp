@@ -46,6 +46,17 @@ namespace
     };
 
     using WalletSubscriber = ScopedSubscriber<IWalletObserver, beam::IWallet>;
+
+    beam::wallet::ErrorType GetWalletError(proto::NodeProcessingException::Type exceptionType)
+    {
+        switch (exceptionType)
+        {
+        case proto::NodeProcessingException::Type::Incompatible:
+            return beam::wallet::ErrorType::NodeProtocolIncompatible;
+        default:
+            return beam::wallet::ErrorType::NodeProtocolBase;
+        }
+    }
 }
 
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
@@ -182,7 +193,7 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr)
     qRegisterMetaType<vector<WalletAddress>>("std::vector<beam::WalletAddress>");
     qRegisterMetaType<WalletID>("beam::WalletID");
     qRegisterMetaType<WalletAddress>("beam::WalletAddress");
-    qRegisterMetaType<proto::NodeConnection::DisconnectReason::Marshal>("beam::proto::NodeConnection::DisconnectReason::Marshal");
+    qRegisterMetaType<beam::wallet::ErrorType>("beam::wallet::ErrorType");
 }
 
 WalletModel::~WalletModel()
@@ -340,7 +351,12 @@ void WalletModel::onNodeConnectedStatusChanged(bool isNodeConnected)
 
 void WalletModel::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
 {
-    emit nodeConnectionFailed(reason);
+    // reason -> wallet::ErrorType
+    if (proto::NodeConnection::DisconnectReason::ProcessingExc == reason.m_Type)
+    {
+        auto error = GetWalletError(reason.m_ExceptionDetails.m_ExceptionType);
+        emit onWalletError(error);
+    }
 }
 
 void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee)
@@ -532,4 +548,18 @@ bool WalletModel::check_receiver_address(const std::string& addr)
     return
         walletID.FromHex(addr) &&
         walletID.IsValid();
+}
+
+QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
+{
+    // TODO: add more detailed error description
+    switch (type)
+    {
+    case wallet::ErrorType::NodeProtocolBase:
+        return tr("Node protocol error!");
+    case wallet::ErrorType::NodeProtocolIncompatible:
+        return tr("You are trying to connect to incompatible peer.");
+    default:
+        return tr("Unexpected error!");
+    }
 }

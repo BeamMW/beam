@@ -33,6 +33,7 @@ RestoreViewModel::RestoreViewModel()
     , m_speedFilter{24}
     , m_currentEstimationSec{0}
     , m_skipProgress{false}
+    , m_errorShowed{false}
 {
     connect(&m_walletModel, SIGNAL(onSyncProgressUpdated(int, int)),
         SLOT(onSyncProgressUpdated(int, int)));
@@ -46,8 +47,8 @@ RestoreViewModel::RestoreViewModel()
     connect(&m_walletModel, SIGNAL(nodeConnectionChanged(bool)),
         SLOT(onNodeConnectionChanged(bool)));
 
-    connect(&m_walletModel, SIGNAL(nodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason::Marshal&)),
-        SLOT(onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason::Marshal&)));
+    connect(&m_walletModel, SIGNAL(onWalletError(beam::wallet::ErrorType)),
+        SLOT(onGetWalletError(beam::wallet::ErrorType)));
 
     connect(&m_updateTimer, SIGNAL(timeout()), this, SLOT(onUpdateTimer()));
 
@@ -225,8 +226,18 @@ void RestoreViewModel::onNodeConnectionChanged(bool isNodeConnected)
     m_walletConnected = isNodeConnected;
 }
 
-void RestoreViewModel::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason::Marshal&)
+void RestoreViewModel::onGetWalletError(beam::wallet::ErrorType error)
 {
+    if (beam::wallet::ErrorType::NodeProtocolIncompatible == error)
+    {
+        if (!m_errorShowed)
+        {
+            AppModel::getInstance()->getMessages().addMessage(WalletModel::GetErrorString(error));
+            m_errorShowed = true;
+        }
+        return;
+    }
+
     m_skipProgress = true;
     updateProgress();
 }

@@ -43,7 +43,7 @@ public slots:
     void onNodeSyncProgressUpdated(int done, int total);
     void onUpdateTimer();
     void onNodeConnectionChanged(bool isNodeConnected);
-    void onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason::Marshal& reason);
+    void onGetWalletError(beam::wallet::ErrorType error);
 signals:
     void progressChanged();
     void progressMessageChanged();
@@ -68,4 +68,5 @@ private:
     beamui::Filter m_speedFilter;
     uint64_t m_currentEstimationSec;
     bool m_skipProgress;
+    bool m_errorShowed;
 };

@@ -288,6 +288,12 @@ namespace beam
             virtual bool get_tip(Block::SystemState::Full& state) const = 0;
             virtual void send_tx_params(const WalletID& peerID, SetTxParameter&&) = 0;
         };
+
+        enum class ErrorType : uint8_t
+        {
+            NodeProtocolBase = 0,
+            NodeProtocolIncompatible = 1
+        };
     }
 }
 

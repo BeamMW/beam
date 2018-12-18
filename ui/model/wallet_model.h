@@ -17,6 +17,7 @@
 #include <QObject>
 #include <QThread>
 
+#include "wallet/common.h"
 #include "wallet/wallet.h"
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
@@ -58,6 +59,8 @@ public:
     IWalletModelAsync::Ptr getAsync();
     bool check_receiver_address(const std::string& addr);
 
+    static QString GetErrorString(beam::wallet::ErrorType type);
+
 signals:
     void onStatus(const WalletStatus& status);
     void onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>& items);
@@ -68,8 +71,7 @@ signals:
     void onGeneratedNewAddress(const beam::WalletAddress& walletAddr);
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
     void nodeConnectionChanged(bool isNodeConnected);
-    void nodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason::Marshal& reason);
-
+    void onWalletError(beam::wallet::ErrorType error);
 
 private:
     void onCoinsChanged() override;
@@ -105,7 +107,7 @@ private:
     beam::io::Reactor::Ptr _reactor;
     IWalletModelAsync::Ptr _async;
     std::weak_ptr<beam::proto::FlyClient::INetwork> _nodeNetwork;
-	std::weak_ptr<beam::IWalletNetwork> _walletNetwork;
+    std::weak_ptr<beam::IWalletNetwork> _walletNetwork;
     std::weak_ptr<beam::Wallet> _wallet;
     beam::io::Timer::Ptr _logRotateTimer;
 
