@@ -967,6 +967,30 @@ void TestTransaction()
 	verify_test(ctx.m_Fee == beam::AmountBig::Type(fee1 + fee2));
 }
 
+void TestCutThrough()
+{
+	TransactionMaker tm;
+	tm.AddOutput(0, 3000);
+	tm.AddOutput(0, 2000);
+
+	tm.m_Trans.Normalize();
+
+	beam::TxBase::Context ctx;
+	verify_test(ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader()));
+
+	beam::Input::Ptr pInp(new beam::Input);
+	pInp->m_Commitment = tm.m_Trans.m_vOutputs.front()->m_Commitment;
+	tm.m_Trans.m_vInputs.push_back(std::move(pInp));
+
+	ctx.Reset();
+	verify_test(!ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader())); // redundant outputs must be banned!
+
+	verify_test(tm.m_Trans.Normalize() == 1);
+
+	ctx.Reset();
+	verify_test(ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader()));
+}
+
 void TestAES()
 {
 	// AES in ECB mode (simplest): https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Standards-and-Guidelines/documents/examples/AES_Core256.pdf
@@ -1319,6 +1343,7 @@ void TestAll()
 	TestRangeProof(false);
 	TestRangeProof(true);
 	TestTransaction();
+	TestCutThrough();
 	TestAES();
 	TestKdf();
 	TestBbs();

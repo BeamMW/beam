@@ -579,7 +579,7 @@ namespace beam
 
 		size_t nDel = 0;
 
-		size_t i1 = m_vOutputs.size();
+		size_t i1 = 0;
 		for (size_t i0 = 0; i0 < m_vInputs.size(); i0++)
 		{
 			Input::Ptr& pInp = m_vInputs[i0];
@@ -596,6 +596,7 @@ namespace beam
 						pInp.reset();
 						pOut.reset();
 						nDel++;
+						i1++;
 					}
 					break;
 				}
