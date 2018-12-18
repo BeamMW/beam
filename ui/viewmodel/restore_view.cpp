@@ -33,7 +33,7 @@ RestoreViewModel::RestoreViewModel()
     , m_speedFilter{24}
     , m_currentEstimationSec{0}
     , m_skipProgress{false}
-    , m_errorShowed{false}
+    , m_isCreating{false}
 {
     connect(&m_walletModel, SIGNAL(onSyncProgressUpdated(int, int)),
         SLOT(onSyncProgressUpdated(int, int)));
@@ -211,6 +211,20 @@ void RestoreViewModel::setProgressMessage(const QString& value)
     }
 }
 
+void RestoreViewModel::setIsCreating(bool value)
+{
+    if (m_isCreating != value)
+    {
+        m_isCreating = value;
+        emit isCreatingChanged();
+    }
+}
+
+bool RestoreViewModel::getIsCreating() const
+{
+    return m_isCreating;
+}
+
 void RestoreViewModel::syncWithNode()
 {
     m_walletModel.getAsync()->syncWithNode();
@@ -228,13 +242,9 @@ void RestoreViewModel::onNodeConnectionChanged(bool isNodeConnected)
 
 void RestoreViewModel::onGetWalletError(beam::wallet::ErrorType error)
 {
-    if (beam::wallet::ErrorType::NodeProtocolIncompatible == error)
+    if (beam::wallet::ErrorType::NodeProtocolIncompatible == error && m_isCreating)
     {
-        if (!m_errorShowed)
-        {
-            AppModel::getInstance()->getMessages().addMessage(WalletModel::GetErrorString(error));
-            m_errorShowed = true;
-        }
+        emit walletError(tr("Incompatible peer"), WalletModel::GetErrorString(error));
         return;
     }
 
