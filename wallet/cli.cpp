@@ -24,6 +24,7 @@
 #include "core/treasury.h"
 #include "unittests/util.h"
 #include "mnemonic/mnemonic.h"
+#include "utility/string_helpers.h"
 
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
@@ -115,6 +116,47 @@ namespace
         if (!label.empty()) {
             LOG_INFO() << "label = " << label;
         }
+    }
+
+    WordList GeneratePhrase()
+    {
+        auto phrase = createMnemonic(getEntropy(), language::en);
+        assert(phrase.size() == 12);
+        cout << "======\nGenerated wallet phrase: \n\n\t";
+        for (const auto& word : phrase)
+        {
+            cout << word << ';';
+        }
+        cout << "\n\n\tWARNING\n\n\tYour recovery phrase is the access key to all the cryptocurrencies in your wallet.\n\tPrint or write down the phrase to keep it in a safe or in a locked vault.\n\tWithout the phrase you will not be able to recover your money.\n======" << endl;
+        return phrase;
+    }
+
+    bool ReadWalletSeed(NoLeak<uintBig>& walletSeed, po::variables_map& vm)
+    {
+        SecString seed;
+        WordList phrase;
+        if (vm.count(cli::WALLET_PHRASE))
+        {
+            auto tempPhrase = vm[cli::WALLET_PHRASE].as<string>();
+            phrase = string_helpers::split(tempPhrase, ';');
+            assert(phrase.size() == 12);
+            if (phrase.size() != 12)
+            {
+                LOG_ERROR() << "Invalid recovery phrases provided: " << tempPhrase;
+                return false;
+            }
+        }
+        else
+        {
+            LOG_INFO() << "Wallet phrase has not provided. Generating...\n";
+            phrase = GeneratePhrase();
+        }
+
+        auto buf = decodeMnemonic(phrase);
+        seed.assign(buf.data(), buf.size());
+
+        walletSeed.V = seed.hash().V;
+        return true;
     }
 }
 
@@ -378,11 +420,7 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::GENERATE_PHRASE)
                         {
-                            auto phrase = createMnemonic(getEntropy(), language::en);
-                            for (const auto& word : phrase)
-                            {
-                                cout << word << ';';
-                            }
+                            GeneratePhrase();
                             return 0;
                         }
 
@@ -394,6 +432,11 @@ int main_impl(int argc, char* argv[])
                         if (!WalletDB::isInitialized(walletPath) && command != cli::INIT)
                         {
                             LOG_ERROR() << "Please initialize your wallet first... \nExample: beam-wallet --command=init";
+                            return -1;
+                        }
+                        else if (WalletDB::isInitialized(walletPath) && command == cli::INIT)
+                        {
+                            LOG_ERROR() << "Your wallet is already initialized.";
                             return -1;
                         }
 
@@ -408,7 +451,7 @@ int main_impl(int argc, char* argv[])
 
                         if (command == cli::INIT)
                         {
-                            if (!beam::read_wallet_seed(walletSeed, vm))
+                            if (!ReadWalletSeed(walletSeed, vm))
                             {
                                 LOG_ERROR() << "Please, provide seed phrase for the wallet.";
                                 return -1;

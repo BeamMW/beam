@@ -294,33 +294,6 @@ namespace beam
         }
     }
 
-
-    bool read_wallet_seed(NoLeak<uintBig>& walletSeed, po::variables_map& vm)
-    {
-        SecString seed;
-
-        if (vm.count(cli::WALLET_PHRASE))
-        {
-            auto tempPhrase = vm[cli::WALLET_PHRASE].as<string>();
-            WordList phrase = string_helpers::split(tempPhrase, ';');
-            assert(phrase.size() == 12);
-            if (phrase.size() != 12)
-            {
-                LOG_ERROR() << "Invalid recovery phrases provided: " << tempPhrase;
-                return false;
-            }
-            auto buf = decodeMnemonic(phrase);
-            seed.assign(buf.data(), buf.size());
-        }
-        else
-        {
-            return false;
-        }
-
-        walletSeed.V = seed.hash().V;
-        return true;
-    }
-
     bool read_wallet_pass(SecString& pass, po::variables_map& vm)
     {
         return read_secret_impl(pass, "Enter password: ", cli::PASS, vm);

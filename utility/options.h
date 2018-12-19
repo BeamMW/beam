@@ -112,7 +112,5 @@ namespace beam
 
     class SecString;
 
-    bool read_wallet_seed(ECC::NoLeak<ECC::uintBig>& walletSeed, po::variables_map& vm);
-
     bool read_wallet_pass(SecString& pass, po::variables_map& vm);
 }
