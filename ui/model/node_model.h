@@ -23,7 +23,6 @@
 #include "utility/io/reactor.h"
 
 class NodeModel : public QThread
-                , public beam::INodeObserver
 {
     Q_OBJECT
 public:
@@ -37,9 +36,8 @@ public:
     bool isNodeRunning() const;
 private:
     void run() override;
-    void OnSyncProgress(int done, int total) override;
 
-    std::unique_ptr<beam::Node> initLocalNode();
+    void runLocalNode();
 signals:
     void syncProgressUpdated(int done, int total);
     void startedNode();

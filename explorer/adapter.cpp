@@ -94,10 +94,11 @@ using nlohmann::json;
 } //namespace
 
 /// Explorer server backend, gets callback on status update and returns json messages for server
-class Adapter : public INodeObserver, public IAdapter {
+class Adapter : public Node::IObserver, public IAdapter {
 public:
     Adapter(Node& node) :
         _packer(PACKER_FRAGMENTS_SIZE),
+		_node(node),
         _nodeBackend(node.get_Processor()),
         _statusDirty(true),
         _nodeIsSyncing(true),
@@ -128,13 +129,14 @@ private:
     }
 
     /// Returns body for /status request
-    void OnSyncProgress(int done, int total) override {
-        bool isSyncing = (done != total);
+    void OnSyncProgress() override {
+		const Node::SyncStatus& s = _node.m_SyncStatus;
+        bool isSyncing = (s.m_Done != s.m_Total);
         if (isSyncing != _nodeIsSyncing) {
             _statusDirty = true;
             _nodeIsSyncing = isSyncing;
         }
-        if (_nextHook) _nextHook->OnSyncProgress(done, total);
+        if (_nextHook) _nextHook->OnSyncProgress();
     }
 
     void OnStateChanged() override {
@@ -372,6 +374,7 @@ private:
     HttpMsgCreator _packer;
 
     // node db interface
+	Node& _node;
     NodeProcessor& _nodeBackend;
 
     // helper fragments
@@ -384,8 +387,8 @@ private:
     bool _nodeIsSyncing;
 
     // node observers chain
-    INodeObserver** _hook;
-    INodeObserver* _nextHook;
+    Node::IObserver** _hook;
+    Node::IObserver* _nextHook;
 
     ResponseCache _cache;
 

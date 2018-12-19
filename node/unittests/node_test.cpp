@@ -886,14 +886,8 @@ namespace beam
 		:public NodeProcessor
 	{
 	public:
-
-
 		// NodeProcessor
-		virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override {}
-		virtual void OnPeerInsane(const PeerID&) override {}
-		virtual void OnNewState() override {}
 		virtual void AdjustFossilEnd(Height& h) override { h = 0; } // don't fossile anything, since we're not creating macroblocks
-
 	};
 
 

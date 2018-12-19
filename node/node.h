@@ -25,15 +25,16 @@
 
 namespace beam
 {
-	struct INodeObserver
-	{
-		virtual void OnSyncProgress(int done, int total) = 0;
-		virtual void OnStateChanged() {}
-	};
 
 struct Node
 {
 	static const uint16_t s_PortDefault = 31744; // whatever
+
+	struct IObserver
+	{
+		virtual void OnSyncProgress() = 0;
+		virtual void OnStateChanged() {}
+	};
 
 	struct Config
 	{
@@ -119,7 +120,7 @@ struct Node
 
 		} m_Dandelion;
 
-		INodeObserver* m_Observer = nullptr;
+		IObserver* m_Observer = nullptr;
 
 	} m_Cfg; // must not be changed after initialization
 
@@ -145,27 +146,34 @@ struct Node
 
 	NodeProcessor& get_Processor() { return m_Processor; } // for tests only!
 
+	struct SyncStatus
+	{
+		static const UINT s_WeightHdr = 1;
+		static const UINT s_WeightBlock = 8;
+
+		// in units of Height, but different.
+		Height m_Done;
+		Height m_Total;
+
+		bool operator == (const SyncStatus&) const;
+
+	} m_SyncStatus;
+
 private:
 
 	struct Processor
 		:public NodeProcessor
 	{
 		// NodeProcessor
-		void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) override;
+		void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer, Height hTarget) override;
 		void OnPeerInsane(const PeerID&) override;
 		void OnNewState() override;
 		void OnRolledBack() override;
 		bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&) override;
 		void AdjustFossilEnd(Height&) override;
-		void OnStateData() override;
-		void OnBlockData() override;
-		void OnUpToDate() override;
 		bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) override;
 		void OnModified() override;
 		bool EnumViewerKeys(IKeyWalker&) override;
-
-		void ReportProgress();
-		void ReportNewState();
 
 		struct Verifier
 		{
@@ -197,11 +205,6 @@ private:
 
 		void GenerateProofStateStrict(Merkle::HardProof&, Height);
 
-		int m_RequestedHeadersCount = 0;
-		int m_RequestedBlocksCount = 0;
-		int m_DownloadedHeaders = 0;
-		int m_DownloadedBlocks = 0;
-
 		bool m_bFlushPending = false;
 		io::Timer::Ptr m_pFlushTimer;
 		void OnFlushTimer();
@@ -227,7 +230,7 @@ private:
 		Key m_Key;
 
 		bool m_bPack;
-		bool m_bRelevant;
+		Height m_hTarget;
 		Peer* m_pOwner;
 
 		bool operator < (const Task& t) const { return (m_Key < t.m_Key); }
@@ -263,6 +266,8 @@ private:
 		uint64_t m_SizeCompleted;
 	};
 
+	void UpdateSyncStatus();
+	void UpdateSyncStatusRaw();
 	void OnSyncTimer();
 	void SyncCycle();
 	bool SyncCycle(Peer&);

@@ -42,7 +42,7 @@ class NodeProcessor
 	void Rollback();
 	void PruneOld();
 	void InitializeFromBlocks();
-	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock);
+	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, Height hTarget);
 
 	struct RollbackData;
 
@@ -158,15 +158,12 @@ public:
 	void EnumCongestions(uint32_t nMaxBlocksBacklog);
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 
-	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer) {}
+	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer, Height hTarget) {}
 	virtual void OnPeerInsane(const PeerID&) {}
 	virtual void OnNewState() {}
 	virtual void OnRolledBack() {}
 	virtual bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
 	virtual void AdjustFossilEnd(Height&) {}
-	virtual void OnStateData() {}
-	virtual void OnBlockData() {}
-	virtual void OnUpToDate() {}
 	virtual bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) { return false; }
 	virtual void OnModified() {}
 

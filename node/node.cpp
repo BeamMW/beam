@@ -28,22 +28,100 @@
 
 namespace beam {
 
+bool Node::SyncStatus::operator == (const SyncStatus& x) const
+{
+	return
+		(m_Done == x.m_Done) &&
+		(m_Total == x.m_Total);
+}
+
 void Node::RefreshCongestions()
 {
     if (m_pSync)
         return;
 
     for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
-        it->m_bRelevant = false;
+        it->m_hTarget = MaxHeight;
 
     m_Processor.EnumCongestions(m_Cfg.m_MaxConcurrentBlocksRequest);
 
     for (TaskList::iterator it = m_lstTasksUnassigned.begin(); m_lstTasksUnassigned.end() != it; )
     {
         Task& t = *(it++);
-        if (!t.m_bRelevant)
+        if (t.m_hTarget == MaxHeight)
             DeleteUnassignedTask(t);
     }
+
+	UpdateSyncStatus();
+}
+
+void Node::UpdateSyncStatus()
+{
+	SyncStatus stat = m_SyncStatus;
+	UpdateSyncStatusRaw();
+
+	if (m_Cfg.m_Observer && !(m_SyncStatus == stat))
+		m_Cfg.m_Observer->OnSyncProgress();
+}
+
+void Node::UpdateSyncStatusRaw()
+{
+	if (m_pSync)
+	{
+		const FirstTimeSync& s = *m_pSync;
+		m_SyncStatus.m_Total = s.m_Trg.m_Height * (SyncStatus::s_WeightHdr + SyncStatus::s_WeightBlock);
+
+		if (s.m_SizeCompleted <= s.m_SizeTotal)
+		{
+			// calculate in floating-point, to avoid overflow. Precision loss is not important
+			double val = static_cast<double>(m_SyncStatus.m_Total);
+			val *= static_cast<double>(s.m_SizeCompleted);
+			val /= static_cast<double>(s.m_SizeTotal);
+
+			m_SyncStatus.m_Done = std::min(m_SyncStatus.m_Total, static_cast<Height>(val));
+		}
+		else
+			m_SyncStatus.m_Done = 0;
+
+		return;
+	}
+
+	Height hToCursor = m_Processor.m_Cursor.m_ID.m_Height * (SyncStatus::s_WeightHdr + SyncStatus::s_WeightBlock);
+	m_SyncStatus.m_Total = hToCursor;
+	m_SyncStatus.m_Done = hToCursor;
+
+	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
+	{
+		const Task& t = *it;
+		if (MaxHeight == t.m_hTarget)
+			continue;
+		if (m_Processor.m_Cursor.m_ID.m_Height >= t.m_hTarget)
+			continue;
+
+		// TODO - consider only assigned tasks. This will filter-out inaccessible ones.
+		// t.m_pOwner
+
+		Height hVal = t.m_hTarget * (SyncStatus::s_WeightHdr + SyncStatus::s_WeightBlock);
+		m_SyncStatus.m_Total = std::max(m_SyncStatus.m_Total, hVal);
+
+		Height h = t.m_Key.first.m_Height;
+		if (h > t.m_hTarget)
+			continue; // ?!
+
+		bool bBlock = t.m_Key.second;
+		// If the request is the block - assume all the headers are received, as well as all the blocks up to cursor
+		// If the request is the header - assume headers are requested in reverse order, up to current cursor (which isn't true in case of fork, but it's a coarse estimate)
+		if (bBlock)
+			h = m_Processor.m_Cursor.m_ID.m_Height; // the height down to which all the headers are already downloaded
+		else
+			if (h)
+				h--;
+
+		hVal = hToCursor + (t.m_hTarget - h) * SyncStatus::s_WeightHdr;
+		m_SyncStatus.m_Done = std::max(m_SyncStatus.m_Done, hVal);
+	}
+
+	m_SyncStatus.m_Total = std::max(m_SyncStatus.m_Total, m_SyncStatus.m_Done);
 }
 
 void Node::DeleteUnassignedTask(Task& t)
@@ -317,7 +395,7 @@ void Node::Peer::SetTimerWrtFirstTask()
         SetTimer(m_lstTasks.front().m_Key.second ? m_This.m_Cfg.m_Timeout.m_GetBlock_ms : m_This.m_Cfg.m_Timeout.m_GetState_ms);
 }
 
-void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock, const PeerID* pPreferredPeer)
+void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock, const PeerID* pPreferredPeer, Height hTarget)
 {
     Task tKey;
     tKey.m_Key.first = id;
@@ -330,7 +408,7 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 
         Task* pTask = new Task;
         pTask->m_Key = tKey.m_Key;
-        pTask->m_bRelevant = true;
+        pTask->m_hTarget = hTarget;
         pTask->m_bPack = false;
         pTask->m_pOwner = NULL;
 
@@ -339,22 +417,13 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 
         get_ParentObj().TryAssignTask(*pTask, pPreferredPeer);
 
-
-        int diff = static_cast<int>(id.m_Height - m_Cursor.m_ID.m_Height);
-        if (bBlock)
-        {
-            m_RequestedBlocksCount = std::max(m_RequestedBlocksCount, diff);
-        }
-        else
-        {
-            m_RequestedHeadersCount = std::max(m_RequestedHeadersCount, diff);
-        }
-        
-
-        ReportProgress();
-
-    } else
-        it->m_bRelevant = true;
+	}
+	else
+	{
+		Task& t = *it;
+		if ((t.m_hTarget == MaxHeight) || (t.m_hTarget < hTarget))
+			t.m_hTarget = hTarget;
+	}
 }
 
 void Node::Processor::OnPeerInsane(const PeerID& peerID)
@@ -428,7 +497,9 @@ void Node::Processor::OnNewState()
 
     get_ParentObj().RefreshCongestions();
 
-    ReportNewState();
+	IObserver* pObserver = get_ParentObj().m_Cfg.m_Observer;
+	if (pObserver)
+		pObserver->OnStateChanged();
 }
 
 void Node::Processor::OnRolledBack()
@@ -565,62 +636,11 @@ void Node::Processor::AdjustFossilEnd(Height& h)
         h = hOldest;
 }
 
-void Node::Processor::OnStateData()
-{
-    if (m_DownloadedHeaders < m_RequestedHeadersCount)
-    {
-        ++m_DownloadedHeaders;
-        ReportProgress();
-    }
-}
-
-void Node::Processor::OnBlockData()
-{
-    if (m_DownloadedBlocks < m_RequestedBlocksCount 
-     || m_DownloadedBlocks < m_RequestedHeadersCount)
-    {
-        ++m_DownloadedBlocks;
-        ReportProgress();
-    }
-}
-
-void Node::Processor::OnUpToDate()
-{
-    ReportProgress();
-}
-
 bool Node::Processor::OpenMacroblock(Block::BodyBase::RW& rw, const NodeDB::StateID& sid)
 {
     get_ParentObj().m_Compressor.FmtPath(rw, sid.m_Height, NULL);
     rw.ROpen();
     return true;
-}
-
-void Node::Processor::ReportProgress()
-{
-    auto observer = get_ParentObj().m_Cfg.m_Observer;
-    if (observer)
-    {
-        int total = m_RequestedHeadersCount > 0 ? m_RequestedHeadersCount * 2 : m_RequestedBlocksCount;
-        int done = m_DownloadedHeaders + m_DownloadedBlocks;
-        if (total >= done)
-        {
-            observer->OnSyncProgress(done, total);
-            if (total == done)
-            {
-                m_RequestedHeadersCount = m_RequestedBlocksCount = m_DownloadedHeaders = m_DownloadedBlocks = 0;
-            }
-        }
-    }
-}
-
-void Node::Processor::ReportNewState()
-{
-    auto observer = get_ParentObj().m_Cfg.m_Observer;
-    if (observer)
-    {
-        observer->OnStateChanged();
-    }
 }
 
 void Node::Processor::OnModified()
@@ -720,6 +740,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
 
     InitMode();
 
+	UpdateSyncStatusRaw();
     RefreshCongestions();
 
     if (m_Cfg.m_Listen.port())
@@ -1218,7 +1239,7 @@ void Node::Peer::ReleaseTask(Task& t)
     m_lstTasks.erase(TaskList::s_iterator_to(t));
     m_This.m_lstTasksUnassigned.push_back(t);
 
-    if (t.m_bRelevant)
+    if (t.m_hTarget != MaxHeight)
         m_This.TryAssignTask(t, NULL);
     else
         m_This.DeleteUnassignedTask(t);
@@ -1460,6 +1481,8 @@ void Node::Peer::OnMsg(proto::Macroblock&& msg)
         if (++m_This.m_pSync->m_RequestsPending >= m_This.m_Cfg.m_Sync.m_SrcPeers)
             m_This.OnSyncTimer();
     }
+
+	m_This.UpdateSyncStatus();
 }
 
 void Node::OnSyncTimer()
@@ -1800,7 +1823,7 @@ void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
     if (NodeProcessor::DataStatus::Invalid == eStatus)
         ThrowUnexpected();
 
-    get_FirstTask().m_bRelevant = false;
+    get_FirstTask().m_hTarget = MaxHeight;
     OnFirstTaskDone();
 
     if (NodeProcessor::DataStatus::Accepted == eStatus)

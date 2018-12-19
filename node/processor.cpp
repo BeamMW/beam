@@ -123,11 +123,10 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 	{
 		Block::SystemState::ID id;
 		ZeroObject(id);
-		RequestData(id, true, NULL);
+		RequestData(id, true, nullptr, 0);
 		return;
 	}
 
-	bool noRequests = true;
 	// request all potentially missing data
 	NodeDB::WalkerState ws(m_DB);
 	for (m_DB.EnumTips(ws); ws.MoveNext(); )
@@ -142,6 +141,8 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 		if (wrk < m_Cursor.m_Full.m_ChainWork)
 			continue; // not interested in tips behind the current cursor
 
+		Height hTarget = sid.m_Height;
+		NodeDB::StateID sidTrg = sid;
 		Height nBlocks = 0;
 		const uint32_t nMaxBlocks = 32;
 		uint64_t pBlockRow[nMaxBlocks];
@@ -166,8 +167,6 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 			if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(sid.m_Row))
 				break;
 		}
-
-		noRequests = false;
 
 		Block::SystemState::ID id;
 
@@ -194,7 +193,7 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 
 				m_DB.get_StateID(sid, id);
 
-				RequestDataInternal(id, sid.m_Row, true);
+				RequestDataInternal(id, sid.m_Row, true, hTarget);
 			}
 		}
 		else
@@ -205,23 +204,19 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 			id.m_Height = s.m_Height - 1;
 			id.m_Hash = s.m_Prev;
 
-			RequestDataInternal(id, sid.m_Row, false);
+			RequestDataInternal(id, sid.m_Row, false, hTarget);
 		}
-	}
-	if (noRequests)
-	{
-		OnUpToDate();
 	}
 }
 
-void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64_t row, bool bBlock)
+void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64_t row, bool bBlock, Height hTarget)
 {
 	if (id.m_Height >= m_Cursor.m_LoHorizon)
 	{
 		PeerID peer;
 		bool bPeer = m_DB.get_Peer(row, peer);
 
-		RequestData(id, bBlock, bPeer ? &peer : NULL);
+		RequestData(id, bBlock, bPeer ? &peer : NULL, hTarget);
 	}
 	else
 	{
@@ -1064,7 +1059,6 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 		m_DB.set_Peer(rowid, &peer);
 
 		LOG_INFO() << id << " Header accepted";
-		OnStateData();
 	}
 	
 	return ret;
@@ -1104,7 +1098,6 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
 		TryGoUp();
 
-	OnBlockData();
 	return DataStatus::Accepted;
 }
 
