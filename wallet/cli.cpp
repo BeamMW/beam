@@ -614,7 +614,11 @@ int main_impl(int argc, char* argv[])
                         {
                             // TODO: make db request by 'default' label
                             auto addresses = walletDB->getAddresses(true);
-                            assert(!addresses.empty());
+                            if (addresses.empty()) {
+                                newAddress(walletDB, "default", pass);
+                                addresses = walletDB->getAddresses(true);
+                                assert(!addresses.empty());
+                            }
                             wallet.transfer_money(addresses[0].m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
                         }
 
