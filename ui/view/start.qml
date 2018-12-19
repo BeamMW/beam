@@ -619,7 +619,10 @@ Item
                         CustomButton {
                             text: qsTr("back");
                             icon.source: "qrc:/assets/icon-back.svg"
-                            onClicked: startWizzardView.pop();
+                            onClicked: {
+                                startWizzardView.pop();
+                                viewModel.resetPhrases();
+                            }
                         }
 
                         PrimaryButton {
