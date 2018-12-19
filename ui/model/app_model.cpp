@@ -60,6 +60,12 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
     if (!m_db)
 		return false;
 
+    // generate default address
+
+    WalletAddress address = wallet::createAddress(m_db);
+    address.m_label = "default";
+    m_db->saveAddress(address);
+
 	OnWalledOpened(pass);
     return true;
 }

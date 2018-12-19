@@ -461,6 +461,9 @@ int main_impl(int argc, char* argv[])
                             {
                                 LOG_INFO() << "wallet successfully created...";
 
+                                // generate default address
+                                newAddress(walletDB, "default", pass);
+
                                 return 0;
                             }
                             else
