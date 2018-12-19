@@ -142,8 +142,8 @@ namespace beam
         po::options_description wallet_options("Wallet options");
         wallet_options.add_options()
             (cli::PASS, po::value<string>(), "password for the wallet")
-            (cli::AMOUNT_FULL, po::value<double>(), "amount to send (in Beams, 1 Beam = 1000000 chattle)")
-            (cli::FEE_FULL, po::value<double>()->default_value(0), "fee (in Beams, 1 Beam = 1000000 chattle)")
+            (cli::AMOUNT_FULL, po::value<double>(), "amount to send (in Beams, 1 Beam = 100000000 groth)")
+            (cli::FEE_FULL, po::value<double>()->default_value(0), "fee (in Beams, 1 Beam = 100000000 groth)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
             (cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
