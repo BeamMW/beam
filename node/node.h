@@ -148,8 +148,8 @@ struct Node
 
 	struct SyncStatus
 	{
-		static const UINT s_WeightHdr = 1;
-		static const UINT s_WeightBlock = 8;
+		static const uint32_t s_WeightHdr = 1;
+		static const uint32_t s_WeightBlock = 8;
 
 		// in units of Height, but different.
 		Height m_Done;
