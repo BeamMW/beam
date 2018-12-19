@@ -25,6 +25,7 @@ class RestoreViewModel : public QObject
     Q_OBJECT
     Q_PROPERTY(double progress READ getProgress WRITE setProgress NOTIFY progressChanged)
     Q_PROPERTY(QString progressMessage READ getProgressMessage WRITE setProgressMessage NOTIFY progressMessageChanged)
+    Q_PROPERTY(bool isCreating READ getIsCreating WRITE setIsCreating NOTIFY isCreatingChanged)
 
 public:
 
@@ -35,6 +36,8 @@ public:
     void setProgress(double value);
     const QString& getProgressMessage() const;
     void setProgressMessage(const QString& value);
+    void setIsCreating(bool value);
+    bool getIsCreating() const;
 
     Q_INVOKABLE void resetWallet();
 
@@ -43,11 +46,13 @@ public slots:
     void onNodeSyncProgressUpdated(int done, int total);
     void onUpdateTimer();
     void onNodeConnectionChanged(bool isNodeConnected);
-    void onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason::Marshal& reason);
+    void onGetWalletError(beam::wallet::ErrorType error);
 signals:
     void progressChanged();
     void progressMessageChanged();
     void syncCompleted();
+    void walletError(const QString& title, const QString& message);
+    void isCreatingChanged();
 private:
     void updateProgress();
     void syncWithNode();
@@ -68,4 +73,5 @@ private:
     beamui::Filter m_speedFilter;
     uint64_t m_currentEstimationSec;
     bool m_skipProgress;
+    bool m_isCreating;
 };

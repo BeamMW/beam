@@ -12,8 +12,54 @@ Item
     id: root_restore
 
     property bool isRecoveryMode: false
-    property bool isCreating: false
+    property alias isCreating: viewModel.isCreating
     property var cancelCallback: undefined
+
+    ConfirmationDialog {
+        id: confirmationDialog
+        okButtonColor: Style.bright_teal
+        okButtonText: qsTr("change settings")
+        okButtonIconSource: "qrc:/assets/icon-back-blue.svg"
+        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+
+        property alias titleText: title.text
+        property alias messageText: message.text
+
+        contentItem: Item {
+            id: confirmationContent
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: 18
+
+                SFText {
+                    id: title
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.minimumHeight: 21
+                    Layout.leftMargin: 68
+                    Layout.rightMargin: 68
+                    Layout.topMargin: 30
+                    font.pixelSize: 18
+                    font.styleName: "Bold";
+                    font.weight: Font.Bold
+                    color: Style.white
+                }
+
+                SFText {
+                    id: message
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.minimumHeight: 18
+                    Layout.leftMargin: 60
+                    Layout.rightMargin: 60
+                    Layout.bottomMargin: 30
+                    font.pixelSize: 14
+                    color: Style.white
+                }
+            }
+        }
+        onAccepted: {
+            cancelCreating();
+        }
+    }
 
     RestoreViewModel {
         id: viewModel 
@@ -23,6 +69,19 @@ Item
             else
                 root_restore.parent.source = "qrc:/main.qml";
         }
+
+        onWalletError: {
+            if (isCreating) {
+                confirmationDialog.titleText = title;
+                confirmationDialog.messageText = message;
+                confirmationDialog.open();
+            }
+        }
+    }
+
+    function cancelCreating() {
+        viewModel.resetWallet();
+        cancelCallback();
     }
 
     LogoComponent {
@@ -128,8 +187,7 @@ Item
                     text: qsTr("cancel")
                     icon.source: "qrc:/assets/icon-cancel.svg"
                     onClicked: {
-                        viewModel.resetWallet();
-                        cancelCallback();
+                        cancelCreating();
                     }
                 }
             }

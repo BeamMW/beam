@@ -33,6 +33,7 @@ RestoreViewModel::RestoreViewModel()
     , m_speedFilter{24}
     , m_currentEstimationSec{0}
     , m_skipProgress{false}
+    , m_isCreating{false}
 {
     connect(&m_walletModel, SIGNAL(onSyncProgressUpdated(int, int)),
         SLOT(onSyncProgressUpdated(int, int)));
@@ -46,8 +47,8 @@ RestoreViewModel::RestoreViewModel()
     connect(&m_walletModel, SIGNAL(nodeConnectionChanged(bool)),
         SLOT(onNodeConnectionChanged(bool)));
 
-    connect(&m_walletModel, SIGNAL(nodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason::Marshal&)),
-        SLOT(onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason::Marshal&)));
+    connect(&m_walletModel, SIGNAL(onWalletError(beam::wallet::ErrorType)),
+        SLOT(onGetWalletError(beam::wallet::ErrorType)));
 
     connect(&m_updateTimer, SIGNAL(timeout()), this, SLOT(onUpdateTimer()));
 
@@ -210,6 +211,20 @@ void RestoreViewModel::setProgressMessage(const QString& value)
     }
 }
 
+void RestoreViewModel::setIsCreating(bool value)
+{
+    if (m_isCreating != value)
+    {
+        m_isCreating = value;
+        emit isCreatingChanged();
+    }
+}
+
+bool RestoreViewModel::getIsCreating() const
+{
+    return m_isCreating;
+}
+
 void RestoreViewModel::syncWithNode()
 {
     m_walletModel.getAsync()->syncWithNode();
@@ -225,8 +240,14 @@ void RestoreViewModel::onNodeConnectionChanged(bool isNodeConnected)
     m_walletConnected = isNodeConnected;
 }
 
-void RestoreViewModel::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason::Marshal&)
+void RestoreViewModel::onGetWalletError(beam::wallet::ErrorType error)
 {
+    if (beam::wallet::ErrorType::NodeProtocolIncompatible == error && m_isCreating)
+    {
+        emit walletError(tr("Incompatible peer"), WalletModel::GetErrorString(error));
+        return;
+    }
+
     m_skipProgress = true;
     updateProgress();
 }

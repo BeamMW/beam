@@ -31,8 +31,8 @@ StatusbarViewModel::StatusbarViewModel()
     connect(&m_model, SIGNAL(nodeConnectionChanged(bool)),
         SLOT(onNodeConnectionChanged(bool)));
 
-    connect(&m_model, SIGNAL(nodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason::Marshal&)),
-        SLOT(onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason::Marshal&)));
+    connect(&m_model, SIGNAL(onWalletError(beam::wallet::ErrorType)),
+        SLOT(onGetWalletError(beam::wallet::ErrorType)));
 
     connect(&m_model, SIGNAL(onSyncProgressUpdated(int, int)),
         SLOT(onSyncProgressUpdated(int, int)));
@@ -116,18 +116,17 @@ void StatusbarViewModel::onNodeConnectionChanged(bool isNodeConnected)
         return;
     }
 
-	// Failed status must have arrived already
-
-    //setWalletStatusErrorMsg(tr("Wallet is not connected to the node"));
-    //setIsFailedStatus(true);
+    if (!m_isFailedStatus)
+    {
+        // Failed status must have arrived already
+        setWalletStatusErrorMsg(tr("Wallet is not connected to the node"));
+        setIsFailedStatus(true);
+    }
 }
 
-void StatusbarViewModel::onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason::Marshal& reason)
+void StatusbarViewModel::onGetWalletError(beam::wallet::ErrorType error)
 {
-	std::ostringstream os;
-	os << "Error: " << reason;
-
-    setWalletStatusErrorMsg(tr(os.str().c_str()));
+    setWalletStatusErrorMsg(WalletModel::GetErrorString(error));
     setIsFailedStatus(true);
 }
 

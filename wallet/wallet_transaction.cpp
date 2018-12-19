@@ -427,7 +427,7 @@ namespace beam { namespace wallet
         return state;
     }
 
-    bool SimpleTransaction::isShouldNotifyAboutChanges(TxParameterID paramID) const
+    bool SimpleTransaction::ShouldNotifyAboutChanges(TxParameterID paramID) const
     {
         switch (paramID)
         {
@@ -440,6 +440,7 @@ namespace beam { namespace wallet
         case TxParameterID::IsSender:
         case TxParameterID::Status:
         case TxParameterID::TransactionType:
+        case TxParameterID::KernelID:
             return true;
         default:
             return false;
@@ -627,6 +628,11 @@ namespace beam { namespace wallet
         // final signature
         m_Kernel->m_Signature.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
         m_Kernel->m_Signature.m_k = m_PartialSignature + m_PeerSignature;
+        
+        Merkle::Hash kernelID;
+        m_Kernel->get_ID(kernelID);
+
+        m_Tx.SetParameter(TxParameterID::KernelID, kernelID);
     }
 
     Transaction::Ptr TxBuilder::CreateTransaction()

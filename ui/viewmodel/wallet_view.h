@@ -37,6 +37,7 @@ class TxObject : public QObject
     Q_PROPERTY(QString sendingAddress READ getSendingAddress CONSTANT)
     Q_PROPERTY(QString receivingAddress READ getReceivingAddress CONSTANT)
     Q_PROPERTY(QString fee           READ getFee CONSTANT)
+    Q_PROPERTY(QString kernelID      READ getKernelID  WRITE setKernelID NOTIFY kernelIDChanged)
 
 public:
 
@@ -58,6 +59,8 @@ public:
     QString getReceivingAddress() const;
     QString getFee() const;
     beam::WalletID peerId() const;
+    QString getKernelID() const;
+    void setKernelID(const QString& value);
 
     void setUserName(const QString& name);
     void setDisplayName(const QString& name);
@@ -76,11 +79,13 @@ signals:
     void amountChanged();
     void changeChanged();
     void statusChanged();
+    void kernelIDChanged();
 
 public:
     beam::TxDescription _tx;
     QString _userName;
     QString _displayName;
+    QString _kernelID;
 };
 
 class WalletViewModel : public QObject
