@@ -25,7 +25,7 @@ Item
         focus: true
         onCurrentItemChanged: {
             if (currentItem && currentItem.defaultFocusItem) {
-                currentItem.defaultFocusItem.focus = true;
+                startWizzardView.currentItem.defaultFocusItem.forceActiveFocus();
             }
         }
 
@@ -431,6 +431,9 @@ Item
                                     text: modelData.value
                                     Component.onCompleted: {
                                         modelData.value = "";
+                                        if (defaultFocusItem == null) {
+                                            defaultFocusItem = phraseValue;
+                                        }
                                     }
                                 }
                                 Binding {

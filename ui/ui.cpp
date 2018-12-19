@@ -14,6 +14,8 @@
 
 #include <QApplication>
 #include <QtQuick>
+#include <QGuiApplication>
+#include <QQmlApplicationEngine>
 
 #include <QInputDialog>
 #include <QMessageBox>
@@ -88,7 +90,7 @@ int main (int argc, char* argv[])
 #endif
     block_sigpipe();
 
-    QApplication app(argc, argv);
+    QGuiApplication app(argc, argv);
 
 	app.setWindowIcon(QIcon(":/assets/icon.png"));
 
@@ -147,10 +149,8 @@ int main (int argc, char* argv[])
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
-            QQuickView view;
-            view.setResizeMode(QQuickView::SizeRootObjectToView);
-            view.setMinimumSize(QSize(768, 540));
-            view.setFlag(Qt::WindowFullscreenButtonHint);
+            QQmlApplicationEngine engine;
+
             WalletSettings settings(appDataDir);
             AppModel appModel(settings);
 
@@ -181,10 +181,27 @@ int main (int argc, char* argv[])
             qmlRegisterType<TxObject>("Beam.Wallet", 1, 0, "TxObject");
             qmlRegisterType<UtxoItem>("Beam.Wallet", 1, 0, "UtxoItem");
 
-            Translator translator;
-            view.setSource(QUrl("qrc:/root.qml"));
+            engine.load(QUrl("qrc:/root.qml"));
 
-            view.show();
+            if (engine.rootObjects().count() < 1)
+            {
+                LOG_ERROR() << "Probmlem with QT";
+                return -1;
+            }
+
+            QObject* topLevel = engine.rootObjects().value(0);
+            QQuickWindow* window = qobject_cast<QQuickWindow*>(topLevel);
+
+            if (!window)
+            {
+                LOG_ERROR() << "Probmlem with QT";
+                return -1;
+            }
+
+            window->setMinimumSize(QSize(768, 540));
+            window->setFlag(Qt::WindowFullscreenButtonHint);
+
+            window->show();
 
             return app.exec();
         }
