@@ -16,6 +16,8 @@
 
 #include <QThread>
 #include <memory>
+#include <atomic>
+#include <condition_variable>
 #include "core/block_crypt.h"
 #include "node/node.h"
 #include "utility/io/reactor.h"
@@ -27,12 +29,26 @@ class NodeModel : public QThread
 public:
     NodeModel();
     ~NodeModel();
-	beam::Key::IKdf::Ptr m_pKdf;
+
+    void setKdf(beam::Key::IKdf::Ptr);
+    void startNode();
+    void stopNode();
+
+    bool isNodeRunning() const;
 private:
     void run() override;
     void OnSyncProgress(int done, int total) override;
+
+    std::unique_ptr<beam::Node> initLocalNode();
 signals:
     void syncProgressUpdated(int done, int total);
+    void startedNode();
+    void stoppedNode();
 private: 
     std::weak_ptr<beam::io::Reactor> m_reactor;
+    std::atomic<bool> m_shouldStartNode;
+    std::atomic<bool> m_shouldTerminateModel;
+    std::atomic<bool> m_isRunning;
+    std::condition_variable m_waiting;
+    beam::Key::IKdf::Ptr m_pKdf;
 };

@@ -36,6 +36,8 @@ AppModel::AppModel(WalletSettings& settings)
 {
     assert(s_instance == nullptr);
     s_instance = this;
+
+    m_nodeModel.start();
 }
 
 AppModel::~AppModel()
@@ -78,87 +80,8 @@ void AppModel::OnWalledOpened(const beam::SecString& pass)
 	start();
 }
 
-void AppModel::applySettingsChanges()
+void AppModel::resetWalletImpl()
 {
-    if (m_node)
-    {
-        m_node.reset();
-    }
-
-    if (m_settings.getRunLocalNode())
-    {
-        startNode();
-
-        io::Address nodeAddr = io::Address::LOCALHOST;
-        nodeAddr.port(m_settings.getLocalNodePort());
-
-        m_wallet->getAsync()->setNodeAddress(nodeAddr.str());
-    }
-    else
-    {
-        auto nodeAddr = m_settings.getNodeAddress().toStdString();
-        m_wallet->getAsync()->setNodeAddress(nodeAddr);
-    }
-}
-
-void AppModel::start()
-{
-    if (m_settings.getRunLocalNode())
-    {
-        startNode();
-
-        io::Address nodeAddr = io::Address::LOCALHOST;
-        nodeAddr.port(m_settings.getLocalNodePort());
-        m_wallet = std::make_shared<WalletModel>(m_db, nodeAddr.str());
-
-        m_wallet->start();
-    }
-    else
-    {
-        auto nodeAddr = m_settings.getNodeAddress().toStdString();
-        m_wallet = std::make_shared<WalletModel>(m_db, nodeAddr);
-
-        m_wallet->start();
-    }
-}
-
-void AppModel::startNode()
-{
-    m_node = make_unique<NodeModel>();
-	m_node->m_pKdf = m_db->get_MasterKdf();
-
-    m_node->start();
-}
-
-WalletModel::Ptr AppModel::getWallet() const
-{
-    return m_wallet;
-}
-
-WalletSettings& AppModel::getSettings()
-{
-    return m_settings;
-}
-
-MessageManager& AppModel::getMessages()
-{
-    return m_messages;
-}
-
-NodeModel& AppModel::getNode()
-{
-    assert(m_node);
-    return *m_node;
-}
-
-void AppModel::resetWallet()
-{
-    if (m_settings.getRunLocalNode())
-    {
-        assert(m_node);
-        m_node.reset();
-    }
-
     assert(m_db);
     m_db.reset();
 
@@ -178,7 +101,7 @@ void AppModel::resetWallet()
 
         boost::filesystem::path settingsPath = appDataPath;
         settingsPath /= WalletSettings::SettingsFile;
-        
+
         for (boost::filesystem::directory_iterator endDirIt, it{ appDataPath }; it != endDirIt; ++it)
         {
             // don't delete settings and logs files
@@ -192,13 +115,94 @@ void AppModel::resetWallet()
             if (error)
             {
                 LOG_ERROR() << error.message();
-            }            
+            }
         }
     }
     catch (std::exception &e)
     {
         LOG_ERROR() << e.what();
     }
+}
+
+void AppModel::applySettingsChanges()
+{
+    m_nodeModel.stopNode();
+
+    if (m_settings.getRunLocalNode())
+    {
+        m_nodeModel.startNode();
+
+        io::Address nodeAddr = io::Address::LOCALHOST;
+        nodeAddr.port(m_settings.getLocalNodePort());
+
+        m_wallet->getAsync()->setNodeAddress(nodeAddr.str());
+    }
+    else
+    {
+        auto nodeAddr = m_settings.getNodeAddress().toStdString();
+        m_wallet->getAsync()->setNodeAddress(nodeAddr);
+    }
+}
+
+void AppModel::stoppedNode()
+{
+    resetWalletImpl();
+    disconnect(&m_nodeModel, SIGNAL(stoppedNode()), this, SLOT(stoppedNode()));
+}
+
+void AppModel::start()
+{
+    m_nodeModel.setKdf(m_db->get_MasterKdf());
+
+    if (m_settings.getRunLocalNode())
+    {
+        m_nodeModel.startNode();
+
+        io::Address nodeAddr = io::Address::LOCALHOST;
+        nodeAddr.port(m_settings.getLocalNodePort());
+        m_wallet = std::make_shared<WalletModel>(m_db, nodeAddr.str());
+
+        m_wallet->start();
+    }
+    else
+    {
+        auto nodeAddr = m_settings.getNodeAddress().toStdString();
+        m_wallet = std::make_shared<WalletModel>(m_db, nodeAddr);
+
+        m_wallet->start();
+    }
+}
+
+WalletModel::Ptr AppModel::getWallet() const
+{
+    return m_wallet;
+}
+
+WalletSettings& AppModel::getSettings()
+{
+    return m_settings;
+}
+
+MessageManager& AppModel::getMessages()
+{
+    return m_messages;
+}
+
+NodeModel& AppModel::getNode()
+{
+    return m_nodeModel;
+}
+
+void AppModel::resetWallet()
+{
+    if (m_nodeModel.isNodeRunning())
+    {
+        connect(&m_nodeModel, SIGNAL(stoppedNode()), SLOT(stoppedNode()));
+        m_nodeModel.stopNode();
+        return;
+    }
+
+    resetWalletImpl();
 }
 
 bool AppModel::checkWalletPassword(const beam::SecString& pass) const

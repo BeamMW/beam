@@ -15,6 +15,7 @@
 #include "node_model.h"
 #include "app_model.h"
 #include "node/node.h"
+#include <mutex>
 
 using namespace beam;
 using namespace beam::io;
@@ -26,6 +27,9 @@ namespace
 }
 
 NodeModel::NodeModel()
+    : m_shouldStartNode(false)
+    , m_shouldTerminateModel(false)
+    , m_isRunning(false)
 {
 }
 
@@ -33,6 +37,8 @@ NodeModel::~NodeModel()
 {
     try
     {
+        m_shouldTerminateModel = true;
+        m_waiting.notify_all();
         {
             auto r = m_reactor.lock();
             if (!r)
@@ -40,7 +46,6 @@ NodeModel::~NodeModel()
                 return;
             }
             r->stop();
-
         }
         wait();
     }
@@ -48,6 +53,32 @@ NodeModel::~NodeModel()
     {
 
     }
+}
+
+void NodeModel::setKdf(beam::Key::IKdf::Ptr kdf)
+{
+    m_pKdf = kdf;
+}
+
+void NodeModel::startNode()
+{
+    m_shouldStartNode = true;
+    m_waiting.notify_all();
+}
+
+void NodeModel::stopNode()
+{
+    m_shouldStartNode = false;
+    auto reactor = m_reactor.lock();
+    if (reactor)
+    {
+        reactor->stop();
+    }
+}
+
+bool NodeModel::isNodeRunning() const
+{
+    return m_isRunning;
 }
 
 void NodeModel::run()
@@ -58,53 +89,35 @@ void NodeModel::run()
         m_reactor = reactor;// store weak ref
         io::Reactor::Scope scope(*reactor);
 
-        auto& settings = AppModel::getInstance()->getSettings();
+        unique_ptr<Node> node;
+        mutex localMutex;
 
-        Node node;
-        node.m_Cfg.m_Listen.port(settings.getLocalNodePort());
-        node.m_Cfg.m_Listen.ip(INADDR_ANY);
-        node.m_Cfg.m_sPathLocal = settings.getLocalNodeStorage();
+        while (!m_shouldTerminateModel)
         {
-#ifdef BEAM_USE_GPU
-            if (settings.getUseGpu())
+            if (!m_shouldStartNode)
             {
-                node.m_Cfg.m_UseGpu = true;
-                node.m_Cfg.m_MiningThreads = 1;
+                unique_lock<mutex> lock(localMutex);
+
+                while (!m_shouldStartNode && !m_shouldTerminateModel)
+                {
+                    m_waiting.wait(lock);
+                }
             }
-            else
+
+            if (!m_shouldTerminateModel)
             {
-                node.m_Cfg.m_UseGpu = false;
-                node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
-            }
-#else
-            node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
-#endif
-            node.m_Cfg.m_VerificationThreads = kVerificationThreadsMaxAvailable;
+                node = initLocalNode();
+
+                m_isRunning = true;
+                emit startedNode();
+                reactor->run();
+
+                node.reset();
+                m_isRunning = false;
+            }            
+            
+            emit stoppedNode();
         }
-
-        node.m_Keys.SetSingleKey(m_pKdf);
-
-        node.m_Cfg.m_HistoryCompression.m_sPathOutput = settings.getTempDir();
-        node.m_Cfg.m_HistoryCompression.m_sPathTmp = settings.getTempDir();
-
-        auto qPeers = settings.getLocalNodePeers();
-
-        for (const auto& qPeer : qPeers)
-        {
-            Address peer_addr;
-            if (peer_addr.resolve(qPeer.toStdString().c_str()))
-            {
-                node.m_Cfg.m_Connect.emplace_back(peer_addr);
-            }
-        }
-
-        LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
-
-        node.m_Cfg.m_Observer = this;
-
-        node.Initialize();
-
-        reactor->run();
     }
     catch (const runtime_error& ex)
     {
@@ -120,4 +133,55 @@ void NodeModel::run()
 void NodeModel::OnSyncProgress(int done, int total)
 {
     emit syncProgressUpdated(done, total);
+}
+
+std::unique_ptr<beam::Node> NodeModel::initLocalNode()
+{
+    auto& settings = AppModel::getInstance()->getSettings();
+
+    auto node = make_unique<Node>();
+    node->m_Cfg.m_Listen.port(settings.getLocalNodePort());
+    node->m_Cfg.m_Listen.ip(INADDR_ANY);
+    node->m_Cfg.m_sPathLocal = settings.getLocalNodeStorage();
+    {
+#ifdef BEAM_USE_GPU
+        if (settings.getUseGpu())
+        {
+            node->m_Cfg.m_UseGpu = true;
+            node->m_Cfg.m_MiningThreads = 1;
+        }
+        else
+        {
+            node->m_Cfg.m_UseGpu = false;
+            node->m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
+        }
+#else
+        node->m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
+#endif
+        node->m_Cfg.m_VerificationThreads = kVerificationThreadsMaxAvailable;
+    }
+
+    node->m_Keys.SetSingleKey(m_pKdf);
+
+    node->m_Cfg.m_HistoryCompression.m_sPathOutput = settings.getTempDir();
+    node->m_Cfg.m_HistoryCompression.m_sPathTmp = settings.getTempDir();
+
+    auto qPeers = settings.getLocalNodePeers();
+
+    for (const auto& qPeer : qPeers)
+    {
+        Address peer_addr;
+        if (peer_addr.resolve(qPeer.toStdString().c_str()))
+        {
+            node->m_Cfg.m_Connect.emplace_back(peer_addr);
+        }
+    }
+
+    LOG_INFO() << "starting a node on " << node->m_Cfg.m_Listen.port() << " port...";
+
+    node->m_Cfg.m_Observer = this;
+
+    node->Initialize();
+
+    return node;
 }
