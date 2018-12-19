@@ -142,7 +142,6 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 			continue; // not interested in tips behind the current cursor
 
 		Height hTarget = sid.m_Height;
-		NodeDB::StateID sidTrg = sid;
 		Height nBlocks = 0;
 		const uint32_t nMaxBlocks = 32;
 		uint64_t pBlockRow[nMaxBlocks];
