@@ -815,6 +815,9 @@ void Node::InitMode()
     }
     else
     {
+		m_pSync->m_SizeCompleted = 0;
+		m_pSync->m_SizeTotal = 0;
+
         LOG_INFO() << "Searching for the best peer...";
     }
 }
@@ -2739,6 +2742,7 @@ void Node::Peer::OnMsg(proto::MacroblockGet&& msg)
             }
 
             msgOut.m_ID = id;
+			m_This.m_Compressor.get_SizeTotal(id.m_Height);
 
             break;
         }
