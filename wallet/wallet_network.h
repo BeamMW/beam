@@ -103,10 +103,10 @@ namespace beam
         WalletNetworkViaBbs(IWallet&, proto::FlyClient::INetwork&, const IWalletDB::Ptr&);
         virtual ~WalletNetworkViaBbs();
 
-        void AddOwnAddress(uint64_t ownID, BbsChannel, Timestamp expirationTime);
         void AddOwnAddress(const WalletAddress& address);
         void DeleteOwnAddress(uint64_t ownID);
     private:
+        void AddOwnAddress(uint64_t ownID, BbsChannel, Timestamp expirationTime, const WalletID& walletID);
         // IWalletNetwork
         virtual void Send(const WalletID& peerID, wallet::SetTxParameter&& msg) override;
 

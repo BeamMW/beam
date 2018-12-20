@@ -60,7 +60,7 @@ void Node::UpdateSyncStatus()
 	SyncStatus stat = m_SyncStatus;
 	UpdateSyncStatusRaw();
 
-	if (m_Cfg.m_Observer && !(m_SyncStatus == stat))
+	if (m_Cfg.m_Observer && !(m_SyncStatus == stat)  && m_UpdatedFromPeers)
 		m_Cfg.m_Observer->OnSyncProgress();
 }
 
@@ -1388,6 +1388,14 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 		SyncQuery();
 	else
         TakeTasks();
+
+	if (!m_This.m_UpdatedFromPeers)
+	{
+		m_This.m_UpdatedFromPeers = true; // at least 1 peer reported actual tip
+
+		ZeroObject(m_This.m_SyncStatus);
+		m_This.UpdateSyncStatus();
+	}
 }
 
 void Node::Peer::SyncQuery()

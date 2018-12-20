@@ -159,6 +159,8 @@ struct Node
 
 	} m_SyncStatus;
 
+	bool m_UpdatedFromPeers = false;
+
 private:
 
 	struct Processor
