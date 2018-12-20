@@ -127,7 +127,7 @@ namespace
         {
             cout << word << ';';
         }
-        cout << "\n\n\tWARNING\n\n\tYour recovery phrase is the access key to all the cryptocurrencies in your wallet.\n\tPrint or write down the phrase to keep it in a safe or in a locked vault.\n\tWithout the phrase you will not be able to recover your money.\n======" << endl;
+        cout << "\n\n\tIMPORTANT\n\n\tYour recovery phrase is the access key to all the cryptocurrencies in your wallet.\n\tPrint or write down the phrase to keep it in a safe or in a locked vault.\n\tWithout the phrase you will not be able to recover your money.\n======" << endl;
         return phrase;
     }
 
@@ -148,7 +148,7 @@ namespace
         }
         else
         {
-            LOG_INFO() << "Wallet phrase has not provided. Generating...\n";
+            LOG_INFO() << "Wallet phrase has not been provided. Generating...\n";
             phrase = GeneratePhrase();
         }
 

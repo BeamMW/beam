@@ -126,10 +126,10 @@ namespace beam {
 
 	void WalletNetworkViaBbs::AddOwnAddress(const WalletAddress& address)
 	{
-        AddOwnAddress(address.m_OwnID, channel_from_wallet_id(address.m_walletID), address.getExpirationTime());
+        AddOwnAddress(address.m_OwnID, channel_from_wallet_id(address.m_walletID), address.getExpirationTime(), address.m_walletID);
 	}
 
-	void WalletNetworkViaBbs::AddOwnAddress(uint64_t ownID, BbsChannel nChannel, Timestamp expirationTime)
+	void WalletNetworkViaBbs::AddOwnAddress(uint64_t ownID, BbsChannel nChannel, Timestamp expirationTime, const WalletID& walletID)
 	{
 		Addr::Wid key;
 		key.m_OwnID = ownID;
@@ -157,6 +157,7 @@ namespace beam {
 			if (m_BbsTimestamps.end() != it)
 				ts = it->second;
 
+            LOG_INFO() << "WalletID " << to_string(walletID) << " subscribes to BBS channel " << pAddr->m_Channel.m_Value;
 			m_NodeNetwork.BbsSubscribe(pAddr->m_Channel.m_Value, ts, &m_BbsSentEvt);
 		}
 	}
