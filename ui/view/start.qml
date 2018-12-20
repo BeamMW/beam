@@ -1258,13 +1258,13 @@ Item
                         spacing: 19
                         
 
-                        CustomButton {
+                       /* CustomButton {
                             text: qsTr("login to another wallet")
                             icon.source: "qrc:/assets/icon-change.svg"
                             onClicked: {
                                 confirmChangeWalletDialog.open();
                             }
-                        }
+                        }*/
                         PrimaryButton {
                             anchors.verticalCenter: parent.verticalCenter
                             id: btnCurrentWallet
@@ -1289,7 +1289,7 @@ Item
                             }
                         }
                     }
-                    Item {
+                  /*  Item {
                         Layout.fillHeight: true
                         Layout.minimumHeight: 30
                         Layout.maximumHeight: 65
@@ -1310,10 +1310,10 @@ Item
                             }
                             hoverEnabled: true
                         }
-                    }
+                    }*/
                     Item {
                         Layout.fillHeight: true
-                        Layout.minimumHeight: 19
+                        Layout.minimumHeight: 67//19
                     }
                 }
             }
