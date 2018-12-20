@@ -125,6 +125,11 @@ namespace beam
                 _stream->enable_read(BIND_THIS_MEMFN(on_stream_data));
             }
 
+            virtual ~Connection()
+            {
+
+            }
+
             void on_write(io::SharedBuffer&& msg) 
             {
                 _stream->write(msg);
