@@ -105,7 +105,7 @@ int main (int argc, char* argv[])
 
         try
         {
-            vm = getOptions(argc, argv, WalletSettings::WalletCfg, options);
+            vm = getOptions(argc, argv, WalletSettings::WalletCfg, options, true);
         }
         catch (const po::error& e)
         {

@@ -340,7 +340,7 @@ int main_impl(int argc, char* argv[])
         po::variables_map vm;
         try
         {
-            vm = getOptions(argc, argv, "beam-wallet.cfg", options);
+            vm = getOptions(argc, argv, "beam-wallet.cfg", options, true);
         }
         catch (const po::error& e)
         {

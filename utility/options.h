@@ -104,7 +104,7 @@ namespace beam
 
     po::options_description createOptionsDescription(int flags = ALL_OPTIONS);
 
-    po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options);
+    po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options, bool walletOptions = false);
 
     int getLogLevel(const std::string &dstLog, const po::variables_map& vm, int defaultValue = LOG_LEVEL_DEBUG);
 

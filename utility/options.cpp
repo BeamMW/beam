@@ -208,13 +208,18 @@ namespace beam
         return options;
     }
 
-    po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options)
+    po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options, bool walletOptions)
     {
         po::variables_map vm;
-
-        po::store(po::command_line_parser(argc, argv) // value stored first is preferred
-            .options(options)
-            .run(), vm);
+        po::positional_options_description positional;
+        po::command_line_parser parser(argc, argv);
+        parser.options(options);
+        if (walletOptions)
+        {
+            positional.add(cli::COMMAND, 1);
+            parser.positional(positional);
+        }
+        po::store(parser.run(), vm); // value stored first is preferred
 
         {
             std::ifstream cfg(configFile);
