@@ -12,7 +12,6 @@ namespace beamui
     QString toString(const beam::WalletID& walletID)
     {
         auto id = std::to_string(walletID);
-        ltrim(id, '0');
         return QString::fromStdString(id);
     }
 
@@ -22,11 +21,6 @@ namespace beamui
         QString qstr = QLocale().toString(real_amount, 'f', QLocale::FloatingPointShortest);
 
         return qstr;
-    }
-
-    inline void ltrim(std::string &s, char sym)
-    {
-        s.erase(s.begin(), std::find_if(s.begin(), s.end(), [sym](char ch) {return ch != sym; }));
     }
 
     QString toString(const beam::Timestamp& ts)

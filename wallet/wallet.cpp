@@ -29,8 +29,19 @@ namespace std
     string to_string(const beam::WalletID& id)
     {
         static_assert(sizeof(id) == sizeof(id.m_Channel) + sizeof(id.m_Pk), "");
-        return beam::to_hex(&id, sizeof(id));
-    }
+
+		char szBuf[sizeof(id) * 2 + 1];
+		beam::to_hex(szBuf, &id, sizeof(id));
+
+		const char* szPtr = szBuf;
+		while (*szPtr == '0')
+			szPtr++;
+
+		if (!*szPtr)
+			szPtr--; // leave at least 1 symbol
+
+		return szPtr;
+	}
 }
 
 namespace beam
