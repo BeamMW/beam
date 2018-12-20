@@ -188,7 +188,7 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 				sid.m_Row = pBlockRow[(--nBlocks) % nMaxBlocks];
 
 				if (i && (NodeDB::StateFlags::Functional & m_DB.GetStateFlags(sid.m_Row)))
-					break;
+					continue;
 
 				m_DB.get_StateID(sid, id);
 

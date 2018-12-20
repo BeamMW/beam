@@ -463,6 +463,7 @@ private:
 		void SetTimer(uint32_t timeout_ms);
 		void KillTimer();
 		void OnResendPeers();
+		void SyncQuery();
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, uint8_t nByeReason);
 

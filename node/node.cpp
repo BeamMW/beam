@@ -841,6 +841,13 @@ void Node::InitMode()
 
         LOG_INFO() << "Searching for the best peer...";
     }
+
+	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+	{
+		Peer& peer = *it;
+		if (peer.m_Tip.m_Height)
+			peer.SyncQuery();
+	}
 }
 
 void Node::Bbs::Cleanup()
@@ -1347,7 +1354,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 
     if (NodeProcessor::IsRemoteTipNeeded(m_Tip, p.m_Cursor.m_Full))
     {
-        if (!bSyncMode && (m_Tip.m_Height > p.m_Cursor.m_ID.m_Height + Rules::get().MaxRollbackHeight + Rules::get().MacroblockGranularity * 2))
+        if (!bSyncMode && (m_Tip.m_Height > p.m_Cursor.m_ID.m_Height + Rules::get().MaxRollbackHeight + Rules::get().MacroblockGranularity * 2) && p.m_Extra.m_TreasuryHandled)
             LOG_WARNING() << "Height drop is too big, maybe unreachable";
 
         switch (p.OnState(m_Tip, m_pInfo->m_ID.m_Key))
@@ -1375,33 +1382,35 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 
     }
 
-    if (!bSyncMode)
-    {
+	if (bSyncMode)
+		SyncQuery();
+	else
         TakeTasks();
-        return;
-    }
+}
 
-    uint8_t nProvenWork = Flags::ProvenWorkReq & m_Flags;
-    if (!nProvenWork)
-    {
-        m_Flags |= Flags::ProvenWorkReq;
-        // maybe take it
-        Send(proto::GetProofChainWork());
-    }
+void Node::Peer::SyncQuery()
+{
+	uint8_t nProvenWork = Flags::ProvenWorkReq & m_Flags;
+	if (!nProvenWork)
+	{
+		m_Flags |= Flags::ProvenWorkReq;
+		// maybe take it
+		Send(proto::GetProofChainWork());
+	}
 
-    if (m_This.m_pSync->m_bDetecting)
-    {
-        if (!nProvenWork/* && (m_This.m_pSync->m_Best <= m_Tip.m_ChainWork)*/)
-        {
-            // maybe take it
-            m_Flags |= Flags::DontSync;
-            Send(proto::MacroblockGet());
+	if (m_This.m_pSync->m_bDetecting)
+	{
+		if (!nProvenWork/* && (m_This.m_pSync->m_Best <= m_Tip.m_ChainWork)*/)
+		{
+			// maybe take it
+			m_Flags |= Flags::DontSync;
+			Send(proto::MacroblockGet());
 
-            LOG_INFO() << " Sending MacroblockGet/query to " << m_RemoteAddr;
-        }
-    }
-    else
-        m_This.SyncCycle(*this);
+			LOG_INFO() << " Sending MacroblockGet/query to " << m_RemoteAddr;
+		}
+	}
+	else
+		m_This.SyncCycle(*this);
 }
 
 void Node::Peer::OnMsg(proto::ProofChainWork&& msg)
@@ -1813,8 +1822,8 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 
     OnFirstTaskDone(eStatus);
 
-    if (!h)
-        m_This.InitMode(); // maybe fast-sync now
+	if (!h)
+		m_This.InitMode(); // maybe fast-sync now
 }
 
 void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
