@@ -66,29 +66,29 @@ void Node::UpdateSyncStatus()
 
 void Node::UpdateSyncStatusRaw()
 {
+	Height hToCursor = m_Processor.m_Cursor.m_ID.m_Height * (SyncStatus::s_WeightHdr + SyncStatus::s_WeightBlock);
+	m_SyncStatus.m_Total = hToCursor;
+	m_SyncStatus.m_Done = hToCursor;
+
 	if (m_pSync)
 	{
 		const FirstTimeSync& s = *m_pSync;
-		m_SyncStatus.m_Total = s.m_Trg.m_Height * (SyncStatus::s_WeightHdr + SyncStatus::s_WeightBlock);
+		Height h = s.m_Trg.m_Height * (SyncStatus::s_WeightHdr + SyncStatus::s_WeightBlock);
 
-		if (s.m_SizeCompleted <= s.m_SizeTotal)
+		m_SyncStatus.m_Total = std::max(m_SyncStatus.m_Total, h);
+
+		if (s.m_SizeCompleted < s.m_SizeTotal)
 		{
 			// calculate in floating-point, to avoid overflow. Precision loss is not important
 			double val = static_cast<double>(m_SyncStatus.m_Total);
 			val *= static_cast<double>(s.m_SizeCompleted);
 			val /= static_cast<double>(s.m_SizeTotal);
 
-			m_SyncStatus.m_Done = std::min(m_SyncStatus.m_Total, static_cast<Height>(val));
+			h = static_cast<Height>(val);
 		}
-		else
-			m_SyncStatus.m_Done = 0;
 
-		return;
+		m_SyncStatus.m_Done = std::max(m_SyncStatus.m_Done, h);
 	}
-
-	Height hToCursor = m_Processor.m_Cursor.m_ID.m_Height * (SyncStatus::s_WeightHdr + SyncStatus::s_WeightBlock);
-	m_SyncStatus.m_Total = hToCursor;
-	m_SyncStatus.m_Done = hToCursor;
 
 	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
 	{
@@ -1440,7 +1440,6 @@ void Node::Peer::OnMsg(proto::Macroblock&& msg)
         if (msg.m_ID == m_This.m_pSync->m_Trg)
         {
             LOG_INFO() << "Peer " << m_RemoteAddr << " DL Macroblock portion";
-            m_This.m_pSync->m_SizeTotal = msg.m_SizeTotal;
             m_This.SyncCycle(*this, msg.m_Portion);
         }
         else
@@ -2763,10 +2762,10 @@ void Node::Peer::OnMsg(proto::MacroblockGet&& msg)
                     fs.read(&msgOut.m_Portion.at(0), nPortion);
                 }
             }
+			else
+				msgOut.m_SizeTotal = m_This.m_Compressor.get_SizeTotal(id.m_Height);
 
             msgOut.m_ID = id;
-			m_This.m_Compressor.get_SizeTotal(id.m_Height);
-
             break;
         }
     }
