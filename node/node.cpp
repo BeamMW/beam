@@ -742,7 +742,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
 
     InitMode();
 
-	UpdateSyncStatusRaw();
+	ZeroObject(m_SyncStatus);
     RefreshCongestions();
 
     if (m_Cfg.m_Listen.port())
