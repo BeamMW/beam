@@ -410,7 +410,8 @@ int main_impl(int argc, char* argv[])
                             && command != cli::LISTEN
                             && command != cli::TREASURY
                             && command != cli::INFO
-							&& command != cli::KEY_EXPORT
+							&& command != cli::EXPORT_MINER_KEY
+                            && command != cli::EXPORT_OWNER_KEY
                             && command != cli::NEW_ADDRESS
                             && command != cli::CANCEL_TX
                             && command != cli::GENERATE_PHRASE)
@@ -481,9 +482,14 @@ int main_impl(int argc, char* argv[])
                             return -1;
                         }
 
-						if (command == cli::KEY_EXPORT)
+						if (command == cli::EXPORT_MINER_KEY)
 						{
 							uint32_t subKey = vm[cli::KEY_SUBKEY].as<uint32_t>();
+                            if (subKey < 1)
+                            {
+                                cout << "Please, specify Subkey number --subKey=N (N > 0)" << endl;
+                                return -1;
+                            }
 							Key::IKdf::Ptr pKey = walletDB->get_ChildKdf(subKey);
 							const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
 
@@ -491,22 +497,29 @@ int main_impl(int argc, char* argv[])
 							ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
 							ks.m_sMeta = std::to_string(subKey);
 
-							if (subKey)
-							{
-								ks.Export(kdf);
-								cout << "Secret Subkey " << subKey <<  ": " << ks.m_sRes << std::endl;
-							}
-							else
-							{
-								ECC::HKdfPub pkdf;
-								pkdf.GenerateFrom(kdf);
-
-								ks.Export(pkdf);
-								cout << "Owner Viewer key: " << ks.m_sRes << std::endl;
-							}
+							ks.Export(kdf);
+							cout << "Secret Subkey " << subKey <<  ": " << ks.m_sRes << std::endl;
 
 							return 0;
 						}
+
+                        if (command == cli::EXPORT_OWNER_KEY)
+                        {
+                            Key::IKdf::Ptr pKey = walletDB->get_ChildKdf(0);
+                            const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
+
+                            KeyString ks;
+                            ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
+                            ks.m_sMeta = std::to_string(0);
+
+                            ECC::HKdfPub pkdf;
+                            pkdf.GenerateFrom(kdf);
+
+                            ks.Export(pkdf);
+                            cout << "Owner Viewer key: " << ks.m_sRes << std::endl;
+                            
+                            return 0;
+                        }
 
                         if (command == cli::NEW_ADDRESS)
                         {

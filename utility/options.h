@@ -54,7 +54,8 @@ namespace beam
 		extern const char* RESYNC;
 		extern const char* CRASH;
 		extern const char* INIT;
-		extern const char* KEY_EXPORT;
+		extern const char* EXPORT_MINER_KEY;
+        extern const char* EXPORT_OWNER_KEY;
 		extern const char* KEY_SUBKEY;
 		extern const char* KEY_OWNER;
 		extern const char* KEY_MINE;

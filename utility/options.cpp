@@ -55,7 +55,8 @@ namespace beam
 		const char* RESYNC = "resync";
 		const char* CRASH = "crash";
 		const char* INIT = "init";
-		const char* KEY_EXPORT = "key_export";
+		const char* EXPORT_MINER_KEY = "export_miner_key";
+        const char* EXPORT_OWNER_KEY = "export_owner_key";
 		const char* KEY_SUBKEY = "subkey";
 		const char* KEY_OWNER = "key_owner";
 		const char* KEY_MINE= "key_mine";
@@ -158,7 +159,7 @@ namespace beam
             (cli::TR_WID, po::value<std::string>(), "treasury WalletID")
             (cli::TR_PERC, po::value<double>(), "treasury percent of the total emission, designated to this WalletID")
 			(cli::TR_COMMENT, po::value<std::string>(), "treasury custom message")
-			(cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|info|key_export|treasury|generate_phrase]");
+			(cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|info|export_miner_key|export_owner_key|treasury|generate_phrase]");
 
         po::options_description uioptions("UI options");
         uioptions.add_options()
