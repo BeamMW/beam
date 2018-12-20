@@ -66,7 +66,8 @@ namespace beam
         ss << "]";
         string str = ss.str();
         os << str;
-        size_t c = 13 - str.length();
+        assert(str.length() <= 24);
+        size_t c = 24 - str.length();
         for (size_t i = 0; i < c; ++i) os << ' ';
         return os;
     }
@@ -572,7 +573,7 @@ int main_impl(int argc, char* argv[])
                                 << setw(14) << "Groth" << " |"
                                 << setw(14) << "height" << " |"
                                 << setw(18) << "maturity" << " |"
-                                << setw(12) << "status" << " |"
+                                << setw(24) << "status" << " |"
                                 << setw(8) << "type" << endl;
                             walletDB->visit([](const Coin& c)->bool
                             {
@@ -581,7 +582,7 @@ int main_impl(int argc, char* argv[])
                                     << setw(16) << PrintableAmount(c.m_ID.m_Value % Rules::Coin)
                                     << setw(16) << static_cast<int64_t>(c.m_createHeight)
                                     << setw(20) << static_cast<int64_t>(c.m_maturity)
-                                    << setw(14) << c.m_status
+                                    << "   " << c.m_status
                                     << setw(8) << c.m_ID.m_Type << endl;
                                 return true;
                             });
