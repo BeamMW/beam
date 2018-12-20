@@ -90,6 +90,8 @@ void Node::UpdateSyncStatusRaw()
 		m_SyncStatus.m_Done = std::max(m_SyncStatus.m_Done, h);
 	}
 
+	bool bOnlyAssigned = (m_Processor.m_Cursor.m_ID.m_Height > 0);
+
 	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
 	{
 		const Task& t = *it;
@@ -98,8 +100,8 @@ void Node::UpdateSyncStatusRaw()
 		if (m_Processor.m_Cursor.m_ID.m_Height >= t.m_hTarget)
 			continue;
 
-		// TODO - consider only assigned tasks. This will filter-out inaccessible ones.
-		// t.m_pOwner
+		if (bOnlyAssigned && !t.m_pOwner)
+			continue;
 
 		Height hVal = t.m_hTarget * (SyncStatus::s_WeightHdr + SyncStatus::s_WeightBlock);
 		m_SyncStatus.m_Total = std::max(m_SyncStatus.m_Total, hVal);
