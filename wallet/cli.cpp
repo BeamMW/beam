@@ -581,7 +581,7 @@ int main_impl(int argc, char* argv[])
                                     << setw(16) << PrintableAmount(Rules::Coin * ((Amount)(c.m_ID.m_Value / Rules::Coin)))
                                     << setw(16) << PrintableAmount(c.m_ID.m_Value % Rules::Coin)
                                     << setw(16) << static_cast<int64_t>(c.m_createHeight)
-                                    << setw(20) << static_cast<int64_t>(c.m_maturity)
+                                    << setw(20) << (static_cast<int64_t>(c.m_maturity) < 0 ? "-" : std::to_string(static_cast<int64_t>(c.m_maturity)))
                                     << "   " << c.m_status
                                     << setw(8) << c.m_ID.m_Type << endl;
                                 return true;
