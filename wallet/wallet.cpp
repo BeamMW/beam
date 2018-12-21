@@ -92,24 +92,27 @@ namespace beam
 
     std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount)
     {
+        const string_view beams{ " beams " };
+        const string_view chattles{ " groth " };
         auto width = os.width();
 
         if (amount.m_showPoint)
         {
-            os << setw(width - 1) << Amount(amount.m_value / Rules::Coin)
+            os << setw(width - beams.length() - 1) << Amount(amount.m_value / Rules::Coin)
                 << "."
-                << (amount.m_value % Rules::Coin);
+                << (amount.m_value % Rules::Coin)
+                << beams.data();
             return os;
         }
-        
+
         if (amount.m_value >= Rules::Coin)
         {
-            os << setw(width) << Amount(amount.m_value / Rules::Coin);
+            os << setw(width - beams.length()) << Amount(amount.m_value / Rules::Coin) << beams.data();
         }
         Amount c = amount.m_value % Rules::Coin;
         if (c > 0 || amount.m_value == 0)
         {
-            os << setw(width) << c;
+            os << setw(width - chattles.length()) << c << chattles.data();
         }
         return os;
     }
