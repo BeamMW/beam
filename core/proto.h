@@ -510,8 +510,8 @@ namespace proto {
 
             struct ExceptionDetails
             {
-                NodeProcessingException::Type m_ExceptionType;
-                const char* m_szErrorMsg;
+                NodeProcessingException::Type m_ExceptionType = NodeProcessingException::Type::Base;
+                const char* m_szErrorMsg = nullptr;
             };
 
             Enum m_Type;
