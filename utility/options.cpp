@@ -55,6 +55,7 @@ namespace beam
 		const char* RESYNC = "resync";
 		const char* CRASH = "crash";
 		const char* INIT = "init";
+        const char* RESTORE = "restore";
 		const char* EXPORT_MINER_KEY = "export_miner_key";
         const char* EXPORT_OWNER_KEY = "export_owner_key";
 		const char* KEY_SUBKEY = "subkey";
@@ -109,7 +110,6 @@ namespace beam
         po::options_description general_options("General options");
         general_options.add_options()
             (cli::HELP_FULL, "list of all options")
-            //(cli::MODE, po::value<string>()->required(), "mode to execute [node|wallet]")
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
             (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
@@ -159,7 +159,7 @@ namespace beam
             (cli::TR_WID, po::value<std::string>(), "treasury WalletID")
             (cli::TR_PERC, po::value<double>(), "treasury percent of the total emission, designated to this WalletID")
 			(cli::TR_COMMENT, po::value<std::string>(), "treasury custom message")
-			(cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|info|export_miner_key|export_owner_key|treasury|generate_phrase]");
+			(cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|treasury|generate_phrase]");
 
         po::options_description uioptions("UI options");
         uioptions.add_options()
@@ -281,7 +281,7 @@ namespace beam
 
     namespace
     {
-        bool read_secret_impl(SecString& pass, const char* prompt, const char* optionName, po::variables_map& vm)
+        bool read_secret_impl(SecString& pass, const char* prompt, const char* optionName, const po::variables_map& vm)
         {
             if (vm.count(optionName)) {
                 const std::string& s = vm[optionName].as<std::string>();
@@ -300,7 +300,7 @@ namespace beam
         }
     }
 
-    bool read_wallet_pass(SecString& pass, po::variables_map& vm)
+    bool read_wallet_pass(SecString& pass, const po::variables_map& vm)
     {
         return read_secret_impl(pass, "Enter password: ", cli::PASS, vm);
     }

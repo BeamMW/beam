@@ -132,11 +132,16 @@ namespace
         return phrase;
     }
 
-    bool ReadWalletSeed(NoLeak<uintBig>& walletSeed, po::variables_map& vm)
+    bool ReadWalletSeed(NoLeak<uintBig>& walletSeed, const po::variables_map& vm, bool generateNew)
     {
         SecString seed;
         WordList phrase;
-        if (vm.count(cli::WALLET_PHRASE))
+        if (generateNew)
+        {
+            LOG_INFO() << "Generating wallet phrase...";
+            phrase = GeneratePhrase();
+        }
+        else if (vm.count(cli::WALLET_PHRASE))
         {
             auto tempPhrase = vm[cli::WALLET_PHRASE].as<string>();
             phrase = string_helpers::split(tempPhrase, ';');
@@ -149,8 +154,8 @@ namespace
         }
         else
         {
-            LOG_INFO() << "Wallet phrase has not been provided. Generating...\n";
-            phrase = GeneratePhrase();
+            LOG_ERROR() << "Wallet phrase has not been provided.";
+            return false;
         }
 
         auto buf = decodeMnemonic(phrase);
@@ -381,16 +386,11 @@ int main_impl(int argc, char* argv[])
 
             Rules::get().UpdateChecksum();
 
-            // TODO later auto port = vm[cli::PORT].as<uint16_t>();
-
-            {
+           {
                 reactor = io::Reactor::create();
                 io::Reactor::Scope scope(*reactor);
 
                 io::Reactor::GracefulIntHandler gih(*reactor);
-
-                NoLeak<uintBig> walletSeed;
-                walletSeed.V = Zero;
 
                 io::Timer::Ptr logRotateTimer = io::Timer::create(*reactor);
                 logRotateTimer->start(
@@ -405,6 +405,7 @@ int main_impl(int argc, char* argv[])
                     {
                         auto command = vm[cli::COMMAND].as<string>();
                         if (command != cli::INIT
+                            && command != cli::RESTORE
                             && command != cli::SEND
                             && command != cli::RECEIVE
                             && command != cli::LISTEN
@@ -431,12 +432,12 @@ int main_impl(int argc, char* argv[])
                         assert(vm.count(cli::WALLET_STORAGE) > 0);
                         auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
 
-                        if (!WalletDB::isInitialized(walletPath) && command != cli::INIT)
+                        if (!WalletDB::isInitialized(walletPath) && (command != cli::INIT && command != cli::RESTORE))
                         {
                             LOG_ERROR() << "Please initialize your wallet first... \nExample: beam-wallet --command=init";
                             return -1;
                         }
-                        else if (WalletDB::isInitialized(walletPath) && command == cli::INIT)
+                        else if (WalletDB::isInitialized(walletPath) && (command == cli::INIT || command == cli::RESTORE))
                         {
                             LOG_ERROR() << "Your wallet is already initialized.";
                             return -1;
@@ -451,9 +452,11 @@ int main_impl(int argc, char* argv[])
                             return -1;
                         }
 
-                        if (command == cli::INIT)
+                        if (command == cli::INIT || command == cli::RESTORE)
                         {
-                            if (!ReadWalletSeed(walletSeed, vm))
+                            NoLeak<uintBig> walletSeed;
+                            walletSeed.V = Zero;
+                            if (!ReadWalletSeed(walletSeed, vm, command == cli::INIT))
                             {
                                 LOG_ERROR() << "Please, provide seed phrase for the wallet.";
                                 return -1;

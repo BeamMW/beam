@@ -54,6 +54,7 @@ namespace beam
 		extern const char* RESYNC;
 		extern const char* CRASH;
 		extern const char* INIT;
+        extern const char* RESTORE;
 		extern const char* EXPORT_MINER_KEY;
         extern const char* EXPORT_OWNER_KEY;
 		extern const char* KEY_SUBKEY;
@@ -113,5 +114,5 @@ namespace beam
 
     class SecString;
 
-    bool read_wallet_pass(SecString& pass, po::variables_map& vm);
+    bool read_wallet_pass(SecString& pass, const po::variables_map& vm);
 }
