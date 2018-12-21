@@ -254,6 +254,8 @@ void FlyClient::NetworkStd::Connection::OnMsg(NewTip&& msg)
     if (m_pSync && m_pSync->m_vConfirming.empty() && !m_pSync->m_TipBeforeGap.m_Height && !m_Tip.IsNext(msg.m_Description))
         m_pSync->m_TipBeforeGap = m_Tip;
 
+    bool shouldReassignRequests = !m_Tip.IsValid();
+
     m_Tip = msg.m_Description;
 
     if (!m_pSync)
@@ -264,6 +266,10 @@ void FlyClient::NetworkStd::Connection::OnMsg(NewTip&& msg)
         }
         else
         {
+            if (shouldReassignRequests)
+            {
+                AssignRequests();
+            }
             m_This.m_Client.OnTipUnchanged();
         }
     }
