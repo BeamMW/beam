@@ -3249,6 +3249,7 @@ void Node::Miner::OnMinedExternal()
         return;
     }
 
+	m_pTask = m_External.m_pTask;
     *m_pTask->m_pStop = true;
     m_pEvtMined->post();
 }
