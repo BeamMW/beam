@@ -616,6 +616,7 @@ private:
 		{
 			IExternalPOW* m_pSolver = nullptr;
 			Task::Ptr m_pTask;
+			uint64_t m_jobID = 0;
 
 		} m_External;
 
