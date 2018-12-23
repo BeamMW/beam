@@ -3225,10 +3225,7 @@ void Node::Miner::OnRefreshExternal()
     Merkle::Hash hv;
 	m_pTask->m_Hdr.get_HashForPoW(hv);
 
-	char sz[Merkle::Hash::nTxtLen + 1];
-	hv.Print(sz);
-
-	m_External.m_pSolver->new_job(sz, hv, m_pTask->m_Hdr.m_PoW, BIND_THIS_MEMFN(OnMinedExternal), fnCancel);
+	m_External.m_pSolver->new_job(std::to_string(++m_External.m_jobID), hv, m_pTask->m_Hdr.m_PoW, BIND_THIS_MEMFN(OnMinedExternal), fnCancel);
 }
 
 void Node::Miner::OnMinedExternal()
@@ -3241,7 +3238,7 @@ void Node::Miner::OnMinedExternal()
 
 	std::scoped_lock<std::mutex> scope(m_Mutex);
 
-	if (!m_External.m_pTask || *m_External.m_pTask->m_pStop)
+	if (!m_External.m_pTask || *m_External.m_pTask->m_pStop || (jobID != std::to_string(m_External.m_jobID)))
 		return; // already cancelled
 
 	m_External.m_pTask->m_Hdr.m_PoW.m_Nonce = POW.m_Nonce;
