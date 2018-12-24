@@ -277,6 +277,8 @@ int main_impl(int argc, char* argv[])
 					if (vm.count(cli::RESYNC))
 						node.m_Cfg.m_Sync.m_ForceResync = vm[cli::RESYNC].as<bool>();
 
+					node.m_Cfg.m_Bbs = vm[cli::BBS_ENABLE].as<bool>();
+
 					node.Initialize(stratumServer.get());
 
 					Height hImport = vm[cli::IMPORT].as<Height>();

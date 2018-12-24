@@ -61,6 +61,7 @@ namespace beam
 		const char* KEY_SUBKEY = "subkey";
 		const char* KEY_OWNER = "key_owner";
 		const char* KEY_MINE= "key_mine";
+		const char* BBS_ENABLE = "bbs_enable";
         const char* NEW_ADDRESS = "new_addr";
         const char* NEW_ADDRESS_LABEL = "label";
         const char* SEND = "send";
@@ -134,6 +135,7 @@ namespace beam
             (cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
             (cli::IMPORT, po::value<Height>()->default_value(0), "Specify the blockchain height to import. The compressed history is asumed to be downloaded the the specified directory")
 			(cli::RESYNC, po::value<bool>()->default_value(false), "Enforce re-synchronization (soft reset)")
+			(cli::BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS messaging")
 			(cli::CRASH, po::value<int>()->default_value(0), "Induce crash (test proper handling)")
 			(cli::KEY_OWNER, po::value<string>(), "Owner viewer key")
 			(cli::KEY_MINE, po::value<string>(), "Standalone miner key")
