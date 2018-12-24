@@ -1010,6 +1010,7 @@ Item
                             text: qsTr("Connect to random remote node")
                             ButtonGroup.group: nodePreferencesGroup
                             font.pixelSize: 14
+                            enabled: viewModel.isRecoveryMode == false
                         }
                         Row {
                             width: parent.width
@@ -1019,6 +1020,7 @@ Item
                                 text: qsTr("Connect to specific remote node")
                                 ButtonGroup.group: nodePreferencesGroup
                                 font.pixelSize: 14
+                                enabled: viewModel.isRecoveryMode == false
                             }
                             SFTextInput {
                                 id:remoteNodeAddrInput

@@ -69,7 +69,6 @@ namespace beam
         const char* TX_HISTORY = "tx_history";
         const char* CANCEL_TX = "cancel_tx";
         const char* TX_ID = "tx_id";
-        const char* WALLET_SEED = "wallet_seed";
         const char* WALLET_PHRASE = "wallet_phrase";
         const char* GENERATE_PHRASE = "generate_phrase";
         const char* FEE = "fee";
@@ -96,7 +95,7 @@ namespace beam
         const char* APPDATA_PATH = "appdata";
     }
 
-    po::options_description createOptionsDescription(int flags)
+    pair<po::options_description, po::options_description> createOptionsDescription(int flags)
     {
 #ifdef WIN32
         char szLocalDir[] = ".\\";
@@ -112,10 +111,6 @@ namespace beam
         general_options.add_options()
             (cli::HELP_FULL, "list of all options")
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
-            (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
-            (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
-            (cli::WALLET_SEED, po::value<string>(), "secret key generation seed")
-            (cli::WALLET_PHRASE, po::value<string>(), "phrase to generate secret key according to BIP-39. <wallet_seed> option will be ignored")
             (cli::LOG_LEVEL, po::value<string>(), "log level [info|debug|verbose]")
             (cli::FILE_LOG_LEVEL, po::value<string>(), "file log level [info|debug|verbose]")
             (cli::VERSION_FULL, "return project version")
@@ -126,13 +121,14 @@ namespace beam
             (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
             (cli::HISTORY, po::value<string>()->default_value(szLocalDir), "directory for compressed history")
             (cli::TEMP, po::value<string>()->default_value(szTempDir), "temp directory for compressed history, must be on the same volume")
-            (cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block pack to import treasury from")
             (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
 #if defined(BEAM_USE_GPU)
             (cli::MINER_TYPE, po::value<string>()->default_value("cpu"), "miner type [cpu|gpu]")
 #endif
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
             (cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
+            (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
+            (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
             (cli::IMPORT, po::value<Height>()->default_value(0), "Specify the blockchain height to import. The compressed history is asumed to be downloaded the the specified directory")
 			(cli::RESYNC, po::value<bool>()->default_value(false), "Enforce re-synchronization (soft reset)")
 			(cli::BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS messaging")
@@ -142,26 +138,33 @@ namespace beam
 			(cli::PASS, po::value<string>(), "password for keys")
 			;
 
+        po::options_description node_treasury_options("Node treasury options");
+        node_treasury_options.add_options()
+            (cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block pack to import treasury from");
+
         po::options_description wallet_options("Wallet options");
         wallet_options.add_options()
             (cli::PASS, po::value<string>(), "password for the wallet")
+            (cli::WALLET_PHRASE, po::value<string>(), "phrase to generate secret key according to BIP-39.")
             (cli::AMOUNT_FULL, po::value<double>(), "amount to send (in Beams, 1 Beam = 100000000 groth)")
             (cli::FEE_FULL, po::value<double>()->default_value(0), "fee (in Beams, 1 Beam = 100000000 groth)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
-            (cli::TREASURY_BLOCK, po::value<string>()->default_value("treasury.mw"), "Block to create/append treasury to")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
             (cli::TX_HISTORY, "print transacrions' history in info command")
             (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "tx id")
             (cli::NEW_ADDRESS_LABEL, po::value<string>()->default_value(""), "label for new own address")
             (cli::GENERATE_PHRASE, "command to generate phrases which will be used to create a secret according to BIP-39")
-			(cli::KEY_SUBKEY, po::value<uint32_t>()->default_value(0), "Child key index. 0 == Master key")
+			(cli::KEY_SUBKEY, po::value<uint32_t>()->default_value(0), "Child key index.")
+			(cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase]");
+
+        po::options_description wallet_treasury_options("Wallet treasury options");
+        wallet_treasury_options.add_options()
             (cli::TR_OPCODE, po::value<uint32_t>()->default_value(0), "treasury operation: 0=print ID, 1=plan, 2=response, 3=import, 4=generate, 5=print")
             (cli::TR_WID, po::value<std::string>(), "treasury WalletID")
             (cli::TR_PERC, po::value<double>(), "treasury percent of the total emission, designated to this WalletID")
-			(cli::TR_COMMENT, po::value<std::string>(), "treasury custom message")
-			(cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|treasury|generate_phrase]");
+            (cli::TR_COMMENT, po::value<std::string>(), "treasury custom message");
 
         po::options_description uioptions("UI options");
         uioptions.add_options()
@@ -190,25 +193,33 @@ namespace beam
 #undef THE_MACRO
 
         po::options_description options{ "Allowed options" };
+        po::options_description visible_options{ "Allowed options" };
         if (flags & GENERAL_OPTIONS)
         {
             options.add(general_options);
+            visible_options.add(general_options);
         }
         if (flags & NODE_OPTIONS)
         {
             options.add(node_options);
+            options.add(node_treasury_options);
+            visible_options.add(node_options);
         }
         if (flags & WALLET_OPTIONS)
         {
             options.add(wallet_options);
+            options.add(wallet_treasury_options);
+            visible_options.add(wallet_options);
         }
         if (flags & UI_OPTIONS)
         {
             options.add(uioptions);
+            visible_options.add(uioptions);
         }
 
         options.add(rules_options);
-        return options;
+        visible_options.add(rules_options);
+        return { options, visible_options };
     }
 
     po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options, bool walletOptions)
