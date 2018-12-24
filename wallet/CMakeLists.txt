@@ -35,8 +35,8 @@ add_library(wallet_api_proto STATIC api.cpp)
 add_dependencies(wallet_api_proto wallet utility)
 target_link_libraries(wallet_api_proto wallet utility)
 
-add_executable(wallet_api api_cli.cpp)
-add_dependencies(wallet_api wallet utility wallet_api_proto)
-target_link_libraries(wallet_api wallet utility wallet_api_proto)
+add_executable(wallet-api api_cli.cpp)
+add_dependencies(wallet-api wallet utility wallet_api_proto)
+target_link_libraries(wallet-api wallet utility wallet_api_proto)
 
 add_subdirectory(unittests)

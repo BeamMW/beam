@@ -12,23 +12,19 @@ client.connect(10000, '127.0.0.1', function() {
 		}) + '\n');
 });
 
-var total = '';
+var acc = '';
 
 client.on('data', function(data) {
-	total += data;
+	acc += data;
 
 	if(data.indexOf('\n') != -1)
 	{
-		var res = JSON.parse(total);
+		var res = JSON.parse(acc);
 
 		console.log('Received:', res);
 
 		client.destroy(); // kill client after server's response
 	}
-});
-
-client.on('end', function() {
-	console.log(">>>>>>>>>>>> END")
 });
 
 client.on('close', function() {

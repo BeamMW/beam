@@ -100,7 +100,19 @@ int main (int argc, char* argv[])
 
     try
     {
+
+        // TODO: ugly temporary fix for unused variable, GCC only
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
+
         auto [options, visibleOptions] = createOptionsDescription(GENERAL_OPTIONS | UI_OPTIONS | WALLET_OPTIONS);
+
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+
         po::variables_map vm;
 
         try
