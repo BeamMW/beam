@@ -6,7 +6,7 @@ if(LINUX)
 	target_link_libraries(${TARGET_NAME} -static-libstdc++ -static-libgcc)
 endif()
 
-configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
+configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 add_dependencies(${TARGET_NAME} node external_pow)
