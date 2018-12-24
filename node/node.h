@@ -74,6 +74,8 @@ struct Node
 		// negative: number of cores minus number of mining threads.
 		int m_VerificationThreads = 0;
 
+		bool m_Bbs = true;
+
 		struct HistoryCompression
 		{
 			std::string m_sPathOutput;

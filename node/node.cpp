@@ -1049,8 +1049,10 @@ void Node::Peer::OnConnectedSecure()
     msgLogin.m_CfgChecksum = Rules::get().Checksum; // checksum of all consesnsus related configuration
     msgLogin.m_Flags =
         proto::LoginFlags::SpreadingTransactions | // indicate ability to receive and broadcast transactions
-        proto::LoginFlags::Bbs | // indicate ability to receive and broadcast BBS messages
         proto::LoginFlags::SendPeers; // request a another node to periodically send a list of recommended peers
+
+	if (m_This.m_Cfg.m_Bbs)
+		msgLogin.m_Flags |= proto::LoginFlags::Bbs; // indicate ability to receive and broadcast BBS messages
 
     Send(msgLogin);
 
@@ -2602,6 +2604,9 @@ void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
 
 void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 {
+	if (!m_This.m_Cfg.m_Bbs)
+		ThrowUnexpected();
+
     Timestamp t = getTimestamp();
     Timestamp t0 = t - m_This.m_Cfg.m_Timeout.m_BbsMessageTimeout_s;
     Timestamp t1 = t + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s;
@@ -2661,6 +2666,9 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
 void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
 {
+	if (!m_This.m_Cfg.m_Bbs)
+		ThrowUnexpected();
+
     NodeDB& db = m_This.m_Processor.get_DB();
     NodeDB::WalkerBbs wlk(db);
 
@@ -2678,7 +2686,10 @@ void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
 
 void Node::Peer::OnMsg(proto::BbsGetMsg&& msg)
 {
-    NodeDB& db = m_This.m_Processor.get_DB();
+	if (!m_This.m_Cfg.m_Bbs)
+		ThrowUnexpected();
+
+	NodeDB& db = m_This.m_Processor.get_DB();
     NodeDB::WalkerBbs wlk(db);
 
     wlk.m_Data.m_Key = msg.m_Key;
@@ -2700,7 +2711,10 @@ void Node::Peer::SendBbsMsg(const NodeDB::WalkerBbs::Data& d)
 
 void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
 {
-    Bbs::Subscription::InPeer key;
+	if (!m_This.m_Cfg.m_Bbs)
+		ThrowUnexpected();
+
+	Bbs::Subscription::InPeer key;
     key.m_Channel = msg.m_Channel;
 
     Bbs::Subscription::PeerSet::iterator it = m_Subscriptions.find(key);
@@ -2732,7 +2746,10 @@ void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
 
 void Node::Peer::OnMsg(proto::BbsPickChannel&& msg)
 {
-    proto::BbsPickChannelRes msgOut;
+	if (!m_This.m_Cfg.m_Bbs)
+		ThrowUnexpected();
+
+	proto::BbsPickChannelRes msgOut;
     msgOut.m_Channel = m_This.m_Bbs.m_RecommendedChannel;
     Send(msgOut);
 }
