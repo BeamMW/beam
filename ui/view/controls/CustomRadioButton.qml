@@ -64,5 +64,6 @@ T.RadioButton {
         text: control.text
         font: control.font
         color: control.palette.windowText
+        opacity: control.enabled ? 1.0 : 0.3
     }
 }
