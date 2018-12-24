@@ -340,7 +340,7 @@ int main_impl(int argc, char* argv[])
 
     try
     {
-        auto options = createOptionsDescription(GENERAL_OPTIONS | WALLET_OPTIONS);
+        auto [options, visibleOptions] = createOptionsDescription(GENERAL_OPTIONS | WALLET_OPTIONS);
 
         po::variables_map vm;
         try
@@ -350,14 +350,14 @@ int main_impl(int argc, char* argv[])
         catch (const po::error& e)
         {
             cout << e.what() << std::endl;
-            printHelp(options);
+            printHelp(visibleOptions);
 
             return 0;
         }
 
         if (vm.count(cli::HELP))
         {
-            printHelp(options);
+            printHelp(visibleOptions);
 
             return 0;
         }
@@ -490,7 +490,7 @@ int main_impl(int argc, char* argv[])
 							uint32_t subKey = vm[cli::KEY_SUBKEY].as<uint32_t>();
                             if (subKey < 1)
                             {
-                                cout << "Please, specify Subkey number --subKey=N (N > 0)" << endl;
+                                cout << "Please, specify Subkey number --subkey=N (N > 0)" << endl;
                                 return -1;
                             }
 							Key::IKdf::Ptr pKey = walletDB->get_ChildKdf(subKey);
@@ -705,7 +705,7 @@ int main_impl(int argc, char* argv[])
                     else
                     {
                         LOG_ERROR() << "command parameter not specified.";
-                        printHelp(options);
+                        printHelp(visibleOptions);
                     }
                 }
             }
@@ -713,7 +713,7 @@ int main_impl(int argc, char* argv[])
         catch (const po::error& e)
         {
             LOG_ERROR() << e.what();
-            printHelp(options);
+            printHelp(visibleOptions);
         }
         catch (const std::runtime_error& e)
         {
