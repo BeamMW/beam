@@ -165,10 +165,15 @@ namespace beam
 
             void onMessage(int id, const Balance& data) override 
             {
-                LOG_DEBUG() << "Balance(" << id << "," << data.type << "," << std::to_string(data.address) << ")";
+                LOG_DEBUG() << "Balance(" << id << ")";
 
                 json msg;
-                Balance::Response response{ _walletDB->getAvailable()};
+
+                auto totalInProgress = _walletDB->getTotal(Coin::Incoming) +
+                    _walletDB->getTotal(Coin::Outgoing) + _walletDB->getTotal(Coin::Change);
+
+                // TODO: add locked UTXO here
+                Balance::Response response{ _walletDB->getAvailable(), totalInProgress, 0};
                 _api.getResponse(id, response, msg);
                 serialize_json_msg(_lineProtocol, msg);
             }

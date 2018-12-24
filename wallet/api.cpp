@@ -100,13 +100,7 @@ namespace beam
 
     void WalletApi::onBalanceMessage(int id, const nlohmann::json& params)
     {
-        if (params.find("type") == params.end()) throwInvalidJsonRpc(id);
-        if (params.find("addr") == params.end()) throwInvalidJsonRpc(id);
-
         Balance balance;
-        balance.type = params["type"];
-        balance.address.FromHex(params["addr"]);
-
         _handler.onMessage(id, balance);
     }
 
@@ -146,7 +140,13 @@ namespace beam
         {
             {"jsonrpc", "2.0"},
             {"id", id},
-            {"result", res.amount}
+            {"result", 
+                {
+                    {"available", res.available},
+                    {"in_progress", res.in_progress},
+                    {"locked", res.locked},
+                }
+            }
         };
     }
 

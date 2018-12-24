@@ -158,8 +158,6 @@ namespace
             void onMessage(int id, const Balance& data) override
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK(data.type >= 0);
-                WALLET_CHECK(data.address.IsValid());
             }
         };
 
@@ -170,12 +168,15 @@ namespace
 
         {
             json res;
-            Balance::Response balance{80000000};
+            Balance::Response balance{123, 456, 789};
             api.getResponse(123, balance, res);
             testResultHeader(res);
 
             WALLET_CHECK(res["id"] == 123);
-            WALLET_CHECK(res["result"] == 80000000);
+            WALLET_CHECK(res["result"] != nullptr);
+            WALLET_CHECK(res["result"]["available"] == 123);
+            WALLET_CHECK(res["result"]["in_progress"] == 456);
+            WALLET_CHECK(res["result"]["locked"] == 789);
         }
     }
 }
@@ -237,6 +238,23 @@ int main()
         "params" :
         {
             "lifetime" : 24,
+            "metadata" : "<meta>custom user data</meta>"
+        }
+    }));
+
+    testInvalidJsonRpc([](const json& msg)
+    {
+        testErrorHeader(msg);
+
+        WALLET_CHECK(msg["id"] == 12345);
+        WALLET_CHECK(msg["error"]["code"] == INVALID_JSON_RPC);
+    }, JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "create_address",
+        "params" :
+        {
             "metadata" : "<meta>custom user data</meta>"
         }
     }));

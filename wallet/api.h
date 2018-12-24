@@ -82,12 +82,11 @@ namespace beam
 
     struct Balance
     {
-        int type;
-        WalletID address;
-
         struct Response
         {
-            Amount amount;
+            Amount available;
+            Amount in_progress;
+            Amount locked;
         };
     };
 
