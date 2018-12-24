@@ -40,6 +40,7 @@ namespace beam
     struct CreateAddress
     {
         std::string metadata;
+        int lifetime;
 
         struct Response
         {

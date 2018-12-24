@@ -53,14 +53,23 @@ namespace beam
 #undef REG_FUNC
     };
 
+    void checkJsonParam(const nlohmann::json& params, const std::string& name, int id)
+    {
+        if (params.find(name) == params.end()) 
+            throwInvalidJsonRpc(id);
+    }
 
     void WalletApi::onCreateAddressMessage(int id, const nlohmann::json& params)
     {
-        if (params.find("lifetime") == params.end()) throwInvalidJsonRpc(id);
-        if (params.find("metadata") == params.end()) throwInvalidJsonRpc(id);
+        checkJsonParam(params, "lifetime", id);
+        checkJsonParam(params, "metadata", id);
 
         CreateAddress createAddress;
         createAddress.metadata = params["metadata"];
+        createAddress.lifetime = params["lifetime"];
+
+        if (params["lifetime"] < 0)
+            throwInvalidJsonRpc(id);
 
         _handler.onMessage(id, createAddress);
     }

@@ -144,9 +144,12 @@ namespace beam
 
             void onMessage(int id, const CreateAddress& data) override 
             {
-                LOG_DEBUG() << "CreateAddress(" << id << "," << data.metadata << ")";
+                LOG_DEBUG() << "CreateAddress(" << id << "," << data.metadata << data.lifetime << ")";
 
                 WalletAddress address = wallet::createAddress(_walletDB);
+                address.m_duration = data.lifetime * 60 * 60;
+
+                _walletDB->saveAddress(address);
 
                 json msg;
                 CreateAddress::Response response{ address.m_walletID };
