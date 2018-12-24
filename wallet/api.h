@@ -94,7 +94,7 @@ namespace beam
     {
         struct Response
         {
-
+            std::vector<beam::Coin> utxos;
         };
     };
 

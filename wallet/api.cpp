@@ -160,6 +160,28 @@ namespace beam
         };
     }
 
+    void WalletApi::getResponse(int id, const GetUtxo::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", json::array()}
+        };
+
+        for (auto& utxo : res.utxos)
+        {
+            msg["result"].push_back(
+            { 
+                {"id", utxo.m_ID.m_Idx},
+                {"amount", utxo.m_ID.m_Value},
+                {"type", (const char*)FourCC::Text(utxo.m_ID.m_Type)},
+                {"height", utxo.m_createHeight},
+                {"maturity", utxo.m_maturity},
+            });
+        }
+    }
+
     bool WalletApi::parse(const char* data, size_t size)
     {
         if (size == 0) return false;
