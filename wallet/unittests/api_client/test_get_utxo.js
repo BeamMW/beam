@@ -7,21 +7,28 @@ client.connect(10000, '127.0.0.1', function() {
 		{
 			jsonrpc: '2.0',
 			id: 123,
-			method: 'balance',
+			method: 'get_utxo',
 			params: {}
 		}) + '\n');
 });
 
+var total = '';
+
 client.on('data', function(data) {
-	console.log('Received: ' + data);
+	total += data;
 
-	var res = JSON.parse(data);
+	if(data.indexOf('\n') != -1)
+	{
+		var res = JSON.parse(total);
 
-	console.log("available:", res.result.available);
-	console.log("in_progress:", res.result.in_progress);
-	console.log("locked:", res.result.locked);
+		console.log('Received:', res);
 
-	client.destroy(); // kill client after server's response
+		client.destroy(); // kill client after server's response
+	}
+});
+
+client.on('end', function() {
+	console.log(">>>>>>>>>>>> END")
 });
 
 client.on('close', function() {

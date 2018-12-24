@@ -53,14 +53,23 @@ namespace beam
 #undef REG_FUNC
     };
 
+    void checkJsonParam(const nlohmann::json& params, const std::string& name, int id)
+    {
+        if (params.find(name) == params.end()) 
+            throwInvalidJsonRpc(id);
+    }
 
     void WalletApi::onCreateAddressMessage(int id, const nlohmann::json& params)
     {
-        if (params.find("lifetime") == params.end()) throwInvalidJsonRpc(id);
-        if (params.find("metadata") == params.end()) throwInvalidJsonRpc(id);
+        checkJsonParam(params, "lifetime", id);
+        checkJsonParam(params, "metadata", id);
 
         CreateAddress createAddress;
         createAddress.metadata = params["metadata"];
+        createAddress.lifetime = params["lifetime"];
+
+        if (params["lifetime"] < 0)
+            throwInvalidJsonRpc(id);
 
         _handler.onMessage(id, createAddress);
     }
@@ -91,13 +100,7 @@ namespace beam
 
     void WalletApi::onBalanceMessage(int id, const nlohmann::json& params)
     {
-        if (params.find("type") == params.end()) throwInvalidJsonRpc(id);
-        if (params.find("addr") == params.end()) throwInvalidJsonRpc(id);
-
         Balance balance;
-        balance.type = params["type"];
-        balance.address.FromHex(params["addr"]);
-
         _handler.onMessage(id, balance);
     }
 
@@ -137,7 +140,13 @@ namespace beam
         {
             {"jsonrpc", "2.0"},
             {"id", id},
-            {"result", res.amount}
+            {"result", 
+                {
+                    {"available", res.available},
+                    {"in_progress", res.in_progress},
+                    {"locked", res.locked},
+                }
+            }
         };
     }
 
@@ -149,6 +158,28 @@ namespace beam
             {"id", id},
             {"result", std::to_string(res.address)}
         };
+    }
+
+    void WalletApi::getResponse(int id, const GetUtxo::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", json::array()}
+        };
+
+        for (auto& utxo : res.utxos)
+        {
+            msg["result"].push_back(
+            { 
+                {"id", utxo.m_ID.m_Idx},
+                {"amount", utxo.m_ID.m_Value},
+                {"type", (const char*)FourCC::Text(utxo.m_ID.m_Type)},
+                {"height", utxo.m_createHeight},
+                {"maturity", utxo.m_maturity},
+            });
+        }
     }
 
     bool WalletApi::parse(const char* data, size_t size)

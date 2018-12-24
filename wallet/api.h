@@ -40,6 +40,7 @@ namespace beam
     struct CreateAddress
     {
         std::string metadata;
+        int lifetime;
 
         struct Response
         {
@@ -81,12 +82,11 @@ namespace beam
 
     struct Balance
     {
-        int type;
-        WalletID address;
-
         struct Response
         {
-            Amount amount;
+            Amount available;
+            Amount in_progress;
+            Amount locked;
         };
     };
 
@@ -94,7 +94,7 @@ namespace beam
     {
         struct Response
         {
-
+            std::vector<beam::Coin> utxos;
         };
     };
 

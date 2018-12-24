@@ -144,9 +144,12 @@ namespace beam
 
             void onMessage(int id, const CreateAddress& data) override 
             {
-                LOG_DEBUG() << "CreateAddress(" << id << "," << data.metadata << ")";
+                LOG_DEBUG() << "CreateAddress(" << id << "," << data.metadata << data.lifetime << ")";
 
                 WalletAddress address = wallet::createAddress(_walletDB);
+                address.m_duration = data.lifetime * 60 * 60;
+
+                _walletDB->saveAddress(address);
 
                 json msg;
                 CreateAddress::Response response{ address.m_walletID };
@@ -155,26 +158,77 @@ namespace beam
             }
 
 
-            void onMessage(int id, const Send& data) override {}
-            void onMessage(int id, const Replace& data) override {}
-            void onMessage(int id, const Status& data) override {}
-            void onMessage(int id, const Split& data) override {}
+            void onMessage(int id, const Send& data) override
+            {
+                methodNotImplementedYet(id);
+            }
+
+            void onMessage(int id, const Replace& data) override
+            {
+                methodNotImplementedYet(id);
+            }
+
+            void onMessage(int id, const Status& data) override
+            {
+                methodNotImplementedYet(id);
+            }
+
+            void onMessage(int id, const Split& data) override
+            {
+                methodNotImplementedYet(id);
+            }
 
             void onMessage(int id, const Balance& data) override 
             {
-                LOG_DEBUG() << "Balance(" << id << "," << data.type << "," << std::to_string(data.address) << ")";
+                LOG_DEBUG() << "Balance(" << id << ")";
 
                 json msg;
-                Balance::Response response{ _walletDB->getAvailable()};
+
+                auto totalInProgress = _walletDB->getTotal(Coin::Incoming) +
+                    _walletDB->getTotal(Coin::Outgoing) + _walletDB->getTotal(Coin::Change);
+
+                // TODO: add locked UTXO here
+                Balance::Response response{ _walletDB->getAvailable(), totalInProgress, 0};
                 _api.getResponse(id, response, msg);
                 serialize_json_msg(_lineProtocol, msg);
             }
 
-            void onMessage(int id, const GetUtxo& data) override {}
-            void onMessage(int id, const Lock& data) override {}
-            void onMessage(int id, const Unlock& data) override {}
-            void onMessage(int id, const CreateUtxo& data) override {}
-            void onMessage(int id, const Poll& data) override {}
+            void onMessage(int id, const GetUtxo& data) override 
+            {
+                LOG_DEBUG() << "GetUtxo(" << id << ")";
+
+                json msg;
+
+                GetUtxo::Response response;
+                _walletDB->visit([&response](const Coin& c)->bool
+                {
+                    response.utxos.push_back(c);
+                    return true;
+                });
+
+                _api.getResponse(id, response, msg);
+                serialize_json_msg(_lineProtocol, msg);
+            }
+
+            void onMessage(int id, const Lock& data) override
+            {
+                methodNotImplementedYet(id);
+            }
+
+            void onMessage(int id, const Unlock& data) override
+            {
+                methodNotImplementedYet(id);
+            }
+
+            void onMessage(int id, const CreateUtxo& data) override
+            {
+                methodNotImplementedYet(id);
+            }
+
+            void onMessage(int id, const Poll& data) override
+            {
+                methodNotImplementedYet(id);
+            }
 
             bool on_raw_message(void* data, size_t size) 
             {
@@ -201,6 +255,24 @@ namespace beam
 
                 return true;
             }
+        private:
+            void methodNotImplementedYet(int id)
+            {
+                json msg
+                {
+                    {"jsonrpc", "2.0"},
+                    {"id", id},
+                    {"error",
+                        {
+                            {"code", NOTFOUND_JSON_RPC},
+                            {"message", "Method not implemented yet."},
+                        }
+                    }
+                };
+
+                serialize_json_msg(_lineProtocol, msg);
+            }
+
         private:
             ConnectionToServer& _owner;
             uint64_t _id;
