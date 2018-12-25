@@ -2260,8 +2260,9 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
     bool bValid = pElem ? true: ValidateTx(ctx, tx);
     LogTx(tx, bValid, key.m_Key);
 
-    if (!bValid)
-        return false;
+	if (!bValid) {
+		return false; // stupid compiler insists on parentheses here!
+	}
 
 	TxPool::Fluff::Element* pNewTxElem = m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key);
 
