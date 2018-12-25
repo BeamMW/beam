@@ -83,33 +83,45 @@ namespace beam
 		static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
 		static const Amount Coin; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
 
-		// emission parameters
-		Amount EmissionValue0	= Coin * 80; // Initial emission. Each drop it will be halved. In case of odd num it's rounded to the lower value.
-		Height EmissionDrop0	= 1440 * 365; // 1 year roughly. This is the height of the last block that still has the initial emission, the drop is starting from the next block
-		Height EmissionDrop1	= 1440 * 365 * 4; // 4 years roughly. Each such a cycle there's a new drop
+		struct {
+			// emission parameters
+			Amount Value0	= Coin * 80; // Initial emission. Each drop it will be halved. In case of odd num it's rounded to the lower value.
+			Height Drop0	= 1440 * 365; // 1 year roughly. This is the height of the last block that still has the initial emission, the drop is starting from the next block
+			Height Drop1	= 1440 * 365 * 4; // 4 years roughly. Each such a cycle there's a new drop
+		} Emission;
 
-		Height MaturityCoinbase = 240; // 4 hours
-		Height MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
+		struct {
+			Height Coinbase	= 240; // 4 hours
+			Height Std		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
+		} Maturity;
 
-		size_t MaxBodySize		= 0x100000; // 1MB
+		struct {
+			// timestamp & difficulty.
+			uint32_t Target_s		= 60; // 1 minute
+			uint32_t WindowWork		= 24 * 60; // 1,440 blocks, 1 day roughly
+			uint32_t MaxAhead_s		= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
+			uint32_t WindowMedian	= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
+			Difficulty Difficulty0	= Difficulty(2 << Difficulty::s_MantissaBits); // FAST start, good for QA
+		} DA;
 
-		// timestamp & difficulty. Basically very close to those from bitcoin, except the desired rate is 1 minute (instead of 10 minutes)
-		uint32_t DesiredRate_s				= 60; // 1 minute
-		uint32_t DifficultyReviewWindow		= 24 * 60; // 1,440 blocks, 1 day roughly
-		uint32_t TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
-		uint32_t WindowForMedian			= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
-		Difficulty StartDifficulty			= Difficulty(2 << Difficulty::s_MantissaBits); // FAST start, good for QA
+		struct {
+			bool Enabled = true;
+			bool Deposit = true; // CA emission in exchage for beams. If not specified - the emission is free
+		} CA;
+
+		struct {
+			uint32_t MaxRollback = 1440; // 1 day roughly
+			uint32_t Granularity = 720; // i.e. should be created for heights that are multiples of this. This should make it more likely for different nodes to have the same macroblocks
+		} Macroblock;
+
+		size_t MaxBodySize = 0x100000; // 1MB
 
 		bool AllowPublicUtxos = false;
 		bool FakePoW = false;
-		bool AllowCA = true;
-		bool DepositForCA = true; // CA emission in exchage for beams. If not specified - the emission is free
-
-		uint32_t MaxRollbackHeight = 1440; // 1 day roughly
-		uint32_t MacroblockGranularity = 720; // i.e. should be created for heights that are multiples of this. This should make it more likely for different nodes to have the same macroblocks
 
 		ECC::Hash::Value Prehistoric; // Prev hash of the 1st block
 		ECC::Hash::Value TreasuryChecksum;
+
 		ECC::Hash::Value Checksum;
 
 		void UpdateChecksum();

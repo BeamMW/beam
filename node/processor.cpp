@@ -64,7 +64,7 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 	InitializeFromBlocks();
 
 	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, m_Horizon.m_Branching);
-	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, (Height) Rules::get().MaxRollbackHeight);
+	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, (Height) Rules::get().Macroblock.MaxRollback);
 
 	if (!bResetCursor)
 		TryGoUp();
@@ -684,9 +684,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 
 			assert(m_Cursor.m_LoHorizon <= m_Cursor.m_Sid.m_Height);
-			if (m_Cursor.m_Sid.m_Height - m_Cursor.m_LoHorizon > Rules::get().MaxRollbackHeight)
+			if (m_Cursor.m_Sid.m_Height - m_Cursor.m_LoHorizon > Rules::get().Macroblock.MaxRollback)
 			{
-				m_Cursor.m_LoHorizon = m_Cursor.m_Sid.m_Height - Rules::get().MaxRollbackHeight;
+				m_Cursor.m_LoHorizon = m_Cursor.m_Sid.m_Height - Rules::get().Macroblock.MaxRollback;
 				m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Cursor.m_LoHorizon, NULL);
 			}
 
@@ -1031,7 +1031,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 	if (s.m_TimeStamp > ts)
 	{
 		ts = s.m_TimeStamp - ts; // dt
-		if (ts > Rules::get().TimestampAheadThreshold_s)
+		if (ts > Rules::get().DA.MaxAhead_s)
 		{
 			LOG_WARNING() << id << " Timestamp ahead by " << ts;
 			return DataStatus::Invalid;
@@ -1163,26 +1163,26 @@ Difficulty NodeProcessor::get_NextDifficulty()
 	const Rules& r = Rules::get(); // alias
 
 	if (!m_Cursor.m_Sid.m_Row)
-		return r.StartDifficulty; // 1st block difficulty 0
+		return r.DA.Difficulty0; // 1st block difficulty 0
 
-	if (m_Cursor.m_Full.m_Height - Rules::HeightGenesis < r.DifficultyReviewWindow)
-		return r.StartDifficulty; // 1st block difficulty 0
+	if (m_Cursor.m_Full.m_Height - Rules::HeightGenesis < r.DA.WindowWork)
+		return r.DA.Difficulty0; // 1st block difficulty 0
 
 	Block::SystemState::Full s0, s1;
 
 	uint64_t row1 = m_Cursor.m_Sid.m_Row;
 	get_MovingMedianEx(row1);
 	m_DB.get_State(row1, s1);
-	uint64_t row0 = FindActiveAtStrict(m_Cursor.m_Full.m_Height - r.DifficultyReviewWindow);
+	uint64_t row0 = FindActiveAtStrict(m_Cursor.m_Full.m_Height - r.DA.WindowWork);
 	get_MovingMedianEx(row0);
 	m_DB.get_State(row0, s0);
 
-	assert(r.DifficultyReviewWindow > r.WindowForMedian); // when getting median - the target height can be shifted by some value, ensure it's smaller than the window
+	assert(r.DA.WindowWork > r.DA.WindowMedian); // when getting median - the target height can be shifted by some value, ensure it's smaller than the window
 	// means, the height diff should always be positive
 	uint32_t dh = static_cast<uint32_t>(s1.m_Height - s0.m_Height);
 	assert(s1.m_Height > s0.m_Height);
 
-	uint32_t dtTrg_s = r.DesiredRate_s * dh;
+	uint32_t dtTrg_s = r.DA.Target_s * dh;
 	uint32_t dtSrc_s =
 		(s1.m_TimeStamp >= s0.m_TimeStamp + dtTrg_s * 2) ? (dtTrg_s * 2) :
 		(s1.m_TimeStamp <= s0.m_TimeStamp + dtTrg_s / 2) ? (dtTrg_s / 2) :
@@ -1205,7 +1205,7 @@ Timestamp NodeProcessor::get_MovingMedianEx(uint64_t& row)
 
 	typedef std::pair<Timestamp, std::pair<Height, uint64_t> > THR; // Time-Height-Row. The Height is needed for the case of duplicate Time, to resolve ambiguity
 
-	const uint32_t nWndMax = Rules::get().WindowForMedian;
+	const uint32_t nWndMax = Rules::get().DA.WindowMedian;
 	std::vector<THR> v;
 	v.reserve(nWndMax);
 

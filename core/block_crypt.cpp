@@ -343,7 +343,7 @@ namespace beam
 
 	Height Output::get_MinMaturity(Height h) const
 	{
-		HeightAdd(h, m_Coinbase ? Rules::get().MaturityCoinbase : Rules::get().MaturityStd);
+		HeightAdd(h, m_Coinbase ? Rules::get().Maturity.Coinbase : Rules::get().Maturity.Std);
 		HeightAdd(h, m_Incubation);
 		return h;
 	}
@@ -421,7 +421,7 @@ namespace beam
 
 			if (m_AssetEmission)
 			{
-				if (!Rules::get().AllowCA)
+				if (!Rules::get().CA.Enabled)
 					return false;
 
 				if (pParent || !m_vNested.empty())
@@ -440,7 +440,7 @@ namespace beam
 
 				sc.m_hGen = -sc.m_hGen;
 
-				if (Rules::get().DepositForCA)
+				if (Rules::get().CA.Deposit)
 					sc.m_hGen += ECC::Context::get().m_Ipp.H_; // Asset is traded for beam!
 
 				// In case of block validation with multiple asset instructions it's better to calculate this via MultiMac than multiplying each point separately
@@ -844,18 +844,18 @@ namespace beam
 		h -= Rules::HeightGenesis; // may overflow, but it's ok. If h < HeightGenesis (which must not happen anyway) - then it'll give a huge height, for which the emission would be zero anyway.
 
 		// Current emission strategy:
-		// at EmissionDrop0 - 1/2
-		// at EmissionDrop1 - 5/8
-		// each EmissionDrop1 cycle - 1/2
+		// at Emission.Drop0 - 1/2
+		// at Emission.Drop1 - 5/8
+		// each Emission.Drop1 cycle - 1/2
 
-		if (h < EmissionDrop0)
+		if (h < Emission.Drop0)
 		{
-			hEnd = Rules::HeightGenesis + EmissionDrop0;
+			hEnd = Rules::HeightGenesis + Emission.Drop0;
 			return base;
 		}
 
-		assert(EmissionDrop1);
-		Height n = 1 + (h - EmissionDrop0) / EmissionDrop1;
+		assert(Emission.Drop1);
+		Height n = 1 + (h - Emission.Drop0) / Emission.Drop1;
 
 		const uint32_t nBitsMax = sizeof(Amount) << 3;
 		if (n >= nBitsMax)
@@ -864,7 +864,7 @@ namespace beam
 			return 0;
 		}
 
-		hEnd = Rules::HeightGenesis + EmissionDrop0 + n * EmissionDrop1;
+		hEnd = Rules::HeightGenesis + Emission.Drop0 + n * Emission.Drop1;
 
 		if (n >= 2)
 			base += (base >> 2); // the unusual part - add 1/4
@@ -874,12 +874,12 @@ namespace beam
 
 	Amount Rules::get_Emission(Height h)
 	{
-		return get().get_EmissionEx(h, h, get().EmissionValue0);
+		return get().get_EmissionEx(h, h, get().Emission.Value0);
 	}
 
 	void Rules::get_Emission(AmountBig::Type& res, const HeightRange& hr)
 	{
-		get_Emission(res, hr, get().EmissionValue0);
+		get_Emission(res, hr, get().Emission.Value0);
 	}
 
 	void Rules::get_Emission(AmountBig::Type& res, const HeightRange& hr, Amount base)
@@ -918,23 +918,23 @@ namespace beam
 			<< TreasuryChecksum
 			<< HeightGenesis
 			<< Coin
-			<< EmissionValue0
-			<< EmissionDrop0
-			<< EmissionDrop1
-			<< MaturityCoinbase
-			<< MaturityStd
+			<< Emission.Value0
+			<< Emission.Drop0
+			<< Emission.Drop1
+			<< Maturity.Coinbase
+			<< Maturity.Std
 			<< MaxBodySize
 			<< FakePoW
 			<< AllowPublicUtxos
-			<< AllowCA
-			<< DepositForCA
-			<< DesiredRate_s
-			<< DifficultyReviewWindow
-			<< TimestampAheadThreshold_s
-			<< WindowForMedian
-			<< StartDifficulty.m_Packed
-			<< MaxRollbackHeight
-			<< MacroblockGranularity
+			<< CA.Enabled
+			<< CA.Deposit
+			<< DA.Target_s
+			<< DA.WindowWork
+			<< DA.MaxAhead_s
+			<< DA.WindowMedian
+			<< DA.Difficulty0.m_Packed
+			<< Macroblock.MaxRollback
+			<< Macroblock.Granularity
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits

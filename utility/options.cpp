@@ -172,16 +172,16 @@ namespace beam
             (cli::APPDATA_PATH, po::value<string>());
 
 #define RulesParams(macro) \
-    macro(Amount, EmissionValue0, "initial coinbase emission in a single block") \
-    macro(Amount, EmissionDrop0, "height of the last block that still has the initial emission, the drop is starting from the next block") \
-    macro(Amount, EmissionDrop1, "Each such a cycle there's a new drop") \
-    macro(Height, MaturityCoinbase, "num of blocks before coinbase UTXO can be spent") \
-    macro(Height, MaturityStd, "num of blocks before non-coinbase UTXO can be spent") \
+    macro(Amount, Emission.Value0, "initial coinbase emission in a single block") \
+    macro(Amount, Emission.Drop0, "height of the last block that still has the initial emission, the drop is starting from the next block") \
+    macro(Amount, Emission.Drop1, "Each such a cycle there's a new drop") \
+    macro(Height, Maturity.Coinbase, "num of blocks before coinbase UTXO can be spent") \
+    macro(Height, Maturity.Std, "num of blocks before non-coinbase UTXO can be spent") \
     macro(size_t, MaxBodySize, "Max block body size [bytes]") \
-    macro(uint32_t, DesiredRate_s, "Desired rate of generated blocks [seconds]") \
-    macro(uint32_t, DifficultyReviewWindow, "num of blocks in the window for the mining difficulty adjustment") \
-    macro(uint32_t, TimestampAheadThreshold_s, "Block timestamp tolerance [seconds]") \
-    macro(uint32_t, WindowForMedian, "How many blocks are considered in calculating the timestamp median") \
+    macro(uint32_t, DA.Target_s, "Desired rate of generated blocks [seconds]") \
+    macro(uint32_t, DA.WindowWork, "num of blocks in the window for the mining difficulty adjustment") \
+    macro(uint32_t, DA.MaxAhead_s, "Block timestamp tolerance [seconds]") \
+    macro(uint32_t, DA.WindowMedian, "How many blocks are considered in calculating the timestamp median") \
     macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
     macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
 

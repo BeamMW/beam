@@ -1360,7 +1360,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 
     if (NodeProcessor::IsRemoteTipNeeded(m_Tip, p.m_Cursor.m_Full))
     {
-        if (!bSyncMode && (m_Tip.m_Height > p.m_Cursor.m_ID.m_Height + Rules::get().MaxRollbackHeight + Rules::get().MacroblockGranularity * 2) && p.m_Extra.m_TreasuryHandled)
+        if (!bSyncMode && (m_Tip.m_Height > p.m_Cursor.m_ID.m_Height + Rules::get().Macroblock.MaxRollback + Rules::get().Macroblock.Granularity * 2) && p.m_Extra.m_TreasuryHandled)
             LOG_WARNING() << "Height drop is too big, maybe unreachable";
 
         switch (p.OnState(m_Tip, m_pInfo->m_ID.m_Key))
@@ -1554,7 +1554,7 @@ bool Node::SyncCycle(Peer& p)
     if (Peer::Flags::DontSync & p.m_Flags)
         return false;
 
-    if (p.m_Tip.m_Height < m_pSync->m_Trg.m_Height/* + Rules::get().MaxRollbackHeight*/)
+    if (p.m_Tip.m_Height < m_pSync->m_Trg.m_Height/* + Rules::get().Macroblock.MaxRollback*/)
         return false;
 
     proto::MacroblockGet msg;

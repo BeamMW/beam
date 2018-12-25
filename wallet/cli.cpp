@@ -233,7 +233,7 @@ int HandleTreasury(const po::variables_map& vm, Key::IKdf& kdf)
 			auto perc = vm[cli::TR_PERC].as<double>();
 			perc *= 0.01;
 
-			Amount val = static_cast<Amount>(Rules::get().EmissionValue0 * perc); // rounded down
+			Amount val = static_cast<Amount>(Rules::get().Emission.Value0 * perc); // rounded down
 
 			Treasury::Parameters pars; // default
 			Treasury::Entry* pE = tres.CreatePlan(wid, val, pars);

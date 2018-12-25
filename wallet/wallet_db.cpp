@@ -1915,7 +1915,7 @@ namespace beam
         Block::SystemState::Full s;
         if (m_History.get_Tip(s))
         {
-            const Height hMaxBacklog = Rules::get().MaxRollbackHeight * 2; // can actually be more
+            const Height hMaxBacklog = Rules::get().Macroblock.MaxRollback * 2; // can actually be more
 
             if (s.m_Height > hMaxBacklog)
             {

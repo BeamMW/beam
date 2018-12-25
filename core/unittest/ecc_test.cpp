@@ -898,7 +898,7 @@ struct TransactionMaker
 			SetRandom(skAsset);
 			beam::proto::Sk2Pk(aid, skAsset);
 
-			if (beam::Rules::get().DepositForCA)
+			if (beam::Rules::get().CA.Deposit)
 				m_pPeers[0].AddInput(m_Trans, valAsset, m_Kdf); // input being-deposited
 
 			m_pPeers[0].AddOutput(m_Trans, valAsset, m_Kdf, &aid); // output UTXO to consume the created asset
@@ -1268,7 +1268,7 @@ void TestTreasury()
 		beam::Treasury::get_ID(pKdfs[i], pid, sk);
 
 		// 2. Plan is created (2%, 3%, 4% of the total emission)
-		beam::Treasury::Entry* pE = tres.CreatePlan(pid, beam::Rules::get().EmissionValue0 * (i + 2)/100, pars);
+		beam::Treasury::Entry* pE = tres.CreatePlan(pid, beam::Rules::get().Emission.Value0 * (i + 2)/100, pars);
 		verify_test(pE->m_Request.m_WalletID == pid);
 
 		// test Request serialization

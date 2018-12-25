@@ -105,7 +105,7 @@ void run_with_node() {
     find_certificates(options);
     server = IExternalPOW::create(options, *reactor, listenTo);
 
-    Rules::get().StartDifficulty = 0;
+    Rules::get().DA.Difficulty0 = 0;
     Rules::get().UpdateChecksum();
     LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
