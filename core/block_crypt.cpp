@@ -929,16 +929,17 @@ namespace beam
 			<< CA.Enabled
 			<< CA.Deposit
 			<< DA.Target_s
-			<< DA.WindowWork
 			<< DA.MaxAhead_s
-			<< DA.WindowMedian
+			<< DA.WindowWork
+			<< DA.WindowMedian0
+			<< DA.WindowMedian1
 			<< DA.Difficulty0.m_Packed
 			<< Macroblock.MaxRollback
 			<< Macroblock.Granularity
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(13) // increment this whenever we change something in the protocol
+			<< uint32_t(14) // increment this whenever we change something in the protocol
 #ifndef BEAM_TESTNET
             << "masternet"
 #endif

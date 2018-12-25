@@ -67,7 +67,7 @@ class NodeProcessor
 	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
 	Difficulty get_NextDifficulty();
 	Timestamp get_MovingMedian();
-	Timestamp get_MovingMedianEx(uint64_t& row); // in-out
+	Timestamp get_MovingMedianEx(uint64_t& row, uint32_t nWindow); // in-out
 	Height get_FossilHeight();
 
 	struct UtxoSig;

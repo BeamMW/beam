@@ -98,9 +98,10 @@ namespace beam
 		struct {
 			// timestamp & difficulty.
 			uint32_t Target_s		= 60; // 1 minute
-			uint32_t WindowWork		= 24 * 60; // 1,440 blocks, 1 day roughly
-			uint32_t MaxAhead_s		= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
-			uint32_t WindowMedian	= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
+			uint32_t WindowWork		= 120; // 2 hours roughly (under normal operation)
+			uint32_t MaxAhead_s		= 60 * 15; // 15 minutes. Timestamps ahead by more than 15 minutes won't be accepted
+			uint32_t WindowMedian0	= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
+			uint32_t WindowMedian1	= 7; // Num of blocks taken at both endings of WindowWork, to pick medians.
 			Difficulty Difficulty0	= Difficulty(2 << Difficulty::s_MantissaBits); // FAST start, good for QA
 		} DA;
 

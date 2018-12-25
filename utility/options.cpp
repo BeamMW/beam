@@ -179,9 +179,10 @@ namespace beam
     macro(Height, Maturity.Std, "num of blocks before non-coinbase UTXO can be spent") \
     macro(size_t, MaxBodySize, "Max block body size [bytes]") \
     macro(uint32_t, DA.Target_s, "Desired rate of generated blocks [seconds]") \
-    macro(uint32_t, DA.WindowWork, "num of blocks in the window for the mining difficulty adjustment") \
     macro(uint32_t, DA.MaxAhead_s, "Block timestamp tolerance [seconds]") \
-    macro(uint32_t, DA.WindowMedian, "How many blocks are considered in calculating the timestamp median") \
+    macro(uint32_t, DA.WindowWork, "num of blocks in the window for the mining difficulty adjustment") \
+    macro(uint32_t, DA.WindowMedian0, "How many blocks are considered in calculating the timestamp median") \
+    macro(uint32_t, DA.WindowMedian1, "Num of blocks taken at both endings of WindowWork, to pick medians") \
     macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
     macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
 

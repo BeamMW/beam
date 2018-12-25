@@ -1171,13 +1171,13 @@ Difficulty NodeProcessor::get_NextDifficulty()
 	Block::SystemState::Full s0, s1;
 
 	uint64_t row1 = m_Cursor.m_Sid.m_Row;
-	get_MovingMedianEx(row1);
+	get_MovingMedianEx(row1, Rules::get().DA.WindowMedian1);
 	m_DB.get_State(row1, s1);
 	uint64_t row0 = FindActiveAtStrict(m_Cursor.m_Full.m_Height - r.DA.WindowWork);
-	get_MovingMedianEx(row0);
+	get_MovingMedianEx(row0, Rules::get().DA.WindowMedian1);
 	m_DB.get_State(row0, s0);
 
-	assert(r.DA.WindowWork > r.DA.WindowMedian); // when getting median - the target height can be shifted by some value, ensure it's smaller than the window
+	assert(r.DA.WindowWork > r.DA.WindowMedian1); // when getting median - the target height can be shifted by some value, ensure it's smaller than the window
 	// means, the height diff should always be positive
 	uint32_t dh = static_cast<uint32_t>(s1.m_Height - s0.m_Height);
 	assert(s1.m_Height > s0.m_Height);
@@ -1199,17 +1199,16 @@ Difficulty NodeProcessor::get_NextDifficulty()
 	return res;
 }
 
-Timestamp NodeProcessor::get_MovingMedianEx(uint64_t& row)
+Timestamp NodeProcessor::get_MovingMedianEx(uint64_t& row, uint32_t nWindow)
 {
 	assert(row);
 
 	typedef std::pair<Timestamp, std::pair<Height, uint64_t> > THR; // Time-Height-Row. The Height is needed for the case of duplicate Time, to resolve ambiguity
 
-	const uint32_t nWndMax = Rules::get().DA.WindowMedian;
 	std::vector<THR> v;
-	v.reserve(nWndMax);
+	v.reserve(nWindow);
 
-	for (uint32_t iPos = 0; iPos < nWndMax; iPos++)
+	for (uint32_t iPos = 0; iPos < nWindow; iPos++)
 	{
 		Block::SystemState::Full s;
 		m_DB.get_State(row, s);
@@ -1233,7 +1232,7 @@ Timestamp NodeProcessor::get_MovingMedianEx(uint64_t& row)
 Timestamp NodeProcessor::get_MovingMedian()
 {
 	uint64_t row = m_Cursor.m_Sid.m_Row;
-	return row ? get_MovingMedianEx(row) : 0;
+	return row ? get_MovingMedianEx(row, Rules::get().DA.WindowMedian0) : 0;
 }
 
 bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx) const
