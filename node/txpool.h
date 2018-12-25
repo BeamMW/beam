@@ -73,12 +73,11 @@ struct TxPool
 		ProfitSet m_setProfit;
 		ThresholdSet m_setThreshold;
 
-		void AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&);
+		Element* AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&);
 		void Delete(Element&);
 		void Clear();
 
 		void DeleteOutOfBound(Height);
-		void ShrinkUpTo(uint32_t nCount);
 
 		~Fluff() { Clear(); }
 	};

@@ -42,7 +42,7 @@ bool TxPool::Profit::operator < (const Profit& t) const
 
 /////////////////////////////
 // Fluff
-void TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key)
+TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key)
 {
 	assert(pValue);
 
@@ -56,6 +56,8 @@ void TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Con
 	m_setThreshold.insert(p->m_Threshold);
 	m_setProfit.insert(p->m_Profit);
 	m_setTxs.insert(p->m_Tx);
+
+	return p;
 }
 
 void TxPool::Fluff::Delete(Element& x)
@@ -76,12 +78,6 @@ void TxPool::Fluff::DeleteOutOfBound(Height h)
 
 		Delete(t.get_ParentObj());
 	}
-}
-
-void TxPool::Fluff::ShrinkUpTo(uint32_t nCount)
-{
-	while (m_setProfit.size() > nCount)
-		Delete(m_setProfit.rbegin()->get_ParentObj());
 }
 
 void TxPool::Fluff::Clear()

@@ -2263,6 +2263,20 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
     if (!bValid)
         return false;
 
+	TxPool::Fluff::Element* pNewTxElem = m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key);
+
+	while (m_TxPool.m_setProfit.size() > m_Cfg.m_MaxPoolTransactions)
+	{
+		TxPool::Fluff::Element& txDel = m_TxPool.m_setProfit.rbegin()->get_ParentObj();
+		if (&txDel == pNewTxElem)
+			pNewTxElem = nullptr; // Anti-spam protection: in case the maximum pool capacity is reached - ensure this tx is any better BEFORE broadcasting ti
+
+		m_TxPool.Delete(txDel);
+	}
+
+	if (!pNewTxElem)
+		return false;
+
     proto::HaveTransaction msgOut;
     msgOut.m_ID = key.m_Key;
 
@@ -2276,9 +2290,6 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 
         peer.Send(msgOut);
     }
-
-    m_TxPool.AddValidTx(std::move(ptx), ctx, key.m_Key);
-    m_TxPool.ShrinkUpTo(m_Cfg.m_MaxPoolTransactions);
 
     if (m_Miner.IsEnabled() && !m_Miner.m_pTaskToFinalize)
         m_Miner.SetTimer(m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
