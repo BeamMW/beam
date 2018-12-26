@@ -35,6 +35,8 @@ struct sqlite3;
 
 namespace beam
 {
+    const uint32_t EmptyCoinSession = 0;
+
     struct Coin
     {
         enum Status
