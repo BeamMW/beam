@@ -65,10 +65,12 @@ class NodeProcessor
 	static void OnCorrupted();
 	void get_Definition(Merkle::Hash&, bool bForNextState);
 	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
+	Height get_FossilHeight();
+
+	typedef std::pair<int64_t, std::pair<int64_t, Difficulty::Raw> > THW; // Time-Height-Work. Time and Height are signed
 	Difficulty get_NextDifficulty();
 	Timestamp get_MovingMedian();
-	Timestamp get_MovingMedianEx(uint64_t& row, uint32_t nWindow); // in-out
-	Height get_FossilHeight();
+	void get_MovingMedianEx(uint64_t rowLast, uint32_t nWindow, THW&);
 
 	struct UtxoSig;
 	struct UnspentWalker;

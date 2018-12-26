@@ -1913,7 +1913,6 @@ int main()
 	beam::Rules::get().AllowPublicUtxos = true;
 	beam::Rules::get().FakePoW = true;
 	beam::Rules::get().DA.WindowWork = 35;
-	beam::Rules::get().DA.WindowMedian1 = 3;
 	beam::Rules::get().Maturity.Coinbase = 35; // lowered to see more txs
 	beam::Rules::get().Emission.Drop0 = 5;
 	beam::Rules::get().Emission.Drop1 = 8;
