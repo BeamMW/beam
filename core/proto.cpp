@@ -204,7 +204,7 @@ void Sk2Pk(PeerID& res, ECC::Scalar::Native& sk)
     res = pt.m_X;
 }
 
-bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void* p, uint32_t n)
+bool Bbs::Encrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void* p, uint32_t n)
 {
     PeerID myPublic;
     Sk2Pk(myPublic, nonce);
@@ -231,7 +231,7 @@ bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& 
     return true;
 }
 
-bool BbsDecrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr)
+bool Bbs::Decrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr)
 {
     PeerID remotePublic;
     ECC::Hash::Value hvMac, hvMac2;

@@ -2621,6 +2621,9 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 	if (!m_This.m_Cfg.m_Bbs)
 		ThrowUnexpected();
 
+	if (msg.m_Message.size() > proto::Bbs::s_MaxMsgSize)
+		ThrowUnexpected("Bbs msg too large"); // will also ban this peer
+
     Timestamp t = getTimestamp();
     Timestamp t0 = t - m_This.m_Cfg.m_Timeout.m_BbsMessageTimeout_s;
     Timestamp t1 = t + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s;

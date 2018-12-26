@@ -1110,12 +1110,12 @@ void TestBbs()
 
 	SetRandom(nonce);
 	beam::ByteBuffer buf;
-	verify_test(beam::proto::BbsEncrypt(buf, publicAddr, nonce, szMsg, sizeof(szMsg)));
+	verify_test(beam::proto::Bbs::Encrypt(buf, publicAddr, nonce, szMsg, sizeof(szMsg)));
 
 	uint8_t* p = &buf.at(0);
 	uint32_t n = (uint32_t) buf.size();
 
-	verify_test(beam::proto::BbsDecrypt(p, n, privateAddr));
+	verify_test(beam::proto::Bbs::Decrypt(p, n, privateAddr));
 	verify_test(n == sizeof(szMsg));
 	verify_test(!memcmp(p, szMsg, n));
 
@@ -1123,7 +1123,7 @@ void TestBbs()
 	p = &buf.at(0);
 	n = (uint32_t) buf.size();
 
-	verify_test(!beam::proto::BbsDecrypt(p, n, privateAddr));
+	verify_test(!beam::proto::Bbs::Decrypt(p, n, privateAddr));
 }
 
 void TestRatio(const beam::Difficulty& d0, const beam::Difficulty& d1, double k)

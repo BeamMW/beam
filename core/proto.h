@@ -387,8 +387,14 @@ namespace proto {
 
     void Sk2Pk(PeerID&, ECC::Scalar::Native&); // will negate the scalar iff necessary
     bool ImportPeerID(ECC::Point::Native&, const PeerID&);
-    bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void*, uint32_t); // will fail iff addr is invalid
-    bool BbsDecrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr);
+
+	namespace Bbs
+	{
+		static const size_t s_MaxMsgSize = 1024 * 1024;
+
+		bool Encrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void*, uint32_t); // will fail iff addr is invalid
+		bool Decrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr);
+	};
 
     struct INodeMsgHandler
         :public IErrorHandler
