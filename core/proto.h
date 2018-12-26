@@ -246,10 +246,10 @@ namespace proto {
 
 
     struct LoginFlags {
-        static const uint8_t SpreadingTransactions    = 0x1; // I'm spreading txs, please send
+        static const uint8_t SpreadingTransactions  = 0x1; // I'm spreading txs, please send
         static const uint8_t Bbs                    = 0x2; // I'm spreading bbs messages
-        static const uint8_t SendPeers                = 0x4; // Please send me periodically peers recommendations
-        static const uint8_t MiningFinalization        = 0x8; // I want to finalize block construction for my owned node
+        static const uint8_t SendPeers              = 0x4; // Please send me periodically peers recommendations
+        static const uint8_t MiningFinalization     = 0x8; // I want to finalize block construction for my owned node
     };
 
     struct IDType
