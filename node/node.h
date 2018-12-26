@@ -59,7 +59,7 @@ struct Node
 			uint32_t m_TopPeersUpd_ms = 1000 * 60 * 10; // once in 10 minutes
 			uint32_t m_PeersUpdate_ms	= 1000; // reconsider every second
 			uint32_t m_PeersDbFlush_ms = 1000 * 60; // 1 minute
-			uint32_t m_BbsMessageTimeout_s	= 3600 * 24; // 1 day
+			uint32_t m_BbsMessageTimeout_s	= 3600 * 12; // 1/2 day
 			uint32_t m_BbsMessageMaxAhead_s	= 3600 * 2; // 2 hours
 			uint32_t m_BbsCleanupPeriod_ms = 3600 * 1000; // 1 hour
 		} m_Timeout;
@@ -457,6 +457,7 @@ private:
 		uint8_t m_LoginFlags;
 
 		uint64_t m_CursorBbs;
+		TxPool::Fluff::Element* m_pCursorTx;
 
 		TaskList m_lstTasks;
 		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
@@ -481,9 +482,11 @@ private:
 		void SyncQuery();
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, uint8_t nByeReason);
+		void BroadcastTxs();
 		void BroadcastBbs();
 		void BroadcastBbs(Bbs::Subscription&);
 		void OnChocking();
+		void SetTxCursor(TxPool::Fluff::Element*);
 
 		bool IsChocking(size_t nExtra = 0);
 		bool ShouldAssignTasks();
