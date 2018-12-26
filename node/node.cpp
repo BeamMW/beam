@@ -2359,8 +2359,10 @@ void Node::Peer::OnMsg(proto::Login&& msg)
 
     m_LoginFlags = msg.m_Flags;
 
-    if (b != ShouldFinalizeMining())
-        m_This.m_Miner.OnFinalizerChanged(b ? NULL : this);
+	if (b != ShouldFinalizeMining()) {
+		// stupid compiler insists on parentheses!
+		m_This.m_Miner.OnFinalizerChanged(b ? NULL : this);
+	}
 
 	BroadcastBbs();
 }
