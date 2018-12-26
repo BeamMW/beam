@@ -106,10 +106,11 @@ public:
 			PeerAdd,
 			PeerDel,
 			PeerEnum,
-			BbsEnum,
-			BbsEnumAll,
+			BbsEnumCSeq,
+			BbsEnumAllCT,
 			BbsEnumAllSeq,
 			BbsFind,
+			BbsFindCursor,
 			BbsDelOld,
 			BbsIns,
 			DummyIns,
@@ -324,12 +325,13 @@ public:
 		bool MoveNext();
 	};
 
-	void EnumBbs(WalkerBbs&); // set channel and min time before invocation
-	void EnumAllBbs(WalkerBbs&); // ordered by Channel,Time.
+	void EnumBbsCSeq(WalkerBbs&); // set channel and ID before invocation
+	void EnumAllBbsCT(WalkerBbs&); // ordered by Channel,Time.
 	void EnumAllBbsSeq(WalkerBbs&); // ordered by m_ID. Must be initialized to specify the lower bound
-	void BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it)
+	uint64_t BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it). Returns the ID
 	bool BbsFind(WalkerBbs&); // set Key
 	void BbsDelOld(Timestamp tMinToRemain);
+	uint64_t BbsFindCursor(BbsChannel, Timestamp);
 	uint64_t get_BbsLastID();
 
 	void InsertDummy(Height h, uint64_t);

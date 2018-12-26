@@ -390,6 +390,7 @@ private:
 			} m_Peer;
 
 			Peer* m_pPeer;
+			uint64_t m_Cursor;
 
 			typedef boost::intrusive::multiset<InBbs> BbsSet;
 			typedef boost::intrusive::multiset<InPeer> PeerSet;
@@ -481,6 +482,7 @@ private:
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, uint8_t nByeReason);
 		void BroadcastBbs();
+		void BroadcastBbs(Bbs::Subscription&);
 		void OnChocking();
 
 		bool IsChocking(size_t nExtra = 0);

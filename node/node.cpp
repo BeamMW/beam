@@ -871,7 +871,7 @@ void Node::Bbs::FindRecommendedChannel()
     bool bFound = false;
 
     NodeDB::WalkerBbs wlk(db);
-    for (db.EnumAllBbs(wlk); ; )
+    for (db.EnumAllBbsCT(wlk); ; )
     {
         bool bMoved = wlk.MoveNext();
 
@@ -1344,6 +1344,9 @@ void Node::Peer::OnMsg(proto::Pong&&)
 
 	// not chocking - continue broadcast
 	BroadcastBbs();
+
+	for (Bbs::Subscription::PeerSet::iterator it = m_Subscriptions.begin(); m_Subscriptions.end() != it; it++)
+		BroadcastBbs(it->get_ParentObj());
 }
 
 void Node::Peer::OnMsg(proto::NewTip&& msg)
@@ -2688,7 +2691,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
     m_This.m_Bbs.MaybeCleanup();
 
-    db.BbsIns(wlk.m_Data);
+    uint64_t id = db.BbsIns(wlk.m_Data);
     m_This.m_Bbs.m_W.Delete(wlk.m_Data.m_Key);
 
     // 1. Send to other BBS-es
@@ -2717,11 +2720,15 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
     for (std::pair<It, It> range = m_This.m_Bbs.m_Subscribed.equal_range(key); range.first != range.second; range.first++)
     {
         Bbs::Subscription& s = range.first->get_ParentObj();
+		assert(s.m_Cursor < id);
 
-        if (this == s.m_pPeer)
+        if ((this == s.m_pPeer) || s.m_pPeer->IsChocking())
             continue;
 
         s.m_pPeer->SendBbsMsg(wlk.m_Data);
+		s.m_Cursor = id;
+
+		s.m_pPeer->IsChocking(); // in case it's chocking - for faster recovery recheck it ASAP
     }
 }
 
@@ -2792,17 +2799,33 @@ void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
         m_This.m_Bbs.m_Subscribed.insert(pS->m_Bbs);
         m_Subscriptions.insert(pS->m_Peer);
 
-        NodeDB& db = m_This.m_Processor.get_DB();
-        NodeDB::WalkerBbs wlk(db);
+		pS->m_Cursor = m_This.m_Processor.get_DB().BbsFindCursor(msg.m_Channel, msg.m_TimeFrom) - 1;
 
-        wlk.m_Data.m_Channel = msg.m_Channel;
-        wlk.m_Data.m_TimePosted = msg.m_TimeFrom;
-
-        for (db.EnumBbs(wlk); wlk.MoveNext(); )
-            SendBbsMsg(wlk.m_Data);
+		BroadcastBbs(*pS);
     }
     else
         Unsubscribe(it->get_ParentObj());
+}
+
+void Node::Peer::BroadcastBbs(Bbs::Subscription& s)
+{
+	if (IsChocking())
+		return;
+
+	NodeDB& db = m_This.m_Processor.get_DB();
+	NodeDB::WalkerBbs wlk(db);
+
+	wlk.m_Data.m_Channel = s.m_Peer.m_Channel;
+	wlk.m_ID = s.m_Cursor;
+
+	for (db.EnumBbsCSeq(wlk); wlk.MoveNext(); )
+	{
+		SendBbsMsg(wlk.m_Data);
+		if (IsChocking())
+			break;
+	}
+
+	s.m_Cursor = wlk.m_ID;
 }
 
 void Node::Peer::OnMsg(proto::BbsPickChannel&& msg)
