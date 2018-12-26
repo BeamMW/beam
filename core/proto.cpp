@@ -331,6 +331,22 @@ void NodeConnection::TestIoResultAsync(const io::Result& res)
     m_pAsyncFail->get_trigger()();
 }
 
+void NodeConnection::TestNotDrown()
+{
+	if (!m_pAsyncFail && m_UnsentHiMark && (get_Unsent() > m_UnsentHiMark))
+	{
+		io::AsyncEvent::Callback cb = [this]()
+		{
+			DisconnectReason r;
+			r.m_Type = DisconnectReason::Drown;
+			OnDisconnect(r);
+		};
+
+		m_pAsyncFail = io::AsyncEvent::create(io::Reactor::get_Current(), std::move(cb));
+		m_pAsyncFail->get_trigger()();
+	}
+}
+
 void NodeConnection::OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status)
 {
     NodeConnection* pThis = (NodeConnection*)tag;
@@ -387,6 +403,11 @@ void NodeConnection::OnIoErr(io::ErrorCode err)
     OnDisconnect(r);
 }
 
+size_t NodeConnection::get_Unsent() const
+{
+	return m_Connection ? m_Connection->get_Unsent() : 0;
+}
+
 void NodeConnection::on_protocol_error(uint64_t, ProtocolError error)
 {
     Reset();
@@ -416,6 +437,10 @@ std::ostream& operator << (std::ostream& s, const NodeConnection::DisconnectReas
     case NodeConnection::DisconnectReason::Bye:
         s << "Bye " << r.m_ByeReason;
         break;
+
+	case NodeConnection::DisconnectReason::Drown:
+		s << "Drown";
+		break;
 
     default:
         assert(false);
@@ -479,6 +504,7 @@ void NodeConnection::Send(const msg& v) \
     m_SerializeCache.clear(); \
 \
     TestIoResultAsync(res); \
+    TestNotDrown(); \
 } \
 \
 bool NodeConnection::OnMsgInternal(uint64_t, msg##_NoInit&& v) \

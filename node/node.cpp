@@ -1214,7 +1214,8 @@ void Node::Peer::OnDisconnect(const DisconnectReason& dr)
     default: assert(false);
 
     case DisconnectReason::Io:
-        break;
+	case DisconnectReason::Drown:
+		break;
 
     case DisconnectReason::Bye:
         bIsErr = false;

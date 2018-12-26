@@ -506,6 +506,7 @@ namespace proto {
                 Protocol,
                 ProcessingExc,
                 Bye,
+				Drown
             };
 
             struct ExceptionDetails
@@ -525,6 +526,10 @@ namespace proto {
         };
 
         virtual void OnDisconnect(const DisconnectReason&) {}
+
+		size_t get_Unsent() const;
+		size_t m_UnsentHiMark = 0;
+		void TestNotDrown();
 
         void OnIoErr(io::ErrorCode);
         void OnExc(const std::exception&);
