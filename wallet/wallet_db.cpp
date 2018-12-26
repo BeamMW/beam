@@ -38,7 +38,8 @@
     each(confirmHeight,  confirmHeight, INTEGER, obj) sep \
     each(lockedHeight,   lockedHeight,  BLOB, obj) sep \
     each(createTxId,     createTxId,    BLOB, obj) sep \
-    each(spentTxId,      spentTxId,     BLOB, obj)
+    each(spentTxId,      spentTxId,     BLOB, obj) sep \
+    each(sessionId,      sessionId,     INTEGER NOT NULL, obj)
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) sep \
@@ -901,7 +902,7 @@ namespace beam
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
-        const int DbVersion = 9;
+        const int DbVersion = 10;
     }
 
     Coin::Coin(Amount amount, Status status, Height maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)

@@ -52,16 +52,16 @@ namespace beam
         const char* LISTEN = "listen";
         const char* TREASURY = "treasury";
         const char* TREASURY_BLOCK = "treasury_path";
-		const char* RESYNC = "resync";
-		const char* CRASH = "crash";
-		const char* INIT = "init";
+        const char* RESYNC = "resync";
+        const char* CRASH = "crash";
+        const char* INIT = "init";
         const char* RESTORE = "restore";
-		const char* EXPORT_MINER_KEY = "export_miner_key";
+        const char* EXPORT_MINER_KEY = "export_miner_key";
         const char* EXPORT_OWNER_KEY = "export_owner_key";
-		const char* KEY_SUBKEY = "subkey";
-		const char* KEY_OWNER = "key_owner";
-		const char* KEY_MINE= "key_mine";
-		const char* BBS_ENABLE = "bbs_enable";
+        const char* KEY_SUBKEY = "subkey";
+        const char* KEY_OWNER = "key_owner";
+        const char* KEY_MINE= "key_mine";
+        const char* BBS_ENABLE = "bbs_enable";
         const char* NEW_ADDRESS = "new_addr";
         const char* NEW_ADDRESS_LABEL = "label";
         const char* SEND = "send";
@@ -69,7 +69,7 @@ namespace beam
         const char* TX_HISTORY = "tx_history";
         const char* CANCEL_TX = "cancel_tx";
         const char* TX_ID = "tx_id";
-        const char* WALLET_PHRASE = "wallet_phrase";
+        const char* SEED_PHRASE = "seed_phrase";
         const char* GENERATE_PHRASE = "generate_phrase";
         const char* FEE = "fee";
         const char* FEE_FULL = "fee,f";
@@ -89,8 +89,8 @@ namespace beam
         const char* TR_OPCODE = "tr_op";
         const char* TR_WID = "tr_wid";
         const char* TR_PERC = "tr_pecents";
-		const char* TR_COMMENT = "tr_comment";
-		// ui
+        const char* TR_COMMENT = "tr_comment";
+        // ui
         const char* WALLET_ADDR = "addr";
         const char* APPDATA_PATH = "appdata";
     }
@@ -130,13 +130,13 @@ namespace beam
             (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
             (cli::IMPORT, po::value<Height>()->default_value(0), "Specify the blockchain height to import. The compressed history is asumed to be downloaded the the specified directory")
-			(cli::RESYNC, po::value<bool>()->default_value(false), "Enforce re-synchronization (soft reset)")
-			(cli::BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS messaging")
-			(cli::CRASH, po::value<int>()->default_value(0), "Induce crash (test proper handling)")
-			(cli::KEY_OWNER, po::value<string>(), "Owner viewer key")
-			(cli::KEY_MINE, po::value<string>(), "Standalone miner key")
-			(cli::PASS, po::value<string>(), "password for keys")
-			;
+            (cli::RESYNC, po::value<bool>()->default_value(false), "Enforce re-synchronization (soft reset)")
+            (cli::BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS messaging")
+            (cli::CRASH, po::value<int>()->default_value(0), "Induce crash (test proper handling)")
+            (cli::KEY_OWNER, po::value<string>(), "Owner viewer key")
+            (cli::KEY_MINE, po::value<string>(), "Standalone miner key")
+            (cli::PASS, po::value<string>(), "password for keys")
+            ;
 
         po::options_description node_treasury_options("Node treasury options");
         node_treasury_options.add_options()
@@ -145,7 +145,7 @@ namespace beam
         po::options_description wallet_options("Wallet options");
         wallet_options.add_options()
             (cli::PASS, po::value<string>(), "password for the wallet")
-            (cli::WALLET_PHRASE, po::value<string>(), "phrase to generate secret key according to BIP-39.")
+            (cli::SEED_PHRASE, po::value<string>(), "phrase to generate secret key according to BIP-39.")
             (cli::AMOUNT_FULL, po::value<double>(), "amount to send (in Beams, 1 Beam = 100000000 groth)")
             (cli::FEE_FULL, po::value<double>()->default_value(0), "fee (in Beams, 1 Beam = 100000000 groth)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
@@ -156,8 +156,8 @@ namespace beam
             (cli::TX_ID, po::value<string>()->default_value(""), "tx id")
             (cli::NEW_ADDRESS_LABEL, po::value<string>()->default_value(""), "label for new own address")
             (cli::GENERATE_PHRASE, "command to generate phrases which will be used to create a secret according to BIP-39")
-			(cli::KEY_SUBKEY, po::value<uint32_t>()->default_value(0), "Child key index.")
-			(cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase]");
+            (cli::KEY_SUBKEY, po::value<uint32_t>()->default_value(0), "Child key index.")
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase]");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()

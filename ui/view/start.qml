@@ -127,7 +127,7 @@ Item
                         SFText {
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Create new wallet with generating recovery phrase.
+                            text: qsTr("Create new wallet with generating seed phrase.
         If you ever lose your device, you will need this phrase to recover your wallet!")
                             color: Style.white
                             wrapMode: Text.WordWrap
@@ -143,15 +143,15 @@ Item
                         Layout.maximumHeight: 500
                         SecurityNote{
                             iconSource: "qrc:/assets/eye.svg"
-                            text: qsTr("Do not let anyone see your recovery phrase");
+                            text: qsTr("Do not let anyone see your seed phrase");
                         }
                         SecurityNote{
                             iconSource: "qrc:/assets/password.svg"
-                            text: qsTr("Never type your recovery phrase into password managers or elsewhere");
+                            text: qsTr("Never type your seed phrase into password managers or elsewhere");
                         }
                         SecurityNote{
                             iconSource: "qrc:/assets/copy-two-paper-sheets-interface-symbol.svg"
-                            text: qsTr("Keep the copies of your recovery phrase in a safe place");
+                            text: qsTr("Keep the copies of your seed phrase in a safe place");
                         }
                     }
 
@@ -172,7 +172,7 @@ Item
                         PrimaryButton {
                             id: generateRecoveryPhraseButton
 
-                            text: qsTr("generate recovery phrase")
+                            text: qsTr("generate seed phrase")
                             icon.source: "qrc:/assets/icon-recovery.svg"
                             onClicked: startWizzardView.push(generateRecoveryPhrase);
                         }
@@ -212,7 +212,7 @@ Item
                             anchors.left: parent.left
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Your recovery phrase is the access key to all the cryptocurrencies in your wallet. Print or write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.")
+                            text: qsTr("Your seed phrase is the access key to all the cryptocurrencies in your wallet. Print or write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.")
                             color: Style.white
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
@@ -224,7 +224,7 @@ Item
                         okButtonIconSource: "qrc:/assets/icon-done.svg"
                         cancelVisible: false
                         width: 460
-                        text: qsTr("It is strictly recommended to write down the recovery phrase on a paper. Storing it in a file makes it prone to cyber attacks and, therefore, less secure.")
+                        text: qsTr("It is strictly recommended to write down the seed phrase on a paper. Storing it in a file makes it prone to cyber attacks and, therefore, less secure.")
                         onAccepted: {
                             onClicked: startWizzardView.push(checkRecoveryPhrase);
                         }
@@ -352,7 +352,7 @@ Item
                             anchors.left: parent.left
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("To ensure the recovery phrase is written down, please fill-in the specific words below")
+                            text: qsTr("To ensure the seed phrase is written down, please fill-in the specific words below")
                             color: Style.white
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
@@ -514,7 +514,7 @@ Item
                             anchors.left: parent.left
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Type in or paste your recovery phrase")
+                            text: qsTr("Type in or paste your seed phrase")
                             color: Style.white
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
@@ -1247,7 +1247,7 @@ Item
                         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
                         cancelVisible: true
                         width: 460
-                        text: qsTr("You can restore you wallet using your recovery phrase but all transaction history will be lost.")
+                        text: qsTr("You can restore you wallet using your seed phrase but all transaction history will be lost.")
                         onAccepted: {
                             viewModel.isRecoveryMode = true;
                             startWizzardView.push(restoreWallet);
