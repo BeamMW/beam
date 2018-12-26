@@ -67,6 +67,7 @@ namespace beam {
 #define TblPeer_LastSeen		"LastSeen"
 
 #define TblBbs					"Bbs"
+#define TblBbs_ID				"ID"
 #define TblBbs_Key				"Key"
 #define TblBbs_Channel			"Channel"
 #define TblBbs_Time				"Time"
@@ -345,13 +346,14 @@ void NodeDB::Create()
 		"[" TblPeer_LastSeen	"] INTEGER NOT NULL)");
 
 	ExecQuick("CREATE TABLE [" TblBbs "] ("
+		"[" TblBbs_ID		"] INTEGER PRIMARY KEY AUTOINCREMENT,"
 		"[" TblBbs_Key		"] BLOB NOT NULL,"
 		"[" TblBbs_Channel	"] INTEGER NOT NULL,"
 		"[" TblBbs_Time		"] INTEGER NOT NULL,"
-		"[" TblBbs_Msg		"] BLOB NOT NULL,"
-		"PRIMARY KEY (" TblBbs_Key "))");
+		"[" TblBbs_Msg		"] BLOB NOT NULL)");
 
-	ExecQuick("CREATE INDEX [Idx" TblBbs "CT] ON [" TblBbs "] ([" TblBbs_Channel "],[" TblBbs_Time "]);"); // fetch messages for specific channel within time range, ordered by time
+	ExecQuick("CREATE INDEX [Idx" TblBbs "CT] ON [" TblBbs "] ([" TblBbs_Channel "],[" TblBbs_Time "]);"); // Find cursor for specific channel and mimimal Time
+	ExecQuick("CREATE INDEX [Idx" TblBbs "CSeq] ON [" TblBbs "] ([" TblBbs_Channel "],[" TblBbs_ID "]);"); // fetch messages for specific channel ordered by ID
 	ExecQuick("CREATE INDEX [Idx" TblBbs "T] ON [" TblBbs "] ([" TblBbs_Time "]);"); // delete old messages
 
 	ExecQuick("CREATE TABLE [" TblDummy "] ("
@@ -1554,29 +1556,57 @@ void NodeDB::PeerIns(const WalkerPeer::Data& d)
 	TestChanged1Row();
 }
 
-#define TblBbs_AllFieldsListed TblBbs_Key "," TblBbs_Channel "," TblBbs_Time "," TblBbs_Msg
+#define TblBbs_InsFieldsListed TblBbs_Key "," TblBbs_Channel "," TblBbs_Time "," TblBbs_Msg
+#define TblBbs_AllFieldsListed TblBbs_ID "," TblBbs_InsFieldsListed
 
-void NodeDB::EnumBbs(WalkerBbs& x)
+void NodeDB::EnumBbsCSeq(WalkerBbs& x)
 {
-	x.m_Rs.Reset(Query::BbsEnum, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_Channel "=? AND " TblBbs_Time ">=? ORDER BY " TblBbs_Time);
+	x.m_Rs.Reset(Query::BbsEnumCSeq, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_Channel "=? AND " TblBbs_ID ">? ORDER BY " TblBbs_ID);
 
 	x.m_Rs.put(0, x.m_Data.m_Channel);
-	x.m_Rs.put(1, x.m_Data.m_TimePosted);
+	x.m_Rs.put(1, x.m_ID);
 }
 
-void NodeDB::EnumAllBbs(WalkerBbs& x)
+void NodeDB::EnumAllBbsCT(WalkerBbs& x)
 {
-	x.m_Rs.Reset(Query::BbsEnumAll, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " ORDER BY " TblBbs_Channel " ASC," TblBbs_Time " ASC");
+	x.m_Rs.Reset(Query::BbsEnumAllCT, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " ORDER BY " TblBbs_Channel " ASC," TblBbs_Time " ASC");
+}
+
+void NodeDB::EnumAllBbsSeq(WalkerBbs& x)
+{
+	x.m_Rs.Reset(Query::BbsEnumAllSeq, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_ID ">? ORDER BY " TblBbs_ID);
+	x.m_Rs.put(0, x.m_ID);
+}
+
+uint64_t NodeDB::get_AutoincrementID(const char* szTable)
+{
+	Recordset rs(*this, Query::AutoincrementID, "SELECT seq FROM sqlite_sequence WHERE name=?");
+	rs.put(0, szTable);
+	if (!rs.Step())
+		return 0;
+
+	if (rs.IsNull(0))
+		return 0;
+
+	uint64_t id;
+	rs.get(0, id);
+	return id;
+}
+
+uint64_t NodeDB::get_BbsLastID()
+{
+	return get_AutoincrementID(TblBbs);
 }
 
 bool NodeDB::WalkerBbs::MoveNext()
 {
 	if (!m_Rs.Step())
 		return false;
-	m_Rs.get(0, m_Data.m_Key);
-	m_Rs.get(1, m_Data.m_Channel);
-	m_Rs.get(2, m_Data.m_TimePosted);
-	m_Rs.get(3, m_Data.m_Message);
+	m_Rs.get(0, m_ID);
+	m_Rs.get(1, m_Data.m_Key);
+	m_Rs.get(2, m_Data.m_Channel);
+	m_Rs.get(3, m_Data.m_TimePosted);
+	m_Rs.get(4, m_Data.m_Message);
 	return true;
 }
 
@@ -1595,16 +1625,36 @@ void NodeDB::BbsDelOld(Timestamp tMinToRemain)
 	rs.Step();
 }
 
-void NodeDB::BbsIns(const WalkerBbs::Data& d)
+uint64_t NodeDB::BbsIns(const WalkerBbs::Data& d)
 {
-	Recordset rs(*this, Query::BbsIns, "INSERT INTO " TblBbs "(" TblBbs_AllFieldsListed ") VALUES(?,?,?,?)");
+	Recordset rs(*this, Query::BbsIns, "INSERT INTO " TblBbs "(" TblBbs_InsFieldsListed ") VALUES(?,?,?,?)");
 	rs.put(0, d.m_Key);
 	rs.put(1, d.m_Channel);
 	rs.put(2, d.m_TimePosted);
 	rs.put(3, d.m_Message);
 	rs.Step();
 	TestChanged1Row();
+
+	return sqlite3_last_insert_rowid(m_pDb);
 }
+
+uint64_t NodeDB::BbsFindCursor(BbsChannel ch, Timestamp t)
+{
+	Recordset rs(*this, Query::BbsFindCursor, "SELECT " TblBbs_ID " FROM " TblBbs " WHERE " TblBbs_Channel "=? AND " TblBbs_Time ">=? ORDER BY " TblBbs_Time);
+	rs.put(0, ch);
+	rs.put(1, t);
+
+	if (!rs.Step())
+		return get_BbsLastID() + 1;
+
+	if (rs.IsNull(0))
+		return 0;
+
+	uint64_t id;
+	rs.get(0, id);
+	return id;
+}
+
 
 uint64_t NodeDB::FindStateWorkGreater(const Difficulty::Raw& d)
 {

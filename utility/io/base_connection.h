@@ -55,6 +55,10 @@ public:
         return _direction;
     }
 
+	size_t get_Unsent() const {
+		return _stream->state().unsent;
+	}
+
 protected:
     /// Ctor. Attaches connected tcp stream
     BaseConnection(Direction d, io::TcpStream::Ptr&& stream) :

@@ -122,8 +122,8 @@ int main(int argc, char* argv[]) {
         }
     );
     ECC::InitializeContext();
-    Rules::get().DesiredRate_s = 1; // 1 minute
-    Rules::get().StartDifficulty = 1;
+    Rules::get().DA.Target_s = 1; // 1 minute
+    Rules::get().DA.Difficulty0 = 1;
 
     int seconds = 0;
     if (argc > 1) {

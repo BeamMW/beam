@@ -52,6 +52,7 @@ public:
 			Commit,
 			Rollback,
 			Scheme,
+			AutoincrementID,
 			ParamGet,
 			ParamIns,
 			ParamUpd,
@@ -105,9 +106,11 @@ public:
 			PeerAdd,
 			PeerDel,
 			PeerEnum,
-			BbsEnum,
-			BbsEnumAll,
+			BbsEnumCSeq,
+			BbsEnumAllCT,
+			BbsEnumAllSeq,
 			BbsFind,
+			BbsFindCursor,
 			BbsDelOld,
 			BbsIns,
 			DummyIns,
@@ -309,6 +312,7 @@ public:
 	struct WalkerBbs
 	{
 		Recordset m_Rs;
+		uint64_t m_ID;
 
 		struct Data {
 			ECC::Hash::Value m_Key;
@@ -321,11 +325,14 @@ public:
 		bool MoveNext();
 	};
 
-	void EnumBbs(WalkerBbs&); // set channel and min time before invocation
-	void EnumAllBbs(WalkerBbs&); // ordered by Channel,Time.
-	void BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it)
+	void EnumBbsCSeq(WalkerBbs&); // set channel and ID before invocation
+	void EnumAllBbsCT(WalkerBbs&); // ordered by Channel,Time.
+	void EnumAllBbsSeq(WalkerBbs&); // ordered by m_ID. Must be initialized to specify the lower bound
+	uint64_t BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it). Returns the ID
 	bool BbsFind(WalkerBbs&); // set Key
 	void BbsDelOld(Timestamp tMinToRemain);
+	uint64_t BbsFindCursor(BbsChannel, Timestamp);
+	uint64_t get_BbsLastID();
 
 	void InsertDummy(Height h, uint64_t);
 	uint64_t GetLowestDummy(Height& h);
@@ -359,7 +366,7 @@ private:
 
 	sqlite3_stmt* get_Statement(Query::Enum, const char*);
 
-
+	uint64_t get_AutoincrementID(const char* szTable);
 	void TipAdd(uint64_t rowid, Height);
 	void TipDel(uint64_t rowid, Height);
 	void TipReachableAdd(uint64_t rowid);

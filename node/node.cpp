@@ -691,12 +691,14 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
     Peer* pPeer = new Peer(*this);
     m_lstPeers.push_back(*pPeer);
 
+	pPeer->m_UnsentHiMark = m_Cfg.m_BandwidthCtl.m_Drown;
     pPeer->m_pInfo = NULL;
     pPeer->m_Flags = 0;
     pPeer->m_Port = 0;
     ZeroObject(pPeer->m_Tip);
     pPeer->m_RemoteAddr = addr;
     pPeer->m_LoginFlags = 0;
+	pPeer->m_CursorBbs = 0;
 
     LOG_INFO() << "+Peer " << addr;
 
@@ -869,7 +871,7 @@ void Node::Bbs::FindRecommendedChannel()
     bool bFound = false;
 
     NodeDB::WalkerBbs wlk(db);
-    for (db.EnumAllBbs(wlk); ; )
+    for (db.EnumAllBbsCT(wlk); ; )
     {
         bool bMoved = wlk.MoveNext();
 
@@ -1214,7 +1216,8 @@ void Node::Peer::OnDisconnect(const DisconnectReason& dr)
     default: assert(false);
 
     case DisconnectReason::Io:
-        break;
+	case DisconnectReason::Drown:
+		break;
 
     case DisconnectReason::Bye:
         bIsErr = false;
@@ -1332,10 +1335,18 @@ void Node::Peer::TakeTasks()
         m_This.TryAssignTask(*it++, *this);
 }
 
-void Node::Peer::OnMsg(proto::Ping&&)
+void Node::Peer::OnMsg(proto::Pong&&)
 {
-    proto::Pong msg(Zero);
-    Send(msg);
+	if (!(Flags::Chocking & m_Flags))
+		ThrowUnexpected();
+
+	m_Flags &= ~Flags::Chocking;
+
+	// not chocking - continue broadcast
+	BroadcastBbs();
+
+	for (Bbs::Subscription::PeerSet::iterator it = m_Subscriptions.begin(); m_Subscriptions.end() != it; it++)
+		BroadcastBbs(it->get_ParentObj());
 }
 
 void Node::Peer::OnMsg(proto::NewTip&& msg)
@@ -1360,7 +1371,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 
     if (NodeProcessor::IsRemoteTipNeeded(m_Tip, p.m_Cursor.m_Full))
     {
-        if (!bSyncMode && (m_Tip.m_Height > p.m_Cursor.m_ID.m_Height + Rules::get().MaxRollbackHeight + Rules::get().MacroblockGranularity * 2) && p.m_Extra.m_TreasuryHandled)
+        if (!bSyncMode && (m_Tip.m_Height > p.m_Cursor.m_ID.m_Height + Rules::get().Macroblock.MaxRollback + Rules::get().Macroblock.Granularity * 2) && p.m_Extra.m_TreasuryHandled)
             LOG_WARNING() << "Height drop is too big, maybe unreachable";
 
         switch (p.OnState(m_Tip, m_pInfo->m_ID.m_Key))
@@ -1554,7 +1565,7 @@ bool Node::SyncCycle(Peer& p)
     if (Peer::Flags::DontSync & p.m_Flags)
         return false;
 
-    if (p.m_Tip.m_Height < m_pSync->m_Trg.m_Height/* + Rules::get().MaxRollbackHeight*/)
+    if (p.m_Tip.m_Height < m_pSync->m_Trg.m_Height/* + Rules::get().Macroblock.MaxRollback*/)
         return false;
 
     proto::MacroblockGet msg;
@@ -2344,26 +2355,65 @@ void Node::Peer::OnMsg(proto::Login&& msg)
                 m_pTimerPeers->cancel();
     }
 
-    if (!(m_LoginFlags & proto::LoginFlags::Bbs) && (msg.m_Flags & proto::LoginFlags::Bbs))
-    {
-        proto::BbsHaveMsg msgOut;
-
-        NodeDB& db = m_This.m_Processor.get_DB();
-        NodeDB::WalkerBbs wlk(db);
-
-        for (db.EnumAllBbs(wlk); wlk.MoveNext(); )
-        {
-            msgOut.m_Key = wlk.m_Data.m_Key;
-            Send(msgOut);
-        }
-    }
-
     bool b = ShouldFinalizeMining();
 
     m_LoginFlags = msg.m_Flags;
 
-    if (b != ShouldFinalizeMining())
-        m_This.m_Miner.OnFinalizerChanged(b ? NULL : this);
+	if (b != ShouldFinalizeMining()) {
+		// stupid compiler insists on parentheses!
+		m_This.m_Miner.OnFinalizerChanged(b ? NULL : this);
+	}
+
+	BroadcastBbs();
+}
+
+bool Node::Peer::IsChocking(size_t nExtra /* = 0 */)
+{
+	if (Flags::Chocking & m_Flags)
+		return true;
+
+	if (get_Unsent() + nExtra  <= m_This.m_Cfg.m_BandwidthCtl.m_Chocking)
+		return false;
+
+	OnChocking();
+	return true;
+}
+
+void Node::Peer::OnChocking()
+{
+	if (!(Flags::Chocking & m_Flags))
+	{
+		m_Flags |= Flags::Chocking;
+		Send(proto::Ping(Zero));
+	}
+}
+
+void Node::Peer::BroadcastBbs()
+{
+	if (!(proto::LoginFlags::Bbs & m_LoginFlags))
+		return;
+
+	if (IsChocking())
+		return;
+
+	size_t nExtra = 0;
+
+	NodeDB& db = m_This.m_Processor.get_DB();
+	NodeDB::WalkerBbs wlk(db);
+
+	wlk.m_ID = m_CursorBbs;
+	for (db.EnumAllBbsSeq(wlk); wlk.MoveNext(); )
+	{
+		proto::BbsHaveMsg msgOut;
+		msgOut.m_Key = wlk.m_Data.m_Key;
+		Send(msgOut);
+
+		nExtra += wlk.m_Data.m_Message.n;
+		if (IsChocking(nExtra))
+			break;
+	}
+
+	m_CursorBbs = wlk.m_ID;
 }
 
 void Node::Peer::OnMsg(proto::HaveTransaction&& msg)
@@ -2619,6 +2669,9 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 	if (!m_This.m_Cfg.m_Bbs)
 		ThrowUnexpected();
 
+	if (msg.m_Message.size() > proto::Bbs::s_MaxMsgSize)
+		ThrowUnexpected("Bbs msg too large"); // will also ban this peer
+
     Timestamp t = getTimestamp();
     Timestamp t0 = t - m_This.m_Cfg.m_Timeout.m_BbsMessageTimeout_s;
     Timestamp t1 = t + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s;
@@ -2640,7 +2693,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
     m_This.m_Bbs.MaybeCleanup();
 
-    db.BbsIns(wlk.m_Data);
+    uint64_t id = db.BbsIns(wlk.m_Data);
     m_This.m_Bbs.m_W.Delete(wlk.m_Data.m_Key);
 
     // 1. Send to other BBS-es
@@ -2653,7 +2706,8 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
         Peer& peer = *it;
         if (this == &peer)
             continue;
-        if (!(peer.m_LoginFlags & proto::LoginFlags::Bbs))
+
+        if (!(peer.m_LoginFlags & proto::LoginFlags::Bbs) || peer.IsChocking())
             continue;
 
         peer.Send(msgOut);
@@ -2668,11 +2722,15 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
     for (std::pair<It, It> range = m_This.m_Bbs.m_Subscribed.equal_range(key); range.first != range.second; range.first++)
     {
         Bbs::Subscription& s = range.first->get_ParentObj();
+		assert(s.m_Cursor < id);
 
-        if (this == s.m_pPeer)
+        if ((this == s.m_pPeer) || s.m_pPeer->IsChocking())
             continue;
 
         s.m_pPeer->SendBbsMsg(wlk.m_Data);
+		s.m_Cursor = id;
+
+		s.m_pPeer->IsChocking(); // in case it's chocking - for faster recovery recheck it ASAP
     }
 }
 
@@ -2743,17 +2801,33 @@ void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
         m_This.m_Bbs.m_Subscribed.insert(pS->m_Bbs);
         m_Subscriptions.insert(pS->m_Peer);
 
-        NodeDB& db = m_This.m_Processor.get_DB();
-        NodeDB::WalkerBbs wlk(db);
+		pS->m_Cursor = m_This.m_Processor.get_DB().BbsFindCursor(msg.m_Channel, msg.m_TimeFrom) - 1;
 
-        wlk.m_Data.m_Channel = msg.m_Channel;
-        wlk.m_Data.m_TimePosted = msg.m_TimeFrom;
-
-        for (db.EnumBbs(wlk); wlk.MoveNext(); )
-            SendBbsMsg(wlk.m_Data);
+		BroadcastBbs(*pS);
     }
     else
         Unsubscribe(it->get_ParentObj());
+}
+
+void Node::Peer::BroadcastBbs(Bbs::Subscription& s)
+{
+	if (IsChocking())
+		return;
+
+	NodeDB& db = m_This.m_Processor.get_DB();
+	NodeDB::WalkerBbs wlk(db);
+
+	wlk.m_Data.m_Channel = s.m_Peer.m_Channel;
+	wlk.m_ID = s.m_Cursor;
+
+	for (db.EnumBbsCSeq(wlk); wlk.MoveNext(); )
+	{
+		SendBbsMsg(wlk.m_Data);
+		if (IsChocking())
+			break;
+	}
+
+	s.m_Cursor = wlk.m_ID;
 }
 
 void Node::Peer::OnMsg(proto::BbsPickChannel&& msg)

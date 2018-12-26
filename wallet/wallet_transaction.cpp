@@ -361,7 +361,7 @@ namespace beam { namespace wallet
             {
                 c.m_status = Coin::Available;
                 c.m_confirmHeight = hProof;
-                c.m_maturity = hProof + Rules::get().MaturityStd; // so far we don't use incubation for our created outputs
+                c.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
             }
         }
 
