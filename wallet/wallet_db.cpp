@@ -911,6 +911,7 @@ namespace beam
         , m_maturity{ maturity }
         , m_confirmHeight{ confirmHeight }
         , m_lockedHeight{ lockedHeight }
+        , m_sessionId(EmptyCoinSession)
     {
         ZeroObject(m_ID);
         m_ID.m_Value = amount;
