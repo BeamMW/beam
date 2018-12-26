@@ -474,8 +474,8 @@ namespace beam
 
 		for (wlkbbs.m_Data.m_Channel = 0; wlkbbs.m_Data.m_Channel < 7; wlkbbs.m_Data.m_Channel++)
 		{
-			wlkbbs.m_Data.m_TimePosted = 0;
-			for (db.EnumBbs(wlkbbs); wlkbbs.MoveNext(); )
+			wlkbbs.m_ID = 0;
+			for (db.EnumBbsCSeq(wlkbbs); wlkbbs.MoveNext(); )
 				;
 		}
 
@@ -483,12 +483,12 @@ namespace beam
 
 		for (wlkbbs.m_Data.m_Channel = 0; wlkbbs.m_Data.m_Channel < 7; wlkbbs.m_Data.m_Channel++)
 		{
-			wlkbbs.m_Data.m_TimePosted = 0;
-			for (db.EnumBbs(wlkbbs); wlkbbs.MoveNext(); )
+			wlkbbs.m_ID = 0;
+			for (db.EnumBbsCSeq(wlkbbs); wlkbbs.MoveNext(); )
 				;
 		}
 
-		for (db.EnumAllBbs(wlkbbs); wlkbbs.MoveNext(); )
+		for (db.EnumAllBbsCT(wlkbbs); wlkbbs.MoveNext(); )
 			;
 
 		verify_test(db.GetDummyLastID() == 0);
