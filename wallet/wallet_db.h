@@ -68,6 +68,7 @@ namespace beam
         Height m_lockedHeight;
         boost::optional<TxID> m_createTxId;
         boost::optional<TxID> m_spentTxId;
+        uint32_t m_sessionId;
     };
 
     struct WalletAddress
