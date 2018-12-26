@@ -2390,6 +2390,8 @@ void Node::Peer::OnChocking()
 
 void Node::Peer::BroadcastBbs()
 {
+	m_This.m_Bbs.MaybeCleanup();
+
 	if (!(proto::LoginFlags::Bbs & m_LoginFlags))
 		return;
 
