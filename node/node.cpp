@@ -691,6 +691,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
     Peer* pPeer = new Peer(*this);
     m_lstPeers.push_back(*pPeer);
 
+	pPeer->m_UnsentHiMark = m_Cfg.m_BandwidthCtl.m_Drown;
     pPeer->m_pInfo = NULL;
     pPeer->m_Flags = 0;
     pPeer->m_Port = 0;
@@ -1333,10 +1334,12 @@ void Node::Peer::TakeTasks()
         m_This.TryAssignTask(*it++, *this);
 }
 
-void Node::Peer::OnMsg(proto::Ping&&)
+void Node::Peer::OnMsg(proto::Pong&&)
 {
-    proto::Pong msg(Zero);
-    Send(msg);
+	if (!(Flags::Chocking & m_Flags))
+		ThrowUnexpected();
+
+	m_Flags &= ~Flags::Chocking;
 }
 
 void Node::Peer::OnMsg(proto::NewTip&& msg)
@@ -2366,6 +2369,27 @@ void Node::Peer::OnMsg(proto::Login&& msg)
 
     if (b != ShouldFinalizeMining())
         m_This.m_Miner.OnFinalizerChanged(b ? NULL : this);
+bool Node::Peer::IsChocking()
+{
+	if (Flags::Chocking & m_Flags)
+		return true;
+
+	if (get_Unsent() <= m_This.m_Cfg.m_BandwidthCtl.m_Chocking)
+		return false;
+
+	OnChocking();
+	return true;
+}
+
+void Node::Peer::OnChocking()
+{
+	if (!(Flags::Chocking & m_Flags))
+	{
+		m_Flags |= Flags::Chocking;
+		Send(proto::Ping(Zero));
+	}
+}
+
 }
 
 void Node::Peer::OnMsg(proto::HaveTransaction&& msg)

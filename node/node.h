@@ -76,6 +76,13 @@ struct Node
 
 		bool m_Bbs = true;
 
+		struct BandwidthCtl
+		{
+			size_t m_Chocking = 1024 * 1024;
+			size_t m_Drown    = 1024*1024 * 20;
+
+		} m_BandwidthCtl;
+
 		struct HistoryCompression
 		{
 			std::string m_sPathOutput;
@@ -438,6 +445,7 @@ private:
 			static const uint16_t DontSync		= 0x040;
 			static const uint16_t Finalizing	= 0x080;
 			static const uint16_t HasTreasury	= 0x100;
+			static const uint16_t Chocking		= 0x200;
 		};
 
 		uint16_t m_Flags;
@@ -470,7 +478,9 @@ private:
 		void SyncQuery();
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, uint8_t nByeReason);
+		void OnChocking();
 
+		bool IsChocking();
 		bool ShouldAssignTasks();
 		bool ShouldFinalizeMining();
 		Task& get_FirstTask();
@@ -487,7 +497,7 @@ private:
 		virtual void OnMsg(proto::Authentication&&) override;
 		virtual void OnMsg(proto::Login&&) override;
 		virtual void OnMsg(proto::Bye&&) override;
-		virtual void OnMsg(proto::Ping&&) override;
+		virtual void OnMsg(proto::Pong&&) override;
 		virtual void OnMsg(proto::NewTip&&) override;
 		virtual void OnMsg(proto::DataMissing&&) override;
 		virtual void OnMsg(proto::GetHdr&&) override;

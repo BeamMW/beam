@@ -746,6 +746,11 @@ void NodeConnection::OnMsg(Bye&& msg)
     OnDisconnect(r);
 }
 
+void NodeConnection::OnMsg(Ping&& msg)
+{
+	Send(Pong(Zero));
+}
+
 void NodeConnection::VerifyCfg(const Login& msg)
 {
     if (msg.m_CfgChecksum != Rules::get().Checksum)
