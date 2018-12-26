@@ -145,6 +145,23 @@ namespace beam
                 serialize_json_msg(_lineProtocol, msg);
             }
 
+            void doError(int id, int code, const std::string& info)
+            {
+                json msg
+                {
+                    {"jsonrpc", "2.0"},
+                    {"id", id},
+                    {"error",
+                        {
+                            {"code", code},
+                            {"message", info},
+                        }
+                    }
+                };
+
+                serialize_json_msg(_lineProtocol, msg);
+            }
+
             void onInvalidJsonRpc(const json& msg) override
             {
                 LOG_DEBUG() << "onInvalidJsonRpc: " << msg;
@@ -185,7 +202,18 @@ namespace beam
 
             void onMessage(int id, const Status& data) override
             {
-                methodNotImplementedYet(id);
+                LOG_DEBUG() << "Status(" << to_hex(data.txId.data(), data.txId.size()) << ")";
+
+                auto tx = _walletDB->getTx(data.txId);
+
+                if (tx)
+                {
+                    doResponse(id, Status::Response{ tx->m_status });
+                }
+                else
+                {
+                    doError(id, INVALID_PARAMS_JSON_RPC, "Unknown transaction ID.");
+                }
             }
 
             void onMessage(int id, const Split& data) override
@@ -268,19 +296,7 @@ namespace beam
         private:
             void methodNotImplementedYet(int id)
             {
-                json msg
-                {
-                    {"jsonrpc", "2.0"},
-                    {"id", id},
-                    {"error",
-                        {
-                            {"code", NOTFOUND_JSON_RPC},
-                            {"message", "Method not implemented yet."},
-                        }
-                    }
-                };
-
-                serialize_json_msg(_lineProtocol, msg);
+                doError(id, NOTFOUND_JSON_RPC, "Method not implemented yet.");
             }
 
         private:

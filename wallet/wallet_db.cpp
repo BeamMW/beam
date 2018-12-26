@@ -59,7 +59,6 @@
 #define STORAGE_WHERE_ID " WHERE " ENUM_STORAGE_ID(SET_LIST, AND, )
 #define STORAGE_BIND_ID(obj) ENUM_STORAGE_ID(STM_BIND_LIST, NOSEP, obj)
 
-
 #define STORAGE_NAME "storage"
 #define VARIABLES_NAME "variables"
 #define ADDRESSES_NAME "addresses"
@@ -70,23 +69,6 @@
     each(value, value, BLOB, obj)
 
 #define VARIABLES_FIELDS ENUM_VARIABLES_FIELDS(LIST, COMMA, )
-
-#define ENUM_HISTORY_FIELDS(each, sep, obj) \
-    each(txId,       txId,       BLOB NOT NULL PRIMARY KEY, obj) sep \
-    each(amount,     amount,     INTEGER NOT NULL, obj) sep \
-    each(fee,        fee,        INTEGER NOT NULL, obj) sep \
-    each(minHeight,  minHeight,  INTEGER NOT NULL, obj) sep \
-    each(peerId,     peerId,     BLOB NOT NULL, obj) sep \
-    each(myId,       myId,       BLOB NOT NULL, obj) sep \
-    each(message,    message,    BLOB, obj) sep \
-    each(createTime, createTime, INTEGER NOT NULL, obj) sep \
-    each(modifyTime, modifyTime, INTEGER, obj) sep \
-    each(sender,     sender,     INTEGER NOT NULL, obj) sep \
-    each(status,     status,     INTEGER NOT NULL, obj) sep \
-    each(fsmState,   fsmState,   BLOB, obj) sep \
-    each(change,     change,     INTEGER NOT NULL, obj)
-
-#define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
 
 #define ENUM_ADDRESS_FIELDS(each, sep, obj) \
     each(walletID,       walletID,       BLOB NOT NULL PRIMARY KEY, obj) sep \

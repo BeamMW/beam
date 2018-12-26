@@ -19,6 +19,7 @@
 
 #define INVALID_JSON_RPC -32600
 #define NOTFOUND_JSON_RPC -32601
+#define INVALID_PARAMS_JSON_RPC -32602
 
 namespace beam
 {
@@ -72,9 +73,11 @@ namespace beam
 
     struct Status
     {
+        TxID txId;
+
         struct Response
         {
-
+            TxStatus status;
         };
     };
 

@@ -123,7 +123,17 @@ namespace beam
 
     void WalletApi::onStatusMessage(int id, const nlohmann::json& params)
     {
+        checkJsonParam(params, "txId", id);
+
         Status status;
+
+        auto txId = from_hex(params["txId"]);
+
+        if (txId.size() != status.txId.size())
+            throwInvalidJsonRpc(id);
+
+        std::copy_n(txId.begin(), status.txId.size(), status.txId.begin());
+
         _handler.onMessage(id, status);
     }
 
@@ -228,6 +238,16 @@ namespace beam
                     {"txId", to_hex(res.txId.data(), res.txId.size())}
                 }
             }
+        };
+    }
+
+    void WalletApi::getResponse(int id, const Status::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", res.status}
         };
     }
 

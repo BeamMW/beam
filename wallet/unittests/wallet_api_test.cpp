@@ -277,6 +277,43 @@ namespace
             WALLET_CHECK(res["result"]["txId"] > 0);
         }
     }
+
+    void testStatusJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid status api json!!!");
+
+                cout << msg["error"]["message"] << endl;
+            }
+
+            void onMessage(int id, const Status& data) override
+            {
+                WALLET_CHECK(id > 0);
+                WALLET_CHECK(to_hex(data.txId.data(), data.txId.size()) == "10c4b760c842433cb58339a0fafef3db");
+            }
+        };
+
+        WalletApiHandler handler;
+        WalletApi api(handler);
+
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            Status::Response status;
+
+            api.getResponse(123, status, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 123);
+            //WALLET_CHECK(res["result"]["txId"] > 0);
+        }
+    }
 }
 
 int main()
@@ -369,6 +406,17 @@ int main()
             "session" : 15,
             "value" : 12342342,
             "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
+        }
+    }));
+
+    testStatusJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "status",
+        "params" :
+        {
+            "txId" : "10c4b760c842433cb58339a0fafef3db"
         }
     }));
 
