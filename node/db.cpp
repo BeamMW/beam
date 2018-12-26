@@ -1577,6 +1577,26 @@ void NodeDB::EnumAllBbsSeq(WalkerBbs& x)
 	x.m_Rs.put(0, x.m_ID);
 }
 
+uint64_t NodeDB::get_AutoincrementID(const char* szTable)
+{
+	Recordset rs(*this, Query::AutoincrementID, "SELECT seq FROM sqlite_sequence WHERE name=?");
+	rs.put(0, szTable);
+	if (!rs.Step())
+		return 0;
+
+	if (rs.IsNull(0))
+		return 0;
+
+	uint64_t id;
+	rs.get(0, id);
+	return id;
+}
+
+uint64_t NodeDB::get_BbsLastID()
+{
+	return get_AutoincrementID(TblBbs);
+}
+
 bool NodeDB::WalkerBbs::MoveNext()
 {
 	if (!m_Rs.Step())

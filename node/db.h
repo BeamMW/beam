@@ -52,6 +52,7 @@ public:
 			Commit,
 			Rollback,
 			Scheme,
+			AutoincrementID,
 			ParamGet,
 			ParamIns,
 			ParamUpd,
@@ -329,6 +330,7 @@ public:
 	void BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it)
 	bool BbsFind(WalkerBbs&); // set Key
 	void BbsDelOld(Timestamp tMinToRemain);
+	uint64_t get_BbsLastID();
 
 	void InsertDummy(Height h, uint64_t);
 	uint64_t GetLowestDummy(Height& h);
@@ -362,7 +364,7 @@ private:
 
 	sqlite3_stmt* get_Statement(Query::Enum, const char*);
 
-
+	uint64_t get_AutoincrementID(const char* szTable);
 	void TipAdd(uint64_t rowid, Height);
 	void TipDel(uint64_t rowid, Height);
 	void TipReachableAdd(uint64_t rowid);
