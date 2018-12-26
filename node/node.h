@@ -455,6 +455,8 @@ private:
 		Block::SystemState::Full m_Tip;
 		uint8_t m_LoginFlags;
 
+		uint64_t m_CursorBbs;
+
 		TaskList m_lstTasks;
 		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
 
@@ -478,9 +480,10 @@ private:
 		void SyncQuery();
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, uint8_t nByeReason);
+		void BroadcastBbs();
 		void OnChocking();
 
-		bool IsChocking();
+		bool IsChocking(size_t nExtra = 0);
 		bool ShouldAssignTasks();
 		bool ShouldFinalizeMining();
 		Task& get_FirstTask();

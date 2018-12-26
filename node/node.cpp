@@ -698,6 +698,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
     ZeroObject(pPeer->m_Tip);
     pPeer->m_RemoteAddr = addr;
     pPeer->m_LoginFlags = 0;
+	pPeer->m_CursorBbs = 0;
 
     LOG_INFO() << "+Peer " << addr;
 
@@ -1340,6 +1341,9 @@ void Node::Peer::OnMsg(proto::Pong&&)
 		ThrowUnexpected();
 
 	m_Flags &= ~Flags::Chocking;
+
+	// not chocking - continue broadcast
+	BroadcastBbs();
 }
 
 void Node::Peer::OnMsg(proto::NewTip&& msg)
@@ -2348,33 +2352,22 @@ void Node::Peer::OnMsg(proto::Login&& msg)
                 m_pTimerPeers->cancel();
     }
 
-    if (!(m_LoginFlags & proto::LoginFlags::Bbs) && (msg.m_Flags & proto::LoginFlags::Bbs))
-    {
-        proto::BbsHaveMsg msgOut;
-
-        NodeDB& db = m_This.m_Processor.get_DB();
-        NodeDB::WalkerBbs wlk(db);
-
-		wlk.m_ID = 0;
-        for (db.EnumAllBbsSeq(wlk); wlk.MoveNext(); )
-        {
-            msgOut.m_Key = wlk.m_Data.m_Key;
-            Send(msgOut);
-        }
-    }
-
     bool b = ShouldFinalizeMining();
 
     m_LoginFlags = msg.m_Flags;
 
     if (b != ShouldFinalizeMining())
         m_This.m_Miner.OnFinalizerChanged(b ? NULL : this);
-bool Node::Peer::IsChocking()
+
+	BroadcastBbs();
+}
+
+bool Node::Peer::IsChocking(size_t nExtra /* = 0 */)
 {
 	if (Flags::Chocking & m_Flags)
 		return true;
 
-	if (get_Unsent() <= m_This.m_Cfg.m_BandwidthCtl.m_Chocking)
+	if (get_Unsent() + nExtra  <= m_This.m_Cfg.m_BandwidthCtl.m_Chocking)
 		return false;
 
 	OnChocking();
@@ -2390,6 +2383,32 @@ void Node::Peer::OnChocking()
 	}
 }
 
+void Node::Peer::BroadcastBbs()
+{
+	if (!(proto::LoginFlags::Bbs & m_LoginFlags))
+		return;
+
+	if (IsChocking())
+		return;
+
+	size_t nExtra = 0;
+
+	NodeDB& db = m_This.m_Processor.get_DB();
+	NodeDB::WalkerBbs wlk(db);
+
+	wlk.m_ID = m_CursorBbs;
+	for (db.EnumAllBbsSeq(wlk); wlk.MoveNext(); )
+	{
+		proto::BbsHaveMsg msgOut;
+		msgOut.m_Key = wlk.m_Data.m_Key;
+		Send(msgOut);
+
+		nExtra += wlk.m_Data.m_Message.n;
+		if (IsChocking(nExtra))
+			break;
+	}
+
+	m_CursorBbs = wlk.m_ID;
 }
 
 void Node::Peer::OnMsg(proto::HaveTransaction&& msg)
@@ -2682,7 +2701,8 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
         Peer& peer = *it;
         if (this == &peer)
             continue;
-        if (!(peer.m_LoginFlags & proto::LoginFlags::Bbs))
+
+        if (!(peer.m_LoginFlags & proto::LoginFlags::Bbs) || peer.IsChocking())
             continue;
 
         peer.Send(msgOut);
