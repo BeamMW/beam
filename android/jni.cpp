@@ -911,7 +911,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         assert(phrases.size() == 12);
         if (phrases.size() != 12)
         {
-            LOG_ERROR() << "Invalid recovery phrases provided: " << JString(env, phrasesStr).value();
+            LOG_ERROR() << "Invalid seed phrases provided: " << JString(env, phrasesStr).value();
             return nullptr;
         }
 

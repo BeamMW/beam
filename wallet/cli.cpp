@@ -123,12 +123,12 @@ namespace
     {
         auto phrase = createMnemonic(getEntropy(), language::en);
         assert(phrase.size() == 12);
-        cout << "======\nGenerated wallet phrase: \n\n\t";
+        cout << "======\nGenerated seed phrase: \n\n\t";
         for (const auto& word : phrase)
         {
             cout << word << ';';
         }
-        cout << "\n\n\tIMPORTANT\n\n\tYour recovery phrase is the access key to all the cryptocurrencies in your wallet.\n\tPrint or write down the phrase to keep it in a safe or in a locked vault.\n\tWithout the phrase you will not be able to recover your money.\n======" << endl;
+        cout << "\n\n\tIMPORTANT\n\n\tYour seed phrase is the access key to all the cryptocurrencies in your wallet.\n\tPrint or write down the phrase to keep it in a safe or in a locked vault.\n\tWithout the phrase you will not be able to recover your money.\n======" << endl;
         return phrase;
     }
 
@@ -138,23 +138,23 @@ namespace
         WordList phrase;
         if (generateNew)
         {
-            LOG_INFO() << "Generating wallet phrase...";
+            LOG_INFO() << "Generating seed phrase...";
             phrase = GeneratePhrase();
         }
-        else if (vm.count(cli::WALLET_PHRASE))
+        else if (vm.count(cli::SEED_PHRASE))
         {
-            auto tempPhrase = vm[cli::WALLET_PHRASE].as<string>();
+            auto tempPhrase = vm[cli::SEED_PHRASE].as<string>();
             phrase = string_helpers::split(tempPhrase, ';');
             assert(phrase.size() == 12);
             if (phrase.size() != 12)
             {
-                LOG_ERROR() << "Invalid recovery phrases provided: " << tempPhrase;
+                LOG_ERROR() << "Invalid seed phrases provided: " << tempPhrase;
                 return false;
             }
         }
         else
         {
-            LOG_ERROR() << "Wallet phrase has not been provided.";
+            LOG_ERROR() << "Seed phrase has not been provided.";
             return false;
         }
 
@@ -168,165 +168,165 @@ namespace
 
 void ResolveWID(PeerID& res, const std::string& s)
 {
-	bool bValid = true;
-	ByteBuffer bb = from_hex(s, &bValid);
+    bool bValid = true;
+    ByteBuffer bb = from_hex(s, &bValid);
 
-	if ((bb.size() != res.nBytes) || !bValid)
-		throw std::runtime_error("invalid WID");
+    if ((bb.size() != res.nBytes) || !bValid)
+        throw std::runtime_error("invalid WID");
 
-	memcpy(res.m_pData, &bb.front(), res.nBytes);
+    memcpy(res.m_pData, &bb.front(), res.nBytes);
 }
 
 template <typename T>
 bool FLoad(T& x, const std::string& sPath, bool bStrict = true)
 {
-	std::FStream f;
-	if (!f.Open(sPath.c_str(), true, bStrict))
-		return false;
+    std::FStream f;
+    if (!f.Open(sPath.c_str(), true, bStrict))
+        return false;
 
-	yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
-	arc & x;
-	return true;
+    yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
+    arc & x;
+    return true;
 }
 
 template <typename T>
 void FSave(const T& x, const std::string& sPath)
 {
-	std::FStream f;
-	f.Open(sPath.c_str(), false, true);
+    std::FStream f;
+    f.Open(sPath.c_str(), false, true);
 
-	yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
-	arc & x;
+    yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
+    arc & x;
 }
 
 int HandleTreasury(const po::variables_map& vm, Key::IKdf& kdf)
 {
-	PeerID wid;
-	Scalar::Native sk;
-	Treasury::get_ID(kdf, wid, sk);
+    PeerID wid;
+    Scalar::Native sk;
+    Treasury::get_ID(kdf, wid, sk);
 
-	char szID[PeerID::nTxtLen + 1];
-	wid.Print(szID);
+    char szID[PeerID::nTxtLen + 1];
+    wid.Print(szID);
 
-	static const char* szPlans = "treasury_plans.bin";
-	static const char* szRequest = "-plan.bin";
-	static const char* szResponse = "-response.bin";
-	static const char* szData = "treasury_data.bin";
+    static const char* szPlans = "treasury_plans.bin";
+    static const char* szRequest = "-plan.bin";
+    static const char* szResponse = "-response.bin";
+    static const char* szData = "treasury_data.bin";
 
-	Treasury tres;
-	FLoad(tres, szPlans, false);
+    Treasury tres;
+    FLoad(tres, szPlans, false);
 
 
-	auto nCode = vm[cli::TR_OPCODE].as<uint32_t>();
-	switch (nCode)
-	{
-	default:
-		cout << "ID: " << szID << std::endl;
-		break;
+    auto nCode = vm[cli::TR_OPCODE].as<uint32_t>();
+    switch (nCode)
+    {
+    default:
+        cout << "ID: " << szID << std::endl;
+        break;
 
-	case 1:
-		{
-			// generate plan
-			std::string sID = vm[cli::TR_WID].as<std::string>();
-			ResolveWID(wid, sID);
+    case 1:
+        {
+            // generate plan
+            std::string sID = vm[cli::TR_WID].as<std::string>();
+            ResolveWID(wid, sID);
 
-			auto perc = vm[cli::TR_PERC].as<double>();
-			perc *= 0.01;
+            auto perc = vm[cli::TR_PERC].as<double>();
+            perc *= 0.01;
 
-			Amount val = static_cast<Amount>(Rules::get().EmissionValue0 * perc); // rounded down
+            Amount val = static_cast<Amount>(Rules::get().EmissionValue0 * perc); // rounded down
 
-			Treasury::Parameters pars; // default
-			Treasury::Entry* pE = tres.CreatePlan(wid, val, pars);
+            Treasury::Parameters pars; // default
+            Treasury::Entry* pE = tres.CreatePlan(wid, val, pars);
 
-			FSave(pE->m_Request, sID + szRequest);
-			FSave(tres, szPlans);
-		}
-		break;
+            FSave(pE->m_Request, sID + szRequest);
+            FSave(tres, szPlans);
+        }
+        break;
 
-	case 2:
-		{
-			// generate response
-			Treasury::Request treq;
-			FLoad(treq, std::string(szID) + szRequest);
+    case 2:
+        {
+            // generate response
+            Treasury::Request treq;
+            FLoad(treq, std::string(szID) + szRequest);
 
-			Treasury::Response tresp;
-			uint64_t nIndex = 1;
-			tresp.Create(treq, kdf, nIndex);
+            Treasury::Response tresp;
+            uint64_t nIndex = 1;
+            tresp.Create(treq, kdf, nIndex);
 
-			FSave(tresp, std::string(szID) + szResponse);
-		}
-		break;
+            FSave(tresp, std::string(szID) + szResponse);
+        }
+        break;
 
-	case 3:
-		{
-			// verify & import reponse
-			std::string sID = vm[cli::TR_WID].as<std::string>();
-			ResolveWID(wid, sID);
+    case 3:
+        {
+            // verify & import reponse
+            std::string sID = vm[cli::TR_WID].as<std::string>();
+            ResolveWID(wid, sID);
 
-			Treasury::EntryMap::iterator it = tres.m_Entries.find(wid);
-			if (tres.m_Entries.end() == it)
-				throw std::runtime_error("plan not found");
+            Treasury::EntryMap::iterator it = tres.m_Entries.find(wid);
+            if (tres.m_Entries.end() == it)
+                throw std::runtime_error("plan not found");
 
-			Treasury::Entry& e = it->second;
-			e.m_pResponse.reset(new Treasury::Response);
-			FLoad(*e.m_pResponse, sID + szResponse);
+            Treasury::Entry& e = it->second;
+            e.m_pResponse.reset(new Treasury::Response);
+            FLoad(*e.m_pResponse, sID + szResponse);
 
-			if (!e.m_pResponse->IsValid(e.m_Request))
-				throw std::runtime_error("invalid response");
+            if (!e.m_pResponse->IsValid(e.m_Request))
+                throw std::runtime_error("invalid response");
 
-			FSave(tres, szPlans);
-		}
-		break;
+            FSave(tres, szPlans);
+        }
+        break;
 
-	case 4:
-		{
-			// Finally generate treasury
-			Treasury::Data data;
-			data.m_sCustomMsg = vm[cli::TR_COMMENT].as<std::string>();
-			tres.Build(data);
+    case 4:
+        {
+            // Finally generate treasury
+            Treasury::Data data;
+            data.m_sCustomMsg = vm[cli::TR_COMMENT].as<std::string>();
+            tres.Build(data);
 
-			FSave(data, szData);
+            FSave(data, szData);
 
-			Serializer ser;
-			ser & data;
+            Serializer ser;
+            ser & data;
 
-			ByteBuffer bb;
-			ser.swap_buf(bb);
+            ByteBuffer bb;
+            ser.swap_buf(bb);
 
-			Hash::Value hv;
-			Hash::Processor() << Blob(bb) >> hv;
+            Hash::Value hv;
+            Hash::Processor() << Blob(bb) >> hv;
 
-			char szHash[Hash::Value::nTxtLen + 1];
-			hv.Print(szHash);
+            char szHash[Hash::Value::nTxtLen + 1];
+            hv.Print(szHash);
 
-			cout << "Treasury data hash: " << szHash << std::endl;
+            cout << "Treasury data hash: " << szHash << std::endl;
 
-		}
-		break;
+        }
+        break;
 
-	case 5:
-		{
-			// recover and print
-			Treasury::Data data;
-			FLoad(data, szData);
+    case 5:
+        {
+            // recover and print
+            Treasury::Data data;
+            FLoad(data, szData);
 
-			std::vector<Treasury::Data::Coin> vCoins;
-			data.Recover(kdf, vCoins);
+            std::vector<Treasury::Data::Coin> vCoins;
+            data.Recover(kdf, vCoins);
 
-			cout << "Recovered coins: " << vCoins.size() << std::endl;
+            cout << "Recovered coins: " << vCoins.size() << std::endl;
 
-			for (size_t i = 0; i < vCoins.size(); i++)
-			{
-				const Treasury::Data::Coin& coin = vCoins[i];
-				cout << "\t" << coin.m_Kidv << ", Height=" << coin.m_Incubation << std::endl;
+            for (size_t i = 0; i < vCoins.size(); i++)
+            {
+                const Treasury::Data::Coin& coin = vCoins[i];
+                cout << "\t" << coin.m_Kidv << ", Height=" << coin.m_Incubation << std::endl;
 
-			}
-		}
-		break;
+            }
+        }
+        break;
 
-	}
+    }
 
-	return 0;
+    return 0;
 }
 
 
@@ -336,7 +336,7 @@ static const unsigned LOG_ROTATION_PERIOD = 3*60*60*1000; // 3 hours
 
 int main_impl(int argc, char* argv[])
 {
-	beam::Crash::InstallHandler(NULL);
+    beam::Crash::InstallHandler(NULL);
 
     try
     {
@@ -411,7 +411,7 @@ int main_impl(int argc, char* argv[])
                             && command != cli::LISTEN
                             && command != cli::TREASURY
                             && command != cli::INFO
-							&& command != cli::EXPORT_MINER_KEY
+                            && command != cli::EXPORT_MINER_KEY
                             && command != cli::EXPORT_OWNER_KEY
                             && command != cli::NEW_ADDRESS
                             && command != cli::CANCEL_TX
@@ -485,26 +485,26 @@ int main_impl(int argc, char* argv[])
                             return -1;
                         }
 
-						if (command == cli::EXPORT_MINER_KEY)
-						{
-							uint32_t subKey = vm[cli::KEY_SUBKEY].as<uint32_t>();
+                        if (command == cli::EXPORT_MINER_KEY)
+                        {
+                            uint32_t subKey = vm[cli::KEY_SUBKEY].as<uint32_t>();
                             if (subKey < 1)
                             {
                                 cout << "Please, specify Subkey number --subkey=N (N > 0)" << endl;
                                 return -1;
                             }
-							Key::IKdf::Ptr pKey = walletDB->get_ChildKdf(subKey);
-							const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
+                            Key::IKdf::Ptr pKey = walletDB->get_ChildKdf(subKey);
+                            const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
 
-							KeyString ks;
-							ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
-							ks.m_sMeta = std::to_string(subKey);
+                            KeyString ks;
+                            ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
+                            ks.m_sMeta = std::to_string(subKey);
 
-							ks.Export(kdf);
-							cout << "Secret Subkey " << subKey <<  ": " << ks.m_sRes << std::endl;
+                            ks.Export(kdf);
+                            cout << "Secret Subkey " << subKey <<  ": " << ks.m_sRes << std::endl;
 
-							return 0;
-						}
+                            return 0;
+                        }
 
                         if (command == cli::EXPORT_OWNER_KEY)
                         {
@@ -537,8 +537,8 @@ int main_impl(int argc, char* argv[])
 
                         LOG_INFO() << "wallet sucessfully opened...";
 
-						if (command == cli::TREASURY)
-							return HandleTreasury(vm, *walletDB->get_MasterKdf());
+                        if (command == cli::TREASURY)
+                            return HandleTreasury(vm, *walletDB->get_MasterKdf());
 
                         if (command == cli::INFO)
                         {
@@ -637,7 +637,7 @@ int main_impl(int argc, char* argv[])
                                 return -1;
                             }
 
-							receiverWalletID.FromHex(vm[cli::RECEIVER_ADDR].as<string>());
+                            receiverWalletID.FromHex(vm[cli::RECEIVER_ADDR].as<string>());
 
                             auto signedAmount = vm[cli::AMOUNT].as<double>();
                             if (signedAmount < 0)
@@ -671,13 +671,13 @@ int main_impl(int argc, char* argv[])
 
                         Wallet wallet{ walletDB, is_server ? Wallet::TxCompletedAction() : [](auto) { io::Reactor::get_Current().stop(); } };
 
-						proto::FlyClient::NetworkStd nnet(wallet);
-						nnet.m_Cfg.m_vNodes.push_back(node_addr);
-						nnet.Connect();
+                        proto::FlyClient::NetworkStd nnet(wallet);
+                        nnet.m_Cfg.m_vNodes.push_back(node_addr);
+                        nnet.Connect();
 
-						WalletNetworkViaBbs wnet(wallet, nnet, walletDB);
-						
-						wallet.set_Network(nnet, wnet);
+                        WalletNetworkViaBbs wnet(wallet, nnet, walletDB);
+                        
+                        wallet.set_Network(nnet, wnet);
 
                         if (isTxInitiator)
                         {
@@ -699,7 +699,7 @@ int main_impl(int argc, char* argv[])
                             wallet.cancel_tx(txId);
                         }
 
-						io::Reactor::get_Current().run();
+                        io::Reactor::get_Current().run();
 
                     }
                     else

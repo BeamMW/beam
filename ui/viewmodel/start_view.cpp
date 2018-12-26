@@ -350,7 +350,7 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
     }
     catch (...)
     {
-        AppModel::getInstance()->getMessages().addMessage(tr("Failed to print recovery phrases. Please, check your printer."));
+        AppModel::getInstance()->getMessages().addMessage(tr("Failed to print seed phrases. Please, check your printer."));
     }
 }
 
