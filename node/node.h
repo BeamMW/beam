@@ -457,6 +457,7 @@ private:
 		uint8_t m_LoginFlags;
 
 		uint64_t m_CursorBbs;
+		TxPool::Fluff::Element* m_pCursorTx;
 
 		TaskList m_lstTasks;
 		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
@@ -481,9 +482,11 @@ private:
 		void SyncQuery();
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, uint8_t nByeReason);
+		void BroadcastTxs();
 		void BroadcastBbs();
 		void BroadcastBbs(Bbs::Subscription&);
 		void OnChocking();
+		void SetTxCursor(TxPool::Fluff::Element*);
 
 		bool IsChocking(size_t nExtra = 0);
 		bool ShouldAssignTasks();

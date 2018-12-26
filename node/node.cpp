@@ -699,6 +699,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
     pPeer->m_RemoteAddr = addr;
     pPeer->m_LoginFlags = 0;
 	pPeer->m_CursorBbs = 0;
+	pPeer->m_pCursorTx = nullptr;
 
     LOG_INFO() << "+Peer " << addr;
 
@@ -1309,6 +1310,8 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
         m_This.SyncCycle();
     }
 
+	SetTxCursor(nullptr);
+
     m_This.m_lstPeers.erase(PeerList::s_iterator_to(*this));
     delete this;
 }
@@ -1343,6 +1346,7 @@ void Node::Peer::OnMsg(proto::Pong&&)
 	m_Flags &= ~Flags::Chocking;
 
 	// not chocking - continue broadcast
+	BroadcastTxs();
 	BroadcastBbs();
 
 	for (Bbs::Subscription::PeerSet::iterator it = m_Subscriptions.begin(); m_Subscriptions.end() != it; it++)
@@ -2297,10 +2301,11 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
         Peer& peer = *it2;
         if (&peer == pPeer)
             continue;
-        if (!(peer.m_LoginFlags & proto::LoginFlags::SpreadingTransactions))
+        if (!(peer.m_LoginFlags & proto::LoginFlags::SpreadingTransactions) || peer.IsChocking())
             continue;
 
         peer.Send(msgOut);
+		peer.SetTxCursor(pNewTxElem);
     }
 
     if (m_Miner.IsEnabled() && !m_Miner.m_pTaskToFinalize)
@@ -2328,17 +2333,6 @@ void Node::Peer::OnMsg(proto::Login&& msg)
 {
     VerifyCfg(msg);
 
-    if (!(m_LoginFlags & proto::LoginFlags::SpreadingTransactions) && (msg.m_Flags & proto::LoginFlags::SpreadingTransactions))
-    {
-        proto::HaveTransaction msgOut;
-
-        for (TxPool::Fluff::TxSet::iterator it = m_This.m_TxPool.m_setTxs.begin(); m_This.m_TxPool.m_setTxs.end() != it; it++)
-        {
-            msgOut.m_ID = it->m_Key;
-            Send(msgOut);
-        }
-    }
-
     if ((m_LoginFlags ^ msg.m_Flags) & proto::LoginFlags::SendPeers)
     {
         if (msg.m_Flags & proto::LoginFlags::SendPeers)
@@ -2364,6 +2358,7 @@ void Node::Peer::OnMsg(proto::Login&& msg)
 		m_This.m_Miner.OnFinalizerChanged(b ? NULL : this);
 	}
 
+	BroadcastTxs();
 	BroadcastBbs();
 }
 
@@ -2388,6 +2383,55 @@ void Node::Peer::OnChocking()
 	}
 }
 
+void Node::Peer::SetTxCursor(TxPool::Fluff::Element* p)
+{
+	if (m_pCursorTx)
+	{
+		assert(m_pCursorTx != p);
+		m_This.m_TxPool.Release(*m_pCursorTx);
+	}
+
+	m_pCursorTx = p;
+	if (m_pCursorTx)
+		m_pCursorTx->m_Queue.m_Refs++;
+}
+
+void Node::Peer::BroadcastTxs()
+{
+	if (!(proto::LoginFlags::SpreadingTransactions & m_LoginFlags))
+		return;
+
+	if (IsChocking())
+		return;
+
+	for (size_t nExtra = 0; ; )
+	{
+		TxPool::Fluff::Queue::iterator itNext;
+		if (m_pCursorTx)
+		{
+			itNext = TxPool::Fluff::Queue::s_iterator_to(m_pCursorTx->m_Queue);
+			++itNext;
+		}
+		else
+			itNext = m_This.m_TxPool.m_Queue.begin();
+
+		if (m_This.m_TxPool.m_Queue.end() == itNext)
+			break; // all sent
+
+		SetTxCursor(&itNext->get_ParentObj());
+
+		if (!m_pCursorTx->m_pValue)
+			continue; // already deleted
+
+		proto::HaveTransaction msgOut;
+		msgOut.m_ID = m_pCursorTx->m_Tx.m_Key;
+		Send(msgOut);
+
+		nExtra += m_pCursorTx->m_Profit.m_nSize;
+		if (IsChocking(nExtra))
+			break;
+	}
+}
 void Node::Peer::BroadcastBbs()
 {
 	m_This.m_Bbs.MaybeCleanup();

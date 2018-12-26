@@ -15,6 +15,7 @@
 #pragma once
 
 #include <boost/intrusive/set.hpp>
+#include <boost/intrusive/list.hpp>
 #include "../core/block_crypt.h"
 #include "../utility/io/timer.h"
 
@@ -63,18 +64,28 @@ struct TxPool
 
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Threshold)
 			} m_Threshold;
+
+			struct Queue
+				:public boost::intrusive::list_base_hook<>
+			{
+				uint32_t m_Refs = 0;
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Queue)
+			} m_Queue;
 		};
 
 		typedef boost::intrusive::multiset<Element::Tx> TxSet;
 		typedef boost::intrusive::multiset<Element::Profit> ProfitSet;
 		typedef boost::intrusive::multiset<Element::Threshold> ThresholdSet;
+		typedef boost::intrusive::list<Element::Queue> Queue;
 
 		TxSet m_setTxs;
 		ProfitSet m_setProfit;
 		ThresholdSet m_setThreshold;
+		Queue m_Queue;
 
 		Element* AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&);
 		void Delete(Element&);
+		void Release(Element&);
 		void Clear();
 
 		void DeleteOutOfBound(Height);
