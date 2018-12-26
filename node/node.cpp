@@ -2351,7 +2351,8 @@ void Node::Peer::OnMsg(proto::Login&& msg)
         NodeDB& db = m_This.m_Processor.get_DB();
         NodeDB::WalkerBbs wlk(db);
 
-        for (db.EnumAllBbs(wlk); wlk.MoveNext(); )
+		wlk.m_ID = 0;
+        for (db.EnumAllBbsSeq(wlk); wlk.MoveNext(); )
         {
             msgOut.m_Key = wlk.m_Data.m_Key;
             Send(msgOut);

@@ -67,6 +67,7 @@ namespace beam {
 #define TblPeer_LastSeen		"LastSeen"
 
 #define TblBbs					"Bbs"
+#define TblBbs_ID				"ID"
 #define TblBbs_Key				"Key"
 #define TblBbs_Channel			"Channel"
 #define TblBbs_Time				"Time"
@@ -345,11 +346,11 @@ void NodeDB::Create()
 		"[" TblPeer_LastSeen	"] INTEGER NOT NULL)");
 
 	ExecQuick("CREATE TABLE [" TblBbs "] ("
+		"[" TblBbs_ID		"] INTEGER PRIMARY KEY AUTOINCREMENT,"
 		"[" TblBbs_Key		"] BLOB NOT NULL,"
 		"[" TblBbs_Channel	"] INTEGER NOT NULL,"
 		"[" TblBbs_Time		"] INTEGER NOT NULL,"
-		"[" TblBbs_Msg		"] BLOB NOT NULL,"
-		"PRIMARY KEY (" TblBbs_Key "))");
+		"[" TblBbs_Msg		"] BLOB NOT NULL)");
 
 	ExecQuick("CREATE INDEX [Idx" TblBbs "CT] ON [" TblBbs "] ([" TblBbs_Channel "],[" TblBbs_Time "]);"); // fetch messages for specific channel within time range, ordered by time
 	ExecQuick("CREATE INDEX [Idx" TblBbs "T] ON [" TblBbs "] ([" TblBbs_Time "]);"); // delete old messages
@@ -1554,7 +1555,8 @@ void NodeDB::PeerIns(const WalkerPeer::Data& d)
 	TestChanged1Row();
 }
 
-#define TblBbs_AllFieldsListed TblBbs_Key "," TblBbs_Channel "," TblBbs_Time "," TblBbs_Msg
+#define TblBbs_InsFieldsListed TblBbs_Key "," TblBbs_Channel "," TblBbs_Time "," TblBbs_Msg
+#define TblBbs_AllFieldsListed TblBbs_ID "," TblBbs_InsFieldsListed
 
 void NodeDB::EnumBbs(WalkerBbs& x)
 {
@@ -1569,14 +1571,21 @@ void NodeDB::EnumAllBbs(WalkerBbs& x)
 	x.m_Rs.Reset(Query::BbsEnumAll, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " ORDER BY " TblBbs_Channel " ASC," TblBbs_Time " ASC");
 }
 
+void NodeDB::EnumAllBbsSeq(WalkerBbs& x)
+{
+	x.m_Rs.Reset(Query::BbsEnumAllSeq, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_ID ">? ORDER BY " TblBbs_ID);
+	x.m_Rs.put(0, x.m_ID);
+}
+
 bool NodeDB::WalkerBbs::MoveNext()
 {
 	if (!m_Rs.Step())
 		return false;
-	m_Rs.get(0, m_Data.m_Key);
-	m_Rs.get(1, m_Data.m_Channel);
-	m_Rs.get(2, m_Data.m_TimePosted);
-	m_Rs.get(3, m_Data.m_Message);
+	m_Rs.get(0, m_ID);
+	m_Rs.get(1, m_Data.m_Key);
+	m_Rs.get(2, m_Data.m_Channel);
+	m_Rs.get(3, m_Data.m_TimePosted);
+	m_Rs.get(4, m_Data.m_Message);
 	return true;
 }
 
@@ -1597,7 +1606,7 @@ void NodeDB::BbsDelOld(Timestamp tMinToRemain)
 
 void NodeDB::BbsIns(const WalkerBbs::Data& d)
 {
-	Recordset rs(*this, Query::BbsIns, "INSERT INTO " TblBbs "(" TblBbs_AllFieldsListed ") VALUES(?,?,?,?)");
+	Recordset rs(*this, Query::BbsIns, "INSERT INTO " TblBbs "(" TblBbs_InsFieldsListed ") VALUES(?,?,?,?)");
 	rs.put(0, d.m_Key);
 	rs.put(1, d.m_Channel);
 	rs.put(2, d.m_TimePosted);

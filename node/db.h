@@ -107,6 +107,7 @@ public:
 			PeerEnum,
 			BbsEnum,
 			BbsEnumAll,
+			BbsEnumAllSeq,
 			BbsFind,
 			BbsDelOld,
 			BbsIns,
@@ -309,6 +310,7 @@ public:
 	struct WalkerBbs
 	{
 		Recordset m_Rs;
+		uint64_t m_ID;
 
 		struct Data {
 			ECC::Hash::Value m_Key;
@@ -323,6 +325,7 @@ public:
 
 	void EnumBbs(WalkerBbs&); // set channel and min time before invocation
 	void EnumAllBbs(WalkerBbs&); // ordered by Channel,Time.
+	void EnumAllBbsSeq(WalkerBbs&); // ordered by m_ID. Must be initialized to specify the lower bound
 	void BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it)
 	bool BbsFind(WalkerBbs&); // set Key
 	void BbsDelOld(Timestamp tMinToRemain);
