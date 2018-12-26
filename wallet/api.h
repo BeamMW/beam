@@ -50,9 +50,15 @@ namespace beam
 
     struct Send
     {
+        int session;
+        Amount value;
+        Amount fee;
+        WalletID address;
+        std::string comment;
+
         struct Response
         {
-
+            TxID txId;
         };
     };
 

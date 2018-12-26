@@ -53,9 +53,14 @@ namespace beam
 #undef REG_FUNC
     };
 
+    bool existsJsonParam(const nlohmann::json& params, const std::string& name)
+    {
+        return params.find(name) != params.end();
+    }
+
     void checkJsonParam(const nlohmann::json& params, const std::string& name, int id)
     {
-        if (params.find(name) == params.end()) 
+        if (!existsJsonParam(params, name))
             throwInvalidJsonRpc(id);
     }
 
@@ -76,7 +81,37 @@ namespace beam
 
     void WalletApi::onSendMessage(int id, const nlohmann::json& params)
     {
+        checkJsonParam(params, "session", id);
+        checkJsonParam(params, "value", id);
+        checkJsonParam(params, "address", id);
+
+        if (params["session"] < 0)
+            throwInvalidJsonRpc(id);
+
+        if (params["value"] <= 0)
+            throwInvalidJsonRpc(id);
+
+        if (params["address"].empty())
+            throwInvalidJsonRpc(id);
+
         Send send;
+        send.session = params["session"];
+        send.value = params["value"];
+        send.address.FromHex(params["address"]);
+
+        if (existsJsonParam(params, "fee"))
+        {
+            if(params["fee"] < 0)
+                throwInvalidJsonRpc(id);
+
+            send.fee = params["fee"];
+        }
+
+        if (existsJsonParam(params, "comment"))
+        {
+            send.comment = params["comment"];
+        }
+
         _handler.onMessage(id, send);
     }
 
@@ -182,6 +217,20 @@ namespace beam
         }
     }
 
+    void WalletApi::getResponse(int id, const Send::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", 
+                {
+                    {"txId", to_hex(res.txId.data(), res.txId.size())}
+                }
+            }
+        };
+    }
+
     bool WalletApi::parse(const char* data, size_t size)
     {
         if (size == 0) return false;
@@ -193,12 +242,11 @@ namespace beam
             if (msg["jsonrpc"] != "2.0") throwInvalidJsonRpc();
             if (msg["id"] <= 0) throwInvalidJsonRpc();
             if (msg["method"] == nullptr) throwInvalidJsonRpc();
-            if (msg["params"] == nullptr) throwInvalidJsonRpc();
             if (_methods.find(msg["method"]) == _methods.end()) throwUnknownJsonRpc(msg["id"]);
 
             try
             {
-                _methods[msg["method"]](msg["id"], msg["params"]);
+                _methods[msg["method"]](msg["id"], msg["params"] == nullptr ? json::object() : msg["params"]);
             }
             catch (const nlohmann::detail::exception& e)
             {

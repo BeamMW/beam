@@ -237,6 +237,46 @@ namespace
             }
         }
     }
+
+    void testSendJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid send api json!!!");
+
+                cout << msg["error"]["message"] << endl;
+            }
+
+            void onMessage(int id, const Send& data) override
+            {
+                WALLET_CHECK(id > 0);
+
+                WALLET_CHECK(data.session == 15);
+                WALLET_CHECK(data.value == 12342342);
+                WALLET_CHECK(to_string(data.address) == "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67");
+            }
+        };
+
+        WalletApiHandler handler;
+        WalletApi api(handler);
+
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            Send::Response send;
+
+            api.getResponse(123, send, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 123);
+            WALLET_CHECK(res["result"]["txId"] > 0);
+        }
+    }
 }
 
 int main()
@@ -280,12 +320,7 @@ int main()
     {
         "jsonrpc": "2.0",
         "id" : 12345,
-        "method" : "balance",
-        "params" : 
-        {
-            "type" : 0,
-            "addr" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
-        }
+        "method" : "balance"
     }));
 
     testCreateAddressJsonRpc(JSON_CODE(
@@ -321,8 +356,20 @@ int main()
     {
         "jsonrpc": "2.0",
         "id" : 12345,
-        "method" : "get_utxo",
-        "params" : {}
+        "method" : "get_utxo"
+    }));
+
+    testSendJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "send",
+        "params" : 
+        {
+            "session" : 15,
+            "value" : 12342342,
+            "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
+        }
     }));
 
     return WALLET_CHECK_RESULT;
