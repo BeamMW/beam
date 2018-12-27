@@ -488,9 +488,6 @@ namespace beam
 				;
 		}
 
-		for (db.EnumAllBbsCT(wlkbbs); wlkbbs.MoveNext(); )
-			;
-
 		verify_test(db.GetDummyLastID() == 0);
 
 		db.InsertDummy(176, 345);
