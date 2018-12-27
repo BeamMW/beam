@@ -62,6 +62,7 @@ struct Node
 			uint32_t m_BbsMessageTimeout_s	= 3600 * 12; // 1/2 day
 			uint32_t m_BbsMessageMaxAhead_s	= 3600 * 2; // 2 hours
 			uint32_t m_BbsCleanupPeriod_ms = 3600 * 1000; // 1 hour
+			uint32_t m_BbsChannelUpdate_ms = 60 * 5; // 5 minutes
 		} m_Timeout;
 
 		uint32_t m_MaxConcurrentBlocksRequest = 5;
@@ -370,6 +371,7 @@ private:
 
 		static void CalcMsgKey(NodeDB::WalkerBbs::Data&);
 		uint32_t m_LastCleanup_ms = 0;
+		uint32_t m_LastRecommendedChannel_ms = 0;
 		BbsChannel m_RecommendedChannel = 0;
 		void Cleanup();
 		void FindRecommendedChannel();

@@ -1556,6 +1556,24 @@ void NodeDB::PeerIns(const WalkerPeer::Data& d)
 	TestChanged1Row();
 }
 
+bool NodeDB::EnumBbs(IBbsHistogram& x)
+{
+	Recordset rs(*this, Query::BbsHistogram, "SELECT " TblBbs_Channel ",COUNT(*) FROM " TblBbs " GROUP BY " TblBbs_Channel " ORDER BY " TblBbs_Channel);
+	while (rs.Step())
+	{
+		BbsChannel ch;
+		uint64_t nCount;
+
+		rs.get(0, ch);
+		rs.get(1, nCount);
+
+		if (!x.OnChannel(ch, nCount))
+			return false;
+	}
+
+	return true;
+}
+
 #define TblBbs_InsFieldsListed TblBbs_Key "," TblBbs_Channel "," TblBbs_Time "," TblBbs_Msg
 #define TblBbs_AllFieldsListed TblBbs_ID "," TblBbs_InsFieldsListed
 
@@ -1565,11 +1583,6 @@ void NodeDB::EnumBbsCSeq(WalkerBbs& x)
 
 	x.m_Rs.put(0, x.m_Data.m_Channel);
 	x.m_Rs.put(1, x.m_ID);
-}
-
-void NodeDB::EnumAllBbsCT(WalkerBbs& x)
-{
-	x.m_Rs.Reset(Query::BbsEnumAllCT, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " ORDER BY " TblBbs_Channel " ASC," TblBbs_Time " ASC");
 }
 
 void NodeDB::EnumAllBbsSeq(WalkerBbs& x)

@@ -107,7 +107,7 @@ public:
 			PeerDel,
 			PeerEnum,
 			BbsEnumCSeq,
-			BbsEnumAllCT,
+			BbsHistogram,
 			BbsEnumAllSeq,
 			BbsFindRaw,
 			BbsFind,
@@ -329,7 +329,6 @@ public:
 	};
 
 	void EnumBbsCSeq(WalkerBbs&); // set channel and ID before invocation
-	void EnumAllBbsCT(WalkerBbs&); // ordered by Channel,Time.
 	void EnumAllBbsSeq(WalkerBbs&); // ordered by m_ID. Must be initialized to specify the lower bound
 	uint64_t BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it). Returns the ID
 	bool BbsFind(WalkerBbs&); // set Key
@@ -337,6 +336,12 @@ public:
 	void BbsDelOld(Timestamp tMinToRemain);
 	uint64_t BbsFindCursor(BbsChannel, Timestamp);
 	uint64_t get_BbsLastID();
+
+	struct IBbsHistogram {
+		virtual bool OnChannel(BbsChannel, uint64_t nCount) = 0;
+	};
+	bool EnumBbs(IBbsHistogram&);
+
 
 	void InsertDummy(Height h, uint64_t);
 	uint64_t GetLowestDummy(Height& h);

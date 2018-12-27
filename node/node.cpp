@@ -858,51 +858,45 @@ void Node::InitMode()
 void Node::Bbs::Cleanup()
 {
     get_ParentObj().m_Processor.get_DB().BbsDelOld(getTimestamp() - get_ParentObj().m_Cfg.m_Timeout.m_BbsMessageTimeout_s);
-    m_LastCleanup_ms = GetTime_ms();
 
     FindRecommendedChannel();
+
+	m_LastRecommendedChannel_ms = m_LastCleanup_ms = GetTime_ms();
 }
 
 void Node::Bbs::FindRecommendedChannel()
 {
     NodeDB& db = get_ParentObj().m_Processor.get_DB(); // alias
 
-    BbsChannel nChannel = 0;
-    uint32_t nCount = 0, nCountFound = 0;
-    bool bFound = false;
+	struct BBsHistogram
+		:public NodeDB::IBbsHistogram
+	{
+		uint64_t m_MaxCount;
 
-    NodeDB::WalkerBbs wlk(db);
-    for (db.EnumAllBbsCT(wlk); ; )
-    {
-        bool bMoved = wlk.MoveNext();
+		BbsChannel m_Best = 0;
+		BbsChannel m_Last = 0;
+		uint64_t m_CountBest = 0;
 
-        if (bMoved && (wlk.m_Data.m_Channel == nChannel))
-            nCount++;
-        else
-        {
-            if ((nCount <= get_ParentObj().m_Cfg.m_BbsIdealChannelPopulation) && (!bFound || (nCountFound < nCount)))
-            {
-                bFound = true;
-                nCountFound = nCount;
-                m_RecommendedChannel = nChannel;
-            }
 
-            if (!bFound && (nChannel + 1 != wlk.m_Data.m_Channel)) // fine also for !bMoved
-            {
-                bFound = true;
-                nCountFound = 0;
-                m_RecommendedChannel = nChannel + 1;
-            }
+		virtual bool OnChannel(BbsChannel ch, uint64_t nCount) override
+		{
+			if ((nCount <= m_MaxCount) && (nCount > m_CountBest))
+			{
+				m_CountBest = nCount;
+				m_Best = ch;
+			}
+			m_Last = ch;
 
-            if (!bMoved)
-                break;
+			return true;
+		}
+	};
 
-            nChannel = wlk.m_Data.m_Channel;
-            nCount = 1;
-        }
-    }
+	BBsHistogram wlk;
+	wlk.m_MaxCount = get_ParentObj().m_Cfg.m_BbsIdealChannelPopulation;
 
-    assert(bFound);
+	db.EnumBbs(wlk);
+
+	m_RecommendedChannel = wlk.m_CountBest ? wlk.m_Best : wlk.m_Last + 1;
 }
 
 void Node::Bbs::MaybeCleanup()
@@ -2880,6 +2874,13 @@ void Node::Peer::OnMsg(proto::BbsPickChannel&& msg)
 {
 	if (!m_This.m_Cfg.m_Bbs)
 		ThrowUnexpected();
+
+	uint32_t t_ms = GetTime_ms();
+	if (t_ms - m_This.m_Bbs.m_LastRecommendedChannel_ms > m_This.m_Cfg.m_Timeout.m_BbsChannelUpdate_ms)
+	{
+		m_This.m_Bbs.m_LastRecommendedChannel_ms = t_ms;
+		m_This.m_Bbs.FindRecommendedChannel();
+	}
 
 	proto::BbsPickChannelRes msgOut;
     msgOut.m_Channel = m_This.m_Bbs.m_RecommendedChannel;
