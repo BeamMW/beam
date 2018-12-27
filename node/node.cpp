@@ -2803,8 +2803,10 @@ void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
     if (db.BbsFind(msg.m_Key))
         return; // already have it
 
-    if (!m_This.m_Bbs.m_W.Add(msg.m_Key))
-        return; // already waiting for it
+	if (!m_This.m_Bbs.m_W.Add(msg.m_Key)) {
+		// stupid compiler insists on parentheses here!
+		return; // already waiting for it
+	}
 
 	NodeDB::WalkerBbs wlk(db);
 	wlk.m_Data.m_Key = msg.m_Key;
