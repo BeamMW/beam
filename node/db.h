@@ -109,6 +109,7 @@ public:
 			BbsEnumCSeq,
 			BbsEnumAllCT,
 			BbsEnumAllSeq,
+			BbsFindRaw,
 			BbsFind,
 			BbsFindCursor,
 			BbsDelOld,
@@ -311,11 +312,13 @@ public:
 
 	struct WalkerBbs
 	{
+		typedef ECC::Hash::Value Key;
+
 		Recordset m_Rs;
 		uint64_t m_ID;
 
 		struct Data {
-			ECC::Hash::Value m_Key;
+			Key m_Key;
 			BbsChannel m_Channel;
 			Timestamp m_TimePosted;
 			Blob m_Message;
@@ -330,6 +333,7 @@ public:
 	void EnumAllBbsSeq(WalkerBbs&); // ordered by m_ID. Must be initialized to specify the lower bound
 	uint64_t BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it). Returns the ID
 	bool BbsFind(WalkerBbs&); // set Key
+	uint64_t BbsFind(const WalkerBbs::Key&);
 	void BbsDelOld(Timestamp tMinToRemain);
 	uint64_t BbsFindCursor(BbsChannel, Timestamp);
 	uint64_t get_BbsLastID();

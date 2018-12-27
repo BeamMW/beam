@@ -1618,6 +1618,18 @@ bool NodeDB::BbsFind(WalkerBbs& x)
 	return x.MoveNext();
 }
 
+uint64_t NodeDB::BbsFind(const WalkerBbs::Key& key)
+{
+	Recordset rs(*this,Query::BbsFindRaw, "SELECT rowid FROM " TblBbs " WHERE " TblBbs_Key "=?");
+	rs.put(0, key);
+	if (!rs.Step())
+		return 0;
+
+	uint64_t id;
+	rs.get(0, id);
+	return id;
+}
+
 void NodeDB::BbsDelOld(Timestamp tMinToRemain)
 {
 	Recordset rs(*this, Query::BbsDelOld, "DELETE FROM " TblBbs " WHERE " TblBbs_Time "<?");

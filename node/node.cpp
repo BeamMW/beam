@@ -2734,7 +2734,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
     Bbs::CalcMsgKey(wlk.m_Data);
 
-    if (db.BbsFind(wlk))
+    if (db.BbsFind(wlk.m_Data.m_Key))
         return; // already have it
 
     m_This.m_Bbs.MaybeCleanup();
@@ -2786,14 +2786,14 @@ void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
 		ThrowUnexpected();
 
     NodeDB& db = m_This.m_Processor.get_DB();
-    NodeDB::WalkerBbs wlk(db);
-
-    wlk.m_Data.m_Key = msg.m_Key;
-    if (db.BbsFind(wlk))
+    if (db.BbsFind(msg.m_Key))
         return; // already have it
 
     if (!m_This.m_Bbs.m_W.Add(msg.m_Key))
         return; // already waiting for it
+
+	NodeDB::WalkerBbs wlk(db);
+	wlk.m_Data.m_Key = msg.m_Key;
 
     proto::BbsGetMsg msgOut;
     msgOut.m_Key = msg.m_Key;
