@@ -655,16 +655,7 @@ int main_impl(int argc, char* argv[])
                                 return -1;
                             }
 
-                            auto signedFee = vm[cli::FEE].as<double>();
-                            if (signedFee < 0)
-                            {
-                                LOG_ERROR() << "Unable to take negative fee";
-                                return -1;
-                            }
-
-                            signedFee *= Rules::Coin; // convert beams to coins
-
-                            fee = static_cast<ECC::Amount>(signedFee);
+                            fee = vm[cli::FEE].as<beam::Amount>();
                         }
 
                         bool is_server = (command == cli::LISTEN || vm.count(cli::LISTEN));

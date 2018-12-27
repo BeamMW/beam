@@ -14,7 +14,6 @@
 
 #include <QApplication>
 #include <QtQuick>
-#include <QGuiApplication>
 #include <QQmlApplicationEngine>
 
 #include <QInputDialog>
@@ -86,11 +85,11 @@ static const char* AppName = "Beam Wallet";
 int main (int argc, char* argv[])
 {
 #if defined Q_OS_WIN
-	QGuiApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
     block_sigpipe();
 
-    QGuiApplication app(argc, argv);
+    QApplication app(argc, argv);
 
 	app.setWindowIcon(QIcon(":/assets/icon.png"));
 
