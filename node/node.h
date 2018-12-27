@@ -535,6 +535,7 @@ private:
 		virtual void OnMsg(proto::BbsGetMsg&&) override;
 		virtual void OnMsg(proto::BbsSubscribe&&) override;
 		virtual void OnMsg(proto::BbsPickChannel&&) override;
+		virtual void OnMsg(proto::BbsResetSync&&) override;
 		virtual void OnMsg(proto::MacroblockGet&&) override;
 		virtual void OnMsg(proto::Macroblock&&) override;
 		virtual void OnMsg(proto::ProofChainWork&&) override;

@@ -698,7 +698,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
     ZeroObject(pPeer->m_Tip);
     pPeer->m_RemoteAddr = addr;
     pPeer->m_LoginFlags = 0;
-	pPeer->m_CursorBbs = 0;
+	pPeer->m_CursorBbs = uint64_t(-1);
 	pPeer->m_pCursorTx = nullptr;
 
     LOG_INFO() << "+Peer " << addr;
@@ -2346,6 +2346,19 @@ void Node::Peer::OnMsg(proto::Login&& msg)
 
     bool b = ShouldFinalizeMining();
 
+	if (m_This.m_Cfg.m_Bbs &&
+		!(proto::LoginFlags::Bbs & m_LoginFlags) &&
+		(proto::LoginFlags::Bbs & msg.m_Flags))
+	{
+		proto::BbsResetSync msgOut;
+		msgOut.m_TimeFrom =
+			(m_This.m_Bbs.m_HighestPosted_s > m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s) ?
+				(m_This.m_Bbs.m_HighestPosted_s - m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s) :
+				0;
+
+		Send(msgOut);
+	}
+
     m_LoginFlags = msg.m_Flags;
 
 	if (b != ShouldFinalizeMining()) {
@@ -2875,6 +2888,15 @@ void Node::Peer::BroadcastBbs(Bbs::Subscription& s)
 	}
 
 	s.m_Cursor = wlk.m_ID;
+}
+
+void Node::Peer::OnMsg(proto::BbsResetSync&& msg)
+{
+	if (!m_This.m_Cfg.m_Bbs)
+		ThrowUnexpected();
+
+	m_CursorBbs = m_This.m_Processor.get_DB().BbsFindCursor(msg.m_TimeFrom) - 1;
+	BroadcastBbs();
 }
 
 void Node::Peer::OnMsg(proto::BbsPickChannel&& msg)
