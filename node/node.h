@@ -60,8 +60,9 @@ struct Node
 			uint32_t m_PeersUpdate_ms	= 1000; // reconsider every second
 			uint32_t m_PeersDbFlush_ms = 1000 * 60; // 1 minute
 			uint32_t m_BbsMessageTimeout_s	= 3600 * 12; // 1/2 day
-			uint32_t m_BbsMessageMaxAhead_s	= 3600 * 2; // 2 hours
+			uint32_t m_BbsMessageMaxAhead_s	= 60 * 15; // 15 minutes
 			uint32_t m_BbsCleanupPeriod_ms = 3600 * 1000; // 1 hour
+			uint32_t m_BbsChannelUpdate_ms = 60 * 5; // 5 minutes
 		} m_Timeout;
 
 		uint32_t m_MaxConcurrentBlocksRequest = 5;
@@ -370,6 +371,7 @@ private:
 
 		static void CalcMsgKey(NodeDB::WalkerBbs::Data&);
 		uint32_t m_LastCleanup_ms = 0;
+		uint32_t m_LastRecommendedChannel_ms = 0;
 		BbsChannel m_RecommendedChannel = 0;
 		void Cleanup();
 		void FindRecommendedChannel();
@@ -397,6 +399,7 @@ private:
 		};
 
 		Subscription::BbsSet m_Subscribed;
+		Timestamp m_HighestPosted_s = 0;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Bbs)
 	} m_Bbs;
@@ -532,6 +535,7 @@ private:
 		virtual void OnMsg(proto::BbsGetMsg&&) override;
 		virtual void OnMsg(proto::BbsSubscribe&&) override;
 		virtual void OnMsg(proto::BbsPickChannel&&) override;
+		virtual void OnMsg(proto::BbsResetSync&&) override;
 		virtual void OnMsg(proto::MacroblockGet&&) override;
 		virtual void OnMsg(proto::Macroblock&&) override;
 		virtual void OnMsg(proto::ProofChainWork&&) override;

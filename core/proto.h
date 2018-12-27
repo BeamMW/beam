@@ -150,6 +150,9 @@ namespace proto {
     macro(Timestamp, TimeFrom) \
     macro(bool, On)
 
+#define BeamNodeMsg_BbsResetSync(macro) \
+    macro(Timestamp, TimeFrom)
+
 #define BeamNodeMsg_BbsPickChannel(macro)
 
 #define BeamNodeMsg_BbsPickChannelRes(macro) \
@@ -243,6 +246,7 @@ namespace proto {
     macro(0x3b, BbsSubscribe) \
     macro(0x3c, BbsPickChannel) \
     macro(0x3d, BbsPickChannelRes) \
+    macro(0x3e, BbsResetSync) \
 
 
     struct LoginFlags {

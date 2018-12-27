@@ -698,7 +698,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
     ZeroObject(pPeer->m_Tip);
     pPeer->m_RemoteAddr = addr;
     pPeer->m_LoginFlags = 0;
-	pPeer->m_CursorBbs = 0;
+	pPeer->m_CursorBbs = uint64_t(-1);
 	pPeer->m_pCursorTx = nullptr;
 
     LOG_INFO() << "+Peer " << addr;
@@ -759,6 +759,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
     m_Miner.Initialize(externalPOW);
     m_Compressor.Init();
     m_Bbs.Cleanup();
+	m_Bbs.m_HighestPosted_s = m_Processor.get_DB().get_BbsMaxTime();
 }
 
 void Node::InitKeys()
@@ -858,51 +859,45 @@ void Node::InitMode()
 void Node::Bbs::Cleanup()
 {
     get_ParentObj().m_Processor.get_DB().BbsDelOld(getTimestamp() - get_ParentObj().m_Cfg.m_Timeout.m_BbsMessageTimeout_s);
-    m_LastCleanup_ms = GetTime_ms();
 
     FindRecommendedChannel();
+
+	m_LastRecommendedChannel_ms = m_LastCleanup_ms = GetTime_ms();
 }
 
 void Node::Bbs::FindRecommendedChannel()
 {
     NodeDB& db = get_ParentObj().m_Processor.get_DB(); // alias
 
-    BbsChannel nChannel = 0;
-    uint32_t nCount = 0, nCountFound = 0;
-    bool bFound = false;
+	struct BBsHistogram
+		:public NodeDB::IBbsHistogram
+	{
+		uint64_t m_MaxCount;
 
-    NodeDB::WalkerBbs wlk(db);
-    for (db.EnumAllBbsCT(wlk); ; )
-    {
-        bool bMoved = wlk.MoveNext();
+		BbsChannel m_Best = 0;
+		BbsChannel m_Last = 0;
+		uint64_t m_CountBest = 0;
 
-        if (bMoved && (wlk.m_Data.m_Channel == nChannel))
-            nCount++;
-        else
-        {
-            if ((nCount <= get_ParentObj().m_Cfg.m_BbsIdealChannelPopulation) && (!bFound || (nCountFound < nCount)))
-            {
-                bFound = true;
-                nCountFound = nCount;
-                m_RecommendedChannel = nChannel;
-            }
 
-            if (!bFound && (nChannel + 1 != wlk.m_Data.m_Channel)) // fine also for !bMoved
-            {
-                bFound = true;
-                nCountFound = 0;
-                m_RecommendedChannel = nChannel + 1;
-            }
+		virtual bool OnChannel(BbsChannel ch, uint64_t nCount) override
+		{
+			if ((nCount <= m_MaxCount) && (nCount > m_CountBest))
+			{
+				m_CountBest = nCount;
+				m_Best = ch;
+			}
+			m_Last = ch;
 
-            if (!bMoved)
-                break;
+			return true;
+		}
+	};
 
-            nChannel = wlk.m_Data.m_Channel;
-            nCount = 1;
-        }
-    }
+	BBsHistogram wlk;
+	wlk.m_MaxCount = get_ParentObj().m_Cfg.m_BbsIdealChannelPopulation;
 
-    assert(bFound);
+	db.EnumBbs(wlk);
+
+	m_RecommendedChannel = wlk.m_CountBest ? wlk.m_Best : wlk.m_Last + 1;
 }
 
 void Node::Bbs::MaybeCleanup()
@@ -2351,6 +2346,19 @@ void Node::Peer::OnMsg(proto::Login&& msg)
 
     bool b = ShouldFinalizeMining();
 
+	if (m_This.m_Cfg.m_Bbs &&
+		!(proto::LoginFlags::Bbs & m_LoginFlags) &&
+		(proto::LoginFlags::Bbs & msg.m_Flags))
+	{
+		proto::BbsResetSync msgOut;
+		msgOut.m_TimeFrom =
+			(m_This.m_Bbs.m_HighestPosted_s > m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s) ?
+				(m_This.m_Bbs.m_HighestPosted_s - m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s) :
+				0;
+
+		Send(msgOut);
+	}
+
     m_LoginFlags = msg.m_Flags;
 
 	if (b != ShouldFinalizeMining()) {
@@ -2445,16 +2453,16 @@ void Node::Peer::BroadcastBbs()
 	size_t nExtra = 0;
 
 	NodeDB& db = m_This.m_Processor.get_DB();
-	NodeDB::WalkerBbs wlk(db);
+	NodeDB::WalkerBbsLite wlk(db);
 
 	wlk.m_ID = m_CursorBbs;
 	for (db.EnumAllBbsSeq(wlk); wlk.MoveNext(); )
 	{
 		proto::BbsHaveMsg msgOut;
-		msgOut.m_Key = wlk.m_Data.m_Key;
+		msgOut.m_Key = wlk.m_Key;
 		Send(msgOut);
 
-		nExtra += wlk.m_Data.m_Message.n;
+		nExtra += wlk.m_Size;
 		if (IsChocking(nExtra))
 			break;
 	}
@@ -2718,12 +2726,16 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 	if (msg.m_Message.size() > proto::Bbs::s_MaxMsgSize)
 		ThrowUnexpected("Bbs msg too large"); // will also ban this peer
 
-    Timestamp t = getTimestamp();
-    Timestamp t0 = t - m_This.m_Cfg.m_Timeout.m_BbsMessageTimeout_s;
-    Timestamp t1 = t + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s;
+	Timestamp t = getTimestamp();
 
-    if ((msg.m_TimePosted <= t0) || (msg.m_TimePosted > t1))
-        return;
+	if (msg.m_TimePosted > t + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s)
+		return; // too much ahead of time
+
+	if (msg.m_TimePosted + m_This.m_Cfg.m_Timeout.m_BbsMessageTimeout_s  < t)
+		return; // too old
+
+	if (msg.m_TimePosted + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
+		return; // don't allow too much out-of-order messages
 
     NodeDB& db = m_This.m_Processor.get_DB();
     NodeDB::WalkerBbs wlk(db);
@@ -2734,13 +2746,15 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
     Bbs::CalcMsgKey(wlk.m_Data);
 
-    if (db.BbsFind(wlk))
+    if (db.BbsFind(wlk.m_Data.m_Key))
         return; // already have it
 
     m_This.m_Bbs.MaybeCleanup();
 
     uint64_t id = db.BbsIns(wlk.m_Data);
     m_This.m_Bbs.m_W.Delete(wlk.m_Data.m_Key);
+
+	m_This.m_Bbs.m_HighestPosted_s = std::max(m_This.m_Bbs.m_HighestPosted_s, msg.m_TimePosted);
 
     // 1. Send to other BBS-es
 
@@ -2786,14 +2800,18 @@ void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
 		ThrowUnexpected();
 
     NodeDB& db = m_This.m_Processor.get_DB();
-    NodeDB::WalkerBbs wlk(db);
+	if (db.BbsFind(msg.m_Key)) {
+		// stupid compiler insists on parentheses here!
+		return; // already have it
+	}
 
-    wlk.m_Data.m_Key = msg.m_Key;
-    if (db.BbsFind(wlk))
-        return; // already have it
+	if (!m_This.m_Bbs.m_W.Add(msg.m_Key)) {
+		// stupid compiler insists on parentheses here!
+		return; // already waiting for it
+	}
 
-    if (!m_This.m_Bbs.m_W.Add(msg.m_Key))
-        return; // already waiting for it
+	NodeDB::WalkerBbs wlk(db);
+	wlk.m_Data.m_Key = msg.m_Key;
 
     proto::BbsGetMsg msgOut;
     msgOut.m_Key = msg.m_Key;
@@ -2847,7 +2865,7 @@ void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
         m_This.m_Bbs.m_Subscribed.insert(pS->m_Bbs);
         m_Subscriptions.insert(pS->m_Peer);
 
-		pS->m_Cursor = m_This.m_Processor.get_DB().BbsFindCursor(msg.m_Channel, msg.m_TimeFrom) - 1;
+		pS->m_Cursor = m_This.m_Processor.get_DB().BbsFindCursor(msg.m_TimeFrom) - 1;
 
 		BroadcastBbs(*pS);
     }
@@ -2876,10 +2894,26 @@ void Node::Peer::BroadcastBbs(Bbs::Subscription& s)
 	s.m_Cursor = wlk.m_ID;
 }
 
+void Node::Peer::OnMsg(proto::BbsResetSync&& msg)
+{
+	if (!m_This.m_Cfg.m_Bbs)
+		ThrowUnexpected();
+
+	m_CursorBbs = m_This.m_Processor.get_DB().BbsFindCursor(msg.m_TimeFrom) - 1;
+	BroadcastBbs();
+}
+
 void Node::Peer::OnMsg(proto::BbsPickChannel&& msg)
 {
 	if (!m_This.m_Cfg.m_Bbs)
 		ThrowUnexpected();
+
+	uint32_t t_ms = GetTime_ms();
+	if (t_ms - m_This.m_Bbs.m_LastRecommendedChannel_ms > m_This.m_Cfg.m_Timeout.m_BbsChannelUpdate_ms)
+	{
+		m_This.m_Bbs.m_LastRecommendedChannel_ms = t_ms;
+		m_This.m_Bbs.FindRecommendedChannel();
+	}
 
 	proto::BbsPickChannelRes msgOut;
     msgOut.m_Channel = m_This.m_Bbs.m_RecommendedChannel;
