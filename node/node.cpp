@@ -698,7 +698,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
     ZeroObject(pPeer->m_Tip);
     pPeer->m_RemoteAddr = addr;
     pPeer->m_LoginFlags = 0;
-	pPeer->m_CursorBbs = uint64_t(-1);
+	pPeer->m_CursorBbs = std::numeric_limits<int64_t>::max();
 	pPeer->m_pCursorTx = nullptr;
 
     LOG_INFO() << "+Peer " << addr;
