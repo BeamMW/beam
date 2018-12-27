@@ -90,7 +90,7 @@ void GenerateHash(const eh_HashState& base_state, eh_index g,
 	    blake2b_update(&state, (const unsigned char*) &lei,
 		                              sizeof(eh_index));
 	    
-	    blake2b_final(&state, &tmpHash[0], static_cast<uint8_t>(hLen));
+	    blake2b_final(&state, (unsigned char*)&tmpHash[0], static_cast<uint8_t>(hLen));
 
 	    for (uint32_t idx = 0; idx < 16; idx++) myHash[idx] += tmpHash[idx];
     }

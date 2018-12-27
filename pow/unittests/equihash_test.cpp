@@ -93,6 +93,7 @@ int main()
 {
     TestArrayExpanding();
     
+#ifdef NDEBUG
     {
         cout << "Test PoW...\n";
         uint8_t pInput[] = { 1, 2, 3, 4, 56 };
@@ -121,6 +122,9 @@ int main()
 
         std::cout << "Solution is correct\n";
     }
+#endif // NDEBUG
+
+
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
 }
