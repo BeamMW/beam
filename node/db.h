@@ -345,7 +345,7 @@ public:
 		Recordset m_Rs;
 		uint64_t m_ID;
 		Key m_Key;
-		size_t m_Size;
+		uint32_t m_Size;
 
 		WalkerBbsLite(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
