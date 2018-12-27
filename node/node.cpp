@@ -2800,8 +2800,10 @@ void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
 		ThrowUnexpected();
 
     NodeDB& db = m_This.m_Processor.get_DB();
-    if (db.BbsFind(msg.m_Key))
-        return; // already have it
+	if (db.BbsFind(msg.m_Key)) {
+		// stupid compiler insists on parentheses here!
+		return; // already have it
+	}
 
 	if (!m_This.m_Bbs.m_W.Add(msg.m_Key)) {
 		// stupid compiler insists on parentheses here!
