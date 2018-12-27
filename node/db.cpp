@@ -352,9 +352,9 @@ void NodeDB::Create()
 		"[" TblBbs_Time		"] INTEGER NOT NULL,"
 		"[" TblBbs_Msg		"] BLOB NOT NULL)");
 
-	ExecQuick("CREATE INDEX [Idx" TblBbs "CT] ON [" TblBbs "] ([" TblBbs_Channel "],[" TblBbs_Time "]);"); // Find cursor for specific channel and mimimal Time
-	ExecQuick("CREATE INDEX [Idx" TblBbs "CSeq] ON [" TblBbs "] ([" TblBbs_Channel "],[" TblBbs_ID "]);"); // fetch messages for specific channel ordered by ID
-	ExecQuick("CREATE INDEX [Idx" TblBbs "T] ON [" TblBbs "] ([" TblBbs_Time "]);"); // delete old messages
+	ExecQuick("CREATE INDEX [Idx" TblBbs "CSeq] ON [" TblBbs "] ([" TblBbs_Channel "],[" TblBbs_ID "]);");
+	ExecQuick("CREATE INDEX [Idx" TblBbs "TSeq] ON [" TblBbs "] ([" TblBbs_Time "],[" TblBbs_ID "]);");
+	ExecQuick("CREATE INDEX [Idx" TblBbs "Key] ON [" TblBbs "] ([" TblBbs_Key "]);");
 
 	ExecQuick("CREATE TABLE [" TblDummy "] ("
 		"[" TblDummy_ID				"] INTEGER NOT NULL PRIMARY KEY,"
@@ -1674,11 +1674,10 @@ uint64_t NodeDB::BbsIns(const WalkerBbs::Data& d)
 	return sqlite3_last_insert_rowid(m_pDb);
 }
 
-uint64_t NodeDB::BbsFindCursor(BbsChannel ch, Timestamp t)
+uint64_t NodeDB::BbsFindCursor(Timestamp t)
 {
-	Recordset rs(*this, Query::BbsFindCursor, "SELECT " TblBbs_ID " FROM " TblBbs " WHERE " TblBbs_Channel "=? AND " TblBbs_Time ">=? ORDER BY " TblBbs_Time);
-	rs.put(0, ch);
-	rs.put(1, t);
+	Recordset rs(*this, Query::BbsFindCursor, "SELECT " TblBbs_ID " FROM " TblBbs " WHERE " TblBbs_Time ">=? ORDER BY " TblBbs_ID " ASC LIMIT 1");
+	rs.put(0, t);
 
 	if (!rs.Step())
 		return get_BbsLastID() + 1;
@@ -1691,6 +1690,16 @@ uint64_t NodeDB::BbsFindCursor(BbsChannel ch, Timestamp t)
 	return id;
 }
 
+Timestamp NodeDB::get_BbsMaxTime()
+{
+	Recordset rs(*this, Query::BbsMaxTime, "SELECT MAX(" TblBbs_Time ") FROM " TblBbs);
+	if (!rs.Step())
+		return 0;
+
+	Timestamp ret;
+	rs.get(0, ret);
+	return ret;
+}
 
 uint64_t NodeDB::FindStateWorkGreater(const Difficulty::Raw& d)
 {

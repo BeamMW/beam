@@ -759,6 +759,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
     m_Miner.Initialize(externalPOW);
     m_Compressor.Init();
     m_Bbs.Cleanup();
+	m_Bbs.m_HighestPosted_s = m_Processor.get_DB().get_BbsMaxTime();
 }
 
 void Node::InitKeys()
@@ -2712,12 +2713,16 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 	if (msg.m_Message.size() > proto::Bbs::s_MaxMsgSize)
 		ThrowUnexpected("Bbs msg too large"); // will also ban this peer
 
-    Timestamp t = getTimestamp();
-    Timestamp t0 = t - m_This.m_Cfg.m_Timeout.m_BbsMessageTimeout_s;
-    Timestamp t1 = t + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s;
+	Timestamp t = getTimestamp();
 
-    if ((msg.m_TimePosted <= t0) || (msg.m_TimePosted > t1))
-        return;
+	if (msg.m_TimePosted > t + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s)
+		return; // too much ahead of time
+
+	if (msg.m_TimePosted + m_This.m_Cfg.m_Timeout.m_BbsMessageTimeout_s  < t)
+		return; // too old
+
+	if (msg.m_TimePosted + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
+		return; // don't allow too much out-of-order messages
 
     NodeDB& db = m_This.m_Processor.get_DB();
     NodeDB::WalkerBbs wlk(db);
@@ -2735,6 +2740,8 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
     uint64_t id = db.BbsIns(wlk.m_Data);
     m_This.m_Bbs.m_W.Delete(wlk.m_Data.m_Key);
+
+	m_This.m_Bbs.m_HighestPosted_s = std::max(m_This.m_Bbs.m_HighestPosted_s, msg.m_TimePosted);
 
     // 1. Send to other BBS-es
 
@@ -2841,7 +2848,7 @@ void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
         m_This.m_Bbs.m_Subscribed.insert(pS->m_Bbs);
         m_Subscriptions.insert(pS->m_Peer);
 
-		pS->m_Cursor = m_This.m_Processor.get_DB().BbsFindCursor(msg.m_Channel, msg.m_TimeFrom) - 1;
+		pS->m_Cursor = m_This.m_Processor.get_DB().BbsFindCursor(msg.m_TimeFrom) - 1;
 
 		BroadcastBbs(*pS);
     }

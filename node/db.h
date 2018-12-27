@@ -114,6 +114,7 @@ public:
 			BbsFindCursor,
 			BbsDelOld,
 			BbsIns,
+			BbsMaxTime,
 			DummyIns,
 			DummyFindLowest,
 			DummyFindLastID,
@@ -333,7 +334,8 @@ public:
 	bool BbsFind(WalkerBbs&); // set Key
 	uint64_t BbsFind(const WalkerBbs::Key&);
 	void BbsDelOld(Timestamp tMinToRemain);
-	uint64_t BbsFindCursor(BbsChannel, Timestamp);
+	uint64_t BbsFindCursor(Timestamp);
+	Timestamp get_BbsMaxTime();
 	uint64_t get_BbsLastID();
 
 	struct WalkerBbsLite
