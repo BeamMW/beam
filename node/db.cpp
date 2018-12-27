@@ -1574,6 +1574,23 @@ bool NodeDB::EnumBbs(IBbsHistogram& x)
 	return true;
 }
 
+void NodeDB::EnumAllBbsSeq(WalkerBbsLite& x)
+{
+	x.m_Rs.Reset(Query::BbsEnumAllSeq, "SELECT " TblBbs_ID "," TblBbs_Key ",LENGTH(" TblBbs_Msg ") FROM " TblBbs " WHERE " TblBbs_ID ">? ORDER BY " TblBbs_ID);
+	x.m_Rs.put(0, x.m_ID);
+}
+
+bool NodeDB::WalkerBbsLite::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+	m_Rs.get(0, m_ID);
+	m_Rs.get(1, m_Key);
+	m_Rs.get(2, m_Size);
+	return true;
+}
+
+
 #define TblBbs_InsFieldsListed TblBbs_Key "," TblBbs_Channel "," TblBbs_Time "," TblBbs_Msg
 #define TblBbs_AllFieldsListed TblBbs_ID "," TblBbs_InsFieldsListed
 
@@ -1583,12 +1600,6 @@ void NodeDB::EnumBbsCSeq(WalkerBbs& x)
 
 	x.m_Rs.put(0, x.m_Data.m_Channel);
 	x.m_Rs.put(1, x.m_ID);
-}
-
-void NodeDB::EnumAllBbsSeq(WalkerBbs& x)
-{
-	x.m_Rs.Reset(Query::BbsEnumAllSeq, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_ID ">? ORDER BY " TblBbs_ID);
-	x.m_Rs.put(0, x.m_ID);
 }
 
 uint64_t NodeDB::get_AutoincrementID(const char* szTable)

@@ -329,13 +329,27 @@ public:
 	};
 
 	void EnumBbsCSeq(WalkerBbs&); // set channel and ID before invocation
-	void EnumAllBbsSeq(WalkerBbs&); // ordered by m_ID. Must be initialized to specify the lower bound
 	uint64_t BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it). Returns the ID
 	bool BbsFind(WalkerBbs&); // set Key
 	uint64_t BbsFind(const WalkerBbs::Key&);
 	void BbsDelOld(Timestamp tMinToRemain);
 	uint64_t BbsFindCursor(BbsChannel, Timestamp);
 	uint64_t get_BbsLastID();
+
+	struct WalkerBbsLite
+	{
+		typedef WalkerBbs::Key Key;
+
+		Recordset m_Rs;
+		uint64_t m_ID;
+		Key m_Key;
+		size_t m_Size;
+
+		WalkerBbsLite(NodeDB& db) :m_Rs(db) {}
+		bool MoveNext();
+	};
+
+	void EnumAllBbsSeq(WalkerBbsLite&); // ordered by m_ID. Must be initialized to specify the lower bound
 
 	struct IBbsHistogram {
 		virtual bool OnChannel(BbsChannel, uint64_t nCount) = 0;

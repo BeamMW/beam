@@ -2439,16 +2439,16 @@ void Node::Peer::BroadcastBbs()
 	size_t nExtra = 0;
 
 	NodeDB& db = m_This.m_Processor.get_DB();
-	NodeDB::WalkerBbs wlk(db);
+	NodeDB::WalkerBbsLite wlk(db);
 
 	wlk.m_ID = m_CursorBbs;
 	for (db.EnumAllBbsSeq(wlk); wlk.MoveNext(); )
 	{
 		proto::BbsHaveMsg msgOut;
-		msgOut.m_Key = wlk.m_Data.m_Key;
+		msgOut.m_Key = wlk.m_Key;
 		Send(msgOut);
 
-		nExtra += wlk.m_Data.m_Message.n;
+		nExtra += wlk.m_Size;
 		if (IsChocking(nExtra))
 			break;
 	}
