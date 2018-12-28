@@ -292,7 +292,8 @@ namespace beam
         enum class ErrorType : uint8_t
         {
             NodeProtocolBase = 0,
-            NodeProtocolIncompatible = 1
+            NodeProtocolIncompatible = 1,
+            ConnectionTimedOut = 2
         };
     }
 }

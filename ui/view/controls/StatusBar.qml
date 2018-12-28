@@ -14,13 +14,15 @@ Item {
     property string status: {
         if (model.isFailedStatus)
             qsTr("error")
-        else if(model.isSyncInProgress)
+        else if (model.isSyncInProgress)
             qsTr("updating")
-        else
+        else if (model.isOnline)
             qsTr("online")
+        else
+            qsTr("connecting")
     }
 
-    state: "online"
+    state: "connecting"
 
     property int indicator_radius: 5
     property Item indicator: online_indicator
@@ -134,6 +136,17 @@ Item {
     }
 
     states: [
+        State {
+            name: "connecting"
+            when: (rootControl.status === "connecting")
+            PropertyChanges {target: status_text; text: qsTr("connecting") + model.branchName}
+            StateChangeScript {
+                name: "connectingScript"
+                script: {
+                    rootControl.setIndicator(update_indicator);
+                }
+            }
+        },
         State {
             name: "online"
             when: (rootControl.status === "online")

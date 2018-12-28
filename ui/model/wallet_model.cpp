@@ -57,6 +57,17 @@ namespace
             return beam::wallet::ErrorType::NodeProtocolBase;
         }
     }
+
+    beam::wallet::ErrorType GetWalletError(io::ErrorCode errorCode)
+    {
+        switch (errorCode)
+        {
+        case EC_ETIMEDOUT:
+            return beam::wallet::ErrorType::ConnectionTimedOut;
+        default:
+            return beam::wallet::ErrorType::NodeProtocolBase;
+        }
+    }
 }
 
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
@@ -357,6 +368,11 @@ void WalletModel::onNodeConnectionFailed(const proto::NodeConnection::Disconnect
         auto error = GetWalletError(reason.m_ExceptionDetails.m_ExceptionType);
         emit onWalletError(error);
     }
+    else if (proto::NodeConnection::DisconnectReason::Io == reason.m_Type)
+    {
+        auto error = GetWalletError(reason.m_IoError);
+        emit onWalletError(error);
+    }
 }
 
 void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee)
@@ -559,6 +575,8 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
         return tr("Node protocol error!");
     case wallet::ErrorType::NodeProtocolIncompatible:
         return tr("You are trying to connect to incompatible peer.");
+    case wallet::ErrorType::ConnectionTimedOut:
+        return tr("Connection timed out.");
     default:
         return tr("Unexpected error!");
     }
