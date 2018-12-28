@@ -26,28 +26,6 @@ test_script:
 build_script:
   - cmake --build . --parallel --config %BUILD_CONFIG%
 
-artifacts:
-  - path: beam/%BUILD_CONFIG%/beam-node-%BEAM_VERSION%.zip
-    name: BeamNode
-
-  - path: beam/%BUILD_CONFIG%/beam-wallet-cli-%BEAM_VERSION%.zip
-    name: BeamWalletCli
-
-  - path: beam/%BUILD_CONFIG%/wallet-api-%BEAM_VERSION%.zip
-    name: BeamWalletApi
-
-  - path: beam/beam-pack-%BEAM_VERSION%.zip
-    name: BeamPack
-
-  - path: beam/beam-pdb-%BEAM_VERSION%.zip
-    name: BeamPdb
-
-  - path: beam/%BUILD_CONFIG%/miner-client-%BEAM_VERSION%.zip
-    name: BeamMinerClient
-
-  - path: Beam-Wallet-%BEAM_VERSION%.exe
-    name: BeamWallet
-
 on_success:
 - ps: $env:DATE=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('yyyy.MM.dd')
 - ps: $env:TIME=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('HH:mm:ss')
@@ -98,6 +76,28 @@ on_success:
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/beam-pdb-%BEAM_VERSION%.zip" %BUILDS_SERVER_PATH%/pdb/
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/miner-client-%BEAM_VERSION%.zip" %BUILDS_SERVER_PATH%/
+
+artifacts:
+  - path: beam/%BUILD_CONFIG%/beam-node-%BEAM_VERSION%.zip
+    name: BeamNode
+
+  - path: beam/%BUILD_CONFIG%/beam-wallet-cli-%BEAM_VERSION%.zip
+    name: BeamWalletCli
+
+  - path: beam/%BUILD_CONFIG%/wallet-api-%BEAM_VERSION%.zip
+    name: BeamWalletApi
+
+  - path: beam/beam-pack-%BEAM_VERSION%.zip
+    name: BeamPack
+
+  - path: beam/beam-pdb-%BEAM_VERSION%.zip
+    name: BeamPdb
+
+  - path: beam/%BUILD_CONFIG%/miner-client-%BEAM_VERSION%.zip
+    name: BeamMinerClient
+
+  - path: Beam-Wallet-%BEAM_VERSION%.exe
+    name: BeamWallet
 
 deploy:
   provider: S3
