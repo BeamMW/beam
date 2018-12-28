@@ -109,7 +109,7 @@ deploy:
   region: eu-central-1
   unzip: false
   set_public: true
-  folder: %APPVEYOR_REPO_BRANCH%/%DATE%/Release/win
+  folder: "%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win"
   artifact: BeamMinerClient, BeamPdb, BeamPack, BeamWalletApi, BeamWalletCli, BeamNode, BeamWallet
 
 
