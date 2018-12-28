@@ -106,9 +106,16 @@ namespace
     void newAddress(
         const IWalletDB::Ptr& walletDB,
         const std::string& label,
-        const SecString& pass)
+        const SecString& pass,
+        bool isNever = false
+    )
     {
         WalletAddress address = wallet::createAddress(walletDB);
+
+        if (isNever)
+        {
+            address.m_duration = 0;
+        }
 
         address.m_label = label;
         walletDB->saveAddress(address);
@@ -527,7 +534,7 @@ int main_impl(int argc, char* argv[])
                         if (command == cli::NEW_ADDRESS)
                         {
                             auto label = vm[cli::NEW_ADDRESS_LABEL].as<string>();
-                            newAddress(walletDB, label, pass);
+                            newAddress(walletDB, label, pass, vm[cli::EXPIRATION_TIME].as<string>() == "never");
 
                             if (!vm.count(cli::LISTEN)) 
                             {

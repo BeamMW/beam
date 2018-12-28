@@ -66,6 +66,7 @@ namespace beam
         extern const char* SEND;
         extern const char* INFO;
         extern const char* NEW_ADDRESS_LABEL;
+        extern const char* EXPIRATION_TIME;
         extern const char* TX_HISTORY;
         extern const char* TX_ID;
         extern const char* SEED_PHRASE;

@@ -64,6 +64,7 @@ namespace beam
         const char* BBS_ENABLE = "bbs_enable";
         const char* NEW_ADDRESS = "new_addr";
         const char* NEW_ADDRESS_LABEL = "label";
+        const char* EXPIRATION_TIME = "expiration_time";
         const char* SEND = "send";
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
@@ -155,6 +156,7 @@ namespace beam
             (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "tx id")
             (cli::NEW_ADDRESS_LABEL, po::value<string>()->default_value(""), "label for new own address")
+            (cli::EXPIRATION_TIME, po::value<string>()->default_value("24h"), "expiration time for new own address [24h|never]")
             (cli::GENERATE_PHRASE, "command to generate phrases which will be used to create a secret according to BIP-39")
             (cli::KEY_SUBKEY, po::value<uint32_t>()->default_value(0), "Child key index.")
             (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase]");
