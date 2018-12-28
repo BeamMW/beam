@@ -212,7 +212,7 @@ Item
                             anchors.left: parent.left
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Your seed phrase is the access key to all the cryptocurrencies in your wallet. Print or write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.")
+                            text: qsTr("Your seed phrase is the access key to all the cryptocurrencies in your wallet. Write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.")
                             color: Style.white
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
@@ -289,24 +289,6 @@ Item
                             onClicked: {
                                 startWizzardView.pop();
                                 viewModel.resetPhrases();
-                            }
-                        }
-
-                        CustomButton {
-                            text: qsTr("copy to clipboard")
-                            icon.source: "qrc:/assets/icon-copy.svg"
-                            onClicked: {viewModel.copyPhrasesToClipboard();}
-                        }
-
-                        CustomButton {
-                            text: qsTr("print")
-                            icon.source: "qrc:/assets/icon-print.svg"
-                                
-                            onClicked: {
-                                phrasesView.grabToImage(function(result) {
-                                    viewModel.printRecoveryPhrases(result.image); //result.image holds the QVariant
-                                });
-
                             }
                         }
 
