@@ -103,7 +103,7 @@ namespace
         cout << options << std::endl;
     }
 
-    void newAddress(
+    WalletAddress newAddress(
         const IWalletDB::Ptr& walletDB,
         const std::string& label,
         const SecString& pass)
@@ -117,6 +117,7 @@ namespace
         if (!label.empty()) {
             LOG_INFO() << "label = " << label;
         }
+        return address;
     }
 
     WordList GeneratePhrase()
@@ -672,14 +673,9 @@ int main_impl(int argc, char* argv[])
 
                         if (isTxInitiator)
                         {
-                            // TODO: make db request by 'default' label
-                            auto addresses = walletDB->getAddresses(true);
-                            if (addresses.empty()) {
-                                newAddress(walletDB, "default", pass);
-                                addresses = walletDB->getAddresses(true);
-                                assert(!addresses.empty());
-                            }
-                            wallet.transfer_money(addresses[0].m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
+                            WalletAddress senderAddress = newAddress(walletDB, "", pass);
+                            wnet.AddOwnAddress(senderAddress);
+                            wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
                         }
 
                         if (command == cli::CANCEL_TX) 
