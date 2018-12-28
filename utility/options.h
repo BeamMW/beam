@@ -90,7 +90,9 @@ namespace beam
         extern const char* TR_WID;
         extern const char* TR_PERC;
         extern const char* TR_COMMENT;
-        // ui
+		extern const char* TR_M;
+		extern const char* TR_N;
+		// ui
         extern const char* WALLET_ADDR;
         extern const char* APPDATA_PATH;
     }

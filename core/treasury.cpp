@@ -370,7 +370,7 @@ namespace beam
 		r.m_WalletID = pid;
 
 		HeightRange hr;
-		hr.m_Max = Rules::HeightGenesis - 1;
+		hr.m_Max = pars.m_Maturity0 + Rules::HeightGenesis - 1;
 
 		for (uint32_t iBurst = 0; iBurst < pars.m_Bursts; iBurst++)
 		{
