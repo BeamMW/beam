@@ -20,13 +20,13 @@ before_build:
   - cmd: git clone --depth=1 https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
   - cmd: cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=%APPVEYOR_REPO_BRANCH% -DBEAM_USE_GPU=On -DBEAM_BUILD_JNI=On
 
-test_script:
-  - cmd: ctest -C %BUILD_CONFIG% --verbose
+#test_script:
+#  - cmd: ctest -C %BUILD_CONFIG% --verbose
 
 build_script:
   - cmake --build . --parallel --config %BUILD_CONFIG%
 
-on_success:
+after_build:
 - ps: $env:DATE=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('yyyy.MM.dd')
 - ps: $env:TIME=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('HH:mm:ss')
 - cmd: >-
@@ -61,7 +61,10 @@ on_success:
 
     7z a c:/projects/beam/beam/beam-pdb-%BEAM_VERSION%.zip "c:/projects/beam/ui/%BUILD_CONFIG%/Beam Wallet.pdb" "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node.pdb" "c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.pdb"
 
-    set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win
+    set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win  
+
+on_success:
+- cmd: >-
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-%BEAM_VERSION%.zip" %BUILDS_SERVER_PATH%/
 
