@@ -2351,11 +2351,7 @@ void Node::Peer::OnMsg(proto::Login&& msg)
 		(proto::LoginFlags::Bbs & msg.m_Flags))
 	{
 		proto::BbsResetSync msgOut;
-		msgOut.m_TimeFrom =
-			(m_This.m_Bbs.m_HighestPosted_s > m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s) ?
-				(m_This.m_Bbs.m_HighestPosted_s - m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s) :
-				0;
-
+		msgOut.m_TimeFrom = std::min(m_This.m_Bbs.m_HighestPosted_s, getTimestamp() - m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s);
 		Send(msgOut);
 	}
 
