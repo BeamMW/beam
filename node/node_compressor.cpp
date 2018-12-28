@@ -109,14 +109,14 @@ void Node::Compressor::OnNewState()
 
 	Processor& p = get_ParentObj().m_Processor;
 
-	const uint32_t nThreshold = Rules::get().MaxRollbackHeight;
+	const uint32_t nThreshold = Rules::get().Macroblock.MaxRollback;
 
 	if (p.m_Cursor.m_ID.m_Height - Rules::HeightGenesis + 1 < nThreshold)
 		return;
 
 	HeightRange hr;
 	hr.m_Max = p.m_Cursor.m_ID.m_Height - nThreshold;
-	hr.m_Max -= ((hr.m_Max - Rules::HeightGenesis + 1) % Rules::get().MacroblockGranularity);
+	hr.m_Max -= ((hr.m_Max - Rules::HeightGenesis + 1) % Rules::get().Macroblock.Granularity);
 
 	// last macroblock
 	NodeDB::WalkerState ws(p.get_DB());

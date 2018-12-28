@@ -19,6 +19,7 @@
 
 #define INVALID_JSON_RPC -32600
 #define NOTFOUND_JSON_RPC -32601
+#define INVALID_PARAMS_JSON_RPC -32602
 
 namespace beam
 {
@@ -40,6 +41,7 @@ namespace beam
     struct CreateAddress
     {
         std::string metadata;
+        int lifetime;
 
         struct Response
         {
@@ -49,9 +51,15 @@ namespace beam
 
     struct Send
     {
+        int session;
+        Amount value;
+        Amount fee;
+        WalletID address;
+        std::string comment;
+
         struct Response
         {
-
+            TxID txId;
         };
     };
 
@@ -65,9 +73,11 @@ namespace beam
 
     struct Status
     {
+        TxID txId;
+
         struct Response
         {
-
+            TxStatus status;
         };
     };
 
@@ -81,12 +91,11 @@ namespace beam
 
     struct Balance
     {
-        int type;
-        WalletID address;
-
         struct Response
         {
-            Amount amount;
+            Amount available;
+            Amount in_progress;
+            Amount locked;
         };
     };
 
@@ -94,7 +103,7 @@ namespace beam
     {
         struct Response
         {
-
+            std::vector<beam::Coin> utxos;
         };
     };
 

@@ -898,7 +898,7 @@ struct TransactionMaker
 			SetRandom(skAsset);
 			beam::proto::Sk2Pk(aid, skAsset);
 
-			if (beam::Rules::get().DepositForCA)
+			if (beam::Rules::get().CA.Deposit)
 				m_pPeers[0].AddInput(m_Trans, valAsset, m_Kdf); // input being-deposited
 
 			m_pPeers[0].AddOutput(m_Trans, valAsset, m_Kdf, &aid); // output UTXO to consume the created asset
@@ -1110,12 +1110,12 @@ void TestBbs()
 
 	SetRandom(nonce);
 	beam::ByteBuffer buf;
-	verify_test(beam::proto::BbsEncrypt(buf, publicAddr, nonce, szMsg, sizeof(szMsg)));
+	verify_test(beam::proto::Bbs::Encrypt(buf, publicAddr, nonce, szMsg, sizeof(szMsg)));
 
 	uint8_t* p = &buf.at(0);
 	uint32_t n = (uint32_t) buf.size();
 
-	verify_test(beam::proto::BbsDecrypt(p, n, privateAddr));
+	verify_test(beam::proto::Bbs::Decrypt(p, n, privateAddr));
 	verify_test(n == sizeof(szMsg));
 	verify_test(!memcmp(p, szMsg, n));
 
@@ -1123,7 +1123,7 @@ void TestBbs()
 	p = &buf.at(0);
 	n = (uint32_t) buf.size();
 
-	verify_test(!beam::proto::BbsDecrypt(p, n, privateAddr));
+	verify_test(!beam::proto::Bbs::Decrypt(p, n, privateAddr));
 }
 
 void TestRatio(const beam::Difficulty& d0, const beam::Difficulty& d1, double k)
@@ -1268,7 +1268,7 @@ void TestTreasury()
 		beam::Treasury::get_ID(pKdfs[i], pid, sk);
 
 		// 2. Plan is created (2%, 3%, 4% of the total emission)
-		beam::Treasury::Entry* pE = tres.CreatePlan(pid, beam::Rules::get().EmissionValue0 * (i + 2)/100, pars);
+		beam::Treasury::Entry* pE = tres.CreatePlan(pid, beam::Rules::get().Emission.Value0 * (i + 2)/100, pars);
 		verify_test(pE->m_Request.m_WalletID == pid);
 
 		// test Request serialization

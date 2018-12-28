@@ -59,9 +59,10 @@ struct Node
 			uint32_t m_TopPeersUpd_ms = 1000 * 60 * 10; // once in 10 minutes
 			uint32_t m_PeersUpdate_ms	= 1000; // reconsider every second
 			uint32_t m_PeersDbFlush_ms = 1000 * 60; // 1 minute
-			uint32_t m_BbsMessageTimeout_s	= 3600 * 24; // 1 day
-			uint32_t m_BbsMessageMaxAhead_s	= 3600 * 2; // 2 hours
+			uint32_t m_BbsMessageTimeout_s	= 3600 * 12; // 1/2 day
+			uint32_t m_BbsMessageMaxAhead_s	= 60 * 15; // 15 minutes
 			uint32_t m_BbsCleanupPeriod_ms = 3600 * 1000; // 1 hour
+			uint32_t m_BbsChannelUpdate_ms = 60 * 5; // 5 minutes
 		} m_Timeout;
 
 		uint32_t m_MaxConcurrentBlocksRequest = 5;
@@ -73,6 +74,15 @@ struct Node
 		// 0: single threaded
 		// negative: number of cores minus number of mining threads.
 		int m_VerificationThreads = 0;
+
+		bool m_Bbs = true;
+
+		struct BandwidthCtl
+		{
+			size_t m_Chocking = 1024 * 1024;
+			size_t m_Drown    = 1024*1024 * 20;
+
+		} m_BandwidthCtl;
 
 		struct HistoryCompression
 		{
@@ -361,6 +371,7 @@ private:
 
 		static void CalcMsgKey(NodeDB::WalkerBbs::Data&);
 		uint32_t m_LastCleanup_ms = 0;
+		uint32_t m_LastRecommendedChannel_ms = 0;
 		BbsChannel m_RecommendedChannel = 0;
 		void Cleanup();
 		void FindRecommendedChannel();
@@ -381,12 +392,14 @@ private:
 			} m_Peer;
 
 			Peer* m_pPeer;
+			uint64_t m_Cursor;
 
 			typedef boost::intrusive::multiset<InBbs> BbsSet;
 			typedef boost::intrusive::multiset<InPeer> PeerSet;
 		};
 
 		Subscription::BbsSet m_Subscribed;
+		Timestamp m_HighestPosted_s = 0;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Bbs)
 	} m_Bbs;
@@ -436,6 +449,7 @@ private:
 			static const uint16_t DontSync		= 0x040;
 			static const uint16_t Finalizing	= 0x080;
 			static const uint16_t HasTreasury	= 0x100;
+			static const uint16_t Chocking		= 0x200;
 		};
 
 		uint16_t m_Flags;
@@ -444,6 +458,9 @@ private:
 
 		Block::SystemState::Full m_Tip;
 		uint8_t m_LoginFlags;
+
+		uint64_t m_CursorBbs;
+		TxPool::Fluff::Element* m_pCursorTx;
 
 		TaskList m_lstTasks;
 		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
@@ -468,7 +485,13 @@ private:
 		void SyncQuery();
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, uint8_t nByeReason);
+		void BroadcastTxs();
+		void BroadcastBbs();
+		void BroadcastBbs(Bbs::Subscription&);
+		void OnChocking();
+		void SetTxCursor(TxPool::Fluff::Element*);
 
+		bool IsChocking(size_t nExtra = 0);
 		bool ShouldAssignTasks();
 		bool ShouldFinalizeMining();
 		Task& get_FirstTask();
@@ -485,7 +508,7 @@ private:
 		virtual void OnMsg(proto::Authentication&&) override;
 		virtual void OnMsg(proto::Login&&) override;
 		virtual void OnMsg(proto::Bye&&) override;
-		virtual void OnMsg(proto::Ping&&) override;
+		virtual void OnMsg(proto::Pong&&) override;
 		virtual void OnMsg(proto::NewTip&&) override;
 		virtual void OnMsg(proto::DataMissing&&) override;
 		virtual void OnMsg(proto::GetHdr&&) override;
@@ -512,6 +535,7 @@ private:
 		virtual void OnMsg(proto::BbsGetMsg&&) override;
 		virtual void OnMsg(proto::BbsSubscribe&&) override;
 		virtual void OnMsg(proto::BbsPickChannel&&) override;
+		virtual void OnMsg(proto::BbsResetSync&&) override;
 		virtual void OnMsg(proto::MacroblockGet&&) override;
 		virtual void OnMsg(proto::Macroblock&&) override;
 		virtual void OnMsg(proto::ProofChainWork&&) override;

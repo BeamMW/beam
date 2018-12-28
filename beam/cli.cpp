@@ -89,7 +89,7 @@ int main_impl(int argc, char* argv[])
 
 	try
 	{
-		auto options = createOptionsDescription(GENERAL_OPTIONS | NODE_OPTIONS);
+		auto [options, visibleOptions] = createOptionsDescription(GENERAL_OPTIONS | NODE_OPTIONS);
 
 		po::variables_map vm;
 		try
@@ -99,14 +99,14 @@ int main_impl(int argc, char* argv[])
 		catch (const po::error& e)
 		{
 			cout << e.what() << std::endl;
-			printHelp(options);
+			printHelp(visibleOptions);
 
 			return 0;
 		}
 
 		if (vm.count(cli::HELP))
 		{
-			printHelp(options);
+			printHelp(visibleOptions);
 
 			return 0;
 		}
@@ -277,6 +277,8 @@ int main_impl(int argc, char* argv[])
 					if (vm.count(cli::RESYNC))
 						node.m_Cfg.m_Sync.m_ForceResync = vm[cli::RESYNC].as<bool>();
 
+					node.m_Cfg.m_Bbs = vm[cli::BBS_ENABLE].as<bool>();
+
 					node.Initialize(stratumServer.get());
 
 					Height hImport = vm[cli::IMPORT].as<Height>();
@@ -302,7 +304,7 @@ int main_impl(int argc, char* argv[])
 		catch (const po::error& e)
 		{
 			LOG_ERROR() << e.what();
-			printHelp(options);
+			printHelp(visibleOptions);
 		}
 		catch (const std::runtime_error& e)
 		{

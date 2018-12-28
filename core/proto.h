@@ -150,6 +150,9 @@ namespace proto {
     macro(Timestamp, TimeFrom) \
     macro(bool, On)
 
+#define BeamNodeMsg_BbsResetSync(macro) \
+    macro(Timestamp, TimeFrom)
+
 #define BeamNodeMsg_BbsPickChannel(macro)
 
 #define BeamNodeMsg_BbsPickChannelRes(macro) \
@@ -243,13 +246,14 @@ namespace proto {
     macro(0x3b, BbsSubscribe) \
     macro(0x3c, BbsPickChannel) \
     macro(0x3d, BbsPickChannelRes) \
+    macro(0x3e, BbsResetSync) \
 
 
     struct LoginFlags {
-        static const uint8_t SpreadingTransactions    = 0x1; // I'm spreading txs, please send
+        static const uint8_t SpreadingTransactions  = 0x1; // I'm spreading txs, please send
         static const uint8_t Bbs                    = 0x2; // I'm spreading bbs messages
-        static const uint8_t SendPeers                = 0x4; // Please send me periodically peers recommendations
-        static const uint8_t MiningFinalization        = 0x8; // I want to finalize block construction for my owned node
+        static const uint8_t SendPeers              = 0x4; // Please send me periodically peers recommendations
+        static const uint8_t MiningFinalization     = 0x8; // I want to finalize block construction for my owned node
     };
 
     struct IDType
@@ -387,8 +391,14 @@ namespace proto {
 
     void Sk2Pk(PeerID&, ECC::Scalar::Native&); // will negate the scalar iff necessary
     bool ImportPeerID(ECC::Point::Native&, const PeerID&);
-    bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void*, uint32_t); // will fail iff addr is invalid
-    bool BbsDecrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr);
+
+	namespace Bbs
+	{
+		static const size_t s_MaxMsgSize = 1024 * 1024;
+
+		bool Encrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void*, uint32_t); // will fail iff addr is invalid
+		bool Decrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr);
+	};
 
     struct INodeMsgHandler
         :public IErrorHandler
@@ -475,6 +485,7 @@ namespace proto {
         virtual void OnMsg(SChannelReady&&) override;
         virtual void OnMsg(Authentication&&) override;
         virtual void OnMsg(Bye&&) override;
+		virtual void OnMsg(Ping&&) override;
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 
@@ -506,6 +517,7 @@ namespace proto {
                 Protocol,
                 ProcessingExc,
                 Bye,
+				Drown
             };
 
             struct ExceptionDetails
@@ -525,6 +537,10 @@ namespace proto {
         };
 
         virtual void OnDisconnect(const DisconnectReason&) {}
+
+		size_t get_Unsent() const;
+		size_t m_UnsentHiMark = 0;
+		void TestNotDrown();
 
         void OnIoErr(io::ErrorCode);
         void OnExc(const std::exception&);

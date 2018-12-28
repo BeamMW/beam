@@ -94,7 +94,7 @@ namespace beam
 {
 	ByteBuffer g_Treasury;
 
-	Amount get_Emission(const HeightRange& hr, Amount base = Rules::get().EmissionValue0)
+	Amount get_Emission(const HeightRange& hr, Amount base = Rules::get().Emission.Value0)
 	{
 		AmountBig::Type vbig;
 		Rules::get().get_Emission(vbig, hr, base);
@@ -177,7 +177,7 @@ namespace beam
 		Treasury tres;
 		Treasury::Parameters pars;
 		pars.m_Bursts = 1;
-		Treasury::Entry* pE = tres.CreatePlan(pid, Rules::get().EmissionValue0 / 5, pars);
+		Treasury::Entry* pE = tres.CreatePlan(pid, Rules::get().Emission.Value0 / 5, pars);
 
 		pE->m_pResponse.reset(new Treasury::Response);
 		uint64_t nIndex = 1;
@@ -474,8 +474,8 @@ namespace beam
 
 		for (wlkbbs.m_Data.m_Channel = 0; wlkbbs.m_Data.m_Channel < 7; wlkbbs.m_Data.m_Channel++)
 		{
-			wlkbbs.m_Data.m_TimePosted = 0;
-			for (db.EnumBbs(wlkbbs); wlkbbs.MoveNext(); )
+			wlkbbs.m_ID = 0;
+			for (db.EnumBbsCSeq(wlkbbs); wlkbbs.MoveNext(); )
 				;
 		}
 
@@ -483,13 +483,10 @@ namespace beam
 
 		for (wlkbbs.m_Data.m_Channel = 0; wlkbbs.m_Data.m_Channel < 7; wlkbbs.m_Data.m_Channel++)
 		{
-			wlkbbs.m_Data.m_TimePosted = 0;
-			for (db.EnumBbs(wlkbbs); wlkbbs.MoveNext(); )
+			wlkbbs.m_ID = 0;
+			for (db.EnumBbsCSeq(wlkbbs); wlkbbs.MoveNext(); )
 				;
 		}
-
-		for (db.EnumAllBbs(wlkbbs); wlkbbs.MoveNext(); )
-			;
 
 		verify_test(db.GetDummyLastID() == 0);
 
@@ -615,7 +612,7 @@ namespace beam
 			utxo.m_Kidv = kidv;
 
 			Height h = kidv.m_Idx; // this is our convention
-			h += (Key::Type::Coinbase == kidv.m_Type) ? Rules::get().MaturityCoinbase : Rules::get().MaturityStd;
+			h += (Key::Type::Coinbase == kidv.m_Type) ? Rules::get().Maturity.Coinbase : Rules::get().Maturity.Std;
 
 			return &m_MyUtxos.insert(std::make_pair(h, utxo))->second;
 		}
@@ -1363,7 +1360,7 @@ namespace beam
 						msgTx.m_Transaction->Normalize();
 					}
 
-					if (!(bEmitAsset && Rules::get().DepositForCA))
+					if (!(bEmitAsset && Rules::get().CA.Deposit))
 						m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
 
 					Transaction::Context ctx;
@@ -1912,12 +1909,11 @@ int main()
 
 	beam::Rules::get().AllowPublicUtxos = true;
 	beam::Rules::get().FakePoW = true;
-	beam::Rules::get().DifficultyReviewWindow = 35;
-	beam::Rules::get().WindowForMedian = 3;
-	beam::Rules::get().MaturityCoinbase = 35; // lowered to see more txs
-	beam::Rules::get().EmissionDrop0 = 5;
-	beam::Rules::get().EmissionDrop1 = 8;
-	beam::Rules::get().AllowCA = true;
+	beam::Rules::get().DA.WindowWork = 35;
+	beam::Rules::get().Maturity.Coinbase = 35; // lowered to see more txs
+	beam::Rules::get().Emission.Drop0 = 5;
+	beam::Rules::get().Emission.Drop1 = 8;
+	beam::Rules::get().CA.Enabled = true;
 	beam::Rules::get().UpdateChecksum();
 
 	beam::TestHalving();

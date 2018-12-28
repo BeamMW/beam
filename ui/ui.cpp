@@ -14,7 +14,6 @@
 
 #include <QApplication>
 #include <QtQuick>
-#include <QGuiApplication>
 #include <QQmlApplicationEngine>
 
 #include <QInputDialog>
@@ -86,11 +85,11 @@ static const char* AppName = "Beam Wallet";
 int main (int argc, char* argv[])
 {
 #if defined Q_OS_WIN
-	QGuiApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
     block_sigpipe();
 
-    QGuiApplication app(argc, argv);
+    QApplication app(argc, argv);
 
 	app.setWindowIcon(QIcon(":/assets/icon.png"));
 
@@ -100,7 +99,19 @@ int main (int argc, char* argv[])
 
     try
     {
-        po::options_description options = createOptionsDescription(GENERAL_OPTIONS | UI_OPTIONS | WALLET_OPTIONS);
+
+        // TODO: ugly temporary fix for unused variable, GCC only
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
+
+        auto [options, visibleOptions] = createOptionsDescription(GENERAL_OPTIONS | UI_OPTIONS | WALLET_OPTIONS);
+
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+
         po::variables_map vm;
 
         try

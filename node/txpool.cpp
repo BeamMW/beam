@@ -42,7 +42,7 @@ bool TxPool::Profit::operator < (const Profit& t) const
 
 /////////////////////////////
 // Fluff
-void TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key)
+TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key)
 {
 	assert(pValue);
 
@@ -56,14 +56,34 @@ void TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Con
 	m_setThreshold.insert(p->m_Threshold);
 	m_setProfit.insert(p->m_Profit);
 	m_setTxs.insert(p->m_Tx);
+
+	p->m_Queue.m_Refs = 1;
+	m_Queue.push_back(p->m_Queue);
+
+	return p;
 }
 
 void TxPool::Fluff::Delete(Element& x)
 {
+	assert(x.m_pValue);
+	x.m_pValue.reset();
+
 	m_setThreshold.erase(ThresholdSet::s_iterator_to(x.m_Threshold));
 	m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
 	m_setTxs.erase(TxSet::s_iterator_to(x.m_Tx));
-	delete &x;
+
+	Release(x);
+}
+
+void TxPool::Fluff::Release(Element& x)
+{
+	assert(x.m_Queue.m_Refs);
+	if (!--x.m_Queue.m_Refs)
+	{
+		assert(!x.m_pValue);
+		m_Queue.erase(Queue::s_iterator_to(x.m_Queue));
+		delete &x;
+	}
 }
 
 void TxPool::Fluff::DeleteOutOfBound(Height h)
@@ -76,12 +96,6 @@ void TxPool::Fluff::DeleteOutOfBound(Height h)
 
 		Delete(t.get_ParentObj());
 	}
-}
-
-void TxPool::Fluff::ShrinkUpTo(uint32_t nCount)
-{
-	while (m_setProfit.size() > nCount)
-		Delete(m_setProfit.rbegin()->get_ParentObj());
 }
 
 void TxPool::Fluff::Clear()

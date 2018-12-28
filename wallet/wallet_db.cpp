@@ -38,7 +38,8 @@
     each(confirmHeight,  confirmHeight, INTEGER, obj) sep \
     each(lockedHeight,   lockedHeight,  BLOB, obj) sep \
     each(createTxId,     createTxId,    BLOB, obj) sep \
-    each(spentTxId,      spentTxId,     BLOB, obj)
+    each(spentTxId,      spentTxId,     BLOB, obj) sep \
+    each(sessionId,      sessionId,     INTEGER NOT NULL, obj)
 
 #define ENUM_ALL_STORAGE_FIELDS(each, sep, obj) \
     ENUM_STORAGE_ID(each, sep, obj) sep \
@@ -58,7 +59,6 @@
 #define STORAGE_WHERE_ID " WHERE " ENUM_STORAGE_ID(SET_LIST, AND, )
 #define STORAGE_BIND_ID(obj) ENUM_STORAGE_ID(STM_BIND_LIST, NOSEP, obj)
 
-
 #define STORAGE_NAME "storage"
 #define VARIABLES_NAME "variables"
 #define ADDRESSES_NAME "addresses"
@@ -69,23 +69,6 @@
     each(value, value, BLOB, obj)
 
 #define VARIABLES_FIELDS ENUM_VARIABLES_FIELDS(LIST, COMMA, )
-
-#define ENUM_HISTORY_FIELDS(each, sep, obj) \
-    each(txId,       txId,       BLOB NOT NULL PRIMARY KEY, obj) sep \
-    each(amount,     amount,     INTEGER NOT NULL, obj) sep \
-    each(fee,        fee,        INTEGER NOT NULL, obj) sep \
-    each(minHeight,  minHeight,  INTEGER NOT NULL, obj) sep \
-    each(peerId,     peerId,     BLOB NOT NULL, obj) sep \
-    each(myId,       myId,       BLOB NOT NULL, obj) sep \
-    each(message,    message,    BLOB, obj) sep \
-    each(createTime, createTime, INTEGER NOT NULL, obj) sep \
-    each(modifyTime, modifyTime, INTEGER, obj) sep \
-    each(sender,     sender,     INTEGER NOT NULL, obj) sep \
-    each(status,     status,     INTEGER NOT NULL, obj) sep \
-    each(fsmState,   fsmState,   BLOB, obj) sep \
-    each(change,     change,     INTEGER NOT NULL, obj)
-
-#define HISTORY_FIELDS ENUM_HISTORY_FIELDS(LIST, COMMA, )
 
 #define ENUM_ADDRESS_FIELDS(each, sep, obj) \
     each(walletID,       walletID,       BLOB NOT NULL PRIMARY KEY, obj) sep \
@@ -901,7 +884,7 @@ namespace beam
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
-        const int DbVersion = 9;
+        const int DbVersion = 10;
     }
 
     Coin::Coin(Amount amount, Status status, Height maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
@@ -910,6 +893,7 @@ namespace beam
         , m_maturity{ maturity }
         , m_confirmHeight{ confirmHeight }
         , m_lockedHeight{ lockedHeight }
+        , m_sessionId(EmptyCoinSession)
     {
         ZeroObject(m_ID);
         m_ID.m_Value = amount;
@@ -1915,7 +1899,7 @@ namespace beam
         Block::SystemState::Full s;
         if (m_History.get_Tip(s))
         {
-            const Height hMaxBacklog = Rules::get().MaxRollbackHeight * 2; // can actually be more
+            const Height hMaxBacklog = Rules::get().Macroblock.MaxRollback * 2; // can actually be more
 
             if (s.m_Height > hMaxBacklog)
             {

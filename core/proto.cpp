@@ -204,7 +204,7 @@ void Sk2Pk(PeerID& res, ECC::Scalar::Native& sk)
     res = pt.m_X;
 }
 
-bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void* p, uint32_t n)
+bool Bbs::Encrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void* p, uint32_t n)
 {
     PeerID myPublic;
     Sk2Pk(myPublic, nonce);
@@ -231,7 +231,7 @@ bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& 
     return true;
 }
 
-bool BbsDecrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr)
+bool Bbs::Decrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr)
 {
     PeerID remotePublic;
     ECC::Hash::Value hvMac, hvMac2;
@@ -283,7 +283,7 @@ bool NotCalled_VerifyNoDuplicatedIDs(uint32_t id)
 /////////////////////////
 // NodeConnection
 NodeConnection::NodeConnection()
-    :m_Protocol('B', 'm', 9, sizeof(HighestMsgCode), *this, 20000)
+    :m_Protocol('B', 'm', 10, sizeof(HighestMsgCode), *this, 20000)
     ,m_ConnectPending(false)
 {
 #define THE_MACRO(code, msg) \
@@ -329,6 +329,22 @@ void NodeConnection::TestIoResultAsync(const io::Result& res)
 
     m_pAsyncFail = io::AsyncEvent::create(io::Reactor::get_Current(), std::move(cb));
     m_pAsyncFail->get_trigger()();
+}
+
+void NodeConnection::TestNotDrown()
+{
+	if (!m_pAsyncFail && m_UnsentHiMark && (get_Unsent() > m_UnsentHiMark))
+	{
+		io::AsyncEvent::Callback cb = [this]()
+		{
+			DisconnectReason r;
+			r.m_Type = DisconnectReason::Drown;
+			OnDisconnect(r);
+		};
+
+		m_pAsyncFail = io::AsyncEvent::create(io::Reactor::get_Current(), std::move(cb));
+		m_pAsyncFail->get_trigger()();
+	}
 }
 
 void NodeConnection::OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status)
@@ -387,6 +403,11 @@ void NodeConnection::OnIoErr(io::ErrorCode err)
     OnDisconnect(r);
 }
 
+size_t NodeConnection::get_Unsent() const
+{
+	return m_Connection ? m_Connection->get_Unsent() : 0;
+}
+
 void NodeConnection::on_protocol_error(uint64_t, ProtocolError error)
 {
     Reset();
@@ -416,6 +437,10 @@ std::ostream& operator << (std::ostream& s, const NodeConnection::DisconnectReas
     case NodeConnection::DisconnectReason::Bye:
         s << "Bye " << r.m_ByeReason;
         break;
+
+	case NodeConnection::DisconnectReason::Drown:
+		s << "Drown";
+		break;
 
     default:
         assert(false);
@@ -451,7 +476,7 @@ void NodeConnection::Accept(io::TcpStream::Ptr&& newStream)
 {
     assert(!m_Connection && !m_ConnectPending);
 
-    newStream->enable_keepalive(Rules::get().DesiredRate_s); // it should be comparable to the block rate
+    newStream->enable_keepalive(Rules::get().DA.Target_s); // it should be comparable to the block rate
 
     m_Connection = std::make_unique<Connection>(
         m_Protocol,
@@ -479,6 +504,7 @@ void NodeConnection::Send(const msg& v) \
     m_SerializeCache.clear(); \
 \
     TestIoResultAsync(res); \
+    TestNotDrown(); \
 } \
 \
 bool NodeConnection::OnMsgInternal(uint64_t, msg##_NoInit&& v) \
@@ -718,6 +744,11 @@ void NodeConnection::OnMsg(Bye&& msg)
     r.m_Type = DisconnectReason::Bye;
     r.m_ByeReason = msg.m_Reason;
     OnDisconnect(r);
+}
+
+void NodeConnection::OnMsg(Ping&& msg)
+{
+	Send(Pong(Zero));
 }
 
 void NodeConnection::VerifyCfg(const Login& msg)

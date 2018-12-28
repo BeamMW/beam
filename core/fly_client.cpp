@@ -149,7 +149,7 @@ void FlyClient::NetworkStd::Connection::OnTimer()
         if (m_This.m_Cfg.m_PollPeriod_ms)
         {
             Reset();
-            uint32_t timeout_ms = std::max(Rules::get().DesiredRate_s * 1000, m_This.m_Cfg.m_PollPeriod_ms);
+            uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, m_This.m_Cfg.m_PollPeriod_ms);
             SetTimer(timeout_ms);
         }
     }

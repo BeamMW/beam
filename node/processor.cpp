@@ -64,7 +64,7 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 	InitializeFromBlocks();
 
 	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, m_Horizon.m_Branching);
-	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, (Height) Rules::get().MaxRollbackHeight);
+	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, (Height) Rules::get().Macroblock.MaxRollback);
 
 	if (!bResetCursor)
 		TryGoUp();
@@ -684,9 +684,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 
 			assert(m_Cursor.m_LoHorizon <= m_Cursor.m_Sid.m_Height);
-			if (m_Cursor.m_Sid.m_Height - m_Cursor.m_LoHorizon > Rules::get().MaxRollbackHeight)
+			if (m_Cursor.m_Sid.m_Height - m_Cursor.m_LoHorizon > Rules::get().Macroblock.MaxRollback)
 			{
-				m_Cursor.m_LoHorizon = m_Cursor.m_Sid.m_Height - Rules::get().MaxRollbackHeight;
+				m_Cursor.m_LoHorizon = m_Cursor.m_Sid.m_Height - Rules::get().Macroblock.MaxRollback;
 				m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Cursor.m_LoHorizon, NULL);
 			}
 
@@ -1031,7 +1031,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 	if (s.m_TimeStamp > ts)
 	{
 		ts = s.m_TimeStamp - ts; // dt
-		if (ts > Rules::get().TimestampAheadThreshold_s)
+		if (ts > Rules::get().DA.MaxAhead_s)
 		{
 			LOG_WARNING() << id << " Timestamp ahead by " << ts;
 			return DataStatus::Invalid;
@@ -1163,35 +1163,53 @@ Difficulty NodeProcessor::get_NextDifficulty()
 	const Rules& r = Rules::get(); // alias
 
 	if (!m_Cursor.m_Sid.m_Row)
-		return r.StartDifficulty; // 1st block difficulty 0
+		return r.DA.Difficulty0; // 1st block
 
-	if (m_Cursor.m_Full.m_Height - Rules::HeightGenesis < r.DifficultyReviewWindow)
-		return r.StartDifficulty; // 1st block difficulty 0
+	//if (m_Cursor.m_Full.m_Height - Rules::HeightGenesis < r.DA.WindowWork)
+	//	return r.DA.Difficulty0; // 1st block difficulty 0
 
-	Block::SystemState::Full s0, s1;
+	THW thw0, thw1;
 
-	uint64_t row1 = m_Cursor.m_Sid.m_Row;
-	get_MovingMedianEx(row1);
-	m_DB.get_State(row1, s1);
-	uint64_t row0 = FindActiveAtStrict(m_Cursor.m_Full.m_Height - r.DifficultyReviewWindow);
-	get_MovingMedianEx(row0);
-	m_DB.get_State(row0, s0);
+	get_MovingMedianEx(m_Cursor.m_Sid.m_Row, r.DA.WindowMedian1, thw1);
 
-	assert(r.DifficultyReviewWindow > r.WindowForMedian); // when getting median - the target height can be shifted by some value, ensure it's smaller than the window
+	if (m_Cursor.m_Full.m_Height - Rules::HeightGenesis >= r.DA.WindowWork)
+	{
+		uint64_t row0 = FindActiveAtStrict(m_Cursor.m_Full.m_Height - r.DA.WindowWork);
+		get_MovingMedianEx(row0, r.DA.WindowMedian1, thw0);
+	}
+	else
+	{
+		uint64_t row0 = FindActiveAtStrict(Rules::HeightGenesis);
+		get_MovingMedianEx(row0, r.DA.WindowMedian1, thw0); // awkward to look for median, since they're immaginary. But makes sure we stick to the same median search and rounding (in case window is even).
+
+		// how many immaginary prehistoric blocks should be offset
+		uint32_t nDelta = r.DA.WindowWork - static_cast<uint32_t>(m_Cursor.m_Full.m_Height - Rules::HeightGenesis);
+
+		thw0.first -= r.DA.Target_s * nDelta;
+		thw0.second.first -= nDelta;
+
+		Difficulty::Raw wrk, wrk2;
+		r.DA.Difficulty0.Unpack(wrk);
+		wrk2.AssignMul(wrk, uintBigFrom(nDelta));
+		wrk2.Negate();
+		thw0.second.second += wrk2;
+	}
+
+	assert(r.DA.WindowWork > r.DA.WindowMedian1); // when getting median - the target height can be shifted by some value, ensure it's smaller than the window
 	// means, the height diff should always be positive
-	uint32_t dh = static_cast<uint32_t>(s1.m_Height - s0.m_Height);
-	assert(s1.m_Height > s0.m_Height);
+	assert(thw1.second.first > thw0.second.first);
 
-	uint32_t dtTrg_s = r.DesiredRate_s * dh;
+	uint32_t dh = static_cast<uint32_t>(thw1.second.first - thw0.second.first);
+
+	uint32_t dtTrg_s = r.DA.Target_s * dh;
 	uint32_t dtSrc_s =
-		(s1.m_TimeStamp >= s0.m_TimeStamp + dtTrg_s * 2) ? (dtTrg_s * 2) :
-		(s1.m_TimeStamp <= s0.m_TimeStamp + dtTrg_s / 2) ? (dtTrg_s / 2) :
-		static_cast<uint32_t>(s1.m_TimeStamp - s0.m_TimeStamp);
+		(thw1.first >= thw0.first + dtTrg_s * 2) ? (dtTrg_s * 2) :
+		(thw1.first <= thw0.first + dtTrg_s / 2) ? (dtTrg_s / 2) :
+		static_cast<uint32_t>(thw1.first - thw0.first);
 
-	assert(s0.m_ChainWork < s1.m_ChainWork);
-	Difficulty::Raw dWrk = s0.m_ChainWork;
+	Difficulty::Raw& dWrk = thw0.second.second;
 	dWrk.Negate();
-	dWrk += s1.m_ChainWork;
+	dWrk += thw1.second.second;
 
 	Difficulty res;
 	res.Calculate(dWrk, dh, dtTrg_s, dtSrc_s);
@@ -1199,41 +1217,54 @@ Difficulty NodeProcessor::get_NextDifficulty()
 	return res;
 }
 
-Timestamp NodeProcessor::get_MovingMedianEx(uint64_t& row)
+void NodeProcessor::get_MovingMedianEx(uint64_t rowLast, uint32_t nWindow, THW& res)
 {
-	assert(row);
+	std::vector<THW> v;
+	v.reserve(nWindow);
 
-	typedef std::pair<Timestamp, std::pair<Height, uint64_t> > THR; // Time-Height-Row. The Height is needed for the case of duplicate Time, to resolve ambiguity
-
-	const uint32_t nWndMax = Rules::get().WindowForMedian;
-	std::vector<THR> v;
-	v.reserve(nWndMax);
-
-	for (uint32_t iPos = 0; iPos < nWndMax; iPos++)
+	assert(rowLast);
+	while (v.size() < nWindow)
 	{
-		Block::SystemState::Full s;
-		m_DB.get_State(row, s);
-
 		v.emplace_back();
-		v.back().first = s.m_TimeStamp;
-		v.back().second.first = s.m_Height;
-		v.back().second.second = row;
+		THW& thw = v.back();
 
-		if (!m_DB.get_Prev(row))
-			break;
+		if (rowLast)
+		{
+			Block::SystemState::Full s;
+			m_DB.get_State(rowLast, s);
+
+			thw.first = s.m_TimeStamp;
+			thw.second.first = s.m_Height;
+			thw.second.second = s.m_ChainWork;
+
+			if (!m_DB.get_Prev(rowLast))
+				rowLast = 0;
+		}
+		else
+		{
+			// append "prehistoric" blocks of starting difficulty and perfect timing
+			const THW& thwSrc = v[v.size() - 2];
+
+			thw.first = thwSrc.first - Rules::get().DA.Target_s;
+			thw.second.first = thwSrc.second.first - 1;
+			thw.second.second = thwSrc.second.second - Rules::get().DA.Difficulty0; // don't care about overflow
+		}
 	}
 
 	std::sort(v.begin(), v.end()); // there's a better algorithm to find a median (or whatever order), however our array isn't too big, so it's ok.
+	// In case there are multiple blocks with exactly the same Timestamp - the ambiguity is resolved w.r.t. Height.
 
-	const THR& val = v[v.size() >> 1];
-	row = val.second.second;
-	return val.first;
+	res = v[nWindow >> 1];
 }
 
 Timestamp NodeProcessor::get_MovingMedian()
 {
-	uint64_t row = m_Cursor.m_Sid.m_Row;
-	return row ? get_MovingMedianEx(row) : 0;
+	if (!m_Cursor.m_Sid.m_Row)
+		return 0;
+
+	THW thw;
+	get_MovingMedianEx(m_Cursor.m_Sid.m_Row, Rules::get().DA.WindowMedian0, thw);
+	return thw.first;
 }
 
 bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx) const

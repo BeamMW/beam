@@ -49,10 +49,11 @@ namespace beam
     class WalletApiServer : public ConnectionToServer
     {
     public:
-        WalletApiServer(IWalletDB::Ptr walletDB, io::Reactor& reactor, io::Address listenTo)
+        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, io::Reactor& reactor, io::Address listenTo)
             : _reactor(reactor)
             , _bindAddress(listenTo)
             , _walletDB(walletDB)
+            , _wallet(wallet)
         {
             start();
         }
@@ -103,7 +104,7 @@ namespace beam
                 auto peer = newStream->peer_address();
                 LOG_DEBUG() << "+peer " << peer;
 
-                _connections[peer.u64()] = std::make_unique<Connection>(*this, _walletDB, peer.u64(), std::move(newStream));
+                _connections[peer.u64()] = std::make_unique<Connection>(*this, _walletDB, _wallet, peer.u64(), std::move(newStream));
             }
 
             LOG_DEBUG() << "on_stream_accepted";
@@ -113,12 +114,13 @@ namespace beam
         class Connection : IWalletApiHandler
         {
         public:
-            Connection(ConnectionToServer& owner, IWalletDB::Ptr walletDB, uint64_t id, io::TcpStream::Ptr&& newStream)
+            Connection(ConnectionToServer& owner, IWalletDB::Ptr walletDB, Wallet& wallet, uint64_t id, io::TcpStream::Ptr&& newStream)
                 : _owner(owner)
                 , _id(id)
                 , _stream(std::move(newStream))
                 , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
                 , _walletDB(walletDB)
+                , _wallet(wallet)
                 , _api(*this)
             {
                 _stream->enable_keepalive(2);
@@ -135,6 +137,31 @@ namespace beam
                 _stream->write(msg);
             }
 
+            template<typename T>
+            void doResponse(int id, const T& response)
+            {
+                json msg;
+                _api.getResponse(id, response, msg);
+                serialize_json_msg(_lineProtocol, msg);
+            }
+
+            void doError(int id, int code, const std::string& info)
+            {
+                json msg
+                {
+                    {"jsonrpc", "2.0"},
+                    {"id", id},
+                    {"error",
+                        {
+                            {"code", code},
+                            {"message", info},
+                        }
+                    }
+                };
+
+                serialize_json_msg(_lineProtocol, msg);
+            }
+
             void onInvalidJsonRpc(const json& msg) override
             {
                 LOG_DEBUG() << "onInvalidJsonRpc: " << msg;
@@ -144,37 +171,102 @@ namespace beam
 
             void onMessage(int id, const CreateAddress& data) override 
             {
-                LOG_DEBUG() << "CreateAddress(" << id << "," << data.metadata << ")";
+                LOG_DEBUG() << "CreateAddress(" << id << "," << data.metadata << data.lifetime << ")";
 
                 WalletAddress address = wallet::createAddress(_walletDB);
+                address.m_duration = data.lifetime * 60 * 60;
 
-                json msg;
-                CreateAddress::Response response{ address.m_walletID };
-                _api.getResponse(id, response, msg);
-                serialize_json_msg(_lineProtocol, msg);
+                _walletDB->saveAddress(address);
+
+                doResponse(id, CreateAddress::Response{ address.m_walletID });
             }
 
+            void onMessage(int id, const Send& data) override
+            {
+                LOG_DEBUG() << "Send(" << id << "," << data.session << "," << data.value <<  "," << std::to_string(data.address) << ")";
 
-            void onMessage(int id, const Send& data) override {}
-            void onMessage(int id, const Replace& data) override {}
-            void onMessage(int id, const Status& data) override {}
-            void onMessage(int id, const Split& data) override {}
+                WalletAddress senderAddress = wallet::createAddress(_walletDB);
+                _walletDB->saveAddress(senderAddress);
+
+                ByteBuffer message(data.comment.begin(), data.comment.end());
+
+                auto txId = _wallet.transfer_money(senderAddress.m_walletID, data.address, data.value, data.fee, true, std::move(message));
+
+                doResponse(id, Send::Response{ txId });
+            }
+
+            void onMessage(int id, const Replace& data) override
+            {
+                methodNotImplementedYet(id);
+            }
+
+            void onMessage(int id, const Status& data) override
+            {
+                LOG_DEBUG() << "Status(" << to_hex(data.txId.data(), data.txId.size()) << ")";
+
+                auto tx = _walletDB->getTx(data.txId);
+
+                if (tx)
+                {
+                    doResponse(id, Status::Response{ tx->m_status });
+                }
+                else
+                {
+                    doError(id, INVALID_PARAMS_JSON_RPC, "Unknown transaction ID.");
+                }
+            }
+
+            void onMessage(int id, const Split& data) override
+            {
+                methodNotImplementedYet(id);
+            }
 
             void onMessage(int id, const Balance& data) override 
             {
-                LOG_DEBUG() << "Balance(" << id << "," << data.type << "," << std::to_string(data.address) << ")";
+                LOG_DEBUG() << "Balance(" << id << ")";
 
                 json msg;
-                Balance::Response response{ _walletDB->getAvailable()};
-                _api.getResponse(id, response, msg);
-                serialize_json_msg(_lineProtocol, msg);
+
+                auto totalInProgress = _walletDB->getTotal(Coin::Incoming) +
+                    _walletDB->getTotal(Coin::Outgoing) + _walletDB->getTotal(Coin::Change);
+
+                // TODO: add locked UTXO here
+                doResponse(id, Balance::Response{ _walletDB->getAvailable(), totalInProgress, 0});
             }
 
-            void onMessage(int id, const GetUtxo& data) override {}
-            void onMessage(int id, const Lock& data) override {}
-            void onMessage(int id, const Unlock& data) override {}
-            void onMessage(int id, const CreateUtxo& data) override {}
-            void onMessage(int id, const Poll& data) override {}
+            void onMessage(int id, const GetUtxo& data) override 
+            {
+                LOG_DEBUG() << "GetUtxo(" << id << ")";
+
+                GetUtxo::Response response;
+                _walletDB->visit([&response](const Coin& c)->bool
+                {
+                    response.utxos.push_back(c);
+                    return true;
+                });
+
+                doResponse(id, response);
+            }
+
+            void onMessage(int id, const Lock& data) override
+            {
+                methodNotImplementedYet(id);
+            }
+
+            void onMessage(int id, const Unlock& data) override
+            {
+                methodNotImplementedYet(id);
+            }
+
+            void onMessage(int id, const CreateUtxo& data) override
+            {
+                methodNotImplementedYet(id);
+            }
+
+            void onMessage(int id, const Poll& data) override
+            {
+                methodNotImplementedYet(id);
+            }
 
             bool on_raw_message(void* data, size_t size) 
             {
@@ -202,11 +294,18 @@ namespace beam
                 return true;
             }
         private:
+            void methodNotImplementedYet(int id)
+            {
+                doError(id, NOTFOUND_JSON_RPC, "Method not implemented yet.");
+            }
+
+        private:
             ConnectionToServer& _owner;
             uint64_t _id;
             io::TcpStream::Ptr _stream;
             LineProtocol _lineProtocol;
             IWalletDB::Ptr _walletDB;
+            Wallet& _wallet;
             WalletApi _api;
         };
 
@@ -215,6 +314,7 @@ namespace beam
         io::Address _bindAddress;
         std::map<uint64_t, std::unique_ptr<Connection>> _connections;
         IWalletDB::Ptr _walletDB;
+        Wallet& _wallet;
     };
 }
 
@@ -321,7 +421,7 @@ int main(int argc, char* argv[])
 
         wallet.set_Network(nnet, wnet);
 
-        WalletApiServer server(walletDB, *reactor, listenTo);
+        WalletApiServer server(walletDB, wallet, *reactor, listenTo);
 
         io::Reactor::get_Current().run();
 

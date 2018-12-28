@@ -221,7 +221,7 @@ namespace beam {
 			uint8_t* pMsg = &buf.front();
 			uint32_t nSize = static_cast<uint32_t>(buf.size());
 
-			if (!proto::BbsDecrypt(pMsg, nSize, it->get_ParentObj().m_sk))
+			if (!proto::Bbs::Decrypt(pMsg, nSize, it->get_ParentObj().m_sk))
 				continue;
 
 			wallet::SetTxParameter msgWallet;
@@ -261,7 +261,7 @@ namespace beam {
 		ECC::Scalar::Native nonce;
 		m_WalletDB->get_MasterKdf()->DeriveKey(nonce, hvRandom.V);
 		
-		if (proto::BbsEncrypt(pReq->m_Msg.m_Message, peerID.m_Pk, nonce, sb.first, static_cast<uint32_t>(sb.second)))
+		if (proto::Bbs::Encrypt(pReq->m_Msg.m_Message, peerID.m_Pk, nonce, sb.first, static_cast<uint32_t>(sb.second)))
 		{
 			pReq->m_Msg.m_Channel = channel_from_wallet_id(peerID);
 			pReq->m_Msg.m_TimePosted = getTimestamp();
