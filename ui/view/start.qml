@@ -810,7 +810,10 @@ Item
                         CustomButton {
                             text: qsTr("back");
                             icon.source: "qrc:/assets/icon-back.svg"
-                            onClicked: startWizzardView.pop();
+                            onClicked: {
+                                viewModel.resetPhrases();
+                                startWizzardView.pop();
+                            }
                         }
                         PrimaryButton {
                             text: qsTr("next")
