@@ -108,9 +108,8 @@ if(SHOW_CODE_LOCATION)
     add_definitions(-DSHOW_CODE_LOCATION=1)
 endif()
 
-if(BRANCH_NAME MATCHES "testnet")
-    add_definitions(-DBEAM_TESTNET)
-endif()
+#it's enabled by default for testnet
+add_definitions(-DBEAM_TESTNET)
 
 if(BEAM_TESTNET)
     add_definitions(-DBEAM_TESTNET)
