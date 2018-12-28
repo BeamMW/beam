@@ -62,6 +62,7 @@ class clHost {
 	
 	void setup(minerBridge*, vector<int32_t>, bool);
 	void startMining();	
+    void stopMining();
 	void callbackFunc(cl_int, void*);
 };
 

@@ -314,6 +314,10 @@ void clHost::callbackFunc(cl_int err , void* data){
 	}
 }
 
+void clHost::stopMining()
+{
+    restart = false;
+}
 
 void clHost::startMining() {
 

@@ -25,6 +25,11 @@ using namespace ECC;
 
 namespace beam
 {
+    bool HasSupportedCard()
+    {
+        return false;
+    }
+
     namespace cli
     {
         const char* HELP = "help";

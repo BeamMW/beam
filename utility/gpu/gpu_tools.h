@@ -17,5 +17,5 @@
 
 namespace beam
 {
-bool HasSupportedCard();
+    bool HasSupportedCard();
 }

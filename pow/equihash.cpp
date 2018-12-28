@@ -71,9 +71,12 @@ struct Block::PoW::Helper
 
         while (true)
         {
-            hlp.Reset(pInput, nSizeInput, m_Nonce);
+            //hlp.Reset(pInput, nSizeInput, m_Nonce);
 
-            if (gpu.solve(hlp.m_Blake, fnValid, fnCancelInternal))
+//            if (gpu.solve(hlp.m_Blake, fnValid, fnCancelInternal))
+//                break;
+
+            if (gpu.solve(pInput, nSizeInput, m_Nonce, fnValid, fnCancelInternal))
                 break;
 
             if (fnCancel(true))

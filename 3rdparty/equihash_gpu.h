@@ -16,6 +16,7 @@
 
 #include "blake/sse/blake2.h"
 #include "utility/common.h"
+#include "core/block_crypt.h"
 
 #include <functional>
 
@@ -26,7 +27,8 @@ public:
     using IsValid = std::function<bool(const beam::ByteBuffer&)>;
     using Cancel = std::function<bool()>;
 
-    bool solve(const blake2b_state& state
+    bool solve(const void* pInput, uint32_t nSizeInput
+        , const beam::Block::PoW::NonceType& nonce
         , const IsValid& valid
         , const Cancel& cancel);
 };

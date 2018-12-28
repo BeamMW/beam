@@ -104,7 +104,7 @@ int main()
 
         // TODO: disable this on buld server
         // our builder doesn't support GPU
-    #if defined (BEAM_USE_GPU)
+    #if !defined (BEAM_USE_GPU)
         {
     	    pow.SolveGPU(pInput, sizeof(pInput));
     
