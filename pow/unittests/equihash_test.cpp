@@ -94,7 +94,6 @@ int main()
     TestArrayExpanding();
     
     // commented since it doesn't complete in 10 minutes and failes auto tests
-/*
     {
         cout << "Test PoW...\n";
         uint8_t pInput[] = { 1, 2, 3, 4, 56 };
@@ -103,15 +102,16 @@ int main()
         pow.m_Difficulty = 0; // d=0, runtime ~48 sec. d=1,2 - almost close to this. d=4 - runtime 4 miuntes, several cycles until solution is achieved.
         pow.m_Nonce = 0x010204U;
 
+        // TODO: disable this on buld server
         // our builder doesn't support GPU
-    //#if defined (BEAM_USE_GPU)
-    //    {
-    //	    pow.SolveGPU(pInput, sizeof(pInput));
-    //
-    //        if (!pow.IsValid(pInput, sizeof(pInput)))
-    //		    return -1;
-    //    }
-    //#else
+    #if defined (BEAM_USE_GPU)
+        {
+    	    pow.SolveGPU(pInput, sizeof(pInput));
+    
+            if (!pow.IsValid(pInput, sizeof(pInput)))
+    		    return -1;
+        }
+    #else
 
         {
             pow.Solve(pInput, sizeof(pInput));
@@ -119,11 +119,11 @@ int main()
             WALLET_CHECK(pow.IsValid(pInput, sizeof(pInput)));
         }
 
-        //#endif
+    #endif
 
         std::cout << "Solution is correct\n";
     }
-*/
+
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
 }

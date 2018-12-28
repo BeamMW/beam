@@ -16,20 +16,26 @@ endif()
 
 if(BEAM_USE_GPU)
 
-    find_package(CUDA)
+    find_package(OpenCL REQUIRED)
 
-    include_directories(${CUDA_INCLUDE_DIRS})
-
-    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}; --disable-warnings; --ptxas-options=-v; -use_fast_math; -lineinfo)
-
-    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};; -gencode arch=compute_30,code=sm_30; -gencode arch=compute_35,code=sm_35; -gencode arch=compute_37,code=sm_37; -gencode arch=compute_50,code=sm_50; -gencode arch=compute_52,code=sm_52; -gencode arch=compute_60,code=sm_60; -gencode arch=compute_61,code=sm_61; -gencode arch=compute_70,code=sm_70; -gencode arch=compute_72,code=sm_72;)
+    if(OpenCL_FOUND)
+        include_directories(${OpenCL_INCLUDE_DIRS})
+        link_directories(${OpenCL_LIBRARIES})
+        message(STATUS "Using OpenCL ${OpenCL_VERSION_STRING}")
+    else()
+        message(FATAL_ERROR "error, OpenCL not found")
+    endif()
 
     set(POW_SRC ${POW_SRC}
-        equihash.cpp
-        ${PROJECT_SOURCE_DIR}/3rdparty/equihash_gpu.cu)
+        ${PROJECT_SOURCE_DIR}/3rdparty/equihash_gpu.cpp
+        ${PROJECT_SOURCE_DIR}/3rdparty/opencl-miner/clHost.cpp)
 
-    CUDA_ADD_LIBRARY(pow STATIC ${POW_SRC})
+    add_library(pow STATIC ${POW_SRC})
 
+    target_include_directories(pow PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/opencl-miner)
+    target_include_directories(pow PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/opencl-miner/clHeaders)
+
+    target_link_libraries(pow OpenCL::OpenCL)
 else()
     add_library(pow STATIC ${POW_SRC})
 endif()
