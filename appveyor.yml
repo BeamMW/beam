@@ -20,8 +20,8 @@ before_build:
   - cmd: git clone --depth=1 https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
   - cmd: cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=%APPVEYOR_REPO_BRANCH% -DBEAM_USE_GPU=On -DBEAM_BUILD_JNI=On
 
-#test_script:
-#  - cmd: ctest -C %BUILD_CONFIG% --verbose
+test_script:
+  - cmd: ctest -C %BUILD_CONFIG% --verbose
 
 build_script:
   - cmake --build . --parallel --config %BUILD_CONFIG%
@@ -109,7 +109,7 @@ deploy:
   secret_access_key:
     secure: sqF9zdsuUm/k9QzY46s250MZJamHjKrwBCAPbinBA/iOJlgLsHC7lq1F5pTr/B+U
   bucket: builds.beam.mw
-  region: eu-central-1
+  region: us-west-2
   unzip: false
   set_public: true
   folder: "%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win"
