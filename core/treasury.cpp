@@ -431,6 +431,33 @@ namespace beam
 		return ctx.m_bValid;
 	}
 
+	std::vector<Treasury::Data::Burst> Treasury::Data::get_Bursts() const
+	{
+		std::vector<Treasury::Data::Burst> ret;
+		ret.reserve(m_vGroups.size());
+
+		for (size_t iG = 0; iG < m_vGroups.size(); iG++)
+		{
+			const Group& g = m_vGroups[iG];
+			if (g.m_Value == Zero)
+				continue;
+
+			ret.emplace_back();
+			Burst& b = ret.back();
+
+			b.m_Value = AmountBig::get_Hi(g.m_Value) ?
+				Amount(-1) :
+				AmountBig::get_Lo(g.m_Value);
+
+			b.m_Height = MaxHeight;
+
+			for (size_t i = 0; i < g.m_Data.m_vOutputs.size(); i++)
+				b.m_Height = std::min(b.m_Height, g.m_Data.m_vOutputs[i]->m_Incubation);
+		}
+
+		return ret;
+	}
+
 	void Treasury::Build(Data& d) const
 	{
 		// Current design: group only responses of the same height.

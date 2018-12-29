@@ -179,6 +179,14 @@ namespace beam
 
 			bool IsValid() const;
 
+			struct Burst
+			{
+				Height m_Height;
+				Amount m_Value; // rounded to max value in case of overflow
+			};
+
+			std::vector<Burst> get_Bursts() const;
+
 			struct Coin
 			{
 				Height m_Incubation;
