@@ -279,23 +279,23 @@ void WalletViewModel::onStatus(const WalletStatus& status)
         emit actualAvailableChanged();
     }
 
-    if (_status.received != status.received)
+    if (_status.receiving != status.receiving)
     {
-        _status.received = status.received;
+        _status.receiving = status.receiving;
 
         changed = true;
     }
 
-    if (_status.sent != status.sent)
+    if (_status.sending != status.sending)
     {
-        _status.sent = status.sent;
+        _status.sending = status.sending;
 
         changed = true;
     }
 
-    if (_status.unconfirmed != status.unconfirmed)
+    if (_status.maturing != status.maturing)
     {
-        _status.unconfirmed = status.unconfirmed;
+        _status.maturing = status.maturing;
 
         changed = true;
     }
@@ -382,19 +382,19 @@ QString WalletViewModel::available() const
     return BeamToString(_status.available);
 }
 
-QString WalletViewModel::received() const
+QString WalletViewModel::receiving() const
 {
-    return BeamToString(_status.received);
+    return BeamToString(_status.receiving);
 }
 
-QString WalletViewModel::sent() const
+QString WalletViewModel::sending() const
 {
-    return BeamToString(_status.sent);
+    return BeamToString(_status.sending);
 }
 
-QString WalletViewModel::unconfirmed() const
+QString WalletViewModel::maturing() const
 {
-    return BeamToString(_status.unconfirmed);
+    return BeamToString(_status.maturing);
 }
 
 QString WalletViewModel::sendAmount() const
