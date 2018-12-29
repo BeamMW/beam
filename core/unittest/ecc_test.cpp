@@ -1309,6 +1309,8 @@ void TestTreasury()
 	tres.Build(data);
 	verify_test(!data.m_vGroups.empty());
 
+	std::vector<beam::Treasury::Data::Burst> vBursts = data.get_Bursts();
+
 	// test serialization
 	beam::ByteBuffer bb;
 	ser1.swap_buf(bb);

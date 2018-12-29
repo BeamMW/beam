@@ -370,7 +370,7 @@ namespace beam
 		r.m_WalletID = pid;
 
 		HeightRange hr;
-		hr.m_Max = Rules::HeightGenesis - 1;
+		hr.m_Max = pars.m_Maturity0 + Rules::HeightGenesis - 1;
 
 		for (uint32_t iBurst = 0; iBurst < pars.m_Bursts; iBurst++)
 		{
@@ -431,37 +431,66 @@ namespace beam
 		return ctx.m_bValid;
 	}
 
+	std::vector<Treasury::Data::Burst> Treasury::Data::get_Bursts() const
+	{
+		std::vector<Treasury::Data::Burst> ret;
+		ret.reserve(m_vGroups.size());
+
+		for (size_t iG = 0; iG < m_vGroups.size(); iG++)
+		{
+			const Group& g = m_vGroups[iG];
+			if (g.m_Value == Zero)
+				continue;
+
+			ret.emplace_back();
+			Burst& b = ret.back();
+
+			b.m_Value = AmountBig::get_Hi(g.m_Value) ?
+				Amount(-1) :
+				AmountBig::get_Lo(g.m_Value);
+
+			b.m_Height = MaxHeight;
+
+			for (size_t i = 0; i < g.m_Data.m_vOutputs.size(); i++)
+				b.m_Height = std::min(b.m_Height, g.m_Data.m_vOutputs[i]->m_Incubation);
+		}
+
+		return ret;
+	}
+
 	void Treasury::Build(Data& d) const
 	{
-		// Assuming all the plans are generated with the same group/incubation parameters.
-		for (size_t iG = 0; ; iG++)
+		// Current design: group only responses of the same height.
+		typedef std::map<Height, Data::Group> GroupMap;
+		GroupMap map;
+
+		for (EntryMap::const_iterator itSrc = m_Entries.begin(); m_Entries.end() != itSrc; )
 		{
-			bool bNoPeers = true, bNoBlock = true;
+			const Entry& e = (itSrc++)->second;
+			if (!e.m_pResponse)
+				continue;
+			const Response& resp = *e.m_pResponse;
 
-			for (EntryMap::const_iterator it = m_Entries.begin(); m_Entries.end() != it; )
+			for (size_t iG = 0; iG < resp.m_vGroups.size(); iG++)
 			{
-				const Entry& e = (it++)->second;
-				if (!e.m_pResponse)
-					continue;
-				const Response& resp = *e.m_pResponse;
+				const Response::Group& g = resp.m_vGroups[iG];
 
-				if (iG >= resp.m_vGroups.size())
-					continue;
-				bNoPeers = false;
+				Height h = MaxHeight;
+				for (size_t i = 0; i < g.m_vCoins.size(); i++)
+					h = std::min(h, g.m_vCoins[i].m_pOutput->m_Incubation);
 
-				if (bNoBlock)
-					d.m_vGroups.emplace_back();
+				GroupMap::iterator it = map.find(h);
+				bool bNew = (map.end() == it);
+				if (bNew)
+					it = map.emplace(h, Data::Group()).first;
 
-				Data::Group& gOut = d.m_vGroups.back();
-
-				if (bNoBlock)
+				Data::Group& gOut = it->second;
+				if (bNew)
 				{
 					ZeroObject(gOut.m_Value);
 					gOut.m_Data.m_Offset = Zero;
-					bNoBlock = false;
 				}
 
-				const Response::Group& g = resp.m_vGroups[iG];
 				Response::Group::Reader r(g);
 
 				// merge
@@ -472,12 +501,18 @@ namespace beam
 				off += g.m_Base.m_Offset;
 				gOut.m_Data.m_Offset = off;
 			}
+		}
 
-			if (bNoPeers)
-				break;
+		d.m_vGroups.reserve(map.size());
 
-			if (!bNoBlock)
-				d.m_vGroups.back().m_Data.Normalize();
+		for (GroupMap::iterator it = map.begin(); map.end() != it; it++)
+		{
+			Data::Group& gSrc = it->second;
+			if (!(gSrc.m_Value == Zero))
+			{
+				gSrc.m_Data.Normalize();
+				d.m_vGroups.push_back(std::move(gSrc));
+			}
 		}
 
 		// finalize

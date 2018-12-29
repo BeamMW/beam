@@ -244,6 +244,20 @@ int HandleTreasury(const po::variables_map& vm, Key::IKdf& kdf)
 			Amount val = static_cast<Amount>(Rules::get().Emission.Value0 * perc); // rounded down
 
             Treasury::Parameters pars; // default
+
+			uint32_t m = vm[cli::TR_M].as<uint32_t>();
+			uint32_t n = vm[cli::TR_N].as<uint32_t>();
+
+			if (m >= n)
+				throw std::runtime_error("bad m/n");
+
+			assert(n);
+			if (pars.m_Bursts % n)
+				throw std::runtime_error("bad n (roundoff)");
+
+			pars.m_Bursts /= n;
+			pars.m_Maturity0 = pars.m_MaturityStep * pars.m_Bursts * m;
+
             Treasury::Entry* pE = tres.CreatePlan(wid, val, pars);
 
             FSave(pE->m_Request, sID + szRequest);
@@ -332,6 +346,23 @@ int HandleTreasury(const po::variables_map& vm, Key::IKdf& kdf)
         }
         break;
 
+    case 6:
+        {
+            // bursts
+            Treasury::Data data;
+            FLoad(data, szData);
+
+			auto vBursts = data.get_Bursts();
+
+            cout << "Total bursts: " << vBursts.size() << std::endl;
+
+            for (size_t i = 0; i < vBursts.size(); i++)
+            {
+                const Treasury::Data::Burst& b = vBursts[i];
+                cout << "\t" << "Height=" << b.m_Height << ", Value=" << b.m_Value << std::endl;
+            }
+        }
+        break;
     }
 
     return 0;
