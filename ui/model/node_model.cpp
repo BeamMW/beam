@@ -104,13 +104,19 @@ void NodeModel::run()
             }
 
             if (!m_shouldTerminateModel)
-				runLocalNode();
+            {
+                try
+                {
+                    m_shouldStartNode = false;
+                    runLocalNode();
+                }
+                catch (const runtime_error& ex)
+                {
+                    LOG_ERROR() << ex.what();
+                    AppModel::getInstance()->getMessages().addMessage(tr("Failed to start node. Please check your node configuration"));
+                }
+            }
         }
-    }
-    catch (const runtime_error& ex)
-    {
-        LOG_ERROR() << ex.what();
-        AppModel::getInstance()->getMessages().addMessage(tr("Failed to start node. Please check your node configuration"));
     }
     catch (...)
     {
