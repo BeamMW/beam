@@ -234,11 +234,13 @@ WalletModel::~WalletModel()
 
 WalletStatus WalletModel::getStatus() const
 {
-    WalletStatus status{ _walletDB->getAvailable(), 0, 0, 0};
+    WalletStatus status;
 
-    status.sent =  wallet::getSpentByTx(_walletDB, TxStatus::Completed);
-    status.received = wallet::getReceivedByTx(_walletDB, TxStatus::Completed);
-    status.unconfirmed = _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
+    status.available = _walletDB->getAvailable();
+    status.receiving = _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
+    status.sending = _walletDB->getTotal(Coin::Outgoing);
+    status.maturing = _walletDB->getTotal(Coin::Maturing);
+
     status.update.lastTime = _walletDB->getLastUpdateTime();
 
     ZeroObject(status.stateID);

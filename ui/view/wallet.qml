@@ -833,9 +833,12 @@ Item {
                         Layout.minimumWidth: 350
                         Layout.fillHeight: true
                         Layout.fillWidth: true
-                        title: qsTr("Unconfirmed")
-                        amountColor: Style.white
-                        value: viewModel.unconfirmed
+
+                        title: qsTr("In progress")
+                        receiving: viewModel.receiving
+                        sending: viewModel.sending
+                        maturing: viewModel.maturing
+
                         onCopyValueText: viewModel.copyToClipboard(value)
                     }
                 }
