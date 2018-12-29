@@ -346,6 +346,23 @@ int HandleTreasury(const po::variables_map& vm, Key::IKdf& kdf)
         }
         break;
 
+    case 6:
+        {
+            // bursts
+            Treasury::Data data;
+            FLoad(data, szData);
+
+			auto vBursts = data.get_Bursts();
+
+            cout << "Total bursts: " << vBursts.size() << std::endl;
+
+            for (size_t i = 0; i < vBursts.size(); i++)
+            {
+                const Treasury::Data::Burst& b = vBursts[i];
+                cout << "\t" << "Height=" << b.m_Height << ", Value=" << b.m_Value << std::endl;
+            }
+        }
+        break;
     }
 
     return 0;
