@@ -256,7 +256,7 @@ private:
                 outputs.push_back(
                 json{
                     {"commitment", uint256_to_hex(buf, v->m_Commitment.m_X)},
-                    {"maturity",   v->m_Maturity},
+                    {"maturity",   v->get_MinMaturity(blockState.m_Height)},
                     {"coinbase",   v->m_Coinbase},
                     {"incubation", v->m_Incubation}
                 }
