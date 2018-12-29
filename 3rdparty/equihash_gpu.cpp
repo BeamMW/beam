@@ -45,6 +45,7 @@ namespace
             *workOut = 1;
 
              _nonce.Export(*nonceOut);
+             _nonce.Inc();
 
             memcpy(dataOut, _input, _sizeInput);
         }
@@ -131,7 +132,7 @@ namespace
 
             _compressed = GetMinimalFromIndices(indices, 25);
 
-            //if (_valid(compressed))
+            if (_valid(_compressed))
             {
                 _foundSolution = true;
                 _host.stopMining();
@@ -139,7 +140,7 @@ namespace
         }
 
     private:
-        const beam::Block::PoW::NonceType& _nonce;
+        beam::Block::PoW::NonceType _nonce;
         const void* _input;
         uint32_t _sizeInput;
         const EquihashGpu::IsValid& _valid;

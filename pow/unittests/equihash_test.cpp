@@ -96,7 +96,7 @@ int main()
     // commented since it doesn't complete in 10 minutes and failes auto tests
     {
         cout << "Test PoW...\n";
-        uint8_t pInput[] = { 1, 2, 3, 4, 56 };
+        uint8_t pInput[] = { 1, 2, 3, 4, 56, 1, 2, 3, 4, 56, 1, 2, 3, 4, 56, 1, 2, 3, 4, 56, 1, 2, 3, 4, 56, 1, 2, 3, 4, 56, 1, 2 };
 
         beam::Block::PoW pow;
         pow.m_Difficulty = 0; // d=0, runtime ~48 sec. d=1,2 - almost close to this. d=4 - runtime 4 miuntes, several cycles until solution is achieved.
@@ -104,7 +104,7 @@ int main()
 
         // TODO: disable this on buld server
         // our builder doesn't support GPU
-    #if !defined (BEAM_USE_GPU)
+    #if defined (BEAM_USE_GPU)
         {
     	    pow.SolveGPU(pInput, sizeof(pInput));
     

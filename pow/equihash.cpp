@@ -55,8 +55,19 @@ struct Block::PoW::Helper
         Helper hlp;
         EquihashGpu gpu;
 
-        std::function<bool(const beam::ByteBuffer&)> fnValid = [this, &hlp](const beam::ByteBuffer& solution)
+        std::function<bool(const beam::ByteBuffer&)> fnValid = [this, &hlp, pInput, nSizeInput](const beam::ByteBuffer& solution)
             {
+                {
+                    Helper hlp_;
+                    hlp_.Reset(pInput, nSizeInput, m_Nonce);
+
+                    std::vector<uint8_t> v(solution.begin(), solution.end());
+                    if (!hlp_.m_Eh.IsValidSolution(hlp.m_Blake, v))
+                    {
+                        return false;
+                    }
+                }
+
         	    if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
         		    return false;
         	    assert(solution.size() == m_Indices.size());
