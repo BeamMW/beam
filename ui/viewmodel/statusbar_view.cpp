@@ -43,6 +43,8 @@ StatusbarViewModel::StatusbarViewModel()
         connect(&AppModel::getInstance()->getNode(), SIGNAL(syncProgressUpdated(int, int)),
             SLOT(onNodeSyncProgressUpdated(int, int)));
     }
+
+    m_model.getAsync()->getNetworkStatus();
 }
 
 bool StatusbarViewModel::getIsOnline() const
@@ -125,6 +127,11 @@ void StatusbarViewModel::setWalletStatusErrorMsg(const QString& value)
 
 void StatusbarViewModel::onNodeConnectionChanged(bool isNodeConnected)
 {
+    if (isNodeConnected == getIsOnline())
+    {
+        return;
+    }
+
     if (isNodeConnected)
     {
         setIsFailedStatus(false);
