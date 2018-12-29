@@ -25,10 +25,11 @@
 
 struct WalletStatus
 {
-    beam::Amount available;
-    beam::Amount received;
-    beam::Amount sent;
-    beam::Amount unconfirmed;
+    beam::Amount available = 0;
+    beam::Amount receiving = 0;
+    beam::Amount sending = 0;
+    beam::Amount maturing = 0;
+
     struct
     {
         beam::Timestamp lastTime;

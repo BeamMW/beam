@@ -92,10 +92,10 @@ class WalletViewModel : public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(QString available     READ available       NOTIFY stateChanged)
-    Q_PROPERTY(QString received      READ received        NOTIFY stateChanged)
-    Q_PROPERTY(QString sent          READ sent            NOTIFY stateChanged)
-    Q_PROPERTY(QString unconfirmed   READ unconfirmed     NOTIFY stateChanged)
+    Q_PROPERTY(QString available   READ available    NOTIFY stateChanged)
+    Q_PROPERTY(QString receiving   READ receiving    NOTIFY stateChanged)
+    Q_PROPERTY(QString sending     READ sending      NOTIFY stateChanged)
+    Q_PROPERTY(QString maturing    READ maturing     NOTIFY stateChanged)
 
     Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
 
@@ -144,9 +144,9 @@ public:
     virtual ~WalletViewModel();
 
     QString available() const;
-    QString received() const;
-    QString sent() const;
-    QString unconfirmed() const;
+    QString receiving() const;
+    QString sending() const;
+    QString maturing() const;
 
     QQmlListProperty<TxObject> getTransactions();
     QString sendAmount() const;
