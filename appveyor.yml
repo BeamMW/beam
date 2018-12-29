@@ -26,7 +26,7 @@ test_script:
 build_script:
   - cmake --build . --parallel --config %BUILD_CONFIG%
 
-on_success:
+after_build:
 - ps: $env:DATE=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('yyyy.MM.dd')
 - ps: $env:TIME=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('HH:mm:ss')
 - cmd: >-
@@ -54,13 +54,49 @@ on_success:
     copy beam\%BUILD_CONFIG%\beam-node.exe pack\node && copy beam\beam-node.cfg pack\node
 
     copy wallet\%BUILD_CONFIG%\beam-wallet.exe pack\wallet && copy wallet\beam-wallet.cfg pack\wallet
+    
+    copy BeamWallet-0.0.1-win64.exe Beam-Wallet-%BEAM_VERSION%.exe
+    
+    7z a c:/projects/beam/pack/beam-pack-%BEAM_VERSION%.zip %CD%\pack\wallet %CD%\pack\node %CD%\pack\ui
 
+    7z a c:/projects/beam/pdb/beam-pdb-%BEAM_VERSION%.zip "c:/projects/beam/ui/%BUILD_CONFIG%/Beam Wallet.pdb" "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node.pdb" "c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.pdb"
+
+    set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win  
+
+on_success:
+- cmd: >-
+    cpack --verbose -G NSIS -C %BUILD_CONFIG%
+
+    git rev-list HEAD --count > BEAM_VERSION_REVISION
+
+    set /p BEAM_VERSION_REVISION=<BEAM_VERSION_REVISION
+
+    set BEAM_VERSION=1.0.%BEAM_VERSION_REVISION%
+    
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-%BEAM_VERSION%.zip c:/projects/beam/beam/%BUILD_CONFIG%/beam-node.exe c:/projects/beam/beam/beam-node.cfg
+
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.exe c:/projects/beam/wallet/beam-wallet.cfg
+
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/wallet-api.exe
+
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/miner-client-%BEAM_VERSION%.zip c:/projects/beam/pow/%BUILD_CONFIG%/miner_client.exe
+
+    mkdir pack && cd pack && mkdir wallet && mkdir node && mkdir ui && cd ..
+
+    copy "c:\projects\beam\BeamWallet-0.0.1-win64.exe" "pack\ui\Beam-Wallet.exe"
+
+    copy beam\%BUILD_CONFIG%\beam-node.exe pack\node && copy beam\beam-node.cfg pack\node
+
+    copy wallet\%BUILD_CONFIG%\beam-wallet.exe pack\wallet && copy wallet\beam-wallet.cfg pack\wallet
+    
+    copy BeamWallet-0.0.1-win64.exe Beam-Wallet-%BEAM_VERSION%.exe
+    
     7z a c:/projects/beam/beam/beam-pack-%BEAM_VERSION%.zip %CD%\pack\wallet %CD%\pack\node %CD%\pack\ui
 
     7z a c:/projects/beam/beam/beam-pdb-%BEAM_VERSION%.zip "c:/projects/beam/ui/%BUILD_CONFIG%/Beam Wallet.pdb" "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node.pdb" "c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.pdb"
 
-    set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win
-
+    set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win 
+    
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-%BEAM_VERSION%.zip" %BUILDS_SERVER_PATH%/
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli-%BEAM_VERSION%.zip" %BUILDS_SERVER_PATH%/
@@ -74,6 +110,42 @@ on_success:
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/beam-pdb-%BEAM_VERSION%.zip" %BUILDS_SERVER_PATH%/pdb/
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/miner-client-%BEAM_VERSION%.zip" %BUILDS_SERVER_PATH%/
+
+artifacts:
+  - path: beam-node-%BEAM_VERSION%.zip
+    name: BeamNode
+
+  - path: beam-wallet-cli-%BEAM_VERSION%.zip
+    name: BeamWalletCli
+
+  - path: wallet-api-%BEAM_VERSION%.zip
+    name: BeamWalletApi
+
+  - path: pack/beam-pack-%BEAM_VERSION%.zip
+    name: BeamPack
+
+  - path: pdb/beam-pdb-%BEAM_VERSION%.zip
+    name: BeamPdb
+
+  - path: miner-client-%BEAM_VERSION%.zip
+    name: BeamMinerClient
+
+  - path: Beam-Wallet-%BEAM_VERSION%.exe
+    name: BeamWallet
+
+deploy:
+  provider: S3
+  access_key_id:
+    secure: J8+/d4TSbhxiaFlDQopFzKbfLPvUy1rMUJlAgnfbBNE=
+  secret_access_key:
+    secure: sqF9zdsuUm/k9QzY46s250MZJamHjKrwBCAPbinBA/iOJlgLsHC7lq1F5pTr/B+U
+  bucket: builds.beam.mw
+  region: us-west-2
+  unzip: false
+  set_public: true
+  folder: "%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win"
+  artifact: BeamMinerClient, BeamPdb, BeamPack, BeamWalletApi, BeamWalletCli, BeamNode, BeamWallet
+
 
 notifications:
   - provider: Email
