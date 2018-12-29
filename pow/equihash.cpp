@@ -17,6 +17,7 @@
 #include "uint256.h"
 #include "arith_uint256.h"
 #include <utility>
+#include "utility/logger.h"
 
 #if defined (BEAM_USE_GPU)
 #include "3rdparty/equihash_gpu.h"
@@ -53,23 +54,42 @@ struct Block::PoW::Helper
     bool Block::PoW::SolveGPU(const void* pInput, uint32_t nSizeInput, const Cancel& fnCancel)
     {
         Helper hlp;
-        EquihashGpu gpu;
+        static EquihashGpu gpu;
 
-        std::function<bool(const beam::ByteBuffer&)> fnValid = [this, &hlp, pInput, nSizeInput](const beam::ByteBuffer& solution)
+
+        auto fnValid = [this, &hlp, pInput, nSizeInput](const beam::ByteBuffer& solution, const beam::Block::PoW::NonceType& nonce)
             {
                 {
-                    Helper hlp_;
-                    hlp_.Reset(pInput, nSizeInput, m_Nonce);
+        //            Helper hlp_;
+            //        hlp_.Reset(pInput, nSizeInput, m_Nonce);
+            //        LOG_DEBUG() << "===============================  Solve GPU nonce: " << nonce << " Nonce 2:  "<< m_Nonce;
 
                     std::vector<uint8_t> v(solution.begin(), solution.end());
-                    if (!hlp_.m_Eh.IsValidSolution(hlp.m_Blake, v))
+           //         if (!hlp_.m_Eh.IsValidSolution(hlp_.m_Blake, v))
                     {
-                        return false;
+                        {
+                            Helper hlp2_;
+                            hlp2_.Reset(pInput, nSizeInput, nonce);
+                            
+                            if (!hlp2_.m_Eh.IsValidSolution(hlp2_.m_Blake, v))
+                            {
+                                LOG_DEBUG() << "===============================  Invalid solution nonce: " << nonce ;
+                                return false;
+                            }
+                            m_Nonce = nonce;
+                        }
+                        
                     }
+                    
+
                 }
 
-        	    if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
-        		    return false;
+                if (!hlp.TestDifficulty(&solution.front(), (uint32_t)solution.size(), m_Difficulty))
+                {
+                    LOG_DEBUG() << "===============================  Difficulty is not reachable nonce: " << nonce;
+                    return false;
+                }
+        		 
         	    assert(solution.size() == m_Indices.size());
                 std::copy(solution.begin(), solution.end(), m_Indices.begin());
                 return true;
@@ -80,22 +100,13 @@ struct Block::PoW::Helper
             return fnCancel(false);
         };
 
-        while (true)
-        {
-            //hlp.Reset(pInput, nSizeInput, m_Nonce);
+        if (!gpu.solve(pInput, nSizeInput, fnValid, fnCancelInternal))
+            return false;
 
-//            if (gpu.solve(hlp.m_Blake, fnValid, fnCancelInternal))
-//                break;
+        if (fnCancel(true))
+        	return false; // retry not allowed
 
-            if (gpu.solve(pInput, nSizeInput, m_Nonce, fnValid, fnCancelInternal))
-                break;
-
-            if (fnCancel(true))
-        	    return false; // retry not allowed
-
-            m_Nonce.Inc();
-        }
-
+        LOG_DEBUG() << "===============================  Solution found: " << m_Nonce;
         return true;
     }
 

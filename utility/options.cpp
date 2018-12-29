@@ -27,7 +27,7 @@ namespace beam
 {
     bool HasSupportedCard()
     {
-        return false;
+        return true;
     }
 
     namespace cli

@@ -20,15 +20,26 @@
 
 #include <functional>
 
+namespace beamMiner
+{
+    class clHost;
+    class minerBridge;
+}
+    
+
 class EquihashGpu
 {
 public:
 
-    using IsValid = std::function<bool(const beam::ByteBuffer&)>;
+    using IsValid = std::function<bool(const beam::ByteBuffer&, const beam::Block::PoW::NonceType&)>;
     using Cancel = std::function<bool()>;
 
+    EquihashGpu();
+
     bool solve(const void* pInput, uint32_t nSizeInput
-        , const beam::Block::PoW::NonceType& nonce
         , const IsValid& valid
         , const Cancel& cancel);
+private:
+    std::shared_ptr<beamMiner::clHost> m_Host;
+    std::shared_ptr<beamMiner::minerBridge> m_Bridge;
 };
