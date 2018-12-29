@@ -95,6 +95,7 @@ private:
     void deleteAddress(const beam::WalletID& id) override;
     void setNodeAddress(const std::string& addr) override;
     void changeWalletPassword(const beam::SecString& password) override;
+    void getNetworkStatus() override;
 
     void onNodeConnectedStatusChanged(bool isNodeConnected);
     void onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason&);
@@ -111,6 +112,8 @@ private:
     std::weak_ptr<beam::IWalletNetwork> _walletNetwork;
     std::weak_ptr<beam::Wallet> _wallet;
     beam::io::Timer::Ptr _logRotateTimer;
+    bool _isConnected;
+    boost::optional<beam::wallet::ErrorType> _walletError;
 
     std::string _nodeAddrStr;
 };
