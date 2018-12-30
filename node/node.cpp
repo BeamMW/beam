@@ -465,7 +465,7 @@ void Node::Processor::OnNewState()
 {
     m_Cwp.Reset();
 
-    if (m_Cursor.m_Sid.m_Height < Rules::HeightGenesis)
+	if (!m_Extra.m_TreasuryHandled)
         return;
 
     LOG_INFO() << "My Tip: " << m_Cursor.m_ID << ", Work = " << Difficulty::ToFloat(m_Cursor.m_Full.m_ChainWork);
@@ -489,8 +489,16 @@ void Node::Processor::OnNewState()
         if (!(Peer::Flags::Connected & peer.m_Flags))
             continue;
 
-        if (!NodeProcessor::IsRemoteTipNeeded(msg.m_Description, peer.m_Tip))
-            continue;
+		if (msg.m_Description.m_Height >= Rules::HeightGenesis)
+		{
+			if (!NodeProcessor::IsRemoteTipNeeded(msg.m_Description, peer.m_Tip))
+				continue;
+		}
+		else
+		{
+			if (Peer::Flags::HasTreasury & peer.m_Flags)
+				continue;
+		}
 
         peer.Send(msg);
     }
@@ -845,6 +853,8 @@ void Node::InitMode()
 		m_pSync->m_SizeCompleted = 0;
 		m_pSync->m_SizeTotal = 0;
 
+		SetSyncTimer(m_Cfg.m_Sync.m_TimeoutHi_ms);
+
         LOG_INFO() << "Searching for the best peer...";
     }
 
@@ -1054,7 +1064,7 @@ void Node::Peer::OnConnectedSecure()
 
     Send(msgLogin);
 
-    if (m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
+    if (m_This.m_Processor.m_Extra.m_TreasuryHandled)
     {
         proto::NewTip msg;
         msg.m_Description = m_This.m_Processor.m_Cursor.m_Full;
@@ -1496,18 +1506,12 @@ void Node::Peer::OnMsg(proto::Macroblock&& msg)
         {
             LOG_INFO() << "Sync target so far: " << msg.m_ID << ", best Peer " << m_RemoteAddr;
 
+			if (m_This.m_pSync->m_Best == Zero)
+				m_This.SetSyncTimer(m_This.m_Cfg.m_Sync.m_Timeout_ms);
+
             m_This.m_pSync->m_Trg = msg.m_ID;
             m_This.m_pSync->m_Best = m_Tip.m_ChainWork;
             m_This.m_pSync->m_SizeTotal = msg.m_SizeTotal;
-
-            if (!m_This.m_pSync->m_pTimer)
-            {
-                m_This.m_pSync->m_pTimer = io::Timer::create(io::Reactor::get_Current());
-
-                Node* pThis = &m_This;
-                m_This.m_pSync->m_pTimer->start(m_This.m_Cfg.m_Sync.m_Timeout_ms, false, [pThis]() { pThis->OnSyncTimer(); });
-            }
-
         }
 
         if (++m_This.m_pSync->m_RequestsPending >= m_This.m_Cfg.m_Sync.m_SrcPeers)
@@ -1515,6 +1519,14 @@ void Node::Peer::OnMsg(proto::Macroblock&& msg)
     }
 
 	m_This.UpdateSyncStatus();
+}
+
+void Node::SetSyncTimer(uint32_t ms)
+{
+	assert(m_pSync);
+
+	m_pSync->m_pTimer = io::Timer::create(io::Reactor::get_Current());
+	m_pSync->m_pTimer->start(ms, false, [this]() { OnSyncTimer(); });
 }
 
 void Node::OnSyncTimer()
@@ -1540,6 +1552,7 @@ void Node::OnSyncTimer()
         m_pSync = NULL;
         LOG_INFO() << "Switching to standard sync";
         RefreshCongestions();
+		m_Miner.SetTimer(0, false);
     }
 }
 
@@ -1610,6 +1623,7 @@ void Node::SyncCycle(Peer& p, const ByteBuffer& buf)
 
             ImportMacroblock(h);
             RefreshCongestions();
+			m_Miner.SetTimer(0, true);
 
             return;
         }
@@ -3297,7 +3311,7 @@ bool Node::Miner::Restart()
     if (!IsEnabled())
         return false; //  n/a
 
-    if (!get_ParentObj().m_Processor.m_Extra.m_TreasuryHandled)
+    if (!get_ParentObj().m_Processor.m_Extra.m_TreasuryHandled || get_ParentObj().m_pSync)
         return false;
 
     m_pTaskToFinalize.reset();
