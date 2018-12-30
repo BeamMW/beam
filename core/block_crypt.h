@@ -106,7 +106,7 @@ namespace beam
 		} DA;
 
 		struct {
-			bool Enabled = true;
+			bool Enabled = false;
 			bool Deposit = true; // CA emission in exchage for beams. If not specified - the emission is free
 		} CA;
 

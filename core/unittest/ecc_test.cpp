@@ -1859,6 +1859,7 @@ int main()
 {
 	g_psecp256k1 = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 
+	beam::Rules::get().CA.Enabled = true;
 	ECC::TestAll();
 	ECC::RunBenchmark();
 
