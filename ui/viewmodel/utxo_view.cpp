@@ -36,6 +36,11 @@ UtxoItem::UtxoItem(const beam::Coin& coin)
 
 }
 
+UtxoItem::~UtxoItem()
+{
+
+}
+
 QString UtxoItem::amount() const
 {
     return BeamToString(_coin.m_ID.m_Value) + " BEAM";
@@ -120,7 +125,7 @@ UtxoViewModel::UtxoViewModel()
 
 UtxoViewModel::~UtxoViewModel()
 {
-
+    qDeleteAll(_allUtxos);
 }
 
 QQmlListProperty<UtxoItem> UtxoViewModel::getAllUtxos()
@@ -162,7 +167,13 @@ void UtxoViewModel::setSortOrder(Qt::SortOrder value)
 
 void UtxoViewModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxos)
 {
+    auto tmpList = _allUtxos;
+    
     _allUtxos.clear();
+
+    emit allUtxoChanged();
+
+    qDeleteAll(tmpList);
 
     for (const auto& utxo : utxos)
     {

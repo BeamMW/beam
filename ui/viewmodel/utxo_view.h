@@ -30,6 +30,7 @@ public:
 
     UtxoItem() = default;
     UtxoItem(const beam::Coin& coin);
+    virtual ~UtxoItem();
 
     QString amount() const;
     QString height() const;
