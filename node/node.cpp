@@ -465,7 +465,7 @@ void Node::Processor::OnNewState()
 {
     m_Cwp.Reset();
 
-    if (m_Cursor.m_Sid.m_Height < Rules::HeightGenesis)
+	if (!m_Extra.m_TreasuryHandled)
         return;
 
     LOG_INFO() << "My Tip: " << m_Cursor.m_ID << ", Work = " << Difficulty::ToFloat(m_Cursor.m_Full.m_ChainWork);
@@ -489,8 +489,16 @@ void Node::Processor::OnNewState()
         if (!(Peer::Flags::Connected & peer.m_Flags))
             continue;
 
-        if (!NodeProcessor::IsRemoteTipNeeded(msg.m_Description, peer.m_Tip))
-            continue;
+		if (msg.m_Description.m_Height >= Rules::HeightGenesis)
+		{
+			if (!NodeProcessor::IsRemoteTipNeeded(msg.m_Description, peer.m_Tip))
+				continue;
+		}
+		else
+		{
+			if (Peer::Flags::HasTreasury & peer.m_Flags)
+				continue;
+		}
 
         peer.Send(msg);
     }
@@ -1056,7 +1064,7 @@ void Node::Peer::OnConnectedSecure()
 
     Send(msgLogin);
 
-    if (m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
+    if (m_This.m_Processor.m_Extra.m_TreasuryHandled)
     {
         proto::NewTip msg;
         msg.m_Description = m_This.m_Processor.m_Cursor.m_Full;

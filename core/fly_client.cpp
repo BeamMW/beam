@@ -242,8 +242,11 @@ void FlyClient::NetworkStd::Connection::OnMsg(Login&& msg)
 
 void FlyClient::NetworkStd::Connection::OnMsg(NewTip&& msg)
 {
+	if (msg.m_Description.m_Height < Rules::HeightGenesis)
+		return; // ignore
+
     if (m_Tip == msg.m_Description)
-        return; // redundant msg, might happen when only treasury is received
+        return; // redundant msg
 
     if (msg.m_Description.m_ChainWork <= m_Tip.m_ChainWork)
         ThrowUnexpected();
