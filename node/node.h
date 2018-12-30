@@ -108,7 +108,8 @@ struct Node
 			// during sync phase we try to pick the best peer to sync from.
 			// Our logic: decide when either examined enough peers, or timeout expires
 			uint32_t m_SrcPeers = 5;
-			uint32_t m_Timeout_ms = 10000;
+			uint32_t m_Timeout_ms = 10 * 1000; // timeout since at least 1 tip is received
+			uint32_t m_TimeoutHi_ms = 60 * 1000; // timeout since at least 1 peer connected.
 
 			bool m_ForceResync = false;
 			bool m_NoFastSync = false;
@@ -280,6 +281,7 @@ private:
 
 	void UpdateSyncStatus();
 	void UpdateSyncStatusRaw();
+	void SetSyncTimer(uint32_t ms);
 	void OnSyncTimer();
 	void SyncCycle();
 	bool SyncCycle(Peer&);

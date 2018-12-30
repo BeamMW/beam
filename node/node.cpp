@@ -845,6 +845,8 @@ void Node::InitMode()
 		m_pSync->m_SizeCompleted = 0;
 		m_pSync->m_SizeTotal = 0;
 
+		SetSyncTimer(m_Cfg.m_Sync.m_TimeoutHi_ms);
+
         LOG_INFO() << "Searching for the best peer...";
     }
 
@@ -1496,18 +1498,12 @@ void Node::Peer::OnMsg(proto::Macroblock&& msg)
         {
             LOG_INFO() << "Sync target so far: " << msg.m_ID << ", best Peer " << m_RemoteAddr;
 
+			if (m_This.m_pSync->m_Best == Zero)
+				m_This.SetSyncTimer(m_This.m_Cfg.m_Sync.m_Timeout_ms);
+
             m_This.m_pSync->m_Trg = msg.m_ID;
             m_This.m_pSync->m_Best = m_Tip.m_ChainWork;
             m_This.m_pSync->m_SizeTotal = msg.m_SizeTotal;
-
-            if (!m_This.m_pSync->m_pTimer)
-            {
-                m_This.m_pSync->m_pTimer = io::Timer::create(io::Reactor::get_Current());
-
-                Node* pThis = &m_This;
-                m_This.m_pSync->m_pTimer->start(m_This.m_Cfg.m_Sync.m_Timeout_ms, false, [pThis]() { pThis->OnSyncTimer(); });
-            }
-
         }
 
         if (++m_This.m_pSync->m_RequestsPending >= m_This.m_Cfg.m_Sync.m_SrcPeers)
@@ -1515,6 +1511,14 @@ void Node::Peer::OnMsg(proto::Macroblock&& msg)
     }
 
 	m_This.UpdateSyncStatus();
+}
+
+void Node::SetSyncTimer(uint32_t ms)
+{
+	assert(m_pSync);
+
+	m_pSync->m_pTimer = io::Timer::create(io::Reactor::get_Current());
+	m_pSync->m_pTimer->start(ms, false, [this]() { OnSyncTimer(); });
 }
 
 void Node::OnSyncTimer()
@@ -3297,7 +3301,7 @@ bool Node::Miner::Restart()
     if (!IsEnabled())
         return false; //  n/a
 
-    if (!get_ParentObj().m_Processor.m_Extra.m_TreasuryHandled)
+    if (!get_ParentObj().m_Processor.m_Extra.m_TreasuryHandled || get_ParentObj().m_pSync)
         return false;
 
     m_pTaskToFinalize.reset();
