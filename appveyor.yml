@@ -68,6 +68,10 @@ on_success:
     cpack --verbose -G NSIS -C %BUILD_CONFIG%
 
     git rev-list HEAD --count > BEAM_VERSION_REVISION
+    
+    set /p BEAM_VERSION_REVISION=<BEAM_VERSION_REVISION
+
+    set BEAM_VERSION=1.0.%BEAM_VERSION_REVISION%
   
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-%BEAM_VERSION%.zip c:/projects/beam/beam/%BUILD_CONFIG%/beam-node.exe c:/projects/beam/beam/beam-node.cfg
 
