@@ -1552,6 +1552,7 @@ void Node::OnSyncTimer()
         m_pSync = NULL;
         LOG_INFO() << "Switching to standard sync";
         RefreshCongestions();
+		m_Miner.SetTimer(0, false);
     }
 }
 
@@ -1622,6 +1623,7 @@ void Node::SyncCycle(Peer& p, const ByteBuffer& buf)
 
             ImportMacroblock(h);
             RefreshCongestions();
+			m_Miner.SetTimer(0, true);
 
             return;
         }
