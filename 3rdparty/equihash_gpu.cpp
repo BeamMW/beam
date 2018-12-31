@@ -114,7 +114,6 @@ EquihashGpu::EquihashGpu()
     , m_Bridge(new WorkProvider(*m_Host.get()))
 {
     std::vector<int32_t> devices;
-    devices.push_back(2);
 
     {
         if (devices.size() == 0) devices.assign(1, -1);

@@ -26,6 +26,10 @@ if(BEAM_USE_GPU)
         message(FATAL_ERROR "error, OpenCL not found")
     endif()
 
+    include(bin2h.cmake)
+
+    bin2h(SOURCE_FILE ${PROJECT_SOURCE_DIR}/3rdparty/opencl-miner/equihash_150_5.cl HEADER_FILE ${PROJECT_SOURCE_DIR}/3rdparty/opencl-miner/equihash_150_5.dat)
+
     set(POW_SRC ${POW_SRC}
         ${PROJECT_SOURCE_DIR}/3rdparty/equihash_gpu.cpp
         ${PROJECT_SOURCE_DIR}/3rdparty/opencl-miner/clHost.cpp)

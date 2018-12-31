@@ -64,17 +64,8 @@ void clHost::loadAndCompileKernel(cl::Device &device, uint32_t pl) {
     static const char equihash_150_5_cl[] =
     {
         #include "equihash_150_5.dat"
-        '\0'
+        , '\0'
     };
-
-    //ifstream file("./equihash_150_5.cl");
-    //if (!file.is_open()) {
-    //    cout << "Error: Kernel file not found!" << endl;
-    //    exit(0);
-    //}
-
-    //string progStr(istreambuf_iterator<char>(file), (istreambuf_iterator<char>()));
-    //cl::Program::Sources source(1, std::make_pair(progStr.c_str(), progStr.length() + 1));
 
 	cl::Program::Sources source(1,std::make_pair(equihash_150_5_cl, sizeof(equihash_150_5_cl)));
 
