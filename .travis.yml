@@ -78,7 +78,7 @@ matrix:
         - BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet-GPU.dmg"
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_USE_GPU=On . && make -j 4 && ctest --verbose && cpack;
-        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.dmg"
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-GPU-$BEAM_VERSION.dmg"
 
 ###############################################################################
 # Linux Debug
@@ -181,7 +181,7 @@ matrix:
         - BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet-GPU.deb"
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_USE_GPU=On . && make -j 4 && ctest --verbose && cpack;
-        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-GPU-$BEAM_VERSION.deb"
 
 ###############################################################################
 # Android x86 Release
