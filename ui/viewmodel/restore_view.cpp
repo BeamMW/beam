@@ -240,7 +240,7 @@ void RestoreViewModel::onGetWalletError(beam::wallet::ErrorType error)
 {
     if (beam::wallet::ErrorType::NodeProtocolIncompatible == error && m_isCreating)
     {
-        emit walletError(tr("Incompatible peer"), WalletModel::GetErrorString(error));
+        emit walletError(tr("Incompatible peer"), m_walletModel.GetErrorString(error));
         return;
     }
 

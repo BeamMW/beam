@@ -60,7 +60,7 @@ public:
     IWalletModelAsync::Ptr getAsync();
     bool check_receiver_address(const std::string& addr);
 
-    static QString GetErrorString(beam::wallet::ErrorType type);
+    QString GetErrorString(beam::wallet::ErrorType type);
 
 signals:
     void onStatus(const WalletStatus& status);
