@@ -57,8 +57,7 @@ class clHost {
 
 	// Callback data
 	vector<clCallbackData> currentWork;
-	bool restart = true;
-
+    std::atomic<bool> restart = true;
 
 	// Functions
 	void detectPlatFormDevices(vector<int32_t>, bool);
