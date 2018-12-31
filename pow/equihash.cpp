@@ -59,34 +59,10 @@ struct Block::PoW::Helper
 
         auto fnValid = [this, &hlp, pInput, nSizeInput](const beam::ByteBuffer& solution, const beam::Block::PoW::NonceType& nonce)
             {
-                {
-        //            Helper hlp_;
-            //        hlp_.Reset(pInput, nSizeInput, m_Nonce);
-            //        LOG_DEBUG() << "===============================  Solve GPU nonce: " << nonce << " Nonce 2:  "<< m_Nonce;
-
-                    std::vector<uint8_t> v(solution.begin(), solution.end());
-           //         if (!hlp_.m_Eh.IsValidSolution(hlp_.m_Blake, v))
-                    {
-                        {
-                            Helper hlp2_;
-                            hlp2_.Reset(pInput, nSizeInput, nonce);
-                            
-                            if (!hlp2_.m_Eh.IsValidSolution(hlp2_.m_Blake, v))
-                            {
-                                LOG_DEBUG() << "===============================  Invalid solution nonce: " << nonce ;
-                                return false;
-                            }
-                            m_Nonce = nonce;
-                        }
-                        
-                    }
-                    
-
-                }
 
                 if (!hlp.TestDifficulty(&solution.front(), (uint32_t)solution.size(), m_Difficulty))
                 {
-                    LOG_DEBUG() << "===============================  Difficulty is not reachable nonce: " << nonce;
+                   // LOG_DEBUG() << "===============================  Difficulty is not reachable nonce: " << nonce << " Diff = " << m_Difficulty.ToFloat();
                     return false;
                 }
         		 
