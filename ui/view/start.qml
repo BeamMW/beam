@@ -884,7 +884,7 @@ Item
 
                         CustomRadioButton {
                             id: localNodeButton
-                            text: qsTr("Run local node (recommended)")
+                            text: qsTr("Run integrated node (recommended)")
                             ButtonGroup.group: nodePreferencesGroup
                             font.pixelSize: 14
                             checked: true

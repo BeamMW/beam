@@ -109,7 +109,7 @@ void RestoreViewModel::updateProgress()
 	QString progressMessage = tr("");
 
 	if (bLocalNode && (!m_nodeTotal || (m_nodeDone < m_nodeTotal)))
-		progressMessage = tr("Downloading blocks...");
+		progressMessage = tr("Downloading blocks");
 	else
 	{
 		if (!m_walletConnected)

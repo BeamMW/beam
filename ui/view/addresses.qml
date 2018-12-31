@@ -128,7 +128,7 @@ ColumnLayout {
 
             TableViewColumn {
                 role: viewModel.nameRole
-                title: qsTr("Name")
+                title: qsTr("Comment")
                 width: 280 * contactsView.resizableWidth / 740
                 movable: false
             }
