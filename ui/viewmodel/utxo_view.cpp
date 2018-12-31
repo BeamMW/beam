@@ -167,6 +167,7 @@ void UtxoViewModel::setSortOrder(Qt::SortOrder value)
 
 void UtxoViewModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxos)
 {
+    // TODO: It's dirty hack. Should use QAbstractListModel instead of QQmlListProperty
     auto tmpList = _allUtxos;
     
     _allUtxos.clear();
