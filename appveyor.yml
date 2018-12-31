@@ -10,7 +10,7 @@ environment:
   matrix:
     - arch: Win64
       USE_GPU: On
-      GPU_FOLDER: gpu/
+      GPU_FOLDER: gpu
     - arch: Win64
       USE_GPU: Off
 
@@ -104,25 +104,25 @@ on_success:
     7z a c:/projects/beam/beam/beam-pdb-%BEAM_VERSION%.zip "c:/projects/beam/ui/%BUILD_CONFIG%/Beam Wallet.pdb" "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node.pdb" "c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.pdb"
 
 artifacts:
-  - path: "%GPU_FOLDER%beam-node-%BEAM_VERSION%.zip"
+  - path: beam-node-%BEAM_VERSION%.zip
     name: BeamNode
 
-  - path: "%GPU_FOLDER%beam-wallet-cli-%BEAM_VERSION%.zip"
+  - path: beam-wallet-cli-%BEAM_VERSION%.zip
     name: BeamWalletCli
 
-  - path: "%GPU_FOLDER%wallet-api-%BEAM_VERSION%.zip"
+  - path: wallet-api-%BEAM_VERSION%.zip
     name: BeamWalletApi
 
-  - path: "%GPU_FOLDER%pack/beam-pack-%BEAM_VERSION%.zip"
+  - path: pack/beam-pack-%BEAM_VERSION%.zip
     name: BeamPack
 
-  - path: "%GPU_FOLDER%pdb/beam-pdb-%BEAM_VERSION%.zip"
+  - path: pdb/beam-pdb-%BEAM_VERSION%.zip
     name: BeamPdb
 
-  - path: "%GPU_FOLDER%miner-client-%BEAM_VERSION%.zip"
+  - path: miner-client-%BEAM_VERSION%.zip
     name: BeamMinerClient
 
-  - path: "%GPU_FOLDER%Beam-Wallet-%BEAM_VERSION%.exe"
+  - path: Beam-Wallet-%BEAM_VERSION%.exe
     name: BeamWallet
 
 deploy:
@@ -135,7 +135,7 @@ deploy:
   region: us-west-2
   unzip: false
   set_public: true
-  folder: "%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win"
+  folder: "%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win/%GPU_FOLDER%"
   artifact: BeamMinerClient, BeamPdb, BeamPack, BeamWalletApi, BeamWalletCli, BeamNode, BeamWallet
 
 
