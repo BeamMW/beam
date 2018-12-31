@@ -5,30 +5,6 @@ matrix:
   include:
 
 ###############################################################################
-# OSX Debug
-###############################################################################
-
-    - os: osx
-      language: cpp
-      osx_image: xcode9.3
-      before_install: 
-        - export TZ=Etc/GMT-3
-        - brew unlink cmake
-        - brew unlink boost 
-        - brew install qt5 cmake boost
-        - brew link qt5 --force
-        - export PATH=/usr/local/opt/qt/bin:$PATH
-        - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Darwin.dmg"
-        - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
-        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.dmg"
-      env: 
-        - BUILD_TYPE=Debug
-        - OS_FOLDER=mac
-      script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_USE_GPU=On . && make -j 4 && ctest --verbose && cpack;
-        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.dmg"
-
-###############################################################################
 # OSX Release
 ###############################################################################
 
@@ -46,47 +22,39 @@ matrix:
         - export QT5_ROOT_DIR="/usr/local/qt5-static"
         - export QML_IMPORT_PATH="/usr/local/qt5-static/qml"
         - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Darwin.dmg"
-        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.dmg"
       env: 
         - BUILD_TYPE=Release
         - OS_FOLDER=mac
+        - BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.dmg"
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_USE_GPU=On . && make -j 4 && ctest --verbose && cpack;
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.dmg"
 
 ###############################################################################
-# Linux Debug
+# OSX Release GPU
 ###############################################################################
 
-    - os: linux
+    - os: osx
       language: cpp
-      addons:
-        apt:
-          sources:
-            - ubuntu-toolchain-r-test
-          packages:
-            - g++-7
-            - libboost-all-dev
-            - libssl-dev
-            - curl
+      osx_image: xcode9.3
       before_install:
         - export TZ=Etc/GMT-3
-        - sudo apt install ocl-icd-* opencl-headers
-        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
-        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
-        - sudo add-apt-repository ppa:beineri/opt-qt-5.10.1-trusty -y
-        - sudo apt-get update
-        - sudo apt-get install qt510declarative qt510svg libgl1-mesa-dev-lts-xenial
-        - eval "CC=gcc-7 && CXX=g++-7"
-        - export PATH=/opt/qt510/bin:$PATH
-        - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Linux.deb"
-        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.deb"
+        - brew unlink cmake
+        - brew unlink boost 
+        - brew install cmake boost
+        - sudo git clone --depth=1 https://github.com/nesbox/qt5-static-mac.git /usr/local/qt5-static
+        - export PATH=~/qt5-static/bin:$PATH
+        - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
+        - export QT5_ROOT_DIR="/usr/local/qt5-static"
+        - export QML_IMPORT_PATH="/usr/local/qt5-static/qml"
+        - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Darwin.dmg"
       env: 
-        - BUILD_TYPE=Debug
-        - OS_FOLDER=linux
+        - BUILD_TYPE=Release
+        - OS_FOLDER=mac
+        - BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet-GPU.dmg"
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_USE_GPU=On . && make -j 4 && ctest --verbose && cpack;
-        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_USE_GPU=On . && make -j 4 && ctest --verbose && cpack;
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.dmg"
 
 ###############################################################################
 # Linux Release
@@ -115,10 +83,45 @@ matrix:
         - export QT5_ROOT_DIR="/home/travis/qt5-static"
         - export QML_IMPORT_PATH="/home/travis/qt5-static/qml"
         - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Linux.deb"
-        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.deb"
       env: 
         - BUILD_TYPE=Release
         - OS_FOLDER=linux
+        - BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.deb"
+      script:
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
+
+###############################################################################
+# Linux Release GPU
+###############################################################################
+
+    - os: linux
+      language: cpp
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-7
+            - libboost-all-dev
+            - libssl-dev
+            - curl
+            - libxi-dev
+            - libcups2-dev
+      before_install:
+        - export TZ=Etc/GMT-3
+        - sudo apt install ocl-icd-* opencl-headers
+        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
+        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
+        - eval "CC=gcc-7 && CXX=g++-7"
+        - git clone --depth=1 https://github.com/nesbox/qt5-static-linux.git /home/travis/qt5-static
+        - export QT5_ROOT_DIR="/home/travis/qt5-static"
+        - export QML_IMPORT_PATH="/home/travis/qt5-static/qml"
+        - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Linux.deb"
+      env: 
+        - BUILD_TYPE=Release
+        - OS_FOLDER=linux
+        - BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet-GPU.deb"
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_USE_GPU=On . && make -j 4 && ctest --verbose && cpack;
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
