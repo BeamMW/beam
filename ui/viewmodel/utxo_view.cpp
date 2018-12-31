@@ -85,15 +85,15 @@ QString UtxoItem::status() const
 
 QString UtxoItem::type() const
 {
-	switch (_coin.m_ID.m_Type)
-	{
-	case Key::Type::Comission: return "Comission";
-	case Key::Type::Coinbase: return "Coinbase";
-	case Key::Type::Regular: return "Regular";
-	case Key::Type::Change: return "Change";
-	}
+    switch (_coin.m_ID.m_Type)
+    {
+    case Key::Type::Comission: return tr("Transaction fee");
+    case Key::Type::Coinbase: return tr("Coinbase");
+    case Key::Type::Regular: return tr("Regular");
+    case Key::Type::Change: return tr("Change");
+    }
 
-	return FourCC::Text(_coin.m_ID.m_Type).m_sz;
+    return FourCC::Text(_coin.m_ID.m_Type).m_sz;
 }
 
 beam::Amount UtxoItem::rawAmount() const
@@ -167,6 +167,7 @@ void UtxoViewModel::setSortOrder(Qt::SortOrder value)
 
 void UtxoViewModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxos)
 {
+    // TODO: It's dirty hack. Should use QAbstractListModel instead of QQmlListProperty
     auto tmpList = _allUtxos;
     
     _allUtxos.clear();

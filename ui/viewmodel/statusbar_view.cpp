@@ -152,7 +152,7 @@ void StatusbarViewModel::onNodeConnectionChanged(bool isNodeConnected)
 void StatusbarViewModel::onGetWalletError(beam::wallet::ErrorType error)
 {
     setIsOnline(false);
-    setWalletStatusErrorMsg(WalletModel::GetErrorString(error));
+    setWalletStatusErrorMsg(m_model.GetErrorString(error));
     setIsFailedStatus(true);
 }
 

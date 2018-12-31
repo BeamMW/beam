@@ -227,7 +227,6 @@ ColumnLayout {
                         }
                     }
                     else {
-                        console.log("Unknown status!");
                         return Style.white;
                     }
                 }

@@ -131,7 +131,7 @@ void WalletSettings::setRunLocalNode(bool value)
 uint WalletSettings::getLocalNodePort() const
 {
     Lock lock(m_mutex);
-    return m_data.value(LocalNodePort, 10000).toUInt();
+    return m_data.value(LocalNodePort, 10005).toUInt();
 }
 
 void WalletSettings::setLocalNodePort(uint port)

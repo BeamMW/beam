@@ -109,7 +109,7 @@ void RestoreViewModel::updateProgress()
 	QString progressMessage = tr("");
 
 	if (bLocalNode && (!m_nodeTotal || (m_nodeDone < m_nodeTotal)))
-		progressMessage = tr("Downloading blocks...");
+		progressMessage = tr("Downloading blocks");
 	else
 	{
 		if (!m_walletConnected)
@@ -240,7 +240,7 @@ void RestoreViewModel::onGetWalletError(beam::wallet::ErrorType error)
 {
     if (beam::wallet::ErrorType::NodeProtocolIncompatible == error && m_isCreating)
     {
-        emit walletError(tr("Incompatible peer"), WalletModel::GetErrorString(error));
+        emit walletError(tr("Incompatible peer"), m_walletModel.GetErrorString(error));
         return;
     }
 

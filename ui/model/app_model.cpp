@@ -132,7 +132,10 @@ void AppModel::resetWalletImpl()
 
 void AppModel::applySettingsChanges()
 {
-    m_nodeModel.stopNode();
+    if (m_nodeModel.isNodeRunning())
+    {
+        m_nodeModel.stopNode();
+    }
 
     if (m_settings.getRunLocalNode())
     {

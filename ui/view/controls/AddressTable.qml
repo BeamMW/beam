@@ -16,7 +16,7 @@ CustomTableView {
 
     TableViewColumn {
         role: parentModel.nameRole
-        title: qsTr("Name")
+        title: qsTr("Comment")
         width: 150 * rootControl.resizableWidth / 750
         resizable: false
         movable: false
