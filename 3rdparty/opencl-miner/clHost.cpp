@@ -11,6 +11,8 @@
 #include <sstream>
 #include <iomanip>
 
+#include "utility/logger.h"
+
 namespace beamMiner {
 
 using namespace std;
@@ -56,7 +58,7 @@ void CL_CALLBACK CCallbackFunc(cl_event ev, cl_int err , void* data) {
 
 // Function to load the OpenCL kernel and prepare our device for mining
 void clHost::loadAndCompileKernel(cl::Device &device, uint32_t pl) {
-	cout << "Loading and compiling Beam OpenCL Kernel" << endl;
+	LOG_INFO() << "Loading and compiling Beam OpenCL Kernel";
 
 	// reading the kernel file
 	cl_int err;
@@ -78,7 +80,7 @@ void clHost::loadAndCompileKernel(cl::Device &device, uint32_t pl) {
 
 	// Check if the build was Ok
 	if (!err) {
-		cout << "Build sucessfull. " << endl;
+		LOG_INFO() << "Build sucessfull. ";
 
 		// Store the device and create a queue for it
 		cl_command_queue_properties queue_prop = 0;  
@@ -116,9 +118,9 @@ void clHost::loadAndCompileKernel(cl::Device &device, uint32_t pl) {
 		buffers.push_back(newBuffers);		
 			
 	} else {
-		cout << "Program build error, device will not be used. " << endl;
+		LOG_INFO() << "Program build error, device will not be used. ";
 		// Print error msg so we can debug the kernel source
-		cout << "Build Log: "     << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devicesTMP[0]) << endl;
+		LOG_INFO() << "Build Log: "     << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devicesTMP[0]);
 	}
 }
 
@@ -160,7 +162,7 @@ void clHost::detectPlatFormDevices(vector<int32_t> selDev, bool allowCPU) {
 				name.pop_back();
 			} 
 			
-			cout << "Found device " << curDiv << ": " << name << endl;
+			LOG_INFO() << "Found device " << curDiv << ": " << name;
 
 			// Check if the device should be selected
 			bool pick = false;
@@ -179,14 +181,14 @@ void clHost::detectPlatFormDevices(vector<int32_t> selDev, bool allowCPU) {
 				uint64_t needed = 7* ((uint64_t) 570425344) + 4096 + 196608 + 1296;
 
 				if (deviceMemory > needed) {
-					cout << "Memory check ok" << endl;
+					LOG_INFO() << "Memory check ok";
 					loadAndCompileKernel(nDev[di], pl);
 				} else {
-					cout << "Memory check failed" << endl;
-					cout << "Device reported " << deviceMemory / (1024*1024) << "MByte memory, " << needed/(1024*1024) << " are required " << endl;
+					LOG_INFO() << "Memory check failed";
+					LOG_INFO() << "Device reported " << deviceMemory / (1024*1024) << "MByte memory, " << needed/(1024*1024) << " are required ";
 				}
 			} else {
-				cout << "Device will not be used, it was not included in --devices parameter." << endl;
+				LOG_INFO() << "Device will not be used, it was not included in --devices parameter.";
 			}
 
 			curDiv++; 
@@ -301,7 +303,7 @@ void clHost::callbackFunc(cl_int err , void* data){
 		queues[gpu].flush();
 	} else {
 		paused[gpu] = true;
-		cout << "Device will be paused, waiting for new work" << endl;
+		LOG_INFO() << "Device will be paused, waiting for new work";
 	}
 }
 
@@ -331,14 +333,13 @@ void clHost::startMining()
 		this_thread::sleep_for(std::chrono::seconds(15));
 
 		// Print performance stats (roughly)
-		cout << "Performance: ";
+		LOG_INFO() << "Performance: ";
 		for (int i=0; i<devices.size(); i++) {
 			uint32_t sol = solutionCnt[i];
 			solutionCnt[i] = 0;
-			cout << fixed << setprecision(2) << (double) sol / 15.0 << " sol/s ";			
+			LOG_INFO() << fixed << setprecision(2) << (double) sol / 15.0 << " sol/s ";			
 			
-		}
-		cout << endl;
+		}		
 
 		// Check if there are paused devices and restart them
 		for (int i=0; i<devices.size(); i++) {
