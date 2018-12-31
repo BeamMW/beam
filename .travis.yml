@@ -71,6 +71,7 @@ matrix:
             - curl
       before_install:
         - export TZ=Etc/GMT-3
+        - sudo apt install ocl-icd-* opencl-headers
         - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
         - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - sudo add-apt-repository ppa:beineri/opt-qt-5.10.1-trusty -y
@@ -84,7 +85,7 @@ matrix:
         - BUILD_TYPE=Debug
         - OS_FOLDER=linux
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_USE_GPU=On . && make -j 4 && ctest --verbose && cpack;
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
 
 ###############################################################################
@@ -106,6 +107,7 @@ matrix:
             - libcups2-dev
       before_install:
         - export TZ=Etc/GMT-3
+        - sudo apt install ocl-icd-* opencl-headers
         - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
         - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - eval "CC=gcc-7 && CXX=g++-7"
@@ -118,7 +120,7 @@ matrix:
         - BUILD_TYPE=Release
         - OS_FOLDER=linux
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static  -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_USE_GPU=On . && make -j 4 && ctest --verbose && cpack;
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
 
 ###############################################################################
