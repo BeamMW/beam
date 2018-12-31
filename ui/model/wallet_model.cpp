@@ -603,7 +603,7 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
     case wallet::ErrorType::ConnectionTimedOut:
         return tr("Connection timed out.");
     case wallet::ErrorType::ConnectionRefused:
-        return tr("Cannot connect to node.");
+        return tr("Cannot connect to node: ") + AppModel::getInstance()->getSettings().getNodeAddress();
     default:
         return tr("Unexpected error!");
     }
