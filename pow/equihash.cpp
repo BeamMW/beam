@@ -18,6 +18,7 @@
 #include "arith_uint256.h"
 #include <utility>
 #include "utility/logger.h"
+#include <mutex>
 
 #if defined (BEAM_USE_GPU)
 #include "3rdparty/equihash_gpu.h"
@@ -56,33 +57,42 @@ struct Block::PoW::Helper
         Helper hlp;
         static EquihashGpu gpu;
 
+        struct SolutionContext
+        {
+            beam::Block::PoW::NonceType foundNonce;
+            beam::ByteBuffer indices;
+            std::mutex mutex;
+        };
+        SolutionContext solutionContext;
 
-        auto fnValid = [this, &hlp, pInput, nSizeInput](const beam::ByteBuffer& solution, const beam::Block::PoW::NonceType& nonce)
+        auto fnValid = [this, &hlp, pInput, nSizeInput, &solutionContext](const beam::ByteBuffer& solution, const beam::Block::PoW::NonceType& nonce)
             {
-
                 if (!hlp.TestDifficulty(&solution.front(), (uint32_t)solution.size(), m_Difficulty))
                 {
-                   // LOG_DEBUG() << "===============================  Difficulty is not reachable nonce: " << nonce << " Diff = " << m_Difficulty.ToFloat();
                     return false;
                 }
-        		 
-        	    assert(solution.size() == m_Indices.size());
-                std::copy(solution.begin(), solution.end(), m_Indices.begin());
+                std::unique_lock<std::mutex> lock(solutionContext.mutex);
+                solutionContext.foundNonce = nonce;
+                assert(solution.size() == m_Indices.size());
+                solutionContext.indices = solution;
                 return true;
             };
 
 
-        std::function<bool()> fnCancelInternal = [fnCancel]() {
+        std::function<bool()> fnCancelInternal = [fnCancel]()
+        {
             return fnCancel(false);
         };
 
         if (!gpu.solve(pInput, nSizeInput, fnValid, fnCancelInternal))
+        {
             return false;
+        }
 
-        if (fnCancel(true))
-        	return false; // retry not allowed
+        m_Nonce = solutionContext.foundNonce;
+        std::copy(solutionContext.indices.begin(), solutionContext.indices.end(), m_Indices.begin());
 
-        LOG_DEBUG() << "===============================  Solution found: " << m_Nonce;
+        LOG_DEBUG() << "Solution found on GPU, nonce: " << m_Nonce;
         return true;
     }
 
