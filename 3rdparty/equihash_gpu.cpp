@@ -41,7 +41,9 @@ namespace
             _nonce = distribution(generator);
         }
         virtual ~WorkProvider()
-        {}
+        {
+        
+        }
 
         void setWork(const void* input, uint32_t sizeInput, const EquihashGpu::IsValid& valid, const EquihashGpu::Cancel& cancel)
         {

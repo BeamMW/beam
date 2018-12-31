@@ -316,7 +316,7 @@ void clHost::startMining()
 {
     restart = true;
 	// Start mining initially
-	for (int i=0; i<devices.size(); i++) {	
+	for (int i=0; i<devices.size() && restart; i++) {
 		paused[i] = false;
 
 		currentWork[i].gpuIndex = i;
