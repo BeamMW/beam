@@ -6,15 +6,14 @@ environment:
   OPENSSL_ROOT_DIR: c:\beam-libs\openssl
   QT5_ROOT_DIR: c:\beam-libs\qt5-static-win
   QML_IMPORT_PATH: c:\beam-libs\qt5-static-win\qml
-  BUILD_SERVER:
-    secure: l9RqB2YbSnNIKZqTwnd67BHAXvbjmpj9zcf+YQPi9zfzsVeSysaoLD7gy4gSMjWurk2JVHjRpviw4bBxUbu2sA==
   BUILD_CONFIG: RelWithDebInfo
   matrix:
     - arch: Win64
       USE_GPU: On
+      GPU_FOLDER: gpu/
     - arch: Win64
       USE_GPU: Off
-      
+
 for:
   - 
     matrix:
@@ -26,11 +25,14 @@ for:
       - cmd: set PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v10.0\bin;%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v10.0\libnvvp;%PATH%
       - cmd: appveyor DownloadFile "http://registrationcenter-download.intel.com/akdlm/irc_nas/vcp/13794/opencl_runtime_18.1_x64_setup.msi"
       - cmd: start /wait msiexec /i opencl_runtime_18.1_x64_setup.msi /qn  /l*v msiexec2.log
+      - cmd: git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
+      - cmd: git clone --depth=1 https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
+      - cmd: cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=%APPVEYOR_REPO_BRANCH% -DBEAM_USE_GPU=On -DBEAM_BUILD_JNI=On
 
 before_build:
   - cmd: git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
   - cmd: git clone --depth=1 https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
-  - cmd: cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=%APPVEYOR_REPO_BRANCH% -DBEAM_USE_GPU=%USE_GPU% -DBEAM_BUILD_JNI=On
+  - cmd: cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=%APPVEYOR_REPO_BRANCH% -DBEAM_USE_GPU=Off -DBEAM_BUILD_JNI=On
 
 test_script:
   - cmd: ctest -C %BUILD_CONFIG% --verbose
@@ -101,28 +103,26 @@ on_success:
 
     7z a c:/projects/beam/beam/beam-pdb-%BEAM_VERSION%.zip "c:/projects/beam/ui/%BUILD_CONFIG%/Beam Wallet.pdb" "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node.pdb" "c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.pdb"
 
-    set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win 
-
 artifacts:
-  - path: beam-node-%BEAM_VERSION%.zip
+  - path: %GPU_FOLDER%beam-node-%BEAM_VERSION%.zip
     name: BeamNode
 
-  - path: beam-wallet-cli-%BEAM_VERSION%.zip
+  - path: %GPU_FOLDER%beam-wallet-cli-%BEAM_VERSION%.zip
     name: BeamWalletCli
 
-  - path: wallet-api-%BEAM_VERSION%.zip
+  - path: %GPU_FOLDER%wallet-api-%BEAM_VERSION%.zip
     name: BeamWalletApi
 
-  - path: pack/beam-pack-%BEAM_VERSION%.zip
+  - path: %GPU_FOLDER%pack/beam-pack-%BEAM_VERSION%.zip
     name: BeamPack
 
-  - path: pdb/beam-pdb-%BEAM_VERSION%.zip
+  - path: %GPU_FOLDER%pdb/beam-pdb-%BEAM_VERSION%.zip
     name: BeamPdb
 
-  - path: miner-client-%BEAM_VERSION%.zip
+  - path: %GPU_FOLDER%miner-client-%BEAM_VERSION%.zip
     name: BeamMinerClient
 
-  - path: Beam-Wallet-%BEAM_VERSION%.exe
+  - path: %GPU_FOLDER%Beam-Wallet-%BEAM_VERSION%.exe
     name: BeamWallet
 
 deploy:

@@ -46,10 +46,10 @@ matrix:
         - export QT5_ROOT_DIR="/usr/local/qt5-static"
         - export QML_IMPORT_PATH="/usr/local/qt5-static/qml"
         - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Darwin.dmg"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.dmg"
       env: 
         - BUILD_TYPE=Release
         - OS_FOLDER=mac
-        - BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.dmg"
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.dmg"
@@ -72,13 +72,14 @@ matrix:
         - export QT5_ROOT_DIR="/usr/local/qt5-static"
         - export QML_IMPORT_PATH="/usr/local/qt5-static/qml"
         - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Darwin.dmg"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.dmg"
       env: 
         - BUILD_TYPE=Release
         - OS_FOLDER=mac
-        - BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet-GPU.dmg"
+        - GPU_FOLDER=/gpu
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_USE_GPU=On . && make -j 4 && ctest --verbose && cpack;
-        - export BEAM_WALLET_UI_OUT="Beam-Wallet-GPU-$BEAM_VERSION.dmg"
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.dmg"
 
 ###############################################################################
 # Linux Debug
@@ -97,7 +98,6 @@ matrix:
             - curl
       before_install:
         - export TZ=Etc/GMT-3
-        - sudo apt install ocl-icd-* opencl-headers
         - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
         - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - sudo add-apt-repository ppa:beineri/opt-qt-5.10.1-trusty -y
@@ -140,10 +140,10 @@ matrix:
         - export QT5_ROOT_DIR="/home/travis/qt5-static"
         - export QML_IMPORT_PATH="/home/travis/qt5-static/qml"
         - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Linux.deb"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.deb"
       env: 
         - BUILD_TYPE=Release
         - OS_FOLDER=linux
-        - BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.deb"
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
@@ -167,7 +167,6 @@ matrix:
             - libcups2-dev
       before_install:
         - export TZ=Etc/GMT-3
-        - sudo apt install ocl-icd-* opencl-headers
         - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
         - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - eval "CC=gcc-7 && CXX=g++-7"
@@ -175,13 +174,14 @@ matrix:
         - export QT5_ROOT_DIR="/home/travis/qt5-static"
         - export QML_IMPORT_PATH="/home/travis/qt5-static/qml"
         - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Linux.deb"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.deb"
       env: 
         - BUILD_TYPE=Release
         - OS_FOLDER=linux
-        - BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet-GPU.deb"
+        - GPU_FOLDER=/gpu
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_USE_GPU=On . && make -j 4 && ctest --verbose && cpack;
-        - export BEAM_WALLET_UI_OUT="Beam-Wallet-GPU-$BEAM_VERSION.deb"
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static  -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_USE_GPU=On . && make -j 4 && ctest --verbose && cpack;
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
 
 ###############################################################################
 # Android x86 Release
@@ -260,6 +260,7 @@ before_script:
 
 after_success:
   # deploy using ftp server
+  - OS_FOLDER=$OS_FOLDER$GPU_FOLDER
   - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER
   - tar -cvzf beam-node-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node beam-node.cfg
   - tar -cvzf beam-wallet-cli-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet beam-wallet beam-wallet.cfg
