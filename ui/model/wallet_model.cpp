@@ -64,6 +64,8 @@ namespace
         {
         case EC_ETIMEDOUT:
             return beam::wallet::ErrorType::ConnectionTimedOut;
+        case EC_ECONNREFUSED:
+            return beam::wallet::ErrorType::ConnectionRefused;
         default:
             return beam::wallet::ErrorType::NodeProtocolBase;
         }
@@ -600,6 +602,8 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
         return tr("You are trying to connect to incompatible peer.");
     case wallet::ErrorType::ConnectionTimedOut:
         return tr("Connection timed out.");
+    case wallet::ErrorType::ConnectionRefused:
+        return tr("Cannot connect to node.");
     default:
         return tr("Unexpected error!");
     }
