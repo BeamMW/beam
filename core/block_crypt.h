@@ -102,11 +102,11 @@ namespace beam
 			uint32_t MaxAhead_s		= 60 * 15; // 15 minutes. Timestamps ahead by more than 15 minutes won't be accepted
 			uint32_t WindowMedian0	= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
 			uint32_t WindowMedian1	= 7; // Num of blocks taken at both endings of WindowWork, to pick medians.
-			Difficulty Difficulty0	= Difficulty(2 << Difficulty::s_MantissaBits); // FAST start, good for QA
+			Difficulty Difficulty0	= Difficulty(13 << Difficulty::s_MantissaBits); // 2^13 = 8,192
 		} DA;
 
 		struct {
-			bool Enabled = true;
+			bool Enabled = false;
 			bool Deposit = true; // CA emission in exchage for beams. If not specified - the emission is free
 		} CA;
 

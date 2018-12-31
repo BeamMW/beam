@@ -20,6 +20,7 @@
 class StatusbarViewModel : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(bool isOnline READ getIsOnline NOTIFY isOnlineChanged)
     Q_PROPERTY(bool isFailedStatus READ getIsFailedStatus NOTIFY isFailedStatusChanged)
     Q_PROPERTY(bool isSyncInProgress READ getIsSyncInProgress NOTIFY isSyncInProgressChanged)
     Q_PROPERTY(int nodeSyncProgress READ getNodeSyncProgress NOTIFY nodeSyncProgressChanged)
@@ -30,12 +31,14 @@ public:
 
     StatusbarViewModel();
 
+    bool getIsOnline() const;
     bool getIsFailedStatus() const;
     bool getIsSyncInProgress() const;
     int getNodeSyncProgress() const;
     QString getBranchName() const;
     QString getWalletStatusErrorMsg() const;
 
+    void setIsOnline(bool value);
     void setIsFailedStatus(bool value);
     void setIsSyncInProgress(bool value);
     void setNodeSyncProgress(int value);
@@ -50,6 +53,7 @@ public slots:
 
 signals:
 
+    void isOnlineChanged();
     void isFailedStatusChanged();
     void isSyncInProgressChanged();
     void nodeSyncProgressChanged();
@@ -58,6 +62,7 @@ signals:
 private:
     WalletModel& m_model;
 
+    bool m_isOnline;
     bool m_isSyncInProgress;
     bool m_isFailedStatus;
     int m_nodeSyncProgress;

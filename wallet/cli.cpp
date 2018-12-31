@@ -239,12 +239,68 @@ int HandleTreasury(const po::variables_map& vm, Key::IKdf& kdf)
             ResolveWID(wid, sID);
 
             auto perc = vm[cli::TR_PERC].as<double>();
-            perc *= 0.01;
+
+			bool bConsumeRemaining = (perc <= 0.);
+			if (bConsumeRemaining)
+				perc = vm[cli::TR_PERC_TOTAL].as<double>();
+
+			perc *= 0.01;
 
 			Amount val = static_cast<Amount>(Rules::get().Emission.Value0 * perc); // rounded down
 
             Treasury::Parameters pars; // default
+
+			uint32_t m = vm[cli::TR_M].as<uint32_t>();
+			uint32_t n = vm[cli::TR_N].as<uint32_t>();
+
+			if (m >= n)
+				throw std::runtime_error("bad m/n");
+
+			assert(n);
+			if (pars.m_Bursts % n)
+				throw std::runtime_error("bad n (roundoff)");
+
+			pars.m_Bursts /= n;
+			pars.m_Maturity0 = pars.m_MaturityStep * pars.m_Bursts * m;
+
             Treasury::Entry* pE = tres.CreatePlan(wid, val, pars);
+
+			if (bConsumeRemaining)
+			{
+				// special case - consume the remaining
+				for (size_t iG = 0; iG < pE->m_Request.m_vGroups.size(); iG++)
+				{
+					Treasury::Request::Group& g = pE->m_Request.m_vGroups[iG];
+					Treasury::Request::Group::Coin& c = g.m_vCoins[0];
+
+					AmountBig::Type valInBurst = Zero;
+
+					for (Treasury::EntryMap::const_iterator it = tres.m_Entries.begin(); tres.m_Entries.end() != it; it++)
+					{
+						if (&it->second == pE)
+							continue;
+
+						const Treasury::Request& r2 = it->second.m_Request;
+						for (size_t iG2 = 0; iG2 < r2.m_vGroups.size(); iG2++)
+						{
+							const Treasury::Request::Group& g2 = r2.m_vGroups[iG2];
+							if (g2.m_vCoins[0].m_Incubation != c.m_Incubation)
+								continue;
+
+							for (size_t i = 0; i < g2.m_vCoins.size(); i++)
+								valInBurst += uintBigFrom(g2.m_vCoins[i].m_Value);
+						}
+					}
+
+					Amount vL = AmountBig::get_Lo(valInBurst);
+					if (AmountBig::get_Hi(valInBurst) || (vL >= c.m_Value))
+						throw std::runtime_error("Nothing remains");
+
+					cout << "Maturity=" << c.m_Incubation << ", Consumed = " << vL << " / " << c.m_Value << std::endl;
+					c.m_Value -= vL;
+				}
+
+			}
 
             FSave(pE->m_Request, sID + szRequest);
             FSave(tres, szPlans);
@@ -332,6 +388,23 @@ int HandleTreasury(const po::variables_map& vm, Key::IKdf& kdf)
         }
         break;
 
+    case 6:
+        {
+            // bursts
+            Treasury::Data data;
+            FLoad(data, szData);
+
+			auto vBursts = data.get_Bursts();
+
+            cout << "Total bursts: " << vBursts.size() << std::endl;
+
+            for (size_t i = 0; i < vBursts.size(); i++)
+            {
+                const Treasury::Data::Burst& b = vBursts[i];
+                cout << "\t" << "Height=" << b.m_Height << ", Value=" << b.m_Value << std::endl;
+            }
+        }
+        break;
     }
 
     return 0;

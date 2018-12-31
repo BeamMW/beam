@@ -1128,6 +1128,8 @@ namespace beam
 		node.m_Cfg.m_Dandelion.m_DummyLifetimeLo = 5;
 		node.m_Cfg.m_Dandelion.m_DummyLifetimeHi = 10;
 
+		node.m_Cfg.m_Sync.m_TimeoutHi_ms = 0; // start mining immediately
+
 		struct MyClient
 			:public proto::NodeConnection
 		{

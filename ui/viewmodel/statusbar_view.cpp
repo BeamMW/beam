@@ -18,6 +18,7 @@
 
 StatusbarViewModel::StatusbarViewModel()
     : m_model(*AppModel::getInstance()->getWallet())
+    , m_isOnline(false)
     , m_isSyncInProgress(false)
     , m_isFailedStatus(false)
     , m_nodeSyncProgress(0)
@@ -42,6 +43,13 @@ StatusbarViewModel::StatusbarViewModel()
         connect(&AppModel::getInstance()->getNode(), SIGNAL(syncProgressUpdated(int, int)),
             SLOT(onNodeSyncProgressUpdated(int, int)));
     }
+
+    m_model.getAsync()->getNetworkStatus();
+}
+
+bool StatusbarViewModel::getIsOnline() const
+{
+    return m_isOnline;
 }
 
 bool StatusbarViewModel::getIsFailedStatus() const
@@ -70,6 +78,15 @@ QString StatusbarViewModel::getBranchName() const
 QString StatusbarViewModel::getWalletStatusErrorMsg() const
 {
     return m_errorMsg;
+}
+
+void StatusbarViewModel::setIsOnline(bool value)
+{
+    if (m_isOnline != value)
+    {
+        m_isOnline = value;
+        emit isOnlineChanged();
+    }
 }
 
 void StatusbarViewModel::setIsFailedStatus(bool value)
@@ -110,11 +127,19 @@ void StatusbarViewModel::setWalletStatusErrorMsg(const QString& value)
 
 void StatusbarViewModel::onNodeConnectionChanged(bool isNodeConnected)
 {
+    if (isNodeConnected == getIsOnline())
+    {
+        return;
+    }
+
     if (isNodeConnected)
     {
         setIsFailedStatus(false);
+        setIsOnline(true);
         return;
     }
+
+    setIsOnline(false);
 
     if (!m_isFailedStatus)
     {
@@ -126,6 +151,7 @@ void StatusbarViewModel::onNodeConnectionChanged(bool isNodeConnected)
 
 void StatusbarViewModel::onGetWalletError(beam::wallet::ErrorType error)
 {
+    setIsOnline(false);
     setWalletStatusErrorMsg(WalletModel::GetErrorString(error));
     setIsFailedStatus(true);
 }

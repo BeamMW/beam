@@ -335,6 +335,8 @@ namespace
                 receiver_.changeWalletPassword(passStr);
             });
         }
+
+        void getNetworkStatus() override {}
     };
 
     static JavaVM* JVM = NULL;
@@ -609,6 +611,7 @@ namespace
         void deleteAddress(const beam::WalletID& id) override {}
         void setNodeAddress(const std::string& addr) override {}
         void changeWalletPassword(const beam::SecString& password) override {}
+        void getNetworkStatus() override {}
 
         ///////////////////////////////////////////////
         // callbacks

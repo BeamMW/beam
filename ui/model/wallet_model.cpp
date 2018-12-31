@@ -57,6 +57,17 @@ namespace
             return beam::wallet::ErrorType::NodeProtocolBase;
         }
     }
+
+    beam::wallet::ErrorType GetWalletError(io::ErrorCode errorCode)
+    {
+        switch (errorCode)
+        {
+        case EC_ETIMEDOUT:
+            return beam::wallet::ErrorType::ConnectionTimedOut;
+        default:
+            return beam::wallet::ErrorType::NodeProtocolBase;
+        }
+    }
 }
 
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
@@ -177,12 +188,21 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
             receiver_.changeWalletPassword(passStr);
         });
     }
+
+    void getNetworkStatus() override
+    {
+        tx.send([](BridgeInterface& receiver_) mutable
+        {
+            receiver_.getNetworkStatus();
+        });
+    }
 };
 
 WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr)
     : _walletDB(walletDB)
     , _reactor{ Reactor::create() }
     , _async{ make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *_reactor) }
+    , _isConnected(false)
     , _nodeAddrStr(nodeAddr)
 {
     qRegisterMetaType<WalletStatus>("WalletStatus");
@@ -214,11 +234,13 @@ WalletModel::~WalletModel()
 
 WalletStatus WalletModel::getStatus() const
 {
-    WalletStatus status{ _walletDB->getAvailable(), 0, 0, 0};
+    WalletStatus status;
 
-    status.sent =  wallet::getSpentByTx(_walletDB, TxStatus::Completed);
-    status.received = wallet::getReceivedByTx(_walletDB, TxStatus::Completed);
-    status.unconfirmed = _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
+    status.available = _walletDB->getAvailable();
+    status.receiving = _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
+    status.sending = _walletDB->getTotal(Coin::Outgoing);
+    status.maturing = _walletDB->getTotal(Coin::Maturing);
+
     status.update.lastTime = _walletDB->getLastUpdateTime();
 
     ZeroObject(status.stateID);
@@ -346,6 +368,7 @@ void WalletModel::onSyncProgress(int done, int total)
 
 void WalletModel::onNodeConnectedStatusChanged(bool isNodeConnected)
 {
+    _isConnected = isNodeConnected;
     emit nodeConnectionChanged(isNodeConnected);
 }
 
@@ -354,8 +377,13 @@ void WalletModel::onNodeConnectionFailed(const proto::NodeConnection::Disconnect
     // reason -> wallet::ErrorType
     if (proto::NodeConnection::DisconnectReason::ProcessingExc == reason.m_Type)
     {
-        auto error = GetWalletError(reason.m_ExceptionDetails.m_ExceptionType);
-        emit onWalletError(error);
+        _walletError = GetWalletError(reason.m_ExceptionDetails.m_ExceptionType);
+        emit onWalletError(*_walletError);
+    }
+    else if (proto::NodeConnection::DisconnectReason::Io == reason.m_Type)
+    {
+        _walletError = GetWalletError(reason.m_IoError);
+        emit onWalletError(*_walletError);
     }
 }
 
@@ -542,6 +570,17 @@ void WalletModel::changeWalletPassword(const SecString& pass)
     _walletDB->changePassword(pass);
 }
 
+void WalletModel::getNetworkStatus()
+{
+    if (_walletError.is_initialized())
+    {
+        emit onWalletError(*_walletError);
+        return;
+    }
+
+    emit nodeConnectionChanged(_isConnected);
+}
+
 bool WalletModel::check_receiver_address(const std::string& addr)
 {
     WalletID walletID;
@@ -559,6 +598,8 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
         return tr("Node protocol error!");
     case wallet::ErrorType::NodeProtocolIncompatible:
         return tr("You are trying to connect to incompatible peer.");
+    case wallet::ErrorType::ConnectionTimedOut:
+        return tr("Connection timed out.");
     default:
         return tr("Unexpected error!");
     }

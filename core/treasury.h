@@ -126,6 +126,7 @@ namespace beam
 
 		struct Parameters
 		{
+			Height m_Maturity0 = 0;
 			Height m_MaturityStep = 1440 * 365 / 12; // 1 month roughly
 			uint32_t m_Bursts = 12 * 5; // 5 years plan
 
@@ -177,6 +178,14 @@ namespace beam
 			}
 
 			bool IsValid() const;
+
+			struct Burst
+			{
+				Height m_Height;
+				Amount m_Value; // rounded to max value in case of overflow
+			};
+
+			std::vector<Burst> get_Bursts() const;
 
 			struct Coin
 			{

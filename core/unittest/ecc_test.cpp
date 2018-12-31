@@ -1309,6 +1309,8 @@ void TestTreasury()
 	tres.Build(data);
 	verify_test(!data.m_vGroups.empty());
 
+	std::vector<beam::Treasury::Data::Burst> vBursts = data.get_Bursts();
+
 	// test serialization
 	beam::ByteBuffer bb;
 	ser1.swap_buf(bb);
@@ -1857,6 +1859,7 @@ int main()
 {
 	g_psecp256k1 = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 
+	beam::Rules::get().CA.Enabled = true;
 	ECC::TestAll();
 	ECC::RunBenchmark();
 

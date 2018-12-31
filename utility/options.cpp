@@ -95,8 +95,11 @@ namespace beam
         const char* TR_OPCODE = "tr_op";
         const char* TR_WID = "tr_wid";
         const char* TR_PERC = "tr_pecents";
-        const char* TR_COMMENT = "tr_comment";
-        // ui
+		const char* TR_PERC_TOTAL = "tr_pecents_total";
+		const char* TR_COMMENT = "tr_comment";
+		const char* TR_M = "tr_M";
+		const char* TR_N = "tr_N";
+		// ui
         const char* WALLET_ADDR = "addr";
         const char* APPDATA_PATH = "appdata";
     }
@@ -171,7 +174,10 @@ namespace beam
             (cli::TR_OPCODE, po::value<uint32_t>()->default_value(0), "treasury operation: 0=print ID, 1=plan, 2=response, 3=import, 4=generate, 5=print")
             (cli::TR_WID, po::value<std::string>(), "treasury WalletID")
             (cli::TR_PERC, po::value<double>(), "treasury percent of the total emission, designated to this WalletID")
-            (cli::TR_COMMENT, po::value<std::string>(), "treasury custom message");
+			(cli::TR_PERC_TOTAL, po::value<double>(), "Total treasury percent of the total emission")
+			(cli::TR_M, po::value<uint32_t>()->default_value(0), "naggle index")
+			(cli::TR_N, po::value<uint32_t>()->default_value(1), "naggle count")
+			(cli::TR_COMMENT, po::value<std::string>(), "treasury custom message");
 
         po::options_description uioptions("UI options");
         uioptions.add_options()

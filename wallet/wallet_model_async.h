@@ -40,5 +40,7 @@ struct IWalletModelAsync
 
     virtual void changeWalletPassword(const beam::SecString& password) = 0;
 
+    virtual void getNetworkStatus() = 0;
+
     virtual ~IWalletModelAsync() {}
 };
