@@ -910,7 +910,7 @@ Item
 
                                 font.pixelSize: 14
                                 color: Style.white
-                                text: "10000"
+                                text: "10005"
                                 onTextChanged: if (portInput.text.length > 0) portError.text = ""
                             }
                             SFText {
@@ -1010,7 +1010,7 @@ Item
                                 width: parent.width - parent.spacing - remoteNodeButton.width
                                 font.pixelSize: 14
                                 color: Style.white
-                                text: "127.0.0.1:10000"
+                                text: "127.0.0.1:10005"
                                 validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                 onTextChanged: if (remoteNodeAddrInput.text.length > 0) remoteNodeAddrError.text = ""
                                 bottomPadding: 8 // TODO add default value of this item to controls
