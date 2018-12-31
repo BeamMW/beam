@@ -295,7 +295,7 @@ void clHost::callbackFunc(cl_int err , void* data){
 	solutionCnt[gpu] += solutions;
 
 	// Get new work and resume working
-	if (bridge->hasWork()) {
+	if (bridge->hasWork() && restart) {
 		queues[gpu].enqueueUnmapMemObject(buffers[gpu][6], results[gpu], NULL, NULL);
 		queueKernels(gpu, &currentWork[gpu]);
 		results[gpu] = (unsigned *) queues[gpu].enqueueMapBuffer(buffers[gpu][6], CL_FALSE, CL_MAP_READ, 0, sizeof(cl_uint4) * 81, NULL, &events[gpu], NULL);
