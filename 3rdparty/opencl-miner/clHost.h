@@ -2,6 +2,7 @@
 // OpenCL Host Interface
 // Copyright 2018 The Beam Team	
 // Copyright 2018 Wilke Trei
+
 #pragma once
 #include "minerBridge.h"
 
@@ -10,7 +11,16 @@
 #  pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
+#if defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wignored-attributes"
+#endif
+
 #include <CL/cl.hpp>
+
+#if defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#endif
 
 #if defined(__clang__)
 #  pragma clang diagnostic pop

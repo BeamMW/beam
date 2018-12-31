@@ -40,7 +40,7 @@ inline bool hasExtension(cl::Device &device, string extension) {
 	device.getInfo(CL_DEVICE_EXTENSIONS, &info);
 	vector<string> extens = split(info, ' ');
 
-	for (int i=0; i<extens.size(); i++) {
+	for (uint32_t i=0; i<extens.size(); i++) {
 		if (extens[i].compare(extension) == 0) 	return true;
 	} 
 	return false;
@@ -132,9 +132,9 @@ void clHost::detectPlatFormDevices(vector<int32_t> selDev, bool allowCPU) {
 
 	// this is for enumerating the devices
 	int32_t curDiv = 0;
-	int32_t selNum = 0;
+	uint32_t selNum = 0;
 	
-	for (int pl=0; pl<platforms.size(); pl++) {
+	for (uint32_t pl=0; pl<platforms.size(); pl++) {
 		// Create the OpenCL contexts, one for each platform
 		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platforms[pl](), 0};  
 		cl::Context context;
@@ -263,17 +263,16 @@ void clHost::queueKernels(uint32_t gpuIndex, clCallbackData* workData) {
 	kernels[gpuIndex][7].setArg(5, buffers[gpuIndex][5]); 	
 	kernels[gpuIndex][7].setArg(6, buffers[gpuIndex][6]);
 
-	cl_int err;
 	// Queue the kernels
-	err = queues[gpuIndex].enqueueNDRangeKernel(kernels[gpuIndex][0], cl::NDRange(0), cl::NDRange(12288), cl::NDRange(256), NULL, NULL);
-	err = queues[gpuIndex].enqueueNDRangeKernel(kernels[gpuIndex][1], cl::NDRange(0), cl::NDRange(22369536), cl::NDRange(256), NULL, NULL);
-	err = queues[gpuIndex].enqueueNDRangeKernel(kernels[gpuIndex][2], cl::NDRange(0), cl::NDRange(16777216), cl::NDRange(256), NULL, NULL);
+	queues[gpuIndex].enqueueNDRangeKernel(kernels[gpuIndex][0], cl::NDRange(0), cl::NDRange(12288), cl::NDRange(256), NULL, NULL);
+	queues[gpuIndex].enqueueNDRangeKernel(kernels[gpuIndex][1], cl::NDRange(0), cl::NDRange(22369536), cl::NDRange(256), NULL, NULL);
+	queues[gpuIndex].enqueueNDRangeKernel(kernels[gpuIndex][2], cl::NDRange(0), cl::NDRange(16777216), cl::NDRange(256), NULL, NULL);
 	queues[gpuIndex].flush();
-	err = queues[gpuIndex].enqueueNDRangeKernel(kernels[gpuIndex][3], cl::NDRange(0), cl::NDRange(16777216), cl::NDRange(256), NULL, NULL);
-	err = queues[gpuIndex].enqueueNDRangeKernel(kernels[gpuIndex][4], cl::NDRange(0), cl::NDRange(16777216), cl::NDRange(256), NULL, NULL);
-	err = queues[gpuIndex].enqueueNDRangeKernel(kernels[gpuIndex][5], cl::NDRange(0), cl::NDRange(16777216), cl::NDRange(256), NULL, NULL);
-	err = queues[gpuIndex].enqueueNDRangeKernel(kernels[gpuIndex][6], cl::NDRange(0), cl::NDRange(16777216), cl::NDRange(256), NULL, NULL);
-	err = queues[gpuIndex].enqueueNDRangeKernel(kernels[gpuIndex][7], cl::NDRange(0), cl::NDRange(4096), cl::NDRange(16), NULL, NULL);
+	queues[gpuIndex].enqueueNDRangeKernel(kernels[gpuIndex][3], cl::NDRange(0), cl::NDRange(16777216), cl::NDRange(256), NULL, NULL);
+	queues[gpuIndex].enqueueNDRangeKernel(kernels[gpuIndex][4], cl::NDRange(0), cl::NDRange(16777216), cl::NDRange(256), NULL, NULL);
+	queues[gpuIndex].enqueueNDRangeKernel(kernels[gpuIndex][5], cl::NDRange(0), cl::NDRange(16777216), cl::NDRange(256), NULL, NULL);
+	queues[gpuIndex].enqueueNDRangeKernel(kernels[gpuIndex][6], cl::NDRange(0), cl::NDRange(16777216), cl::NDRange(256), NULL, NULL);
+	queues[gpuIndex].enqueueNDRangeKernel(kernels[gpuIndex][7], cl::NDRange(0), cl::NDRange(4096), cl::NDRange(16), NULL, NULL);
 }
 
 
@@ -316,7 +315,7 @@ void clHost::startMining()
 {
     restart = true;
 	// Start mining initially
-	for (int i=0; i<devices.size() && restart; i++) {
+	for (uint32_t i=0; i<devices.size() && restart; i++) {
 		paused[i] = false;
 
 		currentWork[i].gpuIndex = i;
@@ -334,7 +333,7 @@ void clHost::startMining()
 
 		// Print performance stats (roughly)
 		LOG_INFO() << "Performance: ";
-		for (int i=0; i<devices.size(); i++) {
+		for (uint32_t i=0; i<devices.size(); i++) {
 			uint32_t sol = solutionCnt[i];
 			solutionCnt[i] = 0;
 			LOG_INFO() << fixed << setprecision(2) << (double) sol / 15.0 << " sol/s ";			
@@ -342,7 +341,7 @@ void clHost::startMining()
 		}		
 
 		// Check if there are paused devices and restart them
-		for (int i=0; i<devices.size(); i++) {
+		for (uint32_t i=0; i<devices.size(); i++) {
 			if (paused[i] && bridge->hasWork()) {
 				paused[i] = false;
 				

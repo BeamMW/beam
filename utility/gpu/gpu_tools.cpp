@@ -17,7 +17,16 @@
 #  pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
+#if defined(__GNUC__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wignored-attributes"
+#endif
+
 #include <CL/cl.hpp>
+
+#if defined(__GNUC__)
+#  pragma GCC diagnostic pop
+#endif
 
 #if defined(__clang__)
 #  pragma clang diagnostic pop
@@ -42,7 +51,7 @@ namespace beam
         device.getInfo(CL_DEVICE_EXTENSIONS, &info);
         vector<string> extens = string_helpers::split(info, ' ');
 
-        for (int i = 0; i < extens.size(); i++) {
+        for (uint32_t i = 0; i < extens.size(); i++) {
             if (extens[i].compare(extension) == 0) 	return true;
         }
         return false;
@@ -69,7 +78,7 @@ namespace beam
 
         int32_t curDiv = 0;
 
-        for (int pl = 0; pl < platforms.size(); pl++)
+        for (uint32_t pl = 0; pl < platforms.size(); pl++)
         {
             cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platforms[pl](), 0 };
 
@@ -77,7 +86,7 @@ namespace beam
 
             vector< cl::Device > devices = context.getInfo<CL_CONTEXT_DEVICES>();
 
-            for (int di = 0; di < devices.size(); di++)
+            for (uint32_t di = 0; di < devices.size(); di++)
             {
                 string name;
                 if (hasExtension(devices[di], "cl_amd_device_attribute_query")) 
