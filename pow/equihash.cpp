@@ -57,7 +57,7 @@ struct Block::PoW::Helper
         static EquihashGpu gpu;
 
 
-        auto fnValid = [this, &hlp, pInput, nSizeInput](const beam::ByteBuffer& solution, const beam::Block::PoW::NonceType& nonce)
+        auto fnValid = [this, &hlp](const beam::ByteBuffer& solution, const beam::Block::PoW::NonceType& nonce)
             {
 
                 if (!hlp.TestDifficulty(&solution.front(), (uint32_t)solution.size(), m_Difficulty))

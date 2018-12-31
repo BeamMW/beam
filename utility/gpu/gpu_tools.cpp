@@ -12,7 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 #include <CL/cl.hpp>
+
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#endif
+
 #include <vector>
 #include <sstream>
 

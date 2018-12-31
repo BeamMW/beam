@@ -28,10 +28,10 @@ namespace
     {
     public:
         WorkProvider(beamMiner::clHost& host)
-            : _input(nullptr)
+            : _foundSolution(false)
+            , _input(nullptr)
             , _sizeInput(0)
             , _valid()
-            , _foundSolution(false)
             , _host(host)
         {
             random_device rd;
