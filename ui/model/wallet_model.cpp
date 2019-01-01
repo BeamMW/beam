@@ -376,17 +376,24 @@ void WalletModel::onNodeConnectedStatusChanged(bool isNodeConnected)
 
 void WalletModel::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
 {
+    _isConnected = false;
+
     // reason -> wallet::ErrorType
     if (proto::NodeConnection::DisconnectReason::ProcessingExc == reason.m_Type)
     {
         _walletError = GetWalletError(reason.m_ExceptionDetails.m_ExceptionType);
         emit onWalletError(*_walletError);
+        return;
     }
-    else if (proto::NodeConnection::DisconnectReason::Io == reason.m_Type)
+
+    if (proto::NodeConnection::DisconnectReason::Io == reason.m_Type)
     {
         _walletError = GetWalletError(reason.m_IoError);
         emit onWalletError(*_walletError);
+        return;
     }
+
+    LOG_ERROR() << "Unprocessed error: " << reason;
 }
 
 void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee)
@@ -574,7 +581,7 @@ void WalletModel::changeWalletPassword(const SecString& pass)
 
 void WalletModel::getNetworkStatus()
 {
-    if (_walletError.is_initialized())
+    if (_walletError.is_initialized() && !_isConnected)
     {
         emit onWalletError(*_walletError);
         return;
