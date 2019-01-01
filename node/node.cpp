@@ -978,6 +978,9 @@ Node::~Node()
                 v.m_vThreads[i].join();
     }
 
+	if (!std::uncaught_exceptions())
+		m_PeerMan.OnFlush();
+
     LOG_INFO() << "Node stopped";
 }
 
