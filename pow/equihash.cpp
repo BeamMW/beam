@@ -65,13 +65,14 @@ struct Block::PoW::Helper
         };
         SolutionContext solutionContext;
 
-        auto fnValid = [this, &hlp, &solutionContext
-#ifndef NDEBUG
-            , pInput, nSizeInput
-#endif // NDEBUG
-        ](const beam::ByteBuffer& solution, const beam::Block::PoW::NonceType& nonce)
+        auto fnValid = [this, &hlp, &solutionContext, pInput, nSizeInput](const beam::ByteBuffer& solution, const beam::Block::PoW::NonceType& nonce)
             {
-#ifndef NDEBUG
+                if (!hlp.TestDifficulty(&solution.front(), (uint32_t)solution.size(), m_Difficulty))
+                {
+                    //LOG_DEBUG() << std::this_thread::get_id() << "-=[GPU Miner]=- Difficulty is not reachable nonce: " << nonce << " Diff = " << m_Difficulty.ToFloat();
+                    return false;
+                }
+
                 {
                     Helper hlp2_;
                     hlp2_.Reset(pInput, nSizeInput, nonce);
@@ -82,14 +83,7 @@ struct Block::PoW::Helper
                         return false;
                     }
                 }
-#endif // NDEBUG
 
-   
-                if (!hlp.TestDifficulty(&solution.front(), (uint32_t)solution.size(), m_Difficulty))
-                {
-                    //LOG_DEBUG() << std::this_thread::get_id() << "-=[GPU Miner]=- Difficulty is not reachable nonce: " << nonce << " Diff = " << m_Difficulty.ToFloat();
-                    return false;
-                }
                 std::unique_lock<std::mutex> lock(solutionContext.mutex);
                 solutionContext.foundNonce = nonce;
                 assert(solution.size() == m_Indices.size());

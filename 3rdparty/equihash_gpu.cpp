@@ -47,7 +47,7 @@ namespace
         void setWork(const void* input, uint32_t sizeInput, const EquihashGpu::IsValid& valid, const EquihashGpu::Cancel& cancel)
         {
             LOG_DEBUG() << "-=[GPU Miner]=- Set new GPU miner work";
-            std::unique_lock<std::mutex> guard(_mutex);
+            unique_lock<mutex> guard(_mutex);
             auto *p = static_cast<const uint8_t*>(input);
             _input.assign(p, p + sizeInput);
 
@@ -59,7 +59,7 @@ namespace
 
         bool isSolutionFound() const
         {
-            std::unique_lock<std::mutex> guard(_mutex);
+            unique_lock<mutex> guard(_mutex);
             return _isSolutionFound;
         }
 
@@ -72,7 +72,7 @@ namespace
 
         void getWork(int64_t* workOut, uint64_t* nonceOut, uint8_t* dataOut) override
         {
-            std::unique_lock<std::mutex> guard(_mutex);
+            unique_lock<mutex> guard(_mutex);
             if (_input.empty())
             {
                 return;
@@ -85,41 +85,54 @@ namespace
         void handleSolution(int64_t &workId, uint64_t &nonce, std::vector<uint32_t> &indices) override
         {
             beam::Block::PoW::NonceType t((const uint8_t*)&nonce);
-            std::unique_lock<std::mutex> guard(_mutex);
-
-            if (_cancel())
+            EquihashGpu::IsValid isValid;
+            EquihashGpu::Cancel cancel;
             {
-                _host.stopMining();
-                return;
-            }
+                unique_lock<mutex> guard(_mutex);
+                if (workId != _workID)
+                {
+                    return;
+                }
 
-            if (workId != _workID
-                || _isSolutionFound)
-            {
-                return;
+                isValid = _valid;
+                cancel = _cancel;
+                if (_cancel())
+                {
+                    _host.stopMining();
+                    return;
+                }
+
+                if (_isSolutionFound)
+                {
+                    return;
+                }
             }
 
             auto compressed = GetMinimalFromIndices(indices, 25);
  
-            if (_valid(compressed, t))
+            if (isValid(compressed, t))
             {
-                _isSolutionFound = true;
-                _host.stopMining();
-                _compressedIndices = compressed;
-                _foundNonce = t;
+                unique_lock<mutex> guard(_mutex);
+                if (workId == _workID && !_isSolutionFound)
+                {
+                    _isSolutionFound = true;
+                    _host.stopMining();
+                    _compressedIndices = compressed;
+                    _foundNonce = t;
+                }
             }
         }
 
     private:
-        std::atomic<uint64_t> _nonce;
+        atomic<uint64_t> _nonce;
         int64_t _workID = 0;
-        mutable std::mutex _mutex;
+        mutable mutex _mutex;
         beam::ByteBuffer _input;
         
         EquihashGpu::IsValid _valid;
         EquihashGpu::Cancel _cancel;
         bool _isSolutionFound;
-        std::vector<uint8_t> _compressedIndices;
+        vector<uint8_t> _compressedIndices;
         beam::Block::PoW::NonceType _foundNonce;
 
         beamMiner::clHost& _host;
@@ -131,7 +144,7 @@ EquihashGpu::EquihashGpu()
     , m_Bridge(new WorkProvider(*m_Host.get()))
 {
     std::vector<int32_t> devices;
-   // devices.push_back(2);
+    //devices.push_back(1);
     {
         if (devices.size() == 0) devices.assign(1, -1);
         sort(devices.begin(), devices.end());

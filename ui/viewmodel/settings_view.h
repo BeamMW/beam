@@ -93,5 +93,6 @@ private:
     int m_lockTimeout;
 #ifdef BEAM_USE_GPU
     bool m_useGpu;
+    boost::optional<bool> m_hasSupportedGpu;
 #endif
 };
