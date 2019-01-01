@@ -65,7 +65,11 @@ struct Block::PoW::Helper
         };
         SolutionContext solutionContext;
 
-        auto fnValid = [this, &hlp, &solutionContext, pInput, nSizeInput](const beam::ByteBuffer& solution, const beam::Block::PoW::NonceType& nonce)
+        auto fnValid = [this, &hlp, &solutionContext
+#ifndef NDEBUG
+            , pInput, nSizeInput
+#endif // NDEBUG
+        ](const beam::ByteBuffer& solution, const beam::Block::PoW::NonceType& nonce)
             {
 #ifndef NDEBUG
                 {
