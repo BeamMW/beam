@@ -184,6 +184,8 @@ int main_impl(int argc, char* argv[])
 #endif
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
 
+					node.m_Cfg.m_LogUtxos = vm[cli::LOG_UTXOS].as<bool>();
+
 					std::string sKeyOwner;
 					{
 						const auto& var = vm[cli::KEY_OWNER];

@@ -80,6 +80,7 @@ namespace beam
         const char* LOG_INFO = "info";
         const char* LOG_DEBUG = "debug";
         const char* LOG_VERBOSE = "verbose";
+		const char* LOG_UTXOS = "log_utxos";
         const char* VERSION = "version";
         const char* VERSION_FULL = "version,v";
         const char* GIT_COMMIT_HASH = "git_commit_hash";
@@ -140,6 +141,7 @@ namespace beam
             (cli::KEY_OWNER, po::value<string>(), "Owner viewer key")
             (cli::KEY_MINE, po::value<string>(), "Standalone miner key")
             (cli::PASS, po::value<string>(), "password for keys")
+			(cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
             ;
 
         po::options_description node_treasury_options("Node treasury options");

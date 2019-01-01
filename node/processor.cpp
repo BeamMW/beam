@@ -760,6 +760,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 
 			// In case of macroblock we can't recover the original input height.
 			m_DB.InsertEvent(hMax, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+			OnUtxoEvent(key, evt);
 		}
 	}
 
@@ -816,6 +817,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 
 			const UtxoEvent::Key& key = x.m_Commitment;
 			m_DB.InsertEvent(h, Blob(&w.m_Value, sizeof(w.m_Value)), Blob(&key, sizeof(key)));
+			OnUtxoEvent(key, w.m_Value);
 		}
 	}
 }

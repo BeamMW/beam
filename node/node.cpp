@@ -677,6 +677,20 @@ bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
     return true;
 }
 
+void Node::Processor::OnUtxoEvent(const UtxoEvent::Key& key, const UtxoEvent::Value& evt)
+{
+	if (get_ParentObj().m_Cfg.m_LogUtxos)
+	{
+		ECC::Key::IDV kidv;
+		kidv = evt.m_Kidv;
+
+		Height h;
+		evt.m_Maturity.Export(h);
+
+		LOG_INFO() << "Utxo " << kidv << ", Maturity=" << h << ", Added=" << static_cast<uint32_t>(evt.m_Added);
+	}
+}
+
 void Node::Processor::OnFlushTimer()
 {
     m_bFlushPending = false;
