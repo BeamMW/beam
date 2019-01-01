@@ -16,17 +16,30 @@
 
 #include "blake/sse/blake2.h"
 #include "utility/common.h"
+#include "core/block_crypt.h"
 
 #include <functional>
+
+namespace beamMiner
+{
+    class clHost;
+    class minerBridge;
+}
+    
 
 class EquihashGpu
 {
 public:
 
-    using IsValid = std::function<bool(const beam::ByteBuffer&)>;
+    using IsValid = std::function<bool(const beam::ByteBuffer&, const beam::Block::PoW::NonceType&)>;
     using Cancel = std::function<bool()>;
 
-    bool solve(const blake2b_state& state
+    EquihashGpu();
+
+    bool solve(const void* pInput, uint32_t nSizeInput
         , const IsValid& valid
         , const Cancel& cancel);
+private:
+    std::shared_ptr<beamMiner::clHost> m_Host;
+    std::shared_ptr<beamMiner::minerBridge> m_Bridge;
 };

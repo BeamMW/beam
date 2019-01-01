@@ -17,6 +17,8 @@
 #include "uint256.h"
 #include "arith_uint256.h"
 #include <utility>
+#include "utility/logger.h"
+#include <mutex>
 
 #if defined (BEAM_USE_GPU)
 #include "3rdparty/equihash_gpu.h"
@@ -53,35 +55,57 @@ struct Block::PoW::Helper
     bool Block::PoW::SolveGPU(const void* pInput, uint32_t nSizeInput, const Cancel& fnCancel)
     {
         Helper hlp;
-        EquihashGpu gpu;
+        static EquihashGpu gpu;
 
-        std::function<bool(const beam::ByteBuffer&)> fnValid = [this, &hlp](const beam::ByteBuffer& solution)
+        struct SolutionContext
+        {
+            beam::Block::PoW::NonceType foundNonce;
+            beam::ByteBuffer indices;
+            std::mutex mutex;
+        };
+        SolutionContext solutionContext;
+
+        auto fnValid = [this, &hlp, &solutionContext, pInput, nSizeInput](const beam::ByteBuffer& solution, const beam::Block::PoW::NonceType& nonce)
             {
-        	    if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
-        		    return false;
-        	    assert(solution.size() == m_Indices.size());
-                std::copy(solution.begin(), solution.end(), m_Indices.begin());
+                if (!hlp.TestDifficulty(&solution.front(), (uint32_t)solution.size(), m_Difficulty))
+                {
+                    //LOG_DEBUG() << std::this_thread::get_id() << "-=[GPU Miner]=- Difficulty is not reachable nonce: " << nonce << " Diff = " << m_Difficulty.ToFloat();
+                    return false;
+                }
+
+                {
+                    Helper hlp2_;
+                    hlp2_.Reset(pInput, nSizeInput, nonce);
+
+                    if (!hlp2_.m_Eh.IsValidSolution(hlp2_.m_Blake, solution))
+                    {
+                        LOG_WARNING() << "-=[GPU Miner]=- Invalid solution nonce: " << nonce;
+                        return false;
+                    }
+                }
+
+                std::unique_lock<std::mutex> lock(solutionContext.mutex);
+                solutionContext.foundNonce = nonce;
+                assert(solution.size() == m_Indices.size());
+                solutionContext.indices = solution;
                 return true;
             };
 
 
-        std::function<bool()> fnCancelInternal = [fnCancel]() {
+        std::function<bool()> fnCancelInternal = [fnCancel]()
+        {
             return fnCancel(false);
         };
 
-        while (true)
+        if (!gpu.solve(pInput, nSizeInput, fnValid, fnCancelInternal))
         {
-            hlp.Reset(pInput, nSizeInput, m_Nonce);
-
-            if (gpu.solve(hlp.m_Blake, fnValid, fnCancelInternal))
-                break;
-
-            if (fnCancel(true))
-        	    return false; // retry not allowed
-
-            m_Nonce.Inc();
+            return false;
         }
 
+        m_Nonce = solutionContext.foundNonce;
+        std::copy(solutionContext.indices.begin(), solutionContext.indices.end(), m_Indices.begin());
+
+        LOG_INFO() << "-=[GPU Miner]=- Solution found on GPU, nonce: " << m_Nonce;
         return true;
     }
 
@@ -93,7 +117,7 @@ bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, const Cancel& fn
 
 	std::function<bool(const beam::ByteBuffer&)> fnValid = [this, &hlp](const beam::ByteBuffer& solution)
 		{
-			if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
+    		if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
 				return false;
 			assert(solution.size() == m_Indices.size());
             std::copy(solution.begin(), solution.end(), m_Indices.begin());

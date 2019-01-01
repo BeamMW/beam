@@ -156,7 +156,11 @@ bool SettingsViewModel::showUseGpu() const
 bool SettingsViewModel::hasSupportedGpu()
 {
 #ifdef BEAM_USE_GPU
-    if (!HasSupportedCard())
+    if (!m_hasSupportedGpu.is_initialized())
+    {
+        m_hasSupportedGpu = HasSupportedCard();
+    }
+    if (*m_hasSupportedGpu == false)
     {
         setUseGpu(false);
         return false;

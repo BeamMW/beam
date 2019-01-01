@@ -262,6 +262,8 @@ public:
 	};
 #pragma pack (pop)
 
+	virtual void OnUtxoEvent(const UtxoEvent::Key&, const UtxoEvent::Value&) {}
+
 private:
 	size_t GenerateNewBlockInternal(BlockContext&);
 	void GenerateNewHdr(BlockContext&);

@@ -317,10 +317,15 @@ PeerManager::PeerInfo* PeerManager::OnPeer(const PeerID& id, const io::Address& 
 	bool bCreate = true;
 	PeerInfo* pRet = Find(id, bCreate);
 
-	if (bAddrVerified || !pRet->m_Addr.m_Value.empty() || (getTimestamp() - pRet->m_LastSeen > m_Cfg.m_TimeoutAddrChange_s))
+	if (bAddrVerified || pRet->m_Addr.m_Value.empty() || IsOutdated(*pRet))
 		ModifyAddr(*pRet, addr);
 
 	return pRet;
+}
+
+bool PeerManager::IsOutdated(const PeerInfo& pi) const
+{
+	return getTimestamp() - pi.m_LastSeen > m_Cfg.m_TimeoutAddrChange_s;
 }
 
 void PeerManager::Delete(PeerInfo& pi)

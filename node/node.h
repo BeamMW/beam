@@ -70,6 +70,8 @@ struct Node
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
 
+		bool m_LogUtxos = false; // may be insecure. Off by default.
+
 		// Number of verification threads for CPU-hungry cryptography. Currently used for block validation only.
 		// 0: single threaded
 		// negative: number of cores minus number of mining threads.
@@ -187,6 +189,7 @@ private:
 		bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) override;
 		void OnModified() override;
 		bool EnumViewerKeys(IKeyWalker&) override;
+		void OnUtxoEvent(const UtxoEvent::Key&, const UtxoEvent::Value&) override;
 
 		struct Verifier
 		{

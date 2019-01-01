@@ -677,6 +677,20 @@ bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
     return true;
 }
 
+void Node::Processor::OnUtxoEvent(const UtxoEvent::Key& key, const UtxoEvent::Value& evt)
+{
+	if (get_ParentObj().m_Cfg.m_LogUtxos)
+	{
+		ECC::Key::IDV kidv;
+		kidv = evt.m_Kidv;
+
+		Height h;
+		evt.m_Maturity.Export(h);
+
+		LOG_INFO() << "Utxo " << kidv << ", Maturity=" << h << ", Added=" << static_cast<uint32_t>(evt.m_Added);
+	}
+}
+
 void Node::Processor::OnFlushTimer()
 {
     m_bFlushPending = false;
@@ -977,6 +991,9 @@ Node::~Node()
             if (v.m_vThreads[i].joinable())
                 v.m_vThreads[i].join();
     }
+
+	if (!std::uncaught_exceptions())
+		m_PeerMan.OnFlush();
 
     LOG_INFO() << "Node stopped";
 }
@@ -1303,7 +1320,20 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 
         if (bIsError)
             m_This.m_PeerMan.OnRemoteError(*m_pInfo, ByeReason::Ban == nByeReason);
-    }
+
+		if (m_This.m_PeerMan.get_Ratings().size() > m_This.m_PeerMan.m_Cfg.m_DesiredTotal)
+		{
+			bool bDelete =
+				!m_pInfo->m_LastSeen || // never seen
+				((1 == m_pInfo->m_RawRating.m_Value) && m_This.m_PeerMan.IsOutdated(*m_pInfo)); // lowest rating, not seen for a while
+
+			if (bDelete)
+			{
+				LOG_INFO() << *m_pInfo << " Deleted";
+				m_This.m_PeerMan.Delete(*m_pInfo);
+			}
+		}
+	}
 
     if (m_This.m_pSync && (Flags::SyncPending & m_Flags))
     {

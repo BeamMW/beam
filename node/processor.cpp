@@ -538,10 +538,26 @@ bool NodeProcessor::HandleTreasury(const Blob& blob, bool bFirstTime)
 		return false;
 	}
 
-	if (bFirstTime && !td.IsValid())
+	if (bFirstTime)
 	{
-		LOG_WARNING() << "Treasury validation failed";
-		return false;
+		if (!td.IsValid())
+		{
+			LOG_WARNING() << "Treasury validation failed";
+			return false;
+		}
+
+		std::vector<Treasury::Data::Burst> vBursts = td.get_Bursts();
+
+		std::ostringstream os;
+		os << "Treasury check. Total bursts=" << vBursts.size();
+
+		for (size_t i = 0; i < vBursts.size(); i++)
+		{
+			const Treasury::Data::Burst& b = vBursts[i];
+			os << "\n\t" << "Height=" << b.m_Height << ", Value=" << b.m_Value;
+		}
+
+		LOG_INFO() << os.str();
 	}
 
 	for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
@@ -744,6 +760,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 
 			// In case of macroblock we can't recover the original input height.
 			m_DB.InsertEvent(hMax, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+			OnUtxoEvent(key, evt);
 		}
 	}
 
@@ -800,6 +817,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 
 			const UtxoEvent::Key& key = x.m_Commitment;
 			m_DB.InsertEvent(h, Blob(&w.m_Value, sizeof(w.m_Value)), Blob(&key, sizeof(key)));
+			OnUtxoEvent(key, w.m_Value);
 		}
 	}
 }
