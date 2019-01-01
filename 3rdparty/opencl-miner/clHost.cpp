@@ -355,8 +355,15 @@ void clHost::startMining()
 
 		}
 	}
+
+    cl::Event::waitForEvents(events);
 }
 
+
+clHost::~clHost()
+{
+    LOG_INFO() << "clHost::~clHost()";
+}
 
 } 	// end namespace
 

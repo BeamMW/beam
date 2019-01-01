@@ -28,11 +28,10 @@ namespace
     {
     public:
         WorkProvider(beamMiner::clHost& host)
-            : _input(nullptr)
-            , _sizeInput(0)
-            , _isSolutionFound(false)
+            : _isSolutionFound(false)
             , _host(host)
         {
+            _input.reserve(32);
             random_device rd;
             default_random_engine generator(rd());
             uniform_int_distribution<uint64_t> distribution(0, 0xFFFFFFFFFFFFFFFF);
@@ -47,11 +46,14 @@ namespace
 
         void setWork(const void* input, uint32_t sizeInput, const EquihashGpu::IsValid& valid, const EquihashGpu::Cancel& cancel)
         {
+            LOG_DEBUG() << "-=[GPU Miner]=- Set new GPU miner work";
             std::unique_lock<std::mutex> guard(_mutex);
-            _input = input;
-            _sizeInput = sizeInput;
+            auto *p = static_cast<const uint8_t*>(input);
+            _input.assign(p, p + sizeInput);
+
             _valid = valid;
             _cancel = cancel;
+            ++_workID;
             _isSolutionFound = false;
         }
 
@@ -71,14 +73,13 @@ namespace
         void getWork(int64_t* workOut, uint64_t* nonceOut, uint8_t* dataOut) override
         {
             std::unique_lock<std::mutex> guard(_mutex);
-            if (_input == nullptr || _sizeInput == 0)
+            if (_input.empty())
             {
                 return;
             }
-            *workOut = 1;
+            *workOut = _workID;
             *nonceOut = _nonce.fetch_add(1);
-             
-            memcpy(dataOut, _input, _sizeInput);
+            memcpy(dataOut, &_input[0], _input.size());
         }
 
         void handleSolution(int64_t &workId, uint64_t &nonce, std::vector<uint32_t> &indices) override
@@ -92,8 +93,11 @@ namespace
                 return;
             }
 
-            if (_isSolutionFound)
+            if (workId != _workID
+                || _isSolutionFound)
+            {
                 return;
+            }
 
             auto compressed = GetMinimalFromIndices(indices, 25);
  
@@ -108,9 +112,10 @@ namespace
 
     private:
         std::atomic<uint64_t> _nonce;
+        int64_t _workID = 0;
         mutable std::mutex _mutex;
-        const void* _input;
-        uint32_t _sizeInput;
+        beam::ByteBuffer _input;
+        
         EquihashGpu::IsValid _valid;
         EquihashGpu::Cancel _cancel;
         bool _isSolutionFound;
@@ -126,7 +131,7 @@ EquihashGpu::EquihashGpu()
     , m_Bridge(new WorkProvider(*m_Host.get()))
 {
     std::vector<int32_t> devices;
-
+   // devices.push_back(2);
     {
         if (devices.size() == 0) devices.assign(1, -1);
         sort(devices.begin(), devices.end());

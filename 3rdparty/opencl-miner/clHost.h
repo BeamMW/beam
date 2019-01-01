@@ -83,6 +83,7 @@ class clHost {
 	void startMining();	
     void stopMining();
 	void callbackFunc(cl_int, void*);
+    ~clHost();
 };
 
 }
