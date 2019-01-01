@@ -78,7 +78,7 @@ struct Block::PoW::Helper
 
                     if (!hlp2_.m_Eh.IsValidSolution(hlp2_.m_Blake, solution))
                     {
-                        LOG_DEBUG() << "-=[GPU Miner]=- Invalid solution nonce: " << nonce;
+                        LOG_WARNING() << "-=[GPU Miner]=- Invalid solution nonce: " << nonce;
                         return false;
                     }
                 }
@@ -111,7 +111,7 @@ struct Block::PoW::Helper
         m_Nonce = solutionContext.foundNonce;
         std::copy(solutionContext.indices.begin(), solutionContext.indices.end(), m_Indices.begin());
 
-        LOG_DEBUG() << "-=[GPU Miner]=- Solution found on GPU, nonce: " << m_Nonce;
+        LOG_INFO() << "-=[GPU Miner]=- Solution found on GPU, nonce: " << m_Nonce;
         return true;
     }
 

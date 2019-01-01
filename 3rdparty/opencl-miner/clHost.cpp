@@ -332,13 +332,14 @@ void clHost::startMining()
 		this_thread::sleep_for(std::chrono::seconds(15));
 
 		// Print performance stats (roughly)
-		LOG_INFO() << "Performance: ";
-		for (uint32_t i=0; i<devices.size(); i++) {
-			uint32_t sol = solutionCnt[i];
-			solutionCnt[i] = 0;
-			LOG_INFO() << fixed << setprecision(2) << (double) sol / 15.0 << " sol/s ";			
-			
-		}		
+        stringstream ss;
+		
+        for (uint32_t i = 0; i < devices.size(); i++) {
+            uint32_t sol = solutionCnt[i];
+            solutionCnt[i] = 0;
+            ss << fixed << setprecision(2) << (double)sol / 15.0 << " sol/s ";
+        }
+        LOG_INFO() << "Performance: " << ss.str();
 
 		// Check if there are paused devices and restart them
 		for (uint32_t i=0; i<devices.size(); i++) {
