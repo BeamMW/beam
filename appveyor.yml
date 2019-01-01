@@ -9,7 +9,7 @@ environment:
   BUILD_CONFIG: RelWithDebInfo
   matrix:
     - USE_GPU: On
-      GPU_FOLDER: gpu
+      GPU_FOLDER: /gpu
     - USE_GPU: Off
       GPU_FOLDER: /
 
