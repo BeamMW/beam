@@ -139,7 +139,7 @@ namespace beam {
 		void Ban(PeerInfo&);
 		void OnSeen(PeerInfo&);
 		void OnRemoteError(PeerInfo&, bool bShouldBan);
-
+		bool IsOutdated(const PeerInfo&) const;
 		void ModifyAddr(PeerInfo&, const io::Address&);
 		void RemoveAddr(PeerInfo&);
 
