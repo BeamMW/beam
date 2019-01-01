@@ -1304,12 +1304,17 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
         if (bIsError)
             m_This.m_PeerMan.OnRemoteError(*m_pInfo, ByeReason::Ban == nByeReason);
 
-		if ((1 == m_pInfo->m_RawRating.m_Value) &&
-			m_This.m_PeerMan.IsOutdated(*m_pInfo) &&
-			(m_This.m_PeerMan.get_Ratings().size() > m_This.m_PeerMan.m_Cfg.m_DesiredTotal))
+		if (m_This.m_PeerMan.get_Ratings().size() > m_This.m_PeerMan.m_Cfg.m_DesiredTotal)
 		{
-			LOG_INFO() << *m_pInfo << " Deleted";
-			m_This.m_PeerMan.Delete(*m_pInfo);
+			bool bDelete =
+				!m_pInfo->m_LastSeen || // never seen
+				((1 == m_pInfo->m_RawRating.m_Value) && m_This.m_PeerMan.IsOutdated(*m_pInfo)); // lowest rating, not seen for a while
+
+			if (bDelete)
+			{
+				LOG_INFO() << *m_pInfo << " Deleted";
+				m_This.m_PeerMan.Delete(*m_pInfo);
+			}
 		}
 	}
 
