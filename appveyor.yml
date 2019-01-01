@@ -9,24 +9,21 @@ environment:
   BUILD_CONFIG: RelWithDebInfo
   matrix:
     - USE_GPU: On
-      GPU_FOLDER: "gpu"
+      GPU_FOLDER: gpu
     - USE_GPU: Off
-      GPU_FOLDER: ""
+      GPU_FOLDER: /
 
 for:
   - 
     matrix:
       only:
         - USE_GPU: On
-    before_build:
+    install:
       - cmd: appveyor DownloadFile https://developer.nvidia.com/compute/cuda/10.0/Prod/local_installers/cuda_10.0.130_411.31_win10 -FileName cuda.exe    
       - cmd: cuda.exe -s nvcc_10.0 nvprune_10.0 cublas_dev_10.0 cufft_dev_10.0 curand_dev_10.0 cusolver_dev_10.0 cusparse_dev_10.0 nvgraph_dev_10.0 npp_dev_10.0 nvrtc_dev_10.0 nvml_dev_10.0
       - cmd: set PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v10.0\bin;%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v10.0\libnvvp;%PATH%
       - cmd: appveyor DownloadFile "http://registrationcenter-download.intel.com/akdlm/irc_nas/vcp/13794/opencl_runtime_18.1_x64_setup.msi"
       - cmd: start /wait msiexec /i opencl_runtime_18.1_x64_setup.msi /qn  /l*v msiexec2.log
-      - cmd: git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
-      - cmd: git clone --depth=1 https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
-      - cmd: cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=%APPVEYOR_REPO_BRANCH% -DBEAM_USE_GPU=On -DBEAM_BUILD_JNI=On
 
 before_build:
   - cmd: git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
@@ -134,7 +131,7 @@ deploy:
   region: us-west-2
   unzip: false
   set_public: true
-  folder: "%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win/%GPU_FOLDER%"
+  folder: "%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win%GPU_FOLDER%"
   artifact: BeamMinerClient, BeamPdb, BeamPack, BeamWalletApi, BeamWalletCli, BeamNode, BeamWallet
 
 
