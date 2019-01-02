@@ -92,7 +92,6 @@ namespace
 
     private:
         SolutionCallback _solutionCallback;
-        Job* _job;
         bool _stopped;
         vector<uint8_t> _input;
         atomic<uint64_t> _nonce;
