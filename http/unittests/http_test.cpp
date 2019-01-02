@@ -91,8 +91,8 @@ private:
             }
         }
 
-        static const HeaderPair headers[] = {
-            {"Server", "DummyHttpServer"},
+        const HeaderPair headers[] = {
+            {"Server", "DummyHttpServer" },
             {"Host", msg.msg->get_header("host").c_str() }
         };
 

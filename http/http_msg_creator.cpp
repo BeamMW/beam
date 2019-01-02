@@ -57,8 +57,11 @@ bool create_message(
     for (size_t i=0; i<num_headers; ++i) {
         const HeaderPair& p = headers[i];
         assert(p.head);
+        if (!p.head) return false;
         if (!p.is_number) {
             assert(p.content_str);
+            if (!p.content_str) return false;
+
             if (!write_fmt(fw, "%s: %s\r\n", p.head, p.content_str)) return false;
         } else {
             if (!write_fmt(fw, "%s: %lu\r\n", p.head, p.content_num)) return false;
@@ -67,6 +70,8 @@ bool create_message(
 
     if (bodySize > 0) {
         assert(content_type != nullptr);
+        if (!content_type) return false;
+
         if (!write_fmt(fw, "%s: %s\r\n", "Content-Type", content_type)) return false;
         if (!write_fmt(fw, "%s: %lu\r\n", "Content-Length", (unsigned long)bodySize)) return false;
     }
@@ -92,6 +97,8 @@ bool HttpMsgCreator::create_request(
 
     assert(method != nullptr);
     assert(path != nullptr);
+    if (!method || !path) return false;
+
     if (!write_fmt(_fragmentWriter, "%s %s HTTP/1.%d\r\n", method, path, http_minor_version)) return false;
 
     return create_message(_fragmentWriter, headers, num_headers, content_type, bodySize);
@@ -109,6 +116,8 @@ bool HttpMsgCreator::create_response(
     CurrentOutput co(out, &_currentMsg);
 
     assert(message != nullptr);
+    if (!message) return false;
+
     if (!write_fmt(_fragmentWriter, "HTTP/1.%d %d %s\r\n", http_minor_version, code, message)) return false;
 
     return create_message(_fragmentWriter, headers, num_headers, content_type, bodySize);
