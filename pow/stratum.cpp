@@ -24,7 +24,7 @@ namespace beam::stratum {
 
 static const std::string method_strings[] = {
 #define METHOD_STR(_, M, __) std::string(#M),
-    STRATUM_METHODS(METHOD_STR)
+STRATUM_METHODS(METHOD_STR)
 #undef METHOD_STR
 };
 
@@ -45,9 +45,9 @@ std::string get_result_msg(int code) {
     if (code == 0) return std::string();
     switch (code) {
 #define R_MESSAGE(code, _, message) case code: return message;
-        STRATUM_RESULTS(R_MESSAGE)
+    STRATUM_RESULTS(R_MESSAGE)
 #undef R_MESSAGE
-        default: break;
+    default: break;
     }
     return "unknown";
 }
@@ -55,17 +55,17 @@ std::string get_result_msg(int code) {
 namespace {
 
 #define DEF_LABEL(label) static const std::string l_##label (#label)
-    DEF_LABEL(jsonrpc);
-    DEF_LABEL(id);
-    DEF_LABEL(method);
-    DEF_LABEL(description);
-    DEF_LABEL(code);
-    DEF_LABEL(message);
-    DEF_LABEL(api_key);
-    DEF_LABEL(input);
-    DEF_LABEL(difficulty);
-    DEF_LABEL(nonce);
-    DEF_LABEL(output);
+DEF_LABEL(jsonrpc);
+DEF_LABEL(id);
+DEF_LABEL(method);
+DEF_LABEL(description);
+DEF_LABEL(code);
+DEF_LABEL(message);
+DEF_LABEL(api_key);
+DEF_LABEL(input);
+DEF_LABEL(difficulty);
+DEF_LABEL(nonce);
+DEF_LABEL(output);
 #undef DEF_LABEL
 
 ResultCode parse_json(const void* buf, size_t bufSize, json& o) {
@@ -87,11 +87,16 @@ void append_base(json& o, const Message& m) {
 }
 
 ResultCode parse_base(const json& o, Message& m) {
-    m.id = o[l_id];
-    if (m.id.empty()) return empty_id;
-    m.method_str = o[l_method];
-    m.method = get_method(m.method_str);
-    if (m.method == 0) return unknown_method;
+    try {
+        m.id = o[l_id];
+        if (m.id.empty()) return empty_id;
+        m.method_str = o[l_method];
+        m.method = get_method(m.method_str);
+        if (m.method == 0) return unknown_method;
+    } catch (const std::exception& e) {
+        LOG_ERROR() << "json parse: " << e.what();
+        return message_corrupted;
+    }
     return no_error;
 }
 
@@ -137,8 +142,8 @@ template <typename M> ResultCode parse_json_msg(const void* buf, size_t bufSize,
 }
 
 Job::Job(const std::string& _id, const Merkle::Hash& _input, const Block::PoW& _pow) :
-    Message(_id, job),
-    difficulty(_pow.m_Difficulty.m_Packed)
+Message(_id, job),
+difficulty(_pow.m_Difficulty.m_Packed)
 {
     char buf[72];
     input = to_hex(buf, _input.m_pData, 32);
@@ -159,7 +164,7 @@ bool append_json_msg(io::FragmentWriter& packer, const Cancel& m) {
 }
 
 Solution::Solution(const std::string& _id, const Block::PoW& _pow) :
-    Message(_id, solution)
+Message(_id, solution)
 {
     char buf[Block::PoW::nSolutionBytes * 2 + 1];
     nonce = to_hex(buf, _pow.m_Nonce.m_pData, Block::PoW::NonceType::nBytes);
@@ -227,14 +232,16 @@ bool parse_json_msg(const void* buf, size_t bufSize, ParserCallback& callback) {
     r = parse_base(o, m);
     if (r != 0) return false;
 
-    switch (m.method) {
+    try {
+        switch (m.method) {
 #define DEF_PARSE_IMPL(_, method_name, struct_name) case method_name: { return parse<struct_name>(o, m, callback); }
-    STRATUM_METHODS(DEF_PARSE_IMPL)
+        STRATUM_METHODS(DEF_PARSE_IMPL)
 #undef DEF_PARSE_IMPL
-        default:
-            break;
+        default:break;
+        }
+    } catch (const std::exception& e) {
+        LOG_ERROR() << "json parse: " << e.what();
     }
-
     return false;
 }
 
