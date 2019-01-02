@@ -91,6 +91,7 @@ QString UtxoItem::type() const
     case Key::Type::Coinbase: return tr("Coinbase");
     case Key::Type::Regular: return tr("Regular");
     case Key::Type::Change: return tr("Change");
+    case Key::Type::Treasury: return tr("Treasury");
     }
 
     return FourCC::Text(_coin.m_ID.m_Type).m_sz;

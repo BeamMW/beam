@@ -182,7 +182,7 @@ namespace beam
 
 			Key::IDV kidv(Zero);
 			kidv.m_Idx = nIndex++;
-			kidv.m_Type = FOURCC_FROM(Tres);
+			kidv.m_Type = Key::Type::Treasury;
 			kidv.m_Value = c0.m_Value;
 
 			c.m_pOutput->Create(sk, kdf, kidv, kdf);
