@@ -51,9 +51,6 @@ public:
     QStringList getLocalNodePeers() const;
     void setLocalNodePeers(const QStringList& qPeers);
 
-    bool getLocalNodeSynchronized() const;
-    void setLocalNodeSynchronized(bool value);
-
 #ifdef BEAM_USE_GPU
     bool getUseGpu() const;
     void setUseGpu(bool value);
