@@ -34,14 +34,13 @@ namespace
         beam::IExternalPOW::BlockFound callback;
     };
 
-    using SolutionCallback = function<void(Job*)>;
+    using SolutionCallback = function<void(Job&& job)>;
 
     class WorkProvider : public beamMiner::minerBridge
     {
     public:
         WorkProvider(SolutionCallback&& solutionCallback)
             : _solutionCallback(move(solutionCallback))
-            , _job{nullptr}
             , _stopped(false)
         {
             ECC::GenRandom(&_nonce, 8);
@@ -51,10 +50,12 @@ namespace
 
         }
 
-        void feedJob(Job* job)
+        void feedJob(const Job& job)
         {
             unique_lock<mutex> guard(_mutex);
-            _job = job;
+            _input.assign(job.input.m_pData, job.input.m_pData + job.input.nBytes);
+            _workID = stoll(job.jobID);
+            _difficulty = job.pow.m_Difficulty.m_Packed;
         }
 
         void stop()
@@ -65,40 +66,38 @@ namespace
 
         bool hasWork() override
         {
-            return _job;
+            unique_lock<mutex> guard(_mutex);
+            return !_input.empty();
         }
 
-        void getWork(int64_t* workOut, uint64_t* nonceOut, uint8_t* dataOut) override
+        void getWork(int64_t* workOut, uint64_t* nonceOut, uint8_t* dataOut, uint32_t* difficulty) override
         {
             unique_lock<mutex> guard(_mutex);
-            *workOut = stoll(_job->jobID);
+            *workOut = _workID;
             *nonceOut = _nonce.fetch_add(1);
-            memcpy(dataOut, _job->input.m_pData, _job->input.nBytes);
+            *difficulty = _difficulty;
+            copy_n(&_input[0], _input.size(), dataOut);
         }
 
-        void handleSolution(int64_t &workId, uint64_t &nonce, vector<uint32_t> &indices) override
+        void handleSolution(int64_t &workId, uint64_t &nonce, vector<uint32_t> &indices, uint32_t difficulty) override
         {
-            {
-                unique_lock<mutex> guard(_mutex);
-                if (stoll(_job->jobID) != workId)
-                {
-                    return;
-                }
-
-                auto compressed = GetMinimalFromIndices(indices, 25);
-                copy(compressed.begin(), compressed.end(), _job->pow.m_Indices.begin());
-                beam::Block::PoW::NonceType t((const uint8_t*)&nonce);
-                _job->pow.m_Nonce = t;
-            }
-            _solutionCallback(_job);
-
+            Job job;
+            auto compressed = GetMinimalFromIndices(indices, 25);
+            copy(compressed.begin(), compressed.end(), job.pow.m_Indices.begin());
+            beam::Block::PoW::NonceType t((const uint8_t*)&nonce);
+            job.pow.m_Nonce = t;
+            job.pow.m_Difficulty = beam::Difficulty(difficulty);
+            _solutionCallback(move(job));
         }
 
     private:
         SolutionCallback _solutionCallback;
         Job* _job;
         bool _stopped;
+        vector<uint8_t> _input;
         atomic<uint64_t> _nonce;
+        uint32_t _difficulty;
+        int64_t _workID = 0;
         mutable mutex _mutex;
     };
 }
@@ -108,14 +107,13 @@ namespace beam {
     class OpenCLMiner : public IExternalPOW
     {
     public:
-        OpenCLMiner() 
+        OpenCLMiner()
             : _changed(false)
             , _stop(false)
             , _workProvider(BIND_THIS_MEMFN(on_solution))
-            , _solutionFound(false)
         {
             _thread.start(BIND_THIS_MEMFN(thread_func));
-           // _minerThread.start(BIND_THIS_MEMFN(run_miner));
+            _minerThread.start(BIND_THIS_MEMFN(run_miner));
         }
 
         ~OpenCLMiner() override 
@@ -146,7 +144,7 @@ namespace beam {
                 _currentJob.pow = pow;
                 _currentJob.callback = callback;
                 _changed = true;
-                _workProvider.feedJob(&_currentJob);
+                _workProvider.feedJob(_currentJob);
             }
             _cond.notify_one();
         }
@@ -184,48 +182,39 @@ namespace beam {
 
         void thread_func()
         {
-            Job job;
-            Merkle::Hash hv;
-
-            // auto cancelFn = [this, &job](bool)->bool {
-            //     if (_changed.load()) {
-            //         LOG_INFO() << "job id=" << job.jobID << " cancelled";
-            //         return true;
-            //     }
-            //     return false;
-            // };
-
             while (true)
             {
-                
+                vector<Job> jobs;
                 {
                     unique_lock<mutex> lock(_mutex);
 
-                    _cond.wait(lock, [this] { return _solutionFound || _stop; });
+                    _cond.wait(lock, [this] { return !_solvedJobs.empty() || _stop; });
                     if (_stop)
                     {
                         return;
                     }
-
-                    _solutionFound = false;
-                    job = _currentJob;
-
+                    swap(jobs, _solvedJobs);
+                }
+                for (const auto& job : jobs)
+                {
                     if (!TestDifficulty(&job.pow.m_Indices[0], (uint32_t)job.pow.m_Indices.size(), job.pow.m_Difficulty))
                     {
                         continue;
                     }
-                     
-                    _lastFoundBlock = job.pow;
-                    _lastFoundBlockID = job.jobID;
+                    {
+                        unique_lock<mutex> lock(_mutex);
+                        _lastFoundBlock = job.pow;
+                        _lastFoundBlockID = job.jobID;
+                    }
+                    job.callback();
                 }
-                job.callback();
             }
         }
 
         void run_miner()
         {
             // TODO: we should use onle selected video cards
-            vector<int32_t> devices{ -1 };
+            vector<int32_t> devices { -1 };
             bool cpuMine = false;
 
             LOG_DEBUG() << "runOpenclMiner()";
@@ -251,11 +240,11 @@ namespace beam {
             _ClHost.startMining();
         }
 
-        void on_solution(Job* job)
+        void on_solution(Job&& job)
         {
             {
                 unique_lock<mutex> lock(_mutex);
-                _solutionFound = true;
+                _solvedJobs.push_back(move(job));
             }
             _cond.notify_one();
         }
@@ -273,10 +262,12 @@ namespace beam {
         condition_variable _cond;
         WorkProvider _workProvider;
         beamMiner::clHost _ClHost;
-        bool _solutionFound;
+        vector<Job> _solvedJobs;
+        
     };
 
-    unique_ptr<IExternalPOW> IExternalPOW::create_opencl_solver() {
+    unique_ptr<IExternalPOW> IExternalPOW::create_opencl_solver()
+    {
         return make_unique<OpenCLMiner>();
     }
 

@@ -236,7 +236,7 @@ bool beamStratum::hasWork() {
 
 
 // function the clHost class uses to fetch new work
-void beamStratum::getWork(int64_t* workOut, uint64_t* nonceOut, uint8_t* dataOut) {
+void beamStratum::getWork(int64_t* workOut, uint64_t* nonceOut, uint8_t* dataOut, uint32_t*) {
 	*workOut = workId;
 
 	// nonce is atomic, so every time we call this will get a nonce increased by one
@@ -370,7 +370,7 @@ void beamStratum::testAndSubmit(int64_t wId, uint64_t nonceIn, vector<uint32_t> 
 
 
 // Will be called by clHost class for check & submit
-void beamStratum::handleSolution(int64_t &workIdVar, uint64_t &nonceVar, vector<uint32_t> &indices) {
+void beamStratum::handleSolution(int64_t &workIdVar, uint64_t &nonceVar, vector<uint32_t> &indices, uint32_t) {
 	std::thread (&beamStratum::testAndSubmit,this, workIdVar, nonceVar,indices).detach();
 }
 

@@ -207,14 +207,17 @@ void clHost::setup(minerBridge* br, vector<int32_t> devSel,  bool allowCPU) {
 // Function that will catch new work from the stratum interface and then queue the work on the device
 void clHost::queueKernels(uint32_t gpuIndex, clCallbackData* workData) {
 	int64_t id;
+    uint32_t difficulty;
 	cl_ulong4 work;	
 	cl_ulong nonce;
 
 	// Get a new set of work from the stratum interface
-	bridge->getWork(&id,(uint64_t *) &nonce, (uint8_t *) &work);
+	bridge->getWork(&id,(uint64_t *) &nonce, (uint8_t *) &work, &difficulty);
 
 	workData->workId = id;
 	workData->nonce = (uint64_t) nonce;
+    workData->difficulty = difficulty;
+
 
 	// Kernel arguments for cleanCounter
 	kernels[gpuIndex][0].setArg(0, buffers[gpuIndex][5]); 
@@ -288,7 +291,7 @@ void clHost::callbackFunc(cl_int err , void* data){
 		indexes.assign(32,0);
 		memcpy(indexes.data(), &results[gpu][4 + 32*i], sizeof(uint32_t) * 32);
 
-		bridge->handleSolution(workInfo->workId,workInfo->nonce,indexes);
+		bridge->handleSolution(workInfo->workId,workInfo->nonce,indexes, workInfo->difficulty);
 	}
 
 	solutionCnt[gpu] += solutions;
