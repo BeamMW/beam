@@ -60,18 +60,18 @@ namespace
         "13.52.91.89:8100",
         "54.177.6.19:8100"
  #else
-    "eu-node01.mainnet.beam.mw",
-    "eu-node02.mainnet.beam.mw",
-    "eu-node03.mainnet.beam.mw",
-    "eu-node04.mainnet.beam.mw",
-    "us-node01.mainnet.beam.mw",
-    "us-node02.mainnet.beam.mw",
-    "us-node03.mainnet.beam.mw",
-    "us-node04.mainnet.beam.mw",
-    "ap-node01.mainnet.beam.mw",
-    "ap-node02.mainnet.beam.mw",
-    "ap-node03.mainnet.beam.mw",
-    "ap-node04.mainnet.beam.mw"
+    "eu-node01.mainnet.beam.mw:8100",
+    "eu-node02.mainnet.beam.mw:8100",
+    "eu-node03.mainnet.beam.mw:8100",
+    "eu-node04.mainnet.beam.mw:8100",
+    "us-node01.mainnet.beam.mw:8100",
+    "us-node02.mainnet.beam.mw:8100",
+    "us-node03.mainnet.beam.mw:8100",
+    "us-node04.mainnet.beam.mw:8100",
+    "ap-node01.mainnet.beam.mw:8100",
+    "ap-node02.mainnet.beam.mw:8100",
+    "ap-node03.mainnet.beam.mw:8100",
+    "ap-node04.mainnet.beam.mw:8100"
 #endif
     };
 
