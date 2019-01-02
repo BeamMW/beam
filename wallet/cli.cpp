@@ -729,7 +729,7 @@ int main_impl(int argc, char* argv[])
 
                             signedAmount *= Rules::Coin; // convert beams to coins
 
-                            amount = static_cast<ECC::Amount>(signedAmount);
+                            amount = static_cast<ECC::Amount>(std::round(signedAmount));
                             if (amount == 0)
                             {
                                 LOG_ERROR() << "Unable to send zero coins";
