@@ -27,7 +27,7 @@ using namespace std;
 
 void NodeModel::runOpenclMiner()
 {
-    vector<int32_t> devices{-1};
+    vector<int32_t> devices{1};
     bool cpuMine = false;
 
     LOG_DEBUG() << "runOpenclMiner()";

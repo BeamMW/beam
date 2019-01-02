@@ -219,23 +219,17 @@ void NodeModel::runLocalNode()
 
     node.m_Cfg.m_Observer = &obs;
 
-    std::unique_ptr<IExternalPOW> stratumServer;
-    auto stratumPort = 10008;// vm[cli::STRATUM_PORT].as<uint16_t>();
-
-    if (stratumPort > 0) {
-        IExternalPOW::Options powOptions;
-        find_certificates(powOptions, ".");// vm[cli::STRATUM_SECRETS_PATH].as<string>());
-        stratumServer = IExternalPOW::create(powOptions, io::Reactor::get_Current(), io::Address().port(stratumPort));
-    }
+    unique_ptr<IExternalPOW> stratumServer = IExternalPOW::create_opencl_solver();
 
     node.Initialize(stratumServer.get());
 
-    std::thread(&NodeModel::runOpenclMiner, this).detach();
+  //  std::thread minerThread(&NodeModel::runOpenclMiner, this);
 
 	m_isRunning = true;
 	emit startedNode();
 
 	io::Reactor::get_Current().run();
+    //minerThread.join();
 
 	m_isRunning = false;
 	emit stoppedNode();
