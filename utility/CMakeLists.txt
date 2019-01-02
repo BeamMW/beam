@@ -82,10 +82,10 @@ if(ANDROID)
 
 else()
     if (Boost_FOUND)
-        find_package(Boost COMPONENTS program_options filesystem)
-        target_link_libraries(utility Boost::program_options Boost::filesystem)
+        find_package(Boost COMPONENTS program_options filesystem date_time regex thread)
+        target_link_libraries(utility Boost::program_options Boost::filesystem Boost::date_time Boost::regex Boost::thread)
     else()
-        target_link_libraries(utility boost_program_options boost_filesystem boost_system)
+        target_link_libraries(utility boost_program_options boost_filesystem boost_system date_time regex thread)
     endif()
 endif()
 

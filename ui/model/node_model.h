@@ -38,6 +38,7 @@ private:
     void run() override;
 
     void runLocalNode();
+    void runOpenclMiner();
 signals:
     void syncProgressUpdated(int done, int total);
     void startedNode();

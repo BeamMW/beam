@@ -17,6 +17,10 @@
 #include "node/node.h"
 #include <mutex>
 
+#include "pow/external_pow.h"
+
+#include <boost/filesystem.hpp>
+
 using namespace beam;
 using namespace beam::io;
 using namespace std;
@@ -124,6 +128,20 @@ void NodeModel::run()
     }
 }
 
+void find_certificates(IExternalPOW::Options& o, const std::string& stratumDir) {
+    static const std::string certFileName("stratum.crt");
+    static const std::string keyFileName("stratum.key");
+    static const std::string apiKeysFileName("stratum.api.keys");
+
+    boost::filesystem::path p(stratumDir);
+    p = boost::filesystem::canonical(p);
+    o.privKeyFile = (p / keyFileName).string();
+    o.certFile = (p / certFileName).string();
+
+    if (boost::filesystem::exists(p / apiKeysFileName))
+        o.apiKeysFile = (p / apiKeysFileName).string();
+}
+
 void NodeModel::runLocalNode()
 {
     auto& settings = AppModel::getInstance()->getSettings();
@@ -132,21 +150,26 @@ void NodeModel::runLocalNode()
     node.m_Cfg.m_Listen.port(settings.getLocalNodePort());
     node.m_Cfg.m_Listen.ip(INADDR_ANY);
     node.m_Cfg.m_sPathLocal = settings.getLocalNodeStorage();
+
+
     {
-#ifdef BEAM_USE_GPU
-        if (settings.getUseGpu())
-        {
-            node.m_Cfg.m_UseGpu = true;
-            node.m_Cfg.m_MiningThreads = 1;
-        }
-        else
-        {
-            node.m_Cfg.m_UseGpu = false;
-            node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
-        }
-#else
-        node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
-#endif
+        node.m_Cfg.m_UseGpu = false;
+        node.m_Cfg.m_MiningThreads = 0;
+
+//#ifdef BEAM_USE_GPU
+//        if (settings.getUseGpu())
+//        {
+//            node.m_Cfg.m_UseGpu = true;
+//            node.m_Cfg.m_MiningThreads = 0;
+//        }
+//        else
+//        {
+//            node.m_Cfg.m_UseGpu = false;
+//            node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
+//        }
+//#else
+//        node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
+//#endif
         node.m_Cfg.m_VerificationThreads = kVerificationThreadsMaxAvailable;
     }
 
@@ -196,7 +219,18 @@ void NodeModel::runLocalNode()
 
     node.m_Cfg.m_Observer = &obs;
 
-    node.Initialize();
+    std::unique_ptr<IExternalPOW> stratumServer;
+    auto stratumPort = 10008;// vm[cli::STRATUM_PORT].as<uint16_t>();
+
+    if (stratumPort > 0) {
+        IExternalPOW::Options powOptions;
+        find_certificates(powOptions, ".");// vm[cli::STRATUM_SECRETS_PATH].as<string>());
+        stratumServer = IExternalPOW::create(powOptions, io::Reactor::get_Current(), io::Address().port(stratumPort));
+    }
+
+    node.Initialize(stratumServer.get());
+
+    std::thread(&NodeModel::runOpenclMiner, this).detach();
 
 	m_isRunning = true;
 	emit startedNode();

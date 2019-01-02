@@ -73,6 +73,9 @@ set(UI_SRC
 	model/messages.cpp
 	model/node_model.h
 	model/node_model.cpp
+    model/node_model_opencl.cpp
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/../3rdparty/opencl-miner/beamStratum.cpp
 )
 
 if(WIN32)
@@ -96,6 +99,8 @@ if(BEAM_USE_GPU)
     target_link_libraries(${TARGET_NAME} gpu_tools)
 endif()
 
+target_compile_definitions(${TARGET_NAME} PRIVATE _SILENCE_CXX17_ALLOCATOR_VOID_DEPRECATION_WARNING)
+
 if(LINUX)
 	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()
@@ -110,8 +115,8 @@ target_link_libraries(${TARGET_NAME} quazip_static)
 
 #if (BEAM_WALLET_WITH_NODE)
 	add_definitions(-DBEAM_WALLET_WITH_NODE)
-	add_dependencies(${TARGET_NAME} node)
-	target_link_libraries(${TARGET_NAME} node)
+	add_dependencies(${TARGET_NAME} node external_pow)
+	target_link_libraries(${TARGET_NAME} node external_pow)
 #endif()
 
 target_link_libraries(${TARGET_NAME} wallet mnemonic Qt5::Qml Qt5::Quick Qt5::Svg Qt5::PrintSupport)
