@@ -46,10 +46,6 @@ struct Node
 		std::string m_sPathLocal;
 		NodeProcessor::Horizon m_Horizon;
 
-#if defined(BEAM_USE_GPU)
-		bool m_UseGpu;
-#endif
-
 		struct Timeout {
 			uint32_t m_GetState_ms	= 1000 * 5;
 			uint32_t m_GetBlock_ms	= 1000 * 30;

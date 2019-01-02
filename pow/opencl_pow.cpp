@@ -41,15 +41,10 @@ namespace
     {
     public:
         WorkProvider(beam::IExternalPOW& externalPow, SolutionCallback&& solutionCallback)
-            : //_isSolutionFound(false)
-            //, 
-            
-            _externalPow(externalPow)
+            : _externalPow(externalPow)
             , _solutionCallback(move(solutionCallback))
             , _job{nullptr}
-           // , _host(host)
         {
-         //   _input.reserve(32);
             random_device rd;
             default_random_engine generator(rd());
             uniform_int_distribution<uint64_t> distribution(0, 0xFFFFFFFFFFFFFFFF);
@@ -62,36 +57,15 @@ namespace
 
         }
 
- /*       void setWork(const void* input, uint32_t sizeInput, const EquihashGpu::IsValid& valid, const EquihashGpu::Cancel& cancel)
-        {
-            LOG_DEBUG() << "-=[GPU Miner]=- Set new GPU miner work";
-            unique_lock<mutex> guard(_mutex);
-            auto *p = static_cast<const uint8_t*>(input);
-            _input.assign(p, p + sizeInput);
-
-            _valid = valid;
-            _cancel = cancel;
-            ++_workID;
-            _isSolutionFound = false;
-        }*/
-
-        //bool isSolutionFound() const
-        //{
-        //    unique_lock<mutex> guard(_mutex);
-        //    return _isSolutionFound;
-        //}
-
         void feedJob(Job* job)
         {
             unique_lock<mutex> guard(_mutex);
             _job = job;
         }
 
-    private:
-
         bool hasWork() override
         {
-            return _job;// !isSolutionFound();
+            return _job;
         }
 
         void getWork(int64_t* workOut, uint64_t* nonceOut, uint8_t* dataOut) override
@@ -121,16 +95,10 @@ namespace
 
     private:
         atomic<uint64_t> _nonce;
-          mutable mutex _mutex;
-      //  beam::ByteBuffer _input;
+        mutable mutex _mutex;
         Job* _job;
-     //   EquihashGpu::IsValid _valid;
-    //    EquihashGpu::Cancel _cancel;
         bool _isSolutionFound;
-      //  vector<uint8_t> _compressedIndices;
-     //   beam::Block::PoW::NonceType _foundNonce;
         beam::IExternalPOW& _externalPow;
-     //   beamMiner::clHost& _host;
         SolutionCallback _solutionCallback;
     };
 }
@@ -138,7 +106,6 @@ namespace
 namespace beam {
 
     class OpenCLMiner : public IExternalPOW
-                     // , public beamMiner::minerBridge
     {
     public:
         OpenCLMiner() 
@@ -260,42 +227,27 @@ namespace beam {
                 }
                 job.callback();
             }
-
-            //while (get_new_job(job)) {
-            //    LOG_INFO() << "solving job id=" << job.jobID
-            //        << " with nonce=" << job.pow.m_Nonce << " and difficulty=" << job.pow.m_Difficulty;
-            //    _workProvider.feedJob(&job);
-            //    //if ((job.pow.*SolveFn) (job.input.m_pData, Merkle::Hash::nBytes, cancelFn)) {
-            //    //    {
-            //    //        lock_guard<mutex> lk(_mutex);
-            //    //        _lastFoundBlock = job.pow;
-            //    //        _lastFoundBlockID = job.jobID;
-            //    //    }
-            //    //    job.callback();
-            //    //}
-            //}
         }
 
         void run_miner()
         {
-            vector<int32_t> devices{ 1 };
+            // TODO: we should use onle selected video cards
+            vector<int32_t> devices{ -1 };
             bool cpuMine = false;
 
             LOG_DEBUG() << "runOpenclMiner()";
 
             beamMiner::clHost myClHost;
             
-            beamMiner::minerBridge& myStratum = _workProvider;
-
             LOG_INFO() << "Setup OpenCL devices:";
             LOG_INFO() << "=====================";
 
             myClHost.setup(&_workProvider, devices, cpuMine);
 
-            LOG_INFO() << "Waiting for work from stratum:";
+            LOG_INFO() << "Waiting for work:";
             LOG_INFO() << "==============================";
 
-            while (!myStratum.hasWork())
+            while (!_workProvider.hasWork())
             {
                 this_thread::sleep_for(chrono::milliseconds(200));
             }
@@ -304,7 +256,6 @@ namespace beam {
             LOG_INFO() << "=============";
 
             myClHost.startMining();
-
         }
 
         void on_solution(Job* job)
@@ -314,44 +265,9 @@ namespace beam {
                 _solutionFound = true;
             }
             _solutionCond.notify_one();
-            /*           beam::Block::PoW::NonceType t((const uint8_t*)&nonce);
-           EquihashGpu::IsValid isValid;
-           EquihashGpu::Cancel cancel;
-           {
-               unique_lock<mutex> guard(_mutex);
-               if (workId != _workID)
-               {
-                   return;
-               }
-
-               isValid = _valid;
-               cancel = _cancel;
-               if (_cancel())
-               {
-                   _host.stopMining();
-                   return;
-               }
-
-               if (_isSolutionFound)
-               {
-                   return;
-               }
-           }
-
-           auto compressed = GetMinimalFromIndices(indices, 25);
-
-           if (isValid(compressed, t))
-           {
-               unique_lock<mutex> guard(_mutex);
-               if (workId == _workID && !_isSolutionFound)
-               {
-                   _isSolutionFound = true;
-                   _host.stopMining();
-                   _compressedIndices = compressed;
-                   _foundNonce = t;
-               }
-           }*/
         }
+
+    private:
 
         Job _currentJob;
         string _lastFoundBlockID;

@@ -151,25 +151,12 @@ void NodeModel::runLocalNode()
     node.m_Cfg.m_Listen.ip(INADDR_ANY);
     node.m_Cfg.m_sPathLocal = settings.getLocalNodeStorage();
 
-
     {
-        node.m_Cfg.m_UseGpu = false;
+#ifdef BEAM_USE_GPU
         node.m_Cfg.m_MiningThreads = 0;
-
-//#ifdef BEAM_USE_GPU
-//        if (settings.getUseGpu())
-//        {
-//            node.m_Cfg.m_UseGpu = true;
-//            node.m_Cfg.m_MiningThreads = 0;
-//        }
-//        else
-//        {
-//            node.m_Cfg.m_UseGpu = false;
-//            node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
-//        }
-//#else
-//        node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
-//#endif
+#else
+        node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
+#endif
         node.m_Cfg.m_VerificationThreads = kVerificationThreadsMaxAvailable;
     }
 
@@ -219,17 +206,17 @@ void NodeModel::runLocalNode()
 
     node.m_Cfg.m_Observer = &obs;
 
+#ifdef BEAM_USE_GPU
     unique_ptr<IExternalPOW> stratumServer = IExternalPOW::create_opencl_solver();
-
     node.Initialize(stratumServer.get());
-
-  //  std::thread minerThread(&NodeModel::runOpenclMiner, this);
+#else
+    node.Initialize();
+#endif
 
 	m_isRunning = true;
 	emit startedNode();
 
 	io::Reactor::get_Current().run();
-    //minerThread.join();
 
 	m_isRunning = false;
 	emit stoppedNode();

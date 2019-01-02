@@ -31,7 +31,7 @@ if(BEAM_USE_GPU)
     bin2h(SOURCE_FILE ${PROJECT_SOURCE_DIR}/3rdparty/opencl-miner/equihash_150_5.cl HEADER_FILE ${PROJECT_SOURCE_DIR}/3rdparty/opencl-miner/equihash_150_5.dat)
 
     set(POW_SRC ${POW_SRC}
-        ${PROJECT_SOURCE_DIR}/3rdparty/equihash_gpu.cpp
+        ${PROJECT_SOURCE_DIR}/pow/opencl_pow.cpp
         ${PROJECT_SOURCE_DIR}/3rdparty/opencl-miner/clHost.cpp)
 
     add_library(pow STATIC ${POW_SRC})
@@ -52,7 +52,6 @@ target_link_libraries(pow crypto)
 target_include_directories(pow PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/crypto)
 
 add_library(external_pow STATIC
-    opencl_pow.cpp
     external_pow_stub.cpp
     stratum.cpp
     stratum_server.cpp

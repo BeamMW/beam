@@ -20,10 +20,6 @@
 #include "utility/logger.h"
 #include <mutex>
 
-#if defined (BEAM_USE_GPU)
-#include "3rdparty/equihash_gpu.h"
-#endif
-
 namespace beam
 {
 
@@ -49,67 +45,6 @@ struct Block::PoW::Helper
 		return d.IsTargetReached(hv);
 	}
 };
-
-#if defined (BEAM_USE_GPU)
-
-    bool Block::PoW::SolveGPU(const void* pInput, uint32_t nSizeInput, const Cancel& fnCancel)
-    {
-        Helper hlp;
-        static EquihashGpu gpu;
-
-        struct SolutionContext
-        {
-            beam::Block::PoW::NonceType foundNonce;
-            beam::ByteBuffer indices;
-            std::mutex mutex;
-        };
-        SolutionContext solutionContext;
-
-        auto fnValid = [this, &hlp, &solutionContext, pInput, nSizeInput](const beam::ByteBuffer& solution, const beam::Block::PoW::NonceType& nonce)
-            {
-                if (!hlp.TestDifficulty(&solution.front(), (uint32_t)solution.size(), m_Difficulty))
-                {
-                    //LOG_DEBUG() << std::this_thread::get_id() << "-=[GPU Miner]=- Difficulty is not reachable nonce: " << nonce << " Diff = " << m_Difficulty.ToFloat();
-                    return false;
-                }
-
-                {
-                    Helper hlp2_;
-                    hlp2_.Reset(pInput, nSizeInput, nonce);
-
-                    if (!hlp2_.m_Eh.IsValidSolution(hlp2_.m_Blake, solution))
-                    {
-                        LOG_WARNING() << "-=[GPU Miner]=- Invalid solution nonce: " << nonce;
-                        return false;
-                    }
-                }
-
-                std::unique_lock<std::mutex> lock(solutionContext.mutex);
-                solutionContext.foundNonce = nonce;
-                assert(solution.size() == m_Indices.size());
-                solutionContext.indices = solution;
-                return true;
-            };
-
-
-        std::function<bool()> fnCancelInternal = [fnCancel]()
-        {
-            return fnCancel(false);
-        };
-
-        if (!gpu.solve(pInput, nSizeInput, fnValid, fnCancelInternal))
-        {
-            return false;
-        }
-
-        m_Nonce = solutionContext.foundNonce;
-        std::copy(solutionContext.indices.begin(), solutionContext.indices.end(), m_Indices.begin());
-
-        LOG_INFO() << "-=[GPU Miner]=- Solution found on GPU, nonce: " << m_Nonce;
-        return true;
-    }
-
-#endif
 
 bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, const Cancel& fnCancel)
 {

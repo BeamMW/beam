@@ -73,9 +73,6 @@ set(UI_SRC
 	model/messages.cpp
 	model/node_model.h
 	model/node_model.cpp
-    model/node_model_opencl.cpp
-
-    ${CMAKE_CURRENT_SOURCE_DIR}/../3rdparty/opencl-miner/beamStratum.cpp
 )
 
 if(WIN32)
@@ -98,8 +95,6 @@ if(BEAM_USE_GPU)
     add_dependencies(${TARGET_NAME} gpu_tools)
     target_link_libraries(${TARGET_NAME} gpu_tools)
 endif()
-
-target_compile_definitions(${TARGET_NAME} PRIVATE _SILENCE_CXX17_ALLOCATOR_VOID_DEPRECATION_WARNING)
 
 if(LINUX)
 	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
