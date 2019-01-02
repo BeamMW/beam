@@ -115,7 +115,7 @@ namespace beam {
             , _solutionFound(false)
         {
             _thread.start(BIND_THIS_MEMFN(thread_func));
-            _minerThread.start(BIND_THIS_MEMFN(run_miner));
+           // _minerThread.start(BIND_THIS_MEMFN(run_miner));
         }
 
         ~OpenCLMiner() override 
@@ -225,7 +225,7 @@ namespace beam {
         void run_miner()
         {
             // TODO: we should use onle selected video cards
-            vector<int32_t> devices{ 1 };//{ -1 };
+            vector<int32_t> devices{ -1 };
             bool cpuMine = false;
 
             LOG_DEBUG() << "runOpenclMiner()";

@@ -145,7 +145,9 @@ void find_certificates(IExternalPOW::Options& o, const std::string& stratumDir) 
 void NodeModel::runLocalNode()
 {
     auto& settings = AppModel::getInstance()->getSettings();
-
+#ifdef BEAM_USE_GPU
+    unique_ptr<IExternalPOW> stratumServer = IExternalPOW::create_opencl_solver();
+#endif
     Node node;
     node.m_Cfg.m_Listen.port(settings.getLocalNodePort());
     node.m_Cfg.m_Listen.ip(INADDR_ANY);
@@ -207,7 +209,6 @@ void NodeModel::runLocalNode()
     node.m_Cfg.m_Observer = &obs;
 
 #ifdef BEAM_USE_GPU
-    unique_ptr<IExternalPOW> stratumServer = IExternalPOW::create_opencl_solver();
     node.Initialize(stratumServer.get());
 #else
     node.Initialize();
