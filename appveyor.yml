@@ -8,8 +8,6 @@ environment:
   QML_IMPORT_PATH: c:\beam-libs\qt5-static-win\qml
   BUILD_CONFIG: RelWithDebInfo
   matrix:
-    - USE_GPU: On
-      GPU_FOLDER: /gpu
     - USE_GPU: Off
       GPU_FOLDER: /
 
