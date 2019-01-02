@@ -51,7 +51,7 @@ struct Node
 			uint32_t m_GetBlock_ms	= 1000 * 30;
 			uint32_t m_GetTx_ms		= 1000 * 5;
 			uint32_t m_GetBbsMsg_ms	= 1000 * 10;
-			uint32_t m_MiningSoftRestart_ms = 100;
+			uint32_t m_MiningSoftRestart_ms = 1000;
 			uint32_t m_TopPeersUpd_ms = 1000 * 60 * 10; // once in 10 minutes
 			uint32_t m_PeersUpdate_ms	= 1000; // reconsider every second
 			uint32_t m_PeersDbFlush_ms = 1000 * 60; // 1 minute
@@ -640,8 +640,10 @@ private:
 		struct External
 		{
 			IExternalPOW* m_pSolver = nullptr;
-			Task::Ptr m_pTask;
 			uint64_t m_jobID = 0;
+
+			Task::Ptr m_ppTask[3]; // backlog of potentially being-mined currently
+			Task::Ptr& get_At(uint64_t);
 
 		} m_External;
 
