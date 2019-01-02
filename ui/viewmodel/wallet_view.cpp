@@ -546,7 +546,7 @@ QQmlListProperty<TxObject> WalletViewModel::getTransactions()
 
 beam::Amount WalletViewModel::calcSendAmount() const
 {
-	return _sendAmount.toDouble() * Rules::Coin;
+	return std::round(_sendAmount.toDouble() * Rules::Coin);
 }
 
 beam::Amount WalletViewModel::calcFeeAmount() const
