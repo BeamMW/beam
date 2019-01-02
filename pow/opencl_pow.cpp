@@ -41,8 +41,7 @@ namespace
     {
     public:
         WorkProvider(beam::IExternalPOW& externalPow, SolutionCallback&& solutionCallback)
-            : _externalPow(externalPow)
-            , _solutionCallback(move(solutionCallback))
+            : _solutionCallback(move(solutionCallback))
             , _job{nullptr}
         {
             random_device rd;
@@ -94,12 +93,10 @@ namespace
         }
 
     private:
+        SolutionCallback _solutionCallback;
+        Job* _job;
         atomic<uint64_t> _nonce;
         mutable mutex _mutex;
-        Job* _job;
-        bool _isSolutionFound;
-        beam::IExternalPOW& _externalPow;
-        SolutionCallback _solutionCallback;
     };
 }
 
@@ -200,13 +197,13 @@ namespace beam {
             Job job;
             Merkle::Hash hv;
 
-            auto cancelFn = [this, &job](bool)->bool {
-                if (_changed.load()) {
-                    LOG_INFO() << "job id=" << job.jobID << " cancelled";
-                    return true;
-                }
-                return false;
-            };
+            // auto cancelFn = [this, &job](bool)->bool {
+            //     if (_changed.load()) {
+            //         LOG_INFO() << "job id=" << job.jobID << " cancelled";
+            //         return true;
+            //     }
+            //     return false;
+            // };
 
             while (true)
             {
