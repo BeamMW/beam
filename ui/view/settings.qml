@@ -167,9 +167,33 @@ Rectangle {
                                         }
                                     }
 
+                                    SFText {
+                                        text: qsTr("Mining threads (CPU)")
+                                        color: localNodeRun.checked ? Style.white : Style.disable_text_color
+                                        font.pixelSize: 12
+                                        font.styleName: "Bold"; font.weight: Font.Bold
+                                    }
+
+                                    FeeSlider {
+                                        id: localNodeMiningThreads
+                                        precision: 0
+                                        showTicks: true
+                                        Layout.fillWidth: true
+                                        value: viewModel.localNodeMiningThreads
+                                        to: {viewModel.coreAmount()}
+                                        stepSize: 1
+                                        enabled: localNodeRun.checked && !useGpu.checked
+                                        Binding {
+                                            target: viewModel
+                                            property: "localNodeMiningThreads"
+                                            value: localNodeMiningThreads.value
+                                        }
+                                    }
+
                                     CustomSwitch {
                                         id: useGpu
                                         text: qsTr("Use GPU")
+                                        Layout.topMargin: 5
                                         font.pixelSize: 12
                                         width: parent.width
                                         checked: viewModel.useGpu
