@@ -1186,6 +1186,11 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 
         if (!pPi->m_pLive->IsSecureOut() || (m_This.m_MyPublicID > msg.m_ID))
         {
+			// detach from that peer
+			assert(pPi == pPi->m_pLive->m_pInfo);
+			pPi->m_pLive->m_pInfo = nullptr;
+			pPi->m_pLive = nullptr;
+
             pPi->m_pLive->DeleteSelf(false, ByeReason::Duplicate);
             assert(!pPi->m_pLive);
         }
