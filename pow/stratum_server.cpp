@@ -108,7 +108,7 @@ bool Server::on_login(uint64_t from, const Login& login) {
         conn->set_logged_in();
 
         // TODO send result first
-        return _connections[from]->send_msg(_job.msg, true);
+        return _connections[from]->send_msg(_recentJob.msg, true);
     } else {
         LOG_INFO() << STS << "peer login failed, key=" << login.api_key;
         Result res(login.id, login_failed);
@@ -120,14 +120,14 @@ bool Server::on_login(uint64_t from, const Login& login) {
 }
 
 bool Server::on_solution(uint64_t from, const Solution& sol) {
-    if (sol.id != _job.id) {
-        LOG_INFO() << STS << "ignoring solution to " << sol.id << " from " << io::Address::from_u64(from) << ", current is " << _job.id;
-    }
-    LOG_DEBUG() << TRACE(sol.nonce) << TRACE(sol.output);
-    sol.fill_pow(_job.pow);
+
+	LOG_DEBUG() << TRACE(sol.nonce) << TRACE(sol.output);
+
+	_recentResult.id = sol.id;
+    sol.fill_pow(_recentResult.pow);
 
     LOG_INFO() << STS << "solution to " << sol.id << " from " << io::Address::from_u64(from);
-    _job.onBlockFound();
+	_recentResult.onBlockFound();
     return true;
 }
 
@@ -141,22 +141,20 @@ void Server::new_job(
     const Merkle::Hash& input,
     const Block::PoW& pow,
     const BlockFound& callback,
-    const CancelCallback& cancelCallback
+    const CancelCallback& /* cancelCallback */
 ) {
-    _job.id = id;
-    _job.pow = pow;
-    _job.onBlockFound = callback;
-    _job.cancelFn = cancelCallback;
+    _recentJob.id = id;
+    _recentResult.onBlockFound = callback;
 
-    LOG_INFO() << STS << "new job " << _job.id << " will be sent to " << _connections.size() << " connected peers";
+    LOG_INFO() << STS << "new job " << id << " will be sent to " << _connections.size() << " connected peers";
 
-    Job jobMsg(_job.id, input, pow);
+    Job jobMsg(id, input, pow);
     append_json_msg(_fw, jobMsg);
-    _job.msg.swap(_currentMsg);
+	_recentJob.msg.swap(_currentMsg);
     _currentMsg.clear();
 
     for (auto& p : _connections) {
-        if (!p.second->send_msg(_job.msg, true)) {
+        if (!p.second->send_msg(_recentJob.msg, true)) {
             _deadConnections.push_back(p.first);
         }
     }
@@ -170,12 +168,12 @@ void Server::new_job(
 }
 
 void Server::get_last_found_block(std::string& jobID, Block::PoW& pow) {
-    jobID = _job.id;
-    pow = _job.pow;
+    jobID = _recentResult.id;
+    pow = _recentResult.pow;
 }
 
 void Server::stop_current() {
-    _job.id.clear();
+    _recentJob.id.clear();
 }
 
 void Server::stop() {
