@@ -45,9 +45,9 @@ std::string get_result_msg(int code) {
     if (code == 0) return std::string();
     switch (code) {
 #define R_MESSAGE(code, _, message) case code: return message;
-        STRATUM_RESULTS(R_MESSAGE)
+    STRATUM_RESULTS(R_MESSAGE)
 #undef R_MESSAGE
-        default: break;
+    default: break;
     }
     return "unknown";
 }
@@ -87,11 +87,16 @@ void append_base(json& o, const Message& m) {
 }
 
 ResultCode parse_base(const json& o, Message& m) {
-    m.id = o[l_id];
-    if (m.id.empty()) return empty_id;
-    m.method_str = o[l_method];
-    m.method = get_method(m.method_str);
-    if (m.method == 0) return unknown_method;
+    try {
+        m.id = o[l_id];
+        if (m.id.empty()) return empty_id;
+        m.method_str = o[l_method];
+        m.method = get_method(m.method_str);
+        if (m.method == 0) return unknown_method;
+    } catch (const std::exception& e) {
+        LOG_ERROR() << "json parse: " << e.what();
+        return message_corrupted;
+    }
     return no_error;
 }
 
@@ -227,14 +232,16 @@ bool parse_json_msg(const void* buf, size_t bufSize, ParserCallback& callback) {
     r = parse_base(o, m);
     if (r != 0) return false;
 
-    switch (m.method) {
+    try {
+        switch (m.method) {
 #define DEF_PARSE_IMPL(_, method_name, struct_name) case method_name: { return parse<struct_name>(o, m, callback); }
-    STRATUM_METHODS(DEF_PARSE_IMPL)
+        STRATUM_METHODS(DEF_PARSE_IMPL)
 #undef DEF_PARSE_IMPL
-        default:
-            break;
+        default:break;
+        }
+    } catch (const std::exception& e) {
+        LOG_ERROR() << "json parse: " << e.what();
     }
-
     return false;
 }
 

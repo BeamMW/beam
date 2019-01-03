@@ -174,14 +174,4 @@ void StatusbarViewModel::onNodeSyncProgressUpdated(int done, int total)
     }
 
     setIsSyncInProgress(!((m_done + m_nodeDone) == (m_total + m_nodeTotal)));
-
-    if (done == total)
-    {
-        auto& settings = AppModel::getInstance()->getSettings();
-        if (!settings.getLocalNodeSynchronized())
-        {
-            settings.setLocalNodeSynchronized(true);
-            settings.applyChanges();
-        }
-    }
 }

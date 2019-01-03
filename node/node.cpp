@@ -3330,7 +3330,7 @@ void Node::Miner::HardAbortSafe()
 		}
 
 		if (bHadTasks)
-			m_External.m_pSolver->stop_current();
+		m_External.m_pSolver->stop_current();
 	}
 }
 
@@ -3425,9 +3425,6 @@ void Node::Miner::StartMining(Task::Ptr&& pTask)
     LOG_INFO() << "Block generated: Height=" << x.m_Hdr.m_Height << ", Fee=" << x.m_Fees << ", Difficulty=" << x.m_Hdr.m_PoW.m_Difficulty << ", Size=" << (x.m_BodyP.size() + x.m_BodyE.size());
 
     pTask->m_hvNonceSeed = get_ParentObj().NextNonce();
-
-	SetTimer(get_ParentObj().m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
-	LOG_INFO() << "Emulating mining soft-restart!";
 
     // let's mine it.
     std::scoped_lock<std::mutex> scope(m_Mutex);

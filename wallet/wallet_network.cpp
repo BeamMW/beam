@@ -157,9 +157,10 @@ namespace beam {
 			if (m_BbsTimestamps.end() != it)
 				ts = it->second;
 
-            LOG_INFO() << "WalletID " << to_string(walletID) << " subscribes to BBS channel " << pAddr->m_Channel.m_Value;
 			m_NodeNetwork.BbsSubscribe(pAddr->m_Channel.m_Value, ts, &m_BbsSentEvt);
 		}
+
+        LOG_INFO() << "WalletID " << to_string(walletID) << " subscribes to BBS channel " << pAddr->m_Channel.m_Value;
 	}
 
 	void WalletNetworkViaBbs::DeleteOwnAddress(uint64_t ownID)
