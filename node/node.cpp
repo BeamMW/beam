@@ -3412,6 +3412,9 @@ void Node::Miner::StartMining(Task::Ptr&& pTask)
 
     pTask->m_hvNonceSeed = get_ParentObj().NextNonce();
 
+	SetTimer(get_ParentObj().m_Cfg.m_Timeout.m_MiningSoftRestart_ms, false);
+	LOG_INFO() << "Emulating mining soft-restart!";
+
     // let's mine it.
     std::scoped_lock<std::mutex> scope(m_Mutex);
 
