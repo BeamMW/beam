@@ -132,20 +132,6 @@ void NodeModel::run()
     }
 }
 
-void find_certificates(IExternalPOW::Options& o, const std::string& stratumDir) {
-    static const std::string certFileName("stratum.crt");
-    static const std::string keyFileName("stratum.key");
-    static const std::string apiKeysFileName("stratum.api.keys");
-
-    boost::filesystem::path p(stratumDir);
-    p = boost::filesystem::canonical(p);
-    o.privKeyFile = (p / keyFileName).string();
-    o.certFile = (p / certFileName).string();
-
-    if (boost::filesystem::exists(p / apiKeysFileName))
-        o.apiKeysFile = (p / apiKeysFileName).string();
-}
-
 void NodeModel::runLocalNode()
 {
     auto& settings = AppModel::getInstance()->getSettings();
