@@ -1042,10 +1042,18 @@ void Node::Peer::OnResendPeers()
         if ((Flags::PiRcvd & m_Flags) && (&pi == m_pInfo))
             continue; // skip
 
+		if (!pi.m_RawRating.m_Value)
+			continue; // banned
+
+		if (!pi.m_LastSeen)
+			continue; // recommend only verified peers
+
         proto::PeerInfo msg;
         msg.m_ID = pi.m_ID.m_Key;
         msg.m_LastAddr = pi.m_Addr.m_Value;
         Send(msg);
+
+		nRemaining--;
     }
 }
 
