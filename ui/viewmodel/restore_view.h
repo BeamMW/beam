@@ -74,4 +74,5 @@ private:
     uint64_t m_currentEstimationSec;
     bool m_skipProgress;
     bool m_isCreating;
+    bool m_isCreatingCancelled;
 };

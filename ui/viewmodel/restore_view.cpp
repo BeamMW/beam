@@ -34,6 +34,7 @@ RestoreViewModel::RestoreViewModel()
     , m_currentEstimationSec{0}
     , m_skipProgress{false}
     , m_isCreating{false}
+    , m_isCreatingCancelled{false}
 {
     connect(&m_walletModel, SIGNAL(onSyncProgressUpdated(int, int)),
         SLOT(onSyncProgressUpdated(int, int)));
@@ -91,6 +92,7 @@ void RestoreViewModel::onNodeSyncProgressUpdated(int done, int total)
 
 void RestoreViewModel::resetWallet()
 {
+    m_isCreatingCancelled = true;
     AppModel::getInstance()->resetWallet();
 }
 
@@ -176,7 +178,10 @@ void RestoreViewModel::updateProgress()
     if (m_skipProgress)
     {
         m_updateTimer.stop();
-        emit syncCompleted();
+        if (!m_isCreatingCancelled)
+        {
+            emit syncCompleted();
+        }
     }
 }
 
