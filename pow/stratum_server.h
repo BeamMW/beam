@@ -78,14 +78,6 @@ private:
         bool _loggedIn;
     };
 
-    struct JobCtx {
-        io::SerializedMsg msg;
-        std::string id;
-        Block::PoW pow;
-        BlockFound onBlockFound;
-        CancelCallback cancelFn;
-    };
-
     void start_server();
 
     void refresh_acl();
@@ -115,7 +107,18 @@ private:
     io::TcpServer::Ptr _server;
     std::map<uint64_t, std::unique_ptr<Connection>> _connections;
     AccessControl _acl;
-    JobCtx _job;
+
+	struct RecentJob {
+		io::SerializedMsg msg;
+		std::string id;
+	} _recentJob;
+
+	struct RecentResult {
+		std::string id;
+		Block::PoW pow;
+		BlockFound onBlockFound;
+	} _recentResult;
+
     io::SerializedMsg _currentMsg;
     std::vector<uint64_t> _deadConnections;
 };
