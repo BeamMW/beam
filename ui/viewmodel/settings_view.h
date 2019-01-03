@@ -28,6 +28,7 @@ class DeviceItem : public QObject
 
 public:
 
+    DeviceItem() = default;
     DeviceItem(const QString& name, size_t index, bool enabled);
     virtual ~DeviceItem();
 
