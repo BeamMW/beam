@@ -1183,15 +1183,16 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         // Duplicate connection. In this case we have to choose wether to terminate this connection, or the previous. The best is to do it asymmetrically.
         // We decide this based on our Node IDs.
         // In addition, if the older connection isn't completed yet (i.e. it's our connect attempt) - it's prefered for deletion, because such a connection may be impossible (firewalls and friends).
+		Peer* pDup = pPi->m_pLive;
 
-        if (!pPi->m_pLive->IsSecureOut() || (m_This.m_MyPublicID > msg.m_ID))
+        if (!pDup->IsSecureOut() || (m_This.m_MyPublicID > msg.m_ID))
         {
 			// detach from that peer
-			assert(pPi == pPi->m_pLive->m_pInfo);
-			pPi->m_pLive->m_pInfo = nullptr;
+			assert(pPi == pDup->m_pInfo);
+			pDup->m_pInfo = nullptr;
 			pPi->m_pLive = nullptr;
 
-            pPi->m_pLive->DeleteSelf(false, ByeReason::Duplicate);
+            pDup->DeleteSelf(false, ByeReason::Duplicate);
             assert(!pPi->m_pLive);
         }
         else
