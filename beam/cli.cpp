@@ -173,7 +173,7 @@ int main_impl(int argc, char* argv[])
                     {
                         if (vm[cli::MINER_TYPE].as<string>() == "gpu")
                         {
-                            stratumServer = IExternalPOW::create_opencl_solver();
+                            stratumServer = IExternalPOW::create_opencl_solver({-1});
                             // now for GPU only 0 thread
                             node.m_Cfg.m_MiningThreads = 0;
                         }

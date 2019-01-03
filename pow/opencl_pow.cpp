@@ -106,10 +106,11 @@ namespace beam {
     class OpenCLMiner : public IExternalPOW
     {
     public:
-        OpenCLMiner()
+        OpenCLMiner(const vector<int32_t>& devices)
             : _changed(false)
             , _stop(false)
             , _workProvider(BIND_THIS_MEMFN(on_solution))
+            , _devices(devices)
         {
             _thread.start(BIND_THIS_MEMFN(thread_func));
             _minerThread.start(BIND_THIS_MEMFN(run_miner));
@@ -212,8 +213,6 @@ namespace beam {
 
         void run_miner()
         {
-            // TODO: we should use onle selected video cards
-            vector<int32_t> devices { -1 };
             bool cpuMine = false;
 
             LOG_DEBUG() << "runOpenclMiner()";
@@ -223,7 +222,7 @@ namespace beam {
             LOG_INFO() << "Setup OpenCL devices:";
             LOG_INFO() << "=====================";
 
-            _ClHost.setup(&_workProvider, devices, cpuMine);
+            _ClHost.setup(&_workProvider, _devices, cpuMine);
 
             LOG_INFO() << "Waiting for work:";
             LOG_INFO() << "==============================";
@@ -262,12 +261,13 @@ namespace beam {
         WorkProvider _workProvider;
         beamMiner::clHost _ClHost;
         vector<Job> _solvedJobs;
+        const vector<int32_t> _devices;
         
     };
 
-    unique_ptr<IExternalPOW> IExternalPOW::create_opencl_solver()
+    unique_ptr<IExternalPOW> IExternalPOW::create_opencl_solver(const vector<int32_t>& devices)
     {
-        return make_unique<OpenCLMiner>();
+        return make_unique<OpenCLMiner>(devices);
     }
 
 } //namespace
