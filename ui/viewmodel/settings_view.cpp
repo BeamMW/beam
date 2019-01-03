@@ -29,6 +29,40 @@ using namespace beam;
 using namespace ECC;
 using namespace std;
 
+
+DeviceItem::DeviceItem(const QString& name, size_t index, bool enabled)
+    : m_name(name)
+    , m_index(index)
+    , m_enabled(enabled)
+{
+
+}
+
+DeviceItem::~DeviceItem()
+{
+
+}
+
+QString DeviceItem::getName() const
+{
+    return m_name;
+}
+
+bool DeviceItem::getEnabled() const
+{
+    return m_enabled;
+}
+
+void DeviceItem::setEnabled(bool value)
+{
+    if (m_enabled != value)
+    {
+        m_enabled = value;
+        emit enableChanged();
+    }
+}
+
+
 SettingsViewModel::SettingsViewModel()
     : m_settings{AppModel::getInstance()->getSettings()}
 {
@@ -153,6 +187,11 @@ bool SettingsViewModel::showUseGpu() const
 #endif
 }
 
+QQmlListProperty<DeviceItem> SettingsViewModel::getSupportedDevices() 
+{
+    return QQmlListProperty<DeviceItem>(this, m_supportedDevices);
+}
+
 bool SettingsViewModel::hasSupportedGpu()
 {
 #ifdef BEAM_USE_GPU
@@ -165,6 +204,16 @@ bool SettingsViewModel::hasSupportedGpu()
         setUseGpu(false);
         return false;
     }
+
+    if (m_supportedDevices.empty())
+    {
+        auto cards = GetSupportedCards();
+        for (const auto& card : cards)
+        {
+            m_supportedDevices.push_back(new DeviceItem(QString::fromStdString(card.name), card.index, true));
+        }
+    }
+
     return true;
 #else
     return false;

@@ -16,8 +16,34 @@
 
 #include <QObject>
 #include <QSettings>
+#include <QQmlListProperty>
 
 #include "model/settings.h"
+
+class DeviceItem : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(QString name       READ getName     CONSTANT )
+    Q_PROPERTY(bool enabled       READ getEnabled WRITE setEnabled     NOTIFY enableChanged)
+
+public:
+
+    DeviceItem(const QString& name, size_t index, bool enabled);
+    virtual ~DeviceItem();
+
+    QString getName() const;
+    bool getEnabled() const;
+    void setEnabled(bool value);
+    
+
+signals:
+    void enableChanged();
+
+private:
+    QString m_name;
+    size_t m_index;
+    bool m_enabled;
+};
 
 class SettingsViewModel : public QObject
 {
@@ -33,6 +59,7 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(int lockTimeout READ getLockTimeout WRITE setLockTimeout NOTIFY lockTimeoutChanged)
     Q_PROPERTY(QString walletLocation READ getWalletLocation CONSTANT)
     Q_PROPERTY(bool useGpu READ getUseGpu WRITE setUseGpu NOTIFY localNodeUseGpuChanged)
+    Q_PROPERTY(QQmlListProperty<DeviceItem> supportedDevices READ getSupportedDevices NOTIFY localNodeUseGpuChanged)
 
 public:
 
@@ -55,6 +82,8 @@ public:
     QString getWalletLocation() const;
     void setUseGpu(bool value);
     bool getUseGpu() const;
+
+    QQmlListProperty<DeviceItem> getSupportedDevices();
 
     bool isChanged() const;
 
@@ -90,6 +119,9 @@ private:
     uint m_localNodePort;
     uint m_localNodeMiningThreads;
     QStringList m_localNodePeers;
+
+    QList<DeviceItem*> m_supportedDevices;
+
     int m_lockTimeout;
 #ifdef BEAM_USE_GPU
     bool m_useGpu;
