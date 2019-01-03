@@ -361,8 +361,9 @@ void clHost::startMining()
 	}
 
     cl::Event::waitForEvents(events);
+    this_thread::sleep_for(std::chrono::seconds(5)); // hack to prevent crash
+    LOG_DEBUG() << "Miner stopped";
 }
-
 
 clHost::~clHost()
 {
