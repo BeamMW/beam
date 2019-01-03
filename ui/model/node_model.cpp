@@ -151,7 +151,8 @@ void NodeModel::runLocalNode()
     auto& settings = AppModel::getInstance()->getSettings();
 #ifdef BEAM_USE_GPU
     GetSupportedCards();
-    unique_ptr<IExternalPOW> stratumServer = settings.getUseGpu() ? IExternalPOW::create_opencl_solver(settings.getMiningDevices()) : nullptr;
+    auto devices = settings.getMiningDevices();
+    unique_ptr<IExternalPOW> stratumServer = settings.getUseGpu() && !devices.empty() ? IExternalPOW::create_opencl_solver(devices) : nullptr;
 #endif
     Node node;
     node.m_Cfg.m_Listen.port(settings.getLocalNodePort());

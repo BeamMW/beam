@@ -232,7 +232,9 @@ Rectangle {
                                                 palette.windowText: enabled ? Style.white : Style.disable_text_color
                                                 checked: modelData.enabled
                                                 text: modelData.name
-
+                                                onToggled: {
+                                                    viewModel.propertiesChanged();
+                                                }
                                                 Binding {
                                                     target: modelData
                                                     property: "enabled"

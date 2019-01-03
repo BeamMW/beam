@@ -217,12 +217,8 @@ vector<int32_t> WalletSettings::getMiningDevices() const
     {
         v.push_back(i.toInt());
     }
-    if (v.empty())
-    {
-        v.push_back(-1);
-    }
-    return v;
 
+    return v;
 }
 
 void WalletSettings::setMiningDevices(const vector<int32_t>& value)
