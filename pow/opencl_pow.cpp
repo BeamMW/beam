@@ -87,6 +87,7 @@ namespace
             beam::Block::PoW::NonceType t((const uint8_t*)&nonce);
             job.pow.m_Nonce = t;
             job.pow.m_Difficulty = beam::Difficulty(difficulty);
+            job.jobID = to_string(workId);
             _solutionCallback(move(job));
         }
 
@@ -185,6 +186,7 @@ namespace beam {
             while (true)
             {
                 vector<Job> jobs;
+                beam::IExternalPOW::BlockFound callback;
                 {
                     unique_lock<mutex> lock(_mutex);
 
@@ -194,6 +196,8 @@ namespace beam {
                         return;
                     }
                     swap(jobs, _solvedJobs);
+                    callback = _currentJob.callback;
+
                 }
                 for (const auto& job : jobs)
                 {
@@ -206,7 +210,7 @@ namespace beam {
                         _lastFoundBlock = job.pow;
                         _lastFoundBlockID = job.jobID;
                     }
-                    job.callback();
+                    callback();
                 }
             }
         }
