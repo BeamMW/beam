@@ -131,13 +131,22 @@ namespace beam
 
     vector<GpuInfo> GetSupportedCards()
     {
-        vector<GpuInfo> supportedCards;
+        static struct
+        {
+            vector<GpuInfo> supportedCards;
+            bool checked;
+        } status{ {}, false };
+
+        if (status.checked)
+        {
+            return status.supportedCards;
+        }
 
         vector<cl::Platform> platforms;
 
         cl::Platform::get(&platforms);
 
-        int32_t curDiv = 0;
+        size_t curDiv = 0;
 
         for (uint32_t pl = 0; pl < platforms.size(); pl++)
         {
@@ -174,7 +183,7 @@ namespace beam
                     if (deviceMemory > needed)
                     {
                         LOG_INFO() << "Memory check ok";
-                        supportedCards.push_back({ name, di });
+                        status.supportedCards.push_back({ name, curDiv });
                     }
                     else
                     {
@@ -182,8 +191,10 @@ namespace beam
                         LOG_INFO() << "Device reported " << deviceMemory / (1024 * 1024) << "MByte memory, " << needed / (1024 * 1024) << " are required ";
                     }
                 }
+                curDiv++;
             }
         }
-        return supportedCards;
+        status.checked = true;
+        return status.supportedCards;
     }
 }

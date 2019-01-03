@@ -236,7 +236,14 @@ void WalletSettings::setMiningDevices(const vector<int32_t>& value)
             {
                 t.push_back(QString::asprintf("%d", i));
             }
-            m_data.setValue(LocalNodeMiningDevices, QVariant::fromValue(t));
+            if (t.empty())
+            {
+                m_data.remove(LocalNodeMiningDevices);
+            }
+            else
+            {
+                m_data.setValue(LocalNodeMiningDevices, QVariant::fromValue(t));
+            }
         }
         emit localNodeMiningDevicesChanged();
     }

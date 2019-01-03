@@ -29,12 +29,13 @@ class DeviceItem : public QObject
 public:
 
     DeviceItem() = default;
-    DeviceItem(const QString& name, size_t index, bool enabled);
+    DeviceItem(const QString& name, int32_t index, bool enabled);
     virtual ~DeviceItem();
 
     QString getName() const;
     bool getEnabled() const;
     void setEnabled(bool value);
+    int32_t getIndex() const;
     
 
 signals:
@@ -42,7 +43,7 @@ signals:
 
 private:
     QString m_name;
-    size_t m_index;
+    int32_t m_index;
     bool m_enabled;
 };
 
@@ -96,6 +97,10 @@ public:
     Q_INVOKABLE bool showUseGpu() const;
     Q_INVOKABLE bool hasSupportedGpu();
 
+private:
+#ifdef BEAM_USE_GPU
+    std::vector<int32_t> getSelectedDevice() const;
+#endif
 public slots:
     void applyChanges();
     void undoChanges();

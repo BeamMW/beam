@@ -20,6 +20,10 @@
 #include "pow/external_pow.h"
 
 #include <boost/filesystem.hpp>
+#ifdef  BEAM_USE_GPU
+#include "utility/gpu/gpu_tools.h"
+#endif //  BEAM_USE_GPU
+
 
 using namespace beam;
 using namespace beam::io;
@@ -146,7 +150,7 @@ void NodeModel::runLocalNode()
 {
     auto& settings = AppModel::getInstance()->getSettings();
 #ifdef BEAM_USE_GPU
-
+    GetSupportedCards();
     unique_ptr<IExternalPOW> stratumServer = settings.getUseGpu() ? IExternalPOW::create_opencl_solver(settings.getMiningDevices()) : nullptr;
 #endif
     Node node;

@@ -21,6 +21,8 @@
 #include <thread>
 #include "wallet/secstring.h"
 
+#include <algorithm>
+
 #ifdef BEAM_USE_GPU
 #include "utility/gpu/gpu_tools.h"
 #endif
@@ -30,7 +32,7 @@ using namespace ECC;
 using namespace std;
 
 
-DeviceItem::DeviceItem(const QString& name, size_t index, bool enabled)
+DeviceItem::DeviceItem(const QString& name, int32_t index, bool enabled)
     : m_name(name)
     , m_index(index)
     , m_enabled(enabled)
@@ -60,6 +62,11 @@ void DeviceItem::setEnabled(bool value)
         m_enabled = value;
         emit enableChanged();
     }
+}
+
+int32_t DeviceItem::getIndex() const
+{
+    return m_index;
 }
 
 
@@ -207,10 +214,12 @@ bool SettingsViewModel::hasSupportedGpu()
 
     if (m_supportedDevices.empty())
     {
+        auto selectedDevices = m_settings.getMiningDevices();
         auto cards = GetSupportedCards();
         for (const auto& card : cards)
         {
-            m_supportedDevices.push_back(new DeviceItem(QString::fromStdString(card.name), card.index, true));
+            bool enabled = find(selectedDevices.begin(), selectedDevices.end(), card.index) != selectedDevices.end();
+            m_supportedDevices.push_back(new DeviceItem(QString::fromStdString(card.name), (int32_t)card.index, enabled));
         }
     }
 
@@ -219,6 +228,25 @@ bool SettingsViewModel::hasSupportedGpu()
     return false;
 #endif
 }
+
+#ifdef BEAM_USE_GPU
+
+vector<int32_t> SettingsViewModel::getSelectedDevice() const
+{
+    vector<int32_t> v;
+    for (const auto& d : m_supportedDevices)
+    {
+        DeviceItem* device = (DeviceItem*)d;
+        if (device->getEnabled())
+        {
+            v.push_back(device->getIndex());
+        }
+    }
+    return v;
+}
+
+#endif
+
 
 bool SettingsViewModel::isChanged() const
 {
@@ -229,11 +257,13 @@ bool SettingsViewModel::isChanged() const
         || m_localNodePeers != m_settings.getLocalNodePeers()
 #ifdef BEAM_USE_GPU
         || m_lockTimeout != m_settings.getLockTimeout()
-        || m_useGpu != m_settings.getUseGpu();
+        || m_useGpu != m_settings.getUseGpu()
+        || (!m_supportedDevices.empty() && m_settings.getMiningDevices() != getSelectedDevice());
 #else
         || m_lockTimeout != m_settings.getLockTimeout();
 #endif
 }
+
 
 void SettingsViewModel::applyChanges()
 {
@@ -245,6 +275,8 @@ void SettingsViewModel::applyChanges()
     m_settings.setLockTimeout(m_lockTimeout);
 #ifdef BEAM_USE_GPU
     m_settings.setUseGpu(m_useGpu);
+     
+    m_settings.setMiningDevices(getSelectedDevice());
 #endif
     m_settings.applyChanges();
     emit propertiesChanged();
