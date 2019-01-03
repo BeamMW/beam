@@ -194,6 +194,7 @@ Rectangle {
                                         Layout.fillHeight: true
                                         Layout.minimumWidth: 140
                                         visible: viewModel.showUseGpu() && viewModel.hasSupportedGpu()
+                                        enabled: useGpu.checked
                                         model: viewModel.supportedDevices
                                         clip: true
                                         delegate: RowLayout {
