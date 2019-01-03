@@ -346,7 +346,7 @@ void clHost::startMining()
 
 		// Check if there are paused devices and restart them
 		for (uint32_t i=0; i<devices.size(); i++) {
-			if (paused[i] && bridge->hasWork()) {
+			if (paused[i] && bridge->hasWork() && restart) {
 				paused[i] = false;
 				
 				// Same as above
@@ -361,7 +361,6 @@ void clHost::startMining()
 	}
 
     cl::Event::waitForEvents(events);
-    this_thread::sleep_for(std::chrono::seconds(5)); // hack to prevent crash
     LOG_DEBUG() << "Miner stopped";
 }
 
