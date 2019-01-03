@@ -15,16 +15,27 @@ http://beam.mw/downloads
 Peers:
 
 eu-node01.mainnet.beam.mw:8100
+
 eu-node02.mainnet.beam.mw:8100
+
 eu-node03.mainnet.beam.mw:8100
+
 eu-node04.mainnet.beam.mw:8100
+
 us-node01.mainnet.beam.mw:8100
+
 us-node02.mainnet.beam.mw:8100
+
 us-node03.mainnet.beam.mw:8100
+
 us-node04.mainnet.beam.mw:8100
+
 ap-node01.mainnet.beam.mw:8100
+
 ap-node02.mainnet.beam.mw:8100
+
 ap-node03.mainnet.beam.mw:8100
+
 ap-node04.mainnet.beam.mw:8100
 
 Latest docs are here: https://beam-docs.readthedocs.io/en/latest/index.html
