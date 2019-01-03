@@ -3472,7 +3472,11 @@ void Node::Miner::OnMinedExternal()
 
 	std::scoped_lock<std::mutex> scope(m_Mutex);
 
-	if (m_External.m_jobID - jobID >= _countof(m_External.m_ppTask))
+	bool bReject = (m_External.m_jobID - jobID >= _countof(m_External.m_ppTask));
+
+	LOG_INFO() << "Solution from external miner. jonID=" << jobID << ", Current.jobID=" << m_External.m_jobID << ", Accept=" << static_cast<uint32_t>(!bReject);
+
+	if (bReject)
 		return; // outdated
 
 	Task::Ptr& pTask = m_External.get_At(jobID);
