@@ -169,7 +169,7 @@ Rectangle {
 
                                     SFText {
                                         text: qsTr("Mining threads (CPU)")
-                                        color: localNodeRun.checked ? Style.white : Style.disable_text_color
+                                        color: (localNodeRun.checked && !useGpu.checked) ? Style.white : Style.disable_text_color
                                         font.pixelSize: 12
                                         font.styleName: "Bold"; font.weight: Font.Bold
                                     }
