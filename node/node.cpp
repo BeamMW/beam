@@ -1042,10 +1042,18 @@ void Node::Peer::OnResendPeers()
         if ((Flags::PiRcvd & m_Flags) && (&pi == m_pInfo))
             continue; // skip
 
+		if (!pi.m_RawRating.m_Value)
+			continue; // banned
+
+		if (!pi.m_LastSeen)
+			continue; // recommend only verified peers
+
         proto::PeerInfo msg;
         msg.m_ID = pi.m_ID.m_Key;
         msg.m_LastAddr = pi.m_Addr.m_Value;
         Send(msg);
+
+		nRemaining--;
     }
 }
 
@@ -1175,10 +1183,16 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         // Duplicate connection. In this case we have to choose wether to terminate this connection, or the previous. The best is to do it asymmetrically.
         // We decide this based on our Node IDs.
         // In addition, if the older connection isn't completed yet (i.e. it's our connect attempt) - it's prefered for deletion, because such a connection may be impossible (firewalls and friends).
+		Peer* pDup = pPi->m_pLive;
 
-        if (!pPi->m_pLive->IsSecureOut() || (m_This.m_MyPublicID > msg.m_ID))
+        if (!pDup->IsSecureOut() || (m_This.m_MyPublicID > msg.m_ID))
         {
-            pPi->m_pLive->DeleteSelf(false, ByeReason::Duplicate);
+			// detach from that peer
+			assert(pPi == pDup->m_pInfo);
+			pDup->m_pInfo = nullptr;
+			pPi->m_pLive = nullptr;
+
+            pDup->DeleteSelf(false, ByeReason::Duplicate);
             assert(!pPi->m_pLive);
         }
         else
@@ -3304,14 +3318,23 @@ void Node::Miner::HardAbortSafe()
         m_pTask.reset();
     }
 
-	if (m_External.m_pTask)
+	if (m_External.m_pSolver)
 	{
-		assert(*m_External.m_pTask->m_pStop); // should be the same stop inficator
+		bool bHadTasks = false;
 
-		assert(m_External.m_pSolver);
+		for (size_t i = 0; i < _countof(m_External.m_ppTask); i++)
+		{
+			Task::Ptr& pTask = m_External.m_ppTask[i];
+			if (!pTask)
+				continue;
+
+			assert(*pTask->m_pStop); // should be the same stop inficator
+			pTask.reset();
+			bHadTasks = true;
+		}
+
+		if (bHadTasks)
 		m_External.m_pSolver->stop_current();
-
-		m_External.m_pTask.reset();
 	}
 }
 
@@ -3430,49 +3453,64 @@ void Node::Miner::StartMining(Task::Ptr&& pTask)
     OnRefreshExternal();
 }
 
+Node::Miner::Task::Ptr& Node::Miner::External::get_At(uint64_t jobID)
+{
+	return m_ppTask[static_cast<size_t>(jobID % _countof(m_ppTask))];
+}
+
 void Node::Miner::OnRefreshExternal()
 {
     if (!m_External.m_pSolver)
 		return;
 
-	if (m_External.m_pTask && !*m_External.m_pTask->m_pStop)
-		return; // ignore 'soft-reset' in case of external mining. Current protocol doesn't support this
-
     // NOTE the mutex is locked here
     LOG_INFO() << "New job for external miner";
 
-	m_External.m_pTask = m_pTask;
+	uint64_t jobID = ++m_External.m_jobID;
+	m_External.get_At(jobID) = m_pTask;
 
     auto fnCancel = []() { return false; };
 
     Merkle::Hash hv;
 	m_pTask->m_Hdr.get_HashForPoW(hv);
 
-	m_External.m_pSolver->new_job(std::to_string(++m_External.m_jobID), hv, m_pTask->m_Hdr.m_PoW, BIND_THIS_MEMFN(OnMinedExternal), fnCancel);
+	m_External.m_pSolver->new_job(std::to_string(jobID), hv, m_pTask->m_Hdr.m_PoW, BIND_THIS_MEMFN(OnMinedExternal), fnCancel);
 }
 
 void Node::Miner::OnMinedExternal()
 {
-	std::string jobID;
+	std::string jobID_;
 	Block::PoW POW;
 
 	assert(m_External.m_pSolver);
-	m_External.m_pSolver->get_last_found_block(jobID, POW);
+	m_External.m_pSolver->get_last_found_block(jobID_, POW);
+
+	char* szEnd = nullptr;
+	uint64_t jobID = strtoul(jobID_.c_str(), &szEnd, 10);
 
 	std::scoped_lock<std::mutex> scope(m_Mutex);
 
-	if (!m_External.m_pTask || *m_External.m_pTask->m_pStop || (jobID != std::to_string(m_External.m_jobID)))
+	bool bReject = (m_External.m_jobID - jobID >= _countof(m_External.m_ppTask));
+
+	LOG_INFO() << "Solution from external miner. jonID=" << jobID << ", Current.jobID=" << m_External.m_jobID << ", Accept=" << static_cast<uint32_t>(!bReject);
+
+	if (bReject)
+		return; // outdated
+
+	Task::Ptr& pTask = m_External.get_At(jobID);
+
+	if (!pTask || *pTask->m_pStop)
 		return; // already cancelled
 
-	m_External.m_pTask->m_Hdr.m_PoW.m_Nonce = POW.m_Nonce;
-	m_External.m_pTask->m_Hdr.m_PoW.m_Indices = POW.m_Indices;
+	pTask->m_Hdr.m_PoW.m_Nonce = POW.m_Nonce;
+	pTask->m_Hdr.m_PoW.m_Indices = POW.m_Indices;
 
-    if (!m_External.m_pTask->m_Hdr.IsValidPoW()) {
+    if (!pTask->m_Hdr.IsValidPoW()) {
         LOG_INFO() << "invalid solution from external miner";
         return;
     }
 
-	m_pTask = m_External.m_pTask;
+	m_pTask = pTask;
     *m_pTask->m_pStop = true;
     m_pEvtMined->post();
 }

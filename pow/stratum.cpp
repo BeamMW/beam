@@ -24,7 +24,7 @@ namespace beam::stratum {
 
 static const std::string method_strings[] = {
 #define METHOD_STR(_, M, __) std::string(#M),
-STRATUM_METHODS(METHOD_STR)
+    STRATUM_METHODS(METHOD_STR)
 #undef METHOD_STR
 };
 
@@ -55,17 +55,17 @@ std::string get_result_msg(int code) {
 namespace {
 
 #define DEF_LABEL(label) static const std::string l_##label (#label)
-DEF_LABEL(jsonrpc);
-DEF_LABEL(id);
-DEF_LABEL(method);
-DEF_LABEL(description);
-DEF_LABEL(code);
-DEF_LABEL(message);
-DEF_LABEL(api_key);
-DEF_LABEL(input);
-DEF_LABEL(difficulty);
-DEF_LABEL(nonce);
-DEF_LABEL(output);
+    DEF_LABEL(jsonrpc);
+    DEF_LABEL(id);
+    DEF_LABEL(method);
+    DEF_LABEL(description);
+    DEF_LABEL(code);
+    DEF_LABEL(message);
+    DEF_LABEL(api_key);
+    DEF_LABEL(input);
+    DEF_LABEL(difficulty);
+    DEF_LABEL(nonce);
+    DEF_LABEL(output);
 #undef DEF_LABEL
 
 ResultCode parse_json(const void* buf, size_t bufSize, json& o) {
@@ -142,8 +142,8 @@ template <typename M> ResultCode parse_json_msg(const void* buf, size_t bufSize,
 }
 
 Job::Job(const std::string& _id, const Merkle::Hash& _input, const Block::PoW& _pow) :
-Message(_id, job),
-difficulty(_pow.m_Difficulty.m_Packed)
+    Message(_id, job),
+    difficulty(_pow.m_Difficulty.m_Packed)
 {
     char buf[72];
     input = to_hex(buf, _input.m_pData, 32);
@@ -164,7 +164,7 @@ bool append_json_msg(io::FragmentWriter& packer, const Cancel& m) {
 }
 
 Solution::Solution(const std::string& _id, const Block::PoW& _pow) :
-Message(_id, solution)
+    Message(_id, solution)
 {
     char buf[Block::PoW::nSolutionBytes * 2 + 1];
     nonce = to_hex(buf, _pow.m_Nonce.m_pData, Block::PoW::NonceType::nBytes);
