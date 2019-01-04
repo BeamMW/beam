@@ -191,6 +191,7 @@ int main (int argc, char* argv[])
             qmlRegisterType<ContactItem>("Beam.Wallet", 1, 0, "ContactItem");
             qmlRegisterType<TxObject>("Beam.Wallet", 1, 0, "TxObject");
             qmlRegisterType<UtxoItem>("Beam.Wallet", 1, 0, "UtxoItem");
+            qmlRegisterType<DeviceItem>("Beam.Wallet", 1, 0, "DeviceItem");
 
             engine.load(QUrl("qrc:/root.qml"));
 

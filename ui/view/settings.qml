@@ -168,6 +168,88 @@ Rectangle {
                                     }
 
                                     SFText {
+                                        text: qsTr("Mining threads (CPU)")
+                                        color: (localNodeRun.checked && !useGpu.checked) ? Style.white : Style.disable_text_color
+                                        font.pixelSize: 12
+                                        font.styleName: "Bold"; font.weight: Font.Bold
+                                    }
+
+                                    FeeSlider {
+                                        id: localNodeMiningThreads
+                                        precision: 0
+                                        showTicks: true
+                                        Layout.fillWidth: true
+                                        value: viewModel.localNodeMiningThreads
+                                        to: {viewModel.coreAmount()}
+                                        stepSize: 1
+                                        enabled: localNodeRun.checked && !useGpu.checked
+                                        Binding {
+                                            target: viewModel
+                                            property: "localNodeMiningThreads"
+                                            value: localNodeMiningThreads.value
+                                        }
+                                    }
+
+                                    CustomSwitch {
+                                        id: useGpu
+                                        text: qsTr("Use GPU")
+                                        Layout.topMargin: 5
+                                        font.pixelSize: 12
+                                        width: parent.width
+                                        checked: viewModel.useGpu
+                                        enabled: localNodeRun.checked && viewModel.hasSupportedGpu()
+                                        visible: viewModel.showUseGpu()
+                                        Binding {
+                                            target: viewModel
+                                            property: "useGpu"
+                                            value: useGpu.checked
+                                        }
+                                    }
+                                    SFText {
+                                        id: gpuError
+                                        color: Style.validator_color
+                                        font.pixelSize: 14
+                                        visible: viewModel.showUseGpu() && !viewModel.hasSupportedGpu()
+                                        text: qsTr("You have unsupported videocard")
+                                    }
+
+                                    ListView {
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        Layout.minimumWidth: 140
+                                        visible: viewModel.showUseGpu() && viewModel.hasSupportedGpu()
+                                        enabled: useGpu.checked
+                                        model: viewModel.supportedDevices
+                                        clip: true
+                                        delegate: RowLayout {
+                                            width: parent.width
+                                            height: 22
+
+                                            CustomCheckBox {
+                                                id: device_id
+                                                font.pixelSize: 12
+                                                enabled: localNodeRun.checked
+                                                palette.windowText: enabled ? Style.white : Style.disable_text_color
+                                                checked: modelData.enabled
+                                                text: modelData.name
+                                                onToggled: {
+                                                    viewModel.propertiesChanged();
+                                                }
+                                                Binding {
+                                                    target: modelData
+                                                    property: "enabled"
+                                                    value: device_id.checked
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    Layout.alignment: Qt.AlignTop
+                                    spacing: 10
+
+                                    SFText {
                                         text: qsTr("Local node port")
                                         color: localNodeRun.checked ? Style.white : Style.disable_text_color
                                         font.pixelSize: 12
@@ -194,56 +276,7 @@ Rectangle {
                                     }
 
                                     SFText {
-                                        text: qsTr("Mining threads (CPU)")
-                                        color: localNodeRun.checked ? Style.white : Style.disable_text_color
-                                        font.pixelSize: 12
-                                        font.styleName: "Bold"; font.weight: Font.Bold
-                                    }
-
-                                    FeeSlider {
-                                        id: localNodeMiningThreads
-                                        precision: 0
-                                        showTicks: true
-                                        Layout.fillWidth: true
-                                        value: viewModel.localNodeMiningThreads
-                                        to: {viewModel.coreAmount()}
-                                        stepSize: 1
-                                        enabled: localNodeRun.checked && !useGpu.checked
-                                        Binding {
-                                            target: viewModel
-                                            property: "localNodeMiningThreads"
-                                            value: localNodeMiningThreads.value
-                                        }
-                                    }
-                                }
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    Layout.alignment: Qt.AlignTop
-                                    spacing: 10
-
-                                    CustomSwitch {
-                                        id: useGpu
-                                        text: qsTr("Use GPU")
-                                        font.pixelSize: 12
-                                        width: parent.width
-                                        checked: viewModel.useGpu
-                                        enabled: localNodeRun.checked && viewModel.hasSupportedGpu()
-                                        visible: viewModel.showUseGpu()
-                                        Binding {
-                                            target: viewModel
-                                            property: "useGpu"
-                                            value: useGpu.checked
-                                        }
-                                    }
-                                    SFText {
-                                        id: gpuError
-                                        color: Style.validator_color
-                                        font.pixelSize: 14
-                                        visible: viewModel.showUseGpu() && !viewModel.hasSupportedGpu()
-                                        text: qsTr("You have unsupported videocard")
-                                    }
-
-                                    SFText {
+                                        Layout.topMargin: 10
                                         text: qsTr("Peers")
                                         color: localNodeRun.checked ? Style.white : Style.disable_text_color
                                         font.pixelSize: 12

@@ -168,16 +168,19 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_Listen.ip(INADDR_ANY);
 					node.m_Cfg.m_sPathLocal = vm[cli::STORAGE].as<string>();
 #if defined(BEAM_USE_GPU)
-                    if (vm[cli::MINER_TYPE].as<string>() == "gpu")
+
+                    if (!stratumServer)
                     {
-                        node.m_Cfg.m_UseGpu = true;
-                        // now for GPU only 1 thread
-                        node.m_Cfg.m_MiningThreads = 1;
-                    }
-                    else
-                    {
-                        node.m_Cfg.m_UseGpu = false;
-                        node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
+                        if (vm[cli::MINER_TYPE].as<string>() == "gpu")
+                        {
+                            stratumServer = IExternalPOW::create_opencl_solver({-1});
+                            // now for GPU only 0 thread
+                            node.m_Cfg.m_MiningThreads = 0;
+                        }
+                        else
+                        {
+                            node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
+                        }
                     }
 #else
 					node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();

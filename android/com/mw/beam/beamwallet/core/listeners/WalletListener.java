@@ -14,10 +14,10 @@
 
 package com.mw.beam.beamwallet.core.listeners;
 
-import com.mw.beam.beamwallet.core.entities.WalletStatus;
-import com.mw.beam.beamwallet.core.entities.Utxo;
-import com.mw.beam.beamwallet.core.entities.TxDescription;
-import com.mw.beam.beamwallet.core.entities.WalletAddress;
+import com.mw.beam.beamwallet.core.entities.dto.WalletStatusDTO;
+import com.mw.beam.beamwallet.core.entities.dto.UtxoDTO;
+import com.mw.beam.beamwallet.core.entities.dto.TxDescriptionDTO;
+import com.mw.beam.beamwallet.core.entities.dto.WalletAddressDTO;
 
 import com.mw.beam.beamwallet.core.entities.Wallet;
 
@@ -25,13 +25,13 @@ public class WalletListener
 {
 	public static Wallet wallet;
 
-	static void onStatus(WalletStatus status)
+	static void onStatus(WalletStatusDTO status)
 	{
 		System.out.println(">>>>>>>>>>>>>> async status in Java, available=" + status.available/1000000 + " BEAM and " + status.available%1000000 + " GROTH, unconfirmed=" + status.unconfirmed);
 		System.out.println("height is " + status.system.height);
 	}
 
-	static void onTxStatus(int action, TxDescription[] tx)
+	static void onTxStatus(int action, TxDescriptionDTO[] tx)
 	{
 		System.out.println(">>>>>>>>>>>>>> async onTxStatus in Java");
 
@@ -80,7 +80,7 @@ public class WalletListener
 		System.out.println(">>>>>>>>>>> onChangeCalculated(" + amount + ") called");
 	}
 
-	static void onAllUtxoChanged(Utxo[] utxos)
+	static void onAllUtxoChanged(UtxoDTO[] utxos)
 	{
 		System.out.println(">>>>>>>>>>>>>> async onAllUtxoChanged in Java");
 		
@@ -105,7 +105,7 @@ public class WalletListener
 		}
 	}
 
-	static void onAdrresses(boolean own, WalletAddress[] addresses)
+	static void onAdrresses(boolean own, WalletAddressDTO[] addresses)
 	{
 		System.out.println(">>>>>>>>>>> onAdrresses(" + own + ") called");
 
@@ -122,7 +122,7 @@ public class WalletListener
 		}
 	}
 
-	static void onGeneratedNewAddress(WalletAddress addr)
+	static void onGeneratedNewAddress(WalletAddressDTO addr)
 	{
 		System.out.println(">>>>>>>>>>> onGeneratedNewAddress() called");
 

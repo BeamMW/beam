@@ -15,7 +15,7 @@
 package com.mw.beam.beamwallet.core.entities;
 
 import java.util.*; 
-import com.mw.beam.beamwallet.core.entities.WalletAddress;
+import com.mw.beam.beamwallet.core.entities.dto.WalletAddressDTO;
 
 public class Wallet
 {
@@ -29,7 +29,7 @@ public class Wallet
     public native void calcChange(long amount);
     public native void getAddresses(boolean own);
     public native void generateNewAddress();
-    public native void saveAddress(WalletAddress address, boolean own);
+    public native void saveAddress(WalletAddressDTO address, boolean own);
 
     
     // not implemented

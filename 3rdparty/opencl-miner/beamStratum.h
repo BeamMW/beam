@@ -84,9 +84,9 @@ class beamStratum : public minerBridge {
 	void startWorking();
 
 	bool hasWork() override;
-	void getWork(int64_t*, uint64_t*, uint8_t*) override;
+	void getWork(int64_t*, uint64_t*, uint8_t*, uint32_t*) override;
 
-	void handleSolution(int64_t&, uint64_t&, std::vector<uint32_t>&) override;
+	void handleSolution(int64_t&, uint64_t&, std::vector<uint32_t>&, uint32_t) override;
 	
 };
 

@@ -16,8 +16,36 @@
 
 #include <QObject>
 #include <QSettings>
+#include <QQmlListProperty>
 
 #include "model/settings.h"
+
+class DeviceItem : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(QString name       READ getName     CONSTANT )
+    Q_PROPERTY(bool enabled       READ getEnabled WRITE setEnabled     NOTIFY enableChanged)
+
+public:
+
+    DeviceItem() = default;
+    DeviceItem(const QString& name, int32_t index, bool enabled);
+    virtual ~DeviceItem();
+
+    QString getName() const;
+    bool getEnabled() const;
+    void setEnabled(bool value);
+    int32_t getIndex() const;
+    
+
+signals:
+    void enableChanged();
+
+private:
+    QString m_name;
+    int32_t m_index;
+    bool m_enabled;
+};
 
 class SettingsViewModel : public QObject
 {
@@ -33,6 +61,7 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(int lockTimeout READ getLockTimeout WRITE setLockTimeout NOTIFY lockTimeoutChanged)
     Q_PROPERTY(QString walletLocation READ getWalletLocation CONSTANT)
     Q_PROPERTY(bool useGpu READ getUseGpu WRITE setUseGpu NOTIFY localNodeUseGpuChanged)
+    Q_PROPERTY(QQmlListProperty<DeviceItem> supportedDevices READ getSupportedDevices NOTIFY localNodeUseGpuChanged)
 
 public:
 
@@ -56,6 +85,8 @@ public:
     void setUseGpu(bool value);
     bool getUseGpu() const;
 
+    QQmlListProperty<DeviceItem> getSupportedDevices();
+
     bool isChanged() const;
 
     Q_INVOKABLE uint coreAmount() const;
@@ -66,6 +97,10 @@ public:
     Q_INVOKABLE bool showUseGpu() const;
     Q_INVOKABLE bool hasSupportedGpu();
 
+private:
+#ifdef BEAM_USE_GPU
+    std::vector<int32_t> getSelectedDevice() const;
+#endif
 public slots:
     void applyChanges();
     void undoChanges();
@@ -90,6 +125,9 @@ private:
     uint m_localNodePort;
     uint m_localNodeMiningThreads;
     QStringList m_localNodePeers;
+
+    QList<DeviceItem*> m_supportedDevices;
+
     int m_lockTimeout;
 #ifdef BEAM_USE_GPU
     bool m_useGpu;

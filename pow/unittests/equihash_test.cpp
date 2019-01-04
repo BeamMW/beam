@@ -103,16 +103,6 @@ int main()
         pow.m_Difficulty = 0; // d=0, runtime ~48 sec. d=1,2 - almost close to this. d=4 - runtime 4 miuntes, several cycles until solution is achieved.
         pow.m_Nonce = 0x010204U;
 
-        // our builder doesn't support GPU
-    //#if defined (BEAM_USE_GPU)
-    //    {
-    //	    pow.SolveGPU(pInput, sizeof(pInput));
-    //
-    //        if (!pow.IsValid(pInput, sizeof(pInput)))
-    //		    return -1;
-    //    }
-    //#else
-
         {
             pow.Solve(pInput, sizeof(pInput));
 

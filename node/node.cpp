@@ -3278,11 +3278,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
         {
             try
             {
-#if defined(BEAM_USE_GPU)
-                if (!s.GeneratePoW(fnCancel, get_ParentObj().m_Cfg.m_UseGpu))
-#else
                 if (!s.GeneratePoW(fnCancel))
-#endif
                     continue;
             }
             catch (const std::exception& ex)
@@ -3334,7 +3330,7 @@ void Node::Miner::HardAbortSafe()
 		}
 
 		if (bHadTasks)
-			m_External.m_pSolver->stop_current();
+		m_External.m_pSolver->stop_current();
 	}
 }
 

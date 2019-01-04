@@ -45,9 +45,9 @@ std::string get_result_msg(int code) {
     if (code == 0) return std::string();
     switch (code) {
 #define R_MESSAGE(code, _, message) case code: return message;
-        STRATUM_RESULTS(R_MESSAGE)
+    STRATUM_RESULTS(R_MESSAGE)
 #undef R_MESSAGE
-        default: break;
+    default: break;
     }
     return "unknown";
 }

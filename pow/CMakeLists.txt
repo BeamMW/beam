@@ -31,7 +31,7 @@ if(BEAM_USE_GPU)
     bin2h(SOURCE_FILE ${PROJECT_SOURCE_DIR}/3rdparty/opencl-miner/equihash_150_5.cl HEADER_FILE ${PROJECT_SOURCE_DIR}/3rdparty/opencl-miner/equihash_150_5.dat)
 
     set(POW_SRC ${POW_SRC}
-        ${PROJECT_SOURCE_DIR}/3rdparty/equihash_gpu.cpp
+        ${PROJECT_SOURCE_DIR}/pow/opencl_pow.cpp
         ${PROJECT_SOURCE_DIR}/3rdparty/opencl-miner/clHost.cpp)
 
     add_library(pow STATIC ${POW_SRC})

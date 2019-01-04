@@ -41,7 +41,7 @@ using namespace std;
 
 namespace
 {
-    const char* Testnet[] =
+    const char* Peers[] =
     {
 #ifdef BEAM_TESTNET
         "3.0.151.23:8100",
@@ -228,7 +228,7 @@ bool StartViewModel::getIsRunLocalNode() const
 QString StartViewModel::chooseRandomNode() const
 {
     srand(time(0));
-    return QString(Testnet[rand() % (sizeof(Testnet) / sizeof(Testnet[0]))]);
+    return QString(Peers[rand() % (sizeof(Peers) / sizeof(Peers[0]))]);
 }
 
 int StartViewModel::getLocalPort() const
@@ -272,6 +272,13 @@ void StartViewModel::setupLocalNode(int port, int miningThreads, const QString& 
     settings.setLocalNodePort(port);
     settings.setRunLocalNode(true);
     QStringList peers;
+    for (size_t i = 0; i < _countof(Peers); ++i)
+    {
+        if (localNodePeer != Peers[i])
+        {
+            peers.push_back(Peers[i]);
+        }
+    }
     peers.push_back(localNodePeer);
     settings.setLocalNodePeers(peers);
 }

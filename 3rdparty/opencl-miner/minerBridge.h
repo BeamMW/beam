@@ -13,9 +13,9 @@ public:
     virtual ~minerBridge() = default;
 
     virtual bool hasWork() = 0;
-    virtual void getWork(int64_t*, uint64_t*, uint8_t*) = 0;
+    virtual void getWork(int64_t*, uint64_t*, uint8_t*, uint32_t*) = 0;
 
-    virtual void handleSolution(int64_t&, uint64_t&, std::vector<uint32_t>&) = 0;
+    virtual void handleSolution(int64_t&, uint64_t&, std::vector<uint32_t>&, uint32_t) = 0;
 };
 
 }

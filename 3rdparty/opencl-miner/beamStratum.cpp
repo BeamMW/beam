@@ -211,7 +211,7 @@ void beamStratum::readStratum(const boost::system::error_code& err) {
 					// Get jobId of canceled job
 					uint64_t id =  jsonTree.get<uint64_t>("id");
 					// Set it to an unlikely value;
-					if (id == workId) workId = -1;
+					if (id == (uint64_t)workId) workId = -1;
 					updateMutex.unlock();
 				}
 			}
@@ -236,7 +236,7 @@ bool beamStratum::hasWork() {
 
 
 // function the clHost class uses to fetch new work
-void beamStratum::getWork(int64_t* workOut, uint64_t* nonceOut, uint8_t* dataOut) {
+void beamStratum::getWork(int64_t* workOut, uint64_t* nonceOut, uint8_t* dataOut, uint32_t*) {
 	*workOut = workId;
 
 	// nonce is atomic, so every time we call this will get a nonce increased by one
@@ -370,8 +370,8 @@ void beamStratum::testAndSubmit(int64_t wId, uint64_t nonceIn, vector<uint32_t> 
 
 
 // Will be called by clHost class for check & submit
-void beamStratum::handleSolution(int64_t &workId, uint64_t &nonce, vector<uint32_t> &indices) {
-	std::thread (&beamStratum::testAndSubmit,this,workId,nonce,indices).detach();
+void beamStratum::handleSolution(int64_t &workIdVar, uint64_t &nonceVar, vector<uint32_t> &indices, uint32_t) {
+	std::thread (&beamStratum::testAndSubmit,this, workIdVar, nonceVar,indices).detach();
 }
 
 

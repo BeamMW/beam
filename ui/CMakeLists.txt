@@ -110,8 +110,8 @@ target_link_libraries(${TARGET_NAME} quazip_static)
 
 #if (BEAM_WALLET_WITH_NODE)
 	add_definitions(-DBEAM_WALLET_WITH_NODE)
-	add_dependencies(${TARGET_NAME} node)
-	target_link_libraries(${TARGET_NAME} node)
+	add_dependencies(${TARGET_NAME} node external_pow)
+	target_link_libraries(${TARGET_NAME} node external_pow)
 #endif()
 
 target_link_libraries(${TARGET_NAME} wallet mnemonic Qt5::Qml Qt5::Quick Qt5::Svg Qt5::PrintSupport)

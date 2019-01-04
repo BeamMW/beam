@@ -14,8 +14,18 @@
 
 #pragma once
 
+#include <vector>
+#include <string>
 
 namespace beam
 {
     bool HasSupportedCard();
+
+    struct GpuInfo 
+    {
+        std::string name;
+        size_t index;
+    };
+
+    std::vector<GpuInfo> GetSupportedCards();
 }

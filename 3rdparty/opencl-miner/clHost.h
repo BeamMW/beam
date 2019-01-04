@@ -44,6 +44,7 @@ struct clCallbackData {
 	uint32_t gpuIndex;
 	int64_t workId;
 	uint64_t nonce;
+    uint32_t difficulty;
 };
 
 class clHost {

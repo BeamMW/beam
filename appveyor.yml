@@ -10,6 +10,8 @@ environment:
     secure: l9RqB2YbSnNIKZqTwnd67BHAXvbjmpj9zcf+YQPi9zfzsVeSysaoLD7gy4gSMjWurk2JVHjRpviw4bBxUbu2sA==  
   BUILD_CONFIG: RelWithDebInfo
   matrix:
+    - USE_GPU: On
+      GPU_FOLDER: /gpu/
     - USE_GPU: Off
       GPU_FOLDER: /
 

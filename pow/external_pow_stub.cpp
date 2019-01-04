@@ -82,11 +82,7 @@ private:
     }
 
     void thread_func() {
-#if defined (BEAM_USE_GPU)
-        auto SolveFn = &Block::PoW::SolveGPU;
-#else
         auto SolveFn = &Block::PoW::Solve;
-#endif
 
         Job job;
         Merkle::Hash hv;

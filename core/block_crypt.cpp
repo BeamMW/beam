@@ -1054,19 +1054,11 @@ namespace beam
 		return m_PoW.IsValid(hv.m_pData, hv.nBytes);
 	}
 
-#if defined(BEAM_USE_GPU)
-    bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel, bool useGpu)
-#else
     bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
-#endif
 	{
 		Merkle::Hash hv;
 		get_HashForPoW(hv);
 
-#if defined(BEAM_USE_GPU)
-        if (useGpu)
-            return m_PoW.SolveGPU(hv.m_pData, hv.nBytes, fnCancel);
-#endif
         return m_PoW.Solve(hv.m_pData, hv.nBytes, fnCancel);
 	}
 

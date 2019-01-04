@@ -54,6 +54,8 @@ public:
 #ifdef BEAM_USE_GPU
     bool getUseGpu() const;
     void setUseGpu(bool value);
+    std::vector<int32_t> getMiningDevices() const;
+    void setMiningDevices(const std::vector<int32_t>& value);
 #endif
 
 public:
@@ -73,6 +75,7 @@ signals:
     void localNodeSynchronizedChanged();
 #ifdef BEAM_USE_GPU
     void localNodeUseGpuChanged();
+    void localNodeMiningDevicesChanged();
 #endif
 
 private:

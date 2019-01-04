@@ -35,6 +35,8 @@ public:
     // creates local solver (stub)
     static std::unique_ptr<IExternalPOW> create_local_solver();
 
+    static std::unique_ptr<IExternalPOW> create_opencl_solver(const std::vector<int32_t>& devices);
+
     virtual ~IExternalPOW() = default;
 
     virtual void new_job(

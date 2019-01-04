@@ -9,9 +9,38 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 [Read our position paper](https://docs.beam.mw/BEAM_Position_Paper_v0.2.2.pdf)
 
 
-**TESTNET3 IS LAUNCHED!** 
+**MAINNET IS LAUNCHED!** 
 http://beam.mw/downloads
 
+If you build from source please use 'mainnet' branch
+
+Peers:
+
+eu-node01.mainnet.beam.mw:8100
+
+eu-node02.mainnet.beam.mw:8100
+
+eu-node03.mainnet.beam.mw:8100
+
+eu-node04.mainnet.beam.mw:8100
+
+us-node01.mainnet.beam.mw:8100
+
+us-node02.mainnet.beam.mw:8100
+
+us-node03.mainnet.beam.mw:8100
+
+us-node04.mainnet.beam.mw:8100
+
+ap-node01.mainnet.beam.mw:8100
+
+ap-node02.mainnet.beam.mw:8100
+
+ap-node03.mainnet.beam.mw:8100
+
+ap-node04.mainnet.beam.mw:8100
+
+Latest docs are here: https://beam-docs.readthedocs.io/en/latest/index.html
 
 Things that make BEAM special include:
 
