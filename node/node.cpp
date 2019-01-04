@@ -3488,20 +3488,27 @@ void Node::Miner::OnMinedExternal()
 
 	bool bReject = (m_External.m_jobID - jobID >= _countof(m_External.m_ppTask));
 
-	LOG_INFO() << "Solution from external miner. jonID=" << jobID << ", Current.jobID=" << m_External.m_jobID << ", Accept=" << static_cast<uint32_t>(!bReject);
+	LOG_INFO() << "Solution from external miner. jobID=" << jobID << ", Current.jobID=" << m_External.m_jobID << ", Accept=" << static_cast<uint32_t>(!bReject);
 
-	if (bReject)
+    if (bReject)
+    {
+        LOG_INFO() << "Solution is rejected due it is outdated.";
 		return; // outdated
+    }
 
 	Task::Ptr& pTask = m_External.get_At(jobID);
 
-	if (!pTask || *pTask->m_pStop)
+    if (!pTask || *pTask->m_pStop)
+    {
+        LOG_INFO() << "Solution is rejected due block mining has been canceled.";
 		return; // already cancelled
+    }
 
 	pTask->m_Hdr.m_PoW.m_Nonce = POW.m_Nonce;
 	pTask->m_Hdr.m_PoW.m_Indices = POW.m_Indices;
 
-    if (!pTask->m_Hdr.IsValidPoW()) {
+    if (!pTask->m_Hdr.IsValidPoW())
+    {
         LOG_INFO() << "invalid solution from external miner";
         return;
     }
