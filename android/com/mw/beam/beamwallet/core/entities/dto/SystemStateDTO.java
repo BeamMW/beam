@@ -12,16 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.mw.beam.beamwallet.core.entities;
+package com.mw.beam.beamwallet.core.entities.dto;
 
-import java.util.*; 
-
-public class WalletAddress
+public class SystemStateDTO
 {
-    public String walletID;
-    public String label;
-    public String category;
-    public long createTime;
-    public long duration;
-    public long own;
+	public byte[] hash;
+	public long height;
 }

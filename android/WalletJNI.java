@@ -14,6 +14,7 @@
 
 import com.mw.beam.beamwallet.core.*;
 import com.mw.beam.beamwallet.core.entities.*;
+import com.mw.beam.beamwallet.core.entities.dto.*;
 import com.mw.beam.beamwallet.core.listeners.*;
 
 import java.util.Arrays;

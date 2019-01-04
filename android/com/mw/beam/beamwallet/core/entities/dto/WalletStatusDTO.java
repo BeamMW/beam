@@ -12,20 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.mw.beam.beamwallet.core.entities;
+package com.mw.beam.beamwallet.core.entities.dto;
 
-public class TxDescription
+public class WalletStatusDTO
 {
-	public byte[] id;
-	public long amount;
-	public long fee;
-	public long change;
-	public long minHeight;
-	public String peerId;
-	public String myId;
-	public byte[] message;
-	public long createTime;
-	public long modifyTime;
-	public boolean sender;
-	public int status;
+	public long available;
+	public long unconfirmed;
+
+	public long updateLastTime;
+	public int updateDone;
+	public int updateTotal;
+
+	public SystemStateDTO system;
 }

@@ -498,7 +498,7 @@ namespace
                 setLongField(env, WalletAddressClass, addr, "own", address.m_OwnID);
             }
 
-            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onGeneratedNewAddress", "(L" BEAM_JAVA_PATH "/entities/WalletAddress;)V");
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onGeneratedNewAddress", "(L" BEAM_JAVA_PATH "/entities/dto/WalletAddressDTO;)V");
             env->CallStaticVoidMethod(WalletListenerClass, callback, addr);
         }
 
@@ -633,13 +633,13 @@ namespace
                 setLongField(env, SystemStateClass, systemState, "height", status.stateID.m_Height);
                 setByteArrayField(env, SystemStateClass, systemState, "hash", status.stateID.m_Hash);
 
-                jfieldID systemStateID = env->GetFieldID(WalletStatusClass, "system", "L" BEAM_JAVA_PATH "/entities/SystemState;");
+                jfieldID systemStateID = env->GetFieldID(WalletStatusClass, "system", "L" BEAM_JAVA_PATH "/entities/dto/SystemStateDTO;");
                 env->SetObjectField(walletStatus, systemStateID, systemState);
             }
 
             ////////////////
 
-            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onStatus", "(L" BEAM_JAVA_PATH "/entities/WalletStatus;)V");
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onStatus", "(L" BEAM_JAVA_PATH "/entities/dto/WalletStatusDTO;)V");
             env->CallStaticVoidMethod(WalletListenerClass, callback, walletStatus);
         }
 
@@ -649,7 +649,7 @@ namespace
 
             JNIEnv* env = Android_JNI_getEnv();
 
-            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onTxStatus", "(I[L" BEAM_JAVA_PATH "/entities/TxDescription;)V");
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onTxStatus", "(I[L" BEAM_JAVA_PATH "/entities/dto/TxDescriptionDTO;)V");
             
             jobjectArray txItems = 0;
 
@@ -746,7 +746,7 @@ namespace
 
             //////////////////////////////////
 
-            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAllUtxoChanged", "([L" BEAM_JAVA_PATH "/entities/Utxo;)V");
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAllUtxoChanged", "([L" BEAM_JAVA_PATH "/entities/dto/UtxoDTO;)V");
             env->CallStaticVoidMethod(WalletListenerClass, callback, utxos);
         }
 
@@ -781,7 +781,7 @@ namespace
                 }
             }
 
-            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAdrresses", "(Z[L" BEAM_JAVA_PATH "/entities/WalletAddress;)V");
+            jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAdrresses", "(Z[L" BEAM_JAVA_PATH "/entities/dto/WalletAddressDTO;)V");
             env->CallStaticVoidMethod(WalletListenerClass, callback, own, addrArray);
         }
 
@@ -1096,27 +1096,27 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
     }
 
     {
-        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/WalletStatus");
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/WalletStatusDTO");
         WalletStatusClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
     }
 
     {
-        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/SystemState");
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/SystemStateDTO");
         SystemStateClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
     }
 
     {
-        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/TxDescription");
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/TxDescriptionDTO");
         TxDescriptionClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
     }
 
     {
-        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/Utxo");
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/UtxoDTO");
         UtxoClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
     }
 
     {
-        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/WalletAddress");
+        jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/WalletAddressDTO");
         WalletAddressClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
     }
 

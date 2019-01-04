@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.mw.beam.beamwallet.core.entities;
+package com.mw.beam.beamwallet.core.entities.dto;
 
-public class Utxo
+public class UtxoDTO
 {
 	public long id;
 	public long amount;
