@@ -308,6 +308,10 @@ namespace beam { namespace wallet
                     ConfirmTransaction(builder);
                     SetState(State::PeerConfirmation);
                 }
+                if (!hasPeersInputsAndOutputs)
+                {
+                    return;
+                }
             }
 
             // Construct transaction
