@@ -296,9 +296,15 @@ void WalletModel::run()
 
         auto nodeNetwork = make_shared<MyNodeNetwork>(*wallet, *this);
 
-        Address node_addr;
-        node_addr.resolve(_nodeAddrStr.c_str());
-        nodeNetwork->m_Cfg.m_vNodes.push_back(node_addr);
+        Address nodeAddr;
+        if (nodeAddr.resolve(_nodeAddrStr.c_str()))
+        {
+            nodeNetwork->m_Cfg.m_vNodes.push_back(nodeAddr);
+        }
+        else
+        {
+            LOG_ERROR() << "Unable to resolve node address: " << _nodeAddrStr;
+        }
 
         _nodeNetwork = nodeNetwork;
 
@@ -559,7 +565,6 @@ void WalletModel::setNodeAddress(const std::string& addr)
     else
     {
         LOG_ERROR() << "Unable to resolve node address: " << addr;
-        assert(false);
     }
 }
 

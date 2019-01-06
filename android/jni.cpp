@@ -429,8 +429,14 @@ namespace
                 auto nnet = make_shared<MyNodeNetwork>(*wallet, *this);
 
                 Address node_addr;
-                node_addr.resolve(nodeURI.c_str());
-                nnet->m_Cfg.m_vNodes.push_back(node_addr);
+                if (node_addr.resolve(nodeURI.c_str()))
+                {
+                    nnet->m_Cfg.m_vNodes.push_back(node_addr);
+                }
+                else
+                {
+                    LOG_ERROR() << "Unable to resolve node address: " << nodeURI;
+                }
 
                 nnet->Connect();
                 _nodeNetwork = nnet;
