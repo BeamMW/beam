@@ -274,6 +274,7 @@ namespace beam { namespace wallet
 
         builder.SignPartial();
 
+        bool hasPeersInputsAndOutputs = builder.GetPeerInputsAndOutputs();
         if (!isSelfTx && !builder.GetPeerSignature())
         {
             if (txState == State::Initial)
@@ -282,7 +283,7 @@ namespace beam { namespace wallet
                 assert(!IsInitiator());
                 
                 UpdateTxDescription(TxStatus::Registered);
-                ConfirmInvitation(builder);
+                ConfirmInvitation(builder, !hasPeersInputsAndOutputs);
                 SetState(State::InvitationConfirmation);
             }
             return;
@@ -299,13 +300,12 @@ namespace beam { namespace wallet
         bool isRegistered = false;
         if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered))
         {
-            bool hasPeersInputsAndOutputs = builder.GetPeerInputsAndOutputs();
             if (!isSelfTx && (!hasPeersInputsAndOutputs || IsInitiator()))
             {
                 if (txState == State::Invitation)
                 {
                     UpdateTxDescription(TxStatus::Registered);
-                    ConfirmTransaction(builder);
+                    ConfirmTransaction(builder, !hasPeersInputsAndOutputs);
                     SetState(State::PeerConfirmation);
                 }
                 if (!hasPeersInputsAndOutputs)
@@ -339,7 +339,7 @@ namespace beam { namespace wallet
         GetParameter(TxParameterID::KernelProofHeight, hProof);
         if (!hProof)
         {
-            if (!IsInitiator() && txState == State::Registration)
+            if (txState == State::Registration)
             {
                 // notify peer that transaction has been registered
                 NotifyTransactionRegistered();
@@ -348,7 +348,6 @@ namespace beam { namespace wallet
             ConfirmKernel(builder.GetKernel());
             return;
         }
-
 
         vector<Coin> unconfirmed = GetUnconfirmedOutputs();
 
@@ -380,11 +379,8 @@ namespace beam { namespace wallet
             .AddParameter(TxParameterID::MinHeight, builder.GetMinHeight())
             .AddParameter(TxParameterID::MaxHeight, builder.GetMaxHeight())
             .AddParameter(TxParameterID::IsSender, !isSender)
-            .AddParameter(TxParameterID::PeerInputs, builder.GetInputs())
-            .AddParameter(TxParameterID::PeerOutputs, builder.GetOutputs())
             .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
-            .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce())
-            .AddParameter(TxParameterID::PeerOffset, builder.GetOffset());
+            .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce());
 
         if (!SendTxParameters(move(msg)))
         {
@@ -392,22 +388,31 @@ namespace beam { namespace wallet
         }
     }
 
-    void SimpleTransaction::ConfirmInvitation(const TxBuilder& builder)
+    void SimpleTransaction::ConfirmInvitation(const TxBuilder& builder, bool sendUtxos)
     {
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerSignature, builder.GetPartialSignature())
-            .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce())
-            .AddParameter(TxParameterID::PeerInputs, builder.GetInputs())
+            .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce());
+        if (sendUtxos)
+        {
+            msg.AddParameter(TxParameterID::PeerInputs, builder.GetInputs())
             .AddParameter(TxParameterID::PeerOutputs, builder.GetOutputs())
             .AddParameter(TxParameterID::PeerOffset, builder.GetOffset());
+        }
         SendTxParameters(move(msg));
     }
 
-    void SimpleTransaction::ConfirmTransaction(const TxBuilder& builder)
+    void SimpleTransaction::ConfirmTransaction(const TxBuilder& builder, bool sendUtxos)
     {
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::PeerSignature, Scalar(builder.GetPartialSignature()));
+        if (sendUtxos)
+        {
+            msg.AddParameter(TxParameterID::PeerInputs, builder.GetInputs())
+                .AddParameter(TxParameterID::PeerOutputs, builder.GetOutputs())
+                .AddParameter(TxParameterID::PeerOffset, builder.GetOffset());
+        }
         SendTxParameters(move(msg));
     }
 
