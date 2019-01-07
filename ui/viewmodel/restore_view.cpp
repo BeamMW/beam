@@ -35,7 +35,7 @@ RestoreViewModel::RestoreViewModel()
     , m_skipProgress{false}
     , m_isCreating{false}
 {
-    connect(&m_walletModel, SIGNAL(onSyncProgressUpdated(int, int)),
+    connect(&m_walletModel, SIGNAL(syncProgressUpdated(int, int)),
         SLOT(onSyncProgressUpdated(int, int)));
 
     if (AppModel::getInstance()->getSettings().getRunLocalNode())
@@ -47,7 +47,7 @@ RestoreViewModel::RestoreViewModel()
     connect(&m_walletModel, SIGNAL(nodeConnectionChanged(bool)),
         SLOT(onNodeConnectionChanged(bool)));
 
-    connect(&m_walletModel, SIGNAL(onWalletError(beam::wallet::ErrorType)),
+    connect(&m_walletModel, SIGNAL(walletError(beam::wallet::ErrorType)),
         SLOT(onGetWalletError(beam::wallet::ErrorType)));
 
     connect(&m_updateTimer, SIGNAL(timeout()), this, SLOT(onUpdateTimer()));

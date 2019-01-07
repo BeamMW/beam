@@ -70,7 +70,7 @@ Item
                 root_restore.parent.source = "qrc:/main.qml";
         }
 
-        onWalletError: {
+        walletError: {
             if (isCreating) {
                 confirmationDialog.titleText = title;
                 confirmationDialog.messageText = message;

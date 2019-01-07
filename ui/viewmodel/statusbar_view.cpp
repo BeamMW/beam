@@ -35,7 +35,7 @@ StatusbarViewModel::StatusbarViewModel()
     connect(&m_model, SIGNAL(onWalletError(beam::wallet::ErrorType)),
         SLOT(onGetWalletError(beam::wallet::ErrorType)));
 
-    connect(&m_model, SIGNAL(onSyncProgressUpdated(int, int)),
+    connect(&m_model, SIGNAL(syncProgressUpdated(int, int)),
         SLOT(onSyncProgressUpdated(int, int)));
 
     if (AppModel::getInstance()->getSettings().getRunLocalNode())

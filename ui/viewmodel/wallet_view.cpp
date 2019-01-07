@@ -201,21 +201,21 @@ WalletViewModel::WalletViewModel()
     , _change(0)
     , _expires(0)
 {
-    connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
+    connect(&_model, SIGNAL(walletStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
-    connect(&_model, SIGNAL(onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>&)),
+    connect(&_model, SIGNAL(txStatus(beam::ChangeAction, const std::vector<beam::TxDescription>&)),
         SLOT(onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>&)));
 
-    connect(&_model, SIGNAL(onChangeCalculated(beam::Amount)),
+    connect(&_model, SIGNAL(changeCalculated(beam::Amount)),
         SLOT(onChangeCalculated(beam::Amount)));
 
-    connect(&_model, SIGNAL(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)),
+    connect(&_model, SIGNAL(changeCurrentWalletIDs(beam::WalletID, beam::WalletID)),
         SLOT(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)));
 
-    connect(&_model, SIGNAL(onAdrresses(bool, const std::vector<beam::WalletAddress>&)),
+    connect(&_model, SIGNAL(adrresses(bool, const std::vector<beam::WalletAddress>&)),
         SLOT(onAdrresses(bool, const std::vector<beam::WalletAddress>&)));
 
-    connect(&_model, SIGNAL(onGeneratedNewAddress(const beam::WalletAddress&)),
+    connect(&_model, SIGNAL(generatedNewAddress(const beam::WalletAddress&)),
         SLOT(onGeneratedNewAddress(const beam::WalletAddress&)));
 
     _model.getAsync()->getWalletStatus();

@@ -41,6 +41,30 @@ private:
     std::shared_ptr<Notifier> m_notifier;
 };
 
+beam::wallet::ErrorType GetWalletError(proto::NodeProcessingException::Type exceptionType)
+{
+    switch (exceptionType)
+    {
+    case proto::NodeProcessingException::Type::Incompatible:
+        return beam::wallet::ErrorType::NodeProtocolIncompatible;
+    default:
+        return beam::wallet::ErrorType::NodeProtocolBase;
+    }
+}
+
+beam::wallet::ErrorType GetWalletError(io::ErrorCode errorCode)
+{
+    switch (errorCode)
+    {
+    case EC_ETIMEDOUT:
+        return beam::wallet::ErrorType::ConnectionTimedOut;
+    case EC_ECONNREFUSED:
+        return beam::wallet::ErrorType::ConnectionRefused;
+    default:
+        return beam::wallet::ErrorType::NodeProtocolBase;
+    }
+}
+
 using WalletSubscriber = ScopedSubscriber<IWalletObserver, beam::IWallet>;
 
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
@@ -238,12 +262,12 @@ void WalletClient::start()
 
                 void OnNodeConnected(size_t, bool bConnected) override
                 {
-                    m_walletClient.onNodeConnectedStatusChanged(bConnected);
+                    m_walletClient.nodeConnectedStatusChanged(bConnected);
                 }
 
                 void OnConnectionFailed(size_t, const proto::NodeConnection::DisconnectReason& reason) override
                 {
-                    m_walletClient.onNodeConnectionFailed(reason);
+                    m_walletClient.nodeConnectionFailed(reason);
                 }
             };
 
@@ -283,12 +307,22 @@ void WalletClient::start()
     });
 }
 
+IWalletModelAsync::Ptr WalletClient::getAsync()
+{
+    return m_async;
+}
+
 bool WalletClient::check_receiver_address(const std::string& addr)
 {
     WalletID walletID;
     return
         walletID.FromHex(addr) &&
         walletID.IsValid();
+}
+
+std::string WalletClient::getNodeAddress() const
+{
+    return m_nodeAddrStr;
 }
 
 void WalletClient::onCoinsChanged()
@@ -528,4 +562,32 @@ vector<Coin> WalletClient::getUtxos() const
         return true;
     });
     return utxos;
+}
+
+void WalletClient::nodeConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
+{
+    m_isConnected = false;
+
+    // reason -> wallet::ErrorType
+    if (proto::NodeConnection::DisconnectReason::ProcessingExc == reason.m_Type)
+    {
+        m_walletError = GetWalletError(reason.m_ExceptionDetails.m_ExceptionType);
+        onWalletError(*m_walletError);
+        return;
+    }
+
+    if (proto::NodeConnection::DisconnectReason::Io == reason.m_Type)
+    {
+        m_walletError = GetWalletError(reason.m_IoError);
+        onWalletError(*m_walletError);
+        return;
+    }
+
+    LOG_ERROR() << "Unprocessed error: " << reason;
+}
+
+void WalletClient::nodeConnectedStatusChanged(bool isNodeConnected)
+{
+    m_isConnected = isNodeConnected;
+    onNodeConnectionChanged(isNodeConnected);
 }

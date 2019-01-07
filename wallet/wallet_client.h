@@ -45,12 +45,14 @@ class WalletClient
 {
 public:
     WalletClient(beam::IWalletDB::Ptr walletDB, const std::string& nodeAddr);
-    ~WalletClient();
+    virtual ~WalletClient();
 
     void start();
     
     IWalletModelAsync::Ptr getAsync();
     bool check_receiver_address(const std::string& addr);
+
+    std::string getNodeAddress() const;
 
 protected:
 
@@ -65,7 +67,7 @@ protected:
     virtual void onNodeConnectionChanged(bool isNodeConnected) = 0;
     virtual void onWalletError(beam::wallet::ErrorType error) = 0;
     virtual void onNodeConnectedStatusChanged(bool isNodeConnected) = 0;
-    virtual void onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason&) = 0;
+    //virtual void onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason&) = 0;
 
 private:
 
@@ -93,6 +95,9 @@ private:
 
     WalletStatus getStatus() const;
     std::vector<beam::Coin> getUtxos() const;
+
+    void nodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason&);
+    void nodeConnectedStatusChanged(bool isNodeConnected);
 
 private:
     std::shared_ptr<std::thread> m_thread;
