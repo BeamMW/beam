@@ -53,6 +53,8 @@ namespace
         {
         case proto::NodeProcessingException::Type::Incompatible:
             return beam::wallet::ErrorType::NodeProtocolIncompatible;
+		case proto::NodeProcessingException::Type::TimeOutOfSync:
+			return beam::wallet::ErrorType::TimeOutOfSync;
         default:
             return beam::wallet::ErrorType::NodeProtocolBase;
         }
@@ -612,6 +614,8 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
         return tr("Node protocol error!");
     case wallet::ErrorType::NodeProtocolIncompatible:
         return tr("You are trying to connect to incompatible peer.");
+	case wallet::ErrorType::TimeOutOfSync:
+		return tr("System time not synchronized.");
     case wallet::ErrorType::ConnectionTimedOut:
         return tr("Connection timed out.");
     case wallet::ErrorType::ConnectionRefused:

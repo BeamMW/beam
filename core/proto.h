@@ -420,7 +420,8 @@ namespace proto {
         enum class Type : uint8_t
         {
             Base,
-            Incompatible
+            Incompatible,
+			TimeOutOfSync,
         };
 
         NodeProcessingException(const std::string& str, Type type)
