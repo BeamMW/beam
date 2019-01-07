@@ -577,7 +577,9 @@ void NodeConnection::OnMsg(SChannelInitiate&& msg)
 
     m_Protocol.m_Mode = ProtocolPlus::Mode::Outgoing;
 
-    OnConnectedSecure();
+	Send(proto::GetTime(Zero)); // in the next proto - better to send the time right away, instead of asking for it
+
+	OnConnectedSecure();
 }
 
 void NodeConnection::OnMsg(SChannelReady&& msg)
@@ -749,6 +751,28 @@ void NodeConnection::OnMsg(Bye&& msg)
 void NodeConnection::OnMsg(Ping&& msg)
 {
 	Send(Pong(Zero));
+}
+
+void NodeConnection::OnMsg(GetTime&& msg)
+{
+	proto::Time msgOut;
+	msgOut.m_Value = getTimestamp();
+	Send(msgOut);
+}
+
+void NodeConnection::OnMsg(Time&& msg)
+{
+	uint32_t dtMax_s = Rules::get().DA.MaxAhead_s * 3 / 4; // time diff should be no more than 3/4 of the max allowed time diff in blocks
+	Timestamp ts = getTimestamp();
+
+	if ((ts + dtMax_s < msg.m_Value) ||
+		(ts > msg.m_Value + dtMax_s))
+	{
+		std::ostringstream os;
+		os << "Time diff too large. Local=" << ts << ", Remote=" << msg.m_Value;
+
+		ThrowUnexpected(os.str().c_str(), NodeProcessingException::Type::TimeOutOfSync);
+	}
 }
 
 void NodeConnection::VerifyCfg(const Login& msg)

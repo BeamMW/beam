@@ -1164,7 +1164,6 @@ namespace beam
 				msg.m_CfgChecksum = Rules::get().Checksum;
 				Send(msg);
 
-				Send(proto::GetTime(Zero));
 				Send(proto::GetExternalAddr(Zero));
 			}
 
@@ -1185,10 +1184,6 @@ namespace beam
 				default: // suppress warning
 					break;
 				}
-			}
-
-			virtual void OnMsg(proto::Time&& msg) override
-			{
 			}
 
 			virtual void OnMsg(proto::ExternalAddr&& msg) override

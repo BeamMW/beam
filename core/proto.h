@@ -487,6 +487,8 @@ namespace proto {
         virtual void OnMsg(Authentication&&) override;
         virtual void OnMsg(Bye&&) override;
 		virtual void OnMsg(Ping&&) override;
+		virtual void OnMsg(GetTime&&) override;
+		virtual void OnMsg(Time&&) override;
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 

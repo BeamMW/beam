@@ -528,7 +528,6 @@ private:
 		virtual void OnMsg(proto::GetProofChainWork&&) override;
 		virtual void OnMsg(proto::PeerInfoSelf&&) override;
 		virtual void OnMsg(proto::PeerInfo&&) override;
-		virtual void OnMsg(proto::GetTime&&) override;
 		virtual void OnMsg(proto::GetExternalAddr&&) override;
 		virtual void OnMsg(proto::BbsMsg&&) override;
 		virtual void OnMsg(proto::BbsHaveMsg&&) override;
