@@ -2409,7 +2409,7 @@ void Node::Peer::OnMsg(proto::Login&& msg)
 		(proto::LoginFlags::Bbs & msg.m_Flags))
 	{
 		proto::BbsResetSync msgOut;
-		msgOut.m_TimeFrom = std::min(m_This.m_Bbs.m_HighestPosted_s, getTimestamp() - m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s);
+		msgOut.m_TimeFrom = std::min(m_This.m_Bbs.m_HighestPosted_s, getTimestamp() - Rules::get().DA.MaxAhead_s);
 		Send(msgOut);
 	}
 
@@ -2782,13 +2782,13 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
 	Timestamp t = getTimestamp();
 
-	if (msg.m_TimePosted > t + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s)
+	if (msg.m_TimePosted > t + Rules::get().DA.MaxAhead_s)
 		return; // too much ahead of time
 
 	if (msg.m_TimePosted + m_This.m_Cfg.m_Timeout.m_BbsMessageTimeout_s  < t)
 		return; // too old
 
-	if (msg.m_TimePosted + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
+	if (msg.m_TimePosted + Rules::get().DA.MaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
 		return; // don't allow too much out-of-order messages
 
     NodeDB& db = m_This.m_Processor.get_DB();

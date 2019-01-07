@@ -56,7 +56,6 @@ struct Node
 			uint32_t m_PeersUpdate_ms	= 1000; // reconsider every second
 			uint32_t m_PeersDbFlush_ms = 1000 * 60; // 1 minute
 			uint32_t m_BbsMessageTimeout_s	= 3600 * 12; // 1/2 day
-			uint32_t m_BbsMessageMaxAhead_s	= 60 * 15; // 15 minutes
 			uint32_t m_BbsCleanupPeriod_ms = 3600 * 1000; // 1 hour
 			uint32_t m_BbsChannelUpdate_ms = 60 * 5; // 5 minutes
 		} m_Timeout;
