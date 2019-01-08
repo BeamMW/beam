@@ -800,8 +800,9 @@ private:
             proto::Login msg;
             msg.m_CfgChecksum = Rules::get().Checksum;
             msg.m_Flags =
-                proto::LoginFlags::SpreadingTransactions |
-                proto::LoginFlags::Bbs |
+                proto::LoginFlags::Extension1 |
+				proto::LoginFlags::SpreadingTransactions |
+				proto::LoginFlags::Bbs |
                 proto::LoginFlags::SendPeers;
             Send(msg);
         }

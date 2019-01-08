@@ -782,12 +782,14 @@ void NodeConnection::VerifyCfg(const Login& msg)
 		ThrowUnexpected("Incompatible peer cfg!", NodeProcessingException::Type::Incompatible);
 	}
 
-	if (!(proto::LoginFlags::Extension1 & msg.m_Flags)) {
-		LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses older protocol.";
-	}
-
 	if ((~proto::LoginFlags::Recognized) & msg.m_Flags) {
 		LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses newer protocol.";
+	}
+	else
+	{
+		if (!(proto::LoginFlags::Extension1 & msg.m_Flags)) {
+			LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses older protocol.";
+		}
 	}
 }
 

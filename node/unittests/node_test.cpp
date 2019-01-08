@@ -1162,6 +1162,7 @@ namespace beam
 
 				proto::Login msg;
 				msg.m_CfgChecksum = Rules::get().Checksum;
+				msg.m_Flags = proto::LoginFlags::Extension1;
 				Send(msg);
 
 				Send(proto::GetExternalAddr(Zero));
@@ -1375,8 +1376,9 @@ namespace beam
 					// switch offline/online mining modes
 					proto::Login msgLogin;
 					msgLogin.m_CfgChecksum = Rules::get().Checksum;
+					msgLogin.m_Flags = proto::LoginFlags::Extension1;
 					if (msg.m_Description.m_Height % 8)
-						msgLogin.m_Flags = proto::LoginFlags::MiningFinalization;
+						msgLogin.m_Flags |= proto::LoginFlags::MiningFinalization;
 					Send(msgLogin);
 				}
 
