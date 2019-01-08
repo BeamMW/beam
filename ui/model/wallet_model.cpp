@@ -418,7 +418,7 @@ void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& c
         auto s = _wallet.lock();
         if (s)
         {
-            s->transfer_money(senderAddress.m_walletID, receiver, move(amount), move(fee), true, move(message));
+            s->transfer_money(senderAddress.m_walletID, receiver, move(amount), move(fee), true, 120, move(message));
         }
     }
     catch (...)

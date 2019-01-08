@@ -196,7 +196,7 @@ namespace beam
 
                 ByteBuffer message(data.comment.begin(), data.comment.end());
 
-                auto txId = _wallet.transfer_money(senderAddress.m_walletID, data.address, data.value, data.fee, true, std::move(message));
+                auto txId = _wallet.transfer_money(senderAddress.m_walletID, data.address, data.value, data.fee, true, 120, std::move(message));
 
                 doResponse(id, Send::Response{ txId });
             }

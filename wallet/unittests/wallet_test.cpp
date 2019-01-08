@@ -735,7 +735,7 @@ void TestWalletNegotiation(IWalletDB::Ptr senderWalletDB, IWalletDB::Ptr receive
 
     tnns.AddBlock();
 
-    sender.transfer_money(sender_id, receiver_id, 6, 1, true, {});
+    sender.transfer_money(sender_id, receiver_id, 6, 1, true, 200, {});
     mainReactor->run();
 
     WALLET_CHECK(count == 2);
@@ -973,7 +973,7 @@ void TestTxToHimself()
     helpers::StopWatch sw;
 
     sw.start();
-    TxID txId = sender.m_Wallet.transfer_money(sender.m_WalletID, sender.m_WalletID, 24, 2);
+    TxID txId = sender.m_Wallet.transfer_money(sender.m_WalletID, sender.m_WalletID, 24, 2, true, 200);
     mainReactor->run();
     sw.stop();
 
@@ -1041,7 +1041,7 @@ void TestP2PWalletNegotiationST()
     helpers::StopWatch sw;
     sw.start();
 
-    TxID txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2);
+    TxID txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true, 200);
 
     mainReactor->run();
     sw.stop();
@@ -1095,7 +1095,7 @@ void TestP2PWalletNegotiationST()
 
     // second transfer
     sw.start();
-    txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6);
+    txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6, 0, true, 200);
     mainReactor->run();
     sw.stop();
     cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -1159,7 +1159,7 @@ void TestP2PWalletNegotiationST()
     // third transfer. no enough money should appear
     sw.start();
     completedCount = 1;// only one wallet takes part in tx
-    txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6);
+    txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6, 0, true, 200);
     mainReactor->run();
     sw.stop();
     cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -1216,7 +1216,7 @@ void TestP2PWalletReverseNegotiationST()
     helpers::StopWatch sw;
     sw.start();
 
-    TxID txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 4, 2, false);
+    TxID txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 4, 2, false, 200);
 
     mainReactor->run();
     sw.stop();
@@ -1270,7 +1270,7 @@ void TestP2PWalletReverseNegotiationST()
 
     // second transfer
     sw.start();
-    txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 6, 0, false);
+    txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 6, 0, false, 200);
     mainReactor->run();
     sw.stop();
     cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -1334,7 +1334,7 @@ void TestP2PWalletReverseNegotiationST()
     // third transfer. no enough money should appear
     sw.start();
 
-    txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 6, 0, false);
+    txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 6, 0, false, 200);
     mainReactor->run();
     sw.stop();
     cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
