@@ -759,7 +759,18 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsMsg& req)
 
 void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
 {
-    Send(req.m_Msg);
+	if (LoginFlags::Extension1 & m_LoginFlags)
+	    Send(req.m_Msg);
+	else
+	{
+		BbsMsgV0 msg0;
+		msg0.m_Channel = req.m_Msg.m_Channel;
+		msg0.m_TimePosted = req.m_Msg.m_TimePosted;
+
+		TemporarySwap scope(msg0.m_Message, req.m_Msg.m_Message);
+
+		Send(msg0);
+	}
 
     Ping msg2(Zero);
     Send(msg2);
