@@ -2768,6 +2768,9 @@ void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
 
 void Node::Peer::OnMsg(proto::BbsMsgV0&& msg0)
 {
+	if (!m_This.m_Cfg.m_BbsAllowV0)
+		return; // drop
+
 	proto::BbsMsg msg;
 	msg.m_Channel = msg0.m_Channel;
 	msg.m_TimePosted = msg0.m_TimePosted;
@@ -2778,6 +2781,16 @@ void Node::Peer::OnMsg(proto::BbsMsgV0&& msg0)
 
 void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 {
+	if (!m_This.m_Cfg.m_BbsAllowV0)
+	{
+		// test the hash
+		ECC::Hash::Value hv;
+		proto::Bbs::get_Hash(hv, msg);
+
+		if (!proto::Bbs::IsHashValid(hv))
+			return; // drop
+	}
+
 	OnMsg(msg, true);
 }
 

@@ -372,6 +372,14 @@ namespace proto {
 #undef THE_MACRO5
 #undef THE_MACRO6
 
+
+	namespace Bbs
+	{
+		void get_HashPartial(ECC::Hash::Processor&, const BbsMsg&); // all except time and nonce
+		void get_Hash(ECC::Hash::Value&, const BbsMsg&);
+		bool IsHashValid(const ECC::Hash::Value&);
+	}
+
     struct ProtocolPlus
         :public Protocol
     {

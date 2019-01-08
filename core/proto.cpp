@@ -261,6 +261,30 @@ bool Bbs::Decrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAd
     return (hvMac == hvMac2);
 }
 
+void Bbs::get_HashPartial(ECC::Hash::Processor& hp, const BbsMsg& msg)
+{
+	hp
+		<< "bbs.msg"
+		<< msg.m_Channel
+		<< Blob(msg.m_Message);
+}
+
+void Bbs::get_Hash(ECC::Hash::Value& hv, const BbsMsg& msg)
+{
+	ECC::Hash::Processor hp;
+	get_HashPartial(hp, msg);
+
+	hp
+		<< msg.m_TimePosted
+		<< msg.m_Nonce
+		>> hv;
+}
+
+bool Bbs::IsHashValid(const ECC::Hash::Value& hv)
+{
+	return !(hv.m_pData[0] | hv.m_pData[1] | hv.m_pData[2]);
+}
+
 union HighestMsgCode
 {
 #define THE_MACRO(code, msg) uint8_t m_pBuf_##msg[code + 1];
