@@ -17,6 +17,7 @@
 #include "wallet/common.h"
 #include "wallet/wallet_db.h"
 
+#include <condition_variable>
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
