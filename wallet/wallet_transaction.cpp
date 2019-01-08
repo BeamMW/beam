@@ -256,16 +256,17 @@ namespace beam { namespace wallet
                 {
                     builder.AddOutput(amount, Coin::Incoming);
                 }
-
-                if (builder.FinalizeOutputs()) 
-                {
-                    LOG_INFO() << GetTxID() << " Invitation accepted";
-                }
-                else
-                {
-                    // TODO: transaction is too big :(
-                }
             }
+
+            if (builder.FinalizeOutputs())
+            {
+                LOG_INFO() << GetTxID() << " Invitation accepted";
+            }
+            else
+            {
+                // TODO: transaction is too big :(
+            }
+
             UpdateTxDescription(TxStatus::InProgress);
         }
 
@@ -531,8 +532,7 @@ namespace beam { namespace wallet
 
     void TxBuilder::AddOutput(Amount amount, Coin::Status status)
     {
-        m_Outputs.push_back(CreateOutput(amount, status, m_MinHeight));
-        
+        m_Outputs.push_back(CreateOutput(amount, status, m_MinHeight));        
     }
 
     bool TxBuilder::FinalizeOutputs()

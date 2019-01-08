@@ -179,7 +179,7 @@ namespace beam
         return transfer_money(from, to, AmountList{ amount }, fee, sender, move(message));
     }
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, AmountList amountList, Amount fee, bool sender, ByteBuffer&& message)
+    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee, bool sender, ByteBuffer&& message)
     {
         auto txID = wallet::GenerateTxID();
         auto tx = constructTransaction(txID, TxType::Simple);
@@ -209,6 +209,11 @@ namespace beam
         updateTransaction(txID);
 
         return txID;
+    }
+
+    TxID Wallet::split_coins(const WalletID& from, const AmountList& amountList, Amount fee, bool sender, ByteBuffer&& message)
+    {
+        return transfer_money(from, from, amountList, fee, sender, move(message));
     }
 
     TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount)

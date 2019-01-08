@@ -1550,6 +1550,81 @@ struct MyMmr : public Merkle::Mmr
 //    TestRollback(99, 100);
 //}
 
+static void TestSplitTransaction()
+{
+    cout << "\nTesting split Tx...\n";
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    auto senderWalletDB = createSqliteWalletDB("sender_wallet.db");
+
+    // add coin with keyType - Coinbase
+    beam::Amount coin_amount = 40;
+    Coin coin(coin_amount);
+    coin.m_maturity = 0;
+    coin.m_status = Coin::Available;
+    coin.m_ID.m_Type = Key::Type::Coinbase;
+    senderWalletDB->store(coin);
+
+    auto coins = senderWalletDB->selectCoins(24, false);
+    WALLET_CHECK(coins.size() == 1);
+    WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
+    WALLET_CHECK(coins[0].m_status == Coin::Available);
+    WALLET_CHECK(senderWalletDB->getTxHistory().empty());
+
+    TestNode node;
+    TestWalletRig sender("sender", senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
+    helpers::StopWatch sw;
+
+    sw.start();
+    TxID txId = sender.m_Wallet.split_coins(sender.m_WalletID, { 11, 12, 13 }, 2);
+    mainReactor->run();
+    sw.stop();
+
+    cout << "Transfer elapsed time: " << sw.milliseconds() << " ms\n";
+
+    // check Tx
+    auto txHistory = senderWalletDB->getTxHistory();
+    WALLET_CHECK(txHistory.size() == 1);
+    WALLET_CHECK(txHistory[0].m_txId == txId);
+    WALLET_CHECK(txHistory[0].m_amount == 36);
+    WALLET_CHECK(txHistory[0].m_change == 2);
+    WALLET_CHECK(txHistory[0].m_fee == 2);
+    WALLET_CHECK(txHistory[0].m_status == TxStatus::Completed);
+
+    // check coins
+    vector<Coin> newSenderCoins;
+    senderWalletDB->visit([&newSenderCoins](const Coin& c)->bool
+    {
+        newSenderCoins.push_back(c);
+        return true;
+    });
+
+    WALLET_CHECK(newSenderCoins.size() == 5);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Change);
+    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 2);
+
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Coinbase);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Spent);
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 40);
+
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 11);
+
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 12);
+
+    WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[4].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 13);
+
+    cout << "\nFinish of testing split Tx...\n";
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -1561,11 +1636,13 @@ int main()
     Rules::get().FakePoW = true;
     Rules::get().UpdateChecksum();
 
-    //TestP2PWalletNegotiationST();
+    TestP2PWalletNegotiationST();
     TestP2PWalletReverseNegotiationST();
 
     TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
     TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
+
+    TestSplitTransaction();
 
     //TestSwapTransaction();
 
