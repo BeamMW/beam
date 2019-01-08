@@ -1571,9 +1571,17 @@ namespace beam
 			uint32_t m_MsgCount = 0;
 
 			virtual void OnMsg(proto::BbsMsg&& msg) override {
+				OnBbsMsg(msg.m_Message);
+			}
 
-				verify_test(msg.m_Message.size() == 1);
-				uint8_t nMsg = msg.m_Message[0];
+			virtual void OnMsg(proto::BbsMsgV0&& msg) override {
+				OnBbsMsg(msg.m_Message);
+			}
+
+			void OnBbsMsg(const ByteBuffer& msg)
+			{
+				verify_test(msg.size() == 1);
+				uint8_t nMsg = msg[0];
 
 				verify_test(nMsg == (uint8_t) m_MsgCount + 1);
 				m_MsgCount++;

@@ -134,10 +134,16 @@ namespace proto {
 #define BeamNodeMsg_ExternalAddr(macro) \
     macro(uint32_t, Value)
 
-#define BeamNodeMsg_BbsMsg(macro) \
+#define BeamNodeMsg_BbsMsgV0(macro) \
     macro(BbsChannel, Channel) \
     macro(Timestamp, TimePosted) \
     macro(ByteBuffer, Message)
+
+#define BeamNodeMsg_BbsMsg(macro) \
+    macro(BbsChannel, Channel) \
+    macro(Timestamp, TimePosted) \
+    macro(ByteBuffer, Message) \
+    macro(Bbs::NonceType, Nonce)
 
 #define BeamNodeMsg_BbsHaveMsg(macro) \
     macro(BbsMsgID, Key)
@@ -240,13 +246,14 @@ namespace proto {
     macro(0x31, HaveTransaction) \
     macro(0x32, GetTransaction) \
     /* bbs */ \
-    macro(0x38, BbsMsg) \
+    macro(0x38, BbsMsgV0) \
     macro(0x39, BbsHaveMsg) \
     macro(0x3a, BbsGetMsg) \
     macro(0x3b, BbsSubscribe) \
     macro(0x3c, BbsPickChannel) \
     macro(0x3d, BbsPickChannelRes) \
     macro(0x3e, BbsResetSync) \
+    macro(0x3f, BbsMsg) \
 
 
     struct LoginFlags {
@@ -327,6 +334,16 @@ namespace proto {
         static void Set(std::unique_ptr<T>& var, TArg arg) { var = std::move(arg); }
     };
 
+	namespace Bbs
+	{
+		static const size_t s_MaxMsgSize = 1024 * 1024;
+
+		typedef uintBig_t<4> NonceType;
+
+		bool Encrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void*, uint32_t); // will fail iff addr is invalid
+		bool Decrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr);
+	};
+
 
 #define THE_MACRO6(type, name) InitArg<type>::Set(m_##name, arg##name);
 #define THE_MACRO5(type, name) typename InitArg<type>::TArg arg##name,
@@ -393,14 +410,6 @@ namespace proto {
 
     void Sk2Pk(PeerID&, ECC::Scalar::Native&); // will negate the scalar iff necessary
     bool ImportPeerID(ECC::Point::Native&, const PeerID&);
-
-	namespace Bbs
-	{
-		static const size_t s_MaxMsgSize = 1024 * 1024;
-
-		bool Encrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void*, uint32_t); // will fail iff addr is invalid
-		bool Decrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr);
-	};
 
     struct INodeMsgHandler
         :public IErrorHandler

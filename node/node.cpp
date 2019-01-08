@@ -2766,7 +2766,22 @@ void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
     Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::BbsMsgV0&& msg0)
+{
+	proto::BbsMsg msg;
+	msg.m_Channel = msg0.m_Channel;
+	msg.m_TimePosted = msg0.m_TimePosted;
+	msg.m_Message.swap(msg0.m_Message);
+
+	OnMsg(msg, false);
+}
+
 void Node::Peer::OnMsg(proto::BbsMsg&& msg)
+{
+	OnMsg(msg, true);
+}
+
+void Node::Peer::OnMsg(const proto::BbsMsg& msg, bool bNonceValid)
 {
 	if (!m_This.m_Cfg.m_Bbs)
 		ThrowUnexpected();
@@ -2791,6 +2806,8 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
     wlk.m_Data.m_Channel = msg.m_Channel;
     wlk.m_Data.m_TimePosted = msg.m_TimePosted;
     wlk.m_Data.m_Message = Blob(msg.m_Message);
+	wlk.m_Data.m_bNonce = bNonceValid;
+	msg.m_Nonce.Export(wlk.m_Data.m_Nonce);
 
     Bbs::CalcMsgKey(wlk.m_Data);
 
@@ -2883,12 +2900,24 @@ void Node::Peer::OnMsg(proto::BbsGetMsg&& msg)
 
 void Node::Peer::SendBbsMsg(const NodeDB::WalkerBbs::Data& d)
 {
-    proto::BbsMsg msgOut;
-    msgOut.m_Channel = d.m_Channel;
-    msgOut.m_TimePosted = d.m_TimePosted;
-    d.m_Message.Export(msgOut.m_Message); // TODO: avoid buf allocation
+	if (d.m_bNonce && (proto::LoginFlags::Extension1 & m_LoginFlags))
+	{
+		proto::BbsMsg msgOut;
+		msgOut.m_Channel = d.m_Channel;
+		msgOut.m_TimePosted = d.m_TimePosted;
+		d.m_Message.Export(msgOut.m_Message);
+		msgOut.m_Nonce = d.m_Nonce;
+		Send(msgOut);
+	}
+	else
+	{
+		proto::BbsMsgV0 msgOut;
+		msgOut.m_Channel = d.m_Channel;
+		msgOut.m_TimePosted = d.m_TimePosted;
+		d.m_Message.Export(msgOut.m_Message);
+		Send(msgOut);
+	}
 
-    Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)

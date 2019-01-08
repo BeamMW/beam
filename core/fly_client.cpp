@@ -824,6 +824,16 @@ void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, Timestamp ts, IBbsReceiv
             it2->Send(msg);
 }
 
+void FlyClient::NetworkStd::Connection::OnMsg(BbsMsgV0&& msg0)
+{
+	BbsMsg msg;
+	msg.m_Channel = msg0.m_Channel;
+	msg.m_TimePosted = msg0.m_TimePosted;
+	msg.m_Message.swap(msg0.m_Message);
+
+	OnMsg(std::move(msg));
+}
+
 void FlyClient::NetworkStd::Connection::OnMsg(BbsMsg&& msg)
 {
     BbsSubscriptions::iterator it = m_This.m_BbsSubscriptions.find(msg.m_Channel);

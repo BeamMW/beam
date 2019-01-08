@@ -204,6 +204,7 @@ namespace proto {
 				virtual void OnMsg(proto::ProofCommonState&& msg) override;
 				virtual void OnMsg(proto::ProofChainWork&& msg) override;
 				virtual void OnMsg(proto::BbsMsg&& msg) override;
+				virtual void OnMsg(proto::BbsMsgV0&& msg) override;
 #define THE_MACRO(type, msgOut, msgIn) \
 				virtual void OnMsg(proto::msgIn&&) override; \
 				bool IsSupported(Request##type&); \
