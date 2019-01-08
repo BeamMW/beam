@@ -72,6 +72,7 @@ namespace beam {
 #define TblBbs_Channel			"Channel"
 #define TblBbs_Time				"Time"
 #define TblBbs_Msg				"Message"
+#define TblBbs_Nonce			"Nonce"
 
 #define TblDummy				"Dummies"
 #define TblDummy_ID				"ID"
@@ -255,21 +256,37 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion = 14;
+	const uint64_t nVersionTop = 15;
+	const uint64_t nVersionNoBbsPoW = 14;
+
+	Transaction t(*this);
 
 	if (bCreate)
 	{
-		Transaction t(*this);
 		Create();
-		ParamSet(ParamID::DbVer, &nVersion, NULL);
-		t.Commit();
+		ParamSet(ParamID::DbVer, &nVersionTop, NULL);
 	}
 	else
 	{
-		// test the DB version
-		if (nVersion != ParamIntGetDef(ParamID::DbVer))
+		uint64_t nVer = ParamIntGetDef(ParamID::DbVer);
+
+		switch (nVer)
+		{
+		case nVersionNoBbsPoW:
+			ExecQuick("ALTER TABLE [" TblBbs "] ADD [" TblBbs_Nonce "] INTEGER");
+
+			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
+			// no break;
+
+		case nVersionTop:
+			break;
+
+		default:
 			ThrowError("wrong version");
+		}
 	}
+
+	t.Commit();
 }
 
 void NodeDB::Create()
@@ -350,7 +367,8 @@ void NodeDB::Create()
 		"[" TblBbs_Key		"] BLOB NOT NULL,"
 		"[" TblBbs_Channel	"] INTEGER NOT NULL,"
 		"[" TblBbs_Time		"] INTEGER NOT NULL,"
-		"[" TblBbs_Msg		"] BLOB NOT NULL)");
+		"[" TblBbs_Msg		"] BLOB NOT NULL,"
+		"[" TblBbs_Nonce	"] INTEGER)");
 
 	ExecQuick("CREATE INDEX [Idx" TblBbs "CSeq] ON [" TblBbs "] ([" TblBbs_Channel "],[" TblBbs_ID "]);");
 	ExecQuick("CREATE INDEX [Idx" TblBbs "TSeq] ON [" TblBbs "] ([" TblBbs_Time "],[" TblBbs_ID "]);");
@@ -1591,7 +1609,7 @@ bool NodeDB::WalkerBbsLite::MoveNext()
 }
 
 
-#define TblBbs_InsFieldsListed TblBbs_Key "," TblBbs_Channel "," TblBbs_Time "," TblBbs_Msg
+#define TblBbs_InsFieldsListed TblBbs_Key "," TblBbs_Channel "," TblBbs_Time "," TblBbs_Msg "," TblBbs_Nonce
 #define TblBbs_AllFieldsListed TblBbs_ID "," TblBbs_InsFieldsListed
 
 void NodeDB::EnumBbsCSeq(WalkerBbs& x)
@@ -1631,6 +1649,11 @@ bool NodeDB::WalkerBbs::MoveNext()
 	m_Rs.get(2, m_Data.m_Channel);
 	m_Rs.get(3, m_Data.m_TimePosted);
 	m_Rs.get(4, m_Data.m_Message);
+
+	m_Data.m_bNonce = !m_Rs.IsNull(5);
+	if (m_Data.m_bNonce)
+		m_Rs.get(5, m_Data.m_Nonce);
+
 	return true;
 }
 
@@ -1663,11 +1686,14 @@ void NodeDB::BbsDelOld(Timestamp tMinToRemain)
 
 uint64_t NodeDB::BbsIns(const WalkerBbs::Data& d)
 {
-	Recordset rs(*this, Query::BbsIns, "INSERT INTO " TblBbs "(" TblBbs_InsFieldsListed ") VALUES(?,?,?,?)");
+	Recordset rs(*this, Query::BbsIns, "INSERT INTO " TblBbs "(" TblBbs_InsFieldsListed ") VALUES(?,?,?,?,?)");
 	rs.put(0, d.m_Key);
 	rs.put(1, d.m_Channel);
 	rs.put(2, d.m_TimePosted);
 	rs.put(3, d.m_Message);
+	if (d.m_bNonce)
+		rs.put(4, d.m_Nonce);
+
 	rs.Step();
 	TestChanged1Row();
 
