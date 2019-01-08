@@ -83,9 +83,13 @@ namespace beam
 
     struct Split
     {
+        int session;
+        Amount fee;
+        AmountList coins;
+
         struct Response
         {
-
+            TxID txId;
         };
     };
 

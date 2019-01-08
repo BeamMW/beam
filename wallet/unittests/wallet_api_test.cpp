@@ -314,6 +314,49 @@ namespace
             //WALLET_CHECK(res["result"]["txId"] > 0);
         }
     }
+
+    void testSplitJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid split api json!!!");
+
+                cout << msg["error"]["message"] << endl;
+            }
+
+            void onMessage(int id, const Split& data) override
+            {
+                WALLET_CHECK(id > 0);
+
+                WALLET_CHECK(data.session == 123);
+                WALLET_CHECK(data.coins[0] == 11);
+                WALLET_CHECK(data.coins[1] == 12);
+                WALLET_CHECK(data.coins[2] == 13);
+                WALLET_CHECK(data.coins[3] == 50000000000000);
+                WALLET_CHECK(data.fee == 4);
+            }
+        };
+
+        WalletApiHandler handler;
+        WalletApi api(handler);
+
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            Split::Response split;
+
+            api.getResponse(123, split, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 123);
+            WALLET_CHECK(res["result"]["txId"] > 0);
+        }
+    }
 }
 
 int main()
@@ -417,6 +460,19 @@ int main()
         "params" :
         {
             "txId" : "10c4b760c842433cb58339a0fafef3db"
+        }
+    }));
+
+    testSplitJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "split",
+        "params" :
+        {
+            "session" : 123,
+            "coins" : [11, 12, 13, 50000000000000],
+            "fee" : 4
         }
     }));
 

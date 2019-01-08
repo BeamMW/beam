@@ -173,7 +173,7 @@ namespace beam
 
             void onMessage(int id, const CreateAddress& data) override 
             {
-                LOG_DEBUG() << "CreateAddress(" << id << "," << data.metadata << data.lifetime << ")";
+                LOG_DEBUG() << "CreateAddress(id = " << id << " metadata = " << data.metadata << " lifetime = " << data.lifetime << ")";
 
                 WalletAddress address = wallet::createAddress(_walletDB);
                 address.m_duration = data.lifetime * 60 * 60;
@@ -187,10 +187,12 @@ namespace beam
 
             void onMessage(int id, const Send& data) override
             {
-                LOG_DEBUG() << "Send(" << id << "," << data.session << "," << data.value <<  "," << std::to_string(data.address) << ")";
+                LOG_DEBUG() << "Send(id = " << id << " session = " << data.session << " amount = " << data.value << " fee = " << data.fee <<  " address = " << std::to_string(data.address) << ")";
 
                 WalletAddress senderAddress = wallet::createAddress(_walletDB);
                 _walletDB->saveAddress(senderAddress);
+
+                _wnet.AddOwnAddress(senderAddress);
 
                 ByteBuffer message(data.comment.begin(), data.comment.end());
 
@@ -206,7 +208,7 @@ namespace beam
 
             void onMessage(int id, const Status& data) override
             {
-                LOG_DEBUG() << "Status(" << to_hex(data.txId.data(), data.txId.size()) << ")";
+                LOG_DEBUG() << "Status(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
                 auto tx = _walletDB->getTx(data.txId);
 
@@ -222,12 +224,22 @@ namespace beam
 
             void onMessage(int id, const Split& data) override
             {
-                methodNotImplementedYet(id);
+                LOG_DEBUG() << "Split(id = " << id << " session = " << data.session << " coins = [";
+                for (auto& coin : data.coins) LOG_DEBUG() << coin << ",";
+                LOG_DEBUG() << "], fee = " << data.fee;
+
+                WalletAddress senderAddress = wallet::createAddress(_walletDB);
+                _walletDB->saveAddress(senderAddress);
+                _wnet.AddOwnAddress(senderAddress);
+
+                auto txId = _wallet.split_coins(senderAddress.m_walletID, data.coins, data.fee);
+
+                doResponse(id, Send::Response{ txId });
             }
 
             void onMessage(int id, const Balance& data) override 
             {
-                LOG_DEBUG() << "Balance(" << id << ")";
+                LOG_DEBUG() << "Balance(id = " << id << ")";
 
                 json msg;
 
@@ -240,7 +252,7 @@ namespace beam
 
             void onMessage(int id, const GetUtxo& data) override 
             {
-                LOG_DEBUG() << "GetUtxo(" << id << ")";
+                LOG_DEBUG() << "GetUtxo(id = " << id << ")";
 
                 GetUtxo::Response response;
                 _walletDB->visit([&response](const Coin& c)->bool
