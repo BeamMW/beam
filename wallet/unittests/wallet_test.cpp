@@ -1579,7 +1579,7 @@ static void TestSplitTransaction()
     helpers::StopWatch sw;
 
     sw.start();
-    TxID txId = sender.m_Wallet.split_coins(sender.m_WalletID, { 11, 12, 13 }, 2);
+    TxID txId = sender.m_Wallet.split_coins(sender.m_WalletID, { 11, 12, 13 }, 2, true, 200);
     mainReactor->run();
     sw.stop();
 
