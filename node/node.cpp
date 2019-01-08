@@ -2409,7 +2409,7 @@ void Node::Peer::OnMsg(proto::Login&& msg)
 		(proto::LoginFlags::Bbs & msg.m_Flags))
 	{
 		proto::BbsResetSync msgOut;
-		msgOut.m_TimeFrom = std::min(m_This.m_Bbs.m_HighestPosted_s, getTimestamp() - m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s);
+		msgOut.m_TimeFrom = std::min(m_This.m_Bbs.m_HighestPosted_s, getTimestamp() - Rules::get().DA.MaxAhead_s);
 		Send(msgOut);
 	}
 
@@ -2758,13 +2758,6 @@ void Node::Peer::OnMsg(proto::PeerInfo&& msg)
         m_This.m_PeerMan.OnPeer(msg.m_ID, msg.m_LastAddr, false);
 }
 
-void Node::Peer::OnMsg(proto::GetTime&& msg)
-{
-    proto::Time msgOut;
-    msgOut.m_Value = getTimestamp();
-    Send(msgOut);
-}
-
 void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
 {
     proto::ExternalAddr msgOut;
@@ -2782,13 +2775,13 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
 	Timestamp t = getTimestamp();
 
-	if (msg.m_TimePosted > t + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s)
+	if (msg.m_TimePosted > t + Rules::get().DA.MaxAhead_s)
 		return; // too much ahead of time
 
 	if (msg.m_TimePosted + m_This.m_Cfg.m_Timeout.m_BbsMessageTimeout_s  < t)
 		return; // too old
 
-	if (msg.m_TimePosted + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
+	if (msg.m_TimePosted + Rules::get().DA.MaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
 		return; // don't allow too much out-of-order messages
 
     NodeDB& db = m_This.m_Processor.get_DB();
@@ -3488,20 +3481,27 @@ void Node::Miner::OnMinedExternal()
 
 	bool bReject = (m_External.m_jobID - jobID >= _countof(m_External.m_ppTask));
 
-	LOG_INFO() << "Solution from external miner. jonID=" << jobID << ", Current.jobID=" << m_External.m_jobID << ", Accept=" << static_cast<uint32_t>(!bReject);
+	LOG_INFO() << "Solution from external miner. jobID=" << jobID << ", Current.jobID=" << m_External.m_jobID << ", Accept=" << static_cast<uint32_t>(!bReject);
 
-	if (bReject)
+    if (bReject)
+    {
+        LOG_INFO() << "Solution is rejected due it is outdated.";
 		return; // outdated
+    }
 
 	Task::Ptr& pTask = m_External.get_At(jobID);
 
-	if (!pTask || *pTask->m_pStop)
+    if (!pTask || *pTask->m_pStop)
+    {
+        LOG_INFO() << "Solution is rejected due block mining has been canceled.";
 		return; // already cancelled
+    }
 
 	pTask->m_Hdr.m_PoW.m_Nonce = POW.m_Nonce;
 	pTask->m_Hdr.m_PoW.m_Indices = POW.m_Indices;
 
-    if (!pTask->m_Hdr.IsValidPoW()) {
+    if (!pTask->m_Hdr.IsValidPoW())
+    {
         LOG_INFO() << "invalid solution from external miner";
         return;
     }

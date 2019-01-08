@@ -295,8 +295,9 @@ namespace beam
             NodeProtocolBase = 0,
             NodeProtocolIncompatible = 1,
             ConnectionTimedOut = 2,
-            ConnectionRefused = 3
-        };
+            ConnectionRefused = 3,
+			TimeOutOfSync = 4,
+		};
     }
 }
 

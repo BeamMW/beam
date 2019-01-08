@@ -864,7 +864,7 @@ Item
                         SFText {
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Setup node connectivity (testnet)")
+                            text: qsTr("Setup node connectivity")
                             color: Style.white
                             font.pixelSize: 36
                         }

@@ -53,6 +53,8 @@ namespace
         {
         case proto::NodeProcessingException::Type::Incompatible:
             return beam::wallet::ErrorType::NodeProtocolIncompatible;
+		case proto::NodeProcessingException::Type::TimeOutOfSync:
+			return beam::wallet::ErrorType::TimeOutOfSync;
         default:
             return beam::wallet::ErrorType::NodeProtocolBase;
         }
@@ -296,9 +298,15 @@ void WalletModel::run()
 
         auto nodeNetwork = make_shared<MyNodeNetwork>(*wallet, *this);
 
-        Address node_addr;
-        node_addr.resolve(_nodeAddrStr.c_str());
-        nodeNetwork->m_Cfg.m_vNodes.push_back(node_addr);
+        Address nodeAddr;
+        if (nodeAddr.resolve(_nodeAddrStr.c_str()))
+        {
+            nodeNetwork->m_Cfg.m_vNodes.push_back(nodeAddr);
+        }
+        else
+        {
+            LOG_ERROR() << "Unable to resolve node address: " << _nodeAddrStr;
+        }
 
         _nodeNetwork = nodeNetwork;
 
@@ -559,7 +567,6 @@ void WalletModel::setNodeAddress(const std::string& addr)
     else
     {
         LOG_ERROR() << "Unable to resolve node address: " << addr;
-        assert(false);
     }
 }
 
@@ -607,6 +614,8 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
         return tr("Node protocol error!");
     case wallet::ErrorType::NodeProtocolIncompatible:
         return tr("You are trying to connect to incompatible peer.");
+	case wallet::ErrorType::TimeOutOfSync:
+		return tr("System time not synchronized.");
     case wallet::ErrorType::ConnectionTimedOut:
         return tr("Connection timed out.");
     case wallet::ErrorType::ConnectionRefused:

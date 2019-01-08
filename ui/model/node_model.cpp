@@ -168,6 +168,10 @@ void NodeModel::runLocalNode()
         {
             node.m_Cfg.m_Connect.emplace_back(peer_addr);
         }
+        else
+        {
+            LOG_ERROR() << "Unable to resolve node address: " << qPeer.toStdString();
+        }
     }
 
     LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";

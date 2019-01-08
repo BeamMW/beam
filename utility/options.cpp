@@ -100,6 +100,17 @@ namespace beam
         const char* APPDATA_PATH = "appdata";
     }
 
+	template <typename T> struct TypeCvt {
+
+		static const T& get(const T& x) {
+			return x;
+		}
+
+		static const T& get(const Difficulty& x) {
+			return x.m_Packed;
+		}
+	};
+
     pair<po::options_description, po::options_description> createOptionsDescription(int flags)
     {
 #ifdef WIN32
@@ -193,10 +204,11 @@ namespace beam
     macro(uint32_t, DA.WindowWork, "num of blocks in the window for the mining difficulty adjustment") \
     macro(uint32_t, DA.WindowMedian0, "How many blocks are considered in calculating the timestamp median") \
     macro(uint32_t, DA.WindowMedian1, "Num of blocks taken at both endings of WindowWork, to pick medians") \
+    macro(uint32_t, DA.Difficulty0, "Initial difficulty") \
     macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
     macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
 
-#define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(Rules::get().name), comment)
+#define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
 
         po::options_description rules_options("Rules configuration");
         rules_options.add_options() RulesParams(THE_MACRO);

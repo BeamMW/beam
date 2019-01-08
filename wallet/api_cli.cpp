@@ -49,11 +49,12 @@ namespace beam
     class WalletApiServer : public ConnectionToServer
     {
     public:
-        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, io::Reactor& reactor, io::Address listenTo)
+        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::Reactor& reactor, io::Address listenTo)
             : _reactor(reactor)
             , _bindAddress(listenTo)
             , _walletDB(walletDB)
             , _wallet(wallet)
+            , _wnet(wnet)
         {
             start();
         }
@@ -104,7 +105,7 @@ namespace beam
                 auto peer = newStream->peer_address();
                 LOG_DEBUG() << "+peer " << peer;
 
-                _connections[peer.u64()] = std::make_unique<Connection>(*this, _walletDB, _wallet, peer.u64(), std::move(newStream));
+                _connections[peer.u64()] = std::make_unique<Connection>(*this, _walletDB, _wallet, _wnet, peer.u64(), std::move(newStream));
             }
 
             LOG_DEBUG() << "on_stream_accepted";
@@ -114,7 +115,7 @@ namespace beam
         class Connection : IWalletApiHandler
         {
         public:
-            Connection(ConnectionToServer& owner, IWalletDB::Ptr walletDB, Wallet& wallet, uint64_t id, io::TcpStream::Ptr&& newStream)
+            Connection(ConnectionToServer& owner, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, uint64_t id, io::TcpStream::Ptr&& newStream)
                 : _owner(owner)
                 , _id(id)
                 , _stream(std::move(newStream))
@@ -122,6 +123,7 @@ namespace beam
                 , _walletDB(walletDB)
                 , _wallet(wallet)
                 , _api(*this)
+                , _wnet(wnet)
             {
                 _stream->enable_keepalive(2);
                 _stream->enable_read(BIND_THIS_MEMFN(on_stream_data));
@@ -177,6 +179,8 @@ namespace beam
                 address.m_duration = data.lifetime * 60 * 60;
 
                 _walletDB->saveAddress(address);
+
+                _wnet.AddOwnAddress(address);
 
                 doResponse(id, CreateAddress::Response{ address.m_walletID });
             }
@@ -307,6 +311,7 @@ namespace beam
             IWalletDB::Ptr _walletDB;
             Wallet& _wallet;
             WalletApi _api;
+            WalletNetworkViaBbs& _wnet;
         };
 
         io::Reactor& _reactor;
@@ -315,6 +320,7 @@ namespace beam
         std::map<uint64_t, std::unique_ptr<Connection>> _connections;
         IWalletDB::Ptr _walletDB;
         Wallet& _wallet;
+        WalletNetworkViaBbs& _wnet;
     };
 }
 
@@ -421,7 +427,7 @@ int main(int argc, char* argv[])
 
         wallet.set_Network(nnet, wnet);
 
-        WalletApiServer server(walletDB, wallet, *reactor, listenTo);
+        WalletApiServer server(walletDB, wallet, wnet, *reactor, listenTo);
 
         io::Reactor::get_Current().run();
 

@@ -420,7 +420,8 @@ namespace proto {
         enum class Type : uint8_t
         {
             Base,
-            Incompatible
+            Incompatible,
+			TimeOutOfSync,
         };
 
         NodeProcessingException(const std::string& str, Type type)
@@ -486,6 +487,8 @@ namespace proto {
         virtual void OnMsg(Authentication&&) override;
         virtual void OnMsg(Bye&&) override;
 		virtual void OnMsg(Ping&&) override;
+		virtual void OnMsg(GetTime&&) override;
+		virtual void OnMsg(Time&&) override;
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 
