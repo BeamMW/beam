@@ -71,60 +71,8 @@ namespace beam
             return status.supported;
         }
 
+        status.supported = !GetSupportedCards().empty();
         status.checked = true;
-
-        vector<cl::Platform> platforms;
-
-        cl::Platform::get(&platforms);
-
-        int32_t curDiv = 0;
-
-        for (uint32_t pl = 0; pl < platforms.size(); pl++)
-        {
-            cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platforms[pl](), 0 };
-
-            cl::Context context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
-
-            vector< cl::Device > devices = context.getInfo<CL_CONTEXT_DEVICES>();
-
-            for (uint32_t di = 0; di < devices.size(); di++)
-            {
-                string name;
-                if (hasExtension(devices[di], "cl_amd_device_attribute_query")) 
-                {
-                    devices[di].getInfo(0x4038, &name);			// on AMD this gives more readable result
-                }
-                else {
-                    devices[di].getInfo(CL_DEVICE_NAME, &name); 	// for all other GPUs
-                }
-
-                // Get rid of strange characters at the end of device name
-                if (isalnum((int)name.back()) == 0) 
-                {
-                    name.pop_back();
-                }
-
-                LOG_INFO() << "Found device " << curDiv << ": " << name;
-
-                {
-                    // Check if the CPU / GPU has enough memory
-                    uint64_t deviceMemory = devices[di].getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>();
-                    uint64_t needed = 7 * ((uint64_t)570425344) + 4096 + 196608 + 1296;
-
-                    status.supported = deviceMemory > needed;
-
-                    if (status.supported)
-                    {
-                        LOG_INFO() << "Memory check ok";
-                    }
-                    else 
-                    {
-                        LOG_INFO() << "Memory check failed";
-                        LOG_INFO() << "Device reported " << deviceMemory / (1024 * 1024) << "MByte memory, " << needed / (1024 * 1024) << " are required ";
-                    }
-                }
-            }
-        }
 
         return status.supported;
     }
