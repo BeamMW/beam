@@ -22,6 +22,7 @@
 #endif
 
 #include <boost/uuid/uuid_generators.hpp>
+#include <numeric>
 
 namespace beam { namespace wallet
 {
@@ -230,7 +231,14 @@ namespace beam { namespace wallet
         bool isSender = GetMandatoryParameter<bool>(TxParameterID::IsSender);
         bool isSelfTx = IsSelfTx();
         State txState = GetState();
-        TxBuilder builder{ *this, GetMandatoryParameter<Amount>(TxParameterID::Amount), GetMandatoryParameter<Amount>(TxParameterID::Fee) };
+
+        AmountList amoutList;
+        if (!getTxParameter(m_WalletDB, GetTxID(), TxParameterID::AmountList, amoutList))
+        {
+            amoutList = AmountList{ GetMandatoryParameter<Amount>(TxParameterID::Amount) };
+        }
+
+        TxBuilder builder{ *this, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee) };
         if (!builder.GetInitialTxParams() && txState == State::Initial)
         {
             LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ") << PrintableAmount(builder.GetAmount()) << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
@@ -244,9 +252,19 @@ namespace beam { namespace wallet
             if (isSelfTx || !isSender)
             {
                 // create receiver utxo
-                builder.AddOutput(builder.GetAmount(), Coin::Incoming);
+                for (auto& amount : builder.GetAmountList())
+                {
+                    builder.AddOutput(amount, Coin::Incoming);
+                }
 
-                LOG_INFO() << GetTxID() << " Invitation accepted";
+                if (builder.FinalizeOutputs()) 
+                {
+                    LOG_INFO() << GetTxID() << " Invitation accepted";
+                }
+                else
+                {
+                    // TODO: transaction is too big :(
+                }
             }
             UpdateTxDescription(TxStatus::InProgress);
         }
@@ -447,9 +465,9 @@ namespace beam { namespace wallet
         }
     }
 
-    TxBuilder::TxBuilder(BaseTransaction& tx, Amount amount, Amount fee)
+    TxBuilder::TxBuilder(BaseTransaction& tx, const AmountList& amountList, Amount fee)
         : m_Tx{ tx }
-        , m_Amount{ amount }
+        , m_AmountList{ amountList }
         , m_Fee{ fee }
         , m_Change{0}
         , m_MinHeight{0}
@@ -459,7 +477,7 @@ namespace beam { namespace wallet
 
     void TxBuilder::SelectInputs()
     {
-        Amount amountWithFee = m_Amount + m_Fee;
+        Amount amountWithFee = GetAmount() + m_Fee;
         auto coins = m_Tx.GetWalletDB()->selectCoins(amountWithFee);
         if (coins.empty())
         {
@@ -504,8 +522,17 @@ namespace beam { namespace wallet
     void TxBuilder::AddOutput(Amount amount, Coin::Status status)
     {
         m_Outputs.push_back(CreateOutput(amount, status, m_MinHeight));
+        
+    }
+
+    bool TxBuilder::FinalizeOutputs()
+    {
         m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false);
         m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false);
+        
+        // TODO: check transaction size here
+
+        return true;
     }
 
     Output::Ptr TxBuilder::CreateOutput(Amount amount, Coin::Status status, bool shared, Height incubation)
@@ -665,7 +692,12 @@ namespace beam { namespace wallet
 
     Amount TxBuilder::GetAmount() const
     {
-        return m_Amount;
+        return std::accumulate(m_AmountList.begin(), m_AmountList.end(), 0ULL);
+    }
+
+    const AmountList& TxBuilder::GetAmountList() const
+    {
+        return m_AmountList;
     }
 
     Amount TxBuilder::GetFee() const

@@ -1561,7 +1561,7 @@ int main()
     Rules::get().FakePoW = true;
     Rules::get().UpdateChecksum();
 
-    TestP2PWalletNegotiationST();
+    //TestP2PWalletNegotiationST();
     TestP2PWalletReverseNegotiationST();
 
     TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
