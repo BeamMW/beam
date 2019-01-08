@@ -22,6 +22,7 @@
 #include "core/proto.h"
 #include "utility/io/timer.h"
 #include <boost/intrusive/set.hpp>
+#include <boost/intrusive/list.hpp>
 #include "wallet.h"
 
 namespace beam
@@ -97,6 +98,39 @@ namespace beam
         io::Timer::Ptr m_pTimerBbsTmSave;
         void OnTimerBbsTmSave();
         void SaveBbsTimestamps();
+
+		struct Miner
+		{
+			// message mining
+			std::vector<std::thread> m_vThreads;
+			std::mutex m_Mutex;
+			std::condition_variable m_NewTask;
+
+			volatile bool m_Shutdown;
+			io::AsyncEvent::Ptr m_pEvt;
+
+			struct Task
+			{
+				proto::BbsMsg m_Msg;
+				ECC::Hash::Processor m_hpPartial;
+				volatile bool m_Done;
+
+				typedef std::shared_ptr<Task> Ptr;
+			};
+
+			typedef std::deque<Task::Ptr> TaskQueue;
+
+			TaskQueue m_Pending;
+			TaskQueue m_Done;
+
+			Miner() :m_Shutdown(false) {}
+			~Miner();
+
+			void Thread(uint32_t);
+
+		} m_Miner;
+
+		void OnMined();
 
     public:
 

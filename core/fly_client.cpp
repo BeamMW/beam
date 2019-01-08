@@ -759,7 +759,6 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsMsg& req)
 
 void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
 {
-    req.m_Msg.m_TimePosted = getTimestamp();
     Send(req.m_Msg);
 
     Ping msg2(Zero);
