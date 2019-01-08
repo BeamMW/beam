@@ -3,8 +3,11 @@ set(UV_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/3rdparty/libuv/include)
 
 set(UV_SOURCES
     ${UV_SRC_DIR}/fs-poll.c
+    ${UV_SRC_DIR}/idna.c
     ${UV_SRC_DIR}/inet.c
+    ${UV_SRC_DIR}/strscpy.c
     ${UV_SRC_DIR}/threadpool.c
+    ${UV_SRC_DIR}/timer.c
     ${UV_SRC_DIR}/uv-common.c
     ${UV_SRC_DIR}/uv-data-getter-setters.c
     ${UV_SRC_DIR}/version.c)
@@ -28,12 +31,11 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
         ${UV_SRC_DIR}/win/poll.c
         ${UV_SRC_DIR}/win/process-stdio.c
         ${UV_SRC_DIR}/win/process.c
-        ${UV_SRC_DIR}/win/req.c
+        ${UV_SRC_DIR}/win/snprintf.c
         ${UV_SRC_DIR}/win/signal.c
         ${UV_SRC_DIR}/win/stream.c
         ${UV_SRC_DIR}/win/tcp.c
         ${UV_SRC_DIR}/win/thread.c
-        ${UV_SRC_DIR}/win/timer.c
         ${UV_SRC_DIR}/win/tty.c
         ${UV_SRC_DIR}/win/udp.c
         ${UV_SRC_DIR}/win/util.c
@@ -76,10 +78,8 @@ else()
         ${UV_SRC_DIR}/unix/stream.c
         ${UV_SRC_DIR}/unix/tcp.c
         ${UV_SRC_DIR}/unix/thread.c
-        ${UV_SRC_DIR}/unix/timer.c
         ${UV_SRC_DIR}/unix/tty.c
-        ${UV_SRC_DIR}/unix/udp.c
-        ${UV_SRC_DIR}/unix/proctitle.c)
+        ${UV_SRC_DIR}/unix/udp.c)
     if(LINUX OR ANDROID)
         set(UV_COMPILE_DEFS ${UV_COMPILE_DEFS} _GNU_SOURCE)
         set(UV_SOURCES ${UV_SOURCES}
@@ -93,6 +93,7 @@ else()
     elseif(APPLE)
         set(UV_COMPILE_DEFS ${UV_COMPILE_DEFS} _DARWIN_USE_64_BIT_INODE=1 _DARWIN_UNLIMITED_SELECT=1)
         set(UV_SOURCES ${UV_SOURCES}
+            ${UV_SRC_DIR}/unix/bsd-ifaddrs.c
             ${UV_SRC_DIR}/unix/darwin.c
             ${UV_SRC_DIR}/unix/darwin-proctitle.c
             ${UV_SRC_DIR}/unix/fsevents.c

@@ -358,19 +358,15 @@ void uv_loadavg(double avg[3]) {
 
 
 #ifdef HAVE_SYS_AHAFS_EVPRODS_H
-static char *uv__rawname(char *cp) {
-  static char rawbuf[FILENAME_MAX+1];
-  char *dp = rindex(cp, '/');
+static char* uv__rawname(const char* cp, char (*dst)[FILENAME_MAX+1]) {
+  char* dp;
 
+  dp = rindex(cp, '/');
   if (dp == 0)
     return 0;
 
-  *dp = 0;
-  strcpy(rawbuf, cp);
-  *dp = '/';
-  strcat(rawbuf, "/r");
-  strcat(rawbuf, dp+1);
-  return rawbuf;
+  snprintf(*dst, sizeof(*dst), "%.*s/r%s", (int) (dp - cp), cp, dp + 1);
+  return *dst;
 }
 
 
@@ -399,6 +395,7 @@ static int uv__path_is_a_directory(char* filename) {
  * Returns 0 if AHAFS is mounted, or an error code < 0 on failure
  */
 static int uv__is_ahafs_mounted(void){
+  char rawbuf[FILENAME_MAX+1];
   int rv, i = 2;
   struct vmount *p;
   int size_multiplier = 10;
@@ -432,7 +429,7 @@ static int uv__is_ahafs_mounted(void){
     obj = vmt2dataptr(vmt, VMT_OBJECT);     /* device */
     stub = vmt2dataptr(vmt, VMT_STUB);      /* mount point */
 
-    if (EQ(obj, dev) || EQ(uv__rawname(obj), dev) || EQ(stub, dev)) {
+    if (EQ(obj, dev) || EQ(uv__rawname(obj, &rawbuf), dev) || EQ(stub, dev)) {
       uv__free(p);  /* Found a match */
       return 0;
     }
@@ -453,7 +450,8 @@ static int uv__makedir_p(const char *dir) {
   size_t len;
   int err;
 
-  snprintf(tmp, sizeof(tmp),"%s",dir);
+  /* TODO(bnoordhuis) Check uv__strscpy() return value. */
+  uv__strscpy(tmp, dir, sizeof(tmp));
   len = strlen(tmp);
   if (tmp[len - 1] == '/')
     tmp[len - 1] = 0;
@@ -702,9 +700,9 @@ static void uv__ahafs_event(uv_loop_t* loop, uv__io_t* event_watch, unsigned int
     else
       p++;
   }
-  strncpy(fname, p, sizeof(fname) - 1);
-  /* Just in case */
-  fname[sizeof(fname) - 1] = '\0';
+
+  /* TODO(bnoordhuis) Check uv__strscpy() return value. */
+  uv__strscpy(fname, p, sizeof(fname));
 
   handle->cb(handle, fname, events, 0);
 }
@@ -735,7 +733,8 @@ int uv_fs_event_start(uv_fs_event_t* handle,
   /* Figure out whether filename is absolute or not */
   if (filename[0] == '/') {
     /* We have absolute pathname */
-    snprintf(absolute_path, sizeof(absolute_path), "%s", filename);
+    /* TODO(bnoordhuis) Check uv__strscpy() return value. */
+    uv__strscpy(absolute_path, filename, sizeof(absolute_path));
   } else {
     /* We have a relative pathname, compose the absolute pathname */
     snprintf(cwd, sizeof(cwd), "/proc/%lu/cwd", (unsigned long) getpid());
@@ -886,16 +885,20 @@ int uv_set_process_title(const char* title) {
 
 int uv_get_process_title(char* buffer, size_t size) {
   size_t len;
-  len = strlen(process_argv[0]);
   if (buffer == NULL || size == 0)
     return UV_EINVAL;
-  else if (size <= len)
-    return UV_ENOBUFS;
 
   uv_once(&process_title_mutex_once, init_process_title_mutex_once);
   uv_mutex_lock(&process_title_mutex);
 
-  memcpy(buffer, process_argv[0], len + 1);
+  len = strlen(process_argv[0]);
+  if (size <= len) {
+    uv_mutex_unlock(&process_title_mutex);
+    return UV_ENOBUFS;
+  }
+
+  memcpy(buffer, process_argv[0], len);
+  buffer[len] = '\0';
 
   uv_mutex_unlock(&process_title_mutex);
 
@@ -982,7 +985,8 @@ int uv_cpu_info(uv_cpu_info_t** cpu_infos, int* count) {
     return UV_ENOMEM;
   }
 
-  strcpy(cpu_id.name, FIRST_CPU);
+  /* TODO(bnoordhuis) Check uv__strscpy() return value. */
+  uv__strscpy(cpu_id.name, FIRST_CPU, sizeof(cpu_id.name));
   result = perfstat_cpu(&cpu_id, ps_cpus, sizeof(perfstat_cpu_t), ncpus);
   if (result == -1) {
     uv__free(ps_cpus);
