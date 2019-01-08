@@ -108,8 +108,3 @@ void WalletModel::onWalletError(beam::wallet::ErrorType error)
 {
     emit walletError(error);
 }
-
-void WalletModel::onNodeConnectedStatusChanged(bool isNodeConnected)
-{
-    emit nodeConnectionChanged(isNodeConnected);
-}

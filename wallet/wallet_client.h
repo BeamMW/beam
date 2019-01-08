@@ -66,8 +66,6 @@ protected:
     virtual void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) = 0;
     virtual void onNodeConnectionChanged(bool isNodeConnected) = 0;
     virtual void onWalletError(beam::wallet::ErrorType error) = 0;
-    virtual void onNodeConnectedStatusChanged(bool isNodeConnected) = 0;
-    //virtual void onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason&) = 0;
 
 private:
 

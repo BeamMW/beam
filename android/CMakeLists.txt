@@ -1,6 +1,6 @@
 set(TARGET_NAME wallet-jni)
 
-add_library(${TARGET_NAME} SHARED jni.cpp)
+add_library(${TARGET_NAME} SHARED jni.cpp wallet_model.h wallet_model.cpp common.h common.cpp)
 add_dependencies(${TARGET_NAME} wallet utility)
 target_link_libraries(${TARGET_NAME} wallet utility)
 
