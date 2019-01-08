@@ -778,14 +778,17 @@ void NodeConnection::OnMsg(Time&& msg)
 
 void NodeConnection::VerifyCfg(const Login& msg)
 {
-    if (msg.m_CfgChecksum != Rules::get().Checksum)
-        ThrowUnexpected("Incompatible peer cfg!", NodeProcessingException::Type::Incompatible);
+	if (msg.m_CfgChecksum != Rules::get().Checksum) {
+		ThrowUnexpected("Incompatible peer cfg!", NodeProcessingException::Type::Incompatible);
+	}
 
-	if (!(proto::LoginFlags::Extension1 & msg.m_Flags))
+	if (!(proto::LoginFlags::Extension1 & msg.m_Flags)) {
 		LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses older protocol.";
+	}
 
-	if ((~proto::LoginFlags::Recognized) & msg.m_Flags)
+	if ((~proto::LoginFlags::Recognized) & msg.m_Flags) {
 		LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses newer protocol.";
+	}
 }
 
 /////////////////////////
