@@ -1081,6 +1081,7 @@ void Node::Peer::OnConnectedSecure()
     proto::Login msgLogin;
     msgLogin.m_CfgChecksum = Rules::get().Checksum; // checksum of all consesnsus related configuration
     msgLogin.m_Flags =
+		proto::LoginFlags::Extension1 |
         proto::LoginFlags::SpreadingTransactions | // indicate ability to receive and broadcast transactions
         proto::LoginFlags::SendPeers; // request a another node to periodically send a list of recommended peers
 

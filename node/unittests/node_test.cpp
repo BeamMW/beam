@@ -1549,7 +1549,7 @@ namespace beam
 			virtual void OnConnectedSecure() override {
 				proto::Login msg;
 				msg.m_CfgChecksum = Rules::get().Checksum;
-				msg.m_Flags = proto::LoginFlags::SendPeers; // just for fun
+				msg.m_Flags = proto::LoginFlags::SendPeers | proto::LoginFlags::Extension1;
 				Send(msg);
 			}
 

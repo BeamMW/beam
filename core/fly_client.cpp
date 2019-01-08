@@ -107,7 +107,7 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 {
     Login msg;
     msg.m_CfgChecksum = Rules::get().Checksum;
-    msg.m_Flags = LoginFlags::MiningFinalization  /*| LoginFlags::SendPeers*/;
+    msg.m_Flags = LoginFlags::MiningFinalization | LoginFlags::Extension1;
     Send(msg);
 
     if (!(Flags::ReportedConnected & m_Flags))
