@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <random>
 #include <iomanip>
+#include <numeric>
 
 namespace std
 {
@@ -175,6 +176,11 @@ namespace beam
 
     TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, ByteBuffer&& message)
     {
+        return transfer_money(from, to, AmountList{ amount }, fee, sender, move(message));
+    }
+
+    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee, bool sender, ByteBuffer&& message)
+    {
         auto txID = wallet::GenerateTxID();
         auto tx = constructTransaction(txID, TxType::Simple);
         Height currentHeight = m_WalletDB->getCurrentHeight();
@@ -182,11 +188,12 @@ namespace beam
         tx->SetParameter(TxParameterID::TransactionType, TxType::Simple, false);
         tx->SetParameter(TxParameterID::MaxHeight, currentHeight + 1440, false); // transaction is valid +24h from now
         tx->SetParameter(TxParameterID::IsInitiator, true, false);
+        tx->SetParameter(TxParameterID::AmountList, amountList, false);
 
         TxDescription txDescription;
 
         txDescription.m_txId = txID;
-        txDescription.m_amount = amount;
+        txDescription.m_amount = std::accumulate(amountList.begin(), amountList.end(), 0ULL);
         txDescription.m_fee = fee;
         txDescription.m_minHeight = currentHeight;
         txDescription.m_peerId = to;
@@ -202,6 +209,11 @@ namespace beam
         updateTransaction(txID);
 
         return txID;
+    }
+
+    TxID Wallet::split_coins(const WalletID& from, const AmountList& amountList, Amount fee, bool sender, ByteBuffer&& message)
+    {
+        return transfer_money(from, from, amountList, fee, sender, move(message));
     }
 
     TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount)

@@ -173,6 +173,7 @@ namespace beam
             CreateTime = 10,
             IsInitiator = 11,
             MaxHeight = 12,
+            AmountList = 13,
 
             AtomicSwapCoin = 20,
             AtomicSwapAmount = 21,
