@@ -42,7 +42,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
         ${UV_SRC_DIR}/win/winapi.c
         ${UV_SRC_DIR}/win/winsock.c)
 
-        set(UV_LDFLAGS advapi32 iphlpapi psapi userenv shell32 ws2_32)
+        set(UV_LDFLAGS advapi32 iphlpapi psapi userenv user32 shell32 ws2_32)
 else()
     set(UV_FLAGS -Wall -Wextra -Wno-unused-parameter -pedantic)
 
@@ -61,6 +61,7 @@ else()
 
     set(UV_COMPILE_DEFS _LARGEFILE_SOURCE _FILE_OFFSET_BITS=64)
 
+    set(UV_INCLUDE_DIRS ${UV_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/3rdparty/libuv/include/uv)
     set(UV_INCLUDE_DIRS ${UV_INCLUDE_DIRS} ${UV_SRC_DIR} ${UV_SRC_DIR}/unix)
     set(UV_SOURCES ${UV_SOURCES}
         ${UV_SRC_DIR}/unix/async.c
