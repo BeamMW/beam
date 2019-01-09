@@ -246,19 +246,6 @@ namespace beam
                 doResponse(id, Send::Response{ txId });
             }
 
-            void onMessage(int id, const Balance& data) override 
-            {
-                LOG_DEBUG() << "Balance(id = " << id << ")";
-
-                json msg;
-
-                auto totalInProgress = _walletDB->getTotal(Coin::Incoming) +
-                    _walletDB->getTotal(Coin::Outgoing) + _walletDB->getTotal(Coin::Change);
-
-                // TODO: add locked UTXO here
-                doResponse(id, Balance::Response{ _walletDB->getAvailable(), totalInProgress, 0});
-            }
-
             void onMessage(int id, const GetUtxo& data) override 
             {
                 LOG_DEBUG() << "GetUtxo(id = " << id << ")";

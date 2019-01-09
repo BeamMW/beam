@@ -34,7 +34,6 @@ namespace beam
     macro(Replace,          "replace") \
     macro(Status,           "tx_status") \
     macro(Split,            "tx_split") \
-    macro(Balance,          "balance") \
     macro(GetUtxo,          "get_utxo") \
     macro(Lock,             "lock") \
     macro(Unlock,           "unlock") \
@@ -103,16 +102,6 @@ namespace beam
         struct Response
         {
             TxID txId;
-        };
-    };
-
-    struct Balance
-    {
-        struct Response
-        {
-            Amount available;
-            Amount in_progress;
-            Amount locked;
         };
     };
 

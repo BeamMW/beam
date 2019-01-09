@@ -142,44 +142,6 @@ namespace
         }
     }
 
-    void testBalanceJsonRpc(const std::string& msg)
-    {
-        class WalletApiHandler : public WalletApiHandlerBase
-        {
-        public:
-
-            void onInvalidJsonRpc(const json& msg) override
-            {
-                WALLET_CHECK(!"invalid balance api json!!!");
-
-                cout << msg["error"]["message"] << endl;
-            }
-
-            void onMessage(int id, const Balance& data) override
-            {
-                WALLET_CHECK(id > 0);
-            }
-        };
-
-        WalletApiHandler handler;
-        WalletApi api(handler);
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
-
-        {
-            json res;
-            Balance::Response balance{123, 456, 789};
-            api.getResponse(123, balance, res);
-            testResultHeader(res);
-
-            WALLET_CHECK(res["id"] == 123);
-            WALLET_CHECK(res["result"] != nullptr);
-            WALLET_CHECK(res["result"]["available"] == 123);
-            WALLET_CHECK(res["result"]["in_progress"] == 456);
-            WALLET_CHECK(res["result"]["locked"] == 789);
-        }
-    }
-
     void testGetUtxoJsonRpc(const std::string& msg)
     {
         class WalletApiHandler : public WalletApiHandlerBase
@@ -430,13 +392,6 @@ int main()
         "id" : 123,
         "method" : "balance123",
         "params" : "bar"
-    }));
-
-    testBalanceJsonRpc(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "balance"
     }));
 
     testCreateAddressJsonRpc(JSON_CODE(

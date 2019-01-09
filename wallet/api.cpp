@@ -190,12 +190,6 @@ namespace beam
         _handler.onMessage(id, split);
     }
 
-    void WalletApi::onBalanceMessage(int id, const nlohmann::json& params)
-    {
-        Balance balance;
-        _handler.onMessage(id, balance);
-    }
-
     void WalletApi::onGetUtxoMessage(int id, const nlohmann::json& params)
     {
         GetUtxo getUtxo;
@@ -240,22 +234,6 @@ namespace beam
     {
         WalletStatus walletStatus;
         _handler.onMessage(id, walletStatus);
-    }
-
-    void WalletApi::getResponse(int id, const Balance::Response& res, json& msg)
-    {
-        msg = json
-        {
-            {"jsonrpc", "2.0"},
-            {"id", id},
-            {"result", 
-                {
-                    {"available", res.available},
-                    {"in_progress", res.in_progress},
-                    {"locked", res.locked},
-                }
-            }
-        };
     }
 
     void WalletApi::getResponse(int id, const CreateAddress::Response& res, json& msg)
