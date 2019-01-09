@@ -269,6 +269,11 @@ else()
     endif()
 endif()
 
+if (UV_INTERNAL)
+    include_directories(${PROJECT_SOURCE_DIR}/3rdparty/libuv/include)
+    add_subdirectory(3rdparty/libuv)
+endif()
+
 add_subdirectory(3rdparty/sqlite)
 add_subdirectory(utility)
 add_subdirectory(core)
@@ -280,10 +285,6 @@ add_subdirectory(node)
 add_subdirectory(beam)
 add_subdirectory(explorer)
 add_subdirectory(mnemonic)
-
-if (UV_INTERNAL)
-    add_subdirectory(3rdparty/libuv)
-endif()
 
 if(ANDROID OR BEAM_BUILD_JNI)
     add_subdirectory(android)
