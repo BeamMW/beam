@@ -101,6 +101,7 @@ public:
 
 	Q_INVOKABLE void deleteAddress(const QString& addr);
     Q_INVOKABLE void copyToClipboard(const QString& text);
+    Q_INVOKABLE void makeActive(const QString& addr);
 
 public:
 

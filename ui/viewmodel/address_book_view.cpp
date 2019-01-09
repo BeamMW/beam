@@ -244,6 +244,14 @@ void AddressBookViewModel::copyToClipboard(const QString& text)
     QApplication::clipboard()->setText(text);
 }
 
+void AddressBookViewModel::makeActive(const QString& addr)
+{
+    WalletID walletID;
+    walletID.FromHex(addr.toStdString());
+
+    m_model.getAsync()->makeActiveAddress(walletID);
+}
+
 void AddressBookViewModel::onStatus(const WalletStatus&)
 {
     getAddressesFromModel();

@@ -74,9 +74,25 @@ ColumnLayout {
             parentModel: viewModel
             visible: false
 
+            contextMenu: contextMenu1
+
             sortIndicatorVisible: true
             sortIndicatorColumn: 4
             sortIndicatorOrder: Qt.DescendingOrder
+
+            ContextMenu {
+                id: contextMenu1
+                modal: true
+                dim: false
+                property string address
+                Action {
+                    text: qsTr("delete address")
+                    icon.source: "qrc:/assets/icon-delete.svg"
+                    onTriggered: {
+                        viewModel.deleteAddress(contextMenu1.address);
+                    }
+                }
+            }
 
             Binding{
                 target: viewModel
@@ -97,9 +113,31 @@ ColumnLayout {
             visible: false
             parentModel: viewModel
 
+            contextMenu: contextMenu2
+
             sortIndicatorVisible: true
             sortIndicatorColumn: 4
             sortIndicatorOrder: Qt.DescendingOrder
+
+            ContextMenu {
+                id: contextMenu2
+                modal: true
+                dim: false
+                property string address
+                Action {
+                    text: qsTr("make active")
+                    onTriggered: {
+                        viewModel.makeActive(contextMenu2.address);
+                    }
+                }
+                Action {
+                    text: qsTr("delete address")
+                    icon.source: "qrc:/assets/icon-delete.svg"
+                    onTriggered: {
+                        viewModel.deleteAddress(contextMenu2.address);
+                    }
+                }
+            }
 
             Binding{
                 target: viewModel

@@ -174,6 +174,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
+    void makeActiveAddress(const beam::WalletID& id) override
+    {
+        tx.send([id](BridgeInterface& receiver_) mutable
+        {
+            receiver_.makeActiveAddress(id);
+        });
+    }
+
     void setNodeAddress(const std::string& addr) override
     {
         tx.send([addr](BridgeInterface& receiver_) mutable
@@ -539,6 +547,17 @@ void WalletModel::deleteAddress(const beam::WalletID& id)
             }
             _walletDB->deleteAddress(id);
         }
+    }
+    catch (...)
+    {
+    }
+}
+
+void WalletModel::makeActiveAddress(const beam::WalletID& id)
+{
+    try
+    {
+        wallet::changeAddressExpiration(_walletDB, id);
     }
     catch (...)
     {

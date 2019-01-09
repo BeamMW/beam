@@ -128,6 +128,7 @@ namespace
         void rollbackTx(const TxID&) override {}
 
         std::vector<WalletAddress> getAddresses(bool own) override { return {}; }
+        void setNeverExpirationForAll() override {};
         void saveAddress(const WalletAddress&) override {}
         boost::optional<WalletAddress> getAddress(const WalletID& id) override
         {

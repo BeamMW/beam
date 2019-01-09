@@ -9,6 +9,7 @@ CustomTableView {
     property int rowHeight: 69
     property int resizableWidth: parent.width - actions.width
     property var parentModel
+    property var contextMenu
     anchors.fill: parent
     frameVisible: false
     selectionMode: SelectionMode.NoSelection
@@ -124,28 +125,6 @@ CustomTableView {
                         }
                     }
                 }
-            }
-        }
-    }
-
-    ContextMenu {
-        id: contextMenu
-        modal: true
-        dim: false
-        property string address
-        /*Action {
-            text: qsTr("transactions list")
-            icon.source: "qrc:/assets/icon-transactions.svg"
-            onTriggered: {
-                // go to list transaction (wallet page)
-                main.updateItem(0)
-            }
-        }*/
-        Action {
-            text: qsTr("delete address")
-            icon.source: "qrc:/assets/icon-delete.svg"
-            onTriggered: {
-                parentModel.deleteAddress(contextMenu.address);
             }
         }
     }
