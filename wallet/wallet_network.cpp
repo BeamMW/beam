@@ -285,6 +285,12 @@ namespace beam {
 						m_Miner.m_vThreads[i] = std::thread(&Miner::Thread, &m_Miner, i);
 				}
 
+				if (!m_Miner.m_pTmr)
+				{
+					m_Miner.m_pTmr = io::Timer::create(io::Reactor::get_Current());
+					m_Miner.m_pTmr->start(100, true, [this]() { OnMined(); }); // periodic timer
+				}
+
 				std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
 
 				m_Miner.m_Pending.push_back(std::move(pTask));
@@ -375,6 +381,7 @@ namespace beam {
 
 			m_vThreads.clear();
 			m_pEvt.reset();
+			m_pTmr.reset();
 
 			LOG_INFO() << "WalletNetworkViaBbs::Stop-end";
 		}
@@ -448,8 +455,8 @@ namespace beam {
 				}
 			}
 
-			if (bSuccess)
-				m_pEvt->post();
+			//if (bSuccess)
+			//	m_pEvt->post();
 		}
 
 	}
