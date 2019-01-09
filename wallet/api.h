@@ -27,6 +27,7 @@ namespace beam
 
 #define WALLET_API_METHODS(macro) \
     macro(CreateAddress,    "create_address") \
+    macro(ValidateAddress,  "validate_address") \
     macro(Send,             "send") \
     macro(Replace,          "replace") \
     macro(Status,           "tx_status") \
@@ -46,6 +47,16 @@ namespace beam
         struct Response
         {
             WalletID address;
+        };
+    };
+
+    struct ValidateAddress
+    {
+        WalletID address;
+
+        struct Response
+        {
+            bool isValid;
         };
     };
 

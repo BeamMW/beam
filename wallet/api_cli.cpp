@@ -185,6 +185,13 @@ namespace beam
                 doResponse(id, CreateAddress::Response{ address.m_walletID });
             }
 
+            void onMessage(int id, const ValidateAddress& data) override
+            {
+                LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
+
+                doResponse(id, ValidateAddress::Response{ data.address.IsValid() });
+            }
+
             void onMessage(int id, const Send& data) override
             {
                 LOG_DEBUG() << "Send(id = " << id << " session = " << data.session << " amount = " << data.value << " fee = " << data.fee <<  " address = " << std::to_string(data.address) << ")";

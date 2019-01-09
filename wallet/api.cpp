@@ -79,6 +79,19 @@ namespace beam
         _handler.onMessage(id, createAddress);
     }
 
+    void WalletApi::onValidateAddressMessage(int id, const nlohmann::json& params)
+    {
+        checkJsonParam(params, "address", id);
+
+        if (params["address"].empty())
+            throwInvalidJsonRpc(id);
+
+        ValidateAddress validateAddress;
+        validateAddress.address.FromHex(params["address"]);
+
+        _handler.onMessage(id, validateAddress);
+    }
+
     void WalletApi::onSendMessage(int id, const nlohmann::json& params)
     {
         checkJsonParam(params, "session", id);
@@ -228,6 +241,16 @@ namespace beam
             {"jsonrpc", "2.0"},
             {"id", id},
             {"result", std::to_string(res.address)}
+        };
+    }
+
+    void WalletApi::getResponse(int id, const ValidateAddress::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", res.isValid}
         };
     }
 
