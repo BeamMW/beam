@@ -276,7 +276,7 @@ namespace beam {
 					m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
 					m_Miner.m_Shutdown = false;
 
-					uint32_t nThreads = std::max(1U, std::thread::hardware_concurrency());
+					uint32_t nThreads = /*std::max(1U, std::thread::hardware_concurrency())*/1;
 					m_Miner.m_vThreads.resize(nThreads);
 
 					for (uint32_t i = 0; i < nThreads; i++)
@@ -432,6 +432,8 @@ namespace beam {
 					bSuccess = false;
 				else
 				{
+					assert(m_Pending.front() == pTask);
+
 					pTask->m_Msg.m_TimePosted = ts;
 					pTask->m_Msg.m_Nonce = nonce;
 
