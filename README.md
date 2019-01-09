@@ -32,13 +32,13 @@ All Beam users are REQUIRED to follow the procedure below IMMEDIATELY!!!
 
 1. Stop your currently running Beam Wallets immediately
 
-2. Uinstall or delete your Beam Wallet application and executables from all machines. 
+2. Uninstall or delete your Beam Wallet application and executables from all machines. 
 
 DO NOT DELETE THE DATABASE or any other wallet data
 
 3. Make sure the application was deleted. Check the documentation for the location of Wallet application files (https://beam-docs.readthedocs.io/en/latest/rtd_pages/user_files_and_locations.html)
 
-4. Download the Beam Wallet again from the website only (beam.mw/downloads) 
+4. Download the Beam Wallet again from the website only ( https://www.beam.mw/downloads ) 
  
 It will have THE SAME version numbers as previously published archives
 Make sure the SHA256 of the archive matches with the one published on the website.
@@ -54,7 +54,7 @@ Details for the vulnerability and the CVE will be published within a week to avo
 ============================================================================
 
 
-http://beam.mw/downloads
+https://beam.mw/downloads
 
 If you build from source please use 'mainnet' branch
 
