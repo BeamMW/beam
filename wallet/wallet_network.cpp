@@ -292,7 +292,12 @@ namespace beam {
 				m_Miner.m_NewTask.notify_all();*/
 
 				m_Miner.m_Done.push_back(std::move(pTask));
-				OnMined();
+
+				if (!m_Miner.m_pTmr)
+					m_Miner.m_pTmr = io::Timer::create(io::Reactor::get_Current());
+
+				m_Miner.m_pTmr->start(0, false, [this]() { OnMined(); });
+
 			}
 			else
 			{

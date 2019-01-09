@@ -108,6 +108,7 @@ namespace beam
 
 			volatile bool m_Shutdown;
 			io::AsyncEvent::Ptr m_pEvt;
+			io::Timer::Ptr m_pTmr;
 
 			struct Task
 			{
