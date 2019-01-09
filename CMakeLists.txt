@@ -281,6 +281,10 @@ add_subdirectory(beam)
 add_subdirectory(explorer)
 add_subdirectory(mnemonic)
 
+if (UV_INTERNAL)
+    add_subdirectory(3rdparty/libuv)
+endif()
+
 if(ANDROID OR BEAM_BUILD_JNI)
     add_subdirectory(android)
 endif()
