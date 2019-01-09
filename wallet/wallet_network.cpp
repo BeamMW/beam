@@ -271,7 +271,6 @@ namespace beam {
 
 			if (m_MineOutgoing)
 			{
-				/*
 				proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
 
 				if (!m_Miner.m_pEvt)
@@ -289,15 +288,7 @@ namespace beam {
 				std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
 
 				m_Miner.m_Pending.push_back(std::move(pTask));
-				m_Miner.m_NewTask.notify_all();*/
-
-				m_Miner.m_Done.push_back(std::move(pTask));
-
-				if (!m_Miner.m_pEvt)
-					m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
-
-				m_Miner.m_pEvt->post();
-
+				m_Miner.m_NewTask.notify_all();
 			}
 			else
 			{
