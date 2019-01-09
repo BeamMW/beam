@@ -193,39 +193,7 @@ matrix:
       env:
         - ANDROID_ABI=x86
         - BUILD_TYPE=Release
-      android:
-        components:
-          - tools
-          - platform-tools
-      install:
-        - echo y | sdkmanager "ndk-bundle"
-      before_install:
-        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
-        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
-        - sudo git clone --depth=1 https://github.com/nesbox/boost_1_68-android.git /usr/local/boost_1_68-android
-        - sudo git clone --depth=1 https://github.com/nesbox/Prebuilt-OpenSSL-Android.git /usr/local/Prebuilt-OpenSSL-Android
-        - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
-        - export BOOST_ROOT_ANDROID=/usr/local/boost_1_68-android
-        - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android/Prebuilt
-        - export PATH=$ANDROID_NDK_HOME:$PATH
-      script:
-        - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
-        - make wallet-jni -j4
-      after_success:
-        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
-        - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
-        - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
-        - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni-$BEAM_VERSION.tar.gz
-
-###############################################################################
-# Android ARMv7 Release
-###############################################################################
-
-    - os: linux
-      language: android
-      env:
-        - ANDROID_ABI=armeabi-v7a
-        - BUILD_TYPE=Release
+        - ANDROID_SDK_VERSION=23
       android:
         components:
           - tools
@@ -243,7 +211,42 @@ matrix:
         - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android/Prebuilt
         - export PATH=$ANDROID_NDK_HOME:$PATH
       script:
-        - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
+        - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
+        - make wallet-jni -j4
+      after_success:
+        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
+        - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
+        - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+        - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni-$BEAM_VERSION.tar.gz
+
+###############################################################################
+# Android ARMv7 Release
+###############################################################################
+
+    - os: linux
+      language: android
+      env:
+        - ANDROID_ABI=armeabi-v7a
+        - BUILD_TYPE=Release
+        - ANDROID_SDK_VERSION=23
+      android:
+        components:
+          - tools
+          - platform-tools
+          - android-23
+      install:
+        - echo y | sdkmanager "ndk-bundle"
+      before_install:
+        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
+        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
+        - sudo git clone --depth=1 https://github.com/nesbox/boost_1_68-android.git /usr/local/boost_1_68-android
+        - sudo git clone --depth=1 https://github.com/nesbox/Prebuilt-OpenSSL-Android.git /usr/local/Prebuilt-OpenSSL-Android
+        - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
+        - export BOOST_ROOT_ANDROID=/usr/local/boost_1_68-android
+        - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android/Prebuilt
+        - export PATH=$ANDROID_NDK_HOME:$PATH
+      script:
+        - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
         - make wallet-jni -j4
       after_success:
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
