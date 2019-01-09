@@ -33,6 +33,7 @@ namespace beam
 		static const uint32_t s_Inf = (s_MaxOrder + 1) << s_MantissaBits;
 
 		bool IsTargetReached(const ECC::uintBig&) const;
+		bool get_Target(ECC::uintBig&) const; // more expensive to calculate. Use to test many variants for the same target
 
 		void Unpack(Raw&) const;
 

@@ -48,6 +48,7 @@ public:
     void resetWallet();
 
 public slots:
+	void startedNode();
     void stoppedNode();
 
 private:

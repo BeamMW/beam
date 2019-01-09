@@ -16,6 +16,7 @@
 #include "core/serialization_adapters.h"
 #include "core/ecc_native.h"
 #include "proto.h"
+#include "../utility/logger.h"
 
 namespace beam {
 namespace proto {
@@ -258,6 +259,30 @@ bool Bbs::Decrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAd
     hmac >> hvMac2;
 
     return (hvMac == hvMac2);
+}
+
+void Bbs::get_HashPartial(ECC::Hash::Processor& hp, const BbsMsg& msg)
+{
+	hp
+		<< "bbs.msg"
+		<< msg.m_Channel
+		<< Blob(msg.m_Message);
+}
+
+void Bbs::get_Hash(ECC::Hash::Value& hv, const BbsMsg& msg)
+{
+	ECC::Hash::Processor hp;
+	get_HashPartial(hp, msg);
+
+	hp
+		<< msg.m_TimePosted
+		<< msg.m_Nonce
+		>> hv;
+}
+
+bool Bbs::IsHashValid(const ECC::Hash::Value& hv)
+{
+	return !(hv.m_pData[0] | hv.m_pData[1] | hv.m_pData[2]);
 }
 
 union HighestMsgCode
@@ -577,7 +602,9 @@ void NodeConnection::OnMsg(SChannelInitiate&& msg)
 
     m_Protocol.m_Mode = ProtocolPlus::Mode::Outgoing;
 
-    OnConnectedSecure();
+	Send(proto::GetTime(Zero)); // in the next proto - better to send the time right away, instead of asking for it
+
+	OnConnectedSecure();
 }
 
 void NodeConnection::OnMsg(SChannelReady&& msg)
@@ -751,12 +778,43 @@ void NodeConnection::OnMsg(Ping&& msg)
 	Send(Pong(Zero));
 }
 
+void NodeConnection::OnMsg(GetTime&& msg)
+{
+	proto::Time msgOut;
+	msgOut.m_Value = getTimestamp();
+	Send(msgOut);
+}
+
+void NodeConnection::OnMsg(Time&& msg)
+{
+	uint32_t dtMax_s = Rules::get().DA.MaxAhead_s * 3 / 4; // time diff should be no more than 3/4 of the max allowed time diff in blocks
+	Timestamp ts = getTimestamp();
+
+	if ((ts + dtMax_s < msg.m_Value) ||
+		(ts > msg.m_Value + dtMax_s))
+	{
+		std::ostringstream os;
+		os << "Time diff too large. Local=" << ts << ", Remote=" << msg.m_Value;
+
+		ThrowUnexpected(os.str().c_str(), NodeProcessingException::Type::TimeOutOfSync);
+	}
+}
+
 void NodeConnection::VerifyCfg(const Login& msg)
 {
-    if (msg.m_CfgChecksum != Rules::get().Checksum)
-    {
-        ThrowUnexpected("Incompatible peer cfg!", NodeProcessingException::Type::Incompatible);
-    }
+	if (msg.m_CfgChecksum != Rules::get().Checksum) {
+		ThrowUnexpected("Incompatible peer cfg!", NodeProcessingException::Type::Incompatible);
+	}
+
+	if ((~proto::LoginFlags::Recognized) & msg.m_Flags) {
+		LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses newer protocol.";
+	}
+	else
+	{
+		if (!(proto::LoginFlags::Extension1 & msg.m_Flags)) {
+			LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses older protocol.";
+		}
+	}
 }
 
 /////////////////////////

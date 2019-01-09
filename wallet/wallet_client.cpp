@@ -47,6 +47,8 @@ beam::wallet::ErrorType GetWalletError(proto::NodeProcessingException::Type exce
     {
     case proto::NodeProcessingException::Type::Incompatible:
         return beam::wallet::ErrorType::NodeProtocolIncompatible;
+    case proto::NodeProcessingException::Type::TimeOutOfSync:
+        return beam::wallet::ErrorType::TimeOutOfSync;
     default:
         return beam::wallet::ErrorType::NodeProtocolBase;
     }
@@ -202,6 +204,7 @@ WalletClient::WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr)
     , m_async{ make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *m_reactor) }
     , m_isConnected(false)
     , m_nodeAddrStr(nodeAddr)
+    , m_isRunning(false)
 {
     
 }
@@ -230,6 +233,7 @@ void WalletClient::start()
 {
     m_thread = std::make_shared<std::thread>([this]()
     {
+        m_isRunning = true;
         try
         {
             std::unique_ptr<WalletSubscriber> wallet_subscriber;
@@ -273,9 +277,17 @@ void WalletClient::start()
 
             auto nodeNetwork = make_shared<MyNodeNetwork>(*wallet, *this);
 
-            Address node_addr;
-            node_addr.resolve(m_nodeAddrStr.c_str());
-            nodeNetwork->m_Cfg.m_vNodes.push_back(node_addr);
+            Address nodeAddr;
+            if (nodeAddr.resolve(m_nodeAddrStr.c_str()))
+            {
+                nodeNetwork->m_Cfg.m_vNodes.push_back(nodeAddr);
+            }
+            else
+            {
+                LOG_ERROR() << "Unable to resolve node address: " << m_nodeAddrStr;
+            }
+
+            nodeNetwork->m_Cfg.m_vNodes.push_back(nodeAddr);
 
             m_nodeNetwork = nodeNetwork;
 
@@ -304,6 +316,7 @@ void WalletClient::start()
         {
             LOG_ERROR() << "Unhandled exception";
         }
+        m_isRunning = false;
     });
 }
 
@@ -323,6 +336,11 @@ bool WalletClient::check_receiver_address(const std::string& addr)
 std::string WalletClient::getNodeAddress() const
 {
     return m_nodeAddrStr;
+}
+
+bool WalletClient::isRunning() const
+{
+    return m_isRunning;
 }
 
 void WalletClient::onCoinsChanged()
@@ -368,7 +386,7 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
         auto s = m_wallet.lock();
         if (s)
         {
-            s->transfer_money(senderAddress.m_walletID, receiver, move(amount), move(fee), true, move(message));
+            s->transfer_money(senderAddress.m_walletID, receiver, move(amount), move(fee), true, 120, move(message));
         }
     }
     catch (...)
@@ -516,7 +534,6 @@ void WalletClient::setNodeAddress(const std::string& addr)
     else
     {
         LOG_ERROR() << "Unable to resolve node address: " << addr;
-        assert(false);
     }
 }
 

@@ -1081,6 +1081,7 @@ void Node::Peer::OnConnectedSecure()
     proto::Login msgLogin;
     msgLogin.m_CfgChecksum = Rules::get().Checksum; // checksum of all consesnsus related configuration
     msgLogin.m_Flags =
+		proto::LoginFlags::Extension1 |
         proto::LoginFlags::SpreadingTransactions | // indicate ability to receive and broadcast transactions
         proto::LoginFlags::SendPeers; // request a another node to periodically send a list of recommended peers
 
@@ -2409,7 +2410,7 @@ void Node::Peer::OnMsg(proto::Login&& msg)
 		(proto::LoginFlags::Bbs & msg.m_Flags))
 	{
 		proto::BbsResetSync msgOut;
-		msgOut.m_TimeFrom = std::min(m_This.m_Bbs.m_HighestPosted_s, getTimestamp() - m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s);
+		msgOut.m_TimeFrom = std::min(m_This.m_Bbs.m_HighestPosted_s, getTimestamp() - Rules::get().DA.MaxAhead_s);
 		Send(msgOut);
 	}
 
@@ -2758,13 +2759,6 @@ void Node::Peer::OnMsg(proto::PeerInfo&& msg)
         m_This.m_PeerMan.OnPeer(msg.m_ID, msg.m_LastAddr, false);
 }
 
-void Node::Peer::OnMsg(proto::GetTime&& msg)
-{
-    proto::Time msgOut;
-    msgOut.m_Value = getTimestamp();
-    Send(msgOut);
-}
-
 void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
 {
     proto::ExternalAddr msgOut;
@@ -2772,7 +2766,35 @@ void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
     Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::BbsMsgV0&& msg0)
+{
+	if (!m_This.m_Cfg.m_BbsAllowV0)
+		return; // drop
+
+	proto::BbsMsg msg;
+	msg.m_Channel = msg0.m_Channel;
+	msg.m_TimePosted = msg0.m_TimePosted;
+	msg.m_Message.swap(msg0.m_Message);
+
+	OnMsg(msg, false);
+}
+
 void Node::Peer::OnMsg(proto::BbsMsg&& msg)
+{
+	if (!m_This.m_Cfg.m_BbsAllowV0)
+	{
+		// test the hash
+		ECC::Hash::Value hv;
+		proto::Bbs::get_Hash(hv, msg);
+
+		if (!proto::Bbs::IsHashValid(hv))
+			return; // drop
+	}
+
+	OnMsg(msg, true);
+}
+
+void Node::Peer::OnMsg(const proto::BbsMsg& msg, bool bNonceValid)
 {
 	if (!m_This.m_Cfg.m_Bbs)
 		ThrowUnexpected();
@@ -2782,13 +2804,13 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
 	Timestamp t = getTimestamp();
 
-	if (msg.m_TimePosted > t + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s)
+	if (msg.m_TimePosted > t + Rules::get().DA.MaxAhead_s)
 		return; // too much ahead of time
 
 	if (msg.m_TimePosted + m_This.m_Cfg.m_Timeout.m_BbsMessageTimeout_s  < t)
 		return; // too old
 
-	if (msg.m_TimePosted + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
+	if (msg.m_TimePosted + Rules::get().DA.MaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
 		return; // don't allow too much out-of-order messages
 
     NodeDB& db = m_This.m_Processor.get_DB();
@@ -2797,6 +2819,8 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
     wlk.m_Data.m_Channel = msg.m_Channel;
     wlk.m_Data.m_TimePosted = msg.m_TimePosted;
     wlk.m_Data.m_Message = Blob(msg.m_Message);
+	wlk.m_Data.m_bNonce = bNonceValid;
+	msg.m_Nonce.Export(wlk.m_Data.m_Nonce);
 
     Bbs::CalcMsgKey(wlk.m_Data);
 
@@ -2889,12 +2913,24 @@ void Node::Peer::OnMsg(proto::BbsGetMsg&& msg)
 
 void Node::Peer::SendBbsMsg(const NodeDB::WalkerBbs::Data& d)
 {
-    proto::BbsMsg msgOut;
-    msgOut.m_Channel = d.m_Channel;
-    msgOut.m_TimePosted = d.m_TimePosted;
-    d.m_Message.Export(msgOut.m_Message); // TODO: avoid buf allocation
+	if (d.m_bNonce && (proto::LoginFlags::Extension1 & m_LoginFlags))
+	{
+		proto::BbsMsg msgOut;
+		msgOut.m_Channel = d.m_Channel;
+		msgOut.m_TimePosted = d.m_TimePosted;
+		d.m_Message.Export(msgOut.m_Message);
+		msgOut.m_Nonce = d.m_Nonce;
+		Send(msgOut);
+	}
+	else
+	{
+		proto::BbsMsgV0 msgOut;
+		msgOut.m_Channel = d.m_Channel;
+		msgOut.m_TimePosted = d.m_TimePosted;
+		d.m_Message.Export(msgOut.m_Message);
+		Send(msgOut);
+	}
 
-    Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)

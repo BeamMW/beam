@@ -134,6 +134,7 @@ namespace beam
 	typedef uint64_t Timestamp;
 	typedef uint64_t Height;
 	typedef uint64_t Amount;
+    typedef std::vector<Amount> AmountList;
 	typedef std::vector<uint8_t> ByteBuffer;
 
 	template <uint32_t nBits_>

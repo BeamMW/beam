@@ -1195,6 +1195,24 @@ void TestDifficulty()
 	// insane decrease, out-of-bound
 	d2.Calculate(wrk, dh, 100000, 7380000);
 	verify_test(!d2.m_Packed);
+
+	for (uint32_t i = 0; i < 200; i++)
+	{
+		GenerateRandom(&d, sizeof(d));
+
+		uintBig trg;
+		if (!d.get_Target(trg))
+		{
+			verify_test(d.m_Packed >= Difficulty::s_Inf);
+			continue;
+		}
+
+		verify_test(d.IsTargetReached(trg));
+
+		trg.Inc();
+		if (!(trg == Zero)) // overflow?
+			verify_test(!d.IsTargetReached(trg));
+	}
 }
 
 void TestRandom()

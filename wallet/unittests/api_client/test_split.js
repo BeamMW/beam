@@ -7,10 +7,11 @@ client.connect(10000, '127.0.0.1', function() {
 		{
 			jsonrpc: '2.0',
 			id: 123,
-			method: 'tx_status',
+			method: 'split',
 			params: 
 			{
-				'txId' : '10c4b760c842433cb58339a0fafef3db',
+				"session" : 1234,
+				"coins" : [11, 12, 13, 50000000000],
 			}
 		}) + '\n');
 });

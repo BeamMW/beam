@@ -54,6 +54,8 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
         return tr("Connection timed out.");
     case wallet::ErrorType::ConnectionRefused:
         return tr("Cannot connect to node: ") + getNodeAddress().c_str();
+    case wallet::ErrorType::TimeOutOfSync:
+        return tr("System time not synchronized.");
     default:
         return tr("Unexpected error!");
     }

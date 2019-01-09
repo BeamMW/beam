@@ -1162,9 +1162,9 @@ namespace beam
 
 				proto::Login msg;
 				msg.m_CfgChecksum = Rules::get().Checksum;
+				msg.m_Flags = proto::LoginFlags::Extension1;
 				Send(msg);
 
-				Send(proto::GetTime(Zero));
 				Send(proto::GetExternalAddr(Zero));
 			}
 
@@ -1185,10 +1185,6 @@ namespace beam
 				default: // suppress warning
 					break;
 				}
-			}
-
-			virtual void OnMsg(proto::Time&& msg) override
-			{
 			}
 
 			virtual void OnMsg(proto::ExternalAddr&& msg) override
@@ -1380,8 +1376,9 @@ namespace beam
 					// switch offline/online mining modes
 					proto::Login msgLogin;
 					msgLogin.m_CfgChecksum = Rules::get().Checksum;
+					msgLogin.m_Flags = proto::LoginFlags::Extension1;
 					if (msg.m_Description.m_Height % 8)
-						msgLogin.m_Flags = proto::LoginFlags::MiningFinalization;
+						msgLogin.m_Flags |= proto::LoginFlags::MiningFinalization;
 					Send(msgLogin);
 				}
 
@@ -1554,7 +1551,7 @@ namespace beam
 			virtual void OnConnectedSecure() override {
 				proto::Login msg;
 				msg.m_CfgChecksum = Rules::get().Checksum;
-				msg.m_Flags = proto::LoginFlags::SendPeers; // just for fun
+				msg.m_Flags = proto::LoginFlags::SendPeers | proto::LoginFlags::Extension1;
 				Send(msg);
 			}
 
@@ -1576,9 +1573,17 @@ namespace beam
 			uint32_t m_MsgCount = 0;
 
 			virtual void OnMsg(proto::BbsMsg&& msg) override {
+				OnBbsMsg(msg.m_Message);
+			}
 
-				verify_test(msg.m_Message.size() == 1);
-				uint8_t nMsg = msg.m_Message[0];
+			virtual void OnMsg(proto::BbsMsgV0&& msg) override {
+				OnBbsMsg(msg.m_Message);
+			}
+
+			void OnBbsMsg(const ByteBuffer& msg)
+			{
+				verify_test(msg.size() == 1);
+				uint8_t nMsg = msg[0];
 
 				verify_test(nMsg == (uint8_t) m_MsgCount + 1);
 				m_MsgCount++;
@@ -1813,6 +1818,7 @@ namespace beam
 
 					RequestBbsMsg::Ptr pBbs(new RequestBbsMsg);
 					pBbs->m_Msg.m_Channel = m_LastBbsChannel;
+					pBbs->m_Msg.m_TimePosted = getTimestamp();
 					net.PostRequest(*pBbs, *this);
 					m_nProofsExpected++;
 				}

@@ -56,7 +56,6 @@ struct Node
 			uint32_t m_PeersUpdate_ms	= 1000; // reconsider every second
 			uint32_t m_PeersDbFlush_ms = 1000 * 60; // 1 minute
 			uint32_t m_BbsMessageTimeout_s	= 3600 * 12; // 1/2 day
-			uint32_t m_BbsMessageMaxAhead_s	= 60 * 15; // 15 minutes
 			uint32_t m_BbsCleanupPeriod_ms = 3600 * 1000; // 1 hour
 			uint32_t m_BbsChannelUpdate_ms = 60 * 5; // 5 minutes
 		} m_Timeout;
@@ -74,6 +73,7 @@ struct Node
 		int m_VerificationThreads = 0;
 
 		bool m_Bbs = true;
+		bool m_BbsAllowV0 = true; // allow older format, without pow
 
 		struct BandwidthCtl
 		{
@@ -499,6 +499,8 @@ private:
 		void OnFirstTaskDone();
 		void OnFirstTaskDone(NodeProcessor::DataStatus::Enum);
 
+		void OnMsg(const proto::BbsMsg&, bool bNonceValid);
+
 		void SendTx(Transaction::Ptr& ptx, bool bFluff);
 
 		// proto::NodeConnection
@@ -529,9 +531,9 @@ private:
 		virtual void OnMsg(proto::GetProofChainWork&&) override;
 		virtual void OnMsg(proto::PeerInfoSelf&&) override;
 		virtual void OnMsg(proto::PeerInfo&&) override;
-		virtual void OnMsg(proto::GetTime&&) override;
 		virtual void OnMsg(proto::GetExternalAddr&&) override;
 		virtual void OnMsg(proto::BbsMsg&&) override;
+		virtual void OnMsg(proto::BbsMsgV0&&) override;
 		virtual void OnMsg(proto::BbsHaveMsg&&) override;
 		virtual void OnMsg(proto::BbsGetMsg&&) override;
 		virtual void OnMsg(proto::BbsSubscribe&&) override;

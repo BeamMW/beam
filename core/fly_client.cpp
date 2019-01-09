@@ -107,7 +107,7 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 {
     Login msg;
     msg.m_CfgChecksum = Rules::get().Checksum;
-    msg.m_Flags = LoginFlags::MiningFinalization  /*| LoginFlags::SendPeers*/;
+    msg.m_Flags = LoginFlags::MiningFinalization | LoginFlags::Extension1;
     Send(msg);
 
     if (!(Flags::ReportedConnected & m_Flags))
@@ -759,8 +759,18 @@ bool FlyClient::NetworkStd::Connection::IsSupported(RequestBbsMsg& req)
 
 void FlyClient::NetworkStd::Connection::SendRequest(RequestBbsMsg& req)
 {
-    req.m_Msg.m_TimePosted = getTimestamp();
-    Send(req.m_Msg);
+	if (LoginFlags::Extension1 & m_LoginFlags)
+	    Send(req.m_Msg);
+	else
+	{
+		BbsMsgV0 msg0;
+		msg0.m_Channel = req.m_Msg.m_Channel;
+		msg0.m_TimePosted = req.m_Msg.m_TimePosted;
+
+		TemporarySwap scope(msg0.m_Message, req.m_Msg.m_Message);
+
+		Send(msg0);
+	}
 
     Ping msg2(Zero);
     Send(msg2);
@@ -822,6 +832,16 @@ void FlyClient::NetworkStd::BbsSubscribe(BbsChannel ch, Timestamp ts, IBbsReceiv
     for (ConnectionList::iterator it2 = m_Connections.begin(); m_Connections.end() != it2; it2++)
         if (it2->IsLive() && it2->IsSecureOut())
             it2->Send(msg);
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(BbsMsgV0&& msg0)
+{
+	BbsMsg msg;
+	msg.m_Channel = msg0.m_Channel;
+	msg.m_TimePosted = msg0.m_TimePosted;
+	msg.m_Message.swap(msg0.m_Message);
+
+	OnMsg(std::move(msg));
 }
 
 void FlyClient::NetworkStd::Connection::OnMsg(BbsMsg&& msg)

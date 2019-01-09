@@ -21,6 +21,7 @@
 #include "wallet_model_async.h"
 
 #include <thread>
+#include <atomic>
 
 struct WalletStatus
 {
@@ -53,6 +54,8 @@ public:
     bool check_receiver_address(const std::string& addr);
 
     std::string getNodeAddress() const;
+
+    bool isRunning() const;
 
 protected:
 
@@ -110,4 +113,6 @@ private:
     boost::optional<beam::wallet::ErrorType> m_walletError;
 
     std::string m_nodeAddrStr;
+
+    std::atomic<bool> m_isRunning;
 };

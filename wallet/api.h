@@ -29,7 +29,7 @@ namespace beam
     macro(CreateAddress,    "create_address") \
     macro(Send,             "send") \
     macro(Replace,          "replace") \
-    macro(Status,           "status") \
+    macro(Status,           "tx_status") \
     macro(Split,            "split") \
     macro(Balance,          "balance") \
     macro(GetUtxo,          "get_utxo") \
@@ -78,14 +78,24 @@ namespace beam
         struct Response
         {
             TxStatus status;
+            WalletID sender;
+            WalletID receiver;
+            Amount fee;
+            Amount value;
+            std::string comment;
+            Merkle::Hash kernel;
         };
     };
 
     struct Split
     {
+        int session;
+        Amount fee;
+        AmountList coins;
+
         struct Response
         {
-
+            TxID txId;
         };
     };
 

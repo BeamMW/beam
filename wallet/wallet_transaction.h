@@ -17,6 +17,7 @@
 #include "wallet/common.h"
 #include "wallet/wallet_db.h"
 
+#include <condition_variable>
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
@@ -173,8 +174,8 @@ namespace beam { namespace wallet
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
         void SendInvitation(const TxBuilder& builder, bool isSender);
-        void ConfirmInvitation(const TxBuilder& builder);
-        void ConfirmTransaction(const TxBuilder& builder);
+        void ConfirmInvitation(const TxBuilder& builder, bool sendUtxos);
+        void ConfirmTransaction(const TxBuilder& builder, bool sendUtxos);
         void NotifyTransactionRegistered();
         bool IsSelfTx() const;
         State GetState() const;
@@ -183,11 +184,12 @@ namespace beam { namespace wallet
     class TxBuilder
     {
     public:
-        TxBuilder(BaseTransaction& tx, Amount amount, Amount fee);
+        TxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee);
 
         void SelectInputs();
         void AddChangeOutput();
         void AddOutput(Amount amount, Coin::Status status);
+        bool FinalizeOutputs();
         Output::Ptr CreateOutput(Amount amount, Coin::Status status, bool shared = false, Height incubation = 0);
         void CreateKernel();
         ECC::Point::Native GetPublicExcess() const;
@@ -202,6 +204,7 @@ namespace beam { namespace wallet
         bool IsPeerSignatureValid() const;
 
         Amount GetAmount() const;
+        const AmountList& GetAmountList() const;
         Amount GetFee() const;
         Height GetMinHeight() const;
         Height GetMaxHeight() const;
@@ -215,7 +218,7 @@ namespace beam { namespace wallet
         BaseTransaction& m_Tx;
 
         // input
-        Amount m_Amount;
+        AmountList m_AmountList;
         Amount m_Fee;
         Amount m_Change;
         Height m_MinHeight;

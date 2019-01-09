@@ -106,6 +106,7 @@ namespace beam
 
             send.fee = params["fee"];
         }
+        else send.fee = 0;
 
         if (existsJsonParam(params, "comment"))
         {
@@ -139,7 +140,32 @@ namespace beam
 
     void WalletApi::onSplitMessage(int id, const nlohmann::json& params)
     {
+        checkJsonParam(params, "session", id);
+        checkJsonParam(params, "coins", id);
+
+        if (params["session"] < 0)
+            throwInvalidJsonRpc(id);
+
+        if (!params["coins"].is_array() || params["coins"].size() <= 0)
+            throwInvalidJsonRpc(id);
+
         Split split;
+        split.session = params["session"];
+
+        for (const auto& amount : params["coins"])
+        {
+            split.coins.push_back(amount);
+        }
+
+        if (existsJsonParam(params, "fee"))
+        {
+            if (params["fee"] < 0)
+                throwInvalidJsonRpc(id);
+
+            split.fee = params["fee"];
+        }
+        else split.fee = 0;
+
         _handler.onMessage(id, split);
     }
 
@@ -247,7 +273,31 @@ namespace beam
         {
             {"jsonrpc", "2.0"},
             {"id", id},
-            {"result", res.status}
+            {"result", 
+                {
+                    {"status", res.status},
+                    {"sender", std::to_string(res.sender)},
+                    {"receiver", std::to_string(res.receiver)},
+                    {"fee", res.fee},
+                    {"value", res.value},
+                    {"comment", res.comment},
+                    {"kernel", to_hex(res.kernel.m_pData, res.kernel.nBytes)}
+                }
+            }
+        };
+    }
+
+    void WalletApi::getResponse(int id, const Split::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result",
+                {
+                    {"txId", to_hex(res.txId.data(), res.txId.size())}
+                }
+            }
         };
     }
 

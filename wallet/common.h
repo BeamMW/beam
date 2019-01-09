@@ -173,6 +173,7 @@ namespace beam
             CreateTime = 10,
             IsInitiator = 11,
             MaxHeight = 12,
+            AmountList = 13,
 
             AtomicSwapCoin = 20,
             AtomicSwapAmount = 21,
@@ -294,8 +295,9 @@ namespace beam
             NodeProtocolBase = 0,
             NodeProtocolIncompatible = 1,
             ConnectionTimedOut = 2,
-            ConnectionRefused = 3
-        };
+            ConnectionRefused = 3,
+			TimeOutOfSync = 4,
+		};
     }
 }
 

@@ -103,6 +103,7 @@ namespace beam
 		static void _ShiftRight(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc, uint32_t nBits);
 		static void _ShiftLeft(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc, uint32_t nBits);
 
+		static void _Div(uint8_t* pDst, uint32_t nDst, const uint8_t* pA, uint32_t nA, const uint8_t* pB, uint32_t nB, uint8_t* pMul, uint8_t* pBuf);
 	};
 
 	template <uint32_t nBytes_>
@@ -281,6 +282,22 @@ namespace beam
 		void ShiftLeft(uint32_t nBits, uintBig_t<nBytesOther_>& res) const
 		{
 			_ShiftLeft(res.m_pData, res.nBytes, m_pData, nBytes, nBits);
+		}
+
+		template <uint32_t nBytesA, uint32_t nBytesB>
+		void SetDiv(const uintBig_t<nBytesA>& a, const uintBig_t<nBytesB>& b)
+		{
+			// Calculates a/b. Rounding to a smaller side. if b = 0, then the result is max value. Same if the type is too small to hold the full result
+			// In other words, the result is the maximum value for which (*this * b <= a)
+			uintBig_t<nBytesA> mul;
+			SetDiv(a, b, mul);
+		}
+
+		template <uint32_t nBytesA, uint32_t nBytesB>
+		void SetDiv(const uintBig_t<nBytesA>& a, const uintBig_t<nBytesB>& b, uintBig_t<nBytesA>& mul)
+		{
+			uintBig_t<nBytesA> tmp;
+			_Div(m_pData, nBytes, a.m_pData, a.nBytes, b.m_pData, b.nBytes, mul.m_pData, tmp.m_pData);
 		}
 
 		// helper, for uniform random generation within specific bounds
