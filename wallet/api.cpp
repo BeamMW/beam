@@ -208,26 +208,26 @@ namespace beam
         _handler.onMessage(id, unlock);
     }
 
-    void WalletApi::onListMessage(int id, const nlohmann::json& params)
+    void WalletApi::onTxListMessage(int id, const nlohmann::json& params)
     {
-        List list;
+        TxList txList;
 
         if (existsJsonParam(params, "filter"))
         {
             if (existsJsonParam(params["filter"], "status")
                 && params["filter"]["status"].is_number_unsigned())
             {
-                list.filter.status = params["filter"]["status"];
+                txList.filter.status = params["filter"]["status"];
             }
 
             if (existsJsonParam(params["filter"], "height")
                 && params["filter"]["height"].is_number_unsigned())
             {
-                list.filter.height = params["filter"]["height"];
+                txList.filter.height = params["filter"]["height"];
             }
         }
 
-        _handler.onMessage(id, list);
+        _handler.onMessage(id, txList);
     }
 
     void WalletApi::onWalletStatusMessage(int id, const nlohmann::json& params)
@@ -339,7 +339,7 @@ namespace beam
         };
     }
 
-    void WalletApi::getResponse(int id, const List::Response& res, json& msg)
+    void WalletApi::getResponse(int id, const TxList::Response& res, json& msg)
     {
         msg = json
         {
@@ -348,7 +348,7 @@ namespace beam
             {"result", json::array()}
         };
 
-        for (const auto& tx : res.list)
+        for (const auto& tx : res.resultList)
         {
             json item = {};
             getStatusResponseJson(tx, item);

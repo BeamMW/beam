@@ -37,7 +37,7 @@ namespace beam
     macro(GetUtxo,          "get_utxo") \
     macro(Lock,             "lock") \
     macro(Unlock,           "unlock") \
-    macro(List,             "tx_list") \
+    macro(TxList,           "tx_list") \
     macro(WalletStatus,     "wallet_status")
 
     struct CreateAddress
@@ -129,7 +129,7 @@ namespace beam
         };
     };
 
-    struct List
+    struct TxList
     {
         struct
         {
@@ -139,7 +139,7 @@ namespace beam
 
         struct Response
         {
-            std::vector<TxDescription> list;
+            std::vector<TxDescription> resultList;
         };
     };
 

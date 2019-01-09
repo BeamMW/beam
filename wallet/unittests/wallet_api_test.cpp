@@ -319,7 +319,7 @@ namespace
         }
     }
 
-    void testListJsonRpc(const std::string& msg)
+    void testTxListJsonRpc(const std::string& msg)
     {
         class WalletApiHandler : public WalletApiHandlerBase
         {
@@ -332,7 +332,7 @@ namespace
                 cout << msg["error"]["message"] << endl;
             }
 
-            void onMessage(int id, const List& data) override
+            void onMessage(int id, const TxList& data) override
             {
                 WALLET_CHECK(id > 0);
 
@@ -347,9 +347,9 @@ namespace
 
         {
             json res;
-            List::Response list;
+            TxList::Response txList;
 
-            api.getResponse(123, list, res);
+            api.getResponse(123, txList, res);
             testResultHeader(res);
 
             WALLET_CHECK(res["id"] == 123);
@@ -467,7 +467,7 @@ int main()
         }
     }));
 
-    testListJsonRpc(JSON_CODE(
+    testTxListJsonRpc(JSON_CODE(
     {
         "jsonrpc": "2.0",
         "id" : 12345,

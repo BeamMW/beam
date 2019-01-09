@@ -289,7 +289,7 @@ namespace beam
                 methodNotImplementedYet(id);
             }
 
-            void onMessage(int id, const List& data) override
+            void onMessage(int id, const TxList& data) override
             {
                 LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
 
@@ -298,28 +298,28 @@ namespace beam
                 // filter transactions by status if provided
                 if (data.filter.status)
                 {
-                    decltype(txList) list;
+                    decltype(txList) filteredList;
 
                     for (const auto& tx : txList)
                         if (tx.m_status == *data.filter.status)
-                            list.push_back(tx);
+                            filteredList.push_back(tx);
 
-                    txList = list;
+                    txList = filteredList;
                 }
 
                 // filter transactions by height if provided
                 if (data.filter.height)
                 {
-                    decltype(txList) list;
+                    decltype(txList) filteredList;
 
                     for (const auto& tx : txList)
                         if (tx.m_minHeight == *data.filter.height)
-                            list.push_back(tx);
+                            filteredList.push_back(tx);
 
-                    txList = list;
+                    txList = filteredList;
                 }
 
-                doResponse(id, List::Response{ txList });
+                doResponse(id, TxList::Response{ txList });
             }
 
             bool on_raw_message(void* data, size_t size) 
