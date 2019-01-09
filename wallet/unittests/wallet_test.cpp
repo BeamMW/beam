@@ -905,6 +905,8 @@ private:
 
         void OnDisconnect(const DisconnectReason& r) override
         {
+			LOG_INFO() << "TestNode - OnDisconnect" << r;
+
             switch (r.m_Type)
             {
             case DisconnectReason::Protocol:
@@ -940,6 +942,8 @@ private:
         {
             if (newStream)
             {
+				LOG_INFO() << "TestNode - OnAccepted";
+
                 Client* p = new Client(get_ParentObj());
                 get_ParentObj().m_lstClients.push_back(*p);
 

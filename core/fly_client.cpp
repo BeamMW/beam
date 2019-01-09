@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "fly_client.h"
+#include "../utility/logger.h"
 
 namespace beam {
 namespace proto {
@@ -105,6 +106,8 @@ void FlyClient::NetworkStd::Connection::ResetInternal()
 
 void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 {
+	LOG_INFO() << "FlyClient - OnConnectedSecure";
+
     Login msg;
     msg.m_CfgChecksum = Rules::get().Checksum;
     msg.m_Flags = LoginFlags::MiningFinalization | LoginFlags::Extension1;
@@ -119,6 +122,8 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 
 void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)
 {
+	LOG_INFO() << "FlyClient - OnDisconnect" << dr;
+
     m_This.OnConnectionFailed(m_iIndex, dr);
 	ResetAll();
     SetTimer(m_This.m_Cfg.m_ReconnectTimeout_ms);
