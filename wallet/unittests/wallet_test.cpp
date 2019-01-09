@@ -805,7 +805,9 @@ private:
 				proto::LoginFlags::Bbs |
                 proto::LoginFlags::SendPeers;
             Send(msg);
-        }
+
+			SendTip();
+		}
 
         void SendTip()
         {
@@ -838,7 +840,6 @@ private:
 
         void OnMsg(proto::Login&& /*data*/) override
         {
-            SendTip();
         }
 
         void OnMsg(proto::GetProofState&&) override
@@ -864,12 +865,15 @@ private:
 
             for (const auto& m : m_This.m_bbs)
             {
-                Send(m);
+				LOG_INFO() << "bbs msg sent";
+				Send(m);
             }
         }
 
         void OnMsg(proto::BbsMsg&& msg) override
         {
+			LOG_INFO() << "bbs msg received";
+
             m_This.m_bbs.push_back(msg);
 
             for (ClientList::iterator it = m_This.m_lstClients.begin(); m_This.m_lstClients.end() != it; it++)
@@ -879,7 +883,8 @@ private:
                     Client& c = *it;
                     if (c.m_Subscribed)
                     {
-                        c.Send(msg);
+						LOG_INFO() << "bbs msg sent";
+						c.Send(msg);
                     }
                 }
             }
