@@ -224,8 +224,8 @@ namespace beam {
 			uint8_t* pMsg = &buf.front();
 			uint32_t nSize = static_cast<uint32_t>(buf.size());
 
-			if (!proto::Bbs::Decrypt(pMsg, nSize, it->get_ParentObj().m_sk))
-				continue;
+			//if (!proto::Bbs::Decrypt(pMsg, nSize, it->get_ParentObj().m_sk))
+			//	continue;
 
 			wallet::SetTxParameter msgWallet;
 			bool bValid = false;
@@ -256,15 +256,17 @@ namespace beam {
 		ser & msg;
 		SerializeBuffer sb = ser.buffer();
 
-		ECC::NoLeak<ECC::Hash::Value> hvRandom;
-		ECC::GenRandom(hvRandom.V);
+		//ECC::NoLeak<ECC::Hash::Value> hvRandom;
+		//ECC::GenRandom(hvRandom.V);
 
-		ECC::Scalar::Native nonce;
-		m_WalletDB->get_MasterKdf()->DeriveKey(nonce, hvRandom.V);
+		//ECC::Scalar::Native nonce;
+		//m_WalletDB->get_MasterKdf()->DeriveKey(nonce, hvRandom.V);
 		
 		Miner::Task::Ptr pTask = std::make_shared<Miner::Task>();
 
-		if (proto::Bbs::Encrypt(pTask->m_Msg.m_Message, peerID.m_Pk, nonce, sb.first, static_cast<uint32_t>(sb.second)))
+		pTask->m_Msg.m_Message.assign(sb.first, sb.first + sb.second);
+
+		if (/*proto::Bbs::Encrypt(pTask->m_Msg.m_Message, peerID.m_Pk, nonce, sb.first, static_cast<uint32_t>(sb.second))*/ !pTask->m_Msg.m_Message.empty())
 		{
 			pTask->m_Done = false;
 			pTask->m_Msg.m_Channel = channel_from_wallet_id(peerID);
@@ -293,11 +295,11 @@ namespace beam {
 
 					m_Miner.m_Done.push_back(std::move(pTask));
 				}
-				//m_Miner.m_pEvt->post();
+				m_Miner.m_pEvt->post();
 
-				if (!m_Miner.m_pTmr)
-					m_Miner.m_pTmr = io::Timer::create(io::Reactor::get_Current());
-				m_Miner.m_pTmr->start(0, false, [this]() { OnMined(); });
+				//if (!m_Miner.m_pTmr)
+				//	m_Miner.m_pTmr = io::Timer::create(io::Reactor::get_Current());
+				//m_Miner.m_pTmr->start(0, false, [this]() { OnMined(); });
 
 			}
 			else
