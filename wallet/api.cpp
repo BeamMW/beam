@@ -20,6 +20,14 @@ using json = nlohmann::json;
 
 namespace beam
 {
+    namespace
+    {
+        std::string txIDToString(const TxID& txId)
+        {
+            return to_hex(txId.data(), txId.size());
+        }
+    }
+
     struct jsonrpc_exception
     {
         int code;
@@ -265,6 +273,9 @@ namespace beam
 
         for (auto& utxo : res.utxos)
         {
+            std::string createTxId = utxo.m_createTxId.is_initialized() ? txIDToString(*utxo.m_createTxId) : "";
+            std::string spentTxId = utxo.m_spentTxId.is_initialized() ? txIDToString(*utxo.m_spentTxId) : "";
+
             msg["result"].push_back(
             { 
                 {"id", utxo.m_ID.m_Idx},
@@ -272,6 +283,9 @@ namespace beam
                 {"type", (const char*)FourCC::Text(utxo.m_ID.m_Type)},
                 {"height", utxo.m_createHeight},
                 {"maturity", utxo.m_maturity},
+                {"createTxId", createTxId},
+                {"spentTxId", spentTxId},
+                {"sessionId", utxo.m_sessionId},
             });
         }
     }
@@ -284,7 +298,7 @@ namespace beam
             {"id", id},
             {"result", 
                 {
-                    {"txId", to_hex(res.txId.data(), res.txId.size())}
+                    {"txId", txIDToString(res.txId)}
                 }
             }
         };
