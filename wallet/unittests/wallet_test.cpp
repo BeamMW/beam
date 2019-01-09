@@ -320,7 +320,6 @@ struct TestWalletRig
         m_NodeNetwork.m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
         m_NodeNetwork.Connect();
 
-		m_WalletNetworkViaBbs.m_MineOutgoing = false;
         m_WalletNetworkViaBbs.AddOwnAddress(wa);
     }
 
