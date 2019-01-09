@@ -269,7 +269,7 @@ namespace beam {
 
 			if (m_MineOutgoing)
 			{
-				proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
+				//proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
 
 				if (!m_Miner.m_pEvt)
 				{
@@ -409,11 +409,12 @@ namespace beam {
 
 				// attempt to mine it
 				ECC::Hash::Value hv;
-				ECC::Hash::Processor hp = pTask->m_hpPartial;
-				hp
-					<< ts
-					<< nonce
-					>> hv;
+				//ECC::Hash::Processor hp = pTask->m_hpPartial;
+				//hp
+				//	<< ts
+				//	<< nonce
+				//	>> hv;
+				hv = Zero;
 
 				if (proto::Bbs::IsHashValid(hv))
 				{
