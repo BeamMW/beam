@@ -273,30 +273,33 @@ namespace beam {
 			{
 				proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
 
-/*				if (!m_Miner.m_pEvt)
+				if (!m_Miner.m_pEvt)
 				{
 					m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
 					m_Miner.m_Shutdown = false;
-
+/*
 					uint32_t nThreads = std::max(1U, std::thread::hardware_concurrency());
 					m_Miner.m_vThreads.resize(nThreads);
 
 					for (uint32_t i = 0; i < nThreads; i++)
-						m_Miner.m_vThreads[i] = std::thread(&Miner::Thread, &m_Miner, i);
+						m_Miner.m_vThreads[i] = std::thread(&Miner::Thread, &m_Miner, i);*/
 				}
-*/
-				if (!m_Miner.m_pTmr)
+
+/*				if (!m_Miner.m_pTmr)
 				{
 					m_Miner.m_pTmr = io::Timer::create(io::Reactor::get_Current());
 					m_Miner.m_pTmr->start(100, true, [this]() { OnMined(); }); // periodic timer
+				}*/
+
+				{
+					std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
+					/*
+					m_Miner.m_Pending.push_back(std::move(pTask));
+					m_Miner.m_NewTask.notify_all();*/
+
+					m_Miner.m_Done.push_back(std::move(pTask));
 				}
-
-				std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
-				/*
-				m_Miner.m_Pending.push_back(std::move(pTask));
-				m_Miner.m_NewTask.notify_all();*/
-
-				m_Miner.m_Done.push_back(std::move(pTask));
+				m_Miner.m_pEvt->post();
 
 			}
 			else
