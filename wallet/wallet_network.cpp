@@ -279,28 +279,18 @@ namespace beam {
 				{
 					m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
 					m_Miner.m_Shutdown = false;
-/*
+
 					uint32_t nThreads = std::max(1U, std::thread::hardware_concurrency());
 					m_Miner.m_vThreads.resize(nThreads);
 
 					for (uint32_t i = 0; i < nThreads; i++)
-						m_Miner.m_vThreads[i] = std::thread(&Miner::Thread, &m_Miner, i);*/
+						m_Miner.m_vThreads[i] = std::thread(&Miner::Thread, &m_Miner, i);
 				}
 
-				{
-					std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
-					/*
-					m_Miner.m_Pending.push_back(std::move(pTask));
-					m_Miner.m_NewTask.notify_all();*/
+				std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
 
-					m_Miner.m_Done.push_back(std::move(pTask));
-				}
-				m_Miner.m_pEvt->post();
-
-				//if (!m_Miner.m_pTmr)
-				//	m_Miner.m_pTmr = io::Timer::create(io::Reactor::get_Current());
-				//m_Miner.m_pTmr->start(0, false, [this]() { OnMined(); });
-
+				m_Miner.m_Pending.push_back(std::move(pTask));
+				m_Miner.m_NewTask.notify_all();
 			}
 			else
 			{
@@ -387,7 +377,6 @@ namespace beam {
 
 			m_vThreads.clear();
 			m_pEvt.reset();
-			m_pTmr.reset();
 
 			LOG_INFO() << "WalletNetworkViaBbs::Stop-end";
 		}
@@ -461,8 +450,8 @@ namespace beam {
 				}
 			}
 
-			//if (bSuccess)
-			//	m_pEvt->post();
+			if (bSuccess)
+				m_pEvt->post();
 		}
 
 	}
