@@ -317,6 +317,8 @@ namespace
             });
         }
 
+        void makeActiveAddress(const beam::WalletID& id) override {}
+
         void setNodeAddress(const std::string& addr) override
         {
             tx.send([addr](BridgeInterface& receiver_) mutable
