@@ -124,8 +124,9 @@ namespace beam
 			TaskQueue m_Done;
 
 			Miner() :m_Shutdown(false) {}
-			~Miner();
+			~Miner() { Stop(); }
 
+			void Stop();
 			void Thread(uint32_t);
 
 		} m_Miner;

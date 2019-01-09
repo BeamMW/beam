@@ -51,6 +51,8 @@ namespace beam {
 
 	WalletNetworkViaBbs::~WalletNetworkViaBbs()
 	{
+		m_Miner.Stop();
+
 		while (!m_PendingBbsMsgs.empty())
 			DeleteReq(m_PendingBbsMsgs.front());
 
@@ -276,20 +278,17 @@ namespace beam {
 					m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
 					m_Miner.m_Shutdown = false;
 
-					//uint32_t nThreads = std::max(1U, std::thread::hardware_concurrency());
-					//m_Miner.m_vThreads.resize(nThreads);
+					uint32_t nThreads = std::max(1U, std::thread::hardware_concurrency());
+					m_Miner.m_vThreads.resize(nThreads);
 
-					//for (uint32_t i = 0; i < nThreads; i++)
-					//	m_Miner.m_vThreads[i] = std::thread(&Miner::Thread, &m_Miner, i);
+					for (uint32_t i = 0; i < nThreads; i++)
+						m_Miner.m_vThreads[i] = std::thread(&Miner::Thread, &m_Miner, i);
 				}
 
-				{
-					std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
+				std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
 
-					m_Miner.m_Pending.push_back(std::move(pTask));
-					m_Miner.m_NewTask.notify_all();
-				}
-				m_Miner.m_pEvt->post();
+				m_Miner.m_Pending.push_back(std::move(pTask));
+				m_Miner.m_NewTask.notify_all();
 			}
 			else
 			{
@@ -358,12 +357,12 @@ namespace beam {
         m_AddressExpirationTimer->start(AddressUpdateInterval_ms, false, [this] { OnAddressTimer(); });
     }
 
-	WalletNetworkViaBbs::Miner::~Miner()
+	void WalletNetworkViaBbs::Miner::Stop()
 	{
-		LOG_INFO() << "WalletNetworkViaBbs~Miner-begin";
-
 		if (!m_vThreads.empty())
 		{
+			LOG_INFO() << "WalletNetworkViaBbs::Stop-begin";
+
 			{
 				std::unique_lock<std::mutex> scope(m_Mutex);
 				m_Shutdown = true;
@@ -373,9 +372,12 @@ namespace beam {
 			for (size_t i = 0; i < m_vThreads.size(); i++)
 				if (m_vThreads[i].joinable())
 					m_vThreads[i].join();
-		}
 
-		LOG_INFO() << "WalletNetworkViaBbs~Miner-end";
+			m_vThreads.clear();
+			m_pEvt.reset();
+
+			LOG_INFO() << "WalletNetworkViaBbs::Stop-end";
+		}
 	}
 
 	void WalletNetworkViaBbs::Miner::Thread(uint32_t iThread)
