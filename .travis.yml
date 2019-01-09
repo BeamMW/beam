@@ -230,6 +230,7 @@ matrix:
         components:
           - tools
           - platform-tools
+          - android-23
       install:
         - echo y | sdkmanager "ndk-bundle"
       before_install:
