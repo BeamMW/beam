@@ -206,16 +206,18 @@ namespace beam
         _handler.onMessage(id, unlock);
     }
 
-    void WalletApi::onCreateUtxoMessage(int id, const nlohmann::json& params)
+    void WalletApi::onListMessage(int id, const nlohmann::json& params)
     {
-        CreateUtxo createUtxo;
-        _handler.onMessage(id, createUtxo);
-    }
+        List list;
 
-    void WalletApi::onPollMessage(int id, const nlohmann::json& params)
-    {
-        Poll poll;
-        _handler.onMessage(id, poll);
+        if (existsJsonParam(params, "filter")
+            && existsJsonParam(params["filter"], "status")
+            && params["filter"]["status"].is_number_unsigned())
+        {
+            list.filter.status = params["filter"]["status"];
+        }
+
+        _handler.onMessage(id, list);
     }
 
     void WalletApi::getResponse(int id, const Balance::Response& res, json& msg)
@@ -290,24 +292,30 @@ namespace beam
         };
     }
 
+    static void getStatusResponseJson(const TxDescription& tx, json& msg)
+    {
+        msg = json
+        {
+            {"status", tx.m_status},
+            {"sender", std::to_string(tx.m_myId)},
+            {"receiver", std::to_string(tx.m_peerId)},
+            {"fee", tx.m_fee},
+            {"value", tx.m_amount},
+            {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
+            {"kernel", to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes)}
+        };
+    }
+
     void WalletApi::getResponse(int id, const Status::Response& res, json& msg)
     {
         msg = json
         {
             {"jsonrpc", "2.0"},
             {"id", id},
-            {"result", 
-                {
-                    {"status", res.status},
-                    {"sender", std::to_string(res.sender)},
-                    {"receiver", std::to_string(res.receiver)},
-                    {"fee", res.fee},
-                    {"value", res.value},
-                    {"comment", res.comment},
-                    {"kernel", to_hex(res.kernel.m_pData, res.kernel.nBytes)}
-                }
-            }
+            {"result", {}}
         };
+
+        getStatusResponseJson(res.tx, msg["result"]);
     }
 
     void WalletApi::getResponse(int id, const Split::Response& res, json& msg)
@@ -322,6 +330,23 @@ namespace beam
                 }
             }
         };
+    }
+
+    void WalletApi::getResponse(int id, const List::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", json::array()}
+        };
+
+        for (const auto& tx : res.list)
+        {
+            json item = {};
+            getStatusResponseJson(tx, item);
+            msg["result"].push_back(item);
+        }
     }
 
     bool WalletApi::parse(const char* data, size_t size)

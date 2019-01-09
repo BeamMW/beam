@@ -221,15 +221,7 @@ namespace beam
 
                 if (tx)
                 {
-                    Status::Response result;
-
-                    result.status = tx->m_status;
-                    result.sender = tx->m_myId;
-                    result.receiver = tx->m_peerId;
-                    result.fee = tx->m_fee;
-                    result.value = tx->m_amount;
-                    result.comment = std::string{ tx->m_message.begin(), tx->m_message.end() };
-                    result.kernel = tx->m_kernelID;
+                    Status::Response result{*tx};
 
                     doResponse(id, result);
                 }
@@ -291,14 +283,30 @@ namespace beam
                 methodNotImplementedYet(id);
             }
 
-            void onMessage(int id, const CreateUtxo& data) override
+            void onMessage(int id, const List& data) override
             {
-                methodNotImplementedYet(id);
-            }
+                LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
 
-            void onMessage(int id, const Poll& data) override
-            {
-                methodNotImplementedYet(id);
+                auto txList = _walletDB->getTxHistory();
+
+                List::Response response;
+
+                for (const auto& tx : txList)
+                {
+                    if (data.filter.status)
+                    {
+                        if (tx.m_status == *data.filter.status)
+                        {
+                            response.list.push_back(tx);
+                        }
+                    }
+                    else
+                    {
+                        response.list.push_back(tx);
+                    }
+                }
+
+                doResponse(id, response);
             }
 
             bool on_raw_message(void* data, size_t size) 

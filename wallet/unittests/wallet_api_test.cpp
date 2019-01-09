@@ -356,6 +356,43 @@ namespace
             WALLET_CHECK(res["result"]["txId"] > 0);
         }
     }
+
+    void testListJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid list api json!!!");
+
+                cout << msg["error"]["message"] << endl;
+            }
+
+            void onMessage(int id, const List& data) override
+            {
+                WALLET_CHECK(id > 0);
+
+                WALLET_CHECK(*data.filter.status == TxStatus::Completed);
+            }
+        };
+
+        WalletApiHandler handler;
+        WalletApi api(handler);
+
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            List::Response list;
+
+            api.getResponse(123, list, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 123);
+        }
+    }
 }
 
 int main()
@@ -442,7 +479,7 @@ int main()
     {
         "jsonrpc": "2.0",
         "id" : 12345,
-        "method" : "send",
+        "method" : "tx_send",
         "params" : 
         {
             "session" : 15,
@@ -466,12 +503,26 @@ int main()
     {
         "jsonrpc": "2.0",
         "id" : 12345,
-        "method" : "split",
+        "method" : "tx_split",
         "params" :
         {
             "session" : 123,
             "coins" : [11, 12, 13, 50000000000000],
             "fee" : 4
+        }
+    }));
+
+    testListJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_list",
+        "params" :
+        {
+            "filter" : 
+            {
+                "status" : 3
+            }
         }
     }));
 

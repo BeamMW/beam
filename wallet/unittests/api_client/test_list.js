@@ -7,11 +7,13 @@ client.connect(10000, '127.0.0.1', function() {
 		{
 			jsonrpc: '2.0',
 			id: 123,
-			method: 'tx_split',
+			method: 'tx_list',
 			params: 
 			{
-				"session" : 1234,
-				"coins" : [11, 12, 13, 50000000000],
+				filter:
+				{
+					status:5
+				}
 			}
 		}) + '\n');
 });

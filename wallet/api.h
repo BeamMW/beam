@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include "wallet/wallet.h"
 #include "nlohmann/json.hpp"
 
@@ -28,16 +30,15 @@ namespace beam
 #define WALLET_API_METHODS(macro) \
     macro(CreateAddress,    "create_address") \
     macro(ValidateAddress,  "validate_address") \
-    macro(Send,             "send") \
+    macro(Send,             "tx_send") \
     macro(Replace,          "replace") \
     macro(Status,           "tx_status") \
-    macro(Split,            "split") \
+    macro(Split,            "tx_split") \
     macro(Balance,          "balance") \
     macro(GetUtxo,          "get_utxo") \
     macro(Lock,             "lock") \
     macro(Unlock,           "unlock") \
-    macro(CreateUtxo,       "create_utxo") \
-    macro(Poll,             "poll")
+    macro(List,             "tx_list")
 
     struct CreateAddress
     {
@@ -88,13 +89,7 @@ namespace beam
 
         struct Response
         {
-            TxStatus status;
-            WalletID sender;
-            WalletID receiver;
-            Amount fee;
-            Amount value;
-            std::string comment;
-            Merkle::Hash kernel;
+            TxDescription tx;
         };
     };
 
@@ -144,19 +139,16 @@ namespace beam
         };
     };
 
-    struct CreateUtxo
+    struct List
     {
+        struct
+        {
+            std::optional<TxStatus> status;
+        } filter;
+
         struct Response
         {
-
-        };
-    };
-
-    struct Poll
-    {
-        struct Response
-        {
-
+            std::vector<TxDescription> list;
         };
     };
 
