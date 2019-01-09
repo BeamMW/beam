@@ -285,12 +285,6 @@ namespace beam {
 						m_Miner.m_vThreads[i] = std::thread(&Miner::Thread, &m_Miner, i);*/
 				}
 
-/*				if (!m_Miner.m_pTmr)
-				{
-					m_Miner.m_pTmr = io::Timer::create(io::Reactor::get_Current());
-					m_Miner.m_pTmr->start(100, true, [this]() { OnMined(); }); // periodic timer
-				}*/
-
 				{
 					std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
 					/*
@@ -299,7 +293,11 @@ namespace beam {
 
 					m_Miner.m_Done.push_back(std::move(pTask));
 				}
-				m_Miner.m_pEvt->post();
+				//m_Miner.m_pEvt->post();
+
+				if (!m_Miner.m_pTmr)
+					m_Miner.m_pTmr = io::Timer::create(io::Reactor::get_Current());
+				m_Miner.m_pTmr->start(0, false, [this]() { OnMined(); });
 
 			}
 			else
