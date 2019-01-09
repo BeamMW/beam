@@ -174,6 +174,8 @@ namespace proto {
 				Connection(NetworkStd& x, size_t iIndex);
 				virtual ~Connection();
 
+				void ResetAll();
+
 				io::Address m_Addr;
 				PeerID m_NodeID;
 

@@ -33,7 +33,7 @@ void FlyClient::NetworkStd::Connect()
             if (c.IsLive() && c.IsSecureOut())
                 continue;
 
-            c.Reset();
+            c.ResetAll();
             c.Connect(c.m_Addr);
         }
     }
@@ -120,12 +120,15 @@ void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)
 {
     m_This.OnConnectionFailed(m_iIndex, dr);
-
-    NodeConnection::Reset();
-    ResetInternal();
-    ResetVars();
-
+	ResetAll();
     SetTimer(m_This.m_Cfg.m_ReconnectTimeout_ms);
+}
+
+void FlyClient::NetworkStd::Connection::ResetAll()
+{
+	NodeConnection::Reset();
+	ResetInternal();
+	ResetVars();
 }
 
 void FlyClient::NetworkStd::Connection::SetTimer(uint32_t timeout_ms)
@@ -148,7 +151,7 @@ void FlyClient::NetworkStd::Connection::OnTimer()
     {
         if (m_This.m_Cfg.m_PollPeriod_ms)
         {
-            Reset();
+            ResetAll();
             uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, m_This.m_Cfg.m_PollPeriod_ms);
             SetTimer(timeout_ms);
         }
