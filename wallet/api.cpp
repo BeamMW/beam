@@ -236,6 +236,12 @@ namespace beam
         _handler.onMessage(id, list);
     }
 
+    void WalletApi::onWalletStatusMessage(int id, const nlohmann::json& params)
+    {
+        WalletStatus walletStatus;
+        _handler.onMessage(id, walletStatus);
+    }
+
     void WalletApi::getResponse(int id, const Balance::Response& res, json& msg)
     {
         msg = json
@@ -370,6 +376,26 @@ namespace beam
             getStatusResponseJson(tx, item);
             msg["result"].push_back(item);
         }
+    }
+
+    void WalletApi::getResponse(int id, const WalletStatus::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result",
+                {
+                    {"current_height", res.currentHeight},
+                    {"current_state_hash", res.currentStateHash},
+                    {"available", res.available},
+                    {"receiving", res.receiving},
+                    {"sending", res.sending},
+                    {"maturing", res.maturing},
+                    {"locked", res.locked},
+                }
+            }
+        };
     }
 
     bool WalletApi::parse(const char* data, size_t size)

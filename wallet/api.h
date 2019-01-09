@@ -38,7 +38,8 @@ namespace beam
     macro(GetUtxo,          "get_utxo") \
     macro(Lock,             "lock") \
     macro(Unlock,           "unlock") \
-    macro(List,             "tx_list")
+    macro(List,             "tx_list") \
+    macro(WalletStatus,     "wallet_status")
 
     struct CreateAddress
     {
@@ -150,6 +151,20 @@ namespace beam
         struct Response
         {
             std::vector<TxDescription> list;
+        };
+    };
+
+    struct WalletStatus
+    {
+        struct Response
+        {
+            beam::Height currentHeight = 0;
+            std::string currentStateHash;
+            Amount available = 0;
+            Amount receiving = 0;
+            Amount sending = 0;
+            Amount maturing = 0;
+            Amount locked = 0;
         };
     };
 

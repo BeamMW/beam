@@ -273,6 +273,25 @@ namespace beam
                 doResponse(id, response);
             }
 
+            void onMessage(int id, const WalletStatus& data) override
+            {
+                LOG_DEBUG() << "WalletStatus(id = " << id << ")";
+
+                Block::SystemState::ID stateID = {};
+                _walletDB->getSystemStateID(stateID);
+
+                WalletStatus::Response response;
+                response.currentHeight = stateID.m_Height;
+                response.currentStateHash = to_hex(stateID.m_Hash.m_pData, 32);
+                response.available = _walletDB->getAvailable();
+                response.receiving = _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
+                response.sending = _walletDB->getTotal(Coin::Outgoing);
+                response.maturing = _walletDB->getTotal(Coin::Maturing);
+
+                // TODO: add locked UTXO here
+                doResponse(id, response);
+            }
+
             void onMessage(int id, const Lock& data) override
             {
                 methodNotImplementedYet(id);
