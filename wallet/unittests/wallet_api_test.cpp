@@ -311,7 +311,6 @@ namespace
             testResultHeader(res);
 
             WALLET_CHECK(res["id"] == 123);
-            //WALLET_CHECK(res["result"]["txId"] > 0);
         }
     }
 
@@ -456,7 +455,7 @@ int main()
     {
         "jsonrpc": "2.0",
         "id" : 12345,
-        "method" : "status",
+        "method" : "tx_status",
         "params" :
         {
             "txId" : "10c4b760c842433cb58339a0fafef3db"

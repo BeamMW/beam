@@ -214,7 +214,17 @@ namespace beam
 
                 if (tx)
                 {
-                    doResponse(id, Status::Response{ tx->m_status });
+                    Status::Response result;
+
+                    result.status = tx->m_status;
+                    result.sender = tx->m_myId;
+                    result.receiver = tx->m_peerId;
+                    result.fee = tx->m_fee;
+                    result.value = tx->m_amount;
+                    result.comment = std::string{ tx->m_message.begin(), tx->m_message.end() };
+                    result.kernel = tx->m_kernelID;
+
+                    doResponse(id, result);
                 }
                 else
                 {

@@ -7,7 +7,7 @@ client.connect(10000, '127.0.0.1', function() {
 		{
 			jsonrpc: '2.0',
 			id: 123,
-			method: 'status',
+			method: 'tx_status',
 			params: 
 			{
 				'txId' : '10c4b760c842433cb58339a0fafef3db',

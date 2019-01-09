@@ -273,7 +273,17 @@ namespace beam
         {
             {"jsonrpc", "2.0"},
             {"id", id},
-            {"result", res.status}
+            {"result", 
+                {
+                    {"status", res.status},
+                    {"sender", std::to_string(res.sender)},
+                    {"receiver", std::to_string(res.receiver)},
+                    {"fee", res.fee},
+                    {"value", res.value},
+                    {"comment", res.comment},
+                    {"kernel", to_hex(res.kernel.m_pData, res.kernel.nBytes)}
+                }
+            }
         };
     }
 
