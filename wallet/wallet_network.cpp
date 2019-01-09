@@ -291,11 +291,8 @@ namespace beam {
 				m_Miner.m_Pending.push_back(std::move(pTask));
 				m_Miner.m_NewTask.notify_all();*/
 
-				if (!m_Miner.m_pEvt)
-					m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
-
 				m_Miner.m_Done.push_back(std::move(pTask));
-				m_Miner.m_pEvt->post();
+				OnMined();
 			}
 			else
 			{
