@@ -218,11 +218,19 @@ namespace beam
     {
         List list;
 
-        if (existsJsonParam(params, "filter")
-            && existsJsonParam(params["filter"], "status")
-            && params["filter"]["status"].is_number_unsigned())
+        if (existsJsonParam(params, "filter"))
         {
-            list.filter.status = params["filter"]["status"];
+            if (existsJsonParam(params["filter"], "status")
+                && params["filter"]["status"].is_number_unsigned())
+            {
+                list.filter.status = params["filter"]["status"];
+            }
+
+            if (existsJsonParam(params["filter"], "height")
+                && params["filter"]["height"].is_number_unsigned())
+            {
+                list.filter.height = params["filter"]["height"];
+            }
         }
 
         _handler.onMessage(id, list);
@@ -316,7 +324,8 @@ namespace beam
             {"fee", tx.m_fee},
             {"value", tx.m_amount},
             {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
-            {"kernel", to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes)}
+            {"kernel", to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes)},
+            {"height", tx.m_minHeight}
         };
     }
 

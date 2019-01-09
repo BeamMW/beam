@@ -144,6 +144,7 @@ namespace beam
         struct
         {
             std::optional<TxStatus> status;
+            std::optional<Height> height;
         } filter;
 
         struct Response

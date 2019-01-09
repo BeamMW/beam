@@ -289,24 +289,31 @@ namespace beam
 
                 auto txList = _walletDB->getTxHistory();
 
-                List::Response response;
-
-                for (const auto& tx : txList)
+                // filter transactions by status if provided
+                if (data.filter.status)
                 {
-                    if (data.filter.status)
-                    {
+                    decltype(txList) list;
+
+                    for (const auto& tx : txList)
                         if (tx.m_status == *data.filter.status)
-                        {
-                            response.list.push_back(tx);
-                        }
-                    }
-                    else
-                    {
-                        response.list.push_back(tx);
-                    }
+                            list.push_back(tx);
+
+                    txList = list;
                 }
 
-                doResponse(id, response);
+                // filter transactions by height if provided
+                if (data.filter.height)
+                {
+                    decltype(txList) list;
+
+                    for (const auto& tx : txList)
+                        if (tx.m_minHeight == *data.filter.height)
+                            list.push_back(tx);
+
+                    txList = list;
+                }
+
+                doResponse(id, List::Response{ txList });
             }
 
             bool on_raw_message(void* data, size_t size) 
