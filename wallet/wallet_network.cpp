@@ -444,7 +444,7 @@ namespace beam {
 
 					pTask->m_Done = true;
 					m_Pending.pop_front();
-					m_Done.push_back(pTask);
+					m_Done.push_back(std::move(pTask));
 				}
 			}
 
