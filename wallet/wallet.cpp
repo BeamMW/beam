@@ -263,9 +263,15 @@ namespace beam
 
     void Wallet::on_tx_completed(const TxID& txID)
     {
+		// Note: the passed TxID is (most probably) the member of the transaction, which we, most probably, are going to erase from the map, which can potentially delete it.
+		// Make sure we either copy the txID, or prolong the lifetime of the tx.
+
+		wallet::BaseTransaction::Ptr pGuard;
+
         auto it = m_Transactions.find(txID);
         if (it != m_Transactions.end())
         {
+			pGuard.swap(it->second);
             m_Transactions.erase(it);
         }
  
