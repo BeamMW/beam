@@ -319,39 +319,41 @@ namespace beam
             {
                 LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
 
-                auto txList = _walletDB->getTxHistory();
+                TxList::Response res;
+
+                {
+                    auto txList = _walletDB->getTxHistory();
+
+                    for (const auto& tx : txList)
+                    {
+                        Status::Response item{ tx, 0 };
+                        wallet::getTxParameter(_walletDB, tx.m_txId, wallet::TxParameterID::KernelProofHeight, item.kernelProofHeight);
+                        res.resultList.push_back(item);
+                    }
+                }
 
                 // filter transactions by status if provided
                 if (data.filter.status)
                 {
-                    decltype(txList) filteredList;
+                    decltype(res.resultList) filteredList;
 
-                    for (const auto& tx : txList)
-                        if (tx.m_status == *data.filter.status)
-                            filteredList.push_back(tx);
+                    for (const auto& it : res.resultList)
+                        if (it.tx.m_status == *data.filter.status)
+                            filteredList.push_back(it);
 
-                    txList = filteredList;
+                    res.resultList = filteredList;
                 }
 
                 // filter transactions by height if provided
                 if (data.filter.height)
                 {
-                    decltype(txList) filteredList;
+                    decltype(res.resultList) filteredList;
 
-                    for (const auto& tx : txList)
-                        if (tx.m_minHeight == *data.filter.height)
-                            filteredList.push_back(tx);
+                    for (const auto& it : res.resultList)
+                        if (it.kernelProofHeight == *data.filter.height)
+                            filteredList.push_back(it);
 
-                    txList = filteredList;
-                }
-
-                TxList::Response res;
-
-                for (const auto& tx : txList)
-                {
-                    Height height = 0;
-                    wallet::getTxParameter(_walletDB, tx.m_txId, wallet::TxParameterID::KernelProofHeight, height);
-                    res.resultList.push_back(Status::Response{tx, height});
+                    res.resultList = filteredList;
                 }
 
                 doResponse(id, res);
