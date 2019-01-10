@@ -878,15 +878,13 @@ private:
 
             for (ClientList::iterator it = m_This.m_lstClients.begin(); m_This.m_lstClients.end() != it; it++)
             {
-                if (it.pointed_node() != this)
+				Client& c = *it;
+				if ((&c != this) && c.m_Subscribed)
                 {
-                    Client& c = *it;
-                    if (c.m_Subscribed)
-                    {
-						LOG_INFO() << "bbs msg sent";
-						c.Send(msg);
-                    }
-                }
+					LOG_INFO() << "bbs msg sending to " << &c;
+					c.Send(msg);
+					LOG_INFO() << "bbs msg sent";
+				}
             }
         }
 
@@ -905,7 +903,7 @@ private:
 
         void OnDisconnect(const DisconnectReason& r) override
         {
-			LOG_INFO() << "TestNode - OnDisconnect" << r;
+			LOG_INFO() << "TestNode - OnDisconnect" << r << ",C=" << this;
 
             switch (r.m_Type)
             {
@@ -931,7 +929,9 @@ private:
     {
         m_lstClients.erase(ClientList::s_iterator_to(*client));
         delete client;
-    }
+
+		LOG_INFO() << "Deleted: " << client;
+	}
 
     struct Server
         :public proto::NodeConnection::Server
@@ -942,10 +942,10 @@ private:
         {
             if (newStream)
             {
-				LOG_INFO() << "TestNode - OnAccepted";
-
                 Client* p = new Client(get_ParentObj());
                 get_ParentObj().m_lstClients.push_back(*p);
+
+				LOG_INFO() << "TestNode - OnAccepted: " << p;
 
                 p->Accept(std::move(newStream));
                 p->SecureConnect();
