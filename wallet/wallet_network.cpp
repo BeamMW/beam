@@ -273,14 +273,14 @@ namespace beam {
 
 			if (m_MineOutgoing)
 			{
-				proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
+				//proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
 
 				if (!m_Miner.m_pEvt)
 				{
 					m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
 					m_Miner.m_Shutdown = false;
 
-					uint32_t nThreads = std::max(1U, std::thread::hardware_concurrency());
+					uint32_t nThreads = /*std::max(1U, std::thread::hardware_concurrency())*/1;
 					m_Miner.m_vThreads.resize(nThreads);
 
 					for (uint32_t i = 0; i < nThreads; i++)
@@ -416,11 +416,12 @@ namespace beam {
 
 				// attempt to mine it
 				ECC::Hash::Value hv;
-				ECC::Hash::Processor hp = pTask->m_hpPartial;
+				/*ECC::Hash::Processor hp = pTask->m_hpPartial;
 				hp
 					<< ts
 					<< nonce
-					>> hv;
+					>> hv;*/
+				hv = Zero;
 
 				if (proto::Bbs::IsHashValid(hv))
 				{
