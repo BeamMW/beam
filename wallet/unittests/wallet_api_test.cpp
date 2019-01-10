@@ -217,7 +217,7 @@ namespace
             {
                 WALLET_CHECK(id > 0);
 
-                WALLET_CHECK(data.session == 15);
+                //WALLET_CHECK(data.session == 15);
                 WALLET_CHECK(data.value == 12342342);
                 WALLET_CHECK(to_string(data.address) == "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67");
             }
@@ -293,7 +293,7 @@ namespace
             {
                 WALLET_CHECK(id > 0);
 
-                WALLET_CHECK(data.session == 123);
+                //WALLET_CHECK(data.session == 123);
                 WALLET_CHECK(data.coins[0] == 11);
                 WALLET_CHECK(data.coins[1] == 12);
                 WALLET_CHECK(data.coins[2] == 13);

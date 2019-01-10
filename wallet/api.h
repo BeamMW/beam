@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <optional>
+#include <boost/optional.hpp>
 
 #include "wallet/wallet.h"
 #include "nlohmann/json.hpp"
@@ -65,7 +65,7 @@ namespace beam
 
     struct Send
     {
-        int session;
+        //int session;
         Amount value;
         Amount fee;
         WalletID address;
@@ -98,7 +98,7 @@ namespace beam
 
     struct Split
     {
-        int session;
+        //int session;
         Amount fee;
         AmountList coins;
 
@@ -146,8 +146,8 @@ namespace beam
     {
         struct
         {
-            std::optional<TxStatus> status;
-            std::optional<Height> height;
+            boost::optional<TxStatus> status;
+            boost::optional<Height> height;
         } filter;
 
         struct Response

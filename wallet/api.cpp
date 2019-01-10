@@ -102,12 +102,12 @@ namespace beam
 
     void WalletApi::onSendMessage(int id, const nlohmann::json& params)
     {
-        checkJsonParam(params, "session", id);
+        //checkJsonParam(params, "session", id);
         checkJsonParam(params, "value", id);
         checkJsonParam(params, "address", id);
 
-        if (params["session"] < 0)
-            throwInvalidJsonRpc(id);
+        //if (params["session"] < 0)
+        //    throwInvalidJsonRpc(id);
 
         if (params["value"] <= 0)
             throwInvalidJsonRpc(id);
@@ -116,7 +116,7 @@ namespace beam
             throwInvalidJsonRpc(id);
 
         Send send;
-        send.session = params["session"];
+        //send.session = params["session"];
         send.value = params["value"];
         send.address.FromHex(params["address"]);
 
@@ -161,17 +161,17 @@ namespace beam
 
     void WalletApi::onSplitMessage(int id, const nlohmann::json& params)
     {
-        checkJsonParam(params, "session", id);
+        //checkJsonParam(params, "session", id);
         checkJsonParam(params, "coins", id);
 
-        if (params["session"] < 0)
-            throwInvalidJsonRpc(id);
+        //if (params["session"] < 0)
+        //    throwInvalidJsonRpc(id);
 
         if (!params["coins"].is_array() || params["coins"].size() <= 0)
             throwInvalidJsonRpc(id);
 
         Split split;
-        split.session = params["session"];
+        //split.session = params["session"];
 
         for (const auto& amount : params["coins"])
         {
@@ -232,13 +232,13 @@ namespace beam
             if (existsJsonParam(params["filter"], "status")
                 && params["filter"]["status"].is_number_unsigned())
             {
-                txList.filter.status = params["filter"]["status"];
+                txList.filter.status = (TxStatus)params["filter"]["status"];
             }
 
             if (existsJsonParam(params["filter"], "height")
                 && params["filter"]["height"].is_number_unsigned())
             {
-                txList.filter.height = params["filter"]["height"];
+                txList.filter.height = (Height)params["filter"]["height"];
             }
         }
 
@@ -294,7 +294,7 @@ namespace beam
                 {"maturity", utxo.m_maturity},
                 {"createTxId", createTxId},
                 {"spentTxId", spentTxId},
-                {"sessionId", utxo.m_sessionId},
+                //{"sessionId", utxo.m_sessionId},
             });
         }
     }

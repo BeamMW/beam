@@ -194,7 +194,7 @@ namespace beam
 
             void onMessage(int id, const Send& data) override
             {
-                LOG_DEBUG() << "Send(id = " << id << " session = " << data.session << " amount = " << data.value << " fee = " << data.fee <<  " address = " << std::to_string(data.address) << ")";
+                LOG_DEBUG() << "Send(id = " << id << " amount = " << data.value << " fee = " << data.fee <<  " address = " << std::to_string(data.address) << ")";
 
                 WalletAddress senderAddress = wallet::createAddress(_walletDB);
                 _walletDB->saveAddress(senderAddress);
@@ -234,7 +234,7 @@ namespace beam
 
             void onMessage(int id, const Split& data) override
             {
-                LOG_DEBUG() << "Split(id = " << id << " session = " << data.session << " coins = [";
+                LOG_DEBUG() << "Split(id = " << id << " coins = [";
                 for (auto& coin : data.coins) LOG_DEBUG() << coin << ",";
                 LOG_DEBUG() << "], fee = " << data.fee;
 
