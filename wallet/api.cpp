@@ -302,6 +302,7 @@ namespace beam
     {
         msg = json
         {
+            {"txId", txIDToString(tx.m_txId)},
             {"status", tx.m_status},
             {"sender", std::to_string(tx.m_myId)},
             {"receiver", std::to_string(tx.m_peerId)},
