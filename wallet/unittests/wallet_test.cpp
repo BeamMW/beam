@@ -864,27 +864,18 @@ private:
             m_Subscribed = true;
 
             for (const auto& m : m_This.m_bbs)
-            {
-				LOG_INFO() << "bbs msg sent";
 				Send(m);
-            }
         }
 
         void OnMsg(proto::BbsMsg&& msg) override
         {
-			LOG_INFO() << "bbs msg received";
-
             m_This.m_bbs.push_back(msg);
 
             for (ClientList::iterator it = m_This.m_lstClients.begin(); m_This.m_lstClients.end() != it; it++)
             {
 				Client& c = *it;
 				if ((&c != this) && c.m_Subscribed)
-                {
-					LOG_INFO() << "bbs msg sending to " << &c;
 					c.Send(msg);
-					LOG_INFO() << "bbs msg sent";
-				}
             }
         }
 
@@ -903,8 +894,6 @@ private:
 
         void OnDisconnect(const DisconnectReason& r) override
         {
-			LOG_INFO() << "TestNode - OnDisconnect" << r << ",C=" << this;
-
             switch (r.m_Type)
             {
             case DisconnectReason::Protocol:
@@ -929,8 +918,6 @@ private:
     {
         m_lstClients.erase(ClientList::s_iterator_to(*client));
         delete client;
-
-		LOG_INFO() << "Deleted: " << client;
 	}
 
     struct Server
@@ -944,8 +931,6 @@ private:
             {
                 Client* p = new Client(get_ParentObj());
                 get_ParentObj().m_lstClients.push_back(*p);
-
-				LOG_INFO() << "TestNode - OnAccepted: " << p;
 
                 p->Accept(std::move(newStream));
                 p->SecureConnect();
