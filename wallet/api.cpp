@@ -190,6 +190,21 @@ namespace beam
         _handler.onMessage(id, split);
     }
 
+    void WalletApi::onTxCancelMessage(int id, const nlohmann::json& params)
+    {
+        checkJsonParam(params, "txId", id);
+        auto txId = from_hex(params["txId"]);
+
+        TxCancel txCancel;
+
+        if (txId.size() != txCancel.txId.size())
+            throwInvalidJsonRpc(id);
+
+        std::copy_n(txId.begin(), txCancel.txId.size(), txCancel.txId.begin());
+
+        _handler.onMessage(id, txCancel);
+    }
+
     void WalletApi::onGetUtxoMessage(int id, const nlohmann::json& params)
     {
         GetUtxo getUtxo;
@@ -337,6 +352,16 @@ namespace beam
                     {"txId", to_hex(res.txId.data(), res.txId.size())}
                 }
             }
+        };
+    }
+
+    void WalletApi::getResponse(int id, const TxCancel::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", res.result}
         };
     }
 
