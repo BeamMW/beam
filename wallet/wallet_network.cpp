@@ -224,8 +224,8 @@ namespace beam {
 			uint8_t* pMsg = &buf.front();
 			uint32_t nSize = static_cast<uint32_t>(buf.size());
 
-			//if (!proto::Bbs::Decrypt(pMsg, nSize, it->get_ParentObj().m_sk))
-			//	continue;
+			if (!proto::Bbs::Decrypt(pMsg, nSize, it->get_ParentObj().m_sk))
+				continue;
 
 			wallet::SetTxParameter msgWallet;
 			bool bValid = false;
@@ -256,31 +256,29 @@ namespace beam {
 		ser & msg;
 		SerializeBuffer sb = ser.buffer();
 
-		//ECC::NoLeak<ECC::Hash::Value> hvRandom;
-		//ECC::GenRandom(hvRandom.V);
+		ECC::NoLeak<ECC::Hash::Value> hvRandom;
+		ECC::GenRandom(hvRandom.V);
 
-		//ECC::Scalar::Native nonce;
-		//m_WalletDB->get_MasterKdf()->DeriveKey(nonce, hvRandom.V);
+		ECC::Scalar::Native nonce;
+		m_WalletDB->get_MasterKdf()->DeriveKey(nonce, hvRandom.V);
 		
 		Miner::Task::Ptr pTask = std::make_shared<Miner::Task>();
 
-		pTask->m_Msg.m_Message.assign(sb.first, sb.first + sb.second);
-
-		if (/*proto::Bbs::Encrypt(pTask->m_Msg.m_Message, peerID.m_Pk, nonce, sb.first, static_cast<uint32_t>(sb.second))*/ !pTask->m_Msg.m_Message.empty())
+		if (proto::Bbs::Encrypt(pTask->m_Msg.m_Message, peerID.m_Pk, nonce, sb.first, static_cast<uint32_t>(sb.second)))
 		{
 			pTask->m_Done = false;
 			pTask->m_Msg.m_Channel = channel_from_wallet_id(peerID);
 
 			if (m_MineOutgoing)
 			{
-				//proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
+				proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
 
 				if (!m_Miner.m_pEvt)
 				{
 					m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
 					m_Miner.m_Shutdown = false;
 
-					uint32_t nThreads = /*std::max(1U, std::thread::hardware_concurrency())*/1;
+					uint32_t nThreads = std::max(1U, std::thread::hardware_concurrency());
 					m_Miner.m_vThreads.resize(nThreads);
 
 					for (uint32_t i = 0; i < nThreads; i++)
@@ -416,12 +414,11 @@ namespace beam {
 
 				// attempt to mine it
 				ECC::Hash::Value hv;
-				/*ECC::Hash::Processor hp = pTask->m_hpPartial;
+				ECC::Hash::Processor hp = pTask->m_hpPartial;
 				hp
 					<< ts
 					<< nonce
-					>> hv;*/
-				hv = Zero;
+					>> hv;
 
 				if (proto::Bbs::IsHashValid(hv))
 				{
