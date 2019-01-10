@@ -112,7 +112,7 @@ namespace beam
 			struct Task
 			{
 				proto::BbsMsg m_Msg;
-				ECC::Hash::Processor m_hpPartial;
+				//ECC::Hash::Processor m_hpPartial;
 				volatile bool m_Done;
 
 				typedef std::shared_ptr<Task> Ptr;
