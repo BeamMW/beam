@@ -23,6 +23,7 @@
 
 #include <boost/uuid/uuid_generators.hpp>
 #include <numeric>
+#include "utility/logger.h"
 
 namespace beam { namespace wallet
 {
@@ -660,6 +661,13 @@ namespace beam { namespace wallet
         
         
         m_MultiSig.SignPartial(m_PartialSignature, m_Message, m_BlindingExcess);
+
+        Merkle::Hash kernelID;
+        m_Kernel->get_ID(kernelID);
+
+        m_Tx.SetParameter(TxParameterID::KernelID, kernelID);
+
+        LOG_INFO() << m_Tx.GetTxID() << " SignPartial Transaction kernel: " << kernelID;
     }
 
     void TxBuilder::FinalizeSignature()
