@@ -247,6 +247,31 @@ namespace beam
                 doResponse(id, Send::Response{ txId });
             }
 
+            void onMessage(int id, const TxCancel& data) override
+            {
+                LOG_DEBUG() << "TxCancel(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
+
+                auto tx = _walletDB->getTx(data.txId);
+
+                if (tx)
+                {
+                    if (tx->canCancel())
+                    {
+                        _wallet.cancel_tx(tx->m_txId);
+                        TxCancel::Response result{ true };
+                        doResponse(id, result);
+                    }
+                    else
+                    {
+                        doError(id, INVALID_TX_STATUS, "Transaction could not be cancelled. Invalid transaction status.");
+                    }
+                }
+                else
+                {
+                    doError(id, INVALID_PARAMS_JSON_RPC, "Unknown transaction ID.");
+                }
+            }
+
             void onMessage(int id, const GetUtxo& data) override 
             {
                 LOG_DEBUG() << "GetUtxo(id = " << id << ")";

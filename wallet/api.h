@@ -22,6 +22,7 @@
 #define INVALID_JSON_RPC -32600
 #define NOTFOUND_JSON_RPC -32601
 #define INVALID_PARAMS_JSON_RPC -32602
+#define INVALID_TX_STATUS -32001
 
 namespace beam
 {
@@ -34,6 +35,7 @@ namespace beam
     macro(Replace,          "replace") \
     macro(Status,           "tx_status") \
     macro(Split,            "tx_split") \
+    macro(TxCancel,         "tx_cancel") \
     macro(GetUtxo,          "get_utxo") \
     macro(Lock,             "lock") \
     macro(Unlock,           "unlock") \
@@ -103,6 +105,16 @@ namespace beam
         struct Response
         {
             TxID txId;
+        };
+    };
+
+    struct TxCancel
+    {
+        TxID txId;
+
+        struct Response
+        {
+            bool result;
         };
     };
 
