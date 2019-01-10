@@ -269,7 +269,7 @@ namespace beam
 
                 WalletStatus::Response response;
                 response.currentHeight = stateID.m_Height;
-                response.currentStateHash = to_hex(stateID.m_Hash.m_pData, 32);
+                response.currentStateHash = to_hex(stateID.m_Hash.m_pData, stateID.m_Hash.nBytes);
                 response.available = _walletDB->getAvailable();
                 response.receiving = _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
                 response.sending = _walletDB->getTotal(Coin::Outgoing);
