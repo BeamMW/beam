@@ -278,7 +278,8 @@ namespace beam {
 					m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
 					m_Miner.m_Shutdown = false;
 
-					uint32_t nThreads = std::max(1U, std::thread::hardware_concurrency());
+					uint32_t nThreads = std::thread::hardware_concurrency();
+					nThreads = (nThreads > 1) ? (nThreads - 1) : 1; // leave at least 1 vacant core for other things
 					m_Miner.m_vThreads.resize(nThreads);
 
 					for (uint32_t i = 0; i < nThreads; i++)
