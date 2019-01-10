@@ -221,7 +221,8 @@ namespace beam
 
                 if (tx)
                 {
-                    Status::Response result{*tx};
+                    Status::Response result{*tx, 0};
+                    wallet::getTxParameter(_walletDB, tx->m_txId, wallet::TxParameterID::KernelProofHeight, result.kernelProofHeight);
 
                     doResponse(id, result);
                 }
@@ -319,7 +320,16 @@ namespace beam
                     txList = filteredList;
                 }
 
-                doResponse(id, TxList::Response{ txList });
+                TxList::Response res;
+
+                for (const auto& tx : txList)
+                {
+                    Height height = 0;
+                    wallet::getTxParameter(_walletDB, tx.m_txId, wallet::TxParameterID::KernelProofHeight, height);
+                    res.resultList.push_back(Status::Response{tx, height});
+                }
+
+                doResponse(id, res);
             }
 
             bool on_raw_message(void* data, size_t size) 

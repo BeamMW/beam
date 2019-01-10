@@ -90,6 +90,7 @@ namespace beam
         struct Response
         {
             TxDescription tx;
+            Height kernelProofHeight;
         };
     };
 
@@ -139,7 +140,7 @@ namespace beam
 
         struct Response
         {
-            std::vector<TxDescription> resultList;
+            std::vector<Status::Response> resultList;
         };
     };
 

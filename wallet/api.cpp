@@ -298,7 +298,7 @@ namespace beam
         };
     }
 
-    static void getStatusResponseJson(const TxDescription& tx, json& msg)
+    static void getStatusResponseJson(const TxDescription& tx, json& msg, Height kernelProofHeight)
     {
         msg = json
         {
@@ -310,7 +310,7 @@ namespace beam
             {"value", tx.m_amount},
             {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
             {"kernel", to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes)},
-            {"height", tx.m_minHeight}
+            {"height", kernelProofHeight}
         };
     }
 
@@ -323,7 +323,7 @@ namespace beam
             {"result", {}}
         };
 
-        getStatusResponseJson(res.tx, msg["result"]);
+        getStatusResponseJson(res.tx, msg["result"], res.kernelProofHeight);
     }
 
     void WalletApi::getResponse(int id, const Split::Response& res, json& msg)
@@ -349,10 +349,10 @@ namespace beam
             {"result", json::array()}
         };
 
-        for (const auto& tx : res.resultList)
+        for (const auto& resItem : res.resultList)
         {
             json item = {};
-            getStatusResponseJson(tx, item);
+            getStatusResponseJson(resItem.tx, item, resItem.kernelProofHeight);
             msg["result"].push_back(item);
         }
     }
