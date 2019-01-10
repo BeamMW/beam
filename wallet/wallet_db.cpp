@@ -1736,12 +1736,13 @@ namespace beam
             sqlite::Statement stm(_db, updateReq);
 
             stm.bind(1, 0);
-            
+
             stm.step();
         }
 
         trans.commit();
 
+        LOG_INFO() << "Expiration for all addresses  was updated to \"never\".";
         notifyAddressChanged();
     }
 
@@ -2172,9 +2173,12 @@ namespace beam
                     LOG_INFO() << "Address " << to_string(walletID) << "is absent in wallet";
                     return;
                 }
+
                 walletAddress->m_duration = 0;
 
                 walletDB->saveAddress(*walletAddress);
+
+                LOG_INFO() << "Expiration for address " << to_string(walletID) << " was updated to \"never\".";
                 return;
             }
 
