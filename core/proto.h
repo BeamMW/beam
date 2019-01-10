@@ -159,9 +159,9 @@ namespace proto {
 #define BeamNodeMsg_BbsResetSync(macro) \
     macro(Timestamp, TimeFrom)
 
-#define BeamNodeMsg_BbsPickChannel(macro)
+#define BeamNodeMsg_BbsPickChannelV0(macro)
 
-#define BeamNodeMsg_BbsPickChannelRes(macro) \
+#define BeamNodeMsg_BbsPickChannelResV0(macro) \
     macro(BbsChannel, Channel)
 
 #define BeamNodeMsg_SChannelInitiate(macro) \
@@ -246,12 +246,12 @@ namespace proto {
     macro(0x31, HaveTransaction) \
     macro(0x32, GetTransaction) \
     /* bbs */ \
-    macro(0x38, BbsMsgV0) \
+    macro(0x38, BbsMsgV0) /* Deprecated */ \
     macro(0x39, BbsHaveMsg) \
     macro(0x3a, BbsGetMsg) \
     macro(0x3b, BbsSubscribe) \
-    macro(0x3c, BbsPickChannel) \
-    macro(0x3d, BbsPickChannelRes) \
+    macro(0x3c, BbsPickChannelV0) /* Deprecated */ \
+    macro(0x3d, BbsPickChannelResV0) /* Deprecated */ \
     macro(0x3e, BbsResetSync) \
     macro(0x3f, BbsMsg) \
 
