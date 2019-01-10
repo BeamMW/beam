@@ -135,9 +135,6 @@ namespace
         }
         void deleteAddress(const WalletID&) override {}
 
-        Timestamp GetLastChannel(BbsChannel&) override { return {}; }
-        void SetLastChannel(BbsChannel) override {}
-
         Height getCurrentHeight() const override
         {
             return 134;
@@ -882,13 +879,6 @@ private:
         void OnMsg(proto::Ping&& msg) override
         {
             proto::Pong msgOut(Zero);
-            Send(msgOut);
-        }
-
-        void OnMsg(proto::BbsPickChannel&&) override
-        {
-            proto::BbsPickChannelRes msgOut;
-            msgOut.m_Channel = 77;
             Send(msgOut);
         }
 

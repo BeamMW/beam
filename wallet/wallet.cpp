@@ -307,11 +307,6 @@ namespace beam
         return false;
     }
 
-    bool Wallet::MyRequestBbsChannel::operator < (const MyRequestBbsChannel &x) const
-    {
-        return false;
-    }
-
     void Wallet::RequestHandler::OnComplete(Request& r)
     {
         uint32_t n = get_ParentObj().SyncRemains();
@@ -480,11 +475,6 @@ namespace beam
     void Wallet::OnRequestComplete(MyRequestBbsMsg& r)
     {
         assert(false);
-    }
-
-    void Wallet::OnRequestComplete(MyRequestBbsChannel& r)
-    {
-        m_WalletDB->SetLastChannel(r.m_Res.m_Channel);
     }
 
     void Wallet::RequestUtxoEvents()
@@ -688,19 +678,6 @@ namespace beam
         }
 
         CheckSyncDone();
-
-        if (m_PendingBbsChannel.empty())
-        {
-            BbsChannel ch;
-            Timestamp t0 = m_WalletDB->GetLastChannel(ch);
-            Timestamp t1 = getTimestamp();
-
-            if (t0 + 3600 < t1)
-            {
-                MyRequestBbsChannel::Ptr pReq(new MyRequestBbsChannel);
-                PostReqUnique(*pReq);
-            }
-        }
     }
 
     void Wallet::OnTipUnchanged()

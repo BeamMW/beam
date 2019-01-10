@@ -173,9 +173,6 @@ namespace beam
         virtual boost::optional<WalletAddress> getAddress(const WalletID&) = 0;
         virtual void deleteAddress(const WalletID&) = 0;
 
-        virtual Timestamp GetLastChannel(BbsChannel&) = 0;
-        virtual void SetLastChannel(BbsChannel) = 0;
-
         virtual Timestamp getLastUpdateTime() const = 0;
         virtual void setSystemStateID(const Block::SystemState::ID& stateID) = 0;
         virtual bool getSystemStateID(Block::SystemState::ID& stateID) const = 0;
@@ -241,9 +238,6 @@ namespace beam
         void saveAddress(const WalletAddress&) override;
         boost::optional<WalletAddress> getAddress(const WalletID&) override;
         void deleteAddress(const WalletID&) override;
-
-        Timestamp GetLastChannel(BbsChannel&) override;
-        void SetLastChannel(BbsChannel) override;
 
         Timestamp getLastUpdateTime() const override;
         void setSystemStateID(const Block::SystemState::ID& stateID) override;
