@@ -51,6 +51,8 @@ namespace beam {
 
 	WalletNetworkViaBbs::~WalletNetworkViaBbs()
 	{
+		m_Miner.Stop();
+
 		while (!m_PendingBbsMsgs.empty())
 			DeleteReq(m_PendingBbsMsgs.front());
 
@@ -267,24 +269,33 @@ namespace beam {
 			pTask->m_Done = false;
 			pTask->m_Msg.m_Channel = channel_from_wallet_id(peerID);
 
-			proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
-
-			if (!m_Miner.m_pEvt)
+			if (m_MineOutgoing)
 			{
-				m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
-				m_Miner.m_Shutdown = false;
+				proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
 
-				uint32_t nThreads = std::max(1U, std::thread::hardware_concurrency());
-				m_Miner.m_vThreads.resize(nThreads);
+				if (!m_Miner.m_pEvt)
+				{
+					m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
+					m_Miner.m_Shutdown = false;
 
-				for (uint32_t i = 0; i < nThreads; i++)
-					m_Miner.m_vThreads[i] = std::thread(&Miner::Thread, &m_Miner, i);
+					uint32_t nThreads = std::thread::hardware_concurrency();
+					nThreads = (nThreads > 1) ? (nThreads - 1) : 1; // leave at least 1 vacant core for other things
+					m_Miner.m_vThreads.resize(nThreads);
+
+					for (uint32_t i = 0; i < nThreads; i++)
+						m_Miner.m_vThreads[i] = std::thread(&Miner::Thread, &m_Miner, i);
+				}
+
+				std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
+
+				m_Miner.m_Pending.push_back(std::move(pTask));
+				m_Miner.m_NewTask.notify_all();
 			}
-
-			std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
-
-			m_Miner.m_Pending.push_back(std::move(pTask));
-			m_Miner.m_NewTask.notify_all();
+			else
+			{
+				pTask->m_Msg.m_TimePosted = getTimestamp();
+				OnMined(std::move(pTask->m_Msg));
+			}
 		}
 		else
 		{
@@ -310,15 +321,20 @@ namespace beam {
 			if (!pTask)
 				break;
 
-			MyRequestBbsMsg::Ptr pReq(new MyRequestBbsMsg);
-
-			pReq->m_Msg = std::move(pTask->m_Msg);
-
-			m_PendingBbsMsgs.push_back(*pReq);
-			pReq->AddRef();
-
-			m_NodeNetwork.PostRequest(*pReq, m_BbsSentEvt);
+			OnMined(std::move(pTask->m_Msg));
 		}
+	}
+
+	void WalletNetworkViaBbs::OnMined(proto::BbsMsg&& msg)
+	{
+		MyRequestBbsMsg::Ptr pReq(new MyRequestBbsMsg);
+
+		pReq->m_Msg = std::move(msg);
+
+		m_PendingBbsMsgs.push_back(*pReq);
+		pReq->AddRef();
+
+		m_NodeNetwork.PostRequest(*pReq, m_BbsSentEvt);
 	}
 
     void WalletNetworkViaBbs::OnAddressTimer()
@@ -338,7 +354,7 @@ namespace beam {
         m_AddressExpirationTimer->start(AddressUpdateInterval_ms, false, [this] { OnAddressTimer(); });
     }
 
-	WalletNetworkViaBbs::Miner::~Miner()
+	void WalletNetworkViaBbs::Miner::Stop()
 	{
 		if (!m_vThreads.empty())
 		{
@@ -351,6 +367,9 @@ namespace beam {
 			for (size_t i = 0; i < m_vThreads.size(); i++)
 				if (m_vThreads[i].joinable())
 					m_vThreads[i].join();
+
+			m_vThreads.clear();
+			m_pEvt.reset();
 		}
 	}
 
@@ -411,12 +430,14 @@ namespace beam {
 					bSuccess = false;
 				else
 				{
+					assert(m_Pending.front() == pTask);
+
 					pTask->m_Msg.m_TimePosted = ts;
 					pTask->m_Msg.m_Nonce = nonce;
 
 					pTask->m_Done = true;
 					m_Pending.pop_front();
-					m_Done.push_back(pTask);
+					m_Done.push_back(std::move(pTask));
 				}
 			}
 

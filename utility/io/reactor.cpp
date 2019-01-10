@@ -372,6 +372,13 @@ Reactor::~Reactor() {
         return;
     }
 
+	if (_tcpConnectors)
+		_tcpConnectors->cancel_all();
+	if (_pendingWrites)
+		_pendingWrites->cancel_all();
+	if (_tcpShutdowns)
+		_tcpShutdowns->cancel_all();
+
     if (_stopEvent.data)
         uv_close((uv_handle_t*)&_stopEvent, 0);
 
@@ -406,10 +413,6 @@ void Reactor::run() {
     block_sigpipe();
     // NOTE: blocks
     uv_run(&_loop, UV_RUN_DEFAULT);
-
-    _tcpConnectors->cancel_all();
-    _pendingWrites->cancel_all();
-    _tcpShutdowns->cancel_all();
 }
 
 void Reactor::stop() {
