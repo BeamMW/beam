@@ -304,8 +304,6 @@ namespace beam {
 
 	void WalletNetworkViaBbs::OnMined()
 	{
-		LOG_INFO() << "WalletNetworkViaBbs-OnMined-begin";
-
 		while (true)
 		{
 			Miner::Task::Ptr pTask;
@@ -324,8 +322,6 @@ namespace beam {
 
 			OnMined(std::move(pTask->m_Msg));
 		}
-
-		LOG_INFO() << "WalletNetworkViaBbs-OnMined-end";
 	}
 
 	void WalletNetworkViaBbs::OnMined(proto::BbsMsg&& msg)
@@ -361,8 +357,6 @@ namespace beam {
 	{
 		if (!m_vThreads.empty())
 		{
-			LOG_INFO() << "WalletNetworkViaBbs::Stop-begin";
-
 			{
 				std::unique_lock<std::mutex> scope(m_Mutex);
 				m_Shutdown = true;
@@ -375,8 +369,6 @@ namespace beam {
 
 			m_vThreads.clear();
 			m_pEvt.reset();
-
-			LOG_INFO() << "WalletNetworkViaBbs::Stop-end";
 		}
 	}
 
