@@ -244,3 +244,8 @@ void WalletModel::onWalletError(beam::wallet::ErrorType error)
 
     env->CallStaticVoidMethod(WalletListenerClass, callback);
 }
+
+void WalletModel::FailedToStartWallet()
+{
+    
+}

@@ -110,3 +110,8 @@ void WalletModel::onWalletError(beam::wallet::ErrorType error)
 {
     emit walletError(error);
 }
+
+void WalletModel::FailedToStartWallet()
+{
+    AppModel::getInstance()->getMessages().addMessage(tr("Failed to start wallet. Please check your wallet data location"));
+}

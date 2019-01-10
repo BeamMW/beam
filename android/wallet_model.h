@@ -37,4 +37,5 @@ private:
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) override;
     void onNodeConnectionChanged(bool isNodeConnected) override;
     void onWalletError(beam::wallet::ErrorType error) override;
+    void FailedToStartWallet() override;
 };

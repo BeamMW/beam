@@ -32,7 +32,6 @@ AppModel* AppModel::getInstance()
 
 AppModel::AppModel(WalletSettings& settings)
     : m_settings{settings}
-    , m_restoreWallet{false}
 {
     assert(s_instance == nullptr);
     s_instance = this;
@@ -237,12 +236,3 @@ void AppModel::changeWalletPassword(const std::string& pass)
     m_wallet->getAsync()->changeWalletPassword(pass);
 }
 
-void AppModel::setRestoreWallet(bool value)
-{
-    m_restoreWallet = value;
-}
-
-bool AppModel::shouldRestoreWallet() const
-{
-    return m_restoreWallet;
-}

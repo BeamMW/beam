@@ -297,12 +297,6 @@ void WalletClient::start()
 
             wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
-            //if (AppModel::getInstance()->shouldRestoreWallet())
-            //{
-            //    AppModel::getInstance()->setRestoreWallet(false);
-            //    // no additional actions required, restoration is automatic and contiguous
-            //}
-
             nodeNetwork->Connect();
 
             m_reactor->run();
@@ -310,7 +304,7 @@ void WalletClient::start()
         catch (const runtime_error& ex)
         {
             LOG_ERROR() << ex.what();
-            //AppModel::getInstance()->getMessages().addMessage(tr("Failed to start wallet. Please check your wallet data location"));
+            FailedToStartWallet();
         }
         catch (...)
         {

@@ -37,8 +37,6 @@ public:
     bool openWallet(const beam::SecString& pass);
 	bool checkWalletPassword(const beam::SecString& pass) const;
     void changeWalletPassword(const std::string& pass);
-    void setRestoreWallet(bool value);
-    bool shouldRestoreWallet() const;
 
     void applySettingsChanges();
 
@@ -65,5 +63,4 @@ private:
 	ECC::NoLeak<ECC::uintBig> m_passwordHash;
     beam::IWalletDB::Ptr m_db;
     static AppModel* s_instance;
-    bool m_restoreWallet;
 };
