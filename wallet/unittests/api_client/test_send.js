@@ -7,7 +7,7 @@ client.connect(10000, '127.0.0.1', function() {
 		{
 			jsonrpc: '2.0',
 			id: 123,
-			method: 'send',
+			method: 'tx_send',
 			params: 
 			{
 				"session" : 0,

@@ -185,9 +185,16 @@ namespace beam
                 doResponse(id, CreateAddress::Response{ address.m_walletID });
             }
 
+            void onMessage(int id, const ValidateAddress& data) override
+            {
+                LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
+
+                doResponse(id, ValidateAddress::Response{ data.address.IsValid() });
+            }
+
             void onMessage(int id, const Send& data) override
             {
-                LOG_DEBUG() << "Send(id = " << id << " session = " << data.session << " amount = " << data.value << " fee = " << data.fee <<  " address = " << std::to_string(data.address) << ")";
+                LOG_DEBUG() << "Send(id = " << id << " amount = " << data.value << " fee = " << data.fee <<  " address = " << std::to_string(data.address) << ")";
 
                 WalletAddress senderAddress = wallet::createAddress(_walletDB);
                 _walletDB->saveAddress(senderAddress);
@@ -214,7 +221,10 @@ namespace beam
 
                 if (tx)
                 {
-                    doResponse(id, Status::Response{ tx->m_status });
+                    Status::Response result{*tx, 0};
+                    wallet::getTxParameter(_walletDB, tx->m_txId, wallet::TxParameterID::KernelProofHeight, result.kernelProofHeight);
+
+                    doResponse(id, result);
                 }
                 else
                 {
@@ -224,7 +234,7 @@ namespace beam
 
             void onMessage(int id, const Split& data) override
             {
-                LOG_DEBUG() << "Split(id = " << id << " session = " << data.session << " coins = [";
+                LOG_DEBUG() << "Split(id = " << id << " coins = [";
                 for (auto& coin : data.coins) LOG_DEBUG() << coin << ",";
                 LOG_DEBUG() << "], fee = " << data.fee;
 
@@ -237,17 +247,29 @@ namespace beam
                 doResponse(id, Send::Response{ txId });
             }
 
-            void onMessage(int id, const Balance& data) override 
+            void onMessage(int id, const TxCancel& data) override
             {
-                LOG_DEBUG() << "Balance(id = " << id << ")";
+                LOG_DEBUG() << "TxCancel(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
-                json msg;
+                auto tx = _walletDB->getTx(data.txId);
 
-                auto totalInProgress = _walletDB->getTotal(Coin::Incoming) +
-                    _walletDB->getTotal(Coin::Outgoing) + _walletDB->getTotal(Coin::Change);
-
-                // TODO: add locked UTXO here
-                doResponse(id, Balance::Response{ _walletDB->getAvailable(), totalInProgress, 0});
+                if (tx)
+                {
+                    if (tx->canCancel())
+                    {
+                        _wallet.cancel_tx(tx->m_txId);
+                        TxCancel::Response result{ true };
+                        doResponse(id, result);
+                    }
+                    else
+                    {
+                        doError(id, INVALID_TX_STATUS, "Transaction could not be cancelled. Invalid transaction status.");
+                    }
+                }
+                else
+                {
+                    doError(id, INVALID_PARAMS_JSON_RPC, "Unknown transaction ID.");
+                }
             }
 
             void onMessage(int id, const GetUtxo& data) override 
@@ -264,6 +286,25 @@ namespace beam
                 doResponse(id, response);
             }
 
+            void onMessage(int id, const WalletStatus& data) override
+            {
+                LOG_DEBUG() << "WalletStatus(id = " << id << ")";
+
+                Block::SystemState::ID stateID = {};
+                _walletDB->getSystemStateID(stateID);
+
+                WalletStatus::Response response;
+                response.currentHeight = stateID.m_Height;
+                response.currentStateHash = to_hex(stateID.m_Hash.m_pData, stateID.m_Hash.nBytes);
+                response.available = _walletDB->getAvailable();
+                response.receiving = _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
+                response.sending = _walletDB->getTotal(Coin::Outgoing);
+                response.maturing = _walletDB->getTotal(Coin::Maturing);
+
+                // TODO: add locked UTXO here
+                doResponse(id, response);
+            }
+
             void onMessage(int id, const Lock& data) override
             {
                 methodNotImplementedYet(id);
@@ -274,14 +315,48 @@ namespace beam
                 methodNotImplementedYet(id);
             }
 
-            void onMessage(int id, const CreateUtxo& data) override
+            void onMessage(int id, const TxList& data) override
             {
-                methodNotImplementedYet(id);
-            }
+                LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
 
-            void onMessage(int id, const Poll& data) override
-            {
-                methodNotImplementedYet(id);
+                TxList::Response res;
+
+                {
+                    auto txList = _walletDB->getTxHistory();
+
+                    for (const auto& tx : txList)
+                    {
+                        Status::Response item{ tx, 0 };
+                        wallet::getTxParameter(_walletDB, tx.m_txId, wallet::TxParameterID::KernelProofHeight, item.kernelProofHeight);
+                        res.resultList.push_back(item);
+                    }
+                }
+
+                // filter transactions by status if provided
+                if (data.filter.status)
+                {
+                    decltype(res.resultList) filteredList;
+
+                    for (const auto& it : res.resultList)
+                        if (it.tx.m_status == *data.filter.status)
+                            filteredList.push_back(it);
+
+                    res.resultList = filteredList;
+                }
+
+                // filter transactions by height if provided
+                if (data.filter.height)
+                {
+                    decltype(res.resultList) filteredList;
+
+                    for (const auto& it : res.resultList)
+                        if (it.kernelProofHeight == *data.filter.height)
+                            filteredList.push_back(it);
+
+                    res.resultList = filteredList;
+                }
+
+                doResponse(id, res);
             }
 
             bool on_raw_message(void* data, size_t size) 

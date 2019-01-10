@@ -11,6 +11,11 @@ matrix:
     - os: osx
       language: cpp
       osx_image: xcode9.3
+      addons:
+        homebrew:
+          packages:
+          - beanstalk
+          update: true
       before_install: 
         - export TZ=Etc/GMT-3
         - brew unlink cmake
@@ -35,6 +40,11 @@ matrix:
     - os: osx
       language: cpp
       osx_image: xcode9.3
+      addons:
+        homebrew:
+          packages:
+          - beanstalk
+          update: true
       before_install:
         - export TZ=Etc/GMT-3
         - brew unlink cmake
@@ -61,6 +71,11 @@ matrix:
     - os: osx
       language: cpp
       osx_image: xcode9.3
+      addons:
+        homebrew:
+          packages:
+          - beanstalk
+          update: true
       before_install:
         - export TZ=Etc/GMT-3
         - brew unlink cmake
