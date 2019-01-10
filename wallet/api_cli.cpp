@@ -221,7 +221,15 @@ namespace beam
 
                 if (tx)
                 {
-                    Status::Response result{*tx, 0};
+                    Block::SystemState::ID stateID = {};
+                    _walletDB->getSystemStateID(stateID);
+
+                    Status::Response result;
+                    result.tx = *tx;
+                    result.kernelProofHeight = 0;
+                    result.systemHeight = stateID.m_Height;
+                    result.confirmations = 0;
+
                     wallet::getTxParameter(_walletDB, tx->m_txId, wallet::TxParameterID::KernelProofHeight, result.kernelProofHeight);
 
                     doResponse(id, result);
@@ -324,9 +332,17 @@ namespace beam
                 {
                     auto txList = _walletDB->getTxHistory();
 
+                    Block::SystemState::ID stateID = {};
+                    _walletDB->getSystemStateID(stateID);
+
                     for (const auto& tx : txList)
                     {
-                        Status::Response item{ tx, 0 };
+                        Status::Response item;
+                        item.tx = tx;
+                        item.kernelProofHeight = 0;
+                        item.systemHeight = stateID.m_Height;
+                        item.confirmations = 0;
+
                         wallet::getTxParameter(_walletDB, tx.m_txId, wallet::TxParameterID::KernelProofHeight, item.kernelProofHeight);
                         res.resultList.push_back(item);
                     }

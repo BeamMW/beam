@@ -313,7 +313,7 @@ namespace beam
         };
     }
 
-    static void getStatusResponseJson(const TxDescription& tx, json& msg, Height kernelProofHeight)
+    static void getStatusResponseJson(const TxDescription& tx, json& msg, Height kernelProofHeight, Height systemHeight)
     {
         msg = json
         {
@@ -325,8 +325,17 @@ namespace beam
             {"value", tx.m_amount},
             {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
             {"kernel", to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes)},
-            {"height", kernelProofHeight}
         };
+
+        if (kernelProofHeight > 0)
+        {
+            msg["height"] = kernelProofHeight;
+
+            if (systemHeight >= kernelProofHeight)
+            {
+                msg["confirmations"] = systemHeight - kernelProofHeight;
+            }
+        }
     }
 
     void WalletApi::getResponse(int id, const Status::Response& res, json& msg)
@@ -338,7 +347,7 @@ namespace beam
             {"result", {}}
         };
 
-        getStatusResponseJson(res.tx, msg["result"], res.kernelProofHeight);
+        getStatusResponseJson(res.tx, msg["result"], res.kernelProofHeight, res.systemHeight);
     }
 
     void WalletApi::getResponse(int id, const Split::Response& res, json& msg)
@@ -377,7 +386,7 @@ namespace beam
         for (const auto& resItem : res.resultList)
         {
             json item = {};
-            getStatusResponseJson(resItem.tx, item, resItem.kernelProofHeight);
+            getStatusResponseJson(resItem.tx, item, resItem.kernelProofHeight, resItem.systemHeight);
             msg["result"].push_back(item);
         }
     }

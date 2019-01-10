@@ -93,6 +93,8 @@ namespace beam
         {
             TxDescription tx;
             Height kernelProofHeight;
+            Height systemHeight;
+            uint64_t confirmations;
         };
     };
 
