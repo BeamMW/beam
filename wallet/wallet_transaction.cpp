@@ -67,6 +67,9 @@ namespace beam { namespace wallet
         return m_Reason;
     }
 
+	const uint32_t BaseTransaction::s_ProtoVersion = 1;
+
+
     BaseTransaction::BaseTransaction(INegotiatorGateway& gateway
                                    , beam::IWalletDB::Ptr walletDB
                                    , const TxID& txID)
