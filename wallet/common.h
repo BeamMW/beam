@@ -235,6 +235,8 @@ namespace beam
             Status = 151,
             KernelID = 152,
 
+			MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
+
             SharedBlindingFactor = 160,
             LockedBlindingFactor = 161,
 			MyNonce = 162,
