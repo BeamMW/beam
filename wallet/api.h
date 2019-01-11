@@ -60,6 +60,7 @@ namespace beam
         struct Response
         {
             bool isValid;
+            bool isMine;
         };
     };
 

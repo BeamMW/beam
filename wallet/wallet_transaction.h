@@ -84,6 +84,8 @@ namespace beam { namespace wallet
         void Update() override;
         void Cancel() override;
 
+		static const uint32_t s_ProtoVersion;
+
         template <typename T>
         bool GetParameter(TxParameterID paramID, T& value) const
         {

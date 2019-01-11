@@ -112,7 +112,7 @@ namespace beam
         }
 
     private:
-        class Connection : IWalletApiHandler
+        class Connection : IWalletApiHandler, IWalletDbObserver
         {
         public:
             Connection(ConnectionToServer& owner, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, uint64_t id, io::TcpStream::Ptr&& newStream)
@@ -127,12 +127,24 @@ namespace beam
             {
                 _stream->enable_keepalive(2);
                 _stream->enable_read(BIND_THIS_MEMFN(on_stream_data));
+
+                _walletDB->subscribe(this);
             }
 
             virtual ~Connection()
             {
-
+                _walletDB->unsubscribe(this);
             }
+
+            void onCoinsChanged() override {}
+            void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) override {}
+
+            void onSystemStateChanged() override 
+            {
+                
+            }
+
+            void onAddressChanged() override {}
 
             void on_write(io::SharedBuffer&& msg) 
             {
@@ -189,7 +201,9 @@ namespace beam
             {
                 LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
 
-                doResponse(id, ValidateAddress::Response{ data.address.IsValid() });
+                _walletDB->getAddress(data.address);
+
+                doResponse(id, ValidateAddress::Response{ data.address.IsValid(), _walletDB->getAddress(data.address).has_value() });
             }
 
             void onMessage(int id, const Send& data) override
@@ -310,6 +324,8 @@ namespace beam
                 response.maturing = _walletDB->getTotal(Coin::Maturing);
 
                 // TODO: add locked UTXO here
+                response.locked = 0;
+
                 doResponse(id, response);
             }
 
