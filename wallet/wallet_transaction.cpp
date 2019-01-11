@@ -67,6 +67,9 @@ namespace beam { namespace wallet
         return m_Reason;
     }
 
+	const uint32_t BaseTransaction::s_ProtoVersion = 1;
+
+
     BaseTransaction::BaseTransaction(INegotiatorGateway& gateway
                                    , beam::IWalletDB::Ptr walletDB
                                    , const TxID& txID)
@@ -279,6 +282,18 @@ namespace beam { namespace wallet
             return;
         }
 
+		uint64_t nAddrOwnID;
+		if (!GetParameter(TxParameterID::MyAddressID, nAddrOwnID))
+		{
+			WalletID wid;
+			if (GetParameter(TxParameterID::MyID, wid))
+			{
+				auto waddr = m_WalletDB->getAddress(wid);
+				if (waddr && waddr->m_OwnID)
+					SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
+			}
+		}
+
         builder.CreateKernel();
         
         if (!isSelfTx && !builder.GetPeerPublicExcessAndNonce())
@@ -315,7 +330,7 @@ namespace beam { namespace wallet
             return;
         }
 
-		if (!isSelfTx && isSender)
+		if (!isSelfTx && isSender && IsInitiator())
 		{
 			// verify peer payment acknowledgement
 
@@ -334,7 +349,16 @@ namespace beam { namespace wallet
 				bSuccess = pc.IsValid(widPeer.m_Pk);
 			}
 
-			// TODO - decide if tx should be aborted if no valid PaymentConfirmation
+			if (!bSuccess)
+			{
+				uint32_t nVer = 0;
+				GetParameter(TxParameterID::PeerProtoVersion, nVer);
+
+				if (nVer >= s_ProtoVersion)
+					OnFailed(TxFailureReason::InvalidPeerSignature);
+
+				// TODO - Ban older version negotiators when we decide to switch to the newer ver
+			}
 
 		}
 
@@ -422,6 +446,7 @@ namespace beam { namespace wallet
             .AddParameter(TxParameterID::MinHeight, builder.GetMinHeight())
             .AddParameter(TxParameterID::MaxHeight, builder.GetMaxHeight())
             .AddParameter(TxParameterID::IsSender, !isSender)
+			.AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
             .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce());
 
@@ -434,7 +459,9 @@ namespace beam { namespace wallet
     void SimpleTransaction::ConfirmInvitation(const TxBuilder& builder, bool sendUtxos)
     {
         SetTxParameter msg;
-        msg.AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
+        msg
+			.AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
+			.AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerSignature, builder.GetPartialSignature())
             .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce());
         if (sendUtxos)
