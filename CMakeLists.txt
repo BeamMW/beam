@@ -203,6 +203,10 @@ else()
     endif()
 endif()
 
+if(LINUX)
+	add_definitions(-DBOOST_NO_CXX11_SCOPED_ENUMS)
+endif()
+
 if (WIN32)
     add_definitions(-DNOMINMAX)
     find_package(Boost)
