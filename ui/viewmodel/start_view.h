@@ -49,6 +49,28 @@ private:
     QString m_userInput;
 };
 
+class WalletDBPathItem : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(QString shortPath READ getShortPath CONSTANT)
+    Q_PROPERTY(QString fullPath READ getFullPath CONSTANT)
+    Q_PROPERTY(int fileSize READ getFileSize CONSTANT)
+    Q_PROPERTY(QString lastWriteDateString READ getLastWriteDateString CONSTANT)
+public:
+    WalletDBPathItem(const std::string& walletDBPath, uintmax_t fileSize, time_t m_lastWriteTime);
+    WalletDBPathItem() = default;
+
+    QString getFullPath() const;
+    QString getShortPath() const;
+    int getFileSize() const;
+    QString getLastWriteDateString() const;
+
+private:
+    std::string m_fullPath;
+    uintmax_t m_fileSize = 0;
+    time_t m_lastWriteTime = 0;
+};
+
 class StartViewModel : public QObject
 {
     Q_OBJECT
@@ -96,6 +118,8 @@ public:
     Q_INVOKABLE bool hasSupportedGpu();
     Q_INVOKABLE bool getIsRunLocalNode() const;
     Q_INVOKABLE QString chooseRandomNode() const;
+    Q_INVOKABLE QString walletVersion() const;
+    Q_INVOKABLE bool isFindExistingWalletDB();
 
 signals:
     void walletExistsChanged();
@@ -111,10 +135,15 @@ public slots:
     void setPassword(const QString& pass);
 
 private:
+
+    void findExistingWalletDB();
+
     QList<QObject*> m_recoveryPhrases;
     QList<QObject*> m_checkPhrases;
     beam::WordList m_generatedPhrases;
     std::string m_password;
-    
+
+    QList<WalletDBPathItem*> m_walletDBpaths;
+
     bool m_isRecoveryMode;
 };

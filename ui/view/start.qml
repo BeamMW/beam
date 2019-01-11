@@ -104,6 +104,103 @@ Item
         }
 
         Component {
+            id: migrate
+            Rectangle
+            {
+                color: Style.marine
+
+                Image {
+                    fillMode: Image.PreserveAspectCrop
+                    anchors.fill: parent
+                    source: "qrc:/assets/bg.svg"
+                }
+
+                property Item defaultFocusItem: startMigration
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 100
+                        Layout.maximumHeight: 280
+                    }
+
+                    Loader { 
+                        sourceComponent: logoComponent 
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 200
+                        Layout.maximumHeight: 269
+                    }
+
+                    Item {
+                        Layout.preferredHeight: 30
+                    }
+
+                    SFText {
+                        Layout.alignment: Qt.AlignHCenter
+                
+                        text: qsTr("Your wallet will be migrated to v.") + viewModel.walletVersion()
+                        color: Style.white
+                        font.pixelSize: 14
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                        Layout.maximumHeight: 67
+                    }
+
+                    PrimaryButton {
+                        id: startMigration
+                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
+                        Layout.minimumHeight: 38
+
+                        text: qsTr("start migration")
+                        icon.source: "qrc:/assets/icon-add-blue.svg"
+                        onClicked: 
+                        {
+                            viewModel.isRecoveryMode = false;
+                            startWizzardView.push(open, {"firstButtonVisible": true, "firstButtonText": qsTr("back"), 
+                                                         "firstButtonIcon": "qrc:/assets/icon-back.svg", "firstButtonAction": function() {}});
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                        Layout.maximumHeight: 65
+                    }
+
+                    SFText {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: qsTr("Login to another wallet or create new one")
+                        color: Style.bright_teal
+                        font.pixelSize: 14
+                
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                startWizzardView.pop();
+                                startWizzardView.push(start);
+                            }
+                            hoverEnabled: true
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                    }
+                }
+            }
+        }
+
+        Component {
             id: createWalletEntry
             Rectangle
             {
@@ -1102,6 +1199,12 @@ Item
             Rectangle
             {
                 property Item defaultFocusItem: openPassword
+
+                property bool firstButtonVisible: false
+                property string firstButtonText: qsTr("login to another wallet")
+                property var firstButtonIcon: "qrc:/assets/icon-change.svg"
+                property var firstButtonAction: confirmChangeWalletDialog.open
+
                 color: Style.marine
 
                 Image {
@@ -1241,14 +1344,13 @@ Item
                         Layout.topMargin: 33
                         spacing: 19
                         
+                        CustomButton {
+                            visible: firstButtonVisible
+                            text: firstButtonText
+                            icon.source: firstButtonIcon
+                            onClicked: firstButtonAction()
+                        }
 
-                       /* CustomButton {
-                            text: qsTr("login to another wallet")
-                            icon.source: "qrc:/assets/icon-change.svg"
-                            onClicked: {
-                                confirmChangeWalletDialog.open();
-                            }
-                        }*/
                         PrimaryButton {
                             anchors.verticalCenter: parent.verticalCenter
                             id: btnCurrentWallet
@@ -1302,8 +1404,17 @@ Item
                 }
             }
         }
-        Component.onCompleted:{
-            startWizzardView.push(viewModel.walletExists ? open : start)
+        Component.onCompleted: {
+            if (viewModel.walletExists) {
+                startWizzardView.push(open);
+            }
+            else if (viewModel.isFindExistingWalletDB)
+            {
+                startWizzardView.push(migrate);
+            }
+            else {
+                startWizzardView.push(start);
+            }
         }
     }
 }
