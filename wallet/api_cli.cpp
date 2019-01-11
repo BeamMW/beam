@@ -201,7 +201,9 @@ namespace beam
             {
                 LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
 
-                doResponse(id, ValidateAddress::Response{ data.address.IsValid() });
+                _walletDB->getAddress(data.address);
+
+                doResponse(id, ValidateAddress::Response{ data.address.IsValid(), _walletDB->getAddress(data.address).has_value() });
             }
 
             void onMessage(int id, const Send& data) override
