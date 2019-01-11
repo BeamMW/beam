@@ -81,7 +81,7 @@ namespace beam
 
     bool WalletID::IsValid() const
     {
-        ECC::Point::Native p;
+        Point::Native p;
         return proto::ImportPeerID(p, m_Pk);
     }
 
@@ -117,6 +117,37 @@ namespace beam
         }
         return os;
     }
+
+	void PaymentConfirmation::get_Hash(Hash::Value& hv) const
+	{
+		Hash::Processor()
+			<< "PaymentConfirmation"
+			<< m_KernelID
+			<< m_Sender
+			<< m_Value
+			>> hv;
+	}
+
+	bool PaymentConfirmation::IsValid(const PeerID& pid) const
+	{
+		Point::Native pk;
+		if (!proto::ImportPeerID(pk, pid))
+			return false;
+
+		Hash::Value hv;
+		get_Hash(hv);
+
+		return m_Signature.IsValid(hv, pk);
+	}
+
+	void PaymentConfirmation::Sign(const Scalar::Native& sk)
+	{
+		Hash::Value hv;
+		get_Hash(hv);
+
+		m_Signature.Sign(hv, sk);
+	}
+
 
     const char Wallet::s_szNextUtxoEvt[] = "NextUtxoEvent";
 
@@ -263,9 +294,15 @@ namespace beam
 
     void Wallet::on_tx_completed(const TxID& txID)
     {
+		// Note: the passed TxID is (most probably) the member of the transaction, which we, most probably, are going to erase from the map, which can potentially delete it.
+		// Make sure we either copy the txID, or prolong the lifetime of the tx.
+
+		wallet::BaseTransaction::Ptr pGuard;
+
         auto it = m_Transactions.find(txID);
         if (it != m_Transactions.end())
         {
+			pGuard.swap(it->second);
             m_Transactions.erase(it);
         }
  
@@ -297,11 +334,6 @@ namespace beam
     }
 
     bool Wallet::MyRequestUtxoEvents::operator < (const MyRequestUtxoEvents& x) const
-    {
-        return false;
-    }
-
-    bool Wallet::MyRequestBbsChannel::operator < (const MyRequestBbsChannel &x) const
     {
         return false;
     }
@@ -474,11 +506,6 @@ namespace beam
     void Wallet::OnRequestComplete(MyRequestBbsMsg& r)
     {
         assert(false);
-    }
-
-    void Wallet::OnRequestComplete(MyRequestBbsChannel& r)
-    {
-        m_WalletDB->SetLastChannel(r.m_Res.m_Channel);
     }
 
     void Wallet::RequestUtxoEvents()
@@ -682,19 +709,6 @@ namespace beam
         }
 
         CheckSyncDone();
-
-        if (m_PendingBbsChannel.empty())
-        {
-            BbsChannel ch;
-            Timestamp t0 = m_WalletDB->GetLastChannel(ch);
-            Timestamp t1 = getTimestamp();
-
-            if (t0 + 3600 < t1)
-            {
-                MyRequestBbsChannel::Ptr pReq(new MyRequestBbsChannel);
-                PostReqUnique(*pReq);
-            }
-        }
     }
 
     void Wallet::OnTipUnchanged()

@@ -883,45 +883,6 @@ void Node::InitMode()
 void Node::Bbs::Cleanup()
 {
     get_ParentObj().m_Processor.get_DB().BbsDelOld(getTimestamp() - get_ParentObj().m_Cfg.m_Timeout.m_BbsMessageTimeout_s);
-
-    FindRecommendedChannel();
-
-	m_LastRecommendedChannel_ms = m_LastCleanup_ms = GetTime_ms();
-}
-
-void Node::Bbs::FindRecommendedChannel()
-{
-    NodeDB& db = get_ParentObj().m_Processor.get_DB(); // alias
-
-	struct BBsHistogram
-		:public NodeDB::IBbsHistogram
-	{
-		uint64_t m_MaxCount;
-
-		BbsChannel m_Best = 0;
-		BbsChannel m_Last = 0;
-		uint64_t m_CountBest = 0;
-
-
-		virtual bool OnChannel(BbsChannel ch, uint64_t nCount) override
-		{
-			if ((nCount <= m_MaxCount) && (nCount > m_CountBest))
-			{
-				m_CountBest = nCount;
-				m_Best = ch;
-			}
-			m_Last = ch;
-
-			return true;
-		}
-	};
-
-	BBsHistogram wlk;
-	wlk.m_MaxCount = get_ParentObj().m_Cfg.m_BbsIdealChannelPopulation;
-
-	db.EnumBbs(wlk);
-
-	m_RecommendedChannel = wlk.m_CountBest ? wlk.m_Best : wlk.m_Last + 1;
 }
 
 void Node::Bbs::MaybeCleanup()
@@ -2993,20 +2954,16 @@ void Node::Peer::OnMsg(proto::BbsResetSync&& msg)
 	BroadcastBbs();
 }
 
-void Node::Peer::OnMsg(proto::BbsPickChannel&& msg)
+void Node::Peer::OnMsg(proto::BbsPickChannelV0&& msg)
 {
 	if (!m_This.m_Cfg.m_Bbs)
 		ThrowUnexpected();
 
-	uint32_t t_ms = GetTime_ms();
-	if (t_ms - m_This.m_Bbs.m_LastRecommendedChannel_ms > m_This.m_Cfg.m_Timeout.m_BbsChannelUpdate_ms)
-	{
-		m_This.m_Bbs.m_LastRecommendedChannel_ms = t_ms;
-		m_This.m_Bbs.FindRecommendedChannel();
-	}
+	if (proto::LoginFlags::Extension1 & m_LoginFlags)
+		ThrowUnexpected(); // new client shouldn't ask for it
 
-	proto::BbsPickChannelRes msgOut;
-    msgOut.m_Channel = m_This.m_Bbs.m_RecommendedChannel;
+	proto::BbsPickChannelResV0 msgOut;
+	msgOut.m_Channel = m_This.RandomUInt32(proto::Bbs::s_MaxChannels);
     Send(msgOut);
 }
 

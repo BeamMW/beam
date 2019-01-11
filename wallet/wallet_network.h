@@ -124,18 +124,22 @@ namespace beam
 			TaskQueue m_Done;
 
 			Miner() :m_Shutdown(false) {}
-			~Miner();
+			~Miner() { Stop(); }
 
+			void Stop();
 			void Thread(uint32_t);
 
 		} m_Miner;
 
 		void OnMined();
+		void OnMined(proto::BbsMsg&&);
 
     public:
 
         WalletNetworkViaBbs(IWallet&, proto::FlyClient::INetwork&, const IWalletDB::Ptr&);
         virtual ~WalletNetworkViaBbs();
+
+		bool m_MineOutgoing = true; // can be turned-off for testing
 
         void AddOwnAddress(const WalletAddress& address);
         void DeleteOwnAddress(uint64_t ownID);

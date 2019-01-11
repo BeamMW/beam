@@ -142,44 +142,6 @@ namespace
         }
     }
 
-    void testBalanceJsonRpc(const std::string& msg)
-    {
-        class WalletApiHandler : public WalletApiHandlerBase
-        {
-        public:
-
-            void onInvalidJsonRpc(const json& msg) override
-            {
-                WALLET_CHECK(!"invalid balance api json!!!");
-
-                cout << msg["error"]["message"] << endl;
-            }
-
-            void onMessage(int id, const Balance& data) override
-            {
-                WALLET_CHECK(id > 0);
-            }
-        };
-
-        WalletApiHandler handler;
-        WalletApi api(handler);
-
-        WALLET_CHECK(api.parse(msg.data(), msg.size()));
-
-        {
-            json res;
-            Balance::Response balance{123, 456, 789};
-            api.getResponse(123, balance, res);
-            testResultHeader(res);
-
-            WALLET_CHECK(res["id"] == 123);
-            WALLET_CHECK(res["result"] != nullptr);
-            WALLET_CHECK(res["result"]["available"] == 123);
-            WALLET_CHECK(res["result"]["in_progress"] == 456);
-            WALLET_CHECK(res["result"]["locked"] == 789);
-        }
-    }
-
     void testGetUtxoJsonRpc(const std::string& msg)
     {
         class WalletApiHandler : public WalletApiHandlerBase
@@ -255,7 +217,7 @@ namespace
             {
                 WALLET_CHECK(id > 0);
 
-                WALLET_CHECK(data.session == 15);
+                //WALLET_CHECK(data.session == 15);
                 WALLET_CHECK(data.value == 12342342);
                 WALLET_CHECK(to_string(data.address) == "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67");
             }
@@ -331,7 +293,7 @@ namespace
             {
                 WALLET_CHECK(id > 0);
 
-                WALLET_CHECK(data.session == 123);
+                //WALLET_CHECK(data.session == 123);
                 WALLET_CHECK(data.coins[0] == 11);
                 WALLET_CHECK(data.coins[1] == 12);
                 WALLET_CHECK(data.coins[2] == 13);
@@ -354,6 +316,43 @@ namespace
 
             WALLET_CHECK(res["id"] == 123);
             WALLET_CHECK(res["result"]["txId"] > 0);
+        }
+    }
+
+    void testTxListJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid list api json!!!");
+
+                cout << msg["error"]["message"] << endl;
+            }
+
+            void onMessage(int id, const TxList& data) override
+            {
+                WALLET_CHECK(id > 0);
+
+                WALLET_CHECK(*data.filter.status == TxStatus::Completed);
+            }
+        };
+
+        WalletApiHandler handler;
+        WalletApi api(handler);
+
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            TxList::Response txList;
+
+            api.getResponse(123, txList, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 123);
         }
     }
 }
@@ -393,13 +392,6 @@ int main()
         "id" : 123,
         "method" : "balance123",
         "params" : "bar"
-    }));
-
-    testBalanceJsonRpc(JSON_CODE(
-    {
-        "jsonrpc": "2.0",
-        "id" : 12345,
-        "method" : "balance"
     }));
 
     testCreateAddressJsonRpc(JSON_CODE(
@@ -442,7 +434,7 @@ int main()
     {
         "jsonrpc": "2.0",
         "id" : 12345,
-        "method" : "send",
+        "method" : "tx_send",
         "params" : 
         {
             "session" : 15,
@@ -466,12 +458,26 @@ int main()
     {
         "jsonrpc": "2.0",
         "id" : 12345,
-        "method" : "split",
+        "method" : "tx_split",
         "params" :
         {
             "session" : 123,
             "coins" : [11, 12, 13, 50000000000000],
             "fee" : 4
+        }
+    }));
+
+    testTxListJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_list",
+        "params" :
+        {
+            "filter" : 
+            {
+                "status" : 3
+            }
         }
     }));
 

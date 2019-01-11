@@ -282,7 +282,10 @@ void Bbs::get_Hash(ECC::Hash::Value& hv, const BbsMsg& msg)
 
 bool Bbs::IsHashValid(const ECC::Hash::Value& hv)
 {
-	return !(hv.m_pData[0] | hv.m_pData[1] | hv.m_pData[2]);
+	uint32_t nHigh;
+	hv.ExportWord<0>(nHigh);
+
+	return nHigh < (1 << 10); // upper 22 bits should be zero, probability ~ 1 / 4mln
 }
 
 union HighestMsgCode

@@ -205,38 +205,23 @@ private:
         NodeDB& db = _nodeBackend.get_DB();
 
         Block::SystemState::Full blockState;
-        bool ok = true;
+		Block::SystemState::ID id;
+		Block::Body block;
+		bool ok = true;
+
         try {
             db.get_State(row, blockState);
-        } catch (...) {
+			blockState.get_ID(id);
+
+			NodeDB::StateID sid;
+			sid.m_Row = row;
+			sid.m_Height = id.m_Height;
+			_nodeBackend.ExtractBlockWithExtra(block, sid);
+
+		} catch (...) {
             ok = false;
         }
 
-        Block::SystemState::ID id;
-        blockState.get_ID(id);
-
-        Block::Body block;
-        ByteBuffer bbP, bbE;
-        if (ok) {
-            ByteBuffer rollbackBuf;
-            db.GetStateBlock(row, &bbP, &bbE, &rollbackBuf);
-            if (bbP.empty()) {
-                ok = false;
-            }
-            if (!rollbackBuf.empty()) {
-                LOG_DEBUG() << to_hex(rollbackBuf.data(), rollbackBuf.size());
-            }
-        }
-
-        if (ok) {
-            try {
-                NodeProcessor::ReadBody(block, bbP, bbE);
-            }
-            catch (const std::exception&) {
-                LOG_WARNING() << "Block deserialization failed at " << blockState.m_Height;
-                ok = false;
-            }
-        }
 
         if (ok) {
             char buf[80];
@@ -256,7 +241,7 @@ private:
                 outputs.push_back(
                 json{
                     {"commitment", uint256_to_hex(buf, v->m_Commitment.m_X)},
-                    {"maturity",   v->get_MinMaturity(blockState.m_Height)},
+                    {"maturity",   v->m_Maturity},
                     {"coinbase",   v->m_Coinbase},
                     {"incubation", v->m_Incubation}
                 }

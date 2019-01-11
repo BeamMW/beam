@@ -159,9 +159,9 @@ namespace proto {
 #define BeamNodeMsg_BbsResetSync(macro) \
     macro(Timestamp, TimeFrom)
 
-#define BeamNodeMsg_BbsPickChannel(macro)
+#define BeamNodeMsg_BbsPickChannelV0(macro)
 
-#define BeamNodeMsg_BbsPickChannelRes(macro) \
+#define BeamNodeMsg_BbsPickChannelResV0(macro) \
     macro(BbsChannel, Channel)
 
 #define BeamNodeMsg_SChannelInitiate(macro) \
@@ -246,12 +246,12 @@ namespace proto {
     macro(0x31, HaveTransaction) \
     macro(0x32, GetTransaction) \
     /* bbs */ \
-    macro(0x38, BbsMsgV0) \
+    macro(0x38, BbsMsgV0) /* Deprecated */ \
     macro(0x39, BbsHaveMsg) \
     macro(0x3a, BbsGetMsg) \
     macro(0x3b, BbsSubscribe) \
-    macro(0x3c, BbsPickChannel) \
-    macro(0x3d, BbsPickChannelRes) \
+    macro(0x3c, BbsPickChannelV0) /* Deprecated */ \
+    macro(0x3d, BbsPickChannelResV0) /* Deprecated */ \
     macro(0x3e, BbsResetSync) \
     macro(0x3f, BbsMsg) \
 
@@ -337,6 +337,11 @@ namespace proto {
 	namespace Bbs
 	{
 		static const size_t s_MaxMsgSize = 1024 * 1024;
+
+		static const uint32_t s_MaxChannels = 1024;
+		// At peak load a single block contains ~1K txs. The lifetime of a bbs message is 12-24 hours. Means the total sbbs system can contain simultaneously info about ~1 million different txs.
+		// Hence our sharding factor is 1K. Gives decent reduction of the traffic under peak loads, whereas maintains some degree of obfuscation on modest loads too.
+		// In the future it can be changed without breaking compatibility
 
 		typedef uintBig_t<4> NonceType;
 
