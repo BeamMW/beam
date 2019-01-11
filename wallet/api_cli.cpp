@@ -312,12 +312,22 @@ namespace beam
             {
                 LOG_DEBUG() << "WalletStatus(id = " << id << ")";
 
-                Block::SystemState::ID stateID = {};
-                _walletDB->getSystemStateID(stateID);
-
                 WalletStatus::Response response;
-                response.currentHeight = stateID.m_Height;
-                response.currentStateHash = to_hex(stateID.m_Hash.m_pData, stateID.m_Hash.nBytes);
+
+                {
+                    Block::SystemState::ID stateID = {};
+                    _walletDB->getSystemStateID(stateID);
+
+                    response.currentHeight = stateID.m_Height;
+                    response.currentStateHash = stateID.m_Hash;
+                }
+
+                {
+                    Block::SystemState::Full state;
+                    _walletDB->get_History().get_Tip(state);
+                    response.prevStateHash = state.m_Prev;
+                }
+
                 response.available = _walletDB->getAvailable();
                 response.receiving = _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
                 response.sending = _walletDB->getTotal(Coin::Outgoing);
