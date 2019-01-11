@@ -131,7 +131,7 @@ namespace
 
 		WalletAddress m_LastAdddr;
 
-		void saveAddress(const WalletAddress& wa)
+		void saveAddress(const WalletAddress& wa) override
 		{
 			m_LastAdddr = wa;
 		}
