@@ -416,6 +416,26 @@ void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& c
 {
     try
     {
+        auto receiverAddr = _walletDB->getAddress(receiver);
+
+        if (receiverAddr)
+        {
+            if (receiverAddr->isExpired())
+            {
+                emit cantSendToExpired();
+                return;
+            }
+        }
+        else
+        {
+            WalletAddress peerAddr;
+            peerAddr.m_walletID = receiver;
+            peerAddr.m_createTime = getTimestamp();
+            peerAddr.m_label = comment;
+
+            saveAddress(peerAddr, false);
+        }
+
         WalletAddress senderAddress = wallet::createAddress(_walletDB);
         senderAddress.m_label = comment;
         saveAddress(senderAddress, true); // should update the wallet_network
@@ -428,6 +448,8 @@ void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& c
         {
             s->transfer_money(senderAddress.m_walletID, receiver, move(amount), move(fee), true, 120, move(message));
         }
+
+        emit sendMoneyVerified();
     }
     catch (...)
     {
