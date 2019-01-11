@@ -203,7 +203,7 @@ namespace beam
 
                 _walletDB->getAddress(data.address);
 
-                doResponse(id, ValidateAddress::Response{ data.address.IsValid(), _walletDB->getAddress(data.address).has_value() });
+                doResponse(id, ValidateAddress::Response{ data.address.IsValid(), _walletDB->getAddress(data.address) ? true : false });
             }
 
             void onMessage(int id, const Send& data) override
