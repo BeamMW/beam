@@ -134,23 +134,30 @@ namespace beam {
 		Addr::Wid key;
 		key.m_OwnID = ownID;
 
-		auto itW = m_Addresses.find(key);
-		if (m_Addresses.end() != itW)
-			return;
+        Addr* pAddr = nullptr;
+        auto itW = m_Addresses.find(key);
 
-		Addr* pAddr = new Addr;
-        pAddr->m_ExpirationTime = expirationTime;
-		pAddr->m_Wid.m_OwnID = ownID;
-		m_WalletDB->get_MasterKdf()->DeriveKey(pAddr->m_sk, Key::ID(ownID, Key::Type::Bbs));
+        if (m_Addresses.end() == itW)
+        {
+            pAddr = new Addr;
+            pAddr->m_ExpirationTime = expirationTime;
+            pAddr->m_Wid.m_OwnID = ownID;
+            m_WalletDB->get_MasterKdf()->DeriveKey(pAddr->m_sk, Key::ID(ownID, Key::Type::Bbs));
 
-		proto::Sk2Pk(pAddr->m_Pk, pAddr->m_sk); // needed to "normalize" the sk, and calculate the channel
+            proto::Sk2Pk(pAddr->m_Pk, pAddr->m_sk); // needed to "normalize" the sk, and calculate the channel
 
-		pAddr->m_Channel.m_Value = nChannel;
+            pAddr->m_Channel.m_Value = nChannel;
 
-		m_Addresses.insert(pAddr->m_Wid);
-		m_Channels.insert(pAddr->m_Channel);
+            m_Addresses.insert(pAddr->m_Wid);
+            m_Channels.insert(pAddr->m_Channel);
+        }
+        else
+        {
+            pAddr = &(itW->get_ParentObj());
+            pAddr->m_ExpirationTime = expirationTime;
+        }
 
-		if (IsSingleChannelUser(pAddr->m_Channel))
+		if (pAddr && IsSingleChannelUser(pAddr->m_Channel))
 		{
 			Timestamp ts = 0;
 			auto it = m_BbsTimestamps.find(pAddr->m_Channel.m_Value);

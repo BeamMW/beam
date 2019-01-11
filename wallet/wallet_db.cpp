@@ -1703,13 +1703,14 @@ namespace beam
 
             if (stm2.step())
             {
-                const char* updateReq = "UPDATE " ADDRESSES_NAME " SET label=?2, category=?3, duration=?4 WHERE walletID=?1;";
+                const char* updateReq = "UPDATE " ADDRESSES_NAME " SET label=?2, category=?3, duration=?4, createTime=?5 WHERE walletID=?1;";
                 sqlite::Statement stm(_db, updateReq);
 
                 stm.bind(1, address.m_walletID);
                 stm.bind(2, address.m_label);
                 stm.bind(3, address.m_category);
                 stm.bind(4, address.m_duration);
+                stm.bind(5, address.m_createTime);
                 stm.step();
             }
             else

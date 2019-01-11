@@ -29,6 +29,7 @@ class AddressItem : public QObject
     Q_PROPERTY(QString category         READ getCategory        CONSTANT)
     Q_PROPERTY(QString expirationDate   READ getExpirationDate  CONSTANT)
     Q_PROPERTY(QString createDate       READ getCreateDate      CONSTANT)
+    Q_PROPERTY(bool neverExpired        READ isNeverExpired     CONSTANT)
 
 public:
 
@@ -40,6 +41,7 @@ public:
     QString getCategory() const;
     QString getExpirationDate() const;
     QString getCreateDate() const;
+    bool isNeverExpired() const;
 
     bool isExpired() const;
     beam::Timestamp getCreateTimestamp() const;
@@ -47,11 +49,6 @@ public:
 
 private:
     beam::WalletAddress m_walletAddress;
-    /*QString m_address;
-    QString m_name;
-    QString m_category;
-    QString m_createDate;
-    beam::Timestamp m_expirationDate;*/
 };
 
 class ContactItem : public QObject
@@ -71,9 +68,6 @@ public:
 
 private:
     beam::WalletAddress m_walletAddress;
-    /*QString m_address;
-    QString m_name;
-    QString m_category;*/
 };
 
 class AddressBookViewModel : public QObject
@@ -101,7 +95,7 @@ public:
 
 	Q_INVOKABLE void deleteAddress(const QString& addr);
     Q_INVOKABLE void copyToClipboard(const QString& text);
-    Q_INVOKABLE void makeActive(const QString& addr);
+    Q_INVOKABLE void saveChanges(const QString& addr, const QString& name, bool isNever, bool makeActive);
 
 public:
 

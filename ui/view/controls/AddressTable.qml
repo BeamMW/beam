@@ -9,7 +9,8 @@ CustomTableView {
     property int rowHeight: 69
     property int resizableWidth: parent.width - actions.width
     property var parentModel
-    property var contextMenu
+    property bool isExpired: false
+    property var editDialog
     anchors.fill: parent
     frameVisible: false
     selectionMode: SelectionMode.NoSelection
@@ -121,10 +122,34 @@ CustomTableView {
                         ToolTip.text: qsTr("Actions")
                         onClicked: {
                             contextMenu.address = rootControl.model[styleData.row].address;
+                            contextMenu.addressItem = rootControl.model[styleData.row];
                             contextMenu.popup();
                         }
                     }
                 }
+            }
+        }
+    }
+
+    ContextMenu {
+        id: contextMenu
+        modal: true
+        dim: false
+        property string address
+        property var addressItem
+        Action {
+            text: qsTr("edit")
+            icon.source: "qrc:/assets/icon-edit.svg"
+            onTriggered: {
+                editDialog.addressItem = contextMenu.addressItem;
+                editDialog.open();
+            }
+        }
+        Action {
+            text: qsTr("delete address")
+            icon.source: "qrc:/assets/icon-delete.svg"
+            onTriggered: {
+                viewModel.deleteAddress(contextMenu.address);
             }
         }
     }

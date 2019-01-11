@@ -35,11 +35,6 @@ namespace
 
 AddressItem::AddressItem(const beam::WalletAddress& address)
     : m_walletAddress(address)
-    /*m_address{ beamui::toString(address.m_walletID) }
-    , m_name{ QString::fromStdString(address.m_label) }
-    , m_category{ QString::fromStdString(address.m_category) }
-    , m_createDate{ toString(address.m_createTime) }
-    , m_expirationDate{ address.m_createTime + address.m_duration }*/
 {
 
 }
@@ -72,6 +67,11 @@ QString AddressItem::getCreateDate() const
     return toString(m_walletAddress.getCreateTime());
 }
 
+bool AddressItem::isNeverExpired() const
+{
+    return (m_walletAddress.m_duration == 0);
+}
+
 bool AddressItem::isExpired() const
 {
     return m_walletAddress.isExpired();
@@ -88,10 +88,7 @@ beam::Timestamp AddressItem::getExpirationTimestamp() const
 }
 
 ContactItem::ContactItem(const beam::WalletAddress& address)
-    :m_walletAddress(address)
-    /*: m_address{ beamui::toString(address.m_walletID) }
-    , m_name{ QString::fromStdString(address.m_label) }
-    , m_category{ QString::fromStdString(address.m_category) }*/
+    : m_walletAddress(address)
 {
 
 }
@@ -244,12 +241,12 @@ void AddressBookViewModel::copyToClipboard(const QString& text)
     QApplication::clipboard()->setText(text);
 }
 
-void AddressBookViewModel::makeActive(const QString& addr)
+void AddressBookViewModel::saveChanges(const QString& addr, const QString& name, bool isNever, bool makeActive)
 {
     WalletID walletID;
     walletID.FromHex(addr.toStdString());
 
-    m_model.getAsync()->makeActiveAddress(walletID);
+    m_model.getAsync()->saveAddressChanges(walletID, name.toStdString(), isNever, makeActive);
 }
 
 void AddressBookViewModel::onStatus(const WalletStatus&)
@@ -276,8 +273,6 @@ void AddressBookViewModel::onAdrresses(bool own, const std::vector<WalletAddress
             }
         }
 
-        //emit activeAddressesChanged();
-        //emit expiredAddressesChanged();
         sortActiveAddresses();
         sortExpiredAddresses();
     }
@@ -291,7 +286,6 @@ void AddressBookViewModel::onAdrresses(bool own, const std::vector<WalletAddress
         }
 
         sortContacts();
-        //emit contactsChanged();
     }
 }
 
@@ -311,7 +305,6 @@ void AddressBookViewModel::timerEvent(QTimerEvent *event)
         m_activeAddresses.erase(firstExpired, m_activeAddresses.end());
 
         emit activeAddressesChanged();
-        //emit expiredAddressesChanged();
         sortExpiredAddresses();
     }
 }
