@@ -13,11 +13,13 @@
 // limitations under the License.
 
 #include "start_view.h"
+#include <QDateTime>
 #include <QMessageBox>
 #include <QStringBuilder>
 #include <QApplication>
 #include <QClipboard>
 #include <QVariant>
+#include <QStandardPaths>
 #if defined(QT_PRINTSUPPORT_LIB)
 #include <QtPrintSupport/qtprintsupportglobal.h>
 #include <QPrinter>
@@ -28,7 +30,10 @@
 #endif
 #include "settings_view.h"
 #include "model/app_model.h"
+#include "version.h"
 #include "wallet/secstring.h"
+
+#include <boost/filesystem.hpp>
 #include <thread>
 
 #ifdef BEAM_USE_GPU
@@ -69,6 +74,43 @@ namespace
     };
 
     const QChar PHRASES_SEPARATOR = ';';
+
+    boost::filesystem::path pathFromStdString(const std::string& path)
+    {
+#ifdef WIN32
+        boost::filesystem::path boostPath{ Utf8toUtf16(path.c_str()) };
+#else
+        boost::filesystem::path boostPath{ path };
+#endif
+        return boostPath;
+    }
+
+    std::vector<boost::filesystem::path> findAllWalletDB(const std::string& appPath)
+    {
+        std::vector<boost::filesystem::path> walletDBs;
+        try
+        {
+            auto appDataPath = pathFromStdString(appPath);
+            for (boost::filesystem::recursive_directory_iterator endDirIt, it{ appDataPath }; it != endDirIt; ++it)
+            {
+                if (it.level() > 1)
+                {
+                    it.pop();
+                }
+
+                if (it->path().filename() == WalletSettings::WalletDBFile)
+                {
+                    walletDBs.push_back(it->path());
+                }
+            }
+        }
+        catch (std::exception &e)
+        {
+            LOG_ERROR() << e.what();
+        }
+
+        return walletDBs;
+    }
 }
 
 RecoveryPhraseItem::RecoveryPhraseItem(int index, const QString& phrase)
@@ -113,15 +155,47 @@ int RecoveryPhraseItem::getIndex() const
     return m_index;
 }
 
+WalletDBPathItem::WalletDBPathItem(const std::string& walletDBPath, uintmax_t fileSize, time_t lastWriteTime)
+    : m_fullPath{walletDBPath}
+    , m_fileSize(fileSize)
+    , m_lastWriteTime(lastWriteTime)
+{
+}
+
+int WalletDBPathItem::getFileSize() const
+{
+    return m_fileSize;
+}
+
+QString WalletDBPathItem::getFullPath() const
+{
+    return QString::fromStdString(m_fullPath);
+}
+
+QString WalletDBPathItem::getShortPath() const
+{
+    return QString();
+}
+
+QString WalletDBPathItem::getLastWriteDateString() const
+{
+    QDateTime datetime = QDateTime::fromTime_t(m_lastWriteTime);
+    return datetime.toString(Qt::SystemLocaleShortDate);
+}
+
 StartViewModel::StartViewModel()
     : m_isRecoveryMode{false}
 {
-
+    if (!walletExists())
+    {
+        // find all wallet.db in appData and defaultAppData
+        findExistingWalletDB();
+    }
 }
 
 StartViewModel::~StartViewModel()
 {
-
+    qDeleteAll(m_walletDBpaths);
 }
 
 bool StartViewModel::walletExists() const
@@ -222,6 +296,11 @@ QString StartViewModel::chooseRandomNode() const
 {
     srand(time(0));
     return QString(Peers[rand() % (sizeof(Peers) / sizeof(Peers[0]))]);
+}
+
+QString StartViewModel::walletVersion() const
+{
+    return QString::fromStdString(PROJECT_VERSION);
 }
 
 int StartViewModel::getLocalPort() const
@@ -421,4 +500,58 @@ bool StartViewModel::openWallet(const QString& pass)
 void StartViewModel::setPassword(const QString& pass)
 {
     m_password = pass.toStdString();
+}
+
+void StartViewModel::findExistingWalletDB()
+{
+    auto appDataPath = AppModel::getInstance()->getSettings().getAppDataPath();
+    auto defaultAppDataPath = QDir(QStandardPaths::writableLocation(QStandardPaths::DataLocation)).path().toStdString();
+
+    auto walletDBs = findAllWalletDB(appDataPath);
+
+    if (appDataPath != defaultAppDataPath)
+    {
+        auto additionnalWalletDBs = findAllWalletDB(defaultAppDataPath);
+        walletDBs.reserve(walletDBs.size() + additionnalWalletDBs.size());
+        walletDBs.insert(std::end(walletDBs), std::begin(additionnalWalletDBs), std::end(additionnalWalletDBs));
+    }
+
+    for (auto& walletDBPath : walletDBs)
+    {
+        auto fileSize = boost::filesystem::file_size(walletDBPath);
+        auto lastWriteTime = boost::filesystem::last_write_time(walletDBPath);
+        m_walletDBpaths.push_back(new WalletDBPathItem(walletDBPath.generic_string(), fileSize, lastWriteTime));
+    }
+}
+
+bool StartViewModel::isFindExistingWalletDB()
+{
+    return !m_walletDBpaths.empty();
+}
+
+void StartViewModel::deleteCurrentWalletDB()
+{
+    try
+    {
+        auto pathToDB = pathFromStdString(AppModel::getInstance()->getSettings().getWalletStorage());
+        boost::filesystem::remove(pathToDB);
+    }
+    catch (std::exception& e)
+    {
+        LOG_ERROR() << e.what();
+    }
+}
+
+void StartViewModel::migrateWalletDB(const QString& path)
+{
+    try
+    {
+        auto pathSrc = pathFromStdString(path.toStdString());
+        auto pathDst = pathFromStdString(AppModel::getInstance()->getSettings().getWalletStorage());
+        boost::filesystem::copy_file(pathSrc, pathDst);
+    }
+    catch (std::exception& e)
+    {
+        LOG_ERROR() << e.what();
+    }
 }

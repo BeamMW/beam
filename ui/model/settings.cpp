@@ -43,6 +43,7 @@ namespace
 const char* WalletSettings::WalletCfg = "beam-wallet.cfg";
 const char* WalletSettings::LogsFolder = "logs";
 const char* WalletSettings::SettingsFile = "settings.ini";
+const char* WalletSettings::WalletDBFile = "wallet.db";
 
 WalletSettings::WalletSettings(const QDir& appDataDir)
     : m_data{ appDataDir.filePath(SettingsFile), QSettings::IniFormat }
@@ -61,7 +62,7 @@ string WalletSettings::getWalletStorage() const
         m_appDataDir.mkdir(version);
     }
     
-    return m_appDataDir.filePath(version + "/wallet.db").toStdString();
+    return m_appDataDir.filePath(version + "/" + WalletDBFile).toStdString();
 }
 
 string WalletSettings::getAppDataPath() const

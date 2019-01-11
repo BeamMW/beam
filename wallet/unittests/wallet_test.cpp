@@ -128,11 +128,21 @@ namespace
         void rollbackTx(const TxID&) override {}
 
         std::vector<WalletAddress> getAddresses(bool own) override { return {}; }
+
+		WalletAddress m_LastAdddr;
+
+		void saveAddress(const WalletAddress& wa) override
+		{
+			m_LastAdddr = wa;
+		}
+
         void setNeverExpirationForAll() override {};
-        void saveAddress(const WalletAddress&) override {}
         boost::optional<WalletAddress> getAddress(const WalletID& id) override
         {
-            return boost::optional<WalletAddress>{};
+			if (id == m_LastAdddr.m_walletID)
+	            return m_LastAdddr;
+
+			return boost::optional<WalletAddress>();
         }
         void deleteAddress(const WalletID&) override {}
 
@@ -705,11 +715,13 @@ void TestWalletNegotiation(IWalletDB::Ptr senderWalletDB, IWalletDB::Ptr receive
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    WalletID receiver_id, sender_id;
-    receiver_id.m_Pk = 4U;
-    receiver_id.m_Channel = 12U;
-    sender_id.m_Pk = 5U;
-    sender_id.m_Channel = 102U;
+	WalletAddress wa = wallet::createAddress(receiverWalletDB);
+	receiverWalletDB->saveAddress(wa);
+	WalletID receiver_id = wa.m_walletID;
+
+	wa = wallet::createAddress(senderWalletDB);
+	senderWalletDB->saveAddress(wa);
+	WalletID sender_id = wa.m_walletID;
 
     int count = 0;
     auto f = [&count](const auto& /*id*/)

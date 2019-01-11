@@ -267,7 +267,12 @@ namespace beam
         {
             {"jsonrpc", "2.0"},
             {"id", id},
-            {"result", res.isValid}
+            {"result", 
+                {
+                    {"is_valid",  res.isValid},
+                    {"is_mine",  res.isMine},
+                }
+            }
         };
     }
 

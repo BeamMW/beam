@@ -175,6 +175,8 @@ namespace beam
             MaxHeight = 12,
             AmountList = 13,
 
+			PeerProtoVersion = 16,
+
             AtomicSwapCoin = 20,
             AtomicSwapAmount = 21,
 
@@ -232,6 +234,8 @@ namespace beam
             Change = 150,
             Status = 151,
             KernelID = 152,
+
+			MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
 
             SharedBlindingFactor = 160,
             LockedBlindingFactor = 161,
