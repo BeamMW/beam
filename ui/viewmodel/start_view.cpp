@@ -91,6 +91,12 @@ namespace
         try
         {
             auto appDataPath = pathFromStdString(appPath);
+
+            if (!boost::filesystem::exists(appDataPath))
+            {
+                return {};
+            }
+
             for (boost::filesystem::recursive_directory_iterator endDirIt, it{ appDataPath }; it != endDirIt; ++it)
             {
                 if (it.level() > 1)
@@ -159,6 +165,10 @@ WalletDBPathItem::WalletDBPathItem(const std::string& walletDBPath, uintmax_t fi
     : m_fullPath{walletDBPath}
     , m_fileSize(fileSize)
     , m_lastWriteTime(lastWriteTime)
+{
+}
+
+WalletDBPathItem::~WalletDBPathItem()
 {
 }
 
@@ -322,6 +332,11 @@ QString StartViewModel::getLocalNodePeer() const
 {
     auto peers = AppModel::getInstance()->getSettings().getLocalNodePeers();
     return !peers.empty() ? peers.first() : "";
+}
+
+QQmlListProperty<WalletDBPathItem> StartViewModel::getWalletDBpaths()
+{
+    return QQmlListProperty<WalletDBPathItem>(this, m_walletDBpaths);
 }
 
 void StartViewModel::setupLocalNode(int port, int miningThreads, const QString& localNodePeer)
@@ -554,4 +569,9 @@ void StartViewModel::migrateWalletDB(const QString& path)
     {
         LOG_ERROR() << e.what();
     }
+}
+
+void StartViewModel::copyToClipboard(const QString& text)
+{
+    QApplication::clipboard()->setText(text);
 }

@@ -59,6 +59,7 @@ class WalletDBPathItem : public QObject
 public:
     WalletDBPathItem(const std::string& walletDBPath, uintmax_t fileSize, time_t m_lastWriteTime);
     WalletDBPathItem() = default;
+    virtual ~WalletDBPathItem();
 
     QString getFullPath() const;
     QString getShortPath() const;
@@ -86,6 +87,7 @@ class StartViewModel : public QObject
     Q_PROPERTY(int localMiningThreads READ getLocalMiningThreads CONSTANT)
     Q_PROPERTY(QString remoteNodeAddress READ getRemoteNodeAddress CONSTANT)
     Q_PROPERTY(QString localNodePeer READ getLocalNodePeer CONSTANT)
+    Q_PROPERTY(QQmlListProperty<WalletDBPathItem> walletDBpaths READ getWalletDBpaths CONSTANT)
 
 public:
 
@@ -106,6 +108,7 @@ public:
     int getLocalMiningThreads() const;
     QString getRemoteNodeAddress() const;
     QString getLocalNodePeer() const;
+    QQmlListProperty<WalletDBPathItem> getWalletDBpaths();
 
     Q_INVOKABLE void setupLocalNode(int port, int miningThreads, const QString& localNodePeer);
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
@@ -122,6 +125,7 @@ public:
     Q_INVOKABLE bool isFindExistingWalletDB();
     Q_INVOKABLE void deleteCurrentWalletDB();
     Q_INVOKABLE void migrateWalletDB(const QString& path);
+    Q_INVOKABLE void copyToClipboard(const QString& text);
 
 signals:
     void walletExistsChanged();

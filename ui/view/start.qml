@@ -6,6 +6,7 @@ import QtGraphicalEffects 1.0
 import "controls"
 import Beam.Wallet 1.0
 import QtQuick.Layouts 1.3
+import QtQuick.Dialogs 1.0
 
 Item
 {
@@ -159,12 +160,10 @@ Item
                         Layout.minimumHeight: 38
 
                         text: qsTr("start migration")
-                        icon.source: "qrc:/assets/icon-add-blue.svg"
+                        icon.source: "qrc:/assets/icon-repeat.svg"
                         onClicked: 
                         {
-                            viewModel.isRecoveryMode = false;
-                            startWizzardView.push(open, {"firstButtonVisible": true, "firstButtonText": qsTr("back"), 
-                                                         "firstButtonIcon": "qrc:/assets/icon-back.svg", "firstButtonAction": function() {}});
+                            startWizzardView.push(selectWalletDBView);
                         }
                     }
 
@@ -185,7 +184,6 @@ Item
                             acceptedButtons: Qt.LeftButton
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                startWizzardView.pop();
                                 startWizzardView.push(start);
                             }
                             hoverEnabled: true
@@ -195,6 +193,234 @@ Item
                     Item {
                         Layout.fillHeight: true
                         Layout.minimumHeight: 30
+                    }
+                }
+            }
+        }
+
+        Component {
+            id: selectWalletDBView
+            Rectangle
+            {
+                color: Style.marine
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.topMargin: 50
+
+                    SFText {
+                        Layout.alignment: Qt.AlignHCenter
+                        horizontalAlignment: Qt.AlignHCenter
+                        text: qsTr("Select the wallet database file")
+                        color: Style.white
+                        font.pixelSize: 36
+                    }
+
+                    CustomTableView {
+                        id: tableView
+                        property int rowHeight: 44
+                        property int minWidth: 600
+                        property int textLeftMargin: 20
+                        Layout.alignment: Qt.AlignHCenter 
+                        Layout.topMargin: 50
+                        Layout.bottomMargin: 9
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: headerHeight + 3*rowHeight
+                        Layout.maximumHeight: headerHeight + 5*rowHeight
+                        Layout.minimumWidth: minWidth
+                        Layout.maximumWidth: minWidth
+
+                        frameVisible: false
+                        selectionMode: SelectionMode.SingleSelection
+                        backgroundVisible: false
+                        model: viewModel.walletDBpaths
+
+                        headerDelegate: Rectangle {
+                            height: tableView.headerHeight
+                            color: Style.dark_slate_blue
+
+                            SFLabel {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                anchors.leftMargin: tableView.textLeftMargin
+                                horizontalAlignment: Qt.AlignHCenter
+                                font.pixelSize: tableView.headerTextFontSize
+                                color: Style.bluey_grey
+                                font.weight: Font.Normal
+                                text: styleData.value
+                            }
+                        }
+
+                        TableViewColumn {
+                            role: "fullPath"
+                            title: qsTr("Name")
+                            width: 300
+                            movable: false
+                            delegate: Item {
+                                width: parent.width
+                                height: tableView.rowHeight
+                                clip:true
+
+                                SFLabel {
+                                    font.pixelSize: 14
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: tableView.textLeftMargin
+                                    anchors.right: parent.right
+                                    elide: Text.ElideLeft
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: styleData.value
+                                    color: Style.white
+                                    copyMenuEnabled: true
+                                    onCopyText: viewModel.copyToClipboard(text)
+                                }
+                            }
+                        }
+
+                        TableViewColumn {
+                            role: "fileSize"
+                            title: qsTr("Size")
+                            width: 120
+                            movable: false
+                            delegate: Item {
+                                width: parent.width
+                                height: tableView.rowHeight
+                                clip:true
+
+                                SFLabel {
+                                    font.pixelSize: 14
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: tableView.textLeftMargin
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: Math.round(styleData.value / 1024) + qsTr(" kb")
+                                    color: Style.white
+                                }
+                            }
+                        }
+
+                        TableViewColumn {
+                            role: "lastWriteDateString"
+                            title: qsTr("Date modified")
+                            width: 150 
+                            movable: false
+                        }
+
+                        rowDelegate: Item {
+                            height: tableView.rowHeight
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+
+                            Rectangle {
+                                anchors.fill: parent
+                                color: styleData.selected ? "#085469" : Style.light_navy
+                                visible: styleData.alternate || styleData.selected
+                            }
+                        }
+
+                        itemDelegate: TableItem {
+                            elide: Text.ElideRight
+                            clip:true
+
+                            SFLabel {
+                                font.pixelSize: 14
+                                anchors.left: parent.left
+                                anchors.leftMargin: tableView.textLeftMargin
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: styleData.value
+                                color: Style.white
+                            }
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 64
+                    }
+
+                    Row {
+                        id: buttons
+                        Layout.alignment: Qt.AlignHCenter
+                        spacing: 30
+
+                        CustomButton {
+                            text: qsTr("select file manually");
+                            icon.source: "qrc:/assets/icon-folder.svg"
+                            onClicked: {
+                                // open fileOpenDialog
+                                fileDialog.open();
+                            }
+                        }
+
+                        PrimaryButton {
+                            id: nextButton
+                            text: qsTr("next")
+                            icon.source: "qrc:/assets/icon-next-blue.svg"
+                            enabled: tableView.currentRow >= 0
+                            onClicked: {
+                                buttons.migrateWalletDB(viewModel.walletDBpaths[tableView.currentRow].fullPath);
+                            }
+                        }
+
+                        FileDialog {
+                            id: fileDialog
+                            title: qsTr("Select the wallet database file")
+                            folder: shortcuts.home
+                            visible: false
+                            nameFilters: [ "SQLite database file (*.db)" ]
+                            onAccepted: {
+                                var path = fileDialog.fileUrl.toString();
+                                // remove prefixed "file:///"
+                                path = path.replace(/^(file:\/{3})/,"");
+                                // unescape html codes like '%23' for '#'
+                                buttons.migrateWalletDB(decodeURIComponent(path));
+                            }
+                            onRejected: {
+                            }
+                        }
+
+                        function backAction() {
+                            // remove wallet.db file
+                            viewModel.deleteCurrentWalletDB();
+                            startWizzardView.pop();
+                        }
+
+                        function migrateWalletDB(path) {
+                            // copy wallet.db                         
+                            viewModel.migrateWalletDB(path);
+                            viewModel.isRecoveryMode = false;
+                            startWizzardView.push(open, {"firstButtonVisible": true, "firstButtonText": qsTr("back"), 
+                                                         "firstButtonIcon": "qrc:/assets/icon-back.svg", "firstButtonAction": backAction});
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                        Layout.maximumHeight: 65
+                    }
+
+                    SFText {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: qsTr("Login to another wallet or create new one")
+                        color: Style.bright_teal
+                        font.pixelSize: 14
+                
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                startWizzardView.push(start);
+                            }
+                            hoverEnabled: true
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 60
+                        Layout.maximumHeight: 90
                     }
                 }
             }
@@ -1408,7 +1634,7 @@ Item
             if (viewModel.walletExists) {
                 startWizzardView.push(open);
             }
-            else if (viewModel.isFindExistingWalletDB)
+            else if (viewModel.isFindExistingWalletDB())
             {
                 startWizzardView.push(migrate);
             }

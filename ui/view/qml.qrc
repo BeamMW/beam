@@ -120,5 +120,7 @@
         <file>assets/icon-change-blue.svg</file>
         <file>assets/icon-maturing.svg</file>
         <file>controls/EditAddress.qml</file>
+        <file>assets/icon-repeat.svg</file>
+        <file>assets/icon-folder.svg</file>
     </qresource>
 </RCC>
