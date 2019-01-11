@@ -112,9 +112,6 @@ namespace beam
 
     namespace
     {
-        static const char g_szBbsTime[] = "Bbs-Channel-Upd";
-        static const char g_szBbsChannel[] = "Bbs-Channel";
-
         void throwIfError(int res, sqlite3* db)
         {
             if (res == SQLITE_OK)
@@ -1776,24 +1773,6 @@ namespace beam
         notifyAddressChanged();
     }
 
-    Timestamp WalletDB::GetLastChannel(BbsChannel& ch)
-    {
-        Timestamp t;
-        auto thisPtr = shared_from_this();
-        bool b =
-            wallet::getVar(thisPtr, g_szBbsTime, t) &&
-            wallet::getVar(thisPtr, g_szBbsChannel, ch);
-
-            return b ? t : 0;
-    }
-
-    void WalletDB::SetLastChannel(BbsChannel ch)
-    {
-        auto thisPtr = shared_from_this();
-
-        wallet::setVar(thisPtr, g_szBbsChannel, ch);
-        wallet::setVar(thisPtr, g_szBbsTime, getTimestamp());
-    }
 
     void WalletDB::subscribe(IWalletDbObserver* observer)
     {
@@ -2197,9 +2176,10 @@ namespace beam
 
             proto::Sk2Pk(newAddress.m_walletID.m_Pk, sk);
 
-            BbsChannel ch;
-            if (!walletDB->GetLastChannel(ch))
-                ch = (BbsChannel)newAddress.m_walletID.m_Pk.m_pData[0] >> 3; // fallback
+			// derive the channel from the address
+			BbsChannel ch;
+			newAddress.m_walletID.m_Pk.ExportWord<0>(ch);
+			ch %= proto::Bbs::s_MaxChannels;
 
             newAddress.m_walletID.m_Channel = ch;
             return newAddress;

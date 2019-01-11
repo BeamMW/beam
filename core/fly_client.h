@@ -29,7 +29,6 @@ namespace proto {
 		macro(Kernel,		GetProofKernel,		ProofKernel) \
 		macro(UtxoEvents,	GetUtxoEvents,		UtxoEvents) \
 		macro(Transaction,	NewTransaction,		Boolean) \
-		macro(BbsChannel,	BbsPickChannel,		BbsPickChannelRes) \
 		macro(BbsMsg,		BbsMsg,				Pong)
 
 		class Request
@@ -173,6 +172,8 @@ namespace proto {
 
 				Connection(NetworkStd& x, size_t iIndex);
 				virtual ~Connection();
+
+				void ResetAll();
 
 				io::Address m_Addr;
 				PeerID m_NodeID;

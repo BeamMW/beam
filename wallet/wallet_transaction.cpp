@@ -23,6 +23,7 @@
 
 #include <boost/uuid/uuid_generators.hpp>
 #include <numeric>
+#include "utility/logger.h"
 
 namespace beam { namespace wallet
 {
@@ -314,6 +315,29 @@ namespace beam { namespace wallet
             return;
         }
 
+		if (!isSelfTx && isSender)
+		{
+			// verify peer payment acknowledgement
+
+			wallet::PaymentConfirmation pc;
+			WalletID widPeer, widMy;
+			bool bSuccess =
+				GetParameter(TxParameterID::PeerID, widPeer) &&
+				GetParameter(TxParameterID::MyID, widMy) &&
+				GetParameter(TxParameterID::KernelID, pc.m_KernelID) &&
+				GetParameter(TxParameterID::Amount, pc.m_Value) &&
+				GetParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);
+
+			if (bSuccess)
+			{
+				pc.m_Sender = widMy.m_Pk;
+				bSuccess = pc.IsValid(widPeer.m_Pk);
+			}
+
+			// TODO - decide if tx should be aborted if no valid PaymentConfirmation
+
+		}
+
         builder.FinalizeSignature();
 
         bool isRegistered = false;
@@ -419,6 +443,36 @@ namespace beam { namespace wallet
             .AddParameter(TxParameterID::PeerOutputs, builder.GetOutputs())
             .AddParameter(TxParameterID::PeerOffset, builder.GetOffset());
         }
+
+		assert(!IsSelfTx());
+		if (!GetMandatoryParameter<bool>(TxParameterID::IsSender))
+		{
+			wallet::PaymentConfirmation pc;
+			WalletID widPeer, widMy;
+			bool bSuccess =
+				GetParameter(TxParameterID::PeerID, widPeer) &&
+				GetParameter(TxParameterID::MyID, widMy) &&
+				GetParameter(TxParameterID::KernelID, pc.m_KernelID) &&
+				GetParameter(TxParameterID::Amount, pc.m_Value);
+
+			if (bSuccess)
+			{
+				pc.m_Sender = widPeer.m_Pk;
+
+				auto waddr = m_WalletDB->getAddress(widMy);
+				if (waddr && waddr->m_OwnID)
+				{
+					Scalar::Native sk;
+					m_WalletDB->get_MasterKdf()->DeriveKey(sk, Key::ID(waddr->m_OwnID, Key::Type::Bbs));
+
+					proto::Sk2Pk(widMy.m_Pk, sk);
+
+					pc.Sign(sk);
+					msg.AddParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);
+				}
+			}
+		}
+
         SendTxParameters(move(msg));
     }
 
@@ -660,6 +714,13 @@ namespace beam { namespace wallet
         
         
         m_MultiSig.SignPartial(m_PartialSignature, m_Message, m_BlindingExcess);
+
+        Merkle::Hash kernelID;
+        m_Kernel->get_ID(kernelID);
+
+        m_Tx.SetParameter(TxParameterID::KernelID, kernelID);
+
+        LOG_INFO() << m_Tx.GetTxID() << " SignPartial Transaction kernel: " << kernelID;
     }
 
     void TxBuilder::FinalizeSignature()

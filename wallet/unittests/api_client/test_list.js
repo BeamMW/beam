@@ -7,19 +7,22 @@ client.connect(10000, '127.0.0.1', function() {
 		{
 			jsonrpc: '2.0',
 			id: 123,
-			method: 'balance',
-			params: {}
+			method: 'tx_list',
+			params: 
+			{
+				filter:
+				{
+					status:5
+				}
+			}
 		}) + '\n');
 });
 
 client.on('data', function(data) {
-	console.log('Received: ' + data);
 
 	var res = JSON.parse(data);
 
-	console.log("available:", res.result.available);
-	console.log("in_progress:", res.result.in_progress);
-	console.log("locked:", res.result.locked);
+	console.log("got:", res);
 
 	client.destroy(); // kill client after server's response
 });

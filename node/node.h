@@ -372,10 +372,7 @@ private:
 
 		static void CalcMsgKey(NodeDB::WalkerBbs::Data&);
 		uint32_t m_LastCleanup_ms = 0;
-		uint32_t m_LastRecommendedChannel_ms = 0;
-		BbsChannel m_RecommendedChannel = 0;
 		void Cleanup();
-		void FindRecommendedChannel();
 		void MaybeCleanup();
 
 		struct Subscription
@@ -537,7 +534,7 @@ private:
 		virtual void OnMsg(proto::BbsHaveMsg&&) override;
 		virtual void OnMsg(proto::BbsGetMsg&&) override;
 		virtual void OnMsg(proto::BbsSubscribe&&) override;
-		virtual void OnMsg(proto::BbsPickChannel&&) override;
+		virtual void OnMsg(proto::BbsPickChannelV0&&) override;
 		virtual void OnMsg(proto::BbsResetSync&&) override;
 		virtual void OnMsg(proto::MacroblockGet&&) override;
 		virtual void OnMsg(proto::Macroblock&&) override;

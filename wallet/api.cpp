@@ -20,6 +20,14 @@ using json = nlohmann::json;
 
 namespace beam
 {
+    namespace
+    {
+        std::string txIDToString(const TxID& txId)
+        {
+            return to_hex(txId.data(), txId.size());
+        }
+    }
+
     struct jsonrpc_exception
     {
         int code;
@@ -94,12 +102,12 @@ namespace beam
 
     void WalletApi::onSendMessage(int id, const nlohmann::json& params)
     {
-        checkJsonParam(params, "session", id);
+        //checkJsonParam(params, "session", id);
         checkJsonParam(params, "value", id);
         checkJsonParam(params, "address", id);
 
-        if (params["session"] < 0)
-            throwInvalidJsonRpc(id);
+        //if (params["session"] < 0)
+        //    throwInvalidJsonRpc(id);
 
         if (params["value"] <= 0)
             throwInvalidJsonRpc(id);
@@ -108,7 +116,7 @@ namespace beam
             throwInvalidJsonRpc(id);
 
         Send send;
-        send.session = params["session"];
+        //send.session = params["session"];
         send.value = params["value"];
         send.address.FromHex(params["address"]);
 
@@ -153,17 +161,17 @@ namespace beam
 
     void WalletApi::onSplitMessage(int id, const nlohmann::json& params)
     {
-        checkJsonParam(params, "session", id);
+        //checkJsonParam(params, "session", id);
         checkJsonParam(params, "coins", id);
 
-        if (params["session"] < 0)
-            throwInvalidJsonRpc(id);
+        //if (params["session"] < 0)
+        //    throwInvalidJsonRpc(id);
 
         if (!params["coins"].is_array() || params["coins"].size() <= 0)
             throwInvalidJsonRpc(id);
 
         Split split;
-        split.session = params["session"];
+        //split.session = params["session"];
 
         for (const auto& amount : params["coins"])
         {
@@ -182,10 +190,19 @@ namespace beam
         _handler.onMessage(id, split);
     }
 
-    void WalletApi::onBalanceMessage(int id, const nlohmann::json& params)
+    void WalletApi::onTxCancelMessage(int id, const nlohmann::json& params)
     {
-        Balance balance;
-        _handler.onMessage(id, balance);
+        checkJsonParam(params, "txId", id);
+        auto txId = from_hex(params["txId"]);
+
+        TxCancel txCancel;
+
+        if (txId.size() != txCancel.txId.size())
+            throwInvalidJsonRpc(id);
+
+        std::copy_n(txId.begin(), txCancel.txId.size(), txCancel.txId.begin());
+
+        _handler.onMessage(id, txCancel);
     }
 
     void WalletApi::onGetUtxoMessage(int id, const nlohmann::json& params)
@@ -206,32 +223,32 @@ namespace beam
         _handler.onMessage(id, unlock);
     }
 
-    void WalletApi::onCreateUtxoMessage(int id, const nlohmann::json& params)
+    void WalletApi::onTxListMessage(int id, const nlohmann::json& params)
     {
-        CreateUtxo createUtxo;
-        _handler.onMessage(id, createUtxo);
-    }
+        TxList txList;
 
-    void WalletApi::onPollMessage(int id, const nlohmann::json& params)
-    {
-        Poll poll;
-        _handler.onMessage(id, poll);
-    }
-
-    void WalletApi::getResponse(int id, const Balance::Response& res, json& msg)
-    {
-        msg = json
+        if (existsJsonParam(params, "filter"))
         {
-            {"jsonrpc", "2.0"},
-            {"id", id},
-            {"result", 
-                {
-                    {"available", res.available},
-                    {"in_progress", res.in_progress},
-                    {"locked", res.locked},
-                }
+            if (existsJsonParam(params["filter"], "status")
+                && params["filter"]["status"].is_number_unsigned())
+            {
+                txList.filter.status = (TxStatus)params["filter"]["status"];
             }
-        };
+
+            if (existsJsonParam(params["filter"], "height")
+                && params["filter"]["height"].is_number_unsigned())
+            {
+                txList.filter.height = (Height)params["filter"]["height"];
+            }
+        }
+
+        _handler.onMessage(id, txList);
+    }
+
+    void WalletApi::onWalletStatusMessage(int id, const nlohmann::json& params)
+    {
+        WalletStatus walletStatus;
+        _handler.onMessage(id, walletStatus);
     }
 
     void WalletApi::getResponse(int id, const CreateAddress::Response& res, json& msg)
@@ -265,6 +282,9 @@ namespace beam
 
         for (auto& utxo : res.utxos)
         {
+            std::string createTxId = utxo.m_createTxId.is_initialized() ? txIDToString(*utxo.m_createTxId) : "";
+            std::string spentTxId = utxo.m_spentTxId.is_initialized() ? txIDToString(*utxo.m_spentTxId) : "";
+
             msg["result"].push_back(
             { 
                 {"id", utxo.m_ID.m_Idx},
@@ -272,6 +292,9 @@ namespace beam
                 {"type", (const char*)FourCC::Text(utxo.m_ID.m_Type)},
                 {"height", utxo.m_createHeight},
                 {"maturity", utxo.m_maturity},
+                {"createTxId", createTxId},
+                {"spentTxId", spentTxId},
+                //{"sessionId", utxo.m_sessionId},
             });
         }
     }
@@ -284,10 +307,35 @@ namespace beam
             {"id", id},
             {"result", 
                 {
-                    {"txId", to_hex(res.txId.data(), res.txId.size())}
+                    {"txId", txIDToString(res.txId)}
                 }
             }
         };
+    }
+
+    static void getStatusResponseJson(const TxDescription& tx, json& msg, Height kernelProofHeight, Height systemHeight)
+    {
+        msg = json
+        {
+            {"txId", txIDToString(tx.m_txId)},
+            {"status", tx.m_status},
+            {"sender", std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId)},
+            {"receiver", std::to_string(tx.m_sender ? tx.m_peerId : tx.m_myId)},
+            {"fee", tx.m_fee},
+            {"value", tx.m_amount},
+            {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
+            {"kernel", to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes)},
+        };
+
+        if (kernelProofHeight > 0)
+        {
+            msg["height"] = kernelProofHeight;
+
+            if (systemHeight >= kernelProofHeight)
+            {
+                msg["confirmations"] = systemHeight - kernelProofHeight;
+            }
+        }
     }
 
     void WalletApi::getResponse(int id, const Status::Response& res, json& msg)
@@ -296,18 +344,10 @@ namespace beam
         {
             {"jsonrpc", "2.0"},
             {"id", id},
-            {"result", 
-                {
-                    {"status", res.status},
-                    {"sender", std::to_string(res.sender)},
-                    {"receiver", std::to_string(res.receiver)},
-                    {"fee", res.fee},
-                    {"value", res.value},
-                    {"comment", res.comment},
-                    {"kernel", to_hex(res.kernel.m_pData, res.kernel.nBytes)}
-                }
-            }
+            {"result", {}}
         };
+
+        getStatusResponseJson(res.tx, msg["result"], res.kernelProofHeight, res.systemHeight);
     }
 
     void WalletApi::getResponse(int id, const Split::Response& res, json& msg)
@@ -319,6 +359,53 @@ namespace beam
             {"result",
                 {
                     {"txId", to_hex(res.txId.data(), res.txId.size())}
+                }
+            }
+        };
+    }
+
+    void WalletApi::getResponse(int id, const TxCancel::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", res.result}
+        };
+    }
+
+    void WalletApi::getResponse(int id, const TxList::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", json::array()}
+        };
+
+        for (const auto& resItem : res.resultList)
+        {
+            json item = {};
+            getStatusResponseJson(resItem.tx, item, resItem.kernelProofHeight, resItem.systemHeight);
+            msg["result"].push_back(item);
+        }
+    }
+
+    void WalletApi::getResponse(int id, const WalletStatus::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result",
+                {
+                    {"current_height", res.currentHeight},
+                    {"current_state_hash", res.currentStateHash},
+                    {"available", res.available},
+                    {"receiving", res.receiving},
+                    {"sending", res.sending},
+                    {"maturing", res.maturing},
+                    {"locked", res.locked},
                 }
             }
         };

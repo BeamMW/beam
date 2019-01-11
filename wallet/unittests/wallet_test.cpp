@@ -136,9 +136,6 @@ namespace
         }
         void deleteAddress(const WalletID&) override {}
 
-        Timestamp GetLastChannel(BbsChannel&) override { return {}; }
-        void SetLastChannel(BbsChannel) override {}
-
         Height getCurrentHeight() const override
         {
             return 134;
@@ -806,7 +803,9 @@ private:
 				proto::LoginFlags::Bbs |
                 proto::LoginFlags::SendPeers;
             Send(msg);
-        }
+
+			SendTip();
+		}
 
         void SendTip()
         {
@@ -839,7 +838,6 @@ private:
 
         void OnMsg(proto::Login&& /*data*/) override
         {
-            SendTip();
         }
 
         void OnMsg(proto::GetProofState&&) override
@@ -864,9 +862,7 @@ private:
             m_Subscribed = true;
 
             for (const auto& m : m_This.m_bbs)
-            {
-                Send(m);
-            }
+				Send(m);
         }
 
         void OnMsg(proto::BbsMsg&& msg) override
@@ -875,27 +871,15 @@ private:
 
             for (ClientList::iterator it = m_This.m_lstClients.begin(); m_This.m_lstClients.end() != it; it++)
             {
-                if (it.pointed_node() != this)
-                {
-                    Client& c = *it;
-                    if (c.m_Subscribed)
-                    {
-                        c.Send(msg);
-                    }
-                }
+				Client& c = *it;
+				if ((&c != this) && c.m_Subscribed)
+					c.Send(msg);
             }
         }
 
         void OnMsg(proto::Ping&& msg) override
         {
             proto::Pong msgOut(Zero);
-            Send(msgOut);
-        }
-
-        void OnMsg(proto::BbsPickChannel&&) override
-        {
-            proto::BbsPickChannelRes msgOut;
-            msgOut.m_Channel = 77;
             Send(msgOut);
         }
 
@@ -925,7 +909,7 @@ private:
     {
         m_lstClients.erase(ClientList::s_iterator_to(*client));
         delete client;
-    }
+	}
 
     struct Server
         :public proto::NodeConnection::Server
