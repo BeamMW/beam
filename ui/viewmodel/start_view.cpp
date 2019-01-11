@@ -93,6 +93,11 @@ namespace
             auto appDataPath = pathFromStdString(appPath);
             for (boost::filesystem::recursive_directory_iterator endDirIt, it{ appDataPath }; it != endDirIt; ++it)
             {
+                if (it.level() > 1)
+                {
+                    it.pop();
+                }
+
                 if (it->path().filename() == WalletSettings::WalletDBFile)
                 {
                     walletDBs.push_back(it->path());
@@ -522,4 +527,31 @@ void StartViewModel::findExistingWalletDB()
 bool StartViewModel::isFindExistingWalletDB()
 {
     return !m_walletDBpaths.empty();
+}
+
+void StartViewModel::deleteCurrentWalletDB()
+{
+    try
+    {
+        auto pathToDB = pathFromStdString(AppModel::getInstance()->getSettings().getWalletStorage());
+        boost::filesystem::remove(pathToDB);
+    }
+    catch (std::exception& e)
+    {
+        LOG_ERROR() << e.what();
+    }
+}
+
+void StartViewModel::migrateWalletDB(const QString& path)
+{
+    try
+    {
+        auto pathSrc = pathFromStdString(path.toStdString());
+        auto pathDst = pathFromStdString(AppModel::getInstance()->getSettings().getWalletStorage());
+        boost::filesystem::copy_file(pathSrc, pathDst);
+    }
+    catch (std::exception& e)
+    {
+        LOG_ERROR() << e.what();
+    }
 }

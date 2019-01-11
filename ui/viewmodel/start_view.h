@@ -120,6 +120,8 @@ public:
     Q_INVOKABLE QString chooseRandomNode() const;
     Q_INVOKABLE QString walletVersion() const;
     Q_INVOKABLE bool isFindExistingWalletDB();
+    Q_INVOKABLE void deleteCurrentWalletDB();
+    Q_INVOKABLE void migrateWalletDB(const QString& path);
 
 signals:
     void walletExistsChanged();
