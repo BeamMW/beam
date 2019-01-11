@@ -175,6 +175,8 @@ namespace beam
             MaxHeight = 12,
             AmountList = 13,
 
+			PeerProtoVersion = 16,
+
             AtomicSwapCoin = 20,
             AtomicSwapAmount = 21,
 

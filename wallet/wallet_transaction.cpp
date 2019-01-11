@@ -422,6 +422,7 @@ namespace beam { namespace wallet
             .AddParameter(TxParameterID::MinHeight, builder.GetMinHeight())
             .AddParameter(TxParameterID::MaxHeight, builder.GetMaxHeight())
             .AddParameter(TxParameterID::IsSender, !isSender)
+			.AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
             .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce());
 
@@ -434,7 +435,9 @@ namespace beam { namespace wallet
     void SimpleTransaction::ConfirmInvitation(const TxBuilder& builder, bool sendUtxos)
     {
         SetTxParameter msg;
-        msg.AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
+        msg
+			.AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
+			.AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerSignature, builder.GetPartialSignature())
             .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce());
         if (sendUtxos)
