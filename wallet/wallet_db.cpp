@@ -1700,12 +1700,14 @@ namespace beam
 
             if (stm2.step())
             {
-                const char* updateReq = "UPDATE " ADDRESSES_NAME " SET label=?2, category=?3 WHERE walletID=?1;";
+                const char* updateReq = "UPDATE " ADDRESSES_NAME " SET label=?2, category=?3, duration=?4, createTime=?5 WHERE walletID=?1;";
                 sqlite::Statement stm(_db, updateReq);
 
                 stm.bind(1, address.m_walletID);
                 stm.bind(2, address.m_label);
                 stm.bind(3, address.m_category);
+                stm.bind(4, address.m_duration);
+                stm.bind(5, address.m_createTime);
                 stm.step();
             }
             else
@@ -1720,6 +1722,25 @@ namespace beam
 
         trans.commit();
 
+        notifyAddressChanged();
+    }
+
+    void WalletDB::setNeverExpirationForAll()
+    {
+        sqlite::Transaction trans(_db);
+
+        {
+            const char* updateReq = "UPDATE " ADDRESSES_NAME " SET duration = ?1 WHERE OwnID != 0;";
+            sqlite::Statement stm(_db, updateReq);
+
+            stm.bind(1, 0);
+
+            stm.step();
+        }
+
+        trans.commit();
+
+        LOG_INFO() << "Expiration for all addresses  was updated to \"never\".";
         notifyAddressChanged();
     }
 
@@ -2119,6 +2140,29 @@ namespace beam
             ECC::Scalar s;
             value.Export(s);
             return toByteBuffer(s);
+        }
+
+        void changeAddressExpiration(beam::IWalletDB::Ptr walletDB, const WalletID& walletID)
+        {
+            if (walletID != Zero)
+            {
+                auto walletAddress = walletDB->getAddress(walletID);
+
+                if (!walletAddress.is_initialized())
+                {
+                    LOG_INFO() << "Address " << to_string(walletID) << "is absent in wallet";
+                    return;
+                }
+
+                walletAddress->m_duration = 0;
+
+                walletDB->saveAddress(*walletAddress);
+
+                LOG_INFO() << "Expiration for address " << to_string(walletID) << " was updated to \"never\".";
+                return;
+            }
+
+            walletDB->setNeverExpirationForAll();
         }
 
         WalletAddress createAddress(beam::IWalletDB::Ptr walletDB)

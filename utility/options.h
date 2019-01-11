@@ -83,6 +83,8 @@ namespace beam
         extern const char* VERSION;
         extern const char* VERSION_FULL;
         extern const char* GIT_COMMIT_HASH;
+        extern const char* WALLET_ADDR;
+        extern const char* CHANGE_ADDRESS_EXPIRATION;
 #if defined(BEAM_USE_GPU)
         extern const char* MINER_TYPE;
 #endif
@@ -95,7 +97,6 @@ namespace beam
 		extern const char* TR_M;
 		extern const char* TR_N;
 		// ui
-        extern const char* WALLET_ADDR;
         extern const char* APPDATA_PATH;
     }
 

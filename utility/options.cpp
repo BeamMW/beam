@@ -84,6 +84,8 @@ namespace beam
         const char* VERSION = "version";
         const char* VERSION_FULL = "version,v";
         const char* GIT_COMMIT_HASH = "git_commit_hash";
+        const char* WALLET_ADDR = "address";
+        const char* CHANGE_ADDRESS_EXPIRATION = "change_address_expiration";
 #if defined(BEAM_USE_GPU)
         const char* MINER_TYPE = "miner_type";
 #endif
@@ -96,7 +98,6 @@ namespace beam
 		const char* TR_M = "tr_M";
 		const char* TR_N = "tr_N";
 		// ui
-        const char* WALLET_ADDR = "addr";
         const char* APPDATA_PATH = "appdata";
     }
 
@@ -175,7 +176,9 @@ namespace beam
             (cli::EXPIRATION_TIME, po::value<string>()->default_value("24h"), "expiration time for new own address [24h|never]")
             (cli::GENERATE_PHRASE, "command to generate phrases which will be used to create a secret according to BIP-39")
             (cli::KEY_SUBKEY, po::value<uint32_t>()->default_value(0), "Child key index.")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase]");
+            (cli::CHANGE_ADDRESS_EXPIRATION, po::value<string>(), "change address expiration")
+            (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration]");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()

@@ -93,6 +93,7 @@ private:
     void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override;
     void generateNewAddress() override;
     void deleteAddress(const beam::WalletID& id) override;
+    void saveAddressChanges(const beam::WalletID& id, const std::string& name, bool isNever, bool makeActive) override;
     void setNodeAddress(const std::string& addr) override;
     void changeWalletPassword(const beam::SecString& password) override;
     void getNetworkStatus() override;

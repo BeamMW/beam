@@ -119,5 +119,6 @@
         <file>assets/icon-change.svg</file>
         <file>assets/icon-change-blue.svg</file>
         <file>assets/icon-maturing.svg</file>
+        <file>controls/EditAddress.qml</file>
     </qresource>
 </RCC>

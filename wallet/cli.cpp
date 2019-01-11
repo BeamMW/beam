@@ -103,10 +103,21 @@ namespace
         cout << options << std::endl;
     }
 
+    void changeAddressExpiration(const IWalletDB::Ptr& walletDB, const string& address)
+    {
+        WalletID walletID(Zero);
+
+        if (address != "*")
+        {
+            walletID.FromHex(address);
+        }
+
+        wallet::changeAddressExpiration(walletDB, walletID);
+    }
+
     WalletAddress newAddress(
         const IWalletDB::Ptr& walletDB,
         const std::string& label,
-        const SecString& pass,
         bool isNever = false
     )
     {
@@ -496,6 +507,7 @@ int main_impl(int argc, char* argv[])
                             && command != cli::EXPORT_OWNER_KEY
                             && command != cli::NEW_ADDRESS
                             && command != cli::CANCEL_TX
+                            && command != cli::CHANGE_ADDRESS_EXPIRATION
                             && command != cli::GENERATE_PHRASE)
                         {
                             LOG_ERROR() << "unknown command: \'" << command << "\'";
@@ -548,7 +560,7 @@ int main_impl(int argc, char* argv[])
                                 LOG_INFO() << "wallet successfully created...";
 
                                 // generate default address
-                                newAddress(walletDB, "default", pass);
+                                newAddress(walletDB, "default");
 
                                 return 0;
                             }
@@ -564,6 +576,14 @@ int main_impl(int argc, char* argv[])
                         {
                             LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet";
                             return -1;
+                        }
+
+                        if (command == cli::CHANGE_ADDRESS_EXPIRATION)
+                        {
+                            string address = vm[cli::WALLET_ADDR].as<string>();
+
+                            changeAddressExpiration(walletDB, address);
+                            return 0;
                         }
 
                         if (command == cli::EXPORT_MINER_KEY)
@@ -608,7 +628,7 @@ int main_impl(int argc, char* argv[])
                         if (command == cli::NEW_ADDRESS)
                         {
                             auto label = vm[cli::NEW_ADDRESS_LABEL].as<string>();
-                            newAddress(walletDB, label, pass, vm[cli::EXPIRATION_TIME].as<string>() == "never");
+                            newAddress(walletDB, label, vm[cli::EXPIRATION_TIME].as<string>() == "never");
 
                             if (!vm.count(cli::LISTEN)) 
                             {
@@ -753,7 +773,7 @@ int main_impl(int argc, char* argv[])
 
                         if (isTxInitiator)
                         {
-                            WalletAddress senderAddress = newAddress(walletDB, "", pass);
+                            WalletAddress senderAddress = newAddress(walletDB, "");
                             wnet.AddOwnAddress(senderAddress);
                             wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
                         }
