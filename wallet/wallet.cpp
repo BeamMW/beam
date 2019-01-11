@@ -81,7 +81,7 @@ namespace beam
 
     bool WalletID::IsValid() const
     {
-        ECC::Point::Native p;
+        Point::Native p;
         return proto::ImportPeerID(p, m_Pk);
     }
 
@@ -117,6 +117,37 @@ namespace beam
         }
         return os;
     }
+
+	void PaymentConfirmation::get_Hash(Hash::Value& hv) const
+	{
+		Hash::Processor()
+			<< "PaymentConfirmation"
+			<< m_KernelID
+			<< m_Sender
+			<< m_Value
+			>> hv;
+	}
+
+	bool PaymentConfirmation::IsValid(const PeerID& pid) const
+	{
+		Point::Native pk;
+		if (!proto::ImportPeerID(pk, pid))
+			return false;
+
+		Hash::Value hv;
+		get_Hash(hv);
+
+		return m_Signature.IsValid(hv, pk);
+	}
+
+	void PaymentConfirmation::Sign(const Scalar::Native& sk)
+	{
+		Hash::Value hv;
+		get_Hash(hv);
+
+		m_Signature.Sign(hv, sk);
+	}
+
 
     const char Wallet::s_szNextUtxoEvt[] = "NextUtxoEvent";
 

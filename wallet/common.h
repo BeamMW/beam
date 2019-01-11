@@ -213,6 +213,8 @@ namespace beam
 
             FailureReason = 92,
 
+			PaymentConfirmation = 99,
+
             // private parameters
             PrivateFirstParam = 128,
 
@@ -297,6 +299,20 @@ namespace beam
             ConnectionTimedOut = 2,
             ConnectionRefused = 3,
 			TimeOutOfSync = 4,
+		};
+
+		struct PaymentConfirmation
+		{
+			// I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
+			Amount m_Value;
+			ECC::Hash::Value m_KernelID;
+			PeerID m_Sender;
+			ECC::Signature m_Signature;
+
+			void get_Hash(ECC::Hash::Value&) const;
+			bool IsValid(const PeerID&) const;
+
+			void Sign(const ECC::Scalar::Native& sk);
 		};
     }
 }
