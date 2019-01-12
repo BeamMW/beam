@@ -146,6 +146,14 @@ namespace beam
 
 	bool DeleteFile(const char*);
 
+	struct CorruptionException
+	{
+		std::string m_sErr;
+		// indicates critical unrecoverable corruption. Not derived from std::exception, and should not be caught in the indermediate scopes.
+		// Should trigger a controlled shutdown of the app
+		static void Throw(const char*);
+	};
+
 	struct Blob {
 		const void* p;
 		uint32_t n;

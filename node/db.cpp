@@ -104,7 +104,10 @@ void NodeDB::ThrowSqliteError(int ret)
 
 void NodeDB::ThrowError(const char* sz)
 {
-	throw std::runtime_error(sz);
+	// Currently all DB errors are defined as corruption
+	CorruptionException exc;
+	exc.m_sErr = sz;
+	throw exc;
 }
 
 void NodeDB::ThrowInconsistent()
@@ -553,7 +556,17 @@ NodeDB::Transaction::Transaction(NodeDB* pDB)
 
 NodeDB::Transaction::~Transaction()
 {
-	Rollback();
+	if (std::uncaught_exceptions())
+	{
+		try {
+			Rollback();
+		}
+		catch (...) {
+			// ignore
+		}
+	}
+	else
+		Rollback();
 }
 
 void NodeDB::Transaction::Start(NodeDB& db)
@@ -574,12 +587,8 @@ void NodeDB::Transaction::Rollback()
 {
 	if (m_pDB)
 	{
-		try {
-			m_pDB->ExecStep(Query::Rollback, "ROLLBACK");
-		} catch (std::exception&) {
-			// TODO: DB is compromised!
-		}
-		m_pDB = NULL;
+		m_pDB->ExecStep(Query::Rollback, "ROLLBACK");
+		m_pDB = nullptr;
 	}
 }
 

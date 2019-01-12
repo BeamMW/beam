@@ -320,6 +320,10 @@ int main_impl(int argc, char* argv[])
 	{
 		std::cout << e.what() << std::endl;
 	}
+	catch (const beam::CorruptionException& e)
+	{
+		std::cout << "Corruption: " << e.m_sErr << std::endl;
+	}
 
     return 0;
 }
