@@ -221,7 +221,7 @@ namespace std
 
 		void Restart(); // for read-stream - jump to the beginning of the file
 		void Seek(uint64_t);
-		uint64_t Tell() { return m_F.tellg(); }
+		uint64_t Tell() { return IsOpen() ? m_F.tellg() : 0; }
 
 		// read/write always return the size requested. Exception is thrown if underflow or error
 		size_t read(void* pPtr, size_t nSize);
