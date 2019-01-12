@@ -112,19 +112,21 @@ void NodeDB::ThrowInconsistent()
 	ThrowError("data inconcistent");
 }
 
+void NodeDB::Statement::Close()
+{
+	if (m_pStmt)
+	{
+		sqlite3_finalize(m_pStmt); // don't care about retval
+		m_pStmt = nullptr;
+	}
+}
+
 void NodeDB::Close()
 {
 	if (m_pDb)
 	{
 		for (size_t i = 0; i < _countof(m_pPrep); i++)
-		{
-			sqlite3_stmt*& pStmt = m_pPrep[i];
-			if (pStmt)
-			{
-				sqlite3_finalize(pStmt); // don't care about retval
-				pStmt = NULL;
-			}
-		}
+			m_pPrep[i].Close();
 
 		verify(SQLITE_OK == sqlite3_close(m_pDb));
 		m_pDb = NULL;
@@ -428,18 +430,24 @@ bool NodeDB::ExecStep(Query::Enum val, const char* sql)
 
 }
 
+void NodeDB::Prepare(Statement& s, const char* szSql)
+{
+	assert(!s.m_pStmt);
+
+	const char* szTail;
+	int nRet = sqlite3_prepare_v2(m_pDb, szSql, -1, &s.m_pStmt, &szTail);
+	TestRet(nRet);
+	assert(s.m_pStmt);
+}
+
 sqlite3_stmt* NodeDB::get_Statement(Query::Enum val, const char* sql)
 {
 	assert(val < _countof(m_pPrep));
-	if (!m_pPrep[val])
-	{
-		const char* szTail;
-		int nRet = sqlite3_prepare_v2(m_pDb, sql, -1, m_pPrep + val, &szTail);
-		TestRet(nRet);
-		assert(m_pPrep[val]);
-	}
+	Statement& s = m_pPrep[val];
 
-	return m_pPrep[val];
+	if (!s.m_pStmt)
+		Prepare(s, sql);
+	return s.m_pStmt;
 }
 
 
