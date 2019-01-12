@@ -126,6 +126,7 @@ public:
     Q_INVOKABLE void deleteCurrentWalletDB();
     Q_INVOKABLE void migrateWalletDB(const QString& path);
     Q_INVOKABLE void copyToClipboard(const QString& text);
+    Q_INVOKABLE QString selectCustomWalletDB();
 
 signals:
     void walletExistsChanged();

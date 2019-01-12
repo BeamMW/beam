@@ -18,6 +18,7 @@
 #include <QStringBuilder>
 #include <QApplication>
 #include <QClipboard>
+#include <QFileDialog>
 #include <QVariant>
 #include <QStandardPaths>
 #if defined(QT_PRINTSUPPORT_LIB)
@@ -574,4 +575,12 @@ void StartViewModel::migrateWalletDB(const QString& path)
 void StartViewModel::copyToClipboard(const QString& text)
 {
     QApplication::clipboard()->setText(text);
+}
+
+QString StartViewModel::selectCustomWalletDB()
+{
+    QString filePath = QFileDialog::getOpenFileName(nullptr, tr("Select the wallet database file"),
+        QStandardPaths::writableLocation(QStandardPaths::DesktopLocation), tr("SQLite database file (*.db)"));
+
+    return filePath;
 }

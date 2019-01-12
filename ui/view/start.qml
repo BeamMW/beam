@@ -6,7 +6,6 @@ import QtGraphicalEffects 1.0
 import "controls"
 import Beam.Wallet 1.0
 import QtQuick.Layouts 1.3
-import QtQuick.Dialogs 1.0
 
 Item
 {
@@ -348,7 +347,11 @@ Item
                             icon.source: "qrc:/assets/icon-folder.svg"
                             onClicked: {
                                 // open fileOpenDialog
-                                fileDialog.open();
+                                var path = viewModel.selectCustomWalletDB();
+
+                                if (path.length > 0) {
+                                    buttons.migrateWalletDB(path);
+                                }
                             }
                         }
 
@@ -359,23 +362,6 @@ Item
                             enabled: tableView.currentRow >= 0
                             onClicked: {
                                 buttons.migrateWalletDB(viewModel.walletDBpaths[tableView.currentRow].fullPath);
-                            }
-                        }
-
-                        FileDialog {
-                            id: fileDialog
-                            title: qsTr("Select the wallet database file")
-                            folder: shortcuts.home
-                            visible: false
-                            nameFilters: [ "SQLite database file (*.db)" ]
-                            onAccepted: {
-                                var path = fileDialog.fileUrl.toString();
-                                // remove prefixed "file:///"
-                                path = path.replace(/^(file:\/{3})/,"");
-                                // unescape html codes like '%23' for '#'
-                                buttons.migrateWalletDB(decodeURIComponent(path));
-                            }
-                            onRejected: {
                             }
                         }
 
