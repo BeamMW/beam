@@ -251,6 +251,12 @@ void NodeDB::Open(const char* szPath)
 	// Attempt to fix the "busy" error when PC goes to sleep and then awakes. Try the busy handler with non-zero timeout (maybe a single retry would be enough)
 	sqlite3_busy_timeout(m_pDb, 5000);
 
+	std::string s = ExecTextOut("PRAGMA integrity_check");
+	if (s != "ok")
+		ThrowError(("sqlite integrity: " + s).c_str());
+
+	ExecTextOut("PRAGMA locking_mode = EXCLUSIVE");
+
 	bool bCreate;
 	{
 		Recordset rs(*this, Query::Scheme, "SELECT name FROM sqlite_master WHERE type='table' AND name=?");
@@ -390,6 +396,25 @@ void NodeDB::ExecQuick(const char* szSql)
 
 	if (sqlite3_total_changes(m_pDb) != n)
 		OnModified();
+}
+
+std::string NodeDB::ExecTextOut(const char* szSql)
+{
+	int n = sqlite3_total_changes(m_pDb);
+	TestRet(sqlite3_exec(m_pDb, szSql, NULL, NULL, NULL));
+
+	Statement s;
+	Prepare(s, szSql);
+
+	std::string sRes;
+
+	if (ExecStep(s.m_pStmt))
+		sRes = (const char*) sqlite3_column_text(s.m_pStmt, 0);
+
+	if (sqlite3_total_changes(m_pDb) != n)
+		OnModified();
+
+	return sRes;
 }
 
 bool NodeDB::ExecStep(sqlite3_stmt* pStmt)

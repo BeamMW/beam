@@ -400,6 +400,7 @@ private:
 
 	void Create();
 	void ExecQuick(const char*);
+	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);
 	bool ExecStep(Query::Enum, const char*); // returns true while there's a row
 
