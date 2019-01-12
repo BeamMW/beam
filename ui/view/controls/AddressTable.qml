@@ -138,7 +138,7 @@ CustomTableView {
         property string address
         property var addressItem
         Action {
-            text: qsTr("edit")
+            text: qsTr("edit address")
             icon.source: "qrc:/assets/icon-edit.svg"
             onTriggered: {
                 editDialog.addressItem = contextMenu.addressItem;

@@ -174,11 +174,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
-    void saveAddressChanges(const beam::WalletID& id, const std::string& name, bool isNever, bool makeActive) override
+    void saveAddressChanges(const beam::WalletID& id, const std::string& name, bool isNever, bool makeActive, bool makeExpired) override
     {
-        tx.send([id, name, isNever, makeActive](BridgeInterface& receiver_) mutable
+        tx.send([id, name, isNever, makeActive, makeExpired](BridgeInterface& receiver_) mutable
         {
-            receiver_.saveAddressChanges(id, name, isNever, makeActive);
+            receiver_.saveAddressChanges(id, name, isNever, makeActive, makeExpired);
         });
     }
 
@@ -575,7 +575,7 @@ void WalletModel::deleteAddress(const beam::WalletID& id)
     }
 }
 
-void WalletModel::saveAddressChanges(const beam::WalletID& id, const std::string& name, bool isNever, bool makeActive)
+void WalletModel::saveAddressChanges(const beam::WalletID& id, const std::string& name, bool isNever, bool makeActive, bool makeExpired)
 {
     try
     {
@@ -586,7 +586,12 @@ void WalletModel::saveAddressChanges(const beam::WalletID& id, const std::string
             if (addr->m_OwnID)
             {
                 addr->m_label = name;
-                if (isNever)
+                if (makeExpired)
+                {
+                    assert(addr->m_createTime < getTimestamp() - 1);
+                    addr->m_duration = getTimestamp() - addr->m_createTime - 1;
+                }
+                else if (isNever)
                 {
                     addr->m_duration = 0;
                 }

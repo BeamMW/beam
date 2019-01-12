@@ -241,12 +241,12 @@ void AddressBookViewModel::copyToClipboard(const QString& text)
     QApplication::clipboard()->setText(text);
 }
 
-void AddressBookViewModel::saveChanges(const QString& addr, const QString& name, bool isNever, bool makeActive)
+void AddressBookViewModel::saveChanges(const QString& addr, const QString& name, bool isNever, bool makeActive, bool makeExpired)
 {
     WalletID walletID;
     walletID.FromHex(addr.toStdString());
 
-    m_model.getAsync()->saveAddressChanges(walletID, name.toStdString(), isNever, makeActive);
+    m_model.getAsync()->saveAddressChanges(walletID, name.toStdString(), isNever, makeActive, makeExpired);
 }
 
 void AddressBookViewModel::onStatus(const WalletStatus&)

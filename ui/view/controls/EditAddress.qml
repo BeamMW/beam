@@ -20,8 +20,8 @@ Dialog {
 
     background: Rectangle {
 		radius: 10
-        color: Style.combobox_color
-        anchors.fill: parent            
+        color: Style.dark_slate_blue
+        anchors.fill: parent
     }
 
     contentItem: Column {
@@ -63,7 +63,7 @@ Dialog {
     		width: parent.width
 
 			SFText {
-				text: qsTr("Name")
+				text: qsTr("Comment")
 				color: Style.white
 				font.pixelSize: 12
 				font.styleName: "Bold"; font.weight: Font.Bold
@@ -80,35 +80,25 @@ Dialog {
 			}
     	}
 
-        Row {
-            width: parent.width
+        Column {
+    		width: parent.width
 
-            spacing: 60
-            
-            ButtonGroup {
-                id: expirationGroup
-            }
+			SFText {
+				text: qsTr("Expires")
+				color: Style.white
+				font.pixelSize: 12
+				font.styleName: "Bold"; font.weight: Font.Bold
+			}
 
-            CustomRadioButton {
-                id: exp1
-                text: rootControl.addressItem && (rootControl.addressItem.neverExpired || rootControl.isExpiredAddress) ? qsTr("24h since now") : qsTr("24h")
-                ButtonGroup.group: expirationGroup
-                font.pixelSize: 12
-                checked:  rootControl.addressItem ? !rootControl.addressItem.neverExpired : false
-                outerWidth: 10
-                innerWidth: 6
-            }
+			CustomComboBox {
+                id: expires
+                width: 140
+                height: 20
+                currentIndex: rootControl.addressItem && rootControl.addressItem.neverExpired ? 1 : 0
 
-            CustomRadioButton {
-                id: exp2
-                text: qsTr("Never")
-                ButtonGroup.group: expirationGroup
-                font.pixelSize: 12
-                checked:  rootControl.addressItem ? rootControl.addressItem.neverExpired : false
-                outerWidth: 10
-                innerWidth: 6
+                model: rootControl.isExpiredAddress ? ["in 24 hours (since now)", "never"] : ["in 24 hours (since now)", "never", "now"]
             }
-        }
+    	}
 
         Row {
 			anchors.horizontalCenter: parent.horizontalCenter
@@ -126,9 +116,19 @@ Dialog {
 			PrimaryButton {
 				text: rootControl.isExpiredAddress ? qsTr("make active") : qsTr("save")
                 icon.source: "qrc:/assets/icon-done.svg"
-                enabled: rootControl.isExpiredAddress || (rootControl.addressItem ? rootControl.addressItem.neverExpired != exp2.checked : false)
+                enabled: {
+                    if (rootControl.isExpiredAddress)
+                        return true
+                    else if (rootControl.addressItem) {
+                        if (rootControl.addressItem.neverExpired && expires.currentIndex != 1)
+                            return true
+                        else if (!rootControl.addressItem.neverExpired && expires.currentIndex != 0)
+                            return true;
+                    }
+                    return false;
+                }
                 onClicked: {
-                    parentModel.saveChanges(addressID.text ,addressName.text, exp2.checked, rootControl.isExpiredAddress);
+                    parentModel.saveChanges(addressID.text, addressName.text, expires.currentIndex == 1, rootControl.isExpiredAddress, expires.currentIndex == 2);
                     rootControl.accepted();
                     rootControl.close();
                 }

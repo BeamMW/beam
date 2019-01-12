@@ -95,7 +95,7 @@ public:
 
 	Q_INVOKABLE void deleteAddress(const QString& addr);
     Q_INVOKABLE void copyToClipboard(const QString& text);
-    Q_INVOKABLE void saveChanges(const QString& addr, const QString& name, bool isNever, bool makeActive);
+    Q_INVOKABLE void saveChanges(const QString& addr, const QString& name, bool isNever, bool makeActive, bool makeExpired);
 
 public:
 
