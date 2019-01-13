@@ -110,14 +110,14 @@ namespace beam { namespace wallet
     {
         try
         {
-            TxFailureReason reason = TxFailureReason::Unknown;
-            if (GetParameter(TxParameterID::FailureReason, reason))
+            if (CheckExternalFailures())
             {
-                OnFailed(reason);
                 return;
             }
 
             UpdateImpl();
+
+            CheckExpired();
         }
         catch (const TransactionFailedException& ex)
         {
@@ -151,6 +151,38 @@ namespace beam { namespace wallet
     {
         LOG_INFO() << GetTxID() << " Transaction failed. Rollback...";
         m_WalletDB->rollbackTx(GetTxID());
+    }
+    
+    void BaseTransaction::CheckExpired()
+    {
+        TxStatus s = GetMandatoryParameter<TxStatus>(TxParameterID::Status);
+        if (s != TxStatus::Completed)
+        {
+            Block::SystemState::Full state;
+            Height maxHeight = MaxHeight;
+            GetParameter(TxParameterID::MaxHeight, maxHeight);
+            if (GetTip(state) && state.m_Height > maxHeight)
+            {
+                LOG_INFO() << GetTxID() << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << maxHeight;
+                OnFailed(TxFailureReason::TransactionExpired);
+                return;
+            }
+        }
+    }
+
+    bool BaseTransaction::CheckExternalFailures()
+    {
+        TxFailureReason reason = TxFailureReason::Unknown;
+        if (GetParameter(TxParameterID::FailureReason, reason))
+        {
+            TxStatus s = GetMandatoryParameter<TxStatus>(TxParameterID::Status);
+            if (s == TxStatus::InProgress) 
+            {
+                OnFailed(reason);
+                return true;
+            }
+        }
+        return false;
     }
 
     void BaseTransaction::ConfirmKernel(const TxKernel& kernel)
@@ -261,7 +293,7 @@ namespace beam { namespace wallet
         State txState = GetState();
 
         AmountList amoutList;
-        if (!getTxParameter(m_WalletDB, GetTxID(), TxParameterID::AmountList, amoutList))
+        if (!GetParameter(TxParameterID::AmountList, amoutList))
         {
             amoutList = AmountList{ GetMandatoryParameter<Amount>(TxParameterID::Amount) };
         }
@@ -292,14 +324,6 @@ namespace beam { namespace wallet
             }
 
             UpdateTxDescription(TxStatus::InProgress);
-        }
-
-        Block::SystemState::Full state;
-        if (GetTip(state) && state.m_Height > builder.GetMaxHeight())
-        {
-            LOG_INFO() << GetTxID() << " transaction expired. Current height: " << state.m_Height << ", max kernel height: " << builder.GetMaxHeight();
-            OnFailed(TxFailureReason::TransactionExpired);
-            return;
         }
 
         uint64_t nAddrOwnID;

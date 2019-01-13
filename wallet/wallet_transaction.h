@@ -127,7 +127,8 @@ namespace beam { namespace wallet
 		uint32_t get_PeerVersion() const;
 
     protected:
-
+        void CheckExpired();
+        bool CheckExternalFailures();
         void ConfirmKernel(const TxKernel& kernel);
         void CompleteTx();
         void RollbackTx();

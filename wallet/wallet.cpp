@@ -456,12 +456,13 @@ namespace beam
         auto it = m_Transactions.find(txID);
         if (it != m_Transactions.end())
         {
+            auto tx = it->second;
             bool bSynced = !SyncRemains();
 
             if (bSynced)
-                it->second->Update();
+                tx->Update();
             else
-                m_TransactionsToUpdate.insert(it->second);
+                m_TransactionsToUpdate.insert(tx);
         }
         else
         {
@@ -497,8 +498,9 @@ namespace beam
             auto it = m_Transactions.find(r.m_TxID);
             if (m_Transactions.end() != it)
             {
-                if (it->second->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Proof.m_State.m_Height))
-                    it->second->Update();
+                auto tx = it->second;
+                if (tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Proof.m_State.m_Height))
+                    tx->Update();
             }
         }
     }
@@ -686,7 +688,8 @@ namespace beam
         auto t = m_Transactions;
         for (auto& p : t)
         {
-            p.second->Update();
+            auto tx = p.second;
+            tx->Update();
         }
 
         // try to restore utxo state after reset, rollback and etc..
@@ -773,7 +776,7 @@ namespace beam
 
         for (auto it = txSet.begin(); txSet.end() != it; it++)
         {
-            const wallet::BaseTransaction::Ptr& pTx = *it;
+            wallet::BaseTransaction::Ptr pTx = *it;
             if (m_Transactions.find(pTx->GetTxID()) != m_Transactions.end())
                 pTx->Update();
         }
