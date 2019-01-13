@@ -140,11 +140,9 @@ namespace beam { namespace wallet
         }
         else
         {
-            UpdateTxDescription(TxStatus::Cancelled);
+			NotifyFailure(TxFailureReason::Cancelled);
+			UpdateTxDescription(TxStatus::Cancelled);
             RollbackTx();
-            SetTxParameter msg;
-            msg.AddParameter(TxParameterID::FailureReason, TxFailureReason::Cancelled);
-            SendTxParameters(move(msg));
             m_Gateway.on_tx_completed(GetTxID());
         }
     }
@@ -177,16 +175,35 @@ namespace beam { namespace wallet
     void BaseTransaction::OnFailed(TxFailureReason reason, bool notify)
     {
         LOG_ERROR() << GetTxID() << " Failed. " << GetFailureMessage(reason);
-        UpdateTxDescription((reason == TxFailureReason::Cancelled) ? TxStatus::Cancelled : TxStatus::Failed);
+
+		if (notify)
+			NotifyFailure(reason);
+
+		UpdateTxDescription((reason == TxFailureReason::Cancelled) ? TxStatus::Cancelled : TxStatus::Failed);
         RollbackTx();
-        if (notify)
-        {
-            SetTxParameter msg;
-            msg.AddParameter(TxParameterID::FailureReason, reason);
-            SendTxParameters(move(msg));
-        }
-        m_Gateway.on_tx_completed(GetTxID());
+
+		m_Gateway.on_tx_completed(GetTxID());
     }
+
+	void BaseTransaction::NotifyFailure(TxFailureReason reason)
+	{
+		TxStatus s = TxStatus::Failed;
+		GetParameter(TxParameterID::Status, s);
+
+		switch (s)
+		{
+		case TxStatus::Pending:
+		case TxStatus::InProgress:
+			// those are the only applicable statuses, where there's no chance tx can be valid
+			break;
+		default:
+			return;
+		}
+
+		SetTxParameter msg;
+		msg.AddParameter(TxParameterID::FailureReason, reason);
+		SendTxParameters(move(msg));
+	}
 
     IWalletDB::Ptr BaseTransaction::GetWalletDB()
     {

@@ -131,6 +131,7 @@ namespace beam { namespace wallet
         void ConfirmKernel(const TxKernel& kernel);
         void CompleteTx();
         void RollbackTx();
+		void NotifyFailure(TxFailureReason);
         void UpdateTxDescription(TxStatus s);
 
         std::vector<Coin> GetUnconfirmedOutputs() const;
