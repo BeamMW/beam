@@ -124,6 +124,8 @@ namespace beam { namespace wallet
 
         IWalletDB::Ptr GetWalletDB();
         bool IsInitiator() const;
+		uint32_t get_PeerVersion() const;
+
     protected:
 
         void ConfirmKernel(const TxKernel& kernel);

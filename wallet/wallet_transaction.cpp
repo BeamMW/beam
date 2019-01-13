@@ -89,6 +89,13 @@ namespace beam { namespace wallet
         return *m_IsInitiator;
     }
 
+	uint32_t BaseTransaction::get_PeerVersion() const
+	{
+		uint32_t nVer = 0;
+		GetParameter(TxParameterID::PeerProtoVersion, nVer);
+		return nVer;
+	}
+
     bool BaseTransaction::GetTip(Block::SystemState::Full& state) const
     {
         return m_Gateway.get_tip(state);
@@ -362,13 +369,10 @@ namespace beam { namespace wallet
                 bSuccess = pc.IsValid(widPeer.m_Pk);
             }
 
-            if (!bSuccess)
-            {
-                uint32_t nVer = 0;
-                GetParameter(TxParameterID::PeerProtoVersion, nVer);
-
-                if (nVer >= s_ProtoVersion)
-                    OnFailed(TxFailureReason::InvalidPeerSignature);
+			if (!bSuccess)
+			{
+				if (get_PeerVersion() >= s_ProtoVersion)
+					OnFailed(TxFailureReason::InvalidPeerSignature);
 
                 // TODO - Ban older version negotiators when we decide to switch to the newer ver
             }
