@@ -431,11 +431,24 @@ struct PaymentInfo
 	Signature m_Signature;
 
 	template <typename Archive>
+	static void serializeWid(Archive& ar, WalletID& wid)
+	{
+		BbsChannel ch;
+		wid.m_Channel.Export(ch);
+
+		ar
+			& ch
+			& wid.m_Pk;
+
+		wid.m_Channel = ch;
+	}
+
+	template <typename Archive>
 	void serialize(Archive& ar)
 	{
+		serializeWid(ar, m_Sender);
+		serializeWid(ar, m_Receiver);
 		ar
-			& m_Sender
-			& m_Receiver
 			& m_Amount
 			& m_KernelID
 			& m_Signature;
