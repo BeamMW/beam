@@ -831,7 +831,7 @@ namespace
 
             status.sent = wallet::getSpentByTx(_walletDB, TxStatus::Completed);
             status.received = wallet::getReceivedByTx(_walletDB, TxStatus::Completed);
-            status.unconfirmed = _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
+            status.unconfirmed = _walletDB->getTotal(Coin::Incoming);
             status.update.lastTime = _walletDB->getLastUpdateTime();
 
             ZeroObject(status.stateID);

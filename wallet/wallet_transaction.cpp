@@ -247,7 +247,7 @@ namespace beam { namespace wallet
         vector<Coin> outputs;
         m_WalletDB->visit([&](const Coin& coin)
         {
-            if ((coin.m_createTxId == GetTxID() && (coin.m_status == Coin::Incoming || coin.m_status == Coin::Change))
+            if ((coin.m_createTxId == GetTxID() && (coin.m_status == Coin::Incoming))
                 || (coin.m_spentTxId == GetTxID() && coin.m_status == Coin::Outgoing))
             {
                 outputs.emplace_back(coin);
@@ -314,7 +314,7 @@ namespace beam { namespace wallet
                 // create receiver utxo
                 for (auto& amount : builder.GetAmountList())
                 {
-                    builder.AddOutput(amount, Coin::Incoming);
+                    builder.AddOutput(amount, false);
                 }
             }
 
@@ -677,12 +677,12 @@ namespace beam { namespace wallet
             return;
         }
 
-        AddOutput(m_Change, Coin::Change);
+        AddOutput(m_Change, true);
     }
 
-    void TxBuilder::AddOutput(Amount amount, Coin::Status status)
+    void TxBuilder::AddOutput(Amount amount, bool bChange)
     {
-        m_Outputs.push_back(CreateOutput(amount, status, m_MinHeight));
+        m_Outputs.push_back(CreateOutput(amount, bChange, m_MinHeight));
     }
 
     bool TxBuilder::FinalizeOutputs()
@@ -695,12 +695,12 @@ namespace beam { namespace wallet
         return true;
     }
 
-    Output::Ptr TxBuilder::CreateOutput(Amount amount, Coin::Status status, bool shared, Height incubation)
+    Output::Ptr TxBuilder::CreateOutput(Amount amount, bool bChange, bool shared, Height incubation)
     {
-        Coin newUtxo{ amount, status };
+        Coin newUtxo{ amount, Coin::Incoming };
         newUtxo.m_createTxId = m_Tx.GetTxID();
         newUtxo.m_createHeight = m_MinHeight;
-        if (Coin::Status::Change == status)
+        if (bChange)
         {
             newUtxo.m_ID.m_Type = Key::Type::Change;
         }

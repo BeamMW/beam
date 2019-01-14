@@ -881,8 +881,9 @@ namespace beam
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
-        const int DbVersion = 10;
-    }
+        const int DbVersion = 11;
+		const int DbVersion10 = 10;
+	}
 
     Coin::Coin(Amount amount, Status status, Height maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
         : m_status{ status }
@@ -1012,11 +1013,38 @@ namespace beam
                 }
                 {
                     int version = 0;
-                    if (!wallet::getVar(walletDB, Version, version) || version > DbVersion)
-                    {
-                        LOG_DEBUG() << "Invalid DB version: " << version << ". Expected: " << DbVersion;
-                        return Ptr();
-                    }
+					wallet::getVar(walletDB, Version, version);
+
+					switch (version)
+					{
+					case DbVersion10:
+						{
+							LOG_INFO() << "Converting DB to a newer format";
+
+							// get rid of former Coin::Change status
+							const char* req = "UPDATE " STORAGE_NAME " SET status=?1 WHERE status=?2;";
+							sqlite::Statement stm(walletDB->_db, req);
+
+							stm.bind(1, Coin::Incoming);
+							stm.bind(2, Coin::ChangeV0);
+
+							stm.step();
+						}
+
+						wallet::setVar(walletDB, Version, DbVersion);
+
+						// no break;
+
+					case DbVersion:
+						break; // ok
+
+					default:
+						{
+							LOG_DEBUG() << "Invalid DB version: " << version << ". Expected: " << DbVersion;
+							return Ptr();
+						}
+					}
+
                 }
                 {
                     const char* req = "SELECT name FROM sqlite_master WHERE type='table' AND name='" STORAGE_NAME "';";

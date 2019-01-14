@@ -68,12 +68,12 @@ QString UtxoItem::status() const
             return tr("maturing\n(till block height ") + QString::number(_coin.m_maturity) + ")";
         case Coin::Unavailable:
             return tr("unavailable\n(mining result rollback)");
-        case Coin::Change:
-            return tr("in progress\n(change)");
         case Coin::Outgoing:
             return tr("in progress\n(outgoing)");
         case Coin::Incoming:
-            return tr("in progress\n(incoming)");
+			return (_coin.m_ID.m_Type == Key::Type::Change) ?
+				tr("in progress\n(change)") :
+				tr("in progress\n(incoming)");
         case Coin::Spent:
             return tr("spent");
         default:

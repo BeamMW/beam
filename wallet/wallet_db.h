@@ -46,7 +46,7 @@ namespace beam
             Maturing,
             Outgoing,
             Incoming,
-            Change,
+            ChangeV0, // deprecated.
             Spent
         };
 

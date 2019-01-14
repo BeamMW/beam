@@ -343,7 +343,7 @@ namespace beam
                 }
 
                 response.available = _walletDB->getAvailable();
-                response.receiving = _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
+                response.receiving = _walletDB->getTotal(Coin::Incoming);
                 response.sending = _walletDB->getTotal(Coin::Outgoing);
                 response.maturing = _walletDB->getTotal(Coin::Maturing);
 

@@ -58,8 +58,7 @@ namespace beam
         case Coin::Spent: ss << "Spent"; break;
         case Coin::Maturing: ss << "Maturing"; break;
         case Coin::Outgoing: ss << "In progress(outgoing)"; break;
-        case Coin::Incoming: ss << "In progress(incoming)"; break;
-        case Coin::Change: ss << "In progress(change)"; break;
+        case Coin::Incoming: ss << "In progress(incoming/change)"; break;
         default:
             assert(false && "Unknown coin status");
         }
@@ -707,7 +706,7 @@ int main_impl(int argc, char* argv[])
                             Block::SystemState::ID stateID = {};
                             walletDB->getSystemStateID(stateID);
                             auto totalInProgress = walletDB->getTotal(Coin::Incoming) +
-                                walletDB->getTotal(Coin::Outgoing) + walletDB->getTotal(Coin::Change);
+                                walletDB->getTotal(Coin::Outgoing);
                             auto totalCoinbase = walletDB->getTotalByType(Coin::Available, Key::Type::Coinbase) +
                                 walletDB->getTotalByType(Coin::Maturing, Key::Type::Coinbase);
                             auto totalFee = walletDB->getTotalByType(Coin::Available, Key::Type::Comission) +

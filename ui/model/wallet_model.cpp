@@ -249,7 +249,7 @@ WalletStatus WalletModel::getStatus() const
     WalletStatus status;
 
     status.available = _walletDB->getAvailable();
-    status.receiving = _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
+    status.receiving = _walletDB->getTotal(Coin::Incoming);
     status.sending = _walletDB->getTotal(Coin::Outgoing);
     status.maturing = _walletDB->getTotal(Coin::Maturing);
 
