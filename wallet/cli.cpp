@@ -788,7 +788,23 @@ int main_impl(int argc, char* argv[])
                             auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
                             TxID txId;
                             std::copy_n(txIdVec.begin(), 16, txId.begin());
-                            wallet.cancel_tx(txId);
+                            auto tx = walletDB->getTx(txId);
+
+                            if (tx)
+                            {
+                                if (tx->canCancel())
+                                {
+                                    wallet.cancel_tx(txId);
+                                }
+                                else
+                                {
+                                    LOG_ERROR() << "Transaction could not be cancelled. Invalid transaction status.";
+                                }
+                            }
+                            else
+                            {
+                                LOG_ERROR() << "Unknown transaction ID.";
+                            }
                         }
 
                         io::Reactor::get_Current().run();
