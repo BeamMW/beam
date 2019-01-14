@@ -1690,10 +1690,11 @@ namespace beam
             stm.step();
         }
         {
-            const char* req = "DELETE FROM " STORAGE_NAME " WHERE createTxId=?1;";
+            const char* req = "DELETE FROM " STORAGE_NAME " WHERE createTxId=?1 AND status=?2;";
             sqlite::Statement stm(_db, req);
             stm.bind(1, txId);
-            stm.step();
+			stm.bind(2, Coin::Incoming);
+			stm.step();
         }
         trans.commit();
         notifyCoinsChanged();
