@@ -604,7 +604,7 @@ namespace beam
 
         bool bExists = m_WalletDB->find(c);
 
-        const TxID* pTxID = NULL;
+        //const TxID* pTxID = NULL;
 
         LOG_INFO() << "CoinID: " << evt.m_Kidv << " Maturity=" << evt.m_Maturity << (evt.m_Added ? " Confirmed" : " Spent");
 
@@ -615,9 +615,9 @@ namespace beam
                 c.m_confirmHeight = evt.m_Height;
             c.m_status = (evt.m_Maturity <= hTip) ? Coin::Status::Available : Coin::Status::Maturing;
 
-            if (c.m_createTxId)
-                updateTransaction(*c.m_createTxId);
-            pTxID = c.m_createTxId.get_ptr();
+            //if (c.m_createTxId)
+            //    updateTransaction(*c.m_createTxId);
+            //pTxID = c.m_createTxId.get_ptr();
 
             if (!bExists)
                 c.m_createHeight = evt.m_Height;
@@ -629,12 +629,12 @@ namespace beam
 
             c.m_maturity = evt.m_Maturity;
             c.m_status = Coin::Status::Spent;
-            pTxID = c.m_spentTxId.get_ptr();
+            //pTxID = c.m_spentTxId.get_ptr();
         }
 
         m_WalletDB->save(c);
 
-        if (!pTxID)
+/*        if (!pTxID)
             return;
 
         auto it = m_Transactions.find(*pTxID);
@@ -650,7 +650,7 @@ namespace beam
             h = evt.m_Height;
             pTx->SetParameter(TxParameterID::KernelProofHeight, h);
             m_TransactionsToUpdate.insert(pTx);
-        }
+        }*/
     }
 
     void Wallet::OnRolledBack()
