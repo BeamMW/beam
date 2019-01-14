@@ -421,6 +421,52 @@ int HandleTreasury(const po::variables_map& vm, Key::IKdf& kdf)
     return 0;
 }
 
+struct PaymentInfo
+{
+	WalletID m_Sender;
+	WalletID m_Receiver;
+
+	Amount m_Amount;
+	Merkle::Hash m_KernelID;
+	Signature m_Signature;
+
+	template <typename Archive>
+	void serialize(Archive& ar)
+	{
+		ar
+			& m_Sender
+			& m_Receiver
+			& m_Amount
+			& m_KernelID
+			& m_Signature;
+	}
+
+	bool IsValid() const
+	{
+		wallet::PaymentConfirmation pc;
+		pc.m_Value = m_Amount;
+		pc.m_KernelID = m_KernelID;
+		pc.m_Signature = m_Signature;
+		pc.m_Sender = m_Sender.m_Pk;
+		return pc.IsValid(m_Receiver.m_Pk);
+	}
+
+	std::string to_string() const
+	{
+		char szKernelID[Merkle::Hash::nTxtLen + 1];
+		m_KernelID.Print(szKernelID);
+
+		std::ostringstream s;
+		s
+			<< "Sender: " << std::to_string(m_Sender) << std::endl
+			<< "Receiver: " << std::to_string(m_Receiver) << std::endl
+			<< "Amount: " << PrintableAmount(m_Amount) << std::endl
+			<< "KernelID: " << szKernelID << std::endl;
+
+		return s.str();
+	}
+};
+
 
 io::Reactor::Ptr reactor;
 
@@ -508,7 +554,9 @@ int main_impl(int argc, char* argv[])
                             && command != cli::NEW_ADDRESS
                             && command != cli::CANCEL_TX
                             && command != cli::CHANGE_ADDRESS_EXPIRATION
-                            && command != cli::GENERATE_PHRASE)
+							&& command != cli::PAYMENT_PROOF_EXPORT
+							&& command != cli::PAYMENT_PROOF_VERIFY
+							&& command != cli::GENERATE_PHRASE)
                         {
                             LOG_ERROR() << "unknown command: \'" << command << "\'";
                             return -1;
@@ -705,6 +753,66 @@ int main_impl(int argc, char* argv[])
                             });
                             return 0;
                         }
+
+						if (command == cli::PAYMENT_PROOF_EXPORT)
+						{
+							auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
+							TxID txId;
+							if (txIdVec.size() >= 16)
+								std::copy_n(txIdVec.begin(), 16, txId.begin());
+
+							PaymentInfo pi;
+							uint64_t nAddrOwnID;
+
+							bool bSuccess =
+								wallet::getTxParameter(walletDB, txId, wallet::TxParameterID::PeerID, pi.m_Receiver) &&
+								wallet::getTxParameter(walletDB, txId, wallet::TxParameterID::MyID, pi.m_Sender) &&
+								wallet::getTxParameter(walletDB, txId, wallet::TxParameterID::KernelID, pi.m_KernelID) &&
+								wallet::getTxParameter(walletDB, txId, wallet::TxParameterID::Amount, pi.m_Amount) &&
+								wallet::getTxParameter(walletDB, txId, wallet::TxParameterID::PaymentConfirmation, pi.m_Signature) &&
+								wallet::getTxParameter(walletDB, txId, wallet::TxParameterID::MyAddressID, nAddrOwnID);
+
+							if (bSuccess)
+							{
+								LOG_INFO() << "Payment tx details:\n" << pi.to_string();
+								LOG_INFO() << "Sender address own ID: " << nAddrOwnID;
+
+								Serializer ser;
+								ser & pi;
+
+								auto res = ser.buffer();
+								std::string sTxt;
+								sTxt.resize(res.second * 2);
+
+								beam::to_hex(&sTxt.front(), res.first, res.second);
+								LOG_INFO() << "Exported form: " << sTxt;
+
+							}
+							else
+							{
+								LOG_WARNING() << "No payment confirmation for the specified transaction.";
+							}
+
+							return 0;
+						}
+
+						if (command == cli::PAYMENT_PROOF_VERIFY)
+						{
+							ByteBuffer buf = from_hex(vm[cli::PAYMENT_PROOF_DATA].as<string>());
+
+							Deserializer der;
+							der.reset(buf);
+
+							PaymentInfo pi;
+							der & pi;
+
+							if (!pi.IsValid())
+								throw std::runtime_error("Payment proof is invalid");
+
+							LOG_INFO() << "Payment tx details:\n" << pi.to_string() << "Verified.";
+
+							return 0;
+						}
 
                         if (vm.count(cli::NODE_ADDR) == 0)
                         {

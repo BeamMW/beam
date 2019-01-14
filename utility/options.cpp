@@ -69,6 +69,9 @@ namespace beam
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
         const char* CANCEL_TX = "cancel_tx";
+		const char* PAYMENT_PROOF_EXPORT = "payment_proof_export";
+		const char* PAYMENT_PROOF_VERIFY = "payment_proof_verify";
+		const char* PAYMENT_PROOF_DATA = "payment_proof";
         const char* TX_ID = "tx_id";
         const char* SEED_PHRASE = "seed_phrase";
         const char* GENERATE_PHRASE = "generate_phrase";
@@ -178,6 +181,7 @@ namespace beam
             (cli::KEY_SUBKEY, po::value<uint32_t>()->default_value(0), "Child key index.")
             (cli::CHANGE_ADDRESS_EXPIRATION, po::value<string>(), "change address expiration")
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
+			(cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
             (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration]");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
