@@ -535,7 +535,7 @@ int main(int argc, char* argv[])
             LOG_INFO() << "wallet sucessfully opened...";
         }
 
-        io::Address listenTo = io::Address::localhost().port(options.port);
+        io::Address listenTo = io::Address().port(options.port);
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
 
