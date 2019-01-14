@@ -1925,9 +1925,6 @@ void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType&
 
         if (outp.m_pPublic)
             os << ", Sum=" << outp.m_pPublic->m_Value;
-
-        if (outp.m_pConfidential)
-            os << ", Confidential";
     }
 
     for (size_t i = 0; i < tx.m_vKernels.size(); i++)
@@ -1936,7 +1933,10 @@ void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType&
         Merkle::Hash hv;
         krn.get_ID(hv);
 
-        os << "\n\tK: " << hv << " Fee=" << krn.m_Fee;
+		char sz[Merkle::Hash::nTxtLen + 1];
+		hv.Print(sz);
+
+        os << "\n\tK: " << sz << " Fee=" << krn.m_Fee;
     }
 
     os << "\n\tValid: " << bValid;

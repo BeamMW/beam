@@ -832,9 +832,14 @@ namespace beam { namespace wallet
     Transaction::Ptr TxBuilder::CreateTransaction()
     {
         assert(m_Kernel);
-        Merkle::Hash kernelID = { 0 };
+        Merkle::Hash kernelID;
         m_Kernel->get_ID(kernelID);
-        LOG_INFO() << m_Tx.GetTxID() << " Transaction created. Kernel: " << kernelID;
+
+		char sz[Merkle::Hash::nTxtLen + 1];
+		kernelID.Print(sz);
+
+        LOG_INFO() << m_Tx.GetTxID() << " Transaction created. Kernel: " << sz;
+
         // create transaction
         auto transaction = make_shared<Transaction>();
         transaction->m_vKernels.push_back(move(m_Kernel));
