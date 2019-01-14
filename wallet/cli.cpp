@@ -165,7 +165,7 @@ namespace
             auto tempPhrase = vm[cli::SEED_PHRASE].as<string>();
             phrase = string_helpers::split(tempPhrase, ';');
             assert(phrase.size() == 12);
-            if (isValidMnemonic(phrase, language::en))
+            if (!isValidMnemonic(phrase, language::en))
             {
                 LOG_ERROR() << "Invalid seed phrases provided: " << tempPhrase;
                 return false;
