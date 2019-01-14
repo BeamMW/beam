@@ -13,7 +13,7 @@ Item
 
     anchors.fill: parent
 
-    StartViewModel { id: viewModel }
+    StartViewModel { id: viewModel }    
     
     LogoComponent {
         id: logoComponent
@@ -42,6 +42,47 @@ Item
                 }
 
                 property Item defaultFocusItem: createNewWallet
+
+                ConfirmationDialog {
+                    id: restoreWalletConfirmation
+
+                    okButtonText: qsTr("restore wallet")
+                    okButtonIconSource: "qrc:/assets/icon-restore-blue.svg"
+                    cancelVisible: true
+                    cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+                    width: 460
+                    height: 208
+
+                    contentItem: Column {
+                        anchors.fill: parent
+                        anchors.margins: 30
+                        spacing: 20
+
+                        SFText {
+                            horizontalAlignment : Text.AlignHCenter
+                            width: parent.width
+                            text: qsTr("Your funds will be fully restored from the blockchain. The transaction history and your addresses are stored locally and are encrypted with your password, hence it can't be restored.")
+                            color: Style.white
+                            font.pixelSize: 14
+                            wrapMode: Text.Wrap
+                        }
+
+                        SFText {
+                            horizontalAlignment : Text.AlignHCenter
+                            width: parent.width
+                            text: qsTr("That's the final version till the future validation and process.")
+                            color: Style.white
+                            font.pixelSize: 14
+                            wrapMode: Text.Wrap
+                        }
+                    }
+                    onAccepted: {
+                        onClicked: {
+                            viewModel.isRecoveryMode = true;
+                            startWizzardView.push(restoreWallet);
+                        }
+                    }
+                }
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -89,8 +130,7 @@ Item
                             text: qsTr("restore wallet")
                             icon.source: "qrc:/assets/icon-restore.svg"
                             onClicked: {
-                                viewModel.isRecoveryMode = true;
-                                startWizzardView.push(restoreWallet);
+                                restoreWalletConfirmation.open();
                             }
                         }
                     }
