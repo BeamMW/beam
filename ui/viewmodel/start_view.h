@@ -27,6 +27,7 @@ class RecoveryPhraseItem : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(bool isCorrect READ isCorrect NOTIFY isCorrectChanged)
+    Q_PROPERTY(bool isAllowed READ isAllowed NOTIFY isAllowedChanged)
     Q_PROPERTY(QString value READ getValue WRITE setValue NOTIFY valueChanged)
     Q_PROPERTY(QString phrase READ getPhrase CONSTANT)
     Q_PROPERTY(int index READ getIndex CONSTANT)
@@ -35,12 +36,14 @@ public:
     ~RecoveryPhraseItem();
 
     bool isCorrect() const;
+    bool isAllowed() const;
     const QString& getValue() const;
     void setValue(const QString& value);
     const QString& getPhrase() const;
     int getIndex() const;
 signals: 
     void isCorrectChanged();
+    void isAllowedChanged();
     void valueChanged();
 
 private:

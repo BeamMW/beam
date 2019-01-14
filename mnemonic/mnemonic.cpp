@@ -20,6 +20,8 @@
 #include <boost/algorithm/string.hpp>
 #include <random>
 
+using namespace std;
+
 namespace beam
 {
     namespace
@@ -100,5 +102,16 @@ namespace beam
             throw MnemonicException("pbkdf2 returned bad result");
 
         return hash;
+    }
+
+    bool isAllowedWord(const string& word, const Dictionary& dict)
+    {
+        assert(is_sorted(dict.begin(), dict.end()));
+        return binary_search(dict.begin(), dict.end(), word);
+    }
+
+    bool isValidMnemonic(const WordList& words, const Dictionary& dict)
+    {
+        return words.size() == 12 && all_of(words.begin(), words.end(), [&dict](const string& w) {return isAllowedWord(w, dict); });
     }
 }

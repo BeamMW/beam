@@ -889,7 +889,7 @@ Item
 
                                     Rectangle {
                                         id: correctPhraseRect
-                                        color: Style.dark_slate_blue
+                                        color: modelData.isAllowed ? Style.dark_slate_blue : Style.validator_color
                                         width: 20
                                         height: 20
                                         radius: 10
@@ -911,7 +911,8 @@ Item
                                     anchors.bottomMargin: 6
                                     width: 121
                                     font.pixelSize: 14
-                                    color: Style.white
+                                    color: (modelData.isAllowed || modelData.value.length == 0) ? Style.white : Style.validator_color
+                                    backgroundColor: (modelData.isAllowed || modelData.value.length == 0) ? Style.white : Style.validator_color
                                     text: modelData.value
                                     onTextEdited: {
                                         var phrases = text.split(viewModel.phrasesSeparator);
@@ -963,7 +964,7 @@ Item
                                 var enable = true;
                                 for(var i = 0; i < viewModel.recoveryPhrases.length; ++i)
                                 {
-                                    enable &= viewModel.recoveryPhrases[i].value.length > 0;
+                                    enable &= viewModel.recoveryPhrases[i].isAllowed;
                                 }
                                 return enable;
                             }

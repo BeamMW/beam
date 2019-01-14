@@ -921,7 +921,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
         WordList phrases = string_helpers::split(JString(env, phrasesStr).value(), ';');
         assert(phrases.size() == 12);
-        if (phrases.size() != 12)
+        if (isValidMnemonic(phrases, language::en) != 12)
         {
             LOG_ERROR() << "Invalid seed phrases provided: " << JString(env, phrasesStr).value();
             return nullptr;

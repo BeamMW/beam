@@ -137,6 +137,11 @@ bool RecoveryPhraseItem::isCorrect() const
     return m_userInput == m_phrase;
 }
 
+bool RecoveryPhraseItem::isAllowed() const
+{
+    return isAllowedWord(m_userInput.toStdString(), language::en);
+}
+
 const QString& RecoveryPhraseItem::getValue() const
 {
     return m_userInput;
@@ -149,6 +154,7 @@ void RecoveryPhraseItem::setValue(const QString& value)
         m_userInput = value;
         emit valueChanged();
         emit isCorrectChanged();
+        emit isAllowedChanged();
     }
 }
 
