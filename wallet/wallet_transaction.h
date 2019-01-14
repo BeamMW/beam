@@ -219,6 +219,8 @@ namespace beam { namespace wallet
         const ECC::Scalar::Native& GetOffset() const;
         const ECC::Scalar::Native& GetPartialSignature() const;
         const TxKernel& GetKernel() const;
+        void StoreKernelID();
+        std::string GetKernelIDString() const;
 
     private:
         BaseTransaction& m_Tx;

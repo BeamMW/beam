@@ -520,7 +520,7 @@ namespace beam { namespace wallet
 
     void SimpleTransaction::ConfirmInvitation(const TxBuilder& builder, bool sendUtxos)
     {
-        LOG_INFO() << GetTxID() << " Transaction accepted. Kernel: " << GetMandatoryParameter<Merkle::Hash>(TxParameterID::KernelID);
+        LOG_INFO() << GetTxID() << " Transaction accepted. Kernel: " << builder.GetKernelIDString();
         SetTxParameter msg;
         msg
             .AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
@@ -811,10 +811,7 @@ namespace beam { namespace wallet
         
         m_MultiSig.SignPartial(m_PartialSignature, m_Message, m_BlindingExcess);
 
-        Merkle::Hash kernelID;
-        m_Kernel->get_ID(kernelID);
-
-        m_Tx.SetParameter(TxParameterID::KernelID, kernelID);
+        StoreKernelID();
     }
 
     void TxBuilder::FinalizeSignature()
@@ -823,22 +820,13 @@ namespace beam { namespace wallet
         m_Kernel->m_Signature.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
         m_Kernel->m_Signature.m_k = m_PartialSignature + m_PeerSignature;
         
-        Merkle::Hash kernelID;
-        m_Kernel->get_ID(kernelID);
-
-        m_Tx.SetParameter(TxParameterID::KernelID, kernelID);
+        StoreKernelID();
     }
 
     Transaction::Ptr TxBuilder::CreateTransaction()
     {
         assert(m_Kernel);
-        Merkle::Hash kernelID;
-        m_Kernel->get_ID(kernelID);
-
-		char sz[Merkle::Hash::nTxtLen + 1];
-		kernelID.Print(sz);
-
-        LOG_INFO() << m_Tx.GetTxID() << " Transaction created. Kernel: " << sz;
+        LOG_INFO() << m_Tx.GetTxID() << " Transaction created. Kernel: " << GetKernelIDString();
 
         // create transaction
         auto transaction = make_shared<Transaction>();
@@ -911,5 +899,24 @@ namespace beam { namespace wallet
     {
         assert(m_Kernel);
         return *m_Kernel;
+    }
+
+    void TxBuilder::StoreKernelID()
+    {
+        assert(m_Kernel);
+        Merkle::Hash kernelID;
+        m_Kernel->get_ID(kernelID);
+
+        m_Tx.SetParameter(TxParameterID::KernelID, kernelID);
+    }
+
+    string TxBuilder::GetKernelIDString() const
+    {
+        Merkle::Hash kernelID;
+        m_Kernel->get_ID(kernelID);
+
+        char sz[Merkle::Hash::nTxtLen + 1];
+        kernelID.Print(sz);
+        return string(sz);
     }
 }}
