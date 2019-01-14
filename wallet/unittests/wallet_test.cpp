@@ -1566,10 +1566,12 @@ static void TestExpiredTransaction()
 
         auto sh = sender.m_WalletDB->getTxHistory();
         WALLET_CHECK(sh.size() == 2);
-        WALLET_CHECK(sh[0].m_status == TxStatus::Completed);
+        auto sit = find_if(sh.begin(), sh.end(), [&txId](const auto& t) {return t.m_txId == txId; });
+        WALLET_CHECK(sit->m_status == TxStatus::Completed);
         auto rh = receiver.m_WalletDB->getTxHistory();
         WALLET_CHECK(rh.size() == 2);
-        WALLET_CHECK(rh[0].m_status == TxStatus::Completed);
+        auto rit = find_if(rh.begin(), rh.end(), [&txId](const auto& t) {return t.m_txId == txId; });
+        WALLET_CHECK(rit->m_status == TxStatus::Completed);
     }
 }
 
