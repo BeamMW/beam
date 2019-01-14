@@ -219,7 +219,14 @@ namespace beam
 
                 auto txId = _wallet.transfer_money(senderAddress.m_walletID, data.address, data.value, data.fee, true, 120, std::move(message));
 
-                doResponse(id, Send::Response{ txId });
+                if (txId)
+                {
+                    doResponse(id, Send::Response{ *txId });
+                }
+                else
+                {
+                    doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction could not be created. Please look at logs.");
+                }
             }
 
             void onMessage(int id, const Replace& data) override
@@ -266,7 +273,14 @@ namespace beam
 
                 auto txId = _wallet.split_coins(senderAddress.m_walletID, data.coins, data.fee);
 
-                doResponse(id, Send::Response{ txId });
+                if (txId)
+                {
+                    doResponse(id, Send::Response{ *txId });
+                }
+                else
+                {
+                    doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction could not be created. Please look at logs.");
+                }
             }
 
             void onMessage(int id, const TxCancel& data) override

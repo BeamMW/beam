@@ -775,7 +775,12 @@ int main_impl(int argc, char* argv[])
                         {
                             WalletAddress senderAddress = newAddress(walletDB, "");
                             wnet.AddOwnAddress(senderAddress);
-                            wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
+                            auto txId = wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
+
+                            if (!txId)
+                            {
+                                return 0;
+                            }
                         }
 
                         if (command == cli::CANCEL_TX) 

@@ -970,7 +970,7 @@ void TestTxToHimself()
     helpers::StopWatch sw;
 
     sw.start();
-    TxID txId = sender.m_Wallet.transfer_money(sender.m_WalletID, sender.m_WalletID, 24, 2, true, 200);
+    auto txId = sender.m_Wallet.transfer_money(sender.m_WalletID, sender.m_WalletID, 24, 2, true, 200);
     mainReactor->run();
     sw.stop();
 
@@ -979,7 +979,7 @@ void TestTxToHimself()
     // check Tx
     auto txHistory = senderWalletDB->getTxHistory();
     WALLET_CHECK(txHistory.size() == 1);
-    WALLET_CHECK(txHistory[0].m_txId == txId);
+    WALLET_CHECK(txHistory[0].m_txId == *txId);
     WALLET_CHECK(txHistory[0].m_amount == 24);
     WALLET_CHECK(txHistory[0].m_change == 14);
     WALLET_CHECK(txHistory[0].m_fee == 2);
@@ -1038,7 +1038,7 @@ void TestP2PWalletNegotiationST()
     helpers::StopWatch sw;
     sw.start();
 
-    TxID txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true, 200);
+    auto txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true, 200);
 
     mainReactor->run();
     sw.stop();
@@ -1075,9 +1075,9 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(sh.size() == 1);
     auto rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 1);
-    auto stx = sender.m_WalletDB->getTx(txId);
+    auto stx = sender.m_WalletDB->getTx(*txId);
     WALLET_CHECK(stx.is_initialized());
-    auto rtx = receiver.m_WalletDB->getTx(txId);
+    auto rtx = receiver.m_WalletDB->getTx(*txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
@@ -1138,9 +1138,9 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(sh.size() == 2);
     rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 2);
-    stx = sender.m_WalletDB->getTx(txId);
+    stx = sender.m_WalletDB->getTx(*txId);
     WALLET_CHECK(stx.is_initialized());
-    rtx = receiver.m_WalletDB->getTx(txId);
+    rtx = receiver.m_WalletDB->getTx(*txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
@@ -1174,9 +1174,9 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(sh.size() == 3);
     rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 2);
-    stx = sender.m_WalletDB->getTx(txId);
+    stx = sender.m_WalletDB->getTx(*txId);
     WALLET_CHECK(stx.is_initialized());
-    rtx = receiver.m_WalletDB->getTx(txId);
+    rtx = receiver.m_WalletDB->getTx(*txId);
     WALLET_CHECK(!rtx.is_initialized());
 
     WALLET_CHECK(stx->m_amount == 6);
@@ -1213,7 +1213,7 @@ void TestP2PWalletReverseNegotiationST()
     helpers::StopWatch sw;
     sw.start();
 
-    TxID txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 4, 2, false, 200);
+    auto txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 4, 2, false, 200);
 
     mainReactor->run();
     sw.stop();
@@ -1250,9 +1250,9 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(sh.size() == 1);
     auto rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 1);
-    auto stx = sender.m_WalletDB->getTx(txId);
+    auto stx = sender.m_WalletDB->getTx(*txId);
     WALLET_CHECK(stx.is_initialized());
-    auto rtx = receiver.m_WalletDB->getTx(txId);
+    auto rtx = receiver.m_WalletDB->getTx(*txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
@@ -1313,9 +1313,9 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(sh.size() == 2);
     rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 2);
-    stx = sender.m_WalletDB->getTx(txId);
+    stx = sender.m_WalletDB->getTx(*txId);
     WALLET_CHECK(stx.is_initialized());
-    rtx = receiver.m_WalletDB->getTx(txId);
+    rtx = receiver.m_WalletDB->getTx(*txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
@@ -1348,9 +1348,9 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(sh.size() == 3);
     rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 3);
-    stx = sender.m_WalletDB->getTx(txId);
+    stx = sender.m_WalletDB->getTx(*txId);
     WALLET_CHECK(stx.is_initialized());
-    rtx = receiver.m_WalletDB->getTx(txId);
+    rtx = receiver.m_WalletDB->getTx(*txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(rtx->m_amount == 6);
@@ -1460,7 +1460,7 @@ static void TestSplitTransaction()
     helpers::StopWatch sw;
 
     sw.start();
-    TxID txId = sender.m_Wallet.split_coins(sender.m_WalletID, { 11, 12, 13 }, 2, true, 200);
+    auto txId = sender.m_Wallet.split_coins(sender.m_WalletID, { 11, 12, 13 }, 2, true, 200);
     mainReactor->run();
     sw.stop();
 
@@ -1469,7 +1469,7 @@ static void TestSplitTransaction()
     // check Tx
     auto txHistory = senderWalletDB->getTxHistory();
     WALLET_CHECK(txHistory.size() == 1);
-    WALLET_CHECK(txHistory[0].m_txId == txId);
+    WALLET_CHECK(txHistory[0].m_txId == *txId);
     WALLET_CHECK(txHistory[0].m_amount == 36);
     WALLET_CHECK(txHistory[0].m_change == 2);
     WALLET_CHECK(txHistory[0].m_fee == 2);
@@ -1533,7 +1533,7 @@ static void TestExpiredTransaction()
     WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
     WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
-    TxID txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true);
+    auto txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true);
 
     mainReactor->run();
 

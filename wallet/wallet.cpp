@@ -205,15 +205,25 @@ namespace beam
 #undef THE_MACRO
     }
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, Height lifetime, ByteBuffer&& message)
+    boost::optional<TxID> Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, Height lifetime, ByteBuffer&& message)
     {
         return transfer_money(from, to, AmountList{ amount }, fee, sender, lifetime, move(message));
     }
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee, bool sender, Height lifetime, ByteBuffer&& message)
+    boost::optional<TxID> Wallet::transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee, bool sender, Height lifetime, ByteBuffer&& message)
     {
-        auto txID = wallet::GenerateTxID();
-        auto tx = constructTransaction(txID, TxType::Simple);
+        auto receiverAddr = m_WalletDB->getAddress(to);
+
+        if (receiverAddr)
+        {
+            if (receiverAddr->isExpired())
+            {
+                LOG_INFO() << "Can't send to the expired address.";
+                return boost::optional<TxID>();
+            }
+        }
+        boost::optional<TxID> txID = wallet::GenerateTxID();
+        auto tx = constructTransaction(*txID, TxType::Simple);
         Height currentHeight = m_WalletDB->getCurrentHeight();
 
         tx->SetParameter(TxParameterID::TransactionType, TxType::Simple, false);
@@ -223,7 +233,7 @@ namespace beam
 
         TxDescription txDescription;
 
-        txDescription.m_txId = txID;
+        txDescription.m_txId = *txID;
         txDescription.m_amount = std::accumulate(amountList.begin(), amountList.end(), 0ULL);
         txDescription.m_fee = fee;
         txDescription.m_minHeight = currentHeight;
@@ -235,14 +245,14 @@ namespace beam
         txDescription.m_status = TxStatus::Pending;
         m_WalletDB->saveTx(txDescription);
 
-        m_Transactions.emplace(txID, tx);
+        m_Transactions.emplace(*txID, tx);
 
-        updateTransaction(txID);
+        updateTransaction(*txID);
 
         return txID;
     }
 
-    TxID Wallet::split_coins(const WalletID& from, const AmountList& amountList, Amount fee, bool sender, Height lifetime,  ByteBuffer&& message)
+    boost::optional<TxID> Wallet::split_coins(const WalletID& from, const AmountList& amountList, Amount fee, bool sender, Height lifetime,  ByteBuffer&& message)
     {
         return transfer_money(from, from, amountList, fee, sender, lifetime, move(message));
     }
