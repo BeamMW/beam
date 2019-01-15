@@ -182,6 +182,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createMnemonic)(JNIEnv *env, j
     {
         jstring str = env->NewStringUTF(phrase.c_str());
         env->SetObjectArrayElement(phrasesArray, i++, str);
+        env->DeleteLocalRef(str);
     }
 
     return phrasesArray;
@@ -280,36 +281,43 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
     {
         jclass cls = env->FindClass(BEAM_JAVA_PATH "/listeners/WalletListener");
         WalletListenerClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
     }
 
     {
         jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/Wallet");
         WalletClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
     }
 
     {
         jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/WalletStatusDTO");
         WalletStatusClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
     }
 
     {
         jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/SystemStateDTO");
         SystemStateClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
     }
 
     {
         jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/TxDescriptionDTO");
         TxDescriptionClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
     }
 
     {
         jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/UtxoDTO");
         UtxoClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
     }
 
     {
         jclass cls = env->FindClass(BEAM_JAVA_PATH "/entities/dto/WalletAddressDTO");
         WalletAddressClass = reinterpret_cast<jclass>(env->NewGlobalRef(cls));
+        env->DeleteLocalRef(cls);
     }
 
     return JNI_VERSION_1_6;

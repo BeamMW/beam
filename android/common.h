@@ -60,6 +60,7 @@ struct JString
         {
             env->ReleaseStringUTFChars(name, data);
         }
+        env->DeleteLocalRef(name);
     }
 
     std::string value() const
@@ -96,7 +97,10 @@ inline void setBooleanField(JNIEnv *env, jclass clazz, jobject obj, const char* 
 inline void setStringField(JNIEnv *env, jclass clazz, jobject obj, const char* name, const std::string& value)
 {
     jfieldID fieldId = env->GetFieldID(clazz, name, "Ljava/lang/String;");
-    env->SetObjectField(obj, fieldId, env->NewStringUTF(value.c_str()));
+    jstring str = env->NewStringUTF(value.c_str());
+    env->SetObjectField(obj, fieldId, str);
+
+    env->DeleteLocalRef(str);
 }
 
 template <typename T>
@@ -112,6 +116,7 @@ inline void setByteArrayField(JNIEnv *env, jclass clazz, jobject obj, const char
         env->SetObjectField(obj, env->GetFieldID(clazz, name, "[B"), hash);
 
         env->ReleaseByteArrayElements(hash, hashBytes, 0);
+        env->DeleteLocalRef(hash);
     }
 }
 
@@ -162,6 +167,7 @@ inline jsize getByteArrayField(JNIEnv *env, jclass clazz, jobject obj, const cha
 
         env->ReleaseByteArrayElements(byteArray, data, JNI_ABORT);
 
+        env->DeleteLocalRef(byteArray);
         return size;
     }
 

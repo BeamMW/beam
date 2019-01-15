@@ -48,12 +48,16 @@ void WalletModel::onStatus(const WalletStatus& status)
 
         jfieldID systemStateID = env->GetFieldID(WalletStatusClass, "system", "L" BEAM_JAVA_PATH "/entities/dto/SystemStateDTO;");
         env->SetObjectField(walletStatus, systemStateID, systemState);
+
+        env->DeleteLocalRef(systemState);
     }
 
     ////////////////
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onStatus", "(L" BEAM_JAVA_PATH "/entities/dto/WalletStatusDTO;)V");
     env->CallStaticVoidMethod(WalletListenerClass, callback, walletStatus);
+
+    env->DeleteLocalRef(walletStatus);
 }
 
 void WalletModel::onTxStatus(beam::ChangeAction action, const std::vector<beam::TxDescription>& items)
@@ -92,10 +96,14 @@ void WalletModel::onTxStatus(beam::ChangeAction action, const std::vector<beam::
             setIntField(env, TxDescriptionClass, tx, "status", static_cast<jint>(item.m_status));
 
             env->SetObjectArrayElement(txItems, i, tx);
+
+            env->DeleteLocalRef(tx);
         }
     }
 
     env->CallStaticVoidMethod(WalletListenerClass, callback, action, txItems);
+
+    env->DeleteLocalRef(txItems);
 }
 
 void WalletModel::onSyncProgressUpdated(int done, int total)
@@ -154,6 +162,8 @@ void WalletModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxosVec)
                 setByteArrayField(env, UtxoClass, utxo, "spentTxId", *coin.m_spentTxId);
 
             env->SetObjectArrayElement(utxos, i, utxo);
+
+            env->DeleteLocalRef(utxo);
         }
     }
 
@@ -161,6 +171,8 @@ void WalletModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxosVec)
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAllUtxoChanged", "([L" BEAM_JAVA_PATH "/entities/dto/UtxoDTO;)V");
     env->CallStaticVoidMethod(WalletListenerClass, callback, utxos);
+
+    env->DeleteLocalRef(utxos);
 }
 
 void WalletModel::onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses)
@@ -191,11 +203,15 @@ void WalletModel::onAdrresses(bool own, const std::vector<beam::WalletAddress>& 
             }
 
             env->SetObjectArrayElement(addrArray, i, addr);
+
+            env->DeleteLocalRef(addr);
         }
     }
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAdrresses", "(Z[L" BEAM_JAVA_PATH "/entities/dto/WalletAddressDTO;)V");
     env->CallStaticVoidMethod(WalletListenerClass, callback, own, addrArray);
+
+    env->DeleteLocalRef(addrArray);
 }
 
 void WalletModel::onGeneratedNewAddress(const beam::WalletAddress& address)
@@ -217,6 +233,8 @@ void WalletModel::onGeneratedNewAddress(const beam::WalletAddress& address)
 
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onGeneratedNewAddress", "(L" BEAM_JAVA_PATH "/entities/dto/WalletAddressDTO;)V");
     env->CallStaticVoidMethod(WalletListenerClass, callback, addr);
+
+    env->DeleteLocalRef(addr);
 }
 
 void WalletModel::onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID)
