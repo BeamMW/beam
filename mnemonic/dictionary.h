@@ -1,10 +1,11 @@
 #pragma once
 
-#include "array"
+#include <array>
+#include <string>
 
 namespace beam
 {
-    typedef std::array<const char*, 2048> Dictionary;
+    typedef std::array<std::string, 2048> Dictionary;
 
     namespace language
     {

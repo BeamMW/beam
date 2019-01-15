@@ -49,11 +49,12 @@ namespace beam
     class WalletApiServer : public ConnectionToServer
     {
     public:
-        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, io::Reactor& reactor, io::Address listenTo)
+        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::Reactor& reactor, io::Address listenTo)
             : _reactor(reactor)
             , _bindAddress(listenTo)
             , _walletDB(walletDB)
             , _wallet(wallet)
+            , _wnet(wnet)
         {
             start();
         }
@@ -104,17 +105,17 @@ namespace beam
                 auto peer = newStream->peer_address();
                 LOG_DEBUG() << "+peer " << peer;
 
-                _connections[peer.u64()] = std::make_unique<Connection>(*this, _walletDB, _wallet, peer.u64(), std::move(newStream));
+                _connections[peer.u64()] = std::make_unique<Connection>(*this, _walletDB, _wallet, _wnet, peer.u64(), std::move(newStream));
             }
 
             LOG_DEBUG() << "on_stream_accepted";
         }
 
     private:
-        class Connection : IWalletApiHandler
+        class Connection : IWalletApiHandler, IWalletDbObserver
         {
         public:
-            Connection(ConnectionToServer& owner, IWalletDB::Ptr walletDB, Wallet& wallet, uint64_t id, io::TcpStream::Ptr&& newStream)
+            Connection(ConnectionToServer& owner, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, uint64_t id, io::TcpStream::Ptr&& newStream)
                 : _owner(owner)
                 , _id(id)
                 , _stream(std::move(newStream))
@@ -122,15 +123,28 @@ namespace beam
                 , _walletDB(walletDB)
                 , _wallet(wallet)
                 , _api(*this)
+                , _wnet(wnet)
             {
                 _stream->enable_keepalive(2);
                 _stream->enable_read(BIND_THIS_MEMFN(on_stream_data));
+
+                _walletDB->subscribe(this);
             }
 
             virtual ~Connection()
             {
-
+                _walletDB->unsubscribe(this);
             }
+
+            void onCoinsChanged() override {}
+            void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) override {}
+
+            void onSystemStateChanged() override 
+            {
+                
+            }
+
+            void onAddressChanged() override {}
 
             void on_write(io::SharedBuffer&& msg) 
             {
@@ -171,28 +185,48 @@ namespace beam
 
             void onMessage(int id, const CreateAddress& data) override 
             {
-                LOG_DEBUG() << "CreateAddress(" << id << "," << data.metadata << data.lifetime << ")";
+                LOG_DEBUG() << "CreateAddress(id = " << id << " metadata = " << data.metadata << " lifetime = " << data.lifetime << ")";
 
                 WalletAddress address = wallet::createAddress(_walletDB);
                 address.m_duration = data.lifetime * 60 * 60;
 
                 _walletDB->saveAddress(address);
 
+                _wnet.AddOwnAddress(address);
+
                 doResponse(id, CreateAddress::Response{ address.m_walletID });
+            }
+
+            void onMessage(int id, const ValidateAddress& data) override
+            {
+                LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
+
+                _walletDB->getAddress(data.address);
+
+                doResponse(id, ValidateAddress::Response{ data.address.IsValid(), _walletDB->getAddress(data.address) ? true : false });
             }
 
             void onMessage(int id, const Send& data) override
             {
-                LOG_DEBUG() << "Send(" << id << "," << data.session << "," << data.value <<  "," << std::to_string(data.address) << ")";
+                LOG_DEBUG() << "Send(id = " << id << " amount = " << data.value << " fee = " << data.fee <<  " address = " << std::to_string(data.address) << ")";
 
                 WalletAddress senderAddress = wallet::createAddress(_walletDB);
                 _walletDB->saveAddress(senderAddress);
 
+                _wnet.AddOwnAddress(senderAddress);
+
                 ByteBuffer message(data.comment.begin(), data.comment.end());
 
-                auto txId = _wallet.transfer_money(senderAddress.m_walletID, data.address, data.value, data.fee, true, std::move(message));
+                auto txId = _wallet.transfer_money(senderAddress.m_walletID, data.address, data.value, data.fee, true, 120, std::move(message));
 
-                doResponse(id, Send::Response{ txId });
+                if (txId)
+                {
+                    doResponse(id, Send::Response{ *txId });
+                }
+                else
+                {
+                    doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction could not be created. Please look at logs.");
+                }
             }
 
             void onMessage(int id, const Replace& data) override
@@ -202,13 +236,24 @@ namespace beam
 
             void onMessage(int id, const Status& data) override
             {
-                LOG_DEBUG() << "Status(" << to_hex(data.txId.data(), data.txId.size()) << ")";
+                LOG_DEBUG() << "Status(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
                 auto tx = _walletDB->getTx(data.txId);
 
                 if (tx)
                 {
-                    doResponse(id, Status::Response{ tx->m_status });
+                    Block::SystemState::ID stateID = {};
+                    _walletDB->getSystemStateID(stateID);
+
+                    Status::Response result;
+                    result.tx = *tx;
+                    result.kernelProofHeight = 0;
+                    result.systemHeight = stateID.m_Height;
+                    result.confirmations = 0;
+
+                    wallet::getTxParameter(_walletDB, tx->m_txId, wallet::TxParameterID::KernelProofHeight, result.kernelProofHeight);
+
+                    doResponse(id, result);
                 }
                 else
                 {
@@ -218,25 +263,54 @@ namespace beam
 
             void onMessage(int id, const Split& data) override
             {
-                methodNotImplementedYet(id);
+                LOG_DEBUG() << "Split(id = " << id << " coins = [";
+                for (auto& coin : data.coins) LOG_DEBUG() << coin << ",";
+                LOG_DEBUG() << "], fee = " << data.fee;
+
+                WalletAddress senderAddress = wallet::createAddress(_walletDB);
+                _walletDB->saveAddress(senderAddress);
+                _wnet.AddOwnAddress(senderAddress);
+
+                auto txId = _wallet.split_coins(senderAddress.m_walletID, data.coins, data.fee);
+
+                if (txId)
+                {
+                    doResponse(id, Send::Response{ *txId });
+                }
+                else
+                {
+                    doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction could not be created. Please look at logs.");
+                }
             }
 
-            void onMessage(int id, const Balance& data) override 
+            void onMessage(int id, const TxCancel& data) override
             {
-                LOG_DEBUG() << "Balance(" << id << ")";
+                LOG_DEBUG() << "TxCancel(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
-                json msg;
+                auto tx = _walletDB->getTx(data.txId);
 
-                auto totalInProgress = _walletDB->getTotal(Coin::Incoming) +
-                    _walletDB->getTotal(Coin::Outgoing) + _walletDB->getTotal(Coin::Change);
-
-                // TODO: add locked UTXO here
-                doResponse(id, Balance::Response{ _walletDB->getAvailable(), totalInProgress, 0});
+                if (tx)
+                {
+                    if (tx->canCancel())
+                    {
+                        _wallet.cancel_tx(tx->m_txId);
+                        TxCancel::Response result{ true };
+                        doResponse(id, result);
+                    }
+                    else
+                    {
+                        doError(id, INVALID_TX_STATUS, "Transaction could not be cancelled. Invalid transaction status.");
+                    }
+                }
+                else
+                {
+                    doError(id, INVALID_PARAMS_JSON_RPC, "Unknown transaction ID.");
+                }
             }
 
             void onMessage(int id, const GetUtxo& data) override 
             {
-                LOG_DEBUG() << "GetUtxo(" << id << ")";
+                LOG_DEBUG() << "GetUtxo(id = " << id << ")";
 
                 GetUtxo::Response response;
                 _walletDB->visit([&response](const Coin& c)->bool
@@ -244,6 +318,37 @@ namespace beam
                     response.utxos.push_back(c);
                     return true;
                 });
+
+                doResponse(id, response);
+            }
+
+            void onMessage(int id, const WalletStatus& data) override
+            {
+                LOG_DEBUG() << "WalletStatus(id = " << id << ")";
+
+                WalletStatus::Response response;
+
+                {
+                    Block::SystemState::ID stateID = {};
+                    _walletDB->getSystemStateID(stateID);
+
+                    response.currentHeight = stateID.m_Height;
+                    response.currentStateHash = stateID.m_Hash;
+                }
+
+                {
+                    Block::SystemState::Full state;
+                    _walletDB->get_History().get_Tip(state);
+                    response.prevStateHash = state.m_Prev;
+                }
+
+                response.available = _walletDB->getAvailable();
+                response.receiving = _walletDB->getTotal(Coin::Incoming);
+                response.sending = _walletDB->getTotal(Coin::Outgoing);
+                response.maturing = _walletDB->getTotal(Coin::Maturing);
+
+                // TODO: add locked UTXO here
+                response.locked = 0;
 
                 doResponse(id, response);
             }
@@ -258,14 +363,56 @@ namespace beam
                 methodNotImplementedYet(id);
             }
 
-            void onMessage(int id, const CreateUtxo& data) override
+            void onMessage(int id, const TxList& data) override
             {
-                methodNotImplementedYet(id);
-            }
+                LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
 
-            void onMessage(int id, const Poll& data) override
-            {
-                methodNotImplementedYet(id);
+                TxList::Response res;
+
+                {
+                    auto txList = _walletDB->getTxHistory();
+
+                    Block::SystemState::ID stateID = {};
+                    _walletDB->getSystemStateID(stateID);
+
+                    for (const auto& tx : txList)
+                    {
+                        Status::Response item;
+                        item.tx = tx;
+                        item.kernelProofHeight = 0;
+                        item.systemHeight = stateID.m_Height;
+                        item.confirmations = 0;
+
+                        wallet::getTxParameter(_walletDB, tx.m_txId, wallet::TxParameterID::KernelProofHeight, item.kernelProofHeight);
+                        res.resultList.push_back(item);
+                    }
+                }
+
+                // filter transactions by status if provided
+                if (data.filter.status)
+                {
+                    decltype(res.resultList) filteredList;
+
+                    for (const auto& it : res.resultList)
+                        if (it.tx.m_status == *data.filter.status)
+                            filteredList.push_back(it);
+
+                    res.resultList = filteredList;
+                }
+
+                // filter transactions by height if provided
+                if (data.filter.height)
+                {
+                    decltype(res.resultList) filteredList;
+
+                    for (const auto& it : res.resultList)
+                        if (it.kernelProofHeight == *data.filter.height)
+                            filteredList.push_back(it);
+
+                    res.resultList = filteredList;
+                }
+
+                doResponse(id, res);
             }
 
             bool on_raw_message(void* data, size_t size) 
@@ -307,6 +454,7 @@ namespace beam
             IWalletDB::Ptr _walletDB;
             Wallet& _wallet;
             WalletApi _api;
+            WalletNetworkViaBbs& _wnet;
         };
 
         io::Reactor& _reactor;
@@ -315,6 +463,7 @@ namespace beam
         std::map<uint64_t, std::unique_ptr<Connection>> _connections;
         IWalletDB::Ptr _walletDB;
         Wallet& _wallet;
+        WalletNetworkViaBbs& _wnet;
     };
 }
 
@@ -400,7 +549,7 @@ int main(int argc, char* argv[])
             LOG_INFO() << "wallet sucessfully opened...";
         }
 
-        io::Address listenTo = io::Address::localhost().port(options.port);
+        io::Address listenTo = io::Address().port(options.port);
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
 
@@ -421,7 +570,7 @@ int main(int argc, char* argv[])
 
         wallet.set_Network(nnet, wnet);
 
-        WalletApiServer server(walletDB, wallet, *reactor, listenTo);
+        WalletApiServer server(walletDB, wallet, wnet, *reactor, listenTo);
 
         io::Reactor::get_Current().run();
 

@@ -134,10 +134,16 @@ namespace proto {
 #define BeamNodeMsg_ExternalAddr(macro) \
     macro(uint32_t, Value)
 
-#define BeamNodeMsg_BbsMsg(macro) \
+#define BeamNodeMsg_BbsMsgV0(macro) \
     macro(BbsChannel, Channel) \
     macro(Timestamp, TimePosted) \
     macro(ByteBuffer, Message)
+
+#define BeamNodeMsg_BbsMsg(macro) \
+    macro(BbsChannel, Channel) \
+    macro(Timestamp, TimePosted) \
+    macro(ByteBuffer, Message) \
+    macro(Bbs::NonceType, Nonce)
 
 #define BeamNodeMsg_BbsHaveMsg(macro) \
     macro(BbsMsgID, Key)
@@ -153,9 +159,9 @@ namespace proto {
 #define BeamNodeMsg_BbsResetSync(macro) \
     macro(Timestamp, TimeFrom)
 
-#define BeamNodeMsg_BbsPickChannel(macro)
+#define BeamNodeMsg_BbsPickChannelV0(macro)
 
-#define BeamNodeMsg_BbsPickChannelRes(macro) \
+#define BeamNodeMsg_BbsPickChannelResV0(macro) \
     macro(BbsChannel, Channel)
 
 #define BeamNodeMsg_SChannelInitiate(macro) \
@@ -240,13 +246,14 @@ namespace proto {
     macro(0x31, HaveTransaction) \
     macro(0x32, GetTransaction) \
     /* bbs */ \
-    macro(0x38, BbsMsg) \
+    macro(0x38, BbsMsgV0) /* Deprecated */ \
     macro(0x39, BbsHaveMsg) \
     macro(0x3a, BbsGetMsg) \
     macro(0x3b, BbsSubscribe) \
-    macro(0x3c, BbsPickChannel) \
-    macro(0x3d, BbsPickChannelRes) \
+    macro(0x3c, BbsPickChannelV0) /* Deprecated */ \
+    macro(0x3d, BbsPickChannelResV0) /* Deprecated */ \
     macro(0x3e, BbsResetSync) \
+    macro(0x3f, BbsMsg) \
 
 
     struct LoginFlags {
@@ -254,6 +261,8 @@ namespace proto {
         static const uint8_t Bbs                    = 0x2; // I'm spreading bbs messages
         static const uint8_t SendPeers              = 0x4; // Please send me periodically peers recommendations
         static const uint8_t MiningFinalization     = 0x8; // I want to finalize block construction for my owned node
+        static const uint8_t Extension1             = 0x10; // Supports Bbs with POW, more advanced proof/disproof scheme for SPV clients (?)
+	    static const uint8_t Recognized             = 0x1f;
     };
 
     struct IDType
@@ -325,6 +334,21 @@ namespace proto {
         static void Set(std::unique_ptr<T>& var, TArg arg) { var = std::move(arg); }
     };
 
+	namespace Bbs
+	{
+		static const size_t s_MaxMsgSize = 1024 * 1024;
+
+		static const uint32_t s_MaxChannels = 1024;
+		// At peak load a single block contains ~1K txs. The lifetime of a bbs message is 12-24 hours. Means the total sbbs system can contain simultaneously info about ~1 million different txs.
+		// Hence our sharding factor is 1K. Gives decent reduction of the traffic under peak loads, whereas maintains some degree of obfuscation on modest loads too.
+		// In the future it can be changed without breaking compatibility
+
+		typedef uintBig_t<4> NonceType;
+
+		bool Encrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void*, uint32_t); // will fail iff addr is invalid
+		bool Decrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr);
+	};
+
 
 #define THE_MACRO6(type, name) InitArg<type>::Set(m_##name, arg##name);
 #define THE_MACRO5(type, name) typename InitArg<type>::TArg arg##name,
@@ -352,6 +376,14 @@ namespace proto {
 #undef THE_MACRO4
 #undef THE_MACRO5
 #undef THE_MACRO6
+
+
+	namespace Bbs
+	{
+		void get_HashPartial(ECC::Hash::Processor&, const BbsMsg&); // all except time and nonce
+		void get_Hash(ECC::Hash::Value&, const BbsMsg&);
+		bool IsHashValid(const ECC::Hash::Value&);
+	}
 
     struct ProtocolPlus
         :public Protocol
@@ -392,14 +424,6 @@ namespace proto {
     void Sk2Pk(PeerID&, ECC::Scalar::Native&); // will negate the scalar iff necessary
     bool ImportPeerID(ECC::Point::Native&, const PeerID&);
 
-	namespace Bbs
-	{
-		static const size_t s_MaxMsgSize = 1024 * 1024;
-
-		bool Encrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void*, uint32_t); // will fail iff addr is invalid
-		bool Decrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr);
-	};
-
     struct INodeMsgHandler
         :public IErrorHandler
     {
@@ -420,7 +444,8 @@ namespace proto {
         enum class Type : uint8_t
         {
             Base,
-            Incompatible
+            Incompatible,
+			TimeOutOfSync,
         };
 
         NodeProcessingException(const std::string& str, Type type)
@@ -486,6 +511,8 @@ namespace proto {
         virtual void OnMsg(Authentication&&) override;
         virtual void OnMsg(Bye&&) override;
 		virtual void OnMsg(Ping&&) override;
+		virtual void OnMsg(GetTime&&) override;
+		virtual void OnMsg(Time&&) override;
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
 

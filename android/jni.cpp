@@ -317,6 +317,8 @@ namespace
             });
         }
 
+        void saveAddressChanges(const beam::WalletID& id, const std::string& name, bool isNever, bool makeActive, bool makeExpired) override {}
+
         void setNodeAddress(const std::string& addr) override
         {
             tx.send([addr](BridgeInterface& receiver_) mutable
@@ -429,8 +431,14 @@ namespace
                 auto nnet = make_shared<MyNodeNetwork>(*wallet, *this);
 
                 Address node_addr;
-                node_addr.resolve(nodeURI.c_str());
-                nnet->m_Cfg.m_vNodes.push_back(node_addr);
+                if (node_addr.resolve(nodeURI.c_str()))
+                {
+                    nnet->m_Cfg.m_vNodes.push_back(node_addr);
+                }
+                else
+                {
+                    LOG_ERROR() << "Unable to resolve node address: " << nodeURI;
+                }
 
                 nnet->Connect();
                 _nodeNetwork = nnet;
@@ -533,7 +541,7 @@ namespace
                 auto s = _wallet.lock();
                 if (s)
                 {
-                    s->transfer_money(senderAddress.m_walletID, receiver, move(amount), move(fee), true, move(message));
+                    s->transfer_money(senderAddress.m_walletID, receiver, move(amount), move(fee), true, 120, move(message));
                 }
             }
             catch (...)
@@ -609,6 +617,7 @@ namespace
 
         void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override {}
         void deleteAddress(const beam::WalletID& id) override {}
+        void saveAddressChanges(const beam::WalletID& id, const std::string& name, bool isNever, bool makeActive, bool makeExpired) override {}
         void setNodeAddress(const std::string& addr) override {}
         void changeWalletPassword(const beam::SecString& password) override {}
         void getNetworkStatus() override {}
@@ -822,7 +831,7 @@ namespace
 
             status.sent = wallet::getSpentByTx(_walletDB, TxStatus::Completed);
             status.received = wallet::getReceivedByTx(_walletDB, TxStatus::Completed);
-            status.unconfirmed = _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
+            status.unconfirmed = _walletDB->getTotal(Coin::Incoming);
             status.update.lastTime = _walletDB->getLastUpdateTime();
 
             ZeroObject(status.stateID);
@@ -912,7 +921,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
         WordList phrases = string_helpers::split(JString(env, phrasesStr).value(), ';');
         assert(phrases.size() == 12);
-        if (phrases.size() != 12)
+        if (!isValidMnemonic(phrases, language::en))
         {
             LOG_ERROR() << "Invalid seed phrases provided: " << JString(env, phrasesStr).value();
             return nullptr;

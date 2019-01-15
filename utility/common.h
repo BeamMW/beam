@@ -134,6 +134,7 @@ namespace beam
 	typedef uint64_t Timestamp;
 	typedef uint64_t Height;
 	typedef uint64_t Amount;
+    typedef std::vector<Amount> AmountList;
 	typedef std::vector<uint8_t> ByteBuffer;
 
 	template <uint32_t nBits_>
@@ -144,6 +145,14 @@ namespace beam
 #endif // WIN32
 
 	bool DeleteFile(const char*);
+
+	struct CorruptionException
+	{
+		std::string m_sErr;
+		// indicates critical unrecoverable corruption. Not derived from std::exception, and should not be caught in the indermediate scopes.
+		// Should trigger a controlled shutdown of the app
+		static void Throw(const char*);
+	};
 
 	struct Blob {
 		const void* p;
@@ -220,7 +229,7 @@ namespace std
 
 		void Restart(); // for read-stream - jump to the beginning of the file
 		void Seek(uint64_t);
-		uint64_t Tell() { return m_F.tellg(); }
+		uint64_t Tell();
 
 		// read/write always return the size requested. Exception is thrown if underflow or error
 		size_t read(void* pPtr, size_t nSize);

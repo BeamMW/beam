@@ -7,10 +7,13 @@ client.connect(10000, '127.0.0.1', function() {
 		{
 			jsonrpc: '2.0',
 			id: 123,
-			method: 'tx_status',
+			method: 'tx_list',
 			params: 
 			{
-				'txId' : '10c4b760c842433cb58339a0fafef3db',
+				filter:
+				{
+					status:5
+				}
 			}
 		}) + '\n');
 });

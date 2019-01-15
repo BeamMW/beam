@@ -72,6 +72,7 @@ namespace beam {
 #define TblBbs_Channel			"Channel"
 #define TblBbs_Time				"Time"
 #define TblBbs_Msg				"Message"
+#define TblBbs_Nonce			"Nonce"
 
 #define TblDummy				"Dummies"
 #define TblDummy_ID				"ID"
@@ -103,7 +104,10 @@ void NodeDB::ThrowSqliteError(int ret)
 
 void NodeDB::ThrowError(const char* sz)
 {
-	throw std::runtime_error(sz);
+	// Currently all DB errors are defined as corruption
+	CorruptionException exc;
+	exc.m_sErr = sz;
+	throw exc;
 }
 
 void NodeDB::ThrowInconsistent()
@@ -111,19 +115,21 @@ void NodeDB::ThrowInconsistent()
 	ThrowError("data inconcistent");
 }
 
+void NodeDB::Statement::Close()
+{
+	if (m_pStmt)
+	{
+		sqlite3_finalize(m_pStmt); // don't care about retval
+		m_pStmt = nullptr;
+	}
+}
+
 void NodeDB::Close()
 {
 	if (m_pDb)
 	{
 		for (size_t i = 0; i < _countof(m_pPrep); i++)
-		{
-			sqlite3_stmt*& pStmt = m_pPrep[i];
-			if (pStmt)
-			{
-				sqlite3_finalize(pStmt); // don't care about retval
-				pStmt = NULL;
-			}
-		}
+			m_pPrep[i].Close();
 
 		verify(SQLITE_OK == sqlite3_close(m_pDb));
 		m_pDb = NULL;
@@ -248,6 +254,12 @@ void NodeDB::Open(const char* szPath)
 	// Attempt to fix the "busy" error when PC goes to sleep and then awakes. Try the busy handler with non-zero timeout (maybe a single retry would be enough)
 	sqlite3_busy_timeout(m_pDb, 5000);
 
+	std::string s = ExecTextOut("PRAGMA integrity_check");
+	if (s != "ok")
+		ThrowError(("sqlite integrity: " + s).c_str());
+
+	ExecTextOut("PRAGMA locking_mode = EXCLUSIVE");
+
 	bool bCreate;
 	{
 		Recordset rs(*this, Query::Scheme, "SELECT name FROM sqlite_master WHERE type='table' AND name=?");
@@ -255,21 +267,37 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion = 14;
+	const uint64_t nVersionTop = 15;
+	const uint64_t nVersionNoBbsPoW = 14;
+
+	Transaction t(*this);
 
 	if (bCreate)
 	{
-		Transaction t(*this);
 		Create();
-		ParamSet(ParamID::DbVer, &nVersion, NULL);
-		t.Commit();
+		ParamSet(ParamID::DbVer, &nVersionTop, NULL);
 	}
 	else
 	{
-		// test the DB version
-		if (nVersion != ParamIntGetDef(ParamID::DbVer))
+		uint64_t nVer = ParamIntGetDef(ParamID::DbVer);
+
+		switch (nVer)
+		{
+		case nVersionNoBbsPoW:
+			ExecQuick("ALTER TABLE [" TblBbs "] ADD [" TblBbs_Nonce "] INTEGER");
+
+			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
+			// no break;
+
+		case nVersionTop:
+			break;
+
+		default:
 			ThrowError("wrong version");
+		}
 	}
+
+	t.Commit();
 }
 
 void NodeDB::Create()
@@ -350,7 +378,8 @@ void NodeDB::Create()
 		"[" TblBbs_Key		"] BLOB NOT NULL,"
 		"[" TblBbs_Channel	"] INTEGER NOT NULL,"
 		"[" TblBbs_Time		"] INTEGER NOT NULL,"
-		"[" TblBbs_Msg		"] BLOB NOT NULL)");
+		"[" TblBbs_Msg		"] BLOB NOT NULL,"
+		"[" TblBbs_Nonce	"] INTEGER)");
 
 	ExecQuick("CREATE INDEX [Idx" TblBbs "CSeq] ON [" TblBbs "] ([" TblBbs_Channel "],[" TblBbs_ID "]);");
 	ExecQuick("CREATE INDEX [Idx" TblBbs "TSeq] ON [" TblBbs "] ([" TblBbs_Time "],[" TblBbs_ID "]);");
@@ -370,6 +399,25 @@ void NodeDB::ExecQuick(const char* szSql)
 
 	if (sqlite3_total_changes(m_pDb) != n)
 		OnModified();
+}
+
+std::string NodeDB::ExecTextOut(const char* szSql)
+{
+	int n = sqlite3_total_changes(m_pDb);
+	TestRet(sqlite3_exec(m_pDb, szSql, NULL, NULL, NULL));
+
+	Statement s;
+	Prepare(s, szSql);
+
+	std::string sRes;
+
+	if (ExecStep(s.m_pStmt))
+		sRes = (const char*) sqlite3_column_text(s.m_pStmt, 0);
+
+	if (sqlite3_total_changes(m_pDb) != n)
+		OnModified();
+
+	return sRes;
 }
 
 bool NodeDB::ExecStep(sqlite3_stmt* pStmt)
@@ -410,18 +458,24 @@ bool NodeDB::ExecStep(Query::Enum val, const char* sql)
 
 }
 
+void NodeDB::Prepare(Statement& s, const char* szSql)
+{
+	assert(!s.m_pStmt);
+
+	const char* szTail;
+	int nRet = sqlite3_prepare_v2(m_pDb, szSql, -1, &s.m_pStmt, &szTail);
+	TestRet(nRet);
+	assert(s.m_pStmt);
+}
+
 sqlite3_stmt* NodeDB::get_Statement(Query::Enum val, const char* sql)
 {
 	assert(val < _countof(m_pPrep));
-	if (!m_pPrep[val])
-	{
-		const char* szTail;
-		int nRet = sqlite3_prepare_v2(m_pDb, sql, -1, m_pPrep + val, &szTail);
-		TestRet(nRet);
-		assert(m_pPrep[val]);
-	}
+	Statement& s = m_pPrep[val];
 
-	return m_pPrep[val];
+	if (!s.m_pStmt)
+		Prepare(s, sql);
+	return s.m_pStmt;
 }
 
 
@@ -502,7 +556,17 @@ NodeDB::Transaction::Transaction(NodeDB* pDB)
 
 NodeDB::Transaction::~Transaction()
 {
-	Rollback();
+	if (std::uncaught_exceptions())
+	{
+		try {
+			Rollback();
+		}
+		catch (...) {
+			// ignore
+		}
+	}
+	else
+		Rollback();
 }
 
 void NodeDB::Transaction::Start(NodeDB& db)
@@ -523,12 +587,8 @@ void NodeDB::Transaction::Rollback()
 {
 	if (m_pDB)
 	{
-		try {
-			m_pDB->ExecStep(Query::Rollback, "ROLLBACK");
-		} catch (std::exception&) {
-			// TODO: DB is compromised!
-		}
-		m_pDB = NULL;
+		m_pDB->ExecStep(Query::Rollback, "ROLLBACK");
+		m_pDB = nullptr;
 	}
 }
 
@@ -1591,7 +1651,7 @@ bool NodeDB::WalkerBbsLite::MoveNext()
 }
 
 
-#define TblBbs_InsFieldsListed TblBbs_Key "," TblBbs_Channel "," TblBbs_Time "," TblBbs_Msg
+#define TblBbs_InsFieldsListed TblBbs_Key "," TblBbs_Channel "," TblBbs_Time "," TblBbs_Msg "," TblBbs_Nonce
 #define TblBbs_AllFieldsListed TblBbs_ID "," TblBbs_InsFieldsListed
 
 void NodeDB::EnumBbsCSeq(WalkerBbs& x)
@@ -1631,6 +1691,11 @@ bool NodeDB::WalkerBbs::MoveNext()
 	m_Rs.get(2, m_Data.m_Channel);
 	m_Rs.get(3, m_Data.m_TimePosted);
 	m_Rs.get(4, m_Data.m_Message);
+
+	m_Data.m_bNonce = !m_Rs.IsNull(5);
+	if (m_Data.m_bNonce)
+		m_Rs.get(5, m_Data.m_Nonce);
+
 	return true;
 }
 
@@ -1663,11 +1728,14 @@ void NodeDB::BbsDelOld(Timestamp tMinToRemain)
 
 uint64_t NodeDB::BbsIns(const WalkerBbs::Data& d)
 {
-	Recordset rs(*this, Query::BbsIns, "INSERT INTO " TblBbs "(" TblBbs_InsFieldsListed ") VALUES(?,?,?,?)");
+	Recordset rs(*this, Query::BbsIns, "INSERT INTO " TblBbs "(" TblBbs_InsFieldsListed ") VALUES(?,?,?,?,?)");
 	rs.put(0, d.m_Key);
 	rs.put(1, d.m_Channel);
 	rs.put(2, d.m_TimePosted);
 	rs.put(3, d.m_Message);
+	if (d.m_bNonce)
+		rs.put(4, d.m_Nonce);
+
 	rs.Step();
 	TestChanged1Row();
 

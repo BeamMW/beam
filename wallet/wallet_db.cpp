@@ -112,9 +112,6 @@ namespace beam
 
     namespace
     {
-        static const char g_szBbsTime[] = "Bbs-Channel-Upd";
-        static const char g_szBbsChannel[] = "Bbs-Channel";
-
         void throwIfError(int res, sqlite3* db)
         {
             if (res == SQLITE_OK)
@@ -884,8 +881,9 @@ namespace beam
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
-        const int DbVersion = 10;
-    }
+        const int DbVersion = 11;
+		const int DbVersion10 = 10;
+	}
 
     Coin::Coin(Amount amount, Status status, Height maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
         : m_status{ status }
@@ -1015,11 +1013,38 @@ namespace beam
                 }
                 {
                     int version = 0;
-                    if (!wallet::getVar(walletDB, Version, version) || version > DbVersion)
-                    {
-                        LOG_DEBUG() << "Invalid DB version: " << version << ". Expected: " << DbVersion;
-                        return Ptr();
-                    }
+					wallet::getVar(walletDB, Version, version);
+
+					switch (version)
+					{
+					case DbVersion10:
+						{
+							LOG_INFO() << "Converting DB to a newer format";
+
+							// get rid of former Coin::Change status
+							const char* req = "UPDATE " STORAGE_NAME " SET status=?1 WHERE status=?2;";
+							sqlite::Statement stm(walletDB->_db, req);
+
+							stm.bind(1, Coin::Incoming);
+							stm.bind(2, Coin::ChangeV0);
+
+							stm.step();
+						}
+
+						wallet::setVar(walletDB, Version, DbVersion);
+
+						// no break;
+
+					case DbVersion:
+						break; // ok
+
+					default:
+						{
+							LOG_DEBUG() << "Invalid DB version: " << version << ". Expected: " << DbVersion;
+							return Ptr();
+						}
+					}
+
                 }
                 {
                     const char* req = "SELECT name FROM sqlite_master WHERE type='table' AND name='" STORAGE_NAME "';";
@@ -1533,6 +1558,7 @@ namespace beam
                     res.emplace_back(*t);
                 }
             }
+            sort(res.begin(), res.end(), [](const auto& left, const auto& right) {return left.m_createTime > right.m_createTime; });
         }
 
         return res;
@@ -1664,10 +1690,11 @@ namespace beam
             stm.step();
         }
         {
-            const char* req = "DELETE FROM " STORAGE_NAME " WHERE createTxId=?1;";
+            const char* req = "DELETE FROM " STORAGE_NAME " WHERE createTxId=?1 AND status=?2;";
             sqlite::Statement stm(_db, req);
             stm.bind(1, txId);
-            stm.step();
+			stm.bind(2, Coin::Incoming);
+			stm.step();
         }
         trans.commit();
         notifyCoinsChanged();
@@ -1703,12 +1730,14 @@ namespace beam
 
             if (stm2.step())
             {
-                const char* updateReq = "UPDATE " ADDRESSES_NAME " SET label=?2, category=?3 WHERE walletID=?1;";
+                const char* updateReq = "UPDATE " ADDRESSES_NAME " SET label=?2, category=?3, duration=?4, createTime=?5 WHERE walletID=?1;";
                 sqlite::Statement stm(_db, updateReq);
 
                 stm.bind(1, address.m_walletID);
                 stm.bind(2, address.m_label);
                 stm.bind(3, address.m_category);
+                stm.bind(4, address.m_duration);
+                stm.bind(5, address.m_createTime);
                 stm.step();
             }
             else
@@ -1723,6 +1752,25 @@ namespace beam
 
         trans.commit();
 
+        notifyAddressChanged();
+    }
+
+    void WalletDB::setNeverExpirationForAll()
+    {
+        sqlite::Transaction trans(_db);
+
+        {
+            const char* updateReq = "UPDATE " ADDRESSES_NAME " SET duration = ?1 WHERE OwnID != 0;";
+            sqlite::Statement stm(_db, updateReq);
+
+            stm.bind(1, 0);
+
+            stm.step();
+        }
+
+        trans.commit();
+
+        LOG_INFO() << "Expiration for all addresses  was updated to \"never\".";
         notifyAddressChanged();
     }
 
@@ -1755,24 +1803,6 @@ namespace beam
         notifyAddressChanged();
     }
 
-    Timestamp WalletDB::GetLastChannel(BbsChannel& ch)
-    {
-        Timestamp t;
-        auto thisPtr = shared_from_this();
-        bool b =
-            wallet::getVar(thisPtr, g_szBbsTime, t) &&
-            wallet::getVar(thisPtr, g_szBbsChannel, ch);
-
-            return b ? t : 0;
-    }
-
-    void WalletDB::SetLastChannel(BbsChannel ch)
-    {
-        auto thisPtr = shared_from_this();
-
-        wallet::setVar(thisPtr, g_szBbsChannel, ch);
-        wallet::setVar(thisPtr, g_szBbsTime, getTimestamp());
-    }
 
     void WalletDB::subscribe(IWalletDbObserver* observer)
     {
@@ -2074,6 +2104,8 @@ namespace beam
 
     namespace wallet
     {
+		const char g_szPaymentProofRequired[] = "payment_proof_required";
+
         bool getTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, ECC::Point::Native& value)
         {
             ECC::Point pt;
@@ -2142,6 +2174,29 @@ namespace beam
             return toByteBuffer(s);
         }
 
+        void changeAddressExpiration(beam::IWalletDB::Ptr walletDB, const WalletID& walletID)
+        {
+            if (walletID != Zero)
+            {
+                auto walletAddress = walletDB->getAddress(walletID);
+
+                if (!walletAddress.is_initialized())
+                {
+                    LOG_INFO() << "Address " << to_string(walletID) << "is absent in wallet";
+                    return;
+                }
+
+                walletAddress->m_duration = 0;
+
+                walletDB->saveAddress(*walletAddress);
+
+                LOG_INFO() << "Expiration for address " << to_string(walletID) << " was updated to \"never\".";
+                return;
+            }
+
+            walletDB->setNeverExpirationForAll();
+        }
+
         WalletAddress createAddress(beam::IWalletDB::Ptr walletDB)
         {
             WalletAddress newAddress;
@@ -2153,9 +2208,10 @@ namespace beam
 
             proto::Sk2Pk(newAddress.m_walletID.m_Pk, sk);
 
-            BbsChannel ch;
-            if (!walletDB->GetLastChannel(ch))
-                ch = (BbsChannel)newAddress.m_walletID.m_Pk.m_pData[0] >> 3; // fallback
+			// derive the channel from the address
+			BbsChannel ch;
+			newAddress.m_walletID.m_Pk.ExportWord<0>(ch);
+			ch %= proto::Bbs::s_MaxChannels;
 
             newAddress.m_walletID.m_Channel = ch;
             return newAddress;

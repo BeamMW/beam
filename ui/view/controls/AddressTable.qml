@@ -9,6 +9,8 @@ CustomTableView {
     property int rowHeight: 69
     property int resizableWidth: parent.width - actions.width
     property var parentModel
+    property bool isExpired: false
+    property var editDialog
     anchors.fill: parent
     frameVisible: false
     selectionMode: SelectionMode.NoSelection
@@ -120,6 +122,7 @@ CustomTableView {
                         ToolTip.text: qsTr("Actions")
                         onClicked: {
                             contextMenu.address = rootControl.model[styleData.row].address;
+                            contextMenu.addressItem = rootControl.model[styleData.row];
                             contextMenu.popup();
                         }
                     }
@@ -133,19 +136,20 @@ CustomTableView {
         modal: true
         dim: false
         property string address
-        /*Action {
-            text: qsTr("transactions list")
-            icon.source: "qrc:/assets/icon-transactions.svg"
+        property var addressItem
+        Action {
+            text: qsTr("edit address")
+            icon.source: "qrc:/assets/icon-edit.svg"
             onTriggered: {
-                // go to list transaction (wallet page)
-                main.updateItem(0)
+                editDialog.addressItem = contextMenu.addressItem;
+                editDialog.open();
             }
-        }*/
+        }
         Action {
             text: qsTr("delete address")
             icon.source: "qrc:/assets/icon-delete.svg"
             onTriggered: {
-                parentModel.deleteAddress(contextMenu.address);
+                viewModel.deleteAddress(contextMenu.address);
             }
         }
     }

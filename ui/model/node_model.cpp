@@ -113,16 +113,24 @@ void NodeModel::run()
 
             if (!m_shouldTerminateModel)
             {
+				bool bErr = true;
                 try
                 {
                     m_shouldStartNode = false;
                     runLocalNode();
+					bErr = false;
                 }
                 catch (const runtime_error& ex)
                 {
                     LOG_ERROR() << ex.what();
-                    AppModel::getInstance()->getMessages().addMessage(tr("Failed to start node. Please check your node configuration"));
                 }
+				catch (const CorruptionException& ex)
+				{
+					LOG_ERROR() << "Corruption: " << ex.m_sErr;
+				}
+
+				if (bErr)
+					AppModel::getInstance()->getMessages().addMessage(tr("Failed to start node. Please check your node configuration"));
             }
         }
     }
@@ -167,6 +175,10 @@ void NodeModel::runLocalNode()
         if (peer_addr.resolve(qPeer.toStdString().c_str()))
         {
             node.m_Cfg.m_Connect.emplace_back(peer_addr);
+        }
+        else
+        {
+            LOG_ERROR() << "Unable to resolve node address: " << qPeer.toStdString();
         }
     }
 

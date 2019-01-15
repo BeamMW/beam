@@ -53,6 +53,8 @@ namespace
         {
         case proto::NodeProcessingException::Type::Incompatible:
             return beam::wallet::ErrorType::NodeProtocolIncompatible;
+		case proto::NodeProcessingException::Type::TimeOutOfSync:
+			return beam::wallet::ErrorType::TimeOutOfSync;
         default:
             return beam::wallet::ErrorType::NodeProtocolBase;
         }
@@ -172,6 +174,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
+    void saveAddressChanges(const beam::WalletID& id, const std::string& name, bool isNever, bool makeActive, bool makeExpired) override
+    {
+        tx.send([id, name, isNever, makeActive, makeExpired](BridgeInterface& receiver_) mutable
+        {
+            receiver_.saveAddressChanges(id, name, isNever, makeActive, makeExpired);
+        });
+    }
+
     void setNodeAddress(const std::string& addr) override
     {
         tx.send([addr](BridgeInterface& receiver_) mutable
@@ -239,7 +249,7 @@ WalletStatus WalletModel::getStatus() const
     WalletStatus status;
 
     status.available = _walletDB->getAvailable();
-    status.receiving = _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
+    status.receiving = _walletDB->getTotal(Coin::Incoming);
     status.sending = _walletDB->getTotal(Coin::Outgoing);
     status.maturing = _walletDB->getTotal(Coin::Maturing);
 
@@ -296,9 +306,15 @@ void WalletModel::run()
 
         auto nodeNetwork = make_shared<MyNodeNetwork>(*wallet, *this);
 
-        Address node_addr;
-        node_addr.resolve(_nodeAddrStr.c_str());
-        nodeNetwork->m_Cfg.m_vNodes.push_back(node_addr);
+        Address nodeAddr;
+        if (nodeAddr.resolve(_nodeAddrStr.c_str()))
+        {
+            nodeNetwork->m_Cfg.m_vNodes.push_back(nodeAddr);
+        }
+        else
+        {
+            LOG_ERROR() << "Unable to resolve node address: " << _nodeAddrStr;
+        }
 
         _nodeNetwork = nodeNetwork;
 
@@ -400,6 +416,26 @@ void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& c
 {
     try
     {
+        auto receiverAddr = _walletDB->getAddress(receiver);
+
+        if (receiverAddr)
+        {
+            if (receiverAddr->isExpired())
+            {
+                emit cantSendToExpired();
+                return;
+            }
+        }
+        else
+        {
+            WalletAddress peerAddr;
+            peerAddr.m_walletID = receiver;
+            peerAddr.m_createTime = getTimestamp();
+            peerAddr.m_label = comment;
+
+            saveAddress(peerAddr, false);
+        }
+
         WalletAddress senderAddress = wallet::createAddress(_walletDB);
         senderAddress.m_label = comment;
         saveAddress(senderAddress, true); // should update the wallet_network
@@ -410,8 +446,10 @@ void WalletModel::sendMoney(const beam::WalletID& receiver, const std::string& c
         auto s = _wallet.lock();
         if (s)
         {
-            s->transfer_money(senderAddress.m_walletID, receiver, move(amount), move(fee), true, move(message));
+            s->transfer_money(senderAddress.m_walletID, receiver, move(amount), move(fee), true, 120, move(message));
         }
+
+        emit sendMoneyVerified();
     }
     catch (...)
     {
@@ -537,6 +575,56 @@ void WalletModel::deleteAddress(const beam::WalletID& id)
     }
 }
 
+void WalletModel::saveAddressChanges(const beam::WalletID& id, const std::string& name, bool isNever, bool makeActive, bool makeExpired)
+{
+    try
+    {
+        auto addr = _walletDB->getAddress(id);
+
+        if (addr)
+        {
+            if (addr->m_OwnID)
+            {
+                addr->m_label = name;
+                if (makeExpired)
+                {
+                    assert(addr->m_createTime < getTimestamp() - 1);
+                    addr->m_duration = getTimestamp() - addr->m_createTime - 1;
+                }
+                else if (isNever)
+                {
+                    addr->m_duration = 0;
+                }
+                else if (addr->m_duration == 0 || makeActive)
+                {
+                    // set expiration date to 24h since now
+                    addr->m_createTime = getTimestamp();
+                    addr->m_duration = 24 * 60 * 60; //24h
+                }  
+
+                _walletDB->saveAddress(*addr);
+
+                auto s = _walletNetwork.lock();
+                if (s)
+                {
+                    static_pointer_cast<WalletNetworkViaBbs>(s)->AddOwnAddress(*addr);
+                }
+            }
+            else
+            {
+                LOG_ERROR() << "It's not implemented!";
+            }
+        }
+        else
+        {
+            LOG_ERROR() << "Address " << to_string(id) << " is absent.";
+        }
+    }
+    catch (...)
+    {
+    }
+}
+
 
 void WalletModel::setNodeAddress(const std::string& addr)
 {
@@ -559,7 +647,6 @@ void WalletModel::setNodeAddress(const std::string& addr)
     else
     {
         LOG_ERROR() << "Unable to resolve node address: " << addr;
-        assert(false);
     }
 }
 
@@ -607,6 +694,8 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
         return tr("Node protocol error!");
     case wallet::ErrorType::NodeProtocolIncompatible:
         return tr("You are trying to connect to incompatible peer.");
+	case wallet::ErrorType::TimeOutOfSync:
+		return tr("System time not synchronized.");
     case wallet::ErrorType::ConnectionTimedOut:
         return tr("Connection timed out.");
     case wallet::ErrorType::ConnectionRefused:

@@ -343,4 +343,34 @@ namespace beam {
 		memset0(pDst0 + nDst, nBytes);
 	}
 
+	void uintBigImpl::_Div(uint8_t* pDst, uint32_t nDst, const uint8_t* pA, uint32_t nA, const uint8_t* pB, uint32_t nB, uint8_t* pMul, uint8_t* pTmp)
+	{
+		memset0(pDst, nDst);
+		memset0(pMul, nA);
+
+		uint32_t nOrder = _GetOrder(pB, nB);
+		if (nOrder > (nA << 3))
+			return;
+
+		for (uint32_t nShift = 1 + std::min((nA << 3) - nOrder, (nDst << 3) - 1); nShift--; )
+		{
+			_ShiftLeft(pTmp, nA, pB, nB, nShift);
+			_Inc(pTmp, nA, pMul, nA);
+
+			if (_Cmp(pMul, nA, pTmp, nA) > 0)
+				continue; // overflow
+
+			if (_Cmp(pA, nA, pTmp, nA) < 0)
+				continue; // exceeded
+
+			memcpy(pMul, pTmp, nA);
+			pDst[nDst - (nShift >> 3) - 1] |= (1 << (7 & nShift));
+		}
+
+#ifndef NDEBUG
+		_Mul(pTmp, nA, pB, nB, pDst, nDst);
+		assert(!_Cmp(pTmp, nA, pMul, nA));
+#endif // NDEBUG
+	}
+
 } // namespace beam

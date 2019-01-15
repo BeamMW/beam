@@ -17,6 +17,7 @@
 #include "wallet/common.h"
 #include "wallet/wallet_db.h"
 
+#include <condition_variable>
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
@@ -45,6 +46,7 @@ namespace beam { namespace wallet
     MACRO(ExpiredAddressProvided, 8, "Address is expired") \
     MACRO(FailedToGetParameter,   9, "Failed to get parameter") \
     MACRO(TransactionExpired,     10, "Transaction has expired") \
+    MACRO(NoPaymentProof,         11, "Payment not signed by the receiver") \
 
     enum TxFailureReason : int32_t
     {
@@ -82,6 +84,8 @@ namespace beam { namespace wallet
         const TxID& GetTxID() const;
         void Update() override;
         void Cancel() override;
+
+		static const uint32_t s_ProtoVersion;
 
         template <typename T>
         bool GetParameter(TxParameterID paramID, T& value) const
@@ -121,11 +125,15 @@ namespace beam { namespace wallet
 
         IWalletDB::Ptr GetWalletDB();
         bool IsInitiator() const;
-    protected:
+		uint32_t get_PeerVersion() const;
 
+    protected:
+        void CheckExpired();
+        bool CheckExternalFailures();
         void ConfirmKernel(const TxKernel& kernel);
         void CompleteTx();
         void RollbackTx();
+		void NotifyFailure(TxFailureReason);
         void UpdateTxDescription(TxStatus s);
 
         std::vector<Coin> GetUnconfirmedOutputs() const;
@@ -173,8 +181,8 @@ namespace beam { namespace wallet
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
         void SendInvitation(const TxBuilder& builder, bool isSender);
-        void ConfirmInvitation(const TxBuilder& builder);
-        void ConfirmTransaction(const TxBuilder& builder);
+        void ConfirmInvitation(const TxBuilder& builder, bool sendUtxos);
+        void ConfirmTransaction(const TxBuilder& builder, bool sendUtxos);
         void NotifyTransactionRegistered();
         bool IsSelfTx() const;
         State GetState() const;
@@ -183,12 +191,13 @@ namespace beam { namespace wallet
     class TxBuilder
     {
     public:
-        TxBuilder(BaseTransaction& tx, Amount amount, Amount fee);
+        TxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee);
 
         void SelectInputs();
         void AddChangeOutput();
-        void AddOutput(Amount amount, Coin::Status status);
-        Output::Ptr CreateOutput(Amount amount, Coin::Status status, bool shared = false, Height incubation = 0);
+        void AddOutput(Amount amount, bool bChange);
+        bool FinalizeOutputs();
+        Output::Ptr CreateOutput(Amount amount, bool bChange, bool shared = false, Height incubation = 0);
         void CreateKernel();
         ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
@@ -202,6 +211,7 @@ namespace beam { namespace wallet
         bool IsPeerSignatureValid() const;
 
         Amount GetAmount() const;
+        const AmountList& GetAmountList() const;
         Amount GetFee() const;
         Height GetMinHeight() const;
         Height GetMaxHeight() const;
@@ -210,12 +220,14 @@ namespace beam { namespace wallet
         const ECC::Scalar::Native& GetOffset() const;
         const ECC::Scalar::Native& GetPartialSignature() const;
         const TxKernel& GetKernel() const;
+        void StoreKernelID();
+        std::string GetKernelIDString() const;
 
     private:
         BaseTransaction& m_Tx;
 
         // input
-        Amount m_Amount;
+        AmountList m_AmountList;
         Amount m_Fee;
         Amount m_Change;
         Height m_MinHeight;

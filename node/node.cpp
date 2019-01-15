@@ -883,45 +883,6 @@ void Node::InitMode()
 void Node::Bbs::Cleanup()
 {
     get_ParentObj().m_Processor.get_DB().BbsDelOld(getTimestamp() - get_ParentObj().m_Cfg.m_Timeout.m_BbsMessageTimeout_s);
-
-    FindRecommendedChannel();
-
-	m_LastRecommendedChannel_ms = m_LastCleanup_ms = GetTime_ms();
-}
-
-void Node::Bbs::FindRecommendedChannel()
-{
-    NodeDB& db = get_ParentObj().m_Processor.get_DB(); // alias
-
-	struct BBsHistogram
-		:public NodeDB::IBbsHistogram
-	{
-		uint64_t m_MaxCount;
-
-		BbsChannel m_Best = 0;
-		BbsChannel m_Last = 0;
-		uint64_t m_CountBest = 0;
-
-
-		virtual bool OnChannel(BbsChannel ch, uint64_t nCount) override
-		{
-			if ((nCount <= m_MaxCount) && (nCount > m_CountBest))
-			{
-				m_CountBest = nCount;
-				m_Best = ch;
-			}
-			m_Last = ch;
-
-			return true;
-		}
-	};
-
-	BBsHistogram wlk;
-	wlk.m_MaxCount = get_ParentObj().m_Cfg.m_BbsIdealChannelPopulation;
-
-	db.EnumBbs(wlk);
-
-	m_RecommendedChannel = wlk.m_CountBest ? wlk.m_Best : wlk.m_Last + 1;
 }
 
 void Node::Bbs::MaybeCleanup()
@@ -1081,6 +1042,7 @@ void Node::Peer::OnConnectedSecure()
     proto::Login msgLogin;
     msgLogin.m_CfgChecksum = Rules::get().Checksum; // checksum of all consesnsus related configuration
     msgLogin.m_Flags =
+		proto::LoginFlags::Extension1 |
         proto::LoginFlags::SpreadingTransactions | // indicate ability to receive and broadcast transactions
         proto::LoginFlags::SendPeers; // request a another node to periodically send a list of recommended peers
 
@@ -1963,9 +1925,6 @@ void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType&
 
         if (outp.m_pPublic)
             os << ", Sum=" << outp.m_pPublic->m_Value;
-
-        if (outp.m_pConfidential)
-            os << ", Confidential";
     }
 
     for (size_t i = 0; i < tx.m_vKernels.size(); i++)
@@ -1974,7 +1933,10 @@ void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType&
         Merkle::Hash hv;
         krn.get_ID(hv);
 
-        os << "\n\tK: " << hv << " Fee=" << krn.m_Fee;
+		char sz[Merkle::Hash::nTxtLen + 1];
+		hv.Print(sz);
+
+        os << "\n\tK: " << sz << " Fee=" << krn.m_Fee;
     }
 
     os << "\n\tValid: " << bValid;
@@ -2409,7 +2371,7 @@ void Node::Peer::OnMsg(proto::Login&& msg)
 		(proto::LoginFlags::Bbs & msg.m_Flags))
 	{
 		proto::BbsResetSync msgOut;
-		msgOut.m_TimeFrom = std::min(m_This.m_Bbs.m_HighestPosted_s, getTimestamp() - m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s);
+		msgOut.m_TimeFrom = std::min(m_This.m_Bbs.m_HighestPosted_s, getTimestamp() - Rules::get().DA.MaxAhead_s);
 		Send(msgOut);
 	}
 
@@ -2758,13 +2720,6 @@ void Node::Peer::OnMsg(proto::PeerInfo&& msg)
         m_This.m_PeerMan.OnPeer(msg.m_ID, msg.m_LastAddr, false);
 }
 
-void Node::Peer::OnMsg(proto::GetTime&& msg)
-{
-    proto::Time msgOut;
-    msgOut.m_Value = getTimestamp();
-    Send(msgOut);
-}
-
 void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
 {
     proto::ExternalAddr msgOut;
@@ -2772,7 +2727,35 @@ void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
     Send(msgOut);
 }
 
+void Node::Peer::OnMsg(proto::BbsMsgV0&& msg0)
+{
+	if (!m_This.m_Cfg.m_BbsAllowV0)
+		return; // drop
+
+	proto::BbsMsg msg;
+	msg.m_Channel = msg0.m_Channel;
+	msg.m_TimePosted = msg0.m_TimePosted;
+	msg.m_Message.swap(msg0.m_Message);
+
+	OnMsg(msg, false);
+}
+
 void Node::Peer::OnMsg(proto::BbsMsg&& msg)
+{
+	if (!m_This.m_Cfg.m_BbsAllowV0)
+	{
+		// test the hash
+		ECC::Hash::Value hv;
+		proto::Bbs::get_Hash(hv, msg);
+
+		if (!proto::Bbs::IsHashValid(hv))
+			return; // drop
+	}
+
+	OnMsg(msg, true);
+}
+
+void Node::Peer::OnMsg(const proto::BbsMsg& msg, bool bNonceValid)
 {
 	if (!m_This.m_Cfg.m_Bbs)
 		ThrowUnexpected();
@@ -2782,13 +2765,13 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
 	Timestamp t = getTimestamp();
 
-	if (msg.m_TimePosted > t + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s)
+	if (msg.m_TimePosted > t + Rules::get().DA.MaxAhead_s)
 		return; // too much ahead of time
 
 	if (msg.m_TimePosted + m_This.m_Cfg.m_Timeout.m_BbsMessageTimeout_s  < t)
 		return; // too old
 
-	if (msg.m_TimePosted + m_This.m_Cfg.m_Timeout.m_BbsMessageMaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
+	if (msg.m_TimePosted + Rules::get().DA.MaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
 		return; // don't allow too much out-of-order messages
 
     NodeDB& db = m_This.m_Processor.get_DB();
@@ -2797,6 +2780,8 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
     wlk.m_Data.m_Channel = msg.m_Channel;
     wlk.m_Data.m_TimePosted = msg.m_TimePosted;
     wlk.m_Data.m_Message = Blob(msg.m_Message);
+	wlk.m_Data.m_bNonce = bNonceValid;
+	msg.m_Nonce.Export(wlk.m_Data.m_Nonce);
 
     Bbs::CalcMsgKey(wlk.m_Data);
 
@@ -2889,12 +2874,24 @@ void Node::Peer::OnMsg(proto::BbsGetMsg&& msg)
 
 void Node::Peer::SendBbsMsg(const NodeDB::WalkerBbs::Data& d)
 {
-    proto::BbsMsg msgOut;
-    msgOut.m_Channel = d.m_Channel;
-    msgOut.m_TimePosted = d.m_TimePosted;
-    d.m_Message.Export(msgOut.m_Message); // TODO: avoid buf allocation
+	if (d.m_bNonce && (proto::LoginFlags::Extension1 & m_LoginFlags))
+	{
+		proto::BbsMsg msgOut;
+		msgOut.m_Channel = d.m_Channel;
+		msgOut.m_TimePosted = d.m_TimePosted;
+		d.m_Message.Export(msgOut.m_Message);
+		msgOut.m_Nonce = d.m_Nonce;
+		Send(msgOut);
+	}
+	else
+	{
+		proto::BbsMsgV0 msgOut;
+		msgOut.m_Channel = d.m_Channel;
+		msgOut.m_TimePosted = d.m_TimePosted;
+		d.m_Message.Export(msgOut.m_Message);
+		Send(msgOut);
+	}
 
-    Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
@@ -2957,20 +2954,16 @@ void Node::Peer::OnMsg(proto::BbsResetSync&& msg)
 	BroadcastBbs();
 }
 
-void Node::Peer::OnMsg(proto::BbsPickChannel&& msg)
+void Node::Peer::OnMsg(proto::BbsPickChannelV0&& msg)
 {
 	if (!m_This.m_Cfg.m_Bbs)
 		ThrowUnexpected();
 
-	uint32_t t_ms = GetTime_ms();
-	if (t_ms - m_This.m_Bbs.m_LastRecommendedChannel_ms > m_This.m_Cfg.m_Timeout.m_BbsChannelUpdate_ms)
-	{
-		m_This.m_Bbs.m_LastRecommendedChannel_ms = t_ms;
-		m_This.m_Bbs.FindRecommendedChannel();
-	}
+	if (proto::LoginFlags::Extension1 & m_LoginFlags)
+		ThrowUnexpected(); // new client shouldn't ask for it
 
-	proto::BbsPickChannelRes msgOut;
-    msgOut.m_Channel = m_This.m_Bbs.m_RecommendedChannel;
+	proto::BbsPickChannelResV0 msgOut;
+	msgOut.m_Channel = m_This.RandomUInt32(proto::Bbs::s_MaxChannels);
     Send(msgOut);
 }
 

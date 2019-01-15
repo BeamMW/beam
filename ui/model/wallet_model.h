@@ -73,6 +73,8 @@ signals:
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
     void nodeConnectionChanged(bool isNodeConnected);
     void onWalletError(beam::wallet::ErrorType error);
+    void sendMoneyVerified();
+    void cantSendToExpired();
 
 private:
     void onCoinsChanged() override;
@@ -93,6 +95,7 @@ private:
     void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override;
     void generateNewAddress() override;
     void deleteAddress(const beam::WalletID& id) override;
+    void saveAddressChanges(const beam::WalletID& id, const std::string& name, bool isNever, bool makeActive, bool makeExpired) override;
     void setNodeAddress(const std::string& addr) override;
     void changeWalletPassword(const beam::SecString& password) override;
     void getNetworkStatus() override;

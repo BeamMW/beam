@@ -27,6 +27,7 @@ class RecoveryPhraseItem : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(bool isCorrect READ isCorrect NOTIFY isCorrectChanged)
+    Q_PROPERTY(bool isAllowed READ isAllowed NOTIFY isAllowedChanged)
     Q_PROPERTY(QString value READ getValue WRITE setValue NOTIFY valueChanged)
     Q_PROPERTY(QString phrase READ getPhrase CONSTANT)
     Q_PROPERTY(int index READ getIndex CONSTANT)
@@ -35,18 +36,43 @@ public:
     ~RecoveryPhraseItem();
 
     bool isCorrect() const;
+    bool isAllowed() const;
     const QString& getValue() const;
     void setValue(const QString& value);
     const QString& getPhrase() const;
     int getIndex() const;
 signals: 
     void isCorrectChanged();
+    void isAllowedChanged();
     void valueChanged();
 
 private:
     int m_index;
     QString m_phrase;
     QString m_userInput;
+};
+
+class WalletDBPathItem : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(QString shortPath READ getShortPath CONSTANT)
+    Q_PROPERTY(QString fullPath READ getFullPath CONSTANT)
+    Q_PROPERTY(int fileSize READ getFileSize CONSTANT)
+    Q_PROPERTY(QString lastWriteDateString READ getLastWriteDateString CONSTANT)
+public:
+    WalletDBPathItem(const std::string& walletDBPath, uintmax_t fileSize, time_t m_lastWriteTime);
+    WalletDBPathItem() = default;
+    virtual ~WalletDBPathItem();
+
+    QString getFullPath() const;
+    QString getShortPath() const;
+    int getFileSize() const;
+    QString getLastWriteDateString() const;
+
+private:
+    std::string m_fullPath;
+    uintmax_t m_fileSize = 0;
+    time_t m_lastWriteTime = 0;
 };
 
 class StartViewModel : public QObject
@@ -64,6 +90,7 @@ class StartViewModel : public QObject
     Q_PROPERTY(int localMiningThreads READ getLocalMiningThreads CONSTANT)
     Q_PROPERTY(QString remoteNodeAddress READ getRemoteNodeAddress CONSTANT)
     Q_PROPERTY(QString localNodePeer READ getLocalNodePeer CONSTANT)
+    Q_PROPERTY(QQmlListProperty<WalletDBPathItem> walletDBpaths READ getWalletDBpaths CONSTANT)
 
 public:
 
@@ -84,6 +111,7 @@ public:
     int getLocalMiningThreads() const;
     QString getRemoteNodeAddress() const;
     QString getLocalNodePeer() const;
+    QQmlListProperty<WalletDBPathItem> getWalletDBpaths();
 
     Q_INVOKABLE void setupLocalNode(int port, int miningThreads, const QString& localNodePeer);
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
@@ -96,6 +124,12 @@ public:
     Q_INVOKABLE bool hasSupportedGpu();
     Q_INVOKABLE bool getIsRunLocalNode() const;
     Q_INVOKABLE QString chooseRandomNode() const;
+    Q_INVOKABLE QString walletVersion() const;
+    Q_INVOKABLE bool isFindExistingWalletDB();
+    Q_INVOKABLE void deleteCurrentWalletDB();
+    Q_INVOKABLE void migrateWalletDB(const QString& path);
+    Q_INVOKABLE void copyToClipboard(const QString& text);
+    Q_INVOKABLE QString selectCustomWalletDB();
 
 signals:
     void walletExistsChanged();
@@ -111,10 +145,15 @@ public slots:
     void setPassword(const QString& pass);
 
 private:
+
+    void findExistingWalletDB();
+
     QList<QObject*> m_recoveryPhrases;
     QList<QObject*> m_checkPhrases;
     beam::WordList m_generatedPhrases;
     std::string m_password;
-    
+
+    QList<WalletDBPathItem*> m_walletDBpaths;
+
     bool m_isRecoveryMode;
 };

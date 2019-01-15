@@ -55,6 +55,10 @@ int main(int argc, char* argv[]) {
     } catch (const std::exception& e) {
         LOG_ERROR() << "EXCEPTION: " << e.what();
         retCode = 255;
+	}
+	catch (const beam::CorruptionException& e) {
+		LOG_ERROR() << "Corruption: " << e.m_sErr;
+		retCode = 255;
     } catch (...) {
         LOG_ERROR() << "NON_STD EXCEPTION";
         retCode = 255;

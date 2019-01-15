@@ -11,6 +11,17 @@ ColumnLayout {
 
 	AddressBookViewModel {id: viewModel}
 
+    EditAddress {
+        id: editActiveAddress
+        parentModel: viewModel
+    }
+
+    EditAddress {
+        id: editExpiredAddress
+        parentModel: viewModel
+        isExpiredAddress: true
+    }
+
     anchors.fill: parent
     state: "active"
 	SFText {
@@ -67,12 +78,13 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.fillHeight: true
 
-
         AddressTable {
             id: activeAddressesView
             model: viewModel.activeAddresses
             parentModel: viewModel
             visible: false
+
+            editDialog: editActiveAddress
 
             sortIndicatorVisible: true
             sortIndicatorColumn: 4
@@ -96,6 +108,9 @@ ColumnLayout {
             model: viewModel.expiredAddresses
             visible: false
             parentModel: viewModel
+
+            editDialog: editExpiredAddress
+            isExpired: true
 
             sortIndicatorVisible: true
             sortIndicatorColumn: 4
@@ -227,14 +242,6 @@ ColumnLayout {
                 modal: true
                 dim: false
                 property string address
-                /*Action {
-                    text: qsTr("transactions list")
-                    icon.source: "qrc:/assets/icon-transactions.svg"
-                    onTriggered: {
-                        // go to list transaction (wallet page)
-                        main.updateItem(0)
-                    }
-                }*/
                 Action {
                     text: qsTr("delete contact")
                     icon.source: "qrc:/assets/icon-delete.svg"

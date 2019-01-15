@@ -54,6 +54,24 @@ namespace beam
 		return memis0(a.m_pData, Raw::nBytes - (s_MantissaBits >> 3));
 	}
 
+	bool Difficulty::get_Target(ECC::uintBig& hv) const
+	{
+		hv = Zero;
+
+		if (m_Packed > s_Inf)
+			return false; // invalid
+
+		Raw rDiff;
+		Unpack(rDiff);
+
+		static_assert(!(s_MantissaBits & 7), ""); // fix the following code lines to support non-byte-aligned mantissa size
+		uintBig_t<Raw::nBytes + (s_MantissaBits >> 3)> rMax;
+		memset(rMax.m_pData, 0xff, rMax.nBytes);
+
+		hv.SetDiv(rMax, rDiff);
+		return true;
+	}
+
 	void Difficulty::Unpack(Raw& res) const
 	{
 		res = Zero;

@@ -14,12 +14,16 @@
 
 #pragma once
 
+#include <boost/optional.hpp>
+
 #include "wallet/wallet.h"
 #include "nlohmann/json.hpp"
 
 #define INVALID_JSON_RPC -32600
 #define NOTFOUND_JSON_RPC -32601
 #define INVALID_PARAMS_JSON_RPC -32602
+#define INTERNAL_JSON_RPC_ERROR -32603
+#define INVALID_TX_STATUS -32001
 
 namespace beam
 {
@@ -27,16 +31,17 @@ namespace beam
 
 #define WALLET_API_METHODS(macro) \
     macro(CreateAddress,    "create_address") \
-    macro(Send,             "send") \
+    macro(ValidateAddress,  "validate_address") \
+    macro(Send,             "tx_send") \
     macro(Replace,          "replace") \
-    macro(Status,           "status") \
-    macro(Split,            "split") \
-    macro(Balance,          "balance") \
+    macro(Status,           "tx_status") \
+    macro(Split,            "tx_split") \
+    macro(TxCancel,         "tx_cancel") \
     macro(GetUtxo,          "get_utxo") \
     macro(Lock,             "lock") \
     macro(Unlock,           "unlock") \
-    macro(CreateUtxo,       "create_utxo") \
-    macro(Poll,             "poll")
+    macro(TxList,           "tx_list") \
+    macro(WalletStatus,     "wallet_status")
 
     struct CreateAddress
     {
@@ -49,9 +54,20 @@ namespace beam
         };
     };
 
+    struct ValidateAddress
+    {
+        WalletID address;
+
+        struct Response
+        {
+            bool isValid;
+            bool isMine;
+        };
+    };
+
     struct Send
     {
-        int session;
+        //int session;
         Amount value;
         Amount fee;
         WalletID address;
@@ -77,25 +93,32 @@ namespace beam
 
         struct Response
         {
-            TxStatus status;
+            TxDescription tx;
+            Height kernelProofHeight;
+            Height systemHeight;
+            uint64_t confirmations;
         };
     };
 
     struct Split
     {
+        //int session;
+        Amount fee;
+        AmountList coins;
+
         struct Response
         {
-
+            TxID txId;
         };
     };
 
-    struct Balance
+    struct TxCancel
     {
+        TxID txId;
+
         struct Response
         {
-            Amount available;
-            Amount in_progress;
-            Amount locked;
+            bool result;
         };
     };
 
@@ -123,19 +146,32 @@ namespace beam
         };
     };
 
-    struct CreateUtxo
+    struct TxList
     {
+        struct
+        {
+            boost::optional<TxStatus> status;
+            boost::optional<Height> height;
+        } filter;
+
         struct Response
         {
-
+            std::vector<Status::Response> resultList;
         };
     };
 
-    struct Poll
+    struct WalletStatus
     {
         struct Response
         {
-
+            beam::Height currentHeight = 0;
+            Merkle::Hash currentStateHash;
+            Merkle::Hash prevStateHash;
+            Amount available = 0;
+            Amount receiving = 0;
+            Amount sending = 0;
+            Amount maturing = 0;
+            Amount locked = 0;
         };
     };
 

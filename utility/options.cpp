@@ -69,6 +69,10 @@ namespace beam
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
         const char* CANCEL_TX = "cancel_tx";
+		const char* PAYMENT_PROOF_EXPORT = "payment_proof_export";
+		const char* PAYMENT_PROOF_VERIFY = "payment_proof_verify";
+		const char* PAYMENT_PROOF_DATA = "payment_proof";
+		const char* PAYMENT_PROOF_REQUIRED = "payment_proof_required";
         const char* TX_ID = "tx_id";
         const char* SEED_PHRASE = "seed_phrase";
         const char* GENERATE_PHRASE = "generate_phrase";
@@ -84,6 +88,9 @@ namespace beam
         const char* VERSION = "version";
         const char* VERSION_FULL = "version,v";
         const char* GIT_COMMIT_HASH = "git_commit_hash";
+        const char* WALLET_ADDR = "address";
+        const char* CHANGE_ADDRESS_EXPIRATION = "change_address_expiration";
+        const char* WALLET_ADDRESS_LIST = "address_list";
 #if defined(BEAM_USE_GPU)
         const char* MINER_TYPE = "miner_type";
 #endif
@@ -96,9 +103,19 @@ namespace beam
 		const char* TR_M = "tr_M";
 		const char* TR_N = "tr_N";
 		// ui
-        const char* WALLET_ADDR = "addr";
         const char* APPDATA_PATH = "appdata";
     }
+
+	template <typename T> struct TypeCvt {
+
+		static const T& get(const T& x) {
+			return x;
+		}
+
+		static const T& get(const Difficulty& x) {
+			return x.m_Packed;
+		}
+	};
 
     pair<po::options_description, po::options_description> createOptionsDescription(int flags)
     {
@@ -164,7 +181,11 @@ namespace beam
             (cli::EXPIRATION_TIME, po::value<string>()->default_value("24h"), "expiration time for new own address [24h|never]")
             (cli::GENERATE_PHRASE, "command to generate phrases which will be used to create a secret according to BIP-39")
             (cli::KEY_SUBKEY, po::value<uint32_t>()->default_value(0), "Child key index.")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase]");
+            (cli::CHANGE_ADDRESS_EXPIRATION, po::value<string>(), "change address expiration")
+            (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
+			(cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
+			(cli::PAYMENT_PROOF_REQUIRED, po::value<bool>(), "Set to disallow outgoing payments if the receiver doesn't supports the payment proof (older wallets)")
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list]");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()
@@ -193,10 +214,11 @@ namespace beam
     macro(uint32_t, DA.WindowWork, "num of blocks in the window for the mining difficulty adjustment") \
     macro(uint32_t, DA.WindowMedian0, "How many blocks are considered in calculating the timestamp median") \
     macro(uint32_t, DA.WindowMedian1, "Num of blocks taken at both endings of WindowWork, to pick medians") \
+    macro(uint32_t, DA.Difficulty0, "Initial difficulty") \
     macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
     macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
 
-#define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(Rules::get().name), comment)
+#define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
 
         po::options_description rules_options("Rules configuration");
         rules_options.add_options() RulesParams(THE_MACRO);

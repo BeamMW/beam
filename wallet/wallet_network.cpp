@@ -51,6 +51,8 @@ namespace beam {
 
 	WalletNetworkViaBbs::~WalletNetworkViaBbs()
 	{
+		m_Miner.Stop();
+
 		while (!m_PendingBbsMsgs.empty())
 			DeleteReq(m_PendingBbsMsgs.front());
 
@@ -134,23 +136,30 @@ namespace beam {
 		Addr::Wid key;
 		key.m_OwnID = ownID;
 
-		auto itW = m_Addresses.find(key);
-		if (m_Addresses.end() != itW)
-			return;
+        Addr* pAddr = nullptr;
+        auto itW = m_Addresses.find(key);
 
-		Addr* pAddr = new Addr;
-        pAddr->m_ExpirationTime = expirationTime;
-		pAddr->m_Wid.m_OwnID = ownID;
-		m_WalletDB->get_MasterKdf()->DeriveKey(pAddr->m_sk, Key::ID(ownID, Key::Type::Bbs));
+        if (m_Addresses.end() == itW)
+        {
+            pAddr = new Addr;
+            pAddr->m_ExpirationTime = expirationTime;
+            pAddr->m_Wid.m_OwnID = ownID;
+            m_WalletDB->get_MasterKdf()->DeriveKey(pAddr->m_sk, Key::ID(ownID, Key::Type::Bbs));
 
-		proto::Sk2Pk(pAddr->m_Pk, pAddr->m_sk); // needed to "normalize" the sk, and calculate the channel
+            proto::Sk2Pk(pAddr->m_Pk, pAddr->m_sk); // needed to "normalize" the sk, and calculate the channel
 
-		pAddr->m_Channel.m_Value = nChannel;
+            pAddr->m_Channel.m_Value = nChannel;
 
-		m_Addresses.insert(pAddr->m_Wid);
-		m_Channels.insert(pAddr->m_Channel);
+            m_Addresses.insert(pAddr->m_Wid);
+            m_Channels.insert(pAddr->m_Channel);
+        }
+        else
+        {
+            pAddr = &(itW->get_ParentObj());
+            pAddr->m_ExpirationTime = expirationTime;
+        }
 
-		if (IsSingleChannelUser(pAddr->m_Channel))
+		if (pAddr && IsSingleChannelUser(pAddr->m_Channel))
 		{
 			Timestamp ts = 0;
 			auto it = m_BbsTimestamps.find(pAddr->m_Channel.m_Value);
@@ -254,28 +263,85 @@ namespace beam {
 		ser & msg;
 		SerializeBuffer sb = ser.buffer();
 
-		MyRequestBbsMsg::Ptr pReq(new MyRequestBbsMsg);
-
 		ECC::NoLeak<ECC::Hash::Value> hvRandom;
 		ECC::GenRandom(hvRandom.V);
 
 		ECC::Scalar::Native nonce;
 		m_WalletDB->get_MasterKdf()->DeriveKey(nonce, hvRandom.V);
 		
-		if (proto::Bbs::Encrypt(pReq->m_Msg.m_Message, peerID.m_Pk, nonce, sb.first, static_cast<uint32_t>(sb.second)))
+		Miner::Task::Ptr pTask = std::make_shared<Miner::Task>();
+
+		if (proto::Bbs::Encrypt(pTask->m_Msg.m_Message, peerID.m_Pk, nonce, sb.first, static_cast<uint32_t>(sb.second)))
 		{
-			pReq->m_Msg.m_Channel = channel_from_wallet_id(peerID);
-			pReq->m_Msg.m_TimePosted = getTimestamp();
+			pTask->m_Done = false;
+			pTask->m_Msg.m_Channel = channel_from_wallet_id(peerID);
 
-			m_PendingBbsMsgs.push_back(*pReq);
-			pReq->AddRef();
+			if (m_MineOutgoing)
+			{
+				proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
 
-			m_NodeNetwork.PostRequest(*pReq, m_BbsSentEvt);
+				if (!m_Miner.m_pEvt)
+				{
+					m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
+					m_Miner.m_Shutdown = false;
+
+					uint32_t nThreads = std::thread::hardware_concurrency();
+					nThreads = (nThreads > 1) ? (nThreads - 1) : 1; // leave at least 1 vacant core for other things
+					m_Miner.m_vThreads.resize(nThreads);
+
+					for (uint32_t i = 0; i < nThreads; i++)
+						m_Miner.m_vThreads[i] = std::thread(&Miner::Thread, &m_Miner, i);
+				}
+
+				std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
+
+				m_Miner.m_Pending.push_back(std::move(pTask));
+				m_Miner.m_NewTask.notify_all();
+			}
+			else
+			{
+				pTask->m_Msg.m_TimePosted = getTimestamp();
+				OnMined(std::move(pTask->m_Msg));
+			}
 		}
 		else
 		{
 			LOG_WARNING() << "BBS serialization failed (bad peerID?)";
 		}
+	}
+
+	void WalletNetworkViaBbs::OnMined()
+	{
+		while (true)
+		{
+			Miner::Task::Ptr pTask;
+			{
+				std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
+
+				if (!m_Miner.m_Done.empty())
+				{
+					pTask = std::move(m_Miner.m_Done.front());
+					m_Miner.m_Done.pop_front();
+				}
+			}
+
+			if (!pTask)
+				break;
+
+			OnMined(std::move(pTask->m_Msg));
+		}
+	}
+
+	void WalletNetworkViaBbs::OnMined(proto::BbsMsg&& msg)
+	{
+		MyRequestBbsMsg::Ptr pReq(new MyRequestBbsMsg);
+
+		pReq->m_Msg = std::move(msg);
+
+		m_PendingBbsMsgs.push_back(*pReq);
+		pReq->AddRef();
+
+		m_NodeNetwork.PostRequest(*pReq, m_BbsSentEvt);
 	}
 
     void WalletNetworkViaBbs::OnAddressTimer()
@@ -294,4 +360,97 @@ namespace beam {
         }
         m_AddressExpirationTimer->start(AddressUpdateInterval_ms, false, [this] { OnAddressTimer(); });
     }
+
+	void WalletNetworkViaBbs::Miner::Stop()
+	{
+		if (!m_vThreads.empty())
+		{
+			{
+				std::unique_lock<std::mutex> scope(m_Mutex);
+				m_Shutdown = true;
+				m_NewTask.notify_all();
+			}
+
+			for (size_t i = 0; i < m_vThreads.size(); i++)
+				if (m_vThreads[i].joinable())
+					m_vThreads[i].join();
+
+			m_vThreads.clear();
+			m_pEvt.reset();
+		}
+	}
+
+	void WalletNetworkViaBbs::Miner::Thread(uint32_t iThread)
+	{
+		proto::Bbs::NonceType nStep = static_cast<uint32_t>(m_vThreads.size());
+
+		while (true)
+		{
+			Task::Ptr pTask;
+
+			for (std::unique_lock<std::mutex> scope(m_Mutex); ; m_NewTask.wait(scope))
+			{
+				if (m_Shutdown)
+					return;
+
+				if (!m_Pending.empty())
+				{
+					pTask = m_Pending.front();
+					break;
+				}
+			}
+
+			Timestamp ts = 0;
+			proto::Bbs::NonceType nonce = iThread;
+			bool bSuccess = false;
+
+			for (uint32_t i = 0; ; i++)
+			{
+				if (pTask->m_Done || m_Shutdown)
+					break;
+
+				if (!(i & 0xff))
+					ts = getTimestamp();
+
+				// attempt to mine it
+				ECC::Hash::Value hv;
+				ECC::Hash::Processor hp = pTask->m_hpPartial;
+				hp
+					<< ts
+					<< nonce
+					>> hv;
+
+				if (proto::Bbs::IsHashValid(hv))
+				{
+					bSuccess = true;
+					break;
+				}
+
+				nonce += nStep;
+			}
+
+			if (bSuccess)
+			{
+				std::unique_lock<std::mutex> scope(m_Mutex);
+
+				if (pTask->m_Done)
+					bSuccess = false;
+				else
+				{
+					assert(m_Pending.front() == pTask);
+
+					pTask->m_Msg.m_TimePosted = ts;
+					pTask->m_Msg.m_Nonce = nonce;
+
+					pTask->m_Done = true;
+					m_Pending.pop_front();
+					m_Done.push_back(std::move(pTask));
+				}
+			}
+
+			if (bSuccess)
+				m_pEvt->post();
+		}
+
+	}
 }

@@ -19,6 +19,7 @@
 
 #include "core/serialization_adapters.h"
 #include "core/proto.h"
+#include <algorithm>
 
 namespace beam
 {
@@ -75,7 +76,7 @@ namespace beam
         Cancelled,
         Completed,
         Failed,
-        Registered
+        Registering
     };
 
     struct TxDescription
@@ -125,7 +126,7 @@ namespace beam
         {
             return m_status == TxStatus::Pending 
                 || m_status == TxStatus::InProgress 
-                || m_status == TxStatus::Registered;
+                || m_status == TxStatus::Registering;
         }
 
         bool canCancel() const
@@ -173,6 +174,9 @@ namespace beam
             CreateTime = 10,
             IsInitiator = 11,
             MaxHeight = 12,
+            AmountList = 13,
+
+			PeerProtoVersion = 16,
 
             AtomicSwapCoin = 20,
             AtomicSwapAmount = 21,
@@ -212,6 +216,8 @@ namespace beam
 
             FailureReason = 92,
 
+			PaymentConfirmation = 99,
+
             // private parameters
             PrivateFirstParam = 128,
 
@@ -229,6 +235,8 @@ namespace beam
             Change = 150,
             Status = 151,
             KernelID = 152,
+
+			MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
 
             SharedBlindingFactor = 160,
             LockedBlindingFactor = 161,
@@ -274,6 +282,29 @@ namespace beam
                 return *this;
             }
 
+            template <typename T>
+            bool GetParameter(TxParameterID paramID, T& value) const 
+            {
+                auto pit = std::find_if(m_Parameters.begin(), m_Parameters.end(), [paramID](const auto& p) { return p.first == paramID; });
+                if (pit == m_Parameters.end())
+                {
+                    return false;
+                }
+                const ByteBuffer& b = pit->second;
+                
+                if (!b.empty())
+                {
+                    Deserializer d;
+                    d.reset(b.data(), b.size());
+                    d & value;
+                }
+                else
+                {
+                    ZeroObject(value);
+                }
+                return true;
+            }
+
             SERIALIZE(m_From, m_TxID, m_Type, m_Parameters);
             static const size_t MaxParams = 20;
         };
@@ -294,8 +325,23 @@ namespace beam
             NodeProtocolBase = 0,
             NodeProtocolIncompatible = 1,
             ConnectionTimedOut = 2,
-            ConnectionRefused = 3
-        };
+            ConnectionRefused = 3,
+			TimeOutOfSync = 4,
+		};
+
+		struct PaymentConfirmation
+		{
+			// I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
+			Amount m_Value;
+			ECC::Hash::Value m_KernelID;
+			PeerID m_Sender;
+			ECC::Signature m_Signature;
+
+			void get_Hash(ECC::Hash::Value&) const;
+			bool IsValid(const PeerID&) const;
+
+			void Sign(const ECC::Scalar::Native& sk);
+		};
     }
 }
 

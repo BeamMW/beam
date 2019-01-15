@@ -13,7 +13,7 @@ Item
 
     anchors.fill: parent
 
-    StartViewModel { id: viewModel }
+    StartViewModel { id: viewModel }    
     
     LogoComponent {
         id: logoComponent
@@ -42,6 +42,47 @@ Item
                 }
 
                 property Item defaultFocusItem: createNewWallet
+
+                ConfirmationDialog {
+                    id: restoreWalletConfirmation
+
+                    okButtonText: qsTr("restore wallet")
+                    okButtonIconSource: "qrc:/assets/icon-restore-blue.svg"
+                    cancelVisible: true
+                    cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+                    width: 460
+                    height: 208
+
+                    contentItem: Column {
+                        anchors.fill: parent
+                        anchors.margins: 30
+                        spacing: 20
+
+                        SFText {
+                            horizontalAlignment : Text.AlignHCenter
+                            width: parent.width
+                            text: qsTr("Your funds will be fully restored from the blockchain. The transaction history and your addresses are stored locally and are encrypted with your password, hence it can't be restored.")
+                            color: Style.white
+                            font.pixelSize: 14
+                            wrapMode: Text.Wrap
+                        }
+
+                        SFText {
+                            horizontalAlignment : Text.AlignHCenter
+                            width: parent.width
+                            text: qsTr("That's the final version till the future validation and process.")
+                            color: Style.white
+                            font.pixelSize: 14
+                            wrapMode: Text.Wrap
+                        }
+                    }
+                    onAccepted: {
+                        onClicked: {
+                            viewModel.isRecoveryMode = true;
+                            startWizzardView.push(restoreWallet);
+                        }
+                    }
+                }
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -89,8 +130,7 @@ Item
                             text: qsTr("restore wallet")
                             icon.source: "qrc:/assets/icon-restore.svg"
                             onClicked: {
-                                viewModel.isRecoveryMode = true;
-                                startWizzardView.push(restoreWallet);
+                                restoreWalletConfirmation.open();
                             }
                         }
                     }
@@ -98,6 +138,315 @@ Item
                     Item {
                         Layout.fillHeight: true
                         Layout.minimumHeight: 67
+                    }
+                }
+            }
+        }
+
+        Component {
+            id: migrate
+            Rectangle
+            {
+                color: Style.marine
+
+                Image {
+                    fillMode: Image.PreserveAspectCrop
+                    anchors.fill: parent
+                    source: "qrc:/assets/bg.svg"
+                }
+
+                property Item defaultFocusItem: startMigration
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 100
+                        Layout.maximumHeight: 280
+                    }
+
+                    Loader { 
+                        sourceComponent: logoComponent 
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 200
+                        Layout.maximumHeight: 269
+                    }
+
+                    Item {
+                        Layout.preferredHeight: 30
+                    }
+
+                    SFText {
+                        Layout.alignment: Qt.AlignHCenter
+                
+                        text: qsTr("Your wallet will be migrated to v.") + viewModel.walletVersion()
+                        color: Style.white
+                        font.pixelSize: 14
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                        Layout.maximumHeight: 67
+                    }
+
+                    PrimaryButton {
+                        id: startMigration
+                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
+                        Layout.minimumHeight: 38
+
+                        text: qsTr("start migration")
+                        icon.source: "qrc:/assets/icon-repeat.svg"
+                        onClicked: 
+                        {
+                            startWizzardView.push(selectWalletDBView);
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                        Layout.maximumHeight: 65
+                    }
+
+                    SFText {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: qsTr("Login to another wallet or create new one")
+                        color: Style.bright_teal
+                        font.pixelSize: 14
+                
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                startWizzardView.push(start);
+                            }
+                            hoverEnabled: true
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                    }
+                }
+            }
+        }
+
+        Component {
+            id: selectWalletDBView
+            Rectangle
+            {
+                color: Style.marine
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.topMargin: 50
+
+                    SFText {
+                        Layout.alignment: Qt.AlignHCenter
+                        horizontalAlignment: Qt.AlignHCenter
+                        text: qsTr("Select the wallet database file")
+                        color: Style.white
+                        font.pixelSize: 36
+                    }
+
+                    CustomTableView {
+                        id: tableView
+                        property int rowHeight: 44
+                        property int minWidth: 600
+                        property int textLeftMargin: 20
+                        Layout.alignment: Qt.AlignHCenter 
+                        Layout.topMargin: 50
+                        Layout.bottomMargin: 9
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: headerHeight + 3*rowHeight
+                        Layout.maximumHeight: headerHeight + 5*rowHeight
+                        Layout.minimumWidth: minWidth
+                        Layout.maximumWidth: minWidth
+
+                        frameVisible: false
+                        selectionMode: SelectionMode.SingleSelection
+                        backgroundVisible: false
+                        model: viewModel.walletDBpaths
+
+                        headerDelegate: Rectangle {
+                            height: tableView.headerHeight
+                            color: Style.dark_slate_blue
+
+                            SFLabel {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                anchors.leftMargin: tableView.textLeftMargin
+                                horizontalAlignment: Qt.AlignHCenter
+                                font.pixelSize: tableView.headerTextFontSize
+                                color: Style.bluey_grey
+                                font.weight: Font.Normal
+                                text: styleData.value
+                            }
+                        }
+
+                        TableViewColumn {
+                            role: "fullPath"
+                            title: qsTr("Name")
+                            width: 300
+                            movable: false
+                            delegate: Item {
+                                width: parent.width
+                                height: tableView.rowHeight
+                                clip:true
+
+                                SFLabel {
+                                    font.pixelSize: 14
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: tableView.textLeftMargin
+                                    anchors.right: parent.right
+                                    elide: Text.ElideLeft
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: styleData.value
+                                    color: Style.white
+                                    copyMenuEnabled: true
+                                    onCopyText: viewModel.copyToClipboard(text)
+                                }
+                            }
+                        }
+
+                        TableViewColumn {
+                            role: "fileSize"
+                            title: qsTr("Size")
+                            width: 120
+                            movable: false
+                            delegate: Item {
+                                width: parent.width
+                                height: tableView.rowHeight
+                                clip:true
+
+                                SFLabel {
+                                    font.pixelSize: 14
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: tableView.textLeftMargin
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: Math.round(styleData.value / 1024) + qsTr(" kb")
+                                    color: Style.white
+                                }
+                            }
+                        }
+
+                        TableViewColumn {
+                            role: "lastWriteDateString"
+                            title: qsTr("Date modified")
+                            width: 150 
+                            movable: false
+                        }
+
+                        rowDelegate: Item {
+                            height: tableView.rowHeight
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+
+                            Rectangle {
+                                anchors.fill: parent
+                                color: styleData.selected ? "#085469" : Style.light_navy
+                                visible: styleData.alternate || styleData.selected
+                            }
+                        }
+
+                        itemDelegate: TableItem {
+                            elide: Text.ElideRight
+                            clip:true
+
+                            SFLabel {
+                                font.pixelSize: 14
+                                anchors.left: parent.left
+                                anchors.leftMargin: tableView.textLeftMargin
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: styleData.value
+                                color: Style.white
+                            }
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 64
+                    }
+
+                    Row {
+                        id: buttons
+                        Layout.alignment: Qt.AlignHCenter
+                        spacing: 30
+
+                        CustomButton {
+                            text: qsTr("select file manually");
+                            icon.source: "qrc:/assets/icon-folder.svg"
+                            onClicked: {
+                                // open fileOpenDialog
+                                var path = viewModel.selectCustomWalletDB();
+
+                                if (path.length > 0) {
+                                    buttons.migrateWalletDB(path);
+                                }
+                            }
+                        }
+
+                        PrimaryButton {
+                            id: nextButton
+                            text: qsTr("next")
+                            icon.source: "qrc:/assets/icon-next-blue.svg"
+                            enabled: tableView.currentRow >= 0
+                            onClicked: {
+                                buttons.migrateWalletDB(viewModel.walletDBpaths[tableView.currentRow].fullPath);
+                            }
+                        }
+
+                        function backAction() {
+                            // remove wallet.db file
+                            viewModel.deleteCurrentWalletDB();
+                            startWizzardView.pop();
+                        }
+
+                        function migrateWalletDB(path) {
+                            // copy wallet.db                         
+                            viewModel.migrateWalletDB(path);
+                            viewModel.isRecoveryMode = false;
+                            startWizzardView.push(open, {"firstButtonVisible": true, "firstButtonText": qsTr("back"), 
+                                                         "firstButtonIcon": "qrc:/assets/icon-back.svg", "firstButtonAction": backAction});
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                        Layout.maximumHeight: 65
+                    }
+
+                    SFText {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: qsTr("Login to another wallet or create new one")
+                        color: Style.bright_teal
+                        font.pixelSize: 14
+                
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                startWizzardView.push(start);
+                            }
+                            hoverEnabled: true
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 60
+                        Layout.maximumHeight: 90
                     }
                 }
             }
@@ -540,7 +889,7 @@ Item
 
                                     Rectangle {
                                         id: correctPhraseRect
-                                        color: Style.dark_slate_blue
+                                        color: modelData.isAllowed ? Style.dark_slate_blue : Style.validator_color
                                         width: 20
                                         height: 20
                                         radius: 10
@@ -562,7 +911,8 @@ Item
                                     anchors.bottomMargin: 6
                                     width: 121
                                     font.pixelSize: 14
-                                    color: Style.white
+                                    color: (modelData.isAllowed || modelData.value.length == 0) ? Style.white : Style.validator_color
+                                    backgroundColor: (modelData.isAllowed || modelData.value.length == 0) ? Style.white : Style.validator_color
                                     text: modelData.value
                                     onTextEdited: {
                                         var phrases = text.split(viewModel.phrasesSeparator);
@@ -614,7 +964,7 @@ Item
                                 var enable = true;
                                 for(var i = 0; i < viewModel.recoveryPhrases.length; ++i)
                                 {
-                                    enable &= viewModel.recoveryPhrases[i].value.length > 0;
+                                    enable &= viewModel.recoveryPhrases[i].isAllowed;
                                 }
                                 return enable;
                             }
@@ -1102,6 +1452,12 @@ Item
             Rectangle
             {
                 property Item defaultFocusItem: openPassword
+
+                property bool firstButtonVisible: false
+                property string firstButtonText: qsTr("login to another wallet")
+                property var firstButtonIcon: "qrc:/assets/icon-change.svg"
+                property var firstButtonAction: confirmChangeWalletDialog.open
+
                 color: Style.marine
 
                 Image {
@@ -1241,14 +1597,13 @@ Item
                         Layout.topMargin: 33
                         spacing: 19
                         
+                        CustomButton {
+                            visible: firstButtonVisible
+                            text: firstButtonText
+                            icon.source: firstButtonIcon
+                            onClicked: firstButtonAction()
+                        }
 
-                       /* CustomButton {
-                            text: qsTr("login to another wallet")
-                            icon.source: "qrc:/assets/icon-change.svg"
-                            onClicked: {
-                                confirmChangeWalletDialog.open();
-                            }
-                        }*/
                         PrimaryButton {
                             anchors.verticalCenter: parent.verticalCenter
                             id: btnCurrentWallet
@@ -1302,8 +1657,17 @@ Item
                 }
             }
         }
-        Component.onCompleted:{
-            startWizzardView.push(viewModel.walletExists ? open : start)
+        Component.onCompleted: {
+            if (viewModel.walletExists) {
+                startWizzardView.push(open);
+            }
+            else if (viewModel.isFindExistingWalletDB())
+            {
+                startWizzardView.push(migrate);
+            }
+            else {
+                startWizzardView.push(start);
+            }
         }
     }
 }

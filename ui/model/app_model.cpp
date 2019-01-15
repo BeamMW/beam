@@ -153,6 +153,12 @@ void AppModel::applySettingsChanges()
     }
 }
 
+void AppModel::startedNode()
+{
+	if (m_wallet && !m_wallet->isRunning())
+		m_wallet->start();
+}
+
 void AppModel::stoppedNode()
 {
     resetWalletImpl();
@@ -163,23 +169,25 @@ void AppModel::start()
 {
     m_nodeModel.setKdf(m_db->get_MasterKdf());
 
+	std::string nodeAddrStr;
+
     if (m_settings.getRunLocalNode())
     {
+		connect(&m_nodeModel, SIGNAL(startedNode()), SLOT(startedNode()));
+
         m_nodeModel.startNode();
 
         io::Address nodeAddr = io::Address::LOCALHOST;
         nodeAddr.port(m_settings.getLocalNodePort());
-        m_wallet = std::make_shared<WalletModel>(m_db, nodeAddr.str());
-
-        m_wallet->start();
+		nodeAddrStr = nodeAddr.str();
     }
     else
-    {
-        auto nodeAddr = m_settings.getNodeAddress().toStdString();
-        m_wallet = std::make_shared<WalletModel>(m_db, nodeAddr);
+		nodeAddrStr = m_settings.getNodeAddress().toStdString();
 
-        m_wallet->start();
-    }
+	m_wallet = std::make_shared<WalletModel>(m_db, nodeAddrStr);
+
+	if (!m_settings.getRunLocalNode())
+		m_wallet->start();
 }
 
 WalletModel::Ptr AppModel::getWallet() const

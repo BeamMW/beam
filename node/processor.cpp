@@ -23,7 +23,9 @@ namespace beam {
 
 void NodeProcessor::OnCorrupted()
 {
-	throw std::runtime_error("node data corrupted");
+	CorruptionException exc;
+	exc.m_sErr = "node data";
+	throw exc;
 }
 
 NodeProcessor::Horizon::Horizon()
@@ -76,8 +78,8 @@ NodeProcessor::~NodeProcessor()
 	{
 		try {
 			m_DbTx.Commit();
-		} catch (std::exception& e) {
-			LOG_ERROR() << "DB Commit failed: %s" << e.what();
+		} catch (const CorruptionException& e) {
+			LOG_ERROR() << "DB Commit failed: %s" << e.m_sErr;
 		}
 	}
 }

@@ -128,15 +128,23 @@ namespace
         void rollbackTx(const TxID&) override {}
 
         std::vector<WalletAddress> getAddresses(bool own) override { return {}; }
-        void saveAddress(const WalletAddress&) override {}
+
+		WalletAddress m_LastAdddr;
+
+		void saveAddress(const WalletAddress& wa) override
+		{
+			m_LastAdddr = wa;
+		}
+
+        void setNeverExpirationForAll() override {};
         boost::optional<WalletAddress> getAddress(const WalletID& id) override
         {
-            return boost::optional<WalletAddress>{};
+			if (id == m_LastAdddr.m_walletID)
+	            return m_LastAdddr;
+
+			return boost::optional<WalletAddress>();
         }
         void deleteAddress(const WalletID&) override {}
-
-        Timestamp GetLastChannel(BbsChannel&) override { return {}; }
-        void SetLastChannel(BbsChannel) override {}
 
         Height getCurrentHeight() const override
         {
@@ -707,11 +715,13 @@ void TestWalletNegotiation(IWalletDB::Ptr senderWalletDB, IWalletDB::Ptr receive
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    WalletID receiver_id, sender_id;
-    receiver_id.m_Pk = 4U;
-    receiver_id.m_Channel = 12U;
-    sender_id.m_Pk = 5U;
-    sender_id.m_Channel = 102U;
+	WalletAddress wa = wallet::createAddress(receiverWalletDB);
+	receiverWalletDB->saveAddress(wa);
+	WalletID receiver_id = wa.m_walletID;
+
+	wa = wallet::createAddress(senderWalletDB);
+	senderWalletDB->saveAddress(wa);
+	WalletID sender_id = wa.m_walletID;
 
     int count = 0;
     auto f = [&count](const auto& /*id*/)
@@ -735,7 +745,7 @@ void TestWalletNegotiation(IWalletDB::Ptr senderWalletDB, IWalletDB::Ptr receive
 
     tnns.AddBlock();
 
-    sender.transfer_money(sender_id, receiver_id, 6, 1, true, {});
+    sender.transfer_money(sender_id, receiver_id, 6, 1, true, 200, {});
     mainReactor->run();
 
     WALLET_CHECK(count == 2);
@@ -800,11 +810,14 @@ private:
             proto::Login msg;
             msg.m_CfgChecksum = Rules::get().Checksum;
             msg.m_Flags =
-                proto::LoginFlags::SpreadingTransactions |
-                proto::LoginFlags::Bbs |
+                proto::LoginFlags::Extension1 |
+				proto::LoginFlags::SpreadingTransactions |
+				proto::LoginFlags::Bbs |
                 proto::LoginFlags::SendPeers;
             Send(msg);
-        }
+
+			SendTip();
+		}
 
         void SendTip()
         {
@@ -837,7 +850,6 @@ private:
 
         void OnMsg(proto::Login&& /*data*/) override
         {
-            SendTip();
         }
 
         void OnMsg(proto::GetProofState&&) override
@@ -862,9 +874,7 @@ private:
             m_Subscribed = true;
 
             for (const auto& m : m_This.m_bbs)
-            {
-                Send(m);
-            }
+				Send(m);
         }
 
         void OnMsg(proto::BbsMsg&& msg) override
@@ -873,27 +883,15 @@ private:
 
             for (ClientList::iterator it = m_This.m_lstClients.begin(); m_This.m_lstClients.end() != it; it++)
             {
-                if (it.pointed_node() != this)
-                {
-                    Client& c = *it;
-                    if (c.m_Subscribed)
-                    {
-                        c.Send(msg);
-                    }
-                }
+				Client& c = *it;
+				if ((&c != this) && c.m_Subscribed)
+					c.Send(msg);
             }
         }
 
         void OnMsg(proto::Ping&& msg) override
         {
             proto::Pong msgOut(Zero);
-            Send(msgOut);
-        }
-
-        void OnMsg(proto::BbsPickChannel&&) override
-        {
-            proto::BbsPickChannelRes msgOut;
-            msgOut.m_Channel = 77;
             Send(msgOut);
         }
 
@@ -923,7 +921,7 @@ private:
     {
         m_lstClients.erase(ClientList::s_iterator_to(*client));
         delete client;
-    }
+	}
 
     struct Server
         :public proto::NodeConnection::Server
@@ -972,7 +970,7 @@ void TestTxToHimself()
     helpers::StopWatch sw;
 
     sw.start();
-    TxID txId = sender.m_Wallet.transfer_money(sender.m_WalletID, sender.m_WalletID, 24, 2);
+    auto txId = sender.m_Wallet.transfer_money(sender.m_WalletID, sender.m_WalletID, 24, 2, true, 200);
     mainReactor->run();
     sw.stop();
 
@@ -981,7 +979,7 @@ void TestTxToHimself()
     // check Tx
     auto txHistory = senderWalletDB->getTxHistory();
     WALLET_CHECK(txHistory.size() == 1);
-    WALLET_CHECK(txHistory[0].m_txId == txId);
+    WALLET_CHECK(txHistory[0].m_txId == *txId);
     WALLET_CHECK(txHistory[0].m_amount == 24);
     WALLET_CHECK(txHistory[0].m_change == 14);
     WALLET_CHECK(txHistory[0].m_fee == 2);
@@ -1040,7 +1038,7 @@ void TestP2PWalletNegotiationST()
     helpers::StopWatch sw;
     sw.start();
 
-    TxID txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2);
+    auto txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true, 200);
 
     mainReactor->run();
     sw.stop();
@@ -1077,9 +1075,9 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(sh.size() == 1);
     auto rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 1);
-    auto stx = sender.m_WalletDB->getTx(txId);
+    auto stx = sender.m_WalletDB->getTx(*txId);
     WALLET_CHECK(stx.is_initialized());
-    auto rtx = receiver.m_WalletDB->getTx(txId);
+    auto rtx = receiver.m_WalletDB->getTx(*txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
@@ -1094,7 +1092,7 @@ void TestP2PWalletNegotiationST()
 
     // second transfer
     sw.start();
-    txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6);
+    txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6, 0, true, 200);
     mainReactor->run();
     sw.stop();
     cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -1140,9 +1138,9 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(sh.size() == 2);
     rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 2);
-    stx = sender.m_WalletDB->getTx(txId);
+    stx = sender.m_WalletDB->getTx(*txId);
     WALLET_CHECK(stx.is_initialized());
-    rtx = receiver.m_WalletDB->getTx(txId);
+    rtx = receiver.m_WalletDB->getTx(*txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
@@ -1158,7 +1156,7 @@ void TestP2PWalletNegotiationST()
     // third transfer. no enough money should appear
     sw.start();
     completedCount = 1;// only one wallet takes part in tx
-    txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6);
+    txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6, 0, true, 200);
     mainReactor->run();
     sw.stop();
     cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -1176,9 +1174,9 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(sh.size() == 3);
     rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 2);
-    stx = sender.m_WalletDB->getTx(txId);
+    stx = sender.m_WalletDB->getTx(*txId);
     WALLET_CHECK(stx.is_initialized());
-    rtx = receiver.m_WalletDB->getTx(txId);
+    rtx = receiver.m_WalletDB->getTx(*txId);
     WALLET_CHECK(!rtx.is_initialized());
 
     WALLET_CHECK(stx->m_amount == 6);
@@ -1215,7 +1213,7 @@ void TestP2PWalletReverseNegotiationST()
     helpers::StopWatch sw;
     sw.start();
 
-    TxID txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 4, 2, false);
+    auto txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 4, 2, false, 200);
 
     mainReactor->run();
     sw.stop();
@@ -1252,9 +1250,9 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(sh.size() == 1);
     auto rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 1);
-    auto stx = sender.m_WalletDB->getTx(txId);
+    auto stx = sender.m_WalletDB->getTx(*txId);
     WALLET_CHECK(stx.is_initialized());
-    auto rtx = receiver.m_WalletDB->getTx(txId);
+    auto rtx = receiver.m_WalletDB->getTx(*txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
@@ -1269,7 +1267,7 @@ void TestP2PWalletReverseNegotiationST()
 
     // second transfer
     sw.start();
-    txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 6, 0, false);
+    txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 6, 0, false, 200);
     mainReactor->run();
     sw.stop();
     cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -1315,9 +1313,9 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(sh.size() == 2);
     rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 2);
-    stx = sender.m_WalletDB->getTx(txId);
+    stx = sender.m_WalletDB->getTx(*txId);
     WALLET_CHECK(stx.is_initialized());
-    rtx = receiver.m_WalletDB->getTx(txId);
+    rtx = receiver.m_WalletDB->getTx(*txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
@@ -1333,7 +1331,7 @@ void TestP2PWalletReverseNegotiationST()
     // third transfer. no enough money should appear
     sw.start();
 
-    txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 6, 0, false);
+    txId = receiver.m_Wallet.transfer_money(receiver.m_WalletID, sender.m_WalletID, 6, 0, false, 200);
     mainReactor->run();
     sw.stop();
     cout << "Third transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -1350,9 +1348,9 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(sh.size() == 3);
     rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 3);
-    stx = sender.m_WalletDB->getTx(txId);
+    stx = sender.m_WalletDB->getTx(*txId);
     WALLET_CHECK(stx.is_initialized());
-    rtx = receiver.m_WalletDB->getTx(txId);
+    rtx = receiver.m_WalletDB->getTx(*txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(rtx->m_amount == 6);
@@ -1434,121 +1432,148 @@ struct MyMmr : public Merkle::Mmr
     }
 };
 
-//struct RollbackIO : public TestNetwork
-//{
-//    RollbackIO(IOLoop& mainLoop, MiniBlockChain& mcm, Height branch, unsigned step)
-//        : TestNetwork(mainLoop)
-//        , m_mcm(mcm)
-//        , m_branch(branch)
-//        , m_step(step)
-//    {
-//
-//
-//    }
-//
-//    void InitHdr(proto::FlyClient& fc) override
-//    {
-//        size_t i = 0;
-//        for ( ; i < m_mcm.m_vStates.size(); i++)
-//        {
-//            const Block::SystemState::Full& s = m_mcm.m_vStates[i].m_Hdr;
-//            if (s.m_Height >= m_branch)
-//                break;
-//
-//            fc.m_Hist[s.m_Height] = s;
-//        }
-//
-//        fc.OnRolledBack();
-//
-//        for (; i < m_mcm.m_vStates.size(); i++)
-//        {
-//            const Block::SystemState::Full& s = m_mcm.m_vStates[i].m_Hdr;
-//            fc.m_Hist[s.m_Height] = s;
-//        }
-//
-//        fc.OnNewTip();
-//    }
-//
-//    void send_node_message(proto::GetMined&& data) override
-//    {
-//        WALLET_CHECK(data.m_HeightMin < m_branch);
-//        WALLET_CHECK(data.m_HeightMin >= m_step * Height((m_branch - 1) / m_step));
-//
-//        TestNetwork::send_node_message(move(data));
-//    }
-//
-//    void close_node_connection() override
-//    {
-//        shutdown();
-//    }
-//
-//    MiniBlockChain& m_mcm;
-//    Height m_branch;
-//    unsigned m_step;
-//};
-//
-//void TestRollback(Height branch, Height current, unsigned step = 1)
-//{
-//    cout << "\nRollback from " << current << " to " << branch << " step: " << step <<'\n';
-//    auto db = createSqliteWalletDB("wallet.db");
-//    
-//    MiniBlockChain mcmOld, mcmNew;
-//
-//    for (Height i = Rules::HeightGenesis; i <= current; ++i)
-//    {
-//        mcmOld.Add();
-//
-//        if (i == branch)
-//            mcmNew.m_hvLive = 1U; // branching
-//        mcmNew.Add();
-//
-//        if (i % step == 0)
-//        {
-//            Coin coin1 = { 5, Coin::Unspent, 0, 0, Key::Type::Regular, i };
-//            mcmOld.m_vStates.back().m_Hdr.get_Hash(coin1.m_confirmHash);
-//
-//            db->store(coin1);
-//        }
-//    }
-//
-//    Block::SystemState::ID id;
-//    mcmOld.m_vStates.back().m_Hdr.get_ID(id);
-//    db->setSystemStateID(id);
-//
-//    IOLoop mainLoop;
-//    auto network = make_shared<RollbackIO>(mainLoop, mcmNew, branch, step);
-//
-//    Wallet sender(db, network);
-//    
-//    network->registerPeer(&sender, true);
-//    
-//    mainLoop.run();
-//}
-//
-//void TestRollback()
-//{
-//    cout << "\nTesting wallet rollback...\n";
-//    Height s = 10;
-//    for (Height i = 1; i <= s; ++i)
-//    {
-//        TestRollback(i, s);
-//        TestRollback(i, s, 2);
-//    }
-//    s = 11;
-//    for (Height i = 1; i <= s; ++i)
-//    {
-//        TestRollback(i, s);
-//        TestRollback(i, s, 2);
-//    }
-//    
-//    TestRollback(1, 1);
-//    TestRollback(2, 50);
-//    TestRollback(2, 51);
-//    TestRollback(93, 120);
-//    TestRollback(93, 120, 6);
-//    TestRollback(93, 120, 7);
-//    TestRollback(99, 100);
-//}
+static void TestSplitTransaction()
+{
+    cout << "\nTesting split Tx...\n";
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    auto senderWalletDB = createSqliteWalletDB("sender_wallet.db");
+
+    // add coin with keyType - Coinbase
+    beam::Amount coin_amount = 40;
+    Coin coin(coin_amount);
+    coin.m_maturity = 0;
+    coin.m_status = Coin::Available;
+    coin.m_ID.m_Type = Key::Type::Coinbase;
+    senderWalletDB->store(coin);
+
+    auto coins = senderWalletDB->selectCoins(24, false);
+    WALLET_CHECK(coins.size() == 1);
+    WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
+    WALLET_CHECK(coins[0].m_status == Coin::Available);
+    WALLET_CHECK(senderWalletDB->getTxHistory().empty());
+
+    TestNode node;
+    TestWalletRig sender("sender", senderWalletDB, [](auto) { io::Reactor::get_Current().stop(); });
+    helpers::StopWatch sw;
+
+    sw.start();
+    auto txId = sender.m_Wallet.split_coins(sender.m_WalletID, { 11, 12, 13 }, 2, true, 200);
+    mainReactor->run();
+    sw.stop();
+
+    cout << "Transfer elapsed time: " << sw.milliseconds() << " ms\n";
+
+    // check Tx
+    auto txHistory = senderWalletDB->getTxHistory();
+    WALLET_CHECK(txHistory.size() == 1);
+    WALLET_CHECK(txHistory[0].m_txId == *txId);
+    WALLET_CHECK(txHistory[0].m_amount == 36);
+    WALLET_CHECK(txHistory[0].m_change == 2);
+    WALLET_CHECK(txHistory[0].m_fee == 2);
+    WALLET_CHECK(txHistory[0].m_status == TxStatus::Completed);
+
+    // check coins
+    vector<Coin> newSenderCoins;
+    senderWalletDB->visit([&newSenderCoins](const Coin& c)->bool
+    {
+        newSenderCoins.push_back(c);
+        return true;
+    });
+
+    WALLET_CHECK(newSenderCoins.size() == 5);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Change);
+    WALLET_CHECK(newSenderCoins[0].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 2);
+
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Coinbase);
+    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Spent);
+    WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 40);
+
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 11);
+
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 12);
+
+    WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Regular);
+    WALLET_CHECK(newSenderCoins[4].m_status == Coin::Available);
+    WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 13);
+
+    cout << "\nFinish of testing split Tx...\n";
+}
+
+static void TestExpiredTransaction()
+{
+    cout << "\nTesting expited Tx...\n";
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
+    int completedCount = 2;
+    auto f = [&completedCount, mainReactor](auto)
+    {
+        --completedCount;
+        if (completedCount == 0)
+        {
+            mainReactor->stop();
+            completedCount = 2;
+        }
+    };
+
+    TestNode node;
+    TestWalletRig sender("sender", createSenderWalletDB(), f);
+    TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+
+    WALLET_CHECK(sender.m_WalletDB->selectCoins(6, false).size() == 2);
+    WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
+    WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
+
+    auto txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true);
+
+    mainReactor->run();
+
+    // check coins
+    {
+        vector<Coin> newSenderCoins = sender.GetCoins();
+        vector<Coin> newReceiverCoins = receiver.GetCoins();
+
+        WALLET_CHECK(newSenderCoins.size() == 4);
+        WALLET_CHECK(newReceiverCoins.size() == 0);
+
+        auto sh = sender.m_WalletDB->getTxHistory();
+        WALLET_CHECK(sh.size() == 1);
+        WALLET_CHECK(sh[0].m_status == TxStatus::Failed);
+        auto rh = receiver.m_WalletDB->getTxHistory();
+        WALLET_CHECK(rh.size() == 1);
+        WALLET_CHECK(rh[0].m_status == TxStatus::Failed);
+    }
+
+    txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true);
+
+    mainReactor->run();
+
+    {
+        vector<Coin> newSenderCoins = sender.GetCoins();
+        vector<Coin> newReceiverCoins = receiver.GetCoins();
+
+        WALLET_CHECK(newSenderCoins.size() == 4);
+        WALLET_CHECK(newReceiverCoins.size() == 1);
+
+        auto sh = sender.m_WalletDB->getTxHistory();
+        WALLET_CHECK(sh.size() == 2);
+        auto sit = find_if(sh.begin(), sh.end(), [&txId](const auto& t) {return t.m_txId == txId; });
+        WALLET_CHECK(sit->m_status == TxStatus::Completed);
+        auto rh = receiver.m_WalletDB->getTxHistory();
+        WALLET_CHECK(rh.size() == 2);
+        auto rit = find_if(rh.begin(), rh.end(), [&txId](const auto& t) {return t.m_txId == txId; });
+        WALLET_CHECK(rit->m_status == TxStatus::Completed);
+    }
+}
 
 int main()
 {
@@ -1562,14 +1587,18 @@ int main()
     Rules::get().UpdateChecksum();
 
     TestP2PWalletNegotiationST();
-    TestP2PWalletReverseNegotiationST();
+    //TestP2PWalletReverseNegotiationST();
 
-    TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
+    //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
     TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
 
-    //TestSwapTransaction();
+    TestSplitTransaction();
+
+    ////TestSwapTransaction();
 
     TestTxToHimself();
+
+    TestExpiredTransaction();
 
     //TestRollback();
 
