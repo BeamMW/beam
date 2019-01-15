@@ -187,7 +187,7 @@ namespace
     void showAddressList(const IWalletDB::Ptr& walletDB)
     {
         auto addresses = walletDB->getAddresses(true);
-        array<uint8_t, 5> columnWidths{ 20, 70, 8, 20, 21 };
+        array<uint8_t, 5> columnWidths{ { 20, 70, 8, 20, 21 } };
 
         // Label | Address | Active | Expiration date | Created |
         cout << "Addresses\n\n"
