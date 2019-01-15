@@ -1589,7 +1589,7 @@ int main()
     TestP2PWalletNegotiationST();
     //TestP2PWalletReverseNegotiationST();
 
-    TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
+    //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
     TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
 
     TestSplitTransaction();
