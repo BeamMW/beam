@@ -18,6 +18,7 @@
 #include "api.h"
 
 #include <boost/program_options.hpp>
+#include <boost/filesystem.hpp>
 #include <map>
 
 #include "utility/helpers.h"
@@ -472,7 +473,8 @@ int main(int argc, char* argv[])
     using namespace beam;
     namespace po = boost::program_options;
 
-    auto logger = Logger::create(LOG_LEVEL_VERBOSE, LOG_LEVEL_VERBOSE);
+    const auto path = boost::filesystem::system_complete("./logs");
+    auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "api_", path.string());
 
     try
     {
