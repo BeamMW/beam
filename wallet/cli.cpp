@@ -183,6 +183,38 @@ namespace
         walletSeed.V = seed.hash().V;
         return true;
     }
+
+    void showAddressList(const IWalletDB::Ptr& walletDB)
+    {
+        auto addresses = walletDB->getAddresses(true);
+        array<uint8_t, 5> columnWidths{ 20, 70, 8, 20, 21 };
+
+        // Label | Address | Active | Expiration date | Created |
+        cout << "Addresses\n\n"
+            << "  " << std::left
+            << setw(columnWidths[0]) << "comment" << "|"
+            << setw(columnWidths[1]) << "address" << "|"
+            << setw(columnWidths[2]) << "active" << "|"
+            << setw(columnWidths[3]) << "expiration date" << "|"
+            << setw(columnWidths[4]) << "created" << endl;
+
+        for (const auto& address : addresses)
+        {
+            auto label = address.m_label;
+
+            if (label.length() > columnWidths[0])
+            {
+                label = label.substr(0, columnWidths[0] - 3) + "...";
+            }
+
+            cout << "  " << std::left << std::boolalpha
+                << setw(columnWidths[0]) << label << " "
+                << setw(columnWidths[1]) << std::to_string(address.m_walletID) << " "
+                << setw(columnWidths[2]) << !address.isExpired() << " "
+                << setw(columnWidths[3]) << format_timestamp("%Y.%m.%d %H:%M:%S", address.getExpirationTime() * 1000, false) << " "
+                << setw(columnWidths[4]) << format_timestamp("%Y.%m.%d %H:%M:%S", address.getCreateTime() * 1000, false) << "\n";
+        }
+    }
 }
 
 void ResolveWID(PeerID& res, const std::string& s)
@@ -480,7 +512,6 @@ struct PaymentInfo
 	}
 };
 
-
 io::Reactor::Ptr reactor;
 
 static const unsigned LOG_ROTATION_PERIOD = 3*60*60*1000; // 3 hours
@@ -567,9 +598,10 @@ int main_impl(int argc, char* argv[])
                             && command != cli::NEW_ADDRESS
                             && command != cli::CANCEL_TX
                             && command != cli::CHANGE_ADDRESS_EXPIRATION
-							&& command != cli::PAYMENT_PROOF_EXPORT
-							&& command != cli::PAYMENT_PROOF_VERIFY
-							&& command != cli::GENERATE_PHRASE)
+                            && command != cli::PAYMENT_PROOF_EXPORT
+                            && command != cli::PAYMENT_PROOF_VERIFY
+                            && command != cli::GENERATE_PHRASE
+                            && command != cli::WALLET_ADDRESS_LIST)
                         {
                             LOG_ERROR() << "unknown command: \'" << command << "\'";
                             return -1;
@@ -839,6 +871,12 @@ int main_impl(int argc, char* argv[])
 
 							return 0;
 						}
+
+                        if (command == cli::WALLET_ADDRESS_LIST)
+                        {
+                            showAddressList(walletDB);
+                            return 0;
+                        }
 
                         if (vm.count(cli::NODE_ADDR) == 0)
                         {
