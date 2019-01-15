@@ -66,6 +66,7 @@ namespace beam
 		extern const char* PAYMENT_PROOF_EXPORT;
 		extern const char* PAYMENT_PROOF_VERIFY;
 		extern const char* PAYMENT_PROOF_DATA;
+		extern const char* PAYMENT_PROOF_REQUIRED;
         extern const char* SEND;
         extern const char* INFO;
         extern const char* NEW_ADDRESS_LABEL;

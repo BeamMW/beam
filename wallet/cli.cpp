@@ -686,6 +686,19 @@ int main_impl(int argc, char* argv[])
                             return 0;
                         }
 
+						{
+							const auto& var = vm[cli::PAYMENT_PROOF_REQUIRED];
+							if (!var.empty())
+							{
+								bool b = var.as<bool>();
+								uint8_t n = b ? 1 : 0;
+								wallet::setVar(walletDB, wallet::g_szPaymentProofRequired, n);
+
+								cout << "Parameter set: Payment proof required: " << static_cast<uint32_t>(n) << std::endl;
+								return 0;
+							}
+						}
+
                         if (command == cli::NEW_ADDRESS)
                         {
                             auto label = vm[cli::NEW_ADDRESS_LABEL].as<string>();
