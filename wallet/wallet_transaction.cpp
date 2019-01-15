@@ -187,7 +187,7 @@ namespace beam { namespace wallet
 
     void BaseTransaction::ConfirmKernel(const TxKernel& kernel)
     {
-        UpdateTxDescription(TxStatus::Registered);
+        UpdateTxDescription(TxStatus::Registering);
         m_Gateway.confirm_kernel(GetTxID(), kernel);
     }
 
@@ -361,7 +361,7 @@ namespace beam { namespace wallet
                 // invited participant
                 assert(!IsInitiator());
                 
-                UpdateTxDescription(TxStatus::Registered);
+                UpdateTxDescription(TxStatus::Registering);
                 ConfirmInvitation(builder, !hasPeersInputsAndOutputs);
 
                 uint32_t nVer = 0;
@@ -429,7 +429,7 @@ namespace beam { namespace wallet
             {
                 if (txState == State::Invitation)
                 {
-                    UpdateTxDescription(TxStatus::Registered);
+                    UpdateTxDescription(TxStatus::Registering);
                     ConfirmTransaction(builder, !hasPeersInputsAndOutputs);
                     SetState(State::PeerConfirmation);
                 }

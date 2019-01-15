@@ -75,7 +75,7 @@ namespace beam
         Cancelled,
         Completed,
         Failed,
-        Registered
+        Registering
     };
 
     struct TxDescription
@@ -125,7 +125,7 @@ namespace beam
         {
             return m_status == TxStatus::Pending 
                 || m_status == TxStatus::InProgress 
-                || m_status == TxStatus::Registered;
+                || m_status == TxStatus::Registering;
         }
 
         bool canCancel() const

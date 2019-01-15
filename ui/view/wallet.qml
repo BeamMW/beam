@@ -985,7 +985,7 @@ Item {
                 TableViewColumn {
                     role: viewModel.dateRole
                     title: qsTr("Date | time")
-                    width: 160 * transactionsView.resizableWidth / 870
+                    width: 160 * transactionsView.resizableWidth / 960
                     elideMode: Text.ElideRight
                     resizable: false
                     movable: false
@@ -1014,7 +1014,7 @@ Item {
                 TableViewColumn {
                     role: viewModel.userRole
                     title: qsTr("Address")
-                    width: 400 * transactionsView.resizableWidth / 870
+                    width: 400 * transactionsView.resizableWidth / 960
                     elideMode: Text.ElideMiddle
                     resizable: false
                     movable: false
@@ -1043,7 +1043,7 @@ Item {
                 TableViewColumn {
                     role: viewModel.amountRole
                     title: qsTr("Amount")
-                    width: 200 * transactionsView.resizableWidth / 870
+                    width: 200 * transactionsView.resizableWidth / 960
                     elideMode: Text.ElideRight
                     movable: false
                     resizable: false
@@ -1072,7 +1072,7 @@ Item {
                 TableViewColumn {
                     role: viewModel.statusRole
                     title: qsTr("Status")
-                    width: 110 * transactionsView.resizableWidth / 870
+                    width: 200 * transactionsView.resizableWidth / 960
                     elideMode: Text.ElideRight
                     movable: false
                     resizable: false
