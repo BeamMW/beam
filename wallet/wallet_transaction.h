@@ -46,6 +46,7 @@ namespace beam { namespace wallet
     MACRO(ExpiredAddressProvided, 8, "Address is expired") \
     MACRO(FailedToGetParameter,   9, "Failed to get parameter") \
     MACRO(TransactionExpired,     10, "Transaction has expired") \
+    MACRO(NoPaymentProof,         11, "Payment not signed by the receiver") \
 
     enum TxFailureReason : int32_t
     {

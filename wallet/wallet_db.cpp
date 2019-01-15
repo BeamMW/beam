@@ -2104,6 +2104,8 @@ namespace beam
 
     namespace wallet
     {
+		const char g_szPaymentProofRequired[] = "payment_proof_required";
+
         bool getTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, ECC::Point::Native& value)
         {
             ECC::Point pt;

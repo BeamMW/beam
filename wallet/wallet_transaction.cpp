@@ -412,10 +412,21 @@ namespace beam { namespace wallet
 
 			if (!bSuccess)
 			{
-				if (get_PeerVersion() >= s_ProtoVersion)
-					OnFailed(TxFailureReason::InvalidPeerSignature);
+				if (!get_PeerVersion())
+				{
+					// older wallets don't support it. Check if unsigned payments are ok
+					uint8_t nRequired = 0;
+					wallet::getVar(m_WalletDB, wallet::g_szPaymentProofRequired, nRequired);
 
-                // TODO - Ban older version negotiators when we decide to switch to the newer ver
+					if (!nRequired)
+						bSuccess = true;
+				}
+
+				if (!bSuccess)
+				{
+					OnFailed(TxFailureReason::NoPaymentProof);
+					return;
+				}
             }
 
         }

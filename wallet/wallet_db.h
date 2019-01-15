@@ -289,6 +289,8 @@ namespace beam
 
     namespace wallet
     {
+		extern const char g_szPaymentProofRequired[];
+
         template <typename Db, typename Var>
         void setVar(Db db, const char* name, const Var& var)
         {
