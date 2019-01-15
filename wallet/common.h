@@ -19,6 +19,7 @@
 
 #include "core/serialization_adapters.h"
 #include "core/proto.h"
+#include <algorithm>
 
 namespace beam
 {
@@ -279,6 +280,29 @@ namespace beam
             {
                 m_Parameters.emplace_back(paramID, toByteBuffer(value));
                 return *this;
+            }
+
+            template <typename T>
+            bool GetParameter(TxParameterID paramID, T& value) const 
+            {
+                auto pit = std::find_if(m_Parameters.begin(), m_Parameters.end(), [paramID](const auto& p) { return p.first == paramID; });
+                if (pit == m_Parameters.end())
+                {
+                    return false;
+                }
+                const ByteBuffer& b = pit->second;
+                
+                if (!b.empty())
+                {
+                    Deserializer d;
+                    d.reset(b.data(), b.size());
+                    d & value;
+                }
+                else
+                {
+                    ZeroObject(value);
+                }
+                return true;
             }
 
             SERIALIZE(m_From, m_TxID, m_Type, m_Parameters);

@@ -869,6 +869,12 @@ namespace beam
             return BaseTransaction::Ptr();
         }
 
+        bool isSender = false;
+        if (!msg.GetParameter(TxParameterID::IsSender, isSender) || isSender == true)
+        {
+            return BaseTransaction::Ptr();
+        }
+
         auto t = constructTransaction(msg.m_TxID, msg.m_Type);
 
         t->SetParameter(TxParameterID::TransactionType, msg.m_Type, false);
