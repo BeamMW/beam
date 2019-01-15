@@ -207,11 +207,13 @@ namespace
                 label = label.substr(0, columnWidths[0] - 3) + "...";
             }
 
+            auto expirationDateText = (address.m_duration == 0) ? "never" : format_timestamp("%Y.%m.%d %H:%M:%S", address.getExpirationTime() * 1000, false);
+
             cout << "  " << std::left << std::boolalpha
                 << setw(columnWidths[0]) << label << " "
                 << setw(columnWidths[1]) << std::to_string(address.m_walletID) << " "
                 << setw(columnWidths[2]) << !address.isExpired() << " "
-                << setw(columnWidths[3]) << format_timestamp("%Y.%m.%d %H:%M:%S", address.getExpirationTime() * 1000, false) << " "
+                << setw(columnWidths[3]) << expirationDateText << " "
                 << setw(columnWidths[4]) << format_timestamp("%Y.%m.%d %H:%M:%S", address.getCreateTime() * 1000, false) << "\n";
         }
     }
