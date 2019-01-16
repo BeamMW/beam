@@ -52,7 +52,6 @@ else()
 endif()
 
 if (UV_INTERNAL)
-    #include(io/libuv.cmake)
     add_dependencies(utility uv_a)
     target_link_libraries(utility uv_a)
 else()
