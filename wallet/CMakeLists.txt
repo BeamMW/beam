@@ -43,7 +43,6 @@ target_link_libraries(wallet-api wallet utility wallet_api_proto)
 
 add_subdirectory(unittests)
 
-
 if (BEAM_SIGN_PACKAGE AND WIN32)
     add_custom_command(
         TARGET ${TARGET_NAME} POST_BUILD
