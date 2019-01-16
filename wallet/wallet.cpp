@@ -216,7 +216,7 @@ namespace beam
 
         if (receiverAddr)
         {
-            if (receiverAddr->isExpired())
+            if (receiverAddr->m_OwnID && receiverAddr->isExpired())
             {
                 LOG_INFO() << "Can't send to the expired address.";
                 return boost::optional<TxID>();
