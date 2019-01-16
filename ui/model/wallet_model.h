@@ -43,6 +43,8 @@ signals:
     void changeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
     void nodeConnectionChanged(bool isNodeConnected);
     void walletError(beam::wallet::ErrorType error);
+    void sendMoneyVerified();
+    void cantSendToExpired();
 
 private:
     void onStatus(const WalletStatus& status) override;
@@ -56,4 +58,6 @@ private:
     void onNodeConnectionChanged(bool isNodeConnected) override;
     void onWalletError(beam::wallet::ErrorType error) override;
     void FailedToStartWallet() override;
+    void onSendMoneyVerified() override;
+    void onCantSendToExpired() override;
 };

@@ -195,6 +195,8 @@ public slots:
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
     void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
     void onGeneratedNewAddress(const beam::WalletAddress& addr);
+    void onSendMoneyVerified();
+    void onCantSendToExpired();
 
 signals:
     void stateChanged();
@@ -209,6 +211,8 @@ signals:
     void newReceiverNameChanged();
     void commentChanged();
     void expiresChanged();
+    void sendMoneyVerified();
+    void cantSendToExpired();
 
 private:
     beam::Amount calcSendAmount() const;

@@ -18,6 +18,7 @@
 #include "api.h"
 
 #include <boost/program_options.hpp>
+#include <boost/filesystem.hpp>
 #include <map>
 
 #include "utility/helpers.h"
@@ -112,7 +113,7 @@ namespace beam
         }
 
     private:
-        class Connection : IWalletApiHandler
+        class Connection : IWalletApiHandler, IWalletDbObserver
         {
         public:
             Connection(ConnectionToServer& owner, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, uint64_t id, io::TcpStream::Ptr&& newStream)
@@ -127,12 +128,24 @@ namespace beam
             {
                 _stream->enable_keepalive(2);
                 _stream->enable_read(BIND_THIS_MEMFN(on_stream_data));
+
+                _walletDB->subscribe(this);
             }
 
             virtual ~Connection()
             {
-
+                _walletDB->unsubscribe(this);
             }
+
+            void onCoinsChanged() override {}
+            void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) override {}
+
+            void onSystemStateChanged() override 
+            {
+                
+            }
+
+            void onAddressChanged() override {}
 
             void on_write(io::SharedBuffer&& msg) 
             {
@@ -189,7 +202,9 @@ namespace beam
             {
                 LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
 
-                doResponse(id, ValidateAddress::Response{ data.address.IsValid() });
+                _walletDB->getAddress(data.address);
+
+                doResponse(id, ValidateAddress::Response{ data.address.IsValid(), _walletDB->getAddress(data.address) ? true : false });
             }
 
             void onMessage(int id, const Send& data) override
@@ -205,7 +220,14 @@ namespace beam
 
                 auto txId = _wallet.transfer_money(senderAddress.m_walletID, data.address, data.value, data.fee, true, 120, std::move(message));
 
-                doResponse(id, Send::Response{ txId });
+                if (txId)
+                {
+                    doResponse(id, Send::Response{ *txId });
+                }
+                else
+                {
+                    doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction could not be created. Please look at logs.");
+                }
             }
 
             void onMessage(int id, const Replace& data) override
@@ -252,7 +274,14 @@ namespace beam
 
                 auto txId = _wallet.split_coins(senderAddress.m_walletID, data.coins, data.fee);
 
-                doResponse(id, Send::Response{ txId });
+                if (txId)
+                {
+                    doResponse(id, Send::Response{ *txId });
+                }
+                else
+                {
+                    doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction could not be created. Please look at logs.");
+                }
             }
 
             void onMessage(int id, const TxCancel& data) override
@@ -298,18 +327,30 @@ namespace beam
             {
                 LOG_DEBUG() << "WalletStatus(id = " << id << ")";
 
-                Block::SystemState::ID stateID = {};
-                _walletDB->getSystemStateID(stateID);
-
                 WalletStatus::Response response;
-                response.currentHeight = stateID.m_Height;
-                response.currentStateHash = to_hex(stateID.m_Hash.m_pData, stateID.m_Hash.nBytes);
+
+                {
+                    Block::SystemState::ID stateID = {};
+                    _walletDB->getSystemStateID(stateID);
+
+                    response.currentHeight = stateID.m_Height;
+                    response.currentStateHash = stateID.m_Hash;
+                }
+
+                {
+                    Block::SystemState::Full state;
+                    _walletDB->get_History().get_Tip(state);
+                    response.prevStateHash = state.m_Prev;
+                }
+
                 response.available = _walletDB->getAvailable();
-                response.receiving = _walletDB->getTotal(Coin::Incoming) + _walletDB->getTotal(Coin::Change);
+                response.receiving = _walletDB->getTotal(Coin::Incoming);
                 response.sending = _walletDB->getTotal(Coin::Outgoing);
                 response.maturing = _walletDB->getTotal(Coin::Maturing);
 
                 // TODO: add locked UTXO here
+                response.locked = 0;
+
                 doResponse(id, response);
             }
 
@@ -432,7 +473,8 @@ int main(int argc, char* argv[])
     using namespace beam;
     namespace po = boost::program_options;
 
-    auto logger = Logger::create(LOG_LEVEL_VERBOSE, LOG_LEVEL_VERBOSE);
+    const auto path = boost::filesystem::system_complete("./logs");
+    auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "api_", path.string());
 
     try
     {
@@ -509,7 +551,7 @@ int main(int argc, char* argv[])
             LOG_INFO() << "wallet sucessfully opened...";
         }
 
-        io::Address listenTo = io::Address::localhost().port(options.port);
+        io::Address listenTo = io::Address().port(options.port);
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
 

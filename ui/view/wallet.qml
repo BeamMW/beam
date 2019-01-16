@@ -11,9 +11,63 @@ Item {
     id: root
     anchors.fill: parent
 
-    WalletViewModel {id: viewModel}
+    WalletViewModel {
+        id: viewModel
+        onSendMoneyVerified: {
+            walletView.enabled = true
+            console.log("onSendMoneyVerified");
+            walletView.pop();
+        }
+
+        onCantSendToExpired: {
+            walletView.enabled = true
+            console.log("can't send to expired address");
+            cantSendToExpiredDialog.open();
+        }
+    }
 
     property bool toSend: false
+
+    Dialog {
+        id: cantSendToExpiredDialog
+
+        modal: true
+
+        width: 300
+        height: 160
+
+        x: (parent.width - width) / 2
+        y: (parent.height - height) / 2
+        visible: false
+        
+        background: Rectangle {
+            radius: 10
+            color: Style.dark_slate_blue
+            anchors.fill: parent
+        }
+
+        contentItem: Column {
+            anchors.fill: parent
+            anchors.margins: 30
+
+            spacing: 40
+
+            SFText {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: qsTr("Can't send to the expired address.")
+                color: Style.white
+                font.pixelSize: 14
+                font.styleName: "Bold"; font.weight: Font.Bold
+            }
+
+            PrimaryButton {
+                text: qsTr("ok")
+                anchors.horizontalCenter: parent.horizontalCenter
+                icon.source: "qrc:/assets/icon-done.svg"
+                onClicked: cantSendToExpiredDialog.close()
+            }
+        }
+    }
 
     ConfirmationDialog {
         id: confirmationDialog
@@ -120,8 +174,8 @@ Item {
         }
 
         onAccepted: {
-            viewModel.sendMoney()
-            walletView.pop();
+            viewModel.sendMoney();
+            walletView.enabled = false;
         }
     }
 
@@ -931,7 +985,7 @@ Item {
                 TableViewColumn {
                     role: viewModel.dateRole
                     title: qsTr("Date | time")
-                    width: 160 * transactionsView.resizableWidth / 870
+                    width: 160 * transactionsView.resizableWidth / 960
                     elideMode: Text.ElideRight
                     resizable: false
                     movable: false
@@ -960,7 +1014,7 @@ Item {
                 TableViewColumn {
                     role: viewModel.userRole
                     title: qsTr("Address")
-                    width: 400 * transactionsView.resizableWidth / 870
+                    width: 400 * transactionsView.resizableWidth / 960
                     elideMode: Text.ElideMiddle
                     resizable: false
                     movable: false
@@ -989,7 +1043,7 @@ Item {
                 TableViewColumn {
                     role: viewModel.amountRole
                     title: qsTr("Amount")
-                    width: 200 * transactionsView.resizableWidth / 870
+                    width: 200 * transactionsView.resizableWidth / 960
                     elideMode: Text.ElideRight
                     movable: false
                     resizable: false
@@ -1018,7 +1072,7 @@ Item {
                 TableViewColumn {
                     role: viewModel.statusRole
                     title: qsTr("Status")
-                    width: 110 * transactionsView.resizableWidth / 870
+                    width: 200 * transactionsView.resizableWidth / 960
                     elideMode: Text.ElideRight
                     movable: false
                     resizable: false

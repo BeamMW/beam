@@ -5,6 +5,35 @@ set(VERSION_MINOR 0)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
+if (BEAM_SIGN_PACKAGE AND WIN32)
+  #  add_custom_target(signing ALL DEPENDS beam-wallet-ui COMMENT "Signing Package...")
+
+    find_program(SIGNTOOL_EXECUTABLE signtool.exe)
+    message("SignTool: ${SIGNTOOL_EXECUTABLE}" )
+
+    set(WINDOWS_IDENTITIY_PFX_FILE "THE_PFX_FILE_IS_MISSING_HERE!" CACHE STRING "PFX file, which represents the identity of the developer.")
+    set(WINDOWS_IDENTITIY_PFX_PASSWORD "" CACHE STRING "Password, which unlocks the PFX file (optional)")
+    set(BEAM_SIGN_SUBJECT_NAME "" CACHE STRING "Beam subjet")
+    set(SIGNTOOL_OPTIONS /tr http://timestamp.digicert.com /td sha256 /fd sha256 /n "${BEAM_SIGN_SUBJECT_NAME}")
+    
+    #set(SIGNTOOL_OPTIONS /fd SHA256 /a /f ${WINDOWS_IDENTITIY_PFX_FILE} /tr http://timestamp.digicert.com  )
+    
+    #if(NOT ${WINDOWS_IDENTITIY_PFX_PASSWORD} EQUAL "")
+    #    set(SIGNTOOL_OPTIONS ${SIGNTOOL_OPTIONS} /p ${WINDOWS_IDENTITIY_PFX_PASSWORD})
+    #else()
+    #    message(FATAL_ERROR "You can't sign your executables without passing your password here!")
+    #endif()
+
+    #if(EXISTS ${WINDOWS_IDENTITIY_PFX_FILE})
+    #    message(STATUS "Signing executables with: " ${WINDOWS_IDENTITIY_PFX_FILE})
+    #    if(${WINDOWS_IDENTITIY_PFX_PASSWORD})
+    #        message(WARNING "USE WITH CAUTION: Password for the PFX file has been set!")
+    #    endif()
+    #else()
+    #    message(WARNING "Could not find the PFX file. Can not sign the executables!")
+    #endif()
+endif()
+
 find_package(Git)
 if(Git_FOUND)
     execute_process(
@@ -203,6 +232,10 @@ else()
     endif()
 endif()
 
+if(LINUX)
+	add_definitions(-DBOOST_NO_CXX11_SCOPED_ENUMS)
+endif()
+
 if (WIN32)
     add_definitions(-DNOMINMAX)
     find_package(Boost)
@@ -327,7 +360,6 @@ elseif (LINUX)
 
 endif ()
 
-
 set(CPACK_PACKAGE_NAME "BeamWallet")
 set(CPACK_PACKAGE_VENDOR "Beam Vendor")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Scalable confidential cryptocurrency")
@@ -340,3 +372,20 @@ set(CPACK_PACKAGE_INSTALL_DIRECTORY "Beam")
 set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/TERMS.txt")
 
 include(CPack)
+
+#if (BEAM_SIGN_PACKAGE AND WIN32)
+#    add_custom_target(signing ALL  COMMENT "Signing Package...")
+#
+# 
+#     # Signing the installer
+#     add_custom_target(signing-installer)
+#     set(BEAM_INSTALLER_NAME ${CPACK_NSIS_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_SYSTEM_NAME}.exe)
+#     
+#     add_custom_command(
+#         TARGET signing-installer
+#         COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} ${BEAM_INSTALLER_NAME}
+#         ## Other optional options:
+#         # /tr timestampServerUrl 
+#        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+#     )
+#endif()

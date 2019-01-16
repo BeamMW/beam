@@ -38,4 +38,6 @@ private:
     void onNodeConnectionChanged(bool isNodeConnected) override;
     void onWalletError(beam::wallet::ErrorType error) override;
     void FailedToStartWallet() override;
+    void onSendMoneyVerified() override;
+    void onCantSendToExpired() override;
 };

@@ -46,7 +46,7 @@ namespace beam
             Maturing,
             Outgoing,
             Incoming,
-            Change,
+            ChangeV0, // deprecated.
             Spent
         };
 
@@ -170,6 +170,7 @@ namespace beam
 
         virtual std::vector<WalletAddress> getAddresses(bool own) = 0;
         virtual void saveAddress(const WalletAddress&) = 0;
+        virtual void setNeverExpirationForAll() = 0;
         virtual boost::optional<WalletAddress> getAddress(const WalletID&) = 0;
         virtual void deleteAddress(const WalletID&) = 0;
 
@@ -236,6 +237,7 @@ namespace beam
 
         std::vector<WalletAddress> getAddresses(bool own) override;
         void saveAddress(const WalletAddress&) override;
+        void setNeverExpirationForAll() override;
         boost::optional<WalletAddress> getAddress(const WalletID&) override;
         void deleteAddress(const WalletID&) override;
 
@@ -287,6 +289,8 @@ namespace beam
 
     namespace wallet
     {
+		extern const char g_szPaymentProofRequired[];
+
         template <typename Db, typename Var>
         void setVar(Db db, const char* name, const Var& var)
         {
@@ -334,6 +338,7 @@ namespace beam
         bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, const ECC::Scalar::Native& value, bool shouldNotifyAboutChanges);
         bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value, bool shouldNotifyAboutChanges);
 
+        void changeAddressExpiration(beam::IWalletDB::Ptr walletDB, const WalletID& walletID);
         WalletAddress createAddress(beam::IWalletDB::Ptr walletDB);
         Amount getSpentByTx(beam::IWalletDB::Ptr walletDB, TxStatus status);
         Amount getReceivedByTx(beam::IWalletDB::Ptr walletDB, TxStatus status);

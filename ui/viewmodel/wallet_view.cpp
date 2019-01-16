@@ -94,7 +94,7 @@ QString TxObject::change() const
 
 QString TxObject::status() const
 {
-    static QString Names[] = { tr("Pending"), tr("In Progress"), tr("Cancelled"), tr("Completed"), tr("Failed"), tr("Confirming") };
+    static QString Names[] = { tr("Pending"), tr("In Progress"), tr("Cancelled"), tr("Completed"), tr("Failed"), tr("Syncing with blockchain") };
     return Names[static_cast<uint32_t>(_tx.m_status)];
 }
 
@@ -217,6 +217,10 @@ WalletViewModel::WalletViewModel()
 
     connect(&_model, SIGNAL(generatedNewAddress(const beam::WalletAddress&)),
         SLOT(onGeneratedNewAddress(const beam::WalletAddress&)));
+
+    connect(&_model, SIGNAL(sendMoneyVerified()), SLOT(onSendMoneyVerified()));
+
+    connect(&_model, SIGNAL(cantSendToExpired()), SLOT(onCantSendToExpired()));
 
     _model.getAsync()->getWalletStatus();
 }
@@ -610,17 +614,12 @@ void WalletViewModel::sendMoney()
 {
     if (/*!_senderAddr.isEmpty() && */isValidReceiverAddress(getReceiverAddr()))
     {
-        WalletAddress peerAddr;
-        peerAddr.m_walletID.FromHex(getReceiverAddr().toStdString());
-        peerAddr.m_createTime = getTimestamp();
-        peerAddr.m_label = _comment.toStdString();
+        WalletID walletID(Zero);
 
-        // TODO: implement UI for this situation
-        // TODO: don't save if you send to yourself
-        _model.getAsync()->saveAddress(peerAddr, false);
+        walletID.FromHex(getReceiverAddr().toStdString());
 
         // TODO: show 'operation in process' animation here?
-        _model.getAsync()->sendMoney(peerAddr.m_walletID, _comment.toStdString(), calcSendAmount(), calcFeeAmount());
+        _model.getAsync()->sendMoney(walletID, _comment.toStdString(), calcSendAmount(), calcFeeAmount());
     }
 }
 
@@ -731,4 +730,16 @@ void WalletViewModel::onGeneratedNewAddress(const beam::WalletAddress& addr)
     }
 
     emit newReceiverAddrChanged();
+}
+
+void WalletViewModel::onSendMoneyVerified()
+{
+    // retranslate to qml
+    emit sendMoneyVerified();
+}
+
+void WalletViewModel::onCantSendToExpired()
+{
+    // retranslate to qml
+    emit cantSendToExpired();
 }

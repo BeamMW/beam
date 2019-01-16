@@ -116,6 +116,13 @@ target_link_libraries(${TARGET_NAME} quazip_static)
 
 target_link_libraries(${TARGET_NAME} wallet mnemonic Qt5::Qml Qt5::Quick Qt5::Svg Qt5::PrintSupport)
 
+if (BEAM_SIGN_PACKAGE AND WIN32)
+    add_custom_command(
+        TARGET ${TARGET_NAME} POST_BUILD
+        COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\Beam Wallet.exe"
+    )
+endif()
+
 if(BEAM_USE_STATIC)
 
 	if(WIN32)
@@ -259,4 +266,13 @@ else()
 	endif()
 
 	install(TARGETS ${TARGET_NAME} DESTINATION .)
+
+    # Signing the installer
+    #add_custom_target(signing-installer)
+    #
+    #message(BEAM_INSTALLER_NAME = ${BEAM_INSTALLER_NAME})
+    #add_custom_command(
+    #    TARGET signing-installer
+    #    COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} ${CMAKE_CURRENT_BINARY_DIR}\\${BEAM_INSTALLER_NAME}
+    #  )
 endif()

@@ -22,6 +22,7 @@
 #define INVALID_JSON_RPC -32600
 #define NOTFOUND_JSON_RPC -32601
 #define INVALID_PARAMS_JSON_RPC -32602
+#define INTERNAL_JSON_RPC_ERROR -32603
 #define INVALID_TX_STATUS -32001
 
 namespace beam
@@ -60,6 +61,7 @@ namespace beam
         struct Response
         {
             bool isValid;
+            bool isMine;
         };
     };
 
@@ -163,7 +165,8 @@ namespace beam
         struct Response
         {
             beam::Height currentHeight = 0;
-            std::string currentStateHash;
+            Merkle::Hash currentStateHash;
+            Merkle::Hash prevStateHash;
             Amount available = 0;
             Amount receiving = 0;
             Amount sending = 0;

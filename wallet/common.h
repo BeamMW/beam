@@ -19,6 +19,7 @@
 
 #include "core/serialization_adapters.h"
 #include "core/proto.h"
+#include <algorithm>
 
 namespace beam
 {
@@ -75,7 +76,7 @@ namespace beam
         Cancelled,
         Completed,
         Failed,
-        Registered
+        Registering
     };
 
     struct TxDescription
@@ -125,7 +126,7 @@ namespace beam
         {
             return m_status == TxStatus::Pending 
                 || m_status == TxStatus::InProgress 
-                || m_status == TxStatus::Registered;
+                || m_status == TxStatus::Registering;
         }
 
         bool canCancel() const
@@ -174,6 +175,8 @@ namespace beam
             IsInitiator = 11,
             MaxHeight = 12,
             AmountList = 13,
+
+			PeerProtoVersion = 16,
 
             AtomicSwapCoin = 20,
             AtomicSwapAmount = 21,
@@ -233,6 +236,8 @@ namespace beam
             Status = 151,
             KernelID = 152,
 
+			MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
+
             SharedBlindingFactor = 160,
             LockedBlindingFactor = 161,
 			MyNonce = 162,
@@ -275,6 +280,29 @@ namespace beam
             {
                 m_Parameters.emplace_back(paramID, toByteBuffer(value));
                 return *this;
+            }
+
+            template <typename T>
+            bool GetParameter(TxParameterID paramID, T& value) const 
+            {
+                auto pit = std::find_if(m_Parameters.begin(), m_Parameters.end(), [paramID](const auto& p) { return p.first == paramID; });
+                if (pit == m_Parameters.end())
+                {
+                    return false;
+                }
+                const ByteBuffer& b = pit->second;
+                
+                if (!b.empty())
+                {
+                    Deserializer d;
+                    d.reset(b.data(), b.size());
+                    d & value;
+                }
+                else
+                {
+                    ZeroObject(value);
+                }
+                return true;
             }
 
             SERIALIZE(m_From, m_TxID, m_Type, m_Parameters);

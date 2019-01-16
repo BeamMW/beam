@@ -267,3 +267,13 @@ void WalletModel::FailedToStartWallet()
 {
     
 }
+
+void WalletModel::onSendMoneyVerified()
+{
+    
+}
+
+void WalletModel::onCantSendToExpired()
+{
+    
+}

@@ -55,9 +55,7 @@ after_build:
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.exe c:/projects/beam/wallet/beam-wallet.cfg
     
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/wallet-api.exe
-    
-    7z a c:/projects/beam/beam/%BUILD_CONFIG%/miner-client-%BEAM_VERSION%.zip c:/projects/beam/pow/%BUILD_CONFIG%/miner_client.exe
-    
+        
     mkdir pack && cd pack && mkdir wallet && mkdir node && mkdir ui && cd ..
     
     mkdir pdb
@@ -77,8 +75,6 @@ after_build:
     copy c:\projects\beam\beam\%BUILD_CONFIG%\beam-wallet-cli-%BEAM_VERSION%.zip c:\projects\beam\beam-wallet-cli-%BEAM_VERSION%.zip
 
     copy c:\projects\beam\beam\%BUILD_CONFIG%\wallet-api-%BEAM_VERSION%.zip c:\projects\beam\wallet-api-%BEAM_VERSION%.zip
-
-    copy c:\projects\beam\beam\%BUILD_CONFIG%\miner-client-%BEAM_VERSION%.zip c:\projects\beam\miner-client-%BEAM_VERSION%.zip
 
     copy c:\projects\beam\beam\beam-pack-%BEAM_VERSION%.zip c:\projects\beam\pack\beam-pack-%BEAM_VERSION%.zip
 
@@ -110,8 +106,6 @@ on_success:
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/beam-pdb-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%pdb/beam-pdb-%BEAM_VERSION%.zip"
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/miner-client-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%miner-client-%BEAM_VERSION%.zip"
-
 artifacts:
   - path: beam-node-%BEAM_VERSION%.zip
     name: BeamNode
@@ -128,9 +122,6 @@ artifacts:
   - path: pdb/beam-pdb-%BEAM_VERSION%.zip
     name: BeamPdb
 
-  - path: miner-client-%BEAM_VERSION%.zip
-    name: BeamMinerClient
-
   - path: Beam-Wallet-%BEAM_VERSION%.exe
     name: BeamWallet
 
@@ -145,7 +136,7 @@ deploy:
   unzip: false
   set_public: true
   folder: "%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win%GPU_FOLDER%"
-  artifact: BeamMinerClient, BeamPdb, BeamPack, BeamWalletApi, BeamWalletCli, BeamNode, BeamWallet
+  artifact: BeamPdb, BeamPack, BeamWalletApi, BeamWalletCli, BeamNode, BeamWallet
 
 notifications:
   - provider: Email

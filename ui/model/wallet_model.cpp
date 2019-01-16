@@ -115,3 +115,13 @@ void WalletModel::FailedToStartWallet()
 {
     AppModel::getInstance()->getMessages().addMessage(tr("Failed to start wallet. Please check your wallet data location"));
 }
+
+void WalletModel::onSendMoneyVerified()
+{
+    emit sendMoneyVerified();
+}
+
+void WalletModel::onCantSendToExpired()
+{
+    emit cantSendToExpired();
+}

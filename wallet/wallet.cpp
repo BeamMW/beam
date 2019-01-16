@@ -205,15 +205,25 @@ namespace beam
 #undef THE_MACRO
     }
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, Height lifetime, ByteBuffer&& message)
+    boost::optional<TxID> Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, Height lifetime, ByteBuffer&& message)
     {
         return transfer_money(from, to, AmountList{ amount }, fee, sender, lifetime, move(message));
     }
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee, bool sender, Height lifetime, ByteBuffer&& message)
+    boost::optional<TxID> Wallet::transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee, bool sender, Height lifetime, ByteBuffer&& message)
     {
-        auto txID = wallet::GenerateTxID();
-        auto tx = constructTransaction(txID, TxType::Simple);
+        auto receiverAddr = m_WalletDB->getAddress(to);
+
+        if (receiverAddr)
+        {
+            if (receiverAddr->isExpired())
+            {
+                LOG_INFO() << "Can't send to the expired address.";
+                return boost::optional<TxID>();
+            }
+        }
+        boost::optional<TxID> txID = wallet::GenerateTxID();
+        auto tx = constructTransaction(*txID, TxType::Simple);
         Height currentHeight = m_WalletDB->getCurrentHeight();
 
         tx->SetParameter(TxParameterID::TransactionType, TxType::Simple, false);
@@ -223,7 +233,7 @@ namespace beam
 
         TxDescription txDescription;
 
-        txDescription.m_txId = txID;
+        txDescription.m_txId = *txID;
         txDescription.m_amount = std::accumulate(amountList.begin(), amountList.end(), 0ULL);
         txDescription.m_fee = fee;
         txDescription.m_minHeight = currentHeight;
@@ -235,14 +245,14 @@ namespace beam
         txDescription.m_status = TxStatus::Pending;
         m_WalletDB->saveTx(txDescription);
 
-        m_Transactions.emplace(txID, tx);
+        m_Transactions.emplace(*txID, tx);
 
-        updateTransaction(txID);
+        updateTransaction(*txID);
 
         return txID;
     }
 
-    TxID Wallet::split_coins(const WalletID& from, const AmountList& amountList, Amount fee, bool sender, Height lifetime,  ByteBuffer&& message)
+    boost::optional<TxID> Wallet::split_coins(const WalletID& from, const AmountList& amountList, Amount fee, bool sender, Height lifetime,  ByteBuffer&& message)
     {
         return transfer_money(from, from, amountList, fee, sender, lifetime, move(message));
     }
@@ -456,12 +466,13 @@ namespace beam
         auto it = m_Transactions.find(txID);
         if (it != m_Transactions.end())
         {
+            auto tx = it->second;
             bool bSynced = !SyncRemains();
 
             if (bSynced)
-                it->second->Update();
+                tx->Update();
             else
-                m_TransactionsToUpdate.insert(it->second);
+                m_TransactionsToUpdate.insert(tx);
         }
         else
         {
@@ -497,8 +508,9 @@ namespace beam
             auto it = m_Transactions.find(r.m_TxID);
             if (m_Transactions.end() != it)
             {
-                if (it->second->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Proof.m_State.m_Height))
-                    it->second->Update();
+                auto tx = it->second;
+                if (tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Proof.m_State.m_Height))
+                    tx->Update();
             }
         }
     }
@@ -592,7 +604,7 @@ namespace beam
 
         bool bExists = m_WalletDB->find(c);
 
-        const TxID* pTxID = NULL;
+        //const TxID* pTxID = NULL;
 
         LOG_INFO() << "CoinID: " << evt.m_Kidv << " Maturity=" << evt.m_Maturity << (evt.m_Added ? " Confirmed" : " Spent");
 
@@ -603,9 +615,9 @@ namespace beam
                 c.m_confirmHeight = evt.m_Height;
             c.m_status = (evt.m_Maturity <= hTip) ? Coin::Status::Available : Coin::Status::Maturing;
 
-            if (c.m_createTxId)
-                updateTransaction(*c.m_createTxId);
-            pTxID = c.m_createTxId.get_ptr();
+            //if (c.m_createTxId)
+            //    updateTransaction(*c.m_createTxId);
+            //pTxID = c.m_createTxId.get_ptr();
 
             if (!bExists)
                 c.m_createHeight = evt.m_Height;
@@ -617,12 +629,12 @@ namespace beam
 
             c.m_maturity = evt.m_Maturity;
             c.m_status = Coin::Status::Spent;
-            pTxID = c.m_spentTxId.get_ptr();
+            //pTxID = c.m_spentTxId.get_ptr();
         }
 
         m_WalletDB->save(c);
 
-        if (!pTxID)
+/*        if (!pTxID)
             return;
 
         auto it = m_Transactions.find(*pTxID);
@@ -638,7 +650,7 @@ namespace beam
             h = evt.m_Height;
             pTx->SetParameter(TxParameterID::KernelProofHeight, h);
             m_TransactionsToUpdate.insert(pTx);
-        }
+        }*/
     }
 
     void Wallet::OnRolledBack()
@@ -686,7 +698,8 @@ namespace beam
         auto t = m_Transactions;
         for (auto& p : t)
         {
-            p.second->Update();
+            auto tx = p.second;
+            tx->Update();
         }
 
         // try to restore utxo state after reset, rollback and etc..
@@ -773,7 +786,7 @@ namespace beam
 
         for (auto it = txSet.begin(); txSet.end() != it; it++)
         {
-            const wallet::BaseTransaction::Ptr& pTx = *it;
+            wallet::BaseTransaction::Ptr pTx = *it;
             if (m_Transactions.find(pTx->GetTxID()) != m_Transactions.end())
                 pTx->Update();
         }
@@ -853,6 +866,12 @@ namespace beam
         if (wallet::getTxParameter(m_WalletDB, msg.m_TxID, TxParameterID::TransactionType, type))
         {
             // we return only active transactions
+            return BaseTransaction::Ptr();
+        }
+
+        bool isSender = false;
+        if (!msg.GetParameter(TxParameterID::IsSender, isSender) || isSender == true)
+        {
             return BaseTransaction::Ptr();
         }
 

@@ -160,10 +160,10 @@ int main (int argc, char* argv[])
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
-            QQmlApplicationEngine engine;
-
             WalletSettings settings(appDataDir);
             AppModel appModel(settings);
+
+            QQmlApplicationEngine engine;
 
             if (settings.getNodeAddress().isEmpty())
             {
@@ -192,6 +192,7 @@ int main (int argc, char* argv[])
             qmlRegisterType<TxObject>("Beam.Wallet", 1, 0, "TxObject");
             qmlRegisterType<UtxoItem>("Beam.Wallet", 1, 0, "UtxoItem");
             qmlRegisterType<DeviceItem>("Beam.Wallet", 1, 0, "DeviceItem");
+            qmlRegisterType<WalletDBPathItem>("Beam.Wallet", 1, 0, "WalletDBPathItem");
 
             engine.load(QUrl("qrc:/root.qml"));
 

@@ -267,7 +267,12 @@ namespace beam
         {
             {"jsonrpc", "2.0"},
             {"id", id},
-            {"result", res.isValid}
+            {"result", 
+                {
+                    {"is_valid",  res.isValid},
+                    {"is_mine",  res.isMine},
+                }
+            }
         };
     }
 
@@ -400,7 +405,8 @@ namespace beam
             {"result",
                 {
                     {"current_height", res.currentHeight},
-                    {"current_state_hash", res.currentStateHash},
+                    {"current_state_hash", to_hex(res.currentStateHash.m_pData, res.currentStateHash.nBytes)},
+                    {"prev_state_hash", to_hex(res.prevStateHash.m_pData, res.prevStateHash.nBytes)},
                     {"available", res.available},
                     {"receiving", res.receiving},
                     {"sending", res.sending},
@@ -455,8 +461,18 @@ namespace beam
         }
         catch (const std::exception& e)
         {
-            LOG_ERROR() << "json parse: " << e.what() << "\n" << getJsonString(data, size);
-            return false;
+            json msg
+            {
+                {"jsonrpc", "2.0"},
+                {"error",
+                    {
+                        {"code", INTERNAL_JSON_RPC_ERROR},
+                        {"message", e.what()},
+                    }
+                }
+            };
+
+            _handler.onInvalidJsonRpc(msg);
         }
 
         return true;

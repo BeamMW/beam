@@ -11,13 +11,9 @@ matrix:
     - os: osx
       language: cpp
       osx_image: xcode9.3
-      addons:
-        homebrew:
-          packages:
-          - beanstalk
-          update: true
       before_install: 
         - export TZ=Etc/GMT-3
+        - brew update
         - brew unlink cmake
         - brew unlink boost 
         - brew install qt5 cmake boost
@@ -40,13 +36,9 @@ matrix:
     - os: osx
       language: cpp
       osx_image: xcode9.3
-      addons:
-        homebrew:
-          packages:
-          - beanstalk
-          update: true
       before_install:
         - export TZ=Etc/GMT-3
+        - brew update
         - brew unlink cmake
         - brew unlink boost 
         - brew install cmake boost
@@ -71,13 +63,9 @@ matrix:
     - os: osx
       language: cpp
       osx_image: xcode9.3
-      addons:
-        homebrew:
-          packages:
-          - beanstalk
-          update: true
       before_install:
         - export TZ=Etc/GMT-3
+        - brew update
         - brew unlink cmake
         - brew unlink boost 
         - brew install cmake boost

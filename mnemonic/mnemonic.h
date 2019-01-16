@@ -43,4 +43,7 @@ namespace beam
     WordList createMnemonic(const std::vector<uint8_t>& entropy, const Dictionary& dict);
 
     std::vector<uint8_t> decodeMnemonic(const WordList& words);
+
+    bool isAllowedWord(const std::string& word, const Dictionary& dict);
+    bool isValidMnemonic(const WordList& words, const Dictionary& dict);
 }

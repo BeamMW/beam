@@ -379,7 +379,19 @@ public:
 private:
 
 	sqlite3* m_pDb;
-	sqlite3_stmt* m_pPrep[Query::count];
+
+	struct Statement
+	{
+		sqlite3_stmt* m_pStmt;
+		Statement() :m_pStmt(nullptr) {}
+		~Statement() { Close(); }
+
+		void Close();
+	};
+
+	Statement m_pPrep[Query::count];
+
+	void Prepare(Statement&, const char*);
 
 	void TestRet(int);
 	void ThrowSqliteError(int);
@@ -388,6 +400,7 @@ private:
 
 	void Create();
 	void ExecQuick(const char*);
+	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);
 	bool ExecStep(Query::Enum, const char*); // returns true while there's a row
 

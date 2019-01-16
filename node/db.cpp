@@ -104,7 +104,10 @@ void NodeDB::ThrowSqliteError(int ret)
 
 void NodeDB::ThrowError(const char* sz)
 {
-	throw std::runtime_error(sz);
+	// Currently all DB errors are defined as corruption
+	CorruptionException exc;
+	exc.m_sErr = sz;
+	throw exc;
 }
 
 void NodeDB::ThrowInconsistent()
@@ -112,19 +115,21 @@ void NodeDB::ThrowInconsistent()
 	ThrowError("data inconcistent");
 }
 
+void NodeDB::Statement::Close()
+{
+	if (m_pStmt)
+	{
+		sqlite3_finalize(m_pStmt); // don't care about retval
+		m_pStmt = nullptr;
+	}
+}
+
 void NodeDB::Close()
 {
 	if (m_pDb)
 	{
 		for (size_t i = 0; i < _countof(m_pPrep); i++)
-		{
-			sqlite3_stmt*& pStmt = m_pPrep[i];
-			if (pStmt)
-			{
-				sqlite3_finalize(pStmt); // don't care about retval
-				pStmt = NULL;
-			}
-		}
+			m_pPrep[i].Close();
 
 		verify(SQLITE_OK == sqlite3_close(m_pDb));
 		m_pDb = NULL;
@@ -248,6 +253,12 @@ void NodeDB::Open(const char* szPath)
 	TestRet(sqlite3_open_v2(szPath, &m_pDb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL));
 	// Attempt to fix the "busy" error when PC goes to sleep and then awakes. Try the busy handler with non-zero timeout (maybe a single retry would be enough)
 	sqlite3_busy_timeout(m_pDb, 5000);
+
+	std::string s = ExecTextOut("PRAGMA integrity_check");
+	if (s != "ok")
+		ThrowError(("sqlite integrity: " + s).c_str());
+
+	ExecTextOut("PRAGMA locking_mode = EXCLUSIVE");
 
 	bool bCreate;
 	{
@@ -390,6 +401,25 @@ void NodeDB::ExecQuick(const char* szSql)
 		OnModified();
 }
 
+std::string NodeDB::ExecTextOut(const char* szSql)
+{
+	int n = sqlite3_total_changes(m_pDb);
+	TestRet(sqlite3_exec(m_pDb, szSql, NULL, NULL, NULL));
+
+	Statement s;
+	Prepare(s, szSql);
+
+	std::string sRes;
+
+	if (ExecStep(s.m_pStmt))
+		sRes = (const char*) sqlite3_column_text(s.m_pStmt, 0);
+
+	if (sqlite3_total_changes(m_pDb) != n)
+		OnModified();
+
+	return sRes;
+}
+
 bool NodeDB::ExecStep(sqlite3_stmt* pStmt)
 {
 	int n = sqlite3_total_changes(m_pDb);
@@ -428,18 +458,24 @@ bool NodeDB::ExecStep(Query::Enum val, const char* sql)
 
 }
 
+void NodeDB::Prepare(Statement& s, const char* szSql)
+{
+	assert(!s.m_pStmt);
+
+	const char* szTail;
+	int nRet = sqlite3_prepare_v2(m_pDb, szSql, -1, &s.m_pStmt, &szTail);
+	TestRet(nRet);
+	assert(s.m_pStmt);
+}
+
 sqlite3_stmt* NodeDB::get_Statement(Query::Enum val, const char* sql)
 {
 	assert(val < _countof(m_pPrep));
-	if (!m_pPrep[val])
-	{
-		const char* szTail;
-		int nRet = sqlite3_prepare_v2(m_pDb, sql, -1, m_pPrep + val, &szTail);
-		TestRet(nRet);
-		assert(m_pPrep[val]);
-	}
+	Statement& s = m_pPrep[val];
 
-	return m_pPrep[val];
+	if (!s.m_pStmt)
+		Prepare(s, sql);
+	return s.m_pStmt;
 }
 
 
@@ -520,7 +556,17 @@ NodeDB::Transaction::Transaction(NodeDB* pDB)
 
 NodeDB::Transaction::~Transaction()
 {
-	Rollback();
+	if (std::uncaught_exceptions())
+	{
+		try {
+			Rollback();
+		}
+		catch (...) {
+			// ignore
+		}
+	}
+	else
+		Rollback();
 }
 
 void NodeDB::Transaction::Start(NodeDB& db)
@@ -541,12 +587,8 @@ void NodeDB::Transaction::Rollback()
 {
 	if (m_pDB)
 	{
-		try {
-			m_pDB->ExecStep(Query::Rollback, "ROLLBACK");
-		} catch (std::exception&) {
-			// TODO: DB is compromised!
-		}
-		m_pDB = NULL;
+		m_pDB->ExecStep(Query::Rollback, "ROLLBACK");
+		m_pDB = nullptr;
 	}
 }
 

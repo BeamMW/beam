@@ -35,6 +35,7 @@ struct IWalletModelAsync
     virtual void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) = 0;
 
     virtual void deleteAddress(const beam::WalletID& id) = 0;
+    virtual void saveAddressChanges(const beam::WalletID& id, const std::string& name, bool isNever, bool makeActive, bool makeExpired) = 0;
 
     virtual void setNodeAddress(const std::string& addr) = 0;
 
