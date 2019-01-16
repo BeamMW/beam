@@ -382,7 +382,7 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
 
         if (receiverAddr)
         {
-            if (receiverAddr->isExpired())
+            if (receiverAddr->m_OwnID && receiverAddr->isExpired())
             {
                 onCantSendToExpired();
                 return;

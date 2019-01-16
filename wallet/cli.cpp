@@ -65,8 +65,8 @@ namespace beam
         ss << "]";
         string str = ss.str();
         os << str;
-        assert(str.length() <= 24);
-        size_t c = 24 - str.length();
+        assert(str.length() <= 30);
+        size_t c = 30 - str.length();
         for (size_t i = 0; i < c; ++i) os << ' ';
         return os;
     }
@@ -798,7 +798,7 @@ int main_impl(int argc, char* argv[])
                                 << setw(14) << "Groth" << " |"
                                 << setw(14) << "height" << " |"
                                 << setw(18) << "maturity" << " |"
-                                << setw(24) << "status" << " |"
+                                << setw(30) << "status" << " |"
                                 << setw(8) << "type" << endl;
                             walletDB->visit([](const Coin& c)->bool
                             {
