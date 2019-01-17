@@ -431,6 +431,83 @@ void TestRollback()
     }
 }
 
+void TestBlockRollbackWithTx()
+{
+    cout << "\nWallet database rollback with tx test\n";
+    IWalletDB::Ptr db = createSqliteWalletDB();
+    TxID txID1 = { { 1, 3, 4, 5 ,65 } };
+    TxID txID2 = { {1, 3, 4} };
+
+    Coin coin1(1, Coin::Available);
+    coin1.m_createHeight = 5;
+    coin1.m_createTxId = txID1;
+    coin1.m_confirmHeight = 6;
+
+    Coin coin2(2, Coin::Spent);
+    coin2.m_createHeight = 3;
+    coin2.m_createTxId = txID2;
+    coin2.m_confirmHeight = 4;
+    coin2.m_spentTxId = txID1;
+
+    Coin coin3(3, Coin::Available);
+    coin3.m_createHeight = 6;
+    coin3.m_confirmHeight = 6;
+
+ /*   Scalar::Native blindingFactor;
+    Output::Ptr output = make_unique<Output>();
+    output->Create(blindingFactor, *db->get_ChildKdf(coin1.m_ID.m_SubIdx), coin1.m_ID, *db->get_MasterKdf());*/
+
+    TxDescription tx;
+    tx.m_txId = txID1;
+    tx.m_peerId.m_Pk = unsigned(23);
+    tx.m_peerId.m_Channel = 0U;
+    tx.m_myId.m_Pk = unsigned(42);
+    tx.m_myId.m_Channel = 0U;
+    tx.m_createTime = 123456;
+    tx.m_minHeight = 5;
+    tx.m_status = TxStatus::Completed;
+    tx.m_change = 0;
+    tx.m_amount = 2;
+    tx.m_sender = true;
+
+    db->saveTx(tx);
+
+    wallet::setTxParameter(db, txID1, wallet::TxParameterID::KernelProofHeight, 6, false);
+ 
+    //vector<Output::Ptr> txOutputs;
+    //txOutputs.push_back(move(output));
+    //wallet::setTxParameter(db, txID1, wallet::TxParameterID::Outputs, txOutputs, false);
+    db->store(coin1);
+    db->store(coin2);
+    db->store(coin3);
+    db->rollbackConfirmedUtxo(5);
+    {
+        vector<Coin> coins;
+        db->visit([&coins](const Coin& c)->bool
+        {
+            coins.push_back(c);
+            return true;
+        });
+        WALLET_CHECK(coins.size() == 3);
+        WALLET_CHECK(coins[0].m_ID.m_Value == 1);
+        WALLET_CHECK(coins[0].m_confirmHeight == MaxHeight);
+        WALLET_CHECK(coins[0].m_status == Coin::Incoming);
+
+        WALLET_CHECK(coins[1].m_ID.m_Value == 2);
+        WALLET_CHECK(coins[1].m_confirmHeight == 4);
+        WALLET_CHECK(coins[1].m_status == Coin::Outgoing);
+
+        WALLET_CHECK(coins[2].m_ID.m_Value == 3);
+        WALLET_CHECK(coins[2].m_confirmHeight == MaxHeight);
+        WALLET_CHECK(coins[2].m_status == Coin::Unavailable);
+
+        auto transactions = db->getTxHistory();
+        WALLET_CHECK(transactions.size() == 1);
+        WALLET_CHECK(transactions[0].canResume() == true);
+    }
+
+}
+
 void TestTxRollback()
 {
     cout << "\nWallet database transaction rollback test\n";
@@ -1039,6 +1116,7 @@ int main()
     TestStoreTxRecord();
     TestTxRollback();
     TestRollback();
+    TestBlockRollbackWithTx();
     TestSelect();
     TestSelect2();
     TestSelect3();

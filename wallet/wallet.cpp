@@ -160,7 +160,7 @@ namespace beam
         , m_OwnedNodesOnline(0)
     {
         assert(walletDB);
-        resume_all_tx();
+        ResumeAllTransactions();
     }
 
     void Wallet::get_Kdf(Key::IKdf::Ptr& pKdf)
@@ -283,7 +283,7 @@ namespace beam
         return txID;
     }
 
-    void Wallet::resume_tx(const TxDescription& tx)
+    void Wallet::ResumeTransaction(const TxDescription& tx)
     {
         if (tx.canResume() && m_Transactions.find(tx.m_txId) == m_Transactions.end())
         {
@@ -293,12 +293,12 @@ namespace beam
         }
     }
 
-    void Wallet::resume_all_tx()
+    void Wallet::ResumeAllTransactions()
     {
         auto txs = m_WalletDB->getTxHistory();
         for (auto& tx : txs)
         {
-            resume_tx(tx);
+            ResumeTransaction(tx);
         }
     }
 
@@ -658,9 +658,15 @@ namespace beam
         Block::SystemState::Full sTip;
         m_WalletDB->get_History().get_Tip(sTip);
 
+        Block::SystemState::ID id;
+        sTip.get_ID(id);
+        LOG_INFO() << "Rolled back to " << id;
+
         m_WalletDB->get_History().DeleteFrom(sTip.m_Height + 1);
 
         m_WalletDB->rollbackConfirmedUtxo(sTip.m_Height);
+
+        ResumeAllTransactions();
 
         for (auto it = m_Transactions.begin(); m_Transactions.end() != it; it++)
         {

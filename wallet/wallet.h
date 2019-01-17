@@ -66,8 +66,8 @@ namespace beam
         boost::optional<TxID> transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee = 0, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {});
         boost::optional<TxID> split_coins(const WalletID& from, const AmountList& amountList, Amount fee = 0, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {});
         TxID swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount);
-        void resume_tx(const TxDescription& tx);
-        void resume_all_tx();
+        void ResumeTransaction(const TxDescription& tx);
+        void ResumeAllTransactions();
 
         // IWallet
         void subscribe(IWalletObserver* observer) override;
