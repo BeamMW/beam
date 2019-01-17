@@ -103,6 +103,10 @@ namespace
                 if (it.level() > 1)
                 {
                     it.pop();
+                    if (it == endDirIt)
+                    {
+                        break;
+                    }
                 }
 
                 if (it->path().filename() == WalletSettings::WalletDBFile)
