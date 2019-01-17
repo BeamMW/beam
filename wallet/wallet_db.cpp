@@ -1554,14 +1554,14 @@ namespace beam
             stm.step();
         }
 
-        //{
-        //    const char* req = "UPDATE " STORAGE_NAME " SET status=?1, lockedHeight=?2 WHERE lockedHeight > ?3 AND confirmHeight <= ?3 ;";
-        //    sqlite::Statement stm(_db, req);
-        //    stm.bind(1, Coin::Available);
-        //    stm.bind(2, MaxHeight);
-        //    stm.bind(3, minHeight);
-        //    stm.step();
-        //}
+        {
+            const char* req = "UPDATE " STORAGE_NAME " SET status=?1, lockedHeight=?2 WHERE lockedHeight > ?3 AND confirmHeight <= ?3 AND spentTxId IS NULL ;";
+            sqlite::Statement stm(_db, req);
+            stm.bind(1, Coin::Available);
+            stm.bind(2, MaxHeight);
+            stm.bind(3, minHeight);
+            stm.step();
+        }
 
         trans.commit();
         notifyCoinsChanged();
