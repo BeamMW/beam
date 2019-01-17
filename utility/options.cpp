@@ -132,7 +132,6 @@ namespace beam
         po::options_description general_options("General options");
         general_options.add_options()
             (cli::HELP_FULL, "list of all options")
-            (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
             (cli::LOG_LEVEL, po::value<string>(), "log level [info|debug|verbose]")
             (cli::FILE_LOG_LEVEL, po::value<string>(), "file log level [info|debug|verbose]")
             (cli::VERSION_FULL, "return project version")
@@ -140,6 +139,7 @@ namespace beam
 
         po::options_description node_options("Node options");
         node_options.add_options()
+            (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
             (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
             (cli::HISTORY, po::value<string>()->default_value(szLocalDir), "directory for compressed history")
             (cli::TEMP, po::value<string>()->default_value(szTempDir), "temp directory for compressed history, must be on the same volume")
