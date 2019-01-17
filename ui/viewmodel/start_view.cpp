@@ -66,11 +66,10 @@ namespace
         "13.52.91.89:8100",
         "54.177.6.19:8100"
  #else
-        "172.104.249.212:8101",
-        "23.239.23.209:8201",
-        "172.105.211.232:8301",
-        "96.126.111.61:8401",
-        "176.58.98.195:8501"
+        "eu-node01.masternet.beam.mw:8100",
+        "eu-node02.masternet.beam.mw:8100",
+        "eu-node03.masternet.beam.mw:8100",
+        "eu-node04.masternet.beam.mw:8100"
 #endif
     };
 
