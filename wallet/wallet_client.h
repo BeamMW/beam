@@ -64,7 +64,7 @@ protected:
     virtual void onSyncProgressUpdated(int done, int total) = 0;
     virtual void onChangeCalculated(beam::Amount change) = 0;
     virtual void onAllUtxoChanged(const std::vector<beam::Coin>& utxos) = 0;
-    virtual void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses) = 0;
+    virtual void onAddresses(bool own, const std::vector<beam::WalletAddress>& addresses) = 0;
     virtual void onGeneratedNewAddress(const beam::WalletAddress& walletAddr) = 0;
     virtual void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) = 0;
     virtual void onNodeConnectionChanged(bool isNodeConnected) = 0;

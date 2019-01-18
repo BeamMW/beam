@@ -365,8 +365,8 @@ void WalletClient::onSystemStateChanged()
 
 void WalletClient::onAddressChanged()
 {
-    onAdrresses(true, m_walletDB->getAddresses(true));
-    onAdrresses(false, m_walletDB->getAddresses(false));
+    onAddresses(true, m_walletDB->getAddresses(true));
+    onAddresses(false, m_walletDB->getAddresses(false));
 }
 
 void WalletClient::onSyncProgress(int done, int total)
@@ -449,7 +449,7 @@ void WalletClient::getWalletStatus()
 {
     onStatus(getStatus());
     onTxStatus(beam::ChangeAction::Reset, m_walletDB->getTxHistory());
-    onAdrresses(false, m_walletDB->getAddresses(false));
+    onAddresses(false, m_walletDB->getAddresses(false));
 }
 
 void WalletClient::getUtxosStatus()
@@ -460,7 +460,7 @@ void WalletClient::getUtxosStatus()
 
 void WalletClient::getAddresses(bool own)
 {
-    onAdrresses(own, m_walletDB->getAddresses(own));
+    onAddresses(own, m_walletDB->getAddresses(own));
 }
 
 void WalletClient::cancelTx(const beam::TxID& id)

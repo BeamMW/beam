@@ -52,7 +52,7 @@ private:
     void onSyncProgressUpdated(int done, int total) override;
     void onChangeCalculated(beam::Amount change) override;
     void onAllUtxoChanged(const std::vector<beam::Coin>& utxos) override;
-    void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addrs) override;
+    void onAddresses(bool own, const std::vector<beam::WalletAddress>& addrs) override;
     void onGeneratedNewAddress(const beam::WalletAddress& walletAddr) override;
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) override;
     void onNodeConnectionChanged(bool isNodeConnected) override;

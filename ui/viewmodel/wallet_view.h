@@ -193,7 +193,7 @@ public slots:
     void syncWithNode();
     void onChangeCalculated(beam::Amount change);
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
-    void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
+    void onAddresses(bool own, const std::vector<beam::WalletAddress>& addresses);
     void onGeneratedNewAddress(const beam::WalletAddress& addr);
     void onSendMoneyVerified();
     void onCantSendToExpired();

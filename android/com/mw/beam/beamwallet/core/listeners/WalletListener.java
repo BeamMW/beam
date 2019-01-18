@@ -105,9 +105,9 @@ public class WalletListener
 		}
 	}
 
-	static void onAdrresses(boolean own, WalletAddressDTO[] addresses)
+	static void onAddresses(boolean own, WalletAddressDTO[] addresses)
 	{
-		System.out.println(">>>>>>>>>>> onAdrresses(" + own + ") called");
+		System.out.println(">>>>>>>>>>> onAddresses(" + own + ") called");
 
 		if(addresses != null)
 		{

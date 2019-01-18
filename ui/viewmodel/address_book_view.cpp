@@ -115,7 +115,7 @@ AddressBookViewModel::AddressBookViewModel()
         SLOT(onStatus(const WalletStatus&)));
 
     connect(&m_model, SIGNAL(adrresses(bool, const std::vector<beam::WalletAddress>&)),
-        SLOT(onAdrresses(bool, const std::vector<beam::WalletAddress>&)));
+        SLOT(onAddresses(bool, const std::vector<beam::WalletAddress>&)));
 
     getAddressesFromModel();
 
@@ -254,7 +254,7 @@ void AddressBookViewModel::onStatus(const WalletStatus&)
     getAddressesFromModel();
 }
 
-void AddressBookViewModel::onAdrresses(bool own, const std::vector<WalletAddress>& addresses)
+void AddressBookViewModel::onAddresses(bool own, const std::vector<WalletAddress>& addresses)
 {
     if (own)
     {

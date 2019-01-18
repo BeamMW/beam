@@ -213,7 +213,7 @@ WalletViewModel::WalletViewModel()
         SLOT(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)));
 
     connect(&_model, SIGNAL(adrresses(bool, const std::vector<beam::WalletAddress>&)),
-        SLOT(onAdrresses(bool, const std::vector<beam::WalletAddress>&)));
+        SLOT(onAddresses(bool, const std::vector<beam::WalletAddress>&)));
 
     connect(&_model, SIGNAL(generatedNewAddress(const beam::WalletAddress&)),
         SLOT(onGeneratedNewAddress(const beam::WalletAddress&)));
@@ -669,7 +669,7 @@ QString WalletViewModel::getNewReceiverName() const
 	return _newReceiverName;
 }
 
-void WalletViewModel::onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses)
+void WalletViewModel::onAddresses(bool own, const std::vector<beam::WalletAddress>& addresses)
 {
     if (own)
     {
