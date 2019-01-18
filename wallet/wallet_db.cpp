@@ -1516,7 +1516,7 @@ namespace beam
                 stm.bind(1, wallet::TxParameterID::KernelProofHeight);
                 while (stm.step())
                 {
-                    TxID txID = { 0 };
+                    TxID txID = { {0} };
                     stm.get(0, txID);
                     Height kernelHeight = 0;
                     if (wallet::getTxParameter(thisPtr, txID, wallet::TxParameterID::KernelProofHeight, kernelHeight) && kernelHeight > minHeight)
