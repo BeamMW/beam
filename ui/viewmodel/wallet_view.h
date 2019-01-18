@@ -98,6 +98,7 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString maturing    READ maturing     NOTIFY stateChanged)
 
     Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
+    Q_PROPERTY(QString availableToSendAmount READ getAvailableToSendAmount NOTIFY availableToSendAmountChanged)
 
     Q_PROPERTY(QString feeGrothes READ feeGrothes WRITE setFeeGrothes NOTIFY feeGrothesChanged)
 
@@ -150,6 +151,7 @@ public:
 
     QQmlListProperty<TxObject> getTransactions();
     QString sendAmount() const;
+    QString getAvailableToSendAmount() const;
     QString feeGrothes() const;
     bool getIsOfflineStatus() const;
     bool getIsFailedStatus() const;
@@ -213,6 +215,7 @@ signals:
     void expiresChanged();
     void sendMoneyVerified();
     void cantSendToExpired();
+    void availableToSendAmountChanged();
 
 private:
     beam::Amount calcSendAmount() const;

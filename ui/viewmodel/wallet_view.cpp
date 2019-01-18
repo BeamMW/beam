@@ -281,6 +281,7 @@ void WalletViewModel::onStatus(const WalletStatus& status)
         changed = true;
 
         emit actualAvailableChanged();
+        emit availableToSendAmountChanged();
     }
 
     if (_status.receiving != status.receiving)
@@ -406,6 +407,11 @@ QString WalletViewModel::sendAmount() const
     return _sendAmount;
 }
 
+QString WalletViewModel::getAvailableToSendAmount() const
+{
+    return BeamToString(_status.available - calcFeeAmount());
+}
+
 QString WalletViewModel::feeGrothes() const
 {
     return _feeGrothes;
@@ -451,6 +457,7 @@ void WalletViewModel::setFeeGrothes(const QString& value)
         _model.getAsync()->calcChange(calcTotalAmount());
         emit feeGrothesChanged();
         emit actualAvailableChanged();
+        emit availableToSendAmountChanged();
     }
 }
 
