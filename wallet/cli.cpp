@@ -410,7 +410,7 @@ namespace
         wallet::changeAddressExpiration(walletDB, walletID);
     }
 
-    WalletAddress newAddress(const IWalletDB::Ptr& walletDB, const std::string& label, bool isNever = false)
+    WalletAddress newAddress(const IWalletDB::Ptr& walletDB, const std::string& comment, bool isNever = false)
     {
         WalletAddress address = wallet::createAddress(walletDB);
 
@@ -419,12 +419,12 @@ namespace
             address.m_duration = 0;
         }
 
-        address.m_label = label;
+        address.m_label = comment;
         walletDB->saveAddress(address);
 
         LOG_INFO() << "New address generated:\n\n" << std::to_string(address.m_walletID) << "\n";
-        if (!label.empty()) {
-            LOG_INFO() << "label = " << label;
+        if (!comment.empty()) {
+            LOG_INFO() << "comment = " << comment;
         }
         return address;
     }
@@ -480,7 +480,7 @@ namespace
         auto addresses = walletDB->getAddresses(true);
         array<uint8_t, 5> columnWidths{ { 20, 70, 8, 20, 21 } };
 
-        // Label | Address | Active | Expiration date | Created |
+        // Comment | Address | Active | Expiration date | Created |
         cout << "Addresses\n\n"
             << "  " << std::left
             << setw(columnWidths[0]) << "comment" << "|"
@@ -491,17 +491,17 @@ namespace
 
         for (const auto& address : addresses)
         {
-            auto label = address.m_label;
+            auto comment = address.m_label;
 
-            if (label.length() > columnWidths[0])
+            if (comment.length() > columnWidths[0])
             {
-                label = label.substr(0, columnWidths[0] - 3) + "...";
+                comment = comment.substr(0, columnWidths[0] - 3) + "...";
             }
 
             auto expirationDateText = (address.m_duration == 0) ? "never" : format_timestamp("%Y.%m.%d %H:%M:%S", address.getExpirationTime() * 1000, false);
 
             cout << "  " << std::left << std::boolalpha
-                << setw(columnWidths[0]) << label << " "
+                << setw(columnWidths[0]) << comment << " "
                 << setw(columnWidths[1]) << std::to_string(address.m_walletID) << " "
                 << setw(columnWidths[2]) << !address.isExpired() << " "
                 << setw(columnWidths[3]) << expirationDateText << " "
@@ -883,8 +883,8 @@ int main_impl(int argc, char* argv[])
 
                     if (command == cli::NEW_ADDRESS)
                     {
-                        auto label = vm[cli::NEW_ADDRESS_LABEL].as<string>();
-                        newAddress(walletDB, label, vm[cli::EXPIRATION_TIME].as<string>() == "never");
+                        auto comment = vm[cli::NEW_ADDRESS_COMMENT].as<string>();
+                        newAddress(walletDB, comment, vm[cli::EXPIRATION_TIME].as<string>() == "never");
 
                         if (!vm.count(cli::LISTEN)) 
                         {
