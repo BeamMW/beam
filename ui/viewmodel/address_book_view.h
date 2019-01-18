@@ -127,7 +127,7 @@ public:
 
 public slots:
     void onStatus(const WalletStatus& amount);
-    void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
+    void onAddresses(bool own, const std::vector<beam::WalletAddress>& addresses);
 
 signals:
     void contactsChanged();

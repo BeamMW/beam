@@ -86,7 +86,7 @@ void WalletModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxos)
     emit allUtxoChanged(utxos);
 }
 
-void WalletModel::onAdrresses(bool own, const std::vector<beam::WalletAddress>& addrs)
+void WalletModel::onAddresses(bool own, const std::vector<beam::WalletAddress>& addrs)
 {
     emit adrresses(own, addrs);
 }

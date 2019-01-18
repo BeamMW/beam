@@ -177,9 +177,9 @@ void WalletModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxosVec)
     env->DeleteLocalRef(utxos);
 }
 
-void WalletModel::onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses)
+void WalletModel::onAddresses(bool own, const std::vector<beam::WalletAddress>& addresses)
 {
-    LOG_DEBUG() << "onAdrresses(" << own << ")";
+    LOG_DEBUG() << "onAddresses(" << own << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -210,7 +210,7 @@ void WalletModel::onAdrresses(bool own, const std::vector<beam::WalletAddress>& 
         }
     }
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAdrresses", "(Z[L" BEAM_JAVA_PATH "/entities/dto/WalletAddressDTO;)V");
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onAddresses", "(Z[L" BEAM_JAVA_PATH "/entities/dto/WalletAddressDTO;)V");
     env->CallStaticVoidMethod(WalletListenerClass, callback, own, addrArray);
 
     env->DeleteLocalRef(addrArray);
