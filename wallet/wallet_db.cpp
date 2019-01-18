@@ -1509,17 +1509,22 @@ namespace beam
         {
             // rollback utxos which belongs to transactions
             vector<TxID> rollbackedTransaction;
+            auto thisPtr = shared_from_this();
             {
                 const char* req = "SELECT * FROM " TX_PARAMS_NAME " WHERE paramID = ?1 ;";
                 sqlite::Statement stm(_db, req);
                 stm.bind(1, wallet::TxParameterID::KernelProofHeight);
                 while (stm.step())
                 {
-                    TxID& txID = rollbackedTransaction.emplace_back();
+                    TxID txID = { 0 };
                     stm.get(0, txID);
+                    Height kernelHeight = 0;
+                    if (wallet::getTxParameter(thisPtr, txID, wallet::TxParameterID::KernelProofHeight, kernelHeight) && kernelHeight > minHeight)
+                    {
+                        rollbackedTransaction.push_back(txID);
+                    }
                 }
             }
-            auto thisPtr = shared_from_this();
             for (auto& tx : rollbackedTransaction)
             {
                 wallet::setTxParameter(thisPtr, tx, wallet::TxParameterID::Status, TxStatus::Registering, true);

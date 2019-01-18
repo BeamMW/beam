@@ -472,7 +472,7 @@ void TestBlockRollbackWithTx()
 
     db->saveTx(tx);
 
-    wallet::setTxParameter(db, txID1, wallet::TxParameterID::KernelProofHeight, 6, false);
+    wallet::setTxParameter(db, txID1, wallet::TxParameterID::KernelProofHeight, Height(6), false);
  
     //vector<Output::Ptr> txOutputs;
     //txOutputs.push_back(move(output));
