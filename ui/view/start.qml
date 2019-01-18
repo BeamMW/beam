@@ -641,6 +641,12 @@ Item
                             }
                         }
 
+                        CustomButton {
+                            text: qsTr("copy to clipboard")
+                            icon.source: "qrc:/assets/icon-copy.svg"
+                            onClicked: {viewModel.copyPhrasesToClipboard();}
+                        }
+
                         PrimaryButton {
                             id: nextButton
                             text: qsTr("next")
