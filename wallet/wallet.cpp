@@ -99,10 +99,33 @@ namespace beam
 
         if (amount.m_showPoint)
         {
-            os << setw(width - beams.length() - 1) << Amount(amount.m_value / Rules::Coin)
-                << "."
-                << (amount.m_value % Rules::Coin)
+            const char origFill = os.fill();
+            Amount groths = amount.m_value % Rules::Coin;
+            std::string grothsString { '0' };
+            size_t grothsLength = 1;
+
+            if (groths > 0)
+            {
+                std::string grothsText = std::to_string(groths);
+                size_t maxGrothsLength = std::lround(std::log10(Rules::Coin));
+
+                // additional length for add leading zeros
+                assert(maxGrothsLength >= grothsText.length());
+                size_t additionalLength = maxGrothsLength - grothsText.length();
+
+                // trim trailing zeros
+                grothsText.erase(grothsText.find_last_not_of('0') + 1, std::string::npos);
+
+                grothsLength = additionalLength + grothsText.length();
+                grothsString = grothsText;
+            }
+
+            assert(width > static_cast<decltype(width)>(grothsLength + beams.length()));
+
+            os << setw(width - grothsLength - beams.length()) << Amount(amount.m_value / Rules::Coin)
+                << "." << std::setfill('0') << setw(grothsLength) << grothsString << std::setfill(origFill)
                 << beams.data();
+
             return os;
         }
 

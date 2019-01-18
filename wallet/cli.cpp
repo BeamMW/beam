@@ -545,13 +545,21 @@ namespace
                 return 0;
             }
 
+            array<uint8_t, 4> columnWidths{ { 20, 26, 10, 35 } };
+
             cout << "TRANSACTIONS\n\n"
-                << "| datetime            | amount, BEAM        | status    | ID\t|\n";
+                << "  |" << setw(columnWidths[0]) << "datetime" << " |"
+                << setw(columnWidths[1]) << "amount, BEAM" << " |"
+                << setw(columnWidths[2]) << "status" << " |"
+                << setw(columnWidths[3]) << "ID" << " |" << endl;
+
             for (auto& tx : txHistory)
             {
-                cout << "  " << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false)
-                    << setw(17) << PrintableAmount(tx.m_amount, true)
-                    << "  " << getTxStatus(tx) << "  " << tx.m_txId << '\n';
+                cout << "   "
+                    << setw(columnWidths[0]) << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false) << "  "
+                    << setw(columnWidths[1]) << PrintableAmount(tx.m_amount, true) << "  "
+                    << setw(columnWidths[2]) << getTxStatus(tx) << "   " 
+                    << tx.m_txId << '\n';
             }
             return 0;
         }
