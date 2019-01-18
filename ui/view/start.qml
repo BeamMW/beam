@@ -12,6 +12,7 @@ Item
     id: root
 
     anchors.fill: parent
+    property bool isLockedMode: false
 
     StartViewModel { id: viewModel }    
     
@@ -1458,6 +1459,14 @@ Item
                 property var firstButtonIcon: "qrc:/assets/icon-change.svg"
                 property var firstButtonAction: confirmChangeWalletDialog.open
 
+                // default methods for open wallet, can be changed for unlock wallet
+                property var openWallet: function (pass) {
+                    return viewModel.openWallet(pass);
+                }
+                property var loadWallet: function () {
+                    root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : false, "isCreating" : false});
+                }
+
                 color: Style.marine
 
                 Image {
@@ -1616,49 +1625,33 @@ Item
                                 }
                                 else
                                 {
-                                    if(!viewModel.openWallet(openPassword.text))
+                                    if(!openWallet(openPassword.text))
                                     {
                                         openPasswordError.text = qsTr("Invalid password provided.");
                                     }
                                     else
                                     {
-                                        root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : false, "isCreating" : false});
+                                        loadWallet();
                                     }
                                 }
                             }
                         }
                     }
-                  /*  Item {
-                        Layout.fillHeight: true
-                        Layout.minimumHeight: 30
-                        Layout.maximumHeight: 65
-                    }
 
-                    SFText {
-                        Layout.alignment: Qt.AlignHCenter
-                        text: qsTr("Forgot password?")
-                        color: Style.bright_teal
-                        font.pixelSize: 14
-                
-                        MouseArea {
-                            anchors.fill: parent
-                            acceptedButtons: Qt.LeftButton
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                confirmFogotPassDialog.open();
-                            }
-                            hoverEnabled: true
-                        }
-                    }*/
                     Item {
                         Layout.fillHeight: true
-                        Layout.minimumHeight: 67//19
+                        Layout.minimumHeight: 67
                     }
                 }
             }
         }
+
         Component.onCompleted: {
-            if (viewModel.walletExists) {
+            if (isLockedMode) {
+                startWizzardView.push(open, { "openWallet": function (pass) { return viewModel.checkWalletPassword(pass); },
+                                              "loadWallet": function () { root.parent.setSource("qrc:/main.qml"); } });
+            }
+            else if (viewModel.walletExists) {
                 startWizzardView.push(open);
             }
             else if (viewModel.isFindExistingWalletDB())
