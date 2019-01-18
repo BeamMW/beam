@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <thread>
 #include <memory>
 #include <atomic>
 #include <condition_variable>
