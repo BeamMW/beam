@@ -88,7 +88,7 @@
 #define TX_PARAMS_FIELDS ENUM_TX_PARAMS_FIELDS(LIST, COMMA, )
 
 #define TblStates            "States"
-#define TblStates_Height    "Height"
+#define TblStates_Height     "Height"
 #define TblStates_Hdr        "State"
 
 namespace std
@@ -1507,7 +1507,46 @@ namespace beam
         sqlite::Transaction trans(_db);
 
         {
-            const char* req = "UPDATE " STORAGE_NAME " SET status=?1, confirmHeight=?2, lockedHeight=?2 WHERE confirmHeight > ?3 ;";
+            // rollback utxos which belongs to transactions
+            vector<TxID> rollbackedTransaction;
+            {
+                const char* req = "SELECT * FROM " TX_PARAMS_NAME " WHERE paramID = ?1 ;";
+                sqlite::Statement stm(_db, req);
+                stm.bind(1, wallet::TxParameterID::KernelProofHeight);
+                while (stm.step())
+                {
+                    TxID& txID = rollbackedTransaction.emplace_back();
+                    stm.get(0, txID);
+                }
+            }
+            auto thisPtr = shared_from_this();
+            for (auto& tx : rollbackedTransaction)
+            {
+                wallet::setTxParameter(thisPtr, tx, wallet::TxParameterID::Status, TxStatus::Registering, true);
+                wallet::setTxParameter(thisPtr, tx, wallet::TxParameterID::KernelProofHeight, Height(0), false);
+
+                {
+                    const char* req = "UPDATE " STORAGE_NAME " SET status=?1 WHERE spentTxId = ?2 ;";
+                    sqlite::Statement stm(_db, req);
+                    stm.bind(1, Coin::Outgoing);
+                    stm.bind(2, tx);
+                    stm.step();
+                }
+
+                {
+                    const char* req = "UPDATE " STORAGE_NAME " SET status=?1, confirmHeight=?2 WHERE createTxId = ?3 ;";
+                    sqlite::Statement stm(_db, req);
+                    stm.bind(1, Coin::Incoming);
+                    stm.bind(2, MaxHeight);
+                    stm.bind(3, tx);
+                    stm.step();
+                }
+            }
+        }
+
+        // rollback restored utxos or coinbase
+        {
+            const char* req = "UPDATE " STORAGE_NAME " SET status=?1, confirmHeight=?2, lockedHeight=?2 WHERE confirmHeight > ?3 AND createTxId IS NULL ;";
             sqlite::Statement stm(_db, req);
             stm.bind(1, Coin::Unavailable);
             stm.bind(2, MaxHeight);
@@ -1516,7 +1555,7 @@ namespace beam
         }
 
         {
-            const char* req = "UPDATE " STORAGE_NAME " SET status=?1, lockedHeight=?2 WHERE lockedHeight > ?3 AND confirmHeight <= ?3 ;";
+            const char* req = "UPDATE " STORAGE_NAME " SET status=?1, lockedHeight=?2 WHERE lockedHeight > ?3 AND confirmHeight <= ?3 AND spentTxId IS NULL ;";
             sqlite::Statement stm(_db, req);
             stm.bind(1, Coin::Available);
             stm.bind(2, MaxHeight);
