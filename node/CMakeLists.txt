@@ -4,6 +4,8 @@ set(NODE_SRC
     db.cpp
     processor.cpp
     txpool.cpp
+    node_client.h
+    node_client.cpp
 )
 
 if(ANDROID)
