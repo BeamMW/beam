@@ -470,6 +470,7 @@ void TestBlockRollbackWithTx()
 
         db->saveTx(tx);
 
+        wallet::setTxParameter(db, txID1, wallet::TxParameterID::KernelUnconfirmedHeight, Height(5), false);
         wallet::setTxParameter(db, txID1, wallet::TxParameterID::KernelProofHeight, Height(6), false);
     }
 
@@ -488,7 +489,7 @@ void TestBlockRollbackWithTx()
         tx.m_sender = true;
 
         db->saveTx(tx);
-
+        wallet::setTxParameter(db, txID2, wallet::TxParameterID::KernelUnconfirmedHeight, Height(3), false);
         wallet::setTxParameter(db, txID2, wallet::TxParameterID::KernelProofHeight, Height(4), false);
     }
 
@@ -556,14 +557,29 @@ void TestBlockRollbackWithTx()
         {
             auto tx = db->getTx(txID1);
             WALLET_CHECK(tx->m_status == TxStatus::Registering);
+            Height h = 0;
+            WALLET_CHECK(wallet::getTxParameter(db, txID1, wallet::TxParameterID::KernelProofHeight, h));
+            WALLET_CHECK(h == 0);
+            WALLET_CHECK(wallet::getTxParameter(db, txID1, wallet::TxParameterID::KernelUnconfirmedHeight, h));
+            WALLET_CHECK(h == 0);
         }
         {
             auto tx = db->getTx(txID2);
             WALLET_CHECK(tx->m_status == TxStatus::Completed);
+            Height h = 0;
+            WALLET_CHECK(wallet::getTxParameter(db, txID2, wallet::TxParameterID::KernelProofHeight, h));
+            WALLET_CHECK(h == 4);
+            WALLET_CHECK(wallet::getTxParameter(db, txID2, wallet::TxParameterID::KernelUnconfirmedHeight, h));
+            WALLET_CHECK(h == 3);
         }
         {
             auto tx = db->getTx(txID3);
             WALLET_CHECK(tx->m_status == TxStatus::Completed);
+            Height h = 0;
+            WALLET_CHECK(wallet::getTxParameter(db, txID3, wallet::TxParameterID::KernelProofHeight, h));
+            WALLET_CHECK(h == 5);
+            WALLET_CHECK(!wallet::getTxParameter(db, txID3, wallet::TxParameterID::KernelUnconfirmedHeight, h));
+
         }
     }
 

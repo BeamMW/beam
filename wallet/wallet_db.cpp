@@ -1529,6 +1529,7 @@ namespace beam
             {
                 wallet::setTxParameter(thisPtr, tx, wallet::TxParameterID::Status, TxStatus::Registering, true);
                 wallet::setTxParameter(thisPtr, tx, wallet::TxParameterID::KernelProofHeight, Height(0), false);
+                wallet::setTxParameter(thisPtr, tx, wallet::TxParameterID::KernelUnconfirmedHeight, Height(0), false);
 
                 {
                     const char* req = "UPDATE " STORAGE_NAME " SET status=?1 WHERE spentTxId = ?2 ;";
