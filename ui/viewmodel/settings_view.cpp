@@ -74,6 +74,23 @@ SettingsViewModel::SettingsViewModel()
     : m_settings{AppModel::getInstance()->getSettings()}
 {
     undoChanges();
+    connect(&AppModel::getInstance()->getNode(), SIGNAL(startedNode()), SLOT(onNodeStarted()));
+    connect(&AppModel::getInstance()->getNode(), SIGNAL(stoppedNode()), SLOT(onNodeStopped()));
+}
+
+void SettingsViewModel::onNodeStarted()
+{
+    emit localNodeRunningChanged();
+}
+
+void SettingsViewModel::onNodeStopped()
+{
+    emit localNodeRunningChanged();
+}
+
+bool SettingsViewModel::isLocalNodeRunning() const
+{
+    return AppModel::getInstance()->getNode().isNodeRunning();
 }
 
 QString SettingsViewModel::getNodeAddress() const
