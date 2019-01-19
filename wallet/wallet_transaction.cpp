@@ -153,13 +153,13 @@ namespace beam { namespace wallet
         m_WalletDB->rollbackTx(GetTxID());
     }
     
-    void BaseTransaction::CheckExpired()
+    bool BaseTransaction::CheckExpired()
     {
         Height kernelConfirmHeight = 0;
         if (GetParameter(TxParameterID::KernelProofHeight, kernelConfirmHeight) && kernelConfirmHeight > 0)
         {
             // completed tx
-            return;
+            return false;
         }
 
         Height maxHeight = MaxHeight;
@@ -173,7 +173,7 @@ namespace beam { namespace wallet
             {
                 LOG_INFO() << GetTxID() << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << maxHeight;
                 OnFailed(TxFailureReason::TransactionExpired);
-                return;
+                return true;
             }
         }
         else
@@ -185,10 +185,11 @@ namespace beam { namespace wallet
                 {
                     LOG_INFO() << GetTxID() << " Transaction expired. Last unconfirmeed height: " << lastUnconfirmedHeight << ", max kernel height: " << maxHeight;
                     OnFailed(TxFailureReason::TransactionExpired);
-                    return;
+                    return true;
                 }
             }
         }
+        return false;
     }
 
     bool BaseTransaction::CheckExternalFailures()
@@ -323,6 +324,11 @@ namespace beam { namespace wallet
         if (!builder.GetInitialTxParams() && txState == State::Initial)
         {
             LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ") << PrintableAmount(builder.GetAmount()) << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
+
+            if (CheckExpired())
+            {
+                return;
+            }
 
             if (isSender)
             {

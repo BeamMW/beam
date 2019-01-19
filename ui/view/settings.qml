@@ -518,7 +518,7 @@ Rectangle {
 				                    text: qsTr("rescan")
                                     palette.button: "#708090"
                                     palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
-                                    enabled: localNodeRun.checked && confirmRefreshDialog.canRefresh
+                                    enabled: localNodeRun.checked && confirmRefreshDialog.canRefresh && viewModel.isLocalNodeRunning
                                     onClicked: {
                                         confirmRefreshDialog.open();
                                     }

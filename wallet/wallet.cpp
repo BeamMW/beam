@@ -573,10 +573,7 @@ namespace beam
         {
             Block::SystemState::Full sTip;
             get_tip(sTip);
-            if (tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height))
-            {
-                tx->Update();
-            }
+            tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height);
         }
     }
 
