@@ -285,6 +285,11 @@ namespace beam
 
     void Wallet::Refresh()
     {
+        m_WalletDB->clear();
+        Block::SystemState::ID id;
+        ZeroObject(id);
+        m_WalletDB->setSystemStateID(id);
+
         SetUtxoEventsHeight(0);
         RequestUtxoEvents();
         RefreshTransactions();
