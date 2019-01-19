@@ -151,7 +151,6 @@ void WalletModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxosVec)
             setLongField(env, UtxoClass, utxo, "id", coin.m_ID.m_Idx);
             setLongField(env, UtxoClass, utxo, "amount", coin.m_ID.m_Value);
             setIntField(env, UtxoClass, utxo, "status", coin.m_status);
-            setLongField(env, UtxoClass, utxo, "createHeight", coin.m_createHeight);
             setLongField(env, UtxoClass, utxo, "maturity", coin.m_maturity);
             setIntField(env, UtxoClass, utxo, "keyType", static_cast<jint>(coin.m_ID.m_Type));
             setLongField(env, UtxoClass, utxo, "confirmHeight", coin.m_confirmHeight);

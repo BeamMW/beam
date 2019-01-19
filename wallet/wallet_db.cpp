@@ -34,7 +34,6 @@
     each(amount,         ID.m_Value,    INTEGER NOT NULL, obj) sep \
     each(status,         status,        INTEGER NOT NULL, obj) sep \
     each(maturity,       maturity,      INTEGER NOT NULL, obj) sep \
-    each(createHeight,   createHeight,  INTEGER NOT NULL, obj) sep \
     each(confirmHeight,  confirmHeight, INTEGER, obj) sep \
     each(lockedHeight,   lockedHeight,  BLOB, obj) sep \
     each(createTxId,     createTxId,    BLOB, obj) sep \
@@ -888,7 +887,6 @@ namespace beam
 
     Coin::Coin(Amount amount, Status status, Height maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
         : m_status{ status }
-        , m_createHeight(0)
         , m_maturity{ maturity }
         , m_confirmHeight{ confirmHeight }
         , m_lockedHeight{ lockedHeight }

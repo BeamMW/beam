@@ -737,7 +737,6 @@ namespace beam { namespace wallet
     {
         Coin newUtxo{ amount, Coin::Incoming };
         newUtxo.m_createTxId = m_Tx.GetTxID();
-        newUtxo.m_createHeight = m_MinHeight;
         if (bChange)
         {
             newUtxo.m_ID.m_Type = Key::Type::Change;

@@ -567,7 +567,6 @@ namespace
         cout << setw(20) << "id" << " |"
             << setw(14) << "Beam" << " |"
             << setw(14) << "Groth" << " |"
-            << setw(14) << "height" << " |"
             << setw(18) << "maturity" << " |"
             << setw(30) << "status" << " |"
             << setw(8) << "type" << endl;
@@ -576,7 +575,6 @@ namespace
             cout << setw(20) << c.m_ID.m_Idx
                 << setw(16) << c.m_ID.m_Value / Rules::Coin
                 << setw(16) << c.m_ID.m_Value % Rules::Coin
-                << setw(16) << static_cast<int64_t>(c.m_createHeight)
                 << setw(20) << (static_cast<int64_t>(c.m_maturity) < 0 ? "-" : std::to_string(static_cast<int64_t>(c.m_maturity)))
                 << "   " << c.m_status
                 << setw(8) << c.m_ID.m_Type << endl;

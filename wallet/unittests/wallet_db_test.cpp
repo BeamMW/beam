@@ -440,18 +440,15 @@ void TestBlockRollbackWithTx()
     TxID txID3 = { {1, 3, 4, 9} };
 
     Coin coin1(1, Coin::Available);
-    coin1.m_createHeight = 5;
     coin1.m_createTxId = txID1;
     coin1.m_confirmHeight = 6;
 
     Coin coin2(2, Coin::Spent);
-    coin2.m_createHeight = 3;
     coin2.m_createTxId = txID2;
     coin2.m_confirmHeight = 4;
     coin2.m_spentTxId = txID1;
 
     Coin coin3(3, Coin::Available);
-    coin3.m_createHeight = 6;
     coin3.m_confirmHeight = 6;
 
     {

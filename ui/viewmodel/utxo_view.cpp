@@ -46,11 +46,6 @@ QString UtxoItem::amount() const
     return BeamToString(_coin.m_ID.m_Value) + " BEAM";
 }
 
-QString UtxoItem::height() const
-{
-    return QString::number(_coin.m_createHeight);
-}
-
 QString UtxoItem::maturity() const
 {
     if (_coin.m_maturity == static_cast<Height>(-1))
@@ -102,9 +97,9 @@ beam::Amount UtxoItem::rawAmount() const
     return _coin.m_ID.m_Value;
 }
 
-beam::Height UtxoItem::rawHeight() const
+const beam::Coin::ID& UtxoItem::get_ID() const
 {
-    return _coin.m_createHeight;
+	return _coin.m_ID;
 }
 
 beam::Height UtxoItem::rawMaturity() const
@@ -251,9 +246,9 @@ std::function<bool(const UtxoItem*, const UtxoItem*)> UtxoViewModel::generateCom
         return compareUtxo(lf->type(), rt->type(), sortOrder);
     };
 
-    // defult for heightRole
+    // defult
     return [sortOrder = _sortOrder](const UtxoItem* lf, const UtxoItem* rt)
     {
-        return compareUtxo(lf->rawHeight(), rt->rawHeight(), sortOrder);
+        return compareUtxo(lf->get_ID(), rt->get_ID(), sortOrder);
     };
 }

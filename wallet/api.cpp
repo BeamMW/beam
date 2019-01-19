@@ -295,7 +295,6 @@ namespace beam
                 {"id", utxo.m_ID.m_Idx},
                 {"amount", utxo.m_ID.m_Value},
                 {"type", (const char*)FourCC::Text(utxo.m_ID.m_Type)},
-                {"height", utxo.m_createHeight},
                 {"maturity", utxo.m_maturity},
                 {"createTxId", createTxId},
                 {"spentTxId", spentTxId},

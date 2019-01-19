@@ -64,7 +64,6 @@ namespace beam
         ID m_ID;
 
         Status m_status;
-        Height m_createHeight;  // For coinbase and fee coin the height of mined block, otherwise the height of last known block.
         Height m_maturity;      // coin can be spent only when chain is >= this value. Valid for confirmed coins (Available, Outgoing, Incoming, Change, Spent, Maturing).
         Height m_confirmHeight;
         Height m_lockedHeight;

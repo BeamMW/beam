@@ -19,7 +19,6 @@ public class UtxoDTO
 	public long id;
 	public long amount;
 	public int status;
-	public long createHeight;
 	public long maturity;
 	public int keyType;
 	public long confirmHeight;

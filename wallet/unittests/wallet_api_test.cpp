@@ -176,7 +176,6 @@ namespace
                 Coin coin{ Amount(1234+i) };
                 coin.m_ID.m_Type = Key::Type::Regular;
                 coin.m_ID.m_Idx = 132+i;
-                coin.m_createHeight = 1000;
                 coin.m_maturity = 60;
                 getUtxo.utxos.push_back(coin);
             }
@@ -194,7 +193,6 @@ namespace
                 WALLET_CHECK(result[i]["id"] == 132 + i);
                 WALLET_CHECK(result[i]["amount"] == 1234 + i);
                 WALLET_CHECK(result[i]["type"] == "norm");
-                WALLET_CHECK(result[i]["height"] == 1000);
                 WALLET_CHECK(result[i]["maturity"] == 60);
             }
         }

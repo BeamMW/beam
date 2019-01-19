@@ -693,9 +693,6 @@ namespace beam
             //if (c.m_createTxId)
             //    updateTransaction(*c.m_createTxId);
             //pTxID = c.m_createTxId.get_ptr();
-
-            if (!bExists)
-                c.m_createHeight = evt.m_Height;
         }
         else
         {
