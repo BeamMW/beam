@@ -1367,12 +1367,6 @@ namespace beam
             stm.step();
             notifyCoinsChanged();
         }
-
-        {
-            sqlite::Statement stm(_db, "DELETE FROM " TX_PARAMS_NAME ";");
-            stm.step();
-            notifyTransactionChanged(ChangeAction::Reset, {});
-        }
     }
 
     bool WalletDB::find(Coin& coin)
