@@ -306,6 +306,26 @@ namespace beam
         return txID;
     }
 
+    void Wallet::Refresh()
+    {
+        SetUtxoEventsHeight(0);
+        RequestUtxoEvents();
+    }
+
+    void Wallet::RefreshTransactions()
+    {
+  /*      auto txs = m_WalletDB->getTxHistory();
+        for (auto& tx : txs)
+        {
+            if (m_Transactions.find(tx.m_txId) == m_Transactions.end())
+            {
+                auto t = constructTransaction(tx.m_txId, TxType::Simple);
+                if (t->GetParameter())
+                m_Transactions.emplace(tx.m_txId, t);
+            }
+        }*/
+    }
+
     void Wallet::ResumeTransaction(const TxDescription& tx)
     {
         if (tx.canResume() && m_Transactions.find(tx.m_txId) == m_Transactions.end())

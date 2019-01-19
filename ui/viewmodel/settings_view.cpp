@@ -229,6 +229,11 @@ bool SettingsViewModel::hasSupportedGpu()
 #endif
 }
 
+void SettingsViewModel::refreshWallet()
+{
+    AppModel::getInstance()->getWallet()->getAsync()->refresh();
+}
+
 #ifdef BEAM_USE_GPU
 
 vector<int32_t> SettingsViewModel::getSelectedDevice() const

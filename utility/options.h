@@ -90,6 +90,7 @@ namespace beam
         extern const char* WALLET_ADDR;
         extern const char* CHANGE_ADDRESS_EXPIRATION;
         extern const char* WALLET_ADDRESS_LIST;
+        extern const char* WALLET_REFRESH;
 #if defined(BEAM_USE_GPU)
         extern const char* MINER_TYPE;
 #endif

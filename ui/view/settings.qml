@@ -356,6 +356,20 @@ Rectangle {
                     }
                 }
 
+                ConfirmationDialog {
+                    id: confirmRefreshDialog
+                    property bool canRefresh: true
+                    okButtonText: qsTr("yes")
+                    okButtonIconSource: "qrc:/assets/icon-done.svg"
+                    cancelVisible: false
+                    width: 460
+                    text: qsTr("Rescan will update transaction and UTXO data in your wallet and get latest information from the blockchain. Are you sure?")
+                    onAccepted: {
+                        canRefresh = false;
+                        viewModel.refreshWallet();
+                    }
+                }
+
                 ColumnLayout {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -489,12 +503,26 @@ Rectangle {
                                     wrapMode: Text.WordWrap
                                 }
                             }                        
-
-                            CustomButton {
-                                text: "save wallet logs"
-                                palette.buttonText : "white"
-                                palette.button: "#708090"
-                                onClicked: viewModel.reportProblem()
+                            RowLayout {
+                                Layout.fillWidth: true
+                                CustomButton {
+                                    text: "save wallet logs"
+                                    palette.buttonText : "white"
+                                    palette.button: "#708090"
+                                    onClicked: viewModel.reportProblem()
+                                }
+                                spacing: 30
+                                CustomButton {
+                                    icon.source: "qrc:/assets/icon-restore.svg"
+                                    Layout.alignment: Qt.AlignRight
+				                    text: qsTr("rescan")
+                                    palette.button: "#708090"
+                                    palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
+                                    enabled: localNodeRun.checked && confirmRefreshDialog.canRefresh
+                                    onClicked: {
+                                        confirmRefreshDialog.open();
+                                    }
+                                }
                             }
 
                             SFText {
