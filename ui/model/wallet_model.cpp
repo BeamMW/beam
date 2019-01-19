@@ -208,6 +208,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
             receiver_.getNetworkStatus();
         });
     }
+
+    void refresh() override
+    {
+        tx.send([](BridgeInterface& receiver_) mutable
+        {
+            receiver_.refresh();
+        });
+    }
 };
 
 WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr)
@@ -675,6 +683,23 @@ void WalletModel::getNetworkStatus()
     }
 
     emit nodeConnectionChanged(_isConnected);
+}
+
+void WalletModel::refresh()
+{
+    try
+    {
+        assert(!_wallet.expired());
+        auto s = _wallet.lock();
+        if (s)
+        {
+            s->Refresh();
+        }
+    }
+    catch (...)
+    {
+
+    }
 }
 
 bool WalletModel::check_receiver_address(const std::string& addr)

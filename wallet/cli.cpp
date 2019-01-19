@@ -603,7 +603,8 @@ int main_impl(int argc, char* argv[])
                             && command != cli::PAYMENT_PROOF_EXPORT
                             && command != cli::PAYMENT_PROOF_VERIFY
                             && command != cli::GENERATE_PHRASE
-                            && command != cli::WALLET_ADDRESS_LIST)
+                            && command != cli::WALLET_ADDRESS_LIST
+                            && command != cli::WALLET_REFRESH)
                         {
                             LOG_ERROR() << "unknown command: \'" << command << "\'";
                             return -1;
@@ -979,6 +980,11 @@ int main_impl(int argc, char* argv[])
                             {
                                 LOG_ERROR() << "Unknown transaction ID.";
                             }
+                        }
+
+                        if (command == cli::WALLET_REFRESH)
+                        {
+                            wallet.Refresh();
                         }
 
                         io::Reactor::get_Current().run();

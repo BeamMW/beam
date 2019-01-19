@@ -96,6 +96,7 @@ public:
     Q_INVOKABLE void copyToClipboard(const QString& text);
     Q_INVOKABLE bool showUseGpu() const;
     Q_INVOKABLE bool hasSupportedGpu();
+    Q_INVOKABLE void refreshWallet();
 
 private:
 #ifdef BEAM_USE_GPU

@@ -99,6 +99,7 @@ private:
     void setNodeAddress(const std::string& addr) override;
     void changeWalletPassword(const beam::SecString& password) override;
     void getNetworkStatus() override;
+    void refresh() override;
 
     void onNodeConnectedStatusChanged(bool isNodeConnected);
     void onNodeConnectionFailed(const beam::proto::NodeConnection::DisconnectReason&);

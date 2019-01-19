@@ -339,6 +339,8 @@ namespace
         }
 
         void getNetworkStatus() override {}
+
+        void refresh() override {}
     };
 
     static JavaVM* JVM = NULL;
@@ -621,6 +623,7 @@ namespace
         void setNodeAddress(const std::string& addr) override {}
         void changeWalletPassword(const beam::SecString& password) override {}
         void getNetworkStatus() override {}
+        void refresh() override {}
 
         ///////////////////////////////////////////////
         // callbacks
