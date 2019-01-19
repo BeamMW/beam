@@ -228,6 +228,8 @@ namespace beam
             SharedBlindingExcess = 131,
             LockedBlindingExcess = 132,
 
+            KernelUnconfirmedHeight = 133,
+
             Offset = 140,
             SharedOffset = 141,
             LockedOffset = 142,
