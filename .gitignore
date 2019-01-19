@@ -98,3 +98,4 @@ CMakeSettings.json
 /utility/unittest/config_test
 beam/wallet.dat
 3rdparty/opencl-miner/equihash_150_5.dat
+ui/beam.rc
