@@ -23,7 +23,6 @@ public class UtxoDTO
 	public int keyType;
 	public long confirmHeight;
 	public byte[] confirmHash;
-	public long lockHeight;
 	public byte[] createTxId;
 	public byte[] spentTxId;
 }

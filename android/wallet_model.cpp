@@ -154,7 +154,6 @@ void WalletModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxosVec)
             setLongField(env, UtxoClass, utxo, "maturity", coin.m_maturity);
             setIntField(env, UtxoClass, utxo, "keyType", static_cast<jint>(coin.m_ID.m_Type));
             setLongField(env, UtxoClass, utxo, "confirmHeight", coin.m_confirmHeight);
-            setLongField(env, UtxoClass, utxo, "lockHeight", coin.m_lockedHeight);
 
             if (coin.m_createTxId)
                 setByteArrayField(env, UtxoClass, utxo, "createTxId", *coin.m_createTxId);

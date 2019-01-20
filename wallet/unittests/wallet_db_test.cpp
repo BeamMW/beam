@@ -53,7 +53,6 @@ void TestWalletDataBase()
         Coin coin{ 1234 };
         coin.m_ID.m_Type = Key::Type::Regular;
         coin.m_ID.m_Idx = 132;
-        WALLET_CHECK(coin.isValid());
         WALLET_CHECK(coin.m_ID.m_Idx == 132);
         WALLET_CHECK(coin.m_ID.m_Value == 1234);
         WALLET_CHECK(coin.m_ID.m_Type == Key::Type::Regular);
@@ -303,7 +302,7 @@ void TestRollback()
 
     for (uint64_t i = 9; i < 10; ++i)
     {
-        Coin coin1 = { 5, Coin::Spent, 0, Key::Type::Regular, Height(1), Height(i + 1) };
+        Coin coin1 = { 5, Coin::Spent, 0, Key::Type::Regular, Height(1) };
         db->store(coin1);
     }
 
@@ -382,7 +381,6 @@ void TestRollback()
         auto& c = coins[i];
         WALLET_CHECK(c.m_status == Coin::Available);
         WALLET_CHECK(c.m_confirmHeight != MaxHeight);
-        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
     }
 
     for (int i = 6; i < 9; ++i)
@@ -390,14 +388,12 @@ void TestRollback()
         auto& c = coins[i];
         WALLET_CHECK(c.m_status == Coin::Unavailable);
         WALLET_CHECK(c.m_confirmHeight == MaxHeight);
-        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
     }
     for (int i = 9; i < 10; ++i)
     {
         auto& c = coins[i];
         WALLET_CHECK(c.m_status == Coin::Available);
         WALLET_CHECK(c.m_confirmHeight != MaxHeight);
-        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
     }
 
     {
@@ -405,7 +401,6 @@ void TestRollback()
         auto& c = coins[10];
         WALLET_CHECK(c.m_status == Coin::Unavailable);
         WALLET_CHECK(c.m_confirmHeight == MaxHeight);
-        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
     }
 
     for (int i = 11; i < 17; ++i)
@@ -413,21 +408,18 @@ void TestRollback()
         auto& c = coins[i];
         WALLET_CHECK(c.m_status == Coin::Unavailable);
         WALLET_CHECK(c.m_confirmHeight == MaxHeight);
-        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
     }
     for (int i = 17; i < 19; ++i)
     {
         auto& c = coins[i];
         WALLET_CHECK(c.m_status == Coin::Spent);
         WALLET_CHECK(c.m_confirmHeight != MaxHeight);
-        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
     }
     for (int i = 19; i < 21; ++i)
     {
         auto& c = coins[i];
         WALLET_CHECK(c.m_status == Coin::Available);
         WALLET_CHECK(c.m_confirmHeight != MaxHeight);
-        WALLET_CHECK(c.m_lockedHeight == MaxHeight);
     }
 }
 

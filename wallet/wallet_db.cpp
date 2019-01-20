@@ -35,7 +35,6 @@
     each(status,         status,        INTEGER NOT NULL, obj) sep \
     each(maturity,       maturity,      INTEGER NOT NULL, obj) sep \
     each(confirmHeight,  confirmHeight, INTEGER, obj) sep \
-    each(lockedHeight,   lockedHeight,  BLOB, obj) sep \
     each(createTxId,     createTxId,    BLOB, obj) sep \
     each(spentTxId,      spentTxId,     BLOB, obj) sep \
     each(sessionId,      sessionId,     INTEGER NOT NULL, obj)
@@ -885,24 +884,20 @@ namespace beam
 		const int DbVersion10 = 10;
 	}
 
-    Coin::Coin(Amount amount, Status status, Height maturity, Key::Type keyType, Height confirmHeight, Height lockedHeight)
+    Coin::Coin(Amount amount, Status status, Height maturity, Key::Type keyType, Height confirmHeight)
         : m_status{ status }
         , m_maturity{ maturity }
         , m_confirmHeight{ confirmHeight }
-        , m_lockedHeight{ lockedHeight }
         , m_sessionId(EmptyCoinSession)
     {
         ZeroObject(m_ID);
         m_ID.m_Value = amount;
         m_ID.m_Type = keyType;
-
-        assert(isValid());
     }
 
     Coin::Coin()
         : Coin(0, Coin::Available, MaxHeight, Key::Type::Regular, MaxHeight)
     {
-        assert(isValid());
     }
 
     bool Coin::isReward() const
@@ -915,11 +910,6 @@ namespace beam
         default:
             return false;
         }
-    }
-
-    bool Coin::isValid() const
-    {
-        return m_maturity <= m_lockedHeight;
     }
 
     bool WalletDB::isInitialized(const string& path)
@@ -947,8 +937,7 @@ namespace beam
             {
                 const char* req = "CREATE TABLE " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST_WITH_TYPES, COMMA,) ");"
                                   "CREATE UNIQUE INDEX CoinIndex ON " STORAGE_NAME "(" ENUM_STORAGE_ID(LIST, COMMA, )  ");"
-                                  "CREATE INDEX ConfirmIndex ON " STORAGE_NAME"(confirmHeight);"
-                                  "CREATE INDEX SpentIndex ON " STORAGE_NAME"(lockedHeight);";
+                                  "CREATE INDEX ConfirmIndex ON " STORAGE_NAME"(confirmHeight);";
                 int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
                 throwIfError(ret, walletDB->_db);
             }
@@ -1196,12 +1185,11 @@ namespace beam
                 for (auto& coin : coinsSel)
                 {
                     coin.m_status = Coin::Outgoing;
-                    const char* req = "UPDATE " STORAGE_NAME " SET status=?, lockedHeight=?" STORAGE_WHERE_ID;
+                    const char* req = "UPDATE " STORAGE_NAME " SET status=?" STORAGE_WHERE_ID;
                     sqlite::Statement stm(_db, req);
 
                     int colIdx = 0;
                     stm.bind(++colIdx, coin.m_status);
-                    stm.bind(++colIdx, stateID.m_Height);
                     STORAGE_BIND_ID(coin)
 
                     stm.step();
@@ -1556,7 +1544,7 @@ namespace beam
 
         // rollback restored utxos or coinbase
         {
-            const char* req = "UPDATE " STORAGE_NAME " SET status=?1, confirmHeight=?2, lockedHeight=?2 WHERE confirmHeight > ?3 AND createTxId IS NULL ;";
+            const char* req = "UPDATE " STORAGE_NAME " SET status=?1, confirmHeight=?2 WHERE confirmHeight > ?3 AND createTxId IS NULL ;";
             sqlite::Statement stm(_db, req);
             stm.bind(1, Coin::Unavailable);
             stm.bind(2, MaxHeight);
@@ -1565,11 +1553,10 @@ namespace beam
         }
 
         {
-            const char* req = "UPDATE " STORAGE_NAME " SET status=?1, lockedHeight=?2 WHERE lockedHeight > ?3 AND confirmHeight <= ?3 AND spentTxId IS NULL ;";
+            const char* req = "UPDATE " STORAGE_NAME " SET status=?1 WHERE confirmHeight <= ?2 AND confirmHeight > 0 AND spentTxId IS NULL ;";
             sqlite::Statement stm(_db, req);
             stm.bind(1, Coin::Available);
-            stm.bind(2, MaxHeight);
-            stm.bind(3, minHeight);
+            stm.bind(2, minHeight);
             stm.step();
         }
 
