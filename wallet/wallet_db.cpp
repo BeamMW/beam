@@ -1205,24 +1205,6 @@ namespace beam
         return coinsSel;
     }
 
-    std::vector<Coin> WalletDB::getCoinsCreatedByTx(const TxID& txId)
-    {
-        // select all coins for TxID
-        sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE createTxID=?1 ORDER BY amount DESC;");
-        stm.bind(1, txId);
-
-        vector<Coin> coins;
-
-        while (stm.step())
-        {
-            auto& coin = coins.emplace_back();
-            int colIdx = 0;
-            ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
-        }
-
-        return coins;
-    }
-
     namespace
     {
         struct InsertCoinStatement : public sqlite::Statement

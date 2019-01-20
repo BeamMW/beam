@@ -90,7 +90,6 @@ namespace
             return ret;
         }
         bool find(Coin& coin) override { return false; }
-        virtual std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) override { return {}; };
         void store(beam::Coin& ) override {}
         void store(std::vector<beam::Coin>&) override {}
         void save(const beam::Coin&) override {}
