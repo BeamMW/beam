@@ -1555,15 +1555,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		nSizeEstimated = GenerateNewBlockInternal(bc);
 
 	if (nSizeEstimated)
-	{
 		bc.m_Hdr.m_Height = h;
-
-		if (BlockContext::Mode::Assemble != bc.m_Mode)
-		{
-			bc.m_Block.NormalizeE(); // kernels must be normalized before the header is generated
-			GenerateNewHdr(bc);
-		}
-	}
 
 	verify(HandleValidatedTx(bc.m_Block.get_Reader(), h, false)); // undo changes
 
@@ -1577,8 +1569,18 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	if (BlockContext::Mode::Assemble == bc.m_Mode)
 		return true;
 
-	size_t nCutThrough = bc.m_Block.NormalizeP(); // right before serialization
+	size_t nCutThrough = bc.m_Block.Normalize(); // right before serialization
 	nCutThrough; // remove "unused var" warning
+
+	// The effect of the cut-through block may be different than it was during block construction, because the consumed and created UTXOs (removed by cut-through) could have different maturities.
+	// Hence - we need to re-apply the block after the cut-throught, evaluate the definition, and undo the changes (once again).
+	if (!HandleValidatedTx(bc.m_Block.get_Reader(), h, true))
+	{
+		LOG_WARNING() << "couldn't apply block after cut-through!";
+		return false; // ?!
+	}
+	GenerateNewHdr(bc);
+	verify(HandleValidatedTx(bc.m_Block.get_Reader(), h, false)); // undo changes
 
 
 	Serializer ser;
