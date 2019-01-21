@@ -33,6 +33,7 @@ namespace beam
         const char* PORT_FULL = "port,p";
         const char* STRATUM_PORT = "stratum_port";
         const char* STRATUM_SECRETS_PATH = "stratum_secrets_path";
+        const char* STRATUM_USE_TLS = "stratum_use_tls";
         const char* STORAGE = "storage";
         const char* WALLET_STORAGE = "wallet_path";
         const char* HISTORY = "history_dir";
@@ -152,6 +153,7 @@ namespace beam
             (cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
             (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
+            (cli::STRATUM_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on startum server")
             (cli::IMPORT, po::value<Height>()->default_value(0), "Specify the blockchain height to import. The compressed history is asumed to be downloaded the the specified directory")
             (cli::RESYNC, po::value<bool>()->default_value(false), "Enforce re-synchronization (soft reset)")
             (cli::BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS messaging")
