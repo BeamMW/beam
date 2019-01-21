@@ -142,6 +142,7 @@ signals:
 public slots:
     bool createWallet();
     bool openWallet(const QString& pass);
+    bool checkWalletPassword(const QString& password) const;
     void setPassword(const QString& pass);
 
 private:

@@ -515,6 +515,12 @@ bool StartViewModel::openWallet(const QString& pass)
     return AppModel::getInstance()->openWallet(secretPass);
 }
 
+bool StartViewModel::checkWalletPassword(const QString& password) const
+{
+    SecString secretPassword = password.toStdString();
+    return AppModel::getInstance()->checkWalletPassword(secretPassword);
+}
+
 void StartViewModel::setPassword(const QString& pass)
 {
     m_password = pass.toStdString();

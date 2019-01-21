@@ -69,7 +69,7 @@ namespace beam
 		extern const char* PAYMENT_PROOF_REQUIRED;
         extern const char* SEND;
         extern const char* INFO;
-        extern const char* NEW_ADDRESS_LABEL;
+        extern const char* NEW_ADDRESS_COMMENT;
         extern const char* EXPIRATION_TIME;
         extern const char* TX_HISTORY;
         extern const char* TX_ID;
@@ -90,6 +90,7 @@ namespace beam
         extern const char* WALLET_ADDR;
         extern const char* CHANGE_ADDRESS_EXPIRATION;
         extern const char* WALLET_ADDRESS_LIST;
+        extern const char* WALLET_REFRESH;
 #if defined(BEAM_USE_GPU)
         extern const char* MINER_TYPE;
 #endif

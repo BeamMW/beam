@@ -188,7 +188,7 @@ namespace beam
             {
                 LOG_DEBUG() << "CreateAddress(id = " << id << " metadata = " << data.metadata << " lifetime = " << data.lifetime << ")";
 
-                WalletAddress address = wallet::createAddress(_walletDB);
+                WalletAddress address = wallet::createAddress(*_walletDB);
                 address.m_duration = data.lifetime * 60 * 60;
 
                 _walletDB->saveAddress(address);
@@ -211,7 +211,7 @@ namespace beam
             {
                 LOG_DEBUG() << "Send(id = " << id << " amount = " << data.value << " fee = " << data.fee <<  " address = " << std::to_string(data.address) << ")";
 
-                WalletAddress senderAddress = wallet::createAddress(_walletDB);
+                WalletAddress senderAddress = wallet::createAddress(*_walletDB);
                 _walletDB->saveAddress(senderAddress);
 
                 _wnet.AddOwnAddress(senderAddress);
@@ -252,7 +252,7 @@ namespace beam
                     result.systemHeight = stateID.m_Height;
                     result.confirmations = 0;
 
-                    wallet::getTxParameter(_walletDB, tx->m_txId, wallet::TxParameterID::KernelProofHeight, result.kernelProofHeight);
+                    wallet::getTxParameter(*_walletDB, tx->m_txId, wallet::TxParameterID::KernelProofHeight, result.kernelProofHeight);
 
                     doResponse(id, result);
                 }
@@ -268,7 +268,7 @@ namespace beam
                 for (auto& coin : data.coins) LOG_DEBUG() << coin << ",";
                 LOG_DEBUG() << "], fee = " << data.fee;
 
-                WalletAddress senderAddress = wallet::createAddress(_walletDB);
+                WalletAddress senderAddress = wallet::createAddress(*_walletDB);
                 _walletDB->saveAddress(senderAddress);
                 _wnet.AddOwnAddress(senderAddress);
 
@@ -384,7 +384,7 @@ namespace beam
                         item.systemHeight = stateID.m_Height;
                         item.confirmations = 0;
 
-                        wallet::getTxParameter(_walletDB, tx.m_txId, wallet::TxParameterID::KernelProofHeight, item.kernelProofHeight);
+                        wallet::getTxParameter(*_walletDB, tx.m_txId, wallet::TxParameterID::KernelProofHeight, item.kernelProofHeight);
                         res.resultList.push_back(item);
                     }
                 }

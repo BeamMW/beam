@@ -161,7 +161,7 @@ Rectangle {
     Connections {
         target: viewModel
         onGotoStartScreen: { 
-            main.parent.source = "qrc:/start.qml"
+            main.parent.setSource("qrc:/start.qml", {"isLockedMode": true});
         }
     }
 

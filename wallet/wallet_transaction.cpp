@@ -153,21 +153,43 @@ namespace beam { namespace wallet
         m_WalletDB->rollbackTx(GetTxID());
     }
     
-    void BaseTransaction::CheckExpired()
+    bool BaseTransaction::CheckExpired()
     {
-        TxStatus s = GetMandatoryParameter<TxStatus>(TxParameterID::Status);
-        if (s != TxStatus::Completed)
+        Height kernelConfirmHeight = 0;
+        if (GetParameter(TxParameterID::KernelProofHeight, kernelConfirmHeight) && kernelConfirmHeight > 0)
+        {
+            // completed tx
+            return false;
+        }
+
+        Height maxHeight = MaxHeight;
+        GetParameter(TxParameterID::MaxHeight, maxHeight);
+        
+        Merkle::Hash kernelID;
+        if (!GetParameter(TxParameterID::KernelID, kernelID))
         {
             Block::SystemState::Full state;
-            Height maxHeight = MaxHeight;
-            GetParameter(TxParameterID::MaxHeight, maxHeight);
             if (GetTip(state) && state.m_Height > maxHeight)
             {
                 LOG_INFO() << GetTxID() << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << maxHeight;
                 OnFailed(TxFailureReason::TransactionExpired);
-                return;
+                return true;
             }
         }
+        else
+        {
+            Height lastUnconfirmedHeight = 0;
+            if (GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight) && lastUnconfirmedHeight > 0)
+            {
+                if (lastUnconfirmedHeight >= maxHeight)
+                {
+                    LOG_INFO() << GetTxID() << " Transaction expired. Last unconfirmeed height: " << lastUnconfirmedHeight << ", max kernel height: " << maxHeight;
+                    OnFailed(TxFailureReason::TransactionExpired);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     bool BaseTransaction::CheckExternalFailures()
@@ -303,6 +325,11 @@ namespace beam { namespace wallet
         {
             LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ") << PrintableAmount(builder.GetAmount()) << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
 
+            if (CheckExpired())
+            {
+                return;
+            }
+
             if (isSender)
             {
                 builder.SelectInputs();
@@ -416,7 +443,7 @@ namespace beam { namespace wallet
 				{
 					// older wallets don't support it. Check if unsigned payments are ok
 					uint8_t nRequired = 0;
-					wallet::getVar(m_WalletDB, wallet::g_szPaymentProofRequired, nRequired);
+					wallet::getVar(*m_WalletDB, wallet::g_szPaymentProofRequired, nRequired);
 
 					if (!nRequired)
 						bSuccess = true;

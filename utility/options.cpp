@@ -63,7 +63,7 @@ namespace beam
         const char* KEY_MINE= "key_mine";
         const char* BBS_ENABLE = "bbs_enable";
         const char* NEW_ADDRESS = "new_addr";
-        const char* NEW_ADDRESS_LABEL = "label";
+        const char* NEW_ADDRESS_COMMENT = "comment";
         const char* EXPIRATION_TIME = "expiration_time";
         const char* SEND = "send";
         const char* INFO = "info";
@@ -91,6 +91,7 @@ namespace beam
         const char* WALLET_ADDR = "address";
         const char* CHANGE_ADDRESS_EXPIRATION = "change_address_expiration";
         const char* WALLET_ADDRESS_LIST = "address_list";
+        const char* WALLET_REFRESH = "refresh";
 #if defined(BEAM_USE_GPU)
         const char* MINER_TYPE = "miner_type";
 #endif
@@ -177,7 +178,7 @@ namespace beam
             (cli::TX_HISTORY, "print transacrions' history in info command")
             (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "tx id")
-            (cli::NEW_ADDRESS_LABEL, po::value<string>()->default_value(""), "label for new own address")
+            (cli::NEW_ADDRESS_COMMENT, po::value<string>()->default_value(""), "comment for new own address")
             (cli::EXPIRATION_TIME, po::value<string>()->default_value("24h"), "expiration time for new own address [24h|never]")
             (cli::GENERATE_PHRASE, "command to generate phrases which will be used to create a secret according to BIP-39")
             (cli::KEY_SUBKEY, po::value<uint32_t>()->default_value(0), "Child key index.")
@@ -185,7 +186,7 @@ namespace beam
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
 			(cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
 			(cli::PAYMENT_PROOF_REQUIRED, po::value<bool>(), "Set to disallow outgoing payments if the receiver doesn't supports the payment proof (older wallets)")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list]");
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|refresh]");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()

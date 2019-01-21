@@ -62,7 +62,7 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(QString walletLocation READ getWalletLocation CONSTANT)
     Q_PROPERTY(bool useGpu READ getUseGpu WRITE setUseGpu NOTIFY localNodeUseGpuChanged)
     Q_PROPERTY(QQmlListProperty<DeviceItem> supportedDevices READ getSupportedDevices NOTIFY localNodeUseGpuChanged)
-
+    Q_PROPERTY(bool isLocalNodeRunning READ isLocalNodeRunning  NOTIFY localNodeRunningChanged)
 public:
 
     SettingsViewModel();
@@ -84,6 +84,7 @@ public:
     QString getWalletLocation() const;
     void setUseGpu(bool value);
     bool getUseGpu() const;
+    bool isLocalNodeRunning() const;
 
     QQmlListProperty<DeviceItem> getSupportedDevices();
 
@@ -96,6 +97,7 @@ public:
     Q_INVOKABLE void copyToClipboard(const QString& text);
     Q_INVOKABLE bool showUseGpu() const;
     Q_INVOKABLE bool hasSupportedGpu();
+    Q_INVOKABLE void refreshWallet();
 
 private:
 #ifdef BEAM_USE_GPU
@@ -107,6 +109,8 @@ public slots:
 	void reportProblem();
     bool checkWalletPassword(const QString& oldPass) const;
     void changeWalletPassword(const QString& pass);
+    void onNodeStarted();
+    void onNodeStopped();
 
 signals:
     void nodeAddressChanged();
@@ -117,6 +121,7 @@ signals:
     void propertiesChanged();
     void lockTimeoutChanged();
     void localNodeUseGpuChanged();
+    void localNodeRunningChanged();
 private:
     WalletSettings& m_settings;
 
@@ -127,7 +132,6 @@ private:
     QStringList m_localNodePeers;
 
     QList<DeviceItem*> m_supportedDevices;
-
     int m_lockTimeout;
 #ifdef BEAM_USE_GPU
     bool m_useGpu;

@@ -41,6 +41,10 @@ add_executable(wallet-api api_cli.cpp)
 add_dependencies(wallet-api wallet utility wallet_api_proto)
 target_link_libraries(wallet-api wallet utility wallet_api_proto)
 
+if(LINUX)
+    target_link_libraries(wallet-api -static-libstdc++ -static-libgcc)
+endif()
+
 add_subdirectory(unittests)
 
 if (BEAM_SIGN_PACKAGE AND WIN32)

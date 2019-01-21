@@ -981,8 +981,8 @@ namespace beam
             }
 
             {
-                wallet::setVar(walletDB, WalletSeed, secretKey.V);
-                wallet::setVar(walletDB, Version, DbVersion);
+                wallet::setVar(*walletDB, WalletSeed, secretKey.V);
+                wallet::setVar(*walletDB, Version, DbVersion);
             }
 
             return static_pointer_cast<IWalletDB>(walletDB);
@@ -1013,7 +1013,7 @@ namespace beam
                 }
                 {
                     int version = 0;
-					wallet::getVar(walletDB, Version, version);
+					wallet::getVar(*walletDB, Version, version);
 
 					switch (version)
 					{
@@ -1031,7 +1031,7 @@ namespace beam
 							stm.step();
 						}
 
-						wallet::setVar(walletDB, Version, DbVersion);
+						wallet::setVar(*walletDB, Version, DbVersion);
 
 						// no break;
 
@@ -1083,7 +1083,7 @@ namespace beam
                 }
 
                 ECC::NoLeak<ECC::Hash::Value> seed;
-                if (!wallet::getVar(walletDB, WalletSeed, seed.V))
+                if (!wallet::getVar(*walletDB, WalletSeed, seed.V))
                 {
                     assert(false && "there is no seed for walletDB");
                     //pKdf->m_Secret.V = Zero;
@@ -1306,10 +1306,11 @@ namespace beam
 
         uint64_t nLast;
         uintBigFor<uint64_t>::Type var;
-        auto thisPtr = shared_from_this();
 
-        if (wallet::getVar(thisPtr, szName, var))
+        if (wallet::getVar(*this, szName, var))
+        {
             var.Export(nLast);
+        }
         else
         {
             nLast = getTimestamp(); // by default initialize by current time X1M (1sec resolution) to prevent collisions after reinitialization. Should be ok if creating less than 1M keys / sec average
@@ -1317,7 +1318,7 @@ namespace beam
         }
 
         var = nLast + nCount;
-        wallet::setVar(thisPtr, szName, var);
+        wallet::setVar(*this, szName, var);
 
         return nLast;
     }
@@ -1366,12 +1367,6 @@ namespace beam
             sqlite::Statement stm(_db, "DELETE FROM " STORAGE_NAME ";");
             stm.step();
             notifyCoinsChanged();
-        }
-
-        {
-            sqlite::Statement stm(_db, "DELETE FROM " TX_PARAMS_NAME ";");
-            stm.step();
-            notifyTransactionChanged(ChangeAction::Reset, {});
         }
     }
 
@@ -1470,7 +1465,7 @@ namespace beam
     {
         Timestamp timestamp = {};
         
-        if (wallet::getVar(shared_from_this(), LastUpdateTimeName, timestamp))
+        if (wallet::getVar(*this, LastUpdateTimeName, timestamp))
         {
             return timestamp;
         }
@@ -1479,9 +1474,8 @@ namespace beam
 
     void WalletDB::setSystemStateID(const Block::SystemState::ID& stateID)
     {
-        auto thisPtr = shared_from_this();
-        wallet::setVar(thisPtr, SystemStateIDName, stateID);
-        wallet::setVar(thisPtr, LastUpdateTimeName, getTimestamp());
+        wallet::setVar(*this, SystemStateIDName, stateID);
+        wallet::setVar(*this, LastUpdateTimeName, getTimestamp());
         notifySystemStateChanged();
         // update coins
         updateCoinMaturityStatus();
@@ -1489,7 +1483,7 @@ namespace beam
 
     bool WalletDB::getSystemStateID(Block::SystemState::ID& stateID) const
     {
-        return wallet::getVar(shared_from_this(), SystemStateIDName, stateID);
+        return wallet::getVar(*this, SystemStateIDName, stateID);
     }
 
     Height WalletDB::getCurrentHeight() const
@@ -1515,15 +1509,20 @@ namespace beam
                 stm.bind(1, wallet::TxParameterID::KernelProofHeight);
                 while (stm.step())
                 {
-                    TxID& txID = rollbackedTransaction.emplace_back();
+                    TxID txID = { {0} };
                     stm.get(0, txID);
+                    Height kernelHeight = 0;
+                    if (wallet::getTxParameter(*this, txID, wallet::TxParameterID::KernelProofHeight, kernelHeight) && kernelHeight > minHeight)
+                    {
+                        rollbackedTransaction.push_back(txID);
+                    }
                 }
             }
-            auto thisPtr = shared_from_this();
             for (auto& tx : rollbackedTransaction)
             {
-                wallet::setTxParameter(thisPtr, tx, wallet::TxParameterID::Status, TxStatus::Registering, true);
-                wallet::setTxParameter(thisPtr, tx, wallet::TxParameterID::KernelProofHeight, Height(0), false);
+                wallet::setTxParameter(*this, tx, wallet::TxParameterID::Status, TxStatus::Registering, true);
+                wallet::setTxParameter(*this, tx, wallet::TxParameterID::KernelProofHeight, Height(0), false);
+                wallet::setTxParameter(*this, tx, wallet::TxParameterID::KernelUnconfirmedHeight, Height(0), false);
 
                 {
                     const char* req = "UPDATE " STORAGE_NAME " SET status=?1 WHERE spentTxId = ?2 ;";
@@ -1681,20 +1680,18 @@ namespace beam
     {
         ChangeAction action = ChangeAction::Added;
         sqlite::Transaction trans(_db);
-        
-        auto thisPtr = shared_from_this();
 
-        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::Amount, p.m_amount, false);
-        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::Fee, p.m_fee, false);
-        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::Change, p.m_change, false);
-        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::MinHeight, p.m_minHeight, false);
-        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::PeerID, p.m_peerId, false);
-        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::MyID, p.m_myId, false);
-        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::Message, p.m_message, false);
-        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::CreateTime, p.m_createTime, false);
-        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::ModifyTime, p.m_modifyTime, false);
-        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::IsSender, p.m_sender, false);
-        wallet::setTxParameter(thisPtr, p.m_txId, wallet::TxParameterID::Status, p.m_status, false);
+        wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::Amount, p.m_amount, false);
+        wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::Fee, p.m_fee, false);
+        wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::Change, p.m_change, false);
+        wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::MinHeight, p.m_minHeight, false);
+        wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::PeerID, p.m_peerId, false);
+        wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::MyID, p.m_myId, false);
+        wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::Message, p.m_message, false);
+        wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::CreateTime, p.m_createTime, false);
+        wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::ModifyTime, p.m_modifyTime, false);
+        wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::IsSender, p.m_sender, false);
+        wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::Status, p.m_status, false);
 
         trans.commit();
         // notify only when full TX saved
@@ -1917,7 +1914,7 @@ namespace beam
         return true;
     }
 
-    bool WalletDB::getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob)
+    bool WalletDB::getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) const
     {
         sqlite::Statement stm(_db, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND paramID=?2;");
 
@@ -1981,7 +1978,7 @@ namespace beam
         }
     }
 
-    Amount WalletDB::getAvailable()
+    Amount WalletDB::getAvailable() const
     {
         auto currentHeight = getCurrentHeight();
         const char* req = "SELECT SUM(amount) FROM " STORAGE_NAME " WHERE status = ?1 AND maturity <= ?2;";
@@ -1998,7 +1995,7 @@ namespace beam
         return result;
     }
 
-    Amount WalletDB::getAvailableByType(Key::Type keyType)
+    Amount WalletDB::getAvailableByType(Key::Type keyType) const
     {
         auto currentHeight = getCurrentHeight();
         const char* req = "SELECT SUM(amount) FROM " STORAGE_NAME " WHERE status = ?1 AND type = ?2 AND maturity <= ?3;";
@@ -2016,7 +2013,7 @@ namespace beam
         return result;
     }
 
-    Amount WalletDB::getTotal(Coin::Status status)
+    Amount WalletDB::getTotal(Coin::Status status) const
     {
         const char* req = "SELECT SUM(amount) FROM " STORAGE_NAME " WHERE status = ?1;";
         sqlite::Statement stm(_db, req);
@@ -2031,7 +2028,7 @@ namespace beam
         return result;
     }
     
-    Amount WalletDB::getTotalByType(Coin::Status status, Key::Type keyType)
+    Amount WalletDB::getTotalByType(Coin::Status status, Key::Type keyType) const
     {
         const char* req = "SELECT SUM(amount) FROM " STORAGE_NAME " WHERE status = ?1 AND type = ?2;";
         sqlite::Statement stm(_db, req);
@@ -2047,7 +2044,7 @@ namespace beam
         return result;
     }
 
-    Amount WalletDB::getTransferredByTx(TxStatus status, bool isSender)
+    Amount WalletDB::getTransferredByTx(TxStatus status, bool isSender) const
     {
         const char* req = "SELECT value FROM " TX_PARAMS_NAME " WHERE paramID = ?5 AND txID IN (SELECT txID FROM " TX_PARAMS_NAME " WHERE paramID= ?1 AND value = ?2 AND txID IN (SELECT txID FROM " TX_PARAMS_NAME " WHERE paramID= ?3 AND value = ?4 ));";
 
@@ -2145,7 +2142,7 @@ namespace beam
     {
 		const char g_szPaymentProofRequired[] = "payment_proof_required";
 
-        bool getTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, ECC::Point::Native& value)
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ECC::Point::Native& value)
         {
             ECC::Point pt;
             if (getTxParameter(db, txID, paramID, pt))
@@ -2155,7 +2152,7 @@ namespace beam
             return false;
         }
 
-        bool getTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, ECC::Scalar::Native& value)
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ECC::Scalar::Native& value)
         {
             ECC::Scalar s;
             if (getTxParameter(db, txID, paramID, s))
@@ -2166,12 +2163,12 @@ namespace beam
             return false;
         }
 
-        bool getTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, ByteBuffer& value)
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ByteBuffer& value)
         {
-            return db->getTxParameter(txID, paramID, value);
+            return db.getTxParameter(txID, paramID, value);
         }
 
-        bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID,
+        bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID,
             const ECC::Point::Native& value, bool shouldNotifyAboutChanges)
         {
             ECC::Point pt;
@@ -2182,7 +2179,7 @@ namespace beam
             return false;
         }
 
-        bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID,
+        bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID,
             const ECC::Scalar::Native& value, bool shouldNotifyAboutChanges)
         {
             ECC::Scalar s;
@@ -2190,10 +2187,10 @@ namespace beam
             return setTxParameter(db, txID, paramID, s, shouldNotifyAboutChanges);
         }
 
-        bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID,
+        bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID,
             const ByteBuffer& value, bool shouldNotifyAboutChanges)
         {
-            return db->setTxParameter(txID, paramID, value, shouldNotifyAboutChanges);
+            return db.setTxParameter(txID, paramID, value, shouldNotifyAboutChanges);
         }
 
         ByteBuffer toByteBuffer(const ECC::Point::Native& value)
@@ -2213,11 +2210,11 @@ namespace beam
             return toByteBuffer(s);
         }
 
-        void changeAddressExpiration(beam::IWalletDB::Ptr walletDB, const WalletID& walletID)
+        void changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID)
         {
             if (walletID != Zero)
             {
-                auto walletAddress = walletDB->getAddress(walletID);
+                auto walletAddress = walletDB.getAddress(walletID);
 
                 if (!walletAddress.is_initialized())
                 {
@@ -2227,23 +2224,23 @@ namespace beam
 
                 walletAddress->m_duration = 0;
 
-                walletDB->saveAddress(*walletAddress);
+                walletDB.saveAddress(*walletAddress);
 
                 LOG_INFO() << "Expiration for address " << to_string(walletID) << " was updated to \"never\".";
                 return;
             }
 
-            walletDB->setNeverExpirationForAll();
+            walletDB.setNeverExpirationForAll();
         }
 
-        WalletAddress createAddress(beam::IWalletDB::Ptr walletDB)
+        WalletAddress createAddress(IWalletDB& walletDB)
         {
             WalletAddress newAddress;
             newAddress.m_createTime = beam::getTimestamp();
-            newAddress.m_OwnID = walletDB->AllocateKidRange(1);
+            newAddress.m_OwnID = walletDB.AllocateKidRange(1);
 
             ECC::Scalar::Native sk;
-            walletDB->get_MasterKdf()->DeriveKey(sk, Key::ID(newAddress.m_OwnID, Key::Type::Bbs));
+            walletDB.get_MasterKdf()->DeriveKey(sk, Key::ID(newAddress.m_OwnID, Key::Type::Bbs));
 
             proto::Sk2Pk(newAddress.m_walletID.m_Pk, sk);
 
@@ -2256,14 +2253,14 @@ namespace beam
             return newAddress;
         }
 
-        Amount getSpentByTx(beam::IWalletDB::Ptr walletDB, TxStatus status)
+        Amount getSpentByTx(const IWalletDB& walletDB, TxStatus status)
         {
-            return walletDB->getTransferredByTx(status, true);
+            return walletDB.getTransferredByTx(status, true);
         }
 
-        Amount getReceivedByTx(beam::IWalletDB::Ptr walletDB, TxStatus status)
+        Amount getReceivedByTx(const IWalletDB& walletDB, TxStatus status)
         {
-            return walletDB->getTransferredByTx(status, false);
+            return walletDB.getTransferredByTx(status, false);
         }
     }
 }

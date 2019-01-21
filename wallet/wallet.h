@@ -66,8 +66,7 @@ namespace beam
         boost::optional<TxID> transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee = 0, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {});
         boost::optional<TxID> split_coins(const WalletID& from, const AmountList& amountList, Amount fee = 0, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {});
         TxID swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount);
-        void ResumeTransaction(const TxDescription& tx);
-        void ResumeAllTransactions();
+        void Refresh();
 
         // IWallet
         void subscribe(IWalletObserver* observer) override;
@@ -76,6 +75,9 @@ namespace beam
         void delete_tx(const TxID& txId) override;
         
     private:
+        void RefreshTransactions();
+        void ResumeTransaction(const TxDescription& tx);
+        void ResumeAllTransactions();
         void on_tx_completed(const TxID& txID) override;
 
         void confirm_outputs(const std::vector<Coin>&) override;

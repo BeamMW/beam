@@ -185,19 +185,19 @@ namespace beam
 
         virtual bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID,
             const ByteBuffer& blob, bool shouldNotifyAboutChanges) = 0;
-        virtual bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) = 0;
+        virtual bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) const = 0;
 
         virtual Block::SystemState::IHistory& get_History() = 0;
         virtual void ShrinkHistory() = 0;
 
-        virtual Amount getAvailable() = 0;
-        virtual Amount getAvailableByType(Key::Type keyType) = 0;
-        virtual Amount getTotal(Coin::Status status) = 0;
-        virtual Amount getTotalByType(Coin::Status status, Key::Type keyType) = 0;
-        virtual Amount getTransferredByTx(TxStatus status, bool isSender) = 0;
+        virtual Amount getAvailable() const = 0;
+        virtual Amount getAvailableByType(Key::Type keyType) const = 0;
+        virtual Amount getTotal(Coin::Status status) const = 0;
+        virtual Amount getTotalByType(Coin::Status status, Key::Type keyType) const = 0;
+        virtual Amount getTransferredByTx(TxStatus status, bool isSender) const = 0;
     };
 
-    class WalletDB : public IWalletDB, public std::enable_shared_from_this<WalletDB>
+    class WalletDB : public IWalletDB
     {
         WalletDB();
     public:
@@ -252,16 +252,16 @@ namespace beam
 
         bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID,
             const ByteBuffer& blob, bool shouldNotifyAboutChanges) override;
-        bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) override;
+        bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) const override;
 
         Block::SystemState::IHistory& get_History() override;
         void ShrinkHistory() override;
 
-        Amount getAvailable() override;
-        Amount getAvailableByType(Key::Type keyType) override;
-        Amount getTotal(Coin::Status status) override;
-        Amount getTotalByType(Coin::Status status, Key::Type keyType) override;
-        Amount getTransferredByTx(TxStatus status, bool isSender) override;
+        Amount getAvailable() const override;
+        Amount getAvailableByType(Key::Type keyType) const override;
+        Amount getTotal(Coin::Status status) const override;
+        Amount getTotalByType(Coin::Status status, Key::Type keyType) const override;
+        Amount getTransferredByTx(TxStatus status, bool isSender) const override;
 
     private:
         void removeImpl(const Coin::ID& cid);
@@ -291,23 +291,23 @@ namespace beam
     {
 		extern const char g_szPaymentProofRequired[];
 
-        template <typename Db, typename Var>
-        void setVar(Db db, const char* name, const Var& var)
+        template <typename Var>
+        void setVar(IWalletDB& db, const char* name, const Var& var)
         {
-            db->setVarRaw(name, &var, sizeof(var));
+            db.setVarRaw(name, &var, sizeof(var));
         }
 
-        template <typename Db, typename Var>
-        bool getVar(Db db, const char* name, Var& var)
+        template <typename Var>
+        bool getVar(const IWalletDB& db, const char* name, Var& var)
         {
-            return db->getVarRaw(name, &var, sizeof(var));
+            return db.getVarRaw(name, &var, sizeof(var));
         }
 
         template <typename T>
-        bool getTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, T& value)
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, T& value)
         {
             ByteBuffer b;
-            if (db->getTxParameter(txID, paramID, b))
+            if (db.getTxParameter(txID, paramID, b))
             {
                 if (!b.empty())
                 {
@@ -324,23 +324,23 @@ namespace beam
             return false;
         }
 
-        bool getTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, ECC::Point::Native& value);
-        bool getTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, ECC::Scalar::Native& value);
-        bool getTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, ByteBuffer& value);
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ECC::Point::Native& value);
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ByteBuffer& value);
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ECC::Scalar::Native& value);
 
         template <typename T>
-        bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges)
+        bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges)
         {
-            return db->setTxParameter(txID, paramID, toByteBuffer(value), shouldNotifyAboutChanges);
+            return db.setTxParameter(txID, paramID, toByteBuffer(value), shouldNotifyAboutChanges);
         }
 
-        bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, const ECC::Point::Native& value, bool shouldNotifyAboutChanges);
-        bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, const ECC::Scalar::Native& value, bool shouldNotifyAboutChanges);
-        bool setTxParameter(IWalletDB::Ptr db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value, bool shouldNotifyAboutChanges);
+        bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ECC::Point::Native& value, bool shouldNotifyAboutChanges);
+        bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ECC::Scalar::Native& value, bool shouldNotifyAboutChanges);
+        bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value, bool shouldNotifyAboutChanges);
 
-        void changeAddressExpiration(beam::IWalletDB::Ptr walletDB, const WalletID& walletID);
-        WalletAddress createAddress(beam::IWalletDB::Ptr walletDB);
-        Amount getSpentByTx(beam::IWalletDB::Ptr walletDB, TxStatus status);
-        Amount getReceivedByTx(beam::IWalletDB::Ptr walletDB, TxStatus status);
+        void changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID);
+        WalletAddress createAddress(IWalletDB& walletDB);
+        Amount getSpentByTx(const IWalletDB& walletDB, TxStatus status);
+        Amount getReceivedByTx(const IWalletDB& walletDB, TxStatus status);
     }
 }

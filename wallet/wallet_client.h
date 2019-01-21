@@ -97,6 +97,7 @@ private:
     void setNodeAddress(const std::string& addr) override;
     void changeWalletPassword(const beam::SecString& password) override;
     void getNetworkStatus() override;
+    void refresh() override;
 
     WalletStatus getStatus() const;
     std::vector<beam::Coin> getUtxos() const;
