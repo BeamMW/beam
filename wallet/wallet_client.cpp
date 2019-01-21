@@ -203,6 +203,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
             receiver_.getNetworkStatus();
         });
     }
+
+    void refresh() override
+    {
+        tx.send([](BridgeInterface& receiver_) mutable
+        {
+            receiver_.refresh();
+        });
+    }
 };
 }
 
@@ -625,6 +633,23 @@ void WalletClient::getNetworkStatus()
     }
 
     onNodeConnectionChanged(m_isConnected);
+}
+
+void WalletClient::refresh()
+{
+    try
+    {
+        assert(!m_wallet.expired());
+        auto s = m_wallet.lock();
+        if (s)
+        {
+            s->Refresh();
+        }
+    }
+    catch (...)
+    {
+
+    }
 }
 
 WalletStatus WalletClient::getStatus() const
