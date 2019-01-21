@@ -90,14 +90,14 @@ namespace beam { namespace wallet
         template <typename T>
         bool GetParameter(TxParameterID paramID, T& value) const
         {
-            return getTxParameter(m_WalletDB, GetTxID(), paramID, value);
+            return getTxParameter(*m_WalletDB, GetTxID(), paramID, value);
         }
 
         template <typename T>
         T GetMandatoryParameter(TxParameterID paramID) const
         {
             T value{};
-            if (!getTxParameter(m_WalletDB, GetTxID(), paramID, value))
+            if (!getTxParameter(*m_WalletDB, GetTxID(), paramID, value))
             {
                 throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
             }
@@ -114,7 +114,7 @@ namespace beam { namespace wallet
         template <typename T>
         bool SetParameter(TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges)
         {
-            return setTxParameter(m_WalletDB, GetTxID(), paramID, value, shouldNotifyAboutChanges);
+            return setTxParameter(*m_WalletDB, GetTxID(), paramID, value, shouldNotifyAboutChanges);
         }
 
         template <typename T>

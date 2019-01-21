@@ -443,7 +443,7 @@ namespace beam { namespace wallet
 				{
 					// older wallets don't support it. Check if unsigned payments are ok
 					uint8_t nRequired = 0;
-					wallet::getVar(m_WalletDB, wallet::g_szPaymentProofRequired, nRequired);
+					wallet::getVar(*m_WalletDB, wallet::g_szPaymentProofRequired, nRequired);
 
 					if (!nRequired)
 						bSuccess = true;

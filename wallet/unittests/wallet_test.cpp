@@ -169,7 +169,7 @@ namespace
             m_params[paramID] = blob;
             return true;
         }
-        bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) override
+        bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) const override
         {
             auto it = m_params.find(paramID);
             if (it != m_params.end())
@@ -183,11 +183,11 @@ namespace
         Block::SystemState::IHistory& get_History() override { return m_Hist; }
         void ShrinkHistory() override {}
 
-        Amount getAvailable() override { return 0; };
-        Amount getAvailableByType(Key::Type keyType) override { return 0; };
-        Amount getTotal(Coin::Status status) override { return 0; };
-        Amount getTotalByType(Coin::Status status, Key::Type keyType) override { return 0; };
-        Amount getTransferredByTx(TxStatus status, bool isSender) override { return 0; };
+        Amount getAvailable() const override { return 0; };
+        Amount getAvailableByType(Key::Type keyType) const override { return 0; };
+        Amount getTotal(Coin::Status status) const override { return 0; };
+        Amount getTotalByType(Coin::Status status, Key::Type keyType) const override { return 0; };
+        Amount getTransferredByTx(TxStatus status, bool isSender) const override { return 0; };
 
     protected:
         std::vector<beam::Coin> m_coins;
@@ -319,7 +319,7 @@ struct TestWalletRig
         , m_NodeNetwork(m_Wallet)
         , m_WalletNetworkViaBbs(m_Wallet, m_NodeNetwork, m_WalletDB)
     {
-        WalletAddress wa = wallet::createAddress(m_WalletDB);
+        WalletAddress wa = wallet::createAddress(*m_WalletDB);
         m_WalletDB->saveAddress(wa);
         m_WalletID = wa.m_walletID;
 
@@ -715,11 +715,11 @@ void TestWalletNegotiation(IWalletDB::Ptr senderWalletDB, IWalletDB::Ptr receive
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-	WalletAddress wa = wallet::createAddress(receiverWalletDB);
+	WalletAddress wa = wallet::createAddress(*receiverWalletDB);
 	receiverWalletDB->saveAddress(wa);
 	WalletID receiver_id = wa.m_walletID;
 
-	wa = wallet::createAddress(senderWalletDB);
+	wa = wallet::createAddress(*senderWalletDB);
 	senderWalletDB->saveAddress(wa);
 	WalletID sender_id = wa.m_walletID;
 

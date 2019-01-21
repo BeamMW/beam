@@ -650,13 +650,13 @@ namespace beam
     {
         uintBigFor<Height>::Type var;
         var = h + 1; // we're actually saving the next
-        wallet::setVar(m_WalletDB, s_szNextUtxoEvt, var);
+        wallet::setVar(*m_WalletDB, s_szNextUtxoEvt, var);
     }
 
     Height Wallet::GetUtxoEventsHeightNext()
     {
         uintBigFor<Height>::Type var;
-        if (!wallet::getVar(m_WalletDB, s_szNextUtxoEvt, var))
+        if (!wallet::getVar(*m_WalletDB, s_szNextUtxoEvt, var))
             return 0;
 
         Height h;
@@ -936,7 +936,7 @@ namespace beam
         }
 
         TxType type = TxType::Simple;
-        if (wallet::getTxParameter(m_WalletDB, msg.m_TxID, TxParameterID::TransactionType, type))
+        if (wallet::getTxParameter(*m_WalletDB, msg.m_TxID, TxParameterID::TransactionType, type))
         {
             // we return only active transactions
             return BaseTransaction::Ptr();

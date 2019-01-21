@@ -407,12 +407,12 @@ namespace
             walletID.FromHex(address);
         }
 
-        wallet::changeAddressExpiration(walletDB, walletID);
+        wallet::changeAddressExpiration(*walletDB, walletID);
     }
 
     WalletAddress newAddress(const IWalletDB::Ptr& walletDB, const std::string& comment, bool isNever = false)
     {
-        WalletAddress address = wallet::createAddress(walletDB);
+        WalletAddress address = wallet::createAddress(*walletDB);
 
         if (isNever)
         {
@@ -596,12 +596,12 @@ namespace
         uint64_t nAddrOwnID;
 
         bool bSuccess =
-            wallet::getTxParameter(walletDB, txId, wallet::TxParameterID::PeerID, pi.m_Receiver) &&
-            wallet::getTxParameter(walletDB, txId, wallet::TxParameterID::MyID, pi.m_Sender) &&
-            wallet::getTxParameter(walletDB, txId, wallet::TxParameterID::KernelID, pi.m_KernelID) &&
-            wallet::getTxParameter(walletDB, txId, wallet::TxParameterID::Amount, pi.m_Amount) &&
-            wallet::getTxParameter(walletDB, txId, wallet::TxParameterID::PaymentConfirmation, pi.m_Signature) &&
-            wallet::getTxParameter(walletDB, txId, wallet::TxParameterID::MyAddressID, nAddrOwnID);
+            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::PeerID, pi.m_Receiver) &&
+            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::MyID, pi.m_Sender) &&
+            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::KernelID, pi.m_KernelID) &&
+            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::Amount, pi.m_Amount) &&
+            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::PaymentConfirmation, pi.m_Signature) &&
+            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::MyAddressID, nAddrOwnID);
 
         if (bSuccess)
         {
@@ -875,7 +875,7 @@ int main_impl(int argc, char* argv[])
                         {
                             bool b = var.as<bool>();
                             uint8_t n = b ? 1 : 0;
-                            wallet::setVar(walletDB, wallet::g_szPaymentProofRequired, n);
+                            wallet::setVar(*walletDB, wallet::g_szPaymentProofRequired, n);
 
                             cout << "Parameter set: Payment proof required: " << static_cast<uint32_t>(n) << std::endl;
                             return 0;

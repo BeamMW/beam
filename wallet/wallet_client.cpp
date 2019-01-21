@@ -406,7 +406,7 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
             saveAddress(peerAddr, false);
         }
 
-        WalletAddress senderAddress = wallet::createAddress(m_walletDB);
+        WalletAddress senderAddress = wallet::createAddress(*m_walletDB);
         senderAddress.m_label = comment;
         saveAddress(senderAddress, true); // should update the wallet_network
 
@@ -512,7 +512,7 @@ void WalletClient::generateNewAddress()
 {
     try
     {
-        WalletAddress address = wallet::createAddress(m_walletDB);
+        WalletAddress address = wallet::createAddress(*m_walletDB);
 
         onGeneratedNewAddress(address);
     }
