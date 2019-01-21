@@ -881,7 +881,8 @@ namespace beam
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
-        const int DbVersion = 11;
+        const int DbVersion = 12;
+		const int DbVersion11 = 11;
 		const int DbVersion10 = 10;
 	}
 
@@ -1015,11 +1016,13 @@ namespace beam
                     int version = 0;
 					wallet::getVar(*walletDB, Version, version);
 
+					sqlite::Transaction trans(walletDB->_db);
+
 					switch (version)
 					{
 					case DbVersion10:
 						{
-							LOG_INFO() << "Converting DB to a newer format";
+							LOG_INFO() << "Converting DB from format 10";
 
 							// get rid of former Coin::Change status
 							const char* req = "UPDATE " STORAGE_NAME " SET status=?1 WHERE status=?2;";
@@ -1031,7 +1034,16 @@ namespace beam
 							stm.step();
 						}
 
-						wallet::setVar(*walletDB, Version, DbVersion);
+						// no break;
+
+					case DbVersion11:
+						{
+							LOG_INFO() << "Converting DB from format 11";
+
+							// TODO: get rid of redundant columns
+						}
+
+						wallet::setVar(walletDB, Version, DbVersion);
 
 						// no break;
 
@@ -1045,6 +1057,7 @@ namespace beam
 						}
 					}
 
+					trans.commit();
                 }
                 {
                     const char* req = "SELECT name FROM sqlite_master WHERE type='table' AND name='" STORAGE_NAME "';";
