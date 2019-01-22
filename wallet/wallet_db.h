@@ -142,7 +142,7 @@ namespace beam
         beam::Key::IKdf::Ptr get_ChildKdf(Key::Index) const;
         void calcCommitment(ECC::Scalar::Native& sk, ECC::Point& comm, const Coin::ID&);
         virtual uint64_t AllocateKidRange(uint64_t nCount) = 0;
-        virtual std::vector<Coin> selectCoins(const Amount& amount, bool lock = true) = 0;
+        virtual std::vector<Coin> selectCoins(Amount amount) = 0;
         virtual void store(Coin& coin) = 0;
         virtual void store(std::vector<Coin>&) = 0;
         virtual void save(const Coin& coin) = 0;
@@ -206,7 +206,7 @@ namespace beam
 
         beam::Key::IKdf::Ptr get_MasterKdf() const override;
         uint64_t AllocateKidRange(uint64_t nCount) override;
-        std::vector<Coin> selectCoins(const Amount& amount, bool lock = true) override;
+        std::vector<Coin> selectCoins(Amount amount) override;
         void store(Coin& coin) override;
         void store(std::vector<Coin>&) override;
         void save(const Coin& coin) override;
@@ -260,7 +260,6 @@ namespace beam
         void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
         void notifySystemStateChanged();
         void notifyAddressChanged();
-        void updateCoinMaturityStatus();
     private:
 
         sqlite3* _db;
@@ -333,6 +332,9 @@ namespace beam
         WalletAddress createAddress(IWalletDB& walletDB);
         Amount getSpentByTx(const IWalletDB& walletDB, TxStatus status);
         Amount getReceivedByTx(const IWalletDB& walletDB, TxStatus status);
+
+		Coin::Status GetCoinStatus(const IWalletDB&, const Coin&, Height hTop);
+		void DeduceStatus(const IWalletDB&, Coin&, Height hTop);
 
 		struct Totals
 		{

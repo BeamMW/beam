@@ -429,7 +429,7 @@ void WalletClient::syncWithNode()
 
 void WalletClient::calcChange(beam::Amount&& amount)
 {
-    auto coins = m_walletDB->selectCoins(amount, false);
+    auto coins = m_walletDB->selectCoins(amount);
     Amount sum = 0;
     for (auto& c : coins)
     {

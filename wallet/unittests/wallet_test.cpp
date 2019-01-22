@@ -44,6 +44,14 @@ using namespace ECC;
 
 WALLET_TEST_INIT
 
+Coin CreateAvailCoin(Amount amount, Height maturity = 10)
+{
+	Coin c(amount);
+	c.m_maturity = maturity;
+	c.m_confirmHeight = maturity;
+	return c;
+}
+
 namespace
 {
     class BaseTestWalletDB : public IWalletDB
@@ -66,7 +74,7 @@ namespace
             return m_pKdf;
         }
 
-        std::vector<beam::Coin> selectCoins(const ECC::Amount& amount, bool /*lock*/) override
+        std::vector<beam::Coin> selectCoins(ECC::Amount amount) override
         {
             std::vector<beam::Coin> res;
             ECC::Amount t = 0;
@@ -237,9 +245,7 @@ namespace
         auto db = createSqliteWalletDB("sender_wallet.db");
         for (auto amount : { 5, 2, 1, 9 })
         {
-            Coin coin(amount);
-            coin.m_maturity = 0;
-            coin.m_status = Coin::Available;
+			Coin coin = CreateAvailCoin(amount, 0);
             db->store(coin);
         }
         return db;
@@ -948,13 +954,11 @@ void TestTxToHimself()
 
     // add coin with keyType - Coinbase
     beam::Amount coin_amount = 40;
-    Coin coin(coin_amount);
-    coin.m_maturity = 0;
-    coin.m_status = Coin::Available;
+    Coin coin = CreateAvailCoin(coin_amount, 0);
     coin.m_ID.m_Type = Key::Type::Coinbase;
     senderWalletDB->store(coin);
 
-    auto coins = senderWalletDB->selectCoins(24, false);
+    auto coins = senderWalletDB->selectCoins(24);
     WALLET_CHECK(coins.size() == 1);
     WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
     WALLET_CHECK(coins[0].m_status == Coin::Available);
@@ -1026,7 +1030,7 @@ void TestP2PWalletNegotiationST()
     TestWalletRig sender("sender", createSenderWalletDB(), f);
     TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
 
-    WALLET_CHECK(sender.m_WalletDB->selectCoins(6, false).size() == 2);
+    WALLET_CHECK(sender.m_WalletDB->selectCoins(6).size() == 2);
     WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
     WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
@@ -1201,7 +1205,7 @@ void TestP2PWalletReverseNegotiationST()
     TestWalletRig sender("sender", createSenderWalletDB(), f);
     TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
   
-    WALLET_CHECK(sender.m_WalletDB->selectCoins(6, false).size() == 2);
+    WALLET_CHECK(sender.m_WalletDB->selectCoins(6).size() == 2);
     WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
     WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
@@ -1438,13 +1442,11 @@ static void TestSplitTransaction()
 
     // add coin with keyType - Coinbase
     beam::Amount coin_amount = 40;
-    Coin coin(coin_amount);
-    coin.m_maturity = 0;
-    coin.m_status = Coin::Available;
+    Coin coin = CreateAvailCoin(coin_amount, 0);
     coin.m_ID.m_Type = Key::Type::Coinbase;
     senderWalletDB->store(coin);
 
-    auto coins = senderWalletDB->selectCoins(24, false);
+    auto coins = senderWalletDB->selectCoins(24);
     WALLET_CHECK(coins.size() == 1);
     WALLET_CHECK(coins[0].m_ID.m_Type == Key::Type::Coinbase);
     WALLET_CHECK(coins[0].m_status == Coin::Available);
@@ -1524,7 +1526,7 @@ static void TestExpiredTransaction()
     TestWalletRig sender("sender", createSenderWalletDB(), f);
     TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
 
-    WALLET_CHECK(sender.m_WalletDB->selectCoins(6, false).size() == 2);
+    WALLET_CHECK(sender.m_WalletDB->selectCoins(6).size() == 2);
     WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
     WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 

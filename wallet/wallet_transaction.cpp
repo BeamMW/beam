@@ -264,22 +264,6 @@ namespace beam { namespace wallet
         return m_WalletDB;
     }
 
-    vector<Coin> BaseTransaction::GetUnconfirmedOutputs() const
-    {
-        vector<Coin> outputs;
-        m_WalletDB->visit([&](const Coin& coin)
-        {
-            if ((coin.m_createTxId == GetTxID() && (coin.m_status == Coin::Incoming))
-                || (coin.m_spentTxId == GetTxID() && coin.m_status == Coin::Outgoing))
-            {
-                outputs.emplace_back(coin);
-            }
-
-            return true;
-        });
-        return outputs;
-    }
-
     bool BaseTransaction::SendTxParameters(SetTxParameter&& msg) const
     {
         msg.m_TxID = GetTxID();
@@ -516,24 +500,31 @@ namespace beam { namespace wallet
             return;
         }
 
-        vector<Coin> unconfirmed = GetUnconfirmedOutputs();
+		vector<Coin> modified;
+		m_WalletDB->visit([&](const Coin& coin)
+		{
+			bool bIn = (coin.m_createTxId == m_ID);
+			bool bOut = (coin.m_spentTxId == m_ID);
+			if (bIn || bOut)
+			{
+				modified.emplace_back();
+				Coin& c = modified.back();
+				c = coin;
 
-        // Current design: don't request separate proofs for coins. Tx confirmation is enough.
-        for (Coin& c : unconfirmed)
-        {
-            if (Coin::Outgoing == c.m_status)
-            {
-                c.m_status = Coin::Spent;
-            }
-            else
-            {
-                c.m_status = Coin::Available;
-                c.m_confirmHeight = hProof;
-                c.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
-            }
-        }
+				if (bIn)
+				{
+					c.m_confirmHeight = std::min(c.m_confirmHeight, hProof);
+					c.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
+				}
+				if (bOut)
+					c.m_spentHeight = std::min(c.m_spentHeight, hProof);
+			}
 
-        GetWalletDB()->save(unconfirmed);
+			return true;
+		});
+
+
+        GetWalletDB()->save(modified);
 
         CompleteTx();
     }

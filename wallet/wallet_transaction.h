@@ -136,8 +136,6 @@ namespace beam { namespace wallet
 		void NotifyFailure(TxFailureReason);
         void UpdateTxDescription(TxStatus s);
 
-        std::vector<Coin> GetUnconfirmedOutputs() const;
-
         void OnFailed(TxFailureReason reason, bool notify = false);
 
         bool GetTip(Block::SystemState::Full& state) const;
