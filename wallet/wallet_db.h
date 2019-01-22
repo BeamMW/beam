@@ -59,6 +59,7 @@ namespace beam
         Coin();
         bool isReward() const;
         bool isValid() const;
+        std::string toStringID() const;
 
         typedef Key::IDV ID;
         ID m_ID;
