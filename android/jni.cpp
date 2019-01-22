@@ -26,6 +26,7 @@
 
 #include "common.h"
 #include "wallet_model.h"
+#include "node_model.h"
 
 #define WALLET_FILENAME "wallet.db"
 #define BBS_FILENAME "keys.bbs"
@@ -66,6 +67,9 @@ namespace
     };
 
     using WalletSubscriber = ScopedSubscriber<IWalletObserver, beam::Wallet>;
+
+    // this code for node
+    //static unique_ptr<NodeModel> nodeModel;
 
     static unique_ptr<WalletModel> walletModel;
 
@@ -110,16 +114,25 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         seed.assign(buf.data(), buf.size());
     }
 
-    auto wallet = WalletDB::init(
+    auto walletDB = WalletDB::init(
         appData + "/" WALLET_FILENAME,
         pass,
         seed.hash());
 
-    if(wallet)
+    if(walletDB)
     {
         LOG_DEBUG() << "wallet successfully created.";
 
-        walletModel = make_unique<WalletModel>(wallet, JString(env, nodeAddrStr).value());
+        // this code for node
+        /*LOG_DEBUG() << "try to start node";
+
+        nodeModel = make_unique<NodeModel>(appData);
+
+        nodeModel->setKdf(walletDB->get_MasterKdf());
+        nodeModel->startNode();
+        walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005");*/
+
+        walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value());
 
         jobject walletObj = env->AllocObject(WalletClass);
 
@@ -151,14 +164,27 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
     LOG_DEBUG() << "opening wallet...";
 
     string pass = JString(env, passStr).value();
-    auto wallet = WalletDB::open(appData + "/" WALLET_FILENAME, pass);
+    auto walletDB = WalletDB::open(appData + "/" WALLET_FILENAME, pass);
 
-    if(wallet)
+    if(walletDB)
     {
         LOG_DEBUG() << "wallet successfully opened.";
 
-        walletModel = make_unique<WalletModel>(wallet, JString(env, nodeAddrStr).value());
+        // this code for node
+        /*LOG_DEBUG() << "try to start node";
 
+        nodeModel = make_unique<NodeModel>(appData);
+
+        nodeModel->start();
+
+        nodeModel->setKdf(walletDB->get_MasterKdf());
+
+        nodeModel->startNode();
+
+        walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005");*/
+
+        walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value());
+                
         jobject walletObj = env->AllocObject(WalletClass);
 
         walletModel->start();
