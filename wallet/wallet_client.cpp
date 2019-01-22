@@ -647,11 +647,12 @@ void WalletClient::refresh()
 WalletStatus WalletClient::getStatus() const
 {
     WalletStatus status;
+	wallet::Totals totals(*m_walletDB);
 
-    status.available = m_walletDB->getAvailable();
-    status.receiving = m_walletDB->getTotal(Coin::Incoming);
-    status.sending = m_walletDB->getTotal(Coin::Outgoing);
-    status.maturing = m_walletDB->getTotal(Coin::Maturing);
+    status.available = totals.Avail;
+    status.receiving = totals.Incoming;
+    status.sending = totals.Outgoing;
+    status.maturing = totals.Maturing;
 
     status.update.lastTime = m_walletDB->getLastUpdateTime();
 

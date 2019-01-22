@@ -343,13 +343,14 @@ namespace beam
                     response.prevStateHash = state.m_Prev;
                 }
 
-                response.available = _walletDB->getAvailable();
-                response.receiving = _walletDB->getTotal(Coin::Incoming);
-                response.sending = _walletDB->getTotal(Coin::Outgoing);
-                response.maturing = _walletDB->getTotal(Coin::Maturing);
+				wallet::Totals totals(*_walletDB);
 
-                // TODO: add locked UTXO here
-                response.locked = 0;
+                response.available = totals.Avail;
+                response.receiving = totals.Incoming;
+                response.sending = totals.Outgoing;
+                response.maturing = totals.Maturing;
+
+                response.locked = 0; // same as Outgoing?
 
                 doResponse(id, response);
             }

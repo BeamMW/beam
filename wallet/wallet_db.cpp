@@ -1978,72 +1978,6 @@ namespace beam
         }
     }
 
-    Amount WalletDB::getAvailable() const
-    {
-        auto currentHeight = getCurrentHeight();
-        const char* req = "SELECT SUM(amount) FROM " STORAGE_NAME " WHERE status = ?1 AND maturity <= ?2;";
-        sqlite::Statement stm(_db, req);
-        stm.bind(1, Coin::Available);
-        stm.bind(2, currentHeight);
-
-        Amount result = 0;
-
-        if (stm.step())
-        {
-            stm.get(0, result);
-        }
-        return result;
-    }
-
-    Amount WalletDB::getAvailableByType(Key::Type keyType) const
-    {
-        auto currentHeight = getCurrentHeight();
-        const char* req = "SELECT SUM(amount) FROM " STORAGE_NAME " WHERE status = ?1 AND type = ?2 AND maturity <= ?3;";
-        sqlite::Statement stm(_db, req);
-        stm.bind(1, Coin::Available);
-        stm.bind(2, keyType);
-        stm.bind(3, currentHeight);
-
-        Amount result = 0;
-
-        if (stm.step())
-        {
-            stm.get(0, result);
-        }
-        return result;
-    }
-
-    Amount WalletDB::getTotal(Coin::Status status) const
-    {
-        const char* req = "SELECT SUM(amount) FROM " STORAGE_NAME " WHERE status = ?1;";
-        sqlite::Statement stm(_db, req);
-        stm.bind(1, status);
-
-        Amount result = 0;
-
-        if (stm.step())
-        {
-            stm.get(0, result);
-        }
-        return result;
-    }
-    
-    Amount WalletDB::getTotalByType(Coin::Status status, Key::Type keyType) const
-    {
-        const char* req = "SELECT SUM(amount) FROM " STORAGE_NAME " WHERE status = ?1 AND type = ?2;";
-        sqlite::Statement stm(_db, req);
-        stm.bind(1, status);
-        stm.bind(2, keyType);
-
-        Amount result = 0;
-
-        if (stm.step())
-        {
-            stm.get(0, result);
-        }
-        return result;
-    }
-
     Amount WalletDB::getTransferredByTx(TxStatus status, bool isSender) const
     {
         const char* req = "SELECT value FROM " TX_PARAMS_NAME " WHERE paramID = ?5 AND txID IN (SELECT txID FROM " TX_PARAMS_NAME " WHERE paramID= ?1 AND value = ?2 AND txID IN (SELECT txID FROM " TX_PARAMS_NAME " WHERE paramID= ?3 AND value = ?4 ));";
@@ -2232,6 +2166,54 @@ namespace beam
 
             walletDB.setNeverExpirationForAll();
         }
+
+		void Totals::Init(IWalletDB& walletDB)
+		{
+			ZeroObject(*this);
+
+			walletDB.visit([this](const Coin& c)->bool
+			{
+				const Amount& v = c.m_ID.m_Value; // alias
+				switch (c.m_status)
+				{
+				case Coin::Status::Available:
+					Avail += v;
+					Unspent += v;
+
+					switch (c.m_ID.m_Type)
+					{
+					case Key::Type::Coinbase: AvailCoinbase += v; break;
+					case Key::Type::Comission: AvailFee += v; break;
+					default: // suppress warning
+						break;
+					}
+
+					break;
+
+				case Coin::Status::Maturing:
+					Maturing += v;
+					Unspent += v;
+					break;
+
+				case Coin::Status::Incoming: Incoming += v; break;
+				case Coin::Status::Outgoing: Outgoing += v; break;
+				case Coin::Status::Unavailable: Unavail += v; break;
+
+				default: // suppress warning
+					break;
+				}
+
+				switch (c.m_ID.m_Type)
+				{
+				case Key::Type::Coinbase: Coinbase += v; break;
+				case Key::Type::Comission: Fee += v; break;
+				default: // suppress warning
+					break;
+				}
+
+				return true;
+			});
+		}
 
         WalletAddress createAddress(IWalletDB& walletDB)
         {

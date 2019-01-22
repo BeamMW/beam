@@ -47,7 +47,9 @@ namespace beam
             Outgoing,
             Incoming,
             ChangeV0, // deprecated.
-            Spent
+            Spent,
+
+			count
         };
 
         Coin(Amount amount
@@ -188,10 +190,6 @@ namespace beam
         virtual Block::SystemState::IHistory& get_History() = 0;
         virtual void ShrinkHistory() = 0;
 
-        virtual Amount getAvailable() const = 0;
-        virtual Amount getAvailableByType(Key::Type keyType) const = 0;
-        virtual Amount getTotal(Coin::Status status) const = 0;
-        virtual Amount getTotalByType(Coin::Status status, Key::Type keyType) const = 0;
         virtual Amount getTransferredByTx(TxStatus status, bool isSender) const = 0;
     };
 
@@ -254,10 +252,6 @@ namespace beam
         Block::SystemState::IHistory& get_History() override;
         void ShrinkHistory() override;
 
-        Amount getAvailable() const override;
-        Amount getAvailableByType(Key::Type keyType) const override;
-        Amount getTotal(Coin::Status status) const override;
-        Amount getTotalByType(Coin::Status status, Key::Type keyType) const override;
         Amount getTransferredByTx(TxStatus status, bool isSender) const override;
 
     private:
@@ -339,5 +333,23 @@ namespace beam
         WalletAddress createAddress(IWalletDB& walletDB);
         Amount getSpentByTx(const IWalletDB& walletDB, TxStatus status);
         Amount getReceivedByTx(const IWalletDB& walletDB, TxStatus status);
+
+		struct Totals
+		{
+			Amount Avail;
+			Amount Maturing;
+			Amount Incoming;
+			Amount Unavail;
+			Amount Outgoing;
+			Amount AvailCoinbase;
+			Amount Coinbase;
+			Amount AvailFee;
+			Amount Fee;
+			Amount Unspent;
+
+			Totals() {}
+			Totals(IWalletDB& db) { Init(db); }
+			void Init(IWalletDB&);
+		};
     }
 }

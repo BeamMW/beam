@@ -182,10 +182,6 @@ namespace
         Block::SystemState::IHistory& get_History() override { return m_Hist; }
         void ShrinkHistory() override {}
 
-        Amount getAvailable() const override { return 0; };
-        Amount getAvailableByType(Key::Type keyType) const override { return 0; };
-        Amount getTotal(Coin::Status status) const override { return 0; };
-        Amount getTotalByType(Coin::Status status, Key::Type keyType) const override { return 0; };
         Amount getTransferredByTx(TxStatus status, bool isSender) const override { return 0; };
 
     protected:

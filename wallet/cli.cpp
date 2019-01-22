@@ -515,26 +515,21 @@ namespace
     {
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
-        auto totalInProgress = walletDB->getTotal(Coin::Incoming) +
-            walletDB->getTotal(Coin::Outgoing);
-        auto totalCoinbase = walletDB->getTotalByType(Coin::Available, Key::Type::Coinbase) +
-            walletDB->getTotalByType(Coin::Maturing, Key::Type::Coinbase);
-        auto totalFee = walletDB->getTotalByType(Coin::Available, Key::Type::Comission) +
-            walletDB->getTotalByType(Coin::Maturing, Key::Type::Comission);
-        auto totalUnspent = walletDB->getTotal(Coin::Available) + walletDB->getTotal(Coin::Maturing);
+
+		wallet::Totals totals(*walletDB);
 
         cout << "____Wallet summary____\n\n"
             << "Current height............" << stateID.m_Height << '\n'
             << "Current state ID.........." << stateID.m_Hash << "\n\n"
-            << "Available................." << PrintableAmount(walletDB->getAvailable()) << '\n'
-            << "Maturing.................." << PrintableAmount(walletDB->getTotal(Coin::Maturing)) << '\n'
-            << "In progress..............." << PrintableAmount(totalInProgress) << '\n'
-            << "Unavailable..............." << PrintableAmount(walletDB->getTotal(Coin::Unavailable)) << '\n'
-            << "Available coinbase ......." << PrintableAmount(walletDB->getAvailableByType(Key::Type::Coinbase)) << '\n'
-            << "Total coinbase............" << PrintableAmount(totalCoinbase) << '\n'
-            << "Avaliable fee............." << PrintableAmount(walletDB->getAvailableByType(Key::Type::Comission)) << '\n'
-            << "Total fee................." << PrintableAmount(totalFee) << '\n'
-            << "Total unspent............." << PrintableAmount(totalUnspent) << "\n\n";
+            << "Available................." << PrintableAmount(totals.Avail) << '\n'
+            << "Maturing.................." << PrintableAmount(totals.Maturing) << '\n'
+            << "In progress..............." << PrintableAmount(totals.Incoming) << '\n'
+            << "Unavailable..............." << PrintableAmount(totals.Unavail) << '\n'
+            << "Available coinbase ......." << PrintableAmount(totals.AvailCoinbase) << '\n'
+            << "Total coinbase............" << PrintableAmount(totals.Coinbase) << '\n'
+            << "Avaliable fee............." << PrintableAmount(totals.AvailFee) << '\n'
+            << "Total fee................." << PrintableAmount(totals.Fee) << '\n'
+            << "Total unspent............." << PrintableAmount(totals.Unspent) << "\n\n";
 
         if (vm.count(cli::TX_HISTORY))
         {
