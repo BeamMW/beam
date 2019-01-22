@@ -130,6 +130,7 @@ namespace beam {
             const string& jobID,
             const Merkle::Hash& input,
             const Block::PoW& pow,
+            const Height& height,
             const BlockFound& callback,
             const CancelCallback& cancelCallback
         ) override
