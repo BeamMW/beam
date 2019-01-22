@@ -112,7 +112,7 @@ namespace beam
         void saveKnownState();
         void RequestUtxoEvents();
         void AbortUtxoEvents();
-        void ProcessUtxoEvent(const proto::UtxoEvent&, Height hTip);
+        void ProcessUtxoEvent(const proto::UtxoEvent&);
         void SetUtxoEventsHeight(Height);
         Height GetUtxoEventsHeightNext();
 

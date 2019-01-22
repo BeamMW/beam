@@ -553,16 +553,13 @@ namespace beam
 
         const auto& proof = r.m_Res.m_Proofs.front(); // Currently - no handling for multiple coins for the same commitment.
 
-        Block::SystemState::Full sTip;
-        get_tip(sTip);
-
         proto::UtxoEvent evt;
         evt.m_Added = 1;
         evt.m_Kidv = r.m_CoinID;
         evt.m_Maturity = proof.m_State.m_Maturity;
-        evt.m_Height = sTip.m_Height;
+        evt.m_Height = MaxHeight; // not used, relevant only for spend events
 
-        ProcessUtxoEvent(evt, sTip.m_Height); // uniform processing for all confirmed utxos
+        ProcessUtxoEvent(evt); // uniform processing for all confirmed utxos
     }
 
     void Wallet::OnRequestComplete(MyRequestKernel& r)
@@ -628,9 +625,6 @@ namespace beam
 
     void Wallet::OnRequestComplete(MyRequestUtxoEvents& r)
     {
-        Block::SystemState::Full sTip;
-        m_WalletDB->get_History().get_Tip(sTip);
-
         const std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
 		for (size_t i = 0; i < v.size(); i++)
 		{
@@ -642,11 +636,16 @@ namespace beam
 			m_WalletDB->calcCommitment(sk, comm, evt.m_Kidv);
 
 			if (comm == evt.m_Commitment)
-				ProcessUtxoEvent(evt, sTip.m_Height);
+				ProcessUtxoEvent(evt);
 		}
 
-        if (r.m_Res.m_Events.size() < proto::UtxoEvent::s_Max)
-            SetUtxoEventsHeight(sTip.m_Height);
+		if (r.m_Res.m_Events.size() < proto::UtxoEvent::s_Max)
+		{
+			Block::SystemState::Full sTip;
+			m_WalletDB->get_History().get_Tip(sTip);
+
+			SetUtxoEventsHeight(sTip.m_Height);
+		}
         else
         {
             SetUtxoEventsHeight(r.m_Res.m_Events.back().m_Height);
@@ -672,7 +671,7 @@ namespace beam
         return h;
     }
 
-    void Wallet::ProcessUtxoEvent(const proto::UtxoEvent& evt, Height hTip)
+    void Wallet::ProcessUtxoEvent(const proto::UtxoEvent& evt)
     {
         Coin c;
         c.m_ID = evt.m_Kidv;
@@ -748,25 +747,6 @@ namespace beam
         {
             auto tx = p.second;
             tx->Update();
-        }
-
-        // try to restore utxo state after reset, rollback and etc..
-        uint32_t nUnconfirmed = 0;
-        m_WalletDB->visit([&nUnconfirmed, this](const Coin& c)->bool
-        {
-            if (c.m_status == Coin::Unavailable
-                && ((c.m_createTxId.is_initialized()
-                && (m_Transactions.find(*c.m_createTxId) == m_Transactions.end())) || c.isReward()))
-            {
-                getUtxoProof(c.m_ID);
-                nUnconfirmed++;
-            }
-            return true;
-        });
-
-        if (nUnconfirmed)
-        {
-            LOG_INFO() << "Found " << nUnconfirmed << " unconfirmed utxo to proof";
         }
 
         CheckSyncDone();
