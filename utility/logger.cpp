@@ -155,6 +155,11 @@ public:
 
 private:
     void open_new_file() {
+        if (_sink != nullptr) {
+            fclose(_sink);
+            _sink = nullptr;
+        }
+
         string fileName(_fileNamePrefix);
         fileName += format_timestamp("%y_%m_%d_%H_%M_%S", local_timestamp_msec(), false);
         fileName += ".log";
