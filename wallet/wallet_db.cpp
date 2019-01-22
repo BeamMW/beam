@@ -35,6 +35,7 @@
     each(status,         status,        INTEGER NOT NULL, obj) sep \
     each(maturity,       maturity,      INTEGER NOT NULL, obj) sep \
     each(confirmHeight,  confirmHeight, INTEGER, obj) sep \
+    each(spentHeight,    spentHeight,   INTEGER, obj) sep \
     each(createTxId,     createTxId,    BLOB, obj) sep \
     each(spentTxId,      spentTxId,     BLOB, obj) sep \
     each(sessionId,      sessionId,     INTEGER NOT NULL, obj)
@@ -884,11 +885,12 @@ namespace beam
 		const int DbVersion10 = 10;
 	}
 
-    Coin::Coin(Amount amount, Status status, Height maturity, Key::Type keyType, Height confirmHeight)
+    Coin::Coin(Amount amount, Status status, Height maturity, Key::Type keyType)
         : m_status{ status }
         , m_maturity{ maturity }
-        , m_confirmHeight{ confirmHeight }
-        , m_sessionId(EmptyCoinSession)
+        , m_confirmHeight{ MaxHeight }
+		, m_spentHeight{ MaxHeight }
+		, m_sessionId(EmptyCoinSession)
     {
         ZeroObject(m_ID);
         m_ID.m_Value = amount;
@@ -896,7 +898,7 @@ namespace beam
     }
 
     Coin::Coin()
-        : Coin(0, Coin::Available, MaxHeight, Key::Type::Regular, MaxHeight)
+        : Coin(0, Coin::Available, MaxHeight, Key::Type::Regular)
     {
     }
 

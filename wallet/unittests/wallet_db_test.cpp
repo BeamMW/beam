@@ -290,25 +290,32 @@ void TestStoreTxRecord()
     WALLET_CHECK(t.size() == 0);
 }
 
+Coin CreateCoin(Amount amount, Coin::Status status, Height maturity, Key::Type keyType, Height confirmHeight)
+{
+	Coin c(amount, status, maturity, keyType);
+	c.m_confirmHeight = confirmHeight;
+	return c;
+}
+
 void TestRollback()
 {
     cout << "\nWallet database rollback test\n";
     auto db = createSqliteWalletDB();
     for (uint64_t i = 0; i < 9; ++i)
     {
-        Coin coin1 = { 5, Coin::Available, i + 10, Key::Type::Regular, Height(i + 1) };
+        Coin coin1 = CreateCoin( 5, Coin::Available, i + 10, Key::Type::Regular, Height(i + 1) );
         db->store(coin1);
     }
 
     for (uint64_t i = 9; i < 10; ++i)
     {
-        Coin coin1 = { 5, Coin::Spent, 0, Key::Type::Regular, Height(1) };
+        Coin coin1 = CreateCoin( 5, Coin::Spent, 0, Key::Type::Regular, Height(1) );
         db->store(coin1);
     }
 
     // was created after branch
     {
-        Coin coin1 = { 5, Coin::Spent, 7, Key::Type::Regular, Height(8) };
+        Coin coin1 = CreateCoin( 5, Coin::Spent, 7, Key::Type::Regular, Height(8) );
         db->store(coin1);
     }
 
@@ -316,52 +323,52 @@ void TestRollback()
     // rewards
     // should not be deleted
     {
-        Coin coin1 = { 5, Coin::Spent, 8, Key::Type::Regular, Height(8) };
+        Coin coin1 = CreateCoin( 5, Coin::Spent, 8, Key::Type::Regular, Height(8) );
         db->store(coin1);
     }
 
     {
-        Coin coin1 = { 5, Coin::Spent, 8, Key::Type::Regular, Height(8) };
+        Coin coin1 = CreateCoin( 5, Coin::Spent, 8, Key::Type::Regular, Height(8) );
         db->store(coin1);
     }
 
     {
-        Coin coin1 = { 5, Coin::Available, 9, Key::Type::Regular, Height(9) };
+        Coin coin1 = CreateCoin( 5, Coin::Available, 9, Key::Type::Regular, Height(9) );
         db->store(coin1);
     }
 
     {
-        Coin coin1 = { 5, Coin::Available, 9, Key::Type::Regular, Height(9) };
+        Coin coin1 = CreateCoin( 5, Coin::Available, 9, Key::Type::Regular, Height(9) );
         db->store(coin1);
     }
     // should be preserved
     {
-        Coin coin1 = { 5, Coin::Spent, 7, Key::Type::Regular, Height(7) };
+        Coin coin1 = CreateCoin( 5, Coin::Spent, 7, Key::Type::Regular, Height(7) );
         db->store(coin1);
     }
 
     {
-        Coin coin1 = { 5, Coin::Spent, 7, Key::Type::Regular, Height(7) };
+        Coin coin1 = CreateCoin( 5, Coin::Spent, 7, Key::Type::Regular, Height(7) );
         db->store(coin1);
     }
 
     {
-        Coin coin1 = { 5, Coin::Spent, 5, Key::Type::Regular, Height(5) };
+        Coin coin1 = CreateCoin( 5, Coin::Spent, 5, Key::Type::Regular, Height(5) );
         db->store(coin1);
     }
 
     {
-        Coin coin1 = { 5, Coin::Spent, 5, Key::Type::Regular, Height(5) };
+        Coin coin1 = CreateCoin( 5, Coin::Spent, 5, Key::Type::Regular, Height(5) );
         db->store(coin1);
     }
 
     {
-        Coin coin1 = { 5, Coin::Available, 4, Key::Type::Regular, Height(4) };
+        Coin coin1 = CreateCoin( 5, Coin::Available, 4, Key::Type::Regular, Height(4) );
         db->store(coin1);
     }
 
     {
-        Coin coin1 = { 5, Coin::Available, 4, Key::Type::Regular, Height(4) };
+        Coin coin1 = CreateCoin( 5, Coin::Available, 4, Key::Type::Regular, Height(4) );
         db->store(coin1);
     }
 

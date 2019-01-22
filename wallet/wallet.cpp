@@ -678,51 +678,25 @@ namespace beam
         c.m_ID = evt.m_Kidv;
 
         bool bExists = m_WalletDB->find(c);
-
-        //const TxID* pTxID = NULL;
+		c.m_maturity = evt.m_Maturity;
 
         LOG_INFO() << "CoinID: " << evt.m_Kidv << " Maturity=" << evt.m_Maturity << (evt.m_Added ? " Confirmed" : " Spent");
 
         if (evt.m_Added)
         {
-            c.m_maturity = evt.m_Maturity;
-            if (!c.m_confirmHeight || (c.m_confirmHeight > evt.m_Height)) // in case of std utxo proofs - the event height may be bigger than actual utxo height
-                c.m_confirmHeight = evt.m_Height;
+			c.m_confirmHeight = std::min(c.m_confirmHeight, evt.m_Height); // in case of std utxo proofs - the event height may be bigger than actual utxo height
             c.m_status = (evt.m_Maturity <= hTip) ? Coin::Status::Available : Coin::Status::Maturing;
-
-            //if (c.m_createTxId)
-            //    updateTransaction(*c.m_createTxId);
-            //pTxID = c.m_createTxId.get_ptr();
         }
         else
         {
             if (!bExists)
                 return; // should alert!
 
-            c.m_maturity = evt.m_Maturity;
-            c.m_status = Coin::Status::Spent;
-            //pTxID = c.m_spentTxId.get_ptr();
-        }
+			c.m_spentHeight = std::min(c.m_spentHeight, evt.m_Height); // reported spend height may be bigger than it actuall was (in case of macroblocks)
+			c.m_status = Coin::Status::Spent;
+		}
 
         m_WalletDB->save(c);
-
-/*        if (!pTxID)
-            return;
-
-        auto it = m_Transactions.find(*pTxID);
-        if (it == m_Transactions.end())
-            return;
-
-        Height h = 0;
-        const auto& pTx = it->second;
-        pTx->GetParameter(TxParameterID::KernelProofHeight, h);
-
-        if (!h || (h > evt.m_Height))
-        {
-            h = evt.m_Height;
-            pTx->SetParameter(TxParameterID::KernelProofHeight, h);
-            m_TransactionsToUpdate.insert(pTx);
-        }*/
     }
 
     void Wallet::OnRolledBack()

@@ -53,8 +53,7 @@ namespace beam
         Coin(Amount amount
            , Status status = Coin::Maturing
            , Height maturity = MaxHeight
-           , Key::Type keyType = Key::Type::Regular
-           , Height confirmHeight = MaxHeight);
+           , Key::Type keyType = Key::Type::Regular);
         Coin();
         bool isReward() const;
 
@@ -64,7 +63,8 @@ namespace beam
         Status m_status;
         Height m_maturity;      // coin can be spent only when chain is >= this value. Valid for confirmed coins (Available, Outgoing, Incoming, Change, Spent, Maturing).
         Height m_confirmHeight;
-        boost::optional<TxID> m_createTxId;
+		Height m_spentHeight;
+		boost::optional<TxID> m_createTxId;
         boost::optional<TxID> m_spentTxId;
         uint32_t m_sessionId;
 
