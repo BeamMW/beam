@@ -64,10 +64,10 @@ namespace beam {
 		} 
         catch (const std::exception& e)
         {
-            LOG_UNHANDLE_EXCEPTION() << "what = " << e.what();
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...) {
-            LOG_UNHANDLE_EXCEPTION();
+            LOG_UNHANDLED_EXCEPTION();
 		}
 	}
 

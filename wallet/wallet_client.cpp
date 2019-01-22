@@ -241,10 +241,10 @@ WalletClient::~WalletClient()
     }
     catch (const std::exception& e)
     {
-        LOG_UNHANDLE_EXCEPTION() << "what = " << e.what();
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
     }
     catch (...) {
-        LOG_UNHANDLE_EXCEPTION();
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
@@ -326,7 +326,7 @@ void WalletClient::start()
             FailedToStartWallet();
         }
         catch (...) {
-            LOG_UNHANDLE_EXCEPTION();
+            LOG_UNHANDLED_EXCEPTION();
         }
         m_isRunning = false;
     });
@@ -417,10 +417,10 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
     }
     catch (const std::exception& e)
     {
-        LOG_UNHANDLE_EXCEPTION() << "what = " << e.what();
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
     }
     catch (...) {
-        LOG_UNHANDLE_EXCEPTION();
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
@@ -515,10 +515,10 @@ void WalletClient::generateNewAddress()
     }
     catch (const std::exception& e)
     {
-        LOG_UNHANDLE_EXCEPTION() << "what = " << e.what();
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
     }
     catch (...) {
-        LOG_UNHANDLE_EXCEPTION();
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
@@ -542,10 +542,10 @@ void WalletClient::deleteAddress(const beam::WalletID& id)
     }
     catch (const std::exception& e)
     {
-        LOG_UNHANDLE_EXCEPTION() << "what = " << e.what();
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
     }
     catch (...) {
-        LOG_UNHANDLE_EXCEPTION();
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
@@ -596,10 +596,10 @@ void WalletClient::saveAddressChanges(const beam::WalletID& id, const std::strin
     }
     catch (const std::exception& e)
     {
-        LOG_UNHANDLE_EXCEPTION() << "what = " << e.what();
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
     }
     catch (...) {
-        LOG_UNHANDLE_EXCEPTION();
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
@@ -656,10 +656,10 @@ void WalletClient::refresh()
     }
     catch (const std::exception& e)
     {
-        LOG_UNHANDLE_EXCEPTION() << "what = " << e.what();
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
     }
     catch (...) {
-        LOG_UNHANDLE_EXCEPTION();
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
