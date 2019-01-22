@@ -85,6 +85,14 @@ namespace beam
         return proto::ImportPeerID(p, m_Pk);
     }
 
+    bool check_receiver_address(const std::string& addr)
+    {
+        WalletID walletID;
+        return
+            walletID.FromHex(addr) &&
+            walletID.IsValid();
+    }
+
     std::ostream& operator<<(std::ostream& os, const TxID& uuid)
     {
         os << "[" << to_hex(uuid.data(), uuid.size()) << "]";

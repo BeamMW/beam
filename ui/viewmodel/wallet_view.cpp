@@ -433,7 +433,7 @@ void WalletViewModel::setReceiverAddr(const QString& value)
 }
 
 bool WalletViewModel::isValidReceiverAddress(const QString& value) {
-    return _model.check_receiver_address(value.toStdString());
+    return check_receiver_address(value.toStdString());
 }
 
 void WalletViewModel::setSendAmount(const QString& value)

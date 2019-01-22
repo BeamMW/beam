@@ -56,6 +56,8 @@ namespace beam
 	};
 #pragma pack (pop)
 
+    bool check_receiver_address(const std::string& addr);
+
     struct PrintableAmount
     {
         explicit PrintableAmount(const Amount& amount, bool showPoint = false) : m_value{ amount }, m_showPoint{showPoint}
