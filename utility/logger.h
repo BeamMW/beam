@@ -67,7 +67,7 @@ struct LogMessageStub {
 #define LOG_ERROR() LOG_MESSAGE(LOG_LEVEL_ERROR)
 #define LOG_WARNING() LOG_MESSAGE(LOG_LEVEL_WARNING)
 #define LOG_INFO() LOG_MESSAGE(LOG_LEVEL_INFO)
-#define LOG_UNHANDLE_EXCEPTION() LOG_ERROR() << "["<< __FILE__ << "] [" << __LINE__ << "] [" __FUNCTION__ << "] unhandle exception. "
+#define LOG_UNHANDLE_EXCEPTION() LOG_ERROR() << "[" << __FILE__ << "] [" << __LINE__ << "] [" <<  __FUNCTION__ << "] unhandle exception. "
 
 #if LOG_DEBUG_ENABLED
     #define LOG_DEBUG() LOG_MESSAGE(LOG_LEVEL_DEBUG)
