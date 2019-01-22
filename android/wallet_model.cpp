@@ -256,7 +256,7 @@ void WalletModel::onNodeConnectionChanged(bool isNodeConnected)
 
 void WalletModel::onWalletError(beam::wallet::ErrorType error)
 {
-    LOG_DEBUG() << "onNodeConnectionFailed()";
+    LOG_DEBUG() << "onNodeConnectionFailed(): error = " << static_cast<int>(error);
 
     JNIEnv* env = Android_JNI_getEnv();
 

@@ -60,16 +60,21 @@ namespace
 		return f.read(&bb.front(), nSize) == nSize;
     }
 
-	void find_certificates(IExternalPOW::Options& o, const std::string& stratumDir) {
-		static const std::string certFileName("stratum.crt");
-		static const std::string keyFileName("stratum.key");
-		static const std::string apiKeysFileName("stratum.api.keys");
+	void find_certificates(IExternalPOW::Options& o, const std::string& stratumDir, bool useTLS) {
 
 		boost::filesystem::path p(stratumDir);
 		p = boost::filesystem::canonical(p);
-		o.privKeyFile = (p / keyFileName).string();
-		o.certFile = (p / certFileName).string();
 
+        if (useTLS)
+        {
+		    static const std::string certFileName("stratum.crt");
+		    static const std::string keyFileName("stratum.key");
+
+		    o.privKeyFile = (p / keyFileName).string();
+		    o.certFile = (p / certFileName).string();
+        }
+
+		static const std::string apiKeysFileName("stratum.api.keys");
 		if (boost::filesystem::exists(p / apiKeysFileName))
 			o.apiKeysFile = (p / apiKeysFileName).string();
 	}
@@ -157,7 +162,7 @@ int main_impl(int argc, char* argv[])
 
 				if (stratumPort > 0) {
 					IExternalPOW::Options powOptions;
-                    find_certificates(powOptions, vm[cli::STRATUM_SECRETS_PATH].as<string>());
+                    find_certificates(powOptions, vm[cli::STRATUM_SECRETS_PATH].as<string>(), vm[cli::STRATUM_USE_TLS].as<bool>());
 					stratumServer = IExternalPOW::create(powOptions, *reactor, io::Address().port(stratumPort));
 				}
 
