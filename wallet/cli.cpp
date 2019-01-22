@@ -575,7 +575,7 @@ namespace
             cout << setw(20) << c.m_ID.m_Idx
                 << setw(16) << c.m_ID.m_Value / Rules::Coin
                 << setw(16) << c.m_ID.m_Value % Rules::Coin
-                << setw(20) << (static_cast<int64_t>(c.m_maturity) < 0 ? "-" : std::to_string(static_cast<int64_t>(c.m_maturity)))
+                << setw(20) << (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity)) : "-")
                 << "   " << c.m_status
                 << setw(8) << c.m_ID.m_Type << endl;
             return true;

@@ -67,6 +67,9 @@ namespace beam
         boost::optional<TxID> m_createTxId;
         boost::optional<TxID> m_spentTxId;
         uint32_t m_sessionId;
+
+		bool IsMaturityValid() const; // is/was the UTXO confirmed?
+		Height get_Maturity() const; // would return MaxHeight unless the UTXO was confirmed
     };
 
     struct WalletAddress

@@ -912,6 +912,24 @@ namespace beam
         }
     }
 
+	bool Coin::IsMaturityValid() const
+	{
+		switch (m_status)
+		{
+		case Unavailable:
+		case Incoming:
+			return false;
+
+		default:
+			return true;
+		}
+	}
+
+	Height Coin::get_Maturity() const
+	{
+		return IsMaturityValid() ? m_maturity : MaxHeight;
+	}
+
     bool WalletDB::isInitialized(const string& path)
     {
 #ifdef WIN32

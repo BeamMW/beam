@@ -295,7 +295,7 @@ namespace beam
                 {"id", utxo.m_ID.m_Idx},
                 {"amount", utxo.m_ID.m_Value},
                 {"type", (const char*)FourCC::Text(utxo.m_ID.m_Type)},
-                {"maturity", utxo.m_maturity},
+                {"maturity", utxo.get_Maturity()},
                 {"createTxId", createTxId},
                 {"spentTxId", spentTxId},
                 //{"sessionId", utxo.m_sessionId},

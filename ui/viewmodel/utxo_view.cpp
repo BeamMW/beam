@@ -48,7 +48,7 @@ QString UtxoItem::amount() const
 
 QString UtxoItem::maturity() const
 {
-    if (_coin.m_maturity == static_cast<Height>(-1))
+    if (!_coin.IsMaturityValid())
         return QString{ "-" };
     return QString::number(_coin.m_maturity);
 }
@@ -104,7 +104,7 @@ const beam::Coin::ID& UtxoItem::get_ID() const
 
 beam::Height UtxoItem::rawMaturity() const
 {
-    return _coin.m_maturity;
+    return _coin.get_Maturity();
 }
 
 
