@@ -1030,7 +1030,7 @@ namespace beam
 							// TODO: get rid of redundant columns
 						}
 
-						wallet::setVar(walletDB, Version, DbVersion);
+						wallet::setVar(*walletDB, Version, DbVersion);
 
 						// no break;
 
