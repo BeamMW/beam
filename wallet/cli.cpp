@@ -813,6 +813,15 @@ int main_impl(int argc, char* argv[])
                         return -1;
                     }
 
+                    if (command == cli::INIT && vm.count(cli::PASS) == 0)
+                    {
+                        if (!beam::confirm_wallet_pass(pass))
+                        {
+                            LOG_ERROR() << "Passwords do not match";
+                            return -1;
+                        }
+                    }
+
                     if (command == cli::INIT || command == cli::RESTORE)
                     {
                         NoLeak<uintBig> walletSeed;
