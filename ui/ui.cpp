@@ -158,6 +158,7 @@ int main (int argc, char* argv[])
         try
         {
             Rules::get().UpdateChecksum();
+            LOG_INFO() << "Beam Wallet UI " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
             WalletSettings settings(appDataDir);

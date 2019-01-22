@@ -788,6 +788,7 @@ int main_impl(int argc, char* argv[])
                         return 0;
                     }
 
+                    LOG_INFO() << "Beam Wallet " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
                     LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
                     assert(vm.count(cli::WALLET_STORAGE) > 0);

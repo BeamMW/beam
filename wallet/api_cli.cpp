@@ -33,6 +33,7 @@
 #include "wallet/wallet_network.h"
 
 #include "nlohmann/json.hpp"
+#include "version.h"
 
 using json = nlohmann::json;
 
@@ -514,6 +515,7 @@ int main(int argc, char* argv[])
             vm.notify();
 
             Rules::get().UpdateChecksum();
+            LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
             if (vm.count(cli::NODE_ADDR) == 0)
