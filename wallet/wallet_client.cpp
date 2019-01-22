@@ -335,14 +335,6 @@ IWalletModelAsync::Ptr WalletClient::getAsync()
     return m_async;
 }
 
-bool WalletClient::check_receiver_address(const std::string& addr)
-{
-    WalletID walletID;
-    return
-        walletID.FromHex(addr) &&
-        walletID.IsValid();
-}
-
 std::string WalletClient::getNodeAddress() const
 {
     return m_nodeAddrStr;

@@ -214,6 +214,13 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createMnemonic)(JNIEnv *env, j
     return phrasesArray;
 }
 
+JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(checkReceiverAddress)(JNIEnv *env, jobject thiz, jstring address)
+{
+    auto str = JString(env, address).value();
+
+    return beam::check_receiver_address(str);
+}
+
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getWalletStatus)(JNIEnv *env, jobject thiz)
 {
     LOG_DEBUG() << "getWalletStatus()";

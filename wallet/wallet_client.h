@@ -51,10 +51,7 @@ public:
     void start();
     
     IWalletModelAsync::Ptr getAsync();
-    bool check_receiver_address(const std::string& addr);
-
     std::string getNodeAddress() const;
-
     bool isRunning() const;
 
 protected:
