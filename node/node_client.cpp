@@ -59,9 +59,12 @@ NodeClient::~NodeClient()
             }
         }
     }
-    catch (...)
+    catch (const std::exception& e)
     {
-
+        LOG_UNHANDLE_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLE_EXCEPTION();
     }
 }
 
@@ -133,9 +136,12 @@ void NodeClient::start()
                 }
             }
         }
-        catch (...)
+        catch (const std::exception& e)
         {
-            LOG_ERROR() << "Unhandled exception";
+            LOG_UNHANDLE_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLE_EXCEPTION();
         }
     });
 }
