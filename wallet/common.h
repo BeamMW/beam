@@ -326,11 +326,13 @@ namespace beam
 
         enum class ErrorType : uint8_t
         {
-            NodeProtocolBase = 0,
-            NodeProtocolIncompatible = 1,
-            ConnectionTimedOut = 2,
-            ConnectionRefused = 3,
-			TimeOutOfSync = 4,
+            NodeProtocolBase,
+            NodeProtocolIncompatible,
+            ConnectionBase,
+            ConnectionTimedOut,
+            ConnectionRefused,
+            ConnectionHostUnreach,
+			TimeOutOfSync,
 		};
 
 		struct PaymentConfirmation

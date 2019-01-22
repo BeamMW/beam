@@ -94,10 +94,11 @@ struct Login : Message {
 struct Job : Message {
     std::string input;
     uint32_t difficulty;
+    Height height;
 
     Job() = default;
 
-    Job(const std::string& _id, const Merkle::Hash& _input, const Block::PoW& _pow);
+    Job(const std::string& _id, const Merkle::Hash& _input, const Block::PoW& _pow, Height height);
 };
 
 /// Servers cancel job with given id

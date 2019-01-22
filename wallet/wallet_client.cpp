@@ -62,8 +62,10 @@ beam::wallet::ErrorType GetWalletError(io::ErrorCode errorCode)
         return beam::wallet::ErrorType::ConnectionTimedOut;
     case EC_ECONNREFUSED:
         return beam::wallet::ErrorType::ConnectionRefused;
+    case EC_EHOSTUNREACH:
+        return beam::wallet::ErrorType::ConnectionHostUnreach;
     default:
-        return beam::wallet::ErrorType::NodeProtocolBase;
+        return beam::wallet::ErrorType::ConnectionBase;
     }
 }
 
