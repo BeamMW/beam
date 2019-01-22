@@ -1673,6 +1673,9 @@ namespace beam
             case wallet::TxParameterID::KernelID:
                 deserialize(txDescription.m_kernelID, parameter.m_value);
                 break;
+            case wallet::TxParameterID::FailureReason:
+                deserialize(txDescription.m_failureReason, parameter.m_value);
+                break;
 			default:
 				break; // suppress warning
             }
