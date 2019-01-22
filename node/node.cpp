@@ -3463,7 +3463,7 @@ void Node::Miner::OnRefreshExternal()
     Merkle::Hash hv;
 	m_pTask->m_Hdr.get_HashForPoW(hv);
 
-	m_External.m_pSolver->new_job(std::to_string(jobID), hv, m_pTask->m_Hdr.m_PoW, BIND_THIS_MEMFN(OnMinedExternal), fnCancel);
+	m_External.m_pSolver->new_job(std::to_string(jobID), hv, m_pTask->m_Hdr.m_PoW, m_pTask->m_Hdr.m_Height , BIND_THIS_MEMFN(OnMinedExternal), fnCancel);
 }
 
 void Node::Miner::OnMinedExternal()

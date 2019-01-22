@@ -89,7 +89,7 @@ private:
         if (!fill_job_info(job)) return false;
 
         _miner->new_job(
-            _lastJobID, _lastJobInput, pow,
+            _lastJobID, _lastJobInput, pow, job.height,
             BIND_THIS_MEMFN(on_block_found),
             []() { return false; }
         );

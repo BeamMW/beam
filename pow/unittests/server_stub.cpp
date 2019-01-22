@@ -40,7 +40,7 @@ void gen_new_job() {
 
     if (server) server->new_job(
         std::to_string(++idInt),
-        hash, POW,
+        hash, POW, 0,
         &got_new_block,
         []() { return false; }
     );
