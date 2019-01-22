@@ -680,7 +680,7 @@ namespace beam { namespace wallet
         auto coins = m_Tx.GetWalletDB()->selectCoins(amountWithFee);
         if (coins.empty())
         {
-            LOG_ERROR() << "You only have " << PrintableAmount(m_Tx.GetWalletDB()->getAvailable());
+            LOG_ERROR() << m_Tx.GetTxID() << "You only have " << PrintableAmount(m_Tx.GetWalletDB()->getAvailable());
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
         }
 
@@ -810,7 +810,7 @@ namespace beam { namespace wallet
     {
         if (m_Tx.GetParameter(TxParameterID::PeerSignature, m_PeerSignature))
         {
-            LOG_DEBUG() << "Received PeerSig:\t" << Scalar(m_PeerSignature);
+            LOG_DEBUG() << m_Tx.GetTxID() << "Received PeerSig:\t" << Scalar(m_PeerSignature);
             return true;
         }
         
