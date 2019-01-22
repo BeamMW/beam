@@ -239,9 +239,12 @@ WalletClient::~WalletClient()
             }
         }
     }
-    catch (...)
+    catch (const std::exception& e)
     {
-
+        LOG_UNHANDLE_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLE_EXCEPTION();
     }
 }
 
@@ -322,9 +325,8 @@ void WalletClient::start()
             LOG_ERROR() << ex.what();
             FailedToStartWallet();
         }
-        catch (...)
-        {
-            LOG_ERROR() << "Unhandled exception";
+        catch (...) {
+            LOG_UNHANDLE_EXCEPTION();
         }
         m_isRunning = false;
     });
@@ -413,9 +415,12 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
 
         onSendMoneyVerified();
     }
-    catch (...)
+    catch (const std::exception& e)
     {
-
+        LOG_UNHANDLE_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLE_EXCEPTION();
     }
 }
 
@@ -508,9 +513,12 @@ void WalletClient::generateNewAddress()
 
         onGeneratedNewAddress(address);
     }
-    catch (...)
+    catch (const std::exception& e)
     {
-
+        LOG_UNHANDLE_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLE_EXCEPTION();
     }
 }
 
@@ -532,8 +540,12 @@ void WalletClient::deleteAddress(const beam::WalletID& id)
             m_walletDB->deleteAddress(id);
         }
     }
-    catch (...)
+    catch (const std::exception& e)
     {
+        LOG_UNHANDLE_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLE_EXCEPTION();
     }
 }
 
@@ -582,8 +594,12 @@ void WalletClient::saveAddressChanges(const beam::WalletID& id, const std::strin
             LOG_ERROR() << "Address " << to_string(id) << " is absent.";
         }
     }
-    catch (...)
+    catch (const std::exception& e)
     {
+        LOG_UNHANDLE_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLE_EXCEPTION();
     }
 }
 
@@ -638,9 +654,12 @@ void WalletClient::refresh()
             s->Refresh();
         }
     }
-    catch (...)
+    catch (const std::exception& e)
     {
-
+        LOG_UNHANDLE_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLE_EXCEPTION();
     }
 }
 
