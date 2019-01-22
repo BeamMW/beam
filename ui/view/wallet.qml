@@ -1204,7 +1204,7 @@ Item {
                             width: parent.width
                             clip: true
 
-                            property int maximumHeight: 200 + commentTx.contentHeight
+                            property int maximumHeight: 210 + commentTx.contentHeight + failureReason.contentHeight
 
                             onMaximumHeightChanged: {
                                 if (!rowItem.collapsed) {
@@ -1336,6 +1336,32 @@ Item {
                                             if(!!viewModel.transactions[styleData.row])
                                             {
                                                 return viewModel.transactions[styleData.row].kernelID;
+                                            }
+                                            return "";
+                                        }
+                                        font.styleName: "Italic"
+                                        Layout.fillWidth: true
+                                        wrapMode : Text.Wrap
+                                        elide: Text.ElideRight
+                                        onCopyText: viewModel.copyToClipboard(text)
+                                    }
+                                    SFText {
+                                        Layout.row: 6
+                                        font.pixelSize: 14
+                                        color: Style.bluey_grey
+                                        text: qsTr("Error: ")
+                                        visible: !!viewModel.transactions[styleData.row] ? viewModel.transactions[styleData.row].failureReason.length > 0 : false
+                                    }
+                                    SFLabel {
+                                        id: failureReason
+                                        copyMenuEnabled: true
+                                        font.pixelSize: 14
+                                        color: Style.white
+                                        visible: !!viewModel.transactions[styleData.row] ? viewModel.transactions[styleData.row].failureReason.length > 0 : false
+                                        text: {
+                                            if(!!viewModel.transactions[styleData.row])
+                                            {
+                                                return viewModel.transactions[styleData.row].failureReason;
                                             }
                                             return "";
                                         }

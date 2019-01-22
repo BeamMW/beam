@@ -38,6 +38,7 @@ class TxObject : public QObject
     Q_PROPERTY(QString receivingAddress READ getReceivingAddress CONSTANT)
     Q_PROPERTY(QString fee           READ getFee CONSTANT)
     Q_PROPERTY(QString kernelID      READ getKernelID  WRITE setKernelID NOTIFY kernelIDChanged)
+    Q_PROPERTY(QString failureReason READ getFailureReason WRITE setFailureReason NOTIFY failureReasonChanged)
 
 public:
 
@@ -61,6 +62,8 @@ public:
     beam::WalletID peerId() const;
     QString getKernelID() const;
     void setKernelID(const QString& value);
+    QString getFailureReason() const;
+    void setFailureReason(const QString& reason);
 
     void setUserName(const QString& name);
     void setDisplayName(const QString& name);
@@ -80,12 +83,14 @@ signals:
     void changeChanged();
     void statusChanged();
     void kernelIDChanged();
+    void failureReasonChanged();
 
 public:
     beam::TxDescription _tx;
     QString _userName;
     QString _displayName;
     QString _kernelID;
+    QString _failureReason;
 };
 
 class WalletViewModel : public QObject
