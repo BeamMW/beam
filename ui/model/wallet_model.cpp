@@ -58,6 +58,11 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
         return tr("Cannot connect to node: ") + getNodeAddress().c_str();
     case wallet::ErrorType::ConnectionHostUnreach:
         return tr("Node is unreachable: ") + getNodeAddress().c_str();
+    case wallet::ErrorType::ConnectionAddrInUse:
+    {
+        auto localNodePort = AppModel::getInstance()->getSettings().getLocalNodePort();
+        return QString(tr("The port %1 is already in use. Check if a wallet is already running on this machine or change the port settings.")).arg(QString::number(localNodePort));
+    }
     case wallet::ErrorType::TimeOutOfSync:
         return tr("System time not synchronized.");
     default:

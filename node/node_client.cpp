@@ -122,6 +122,12 @@ void NodeClient::start()
                         runLocalNode();
                         bErr = false;
                     }
+                    catch (const io::Exception& ex)
+                    {
+                        LOG_ERROR() << ex.what();
+                        m_observer->onFailedToStartNode(ex.errorCode);
+                        bErr = false;
+                    }
                     catch (const std::runtime_error& ex)
                     {
                         LOG_ERROR() << ex.what();

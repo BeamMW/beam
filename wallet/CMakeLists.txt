@@ -3,6 +3,7 @@ set(TARGET_NAME beam-wallet)
 add_definitions( -DSQLITE_HAS_CODEC )
 
 set(WALLET_SRC
+    common.cpp
     wallet.h
     wallet.cpp
     wallet_transaction.cpp

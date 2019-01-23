@@ -19,6 +19,7 @@
 #include <atomic>
 #include <condition_variable>
 #include "core/block_crypt.h"
+#include "utility/io/errorhandling.h"
 #include "utility/io/reactor.h"
 
 namespace beam
@@ -30,6 +31,7 @@ public:
     virtual void onStartedNode() = 0;
     virtual void onStoppedNode() = 0;
     virtual void onFailedToStartNode() = 0;
+    virtual void onFailedToStartNode(io::ErrorCode errorCode) = 0;
 
     virtual uint16_t getLocalNodePort() = 0;
     virtual std::string getLocalNodeStorage() = 0;

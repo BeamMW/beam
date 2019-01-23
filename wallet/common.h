@@ -26,34 +26,34 @@ namespace beam
     using TxID = std::array<uint8_t, 16>;
 
 #pragma pack (push, 1)
-	struct WalletID
-	{
-		uintBigFor<BbsChannel>::Type m_Channel;
-		PeerID m_Pk;
+    struct WalletID
+    {
+        uintBigFor<BbsChannel>::Type m_Channel;
+        PeerID m_Pk;
 
-		WalletID() {}
-		WalletID(Zero_)
-		{
-			m_Channel = Zero;
-			m_Pk = Zero;
-		}
+        WalletID() {}
+        WalletID(Zero_)
+        {
+            m_Channel = Zero;
+            m_Pk = Zero;
+        }
 
-		template <typename Archive>
-		void serialize(Archive& ar)
-		{
-			ar
-				& m_Channel
-				& m_Pk;
-		}
+        template <typename Archive>
+        void serialize(Archive& ar)
+        {
+            ar
+                & m_Channel
+                & m_Pk;
+        }
 
-		bool FromBuf(const ByteBuffer&);
-		bool FromHex(const std::string&);
+        bool FromBuf(const ByteBuffer&);
+        bool FromHex(const std::string&);
 
-		bool IsValid() const; // isn't cheap
+        bool IsValid() const; // isn't cheap
 
-		int cmp(const WalletID&) const;
-		COMPARISON_VIA_CMP
-	};
+        int cmp(const WalletID&) const;
+        COMPARISON_VIA_CMP
+    };
 #pragma pack (pop)
 
     bool check_receiver_address(const std::string& addr);
@@ -118,7 +118,7 @@ namespace beam
             : m_txId{ txId }
             , m_amount{ amount }
             , m_fee{ fee }
-			, m_change{}
+            , m_change{}
             , m_minHeight{ minHeight }
             , m_peerId{ peerId }
             , m_myId{myId}
@@ -134,7 +134,7 @@ namespace beam
         TxID m_txId;
         Amount m_amount=0;
         Amount m_fee=0;
-		Amount m_change=0;
+        Amount m_change=0;
         Height m_minHeight=0;
         WalletID m_peerId = Zero;
         WalletID m_myId = Zero;
@@ -200,7 +200,7 @@ namespace beam
             MaxHeight = 12,
             AmountList = 13,
 
-			PeerProtoVersion = 16,
+            PeerProtoVersion = 16,
 
             AtomicSwapCoin = 20,
             AtomicSwapAmount = 21,
@@ -240,7 +240,7 @@ namespace beam
 
             FailureReason = 92,
 
-			PaymentConfirmation = 99,
+            PaymentConfirmation = 99,
 
             // private parameters
             PrivateFirstParam = 128,
@@ -262,11 +262,11 @@ namespace beam
             Status = 151,
             KernelID = 152,
 
-			MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
+            MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
 
             SharedBlindingFactor = 160,
             LockedBlindingFactor = 161,
-			MyNonce = 162,
+            MyNonce = 162,
             SharedPeerBlindingFactor = 170,
 
             Inputs = 180,
@@ -354,22 +354,27 @@ namespace beam
             ConnectionTimedOut,
             ConnectionRefused,
             ConnectionHostUnreach,
-			TimeOutOfSync,
-		};
+            ConnectionAddrInUse,
+            TimeOutOfSync,
+            InternalNodeStartFailed,
+        };
 
-		struct PaymentConfirmation
-		{
-			// I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
-			Amount m_Value;
-			ECC::Hash::Value m_KernelID;
-			PeerID m_Sender;
-			ECC::Signature m_Signature;
+        ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType);
+        ErrorType getWalletError(io::ErrorCode errorCode);
 
-			void get_Hash(ECC::Hash::Value&) const;
-			bool IsValid(const PeerID&) const;
+        struct PaymentConfirmation
+        {
+            // I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
+            Amount m_Value;
+            ECC::Hash::Value m_KernelID;
+            PeerID m_Sender;
+            ECC::Signature m_Signature;
 
-			void Sign(const ECC::Scalar::Native& sk);
-		};
+            void get_Hash(ECC::Hash::Value&) const;
+            bool IsValid(const PeerID&) const;
+
+            void Sign(const ECC::Scalar::Native& sk);
+        };
     }
 }
 

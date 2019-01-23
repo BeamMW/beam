@@ -76,6 +76,10 @@ void NodeModel::onFailedToStartNode()
 {
 }
 
+void NodeModel::onFailedToStartNode(io::ErrorCode errorCode)
+{
+}
+
 uint16_t NodeModel::getLocalNodePort()
 {
     // default value
