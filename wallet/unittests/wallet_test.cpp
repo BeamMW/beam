@@ -1092,7 +1092,7 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(rtx->m_sender == false);
 
     // second transfer
-    auto preselectedCoins = sender.m_WalletDB->selectCoins(6, false);
+    auto preselectedCoins = sender.m_WalletDB->selectCoins(6);
     CoinIDList preselectedIDs;
     for (const auto& c : preselectedCoins)
     {
