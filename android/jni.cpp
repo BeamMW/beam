@@ -27,6 +27,7 @@
 #include "common.h"
 #include "wallet_model.h"
 #include "node_model.h"
+#include "version.h"
 
 #define WALLET_FILENAME "wallet.db"
 #define BBS_FILENAME "keys.bbs"
