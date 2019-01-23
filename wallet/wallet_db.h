@@ -52,11 +52,7 @@ namespace beam
 			count
         };
 
-        Coin(Amount amount
-           , Status status = Coin::Maturing
-           , Height maturity = MaxHeight
-           , Key::Type keyType = Key::Type::Regular);
-        Coin();
+        Coin(Amount amount = 0, Key::Type keyType = Key::Type::Regular);
         bool isReward() const;
 
         typedef Key::IDV ID;

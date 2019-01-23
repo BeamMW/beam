@@ -728,7 +728,7 @@ namespace beam { namespace wallet
 
     Output::Ptr TxBuilder::CreateOutput(Amount amount, bool bChange, bool shared, Height incubation)
     {
-        Coin newUtxo{ amount, Coin::Incoming };
+        Coin newUtxo(amount);
         newUtxo.m_createTxId = m_Tx.GetTxID();
         if (bChange)
         {

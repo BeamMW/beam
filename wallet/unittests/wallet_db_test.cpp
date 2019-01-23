@@ -126,41 +126,41 @@ void TestStoreCoins()
     auto walletDB = createSqliteWalletDB();
 
   
-    Coin coin = { 5, Coin::Available, 10, Key::Type::Coinbase };
+    Coin coin = { 5, Key::Type::Coinbase };
     walletDB->store(coin);
-    coin = { 4, Coin::Available, 10, Key::Type::Comission };
+    coin = { 4, Key::Type::Comission };
     walletDB->store(coin);
-    coin = { 2, Coin::Available, 10, Key::Type::Regular };
+    coin = { 2, Key::Type::Regular };
     walletDB->store(coin);
-    coin = { 5, Coin::Available, 10, Key::Type::Coinbase };
+    coin = { 5, Key::Type::Coinbase };
     walletDB->store(coin);
-    coin = { 1, Coin::Available, 10, Key::Type::Regular };
+    coin = { 1, Key::Type::Regular };
     walletDB->store(coin);
-    coin = { 5, Coin::Available, 10, Key::Type::Coinbase };
+    coin = { 5, Key::Type::Coinbase };
     walletDB->store(coin);
-    coin = { 4, Coin::Available, 10, Key::Type::Comission };
+    coin = { 4, Key::Type::Comission };
     walletDB->store(coin);
-    coin = { 1, Coin::Available, 10, Key::Type::Regular };
+    coin = { 1, Key::Type::Regular };
     walletDB->store(coin);
-    coin = { 4, Coin::Available, 10, Key::Type::Comission };
+    coin = { 4, Key::Type::Comission };
     walletDB->store(coin);
-    coin = { 1, Coin::Available, 10, Key::Type::Regular };
+    coin = { 1, Key::Type::Regular };
     walletDB->store(coin);
-    coin = { 1, Coin::Available, 10, Key::Type::Regular };
+    coin = { 1, Key::Type::Regular };
     walletDB->store(coin);
 
     auto coins = vector<Coin>{
-            Coin{ 5, Coin::Available, 10, Key::Type::Coinbase },
-            Coin{ 4, Coin::Available, 10, Key::Type::Comission },
-            Coin{ 2, Coin::Available, 10, Key::Type::Regular },
-            Coin{ 5, Coin::Available, 10, Key::Type::Coinbase },
-            Coin{ 1, Coin::Available, 10, Key::Type::Regular },
-            Coin{ 5, Coin::Available, 10, Key::Type::Coinbase },
-            Coin{ 4, Coin::Available, 10, Key::Type::Comission },
-            Coin{ 1, Coin::Available, 10, Key::Type::Regular },
-            Coin{ 4, Coin::Available, 10, Key::Type::Comission },
-            Coin{ 1, Coin::Available, 10, Key::Type::Regular },
-            Coin{ 1, Coin::Available, 10, Key::Type::Regular } };
+            Coin{ 5, Key::Type::Coinbase },
+            Coin{ 4, Key::Type::Comission },
+            Coin{ 2, Key::Type::Regular },
+            Coin{ 5, Key::Type::Coinbase },
+            Coin{ 1, Key::Type::Regular },
+            Coin{ 5, Key::Type::Coinbase },
+            Coin{ 4, Key::Type::Comission },
+            Coin{ 1, Key::Type::Regular },
+            Coin{ 4, Key::Type::Comission },
+            Coin{ 1, Key::Type::Regular },
+            Coin{ 1, Key::Type::Regular } };
     walletDB->store(coins);
 
 

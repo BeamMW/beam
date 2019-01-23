@@ -879,9 +879,9 @@ namespace beam
 		const int DbVersion10 = 10;
 	}
 
-    Coin::Coin(Amount amount, Status status, Height maturity, Key::Type keyType)
-        : m_status{ status }
-        , m_maturity{ maturity }
+    Coin::Coin(Amount amount /* = 0 */, Key::Type keyType /* = Key::Type::Regular */)
+        : m_status{ Status::Unavailable }
+        , m_maturity{ MaxHeight }
         , m_confirmHeight{ MaxHeight }
 		, m_spentHeight{ MaxHeight }
 		, m_sessionId(EmptyCoinSession)
@@ -889,11 +889,6 @@ namespace beam
         ZeroObject(m_ID);
         m_ID.m_Value = amount;
         m_ID.m_Type = keyType;
-    }
-
-    Coin::Coin()
-        : Coin(0, Coin::Available, MaxHeight, Key::Type::Regular)
-    {
     }
 
     bool Coin::isReward() const
