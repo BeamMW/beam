@@ -61,7 +61,13 @@ namespace beam {
 
 		try {
 			SaveBbsTimestamps();
-		} catch (...) {
+		} 
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
 		}
 	}
 

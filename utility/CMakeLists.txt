@@ -2,6 +2,7 @@ set(UTILITY_SRC
     common.cpp
     logger.cpp
     logger_checkpoints.cpp
+    log_rotation.cpp
     helpers.cpp
     config.cpp
 	options.cpp

@@ -62,8 +62,10 @@ beam::wallet::ErrorType GetWalletError(io::ErrorCode errorCode)
         return beam::wallet::ErrorType::ConnectionTimedOut;
     case EC_ECONNREFUSED:
         return beam::wallet::ErrorType::ConnectionRefused;
+    case EC_EHOSTUNREACH:
+        return beam::wallet::ErrorType::ConnectionHostUnreach;
     default:
-        return beam::wallet::ErrorType::NodeProtocolBase;
+        return beam::wallet::ErrorType::ConnectionBase;
     }
 }
 
@@ -239,9 +241,12 @@ WalletClient::~WalletClient()
             }
         }
     }
-    catch (...)
+    catch (const std::exception& e)
     {
-
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
@@ -322,9 +327,8 @@ void WalletClient::start()
             LOG_ERROR() << ex.what();
             FailedToStartWallet();
         }
-        catch (...)
-        {
-            LOG_ERROR() << "Unhandled exception";
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
         }
         m_isRunning = false;
     });
@@ -413,9 +417,12 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
 
         onSendMoneyVerified();
     }
-    catch (...)
+    catch (const std::exception& e)
     {
-
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
@@ -508,9 +515,12 @@ void WalletClient::generateNewAddress()
 
         onGeneratedNewAddress(address);
     }
-    catch (...)
+    catch (const std::exception& e)
     {
-
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
@@ -532,8 +542,12 @@ void WalletClient::deleteAddress(const beam::WalletID& id)
             m_walletDB->deleteAddress(id);
         }
     }
-    catch (...)
+    catch (const std::exception& e)
     {
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
@@ -582,8 +596,12 @@ void WalletClient::saveAddressChanges(const beam::WalletID& id, const std::strin
             LOG_ERROR() << "Address " << to_string(id) << " is absent.";
         }
     }
-    catch (...)
+    catch (const std::exception& e)
     {
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
@@ -638,9 +656,12 @@ void WalletClient::refresh()
             s->Refresh();
         }
     }
-    catch (...)
+    catch (const std::exception& e)
     {
-
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 

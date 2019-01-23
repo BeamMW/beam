@@ -40,7 +40,7 @@ namespace
     }
 }
 
-TxObject::TxObject(const TxDescription& tx) : _tx(tx) 
+TxObject::TxObject(const TxDescription& tx) : _tx(tx)
 {
     auto kernelID = QString::fromStdString(to_hex(_tx.m_kernelID.m_pData, _tx.m_kernelID.nBytes));
     setKernelID(kernelID);
@@ -186,11 +186,45 @@ void TxObject::setKernelID(const QString& value)
     }
 }
 
+QString TxObject::getFailureReason() const
+{
+    return _failureReason;
+}
+
+void TxObject::setFailureReason(const QString& value)
+{
+    if (_failureReason != value)
+    {
+        _failureReason = value;
+        emit failureReasonChanged();
+    }
+}
+
 void TxObject::update(const beam::TxDescription& tx)
 {
     setStatus(tx.m_status);
     auto kernelID = QString::fromStdString(to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes));
     setKernelID(kernelID);
+    //if (tx.m_status == TxStatus::Failed)
+    {
+        static QString Reasons[] =
+        {
+            tr("Unknown reason"),
+            tr("Transaction was cancelled"),
+            tr("Peer's signature in not valid "),
+            tr("Failed to register transaction"),
+            tr("Transaction is not valid"),
+            tr("Invalid kernel proof provided"),
+            tr("Failed to send tx parameters"),
+            tr("No inputs"),
+            tr("Address is expired"),
+            tr("Failed to get parameter"),
+            tr("Transaction has expired"),
+            tr("Payment not signed by the receiver")
+        };
+
+        setFailureReason(Reasons[tx.m_failureReason]);
+    }
 }
 
 WalletViewModel::WalletViewModel()

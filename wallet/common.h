@@ -81,6 +81,27 @@ namespace beam
         Registering
     };
 
+#define BEAM_TX_FAILURE_REASON_MAP(MACRO) \
+    MACRO(Unknown,                0, "Unknown reason") \
+    MACRO(Cancelled,              1, "Transaction was cancelled") \
+    MACRO(InvalidPeerSignature,   2, "Peer's signature in not valid ") \
+    MACRO(FailedToRegister,       3, "Failed to register transaction") \
+    MACRO(InvalidTransaction,     4, "Transaction is not valid") \
+    MACRO(InvalidKernelProof,     5, "Invalid kernel proof provided") \
+    MACRO(FailedToSendParameters, 6, "Failed to send tx parameters") \
+    MACRO(NoInputs,               7, "No inputs") \
+    MACRO(ExpiredAddressProvided, 8, "Address is expired") \
+    MACRO(FailedToGetParameter,   9, "Failed to get parameter") \
+    MACRO(TransactionExpired,     10, "Transaction has expired") \
+    MACRO(NoPaymentProof,         11, "Payment not signed by the receiver") \
+
+    enum TxFailureReason : int32_t
+    {
+#define MACRO(name, code, _) name = code, 
+        BEAM_TX_FAILURE_REASON_MAP(MACRO)
+#undef MACRO
+    };
+
     struct TxDescription
     {
         TxDescription() = default;
@@ -123,6 +144,7 @@ namespace beam
         bool m_sender=false;
         TxStatus m_status=TxStatus::Pending;
         Merkle::Hash m_kernelID = Zero;
+        TxFailureReason m_failureReason = TxFailureReason::Unknown;
 
         bool canResume() const
         {
@@ -326,11 +348,13 @@ namespace beam
 
         enum class ErrorType : uint8_t
         {
-            NodeProtocolBase = 0,
-            NodeProtocolIncompatible = 1,
-            ConnectionTimedOut = 2,
-            ConnectionRefused = 3,
-			TimeOutOfSync = 4,
+            NodeProtocolBase,
+            NodeProtocolIncompatible,
+            ConnectionBase,
+            ConnectionTimedOut,
+            ConnectionRefused,
+            ConnectionHostUnreach,
+			TimeOutOfSync,
 		};
 
 		struct PaymentConfirmation

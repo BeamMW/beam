@@ -149,6 +149,7 @@ void WalletModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxosVec)
             jobject utxo = env->AllocObject(UtxoClass);
 
             setLongField(env, UtxoClass, utxo, "id", coin.m_ID.m_Idx);
+            setStringField(env, UtxoClass, utxo, "stringId", coin.toStringID());
             setLongField(env, UtxoClass, utxo, "amount", coin.m_ID.m_Value);
             setIntField(env, UtxoClass, utxo, "status", coin.m_status);
             setLongField(env, UtxoClass, utxo, "maturity", coin.m_maturity);

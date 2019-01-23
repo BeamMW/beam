@@ -38,6 +38,7 @@ add_dependencies(wallet_api_proto wallet utility)
 target_link_libraries(wallet_api_proto wallet utility)
 
 add_executable(wallet-api api_cli.cpp)
+target_include_directories(wallet-api PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 add_dependencies(wallet-api wallet utility wallet_api_proto)
 target_link_libraries(wallet-api wallet utility wallet_api_proto)
 

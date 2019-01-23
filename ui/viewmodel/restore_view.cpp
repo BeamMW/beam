@@ -102,16 +102,18 @@ void RestoreViewModel::updateProgress()
 	if (m_nodeTotal > 0)
 		nodeSyncProgress = std::min(1., static_cast<double>(m_nodeDone) / static_cast<double>(m_nodeTotal));
 
-	if (m_total > 0)
-		walletSyncProgress = std::min(1., static_cast<double>(m_done) / static_cast<double>(m_total));
-
 	bool bLocalNode = AppModel::getInstance()->getSettings().getRunLocalNode();
 	QString progressMessage = tr("");
 
-	if (bLocalNode && (!m_nodeTotal || (m_nodeDone < m_nodeTotal)))
-		progressMessage = tr("Downloading blocks");
+    if (bLocalNode && (!m_nodeTotal || (m_nodeDone < m_nodeTotal)))
+    {
+        progressMessage = tr("Downloading blocks");
+    }
 	else
 	{
+        if (m_total > 0)
+            walletSyncProgress = std::min(1., static_cast<double>(m_done) / static_cast<double>(m_total));
+
 		if (!m_walletConnected)
 			syncWithNode();
 
@@ -123,9 +125,9 @@ void RestoreViewModel::updateProgress()
 			emit syncCompleted();
 		}
 	}
-    
+
     double p = bLocalNode ?
-		(nodeSyncProgress * 0.7 + walletSyncProgress * 0.3) :
+		(nodeSyncProgress * 0.9 + walletSyncProgress * 0.1) :
 		walletSyncProgress;
 
     auto currentTime = GetTime_ms();
@@ -151,7 +153,7 @@ void RestoreViewModel::updateProgress()
             }
         }
 
-        if (m_currentEstimationSec > 0 )
+        if (m_currentEstimationSec > 0 && m_currentEstimationSec < 24 * 3600)
         {
             progressMessage.append(tr(", estimated time:"));
 

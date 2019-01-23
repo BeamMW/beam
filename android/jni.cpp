@@ -27,6 +27,7 @@
 #include "common.h"
 #include "wallet_model.h"
 #include "node_model.h"
+#include "version.h"
 
 #define WALLET_FILENAME "wallet.db"
 #define BBS_FILENAME "keys.bbs"
@@ -78,6 +79,7 @@ namespace
         static auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "wallet_", (fs::path(appData) / fs::path("logs")).string());
 
         Rules::get().UpdateChecksum();
+        LOG_INFO() << "Beam Mobile Wallet " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
         LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
     }
 }
@@ -300,6 +302,32 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
     addr.m_OwnID = getLongField(env, WalletAddressClass, walletAddrObj, "own");
 
     walletModel->getAsync()->saveAddress(addr, own);
+}
+
+// don't use it. i don't check it
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(cancelTx)(JNIEnv *env, jobject thiz,
+    jbyteArray txId)
+{
+    LOG_DEBUG() << "cancelTx()";
+
+    jbyte* data = env->GetByteArrayElements(txId, NULL);
+
+    if (data)
+    {
+        jsize size = env->GetArrayLength(txId);
+        TxID id;
+
+        if (size == id.size())
+        {
+            memcpy(&id[0], data, size);
+
+            walletModel->getAsync()->cancelTx(id);
+        }
+
+        env->ReleaseByteArrayElements(txId, data, JNI_ABORT);
+
+        env->DeleteLocalRef(txId);
+    }
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)

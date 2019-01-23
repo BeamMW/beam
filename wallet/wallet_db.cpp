@@ -921,6 +921,16 @@ namespace beam
 		return IsMaturityValid() ? m_maturity : MaxHeight;
 	}
 
+    string Coin::toStringID() const
+    {
+        ID::Packed packed;
+        packed = m_ID;
+
+        return to_hex(packed.m_Idx.m_pData, packed.m_Idx.nBytes) +
+            to_hex(packed.m_Type.m_pData, packed.m_Type.nBytes) +
+            to_hex(packed.m_SubIdx.m_pData, packed.m_SubIdx.nBytes);
+    }
+
     bool WalletDB::isInitialized(const string& path)
     {
 #ifdef WIN32
@@ -1601,6 +1611,9 @@ namespace beam
                 break;
             case wallet::TxParameterID::KernelID:
                 deserialize(txDescription.m_kernelID, parameter.m_value);
+                break;
+            case wallet::TxParameterID::FailureReason:
+                deserialize(txDescription.m_failureReason, parameter.m_value);
                 break;
 			default:
 				break; // suppress warning

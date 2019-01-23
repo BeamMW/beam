@@ -54,6 +54,7 @@ namespace beam
 
         Coin(Amount amount = 0, Key::Type keyType = Key::Type::Regular);
         bool isReward() const;
+        std::string toStringID() const;
 
         typedef Key::IDV ID;
         ID m_ID;

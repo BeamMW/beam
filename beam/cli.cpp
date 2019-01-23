@@ -19,7 +19,7 @@
 #include "core/ecc_native.h"
 #include "core/ecc.h"
 #include "core/serialization_adapters.h"
-#include "utility/logger.h"
+#include "utility/log_rotation.h"
 #include "utility/options.h"
 #include "utility/helpers.h"
 #include <iomanip>
@@ -86,7 +86,8 @@ namespace
 
 io::Reactor::Ptr reactor;
 
-static const unsigned LOG_ROTATION_PERIOD = 3*60*60*1000; // 3 hours
+static const unsigned LOG_ROTATION_PERIOD_SEC = 3*60*60; // 3 hours
+static const unsigned LOG_CLEANUP_PERIOD_SEC = 168*60*60; // 1 week
 
 int main_impl(int argc, char* argv[])
 {
@@ -139,6 +140,7 @@ int main_impl(int argc, char* argv[])
 			po::notify(vm);
 
 			Rules::get().UpdateChecksum();
+            LOG_INFO() << "Beam Node " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
 			LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
 			auto port = vm[cli::PORT].as<uint16_t>();
@@ -149,13 +151,7 @@ int main_impl(int argc, char* argv[])
 
 				io::Reactor::GracefulIntHandler gih(*reactor);
 
-				io::Timer::Ptr logRotateTimer = io::Timer::create(*reactor);
-				logRotateTimer->start(
-					LOG_ROTATION_PERIOD, true,
-					[]() {
-						Logger::get()->rotate();
-					}
-				);
+				LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
 
 				std::unique_ptr<IExternalPOW> stratumServer;
 				auto stratumPort = vm[cli::STRATUM_PORT].as<uint16_t>();

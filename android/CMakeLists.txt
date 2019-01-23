@@ -6,13 +6,13 @@ set(SRC
     wallet_model.cpp 
     common.h 
     common.cpp 
-    node_model.h 
-    node_model.cpp
+    #node_model.h 
+    #node_model.cpp
 )
 
 add_library(${TARGET_NAME} SHARED ${SRC})
-add_dependencies(${TARGET_NAME} wallet utility node)
-target_link_libraries(${TARGET_NAME} wallet utility node)
+add_dependencies(${TARGET_NAME} wallet utility)
+target_link_libraries(${TARGET_NAME} wallet utility)
 
 configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})

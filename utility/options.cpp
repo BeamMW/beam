@@ -353,4 +353,11 @@ namespace beam
     {
         return read_secret_impl(pass, "Enter password: ", cli::PASS, vm);
     }
+
+    bool confirm_wallet_pass(const SecString& pass)
+    {
+        SecString passConfirm;
+        read_password("Confirm password: ", passConfirm, false);
+        return passConfirm.hash().V == pass.hash().V;
+    }
 }

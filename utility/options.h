@@ -128,4 +128,5 @@ namespace beam
     class SecString;
 
     bool read_wallet_pass(SecString& pass, const po::variables_map& vm);
+    bool confirm_wallet_pass(const SecString& pass);
 }

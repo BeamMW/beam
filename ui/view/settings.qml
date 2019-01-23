@@ -361,7 +361,8 @@ Rectangle {
                     property bool canRefresh: true
                     okButtonText: qsTr("yes")
                     okButtonIconSource: "qrc:/assets/icon-done.svg"
-                    cancelVisible: false
+                    cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+                    cancelVisible: true
                     width: 460
                     text: qsTr("Rescan will update transaction and UTXO data in your wallet and get latest information from the blockchain. Are you sure?")
                     onAccepted: {

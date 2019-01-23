@@ -156,6 +156,7 @@ namespace beam { namespace wallet
     bool BaseTransaction::CheckExpired()
     {
         Height kernelConfirmHeight = 0;
+        
         if (GetParameter(TxParameterID::KernelProofHeight, kernelConfirmHeight) && kernelConfirmHeight > 0)
         {
             // completed tx
@@ -165,8 +166,9 @@ namespace beam { namespace wallet
         Height maxHeight = MaxHeight;
         GetParameter(TxParameterID::MaxHeight, maxHeight);
         
+        bool isRegistered = false;
         Merkle::Hash kernelID;
-        if (!GetParameter(TxParameterID::KernelID, kernelID))
+        if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered) || !GetParameter(TxParameterID::KernelID, kernelID))
         {
             Block::SystemState::Full state;
             if (GetTip(state) && state.m_Height > maxHeight)
@@ -603,6 +605,7 @@ namespace beam { namespace wallet
             // we skip this step for new tx flow
             return;
         }
+        LOG_INFO() << GetTxID() << " Peer signature is valid. Kernel: " << builder.GetKernelIDString();
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::PeerSignature, Scalar(builder.GetPartialSignature()));
         if (sendUtxos)
@@ -673,7 +676,7 @@ namespace beam { namespace wallet
         {
 			Totals totals(*m_Tx.GetWalletDB());
 
-            LOG_ERROR() << "You only have " << PrintableAmount(totals.Avail);
+			LOG_ERROR() << m_Tx.GetTxID() << "You only have " << PrintableAmount(totals.Avail);
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
         }
 
@@ -802,7 +805,7 @@ namespace beam { namespace wallet
     {
         if (m_Tx.GetParameter(TxParameterID::PeerSignature, m_PeerSignature))
         {
-            LOG_DEBUG() << "Received PeerSig:\t" << Scalar(m_PeerSignature);
+            LOG_DEBUG() << m_Tx.GetTxID() << "Received PeerSig:\t" << Scalar(m_PeerSignature);
             return true;
         }
         
