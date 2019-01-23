@@ -168,9 +168,10 @@ struct Node
 
 	} m_SyncStatus;
 
-	bool m_UpdatedFromPeers = false;
-
 private:
+
+	bool m_UpdatedFromPeers = false;
+	bool m_PostStartSynced = false;
 
 	struct Processor
 		:public NodeProcessor
@@ -488,6 +489,7 @@ private:
 		void BroadcastBbs(Bbs::Subscription&);
 		void OnChocking();
 		void SetTxCursor(TxPool::Fluff::Element*);
+		void SendLogin();
 
 		bool IsChocking(size_t nExtra = 0);
 		bool ShouldAssignTasks();

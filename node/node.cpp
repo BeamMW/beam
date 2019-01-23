@@ -60,8 +60,26 @@ void Node::UpdateSyncStatus()
 	SyncStatus stat = m_SyncStatus;
 	UpdateSyncStatusRaw();
 
-	if (m_Cfg.m_Observer && !(m_SyncStatus == stat)  && m_UpdatedFromPeers)
-		m_Cfg.m_Observer->OnSyncProgress();
+	if (!(m_SyncStatus == stat) && m_UpdatedFromPeers)
+	{
+		if (!m_PostStartSynced && (m_SyncStatus.m_Done == m_SyncStatus.m_Total))
+		{
+			m_PostStartSynced = true;
+
+			LOG_INFO() << "Tx replication is ON";
+
+			for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+			{
+				Peer& peer = *it;
+				if (Peer::Flags::Connected & peer.m_Flags)
+					peer.SendLogin();
+			}
+
+		}
+
+		if (m_Cfg.m_Observer)
+			m_Cfg.m_Observer->OnSyncProgress();
+	}
 }
 
 void Node::UpdateSyncStatusRaw()
@@ -761,6 +779,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
 
     LOG_INFO() << "Node ID=" << m_MyPublicID;
     LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
+	LOG_INFO() << "Tx replication is OFF";
 
     if (!m_Cfg.m_Treasury.empty() && !m_Processor.m_Extra.m_TreasuryHandled)
         m_Processor.OnTreasury(Blob(m_Cfg.m_Treasury));
@@ -1039,17 +1058,7 @@ void Node::Peer::OnConnectedSecure()
 
     ProveID(m_This.m_MyPrivateID, proto::IDType::Node);
 
-    proto::Login msgLogin;
-    msgLogin.m_CfgChecksum = Rules::get().Checksum; // checksum of all consesnsus related configuration
-    msgLogin.m_Flags =
-		proto::LoginFlags::Extension1 |
-        proto::LoginFlags::SpreadingTransactions | // indicate ability to receive and broadcast transactions
-        proto::LoginFlags::SendPeers; // request a another node to periodically send a list of recommended peers
-
-	if (m_This.m_Cfg.m_Bbs)
-		msgLogin.m_Flags |= proto::LoginFlags::Bbs; // indicate ability to receive and broadcast BBS messages
-
-    Send(msgLogin);
+	SendLogin();
 
     if (m_This.m_Processor.m_Extra.m_TreasuryHandled)
     {
@@ -1057,6 +1066,24 @@ void Node::Peer::OnConnectedSecure()
         msg.m_Description = m_This.m_Processor.m_Cursor.m_Full;
         Send(msg);
     }
+}
+
+void Node::Peer::SendLogin()
+{
+	proto::Login msgLogin;
+	msgLogin.m_CfgChecksum = Rules::get().Checksum; // checksum of all consesnsus related configuration
+
+	msgLogin.m_Flags =
+		proto::LoginFlags::Extension1 |
+		proto::LoginFlags::SendPeers; // request a another node to periodically send a list of recommended peers
+
+	if (m_This.m_PostStartSynced)
+		msgLogin.m_Flags |= proto::LoginFlags::SpreadingTransactions; // indicate ability to receive and broadcast transactions
+
+	if (m_This.m_Cfg.m_Bbs)
+		msgLogin.m_Flags |= proto::LoginFlags::Bbs; // indicate ability to receive and broadcast BBS messages
+
+	Send(msgLogin);
 }
 
 void Node::Peer::OnMsg(proto::Authentication&& msg)
