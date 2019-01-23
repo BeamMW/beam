@@ -35,7 +35,7 @@ public:
 
     bool createWallet(const beam::SecString& seed, const beam::SecString& pass);
     bool openWallet(const beam::SecString& pass);
-	bool checkWalletPassword(const beam::SecString& pass) const;
+    bool checkWalletPassword(const beam::SecString& pass) const;
     void changeWalletPassword(const std::string& pass);
 
     void applySettingsChanges();
@@ -46,12 +46,13 @@ public:
     void resetWallet();
 
 public slots:
-	void startedNode();
+    void startedNode();
     void stoppedNode();
+    void onFailedToStartNode(beam::wallet::ErrorType errorCode);
 
 private:
     void start();
-	void OnWalledOpened(const beam::SecString& pass);
+    void OnWalledOpened(const beam::SecString& pass);
     void resetWalletImpl();
 
 private:
@@ -60,7 +61,7 @@ private:
     NodeModel m_nodeModel;
     WalletSettings& m_settings;
     MessageManager m_messages;
-	ECC::NoLeak<ECC::uintBig> m_passwordHash;
+    ECC::NoLeak<ECC::uintBig> m_passwordHash;
     beam::IWalletDB::Ptr m_db;
     static AppModel* s_instance;
 };

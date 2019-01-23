@@ -77,7 +77,12 @@ void NodeModel::onStoppedNode()
 
 void NodeModel::onFailedToStartNode()
 {
-    AppModel::getInstance()->getMessages().addMessage(tr("Failed to start node. Please check your node configuration"));
+    emit failedToStartNode(beam::wallet::ErrorType::InternalNodeStartFailed);
+}
+
+void NodeModel::onFailedToStartNode(io::ErrorCode errorCode)
+{
+    emit failedToStartNode(wallet::getWalletError(errorCode));
 }
 
 uint16_t NodeModel::getLocalNodePort()

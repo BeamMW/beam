@@ -21,6 +21,16 @@
 
 namespace beam
 {
+    class AddressExpiredException : public std::runtime_error
+    {
+    public:
+        explicit AddressExpiredException()
+            : std::runtime_error(nullptr)
+        {
+        }
+
+    };
+
     struct IWalletObserver : IWalletDbObserver
     {
         virtual void onSyncProgress(int done, int total) = 0;
@@ -62,9 +72,10 @@ namespace beam
 
         void set_Network(proto::FlyClient::INetwork&, IWalletNetwork&);
 
-        boost::optional<TxID> transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {} );
-        boost::optional<TxID> transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee = 0, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {});
-        boost::optional<TxID> split_coins(const WalletID& from, const AmountList& amountList, Amount fee = 0, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {});
+        TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {} );
+        TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {});
+        TxID transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {});
+        TxID split_coins(const WalletID& from, const AmountList& amountList, Amount fee = 0, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {});
         TxID swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount);
         void Refresh();
 

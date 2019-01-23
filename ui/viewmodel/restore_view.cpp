@@ -240,10 +240,23 @@ void RestoreViewModel::onNodeConnectionChanged(bool isNodeConnected)
 
 void RestoreViewModel::onGetWalletError(beam::wallet::ErrorType error)
 {
-    if (beam::wallet::ErrorType::NodeProtocolIncompatible == error && m_isCreating)
+    if (m_isCreating)
     {
-        emit walletError(tr("Incompatible peer"), m_walletModel.GetErrorString(error));
-        return;
+        switch (error)
+        {
+            case beam::wallet::ErrorType::NodeProtocolIncompatible:
+            {
+                emit walletError(tr("Incompatible peer"), m_walletModel.GetErrorString(error));
+                return;
+            }
+            case beam::wallet::ErrorType::ConnectionAddrInUse:
+            {
+                emit walletError(tr("Connection error"), m_walletModel.GetErrorString(error));
+                return;
+            }
+            default:
+                assert(false && "Unsupported error code!");
+        }
     }
 
     m_skipProgress = true;

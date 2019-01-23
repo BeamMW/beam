@@ -41,34 +41,6 @@ private:
     std::shared_ptr<Notifier> m_notifier;
 };
 
-beam::wallet::ErrorType GetWalletError(proto::NodeProcessingException::Type exceptionType)
-{
-    switch (exceptionType)
-    {
-    case proto::NodeProcessingException::Type::Incompatible:
-        return beam::wallet::ErrorType::NodeProtocolIncompatible;
-    case proto::NodeProcessingException::Type::TimeOutOfSync:
-        return beam::wallet::ErrorType::TimeOutOfSync;
-    default:
-        return beam::wallet::ErrorType::NodeProtocolBase;
-    }
-}
-
-beam::wallet::ErrorType GetWalletError(io::ErrorCode errorCode)
-{
-    switch (errorCode)
-    {
-    case EC_ETIMEDOUT:
-        return beam::wallet::ErrorType::ConnectionTimedOut;
-    case EC_ECONNREFUSED:
-        return beam::wallet::ErrorType::ConnectionRefused;
-    case EC_EHOSTUNREACH:
-        return beam::wallet::ErrorType::ConnectionHostUnreach;
-    default:
-        return beam::wallet::ErrorType::ConnectionBase;
-    }
-}
-
 using WalletSubscriber = ScopedSubscriber<IWalletObserver, beam::IWallet>;
 
 struct WalletModelBridge : public Bridge<IWalletModelAsync>
@@ -384,15 +356,7 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
     {
         auto receiverAddr = m_walletDB->getAddress(receiver);
 
-        if (receiverAddr)
-        {
-            if (receiverAddr->m_OwnID && receiverAddr->isExpired())
-            {
-                onCantSendToExpired();
-                return;
-            }
-        }
-        else
+        if (!receiverAddr)
         {
             WalletAddress peerAddr;
             peerAddr.m_walletID = receiver;
@@ -416,6 +380,11 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
         }
 
         onSendMoneyVerified();
+    }
+    catch (const beam::AddressExpiredException&)
+    {
+        onCantSendToExpired();
+        return;
     }
     catch (const std::exception& e)
     {
@@ -701,14 +670,14 @@ void WalletClient::nodeConnectionFailed(const proto::NodeConnection::DisconnectR
     // reason -> wallet::ErrorType
     if (proto::NodeConnection::DisconnectReason::ProcessingExc == reason.m_Type)
     {
-        m_walletError = GetWalletError(reason.m_ExceptionDetails.m_ExceptionType);
+        m_walletError = wallet::getWalletError(reason.m_ExceptionDetails.m_ExceptionType);
         onWalletError(*m_walletError);
         return;
     }
 
     if (proto::NodeConnection::DisconnectReason::Io == reason.m_Type)
     {
-        m_walletError = GetWalletError(reason.m_IoError);
+        m_walletError = wallet::getWalletError(reason.m_IoError);
         onWalletError(*m_walletError);
         return;
     }

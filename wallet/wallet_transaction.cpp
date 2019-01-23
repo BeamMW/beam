@@ -670,8 +670,26 @@ namespace beam { namespace wallet
 
     void TxBuilder::SelectInputs()
     {
+        CoinIDList preselectedCoinIDs;
+        vector<Coin> coins;
+        Amount preselectedAmount = 0;
+        if (m_Tx.GetParameter(TxParameterID::PreselectedCoins, preselectedCoinIDs) && !preselectedCoinIDs.empty())
+        {
+            coins = m_Tx.GetWalletDB()->getCoinsByID(preselectedCoinIDs);
+            for (auto& coin : coins)
+            {
+                preselectedAmount += coin.getAmount();
+                coin.m_status = Coin::Outgoing;
+            }
+            m_Tx.GetWalletDB()->save(coins);
+        }
         Amount amountWithFee = GetAmount() + m_Fee;
-        auto coins = m_Tx.GetWalletDB()->selectCoins(amountWithFee);
+        if (preselectedAmount < amountWithFee)
+        {
+            auto selectedCoins = m_Tx.GetWalletDB()->selectCoins(amountWithFee - preselectedAmount);
+            copy(selectedCoins.begin(), selectedCoins.end(), back_inserter(coins));
+        }
+
         if (coins.empty())
         {
 			Totals totals(*m_Tx.GetWalletDB());
@@ -805,7 +823,7 @@ namespace beam { namespace wallet
     {
         if (m_Tx.GetParameter(TxParameterID::PeerSignature, m_PeerSignature))
         {
-            LOG_DEBUG() << m_Tx.GetTxID() << "Received PeerSig:\t" << Scalar(m_PeerSignature);
+            LOG_DEBUG() << m_Tx.GetTxID() << " Received PeerSig:\t" << Scalar(m_PeerSignature);
             return true;
         }
         

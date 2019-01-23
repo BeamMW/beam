@@ -987,12 +987,7 @@ int main_impl(int argc, char* argv[])
                     {
                         WalletAddress senderAddress = newAddress(walletDB, "");
                         wnet.AddOwnAddress(senderAddress);
-                        auto txId = wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
-
-                        if (!txId)
-                        {
-                            return 0;
-                        }
+                        wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
                     }
 
                     if (command == cli::CANCEL_TX) 
@@ -1027,6 +1022,9 @@ int main_impl(int argc, char* argv[])
                     io::Reactor::get_Current().run();
                 }
             }
+        }
+        catch (const AddressExpiredException&)
+        {
         }
         catch (const po::error& e)
         {

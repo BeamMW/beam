@@ -98,6 +98,8 @@ namespace
             return ret;
         }
         bool find(Coin& coin) override { return false; }
+        std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) override { return {}; };
+        std::vector<Coin> getCoinsByID(const CoinIDList& ids) override { return {}; };
         void store(beam::Coin& ) override {}
         void store(std::vector<beam::Coin>&) override {}
         void save(const beam::Coin&) override {}
@@ -978,7 +980,7 @@ void TestTxToHimself()
     // check Tx
     auto txHistory = senderWalletDB->getTxHistory();
     WALLET_CHECK(txHistory.size() == 1);
-    WALLET_CHECK(txHistory[0].m_txId == *txId);
+    WALLET_CHECK(txHistory[0].m_txId == txId);
     WALLET_CHECK(txHistory[0].m_amount == 24);
     WALLET_CHECK(txHistory[0].m_change == 14);
     WALLET_CHECK(txHistory[0].m_fee == 2);
@@ -1074,9 +1076,9 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(sh.size() == 1);
     auto rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 1);
-    auto stx = sender.m_WalletDB->getTx(*txId);
+    auto stx = sender.m_WalletDB->getTx(txId);
     WALLET_CHECK(stx.is_initialized());
-    auto rtx = receiver.m_WalletDB->getTx(*txId);
+    auto rtx = receiver.m_WalletDB->getTx(txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
@@ -1090,8 +1092,14 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(rtx->m_sender == false);
 
     // second transfer
+    auto preselectedCoins = sender.m_WalletDB->selectCoins(6, false);
+    CoinIDList preselectedIDs;
+    for (const auto& c : preselectedCoins)
+    {
+        preselectedIDs.push_back(c.m_ID);
+    }
     sw.start();
-    txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6, 0, true, 200);
+    txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 6, 0, preselectedIDs, true, 200);
     mainReactor->run();
     sw.stop();
     cout << "Second transfer elapsed time: " << sw.milliseconds() << " ms\n";
@@ -1137,9 +1145,9 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(sh.size() == 2);
     rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 2);
-    stx = sender.m_WalletDB->getTx(*txId);
+    stx = sender.m_WalletDB->getTx(txId);
     WALLET_CHECK(stx.is_initialized());
-    rtx = receiver.m_WalletDB->getTx(*txId);
+    rtx = receiver.m_WalletDB->getTx(txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
@@ -1173,9 +1181,9 @@ void TestP2PWalletNegotiationST()
     WALLET_CHECK(sh.size() == 3);
     rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 2);
-    stx = sender.m_WalletDB->getTx(*txId);
+    stx = sender.m_WalletDB->getTx(txId);
     WALLET_CHECK(stx.is_initialized());
-    rtx = receiver.m_WalletDB->getTx(*txId);
+    rtx = receiver.m_WalletDB->getTx(txId);
     WALLET_CHECK(!rtx.is_initialized());
 
     WALLET_CHECK(stx->m_amount == 6);
@@ -1249,9 +1257,9 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(sh.size() == 1);
     auto rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 1);
-    auto stx = sender.m_WalletDB->getTx(*txId);
+    auto stx = sender.m_WalletDB->getTx(txId);
     WALLET_CHECK(stx.is_initialized());
-    auto rtx = receiver.m_WalletDB->getTx(*txId);
+    auto rtx = receiver.m_WalletDB->getTx(txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
@@ -1312,9 +1320,9 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(sh.size() == 2);
     rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 2);
-    stx = sender.m_WalletDB->getTx(*txId);
+    stx = sender.m_WalletDB->getTx(txId);
     WALLET_CHECK(stx.is_initialized());
-    rtx = receiver.m_WalletDB->getTx(*txId);
+    rtx = receiver.m_WalletDB->getTx(txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(stx->m_txId == rtx->m_txId);
@@ -1347,9 +1355,9 @@ void TestP2PWalletReverseNegotiationST()
     WALLET_CHECK(sh.size() == 3);
     rh = receiver.m_WalletDB->getTxHistory();
     WALLET_CHECK(rh.size() == 3);
-    stx = sender.m_WalletDB->getTx(*txId);
+    stx = sender.m_WalletDB->getTx(txId);
     WALLET_CHECK(stx.is_initialized());
-    rtx = receiver.m_WalletDB->getTx(*txId);
+    rtx = receiver.m_WalletDB->getTx(txId);
     WALLET_CHECK(rtx.is_initialized());
 
     WALLET_CHECK(rtx->m_amount == 6);
@@ -1466,7 +1474,7 @@ static void TestSplitTransaction()
     // check Tx
     auto txHistory = senderWalletDB->getTxHistory();
     WALLET_CHECK(txHistory.size() == 1);
-    WALLET_CHECK(txHistory[0].m_txId == *txId);
+    WALLET_CHECK(txHistory[0].m_txId == txId);
     WALLET_CHECK(txHistory[0].m_amount == 36);
     WALLET_CHECK(txHistory[0].m_change == 2);
     WALLET_CHECK(txHistory[0].m_fee == 2);

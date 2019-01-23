@@ -921,6 +921,16 @@ namespace beam
 		return IsMaturityValid() ? m_maturity : MaxHeight;
 	}
 
+	bool Coin::operator==(const Coin& other) const
+    {
+        return other.m_ID == m_ID;
+    }
+
+    bool Coin::operator!=(const Coin& other) const
+    {
+        return !(other == *this);
+    }
+
     string Coin::toStringID() const
     {
         ID::Packed packed;
@@ -929,6 +939,11 @@ namespace beam
         return to_hex(packed.m_Idx.m_pData, packed.m_Idx.nBytes) +
             to_hex(packed.m_Type.m_pData, packed.m_Type.nBytes) +
             to_hex(packed.m_SubIdx.m_pData, packed.m_SubIdx.nBytes);
+    }
+
+    Amount Coin::getAmount() const
+    {
+        return m_ID.m_Value;
     }
 
     bool WalletDB::isInitialized(const string& path)
@@ -1250,6 +1265,52 @@ namespace beam
 
 
         return coinsSel;
+    }
+
+    std::vector<Coin> WalletDB::getCoinsCreatedByTx(const TxID& txId)
+    {
+        // select all coins for TxID
+        sqlite::Statement stm(_db, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE createTxID=?1 ORDER BY amount DESC;");
+        stm.bind(1, txId);
+
+        vector<Coin> coins;
+
+        while (stm.step())
+        {
+            auto& coin = coins.emplace_back();
+            int colIdx = 0;
+            ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+        }
+
+        return coins;
+    }
+
+    vector<Coin> WalletDB::getCoinsByID(const CoinIDList& ids)
+    {
+        vector<Coin> coins;
+        coins.reserve(ids.size());
+        struct DummyWrapper {
+                Coin::ID m_ID;
+        };
+        for (const auto& cid : ids)
+        {
+            const char* req = "SELECT * FROM " STORAGE_NAME STORAGE_WHERE_ID;
+            sqlite::Statement stm(_db, req);
+
+            static_assert(sizeof(DummyWrapper) == sizeof(cid), "");
+            const DummyWrapper& wrp = reinterpret_cast<const DummyWrapper&>(cid);
+
+            int colIdx = 0;
+            STORAGE_BIND_ID(wrp);
+
+            if (stm.step())
+            {
+                auto& coin = coins.emplace_back();
+                colIdx = 0;
+                ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+            }
+        }
+        return coins;
     }
 
     namespace

@@ -212,20 +212,19 @@ namespace beam
             {
                 LOG_DEBUG() << "Send(id = " << id << " amount = " << data.value << " fee = " << data.fee <<  " address = " << std::to_string(data.address) << ")";
 
-                WalletAddress senderAddress = wallet::createAddress(*_walletDB);
-                _walletDB->saveAddress(senderAddress);
-
-                _wnet.AddOwnAddress(senderAddress);
-
-                ByteBuffer message(data.comment.begin(), data.comment.end());
-
-                auto txId = _wallet.transfer_money(senderAddress.m_walletID, data.address, data.value, data.fee, true, 120, std::move(message));
-
-                if (txId)
+                try
                 {
-                    doResponse(id, Send::Response{ *txId });
+                    WalletAddress senderAddress = wallet::createAddress(*_walletDB);
+                    _walletDB->saveAddress(senderAddress);
+
+                    _wnet.AddOwnAddress(senderAddress);
+
+                    ByteBuffer message(data.comment.begin(), data.comment.end());
+
+                    auto txId = _wallet.transfer_money(senderAddress.m_walletID, data.address, data.value, data.fee, true, 120, std::move(message));
+                    doResponse(id, Send::Response{ txId });
                 }
-                else
+                catch(...)
                 {
                     doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction could not be created. Please look at logs.");
                 }
@@ -268,18 +267,16 @@ namespace beam
                 LOG_DEBUG() << "Split(id = " << id << " coins = [";
                 for (auto& coin : data.coins) LOG_DEBUG() << coin << ",";
                 LOG_DEBUG() << "], fee = " << data.fee;
-
-                WalletAddress senderAddress = wallet::createAddress(*_walletDB);
-                _walletDB->saveAddress(senderAddress);
-                _wnet.AddOwnAddress(senderAddress);
-
-                auto txId = _wallet.split_coins(senderAddress.m_walletID, data.coins, data.fee);
-
-                if (txId)
+                try
                 {
-                    doResponse(id, Send::Response{ *txId });
+                     WalletAddress senderAddress = wallet::createAddress(*_walletDB);
+                    _walletDB->saveAddress(senderAddress);
+                    _wnet.AddOwnAddress(senderAddress);
+
+                    auto txId = _wallet.split_coins(senderAddress.m_walletID, data.coins, data.fee);
+                    doResponse(id, Send::Response{ txId });
                 }
-                else
+                catch(...)
                 {
                     doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction could not be created. Please look at logs.");
                 }
