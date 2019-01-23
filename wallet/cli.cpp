@@ -814,7 +814,7 @@ int main_impl(int argc, char* argv[])
                         return -1;
                     }
 
-                    if (command == cli::INIT && vm.count(cli::PASS) == 0)
+                    if ((command == cli::INIT || command == cli::RESTORE) && vm.count(cli::PASS) == 0)
                     {
                         if (!beam::confirm_wallet_pass(pass))
                         {
