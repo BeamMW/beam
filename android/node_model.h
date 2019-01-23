@@ -41,7 +41,7 @@ protected:
     void onStartedNode() override;
     void onStoppedNode() override;
     void onFailedToStartNode() override;
-    void onFailedToStartNode(io::ErrorCode errorCode) override;
+    void onFailedToStartNode(beam::io::ErrorCode errorCode) override;
 
     uint16_t getLocalNodePort() override;
     std::string getLocalNodeStorage() override;
