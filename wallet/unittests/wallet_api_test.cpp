@@ -178,6 +178,7 @@ namespace
                 coin.m_ID.m_Idx = 132+i;
                 coin.m_maturity = 60;
 				coin.m_confirmHeight = 60;
+				coin.m_status = Coin::Status::Available; // maturity is returned only for confirmed coins
                 getUtxo.utxos.push_back(coin);
             }
 
