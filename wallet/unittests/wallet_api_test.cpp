@@ -177,6 +177,7 @@ namespace
                 coin.m_ID.m_Type = Key::Type::Regular;
                 coin.m_ID.m_Idx = 132+i;
                 coin.m_maturity = 60;
+				coin.m_confirmHeight = 60;
                 getUtxo.utxos.push_back(coin);
             }
 
