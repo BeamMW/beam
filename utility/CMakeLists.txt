@@ -77,6 +77,11 @@ if(ANDROID)
             $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_program_options-clang-mt-x32-1_68.a 
             $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_filesystem-clang-mt-x32-1_68.a
             $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_system-clang-mt-x32-1_68.a)
+    elseif(ANDROID_ABI STREQUAL "arm64-v8a")
+        target_link_libraries(utility 
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_program_options-clang-mt-a64-1_68.a 
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_filesystem-clang-mt-a64-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_system-clang-mt-a64-1_68.a)
     endif()
 
 else()
