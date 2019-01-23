@@ -33,11 +33,11 @@ public class Wallet
 
     
     // not implemented
-    public native void cancelTx();//const beam::TxID& id);
-    public native void deleteTx();//const beam::TxID& id);
-    public native void changeCurrentWalletIDs();//const beam::WalletID& senderID, const beam::WalletID& receiverID);
-    public native void deleteAddress();//const beam::WalletID& id);
-    public native void setNodeAddress();//const std::string& addr);
+    public native void cancelTx(byte[] id); //const beam::TxID& id);
+    public native void deleteTx(byte[] id); //const beam::TxID& id);
+    public native void changeCurrentWalletIDs(); //const beam::WalletID& senderID, const beam::WalletID& receiverID);
+    public native void deleteAddress(); //const beam::WalletID& id);
+    public native void setNodeAddress(); //const std::string& addr);
     public native void changeWalletPassword();//const beam::SecString& password);
 
 }

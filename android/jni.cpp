@@ -304,6 +304,32 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
     walletModel->getAsync()->saveAddress(addr, own);
 }
 
+// don't use it. i don't check it
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(cancelTx)(JNIEnv *env, jobject thiz,
+    jbyteArray txId)
+{
+    LOG_DEBUG() << "cancelTx()";
+
+    jbyte* data = env->GetByteArrayElements(txId, NULL);
+
+    if (data)
+    {
+        jsize size = env->GetArrayLength(txId);
+        TxID id;
+
+        if (size == id.size())
+        {
+            memcpy(&id[0], data, size);
+
+            walletModel->getAsync()->cancelTx(id);
+        }
+
+        env->ReleaseByteArrayElements(txId, data, JNI_ABORT);
+
+        env->DeleteLocalRef(txId);
+    }
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv *env;
