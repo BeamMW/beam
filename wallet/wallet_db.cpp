@@ -1063,9 +1063,8 @@ namespace beam
 									stm.get(2, coin.m_ID.m_Idx);
 									stm.get(3, coin.m_ID.m_Value);
 
-									Coin::Status status;
-									static_assert(sizeof(status) == sizeof(uint32_t));
-									stm.get(4, (uint32_t&) status);
+									uint32_t status = 0;
+									stm.get(4, status);
 
 									stm.get(5, coin.m_maturity);
 									// createHeight - skip
@@ -1075,7 +1074,7 @@ namespace beam
 									stm.get(10, coin.m_spentTxId);
 									stm.get(11, coin.m_sessionId);
 
-									if (Coin::Status::Spent == status)
+									if (Coin::Status::Spent == static_cast<Coin::Status>(status))
 									{
 										// try to guess the spentHeight
 										coin.m_spentHeight = coin.m_maturity; // init guess
