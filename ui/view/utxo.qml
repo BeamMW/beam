@@ -143,14 +143,7 @@ ColumnLayout {
         TableViewColumn {
             role: viewModel.amountRole
             title: qsTr("Amount")
-            width: 150 * parent.width / 800
-            movable: false
-        }
-
-        TableViewColumn {
-            role: viewModel.heightRole
-            title: qsTr("Height")
-            width: 150 * parent.width / 800
+            width: 300 * parent.width / 800
             movable: false
         }
 
