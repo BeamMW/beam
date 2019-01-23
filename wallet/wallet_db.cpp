@@ -940,6 +940,15 @@ namespace beam
 #endif
     }
 
+	void WalletDB::CreateStorageTable()
+	{
+	     const char* req = "CREATE TABLE " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST_WITH_TYPES, COMMA,) ");"
+	                         "CREATE UNIQUE INDEX CoinIndex ON " STORAGE_NAME "(" ENUM_STORAGE_ID(LIST, COMMA, )  ");"
+	                         "CREATE INDEX ConfirmIndex ON " STORAGE_NAME"(confirmHeight);";
+	     int ret = sqlite3_exec(_db, req, nullptr, nullptr, nullptr);
+	     throwIfError(ret, _db);
+	}
+	
     IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey)
     {
         if (!isInitialized(path))
@@ -953,13 +962,7 @@ namespace beam
 
             enterKey(walletDB->_db, password);
 
-            {
-                const char* req = "CREATE TABLE " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST_WITH_TYPES, COMMA,) ");"
-                                  "CREATE UNIQUE INDEX CoinIndex ON " STORAGE_NAME "(" ENUM_STORAGE_ID(LIST, COMMA, )  ");"
-                                  "CREATE INDEX ConfirmIndex ON " STORAGE_NAME"(confirmHeight);";
-                int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
-                throwIfError(ret, walletDB->_db);
-            }
+			walletDB->CreateStorageTable();
 
             {
                 const char* req = "CREATE TABLE " VARIABLES_NAME " (" ENUM_VARIABLES_FIELDS(LIST_WITH_TYPES, COMMA,) ");";
@@ -1027,26 +1030,69 @@ namespace beam
 					switch (version)
 					{
 					case DbVersion10:
-						{
-							LOG_INFO() << "Converting DB from format 10";
-
-							// get rid of former Coin::Change status
-							const char* req = "UPDATE " STORAGE_NAME " SET status=?1 WHERE status=?2;";
-							sqlite::Statement stm(walletDB->_db, req);
-
-							stm.bind(1, Coin::Incoming);
-							stm.bind(2, Coin::ChangeV0);
-
-							stm.step();
-						}
-
-						// no break;
-
 					case DbVersion11:
 						{
-							LOG_INFO() << "Converting DB from format 11";
+							LOG_INFO() << "Converting DB from format 10-11";
 
-							// TODO: get rid of redundant columns
+							// storage table changes: removed [status], [createHeight], [lockedHeight], added [spentHeight]
+							// sqlite doesn't support column removal. So instead we'll rename this table, select the data, and insert it to the new table
+							//
+							// The missing data, [spentHeight] - can only be deduced strictly if the UTXO has a reference to the spending tx. Otherwise we'll have to put a dummy spentHeight.
+							// In case of a rollback there's a chance (albeit small) we won't notice the UTXO un-spent status. But in case of such a problem this should be fixed by the "UTXO rescan".
+
+							{
+								const char* req =
+									"ALTER TABLE " STORAGE_NAME " RENAME TO " STORAGE_NAME "_del;"
+									"DROP INDEX CoinIndex;"
+									"DROP INDEX ConfirmIndex;";
+
+								int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
+								throwIfError(ret, walletDB->_db);
+							}
+
+							walletDB->CreateStorageTable();
+
+							{
+								const char* req = "SELECT * FROM " STORAGE_NAME "_del;";
+								
+								for (sqlite::Statement stm(walletDB->_db, req);  stm.step(); )
+								{
+									Coin coin;
+									stm.get(0, coin.m_ID.m_Type);
+									stm.get(1, coin.m_ID.m_SubIdx);
+									stm.get(2, coin.m_ID.m_Idx);
+									stm.get(3, coin.m_ID.m_Value);
+
+									Coin::Status status;
+									static_assert(sizeof(status) == sizeof(uint32_t));
+									stm.get(4, (uint32_t&) status);
+
+									stm.get(5, coin.m_maturity);
+									// createHeight - skip
+									stm.get(7, coin.m_confirmHeight);
+									// lockedHeight - skip
+									stm.get(9, coin.m_createTxId);
+									stm.get(10, coin.m_spentTxId);
+									stm.get(11, coin.m_sessionId);
+
+									if (Coin::Status::Spent == status)
+									{
+										// try to guess the spentHeight
+										coin.m_spentHeight = coin.m_maturity; // init guess
+
+										if (coin.m_spentTxId)
+											wallet::getTxParameter(*walletDB, coin.m_spentTxId.get(), wallet::TxParameterID::KernelProofHeight, coin.m_spentHeight);
+									}
+
+									walletDB->save(coin);
+								}
+							}
+
+							{
+								const char* req = "DROP TABLE " STORAGE_NAME "_del;";
+								int ret = sqlite3_exec(walletDB->_db, req, NULL, NULL, NULL);
+								throwIfError(ret, walletDB->_db);
+							}
 						}
 
 						wallet::setVar(*walletDB, Version, DbVersion);

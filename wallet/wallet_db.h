@@ -257,6 +257,7 @@ namespace beam
         void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
         void notifySystemStateChanged();
         void notifyAddressChanged();
+		void CreateStorageTable();
     private:
 
         sqlite3* _db;
