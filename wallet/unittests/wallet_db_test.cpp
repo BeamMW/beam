@@ -154,7 +154,17 @@ void TestStoreCoins()
             Coin{ 1, Coin::Available, 10, Key::Type::Regular } };
     walletDB->store(coins);
 
-
+    {
+        CoinIDList ids;
+        for (const auto& c : coins)
+        {
+            ids.push_back(c.m_ID);
+        }
+        auto coins2 = walletDB->getCoinsByID(ids);
+        WALLET_CHECK(coins2.size() == ids.size());
+        WALLET_CHECK(equal(coins.begin(), coins.end(), coins2.begin()));
+    }
+    
     int coinBase = 0;
     int comission = 0;
     int regular = 0;

@@ -199,6 +199,7 @@ namespace beam
             IsInitiator = 11,
             MaxHeight = 12,
             AmountList = 13,
+            PreselectedCoins = 14,
 
             PeerProtoVersion = 16,
 

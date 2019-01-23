@@ -356,15 +356,7 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
     {
         auto receiverAddr = m_walletDB->getAddress(receiver);
 
-        if (receiverAddr)
-        {
-            if (receiverAddr->m_OwnID && receiverAddr->isExpired())
-            {
-                onCantSendToExpired();
-                return;
-            }
-        }
-        else
+        if (!receiverAddr)
         {
             WalletAddress peerAddr;
             peerAddr.m_walletID = receiver;
@@ -388,6 +380,11 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
         }
 
         onSendMoneyVerified();
+    }
+    catch (const beam::AddressExpiredException&)
+    {
+        onCantSendToExpired();
+        return;
     }
     catch (const std::exception& e)
     {
