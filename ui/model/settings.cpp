@@ -32,7 +32,6 @@ namespace
 
     const char* LocalNodeRun = "localnode/run";
     const char* LocalNodePort = "localnode/port";
-    const char* LocalNodeMiningThreads = "localnode/mining_threads";
     const char* LocalNodePeers = "localnode/peers";
 #ifdef BEAM_USE_GPU
     const char* LocalNodeUseGpu = "localnode/use_gpu";
@@ -142,21 +141,6 @@ void WalletSettings::setLocalNodePort(uint port)
         m_data.setValue(LocalNodePort, port);
     }
     emit localNodePortChanged();
-}
-
-uint WalletSettings::getLocalNodeMiningThreads() const
-{
-    Lock lock(m_mutex);
-    return m_data.value(LocalNodeMiningThreads, 1).toUInt();
-}
-
-void WalletSettings::setLocalNodeMiningThreads(uint n)
-{
-    {
-        Lock lock(m_mutex);
-        m_data.setValue(LocalNodeMiningThreads, n);
-    }
-    emit localNodeMiningThreadsChanged();
 }
 
 string WalletSettings::getLocalNodeStorage() const

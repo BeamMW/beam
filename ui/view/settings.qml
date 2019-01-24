@@ -14,9 +14,7 @@ Rectangle {
     SettingsViewModel {id: viewModel}
 
     ChangePasswordDialog {
-        id: changePasswordDialog
-
-        
+        id: changePasswordDialog        
     }
 
     ColumnLayout {
@@ -152,7 +150,6 @@ Rectangle {
                                     Layout.fillWidth: true
                                     Layout.alignment: Qt.AlignTop
                                     spacing: 10
-                                
 
                                     CustomSwitch {
                                         id: localNodeRun
@@ -168,26 +165,10 @@ Rectangle {
                                     }
 
                                     SFText {
-                                        text: qsTr("Mining threads (CPU)")
-                                        color: (localNodeRun.checked && !useGpu.checked) ? Style.white : Style.disable_text_color
+                                        text: qsTr("Mining")
+                                        color: Style.white
                                         font.pixelSize: 12
                                         font.styleName: "Bold"; font.weight: Font.Bold
-                                    }
-
-                                    FeeSlider {
-                                        id: localNodeMiningThreads
-                                        precision: 0
-                                        showTicks: true
-                                        Layout.fillWidth: true
-                                        value: viewModel.localNodeMiningThreads
-                                        to: {viewModel.coreAmount()}
-                                        stepSize: 1
-                                        enabled: localNodeRun.checked && !useGpu.checked
-                                        Binding {
-                                            target: viewModel
-                                            property: "localNodeMiningThreads"
-                                            value: localNodeMiningThreads.value
-                                        }
                                     }
 
                                     CustomSwitch {
@@ -198,7 +179,6 @@ Rectangle {
                                         width: parent.width
                                         checked: viewModel.useGpu
                                         enabled: localNodeRun.checked && viewModel.hasSupportedGpu()
-                                        visible: viewModel.showUseGpu()
                                         Binding {
                                             target: viewModel
                                             property: "useGpu"
@@ -209,7 +189,7 @@ Rectangle {
                                         id: gpuError
                                         color: Style.validator_color
                                         font.pixelSize: 14
-                                        visible: viewModel.showUseGpu() && !viewModel.hasSupportedGpu()
+                                        visible: !viewModel.hasSupportedGpu()
                                         text: qsTr("You have unsupported videocard")
                                     }
 
@@ -217,7 +197,7 @@ Rectangle {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
                                         Layout.minimumWidth: 140
-                                        visible: viewModel.showUseGpu() && viewModel.hasSupportedGpu()
+                                        visible: viewModel.hasSupportedGpu()
                                         enabled: useGpu.checked
                                         model: viewModel.supportedDevices
                                         clip: true

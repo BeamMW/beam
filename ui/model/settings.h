@@ -43,8 +43,6 @@ public:
 
     uint getLocalNodePort() const;
     void setLocalNodePort(uint port);
-    uint getLocalNodeMiningThreads() const;
-    void setLocalNodeMiningThreads(uint n);
     std::string getLocalNodeStorage() const;
     std::string getTempDir() const;
 
@@ -71,7 +69,6 @@ signals:
     void lockTimeoutChanged();
     void localNodeRunChanged();
     void localNodePortChanged();
-    void localNodeMiningThreadsChanged();
     void localNodePeersChanged();
     void localNodeSynchronizedChanged();
 #ifdef BEAM_USE_GPU

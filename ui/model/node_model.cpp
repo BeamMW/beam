@@ -95,11 +95,6 @@ std::string NodeModel::getLocalNodeStorage()
     return AppModel::getInstance()->getSettings().getLocalNodeStorage();
 }
 
-unsigned int NodeModel::getLocalNodeMiningThreads()
-{
-    return AppModel::getInstance()->getSettings().getLocalNodeMiningThreads();
-}
-
 std::string NodeModel::getTempDir()
 {
     return AppModel::getInstance()->getSettings().getTempDir();

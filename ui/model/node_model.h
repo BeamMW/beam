@@ -57,7 +57,6 @@ protected:
 
     uint16_t getLocalNodePort() override;
     std::string getLocalNodeStorage() override;
-    unsigned int getLocalNodeMiningThreads() override;
     std::string getTempDir() override;
     std::vector<std::string> getLocalNodePeers() override;
 #ifdef BEAM_USE_GPU

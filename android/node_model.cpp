@@ -19,9 +19,6 @@
 #include "pow/external_pow.h"
 
 #include <boost/filesystem.hpp>
-#ifdef  BEAM_USE_GPU
-#include "utility/gpu/gpu_tools.h"
-#endif //  BEAM_USE_GPU
 #include "utility/logger.h"
 
 
@@ -89,11 +86,6 @@ uint16_t NodeModel::getLocalNodePort()
 std::string NodeModel::getLocalNodeStorage()
 {
     return m_appPath + "/node.db";
-}
-
-unsigned int NodeModel::getLocalNodeMiningThreads()
-{
-    return 0;
 }
 
 std::string NodeModel::getTempDir()
