@@ -209,18 +209,18 @@ void TxObject::update(const beam::TxDescription& tx)
     {
         static QString Reasons[] =
         {
-            tr("Unknown reason"),
-            tr("Transaction was cancelled"),
-            tr("Peer's signature in not valid "),
-            tr("Failed to register transaction"),
-            tr("Transaction is not valid"),
+            tr("Unexpected reason, please send wallet logs to Beam support"),
+            tr("Transaction cancelled"),
+            tr("Receiver signature in not valid, please send wallet logs to Beam support"),
+            tr("Failed to register transaction with the blockchain, see node logs for details"),
+            tr("Transaction is not valid, please send wallet logs to Beam support"),
             tr("Invalid kernel proof provided"),
             tr("Failed to send tx parameters"),
             tr("No inputs"),
             tr("Address is expired"),
             tr("Failed to get parameter"),
-            tr("Transaction has expired"),
-            tr("Payment not signed by the receiver")
+            tr("Transaction timed out"),
+            tr("Payment not signed by the receiver, please send wallet logs to Beam support")
         };
 
         setFailureReason(Reasons[tx.m_failureReason]);
