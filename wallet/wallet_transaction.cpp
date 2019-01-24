@@ -679,7 +679,7 @@ namespace beam { namespace wallet
             for (auto& coin : coins)
             {
                 preselectedAmount += coin.getAmount();
-                coin.m_status = Coin::Outgoing;
+                coin.m_spentTxId = m_Tx.GetTxID();
             }
             m_Tx.GetWalletDB()->save(coins);
         }

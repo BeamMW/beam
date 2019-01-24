@@ -93,6 +93,7 @@ namespace beam
         const char* CHANGE_ADDRESS_EXPIRATION = "change_address_expiration";
         const char* WALLET_ADDRESS_LIST = "address_list";
         const char* WALLET_REFRESH = "refresh";
+        const char* UTXO = "utxo";
 #if defined(BEAM_USE_GPU)
         const char* MINER_TYPE = "miner_type";
 #endif
@@ -188,6 +189,7 @@ namespace beam
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
 			(cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
 			(cli::PAYMENT_PROOF_REQUIRED, po::value<bool>(), "Set to disallow outgoing payments if the receiver doesn't supports the payment proof (older wallets)")
+            (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
             (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|refresh]");
 
         po::options_description wallet_treasury_options("Wallet treasury options");

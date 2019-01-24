@@ -936,14 +936,29 @@ namespace beam
         ID::Packed packed;
         packed = m_ID;
 
-        return to_hex(packed.m_Idx.m_pData, packed.m_Idx.nBytes) +
-            to_hex(packed.m_Type.m_pData, packed.m_Type.nBytes) +
-            to_hex(packed.m_SubIdx.m_pData, packed.m_SubIdx.nBytes);
+        return to_hex(&packed, sizeof(packed));
     }
 
     Amount Coin::getAmount() const
     {
         return m_ID.m_Value;
+    }
+
+    boost::optional<Coin::ID> Coin::FromString(const std::string& str)
+    {
+        bool isValid = false;
+        auto byteBuffer = from_hex(str, &isValid);
+        if (isValid && byteBuffer.size() <= sizeof(Coin::ID::Packed))
+        {
+            Coin::ID::Packed packed;
+            ZeroObject(packed);
+            uint8_t* p = reinterpret_cast<uint8_t*>(&packed) + sizeof(Coin::ID::Packed) - byteBuffer.size();
+            copy_n(byteBuffer.begin(), byteBuffer.size(), p);
+            Coin::ID id;
+            id = packed;
+            return id;
+        }
+        return boost::optional<Coin::ID>();
     }
 
     bool WalletDB::isInitialized(const string& path)
@@ -1292,6 +1307,10 @@ namespace beam
         struct DummyWrapper {
                 Coin::ID m_ID;
         };
+
+        Block::SystemState::ID stateID = {};
+        getSystemStateID(stateID);
+
         for (const auto& cid : ids)
         {
             const char* req = "SELECT * FROM " STORAGE_NAME STORAGE_WHERE_ID;
@@ -1305,9 +1324,14 @@ namespace beam
 
             if (stm.step())
             {
-                auto& coin = coins.emplace_back();
+                Coin coin;
                 colIdx = 0;
                 ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+                wallet::DeduceStatus(*this, coin, stateID.m_Height);
+                if (Coin::Status::Available == coin.m_status)
+                {
+                    coins.push_back(coin);
+                }
             }
         }
         return coins;

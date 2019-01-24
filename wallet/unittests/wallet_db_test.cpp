@@ -123,6 +123,27 @@ void TestStoreCoins()
 {
     cout << "\nWallet database coins test\n";
 
+    {
+        auto walletDB = createSqliteWalletDB();
+
+        vector<Coin> coins;
+        for (int i = 0; i < 10; ++i)
+        {
+            coins.push_back(CreateAvailCoin(i));
+        }
+
+        walletDB->store(coins);
+
+        CoinIDList ids;
+        for (const auto& c : coins)
+        {
+            ids.push_back(c.m_ID);
+        }
+        auto coins2 = walletDB->getCoinsByID(ids);
+        WALLET_CHECK(coins2.size() == ids.size());
+        WALLET_CHECK(equal(coins.begin(), coins.end(), coins2.begin()));
+    }
+
     auto walletDB = createSqliteWalletDB();
 
   
@@ -163,16 +184,7 @@ void TestStoreCoins()
             Coin{ 1, Key::Type::Regular } };
     walletDB->store(coins);
 
-    {
-        CoinIDList ids;
-        for (const auto& c : coins)
-        {
-            ids.push_back(c.m_ID);
-        }
-        auto coins2 = walletDB->getCoinsByID(ids);
-        WALLET_CHECK(coins2.size() == ids.size());
-        WALLET_CHECK(equal(coins.begin(), coins.end(), coins2.begin()));
-    }
+
     
     int coinBase = 0;
     int comission = 0;

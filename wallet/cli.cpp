@@ -475,7 +475,7 @@ namespace
         return true;
     }
 
-    int showAddressList(const IWalletDB::Ptr& walletDB)
+    int ShowAddressList(const IWalletDB::Ptr& walletDB)
     {
         auto addresses = walletDB->getAddresses(true);
         array<uint8_t, 5> columnWidths{ { 20, 70, 8, 20, 21 } };
@@ -511,7 +511,7 @@ namespace
         return 0;
     }
 
-    int showWalletInfo(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
+    int ShowWalletInfo(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
     {
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
@@ -559,7 +559,7 @@ namespace
             return 0;
         }
 
-        cout << setw(20) << "id" << " |"
+        cout << setw(48) << "id" << " |"
             << setw(14) << "Beam" << " |"
             << setw(14) << "Groth" << " |"
             << setw(18) << "maturity" << " |"
@@ -567,7 +567,7 @@ namespace
             << setw(8) << "type" << endl;
         walletDB->visit([](const Coin& c)->bool
         {
-            cout << setw(20) << c.m_ID.m_Idx
+            cout << setw(48) << c.toStringID()
                 << setw(16) << c.m_ID.m_Value / Rules::Coin
                 << setw(16) << c.m_ID.m_Value % Rules::Coin
                 << setw(20) << (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity)) : "-")
@@ -578,7 +578,7 @@ namespace
         return 0;
     }
 
-    int paymentProofExport(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
+    int ExportPaymentProof(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
     {
         auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
         TxID txId;
@@ -620,7 +620,7 @@ namespace
         return 0;
     }
 
-    int paymentProofVerify(const po::variables_map& vm)
+    int VerifyPaymentProof(const po::variables_map& vm)
     {
         ByteBuffer buf = from_hex(vm[cli::PAYMENT_PROOF_DATA].as<string>());
 
@@ -638,7 +638,7 @@ namespace
         return 0;
     }
 
-    int exportMinerKey(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, const beam::SecString& pass)
+    int ExportMinerKey(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, const beam::SecString& pass)
     {
         uint32_t subKey = vm[cli::KEY_SUBKEY].as<uint32_t>();
         if (subKey < 1)
@@ -659,7 +659,7 @@ namespace
         return 0;
     }
 
-    int exportOwnerKey(const IWalletDB::Ptr& walletDB, const beam::SecString& pass)
+    int ExportOwnerKey(const IWalletDB::Ptr& walletDB, const beam::SecString& pass)
     {
         Key::IKdf::Ptr pKey = walletDB->get_ChildKdf(0);
         const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
@@ -859,12 +859,12 @@ int main_impl(int argc, char* argv[])
 
                     if (command == cli::EXPORT_MINER_KEY)
                     {
-                        return exportMinerKey(vm, walletDB, pass);
+                        return ExportMinerKey(vm, walletDB, pass);
                     }
 
                     if (command == cli::EXPORT_OWNER_KEY)
                     {
-                        return exportOwnerKey(walletDB, pass);
+                        return ExportOwnerKey(walletDB, pass);
                     }
 
                     {
@@ -900,22 +900,22 @@ int main_impl(int argc, char* argv[])
 
                     if (command == cli::INFO)
                     {
-                        return showWalletInfo(walletDB, vm);
+                        return ShowWalletInfo(walletDB, vm);
                     }
 
                     if (command == cli::PAYMENT_PROOF_EXPORT)
                     {
-                        return paymentProofExport(walletDB, vm);
+                        return ExportPaymentProof(walletDB, vm);
                     }
 
                     if (command == cli::PAYMENT_PROOF_VERIFY)
                     {
-                        return paymentProofVerify(vm);
+                        return VerifyPaymentProof(vm);
                     }
 
                     if (command == cli::WALLET_ADDRESS_LIST)
                     {
-                        return showAddressList(walletDB);
+                        return ShowAddressList(walletDB);
                     }
 
                     if (vm.count(cli::NODE_ADDR) == 0)
@@ -987,7 +987,21 @@ int main_impl(int argc, char* argv[])
                     {
                         WalletAddress senderAddress = newAddress(walletDB, "");
                         wnet.AddOwnAddress(senderAddress);
-                        wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
+                        CoinIDList coinIDs;
+                        if (vm.count(cli::UTXO))
+                        {
+                            auto tempCoins = vm[cli::UTXO].as<vector<string>>();
+
+                            for (const auto& s : tempCoins)
+                            {
+                                auto coinID = Coin::FromString(s);
+                                if (coinID)
+                                {
+                                    coinIDs.push_back(*coinID);
+                                }
+                            }
+                        }
+                        wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND);
                     }
 
                     if (command == cli::CANCEL_TX) 
