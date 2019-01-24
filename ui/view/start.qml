@@ -1413,7 +1413,7 @@ Item
                                 }
 
                                 if (viewModel.createWallet()) {
-                                    startWizzardView.push("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true, "cancelCallback": startWizzardView.pop});
+                                    startWizzardView.push("qrc:/loading.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true, "cancelCallback": startWizzardView.pop});
                                 }
                                 else {
                                     // TODO(alex.starun): error message if wallet not created
@@ -1446,7 +1446,7 @@ Item
                     return viewModel.openWallet(pass);
                 }
                 property var loadWallet: function () {
-                    root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : false, "isCreating" : false});
+                    root.parent.setSource("qrc:/loading.qml", {"isRecoveryMode" : false, "isCreating" : false});
                 }
 
                 color: Style.marine

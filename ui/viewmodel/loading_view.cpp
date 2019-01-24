@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "restore_view.h"
+#include "loading_view.h"
 #include "model/app_model.h"
 
 using namespace beam;
 using namespace std;
 
-RestoreViewModel::RestoreViewModel()
+LoadingViewModel::LoadingViewModel()
     : m_walletModel{ *AppModel::getInstance()->getWallet() }
     , m_progress{0.0}
     , m_nodeTotal{0}
@@ -60,41 +60,30 @@ RestoreViewModel::RestoreViewModel()
     m_updateTimer.start(1000);
 }
 
-RestoreViewModel::~RestoreViewModel()
+LoadingViewModel::~LoadingViewModel()
 {
 }
 
-void RestoreViewModel::onSyncProgressUpdated(int done, int total)
+void LoadingViewModel::onSyncProgressUpdated(int done, int total)
 {
     m_done = done;
     m_total = total;
-    //if (done == 0 && total == 0)
-    //{
-    //    m_skipProgress = true;
-    //}
     updateProgress();
 }
 
-void RestoreViewModel::onNodeSyncProgressUpdated(int done, int total)
+void LoadingViewModel::onNodeSyncProgressUpdated(int done, int total)
 {
-    //if (!m_walletConnected) // ignore node progress if wallet is connected
-    {
-        m_nodeDone = done;
-        m_nodeTotal = total;
-        //if (done == 0 && total == 0)
-        //{
-        //    m_skipProgress = true;
-        //}
-        updateProgress();
-    }
+    m_nodeDone = done;
+    m_nodeTotal = total;
+    updateProgress();
 }
 
-void RestoreViewModel::resetWallet()
+void LoadingViewModel::resetWallet()
 {
     AppModel::getInstance()->resetWallet();
 }
 
-void RestoreViewModel::updateProgress()
+void LoadingViewModel::updateProgress()
 {
     double nodeSyncProgress = 0.;
 	double walletSyncProgress = 0.;
@@ -182,12 +171,12 @@ void RestoreViewModel::updateProgress()
     }
 }
 
-double RestoreViewModel::getProgress() const
+double LoadingViewModel::getProgress() const
 {
     return m_progress;
 }
 
-void RestoreViewModel::setProgress(double value)
+void LoadingViewModel::setProgress(double value)
 {
     if (value > m_progress)
     {
@@ -196,11 +185,11 @@ void RestoreViewModel::setProgress(double value)
     }
 }
 
-const QString& RestoreViewModel::getProgressMessage() const
+const QString& LoadingViewModel::getProgressMessage() const
 {
     return m_progressMessage;
 }
-void RestoreViewModel::setProgressMessage(const QString& value)
+void LoadingViewModel::setProgressMessage(const QString& value)
 {
     if (m_progressMessage != value)
     {
@@ -209,7 +198,7 @@ void RestoreViewModel::setProgressMessage(const QString& value)
     }
 }
 
-void RestoreViewModel::setIsCreating(bool value)
+void LoadingViewModel::setIsCreating(bool value)
 {
     if (m_isCreating != value)
     {
@@ -218,27 +207,27 @@ void RestoreViewModel::setIsCreating(bool value)
     }
 }
 
-bool RestoreViewModel::getIsCreating() const
+bool LoadingViewModel::getIsCreating() const
 {
     return m_isCreating;
 }
 
-void RestoreViewModel::syncWithNode()
+void LoadingViewModel::syncWithNode()
 {
     m_walletModel.getAsync()->syncWithNode();
 }
 
-void RestoreViewModel::onUpdateTimer()
+void LoadingViewModel::onUpdateTimer()
 {
     updateProgress();
 }
 
-void RestoreViewModel::onNodeConnectionChanged(bool isNodeConnected)
+void LoadingViewModel::onNodeConnectionChanged(bool isNodeConnected)
 {
     m_walletConnected = isNodeConnected;
 }
 
-void RestoreViewModel::onGetWalletError(beam::wallet::ErrorType error)
+void LoadingViewModel::onGetWalletError(beam::wallet::ErrorType error)
 {
     if (m_isCreating)
     {
