@@ -89,6 +89,33 @@ io::Reactor::Ptr reactor;
 static const unsigned LOG_ROTATION_PERIOD_SEC = 3*60*60; // 3 hours
 static const unsigned LOG_CLEANUP_PERIOD_SEC = 168*60*60; // 1 week
 
+class NodeObserver : public Node::IObserver
+{
+public:
+    NodeObserver(Node& node) : m_pNode(&node)
+    {
+    }
+
+private:
+
+    void OnSyncProgress() override
+    {
+        // make sure no overflow during conversion from SyncStatus to int,int.
+        Node::SyncStatus s = m_pNode->m_SyncStatus;
+
+        unsigned int nThreshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
+        while (s.m_Total > nThreshold)
+        {
+            s.m_Total >>= 1;
+            s.m_Done >>= 1;
+        }
+        int p = static_cast<int>((s.m_Done * 100) / s.m_Total);
+        LOG_INFO() << "Updating node: " << p << "% (" << s.m_Done << "/" << s.m_Total << ")";
+    }
+
+    Node* m_pNode;
+};
+
 int main_impl(int argc, char* argv[])
 {
 	beam::Crash::InstallHandler(NULL);
@@ -164,6 +191,10 @@ int main_impl(int argc, char* argv[])
 
 				{
 					beam::Node node;
+
+                    NodeObserver observer(node);
+
+                    node.m_Cfg.m_Observer = &observer;
 
 					node.m_Cfg.m_Listen.port(port);
 					node.m_Cfg.m_Listen.ip(INADDR_ANY);
