@@ -51,37 +51,37 @@ after_build:
     
     set BEAM_VERSION=%BEAM_VERSION_PREFIX%.%BEAM_VERSION_REVISION%
     
-    7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-%BEAM_VERSION%.zip c:/projects/beam/beam/%BUILD_CONFIG%/beam-node.exe c:/projects/beam/beam/beam-node.cfg
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-testnet-%BEAM_VERSION%.zip c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-testnet.exe c:/projects/beam/beam/beam-node.cfg
     
-    7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.exe c:/projects/beam/wallet/beam-wallet.cfg
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli-testnet-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet-testnet.exe c:/projects/beam/wallet/beam-wallet.cfg
     
-    7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/wallet-api.exe
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api-testnet-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/wallet-api-testnet.exe
         
     mkdir pack && cd pack && mkdir wallet && mkdir node && mkdir ui && cd ..
     
     mkdir pdb
     
-    copy "c:\projects\beam\BeamWallet-%BEAM_VERSION%-win64.exe" "pack\ui\Beam-Wallet.exe"
+    copy "c:\projects\beam\BeamWalletTestnet-%BEAM_VERSION%-win64.exe" "pack\ui\Beam-Wallet-Testnet.exe"
     
-    copy beam\%BUILD_CONFIG%\beam-node.exe pack\node && copy beam\beam-node.cfg pack\node
+    copy beam\%BUILD_CONFIG%\beam-node-testnet.exe pack\node && copy beam\beam-node.cfg pack\node
     
-    copy wallet\%BUILD_CONFIG%\beam-wallet.exe pack\wallet && copy wallet\beam-wallet.cfg pack\wallet
+    copy wallet\%BUILD_CONFIG%\beam-wallet-testnet.exe pack\wallet && copy wallet\beam-wallet.cfg pack\wallet
     
-    7z a c:/projects/beam/beam/beam-pack-%BEAM_VERSION%.zip %CD%\pack\wallet %CD%\pack\node %CD%\pack\ui
+    7z a c:/projects/beam/beam/beam-pack-testnet-%BEAM_VERSION%.zip %CD%\pack\wallet %CD%\pack\node %CD%\pack\ui
     
-    7z a c:/projects/beam/beam/beam-pdb-%BEAM_VERSION%.zip "c:/projects/beam/ui/%BUILD_CONFIG%/Beam Wallet.pdb" "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node.pdb" "c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.pdb"
+    7z a c:/projects/beam/beam/beam-pdb-testnet-%BEAM_VERSION%.zip "c:/projects/beam/ui/%BUILD_CONFIG%/Beam Wallet Testnet.pdb" "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-testnet.pdb" "c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet-testnet.pdb"
 
-    copy c:\projects\beam\beam\%BUILD_CONFIG%\beam-node-%BEAM_VERSION%.zip c:\projects\beam\beam-node-%BEAM_VERSION%.zip
+    copy c:\projects\beam\beam\%BUILD_CONFIG%\beam-node-testnet-%BEAM_VERSION%.zip c:\projects\beam\beam-node-testnet-%BEAM_VERSION%.zip
 
-    copy c:\projects\beam\beam\%BUILD_CONFIG%\beam-wallet-cli-%BEAM_VERSION%.zip c:\projects\beam\beam-wallet-cli-%BEAM_VERSION%.zip
+    copy c:\projects\beam\beam\%BUILD_CONFIG%\beam-wallet-cli-testnet-%BEAM_VERSION%.zip c:\projects\beam\beam-wallet-cli-testnet-%BEAM_VERSION%.zip
 
-    copy c:\projects\beam\beam\%BUILD_CONFIG%\wallet-api-%BEAM_VERSION%.zip c:\projects\beam\wallet-api-%BEAM_VERSION%.zip
+    copy c:\projects\beam\beam\%BUILD_CONFIG%\wallet-api-testnet-%BEAM_VERSION%.zip c:\projects\beam\wallet-api-testnet-%BEAM_VERSION%.zip
 
-    copy c:\projects\beam\beam\beam-pack-%BEAM_VERSION%.zip c:\projects\beam\pack\beam-pack-%BEAM_VERSION%.zip
+    copy c:\projects\beam\beam\beam-pack-testnet-%BEAM_VERSION%.zip c:\projects\beam\pack\beam-pack-testnet-%BEAM_VERSION%.zip
 
-    copy c:\projects\beam\beam\beam-pdb-%BEAM_VERSION%.zip c:\projects\beam\pdb\beam-pdb-%BEAM_VERSION%.zip
+    copy c:\projects\beam\beam\beam-pdb-testnet-%BEAM_VERSION%.zip c:\projects\beam\pdb\beam-pdb-testnet-%BEAM_VERSION%.zip
 
-    copy c:\projects\beam\BeamWallet-%BEAM_VERSION%-win64.exe c:\projects\beam\Beam-Wallet-%BEAM_VERSION%.exe
+    copy c:\projects\beam\BeamWalletTestnet-%BEAM_VERSION%-win64.exe c:\projects\beam\Beam-Wallet-Testnet-%BEAM_VERSION%.exe
 
 on_success:
 - ps: $env:DATE=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('yyyy.MM.dd')
@@ -95,35 +95,35 @@ on_success:
       
     set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win%GPU_FOLDER%
               
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%beam-node-%BEAM_VERSION%.zip"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-testnet-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%beam-node-testnet-%BEAM_VERSION%.zip"
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%beam-wallet-cli-%BEAM_VERSION%.zip"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli-testnet-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%beam-wallet-cli-testnet-%BEAM_VERSION%.zip"
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%wallet-api-%BEAM_VERSION%.zip"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api-testnet-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%wallet-api-testnet-%BEAM_VERSION%.zip"
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet-%BEAM_VERSION%-win64.exe" "%BUILDS_SERVER_PATH%Beam-Wallet-%BEAM_VERSION%.exe"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWalletTestnet-%BEAM_VERSION%-win64.exe" "%BUILDS_SERVER_PATH%Beam-Wallet-Testnet-%BEAM_VERSION%.exe"
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/beam-pack-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%pack/beam-pack-%BEAM_VERSION%.zip"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/beam-pack-testnet-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%pack/beam-pack-testnet-%BEAM_VERSION%.zip"
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/beam-pdb-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%pdb/beam-pdb-%BEAM_VERSION%.zip"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/beam-pdb-testnet-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%pdb/beam-pdb-testnet-%BEAM_VERSION%.zip"
 
 artifacts:
-  - path: beam-node-%BEAM_VERSION%.zip
+  - path: beam-node-testnet-%BEAM_VERSION%.zip
     name: BeamNode
 
-  - path: beam-wallet-cli-%BEAM_VERSION%.zip
+  - path: beam-wallet-cli-testnet-%BEAM_VERSION%.zip
     name: BeamWalletCli
 
-  - path: wallet-api-%BEAM_VERSION%.zip
+  - path: wallet-api-testnet-%BEAM_VERSION%.zip
     name: BeamWalletApi
 
-  - path: pack/beam-pack-%BEAM_VERSION%.zip
+  - path: pack/beam-pack-testnet-%BEAM_VERSION%.zip
     name: BeamPack
 
-  - path: pdb/beam-pdb-%BEAM_VERSION%.zip
+  - path: pdb/beam-pdb-testnet-%BEAM_VERSION%.zip
     name: BeamPdb
 
-  - path: Beam-Wallet-%BEAM_VERSION%.exe
+  - path: Beam-Wallet-Testnet-%BEAM_VERSION%.exe
     name: BeamWallet
 
 deploy:

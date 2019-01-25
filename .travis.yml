@@ -19,15 +19,15 @@ matrix:
         - brew install qt5 cmake boost
         - brew link qt5 --force
         - export PATH=/usr/local/opt/qt/bin:$PATH
-        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Darwin.dmg"
+        - export BEAM_WALLET_UI_IN="BeamWalletTestnet-$BEAM_VERSION-Darwin.dmg"
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
-        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.dmg"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet-Testnet.dmg"
       env: 
         - BUILD_TYPE=Debug
         - OS_FOLDER=mac
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
-        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.dmg"
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-Testnet-$BEAM_VERSION.dmg"
 
 ###############################################################################
 # OSX Release
@@ -47,14 +47,14 @@ matrix:
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
         - export QT5_ROOT_DIR="/usr/local/qt5-static"
         - export QML_IMPORT_PATH="/usr/local/qt5-static/qml"
-        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Darwin.dmg"
-        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.dmg"
+        - export BEAM_WALLET_UI_IN="BeamWalletTestnet-$BEAM_VERSION-Darwin.dmg"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet-Testnet.dmg"
       env: 
         - BUILD_TYPE=Release
         - OS_FOLDER=mac
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
-        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.dmg"
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-Testnet-$BEAM_VERSION.dmg"
 
 ###############################################################################
 # OSX Release GPU
@@ -74,15 +74,15 @@ matrix:
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
         - export QT5_ROOT_DIR="/usr/local/qt5-static"
         - export QML_IMPORT_PATH="/usr/local/qt5-static/qml"
-        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Darwin.dmg"
-        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.dmg"
+        - export BEAM_WALLET_UI_IN="BeamWalletTestnet-$BEAM_VERSION-Darwin.dmg"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet-Testnet.dmg"
       env: 
         - BUILD_TYPE=Release
         - OS_FOLDER=mac
         - GPU_FOLDER=/gpu
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_USE_GPU=On . && make -j 4 && ctest --verbose && cpack;
-        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.dmg"
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-Testnet-$BEAM_VERSION.dmg"
 
 ###############################################################################
 # Linux Debug
@@ -108,14 +108,14 @@ matrix:
         - sudo apt-get install qt510declarative qt510svg libgl1-mesa-dev-lts-xenial
         - eval "CC=gcc-7 && CXX=g++-7"
         - export PATH=/opt/qt510/bin:$PATH
-        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Linux.deb"
-        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.deb"
+        - export BEAM_WALLET_UI_IN="BeamWalletTestnet-$BEAM_VERSION-Linux.deb"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet-Testnet.deb"
       env: 
         - BUILD_TYPE=Debug
         - OS_FOLDER=linux
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
-        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-Testnet-$BEAM_VERSION.deb"
 
 ###############################################################################
 # Linux Release
@@ -142,14 +142,14 @@ matrix:
         - git clone --depth=1 https://github.com/nesbox/qt5-static-linux.git /home/travis/qt5-static
         - export QT5_ROOT_DIR="/home/travis/qt5-static"
         - export QML_IMPORT_PATH="/home/travis/qt5-static/qml"
-        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Linux.deb"
-        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.deb"
+        - export BEAM_WALLET_UI_IN="BeamWalletTestnet-$BEAM_VERSION-Linux.deb"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet-Testnet.deb"
       env: 
         - BUILD_TYPE=Release
         - OS_FOLDER=linux
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
-        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-Testnet-$BEAM_VERSION.deb"
 
 ###############################################################################
 # Linux Release GPU
@@ -177,15 +177,15 @@ matrix:
         - git clone --depth=1 https://github.com/nesbox/qt5-static-linux.git /home/travis/qt5-static
         - export QT5_ROOT_DIR="/home/travis/qt5-static"
         - export QML_IMPORT_PATH="/home/travis/qt5-static/qml"
-        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Linux.deb"
-        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.deb"
+        - export BEAM_WALLET_UI_IN="BeamWalletTestnet-$BEAM_VERSION-Linux.deb"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet-Testnet.deb"
       env: 
         - BUILD_TYPE=Release
         - OS_FOLDER=linux
         - GPU_FOLDER=/gpu
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static  -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_USE_GPU=On . && make -j 4 && ctest --verbose && cpack;
-        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-Testnet-$BEAM_VERSION.deb"
 
 ###############################################################################
 # Android x86 Release
@@ -304,31 +304,31 @@ after_success:
   # deploy using ftp server
   - OS_FOLDER=$OS_FOLDER$GPU_FOLDER
   - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER
-  - tar -cvzf beam-node-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node beam-node.cfg
-  - tar -cvzf beam-wallet-cli-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet beam-wallet beam-wallet.cfg
-  - tar -cvzf wallet-api-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet wallet-api
+  - tar -cvzf beam-node-testnet-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node-testnet beam-node.cfg
+  - tar -cvzf beam-wallet-testnet-cli-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet Beam-Wallet-Testnet Beam-Wallet.cfg
+  - tar -cvzf wallet-api-testnet-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet wallet-api-testnet
 
   # prep for deploy to AWS S3
   - cp $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT
    
   # create package for advanced users
   - mkdir pack && mkdir pack/wallet && mkdir pack/node && mkdir pack/ui
-  - cp wallet/beam-wallet* pack/wallet && cp beam/beam-node* pack/node && cp "$BEAM_WALLET_UI_IN" pack/ui/$BEAM_WALLET_UI_OUT_VERLESS
-  - tar -cvzf beam-pack-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/pack wallet node ui
+  - cp wallet/beam-wallet-testnet* pack/wallet && cp beam/beam-node-testnet* pack/node && cp "$BEAM_WALLET_UI_IN" pack/ui/$BEAM_WALLET_UI_OUT_VERLESS
+  - tar -cvzf beam-pack-testnet-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/pack wallet node ui
 
   # upload binaries to FTP
-  - curl --retry 3 --ftp-create-dirs -T beam-node-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
-  - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
-  - curl --retry 3 --ftp-create-dirs -T wallet-api-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  - curl --retry 3 --ftp-create-dirs -T beam-node-testnet-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  - curl --retry 3 --ftp-create-dirs -T beam-wallet-testnet-cli-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  - curl --retry 3 --ftp-create-dirs -T wallet-api-testnet-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T "$HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN" "$BUILDS_SERVER_PATH/$BEAM_WALLET_UI_OUT"
-  - curl --retry 3 --ftp-create-dirs -T beam-pack-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/pack/
+  - curl --retry 3 --ftp-create-dirs -T beam-pack-testnet-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/pack/
 
   # upload binaries to S3
-  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-node-$BEAM_VERSION.tar.gz
-  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-cli-$BEAM_VERSION.tar.gz
-  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" wallet-api-$BEAM_VERSION.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-node-testnet-$BEAM_VERSION.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-testnet-cli-$BEAM_VERSION.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" wallet-api-testnet-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT
-  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/pack/" beam-pack-$BEAM_VERSION.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/pack/" beam-pack-testnet-$BEAM_VERSION.tar.gz
 
 
 notifications:
