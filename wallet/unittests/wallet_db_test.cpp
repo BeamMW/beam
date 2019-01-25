@@ -708,6 +708,9 @@ void TestAddresses()
     WALLET_CHECK(addresses[0].m_duration == a.m_duration);
     WALLET_CHECK(addresses[0].m_OwnID == a.m_OwnID);
 
+    auto exported = wallet::ExportAddressesToJson(*db);
+    WALLET_CHECK(!exported.empty());
+ 
     auto a2 = db->getAddress(a.m_walletID);
     WALLET_CHECK(a2.is_initialized());
 
@@ -716,6 +719,12 @@ void TestAddresses()
 
     a2 = db->getAddress(a.m_walletID);
     WALLET_CHECK(!a2.is_initialized());
+
+    WALLET_CHECK(wallet::ImportAddressesFromJson(*db, &exported[0], exported.size()));
+    {
+        auto a3 = db->getAddress(a.m_walletID);
+        WALLET_CHECK(a3.is_initialized());
+    }
 }
 
 vector<Coin::ID> ExtractIDs(const vector<Coin>& src)
@@ -1215,7 +1224,7 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
     ECC::InitializeContext();
 
-    TestWalletDataBase();
+   /* TestWalletDataBase();
     TestStoreCoins();
     TestStoreTxRecord();
     TestTxRollback();
@@ -1226,7 +1235,7 @@ int main()
     TestSelect3();
     TestSelect4();
     TestSelect5();
-    TestSelect6();
+    TestSelect6();*/
     TestAddresses();
 
     TestTxParameters();

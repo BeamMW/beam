@@ -15,10 +15,12 @@
 #include "wallet_db.h"
 #include "wallet_transaction.h"
 #include "utility/logger.h"
+#include "utility/helpers.h"
 #include "sqlite/sqlite3.h"
 #include <sstream>
 #include <boost/functional/hash.hpp>
 #include <boost/filesystem.hpp>
+#include "nlohmann/json.hpp"
 
 #define NOSEP
 #define COMMA ", "
@@ -1816,7 +1818,7 @@ namespace beam
         notifyCoinsChanged();
     }
 
-    std::vector<WalletAddress> WalletDB::getAddresses(bool own)
+    std::vector<WalletAddress> WalletDB::getAddresses(bool own) const
     {
         vector<WalletAddress> res;
         const char* req = "SELECT * FROM " ADDRESSES_NAME " ORDER BY createTime DESC;";
@@ -2374,5 +2376,66 @@ namespace beam
 
 			return Coin::Status::Unavailable;
 		}
+
+        using nlohmann::json;
+
+        string ExportAddressesToJson(const IWalletDB& db)
+        {
+            json ownAddresses = json::array();
+            for (const auto& address : db.getAddresses(true))
+            {
+                ownAddresses.push_back(
+                    json
+                    {
+                        {"Index", address.m_OwnID},
+                        {"SubIndex", 0},
+                        {"WalletID", to_string(address.m_walletID)},
+                        {"Label", address.m_label},
+                        {"CreationTime", address.m_createTime},
+                        {"Duration", address.m_duration}
+                    }
+                );
+            }
+            auto res = json
+            {
+                {"OwnAddresses", ownAddresses}
+            };
+            return res.dump();
+        }
+
+        bool ImportAddressesFromJson(IWalletDB& db, const char* data, size_t size)
+        {
+            try
+            {
+                json obj = json::parse(data, data + size);
+                if (obj.find("OwnAddresses") == obj.end())
+                {
+                    return false;
+                }
+
+                vector<WalletAddress> addresses;
+                for (const auto& jsonAddress : obj["OwnAddresses"])
+                {
+                    WalletAddress address;
+                    ZeroObject(address);
+                    if (!address.m_walletID.FromHex(jsonAddress["WalletID"]))
+                    {
+                        continue;
+                    }
+                    address.m_OwnID = jsonAddress["Index"];
+                    //{ "SubIndex", 0 },
+                    address.m_label = jsonAddress["Label"];
+                    address.m_createTime = jsonAddress["CreationTime"];
+                    address.m_duration = jsonAddress["Duration"];
+                    db.saveAddress(address);
+                }
+                return true;
+            }
+            catch (const nlohmann::detail::exception& e)
+            {
+                LOG_ERROR() << "json parse: " << e.what() << "\n" << std::string(data, data + (size > 1024 ? 1024 : size));
+            }
+            return false;
+        }
     }
 }

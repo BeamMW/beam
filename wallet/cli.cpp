@@ -676,6 +676,49 @@ namespace
 
         return 0;
     }
+
+    bool LoadDataToImport(const std::string& path, ByteBuffer& data)
+    {
+        FStream f;
+        if (f.Open(path.c_str(), true))
+        {
+            size_t size = static_cast<size_t>(f.get_Remaining());
+            if (size > 0)
+            {
+                data.resize(size);
+                return f.read(data.data(), data.size()) == size;
+            }
+        }
+        return false;
+    }
+
+    bool SaveExportedData(const ByteBuffer& data, const std::string& path)
+    {
+        FStream f;
+        if (f.Open(path.c_str(), false))
+        {
+            return f.write(data.data(), data.size()) == data.size();
+        }
+        LOG_ERROR() << "Failed to save expoerted data";
+        return false;
+    }
+
+    int ExportAddresses(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    {
+        auto s = wallet::ExportAddressesToJson(*walletDB);
+        return SaveExportedData(ByteBuffer(s.begin(), s.end()), vm[cli::EXPORT_PATH].as<string>()) ? 0 : -1;
+    }
+
+    int ImportAddresses(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    {
+        ByteBuffer buffer;
+        if (!LoadDataToImport(vm[cli::IMPORT_PATH].as<string>(), buffer))
+        {
+            return -1;
+        }
+        const char* p = (char*)(&buffer[0]);
+        return wallet::ImportAddressesFromJson(*walletDB, p, buffer.size()) ? 0 : -1;
+    }
 }
 
 io::Reactor::Ptr reactor;
@@ -769,7 +812,9 @@ int main_impl(int argc, char* argv[])
                         && command != cli::PAYMENT_PROOF_VERIFY
                         && command != cli::GENERATE_PHRASE
                         && command != cli::WALLET_ADDRESS_LIST
-                        && command != cli::WALLET_REFRESH)
+                        && command != cli::WALLET_REFRESH
+                        && command != cli::IMPORT_ADDRESSES
+                        && command != cli::EXPORT_ADDRESSES)
                     {
                         LOG_ERROR() << "unknown command: \'" << command << "\'";
                         return -1;
@@ -865,6 +910,16 @@ int main_impl(int argc, char* argv[])
                     if (command == cli::EXPORT_OWNER_KEY)
                     {
                         return ExportOwnerKey(walletDB, pass);
+                    }
+
+                    if (command == cli::EXPORT_ADDRESSES)
+                    {
+                        return ExportAddresses(vm, walletDB);
+                    }
+
+                    if (command == cli::IMPORT_ADDRESSES)
+                    {
+                        return ImportAddresses(vm, walletDB);
                     }
 
                     {

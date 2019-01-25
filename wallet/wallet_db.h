@@ -173,7 +173,7 @@ namespace beam
         // Rolls back coin changes in db concerning given tx
         virtual void rollbackTx(const TxID& txId) = 0;
 
-        virtual std::vector<WalletAddress> getAddresses(bool own) = 0;
+        virtual std::vector<WalletAddress> getAddresses(bool own) const = 0;
         virtual void saveAddress(const WalletAddress&) = 0;
         virtual void setNeverExpirationForAll() = 0;
         virtual boost::optional<WalletAddress> getAddress(const WalletID&) = 0;
@@ -237,7 +237,7 @@ namespace beam
         void deleteTx(const TxID& txId) override;
         void rollbackTx(const TxID& txId) override;
 
-        std::vector<WalletAddress> getAddresses(bool own) override;
+        std::vector<WalletAddress> getAddresses(bool own) const override;
         void saveAddress(const WalletAddress&) override;
         void setNeverExpirationForAll() override;
         boost::optional<WalletAddress> getAddress(const WalletID&) override;
@@ -361,5 +361,8 @@ namespace beam
 			Totals(IWalletDB& db) { Init(db); }
 			void Init(IWalletDB&);
 		};
+
+        std::string ExportAddressesToJson(const IWalletDB& db);
+        bool ImportAddressesFromJson(IWalletDB& db, const char* data, size_t size);
     }
 }
