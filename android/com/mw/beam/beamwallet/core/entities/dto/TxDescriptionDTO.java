@@ -28,4 +28,5 @@ public class TxDescriptionDTO
 	public long modifyTime;
 	public boolean sender;
 	public int status;
+    public String kernelId;
 }

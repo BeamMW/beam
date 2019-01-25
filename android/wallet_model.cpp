@@ -96,6 +96,7 @@ void WalletModel::onTxStatus(beam::ChangeAction action, const std::vector<beam::
             setLongField(env, TxDescriptionClass, tx, "modifyTime", item.m_modifyTime);
             setBooleanField(env, TxDescriptionClass, tx, "sender", item.m_sender);
             setIntField(env, TxDescriptionClass, tx, "status", static_cast<jint>(item.m_status));
+            setStringField(env, TxDescriptionClass, tx, "kernelId", beam::to_hex(item.m_kernelID.m_pData, item.m_kernelID.nBytes));
 
             env->SetObjectArrayElement(txItems, i, tx);
 
