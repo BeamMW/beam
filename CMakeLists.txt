@@ -138,6 +138,7 @@ if(SHOW_CODE_LOCATION)
 endif()
 
 #it's enabled by default for testnet
+set(BEAM_TESTNET TRUE)
 add_definitions(-DBEAM_TESTNET)
 
 if(MSVC)
