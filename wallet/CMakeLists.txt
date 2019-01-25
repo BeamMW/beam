@@ -1,4 +1,8 @@
-set(TARGET_NAME beam-wallet)
+if (BEAM_TESTNET)
+    set(TARGET_NAME beam-wallet-testnet)
+else()
+    set(TARGET_NAME beam-wallet)
+endif()
 
 add_definitions( -DSQLITE_HAS_CODEC )
 
@@ -37,23 +41,40 @@ add_library(wallet_api_proto STATIC api.cpp)
 add_dependencies(wallet_api_proto wallet utility)
 target_link_libraries(wallet_api_proto wallet utility)
 
-add_executable(wallet-api api_cli.cpp)
-add_dependencies(wallet-api wallet utility wallet_api_proto)
-target_link_libraries(wallet-api wallet utility wallet_api_proto)
+if (BEAM_TESTNET)
+    set(WALLET_API_NAME wallet-api-testnet)
+else()
+    set(WALLET_API_NAME wallet-api)
+endif()
+
+add_executable(${WALLET_API_NAME} api_cli.cpp)
+add_dependencies(${WALLET_API_NAME} wallet utility wallet_api_proto)
+target_link_libraries(${WALLET_API_NAME} wallet utility wallet_api_proto)
 
 if(LINUX)
-    target_link_libraries(wallet-api -static-libstdc++ -static-libgcc)
+    target_link_libraries(${WALLET_API_NAME} -static-libstdc++ -static-libgcc)
 endif()
 
 add_subdirectory(unittests)
 
 if (BEAM_SIGN_PACKAGE AND WIN32)
-    add_custom_command(
-        TARGET ${TARGET_NAME} POST_BUILD
-        COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\beam-wallet.exe"
-    )
-    add_custom_command(
-        TARGET ${TARGET_NAME} POST_BUILD
-        COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\wallet-api.exe"
-    )
+    if (BEAM_TESTNET)
+        add_custom_command(
+            TARGET ${TARGET_NAME} POST_BUILD
+            COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\beam-wallet-testnet.exe"
+        )
+        add_custom_command(
+            TARGET ${TARGET_NAME} POST_BUILD
+            COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\wallet-api-tetnet.exe"
+        )
+    else()
+        add_custom_command(
+            TARGET ${TARGET_NAME} POST_BUILD
+            COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\beam-wallet.exe"
+        )
+        add_custom_command(
+            TARGET ${TARGET_NAME} POST_BUILD
+            COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\wallet-api.exe"
+        )
+    endif()
 endif()

@@ -80,7 +80,11 @@ using namespace beam;
 using namespace std;
 using namespace ECC;
 
+#ifdef BEAM_TESTNET
+static const char* AppName = "Beam Wallet Testnet";
+#else
 static const char* AppName = "Beam Wallet";
+#endif // BEAM_TESTNET
 
 int main (int argc, char* argv[])
 {

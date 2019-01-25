@@ -101,7 +101,7 @@ std::vector<std::string> NodeModel::getLocalNodePeers()
 {
     std::vector<std::string> result
     {
-        #ifdef BEAM_TESTNET
+#ifdef BEAM_TESTNET
         "ap-node01.testnet.beam.mw:8100",
         "ap-node02.testnet.beam.mw:8100",
         "ap-node03.testnet.beam.mw:8100",

@@ -592,3 +592,21 @@ QString StartViewModel::selectCustomWalletDB()
 
     return filePath;
 }
+
+QString StartViewModel::defaultPortToListen() const
+{
+#ifdef BEAM_TESTNET
+    return "10006";
+#else
+    return "10005";
+#endif  // BEAM_TESTNET
+}
+
+QString StartViewModel::defaultRemoteNodeAddr() const
+{
+#ifdef BEAM_TESTNET
+    return "127.0.0.1:10006";
+#else
+    return "127.0.0.1:10005";
+#endif // BEAM_TESTNET
+}

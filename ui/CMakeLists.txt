@@ -1,9 +1,19 @@
 set (TARGET_NAME "beam-wallet-ui")
-if(LINUX)
-    set (OUTPUT_NAME "BeamWallet")
+
+if (BEAM_TESTNET)
+    if(LINUX)
+        set (OUTPUT_NAME "BeamWalletTestnet")
+    else()
+        set (OUTPUT_NAME "Beam Wallet Testnet")
+    endif()
 else()
-    set (OUTPUT_NAME "Beam Wallet")
+    if(LINUX)
+        set (OUTPUT_NAME "BeamWallet")
+    else()
+        set (OUTPUT_NAME "Beam Wallet")
+    endif()
 endif()
+
 set (CMAKE_PREFIX_PATH $ENV{QT5_ROOT_DIR})
 
 find_package(Qt5 COMPONENTS Qml Quick Svg PrintSupport REQUIRED)
