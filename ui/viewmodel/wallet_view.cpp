@@ -205,7 +205,7 @@ void TxObject::update(const beam::TxDescription& tx)
     setStatus(tx.m_status);
     auto kernelID = QString::fromStdString(to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes));
     setKernelID(kernelID);
-    //if (tx.m_status == TxStatus::Failed)
+    if (tx.m_status == TxStatus::Failed)
     {
         static QString Reasons[] =
         {
