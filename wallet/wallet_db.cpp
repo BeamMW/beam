@@ -2417,7 +2417,6 @@ namespace beam
                 for (const auto& jsonAddress : obj["OwnAddresses"])
                 {
                     WalletAddress address;
-                    ZeroObject(address);
                     if (!address.m_walletID.FromHex(jsonAddress["WalletID"]))
                     {
                         continue;
