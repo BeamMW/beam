@@ -187,6 +187,7 @@ private:
 		void OnModified() override;
 		bool EnumViewerKeys(IKeyWalker&) override;
 		void OnUtxoEvent(const UtxoEvent::Key&, const UtxoEvent::Value&) override;
+		void OnDummy(const Key::ID&, Height) override;
 
 		struct Verifier
 		{
@@ -294,6 +295,7 @@ private:
 	void InitKeys();
 	void InitIDs();
 	void InitMode();
+	void RefreshDecoys();
 
 	struct Wanted
 	{
@@ -354,6 +356,7 @@ private:
 	void PerformAggregation(Dandelion::Element&);
 	void AddDummyInputs(Transaction&);
 	void AddDummyOutputs(Transaction&);
+	Height SampleDummySpentHeight();
 	bool OnTransactionFluff(Transaction::Ptr&&, const Peer*, Dandelion::Element*);
 
 	bool ValidateTx(Transaction::Context&, const Transaction&); // complete validation

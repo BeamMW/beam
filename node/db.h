@@ -40,7 +40,8 @@ public:
 			MyID,
 			SyncTarget,
 			LoHorizon,
-			Treasury
+			Treasury,
+			DummyID
 		};
 	};
 

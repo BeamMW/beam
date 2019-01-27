@@ -709,6 +709,19 @@ void Node::Processor::OnUtxoEvent(const UtxoEvent::Key& key, const UtxoEvent::Va
 	}
 }
 
+void Node::Processor::OnDummy(const Key::ID& kid, Height)
+{
+	NodeDB& db = get_DB();
+	if (db.GetDummyHeight(kid) != MaxHeight)
+		return;
+
+	// recovered
+	Height h = get_ParentObj().SampleDummySpentHeight();
+	h += get_ParentObj().m_Cfg.m_Dandelion.m_DummyLifetimeHi * 2; // add some factor, to make sure the original creator node will spent it before us (if it's still running)
+
+	db.InsertDummy(h, kid);
+}
+
 void Node::Processor::OnFlushTimer()
 {
     m_bFlushPending = false;
@@ -784,6 +797,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
     if (!m_Cfg.m_Treasury.empty() && !m_Processor.m_Extra.m_TreasuryHandled)
         m_Processor.OnTreasury(Blob(m_Cfg.m_Treasury));
 
+	RefreshDecoys();
     InitMode();
 
 	ZeroObject(m_SyncStatus);
@@ -851,6 +865,62 @@ void Node::InitIDs()
         pKdf->Generate(hv.V);
         m_Keys.m_pDummy = std::move(pKdf);
     }
+
+}
+
+void Node::RefreshDecoys()
+{
+	ECC::Scalar::Native sk;
+	m_Keys.m_pDummy->DeriveKey(sk, Key::ID(0, Key::Type::Decoy));
+
+	ECC::NoLeak<ECC::Scalar> s, s2;
+	s2.V = sk;
+	s.V = Zero;
+	Blob blob(s.V.m_Value);
+	m_Processor.get_DB().ParamGet(NodeDB::ParamID::DummyID, NULL, &blob);
+
+	if (s2.V == s.V)
+		return;
+
+	LOG_INFO() << "Rescanning decoys...";
+
+	struct Walker
+		:public NodeProcessor::UtxoRecoverSimple
+	{
+		typedef NodeProcessor::UtxoRecoverSimple Parent;
+
+		Walker(NodeProcessor& x) :Parent(x) {}
+
+		Height m_Height;
+		uint32_t m_Recovered = 0;
+
+		virtual bool OnBlock(const Block::BodyBase& bb, TxBase::IReader&& r, uint64_t rowid, Height h, const Height* pHMax) override
+		{
+			m_Height = pHMax ? *pHMax : h;
+			return Parent::OnBlock(bb, std::move(r), rowid, h, pHMax);
+
+		}
+
+		virtual bool OnOutput(uint32_t /* iKey */, const Key::IDV& kidv, const Output&) override
+		{
+			if (NodeProcessor::IsDummy(kidv))
+			{
+				m_This.OnDummy(kidv, m_Height);
+				m_Recovered++;
+			}
+
+			return true;
+		}
+	};
+
+	Walker wlk(m_Processor);
+	wlk.m_vKeys.push_back(m_Keys.m_pDummy);
+	wlk.Proceed();
+
+	LOG_INFO() << "Recovered " << wlk.m_Recovered << " decoys";
+
+	blob = Blob(s2.V.m_Value);
+	m_Processor.get_DB().ParamSet(NodeDB::ParamID::DummyID, NULL, &blob);
 }
 
 void Node::InitMode()
@@ -2265,10 +2335,7 @@ void Node::AddDummyOutputs(Transaction& tx)
         ECC::Scalar::Native sk;
         pOutput->Create(sk, *m_Keys.m_pDummy, kidv, *m_Keys.m_pDummy);
 
-        Height h = m_Processor.m_Cursor.m_ID.m_Height + 1 + m_Cfg.m_Dandelion.m_DummyLifetimeLo;
-        if (m_Cfg.m_Dandelion.m_DummyLifetimeHi > m_Cfg.m_Dandelion.m_DummyLifetimeLo)
-            h += RandomUInt32(m_Cfg.m_Dandelion.m_DummyLifetimeHi - m_Cfg.m_Dandelion.m_DummyLifetimeLo);
-
+		Height h = SampleDummySpentHeight();
         db.InsertDummy(h, kidv);
 
         tx.m_vOutputs.push_back(std::move(pOutput));
@@ -2282,6 +2349,18 @@ void Node::AddDummyOutputs(Transaction& tx)
         m_Processor.FlushDB();
         tx.Normalize();
     }
+}
+
+Height Node::SampleDummySpentHeight()
+{
+	const Config::Dandelion& d = m_Cfg.m_Dandelion; // alias
+
+	Height h = m_Processor.m_Cursor.m_ID.m_Height + d.m_DummyLifetimeLo + 1;
+
+	if (d.m_DummyLifetimeHi > d.m_DummyLifetimeLo)
+		h += RandomUInt32(d.m_DummyLifetimeHi - d.m_DummyLifetimeLo);
+
+	return h;
 }
 
 bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPool::Stem::Element* pElem)

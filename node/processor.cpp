@@ -793,12 +793,13 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 		if (!EnumViewerKeys(w))
 		{
 			// filter-out dummies
-			if (w.m_Value.m_Kidv.m_Value == Zero)
+			Key::IDV kidv;
+			kidv = w.m_Value.m_Kidv;
+
+			if (IsDummy(kidv))
 			{
-				uint32_t nType;
-				w.m_Value.m_Kidv.m_Type.Export(nType);
-				if (Key::Type::Decoy == nType)
-					continue;
+				OnDummy(kidv, hMax);
+				continue;
 			}
 
 			// bingo!
@@ -822,6 +823,11 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 			OnUtxoEvent(key, w.m_Value);
 		}
 	}
+}
+
+bool NodeProcessor::IsDummy(const Key::IDV&  kidv)
+{
+	return !kidv.m_Value && (Key::Type::Decoy == kidv.m_Type);
 }
 
 bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, const Height* pHMax)
