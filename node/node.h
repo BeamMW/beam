@@ -258,8 +258,6 @@ private:
 	TaskList m_lstTasksUnassigned;
 	TaskSet m_setTasks;
 
-	uint64_t m_LastDummyID = 0;
-
 	struct FirstTimeSync
 	{
 		// there are 2 phases:

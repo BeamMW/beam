@@ -210,6 +210,12 @@ void NodeDB::Recordset::put(int col, const char* sz)
 	m_DB.TestRet(sqlite3_bind_text(m_pStmt, col+1, sz, -1, NULL));
 }
 
+void NodeDB::Recordset::put(int col, const Key::ID& kid, Key::ID::Packed& p)
+{
+	p = kid;
+	put(col, Blob(&p, sizeof(p)));
+}
+
 void NodeDB::Recordset::get(int col, uint32_t& x)
 {
 	x = sqlite3_column_int(m_pStmt, col);
@@ -231,6 +237,13 @@ void NodeDB::Recordset::get(int col, ByteBuffer& x)
 	Blob b;
 	get(col, b);
 	b.Export(x);
+}
+
+void NodeDB::Recordset::get(int col, Key::ID& kid)
+{
+	Key::ID::Packed p;
+	get_As(col, p);
+	kid = p;
 }
 
 const void* NodeDB::Recordset::get_BlobStrict(int col, uint32_t n)
@@ -267,7 +280,8 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 15;
+	const uint64_t nVersionTop = 16;
+	const uint64_t nVersionDummy0 = 15;
 	const uint64_t nVersionNoBbsPoW = 14;
 
 	Transaction t(*this);
@@ -285,6 +299,12 @@ void NodeDB::Open(const char* szPath)
 		{
 		case nVersionNoBbsPoW:
 			ExecQuick("ALTER TABLE [" TblBbs "] ADD [" TblBbs_Nonce "] INTEGER");
+			// no break;
+
+		case nVersionDummy0:
+			ExecQuick("DROP TABLE [" TblDummy "]");
+			ExecQuick("DROP INDEX [Idx" TblDummy "H]");
+			CreateTableDummy();
 
 			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
 			// no break;
@@ -385,11 +405,16 @@ void NodeDB::Create()
 	ExecQuick("CREATE INDEX [Idx" TblBbs "TSeq] ON [" TblBbs "] ([" TblBbs_Time "],[" TblBbs_ID "]);");
 	ExecQuick("CREATE INDEX [Idx" TblBbs "Key] ON [" TblBbs "] ([" TblBbs_Key "]);");
 
+	CreateTableDummy();
+}
+
+void NodeDB::CreateTableDummy()
+{
 	ExecQuick("CREATE TABLE [" TblDummy "] ("
-		"[" TblDummy_ID				"] INTEGER NOT NULL PRIMARY KEY,"
+		"[" TblDummy_ID				"] BLOB NOT NULL PRIMARY KEY,"
 		"[" TblDummy_SpendHeight	"] INTEGER NOT NULL)");
 
-	ExecQuick("CREATE INDEX [Idx" TblDummy "H] ON [" TblDummy "] ([" TblDummy_SpendHeight "]);");
+	ExecQuick("CREATE INDEX [Idx" TblDummy "H] ON [" TblDummy "] ([" TblDummy_SpendHeight "])");
 }
 
 void NodeDB::ExecQuick(const char* szSql)
@@ -1782,54 +1807,57 @@ uint64_t NodeDB::FindStateWorkGreater(const Difficulty::Raw& d)
 	return res;
 }
 
-void NodeDB::InsertDummy(Height h, uint64_t id)
+void NodeDB::InsertDummy(Height h, const Key::ID& kid)
 {
 	Recordset rs(*this, Query::DummyIns, "INSERT INTO " TblDummy "(" TblDummy_ID "," TblDummy_SpendHeight ") VALUES(?,?)");
-	rs.put(0, id);
+	Key::ID::Packed p;
+	rs.put(0, kid, p);
 	rs.put(1, h);
 	rs.Step();
 	TestChanged1Row();
 }
 
-uint64_t NodeDB::GetLowestDummy(Height& h)
+Height NodeDB::GetLowestDummy(Key::ID& kid)
 {
 	Recordset rs(*this, Query::DummyFindLowest, "SELECT " TblDummy_ID "," TblDummy_SpendHeight " FROM " TblDummy " ORDER BY " TblDummy_SpendHeight " ASC LIMIT 1");
 	if (!rs.Step())
-		return 0;
+		return MaxHeight;
 
-	uint64_t id;
-	rs.get(0, id);
+	Height h;
+	rs.get(0, kid);
 	rs.get(1, h);
 
-	return id;
+	return h;
 }
 
-uint64_t NodeDB::GetDummyLastID()
+Height NodeDB::GetDummyHeight(const Key::ID& kid)
 {
-	Recordset rs(*this, Query::DummyFindLastID, "SELECT MAX(" TblDummy_ID ") FROM " TblDummy);
+	Recordset rs(*this, Query::DummyFind, "SELECT " TblDummy_SpendHeight " FROM " TblDummy " WHERE " TblDummy_ID "=?");
+	Key::ID::Packed p;
+	rs.put(0, kid, p);
 	if (!rs.Step())
-		return 0;
-	if (rs.IsNull(0))
-		return 0;
+		return MaxHeight;
 
-	uint64_t id;
-	rs.get(0, id);
-	return id;
+	Height h;
+	rs.get(0, h);
+	return h;
 }
 
-void NodeDB::DeleteDummy(uint64_t id)
+void NodeDB::DeleteDummy(const Key::ID& kid)
 {
 	Recordset rs(*this, Query::DummyDel, "DELETE FROM " TblDummy " WHERE " TblDummy_ID "=?");
-	rs.put(0, id);
+	Key::ID::Packed p;
+	rs.put(0, kid, p);
 	rs.Step();
 	TestChanged1Row();
 }
 
-void NodeDB::SetDummyHeight(uint64_t rowid, Height h)
+void NodeDB::SetDummyHeight(const Key::ID& kid, Height h)
 {
 	Recordset rs(*this, Query::DummyUpdHeight, "UPDATE " TblDummy " SET " TblDummy_SpendHeight "=? WHERE " TblDummy_ID "=?");
 	rs.put(0, h);
-	rs.put(1, rowid);
+	Key::ID::Packed p;
+	rs.put(1, kid, p);
 	rs.Step();
 	TestChanged1Row();
 }

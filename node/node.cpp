@@ -2175,11 +2175,12 @@ void Node::AddDummyInputs(Transaction& tx)
 
     while (tx.m_vInputs.size() < m_Cfg.m_Dandelion.m_OutputsMax)
     {
-        Height h;
-        uint64_t id = m_Processor.get_DB().GetLowestDummy(h);
-        if (!id || (h > m_Processor.m_Cursor.m_ID.m_Height))
+		Key::IDV kidv;
+        Height h = m_Processor.get_DB().GetLowestDummy(kidv);
+        if (h > m_Processor.m_Cursor.m_ID.m_Height)
             break;
 
+		kidv.m_Value = 0;
         bModified = true;
 
         // ECC::Mode::Scope scope(ECC::Mode::Fast);
@@ -2190,7 +2191,7 @@ void Node::AddDummyInputs(Transaction& tx)
         UtxoTree::Key kMin, kMax;
 
         UtxoTree::Key::Data d;
-        SwitchCommitment().Create(sk, d.m_Commitment, *m_Keys.m_pDummy, Key::IDV(0, id, Key::Type::Decoy));
+        SwitchCommitment().Create(sk, d.m_Commitment, *m_Keys.m_pDummy, kidv);
         d.m_Maturity = 0;
         kMin = d;
 
@@ -2212,7 +2213,7 @@ void Node::AddDummyInputs(Transaction& tx)
         if (m_Processor.get_Utxos().Traverse(t))
         {
             // spent
-            m_Processor.get_DB().DeleteDummy(id);
+            m_Processor.get_DB().DeleteDummy(kidv);
         }
         else
         {
@@ -2224,7 +2225,7 @@ void Node::AddDummyInputs(Transaction& tx)
             tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + ECC::Scalar::Native(sk);
 
             /// in the (unlikely) case the tx will be lost - we'll retry spending this UTXO after the following num of blocks
-            m_Processor.get_DB().SetDummyHeight(id, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
+            m_Processor.get_DB().SetDummyHeight(kidv, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
         }
 
     }
@@ -2248,21 +2249,27 @@ void Node::AddDummyOutputs(Transaction& tx)
 
     while (tx.m_vOutputs.size() < m_Cfg.m_Dandelion.m_OutputsMin)
     {
-        if (!m_LastDummyID)
-            m_LastDummyID = db.GetDummyLastID();
+		Key::IDV kidv(Zero);
+		kidv.m_Type = Key::Type::Decoy;
 
-        ++m_LastDummyID;
+		while (true)
+		{
+			NextNonce().ExportWord<0>(kidv.m_Idx);
+			if (MaxHeight == db.GetDummyHeight(kidv))
+				break;
+		}
+
         bModified = true;
 
         Output::Ptr pOutput(new Output);
         ECC::Scalar::Native sk;
-        pOutput->Create(sk, *m_Keys.m_pDummy, Key::IDV(0, m_LastDummyID, Key::Type::Decoy), *m_Keys.m_pDummy);
+        pOutput->Create(sk, *m_Keys.m_pDummy, kidv, *m_Keys.m_pDummy);
 
         Height h = m_Processor.m_Cursor.m_ID.m_Height + 1 + m_Cfg.m_Dandelion.m_DummyLifetimeLo;
         if (m_Cfg.m_Dandelion.m_DummyLifetimeHi > m_Cfg.m_Dandelion.m_DummyLifetimeLo)
             h += RandomUInt32(m_Cfg.m_Dandelion.m_DummyLifetimeHi - m_Cfg.m_Dandelion.m_DummyLifetimeLo);
 
-        db.InsertDummy(h, m_LastDummyID);
+        db.InsertDummy(h, kidv);
 
         tx.m_vOutputs.push_back(std::move(pOutput));
 
