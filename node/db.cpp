@@ -302,8 +302,8 @@ void NodeDB::Open(const char* szPath)
 			// no break;
 
 		case nVersionDummy0:
-			ExecQuick("DROP TABLE [" TblDummy "]");
 			ExecQuick("DROP INDEX [Idx" TblDummy "H]");
+			ExecQuick("DROP TABLE [" TblDummy "]");
 			CreateTableDummy();
 
 			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
