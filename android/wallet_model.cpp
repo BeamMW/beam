@@ -46,7 +46,7 @@ void WalletModel::onStatus(const WalletStatus& status)
         jobject systemState = env->AllocObject(SystemStateClass);
 
         setLongField(env, SystemStateClass, systemState, "height", status.stateID.m_Height);
-        setByteArrayField(env, SystemStateClass, systemState, "hash", status.stateID.m_Hash);
+        setStringField(env, SystemStateClass, systemState, "hash", to_hex(status.stateID.m_Hash.m_pData, status.stateID.m_Hash.nBytes));
 
         jfieldID systemStateID = env->GetFieldID(WalletStatusClass, "system", "L" BEAM_JAVA_PATH "/entities/dto/SystemStateDTO;");
         env->SetObjectField(walletStatus, systemStateID, systemState);
@@ -82,7 +82,7 @@ void WalletModel::onTxStatus(beam::ChangeAction action, const std::vector<beam::
 
             jobject tx = env->AllocObject(TxDescriptionClass);
 
-            setByteArrayField(env, TxDescriptionClass, tx, "id", item.m_txId);
+            setStringField(env, TxDescriptionClass, tx, "id", to_hex(item.m_txId.data(), item.m_txId.size()));
             setLongField(env, TxDescriptionClass, tx, "amount", item.m_amount);
             setLongField(env, TxDescriptionClass, tx, "fee", item.m_fee);
             setLongField(env, TxDescriptionClass, tx, "change", item.m_change);
@@ -91,7 +91,7 @@ void WalletModel::onTxStatus(beam::ChangeAction action, const std::vector<beam::
             setStringField(env, TxDescriptionClass, tx, "peerId", to_string(item.m_peerId));
             setStringField(env, TxDescriptionClass, tx, "myId", to_string(item.m_myId));
 
-            setByteArrayField(env, TxDescriptionClass, tx, "message", item.m_message);
+            setStringField(env, TxDescriptionClass, tx, "message", string(item.m_message.begin(), item.m_message.end()));
             setLongField(env, TxDescriptionClass, tx, "createTime", item.m_createTime);
             setLongField(env, TxDescriptionClass, tx, "modifyTime", item.m_modifyTime);
             setBooleanField(env, TxDescriptionClass, tx, "sender", item.m_sender);
@@ -153,17 +153,15 @@ void WalletModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxosVec)
             setStringField(env, UtxoClass, utxo, "stringId", coin.toStringID());
             setLongField(env, UtxoClass, utxo, "amount", coin.m_ID.m_Value);
             setIntField(env, UtxoClass, utxo, "status", coin.m_status);
-            setLongField(env, UtxoClass, utxo, "createHeight", coin.m_createHeight);
             setLongField(env, UtxoClass, utxo, "maturity", coin.m_maturity);
             setIntField(env, UtxoClass, utxo, "keyType", static_cast<jint>(coin.m_ID.m_Type));
             setLongField(env, UtxoClass, utxo, "confirmHeight", coin.m_confirmHeight);
-            setLongField(env, UtxoClass, utxo, "lockHeight", coin.m_lockedHeight);
 
             if (coin.m_createTxId)
-                setByteArrayField(env, UtxoClass, utxo, "createTxId", *coin.m_createTxId);
+                setStringField(env, UtxoClass, utxo, "createTxId", to_hex(coin.m_createTxId->data(), coin.m_createTxId->size()));
 
             if (coin.m_spentTxId)
-                setByteArrayField(env, UtxoClass, utxo, "spentTxId", *coin.m_spentTxId);
+                setStringField(env, UtxoClass, utxo, "spentTxId", to_hex(coin.m_spentTxId->data(), coin.m_spentTxId->size()));
 
             env->SetObjectArrayElement(utxos, i, utxo);
 

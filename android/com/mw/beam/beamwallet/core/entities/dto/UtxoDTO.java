@@ -20,12 +20,9 @@ public class UtxoDTO
     public String stringId;
 	public long amount;
 	public int status;
-	public long createHeight;
 	public long maturity;
 	public int keyType;
 	public long confirmHeight;
-	public byte[] confirmHash;
-	public long lockHeight;
-	public byte[] createTxId;
-	public byte[] spentTxId;
+	public String createTxId;
+	public String spentTxId;
 }
