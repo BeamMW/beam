@@ -268,7 +268,12 @@ namespace beam
         void notifySystemStateChanged();
         void notifyAddressChanged();
 		void CreateStorageTable();
-    private:
+		static uint64_t get_RandomID();
+		bool updateRaw(const Coin&);
+		void insertRaw(const Coin&);
+		void insertNew(Coin&);
+		void saveRaw(const Coin&);
+	private:
 
         sqlite3* _db;
         Key::IKdf::Ptr m_pKdf;

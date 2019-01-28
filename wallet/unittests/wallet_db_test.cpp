@@ -79,8 +79,6 @@ void TestWalletDataBase()
     Coin coin2 = CreateAvailCoin(2);
     walletDB->store(coin2);
 
-    WALLET_CHECK(coin2.m_ID.m_Idx == coin1.m_ID.m_Idx + 1);
-
     {
         auto coins = walletDB->selectCoins(7);
         WALLET_CHECK(coins.size() == 2);

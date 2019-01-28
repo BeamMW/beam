@@ -1339,34 +1339,52 @@ namespace beam
         return coins;
     }
 
-    namespace
-    {
-        struct InsertCoinStatement : public sqlite::Statement
-        {
-            InsertCoinStatement(sqlite3* db)
-                : sqlite::Statement(db, "INSERT OR REPLACE INTO " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ALL_STORAGE_FIELDS(BIND_LIST, COMMA, ) ");")
-            {
-            }
+	void WalletDB::insertRaw(const Coin& coin)
+	{
+		const char* req = "INSERT INTO " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_ALL_STORAGE_FIELDS(BIND_LIST, COMMA, ) ");";
+		sqlite::Statement stm(_db, req);
 
-            void apply(const Coin& coin)
-            {
-                sqlite::Statement& stm = *this;
-                int colIdx = 0;
-                ENUM_ALL_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
-                stm.step();
+		int colIdx = 0;
+		ENUM_ALL_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
+		stm.step();
+	}
 
-                Reset();
-            }
-        };
-    }
+	void WalletDB::insertNew(Coin& coin)
+	{
+		Coin cDup;
+		cDup.m_ID = coin.m_ID;
+		while (find(cDup))
+			cDup.m_ID.m_Idx++;
+
+		coin.m_ID.m_Idx = cDup.m_ID.m_Idx;
+		insertRaw(coin);
+	}
+
+	bool WalletDB::updateRaw(const Coin& coin)
+	{
+		const char* req = "UPDATE " STORAGE_NAME " SET " ENUM_STORAGE_FIELDS(SET_LIST, COMMA, ) STORAGE_WHERE_ID  ";";
+		sqlite::Statement stm(_db, req);
+
+		int colIdx = 0;
+		ENUM_STORAGE_FIELDS(STM_BIND_LIST, NOSEP, coin);
+		ENUM_STORAGE_ID(STM_BIND_LIST, NOSEP, coin);
+		stm.step();
+
+		return sqlite3_changes(_db) > 0;
+	}
+
+	void WalletDB::saveRaw(const Coin& coin)
+	{
+		if (!updateRaw(coin))
+			insertRaw(coin);
+	}
 
     void WalletDB::store(Coin& coin)
     {
         sqlite::Transaction trans(_db);
 
-        coin.m_ID.m_Idx = AllocateKidRange(1);
-        InsertCoinStatement stm(_db);
-        stm.apply(coin);
+        coin.m_ID.m_Idx = get_RandomID();
+		insertNew(coin);
 
         trans.commit();
         notifyCoinsChanged();
@@ -1379,12 +1397,12 @@ namespace beam
 
         sqlite::Transaction trans(_db);
 
-        uint64_t nKeyIndex = AllocateKidRange(coins.size());
-        InsertCoinStatement stm(_db);
+        uint64_t nKeyIndex = get_RandomID();
         for (auto& coin : coins)
         {
-            coin.m_ID.m_Idx = nKeyIndex++;
-            stm.apply(coin);
+            coin.m_ID.m_Idx = nKeyIndex;
+			insertNew(coin);
+			nKeyIndex = coin.m_ID.m_Idx + 1;
         }
 
         trans.commit();
@@ -1393,8 +1411,7 @@ namespace beam
 
     void WalletDB::save(const Coin& coin)
     {
-        InsertCoinStatement stm(_db);
-        stm.apply(coin);
+		saveRaw(coin);
         notifyCoinsChanged();
     }
 
@@ -1404,15 +1421,24 @@ namespace beam
             return;
 
         sqlite::Transaction trans(_db);
-        InsertCoinStatement stm(_db);
         for (auto& coin : coins)
         {
-            stm.apply(coin);
+			saveRaw(coin);
         }
 
         trans.commit();
         notifyCoinsChanged();
     }
+
+	uint64_t WalletDB::get_RandomID()
+	{
+		uintBigFor<uint64_t>::Type val;
+		ECC::GenRandom(val);
+
+		uint64_t ret;
+		val.Export(ret);
+		return ret;
+	}
 
     uint64_t WalletDB::AllocateKidRange(uint64_t nCount)
     {
@@ -1506,7 +1532,7 @@ namespace beam
 
     void WalletDB::visit(function<bool(const Coin& coin)> func)
     {
-        const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " ORDER BY " ENUM_STORAGE_ID(LIST, COMMA, ) ";";
+        const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " ORDER BY ROWID;";
         sqlite::Statement stm(_db, req);
 
 		Height h = getCurrentHeight();
