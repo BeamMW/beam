@@ -1,11 +1,11 @@
 [Desktop Entry]
 Version=1.0
-Name=Beam Wallet
+Name=Beam Wallet Testnet
 Comment=Scalable confidential cryptocurrency
-Exec=/usr/bin/BeamWallet %U
+Exec=/usr/bin/BeamWalletTestnet %U
 Icon=beam
 Terminal=false
 Type=Application
 Categories=Network
 MimeType=application/x-beam-item;
-GenericName=Beam Wallet
+GenericName=Beam Wallet Testnet
