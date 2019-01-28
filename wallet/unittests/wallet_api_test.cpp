@@ -220,6 +220,11 @@ namespace
                 //WALLET_CHECK(data.session == 15);
                 WALLET_CHECK(data.value == 12342342);
                 WALLET_CHECK(to_string(data.address) == "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67");
+
+                if(data.from)
+                {
+                    WALLET_CHECK(to_string(*data.from) == "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6");
+                }
             }
         };
 
@@ -439,6 +444,20 @@ int main()
         {
             "session" : 15,
             "value" : 12342342,
+            "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
+        }
+    }));
+
+    testSendJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_send",
+        "params" : 
+        {
+            "session" : 15,
+            "value" : 12342342,
+            "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
             "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
         }
     }));

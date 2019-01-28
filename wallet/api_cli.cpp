@@ -214,14 +214,37 @@ namespace beam
 
                 try
                 {
-                    WalletAddress senderAddress = wallet::createAddress(*_walletDB);
-                    _walletDB->saveAddress(senderAddress);
+                    WalletID from(Zero);
 
-                    _wnet.AddOwnAddress(senderAddress);
+                    if(data.from)
+                    {
+                        if(!data.from->IsValid())
+                        {
+                            doError(id, INTERNAL_JSON_RPC_ERROR, "Invalid sender address.");
+                            return;
+                        }
+
+                        if(!_walletDB->getAddress(*data.from))
+                        {
+                            doError(id, INTERNAL_JSON_RPC_ERROR, "It's not your own address.");
+                            return;
+                        }
+
+                        from = *data.from;
+                    }
+                    else
+                    {
+                        WalletAddress senderAddress = wallet::createAddress(*_walletDB);
+                        _walletDB->saveAddress(senderAddress);
+
+                        _wnet.AddOwnAddress(senderAddress);
+
+                        from = senderAddress.m_walletID;     
+                    }
 
                     ByteBuffer message(data.comment.begin(), data.comment.end());
 
-                    auto txId = _wallet.transfer_money(senderAddress.m_walletID, data.address, data.value, data.fee, true, 120, std::move(message));
+                    auto txId = _wallet.transfer_money(from, data.address, data.value, data.fee, true, 120, std::move(message));
                     doResponse(id, Send::Response{ txId });
                 }
                 catch(...)

@@ -70,6 +70,7 @@ namespace beam
         //int session;
         Amount value;
         Amount fee;
+        boost::optional<WalletID> from;
         WalletID address;
         std::string comment;
 

@@ -120,6 +120,14 @@ namespace beam
         send.value = params["value"];
         send.address.FromHex(params["address"]);
 
+        if (existsJsonParam(params, "from"))
+        {
+            WalletID from(Zero);
+            from.FromHex(params["from"]);
+
+            send.from = from;
+        }
+
         if (existsJsonParam(params, "fee"))
         {
             if(params["fee"] < 0)
