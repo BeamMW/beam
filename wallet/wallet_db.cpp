@@ -30,10 +30,10 @@
 #define ENUM_STORAGE_ID(each, sep, obj) \
     each(Type,           ID.m_Type,     INTEGER NOT NULL, obj) sep \
     each(SubKey,         ID.m_SubIdx,   INTEGER NOT NULL, obj) sep \
-    each(Number,         ID.m_Idx,      INTEGER NOT NULL, obj)
+    each(Number,         ID.m_Idx,      INTEGER NOT NULL, obj) sep \
+	each(amount,         ID.m_Value,    INTEGER NOT NULL, obj) \
 
 #define ENUM_STORAGE_FIELDS(each, sep, obj) \
-    each(amount,         ID.m_Value,    INTEGER NOT NULL, obj) sep \
     each(maturity,       maturity,      INTEGER NOT NULL, obj) sep \
     each(confirmHeight,  confirmHeight, INTEGER, obj) sep \
     each(spentHeight,    spentHeight,   INTEGER, obj) sep \
