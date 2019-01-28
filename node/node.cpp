@@ -794,8 +794,10 @@ void Node::Initialize(IExternalPOW* externalPOW)
     LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
 	LOG_INFO() << "Tx replication is OFF";
 
-    if (!m_Cfg.m_Treasury.empty() && !m_Processor.m_Extra.m_TreasuryHandled)
-        m_Processor.OnTreasury(Blob(m_Cfg.m_Treasury));
+	if (!m_Cfg.m_Treasury.empty() && !m_Processor.m_Extra.m_TreasuryHandled) {
+		// stupid compiler insists on parentheses here!
+		m_Processor.OnTreasury(Blob(m_Cfg.m_Treasury));
+	}
 
 	RefreshDecoys();
     InitMode();
