@@ -16,14 +16,14 @@ package com.mw.beam.beamwallet.core.entities.dto;
 
 public class TxDescriptionDTO
 {
-	public byte[] id;
+	public String id;
 	public long amount;
 	public long fee;
 	public long change;
 	public long minHeight;
 	public String peerId;
 	public String myId;
-	public byte[] message;
+	public String message;
 	public long createTime;
 	public long modifyTime;
 	public boolean sender;

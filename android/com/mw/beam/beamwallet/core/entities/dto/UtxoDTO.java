@@ -23,7 +23,6 @@ public class UtxoDTO
 	public long maturity;
 	public int keyType;
 	public long confirmHeight;
-	public byte[] confirmHash;
-	public byte[] createTxId;
-	public byte[] spentTxId;
+	public String createTxId;
+	public String spentTxId;
 }

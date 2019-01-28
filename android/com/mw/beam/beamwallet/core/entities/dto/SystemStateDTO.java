@@ -16,6 +16,6 @@ package com.mw.beam.beamwallet.core.entities.dto;
 
 public class SystemStateDTO
 {
-	public byte[] hash;
+	public String hash;
 	public long height;
 }
