@@ -166,15 +166,8 @@ void NodeClient::runLocalNode()
     node.m_Cfg.m_Listen.port(m_observer->getLocalNodePort());
     node.m_Cfg.m_Listen.ip(INADDR_ANY);
     node.m_Cfg.m_sPathLocal = m_observer->getLocalNodeStorage();
-
-    {
-#ifdef BEAM_USE_GPU
-        node.m_Cfg.m_MiningThreads = 0;
-#else
-        node.m_Cfg.m_MiningThreads = m_observer->getLocalNodeMiningThreads();
-#endif //  BEAM_USE_GPU
-        node.m_Cfg.m_VerificationThreads = kVerificationThreadsMaxAvailable;
-    }
+    node.m_Cfg.m_MiningThreads = 0;
+    node.m_Cfg.m_VerificationThreads = kVerificationThreadsMaxAvailable;
 
     node.m_Keys.SetSingleKey(m_pKdf);
 

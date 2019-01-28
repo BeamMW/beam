@@ -15,10 +15,12 @@
 #include "wallet_db.h"
 #include "wallet_transaction.h"
 #include "utility/logger.h"
+#include "utility/helpers.h"
 #include "sqlite/sqlite3.h"
 #include <sstream>
 #include <boost/functional/hash.hpp>
 #include <boost/filesystem.hpp>
+#include "nlohmann/json.hpp"
 
 #define NOSEP
 #define COMMA ", "
@@ -936,14 +938,29 @@ namespace beam
         ID::Packed packed;
         packed = m_ID;
 
-        return to_hex(packed.m_Idx.m_pData, packed.m_Idx.nBytes) +
-            to_hex(packed.m_Type.m_pData, packed.m_Type.nBytes) +
-            to_hex(packed.m_SubIdx.m_pData, packed.m_SubIdx.nBytes);
+        return to_hex(&packed, sizeof(packed));
     }
 
     Amount Coin::getAmount() const
     {
         return m_ID.m_Value;
+    }
+
+    boost::optional<Coin::ID> Coin::FromString(const std::string& str)
+    {
+        bool isValid = false;
+        auto byteBuffer = from_hex(str, &isValid);
+        if (isValid && byteBuffer.size() <= sizeof(Coin::ID::Packed))
+        {
+            Coin::ID::Packed packed;
+            ZeroObject(packed);
+            uint8_t* p = reinterpret_cast<uint8_t*>(&packed) + sizeof(Coin::ID::Packed) - byteBuffer.size();
+            copy_n(byteBuffer.begin(), byteBuffer.size(), p);
+            Coin::ID id;
+            id = packed;
+            return id;
+        }
+        return boost::optional<Coin::ID>();
     }
 
     bool WalletDB::isInitialized(const string& path)
@@ -1292,6 +1309,10 @@ namespace beam
         struct DummyWrapper {
                 Coin::ID m_ID;
         };
+
+        Block::SystemState::ID stateID = {};
+        getSystemStateID(stateID);
+
         for (const auto& cid : ids)
         {
             const char* req = "SELECT * FROM " STORAGE_NAME STORAGE_WHERE_ID;
@@ -1305,9 +1326,14 @@ namespace beam
 
             if (stm.step())
             {
-                auto& coin = coins.emplace_back();
+                Coin coin;
                 colIdx = 0;
                 ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+                wallet::DeduceStatus(*this, coin, stateID.m_Height);
+                if (Coin::Status::Available == coin.m_status)
+                {
+                    coins.push_back(coin);
+                }
             }
         }
         return coins;
@@ -1792,7 +1818,7 @@ namespace beam
         notifyCoinsChanged();
     }
 
-    std::vector<WalletAddress> WalletDB::getAddresses(bool own)
+    std::vector<WalletAddress> WalletDB::getAddresses(bool own) const
     {
         vector<WalletAddress> res;
         const char* req = "SELECT * FROM " ADDRESSES_NAME " ORDER BY createTime DESC;";
@@ -2350,5 +2376,65 @@ namespace beam
 
 			return Coin::Status::Unavailable;
 		}
+
+        using nlohmann::json;
+
+        string ExportAddressesToJson(const IWalletDB& db)
+        {
+            json ownAddresses = json::array();
+            for (const auto& address : db.getAddresses(true))
+            {
+                ownAddresses.push_back(
+                    json
+                    {
+                        {"Index", address.m_OwnID},
+                        {"SubIndex", 0},
+                        {"WalletID", to_string(address.m_walletID)},
+                        {"Label", address.m_label},
+                        {"CreationTime", address.m_createTime},
+                        {"Duration", address.m_duration}
+                    }
+                );
+            }
+            auto res = json
+            {
+                {"OwnAddresses", ownAddresses}
+            };
+            return res.dump();
+        }
+
+        bool ImportAddressesFromJson(IWalletDB& db, const char* data, size_t size)
+        {
+            try
+            {
+                json obj = json::parse(data, data + size);
+                if (obj.find("OwnAddresses") == obj.end())
+                {
+                    return false;
+                }
+
+                vector<WalletAddress> addresses;
+                for (const auto& jsonAddress : obj["OwnAddresses"])
+                {
+                    WalletAddress address;
+                    if (!address.m_walletID.FromHex(jsonAddress["WalletID"]))
+                    {
+                        continue;
+                    }
+                    address.m_OwnID = jsonAddress["Index"];
+                    //{ "SubIndex", 0 },
+                    address.m_label = jsonAddress["Label"];
+                    address.m_createTime = jsonAddress["CreationTime"];
+                    address.m_duration = jsonAddress["Duration"];
+                    db.saveAddress(address);
+                }
+                return true;
+            }
+            catch (const nlohmann::detail::exception& e)
+            {
+                LOG_ERROR() << "json parse: " << e.what() << "\n" << std::string(data, data + (size > 1024 ? 1024 : size));
+            }
+            return false;
+        }
     }
 }

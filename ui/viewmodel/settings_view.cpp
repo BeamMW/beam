@@ -143,21 +143,6 @@ void SettingsViewModel::setLocalNodePort(uint value)
     }
 }
 
-uint SettingsViewModel::getLocalNodeMiningThreads() const
-{
-    return m_localNodeMiningThreads;
-}
-
-void SettingsViewModel::setLocalNodeMiningThreads(uint value)
-{
-    if (value != m_localNodeMiningThreads)
-    {
-        m_localNodeMiningThreads = value;
-        emit localNodeMiningThreadsChanged();
-        emit propertiesChanged();
-    }
-}
-
 int SettingsViewModel::getLockTimeout() const
 {
     return m_lockTimeout;
@@ -200,15 +185,6 @@ void SettingsViewModel::openUrl(const QString& url)
 void SettingsViewModel::copyToClipboard(const QString& text)
 {
     QApplication::clipboard()->setText(text);
-}
-
-bool SettingsViewModel::showUseGpu() const
-{
-#ifdef BEAM_USE_GPU
-    return true;
-#else
-    return false;
-#endif
 }
 
 QQmlListProperty<DeviceItem> SettingsViewModel::getSupportedDevices() 
@@ -275,7 +251,6 @@ bool SettingsViewModel::isChanged() const
     return m_nodeAddress != m_settings.getNodeAddress()
         || m_localNodeRun != m_settings.getRunLocalNode()
         || m_localNodePort != m_settings.getLocalNodePort()
-        || m_localNodeMiningThreads != m_settings.getLocalNodeMiningThreads()
         || m_localNodePeers != m_settings.getLocalNodePeers()
 #ifdef BEAM_USE_GPU
         || m_lockTimeout != m_settings.getLockTimeout()
@@ -292,7 +267,6 @@ void SettingsViewModel::applyChanges()
     m_settings.setNodeAddress(m_nodeAddress);
     m_settings.setRunLocalNode(m_localNodeRun);
     m_settings.setLocalNodePort(m_localNodePort);
-    m_settings.setLocalNodeMiningThreads(m_localNodeMiningThreads);
     m_settings.setLocalNodePeers(m_localNodePeers);
     m_settings.setLockTimeout(m_lockTimeout);
 #ifdef BEAM_USE_GPU
@@ -332,11 +306,7 @@ void SettingsViewModel::setUseGpu(bool value)
 
 bool SettingsViewModel::getUseGpu() const
 {
-#ifdef BEAM_USE_GPU
     return m_useGpu;
-#else
-    return false;
-#endif
 }
 
 void SettingsViewModel::undoChanges()
@@ -344,7 +314,6 @@ void SettingsViewModel::undoChanges()
     setNodeAddress(m_settings.getNodeAddress());
     setLocalNodeRun(m_settings.getRunLocalNode());
     setLocalNodePort(m_settings.getLocalNodePort());
-    setLocalNodeMiningThreads(m_settings.getLocalNodeMiningThreads());
     setLockTimeout(m_settings.getLockTimeout());
     setLocalNodePeers(m_settings.getLocalNodePeers());
 #ifdef BEAM_USE_GPU

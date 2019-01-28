@@ -136,7 +136,7 @@ namespace
         void deleteTx(const TxID& ) override {};
         void rollbackTx(const TxID&) override {}
 
-        std::vector<WalletAddress> getAddresses(bool own) override { return {}; }
+        std::vector<WalletAddress> getAddresses(bool own) const override { return {}; }
 
 		WalletAddress m_LastAdddr;
 

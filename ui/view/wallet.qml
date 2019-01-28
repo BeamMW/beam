@@ -15,13 +15,11 @@ Item {
         id: viewModel
         onSendMoneyVerified: {
             walletView.enabled = true
-            console.log("onSendMoneyVerified");
             walletView.pop();
         }
 
         onCantSendToExpired: {
             walletView.enabled = true
-            console.log("can't send to expired address");
             cantSendToExpiredDialog.open();
         }
     }
@@ -1317,7 +1315,6 @@ Item {
                                         }
                                         font.styleName: "Italic"
                                         Layout.fillWidth: true
-                                        wrapMode : Text.Wrap
                                         elide: Text.ElideRight
                                         onCopyText: viewModel.copyToClipboard(text)
                                     }
@@ -1341,7 +1338,6 @@ Item {
                                         }
                                         font.styleName: "Italic"
                                         Layout.fillWidth: true
-                                        wrapMode : Text.Wrap
                                         elide: Text.ElideRight
                                         onCopyText: viewModel.copyToClipboard(text)
                                     }
@@ -1359,7 +1355,7 @@ Item {
                                         color: Style.white
                                         visible: !!viewModel.transactions[styleData.row] ? viewModel.transactions[styleData.row].failureReason.length > 0 : false
                                         text: {
-                                            if(!!viewModel.transactions[styleData.row])
+                                            if(!!viewModel.transactions[styleData.row] && (viewModel.transactions[styleData.row].failureReason.length > 0))
                                             {
                                                 return viewModel.transactions[styleData.row].failureReason;
                                             }
@@ -1367,7 +1363,6 @@ Item {
                                         }
                                         font.styleName: "Italic"
                                         Layout.fillWidth: true
-                                        wrapMode : Text.Wrap
                                         elide: Text.ElideRight
                                         onCopyText: viewModel.copyToClipboard(text)
                                     }

@@ -9,7 +9,7 @@ import QtQuick.Layouts 1.3
 
 Item
 {
-    id: root_restore
+    id: rootLoading
 
     property bool isRecoveryMode: false
     property alias isCreating: viewModel.isCreating
@@ -61,13 +61,13 @@ Item
         }
     }
 
-    RestoreViewModel {
+    LoadingViewModel {
         id: viewModel 
         onSyncCompleted: {
             if (isRecoveryMode || isCreating)
                 root.parent.source = "qrc:/main.qml";
             else
-                root_restore.parent.source = "qrc:/main.qml";
+                rootLoading.parent.source = "qrc:/main.qml";
         }
 
         onWalletError: {

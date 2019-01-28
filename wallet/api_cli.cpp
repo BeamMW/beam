@@ -510,6 +510,15 @@ int main(int argc, char* argv[])
                 return 0;
             }
 
+            {
+                std::ifstream cfg("wallet-api.cfg");
+
+                if (cfg)
+                {                    
+                    po::store(po::parse_config_file(cfg, desc), vm);
+                }
+            }
+
             vm.notify();
 
             Rules::get().UpdateChecksum();

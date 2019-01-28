@@ -321,11 +321,6 @@ int StartViewModel::getLocalPort() const
     return AppModel::getInstance()->getSettings().getLocalNodePort();
 }
 
-int StartViewModel::getLocalMiningThreads() const
-{
-    return AppModel::getInstance()->getSettings().getLocalNodeMiningThreads();
-}
-
 QString StartViewModel::getRemoteNodeAddress() const
 {
     return AppModel::getInstance()->getSettings().getNodeAddress();
@@ -342,21 +337,9 @@ QQmlListProperty<WalletDBPathItem> StartViewModel::getWalletDBpaths()
     return QQmlListProperty<WalletDBPathItem>(this, m_walletDBpaths);
 }
 
-void StartViewModel::setupLocalNode(int port, int miningThreads, const QString& localNodePeer)
+void StartViewModel::setupLocalNode(int port, const QString& localNodePeer)
 {
     auto& settings = AppModel::getInstance()->getSettings();
-#ifdef BEAM_USE_GPU
-    if (settings.getUseGpu())
-    {
-        settings.setLocalNodeMiningThreads(1);
-    }
-    else
-    {
-        settings.setLocalNodeMiningThreads(miningThreads);
-    }
-#else
-    settings.setLocalNodeMiningThreads(miningThreads);
-#endif
     auto localAddress = QString::asprintf("127.0.0.1:%d", port);
     settings.setNodeAddress(localAddress);
     settings.setLocalNodePort(port);

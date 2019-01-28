@@ -35,7 +35,6 @@ public:
 
     virtual uint16_t getLocalNodePort() = 0;
     virtual std::string getLocalNodeStorage() = 0;
-    virtual unsigned int getLocalNodeMiningThreads() = 0;
     virtual std::string getTempDir() = 0;
     virtual std::vector<std::string> getLocalNodePeers() = 0;
 #ifdef BEAM_USE_GPU
