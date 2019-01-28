@@ -203,9 +203,9 @@ namespace beam
             {
                 LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
 
-                _walletDB->getAddress(data.address);
-
-                doResponse(id, ValidateAddress::Response{ data.address.IsValid(), _walletDB->getAddress(data.address) ? true : false });
+                auto addr = _walletDB->getAddress(data.address);
+                bool isMine = addr ? addr->m_OwnID != 0 : false;
+                doResponse(id, ValidateAddress::Response{ data.address.IsValid() && (isMine ? addr->isExpired() : true), isMine});
             }
 
             void onMessage(int id, const Send& data) override
@@ -224,7 +224,10 @@ namespace beam
                             return;
                         }
 
-                        if(!_walletDB->getAddress(*data.from))
+                        auto addr = _walletDB->getAddress(data.address);
+                        bool isMine = addr ? addr->m_OwnID != 0 : false;
+
+                        if(!isMine)
                         {
                             doError(id, INTERNAL_JSON_RPC_ERROR, "It's not your own address.");
                             return;
