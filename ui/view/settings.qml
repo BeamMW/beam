@@ -9,7 +9,7 @@ import Beam.Wallet 1.0
 Rectangle {
 
     anchors.fill: parent
-    color: "#032e48"
+    color: Style.marine
 
     SettingsViewModel {id: viewModel}
 
