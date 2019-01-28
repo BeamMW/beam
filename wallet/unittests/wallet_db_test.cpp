@@ -1224,7 +1224,7 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
     ECC::InitializeContext();
 
-   /* TestWalletDataBase();
+   TestWalletDataBase();
     TestStoreCoins();
     TestStoreTxRecord();
     TestTxRollback();
@@ -1235,12 +1235,12 @@ int main()
     TestSelect3();
     TestSelect4();
     TestSelect5();
-    TestSelect6();*/
+    TestSelect6();
     TestAddresses();
 
     TestTxParameters();
 
-    /*TestTransferredByTx();*/
+    TestTransferredByTx();
 
 
     return WALLET_CHECK_RESULT;
