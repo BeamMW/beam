@@ -719,6 +719,28 @@ namespace
         const char* p = (char*)(&buffer[0]);
         return wallet::ImportAddressesFromJson(*walletDB, p, buffer.size()) ? 0 : -1;
     }
+
+    CoinIDList GetPreselectedCoinIDs(const po::variables_map& vm)
+    {
+        CoinIDList coinIDs;
+        if (vm.count(cli::UTXO))
+        {
+            auto tempCoins = vm[cli::UTXO].as<vector<string>>();
+            for (const auto& s : tempCoins)
+            {
+                auto csv = string_helpers::split(s, ',');
+                for (const auto& v : csv)
+                {
+                    auto coinID = Coin::FromString(v);
+                    if (coinID)
+                    {
+                        coinIDs.push_back(*coinID);
+                    }
+                }
+            }
+        }
+        return coinIDs;
+    }
 }
 
 io::Reactor::Ptr reactor;
@@ -1042,20 +1064,7 @@ int main_impl(int argc, char* argv[])
                     {
                         WalletAddress senderAddress = newAddress(walletDB, "");
                         wnet.AddOwnAddress(senderAddress);
-                        CoinIDList coinIDs;
-                        if (vm.count(cli::UTXO))
-                        {
-                            auto tempCoins = vm[cli::UTXO].as<vector<string>>();
-
-                            for (const auto& s : tempCoins)
-                            {
-                                auto coinID = Coin::FromString(s);
-                                if (coinID)
-                                {
-                                    coinIDs.push_back(*coinID);
-                                }
-                            }
-                        }
+                        CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
                         wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND);
                     }
 
