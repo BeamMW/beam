@@ -360,6 +360,51 @@ namespace
             WALLET_CHECK(res["id"] == 123);
         }
     }
+
+    void testValidateAddressJsonRpc(const std::string& msg, bool valid)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+            WalletApiHandler(bool valid_) : _valid(valid_)
+            {}
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid validate_address api json!!!");
+
+                cout << msg["error"]["message"] << endl;
+            }
+
+            void onMessage(int id, const ValidateAddress& data) override
+            {
+                WALLET_CHECK(id > 0);
+                WALLET_CHECK(data.address.IsValid() == _valid);
+            }
+        private:
+            bool _valid;
+        };
+
+        WalletApiHandler handler(valid);
+        WalletApi api(handler);
+
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+
+        {
+            json res;
+            ValidateAddress::Response validateResponce;
+
+            validateResponce.isMine = true;
+            validateResponce.isValid = valid;
+
+            api.getResponse(123, validateResponce, res);
+            testResultHeader(res);
+
+            WALLET_CHECK(res["id"] == 123);
+            WALLET_CHECK(res["result"]["is_mine"] == true);
+            WALLET_CHECK(res["result"]["is_valid"] == valid);
+        }
+    }
 }
 
 int main()
@@ -499,6 +544,28 @@ int main()
             }
         }
     }));
+
+    testValidateAddressJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "validate_address",
+        "params" :
+        {
+            "address" : "wagagel"
+        }
+    }), false);
+
+    testValidateAddressJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "validate_address",
+        "params" :
+        {
+            "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
+        }
+    }), true);
 
     return WALLET_CHECK_RESULT;
 }

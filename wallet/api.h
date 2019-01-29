@@ -56,7 +56,7 @@ namespace beam
 
     struct ValidateAddress
     {
-        WalletID address;
+        WalletID address = Zero;
 
         struct Response
         {
