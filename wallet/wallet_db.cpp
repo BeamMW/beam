@@ -1773,6 +1773,9 @@ namespace beam
             case wallet::TxParameterID::FailureReason:
                 deserialize(txDescription.m_failureReason, parameter.m_value);
                 break;
+            case wallet::TxParameterID::IsSelfTx:
+                deserialize(txDescription.m_selfTx, parameter.m_value);
+                break;
 			default:
 				break; // suppress warning
             }
@@ -1802,6 +1805,7 @@ namespace beam
         wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::ModifyTime, p.m_modifyTime, false);
         wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::IsSender, p.m_sender, false);
         wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::Status, p.m_status, false);
+        wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::IsSelfTx, p.m_selfTx, false);
 
         trans.commit();
         // notify only when full TX saved

@@ -48,6 +48,7 @@
         <file>assets/fonts/SF-Pro-Display-HeavyItalic.otf</file>
         <file>assets/fonts/SF-Pro-Display-RegularItalic.otf</file>
         <file>assets/fonts/SF-Pro-Display-UltralightItalic.otf</file>
+        <file>assets/beam-circle.svg</file>
         <file>assets/logo.svg</file>
         <file>assets/start-logo.svg</file>
         <file>assets/icon.png</file>
@@ -122,5 +123,6 @@
         <file>controls/EditAddress.qml</file>
         <file>assets/icon-repeat.svg</file>
         <file>assets/icon-folder.svg</file>
+        <file>assets/icon-transfer.svg</file>
     </qresource>
 </RCC>

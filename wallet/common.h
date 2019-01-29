@@ -142,6 +142,7 @@ namespace beam
         Timestamp m_createTime=0;
         Timestamp m_modifyTime=0;
         bool m_sender=false;
+        bool m_selfTx = false;
         TxStatus m_status=TxStatus::Pending;
         Merkle::Hash m_kernelID = Zero;
         TxFailureReason m_failureReason = TxFailureReason::Unknown;
@@ -206,11 +207,12 @@ namespace beam
             AtomicSwapCoin = 20,
             AtomicSwapAmount = 21,
 
+            PeerPublicSharedBlindingFactor = 23,
+
             LockedAmount = 25,
             LockedMinHeight = 26,
             
-
-            PeerPublicSharedBlindingFactor = 23,
+            IsSelfTx = 27,
 
             // signature parameters
 

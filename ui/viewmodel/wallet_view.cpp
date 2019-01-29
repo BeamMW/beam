@@ -94,8 +94,36 @@ QString TxObject::change() const
 
 QString TxObject::status() const
 {
-    static QString Names[] = { tr("Pending"), tr("In Progress"), tr("Cancelled"), tr("Completed"), tr("Failed"), tr("Syncing with blockchain") };
-    return Names[static_cast<uint32_t>(_tx.m_status)];
+    switch (_tx.m_status)
+    {
+    case TxStatus::Pending:
+        return tr("pending");
+    case TxStatus::InProgress:
+        return income() ? tr("waiting for sender") : tr("waiting for receiver");
+    case TxStatus::Registering:
+        return income() ? tr("receiving") : tr("sending");
+    case TxStatus::Completed:
+    {
+        if (_tx.m_selfTx)
+        {
+            return tr("completed");
+        }
+        return income() ? tr("received") : tr("sent");
+    }
+    case TxStatus::Cancelled:
+        return tr("cancelled");
+    case TxStatus::Failed:
+        if (TxFailureReason::TransactionExpired == _tx.m_failureReason)
+        {
+            return tr("expired");
+        }
+        return tr("failed");
+    default:
+        break;
+    }
+
+    assert(false && "Unknown TX status!");
+    return tr("unknown");
 }
 
 bool TxObject::canCancel() const
@@ -225,6 +253,29 @@ void TxObject::update(const beam::TxDescription& tx)
 
         setFailureReason(Reasons[tx.m_failureReason]);
     }
+}
+
+bool TxObject::inProgress() const
+{
+    switch (_tx.m_status)
+    {
+    case TxStatus::Pending:
+    case TxStatus::InProgress:
+    case TxStatus::Registering:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool TxObject::isCompleted() const
+{
+    return _tx.m_status == TxStatus::Completed;
+}
+
+bool TxObject::isSelfTx() const
+{
+    return _tx.m_selfTx;
 }
 
 WalletViewModel::WalletViewModel()

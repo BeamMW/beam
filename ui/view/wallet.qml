@@ -954,27 +954,26 @@ Item {
                     value: transactionsView.sortIndicatorOrder
                 }
 
-                property int resizableWidth: parent.width - incomeColumn.width - actionsColumn.width
+                property int resizableWidth: parent.width - iconColumn.width - actionsColumn.width
 
                 TableViewColumn {
-                    id: incomeColumn
-                    role: viewModel.incomeRole
-                    width: 40
+                    id: iconColumn
+                    width: 60
                     elideMode: Text.ElideRight
                     movable: false
                     resizable: false
                     delegate: Item {
-
                         Item {
                             width: parent.width
                             height: transactionsView.rowHeight
-
                             clip:true
 
                             SvgImage {
                                 anchors.verticalCenter: parent.verticalCenter
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                source: styleData.value ? "qrc:/assets/icon-received.svg" : "qrc:/assets/icon-sent.svg"
+                                anchors.left: parent.left
+                                anchors.leftMargin: 26
+                                sourceSize: Qt.size(28, 28)
+                                source: "qrc:/assets/beam-circle.svg"
                             }
                         }
                     }
@@ -1057,9 +1056,11 @@ Item {
                                 color: parent.income ? Style.bright_sky_blue : Style.heliotrope
                                 elide: Text.ElideRight
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: "<font size='6'>" + (parent.income ? "+ " : "- ") + styleData.value + "</font>"
+                                font.pixelSize: 24
+                                text: (parent.income ? "+ " : "- ") + styleData.value
                                 textFormat: Text.StyledText
-                                font.styleName: "Light"; font.weight: Font.Thin
+                                font.styleName: "Light"
+                                font.weight: Font.Thin
                                 copyMenuEnabled: true
                                 onCopyText: viewModel.copyToClipboard(styleData.value)
                             }
@@ -1078,26 +1079,55 @@ Item {
                         Item {
                             width: parent.width
                             height: transactionsView.rowHeight
-
                             clip:true
 
-                            SFLabel {
-                                font.pixelSize: 14
-                                anchors.left: parent.left
-                                anchors.right: parent.right
+                            RowLayout {
+                                anchors.fill: parent
                                 anchors.leftMargin: 20
-                                color: {
-                                    if(styleData.value === "sent")
-                                        Style.heliotrope
-                                    else if(styleData.value === "received")
-                                        Style.bright_sky_blue
-                                    else Style.white
+                                spacing: 14
+
+                                SvgImage {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    sourceSize: Qt.size(22, 22)
+                                    source: getIconSource()
+
+                                    function getIconSource() {
+                                        if (!!viewModel.transactions[styleData.row]) {
+                                            if (viewModel.transactions[styleData.row].isSelfTx()) {
+                                                return "qrc:/assets/icon-transfer.svg";
+                                            }
+
+                                            return viewModel.transactions[styleData.row].income ? "qrc:/assets/icon-received.svg" : "qrc:/assets/icon-sent.svg";
+                                        }
+                                        return "qrc:/assets/icon-sent.svg";
+                                    }
                                 }
-                                elide: Text.ElideRight
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: styleData.value
-                                copyMenuEnabled: true
-                                onCopyText: viewModel.copyToClipboard(text)
+
+                                SFLabel {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    Layout.fillWidth: true
+                                    font.pixelSize: 14
+                                    color: getTextColor()
+                                    elide: Text.ElideRight
+                                    text: styleData.value
+                                    copyMenuEnabled: true
+                                    onCopyText: viewModel.copyToClipboard(text)
+
+                                    function getTextColor () {
+                                        if (!viewModel.transactions[styleData.row]) {
+                                            return Style.white;
+                                        }
+
+                                        if (viewModel.transactions[styleData.row].inProgress() || viewModel.transactions[styleData.row].isCompleted()) {
+                                            if (viewModel.transactions[styleData.row].isSelfTx()) {
+                                                return Style.white;
+                                            }
+                                            return viewModel.transactions[styleData.row].income ? Style.bright_sky_blue : Style.heliotrope;
+                                        }
+
+                                        return Style.white;
+                                    }
+                                }
                             }
                         }
                     }

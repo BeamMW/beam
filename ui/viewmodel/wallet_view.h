@@ -73,6 +73,10 @@ public:
 
     const beam::TxDescription& getTxDescription() const;
 
+    Q_INVOKABLE bool inProgress() const;
+    Q_INVOKABLE bool isCompleted() const;
+    Q_INVOKABLE bool isSelfTx() const;
+
 signals:
     void incomeChanged();
     void dateChanged();
