@@ -417,6 +417,11 @@ void NodeDB::CreateTableDummy()
 	ExecQuick("CREATE INDEX [Idx" TblDummy "H] ON [" TblDummy "] ([" TblDummy_SpendHeight "])");
 }
 
+void NodeDB::Vacuum()
+{
+	ExecQuick("VACUUM");
+}
+
 void NodeDB::ExecQuick(const char* szSql)
 {
 	int n = sqlite3_total_changes(m_pDb);

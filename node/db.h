@@ -143,6 +143,8 @@ public:
 	void Close();
 	void Open(const char* szPath);
 
+	void Vacuum();
+
 	virtual void OnModified() {}
 
 	class Recordset
