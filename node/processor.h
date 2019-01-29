@@ -40,7 +40,7 @@ class NodeProcessor
 
 	bool GoForward(uint64_t);
 	void Rollback();
-	void PruneOld();
+	Height PruneOld();
 	void InitializeFromBlocks();
 	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, Height hTarget);
 
@@ -110,6 +110,8 @@ public:
 		Horizon(); // by default both are disabled.
 
 	} m_Horizon;
+
+	void OnHorizonChanged();
 
 	struct Cursor
 	{

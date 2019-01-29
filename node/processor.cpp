@@ -65,8 +65,7 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 
 	InitializeFromBlocks();
 
-	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, m_Horizon.m_Branching);
-	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, (Height) Rules::get().Macroblock.MaxRollback);
+	OnHorizonChanged();
 
 	if (!bResetCursor)
 		TryGoUp();
@@ -81,6 +80,23 @@ NodeProcessor::~NodeProcessor()
 		} catch (const CorruptionException& e) {
 			LOG_ERROR() << "DB Commit failed: %s" << e.m_sErr;
 		}
+	}
+}
+
+void NodeProcessor::OnHorizonChanged()
+{
+	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, m_Horizon.m_Branching);
+	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, (Height)Rules::get().Macroblock.MaxRollback);
+
+	if (PruneOld())
+	{
+		// probably horizon parameters have changed. Compact the DB
+		if (m_DbTx.IsInProgress())
+			m_DbTx.Commit();
+
+		m_DB.Vacuum();
+
+		m_DbTx.Start(m_DB);
 	}
 }
 
@@ -304,8 +320,10 @@ void NodeProcessor::TryGoUp()
 	}
 }
 
-void NodeProcessor::PruneOld()
+Height NodeProcessor::PruneOld()
 {
+	Height hRet = 0;
+
 	if (m_Cursor.m_Sid.m_Height > m_Horizon.m_Branching + Rules::HeightGenesis - 1)
 	{
 		Height h = m_Cursor.m_Sid.m_Height - m_Horizon.m_Branching;
@@ -328,6 +346,8 @@ void NodeProcessor::PruneOld()
 			{
 				if (!m_DB.DeleteState(rowid, rowid))
 					break;
+				hRet++;
+
 			} while (rowid);
 		}
 	}
@@ -354,11 +374,14 @@ void NodeProcessor::PruneOld()
 
 				m_DB.DelStateBlockAll(ws.m_Sid.m_Row);
 				m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
+				hRet++;
 			}
 
 			m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
 		}
 	}
+
+	return hRet;
 }
 
 Height NodeProcessor::get_FossilHeight()
