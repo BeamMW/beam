@@ -699,7 +699,7 @@ namespace
         {
             return f.write(data.data(), data.size()) == data.size();
         }
-        LOG_ERROR() << "Failed to save expoerted data";
+        LOG_ERROR() << "Failed to save exported data";
         return false;
     }
 
