@@ -1083,12 +1083,12 @@ Item {
 
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.leftMargin: 20
+                                anchors.leftMargin: 10
                                 spacing: 14
 
                                 SvgImage {
                                     Layout.alignment: Qt.AlignHCenter
-                                    sourceSize: Qt.size(22, 22)
+                                    sourceSize: Qt.size(20, 20)
                                     source: getIconSource()
 
                                     function getIconSource() {
@@ -1107,6 +1107,7 @@ Item {
                                     Layout.alignment: Qt.AlignHCenter
                                     Layout.fillWidth: true
                                     font.pixelSize: 14
+                                    font.italic: true
                                     color: getTextColor()
                                     elide: Text.ElideRight
                                     text: styleData.value
