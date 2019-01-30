@@ -876,7 +876,8 @@ namespace beam
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 1000;
-        const int DbVersion = 12;
+        const int DbVersion = 13;
+        const int DbVersion12 = 12;
 		const int DbVersion11 = 11;
 		const int DbVersion10 = 10;
 	}
@@ -1063,6 +1064,7 @@ namespace beam
 					{
 					case DbVersion10:
 					case DbVersion11:
+                    case DbVersion12:
 						{
 							LOG_INFO() << "Converting DB from format 10-11";
 
