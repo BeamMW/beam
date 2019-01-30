@@ -73,22 +73,33 @@ namespace beam
 
     const char* getTxStatus(const TxDescription& tx)
     {
-        static const char* Pending = "Pending";
-        static const char* Sending = "Sending";
-        static const char* Receiving = "Receiving";
-        static const char* Cancelled = "Cancelled";
-        static const char* Sent = "Sent";
-        static const char* Received = "Received";
-        static const char* Failed = "Failed";
+        static const char* Pending = "pending";
+        static const char* WaitingForSender = "waiting for sender";
+        static const char* WaitingForReceiver = "waiting for receiver";
+        static const char* Sending = "sending";
+        static const char* Receiving = "receiving";
+        static const char* Cancelled = "cancelled";
+        static const char* Sent = "sent";
+        static const char* Received = "received";
+        static const char* Failed = "failed";
+        static const char* Completed = "completed";
+        static const char* Expired = "expired";
 
         switch (tx.m_status)
         {
         case TxStatus::Pending: return Pending;
-        case TxStatus::Registering:
-        case TxStatus::InProgress: return tx.m_sender ? Sending : Receiving;
+        case TxStatus::InProgress: return tx.m_sender ? WaitingForReceiver : WaitingForSender;
+        case TxStatus::Registering: return tx.m_sender ? Sending : Receiving;
         case TxStatus::Cancelled: return Cancelled;
-        case TxStatus::Completed: return tx.m_sender ? Sent : Received;
-        case TxStatus::Failed: return Failed;
+        case TxStatus::Completed:
+        {
+            if (tx.m_selfTx)
+            {
+                return Completed;
+            }
+            return tx.m_sender ? Sent : Received;
+        }
+        case TxStatus::Failed: return TxFailureReason::TransactionExpired == tx.m_failureReason ? Expired : Failed;
         default:
             assert(false && "Unknown status");
         }
@@ -540,7 +551,7 @@ namespace
                 return 0;
             }
 
-            array<uint8_t, 4> columnWidths{ { 20, 26, 10, 35 } };
+            array<uint8_t, 4> columnWidths{ { 20, 26, 21, 35 } };
 
             cout << "TRANSACTIONS\n\n"
                 << "  |" << setw(columnWidths[0]) << "datetime" << " |"
