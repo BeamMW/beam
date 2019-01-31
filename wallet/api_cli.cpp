@@ -224,7 +224,7 @@ namespace beam
                             return;
                         }
 
-                        auto addr = _walletDB->getAddress(data.address);
+                        auto addr = _walletDB->getAddress(*data.from);
                         bool isMine = addr ? addr->m_OwnID != 0 : false;
 
                         if(!isMine)
