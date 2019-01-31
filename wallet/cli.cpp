@@ -845,7 +845,7 @@ int main_impl(int argc, char* argv[])
                         && command != cli::PAYMENT_PROOF_VERIFY
                         && command != cli::GENERATE_PHRASE
                         && command != cli::WALLET_ADDRESS_LIST
-                        && command != cli::WALLET_REFRESH
+                        && command != cli::WALLET_RESCAN
                         && command != cli::IMPORT_ADDRESSES
                         && command != cli::EXPORT_ADDRESSES)
                     {
@@ -1103,7 +1103,7 @@ int main_impl(int argc, char* argv[])
                         }
                     }
 
-                    if (command == cli::WALLET_REFRESH)
+                    if (command == cli::WALLET_RESCAN)
                     {
                         wallet.Refresh();
                     }
