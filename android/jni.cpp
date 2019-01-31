@@ -302,6 +302,20 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
     walletModel->getAsync()->saveAddress(addr, own);
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteAddress)(JNIEnv *env, jobject thiz,
+    jstring walletID)
+{
+    WalletID id(Zero);
+
+    if (!id.FromHex(JString(env, walletID).value()))
+    {
+        LOG_ERROR() << "Address is not valid!!!";
+
+        return;
+    }
+    walletModel->getAsync()->deleteAddress(id);
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv *env;
