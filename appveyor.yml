@@ -55,7 +55,7 @@ after_build:
     
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.exe c:/projects/beam/wallet/beam-wallet.cfg
     
-    7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/wallet-api.exe
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/wallet-api.exe c:/projects/beam/wallet/wallet-api.cfg
         
     mkdir pack && cd pack && mkdir wallet && mkdir node && mkdir ui && cd ..
     
