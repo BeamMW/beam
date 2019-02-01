@@ -419,6 +419,7 @@ namespace beam
                     {"sending", res.sending},
                     {"maturing", res.maturing},
                     {"locked", res.locked},
+                    {"difficulty", res.difficulty},
                 }
             }
         };

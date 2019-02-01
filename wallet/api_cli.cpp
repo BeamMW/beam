@@ -365,6 +365,7 @@ namespace beam
                     Block::SystemState::Full state;
                     _walletDB->get_History().get_Tip(state);
                     response.prevStateHash = state.m_Prev;
+                    response.difficulty = state.m_PoW.m_Difficulty.ToFloat();
                 }
 
 				wallet::Totals totals(*_walletDB);

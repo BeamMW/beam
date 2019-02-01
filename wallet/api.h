@@ -173,6 +173,7 @@ namespace beam
             Amount sending = 0;
             Amount maturing = 0;
             Amount locked = 0;
+            double difficulty = 0;
         };
     };
 
