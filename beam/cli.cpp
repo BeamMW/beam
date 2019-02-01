@@ -314,6 +314,11 @@ int main_impl(int argc, char* argv[])
 					if (vm.count(cli::RESYNC))
 						node.m_Cfg.m_Sync.m_ForceResync = vm[cli::RESYNC].as<bool>();
 
+                    if (vm.count(cli::NO_FAST_SYNC))
+                    {
+                        node.m_Cfg.m_Sync.m_NoFastSync = true;
+                    }
+
 					node.m_Cfg.m_Bbs = vm[cli::BBS_ENABLE].as<bool>();
 
 					node.Initialize(stratumServer.get());

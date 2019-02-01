@@ -98,6 +98,7 @@ namespace beam
         const char* IMPORT_ADDRESSES = "import_addresses";
         const char* EXPORT_PATH = "export_path";
         const char* IMPORT_PATH = "import_path";
+        const char* NO_FAST_SYNC = "no_fast_sync";
 #if defined(BEAM_USE_GPU)
         const char* MINER_TYPE = "miner_type";
 #endif
@@ -166,6 +167,7 @@ namespace beam
             (cli::KEY_OWNER, po::value<string>(), "Owner viewer key")
             (cli::KEY_MINE, po::value<string>(), "Standalone miner key")
             (cli::PASS, po::value<string>(), "password for keys")
+            (cli::NO_FAST_SYNC, "ignode fast sync mechanism")
 			(cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
             ;
 
