@@ -339,12 +339,40 @@ Rectangle {
                 ConfirmationDialog {
                     id: confirmRefreshDialog
                     property bool canRefresh: true
-                    okButtonText: qsTr("yes")
-                    okButtonIconSource: "qrc:/assets/icon-done.svg"
+                    okButtonText: qsTr("rescan")
+                    okButtonIconSource: "qrc:/assets/icon-repeat.svg"
                     cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
                     cancelVisible: true
                     width: 460
-                    text: qsTr("Rescan will update transaction and UTXO data in your wallet and get latest information from the blockchain. Are you sure?")
+                    height: 243
+
+                    contentItem: Item {
+                        id: confirmationContent
+                        Column {
+                            anchors.fill: parent
+                            spacing: 30
+                            
+                            SFText {
+                                width: parent.width
+                                topPadding: 20
+                                font.pixelSize: 18
+                                color: Style.white
+                                horizontalAlignment : Text.AlignHCenter
+                                text: qsTr("Rescan")
+                            }
+                            SFText {
+                                width: parent.width
+                                leftPadding: 20
+                                rightPadding: 20
+                                font.pixelSize: 14
+                                color: Style.white
+                                wrapMode: Text.Wrap
+                                horizontalAlignment : Text.AlignHCenter
+                                text: qsTr("Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time. \n\nAre you sure?")
+                            }
+                        }
+                    }
+
                     onAccepted: {
                         canRefresh = false;
                         viewModel.refreshWallet();
