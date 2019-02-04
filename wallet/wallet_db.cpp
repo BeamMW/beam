@@ -2334,19 +2334,28 @@ namespace beam
             WalletAddress newAddress;
             newAddress.m_createTime = beam::getTimestamp();
             newAddress.m_OwnID = walletDB.AllocateKidRange(1);
+            newAddress.m_walletID = generateWalletIDFromIndex(walletDB, newAddress.m_OwnID);
+
+            return newAddress;
+        }
+
+        WalletID generateWalletIDFromIndex(IWalletDB& walletDB, uint64_t ownID)
+        {
+            WalletID walletID(Zero);
 
             ECC::Scalar::Native sk;
-            walletDB.get_MasterKdf()->DeriveKey(sk, Key::ID(newAddress.m_OwnID, Key::Type::Bbs));
+            walletDB.get_MasterKdf()->DeriveKey(sk, Key::ID(ownID, Key::Type::Bbs));
 
-            proto::Sk2Pk(newAddress.m_walletID.m_Pk, sk);
+            proto::Sk2Pk(walletID.m_Pk, sk);
 
-			// derive the channel from the address
-			BbsChannel ch;
-			newAddress.m_walletID.m_Pk.ExportWord<0>(ch);
-			ch %= proto::Bbs::s_MaxChannels;
+            // derive the channel from the address
+            BbsChannel ch;
+            walletID.m_Pk.ExportWord<0>(ch);
+            ch %= proto::Bbs::s_MaxChannels;
 
-            newAddress.m_walletID.m_Channel = ch;
-            return newAddress;
+            walletID.m_Channel = ch;
+
+            return walletID;
         }
 
         Amount getSpentByTx(const IWalletDB& walletDB, TxStatus status)
@@ -2449,16 +2458,23 @@ namespace beam
                 for (const auto& jsonAddress : obj["OwnAddresses"])
                 {
                     WalletAddress address;
-                    if (!address.m_walletID.FromHex(jsonAddress["WalletID"]))
+                    if (address.m_walletID.FromHex(jsonAddress["WalletID"]))
                     {
-                        continue;
+                        address.m_OwnID = jsonAddress["Index"];
+                        if (address.m_walletID == generateWalletIDFromIndex(db, address.m_OwnID))
+                        {
+                            //{ "SubIndex", 0 },
+                            address.m_label = jsonAddress["Label"];
+                            address.m_createTime = jsonAddress["CreationTime"];
+                            address.m_duration = jsonAddress["Duration"];
+                            db.saveAddress(address);
+
+                            LOG_INFO() << "The address [" << jsonAddress["WalletID"] << "] has been successfully imported.";
+                            continue;
+                        }
                     }
-                    address.m_OwnID = jsonAddress["Index"];
-                    //{ "SubIndex", 0 },
-                    address.m_label = jsonAddress["Label"];
-                    address.m_createTime = jsonAddress["CreationTime"];
-                    address.m_duration = jsonAddress["Duration"];
-                    db.saveAddress(address);
+
+                    LOG_INFO() << "The address [" << jsonAddress["WalletID"] << "] has NOT been imported. Wrong address.";
                 }
                 return true;
             }

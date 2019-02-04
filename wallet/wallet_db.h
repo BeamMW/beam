@@ -343,6 +343,7 @@ namespace beam
 
         void changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID);
         WalletAddress createAddress(IWalletDB& walletDB);
+        WalletID generateWalletIDFromIndex(IWalletDB& walletDB, uint64_t ownID);
         Amount getSpentByTx(const IWalletDB& walletDB, TxStatus status);
         Amount getReceivedByTx(const IWalletDB& walletDB, TxStatus status);
 
