@@ -89,7 +89,11 @@ signals:
     void kernelIDChanged();
     void failureReasonChanged();
 
-public:
+private:
+
+    void analyzeStatus();
+
+private:
     beam::TxDescription _tx;
     QString _userName;
     QString _displayName;

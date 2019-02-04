@@ -44,6 +44,7 @@ TxObject::TxObject(const TxDescription& tx) : _tx(tx)
 {
     auto kernelID = QString::fromStdString(to_hex(_tx.m_kernelID.m_pData, _tx.m_kernelID.nBytes));
     setKernelID(kernelID);
+    analyzeStatus();
 }
 
 bool TxObject::income() const
@@ -233,26 +234,7 @@ void TxObject::update(const beam::TxDescription& tx)
     setStatus(tx.m_status);
     auto kernelID = QString::fromStdString(to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes));
     setKernelID(kernelID);
-    if (tx.m_status == TxStatus::Failed)
-    {
-        static QString Reasons[] =
-        {
-            tr("Unexpected reason, please send wallet logs to Beam support"),
-            tr("Transaction cancelled"),
-            tr("Receiver signature in not valid, please send wallet logs to Beam support"),
-            tr("Failed to register transaction with the blockchain, see node logs for details"),
-            tr("Transaction is not valid, please send wallet logs to Beam support"),
-            tr("Invalid kernel proof provided"),
-            tr("Failed to send tx parameters"),
-            tr("No inputs"),
-            tr("Address is expired"),
-            tr("Failed to get parameter"),
-            tr("Transaction timed out"),
-            tr("Payment not signed by the receiver, please send wallet logs to Beam support")
-        };
-
-        setFailureReason(Reasons[tx.m_failureReason]);
-    }
+    analyzeStatus();
 }
 
 bool TxObject::inProgress() const
@@ -276,6 +258,30 @@ bool TxObject::isCompleted() const
 bool TxObject::isSelfTx() const
 {
     return _tx.m_selfTx;
+}
+
+void TxObject::analyzeStatus()
+{
+    if (getTxDescription().m_status == TxStatus::Failed)
+    {
+        static QString Reasons[] =
+        {
+            tr("Unexpected reason, please send wallet logs to Beam support"),
+            tr("Transaction cancelled"),
+            tr("Receiver signature in not valid, please send wallet logs to Beam support"),
+            tr("Failed to register transaction with the blockchain, see node logs for details"),
+            tr("Transaction is not valid, please send wallet logs to Beam support"),
+            tr("Invalid kernel proof provided"),
+            tr("Failed to send tx parameters"),
+            tr("No inputs"),
+            tr("Address is expired"),
+            tr("Failed to get parameter"),
+            tr("Transaction timed out"),
+            tr("Payment not signed by the receiver, please send wallet logs to Beam support")
+        };
+
+        setFailureReason(Reasons[getTxDescription().m_failureReason]);
+    }
 }
 
 WalletViewModel::WalletViewModel()
@@ -319,7 +325,7 @@ void WalletViewModel::cancelTx(TxObject* pTxObject)
 {
     if (pTxObject->canCancel())
     {
-        _model.getAsync()->cancelTx(pTxObject->_tx.m_txId);
+        _model.getAsync()->cancelTx(pTxObject->getTxDescription().m_txId);
     }
 }
 
@@ -327,7 +333,7 @@ void WalletViewModel::deleteTx(TxObject* pTxObject)
 {
     if (pTxObject->canDelete())
     {
-        _model.getAsync()->deleteTx(pTxObject->_tx.m_txId);
+        _model.getAsync()->deleteTx(pTxObject->getTxDescription().m_txId);
     }
 }
 
@@ -416,7 +422,7 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
     {
         for (const auto& item : items)
         {
-            auto it = find_if(_txList.begin(), _txList.end(), [&item](const auto& tx) {return item.m_txId == tx->_tx.m_txId; });
+            auto it = find_if(_txList.begin(), _txList.end(), [&item](const auto& tx) {return item.m_txId == tx->getTxDescription().m_txId; });
             if (it != _txList.end())
             {
                 _txList.erase(it);
@@ -429,7 +435,7 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
         auto txEnd = _txList.end();
         for (const auto& item : items)
         {
-            txIt = find_if(txIt, txEnd, [&item](const auto& tx) {return item.m_txId == tx->_tx.m_txId; });
+            txIt = find_if(txIt, txEnd, [&item](const auto& tx) {return item.m_txId == tx->getTxDescription().m_txId; });
             if (txIt == txEnd)
             {
                 break;
