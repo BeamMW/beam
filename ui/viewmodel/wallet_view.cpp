@@ -366,7 +366,6 @@ void WalletViewModel::onStatus(const WalletStatus& status)
         changed = true;
 
         emit actualAvailableChanged();
-        emit availableToSendAmountChanged();
     }
 
     if (_status.receiving != status.receiving)
@@ -456,9 +455,12 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
 
 void WalletViewModel::onChangeCalculated(beam::Amount change)
 {
-    _change = change;
+    if (_change != change)
+    {
+        _change = change;
+        emit changeChanged();
+    }
     emit actualAvailableChanged();
-    emit changeChanged();
 }
 
 void WalletViewModel::onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID)
@@ -492,9 +494,9 @@ QString WalletViewModel::sendAmount() const
     return _sendAmount;
 }
 
-QString WalletViewModel::getAvailableToSendAmount() const
+QString WalletViewModel::getAmountMissingToSend() const
 {
-    return BeamToString(_status.available - calcFeeAmount());
+    return QLocale().toString(calcTotalAmount() -_status.available); // groth
 }
 
 QString WalletViewModel::feeGrothes() const
@@ -529,7 +531,6 @@ void WalletViewModel::setSendAmount(const QString& value)
         _sendAmount = trimmedValue;
         _model.getAsync()->calcChange(calcTotalAmount());
         emit sendAmountChanged();
-        emit actualAvailableChanged();
     }
 }
 
@@ -541,8 +542,6 @@ void WalletViewModel::setFeeGrothes(const QString& value)
         _feeGrothes = trimmedValue;
         _model.getAsync()->calcChange(calcTotalAmount());
         emit feeGrothesChanged();
-        emit actualAvailableChanged();
-        emit availableToSendAmountChanged();
     }
 }
 

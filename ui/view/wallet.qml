@@ -488,61 +488,60 @@ Item {
                             RowLayout {
                                 Layout.fillWidth: true
 
-                                ColumnLayout {
+                                SFTextInput {
                                     Layout.fillWidth: true
 
-                                    SFTextInput {
-                                        Layout.fillWidth: true
+                                    id: amount_input
 
-                                        id: amount_input
+                                    font.pixelSize: 36
+                                    font.styleName: "Light"; font.weight: Font.Light
+                                    color: Style.heliotrope
 
-                                        font.pixelSize: 36
-                                        font.styleName: "Light"; font.weight: Font.Light
-                                        color: Style.heliotrope
+                                    property double amount: 0
 
-                                        property double amount: 0
-
-                                        validator: RegExpValidator { regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,7}[1-9])?$/ }
-                                        selectByMouse: true
+                                    validator: RegExpValidator { regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,7}[1-9])?$/ }
+                                    selectByMouse: true
                                     
-                                        onTextChanged: {
-                                            if (focus) {
-                                                amount = text ? text : 0;
-                                            }
-                                        }
-
-                                        onFocusChanged: {
-                                            if (amount > 0) {
-                                                // QLocale::FloatingPointShortest = -128
-                                                text = focus ? amount : amount.toLocaleString(Qt.locale(), 'f', -128);
-                                            }
+                                    onTextChanged: {
+                                        if (focus) {
+                                            amount = text ? text : 0;
                                         }
                                     }
 
-                                    Item {
-                                        Layout.minimumHeight: 16
-                                        Layout.fillWidth: true
-
-                                        SFText {
-                                            text: "Maximum available amount is " + viewModel.availableToSendAmount + " B"
-                                            color: Style.validator_color
-                                            font.pixelSize: 14
-                                            font.styleName: "Italic"
-                                            visible: !viewModel.isEnoughMoney
+                                    onFocusChanged: {
+                                        if (amount > 0) {
+                                            // QLocale::FloatingPointShortest = -128
+                                            text = focus ? amount : amount.toLocaleString(Qt.locale(), 'f', -128);
                                         }
                                     }
+                                }
 
-                                    Binding {
-                                        target: viewModel
-                                        property: "sendAmount"
-                                        value: amount_input.amount
-                                    }
+                                Binding {
+                                    target: viewModel
+                                    property: "sendAmount"
+                                    value: amount_input.amount
                                 }
 
                                 SFText {
                                     font.pixelSize: 24
                                     color: Style.white
                                     text: qsTr("BEAM")
+                                }
+                            }
+                            Item {
+                                Layout.topMargin: -12
+                                Layout.minimumHeight: 16
+                                Layout.fillWidth: true
+
+                                SFText {
+                                    text: qsTr("Insufficient funds: you would need %1 groth to complete the transaction.").arg(viewModel.amountMissingToSend)
+                                    color: Style.validator_color
+                                    font.pixelSize: 14
+                                    fontSizeMode: Text.Fit
+                                    minimumPixelSize: 10
+                                    font.styleName: "Italic"
+                                    width: parent.width
+                                    visible: !viewModel.isEnoughMoney
                                 }
                             }
                         }
