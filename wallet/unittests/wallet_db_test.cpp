@@ -1221,7 +1221,7 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
     ECC::InitializeContext();
 
-   TestWalletDataBase();
+    TestWalletDataBase();
     TestStoreCoins();
     TestStoreTxRecord();
     TestTxRollback();

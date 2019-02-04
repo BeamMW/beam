@@ -1825,6 +1825,7 @@ namespace beam
             stm.bind(1, txId);
 
             stm.step();
+            deleteParametersFromCache(txId);
             notifyTransactionChanged(ChangeAction::Removed, { *tx });
         }
     }
@@ -1901,7 +1902,7 @@ namespace beam
         }
 
         trans.commit();
-
+        insertAddressToCache(address.m_walletID, address);
         notifyAddressChanged();
     }
 
@@ -1926,6 +1927,10 @@ namespace beam
 
     boost::optional<WalletAddress> WalletDB::getAddress(const WalletID& id)
     {
+        if (auto it = m_AddressesCache.find(id); it != m_AddressesCache.end())
+        {
+            return it->second;
+        }
         const char* req = "SELECT * FROM " ADDRESSES_NAME " WHERE walletID=?1;";
         sqlite::Statement stm(_db, req);
 
@@ -1936,9 +1941,21 @@ namespace beam
             WalletAddress address = {};
             int colIdx = 0;
             ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, address);
+            insertAddressToCache(id, address);
             return address;
         }
-        return boost::optional<WalletAddress>{};
+        insertAddressToCache(id, boost::optional<WalletAddress>());
+        return boost::optional<WalletAddress>();
+    }
+
+    void WalletDB::insertAddressToCache(const WalletID& id, const boost::optional<WalletAddress>& address) const
+    {
+        m_AddressesCache[id] = address;
+    }
+
+    void WalletDB::deleteAddressFromCache(const WalletID& id)
+    {
+        m_AddressesCache.erase(id);
     }
 
     void WalletDB::deleteAddress(const WalletID& id)
@@ -1949,6 +1966,8 @@ namespace beam
         stm.bind(1, id);
 
         stm.step();
+
+        deleteAddressFromCache(id);
 
         notifyAddressChanged();
     }
@@ -2005,6 +2024,7 @@ namespace beam
                         notifyTransactionChanged(ChangeAction::Updated, { *tx });
                     }
                 }
+                insertParameterToCache(txID, paramID, blob);
                 return true;
             }
         }
@@ -2025,11 +2045,25 @@ namespace beam
                 notifyTransactionChanged(hasTx ? ChangeAction::Updated : ChangeAction::Added, { *tx });
             }
         }
+        insertParameterToCache(txID, paramID, blob);
         return true;
     }
 
     bool WalletDB::getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) const
     {
+        if (auto it = m_TxParametersCache.find(txID); it != m_TxParametersCache.end())
+        {
+            if (auto pit = it->second.find(paramID); pit != it->second.end())
+            {
+                if (pit->second)
+                {
+                    blob = *(pit->second);
+                    return true;
+                }
+                return false;
+            }
+        }
+
         sqlite::Statement stm(_db, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND paramID=?2;");
 
         stm.bind(1, txID);
@@ -2041,9 +2075,21 @@ namespace beam
             int colIdx = 0;
             ENUM_TX_PARAMS_FIELDS(STM_GET_LIST, NOSEP, parameter);
             blob = move(parameter.m_value);
+            insertParameterToCache(txID, paramID, blob);
             return true;
         }
+        insertParameterToCache(txID, paramID, boost::optional<ByteBuffer>());
         return false;
+    }
+
+    void WalletDB::insertParameterToCache(const TxID& txID, wallet::TxParameterID paramID, const boost::optional<ByteBuffer>& blob) const
+    {
+        m_TxParametersCache[txID][paramID] = blob;
+    }
+
+    void WalletDB::deleteParametersFromCache(const TxID& txID)
+    {
+        m_TxParametersCache.erase(txID);
     }
 
     void WalletDB::notifyCoinsChanged()

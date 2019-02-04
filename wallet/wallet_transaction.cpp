@@ -694,7 +694,7 @@ namespace beam { namespace wallet
         {
 			Totals totals(*m_Tx.GetWalletDB());
 
-			LOG_ERROR() << m_Tx.GetTxID() << "You only have " << PrintableAmount(totals.Avail);
+			LOG_ERROR() << m_Tx.GetTxID() << " You only have " << PrintableAmount(totals.Avail);
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
         }
 

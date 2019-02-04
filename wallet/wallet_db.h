@@ -273,6 +273,11 @@ namespace beam
 		void insertRaw(const Coin&);
 		void insertNew(Coin&);
 		void saveRaw(const Coin&);
+
+        void insertParameterToCache(const TxID& txID, wallet::TxParameterID paramID, const boost::optional<ByteBuffer>& blob) const;
+        void deleteParametersFromCache(const TxID& txID);
+        void insertAddressToCache(const WalletID& id, const boost::optional<WalletAddress>& address) const;
+        void deleteAddressFromCache(const WalletID& id);
 	private:
 
         sqlite3* _db;
@@ -288,6 +293,9 @@ namespace beam
 
             IMPLEMENT_GET_PARENT_OBJ(WalletDB, m_History)
         } m_History;
+
+        mutable std::map<TxID, std::map<wallet::TxParameterID, boost::optional<ByteBuffer>>> m_TxParametersCache;
+        mutable std::map<WalletID, boost::optional<WalletAddress>> m_AddressesCache;
     };
 
     namespace wallet
