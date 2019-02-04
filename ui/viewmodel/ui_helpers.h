@@ -14,6 +14,7 @@ namespace beamui
         Filter(size_t size = 12);
         void addSample(double value);
         double getAverage() const;
+        double getMedian() const;
     private:
         std::vector<double> _samples;
         size_t _index;
