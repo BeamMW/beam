@@ -19,7 +19,7 @@ Item
         id: confirmationDialog
         okButtonColor: Style.bright_teal
         okButtonText: qsTr("change settings")
-        okButtonIconSource: "qrc:/assets/icon-back-blue.svg"
+        okButtonIconSource: "qrc:/assets/icon-settings-blue.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
 
         property alias titleText: title.text
