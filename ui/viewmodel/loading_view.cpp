@@ -30,7 +30,7 @@ LoadingViewModel::LoadingViewModel()
     , m_estimationUpdateDeltaMs{ 0UL }
     , m_prevProgress{0.0}
     , m_prevUpdateTimeMs{ GetTime_ms() }
-    , m_speedFilter{24}
+    , m_speedFilter{30}
     , m_currentEstimationSec{0}
     , m_skipProgress{false}
     , m_isCreating{false}
@@ -115,8 +115,7 @@ void LoadingViewModel::updateProgress()
 		}
 	}
 
-    double p = bLocalNode ?
-		(nodeSyncProgress * 0.9 + walletSyncProgress * 0.1) :
+    double p = bLocalNode ? nodeSyncProgress :
 		walletSyncProgress;
 
     auto currentTime = GetTime_ms();

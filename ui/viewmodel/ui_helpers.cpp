@@ -49,4 +49,12 @@ namespace beamui
         double sum = accumulate(_samples.begin(), _samples.end(), 0.0);
         return sum / _samples.size();
     }
+
+    double Filter::getMedian() const
+    {
+        vector<double> temp(_samples.begin(), _samples.end());
+        size_t medianPos = temp.size() / 2;
+        nth_element(temp.begin(), temp.begin() + medianPos, temp.end());
+        return temp[medianPos];
+    }
 }
