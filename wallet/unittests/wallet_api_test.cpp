@@ -245,6 +245,29 @@ namespace
         }
     }
 
+    void testInvalidSendJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                cout << msg["error"]["message"] << endl;
+            }
+
+            void onMessage(int id, const Send& data) override 
+            {
+                WALLET_CHECK(!"error, only onInvalidJsonRpc() should be called!!!");
+            }
+        };
+
+        WalletApiHandler handler;
+        WalletApi api(handler);
+
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+    }
+
     void testStatusJsonRpc(const std::string& msg)
     {
         class WalletApiHandler : public WalletApiHandlerBase
@@ -493,6 +516,20 @@ int main()
         }
     }));
 
+    testInvalidSendJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_send",
+        "params" :
+        {
+            "session" : 15,
+            "value" : 12342342,
+            "from" : "wagagel",
+            "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
+        }
+    }));
+
     testSendJsonRpc(JSON_CODE(
     {
         "jsonrpc": "2.0",
@@ -504,6 +541,20 @@ int main()
             "value" : 12342342,
             "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
             "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
+        }
+    }));
+
+    testInvalidSendJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_send",
+        "params" :
+        {
+            "session" : 15,
+            "value" : 12342342,
+            "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
+            "address" : "wagagel"
         }
     }));
 
