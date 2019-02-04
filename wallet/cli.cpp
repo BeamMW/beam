@@ -717,13 +717,13 @@ namespace
     int ExportAddresses(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
         auto s = wallet::ExportAddressesToJson(*walletDB);
-        return SaveExportedData(ByteBuffer(s.begin(), s.end()), vm[cli::EXPORT_PATH].as<string>()) ? 0 : -1;
+        return SaveExportedData(ByteBuffer(s.begin(), s.end()), vm[cli::IMPORT_EXPORT_PATH].as<string>()) ? 0 : -1;
     }
 
     int ImportAddresses(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
         ByteBuffer buffer;
-        if (!LoadDataToImport(vm[cli::IMPORT_PATH].as<string>(), buffer))
+        if (!LoadDataToImport(vm[cli::IMPORT_EXPORT_PATH].as<string>(), buffer))
         {
             return -1;
         }

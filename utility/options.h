@@ -95,8 +95,7 @@ namespace beam
         extern const char* UTXO;
         extern const char* EXPORT_ADDRESSES;
         extern const char* IMPORT_ADDRESSES;
-        extern const char* EXPORT_PATH;
-        extern const char* IMPORT_PATH;
+        extern const char* IMPORT_EXPORT_PATH;
         extern const char* NO_FAST_SYNC;
 #if defined(BEAM_USE_GPU)
         extern const char* MINER_TYPE;

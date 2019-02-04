@@ -96,8 +96,7 @@ namespace beam
         const char* UTXO = "utxo";
         const char* EXPORT_ADDRESSES = "export_addresses";
         const char* IMPORT_ADDRESSES = "import_addresses";
-        const char* EXPORT_PATH = "export_path";
-        const char* IMPORT_PATH = "import_path";
+        const char* IMPORT_EXPORT_PATH = "file_location";
         const char* NO_FAST_SYNC = "no_fast_sync";
 #if defined(BEAM_USE_GPU)
         const char* MINER_TYPE = "miner_type";
@@ -196,8 +195,7 @@ namespace beam
 			(cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
 			(cli::PAYMENT_PROOF_REQUIRED, po::value<bool>(), "Set to disallow outgoing payments if the receiver doesn't supports the payment proof (older wallets)")
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
-            (cli::EXPORT_PATH, po::value<string>()->default_value("export.dat"), "path to export data (export_addresses)")
-            (cli::IMPORT_PATH, po::value<string>()->default_value("import.dat"), "path to import data (import_addresses)")
+            (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("addresses.dat"), "path to import or export data (import_addresses|export_addresses)")
             (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses]");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
