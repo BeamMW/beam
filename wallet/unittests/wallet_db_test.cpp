@@ -674,13 +674,12 @@ void TestAddresses()
     WALLET_CHECK(addresses.empty());
 
     WalletAddress a = {};
-    a.m_walletID.m_Pk = unsigned(9876543);
-    a.m_walletID.m_Channel = 0U;
     a.m_label = "test label";
     a.m_category = "test category";
     a.m_createTime = beam::getTimestamp();
     a.m_duration = 23;
     a.m_OwnID = 44;
+    a.m_walletID = generateWalletIDFromIndex(*db, a.m_OwnID);
 
     db->saveAddress(a);
 
