@@ -89,12 +89,12 @@ namespace beam { namespace wallet
         return *m_IsInitiator;
     }
 
-	uint32_t BaseTransaction::get_PeerVersion() const
-	{
-		uint32_t nVer = 0;
-		GetParameter(TxParameterID::PeerProtoVersion, nVer);
-		return nVer;
-	}
+    uint32_t BaseTransaction::get_PeerVersion() const
+    {
+        uint32_t nVer = 0;
+        GetParameter(TxParameterID::PeerProtoVersion, nVer);
+        return nVer;
+    }
 
     bool BaseTransaction::GetTip(Block::SystemState::Full& state) const
     {
@@ -140,8 +140,8 @@ namespace beam { namespace wallet
         }
         else
         {
-			NotifyFailure(TxFailureReason::Cancelled);
-			UpdateTxDescription(TxStatus::Cancelled);
+            NotifyFailure(TxFailureReason::Cancelled);
+            UpdateTxDescription(TxStatus::Cancelled);
             RollbackTx();
             m_Gateway.on_tx_completed(GetTxID());
         }
@@ -232,34 +232,37 @@ namespace beam { namespace wallet
     {
         LOG_ERROR() << GetTxID() << " Failed. " << GetFailureMessage(reason);
 
-		if (notify)
-			NotifyFailure(reason);
+        if (notify)
+        {
+            NotifyFailure(reason);
+        }
 
-		UpdateTxDescription((reason == TxFailureReason::Cancelled) ? TxStatus::Cancelled : TxStatus::Failed);
+        SetParameter(TxParameterID::FailureReason, reason, false);
+        UpdateTxDescription((reason == TxFailureReason::Cancelled) ? TxStatus::Cancelled : TxStatus::Failed);
         RollbackTx();
 
-		m_Gateway.on_tx_completed(GetTxID());
+        m_Gateway.on_tx_completed(GetTxID());
     }
 
-	void BaseTransaction::NotifyFailure(TxFailureReason reason)
-	{
-		TxStatus s = TxStatus::Failed;
-		GetParameter(TxParameterID::Status, s);
+    void BaseTransaction::NotifyFailure(TxFailureReason reason)
+    {
+        TxStatus s = TxStatus::Failed;
+        GetParameter(TxParameterID::Status, s);
 
-		switch (s)
-		{
-		case TxStatus::Pending:
-		case TxStatus::InProgress:
-			// those are the only applicable statuses, where there's no chance tx can be valid
-			break;
-		default:
-			return;
-		}
+        switch (s)
+        {
+        case TxStatus::Pending:
+        case TxStatus::InProgress:
+            // those are the only applicable statuses, where there's no chance tx can be valid
+            break;
+        default:
+            return;
+        }
 
-		SetTxParameter msg;
-		msg.AddParameter(TxParameterID::FailureReason, reason);
-		SendTxParameters(move(msg));
-	}
+        SetTxParameter msg;
+        msg.AddParameter(TxParameterID::FailureReason, reason);
+        SendTxParameters(move(msg));
+    }
 
     IWalletDB::Ptr BaseTransaction::GetWalletDB()
     {
@@ -423,23 +426,23 @@ namespace beam { namespace wallet
                 bSuccess = pc.IsValid(widPeer.m_Pk);
             }
 
-			if (!bSuccess)
-			{
-				if (!get_PeerVersion())
-				{
-					// older wallets don't support it. Check if unsigned payments are ok
-					uint8_t nRequired = 0;
-					wallet::getVar(*m_WalletDB, wallet::g_szPaymentProofRequired, nRequired);
+            if (!bSuccess)
+            {
+                if (!get_PeerVersion())
+                {
+                    // older wallets don't support it. Check if unsigned payments are ok
+                    uint8_t nRequired = 0;
+                    wallet::getVar(*m_WalletDB, wallet::g_szPaymentProofRequired, nRequired);
 
-					if (!nRequired)
-						bSuccess = true;
-				}
+                    if (!nRequired)
+                        bSuccess = true;
+                }
 
-				if (!bSuccess)
-				{
-					OnFailed(TxFailureReason::NoPaymentProof);
-					return;
-				}
+                if (!bSuccess)
+                {
+                    OnFailed(TxFailureReason::NoPaymentProof);
+                    return;
+                }
             }
 
         }
@@ -502,28 +505,28 @@ namespace beam { namespace wallet
             return;
         }
 
-		vector<Coin> modified;
-		m_WalletDB->visit([&](const Coin& coin)
-		{
-			bool bIn = (coin.m_createTxId == m_ID);
-			bool bOut = (coin.m_spentTxId == m_ID);
-			if (bIn || bOut)
-			{
-				modified.emplace_back();
-				Coin& c = modified.back();
-				c = coin;
+        vector<Coin> modified;
+        m_WalletDB->visit([&](const Coin& coin)
+        {
+            bool bIn = (coin.m_createTxId == m_ID);
+            bool bOut = (coin.m_spentTxId == m_ID);
+            if (bIn || bOut)
+            {
+                modified.emplace_back();
+                Coin& c = modified.back();
+                c = coin;
 
-				if (bIn)
-				{
-					c.m_confirmHeight = std::min(c.m_confirmHeight, hProof);
-					c.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
-				}
-				if (bOut)
-					c.m_spentHeight = std::min(c.m_spentHeight, hProof);
-			}
+                if (bIn)
+                {
+                    c.m_confirmHeight = std::min(c.m_confirmHeight, hProof);
+                    c.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
+                }
+                if (bOut)
+                    c.m_spentHeight = std::min(c.m_spentHeight, hProof);
+            }
 
-			return true;
-		});
+            return true;
+        });
 
 
         GetWalletDB()->save(modified);
@@ -692,9 +695,9 @@ namespace beam { namespace wallet
 
         if (coins.empty())
         {
-			Totals totals(*m_Tx.GetWalletDB());
+            Totals totals(*m_Tx.GetWalletDB());
 
-			LOG_ERROR() << m_Tx.GetTxID() << " You only have " << PrintableAmount(totals.Avail);
+            LOG_ERROR() << m_Tx.GetTxID() << " You only have " << PrintableAmount(totals.Avail);
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
         }
 

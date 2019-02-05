@@ -47,10 +47,10 @@ WALLET_TEST_INIT
 
 Coin CreateAvailCoin(Amount amount, Height maturity = 10)
 {
-	Coin c(amount);
-	c.m_maturity = maturity;
-	c.m_confirmHeight = maturity;
-	return c;
+    Coin c(amount);
+    c.m_maturity = maturity;
+    c.m_confirmHeight = maturity;
+    return c;
 }
 
 namespace
@@ -139,20 +139,20 @@ namespace
 
         std::vector<WalletAddress> getAddresses(bool own) const override { return {}; }
 
-		WalletAddress m_LastAdddr;
+        WalletAddress m_LastAdddr;
 
-		void saveAddress(const WalletAddress& wa) override
-		{
-			m_LastAdddr = wa;
-		}
+        void saveAddress(const WalletAddress& wa) override
+        {
+            m_LastAdddr = wa;
+        }
 
         void setNeverExpirationForAll() override {};
         boost::optional<WalletAddress> getAddress(const WalletID& id) override
         {
-			if (id == m_LastAdddr.m_walletID)
-	            return m_LastAdddr;
+            if (id == m_LastAdddr.m_walletID)
+                return m_LastAdddr;
 
-			return boost::optional<WalletAddress>();
+            return boost::optional<WalletAddress>();
         }
         void deleteAddress(const WalletID&) override {}
 
@@ -246,10 +246,10 @@ namespace
     IWalletDB::Ptr createSenderWalletDB()
     {
         auto db = createSqliteWalletDB("sender_wallet.db");
-		db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
+        db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
         for (auto amount : { 5, 2, 1, 9 })
         {
-			Coin coin = CreateAvailCoin(amount, 0);
+            Coin coin = CreateAvailCoin(amount, 0);
             db->store(coin);
         }
         return db;
@@ -718,13 +718,13 @@ namespace
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-	    WalletAddress wa = wallet::createAddress(*receiverWalletDB);
-	    receiverWalletDB->saveAddress(wa);
-	    WalletID receiver_id = wa.m_walletID;
+        WalletAddress wa = wallet::createAddress(*receiverWalletDB);
+        receiverWalletDB->saveAddress(wa);
+        WalletID receiver_id = wa.m_walletID;
 
-	    wa = wallet::createAddress(*senderWalletDB);
-	    senderWalletDB->saveAddress(wa);
-	    WalletID sender_id = wa.m_walletID;
+        wa = wallet::createAddress(*senderWalletDB);
+        senderWalletDB->saveAddress(wa);
+        WalletID sender_id = wa.m_walletID;
 
         int count = 0;
         auto f = [&count](const auto& /*id*/)
@@ -814,13 +814,13 @@ namespace
                 msg.m_CfgChecksum = Rules::get().Checksum;
                 msg.m_Flags =
                     proto::LoginFlags::Extension1 |
-				    proto::LoginFlags::SpreadingTransactions |
-				    proto::LoginFlags::Bbs |
+                    proto::LoginFlags::SpreadingTransactions |
+                    proto::LoginFlags::Bbs |
                     proto::LoginFlags::SendPeers;
                 Send(msg);
 
-			    SendTip();
-		    }
+                SendTip();
+            }
 
             void SendTip()
             {
@@ -877,7 +877,7 @@ namespace
                 m_Subscribed = true;
 
                 for (const auto& m : m_This.m_bbs)
-				    Send(m);
+                    Send(m);
             }
 
             void OnMsg(proto::BbsMsg&& msg) override
@@ -886,9 +886,9 @@ namespace
 
                 for (ClientList::iterator it = m_This.m_lstClients.begin(); m_This.m_lstClients.end() != it; it++)
                 {
-				    Client& c = *it;
-				    if ((&c != this) && c.m_Subscribed)
-					    c.Send(msg);
+                    Client& c = *it;
+                    if ((&c != this) && c.m_Subscribed)
+                        c.Send(msg);
                 }
             }
 
@@ -924,7 +924,7 @@ namespace
         {
             m_lstClients.erase(ClientList::s_iterator_to(*client));
             delete client;
-	    }
+        }
 
         struct Server
             :public proto::NodeConnection::Server
@@ -1000,11 +1000,11 @@ namespace
         WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
         WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 40);
 
-	    WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Change);
-	    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
-	    WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 14);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Change);
+        WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 14);
 
-	    WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
         WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
         WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 24);
 
@@ -1137,9 +1137,9 @@ namespace
         WALLET_CHECK(newSenderCoins[3].m_status == Coin::Spent);
         WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
 
-	    WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 3);
-	    WALLET_CHECK(newSenderCoins[4].m_status == Coin::Available);
-	    WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Change);
+        WALLET_CHECK(newSenderCoins[4].m_ID.m_Value == 3);
+        WALLET_CHECK(newSenderCoins[4].m_status == Coin::Available);
+        WALLET_CHECK(newSenderCoins[4].m_ID.m_Type == Key::Type::Change);
 
         // Tx history check
         sh = sender.m_WalletDB->getTxHistory();
@@ -1190,6 +1190,7 @@ namespace
         WALLET_CHECK(stx->m_amount == 6);
         WALLET_CHECK(stx->m_status == TxStatus::Failed);
         WALLET_CHECK(stx->m_sender == true);
+        WALLET_CHECK(stx->m_failureReason == TxFailureReason::NoInputs);
     }
 
     void TestP2PWalletReverseNegotiationST()
@@ -1494,9 +1495,9 @@ namespace
         WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
         WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 40);
 
-	    WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Change);
-	    WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
-	    WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 2);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Change);
+        WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 2);
 
         WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
         WALLET_CHECK(newSenderCoins[2].m_status == Coin::Available);
@@ -1554,9 +1555,11 @@ namespace
             auto sh = sender.m_WalletDB->getTxHistory();
             WALLET_CHECK(sh.size() == 1);
             WALLET_CHECK(sh[0].m_status == TxStatus::Failed);
+            WALLET_CHECK(sh[0].m_failureReason == TxFailureReason::TransactionExpired);
             auto rh = receiver.m_WalletDB->getTxHistory();
             WALLET_CHECK(rh.size() == 1);
             WALLET_CHECK(rh[0].m_status == TxStatus::Failed);
+            WALLET_CHECK(rh[0].m_failureReason == TxFailureReason::TransactionExpired);
         }
 
         txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true);

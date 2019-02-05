@@ -23,22 +23,22 @@ class TxObject : public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(bool income           READ income       NOTIFY incomeChanged)
-    Q_PROPERTY(QString date          READ date         NOTIFY dateChanged)
-    Q_PROPERTY(QString user          READ user         NOTIFY userChanged)
-    Q_PROPERTY(QString userName      READ userName     NOTIFY userChanged)
-    Q_PROPERTY(QString displayName   READ displayName  NOTIFY displayNameChanged)
-    Q_PROPERTY(QString comment       READ comment      NOTIFY commentChanged)
-    Q_PROPERTY(QString amount        READ amount       NOTIFY amountChanged)
-    Q_PROPERTY(QString change        READ change       NOTIFY changeChanged)
-    Q_PROPERTY(QString status        READ status       NOTIFY statusChanged)
-    Q_PROPERTY(bool canCancel        READ canCancel    NOTIFY statusChanged)
-    Q_PROPERTY(bool canDelete        READ canDelete    NOTIFY statusChanged)
-    Q_PROPERTY(QString sendingAddress READ getSendingAddress CONSTANT)
+    Q_PROPERTY(bool income              READ income              NOTIFY incomeChanged)
+    Q_PROPERTY(QString date             READ date                NOTIFY dateChanged)
+    Q_PROPERTY(QString user             READ user                NOTIFY userChanged)
+    Q_PROPERTY(QString userName         READ userName            NOTIFY userChanged)
+    Q_PROPERTY(QString displayName      READ displayName         NOTIFY displayNameChanged)
+    Q_PROPERTY(QString comment          READ comment             NOTIFY commentChanged)
+    Q_PROPERTY(QString amount           READ amount              NOTIFY amountChanged)
+    Q_PROPERTY(QString change           READ change              NOTIFY changeChanged)
+    Q_PROPERTY(QString status           READ status              NOTIFY statusChanged)
+    Q_PROPERTY(bool canCancel           READ canCancel           NOTIFY statusChanged)
+    Q_PROPERTY(bool canDelete           READ canDelete           NOTIFY statusChanged)
+    Q_PROPERTY(QString sendingAddress   READ getSendingAddress   CONSTANT)
     Q_PROPERTY(QString receivingAddress READ getReceivingAddress CONSTANT)
-    Q_PROPERTY(QString fee           READ getFee CONSTANT)
-    Q_PROPERTY(QString kernelID      READ getKernelID  WRITE setKernelID NOTIFY kernelIDChanged)
-    Q_PROPERTY(QString failureReason READ getFailureReason WRITE setFailureReason NOTIFY failureReasonChanged)
+    Q_PROPERTY(QString fee              READ getFee              CONSTANT)
+    Q_PROPERTY(QString kernelID         READ getKernelID         WRITE setKernelID  NOTIFY kernelIDChanged)
+    Q_PROPERTY(QString failureReason    READ getFailureReason    NOTIFY failureReasonChanged)
 
 public:
 
@@ -63,11 +63,11 @@ public:
     QString getKernelID() const;
     void setKernelID(const QString& value);
     QString getFailureReason() const;
-    void setFailureReason(const QString& reason);
 
     void setUserName(const QString& name);
     void setDisplayName(const QString& name);
     void setStatus(beam::TxStatus status);
+    void setFailureReason(beam::TxFailureReason reason);
 
     void update(const beam::TxDescription& tx);
 
@@ -90,15 +90,10 @@ signals:
     void failureReasonChanged();
 
 private:
-
-    void analyzeStatus();
-
-private:
-    beam::TxDescription _tx;
-    QString _userName;
-    QString _displayName;
-    QString _kernelID;
-    QString _failureReason;
+    beam::TxDescription m_tx;
+    QString m_userName;
+    QString m_displayName;
+    QString m_kernelID;
 };
 
 class WalletViewModel : public QObject
