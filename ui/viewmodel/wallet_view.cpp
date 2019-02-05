@@ -503,7 +503,7 @@ QString WalletViewModel::getAmountMissingToSend() const
     {
         return BeamToString(missed) + tr(" beams");
     }
-    return QLocale().toString(missed) + tr(" groths");
+    return QLocale().toString(static_cast<qulonglong>(missed)) + tr(" groths");
 }
 
 QString WalletViewModel::feeGrothes() const
