@@ -1997,6 +1997,17 @@ namespace beam
 
     bool WalletDB::setTxParameter(const TxID& txID, wallet::TxParameterID paramID, const ByteBuffer& blob, bool shouldNotifyAboutChanges)
     {
+        if (auto it = m_TxParametersCache.find(txID); it != m_TxParametersCache.end())
+        {
+            if (auto pit = it->second.find(paramID); pit != it->second.end())
+            {
+                if (pit->second && blob == *(pit->second))
+                {
+                    return false;
+                }
+            }
+        }
+
         bool hasTx = getTx(txID).is_initialized();
         {
             sqlite::Statement stm(_db, "SELECT * FROM " TX_PARAMS_NAME " WHERE txID=?1 AND paramID=?2;");

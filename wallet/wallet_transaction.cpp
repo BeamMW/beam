@@ -224,8 +224,10 @@ namespace beam { namespace wallet
 
     void BaseTransaction::UpdateTxDescription(TxStatus s)
     {
-        SetParameter(TxParameterID::Status, s, true);
-        SetParameter(TxParameterID::ModifyTime, getTimestamp(), false);
+        if (SetParameter(TxParameterID::Status, s, true))
+        {
+            SetParameter(TxParameterID::ModifyTime, getTimestamp(), false);
+        }
     }
 
     void BaseTransaction::OnFailed(TxFailureReason reason, bool notify)

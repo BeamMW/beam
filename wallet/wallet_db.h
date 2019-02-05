@@ -274,6 +274,8 @@ namespace beam
 		void insertNew(Coin&);
 		void saveRaw(const Coin&);
 
+        using ParameterCache = std::map<TxID, std::map<wallet::TxParameterID, boost::optional<ByteBuffer>>>;
+
         void insertParameterToCache(const TxID& txID, wallet::TxParameterID paramID, const boost::optional<ByteBuffer>& blob) const;
         void deleteParametersFromCache(const TxID& txID);
         void insertAddressToCache(const WalletID& id, const boost::optional<WalletAddress>& address) const;
@@ -293,8 +295,8 @@ namespace beam
 
             IMPLEMENT_GET_PARENT_OBJ(WalletDB, m_History)
         } m_History;
-
-        mutable std::map<TxID, std::map<wallet::TxParameterID, boost::optional<ByteBuffer>>> m_TxParametersCache;
+        
+        mutable ParameterCache m_TxParametersCache;
         mutable std::map<WalletID, boost::optional<WalletAddress>> m_AddressesCache;
     };
 
