@@ -27,11 +27,6 @@ LoadingViewModel::LoadingViewModel()
     , m_done{0}
     , m_walletConnected{false}
     , m_hasLocalNode{ AppModel::getInstance()->getSettings().getRunLocalNode() }
-    , m_estimationUpdateDeltaMs{ 0UL }
-    , m_prevProgress{0.0}
-    , m_prevUpdateTimeMs{ GetTime_ms() }
-    , m_speedFilter{30}
-    , m_currentEstimationSec{0}
     , m_skipProgress{false}
     , m_isCreating{false}
 {
@@ -50,14 +45,11 @@ LoadingViewModel::LoadingViewModel()
     connect(&m_walletModel, SIGNAL(walletError(beam::wallet::ErrorType)),
         SLOT(onGetWalletError(beam::wallet::ErrorType)));
 
-    connect(&m_updateTimer, SIGNAL(timeout()), this, SLOT(onUpdateTimer()));
-
     if (!m_hasLocalNode)
     {
         syncWithNode();
     }
 
-    m_updateTimer.start(1000);
 }
 
 LoadingViewModel::~LoadingViewModel()
@@ -110,54 +102,15 @@ void LoadingViewModel::updateProgress()
 			progressMessage = QString::asprintf(tr("Scanning UTXO %d/%d").toStdString().c_str(), m_done, m_total);
 		else
 		{
-			m_updateTimer.stop();
 			emit syncCompleted();
 		}
 	}
 
-    double p = bLocalNode ? nodeSyncProgress :
-		walletSyncProgress;
-
-    auto currentTime = GetTime_ms();
-    uint64_t timeDelta = currentTime - m_prevUpdateTimeMs;
-    m_prevUpdateTimeMs = currentTime;
-    m_estimationUpdateDeltaMs += timeDelta;
+    double p = bLocalNode ? nodeSyncProgress : walletSyncProgress;
 
     if (p > 0)
     {
-        if (m_estimationUpdateDeltaMs > 1000) // update estimation ~every  second
-        {
-            double progressDelta = p - m_prevProgress;
-            m_prevProgress = p;
-
-            double speed = progressDelta / m_estimationUpdateDeltaMs;
-            m_speedFilter.addSample(speed);
-
-            m_estimationUpdateDeltaMs = 0UL;
-            auto currentSpeed = m_speedFilter.getAverage();
-            if (currentSpeed > 0.0)
-            {
-                m_currentEstimationSec = ((1.0 - p) / currentSpeed) / 1000;
-            }
-        }
-
-        if (m_currentEstimationSec > 0 && m_currentEstimationSec < 24 * 3600)
-        {
-            progressMessage.append(tr(", estimated time:"));
-
-            int hours = m_currentEstimationSec / 3600;
-            if (hours > 0)
-            {
-                progressMessage.append(QString::asprintf(tr(" %d h").toStdString().c_str(), hours));
-            }
-            int minutes = (m_currentEstimationSec - 3600 * hours) / 60;
-            if (minutes > 0)
-            {
-                progressMessage.append(QString::asprintf(tr(" %d min").toStdString().c_str(), minutes));
-            }
-            int seconds = m_currentEstimationSec % 60;
-            progressMessage.append(QString::asprintf(tr(" %d sec").toStdString().c_str(), seconds));
-        }
+        progressMessage.append(QString::asprintf(tr(" %d%%").toStdString().c_str(), static_cast<int>(p * 100)));
     }
 
     setProgressMessage(progressMessage);
@@ -165,7 +118,6 @@ void LoadingViewModel::updateProgress()
 
     if (m_skipProgress)
     {
-        m_updateTimer.stop();
         emit syncCompleted();
     }
 }
@@ -214,11 +166,6 @@ bool LoadingViewModel::getIsCreating() const
 void LoadingViewModel::syncWithNode()
 {
     m_walletModel.getAsync()->syncWithNode();
-}
-
-void LoadingViewModel::onUpdateTimer()
-{
-    updateProgress();
 }
 
 void LoadingViewModel::onNodeConnectionChanged(bool isNodeConnected)

@@ -15,10 +15,8 @@
 #pragma once
 
 #include <QObject>
-#include <QTimer>
 
 #include "model/wallet_model.h"
-#include "ui_helpers.h"
 
 class LoadingViewModel : public QObject
 {
@@ -44,7 +42,6 @@ public:
 public slots:
     void onSyncProgressUpdated(int done, int total);
     void onNodeSyncProgressUpdated(int done, int total);
-    void onUpdateTimer();
     void onNodeConnectionChanged(bool isNodeConnected);
     void onGetWalletError(beam::wallet::ErrorType error);
 signals:
@@ -66,12 +63,6 @@ private:
     bool m_walletConnected;
     bool m_hasLocalNode;
     QString m_progressMessage;
-    uint64_t m_estimationUpdateDeltaMs;
-    double m_prevProgress;
-    uint64_t m_prevUpdateTimeMs;
-    QTimer m_updateTimer;
-    beamui::Filter m_speedFilter;
-    uint64_t m_currentEstimationSec;
     bool m_skipProgress;
     bool m_isCreating;
 };
