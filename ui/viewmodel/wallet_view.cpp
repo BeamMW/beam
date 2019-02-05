@@ -502,7 +502,12 @@ QString WalletViewModel::sendAmount() const
 
 QString WalletViewModel::getAmountMissingToSend() const
 {
-    return QLocale().toString(calcTotalAmount() -_status.available); // groth
+    Amount missed = calcTotalAmount() - _status.available;
+    if (missed > 99999)
+    {
+        return BeamToString(missed) + tr(" beams");
+    }
+    return QLocale().toString(missed) + tr(" groths");
 }
 
 QString WalletViewModel::feeGrothes() const

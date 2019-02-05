@@ -534,7 +534,7 @@ Item {
                                 Layout.fillWidth: true
 
                                 SFText {
-                                    text: qsTr("Insufficient funds: you would need %1 groth to complete the transaction.").arg(viewModel.amountMissingToSend)
+                                    text: qsTr("Insufficient funds: you would need %1 to complete the transaction.").arg(viewModel.amountMissingToSend)
                                     color: Style.validator_color
                                     font.pixelSize: 14
                                     fontSizeMode: Text.Fit
