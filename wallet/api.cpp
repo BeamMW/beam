@@ -436,7 +436,22 @@ namespace beam
 
     bool WalletApi::parse(const char* data, size_t size)
     {
-        if (size == 0) return false;
+        if (size == 0)
+        {
+            json msg
+            {
+                {"jsonrpc", "2.0"},
+                {"error",
+                    {
+                        {"code", INVALID_JSON_RPC},
+                        {"message", "Empty JSON request."},
+                    }
+                }
+            };
+
+            _handler.onInvalidJsonRpc(msg);
+            return false;
+        }
 
         try
         {

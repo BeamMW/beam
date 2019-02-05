@@ -98,6 +98,7 @@ namespace beam
         const char* IMPORT_ADDRESSES = "import_addresses";
         const char* IMPORT_EXPORT_PATH = "file_location";
         const char* NO_FAST_SYNC = "no_fast_sync";
+        const char* API_USE_HTTP = "api_use_http";
 #if defined(BEAM_USE_GPU)
         const char* MINER_TYPE = "miner_type";
 #endif
