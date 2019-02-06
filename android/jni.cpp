@@ -306,28 +306,27 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
 
 // don't use it. i don't check it
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(cancelTx)(JNIEnv *env, jobject thiz,
-    jbyteArray txId)
+    jstring txId)
 {
     LOG_DEBUG() << "cancelTx()";
 
-    jbyte* data = env->GetByteArrayElements(txId, NULL);
+    auto buffer = from_hex(JString(env, txId).value());
+    TxID id;
 
-    if (data)
-    {
-        jsize size = env->GetArrayLength(txId);
-        TxID id;
+    std::copy_n(buffer.begin(), id.size(), id.begin());
+    walletModel->getAsync()->cancelTx(id);
+}
 
-        if (size == id.size())
-        {
-            memcpy(&id[0], data, size);
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteTx)(JNIEnv *env, jobject thiz,
+    jstring txId)
+{
+    LOG_DEBUG() << "deleteTx()";
 
-            walletModel->getAsync()->cancelTx(id);
-        }
+    auto buffer = from_hex(JString(env, txId).value());
+    TxID id;
 
-        env->ReleaseByteArrayElements(txId, data, JNI_ABORT);
-
-        env->DeleteLocalRef(txId);
-    }
+    std::copy_n(buffer.begin(), id.size(), id.begin());
+    walletModel->getAsync()->deleteTx(id);
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteAddress)(JNIEnv *env, jobject thiz,
