@@ -302,6 +302,30 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
     walletModel->getAsync()->saveAddress(addr, own);
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(cancelTx)(JNIEnv *env, jobject thiz,
+    jstring txId)
+{
+    LOG_DEBUG() << "cancelTx()";
+
+    auto buffer = from_hex(JString(env, txId).value());
+    TxID id;
+
+    std::copy_n(buffer.begin(), id.size(), id.begin());
+    walletModel->getAsync()->cancelTx(id);
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteTx)(JNIEnv *env, jobject thiz,
+    jstring txId)
+{
+    LOG_DEBUG() << "deleteTx()";
+
+    auto buffer = from_hex(JString(env, txId).value());
+    TxID id;
+
+    std::copy_n(buffer.begin(), id.size(), id.begin());
+    walletModel->getAsync()->deleteTx(id);
+}
+
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteAddress)(JNIEnv *env, jobject thiz,
     jstring walletID)
 {
