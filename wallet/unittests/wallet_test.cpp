@@ -1662,13 +1662,13 @@ namespace
         const int TxCount = 5;
 
         int completedCount = 2 * TxCount;
-        auto f = [&completedCount, mainReactor, TxCount](auto)
+        auto f = [&completedCount, mainReactor, count = 2 * TxCount](auto)
         {
             --completedCount;
             if (completedCount == 0)
             {
                 mainReactor->stop();
-                completedCount = 2 * TxCount;
+                completedCount = count;
             }
         };
 
@@ -1679,7 +1679,7 @@ namespace
         helpers::StopWatch sw;
         sw.start();
 
-        for (size_t i = 0; i < TxCount; ++i)
+        for (int i = 0; i < TxCount; ++i)
         {
             sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 5, 1, true, 200);
         }
