@@ -510,7 +510,7 @@ namespace beam
 
     void Wallet::cancel_tx(const TxID& txId)
     {
-        LOG_INFO() << "Canceling tx " << txId;
+        LOG_INFO() << txId << "Canceling tx ";
 
         if (auto it = m_Transactions.find(txId); it != m_Transactions.end())
         {

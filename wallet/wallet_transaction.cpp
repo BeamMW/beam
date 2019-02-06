@@ -134,16 +134,16 @@ namespace beam { namespace wallet
     {
         TxStatus s = TxStatus::Failed;
         GetParameter(TxParameterID::Status, s);
-        if (s == TxStatus::Pending)
-        {
-            m_WalletDB->deleteTx(GetTxID());
-        }
-        else
+        if (s == TxStatus::Pending || s == TxStatus::InProgress)
         {
             NotifyFailure(TxFailureReason::Cancelled);
             UpdateTxDescription(TxStatus::Cancelled);
             RollbackTx();
             m_Gateway.on_tx_completed(GetTxID());
+        }
+        else
+        {
+            LOG_INFO() << GetTxID() << " You cannot cancel transaction in state: " << static_cast<int>(s);
         }
     }
 
