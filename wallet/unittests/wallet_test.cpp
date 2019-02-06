@@ -255,6 +255,18 @@ namespace
         return db;
     }
 
+    IWalletDB::Ptr createSenderWalletDB(int count, Amount amount)
+    {
+        auto db = createSqliteWalletDB("sender_wallet.db");
+        db->AllocateKidRange(100500); // make sure it'll get the address different from the receiver
+        for (int i = 0; i < count; ++i)
+        {
+            Coin coin = CreateAvailCoin(amount, 0);
+            db->store(coin);
+        }
+        return db;
+    }
+
     IWalletDB::Ptr createReceiverWalletDB()
     {
         return createSqliteWalletDB("receiver_wallet.db");
@@ -1640,6 +1652,42 @@ namespace
 
     }
 
+    void TestTxPerformance()
+    {
+        cout << "\nTesting tx performance...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        const int TxCount = 5;
+
+        int completedCount = 2 * TxCount;
+        auto f = [&completedCount, mainReactor, TxCount](auto)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+                mainReactor->stop();
+                completedCount = 2 * TxCount;
+            }
+        };
+
+        TestNode node;
+        TestWalletRig sender("sender", createSenderWalletDB(TxCount, 6), f);
+        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+
+        helpers::StopWatch sw;
+        sw.start();
+
+        for (size_t i = 0; i < TxCount; ++i)
+        {
+            sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 5, 1, true, 200);
+        }
+        
+        mainReactor->run();
+        sw.stop();
+        cout << "Transferring of " << TxCount << " transactions took :" << sw.milliseconds() << " ms\n";
+    }
 }
 
 int main()
@@ -1668,6 +1716,7 @@ int main()
     TestExpiredTransaction();
 
     TestTransactionUpdate();
+    //TestTxPerformance();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
