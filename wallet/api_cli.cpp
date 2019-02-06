@@ -51,10 +51,10 @@ namespace beam
         WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::Reactor& reactor, io::Address listenTo, bool useHttp)
             : _reactor(reactor)
             , _bindAddress(listenTo)
+            , _useHttp(useHttp)
             , _walletDB(walletDB)
             , _wallet(wallet)
             , _wnet(wnet)
-            , _useHttp(useHttp)
         {
             start();
         }
@@ -503,9 +503,9 @@ namespace beam
         public:
             HttpApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream)
                 : ApiConnection(walletDB, wallet, wnet)
+                , _keepalive(false)
                 , _msgCreator(2000)
                 , _packer(PACKER_FRAGMENTS_SIZE)
-                , _keepalive(false)
             {
                 newStream->enable_keepalive(1);
                 auto peer = newStream->peer_address();
