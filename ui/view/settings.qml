@@ -165,71 +165,6 @@ Rectangle {
                                     }
 
                                     SFText {
-                                        text: qsTr("Mining")
-                                        color: Style.white
-                                        font.pixelSize: 12
-                                        font.styleName: "Bold"; font.weight: Font.Bold
-                                    }
-
-                                    CustomSwitch {
-                                        id: useGpu
-                                        text: qsTr("Use GPU")
-                                        Layout.topMargin: 5
-                                        font.pixelSize: 12
-                                        width: parent.width
-                                        checked: viewModel.useGpu
-                                        enabled: localNodeRun.checked && viewModel.hasSupportedGpu()
-                                        Binding {
-                                            target: viewModel
-                                            property: "useGpu"
-                                            value: useGpu.checked
-                                        }
-                                    }
-                                    SFText {
-                                        id: gpuError
-                                        color: Style.validator_color
-                                        font.pixelSize: 14
-                                        visible: !viewModel.hasSupportedGpu()
-                                        text: qsTr("You have unsupported videocard")
-                                    }
-
-                                    ListView {
-                                        Layout.fillWidth: true
-                                        Layout.fillHeight: true
-                                        Layout.minimumWidth: 140
-                                        visible: viewModel.hasSupportedGpu()
-                                        enabled: useGpu.checked
-                                        model: viewModel.supportedDevices
-                                        clip: true
-                                        delegate: RowLayout {
-                                            width: parent.width
-                                            height: 22
-
-                                            CustomCheckBox {
-                                                id: device_id
-                                                font.pixelSize: 12
-                                                enabled: localNodeRun.checked
-                                                palette.windowText: enabled ? Style.white : Style.disable_text_color
-                                                checked: modelData.enabled
-                                                text: modelData.name
-                                                onToggled: {
-                                                    viewModel.propertiesChanged();
-                                                }
-                                                Binding {
-                                                    target: modelData
-                                                    property: "enabled"
-                                                    value: device_id.checked
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    Layout.alignment: Qt.AlignTop
-                                    spacing: 10
-
-                                    SFText {
                                         text: qsTr("Local node port")
                                         color: localNodeRun.checked ? Style.white : Style.disable_text_color
                                         font.pixelSize: 12
@@ -254,9 +189,15 @@ Rectangle {
                                             value: localNodePort.text
                                         }
                                     }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    Layout.alignment: Qt.AlignTop
+                                    spacing: 10
 
                                     SFText {
-                                        Layout.topMargin: 10
+                                        Layout.topMargin: 5
                                         text: qsTr("Peers")
                                         color: localNodeRun.checked ? Style.white : Style.disable_text_color
                                         font.pixelSize: 12
@@ -292,6 +233,17 @@ Rectangle {
                                                 newLocalNodePeer.clear();
                                             }
                                         }
+                                    }
+
+                                    SFText {
+                                        text: qsTr("Please add at least one peer")
+                                        color: Style.validator_color
+                                        font.pixelSize: 14
+                                        fontSizeMode: Text.Fit
+                                        minimumPixelSize: 10
+                                        font.italic: true
+                                        width: parent.width
+                                        visible: !(viewModel.localNodePeers.length > 0)
                                     }
 
                                     ListView {
@@ -601,6 +553,7 @@ Rectangle {
                     viewModel.isChanged 
                     && nodeAddress.acceptableInput
                     && localNodePort.acceptableInput
+                    && (viewModel.localNodePeers.length > 0)
                 }
                 onClicked: viewModel.applyChanges()
             }
