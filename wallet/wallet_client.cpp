@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "wallet_client.h"
+#include "utility/log_rotation.h"
 
 using namespace beam;
 using namespace beam::io;
@@ -20,7 +21,6 @@ using namespace std;
 
 namespace
 {
-static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
 
 template<typename Observer, typename Notifier>
 struct ScopedSubscriber
@@ -237,12 +237,9 @@ void WalletClient::start()
             onStatus(getStatus());
             onTxStatus(beam::ChangeAction::Reset, m_walletDB->getTxHistory());
 
-            m_logRotateTimer = io::Timer::create(*m_reactor);
-            m_logRotateTimer->start(
-                LOG_ROTATION_PERIOD, true,
-                []() {
-                Logger::get()->rotate();
-            });
+            static const unsigned LOG_ROTATION_PERIOD_SEC = 3*3600; // 3 hours
+            static const unsigned LOG_CLEANUP_PERIOD_SEC = 120*3600; // 5 days
+            LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
 
             auto wallet = make_shared<Wallet>(m_walletDB);
             m_wallet = wallet;

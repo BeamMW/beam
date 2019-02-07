@@ -85,6 +85,7 @@ namespace beam
         const char* LOG_INFO = "info";
         const char* LOG_DEBUG = "debug";
         const char* LOG_VERBOSE = "verbose";
+        const char* LOG_CLEANUP_DAYS = "log_cleanup_days";
 		const char* LOG_UTXOS = "log_utxos";
         const char* VERSION = "version";
         const char* VERSION_FULL = "version,v";
@@ -142,6 +143,7 @@ namespace beam
             (cli::HELP_FULL, "list of all options")
             (cli::LOG_LEVEL, po::value<string>(), "log level [info|debug|verbose]")
             (cli::FILE_LOG_LEVEL, po::value<string>(), "file log level [info|debug|verbose]")
+            (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
             (cli::VERSION_FULL, "return project version")
             (cli::GIT_COMMIT_HASH, "return commit hash");
 

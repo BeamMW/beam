@@ -35,7 +35,7 @@
 #include "model/app_model.h"
 
 #include "wallet/wallet_db.h"
-#include "utility/logger.h"
+#include "utility/log_rotation.h"
 #include "core/ecc_native.h"
 
 #include "translator.h"
@@ -152,8 +152,15 @@ int main (int argc, char* argv[])
 
         beam::Crash::InstallHandler(appDataDir.filePath(AppName).toStdString().c_str());
 
-        auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_",
-			appDataDir.filePath(WalletSettings::LogsFolder).toStdString());
+#define LOG_FILES_PREFIX "beam_ui_"
+
+        const auto logFilesPath = appDataDir.filePath(WalletSettings::LogsFolder).toStdString();
+        auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, LOG_FILES_PREFIX, logFilesPath);
+
+        unsigned logCleanupPeriod = vm[cli::LOG_CLEANUP_DAYS].as<uint32_t>() * 24 * 3600;
+        if (logCleanupPeriod == 0) logCleanupPeriod = 5*24*3600;
+
+        clean_old_logfiles(logFilesPath, LOG_FILES_PREFIX, logCleanupPeriod);
 
         try
         {

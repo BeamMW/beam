@@ -84,6 +84,7 @@ namespace beam
         extern const char* LOG_INFO;
         extern const char* LOG_DEBUG;
         extern const char* LOG_VERBOSE;
+        extern const char* LOG_CLEANUP_DAYS;
 		extern const char* LOG_UTXOS;
         extern const char* VERSION;
         extern const char* VERSION_FULL;

@@ -757,7 +757,6 @@ namespace
 io::Reactor::Ptr reactor;
 
 static const unsigned LOG_ROTATION_PERIOD_SEC = 3*60*60; // 3 hours
-static const unsigned LOG_CLEANUP_PERIOD_SEC = 168*60*60; // 1 week
 
 int main_impl(int argc, char* argv[])
 {
@@ -802,12 +801,20 @@ int main_impl(int argc, char* argv[])
         int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
         int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
-        const auto path = boost::filesystem::system_complete("./logs");
-        auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "wallet_", path.string());
+#define LOG_FILES_DIR "logs"
+#define LOG_FILES_PREFIX "wallet_"
+
+        const auto path = boost::filesystem::system_complete(LOG_FILES_DIR);
+        auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, LOG_FILES_PREFIX, path.string());
 
         try
         {
             po::notify(vm);
+
+            unsigned logCleanupPeriod = vm[cli::LOG_CLEANUP_DAYS].as<uint32_t>() * 24 * 3600;
+            if (logCleanupPeriod == 0) logCleanupPeriod = 5*24*3600;
+
+            clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, logCleanupPeriod);
 
             Rules::get().UpdateChecksum();
 
@@ -817,7 +824,7 @@ int main_impl(int argc, char* argv[])
 
                 io::Reactor::GracefulIntHandler gih(*reactor);
 
-                LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
+                LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, logCleanupPeriod);
 
                 {
                     if (vm.count(cli::COMMAND) == 0)

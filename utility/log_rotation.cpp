@@ -15,6 +15,7 @@
 #include "log_rotation.h"
 #include "helpers.h"
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
 
 namespace beam {
 
@@ -39,6 +40,26 @@ void LogRotation::on_timer() {
         _expiration.erase(it);
     }
     _expiration.insert( { currentTime + _cleanPeriodSec, Logger::get()->get_current_file_name() } );
+}
+
+void clean_old_logfiles(const std::string& directory, const std::string& prefix, unsigned cleanPeriodSec) {
+    namespace fs = boost::filesystem;
+
+    try {
+        auto expiration = time_t(local_timestamp_msec() / 1000) - cleanPeriodSec;
+        fs::directory_iterator it(fs::system_complete(directory));
+        fs::directory_iterator end;
+        for (; it != end; ++it) {
+            auto p = it->path();
+            if (fs::last_write_time(p) > expiration || !fs::is_regular_file(p))
+                continue;
+            if (boost::starts_with(p.filename().string(), prefix) && p.extension().string() == ".log") {
+                boost::filesystem::remove_all(p);
+            }
+        }
+    } catch (...) {
+        //~
+    }
 }
 
 } //namespace

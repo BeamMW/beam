@@ -110,7 +110,6 @@ private:
     std::weak_ptr<beam::proto::FlyClient::INetwork> m_nodeNetwork;
     std::weak_ptr<beam::IWalletNetwork> m_walletNetwork;
     std::weak_ptr<beam::Wallet> m_wallet;
-    beam::io::Timer::Ptr m_logRotateTimer;
     bool m_isConnected;
     boost::optional<beam::wallet::ErrorType> m_walletError;
 

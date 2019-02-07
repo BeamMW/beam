@@ -34,6 +34,6 @@ private:
     std::map<time_t, Logger::FileNameType> _expiration;
 };
 
-
+void clean_old_logfiles(const std::string& directory, const std::string& prefix, unsigned cleanPeriodSec);
 
 } //namespace
