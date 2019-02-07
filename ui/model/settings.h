@@ -49,13 +49,6 @@ public:
     QStringList getLocalNodePeers() const;
     void setLocalNodePeers(const QStringList& qPeers);
 
-#ifdef BEAM_USE_GPU
-    bool getUseGpu() const;
-    void setUseGpu(bool value);
-    std::vector<int32_t> getMiningDevices() const;
-    void setMiningDevices(const std::vector<int32_t>& value);
-#endif
-
 public:
     static const char* WalletCfg;
     static const char* LogsFolder;
@@ -71,10 +64,6 @@ signals:
     void localNodePortChanged();
     void localNodePeersChanged();
     void localNodeSynchronizedChanged();
-#ifdef BEAM_USE_GPU
-    void localNodeUseGpuChanged();
-    void localNodeMiningDevicesChanged();
-#endif
 
 private:
     QSettings m_data;

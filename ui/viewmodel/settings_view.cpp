@@ -23,51 +23,10 @@
 
 #include <algorithm>
 
-#ifdef BEAM_USE_GPU
-#include "utility/gpu/gpu_tools.h"
-#endif
 
 using namespace beam;
 using namespace ECC;
 using namespace std;
-
-
-DeviceItem::DeviceItem(const QString& name, int32_t index, bool enabled)
-    : m_name(name)
-    , m_index(index)
-    , m_enabled(enabled)
-{
-
-}
-
-DeviceItem::~DeviceItem()
-{
-
-}
-
-QString DeviceItem::getName() const
-{
-    return m_name;
-}
-
-bool DeviceItem::getEnabled() const
-{
-    return m_enabled;
-}
-
-void DeviceItem::setEnabled(bool value)
-{
-    if (m_enabled != value)
-    {
-        m_enabled = value;
-        emit enableChanged();
-    }
-}
-
-int32_t DeviceItem::getIndex() const
-{
-    return m_index;
-}
 
 
 SettingsViewModel::SettingsViewModel()
@@ -187,64 +146,10 @@ void SettingsViewModel::copyToClipboard(const QString& text)
     QApplication::clipboard()->setText(text);
 }
 
-QQmlListProperty<DeviceItem> SettingsViewModel::getSupportedDevices() 
-{
-    return QQmlListProperty<DeviceItem>(this, m_supportedDevices);
-}
-
-bool SettingsViewModel::hasSupportedGpu()
-{
-#ifdef BEAM_USE_GPU
-    if (!m_hasSupportedGpu.is_initialized())
-    {
-        m_hasSupportedGpu = HasSupportedCard();
-    }
-    if (*m_hasSupportedGpu == false)
-    {
-        setUseGpu(false);
-        return false;
-    }
-
-    if (m_supportedDevices.empty())
-    {
-        auto selectedDevices = m_settings.getMiningDevices();
-        auto cards = GetSupportedCards();
-        for (const auto& card : cards)
-        {
-            bool enabled = find(selectedDevices.begin(), selectedDevices.end(), card.index) != selectedDevices.end();
-            m_supportedDevices.push_back(new DeviceItem(QString::fromStdString(card.name), (int32_t)card.index, enabled));
-        }
-    }
-
-    return true;
-#else
-    return false;
-#endif
-}
-
 void SettingsViewModel::refreshWallet()
 {
     AppModel::getInstance()->getWallet()->getAsync()->refresh();
 }
-
-#ifdef BEAM_USE_GPU
-
-vector<int32_t> SettingsViewModel::getSelectedDevice() const
-{
-    vector<int32_t> v;
-    for (const auto& d : m_supportedDevices)
-    {
-        DeviceItem* device = (DeviceItem*)d;
-        if (device->getEnabled())
-        {
-            v.push_back(device->getIndex());
-        }
-    }
-    return v;
-}
-
-#endif
-
 
 bool SettingsViewModel::isChanged() const
 {
@@ -252,15 +157,8 @@ bool SettingsViewModel::isChanged() const
         || m_localNodeRun != m_settings.getRunLocalNode()
         || m_localNodePort != m_settings.getLocalNodePort()
         || m_localNodePeers != m_settings.getLocalNodePeers()
-#ifdef BEAM_USE_GPU
-        || m_lockTimeout != m_settings.getLockTimeout()
-        || m_useGpu != m_settings.getUseGpu()
-        || (!m_supportedDevices.empty() && m_settings.getMiningDevices() != getSelectedDevice());
-#else
         || m_lockTimeout != m_settings.getLockTimeout();
-#endif
 }
-
 
 void SettingsViewModel::applyChanges()
 {
@@ -269,11 +167,6 @@ void SettingsViewModel::applyChanges()
     m_settings.setLocalNodePort(m_localNodePort);
     m_settings.setLocalNodePeers(m_localNodePeers);
     m_settings.setLockTimeout(m_lockTimeout);
-#ifdef BEAM_USE_GPU
-    m_settings.setUseGpu(m_useGpu);
-     
-    m_settings.setMiningDevices(getSelectedDevice());
-#endif
     m_settings.applyChanges();
     emit propertiesChanged();
 }
@@ -295,20 +188,6 @@ QString SettingsViewModel::getWalletLocation() const
     return QString::fromStdString(m_settings.getAppDataPath());
 }
 
-void SettingsViewModel::setUseGpu(bool value)
-{
-#ifdef BEAM_USE_GPU
-    m_useGpu = value;
-    emit localNodeUseGpuChanged();
-    emit propertiesChanged();
-#endif
-}
-
-bool SettingsViewModel::getUseGpu() const
-{
-    return m_useGpu;
-}
-
 void SettingsViewModel::undoChanges()
 {
     setNodeAddress(m_settings.getNodeAddress());
@@ -316,11 +195,7 @@ void SettingsViewModel::undoChanges()
     setLocalNodePort(m_settings.getLocalNodePort());
     setLockTimeout(m_settings.getLockTimeout());
     setLocalNodePeers(m_settings.getLocalNodePeers());
-#ifdef BEAM_USE_GPU
-    setUseGpu(m_settings.getUseGpu());
-#endif
 }
-
 
 void SettingsViewModel::reportProblem()
 {

@@ -94,8 +94,4 @@ else()
     endif()
 endif()
 
-if(BEAM_USE_GPU)
-    add_subdirectory(gpu)
-endif()
-
 add_subdirectory(unittest)

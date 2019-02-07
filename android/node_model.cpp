@@ -117,10 +117,3 @@ std::vector<std::string> NodeModel::getLocalNodePeers()
 
     return result;
 }
-
-#ifdef BEAM_USE_GPU
-std::unique_ptr<IExternalPOW> NodeModel::getStratumServer()
-{
-    return nullptr;
-}
-#endif //  BEAM_USE_GPU

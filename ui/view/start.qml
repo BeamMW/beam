@@ -1268,28 +1268,6 @@ Item
                                 color: Style.validator_color
                                 font.pixelSize: 14
                             }
-                            RowLayout {
-                                CustomSwitch {
-                                    id: useGpu
-                                    text: qsTr("Use GPU")
-                                    font.pixelSize: 12
-                                    checked: viewModel.useGpu
-                                    visible: viewModel.showUseGpu()
-                                    enabled: viewModel.hasSupportedGpu()
-                                    Binding {
-                                        target: viewModel
-                                        property: "useGpu"
-                                        value: useGpu.checked
-                                    }
-                                }
-                                SFText {
-                                    id: gpuError
-                                    color: Style.validator_color
-                                    font.pixelSize: 14
-                                    visible: viewModel.showUseGpu() && !viewModel.hasSupportedGpu()
-                                    text: qsTr("You have unsupported videocard")
-                                }
-                            }
 
                             RowLayout {
                                 width: parent.width

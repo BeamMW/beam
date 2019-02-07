@@ -21,9 +21,6 @@
 #include "utility/logger.h"
 
 #include <boost/filesystem.hpp>
-#ifdef  BEAM_USE_GPU
-#include "utility/gpu/gpu_tools.h"
-#endif //  BEAM_USE_GPU
 
 namespace
 {
@@ -159,9 +156,6 @@ bool NodeClient::isNodeRunning() const
 
 void NodeClient::runLocalNode()
 {
-#ifdef BEAM_USE_GPU
-    std::unique_ptr<IExternalPOW> stratumServer = m_observer->getStratumServer();
-#endif //  BEAM_USE_GPU
     Node node;
     node.m_Cfg.m_Listen.port(m_observer->getLocalNodePort());
     node.m_Cfg.m_Listen.ip(INADDR_ANY);
@@ -221,12 +215,7 @@ void NodeClient::runLocalNode()
     obs.m_pModel = this;
 
     node.m_Cfg.m_Observer = &obs;
-
-#ifdef BEAM_USE_GPU
-    node.Initialize(stratumServer.get());
-#else
     node.Initialize();
-#endif //  BEAM_USE_GPU
 
     m_isRunning = true;
     m_observer->onStartedNode();
