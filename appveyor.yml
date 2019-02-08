@@ -72,7 +72,7 @@ on_success:
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/wallet-api-%BEAM_VERSION%.zip"
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet-%BEAM_VERSION%-win64.exe" "%BUILDS_SERVER_PATH%Beam-Wallet-%/BEAM_VERSION%.exe"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet-%BEAM_VERSION%-win64.exe" "%BUILDS_SERVER_PATH%/Beam-Wallet-%BEAM_VERSION%.exe"
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/beam-pdb-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/pdb/beam-pdb-%BEAM_VERSION%.zip"
 
