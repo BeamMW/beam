@@ -224,7 +224,7 @@ Rectangle {
                                             Layout.minimumWidth: 70
                                             leftPadding: 20
                                             rightPadding: 20
-				                            text: "Add"
+                                            text: "Add"
                                             palette.button: "#708090"
                                             palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
                                             enabled: newLocalNodePeer.acceptableInput && localNodeRun.checked
@@ -243,7 +243,7 @@ Rectangle {
                                         minimumPixelSize: 10
                                         font.italic: true
                                         width: parent.width
-                                        visible: !(viewModel.localNodePeers.length > 0)
+                                        visible: localNodeRun.checked && !(viewModel.localNodePeers.length > 0)
                                     }
 
                                     ListView {
@@ -476,7 +476,7 @@ Rectangle {
                                 CustomButton {
                                     icon.source: "qrc:/assets/icon-restore.svg"
                                     Layout.alignment: Qt.AlignRight
-				                    text: qsTr("rescan")
+                                    text: qsTr("rescan")
                                     palette.button: "#708090"
                                     palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
                                     enabled: localNodeRun.checked && confirmRefreshDialog.canRefresh && viewModel.isLocalNodeRunning
@@ -553,7 +553,7 @@ Rectangle {
                     viewModel.isChanged 
                     && nodeAddress.acceptableInput
                     && localNodePort.acceptableInput
-                    && (viewModel.localNodePeers.length > 0)
+                    && (localNodeRun.checked ? (viewModel.localNodePeers.length > 0) : true)
                 }
                 onClicked: viewModel.applyChanges()
             }
