@@ -24,8 +24,9 @@
 #include "utility/helpers.h"
 #include "utility/io/timer.h"
 #include "utility/io/tcpserver.h"
-#include "utility/options.h"
 #include "utility/io/json_serializer.h"
+#include "utility/io/coarsetimer.h"
+#include "utility/options.h"
 
 #include "http/http_connection.h"
 #include "http/http_msg_creator.h"
@@ -42,10 +43,17 @@ using json = nlohmann::json;
 
 static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
 static const size_t PACKER_FRAGMENTS_SIZE = 4096;
+static const uint64_t CLOSE_CONNECTION_TIMER = 1;
 
 namespace beam
 {
-    class WalletApiServer
+    class IWalletApiServer
+    {
+    public:
+        virtual void closeConnection(uint64_t id) = 0;
+    };
+
+    class WalletApiServer : public IWalletApiServer
     {
     public:
         WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::Reactor& reactor, io::Address listenTo, bool useHttp)
@@ -55,6 +63,7 @@ namespace beam
             , _walletDB(walletDB)
             , _wallet(wallet)
             , _wnet(wnet)
+            , _timers(_reactor, 100)
         {
             start();
         }
@@ -89,23 +98,46 @@ namespace beam
 
         }
 
+        void closeConnection(uint64_t id) override
+        {
+            _pendingToClose.push_back(id);
+
+            _timers.set_timer(1, 0, BIND_THIS_MEMFN(checkConnections));
+        }
+
     private:
+
+        void checkConnections()
+        {
+            // clean closed connections
+            {
+                for (auto id : _pendingToClose)
+                {
+                    _connections.erase(id);
+                }
+
+                _pendingToClose.clear();
+            }
+        }
+
+        class ApiConnection;
+
+        template<typename T>
+        std::shared_ptr<ApiConnection> createConnection(io::TcpStream::Ptr&& newStream)
+        {
+            return std::static_pointer_cast<ApiConnection>(std::make_shared<T>(*this, _walletDB, _wallet, _wnet, std::move(newStream)));
+        }
 
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
         {
             if (errorCode == 0) 
             {          
-                uint64_t peerId = newStream->peer_address().u64();
-                auto it = _connections.find(peerId);
+                auto peer = newStream->peer_address();
+                LOG_DEBUG() << "+peer " << peer;
 
-                if (it == _connections.end())
-                {
-                    _connections.erase(peerId);
-                }
-
-                _connections[peerId] = _useHttp
-                    ? std::static_pointer_cast<ApiConnection>(std::make_shared<HttpApiConnection>(_walletDB, _wallet, _wnet, std::move(newStream)))
-                    : std::static_pointer_cast<ApiConnection>(std::make_shared<TcpApiConnection>(_walletDB, _wallet, _wnet, std::move(newStream)));
+                _connections[peer.u64()] = _useHttp
+                    ? createConnection<HttpApiConnection>(std::move(newStream))
+                    : createConnection<TcpApiConnection>(std::move(newStream));
             }
 
             LOG_DEBUG() << "on_stream_accepted";
@@ -445,10 +477,11 @@ namespace beam
         class TcpApiConnection : public ApiConnection
         {
         public:
-            TcpApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream)
+            TcpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream)
                 : ApiConnection(walletDB, wallet, wnet)
                 , _stream(std::move(newStream))
                 , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
+                , _server(server)
             {
                 _stream->enable_keepalive(2);
                 _stream->enable_read(BIND_THIS_MEMFN(on_stream_data));
@@ -481,12 +514,14 @@ namespace beam
                 if (errorCode != 0)
                 {
                     LOG_INFO() << "peer disconnected, code=" << io::error_str(errorCode);
+                    _server.closeConnection(_stream->peer_address().u64());
                     return false;
                 }
 
                 if (!_lineProtocol.new_data_from_stream(data, size))
                 {
                     LOG_INFO() << "stream corrupted";
+                    _server.closeConnection(_stream->peer_address().u64());
                     return false;
                 }
 
@@ -496,20 +531,21 @@ namespace beam
         private:
             io::TcpStream::Ptr _stream;
             LineProtocol _lineProtocol;
+            IWalletApiServer& _server;
         };
 
         class HttpApiConnection : public ApiConnection
         {
         public:
-            HttpApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream)
+            HttpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream)
                 : ApiConnection(walletDB, wallet, wnet)
                 , _keepalive(false)
                 , _msgCreator(2000)
                 , _packer(PACKER_FRAGMENTS_SIZE)
+                , _server(server)
             {
                 newStream->enable_keepalive(1);
                 auto peer = newStream->peer_address();
-                LOG_DEBUG() << "+peer " << peer;
 
                 _connection = std::make_unique<HttpConnection>(
                     peer.u64(),
@@ -536,7 +572,8 @@ namespace beam
                 if (msg.what != HttpMsgReader::http_message || !msg.msg)
                 {
                     LOG_DEBUG() << "-peer " << io::Address::from_u64(id) << " : " << msg.error_str();
-                    _connection.reset();
+                    _connection->shutdown();
+                    _server.closeConnection(id);
                     return false;
                 }
 
@@ -559,7 +596,7 @@ namespace beam
                 if (!_keepalive)
                 {
                     _connection->shutdown();
-                    _connection.reset();
+                    _server.closeConnection(id);
                 }
 
                 return _keepalive;
@@ -606,6 +643,7 @@ namespace beam
             HttpMsgCreator _packer;
             io::SerializedMsg _headers;
             io::SerializedMsg _body;
+            IWalletApiServer& _server;
         };
 
         io::Reactor& _reactor;
@@ -618,6 +656,8 @@ namespace beam
         IWalletDB::Ptr _walletDB;
         Wallet& _wallet;
         WalletNetworkViaBbs& _wnet;
+        io::MultipleTimers _timers;
+        std::vector<uint64_t> _pendingToClose;
     };
 }
 
