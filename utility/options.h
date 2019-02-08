@@ -84,6 +84,7 @@ namespace beam
         extern const char* LOG_INFO;
         extern const char* LOG_DEBUG;
         extern const char* LOG_VERBOSE;
+        extern const char* LOG_CLEANUP_DAYS;
 		extern const char* LOG_UTXOS;
         extern const char* VERSION;
         extern const char* VERSION_FULL;
@@ -91,10 +92,13 @@ namespace beam
         extern const char* WALLET_ADDR;
         extern const char* CHANGE_ADDRESS_EXPIRATION;
         extern const char* WALLET_ADDRESS_LIST;
-        extern const char* WALLET_REFRESH;
-#if defined(BEAM_USE_GPU)
-        extern const char* MINER_TYPE;
-#endif
+        extern const char* WALLET_RESCAN;
+        extern const char* UTXO;
+        extern const char* EXPORT_ADDRESSES;
+        extern const char* IMPORT_ADDRESSES;
+        extern const char* IMPORT_EXPORT_PATH;
+        extern const char* NO_FAST_SYNC;
+        extern const char* API_USE_HTTP;
  // treasury
         extern const char* TR_OPCODE;
         extern const char* TR_WID;
@@ -128,4 +132,5 @@ namespace beam
     class SecString;
 
     bool read_wallet_pass(SecString& pass, const po::variables_map& vm);
+    bool confirm_wallet_pass(const SecString& pass);
 }

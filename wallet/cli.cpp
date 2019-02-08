@@ -30,7 +30,7 @@
     #define LOG_VERBOSE_ENABLED 0
 #endif
 
-#include "utility/logger.h"
+#include "utility/log_rotation.h"
 #include "utility/options.h"
 #include "utility/helpers.h"
 #include <iomanip>
@@ -73,22 +73,33 @@ namespace beam
 
     const char* getTxStatus(const TxDescription& tx)
     {
-        static const char* Pending = "Pending";
-        static const char* Sending = "Sending";
-        static const char* Receiving = "Receiving";
-        static const char* Cancelled = "Cancelled";
-        static const char* Sent = "Sent";
-        static const char* Received = "Received";
-        static const char* Failed = "Failed";
+        static const char* Pending = "pending";
+        static const char* WaitingForSender = "waiting for sender";
+        static const char* WaitingForReceiver = "waiting for receiver";
+        static const char* Sending = "sending";
+        static const char* Receiving = "receiving";
+        static const char* Cancelled = "cancelled";
+        static const char* Sent = "sent";
+        static const char* Received = "received";
+        static const char* Failed = "failed";
+        static const char* Completed = "completed";
+        static const char* Expired = "expired";
 
         switch (tx.m_status)
         {
         case TxStatus::Pending: return Pending;
-        case TxStatus::Registering:
-        case TxStatus::InProgress: return tx.m_sender ? Sending : Receiving;
+        case TxStatus::InProgress: return tx.m_sender ? WaitingForReceiver : WaitingForSender;
+        case TxStatus::Registering: return tx.m_sender ? Sending : Receiving;
         case TxStatus::Cancelled: return Cancelled;
-        case TxStatus::Completed: return tx.m_sender ? Sent : Received;
-        case TxStatus::Failed: return Failed;
+        case TxStatus::Completed:
+        {
+            if (tx.m_selfTx)
+            {
+                return Completed;
+            }
+            return tx.m_sender ? Sent : Received;
+        }
+        case TxStatus::Failed: return TxFailureReason::TransactionExpired == tx.m_failureReason ? Expired : Failed;
         default:
             assert(false && "Unknown status");
         }
@@ -475,7 +486,7 @@ namespace
         return true;
     }
 
-    int showAddressList(const IWalletDB::Ptr& walletDB)
+    int ShowAddressList(const IWalletDB::Ptr& walletDB)
     {
         auto addresses = walletDB->getAddresses(true);
         array<uint8_t, 5> columnWidths{ { 20, 70, 8, 20, 21 } };
@@ -511,30 +522,25 @@ namespace
         return 0;
     }
 
-    int showWalletInfo(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
+    int ShowWalletInfo(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
     {
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
-        auto totalInProgress = walletDB->getTotal(Coin::Incoming) +
-            walletDB->getTotal(Coin::Outgoing);
-        auto totalCoinbase = walletDB->getTotalByType(Coin::Available, Key::Type::Coinbase) +
-            walletDB->getTotalByType(Coin::Maturing, Key::Type::Coinbase);
-        auto totalFee = walletDB->getTotalByType(Coin::Available, Key::Type::Comission) +
-            walletDB->getTotalByType(Coin::Maturing, Key::Type::Comission);
-        auto totalUnspent = walletDB->getTotal(Coin::Available) + walletDB->getTotal(Coin::Maturing);
+
+		wallet::Totals totals(*walletDB);
 
         cout << "____Wallet summary____\n\n"
             << "Current height............" << stateID.m_Height << '\n'
             << "Current state ID.........." << stateID.m_Hash << "\n\n"
-            << "Available................." << PrintableAmount(walletDB->getAvailable()) << '\n'
-            << "Maturing.................." << PrintableAmount(walletDB->getTotal(Coin::Maturing)) << '\n'
-            << "In progress..............." << PrintableAmount(totalInProgress) << '\n'
-            << "Unavailable..............." << PrintableAmount(walletDB->getTotal(Coin::Unavailable)) << '\n'
-            << "Available coinbase ......." << PrintableAmount(walletDB->getAvailableByType(Key::Type::Coinbase)) << '\n'
-            << "Total coinbase............" << PrintableAmount(totalCoinbase) << '\n'
-            << "Avaliable fee............." << PrintableAmount(walletDB->getAvailableByType(Key::Type::Comission)) << '\n'
-            << "Total fee................." << PrintableAmount(totalFee) << '\n'
-            << "Total unspent............." << PrintableAmount(totalUnspent) << "\n\n";
+            << "Available................." << PrintableAmount(totals.Avail) << '\n'
+            << "Maturing.................." << PrintableAmount(totals.Maturing) << '\n'
+            << "In progress..............." << PrintableAmount(totals.Incoming) << '\n'
+            << "Unavailable..............." << PrintableAmount(totals.Unavail) << '\n'
+            << "Available coinbase ......." << PrintableAmount(totals.AvailCoinbase) << '\n'
+            << "Total coinbase............" << PrintableAmount(totals.Coinbase) << '\n'
+            << "Avaliable fee............." << PrintableAmount(totals.AvailFee) << '\n'
+            << "Total fee................." << PrintableAmount(totals.Fee) << '\n'
+            << "Total unspent............." << PrintableAmount(totals.Unspent) << "\n\n";
 
         if (vm.count(cli::TX_HISTORY))
         {
@@ -545,7 +551,7 @@ namespace
                 return 0;
             }
 
-            array<uint8_t, 4> columnWidths{ { 20, 26, 10, 35 } };
+            array<uint8_t, 4> columnWidths{ { 20, 26, 21, 35 } };
 
             cout << "TRANSACTIONS\n\n"
                 << "  |" << setw(columnWidths[0]) << "datetime" << " |"
@@ -564,20 +570,18 @@ namespace
             return 0;
         }
 
-        cout << setw(20) << "id" << " |"
+        cout << setw(48) << "id" << " |"
             << setw(14) << "Beam" << " |"
             << setw(14) << "Groth" << " |"
-            << setw(14) << "height" << " |"
             << setw(18) << "maturity" << " |"
             << setw(30) << "status" << " |"
             << setw(8) << "type" << endl;
         walletDB->visit([](const Coin& c)->bool
         {
-            cout << setw(20) << c.m_ID.m_Idx
+            cout << setw(48) << c.toStringID()
                 << setw(16) << c.m_ID.m_Value / Rules::Coin
                 << setw(16) << c.m_ID.m_Value % Rules::Coin
-                << setw(16) << static_cast<int64_t>(c.m_createHeight)
-                << setw(20) << (static_cast<int64_t>(c.m_maturity) < 0 ? "-" : std::to_string(static_cast<int64_t>(c.m_maturity)))
+                << setw(20) << (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity)) : "-")
                 << "   " << c.m_status
                 << setw(8) << c.m_ID.m_Type << endl;
             return true;
@@ -585,7 +589,7 @@ namespace
         return 0;
     }
 
-    int paymentProofExport(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
+    int ExportPaymentProof(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
     {
         auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
         TxID txId;
@@ -627,7 +631,7 @@ namespace
         return 0;
     }
 
-    int paymentProofVerify(const po::variables_map& vm)
+    int VerifyPaymentProof(const po::variables_map& vm)
     {
         ByteBuffer buf = from_hex(vm[cli::PAYMENT_PROOF_DATA].as<string>());
 
@@ -645,7 +649,7 @@ namespace
         return 0;
     }
 
-    int exportMinerKey(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, const beam::SecString& pass)
+    int ExportMinerKey(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, const beam::SecString& pass)
     {
         uint32_t subKey = vm[cli::KEY_SUBKEY].as<uint32_t>();
         if (subKey < 1)
@@ -666,7 +670,7 @@ namespace
         return 0;
     }
 
-    int exportOwnerKey(const IWalletDB::Ptr& walletDB, const beam::SecString& pass)
+    int ExportOwnerKey(const IWalletDB::Ptr& walletDB, const beam::SecString& pass)
     {
         Key::IKdf::Ptr pKey = walletDB->get_ChildKdf(0);
         const ECC::HKdf& kdf = static_cast<ECC::HKdf&>(*pKey);
@@ -683,11 +687,76 @@ namespace
 
         return 0;
     }
+
+    bool LoadDataToImport(const std::string& path, ByteBuffer& data)
+    {
+        FStream f;
+        if (f.Open(path.c_str(), true))
+        {
+            size_t size = static_cast<size_t>(f.get_Remaining());
+            if (size > 0)
+            {
+                data.resize(size);
+                return f.read(data.data(), data.size()) == size;
+            }
+        }
+        return false;
+    }
+
+    bool SaveExportedData(const ByteBuffer& data, const std::string& path)
+    {
+        FStream f;
+        if (f.Open(path.c_str(), false))
+        {
+            return f.write(data.data(), data.size()) == data.size();
+        }
+        LOG_ERROR() << "Failed to save exported data";
+        return false;
+    }
+
+    int ExportAddresses(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    {
+        auto s = wallet::ExportAddressesToJson(*walletDB);
+        return SaveExportedData(ByteBuffer(s.begin(), s.end()), vm[cli::IMPORT_EXPORT_PATH].as<string>()) ? 0 : -1;
+    }
+
+    int ImportAddresses(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
+    {
+        ByteBuffer buffer;
+        if (!LoadDataToImport(vm[cli::IMPORT_EXPORT_PATH].as<string>(), buffer))
+        {
+            return -1;
+        }
+        const char* p = (char*)(&buffer[0]);
+        return wallet::ImportAddressesFromJson(*walletDB, p, buffer.size()) ? 0 : -1;
+    }
+
+    CoinIDList GetPreselectedCoinIDs(const po::variables_map& vm)
+    {
+        CoinIDList coinIDs;
+        if (vm.count(cli::UTXO))
+        {
+            auto tempCoins = vm[cli::UTXO].as<vector<string>>();
+            for (const auto& s : tempCoins)
+            {
+                auto csv = string_helpers::split(s, ',');
+                for (const auto& v : csv)
+                {
+                    auto coinID = Coin::FromString(v);
+                    if (coinID)
+                    {
+                        coinIDs.push_back(*coinID);
+                    }
+                }
+            }
+        }
+        return coinIDs;
+    }
 }
 
 io::Reactor::Ptr reactor;
 
-static const unsigned LOG_ROTATION_PERIOD = 3*60*60*1000; // 3 hours
+static const unsigned LOG_ROTATION_PERIOD_SEC = 3*60*60; // 3 hours
 
 int main_impl(int argc, char* argv[])
 {
@@ -732,12 +801,19 @@ int main_impl(int argc, char* argv[])
         int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
         int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
-        const auto path = boost::filesystem::system_complete("./logs");
-        auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "wallet_", path.string());
+#define LOG_FILES_DIR "logs"
+#define LOG_FILES_PREFIX "wallet_"
+
+        const auto path = boost::filesystem::system_complete(LOG_FILES_DIR);
+        auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, LOG_FILES_PREFIX, path.string());
 
         try
         {
             po::notify(vm);
+
+            unsigned logCleanupPeriod = vm[cli::LOG_CLEANUP_DAYS].as<uint32_t>() * 24 * 3600;
+
+            clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, logCleanupPeriod);
 
             Rules::get().UpdateChecksum();
 
@@ -747,13 +823,7 @@ int main_impl(int argc, char* argv[])
 
                 io::Reactor::GracefulIntHandler gih(*reactor);
 
-                io::Timer::Ptr logRotateTimer = io::Timer::create(*reactor);
-                logRotateTimer->start(
-                    LOG_ROTATION_PERIOD, true,
-                    []() {
-                        Logger::get()->rotate();
-                    }
-                );
+                LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, logCleanupPeriod);
 
                 {
                     if (vm.count(cli::COMMAND) == 0)
@@ -781,7 +851,9 @@ int main_impl(int argc, char* argv[])
                         && command != cli::PAYMENT_PROOF_VERIFY
                         && command != cli::GENERATE_PHRASE
                         && command != cli::WALLET_ADDRESS_LIST
-                        && command != cli::WALLET_REFRESH)
+                        && command != cli::WALLET_RESCAN
+                        && command != cli::IMPORT_ADDRESSES
+                        && command != cli::EXPORT_ADDRESSES)
                     {
                         LOG_ERROR() << "unknown command: \'" << command << "\'";
                         return -1;
@@ -793,6 +865,7 @@ int main_impl(int argc, char* argv[])
                         return 0;
                     }
 
+                    LOG_INFO() << "Beam Wallet " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
                     LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
                     assert(vm.count(cli::WALLET_STORAGE) > 0);
@@ -816,6 +889,15 @@ int main_impl(int argc, char* argv[])
                     {
                         LOG_ERROR() << "Please, provide password for the wallet.";
                         return -1;
+                    }
+
+                    if ((command == cli::INIT || command == cli::RESTORE) && vm.count(cli::PASS) == 0)
+                    {
+                        if (!beam::confirm_wallet_pass(pass))
+                        {
+                            LOG_ERROR() << "Passwords do not match";
+                            return -1;
+                        }
                     }
 
                     if (command == cli::INIT || command == cli::RESTORE)
@@ -861,12 +943,22 @@ int main_impl(int argc, char* argv[])
 
                     if (command == cli::EXPORT_MINER_KEY)
                     {
-                        return exportMinerKey(vm, walletDB, pass);
+                        return ExportMinerKey(vm, walletDB, pass);
                     }
 
                     if (command == cli::EXPORT_OWNER_KEY)
                     {
-                        return exportOwnerKey(walletDB, pass);
+                        return ExportOwnerKey(walletDB, pass);
+                    }
+
+                    if (command == cli::EXPORT_ADDRESSES)
+                    {
+                        return ExportAddresses(vm, walletDB);
+                    }
+
+                    if (command == cli::IMPORT_ADDRESSES)
+                    {
+                        return ImportAddresses(vm, walletDB);
                     }
 
                     {
@@ -902,22 +994,22 @@ int main_impl(int argc, char* argv[])
 
                     if (command == cli::INFO)
                     {
-                        return showWalletInfo(walletDB, vm);
+                        return ShowWalletInfo(walletDB, vm);
                     }
 
                     if (command == cli::PAYMENT_PROOF_EXPORT)
                     {
-                        return paymentProofExport(walletDB, vm);
+                        return ExportPaymentProof(walletDB, vm);
                     }
 
                     if (command == cli::PAYMENT_PROOF_VERIFY)
                     {
-                        return paymentProofVerify(vm);
+                        return VerifyPaymentProof(vm);
                     }
 
                     if (command == cli::WALLET_ADDRESS_LIST)
                     {
-                        return showAddressList(walletDB);
+                        return ShowAddressList(walletDB);
                     }
 
                     if (vm.count(cli::NODE_ADDR) == 0)
@@ -989,12 +1081,8 @@ int main_impl(int argc, char* argv[])
                     {
                         WalletAddress senderAddress = newAddress(walletDB, "");
                         wnet.AddOwnAddress(senderAddress);
-                        auto txId = wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), command == cli::SEND);
-
-                        if (!txId)
-                        {
-                            return 0;
-                        }
+                        CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
+                        wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND);
                     }
 
                     if (command == cli::CANCEL_TX) 
@@ -1021,7 +1109,7 @@ int main_impl(int argc, char* argv[])
                         }
                     }
 
-                    if (command == cli::WALLET_REFRESH)
+                    if (command == cli::WALLET_RESCAN)
                     {
                         wallet.Refresh();
                     }
@@ -1029,6 +1117,9 @@ int main_impl(int argc, char* argv[])
                     io::Reactor::get_Current().run();
                 }
             }
+        }
+        catch (const AddressExpiredException&)
+        {
         }
         catch (const po::error& e)
         {

@@ -1199,7 +1199,6 @@ Item
                         localNodeButton.checked = true;
 
                         portInput.text = viewModel.localPort;
-                        miningInput.value = viewModel.localMiningThreads;
                         localNodePeer.text = viewModel.localNodePeer;
                     } else {
                         nodeSetupRectangle.defaultFocusItem = remoteNodeButton;
@@ -1275,46 +1274,7 @@ Item
                                 color: Style.validator_color
                                 font.pixelSize: 14
                             }
-                            RowLayout {
-                                CustomSwitch {
-                                    id: useGpu
-                                    text: qsTr("Use GPU")
-                                    font.pixelSize: 12
-                                    checked: viewModel.useGpu
-                                    visible: viewModel.showUseGpu()
-                                    enabled: viewModel.hasSupportedGpu()
-                                    Binding {
-                                        target: viewModel
-                                        property: "useGpu"
-                                        value: useGpu.checked
-                                    }
-                                }
-                                SFText {
-                                    id: gpuError
-                                    color: Style.validator_color
-                                    font.pixelSize: 14
-                                    visible: viewModel.showUseGpu() && !viewModel.hasSupportedGpu()
-                                    text: qsTr("You have unsupported videocard")
-                                }
-                            }
 
-                            SFText {
-                                text: qsTr("Enter mining threads (0 - no mining)")
-                                color: !useGpu.checked ? Style.white : Style.disable_text_color
-                                font.pixelSize: 14
-                                font.styleName: "Bold"; font.weight: Font.Bold
-                            }
-
-                            FeeSlider {
-                                id: miningInput
-                                precision: 0
-                                showTicks: true
-                                width: parent.width
-                                enabled: !useGpu.checked
-                                value: 0
-                                to: {viewModel.coreAmount()}
-                                stepSize: 1
-                            }
                             RowLayout {
                                 width: parent.width
                                 spacing: 10
@@ -1423,7 +1383,7 @@ Item
                                         return;
                                     }
 
-                                    viewModel.setupLocalNode(parseInt(portInput.text), parseInt(miningInput.value), localNodePeer.text);
+                                    viewModel.setupLocalNode(parseInt(portInput.text), localNodePeer.text);
                                 }
                                 else if (remoteNodeButton.checked) {
                                     if (remoteNodeAddrInput.text.trim().length === 0) {
@@ -1437,7 +1397,7 @@ Item
                                 }
 
                                 if (viewModel.createWallet()) {
-                                    startWizzardView.push("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true, "cancelCallback": startWizzardView.pop});
+                                    startWizzardView.push("qrc:/loading.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true, "cancelCallback": startWizzardView.pop});
                                 }
                                 else {
                                     // TODO(alex.starun): error message if wallet not created
@@ -1470,7 +1430,7 @@ Item
                     return viewModel.openWallet(pass);
                 }
                 property var loadWallet: function () {
-                    root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : false, "isCreating" : false});
+                    root.parent.setSource("qrc:/loading.qml", {"isRecoveryMode" : false, "isCreating" : false});
                 }
 
                 color: Style.marine

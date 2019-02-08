@@ -103,11 +103,6 @@ if (BEAM_CPU_ARCH MATCHES "avx")
     set(BEAM_USE_AVX TRUE)
 endif()
 
-if(BEAM_USE_GPU)
-    add_definitions(-DBEAM_USE_GPU)
-    set(BEAM_USE_AVX TRUE)
-endif()
-
 if(BEAM_USE_AVX)
     add_definitions(-DBEAM_USE_AVX)
 endif()

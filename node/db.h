@@ -40,7 +40,8 @@ public:
 			MyID,
 			SyncTarget,
 			LoHorizon,
-			Treasury
+			Treasury,
+			DummyID
 		};
 	};
 
@@ -117,7 +118,7 @@ public:
 			BbsMaxTime,
 			DummyIns,
 			DummyFindLowest,
-			DummyFindLastID,
+			DummyFind,
 			DummyUpdHeight,
 			DummyDel,
 			KernelIns,
@@ -141,6 +142,8 @@ public:
 
 	void Close();
 	void Open(const char* szPath);
+
+	void Vacuum();
 
 	virtual void OnModified() {}
 
@@ -167,10 +170,12 @@ public:
 		void put(int col, uint64_t);
 		void put(int col, const Blob&);
 		void put(int col, const char*);
+		void put(int col, const Key::ID&, Key::ID::Packed&);
 		void get(int col, uint32_t&);
 		void get(int col, uint64_t&);
 		void get(int col, Blob&);
 		void get(int col, ByteBuffer&); // don't over-use
+		void get(int col, Key::ID&);
 
 		const void* get_BlobStrict(int col, uint32_t n);
 
@@ -361,11 +366,11 @@ public:
 	bool EnumBbs(IBbsHistogram&);
 
 
-	void InsertDummy(Height h, uint64_t);
-	uint64_t GetLowestDummy(Height& h);
-	uint64_t GetDummyLastID();
-	void DeleteDummy(uint64_t);
-	void SetDummyHeight(uint64_t, Height);
+	void InsertDummy(Height h, const Key::ID&);
+	Height GetLowestDummy(Key::ID&);
+	void DeleteDummy(const Key::ID& kid);
+	void SetDummyHeight(const Key::ID&, Height);
+	Height GetDummyHeight(const Key::ID&);
 
 	void InsertKernel(const Blob&, Height h);
 	void DeleteKernel(const Blob&, Height h);
@@ -399,6 +404,7 @@ private:
 	static void ThrowInconsistent();
 
 	void Create();
+	void CreateTableDummy();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);

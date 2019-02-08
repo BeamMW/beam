@@ -4,6 +4,7 @@
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include <boost/program_options.hpp>
+#include "version.h"
 
 using namespace beam;
 using namespace std;
@@ -119,6 +120,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
 
 void setup_node(Node& node, const Options& o) {
     Rules::get().UpdateChecksum();
+    LOG_INFO() << "Beam Node Explorer " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
     LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
     node.m_Cfg.m_sPathLocal = o.nodeDbFilename;

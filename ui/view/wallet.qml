@@ -15,13 +15,11 @@ Item {
         id: viewModel
         onSendMoneyVerified: {
             walletView.enabled = true
-            console.log("onSendMoneyVerified");
             walletView.pop();
         }
 
         onCantSendToExpired: {
             walletView.enabled = true
-            console.log("can't send to expired address");
             cantSendToExpiredDialog.open();
         }
     }
@@ -490,61 +488,60 @@ Item {
                             RowLayout {
                                 Layout.fillWidth: true
 
-                                ColumnLayout {
+                                SFTextInput {
                                     Layout.fillWidth: true
 
-                                    SFTextInput {
-                                        Layout.fillWidth: true
+                                    id: amount_input
 
-                                        id: amount_input
+                                    font.pixelSize: 36
+                                    font.styleName: "Light"; font.weight: Font.Light
+                                    color: Style.heliotrope
 
-                                        font.pixelSize: 36
-                                        font.styleName: "Light"; font.weight: Font.Light
-                                        color: Style.heliotrope
+                                    property double amount: 0
 
-                                        property double amount: 0
-
-                                        validator: RegExpValidator { regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,7}[1-9])?$/ }
-                                        selectByMouse: true
+                                    validator: RegExpValidator { regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,7}[1-9])?$/ }
+                                    selectByMouse: true
                                     
-                                        onTextChanged: {
-                                            if (focus) {
-                                                amount = text ? text : 0;
-                                            }
-                                        }
-
-                                        onFocusChanged: {
-                                            if (amount > 0) {
-                                                // QLocale::FloatingPointShortest = -128
-                                                text = focus ? amount : amount.toLocaleString(Qt.locale(), 'f', -128);
-                                            }
+                                    onTextChanged: {
+                                        if (focus) {
+                                            amount = text ? text : 0;
                                         }
                                     }
 
-                                    Item {
-                                        Layout.minimumHeight: 16
-                                        Layout.fillWidth: true
-
-                                        SFText {
-                                            text: "Maximum available amount is " + viewModel.availableToSendAmount + " B"
-                                            color: Style.validator_color
-                                            font.pixelSize: 14
-                                            font.styleName: "Italic"
-                                            visible: !viewModel.isEnoughMoney
+                                    onFocusChanged: {
+                                        if (amount > 0) {
+                                            // QLocale::FloatingPointShortest = -128
+                                            text = focus ? amount : amount.toLocaleString(Qt.locale(), 'f', -128);
                                         }
                                     }
+                                }
 
-                                    Binding {
-                                        target: viewModel
-                                        property: "sendAmount"
-                                        value: amount_input.amount
-                                    }
+                                Binding {
+                                    target: viewModel
+                                    property: "sendAmount"
+                                    value: amount_input.amount
                                 }
 
                                 SFText {
                                     font.pixelSize: 24
                                     color: Style.white
                                     text: qsTr("BEAM")
+                                }
+                            }
+                            Item {
+                                Layout.topMargin: -12
+                                Layout.minimumHeight: 16
+                                Layout.fillWidth: true
+
+                                SFText {
+                                    text: qsTr("Insufficient funds: you would need %1 to complete the transaction.").arg(viewModel.amountMissingToSend)
+                                    color: Style.validator_color
+                                    font.pixelSize: 14
+                                    fontSizeMode: Text.Fit
+                                    minimumPixelSize: 10
+                                    font.styleName: "Italic"
+                                    width: parent.width
+                                    visible: !viewModel.isEnoughMoney
                                 }
                             }
                         }
@@ -949,27 +946,26 @@ Item {
                     value: transactionsView.sortIndicatorOrder
                 }
 
-                property int resizableWidth: parent.width - incomeColumn.width - actionsColumn.width
+                property int resizableWidth: parent.width - iconColumn.width - actionsColumn.width
 
                 TableViewColumn {
-                    id: incomeColumn
-                    role: viewModel.incomeRole
-                    width: 40
+                    id: iconColumn
+                    width: 60
                     elideMode: Text.ElideRight
                     movable: false
                     resizable: false
                     delegate: Item {
-
                         Item {
                             width: parent.width
                             height: transactionsView.rowHeight
-
                             clip:true
 
                             SvgImage {
                                 anchors.verticalCenter: parent.verticalCenter
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                source: styleData.value ? "qrc:/assets/icon-received.svg" : "qrc:/assets/icon-sent.svg"
+                                anchors.left: parent.left
+                                anchors.leftMargin: 26
+                                sourceSize: Qt.size(28, 28)
+                                source: "qrc:/assets/beam-circle.svg"
                             }
                         }
                     }
@@ -1052,9 +1048,11 @@ Item {
                                 color: parent.income ? Style.bright_sky_blue : Style.heliotrope
                                 elide: Text.ElideRight
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: "<font size='6'>" + (parent.income ? "+ " : "- ") + styleData.value + "</font>"
+                                font.pixelSize: 24
+                                text: (parent.income ? "+ " : "- ") + styleData.value
                                 textFormat: Text.StyledText
-                                font.styleName: "Light"; font.weight: Font.Thin
+                                font.styleName: "Light"
+                                font.weight: Font.Thin
                                 copyMenuEnabled: true
                                 onCopyText: viewModel.copyToClipboard(styleData.value)
                             }
@@ -1073,26 +1071,56 @@ Item {
                         Item {
                             width: parent.width
                             height: transactionsView.rowHeight
-
                             clip:true
 
-                            SFLabel {
-                                font.pixelSize: 14
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.leftMargin: 20
-                                color: {
-                                    if(styleData.value === "sent")
-                                        Style.heliotrope
-                                    else if(styleData.value === "received")
-                                        Style.bright_sky_blue
-                                    else Style.white
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10
+                                spacing: 14
+
+                                SvgImage {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    sourceSize: Qt.size(20, 20)
+                                    source: getIconSource()
+
+                                    function getIconSource() {
+                                        if (!!viewModel.transactions[styleData.row]) {
+                                            if (viewModel.transactions[styleData.row].isSelfTx()) {
+                                                return "qrc:/assets/icon-transfer.svg";
+                                            }
+
+                                            return viewModel.transactions[styleData.row].income ? "qrc:/assets/icon-received.svg" : "qrc:/assets/icon-sent.svg";
+                                        }
+                                        return "qrc:/assets/icon-sent.svg";
+                                    }
                                 }
-                                elide: Text.ElideRight
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: styleData.value
-                                copyMenuEnabled: true
-                                onCopyText: viewModel.copyToClipboard(text)
+
+                                SFLabel {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    Layout.fillWidth: true
+                                    font.pixelSize: 14
+                                    font.italic: true
+                                    color: getTextColor()
+                                    elide: Text.ElideRight
+                                    text: styleData.value
+                                    copyMenuEnabled: true
+                                    onCopyText: viewModel.copyToClipboard(text)
+
+                                    function getTextColor () {
+                                        if (!viewModel.transactions[styleData.row]) {
+                                            return Style.white;
+                                        }
+
+                                        if (viewModel.transactions[styleData.row].inProgress() || viewModel.transactions[styleData.row].isCompleted()) {
+                                            if (viewModel.transactions[styleData.row].isSelfTx()) {
+                                                return Style.white;
+                                            }
+                                            return viewModel.transactions[styleData.row].income ? Style.bright_sky_blue : Style.heliotrope;
+                                        }
+
+                                        return Style.white;
+                                    }
+                                }
                             }
                         }
                     }
@@ -1197,7 +1225,7 @@ Item {
                             width: parent.width
                             clip: true
 
-                            property int maximumHeight: 200 + commentTx.contentHeight
+                            property int maximumHeight: 210 + commentTx.contentHeight + failureReason.contentHeight
 
                             onMaximumHeightChanged: {
                                 if (!rowItem.collapsed) {
@@ -1309,7 +1337,6 @@ Item {
                                         }
                                         font.styleName: "Italic"
                                         Layout.fillWidth: true
-                                        wrapMode : Text.Wrap
                                         elide: Text.ElideRight
                                         onCopyText: viewModel.copyToClipboard(text)
                                     }
@@ -1333,7 +1360,31 @@ Item {
                                         }
                                         font.styleName: "Italic"
                                         Layout.fillWidth: true
-                                        wrapMode : Text.Wrap
+                                        elide: Text.ElideRight
+                                        onCopyText: viewModel.copyToClipboard(text)
+                                    }
+                                    SFText {
+                                        Layout.row: 6
+                                        font.pixelSize: 14
+                                        color: Style.bluey_grey
+                                        text: qsTr("Error: ")
+                                        visible: !!viewModel.transactions[styleData.row] ? viewModel.transactions[styleData.row].failureReason.length > 0 : false
+                                    }
+                                    SFLabel {
+                                        id: failureReason
+                                        copyMenuEnabled: true
+                                        font.pixelSize: 14
+                                        color: Style.white
+                                        visible: !!viewModel.transactions[styleData.row] ? viewModel.transactions[styleData.row].failureReason.length > 0 : false
+                                        text: {
+                                            if(!!viewModel.transactions[styleData.row] && (viewModel.transactions[styleData.row].failureReason.length > 0))
+                                            {
+                                                return viewModel.transactions[styleData.row].failureReason;
+                                            }
+                                            return "";
+                                        }
+                                        font.styleName: "Italic"
+                                        Layout.fillWidth: true
                                         elide: Text.ElideRight
                                         onCopyText: viewModel.copyToClipboard(text)
                                     }

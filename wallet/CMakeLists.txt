@@ -7,6 +7,7 @@ endif()
 add_definitions( -DSQLITE_HAS_CODEC )
 
 set(WALLET_SRC
+    common.cpp
     wallet.h
     wallet.cpp
     wallet_transaction.cpp
@@ -38,8 +39,8 @@ add_dependencies(${TARGET_NAME} wallet utility)
 target_link_libraries(${TARGET_NAME} wallet utility)
 
 add_library(wallet_api_proto STATIC api.cpp)
-add_dependencies(wallet_api_proto wallet utility)
-target_link_libraries(wallet_api_proto wallet utility)
+add_dependencies(wallet_api_proto wallet utility http)
+target_link_libraries(wallet_api_proto wallet utility http)
 
 if (BEAM_TESTNET)
     set(WALLET_API_NAME wallet-api-testnet)
@@ -48,6 +49,7 @@ else()
 endif()
 
 add_executable(${WALLET_API_NAME} api_cli.cpp)
+target_include_directories(${WALLET_API_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 add_dependencies(${WALLET_API_NAME} wallet utility wallet_api_proto)
 target_link_libraries(${WALLET_API_NAME} wallet utility wallet_api_proto)
 

@@ -85,6 +85,7 @@ namespace beam
         const char* LOG_INFO = "info";
         const char* LOG_DEBUG = "debug";
         const char* LOG_VERBOSE = "verbose";
+        const char* LOG_CLEANUP_DAYS = "log_cleanup_days";
 		const char* LOG_UTXOS = "log_utxos";
         const char* VERSION = "version";
         const char* VERSION_FULL = "version,v";
@@ -92,10 +93,14 @@ namespace beam
         const char* WALLET_ADDR = "address";
         const char* CHANGE_ADDRESS_EXPIRATION = "change_address_expiration";
         const char* WALLET_ADDRESS_LIST = "address_list";
-        const char* WALLET_REFRESH = "refresh";
-#if defined(BEAM_USE_GPU)
-        const char* MINER_TYPE = "miner_type";
-#endif
+        const char* WALLET_RESCAN = "rescan";
+        const char* UTXO = "utxo";
+        const char* EXPORT_ADDRESSES = "export_addresses";
+        const char* IMPORT_ADDRESSES = "import_addresses";
+        const char* IMPORT_EXPORT_PATH = "file_location";
+        const char* NO_FAST_SYNC = "no_fast_sync";
+        const char* API_USE_HTTP = "api_use_http";
+
         // treasury
         const char* TR_OPCODE = "tr_op";
         const char* TR_WID = "tr_wid";
@@ -136,6 +141,7 @@ namespace beam
             (cli::HELP_FULL, "list of all options")
             (cli::LOG_LEVEL, po::value<string>(), "log level [info|debug|verbose]")
             (cli::FILE_LOG_LEVEL, po::value<string>(), "file log level [info|debug|verbose]")
+            (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
             (cli::VERSION_FULL, "return project version")
             (cli::GIT_COMMIT_HASH, "return commit hash");
 
@@ -146,9 +152,7 @@ namespace beam
             (cli::HISTORY, po::value<string>()->default_value(szLocalDir), "directory for compressed history")
             (cli::TEMP, po::value<string>()->default_value(szTempDir), "temp directory for compressed history, must be on the same volume")
             (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
-#if defined(BEAM_USE_GPU)
-            (cli::MINER_TYPE, po::value<string>()->default_value("cpu"), "miner type [cpu|gpu]")
-#endif
+
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
             (cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
             (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
@@ -161,6 +165,7 @@ namespace beam
             (cli::KEY_OWNER, po::value<string>(), "Owner viewer key")
             (cli::KEY_MINE, po::value<string>(), "Standalone miner key")
             (cli::PASS, po::value<string>(), "password for keys")
+            (cli::NO_FAST_SYNC, "ignode fast sync mechanism")
 			(cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
             ;
 
@@ -188,7 +193,9 @@ namespace beam
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
 			(cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
 			(cli::PAYMENT_PROOF_REQUIRED, po::value<bool>(), "Set to disallow outgoing payments if the receiver doesn't supports the payment proof (older wallets)")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|refresh]");
+            (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
+            (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("addresses.dat"), "path to import or export data (import_addresses|export_addresses)")
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses]");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()
@@ -352,5 +359,12 @@ namespace beam
     bool read_wallet_pass(SecString& pass, const po::variables_map& vm)
     {
         return read_secret_impl(pass, "Enter password: ", cli::PASS, vm);
+    }
+
+    bool confirm_wallet_pass(const SecString& pass)
+    {
+        SecString passConfirm;
+        read_password("Confirm password: ", passConfirm, false);
+        return passConfirm.hash().V == pass.hash().V;
     }
 }

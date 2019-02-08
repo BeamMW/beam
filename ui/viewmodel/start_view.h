@@ -84,10 +84,8 @@ class StartViewModel : public QObject
     Q_PROPERTY(QList<QObject*> recoveryPhrases READ getRecoveryPhrases NOTIFY recoveryPhrasesChanged)
     Q_PROPERTY(QList<QObject*> checkPhrases READ getCheckPhrases NOTIFY checkPhrasesChanged)
     Q_PROPERTY(QChar phrasesSeparator READ getPhrasesSeparator CONSTANT)
-    Q_PROPERTY(bool useGpu READ getUseGpu WRITE setUseGpu NOTIFY useGpuChanged)
 
     Q_PROPERTY(int localPort READ getLocalPort CONSTANT)
-    Q_PROPERTY(int localMiningThreads READ getLocalMiningThreads CONSTANT)
     Q_PROPERTY(QString remoteNodeAddress READ getRemoteNodeAddress CONSTANT)
     Q_PROPERTY(QString localNodePeer READ getLocalNodePeer CONSTANT)
     Q_PROPERTY(QQmlListProperty<WalletDBPathItem> walletDBpaths READ getWalletDBpaths CONSTANT)
@@ -105,23 +103,18 @@ public:
     const QList<QObject*>& getRecoveryPhrases();
     const QList<QObject*>& getCheckPhrases();
     QChar getPhrasesSeparator();
-    void setUseGpu(bool value);
-    bool getUseGpu() const;
     int getLocalPort() const;
-    int getLocalMiningThreads() const;
     QString getRemoteNodeAddress() const;
     QString getLocalNodePeer() const;
     QQmlListProperty<WalletDBPathItem> getWalletDBpaths();
 
-    Q_INVOKABLE void setupLocalNode(int port, int miningThreads, const QString& localNodePeer);
+    Q_INVOKABLE void setupLocalNode(int port, const QString& localNodePeer);
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
     Q_INVOKABLE void setupRandomNode();
     Q_INVOKABLE uint coreAmount() const;
     Q_INVOKABLE void copyPhrasesToClipboard();
     Q_INVOKABLE void printRecoveryPhrases(QVariant viewData);
     Q_INVOKABLE void resetPhrases();
-    Q_INVOKABLE bool showUseGpu() const;
-    Q_INVOKABLE bool hasSupportedGpu();
     Q_INVOKABLE bool getIsRunLocalNode() const;
     Q_INVOKABLE QString chooseRandomNode() const;
     Q_INVOKABLE QString walletVersion() const;
@@ -139,7 +132,6 @@ signals:
     void recoveryPhrasesChanged();
     void checkPhrasesChanged();
     void isRecoveryModeChanged();
-    void useGpuChanged();
 
 public slots:
     bool createWallet();

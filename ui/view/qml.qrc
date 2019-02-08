@@ -48,6 +48,7 @@
         <file>assets/fonts/SF-Pro-Display-HeavyItalic.otf</file>
         <file>assets/fonts/SF-Pro-Display-RegularItalic.otf</file>
         <file>assets/fonts/SF-Pro-Display-UltralightItalic.otf</file>
+        <file>assets/beam-circle.svg</file>
         <file>assets/logo.svg</file>
         <file>assets/start-logo.svg</file>
         <file>assets/icon.png</file>
@@ -66,6 +67,7 @@
         <file>assets/icon-info-active.svg</file>
         <file>assets/icon-settings.svg</file>
         <file>assets/icon-settings-active.svg</file>
+        <file>assets/icon-settings-blue.svg</file>
         <file>assets/icon-sent.svg</file>
         <file>assets/icon-received.svg</file>
         <file>assets/icon-comment.svg</file>
@@ -108,7 +110,7 @@
         <file>assets/icon-restore.svg</file>
         <file>assets/icon-restore-blue.svg</file>
         <file>assets/icon-try-again.svg</file>
-        <file>restore.qml</file>
+        <file>loading.qml</file>
         <file>assets/icon-sort-active.svg</file>
         <file>assets/icon-sort.svg</file>
         <file>controls/CustomProgressBar.qml</file>
@@ -122,5 +124,6 @@
         <file>controls/EditAddress.qml</file>
         <file>assets/icon-repeat.svg</file>
         <file>assets/icon-folder.svg</file>
+        <file>assets/icon-transfer.svg</file>
     </qresource>
 </RCC>

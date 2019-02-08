@@ -2,6 +2,7 @@ set(UTILITY_SRC
     common.cpp
     logger.cpp
     logger_checkpoints.cpp
+    log_rotation.cpp
     helpers.cpp
     config.cpp
 	options.cpp
@@ -91,10 +92,6 @@ else()
     else()
         target_link_libraries(utility boost_program_options boost_filesystem boost_system)
     endif()
-endif()
-
-if(BEAM_USE_GPU)
-    add_subdirectory(gpu)
 endif()
 
 add_subdirectory(unittest)

@@ -57,7 +57,7 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
     }
     m_db = WalletDB::init(dbFilePath, pass, seed.hash());
     if (!m_db)
-		return false;
+        return false;
 
     // generate default address
 
@@ -65,24 +65,24 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
     address.m_label = "default";
     m_db->saveAddress(address);
 
-	OnWalledOpened(pass);
+    OnWalledOpened(pass);
     return true;
 }
 
 bool AppModel::openWallet(const beam::SecString& pass)
 {
     m_db = WalletDB::open(m_settings.getWalletStorage(), pass);
-	if (!m_db)
-		return false;
+    if (!m_db)
+        return false;
 
-	OnWalledOpened(pass);
-	return true;
+    OnWalledOpened(pass);
+    return true;
 }
 
 void AppModel::OnWalledOpened(const beam::SecString& pass)
 {
-	m_passwordHash = pass.hash();
-	start();
+    m_passwordHash = pass.hash();
+    start();
 }
 
 void AppModel::resetWalletImpl()
@@ -154,8 +154,8 @@ void AppModel::applySettingsChanges()
 
 void AppModel::startedNode()
 {
-	if (m_wallet && !m_wallet->isRunning())
-		m_wallet->start();
+    if (m_wallet && !m_wallet->isRunning())
+        m_wallet->start();
 }
 
 void AppModel::stoppedNode()
@@ -164,29 +164,41 @@ void AppModel::stoppedNode()
     disconnect(&m_nodeModel, SIGNAL(stoppedNode()), this, SLOT(stoppedNode()));
 }
 
+void AppModel::onFailedToStartNode(beam::wallet::ErrorType errorCode)
+{
+    if (errorCode == beam::wallet::ErrorType::ConnectionAddrInUse && m_wallet)
+    {
+        emit m_wallet->walletError(errorCode);
+        return;
+    }
+
+    getMessages().addMessage(tr("Failed to start node. Please check your node configuration"));
+}
+
 void AppModel::start()
 {
     m_nodeModel.setKdf(m_db->get_MasterKdf());
 
-	std::string nodeAddrStr;
+    std::string nodeAddrStr;
 
     if (m_settings.getRunLocalNode())
     {
-		connect(&m_nodeModel, SIGNAL(startedNode()), SLOT(startedNode()));
+        connect(&m_nodeModel, SIGNAL(startedNode()), SLOT(startedNode()));
+        connect(&m_nodeModel, SIGNAL(failedToStartNode(beam::wallet::ErrorType)), SLOT(onFailedToStartNode(beam::wallet::ErrorType)));
 
         m_nodeModel.startNode();
 
         io::Address nodeAddr = io::Address::LOCALHOST;
         nodeAddr.port(m_settings.getLocalNodePort());
-		nodeAddrStr = nodeAddr.str();
+        nodeAddrStr = nodeAddr.str();
     }
     else
-		nodeAddrStr = m_settings.getNodeAddress().toStdString();
+        nodeAddrStr = m_settings.getNodeAddress().toStdString();
 
-	m_wallet = std::make_shared<WalletModel>(m_db, nodeAddrStr);
+    m_wallet = std::make_shared<WalletModel>(m_db, nodeAddrStr);
 
-	if (!m_settings.getRunLocalNode())
-		m_wallet->start();
+    if (!m_settings.getRunLocalNode())
+        m_wallet->start();
 }
 
 WalletModel::Ptr AppModel::getWallet() const

@@ -19,6 +19,7 @@
 #include <atomic>
 #include <condition_variable>
 #include "core/block_crypt.h"
+#include "utility/io/errorhandling.h"
 #include "utility/io/reactor.h"
 
 namespace beam
@@ -30,15 +31,12 @@ public:
     virtual void onStartedNode() = 0;
     virtual void onStoppedNode() = 0;
     virtual void onFailedToStartNode() = 0;
+    virtual void onFailedToStartNode(io::ErrorCode errorCode) = 0;
 
     virtual uint16_t getLocalNodePort() = 0;
     virtual std::string getLocalNodeStorage() = 0;
-    virtual unsigned int getLocalNodeMiningThreads() = 0;
     virtual std::string getTempDir() = 0;
     virtual std::vector<std::string> getLocalNodePeers() = 0;
-#ifdef BEAM_USE_GPU
-    virtual std::unique_ptr<beam::IExternalPOW> getStratumServer() = 0;
-#endif //  BEAM_USE_GPU
 };
 
 class NodeClient

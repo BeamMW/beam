@@ -21,9 +21,6 @@
 #include "utility/logger.h"
 
 #include <boost/filesystem.hpp>
-#ifdef  BEAM_USE_GPU
-#include "utility/gpu/gpu_tools.h"
-#endif //  BEAM_USE_GPU
 
 namespace
 {
@@ -59,9 +56,12 @@ NodeClient::~NodeClient()
             }
         }
     }
-    catch (...)
+    catch (const std::exception& e)
     {
-
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
@@ -119,6 +119,12 @@ void NodeClient::start()
                         runLocalNode();
                         bErr = false;
                     }
+                    catch (const io::Exception& ex)
+                    {
+                        LOG_ERROR() << ex.what();
+                        m_observer->onFailedToStartNode(ex.errorCode);
+                        bErr = false;
+                    }
                     catch (const std::runtime_error& ex)
                     {
                         LOG_ERROR() << ex.what();
@@ -133,9 +139,12 @@ void NodeClient::start()
                 }
             }
         }
-        catch (...)
+        catch (const std::exception& e)
         {
-            LOG_ERROR() << "Unhandled exception";
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
         }
     });
 }
@@ -147,27 +156,20 @@ bool NodeClient::isNodeRunning() const
 
 void NodeClient::runLocalNode()
 {
-#ifdef BEAM_USE_GPU
-    std::unique_ptr<IExternalPOW> stratumServer = m_observer->getStratumServer();
-#endif //  BEAM_USE_GPU
     Node node;
     node.m_Cfg.m_Listen.port(m_observer->getLocalNodePort());
     node.m_Cfg.m_Listen.ip(INADDR_ANY);
     node.m_Cfg.m_sPathLocal = m_observer->getLocalNodeStorage();
-
-    {
-#ifdef BEAM_USE_GPU
-        node.m_Cfg.m_MiningThreads = 0;
-#else
-        node.m_Cfg.m_MiningThreads = m_observer->getLocalNodeMiningThreads();
-#endif //  BEAM_USE_GPU
-        node.m_Cfg.m_VerificationThreads = kVerificationThreadsMaxAvailable;
-    }
+    node.m_Cfg.m_MiningThreads = 0;
+    node.m_Cfg.m_VerificationThreads = kVerificationThreadsMaxAvailable;
 
     node.m_Keys.SetSingleKey(m_pKdf);
 
     node.m_Cfg.m_HistoryCompression.m_sPathOutput = m_observer->getTempDir();
     node.m_Cfg.m_HistoryCompression.m_sPathTmp = m_observer->getTempDir();
+
+	node.m_Cfg.m_Horizon.m_Branching = Rules::get().Macroblock.MaxRollback / 4; // inferior branches would be pruned when height difference is this.
+	node.m_Cfg.m_Horizon.m_Schwarzschild = 0; // would be adjusted anyway
 
     auto peers = m_observer->getLocalNodePeers();
 
@@ -213,12 +215,7 @@ void NodeClient::runLocalNode()
     obs.m_pModel = this;
 
     node.m_Cfg.m_Observer = &obs;
-
-#ifdef BEAM_USE_GPU
-    node.Initialize(stratumServer.get());
-#else
     node.Initialize();
-#endif //  BEAM_USE_GPU
 
     m_isRunning = true;
     m_observer->onStartedNode();

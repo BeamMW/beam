@@ -20,9 +20,6 @@
 #include "pow/external_pow.h"
 
 #include <boost/filesystem.hpp>
-#ifdef  BEAM_USE_GPU
-#include "utility/gpu/gpu_tools.h"
-#endif //  BEAM_USE_GPU
 
 
 using namespace beam;
@@ -77,7 +74,12 @@ void NodeModel::onStoppedNode()
 
 void NodeModel::onFailedToStartNode()
 {
-    AppModel::getInstance()->getMessages().addMessage(tr("Failed to start node. Please check your node configuration"));
+    emit failedToStartNode(beam::wallet::ErrorType::InternalNodeStartFailed);
+}
+
+void NodeModel::onFailedToStartNode(io::ErrorCode errorCode)
+{
+    emit failedToStartNode(wallet::getWalletError(errorCode));
 }
 
 uint16_t NodeModel::getLocalNodePort()
@@ -88,11 +90,6 @@ uint16_t NodeModel::getLocalNodePort()
 std::string NodeModel::getLocalNodeStorage()
 {
     return AppModel::getInstance()->getSettings().getLocalNodeStorage();
-}
-
-unsigned int NodeModel::getLocalNodeMiningThreads()
-{
-    return AppModel::getInstance()->getSettings().getLocalNodeMiningThreads();
 }
 
 std::string NodeModel::getTempDir()
@@ -113,13 +110,3 @@ std::vector<std::string> NodeModel::getLocalNodePeers()
 
     return result;
 }
-
-#ifdef BEAM_USE_GPU
-std::unique_ptr<IExternalPOW> NodeModel::getStratumServer()
-{
-    auto& settings = AppModel::getInstance()->getSettings();
-    GetSupportedCards();
-    auto devices = settings.getMiningDevices();
-    return settings.getUseGpu() && !devices.empty() ? IExternalPOW::create_opencl_solver(devices) : nullptr;
-}
-#endif //  BEAM_USE_GPU

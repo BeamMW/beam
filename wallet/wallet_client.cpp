@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "wallet_client.h"
+#include "utility/log_rotation.h"
 
 using namespace beam;
 using namespace beam::io;
@@ -20,7 +21,6 @@ using namespace std;
 
 namespace
 {
-static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
 
 template<typename Observer, typename Notifier>
 struct ScopedSubscriber
@@ -40,32 +40,6 @@ private:
     Observer * m_observer;
     std::shared_ptr<Notifier> m_notifier;
 };
-
-beam::wallet::ErrorType GetWalletError(proto::NodeProcessingException::Type exceptionType)
-{
-    switch (exceptionType)
-    {
-    case proto::NodeProcessingException::Type::Incompatible:
-        return beam::wallet::ErrorType::NodeProtocolIncompatible;
-    case proto::NodeProcessingException::Type::TimeOutOfSync:
-        return beam::wallet::ErrorType::TimeOutOfSync;
-    default:
-        return beam::wallet::ErrorType::NodeProtocolBase;
-    }
-}
-
-beam::wallet::ErrorType GetWalletError(io::ErrorCode errorCode)
-{
-    switch (errorCode)
-    {
-    case EC_ETIMEDOUT:
-        return beam::wallet::ErrorType::ConnectionTimedOut;
-    case EC_ECONNREFUSED:
-        return beam::wallet::ErrorType::ConnectionRefused;
-    default:
-        return beam::wallet::ErrorType::NodeProtocolBase;
-    }
-}
 
 using WalletSubscriber = ScopedSubscriber<IWalletObserver, beam::IWallet>;
 
@@ -239,9 +213,12 @@ WalletClient::~WalletClient()
             }
         }
     }
-    catch (...)
+    catch (const std::exception& e)
     {
-
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
@@ -260,12 +237,9 @@ void WalletClient::start()
             onStatus(getStatus());
             onTxStatus(beam::ChangeAction::Reset, m_walletDB->getTxHistory());
 
-            m_logRotateTimer = io::Timer::create(*m_reactor);
-            m_logRotateTimer->start(
-                LOG_ROTATION_PERIOD, true,
-                []() {
-                Logger::get()->rotate();
-            });
+            static const unsigned LOG_ROTATION_PERIOD_SEC = 3*3600; // 3 hours
+            static const unsigned LOG_CLEANUP_PERIOD_SEC = 120*3600; // 5 days
+            LogRotation logRotation(*m_reactor, LOG_ROTATION_PERIOD_SEC, LOG_CLEANUP_PERIOD_SEC);
 
             auto wallet = make_shared<Wallet>(m_walletDB);
             m_wallet = wallet;
@@ -322,9 +296,8 @@ void WalletClient::start()
             LOG_ERROR() << ex.what();
             FailedToStartWallet();
         }
-        catch (...)
-        {
-            LOG_ERROR() << "Unhandled exception";
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
         }
         m_isRunning = false;
     });
@@ -380,15 +353,7 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
     {
         auto receiverAddr = m_walletDB->getAddress(receiver);
 
-        if (receiverAddr)
-        {
-            if (receiverAddr->m_OwnID && receiverAddr->isExpired())
-            {
-                onCantSendToExpired();
-                return;
-            }
-        }
-        else
+        if (!receiverAddr)
         {
             WalletAddress peerAddr;
             peerAddr.m_walletID = receiver;
@@ -413,9 +378,17 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
 
         onSendMoneyVerified();
     }
-    catch (...)
+    catch (const beam::AddressExpiredException&)
     {
-
+        onCantSendToExpired();
+        return;
+    }
+    catch (const std::exception& e)
+    {
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
@@ -429,7 +402,7 @@ void WalletClient::syncWithNode()
 
 void WalletClient::calcChange(beam::Amount&& amount)
 {
-    auto coins = m_walletDB->selectCoins(amount, false);
+    auto coins = m_walletDB->selectCoins(amount);
     Amount sum = 0;
     for (auto& c : coins)
     {
@@ -508,9 +481,12 @@ void WalletClient::generateNewAddress()
 
         onGeneratedNewAddress(address);
     }
-    catch (...)
+    catch (const std::exception& e)
     {
-
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
@@ -532,8 +508,12 @@ void WalletClient::deleteAddress(const beam::WalletID& id)
             m_walletDB->deleteAddress(id);
         }
     }
-    catch (...)
+    catch (const std::exception& e)
     {
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
@@ -582,8 +562,12 @@ void WalletClient::saveAddressChanges(const beam::WalletID& id, const std::strin
             LOG_ERROR() << "Address " << to_string(id) << " is absent.";
         }
     }
-    catch (...)
+    catch (const std::exception& e)
     {
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
@@ -638,20 +622,24 @@ void WalletClient::refresh()
             s->Refresh();
         }
     }
-    catch (...)
+    catch (const std::exception& e)
     {
-
+        LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+    }
+    catch (...) {
+        LOG_UNHANDLED_EXCEPTION();
     }
 }
 
 WalletStatus WalletClient::getStatus() const
 {
     WalletStatus status;
+	wallet::Totals totals(*m_walletDB);
 
-    status.available = m_walletDB->getAvailable();
-    status.receiving = m_walletDB->getTotal(Coin::Incoming);
-    status.sending = m_walletDB->getTotal(Coin::Outgoing);
-    status.maturing = m_walletDB->getTotal(Coin::Maturing);
+    status.available = totals.Avail;
+    status.receiving = totals.Incoming;
+    status.sending = totals.Outgoing;
+    status.maturing = totals.Maturing;
 
     status.update.lastTime = m_walletDB->getLastUpdateTime();
 
@@ -679,14 +667,14 @@ void WalletClient::nodeConnectionFailed(const proto::NodeConnection::DisconnectR
     // reason -> wallet::ErrorType
     if (proto::NodeConnection::DisconnectReason::ProcessingExc == reason.m_Type)
     {
-        m_walletError = GetWalletError(reason.m_ExceptionDetails.m_ExceptionType);
+        m_walletError = wallet::getWalletError(reason.m_ExceptionDetails.m_ExceptionType);
         onWalletError(*m_walletError);
         return;
     }
 
     if (proto::NodeConnection::DisconnectReason::Io == reason.m_Type)
     {
-        m_walletError = GetWalletError(reason.m_IoError);
+        m_walletError = wallet::getWalletError(reason.m_IoError);
         onWalletError(*m_walletError);
         return;
     }

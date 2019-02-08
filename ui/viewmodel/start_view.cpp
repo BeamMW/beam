@@ -37,9 +37,6 @@
 #include <boost/filesystem.hpp>
 #include <thread>
 
-#ifdef BEAM_USE_GPU
-#include "utility/gpu/gpu_tools.h"
-#endif
 
 using namespace beam;
 using namespace ECC;
@@ -280,26 +277,6 @@ QChar StartViewModel::getPhrasesSeparator()
     return PHRASES_SEPARATOR;
 }
 
-void StartViewModel::setUseGpu(bool value)
-{
-#ifdef BEAM_USE_GPU
-    if (value != AppModel::getInstance()->getSettings().getUseGpu())
-    {
-        AppModel::getInstance()->getSettings().setUseGpu(value);
-        emit useGpuChanged();
-    }
-#endif
-}
-
-bool StartViewModel::getUseGpu() const
-{
-#ifdef BEAM_USE_GPU
-    return AppModel::getInstance()->getSettings().getUseGpu();
-#else
-    return false;
-#endif
-}
-
 bool StartViewModel::getIsRunLocalNode() const
 {
     return AppModel::getInstance()->getSettings().getRunLocalNode();
@@ -321,11 +298,6 @@ int StartViewModel::getLocalPort() const
     return AppModel::getInstance()->getSettings().getLocalNodePort();
 }
 
-int StartViewModel::getLocalMiningThreads() const
-{
-    return AppModel::getInstance()->getSettings().getLocalNodeMiningThreads();
-}
-
 QString StartViewModel::getRemoteNodeAddress() const
 {
     return AppModel::getInstance()->getSettings().getNodeAddress();
@@ -342,21 +314,9 @@ QQmlListProperty<WalletDBPathItem> StartViewModel::getWalletDBpaths()
     return QQmlListProperty<WalletDBPathItem>(this, m_walletDBpaths);
 }
 
-void StartViewModel::setupLocalNode(int port, int miningThreads, const QString& localNodePeer)
+void StartViewModel::setupLocalNode(int port, const QString& localNodePeer)
 {
     auto& settings = AppModel::getInstance()->getSettings();
-#ifdef BEAM_USE_GPU
-    if (settings.getUseGpu())
-    {
-        settings.setLocalNodeMiningThreads(1);
-    }
-    else
-    {
-        settings.setLocalNodeMiningThreads(miningThreads);
-    }
-#else
-    settings.setLocalNodeMiningThreads(miningThreads);
-#endif
     auto localAddress = QString::asprintf("127.0.0.1:%d", port);
     settings.setNodeAddress(localAddress);
     settings.setLocalNodePort(port);
@@ -464,29 +424,6 @@ void StartViewModel::resetPhrases()
     m_generatedPhrases.clear();
     m_checkPhrases.clear();
     emit recoveryPhrasesChanged();
-}
-
-bool StartViewModel::showUseGpu() const
-{
-#ifdef BEAM_USE_GPU
-    return true;
-#else
-    return false;
-#endif
-}
-
-bool StartViewModel::hasSupportedGpu()
-{
-#ifdef BEAM_USE_GPU
-    if (!HasSupportedCard())
-    {
-        setUseGpu(false);
-        return false;
-    }
-    return true;
-#else
-    return false;
-#endif
 }
 
 bool StartViewModel::createWallet()

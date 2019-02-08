@@ -19,9 +19,6 @@
 #include "pow/external_pow.h"
 
 #include <boost/filesystem.hpp>
-#ifdef  BEAM_USE_GPU
-#include "utility/gpu/gpu_tools.h"
-#endif //  BEAM_USE_GPU
 #include "utility/logger.h"
 
 
@@ -76,6 +73,10 @@ void NodeModel::onFailedToStartNode()
 {
 }
 
+void NodeModel::onFailedToStartNode(io::ErrorCode errorCode)
+{
+}
+
 uint16_t NodeModel::getLocalNodePort()
 {
     // default value
@@ -85,11 +86,6 @@ uint16_t NodeModel::getLocalNodePort()
 std::string NodeModel::getLocalNodeStorage()
 {
     return m_appPath + "/node.db";
-}
-
-unsigned int NodeModel::getLocalNodeMiningThreads()
-{
-    return 0;
 }
 
 std::string NodeModel::getTempDir()
@@ -121,10 +117,3 @@ std::vector<std::string> NodeModel::getLocalNodePeers()
 
     return result;
 }
-
-#ifdef BEAM_USE_GPU
-std::unique_ptr<IExternalPOW> NodeModel::getStratumServer()
-{
-    return nullptr;
-}
-#endif //  BEAM_USE_GPU

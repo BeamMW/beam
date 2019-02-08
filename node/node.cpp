@@ -60,8 +60,26 @@ void Node::UpdateSyncStatus()
 	SyncStatus stat = m_SyncStatus;
 	UpdateSyncStatusRaw();
 
-	if (m_Cfg.m_Observer && !(m_SyncStatus == stat)  && m_UpdatedFromPeers)
-		m_Cfg.m_Observer->OnSyncProgress();
+	if (!(m_SyncStatus == stat) && m_UpdatedFromPeers)
+	{
+		if (!m_PostStartSynced && (m_SyncStatus.m_Done == m_SyncStatus.m_Total))
+		{
+			m_PostStartSynced = true;
+
+			LOG_INFO() << "Tx replication is ON";
+
+			for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+			{
+				Peer& peer = *it;
+				if (Peer::Flags::Connected & peer.m_Flags)
+					peer.SendLogin();
+			}
+
+		}
+
+		if (m_Cfg.m_Observer)
+			m_Cfg.m_Observer->OnSyncProgress();
+	}
 }
 
 void Node::UpdateSyncStatusRaw()
@@ -691,6 +709,19 @@ void Node::Processor::OnUtxoEvent(const UtxoEvent::Key& key, const UtxoEvent::Va
 	}
 }
 
+void Node::Processor::OnDummy(const Key::ID& kid, Height)
+{
+	NodeDB& db = get_DB();
+	if (db.GetDummyHeight(kid) != MaxHeight)
+		return;
+
+	// recovered
+	Height h = get_ParentObj().SampleDummySpentHeight();
+	h += get_ParentObj().m_Cfg.m_Dandelion.m_DummyLifetimeHi * 2; // add some factor, to make sure the original creator node will spent it before us (if it's still running)
+
+	db.InsertDummy(h, kid);
+}
+
 void Node::Processor::OnFlushTimer()
 {
     m_bFlushPending = false;
@@ -761,10 +792,14 @@ void Node::Initialize(IExternalPOW* externalPOW)
 
     LOG_INFO() << "Node ID=" << m_MyPublicID;
     LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
+	LOG_INFO() << "Tx replication is OFF";
 
-    if (!m_Cfg.m_Treasury.empty() && !m_Processor.m_Extra.m_TreasuryHandled)
-        m_Processor.OnTreasury(Blob(m_Cfg.m_Treasury));
+	if (!m_Cfg.m_Treasury.empty() && !m_Processor.m_Extra.m_TreasuryHandled) {
+		// stupid compiler insists on parentheses here!
+		m_Processor.OnTreasury(Blob(m_Cfg.m_Treasury));
+	}
 
+	RefreshDecoys();
     InitMode();
 
 	ZeroObject(m_SyncStatus);
@@ -782,6 +817,8 @@ void Node::Initialize(IExternalPOW* externalPOW)
     m_Compressor.Init();
     m_Bbs.Cleanup();
 	m_Bbs.m_HighestPosted_s = m_Processor.get_DB().get_BbsMaxTime();
+
+	m_Processor.OnHorizonChanged(); // invoke it once again, after the Compressor initialized and maybe deleted some of backlog, perhaps fossil height may go up
 }
 
 void Node::InitKeys()
@@ -832,6 +869,62 @@ void Node::InitIDs()
         pKdf->Generate(hv.V);
         m_Keys.m_pDummy = std::move(pKdf);
     }
+
+}
+
+void Node::RefreshDecoys()
+{
+	ECC::Scalar::Native sk;
+	m_Keys.m_pDummy->DeriveKey(sk, Key::ID(0, Key::Type::Decoy));
+
+	ECC::NoLeak<ECC::Scalar> s, s2;
+	s2.V = sk;
+	s.V = Zero;
+	Blob blob(s.V.m_Value);
+	m_Processor.get_DB().ParamGet(NodeDB::ParamID::DummyID, NULL, &blob);
+
+	if (s2.V == s.V)
+		return;
+
+	LOG_INFO() << "Rescanning decoys...";
+
+	struct Walker
+		:public NodeProcessor::UtxoRecoverSimple
+	{
+		typedef NodeProcessor::UtxoRecoverSimple Parent;
+
+		Walker(NodeProcessor& x) :Parent(x) {}
+
+		Height m_Height;
+		uint32_t m_Recovered = 0;
+
+		virtual bool OnBlock(const Block::BodyBase& bb, TxBase::IReader&& r, uint64_t rowid, Height h, const Height* pHMax) override
+		{
+			m_Height = pHMax ? *pHMax : h;
+			return Parent::OnBlock(bb, std::move(r), rowid, h, pHMax);
+
+		}
+
+		virtual bool OnOutput(uint32_t /* iKey */, const Key::IDV& kidv, const Output&) override
+		{
+			if (NodeProcessor::IsDummy(kidv))
+			{
+				m_This.OnDummy(kidv, m_Height);
+				m_Recovered++;
+			}
+
+			return true;
+		}
+	};
+
+	Walker wlk(m_Processor);
+	wlk.m_vKeys.push_back(m_Keys.m_pDummy);
+	wlk.Proceed();
+
+	LOG_INFO() << "Recovered " << wlk.m_Recovered << " decoys";
+
+	blob = Blob(s2.V.m_Value);
+	m_Processor.get_DB().ParamSet(NodeDB::ParamID::DummyID, NULL, &blob);
 }
 
 void Node::InitMode()
@@ -1039,17 +1132,7 @@ void Node::Peer::OnConnectedSecure()
 
     ProveID(m_This.m_MyPrivateID, proto::IDType::Node);
 
-    proto::Login msgLogin;
-    msgLogin.m_CfgChecksum = Rules::get().Checksum; // checksum of all consesnsus related configuration
-    msgLogin.m_Flags =
-		proto::LoginFlags::Extension1 |
-        proto::LoginFlags::SpreadingTransactions | // indicate ability to receive and broadcast transactions
-        proto::LoginFlags::SendPeers; // request a another node to periodically send a list of recommended peers
-
-	if (m_This.m_Cfg.m_Bbs)
-		msgLogin.m_Flags |= proto::LoginFlags::Bbs; // indicate ability to receive and broadcast BBS messages
-
-    Send(msgLogin);
+	SendLogin();
 
     if (m_This.m_Processor.m_Extra.m_TreasuryHandled)
     {
@@ -1057,6 +1140,24 @@ void Node::Peer::OnConnectedSecure()
         msg.m_Description = m_This.m_Processor.m_Cursor.m_Full;
         Send(msg);
     }
+}
+
+void Node::Peer::SendLogin()
+{
+	proto::Login msgLogin;
+	msgLogin.m_CfgChecksum = Rules::get().Checksum; // checksum of all consesnsus related configuration
+
+	msgLogin.m_Flags =
+		proto::LoginFlags::Extension1 |
+		proto::LoginFlags::SendPeers; // request a another node to periodically send a list of recommended peers
+
+	if (m_This.m_PostStartSynced)
+		msgLogin.m_Flags |= proto::LoginFlags::SpreadingTransactions; // indicate ability to receive and broadcast transactions
+
+	if (m_This.m_Cfg.m_Bbs)
+		msgLogin.m_Flags |= proto::LoginFlags::Bbs; // indicate ability to receive and broadcast BBS messages
+
+	Send(msgLogin);
 }
 
 void Node::Peer::OnMsg(proto::Authentication&& msg)
@@ -2148,11 +2249,12 @@ void Node::AddDummyInputs(Transaction& tx)
 
     while (tx.m_vInputs.size() < m_Cfg.m_Dandelion.m_OutputsMax)
     {
-        Height h;
-        uint64_t id = m_Processor.get_DB().GetLowestDummy(h);
-        if (!id || (h > m_Processor.m_Cursor.m_ID.m_Height))
+		Key::IDV kidv;
+        Height h = m_Processor.get_DB().GetLowestDummy(kidv);
+        if (h > m_Processor.m_Cursor.m_ID.m_Height)
             break;
 
+		kidv.m_Value = 0;
         bModified = true;
 
         // ECC::Mode::Scope scope(ECC::Mode::Fast);
@@ -2163,7 +2265,7 @@ void Node::AddDummyInputs(Transaction& tx)
         UtxoTree::Key kMin, kMax;
 
         UtxoTree::Key::Data d;
-        SwitchCommitment().Create(sk, d.m_Commitment, *m_Keys.m_pDummy, Key::IDV(0, id, Key::Type::Decoy));
+        SwitchCommitment().Create(sk, d.m_Commitment, *m_Keys.m_pDummy, kidv);
         d.m_Maturity = 0;
         kMin = d;
 
@@ -2185,7 +2287,7 @@ void Node::AddDummyInputs(Transaction& tx)
         if (m_Processor.get_Utxos().Traverse(t))
         {
             // spent
-            m_Processor.get_DB().DeleteDummy(id);
+            m_Processor.get_DB().DeleteDummy(kidv);
         }
         else
         {
@@ -2197,7 +2299,7 @@ void Node::AddDummyInputs(Transaction& tx)
             tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + ECC::Scalar::Native(sk);
 
             /// in the (unlikely) case the tx will be lost - we'll retry spending this UTXO after the following num of blocks
-            m_Processor.get_DB().SetDummyHeight(id, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
+            m_Processor.get_DB().SetDummyHeight(kidv, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
         }
 
     }
@@ -2221,21 +2323,24 @@ void Node::AddDummyOutputs(Transaction& tx)
 
     while (tx.m_vOutputs.size() < m_Cfg.m_Dandelion.m_OutputsMin)
     {
-        if (!m_LastDummyID)
-            m_LastDummyID = db.GetDummyLastID();
+		Key::IDV kidv(Zero);
+		kidv.m_Type = Key::Type::Decoy;
 
-        ++m_LastDummyID;
+		while (true)
+		{
+			NextNonce().ExportWord<0>(kidv.m_Idx);
+			if (MaxHeight == db.GetDummyHeight(kidv))
+				break;
+		}
+
         bModified = true;
 
         Output::Ptr pOutput(new Output);
         ECC::Scalar::Native sk;
-        pOutput->Create(sk, *m_Keys.m_pDummy, Key::IDV(0, m_LastDummyID, Key::Type::Decoy), *m_Keys.m_pDummy);
+        pOutput->Create(sk, *m_Keys.m_pDummy, kidv, *m_Keys.m_pDummy);
 
-        Height h = m_Processor.m_Cursor.m_ID.m_Height + 1 + m_Cfg.m_Dandelion.m_DummyLifetimeLo;
-        if (m_Cfg.m_Dandelion.m_DummyLifetimeHi > m_Cfg.m_Dandelion.m_DummyLifetimeLo)
-            h += RandomUInt32(m_Cfg.m_Dandelion.m_DummyLifetimeHi - m_Cfg.m_Dandelion.m_DummyLifetimeLo);
-
-        db.InsertDummy(h, m_LastDummyID);
+		Height h = SampleDummySpentHeight();
+        db.InsertDummy(h, kidv);
 
         tx.m_vOutputs.push_back(std::move(pOutput));
 
@@ -2248,6 +2353,18 @@ void Node::AddDummyOutputs(Transaction& tx)
         m_Processor.FlushDB();
         tx.Normalize();
     }
+}
+
+Height Node::SampleDummySpentHeight()
+{
+	const Config::Dandelion& d = m_Cfg.m_Dandelion; // alias
+
+	Height h = m_Processor.m_Cursor.m_ID.m_Height + d.m_DummyLifetimeLo + 1;
+
+	if (d.m_DummyLifetimeHi > d.m_DummyLifetimeLo)
+		h += RandomUInt32(d.m_DummyLifetimeHi - d.m_DummyLifetimeLo);
+
+	return h;
 }
 
 bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPool::Stem::Element* pElem)
@@ -3463,7 +3580,7 @@ void Node::Miner::OnRefreshExternal()
     Merkle::Hash hv;
 	m_pTask->m_Hdr.get_HashForPoW(hv);
 
-	m_External.m_pSolver->new_job(std::to_string(jobID), hv, m_pTask->m_Hdr.m_PoW, BIND_THIS_MEMFN(OnMinedExternal), fnCancel);
+	m_External.m_pSolver->new_job(std::to_string(jobID), hv, m_pTask->m_Hdr.m_PoW, m_pTask->m_Hdr.m_Height , BIND_THIS_MEMFN(OnMinedExternal), fnCancel);
 }
 
 void Node::Miner::OnMinedExternal()

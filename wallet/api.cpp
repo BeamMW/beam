@@ -118,7 +118,24 @@ namespace beam
         Send send;
         //send.session = params["session"];
         send.value = params["value"];
-        send.address.FromHex(params["address"]);
+
+        if (!send.address.FromHex(params["address"]))
+        {
+            throw jsonrpc_exception{ INVALID_PARAMS_JSON_RPC , "Invalid receiver address.", id };
+        }
+
+        if (existsJsonParam(params, "from"))
+        {
+            WalletID from(Zero);
+            if (from.FromHex(params["from"]))
+            {
+                send.from = from;
+            }
+            else
+            {
+                throw jsonrpc_exception{ INVALID_PARAMS_JSON_RPC , "Invalid sender address.", id };
+            }
+        }
 
         if (existsJsonParam(params, "fee"))
         {
@@ -295,8 +312,7 @@ namespace beam
                 {"id", utxo.m_ID.m_Idx},
                 {"amount", utxo.m_ID.m_Value},
                 {"type", (const char*)FourCC::Text(utxo.m_ID.m_Type)},
-                {"height", utxo.m_createHeight},
-                {"maturity", utxo.m_maturity},
+                {"maturity", utxo.get_Maturity()},
                 {"createTxId", createTxId},
                 {"spentTxId", spentTxId},
                 //{"sessionId", utxo.m_sessionId},
@@ -412,6 +428,7 @@ namespace beam
                     {"sending", res.sending},
                     {"maturing", res.maturing},
                     {"locked", res.locked},
+                    {"difficulty", res.difficulty},
                 }
             }
         };
@@ -419,7 +436,22 @@ namespace beam
 
     bool WalletApi::parse(const char* data, size_t size)
     {
-        if (size == 0) return false;
+        if (size == 0)
+        {
+            json msg
+            {
+                {"jsonrpc", "2.0"},
+                {"error",
+                    {
+                        {"code", INVALID_JSON_RPC},
+                        {"message", "Empty JSON request."},
+                    }
+                }
+            };
+
+            _handler.onInvalidJsonRpc(msg);
+            return false;
+        }
 
         try
         {
