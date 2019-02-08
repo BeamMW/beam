@@ -169,7 +169,6 @@ int main_impl(int argc, char* argv[])
 			po::notify(vm);
 
 			unsigned logCleanupPeriod = vm[cli::LOG_CLEANUP_DAYS].as<uint32_t>() * 24 * 3600;
-			if (logCleanupPeriod == 0) logCleanupPeriod = 5*24*3600;
 
 			clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, logCleanupPeriod);
 

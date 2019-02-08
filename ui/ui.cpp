@@ -158,7 +158,6 @@ int main (int argc, char* argv[])
         auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, LOG_FILES_PREFIX, logFilesPath);
 
         unsigned logCleanupPeriod = vm[cli::LOG_CLEANUP_DAYS].as<uint32_t>() * 24 * 3600;
-        if (logCleanupPeriod == 0) logCleanupPeriod = 5*24*3600;
 
         clean_old_logfiles(logFilesPath, LOG_FILES_PREFIX, logCleanupPeriod);
 
