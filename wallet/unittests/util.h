@@ -5,8 +5,7 @@ namespace beam {
 
 IWalletDB::Ptr init_wallet_db(const std::string& path, ECC::uintBig* walletSeed);
 
-bool ReadTreasury(std::vector<Block::Body>& vBlocks, const std::string& sPath);
-int GenerateTreasury(IWalletDB*, const std::string& sPath, uint32_t nCount, Height dh, Amount v);
+bool ReadTreasury(ByteBuffer&, const std::string& sPath);
 
 } //namespace
 

@@ -35,10 +35,18 @@
 #	pragma warning (pop)
 #endif
 
-#ifndef WIN32
+#ifdef WIN32
+#	pragma comment (lib, "Bcrypt.lib")
+#else // WIN32
 #    include <unistd.h>
 #    include <fcntl.h>
 #endif // WIN32
+
+//#ifdef __linux__
+//#	include <sys/syscall.h>
+//#	include <linux/random.h>
+//#endif // __linux__
+
 
 namespace ECC {
 
@@ -87,24 +95,34 @@ namespace ECC {
 		return operator << (s, x.m_X);
 	}
 
+	std::ostream& operator << (std::ostream& s, const Key::IDV& x)
+	{
+		s << "Key=" << x.m_Type << "-" << x.m_SubIdx << ":" << x.m_Idx << ", Value=" << x.m_Value;
+		return s;
+	}
+
 	void GenRandom(void* p, uint32_t nSize)
 	{
-		bool bRet = false;
-
 		// checkpoint?
 
 #ifdef WIN32
 
-		HCRYPTPROV hProv;
-		if (CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_SCHANNEL, CRYPT_VERIFYCONTEXT))
-		{
-			if (CryptGenRandom(hProv, nSize, (uint8_t*)p))
-				bRet = true;
-			verify(CryptReleaseContext(hProv, 0));
-		}
+		NTSTATUS ntStatus = BCryptGenRandom(NULL, (PUCHAR) p, nSize, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+		if (ntStatus)
+			std::ThrowSystemError(ntStatus);
 
 #else // WIN32
 
+		bool bRet = false;
+
+//#	ifdef __linux__
+//
+//		ssize_t nRet = syscall(SYS_getrandom, p, nSize, 0);
+//		bRet = (nRet == nSize);
+//
+//#	else // __linux__
+
+		// use standard posix
 		int hFile = open("/dev/urandom", O_RDONLY);
 		if (hFile >= 0)
 		{
@@ -114,10 +132,12 @@ namespace ECC {
 			close(hFile);
 		}
 
-#endif // WIN32
+//#	endif // __linux__
 
 		if (!bRet)
-			std::ThrowIoError();
+			std::ThrowLastError();
+
+#endif // WIN32
 	}
 
 	/////////////////////
@@ -163,15 +183,15 @@ namespace ECC {
 
 	bool Scalar::Native::operator == (Zero_) const
 	{
-		return secp256k1_scalar_is_zero(this) != 0;
+		return secp256k1_scalar_is_zero(this) != 0; // constant time guaranteed
 	}
 
 	bool Scalar::Native::operator == (const Native& v) const
 	{
-		for (size_t i = 0; i < _countof(d); i++)
-			if (d[i] != v.d[i])
-				return false;
-		return true;
+		// Used in tests only, but implemented with constant mem-time guarantee
+		Native x = - *this;
+		x += v;
+		return x == Zero;
 	}
 
 	Scalar::Native& Scalar::Native::operator = (Minus v)
@@ -185,6 +205,22 @@ namespace ECC {
 		int overflow;
 		secp256k1_scalar_set_b32(this, v.m_Value.m_pData, &overflow);
 		return overflow != 0;
+	}
+
+	bool Scalar::Native::ImportNnz(const Scalar& v)
+	{
+		return
+			!Import(v) &&
+			!(*this == Zero);
+
+	}
+
+	void Scalar::Native::GenRandomNnz()
+	{
+		NoLeak<Scalar> s;
+		do
+			GenRandom(s.V.m_Value);
+		while (!ImportNnz(s.V));
 	}
 
 	Scalar::Native& Scalar::Native::operator = (const Scalar& v)
@@ -753,6 +789,12 @@ namespace ECC {
 		}
 	}
 
+	void MultiMac::Prepared::Assign(Point::Native& out, bool bSet) const
+	{
+		secp256k1_ge ge; // not secret
+		Generator::ToPt(out, ge, m_Fast.m_pPt[0], bSet);
+	}
+
 	void MultiMac::Casual::Init(const Point::Native& p)
 	{
 		if (Mode::Fast == g_Mode)
@@ -1039,7 +1081,7 @@ namespace ECC {
 		oracle << "Let the generator generation begin!";
 
 		// make sure we get the same G,H for different generator kinds
-		Point::Native G_raw, H_raw;
+		Point::Native G_raw, H_raw, J_raw;
 
 		secp256k1_gej_set_ge(&G_raw.get_Raw(), &secp256k1_ge_const_g);
 		Point ptG;
@@ -1049,11 +1091,13 @@ namespace ECC {
 		hpRes << ptG;
 
 		Generator::CreatePointNnz(H_raw, oracle, &hpRes);
+		Generator::CreatePointNnz(J_raw, oracle, &hpRes);
 
 
 		ctx.G.Initialize(G_raw, oracle);
 		ctx.H.Initialize(H_raw, oracle);
 		ctx.H_Big.Initialize(H_raw, oracle);
+		ctx.J.Initialize(J_raw, oracle);
 
 		Point::Native pt, ptAux2(Zero);
 
@@ -1064,17 +1108,28 @@ namespace ECC {
 		{
 			for (uint32_t j = 0; j < 2; j++)
 			{
-				ctx.m_Ipp.m_pGen_[j][i].Initialize(oracle, hpRes);
-
-				secp256k1_ge ge;
+				MultiMac::Prepared& p = ctx.m_Ipp.m_pGen_[j][i];
+				p.Initialize(oracle, hpRes);
 
 				if (1 == j)
 				{
-					Generator::ToPt(pt, ge, ctx.m_Ipp.m_pGen_[j][i].m_Fast.m_pPt[0], true);
+#ifdef ECC_COMPACT_GEN
+
+					secp256k1_ge ge;
+					secp256k1_ge_from_storage(&ge, &p.m_Fast.m_pPt[0]);
+					secp256k1_ge_neg(&ge, &ge);
+					secp256k1_ge_to_storage(&ctx.m_Ipp.m_pGet1_Minus[i], &ge);
+
+#else // ECC_COMPACT_GEN
+
+					pt = p;
 					pt = -pt;
 					Generator::FromPt(ctx.m_Ipp.m_pGet1_Minus[i], pt);
-				} else
-					Generator::ToPt(ptAux2, ge, ctx.m_Ipp.m_pGen_[j][i].m_Fast.m_pPt[0], false);
+
+#endif // ECC_COMPACT_GEN
+				}
+				else
+					ptAux2 += p;
 			}
 		}
 
@@ -1124,40 +1179,23 @@ namespace ECC {
 	}
 
 	/////////////////////
-	// Nonce and key generation
-	void GenerateNonce(uintBig& res, const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
-	{
-		for (uint32_t i = 0; ; i++)
+	// Tag
+	namespace Tag {
+
+		bool IsCustom(const Point::Native* pHGen)
 		{
-			if (!nonce_function_rfc6979(res.m_pData, msg.m_pData, sk.m_pData, NULL, pMsg2 ? (void*) pMsg2->m_pData : NULL, i))
-				continue;
-
-			if (!nAttempt--)
-				break;
+			return pHGen && !(*pHGen == Zero);
 		}
-	}
 
-	void Scalar::Native::GenerateNonce(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
-	{
-		NoLeak<Scalar> s;
-
-		for (uint32_t i = 0; ; i++)
+		void AddValue(Point::Native& out, const Point::Native* pHGen, Amount v)
 		{
-			ECC::GenerateNonce(s.V.m_Value, sk, msg, pMsg2, i);
-			if (Import(s.V))
-				continue;
-
-			if (!nAttempt--)
-				break;
+			if (IsCustom(pHGen))
+				out += *pHGen * v;
+			else
+				out += Context::get().H * v;
 		}
-	}
 
-	void Scalar::Native::GenerateNonce(const Scalar::Native& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */)
-	{
-		NoLeak<Scalar> sk_;
-		sk_.V = sk;
-		GenerateNonce(sk_.V.m_Value, msg, pMsg2, nAttempt);
-	}
+	} // namespace Tag
 
 	/////////////////////
 	// Key::ID
@@ -1166,35 +1204,23 @@ namespace ECC {
 		Hash::Processor()
 			<< "kid"
 			<< m_Idx
-			<< m_IdxSecondary
-			<< static_cast<uint32_t>(m_Type)
+			<< m_Type.V
+			<< m_SubIdx
 			>> hv;
-	}
-
-	bool Key::IDV::operator == (const IDV& x) const
-	{
-		return
-			(m_Value == x.m_Value) &&
-			(m_Idx == x.m_Idx) &&
-			(m_IdxSecondary == x.m_IdxSecondary) &&
-			(m_Type == x.m_Type);
 	}
 
 	void Key::ID::operator = (const Packed& x)
 	{
 		x.m_Idx.Export(m_Idx);
-		x.m_Idx2.Export(m_IdxSecondary);
-
-		uint32_t val;
-		x.m_Type.Export(val);
-		m_Type = static_cast<Key::Type>(val);
+		x.m_Type.Export(m_Type.V);
+		x.m_SubIdx.Export(m_SubIdx);
 	}
 
 	void Key::ID::Packed::operator = (const ID& x)
 	{
 		m_Idx = x.m_Idx;
-		m_Idx2 = x.m_IdxSecondary;
-		m_Type = static_cast<uint32_t>(x.m_Type);
+		m_Type = x.m_Type.V;
+		m_SubIdx = x.m_SubIdx;
 	}
 
 	void Key::IDV::operator = (const Packed& x)
@@ -1225,71 +1251,237 @@ namespace ECC {
 		x.DerivePKey(k1, hv);
 
 		k0 += -k1;
-		return (k0 == Zero);
+		return (k0 == Zero); // not secret, constant-time guarantee isn't requied
+	}
+
+	int Key::ID::cmp(const ID& x) const
+	{
+		if (m_Type < x.m_Type)
+			return -1;
+		if (m_Type > x.m_Type)
+			return 1;
+		if (m_SubIdx < x.m_SubIdx)
+			return -1;
+		if (m_SubIdx > x.m_SubIdx)
+			return 1;
+		if (m_Idx < x.m_Idx)
+			return -1;
+		if (m_Idx > x.m_Idx)
+			return 1;
+		return 0;
+	}
+
+	int Key::IDV::cmp(const IDV& x) const
+	{
+		int n = ID::cmp(x);
+		if (n)
+			return n;
+
+		if (m_Value < x.m_Value)
+			return -1;
+		if (m_Value > x.m_Value)
+			return 1;
+		return 0;
+	}
+
+	/////////////////////
+	// NonceGenerator
+	void NonceGenerator::Reset()
+	{
+		ZeroObject(m_Context);
+		m_bFirstTime = true;
+		m_Counter = Zero;
+	}
+
+	void NonceGenerator::WriteIkm(const beam::Blob& b)
+	{
+		assert(m_bFirstTime);
+		m_HMac.Write(b.p, b.n);
+	}
+
+	const Hash::Value& NonceGenerator::get_Okm()
+	{
+		if (m_bFirstTime)
+			// Extract
+			m_HMac >> m_Prk;
+
+		// Expand
+		m_HMac.Reset(m_Prk.m_pData, m_Prk.nBytes);
+
+		if (m_bFirstTime)
+			m_bFirstTime = false;
+		else
+			m_HMac.Write(m_Okm.m_pData, m_Okm.nBytes);
+
+		m_HMac.Write(m_Context.p, m_Context.n);
+
+		m_Counter.Inc();
+		m_HMac.Write(m_Counter.m_pData, m_Counter.nBytes);
+
+		m_HMac >> m_Okm;
+		return m_Okm;
+	}
+
+	NonceGenerator& NonceGenerator::operator >> (Hash::Value& hv)
+	{
+		hv = get_Okm();
+		return *this;
+	}
+
+	NonceGenerator& NonceGenerator::operator >> (Scalar::Native& sk)
+	{
+		static_assert(sizeof(Scalar) == sizeof(m_Okm), "");
+		const Scalar& s = reinterpret_cast<const Scalar&>(m_Okm);
+
+		do
+			get_Okm();
+		while (!sk.ImportNnz(s));
+
+		return *this;
 	}
 
 	/////////////////////
 	// HKdf
+	HKdf::Generator::Generator()
+	{
+		m_Secret.V = Zero;
+	}
+
+	void HKdf::Generator::Generate(Scalar::Native& out, const Hash::Value& hv) const
+	{
+		NonceGenerator("beam-Key")
+			<< m_Secret.V
+			<< hv
+			>> out;
+	}
+
 	HKdf::HKdf()
 	{
-		ZeroObject(m_Secret.V);
 		m_kCoFactor = 1U; // by default
 	}
 
-	HKdf::~HKdf(){}
+	HKdf::~HKdf()
+	{
+	}
+
+	void HKdf::Generate(const Hash::Value& hv)
+	{
+		NonceGenerator nonceGen1("beam-HKdf");
+		nonceGen1 << hv;
+		NonceGenerator nonceGen2 = nonceGen1;
+
+		nonceGen1.SetContext("gen") >> m_Generator.m_Secret.V;
+		nonceGen2.SetContext("coF") >> m_kCoFactor;
+	}
+
+	void HKdf::Create(Ptr& pRes, const Hash::Value& hv)
+	{
+		std::shared_ptr<HKdf> pVal = std::make_shared<HKdf>();
+		pVal->Generate(hv);
+		pRes = std::move(pVal);
+	}
+
+	void HKdf::GenerateChild(Key::IKdf& kdf, Key::Index iKdf)
+	{
+		Scalar::Native sk;
+		kdf.DeriveKey(sk, Key::ID(iKdf, Key::Type::ChildKey));
+
+		NoLeak<Scalar> sk_;
+		sk_.V = sk;
+		Generate(sk_.V.m_Value);
+	}
+
+	void HKdf::CreateChild(Ptr& pRes, Key::IKdf& kdf, Key::Index iKdf)
+	{
+		std::shared_ptr<HKdf> pVal = std::make_shared<HKdf>();
+		pVal->GenerateChild(kdf, iKdf);
+		pRes = std::move(pVal);
+	}
 
 	void HKdf::DeriveKey(Scalar::Native& out, const Hash::Value& hv)
 	{
-		DerivePKey(out, hv);
+		m_Generator.Generate(out, hv);
 		out *= m_kCoFactor;
 	}
 
 	void HKdf::DerivePKey(Scalar::Native& out, const Hash::Value& hv)
 	{
-		out.GenerateNonce(m_Secret.V, hv, NULL);
+		m_Generator.Generate(out, hv);
 	}
 
-	void HKdf::DerivePKey(Point::Native& out, const Hash::Value& hv)
+	void Key::IKdf::DerivePKeyG(Point::Native& out, const Hash::Value& hv)
 	{
 		Scalar::Native sk;
 		DeriveKey(sk, hv);
 		out = Context::get().G * sk;
 	}
 
-	void HKdfPub::DerivePKey(Scalar::Native& out, const Hash::Value& hv)
-	{
-		out.GenerateNonce(m_Secret.V, hv, NULL);
-	}
-
-	void HKdfPub::DerivePKey(Point::Native& out, const Hash::Value& hv)
+	void Key::IKdf::DerivePKeyJ(Point::Native& out, const Hash::Value& hv)
 	{
 		Scalar::Native sk;
-		DerivePKey(sk, hv);
-		out = m_Pk * sk;
+		DeriveKey(sk, hv);
+		out = Context::get().J * sk;
+	}
+
+	HKdfPub::HKdfPub()
+	{
+	}
+
+	HKdfPub::~HKdfPub()
+	{
+	}
+
+	void HKdfPub::DerivePKey(Scalar::Native& out, const Hash::Value& hv)
+	{
+		m_Generator.Generate(out, hv);
+	}
+
+	void HKdfPub::DerivePKeyG(Point::Native& out, const Hash::Value& hv)
+	{
+		Scalar::Native sk;
+		m_Generator.Generate(sk, hv);
+		out = m_PkG * sk;
+	}
+
+	void HKdfPub::DerivePKeyJ(Point::Native& out, const Hash::Value& hv)
+	{
+		Scalar::Native sk;
+		m_Generator.Generate(sk, hv);
+		out = m_PkJ * sk;
 	}
 
 	void HKdf::Export(Packed& v) const
 	{
-		v.m_Secret = m_Secret.V;
+		v.m_Secret = m_Generator.m_Secret.V;
 		v.m_kCoFactor = m_kCoFactor;
 	}
 
 	bool HKdf::Import(const Packed& v)
 	{
-		m_Secret.V = v.m_Secret;
+		m_Generator.m_Secret.V = v.m_Secret;
 		return !m_kCoFactor.Import(v.m_kCoFactor);
 	}
 
 	void HKdfPub::Export(Packed& v) const
 	{
-		v.m_Secret = m_Secret.V;
-		v.m_Pk = m_Pk;
+		v.m_Secret = m_Generator.m_Secret.V;
+		v.m_PkG = m_PkG;
+		v.m_PkJ = m_PkJ;
 	}
 
 	bool HKdfPub::Import(const Packed& v)
 	{
-		m_Secret.V = v.m_Secret;
-		return m_Pk.ImportNnz(v.m_Pk);
+		m_Generator.m_Secret.V = v.m_Secret;
+		return
+			m_PkG.ImportNnz(v.m_PkG) &&
+			m_PkJ.ImportNnz(v.m_PkJ);
+	}
+
+	void HKdfPub::GenerateFrom(const HKdf& v)
+	{
+		m_Generator = v.m_Generator;
+		m_PkG = Context::get().G * v.m_kCoFactor;
+		m_PkJ = Context::get().J * v.m_kCoFactor;
 	}
 
 	/////////////////////
@@ -1307,11 +1499,11 @@ namespace ECC {
 
 	void Oracle::operator >> (Scalar::Native& out)
 	{
-		Scalar s; // not secret
+		NoLeak<Scalar> s;
 
 		do
-			operator >> (s.m_Value);
-		while ((s.m_Value == Zero) || out.Import(s));
+			operator >> (s.V.m_Value);
+		while (!out.ImportNnz(s.V));
 	}
 
 	/////////////////////
@@ -1332,8 +1524,17 @@ namespace ECC {
 
 	void Signature::Sign(const Hash::Value& msg, const Scalar::Native& sk)
 	{
+		NonceGenerator nonceGen("beam-Schnorr");
+
+		NoLeak<Scalar> s_;
+		s_.V = sk;
+		nonceGen << s_.V.m_Value;
+
+		GenRandom(s_.V.m_Value); // add extra randomness to the nonce, so it's derived from both deterministic and random parts
+		nonceGen << s_.V.m_Value;
+
 		MultiSig msig;
-		msig.m_Nonce.GenerateNonce(sk, msg, NULL);
+		nonceGen >> msig.m_Nonce;
 		msig.m_NoncePub = Context::get().G * msig.m_Nonce;
 
 		Scalar::Native k;
@@ -1347,10 +1548,23 @@ namespace ECC {
 	{
 		Mode::Scope scope(Mode::Fast);
 
-		Point::Native pt = Context::get().G * m_k;
-
 		Scalar::Native e;
 		get_Challenge(e, m_NoncePub, msg);
+
+		InnerProduct::BatchContext* pBc = InnerProduct::BatchContext::s_pInstance;
+		if (pBc)
+		{
+			if (!pBc->EquationBegin(2))
+				return false;
+
+			pBc->AddPrepared(InnerProduct::BatchContext::s_Idx_G, m_k);
+			pBc->AddCasual(pk, e);
+			pBc->AddCasual(pubNonce, 1U);
+
+			return pBc->EquationEnd();
+		}
+
+		Point::Native pt = Context::get().G * m_k;
 
 		pt += pk * e;
 		pt += pubNonce;
@@ -1380,18 +1594,19 @@ namespace ECC {
 	// RangeProof
 	namespace RangeProof
 	{
-		void get_PtMinusVal(Point::Native& out, const Point::Native& comm, Amount val)
+		void get_PtMinusVal(Point::Native& out, const Point::Native& comm, Amount val, const Point::Native* pHGen)
 		{
 			out = comm;
 
-			Point::Native ptAmount = Context::get().H * val;
+			Point::Native ptAmount;
+			Tag::AddValue(ptAmount, pHGen, val);
 
 			ptAmount = -ptAmount;
 			out += ptAmount;
 		}
 
 		// Public
-		bool Public::IsValid(const Point::Native& comm, Oracle& oracle) const
+		bool Public::IsValid(const Point::Native& comm, Oracle& oracle, const Point::Native* pHGen /* = nullptr */) const
 		{
 			Mode::Scope scope(Mode::Fast);
 
@@ -1399,7 +1614,7 @@ namespace ECC {
 				return false;
 
 			Point::Native pk;
-			get_PtMinusVal(pk, comm, m_Value);
+			get_PtMinusVal(pk, comm, m_Value, pHGen);
 
 			Hash::Value hv;
 			get_Msg(hv, oracle);
@@ -1412,8 +1627,8 @@ namespace ECC {
 			m_Value = cp.m_Kidv.m_Value;
 			assert(m_Value >= s_MinimumValue);
 
-			m_Kid = cp.m_Kidv;
-			XCryptKid(m_Kid, cp);
+			m_Recovery.m_Kid = cp.m_Kidv;
+			XCryptKid(m_Recovery.m_Kid, cp, m_Recovery.m_Checksum);
 
 			Hash::Value hv;
 			get_Msg(hv, oracle);
@@ -1421,13 +1636,18 @@ namespace ECC {
 			m_Signature.Sign(hv, sk);
 		}
 
-		void Public::Recover(CreatorParams& cp) const
+		bool Public::Recover(CreatorParams& cp) const
 		{
-			Key::ID::Packed kid = m_Kid;
-			XCryptKid(kid, cp);
+			Key::ID::Packed kid = m_Recovery.m_Kid;
+			Hash::Value hvChecksum;
+			XCryptKid(kid, cp, hvChecksum);
+
+			if (!(m_Recovery.m_Checksum == hvChecksum))
+				return false;
 
 			Cast::Down<Key::ID>(cp.m_Kidv) = kid;
 			cp.m_Kidv.m_Value = m_Value;
+			return true;
 		}
 
 		int Public::cmp(const Public& x) const
@@ -1436,7 +1656,7 @@ namespace ECC {
 			if (n)
 				return n;
 
-			n = memcmp(&m_Kid, &x.m_Kid, sizeof(m_Kid));
+			n = memcmp(&m_Recovery, &x.m_Recovery, sizeof(m_Recovery));
 			if (n)
 				return n;
 
@@ -1448,23 +1668,23 @@ namespace ECC {
 			return 0;
 		}
 
-		void Public::XCryptKid(Key::ID::Packed& kid, const CreatorParams& cp)
+		void Public::XCryptKid(Key::ID::Packed& kid, const CreatorParams& cp, Hash::Value& hvChecksum)
 		{
-			Hash::Value hv;
-			Hash::Processor()
-				<< "p-xc"
-				<< cp.m_Seed.V
-				>> hv;
+			NonceGenerator nonceGen("beam-psig");
+			nonceGen << cp.m_Seed.V;
 
-			static_assert(hv.nBytes >= sizeof(kid), "");
-			memxor(reinterpret_cast<uint8_t*>(&kid), hv.m_pData, sizeof(kid));
+			const Hash::Value& okm = nonceGen.get_Okm();
+			static_assert(sizeof(okm) >= sizeof(kid), "");
+			memxor(reinterpret_cast<uint8_t*>(&kid), okm.m_pData, sizeof(kid));
+
+			nonceGen >> hvChecksum;
 		}
 
 		void Public::get_Msg(Hash::Value& hv, Oracle& oracle) const
 		{
 			oracle
 				<< m_Value
-				<< beam::Blob(&m_Kid, sizeof(m_Kid))
+				<< beam::Blob(&m_Recovery, sizeof(m_Recovery))
 				>> hv;
 		}
 

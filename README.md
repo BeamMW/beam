@@ -9,9 +9,39 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 [Read our position paper](https://docs.beam.mw/BEAM_Position_Paper_v0.2.2.pdf)
 
 
-**TESTNET2 IS LAUNCHED!** 
+**MAINNET IS LAUNCHED!** 
+
 http://beam.mw/downloads
 
+If you build from source please use 'mainnet' branch
+
+Peers:
+
+eu-node01.mainnet.beam.mw:8100
+
+eu-node02.mainnet.beam.mw:8100
+
+eu-node03.mainnet.beam.mw:8100
+
+eu-node04.mainnet.beam.mw:8100
+
+us-node01.mainnet.beam.mw:8100
+
+us-node02.mainnet.beam.mw:8100
+
+us-node03.mainnet.beam.mw:8100
+
+us-node04.mainnet.beam.mw:8100
+
+ap-node01.mainnet.beam.mw:8100
+
+ap-node02.mainnet.beam.mw:8100
+
+ap-node03.mainnet.beam.mw:8100
+
+ap-node04.mainnet.beam.mw:8100
+
+Latest docs are here: https://beam-docs.readthedocs.io/en/latest/index.html
 
 Things that make BEAM special include:
 
@@ -48,9 +78,9 @@ years.
 - ChainWork - sublinear blockchain validation, based on FlyClient idea by Loi Luu, Benedikt Bünz, Mahdi Zamani
 - Compact history using cut through
 
+See [How to build](https://github.com/BeamMW/beam/wiki/How-to-build)
 
 # Build status
 [![Build Status](https://travis-ci.org/BeamMW/beam.svg?branch=master)](https://travis-ci.org/BeamMW/beam)
 [![Build status](https://ci.appveyor.com/api/projects/status/0j424l1h61gwqddm/branch/master?svg=true)](https://ci.appveyor.com/project/beam-mw/beam/branch/master)
 
-See [How to build](https://github.com/BeamMW/beam/wiki/How-to-build)

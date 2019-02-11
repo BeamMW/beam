@@ -23,6 +23,9 @@ namespace ECC
 
 	void GenRandom(void*, uint32_t nSize); // with OS support
 
+	template <uint32_t nBytes_>
+	inline void GenRandom(beam::uintBig_t<nBytes_>& x) { GenRandom(x.m_pData, x.nBytes); }
+
 	struct Mode {
 		enum Enum {
 			Secure, // maximum security. Constant-time guarantee whenever possible, protection from side-channel attacks
@@ -82,15 +85,13 @@ namespace ECC
 		~NoLeak() { SecureErase(V); }
 	};
 
-	static const uint32_t nBits = 256;
-	typedef beam::uintBig_t<nBits> uintBig;
+	static const uint32_t nBytes = 32;
+	static const uint32_t nBits = nBytes << 3;
+	typedef beam::uintBig_t<nBytes> uintBig;
 
 
 	class Commitment;
 	class Oracle;
-	struct NonceGenerator;
-
-	void GenerateNonce(uintBig&, const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt /* = 0 */);
 
 	struct Scalar
 	{
@@ -173,31 +174,42 @@ namespace ECC
 
 	struct Key
 	{
-		enum struct Type
+		typedef uint32_t Index; // a 'short ID' used when different children are given different sub-keys.
+
+		struct Type
+			:public beam::FourCC
 		{
-			Comission	= 0,
-			Coinbase	= 1,
-			Kernel		= 2,
-			Regular		= 3,
-			Identity	= 4,
-			Nonce		= 5,
-			ChildKey	= 6,
+			Type() {}
+			Type(uint32_t x) :FourCC(x) {}
+
+			// definitions for common types, that are used in several places. But values can be arbitrary, not only for this list
+			static const uint32_t Comission = FOURCC_FROM(fees);
+			static const uint32_t Coinbase  = FOURCC_FROM(mine);
+			static const uint32_t Regular   = FOURCC_FROM(norm);
+			static const uint32_t Change    = FOURCC_FROM(chng);
+			static const uint32_t Kernel    = FOURCC_FROM(kern); // tests only
+			static const uint32_t Kernel2   = FOURCC_FROM(kerM); // used by the miner
+			static const uint32_t Identity  = FOURCC_FROM(iden); // Node-Wallet auth
+			static const uint32_t ChildKey  = FOURCC_FROM(SubK);
+			static const uint32_t Bbs       = FOURCC_FROM(BbsM);
+			static const uint32_t Decoy     = FOURCC_FROM(dcoy);
+			static const uint32_t Treasury  = FOURCC_FROM(Tres);
 		};
 
 		struct ID
 		{
 			uint64_t	m_Idx;
-			uint64_t	m_IdxSecondary;
 			Type		m_Type;
+			Index		m_SubIdx; // currently set to the Kdf child index
 
 			ID() {}
 			ID(Zero_) { ZeroObject(*this); }
 
-			ID(beam::Height h, Type type, uint64_t nIdxSecondary = 0) // most common c'tor
+			ID(uint64_t nIdx, Type type, uint32_t nSubIdx = 0) // most common c'tor
 			{
-				m_Idx = h;
-				m_IdxSecondary = nIdxSecondary;
+				m_Idx = nIdx;
 				m_Type = type;
+				m_SubIdx = nSubIdx;
 			}
 
 			void get_Hash(Hash::Value&) const;
@@ -206,13 +218,16 @@ namespace ECC
 			struct Packed
 			{
 				beam::uintBigFor<uint64_t>::Type m_Idx;
-				beam::uintBigFor<uint64_t>::Type m_Idx2;
 				beam::uintBigFor<uint32_t>::Type m_Type;
+				beam::uintBigFor<uint32_t>::Type m_SubIdx;
 				void operator = (const ID&);
 			};
 #pragma pack (pop)
 
 			void operator = (const Packed&);
+
+			int cmp(const ID&) const;
+			COMPARISON_VIA_CMP
 		};
 
 		struct IDV
@@ -220,8 +235,13 @@ namespace ECC
 		{
 			Amount m_Value;
 			IDV() {}
-			IDV(Amount v, beam::Height h, Type type, uint64_t nIdxSecondary = 0)
-				:ID(h, type, nIdxSecondary)
+			IDV(Zero_)
+				:ID(Zero)
+				,m_Value(0)
+			{}
+
+			IDV(Amount v, uint64_t nIdx, Type type, Index nSubIdx = 0)
+				:ID(nIdx, type, nSubIdx)
 				,m_Value(v)
 			{
 			}
@@ -236,15 +256,18 @@ namespace ECC
 #pragma pack (pop)
 
 			void operator = (const Packed&);
-			bool operator == (const IDV&) const;
+
+			int cmp(const IDV&) const;
+			COMPARISON_VIA_CMP
 		};
 
 		struct IPKdf
 		{
 			typedef std::shared_ptr<IPKdf> Ptr;
 
-			virtual void DerivePKey(Point::Native&, const Hash::Value&) = 0;
 			virtual void DerivePKey(Scalar::Native&, const Hash::Value&) = 0;
+			virtual void DerivePKeyG(Point::Native&, const Hash::Value&) = 0;
+			virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) = 0;
 
 			bool IsSame(IPKdf&);
 		};
@@ -254,10 +277,15 @@ namespace ECC
 		{
 			typedef std::shared_ptr<IKdf> Ptr;
 
-			virtual void DeriveKey(Scalar::Native&, const Key::ID&);
+			void DeriveKey(Scalar::Native&, const Key::ID&);
 			virtual void DeriveKey(Scalar::Native&, const Hash::Value&) = 0;
+
+			virtual void DerivePKeyG(Point::Native&, const Hash::Value&) override;
+			virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) override;
 		};
 	};
+
+	std::ostream& operator << (std::ostream&, const Key::IDV&);
 
 	struct InnerProduct
 	{
@@ -307,8 +335,6 @@ namespace ECC
 		struct CreatorParams
 		{
 			NoLeak<uintBig> m_Seed; // must be a function of the commitment and master secret
-			void InitSeed(Key::IPKdf&, const ECC::Point& comm);
-
 			Key::IDV m_Kidv;
 
 			struct Padded;
@@ -343,14 +369,13 @@ namespace ECC
 			// Nonce generation policy for signing. There are two distinct nonce generators, both need to be initialized with seeds. One for value blinding and Key::IDV embedding, and the other one that blinds the secret key.
 			// Seed for value and Key::IDV is always specified explicitly, and should be deducible from the public Kdf and the commitment.
 			// Regaring the seed for secret keys:
-			//		In case of single-sig it's derived directly from the secret key itself.
-			//		In case of multi-sig it should be specified explicitly by the caller.
-			//			If it's guaranteed to be a single-usage key - the seed can be derived from the secret key (as with single-sig)
-			//			Otherwise - the seed *must* use external source of randomness.
+			//		In case of single-sig it's derived directly from the secret key itself AND external nonce source
+			//		In case of multi-sig it should be specified explicitly by the caller (the resulting nonce must be the same for multiple invocations).
+			//			Means - the caller must take care of constructing the nonce, which has external randomness
 
-			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&); // single-pass
-			bool IsValid(const Point::Native&, Oracle&) const;
-			bool IsValid(const Point::Native&, Oracle&, InnerProduct::BatchContext&) const;
+			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&, const Point::Native* pHGen = nullptr); // single-pass
+			bool IsValid(const Point::Native&, Oracle&, const Point::Native* pHGen = nullptr) const;
+			bool IsValid(const Point::Native&, Oracle&, InnerProduct::BatchContext&, const Point::Native* pHGen = nullptr) const;
 
 			bool Recover(Oracle&, CreatorParams&) const;
 
@@ -376,29 +401,37 @@ namespace ECC
 				};
 			};
 
-			bool CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, MultiSig* pMsigOut = NULL); // for multi-sig use 1,2,3 for 1st-pass
+			bool CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, MultiSig* pMsigOut = nullptr, const Point::Native* pHGen = nullptr); // for multi-sig use 1,2,3 for 1st-pass
 
 
 		private:
 			struct ChallengeSetBase;
 			struct ChallengeSet;
+			static void CalcA(Point&, const Scalar::Native& alpha, Amount v);
 		};
 
 		struct Public
 		{
 			Signature m_Signature;
 			Amount m_Value;
-			Key::ID::Packed m_Kid; // encoded of course
+
+#pragma pack (push, 1)
+			struct Recovery // encoded of course
+			{
+				Key::ID::Packed m_Kid;
+				Hash::Value m_Checksum;
+			} m_Recovery;
+#pragma pack (pop)
 
 			void Create(const Scalar::Native& sk, const CreatorParams&, Oracle&); // amount should have been set
-			bool IsValid(const Point::Native&, Oracle&) const;
-			void Recover(CreatorParams&) const;
+			bool IsValid(const Point::Native&, Oracle&, const Point::Native* pHGen = nullptr) const;
+			bool Recover(CreatorParams&) const;
 
 			int cmp(const Public&) const;
 			COMPARISON_VIA_CMP
 
 		private:
-			static void XCryptKid(Key::ID::Packed&, const CreatorParams&);
+			static void XCryptKid(Key::ID::Packed&, const CreatorParams&, Hash::Value& hvChecksum);
 			void get_Msg(Hash::Value&, Oracle&) const;
 		};
 	}

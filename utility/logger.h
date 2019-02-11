@@ -67,6 +67,7 @@ struct LogMessageStub {
 #define LOG_ERROR() LOG_MESSAGE(LOG_LEVEL_ERROR)
 #define LOG_WARNING() LOG_MESSAGE(LOG_LEVEL_WARNING)
 #define LOG_INFO() LOG_MESSAGE(LOG_LEVEL_INFO)
+#define LOG_UNHANDLED_EXCEPTION() LOG_ERROR() << "["<< __FILE__ << "] [" << __LINE__ << "] [" << __FUNCTION__ << "] unhandled exception. "
 
 #if LOG_DEBUG_ENABLED
     #define LOG_DEBUG() LOG_MESSAGE(LOG_LEVEL_DEBUG)
@@ -154,6 +155,15 @@ public:
     /// Sets custom timestamp formatter as for strftime(), default is "%Y-%m-%d.%T" and milliseconds are printed
     virtual void set_time_format(const char* format, bool printMilliseconds) = 0;
 
+#ifdef WIN32
+    using FileNameType = std::wstring;
+#else
+    using FileNameType = std::string;
+#endif
+
+    /// Returns curtrent log file name
+    virtual const FileNameType& get_current_file_name() = 0;
+
     /// Rotates file name, called externally
     virtual void rotate() = 0;
 
@@ -192,7 +202,7 @@ public:
 
     LogMessage(const LogMessageHeader& h);
 
-    template <class T> LogMessage& operator<<(T x) {
+    template <class T> LogMessage& operator<<(const T& x) {
         if constexpr (std::is_same<T, FlushAllCheckpoints>::value) {
             flush_all_checkpoints(this);
         }

@@ -113,11 +113,104 @@ namespace beam
 	}
 
 	/////////////
+	// SwitchCommitment
+	SwitchCommitment::SwitchCommitment(const AssetID* pAssetID /* = nullptr */)
+	{
+		if (pAssetID && !(*pAssetID == Zero))
+		{
+			ECC::Oracle oracle;
+			oracle
+				<< "a-id"
+				<< *pAssetID;
+
+			ECC::Point pt;
+			pt.m_Y = 0;
+
+			do
+			{
+				oracle
+					<< "a-gen"
+					>> pt.m_X;
+			}
+			while (!m_hGen.ImportNnz(pt));
+		}
+		else
+			m_hGen = Zero;
+	}
+
+	void SwitchCommitment::get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J)
+	{
+		ECC::Oracle()
+			<< comm0
+			<< sk0_J
+			>> res;
+	}
+
+	void SwitchCommitment::AddValue(ECC::Point::Native& comm, Amount v) const
+	{
+		ECC::Tag::AddValue(comm, &m_hGen, v);
+	}
+
+
+	void SwitchCommitment::CreateInternal(ECC::Scalar::Native& sk, ECC::Point::Native& comm, bool bComm, Key::IKdf& kdf, const Key::IDV& kidv) const
+	{
+		kdf.DeriveKey(sk, kidv);
+
+		comm = ECC::Context::get().G * sk;
+		AddValue(comm, kidv.m_Value);
+
+		ECC::Point::Native sk0_J = ECC::Context::get().J * sk;
+
+		ECC::Scalar::Native sk1;
+		get_sk1(sk1, comm, sk0_J);
+
+		sk += sk1;
+		if (bComm)
+			comm += ECC::Context::get().G * sk1;
+	}
+
+	void SwitchCommitment::Create(ECC::Scalar::Native& sk, Key::IKdf& kdf, const Key::IDV& kidv) const
+	{
+		ECC::Point::Native comm;
+		CreateInternal(sk, comm, false, kdf, kidv);
+	}
+
+	void SwitchCommitment::Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf& kdf, const Key::IDV& kidv) const
+	{
+		CreateInternal(sk, comm, true, kdf, kidv);
+	}
+
+	void SwitchCommitment::Create(ECC::Scalar::Native& sk, ECC::Point& comm, Key::IKdf& kdf, const Key::IDV& kidv) const
+	{
+		ECC::Point::Native comm2;
+		Create(sk, comm2, kdf, kidv);
+		comm = comm2;
+	}
+
+	void SwitchCommitment::Recover(ECC::Point::Native& res, Key::IPKdf& pkdf, const Key::IDV& kidv) const
+	{
+		ECC::Hash::Value hv;
+		kidv.get_Hash(hv);
+
+		ECC::Point::Native sk0_J;
+		pkdf.DerivePKeyJ(sk0_J, hv);
+		pkdf.DerivePKeyG(res, hv);
+		AddValue(res, kidv.m_Value);
+
+		ECC::Scalar::Native sk1;
+		get_sk1(sk1, res, sk0_J);
+
+		res += ECC::Context::get().G * sk1;
+	}
+
+	/////////////
 	// Output
 	bool Output::IsValid(ECC::Point::Native& comm) const
 	{
 		if (!comm.Import(m_Commitment))
 			return false;
+
+		SwitchCommitment sc(&m_AssetID);
 
 		ECC::Oracle oracle;
 		oracle << m_Incubation;
@@ -130,7 +223,7 @@ namespace beam
 			if (m_pPublic)
 				return false;
 
-			return m_pConfidential->IsValid(comm, oracle);
+			return m_pConfidential->IsValid(comm, oracle, &sc.m_hGen);
 		}
 
 		if (!m_pPublic)
@@ -139,7 +232,7 @@ namespace beam
 		if (!(Rules::get().AllowPublicUtxos || m_Coinbase))
 			return false;
 
-		return m_pPublic->IsValid(comm, oracle);
+		return m_pPublic->IsValid(comm, oracle, &sc.m_hGen);
 	}
 
 	void Output::operator = (const Output& v)
@@ -147,6 +240,7 @@ namespace beam
 		Cast::Down<TxElement>(*this) = v;
 		m_Coinbase = v.m_Coinbase;
 		m_Incubation = v.m_Incubation;
+		m_AssetID = v.m_AssetID;
 		ClonePtr(m_pConfidential, v.m_pConfidential);
 		ClonePtr(m_pPublic, v.m_pPublic);
 	}
@@ -161,108 +255,83 @@ namespace beam
 
 		CMP_MEMBER(m_Coinbase)
 		CMP_MEMBER(m_Incubation)
+		CMP_MEMBER_EX(m_AssetID)
 		CMP_MEMBER_PTR(m_pConfidential)
 		CMP_MEMBER_PTR(m_pPublic)
 
 		return 0;
 	}
 
-	void Output::CreateInternal(const ECC::Scalar::Native& sk, Amount v, bool bPublic, Key::IKdf* pKdf, const Key::ID* pKid)
+	void Output::Create(ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const Key::IDV& kidv, Key::IPKdf& tagKdf, bool bPublic /* = false */)
 	{
-		m_Commitment = ECC::Commitment(sk, v);
+		SwitchCommitment sc(&m_AssetID);
+		sc.Create(sk, m_Commitment, coinKdf, kidv);
 
 		ECC::Oracle oracle;
 		oracle << m_Incubation;
 
 		ECC::RangeProof::CreatorParams cp;
-		cp.m_Kidv.m_Value = v;
+		cp.m_Kidv = kidv;
+		get_SeedKid(cp.m_Seed.V, tagKdf);
 
-		if (pKdf)
-		{
-			assert(pKid);
-			Cast::Down<Key::ID>(cp.m_Kidv) = *pKid;
-			get_SeedKid(cp.m_Seed.V, *pKdf);
-		}
-		else
-		{
-			ZeroObject(Cast::Down<Key::ID>(cp.m_Kidv));
-			ECC::Hash::Processor() << "outp" << sk << v >> cp.m_Seed.V;
-		}
-
-		if (bPublic)
+		if (bPublic || m_Coinbase)
 		{
 			m_pPublic.reset(new ECC::RangeProof::Public);
-			m_pPublic->m_Value = v;
+			m_pPublic->m_Value = kidv.m_Value;
 			m_pPublic->Create(sk, cp, oracle);
 		}
 		else
 		{
 			m_pConfidential.reset(new ECC::RangeProof::Confidential);
-			m_pConfidential->Create(sk, cp, oracle);
+			m_pConfidential->Create(sk, cp, oracle, &sc.m_hGen);
 		}
 	}
 
-	void Output::Create(ECC::Scalar::Native& sk, Key::IKdf& kdf, const Key::IDV& kidv)
-	{
-		kdf.DeriveKey(sk, kidv);
-		CreateInternal(sk, kidv.m_Value, m_Coinbase, &kdf, &kidv);
-	}
-
-	void Output::Create(const ECC::Scalar::Native& sk, Amount v, bool bPublic /* = false */)
-	{
-		CreateInternal(sk, v, bPublic, NULL, NULL);
-	}
-
-	void Output::get_SeedKid(ECC::uintBig& seed, Key::IPKdf& kdf) const
+	void Output::get_SeedKid(ECC::uintBig& seed, Key::IPKdf& tagKdf) const
 	{
 		ECC::Hash::Processor() << m_Commitment >> seed;
 
 		ECC::Scalar::Native sk;
-		kdf.DerivePKey(sk, seed);
+		tagKdf.DerivePKey(sk, seed);
 
 		ECC::Hash::Processor() << sk >> seed;
 	}
 
-	bool Output::Recover(Key::IPKdf& kdf, Key::IDV& kidv) const
+	bool Output::Recover(Key::IPKdf& tagKdf, Key::IDV& kidv) const
 	{
 		ECC::RangeProof::CreatorParams cp;
-		get_SeedKid(cp.m_Seed.V, kdf);
+		get_SeedKid(cp.m_Seed.V, tagKdf);
 
 		ECC::Oracle oracle;
 		oracle << m_Incubation;
 
-		if (m_pPublic)
-		{
-		    m_pPublic->Recover(cp);
-		}
-		else if (!(m_pConfidential && m_pConfidential->Recover(oracle, cp)))
-		{
-			return false;
-		}
+		bool bSuccess =
+			m_pConfidential ? m_pConfidential->Recover(oracle, cp) :
+			m_pPublic ? m_pPublic->Recover(cp) :
+			false;
 
+		if (bSuccess)
+			// Skip further verification, assuming no need to fully reconstruct the commitment
+			kidv = cp.m_Kidv;
+
+		return bSuccess;
+	}
+
+	bool Output::VerifyRecovered(Key::IPKdf& coinKdf, const Key::IDV& kidv) const
+	{
 		// reconstruct the commitment
 		ECC::Mode::Scope scope(ECC::Mode::Fast);
 
-		ECC::Hash::Value hv;
-		cp.m_Kidv.get_Hash(hv);
-
 		ECC::Point::Native comm, comm2;
-		kdf.DerivePKey(comm, hv);
-
-		comm += ECC::Context::get().H * cp.m_Kidv.m_Value;
-
 		if (!comm2.Import(m_Commitment))
 			return false;
+
+		SwitchCommitment(&m_AssetID).Recover(comm, coinKdf, kidv);
 
 		comm = -comm;
 		comm += comm2;
 		
-		if (!(comm == Zero))
-			return false;
-
-		// bingo!
-		kidv = cp.m_Kidv;
-		return true;
+		return (comm == Zero);
 	}
 
 	void HeightAdd(Height& trg, Height val)
@@ -274,14 +343,14 @@ namespace beam
 
 	Height Output::get_MinMaturity(Height h) const
 	{
-		HeightAdd(h, m_Coinbase ? Rules::get().MaturityCoinbase : Rules::get().MaturityStd);
+		HeightAdd(h, m_Coinbase ? Rules::get().Maturity.Coinbase : Rules::get().Maturity.Std);
 		HeightAdd(h, m_Incubation);
 		return h;
 	}
 
 	/////////////
 	// TxKernel
-	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const
+	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig::Type* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const
 	{
 		if (pParent)
 		{
@@ -296,6 +365,7 @@ namespace beam
 			<< m_Height.m_Min
 			<< m_Height.m_Max
 			<< m_Commitment
+			<< Amount(m_AssetEmission)
 			<< (bool) m_pHashLock;
 
 		if (m_pHashLock)
@@ -338,7 +408,7 @@ namespace beam
 		if (pExcess)
 		{
 			ECC::Point::Native pt;
-			if (!pt.Import(m_Commitment))
+			if (!pt.ImportNnz(m_Commitment))
 				return false;
 
 			ptExcNested = -ptExcNested;
@@ -348,10 +418,47 @@ namespace beam
 				return false;
 
 			*pExcess += pt;
+
+			if (m_AssetEmission)
+			{
+				if (!Rules::get().CA.Enabled)
+					return false;
+
+				if (pParent || !m_vNested.empty())
+					return false; // Ban complex cases. Emission kernels must be simple
+
+				const AssetID& aid = m_Commitment.m_X;
+				if (aid == Zero)
+				{
+					assert(false); // Currently zero kernels are not allowed, but if we change this eventually - this will allow attacker to emit default asset (i.e. Beams).
+					// hence - extra verification
+					return false;
+				}
+
+				SwitchCommitment sc(&aid);
+				assert(ECC::Tag::IsCustom(&sc.m_hGen));
+
+				sc.m_hGen = -sc.m_hGen;
+
+				if (Rules::get().CA.Deposit)
+					sc.m_hGen += ECC::Context::get().m_Ipp.H_; // Asset is traded for beam!
+
+				// In case of block validation with multiple asset instructions it's better to calculate this via MultiMac than multiplying each point separately
+				Amount val;
+				if (m_AssetEmission > 0)
+					val = m_AssetEmission;
+				else
+				{
+					val = -m_AssetEmission;
+					sc.m_hGen = -sc.m_hGen;
+				}
+
+				ECC::Tag::AddValue(*pExcess, &sc.m_hGen, val);
+			}
 		}
 
 		if (pFee)
-			*pFee += m_Fee;
+			*pFee += uintBigFrom(m_Fee);
 
 		return true;
 	}
@@ -361,7 +468,7 @@ namespace beam
 		Traverse(out, NULL, NULL, NULL, pLockImage);
 	}
 
-	bool TxKernel::IsValid(AmountBig& fee, ECC::Point::Native& exc) const
+	bool TxKernel::IsValid(AmountBig::Type& fee, ECC::Point::Native& exc) const
 	{
 		ECC::Hash::Value hv;
 		return Traverse(hv, &fee, &exc, NULL, NULL);
@@ -384,6 +491,7 @@ namespace beam
 		CMP_MEMBER(m_Fee)
 		CMP_MEMBER(m_Height.m_Min)
 		CMP_MEMBER(m_Height.m_Max)
+		CMP_MEMBER(m_AssetEmission)
 
 		auto it0 = m_vNested.begin();
 		auto it1 = v.m_vNested.begin();
@@ -401,7 +509,24 @@ namespace beam
 		if (v.m_vNested.end() != it1)
 			return -1;
 
+		CMP_MEMBER_PTR(m_pHashLock)
+
 		return 0;
+	}
+
+	int TxKernel::HashLock::cmp(const HashLock& v) const
+	{
+		CMP_MEMBER_EX(m_Preimage)
+		return 0;
+	}
+
+	void TxKernel::Sign(const ECC::Scalar::Native& sk)
+	{
+		m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
+
+		ECC::Hash::Value hv;
+		get_Hash(hv);
+		m_Signature.Sign(hv, sk);
 	}
 
 	void TxKernel::operator = (const TxKernel& v)
@@ -410,6 +535,7 @@ namespace beam
 		m_Signature = v.m_Signature;
 		m_Fee = v.m_Fee;
 		m_Height = v.m_Height;
+		m_AssetEmission = v.m_AssetEmission;
 		ClonePtr(m_pHashLock, v.m_pHashLock);
 
 		m_vNested.resize(v.m_vNested.size());
@@ -453,7 +579,7 @@ namespace beam
 
 		size_t nDel = 0;
 
-		size_t i1 = m_vOutputs.size();
+		size_t i1 = 0;
 		for (size_t i0 = 0; i0 < m_vInputs.size(); i0++)
 		{
 			Input::Ptr& pInp = m_vInputs[i0];
@@ -470,6 +596,7 @@ namespace beam
 						pInp.reset();
 						pOut.reset();
 						nDel++;
+						i1++;
 					}
 					break;
 				}
@@ -485,7 +612,7 @@ namespace beam
 		return nDel;
 	}
 
-	void TxVectors::Ethernal::NormalizeE()
+	void TxVectors::Eternal::NormalizeE()
 	{
 		std::sort(m_vKernels.begin(), m_vKernels.end());
 	}
@@ -494,6 +621,29 @@ namespace beam
 	{
 		NormalizeE();
 		return NormalizeP();
+	}
+
+	template <typename T>
+	void MoveIntoVec(std::vector<T>& trg, std::vector<T>& src)
+	{
+		if (trg.empty())
+			trg = std::move(src);
+		else
+		{
+			trg.reserve(trg.size() + src.size());
+
+			for (size_t i = 0; i < src.size(); i++)
+				trg.push_back(std::move(src[i]));
+
+			src.clear();
+		}
+	}
+
+	void TxVectors::Full::MoveInto(Full& trg)
+	{
+		MoveIntoVec(trg.m_vInputs, m_vInputs);
+		MoveIntoVec(trg.m_vOutputs, m_vOutputs);
+		MoveIntoVec(trg.m_vKernels, m_vKernels);
 	}
 
 	template <typename T>
@@ -630,55 +780,41 @@ namespace beam
 	}
 
 	/////////////
-	// AmoutBig
-	void AmountBig::operator += (Amount x)
+	// AmountBig
+	namespace AmountBig
 	{
-		Lo += x;
-		if (Lo < x)
-			Hi++;
-	}
-
-	void AmountBig::operator -= (Amount x)
-	{
-		if (Lo < x)
-			Hi--;
-		Lo -= x;
-	}
-
-	void AmountBig::operator += (const AmountBig& x)
-	{
-		operator += (x.Lo);
-		Hi += x.Hi;
-	}
-
-	void AmountBig::operator -= (const AmountBig& x)
-	{
-		operator -= (x.Lo);
-		Hi -= x.Hi;
-	}
-
-	void AmountBig::Export(uintBig& x) const
-	{
-		x = Zero;
-		x.AssignRange<Amount, 0>(Lo);
-		x.AssignRange<Amount, (sizeof(Lo) << 3) >(Hi);
-	}
-
-	void AmountBig::AddTo(ECC::Point::Native& res) const
-	{
-		if (Hi)
+		Amount get_Lo(const Type& x)
 		{
-			uintBig val;
-			Export(val);
-
-			ECC::Scalar s;
-			s.m_Value = val;
-			res += ECC::Context::get().H_Big * s;
+			Amount res;
+			x.ExportWord<1>(res);
+			return res;
 		}
-		else
-			if (Lo)
-				res += ECC::Context::get().H * Lo;
-	}
+
+		Amount get_Hi(const Type& x)
+		{
+			Amount res;
+			x.ExportWord<0>(res);
+			return res;
+		}
+
+		void AddTo(ECC::Point::Native& res, const Type& x)
+		{
+			if (get_Hi(x))
+			{
+				ECC::Scalar s;
+				s.m_Value = x;
+				res += ECC::Context::get().H_Big * s;
+			}
+			else
+			{
+				Amount lo = get_Lo(x);
+				if (lo)
+					res += ECC::Context::get().H * lo;
+			}
+		}
+
+	} // namespace AmountBig
+
 
 	/////////////
 	// Block
@@ -690,33 +826,127 @@ namespace beam
 	}
 
 	const Height Rules::HeightGenesis	= 1;
-	const Amount Rules::Coin			= 1000000;
+	const Amount Rules::Coin			= 100000000;
+
+	Rules::Rules()
+	{
+		TreasuryChecksum = {
+			0x5d, 0x9b, 0x18, 0x78, 0x9c, 0x02, 0x1a, 0x1e,
+			0xfb, 0x83, 0xd9, 0x06, 0xf4, 0xac, 0x7d, 0xce,
+			0x99, 0x7d, 0x4a, 0xc5, 0xd4, 0x71, 0xd7, 0xb4,
+			0x6f, 0x99, 0x77, 0x6e, 0x7a, 0xbd, 0x2e, 0xc9
+		};
+
+		Prehistoric = {
+			// BTC Block #556833
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x25, 0x2d, 0x12, 0x33, 0xb4, 0x5d, 0xb2,
+			0x39, 0x81, 0x47, 0x67, 0x6e, 0x16, 0x62, 0xf4,
+			0x3c, 0x26, 0xa5, 0x26, 0xd2, 0xe2, 0x20, 0x63,
+		};
+	}
+
+	Amount Rules::get_EmissionEx(Height h, Height& hEnd, Amount base) const
+	{
+		h -= Rules::HeightGenesis; // may overflow, but it's ok. If h < HeightGenesis (which must not happen anyway) - then it'll give a huge height, for which the emission would be zero anyway.
+
+		// Current emission strategy:
+		// at Emission.Drop0 - 1/2
+		// at Emission.Drop1 - 5/8
+		// each Emission.Drop1 cycle - 1/2
+
+		if (h < Emission.Drop0)
+		{
+			hEnd = Rules::HeightGenesis + Emission.Drop0;
+			return base;
+		}
+
+		assert(Emission.Drop1);
+		Height n = 1 + (h - Emission.Drop0) / Emission.Drop1;
+
+		const uint32_t nBitsMax = sizeof(Amount) << 3;
+		if (n >= nBitsMax)
+		{
+			hEnd = MaxHeight;
+			return 0;
+		}
+
+		hEnd = Rules::HeightGenesis + Emission.Drop0 + n * Emission.Drop1;
+
+		if (n >= 2)
+			base += (base >> 2); // the unusual part - add 1/4
+
+		return base >> n;
+	}
+
+	Amount Rules::get_Emission(Height h)
+	{
+		return get().get_EmissionEx(h, h, get().Emission.Value0);
+	}
+
+	void Rules::get_Emission(AmountBig::Type& res, const HeightRange& hr)
+	{
+		get_Emission(res, hr, get().Emission.Value0);
+	}
+
+	void Rules::get_Emission(AmountBig::Type& res, const HeightRange& hr, Amount base)
+	{
+		res = Zero;
+
+		if (hr.IsEmpty())
+			return;
+
+		for (Height hPos = hr.m_Min; ; )
+		{
+			Height hEnd;
+			Amount nCurrent = get().get_EmissionEx(hPos, hEnd, base);
+			if (!nCurrent)
+				break;
+
+			assert(hEnd > hPos);
+
+			if (hr.m_Max < hEnd)
+			{
+				res += uintBigFrom(nCurrent) * uintBigFrom(hr.m_Max - hPos + 1);
+				break;
+			}
+
+			res += uintBigFrom(nCurrent) * uintBigFrom(hEnd - hPos);
+			hPos = hEnd;
+		}
+	}
 
 	void Rules::UpdateChecksum()
 	{
 		// all parameters, including const (in case they'll be hardcoded to different values in later versions)
 		ECC::Hash::Processor()
 			<< ECC::Context::get().m_hvChecksum
+			<< Prehistoric
+			<< TreasuryChecksum
 			<< HeightGenesis
 			<< Coin
-			<< CoinbaseEmission
-			<< MaturityCoinbase
-			<< MaturityStd
+			<< Emission.Value0
+			<< Emission.Drop0
+			<< Emission.Drop1
+			<< Maturity.Coinbase
+			<< Maturity.Std
 			<< MaxBodySize
 			<< FakePoW
 			<< AllowPublicUtxos
-			<< DesiredRate_s
-			<< DifficultyReviewCycle
-			<< MaxDifficultyChange
-			<< TimestampAheadThreshold_s
-			<< WindowForMedian
-			<< StartDifficulty.m_Packed
-			<< MaxRollbackHeight
-			<< MacroblockGranularity
+			<< CA.Enabled
+			<< CA.Deposit
+			<< DA.Target_s
+			<< DA.MaxAhead_s
+			<< DA.WindowWork
+			<< DA.WindowMedian0
+			<< DA.WindowMedian1
+			<< DA.Difficulty0.m_Packed
+			<< Macroblock.MaxRollback
+			<< Macroblock.Granularity
 			<< (uint32_t) Block::PoW::K
 			<< (uint32_t) Block::PoW::N
 			<< (uint32_t) Block::PoW::NonceType::nBits
-			<< uint32_t(10) // increment this whenever we change something in the protocol
+			<< uint32_t(15) // increment this whenever we change something in the protocol
 #ifndef BEAM_TESTNET
             << "masternet"
 #endif
@@ -750,9 +980,6 @@ namespace beam
 	{
 		if (m_Height + 1 != sNext.m_Height)
 			return false;
-
-		if (!m_Height)
-			return sNext.m_Prev == Zero;
 
 		Merkle::Hash hv;
 		get_Hash(hv);
@@ -795,14 +1022,17 @@ namespace beam
 
 	void Block::SystemState::Full::get_Hash(Merkle::Hash& hv) const
 	{
-		get_HashInternal(hv, true);
+		if (m_Height >= Rules::HeightGenesis)
+			get_HashInternal(hv, true);
+		else
+			hv = Rules::get().Prehistoric;
 	}
 
 	bool Block::SystemState::Full::IsSane() const
 	{
 		if (m_Height < Rules::HeightGenesis)
 			return false;
-		if ((m_Height == Rules::HeightGenesis) && !(m_Prev == Zero))
+		if ((m_Height == Rules::HeightGenesis) && !(m_Prev == Rules::get().Prehistoric))
 			return false;
 
 		return true;
@@ -824,19 +1054,11 @@ namespace beam
 		return m_PoW.IsValid(hv.m_pData, hv.nBytes);
 	}
 
-#if defined(BEAM_USE_GPU)
-    bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel, bool useGpu)
-#else
     bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)
-#endif
 	{
 		Merkle::Hash hv;
 		get_HashForPoW(hv);
 
-#if defined(BEAM_USE_GPU)
-        if (useGpu)
-            return m_PoW.SolveGPU(hv.m_pData, hv.nBytes, fnCancel);
-#endif
         return m_PoW.Solve(hv.m_pData, hv.nBytes, fnCancel);
 	}
 
@@ -933,29 +1155,20 @@ namespace beam
 
 	void Block::BodyBase::ZeroInit()
 	{
-		ZeroObject(m_Subsidy);
 		ZeroObject(m_Offset);
-		m_SubsidyClosing = false;
 	}
 
 	void Block::BodyBase::Merge(const BodyBase& next)
 	{
-		m_Subsidy += next.m_Subsidy;
-
-		if (next.m_SubsidyClosing)
-		{
-			assert(!m_SubsidyClosing);
-			m_SubsidyClosing = true;
-		}
-
 		ECC::Scalar::Native offs(m_Offset);
 		offs += next.m_Offset;
 		m_Offset = offs;
 	}
 
-	bool Block::BodyBase::IsValid(const HeightRange& hr, bool bSubsidyOpen, TxBase::IReader&& r) const
+	bool Block::BodyBase::IsValid(const HeightRange& hr, TxBase::IReader&& r) const
 	{
-		assert((hr.m_Min >= Rules::HeightGenesis) && !hr.IsEmpty());
+		if ((hr.m_Min < Rules::HeightGenesis) || hr.IsEmpty())
+			return false;
 
 		TxBase::Context ctx;
 		ctx.m_Height = hr;
@@ -963,21 +1176,7 @@ namespace beam
 
 		return
 			ctx.ValidateAndSummarize(*this, std::move(r)) &&
-			ctx.IsValidBlock(*this, bSubsidyOpen);
-	}
-
-	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height h /* = 0 */, uint32_t nIdx /* = 0 */)
-	{
-		ECC::Hash::Value hv;
-		ECC::Hash::Processor() << h << nIdx >> hv;
-
-		ECC::NoLeak<ECC::Scalar> s;
-		s.V = kKernel;
-
-		kOffset.GenerateNonce(s.V.m_Value, hv, NULL);
-
-		kKernel += kOffset;
-		kOffset = -kOffset;
+			ctx.IsValidBlock(*this);
 	}
 
 	/////////////
@@ -1004,7 +1203,7 @@ namespace beam
 
 	bool Block::SystemState::HistoryMap::Enum(IWalker& w, const Height* pBelow)
 	{
-		for (auto it = (pBelow ? m_Map.upper_bound(*pBelow) : m_Map.end()); m_Map.begin() != it; )
+		for (auto it = (pBelow ? m_Map.lower_bound(*pBelow) : m_Map.end()); m_Map.begin() != it; )
 			if (!w.OnState((--it)->second))
 				return false;
 
@@ -1066,181 +1265,69 @@ namespace beam
 	}
 
 	/////////////
-	// Difficulty
-	void Rules::AdjustDifficulty(Difficulty& d, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const
+	// Builder
+	Block::Builder::Builder(Key::Index subIdx, Key::IKdf& coin, Key::IPKdf& tag, Height h)
+		:m_SubIdx(subIdx)
+		,m_Coin(coin)
+		,m_Tag(tag)
+		,m_Height(h)
 	{
-		//static_assert(DesiredRate_s * DifficultyReviewCycle < uint32_t(-1), "overflow?");
-		const uint32_t dtTrg_s = DesiredRate_s * DifficultyReviewCycle;
+		m_Offset = Zero;
+	}
 
-		uint32_t dt_s; // evaluate carefully, avoid possible overflow
-		if (tCycleEnd_s <= tCycleBegin_s)
-			dt_s = 0;
-		else
+	void Block::Builder::AddCoinbaseAndKrn(Output::Ptr& pOutp, TxKernel::Ptr& pKrn)
+	{
+		ECC::Scalar::Native sk;
+
+		Amount val = Rules::get_Emission(m_Height);
+		if (val)
 		{
-			tCycleEnd_s -= tCycleBegin_s;
-			dt_s = (tCycleEnd_s < uint32_t(-1)) ? uint32_t(tCycleEnd_s) : uint32_t(-1);
+			pOutp.reset(new Output);
+			pOutp->m_Coinbase = true;
+			pOutp->Create(sk, m_Coin, Key::IDV(val, m_Height, Key::Type::Coinbase, m_SubIdx), m_Tag);
+
+			m_Offset += sk;
 		}
 
-		d.Adjust(dt_s, dtTrg_s, MaxDifficultyChange);
+		pKrn.reset(new TxKernel);
+		pKrn->m_Height.m_Min = m_Height; // make it similar to others
+
+		m_Coin.DeriveKey(sk, Key::ID(m_Height, Key::Type::Kernel2, m_SubIdx));
+		pKrn->Sign(sk);
+		m_Offset += sk;
 	}
 
-	void Difficulty::Pack(uint32_t order, uint32_t mantissa)
+	void Block::Builder::AddCoinbaseAndKrn()
 	{
-		if (order <= s_MaxOrder)
+		Output::Ptr pOutp;
+		TxKernel::Ptr pKrn;
+		AddCoinbaseAndKrn(pOutp, pKrn);
+
+		if (pOutp)
+			m_Txv.m_vOutputs.push_back(std::move(pOutp));
+		if (pKrn)
+			m_Txv.m_vKernels.push_back(std::move(pKrn));
+	}
+
+	void Block::Builder::AddFees(Amount fees, Output::Ptr& pOutp)
+	{
+		ECC::Scalar::Native sk;
+
+		pOutp.reset(new Output);
+		pOutp->Create(sk, m_Coin, Key::IDV(fees, m_Height, Key::Type::Comission, m_SubIdx), m_Tag);
+
+		m_Offset += sk;
+	}
+
+	void Block::Builder::AddFees(Amount fees)
+	{
+		if (fees)
 		{
-			assert((mantissa >> s_MantissaBits) == 1U);
-			mantissa &= (1U << s_MantissaBits) - 1;
+			Output::Ptr pOutp;
+			AddFees(fees, pOutp);
 
-			m_Packed = mantissa | (order << s_MantissaBits);
+			m_Txv.m_vOutputs.push_back(std::move(pOutp));
 		}
-		else
-			m_Packed = s_Inf;
-	}
-
-	void Difficulty::Unpack(uint32_t& order, uint32_t& mantissa) const
-	{
-		order = (m_Packed >> s_MantissaBits);
-
-		const uint32_t nLeadingBit = 1U << s_MantissaBits;
-		mantissa = nLeadingBit | (m_Packed & (nLeadingBit - 1));
-	}
-
-	bool Difficulty::IsTargetReached(const ECC::uintBig& hv) const
-	{
-		if (m_Packed > s_Inf)
-			return false; // invalid
-
-		// multiply by (raw) difficulty, check if the result fits wrt normalization.
-		Raw val;
-		Unpack(val);
-
-		auto a = hv * val; // would be 512 bits
-
-		static_assert(!(s_MantissaBits & 7), ""); // fix the following code lines to support non-byte-aligned mantissa size
-
-		return memis0(a.m_pData, Raw::nBytes - (s_MantissaBits >> 3));
-	}
-
-	void Difficulty::Unpack(Raw& res) const
-	{
-		res = Zero;
-		if (m_Packed < s_Inf)
-		{
-			uint32_t order, mantissa;
-			Unpack(order, mantissa);
-			res.AssignSafe(mantissa, order);
-
-		}
-		else
-			res.Inv();
-	}
-
-	void Difficulty::Inc(Raw& res, const Raw& base) const
-	{
-		Unpack(res);
-		res += base;
-	}
-
-	void Difficulty::Inc(Raw& res) const
-	{
-		Raw d;
-		Unpack(d);
-		res += d;
-	}
-
-	void Difficulty::Dec(Raw& res, const Raw& base) const
-	{
-		Unpack(res);
-		res.Negate();
-		res += base;
-	}
-
-	void Difficulty::Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange)
-	{
-		if (!(src || trg))
-			return; // degenerate case
-
-		uint32_t order, mantissa;
-		Unpack(order, mantissa);
-
-		Adjust(src, trg, nMaxOrderChange, order, mantissa);
-
-		if (signed(order) >= 0)
-			Pack(order, mantissa);
-		else
-			m_Packed = 0;
-
-	}
-
-	void Difficulty::Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange, uint32_t& order, uint32_t& mantissa)
-	{
-		bool bIncrease = (src < trg);
-
-		// order adjustment (rough)
-		for (uint32_t i = 0; ; i++)
-		{
-			if (i == nMaxOrderChange)
-				return;
-
-			uint32_t srcAdj = src;
-			if (bIncrease)
-			{
-				if ((srcAdj <<= 1) > trg)
-					break;
-
-				if (++order > s_MaxOrder)
-					return;
-			}
-			else
-			{
-				if ((srcAdj >>= 1) < trg)
-					break;
-
-				if (!order--)
-					return;
-			}
-
-			src = srcAdj;
-		}
-
-		// By now the ratio between src/trg is less than 2. Adjust the mantissa
-		uint64_t val = trg;
-		val *= uint64_t(mantissa);
-		val /= uint64_t(src);
-
-		mantissa = (uint32_t) val;
-
-		uint32_t nLeadingBit = mantissa >> Difficulty::s_MantissaBits;
-
-		if (bIncrease)
-		{
-			assert(nLeadingBit && (nLeadingBit <= 2));
-
-			if (nLeadingBit > 1)
-			{
-				order++;
-				mantissa >>= 1;
-			}
-		}
-		else
-		{
-			assert(nLeadingBit <= 1);
-
-			if (!nLeadingBit)
-			{
-				order--;
-				mantissa <<= 1;
-				assert(mantissa >> Difficulty::s_MantissaBits);
-			}
-		}
-	}
-
-	std::ostream& operator << (std::ostream& s, const Difficulty& d)
-	{
-		uint32_t order = d.m_Packed >> Difficulty::s_MantissaBits;
-		uint32_t mantissa = d.m_Packed & ((1U << Difficulty::s_MantissaBits) - 1);
-		s << std::hex << order << '-' << mantissa << std::dec;
-		return s;
 	}
 
 	std::ostream& operator << (std::ostream& s, const Block::SystemState::ID& id)

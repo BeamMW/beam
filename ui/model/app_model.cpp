@@ -13,6 +13,10 @@
 // limitations under the License.
 
 #include "app_model.h"
+#include "utility/common.h"
+#include "utility/logger.h"
+
+#include <boost/filesystem.hpp>
 
 using namespace beam;
 using namespace ECC;
@@ -28,10 +32,11 @@ AppModel* AppModel::getInstance()
 
 AppModel::AppModel(WalletSettings& settings)
     : m_settings{settings}
-    , m_restoreWallet{false}
 {
     assert(s_instance == nullptr);
     s_instance = this;
+
+    m_nodeModel.start();
 }
 
 AppModel::~AppModel()
@@ -41,82 +46,99 @@ AppModel::~AppModel()
 
 bool AppModel::createWallet(const SecString& seed, const SecString& pass)
 {
-    m_db = WalletDB::init(m_settings.getWalletStorage(), pass, seed.hash());
-
-    if (m_db)
+    auto dbFilePath = m_settings.getWalletStorage();
+    if (WalletDB::isInitialized(dbFilePath))
     {
-        try
-        {
-            m_passwordHash = pass.hash();
-
-            IKeyStore::Options options;
-            options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-            options.fileName = m_settings.getBbsStorage();
-
-            IKeyStore::Ptr keystore = IKeyStore::create(options, pass.data(), pass.size());
-
-            // generate default address
-            WalletAddress defaultAddress = {};
-            defaultAddress.m_own = true;
-            defaultAddress.m_label = "default";
-            defaultAddress.m_createTime = getTimestamp();
-            keystore->gen_keypair(defaultAddress.m_walletID);
-            keystore->save_keypair(defaultAddress.m_walletID, true);
-
-            m_db->saveAddress(defaultAddress);
-
-            start(keystore);
-        }
-        catch (const beam::KeyStoreException&)
-        {
-            m_messages.addMessage("Failed to generate default address");
-            return false;
-        }
-
-        return true;
+        // it seems that we are trying to restore or login to another wallet.
+        // Rename existing db 
+        boost::filesystem::path p = dbFilePath;
+        boost::filesystem::path newName = dbFilePath + "_" + to_string(getTimestamp());
+        boost::filesystem::rename(p, newName);
     }
+    m_db = WalletDB::init(dbFilePath, pass, seed.hash());
+    if (!m_db)
+        return false;
 
-    return false;
+    // generate default address
+
+    WalletAddress address = wallet::createAddress(*m_db);
+    address.m_label = "default";
+    m_db->saveAddress(address);
+
+    OnWalledOpened(pass);
+    return true;
 }
 
 bool AppModel::openWallet(const beam::SecString& pass)
 {
     m_db = WalletDB::open(m_settings.getWalletStorage(), pass);
+    if (!m_db)
+        return false;
 
-    if (m_db)
+    OnWalledOpened(pass);
+    return true;
+}
+
+void AppModel::OnWalledOpened(const beam::SecString& pass)
+{
+    m_passwordHash = pass.hash();
+    start();
+}
+
+void AppModel::resetWalletImpl()
+{
+    assert(m_db);
+    m_db.reset();
+
+    assert(m_wallet.use_count() == 1);
+    assert(m_wallet);
+    m_wallet.reset();
+
+    try
     {
-		m_passwordHash = pass.hash();
+#ifdef WIN32
+        boost::filesystem::path appDataPath{ Utf8toUtf16(getSettings().getAppDataPath().c_str()) };
+#else
+        boost::filesystem::path appDataPath{ getSettings().getAppDataPath() };
+#endif
+        boost::filesystem::path logsFolderPath = appDataPath;
+        logsFolderPath /= WalletSettings::LogsFolder;
 
-        IKeyStore::Ptr keystore;
-        IKeyStore::Options options;
-        options.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-        options.fileName = m_settings.getBbsStorage();
+        boost::filesystem::path settingsPath = appDataPath;
+        settingsPath /= WalletSettings::SettingsFile;
 
-        try
+        for (boost::filesystem::directory_iterator endDirIt, it{ appDataPath }; it != endDirIt; ++it)
         {
-            keystore = IKeyStore::create(options, pass.data(), pass.size());
-        }
-        catch (const beam::KeyStoreException& )
-        {
-            return false;
-        }
+            // don't delete settings and logs files
+            if ((it->path() == logsFolderPath) || (it->path() == settingsPath))
+            {
+                continue;
+            }
 
-        start(keystore);
-        return true;
+            boost::system::error_code error;
+            boost::filesystem::remove_all(it->path(), error);
+            if (error)
+            {
+                LOG_ERROR() << error.message();
+            }
+        }
     }
-    return false;
+    catch (std::exception &e)
+    {
+        LOG_ERROR() << e.what();
+    }
 }
 
 void AppModel::applySettingsChanges()
 {
-    if (m_node)
+    if (m_nodeModel.isNodeRunning())
     {
-        m_node.reset();
+        m_nodeModel.stopNode();
     }
 
     if (m_settings.getRunLocalNode())
     {
-        startNode();
+        m_nodeModel.startNode();
 
         io::Address nodeAddr = io::Address::LOCALHOST;
         nodeAddr.port(m_settings.getLocalNodePort());
@@ -130,32 +152,53 @@ void AppModel::applySettingsChanges()
     }
 }
 
-void AppModel::start(IKeyStore::Ptr keystore)
+void AppModel::startedNode()
 {
+    if (m_wallet && !m_wallet->isRunning())
+        m_wallet->start();
+}
+
+void AppModel::stoppedNode()
+{
+    resetWalletImpl();
+    disconnect(&m_nodeModel, SIGNAL(stoppedNode()), this, SLOT(stoppedNode()));
+}
+
+void AppModel::onFailedToStartNode(beam::wallet::ErrorType errorCode)
+{
+    if (errorCode == beam::wallet::ErrorType::ConnectionAddrInUse && m_wallet)
+    {
+        emit m_wallet->walletError(errorCode);
+        return;
+    }
+
+    getMessages().addMessage(tr("Failed to start node. Please check your node configuration"));
+}
+
+void AppModel::start()
+{
+    m_nodeModel.setKdf(m_db->get_MasterKdf());
+
+    std::string nodeAddrStr;
+
     if (m_settings.getRunLocalNode())
     {
-        startNode();
+        connect(&m_nodeModel, SIGNAL(startedNode()), SLOT(startedNode()));
+        connect(&m_nodeModel, SIGNAL(failedToStartNode(beam::wallet::ErrorType)), SLOT(onFailedToStartNode(beam::wallet::ErrorType)));
+
+        m_nodeModel.startNode();
 
         io::Address nodeAddr = io::Address::LOCALHOST;
         nodeAddr.port(m_settings.getLocalNodePort());
-        m_wallet = std::make_shared<WalletModel>(m_db, keystore, nodeAddr.str());
-
-        m_wallet->start();
+        nodeAddrStr = nodeAddr.str();
     }
     else
-    {
-        auto nodeAddr = m_settings.getNodeAddress().toStdString();
-        m_wallet = std::make_shared<WalletModel>(m_db, keystore, nodeAddr);
+        nodeAddrStr = m_settings.getNodeAddress().toStdString();
 
+    m_wallet = std::make_shared<WalletModel>(m_db, nodeAddrStr);
+
+    if (!m_settings.getRunLocalNode())
         m_wallet->start();
-    }
-}
-
-void AppModel::startNode()
-{
-    m_node = make_unique<NodeModel>();
-	m_node->m_pKdf = m_db->get_Kdf();
-    m_node->start();
 }
 
 WalletModel::Ptr AppModel::getWallet() const
@@ -175,8 +218,19 @@ MessageManager& AppModel::getMessages()
 
 NodeModel& AppModel::getNode()
 {
-    assert(m_node);
-    return *m_node;
+    return m_nodeModel;
+}
+
+void AppModel::resetWallet()
+{
+    if (m_nodeModel.isNodeRunning())
+    {
+        connect(&m_nodeModel, SIGNAL(stoppedNode()), SLOT(stoppedNode()));
+        m_nodeModel.stopNode();
+        return;
+    }
+
+    resetWalletImpl();
 }
 
 bool AppModel::checkWalletPassword(const beam::SecString& pass) const
@@ -194,12 +248,3 @@ void AppModel::changeWalletPassword(const std::string& pass)
     m_wallet->getAsync()->changeWalletPassword(pass);
 }
 
-void AppModel::setRestoreWallet(bool value)
-{
-    m_restoreWallet = value;
-}
-
-bool AppModel::shouldRestoreWallet() const
-{
-    return m_restoreWallet;
-}

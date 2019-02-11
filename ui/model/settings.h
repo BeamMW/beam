@@ -35,39 +35,25 @@ public:
 
     void initModel(WalletModel::Ptr model);
     std::string getWalletStorage() const;
-    std::string getBbsStorage() const;
     std::string getAppDataPath() const;
     void reportProblem();
-
-    bool getGenerateGenesys() const;
-    void setGenerateGenesys(bool value);
 
     bool getRunLocalNode() const;
     void setRunLocalNode(bool value);
 
     uint getLocalNodePort() const;
     void setLocalNodePort(uint port);
-    uint getLocalNodeMiningThreads() const;
-    void setLocalNodeMiningThreads(uint n);
-    uint getLocalNodeVerificationThreads() const;
-    void setLocalNodeVerificationThreads(uint n);
     std::string getLocalNodeStorage() const;
     std::string getTempDir() const;
 
     QStringList getLocalNodePeers() const;
     void setLocalNodePeers(const QStringList& qPeers);
 
-    bool getLocalNodeSynchronized() const;
-    void setLocalNodeSynchronized(bool value);
-
-#ifdef BEAM_USE_GPU
-    bool getUseGpu() const;
-    void setUseGpu(bool value);
-#endif
-
 public:
     static const char* WalletCfg;
     static const char* LogsFolder;
+    static const char* SettingsFile;
+    static const char* WalletDBFile;
 
     void applyChanges();
 
@@ -76,14 +62,8 @@ signals:
     void lockTimeoutChanged();
     void localNodeRunChanged();
     void localNodePortChanged();
-    void localNodeMiningThreadsChanged();
-    void localNodeVerificationThreadsChanged();
-    void localNodeGenerateGenesysChanged();
     void localNodePeersChanged();
     void localNodeSynchronizedChanged();
-#ifdef BEAM_USE_GPU
-    void localNodeUseGpuChanged();
-#endif
 
 private:
     QSettings m_data;

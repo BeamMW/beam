@@ -113,11 +113,12 @@ struct SerializerSizeCounter
 {
 	struct Counter
 	{
-		size_t m_Value;
+		size_t m_Value; // should not overflow, since it's used only for objects of limited size (tx elements, etc.)
 
 		size_t write(const void * /*ptr*/, const size_t size)
 		{
 			m_Value += size;
+			assert(m_Value >= size); // no overflow
 			return size;
 		}
 

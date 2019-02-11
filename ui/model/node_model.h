@@ -16,23 +16,50 @@
 
 #include <QThread>
 #include <memory>
+#include <atomic>
+#include <condition_variable>
 #include "core/block_crypt.h"
 #include "node/node.h"
+#include "node/node_client.h"
+#include "utility/io/errorhandling.h"
 #include "utility/io/reactor.h"
+#include "wallet/common.h"
 
-class NodeModel : public QThread
-                , public beam::INodeObserver
+class NodeModel 
+    : public QObject
+    , private beam::INodeClientObserver
 {
     Q_OBJECT
 public:
+
     NodeModel();
-    ~NodeModel();
-	beam::Key::IKdf::Ptr m_pKdf;
-private:
-    void run() override;
-    void OnSyncProgress(int done, int total) override;
+
+    void setKdf(beam::Key::IKdf::Ptr);
+    void startNode();
+    void stopNode();
+
+    void start();
+
+    bool isNodeRunning() const;
+
 signals:
     void syncProgressUpdated(int done, int total);
-private: 
-    std::weak_ptr<beam::io::Reactor> m_reactor;
+    void startedNode();
+    void stoppedNode();
+    void failedToStartNode(beam::wallet::ErrorType errorType);
+
+protected:
+    void onSyncProgressUpdated(int done, int total) override;
+    void onStartedNode() override;
+    void onStoppedNode() override;
+    void onFailedToStartNode() override;
+    void onFailedToStartNode(beam::io::ErrorCode errorCode) override;
+
+    uint16_t getLocalNodePort() override;
+    std::string getLocalNodeStorage() override;
+    std::string getTempDir() override;
+    std::vector<std::string> getLocalNodePeers() override;
+
+private:
+    beam::NodeClient m_nodeClient;
 };

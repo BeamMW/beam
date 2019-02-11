@@ -2,6 +2,7 @@ set(UTILITY_SRC
     common.cpp
     logger.cpp
     logger_checkpoints.cpp
+    log_rotation.cpp
     helpers.cpp
     config.cpp
 	options.cpp
@@ -25,15 +26,16 @@ set(IO_SRC
     io/errorhandling.cpp
     io/coarsetimer.cpp
     io/fragment_writer.cpp
+    io/json_serializer.cpp
 # ~etc
 )
 
 if (BEAM_USE_AVX)   
     if (MSVC)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     elseif(ANDROID)
     else()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse3")
     endif()
 endif()
 
@@ -51,9 +53,8 @@ else()
 endif()
 
 if (UV_INTERNAL)
-    include(io/libuv.cmake)
-    add_dependencies(utility uvinternal)
-    target_link_libraries(utility uvinternal)
+    add_dependencies(utility uv_a)
+    target_link_libraries(utility uv_a)
 else()
     target_link_libraries(utility uv)
 endif()
@@ -67,10 +68,22 @@ endif()
 target_link_libraries(utility mnemonic)
 
 if(ANDROID)
-    target_link_libraries(utility
-        $ENV{BOOST_ROOT_ANDROID}/lib/libboost_program_options-clang-mt-a32-1_68.a
-        $ENV{BOOST_ROOT_ANDROID}/lib/libboost_filesystem-clang-mt-a32-1_68.a
-        $ENV{BOOST_ROOT_ANDROID}/lib/libboost_system-clang-mt-a32-1_68.a)
+    if(ANDROID_ABI STREQUAL "armeabi-v7a")
+        target_link_libraries(utility 
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_program_options-clang-mt-a32-1_68.a 
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_filesystem-clang-mt-a32-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_system-clang-mt-a32-1_68.a)
+    elseif(ANDROID_ABI STREQUAL "x86")
+        target_link_libraries(utility 
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_program_options-clang-mt-x32-1_68.a 
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_filesystem-clang-mt-x32-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_system-clang-mt-x32-1_68.a)
+    elseif(ANDROID_ABI STREQUAL "arm64-v8a")
+        target_link_libraries(utility 
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_program_options-clang-mt-a64-1_68.a 
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_filesystem-clang-mt-a64-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_system-clang-mt-a64-1_68.a)
+    endif()
 
 else()
     if (Boost_FOUND)
@@ -79,10 +92,6 @@ else()
     else()
         target_link_libraries(utility boost_program_options boost_filesystem boost_system)
     endif()
-endif()
-
-if(BEAM_USE_GPU)
-    add_subdirectory(gpu)
 endif()
 
 add_subdirectory(unittest)

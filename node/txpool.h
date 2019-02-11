@@ -15,6 +15,7 @@
 #pragma once
 
 #include <boost/intrusive/set.hpp>
+#include <boost/intrusive/list.hpp>
 #include "../core/block_crypt.h"
 #include "../utility/io/timer.h"
 
@@ -25,7 +26,7 @@ struct TxPool
 	struct Profit
 		:public boost::intrusive::set_base_hook<>
 	{
-		AmountBig m_Fee; // since a tx may include multiple kernels - theoretically fee may be huge (though highly unlikely)
+		AmountBig::Type m_Fee; // since a tx may include multiple kernels - theoretically fee may be huge (though highly unlikely)
 		uint32_t m_nSize;
 
 		void SetSize(const Transaction&);
@@ -63,22 +64,31 @@ struct TxPool
 
 				IMPLEMENT_GET_PARENT_OBJ(Element, m_Threshold)
 			} m_Threshold;
+
+			struct Queue
+				:public boost::intrusive::list_base_hook<>
+			{
+				uint32_t m_Refs = 0;
+				IMPLEMENT_GET_PARENT_OBJ(Element, m_Queue)
+			} m_Queue;
 		};
 
 		typedef boost::intrusive::multiset<Element::Tx> TxSet;
 		typedef boost::intrusive::multiset<Element::Profit> ProfitSet;
 		typedef boost::intrusive::multiset<Element::Threshold> ThresholdSet;
+		typedef boost::intrusive::list<Element::Queue> Queue;
 
 		TxSet m_setTxs;
 		ProfitSet m_setProfit;
 		ThresholdSet m_setThreshold;
+		Queue m_Queue;
 
-		void AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&);
+		Element* AddValidTx(Transaction::Ptr&&, const Transaction::Context&, const Transaction::KeyType&);
 		void Delete(Element&);
+		void Release(Element&);
 		void Clear();
 
 		void DeleteOutOfBound(Height);
-		void ShrinkUpTo(uint32_t nCount);
 
 		~Fluff() { Clear(); }
 	};

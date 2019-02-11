@@ -102,13 +102,19 @@ namespace beam {
 			{
 				ZeroObject(s.m_Hdr);
 				s.m_Hdr.m_Height = Rules::HeightGenesis;
-				s.m_Hdr.m_PoW.m_Difficulty = Rules::get().StartDifficulty;
+				s.m_Hdr.m_Prev = Rules::get().Prehistoric;
+				s.m_Hdr.m_PoW.m_Difficulty = Rules::get().DA.Difficulty0;
 			}
 
 			if (!((i + 1) % 8000))
-				s.m_Hdr.m_PoW.m_Difficulty.Adjust(140, 150, 3); // slightly raise
+			{
+				// slightly raise
+				Difficulty::Raw raw;
+				s.m_Hdr.m_PoW.m_Difficulty.Unpack(raw);
+				s.m_Hdr.m_PoW.m_Difficulty.Calculate(raw, 1, 150, 140);
+			}
 
-			s.m_Hdr.m_PoW.m_Difficulty.Inc(s.m_Hdr.m_ChainWork);
+			s.m_Hdr.m_ChainWork += s.m_Hdr.m_PoW.m_Difficulty;
 
 			m_Mmr.get_Hash(s.m_Hdr.m_Definition);
 			Merkle::Interpret(s.m_Hdr.m_Definition, m_hvLive, true);

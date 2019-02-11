@@ -12,58 +12,24 @@ Item
     id: root
 
     anchors.fill: parent
+    property bool isLockedMode: false
 
-    StartViewModel { id: viewModel }
-
-    Component
-    {
+    StartViewModel { id: viewModel }    
+    
+    LogoComponent {
         id: logoComponent
-
-        Column
-        {
-            spacing: 20
-
-            Image {
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                source: "qrc:/assets/start-logo.svg"
-                width: 242
-                height: 170
-            }
-
-            SFText {
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                text: qsTr("BEAM")
-                color: "#25c1ff"
-                font.pixelSize: 32
-                font.styleName: "Bold"; font.weight: Font.Bold
-                font.letterSpacing: 20
-            }
-
-            SFText {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.topMargin: 20
-
-                text: qsTr("Scalable confidential cryptocurrency")
-
-                color: "#25c1ff"
-                font.pixelSize: 18
-                font.styleName: "Bold"; font.weight: Font.Bold
-            }
-        }
     }
 
     StackView {
         id: startWizzardView
         anchors.fill: parent
-        initialItem: start
         focus: true
         onCurrentItemChanged: {
             if (currentItem && currentItem.defaultFocusItem) {
-                currentItem.defaultFocusItem.focus = true;
+                startWizzardView.currentItem.defaultFocusItem.forceActiveFocus();
             }
         }
+
         Component {
             id: start
             Rectangle
@@ -78,42 +44,410 @@ Item
 
                 property Item defaultFocusItem: createNewWallet
 
-                Loader { 
-                    sourceComponent: logoComponent 
+                ConfirmationDialog {
+                    id: restoreWalletConfirmation
 
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 140
+                    okButtonText: qsTr("restore wallet")
+                    okButtonIconSource: "qrc:/assets/icon-restore-blue.svg"
+                    cancelVisible: true
+                    cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+                    width: 460
+                    height: 208
+
+                    contentItem: Column {
+                        anchors.fill: parent
+                        anchors.margins: 30
+                        spacing: 20
+
+                        SFText {
+                            horizontalAlignment : Text.AlignHCenter
+                            width: parent.width
+                            text: qsTr("Your funds will be fully restored from the blockchain. The transaction history and your addresses are stored locally and are encrypted with your password, hence it can't be restored.")
+                            color: Style.white
+                            font.pixelSize: 14
+                            wrapMode: Text.Wrap
+                        }
+
+                        SFText {
+                            horizontalAlignment : Text.AlignHCenter
+                            width: parent.width
+                            text: qsTr("That's the final version till the future validation and process.")
+                            color: Style.white
+                            font.pixelSize: 14
+                            wrapMode: Text.Wrap
+                        }
+                    }
+                    onAccepted: {
+                        onClicked: {
+                            viewModel.isRecoveryMode = true;
+                            startWizzardView.push(restoreWallet);
+                        }
+                    }
                 }
 
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 100
+                        Layout.maximumHeight: 280
+                    }
 
-                Row {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.bottomMargin: 143
-                    anchors.bottom: parent.bottom
+                    Loader { 
+                        sourceComponent: logoComponent 
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 200//187
+                        Layout.maximumHeight: 269
+                    }
 
-                    spacing: 30
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 122
+                        Layout.maximumHeight: 237
+                    }
 
-                    PrimaryButton {
-                        id: createNewWallet
-                        anchors.verticalCenter: parent.verticalCenter
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
+                        
+                        spacing: 30
 
-                        text: qsTr("create new wallet")
-                        icon.source: "qrc:/assets/icon-add-blue.svg"
-                        onClicked: 
-                        {
-                            viewModel.isRecoveryMode = false;
-                            startWizzardView.push(nodeSetup);
+                        PrimaryButton {
+                            id: createNewWallet
+                            anchors.verticalCenter: parent.verticalCenter
+
+                            text: qsTr("create new wallet")
+                            icon.source: "qrc:/assets/icon-add-blue.svg"
+                            onClicked: 
+                            {
+                                viewModel.isRecoveryMode = false;
+                                startWizzardView.push(createWalletEntry);
+                            }
+                        }
+
+                        CustomButton {
+                            text: qsTr("restore wallet")
+                            icon.source: "qrc:/assets/icon-restore.svg"
+                            onClicked: {
+                                restoreWalletConfirmation.open();
+                            }
                         }
                     }
 
-                    CustomButton {
-                        text: qsTr("restore wallet")
-                        icon.source: "qrc:/assets/icon-restore.svg"
-                        onClicked: {
-                            viewModel.isRecoveryMode = true;
-                            startWizzardView.push(nodeSetup);
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 67
+                    }
+                }
+            }
+        }
+
+        Component {
+            id: migrate
+            Rectangle
+            {
+                color: Style.marine
+
+                Image {
+                    fillMode: Image.PreserveAspectCrop
+                    anchors.fill: parent
+                    source: "qrc:/assets/bg.svg"
+                }
+
+                property Item defaultFocusItem: startMigration
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 100
+                        Layout.maximumHeight: 280
+                    }
+
+                    Loader { 
+                        sourceComponent: logoComponent 
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 200
+                        Layout.maximumHeight: 269
+                    }
+
+                    Item {
+                        Layout.preferredHeight: 30
+                    }
+
+                    SFText {
+                        Layout.alignment: Qt.AlignHCenter
+                
+                        text: qsTr("Your wallet will be migrated to v.") + viewModel.walletVersion()
+                        color: Style.white
+                        font.pixelSize: 14
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                        Layout.maximumHeight: 67
+                    }
+
+                    PrimaryButton {
+                        id: startMigration
+                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
+                        Layout.minimumHeight: 38
+
+                        text: qsTr("start migration")
+                        icon.source: "qrc:/assets/icon-repeat.svg"
+                        onClicked: 
+                        {
+                            startWizzardView.push(selectWalletDBView);
                         }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                        Layout.maximumHeight: 65
+                    }
+
+                    SFText {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: qsTr("Login to another wallet or create new one")
+                        color: Style.bright_teal
+                        font.pixelSize: 14
+                
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                startWizzardView.push(start);
+                            }
+                            hoverEnabled: true
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                    }
+                }
+            }
+        }
+
+        Component {
+            id: selectWalletDBView
+            Rectangle
+            {
+                color: Style.marine
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.topMargin: 50
+
+                    SFText {
+                        Layout.alignment: Qt.AlignHCenter
+                        horizontalAlignment: Qt.AlignHCenter
+                        text: qsTr("Select the wallet database file")
+                        color: Style.white
+                        font.pixelSize: 36
+                    }
+
+                    CustomTableView {
+                        id: tableView
+                        property int rowHeight: 44
+                        property int minWidth: 600
+                        property int textLeftMargin: 20
+                        Layout.alignment: Qt.AlignHCenter 
+                        Layout.topMargin: 50
+                        Layout.bottomMargin: 9
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: headerHeight + 3*rowHeight
+                        Layout.maximumHeight: headerHeight + 5*rowHeight
+                        Layout.minimumWidth: minWidth
+                        Layout.maximumWidth: minWidth
+
+                        frameVisible: false
+                        selectionMode: SelectionMode.SingleSelection
+                        backgroundVisible: false
+                        model: viewModel.walletDBpaths
+
+                        headerDelegate: Rectangle {
+                            height: tableView.headerHeight
+                            color: Style.dark_slate_blue
+
+                            SFLabel {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                anchors.leftMargin: tableView.textLeftMargin
+                                horizontalAlignment: Qt.AlignHCenter
+                                font.pixelSize: tableView.headerTextFontSize
+                                color: Style.bluey_grey
+                                font.weight: Font.Normal
+                                text: styleData.value
+                            }
+                        }
+
+                        TableViewColumn {
+                            role: "fullPath"
+                            title: qsTr("Name")
+                            width: 300
+                            movable: false
+                            delegate: Item {
+                                width: parent.width
+                                height: tableView.rowHeight
+                                clip:true
+
+                                SFLabel {
+                                    font.pixelSize: 14
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: tableView.textLeftMargin
+                                    anchors.right: parent.right
+                                    elide: Text.ElideLeft
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: styleData.value
+                                    color: Style.white
+                                    copyMenuEnabled: true
+                                    onCopyText: viewModel.copyToClipboard(text)
+                                }
+                            }
+                        }
+
+                        TableViewColumn {
+                            role: "fileSize"
+                            title: qsTr("Size")
+                            width: 120
+                            movable: false
+                            delegate: Item {
+                                width: parent.width
+                                height: tableView.rowHeight
+                                clip:true
+
+                                SFLabel {
+                                    font.pixelSize: 14
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: tableView.textLeftMargin
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: Math.round(styleData.value / 1024) + qsTr(" kb")
+                                    color: Style.white
+                                }
+                            }
+                        }
+
+                        TableViewColumn {
+                            role: "lastWriteDateString"
+                            title: qsTr("Date modified")
+                            width: 150 
+                            movable: false
+                        }
+
+                        rowDelegate: Item {
+                            height: tableView.rowHeight
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+
+                            Rectangle {
+                                anchors.fill: parent
+                                color: styleData.selected ? "#085469" : Style.light_navy
+                                visible: styleData.alternate || styleData.selected
+                            }
+                        }
+
+                        itemDelegate: TableItem {
+                            elide: Text.ElideRight
+                            clip:true
+
+                            SFLabel {
+                                font.pixelSize: 14
+                                anchors.left: parent.left
+                                anchors.leftMargin: tableView.textLeftMargin
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: styleData.value
+                                color: Style.white
+                            }
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 64
+                    }
+
+                    Row {
+                        id: buttons
+                        Layout.alignment: Qt.AlignHCenter
+                        spacing: 30
+
+                        CustomButton {
+                            text: qsTr("select file manually");
+                            icon.source: "qrc:/assets/icon-folder.svg"
+                            onClicked: {
+                                // open fileOpenDialog
+                                var path = viewModel.selectCustomWalletDB();
+
+                                if (path.length > 0) {
+                                    buttons.migrateWalletDB(path);
+                                }
+                            }
+                        }
+
+                        PrimaryButton {
+                            id: nextButton
+                            text: qsTr("next")
+                            icon.source: "qrc:/assets/icon-next-blue.svg"
+                            enabled: tableView.currentRow >= 0
+                            onClicked: {
+                                buttons.migrateWalletDB(viewModel.walletDBpaths[tableView.currentRow].fullPath);
+                            }
+                        }
+
+                        function backAction() {
+                            // remove wallet.db file
+                            viewModel.deleteCurrentWalletDB();
+                            startWizzardView.pop();
+                        }
+
+                        function migrateWalletDB(path) {
+                            // copy wallet.db                         
+                            viewModel.migrateWalletDB(path);
+                            viewModel.isRecoveryMode = false;
+                            startWizzardView.push(open, {"firstButtonVisible": true, "firstButtonText": qsTr("back"), 
+                                                         "firstButtonIcon": "qrc:/assets/icon-back.svg", "firstButtonAction": backAction});
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                        Layout.maximumHeight: 65
+                    }
+
+                    SFText {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: qsTr("Login to another wallet or create new one")
+                        color: Style.bright_teal
+                        font.pixelSize: 14
+                
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                startWizzardView.push(start);
+                            }
+                            hoverEnabled: true
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 60
+                        Layout.maximumHeight: 90
                     }
                 }
             }
@@ -143,7 +477,7 @@ Item
                         SFText {
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Create new wallet with generating recovery phrase.
+                            text: qsTr("Create new wallet with generating seed phrase.
         If you ever lose your device, you will need this phrase to recover your wallet!")
                             color: Style.white
                             wrapMode: Text.WordWrap
@@ -159,42 +493,45 @@ Item
                         Layout.maximumHeight: 500
                         SecurityNote{
                             iconSource: "qrc:/assets/eye.svg"
-                            text: qsTr("Do not let anyone see your recovery phrase");
+                            text: qsTr("Do not let anyone see your seed phrase");
                         }
                         SecurityNote{
                             iconSource: "qrc:/assets/password.svg"
-                            text: qsTr("Never type your recovery phrase into password managers or elsewhere");
+                            text: qsTr("Never type your seed phrase into password managers or elsewhere");
                         }
                         SecurityNote{
                             iconSource: "qrc:/assets/copy-two-paper-sheets-interface-symbol.svg"
-                            text: qsTr("Keep the copies of your recovery phrase in a safe place");
+                            text: qsTr("Keep the copies of your seed phrase in a safe place");
                         }
                     }
-                    
+
                     Item {
                         Layout.fillHeight: true
-                        Layout.fillWidth: true
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.bottom: parent.bottom
-                            bottomPadding: 143
+                    }
 
-                            spacing: 30
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
+                        spacing: 30
 
-                            CustomButton {
-                                text: qsTr("back");
-                                icon.source: "qrc:/assets/icon-back.svg"
-                                onClicked: startWizzardView.pop();
-                            }
-
-                            PrimaryButton {
-                                id: generateRecoveryPhraseButton
-
-                                text: qsTr("generate recovery phrase")
-                                icon.source: "qrc:/assets/icon-recovery.svg"
-                                onClicked: startWizzardView.push(generateRecoveryPhrase);
-                            }
+                        CustomButton {
+                            text: qsTr("back");
+                            icon.source: "qrc:/assets/icon-back.svg"
+                            onClicked: startWizzardView.pop();
                         }
+
+                        PrimaryButton {
+                            id: generateRecoveryPhraseButton
+
+                            text: qsTr("generate seed phrase")
+                            icon.source: "qrc:/assets/icon-recovery.svg"
+                            onClicked: startWizzardView.push(generateRecoveryPhrase);
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 67
+                        Layout.maximumHeight: 143
                     }
                 }
             }
@@ -225,7 +562,7 @@ Item
                             anchors.left: parent.left
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Your recovery phrase is the access key to all the cryptocurrencies in your wallet. Print or write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.")
+                            text: qsTr("Your seed phrase is the access key to all the cryptocurrencies in your wallet. Write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.")
                             color: Style.white
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
@@ -237,7 +574,7 @@ Item
                         okButtonIconSource: "qrc:/assets/icon-done.svg"
                         cancelVisible: false
                         width: 460
-                        text: qsTr("It is strictly recommended to write down the recovery phrase on a paper. Storing it in a file makes it prone to cyber attacks and, therefore, less secure.")
+                        text: qsTr("It is strictly recommended to write down the seed phrase on a paper. Storing it in a file makes it prone to cyber attacks and, therefore, less secure.")
                         onAccepted: {
                             onClicked: startWizzardView.push(checkRecoveryPhrase);
                         }
@@ -288,48 +625,35 @@ Item
                     
                     Item {
                         Layout.fillHeight: true
-                        Layout.fillWidth: true
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.bottom: parent.bottom
-                            bottomPadding: 143
+                        Layout.minimumHeight: 50
+                    }
 
-                            spacing: 30
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
 
-                            CustomButton {
-                                text: qsTr("back");
-                                icon.source: "qrc:/assets/icon-back.svg"
-                                onClicked: {
-                                    startWizzardView.pop();
-                                    viewModel.resetPhrases();
-                                }
-                            }
+                        spacing: 30
 
-                            CustomButton {
-                                text: qsTr("copy to clipboard")
-                                icon.source: "qrc:/assets/icon-copy.svg"
-                                onClicked: {viewModel.copyPhrasesToClipboard();}
-                            }
-
-                            CustomButton {
-                                text: qsTr("print")
-                                icon.source: "qrc:/assets/icon-print.svg"
-                                
-                                onClicked: {
-                                    phrasesView.grabToImage(function(result) {
-                                        viewModel.printRecoveryPhrases(result.image); //result.image holds the QVariant
-                                    });
-
-                                }
-                            }
-
-                            PrimaryButton {
-                                id: nextButton
-                                text: qsTr("next")
-                                icon.source: "qrc:/assets/icon-next-blue.svg"
-                                onClicked: {confirRecoveryPhrasesDialog.open();}
+                        CustomButton {
+                            text: qsTr("back");
+                            icon.source: "qrc:/assets/icon-back.svg"
+                            onClicked: {
+                                startWizzardView.pop();
+                                viewModel.resetPhrases();
                             }
                         }
+
+                        PrimaryButton {
+                            id: nextButton
+                            text: qsTr("next")
+                            icon.source: "qrc:/assets/icon-next-blue.svg"
+                            onClicked: {confirRecoveryPhrasesDialog.open();}
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 67
+                        Layout.maximumHeight: 143
                     }
                 }
             }
@@ -339,6 +663,7 @@ Item
             id: checkRecoveryPhrase
             Rectangle {
                 color: Style.marine
+                property Item defaultFocusItem: null
 
                 ColumnLayout {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -359,7 +684,7 @@ Item
                             anchors.left: parent.left
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("To ensure the recovery phrase is written down, please fill-in the specific words below")
+                            text: qsTr("To ensure the seed phrase is written down, please fill-in the specific words below")
                             color: Style.white
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
@@ -438,6 +763,9 @@ Item
                                     text: modelData.value
                                     Component.onCompleted: {
                                         modelData.value = "";
+                                        if (defaultFocusItem == null) {
+                                            defaultFocusItem = phraseValue;
+                                        }
                                     }
                                 }
                                 Binding {
@@ -448,38 +776,46 @@ Item
                             }
                         }
                     }
-                    
+
                     Item {
                         Layout.fillHeight: true
-                        Layout.fillWidth: true
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.bottom: parent.bottom
-                            bottomPadding: 143
+                        Layout.minimumHeight: 120
+                    }
 
-                            spacing: 30
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
 
-                            CustomButton {
-                                text: qsTr("back");
-                                icon.source: "qrc:/assets/icon-back.svg"
-                                onClicked: startWizzardView.pop();
-                            }
+                        spacing: 30
 
-                            PrimaryButton {
-                                id: checkRecoveryNextButton
-                                text: qsTr("next")
-                                enabled: {
-                                    var enable = true;
-                                    for(var i = 0; i < viewModel.checkPhrases.length; ++i)
-                                    {
-                                        enable &= viewModel.checkPhrases[i].isCorrect;
-                                    }
-                                    return enable;
-                                }
-                                icon.source: "qrc:/assets/icon-next-blue.svg"
-                                onClicked: startWizzardView.push(create);
+                        CustomButton {
+                            text: qsTr("back");
+                            icon.source: "qrc:/assets/icon-back.svg"
+                            onClicked: {
+                                startWizzardView.pop();
+                                viewModel.resetPhrases();
                             }
                         }
+
+                        PrimaryButton {
+                            id: checkRecoveryNextButton
+                            text: qsTr("next")
+                            enabled: {
+                                var enable = true;
+                                for(var i = 0; i < viewModel.checkPhrases.length; ++i)
+                                {
+                                    enable &= viewModel.checkPhrases[i].isCorrect;
+                                }
+                                return enable;
+                            }
+                            icon.source: "qrc:/assets/icon-next-blue.svg"
+                            onClicked: startWizzardView.push(create);
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 67
+                        Layout.maximumHeight: 143
                     }
                 }
             }
@@ -489,6 +825,7 @@ Item
             id: restoreWallet
             Rectangle {
                 color: Style.marine
+                property Item defaultFocusItem: null
 
                 ColumnLayout {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -509,7 +846,7 @@ Item
                             anchors.left: parent.left
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Type in or paste your recovery phrase")
+                            text: qsTr("Type in or paste your seed phrase")
                             color: Style.white
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
@@ -553,7 +890,7 @@ Item
 
                                     Rectangle {
                                         id: correctPhraseRect
-                                        color: Style.dark_slate_blue
+                                        color: modelData.isAllowed ? Style.dark_slate_blue : Style.validator_color
                                         width: 20
                                         height: 20
                                         radius: 10
@@ -574,9 +911,9 @@ Item
                                     anchors.bottom: parent.bottom
                                     anchors.bottomMargin: 6
                                     width: 121
-
                                     font.pixelSize: 14
-                                    color: Style.white
+                                    color: (modelData.isAllowed || modelData.value.length == 0) ? Style.white : Style.validator_color
+                                    backgroundColor: (modelData.isAllowed || modelData.value.length == 0) ? Style.white : Style.validator_color
                                     text: modelData.value
                                     onTextEdited: {
                                         var phrases = text.split(viewModel.phrasesSeparator);
@@ -587,47 +924,60 @@ Item
                                             }
                                         }
                                     }
+                                    Component.onCompleted: {
+                                        if (modelData.index == 0) {
+                                            defaultFocusItem = phraseValue;
+                                        }
+                                    }
                                 }
                                 Binding {
                                     target: modelData
                                     property: "value"
                                     value: phraseValue.text
-                               }
+                                }
                             }
                         }
                     }
                     
                     Item {
                         Layout.fillHeight: true
-                        Layout.fillWidth: true
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.bottom: parent.bottom
-                            bottomPadding: 143
+                        Layout.minimumHeight: 50
+                    }
 
-                            spacing: 30
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
 
-                            CustomButton {
-                                text: qsTr("back");
-                                icon.source: "qrc:/assets/icon-back.svg"
-                                onClicked: startWizzardView.pop();
-                            }
+                        spacing: 30
 
-                            PrimaryButton {
-                                id: checkRecoveryNextButton
-                                text: qsTr("restore wallet")
-                                enabled: {
-                                    var enable = true;
-                                    for(var i = 0; i < viewModel.recoveryPhrases.length; ++i)
-                                    {
-                                        enable &= viewModel.recoveryPhrases[i].value.length > 0;
-                                    }
-                                    return enable;
-                                }
-                                icon.source: "qrc:/assets/icon-restore-blue.svg"
-                                onClicked: startWizzardView.push(create);
+                        CustomButton {
+                            text: qsTr("back");
+                            icon.source: "qrc:/assets/icon-back.svg"
+                            onClicked: {
+                                startWizzardView.pop();
+                                viewModel.resetPhrases();
                             }
                         }
+
+                        PrimaryButton {
+                            id: checkRecoveryNextButton
+                            text: qsTr("next")
+                            enabled: {
+                                var enable = true;
+                                for(var i = 0; i < viewModel.recoveryPhrases.length; ++i)
+                                {
+                                    enable &= viewModel.recoveryPhrases[i].isAllowed;
+                                }
+                                return enable;
+                            }
+                            icon.source: "qrc:/assets/icon-next-blue.svg"
+                            onClicked: startWizzardView.push(create);
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 67
+                        Layout.maximumHeight: 143
                     }
                 }
             }
@@ -743,6 +1093,8 @@ Item
                                 text: strengthChecker.strength > 0 ? strengthChecker.strengthTests[strengthChecker.strength-1].msg : ""
                                 color: "#84a5b2"
                                 font.pixelSize: 14
+                                height: 16
+                                width: parent.width
                             }
                         }
 
@@ -772,48 +1124,52 @@ Item
                                 id: passwordError
                                 color: Style.validator_color
                                 font.pixelSize: 14
+                                height: 16
+                                width: parent.width
                             }
                         }
                     }
 
                     Item {
                         Layout.fillHeight: true
-                        Layout.fillWidth: true
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.bottom: parent.bottom
-                            bottomPadding: 143
-                    
-                            spacing: 30
+                        Layout.minimumHeight: 50
+                    }
 
-                            CustomButton {
-                                text: qsTr("back");
-                                icon.source: "qrc:/assets/icon-back.svg"
-                                onClicked: startWizzardView.pop();
-                            }
-                            PrimaryButton {
-                                text: qsTr("proceed to your wallet")
-                                icon.source : "qrc:/assets/icon-next-blue.svg"
-                                onClicked: {
-                                    if(password.text.length == 0)
-                                    {
-                                        passwordError.text = qsTr("Please, enter password");
-                                    }
-                                    else if(password.text != confirmPassword.text)
-                                    {
-                                        passwordError.text = qsTr("Passwords do not match");
-                                    }
-                                    else if(!viewModel.createWallet(password.text))
-                                    {
-                                        passwordError.text = qsTr("Error, something went wrong, wallet not created :(");
-                                    }
-                                    else
-                                    {
-                                        root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true});
-                                    }
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
+                    
+                        spacing: 30
+
+                        CustomButton {
+                            text: qsTr("back");
+                            icon.source: "qrc:/assets/icon-back.svg"
+                            onClicked: startWizzardView.pop();
+                        }
+                        PrimaryButton {
+                            text: qsTr("next")
+                            icon.source : "qrc:/assets/icon-next-blue.svg"
+                            onClicked: {
+                                if(password.text.length == 0)
+                                {
+                                    passwordError.text = qsTr("Please, enter password");
+                                }
+                                else if(password.text != confirmPassword.text)
+                                {
+                                    passwordError.text = qsTr("Passwords do not match");
+                                }
+                                else
+                                {
+                                    viewModel.setPassword(password.text);
+                                    startWizzardView.push(nodeSetup);
                                 }
                             }
                         }
+                    }
+                     
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 67
+                        Layout.maximumHeight: 143
                     }
                 }
             }
@@ -823,9 +1179,29 @@ Item
             id: nodeSetup
 
             Rectangle
-            {
+            {   
+                id: nodeSetupRectangle
                 color: Style.marine
                 property Item defaultFocusItem: localNodeButton
+
+                function onRestoreCancelled(useRandomNode) {
+                    if (useRandomNode) {
+                        nodeSetupRectangle.defaultFocusItem = randomNodeButton;
+                        randomNodeButton.checked = true;
+                    } else if (viewModel.getIsRunLocalNode()) {
+                        nodeSetupRectangle.defaultFocusItem = localNodeButton;
+                        localNodeButton.checked = true;
+
+                        portInput.text = viewModel.localPort;
+                        localNodePeer.text = viewModel.localNodePeer;
+                    } else {
+                        nodeSetupRectangle.defaultFocusItem = remoteNodeButton;
+                        remoteNodeButton.checked = true;
+
+                        remoteNodeAddrInput.text = viewModel.remoteNodeAddress;
+                    }
+                    nodeSetupRectangle.defaultFocusItem.focus = true;
+                }
 
                 ColumnLayout {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -838,7 +1214,7 @@ Item
                         SFText {
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Setup node connectivity (testnet)")
+                            text: qsTr("Setup node connectivity")
                             color: Style.white
                             font.pixelSize: 36
                         }
@@ -851,14 +1227,14 @@ Item
 
                         clip: true
 
-                        spacing: 30
+                        spacing: 15
                         ButtonGroup {
                             id: nodePreferencesGroup
                         }
 
                         CustomRadioButton {
                             id: localNodeButton
-                            text: qsTr("Run local node (recommended)")
+                            text: qsTr("Run integrated node (recommended)")
                             ButtonGroup.group: nodePreferencesGroup
                             font.pixelSize: 14
                             checked: true
@@ -867,6 +1243,7 @@ Item
                             id: localNodePanel
                             visible: localNodeButton.checked
                             width: parent.width
+                            leftPadding: 34
 
                             spacing: 10
 
@@ -883,7 +1260,7 @@ Item
 
                                 font.pixelSize: 14
                                 color: Style.white
-                                text: "10000"
+                                text: "10005"
                                 onTextChanged: if (portInput.text.length > 0) portError.text = ""
                             }
                             SFText {
@@ -891,53 +1268,42 @@ Item
                                 color: Style.validator_color
                                 font.pixelSize: 14
                             }
+
                             RowLayout {
-                                CustomSwitch {
-                                    id: useGpu
-                                    text: qsTr("Use GPU")
-                                    font.pixelSize: 12
-                                    checked: viewModel.useGpu
-                                    visible: viewModel.showUseGpu()
-                                    enabled: viewModel.hasSupportedGpu()
-                                    Binding {
-                                        target: viewModel
-                                        property: "useGpu"
-                                        value: useGpu.checked
-                                    }
-                                }
-                                SFText {
-                                    id: gpuError
-                                    color: Style.validator_color
-                                    font.pixelSize: 14
-                                    visible: viewModel.showUseGpu() && !viewModel.hasSupportedGpu()
-                                    text: qsTr("You have unsupported videocard")
-                                }
-                            }
-
-                            SFText {
-                                text: qsTr("Enter mining threads (0 - no mining)")
-                                color: !useGpu.checked ? Style.white : Style.disable_text_color
-                                font.pixelSize: 14
-                                font.styleName: "Bold"; font.weight: Font.Bold
-                            }
-
-                            FeeSlider {
-                                id: miningInput
-                                precision: 0
-                                showTicks: true
                                 width: parent.width
-                                enabled: !useGpu.checked
-                                value: 0
-                                to: {viewModel.coreAmount()}
-                                stepSize: 1
+                                spacing: 10
+
+                                SFText {
+                                    text: qsTr("Peer")
+                                    color: Style.white
+                                    font.pixelSize: 14
+                                    font.styleName: "Bold"; font.weight: Font.Bold
+                                }
+
+                                SFTextInput {
+                                    id: localNodePeer
+                                    Layout.fillWidth: true
+                                    activeFocusOnTab: true
+                                    font.pixelSize: 12
+                                    color: Style.white
+                                    text: viewModel.chooseRandomNode()
+                                    validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
+                                    onTextChanged: if (peerError.text.length > 0) peerError.text = ""
+                                }
+                            }
+                            SFText {
+                                id: peerError
+                                color: Style.validator_color
+                                font.pixelSize: 14
                             }
                         }
 
                         CustomRadioButton {
-                            id: testnetNodeButton
+                            id: randomNodeButton
                             text: qsTr("Connect to random remote node")
                             ButtonGroup.group: nodePreferencesGroup
                             font.pixelSize: 14
+                            enabled: viewModel.isRecoveryMode == false
                         }
                         Row {
                             width: parent.width
@@ -947,6 +1313,7 @@ Item
                                 text: qsTr("Connect to specific remote node")
                                 ButtonGroup.group: nodePreferencesGroup
                                 font.pixelSize: 14
+                                enabled: viewModel.isRecoveryMode == false
                             }
                             SFTextInput {
                                 id:remoteNodeAddrInput
@@ -954,8 +1321,8 @@ Item
                                 width: parent.width - parent.spacing - remoteNodeButton.width
                                 font.pixelSize: 14
                                 color: Style.white
-                                text: "127.0.0.1:10000"
-                                validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
+                                text: "127.0.0.1:10005"
+                                validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                 onTextChanged: if (remoteNodeAddrInput.text.length > 0) remoteNodeAddrError.text = ""
                                 bottomPadding: 8 // TODO add default value of this item to controls
                             }
@@ -978,184 +1345,283 @@ Item
 
                     Item {
                         Layout.fillHeight: true
-                        Layout.fillWidth: true
+                        Layout.minimumHeight: 20
+                    }
 
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: 30
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
+                        spacing: 30
 
-                            CustomButton {
-                                text: qsTr("back");
-                                icon.source: "qrc:/assets/icon-back.svg"
-                                onClicked: startWizzardView.pop();
-                            }
+                        CustomButton {
+                            text: qsTr("back");
+                            icon.source: "qrc:/assets/icon-back.svg"
+                            onClicked: startWizzardView.pop();
+                        }
 
-                            PrimaryButton {
-                                text: qsTr("next");
-                                icon.source: "qrc:/assets/icon-next-blue.svg"
-                                enabled: nodePreferencesGroup.checkState != Qt.Unchecked
-                                onClicked:{
-                                    if (localNodeButton.checked) {
-                                        var portEmpty = portInput.text.trim().length === 0;
-                                        if (portEmpty) {
-                                            portError.text = qsTr("Please, specify port to listen ");
-                                        }
-                                        if (!portEmpty) {
-                                            viewModel.setupLocalNode(parseInt(portInput.text), parseInt(miningInput.value));
-                                        }
-                                        else {
-                                            return;
-                                        }
+                        PrimaryButton {
+                            text: viewModel.isRecoveryMode ? qsTr("restore wallet") : qsTr("proceed to your wallet");
+                            icon.source: viewModel.isRecoveryMode ? "qrc:/assets/icon-restore-blue.svg" : "qrc:/assets/icon-next-blue.svg"
+                            enabled: nodePreferencesGroup.checkState != Qt.Unchecked
+                            onClicked:{
+                                if (localNodeButton.checked) {
+                                    if (portInput.text.trim().length === 0) {
+                                        portError.text = qsTr("Please, specify port to listen ");
+                                        return;
                                     }
-                                    else if (remoteNodeButton.checked) {
-                                        if (remoteNodeAddrInput.text.trim().length === 0) {
-                                            remoteNodeAddrError.text = qsTr("Please, specify address of the remote node");
-                                            return;
-                                        }
-                                        viewModel.setupRemoteNode(remoteNodeAddrInput.text.trim());
+                                    if (localNodePeer.text.trim().length === 0) {
+                                        peerError.text = qsTr("Please, specify correct peer");
+                                        return;
                                     }
-                                    else if (testnetNodeButton.checked) {
-                                        viewModel.setupTestnetNode();
+                                    if (!localNodePeer.acceptableInput) {
+                                        peerError.text = qsTr("Please, specify peer");
+                                        return;
                                     }
-                                    startWizzardView.push(viewModel.isRecoveryMode ? restoreWallet : createWalletEntry);
+
+                                    viewModel.setupLocalNode(parseInt(portInput.text), localNodePeer.text);
+                                }
+                                else if (remoteNodeButton.checked) {
+                                    if (remoteNodeAddrInput.text.trim().length === 0) {
+                                        remoteNodeAddrError.text = qsTr("Please, specify address of the remote node");
+                                        return;
+                                    }
+                                    viewModel.setupRemoteNode(remoteNodeAddrInput.text.trim());
+                                }
+                                else if (randomNodeButton.checked) {
+                                    viewModel.setupRandomNode();
+                                }
+
+                                if (viewModel.createWallet()) {
+                                    startWizzardView.push("qrc:/loading.qml", {"isRecoveryMode" : viewModel.isRecoveryMode, "isCreating" : true, "cancelCallback": startWizzardView.pop});
+                                }
+                                else {
+                                    // TODO(alex.starun): error message if wallet not created
                                 }
                             }
                         }
                     }
-                }
-            }
-        }
-    }
-
-    Rectangle
-    {
-        id: open
-
-        visible: false
-
-        anchors.fill: parent
-
-        color: Style.marine
-
-        Image {
-            fillMode: Image.PreserveAspectCrop
-            anchors.fill: parent
-            source: "qrc:/assets/bg.svg"
-        }
-
-        Loader { 
-            sourceComponent: logoComponent 
-            
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: parent.top
-            anchors.topMargin: 140
-        }
-
-
-        Column {
-            
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: parent.top
-            anchors.topMargin: 439
-
-            spacing: 50
-
-            SFText {
-                text: qsTr("Enter your password to access the current wallet")
-                color: Style.white
-                font.pixelSize: 14
-
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
-
-            Column {
-                width: 400
-
-                spacing: 10
-
-                SFText {
-                    text: qsTr("Enter password")
-                    color: Style.white
-                    font.pixelSize: 14
-                    font.styleName: "Bold"; font.weight: Font.Bold
-                }
-
-                SFTextInput {
-                    id: openPassword
-                    width: parent.width
-                    focus: true
-                    activeFocusOnTab: true
-                    font.pixelSize: 14
-                    color: Style.white
-                    echoMode: TextInput.Password
-                    onAccepted: btnCurrentWallet.clicked()
-                    onTextChanged: if (openPassword.text.length > 0) openPasswordError.text = ""
-
-                }
-
-                SFText {
-                    id: openPasswordError
-                    color: Style.validator_color
-                    font.pixelSize: 14
-                }
-            }
-
-            Row {
-                anchors.horizontalCenter: parent.horizontalCenter
-
-                spacing: 30
-
-                //DefaultButton {
-                //    text: qsTr("restore wallet from file")
-                    // activeFocusOnTab: true
-                //}
-
-                PrimaryButton {
-                    anchors.verticalCenter: parent.verticalCenter
-                    id: btnCurrentWallet
-                    text: qsTr("show my wallet")
-                    icon.source: "qrc:/assets/icon-wallet-small.svg"
-                    onClicked: {
-                        if(openPassword.text.length == 0)
-                        {
-                            openPasswordError.text = qsTr("Please, enter password");
-                        }
-                        else
-                        {
-                            if(!viewModel.openWallet(openPassword.text))
-                            {
-                                openPasswordError.text = qsTr("Invalid password or wallet data unreadable.\nRestore wallet.db from latest backup or delete it and reinitialize the wallet.");
-                            }
-                            else
-                            {
-                                 root.parent.setSource("qrc:/restore.qml", {"isRecoveryMode" : false, "isCreating" : false});
-                            }
-                        }
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 67
+                        Layout.maximumHeight: 143
                     }
                 }
             }
         }
 
-    }
+        Component {
+            id: open
+            Rectangle
+            {
+                property Item defaultFocusItem: openPassword
 
-    Component.onCompleted:{
-        root.state = viewModel.walletExists ? "open" : "start"
-    }
+                property bool firstButtonVisible: false
+                property string firstButtonText: qsTr("login to another wallet")
+                property var firstButtonIcon: "qrc:/assets/icon-change.svg"
+                property var firstButtonAction: confirmChangeWalletDialog.open
 
-    states: [
-        State {
-            name: "start"
-        },
+                // default methods for open wallet, can be changed for unlock wallet
+                property var openWallet: function (pass) {
+                    return viewModel.openWallet(pass);
+                }
+                property var loadWallet: function () {
+                    root.parent.setSource("qrc:/loading.qml", {"isRecoveryMode" : false, "isCreating" : false});
+                }
 
-        State {
-            name: "open"
-            PropertyChanges {target: startWizzardView; visible: false}
-            PropertyChanges {target: open; visible: true}
-            StateChangeScript {
-                script: openPassword.forceActiveFocus(Qt.TabFocusReason);
+                color: Style.marine
+
+                Image {
+                    fillMode: Image.PreserveAspectCrop
+                    anchors.fill: parent
+                    source: "qrc:/assets/bg.svg"
+                }
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 70
+                        Layout.maximumHeight: 280
+                    }
+
+                    Loader { 
+                        sourceComponent: logoComponent 
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 200//187
+                        Layout.maximumHeight: 269
+                    }
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                        Layout.maximumHeight: 89
+
+                    }
+                    Item {
+                        Layout.preferredHeight: 186 
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 67
+                    }
+                }
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 70
+                        Layout.maximumHeight: 280
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 200
+                        Layout.maximumHeight: 269
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                        Layout.maximumHeight: 89
+                    }
+
+                    SFText {
+                        Layout.alignment: Qt.AlignHCenter
+                
+                        text: qsTr("Enter your password to access the current wallet")
+                        color: Style.white
+                        font.pixelSize: 14
+                    }
+
+                    Column {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.preferredWidth: 400
+                        Layout.topMargin: 50
+                        spacing: 2
+
+                        SFText {
+                            text: qsTr("Enter password")
+                            color: Style.white
+                            font.pixelSize: 14
+                            font.styleName: "Bold"; font.weight: Font.Bold
+                        }
+
+                        SFTextInput {
+                            id: openPassword
+                            width: parent.width
+                            focus: true
+                            activeFocusOnTab: true
+                            font.pixelSize: 14
+                            color: Style.white
+                            echoMode: TextInput.Password
+                            onAccepted: btnCurrentWallet.clicked()
+                            onTextChanged: if (openPassword.text.length > 0) openPasswordError.text = ""
+
+                        }
+
+                        SFText {
+                            height: 16
+                            width: parent.width
+                            id: openPasswordError
+                            color: Style.validator_color
+                            font.pixelSize: 14
+                        }
+                    }
+
+                    ConfirmationDialog {
+                        id: confirmChangeWalletDialog
+                        okButtonText: qsTr("change wallet")
+                        okButtonIconSource: "qrc:/assets/icon-change-blue.svg"
+                        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+                        cancelVisible: true
+                        width: 460
+                        text: qsTr("If you login to another wallet, all unsaved transaction history for the current wallet will be lost.")
+                        onAccepted: {
+                            viewModel.isRecoveryMode = true;
+                            startWizzardView.push(restoreWallet);
+                        }
+                    }
+
+                    ConfirmationDialog {
+                        id: confirmFogotPassDialog
+                        okButtonText: qsTr("restore wallet")
+                        okButtonIconSource: "qrc:/assets/icon-restore-blue.svg"
+                        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+                        cancelVisible: true
+                        width: 460
+                        text: qsTr("You can restore you wallet using your seed phrase but all transaction history will be lost.")
+                        onAccepted: {
+                            viewModel.isRecoveryMode = true;
+                            startWizzardView.push(restoreWallet);
+                        }
+                    }
+                    
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.topMargin: 33
+                        spacing: 19
+                        
+                        CustomButton {
+                            visible: firstButtonVisible
+                            text: firstButtonText
+                            icon.source: firstButtonIcon
+                            onClicked: firstButtonAction()
+                        }
+
+                        PrimaryButton {
+                            anchors.verticalCenter: parent.verticalCenter
+                            id: btnCurrentWallet
+                            text: qsTr("show my wallet")
+                            icon.source: "qrc:/assets/icon-wallet-small.svg"
+                            onClicked: {
+                                if(openPassword.text.length == 0)
+                                {
+                                    openPasswordError.text = qsTr("Please, enter password");
+                                }
+                                else
+                                {
+                                    if(!openWallet(openPassword.text))
+                                    {
+                                        openPasswordError.text = qsTr("Invalid password provided.");
+                                    }
+                                    else
+                                    {
+                                        loadWallet();
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 67
+                    }
+                }
             }
         }
-    ]
+
+        Component.onCompleted: {
+            if (isLockedMode) {
+                startWizzardView.push(open, { "openWallet": function (pass) { return viewModel.checkWalletPassword(pass); },
+                                              "loadWallet": function () { root.parent.setSource("qrc:/main.qml"); } });
+            }
+            else if (viewModel.walletExists) {
+                startWizzardView.push(open);
+            }
+            else if (viewModel.isFindExistingWalletDB())
+            {
+                startWizzardView.push(migrate);
+            }
+            else {
+                startWizzardView.push(start);
+            }
+        }
+    }
 }
 

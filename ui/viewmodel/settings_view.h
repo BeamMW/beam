@@ -16,48 +16,42 @@
 
 #include <QObject>
 #include <QSettings>
+#include <QQmlListProperty>
 
 #include "model/settings.h"
+
 
 class SettingsViewModel : public QObject
 {
     Q_OBJECT
 
     Q_PROPERTY(QString nodeAddress READ getNodeAddress WRITE setNodeAddress NOTIFY nodeAddressChanged)
-    Q_PROPERTY(QString version READ version CONSTANT)
+    Q_PROPERTY(QString version READ getVersion CONSTANT)
     Q_PROPERTY(bool localNodeRun READ getLocalNodeRun WRITE setLocalNodeRun NOTIFY localNodeRunChanged)
     Q_PROPERTY(uint localNodePort READ getLocalNodePort WRITE setLocalNodePort NOTIFY localNodePortChanged)
-    Q_PROPERTY(uint localNodeMiningThreads READ getLocalNodeMiningThreads WRITE setLocalNodeMiningThreads NOTIFY localNodeMiningThreadsChanged)
-    Q_PROPERTY(uint localNodeVerificationThreads READ getLocalNodeVerificationThreads WRITE setLocalNodeVerificationThreads NOTIFY localNodeVerificationThreadsChanged)
     Q_PROPERTY(bool isChanged READ isChanged NOTIFY propertiesChanged)
     Q_PROPERTY(QStringList localNodePeers READ getLocalNodePeers NOTIFY localNodePeersChanged)
     Q_PROPERTY(int lockTimeout READ getLockTimeout WRITE setLockTimeout NOTIFY lockTimeoutChanged)
     Q_PROPERTY(QString walletLocation READ getWalletLocation CONSTANT)
-    Q_PROPERTY(bool useGpu READ getUseGpu WRITE setUseGpu NOTIFY localNodeUseGpuChanged)
-
+    Q_PROPERTY(bool isLocalNodeRunning READ isLocalNodeRunning  NOTIFY localNodeRunningChanged)
 public:
 
     SettingsViewModel();
 
     QString getNodeAddress() const;
     void setNodeAddress(const QString& value);
-    QString version() const;
+    QString getVersion() const;
     bool getLocalNodeRun() const;
     void setLocalNodeRun(bool value);
     uint getLocalNodePort() const;
     void setLocalNodePort(uint value);
-    uint getLocalNodeMiningThreads() const;
-    void setLocalNodeMiningThreads(uint value);
-    uint getLocalNodeVerificationThreads() const;
-    void setLocalNodeVerificationThreads(uint value);
     int getLockTimeout() const;
     void setLockTimeout(int value);
 
     QStringList getLocalNodePeers() const;
     void setLocalNodePeers(const QStringList& localNodePeers);
     QString getWalletLocation() const;
-    void setUseGpu(bool value);
-    bool getUseGpu() const;
+    bool isLocalNodeRunning() const;
 
     bool isChanged() const;
 
@@ -66,8 +60,7 @@ public:
     Q_INVOKABLE void deleteLocalNodePeer(int index);
     Q_INVOKABLE void openUrl(const QString& url);
     Q_INVOKABLE void copyToClipboard(const QString& text);
-    Q_INVOKABLE bool showUseGpu() const;
-    Q_INVOKABLE bool hasSupportedGpu();
+    Q_INVOKABLE void refreshWallet();
 
 public slots:
     void applyChanges();
@@ -75,28 +68,23 @@ public slots:
 	void reportProblem();
     bool checkWalletPassword(const QString& oldPass) const;
     void changeWalletPassword(const QString& pass);
+    void onNodeStarted();
+    void onNodeStopped();
 
 signals:
     void nodeAddressChanged();
     void localNodeRunChanged();
     void localNodePortChanged();
-    void localNodeMiningThreadsChanged();
-    void localNodeVerificationThreadsChanged();
     void localNodePeersChanged();
     void propertiesChanged();
     void lockTimeoutChanged();
-    void localNodeUseGpuChanged();
+    void localNodeRunningChanged();
 private:
     WalletSettings& m_settings;
 
     QString m_nodeAddress;
     bool m_localNodeRun;
     uint m_localNodePort;
-    uint m_localNodeMiningThreads;
-    uint m_localNodeVerificationThreads;
     QStringList m_localNodePeers;
     int m_lockTimeout;
-#ifdef BEAM_USE_GPU
-    bool m_useGpu;
-#endif
 };

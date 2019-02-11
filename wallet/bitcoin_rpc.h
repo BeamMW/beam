@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "p2p/http_client.h"
+#include "http/http_client.h"
 
 namespace beam
 {

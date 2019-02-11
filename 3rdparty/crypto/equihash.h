@@ -161,17 +161,21 @@ inline constexpr size_t equihash_solution_size(unsigned int N, unsigned int K) {
     return (1 << K)*(N/(K+1)+1)/8;
 }
 
+constexpr uint8_t GetSizeInBytes(size_t N)
+{
+    return static_cast<uint8_t>((N + 7) / 8);
+}
+
 template<unsigned int N, unsigned int K>
 class Equihash
 {
 private:
     static_assert(K < N);
-    static_assert(N % 8 == 0);
     static_assert((N/(K+1)) + 1 < 8*sizeof(eh_index));
 
 public:
     enum : size_t { IndicesPerHashOutput=512/N };
-    enum : size_t { HashOutput=IndicesPerHashOutput*N/8 };
+    enum : size_t { HashOutput = IndicesPerHashOutput * GetSizeInBytes(N) };
     enum : size_t { CollisionBitLength=N/(K+1) };
     enum : size_t { CollisionByteLength=(CollisionBitLength+7)/8 };
     enum : size_t { HashLength=(K+1)*CollisionByteLength };

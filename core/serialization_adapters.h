@@ -164,21 +164,38 @@ namespace detail
         }
 
         /// ECC::uintBig serialization
-        template<typename Archive, uint32_t nBits_>
-        static Archive& save(Archive& ar, const beam::uintBig_t<nBits_>& val)
+        template<typename Archive, uint32_t nBytes_>
+        static Archive& save(Archive& ar, const beam::uintBig_t<nBytes_>& val)
         {
             ar & val.m_pData;
             return ar;
         }
 
-        template<typename Archive, uint32_t nBits_>
-        static Archive& load(Archive& ar, beam::uintBig_t<nBits_>& val)
+        template<typename Archive, uint32_t nBytes_>
+        static Archive& load(Archive& ar, beam::uintBig_t<nBytes_>& val)
         {
             ar & val.m_pData;
             return ar;
         }
 
-        /// ECC::Scalar serialization
+		/// beam::FourCC serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::FourCC& val)
+		{
+			ar & beam::uintBigFrom(val.V);
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::FourCC& val)
+		{
+			beam::uintBigFor<uint32_t>::Type x;
+			ar & x;
+			x.Export(val.V);
+			return ar;
+		}
+
+		/// ECC::Scalar serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const ECC::Scalar& scalar)
         {
@@ -202,8 +219,8 @@ namespace detail
 		{
 			ar
 				& kidv.m_Idx
-				& kidv.m_IdxSecondary
 				& kidv.m_Type
+				& kidv.m_SubIdx
 				& kidv.m_Value;
 
 			return ar;
@@ -214,14 +231,14 @@ namespace detail
 		{
 			ar
 				& kidv.m_Idx
-				& kidv.m_IdxSecondary
 				& kidv.m_Type
+				& kidv.m_SubIdx
 				& kidv.m_Value;
 
 			return ar;
 		}
 
-        /// ECC::Signature serialization
+		/// ECC::Signature serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const ECC::Signature& val)
         {
@@ -357,10 +374,11 @@ namespace detail
             ar
                 & val.m_Value
                 & val.m_Signature
-				& val.m_Kid.m_Idx
-				& val.m_Kid.m_Idx2
-				& val.m_Kid.m_Type
-            ;
+				& val.m_Recovery.m_Kid.m_Idx
+				& val.m_Recovery.m_Kid.m_Type
+				& val.m_Recovery.m_Kid.m_SubIdx
+				& val.m_Recovery.m_Checksum
+				;
 
             return ar;
         }
@@ -371,10 +389,11 @@ namespace detail
             ar
                 & val.m_Value
                 & val.m_Signature
-				& val.m_Kid.m_Idx
-				& val.m_Kid.m_Idx2
-				& val.m_Kid.m_Type
-            ;
+				& val.m_Recovery.m_Kid.m_Idx
+				& val.m_Recovery.m_Kid.m_Type
+				& val.m_Recovery.m_Kid.m_SubIdx
+				& val.m_Recovery.m_Checksum
+				;
 
             return ar;
         }
@@ -419,7 +438,8 @@ namespace detail
 				(output.m_Coinbase ? 2 : 0) |
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
-				(output.m_Incubation ? 0x10 : 0);
+				(output.m_Incubation ? 0x10 : 0) |
+				((output.m_AssetID == beam::Zero) ? 0 : 0x20);
 
 			ar
 				& nFlags
@@ -433,6 +453,9 @@ namespace detail
 
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
+
+			if (0x20 & nFlags)
+				ar & output.m_AssetID;
 
             return ar;
         }
@@ -462,6 +485,11 @@ namespace detail
 
 			if (0x10 & nFlags)
 				ar & output.m_Incubation;
+
+			if (0x20 & nFlags)
+				ar & output.m_AssetID;
+			else
+				output.m_AssetID = beam::Zero;
 
             return ar;
         }
@@ -498,7 +526,8 @@ namespace detail
 				((val.m_Height.m_Max != beam::Height(-1)) ? 8 : 0) |
 				(val.m_Signature.m_NoncePub.m_Y ? 0x10 : 0) |
 				(val.m_pHashLock ? 0x20 : 0) |
-				(val.m_vNested.empty() ? 0 : 0x40);
+				(val.m_vNested.empty() ? 0 : 0x40) |
+				(val.m_AssetEmission ? 0x80 : 0);
 
 			ar
 				& nFlags
@@ -526,6 +555,9 @@ namespace detail
 				for (uint32_t i = 0; i < nCount; i++)
 					save(ar, *val.m_vNested[i]);
 			}
+
+			if (0x80 & nFlags)
+				ar & val.m_AssetEmission;
 
             return ar;
         }
@@ -584,6 +616,11 @@ namespace detail
 					load_Recursive(ar, *v, nRecusion);
 				}
 			}
+
+			if (0x80 & nFlags)
+				ar & val.m_AssetEmission;
+			else
+				val.m_AssetEmission = 0;
 
             return ar;
         }
@@ -657,14 +694,14 @@ namespace detail
         }
 
 		template<typename Archive>
-		static Archive& save(Archive& ar, const beam::TxVectors::Ethernal& txv)
+		static Archive& save(Archive& ar, const beam::TxVectors::Eternal& txv)
 		{
 			save_VecPtr(ar, txv.m_vKernels);
 			return ar;
 		}
 
 		template<typename Archive>
-		static Archive& load(Archive& ar, beam::TxVectors::Ethernal& txv)
+		static Archive& load(Archive& ar, beam::TxVectors::Eternal& txv)
 		{
 			load_VecPtr(ar, txv.m_vKernels);
 			return ar;
@@ -675,7 +712,7 @@ namespace detail
         {
 			ar
 				& Cast::Down<beam::TxVectors::Perishable>(tx)
-				& Cast::Down<beam::TxVectors::Ethernal>(tx)
+				& Cast::Down<beam::TxVectors::Eternal>(tx)
 				& Cast::Down<beam::TxBase>(tx);
 
             return ar;
@@ -686,7 +723,7 @@ namespace detail
         {
 			ar
 				& Cast::Down<beam::TxVectors::Perishable>(tx)
-				& Cast::Down<beam::TxVectors::Ethernal>(tx)
+				& Cast::Down<beam::TxVectors::Eternal>(tx)
 				& Cast::Down<beam::TxBase>(tx);
 
             return ar;
@@ -801,36 +838,14 @@ namespace detail
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::Block::BodyBase& bb)
 		{
-			uint8_t nFlags =
-				(bb.m_Subsidy.Hi ? 1 : 0) |
-				(bb.m_SubsidyClosing ? 2 : 0);
-
-			ar & (const beam::TxBase&) bb;
-			ar & nFlags;
-			ar & bb.m_Subsidy.Lo;
-
-			if (bb.m_Subsidy.Hi)
-				ar & bb.m_Subsidy.Hi;
-
+			ar & Cast::Down<beam::TxBase>(bb);
 			return ar;
 		}
 
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::Block::BodyBase& bb)
 		{
-			uint8_t nFlags;
-
-			ar & (beam::TxBase&) bb;
-			ar & nFlags;
-			ar & bb.m_Subsidy.Lo;
-
-			if (1 & nFlags)
-				ar & bb.m_Subsidy.Hi;
-			else
-				bb.m_Subsidy.Hi = 0;
-
-			bb.m_SubsidyClosing = ((2 & nFlags) != 0);
-
+			ar & Cast::Down<beam::TxBase>(bb);
 			return ar;
 		}
 
@@ -839,7 +854,7 @@ namespace detail
 		{
 			ar & Cast::Down<beam::Block::BodyBase>(bb);
 			ar & Cast::Down<beam::TxVectors::Perishable>(bb);
-			ar & Cast::Down<beam::TxVectors::Ethernal>(bb);
+			ar & Cast::Down<beam::TxVectors::Eternal>(bb);
 
 			return ar;
 		}
@@ -849,7 +864,7 @@ namespace detail
 		{
 			ar & Cast::Down<beam::Block::BodyBase>(bb);
 			ar & Cast::Down<beam::TxVectors::Perishable>(bb);
-			ar & Cast::Down<beam::TxVectors::Ethernal>(bb);
+			ar & Cast::Down<beam::TxVectors::Eternal>(bb);
 
 			return ar;
 		}

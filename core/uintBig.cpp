@@ -30,6 +30,12 @@ namespace beam {
 
 		char sz[nDigitsMax * 2 + 1];
 
+		_Print(pDst, nDst, sz);
+		s << sz;
+	}
+
+	void uintBigImpl::_Print(const uint8_t* pDst, uint32_t nDst, char* sz)
+	{
 		for (uint32_t i = 0; i < nDst; i++)
 		{
 			sz[i * 2] = ChFromHex(pDst[i] >> 4);
@@ -37,7 +43,6 @@ namespace beam {
 		}
 
 		sz[nDst << 1] = 0;
-		s << sz;
 	}
 
 	void uintBigImpl::_Assign(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc)
@@ -217,6 +222,155 @@ namespace beam {
 
 		memset0(pDst, nOffs);
 		return true;
+	}
+
+	FourCC::Text::Text(uint32_t n)
+	{
+		reinterpret_cast<uintBigFor<uint32_t>::Type&>(m_sz) = n; // convertion
+		m_sz[_countof(m_sz) - 1] = 0;
+
+		// fix illegal chars
+		for (size_t i = 0; i < _countof(m_sz) - 1; i++)
+		{
+			char& c = m_sz[i];
+			if ((c < ' ') || (c > '~'))
+				c = ' ';
+		}
+	}
+
+	std::ostream& operator << (std::ostream& s, const FourCC& x)
+	{
+		s << FourCC::Text(x);
+		return s;
+	}
+
+	std::ostream& operator << (std::ostream& s, const FourCC::Text& x)
+	{
+		s << x.m_sz;
+		return s;
+	}
+
+	void uintBigImpl::_ShiftRight(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc, uint32_t nBits)
+	{
+		// assuming pDst and pSrc may be the same
+
+		uint32_t nBytes = nBits >> 3;
+		if (nBytes >= nSrc)
+			nSrc = nBits = 0;
+		else
+		{
+			nSrc -= nBytes;
+			nBits &= 7;
+		}
+
+		uint8_t* pDst0 = pDst;
+
+		if (nDst > nSrc)
+		{
+			pDst += nDst - nSrc;
+			nDst = nSrc;
+		}
+		else
+			pSrc += nSrc - nDst;
+
+		if (nBits)
+		{
+			uint32_t nLShift = 8 - nBits;
+
+			for (uint32_t i = nDst; i--; )
+			{
+				// pSrc and pDst may be the same
+				pDst[i] = pSrc[i] >> nBits;
+				if (nSrc + i > nDst)
+					pDst[i] |= (pSrc[int32_t(i - 1)] << nLShift);
+			}
+		}
+		else
+			memmove(pDst, pSrc, nDst);
+
+		memset0(pDst0, pDst - pDst0);
+	}
+
+	void uintBigImpl::_ShiftLeft(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc, uint32_t nBits)
+	{
+		// assuming pDst and pSrc may be the same
+
+		uint32_t nBytes = nBits >> 3;
+		if (nBytes >= nDst)
+		{
+			nBytes = nDst;
+			nDst = nBits = 0;
+		}
+		else
+		{
+			nBits &= 7;
+			nDst -= nBytes;
+		}
+
+		uint8_t* pDst0 = pDst;
+
+		if (nSrc > nDst)
+		{
+			pSrc += nSrc - nDst;
+			nSrc = nDst;
+		}
+		else
+		{
+			memset0(pDst, nDst - nSrc);
+			pDst += nDst - nSrc;
+		}
+
+		if (nBits)
+		{
+			if (nSrc)
+			{
+				uint32_t nRShift = 8 - nBits;
+
+				if (nDst > nSrc)
+					pDst[-1] = pSrc[0] >> nRShift;
+
+				for (size_t i = 0; i < nSrc; i++)
+				{
+					pDst[i] = pSrc[i] << nBits;
+					if (i + 1 < nSrc)
+						pDst[i] |= pSrc[i + 1] >> nRShift;
+				}
+			}
+		}
+		else
+			memmove(pDst, pSrc, nSrc);
+
+		memset0(pDst0 + nDst, nBytes);
+	}
+
+	void uintBigImpl::_Div(uint8_t* pDst, uint32_t nDst, const uint8_t* pA, uint32_t nA, const uint8_t* pB, uint32_t nB, uint8_t* pMul, uint8_t* pTmp)
+	{
+		memset0(pDst, nDst);
+		memset0(pMul, nA);
+
+		uint32_t nOrder = _GetOrder(pB, nB);
+		if (nOrder > (nA << 3))
+			return;
+
+		for (uint32_t nShift = 1 + std::min((nA << 3) - nOrder, (nDst << 3) - 1); nShift--; )
+		{
+			_ShiftLeft(pTmp, nA, pB, nB, nShift);
+			_Inc(pTmp, nA, pMul, nA);
+
+			if (_Cmp(pMul, nA, pTmp, nA) > 0)
+				continue; // overflow
+
+			if (_Cmp(pA, nA, pTmp, nA) < 0)
+				continue; // exceeded
+
+			memcpy(pMul, pTmp, nA);
+			pDst[nDst - (nShift >> 3) - 1] |= (1 << (7 & nShift));
+		}
+
+#ifndef NDEBUG
+		_Mul(pTmp, nA, pB, nB, pDst, nDst);
+		assert(!_Cmp(pTmp, nA, pMul, nA));
+#endif // NDEBUG
 	}
 
 } // namespace beam

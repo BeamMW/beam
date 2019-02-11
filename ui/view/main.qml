@@ -13,6 +13,10 @@ Rectangle {
 
 	MainViewModel {id: viewModel}
 
+    StatusbarViewModel {
+        id: statusbarModel
+    }
+
     color: Style.marine
 
     MouseArea {
@@ -32,7 +36,7 @@ Rectangle {
     property var contentItems : [
 		//"dashboard",
 		"wallet", 
-		//"address-book", 
+		"addresses", 
 		"utxo",
 		//"notification", 
 		//"info",
@@ -122,15 +126,6 @@ Rectangle {
             width: 40
             height: 28
             source: "qrc:/assets/logo.svg"
-
-			MouseArea {
-                id: mouseArea
-                anchors.fill: parent
-                onClicked: {
-					selectedItem = -1;
-					content.setSource("qrc:/dashboard.qml");
-				}
-            }
         }
 
     }
@@ -166,7 +161,7 @@ Rectangle {
     Connections {
         target: viewModel
         onGotoStartScreen: { 
-            main.parent.source = "qrc:/start.qml"
+            main.parent.setSource("qrc:/start.qml", {"isLockedMode": true});
         }
     }
 

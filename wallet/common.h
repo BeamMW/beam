@@ -19,11 +19,44 @@
 
 #include "core/serialization_adapters.h"
 #include "core/proto.h"
+#include <algorithm>
 
 namespace beam
 {
     using TxID = std::array<uint8_t, 16>;
-    using WalletID = PeerID;
+
+#pragma pack (push, 1)
+    struct WalletID
+    {
+        uintBigFor<BbsChannel>::Type m_Channel;
+        PeerID m_Pk;
+
+        WalletID() {}
+        WalletID(Zero_)
+        {
+            m_Channel = Zero;
+            m_Pk = Zero;
+        }
+
+        template <typename Archive>
+        void serialize(Archive& ar)
+        {
+            ar
+                & m_Channel
+                & m_Pk;
+        }
+
+        bool FromBuf(const ByteBuffer&);
+        bool FromHex(const std::string&);
+
+        bool IsValid() const; // isn't cheap
+
+        int cmp(const WalletID&) const;
+        COMPARISON_VIA_CMP
+    };
+#pragma pack (pop)
+
+    bool check_receiver_address(const std::string& addr);
 
     struct PrintableAmount
     {
@@ -45,7 +78,28 @@ namespace beam
         Cancelled,
         Completed,
         Failed,
-        Registered
+        Registering
+    };
+
+#define BEAM_TX_FAILURE_REASON_MAP(MACRO) \
+    MACRO(Unknown,                0, "Unknown reason") \
+    MACRO(Cancelled,              1, "Transaction was cancelled") \
+    MACRO(InvalidPeerSignature,   2, "Peer's signature in not valid ") \
+    MACRO(FailedToRegister,       3, "Failed to register transaction") \
+    MACRO(InvalidTransaction,     4, "Transaction is not valid") \
+    MACRO(InvalidKernelProof,     5, "Invalid kernel proof provided") \
+    MACRO(FailedToSendParameters, 6, "Failed to send tx parameters") \
+    MACRO(NoInputs,               7, "No inputs") \
+    MACRO(ExpiredAddressProvided, 8, "Address is expired") \
+    MACRO(FailedToGetParameter,   9, "Failed to get parameter") \
+    MACRO(TransactionExpired,     10, "Transaction has expired") \
+    MACRO(NoPaymentProof,         11, "Payment not signed by the receiver") \
+
+    enum TxFailureReason : int32_t
+    {
+#define MACRO(name, code, _) name = code, 
+        BEAM_TX_FAILURE_REASON_MAP(MACRO)
+#undef MACRO
     };
 
     struct TxDescription
@@ -64,7 +118,7 @@ namespace beam
             : m_txId{ txId }
             , m_amount{ amount }
             , m_fee{ fee }
-			, m_change{}
+            , m_change{}
             , m_minHeight{ minHeight }
             , m_peerId{ peerId }
             , m_myId{myId}
@@ -73,28 +127,31 @@ namespace beam
             , m_modifyTime{ createTime }
             , m_sender{ sender }
             , m_status{ TxStatus::Pending }
-            , m_fsmState{}
-        {}
+        {
+
+        }
 
         TxID m_txId;
         Amount m_amount=0;
         Amount m_fee=0;
-		Amount m_change=0;
+        Amount m_change=0;
         Height m_minHeight=0;
-        WalletID m_peerId = {0};
-        WalletID m_myId = {0};
+        WalletID m_peerId = Zero;
+        WalletID m_myId = Zero;
         ByteBuffer m_message;
         Timestamp m_createTime=0;
         Timestamp m_modifyTime=0;
         bool m_sender=false;
+        bool m_selfTx = false;
         TxStatus m_status=TxStatus::Pending;
-        ByteBuffer m_fsmState;
+        Merkle::Hash m_kernelID = Zero;
+        TxFailureReason m_failureReason = TxFailureReason::Unknown;
 
         bool canResume() const
         {
             return m_status == TxStatus::Pending 
                 || m_status == TxStatus::InProgress 
-                || m_status == TxStatus::Registered;
+                || m_status == TxStatus::Registering;
         }
 
         bool canCancel() const
@@ -126,9 +183,6 @@ namespace beam
         ByteBuffer toByteBuffer(const ECC::Point::Native& value);
         ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
 
-        std::pair<ECC::Scalar::Native, ECC::Scalar::Native> splitKey(const ECC::Scalar::Native& key, uint64_t index);
-        Block::SystemState::ID GetEmptyID();
-        const uint32_t MaxSignatures = 10;
         enum class TxParameterID : uint8_t
         {
             // public parameters
@@ -145,15 +199,20 @@ namespace beam
             CreateTime = 10,
             IsInitiator = 11,
             MaxHeight = 12,
+            AmountList = 13,
+            PreselectedCoins = 14,
+
+            PeerProtoVersion = 16,
 
             AtomicSwapCoin = 20,
             AtomicSwapAmount = 21,
 
+            PeerPublicSharedBlindingFactor = 23,
+
             LockedAmount = 25,
             LockedMinHeight = 26,
             
-
-            PeerPublicSharedBlindingFactor = 23,
+            IsSelfTx = 27,
 
             // signature parameters
 
@@ -184,26 +243,33 @@ namespace beam
 
             FailureReason = 92,
 
+            PaymentConfirmation = 99,
+
             // private parameters
             PrivateFirstParam = 128,
 
             ModifyTime = 128,
             KernelProofHeight = 129,
 
-            BlindingExcess = 130, // + MaxSignatures,
+            BlindingExcess = 130,
             SharedBlindingExcess = 131,
             LockedBlindingExcess = 132,
 
-            Offset = 140, // + MaxSignatures reserved
+            KernelUnconfirmedHeight = 133,
+
+            Offset = 140,
             SharedOffset = 141,
             LockedOffset = 142,
 
             Change = 150,
             Status = 151,
+            KernelID = 152,
+
+            MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
 
             SharedBlindingFactor = 160,
             LockedBlindingFactor = 161,
-			MyNonce = 162,
+            MyNonce = 162,
             SharedPeerBlindingFactor = 170,
 
             Inputs = 180,
@@ -231,8 +297,8 @@ namespace beam
         // messages
         struct SetTxParameter
         {
-            WalletID m_from;
-            TxID m_txId;
+            WalletID m_From;
+            TxID m_TxID;
 
             TxType m_Type;
 
@@ -245,7 +311,30 @@ namespace beam
                 return *this;
             }
 
-            SERIALIZE(m_from, m_txId, m_Type, m_Parameters);
+            template <typename T>
+            bool GetParameter(TxParameterID paramID, T& value) const 
+            {
+                auto pit = std::find_if(m_Parameters.begin(), m_Parameters.end(), [paramID](const auto& p) { return p.first == paramID; });
+                if (pit == m_Parameters.end())
+                {
+                    return false;
+                }
+                const ByteBuffer& b = pit->second;
+                
+                if (!b.empty())
+                {
+                    Deserializer d;
+                    d.reset(b.data(), b.size());
+                    d & value;
+                }
+                else
+                {
+                    ZeroObject(value);
+                }
+                return true;
+            }
+
+            SERIALIZE(m_From, m_TxID, m_Type, m_Parameters);
             static const size_t MaxParams = 20;
         };
 
@@ -258,6 +347,36 @@ namespace beam
             virtual void confirm_kernel(const TxID&, const TxKernel&) = 0;
             virtual bool get_tip(Block::SystemState::Full& state) const = 0;
             virtual void send_tx_params(const WalletID& peerID, SetTxParameter&&) = 0;
+        };
+
+        enum class ErrorType : uint8_t
+        {
+            NodeProtocolBase,
+            NodeProtocolIncompatible,
+            ConnectionBase,
+            ConnectionTimedOut,
+            ConnectionRefused,
+            ConnectionHostUnreach,
+            ConnectionAddrInUse,
+            TimeOutOfSync,
+            InternalNodeStartFailed,
+        };
+
+        ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType);
+        ErrorType getWalletError(io::ErrorCode errorCode);
+
+        struct PaymentConfirmation
+        {
+            // I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
+            Amount m_Value;
+            ECC::Hash::Value m_KernelID;
+            PeerID m_Sender;
+            ECC::Signature m_Signature;
+
+            void get_Hash(ECC::Hash::Value&) const;
+            bool IsValid(const PeerID&) const;
+
+            void Sign(const ECC::Scalar::Native& sk);
         };
     }
 }

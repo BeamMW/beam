@@ -13,8 +13,6 @@
 // limitations under the License.
 
 #include "processor.h"
-#include "../utility/serialize.h"
-#include "../core/serialization_adapters.h"
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
 
@@ -29,14 +27,7 @@ void save_VecPtr(Archive& ar, const std::vector<TPtr>& v)
 
 void TxPool::Profit::SetSize(const Transaction& tx)
 {
-	// account only for elements. Ignore offset and array sizes
-	SerializerSizeCounter ssc;
-
-	save_VecPtr(ssc, tx.m_vInputs);
-	save_VecPtr(ssc, tx.m_vOutputs);
-	save_VecPtr(ssc, tx.m_vKernels);
-
-	m_nSize = (uint32_t) ssc.m_Counter.m_Value;
+	m_nSize = (uint32_t) tx.get_Reader().get_SizeNetto();
 }
 
 bool TxPool::Profit::operator < (const Profit& t) const
@@ -44,18 +35,14 @@ bool TxPool::Profit::operator < (const Profit& t) const
 	// handle overflow. To be precise need to use big-int (96-bit) arithmetics
 	//	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;
 
-	uintBigFor<AmountBig>::Type fee0, fee1;
-	m_Fee.Export(fee0);
-	t.m_Fee.Export(fee1);
-
 	return
-		(fee0 * uintBigFrom(t.m_nSize)) >
-		(fee1 * uintBigFrom(m_nSize));
+		(m_Fee * uintBigFrom(t.m_nSize)) >
+		(t.m_Fee * uintBigFrom(m_nSize));
 }
 
 /////////////////////////////
 // Fluff
-void TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key)
+TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key)
 {
 	assert(pValue);
 
@@ -69,14 +56,34 @@ void TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Con
 	m_setThreshold.insert(p->m_Threshold);
 	m_setProfit.insert(p->m_Profit);
 	m_setTxs.insert(p->m_Tx);
+
+	p->m_Queue.m_Refs = 1;
+	m_Queue.push_back(p->m_Queue);
+
+	return p;
 }
 
 void TxPool::Fluff::Delete(Element& x)
 {
+	assert(x.m_pValue);
+	x.m_pValue.reset();
+
 	m_setThreshold.erase(ThresholdSet::s_iterator_to(x.m_Threshold));
 	m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
 	m_setTxs.erase(TxSet::s_iterator_to(x.m_Tx));
-	delete &x;
+
+	Release(x);
+}
+
+void TxPool::Fluff::Release(Element& x)
+{
+	assert(x.m_Queue.m_Refs);
+	if (!--x.m_Queue.m_Refs)
+	{
+		assert(!x.m_pValue);
+		m_Queue.erase(Queue::s_iterator_to(x.m_Queue));
+		delete &x;
+	}
 }
 
 void TxPool::Fluff::DeleteOutOfBound(Height h)
@@ -89,12 +96,6 @@ void TxPool::Fluff::DeleteOutOfBound(Height h)
 
 		Delete(t.get_ParentObj());
 	}
-}
-
-void TxPool::Fluff::ShrinkUpTo(uint32_t nCount)
-{
-	while (m_setProfit.size() > nCount)
-		Delete(m_setProfit.rbegin()->get_ParentObj());
 }
 
 void TxPool::Fluff::Clear()

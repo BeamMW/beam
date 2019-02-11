@@ -92,23 +92,26 @@ namespace beam
 
 namespace std
 {
-	void ThrowIoError()
+	void ThrowLastError()
 	{
 #ifdef WIN32
-		int nErrorCode = GetLastError();
+		ThrowSystemError(GetLastError());
 #else // WIN32
-		int nErrorCode = errno;
+		ThrowSystemError(errno);
 #endif // WIN32
+	}
 
+	void ThrowSystemError(int nErrorCode)
+	{
 		char sz[0x20];
-		snprintf(sz, _countof(sz), "I/O Error=%d", nErrorCode);
+		snprintf(sz, _countof(sz), "System Error=%d", nErrorCode);
 		throw runtime_error(sz);
 	}
 
 	void TestNoError(const ios& obj)
 	{
 		if (obj.fail())
-			ThrowIoError();
+			ThrowLastError();
 	}
 
 	FStream::FStream()
@@ -135,7 +138,7 @@ namespace std
 		if (m_F.fail())
 		{
 			if (bStrict)
-				ThrowIoError();
+				ThrowLastError();
 			return false;
 		}
 
@@ -219,6 +222,18 @@ namespace std
 	{
 		m_F.flush();
 		TestNoError(m_F);
+	}
+
+	uint64_t FStream::Tell()
+	{
+		if (!IsOpen())
+			return 0;
+
+		iostream::pos_type ret = m_F.tellg();
+		if (iostream::pos_type(-1) == ret)
+			ThrowLastError();
+
+		return ret;
 	}
 
 } // namespace std

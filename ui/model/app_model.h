@@ -20,10 +20,10 @@
 #include "node_model.h"
 #include "wallet/secstring.h"
 #include <memory>
-#include "wallet/keystore.h"
 
-class AppModel
+class AppModel : public QObject
 {
+    Q_OBJECT
 public:
 
     static AppModel* getInstance();
@@ -35,29 +35,33 @@ public:
 
     bool createWallet(const beam::SecString& seed, const beam::SecString& pass);
     bool openWallet(const beam::SecString& pass);
-	bool checkWalletPassword(const beam::SecString& pass) const;
+    bool checkWalletPassword(const beam::SecString& pass) const;
     void changeWalletPassword(const std::string& pass);
-    void setRestoreWallet(bool value);
-    bool shouldRestoreWallet() const;
 
     void applySettingsChanges();
 
     WalletSettings& getSettings();
     MessageManager& getMessages();
     NodeModel& getNode();
-private:
-    void start(beam::IKeyStore::Ptr);
+    void resetWallet();
 
-    void startNode();
+public slots:
+    void startedNode();
+    void stoppedNode();
+    void onFailedToStartNode(beam::wallet::ErrorType errorCode);
+
+private:
+    void start();
+    void OnWalledOpened(const beam::SecString& pass);
+    void resetWalletImpl();
 
 private:
 
     WalletModel::Ptr m_wallet;
-    std::unique_ptr<NodeModel> m_node;
+    NodeModel m_nodeModel;
     WalletSettings& m_settings;
     MessageManager m_messages;
-	ECC::NoLeak<ECC::uintBig> m_passwordHash;
+    ECC::NoLeak<ECC::uintBig> m_passwordHash;
     beam::IWalletDB::Ptr m_db;
     static AppModel* s_instance;
-    bool m_restoreWallet;
 };

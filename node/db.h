@@ -40,6 +40,8 @@ public:
 			MyID,
 			SyncTarget,
 			LoHorizon,
+			Treasury,
+			DummyID
 		};
 	};
 
@@ -51,6 +53,7 @@ public:
 			Commit,
 			Rollback,
 			Scheme,
+			AutoincrementID,
 			ParamGet,
 			ParamIns,
 			ParamUpd,
@@ -94,10 +97,6 @@ public:
 			StateSetBlock,
 			//StateDelBlock,
 			StateSetRollback,
-			MinedIns,
-			MinedUpd,
-			MinedDel,
-			MinedSel,
 			EventIns,
 			EventDel,
 			EventEnum,
@@ -108,12 +107,17 @@ public:
 			PeerAdd,
 			PeerDel,
 			PeerEnum,
-			BbsEnum,
-			BbsEnumAll,
+			BbsEnumCSeq,
+			BbsHistogram,
+			BbsEnumAllSeq,
+			BbsFindRaw,
 			BbsFind,
+			BbsFindCursor,
 			BbsDelOld,
 			BbsIns,
+			BbsMaxTime,
 			DummyIns,
+			DummyFindLowest,
 			DummyFind,
 			DummyUpdHeight,
 			DummyDel,
@@ -138,6 +142,8 @@ public:
 
 	void Close();
 	void Open(const char* szPath);
+
+	void Vacuum();
 
 	virtual void OnModified() {}
 
@@ -164,10 +170,12 @@ public:
 		void put(int col, uint64_t);
 		void put(int col, const Blob&);
 		void put(int col, const char*);
+		void put(int col, const Key::ID&, Key::ID::Packed&);
 		void get(int col, uint32_t&);
 		void get(int col, uint64_t&);
 		void get(int col, Blob&);
 		void get(int col, ByteBuffer&); // don't over-use
+		void get(int col, Key::ID&);
 
 		const void* get_BlobStrict(int col, uint32_t n);
 
@@ -204,7 +212,7 @@ public:
 	// Hi-level functions
 
 	void ParamSet(uint32_t ID, const uint64_t*, const Blob*);
-	bool ParamGet(uint32_t ID, uint64_t*, Blob*);
+	bool ParamGet(uint32_t ID, uint64_t*, Blob*, ByteBuffer* = NULL);
 
 	uint64_t ParamIntGetDef(int ID, uint64_t def = 0);
 
@@ -269,20 +277,6 @@ public:
 
 	void assert_valid(); // diagnostic, for tests only
 
-	void SetMined(const StateID&, const Amount&);
-	bool DeleteMinedSafe(const StateID&);
-
-	struct WalkerMined {
-		Recordset m_Rs;
-		StateID m_Sid;
-		Amount m_Amount;
-
-		WalkerMined(NodeDB& db) :m_Rs(db) {}
-		bool MoveNext();
-	};
-
-	void EnumMined(WalkerMined&, Height hMin); // from low to high
-
 	void EnumMacroblocks(WalkerState&); // highest to lowest
 	void MacroblockIns(uint64_t rowid);
 	void MacroblockDel(uint64_t rowid);
@@ -324,29 +318,59 @@ public:
 
 	struct WalkerBbs
 	{
+		typedef ECC::Hash::Value Key;
+
 		Recordset m_Rs;
+		uint64_t m_ID;
 
 		struct Data {
-			ECC::Hash::Value m_Key;
+			Key m_Key;
 			BbsChannel m_Channel;
 			Timestamp m_TimePosted;
 			Blob m_Message;
+			uint32_t m_Nonce;
+			bool m_bNonce;
 		} m_Data;
 
 		WalkerBbs(NodeDB& db) :m_Rs(db) {}
 		bool MoveNext();
 	};
 
-	void EnumBbs(WalkerBbs&); // set channel and min time before invocation
-	void EnumAllBbs(WalkerBbs&); // ordered by Channel,Time.
-	void BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it)
+	void EnumBbsCSeq(WalkerBbs&); // set channel and ID before invocation
+	uint64_t BbsIns(const WalkerBbs::Data&); // must be unique (if not sure - first try to find it). Returns the ID
 	bool BbsFind(WalkerBbs&); // set Key
+	uint64_t BbsFind(const WalkerBbs::Key&);
 	void BbsDelOld(Timestamp tMinToRemain);
+	uint64_t BbsFindCursor(Timestamp);
+	Timestamp get_BbsMaxTime();
+	uint64_t get_BbsLastID();
 
-	void InsertDummy(Height h, const Blob&);
-	uint64_t FindDummy(Height& h, Blob&);
-	void DeleteDummy(uint64_t);
-	void SetDummyHeight(uint64_t, Height);
+	struct WalkerBbsLite
+	{
+		typedef WalkerBbs::Key Key;
+
+		Recordset m_Rs;
+		uint64_t m_ID;
+		Key m_Key;
+		uint32_t m_Size;
+
+		WalkerBbsLite(NodeDB& db) :m_Rs(db) {}
+		bool MoveNext();
+	};
+
+	void EnumAllBbsSeq(WalkerBbsLite&); // ordered by m_ID. Must be initialized to specify the lower bound
+
+	struct IBbsHistogram {
+		virtual bool OnChannel(BbsChannel, uint64_t nCount) = 0;
+	};
+	bool EnumBbs(IBbsHistogram&);
+
+
+	void InsertDummy(Height h, const Key::ID&);
+	Height GetLowestDummy(Key::ID&);
+	void DeleteDummy(const Key::ID& kid);
+	void SetDummyHeight(const Key::ID&, Height);
+	Height GetDummyHeight(const Key::ID&);
 
 	void InsertKernel(const Blob&, Height h);
 	void DeleteKernel(const Blob&, Height h);
@@ -354,13 +378,25 @@ public:
 
 	uint64_t FindStateWorkGreater(const Difficulty::Raw&);
 
-	// reset cursor to zero. Keep all the data: Mined, local macroblocks, peers, bbs, dummy UTXOs
+	// reset cursor to zero. Keep all the data: local macroblocks, peers, bbs, dummy UTXOs
 	void ResetCursor();
 
 private:
 
 	sqlite3* m_pDb;
-	sqlite3_stmt* m_pPrep[Query::count];
+
+	struct Statement
+	{
+		sqlite3_stmt* m_pStmt;
+		Statement() :m_pStmt(nullptr) {}
+		~Statement() { Close(); }
+
+		void Close();
+	};
+
+	Statement m_pPrep[Query::count];
+
+	void Prepare(Statement&, const char*);
 
 	void TestRet(int);
 	void ThrowSqliteError(int);
@@ -368,13 +404,15 @@ private:
 	static void ThrowInconsistent();
 
 	void Create();
+	void CreateTableDummy();
 	void ExecQuick(const char*);
+	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);
 	bool ExecStep(Query::Enum, const char*); // returns true while there's a row
 
 	sqlite3_stmt* get_Statement(Query::Enum, const char*);
 
-
+	uint64_t get_AutoincrementID(const char* szTable);
 	void TipAdd(uint64_t rowid, Height);
 	void TipDel(uint64_t rowid, Height);
 	void TipReachableAdd(uint64_t rowid);

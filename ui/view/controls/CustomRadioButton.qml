@@ -21,11 +21,14 @@ T.RadioButton {
     padding: 6
     spacing: 6
 
+    property int outerWidth: 28
+    property int innerWidth: 20
+
     // keep in sync with RadioDelegate.qml (shared RadioIndicator.qml was removed for performance reasons)
     indicator: Rectangle {
 	    id: indicatorRect
-        implicitWidth: 28
-        implicitHeight: 28
+        implicitWidth: outerWidth
+        implicitHeight: outerWidth
 
         x: text ? (control.mirrored ? control.width - width - control.rightPadding : control.leftPadding) : control.leftPadding + (control.availableWidth - width) / 2
         y: control.topPadding + (control.availableHeight - height) / 2
@@ -38,8 +41,8 @@ T.RadioButton {
         Rectangle {
             x: (parent.width - width) / 2
             y: (parent.height - height) / 2
-            width: 20
-            height: 20
+            width: innerWidth
+            height: innerWidth
             radius: width / 2
             color: control.palette.text
             visible: control.checked
@@ -64,5 +67,6 @@ T.RadioButton {
         text: control.text
         font: control.font
         color: control.palette.windowText
+        opacity: control.enabled ? 1.0 : 0.3
     }
 }

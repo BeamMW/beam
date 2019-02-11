@@ -21,18 +21,35 @@
 #include <thread>
 #include "wallet/secstring.h"
 
-#ifdef BEAM_USE_GPU
-#include "utility/gpu/gpu_tools.h"
-#endif
+#include <algorithm>
+
 
 using namespace beam;
 using namespace ECC;
 using namespace std;
 
+
 SettingsViewModel::SettingsViewModel()
     : m_settings{AppModel::getInstance()->getSettings()}
 {
     undoChanges();
+    connect(&AppModel::getInstance()->getNode(), SIGNAL(startedNode()), SLOT(onNodeStarted()));
+    connect(&AppModel::getInstance()->getNode(), SIGNAL(stoppedNode()), SLOT(onNodeStopped()));
+}
+
+void SettingsViewModel::onNodeStarted()
+{
+    emit localNodeRunningChanged();
+}
+
+void SettingsViewModel::onNodeStopped()
+{
+    emit localNodeRunningChanged();
+}
+
+bool SettingsViewModel::isLocalNodeRunning() const
+{
+    return AppModel::getInstance()->getNode().isNodeRunning();
 }
 
 QString SettingsViewModel::getNodeAddress() const
@@ -50,7 +67,7 @@ void SettingsViewModel::setNodeAddress(const QString& value)
     }
 }
 
-QString SettingsViewModel::version() const
+QString SettingsViewModel::getVersion() const
 {
     return QString::fromStdString(PROJECT_VERSION);
 }
@@ -81,36 +98,6 @@ void SettingsViewModel::setLocalNodePort(uint value)
     {
         m_localNodePort = value;
         emit localNodePortChanged();
-        emit propertiesChanged();
-    }
-}
-
-uint SettingsViewModel::getLocalNodeMiningThreads() const
-{
-    return m_localNodeMiningThreads;
-}
-
-void SettingsViewModel::setLocalNodeMiningThreads(uint value)
-{
-    if (value != m_localNodeMiningThreads)
-    {
-        m_localNodeMiningThreads = value;
-        emit localNodeMiningThreadsChanged();
-        emit propertiesChanged();
-    }
-}
-
-uint SettingsViewModel::getLocalNodeVerificationThreads() const
-{
-    return m_localNodeVerificationThreads;
-}
-
-void SettingsViewModel::setLocalNodeVerificationThreads(uint value)
-{
-    if (value != m_localNodeVerificationThreads)
-    {
-        m_localNodeVerificationThreads = value;
-        emit localNodeVerificationThreadsChanged();
         emit propertiesChanged();
     }
 }
@@ -159,27 +146,9 @@ void SettingsViewModel::copyToClipboard(const QString& text)
     QApplication::clipboard()->setText(text);
 }
 
-bool SettingsViewModel::showUseGpu() const
+void SettingsViewModel::refreshWallet()
 {
-#ifdef BEAM_USE_GPU
-    return true;
-#else
-    return false;
-#endif
-}
-
-bool SettingsViewModel::hasSupportedGpu()
-{
-#ifdef BEAM_USE_GPU
-    if (!HasSupportedCard())
-    {
-        setUseGpu(false);
-        return false;
-    }
-    return true;
-#else
-    return false;
-#endif
+    AppModel::getInstance()->getWallet()->getAsync()->refresh();
 }
 
 bool SettingsViewModel::isChanged() const
@@ -187,15 +156,8 @@ bool SettingsViewModel::isChanged() const
     return m_nodeAddress != m_settings.getNodeAddress()
         || m_localNodeRun != m_settings.getRunLocalNode()
         || m_localNodePort != m_settings.getLocalNodePort()
-        || m_localNodeMiningThreads != m_settings.getLocalNodeMiningThreads()
-        || m_localNodeVerificationThreads != m_settings.getLocalNodeVerificationThreads()
         || m_localNodePeers != m_settings.getLocalNodePeers()
-#ifdef BEAM_USE_GPU
-        || m_lockTimeout != m_settings.getLockTimeout()
-        || m_useGpu != m_settings.getUseGpu();
-#else
         || m_lockTimeout != m_settings.getLockTimeout();
-#endif
 }
 
 void SettingsViewModel::applyChanges()
@@ -203,13 +165,8 @@ void SettingsViewModel::applyChanges()
     m_settings.setNodeAddress(m_nodeAddress);
     m_settings.setRunLocalNode(m_localNodeRun);
     m_settings.setLocalNodePort(m_localNodePort);
-    m_settings.setLocalNodeMiningThreads(m_localNodeMiningThreads);
-    m_settings.setLocalNodeVerificationThreads(m_localNodeVerificationThreads);
     m_settings.setLocalNodePeers(m_localNodePeers);
     m_settings.setLockTimeout(m_lockTimeout);
-#ifdef BEAM_USE_GPU
-    m_settings.setUseGpu(m_useGpu);
-#endif
     m_settings.applyChanges();
     emit propertiesChanged();
 }
@@ -231,38 +188,14 @@ QString SettingsViewModel::getWalletLocation() const
     return QString::fromStdString(m_settings.getAppDataPath());
 }
 
-void SettingsViewModel::setUseGpu(bool value)
-{
-#ifdef BEAM_USE_GPU
-    m_useGpu = value;
-    emit localNodeUseGpuChanged();
-    emit propertiesChanged();
-#endif
-}
-
-bool SettingsViewModel::getUseGpu() const
-{
-#ifdef BEAM_USE_GPU
-    return m_useGpu;
-#else
-    return false;
-#endif
-}
-
 void SettingsViewModel::undoChanges()
 {
     setNodeAddress(m_settings.getNodeAddress());
     setLocalNodeRun(m_settings.getRunLocalNode());
     setLocalNodePort(m_settings.getLocalNodePort());
-    setLocalNodeMiningThreads(m_settings.getLocalNodeMiningThreads());
-    setLocalNodeVerificationThreads(m_settings.getLocalNodeVerificationThreads());
     setLockTimeout(m_settings.getLockTimeout());
     setLocalNodePeers(m_settings.getLocalNodePeers());
-#ifdef BEAM_USE_GPU
-    setUseGpu(m_settings.getUseGpu());
-#endif
 }
-
 
 void SettingsViewModel::reportProblem()
 {

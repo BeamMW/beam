@@ -15,14 +15,18 @@
 #pragma once
 #include "ecc_native.h"
 #include "merkle.h"
+#include "difficulty.h"
 
 namespace beam
 {
-    const Height MaxHeight = static_cast<Height>(-1);
+	class IExternalPOW;
+
+	const Height MaxHeight = static_cast<Height>(-1);
 
 	typedef ECC::Hash::Value PeerID;
 	typedef uint64_t BbsChannel;
 	typedef ECC::Hash::Value BbsMsgID;
+	typedef PeerID AssetID;
 
 	using ECC::Key;
 
@@ -30,42 +34,10 @@ namespace beam
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
 
-	struct Difficulty
-	{
-		uint32_t m_Packed;
-		static const uint32_t s_MantissaBits = 24;
-
-		Difficulty(uint32_t d = 0) :m_Packed(d) {}
-
-		typedef ECC::uintBig Raw;
-
-		// maximum theoretical difficulty value, which corresponds to 'infinite' (only Zero hash value meet the target).
-		// Corresponds to 0xffff...fff raw value.
-		static const uint32_t s_MaxOrder = Raw::nBits - s_MantissaBits - 1;
-		static const uint32_t s_Inf = (s_MaxOrder + 1) << s_MantissaBits;
-
-		bool IsTargetReached(const ECC::uintBig&) const;
-
-		void Unpack(Raw&) const;
-		void Inc(Raw&) const;
-		void Inc(Raw&, const Raw& base) const;
-		void Dec(Raw&, const Raw& base) const;
-
-
-		void Unpack(uint32_t& order, uint32_t& mantissa) const;
-		void Pack(uint32_t order, uint32_t mantissa);
-
-		void Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange);
-
-	private:
-		static void Adjust(uint32_t src, uint32_t trg, uint32_t nMaxOrderChange, uint32_t& order, uint32_t& mantissa);
-	};
-
-	std::ostream& operator << (std::ostream&, const Difficulty&);
-
 	struct HeightRange
 	{
 		// Convention: inclusive, i.e. both endings are part of the range.
+		// m_Min == m_Max means the range includes a single height. Therefore (m_Min > m_Max) is NOT invalid, it just denotes an empty range.
 		Height m_Min;
 		Height m_Max;
 
@@ -90,52 +62,93 @@ namespace beam
 		bool IsInRangeRelative(Height) const; // assuming m_Min was already subtracted
 	};
 
-	struct AmountBig
+	namespace AmountBig
 	{
-		Amount Lo;
-		Amount Hi;
 
-		typedef uintBig_t<(sizeof(Amount) << 4)> uintBig; // 128 bits
+		typedef uintBig_t<sizeof(Amount) + sizeof(Height)> Type; // 128 bits
+		Amount get_Lo(const Type&);
+		Amount get_Hi(const Type&);
 
-		void operator += (const Amount);
-		void operator -= (const Amount);
-		void operator += (const AmountBig&);
-		void operator -= (const AmountBig&);
-
-		void Export(uintBig&) const;
-		void AddTo(ECC::Point::Native&) const;
+		void AddTo(ECC::Point::Native&, const Type&);
 	};
+
+	typedef int64_t AmountSigned;
+	static_assert(sizeof(Amount) == sizeof(AmountSigned), "");
 
 	struct Rules
 	{
+		Rules();
 		static Rules& get();
 
 		static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
 		static const Amount Coin; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
 
-		Amount CoinbaseEmission	= Coin * 80; // the maximum allowed coinbase in a single block
-		Height MaturityCoinbase = 60; // 1 hour
-		Height MaturityStd		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
+		struct {
+			// emission parameters
+			Amount Value0	= Coin * 80; // Initial emission. Each drop it will be halved. In case of odd num it's rounded to the lower value.
+			Height Drop0	= 1440 * 365; // 1 year roughly. This is the height of the last block that still has the initial emission, the drop is starting from the next block
+			Height Drop1	= 1440 * 365 * 4; // 4 years roughly. Each such a cycle there's a new drop
+		} Emission;
 
-		size_t MaxBodySize		= 0x100000; // 1MB
+		struct {
+			Height Coinbase	= 240; // 4 hours
+			Height Std		= 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
+		} Maturity;
 
-		// timestamp & difficulty. Basically very close to those from bitcoin, except the desired rate is 1 minute (instead of 10 minutes)
-		uint32_t DesiredRate_s				= 60; // 1 minute
-		uint32_t DifficultyReviewCycle		= 24 * 60; // 1,440 blocks, 1 day roughly
-		uint32_t MaxDifficultyChange		= 2; // (x4, same as in bitcoin).
-		uint32_t TimestampAheadThreshold_s	= 60 * 60 * 2; // 2 hours. Timestamps ahead by more than 2 hours won't be accepted
-		uint32_t WindowForMedian			= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
-		Difficulty StartDifficulty			= Difficulty(2 << Difficulty::s_MantissaBits); // FAST start, good for QA
+		struct {
+			// timestamp & difficulty.
+			uint32_t Target_s		= 60; // 1 minute
+			uint32_t WindowWork		= 120; // 2 hours roughly (under normal operation)
+			uint32_t MaxAhead_s		= 60 * 15; // 15 minutes. Timestamps ahead by more than 15 minutes won't be accepted
+			uint32_t WindowMedian0	= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
+			uint32_t WindowMedian1	= 7; // Num of blocks taken at both endings of WindowWork, to pick medians.
+			Difficulty Difficulty0	= Difficulty(8 << Difficulty::s_MantissaBits); // 2^8 = 256
+		} DA;
+
+		struct {
+			bool Enabled = false;
+			bool Deposit = true; // CA emission in exchage for beams. If not specified - the emission is free
+		} CA;
+
+		struct {
+			uint32_t MaxRollback = 1440; // 1 day roughly
+			uint32_t Granularity = 720; // i.e. should be created for heights that are multiples of this. This should make it more likely for different nodes to have the same macroblocks
+		} Macroblock;
+
+		size_t MaxBodySize = 0x100000; // 1MB
 
 		bool AllowPublicUtxos = false;
 		bool FakePoW = false;
-		uint32_t MaxRollbackHeight = 1440; // 1 day roughly
-		uint32_t MacroblockGranularity = 720; // i.e. should be created for heights that are multiples of this. This should make it more likely for different nodes to have the same macroblocks
+
+		ECC::Hash::Value Prehistoric; // Prev hash of the 1st block
+		ECC::Hash::Value TreasuryChecksum;
 
 		ECC::Hash::Value Checksum;
 
 		void UpdateChecksum();
-		void AdjustDifficulty(Difficulty&, Timestamp tCycleBegin_s, Timestamp tCycleEnd_s) const;
+
+		static Amount get_Emission(Height);
+		static void get_Emission(AmountBig::Type&, const HeightRange&);
+		static void get_Emission(AmountBig::Type&, const HeightRange&, Amount base);
+
+	private:
+		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
+	};
+
+	class SwitchCommitment
+	{
+		static void get_sk1(ECC::Scalar::Native& res, const ECC::Point::Native& comm0, const ECC::Point::Native& sk0_J);
+		void CreateInternal(ECC::Scalar::Native&, ECC::Point::Native&, bool bComm, Key::IKdf& kdf, const Key::IDV& kidv) const;
+		void AddValue(ECC::Point::Native& comm, Amount) const;
+	public:
+
+		ECC::Point::Native m_hGen;
+		SwitchCommitment(const AssetID* pAssetID = nullptr);
+
+		void Create(ECC::Scalar::Native& sk, Key::IKdf&, const Key::IDV&) const;
+		void Create(ECC::Scalar::Native& sk, ECC::Point::Native& comm, Key::IKdf&, const Key::IDV&) const;
+		void Create(ECC::Scalar::Native& sk, ECC::Point& comm, Key::IKdf&, const Key::IDV&) const;
+		void Recover(ECC::Point::Native& comm, Key::IPKdf&, const Key::IDV&) const;
 	};
 
 	struct TxElement
@@ -200,11 +213,13 @@ namespace beam
 
 		bool		m_Coinbase;
 		Height		m_Incubation; // # of blocks before it's mature
+		AssetID		m_AssetID;
 
 		Output()
 			:m_Coinbase(false)
 			,m_Incubation(0)
 		{
+			m_AssetID = Zero;
 		}
 
 		static const Amount s_MinimumValue = 1;
@@ -213,10 +228,10 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
-		void Create(const ECC::Scalar::Native&, Amount, bool bPublic = false);
-		void Create(ECC::Scalar::Native&, Key::IKdf&, const Key::IDV&);
+		void Create(ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
 
-		bool Recover(Key::IPKdf&, Key::IDV&) const;
+		bool Recover(Key::IPKdf& tagKdf, Key::IDV&) const;
+		bool VerifyRecovered(Key::IPKdf& coinKdf, const Key::IDV&) const;
 
 		bool IsValid(ECC::Point::Native& comm) const;
 		Height get_MinMaturity(Height h) const; // regardless to the explicitly-overridden
@@ -226,7 +241,6 @@ namespace beam
 		COMPARISON_VIA_CMP
 
 	private:
-		void CreateInternal(const ECC::Scalar::Native&, Amount, bool bPublic, Key::IKdf*, const Key::ID*);
 		void get_SeedKid(ECC::uintBig&, Key::IPKdf&) const;
 	};
 
@@ -241,12 +255,19 @@ namespace beam
 		ECC::Signature	m_Signature;	// For the whole body, including nested kernels
 		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
 		HeightRange		m_Height;
+		AmountSigned	m_AssetEmission; // in case it's non-zero - the kernel commitment is the AssetID
 
-		TxKernel() :m_Fee(0) {}
+		TxKernel()
+			:m_Fee(0)
+			,m_AssetEmission(0)
+		{}
 
 		struct HashLock
 		{
 			ECC::uintBig m_Preimage;
+
+			int cmp(const HashLock&) const;
+			COMPARISON_VIA_CMP
 		};
 
 		std::unique_ptr<HashLock> m_pHashLock;
@@ -263,7 +284,8 @@ namespace beam
 		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all, including the m_Commitment (i.e. the public key)
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
-		bool IsValid(AmountBig& fee, ECC::Point::Native& exc) const;
+		bool IsValid(AmountBig::Type& fee, ECC::Point::Native& exc) const;
+		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
 
 		struct LongProof; // legacy
 
@@ -272,7 +294,7 @@ namespace beam
 		COMPARISON_VIA_CMP
 
 	private:
-		bool Traverse(ECC::Hash::Value&, AmountBig*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const;
+		bool Traverse(ECC::Hash::Value&, AmountBig::Type*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
@@ -299,6 +321,7 @@ namespace beam
 			virtual void NextKernel() = 0;
 
 			void Compare(IReader&& rOther, bool& bICover, bool& bOtherCovers);
+			size_t get_SizeNetto(); // account only for elements. Ignore offset and array sizes
 		};
 
 		struct IWriter
@@ -326,7 +349,7 @@ namespace beam
 			size_t NormalizeP(); // w.r.t. the standard, delete spent outputs. Returns the num deleted
 		};
 
-		struct Ethernal
+		struct Eternal
 		{
 			std::vector<TxKernel::Ptr> m_vKernels;
 			void NormalizeE();
@@ -336,8 +359,8 @@ namespace beam
 			size_t m_pIdx[3];
 		public:
 			const Perishable& m_P;
-			const Ethernal& m_E;
-			Reader(const Perishable& p, const Ethernal& e) :m_P(p) ,m_E(e) {}
+			const Eternal& m_E;
+			Reader(const Perishable& p, const Eternal& e) :m_P(p) ,m_E(e) {}
 			// IReader
 			virtual void Clone(Ptr&) override;
 			virtual void Reset() override;
@@ -349,8 +372,8 @@ namespace beam
 		struct Writer :public TxBase::IWriter
 		{
 			Perishable& m_P;
-			Ethernal& m_E;
-			Writer(Perishable& p, Ethernal& e) :m_P(p), m_E(e) {}
+			Eternal& m_E;
+			Writer(Perishable& p, Eternal& e) :m_P(p), m_E(e) {}
 
 			virtual void Write(const Input&) override;
 			virtual void Write(const Output&) override;
@@ -359,13 +382,15 @@ namespace beam
 
 		struct Full
 			:public TxVectors::Perishable
-			,public TxVectors::Ethernal
+			,public TxVectors::Eternal
 		{
 			Reader get_Reader() const {
 				return Reader(*this, *this);
 			}
 
 			size_t Normalize();
+
+			void MoveInto(Full& trg);
 		};
 	};
 
@@ -377,8 +402,7 @@ namespace beam
 
 		bool IsValid(Context&) const; // Explicit fees are considered "lost" in the transactions (i.e. would be collected by the miner)
 
-		static const uint32_t s_KeyBits = ECC::nBits; // key len for map of transactions. Can actually be less than 256 bits.
-		typedef uintBig_t<s_KeyBits> KeyType;
+		typedef uintBig_t<ECC::nBytes> KeyType; // key len for map of transactions. Can actually be less than 256 bits.
 
 		void get_Key(KeyType&) const;
 	};
@@ -393,20 +417,20 @@ namespace beam
 			// equihash parameters. 
 			// Parameters recommended by BTG are 144/5, to make it asic-resistant (~1GB average, spikes about 1.5GB). On CPU solve time about 1 minutes
 			// The following are the parameters for testnet, to make it of similar size, and much faster solve time, to test concurrency and difficulty adjustment
-			static const uint32_t N = 144;
+			static const uint32_t N = 150;
 			static const uint32_t K = 5;
 
 			static const uint32_t nNumIndices		= 1 << K; // 32
-			static const uint32_t nBitsPerIndex		= N / (K + 1) + 1; // 21
+			static const uint32_t nBitsPerIndex		= N / (K + 1) + 1; // 26
 
-			static const uint32_t nSolutionBits		= nNumIndices * nBitsPerIndex; // 672 bits
+			static const uint32_t nSolutionBits		= nNumIndices * nBitsPerIndex; // 832 bits
 
 			static_assert(!(nSolutionBits & 7), "PoW solution should be byte-aligned");
-			static const uint32_t nSolutionBytes	= nSolutionBits >> 3; // 84 bytes
+			static const uint32_t nSolutionBytes	= nSolutionBits >> 3; // 104 bytes
 
 			std::array<uint8_t, nSolutionBytes>	m_Indices;
 
-			typedef uintBig_t<64> NonceType;
+			typedef uintBig_t<8> NonceType;
 			NonceType m_Nonce; // 8 bytes. The overall solution size is 96 bytes.
 			Difficulty m_Difficulty;
 
@@ -416,10 +440,6 @@ namespace beam
 			// Difficulty and Nonce must be initialized. During the solution it's incremented each time by 1.
 			// returns false only if cancelled
 			bool Solve(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
-
-#if defined (BEAM_USE_GPU)
-            bool SolveGPU(const void* pInput, uint32_t nSizeInput, const Cancel& = [](bool) { return false; });
-#endif
 
 		private:
 			struct Helper;
@@ -469,11 +489,7 @@ namespace beam
 				bool IsSane() const;
 				bool IsValidPoW() const;
 				bool IsValid() const { return IsSane() && IsValidPoW(); }
-#if defined(BEAM_USE_GPU)
-                bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; }, bool useGpu = false);
-#else
                 bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
-#endif
 
 				// the most robust proof verification - verifies the whole proof structure
 				bool IsValidProofState(const ID&, const Merkle::HardProof&) const;
@@ -524,12 +540,6 @@ namespace beam
 		struct BodyBase
 			:public TxBase
 		{
-			AmountBig m_Subsidy; // the overall amount created by the block
-								 // For standard blocks this should be equal to the coinbase emission.
-								 // Genesis block(s) may have higher emission (aka premined)
-
-			bool m_SubsidyClosing; // Last block that contains arbitrary subsidy.
-
 			void ZeroInit();
 
 			// Test the following:
@@ -539,7 +549,7 @@ namespace beam
 			// Not tested by this function (but should be tested by nodes!)
 			//		Existence of all the input UTXOs
 			//		Existence of the coinbase non-confidential output UTXO, with the sum amount equal to the new coin emission.
-			bool IsValid(const HeightRange&, bool bSubsidyOpen, TxBase::IReader&&) const;
+			bool IsValid(const HeightRange&, TxBase::IReader&&) const;
 
 			struct IMacroReader
 				:public IReader
@@ -567,13 +577,31 @@ namespace beam
 			:public BodyBase
 			,public TxVectors::Full
 		{
-			bool IsValid(const HeightRange& hr, bool bSubsidyOpen) const
+			bool IsValid(const HeightRange& hr) const
 			{
-				return BodyBase::IsValid(hr, bSubsidyOpen, get_Reader());
+				return BodyBase::IsValid(hr, get_Reader());
 			}
 		};
 
 		struct ChainWorkProof;
+
+		struct Builder
+		{
+			ECC::Scalar::Native m_Offset; // the sign is opposite
+			TxVectors::Full m_Txv;
+
+			Key::Index m_SubIdx;
+			Key::IKdf& m_Coin;
+			Key::IPKdf& m_Tag;
+			Height m_Height;
+
+			Builder(Key::Index, Key::IKdf& coin, Key::IPKdf& tag, Height);
+
+			void AddCoinbaseAndKrn();
+			void AddCoinbaseAndKrn(Output::Ptr&, TxKernel::Ptr&);
+			void AddFees(Amount fees);
+			void AddFees(Amount fees, Output::Ptr&);
+		};
 	};
 
 	struct TxKernel::LongProof
@@ -594,10 +622,7 @@ namespace beam
 		}
 	};
 
-	void ExtractOffset(ECC::Scalar::Native& kKernel, ECC::Scalar::Native& kOffset, Height = 0, uint32_t nIdx = 0);
-
 	std::ostream& operator << (std::ostream&, const Block::SystemState::ID&);
-
 
 	class TxBase::Context
 	{
@@ -627,13 +652,15 @@ namespace beam
 
 		ECC::Point::Native m_Sigma;
 
-		AmountBig m_Fee;
-		AmountBig m_Coinbase;
+		AmountBig::Type m_Fee;
+		AmountBig::Type m_Coinbase;
 		HeightRange m_Height;
 
 		bool m_bBlockMode; // in 'block' mode the hMin/hMax on input denote the range of heights. Each element is verified wrt it independently.
 		// i.e. different elements may have non-overlapping valid range, and it's valid.
 		// Suitable for merged block validation
+
+		bool m_bVerifyOrder; // check the correct order, as well as elimination of spent outputs. On by default. Turned Off only for specific internal validations (such as treasury).
 
 		// for multi-tasking, parallel verification
 		uint32_t m_nVerifiers;
@@ -648,7 +675,7 @@ namespace beam
 
 		// hi-level functions, should be used after all parts were validated and merged
 		bool IsValidTransaction();
-		bool IsValidBlock(const Block::BodyBase&, bool bSubsidyOpen);
+		bool IsValidBlock(const Block::BodyBase&);
 	};
 
 	class Block::BodyBase::RW
@@ -805,21 +832,14 @@ namespace beam
 		void Export(const ECC::HKdfPub&);
 		bool Import(ECC::HKdf&);
 		bool Import(ECC::HKdfPub&);
+		void SetPassword(const std::string&);
+		void SetPassword(const Blob&);
 
 	private:
-		typedef uintBig_t<64> MacValue;
+		typedef uintBig_t<8> MacValue;
 		void XCrypt(MacValue&, uint32_t nSize, bool bEnc) const;
 
 		void Export(void*, uint32_t, uint8_t nCode);
 		bool Import(void*, uint32_t, uint8_t nCode);
 	};
-
-#pragma pack (push, 1)
-	struct UtxoEvent
-	{
-		uintBigFor<uint32_t>::Type m_KdfIdx;
-		uint8_t m_Added; // added or deleted
-		ECC::Key::IDV::Packed m_Kidv;
-	};
-#pragma pack (pop)
 }

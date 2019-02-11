@@ -38,6 +38,7 @@ namespace beam
 		static void _Mul(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
 		static int _Cmp(const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
 		static void _Print(const uint8_t* pDst, uint32_t nDst, std::ostream&);
+		static void _Print(const uint8_t* pDst, uint32_t nDst, char*);
 
 		static uint32_t _GetOrder(const uint8_t* pDst, uint32_t nDst);
 		static bool _Accept(uint8_t* pDst, const uint8_t* pThr, uint32_t nDst, uint32_t nThrOrder);
@@ -99,16 +100,18 @@ namespace beam
 				out = (out << 8) | pDst[i];
 		}
 
+		static void _ShiftRight(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc, uint32_t nBits);
+		static void _ShiftLeft(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc, uint32_t nBits);
+
+		static void _Div(uint8_t* pDst, uint32_t nDst, const uint8_t* pA, uint32_t nA, const uint8_t* pB, uint32_t nB, uint8_t* pMul, uint8_t* pBuf);
 	};
 
-	template <uint32_t nBits_>
+	template <uint32_t nBytes_>
 	struct uintBig_t
 		:public uintBigImpl
 	{
-		static_assert(!(7 & nBits_), "should be byte-aligned");
-
-		static const uint32_t nBits = nBits_;
-		static const uint32_t nBytes = nBits_ >> 3;
+		static const uint32_t nBits = nBytes_ << 3;
+		static const uint32_t nBytes = nBytes_;
 
         uintBig_t()
         {
@@ -132,9 +135,9 @@ namespace beam
 			_Assign(m_pData, nBytes, v.begin(), static_cast<uint32_t>(v.size()));
         }
 
-		uintBig_t(const std::vector<uint8_t>& v)
+		uintBig_t(const Blob& v)
 		{
-			_Assign(m_pData, nBytes, v.empty() ? NULL : &v.at(0), static_cast<uint32_t>(v.size()));
+			operator = (v);
 		}
 
 		template <typename T>
@@ -152,10 +155,16 @@ namespace beam
 			return *this;
 		}
 
-		template <uint32_t nBitsOther_>
-		uintBig_t& operator = (const uintBig_t<nBitsOther_>& v)
+		template <uint32_t nBytesOther_>
+		uintBig_t& operator = (const uintBig_t<nBytesOther_>& v)
 		{
 			_Assign(m_pData, nBytes, v.m_pData, v.nBytes);
+			return *this;
+		}
+
+		uintBig_t& operator = (const Blob& v)
+		{
+			_Assign(m_pData, nBytes, static_cast<const uint8_t*>(v.p), v.n);
 			return *this;
 		}
 
@@ -182,7 +191,15 @@ namespace beam
 		template <typename T>
 		void Export(T& x) const
 		{
+			static_assert(sizeof(T) >= nBytes, "");
 			_ExportAligned(x, m_pData, nBytes);
+		}
+
+		template <uint32_t iWord, typename T>
+		void ExportWord(T& x) const
+		{
+			static_assert(sizeof(T) * (iWord + 1) <= nBytes, "");
+			_ExportAligned(x, m_pData + sizeof(T) * iWord, sizeof(T));
 		}
 
 		template <typename T, uint32_t nOffset>
@@ -205,22 +222,22 @@ namespace beam
 			_Inc(m_pData, nBytes);
 		}
 
-		template <uint32_t nBitsOther_>
-		void operator += (const uintBig_t<nBitsOther_>& x)
+		template <uint32_t nBytesOther_>
+		void operator += (const uintBig_t<nBytesOther_>& x)
 		{
 			_Inc(m_pData, nBytes, x.m_pData, x.nBytes);
 		}
 
-		template <uint32_t nBits0, uint32_t nBits1>
-		void AssignMul(const uintBig_t<nBits0>& x0, const uintBig_t<nBits1> & x1)
+		template <uint32_t nBytes0, uint32_t nBytes1>
+		void AssignMul(const uintBig_t<nBytes0>& x0, const uintBig_t<nBytes1> & x1)
 		{
 			_Mul(m_pData, nBytes, x0.m_pData, x0.nBytes, x1.m_pData, x1.nBytes);
 		}
 
-		template <uint32_t nBitsOther_>
-		uintBig_t<nBits + nBitsOther_> operator * (const uintBig_t<nBitsOther_>& x) const
+		template <uint32_t nBytesOther_>
+		uintBig_t<nBytes + nBytesOther_> operator * (const uintBig_t<nBytesOther_>& x) const
 		{
-			uintBig_t<nBits + nBitsOther_> res;
+			uintBig_t<nBytes + nBytesOther_> res;
 			res.AssignMul(*this, x);
 			return res;
 		}
@@ -236,14 +253,14 @@ namespace beam
 			Inc();
 		}
 
-		template <uint32_t nBitsOther_>
-		void operator ^= (const uintBig_t<nBitsOther_>& x)
+		template <uint32_t nBytesOther_>
+		void operator ^= (const uintBig_t<nBytesOther_>& x)
 		{
 			_Xor(m_pData, nBytes, x.m_pData, x.nBytes);
 		}
 
-		template <uint32_t nBitsOther_>
-		int cmp(const uintBig_t<nBitsOther_>& x) const
+		template <uint32_t nBytesOther_>
+		int cmp(const uintBig_t<nBytesOther_>& x) const
 		{
 			return _Cmp(m_pData, nBytes, x.m_pData, x.nBytes);
 		}
@@ -253,6 +270,34 @@ namespace beam
 			// how much the number should be shifted to reach zero.
 			// returns 0 iff the number is already zero.
 			return _GetOrder(m_pData, nBytes);
+		}
+
+		template <uint32_t nBytesOther_>
+		void ShiftRight(uint32_t nBits, uintBig_t<nBytesOther_>& res) const
+		{
+			_ShiftRight(res.m_pData, res.nBytes, m_pData, nBytes, nBits);
+		}
+
+		template <uint32_t nBytesOther_>
+		void ShiftLeft(uint32_t nBits, uintBig_t<nBytesOther_>& res) const
+		{
+			_ShiftLeft(res.m_pData, res.nBytes, m_pData, nBytes, nBits);
+		}
+
+		template <uint32_t nBytesA, uint32_t nBytesB>
+		void SetDiv(const uintBig_t<nBytesA>& a, const uintBig_t<nBytesB>& b)
+		{
+			// Calculates a/b. Rounding to a smaller side. if b = 0, then the result is max value. Same if the type is too small to hold the full result
+			// In other words, the result is the maximum value for which (*this * b <= a)
+			uintBig_t<nBytesA> mul;
+			SetDiv(a, b, mul);
+		}
+
+		template <uint32_t nBytesA, uint32_t nBytesB>
+		void SetDiv(const uintBig_t<nBytesA>& a, const uintBig_t<nBytesB>& b, uintBig_t<nBytesA>& mul)
+		{
+			uintBig_t<nBytesA> tmp;
+			_Div(m_pData, nBytes, a.m_pData, a.nBytes, b.m_pData, b.nBytes, mul.m_pData, tmp.m_pData);
 		}
 
 		// helper, for uniform random generation within specific bounds
@@ -277,6 +322,13 @@ namespace beam
 
 		COMPARISON_VIA_CMP
 
+		static const uint32_t nTxtLen = nBytes * 2; // not including 0-term
+
+		void Print(char* sz) const
+		{
+			_Print(m_pData, nBytes, sz);
+		}
+
 		friend std::ostream& operator << (std::ostream& s, const uintBig_t& x)
 		{
 			_Print(x.m_pData, x.nBytes, s);
@@ -286,12 +338,40 @@ namespace beam
 
 	template <typename T>
 	struct uintBigFor {
-		typedef uintBig_t<(sizeof(T) << 3)> Type;
+		typedef uintBig_t<sizeof(T)> Type;
 	};
 
 	template <typename T>
 	inline typename uintBigFor<T>::Type uintBigFrom(T x) {
 		return typename uintBigFor<T>::Type(x);
 	}
+
+	struct FourCC
+	{
+		uint32_t V; // In "host" order, i.e. platform-dependent
+		operator uint32_t () const { return V; }
+
+		FourCC() {}
+		FourCC(uint32_t x) :V(x) {}
+
+		struct Text
+		{
+			char m_sz[sizeof(uint32_t) + 1];
+			Text(uint32_t);
+			operator const char* () const { return m_sz; }
+		};
+
+		template <uint8_t a, uint8_t b, uint8_t c, uint8_t d>
+		struct Const {
+			static const uint32_t V = (((((a << 8) | b) << 8) | c) << 8) | d;
+		};
+
+	};
+
+	std::ostream& operator << (std::ostream& s, const FourCC::Text& x);
+	std::ostream& operator << (std::ostream& s, const FourCC& x);
+
+#define ARRAY_ELEMENT_SAFE(arr, index) ((arr)[(((index) < _countof(arr)) ? (index) : (_countof(arr) - 1))])
+#define FOURCC_FROM(name) beam::FourCC::Const<ARRAY_ELEMENT_SAFE(#name,0), ARRAY_ELEMENT_SAFE(#name,1), ARRAY_ELEMENT_SAFE(#name,2), ARRAY_ELEMENT_SAFE(#name,3)>::V
 
 } // namespace beam

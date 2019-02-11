@@ -32,7 +32,7 @@ int main(int argc, char* argv[])
 	Hash::Processor() << "321" >> hv;
 	walletSeed.V = hv;
 
-	kdf.m_Secret = walletSeed;
+	kdf.Generate(walletSeed.V);
 
 	TxGenerator generator(kdf);
 

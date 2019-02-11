@@ -4,6 +4,7 @@
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include <boost/program_options.hpp>
+#include "version.h"
 
 using namespace beam;
 using namespace std;
@@ -55,6 +56,10 @@ int main(int argc, char* argv[]) {
     } catch (const std::exception& e) {
         LOG_ERROR() << "EXCEPTION: " << e.what();
         retCode = 255;
+	}
+	catch (const beam::CorruptionException& e) {
+		LOG_ERROR() << "Corruption: " << e.m_sErr;
+		retCode = 255;
     } catch (...) {
         LOG_ERROR() << "NON_STD EXCEPTION";
         retCode = 255;
@@ -115,6 +120,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
 
 void setup_node(Node& node, const Options& o) {
     Rules::get().UpdateChecksum();
+    LOG_INFO() << "Beam Node Explorer " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
     LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
     node.m_Cfg.m_sPathLocal = o.nodeDbFilename;
@@ -122,6 +128,7 @@ void setup_node(Node& node, const Options& o) {
     node.m_Cfg.m_Listen.ip(o.nodeListenTo.ip());
     node.m_Cfg.m_MiningThreads = 0;
     node.m_Cfg.m_VerificationThreads = 1;
+    node.m_Cfg.m_Sync.m_NoFastSync = true;
 
     auto& address = node.m_Cfg.m_Connect.emplace_back();
     address.resolve(o.nodeConnectTo.c_str());

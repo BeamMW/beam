@@ -8,7 +8,9 @@ Dialog {
     property alias text: messageText.text
     property alias okButtonText: okButton.text
     property alias okButtonIconSource: okButton.icon.source
+    property alias okButtonColor: okButton.palette.button
     property alias cancelVisible : cancelButton.visible
+    property alias cancelButtonIconSource: cancelButton.icon.source
 
     modal: true
 
@@ -22,10 +24,10 @@ Dialog {
         anchors.fill: parent
     }
 
-    contentItem: SFText {
+    SFText {
         id: messageText
-        padding: 30
-        bottomPadding: 15
+        anchors.fill: parent
+        padding: 20
         font.pixelSize: 14
         color: Style.white
         wrapMode: Text.Wrap
@@ -40,22 +42,21 @@ Dialog {
             anchors.fill: parent
         }          
 
-        contentItem: GridLayout {
-            id: test
-            columns: 3
-            Row {
+        contentItem: RowLayout {
+            Item {
                 Layout.fillWidth: true
             }
             Row {
-                spacing: 30
+                spacing: 20
                 height: 40
-                padding: 30
-                topPadding: 15
+                leftPadding: 30
+                rightPadding: 30
+                bottomPadding: 30
                 CustomButton {
                     id: cancelButton
                     focus: true
                     text: qsTr("cancel")
-                    onClicked: {                
+                    onClicked: { 
                         rejected();
                         close();
                     }
@@ -72,7 +73,7 @@ Dialog {
                     }
                 }
             }
-            Row {
+            Item {
                 Layout.fillWidth: true
             }
         }

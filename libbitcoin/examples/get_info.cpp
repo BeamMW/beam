@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "p2p/http_client.h"
+#include "http/http_client.h"
 #include "utility/io/timer.h"
 #include "utility/helpers.h"
 #include "utility/logger.h"

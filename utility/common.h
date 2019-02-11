@@ -64,7 +64,7 @@
 #endif // _countof
 
 inline void memset0(void* p, size_t n) { memset(p, 0, n); }
-bool memis0(const void* p, size_t n);
+bool memis0(const void* p, size_t n); // Not "secure", not constant-time guarantee. Must not be used for secret datas
 void memxor(uint8_t* pDst, const uint8_t* pSrc, size_t n);
 
 
@@ -134,6 +134,7 @@ namespace beam
 	typedef uint64_t Timestamp;
 	typedef uint64_t Height;
 	typedef uint64_t Amount;
+    typedef std::vector<Amount> AmountList;
 	typedef std::vector<uint8_t> ByteBuffer;
 
 	template <uint32_t nBits_>
@@ -145,6 +146,14 @@ namespace beam
 
 	bool DeleteFile(const char*);
 
+	struct CorruptionException
+	{
+		std::string m_sErr;
+		// indicates critical unrecoverable corruption. Not derived from std::exception, and should not be caught in the indermediate scopes.
+		// Should trigger a controlled shutdown of the app
+		static void Throw(const char*);
+	};
+
 	struct Blob {
 		const void* p;
 		uint32_t n;
@@ -153,8 +162,8 @@ namespace beam
 		Blob(const void* p_, uint32_t n_) :p(p_), n(n_) {}
 		Blob(const ByteBuffer& bb);
 
-		template <uint32_t nBits_>
-		Blob(const uintBig_t<nBits_>& x) :p(x.m_pData), n(x.nBytes) {}
+		template <uint32_t nBytes_>
+		Blob(const uintBig_t<nBytes_>& x) :p(x.m_pData), n(x.nBytes) {}
 
 		void Export(ByteBuffer&) const;
 	};
@@ -199,8 +208,9 @@ namespace beam
 
 namespace std
 {
-	void ThrowIoError();
+	void ThrowLastError();
 	void TestNoError(const ios& obj);
+	void ThrowSystemError(int);
 
 	// wrapper for std::fstream, with semantics suitable for serialization
 	class FStream
@@ -219,7 +229,7 @@ namespace std
 
 		void Restart(); // for read-stream - jump to the beginning of the file
 		void Seek(uint64_t);
-		uint64_t Tell() { return m_F.tellg(); }
+		uint64_t Tell();
 
 		// read/write always return the size requested. Exception is thrown if underflow or error
 		size_t read(void* pPtr, size_t nSize);

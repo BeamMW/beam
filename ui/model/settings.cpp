@@ -32,23 +32,16 @@ namespace
 
     const char* LocalNodeRun = "localnode/run";
     const char* LocalNodePort = "localnode/port";
-    const char* LocalNodeMiningThreads = "localnode/mining_threads";
-    const char* LocalNodeVerificationThreads = "localnode/verification_threads";
-    const char* LocalNodeGenerateGenesys = "localnode/generate_genesys";
-    const char* LocalNodeSynchronized = "localnode/synchronized";
     const char* LocalNodePeers = "localnode/peers";
-#ifdef BEAM_USE_GPU
-    const char* LocalNodeUseGpu = "localnode/use_gpu";
-#endif
-
-    const char* SettingsIni = "settings.ini";
 }
 
 const char* WalletSettings::WalletCfg = "beam-wallet.cfg";
 const char* WalletSettings::LogsFolder = "logs";
+const char* WalletSettings::SettingsFile = "settings.ini";
+const char* WalletSettings::WalletDBFile = "wallet.db";
 
 WalletSettings::WalletSettings(const QDir& appDataDir)
-    : m_data{ appDataDir.filePath(SettingsIni), QSettings::IniFormat }
+    : m_data{ appDataDir.filePath(SettingsFile), QSettings::IniFormat }
     , m_appDataDir{appDataDir}
 {
 
@@ -57,13 +50,14 @@ WalletSettings::WalletSettings(const QDir& appDataDir)
 string WalletSettings::getWalletStorage() const
 {
     Lock lock(m_mutex);
-    return m_appDataDir.filePath("wallet.db").toStdString();
-}
 
-string WalletSettings::getBbsStorage() const
-{
-    Lock lock(m_mutex);
-    return m_appDataDir.filePath("keys.bbs").toStdString();
+    auto version = QString::fromStdString(PROJECT_VERSION);
+    if (!m_appDataDir.exists(version))
+    {
+        m_appDataDir.mkdir(version);
+    }
+    
+    return m_appDataDir.filePath(version + "/" + WalletDBFile).toStdString();
 }
 
 string WalletSettings::getAppDataPath() const
@@ -115,24 +109,6 @@ void WalletSettings::setLockTimeout(int value)
     }
 }
 
-bool WalletSettings::getGenerateGenesys() const
-{
-    Lock lock(m_mutex);
-    return m_data.value(LocalNodeGenerateGenesys, false).toBool();
-}
-
-void WalletSettings::setGenerateGenesys(bool value)
-{
-    if (getGenerateGenesys() != value)
-    {
-        {
-            Lock lock(m_mutex);
-            m_data.setValue(LocalNodeGenerateGenesys, value);
-        }
-        emit localNodeGenerateGenesysChanged();
-    }
-}
-
 bool WalletSettings::getRunLocalNode() const
 {
     Lock lock(m_mutex);
@@ -151,7 +127,7 @@ void WalletSettings::setRunLocalNode(bool value)
 uint WalletSettings::getLocalNodePort() const
 {
     Lock lock(m_mutex);
-    return m_data.value(LocalNodePort, 10000).toUInt();
+    return m_data.value(LocalNodePort, 10005).toUInt();
 }
 
 void WalletSettings::setLocalNodePort(uint port)
@@ -161,54 +137,6 @@ void WalletSettings::setLocalNodePort(uint port)
         m_data.setValue(LocalNodePort, port);
     }
     emit localNodePortChanged();
-}
-
-uint WalletSettings::getLocalNodeMiningThreads() const
-{
-    Lock lock(m_mutex);
-    return m_data.value(LocalNodeMiningThreads, 1).toUInt();
-}
-
-void WalletSettings::setLocalNodeMiningThreads(uint n)
-{
-    {
-        Lock lock(m_mutex);
-        m_data.setValue(LocalNodeMiningThreads, n);
-    }
-    emit localNodeMiningThreadsChanged();
-}
-
-uint WalletSettings::getLocalNodeVerificationThreads() const
-{
-    Lock lock(m_mutex);
-    return m_data.value(LocalNodeVerificationThreads, 1).toUInt();
-}
-
-void WalletSettings::setLocalNodeVerificationThreads(uint n)
-{
-    {
-        Lock lock(m_mutex);
-        m_data.setValue(LocalNodeVerificationThreads, n);
-    }
-    emit localNodeVerificationThreadsChanged();
-}
-
-bool WalletSettings::getLocalNodeSynchronized() const
-{
-    Lock lock(m_mutex);
-    return m_data.value(LocalNodeSynchronized, false).toBool();
-}
-
-void WalletSettings::setLocalNodeSynchronized(bool value)
-{
-    if (getLocalNodeSynchronized() != value)
-    {
-        {
-            Lock lock(m_mutex);
-            m_data.setValue(LocalNodeSynchronized, value);
-        }
-        emit localNodeSynchronizedChanged();
-    }
 }
 
 string WalletSettings::getLocalNodeStorage() const
@@ -222,23 +150,6 @@ string WalletSettings::getTempDir() const
     Lock lock(m_mutex);
     return m_appDataDir.filePath("./temp").toStdString();
 }
-
-#ifdef BEAM_USE_GPU
-bool WalletSettings::getUseGpu() const
-{
-    Lock lock(m_mutex);
-    return m_data.value(LocalNodeUseGpu, false).toBool();
-}
-
-void WalletSettings::setUseGpu(bool value)
-{
-    {
-        Lock lock(m_mutex);
-        m_data.setValue(LocalNodeUseGpu, value);
-    }
-    emit localNodeUseGpuChanged();
-}
-#endif
 
 static void zipLocalFile(QuaZip& zip, const QString& path, const QString& folder = QString())
 {
@@ -280,7 +191,7 @@ void WalletSettings::reportProblem()
     zip.open(QuaZip::mdCreate);
 
     // save settings.ini
-    zipLocalFile(zip, m_appDataDir.filePath(SettingsIni));
+    zipLocalFile(zip, m_appDataDir.filePath(SettingsFile));
 
     // save .cfg
     zipLocalFile(zip, QDir(QDir::currentPath()).filePath(WalletCfg));

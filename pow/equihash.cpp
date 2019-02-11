@@ -17,10 +17,8 @@
 #include "uint256.h"
 #include "arith_uint256.h"
 #include <utility>
-
-#if defined (BEAM_USE_GPU)
-#include "3rdparty/equihash_gpu.h"
-#endif
+#include "utility/logger.h"
+#include <mutex>
 
 namespace beam
 {
@@ -48,52 +46,13 @@ struct Block::PoW::Helper
 	}
 };
 
-#if defined (BEAM_USE_GPU)
-
-    bool Block::PoW::SolveGPU(const void* pInput, uint32_t nSizeInput, const Cancel& fnCancel)
-    {
-        Helper hlp;
-        EquihashGpu gpu;
-
-        std::function<bool(const beam::ByteBuffer&)> fnValid = [this, &hlp](const beam::ByteBuffer& solution)
-            {
-        	    if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
-        		    return false;
-        	    assert(solution.size() == m_Indices.size());
-                std::copy(solution.begin(), solution.end(), m_Indices.begin());
-                return true;
-            };
-
-
-        std::function<bool()> fnCancelInternal = [fnCancel]() {
-            return fnCancel(false);
-        };
-
-        while (true)
-        {
-            hlp.Reset(pInput, nSizeInput, m_Nonce);
-
-            if (gpu.solve(hlp.m_Blake, fnValid, fnCancelInternal))
-                break;
-
-            if (fnCancel(true))
-        	    return false; // retry not allowed
-
-            m_Nonce.Inc();
-        }
-
-        return true;
-    }
-
-#endif
-
 bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, const Cancel& fnCancel)
 {
 	Helper hlp;
 
 	std::function<bool(const beam::ByteBuffer&)> fnValid = [this, &hlp](const beam::ByteBuffer& solution)
 		{
-			if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
+    		if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
 				return false;
 			assert(solution.size() == m_Indices.size());
             std::copy(solution.begin(), solution.end(), m_Indices.begin());

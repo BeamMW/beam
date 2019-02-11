@@ -28,7 +28,7 @@
         <file>notification.qml</file>
         <file>info.qml</file>
         <file>settings.qml</file>
-        <file>address-book.qml</file>
+        <file>addresses.qml</file>
         <file>utxo.qml</file>
         <file>assets/fonts/SF-Pro-Display-Black.otf</file>
         <file>assets/fonts/SF-Pro-Display-Light.otf</file>
@@ -48,6 +48,7 @@
         <file>assets/fonts/SF-Pro-Display-HeavyItalic.otf</file>
         <file>assets/fonts/SF-Pro-Display-RegularItalic.otf</file>
         <file>assets/fonts/SF-Pro-Display-UltralightItalic.otf</file>
+        <file>assets/beam-circle.svg</file>
         <file>assets/logo.svg</file>
         <file>assets/start-logo.svg</file>
         <file>assets/icon.png</file>
@@ -55,8 +56,8 @@
         <file>assets/b-grey.svg</file>
         <file>assets/icon-dashboard.svg</file>
         <file>assets/icon-dashboard-active.svg</file>
-        <file>assets/icon-address-book.svg</file>
-        <file>assets/icon-address-book-active.svg</file>
+        <file>assets/icon-addresses.svg</file>
+        <file>assets/icon-addresses-active.svg</file>
         <file>assets/icon-wallet.svg</file>
         <file>assets/icon-wallet-active.svg</file>
         <file>assets/icon-wallet-small.svg</file>
@@ -66,6 +67,7 @@
         <file>assets/icon-info-active.svg</file>
         <file>assets/icon-settings.svg</file>
         <file>assets/icon-settings-active.svg</file>
+        <file>assets/icon-settings-blue.svg</file>
         <file>assets/icon-sent.svg</file>
         <file>assets/icon-received.svg</file>
         <file>assets/icon-comment.svg</file>
@@ -98,6 +100,7 @@
         <file>assets/copy-two-paper-sheets-interface-symbol.svg</file>
         <file>assets/eye.svg</file>
         <file>assets/icon-back.svg</file>
+        <file>assets/icon-back-blue.svg</file>
         <file>assets/icon-print.svg</file>
         <file>assets/icon-recovery.svg</file>
         <file>assets/password.svg</file>
@@ -107,9 +110,20 @@
         <file>assets/icon-restore.svg</file>
         <file>assets/icon-restore-blue.svg</file>
         <file>assets/icon-try-again.svg</file>
-        <file>restore.qml</file>
+        <file>loading.qml</file>
         <file>assets/icon-sort-active.svg</file>
         <file>assets/icon-sort.svg</file>
         <file>controls/CustomProgressBar.qml</file>
+        <file>controls/LogoComponent.qml</file>
+        <file>controls/AddressTable.qml</file>
+        <file>assets/icon-transactions.svg</file>
+        <file>controls/StatusBar.qml</file>
+        <file>assets/icon-change.svg</file>
+        <file>assets/icon-change-blue.svg</file>
+        <file>assets/icon-maturing.svg</file>
+        <file>controls/EditAddress.qml</file>
+        <file>assets/icon-repeat.svg</file>
+        <file>assets/icon-folder.svg</file>
+        <file>assets/icon-transfer.svg</file>
     </qresource>
 </RCC>

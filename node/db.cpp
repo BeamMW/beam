@@ -57,11 +57,6 @@ namespace beam {
 #define TblEvents_Body			"Body"
 #define TblEvents_Key			"Key"
 
-#define TblMined				"Mined"
-#define TblMined_Height			"Height"
-#define TblMined_State			"State"
-#define TblMined_Comission		"Comission"
-
 #define TblCompressed			"Macroblocks"
 #define TblCompressed_Row1		"RowLast"
 
@@ -72,13 +67,15 @@ namespace beam {
 #define TblPeer_LastSeen		"LastSeen"
 
 #define TblBbs					"Bbs"
+#define TblBbs_ID				"ID"
 #define TblBbs_Key				"Key"
 #define TblBbs_Channel			"Channel"
 #define TblBbs_Time				"Time"
 #define TblBbs_Msg				"Message"
+#define TblBbs_Nonce			"Nonce"
 
 #define TblDummy				"Dummies"
-#define TblDummy_Key			"Key"
+#define TblDummy_ID				"ID"
 #define TblDummy_SpendHeight	"SpendHeight"
 
 NodeDB::NodeDB()
@@ -107,7 +104,10 @@ void NodeDB::ThrowSqliteError(int ret)
 
 void NodeDB::ThrowError(const char* sz)
 {
-	throw std::runtime_error(sz);
+	// Currently all DB errors are defined as corruption
+	CorruptionException exc;
+	exc.m_sErr = sz;
+	throw exc;
 }
 
 void NodeDB::ThrowInconsistent()
@@ -115,19 +115,21 @@ void NodeDB::ThrowInconsistent()
 	ThrowError("data inconcistent");
 }
 
+void NodeDB::Statement::Close()
+{
+	if (m_pStmt)
+	{
+		sqlite3_finalize(m_pStmt); // don't care about retval
+		m_pStmt = nullptr;
+	}
+}
+
 void NodeDB::Close()
 {
 	if (m_pDb)
 	{
 		for (size_t i = 0; i < _countof(m_pPrep); i++)
-		{
-			sqlite3_stmt*& pStmt = m_pPrep[i];
-			if (pStmt)
-			{
-				sqlite3_finalize(pStmt); // don't care about retval
-				pStmt = NULL;
-			}
-		}
+			m_pPrep[i].Close();
 
 		verify(SQLITE_OK == sqlite3_close(m_pDb));
 		m_pDb = NULL;
@@ -208,6 +210,12 @@ void NodeDB::Recordset::put(int col, const char* sz)
 	m_DB.TestRet(sqlite3_bind_text(m_pStmt, col+1, sz, -1, NULL));
 }
 
+void NodeDB::Recordset::put(int col, const Key::ID& kid, Key::ID::Packed& p)
+{
+	p = kid;
+	put(col, Blob(&p, sizeof(p)));
+}
+
 void NodeDB::Recordset::get(int col, uint32_t& x)
 {
 	x = sqlite3_column_int(m_pStmt, col);
@@ -231,6 +239,13 @@ void NodeDB::Recordset::get(int col, ByteBuffer& x)
 	b.Export(x);
 }
 
+void NodeDB::Recordset::get(int col, Key::ID& kid)
+{
+	Key::ID::Packed p;
+	get_As(col, p);
+	kid = p;
+}
+
 const void* NodeDB::Recordset::get_BlobStrict(int col, uint32_t n)
 {
 	Blob x;
@@ -249,6 +264,14 @@ const void* NodeDB::Recordset::get_BlobStrict(int col, uint32_t n)
 void NodeDB::Open(const char* szPath)
 {
 	TestRet(sqlite3_open_v2(szPath, &m_pDb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, NULL));
+	// Attempt to fix the "busy" error when PC goes to sleep and then awakes. Try the busy handler with non-zero timeout (maybe a single retry would be enough)
+	sqlite3_busy_timeout(m_pDb, 5000);
+
+	std::string s = ExecTextOut("PRAGMA integrity_check");
+	if (s != "ok")
+		ThrowError(("sqlite integrity: " + s).c_str());
+
+	ExecTextOut("PRAGMA locking_mode = EXCLUSIVE");
 
 	bool bCreate;
 	{
@@ -257,21 +280,44 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersion = 12;
+	const uint64_t nVersionTop = 16;
+	const uint64_t nVersionDummy0 = 15;
+	const uint64_t nVersionNoBbsPoW = 14;
+
+	Transaction t(*this);
 
 	if (bCreate)
 	{
-		Transaction t(*this);
 		Create();
-		ParamSet(ParamID::DbVer, &nVersion, NULL);
-		t.Commit();
+		ParamSet(ParamID::DbVer, &nVersionTop, NULL);
 	}
 	else
 	{
-		// test the DB version
-		if (nVersion != ParamIntGetDef(ParamID::DbVer))
+		uint64_t nVer = ParamIntGetDef(ParamID::DbVer);
+
+		switch (nVer)
+		{
+		case nVersionNoBbsPoW:
+			ExecQuick("ALTER TABLE [" TblBbs "] ADD [" TblBbs_Nonce "] INTEGER");
+			// no break;
+
+		case nVersionDummy0:
+			ExecQuick("DROP INDEX [Idx" TblDummy "H]");
+			ExecQuick("DROP TABLE [" TblDummy "]");
+			CreateTableDummy();
+
+			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
+			// no break;
+
+		case nVersionTop:
+			break;
+
+		default:
 			ThrowError("wrong version");
+		}
 	}
+
+	t.Commit();
 }
 
 void NodeDB::Create()
@@ -331,17 +377,10 @@ void NodeDB::Create()
 	ExecQuick("CREATE TABLE [" TblEvents "] ("
 		"[" TblEvents_Height	"] INTEGER NOT NULL,"
 		"[" TblEvents_Body		"] BLOB NOT NULL,"
-		"[" TblEvents_Key		"] BLOB)");
+		"[" TblEvents_Key		"] BLOB NOT NULL)");
 
 	ExecQuick("CREATE INDEX [Idx" TblEvents "] ON [" TblEvents "] ([" TblEvents_Height "],[" TblEvents_Body "]);");
 	ExecQuick("CREATE INDEX [Idx" TblEvents TblEvents_Key "] ON [" TblEvents "] ([" TblEvents_Key "]);");
-
-	ExecQuick("CREATE TABLE [" TblMined "] ("
-		"[" TblMined_Height		"] INTEGER NOT NULL,"
-		"[" TblMined_State		"] INTEGER NOT NULL,"
-		"[" TblMined_Comission	"] INTEGER NOT NULL,"
-		"PRIMARY KEY (" TblMined_Height "," TblMined_State "),"
-		"FOREIGN KEY (" TblMined_State ") REFERENCES " TblStates "(OID))");
 
 	ExecQuick("CREATE TABLE [" TblCompressed "] ("
 		"[" TblCompressed_Row1	"] INTEGER NOT NULL,"
@@ -355,20 +394,32 @@ void NodeDB::Create()
 		"[" TblPeer_LastSeen	"] INTEGER NOT NULL)");
 
 	ExecQuick("CREATE TABLE [" TblBbs "] ("
+		"[" TblBbs_ID		"] INTEGER PRIMARY KEY AUTOINCREMENT,"
 		"[" TblBbs_Key		"] BLOB NOT NULL,"
 		"[" TblBbs_Channel	"] INTEGER NOT NULL,"
 		"[" TblBbs_Time		"] INTEGER NOT NULL,"
 		"[" TblBbs_Msg		"] BLOB NOT NULL,"
-		"PRIMARY KEY (" TblBbs_Key "))");
+		"[" TblBbs_Nonce	"] INTEGER)");
 
-	ExecQuick("CREATE INDEX [Idx" TblBbs "CT] ON [" TblBbs "] ([" TblBbs_Channel "],[" TblBbs_Time "]);"); // fetch messages for specific channel within time range, ordered by time
-	ExecQuick("CREATE INDEX [Idx" TblBbs "T] ON [" TblBbs "] ([" TblBbs_Time "]);"); // delete old messages
+	ExecQuick("CREATE INDEX [Idx" TblBbs "CSeq] ON [" TblBbs "] ([" TblBbs_Channel "],[" TblBbs_ID "]);");
+	ExecQuick("CREATE INDEX [Idx" TblBbs "TSeq] ON [" TblBbs "] ([" TblBbs_Time "],[" TblBbs_ID "]);");
+	ExecQuick("CREATE INDEX [Idx" TblBbs "Key] ON [" TblBbs "] ([" TblBbs_Key "]);");
 
+	CreateTableDummy();
+}
+
+void NodeDB::CreateTableDummy()
+{
 	ExecQuick("CREATE TABLE [" TblDummy "] ("
-		"[" TblDummy_Key			"] BLOB NOT NULL,"
+		"[" TblDummy_ID				"] BLOB NOT NULL PRIMARY KEY,"
 		"[" TblDummy_SpendHeight	"] INTEGER NOT NULL)");
 
-	ExecQuick("CREATE INDEX [Idx" TblDummy "H] ON [" TblDummy "] ([" TblDummy_SpendHeight "]);");
+	ExecQuick("CREATE INDEX [Idx" TblDummy "H] ON [" TblDummy "] ([" TblDummy_SpendHeight "])");
+}
+
+void NodeDB::Vacuum()
+{
+	ExecQuick("VACUUM");
 }
 
 void NodeDB::ExecQuick(const char* szSql)
@@ -378,6 +429,25 @@ void NodeDB::ExecQuick(const char* szSql)
 
 	if (sqlite3_total_changes(m_pDb) != n)
 		OnModified();
+}
+
+std::string NodeDB::ExecTextOut(const char* szSql)
+{
+	int n = sqlite3_total_changes(m_pDb);
+	TestRet(sqlite3_exec(m_pDb, szSql, NULL, NULL, NULL));
+
+	Statement s;
+	Prepare(s, szSql);
+
+	std::string sRes;
+
+	if (ExecStep(s.m_pStmt))
+		sRes = (const char*) sqlite3_column_text(s.m_pStmt, 0);
+
+	if (sqlite3_total_changes(m_pDb) != n)
+		OnModified();
+
+	return sRes;
 }
 
 bool NodeDB::ExecStep(sqlite3_stmt* pStmt)
@@ -418,18 +488,24 @@ bool NodeDB::ExecStep(Query::Enum val, const char* sql)
 
 }
 
+void NodeDB::Prepare(Statement& s, const char* szSql)
+{
+	assert(!s.m_pStmt);
+
+	const char* szTail;
+	int nRet = sqlite3_prepare_v2(m_pDb, szSql, -1, &s.m_pStmt, &szTail);
+	TestRet(nRet);
+	assert(s.m_pStmt);
+}
+
 sqlite3_stmt* NodeDB::get_Statement(Query::Enum val, const char* sql)
 {
 	assert(val < _countof(m_pPrep));
-	if (!m_pPrep[val])
-	{
-		const char* szTail;
-		int nRet = sqlite3_prepare_v2(m_pDb, sql, -1, m_pPrep + val, &szTail);
-		TestRet(nRet);
-		assert(m_pPrep[val]);
-	}
+	Statement& s = m_pPrep[val];
 
-	return m_pPrep[val];
+	if (!s.m_pStmt)
+		Prepare(s, sql);
+	return s.m_pStmt;
 }
 
 
@@ -474,7 +550,7 @@ void NodeDB::ParamSet(uint32_t ID, const uint64_t* p0, const Blob* p1)
 	}
 }
 
-bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, Blob* p1)
+bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, Blob* p1, ByteBuffer* p2 /* = NULL */)
 {
 	Recordset rs(*this, Query::ParamGet, "SELECT " TblParams_Int "," TblParams_Blob " FROM " TblParams " WHERE " TblParams_ID "=?");
 	rs.put(0, ID);
@@ -489,6 +565,8 @@ bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, Blob* p1)
 		const void* pPtr = rs.get_BlobStrict(1, p1->n);
 		memcpy((void*) p1->p, pPtr, p1->n);
 	}
+	if (p2)
+		rs.get(1, *p2);
 
 	return true;
 }
@@ -508,7 +586,17 @@ NodeDB::Transaction::Transaction(NodeDB* pDB)
 
 NodeDB::Transaction::~Transaction()
 {
-	Rollback();
+	if (std::uncaught_exceptions())
+	{
+		try {
+			Rollback();
+		}
+		catch (...) {
+			// ignore
+		}
+	}
+	else
+		Rollback();
 }
 
 void NodeDB::Transaction::Start(NodeDB& db)
@@ -529,12 +617,8 @@ void NodeDB::Transaction::Rollback()
 {
 	if (m_pDB)
 	{
-		try {
-			m_pDB->ExecStep(Query::Rollback, "ROLLBACK");
-		} catch (std::exception&) {
-			// TODO: DB is compromised!
-		}
-		m_pDB = NULL;
+		m_pDB->ExecStep(Query::Rollback, "ROLLBACK");
+		m_pDB = nullptr;
 	}
 }
 
@@ -733,11 +817,6 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 
 	if (StateFlags::Reachable & nFlags)
 		TipReachableDel(rowid);
-
-	StateID sid;
-	sid.m_Height = h;
-	sid.m_Row = rowid;
-	DeleteMinedSafe(sid);
 
 	rs.Reset(Query::StateDel, "DELETE FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
@@ -1494,7 +1573,7 @@ void NodeDB::EnumEvents(WalkerEvent& x, Height hMin)
 
 void NodeDB::FindEvents(WalkerEvent& x, const Blob& key)
 {
-	x.m_Rs.Reset(Query::EventEnum, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Key "=?");
+	x.m_Rs.Reset(Query::EventFind, "SELECT " TblEvents_Height "," TblEvents_Body "," TblEvents_Key " FROM " TblEvents " WHERE " TblEvents_Key "=?");
 	x.m_Rs.put(0, key);
 }
 
@@ -1508,51 +1587,6 @@ bool NodeDB::WalkerEvent::MoveNext()
 		ZeroObject(m_Key);
 	else
 		m_Rs.get(2, m_Key);
-	return true;
-}
-
-void NodeDB::SetMined(const StateID& sid, const Amount& v)
-{
-	Recordset rs(*this, Query::MinedUpd, "UPDATE " TblMined " SET " TblMined_Comission "=? WHERE " TblMined_Height "=? AND " TblMined_State "=?");
-	rs.put(0, v);
-	rs.put(1, sid.m_Height);
-	rs.put(2, sid.m_Row);
-	rs.Step();
-
-	if (!get_RowsChanged())
-	{
-		rs.Reset(Query::MinedIns, "INSERT INTO " TblMined "(" TblMined_Height "," TblMined_State "," TblMined_Comission ") VALUES (?,?,?)");
-		rs.put(0, sid.m_Height);
-		rs.put(1, sid.m_Row);
-		rs.put(2, v);
-		rs.Step();
-	}
-}
-
-bool NodeDB::DeleteMinedSafe(const StateID& sid)
-{
-	Recordset rs(*this, Query::MinedDel, "DELETE FROM " TblMined " WHERE " TblMined_Height "=? AND " TblMined_State "=?");
-	rs.put(0, sid.m_Height);
-	rs.put(1, sid.m_Row);
-	rs.Step();
-	return get_RowsChanged() > 0;
-}
-
-void NodeDB::EnumMined(WalkerMined& x, Height hMin)
-{
-	x.m_Rs.Reset(Query::MinedSel, "SELECT " TblMined_Height "," TblMined_State "," TblMined_Comission " FROM " TblMined
-		" WHERE " TblMined_Height ">=?"
-		" ORDER BY "  TblMined_Height " ASC," TblMined_State " ASC");
-	x.m_Rs.put(0, hMin);
-}
-
-bool NodeDB::WalkerMined::MoveNext()
-{
-	if (!m_Rs.Step())
-		return false;
-	m_Rs.get(0, m_Sid.m_Height);
-	m_Rs.get(1, m_Sid.m_Row);
-	m_Rs.get(2, m_Amount);
 	return true;
 }
 
@@ -1573,7 +1607,7 @@ void NodeDB::MacroblockIns(uint64_t rowid)
 
 void NodeDB::MacroblockDel(uint64_t rowid)
 {
-	Recordset rs(*this, Query::MinedDel, "DELETE FROM " TblCompressed " WHERE " TblCompressed_Row1 "=?");
+	Recordset rs(*this, Query::MacroblockDel, "DELETE FROM " TblCompressed " WHERE " TblCompressed_Row1 "=?");
 	rs.put(0, rowid);
 	rs.Step();
 	TestChanged1Row();
@@ -1612,29 +1646,86 @@ void NodeDB::PeerIns(const WalkerPeer::Data& d)
 	TestChanged1Row();
 }
 
-#define TblBbs_AllFieldsListed TblBbs_Key "," TblBbs_Channel "," TblBbs_Time "," TblBbs_Msg
-
-void NodeDB::EnumBbs(WalkerBbs& x)
+bool NodeDB::EnumBbs(IBbsHistogram& x)
 {
-	x.m_Rs.Reset(Query::BbsEnum, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_Channel "=? AND " TblBbs_Time ">=? ORDER BY " TblBbs_Time);
+	Recordset rs(*this, Query::BbsHistogram, "SELECT " TblBbs_Channel ",COUNT(*) FROM " TblBbs " GROUP BY " TblBbs_Channel " ORDER BY " TblBbs_Channel);
+	while (rs.Step())
+	{
+		BbsChannel ch;
+		uint64_t nCount;
 
-	x.m_Rs.put(0, x.m_Data.m_Channel);
-	x.m_Rs.put(1, x.m_Data.m_TimePosted);
+		rs.get(0, ch);
+		rs.get(1, nCount);
+
+		if (!x.OnChannel(ch, nCount))
+			return false;
+	}
+
+	return true;
 }
 
-void NodeDB::EnumAllBbs(WalkerBbs& x)
+void NodeDB::EnumAllBbsSeq(WalkerBbsLite& x)
 {
-	x.m_Rs.Reset(Query::BbsEnumAll, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " ORDER BY " TblBbs_Channel " ASC," TblBbs_Time " ASC");
+	x.m_Rs.Reset(Query::BbsEnumAllSeq, "SELECT " TblBbs_ID "," TblBbs_Key ",LENGTH(" TblBbs_Msg ") FROM " TblBbs " WHERE " TblBbs_ID ">? ORDER BY " TblBbs_ID);
+	x.m_Rs.put(0, x.m_ID);
+}
+
+bool NodeDB::WalkerBbsLite::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+	m_Rs.get(0, m_ID);
+	m_Rs.get(1, m_Key);
+	m_Rs.get(2, m_Size);
+	return true;
+}
+
+
+#define TblBbs_InsFieldsListed TblBbs_Key "," TblBbs_Channel "," TblBbs_Time "," TblBbs_Msg "," TblBbs_Nonce
+#define TblBbs_AllFieldsListed TblBbs_ID "," TblBbs_InsFieldsListed
+
+void NodeDB::EnumBbsCSeq(WalkerBbs& x)
+{
+	x.m_Rs.Reset(Query::BbsEnumCSeq, "SELECT " TblBbs_AllFieldsListed " FROM " TblBbs " WHERE " TblBbs_Channel "=? AND " TblBbs_ID ">? ORDER BY " TblBbs_ID);
+
+	x.m_Rs.put(0, x.m_Data.m_Channel);
+	x.m_Rs.put(1, x.m_ID);
+}
+
+uint64_t NodeDB::get_AutoincrementID(const char* szTable)
+{
+	Recordset rs(*this, Query::AutoincrementID, "SELECT seq FROM sqlite_sequence WHERE name=?");
+	rs.put(0, szTable);
+	if (!rs.Step())
+		return 0;
+
+	if (rs.IsNull(0))
+		return 0;
+
+	uint64_t id;
+	rs.get(0, id);
+	return id;
+}
+
+uint64_t NodeDB::get_BbsLastID()
+{
+	return get_AutoincrementID(TblBbs);
 }
 
 bool NodeDB::WalkerBbs::MoveNext()
 {
 	if (!m_Rs.Step())
 		return false;
-	m_Rs.get(0, m_Data.m_Key);
-	m_Rs.get(1, m_Data.m_Channel);
-	m_Rs.get(2, m_Data.m_TimePosted);
-	m_Rs.get(3, m_Data.m_Message);
+	m_Rs.get(0, m_ID);
+	m_Rs.get(1, m_Data.m_Key);
+	m_Rs.get(2, m_Data.m_Channel);
+	m_Rs.get(3, m_Data.m_TimePosted);
+	m_Rs.get(4, m_Data.m_Message);
+
+	m_Data.m_bNonce = !m_Rs.IsNull(5);
+	if (m_Data.m_bNonce)
+		m_Rs.get(5, m_Data.m_Nonce);
+
 	return true;
 }
 
@@ -1646,6 +1737,18 @@ bool NodeDB::BbsFind(WalkerBbs& x)
 	return x.MoveNext();
 }
 
+uint64_t NodeDB::BbsFind(const WalkerBbs::Key& key)
+{
+	Recordset rs(*this,Query::BbsFindRaw, "SELECT rowid FROM " TblBbs " WHERE " TblBbs_Key "=?");
+	rs.put(0, key);
+	if (!rs.Step())
+		return 0;
+
+	uint64_t id;
+	rs.get(0, id);
+	return id;
+}
+
 void NodeDB::BbsDelOld(Timestamp tMinToRemain)
 {
 	Recordset rs(*this, Query::BbsDelOld, "DELETE FROM " TblBbs " WHERE " TblBbs_Time "<?");
@@ -1653,15 +1756,47 @@ void NodeDB::BbsDelOld(Timestamp tMinToRemain)
 	rs.Step();
 }
 
-void NodeDB::BbsIns(const WalkerBbs::Data& d)
+uint64_t NodeDB::BbsIns(const WalkerBbs::Data& d)
 {
-	Recordset rs(*this, Query::BbsIns, "INSERT INTO " TblBbs "(" TblBbs_AllFieldsListed ") VALUES(?,?,?,?)");
+	Recordset rs(*this, Query::BbsIns, "INSERT INTO " TblBbs "(" TblBbs_InsFieldsListed ") VALUES(?,?,?,?,?)");
 	rs.put(0, d.m_Key);
 	rs.put(1, d.m_Channel);
 	rs.put(2, d.m_TimePosted);
 	rs.put(3, d.m_Message);
+	if (d.m_bNonce)
+		rs.put(4, d.m_Nonce);
+
 	rs.Step();
 	TestChanged1Row();
+
+	return sqlite3_last_insert_rowid(m_pDb);
+}
+
+uint64_t NodeDB::BbsFindCursor(Timestamp t)
+{
+	Recordset rs(*this, Query::BbsFindCursor, "SELECT " TblBbs_ID " FROM " TblBbs " WHERE " TblBbs_Time ">=? ORDER BY " TblBbs_ID " ASC LIMIT 1");
+	rs.put(0, t);
+
+	if (!rs.Step())
+		return get_BbsLastID() + 1;
+
+	if (rs.IsNull(0))
+		return 0;
+
+	uint64_t id;
+	rs.get(0, id);
+	return id;
+}
+
+Timestamp NodeDB::get_BbsMaxTime()
+{
+	Recordset rs(*this, Query::BbsMaxTime, "SELECT MAX(" TblBbs_Time ") FROM " TblBbs);
+	if (!rs.Step())
+		return 0;
+
+	Timestamp ret;
+	rs.get(0, ret);
+	return ret;
 }
 
 uint64_t NodeDB::FindStateWorkGreater(const Difficulty::Raw& d)
@@ -1677,42 +1812,57 @@ uint64_t NodeDB::FindStateWorkGreater(const Difficulty::Raw& d)
 	return res;
 }
 
-void NodeDB::InsertDummy(Height h, const Blob& key)
+void NodeDB::InsertDummy(Height h, const Key::ID& kid)
 {
-	Recordset rs(*this, Query::DummyIns, "INSERT INTO " TblDummy "(" TblDummy_Key "," TblDummy_SpendHeight ") VALUES(?,?)");
-	rs.put(0, key);
+	Recordset rs(*this, Query::DummyIns, "INSERT INTO " TblDummy "(" TblDummy_ID "," TblDummy_SpendHeight ") VALUES(?,?)");
+	Key::ID::Packed p;
+	rs.put(0, kid, p);
 	rs.put(1, h);
 	rs.Step();
 	TestChanged1Row();
 }
 
-uint64_t NodeDB::FindDummy(Height& h, Blob& key)
+Height NodeDB::GetLowestDummy(Key::ID& kid)
 {
-	Recordset rs(*this, Query::DummyFind, "SELECT rowid," TblDummy_Key "," TblDummy_SpendHeight " FROM " TblDummy " ORDER BY " TblDummy_SpendHeight " ASC LIMIT 1");
+	Recordset rs(*this, Query::DummyFindLowest, "SELECT " TblDummy_ID "," TblDummy_SpendHeight " FROM " TblDummy " ORDER BY " TblDummy_SpendHeight " ASC LIMIT 1");
 	if (!rs.Step())
-		return 0;
+		return MaxHeight;
 
-	uint64_t res;
-	rs.get(0, res);
-	memcpy((void*) key.p, rs.get_BlobStrict(1, key.n), key.n);
-	rs.get(2, h);
+	Height h;
+	rs.get(0, kid);
+	rs.get(1, h);
 
-	return res;
+	return h;
 }
 
-void NodeDB::DeleteDummy(uint64_t rowid)
+Height NodeDB::GetDummyHeight(const Key::ID& kid)
 {
-	Recordset rs(*this, Query::DummyDel, "DELETE FROM " TblDummy " WHERE rowid=?");
-	rs.put(0, rowid);
+	Recordset rs(*this, Query::DummyFind, "SELECT " TblDummy_SpendHeight " FROM " TblDummy " WHERE " TblDummy_ID "=?");
+	Key::ID::Packed p;
+	rs.put(0, kid, p);
+	if (!rs.Step())
+		return MaxHeight;
+
+	Height h;
+	rs.get(0, h);
+	return h;
+}
+
+void NodeDB::DeleteDummy(const Key::ID& kid)
+{
+	Recordset rs(*this, Query::DummyDel, "DELETE FROM " TblDummy " WHERE " TblDummy_ID "=?");
+	Key::ID::Packed p;
+	rs.put(0, kid, p);
 	rs.Step();
 	TestChanged1Row();
 }
 
-void NodeDB::SetDummyHeight(uint64_t rowid, Height h)
+void NodeDB::SetDummyHeight(const Key::ID& kid, Height h)
 {
-	Recordset rs(*this, Query::DummyUpdHeight, "UPDATE " TblDummy " SET " TblDummy_SpendHeight "=? WHERE rowid=?");
+	Recordset rs(*this, Query::DummyUpdHeight, "UPDATE " TblDummy " SET " TblDummy_SpendHeight "=? WHERE " TblDummy_ID "=?");
 	rs.put(0, h);
-	rs.put(1, rowid);
+	Key::ID::Packed p;
+	rs.put(1, kid, p);
 	rs.Step();
 	TestChanged1Row();
 }

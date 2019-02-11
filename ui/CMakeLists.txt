@@ -38,8 +38,8 @@ set(UI_SRC
 	translator.cpp
 	viewmodel/start_view.h
 	viewmodel/start_view.cpp
-    viewmodel/restore_view.h
-	viewmodel/restore_view.cpp
+    viewmodel/loading_view.h
+	viewmodel/loading_view.cpp
 	viewmodel/utxo_view.h
 	viewmodel/utxo_view.cpp
 	viewmodel/main_view.h
@@ -60,6 +60,8 @@ set(UI_SRC
 	viewmodel/ui_helpers.cpp
 	viewmodel/messages_view.h
     viewmodel/messages_view.cpp
+    viewmodel/statusbar_view.h
+    viewmodel/statusbar_view.cpp
 
 	model/wallet_model.h
 	model/wallet_model.cpp
@@ -76,7 +78,7 @@ set(UI_SRC
 if(WIN32)
 	add_definitions(-DWIN32_LEAN_AND_MEAN)
 endif()
-
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/beam.rc.in ${CMAKE_CURRENT_SOURCE_DIR}/beam.rc)
 add_executable(${TARGET_NAME} ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc ${MACOSX_BUNDLE_ICON_FILE})
 set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME ${OUTPUT_NAME})
 
@@ -84,15 +86,10 @@ if(APPLE)
 	set_target_properties(${TARGET_NAME} PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist)
 endif()
 
-configure_file("${CMAKE_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
+configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 
 add_dependencies(${TARGET_NAME} wallet mnemonic qrcode)
 target_link_libraries(${TARGET_NAME} qrcode)
-
-if(BEAM_USE_GPU)
-    add_dependencies(${TARGET_NAME} gpu_tools)
-    target_link_libraries(${TARGET_NAME} gpu_tools)
-endif()
 
 if(LINUX)
 	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -108,11 +105,18 @@ target_link_libraries(${TARGET_NAME} quazip_static)
 
 #if (BEAM_WALLET_WITH_NODE)
 	add_definitions(-DBEAM_WALLET_WITH_NODE)
-	add_dependencies(${TARGET_NAME} node)
-	target_link_libraries(${TARGET_NAME} node)
+	add_dependencies(${TARGET_NAME} node external_pow)
+	target_link_libraries(${TARGET_NAME} node external_pow)
 #endif()
 
 target_link_libraries(${TARGET_NAME} wallet mnemonic Qt5::Qml Qt5::Quick Qt5::Svg Qt5::PrintSupport)
+
+if (BEAM_SIGN_PACKAGE AND WIN32)
+    add_custom_command(
+        TARGET ${TARGET_NAME} POST_BUILD
+        COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\Beam Wallet.exe"
+    )
+endif()
 
 if(BEAM_USE_STATIC)
 
@@ -257,4 +261,13 @@ else()
 	endif()
 
 	install(TARGETS ${TARGET_NAME} DESTINATION .)
+
+    # Signing the installer
+    #add_custom_target(signing-installer)
+    #
+    #message(BEAM_INSTALLER_NAME = ${BEAM_INSTALLER_NAME})
+    #add_custom_command(
+    #    TARGET signing-installer
+    #    COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} ${CMAKE_CURRENT_BINARY_DIR}\\${BEAM_INSTALLER_NAME}
+    #  )
 endif()

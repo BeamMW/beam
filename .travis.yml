@@ -1,20 +1,25 @@
-language: cpp
-
 git:
   depth: false
 
 matrix:
   include:
+
+###############################################################################
+# OSX Debug
+###############################################################################
+
     - os: osx
+      language: cpp
       osx_image: xcode9.3
-      before_install: 
+      install: 
         - export TZ=Etc/GMT-3
+        - brew update
         - brew unlink cmake
         - brew unlink boost 
         - brew install qt5 cmake boost
         - brew link qt5 --force
         - export PATH=/usr/local/opt/qt/bin:$PATH
-        - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Darwin.dmg"
+        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Darwin.dmg"
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
         - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.dmg"
       env: 
@@ -24,10 +29,16 @@ matrix:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.dmg"
 
+###############################################################################
+# OSX Release
+###############################################################################
+
     - os: osx
+      language: cpp
       osx_image: xcode9.3
-      before_install:
+      install:
         - export TZ=Etc/GMT-3
+        - brew update
         - brew unlink cmake
         - brew unlink boost 
         - brew install cmake boost
@@ -36,7 +47,7 @@ matrix:
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
         - export QT5_ROOT_DIR="/usr/local/qt5-static"
         - export QML_IMPORT_PATH="/usr/local/qt5-static/qml"
-        - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Darwin.dmg"
+        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Darwin.dmg"
         - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.dmg"
       env: 
         - BUILD_TYPE=Release
@@ -45,7 +56,12 @@ matrix:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.dmg"
 
+###############################################################################
+# Linux Debug
+###############################################################################
+
     - os: linux
+      language: cpp
       addons:
         apt:
           sources:
@@ -55,7 +71,7 @@ matrix:
             - libboost-all-dev
             - libssl-dev
             - curl
-      before_install:
+      install:
         - export TZ=Etc/GMT-3
         - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
         - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
@@ -64,7 +80,7 @@ matrix:
         - sudo apt-get install qt510declarative qt510svg libgl1-mesa-dev-lts-xenial
         - eval "CC=gcc-7 && CXX=g++-7"
         - export PATH=/opt/qt510/bin:$PATH
-        - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Linux.deb"
+        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Linux.deb"
         - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.deb"
       env: 
         - BUILD_TYPE=Debug
@@ -73,7 +89,12 @@ matrix:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
 
+###############################################################################
+# Linux Release
+###############################################################################
+
     - os: linux
+      language: cpp
       addons:
         apt:
           sources:
@@ -85,7 +106,7 @@ matrix:
             - curl
             - libxi-dev
             - libcups2-dev
-      before_install:
+      install:
         - export TZ=Etc/GMT-3
         - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
         - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
@@ -93,35 +114,149 @@ matrix:
         - git clone --depth=1 https://github.com/nesbox/qt5-static-linux.git /home/travis/qt5-static
         - export QT5_ROOT_DIR="/home/travis/qt5-static"
         - export QML_IMPORT_PATH="/home/travis/qt5-static/qml"
-        - export BEAM_WALLET_UI_IN="BeamWallet-0.0.1-Linux.deb"
+        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Linux.deb"
         - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.deb"
       env: 
         - BUILD_TYPE=Release
         - OS_FOLDER=linux
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static  -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
 
+###############################################################################
+# Android x86 Release
+###############################################################################
+
+    - os: linux
+      language: android
+      env:
+        - ANDROID_ABI=x86
+        - BUILD_TYPE=Release
+        - ANDROID_SDK_VERSION=23
+      android:
+        components:
+          - tools
+          - platform-tools
+          - android-23
+      install:
+        - echo y | sdkmanager "ndk-bundle"
+        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
+        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
+        - sudo git clone --depth=1 https://github.com/nesbox/boost_1_68-android.git /usr/local/boost_1_68-android
+        - sudo git clone --depth=1 https://github.com/nesbox/Prebuilt-OpenSSL-Android.git /usr/local/Prebuilt-OpenSSL-Android
+        - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
+        - export BOOST_ROOT_ANDROID=/usr/local/boost_1_68-android
+        - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android/Prebuilt
+        - export PATH=$ANDROID_NDK_HOME:$PATH
+      script:
+        - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
+        - make wallet-jni -j4
+      after_success:
+        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
+        - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
+        - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+        - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni-$BEAM_VERSION.tar.gz
+
+###############################################################################
+# Android ARMv7 Release
+###############################################################################
+
+    - os: linux
+      language: android
+      env:
+        - ANDROID_ABI=armeabi-v7a
+        - BUILD_TYPE=Release
+        - ANDROID_SDK_VERSION=23
+      android:
+        components:
+          - tools
+          - platform-tools
+          - android-23
+      install:
+        - echo y | sdkmanager "ndk-bundle"
+        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
+        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
+        - sudo git clone --depth=1 https://github.com/nesbox/boost_1_68-android.git /usr/local/boost_1_68-android
+        - sudo git clone --depth=1 https://github.com/nesbox/Prebuilt-OpenSSL-Android.git /usr/local/Prebuilt-OpenSSL-Android
+        - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
+        - export BOOST_ROOT_ANDROID=/usr/local/boost_1_68-android
+        - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android/Prebuilt
+        - export PATH=$ANDROID_NDK_HOME:$PATH
+      script:
+        - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
+        - make wallet-jni -j4
+      after_success:
+        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
+        - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
+        - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+        - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni-$BEAM_VERSION.tar.gz
+
+###############################################################################
+# Android ARMv8 Release
+###############################################################################
+
+    - os: linux
+      language: android
+      env:
+        - ANDROID_ABI=arm64-v8a
+        - BUILD_TYPE=Release
+        - ANDROID_SDK_VERSION=23
+      android:
+        components:
+          - tools
+          - platform-tools
+          - android-23
+      install:
+        - echo y | sdkmanager "ndk-bundle"
+        - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
+        - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
+        - sudo git clone --depth=1 https://github.com/nesbox/boost_1_68-android.git /usr/local/boost_1_68-android
+        - sudo git clone --depth=1 https://github.com/nesbox/Prebuilt-OpenSSL-Android.git /usr/local/Prebuilt-OpenSSL-Android
+        - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
+        - export BOOST_ROOT_ANDROID=/usr/local/boost_1_68-android
+        - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android/Prebuilt
+        - export PATH=$ANDROID_NDK_HOME:$PATH
+      script:
+        - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
+        - make wallet-jni -j4
+      after_success:
+        - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
+        - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
+        - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+        - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni-$BEAM_VERSION.tar.gz
+
+###############################################################################
+# Common part
+###############################################################################
+
 # TODO: version detection should be in one place
+before_install:
+  - BEAM_VERSION="1.1.$(git rev-list HEAD --count)"
+
 before_script:
-  - BEAM_VERSION="1.0.$(git rev-list HEAD --count)"
+  - curl -sL https://raw.githubusercontent.com/travis-ci/artifacts/master/install | bash
 
 after_success:
   # deploy using ftp server
   - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER
   - tar -cvzf beam-node-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node beam-node.cfg
   - tar -cvzf beam-wallet-cli-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet beam-wallet beam-wallet.cfg
+  - tar -cvzf wallet-api-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet wallet-api wallet-api.cfg
 
-  # create package for advanced users
-  - mkdir pack && mkdir pack/wallet && mkdir pack/node && mkdir pack/ui
-  - cp wallet/beam-wallet* pack/wallet && cp beam/beam-node* pack/node && cp "$BEAM_WALLET_UI_IN" pack/ui/$BEAM_WALLET_UI_OUT_VERLESS
-  - tar -cvzf beam-pack-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/pack wallet node ui
-
-  # upload binaries
+  # prep for deploy to AWS S3
+  - cp $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT
+   
+  # upload binaries to FTP
   - curl --retry 3 --ftp-create-dirs -T beam-node-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+  - curl --retry 3 --ftp-create-dirs -T wallet-api-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T "$HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN" "$BUILDS_SERVER_PATH/$BEAM_WALLET_UI_OUT"
-  - curl --retry 3 --ftp-create-dirs -T beam-pack-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/pack/
+
+  # upload binaries to S3
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-node-$BEAM_VERSION.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-cli-$BEAM_VERSION.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" wallet-api-$BEAM_VERSION.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT
 
 notifications:
   email:

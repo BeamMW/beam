@@ -47,7 +47,7 @@ ColumnLayout {
                     font.pixelSize: 18
                     font.styleName: "Bold"; font.weight: Font.Bold
                     color: Style.white
-                    text: qsTr("Height")
+                    text: qsTr("Blockchain Height")
                 }
 
                 SFText {
@@ -86,7 +86,7 @@ ColumnLayout {
                     font.pixelSize: 18
                     font.styleName: "Bold"; font.weight: Font.Bold
                     color: Style.white
-                    text: qsTr("Hash")
+                    text: qsTr("Last block hash")
                 }
 
                 SFText {
@@ -107,6 +107,11 @@ ColumnLayout {
                 opacity: 0.1
             }
         }
+    }
+
+    StatusBar {
+        id: status_bar
+        model: statusbarModel
     }
 
     CustomTableView {
@@ -138,14 +143,7 @@ ColumnLayout {
         TableViewColumn {
             role: viewModel.amountRole
             title: qsTr("Amount")
-            width: 150 * parent.width / 800
-            movable: false
-        }
-
-        TableViewColumn {
-            role: viewModel.heightRole
-            title: qsTr("Height")
-            width: 150 * parent.width / 800
+            width: 300 * parent.width / 800
             movable: false
         }
 
@@ -222,7 +220,6 @@ ColumnLayout {
                         }
                     }
                     else {
-                        console.log("Unknown status!");
                         return Style.white;
                     }
                 }

@@ -15,8 +15,8 @@
 #include "adapter.h"
 #include "node/node.h"
 #include "core/serialization_adapters.h"
-#include "p2p/stratum.h"
-#include "p2p/http_msg_creator.h"
+#include "http/http_msg_creator.h"
+#include "http/http_json_serializer.h"
 #include "nlohmann/json.hpp"
 #include "utility/helpers.h"
 #include "utility/logger.h"
@@ -67,6 +67,7 @@ struct ResponseCache {
         auto it = b;
         while (it != blocks.end()) {
             if (it->first >= horizon) break;
+            ++it;
         }
         blocks.erase(b, it);
     }
@@ -93,10 +94,11 @@ using nlohmann::json;
 } //namespace
 
 /// Explorer server backend, gets callback on status update and returns json messages for server
-class Adapter : public INodeObserver, public IAdapter {
+class Adapter : public Node::IObserver, public IAdapter {
 public:
     Adapter(Node& node) :
         _packer(PACKER_FRAGMENTS_SIZE),
+		_node(node),
         _nodeBackend(node.get_Processor()),
         _statusDirty(true),
         _nodeIsSyncing(true),
@@ -127,13 +129,14 @@ private:
     }
 
     /// Returns body for /status request
-    void OnSyncProgress(int done, int total) override {
-        bool isSyncing = (done != total);
+    void OnSyncProgress() override {
+		const Node::SyncStatus& s = _node.m_SyncStatus;
+        bool isSyncing = (s.m_Done != s.m_Total);
         if (isSyncing != _nodeIsSyncing) {
             _statusDirty = true;
             _nodeIsSyncing = isSyncing;
         }
-        if (_nextHook) _nextHook->OnSyncProgress(done, total);
+        if (_nextHook) _nextHook->OnSyncProgress();
     }
 
     void OnStateChanged() override {
@@ -147,7 +150,6 @@ private:
     bool get_status(io::SerializedMsg& out) override {
         if (_statusDirty) {
             const auto& cursor = _nodeBackend.m_Cursor;
-            const auto& extra = _nodeBackend.m_Extra;
 
             _cache.currentHeight = cursor.m_Sid.m_Height;
             _cache.lowHorizon = cursor.m_LoHorizon;
@@ -155,19 +157,15 @@ private:
             char buf[80];
 
             _sm.clear();
-            if (!stratum::append_json_msg(
+            if (!serialize_json_msg(
                 _sm,
                 _packer,
                 json{
-                    { "is_syncing", _nodeIsSyncing },
                     { "timestamp", cursor.m_Full.m_TimeStamp },
                     { "height", _cache.currentHeight },
                     { "low_horizon", cursor.m_LoHorizon },
                     { "hash", hash_to_hex(buf, cursor.m_ID.m_Hash) },
-                    { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) },
-                    { "subsidy",  extra.m_Subsidy.Lo },
-                    { "subsidy_hi",  extra.m_Subsidy.Hi },
-                    { "subsidy_open",  extra.m_SubsidyOpen }
+                    { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) }
                 }
             )) {
                 return false;
@@ -207,38 +205,23 @@ private:
         NodeDB& db = _nodeBackend.get_DB();
 
         Block::SystemState::Full blockState;
-        bool ok = true;
+		Block::SystemState::ID id;
+		Block::Body block;
+		bool ok = true;
+
         try {
             db.get_State(row, blockState);
-        } catch (...) {
+			blockState.get_ID(id);
+
+			NodeDB::StateID sid;
+			sid.m_Row = row;
+			sid.m_Height = id.m_Height;
+			_nodeBackend.ExtractBlockWithExtra(block, sid);
+
+		} catch (...) {
             ok = false;
         }
 
-        Block::SystemState::ID id;
-        blockState.get_ID(id);
-
-        Block::Body block;
-        ByteBuffer bbP, bbE;
-        if (ok) {
-            ByteBuffer rollbackBuf;
-            db.GetStateBlock(row, &bbP, &bbE, &rollbackBuf);
-            if (bbP.empty()) {
-                ok = false;
-            }
-            if (!rollbackBuf.empty()) {
-                LOG_DEBUG() << to_hex(rollbackBuf.data(), rollbackBuf.size());
-            }
-        }
-
-        if (ok) {
-            try {
-                NodeProcessor::ReadBody(block, bbP, bbE);
-            }
-            catch (const std::exception&) {
-                LOG_WARNING() << "Block deserialization failed at " << blockState.m_Height;
-                ok = false;
-            }
-        }
 
         if (ok) {
             char buf[80];
@@ -267,10 +250,16 @@ private:
 
             json kernels = json::array();
             for (const auto &v : block.m_vKernels) {
+                Merkle::Hash kernelID;
+                v->get_ID(kernelID);
                 kernels.push_back(
-                json{
-                    {"fee", v->m_Fee},
-                }
+                    json{
+                        {"id", hash_to_hex(buf, kernelID)},
+                        {"excess", uint256_to_hex(buf, v->m_Commitment.m_X)},
+                        {"minHeight", v->m_Height.m_Min},
+                        {"maxHeight", v->m_Height.m_Max},
+                        {"fee", v->m_Fee}
+                    }
                 );
             }
 
@@ -280,9 +269,9 @@ private:
                 {"height",     blockState.m_Height},
                 {"hash",       hash_to_hex(buf, id.m_Hash)},
                 {"prev",       hash_to_hex(buf, blockState.m_Prev)},
-                {"difficulty", difficulty_to_hex(buf, blockState.m_PoW.m_Difficulty)},
+                {"difficulty", blockState.m_PoW.m_Difficulty.ToFloat()},
                 {"chainwork",  uint256_to_hex(buf, blockState.m_ChainWork)},
-                {"subsidy",    block.m_Subsidy.Lo},
+                {"subsidy",    Rules::get_Emission(blockState.m_Height)},
                 {"inputs",     inputs},
                 {"outputs",    outputs},
                 {"kernels",    kernels}
@@ -315,14 +304,14 @@ private:
         }
 
         io::SharedBuffer body;
-        bool blockAvailable = (height >= _cache.lowHorizon && height <= _cache.currentHeight);
+        bool blockAvailable = (/*height >= _cache.lowHorizon && */height <= _cache.currentHeight);
         if (blockAvailable) {
             json j;
             if (!extract_block(j, height, row, prevRow)) {
                 blockAvailable = false;
             } else {
                 _sm.clear();
-                if (stratum::append_json_msg(_sm, _packer, j)) {
+                if (serialize_json_msg(_sm, _packer, j)) {
                     body = io::normalize(_sm, false);
                     _cache.put_block(height, body);
                 } else {
@@ -337,7 +326,7 @@ private:
             return true;
         }
 
-        return stratum::append_json_msg(out, _packer, json{ { "found", false}, {"height", height } });
+        return serialize_json_msg(out, _packer, json{ { "found", false}, {"height", height } });
     }
 
     bool get_block(io::SerializedMsg& out, uint64_t height) override {
@@ -370,6 +359,7 @@ private:
     HttpMsgCreator _packer;
 
     // node db interface
+	Node& _node;
     NodeProcessor& _nodeBackend;
 
     // helper fragments
@@ -382,8 +372,8 @@ private:
     bool _nodeIsSyncing;
 
     // node observers chain
-    INodeObserver** _hook;
-    INodeObserver* _nextHook;
+    Node::IObserver** _hook;
+    Node::IObserver* _nextHook;
 
     ResponseCache _cache;
 

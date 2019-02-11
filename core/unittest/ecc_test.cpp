@@ -15,6 +15,7 @@
 #include <iostream>
 #include "../ecc_native.h"
 #include "../block_crypt.h"
+#include "../treasury.h"
 #include "../../utility/serialize.h"
 #include "../serialization_adapters.h"
 #include "../aes.h"
@@ -88,6 +89,42 @@ void SetRandomOrd(T& x)
 	GenerateRandom(&x, sizeof(x));
 }
 
+uint32_t get_LsBit(const uint8_t* pSrc, uint32_t nSrc, uint32_t iBit)
+{
+	uint32_t iByte = iBit >> 3;
+	if (iByte >= nSrc)
+		return 0;
+
+	return 1 & (pSrc[nSrc - 1 - iByte] >> (7 & iBit));
+}
+
+void TestShifted2(const uint8_t* pSrc, uint32_t nSrc, const uint8_t* pDst, uint32_t nDst, int nShift)
+{
+	for (uint32_t iBitDst = 0; iBitDst < (nDst << 3); iBitDst++)
+	{
+		uint32_t a = get_LsBit(pSrc, nSrc, iBitDst - nShift);
+		uint32_t b = get_LsBit(pDst, nDst, iBitDst);
+		verify_test(a == b);
+	}
+}
+
+template <uint32_t n0, uint32_t n1>
+void TestShifted(const beam::uintBig_t<n0>& x0, const beam::uintBig_t<n1>& x1, int nShift)
+{
+	TestShifted2(x0.m_pData, x0.nBytes, x1.m_pData, x1.nBytes, nShift);
+}
+
+template <uint32_t n0, uint32_t n1>
+void TestShifts(const beam::uintBig_t<n0>& src, beam::uintBig_t<n0>& src2, beam::uintBig_t<n1>& trg, int nShift)
+{
+	src2 = src;
+	src2.ShiftLeft(nShift, trg);
+	TestShifted(src, trg, nShift);
+	src2 = src;
+	src2.ShiftRight(nShift, trg);
+	TestShifted(src, trg, -nShift);
+}
+
 void TestUintBig()
 {
 	for (int i = 0; i < 100; i++)
@@ -117,6 +154,25 @@ void TestUintBig()
 		v1 = ab;
 
 		verify_test(v0 == v1);
+	}
+
+	// test shifts, when src/dst types is smaller/bigger/equal
+	for (int j = 0; j < 20; j++)
+	{
+		beam::uintBig_t<32> a;
+		beam::uintBig_t<32 - 8> b;
+		beam::uintBig_t<32 + 8> c;
+		beam::uintBig_t<32> d;
+
+		SetRandom(a);
+
+		for (int i = 0; i < 512; i++)
+		{
+			TestShifts(a, a, b, i);
+			TestShifts(a, a, c, i);
+			TestShifts(a, a, d, i);
+			TestShifts(a, d, d, i); // inplace shift
+		}
 	}
 }
 
@@ -419,6 +475,28 @@ void TestCommitments()
 	sigma += commInp;
 
 	verify_test(sigma == Zero);
+
+	// switch commitment
+	HKdf kdf;
+	uintBig seed;
+	SetRandom(seed);
+	kdf.Generate(seed);
+
+	Key::IDV kidv(100500, 15, Key::Type::Regular, 7);
+
+	Scalar::Native sk;
+	ECC::Point::Native comm;
+	beam::SwitchCommitment().Create(sk, comm, kdf, kidv);
+
+	sigma = Commitment(sk, kidv.m_Value);
+	sigma = -sigma;
+	sigma += comm;
+	verify_test(sigma == Zero);
+
+	beam::SwitchCommitment().Recover(sigma, kdf, kidv);
+	sigma = -sigma;
+	sigma += comm;
+	verify_test(sigma == Zero);
 }
 
 template <typename T>
@@ -430,14 +508,33 @@ void WriteSizeSerialized(const char* sz, const T& t)
 	printf("%s size = %u\n", sz, (uint32_t) ssc.m_Counter.m_Value);
 }
 
-void TestRangeProof()
+struct AssetTag
+{
+	Point::Native m_hGen;
+	void Commit(Point::Native& out, const Scalar::Native& sk, Amount v)
+	{
+		out = Context::get().G * sk;
+		Tag::AddValue(out, &m_hGen, v);
+	}
+};
+
+void TestRangeProof(bool bCustomTag)
 {
 	RangeProof::CreatorParams cp;
 	SetRandomOrd(cp.m_Kidv.m_Idx);
-	SetRandomOrd(cp.m_Kidv.m_IdxSecondary);
 	SetRandomOrd(cp.m_Kidv.m_Type);
+	SetRandomOrd(cp.m_Kidv.m_SubIdx);
 	SetRandom(cp.m_Seed.V);
 	cp.m_Kidv.m_Value = 345000;
+
+	beam::AssetID aid;
+	if (bCustomTag)
+		SetRandom(aid);
+	else
+		aid = Zero;
+
+	AssetTag tag;
+	tag.m_hGen = beam::SwitchCommitment(&aid).m_hGen;
 
 	Scalar::Native sk;
 	SetRandom(sk);
@@ -449,11 +546,12 @@ void TestRangeProof()
 		verify_test(rp.m_Value == cp.m_Kidv.m_Value);
 	}
 
-	Point::Native comm = Commitment(sk, rp.m_Value);
+	Point::Native comm;
+	tag.Commit(comm, sk, rp.m_Value);
 
 	{
 		Oracle oracle;
-		verify_test(rp.IsValid(comm, oracle));
+		verify_test(rp.IsValid(comm, oracle, &tag.m_hGen));
 	}
 
 	{
@@ -468,18 +566,18 @@ void TestRangeProof()
 	rp.m_Value++;
 	{
 		Oracle oracle;
-		verify_test(!rp.IsValid(comm, oracle));
+		verify_test(!rp.IsValid(comm, oracle, &tag.m_hGen));
 	}
 	rp.m_Value--;
 
 	// try with invalid key
 	SetRandom(sk);
 
-	comm = Commitment(sk, rp.m_Value);
+	tag.Commit(comm, sk, rp.m_Value);
 
 	{
 		Oracle oracle;
-		verify_test(!rp.IsValid(comm, oracle));
+		verify_test(!rp.IsValid(comm, oracle, &tag.m_hGen));
 	}
 
 	Scalar::Native pA[InnerProduct::nDim];
@@ -509,15 +607,15 @@ void TestRangeProof()
 	RangeProof::Confidential bp;
 	cp.m_Kidv.m_Value = 23110;
 
-	comm = Commitment(sk, cp.m_Kidv.m_Value);
+	tag.Commit(comm, sk, cp.m_Kidv.m_Value);
 
 	{
 		Oracle oracle;
-		bp.Create(sk, cp, oracle);
+		bp.Create(sk, cp, oracle, &tag.m_hGen);
 	}
 	{
 		Oracle oracle;
-		verify_test(bp.IsValid(comm, oracle));
+		verify_test(bp.IsValid(comm, oracle, &tag.m_hGen));
 	}
 	{
 		Oracle oracle;
@@ -533,21 +631,21 @@ void TestRangeProof()
 
 	{
 		Oracle oracle;
-		verify_test(bp.IsValid(comm, oracle, bc)); // add to batch
+		verify_test(bp.IsValid(comm, oracle, bc, &tag.m_hGen)); // add to batch
 	}
 
 	SetRandom(sk);
 	cp.m_Kidv.m_Value = 7223110;
 	SetRandom(cp.m_Seed.V); // another seed for this bulletproof
-	comm = Commitment(sk, cp.m_Kidv.m_Value);
+	tag.Commit(comm, sk, cp.m_Kidv.m_Value);
 
 	{
 		Oracle oracle;
-		bp.Create(sk, cp, oracle);
+		bp.Create(sk, cp, oracle, &tag.m_hGen);
 	}
 	{
 		Oracle oracle;
-		verify_test(bp.IsValid(comm, oracle, bc)); // add to batch
+		verify_test(bp.IsValid(comm, oracle, bc, &tag.m_hGen)); // add to batch
 	}
 
 	verify_test(bc.Flush()); // verify at once
@@ -579,7 +677,7 @@ void TestRangeProof()
 			{
 				Oracle oracle;
 				bp.m_Part2 = p2;
-				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Step2, &msig)); // add last p2, produce msig
+				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Step2, &msig, &tag.m_hGen)); // add last p2, produce msig
 				p2 = bp.m_Part2;
 			}
 		}
@@ -588,7 +686,8 @@ void TestRangeProof()
 		RangeProof::Confidential::Part3 p3;
 		ZeroObject(p3);
 
-		comm = Context::get().H * cp.m_Kidv.m_Value;
+		comm = Zero;
+		Tag::AddValue(comm, &tag.m_hGen, cp.m_Kidv.m_Value);
 
 		for (uint32_t i = 0; i < nSigners; i++)
 		{
@@ -601,7 +700,7 @@ void TestRangeProof()
 				Oracle oracle;
 				bp.m_Part2 = p2;
 				bp.m_Part3 = p3;
-				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Finalize));
+				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Finalize, nullptr, &tag.m_hGen));
 			}
 		}
 
@@ -609,21 +708,27 @@ void TestRangeProof()
 		{
 			// test
 			Oracle oracle;
-			verify_test(bp.IsValid(comm, oracle));
+			verify_test(bp.IsValid(comm, oracle, &tag.m_hGen));
 		}
 	}
 
+	HKdf kdf;
+	uintBig seed;
+	SetRandom(seed);
+	kdf.Generate(seed);
 
 	{
 		beam::Output outp;
-		outp.Create(1U, 20300, true);
+		outp.m_AssetID = aid;
+		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf, true);
 		outp.m_Coinbase = true; // others may be disallowed
 		verify_test(outp.IsValid(comm));
 		WriteSizeSerialized("Out-UTXO-Public", outp);
 	}
 	{
 		beam::Output outp;
-		outp.Create(1U, 20300, false);
+		outp.m_AssetID = aid;
+		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf);
 		verify_test(outp.IsValid(comm));
 		WriteSizeSerialized("Out-UTXO-Confidential", outp);
 	}
@@ -654,12 +759,6 @@ struct TransactionMaker
 			m_k = Zero;
 		}
 
-		void EncodeAmount(Point& out, Scalar::Native& k, Amount val)
-		{
-			SetRandom(k);
-			out = Point::Native(Commitment(k, val));
-		}
-
 		void FinalizeExcess(Point::Native& kG, Scalar::Native& kOffset)
 		{
 			kOffset += m_k;
@@ -671,20 +770,24 @@ struct TransactionMaker
 			kG += Context::get().G * m_k;
 		}
 
-
-		void AddInput(beam::Transaction& t, Amount val)
+		void AddInput(beam::Transaction& t, Amount val, Key::IKdf& kdf, const beam::AssetID* pAssetID = nullptr)
 		{
 			std::unique_ptr<beam::Input> pInp(new beam::Input);
 
+			Key::IDV kidv;
+			SetRandomOrd(kidv.m_Idx);
+			kidv.m_Type = Key::Type::Regular;
+			kidv.m_SubIdx = 0;
+			kidv.m_Value = val;
+
 			Scalar::Native k;
-			EncodeAmount(pInp->m_Commitment, k, val);
+			beam::SwitchCommitment(pAssetID).Create(k, pInp->m_Commitment, kdf, kidv);
 
 			t.m_vInputs.push_back(std::move(pInp));
-
 			m_k += k;
 		}
 
-		void AddOutput(beam::Transaction& t, Amount val, Key::IKdf& kdf)
+		void AddOutput(beam::Transaction& t, Amount val, Key::IKdf& kdf, const beam::AssetID* pAssetID = nullptr)
 		{
 			std::unique_ptr<beam::Output> pOut(new beam::Output);
 
@@ -692,11 +795,13 @@ struct TransactionMaker
 
 			Key::IDV kidv;
 			SetRandomOrd(kidv.m_Idx);
-			SetRandomOrd(kidv.m_IdxSecondary);
 			kidv.m_Type = Key::Type::Regular;
+			kidv.m_SubIdx = 0;
 			kidv.m_Value = val;
 
-			pOut->Create(k, kdf, kidv);
+			if (pAssetID)
+				pOut->m_AssetID = *pAssetID;
+			pOut->Create(k, kdf, kidv, kdf);
 
 			// test recovery
 			Key::IDV kidv2;
@@ -767,31 +872,58 @@ struct TransactionMaker
 		krn.m_Signature.m_k = kSig;
 	}
 
-	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested)
+	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested, bool bEmitCustomTag)
 	{
 		std::unique_ptr<beam::TxKernel> pKrn(new beam::TxKernel);
 		pKrn->m_Fee = fee;
 
 		pKrn->m_vNested.swap(lstNested);
 
+		// hashlock
 		pKrn->m_pHashLock.reset(new beam::TxKernel::HashLock);
 
 		uintBig hlPreimage;
 		SetRandom(hlPreimage);
 
 		Hash::Value hvLockImage;
-
 		Hash::Processor() << hlPreimage >> hvLockImage;
+
+		if (bEmitCustomTag)
+		{
+			// emit some asset
+			Scalar::Native skAsset;
+			beam::AssetID aid;
+			Amount valAsset = 4431;
+
+			SetRandom(skAsset);
+			beam::proto::Sk2Pk(aid, skAsset);
+
+			if (beam::Rules::get().CA.Deposit)
+				m_pPeers[0].AddInput(m_Trans, valAsset, m_Kdf); // input being-deposited
+
+			m_pPeers[0].AddOutput(m_Trans, valAsset, m_Kdf, &aid); // output UTXO to consume the created asset
+
+			std::unique_ptr<beam::TxKernel> pKrnEmission(new beam::TxKernel);
+			pKrnEmission->m_AssetEmission = valAsset;
+			pKrnEmission->m_Commitment.m_X = aid;
+			pKrnEmission->m_Commitment.m_Y = 0;
+			pKrnEmission->Sign(skAsset);
+
+			lstTrg.push_back(std::move(pKrnEmission));
+
+			skAsset = -skAsset;
+			m_pPeers[0].m_k += skAsset;
+		}
 
 		CoSignKernel(*pKrn, hvLockImage);
 
+
 		Point::Native exc;
-		beam::AmountBig fee2;
+		beam::AmountBig::Type fee2;
 		verify_test(!pKrn->IsValid(fee2, exc)); // should not pass validation unless correct hash preimage is specified
 
 		// finish HL: add hash preimage
 		pKrn->m_pHashLock->m_Preimage = hlPreimage;
-
 		verify_test(pKrn->IsValid(fee2, exc));
 
 		lstTrg.push_back(std::move(pKrn));
@@ -799,7 +931,7 @@ struct TransactionMaker
 
 	void AddInput(int i, Amount val)
 	{
-		m_pPeers[i].AddInput(m_Trans, val);
+		m_pPeers[i].AddInput(m_Trans, val, m_Kdf);
 	}
 
 	void AddOutput(int i, Amount val)
@@ -822,17 +954,41 @@ void TestTransaction()
 
 	Amount fee1 = 100, fee2 = 2;
 
-	tm.CreateTxKernel(lstNested, fee1, lstDummy);
+	tm.CreateTxKernel(lstNested, fee1, lstDummy, false);
 
 	tm.AddOutput(0, 738);
 	tm.AddInput(1, 740);
-	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested);
+	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested, true);
 
 	tm.m_Trans.Normalize();
 
 	beam::TxBase::Context ctx;
 	verify_test(tm.m_Trans.IsValid(ctx));
-	verify_test(!ctx.m_Fee.Hi && (ctx.m_Fee.Lo == fee1 + fee2));
+	verify_test(ctx.m_Fee == beam::AmountBig::Type(fee1 + fee2));
+}
+
+void TestCutThrough()
+{
+	TransactionMaker tm;
+	tm.AddOutput(0, 3000);
+	tm.AddOutput(0, 2000);
+
+	tm.m_Trans.Normalize();
+
+	beam::TxBase::Context ctx;
+	verify_test(ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader()));
+
+	beam::Input::Ptr pInp(new beam::Input);
+	pInp->m_Commitment = tm.m_Trans.m_vOutputs.front()->m_Commitment;
+	tm.m_Trans.m_vInputs.push_back(std::move(pInp));
+
+	ctx.Reset();
+	verify_test(!ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader())); // redundant outputs must be banned!
+
+	verify_test(tm.m_Trans.Normalize() == 1);
+
+	ctx.Reset();
+	verify_test(ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader()));
 }
 
 void TestAES()
@@ -885,11 +1041,11 @@ void TestKdf()
 	HKdf skdf;
 	HKdfPub pkdf;
 
-	SetRandom(skdf.m_Secret.V);
-	pkdf.m_Secret.V = skdf.m_Secret.V;
+	uintBig seed;
+	SetRandom(seed);
 
-	SetRandom(skdf.m_kCoFactor);
-	pkdf.m_Pk = Context::get().G * skdf.m_kCoFactor;
+	skdf.Generate(seed);
+	pkdf.GenerateFrom(skdf);
 
 	for (uint32_t i = 0; i < 10; i++)
 	{
@@ -905,31 +1061,41 @@ void TestKdf()
 		verify_test(Scalar(sk0) != Scalar(sk1));
 
 		Point::Native pk0, pk1;
-		skdf.DerivePKey(pk0, hv);
-		pkdf.DerivePKey(pk1, hv);
+		skdf.DerivePKeyG(pk0, hv);
+		pkdf.DerivePKeyG(pk1, hv);
+		pk1 = -pk1;
+		pk0 += pk1;
+		verify_test(pk0 == Zero);
+
+		skdf.DerivePKeyJ(pk0, hv);
+		pkdf.DerivePKeyJ(pk1, hv);
 		pk1 = -pk1;
 		pk0 += pk1;
 		verify_test(pk0 == Zero);
 	}
 
+	const std::string sPass("test password");
+
 	beam::KeyString ks1;
-	SetRandom(ks1.m_hvSecret.V);
+	ks1.SetPassword(sPass);
 	ks1.m_sMeta = "hello, World!";
 
 	ks1.Export(skdf);
 	HKdf skdf2;
 	ks1.m_sMeta.clear();
+	ks1.SetPassword(sPass);
 	verify_test(ks1.Import(skdf2));
-	verify_test((skdf2.m_Secret.V == skdf.m_Secret.V) && (skdf2.m_kCoFactor == skdf.m_kCoFactor));
+
+	verify_test(skdf2.IsSame(skdf));
 
 	ks1.Export(pkdf);
 	HKdfPub pkdf2;
 	verify_test(ks1.Import(pkdf2));
-	verify_test(pkdf2.m_Secret.V == pkdf.m_Secret.V);
+	verify_test(pkdf2.IsSame(pkdf));
 
-	pkdf2.m_Pk = -pkdf2.m_Pk;
-	pkdf2.m_Pk += pkdf.m_Pk;
-	verify_test(pkdf2.m_Pk == Zero);
+	seed.Inc();
+	skdf2.Generate(seed);
+	verify_test(!skdf2.IsSame(skdf));
 }
 
 void TestBbs()
@@ -944,12 +1110,12 @@ void TestBbs()
 
 	SetRandom(nonce);
 	beam::ByteBuffer buf;
-	verify_test(beam::proto::BbsEncrypt(buf, publicAddr, nonce, szMsg, sizeof(szMsg)));
+	verify_test(beam::proto::Bbs::Encrypt(buf, publicAddr, nonce, szMsg, sizeof(szMsg)));
 
 	uint8_t* p = &buf.at(0);
 	uint32_t n = (uint32_t) buf.size();
 
-	verify_test(beam::proto::BbsDecrypt(p, n, privateAddr));
+	verify_test(beam::proto::Bbs::Decrypt(p, n, privateAddr));
 	verify_test(n == sizeof(szMsg));
 	verify_test(!memcmp(p, szMsg, n));
 
@@ -957,7 +1123,14 @@ void TestBbs()
 	p = &buf.at(0);
 	n = (uint32_t) buf.size();
 
-	verify_test(!beam::proto::BbsDecrypt(p, n, privateAddr));
+	verify_test(!beam::proto::Bbs::Decrypt(p, n, privateAddr));
+}
+
+void TestRatio(const beam::Difficulty& d0, const beam::Difficulty& d1, double k)
+{
+	const double tol = 1.000001;
+	double k_ = d0.ToFloat() / d1.ToFloat();
+	verify_test((k_ < k * tol) && (k < k_ * tol));
 }
 
 void TestDifficulty()
@@ -984,75 +1157,198 @@ void TestDifficulty()
 	verify_test(Difficulty(0x1000000).IsTargetReached(val));
 
 	// Adjustments
-	Difficulty d = 0;
+	Difficulty d, d2;
+	d.m_Packed = 3 << Difficulty::s_MantissaBits;
 
-	// slight adjustments
-	while (true)
+	Difficulty::Raw raw, wrk;
+	d.Unpack(raw);
+	uint32_t dh = 1440;
+	wrk.AssignMul(raw, uintBigFrom(dh));
+
+	d2.Calculate(wrk, dh, 100500, 100500);
+	TestRatio(d2, d, 1.);
+
+	// slight increase
+	d2.Calculate(wrk, dh, 100500, 100000);
+	TestRatio(d2, d, 1.005);
+
+	// strong increase
+	d2.Calculate(wrk, dh, 180000, 100000);
+	TestRatio(d2, d, 1.8);
+
+	// huge increase
+	d2.Calculate(wrk, dh, 7380000, 100000);
+	TestRatio(d2, d, 73.8);
+
+	// insane increase (1.7 billions). Still must fit
+	d2.Calculate(wrk, dh, 1794380000, 1);
+	TestRatio(d2, d, 1794380000);
+
+	// slight decrease
+	d2.Calculate(wrk, dh, 100000, 100500);
+	TestRatio(d, d2, 1.005);
+
+	// strong decrease
+	d2.Calculate(wrk, dh, 100000, 180000);
+	TestRatio(d, d2, 1.8);
+
+	// insane decrease, out-of-bound
+	d2.Calculate(wrk, dh, 100000, 7380000);
+	verify_test(!d2.m_Packed);
+
+	for (uint32_t i = 0; i < 200; i++)
 	{
-		Difficulty d0 = d;
+		GenerateRandom(&d, sizeof(d));
 
-		d.Adjust(790000, 860000, 2);
-		verify_test(d.m_Packed > d0.m_Packed);
+		uintBig trg;
+		if (!d.get_Target(trg))
+		{
+			verify_test(d.m_Packed >= Difficulty::s_Inf);
+			continue;
+		}
 
-		if (d.m_Packed == Difficulty::s_Inf)
-			break;
+		verify_test(d.IsTargetReached(trg));
+
+		trg.Inc();
+		if (!(trg == Zero)) // overflow?
+			verify_test(!d.IsTargetReached(trg));
+	}
+}
+
+void TestRandom()
+{
+	uintBig pV[2];
+	ZeroObject(pV);
+
+	for (uint32_t i = 0; i < 10; i++)
+	{
+		uintBig& a = pV[1 & i];
+		uintBig& b = pV[1 & (i + 1)];
+
+		a = Zero;
+		GenRandom(a);
+		verify_test(!(a == Zero));
+		verify_test(!(a == b));
+	}
+}
+
+bool IsOkFourCC(const char* szRes, const char* szSrc)
+{
+	// the formatted FourCC always consists of 4 characters. If source is shorter - spaced are appended
+	size_t n = strlen(szSrc);
+	for (size_t i = 0; i < 4; i++)
+	{
+		char c = (i < n) ? szSrc[i] : ' ';
+		if (szRes[i] != c)
+			return false;
 	}
 
-	while (true)
-	{
-		Difficulty d0 = d;
+	return !szRes[4];
 
-		d.Adjust(790000, 760000, 2);
-		verify_test(d.m_Packed < d0.m_Packed);
+}
 
-		if (!d.m_Packed)
-			break;
+void TestFourCC()
+{
+#define TEST_FOURCC(name) \
+	{ \
+		uint32_t nFourCC = FOURCC_FROM(name); \
+		beam::FourCC::Text txt(nFourCC); \
+		verify_test(IsOkFourCC(txt, #name)); \
 	}
 
-	// strong adjustments
-	while (true)
+	// compile-time FourCC should support shorter strings
+	TEST_FOURCC(help)
+	TEST_FOURCC(hel)
+	TEST_FOURCC(he)
+	TEST_FOURCC(h)
+}
+
+void TestTreasury()
+{
+	beam::Treasury::Parameters pars;
+	pars.m_Bursts = 12;
+	pars.m_MaturityStep = 1440 * 30 * 4;
+
+	beam::Treasury tres;
+
+	const uint32_t nPeers = 3;
+	HKdf pKdfs[nPeers];
+
+	for (uint32_t i = 0; i < nPeers; i++)
 	{
-		Difficulty d0 = d;
+		// 1. target wallet is initialized, generates its PeerID
+		uintBig seed;
+		SetRandom(seed);
+		pKdfs[i].Generate(seed);
 
-		d.Adjust(790000, 860000*4, 3);
-		verify_test(d.m_Packed > d0.m_Packed);
+		beam::PeerID pid;
+		Scalar::Native sk;
+		beam::Treasury::get_ID(pKdfs[i], pid, sk);
 
-		if (d.m_Packed == Difficulty::s_Inf)
-			break;
+		// 2. Plan is created (2%, 3%, 4% of the total emission)
+		beam::Treasury::Entry* pE = tres.CreatePlan(pid, beam::Rules::get().Emission.Value0 * (i + 2)/100, pars);
+		verify_test(pE->m_Request.m_WalletID == pid);
+
+		// test Request serialization
+		beam::Serializer ser0;
+		ser0 & pE->m_Request;
+
+		beam::Deserializer der0;
+		der0.reset(ser0.buffer().first, ser0.buffer().second);
+
+		beam::Treasury::Request req;
+		der0 & req;
+
+		// 3. Plan is appvoved by the wallet, response is generated
+		pE->m_pResponse.reset(new beam::Treasury::Response);
+		uint64_t nIndex = 1;
+		verify_test(pE->m_pResponse->Create(req, pKdfs[i], nIndex));
+		verify_test(pE->m_pResponse->m_WalletID == pid);
+
+		// 4. Reponse is verified
+		verify_test(pE->m_pResponse->IsValid(pE->m_Request));
 	}
 
-	while (true)
+	// test serialization
+	beam::Serializer ser1;
+	ser1 & tres;
+
+	tres.m_Entries.clear();
+
+	beam::Deserializer der1;
+	der1.reset(ser1.buffer().first, ser1.buffer().second);
+	der1 & tres;
+
+	verify_test(tres.m_Entries.size() == nPeers);
+
+	std::string msg = "cool treasury";
+	beam::Treasury::Data data;
+	data.m_sCustomMsg = msg;
+	tres.Build(data);
+	verify_test(!data.m_vGroups.empty());
+
+	std::vector<beam::Treasury::Data::Burst> vBursts = data.get_Bursts();
+
+	// test serialization
+	beam::ByteBuffer bb;
+	ser1.swap_buf(bb);
+	ser1 & data;
+
+	data.m_vGroups.clear();
+	data.m_sCustomMsg.clear();
+
+	der1.reset(ser1.buffer().first, ser1.buffer().second);
+	der1 & data;
+
+	verify_test(!data.m_vGroups.empty());
+	verify_test(data.m_sCustomMsg == msg);
+	verify_test(data.IsValid());
+
+	for (uint32_t i = 0; i < nPeers; i++)
 	{
-		Difficulty d0 = d;
-
-		d.Adjust(790000, 760000/4, 3);
-		verify_test(d.m_Packed < d0.m_Packed);
-
-		if (!d.m_Packed)
-			break;
-	}
-
-	// extreme adjustments, should be bounded by max order change
-	while (true)
-	{
-		Difficulty d0 = d;
-
-		d.Adjust(1, 1000, 3);
-		verify_test(d.m_Packed > d0.m_Packed);
-
-		if (d.m_Packed == Difficulty::s_Inf)
-			break;
-	}
-
-	while (true)
-	{
-		Difficulty d0 = d;
-
-		d.Adjust(1000, 1, 3);
-		verify_test(d.m_Packed < d0.m_Packed);
-
-		if (!d.m_Packed)
-			break;
+		std::vector<beam::Treasury::Data::Coin> vCoins;
+		data.Recover(pKdfs[i], vCoins);
+		verify_test(vCoins.size() == pars.m_Bursts);
 	}
 }
 
@@ -1064,12 +1360,17 @@ void TestAll()
 	TestPoints();
 	TestSigning();
 	TestCommitments();
-	TestRangeProof();
+	TestRangeProof(false);
+	TestRangeProof(true);
 	TestTransaction();
+	TestCutThrough();
 	TestAES();
 	TestKdf();
 	TestBbs();
 	TestDifficulty();
+	TestRandom();
+	TestFourCC();
+	TestTreasury();
 }
 
 
@@ -1484,7 +1785,9 @@ void RunBenchmark()
 
 	{
 		BenchmarkMeter bm("BulletProof.Verify x100");
-		bm.N = 10;
+
+		const uint32_t nBatch = 100;
+		bm.N = 10 * nBatch;
 
 		typedef InnerProduct::BatchContextEx<100> MyBatch;
 		std::unique_ptr<MyBatch> p(new MyBatch);
@@ -1494,9 +1797,9 @@ void RunBenchmark()
 
 		do
 		{
-			for (uint32_t i = 0; i < bm.N; i++)
+			for (uint32_t i = 0; i < bm.N; i += nBatch)
 			{
-				for (int n = 0; n < 100; n++)
+				for (uint32_t n = 0; n < nBatch; n++)
 				{
 					Oracle oracle;
 					bp.IsValid(comm, oracle);
@@ -1525,6 +1828,19 @@ void RunBenchmark()
 				for (size_t nSize = 0; nSize < 0x100000; nSize += sizeof(pBuf))
 					asc.XCrypt(enc, pBuf, sizeof(pBuf));
 			}
+
+		} while (bm.ShouldContinue());
+	}
+
+	{
+		uint8_t pBuf[0x400];
+
+		BenchmarkMeter bm("Random-1K");
+		bm.N = 10;
+		do
+		{
+			for (uint32_t i = 0; i < bm.N; i++)
+				GenRandom(pBuf, sizeof(pBuf));
 
 		} while (bm.ShouldContinue());
 	}
@@ -1561,6 +1877,7 @@ int main()
 {
 	g_psecp256k1 = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 
+	beam::Rules::get().CA.Enabled = true;
 	ECC::TestAll();
 	ECC::RunBenchmark();
 

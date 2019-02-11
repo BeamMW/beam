@@ -13,8 +13,9 @@
 // limitations under the License.
 
 #include "processor.h"
-#include "../utility/serialize.h"
+#include "../core/treasury.h"
 #include "../core/serialization_adapters.h"
+#include "../utility/serialize.h"
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
 
@@ -22,7 +23,9 @@ namespace beam {
 
 void NodeProcessor::OnCorrupted()
 {
-	throw std::runtime_error("node data corrupted");
+	CorruptionException exc;
+	exc.m_sErr = "node data";
+	throw exc;
 }
 
 NodeProcessor::Horizon::Horizon()
@@ -54,7 +57,6 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 
 	m_nSizeUtxoComission = 0;
 	ZeroObject(m_Extra);
-	m_Extra.m_SubsidyOpen = true;
 
 	if (bResetCursor)
 		m_DB.ResetCursor();
@@ -63,8 +65,7 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 
 	InitializeFromBlocks();
 
-	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, m_Horizon.m_Branching);
-	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, (Height) Rules::get().MaxRollbackHeight);
+	OnHorizonChanged();
 
 	if (!bResetCursor)
 		TryGoUp();
@@ -76,9 +77,26 @@ NodeProcessor::~NodeProcessor()
 	{
 		try {
 			m_DbTx.Commit();
-		} catch (std::exception& e) {
-			LOG_ERROR() << "DB Commit failed: %s" << e.what();
+		} catch (const CorruptionException& e) {
+			LOG_ERROR() << "DB Commit failed: %s" << e.m_sErr;
 		}
+	}
+}
+
+void NodeProcessor::OnHorizonChanged()
+{
+	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, m_Horizon.m_Branching);
+	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, (Height)Rules::get().Macroblock.MaxRollback);
+
+	if (PruneOld())
+	{
+		// probably horizon parameters have changed. Compact the DB
+		if (m_DbTx.IsInProgress())
+			m_DbTx.Commit();
+
+		m_DB.Vacuum();
+
+		m_DbTx.Start(m_DB);
 	}
 }
 
@@ -109,14 +127,24 @@ void NodeProcessor::InitCursor()
 		m_Cursor.m_LoHorizon = m_DB.ParamIntGetDef(NodeDB::ParamID::LoHorizon);
 	}
 	else
+	{
 		ZeroObject(m_Cursor);
+		m_Cursor.m_ID.m_Hash = Rules::get().Prehistoric;
+	}
 
 	m_Cursor.m_DifficultyNext = get_NextDifficulty();
 }
 
 void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 {
-	bool noRequests = true;
+	if (!EnsureTreasuryHandled())
+	{
+		Block::SystemState::ID id;
+		ZeroObject(id);
+		RequestData(id, true, nullptr, 0);
+		return;
+	}
+
 	// request all potentially missing data
 	NodeDB::WalkerState ws(m_DB);
 	for (m_DB.EnumTips(ws); ws.MoveNext(); )
@@ -131,6 +159,7 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 		if (wrk < m_Cursor.m_Full.m_ChainWork)
 			continue; // not interested in tips behind the current cursor
 
+		Height hTarget = sid.m_Height;
 		Height nBlocks = 0;
 		const uint32_t nMaxBlocks = 32;
 		uint64_t pBlockRow[nMaxBlocks];
@@ -156,8 +185,6 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 				break;
 		}
 
-		noRequests = false;
-
 		Block::SystemState::ID id;
 
 		if (nBlocks)
@@ -179,11 +206,11 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 				sid.m_Row = pBlockRow[(--nBlocks) % nMaxBlocks];
 
 				if (i && (NodeDB::StateFlags::Functional & m_DB.GetStateFlags(sid.m_Row)))
-					break;
+					continue;
 
 				m_DB.get_StateID(sid, id);
 
-				RequestDataInternal(id, sid.m_Row, true);
+				RequestDataInternal(id, sid.m_Row, true, hTarget);
 			}
 		}
 		else
@@ -194,23 +221,19 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 			id.m_Height = s.m_Height - 1;
 			id.m_Hash = s.m_Prev;
 
-			RequestDataInternal(id, sid.m_Row, false);
+			RequestDataInternal(id, sid.m_Row, false, hTarget);
 		}
-	}
-	if (noRequests)
-	{
-		OnUpToDate();
 	}
 }
 
-void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64_t row, bool bBlock)
+void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64_t row, bool bBlock, Height hTarget)
 {
 	if (id.m_Height >= m_Cursor.m_LoHorizon)
 	{
 		PeerID peer;
 		bool bPeer = m_DB.get_Peer(row, peer);
 
-		RequestData(id, bBlock, bPeer ? &peer : NULL);
+		RequestData(id, bBlock, bPeer ? &peer : NULL, hTarget);
 	}
 	else
 	{
@@ -220,6 +243,9 @@ void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64
 
 void NodeProcessor::TryGoUp()
 {
+	if (!EnsureTreasuryHandled())
+		return;
+
 	bool bDirty = false;
 	uint64_t rowid = m_Cursor.m_Sid.m_Row;
 
@@ -294,8 +320,10 @@ void NodeProcessor::TryGoUp()
 	}
 }
 
-void NodeProcessor::PruneOld()
+Height NodeProcessor::PruneOld()
 {
+	Height hRet = 0;
+
 	if (m_Cursor.m_Sid.m_Height > m_Horizon.m_Branching + Rules::HeightGenesis - 1)
 	{
 		Height h = m_Cursor.m_Sid.m_Height - m_Horizon.m_Branching;
@@ -318,6 +346,8 @@ void NodeProcessor::PruneOld()
 			{
 				if (!m_DB.DeleteState(rowid, rowid))
 					break;
+				hRet++;
+
 			} while (rowid);
 		}
 	}
@@ -344,11 +374,14 @@ void NodeProcessor::PruneOld()
 
 				m_DB.DelStateBlockAll(ws.m_Sid.m_Row);
 				m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
+				hRet++;
 			}
 
 			m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
 		}
 	}
+
+	return hRet;
 }
 
 Height NodeProcessor::get_FossilHeight()
@@ -414,7 +447,7 @@ void NodeProcessor::ReadBody(Block::Body& res, const ByteBuffer& bbP, const Byte
 	der & Cast::Down<TxVectors::Perishable>(res);
 
 	der.reset(bbE);
-	der & Cast::Down<TxVectors::Ethernal>(res);
+	der & Cast::Down<TxVectors::Eternal>(res);
 }
 
 uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, TxBase::IReader&& r, Height h, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes)
@@ -477,7 +510,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 		ByteBuffer bbE;
 		m_DB.GetStateBlock(rowid, NULL, &bbE, NULL);
 
-		TxVectors::Ethernal txve;
+		TxVectors::Eternal txve;
 		TxVectors::Perishable txvp; // dummy
 
 		Deserializer der;
@@ -496,6 +529,90 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 
 	mmr.get_Proof(proof, iTrg);
 	return h;
+}
+
+bool NodeProcessor::EnsureTreasuryHandled()
+{
+	if (!m_Extra.m_TreasuryHandled)
+	{
+		if (Rules::get().TreasuryChecksum == Zero)
+			m_Extra.m_TreasuryHandled = true;
+		else
+		{
+			ByteBuffer bb;
+			if (m_DB.ParamGet(NodeDB::ParamID::Treasury, NULL, NULL, &bb))
+				HandleTreasury(bb, false);
+		}
+	}
+
+	return m_Extra.m_TreasuryHandled;
+}
+
+bool NodeProcessor::HandleTreasury(const Blob& blob, bool bFirstTime)
+{
+	assert(!m_Extra.m_TreasuryHandled);
+
+	Deserializer der;
+	der.reset(blob.p, blob.n);
+	Treasury::Data td;
+
+	try {
+		der & td;
+	} catch (const std::exception&) {
+		LOG_WARNING() << "Treasury corrupt";
+		return false;
+	}
+
+	if (bFirstTime)
+	{
+		if (!td.IsValid())
+		{
+			LOG_WARNING() << "Treasury validation failed";
+			return false;
+		}
+
+		std::vector<Treasury::Data::Burst> vBursts = td.get_Bursts();
+
+		std::ostringstream os;
+		os << "Treasury check. Total bursts=" << vBursts.size();
+
+		for (size_t i = 0; i < vBursts.size(); i++)
+		{
+			const Treasury::Data::Burst& b = vBursts[i];
+			os << "\n\t" << "Height=" << b.m_Height << ", Value=" << b.m_Value;
+		}
+
+		LOG_INFO() << os.str();
+	}
+
+	for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
+	{
+		if (!HandleValidatedTx(td.m_vGroups[iG].m_Data.get_Reader(), 0, true, NULL))
+		{
+			// undo partial changes
+			while (iG--)
+			{
+				if (!HandleValidatedTx(td.m_vGroups[iG].m_Data.get_Reader(), 0, false, NULL))
+					OnCorrupted(); // although should not happen anyway
+			}
+
+			LOG_WARNING() << "Treasury invalid";
+			return false;
+		}
+	}
+
+	if (bFirstTime)
+	{
+		for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
+		{
+			TxVectors::Reader r = td.m_vGroups[iG].m_Data.get_Reader();
+			r.Reset();
+			RecognizeUtxos(std::move(r), 0);
+		}
+	}
+
+	m_Extra.m_TreasuryHandled = true;
+	return true;
 }
 
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
@@ -532,8 +649,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 		{
 			bFirstTime = true;
 
-			Difficulty::Raw wrk;
-			s.m_PoW.m_Difficulty.Inc(wrk, m_Cursor.m_Full.m_ChainWork);
+			Difficulty::Raw wrk = m_Cursor.m_Full.m_ChainWork + s.m_PoW.m_Difficulty;
 
 			if (wrk != s.m_ChainWork)
 			{
@@ -609,9 +725,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 
 			assert(m_Cursor.m_LoHorizon <= m_Cursor.m_Sid.m_Height);
-			if (m_Cursor.m_Sid.m_Height - m_Cursor.m_LoHorizon > Rules::get().MaxRollbackHeight)
+			if (m_Cursor.m_Sid.m_Height - m_Cursor.m_LoHorizon > Rules::get().Macroblock.MaxRollback)
 			{
-				m_Cursor.m_LoHorizon = m_Cursor.m_Sid.m_Height - Rules::get().MaxRollbackHeight;
+				m_Cursor.m_LoHorizon = m_Cursor.m_Sid.m_Height - Rules::get().Macroblock.MaxRollback;
 				m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Cursor.m_LoHorizon, NULL);
 			}
 
@@ -653,21 +769,23 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 	for ( ; r.m_pUtxoIn; r.NextUtxoIn())
 	{
 		const Input& x = *r.m_pUtxoIn;
+		assert(x.m_Maturity); // must've already been validated
 
-		m_DB.FindEvents(wlk, Blob(&x.m_Commitment, sizeof(x.m_Commitment))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
+		const UtxoEvent::Key& key = x.m_Commitment;
+
+		m_DB.FindEvents(wlk, Blob(&key, sizeof(key))); // raw find (each time from scratch) is suboptimal, because inputs are sorted, should be a way to utilize this
 		if (wlk.MoveNext())
 		{
-			if (wlk.m_Body.n != sizeof(UtxoEvent))
+			if (wlk.m_Body.n < sizeof(UtxoEvent::Value))
 				OnCorrupted();
 
-			UtxoEvent evt = *(UtxoEvent*)wlk.m_Body.p; // copy
-			if (evt.m_Added != 1)
-				OnCorrupted();
-
-			// In case of macroblock we can't recover the original input height. But in our current implementation macroblocks always go from the beginning, hence they don't contain input.
-
+			UtxoEvent::Value evt = *reinterpret_cast<const UtxoEvent::Value*>(wlk.m_Body.p); // copy
+			evt.m_Maturity = x.m_Maturity;
 			evt.m_Added = 0;
-			m_DB.InsertEvent(hMax, Blob(&evt, sizeof(evt)), Blob(NULL, 0));
+
+			// In case of macroblock we can't recover the original input height.
+			m_DB.InsertEvent(hMax, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+			OnUtxoEvent(key, evt);
 		}
 	}
 
@@ -675,34 +793,64 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 	{
 		const Output& x = *r.m_pUtxoOut;
 
-		for (uint32_t iKey = 0; ; iKey++)
+		struct Walker :public IKeyWalker
 		{
-			Key::IPKdf* pKdf = get_Kdf(iKey);
-			if (!pKdf)
-				break;
+			const Output& m_Output;
+			UtxoEvent::Value m_Value;
 
-			Key::IDV kidv;
-			if (x.Recover(*pKdf, kidv))
+			Walker(const Output& x) :m_Output(x) {}
+
+			virtual bool OnKey(Key::IPKdf& tag, Key::Index) override
 			{
-				// bingo!
-				UtxoEvent evt;
-				evt.m_KdfIdx = iKey;
-				evt.m_Kidv = kidv;
-				evt.m_Added = 1;
+				Key::IDV kidv;
+				if (!m_Output.Recover(tag, kidv))
+					return true; // continue enumeration
 
-				Height h;
-				if (x.m_Maturity)
-					// try to reverse-engineer the original block from the maturity
-					h = x.m_Maturity - x.get_MinMaturity(0);
-				else
-					h = hMax;
-
-				m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&x.m_Commitment, sizeof(x.m_Commitment)));
-
-				break;
+				m_Value.m_Kidv = kidv;
+				return false; // stop
 			}
+		};
+
+		Walker w(x);
+		w.m_Value.m_Added = 1;
+		if (!EnumViewerKeys(w))
+		{
+			// filter-out dummies
+			Key::IDV kidv;
+			kidv = w.m_Value.m_Kidv;
+
+			if (IsDummy(kidv))
+			{
+				OnDummy(kidv, hMax);
+				continue;
+			}
+
+			// bingo!
+			Height h;
+			if (x.m_Maturity)
+			{
+				w.m_Value.m_Maturity = x.m_Maturity;
+				// try to reverse-engineer the original block from the maturity
+				h = x.m_Maturity - x.get_MinMaturity(0);
+			}
+			else
+			{
+				h = hMax;
+				w.m_Value.m_Maturity = x.get_MinMaturity(h);
+			}
+
+			w.m_Value.m_AssetID = r.m_pUtxoOut->m_AssetID;
+
+			const UtxoEvent::Key& key = x.m_Commitment;
+			m_DB.InsertEvent(h, Blob(&w.m_Value, sizeof(w.m_Value)), Blob(&key, sizeof(key)));
+			OnUtxoEvent(key, w.m_Value);
 		}
 	}
+}
+
+bool NodeProcessor::IsDummy(const Key::IDV&  kidv)
+{
+	return !kidv.m_Value && (Key::Type::Decoy == kidv.m_Type);
 }
 
 bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, const Height* pHMax)
@@ -746,26 +894,10 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 
 bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyBase& body, Height h, bool bFwd, const Height* pHMax)
 {
-	if (body.m_SubsidyClosing && (m_Extra.m_SubsidyOpen != bFwd))
-		return false; // invalid subsidy close flag
-
 	if (!HandleValidatedTx(std::move(r), h, bFwd, pHMax))
 		return false;
 
-	if (body.m_SubsidyClosing)
-		ToggleSubsidyOpened();
-
-	ECC::Scalar::Native kOffset = body.m_Offset;
-
-	if (bFwd)
-		m_Extra.m_Subsidy += body.m_Subsidy;
-	else
-	{
-		m_Extra.m_Subsidy -= body.m_Subsidy;
-		kOffset = -kOffset;
-	}
-
-	m_Extra.m_Offset += kOffset;
+	// currently there's no extra info in the block that's needed
 
 	return true;
 }
@@ -792,12 +924,12 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		{
 			d.m_Maturity = 0;
 			kMin = d;
-			d.m_Maturity = pHMax ? *pHMax : h;
+			d.m_Maturity = h - 1;
 			kMax = d;
 		}
 		else
 		{
-			if (v.m_Maturity > *pHMax)
+			if (v.m_Maturity >= *pHMax)
 				return false;
 
 			d.m_Maturity = v.m_Maturity;
@@ -823,7 +955,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		if (!--p->m_Value.m_Count)
 			m_Utxos.Delete(cu);
 		else
-			cu.Invalidate();
+			cu.InvalidateElement();
 
 		if (!pHMax)
 			Cast::NotConst(v).m_Maturity = d.m_Maturity;
@@ -842,7 +974,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		else
 		{
 			p->m_Value.m_Count++;
-			cu.Invalidate();
+			cu.InvalidateElement();
 		}
 	}
 
@@ -870,7 +1002,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 	bool bCreate = true;
 	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
 
-	cu.Invalidate();
+	cu.InvalidateElement();
 
 	if (bFwd)
 	{
@@ -894,31 +1026,6 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 	}
 
 	return true;
-}
-
-void NodeProcessor::ToggleSubsidyOpened()
-{
-	UtxoTree::Key::Data d;
-	ZeroObject(d);
-	d.m_Commitment.m_Y = true; // invalid commitment
-
-	UtxoTree::Key key;
-	key = d;
-
-	UtxoTree::Cursor cu;
-	bool bCreate = true;
-	UtxoTree::MyLeaf* p = m_Utxos.Find(cu, key, bCreate);
-
-	assert(m_Extra.m_SubsidyOpen == bCreate);
-	m_Extra.m_SubsidyOpen = !bCreate;
-
-	if (bCreate)
-		p->m_Value.m_Count = 1;
-	else
-	{
-		assert(1 == p->m_Value.m_Count);
-		m_Utxos.Delete(cu);
-	}
 }
 
 bool NodeProcessor::GoForward(uint64_t row)
@@ -956,8 +1063,6 @@ void NodeProcessor::Rollback()
 	if (!HandleBlock(sid, false))
 		OnCorrupted();
 
-	InitCursor(); // needed to refresh subsidy-open flag. Otherwise isn't necessary
-
 	OnRolledBack();
 }
 
@@ -975,17 +1080,11 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 	if (s.m_TimeStamp > ts)
 	{
 		ts = s.m_TimeStamp - ts; // dt
-		if (ts > Rules::get().TimestampAheadThreshold_s)
+		if (ts > Rules::get().DA.MaxAhead_s)
 		{
 			LOG_WARNING() << id << " Timestamp ahead by " << ts;
 			return DataStatus::Invalid;
 		}
-	}
-
-	if (!ApproveState(id))
-	{
-		LOG_WARNING() << "State " << id << " not approved";
-		return DataStatus::Invalid;
 	}
 
 	if (s.m_Height < m_Cursor.m_LoHorizon)
@@ -1008,7 +1107,6 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 		m_DB.set_Peer(rowid, &peer);
 
 		LOG_INFO() << id << " Header accepted";
-		OnStateData();
 	}
 	
 	return ret;
@@ -1048,7 +1146,37 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
 		TryGoUp();
 
-	OnBlockData();
+	return DataStatus::Accepted;
+}
+
+NodeProcessor::DataStatus::Enum NodeProcessor::OnTreasury(const Blob& blob)
+{
+	if (Rules::get().TreasuryChecksum == Zero)
+		return DataStatus::Invalid; // should be no treasury
+
+	ECC::Hash::Value hv;
+	ECC::Hash::Processor()
+		<< blob
+		>> hv;
+
+	if (Rules::get().TreasuryChecksum != hv)
+		return DataStatus::Invalid;
+
+	if (m_Extra.m_TreasuryHandled)
+		return DataStatus::Rejected;
+
+	if (!HandleTreasury(blob, true))
+		return DataStatus::Invalid;
+
+	assert(m_Extra.m_TreasuryHandled);
+	m_DB.ParamSet(NodeDB::ParamID::Treasury, NULL, &blob);
+
+
+	LOG_INFO() << "Treasury verified";
+
+	OnNewState();
+	TryGoUp();
+
 	return DataStatus::Accepted;
 }
 
@@ -1081,23 +1209,101 @@ uint64_t NodeProcessor::FindActiveAtStrict(Height h)
 // Block generation
 Difficulty NodeProcessor::get_NextDifficulty()
 {
+	const Rules& r = Rules::get(); // alias
+
 	if (!m_Cursor.m_Sid.m_Row)
-		return Rules::get().StartDifficulty; // 1st block difficulty 0
+		return r.DA.Difficulty0; // 1st block
 
-	Height dh = m_Cursor.m_Full.m_Height - Rules::HeightGenesis;
+	//if (m_Cursor.m_Full.m_Height - Rules::HeightGenesis < r.DA.WindowWork)
+	//	return r.DA.Difficulty0; // 1st block difficulty 0
 
-	if (!dh || (dh % Rules::get().DifficultyReviewCycle))
-		return m_Cursor.m_Full.m_PoW.m_Difficulty; // no change
+	THW thw0, thw1;
 
-	// review the difficulty
-	uint64_t rowid = FindActiveAtStrict(m_Cursor.m_Full.m_Height - Rules::get().DifficultyReviewCycle);
+	get_MovingMedianEx(m_Cursor.m_Sid.m_Row, r.DA.WindowMedian1, thw1);
 
-	Block::SystemState::Full s2;
-	m_DB.get_State(rowid, s2);
+	if (m_Cursor.m_Full.m_Height - Rules::HeightGenesis >= r.DA.WindowWork)
+	{
+		uint64_t row0 = FindActiveAtStrict(m_Cursor.m_Full.m_Height - r.DA.WindowWork);
+		get_MovingMedianEx(row0, r.DA.WindowMedian1, thw0);
+	}
+	else
+	{
+		uint64_t row0 = FindActiveAtStrict(Rules::HeightGenesis);
+		get_MovingMedianEx(row0, r.DA.WindowMedian1, thw0); // awkward to look for median, since they're immaginary. But makes sure we stick to the same median search and rounding (in case window is even).
 
-	Difficulty ret = m_Cursor.m_Full.m_PoW.m_Difficulty;
-	Rules::get().AdjustDifficulty(ret, s2.m_TimeStamp, m_Cursor.m_Full.m_TimeStamp);
-	return ret;
+		// how many immaginary prehistoric blocks should be offset
+		uint32_t nDelta = r.DA.WindowWork - static_cast<uint32_t>(m_Cursor.m_Full.m_Height - Rules::HeightGenesis);
+
+		thw0.first -= r.DA.Target_s * nDelta;
+		thw0.second.first -= nDelta;
+
+		Difficulty::Raw wrk, wrk2;
+		r.DA.Difficulty0.Unpack(wrk);
+		wrk2.AssignMul(wrk, uintBigFrom(nDelta));
+		wrk2.Negate();
+		thw0.second.second += wrk2;
+	}
+
+	assert(r.DA.WindowWork > r.DA.WindowMedian1); // when getting median - the target height can be shifted by some value, ensure it's smaller than the window
+	// means, the height diff should always be positive
+	assert(thw1.second.first > thw0.second.first);
+
+	uint32_t dh = static_cast<uint32_t>(thw1.second.first - thw0.second.first);
+
+	uint32_t dtTrg_s = r.DA.Target_s * dh;
+	uint32_t dtSrc_s =
+		(thw1.first >= thw0.first + dtTrg_s * 2) ? (dtTrg_s * 2) :
+		(thw1.first <= thw0.first + dtTrg_s / 2) ? (dtTrg_s / 2) :
+		static_cast<uint32_t>(thw1.first - thw0.first);
+
+	Difficulty::Raw& dWrk = thw0.second.second;
+	dWrk.Negate();
+	dWrk += thw1.second.second;
+
+	Difficulty res;
+	res.Calculate(dWrk, dh, dtTrg_s, dtSrc_s);
+
+	return res;
+}
+
+void NodeProcessor::get_MovingMedianEx(uint64_t rowLast, uint32_t nWindow, THW& res)
+{
+	std::vector<THW> v;
+	v.reserve(nWindow);
+
+	assert(rowLast);
+	while (v.size() < nWindow)
+	{
+		v.emplace_back();
+		THW& thw = v.back();
+
+		if (rowLast)
+		{
+			Block::SystemState::Full s;
+			m_DB.get_State(rowLast, s);
+
+			thw.first = s.m_TimeStamp;
+			thw.second.first = s.m_Height;
+			thw.second.second = s.m_ChainWork;
+
+			if (!m_DB.get_Prev(rowLast))
+				rowLast = 0;
+		}
+		else
+		{
+			// append "prehistoric" blocks of starting difficulty and perfect timing
+			const THW& thwSrc = v[v.size() - 2];
+
+			thw.first = thwSrc.first - Rules::get().DA.Target_s;
+			thw.second.first = thwSrc.second.first - 1;
+			thw.second.second = thwSrc.second.second - Rules::get().DA.Difficulty0; // don't care about overflow
+		}
+	}
+
+	std::sort(v.begin(), v.end()); // there's a better algorithm to find a median (or whatever order), however our array isn't too big, so it's ok.
+	// In case there are multiple blocks with exactly the same Timestamp - the ambiguity is resolved w.r.t. Height.
+
+	res = v[nWindow >> 1];
 }
 
 Timestamp NodeProcessor::get_MovingMedian()
@@ -1105,28 +1311,15 @@ Timestamp NodeProcessor::get_MovingMedian()
 	if (!m_Cursor.m_Sid.m_Row)
 		return 0;
 
-	std::vector<Timestamp> vTs;
-
-	for (uint64_t row = m_Cursor.m_Sid.m_Row; ; )
-	{
-		Block::SystemState::Full s;
-		m_DB.get_State(row, s);
-		vTs.push_back(s.m_TimeStamp);
-
-		if (vTs.size() >= Rules::get().WindowForMedian)
-			break;
-
-		if (!m_DB.get_Prev(row))
-			break;
-	}
-
-	std::sort(vTs.begin(), vTs.end()); // there's a better algorithm to find a median (or whatever order), however our array isn't too big, so it's ok.
-
-	return vTs[vTs.size() >> 1];
+	THW thw;
+	get_MovingMedianEx(m_Cursor.m_Sid.m_Row, Rules::get().DA.WindowMedian0, thw);
+	return thw.first;
 }
 
-bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, Height h)
+bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx) const
 {
+	Height h = m_Cursor.m_Sid.m_Height + 1;
+
 	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
 		if (!tx.m_vKernels[i]->m_Height.IsInRange(h))
 			return false;
@@ -1136,9 +1329,10 @@ bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx, Height h)
 
 bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 {
-	Height h = m_Cursor.m_Sid.m_Height + 1;
-	if (!ValidateTxWrtHeight(tx, h))
+	if (!ValidateTxWrtHeight(tx))
 		return false;
+
+	Height h = m_Cursor.m_Sid.m_Height;
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
 	// Ensure input UTXOs are present
@@ -1198,59 +1392,41 @@ void NodeProcessor::DeleteOutdated(TxPool::Fluff& txp)
 	}
 }
 
-size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Height h)
+size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc)
 {
+	Height h = m_Cursor.m_Sid.m_Height + 1;
+
 	// Generate the block up to the allowed size.
 	// All block elements are serialized independently, their binary size can just be added to the size of the "empty" block.
 
-	res.m_Subsidy += Rules::get().CoinbaseEmission;
-	if (!m_Extra.m_SubsidyOpen)
-		res.m_SubsidyClosing = false;
-
-	ECC::Scalar::Native sk, offset = res.m_Offset;
-
-	// Add mandatory elements: coinbase UTXO and kernel
-	{
-		Output::Ptr pOutp(new Output);
-		pOutp->m_Coinbase = true;
-		pOutp->Create(sk, bc.m_Kdf, Key::IDV(Rules::get().CoinbaseEmission, h, Key::Type::Coinbase));
-
-		if (!HandleBlockElement(*pOutp, h, NULL, true))
-			return 0;
-
-		res.m_vOutputs.push_back(std::move(pOutp));
-
-		sk = -sk;
-		offset += sk;
-
-		bc.m_Kdf.DeriveKey(sk, Key::ID(h, Key::Type::Kernel, uint64_t(-1LL)));
-
-		TxKernel::Ptr pKrn(new TxKernel);
-		pKrn->m_Commitment = ECC::Point::Native(ECC::Context::get().G * sk);
-		pKrn->m_Height.m_Min = h; // make it similar to others
-
-		ECC::Hash::Value hv;
-		pKrn->get_Hash(hv);
-		pKrn->m_Signature.Sign(hv, sk);
-
-		res.m_vKernels.push_back(std::move(pKrn));
-
-		sk = -sk;
-		offset += sk;
-	}
-
 	SerializerSizeCounter ssc;
-	ssc & res;
+	ssc & bc.m_Block;
 
-	const size_t nSizeMax = Rules::get().MaxBodySize;
-	if (ssc.m_Counter.m_Value > nSizeMax)
+	Block::Builder bb(bc.m_SubIdx, bc.m_Coin, bc.m_Tag, h);
+
+	Output::Ptr pOutp;
+	TxKernel::Ptr pKrn;
+
+	bb.AddCoinbaseAndKrn(pOutp, pKrn);
+	if (pOutp)
+		ssc & *pOutp;
+	ssc & *pKrn;
+
+	ECC::Scalar::Native offset = bc.m_Block.m_Offset;
+
+	if (BlockContext::Mode::Assemble != bc.m_Mode)
 	{
-		// the block may be non-empty (i.e. contain treasury)
-		LOG_WARNING() << "Block too large.";
-		return 0; //
+		if (pOutp)
+		{
+			if (!HandleBlockElement(*pOutp, h, NULL, true))
+				return 0;
+
+			bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
+		}
+		bc.m_Block.m_vKernels.push_back(std::move(pKrn));
 	}
 
-	 // estimate the size of the fees UTXO
+	// estimate the size of the fees UTXO
 	if (!m_nSizeUtxoComission)
 	{
 		Output outp;
@@ -1262,21 +1438,31 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 		m_nSizeUtxoComission = ssc2.m_Counter.m_Value;
 	}
 
-	bc.m_Fees = 0;
+	if (bc.m_Fees)
+		ssc.m_Counter.m_Value += m_nSizeUtxoComission;
+
+	const size_t nSizeMax = Rules::get().MaxBodySize;
+	if (ssc.m_Counter.m_Value > nSizeMax)
+	{
+		// the block may be non-empty (i.e. contain treasury)
+		LOG_WARNING() << "Block too large.";
+		return 0; //
+	}
+
 	size_t nTxNum = 0;
 
 	for (TxPool::Fluff::ProfitSet::iterator it = bc.m_TxPool.m_setProfit.begin(); bc.m_TxPool.m_setProfit.end() != it; )
 	{
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
 
-		if (x.m_Profit.m_Fee.Hi)
+		if (AmountBig::get_Hi(x.m_Profit.m_Fee))
 		{
 			// huge fees are unsupported
 			bc.m_TxPool.Delete(x);
 			continue;
 		}
 
-		Amount feesNext = bc.m_Fees + x.m_Profit.m_Fee.Lo;
+		Amount feesNext = bc.m_Fees + AmountBig::get_Lo(x.m_Profit.m_Fee);
 		if (feesNext < bc.m_Fees)
 			continue; // huge fees are unsupported
 
@@ -1286,9 +1472,9 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 
 		if (nSizeNext > nSizeMax)
 		{
-			if (res.m_vInputs.empty() &&
-				(res.m_vOutputs.size() == 1) &&
-				(res.m_vKernels.size() == 1))
+			if (bc.m_Block.m_vInputs.empty() &&
+				(bc.m_Block.m_vOutputs.size() == 1) &&
+				(bc.m_Block.m_vKernels.size() == 1))
 			{
 				// won't fit in empty block
 				LOG_INFO() << "Tx is too big.";
@@ -1299,9 +1485,9 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 
 		Transaction& tx = *x.m_pValue;
 
-		if (ValidateTxWrtHeight(tx, h) && HandleValidatedTx(tx.get_Reader(), h, true))
+		if (ValidateTxWrtHeight(tx) && HandleValidatedTx(tx.get_Reader(), h, true))
 		{
-			TxVectors::Writer(res, res).Dump(tx.get_Reader());
+			TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(tx.get_Reader());
 
 			bc.m_Fees = feesNext;
 			ssc.m_Counter.m_Value = nSizeNext;
@@ -1314,32 +1500,33 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 
 	LOG_INFO() << "GenerateNewBlock: size of block = " << ssc.m_Counter.m_Value << "; amount of tx = " << nTxNum;
 
-	if (bc.m_Fees)
+	if (BlockContext::Mode::Assemble != bc.m_Mode)
 	{
-		Output::Ptr pOutp(new Output);
-		pOutp->Create(sk, bc.m_Kdf, Key::IDV(bc.m_Fees, h, Key::Type::Comission));
+		if (bc.m_Fees)
+		{
+			bb.AddFees(bc.m_Fees, pOutp);
+			if (!HandleBlockElement(*pOutp, h, NULL, true))
+				return 0;
 
-		if (!HandleBlockElement(*pOutp, h, NULL, true))
-			return false; // though should not happen!
+			bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
+		}
 
-		res.m_vOutputs.push_back(std::move(pOutp));
-
-		sk = -sk;
-		offset += sk;
+		bb.m_Offset = -bb.m_Offset;
+		offset += bb.m_Offset;
 	}
 
-	// Finalize block construction.
-	if (m_Cursor.m_Sid.m_Row)
-		bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
-	else
-		ZeroObject(bc.m_Hdr.m_Prev);
+	bc.m_Block.m_Offset = offset;
 
-	if (res.m_SubsidyClosing)
-		ToggleSubsidyOpened();
+	return ssc.m_Counter.m_Value;
+}
+
+void NodeProcessor::GenerateNewHdr(BlockContext& bc)
+{
+	bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
 
 	get_Definition(bc.m_Hdr.m_Definition, true);
 
-	res.NormalizeE();
+	bc.m_Block.NormalizeE();
 
 	struct MyFlyMmr :public Merkle::FlyMmr {
 		const TxKernel::Ptr* m_ppKrn;
@@ -1349,91 +1536,106 @@ size_t NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, Heigh
 	};
 
 	MyFlyMmr fmmr;
-	fmmr.m_Count = res.m_vKernels.size();
-	fmmr.m_ppKrn = res.m_vKernels.empty() ? NULL : &res.m_vKernels.front();
+	fmmr.m_Count = bc.m_Block.m_vKernels.size();
+	fmmr.m_ppKrn = bc.m_Block.m_vKernels.empty() ? NULL : &bc.m_Block.m_vKernels.front();
 	fmmr.get_Hash(bc.m_Hdr.m_Kernels);
 
-	if (res.m_SubsidyClosing)
-		ToggleSubsidyOpened();
-
-	bc.m_Hdr.m_Height = h;
 	bc.m_Hdr.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
 	bc.m_Hdr.m_TimeStamp = getTimestamp();
 
-	bc.m_Hdr.m_PoW.m_Difficulty.Inc(bc.m_Hdr.m_ChainWork, m_Cursor.m_Full.m_ChainWork);
+	bc.m_Hdr.m_ChainWork = m_Cursor.m_Full.m_ChainWork + bc.m_Hdr.m_PoW.m_Difficulty;
 
 	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
 	Timestamp tm = get_MovingMedian() + 1;
 	bc.m_Hdr.m_TimeStamp = std::max(bc.m_Hdr.m_TimeStamp, tm);
+}
 
-	res.m_Offset = offset;
-
-	return ssc.m_Counter.m_Value;
+NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::Index nSubKey, Key::IKdf& coin, Key::IPKdf& tag)
+	:m_TxPool(txp)
+	,m_SubIdx(nSubKey)
+	,m_Coin(coin)
+	,m_Tag(tag)
+{
+	m_Fees = 0;
+	m_Block.ZeroInit();
 }
 
 bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 {
-	Block::Body block;
-	block.ZeroInit();
-	block.m_SubsidyClosing = true; // by default insist on it. If already closed - this flag will automatically be turned OFF
-	return GenerateNewBlock(bc, block, true);
-}
-
-bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res)
-{
-	return GenerateNewBlock(bc, res, false);
-}
-
-bool NodeProcessor::GenerateNewBlock(BlockContext& bc, Block::Body& res, bool bInitiallyEmpty)
-{
 	Height h = m_Cursor.m_Sid.m_Height + 1;
 
-	if (!bInitiallyEmpty && !VerifyBlock(res, res.get_Reader(), h))
-		return false;
+	bool bEmpty =
+		bc.m_Block.m_vInputs.empty() &&
+		bc.m_Block.m_vOutputs.empty() &&
+		bc.m_Block.m_vKernels.empty();
 
-	if (!bInitiallyEmpty)
+	if (!bEmpty)
 	{
-		if (!HandleValidatedTx(res.get_Reader(), h, true))
+		if ((BlockContext::Mode::Finalize != bc.m_Mode) && !VerifyBlock(bc.m_Block, bc.m_Block.get_Reader(), h))
+			return false;
+
+		if (!HandleValidatedTx(bc.m_Block.get_Reader(), h, true))
 			return false;
 	}
 
-	size_t nSizeEstimated = GenerateNewBlock(bc, res, h);
+	size_t nSizeEstimated = 1;
 
-	verify(HandleValidatedTx(res.get_Reader(), h, false)); // undo changes
+	if (BlockContext::Mode::Finalize != bc.m_Mode)
+		nSizeEstimated = GenerateNewBlockInternal(bc);
+
+	if (nSizeEstimated)
+		bc.m_Hdr.m_Height = h;
+
+	verify(HandleValidatedTx(bc.m_Block.get_Reader(), h, false)); // undo changes
+
+	// reset input maturities
+	for (size_t i = 0; i < bc.m_Block.m_vInputs.size(); i++)
+		bc.m_Block.m_vInputs[i]->m_Maturity = 0;
 
 	if (!nSizeEstimated)
 		return false;
 
-	// reset input maturities
-	for (size_t i = 0; i < res.m_vInputs.size(); i++)
-		res.m_vInputs[i]->m_Maturity = 0;
+	if (BlockContext::Mode::Assemble == bc.m_Mode)
+		return true;
 
-	size_t nCutThrough = res.NormalizeP(); // kernels must have already been normalized, this is needed for kernel commitment
+	size_t nCutThrough = bc.m_Block.Normalize(); // right before serialization
 	nCutThrough; // remove "unused var" warning
+
+	// The effect of the cut-through block may be different than it was during block construction, because the consumed and created UTXOs (removed by cut-through) could have different maturities.
+	// Hence - we need to re-apply the block after the cut-throught, evaluate the definition, and undo the changes (once again).
+	if (!HandleValidatedTx(bc.m_Block.get_Reader(), h, true))
+	{
+		LOG_WARNING() << "couldn't apply block after cut-through!";
+		return false; // ?!
+	}
+	GenerateNewHdr(bc);
+	verify(HandleValidatedTx(bc.m_Block.get_Reader(), h, false)); // undo changes
+
 
 	Serializer ser;
 
 	ser.reset();
-	ser & Cast::Down<Block::BodyBase>(res);
-	ser & Cast::Down<TxVectors::Perishable>(res);
+	ser & Cast::Down<Block::BodyBase>(bc.m_Block);
+	ser & Cast::Down<TxVectors::Perishable>(bc.m_Block);
 	ser.swap_buf(bc.m_BodyP);
 
 	ser.reset();
-	ser & Cast::Down<TxVectors::Ethernal>(res);
+	ser & Cast::Down<TxVectors::Eternal>(bc.m_Block);
 	ser.swap_buf(bc.m_BodyE);
 
 	size_t nSize = bc.m_BodyP.size() + bc.m_BodyE.size();
 
-	assert(nCutThrough ?
-		(nSize < nSizeEstimated) :
-		(nSize == nSizeEstimated));
+	if (BlockContext::Mode::SinglePass == bc.m_Mode)
+		assert(nCutThrough ?
+			(nSize < nSizeEstimated) :
+			(nSize == nSizeEstimated));
 
 	return nSize <= Rules::get().MaxBodySize;
 }
 
 bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
 {
-	return block.IsValid(hr, m_Extra.m_SubsidyOpen, std::move(r));
+	return block.IsValid(hr, std::move(r));
 }
 
 void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::StateID& sid)
@@ -1599,8 +1801,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		{
 			bFirstTime = false;
 
-			Difficulty::Raw wrk;
-			s.m_PoW.m_Difficulty.Inc(wrk, m_Cursor.m_Full.m_ChainWork);
+			Difficulty::Raw wrk = m_Cursor.m_Full.m_ChainWork + s.m_PoW.m_Difficulty;
 
 			if (wrk != s.m_ChainWork)
 			{
@@ -1609,7 +1810,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 			}
 		}
 		else
-			s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+			s.m_ChainWork += s.m_PoW.m_Difficulty;
 
 		if (id.m_Height >= Rules::HeightGenesis)
 			cmmr.Append(id.m_Hash);
@@ -1697,7 +1898,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		if (bFirstTime)
 			bFirstTime = false;
 		else
-			s.m_PoW.m_Difficulty.Inc(s.m_ChainWork);
+			s.m_ChainWork += s.m_PoW.m_Difficulty;
 
 		s.get_ID(id);
 
@@ -1834,9 +2035,12 @@ void NodeProcessor::InitializeFromBlocks()
 		}
 	};
 
-	MyWalker wlk;
-	wlk.m_pThis = this;
-	EnumBlocks(wlk);
+	if (EnsureTreasuryHandled())
+	{
+		MyWalker wlk;
+		wlk.m_pThis = this;
+		EnumBlocks(wlk);
+	}
 
 	if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
 	{

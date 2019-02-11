@@ -14,9 +14,7 @@ Rectangle {
     SettingsViewModel {id: viewModel}
 
     ChangePasswordDialog {
-        id: changePasswordDialog
-
-        
+        id: changePasswordDialog        
     }
 
     ColumnLayout {
@@ -102,7 +100,7 @@ Rectangle {
                                 font.pixelSize: 12
                                 color: readOnly ? Style.disable_text_color : Style.white
                                 readOnly: localNodeRun.checked
-                                validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
+                                validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                 text: viewModel.nodeAddress
                                 Binding {
                                     target: viewModel
@@ -128,7 +126,7 @@ Rectangle {
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.alignment: Qt.AlignTop
-                        height: 360
+                        height: 320
                         radius: 10
                         color: Style.dark_slate_blue
 
@@ -152,7 +150,6 @@ Rectangle {
                                     Layout.fillWidth: true
                                     Layout.alignment: Qt.AlignTop
                                     spacing: 10
-                                
 
                                     CustomSwitch {
                                         id: localNodeRun
@@ -192,81 +189,15 @@ Rectangle {
                                             value: localNodePort.text
                                         }
                                     }
-
-                                    SFText {
-                                        text: qsTr("Mining threads")
-                                        color: localNodeRun.checked ? Style.white : Style.disable_text_color
-                                        font.pixelSize: 12
-                                        font.styleName: "Bold"; font.weight: Font.Bold
-                                    }
-
-                                    FeeSlider {
-                                        id: localNodeMiningThreads
-                                        precision: 0
-                                        showTicks: true
-                                        Layout.fillWidth: true
-                                        value: viewModel.localNodeMiningThreads
-                                        to: {viewModel.coreAmount()}
-                                        stepSize: 1
-                                        enabled: localNodeRun.checked && !useGpu.checked
-                                        Binding {
-                                            target: viewModel
-                                            property: "localNodeMiningThreads"
-                                            value: localNodeMiningThreads.value
-                                        }
-                                    }
-
-                                    SFText {
-                                        text: qsTr("Verification threads")
-                                        color: localNodeRun.checked ? Style.white : Style.disable_text_color
-                                        font.pixelSize: 12
-                                        font.styleName: "Bold"; font.weight: Font.Bold
-                                    }
-
-                                    FeeSlider {
-                                        id: localNodeVerificationThreads
-                                        precision: 0
-                                        showTicks: true
-                                        Layout.fillWidth: true
-                                        value: viewModel.localNodeVerificationThreads
-                                        to: {viewModel.coreAmount()}
-                                        stepSize: 1
-                                        enabled: localNodeRun.checked
-                                        Binding {
-                                            target: viewModel
-                                            property: "localNodeVerificationThreads"
-                                            value: localNodeVerificationThreads.value
-                                        }
-                                    }
                                 }
+
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     Layout.alignment: Qt.AlignTop
                                     spacing: 10
 
-                                    CustomSwitch {
-                                        id: useGpu
-                                        text: qsTr("Use GPU")
-                                        font.pixelSize: 12
-                                        width: parent.width
-                                        checked: viewModel.useGpu
-                                        enabled: localNodeRun.checked && viewModel.hasSupportedGpu()
-                                        visible: viewModel.showUseGpu()
-                                        Binding {
-                                            target: viewModel
-                                            property: "useGpu"
-                                            value: useGpu.checked
-                                        }
-                                    }
                                     SFText {
-                                        id: gpuError
-                                        color: Style.validator_color
-                                        font.pixelSize: 14
-                                        visible: viewModel.showUseGpu() && !viewModel.hasSupportedGpu()
-                                        text: qsTr("You have unsupported videocard")
-                                    }
-
-                                    SFText {
+                                        Layout.topMargin: 5
                                         text: qsTr("Peers")
                                         color: localNodeRun.checked ? Style.white : Style.disable_text_color
                                         font.pixelSize: 12
@@ -285,7 +216,7 @@ Rectangle {
                                             font.pixelSize: 12
                                             color: readOnly ? Style.disable_text_color : Style.white
                                             readOnly: !localNodeRun.checked
-                                            validator: RegExpValidator { regExp: /^(\s|\x180E)*(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
+                                            validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                         }
                                     
                                         CustomButton {
@@ -293,7 +224,7 @@ Rectangle {
                                             Layout.minimumWidth: 70
                                             leftPadding: 20
                                             rightPadding: 20
-				                            text: "Add"
+                                            text: "Add"
                                             palette.button: "#708090"
                                             palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
                                             enabled: newLocalNodePeer.acceptableInput && localNodeRun.checked
@@ -302,6 +233,17 @@ Rectangle {
                                                 newLocalNodePeer.clear();
                                             }
                                         }
+                                    }
+
+                                    SFText {
+                                        text: qsTr("Please add at least one peer")
+                                        color: Style.validator_color
+                                        font.pixelSize: 14
+                                        fontSizeMode: Text.Fit
+                                        minimumPixelSize: 10
+                                        font.italic: true
+                                        width: parent.width
+                                        visible: localNodeRun.checked && !(viewModel.localNodePeers.length > 0)
                                     }
 
                                     ListView {
@@ -343,6 +285,49 @@ Rectangle {
                                 }
                             }
                         }
+                    }
+                }
+
+                ConfirmationDialog {
+                    id: confirmRefreshDialog
+                    property bool canRefresh: true
+                    okButtonText: qsTr("rescan")
+                    okButtonIconSource: "qrc:/assets/icon-repeat.svg"
+                    cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+                    cancelVisible: true
+                    width: 460
+                    height: 243
+
+                    contentItem: Item {
+                        id: confirmationContent
+                        Column {
+                            anchors.fill: parent
+                            spacing: 30
+                            
+                            SFText {
+                                width: parent.width
+                                topPadding: 20
+                                font.pixelSize: 18
+                                color: Style.white
+                                horizontalAlignment : Text.AlignHCenter
+                                text: qsTr("Rescan")
+                            }
+                            SFText {
+                                width: parent.width
+                                leftPadding: 20
+                                rightPadding: 20
+                                font.pixelSize: 14
+                                color: Style.white
+                                wrapMode: Text.Wrap
+                                horizontalAlignment : Text.AlignHCenter
+                                text: qsTr("Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time. \n\nAre you sure?")
+                            }
+                        }
+                    }
+
+                    onAccepted: {
+                        canRefresh = false;
+                        viewModel.refreshWallet();
                     }
                 }
 
@@ -418,7 +403,7 @@ Rectangle {
 
                     Rectangle {
                         Layout.fillWidth: true
-                        height: 360
+                        height: 320
                         radius: 10
                         color: Style.dark_slate_blue
 
@@ -455,7 +440,7 @@ Rectangle {
 
                                 SFText {
                                     Layout.fillWidth: true
-                                    text: qsTr("<style>a:link {color: '#00f6d2'}</style>2. Send email to <a href='mailto:testnet@beam-mw.com'>testnet@beam-mw.com</a> or open a ticket in <a href='https://github.com/beam-mw/beam'>github</a>")
+                                    text: qsTr("<style>a:link {color: '#00f6d2'}</style>2. Send email to <a href='mailto:support@beam.mw'>support@beam.mw</a> or open a ticket in <a href='https://github.com/beam-mw/beam'>github</a>")
                                     color: Style.white
                                     textFormat: Text.RichText
                                     font.pixelSize: 12
@@ -479,19 +464,33 @@ Rectangle {
                                     wrapMode: Text.WordWrap
                                 }
                             }                        
-
-                            CustomButton {
-                                text: "save wallet logs"
-                                palette.buttonText : "white"
-                                palette.button: "#708090"
-                                onClicked: viewModel.reportProblem()
+                            RowLayout {
+                                Layout.fillWidth: true
+                                CustomButton {
+                                    text: "save wallet logs"
+                                    palette.buttonText : "white"
+                                    palette.button: "#708090"
+                                    onClicked: viewModel.reportProblem()
+                                }
+                                spacing: 30
+                                CustomButton {
+                                    icon.source: "qrc:/assets/icon-restore.svg"
+                                    Layout.alignment: Qt.AlignRight
+                                    text: qsTr("rescan")
+                                    palette.button: "#708090"
+                                    palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
+                                    enabled: localNodeRun.checked && confirmRefreshDialog.canRefresh && viewModel.isLocalNodeRunning
+                                    onClicked: {
+                                        confirmRefreshDialog.open();
+                                    }
+                                }
                             }
 
                             SFText {
                                 Layout.topMargin: 20
                                 Layout.fillWidth: true
                                 Layout.minimumHeight: 20
-                                text: qsTr("Wallet location path:")
+                                text: qsTr("Wallet folder location:")
                                 color: Style.white
                                 font.pixelSize: 18
                                 font.styleName: "Bold"; font.weight: Font.Bold
@@ -554,6 +553,7 @@ Rectangle {
                     viewModel.isChanged 
                     && nodeAddress.acceptableInput
                     && localNodePort.acceptableInput
+                    && (localNodeRun.checked ? (viewModel.localNodePeers.length > 0) : true)
                 }
                 onClicked: viewModel.applyChanges()
             }

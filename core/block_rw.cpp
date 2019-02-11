@@ -14,10 +14,11 @@
 
 //#include <ctime>
 #include "block_crypt.h"
-#include "../utility/serialize.h"
+#include "utility/serialize.h"
 #include "utilstrencodings.h"
-#include "../core/serialization_adapters.h"
+#include "core/serialization_adapters.h"
 #include "aes.h"
+#include "pkcs5_pbkdf2.h"
 
 namespace beam
 {
@@ -226,7 +227,7 @@ namespace beam
 	void Block::BodyBase::RW::get_Start(BodyBase& body, SystemState::Sequence::Prefix& prefix)
 	{
 		if (!m_pS[Type::hd].IsOpen())
-			std::ThrowIoError();
+			std::ThrowLastError();
 		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(m_pS[Type::hd]);
 
 		arc & body;
@@ -354,10 +355,25 @@ namespace beam
 	{
 		std::FStream& s = m_pS[iData];
 		if (!s.IsOpen() && !OpenInternal(iData))
-			std::ThrowIoError();
+			std::ThrowLastError();
 
 		yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
 		arc & v;
+	}
+
+	size_t TxBase::IReader::get_SizeNetto()
+	{
+		SerializerSizeCounter ssc;
+		Reset();
+
+		for (; m_pUtxoIn; NextUtxoIn())
+			ssc & *m_pUtxoIn;
+		for (; m_pUtxoOut; NextUtxoOut())
+			ssc & *m_pUtxoOut;
+		for (; m_pKernel; NextKernel())
+			ssc & *m_pKernel;
+
+		return ssc.m_Counter.m_Value;
 	}
 
 	void TxBase::IWriter::Dump(IReader&& r)
@@ -605,5 +621,24 @@ namespace beam
 		mv = hvIV.V;
 	}
 
+	void KeyString::SetPassword(const std::string& s)
+	{
+		SetPassword(Blob(s.data(), static_cast<uint32_t>(s.size())));
+	}
+
+	void KeyString::SetPassword(const Blob& b)
+	{
+		int nRes = pkcs5_pbkdf2(
+			reinterpret_cast<const uint8_t*>(b.p),
+			b.n,
+			NULL,
+			0,
+			m_hvSecret.V.m_pData,
+			m_hvSecret.V.nBytes,
+			65536);
+
+		if (nRes)
+			throw std::runtime_error("pbkdf2 fail");
+	}
 
 } // namespace beam

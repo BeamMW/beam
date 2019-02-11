@@ -36,19 +36,19 @@ UtxoItem::UtxoItem(const beam::Coin& coin)
 
 }
 
-QString UtxoItem::amount() const
+UtxoItem::~UtxoItem()
 {
-    return BeamToString(_coin.m_amount) + " BEAM";
+
 }
 
-QString UtxoItem::height() const
+QString UtxoItem::amount() const
 {
-    return QString::number(_coin.m_createHeight);
+    return BeamToString(_coin.m_ID.m_Value) + " BEAM";
 }
 
 QString UtxoItem::maturity() const
 {
-    if (_coin.m_maturity == static_cast<Height>(-1))
+    if (!_coin.IsMaturityValid())
         return QString{ "-" };
     return QString::number(_coin.m_maturity);
 }
@@ -63,12 +63,12 @@ QString UtxoItem::status() const
             return tr("maturing\n(till block height ") + QString::number(_coin.m_maturity) + ")";
         case Coin::Unavailable:
             return tr("unavailable\n(mining result rollback)");
-        case Coin::Change:
-            return tr("in progress\n(change)");
         case Coin::Outgoing:
             return tr("in progress\n(outgoing)");
         case Coin::Incoming:
-            return tr("in progress\n(incoming)");
+			return (_coin.m_ID.m_Type == Key::Type::Change) ?
+				tr("in progress\n(change)") :
+				tr("in progress\n(incoming)");
         case Coin::Spent:
             return tr("spent");
         default:
@@ -80,31 +80,31 @@ QString UtxoItem::status() const
 
 QString UtxoItem::type() const
 {
-    static const char* Names[] =
+    switch (_coin.m_ID.m_Type)
     {
-        "Comission",
-        "Coinbase",
-        "Kernel",
-        "Regular",
-        "Identity",
-        "SChannelNonce"
-    };
-    return Names[static_cast<int>(_coin.m_key_type)];
+    case Key::Type::Comission: return tr("Transaction fee");
+    case Key::Type::Coinbase: return tr("Coinbase");
+    case Key::Type::Regular: return tr("Regular");
+    case Key::Type::Change: return tr("Change");
+    case Key::Type::Treasury: return tr("Treasury");
+    }
+
+    return FourCC::Text(_coin.m_ID.m_Type).m_sz;
 }
 
 beam::Amount UtxoItem::rawAmount() const
 {
-    return _coin.m_amount;
+    return _coin.m_ID.m_Value;
 }
 
-beam::Height UtxoItem::rawHeight() const
+const beam::Coin::ID& UtxoItem::get_ID() const
 {
-    return _coin.m_createHeight;
+	return _coin.m_ID;
 }
 
 beam::Height UtxoItem::rawMaturity() const
 {
-    return _coin.m_maturity;
+    return _coin.get_Maturity();
 }
 
 
@@ -112,16 +112,16 @@ UtxoViewModel::UtxoViewModel()
     : _model{*AppModel::getInstance()->getWallet()}
     , _sortOrder(Qt::DescendingOrder)
 {
-    connect(&_model, SIGNAL(onAllUtxoChanged(const std::vector<beam::Coin>&)),
+    connect(&_model, SIGNAL(allUtxoChanged(const std::vector<beam::Coin>&)),
         SLOT(onAllUtxoChanged(const std::vector<beam::Coin>&)));
-    connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
+    connect(&_model, SIGNAL(walletStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
     _model.getAsync()->getUtxosStatus();
 }
 
 UtxoViewModel::~UtxoViewModel()
 {
-
+    qDeleteAll(_allUtxos);
 }
 
 QQmlListProperty<UtxoItem> UtxoViewModel::getAllUtxos()
@@ -163,7 +163,14 @@ void UtxoViewModel::setSortOrder(Qt::SortOrder value)
 
 void UtxoViewModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxos)
 {
+    // TODO: It's dirty hack. Should use QAbstractListModel instead of QQmlListProperty
+    auto tmpList = _allUtxos;
+    
     _allUtxos.clear();
+
+    emit allUtxoChanged();
+
+    qDeleteAll(tmpList);
 
     for (const auto& utxo : utxos)
     {
@@ -239,9 +246,9 @@ std::function<bool(const UtxoItem*, const UtxoItem*)> UtxoViewModel::generateCom
         return compareUtxo(lf->type(), rt->type(), sortOrder);
     };
 
-    // defult for heightRole
+    // defult
     return [sortOrder = _sortOrder](const UtxoItem* lf, const UtxoItem* rt)
     {
-        return compareUtxo(lf->rawHeight(), rt->rawHeight(), sortOrder);
+        return compareUtxo(lf->get_ID(), rt->get_ID(), sortOrder);
     };
 }

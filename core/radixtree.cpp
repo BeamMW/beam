@@ -86,7 +86,7 @@ RadixTree::Leaf& RadixTree::CursorBase::get_Leaf() const
 	return *p;
 }
 
-void RadixTree::CursorBase::Invalidate()
+void RadixTree::CursorBase::InvalidateElement()
 {
 	for (uint16_t n = m_nPtrs; n--; )
 	{
@@ -207,7 +207,7 @@ RadixTree::Leaf* RadixTree::Find(CursorBase& cu, const uint8_t* pKey, uint16_t n
 
 	if (cu.m_nPtrs)
 	{
-		cu.Invalidate();
+		cu.InvalidateElement();
 
 		uint16_t iC = cu.get_Bit(pKey);
 
@@ -254,7 +254,7 @@ void RadixTree::Delete(CursorBase& cu)
 {
 	assert(cu.m_nPtrs);
 
-	cu.Invalidate();
+	cu.InvalidateElement();
 
 	Leaf* p = Cast::Up<Leaf>(cu.m_pp[cu.m_nPtrs - 1]);
 	assert(Node::s_Leaf & p->m_Bits);

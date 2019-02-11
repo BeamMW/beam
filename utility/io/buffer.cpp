@@ -74,8 +74,6 @@ struct ReadOnlyMappedFileWin32 : AllocatedMemory {
             if (!data) {
                 CloseHandle(mappingHandle);
                 fileHandle = INVALID_HANDLE_VALUE;
-                CloseHandle(mappingHandle);
-                fileHandle = INVALID_HANDLE_VALUE;
                 throw std::runtime_error(std::string("ReadOnlyMappedFile: cannot view mapping ") + fileName);
             }
         }
@@ -89,7 +87,7 @@ struct ReadOnlyMappedFileWin32 : AllocatedMemory {
             CloseHandle(mappingHandle);
         }
         if (fileHandle != INVALID_HANDLE_VALUE) {
-            CloseHandle(mappingHandle);
+            CloseHandle(fileHandle);
         }
     }
 

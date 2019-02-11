@@ -13,12 +13,14 @@
 // limitations under the License.
 
 #include "start_view.h"
-#include "wallet/keystore.h"
+#include <QDateTime>
 #include <QMessageBox>
 #include <QStringBuilder>
 #include <QApplication>
 #include <QClipboard>
+#include <QFileDialog>
 #include <QVariant>
+#include <QStandardPaths>
 #if defined(QT_PRINTSUPPORT_LIB)
 #include <QtPrintSupport/qtprintsupportglobal.h>
 #include <QPrinter>
@@ -29,12 +31,12 @@
 #endif
 #include "settings_view.h"
 #include "model/app_model.h"
+#include "version.h"
 #include "wallet/secstring.h"
+
+#include <boost/filesystem.hpp>
 #include <thread>
 
-#ifdef BEAM_USE_GPU
-#include "utility/gpu/gpu_tools.h"
-#endif
 
 using namespace beam;
 using namespace ECC;
@@ -42,47 +44,74 @@ using namespace std;
 
 namespace
 {
-    const char* Testnet[] =
+    const char* Peers[] =
     {
 #ifdef BEAM_TESTNET
-        "139.59.174.80:8100",
-        "167.99.221.104:8100",
-        "159.65.201.244:8100",
-        "142.93.217.246:8100",
-        "142.93.221.22:8100",
-        "178.62.59.65:8100",
-        "139.59.169.77:8100",
-        "167.99.166.33:8100",
-        "159.65.119.216:8100",
-        "142.93.221.66:8100",
-        "206.189.10.149:8100",
-        "138.68.134.136:8100",
-        "159.65.119.226:8100",
-        "142.93.221.80:8100",
-        "104.248.159.97:8100",
-        "159.65.101.94:8100",
-        "68.183.103.130:8100",
-        "142.93.213.21:8100",
-        "104.248.159.154:8100",
-        "188.166.165.240:8100",
-        "159.65.104.75:8100",
-        "142.93.213.106:8100"
+        "ap-node01.testnet.beam.mw:8100",
+        "ap-node02.testnet.beam.mw:8100",
+        "ap-node03.testnet.beam.mw:8100",
+        "eu-node01.testnet.beam.mw:8100",
+        "eu-node02.testnet.beam.mw:8100",
+        "eu-node03.testnet.beam.mw:8100",
+        "us-node01.testnet.beam.mw:8100",
+        "us-node02.testnet.beam.mw:8100",
+        "us-node03.testnet.beam.mw:8100"
  #else
-        "172.104.249.212:8101",
-        "23.239.23.209:8201",
-        "172.105.211.232:8301",
-        "96.126.111.61:8401",
-        "176.58.98.195:8501"
+        "eu-node01.masternet.beam.mw:8100",
+        "eu-node02.masternet.beam.mw:8100",
+        "eu-node03.masternet.beam.mw:8100",
+        "eu-node04.masternet.beam.mw:8100"
 #endif
     };
 
-    QString chooseRandomNode()
+    const QChar PHRASES_SEPARATOR = ';';
+
+    boost::filesystem::path pathFromStdString(const std::string& path)
     {
-        srand(time(0));
-        return QString(Testnet[rand() % (sizeof(Testnet) / sizeof(Testnet[0]))]);
+#ifdef WIN32
+        boost::filesystem::path boostPath{ Utf8toUtf16(path.c_str()) };
+#else
+        boost::filesystem::path boostPath{ path };
+#endif
+        return boostPath;
     }
 
-    const QChar PHRASES_SEPARATOR = ';';
+    std::vector<boost::filesystem::path> findAllWalletDB(const std::string& appPath)
+    {
+        std::vector<boost::filesystem::path> walletDBs;
+        try
+        {
+            auto appDataPath = pathFromStdString(appPath);
+
+            if (!boost::filesystem::exists(appDataPath))
+            {
+                return {};
+            }
+
+            for (boost::filesystem::recursive_directory_iterator endDirIt, it{ appDataPath }; it != endDirIt; ++it)
+            {
+                if (it.level() > 1)
+                {
+                    it.pop();
+                    if (it == endDirIt)
+                    {
+                        break;
+                    }
+                }
+
+                if (it->path().filename() == WalletSettings::WalletDBFile)
+                {
+                    walletDBs.push_back(it->path());
+                }
+            }
+        }
+        catch (std::exception &e)
+        {
+            LOG_ERROR() << e.what();
+        }
+
+        return walletDBs;
+    }
 }
 
 RecoveryPhraseItem::RecoveryPhraseItem(int index, const QString& phrase)
@@ -102,6 +131,11 @@ bool RecoveryPhraseItem::isCorrect() const
     return m_userInput == m_phrase;
 }
 
+bool RecoveryPhraseItem::isAllowed() const
+{
+    return isAllowedWord(m_userInput.toStdString(), language::en);
+}
+
 const QString& RecoveryPhraseItem::getValue() const
 {
     return m_userInput;
@@ -114,6 +148,7 @@ void RecoveryPhraseItem::setValue(const QString& value)
         m_userInput = value;
         emit valueChanged();
         emit isCorrectChanged();
+        emit isAllowedChanged();
     }
 }
 
@@ -127,15 +162,51 @@ int RecoveryPhraseItem::getIndex() const
     return m_index;
 }
 
+WalletDBPathItem::WalletDBPathItem(const std::string& walletDBPath, uintmax_t fileSize, time_t lastWriteTime)
+    : m_fullPath{walletDBPath}
+    , m_fileSize(fileSize)
+    , m_lastWriteTime(lastWriteTime)
+{
+}
+
+WalletDBPathItem::~WalletDBPathItem()
+{
+}
+
+int WalletDBPathItem::getFileSize() const
+{
+    return m_fileSize;
+}
+
+QString WalletDBPathItem::getFullPath() const
+{
+    return QString::fromStdString(m_fullPath);
+}
+
+QString WalletDBPathItem::getShortPath() const
+{
+    return QString();
+}
+
+QString WalletDBPathItem::getLastWriteDateString() const
+{
+    QDateTime datetime = QDateTime::fromTime_t(m_lastWriteTime);
+    return datetime.toString(Qt::SystemLocaleShortDate);
+}
+
 StartViewModel::StartViewModel()
     : m_isRecoveryMode{false}
 {
-
+    if (!walletExists())
+    {
+        // find all wallet.db in appData and defaultAppData
+        findExistingWalletDB();
+    }
 }
 
 StartViewModel::~StartViewModel()
 {
-
+    qDeleteAll(m_walletDBpaths);
 }
 
 bool StartViewModel::walletExists() const
@@ -154,7 +225,6 @@ void StartViewModel::setIsRecoveryMode(bool value)
     {
         m_isRecoveryMode = value;
         m_recoveryPhrases.clear();
-        AppModel::getInstance()->setRestoreWallet(value);
         emit isRecoveryModeChanged();
     }
 }
@@ -207,48 +277,59 @@ QChar StartViewModel::getPhrasesSeparator()
     return PHRASES_SEPARATOR;
 }
 
-void StartViewModel::setUseGpu(bool value)
+bool StartViewModel::getIsRunLocalNode() const
 {
-#ifdef BEAM_USE_GPU
-    if (value != AppModel::getInstance()->getSettings().getUseGpu())
-    {
-        AppModel::getInstance()->getSettings().setUseGpu(value);
-        emit useGpuChanged();
-    }
-#endif
+    return AppModel::getInstance()->getSettings().getRunLocalNode();
 }
 
-bool StartViewModel::getUseGpu() const
+QString StartViewModel::chooseRandomNode() const
 {
-#ifdef BEAM_USE_GPU
-    return AppModel::getInstance()->getSettings().getUseGpu();
-#else
-    return false;
-#endif
+    srand(time(0));
+    return QString(Peers[rand() % (sizeof(Peers) / sizeof(Peers[0]))]);
 }
 
-void StartViewModel::setupLocalNode(int port, int miningThreads, bool generateGenesys)
+QString StartViewModel::walletVersion() const
+{
+    return QString::fromStdString(PROJECT_VERSION);
+}
+
+int StartViewModel::getLocalPort() const
+{
+    return AppModel::getInstance()->getSettings().getLocalNodePort();
+}
+
+QString StartViewModel::getRemoteNodeAddress() const
+{
+    return AppModel::getInstance()->getSettings().getNodeAddress();
+}
+
+QString StartViewModel::getLocalNodePeer() const
+{
+    auto peers = AppModel::getInstance()->getSettings().getLocalNodePeers();
+    return !peers.empty() ? peers.first() : "";
+}
+
+QQmlListProperty<WalletDBPathItem> StartViewModel::getWalletDBpaths()
+{
+    return QQmlListProperty<WalletDBPathItem>(this, m_walletDBpaths);
+}
+
+void StartViewModel::setupLocalNode(int port, const QString& localNodePeer)
 {
     auto& settings = AppModel::getInstance()->getSettings();
-#ifdef BEAM_USE_GPU
-    if (settings.getUseGpu())
-    {
-        settings.setLocalNodeMiningThreads(1);
-    }
-    else
-    {
-        settings.setLocalNodeMiningThreads(miningThreads);
-    }
-#else
-    settings.setLocalNodeMiningThreads(miningThreads);
-#endif
     auto localAddress = QString::asprintf("127.0.0.1:%d", port);
     settings.setNodeAddress(localAddress);
     settings.setLocalNodePort(port);
     settings.setRunLocalNode(true);
-    settings.setGenerateGenesys(generateGenesys);
     QStringList peers;
-    peers.push_back(chooseRandomNode());
+    for (size_t i = 0; i < _countof(Peers); ++i)
+    {
+        if (localNodePeer != Peers[i])
+        {
+            peers.push_back(Peers[i]);
+        }
+    }
+    peers.push_back(localNodePeer);
     settings.setLocalNodePeers(peers);
 }
 
@@ -258,7 +339,7 @@ void StartViewModel::setupRemoteNode(const QString& nodeAddress)
     AppModel::getInstance()->getSettings().setNodeAddress(nodeAddress);
 }
 
-void StartViewModel::setupTestnetNode()
+void StartViewModel::setupRandomNode()
 {
     AppModel::getInstance()->getSettings().setRunLocalNode(false);
     AppModel::getInstance()->getSettings().setNodeAddress(chooseRandomNode());
@@ -333,7 +414,7 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
     }
     catch (...)
     {
-        AppModel::getInstance()->getMessages().addMessage(tr("Failed to print recovery phrases. Please, check your printer."));
+        AppModel::getInstance()->getMessages().addMessage(tr("Failed to print seed phrases. Please, check your printer."));
     }
 }
 
@@ -345,30 +426,7 @@ void StartViewModel::resetPhrases()
     emit recoveryPhrasesChanged();
 }
 
-bool StartViewModel::showUseGpu() const
-{
-#ifdef BEAM_USE_GPU
-    return true;
-#else
-    return false;
-#endif
-}
-
-bool StartViewModel::hasSupportedGpu()
-{
-#ifdef BEAM_USE_GPU
-    if (!HasSupportedCard())
-    {
-        setUseGpu(false);
-        return false;
-    }
-    return true;
-#else
-    return false;
-#endif
-}
-
-bool StartViewModel::createWallet(const QString& pass)
+bool StartViewModel::createWallet()
 {
     if (m_isRecoveryMode)
     {
@@ -383,7 +441,7 @@ bool StartViewModel::createWallet(const QString& pass)
 
     SecString secretSeed;
     secretSeed.assign(buf.data(), buf.size());
-    SecString sectretPass = pass.toStdString();
+    SecString sectretPass = m_password;
     return AppModel::getInstance()->createWallet(secretSeed, sectretPass);
 }
 
@@ -392,4 +450,82 @@ bool StartViewModel::openWallet(const QString& pass)
     // TODO make this secure
     SecString secretPass = pass.toStdString();
     return AppModel::getInstance()->openWallet(secretPass);
+}
+
+bool StartViewModel::checkWalletPassword(const QString& password) const
+{
+    SecString secretPassword = password.toStdString();
+    return AppModel::getInstance()->checkWalletPassword(secretPassword);
+}
+
+void StartViewModel::setPassword(const QString& pass)
+{
+    m_password = pass.toStdString();
+}
+
+void StartViewModel::findExistingWalletDB()
+{
+    auto appDataPath = AppModel::getInstance()->getSettings().getAppDataPath();
+    auto defaultAppDataPath = QDir(QStandardPaths::writableLocation(QStandardPaths::DataLocation)).path().toStdString();
+
+    auto walletDBs = findAllWalletDB(appDataPath);
+
+    if (appDataPath != defaultAppDataPath)
+    {
+        auto additionnalWalletDBs = findAllWalletDB(defaultAppDataPath);
+        walletDBs.reserve(walletDBs.size() + additionnalWalletDBs.size());
+        walletDBs.insert(std::end(walletDBs), std::begin(additionnalWalletDBs), std::end(additionnalWalletDBs));
+    }
+
+    for (auto& walletDBPath : walletDBs)
+    {
+        auto fileSize = boost::filesystem::file_size(walletDBPath);
+        auto lastWriteTime = boost::filesystem::last_write_time(walletDBPath);
+        m_walletDBpaths.push_back(new WalletDBPathItem(walletDBPath.generic_string(), fileSize, lastWriteTime));
+    }
+}
+
+bool StartViewModel::isFindExistingWalletDB()
+{
+    return !m_walletDBpaths.empty();
+}
+
+void StartViewModel::deleteCurrentWalletDB()
+{
+    try
+    {
+        auto pathToDB = pathFromStdString(AppModel::getInstance()->getSettings().getWalletStorage());
+        boost::filesystem::remove(pathToDB);
+    }
+    catch (std::exception& e)
+    {
+        LOG_ERROR() << e.what();
+    }
+}
+
+void StartViewModel::migrateWalletDB(const QString& path)
+{
+    try
+    {
+        auto pathSrc = pathFromStdString(path.toStdString());
+        auto pathDst = pathFromStdString(AppModel::getInstance()->getSettings().getWalletStorage());
+        boost::filesystem::copy_file(pathSrc, pathDst);
+    }
+    catch (std::exception& e)
+    {
+        LOG_ERROR() << e.what();
+    }
+}
+
+void StartViewModel::copyToClipboard(const QString& text)
+{
+    QApplication::clipboard()->setText(text);
+}
+
+QString StartViewModel::selectCustomWalletDB()
+{
+    QString filePath = QFileDialog::getOpenFileName(nullptr, tr("Select the wallet database file"),
+        QStandardPaths::writableLocation(QStandardPaths::DesktopLocation), tr("SQLite database file (*.db)"));
+
+    return filePath;
 }
