@@ -28,7 +28,6 @@ after_build:
 - cmd: >-
     cpack --verbose -G NSIS -C %BUILD_CONFIG%
     
-    # extract build version
     c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.exe --version > BEAM_VERSION
 
     echo BEAM_VERSION = %BEAM_VERSION%

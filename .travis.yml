@@ -19,14 +19,16 @@ matrix:
         - brew install qt5 cmake boost
         - brew link qt5 --force
         - export PATH=/usr/local/opt/qt/bin:$PATH
-        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Darwin.dmg"
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
-        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.dmg"
       env: 
         - BUILD_TYPE=Debug
         - OS_FOLDER=mac
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
+        # extract build version
+        - BEAM_VERSION="$($HOME/build/BeamMW/beam/wallet/beam-wallet --version)"
+        - echo BEAM_VERSION = $BEAM_VERSION
+        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Darwin.dmg"
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.dmg"
 
 ###############################################################################
@@ -47,15 +49,16 @@ matrix:
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
         - export QT5_ROOT_DIR="/usr/local/qt5-static"
         - export QML_IMPORT_PATH="/usr/local/qt5-static/qml"
-        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Darwin.dmg"
-        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.dmg"
       env: 
         - BUILD_TYPE=Release
         - OS_FOLDER=mac
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
+        # extract build version
+        - BEAM_VERSION="$($HOME/build/BeamMW/beam/wallet/beam-wallet --version)"
+        - echo BEAM_VERSION = $BEAM_VERSION
+        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Darwin.dmg"
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.dmg"
-
 ###############################################################################
 # Linux Debug
 ###############################################################################
@@ -80,15 +83,16 @@ matrix:
         - sudo apt-get install qt510declarative qt510svg libgl1-mesa-dev-lts-xenial
         - eval "CC=gcc-7 && CXX=g++-7"
         - export PATH=/opt/qt510/bin:$PATH
-        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Linux.deb"
-        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.deb"
       env: 
         - BUILD_TYPE=Debug
         - OS_FOLDER=linux
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
+        # extract build version
+        - BEAM_VERSION="$($HOME/build/BeamMW/beam/wallet/beam-wallet --version)"
+        - echo BEAM_VERSION = $BEAM_VERSION
+        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Linux.deb"
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
-
 ###############################################################################
 # Linux Release
 ###############################################################################
@@ -114,13 +118,15 @@ matrix:
         - git clone --depth=1 https://github.com/nesbox/qt5-static-linux.git /home/travis/qt5-static
         - export QT5_ROOT_DIR="/home/travis/qt5-static"
         - export QML_IMPORT_PATH="/home/travis/qt5-static/qml"
-        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Linux.deb"
-        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet.deb"
       env: 
         - BUILD_TYPE=Release
         - OS_FOLDER=linux
       script:
         - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
+        # extract build version
+        - BEAM_VERSION="$($HOME/build/BeamMW/beam/wallet/beam-wallet --version)"
+        - echo BEAM_VERSION = $BEAM_VERSION
+        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Linux.deb"
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
 
 ###############################################################################
@@ -152,6 +158,9 @@ matrix:
         - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
         - make wallet-jni -j4
       after_success:
+        # extract build version
+        - BEAM_VERSION="$($HOME/build/BeamMW/beam/wallet/beam-wallet --version)"
+        - echo BEAM_VERSION = $BEAM_VERSION 
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
         - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
@@ -186,6 +195,9 @@ matrix:
         - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
         - make wallet-jni -j4
       after_success:
+        # extract build version
+        - BEAM_VERSION="$($HOME/build/BeamMW/beam/wallet/beam-wallet --version)"
+        - echo BEAM_VERSION = $BEAM_VERSION
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
         - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
@@ -220,6 +232,9 @@ matrix:
         - cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=$ANDROID_SDK_VERSION -DANDROID_ABI=$ANDROID_ABI -DCMAKE_BUILD_TYPE=$BUILD_TYPE .
         - make wallet-jni -j4
       after_success:
+        # extract build version
+        - BEAM_VERSION="$($HOME/build/BeamMW/beam/wallet/beam-wallet --version)"
+        - echo BEAM_VERSION = $BEAM_VERSION
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
         - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
@@ -228,14 +243,10 @@ matrix:
 ###############################################################################
 # Common part
 ###############################################################################
-
 before_script:
   - curl -sL https://raw.githubusercontent.com/travis-ci/artifacts/master/install | bash
 
 after_success:
-  # extract build version
-  - BEAM_VERSION="$($HOME/build/BeamMW/beam/wallet/beam-wallet --version)"
-  - echo BEAM_VERSION = $BEAM_VERSION
   # deploy using ftp server
   - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER
   - tar -cvzf beam-node-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node beam-node.cfg
