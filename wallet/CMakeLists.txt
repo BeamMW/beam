@@ -19,12 +19,13 @@ set(WALLET_SRC
 )
 
 add_library(wallet STATIC ${WALLET_SRC})
-add_dependencies(wallet core p2p sqlite libbitcoin)
-target_link_libraries(wallet core p2p sqlite libbitcoin)
+add_dependencies(wallet core sqlite libbitcoin http)
+target_link_libraries(wallet core sqlite libbitcoin http)
 target_include_directories(wallet PRIVATE "${CMAKE_SOURCE_DIR}/libbitcoin/include")
 if(MSVC)
     target_compile_options(wallet PRIVATE "/wd4245")
     target_compile_options(wallet PRIVATE "/wd4505")
+    target_compile_options(wallet PRIVATE "/wd4996")
 endif()
 
 add_executable(${TARGET_NAME} cli.cpp)
