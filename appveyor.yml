@@ -28,9 +28,11 @@ after_build:
 - cmd: >-
     cpack --verbose -G NSIS -C %BUILD_CONFIG%
     
-    c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.exe --version > BEAM_VERSION
+    set /p BEAM_VERSION=<beam_version.gen
 
     echo BEAM_VERSION = %BEAM_VERSION%
+
+    del beam_version.gen
     
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-%BEAM_VERSION%.zip c:/projects/beam/beam/%BUILD_CONFIG%/beam-node.exe c:/projects/beam/beam/beam-node.cfg
     
