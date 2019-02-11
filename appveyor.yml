@@ -28,11 +28,10 @@ after_build:
 - cmd: >-
     cpack --verbose -G NSIS -C %BUILD_CONFIG%
     
-    git rev-list HEAD --count > BEAM_VERSION_REVISION
-    
-    set /p BEAM_VERSION_REVISION=<BEAM_VERSION_REVISION
-    
-    set BEAM_VERSION=%BEAM_VERSION_PREFIX%.%BEAM_VERSION_REVISION%
+    # extract build version
+    c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.exe --version > BEAM_VERSION
+
+    echo BEAM_VERSION = %BEAM_VERSION%
     
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-%BEAM_VERSION%.zip c:/projects/beam/beam/%BUILD_CONFIG%/beam-node.exe c:/projects/beam/beam/beam-node.cfg
     
@@ -58,11 +57,6 @@ on_success:
 - ps: $env:DATE=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('yyyy.MM.dd')
 - ps: $env:TIME=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('HH:mm:ss')
 - cmd: >-
-    git rev-list HEAD --count > BEAM_VERSION_REVISION
-    
-    set /p BEAM_VERSION_REVISION=<BEAM_VERSION_REVISION
-
-    set BEAM_VERSION=%BEAM_VERSION_PREFIX%.%BEAM_VERSION_REVISION%
       
     set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win
               
