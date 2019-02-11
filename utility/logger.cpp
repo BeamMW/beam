@@ -98,6 +98,11 @@ protected:
         write_impl(header.level, headerFormatted, headerSize, buf, size);
     }
 
+    const FileNameType& get_current_file_name() override {
+        static const FileNameType emptyName;
+        return emptyName;
+    }
+
 public:
     bool level_accepted(int level) override {
         return level >= _minLevel;
@@ -143,8 +148,18 @@ public:
     ~FileLogger() {
         fclose(_sink);
     }
+
+    const FileNameType& get_current_file_name() override {
+        return _fullPath;
+    }
+
 private:
     void open_new_file() {
+        if (_sink != nullptr) {
+            fclose(_sink);
+            _sink = nullptr;
+        }
+
         string fileName(_fileNamePrefix);
         fileName += format_timestamp("%y_%m_%d_%H_%M_%S", local_timestamp_msec(), false);
         fileName += ".log";
@@ -164,25 +179,37 @@ private:
 
             path /= fileName;
 #ifdef WIN32
-            _sink = _wfsopen(path.wstring().c_str(), L"ab", _SH_DENYNO);
+            _fullPath = path.wstring();
 #else
-            _sink = fopen(path.string().c_str(), "ab");
+            _fullPath = path.string();
 #endif
         }
         else
         {
 #ifdef WIN32
-            _sink = _wfsopen(Utf8toUtf16(fileName.c_str()).c_str(), L"ab", _SH_DENYNO);
+            _fullPath = Utf8toUtf16(fileName.c_str());
 #else
-            _sink = fopen(fileName.c_str(), "ab");
+            _fullPath = fileName;
 #endif
         }
+
+#ifdef WIN32
+        _sink = _wfsopen(_fullPath.c_str(), L"ab", _SH_DENYNO);
+#else
+        _sink = fopen(_fullPath.c_str(), "ab");
+#endif
 
         if (!_sink) throw runtime_error(string("cannot open file ") + fileName);
     }
 
     std::string _fileNamePrefix;
     std::string _dstPath;
+
+#ifdef WIN32
+    std::wstring _fullPath;
+#else
+    std::string _fullPath;
+#endif
 };
 
 class CombinedLogger : public LoggerImpl {
@@ -211,6 +238,10 @@ public:
         if (_fileSink.level_accepted(header.level)) {
             _fileSink.write_impl(header.level, headerFormatted, headerSize, buf, size);
         }
+    }
+
+    const FileNameType& get_current_file_name() override {
+        return _fileSink.get_current_file_name();
     }
 
     void rotate() override {

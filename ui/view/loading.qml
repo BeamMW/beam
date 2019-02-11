@@ -9,7 +9,7 @@ import QtQuick.Layouts 1.3
 
 Item
 {
-    id: root_restore
+    id: rootLoading
 
     property bool isRecoveryMode: false
     property alias isCreating: viewModel.isCreating
@@ -19,7 +19,7 @@ Item
         id: confirmationDialog
         okButtonColor: Style.bright_teal
         okButtonText: qsTr("change settings")
-        okButtonIconSource: "qrc:/assets/icon-back-blue.svg"
+        okButtonIconSource: "qrc:/assets/icon-settings-blue.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
 
         property alias titleText: title.text
@@ -61,13 +61,13 @@ Item
         }
     }
 
-    RestoreViewModel {
+    LoadingViewModel {
         id: viewModel 
         onSyncCompleted: {
             if (isRecoveryMode || isCreating)
                 root.parent.source = "qrc:/main.qml";
             else
-                root_restore.parent.source = "qrc:/main.qml";
+                rootLoading.parent.source = "qrc:/main.qml";
         }
 
         onWalletError: {

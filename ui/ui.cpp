@@ -21,7 +21,7 @@
 
 #include <qqmlcontext.h>
 #include "viewmodel/start_view.h"
-#include "viewmodel/restore_view.h"
+#include "viewmodel/loading_view.h"
 #include "viewmodel/main_view.h"
 #include "viewmodel/utxo_view.h"
 #include "viewmodel/dashboard_view.h"
@@ -35,7 +35,7 @@
 #include "model/app_model.h"
 
 #include "wallet/wallet_db.h"
-#include "utility/logger.h"
+#include "utility/log_rotation.h"
 #include "core/ecc_native.h"
 
 #include "translator.h"
@@ -152,12 +152,19 @@ int main (int argc, char* argv[])
 
         beam::Crash::InstallHandler(appDataDir.filePath(AppName).toStdString().c_str());
 
-        auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "beam_ui_",
-			appDataDir.filePath(WalletSettings::LogsFolder).toStdString());
+#define LOG_FILES_PREFIX "beam_ui_"
+
+        const auto logFilesPath = appDataDir.filePath(WalletSettings::LogsFolder).toStdString();
+        auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, LOG_FILES_PREFIX, logFilesPath);
+
+        unsigned logCleanupPeriod = vm[cli::LOG_CLEANUP_DAYS].as<uint32_t>() * 24 * 3600;
+
+        clean_old_logfiles(logFilesPath, LOG_FILES_PREFIX, logCleanupPeriod);
 
         try
         {
             Rules::get().UpdateChecksum();
+            LOG_INFO() << "Beam Wallet UI " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
             WalletSettings settings(appDataDir);
@@ -175,7 +182,7 @@ int main (int argc, char* argv[])
             }
 
             qmlRegisterType<StartViewModel>("Beam.Wallet", 1, 0, "StartViewModel");
-            qmlRegisterType<RestoreViewModel>("Beam.Wallet", 1, 0, "RestoreViewModel");
+            qmlRegisterType<LoadingViewModel>("Beam.Wallet", 1, 0, "LoadingViewModel");
             qmlRegisterType<MainViewModel>("Beam.Wallet", 1, 0, "MainViewModel");
             qmlRegisterType<DashboardViewModel>("Beam.Wallet", 1, 0, "DashboardViewModel");
             qmlRegisterType<WalletViewModel>("Beam.Wallet", 1, 0, "WalletViewModel");
@@ -191,7 +198,6 @@ int main (int argc, char* argv[])
             qmlRegisterType<ContactItem>("Beam.Wallet", 1, 0, "ContactItem");
             qmlRegisterType<TxObject>("Beam.Wallet", 1, 0, "TxObject");
             qmlRegisterType<UtxoItem>("Beam.Wallet", 1, 0, "UtxoItem");
-            qmlRegisterType<DeviceItem>("Beam.Wallet", 1, 0, "DeviceItem");
             qmlRegisterType<WalletDBPathItem>("Beam.Wallet", 1, 0, "WalletDBPathItem");
 
             engine.load(QUrl("qrc:/root.qml"));

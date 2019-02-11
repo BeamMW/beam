@@ -14,9 +14,7 @@ Rectangle {
     SettingsViewModel {id: viewModel}
 
     ChangePasswordDialog {
-        id: changePasswordDialog
-
-        
+        id: changePasswordDialog        
     }
 
     ColumnLayout {
@@ -152,7 +150,6 @@ Rectangle {
                                     Layout.fillWidth: true
                                     Layout.alignment: Qt.AlignTop
                                     spacing: 10
-                                
 
                                     CustomSwitch {
                                         id: localNodeRun
@@ -166,88 +163,6 @@ Rectangle {
                                             value: localNodeRun.checked
                                         }
                                     }
-
-                                    SFText {
-                                        text: qsTr("Mining threads (CPU)")
-                                        color: (localNodeRun.checked && !useGpu.checked) ? Style.white : Style.disable_text_color
-                                        font.pixelSize: 12
-                                        font.styleName: "Bold"; font.weight: Font.Bold
-                                    }
-
-                                    FeeSlider {
-                                        id: localNodeMiningThreads
-                                        precision: 0
-                                        showTicks: true
-                                        Layout.fillWidth: true
-                                        value: viewModel.localNodeMiningThreads
-                                        to: {viewModel.coreAmount()}
-                                        stepSize: 1
-                                        enabled: localNodeRun.checked && !useGpu.checked
-                                        Binding {
-                                            target: viewModel
-                                            property: "localNodeMiningThreads"
-                                            value: localNodeMiningThreads.value
-                                        }
-                                    }
-
-                                    CustomSwitch {
-                                        id: useGpu
-                                        text: qsTr("Use GPU")
-                                        Layout.topMargin: 5
-                                        font.pixelSize: 12
-                                        width: parent.width
-                                        checked: viewModel.useGpu
-                                        enabled: localNodeRun.checked && viewModel.hasSupportedGpu()
-                                        visible: viewModel.showUseGpu()
-                                        Binding {
-                                            target: viewModel
-                                            property: "useGpu"
-                                            value: useGpu.checked
-                                        }
-                                    }
-                                    SFText {
-                                        id: gpuError
-                                        color: Style.validator_color
-                                        font.pixelSize: 14
-                                        visible: viewModel.showUseGpu() && !viewModel.hasSupportedGpu()
-                                        text: qsTr("You have unsupported videocard")
-                                    }
-
-                                    ListView {
-                                        Layout.fillWidth: true
-                                        Layout.fillHeight: true
-                                        Layout.minimumWidth: 140
-                                        visible: viewModel.showUseGpu() && viewModel.hasSupportedGpu()
-                                        enabled: useGpu.checked
-                                        model: viewModel.supportedDevices
-                                        clip: true
-                                        delegate: RowLayout {
-                                            width: parent.width
-                                            height: 22
-
-                                            CustomCheckBox {
-                                                id: device_id
-                                                font.pixelSize: 12
-                                                enabled: localNodeRun.checked
-                                                palette.windowText: enabled ? Style.white : Style.disable_text_color
-                                                checked: modelData.enabled
-                                                text: modelData.name
-                                                onToggled: {
-                                                    viewModel.propertiesChanged();
-                                                }
-                                                Binding {
-                                                    target: modelData
-                                                    property: "enabled"
-                                                    value: device_id.checked
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    Layout.alignment: Qt.AlignTop
-                                    spacing: 10
 
                                     SFText {
                                         text: qsTr("Local node port")
@@ -274,9 +189,15 @@ Rectangle {
                                             value: localNodePort.text
                                         }
                                     }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    Layout.alignment: Qt.AlignTop
+                                    spacing: 10
 
                                     SFText {
-                                        Layout.topMargin: 10
+                                        Layout.topMargin: 5
                                         text: qsTr("Peers")
                                         color: localNodeRun.checked ? Style.white : Style.disable_text_color
                                         font.pixelSize: 12
@@ -303,7 +224,7 @@ Rectangle {
                                             Layout.minimumWidth: 70
                                             leftPadding: 20
                                             rightPadding: 20
-				                            text: "Add"
+                                            text: "Add"
                                             palette.button: "#708090"
                                             palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
                                             enabled: newLocalNodePeer.acceptableInput && localNodeRun.checked
@@ -312,6 +233,17 @@ Rectangle {
                                                 newLocalNodePeer.clear();
                                             }
                                         }
+                                    }
+
+                                    SFText {
+                                        text: qsTr("Please add at least one peer")
+                                        color: Style.validator_color
+                                        font.pixelSize: 14
+                                        fontSizeMode: Text.Fit
+                                        minimumPixelSize: 10
+                                        font.italic: true
+                                        width: parent.width
+                                        visible: localNodeRun.checked && !(viewModel.localNodePeers.length > 0)
                                     }
 
                                     ListView {
@@ -359,11 +291,40 @@ Rectangle {
                 ConfirmationDialog {
                     id: confirmRefreshDialog
                     property bool canRefresh: true
-                    okButtonText: qsTr("yes")
-                    okButtonIconSource: "qrc:/assets/icon-done.svg"
-                    cancelVisible: false
+                    okButtonText: qsTr("rescan")
+                    okButtonIconSource: "qrc:/assets/icon-repeat.svg"
+                    cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+                    cancelVisible: true
                     width: 460
-                    text: qsTr("Rescan will update transaction and UTXO data in your wallet and get latest information from the blockchain. Are you sure?")
+                    height: 243
+
+                    contentItem: Item {
+                        id: confirmationContent
+                        Column {
+                            anchors.fill: parent
+                            spacing: 30
+                            
+                            SFText {
+                                width: parent.width
+                                topPadding: 20
+                                font.pixelSize: 18
+                                color: Style.white
+                                horizontalAlignment : Text.AlignHCenter
+                                text: qsTr("Rescan")
+                            }
+                            SFText {
+                                width: parent.width
+                                leftPadding: 20
+                                rightPadding: 20
+                                font.pixelSize: 14
+                                color: Style.white
+                                wrapMode: Text.Wrap
+                                horizontalAlignment : Text.AlignHCenter
+                                text: qsTr("Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time. \n\nAre you sure?")
+                            }
+                        }
+                    }
+
                     onAccepted: {
                         canRefresh = false;
                         viewModel.refreshWallet();
@@ -515,7 +476,7 @@ Rectangle {
                                 CustomButton {
                                     icon.source: "qrc:/assets/icon-restore.svg"
                                     Layout.alignment: Qt.AlignRight
-				                    text: qsTr("rescan")
+                                    text: qsTr("rescan")
                                     palette.button: "#708090"
                                     palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
                                     enabled: localNodeRun.checked && confirmRefreshDialog.canRefresh && viewModel.isLocalNodeRunning
@@ -592,6 +553,7 @@ Rectangle {
                     viewModel.isChanged 
                     && nodeAddress.acceptableInput
                     && localNodePort.acceptableInput
+                    && (localNodeRun.checked ? (viewModel.localNodePeers.length > 0) : true)
                 }
                 onClicked: viewModel.applyChanges()
             }

@@ -27,7 +27,7 @@ public class WalletListener
 
 	static void onStatus(WalletStatusDTO status)
 	{
-		System.out.println(">>>>>>>>>>>>>> async status in Java, available=" + status.available/1000000 + " BEAM and " + status.available%1000000 + " GROTH, unconfirmed=" + status.unconfirmed);
+		System.out.println(">>>>>>>>>>>>>> async status in Java, available=" + status.available/1000000 + " BEAM and " + status.available%1000000 + " GROTH, maturing=" + status.maturing);
 		System.out.println("height is " + status.system.height);
 	}
 
@@ -105,9 +105,9 @@ public class WalletListener
 		}
 	}
 
-	static void onAdrresses(boolean own, WalletAddressDTO[] addresses)
+	static void onAddresses(boolean own, WalletAddressDTO[] addresses)
 	{
-		System.out.println(">>>>>>>>>>> onAdrresses(" + own + ") called");
+		System.out.println(">>>>>>>>>>> onAddresses(" + own + ") called");
 
 		if(addresses != null)
 		{

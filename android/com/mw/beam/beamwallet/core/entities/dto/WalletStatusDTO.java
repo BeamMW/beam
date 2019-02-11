@@ -17,7 +17,9 @@ package com.mw.beam.beamwallet.core.entities.dto;
 public class WalletStatusDTO
 {
 	public long available;
-	public long unconfirmed;
+	public long receiving;
+    public long sending;
+    public long maturing;
 
 	public long updateLastTime;
 	public int updateDone;

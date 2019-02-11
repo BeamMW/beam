@@ -488,36 +488,38 @@ namespace beam
 				;
 		}
 
-		verify_test(db.GetDummyLastID() == 0);
+		Key::ID kid(Zero);
+		kid.m_Idx = 345;
 
-		db.InsertDummy(176, 345);
-		db.InsertDummy(568, 346);
-		verify_test(db.GetDummyLastID() == 346);
+		verify_test(db.GetDummyHeight(kid) == MaxHeight);
 
-		Height h1;
+		db.InsertDummy(176, kid);
 
-		uint64_t id = db.GetLowestDummy(h1);
-		verify_test(id);
+		kid.m_Idx = 346;
+		db.InsertDummy(568, kid);
+
+		kid.m_Idx = 345;
+		verify_test(db.GetDummyHeight(kid) == 176);
+
+		Height h1 = db.GetLowestDummy(kid);
 		verify_test(h1 == 176);
-		verify_test(id == 345U);
+		verify_test(kid.m_Idx == 345U);
 
-		db.SetDummyHeight(id, 1055);
+		db.SetDummyHeight(kid, 1055);
 
-		id = db.GetLowestDummy(h1);
-		verify_test(id);
+		h1 = db.GetLowestDummy(kid);
 		verify_test(h1 == 568);
-		verify_test(id == 346U);
+		verify_test(kid.m_Idx == 346U);
 		
-		db.DeleteDummy(id);
+		db.DeleteDummy(kid);
 
-		id = db.GetLowestDummy(h1);
-		verify_test(id);
+		h1 = db.GetLowestDummy(kid);
 		verify_test(h1 == 1055);
-		verify_test(id == 345U);
+		verify_test(kid.m_Idx == 345U);
 
-		db.DeleteDummy(id);
+		db.DeleteDummy(kid);
 
-		verify_test(!db.GetLowestDummy(h1));
+		verify_test(MaxHeight == db.GetLowestDummy(kid));
 
 		// Kernels
 		db.InsertKernel(bBodyP, 5);

@@ -56,7 +56,7 @@ namespace beam
 
     struct ValidateAddress
     {
-        WalletID address;
+        WalletID address = Zero;
 
         struct Response
         {
@@ -70,6 +70,7 @@ namespace beam
         //int session;
         Amount value;
         Amount fee;
+        boost::optional<WalletID> from;
         WalletID address;
         std::string comment;
 
@@ -172,6 +173,7 @@ namespace beam
             Amount sending = 0;
             Amount maturing = 0;
             Amount locked = 0;
+            double difficulty = 0;
         };
     };
 

@@ -37,9 +37,6 @@
 #include <boost/filesystem.hpp>
 #include <thread>
 
-#ifdef BEAM_USE_GPU
-#include "utility/gpu/gpu_tools.h"
-#endif
 
 using namespace beam;
 using namespace ECC;
@@ -50,21 +47,15 @@ namespace
     const char* Peers[] =
     {
 #ifdef BEAM_TESTNET
-        "3.0.151.23:8100",
-        "3.0.112.100:8100",
-        "52.76.251.61:8100",
-        "3.0.82.115:8100",
-        "13.250.70.207:8100",
-        "3.121.25.231:8100",
-        "52.29.133.183:8100",
-        "3.122.16.126:8100",
-        "3.122.5.247:8100",
-        "18.197.244.193:8100",
-        "52.52.228.242:8100",
-        "13.52.69.164:8100",
-        "52.52.207.165:8100",
-        "13.52.91.89:8100",
-        "54.177.6.19:8100"
+        "ap-node01.testnet.beam.mw:8100",
+        "ap-node02.testnet.beam.mw:8100",
+        "ap-node03.testnet.beam.mw:8100",
+        "eu-node01.testnet.beam.mw:8100",
+        "eu-node02.testnet.beam.mw:8100",
+        "eu-node03.testnet.beam.mw:8100",
+        "us-node01.testnet.beam.mw:8100",
+        "us-node02.testnet.beam.mw:8100",
+        "us-node03.testnet.beam.mw:8100"
  #else
     "eu-node01.mainnet.beam.mw:8100",
     "eu-node02.mainnet.beam.mw:8100",
@@ -242,7 +233,6 @@ void StartViewModel::setIsRecoveryMode(bool value)
     {
         m_isRecoveryMode = value;
         m_recoveryPhrases.clear();
-        AppModel::getInstance()->setRestoreWallet(value);
         emit isRecoveryModeChanged();
     }
 }
@@ -295,26 +285,6 @@ QChar StartViewModel::getPhrasesSeparator()
     return PHRASES_SEPARATOR;
 }
 
-void StartViewModel::setUseGpu(bool value)
-{
-#ifdef BEAM_USE_GPU
-    if (value != AppModel::getInstance()->getSettings().getUseGpu())
-    {
-        AppModel::getInstance()->getSettings().setUseGpu(value);
-        emit useGpuChanged();
-    }
-#endif
-}
-
-bool StartViewModel::getUseGpu() const
-{
-#ifdef BEAM_USE_GPU
-    return AppModel::getInstance()->getSettings().getUseGpu();
-#else
-    return false;
-#endif
-}
-
 bool StartViewModel::getIsRunLocalNode() const
 {
     return AppModel::getInstance()->getSettings().getRunLocalNode();
@@ -336,11 +306,6 @@ int StartViewModel::getLocalPort() const
     return AppModel::getInstance()->getSettings().getLocalNodePort();
 }
 
-int StartViewModel::getLocalMiningThreads() const
-{
-    return AppModel::getInstance()->getSettings().getLocalNodeMiningThreads();
-}
-
 QString StartViewModel::getRemoteNodeAddress() const
 {
     return AppModel::getInstance()->getSettings().getNodeAddress();
@@ -357,21 +322,9 @@ QQmlListProperty<WalletDBPathItem> StartViewModel::getWalletDBpaths()
     return QQmlListProperty<WalletDBPathItem>(this, m_walletDBpaths);
 }
 
-void StartViewModel::setupLocalNode(int port, int miningThreads, const QString& localNodePeer)
+void StartViewModel::setupLocalNode(int port, const QString& localNodePeer)
 {
     auto& settings = AppModel::getInstance()->getSettings();
-#ifdef BEAM_USE_GPU
-    if (settings.getUseGpu())
-    {
-        settings.setLocalNodeMiningThreads(1);
-    }
-    else
-    {
-        settings.setLocalNodeMiningThreads(miningThreads);
-    }
-#else
-    settings.setLocalNodeMiningThreads(miningThreads);
-#endif
     auto localAddress = QString::asprintf("127.0.0.1:%d", port);
     settings.setNodeAddress(localAddress);
     settings.setLocalNodePort(port);
@@ -481,29 +434,6 @@ void StartViewModel::resetPhrases()
     emit recoveryPhrasesChanged();
 }
 
-bool StartViewModel::showUseGpu() const
-{
-#ifdef BEAM_USE_GPU
-    return true;
-#else
-    return false;
-#endif
-}
-
-bool StartViewModel::hasSupportedGpu()
-{
-#ifdef BEAM_USE_GPU
-    if (!HasSupportedCard())
-    {
-        setUseGpu(false);
-        return false;
-    }
-    return true;
-#else
-    return false;
-#endif
-}
-
 bool StartViewModel::createWallet()
 {
     if (m_isRecoveryMode)
@@ -528,6 +458,12 @@ bool StartViewModel::openWallet(const QString& pass)
     // TODO make this secure
     SecString secretPass = pass.toStdString();
     return AppModel::getInstance()->openWallet(secretPass);
+}
+
+bool StartViewModel::checkWalletPassword(const QString& password) const
+{
+    SecString secretPassword = password.toStdString();
+    return AppModel::getInstance()->checkWalletPassword(secretPassword);
 }
 
 void StartViewModel::setPassword(const QString& pass)

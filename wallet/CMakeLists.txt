@@ -3,11 +3,14 @@ set(TARGET_NAME beam-wallet)
 add_definitions( -DSQLITE_HAS_CODEC )
 
 set(WALLET_SRC
+    common.cpp
     wallet.h
     wallet.cpp
     wallet_transaction.cpp
     wallet_network.cpp
     wallet_db.cpp
+    wallet_client.h
+    wallet_client.cpp
     swap_transaction.cpp
     secstring2.cpp
     unittests/util.cpp
@@ -32,12 +35,17 @@ add_dependencies(${TARGET_NAME} wallet utility)
 target_link_libraries(${TARGET_NAME} wallet utility)
 
 add_library(wallet_api_proto STATIC api.cpp)
-add_dependencies(wallet_api_proto wallet utility)
-target_link_libraries(wallet_api_proto wallet utility)
+add_dependencies(wallet_api_proto wallet utility http)
+target_link_libraries(wallet_api_proto wallet utility http)
 
 add_executable(wallet-api api_cli.cpp)
+target_include_directories(wallet-api PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 add_dependencies(wallet-api wallet utility wallet_api_proto)
 target_link_libraries(wallet-api wallet utility wallet_api_proto)
+
+if(LINUX)
+    target_link_libraries(wallet-api -static-libstdc++ -static-libgcc)
+endif()
 
 add_subdirectory(unittests)
 

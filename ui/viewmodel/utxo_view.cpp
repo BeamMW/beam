@@ -46,14 +46,9 @@ QString UtxoItem::amount() const
     return BeamToString(_coin.m_ID.m_Value) + " BEAM";
 }
 
-QString UtxoItem::height() const
-{
-    return QString::number(_coin.m_createHeight);
-}
-
 QString UtxoItem::maturity() const
 {
-    if (_coin.m_maturity == static_cast<Height>(-1))
+    if (!_coin.IsMaturityValid())
         return QString{ "-" };
     return QString::number(_coin.m_maturity);
 }
@@ -102,14 +97,14 @@ beam::Amount UtxoItem::rawAmount() const
     return _coin.m_ID.m_Value;
 }
 
-beam::Height UtxoItem::rawHeight() const
+const beam::Coin::ID& UtxoItem::get_ID() const
 {
-    return _coin.m_createHeight;
+	return _coin.m_ID;
 }
 
 beam::Height UtxoItem::rawMaturity() const
 {
-    return _coin.m_maturity;
+    return _coin.get_Maturity();
 }
 
 
@@ -117,9 +112,9 @@ UtxoViewModel::UtxoViewModel()
     : _model{*AppModel::getInstance()->getWallet()}
     , _sortOrder(Qt::DescendingOrder)
 {
-    connect(&_model, SIGNAL(onAllUtxoChanged(const std::vector<beam::Coin>&)),
+    connect(&_model, SIGNAL(allUtxoChanged(const std::vector<beam::Coin>&)),
         SLOT(onAllUtxoChanged(const std::vector<beam::Coin>&)));
-    connect(&_model, SIGNAL(onStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
+    connect(&_model, SIGNAL(walletStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
     _model.getAsync()->getUtxosStatus();
 }
@@ -251,9 +246,9 @@ std::function<bool(const UtxoItem*, const UtxoItem*)> UtxoViewModel::generateCom
         return compareUtxo(lf->type(), rt->type(), sortOrder);
     };
 
-    // defult for heightRole
+    // defult
     return [sortOrder = _sortOrder](const UtxoItem* lf, const UtxoItem* rt)
     {
-        return compareUtxo(lf->rawHeight(), rt->rawHeight(), sortOrder);
+        return compareUtxo(lf->get_ID(), rt->get_ID(), sortOrder);
     };
 }

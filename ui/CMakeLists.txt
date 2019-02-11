@@ -38,8 +38,8 @@ set(UI_SRC
 	translator.cpp
 	viewmodel/start_view.h
 	viewmodel/start_view.cpp
-    viewmodel/restore_view.h
-	viewmodel/restore_view.cpp
+    viewmodel/loading_view.h
+	viewmodel/loading_view.cpp
 	viewmodel/utxo_view.h
 	viewmodel/utxo_view.cpp
 	viewmodel/main_view.h
@@ -90,11 +90,6 @@ configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}
 
 add_dependencies(${TARGET_NAME} wallet mnemonic qrcode)
 target_link_libraries(${TARGET_NAME} qrcode)
-
-if(BEAM_USE_GPU)
-    add_dependencies(${TARGET_NAME} gpu_tools)
-    target_link_libraries(${TARGET_NAME} gpu_tools)
-endif()
 
 if(LINUX)
 	set(CMAKE_POSITION_INDEPENDENT_CODE ON)

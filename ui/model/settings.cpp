@@ -32,12 +32,7 @@ namespace
 
     const char* LocalNodeRun = "localnode/run";
     const char* LocalNodePort = "localnode/port";
-    const char* LocalNodeMiningThreads = "localnode/mining_threads";
     const char* LocalNodePeers = "localnode/peers";
-#ifdef BEAM_USE_GPU
-    const char* LocalNodeUseGpu = "localnode/use_gpu";
-    const char* LocalNodeMiningDevices = "localnode/mining_devices";
-#endif
 }
 
 const char* WalletSettings::WalletCfg = "beam-wallet.cfg";
@@ -144,21 +139,6 @@ void WalletSettings::setLocalNodePort(uint port)
     emit localNodePortChanged();
 }
 
-uint WalletSettings::getLocalNodeMiningThreads() const
-{
-    Lock lock(m_mutex);
-    return m_data.value(LocalNodeMiningThreads, 1).toUInt();
-}
-
-void WalletSettings::setLocalNodeMiningThreads(uint n)
-{
-    {
-        Lock lock(m_mutex);
-        m_data.setValue(LocalNodeMiningThreads, n);
-    }
-    emit localNodeMiningThreadsChanged();
-}
-
 string WalletSettings::getLocalNodeStorage() const
 {
     Lock lock(m_mutex);
@@ -170,64 +150,6 @@ string WalletSettings::getTempDir() const
     Lock lock(m_mutex);
     return m_appDataDir.filePath("./temp").toStdString();
 }
-
-#ifdef BEAM_USE_GPU
-bool WalletSettings::getUseGpu() const
-{
-    Lock lock(m_mutex);
-    return m_data.value(LocalNodeUseGpu, false).toBool();
-}
-
-void WalletSettings::setUseGpu(bool value)
-{
-    if (getUseGpu() != value)
-    {
-        {
-            Lock lock(m_mutex);
-            m_data.setValue(LocalNodeUseGpu, value);
-        }
-        emit localNodeUseGpuChanged();
-    }
-}
-
-vector<int32_t> WalletSettings::getMiningDevices() const
-{
-    Lock lock(m_mutex);
-    auto t = m_data.value(LocalNodeMiningDevices).value<QStringList>();
-    vector<int32_t> v;
-    for (const auto& i : t)
-    {
-        v.push_back(i.toInt());
-    }
-
-    return v;
-}
-
-void WalletSettings::setMiningDevices(const vector<int32_t>& value)
-{
-    if (getMiningDevices() != value)
-    {
-        {
-            Lock lock(m_mutex);
-            QStringList t;
-            for (auto i : value)
-            {
-                t.push_back(QString::asprintf("%d", i));
-            }
-            if (t.empty())
-            {
-                m_data.remove(LocalNodeMiningDevices);
-            }
-            else
-            {
-                m_data.setValue(LocalNodeMiningDevices, QVariant::fromValue(t));
-            }
-        }
-        emit localNodeMiningDevicesChanged();
-    }
-}
-
-#endif
 
 static void zipLocalFile(QuaZip& zip, const QString& path, const QString& folder = QString())
 {

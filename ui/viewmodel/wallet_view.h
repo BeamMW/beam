@@ -23,21 +23,22 @@ class TxObject : public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(bool income           READ income       NOTIFY incomeChanged)
-    Q_PROPERTY(QString date          READ date         NOTIFY dateChanged)
-    Q_PROPERTY(QString user          READ user         NOTIFY userChanged)
-    Q_PROPERTY(QString userName      READ userName     NOTIFY userChanged)
-    Q_PROPERTY(QString displayName   READ displayName  NOTIFY displayNameChanged)
-    Q_PROPERTY(QString comment       READ comment      NOTIFY commentChanged)
-    Q_PROPERTY(QString amount        READ amount       NOTIFY amountChanged)
-    Q_PROPERTY(QString change        READ change       NOTIFY changeChanged)
-    Q_PROPERTY(QString status        READ status       NOTIFY statusChanged)
-    Q_PROPERTY(bool canCancel        READ canCancel    NOTIFY statusChanged)
-    Q_PROPERTY(bool canDelete        READ canDelete    NOTIFY statusChanged)
-    Q_PROPERTY(QString sendingAddress READ getSendingAddress CONSTANT)
+    Q_PROPERTY(bool income              READ income              NOTIFY incomeChanged)
+    Q_PROPERTY(QString date             READ date                NOTIFY dateChanged)
+    Q_PROPERTY(QString user             READ user                NOTIFY userChanged)
+    Q_PROPERTY(QString userName         READ userName            NOTIFY userChanged)
+    Q_PROPERTY(QString displayName      READ displayName         NOTIFY displayNameChanged)
+    Q_PROPERTY(QString comment          READ comment             NOTIFY commentChanged)
+    Q_PROPERTY(QString amount           READ amount              NOTIFY amountChanged)
+    Q_PROPERTY(QString change           READ change              NOTIFY changeChanged)
+    Q_PROPERTY(QString status           READ status              NOTIFY statusChanged)
+    Q_PROPERTY(bool canCancel           READ canCancel           NOTIFY statusChanged)
+    Q_PROPERTY(bool canDelete           READ canDelete           NOTIFY statusChanged)
+    Q_PROPERTY(QString sendingAddress   READ getSendingAddress   CONSTANT)
     Q_PROPERTY(QString receivingAddress READ getReceivingAddress CONSTANT)
-    Q_PROPERTY(QString fee           READ getFee CONSTANT)
-    Q_PROPERTY(QString kernelID      READ getKernelID  WRITE setKernelID NOTIFY kernelIDChanged)
+    Q_PROPERTY(QString fee              READ getFee              CONSTANT)
+    Q_PROPERTY(QString kernelID         READ getKernelID         WRITE setKernelID  NOTIFY kernelIDChanged)
+    Q_PROPERTY(QString failureReason    READ getFailureReason    NOTIFY failureReasonChanged)
 
 public:
 
@@ -61,14 +62,20 @@ public:
     beam::WalletID peerId() const;
     QString getKernelID() const;
     void setKernelID(const QString& value);
+    QString getFailureReason() const;
 
     void setUserName(const QString& name);
     void setDisplayName(const QString& name);
     void setStatus(beam::TxStatus status);
+    void setFailureReason(beam::TxFailureReason reason);
 
     void update(const beam::TxDescription& tx);
 
     const beam::TxDescription& getTxDescription() const;
+
+    Q_INVOKABLE bool inProgress() const;
+    Q_INVOKABLE bool isCompleted() const;
+    Q_INVOKABLE bool isSelfTx() const;
 
 signals:
     void incomeChanged();
@@ -80,12 +87,13 @@ signals:
     void changeChanged();
     void statusChanged();
     void kernelIDChanged();
+    void failureReasonChanged();
 
-public:
-    beam::TxDescription _tx;
-    QString _userName;
-    QString _displayName;
-    QString _kernelID;
+private:
+    beam::TxDescription m_tx;
+    QString m_userName;
+    QString m_displayName;
+    QString m_kernelID;
 };
 
 class WalletViewModel : public QObject
@@ -98,6 +106,7 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString maturing    READ maturing     NOTIFY stateChanged)
 
     Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
+    Q_PROPERTY(QString amountMissingToSend READ getAmountMissingToSend NOTIFY actualAvailableChanged)
 
     Q_PROPERTY(QString feeGrothes READ feeGrothes WRITE setFeeGrothes NOTIFY feeGrothesChanged)
 
@@ -150,6 +159,7 @@ public:
 
     QQmlListProperty<TxObject> getTransactions();
     QString sendAmount() const;
+    QString getAmountMissingToSend() const;
     QString feeGrothes() const;
     bool getIsOfflineStatus() const;
     bool getIsFailedStatus() const;
@@ -193,7 +203,7 @@ public slots:
     void syncWithNode();
     void onChangeCalculated(beam::Amount change);
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
-    void onAdrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
+    void onAddresses(bool own, const std::vector<beam::WalletAddress>& addresses);
     void onGeneratedNewAddress(const beam::WalletAddress& addr);
     void onSendMoneyVerified();
     void onCantSendToExpired();

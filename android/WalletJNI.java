@@ -27,6 +27,12 @@ public class WalletJNI
 
 		Api api = new Api();
 
+        {
+            System.out.println("Test address...");
+            System.out.println("invalid address: " + api.checkReceiverAddress("12"));
+            System.out.println("valid address: " + api.checkReceiverAddress("1232134"));
+        }
+
 		{
 			System.out.println("Test mnemonic...");
 			String[] phrases = api.createMnemonic();

@@ -2,6 +2,7 @@ set(UTILITY_SRC
     common.cpp
     logger.cpp
     logger_checkpoints.cpp
+    log_rotation.cpp
     helpers.cpp
     config.cpp
 	options.cpp
@@ -52,9 +53,8 @@ else()
 endif()
 
 if (UV_INTERNAL)
-    include(io/libuv.cmake)
-    add_dependencies(utility uvinternal)
-    target_link_libraries(utility uvinternal)
+    add_dependencies(utility uv_a)
+    target_link_libraries(utility uv_a)
 else()
     target_link_libraries(utility uv)
 endif()
@@ -78,6 +78,11 @@ if(ANDROID)
             $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_program_options-clang-mt-x32-1_68.a 
             $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_filesystem-clang-mt-x32-1_68.a
             $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_system-clang-mt-x32-1_68.a)
+    elseif(ANDROID_ABI STREQUAL "arm64-v8a")
+        target_link_libraries(utility 
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_program_options-clang-mt-a64-1_68.a 
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_filesystem-clang-mt-a64-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_system-clang-mt-a64-1_68.a)
     endif()
 
 else()
@@ -87,10 +92,6 @@ else()
     else()
         target_link_libraries(utility boost_program_options boost_filesystem boost_system)
     endif()
-endif()
-
-if(BEAM_USE_GPU)
-    add_subdirectory(gpu)
 endif()
 
 add_subdirectory(unittest)

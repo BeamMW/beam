@@ -26,35 +26,37 @@ namespace beam
     using TxID = std::array<uint8_t, 16>;
 
 #pragma pack (push, 1)
-	struct WalletID
-	{
-		uintBigFor<BbsChannel>::Type m_Channel;
-		PeerID m_Pk;
+    struct WalletID
+    {
+        uintBigFor<BbsChannel>::Type m_Channel;
+        PeerID m_Pk;
 
-		WalletID() {}
-		WalletID(Zero_)
-		{
-			m_Channel = Zero;
-			m_Pk = Zero;
-		}
+        WalletID() {}
+        WalletID(Zero_)
+        {
+            m_Channel = Zero;
+            m_Pk = Zero;
+        }
 
-		template <typename Archive>
-		void serialize(Archive& ar)
-		{
-			ar
-				& m_Channel
-				& m_Pk;
-		}
+        template <typename Archive>
+        void serialize(Archive& ar)
+        {
+            ar
+                & m_Channel
+                & m_Pk;
+        }
 
-		bool FromBuf(const ByteBuffer&);
-		bool FromHex(const std::string&);
+        bool FromBuf(const ByteBuffer&);
+        bool FromHex(const std::string&);
 
-		bool IsValid() const; // isn't cheap
+        bool IsValid() const; // isn't cheap
 
-		int cmp(const WalletID&) const;
-		COMPARISON_VIA_CMP
-	};
+        int cmp(const WalletID&) const;
+        COMPARISON_VIA_CMP
+    };
 #pragma pack (pop)
+
+    bool check_receiver_address(const std::string& addr);
 
     struct PrintableAmount
     {
@@ -79,6 +81,27 @@ namespace beam
         Registering
     };
 
+#define BEAM_TX_FAILURE_REASON_MAP(MACRO) \
+    MACRO(Unknown,                0, "Unknown reason") \
+    MACRO(Cancelled,              1, "Transaction was cancelled") \
+    MACRO(InvalidPeerSignature,   2, "Peer's signature in not valid ") \
+    MACRO(FailedToRegister,       3, "Failed to register transaction") \
+    MACRO(InvalidTransaction,     4, "Transaction is not valid") \
+    MACRO(InvalidKernelProof,     5, "Invalid kernel proof provided") \
+    MACRO(FailedToSendParameters, 6, "Failed to send tx parameters") \
+    MACRO(NoInputs,               7, "No inputs") \
+    MACRO(ExpiredAddressProvided, 8, "Address is expired") \
+    MACRO(FailedToGetParameter,   9, "Failed to get parameter") \
+    MACRO(TransactionExpired,     10, "Transaction has expired") \
+    MACRO(NoPaymentProof,         11, "Payment not signed by the receiver") \
+
+    enum TxFailureReason : int32_t
+    {
+#define MACRO(name, code, _) name = code, 
+        BEAM_TX_FAILURE_REASON_MAP(MACRO)
+#undef MACRO
+    };
+
     struct TxDescription
     {
         TxDescription() = default;
@@ -95,7 +118,7 @@ namespace beam
             : m_txId{ txId }
             , m_amount{ amount }
             , m_fee{ fee }
-			, m_change{}
+            , m_change{}
             , m_minHeight{ minHeight }
             , m_peerId{ peerId }
             , m_myId{myId}
@@ -111,7 +134,7 @@ namespace beam
         TxID m_txId;
         Amount m_amount=0;
         Amount m_fee=0;
-		Amount m_change=0;
+        Amount m_change=0;
         Height m_minHeight=0;
         WalletID m_peerId = Zero;
         WalletID m_myId = Zero;
@@ -119,8 +142,10 @@ namespace beam
         Timestamp m_createTime=0;
         Timestamp m_modifyTime=0;
         bool m_sender=false;
+        bool m_selfTx = false;
         TxStatus m_status=TxStatus::Pending;
         Merkle::Hash m_kernelID = Zero;
+        TxFailureReason m_failureReason = TxFailureReason::Unknown;
 
         bool canResume() const
         {
@@ -175,17 +200,19 @@ namespace beam
             IsInitiator = 11,
             MaxHeight = 12,
             AmountList = 13,
+            PreselectedCoins = 14,
 
-			PeerProtoVersion = 16,
+            PeerProtoVersion = 16,
 
             AtomicSwapCoin = 20,
             AtomicSwapAmount = 21,
 
+            PeerPublicSharedBlindingFactor = 23,
+
             LockedAmount = 25,
             LockedMinHeight = 26,
             
-
-            PeerPublicSharedBlindingFactor = 23,
+            IsSelfTx = 27,
 
             // signature parameters
 
@@ -216,7 +243,7 @@ namespace beam
 
             FailureReason = 92,
 
-			PaymentConfirmation = 99,
+            PaymentConfirmation = 99,
 
             // private parameters
             PrivateFirstParam = 128,
@@ -238,11 +265,11 @@ namespace beam
             Status = 151,
             KernelID = 152,
 
-			MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
+            MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
 
             SharedBlindingFactor = 160,
             LockedBlindingFactor = 161,
-			MyNonce = 162,
+            MyNonce = 162,
             SharedPeerBlindingFactor = 170,
 
             Inputs = 180,
@@ -324,26 +351,33 @@ namespace beam
 
         enum class ErrorType : uint8_t
         {
-            NodeProtocolBase = 0,
-            NodeProtocolIncompatible = 1,
-            ConnectionTimedOut = 2,
-            ConnectionRefused = 3,
-			TimeOutOfSync = 4,
-		};
+            NodeProtocolBase,
+            NodeProtocolIncompatible,
+            ConnectionBase,
+            ConnectionTimedOut,
+            ConnectionRefused,
+            ConnectionHostUnreach,
+            ConnectionAddrInUse,
+            TimeOutOfSync,
+            InternalNodeStartFailed,
+        };
 
-		struct PaymentConfirmation
-		{
-			// I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
-			Amount m_Value;
-			ECC::Hash::Value m_KernelID;
-			PeerID m_Sender;
-			ECC::Signature m_Signature;
+        ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType);
+        ErrorType getWalletError(io::ErrorCode errorCode);
 
-			void get_Hash(ECC::Hash::Value&) const;
-			bool IsValid(const PeerID&) const;
+        struct PaymentConfirmation
+        {
+            // I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
+            Amount m_Value;
+            ECC::Hash::Value m_KernelID;
+            PeerID m_Sender;
+            ECC::Signature m_Signature;
 
-			void Sign(const ECC::Scalar::Native& sk);
-		};
+            void get_Hash(ECC::Hash::Value&) const;
+            bool IsValid(const PeerID&) const;
+
+            void Sign(const ECC::Scalar::Native& sk);
+        };
     }
 }
 

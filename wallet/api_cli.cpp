@@ -24,8 +24,12 @@
 #include "utility/helpers.h"
 #include "utility/io/timer.h"
 #include "utility/io/tcpserver.h"
-#include "utility/options.h"
 #include "utility/io/json_serializer.h"
+#include "utility/io/coarsetimer.h"
+#include "utility/options.h"
+
+#include "http/http_connection.h"
+#include "http/http_msg_creator.h"
 
 #include "p2p/line_protocol.h"
 
@@ -33,29 +37,33 @@
 #include "wallet/wallet_network.h"
 
 #include "nlohmann/json.hpp"
+#include "version.h"
 
 using json = nlohmann::json;
 
 static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
+static const size_t PACKER_FRAGMENTS_SIZE = 4096;
+static const uint64_t CLOSE_CONNECTION_TIMER = 1;
 
 namespace beam
 {
-    struct ConnectionToServer 
-    {
-        virtual ~ConnectionToServer() = default;
-
-        virtual void on_bad_peer(uint64_t from) = 0;
-    };
-
-    class WalletApiServer : public ConnectionToServer
+    class IWalletApiServer
     {
     public:
-        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::Reactor& reactor, io::Address listenTo)
+        virtual void closeConnection(uint64_t id) = 0;
+    };
+
+    class WalletApiServer : public IWalletApiServer
+    {
+    public:
+        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::Reactor& reactor, io::Address listenTo, bool useHttp)
             : _reactor(reactor)
             , _bindAddress(listenTo)
+            , _useHttp(useHttp)
             , _walletDB(walletDB)
             , _wallet(wallet)
             , _wnet(wnet)
+            , _timers(_reactor, 100)
         {
             start();
         }
@@ -90,49 +98,65 @@ namespace beam
 
         }
 
-    protected:
-
-        void on_bad_peer(uint64_t from) override
+        void closeConnection(uint64_t id) override
         {
-            _connections.erase(from);
+            _pendingToClose.push_back(id);
+
+            _timers.set_timer(1, 0, BIND_THIS_MEMFN(checkConnections));
         }
 
     private:
 
+        void checkConnections()
+        {
+            // clean closed connections
+            {
+                for (auto id : _pendingToClose)
+                {
+                    _connections.erase(id);
+                }
+
+                _pendingToClose.clear();
+            }
+        }
+
+        class ApiConnection;
+
+        template<typename T>
+        std::shared_ptr<ApiConnection> createConnection(io::TcpStream::Ptr&& newStream)
+        {
+            return std::static_pointer_cast<ApiConnection>(std::make_shared<T>(*this, _walletDB, _wallet, _wnet, std::move(newStream)));
+        }
+
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
         {
             if (errorCode == 0) 
-            {
+            {          
                 auto peer = newStream->peer_address();
                 LOG_DEBUG() << "+peer " << peer;
 
-                _connections[peer.u64()] = std::make_unique<Connection>(*this, _walletDB, _wallet, _wnet, peer.u64(), std::move(newStream));
+                _connections[peer.u64()] = _useHttp
+                    ? createConnection<HttpApiConnection>(std::move(newStream))
+                    : createConnection<TcpApiConnection>(std::move(newStream));
             }
 
             LOG_DEBUG() << "on_stream_accepted";
         }
 
     private:
-        class Connection : IWalletApiHandler, IWalletDbObserver
+        class ApiConnection : IWalletApiHandler, IWalletDbObserver
         {
         public:
-            Connection(ConnectionToServer& owner, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, uint64_t id, io::TcpStream::Ptr&& newStream)
-                : _owner(owner)
-                , _id(id)
-                , _stream(std::move(newStream))
-                , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
-                , _walletDB(walletDB)
+            ApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet)
+                : _walletDB(walletDB)
                 , _wallet(wallet)
                 , _api(*this)
                 , _wnet(wnet)
             {
-                _stream->enable_keepalive(2);
-                _stream->enable_read(BIND_THIS_MEMFN(on_stream_data));
-
                 _walletDB->subscribe(this);
             }
 
-            virtual ~Connection()
+            virtual ~ApiConnection()
             {
                 _walletDB->unsubscribe(this);
             }
@@ -147,17 +171,14 @@ namespace beam
 
             void onAddressChanged() override {}
 
-            void on_write(io::SharedBuffer&& msg) 
-            {
-                _stream->write(msg);
-            }
+            virtual void serializeMsg(const json& msg) = 0;
 
             template<typename T>
             void doResponse(int id, const T& response)
             {
                 json msg;
                 _api.getResponse(id, response, msg);
-                serialize_json_msg(_lineProtocol, msg);
+                serializeMsg(msg);
             }
 
             void doError(int id, int code, const std::string& info)
@@ -174,21 +195,21 @@ namespace beam
                     }
                 };
 
-                serialize_json_msg(_lineProtocol, msg);
+                serializeMsg(msg);
             }
 
             void onInvalidJsonRpc(const json& msg) override
             {
                 LOG_DEBUG() << "onInvalidJsonRpc: " << msg;
 
-                serialize_json_msg(_lineProtocol, msg);
+                serializeMsg(msg);
             }
 
             void onMessage(int id, const CreateAddress& data) override 
             {
                 LOG_DEBUG() << "CreateAddress(id = " << id << " metadata = " << data.metadata << " lifetime = " << data.lifetime << ")";
 
-                WalletAddress address = wallet::createAddress(_walletDB);
+                WalletAddress address = wallet::createAddress(*_walletDB);
                 address.m_duration = data.lifetime * 60 * 60;
 
                 _walletDB->saveAddress(address);
@@ -202,29 +223,54 @@ namespace beam
             {
                 LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
 
-                _walletDB->getAddress(data.address);
-
-                doResponse(id, ValidateAddress::Response{ data.address.IsValid(), _walletDB->getAddress(data.address) ? true : false });
+                auto addr = _walletDB->getAddress(data.address);
+                bool isMine = addr ? addr->m_OwnID != 0 : false;
+                doResponse(id, ValidateAddress::Response{ data.address.IsValid() && (isMine ? addr->isExpired() : true), isMine});
             }
 
             void onMessage(int id, const Send& data) override
             {
                 LOG_DEBUG() << "Send(id = " << id << " amount = " << data.value << " fee = " << data.fee <<  " address = " << std::to_string(data.address) << ")";
 
-                WalletAddress senderAddress = wallet::createAddress(_walletDB);
-                _walletDB->saveAddress(senderAddress);
-
-                _wnet.AddOwnAddress(senderAddress);
-
-                ByteBuffer message(data.comment.begin(), data.comment.end());
-
-                auto txId = _wallet.transfer_money(senderAddress.m_walletID, data.address, data.value, data.fee, true, 120, std::move(message));
-
-                if (txId)
+                try
                 {
-                    doResponse(id, Send::Response{ *txId });
+                    WalletID from(Zero);
+
+                    if(data.from)
+                    {
+                        if(!data.from->IsValid())
+                        {
+                            doError(id, INTERNAL_JSON_RPC_ERROR, "Invalid sender address.");
+                            return;
+                        }
+
+                        auto addr = _walletDB->getAddress(*data.from);
+                        bool isMine = addr ? addr->m_OwnID != 0 : false;
+
+                        if(!isMine)
+                        {
+                            doError(id, INTERNAL_JSON_RPC_ERROR, "It's not your own address.");
+                            return;
+                        }
+
+                        from = *data.from;
+                    }
+                    else
+                    {
+                        WalletAddress senderAddress = wallet::createAddress(*_walletDB);
+                        _walletDB->saveAddress(senderAddress);
+
+                        _wnet.AddOwnAddress(senderAddress);
+
+                        from = senderAddress.m_walletID;     
+                    }
+
+                    ByteBuffer message(data.comment.begin(), data.comment.end());
+
+                    auto txId = _wallet.transfer_money(from, data.address, data.value, data.fee, true, 120, std::move(message));
+                    doResponse(id, Send::Response{ txId });
                 }
-                else
+                catch(...)
                 {
                     doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction could not be created. Please look at logs.");
                 }
@@ -252,7 +298,7 @@ namespace beam
                     result.systemHeight = stateID.m_Height;
                     result.confirmations = 0;
 
-                    wallet::getTxParameter(_walletDB, tx->m_txId, wallet::TxParameterID::KernelProofHeight, result.kernelProofHeight);
+                    wallet::getTxParameter(*_walletDB, tx->m_txId, wallet::TxParameterID::KernelProofHeight, result.kernelProofHeight);
 
                     doResponse(id, result);
                 }
@@ -267,18 +313,16 @@ namespace beam
                 LOG_DEBUG() << "Split(id = " << id << " coins = [";
                 for (auto& coin : data.coins) LOG_DEBUG() << coin << ",";
                 LOG_DEBUG() << "], fee = " << data.fee;
-
-                WalletAddress senderAddress = wallet::createAddress(_walletDB);
-                _walletDB->saveAddress(senderAddress);
-                _wnet.AddOwnAddress(senderAddress);
-
-                auto txId = _wallet.split_coins(senderAddress.m_walletID, data.coins, data.fee);
-
-                if (txId)
+                try
                 {
-                    doResponse(id, Send::Response{ *txId });
+                     WalletAddress senderAddress = wallet::createAddress(*_walletDB);
+                    _walletDB->saveAddress(senderAddress);
+                    _wnet.AddOwnAddress(senderAddress);
+
+                    auto txId = _wallet.split_coins(senderAddress.m_walletID, data.coins, data.fee);
+                    doResponse(id, Send::Response{ txId });
                 }
-                else
+                catch(...)
                 {
                     doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction could not be created. Please look at logs.");
                 }
@@ -341,15 +385,17 @@ namespace beam
                     Block::SystemState::Full state;
                     _walletDB->get_History().get_Tip(state);
                     response.prevStateHash = state.m_Prev;
+                    response.difficulty = state.m_PoW.m_Difficulty.ToFloat();
                 }
 
-                response.available = _walletDB->getAvailable();
-                response.receiving = _walletDB->getTotal(Coin::Incoming);
-                response.sending = _walletDB->getTotal(Coin::Outgoing);
-                response.maturing = _walletDB->getTotal(Coin::Maturing);
+				wallet::Totals totals(*_walletDB);
 
-                // TODO: add locked UTXO here
-                response.locked = 0;
+                response.available = totals.Avail;
+                response.receiving = totals.Incoming;
+                response.sending = totals.Outgoing;
+                response.maturing = totals.Maturing;
+
+                response.locked = 0; // same as Outgoing?
 
                 doResponse(id, response);
             }
@@ -384,7 +430,7 @@ namespace beam
                         item.systemHeight = stateID.m_Height;
                         item.confirmations = 0;
 
-                        wallet::getTxParameter(_walletDB, tx.m_txId, wallet::TxParameterID::KernelProofHeight, item.kernelProofHeight);
+                        wallet::getTxParameter(*_walletDB, tx.m_txId, wallet::TxParameterID::KernelProofHeight, item.kernelProofHeight);
                         res.resultList.push_back(item);
                     }
                 }
@@ -415,8 +461,48 @@ namespace beam
 
                 doResponse(id, res);
             }
+        private:
+            void methodNotImplementedYet(int id)
+            {
+                doError(id, NOTFOUND_JSON_RPC, "Method not implemented yet.");
+            }
 
-            bool on_raw_message(void* data, size_t size) 
+        protected:
+            IWalletDB::Ptr _walletDB;
+            Wallet& _wallet;
+            WalletApi _api;
+            WalletNetworkViaBbs& _wnet;
+        };
+
+        class TcpApiConnection : public ApiConnection
+        {
+        public:
+            TcpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream)
+                : ApiConnection(walletDB, wallet, wnet)
+                , _stream(std::move(newStream))
+                , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
+                , _server(server)
+            {
+                _stream->enable_keepalive(2);
+                _stream->enable_read(BIND_THIS_MEMFN(on_stream_data));
+            }
+
+            virtual ~TcpApiConnection()
+            {
+
+            }
+
+            void serializeMsg(const json& msg) override
+            {
+                serialize_json_msg(_lineProtocol, msg);
+            }
+
+            void on_write(io::SharedBuffer&& msg)
+            {
+                _stream->write(msg);
+            }
+
+            bool on_raw_message(void* data, size_t size)
             {
                 LOG_INFO() << "got " << std::string((char*)data, size);
 
@@ -425,46 +511,153 @@ namespace beam
 
             bool on_stream_data(io::ErrorCode errorCode, void* data, size_t size)
             {
-                if (errorCode != 0) 
+                if (errorCode != 0)
                 {
                     LOG_INFO() << "peer disconnected, code=" << io::error_str(errorCode);
-                    _owner.on_bad_peer(_id);
+                    _server.closeConnection(_stream->peer_address().u64());
                     return false;
                 }
 
-                if (!_lineProtocol.new_data_from_stream(data, size)) 
+                if (!_lineProtocol.new_data_from_stream(data, size))
                 {
                     LOG_INFO() << "stream corrupted";
-                    _owner.on_bad_peer(_id);
+                    _server.closeConnection(_stream->peer_address().u64());
                     return false;
                 }
 
                 return true;
             }
+
         private:
-            void methodNotImplementedYet(int id)
+            io::TcpStream::Ptr _stream;
+            LineProtocol _lineProtocol;
+            IWalletApiServer& _server;
+        };
+
+        class HttpApiConnection : public ApiConnection
+        {
+        public:
+            HttpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream)
+                : ApiConnection(walletDB, wallet, wnet)
+                , _keepalive(false)
+                , _msgCreator(2000)
+                , _packer(PACKER_FRAGMENTS_SIZE)
+                , _server(server)
             {
-                doError(id, NOTFOUND_JSON_RPC, "Method not implemented yet.");
+                newStream->enable_keepalive(1);
+                auto peer = newStream->peer_address();
+
+                _connection = std::make_unique<HttpConnection>(
+                    peer.u64(),
+                    BaseConnection::inbound,
+                    BIND_THIS_MEMFN(on_request),
+                    10000,
+                    1024,
+                    std::move(newStream)
+                    );
+            }
+
+            virtual ~HttpApiConnection() {}
+
+            void serializeMsg(const json& msg) override
+            {
+                serialize_json_msg(_body, _packer, msg);                
+                _keepalive = send(_connection, 200, "OK");
             }
 
         private:
-            ConnectionToServer& _owner;
-            uint64_t _id;
-            io::TcpStream::Ptr _stream;
-            LineProtocol _lineProtocol;
-            IWalletDB::Ptr _walletDB;
-            Wallet& _wallet;
-            WalletApi _api;
-            WalletNetworkViaBbs& _wnet;
+
+            bool on_request(uint64_t id, const HttpMsgReader::Message& msg)
+            {
+                if (msg.what != HttpMsgReader::http_message || !msg.msg)
+                {
+                    LOG_DEBUG() << "-peer " << io::Address::from_u64(id) << " : " << msg.error_str();
+                    _connection->shutdown();
+                    _server.closeConnection(id);
+                    return false;
+                }
+
+                if (msg.msg->get_path() != "/api/wallet")
+                {
+                    _keepalive = send(_connection, 404, "Not Found");
+                }
+                else
+                {
+                    _body.clear();
+
+                    size_t size = 0;
+                    auto data = msg.msg->get_body(size);
+
+                    LOG_INFO() << "got " << std::string((char*)data, size);
+
+                    _api.parse((char*)data, size);
+                }
+
+                if (!_keepalive)
+                {
+                    _connection->shutdown();
+                    _server.closeConnection(id);
+                }
+
+                return _keepalive;
+            }
+
+            bool send(const HttpConnection::Ptr& conn, int code, const char* message)
+            {
+                assert(conn);
+
+                size_t bodySize = 0;
+                for (const auto& f : _body) { bodySize += f.size; }
+
+                bool ok = _msgCreator.create_response(
+                    _headers,
+                    code,
+                    message,
+                    0,
+                    0,
+                    1,
+                    "application/json",
+                    bodySize
+                );
+
+                if (ok) {
+                    auto result = conn->write_msg(_headers);
+                    if (result && bodySize > 0) {
+                        result = conn->write_msg(_body);
+                    }
+                    if (!result) ok = false;
+                }
+                else {
+                    LOG_ERROR() << "cannot create response";
+                }
+
+                _headers.clear();
+                _body.clear();
+                return (ok && code == 200);
+            }
+
+            HttpConnection::Ptr _connection;
+            bool _keepalive;
+
+            HttpMsgCreator _msgCreator;
+            HttpMsgCreator _packer;
+            io::SerializedMsg _headers;
+            io::SerializedMsg _body;
+            IWalletApiServer& _server;
         };
 
         io::Reactor& _reactor;
         io::TcpServer::Ptr _server;
         io::Address _bindAddress;
-        std::map<uint64_t, std::unique_ptr<Connection>> _connections;
+        bool _useHttp;
+
+        std::map<uint64_t, std::shared_ptr<ApiConnection>> _connections;
+
         IWalletDB::Ptr _walletDB;
         Wallet& _wallet;
         WalletNetworkViaBbs& _wnet;
+        io::MultipleTimers _timers;
+        std::vector<uint64_t> _pendingToClose;
     };
 }
 
@@ -483,6 +676,7 @@ int main(int argc, char* argv[])
             uint16_t port;
             std::string walletPath;
             std::string nodeURI;
+            bool useHttp;
         } options;
 
         io::Address node_addr;
@@ -497,6 +691,7 @@ int main(int argc, char* argv[])
                 (cli::NODE_ADDR_FULL, po::value<std::string>(&options.nodeURI), "address of node")
                 (cli::WALLET_STORAGE, po::value<std::string>(&options.walletPath)->default_value("wallet.db"), "path to wallet file")
                 (cli::PASS, po::value<std::string>(), "password for the wallet")
+                (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
             ;
 
             po::variables_map vm;
@@ -511,9 +706,19 @@ int main(int argc, char* argv[])
                 return 0;
             }
 
+            {
+                std::ifstream cfg("wallet-api.cfg");
+
+                if (cfg)
+                {                    
+                    po::store(po::parse_config_file(cfg, desc), vm);
+                }
+            }
+
             vm.notify();
 
             Rules::get().UpdateChecksum();
+            LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
             if (vm.count(cli::NODE_ADDR) == 0)
@@ -572,7 +777,7 @@ int main(int argc, char* argv[])
 
         wallet.set_Network(nnet, wnet);
 
-        WalletApiServer server(walletDB, wallet, wnet, *reactor, listenTo);
+        WalletApiServer server(walletDB, wallet, wnet, *reactor, listenTo, options.useHttp);
 
         io::Reactor::get_Current().run();
 

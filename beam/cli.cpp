@@ -19,7 +19,7 @@
 #include "core/ecc_native.h"
 #include "core/ecc.h"
 #include "core/serialization_adapters.h"
-#include "utility/logger.h"
+#include "utility/log_rotation.h"
 #include "utility/options.h"
 #include "utility/helpers.h"
 #include <iomanip>
@@ -60,16 +60,21 @@ namespace
 		return f.read(&bb.front(), nSize) == nSize;
     }
 
-	void find_certificates(IExternalPOW::Options& o, const std::string& stratumDir) {
-		static const std::string certFileName("stratum.crt");
-		static const std::string keyFileName("stratum.key");
-		static const std::string apiKeysFileName("stratum.api.keys");
+	void find_certificates(IExternalPOW::Options& o, const std::string& stratumDir, bool useTLS) {
 
 		boost::filesystem::path p(stratumDir);
 		p = boost::filesystem::canonical(p);
-		o.privKeyFile = (p / keyFileName).string();
-		o.certFile = (p / certFileName).string();
 
+        if (useTLS)
+        {
+		    static const std::string certFileName("stratum.crt");
+		    static const std::string keyFileName("stratum.key");
+
+		    o.privKeyFile = (p / keyFileName).string();
+		    o.certFile = (p / certFileName).string();
+        }
+
+		static const std::string apiKeysFileName("stratum.api.keys");
 		if (boost::filesystem::exists(p / apiKeysFileName))
 			o.apiKeysFile = (p / apiKeysFileName).string();
 	}
@@ -81,7 +86,34 @@ namespace
 
 io::Reactor::Ptr reactor;
 
-static const unsigned LOG_ROTATION_PERIOD = 3*60*60*1000; // 3 hours
+static const unsigned LOG_ROTATION_PERIOD_SEC = 3*60*60; // 3 hours
+
+class NodeObserver : public Node::IObserver
+{
+public:
+    NodeObserver(Node& node) : m_pNode(&node)
+    {
+    }
+
+private:
+
+    void OnSyncProgress() override
+    {
+        // make sure no overflow during conversion from SyncStatus to int,int.
+        Node::SyncStatus s = m_pNode->m_SyncStatus;
+
+        unsigned int nThreshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
+        while (s.m_Total > nThreshold)
+        {
+            s.m_Total >>= 1;
+            s.m_Done >>= 1;
+        }
+        int p = static_cast<int>((s.m_Done * 100) / s.m_Total);
+        LOG_INFO() << "Updating node: " << p << "% (" << s.m_Done << "/" << s.m_Total << ")";
+    }
+
+    Node* m_pNode;
+};
 
 int main_impl(int argc, char* argv[])
 {
@@ -126,14 +158,22 @@ int main_impl(int argc, char* argv[])
 		int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 		int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
-		const auto path = boost::filesystem::system_complete("./logs");
-		auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "node_", path.string());
+#define LOG_FILES_DIR "logs"
+#define LOG_FILES_PREFIX "node_"
+
+		const auto path = boost::filesystem::system_complete(LOG_FILES_DIR);
+		auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, LOG_FILES_PREFIX, path.string());
 
 		try
 		{
 			po::notify(vm);
 
+			unsigned logCleanupPeriod = vm[cli::LOG_CLEANUP_DAYS].as<uint32_t>() * 24 * 3600;
+
+			clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, logCleanupPeriod);
+
 			Rules::get().UpdateChecksum();
+            LOG_INFO() << "Beam Node " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
 			LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
 
 			auto port = vm[cli::PORT].as<uint16_t>();
@@ -144,47 +184,28 @@ int main_impl(int argc, char* argv[])
 
 				io::Reactor::GracefulIntHandler gih(*reactor);
 
-				io::Timer::Ptr logRotateTimer = io::Timer::create(*reactor);
-				logRotateTimer->start(
-					LOG_ROTATION_PERIOD, true,
-					[]() {
-						Logger::get()->rotate();
-					}
-				);
+				LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, logCleanupPeriod);
 
 				std::unique_ptr<IExternalPOW> stratumServer;
 				auto stratumPort = vm[cli::STRATUM_PORT].as<uint16_t>();
 
 				if (stratumPort > 0) {
 					IExternalPOW::Options powOptions;
-                    find_certificates(powOptions, vm[cli::STRATUM_SECRETS_PATH].as<string>());
+                    find_certificates(powOptions, vm[cli::STRATUM_SECRETS_PATH].as<string>(), vm[cli::STRATUM_USE_TLS].as<bool>());
 					stratumServer = IExternalPOW::create(powOptions, *reactor, io::Address().port(stratumPort));
 				}
 
 				{
 					beam::Node node;
 
+                    NodeObserver observer(node);
+
+                    node.m_Cfg.m_Observer = &observer;
+
 					node.m_Cfg.m_Listen.port(port);
 					node.m_Cfg.m_Listen.ip(INADDR_ANY);
 					node.m_Cfg.m_sPathLocal = vm[cli::STORAGE].as<string>();
-#if defined(BEAM_USE_GPU)
-
-                    if (!stratumServer)
-                    {
-                        if (vm[cli::MINER_TYPE].as<string>() == "gpu")
-                        {
-                            stratumServer = IExternalPOW::create_opencl_solver({-1});
-                            // now for GPU only 0 thread
-                            node.m_Cfg.m_MiningThreads = 0;
-                        }
-                        else
-                        {
-                            node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
-                        }
-                    }
-#else
 					node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
-#endif
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
 
 					node.m_Cfg.m_LogUtxos = vm[cli::LOG_UTXOS].as<bool>();
@@ -281,6 +302,11 @@ int main_impl(int argc, char* argv[])
 
 					if (vm.count(cli::RESYNC))
 						node.m_Cfg.m_Sync.m_ForceResync = vm[cli::RESYNC].as<bool>();
+
+                    if (vm.count(cli::NO_FAST_SYNC))
+                    {
+                        node.m_Cfg.m_Sync.m_NoFastSync = true;
+                    }
 
 					node.m_Cfg.m_Bbs = vm[cli::BBS_ENABLE].as<bool>();
 

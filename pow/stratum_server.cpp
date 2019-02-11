@@ -140,6 +140,7 @@ void Server::new_job(
     const std::string& id,
     const Merkle::Hash& input,
     const Block::PoW& pow,
+    const Height& height,
     const BlockFound& callback,
     const CancelCallback& /* cancelCallback */
 ) {
@@ -148,7 +149,7 @@ void Server::new_job(
 
     LOG_INFO() << STS << "new job " << id << " will be sent to " << _connections.size() << " connected peers";
 
-    Job jobMsg(id, input, pow);
+    Job jobMsg(id, input, pow, height);
     append_json_msg(_fw, jobMsg);
 	_recentJob.msg.swap(_currentMsg);
     _currentMsg.clear();

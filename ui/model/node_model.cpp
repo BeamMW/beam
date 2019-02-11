@@ -20,209 +20,93 @@
 #include "pow/external_pow.h"
 
 #include <boost/filesystem.hpp>
-#ifdef  BEAM_USE_GPU
-#include "utility/gpu/gpu_tools.h"
-#endif //  BEAM_USE_GPU
 
 
 using namespace beam;
 using namespace beam::io;
 using namespace std;
 
-namespace 
-{
-    constexpr int kVerificationThreadsMaxAvailable = -1;
-}
-
 NodeModel::NodeModel()
-    : m_shouldStartNode(false)
-    , m_shouldTerminateModel(false)
-    , m_isRunning(false)
+    : m_nodeClient(this)
 {
-}
 
-NodeModel::~NodeModel()
-{
-    try
-    {
-        m_shouldTerminateModel = true;
-        m_waiting.notify_all();
-        {
-            auto r = m_reactor.lock();
-            if (!r)
-            {
-                return;
-            }
-            r->stop();
-        }
-        wait();
-    }
-    catch (...)
-    {
-
-    }
 }
 
 void NodeModel::setKdf(beam::Key::IKdf::Ptr kdf)
 {
-    m_pKdf = kdf;
+    m_nodeClient.setKdf(kdf);
 }
 
 void NodeModel::startNode()
 {
-    m_shouldStartNode = true;
-    m_waiting.notify_all();
+    m_nodeClient.startNode();
 }
 
 void NodeModel::stopNode()
 {
-    m_shouldStartNode = false;
-    auto reactor = m_reactor.lock();
-    if (reactor)
-    {
-        reactor->stop();
-    }
+    m_nodeClient.stopNode();
+}
+
+void NodeModel::start()
+{
+    m_nodeClient.start();
 }
 
 bool NodeModel::isNodeRunning() const
 {
-    return m_isRunning;
+    return m_nodeClient.isNodeRunning();
 }
 
-void NodeModel::run()
+void NodeModel::onSyncProgressUpdated(int done, int total)
 {
-    try
-    {
-        auto reactor = io::Reactor::create();
-        m_reactor = reactor;// store weak ref
-        io::Reactor::Scope scope(*reactor);
-
-        mutex localMutex;
-
-        while (!m_shouldTerminateModel)
-        {
-            if (!m_shouldStartNode)
-            {
-                unique_lock<mutex> lock(localMutex);
-
-                while (!m_shouldStartNode && !m_shouldTerminateModel)
-                {
-                    m_waiting.wait(lock);
-                }
-            }
-
-            if (!m_shouldTerminateModel)
-            {
-				bool bErr = true;
-                try
-                {
-                    m_shouldStartNode = false;
-                    runLocalNode();
-					bErr = false;
-                }
-                catch (const runtime_error& ex)
-                {
-                    LOG_ERROR() << ex.what();
-                }
-				catch (const CorruptionException& ex)
-				{
-					LOG_ERROR() << "Corruption: " << ex.m_sErr;
-				}
-
-				if (bErr)
-					AppModel::getInstance()->getMessages().addMessage(tr("Failed to start node. Please check your node configuration"));
-            }
-        }
-    }
-    catch (...)
-    {
-        LOG_ERROR() << "Unhandled exception";
-    }
+    emit syncProgressUpdated(done, total);
 }
 
-void NodeModel::runLocalNode()
+void NodeModel::onStartedNode()
 {
-    auto& settings = AppModel::getInstance()->getSettings();
-#ifdef BEAM_USE_GPU
-    GetSupportedCards();
-    auto devices = settings.getMiningDevices();
-    unique_ptr<IExternalPOW> stratumServer = settings.getUseGpu() && !devices.empty() ? IExternalPOW::create_opencl_solver(devices) : nullptr;
-#endif
-    Node node;
-    node.m_Cfg.m_Listen.port(settings.getLocalNodePort());
-    node.m_Cfg.m_Listen.ip(INADDR_ANY);
-    node.m_Cfg.m_sPathLocal = settings.getLocalNodeStorage();
+    emit startedNode();
+}
 
+void NodeModel::onStoppedNode()
+{
+    emit stoppedNode();
+}
+
+void NodeModel::onFailedToStartNode()
+{
+    emit failedToStartNode(beam::wallet::ErrorType::InternalNodeStartFailed);
+}
+
+void NodeModel::onFailedToStartNode(io::ErrorCode errorCode)
+{
+    emit failedToStartNode(wallet::getWalletError(errorCode));
+}
+
+uint16_t NodeModel::getLocalNodePort()
+{
+    return AppModel::getInstance()->getSettings().getLocalNodePort();
+}
+
+std::string NodeModel::getLocalNodeStorage()
+{
+    return AppModel::getInstance()->getSettings().getLocalNodeStorage();
+}
+
+std::string NodeModel::getTempDir()
+{
+    return AppModel::getInstance()->getSettings().getTempDir();
+}
+
+std::vector<std::string> NodeModel::getLocalNodePeers()
+{
+    std::vector<std::string> result;
+
+    auto peers = AppModel::getInstance()->getSettings().getLocalNodePeers();
+
+    for (const auto& peer : peers)
     {
-#ifdef BEAM_USE_GPU
-        node.m_Cfg.m_MiningThreads = 0;
-#else
-        node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
-#endif
-        node.m_Cfg.m_VerificationThreads = kVerificationThreadsMaxAvailable;
+        result.push_back(peer.toStdString());
     }
 
-    node.m_Keys.SetSingleKey(m_pKdf);
-
-    node.m_Cfg.m_HistoryCompression.m_sPathOutput = settings.getTempDir();
-    node.m_Cfg.m_HistoryCompression.m_sPathTmp = settings.getTempDir();
-
-    auto qPeers = settings.getLocalNodePeers();
-
-    for (const auto& qPeer : qPeers)
-    {
-        Address peer_addr;
-        if (peer_addr.resolve(qPeer.toStdString().c_str()))
-        {
-            node.m_Cfg.m_Connect.emplace_back(peer_addr);
-        }
-        else
-        {
-            LOG_ERROR() << "Unable to resolve node address: " << qPeer.toStdString();
-        }
-    }
-
-    LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
-
-	struct MyObserver
-		:public Node::IObserver
-	{
-		Node* m_pNode;
-		NodeModel* m_pModel;
-
-		void OnSyncProgress() override
-		{
-			// make sure no overflow during conversion from SyncStatus to int,int.
-			Node::SyncStatus s = m_pNode->m_SyncStatus;
-
-			unsigned int nThreshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
-			while (s.m_Total > nThreshold)
-			{
-				s.m_Total >>= 1;
-				s.m_Done >>= 1;
-			}
-
-			emit m_pModel->syncProgressUpdated(static_cast<int>(s.m_Done), static_cast<int>(s.m_Total));
-		}
-
-	} obs;
-
-	obs.m_pNode = &node;
-	obs.m_pModel = this;
-
-    node.m_Cfg.m_Observer = &obs;
-
-#ifdef BEAM_USE_GPU
-    node.Initialize(stratumServer.get());
-#else
-    node.Initialize();
-#endif
-
-	m_isRunning = true;
-	emit startedNode();
-
-	io::Reactor::get_Current().run();
-
-	m_isRunning = false;
-	emit stoppedNode();
+    return result;
 }
