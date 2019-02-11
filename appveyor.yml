@@ -2,7 +2,7 @@ version: '{build}'
 image: Visual Studio 2017
 
 environment:
-  BEAM_VERSION_PREFIX: 1.1
+  BEAM_VERSION_PREFIX: 1.2
   BOOST_ROOT: C:\Libraries\boost_1_67_0
   OPENSSL_ROOT_DIR: c:\beam-libs\openssl
   QT5_ROOT_DIR: c:\beam-libs\qt5-static-win
