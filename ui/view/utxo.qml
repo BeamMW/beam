@@ -166,7 +166,7 @@ ColumnLayout {
                 height: tableView.rowHeight
                 readonly property var lineSeparator: "\n"
                 property var texts: styleData.value.split(lineSeparator)
-                property color secondLineColor: "#879daa"
+                property color secondLineColor: Style.second_line_color
 
                 ColumnLayout {
                     anchors.right: parent.right

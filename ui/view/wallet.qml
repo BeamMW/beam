@@ -916,13 +916,6 @@ Item {
                 }
             }
 
-            Rectangle {
-                anchors.fill: parent;
-                anchors.topMargin: 394+46-33
-
-                color: "#0a344d"
-            }
-
             CustomTableView {
 
                 id: transactionsView
@@ -1223,7 +1216,7 @@ Item {
                         Rectangle {
                             height: transactionsView.rowHeight
                             width: parent.width
-                            color: styleData.alternate ? "transparent" : Style.light_navy
+                            color: styleData.alternate ? Style.table_row_color1 : Style.light_navy
                         }
                         Item {
                             id: txDetails
