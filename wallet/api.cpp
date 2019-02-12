@@ -237,7 +237,7 @@ namespace beam
 
         if (existsJsonParam(params, "skip"))
         {
-            if (params["skip"] > 0)
+            if (params["skip"] >= 0)
             {
                 getUtxo.skip = params["skip"];
             }
@@ -289,7 +289,7 @@ namespace beam
 
         if (existsJsonParam(params, "skip"))
         {
-            if (params["skip"] > 0)
+            if (params["skip"] >= 0)
             {
                 txList.skip = params["skip"];
             }
