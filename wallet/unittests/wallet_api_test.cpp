@@ -384,6 +384,34 @@ namespace
         }
     }
 
+    void testTxListPaginationJsonRpc(const std::string& msg)
+    {
+        class WalletApiHandler : public WalletApiHandlerBase
+        {
+        public:
+
+            void onInvalidJsonRpc(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid list api json!!!");
+
+                cout << msg["error"]["message"] << endl;
+            }
+
+            void onMessage(int id, const TxList& data) override
+            {
+                WALLET_CHECK(id > 0);
+
+                WALLET_CHECK(data.skip == 10);
+                WALLET_CHECK(data.count == 10);
+            }
+        };
+
+        WalletApiHandler handler;
+        WalletApi api(handler);
+
+        WALLET_CHECK(api.parse(msg.data(), msg.size()));
+    }
+
     void testValidateAddressJsonRpc(const std::string& msg, bool valid)
     {
         class WalletApiHandler : public WalletApiHandlerBase
@@ -593,6 +621,18 @@ int main()
             {
                 "status" : 3
             }
+        }
+    }));
+
+    testTxListPaginationJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_list",
+        "params" :
+        {
+            "skip" : 10,
+            "count" : 10
         }
     }));
 

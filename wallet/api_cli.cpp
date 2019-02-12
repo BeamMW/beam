@@ -353,6 +353,25 @@ namespace beam
                 }
             }
 
+            template<typename T>
+            static void doPagination(size_t skip, size_t count, std::vector<T>& res)
+            {
+                if (count > 0)
+                {
+                    size_t start = skip;
+                    size_t end = start + count;
+                    size_t size = res.size();
+
+                    if (start < size)
+                    {
+                        if (end > size) end = size;
+
+                        res = std::vector<T>(res.begin() + start, res.begin() + end);
+                    }
+                    else res = {};
+                }
+            }
+
             void onMessage(int id, const GetUtxo& data) override 
             {
                 LOG_DEBUG() << "GetUtxo(id = " << id << ")";
@@ -363,6 +382,8 @@ namespace beam
                     response.utxos.push_back(c);
                     return true;
                 });
+
+                doPagination(data.skip, data.count, response.utxos);
 
                 doResponse(id, response);
             }
@@ -435,10 +456,12 @@ namespace beam
                     }
                 }
 
+                using Result = decltype(res.resultList);
+
                 // filter transactions by status if provided
                 if (data.filter.status)
                 {
-                    decltype(res.resultList) filteredList;
+                    Result filteredList;
 
                     for (const auto& it : res.resultList)
                         if (it.tx.m_status == *data.filter.status)
@@ -450,7 +473,7 @@ namespace beam
                 // filter transactions by height if provided
                 if (data.filter.height)
                 {
-                    decltype(res.resultList) filteredList;
+                    Result filteredList;
 
                     for (const auto& it : res.resultList)
                         if (it.kernelProofHeight == *data.filter.height)
@@ -458,6 +481,8 @@ namespace beam
 
                     res.resultList = filteredList;
                 }
+
+                doPagination(data.skip, data.count, res.resultList);
 
                 doResponse(id, res);
             }
@@ -765,7 +790,6 @@ int main(int argc, char* argv[])
             {
                 Logger::get()->rotate();
             });
-
 
         Wallet wallet{ walletDB };
 
