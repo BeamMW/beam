@@ -19,7 +19,13 @@ QtObject {
 	property color disable_text_color: "#889da9"
     property color combobox_color:  "#0a4b66"
     property color validator_color: "#ff625c"
-	property color general_tx_info_color: "#3e384a"
-	property color table_row_color1: "#332d40"
-
+    property color general_tx_info_color: "#3e384a"
+    property color gray_button_color: "#708090"
+    property color medium_strength_pass_color: "#f4ce4a"
+    property color strong_pass_color: "#00f6d2"
+    property color weak_pass_color: "#ff625c"
+    property color logo_text_color: "#25c1ff"
+    property color second_line_color: "#879daa"
+    property color strength_tests_msg_color : "#84a5b2"
+    property color table_row_color1: "#332d40"
 }
