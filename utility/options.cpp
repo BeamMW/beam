@@ -147,7 +147,7 @@ namespace beam
 
         po::options_description node_options("Node options");
         node_options.add_options()
-            (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
+            (cli::PORT_FULL, po::value<uint16_t>()->default_value(11000), "port to start the server on")
             (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
             (cli::HISTORY, po::value<string>()->default_value(szLocalDir), "directory for compressed history")
             (cli::TEMP, po::value<string>()->default_value(szTempDir), "temp directory for compressed history, must be on the same volume")

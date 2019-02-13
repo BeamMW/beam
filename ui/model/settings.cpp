@@ -128,7 +128,7 @@ uint WalletSettings::getLocalNodePort() const
 {
     Lock lock(m_mutex);
 #ifdef BEAM_TESTNET
-    return m_data.value(LocalNodePort, 10006).toUInt();
+    return m_data.value(LocalNodePort, 11005).toUInt();
 #else
     return m_data.value(LocalNodePort, 10005).toUInt();
 #endif // BEAM_TESTNET
