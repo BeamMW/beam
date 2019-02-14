@@ -740,6 +740,94 @@ void TestRangeProof(bool bCustomTag)
 	WriteSizeSerialized("Kernel(simple)", txk);
 }
 
+void TestMultiSigOutput(bool bCustomTag)
+{
+    ECC::Amount amount = 5000;
+
+    beam::AssetID assetID(Zero);
+    AssetTag assetTag;
+    assetTag.m_hGen = beam::SwitchCommitment(&assetID).m_hGen;
+
+    beam::Key::IKdf::Ptr pKdf_A;
+    beam::Key::IKdf::Ptr pKdf_B;
+    uintBig secretB;
+    uintBig secretA;
+    SetRandom(secretA);
+    SetRandom(secretB);
+    ECC::HKdf::Create(pKdf_B, secretB);
+    ECC::HKdf::Create(pKdf_A, secretA);
+    // need only for last side - proof creator
+    RangeProof::CreatorParams creatorParamsB;
+    SetRandomOrd(creatorParamsB.m_Kidv.m_Idx);
+    creatorParamsB.m_Kidv.m_Type = Key::Type::Regular;
+    creatorParamsB.m_Kidv.m_Value = amount;
+    SetRandomOrd(creatorParamsB.m_Kidv.m_SubIdx);
+
+    // multi-signed bulletproof
+    // blindingFactor = sk + sk1
+    Scalar::Native blindingFactorA;
+    Scalar::Native blindingFactorB;
+    beam::SwitchCommitment switchCommitment;
+    switchCommitment.Create(blindingFactorA, *pKdf_A, creatorParamsB.m_Kidv);
+    switchCommitment.Create(blindingFactorB, *pKdf_B, creatorParamsB.m_Kidv);
+
+    // seed from RangeProof::Confidential::Create
+    uintBig seedA;
+    uintBig seedB;
+    {
+        Oracle oracle;
+        //oracle << m_Incubation; // CHECK!
+        RangeProof::Confidential::GenerateSeed(seedA, blindingFactorA, amount, oracle);
+        RangeProof::Confidential::GenerateSeed(seedB, blindingFactorB, amount, oracle);
+    }
+    Point::Native commitment(Zero);
+    Tag::AddValue(commitment, &assetTag.m_hGen, amount);
+    commitment += Context::get().G * blindingFactorA;
+    commitment += Context::get().G * blindingFactorB;
+
+    // from Output::get_SeedKid    
+    beam::Output::GenerateSeedKid(creatorParamsB.m_Seed.V, commitment, *pKdf_B);
+
+    // 1st cycle. peers produce Part2
+    RangeProof::Confidential::Part2 p2;
+    ZeroObject(p2);
+
+    RangeProof::Confidential::MultiSig multiSig;
+    RangeProof::Confidential bulletproof;
+
+    // A part2
+    verify_test(RangeProof::Confidential::MultiSig::CoSignPart(seedA, p2)); // p2 aggregation
+
+    // B part2
+    {
+        Oracle oracle;
+        bulletproof.m_Part2 = p2;
+        verify_test(bulletproof.CoSign(seedB, blindingFactorB, creatorParamsB, oracle, RangeProof::Confidential::Phase::Step2, &multiSig, &assetTag.m_hGen)); // add last p2, produce msig
+        p2 = bulletproof.m_Part2;
+    }
+
+    // 2nd cycle. Peers produce Part3, commitment is aggregated too
+    RangeProof::Confidential::Part3 p3;
+    ZeroObject(p3);
+
+    // A part3
+    multiSig.CoSignPart(seedA, blindingFactorA, p3);
+
+    // B part3
+    {
+        Oracle oracle;
+        bulletproof.m_Part2 = p2;
+        bulletproof.m_Part3 = p3;
+        verify_test(bulletproof.CoSign(seedB, blindingFactorB, creatorParamsB, oracle, RangeProof::Confidential::Phase::Finalize, nullptr, &assetTag.m_hGen));
+    }
+
+    {
+        // test
+        Oracle oracle;
+        verify_test(bulletproof.IsValid(commitment, oracle, &assetTag.m_hGen));
+    }
+}
+
 struct TransactionMaker
 {
 	beam::Transaction m_Trans;
@@ -1363,6 +1451,7 @@ void TestAll()
 	TestRangeProof(false);
 	TestRangeProof(true);
 	TestTransaction();
+    TestMultiSigOutput(false);
 	TestCutThrough();
 	TestAES();
 	TestKdf();

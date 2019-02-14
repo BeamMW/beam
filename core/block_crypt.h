@@ -240,8 +240,7 @@ namespace beam
 		int cmp(const Output&) const;
 		COMPARISON_VIA_CMP
 
-	private:
-		void get_SeedKid(ECC::uintBig&, Key::IPKdf&) const;
+		static void GenerateSeedKid(ECC::uintBig&, const ECC::Point& comm, Key::IPKdf&);
 	};
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }

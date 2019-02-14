@@ -604,21 +604,25 @@ namespace ECC {
 	// Bulletproof
 	void RangeProof::Confidential::Create(const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, const Point::Native* pHGen /* = nullptr */)
 	{
-		// single-pass - use both deterministic and random seed for key blinding.
-		// For more safety - use the current oracle state
-
-		Oracle o(oracle); // copy
 		NoLeak<uintBig> seedSk;
-		GenRandom(seedSk.V);
-
-		o
-			<< sk
-			<< seedSk.V
-			<< cp.m_Kidv.m_Value
-			>> seedSk.V;
-
+        GenerateSeed(seedSk.V, sk, cp.m_Kidv.m_Value, oracle);
 		verify(CoSign(seedSk.V, sk, cp, oracle, Phase::SinglePass, NULL, pHGen));
 	}
+
+    void RangeProof::Confidential::GenerateSeed(uintBig& seedSk, const Scalar::Native& sk, Amount amount, Oracle& oracle)
+    {
+        // single-pass - use both deterministic and random seed for key blinding.
+        // For more safety - use the current oracle state
+
+        Oracle o(oracle); // copy
+        GenRandom(seedSk);
+
+        o
+            << sk
+            << seedSk
+            << amount
+            >> seedSk;
+    }
 
 	struct RangeProof::Confidential::MultiSig::Impl
 	{

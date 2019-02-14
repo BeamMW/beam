@@ -272,7 +272,7 @@ namespace beam
 
 		ECC::RangeProof::CreatorParams cp;
 		cp.m_Kidv = kidv;
-		get_SeedKid(cp.m_Seed.V, tagKdf);
+        GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
 
 		if (bPublic || m_Coinbase)
 		{
@@ -287,9 +287,9 @@ namespace beam
 		}
 	}
 
-	void Output::get_SeedKid(ECC::uintBig& seed, Key::IPKdf& tagKdf) const
+	void Output::GenerateSeedKid(ECC::uintBig& seed, const ECC::Point& commitment, Key::IPKdf& tagKdf)
 	{
-		ECC::Hash::Processor() << m_Commitment >> seed;
+		ECC::Hash::Processor() << commitment >> seed;
 
 		ECC::Scalar::Native sk;
 		tagKdf.DerivePKey(sk, seed);
@@ -300,7 +300,7 @@ namespace beam
 	bool Output::Recover(Key::IPKdf& tagKdf, Key::IDV& kidv) const
 	{
 		ECC::RangeProof::CreatorParams cp;
-		get_SeedKid(cp.m_Seed.V, tagKdf);
+        GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
 
 		ECC::Oracle oracle;
 		oracle << m_Incubation;
