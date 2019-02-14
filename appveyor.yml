@@ -39,6 +39,8 @@ after_build:
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet.exe c:/projects/beam/wallet/beam-wallet.cfg
     
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/wallet-api.exe c:/projects/beam/wallet/wallet-api.cfg
+
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node-%BEAM_VERSION%.zip c:/projects/beam/explorer/%BUILD_CONFIG%/explorer-node.exe
         
     mkdir pdb
     
@@ -49,6 +51,8 @@ after_build:
     copy c:\projects\beam\beam\%BUILD_CONFIG%\beam-wallet-cli-%BEAM_VERSION%.zip c:\projects\beam\beam-wallet-cli-%BEAM_VERSION%.zip
 
     copy c:\projects\beam\beam\%BUILD_CONFIG%\wallet-api-%BEAM_VERSION%.zip c:\projects\beam\wallet-api-%BEAM_VERSION%.zip
+
+    copy c:\projects\beam\beam\%BUILD_CONFIG%\explorer-node-%BEAM_VERSION%.zip c:\projects\beam\explorer-node-%BEAM_VERSION%.zip
 
     copy c:\projects\beam\beam\beam-pdb-%BEAM_VERSION%.zip c:\projects\beam\pdb\beam-pdb-%BEAM_VERSION%.zip
 
@@ -66,6 +70,8 @@ on_success:
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/wallet-api-%BEAM_VERSION%.zip"
 
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/explorer-node-%BEAM_VERSION%.zip"
+
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet-%BEAM_VERSION%-win64.exe" "%BUILDS_SERVER_PATH%/Beam-Wallet-%BEAM_VERSION%.exe"
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/beam-pdb-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/pdb/beam-pdb-%BEAM_VERSION%.zip"
@@ -79,6 +85,9 @@ artifacts:
 
   - path: wallet-api-%BEAM_VERSION%.zip
     name: BeamWalletApi
+
+  - path: explorer-node-%BEAM_VERSION%.zip
+    name: BeamNodeExplorer
 
   - path: pdb/beam-pdb-%BEAM_VERSION%.zip
     name: BeamPdb
@@ -97,7 +106,7 @@ deploy:
   unzip: false
   set_public: true
   folder: "%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win/"
-  artifact: BeamPdb, BeamWalletApi, BeamWalletCli, BeamNode, BeamWallet
+  artifact: BeamPdb, BeamWalletApi, BeamNodeExplorer, BeamWalletCli, BeamNode, BeamWallet
 
 notifications:
   - provider: Email
