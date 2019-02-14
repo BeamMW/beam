@@ -125,6 +125,9 @@ namespace beam
 
     struct GetUtxo
     {
+        int count = 0;
+        int skip = 0;
+
         struct Response
         {
             std::vector<beam::Coin> utxos;
@@ -154,6 +157,9 @@ namespace beam
             boost::optional<TxStatus> status;
             boost::optional<Height> height;
         } filter;
+
+        int count = 0;
+        int skip = 0;
 
         struct Response
         {

@@ -2,7 +2,7 @@ version: '{build}'
 image: Visual Studio 2017
 
 environment:
-  BEAM_VERSION_PREFIX: 1.1
+  BEAM_VERSION_PREFIX: 1.2
   BOOST_ROOT: C:\Libraries\boost_1_67_0
   OPENSSL_ROOT_DIR: c:\beam-libs\openssl
   QT5_ROOT_DIR: c:\beam-libs\qt5-static-win
@@ -14,7 +14,7 @@ environment:
 before_build:
   - cmd: git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
   - cmd: git clone --depth=1 https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
-  - cmd: cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=%APPVEYOR_REPO_BRANCH% -DBEAM_BUILD_JNI=On
+  - cmd: cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=%BUILD_CONFIG% -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=%APPVEYOR_REPO_BRANCH% -DBEAM_BUILD_JNI=On .
 
 test_script:
   - cmd: ctest -C %BUILD_CONFIG% --verbose
@@ -28,11 +28,11 @@ after_build:
 - cmd: >-
     cpack --verbose -G NSIS -C %BUILD_CONFIG%
     
-    git rev-list HEAD --count > BEAM_VERSION_REVISION
-    
-    set /p BEAM_VERSION_REVISION=<BEAM_VERSION_REVISION
-    
-    set BEAM_VERSION=%BEAM_VERSION_PREFIX%.%BEAM_VERSION_REVISION%
+    set /p BEAM_VERSION=<beam_version.gen
+
+    echo BEAM_VERSION = %BEAM_VERSION%
+
+    del beam_version.gen
     
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-%BEAM_VERSION%.zip c:/projects/beam/beam/%BUILD_CONFIG%/beam-node.exe c:/projects/beam/beam/beam-node.cfg
     
@@ -58,12 +58,6 @@ on_success:
 - ps: $env:DATE=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('yyyy.MM.dd')
 - ps: $env:TIME=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('HH:mm:ss')
 - cmd: >-
-    git rev-list HEAD --count > BEAM_VERSION_REVISION
-    
-    set /p BEAM_VERSION_REVISION=<BEAM_VERSION_REVISION
-
-    set BEAM_VERSION=%BEAM_VERSION_PREFIX%.%BEAM_VERSION_REVISION%
-      
     set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win
               
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/beam-node-%BEAM_VERSION%.zip"

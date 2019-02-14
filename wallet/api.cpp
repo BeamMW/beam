@@ -225,6 +225,25 @@ namespace beam
     void WalletApi::onGetUtxoMessage(int id, const nlohmann::json& params)
     {
         GetUtxo getUtxo;
+
+        if (existsJsonParam(params, "count"))
+        {
+            if (params["count"] > 0)
+            {
+                getUtxo.count = params["count"];
+            }
+            else throw jsonrpc_exception{ INVALID_JSON_RPC , "Invalid 'count' parameter.", id };
+        }
+
+        if (existsJsonParam(params, "skip"))
+        {
+            if (params["skip"] >= 0)
+            {
+                getUtxo.skip = params["skip"];
+            }
+            else throw jsonrpc_exception{ INVALID_JSON_RPC , "Invalid 'skip' parameter.", id };
+        }
+
         _handler.onMessage(id, getUtxo);
     }
 
@@ -257,6 +276,24 @@ namespace beam
             {
                 txList.filter.height = (Height)params["filter"]["height"];
             }
+        }
+
+        if (existsJsonParam(params, "count"))
+        {
+            if (params["count"] > 0)
+            {
+                txList.count = params["count"];
+            }
+            else throw jsonrpc_exception{ INVALID_JSON_RPC , "Invalid 'count' parameter.", id };
+        }
+
+        if (existsJsonParam(params, "skip"))
+        {
+            if (params["skip"] >= 0)
+            {
+                txList.skip = params["skip"];
+            }
+            else throw jsonrpc_exception{ INVALID_JSON_RPC , "Invalid 'skip' parameter.", id };
         }
 
         _handler.onMessage(id, txList);

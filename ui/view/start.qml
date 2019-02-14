@@ -1052,12 +1052,12 @@ Item
 
                                 property var strengthTests: 
                                 [
-                                    {exp: new RegExp("(?=.{1,})")                                                               , color: "#ff625c", msg: "Very weak password"},
-                                    {exp: new RegExp("((?=.{6,})(?=.*[0-9]))|((?=.{6,})(?=.*[A-Z]))|((?=.{6,})(?=.*[a-z]))")    , color: "#ff625c", msg: "Weak password"},
-                                    {exp: new RegExp("((?=.{6,})(?=.*[A-Z])(?=.*[a-z]))|((?=.{6,})(?=.*[0-9])(?=.*[a-z]))")     , color: "#f4ce4a", msg: "Medium strength password"},
-                                    {exp: new RegExp("(?=.{8,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                              , color: "#f4ce4a", msg: "Medium strength password"},
-                                    {exp: new RegExp("(?=.{10,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                             , color: "#00f6d2", msg: "Strong password"},
-                                    {exp: new RegExp("(?=.{10,})(?=.*[!@#\$%\^&\*])(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")          , color: "#00f6d2", msg: "Very strong password"},
+                                    {exp: new RegExp("(?=.{1,})")                                                               , color: Style.weak_pass_color, msg: "Very weak password"},
+                                    {exp: new RegExp("((?=.{6,})(?=.*[0-9]))|((?=.{6,})(?=.*[A-Z]))|((?=.{6,})(?=.*[a-z]))")    , color: Style.weak_pass_color, msg: "Weak password"},
+                                    {exp: new RegExp("((?=.{6,})(?=.*[A-Z])(?=.*[a-z]))|((?=.{6,})(?=.*[0-9])(?=.*[a-z]))")     , color: Style.medium_strength_pass_color, msg: "Medium strength password"},
+                                    {exp: new RegExp("(?=.{8,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                              , color: Style.medium_strength_pass_color, msg: "Medium strength password"},
+                                    {exp: new RegExp("(?=.{10,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                             , color: Style.strong_pass_color, msg: "Strong password"},
+                                    {exp: new RegExp("(?=.{10,})(?=.*[!@#\$%\^&\*])(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")          , color: Style.strong_pass_color, msg: "Very strong password"},
                                 ]
 
                                 function passwordStrength(pass)
@@ -1091,7 +1091,7 @@ Item
 
                             SFText {
                                 text: strengthChecker.strength > 0 ? strengthChecker.strengthTests[strengthChecker.strength-1].msg : ""
-                                color: "#84a5b2"
+                                color: Style.strength_tests_msg_color
                                 font.pixelSize: 14
                                 height: 16
                                 width: parent.width
