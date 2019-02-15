@@ -66,8 +66,6 @@ namespace beam
         string str = ss.str();
         os << str;
         assert(str.length() <= 30);
-        size_t c = 30 - str.length();
-        for (size_t i = 0; i < c; ++i) os << ' ';
         return os;
     }
 
@@ -109,6 +107,13 @@ namespace beam
 }
 namespace
 {
+    string GetKernelIDString(const Merkle::Hash& kernelID)
+    {
+        char sz[Merkle::Hash::nTxtLen + 1];
+        kernelID.Print(sz);
+        return string(sz);
+    }
+
     struct PaymentInfo
     {
         WalletID m_Sender;
@@ -154,15 +159,12 @@ namespace
 
         std::string to_string() const
         {
-            char szKernelID[Merkle::Hash::nTxtLen + 1];
-            m_KernelID.Print(szKernelID);
-
             std::ostringstream s;
             s
                 << "Sender: " << std::to_string(m_Sender) << std::endl
                 << "Receiver: " << std::to_string(m_Receiver) << std::endl
                 << "Amount: " << PrintableAmount(m_Amount) << std::endl
-                << "KernelID: " << szKernelID << std::endl;
+                << "KernelID: " << GetKernelIDString(m_KernelID) << std::endl;
 
             return s.str();
         }
@@ -551,39 +553,45 @@ namespace
                 return 0;
             }
 
-            array<uint8_t, 4> columnWidths{ { 20, 26, 21, 35 } };
+            const array<uint8_t, 5> columnWidths{ { 20, 26, 21, 33, 65} };
 
-            cout << "TRANSACTIONS\n\n"
-                << "  |" << setw(columnWidths[0]) << "datetime" << " |"
-                << setw(columnWidths[1]) << "amount, BEAM" << " |"
-                << setw(columnWidths[2]) << "status" << " |"
-                << setw(columnWidths[3]) << "ID" << " |" << endl;
+            cout << "TRANSACTIONS\n\n  |"
+                << left << setw(columnWidths[0]) << " datetime" << " |"
+                << right << setw(columnWidths[1]) << " amount, BEAM" << " |"
+                << left << setw(columnWidths[2]) << " status" << " |"
+                << setw(columnWidths[3]) << " ID" << " |" 
+                << setw(columnWidths[4]) << " kernel ID" << " |" << endl;
 
             for (auto& tx : txHistory)
             {
                 cout << "   "
-                    << setw(columnWidths[0]) << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false) << "  "
-                    << setw(columnWidths[1]) << PrintableAmount(tx.m_amount, true) << "  "
-                    << setw(columnWidths[2]) << getTxStatus(tx) << "   " 
-                    << tx.m_txId << '\n';
+                    << " " << left << setw(columnWidths[0]) << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false)
+                    << " " << right << setw(columnWidths[1]) << PrintableAmount(tx.m_amount, true) << " "
+                    << " " << left << setw(columnWidths[2]+1) << getTxStatus(tx) 
+                    << " " << setw(columnWidths[3]+1) << to_hex(tx.m_txId.data(), tx.m_txId.size())
+                    << " " << setw(columnWidths[4]+1) << GetKernelIDString(tx.m_kernelID) << '\n';
             }
             return 0;
         }
+        const array<uint8_t, 6> columnWidths{ { 49, 14, 14, 18, 30, 8} };
+        cout << "  |"
+            << left << setw(columnWidths[0]) << " ID" << " |"
+            << right << setw(columnWidths[1]) << " beam" << " |"
+            << setw(columnWidths[2]) << " groth" << " |"
+            << left << setw(columnWidths[3]) << " maturity" << " |"
+            << setw(columnWidths[4]) << " status" << " |"
+            << setw(columnWidths[5]) << " type" << endl;
 
-        cout << setw(48) << "id" << " |"
-            << setw(14) << "Beam" << " |"
-            << setw(14) << "Groth" << " |"
-            << setw(18) << "maturity" << " |"
-            << setw(30) << "status" << " |"
-            << setw(8) << "type" << endl;
-        walletDB->visit([](const Coin& c)->bool
+        
+        walletDB->visit([&columnWidths](const Coin& c)->bool
         {
-            cout << setw(48) << c.toStringID()
-                << setw(16) << c.m_ID.m_Value / Rules::Coin
-                << setw(16) << c.m_ID.m_Value % Rules::Coin
-                << setw(20) << (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity)) : "-")
-                << "   " << c.m_status
-                << setw(8) << c.m_ID.m_Type << endl;
+            cout << "   "
+                << " " << left << setw(columnWidths[0]) << c.toStringID()
+                << " " << right << setw(columnWidths[1]) << c.m_ID.m_Value / Rules::Coin << " "
+                << " " << right << setw(columnWidths[2]) << c.m_ID.m_Value % Rules::Coin << "  "
+                << " " << left << setw(columnWidths[3]+1) << (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity)) : "-")
+                << " " << setw(columnWidths[4]+1) << c.m_status
+                << " " << setw(columnWidths[5]+1) << c.m_ID.m_Type << endl;
             return true;
         });
         return 0;

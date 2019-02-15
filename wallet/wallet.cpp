@@ -95,7 +95,9 @@ namespace beam
 
     std::ostream& operator<<(std::ostream& os, const TxID& uuid)
     {
-        os << "[" << to_hex(uuid.data(), uuid.size()) << "]";
+        stringstream ss;
+        ss << "[" << to_hex(uuid.data(), uuid.size()) << "]";
+        os << ss.str();
         return os;
     }
 
