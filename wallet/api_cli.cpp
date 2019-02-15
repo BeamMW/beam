@@ -529,7 +529,23 @@ namespace beam
 
             bool on_raw_message(void* data, size_t size)
             {
-                LOG_INFO() << "got " << std::string((char*)data, size);
+                const char* const_data = static_cast<const char*>(data);
+                std::string str_data(const_data);
+              //  std::string((char*)data,size);
+                LOG_INFO() << "got " << str_data;
+                try
+                {
+
+                    json json_data = json::parse(str_data);
+                    if(!json_data.is_object())
+                    {
+                        return true;
+                    }
+                }
+                catch(...)
+                {
+                    return true;
+                }
 
                 return _api.parse(static_cast<const char*>(data), size);
             }
@@ -549,6 +565,7 @@ namespace beam
                     _server.closeConnection(_stream->peer_address().u64());
                     return false;
                 }
+                _server.closeConnection(_stream->peer_address().u64());
 
                 return true;
             }

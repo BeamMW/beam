@@ -115,6 +115,7 @@ namespace beam
         if (params["address"].empty())
             throwInvalidJsonRpc(id);
 
+       
         Send send;
         //send.session = params["session"];
         send.value = params["value"];
@@ -492,7 +493,15 @@ namespace beam
 
         try
         {
-            json msg = json::parse(data, data + size);
+            std::string str_data(data);
+            json json_data = json::parse(data);
+            if(!json_data.is_object())
+            {
+               return false;
+            }
+
+            //std::string data_test = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"create_address\",\"params\":{\"lifetime\":24,\"metadata\":\"string encoded JSON metadata\"}}";
+            json msg = json::parse(str_data);//json::parse(data, data + size);
 
             if (msg["jsonrpc"] != "2.0") throwInvalidJsonRpc();
             if (msg["id"] <= 0) throwInvalidJsonRpc();
