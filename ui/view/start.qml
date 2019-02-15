@@ -1359,7 +1359,7 @@ Item
                         }
 
                         PrimaryButton {
-                            text: viewModel.isRecoveryMode ? qsTr("restore wallet") : qsTr("proceed to your wallet");
+                            text: viewModel.isRecoveryMode ? qsTr("restore wallet") : qsTr("start using your wallet");
                             icon.source: viewModel.isRecoveryMode ? "qrc:/assets/icon-restore-blue.svg" : "qrc:/assets/icon-next-blue.svg"
                             enabled: nodePreferencesGroup.checkState != Qt.Unchecked
                             onClicked:{
