@@ -25,7 +25,6 @@
 #include "utility/io/timer.h"
 #include "utility/io/tcpserver.h"
 #include "utility/io/json_serializer.h"
-#include "utility/io/coarsetimer.h"
 #include "utility/options.h"
 
 #include "http/http_connection.h"
@@ -63,7 +62,6 @@ namespace beam
             , _walletDB(walletDB)
             , _wallet(wallet)
             , _wnet(wnet)
-            , _timers(_reactor, 100)
         {
             start();
         }
@@ -101,8 +99,6 @@ namespace beam
         void closeConnection(uint64_t id) override
         {
             _pendingToClose.push_back(id);
-
-            _timers.set_timer(1, 0, BIND_THIS_MEMFN(checkConnections));
         }
 
     private:
@@ -134,6 +130,8 @@ namespace beam
             {          
                 auto peer = newStream->peer_address();
                 LOG_DEBUG() << "+peer " << peer;
+
+                checkConnections();
 
                 _connections[peer.u64()] = _useHttp
                     ? createConnection<HttpApiConnection>(std::move(newStream))
@@ -681,7 +679,6 @@ namespace beam
         IWalletDB::Ptr _walletDB;
         Wallet& _wallet;
         WalletNetworkViaBbs& _wnet;
-        io::MultipleTimers _timers;
         std::vector<uint64_t> _pendingToClose;
     };
 }
