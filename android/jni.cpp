@@ -249,16 +249,11 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendMoney)(JNIEnv *env, jobjec
 {
     LOG_DEBUG() << "sendMoney(" << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
 
-    WalletAddress peerAddr;
-    peerAddr.m_walletID.FromHex(JString(env, receiverAddr).value());
-    peerAddr.m_createTime = getTimestamp();
-
-    // TODO: implement UI for this situation
-    // TODO: don't save if you send to yourself
-    walletModel->getAsync()->saveAddress(peerAddr, false);
+    WalletID walletID(Zero);
+    walletID.FromHex(JString(env, receiverAddr).value());
 
     // TODO: show 'operation in process' animation here?
-    walletModel->getAsync()->sendMoney(peerAddr.m_walletID
+    walletModel->getAsync()->sendMoney(walletID
         , JString(env, comment).value()
         , beam::Amount(amount)
         , beam::Amount(fee));
