@@ -195,8 +195,6 @@ namespace beam
 
         virtual Block::SystemState::IHistory& get_History() = 0;
         virtual void ShrinkHistory() = 0;
-
-        virtual Amount getTransferredByTx(TxStatus status, bool isSender) const = 0;
     };
 
     class WalletDB : public IWalletDB
@@ -259,8 +257,6 @@ namespace beam
 
         Block::SystemState::IHistory& get_History() override;
         void ShrinkHistory() override;
-
-        Amount getTransferredByTx(TxStatus status, bool isSender) const override;
 
     private:
         void removeImpl(const Coin::ID& cid);
@@ -360,8 +356,6 @@ namespace beam
         void changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID);
         WalletAddress createAddress(IWalletDB& walletDB);
         WalletID generateWalletIDFromIndex(IWalletDB& walletDB, uint64_t ownID);
-        Amount getSpentByTx(const IWalletDB& walletDB, TxStatus status);
-        Amount getReceivedByTx(const IWalletDB& walletDB, TxStatus status);
 
         Coin::Status GetCoinStatus(const IWalletDB&, const Coin&, Height hTop);
         void DeduceStatus(const IWalletDB&, Coin&, Height hTop);

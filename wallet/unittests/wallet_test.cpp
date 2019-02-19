@@ -193,8 +193,6 @@ namespace
         Block::SystemState::IHistory& get_History() override { return m_Hist; }
         void ShrinkHistory() override {}
 
-        Amount getTransferredByTx(TxStatus status, bool isSender) const override { return 0; };
-
     protected:
         std::vector<beam::Coin> m_coins;
         std::map<wallet::TxParameterID, ByteBuffer> m_params;

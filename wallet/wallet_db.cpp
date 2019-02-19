@@ -2204,34 +2204,6 @@ namespace beam
         }
     }
 
-    Amount WalletDB::getTransferredByTx(TxStatus status, bool isSender) const
-    {
-        const char* req = "SELECT value FROM " TX_PARAMS_NAME " WHERE paramID = ?5 AND txID IN (SELECT txID FROM " TX_PARAMS_NAME " WHERE paramID= ?1 AND value = ?2 AND txID IN (SELECT txID FROM " TX_PARAMS_NAME " WHERE paramID= ?3 AND value = ?4 ));";
-
-        sqlite::Statement stm(_db, req);
-        ByteBuffer blobStatus = wallet::toByteBuffer(status);
-        ByteBuffer blobIsSender = wallet::toByteBuffer(isSender);
-
-        stm.bind(1, wallet::TxParameterID::Status);
-        stm.bind(2, blobStatus);
-        stm.bind(3, wallet::TxParameterID::IsSender);
-        stm.bind(4, blobIsSender);
-        stm.bind(5, wallet::TxParameterID::Amount);
-
-        Amount totalAmount = 0;
-
-        while (stm.step())
-        {
-            ByteBuffer blob;
-            stm.get(0, blob);
-            Amount amount = 0;
-            deserialize(amount, blob);
-            totalAmount += amount;
-        }
-
-        return totalAmount;
-    }
-
     bool WalletDB::History::Enum(IWalker& w, const Height* pBelow)
     {
         const char* req = pBelow ?
@@ -2468,16 +2440,6 @@ namespace beam
             walletID.m_Channel = ch;
 
             return walletID;
-        }
-
-        Amount getSpentByTx(const IWalletDB& walletDB, TxStatus status)
-        {
-            return walletDB.getTransferredByTx(status, true);
-        }
-
-        Amount getReceivedByTx(const IWalletDB& walletDB, TxStatus status)
-        {
-            return walletDB.getTransferredByTx(status, false);
         }
 
         void DeduceStatus(const IWalletDB& walletDB, Coin& c, Height hTop)
