@@ -70,6 +70,9 @@ namespace
 
     using WalletSubscriber = ScopedSubscriber<IWalletObserver, beam::Wallet>;
 
+    // this code for node
+    static unique_ptr<NodeModel> nodeModel;
+
     static unique_ptr<WalletModel> walletModel;
     static ECC::NoLeak<ECC::uintBig> passwordHash;
 
@@ -128,14 +131,19 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         LOG_DEBUG() << "wallet successfully created.";
 
         passwordHash.V = beam::SecString(pass).hash().V;
+        // this code for node
+        LOG_DEBUG() << "try to start node";
 
         // generate default address
 
         WalletAddress address = wallet::createAddress(*walletDB);
         address.m_label = "default";
         walletDB->saveAddress(address);
+        nodeModel->setKdf(walletDB->get_MasterKdf());
+        nodeModel->startNode();
+        walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005");
 
-        walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
+        //walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
 
         jobject walletObj = env->AllocObject(WalletClass);
 
@@ -190,9 +198,21 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
         LOG_DEBUG() << "wallet successfully opened.";
 
         passwordHash.V = beam::SecString(pass).hash().V;
+        // this code for node
+        LOG_DEBUG() << "try to start node";
 
         walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
 
+        nodeModel->start();
+
+        nodeModel->setKdf(walletDB->get_MasterKdf());
+
+        nodeModel->startNode();
+
+        walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005");
+
+        //walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value());
+                
         jobject walletObj = env->AllocObject(WalletClass);
 
         walletModel->start();
