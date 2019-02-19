@@ -294,6 +294,9 @@ namespace beam
             Bitcoin
         };
 
+        using SubTxID = uint16_t;
+        const SubTxID kDefaultSubTxID = 1;
+
         // messages
         struct SetTxParameter
         {

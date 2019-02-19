@@ -49,13 +49,13 @@ namespace beam
             ChangeV0, // deprecated.
             Spent,
 
-			count
+            count
         };
 
         Coin(Amount amount = 0, Key::Type keyType = Key::Type::Regular);
-		bool operator==(const Coin&) const;
-		bool operator!=(const Coin&) const;
-		bool isReward() const;
+        bool operator==(const Coin&) const;
+        bool operator!=(const Coin&) const;
+        bool isReward() const;
         std::string toStringID() const;
         Amount getAmount() const;
 
@@ -65,13 +65,13 @@ namespace beam
         Status m_status;
         Height m_maturity;      // coin can be spent only when chain is >= this value. Valid for confirmed coins (Available, Outgoing, Incoming, Change, Spent, Maturing).
         Height m_confirmHeight;
-		Height m_spentHeight;
-		boost::optional<TxID> m_createTxId;
+        Height m_spentHeight;
+        boost::optional<TxID> m_createTxId;
         boost::optional<TxID> m_spentTxId;
         uint32_t m_sessionId;
 
-		bool IsMaturityValid() const; // is/was the UTXO confirmed?
-		Height get_Maturity() const; // would return MaxHeight unless the UTXO was confirmed
+        bool IsMaturityValid() const; // is/was the UTXO confirmed?
+        Height get_Maturity() const; // would return MaxHeight unless the UTXO was confirmed
         static boost::optional<Coin::ID> FromString(const std::string& str);
     };
 
@@ -116,6 +116,7 @@ namespace beam
     struct TxParameter
     {
         TxID m_txID;
+        int m_subTxID = static_cast<int>(wallet::kDefaultSubTxID);
         int m_paramID;
         ByteBuffer m_value;
     };
@@ -188,9 +189,9 @@ namespace beam
 
         virtual void changePassword(const SecString& password) = 0;
 
-        virtual bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID,
+        virtual bool setTxParameter(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID,
             const ByteBuffer& blob, bool shouldNotifyAboutChanges) = 0;
-        virtual bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) const = 0;
+        virtual bool getTxParameter(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID, ByteBuffer& blob) const = 0;
 
         virtual Block::SystemState::IHistory& get_History() = 0;
         virtual void ShrinkHistory() = 0;
@@ -252,9 +253,9 @@ namespace beam
 
         void changePassword(const SecString& password) override;
 
-        bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID,
+        bool setTxParameter(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID,
             const ByteBuffer& blob, bool shouldNotifyAboutChanges) override;
-        bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) const override;
+        bool getTxParameter(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID, ByteBuffer& blob) const override;
 
         Block::SystemState::IHistory& get_History() override;
         void ShrinkHistory() override;
@@ -267,20 +268,25 @@ namespace beam
         void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
         void notifySystemStateChanged();
         void notifyAddressChanged();
-		void CreateStorageTable();
-		static uint64_t get_RandomID();
-		bool updateRaw(const Coin&);
-		void insertRaw(const Coin&);
-		void insertNew(Coin&);
-		void saveRaw(const Coin&);
+        void CreateStorageTable();
+        void CreateAddressesTable();
+        void CreateVariablesTable();
+        void CreateTxParamsTable();
+        void CreateStatesTable();
 
-        using ParameterCache = std::map<TxID, std::map<wallet::TxParameterID, boost::optional<ByteBuffer>>>;
+        static uint64_t get_RandomID();
+        bool updateRaw(const Coin&);
+        void insertRaw(const Coin&);
+        void insertNew(Coin&);
+        void saveRaw(const Coin&);
 
-        void insertParameterToCache(const TxID& txID, wallet::TxParameterID paramID, const boost::optional<ByteBuffer>& blob) const;
+        using ParameterCache = std::map<TxID, std::map<wallet::SubTxID, std::map<wallet::TxParameterID, boost::optional<ByteBuffer>>>>;
+
+        void insertParameterToCache(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID, const boost::optional<ByteBuffer>& blob) const;
         void deleteParametersFromCache(const TxID& txID);
         void insertAddressToCache(const WalletID& id, const boost::optional<WalletAddress>& address) const;
         void deleteAddressFromCache(const WalletID& id);
-	private:
+    private:
 
         sqlite3* _db;
         Key::IKdf::Ptr m_pKdf;
@@ -302,7 +308,7 @@ namespace beam
 
     namespace wallet
     {
-		extern const char g_szPaymentProofRequired[];
+        extern const char g_szPaymentProofRequired[];
 
         template <typename Var>
         void setVar(IWalletDB& db, const char* name, const Var& var)
@@ -320,7 +326,7 @@ namespace beam
         bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, T& value)
         {
             ByteBuffer b;
-            if (db.getTxParameter(txID, paramID, b))
+            if (db.getTxParameter(txID, kDefaultSubTxID, paramID, b))
             {
                 if (!b.empty())
                 {
@@ -344,7 +350,7 @@ namespace beam
         template <typename T>
         bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges)
         {
-            return db.setTxParameter(txID, paramID, toByteBuffer(value), shouldNotifyAboutChanges);
+            return db.setTxParameter(txID, kDefaultSubTxID, paramID, toByteBuffer(value), shouldNotifyAboutChanges);
         }
 
         bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ECC::Point::Native& value, bool shouldNotifyAboutChanges);
@@ -357,26 +363,26 @@ namespace beam
         Amount getSpentByTx(const IWalletDB& walletDB, TxStatus status);
         Amount getReceivedByTx(const IWalletDB& walletDB, TxStatus status);
 
-		Coin::Status GetCoinStatus(const IWalletDB&, const Coin&, Height hTop);
-		void DeduceStatus(const IWalletDB&, Coin&, Height hTop);
+        Coin::Status GetCoinStatus(const IWalletDB&, const Coin&, Height hTop);
+        void DeduceStatus(const IWalletDB&, Coin&, Height hTop);
 
-		struct Totals
-		{
-			Amount Avail;
-			Amount Maturing;
-			Amount Incoming;
-			Amount Unavail;
-			Amount Outgoing;
-			Amount AvailCoinbase;
-			Amount Coinbase;
-			Amount AvailFee;
-			Amount Fee;
-			Amount Unspent;
+        struct Totals
+        {
+            Amount Avail;
+            Amount Maturing;
+            Amount Incoming;
+            Amount Unavail;
+            Amount Outgoing;
+            Amount AvailCoinbase;
+            Amount Coinbase;
+            Amount AvailFee;
+            Amount Fee;
+            Amount Unspent;
 
-			Totals() {}
-			Totals(IWalletDB& db) { Init(db); }
-			void Init(IWalletDB&);
-		};
+            Totals() {}
+            Totals(IWalletDB& db) { Init(db); }
+            void Init(IWalletDB&);
+        };
 
         std::string ExportAddressesToJson(const IWalletDB& db);
         bool ImportAddressesFromJson(IWalletDB& db, const char* data, size_t size);

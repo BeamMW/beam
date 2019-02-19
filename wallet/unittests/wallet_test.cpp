@@ -122,17 +122,17 @@ namespace
         boost::optional<TxDescription> getTx(const TxID& ) override { return boost::optional<TxDescription>{}; };
         void saveTx(const TxDescription& p) override
         {
-            setTxParameter(p.m_txId, wallet::TxParameterID::Amount, wallet::toByteBuffer(p.m_amount), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::Fee, wallet::toByteBuffer(p.m_fee), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::Change, wallet::toByteBuffer(p.m_change), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::MinHeight, wallet::toByteBuffer(p.m_minHeight), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::PeerID, wallet::toByteBuffer(p.m_peerId), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::MyID, wallet::toByteBuffer(p.m_myId), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::Message, wallet::toByteBuffer(p.m_message), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::CreateTime, wallet::toByteBuffer(p.m_createTime), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::ModifyTime, wallet::toByteBuffer(p.m_modifyTime), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::IsSender, wallet::toByteBuffer(p.m_sender), false);
-            setTxParameter(p.m_txId, wallet::TxParameterID::Status, wallet::toByteBuffer(p.m_status), false);
+            setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Amount, wallet::toByteBuffer(p.m_amount), false);
+            setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Fee, wallet::toByteBuffer(p.m_fee), false);
+            setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Change, wallet::toByteBuffer(p.m_change), false);
+            setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MinHeight, wallet::toByteBuffer(p.m_minHeight), false);
+            setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::PeerID, wallet::toByteBuffer(p.m_peerId), false);
+            setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MyID, wallet::toByteBuffer(p.m_myId), false);
+            setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Message, wallet::toByteBuffer(p.m_message), false);
+            setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::CreateTime, wallet::toByteBuffer(p.m_createTime), false);
+            setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::ModifyTime, wallet::toByteBuffer(p.m_modifyTime), false);
+            setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::IsSender, wallet::toByteBuffer(p.m_sender), false);
+            setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Status, wallet::toByteBuffer(p.m_status), false);
         };
         void deleteTx(const TxID& ) override {};
         void rollbackTx(const TxID&) override {}
@@ -168,7 +168,7 @@ namespace
 
         void changePassword(const SecString& password) override {}
 
-        bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID,
+        bool setTxParameter(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID,
             const ByteBuffer& blob, bool shouldNotifyAboutChanges) override
         {
             if (paramID < wallet::TxParameterID::PrivateFirstParam)
@@ -179,7 +179,7 @@ namespace
             m_params[paramID] = blob;
             return true;
         }
-        bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) const override
+        bool getTxParameter(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID, ByteBuffer& blob) const override
         {
             auto it = m_params.find(paramID);
             if (it != m_params.end())
