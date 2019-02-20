@@ -223,7 +223,7 @@ namespace beam
 
                 auto addr = _walletDB->getAddress(data.address);
                 bool isMine = addr ? addr->m_OwnID != 0 : false;
-                doResponse(id, ValidateAddress::Response{ data.address.IsValid() && (isMine ? addr->isExpired() : true), isMine});
+                doResponse(id, ValidateAddress::Response{ data.address.IsValid() && (isMine ? !addr->isExpired() : true), isMine});
             }
 
             void onMessage(int id, const Send& data) override
