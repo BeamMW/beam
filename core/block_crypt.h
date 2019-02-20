@@ -27,6 +27,7 @@ namespace beam
 	typedef uint64_t BbsChannel;
 	typedef ECC::Hash::Value BbsMsgID;
 	typedef PeerID AssetID;
+	typedef uint64_t TxoID;
 
 	using ECC::Key;
 

@@ -15,6 +15,7 @@
 #pragma once
 
 #include "block_crypt.h"
+#include <deque>
 
 namespace beam
 {
@@ -27,7 +28,8 @@ protected:
 	{
 		uint16_t m_Bits;
 		static const uint16_t s_Clean = 1 << 0xf;
-		static const uint16_t s_Leaf = 1 << 0xe;
+		static const uint16_t s_Leaf  = 1 << 0xe;
+		static const uint16_t s_User  = 1 << 0xd;
 
 		uint16_t get_Bits() const;
 	};
@@ -223,7 +225,21 @@ public:
 	struct MyLeaf :public Leaf
 	{
 		Key m_Key;
-		Value m_Value;
+		Value get_Value() const;
+
+		~MyLeaf() { SetNoExt(); }
+
+		union {
+			TxoID m_ID;
+			std::deque<TxoID>* m_pIDs;
+		};
+
+		void SetExt();
+		void SetNoExt();
+		bool IsExt() const;
+
+		void PushID(TxoID);
+		TxoID PopID();
 	};
 
 	typedef RadixTree::Cursor_T<Key::s_Bits> Cursor;
@@ -260,8 +276,8 @@ protected:
 
 	struct ISerializer {
 		virtual void Process(uint32_t&) = 0;
+		virtual void Process(uint64_t&) = 0;
 		virtual void Process(Key&) = 0;
-		virtual void Process(Value&) = 0;
 	};
 
 	template <typename Archive>
@@ -270,8 +286,8 @@ protected:
 		Serializer(Archive& ar) :m_ar(ar) {}
 
 		virtual void Process(uint32_t& n) override { m_ar & n; }
+		virtual void Process(uint64_t& n) override { m_ar & n; }
 		virtual void Process(Key& k) override { m_ar & k.m_pArr; }
-		virtual void Process(Value& v) override { m_ar & v.m_Count; }
 	};
 
 	void SaveIntenral(ISerializer&) const;

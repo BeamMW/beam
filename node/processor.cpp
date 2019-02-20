@@ -950,12 +950,13 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		assert(d.m_Commitment == v.m_Commitment);
 		assert(d.m_Maturity <= (pHMax ? *pHMax : h));
 
-		assert(p->m_Value.m_Count); // we don't store zeroes
-
-		if (!--p->m_Value.m_Count)
+		if (!p->IsExt())
 			m_Utxos.Delete(cu);
 		else
+		{
+			p->PopID();
 			cu.InvalidateElement();
+		}
 
 		if (!pHMax)
 			Cast::NotConst(v).m_Maturity = d.m_Maturity;
@@ -970,10 +971,10 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		p = m_Utxos.Find(cu, key, bCreate);
 
 		if (bCreate)
-			p->m_Value.m_Count = 1;
+			p->m_ID = 0;
 		else
 		{
-			p->m_Value.m_Count++;
+			p->PushID(0);
 			cu.InvalidateElement();
 		}
 	}
@@ -1007,22 +1008,22 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 	if (bFwd)
 	{
 		if (bCreate)
-			p->m_Value.m_Count = 1;
+			p->m_ID = 0;
 		else
 		{
 			// protect again overflow attacks, though it's highly unlikely (Input::Count is currently limited to 32 bits, it'd take millions of blocks)
-			Input::Count nCountInc = p->m_Value.m_Count + 1;
+			Input::Count nCountInc = p->get_Value().m_Count + 1;
 			if (!nCountInc)
 				return false;
 
-			p->m_Value.m_Count = nCountInc;
+			p->PushID(0);
 		}
 	} else
 	{
-		if (1 == p->m_Value.m_Count)
+		if (!p->IsExt())
 			m_Utxos.Delete(cu);
 		else
-			p->m_Value.m_Count--;
+			p->PopID();
 	}
 
 	return true;
@@ -1344,11 +1345,12 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 			virtual bool OnLeaf(const RadixTree::Leaf& x) override
 			{
 				const UtxoTree::MyLeaf& n = Cast::Up<UtxoTree::MyLeaf>(x);
-				assert(m_Count && n.m_Value.m_Count);
-				if (m_Count <= n.m_Value.m_Count)
+				Input::Count nCount = n.get_Value().m_Count;
+				assert(m_Count && nCount);
+				if (m_Count <= nCount)
 					return false; // stop iteration
 
-				m_Count -= n.m_Value.m_Count;
+				m_Count -= nCount;
 				return true;
 			}
 		} t;

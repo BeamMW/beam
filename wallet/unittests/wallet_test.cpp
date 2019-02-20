@@ -453,15 +453,15 @@ namespace
             cu.InvalidateElement();
 
             if (bCreate)
-                p->m_Value.m_Count = 1;
+                p->m_ID = 0;
             else
             {
                 // protect again overflow attacks, though it's highly unlikely (Input::Count is currently limited to 32 bits, it'd take millions of blocks)
-                Input::Count nCountInc = p->m_Value.m_Count + 1;
+                Input::Count nCountInc = p->get_Value().m_Count + 1;
                 if (!nCountInc)
                     return false;
 
-                p->m_Value.m_Count = nCountInc;
+                p->PushID(0);
             }
 
             return true;
@@ -499,12 +499,14 @@ namespace
 
             d = p->m_Key;
             assert(d.m_Commitment == c);
-            assert(p->m_Value.m_Count); // we don't store zeroes
 
-            if (!--p->m_Value.m_Count)
+            if (!p->IsExt())
                 m_Utxos.Delete(cu);
-            else
-                cu.InvalidateElement();
+			else
+			{
+				p->PopID();
+				cu.InvalidateElement();
+			}
 
             return true;
         }
@@ -527,7 +529,7 @@ namespace
                     m_Msg.m_Proofs.resize(m_Msg.m_Proofs.size() + 1);
                     Input::Proof& ret = m_Msg.m_Proofs.back();
 
-                    ret.m_State.m_Count = v.m_Value.m_Count;
+                    ret.m_State.m_Count = v.get_Value().m_Count;
                     ret.m_State.m_Maturity = d.m_Maturity;
                     m_pTree->get_Proof(ret.m_Proof, *m_pCu);
 

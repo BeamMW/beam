@@ -210,6 +210,35 @@ namespace beam
 			((uint8_t*) &d.m_Maturity)[i] = (uint8_t) rand();
 	}
 
+	void SetLeafID(TxoID& var, uint32_t i, bool bTest)
+	{
+		if (bTest)
+			verify_test(var == i);
+		else
+			var = i;
+	}
+
+	void SetLeafIDs(UtxoTree::MyLeaf& x, uint32_t i, bool bTest)
+	{
+		bool bExt = !(i % 12);
+		if (bTest)
+			verify_test(x.IsExt() == bExt);
+
+		if (bExt)
+		{
+			if (!bTest)
+			{
+				x.SetExt();
+				x.m_pIDs->resize(3);
+			}
+
+			for (auto it = x.m_pIDs->begin(); x.m_pIDs->end() != it; it++)
+				SetLeafID(*it, i++, bTest);
+		}
+		else
+			SetLeafID(x.m_ID, i, bTest);
+	}
+
 	void TestUtxoTree()
 	{
 		std::vector<UtxoTree::Key> vKeys;
@@ -237,7 +266,8 @@ namespace beam
 			UtxoTree::MyLeaf* p = t.Find(cu, key, bCreate);
 
 			verify_test(p && bCreate);
-			p->m_Value.m_Count = i;
+
+			SetLeafIDs(*p, i, false);
 
 			if (!(i % 17))
 			{
@@ -255,7 +285,7 @@ namespace beam
 					t.get_Proof(proof, cu);
 
 					Merkle::Hash hvElement;
-					p->m_Value.get_Hash(hvElement, p->m_Key);
+					p->get_Value().get_Hash(hvElement, p->m_Key);
 
 					Merkle::Interpret(hvElement, proof);
 					verify_test(hvElement == hv1);
@@ -275,7 +305,8 @@ namespace beam
 			UtxoTree::MyLeaf* p = t.Find(cu, vKeys[i], bCreate);
 
 			verify_test(p && !bCreate);
-			verify_test(p->m_Value.m_Count == i);
+			SetLeafIDs(*p, i, true);
+
 			t.Delete(cu);
 
 			if (!(i % 31))
@@ -295,7 +326,7 @@ namespace beam
 			UtxoTree::MyLeaf* p = t.Find(cu, key, bCreate);
 
 			verify_test(p && bCreate);
-			p->m_Value.m_Count = i;
+			SetLeafIDs(*p, i, false);
 
 			if (!(i % 11))
 				t.get_Hash(hv2); // try to confuse clean/dirty
