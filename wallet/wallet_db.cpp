@@ -1142,7 +1142,7 @@ namespace beam
 
                     case DbVersion13:
                         {
-                            LOG_INFO() << "Converting DB from format 12";
+                            LOG_INFO() << "Converting DB from format 12-13";
 
                             // tx_params table changed: added new column [subTxID]
                             // move old data to temp table
@@ -2274,20 +2274,20 @@ namespace beam
     {
         const char g_szPaymentProofRequired[] = "payment_proof_required";
 
-        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ECC::Point::Native& value)
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, ECC::Point::Native& value)
         {
             ECC::Point pt;
-            if (getTxParameter(db, txID, paramID, pt))
+            if (getTxParameter(db, txID, subTxID, paramID, pt))
             {
                 return value.Import(pt);
             }
             return false;
         }
 
-        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ECC::Scalar::Native& value)
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, ECC::Scalar::Native& value)
         {
             ECC::Scalar s;
-            if (getTxParameter(db, txID, paramID, s))
+            if (getTxParameter(db, txID, subTxID, paramID, s))
             {
                 value.Import(s);
                 return true;
@@ -2295,34 +2295,64 @@ namespace beam
             return false;
         }
 
-        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ByteBuffer& value)
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& value)
         {
-            return db.getTxParameter(txID, kDefaultSubTxID, paramID, value);
+            return db.getTxParameter(txID, subTxID, paramID, value);
         }
 
-        bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID,
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ECC::Point::Native& value)
+        {
+            return getTxParameter(db, txID, kDefaultSubTxID, paramID, value);
+        }
+
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ByteBuffer& value)
+        {
+            return getTxParameter(db, txID, kDefaultSubTxID, paramID, value);
+        }
+
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ECC::Scalar::Native& value)
+        {
+            return getTxParameter(db, txID, kDefaultSubTxID, paramID, value);
+        }
+
+        bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID,
             const ECC::Point::Native& value, bool shouldNotifyAboutChanges)
         {
             ECC::Point pt;
             if (value.Export(pt))
             {
-                return setTxParameter(db, txID, paramID, pt, shouldNotifyAboutChanges);
+                return setTxParameter(db, txID, subTxID, paramID, pt, shouldNotifyAboutChanges);
             }
             return false;
         }
 
-        bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID,
+        bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID,
             const ECC::Scalar::Native& value, bool shouldNotifyAboutChanges)
         {
             ECC::Scalar s;
             value.Export(s);
-            return setTxParameter(db, txID, paramID, s, shouldNotifyAboutChanges);
+            return setTxParameter(db, txID, subTxID, paramID, s, shouldNotifyAboutChanges);
         }
 
-        bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID,
+        bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID,
             const ByteBuffer& value, bool shouldNotifyAboutChanges)
         {
-            return db.setTxParameter(txID, kDefaultSubTxID, paramID, value, shouldNotifyAboutChanges);
+            return db.setTxParameter(txID, subTxID, paramID, value, shouldNotifyAboutChanges);
+        }
+
+        bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ECC::Point::Native& value, bool shouldNotifyAboutChanges)
+        {
+            return setTxParameter(db, txID, kDefaultSubTxID, paramID, value, shouldNotifyAboutChanges);
+        }
+
+        bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ECC::Scalar::Native& value, bool shouldNotifyAboutChanges)
+        {
+            return setTxParameter(db, txID, kDefaultSubTxID, paramID, value, shouldNotifyAboutChanges);
+        }
+
+        bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value, bool shouldNotifyAboutChanges)
+        {
+            return setTxParameter(db, txID, kDefaultSubTxID, paramID, value, shouldNotifyAboutChanges);
         }
 
         ByteBuffer toByteBuffer(const ECC::Point::Native& value)

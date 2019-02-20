@@ -319,10 +319,10 @@ namespace beam
         }
 
         template <typename T>
-        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, T& value)
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, T& value)
         {
             ByteBuffer b;
-            if (db.getTxParameter(txID, kDefaultSubTxID, paramID, b))
+            if (db.getTxParameter(txID, subTxID, paramID, b))
             {
                 if (!b.empty())
                 {
@@ -339,6 +339,26 @@ namespace beam
             return false;
         }
 
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, ECC::Point::Native& value);
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& value);
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, ECC::Scalar::Native& value);
+
+        template <typename T>
+        bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges)
+        {
+            return db.setTxParameter(txID, subTxID, paramID, toByteBuffer(value), shouldNotifyAboutChanges);
+        }
+
+        bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, const ECC::Point::Native& value, bool shouldNotifyAboutChanges);
+        bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, const ECC::Scalar::Native& value, bool shouldNotifyAboutChanges);
+        bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, const ByteBuffer& value, bool shouldNotifyAboutChanges);
+
+        template <typename T>
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, T& value)
+        {
+            return getTxParameter(db, txID, kDefaultSubTxID, paramID, value);
+        }
+
         bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ECC::Point::Native& value);
         bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ByteBuffer& value);
         bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ECC::Scalar::Native& value);
@@ -346,7 +366,7 @@ namespace beam
         template <typename T>
         bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges)
         {
-            return db.setTxParameter(txID, kDefaultSubTxID, paramID, toByteBuffer(value), shouldNotifyAboutChanges);
+            return setTxParameter(db, txID, kDefaultSubTxID, paramID, toByteBuffer(value), shouldNotifyAboutChanges);
         }
 
         bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ECC::Point::Native& value, bool shouldNotifyAboutChanges);
