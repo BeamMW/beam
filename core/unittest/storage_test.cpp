@@ -228,8 +228,8 @@ namespace beam
 		{
 			if (!bTest)
 			{
-				x.SetExt();
-				x.m_pIDs->resize(3);
+				for (uint32_t j = 0; j < 2; j++)
+					x.PushID(0);
 			}
 
 			for (auto it = x.m_pIDs->begin(); x.m_pIDs->end() != it; it++)
@@ -285,7 +285,7 @@ namespace beam
 					t.get_Proof(proof, cu);
 
 					Merkle::Hash hvElement;
-					p->get_Value().get_Hash(hvElement, p->m_Key);
+					p->get_Hash(hvElement);
 
 					Merkle::Interpret(hvElement, proof);
 					verify_test(hvElement == hv1);

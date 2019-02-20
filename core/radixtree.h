@@ -216,30 +216,25 @@ public:
 		uint8_t m_pArr[s_Bytes];
 	};
 
-	struct Value
-	{
-		Input::Count m_Count;
-		void get_Hash(Merkle::Hash&, const Key&) const;
-	};
-
 	struct MyLeaf :public Leaf
 	{
 		Key m_Key;
-		Value get_Value() const;
+		Input::Count get_Count() const;
 
-		~MyLeaf() { SetNoExt(); }
+		~MyLeaf();
 
 		union {
 			TxoID m_ID;
 			std::deque<TxoID>* m_pIDs;
 		};
 
-		void SetExt();
-		void SetNoExt();
 		bool IsExt() const;
 
 		void PushID(TxoID);
 		TxoID PopID();
+
+		void get_Hash(Merkle::Hash&) const;
+		static void get_Hash(Merkle::Hash&, const Key&, Input::Count);
 	};
 
 	typedef RadixTree::Cursor_T<Key::s_Bits> Cursor;

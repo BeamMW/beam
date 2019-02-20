@@ -457,7 +457,7 @@ namespace
             else
             {
                 // protect again overflow attacks, though it's highly unlikely (Input::Count is currently limited to 32 bits, it'd take millions of blocks)
-                Input::Count nCountInc = p->get_Value().m_Count + 1;
+                Input::Count nCountInc = p->get_Count() + 1;
                 if (!nCountInc)
                     return false;
 
@@ -529,7 +529,7 @@ namespace
                     m_Msg.m_Proofs.resize(m_Msg.m_Proofs.size() + 1);
                     Input::Proof& ret = m_Msg.m_Proofs.back();
 
-                    ret.m_State.m_Count = v.get_Value().m_Count;
+                    ret.m_State.m_Count = v.get_Count();
                     ret.m_State.m_Maturity = d.m_Maturity;
                     m_pTree->get_Proof(ret.m_Proof, *m_pCu);
 

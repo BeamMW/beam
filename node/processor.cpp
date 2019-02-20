@@ -1012,7 +1012,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 		else
 		{
 			// protect again overflow attacks, though it's highly unlikely (Input::Count is currently limited to 32 bits, it'd take millions of blocks)
-			Input::Count nCountInc = p->get_Value().m_Count + 1;
+			Input::Count nCountInc = p->get_Count() + 1;
 			if (!nCountInc)
 				return false;
 
@@ -1345,7 +1345,7 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 			virtual bool OnLeaf(const RadixTree::Leaf& x) override
 			{
 				const UtxoTree::MyLeaf& n = Cast::Up<UtxoTree::MyLeaf>(x);
-				Input::Count nCount = n.get_Value().m_Count;
+				Input::Count nCount = n.get_Count();
 				assert(m_Count && nCount);
 				if (m_Count <= nCount)
 					return false; // stop iteration

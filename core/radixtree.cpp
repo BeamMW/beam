@@ -506,12 +506,17 @@ void RadixHashTree::get_Proof(Merkle::Proof& proof, const CursorBase& cu)
 
 /////////////////////////////
 // UtxoTree
-void UtxoTree::Value::get_Hash(Merkle::Hash& hv, const Key& key) const
+void UtxoTree::MyLeaf::get_Hash(Merkle::Hash& hv, const Key& key, Input::Count nCount)
 {
 	ECC::Hash::Processor()
 		<< Blob(key.m_pArr, Key::s_Bytes) // whole description of the UTXO
-		<< m_Count
+		<< nCount
 		>> hv;
+}
+
+void UtxoTree::MyLeaf::get_Hash(Merkle::Hash& hv) const
+{
+	get_Hash(hv, m_Key, get_Count());
 }
 
 void Input::State::get_ID(Merkle::Hash& hv, const ECC::Point& comm) const
@@ -523,23 +528,20 @@ void Input::State::get_ID(Merkle::Hash& hv, const ECC::Point& comm) const
 	UtxoTree::Key key;
 	key = d;
 
-	UtxoTree::Value val;
-	val.m_Count = m_Count;
-	val.get_Hash(hv, key);
+	UtxoTree::MyLeaf::get_Hash(hv, key, m_Count);
 }
 
 const Merkle::Hash& UtxoTree::get_LeafHash(Node& n, Merkle::Hash& hv)
 {
-	MyLeaf& x = Cast::Up<MyLeaf>(n);
-	x.get_Value().get_Hash(hv, x.m_Key);
+	Cast::Up<MyLeaf>(n).get_Hash(hv);
 	return hv;
 }
 
-UtxoTree::Value UtxoTree::MyLeaf::get_Value() const
+Input::Count UtxoTree::MyLeaf::get_Count() const
 {
-	Value v;
-	v.m_Count = IsExt() ? static_cast<Input::Count>(m_pIDs->size()) : 1;
-	return v;
+	return IsExt() ?
+		static_cast<Input::Count>(m_pIDs->size()) :
+		1;
 }
 
 bool UtxoTree::MyLeaf::IsExt() const
@@ -547,22 +549,10 @@ bool UtxoTree::MyLeaf::IsExt() const
 	return 0 != (s_User & m_Bits);
 }
 
-void UtxoTree::MyLeaf::SetExt()
+UtxoTree::MyLeaf::~MyLeaf()
 {
-	if (!IsExt())
-	{
-		m_pIDs = new std::deque<TxoID>;
-		m_Bits |= s_User;
-	}
-}
-
-void UtxoTree::MyLeaf::SetNoExt()
-{
-	if (IsExt())
-	{
-		delete m_pIDs;
-		m_Bits &= ~s_User;
-	}
+	while (IsExt())
+		PopID();
 }
 
 void UtxoTree::MyLeaf::PushID(TxoID x)
@@ -570,7 +560,10 @@ void UtxoTree::MyLeaf::PushID(TxoID x)
 	if (!IsExt())
 	{
 		TxoID val = m_ID;
-		SetExt();
+
+		m_pIDs = new std::deque<TxoID>;
+		m_Bits |= s_User;
+
 		m_pIDs->push_back(val);
 	}
 
@@ -587,7 +580,10 @@ TxoID UtxoTree::MyLeaf::PopID()
 	if (1 == m_pIDs->size())
 	{
 		TxoID val = m_pIDs->front();
-		SetNoExt();
+
+		delete m_pIDs;
+		m_Bits &= ~s_User;
+
 		m_ID = val;
 	}
 
@@ -607,8 +603,8 @@ void UtxoTree::SaveIntenral(ISerializer& s) const
 			MyLeaf& x = Cast::Up<MyLeaf>(Cast::NotConst(n));
 			m_pS->Process(x.m_Key);
 
-			Value v = x.get_Value();
-			m_pS->Process(v.m_Count);
+			Input::Count n2 = x.get_Count();
+			m_pS->Process(n2);
 
 			if (x.IsExt())
 			{
@@ -653,20 +649,15 @@ void UtxoTree::LoadIntenral(ISerializer& s)
 		MyLeaf* p = Find(cu, key, bCreate);
 		assert(bCreate);
 
-		Value v;
-		s.Process(v.m_Count);
+		Input::Count n2 = 0;
+		s.Process(n2);
+		s.Process(p->m_ID);
 
-		if (1 == v.m_Count)
-			s.Process(p->m_ID);
-		else
+		while (--n2)
 		{
-			p->SetExt();
-
-			while (v.m_Count--)
-			{
-				p->m_pIDs->emplace_back();
-				s.Process(p->m_pIDs->back());
-			}
+			TxoID val = 0;
+			s.Process(val);
+			p->PushID(val);
 		}
 	}
 }
