@@ -574,12 +574,12 @@ TxoID UtxoTree::MyLeaf::PopID()
 {
 	assert(IsExt() && (m_pIDs->size() > 1));
 
-	TxoID ret = m_pIDs->front();
-	m_pIDs->pop_front();
+	TxoID ret = m_pIDs->back();
+	m_pIDs->pop_back();
 
 	if (1 == m_pIDs->size())
 	{
-		TxoID val = m_pIDs->front();
+		TxoID val = m_pIDs->back();
 
 		delete m_pIDs;
 		m_Bits &= ~s_User;
