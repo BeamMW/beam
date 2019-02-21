@@ -22,6 +22,8 @@ add_library(${TARGET_NAME} STATIC
 if (Boost_FOUND)
     find_package(Boost COMPONENTS system thread regex filesystem program_options log locale)
     target_link_libraries(${TARGET_NAME} Boost::system Boost::thread Boost::regex Boost::filesystem Boost::program_options Boost::log Boost::locale)
+else()
+	target_link_libraries(${TARGET_NAME} boost_system boost_thread boost_regex boost_filesystem boost_program_options boost_log boost_locale)
 endif()
 
 if(MSVC)
