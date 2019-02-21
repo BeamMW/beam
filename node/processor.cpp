@@ -1554,7 +1554,15 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc)
 
 	get_Definition(bc.m_Hdr.m_Definition, true);
 
-	bc.m_Block.NormalizeE();
+#ifndef NDEBUG
+	// kernels must be sorted already
+	for (size_t i = 1; i < bc.m_Block.m_vKernels.size(); i++)
+	{
+		const TxKernel& krn0 = *bc.m_Block.m_vKernels[i - 1];
+		const TxKernel& krn1 = *bc.m_Block.m_vKernels[i];
+		assert(krn0 <= krn1);
+	}
+#endif // NDEBUG
 
 	struct MyFlyMmr :public Merkle::FlyMmr {
 		const TxKernel::Ptr* m_ppKrn;
