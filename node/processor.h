@@ -126,10 +126,13 @@ public:
 
 	} m_Cursor;
 
+	typedef NodeDB::StateExtra StateExtra;
+
 	struct Extra
 	{
 		bool m_TreasuryHandled;
 		TxoID m_Txos; // total num of ever created TXOs, including treasury
+		TxoID m_Txos0; // treasury
 
 	} m_Extra;
 

@@ -41,6 +41,7 @@ namespace beam {
 #define TblStates_Rollback		"Rollback"
 #define TblStates_Peer			"Peer"
 #define TblStates_ChainWork		"ChainWork"
+#define TblStates_Extra			"Extra"
 
 #define TblTips					"Tips"
 #define TblTipsReachable		"TipsReachable"
@@ -280,7 +281,8 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 16;
+	const uint64_t nVersionTop = 17;
+	const uint64_t nVersionMacro0 = 16;
 	const uint64_t nVersionDummy0 = 15;
 	const uint64_t nVersionNoBbsPoW = 14;
 
@@ -305,6 +307,10 @@ void NodeDB::Open(const char* szPath)
 			ExecQuick("DROP INDEX [Idx" TblDummy "H]");
 			ExecQuick("DROP TABLE [" TblDummy "]");
 			CreateTableDummy();
+			// no break;
+
+		case nVersionMacro0:
+			ExecQuick("ALTER TABLE [" TblStates "] ADD [" TblStates_Extra "] BLOB");
 
 			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
 			// no break;
@@ -348,6 +354,7 @@ void NodeDB::Create()
 		"[" TblStates_Rollback		"] BLOB,"
 		"[" TblStates_Peer			"] BLOB,"
 		"[" TblStates_ChainWork		"] BLOB,"
+		"[" TblStates_Extra			"] BLOB,"
 		"PRIMARY KEY (" TblStates_Height "," TblStates_Hash "),"
 		"FOREIGN KEY (" TblStates_RowPrev ") REFERENCES " TblStates "(OID))");
 
@@ -1087,6 +1094,29 @@ bool NodeDB::get_Peer(uint64_t rowid, PeerID& peer)
 
 	rs.get_As(0, peer);
 
+	return true;
+}
+
+void NodeDB::set_StateExtra(uint64_t rowid, const StateExtra* pVal)
+{
+	Recordset rs(*this, Query::StateSetExtra, "UPDATE " TblStates " SET " TblStates_Extra "=? WHERE rowid=?");
+	if (pVal)
+		rs.put(0, Blob(pVal, sizeof(*pVal)));
+	rs.put(1, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
+bool NodeDB::get_StateExtra(uint64_t rowid, StateExtra& x)
+{
+	Recordset rs(*this, Query::StateGetExtra, "SELECT " TblStates_Extra " FROM " TblStates " WHERE rowid=?");
+	rs.put(0, rowid);
+	rs.StepStrict();
+
+	if (rs.IsNull(0))
+		return false;
+
+	rs.get_As(0, x);
 	return true;
 }
 

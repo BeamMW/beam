@@ -625,6 +625,8 @@ bool NodeProcessor::HandleTreasury(const Blob& blob, bool bFirstTime)
 	}
 
 	m_Extra.m_TreasuryHandled = true;
+	m_Extra.m_Txos0 = m_Extra.m_Txos;
+
 	return true;
 }
 
@@ -736,6 +738,27 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 			rbData.Import(block);
 			m_DB.SetStateRollback(sid.m_Row, rbData.m_Buf);
 
+			StateExtra se;
+			se.m_Txos = m_Extra.m_Txos;
+			se.m_Offset = block.m_Offset;
+
+			if (sid.m_Height > Rules::HeightGenesis)
+			{
+				StateExtra sePrev;
+
+				uint64_t row = sid.m_Row;
+				if (!m_DB.get_Prev(row) ||
+					!m_DB.get_StateExtra(row, sePrev))
+					OnCorrupted();
+
+				assert(se.m_Txos >= sePrev.m_Txos);
+
+				ECC::Scalar::Native offs(sePrev.m_Offset);
+				offs += se.m_Offset;
+				se.m_Offset = offs;
+			}
+
+			m_DB.set_StateExtra(sid.m_Row, &se);
 
 			assert(m_Cursor.m_LoHorizon <= m_Cursor.m_Sid.m_Height);
 			if (m_Cursor.m_Sid.m_Height - m_Cursor.m_LoHorizon > Rules::get().Macroblock.MaxRollback)
