@@ -28,6 +28,7 @@ if(MSVC)
     target_compile_options(wallet PRIVATE "/wd4996")
 elseif(APPLE)
     target_compile_options(wallet PRIVATE -Wno-mismatched-tags)
+    target_compile_options(wallet PRIVATE -Wno-missing-braces)
 endif()
 
 add_executable(${TARGET_NAME} cli.cpp)

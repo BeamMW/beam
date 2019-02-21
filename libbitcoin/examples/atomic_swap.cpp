@@ -131,11 +131,11 @@ namespace
 
     private:
 
+        io::Reactor::Ptr m_reactor;
         std::string m_host;
         uint16_t m_port;
         std::string m_user;
         std::string m_password;
-        io::Reactor::Ptr m_reactor;
         std::unique_ptr<HttpClient> m_httpClient;
     };
 
