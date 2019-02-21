@@ -129,6 +129,7 @@ public:
 	struct Extra
 	{
 		bool m_TreasuryHandled;
+		TxoID m_Txos; // total num of ever created TXOs, including treasury
 
 	} m_Extra;
 

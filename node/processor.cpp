@@ -405,6 +405,7 @@ struct NodeProcessor::RollbackData
 	// helper structures for rollback
 	struct Utxo {
 		Height m_Maturity; // the extra info we need to restore an UTXO, in addition to the Input.
+		TxoID m_ID;
 	};
 
 	ByteBuffer m_Buf;
@@ -420,7 +421,13 @@ struct NodeProcessor::RollbackData
 			Utxo* pDst = reinterpret_cast<Utxo*>(&m_Buf.front());
 
 			for (size_t i = 0; i < txv.m_vInputs.size(); i++)
-				pDst[i].m_Maturity = txv.m_vInputs[i]->m_Maturity;
+			{
+				Utxo& dst = pDst[i];
+				const Input& src = *txv.m_vInputs[i];
+
+				dst.m_Maturity = src.m_Maturity;
+				dst.m_ID = src.m_ID;
+			}
 		}
 	}
 
@@ -435,7 +442,13 @@ struct NodeProcessor::RollbackData
 		const Utxo* pDst = reinterpret_cast<const Utxo*>(&m_Buf.front());
 
 		for (size_t i = 0; i < txv.m_vInputs.size(); i++)
-			txv.m_vInputs[i]->m_Maturity = pDst[i].m_Maturity;
+		{
+			const Utxo& dst = pDst[i];
+			Input& src = *txv.m_vInputs[i];
+
+			src.m_Maturity = dst.m_Maturity;
+			src.m_ID = dst.m_ID;
+		}
 	}
 };
 
@@ -950,16 +963,21 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		assert(d.m_Commitment == v.m_Commitment);
 		assert(d.m_Maturity <= (pHMax ? *pHMax : h));
 
+		TxoID nID = p->m_ID;
+
 		if (!p->IsExt())
 			m_Utxos.Delete(cu);
 		else
 		{
-			p->PopID();
+			nID = p->PopID();
 			cu.InvalidateElement();
 		}
 
 		if (!pHMax)
+		{
 			Cast::NotConst(v).m_Maturity = d.m_Maturity;
+			Cast::NotConst(v).m_ID = nID;
+		}
 	} else
 	{
 		d.m_Maturity = v.m_Maturity;
@@ -971,10 +989,10 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		p = m_Utxos.Find(cu, key, bCreate);
 
 		if (bCreate)
-			p->m_ID = 0;
+			p->m_ID = v.m_ID;
 		else
 		{
-			p->PushID(0);
+			p->PushID(v.m_ID);
 			cu.InvalidateElement();
 		}
 	}
@@ -1007,8 +1025,10 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 
 	if (bFwd)
 	{
+		TxoID nID = m_Extra.m_Txos;
+
 		if (bCreate)
-			p->m_ID = 0;
+			p->m_ID = nID;
 		else
 		{
 			// protect again overflow attacks, though it's highly unlikely (Input::Count is currently limited to 32 bits, it'd take millions of blocks)
@@ -1016,10 +1036,16 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 			if (!nCountInc)
 				return false;
 
-			p->PushID(0);
+			p->PushID(nID);
 		}
+
+		m_Extra.m_Txos++;
+
 	} else
 	{
+		assert(m_Extra.m_Txos);
+		m_Extra.m_Txos--;
+
 		if (!p->IsExt())
 			m_Utxos.Delete(cu);
 		else
