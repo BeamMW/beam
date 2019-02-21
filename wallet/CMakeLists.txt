@@ -26,6 +26,8 @@ if(MSVC)
     target_compile_options(wallet PRIVATE "/wd4245")
     target_compile_options(wallet PRIVATE "/wd4505")
     target_compile_options(wallet PRIVATE "/wd4996")
+else()
+    target_compile_options(wallet PRIVATE -Wno-mismatched-tags)
 endif()
 
 add_executable(${TARGET_NAME} cli.cpp)

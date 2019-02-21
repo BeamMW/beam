@@ -38,43 +38,43 @@ void testWithBitcoinD()
     io::Address addr(io::Address::localhost(), PORT);
     BitcoinRPC rpc(*reactor, "test", "123", addr);
 
-    rpc.getBlockchainInfo([&reactor, &rpc](const std::string& result) {
+    rpc.getBlockchainInfo([](const std::string& result) {
         LOG_INFO() << "getblockchaininfo result: " << result;
         
         return false;
     });
 
-    rpc.getNetworkInfo([&reactor, &rpc](const std::string& result) {
+    rpc.getNetworkInfo([](const std::string& result) {
         LOG_INFO() << "getnetworkinfo result: " << result;
 
         return false;
     });
 
-    rpc.getWalletInfo([&reactor, &rpc](const std::string& result) {
+    rpc.getWalletInfo([](const std::string& result) {
         LOG_INFO() << "getwalletinfo result: " << result;
 
         return false;
     });
 
-    rpc.estimateFee(3, [&reactor, &rpc](const std::string& result) {
+    rpc.estimateFee(3, [](const std::string& result) {
         LOG_INFO() << "estimateFee result: " << result;
 
         return false;
     });
 
-    rpc.getRawChangeAddress([&reactor, &rpc](const std::string& result) {
+    rpc.getRawChangeAddress([](const std::string& result) {
         LOG_INFO() << "getRawChangeAddress result: " << result;
 
         return false;
     });
 
-    rpc.getBalance([&reactor, &rpc](const std::string& result) {
+    rpc.getBalance([](const std::string& result) {
         LOG_INFO() << "getbalance result: " << result;
 
         return false;
     });
 
-    rpc.dumpPrivKey("mhYozJvft4LdsTkGbsXEAifSmcNMNsqFpF", [&reactor, &rpc](const std::string& result) {
+    rpc.dumpPrivKey("mhYozJvft4LdsTkGbsXEAifSmcNMNsqFpF", [](const std::string& result) {
         LOG_INFO() << "dumpprivkey result: " << result;
         return false;
     });
@@ -207,32 +207,32 @@ void testWithFakeServer()
     io::Address addr(io::Address::localhost(), PORT);
     BitcoinRPC rpc(*reactor, "test", "123", addr);
 
-    rpc.getBalance([&reactor, &rpc](const std::string& result) {
+    rpc.getBalance([](const std::string& result) {
         LOG_INFO() << "getbalance result: " << result;
         return false;
     });
 
-    rpc.dumpPrivKey("mhYozJvft4LdsTkGbsXEAifSmcNMNsqFpF", [&reactor, &rpc](const std::string& result) {
+    rpc.dumpPrivKey("mhYozJvft4LdsTkGbsXEAifSmcNMNsqFpF", [](const std::string& result) {
         LOG_INFO() << "dumpprivkey result: " << result;
         return false;
     });
 
-    rpc.getBlockchainInfo([&reactor, &rpc](const std::string& result) {
+    rpc.getBlockchainInfo([](const std::string& result) {
         LOG_INFO() << "getblockchaininfo result: " << result;
         return false;
     });
 
-    rpc.getNetworkInfo([&reactor, &rpc](const std::string& result) {
+    rpc.getNetworkInfo([](const std::string& result) {
         LOG_INFO() << "getnetworkinfo result: " << result;
         return false;
     });
 
-    rpc.getWalletInfo([&reactor, &rpc](const std::string& result) {
+    rpc.getWalletInfo([](const std::string& result) {
         LOG_INFO() << "getwalletinfo result: " << result;
         return false;
     });
 
-    rpc.getRawChangeAddress([&reactor, &rpc](const std::string& result) {
+    rpc.getRawChangeAddress([](const std::string& result) {
         LOG_INFO() << "getRawChangeAddress result: " << result;
         return false;
     });
