@@ -2006,4 +2006,26 @@ void NodeDB::TxoDelSpentFrom(Height h)
 	rs.Step();
 }
 
+void NodeDB::EnumTxos(WalkerTxo& wlk, TxoID id0)
+{
+	wlk.m_Rs.Reset(Query::TxoEnum, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_ID ">=? ORDER BY " TblTxo_ID);
+	wlk.m_Rs.put(0, id0);
+}
+
+bool NodeDB::WalkerTxo::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+
+	m_Rs.get(0, m_ID);
+	m_Rs.get(1, m_Value);
+
+	if (m_Rs.IsNull(2))
+		m_SpendHeight = MaxHeight;
+	else
+		m_Rs.get(2, m_SpendHeight);
+
+	return true;
+}
+
 } // namespace beam

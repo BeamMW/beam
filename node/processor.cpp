@@ -67,11 +67,14 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 			m_DB.TxoDelFrom(m_Extra.m_Txos0);
 			m_DB.TxoDelSpentFrom(Rules::HeightGenesis);
 		}
+
+		m_Extra.m_Txos = m_Extra.m_Txos0;
 	}
 
 	InitCursor();
 
-	InitializeFromBlocks();
+	//InitializeFromBlocks();
+	InitializeUtxos();
 
 	OnHorizonChanged();
 
@@ -2146,6 +2149,54 @@ void NodeProcessor::InitializeFromBlocks()
 		MyWalker wlk;
 		wlk.m_pThis = this;
 		EnumBlocks(wlk);
+	}
+
+	if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
+	{
+		// final check
+		Merkle::Hash hv;
+		get_Definition(hv, false);
+		if (m_Cursor.m_Full.m_Definition != hv)
+			OnCorrupted();
+	}
+}
+
+void NodeProcessor::InitializeUtxos()
+{
+	if (!EnsureTreasuryHandled())
+		return;
+
+	assert(m_Extra.m_Txos == m_Extra.m_Txos0);
+
+	TxoID id1 = m_Extra.m_Txos0;
+	Height h = Rules::HeightGenesis - 1;
+
+	NodeDB::WalkerTxo wlk(m_DB);
+	m_DB.EnumTxos(wlk, m_Extra.m_Txos0);
+
+	while (wlk.MoveNext())
+	{
+		m_Extra.m_Txos = wlk.m_ID;
+
+		if (wlk.m_SpendHeight != MaxHeight)
+			continue;
+
+		while (wlk.m_ID >= id1)
+		{
+			StateExtra se;
+			if (!m_DB.get_StateExtra(FindActiveAtStrict(++h), se))
+				OnCorrupted();
+			se.m_Txos.Export(id1);
+		}
+
+		Deserializer der;
+		der.reset(wlk.m_Value.p, wlk.m_Value.n);
+
+		Output outp;
+		der & outp;
+
+		if (!HandleBlockElement(outp, h, nullptr, true))
+			OnCorrupted();
 	}
 
 	if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)

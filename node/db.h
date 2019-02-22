@@ -139,6 +139,7 @@ public:
 			TxoDelFrom,
 			TxoSetSpent,
 			TxoDelSpentFrom,
+			TxoEnum,
 
 			Dbg0,
 			Dbg1,
@@ -399,6 +400,19 @@ public:
 	void TxoDelFrom(TxoID);
 	void TxoSetSpent(TxoID, Height);
 	void TxoDelSpentFrom(Height);
+
+	struct WalkerTxo
+	{
+		Recordset m_Rs;
+		TxoID m_ID;
+		Blob m_Value;
+		Height m_SpendHeight;
+
+		WalkerTxo(NodeDB& db) :m_Rs(db) {}
+		bool MoveNext();
+	};
+
+	void EnumTxos(WalkerTxo&, TxoID id0);
 
 	// reset cursor to zero. Keep all the data: local macroblocks, peers, bbs, dummy UTXOs
 	void ResetCursor();

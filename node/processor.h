@@ -42,6 +42,7 @@ class NodeProcessor
 	void Rollback();
 	Height PruneOld();
 	void InitializeFromBlocks();
+	void InitializeUtxos();
 	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, Height hTarget);
 
 	struct RollbackData;
