@@ -125,5 +125,10 @@
         <file>assets/icon-repeat.svg</file>
         <file>assets/icon-folder.svg</file>
         <file>assets/icon-transfer.svg</file>
+        <file>assets/icon-proof.svg</file>
+        <file>controls/TransactionDetails.qml</file>
+        <file>controls/PaymentInfoDialog.qml</file>
+        <file>assets/icon-copy-blue.svg</file>
+        <file>assets/icon-details.svg</file>
     </qresource>
 </RCC>

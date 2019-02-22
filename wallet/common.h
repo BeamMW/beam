@@ -16,6 +16,7 @@
 
 #include "core/common.h"
 #include "core/ecc_native.h"
+#include "core/merkle.h"
 
 #include "core/serialization_adapters.h"
 #include "core/proto.h"
@@ -384,4 +385,5 @@ namespace beam
 namespace std
 {
     string to_string(const beam::WalletID&);
+    string to_string(const beam::Merkle::Hash& hash);
 }

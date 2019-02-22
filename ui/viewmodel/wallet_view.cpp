@@ -40,7 +40,15 @@ namespace
     }
 }
 
-TxObject::TxObject(const TxDescription& tx) : m_tx(tx)
+TxObject::TxObject(QObject* parent /*= nullptr*/)
+    : QObject(parent)
+{
+
+}
+
+TxObject::TxObject(const TxDescription& tx, QObject* parent/* = nullptr*/)
+    : QObject(parent)
+    , m_tx(tx)
 {
     auto kernelID = QString::fromStdString(to_hex(m_tx.m_kernelID.m_pData, m_tx.m_kernelID.nBytes));
     setKernelID(kernelID);
@@ -280,6 +288,90 @@ bool TxObject::isSelfTx() const
     return m_tx.m_selfTx;
 }
 
+PaymentInfoItem* TxObject::getPaymentInfo()
+{
+    return new MyPaymentInfoItem(m_tx.m_txId, this);
+}
+
+//////////
+// PaymentInfoItem
+PaymentInfoItem::PaymentInfoItem(QObject* parent /*= nullptr*/)
+    : QObject(parent)
+{
+
+}
+
+QString PaymentInfoItem::getSender() const
+{
+    return toString(m_paymentInfo.m_Sender);
+}
+
+QString PaymentInfoItem::getReceiver() const
+{
+    return toString(m_paymentInfo.m_Receiver);
+}
+
+QString PaymentInfoItem::getAmount() const
+{
+    return BeamToString(m_paymentInfo.m_Amount);
+}
+
+QString PaymentInfoItem::getKernelID() const
+{
+    return toString(m_paymentInfo.m_KernelID);
+}
+
+bool PaymentInfoItem::isValid() const
+{
+    return m_paymentInfo.IsValid();
+}
+
+QString PaymentInfoItem::getPaymentProof() const
+{
+    return m_paymentProof;
+}
+
+void PaymentInfoItem::setPaymentProof(const QString& value)
+{
+    if (m_paymentProof != value)
+    {
+        m_paymentProof = value;
+        try
+        {
+            m_paymentInfo = wallet::PaymentInfo::FromByteBuffer(from_hex(m_paymentProof.toStdString()));
+            emit paymentProofChanged();
+        }
+        catch (...)
+        {
+            reset();
+        }
+    }
+}
+
+void PaymentInfoItem::reset()
+{
+    m_paymentInfo.Reset();
+    emit paymentProofChanged();
+}
+
+//////////
+// MyPaymentInfoItem
+MyPaymentInfoItem::MyPaymentInfoItem(const TxID& txID, QObject* parent/* = nullptr*/)
+    : PaymentInfoItem(parent)
+{
+    auto model = AppModel::getInstance()->getWallet();
+    connect(model.get(), SIGNAL(paymentProofExported(const beam::TxID&, const QString&)), SLOT(onPaymentProofExported(const beam::TxID&, const QString&)));
+    model->getAsync()->exportPaymentProof(txID);
+}
+
+void MyPaymentInfoItem::onPaymentProofExported(const beam::TxID& txID, const QString& proof)
+{
+    setPaymentProof(proof);
+}
+
+
+//////////
+// WalletViewModel
 WalletViewModel::WalletViewModel()
     : _model(*AppModel::getInstance()->getWallet())
     , _status{ 0, 0, 0, 0, {0, 0, 0}, {} }
@@ -314,7 +406,7 @@ WalletViewModel::WalletViewModel()
 
 WalletViewModel::~WalletViewModel()
 {
-
+    qDeleteAll(_txList);
 }
 
 void WalletViewModel::cancelTx(TxObject* pTxObject)
@@ -408,6 +500,7 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
 {
     if (action == beam::ChangeAction::Reset)
     {
+        qDeleteAll(_txList);
         _txList.clear();
         for (const auto& item : items)
         {
@@ -421,6 +514,7 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
             auto it = find_if(_txList.begin(), _txList.end(), [&item](const auto& tx) {return item.m_txId == tx->getTxDescription().m_txId; });
             if (it != _txList.end())
             {
+                delete *it;
                 _txList.erase(it);
             }
         }

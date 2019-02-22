@@ -19,6 +19,8 @@
 #include "model/wallet_model.h"
 #include "messages_view.h"
 
+class PaymentInfoItem;
+
 class TxObject : public QObject
 {
     Q_OBJECT
@@ -39,11 +41,12 @@ class TxObject : public QObject
     Q_PROPERTY(QString fee              READ getFee              CONSTANT)
     Q_PROPERTY(QString kernelID         READ getKernelID         WRITE setKernelID  NOTIFY kernelIDChanged)
     Q_PROPERTY(QString failureReason    READ getFailureReason    NOTIFY failureReasonChanged)
+//    Q_PROPERTY(QString paymentProof     READ getPaymentProof     WRITE setPaymentProof NOTIFY paymentProofChanged)
 
 public:
 
-    TxObject() = default;
-    TxObject(const beam::TxDescription& tx);
+    TxObject(QObject* parent = nullptr);
+    TxObject(const beam::TxDescription& tx, QObject* parent = nullptr);
 
     bool income() const;
     QString date() const;
@@ -63,6 +66,8 @@ public:
     QString getKernelID() const;
     void setKernelID(const QString& value);
     QString getFailureReason() const;
+    //QString getPaymentProof() const;
+    //void setPaymentProof(const QString& value);
 
     void setUserName(const QString& name);
     void setDisplayName(const QString& name);
@@ -76,6 +81,7 @@ public:
     Q_INVOKABLE bool inProgress() const;
     Q_INVOKABLE bool isCompleted() const;
     Q_INVOKABLE bool isSelfTx() const;
+    Q_INVOKABLE PaymentInfoItem* getPaymentInfo();
 
 signals:
     void incomeChanged();
@@ -88,12 +94,48 @@ signals:
     void statusChanged();
     void kernelIDChanged();
     void failureReasonChanged();
-
 private:
     beam::TxDescription m_tx;
     QString m_userName;
     QString m_displayName;
     QString m_kernelID;
+};
+
+class PaymentInfoItem : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(QString sender              READ getSender              NOTIFY paymentProofChanged)
+    Q_PROPERTY(QString receiver            READ getReceiver            NOTIFY paymentProofChanged)
+    Q_PROPERTY(QString amount              READ getAmount              NOTIFY paymentProofChanged)
+    Q_PROPERTY(QString kernelID            READ getKernelID            NOTIFY paymentProofChanged)
+    Q_PROPERTY(bool isValid                READ isValid                NOTIFY paymentProofChanged)
+    Q_PROPERTY(QString paymentProof        READ getPaymentProof WRITE setPaymentProof NOTIFY paymentProofChanged )
+
+public:
+    PaymentInfoItem(QObject* parent = nullptr);
+    QString getSender() const;
+    QString getReceiver() const;
+    QString getAmount() const;
+    QString getKernelID() const;
+    bool isValid() const;
+    QString getPaymentProof() const;
+    void setPaymentProof(const QString& value);
+
+    Q_INVOKABLE void reset();
+signals:
+    void paymentProofChanged();
+private:
+    QString m_paymentProof;
+    beam::wallet::PaymentInfo m_paymentInfo;
+};
+
+class MyPaymentInfoItem : public PaymentInfoItem
+{
+    Q_OBJECT
+public:
+    MyPaymentInfoItem(const beam::TxID& txID, QObject* parent = nullptr);
+private slots:
+    void onPaymentProofExported(const beam::TxID& txID, const QString& proof);
 };
 
 class WalletViewModel : public QObject

@@ -14,7 +14,39 @@
 
 
 #include "common.h"
+#include "utility/logger.h"
+#include "core/ecc_native.h"
 
+using namespace std;
+using namespace ECC;
+using namespace beam;
+
+namespace std
+{
+    string to_string(const beam::WalletID& id)
+    {
+        static_assert(sizeof(id) == sizeof(id.m_Channel) + sizeof(id.m_Pk), "");
+
+        char szBuf[sizeof(id) * 2 + 1];
+        beam::to_hex(szBuf, &id, sizeof(id));
+
+        const char* szPtr = szBuf;
+        while (*szPtr == '0')
+            szPtr++;
+
+        if (!*szPtr)
+            szPtr--; // leave at least 1 symbol
+
+        return szPtr;
+    }
+
+    string to_string(const Merkle::Hash& hash)
+    {
+        char sz[Merkle::Hash::nTxtLen + 1];
+        hash.Print(sz);
+        return string(sz);
+    }
+}
 
 namespace beam::wallet
 {
@@ -46,5 +78,35 @@ namespace beam::wallet
         default:
             return ErrorType::ConnectionBase;
         }
+    }
+
+    void PaymentConfirmation::get_Hash(Hash::Value& hv) const
+    {
+        Hash::Processor()
+            << "PaymentConfirmation"
+            << m_KernelID
+            << m_Sender
+            << m_Value
+            >> hv;
+    }
+
+    bool PaymentConfirmation::IsValid(const PeerID& pid) const
+    {
+        Point::Native pk;
+        if (!proto::ImportPeerID(pk, pid))
+            return false;
+
+        Hash::Value hv;
+        get_Hash(hv);
+
+        return m_Signature.IsValid(hv, pk);
+    }
+
+    void PaymentConfirmation::Sign(const Scalar::Native& sk)
+    {
+        Hash::Value hv;
+        get_Hash(hv);
+
+        m_Signature.Sign(hv, sk);
     }
 }

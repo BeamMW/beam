@@ -43,6 +43,7 @@ struct IWalletModelAsync
 
     virtual void getNetworkStatus() = 0;
     virtual void refresh() = 0;
+    virtual void exportPaymentProof(const beam::TxID& id) = 0;
 
     virtual ~IWalletModelAsync() {}
 };
