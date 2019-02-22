@@ -59,7 +59,15 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 	ZeroObject(m_Extra);
 
 	if (bResetCursor)
+	{
 		m_DB.ResetCursor();
+
+		if (EnsureTreasuryHandled())
+		{
+			m_DB.TxoDelFrom(m_Extra.m_Txos0);
+			m_DB.TxoDelSpentFrom(Rules::HeightGenesis);
+		}
+	}
 
 	InitCursor();
 
@@ -616,8 +624,20 @@ bool NodeProcessor::HandleTreasury(const Blob& blob, bool bFirstTime)
 
 	if (bFirstTime)
 	{
+		Serializer ser;
+		TxoID id0 = 0;
+
 		for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
 		{
+			for (size_t i = 0; i < td.m_vGroups[iG].m_Data.m_vOutputs.size(); i++, id0++)
+			{
+				ser.reset();
+				ser & *td.m_vGroups[iG].m_Data.m_vOutputs[i];
+
+				SerializeBuffer sb = ser.buffer();
+				m_DB.TxoAdd(id0, Blob(sb.first, static_cast<uint32_t>(sb.second)));
+			}
+
 			TxVectors::Reader r = td.m_vGroups[iG].m_Data.get_Reader();
 			r.Reset();
 			RecognizeUtxos(std::move(r), 0);
@@ -785,12 +805,35 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 		if (bFwd)
 		{
+			for (size_t i = 0; i < block.m_vInputs.size(); i++)
+			{
+				const Input& x = *block.m_vInputs[i];
+				m_DB.TxoSetSpent(x.m_ID, sid.m_Height);
+			}
+
+			TxoID id0 = m_Extra.m_Txos - block.m_vOutputs.size();
+			Serializer ser;
+
+			for (size_t i = 0; i < block.m_vOutputs.size(); i++, id0++)
+			{
+				ser.reset();
+				ser & *block.m_vOutputs[i];
+
+				SerializeBuffer sb = ser.buffer();
+				m_DB.TxoAdd(id0, Blob(sb.first, static_cast<uint32_t>(sb.second)));
+			}
+
 			auto r = block.get_Reader();
 			r.Reset();
 			RecognizeUtxos(std::move(r), sid.m_Height);
 		}
 		else
+		{
+			m_DB.TxoDelFrom(m_Extra.m_Txos);
+			m_DB.TxoDelSpentFrom(sid.m_Height);
+
 			m_DB.DeleteEventsAbove(m_Cursor.m_ID.m_Height);
+		}
 
 		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
 	}

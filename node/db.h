@@ -135,6 +135,10 @@ public:
 			KernelFind,
 			KernelDel,
 			KernelDelAll,
+			TxoAdd,
+			TxoDelFrom,
+			TxoSetSpent,
+			TxoDelSpentFrom,
 
 			Dbg0,
 			Dbg1,
@@ -391,6 +395,11 @@ public:
 
 	uint64_t FindStateWorkGreater(const Difficulty::Raw&);
 
+	void TxoAdd(TxoID, const Blob&);
+	void TxoDelFrom(TxoID);
+	void TxoSetSpent(TxoID, Height);
+	void TxoDelSpentFrom(Height);
+
 	// reset cursor to zero. Keep all the data: local macroblocks, peers, bbs, dummy UTXOs
 	void ResetCursor();
 
@@ -418,6 +427,7 @@ private:
 
 	void Create();
 	void CreateTableDummy();
+	void CreateTableTxos();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);

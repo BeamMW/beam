@@ -79,6 +79,11 @@ namespace beam {
 #define TblDummy_ID				"ID"
 #define TblDummy_SpendHeight	"SpendHeight"
 
+#define TblTxo					"Txo"
+#define TblTxo_ID				"ID"
+#define TblTxo_Value			"Value"
+#define TblTxo_SpendHeight		"SpendHeight"
+
 NodeDB::NodeDB()
 	:m_pDb(NULL)
 {
@@ -310,6 +315,7 @@ void NodeDB::Open(const char* szPath)
 			// no break;
 
 		case nVersionMacro0:
+			CreateTableTxos();
 			ExecQuick("ALTER TABLE [" TblStates "] ADD [" TblStates_Extra "] BLOB");
 
 			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
@@ -413,6 +419,7 @@ void NodeDB::Create()
 	ExecQuick("CREATE INDEX [Idx" TblBbs "Key] ON [" TblBbs "] ([" TblBbs_Key "]);");
 
 	CreateTableDummy();
+	CreateTableTxos();
 }
 
 void NodeDB::CreateTableDummy()
@@ -422,6 +429,16 @@ void NodeDB::CreateTableDummy()
 		"[" TblDummy_SpendHeight	"] INTEGER NOT NULL)");
 
 	ExecQuick("CREATE INDEX [Idx" TblDummy "H] ON [" TblDummy "] ([" TblDummy_SpendHeight "])");
+}
+
+void NodeDB::CreateTableTxos()
+{
+	ExecQuick("CREATE TABLE [" TblTxo "] ("
+		"[" TblTxo_ID				"] INTEGER NOT NULL PRIMARY KEY,"
+		"[" TblTxo_Value			"] BLOB NOT NULL,"
+		"[" TblTxo_SpendHeight		"] INTEGER)");
+
+	ExecQuick("CREATE INDEX [Idx" TblTxo "SH] ON [" TblTxo "] ([" TblTxo_SpendHeight "])");
 }
 
 void NodeDB::Vacuum()
@@ -1955,6 +1972,38 @@ Height NodeDB::FindKernel(const Blob& key)
 
 	assert(h >= Rules::HeightGenesis);
 	return h;
+}
+
+void NodeDB::TxoAdd(TxoID id, const Blob& b)
+{
+	Recordset rs(*this, Query::TxoAdd, "INSERT INTO " TblTxo "(" TblTxo_ID "," TblTxo_Value ") VALUES(?,?)");
+	rs.put(0, id);
+	rs.put(1, b);
+	rs.Step();
+}
+
+void NodeDB::TxoDelFrom(TxoID id)
+{
+	Recordset rs(*this, Query::TxoDelFrom, "DELETE FROM " TblTxo " WHERE " TblTxo_ID ">=?");
+	rs.put(0, id);
+	rs.Step();
+}
+
+void NodeDB::TxoSetSpent(TxoID id, Height h)
+{
+	Recordset rs(*this, Query::TxoSetSpent, "UPDATE " TblTxo " SET " TblTxo_SpendHeight "=? WHERE " TblTxo_ID "=?");
+	rs.put(0, h);
+	rs.put(1, id);
+
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::TxoDelSpentFrom(Height h)
+{
+	Recordset rs(*this, Query::TxoDelSpentFrom, "UPDATE " TblTxo " SET " TblTxo_SpendHeight "=NULL WHERE " TblTxo_SpendHeight ">=?");
+	rs.put(0, h);
+	rs.Step();
 }
 
 } // namespace beam
