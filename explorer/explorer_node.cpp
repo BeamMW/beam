@@ -11,7 +11,6 @@
 
 using namespace beam;
 using namespace std;
-namespace po = boost::program_options;
 
 #define FILES_PREFIX "explorer-node_"
 #define API_PORT_PARAMETER "api_port"
