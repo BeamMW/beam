@@ -378,7 +378,51 @@ namespace beam
 			void Init(IWalletDB&);
 		};
 
+        struct PaymentInfo
+        {
+            WalletID m_Sender;
+            WalletID m_Receiver;
+
+            Amount m_Amount;
+            Merkle::Hash m_KernelID;
+            ECC::Signature m_Signature;
+
+            PaymentInfo();
+
+            template <typename Archive>
+            static void serializeWid(Archive& ar, WalletID& wid)
+            {
+                BbsChannel ch;
+                wid.m_Channel.Export(ch);
+
+                ar
+                    & ch
+                    & wid.m_Pk;
+
+                wid.m_Channel = ch;
+            }
+
+            template <typename Archive>
+            void serialize(Archive& ar)
+            {
+                serializeWid(ar, m_Sender);
+                serializeWid(ar, m_Receiver);
+                ar
+                    & m_Amount
+                    & m_KernelID
+                    & m_Signature;
+            }
+
+            bool IsValid() const;
+            
+            std::string to_string() const;
+            void Reset();
+            static PaymentInfo FromByteBuffer(const ByteBuffer& data);
+        };
+
         std::string ExportAddressesToJson(const IWalletDB& db);
         bool ImportAddressesFromJson(IWalletDB& db, const char* data, size_t size);
+        ByteBuffer ExportPaymentProof(const IWalletDB& db, const TxID& txID);
+        bool VerifyPaymentProof(const ByteBuffer& data);
     }
 }

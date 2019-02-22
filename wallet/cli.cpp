@@ -107,69 +107,6 @@ namespace beam
 }
 namespace
 {
-    string GetKernelIDString(const Merkle::Hash& kernelID)
-    {
-        char sz[Merkle::Hash::nTxtLen + 1];
-        kernelID.Print(sz);
-        return string(sz);
-    }
-
-    struct PaymentInfo
-    {
-        WalletID m_Sender;
-        WalletID m_Receiver;
-
-        Amount m_Amount;
-        Merkle::Hash m_KernelID;
-        Signature m_Signature;
-
-        template <typename Archive>
-        static void serializeWid(Archive& ar, WalletID& wid)
-        {
-            BbsChannel ch;
-            wid.m_Channel.Export(ch);
-
-            ar
-                & ch
-                & wid.m_Pk;
-
-            wid.m_Channel = ch;
-        }
-
-        template <typename Archive>
-        void serialize(Archive& ar)
-        {
-            serializeWid(ar, m_Sender);
-            serializeWid(ar, m_Receiver);
-            ar
-                & m_Amount
-                & m_KernelID
-                & m_Signature;
-        }
-
-        bool IsValid() const
-        {
-            wallet::PaymentConfirmation pc;
-            pc.m_Value = m_Amount;
-            pc.m_KernelID = m_KernelID;
-            pc.m_Signature = m_Signature;
-            pc.m_Sender = m_Sender.m_Pk;
-            return pc.IsValid(m_Receiver.m_Pk);
-        }
-
-        std::string to_string() const
-        {
-            std::ostringstream s;
-            s
-                << "Sender: " << std::to_string(m_Sender) << std::endl
-                << "Receiver: " << std::to_string(m_Receiver) << std::endl
-                << "Amount: " << PrintableAmount(m_Amount) << std::endl
-                << "KernelID: " << GetKernelIDString(m_KernelID) << std::endl;
-
-            return s.str();
-        }
-    };
-
     void ResolveWID(PeerID& res, const std::string& s)
     {
         bool bValid = true;
@@ -569,7 +506,7 @@ namespace
                     << " " << right << setw(columnWidths[1]) << PrintableAmount(tx.m_amount, true) << " "
                     << " " << left << setw(columnWidths[2]+1) << getTxStatus(tx) 
                     << " " << setw(columnWidths[3]+1) << to_hex(tx.m_txId.data(), tx.m_txId.size())
-                    << " " << setw(columnWidths[4]+1) << GetKernelIDString(tx.m_kernelID) << '\n';
+                    << " " << setw(columnWidths[4]+1) << to_string(tx.m_kernelID) << '\n';
             }
             return 0;
         }
@@ -604,36 +541,14 @@ namespace
         if (txIdVec.size() >= 16)
             std::copy_n(txIdVec.begin(), 16, txId.begin());
 
-        PaymentInfo pi;
-        uint64_t nAddrOwnID;
-
-        bool bSuccess =
-            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::PeerID, pi.m_Receiver) &&
-            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::MyID, pi.m_Sender) &&
-            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::KernelID, pi.m_KernelID) &&
-            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::Amount, pi.m_Amount) &&
-            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::PaymentConfirmation, pi.m_Signature) &&
-            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::MyAddressID, nAddrOwnID);
-
-        if (bSuccess)
+        auto res = wallet::ExportPaymentProof(*walletDB, txId);
+        if (!res.empty())
         {
-            LOG_INFO() << "Payment tx details:\n" << pi.to_string();
-            LOG_INFO() << "Sender address own ID: " << nAddrOwnID;
-
-            Serializer ser;
-            ser & pi;
-
-            auto res = ser.buffer();
             std::string sTxt;
-            sTxt.resize(res.second * 2);
+            sTxt.resize(res.size() * 2);
 
-            beam::to_hex(&sTxt.front(), res.first, res.second);
+            beam::to_hex(&sTxt.front(), res.data(), res.size());
             LOG_INFO() << "Exported form: " << sTxt;
-
-        }
-        else
-        {
-            LOG_WARNING() << "No payment confirmation for the specified transaction.";
         }
 
         return 0;
@@ -643,16 +558,8 @@ namespace
     {
         ByteBuffer buf = from_hex(vm[cli::PAYMENT_PROOF_DATA].as<string>());
 
-        Deserializer der;
-        der.reset(buf);
-
-        PaymentInfo pi;
-        der & pi;
-
-        if (!pi.IsValid())
+        if (!wallet::VerifyPaymentProof(buf))
             throw std::runtime_error("Payment proof is invalid");
-
-        LOG_INFO() << "Payment tx details:\n" << pi.to_string() << "Verified.";
 
         return 0;
     }

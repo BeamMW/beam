@@ -69,6 +69,7 @@ protected:
     virtual void FailedToStartWallet() = 0;
     virtual void onSendMoneyVerified() = 0;
     virtual void onCantSendToExpired() = 0;
+    virtual void onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof) = 0;
 
 private:
 
@@ -95,6 +96,7 @@ private:
     void changeWalletPassword(const beam::SecString& password) override;
     void getNetworkStatus() override;
     void refresh() override;
+    void exportPaymentProof(const beam::TxID& id) override;
 
     WalletStatus getStatus() const;
     std::vector<beam::Coin> getUtxos() const;

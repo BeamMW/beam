@@ -2541,5 +2541,93 @@ namespace beam
             }
             return false;
         }
+
+        PaymentInfo::PaymentInfo()
+        {
+            Reset();
+        }
+
+        bool PaymentInfo::IsValid() const
+        {
+            wallet::PaymentConfirmation pc;
+            pc.m_Value = m_Amount;
+            pc.m_KernelID = m_KernelID;
+            pc.m_Signature = m_Signature;
+            pc.m_Sender = m_Sender.m_Pk;
+            return pc.IsValid(m_Receiver.m_Pk);
+        }
+
+        std::string PaymentInfo::to_string() const
+        {
+            std::ostringstream s;
+            s
+                << "Sender: " << std::to_string(m_Sender) << std::endl
+                << "Receiver: " << std::to_string(m_Receiver) << std::endl
+                << "Amount: " << PrintableAmount(m_Amount) << std::endl
+                << "KernelID: " << std::to_string(m_KernelID) << std::endl;
+
+            return s.str();
+        }
+
+        void PaymentInfo::Reset()
+        {
+            ZeroObject(*this);
+        }
+
+        PaymentInfo PaymentInfo::FromByteBuffer(const ByteBuffer& data)
+        {
+            Deserializer der;
+            der.reset(data);
+
+            PaymentInfo pi;
+            der & pi;
+            return pi;
+        }
+
+        ByteBuffer ExportPaymentProof(const IWalletDB& walletDB, const TxID& txID)
+        {
+            PaymentInfo pi;
+            uint64_t nAddrOwnID;
+
+            bool bSuccess =
+                wallet::getTxParameter(walletDB, txID, wallet::TxParameterID::PeerID, pi.m_Receiver) &&
+                wallet::getTxParameter(walletDB, txID, wallet::TxParameterID::MyID, pi.m_Sender) &&
+                wallet::getTxParameter(walletDB, txID, wallet::TxParameterID::KernelID, pi.m_KernelID) &&
+                wallet::getTxParameter(walletDB, txID, wallet::TxParameterID::Amount, pi.m_Amount) &&
+                wallet::getTxParameter(walletDB, txID, wallet::TxParameterID::PaymentConfirmation, pi.m_Signature) &&
+                wallet::getTxParameter(walletDB, txID, wallet::TxParameterID::MyAddressID, nAddrOwnID);
+
+            if (bSuccess)
+            {
+                LOG_INFO() << "Payment tx details:\n" << pi.to_string();
+                LOG_INFO() << "Sender address own ID: " << nAddrOwnID;
+
+                Serializer ser;
+                ser & pi;
+
+                auto res = ser.buffer();
+                return ByteBuffer(res.first, res.first + res.second);
+            }
+            else
+            {
+                LOG_WARNING() << "No payment confirmation for the specified transaction.";
+            }
+
+            return ByteBuffer();
+        }
+
+        bool VerifyPaymentProof(const ByteBuffer& data)
+        {
+            PaymentInfo pi = PaymentInfo::FromByteBuffer(data);
+            
+            if (!pi.IsValid())
+            {
+                return false;
+            }
+
+            LOG_INFO() << "Payment tx details:\n" << pi.to_string() << "Verified.";
+
+            return true;
+        }
     }
 }

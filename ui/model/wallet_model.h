@@ -45,6 +45,7 @@ signals:
     void walletError(beam::wallet::ErrorType error);
     void sendMoneyVerified();
     void cantSendToExpired();
+    void paymentProofExported(const beam::TxID& txID, const QString& proof);
 
 private:
     void onStatus(const WalletStatus& status) override;
@@ -60,4 +61,5 @@ private:
     void FailedToStartWallet() override;
     void onSendMoneyVerified() override;
     void onCantSendToExpired() override;
+    void onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof) override;
 };

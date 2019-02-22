@@ -185,6 +185,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
             receiver_.refresh();
         });
     }
+
+    void exportPaymentProof(const beam::TxID& id) override
+    {
+        tx.send([id](BridgeInterface& receiver_) mutable
+        {
+            receiver_.exportPaymentProof(id);
+        });
+    }
 };
 }
 
@@ -629,6 +637,11 @@ void WalletClient::refresh()
     catch (...) {
         LOG_UNHANDLED_EXCEPTION();
     }
+}
+
+void WalletClient::exportPaymentProof(const beam::TxID& id)
+{
+    onPaymentProofExported(id, beam::wallet::ExportPaymentProof(*m_walletDB, id));
 }
 
 WalletStatus WalletClient::getStatus() const
