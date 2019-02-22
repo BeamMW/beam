@@ -40,4 +40,5 @@ private:
     void FailedToStartWallet() override;
     void onSendMoneyVerified() override;
     void onCantSendToExpired() override;
+    void onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof) override;
 };

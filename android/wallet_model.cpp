@@ -281,3 +281,8 @@ void WalletModel::onCantSendToExpired()
 {
     
 }
+
+void WalletModel::onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof)
+{
+
+}
