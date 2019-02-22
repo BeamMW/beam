@@ -479,11 +479,22 @@ namespace beam
             return;
         }
         bool txChanged = false;
+        SubTxID subTxID = kDefaultSubTxID;
+
         for (const auto& p : msg.m_Parameters)
         {
+            if (p.first == TxParameterID::SubTxIndex)
+            {
+                // change subTxID
+                Deserializer d;
+                d.reset(p.second.data(), p.second.size());
+                d & subTxID;
+                continue;
+            }
+
             if (p.first < TxParameterID::PrivateFirstParam)
             {
-                txChanged |= t->SetParameter(p.first, p.second);
+                txChanged |= t->SetParameter(p.first, p.second, subTxID);
             }
             else
             {

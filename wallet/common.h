@@ -214,6 +214,8 @@ namespace beam
             
             IsSelfTx = 27,
 
+            SubTxIndex = 28,
+
             // signature parameters
 
             PeerPublicNonce = 40,
@@ -244,6 +246,12 @@ namespace beam
             FailureReason = 92,
 
             PaymentConfirmation = 99,
+
+            PeerSharedBulletProofMSigX = 108,
+            PeerSharedBulletProofMSigZZ = 109,
+            PeerSharedBulletProofPart2Point1 = 111,
+            PeerSharedBulletProofPart2Point2 = 112,
+            PeerSharedBulletProofPart3Scalar = 113,
 
             // private parameters
             PrivateFirstParam = 128,

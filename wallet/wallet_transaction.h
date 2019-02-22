@@ -21,7 +21,7 @@
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
-namespace beam { namespace wallet
+namespace beam::wallet
 {
 
     TxID GenerateTxID();
@@ -68,16 +68,16 @@ namespace beam { namespace wallet
 		static const uint32_t s_ProtoVersion;
 
         template <typename T>
-        bool GetParameter(TxParameterID paramID, T& value) const
+        bool GetParameter(TxParameterID paramID, T& value, SubTxID subTxID = kDefaultSubTxID) const
         {
-            return getTxParameter(*m_WalletDB, GetTxID(), paramID, value);
+            return getTxParameter(*m_WalletDB, GetTxID(), subTxID, paramID, value);
         }
 
         template <typename T>
-        T GetMandatoryParameter(TxParameterID paramID) const
+        T GetMandatoryParameter(TxParameterID paramID, SubTxID subTxID = kDefaultSubTxID) const
         {
             T value{};
-            if (!getTxParameter(*m_WalletDB, GetTxID(), paramID, value))
+            if (!getTxParameter(*m_WalletDB, GetTxID(), subTxID, paramID, value))
             {
                 throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
             }
@@ -85,22 +85,22 @@ namespace beam { namespace wallet
         }
 
         template <typename T>
-        bool SetParameter(TxParameterID paramID, const T& value)
+        bool SetParameter(TxParameterID paramID, const T& value, SubTxID subTxID = kDefaultSubTxID)
         {
             bool shouldNotifyAboutChanges = ShouldNotifyAboutChanges(paramID);
-            return SetParameter(paramID, value, shouldNotifyAboutChanges);
+            return SetParameter(paramID, value, shouldNotifyAboutChanges, subTxID);
         }
 
         template <typename T>
-        bool SetParameter(TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges)
+        bool SetParameter(TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges, SubTxID subTxID = kDefaultSubTxID)
         {
-            return setTxParameter(*m_WalletDB, GetTxID(), paramID, value, shouldNotifyAboutChanges);
+            return setTxParameter(*m_WalletDB, GetTxID(), subTxID, paramID, value, shouldNotifyAboutChanges);
         }
 
         template <typename T>
-        void SetState(T state)
+        void SetState(T state, SubTxID subTxID = kDefaultSubTxID)
         {
-            SetParameter(TxParameterID::State, state, true);
+            SetParameter(TxParameterID::State, state, true, subTxID);
         }
 
         IWalletDB::Ptr GetWalletDB();
@@ -165,68 +165,4 @@ namespace beam { namespace wallet
         bool IsSelfTx() const;
         State GetState() const;
     };
-
-    class TxBuilder
-    {
-    public:
-        TxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee);
-
-        void SelectInputs();
-        void AddChangeOutput();
-        void AddOutput(Amount amount, bool bChange);
-        bool FinalizeOutputs();
-        Output::Ptr CreateOutput(Amount amount, bool bChange, bool shared = false, Height incubation = 0);
-        void CreateKernel();
-        ECC::Point::Native GetPublicExcess() const;
-        ECC::Point::Native GetPublicNonce() const;
-        bool GetInitialTxParams();
-        bool GetPeerPublicExcessAndNonce();
-        bool GetPeerSignature();
-        bool GetPeerInputsAndOutputs();
-        void FinalizeSignature();
-        Transaction::Ptr CreateTransaction();
-        void SignPartial();
-        bool IsPeerSignatureValid() const;
-
-        Amount GetAmount() const;
-        const AmountList& GetAmountList() const;
-        Amount GetFee() const;
-        Height GetMinHeight() const;
-        Height GetMaxHeight() const;
-        const std::vector<Input::Ptr>& GetInputs() const;
-        const std::vector<Output::Ptr>& GetOutputs() const;
-        const ECC::Scalar::Native& GetOffset() const;
-        const ECC::Scalar::Native& GetPartialSignature() const;
-        const TxKernel& GetKernel() const;
-        void StoreKernelID();
-        std::string GetKernelIDString() const;
-
-    private:
-        BaseTransaction& m_Tx;
-
-        // input
-        AmountList m_AmountList;
-        Amount m_Fee;
-        Amount m_Change;
-        Height m_MinHeight;
-        Height m_MaxHeight;
-        std::vector<Input::Ptr> m_Inputs;
-        std::vector<Output::Ptr> m_Outputs;
-        ECC::Scalar::Native m_BlindingExcess; // goes to kernel
-        ECC::Scalar::Native m_Offset; // goes to offset
-
-        // peer values
-        ECC::Scalar::Native m_PartialSignature;
-        ECC::Point::Native m_PeerPublicNonce;
-        ECC::Point::Native m_PeerPublicExcess;
-        std::vector<Input::Ptr> m_PeerInputs;
-        std::vector<Output::Ptr> m_PeerOutputs;
-        ECC::Scalar::Native m_PeerOffset;
-
-        // deduced values, 
-        TxKernel::Ptr m_Kernel;
-        ECC::Scalar::Native m_PeerSignature;
-        ECC::Hash::Value m_Message;
-        ECC::Signature::MultiSig m_MultiSig;
-    };
-}}
+}

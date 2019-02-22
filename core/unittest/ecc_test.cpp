@@ -929,42 +929,6 @@ void TestMultiSigOutput(bool bCustomTag)
     verify_test(transaction.IsValid(ctx));
 }
 
-void TestMultisigTransaction()
-{
-    ECC::Amount amount = 5000;
-    beam::Key::IKdf::Ptr pKdf_A;
-    beam::Key::IKdf::Ptr pKdf_B;
-    uintBig secretB;
-    uintBig secretA;
-    SetRandom(secretA);
-    SetRandom(secretB);
-    ECC::HKdf::Create(pKdf_B, secretB);
-    ECC::HKdf::Create(pKdf_A, secretA);
-
-    beam::Transaction transaction;
-    Scalar::Native offset;
-
-    // create Input
-    std::unique_ptr<beam::Input> pInput(new beam::Input);
-
-    // create test coin
-    Key::IDV kidv;
-    SetRandomOrd(kidv.m_Idx);
-    kidv.m_Type = Key::Type::Regular;
-    kidv.m_SubIdx = 0;
-    kidv.m_Value = amount;
-    Scalar::Native k;
-    beam::SwitchCommitment(nullptr).Create(k, pInput->m_Commitment, *pKdf_A, kidv);
-
-    transaction.m_vInputs.push_back(std::move(pInput));
-    offset += k;
-
-    // output
-
-
-    // kernel
-}
-
 struct TransactionMaker
 {
 	beam::Transaction m_Trans;
