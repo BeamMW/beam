@@ -1174,13 +1174,13 @@ void NodeDB::SetStateRollback(uint64_t rowid, const Blob& rollback)
 	TestChanged1Row();
 }
 
-//void NodeDB::DelStateBlockPRB(uint64_t rowid)
-//{
-//	Recordset rs(*this, Query::StateDelBlock, "UPDATE " TblStates " SET " TblStates_BodyP "=?," TblStates_Rollback "=? WHERE rowid=?");
-//	rs.put(2, rowid);
-//	rs.Step();
-//	TestChanged1Row();
-//}
+void NodeDB::DelStateBlockPRB(uint64_t rowid)
+{
+	Recordset rs(*this, Query::StateDelBlock, "UPDATE " TblStates " SET " TblStates_BodyP "=NULL," TblStates_Rollback "=NULL," TblStates_Peer "=NULL WHERE rowid=?");
+	rs.put(0, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
 
 void NodeDB::DelStateBlockAll(uint64_t rowid)
 {

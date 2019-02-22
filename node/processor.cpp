@@ -377,11 +377,16 @@ Height NodeProcessor::PruneOld()
 			NodeDB::WalkerState ws(m_DB);
 			for (m_DB.EnumStatesAt(ws, hFossil); ws.MoveNext(); )
 			{
-				if (!(NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row)))
+				if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
+					m_DB.DelStateBlockPRB(ws.m_Sid.m_Row);
+				else
+				{
 					m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
 
-				m_DB.DelStateBlockAll(ws.m_Sid.m_Row);
-				m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
+					m_DB.DelStateBlockAll(ws.m_Sid.m_Row);
+					m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
+				}
+
 				hRet++;
 			}
 
@@ -2011,8 +2016,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 
 		m_DB.SetStateFunctional(sid.m_Row);
 
-		m_DB.DelStateBlockAll(sid.m_Row); // if somehow it was downloaded
-		m_DB.set_Peer(sid.m_Row, NULL);
+		m_DB.DelStateBlockPRB(sid.m_Row); // if somehow it was downloaded
 
 		sid.m_Height = id.m_Height;
 		m_DB.MoveFwd(sid);
