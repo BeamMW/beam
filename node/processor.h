@@ -67,7 +67,6 @@ class NodeProcessor
 	static void OnCorrupted();
 	void get_Definition(Merkle::Hash&, bool bForNextState);
 	void get_Definition(Merkle::Hash&, const Merkle::Hash& hvHist);
-	Height get_FossilHeight();
 
 	typedef std::pair<int64_t, std::pair<int64_t, Difficulty::Raw> > THW; // Time-Height-Work. Time and Height are signed
 	Difficulty get_NextDifficulty();
@@ -127,7 +126,8 @@ public:
 	struct Horizon {
 
 		Height m_Branching; // branches behind this are pruned
-		Height m_Schwarzschild; // original blocks begind this are erased
+		Height m_SchwarzschildLo; // spent behind this are completely erased
+		Height m_SchwarzschildHi; // spent behind this are compacted
 
 		Horizon(); // by default both are disabled.
 

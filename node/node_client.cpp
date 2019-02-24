@@ -169,7 +169,7 @@ void NodeClient::runLocalNode()
     node.m_Cfg.m_HistoryCompression.m_sPathTmp = m_observer->getTempDir();
 
 	node.m_Cfg.m_Horizon.m_Branching = Rules::get().Macroblock.MaxRollback / 4; // inferior branches would be pruned when height difference is this.
-	node.m_Cfg.m_Horizon.m_Schwarzschild = 0; // would be adjusted anyway
+	node.m_Cfg.m_Horizon.m_SchwarzschildHi = 0; // would be adjusted anyway
 
     auto peers = m_observer->getLocalNodePeers();
 

@@ -43,13 +43,15 @@ public:
 			DbVer,
 			CursorRow,
 			CursorHeight,
-			FossilHeight,
+			FossilHeight, // Height starting from which and below original blocks are erased
 			CfgChecksum,
 			MyID,
 			SyncTarget,
-			LoHorizon,
+			LoHorizon, // Height of no-return. Navigation is impossible below it
 			Treasury,
-			DummyID
+			DummyID,
+			HeightTxoLo, // Height below which spent Txo info is totally erased.
+			HeightTxoHi, // Height below which spent Txo infi is compacted, only the commitment is left
 		};
 	};
 

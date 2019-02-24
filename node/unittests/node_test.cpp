@@ -759,7 +759,7 @@ namespace beam
 	{
 		MyNodeProcessor1 np;
 		np.m_Horizon.m_Branching = 35;
-		//np.m_Horizon.m_Schwarzschild = 40; - will prevent extracting some macroblock ranges
+		//np.m_Horizon.m_SchwarzschildHi = 40; - will prevent extracting some macroblock ranges
 		np.Initialize(g_sz);
 		np.OnTreasury(g_Treasury);
 
@@ -894,7 +894,7 @@ namespace beam
 	{
 		NodeProcessor::Horizon horz;
 		horz.m_Branching = 12;
-		horz.m_Schwarzschild = 12;
+		horz.m_SchwarzschildHi = 12;
 
 		size_t nMid = blockChain.size() / 2;
 
@@ -1122,7 +1122,7 @@ namespace beam
 		ECC::SetRandom(node);
 
 		node.m_Cfg.m_Horizon.m_Branching = 6;
-		node.m_Cfg.m_Horizon.m_Schwarzschild = 8;
+		node.m_Cfg.m_Horizon.m_SchwarzschildHi = 8;
 		node.m_Cfg.m_VerificationThreads = -1;
 
 		node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;

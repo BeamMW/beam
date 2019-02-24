@@ -29,8 +29,9 @@ void NodeProcessor::OnCorrupted()
 }
 
 NodeProcessor::Horizon::Horizon()
-	:m_Branching(Height(-1))
-	,m_Schwarzschild(Height(-1))
+	:m_Branching(MaxHeight)
+	,m_SchwarzschildLo(MaxHeight)
+	,m_SchwarzschildHi(MaxHeight)
 {
 }
 
@@ -96,8 +97,9 @@ NodeProcessor::~NodeProcessor()
 
 void NodeProcessor::OnHorizonChanged()
 {
-	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, m_Horizon.m_Branching);
-	m_Horizon.m_Schwarzschild = std::max(m_Horizon.m_Schwarzschild, (Height)Rules::get().Macroblock.MaxRollback);
+	m_Horizon.m_SchwarzschildHi = std::max(m_Horizon.m_SchwarzschildHi, m_Horizon.m_Branching);
+	m_Horizon.m_SchwarzschildHi = std::max(m_Horizon.m_SchwarzschildHi, (Height) Rules::get().Macroblock.MaxRollback);
+	m_Horizon.m_SchwarzschildLo = std::max(m_Horizon.m_SchwarzschildLo, m_Horizon.m_SchwarzschildHi);
 
 	if (PruneOld())
 	{
@@ -427,6 +429,9 @@ void NodeProcessor::TryGoUp()
 
 Height NodeProcessor::PruneOld()
 {
+	if (!m_Cursor.m_Sid.m_Height)
+		return 0;
+
 	Height hRet = 0;
 
 	if (m_Cursor.m_Sid.m_Height > m_Horizon.m_Branching + Rules::HeightGenesis - 1)
@@ -457,20 +462,16 @@ Height NodeProcessor::PruneOld()
 		}
 	}
 
-	if (m_Cursor.m_Sid.m_Height > m_Horizon.m_Schwarzschild + Rules::HeightGenesis - 1)
+	Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1);
+	assert(hFossil < m_Cursor.m_Sid.m_Height);
+
+	if (m_Cursor.m_Sid.m_Height - hFossil - 1 > (Height) Rules::get().Macroblock.MaxRollback)
 	{
-		Height h = m_Cursor.m_Sid.m_Height - m_Horizon.m_Schwarzschild;
+		Height hTrg = m_Cursor.m_Sid.m_Height - Rules::get().Macroblock.MaxRollback - 1;
+		assert(hTrg > hFossil);
 
-		if (h > m_Cursor.m_LoHorizon)
-			h = m_Cursor.m_LoHorizon;
-
-		AdjustFossilEnd(h);
-
-		for (Height hFossil = get_FossilHeight(); ; )
+		for (; hFossil < hTrg; hFossil++)
 		{
-			if (++hFossil >= h)
-				break;
-
 			NodeDB::WalkerState ws(m_DB);
 			for (m_DB.EnumStatesAt(ws, hFossil); ws.MoveNext(); )
 			{
@@ -486,17 +487,47 @@ Height NodeProcessor::PruneOld()
 
 				hRet++;
 			}
-
-			m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
 		}
+
+		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
+	}
+
+	hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoLo, Rules::HeightGenesis - 1);
+	if (m_Cursor.m_Sid.m_Height - hFossil - 1 > m_Horizon.m_SchwarzschildLo)
+	{
+		hFossil = m_Cursor.m_Sid.m_Height - m_Horizon.m_SchwarzschildLo - 1;
+
+		hRet += m_DB.DeleteSpentTxos(hFossil);
+		m_DB.ParamSet(NodeDB::ParamID::HeightTxoLo, &hFossil, NULL);
+	}
+
+	hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
+	if (m_Cursor.m_Sid.m_Height - hFossil - 1 > m_Horizon.m_SchwarzschildHi)
+	{
+		Height hTrg = m_Cursor.m_Sid.m_Height - m_Horizon.m_SchwarzschildHi - 1;
+
+		NodeDB::WalkerTxo wlk(m_DB);
+		for (m_DB.EnumTxosBySpent(wlk, hFossil + 1); wlk.MoveNext(); )
+		{
+			if (wlk.m_SpendHeight > hTrg)
+				break;
+
+			ECC::Point pt;
+			if (wlk.m_Value.n < sizeof(pt))
+				OnCorrupted();
+
+			const uint8_t* pPtr = reinterpret_cast<const uint8_t*>(wlk.m_Value.p);
+			pt.m_Y = 1 & pPtr[0];
+			memcpy(&pt.m_X, pPtr + 1, pt.m_X.nBytes);
+
+			m_DB.TxoSetValue(wlk.m_ID, Blob(&pt, sizeof(pt)));
+			hRet++;
+		}
+
+		m_DB.ParamSet(NodeDB::ParamID::HeightTxoHi, &hTrg, NULL);
 	}
 
 	return hRet;
-}
-
-Height NodeProcessor::get_FossilHeight()
-{
-	return m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1);
 }
 
 void NodeProcessor::get_Definition(Merkle::Hash& hv, const Merkle::Hash& hvHist)
@@ -606,7 +637,9 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 	Merkle::FixedMmmr mmr;
 	size_t iTrg;
 
-	if (h <= get_FossilHeight())
+	Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1);
+
+	if (h <= hFossil)
 	{
 		Block::Body::RW rw;
 		if (!OpenLatestMacroblock(rw))
