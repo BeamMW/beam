@@ -140,6 +140,9 @@ public:
 			TxoSetSpent,
 			TxoDelSpentFrom,
 			TxoEnum,
+			TxoEnumBySpent,
+			TxoDelSpentTxosFrom,
+			TxoSetValue,
 
 			Dbg0,
 			Dbg1,
@@ -413,6 +416,9 @@ public:
 	};
 
 	void EnumTxos(WalkerTxo&, TxoID id0);
+	void EnumTxosBySpent(WalkerTxo&, Height h0);
+	uint64_t DeleteSpentTxos(Height hFrom);
+	void TxoSetValue(TxoID, const Blob&);
 
 	// reset cursor to zero. Keep all the data: local macroblocks, peers, bbs, dummy UTXOs
 	void ResetCursor();

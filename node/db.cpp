@@ -2012,6 +2012,12 @@ void NodeDB::EnumTxos(WalkerTxo& wlk, TxoID id0)
 	wlk.m_Rs.put(0, id0);
 }
 
+void NodeDB::EnumTxosBySpent(WalkerTxo& wlk, Height h0)
+{
+	wlk.m_Rs.Reset(Query::TxoEnumBySpent, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_SpendHeight ">=? ORDER BY " TblTxo_SpendHeight);
+	wlk.m_Rs.put(0, h0);
+}
+
 bool NodeDB::WalkerTxo::MoveNext()
 {
 	if (!m_Rs.Step())
@@ -2026,6 +2032,24 @@ bool NodeDB::WalkerTxo::MoveNext()
 		m_Rs.get(2, m_SpendHeight);
 
 	return true;
+}
+
+uint64_t NodeDB::DeleteSpentTxos(Height hFrom)
+{
+	Recordset rs(*this, Query::TxoDelSpentTxosFrom, "DELETE FROM " TblTxo " WHERE " TblTxo_SpendHeight "<=?");
+	rs.put(0, hFrom);
+	rs.Step();
+
+	return static_cast<uint64_t>(get_RowsChanged());
+}
+
+void NodeDB::TxoSetValue(TxoID id, const Blob& v)
+{
+	Recordset rs(*this, Query::TxoSetValue, "UPDATE " TblTxo " SET " TblTxo_Value "=? WHERE " TblTxo_ID "=?");
+	rs.put(0, v);
+	rs.put(1, id);
+	rs.Step();
+	TestChanged1Row();
 }
 
 } // namespace beam
