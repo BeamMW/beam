@@ -2176,7 +2176,7 @@ void NodeProcessor::InitializeUtxos()
 
 	while (wlk.MoveNext())
 	{
-		m_Extra.m_Txos = wlk.m_ID;
+		m_Extra.m_Txos = wlk.m_ID + 1;
 
 		while (wlk.m_ID >= id1)
 		{
@@ -2208,6 +2208,7 @@ void NodeProcessor::InitializeUtxos()
 		}
 		else
 		{
+			m_Extra.m_Txos--;
 			if (!HandleBlockElement(outp, h, nullptr, true))
 				OnCorrupted();
 		}
