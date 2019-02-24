@@ -194,12 +194,20 @@ void NodeClient::runLocalNode()
         Node* m_pNode;
         NodeClient* m_pModel;
 
+		bool m_bReportedStarted = false;
+
         void OnSyncProgress() override
         {
-            // make sure no overflow during conversion from SyncStatus to int,int.
             Node::SyncStatus s = m_pNode->m_SyncStatus;
 
-            unsigned int nThreshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
+			if (!m_bReportedStarted && (s.m_Done == s.m_Total))
+			{
+				m_bReportedStarted = true;
+				m_pModel->m_observer->onStartedNode();
+			}
+
+			// make sure no overflow during conversion from SyncStatus to int,int.
+			unsigned int nThreshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
             while (s.m_Total > nThreshold)
             {
                 s.m_Total >>= 1;
@@ -208,6 +216,12 @@ void NodeClient::runLocalNode()
 
             m_pModel->m_observer->onSyncProgressUpdated(static_cast<int>(s.m_Done), static_cast<int>(s.m_Total));
         }
+
+		~MyObserver()
+		{
+			if (m_bReportedStarted)
+				m_pModel->m_observer->onStoppedNode();
+		}
 
     } obs;
 
@@ -218,11 +232,9 @@ void NodeClient::runLocalNode()
     node.Initialize();
 
     m_isRunning = true;
-    m_observer->onStartedNode();
 
     io::Reactor::get_Current().run();
 
     m_isRunning = false;
-    m_observer->onStoppedNode();
 }
 }
