@@ -146,6 +146,45 @@ void NodeProcessor::InitCursor()
 	m_Cursor.m_DifficultyNext = get_NextDifficulty();
 }
 
+void NodeProcessor::CongestionCache::Clear()
+{
+	while (!m_lstTips.empty())
+		Delete(&m_lstTips.front());
+}
+
+void NodeProcessor::CongestionCache::Delete(TipCongestion* pVal)
+{
+	m_lstTips.erase(TipList::s_iterator_to(*pVal));
+	delete pVal;
+}
+
+NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::CongestionCache::Find(const NodeDB::StateID& sid)
+{
+	TipCongestion* pRet = nullptr;
+
+	for (TipList::iterator it = m_lstTips.begin(); m_lstTips.end() != it; it++)
+	{
+		TipCongestion& x = *it;
+		if (sid.m_Height > x.m_Height)
+			continue;
+
+		Height dh = x.m_Height - sid.m_Height;
+		if (dh >= x.m_Rows.size())
+			continue;
+
+		if (x.m_Rows.at(dh) != sid.m_Row)
+			continue;
+
+		// in case of several matches prefer the one with lower height
+		if (pRet && (pRet->m_Height <= x.m_Height))
+			continue;
+
+		pRet = &x;
+	}
+
+	return pRet;
+}
+
 void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 {
 	if (!EnsureTreasuryHandled())
@@ -155,6 +194,9 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 		RequestData(id, true, nullptr, 0);
 		return;
 	}
+
+	CongestionCache cc;
+	cc.m_lstTips.swap(m_CongestionCache.m_lstTips);
 
 	// request all potentially missing data
 	NodeDB::WalkerState ws(m_DB);
@@ -170,25 +212,83 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 		if (wrk < m_Cursor.m_Full.m_ChainWork)
 			continue; // not interested in tips behind the current cursor
 
-		Height hTarget = sid.m_Height;
-		Height nBlocks = 0;
-		const uint32_t nMaxBlocks = 32;
-		uint64_t pBlockRow[nMaxBlocks];
+		CongestionCache::TipCongestion* pEntry = nullptr;
+		bool bCheckCache = true;
+		bool bNeedHdrs = false;
 
 		while (true)
 		{
-			pBlockRow[nBlocks % nMaxBlocks] = sid.m_Row;
-			nBlocks++;
+			if (bCheckCache)
+			{
+				CongestionCache::TipCongestion* p = cc.Find(sid);
+				if (p)
+				{
+					assert(p->m_Height >= sid.m_Height);
+					while (p->m_Height > sid.m_Height)
+					{
+						p->m_Height--;
+						p->m_Rows.pop_front();
+					}
+
+					if (pEntry)
+					{
+						for (size_t i = pEntry->m_Rows.size(); i--; p->m_Height++)
+							p->m_Rows.push_front(pEntry->m_Rows.at(i));
+
+						m_CongestionCache.Delete(pEntry);
+					}
+
+					cc.m_lstTips.erase(CongestionCache::TipList::s_iterator_to(*p));
+					m_CongestionCache.m_lstTips.push_back(*p);
+
+					while (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(p->m_Rows.at(p->m_Rows.size() - 1)))
+						p->m_Rows.pop_back(); // already retrieved
+
+					assert(p->m_Rows.size());
+
+					sid.m_Row = p->m_Rows.at(p->m_Rows.size() - 1);
+					sid.m_Height = p->m_Height - (p->m_Rows.size() - 1);
+
+					pEntry = p;
+					bCheckCache = false;
+				}
+			}
+
+			if (!pEntry)
+			{
+				pEntry = new CongestionCache::TipCongestion;
+				m_CongestionCache.m_lstTips.push_back(*pEntry);
+
+				pEntry->m_Height = sid.m_Height;
+			}
+
+			if (bCheckCache)
+			{
+				CongestionCache::TipCongestion* p = m_CongestionCache.Find(sid);
+				if (p)
+				{
+					assert(p != pEntry);
+
+					// copy the rest
+					for (size_t i = p->m_Height - sid.m_Height; i < p->m_Rows.size(); i++)
+						pEntry->m_Rows.push_back(p->m_Rows.at(i));
+
+					sid.m_Row = p->m_Rows.at(p->m_Rows.size() - 1);
+					sid.m_Height = p->m_Height - (p->m_Rows.size() - 1);
+
+					bCheckCache = false;
+				}
+			}
+
+			if (pEntry->m_Height >= sid.m_Height + pEntry->m_Rows.size())
+				pEntry->m_Rows.push_back(sid.m_Row);
 
 			if (Rules::HeightGenesis == sid.m_Height)
-			{
-				sid.m_Height--;
 				break;
-			}
 
 			if (!m_DB.get_Prev(sid))
 			{
-				nBlocks = 0;
+				bNeedHdrs = true;
 				break;
 			}
 
@@ -196,32 +296,26 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 				break;
 		}
 
+		assert(pEntry && pEntry->m_Rows.size());
+
 		Block::SystemState::ID id;
 
-		if (nBlocks)
+		if (!bNeedHdrs)
 		{
 			if (!nMaxBlocksBacklog)
 				nMaxBlocksBacklog = 1;
-			else
+
+			for (size_t i = pEntry->m_Rows.size(); (i--) && (nMaxBlocksBacklog--); )
 			{
-				if (nMaxBlocksBacklog > nMaxBlocks)
-					nMaxBlocksBacklog = nMaxBlocks;
+				sid.m_Height = pEntry->m_Height - i;
+				sid.m_Row = pEntry->m_Rows.at(i);
 
-				if (nMaxBlocksBacklog > nBlocks)
-					nMaxBlocksBacklog = static_cast<uint32_t>(nBlocks);
-			}
-
-			for (uint32_t i = 0; i < nMaxBlocksBacklog; i++)
-			{
-				sid.m_Height++;
-				sid.m_Row = pBlockRow[(--nBlocks) % nMaxBlocks];
-
-				if (i && (NodeDB::StateFlags::Functional & m_DB.GetStateFlags(sid.m_Row)))
+				if (NodeDB::StateFlags::Functional & m_DB.GetStateFlags(sid.m_Row))
 					continue;
 
 				m_DB.get_StateID(sid, id);
+				RequestDataInternal(id, sid.m_Row, true, pEntry->m_Height);
 
-				RequestDataInternal(id, sid.m_Row, true, hTarget);
 			}
 		}
 		else
@@ -232,7 +326,7 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 			id.m_Height = s.m_Height - 1;
 			id.m_Hash = s.m_Prev;
 
-			RequestDataInternal(id, sid.m_Row, false, hTarget);
+			RequestDataInternal(id, sid.m_Row, false, pEntry->m_Height);
 		}
 	}
 }

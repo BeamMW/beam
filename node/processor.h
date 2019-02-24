@@ -15,6 +15,7 @@
 #pragma once
 
 #include "../core/radixtree.h"
+#include "../utility/dvector.h"
 #include "db.h"
 #include "txpool.h"
 
@@ -97,6 +98,26 @@ class NodeProcessor
 
 	bool EnumBlocks(IBlockWalker&);
 	Height OpenLatestMacroblock(Block::Body::RW&);
+
+	struct CongestionCache
+	{
+		struct TipCongestion
+			:public boost::intrusive::list_base_hook<>
+		{
+			Height m_Height;
+			std::dvector<uint64_t> m_Rows;
+		};
+
+		typedef boost::intrusive::list<TipCongestion> TipList;
+		TipList m_lstTips;
+
+		~CongestionCache() { Clear(); }
+
+		void Clear();
+		void Delete(TipCongestion*);
+		TipCongestion* Find(const NodeDB::StateID&);
+
+	} m_CongestionCache;
 
 public:
 
