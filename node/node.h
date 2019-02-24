@@ -60,7 +60,7 @@ struct Node
 			uint32_t m_BbsChannelUpdate_ms = 60 * 5; // 5 minutes
 		} m_Timeout;
 
-		uint32_t m_MaxConcurrentBlocksRequest = 5;
+		uint32_t m_MaxConcurrentBlocksRequest = 18;
 		uint32_t m_BbsIdealChannelPopulation = 100;
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
