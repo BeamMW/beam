@@ -170,8 +170,10 @@ RowLayout {
         columns: 2
         columnSpacing: 44
         rowSpacing: 14
+        visible: model ? !model.income : false
         
         Item {
+            Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.columnSpan: 2
         }
@@ -197,7 +199,17 @@ RowLayout {
                 onClicked: {
                      if (model) 
                      {
-                         textCopied(model.paymentProof);
+                         var paymentInfo = model.getPaymentInfo();
+                         if (paymentInfo.paymentProof.length == 0)
+                         {
+                            paymentInfo.paymentProofChanged.connect(function() {
+                                textCopied(paymentInfo.paymentProof);
+                            });
+                         }
+                         else
+                         {
+                            textCopied(paymentInfo.paymentProof);
+                         }
                      }
                 }
             }

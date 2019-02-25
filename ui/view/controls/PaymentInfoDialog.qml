@@ -19,6 +19,20 @@ Dialog {
     parent: Overlay.overlay
     padding: 0
 
+    closePolicy: Popup.NoAutoClose | Popup.CloseOnEscape
+
+    onClosed: {
+        paymentProofInput.text = ""
+    }
+
+    onOpened: {
+        forceActiveFocus();
+        if (shouldVerify)
+        {
+            paymentProofInput.forceActiveFocus();
+        }
+    }
+
     background: Rectangle {
         radius: 10
         color: Style.dark_slate_blue
@@ -244,7 +258,7 @@ Dialog {
             {
                 if (model)
                 {
-                    textCopied("Sender: " + model.sendingAddress + "\nReceiver: " + model.receivingAddress + "\nAmount: " + model.amount + " BEAM" + "\nKernel ID: " + model.kernelID);
+                    textCopied("Sender: " + model.sender + "\nReceiver: " + model.receiver + "\nAmount: " + model.amount + " BEAM" + "\nKernel ID: " + model.kernelID);
                 }
             }
 
