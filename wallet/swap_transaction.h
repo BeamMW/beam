@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "wallet_transaction.h"
+#include "base_transaction.h"
 
 namespace beam::wallet
 {

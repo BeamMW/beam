@@ -367,6 +367,48 @@ namespace detail
 			return ar;
 		}
 
+        /// ECC::RangeProof::Confidential::Part2
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::Part2& v)
+        {
+            ar
+                & m_T1
+                & m_T2;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential::Part2& v)
+        {
+            ar
+                & m_T1
+                & m_T2;
+
+            return ar;
+        }
+
+        /// ECC::RangeProof::Confidential::MultiSig
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::MultiSig& v)
+        {
+            ar
+                & x
+                & zz;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential::MultiSig& v)
+        {
+            ar
+                & x
+                & zz;
+
+            return ar;
+        }
+
         /// ECC::RangeProof::Public serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const ECC::RangeProof::Public& val)
