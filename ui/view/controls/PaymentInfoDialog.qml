@@ -40,19 +40,13 @@ Dialog {
     }
 
     contentItem: ColumnLayout {
-        //anchors.fill: parent
-        //anchors.left: parent.left
-       // anchors.right: parent.right
-        //width: parent.width
         width: 400
         GridLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            //Layout.preferredWidth: 400
             Layout.maximumWidth: 400
-          //  implicitHeight: 100
             Layout.margins: 30
-            rowSpacing: 30
+            rowSpacing: 20
             columnSpacing: 13
             columns: 2
 
@@ -82,7 +76,6 @@ Dialog {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                Layout.row: 1
                 Layout.columnSpan: 2
                 Layout.alignment: Qt.AlignTop
                 visible: shouldVerify
@@ -128,7 +121,6 @@ Dialog {
 
             SFText {
                 Layout.alignment: Qt.AlignTop
-                Layout.row: 1
                 Layout.fillWidth: true
                 font.pixelSize: 14
                 font.styleName: "Bold"
@@ -146,11 +138,10 @@ Dialog {
                 color: Style.disable_text_color
                 visible: !shouldVerify
             }
-            
+
             SFText {
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 20
-                Layout.row: 2
+                Layout.topMargin: 10
                 Layout.columnSpan: 2
                 font.pixelSize: 18
                 font.styleName: "Bold";
@@ -163,7 +154,6 @@ Dialog {
             SFText {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop
-                Layout.row: 3
                 font.pixelSize: 14
                 font.styleName: "Bold"
                 font.weight: Font.Bold
@@ -174,6 +164,7 @@ Dialog {
             
             SFText {
                 Layout.fillWidth: true
+                Layout.preferredHeight: 28
                 wrapMode: Text.Wrap
                 font.pixelSize: 14
                 color: Style.disable_text_color
@@ -185,7 +176,6 @@ Dialog {
             SFText {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop
-                Layout.row: 4
                 font.pixelSize: 14
                 font.styleName: "Bold"
                 font.weight: Font.Bold
@@ -196,6 +186,7 @@ Dialog {
             
             SFText {
                 Layout.fillWidth: true
+                Layout.preferredHeight: 28
                 wrapMode: Text.Wrap
                 font.pixelSize: 14
                 color: Style.disable_text_color
@@ -206,7 +197,6 @@ Dialog {
             SFText {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop
-                Layout.row: 5
                 font.pixelSize: 14
                 font.styleName: "Bold"
                 font.weight: Font.Bold
@@ -227,7 +217,6 @@ Dialog {
             SFText {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop
-                Layout.row: 6
                 font.pixelSize: 14
                 font.styleName: "Bold"
                 font.weight: Font.Bold
@@ -238,15 +227,16 @@ Dialog {
             
             SFText {
                 Layout.fillWidth: true
+                Layout.preferredHeight: 28
                 wrapMode: Text.Wrap
                 font.pixelSize: 14
                 color: Style.disable_text_color
                 text: model ? model.kernelID : ""
                 visible: model? model.isValid : false
             }
-
         }
         Row {
+            id: buttonsLayout
             Layout.alignment: Qt.AlignHCenter
             Layout.leftMargin: 30
             Layout.rightMargin: 30
