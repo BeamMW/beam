@@ -45,7 +45,6 @@ using json = nlohmann::json;
 
 static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
 static const size_t PACKER_FRAGMENTS_SIZE = 4096;
-static const uint64_t CLOSE_CONNECTION_TIMER = 1;
 
 namespace beam
 {
@@ -85,7 +84,7 @@ namespace beam
                 return false;
             }
 
-            keys.insert({ line, key[1] == WRITE_ACCESS });
+            keys.insert({ key[0], key[1] == WRITE_ACCESS });
             curLine++;
         }
 
