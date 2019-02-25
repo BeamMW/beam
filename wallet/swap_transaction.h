@@ -106,6 +106,10 @@ namespace beam::wallet
         void ValidateSharedUTXO(bool shouldProduceMultisig);
 
     private:
+
+        ECC::Point::Native GetSharedCommitment();
+        const ECC::RangeProof::CreatorParams& GetProofCreatorParams();
+
         BaseTransaction& m_Tx;
         SubTxID m_SubTxID;
 
@@ -135,12 +139,12 @@ namespace beam::wallet
         ECC::Scalar::Native m_PeerSignature;
         ECC::Hash::Value m_Message;
         ECC::Signature::MultiSig m_MultiSig;
+        boost::optional<ECC::RangeProof::CreatorParams> m_CreatorParams;
 
         // NoLeak - ?
         ECC::uintBig m_Seed;
 
         beam::Coin m_SharedCoin;
-        ECC::RangeProof::CreatorParams m_CreatorParams;
         ECC::RangeProof::Confidential m_Bulletproof;
         ECC::RangeProof::Confidential::MultiSig m_ProofPartialMultiSig;
     };

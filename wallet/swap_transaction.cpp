@@ -239,28 +239,39 @@ namespace beam::wallet
         return Context::get().G * GetSharedBlindingFactor();
     }
 
+    const ECC::RangeProof::CreatorParams& LockTxBuilder::GetProofCreatorParams()
+    {
+        if (!m_CreatorParams.is_initialized())
+        {
+            ECC::RangeProof::CreatorParams creatorParams;
+            creatorParams.m_Kidv = m_SharedCoin.m_ID;
+            beam::Output::GenerateSeedKid(creatorParams.m_Seed.V, GetSharedCommitment(), *m_Tx.GetWalletDB()->get_MasterKdf());
+            m_CreatorParams = creatorParams;
+        }
+        return m_CreatorParams.get();
+    }
+
+    ECC::Point::Native LockTxBuilder::GetSharedCommitment()
+    {
+        Point::Native commitment(Zero);
+        // TODO: check pHGen
+        Tag::AddValue(commitment, nullptr, GetAmount());
+        commitment += GetPublicSharedBlindingFactor();
+        commitment += m_Tx.GetMandatoryParameter<Point::Native>(TxParameterID::PeerPublicSharedBlindingFactor, m_SubTxID);
+
+        return commitment;
+    }
+
     void LockTxBuilder::SharedUTXOProofPart2(bool shouldProduceMultisig)
     {
         if (shouldProduceMultisig)
         {
-            Point::Native peerPublicSharedBlindingFactor;
-            m_Tx.GetParameter(TxParameterID::PeerPublicSharedBlindingFactor, peerPublicSharedBlindingFactor, m_SubTxID);
-
-            Point::Native commitment(Zero);
-            // TODO: check pHGen
-            Tag::AddValue(commitment, nullptr, GetAmount());
-            commitment += GetPublicSharedBlindingFactor();
-            commitment += peerPublicSharedBlindingFactor;
-
-            m_CreatorParams.m_Kidv = m_SharedCoin.m_ID;
-            beam::Output::GenerateSeedKid(m_CreatorParams.m_Seed.V, commitment, *m_Tx.GetWalletDB()->get_MasterKdf());
-
             Oracle oracle;
             oracle << (beam::Height)0; // CHECK, coin maturity
-
+            // load peer part2
             m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofPart2, m_Bulletproof.m_Part2, m_SubTxID);
-
-            m_Bulletproof.CoSign(GetSharedSeed(), GetSharedBlindingFactor(), m_CreatorParams, oracle, RangeProof::Confidential::Phase::Step2, &m_ProofPartialMultiSig); // add last p2, produce msig
+            // produce multisig
+            m_Bulletproof.CoSign(GetSharedSeed(), GetSharedBlindingFactor(), GetProofCreatorParams(), oracle, RangeProof::Confidential::Phase::Step2, &m_ProofPartialMultiSig);
         }
         else
         {
@@ -275,25 +286,16 @@ namespace beam::wallet
         {
             Oracle oracle;
             oracle << (beam::Height)0; // CHECK!
-
+            // load peer part3
             m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofPart3, m_Bulletproof.m_Part3, m_SubTxID);
-
-            m_Bulletproof.CoSign(GetSharedSeed(), GetSharedBlindingFactor(), m_CreatorParams, oracle, RangeProof::Confidential::Phase::Finalize);
+            // finalize proof
+            m_Bulletproof.CoSign(GetSharedSeed(), GetSharedBlindingFactor(), GetProofCreatorParams(), oracle, RangeProof::Confidential::Phase::Finalize);
 
             {
-                 // TEST
-                Point::Native peerPublicSharedBlindingFactor;
-                m_Tx.GetParameter(TxParameterID::PeerPublicSharedBlindingFactor, peerPublicSharedBlindingFactor, m_SubTxID);
-
-                Point::Native commitment(Zero);
-                // TODO: check pHGen
-                Tag::AddValue(commitment, nullptr, GetAmount());
-                commitment += GetPublicSharedBlindingFactor();
-                commitment += peerPublicSharedBlindingFactor;
-
+                // TODO: delete after testing
                 Oracle oracleTest;
                 oracleTest << (beam::Height)0;
-                m_Bulletproof.IsValid(commitment, oracleTest, nullptr);
+                m_Bulletproof.IsValid(GetSharedCommitment(), oracleTest, nullptr);
             }
         }
         else
@@ -411,16 +413,8 @@ namespace beam::wallet
 
     void LockTxBuilder::AddSharedOutput(Amount amount)
     {
-        Point::Native peerPublicSharedBlindingFactor;
-        m_Tx.GetParameter(TxParameterID::PeerPublicSharedBlindingFactor, peerPublicSharedBlindingFactor, m_SubTxID);
-
-        Point::Native commitment(Zero);
-        Tag::AddValue(commitment, nullptr, GetAmount());
-        commitment += GetPublicSharedBlindingFactor();
-        commitment += peerPublicSharedBlindingFactor;
-
         Output::Ptr output = make_unique<Output>();
-        output->m_Commitment = commitment;
+        output->m_Commitment = GetSharedCommitment();
         output->m_pConfidential = std::make_unique<ECC::RangeProof::Confidential>();
         *(output->m_pConfidential) = m_Bulletproof;
 
