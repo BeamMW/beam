@@ -247,11 +247,9 @@ namespace beam
 
             PaymentConfirmation = 99,
 
-            PeerSharedBulletProofMSigX = 108,
-            PeerSharedBulletProofMSigZZ = 109,
-            PeerSharedBulletProofPart2Point1 = 111,
-            PeerSharedBulletProofPart2Point2 = 112,
-            PeerSharedBulletProofPart3Scalar = 113,
+            PeerSharedBulletProofMSig = 108,
+            PeerSharedBulletProofPart2 = 109,
+            PeerSharedBulletProofPart3 = 110,
 
             // private parameters
             PrivateFirstParam = 128,

@@ -164,8 +164,7 @@ namespace beam::wallet
         if (isSender)
         {
             auto proofPartialMultiSig = lockBuilder.GetProofPartialMultiSig();
-            msg.AddParameter(TxParameterID::PeerSharedBulletProofMSigX, proofPartialMultiSig.x)
-                .AddParameter(TxParameterID::PeerSharedBulletProofMSigZZ, proofPartialMultiSig.zz);
+            msg.AddParameter(TxParameterID::PeerSharedBulletProofMSig, proofPartialMultiSig);
         }
         else
         {
@@ -174,8 +173,7 @@ namespace beam::wallet
                 .AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
                 .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce())
                 .AddParameter(TxParameterID::PeerPublicSharedBlindingFactor, lockBuilder.GetPublicSharedBlindingFactor())
-                .AddParameter(TxParameterID::PeerSharedBulletProofPart2Point1, bulletProof.m_Part2.m_T1)
-                .AddParameter(TxParameterID::PeerSharedBulletProofPart2Point2, bulletProof.m_Part2.m_T2);
+                .AddParameter(TxParameterID::PeerSharedBulletProofPart2, bulletProof.m_Part2);
         }
 
         if (!SendTxParameters(move(msg)))
@@ -195,7 +193,7 @@ namespace beam::wallet
         if (!isSender)
         {
             auto bulletProof = lockBuilder.GetBulletProof();
-            msg.AddParameter(TxParameterID::PeerSharedBulletProofPart3Scalar, bulletProof.m_Part3.m_TauX);
+            msg.AddParameter(TxParameterID::PeerSharedBulletProofPart3, bulletProof.m_Part3);
         }
 
         if (!SendTxParameters(move(msg)))
@@ -260,8 +258,7 @@ namespace beam::wallet
             Oracle oracle;
             oracle << (beam::Height)0; // CHECK, coin maturity
 
-            m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofPart2Point1, m_Bulletproof.m_Part2.m_T1, m_SubTxID);
-            m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofPart2Point2, m_Bulletproof.m_Part2.m_T2, m_SubTxID);
+            m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofPart2, m_Bulletproof.m_Part2, m_SubTxID);
 
             m_Bulletproof.CoSign(GetSharedSeed(), GetSharedBlindingFactor(), m_CreatorParams, oracle, RangeProof::Confidential::Phase::Step2, &m_ProofPartialMultiSig); // add last p2, produce msig
         }
@@ -279,7 +276,7 @@ namespace beam::wallet
             Oracle oracle;
             oracle << (beam::Height)0; // CHECK!
 
-            m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofPart3Scalar, m_Bulletproof.m_Part3.m_TauX, m_SubTxID);
+            m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofPart3, m_Bulletproof.m_Part3, m_SubTxID);
 
             m_Bulletproof.CoSign(GetSharedSeed(), GetSharedBlindingFactor(), m_CreatorParams, oracle, RangeProof::Confidential::Phase::Finalize);
 
@@ -301,8 +298,7 @@ namespace beam::wallet
         }
         else
         {
-            m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofMSigX, m_ProofPartialMultiSig.x, m_SubTxID);
-            m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofMSigZZ, m_ProofPartialMultiSig.zz, m_SubTxID);
+            m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofMSig, m_ProofPartialMultiSig, m_SubTxID);
 
             ZeroObject(m_Bulletproof.m_Part3);
             m_ProofPartialMultiSig.CoSignPart(GetSharedSeed(), GetSharedBlindingFactor(), m_Bulletproof.m_Part3);

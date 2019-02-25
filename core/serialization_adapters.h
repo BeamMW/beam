@@ -372,8 +372,8 @@ namespace detail
         static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::Part2& v)
         {
             ar
-                & m_T1
-                & m_T2;
+                & v.m_T1
+                & v.m_T2;
 
             return ar;
         }
@@ -382,8 +382,27 @@ namespace detail
         static Archive& load(Archive& ar, ECC::RangeProof::Confidential::Part2& v)
         {
             ar
-                & m_T1
-                & m_T2;
+                & v.m_T1
+                & v.m_T2;
+
+            return ar;
+        }
+
+        /// ECC::RangeProof::Confidential::Part3
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::Part3& v)
+        {
+            ar
+                & v.m_TauX;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential::Part3& v)
+        {
+            ar
+                & v.m_TauX;
 
             return ar;
         }
@@ -393,8 +412,8 @@ namespace detail
         static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::MultiSig& v)
         {
             ar
-                & x
-                & zz;
+                & v.x
+                & v.zz;
 
             return ar;
         }
@@ -403,8 +422,8 @@ namespace detail
         static Archive& load(Archive& ar, ECC::RangeProof::Confidential::MultiSig& v)
         {
             ar
-                & x
-                & zz;
+                & v.x
+                & v.zz;
 
             return ar;
         }
