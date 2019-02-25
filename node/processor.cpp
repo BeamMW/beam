@@ -518,12 +518,7 @@ Height NodeProcessor::PruneOld()
 				break;
 
 			ECC::Point pt;
-			if (wlk.m_Value.n < sizeof(pt))
-				OnCorrupted();
-
-			const uint8_t* pPtr = reinterpret_cast<const uint8_t*>(wlk.m_Value.p);
-			pt.m_Y = 1 & pPtr[0];
-			memcpy(&pt.m_X, pPtr + 1, pt.m_X.nBytes);
+			TxoToPt(pt, wlk.m_Value);
 
 			m_DB.TxoSetValue(wlk.m_ID, Blob(&pt, sizeof(pt)));
 			hRet++;
@@ -533,6 +528,21 @@ Height NodeProcessor::PruneOld()
 	}
 
 	return hRet;
+}
+
+void NodeProcessor::TxoToPt(ECC::Point& pt, const Blob& b)
+{
+	if (sizeof(ECC::Point) == b.n)
+		memcpy(&pt, b.p, sizeof(pt)); // already compacted
+	else
+	{
+		if (b.n < sizeof(pt))
+			OnCorrupted();
+
+		const uint8_t* pPtr = reinterpret_cast<const uint8_t*>(b.p);
+		pt.m_Y = 1 & pPtr[0];
+		memcpy(&pt.m_X, pPtr + 1, pt.m_X.nBytes);
+	}
 }
 
 void NodeProcessor::get_Definition(Merkle::Hash& hv, const Merkle::Hash& hvHist)

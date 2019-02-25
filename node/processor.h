@@ -48,7 +48,6 @@ class NodeProcessor
 
 	struct RollbackData;
 
-	bool EnsureTreasuryHandled();
 	bool HandleTreasury(const Blob&);
 
 	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
@@ -62,6 +61,8 @@ class NodeProcessor
 
 	static void SquashOnce(std::vector<Block::Body>&);
 	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, Height, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
+
+	static void TxoToPt(ECC::Point&, const Blob&);
 
 	void InitCursor();
 	static void OnCorrupted();
