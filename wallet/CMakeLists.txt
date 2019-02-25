@@ -6,6 +6,7 @@ set(WALLET_SRC
     common.cpp
     wallet.h
     wallet.cpp
+    base_transaction.cpp
     wallet_transaction.cpp
     wallet_tx_builder.cpp
     wallet_network.cpp
