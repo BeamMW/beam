@@ -43,13 +43,13 @@ class NodeProcessor
 	void Rollback();
 	Height PruneOld();
 	void InitializeFromBlocks();
-	void InitializeUtxos();
+	void InitializeUtxos(TxoID nTreasury);
 	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, Height hTarget);
 
 	struct RollbackData;
 
 	bool EnsureTreasuryHandled();
-	bool HandleTreasury(const Blob&, bool bFirstTime);
+	bool HandleTreasury(const Blob&);
 
 	bool HandleBlock(const NodeDB::StateID&, bool bFwd);
 	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, const Height* = NULL);
@@ -154,7 +154,6 @@ public:
 	{
 		bool m_TreasuryHandled;
 		TxoID m_Txos; // total num of ever created TXOs, including treasury
-		TxoID m_Txos0; // treasury
 
 	} m_Extra;
 

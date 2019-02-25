@@ -59,23 +59,28 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 	m_nSizeUtxoComission = 0;
 	ZeroObject(m_Extra);
 
+	TxoID nTreasury = 0;
+
+	if (Rules::get().TreasuryChecksum == Zero)
+		m_Extra.m_TreasuryHandled = true;
+	else
+	{
+		if (m_DB.ParamGet(NodeDB::ParamID::Treasury, &nTreasury, nullptr, nullptr))
+			m_Extra.m_TreasuryHandled = true;
+	}
+
 	if (bResetCursor)
 	{
 		m_DB.ResetCursor();
 
-		if (EnsureTreasuryHandled())
-		{
-			m_DB.TxoDelFrom(m_Extra.m_Txos0);
-			m_DB.TxoDelSpentFrom(Rules::HeightGenesis);
-		}
-
-		m_Extra.m_Txos = m_Extra.m_Txos0;
+		m_DB.TxoDelFrom(nTreasury);
+		m_DB.TxoDelSpentFrom(Rules::HeightGenesis);
 	}
 
 	InitCursor();
 
 	//InitializeFromBlocks();
-	InitializeUtxos();
+	InitializeUtxos(nTreasury);
 
 	OnHorizonChanged();
 
@@ -189,7 +194,7 @@ NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::CongestionCache::F
 
 void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 {
-	if (!EnsureTreasuryHandled())
+	if (!m_Extra.m_TreasuryHandled)
 	{
 		Block::SystemState::ID id;
 		ZeroObject(id);
@@ -350,7 +355,7 @@ void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64
 
 void NodeProcessor::TryGoUp()
 {
-	if (!EnsureTreasuryHandled())
+	if (!m_Extra.m_TreasuryHandled)
 		return;
 
 	bool bDirty = false;
@@ -687,24 +692,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 	return h;
 }
 
-bool NodeProcessor::EnsureTreasuryHandled()
-{
-	if (!m_Extra.m_TreasuryHandled)
-	{
-		if (Rules::get().TreasuryChecksum == Zero)
-			m_Extra.m_TreasuryHandled = true;
-		else
-		{
-			ByteBuffer bb;
-			if (m_DB.ParamGet(NodeDB::ParamID::Treasury, NULL, NULL, &bb))
-				HandleTreasury(bb, false);
-		}
-	}
-
-	return m_Extra.m_TreasuryHandled;
-}
-
-bool NodeProcessor::HandleTreasury(const Blob& blob, bool bFirstTime)
+bool NodeProcessor::HandleTreasury(const Blob& blob)
 {
 	assert(!m_Extra.m_TreasuryHandled);
 
@@ -719,27 +707,24 @@ bool NodeProcessor::HandleTreasury(const Blob& blob, bool bFirstTime)
 		return false;
 	}
 
-	if (bFirstTime)
+	if (!td.IsValid())
 	{
-		if (!td.IsValid())
-		{
-			LOG_WARNING() << "Treasury validation failed";
-			return false;
-		}
-
-		std::vector<Treasury::Data::Burst> vBursts = td.get_Bursts();
-
-		std::ostringstream os;
-		os << "Treasury check. Total bursts=" << vBursts.size();
-
-		for (size_t i = 0; i < vBursts.size(); i++)
-		{
-			const Treasury::Data::Burst& b = vBursts[i];
-			os << "\n\t" << "Height=" << b.m_Height << ", Value=" << b.m_Value;
-		}
-
-		LOG_INFO() << os.str();
+		LOG_WARNING() << "Treasury validation failed";
+		return false;
 	}
+
+	std::vector<Treasury::Data::Burst> vBursts = td.get_Bursts();
+
+	std::ostringstream os;
+	os << "Treasury check. Total bursts=" << vBursts.size();
+
+	for (size_t i = 0; i < vBursts.size(); i++)
+	{
+		const Treasury::Data::Burst& b = vBursts[i];
+		os << "\n\t" << "Height=" << b.m_Height << ", Value=" << b.m_Value;
+	}
+
+	LOG_INFO() << os.str();
 
 	for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
 	{
@@ -757,30 +742,26 @@ bool NodeProcessor::HandleTreasury(const Blob& blob, bool bFirstTime)
 		}
 	}
 
-	if (bFirstTime)
+	Serializer ser;
+	TxoID id0 = 0;
+
+	for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
 	{
-		Serializer ser;
-		TxoID id0 = 0;
-
-		for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
+		for (size_t i = 0; i < td.m_vGroups[iG].m_Data.m_vOutputs.size(); i++, id0++)
 		{
-			for (size_t i = 0; i < td.m_vGroups[iG].m_Data.m_vOutputs.size(); i++, id0++)
-			{
-				ser.reset();
-				ser & *td.m_vGroups[iG].m_Data.m_vOutputs[i];
+			ser.reset();
+			ser & *td.m_vGroups[iG].m_Data.m_vOutputs[i];
 
-				SerializeBuffer sb = ser.buffer();
-				m_DB.TxoAdd(id0, Blob(sb.first, static_cast<uint32_t>(sb.second)));
-			}
-
-			TxVectors::Reader r = td.m_vGroups[iG].m_Data.get_Reader();
-			r.Reset();
-			RecognizeUtxos(std::move(r), 0);
+			SerializeBuffer sb = ser.buffer();
+			m_DB.TxoAdd(id0, Blob(sb.first, static_cast<uint32_t>(sb.second)));
 		}
+
+		TxVectors::Reader r = td.m_vGroups[iG].m_Data.get_Reader();
+		r.Reset();
+		RecognizeUtxos(std::move(r), 0);
 	}
 
 	m_Extra.m_TreasuryHandled = true;
-	m_Extra.m_Txos0 = m_Extra.m_Txos;
 
 	return true;
 }
@@ -1393,11 +1374,11 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnTreasury(const Blob& blob)
 	if (m_Extra.m_TreasuryHandled)
 		return DataStatus::Rejected;
 
-	if (!HandleTreasury(blob, true))
+	if (!HandleTreasury(blob))
 		return DataStatus::Invalid;
 
 	assert(m_Extra.m_TreasuryHandled);
-	m_DB.ParamSet(NodeDB::ParamID::Treasury, NULL, &blob);
+	m_DB.ParamSet(NodeDB::ParamID::Treasury, &m_Extra.m_Txos, &blob);
 
 
 	LOG_INFO() << "Treasury verified";
@@ -2271,7 +2252,7 @@ void NodeProcessor::InitializeFromBlocks()
 		}
 	};
 
-	if (EnsureTreasuryHandled())
+	if (m_Extra.m_TreasuryHandled)
 	{
 		MyWalker wlk;
 		wlk.m_pThis = this;
@@ -2288,14 +2269,10 @@ void NodeProcessor::InitializeFromBlocks()
 	}
 }
 
-void NodeProcessor::InitializeUtxos()
+void NodeProcessor::InitializeUtxos(TxoID id1)
 {
-	if (!EnsureTreasuryHandled())
-		return;
+	assert(!m_Extra.m_Txos);
 
-	assert(m_Extra.m_Txos == m_Extra.m_Txos0);
-
-	TxoID id1 = m_Extra.m_Txos0;
 	Height h = Rules::HeightGenesis - 1;
 
 	NodeDB::WalkerTxo wlk(m_DB);
@@ -2313,10 +2290,7 @@ void NodeProcessor::InitializeUtxos()
 			se.m_Txos.Export(id1);
 		}
 
-		bool bUnspent = (wlk.m_SpendHeight == MaxHeight);
-		bool bTreasury = !h;
-
-		if (bUnspent == bTreasury)
+		if (wlk.m_SpendHeight != MaxHeight)
 			continue;
 
 		Deserializer der;
@@ -2325,20 +2299,9 @@ void NodeProcessor::InitializeUtxos()
 		Output outp;
 		der & outp;
 
-		if (bTreasury)
-		{
-			Input inp;
-			inp.m_Commitment = outp.m_Commitment;
-
-			if (!HandleBlockElement(inp, wlk.m_SpendHeight, nullptr, true))
-				OnCorrupted();
-		}
-		else
-		{
-			m_Extra.m_Txos--;
-			if (!HandleBlockElement(outp, h, nullptr, true))
-				OnCorrupted();
-		}
+		m_Extra.m_Txos--;
+		if (!HandleBlockElement(outp, h, nullptr, true))
+			OnCorrupted();
 	}
 
 	if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
