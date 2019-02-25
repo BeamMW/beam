@@ -430,7 +430,7 @@ namespace beam::wallet
     void LockTxBuilder::CreateKernel()
     {
         // create kernel
-        //assert(!m_Kernel);
+        // assert(!m_Kernel);
         m_Kernel = make_unique<TxKernel>();
         m_Kernel->m_Fee = GetFee();
         m_Kernel->m_Height.m_Min = m_MinHeight;
@@ -447,10 +447,9 @@ namespace beam::wallet
             m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_BlindingExcess, kid);
 
             m_Tx.SetParameter(TxParameterID::BlindingExcess, m_BlindingExcess, false, m_SubTxID);
-
-            m_Offset += m_BlindingExcess;
         }
 
+        m_Offset += m_BlindingExcess;
         m_BlindingExcess = -m_BlindingExcess;
 
         // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
@@ -468,24 +467,22 @@ namespace beam::wallet
     {
         if (!m_Tx.GetParameter(TxParameterID::SharedBlindingFactor, m_SharedBlindingFactor, m_SubTxID))
         {
-            // save BlindingFactor for shared UTXO
-            // create output ???
+            // TODO: store it!
             m_SharedCoin = m_Tx.GetWalletDB()->generateSharedCoin(GetAmount());
 
             // blindingFactor = sk + sk1
-
             beam::SwitchCommitment switchCommitment;
             switchCommitment.Create(m_SharedBlindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(m_SharedCoin.m_ID.m_SubIdx), m_SharedCoin.m_ID);
 
             m_Tx.SetParameter(TxParameterID::SharedBlindingFactor, m_SharedBlindingFactor, m_SubTxID);
 
             Oracle oracle;
+            // TODO: store it!
             RangeProof::Confidential::GenerateSeed(m_Seed, m_SharedBlindingFactor, GetAmount(), oracle);
-
-            ECC::Scalar::Native blindingFactor = -m_SharedBlindingFactor;
-            m_Offset += blindingFactor;
-            m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false, m_SubTxID);
         }
+
+        ECC::Scalar::Native blindingFactor = -m_SharedBlindingFactor;
+        m_Offset += blindingFactor;
     }
 
     Point::Native LockTxBuilder::GetPublicExcess() const
