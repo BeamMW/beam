@@ -19,13 +19,16 @@
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <map>
 
 #include "utility/helpers.h"
 #include "utility/io/timer.h"
 #include "utility/io/tcpserver.h"
+#include "utility/io/sslserver.h"
 #include "utility/io/json_serializer.h"
 #include "utility/options.h"
+#include "utility/string_helpers.h"
 
 #include "http/http_connection.h"
 #include "http/http_msg_creator.h"
@@ -46,6 +49,51 @@ static const uint64_t CLOSE_CONNECTION_TIMER = 1;
 
 namespace beam
 {
+    bool loadACL(const std::string& path)
+    {
+        if (path.empty() || !boost::filesystem::exists(path))
+        {
+            return false;
+        }
+
+        std::ifstream file(path);
+        std::string line;
+        std::map<std::string, bool> keys;
+        int curLine = 1;
+
+        while (std::getline(file, line)) 
+        {
+            boost::algorithm::trim(line);
+
+            auto key = string_helpers::split(line, ':');
+            bool parsed = false;
+
+            static const char* READ_ACCESS = "read";
+            static const char* WRITE_ACCESS = "write";
+
+            if (key.size() == 2)
+            {
+                boost::algorithm::trim(key[0]);
+                boost::algorithm::trim(key[1]);
+
+                parsed = !key[0].empty() && (key[1] == READ_ACCESS || key[1] == WRITE_ACCESS);
+            }
+
+            if (!parsed)
+            {
+                LOG_ERROR() << "ACL parsing error, line " << curLine;
+                return false;
+            }
+
+            keys.insert({ line, key[1] == WRITE_ACCESS });
+            curLine++;
+        }
+
+        LOG_INFO() << (keys.empty() ? "ACL file is empty" : "ACL file successfully loaded");
+
+        return true;
+    }
+
     class IWalletApiServer
     {
     public:
@@ -79,11 +127,12 @@ namespace beam
 
             try
             {
-                _server = io::TcpServer::create(
-                    _reactor,
-                    _bindAddress,
-                    BIND_THIS_MEMFN(on_stream_accepted)
-                );
+                bool useSsl = false;
+
+                _server = useSsl
+                    ? io::SslServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted), "test.crt", "test.key")
+                    : io::TcpServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted));
+
             }
             catch (const std::exception& e)
             {
@@ -699,6 +748,7 @@ int main(int argc, char* argv[])
             std::string walletPath;
             std::string nodeURI;
             bool useHttp;
+            std::string aclPath;
         } options;
 
         io::Address node_addr;
@@ -714,6 +764,7 @@ int main(int argc, char* argv[])
                 (cli::WALLET_STORAGE, po::value<std::string>(&options.walletPath)->default_value("wallet.db"), "path to wallet file")
                 (cli::PASS, po::value<std::string>(), "password for the wallet")
                 (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
+                (cli::API_ACL_PATH, po::value<std::string>(&options.aclPath)->default_value(""), "path to access control list (ACL) file")
             ;
 
             po::variables_map vm;
@@ -742,6 +793,12 @@ int main(int argc, char* argv[])
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+
+            if (!loadACL(options.aclPath))
+            {
+                LOG_ERROR() << "ACL file not loaded, path is: " << options.aclPath;
+                return -1;
+            }
 
             if (vm.count(cli::NODE_ADDR) == 0)
             {
