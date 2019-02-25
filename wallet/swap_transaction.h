@@ -52,7 +52,7 @@ namespace beam::wallet
         void SendBulletProofPart2(const LockTxBuilder& lockBuilder, bool isSender);
         void SendBulletProofPart3(const LockTxBuilder& lockBuilder, bool isSender);
 
-        std::unique_ptr<LockTxBuilder> m_lockTxBuilder;
+        std::unique_ptr<LockTxBuilder> m_LockTxBuilder;
     };
 
     class LockTxBuilder
@@ -63,8 +63,9 @@ namespace beam::wallet
         void SelectInputs();
         void AddChangeOutput();
         void AddOutput(Amount amount, bool bChange);
+        void AddSharedOutput(Amount amount);
         bool FinalizeOutputs();
-        Output::Ptr CreateOutput(Amount amount, bool bChange, bool shared = false, Height incubation = 0);
+        Output::Ptr CreateOutput(Amount amount, bool bChange);
         void CreateKernel();
         ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
@@ -96,8 +97,6 @@ namespace beam::wallet
 
         const ECC::uintBig& GetSharedSeed() const;
         const ECC::Scalar::Native& GetSharedBlindingFactor() const;
-        const ECC::RangeProof::Confidential::Part2& GetPart2() const;
-        const ECC::RangeProof::Confidential::Part3& GetPart3() const;
         const ECC::RangeProof::Confidential& GetBulletProof() const;
 
         const ECC::RangeProof::Confidential::MultiSig& GetProofPartialMultiSig() const;
@@ -108,7 +107,7 @@ namespace beam::wallet
 
     private:
         BaseTransaction& m_Tx;
-        SubTxID m_subTxID;
+        SubTxID m_SubTxID;
 
         // input
         Amount m_Amount;
