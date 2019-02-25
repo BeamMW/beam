@@ -240,6 +240,8 @@ public:
 	bool GenerateNewBlock(BlockContext&);
 	void DeleteOutdated(TxPool::Fluff&);
 
+	bool GetBlock(const NodeDB::StateID&, ByteBuffer& bbEthernal, ByteBuffer& bbPerishable);
+
 	struct UtxoRecoverSimple
 		:public IUtxoWalker
 	{

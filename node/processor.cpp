@@ -2393,4 +2393,97 @@ bool NodeProcessor::UtxoRecoverSimple::OnInput(const Input& x)
 	return true; // ignore
 }
 
+bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal, ByteBuffer& bbPerishable)
+{
+	Height h1 = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
+	if (sid.m_Height <= h1)
+		return false;
+
+	m_DB.GetStateBlock(sid.m_Row, &bbPerishable, &bbEthernal, NULL);
+
+	if (!bbPerishable.empty())
+		return true;
+
+	// re-create it from Txos
+	TxoID id0, id1;
+
+	StateExtra se;
+	if (!m_DB.get_StateExtra(sid.m_Row, se))
+		OnCorrupted();
+
+	se.m_Txos.Export(id1);
+
+	uint64_t rowid = sid.m_Row;
+	if (m_DB.get_Prev(rowid))
+	{
+		ECC::Scalar::Native offs1(se.m_Offset);
+
+		if (!m_DB.get_StateExtra(rowid, se))
+			OnCorrupted();
+
+		se.m_Txos.Export(id0);
+		ECC::Scalar::Native offs0(se.m_Offset);
+		offs0 = -offs0;
+		offs1 += offs0;
+		se.m_Offset = offs1;
+	}
+	else
+	{
+		id0 = 0;
+		m_DB.ParamGet(NodeDB::ParamID::Treasury, &id0, nullptr, nullptr);
+	}
+
+	TxBase txb;
+	txb.m_Offset = se.m_Offset;
+
+	uintBigFor<uint32_t>::Type nCount(Zero);
+
+	// inputs
+	TxVectors::Perishable tvp;
+	NodeDB::WalkerTxo wlk(m_DB);
+	for (m_DB.EnumTxosBySpent(wlk, sid.m_Height); wlk.MoveNext(); )
+	{
+		if (wlk.m_SpendHeight > sid.m_Height)
+			break;
+
+		tvp.m_vInputs.emplace_back();
+		Input::Ptr& pInp = tvp.m_vInputs.back();
+		pInp.reset(new Input);
+
+		TxoToPt(pInp->m_Commitment, wlk.m_Value);
+
+		nCount.Inc();
+	}
+
+	tvp.NormalizeP(); // inputs should be sorted, our order is different
+
+	Serializer ser;
+	ser & txb;
+	ser & nCount;
+
+	for (size_t i = 0; i < tvp.m_vInputs.size(); i++)
+		ser & *tvp.m_vInputs[i];
+
+	ByteBuffer bbBlob;
+	nCount = Zero;
+
+	// outputs
+	for (m_DB.EnumTxos(wlk, id0); wlk.MoveNext(); )
+	{
+		if (wlk.m_ID >= id1)
+			break;
+
+		const uint8_t* p = reinterpret_cast<const uint8_t*>(wlk.m_Value.p);
+
+		nCount.Inc();
+		bbBlob.insert(bbBlob.end(), p, p + wlk.m_Value.n);
+	}
+
+	ser & nCount;
+	ser.swap_buf(bbPerishable);
+	bbPerishable.insert(bbPerishable.end(), bbBlob.begin(), bbBlob.end());
+
+	return true;
+}
+
 } // namespace beam

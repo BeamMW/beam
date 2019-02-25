@@ -1917,19 +1917,20 @@ void Node::Peer::OnMsg(proto::GetBody&& msg)
 {
     if (msg.m_ID.m_Height)
     {
-        uint64_t rowid = m_This.m_Processor.get_DB().StateFindSafe(msg.m_ID);
-        if (rowid)
-        {
-            proto::Body msgBody;
-            m_This.m_Processor.get_DB().GetStateBlock(rowid, &msgBody.m_Perishable, &msgBody.m_Eternal, NULL);
+		NodeDB::StateID sid;
+		sid.m_Row = m_This.m_Processor.get_DB().StateFindSafe(msg.m_ID);
+		if (sid.m_Row)
+		{
+			sid.m_Height = msg.m_ID.m_Height;
 
-            if (!msgBody.m_Perishable.empty())
-            {
-                Send(msgBody);
-                return;
-            }
+			proto::Body msgBody;
+			if (m_This.m_Processor.GetBlock(sid, msgBody.m_Eternal, msgBody.m_Perishable))
+			{
+				Send(msgBody);
+				return;
+			}
 
-        }
+		}
     }
     else
     {
