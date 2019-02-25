@@ -140,7 +140,7 @@ namespace beam::wallet
         // NoLeak - ?
         ECC::uintBig m_Seed;
 
-        ECC::Key::IDV m_SharedCoinID;
+        beam::Coin m_SharedCoin;
         ECC::RangeProof::CreatorParams m_CreatorParams;
         ECC::RangeProof::Confidential m_Bulletproof;
         ECC::RangeProof::Confidential::MultiSig m_ProofPartialMultiSig;

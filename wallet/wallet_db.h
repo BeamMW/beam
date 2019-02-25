@@ -149,6 +149,7 @@ namespace beam
         virtual std::vector<Coin> selectCoins(Amount amount) = 0;
         virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) = 0;
         virtual std::vector<Coin> getCoinsByID(const CoinIDList& ids) = 0;
+        virtual Coin generateSharedCoin(Amount amount) = 0;
         virtual void store(Coin& coin) = 0;
         virtual void store(std::vector<Coin>&) = 0;
         virtual void save(const Coin& coin) = 0;
@@ -213,6 +214,7 @@ namespace beam
         std::vector<Coin> selectCoins(Amount amount) override;
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override;
         std::vector<Coin> getCoinsByID(const CoinIDList& ids) override;
+        Coin generateSharedCoin(Amount amount) override;
         void store(Coin& coin) override;
         void store(std::vector<Coin>&) override;
         void save(const Coin& coin) override;

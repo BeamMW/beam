@@ -1422,6 +1422,14 @@ namespace beam
             insertRaw(coin);
     }
 
+    Coin WalletDB::generateSharedCoin(Amount amount)
+    {
+        Coin coin(amount);
+
+        coin.m_ID.m_Idx = get_RandomID();
+        return coin;
+    }
+
     void WalletDB::store(Coin& coin)
     {
         sqlite::Transaction trans(_db);

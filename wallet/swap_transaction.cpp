@@ -18,20 +18,6 @@ using namespace ECC;
 
 namespace beam::wallet
 {
-    namespace
-    {
-        // TEST ONLY
-        uint64_t GetRandomCoinID()
-        {
-            uintBigFor<uint64_t>::Type val;
-            ECC::GenRandom(val);
-
-            uint64_t ret;
-            val.Export(ret);
-            return ret;
-        }
-    }
-
     AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
                                                , beam::IWalletDB::Ptr walletDB
                                                , const TxID& txID)
@@ -274,7 +260,7 @@ namespace beam::wallet
             commitment += GetPublicSharedBlindingFactor();
             commitment += peerPublicSharedBlindingFactor;
 
-            m_CreatorParams.m_Kidv = m_SharedCoinID;
+            m_CreatorParams.m_Kidv = m_SharedCoin.m_ID;
             beam::Output::GenerateSeedKid(m_CreatorParams.m_Seed.V, commitment, *m_Tx.GetWalletDB()->get_MasterKdf());
 
             Oracle oracle;
@@ -475,15 +461,12 @@ namespace beam::wallet
         {
             // save BlindingFactor for shared UTXO
             // create output ???
-            m_SharedCoinID.m_Value = GetAmount();
-            m_SharedCoinID.m_Type = ECC::Key::Type::Regular;
-            // TODO(alex.starun): use GetRandomID from walletDB
-            m_SharedCoinID.m_Idx = GetRandomCoinID();
+            m_SharedCoin = m_Tx.GetWalletDB()->generateSharedCoin(GetAmount());
 
             // blindingFactor = sk + sk1
 
             beam::SwitchCommitment switchCommitment;
-            switchCommitment.Create(m_SharedBlindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(m_SharedCoinID.m_SubIdx), m_SharedCoinID);
+            switchCommitment.Create(m_SharedBlindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(m_SharedCoin.m_ID.m_SubIdx), m_SharedCoin.m_ID);
 
             m_Tx.SetParameter(TxParameterID::SharedBlindingFactor, m_SharedBlindingFactor, m_subTxID);
 
