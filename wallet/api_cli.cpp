@@ -48,6 +48,13 @@ static const size_t PACKER_FRAGMENTS_SIZE = 4096;
 
 namespace beam
 {
+    struct TlsOptions
+    {
+        bool use;
+        std::string certPath;
+        std::string keyPath;
+    };
+
     WalletApi::ACL loadACL(const std::string& path)
     {
         std::ifstream file(path);
@@ -104,7 +111,7 @@ namespace beam
     class WalletApiServer : public IWalletApiServer
     {
     public:
-        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::Reactor& reactor, io::Address listenTo, bool useHttp, WalletApi::ACL acl)
+        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::Reactor& reactor, io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions)
             : _reactor(reactor)
             , _bindAddress(listenTo)
             , _useHttp(useHttp)
@@ -112,6 +119,7 @@ namespace beam
             , _wallet(wallet)
             , _wnet(wnet)
             , _acl(acl)
+            , _tlsOptions(tlsOptions)
         {
             start();
         }
@@ -129,10 +137,8 @@ namespace beam
 
             try
             {
-                bool useSsl = false;
-
-                _server = useSsl
-                    ? io::SslServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted), "test.crt", "test.key")
+                _server = _tlsOptions.use
+                    ? io::SslServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted), _tlsOptions.certPath.c_str(), _tlsOptions.keyPath.c_str())
                     : io::TcpServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted));
 
             }
@@ -725,6 +731,7 @@ namespace beam
         io::TcpServer::Ptr _server;
         io::Address _bindAddress;
         bool _useHttp;
+        TlsOptions _tlsOptions;
 
         std::map<uint64_t, std::shared_ptr<ApiConnection>> _connections;
 
@@ -753,7 +760,10 @@ int main(int argc, char* argv[])
             std::string nodeURI;
             bool useHttp;
             std::string aclPath;
+
         } options;
+
+        TlsOptions tlsOptions;
 
         io::Address node_addr;
         IWalletDB::Ptr walletDB;
@@ -770,6 +780,10 @@ int main(int argc, char* argv[])
                 (cli::PASS, po::value<std::string>(), "password for the wallet")
                 (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
                 (cli::API_ACL_PATH, po::value<std::string>(&options.aclPath)->default_value(""), "path to access control list (ACL) file")
+
+                (cli::API_USE_TLS, po::value<bool>(&tlsOptions.use)->default_value(false), "use TLS protocol")
+                (cli::API_TLS_CERT, po::value<std::string>(&tlsOptions.certPath)->default_value("wallet_api.crt"), "path to TLS certificate")
+                (cli::API_TLS_KEY, po::value<std::string>(&tlsOptions.keyPath)->default_value("wallet_api.key"), "path to TLS private key")
             ;
 
             po::variables_map vm;
@@ -806,6 +820,18 @@ int main(int argc, char* argv[])
                     LOG_ERROR() << "ACL file not loaded, path is: " << options.aclPath;
                     return -1;
                 }
+            }
+
+            if (tlsOptions.certPath.empty() || !boost::filesystem::exists(tlsOptions.certPath))
+            {
+                LOG_ERROR() << "TLS certificate not found, path is: " << tlsOptions.certPath;
+                return -1;
+            }
+
+            if (tlsOptions.keyPath.empty() || !boost::filesystem::exists(tlsOptions.keyPath))
+            {
+                LOG_ERROR() << "TLS private key not found, path is: " << tlsOptions.keyPath;
+                return -1;
             }
 
             if (vm.count(cli::NODE_ADDR) == 0)
@@ -863,7 +889,7 @@ int main(int argc, char* argv[])
 
         wallet.set_Network(nnet, wnet);
 
-        WalletApiServer server(walletDB, wallet, wnet, *reactor, listenTo, options.useHttp, acl);
+        WalletApiServer server(walletDB, wallet, wnet, *reactor, listenTo, options.useHttp, acl, tlsOptions);
 
         io::Reactor::get_Current().run();
 

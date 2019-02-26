@@ -101,8 +101,9 @@ namespace beam
 
         // wallet api
         extern const char* API_USE_HTTP;
+        extern const char* API_USE_TLS;
         extern const char* API_TLS_CERT;
-        extern const char* API_TLS_CERT_KEY;
+        extern const char* API_TLS_KEY;
         extern const char* API_ACL_PATH;
 
         // treasury
