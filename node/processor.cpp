@@ -309,10 +309,9 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 
 		if (!bNeedHdrs)
 		{
-			if (!nMaxBlocksBacklog)
-				nMaxBlocksBacklog = 1;
+			uint32_t nRequested = 0;
 
-			for (size_t i = pEntry->m_Rows.size(); (i--) && (nMaxBlocksBacklog--); )
+			for (size_t i = pEntry->m_Rows.size(); i--; )
 			{
 				sid.m_Height = pEntry->m_Height - i;
 				sid.m_Row = pEntry->m_Rows.at(i);
@@ -323,6 +322,8 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 				m_DB.get_StateID(sid, id);
 				RequestDataInternal(id, sid.m_Row, true, pEntry->m_Height);
 
+				if (++nRequested >= nMaxBlocksBacklog)
+					break;
 			}
 		}
 		else
