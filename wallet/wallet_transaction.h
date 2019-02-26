@@ -24,7 +24,7 @@
 
 namespace beam::wallet
 {
-    class TxBuilder;
+    class BaseTxBuilder;
 
     class SimpleTransaction : public BaseTransaction
     {
@@ -48,9 +48,9 @@ namespace beam::wallet
         TxType GetType() const override;
         void UpdateImpl() override;
         bool ShouldNotifyAboutChanges(TxParameterID paramID) const override;
-        void SendInvitation(const TxBuilder& builder, bool isSender);
-        void ConfirmInvitation(const TxBuilder& builder, bool sendUtxos);
-        void ConfirmTransaction(const TxBuilder& builder, bool sendUtxos);
+        void SendInvitation(const BaseTxBuilder& builder, bool isSender);
+        void ConfirmInvitation(const BaseTxBuilder& builder, bool sendUtxos);
+        void ConfirmTransaction(const BaseTxBuilder& builder, bool sendUtxos);
         void NotifyTransactionRegistered();
         bool IsSelfTx() const;
         State GetState() const;

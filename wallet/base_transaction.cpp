@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "base_transaction.h"
-#include "wallet_tx_builder.h"
 #include "core/block_crypt.h"
 
 // TODO: getrandom not available until API 28 in the Android NDK 17b

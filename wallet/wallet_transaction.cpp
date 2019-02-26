@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "wallet_transaction.h"
-#include "wallet_tx_builder.h"
+#include "base_tx_builder.h"
 #include "core/block_crypt.h"
 
 #include <numeric>
@@ -50,7 +50,7 @@ namespace beam::wallet
             amoutList = AmountList{ GetMandatoryParameter<Amount>(TxParameterID::Amount) };
         }
 
-        TxBuilder builder{ *this, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee) };
+        BaseTxBuilder builder{ *this, kDefaultSubTxID, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee) };
         if (!builder.GetInitialTxParams() && txState == State::Initial)
         {
             LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ") << PrintableAmount(builder.GetAmount()) << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
@@ -275,7 +275,7 @@ namespace beam::wallet
         CompleteTx();
     }
 
-    void SimpleTransaction::SendInvitation(const TxBuilder& builder, bool isSender)
+    void SimpleTransaction::SendInvitation(const BaseTxBuilder& builder, bool isSender)
     {
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::Amount, builder.GetAmount())
@@ -293,7 +293,7 @@ namespace beam::wallet
         }
     }
 
-    void SimpleTransaction::ConfirmInvitation(const TxBuilder& builder, bool sendUtxos)
+    void SimpleTransaction::ConfirmInvitation(const BaseTxBuilder& builder, bool sendUtxos)
     {
         LOG_INFO() << GetTxID() << " Transaction accepted. Kernel: " << builder.GetKernelIDString();
         SetTxParameter msg;
@@ -341,7 +341,7 @@ namespace beam::wallet
         SendTxParameters(move(msg));
     }
 
-    void SimpleTransaction::ConfirmTransaction(const TxBuilder& builder, bool sendUtxos)
+    void SimpleTransaction::ConfirmTransaction(const BaseTxBuilder& builder, bool sendUtxos)
     {
         uint32_t nVer = 0;
         if (GetParameter(TxParameterID::PeerProtoVersion, nVer))
