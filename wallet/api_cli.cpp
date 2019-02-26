@@ -48,16 +48,11 @@ static const size_t PACKER_FRAGMENTS_SIZE = 4096;
 
 namespace beam
 {
-    bool loadACL(const std::string& path)
+    WalletApi::ACL loadACL(const std::string& path)
     {
-        if (path.empty() || !boost::filesystem::exists(path))
-        {
-            return false;
-        }
-
         std::ifstream file(path);
         std::string line;
-        std::map<std::string, bool> keys;
+        WalletApi::ACL::value_type keys;
         int curLine = 1;
 
         while (std::getline(file, line)) 
@@ -81,16 +76,23 @@ namespace beam
             if (!parsed)
             {
                 LOG_ERROR() << "ACL parsing error, line " << curLine;
-                return false;
+                return boost::none;
             }
 
             keys.insert({ key[0], key[1] == WRITE_ACCESS });
             curLine++;
         }
 
-        LOG_INFO() << (keys.empty() ? "ACL file is empty" : "ACL file successfully loaded");
+        if (keys.empty())
+        {
+            LOG_WARNING() << "ACL file is empty";
+        }
+        else
+        {
+            LOG_INFO() << "ACL file successfully loaded";
+        }
 
-        return true;
+        return WalletApi::ACL(keys);
     }
 
     class IWalletApiServer
@@ -102,13 +104,14 @@ namespace beam
     class WalletApiServer : public IWalletApiServer
     {
     public:
-        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::Reactor& reactor, io::Address listenTo, bool useHttp)
+        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::Reactor& reactor, io::Address listenTo, bool useHttp, WalletApi::ACL acl)
             : _reactor(reactor)
             , _bindAddress(listenTo)
             , _useHttp(useHttp)
             , _walletDB(walletDB)
             , _wallet(wallet)
             , _wnet(wnet)
+            , _acl(acl)
         {
             start();
         }
@@ -169,7 +172,7 @@ namespace beam
         template<typename T>
         std::shared_ptr<ApiConnection> createConnection(io::TcpStream::Ptr&& newStream)
         {
-            return std::static_pointer_cast<ApiConnection>(std::make_shared<T>(*this, _walletDB, _wallet, _wnet, std::move(newStream)));
+            return std::static_pointer_cast<ApiConnection>(std::make_shared<T>(*this, _walletDB, _wallet, _wnet, std::move(newStream), _acl));
         }
 
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
@@ -193,10 +196,10 @@ namespace beam
         class ApiConnection : IWalletApiHandler, IWalletDbObserver
         {
         public:
-            ApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet)
+            ApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, WalletApi::ACL acl)
                 : _walletDB(walletDB)
                 , _wallet(wallet)
-                , _api(*this)
+                , _api(*this, acl)
                 , _wnet(wnet)
             {
                 _walletDB->subscribe(this);
@@ -253,7 +256,7 @@ namespace beam
 
             void onMessage(int id, const CreateAddress& data) override 
             {
-                LOG_DEBUG() << "CreateAddress(id = " << id << " metadata = " << data.metadata << " lifetime = " << data.lifetime << ")";
+                LOG_DEBUG() << "CreateAddress(id = " << id << " lifetime = " << data.lifetime << ")";
 
                 WalletAddress address = wallet::createAddress(*_walletDB);
                 address.m_duration = data.lifetime * 60 * 60;
@@ -532,6 +535,7 @@ namespace beam
 
                 doResponse(id, res);
             }
+
         private:
             void methodNotImplementedYet(int id)
             {
@@ -548,8 +552,8 @@ namespace beam
         class TcpApiConnection : public ApiConnection
         {
         public:
-            TcpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream)
-                : ApiConnection(walletDB, wallet, wnet)
+            TcpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
+                : ApiConnection(walletDB, wallet, wnet, acl)
                 , _stream(std::move(newStream))
                 , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
                 , _server(server)
@@ -608,8 +612,8 @@ namespace beam
         class HttpApiConnection : public ApiConnection
         {
         public:
-            HttpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream)
-                : ApiConnection(walletDB, wallet, wnet)
+            HttpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
+                : ApiConnection(walletDB, wallet, wnet, acl)
                 , _keepalive(false)
                 , _msgCreator(2000)
                 , _packer(PACKER_FRAGMENTS_SIZE)
@@ -728,6 +732,7 @@ namespace beam
         Wallet& _wallet;
         WalletNetworkViaBbs& _wnet;
         std::vector<uint64_t> _pendingToClose;
+        WalletApi::ACL _acl;
     };
 }
 
@@ -753,6 +758,7 @@ int main(int argc, char* argv[])
         io::Address node_addr;
         IWalletDB::Ptr walletDB;
         io::Reactor::Ptr reactor = io::Reactor::create();
+        WalletApi::ACL acl;
 
         {
             po::options_description desc("Wallet API options");
@@ -792,11 +798,14 @@ int main(int argc, char* argv[])
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
-
-            if (!loadACL(options.aclPath))
+            
+            if (!options.aclPath.empty())
             {
-                LOG_ERROR() << "ACL file not loaded, path is: " << options.aclPath;
-                return -1;
+                if (!(boost::filesystem::exists(options.aclPath) && (acl = loadACL(options.aclPath))))
+                {
+                    LOG_ERROR() << "ACL file not loaded, path is: " << options.aclPath;
+                    return -1;
+                }
             }
 
             if (vm.count(cli::NODE_ADDR) == 0)
@@ -854,7 +863,7 @@ int main(int argc, char* argv[])
 
         wallet.set_Network(nnet, wnet);
 
-        WalletApiServer server(walletDB, wallet, wnet, *reactor, listenTo, options.useHttp);
+        WalletApiServer server(walletDB, wallet, wnet, *reactor, listenTo, options.useHttp, acl);
 
         io::Reactor::get_Current().run();
 
