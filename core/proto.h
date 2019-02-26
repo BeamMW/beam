@@ -52,6 +52,12 @@ namespace proto {
 #define BeamNodeMsg_GetBody(macro) \
     macro(Block::SystemState::ID, ID)
 
+#define BeamNodeMsg_GetBody2(macro) \
+    macro(Block::SystemState::ID, ID) \
+    macro(Height, HorizonLo0) \
+    macro(Height, HorizonLo1) \
+    macro(Height, HorizonHi1)
+
 #define BeamNodeMsg_Body(macro) \
     macro(ByteBuffer, Perishable) \
     macro(ByteBuffer, Eternal)
@@ -236,6 +242,7 @@ namespace proto {
     macro(0x23, ProofCommonState) \
     macro(0x24, GetProofKernel2) \
     macro(0x25, ProofKernel2) \
+    macro(0x26, GetBody2) \
     /* onwer-relevant */ \
     macro(0x2c, GetUtxoEvents) \
     macro(0x2d, UtxoEvents) \

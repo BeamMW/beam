@@ -2396,19 +2396,46 @@ bool NodeProcessor::UtxoRecoverSimple::OnInput(const Input& x)
 	return true; // ignore
 }
 
-bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal, ByteBuffer& bbPerishable)
+bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal, ByteBuffer& bbPerishable, Height hLo0, Height hLo1, Height hHi1)
 {
-	Height h1 = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
-	if (sid.m_Height <= h1)
+	// hLo0 - HorizonLo that peer currently has
+	// hLo1 - HorizonLo that peer needs after the sync
+	// hHi1 - HorizonL1 that peer needs after the sync
+	if ((hLo0 > hLo1) || (hLo1 > hHi1) || (hLo0 >= sid.m_Height))
 		return false;
 
-	m_DB.GetStateBlock(sid.m_Row, &bbPerishable, &bbEthernal, NULL);
+	// For every output:
+	//	if SpendHeight > hHi1 (or null) then fully transfer
+	//	if SpendHeight > hLo1 then transfer compacted (remove Confidential, Public, AssetID)
+	//	Otherwise - don't transfer
+
+	// For every input (commitment only):
+	//	if SpendHeight > hLo1 then transfer
+	//	if CreateHeight <= hLo0 then transfer
+	//	Otherwise - don't transfer
+
+	hHi1 = std::max(hHi1, sid.m_Height); // valid block can't spend its own output. Hence this means full block should be transferred
+
+	Height h1 = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
+	if (h1 > hHi1)
+		return false;
+
+	hLo1 = std::max(hLo1, sid.m_Height - 1);
+	h1 = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoLo, Rules::HeightGenesis - 1);
+	if (h1 > hLo1)
+		return false;
+
+	bool bFullBlock = (sid.m_Height >= hHi1);
+	m_DB.GetStateBlock(sid.m_Row, bFullBlock ? &bbPerishable : nullptr, &bbEthernal, NULL);
 
 	if (!bbPerishable.empty())
 		return true;
 
 	// re-create it from Txos
-	TxoID id0, id1;
+	if (!(m_DB.GetStateFlags(sid.m_Row) & NodeDB::StateFlags::Active))
+		return false;
+
+	TxoID id0, id1, idInpCut = 0;
 
 	StateExtra se;
 	if (!m_DB.get_StateExtra(sid.m_Row, se))
@@ -2436,6 +2463,15 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 		m_DB.ParamGet(NodeDB::ParamID::Treasury, &id0, nullptr, nullptr);
 	}
 
+	if (hLo0 >= Rules::HeightGenesis)
+	{
+		StateExtra se2;
+		if (!m_DB.get_StateExtra(FindActiveAtStrict(hLo0), se2))
+			OnCorrupted();
+
+		se2.m_Txos.Export(idInpCut);
+	}
+
 	TxBase txb;
 	txb.m_Offset = se.m_Offset;
 
@@ -2449,13 +2485,19 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 		if (wlk.m_SpendHeight > sid.m_Height)
 			break;
 
-		tvp.m_vInputs.emplace_back();
-		Input::Ptr& pInp = tvp.m_vInputs.back();
-		pInp.reset(new Input);
+		//	if SpendHeight > hLo1 then transfer
+		//	if CreateHeight <= hLo0 then transfer
+		//	Otherwise - don't transfer
+		if ((sid.m_Height > hLo1) || (wlk.m_ID < idInpCut))
+		{
+			tvp.m_vInputs.emplace_back();
+			Input::Ptr& pInp = tvp.m_vInputs.back();
+			pInp.reset(new Input);
 
-		TxoToPt(pInp->m_Commitment, wlk.m_Value);
+			TxoToPt(pInp->m_Commitment, wlk.m_Value);
 
-		nCount.Inc();
+			nCount.Inc();
+		}
 	}
 
 	tvp.NormalizeP(); // inputs should be sorted, our order is different
@@ -2476,7 +2518,19 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 		if (wlk.m_ID >= id1)
 			break;
 
+		//	if SpendHeight > hHi1 (or null) then fully transfer
+		//	if SpendHeight > hLo1 then transfer compacted (remove Confidential, Public, AssetID)
+		//	Otherwise - don't transfer
+
+		if (wlk.m_SpendHeight <= hLo1)
+			continue;
+
 		const uint8_t* p = reinterpret_cast<const uint8_t*>(wlk.m_Value.p);
+
+		if (wlk.m_SpendHeight <= hHi1)
+		{
+			// TODO
+		}
 
 		nCount.Inc();
 		bbBlob.insert(bbBlob.end(), p, p + wlk.m_Value.n);

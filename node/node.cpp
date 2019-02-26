@@ -1915,6 +1915,13 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 
 void Node::Peer::OnMsg(proto::GetBody&& msg)
 {
+	proto::GetBody2 msg2;
+	msg2.m_ID = msg.m_ID;
+	OnMsg(std::move(msg2));
+}
+
+void Node::Peer::OnMsg(proto::GetBody2&& msg)
+{
     if (msg.m_ID.m_Height)
     {
 		NodeDB::StateID sid;
@@ -1924,7 +1931,7 @@ void Node::Peer::OnMsg(proto::GetBody&& msg)
 			sid.m_Height = msg.m_ID.m_Height;
 
 			proto::Body msgBody;
-			if (m_This.m_Processor.GetBlock(sid, msgBody.m_Eternal, msgBody.m_Perishable))
+			if (m_This.m_Processor.GetBlock(sid, msgBody.m_Eternal, msgBody.m_Perishable, msg.m_HorizonLo0, msg.m_HorizonLo1, msg.m_HorizonHi1))
 			{
 				Send(msgBody);
 				return;
