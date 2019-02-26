@@ -43,13 +43,9 @@ namespace beam::wallet
         bool isSender = GetMandatoryParameter<bool>(TxParameterID::IsSender);
         State lockTxState = GetState(SubTxIndex::LOCK_TX);
         Amount amount = GetMandatoryParameter<Amount>(TxParameterID::Amount);
+        auto lockTxBuilder = std::make_unique<LockTxBuilder>(*this, SubTxIndex::LOCK_TX, amount, GetMandatoryParameter<Amount>(TxParameterID::Fee));
 
-        if (!m_LockTxBuilder)
-        {
-            m_LockTxBuilder = std::make_unique<LockTxBuilder>(*this, SubTxIndex::LOCK_TX, amount, GetMandatoryParameter<Amount>(TxParameterID::Fee));
-        }
-
-        if (!m_LockTxBuilder->GetInitialTxParams() && lockTxState == State::Initial)
+        if (!lockTxBuilder->GetInitialTxParams() && lockTxState == State::Initial)
         {
             if (CheckExpired())
             {
@@ -58,11 +54,11 @@ namespace beam::wallet
 
             if (isSender)
             {
-                m_LockTxBuilder->SelectInputs();
-                m_LockTxBuilder->AddChangeOutput();
+                lockTxBuilder->SelectInputs();
+                lockTxBuilder->AddChangeOutput();
             }
 
-            if (!m_LockTxBuilder->FinalizeOutputs())
+            if (!lockTxBuilder->FinalizeOutputs())
             {
                 // TODO: transaction is too big :(
             }
@@ -70,54 +66,54 @@ namespace beam::wallet
             UpdateTxDescription(TxStatus::InProgress);
         }
 
-        m_LockTxBuilder->CreateKernel();
+        lockTxBuilder->CreateKernel();
 
-        if (!m_LockTxBuilder->GetPeerPublicExcessAndNonce())
+        if (!lockTxBuilder->GetPeerPublicExcessAndNonce())
         {
             assert(IsInitiator());
             if (lockTxState == State::Initial)
             {
-                SendInvitation(*m_LockTxBuilder, isSender);
+                SendInvitation(*lockTxBuilder, isSender);
                 SetState(State::Invitation, SubTxIndex::LOCK_TX);
             }
             return;
         }
 
-        m_LockTxBuilder->GenerateSharedBlindingFactor();
-        m_LockTxBuilder->SignPartial();
+        lockTxBuilder->LoadSharedParameters();
+        lockTxBuilder->SignPartial();
 
         if (lockTxState == State::Initial || lockTxState == State::Invitation)
         {
-            m_LockTxBuilder->SharedUTXOProofPart2(isSender);
-            SendBulletProofPart2(*m_LockTxBuilder, isSender);
+            lockTxBuilder->SharedUTXOProofPart2(isSender);
+            SendBulletProofPart2(*lockTxBuilder, isSender);
             SetState(State::SharedUTXOProofPart2, SubTxIndex::LOCK_TX);
             return;
         }
 
         if (lockTxState == State::SharedUTXOProofPart2)
         {
-            m_LockTxBuilder->SharedUTXOProofPart3(isSender);
-            SendBulletProofPart3(*m_LockTxBuilder, isSender);
+            lockTxBuilder->SharedUTXOProofPart3(isSender);
+            SendBulletProofPart3(*lockTxBuilder, isSender);
             SetState(State::SharedUTXOProofPart3, SubTxIndex::LOCK_TX);
 
             if (isSender)
             {
                 // DEBUG
-                assert(m_LockTxBuilder->GetPeerSignature());
-                if (!m_LockTxBuilder->IsPeerSignatureValid())
+                assert(lockTxBuilder->GetPeerSignature());
+                if (!lockTxBuilder->IsPeerSignatureValid())
                 {
                     LOG_INFO() << GetTxID() << " Peer signature is invalid.";
                     return;
                 }
 
-                m_LockTxBuilder->FinalizeSignature();
+                lockTxBuilder->FinalizeSignature();
 
                 // TODO(alex.starun): create shared utxo ?
-                m_LockTxBuilder->AddSharedOutput(amount);
+                lockTxBuilder->AddSharedOutput(amount);
 
                 {
                     // TEST
-                    auto tx = m_LockTxBuilder->CreateTransaction();
+                    auto tx = lockTxBuilder->CreateTransaction();
                     beam::TxBase::Context ctx;
                     tx->IsValid(ctx);
                 }
@@ -127,7 +123,7 @@ namespace beam::wallet
 
         if (lockTxState == State::SharedUTXOProofPart3)
         {
-            m_LockTxBuilder->ValidateSharedUTXO(isSender);
+            lockTxBuilder->ValidateSharedUTXO(isSender);
         }
 
     }
@@ -168,7 +164,7 @@ namespace beam::wallet
         }
         else
         {
-            auto bulletProof = lockBuilder.GetBulletProof();
+            auto bulletProof = lockBuilder.GetSharedProof();
             msg.AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
                 .AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
                 .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce())
@@ -192,7 +188,7 @@ namespace beam::wallet
 
         if (!isSender)
         {
-            auto bulletProof = lockBuilder.GetBulletProof();
+            auto bulletProof = lockBuilder.GetSharedProof();
             msg.AddParameter(TxParameterID::PeerSharedBulletProofPart3, bulletProof.m_Part3);
         }
 
@@ -215,7 +211,7 @@ namespace beam::wallet
 
     const ECC::uintBig& LockTxBuilder::GetSharedSeed() const
     {
-        return m_Seed;
+        return m_SharedSeed;
     }
 
     const ECC::Scalar::Native& LockTxBuilder::GetSharedBlindingFactor() const
@@ -224,9 +220,9 @@ namespace beam::wallet
         return m_SharedBlindingFactor;
     }
 
-    const ECC::RangeProof::Confidential& LockTxBuilder::GetBulletProof() const
+    const ECC::RangeProof::Confidential& LockTxBuilder::GetSharedProof() const
     {
-        return m_Bulletproof;
+        return m_SharedProof;
     }
 
     const ECC::RangeProof::Confidential::MultiSig& LockTxBuilder::GetProofPartialMultiSig() const
@@ -269,14 +265,17 @@ namespace beam::wallet
             Oracle oracle;
             oracle << (beam::Height)0; // CHECK, coin maturity
             // load peer part2
-            m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofPart2, m_Bulletproof.m_Part2, m_SubTxID);
+            m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofPart2, m_SharedProof.m_Part2, m_SubTxID);
             // produce multisig
-            m_Bulletproof.CoSign(GetSharedSeed(), GetSharedBlindingFactor(), GetProofCreatorParams(), oracle, RangeProof::Confidential::Phase::Step2, &m_ProofPartialMultiSig);
+            m_SharedProof.CoSign(GetSharedSeed(), GetSharedBlindingFactor(), GetProofCreatorParams(), oracle, RangeProof::Confidential::Phase::Step2, &m_ProofPartialMultiSig);
+
+            // save SharedBulletProofMSig and BulletProof ?
+            m_Tx.SetParameter(TxParameterID::SharedBulletProof, m_SharedProof, m_SubTxID);
         }
         else
         {
-            ZeroObject(m_Bulletproof.m_Part2);
-            RangeProof::Confidential::MultiSig::CoSignPart(GetSharedSeed(), m_Bulletproof.m_Part2);
+            ZeroObject(m_SharedProof.m_Part2);
+            RangeProof::Confidential::MultiSig::CoSignPart(GetSharedSeed(), m_SharedProof.m_Part2);
         }
     }
 
@@ -287,23 +286,24 @@ namespace beam::wallet
             Oracle oracle;
             oracle << (beam::Height)0; // CHECK!
             // load peer part3
-            m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofPart3, m_Bulletproof.m_Part3, m_SubTxID);
+            m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofPart3, m_SharedProof.m_Part3, m_SubTxID);
             // finalize proof
-            m_Bulletproof.CoSign(GetSharedSeed(), GetSharedBlindingFactor(), GetProofCreatorParams(), oracle, RangeProof::Confidential::Phase::Finalize);
+            m_SharedProof.CoSign(GetSharedSeed(), GetSharedBlindingFactor(), GetProofCreatorParams(), oracle, RangeProof::Confidential::Phase::Finalize);
 
+            m_Tx.SetParameter(TxParameterID::SharedBulletProof, m_SharedProof, m_SubTxID);
             {
                 // TODO: delete after testing
                 Oracle oracleTest;
                 oracleTest << (beam::Height)0;
-                m_Bulletproof.IsValid(GetSharedCommitment(), oracleTest, nullptr);
+                m_SharedProof.IsValid(GetSharedCommitment(), oracleTest, nullptr);
             }
         }
         else
         {
             m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofMSig, m_ProofPartialMultiSig, m_SubTxID);
 
-            ZeroObject(m_Bulletproof.m_Part3);
-            m_ProofPartialMultiSig.CoSignPart(GetSharedSeed(), GetSharedBlindingFactor(), m_Bulletproof.m_Part3);
+            ZeroObject(m_SharedProof.m_Part3);
+            m_ProofPartialMultiSig.CoSignPart(GetSharedSeed(), GetSharedBlindingFactor(), m_SharedProof.m_Part3);
         }
     }
 
@@ -416,7 +416,7 @@ namespace beam::wallet
         Output::Ptr output = make_unique<Output>();
         output->m_Commitment = GetSharedCommitment();
         output->m_pConfidential = std::make_unique<ECC::RangeProof::Confidential>();
-        *(output->m_pConfidential) = m_Bulletproof;
+        *(output->m_pConfidential) = m_SharedProof;
 
         m_Outputs.push_back(std::move(output));
     }
@@ -424,7 +424,7 @@ namespace beam::wallet
     void LockTxBuilder::CreateKernel()
     {
         // create kernel
-        // assert(!m_Kernel);
+        assert(!m_Kernel);
         m_Kernel = make_unique<TxKernel>();
         m_Kernel->m_Fee = GetFee();
         m_Kernel->m_Height.m_Min = m_MinHeight;
@@ -457,22 +457,28 @@ namespace beam::wallet
         m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_MultiSig.m_Nonce, hvRandom.V);
     }
 
-    void LockTxBuilder::GenerateSharedBlindingFactor()
+    void LockTxBuilder::LoadSharedParameters()
     {
         if (!m_Tx.GetParameter(TxParameterID::SharedBlindingFactor, m_SharedBlindingFactor, m_SubTxID))
         {
-            // TODO: store it!
             m_SharedCoin = m_Tx.GetWalletDB()->generateSharedCoin(GetAmount());
+            m_Tx.SetParameter(TxParameterID::SharedCoinID, m_SharedCoin.m_ID, m_SubTxID);
 
             // blindingFactor = sk + sk1
             beam::SwitchCommitment switchCommitment;
             switchCommitment.Create(m_SharedBlindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(m_SharedCoin.m_ID.m_SubIdx), m_SharedCoin.m_ID);
-
             m_Tx.SetParameter(TxParameterID::SharedBlindingFactor, m_SharedBlindingFactor, m_SubTxID);
 
             Oracle oracle;
-            // TODO: store it!
-            RangeProof::Confidential::GenerateSeed(m_Seed, m_SharedBlindingFactor, GetAmount(), oracle);
+            RangeProof::Confidential::GenerateSeed(m_SharedSeed, m_SharedBlindingFactor, GetAmount(), oracle);
+            m_Tx.SetParameter(TxParameterID::SharedSeed, m_SharedSeed, m_SubTxID);
+        }
+        else
+        {
+            // load remaining shared parameters
+            m_Tx.GetParameter(TxParameterID::SharedSeed, m_SharedSeed, m_SubTxID);
+            m_Tx.GetParameter(TxParameterID::SharedCoinID, m_SharedCoin.m_ID, m_SubTxID);
+            m_Tx.GetParameter(TxParameterID::SharedBulletProof, m_SharedProof, m_SubTxID);
         }
 
         ECC::Scalar::Native blindingFactor = -m_SharedBlindingFactor;

@@ -51,8 +51,6 @@ namespace beam::wallet
         void SendInvitation(const LockTxBuilder& lockBuilder, bool isSender);
         void SendBulletProofPart2(const LockTxBuilder& lockBuilder, bool isSender);
         void SendBulletProofPart3(const LockTxBuilder& lockBuilder, bool isSender);
-
-        std::unique_ptr<LockTxBuilder> m_LockTxBuilder;
     };
 
     class LockTxBuilder
@@ -90,14 +88,14 @@ namespace beam::wallet
         void StoreKernelID();
         std::string GetKernelIDString() const;
 
-        void GenerateSharedBlindingFactor();
+        void LoadSharedParameters();
 
         void SharedUTXOProofPart2(bool shouldProduceMultisig);
         void SharedUTXOProofPart3(bool shouldProduceMultisig);
 
         const ECC::uintBig& GetSharedSeed() const;
         const ECC::Scalar::Native& GetSharedBlindingFactor() const;
-        const ECC::RangeProof::Confidential& GetBulletProof() const;
+        const ECC::RangeProof::Confidential& GetSharedProof() const;
 
         const ECC::RangeProof::Confidential::MultiSig& GetProofPartialMultiSig() const;
 
@@ -125,6 +123,10 @@ namespace beam::wallet
         ECC::Scalar::Native m_Offset; // goes to offset
 
         ECC::Scalar::Native m_SharedBlindingFactor;
+        // NoLeak - ?
+        ECC::uintBig m_SharedSeed;
+        beam::Coin m_SharedCoin;
+        ECC::RangeProof::Confidential m_SharedProof;
 
         // peer values
         ECC::Scalar::Native m_PartialSignature;
@@ -141,11 +143,6 @@ namespace beam::wallet
         ECC::Signature::MultiSig m_MultiSig;
         boost::optional<ECC::RangeProof::CreatorParams> m_CreatorParams;
 
-        // NoLeak - ?
-        ECC::uintBig m_Seed;
-
-        beam::Coin m_SharedCoin;
-        ECC::RangeProof::Confidential m_Bulletproof;
         ECC::RangeProof::Confidential::MultiSig m_ProofPartialMultiSig;
     };
 }

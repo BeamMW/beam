@@ -276,7 +276,10 @@ namespace beam
             SharedBlindingFactor = 160,
             LockedBlindingFactor = 161,
             MyNonce = 162,
-            SharedPeerBlindingFactor = 170,
+
+            SharedBulletProof = 171,
+            SharedCoinID = 172,
+            SharedSeed = 173,
 
             Inputs = 180,
             SharedInputs = 181,
