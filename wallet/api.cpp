@@ -50,11 +50,12 @@ namespace beam
         return std::string(data, data + (size > 1024 ? 1024 : size));
     }
 
-    WalletApi::WalletApi(IWalletApiHandler& handler)
+    WalletApi::WalletApi(IWalletApiHandler& handler, ACL acl)
         : _handler(handler)
+        , _acl(acl)
     {
-#define REG_FUNC(api, name) \
-        _methods[name] = BIND_THIS_MEMFN(on##api##Message);
+#define REG_FUNC(api, name, writeAccess) \
+        _methods[name] = {BIND_THIS_MEMFN(on##api##Message), writeAccess};
 
         WALLET_API_METHODS(REG_FUNC)
 
@@ -75,10 +76,8 @@ namespace beam
     void WalletApi::onCreateAddressMessage(int id, const nlohmann::json& params)
     {
         checkJsonParam(params, "lifetime", id);
-        checkJsonParam(params, "metadata", id);
 
         CreateAddress createAddress;
-        createAddress.metadata = params["metadata"];
         createAddress.lifetime = params["lifetime"];
 
         if (params["lifetime"] < 0)
@@ -496,12 +495,26 @@ namespace beam
 
             if (msg["jsonrpc"] != "2.0") throwInvalidJsonRpc();
             if (msg["id"] <= 0) throwInvalidJsonRpc();
+
+            if (_acl)
+            {
+                if (msg["key"] == nullptr) throw jsonrpc_exception{ INVALID_PARAMS_JSON_RPC , "API key not specified.", msg["id"] };
+                if (_acl->count(msg["key"]) == 0) throw jsonrpc_exception{ UNKNOWN_API_KEY , "Unknown API key.", msg["id"] };
+            }
+
             if (msg["method"] == nullptr) throwInvalidJsonRpc();
             if (_methods.find(msg["method"]) == _methods.end()) throwUnknownJsonRpc(msg["id"]);
 
             try
             {
-                _methods[msg["method"]](msg["id"], msg["params"] == nullptr ? json::object() : msg["params"]);
+                auto& info = _methods[msg["method"]];
+
+                if(_acl && info.writeAccess && _acl.get()[msg["key"]] == false)
+                {
+                    throw jsonrpc_exception{ INVALID_PARAMS_JSON_RPC , "User doesn't have permissions to call this method.", msg["id"] };
+                }
+
+                info.func(msg["id"], msg["params"] == nullptr ? json::object() : msg["params"]);
             }
             catch (const nlohmann::detail::exception& e)
             {
