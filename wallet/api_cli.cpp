@@ -115,11 +115,11 @@ namespace beam
             : _reactor(reactor)
             , _bindAddress(listenTo)
             , _useHttp(useHttp)
+            , _tlsOptions(tlsOptions)
             , _walletDB(walletDB)
             , _wallet(wallet)
             , _wnet(wnet)
             , _acl(acl)
-            , _tlsOptions(tlsOptions)
         {
             start();
         }
