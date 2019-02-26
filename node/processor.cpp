@@ -434,7 +434,7 @@ void NodeProcessor::TryGoUp()
 
 Height NodeProcessor::PruneOld()
 {
-	if (!m_Cursor.m_Sid.m_Height)
+	if (m_Cursor.m_Sid.m_Height < Rules::HeightGenesis)
 		return 0;
 
 	Height hRet = 0;
@@ -475,8 +475,10 @@ Height NodeProcessor::PruneOld()
 		Height hTrg = m_Cursor.m_Sid.m_Height - Rules::get().Macroblock.MaxRollback - 1;
 		assert(hTrg > hFossil);
 
-		for (; hFossil < hTrg; hFossil++)
+		do
 		{
+			hFossil++;
+
 			NodeDB::WalkerState ws(m_DB);
 			for (m_DB.EnumStatesAt(ws, hFossil); ws.MoveNext(); )
 			{
@@ -492,7 +494,8 @@ Height NodeProcessor::PruneOld()
 
 				hRet++;
 			}
-		}
+
+		} while (hFossil < hTrg);
 
 		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
 	}

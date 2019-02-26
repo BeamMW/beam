@@ -50,8 +50,8 @@ public:
 			LoHorizon, // Height of no-return. Navigation is impossible below it
 			Treasury,
 			DummyID,
-			HeightTxoLo, // Height below which spent Txo info is totally erased.
-			HeightTxoHi, // Height below which spent Txo infi is compacted, only the commitment is left
+			HeightTxoLo, // Height starting from which and below Txo info is totally erased.
+			HeightTxoHi, // Height starting from which and below Txo infi is compacted, only the commitment is left
 		};
 	};
 
