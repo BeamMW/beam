@@ -1699,7 +1699,6 @@ int main()
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
-
     Rules::get().FakePoW = true;
     Rules::get().UpdateChecksum();
 

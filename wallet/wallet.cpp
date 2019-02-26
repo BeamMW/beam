@@ -73,64 +73,6 @@ namespace beam
             walletID.IsValid();
     }
 
-    std::ostream& operator<<(std::ostream& os, const TxID& uuid)
-    {
-        stringstream ss;
-        ss << "[" << to_hex(uuid.data(), uuid.size()) << "]";
-        os << ss.str();
-        return os;
-    }
-
-    std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount)
-    {
-        const string_view beams{ " beams " };
-        const string_view chattles{ " groth " };
-        auto width = os.width();
-
-        if (amount.m_showPoint)
-        {
-            const char origFill = os.fill();
-            Amount groths = amount.m_value % Rules::Coin;
-            std::string grothsString { '0' };
-            size_t grothsLength = 1;
-
-            if (groths > 0)
-            {
-                std::string grothsText = std::to_string(groths);
-                size_t maxGrothsLength = std::lround(std::log10(Rules::Coin));
-
-                // additional length for add leading zeros
-                assert(maxGrothsLength >= grothsText.length());
-                size_t additionalLength = maxGrothsLength - grothsText.length();
-
-                // trim trailing zeros
-                grothsText.erase(grothsText.find_last_not_of('0') + 1, std::string::npos);
-
-                grothsLength = additionalLength + grothsText.length();
-                grothsString = grothsText;
-            }
-
-            assert(width > static_cast<decltype(width)>(grothsLength + beams.length()));
-
-            os << setw(width - grothsLength - beams.length()) << Amount(amount.m_value / Rules::Coin)
-                << "." << std::setfill('0') << setw(grothsLength) << grothsString << std::setfill(origFill)
-                << beams.data();
-
-            return os;
-        }
-
-        if (amount.m_value >= Rules::Coin)
-        {
-            os << setw(width - beams.length()) << Amount(amount.m_value / Rules::Coin) << beams.data();
-        }
-        Amount c = amount.m_value % Rules::Coin;
-        if (c > 0 || amount.m_value == 0)
-        {
-            os << setw(width - chattles.length()) << c << chattles.data();
-        }
-        return os;
-    }
-
     const char Wallet::s_szNextUtxoEvt[] = "NextUtxoEvent";
 
     Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action)

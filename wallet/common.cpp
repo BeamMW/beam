@@ -16,6 +16,8 @@
 #include "common.h"
 #include "utility/logger.h"
 #include "core/ecc_native.h"
+#include <iomanip>
+#include <boost/algorithm/string.hpp>
 
 using namespace std;
 using namespace ECC;
@@ -45,6 +47,47 @@ namespace std
         char sz[Merkle::Hash::nTxtLen + 1];
         hash.Print(sz);
         return string(sz);
+    }
+}
+
+namespace beam
+{
+    std::ostream& operator<<(std::ostream& os, const TxID& uuid)
+    {
+        stringstream ss;
+        ss << "[" << to_hex(uuid.data(), uuid.size()) << "]";
+        os << ss.str();
+        return os;
+    }
+
+    std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount)
+    {
+        stringstream ss;
+
+        if (amount.m_showPoint)
+        {
+            size_t maxGrothsLength = std::lround(std::log10(Rules::Coin));
+            ss << fixed << setprecision(maxGrothsLength) << double(amount.m_value) / Rules::Coin;
+            string s = ss.str();
+            boost::algorithm::trim_right_if(s, boost::is_any_of("0"));
+            boost::algorithm::trim_right_if(s, boost::is_any_of(",."));
+            os << s;
+        }
+        else
+        {
+            if (amount.m_value >= Rules::Coin)
+            {
+                ss << Amount(amount.m_value / Rules::Coin) << " beams ";
+            }
+            Amount c = amount.m_value % Rules::Coin;
+            if (c > 0 || amount.m_value == 0)
+            {
+                ss << c << " groth ";
+            }
+            os << ss.str();
+        }
+        
+        return os;
     }
 }
 
