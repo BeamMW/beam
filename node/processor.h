@@ -62,7 +62,10 @@ class NodeProcessor
 	static void SquashOnce(std::vector<Block::Body>&);
 	static uint64_t ProcessKrnMmr(Merkle::Mmr&, TxBase::IReader&&, Height, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
 
-	static void TxoToPt(ECC::Point&, const Blob&);
+	static const uint32_t s_TxoNakedMin = sizeof(ECC::Point); // minimal output size - commitment
+	static const uint32_t s_TxoNakedMax = s_TxoNakedMin + 0x10; // In case the output has the Incubation period - extra size is needed (actually less than this).
+
+	static void TxoToNaked(uint8_t* pBuf, Blob&);
 
 	void InitCursor();
 	static void OnCorrupted();

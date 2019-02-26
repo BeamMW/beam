@@ -520,10 +520,10 @@ Height NodeProcessor::PruneOld()
 			if (wlk.m_SpendHeight > hTrg)
 				break;
 
-			ECC::Point pt;
-			TxoToPt(pt, wlk.m_Value);
+			uint8_t pNaked[s_TxoNakedMax];
+			TxoToNaked(pNaked, wlk.m_Value);
 
-			m_DB.TxoSetValue(wlk.m_ID, Blob(&pt, sizeof(pt)));
+			m_DB.TxoSetValue(wlk.m_ID, wlk.m_Value);
 			hRet++;
 		}
 
@@ -533,19 +533,43 @@ Height NodeProcessor::PruneOld()
 	return hRet;
 }
 
-void NodeProcessor::TxoToPt(ECC::Point& pt, const Blob& b)
+void NodeProcessor::TxoToNaked(uint8_t* pBuf, Blob& v)
 {
-	if (sizeof(ECC::Point) == b.n)
-		memcpy(&pt, b.p, sizeof(pt)); // already compacted
-	else
-	{
-		if (b.n < sizeof(pt))
-			OnCorrupted();
+	if (v.n < s_TxoNakedMin)
+		OnCorrupted();
 
-		const uint8_t* pPtr = reinterpret_cast<const uint8_t*>(b.p);
-		pt.m_Y = 1 & pPtr[0];
-		memcpy(&pt.m_X, pPtr + 1, pt.m_X.nBytes);
+	const uint8_t* pSrc = reinterpret_cast<const uint8_t*>(v.p);
+	v.p = pBuf;
+
+	if (!(0x30 & pSrc[0]))
+	{
+		// simple case - just remove some flags and truncate.
+		memcpy(pBuf, pSrc, s_TxoNakedMin);
+		v.n = s_TxoNakedMin;
+		pBuf[0] &= 3;
+
+		return;
 	}
+
+	// complex case - the UTXO has either AssetID or Incubation period. Utxo must be re-read
+	Deserializer der;
+	der.reset(pSrc, v.n);
+
+	Output outp;
+	der & outp;
+
+	outp.m_pConfidential.reset();
+	outp.m_pPublic.reset();
+	outp.m_AssetID = Zero;
+
+	StaticBufferSerializer<s_TxoNakedMax> ser;
+	ser & outp;
+
+	SerializeBuffer sb = ser.buffer();
+	assert(sb.second <= s_TxoNakedMax);
+
+	memcpy(pBuf, sb.first, sb.second);
+	v.n = static_cast<uint32_t>(sb.second);
 }
 
 void NodeProcessor::get_Definition(Merkle::Hash& hv, const Merkle::Hash& hvHist)
@@ -2306,6 +2330,9 @@ void NodeProcessor::InitializeUtxos(TxoID id1)
 		if (wlk.m_SpendHeight != MaxHeight)
 			continue;
 
+		uint8_t pNaked[s_TxoNakedMax];
+		TxoToNaked(pNaked, wlk.m_Value); // save allocation and deserialization of sig
+
 		Deserializer der;
 		der.reset(wlk.m_Value.p, wlk.m_Value.n);
 
@@ -2406,7 +2433,7 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 
 	// For every output:
 	//	if SpendHeight > hHi1 (or null) then fully transfer
-	//	if SpendHeight > hLo1 then transfer compacted (remove Confidential, Public, AssetID)
+	//	if SpendHeight > hLo1 then transfer naked (remove Confidential, Public, AssetID)
 	//	Otherwise - don't transfer
 
 	// For every input (commitment only):
@@ -2478,7 +2505,7 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 	uintBigFor<uint32_t>::Type nCount(Zero);
 
 	// inputs
-	TxVectors::Perishable tvp;
+	std::vector<Input> vInputs;
 	NodeDB::WalkerTxo wlk(m_DB);
 	for (m_DB.EnumTxosBySpent(wlk, sid.m_Height); wlk.MoveNext(); )
 	{
@@ -2490,24 +2517,30 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 		//	Otherwise - don't transfer
 		if ((sid.m_Height > hLo1) || (wlk.m_ID < idInpCut))
 		{
-			tvp.m_vInputs.emplace_back();
-			Input::Ptr& pInp = tvp.m_vInputs.back();
-			pInp.reset(new Input);
+			vInputs.emplace_back();
+			Input& inp = vInputs.back();
+			ECC::Point& pt = inp.m_Commitment; // alias
 
-			TxoToPt(pInp->m_Commitment, wlk.m_Value);
+			// extract input from output (which may be naked already)
+			if (wlk.m_Value.n < sizeof(pt))
+				OnCorrupted();
+
+			const uint8_t* pSrc = reinterpret_cast<const uint8_t*>(wlk.m_Value.p);
+			pt.m_Y = 1 & pSrc[0];
+			memcpy(pt.m_X.m_pData, pSrc + 1, pt.m_X.nBytes);
 
 			nCount.Inc();
 		}
 	}
 
-	tvp.NormalizeP(); // inputs should be sorted, our order is different
+	std::sort(vInputs.begin(), vInputs.end());
 
 	Serializer ser;
 	ser & txb;
 	ser & nCount;
 
-	for (size_t i = 0; i < tvp.m_vInputs.size(); i++)
-		ser & *tvp.m_vInputs[i];
+	for (size_t i = 0; i < vInputs.size(); i++)
+		ser & vInputs[i];
 
 	ByteBuffer bbBlob;
 	nCount = Zero;
@@ -2519,20 +2552,20 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 			break;
 
 		//	if SpendHeight > hHi1 (or null) then fully transfer
-		//	if SpendHeight > hLo1 then transfer compacted (remove Confidential, Public, AssetID)
+		//	if SpendHeight > hLo1 then transfer naked (remove Confidential, Public, AssetID)
 		//	Otherwise - don't transfer
 
 		if (wlk.m_SpendHeight <= hLo1)
 			continue;
 
-		const uint8_t* p = reinterpret_cast<const uint8_t*>(wlk.m_Value.p);
+		uint8_t pNaked[s_TxoNakedMax];
 
 		if (wlk.m_SpendHeight <= hHi1)
-		{
-			// TODO
-		}
+			TxoToNaked(pNaked, wlk.m_Value);
 
 		nCount.Inc();
+
+		const uint8_t* p = reinterpret_cast<const uint8_t*>(wlk.m_Value.p);
 		bbBlob.insert(bbBlob.end(), p, p + wlk.m_Value.n);
 	}
 
