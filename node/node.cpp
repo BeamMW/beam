@@ -355,7 +355,10 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 
         if (dh >= nThreshold)
         {
-            nPackSize = proto::g_HdrPackMaxSize;
+            nPackSize = (proto::LoginFlags::Extension2 & p.m_LoginFlags) ?
+				proto::g_HdrPackMaxSize :
+				proto::g_HdrPackMaxSizeV0;
+
             if (nPackSize > dh)
                 nPackSize = (uint32_t) dh;
         }
@@ -1820,8 +1823,8 @@ void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
 
     if (msg.m_Count)
     {
-        if (msg.m_Count > proto::g_HdrPackMaxSize)
-            ThrowUnexpected();
+		// don't throw unexpected if pack size is bigger than max. In case it'll be increased in future versions - just truncate it.
+		msg.m_Count = std::min(msg.m_Count, proto::g_HdrPackMaxSize);
 
         NodeDB& db = m_This.m_Processor.get_DB();
         uint64_t rowid = db.StateFindSafe(msg.m_Top);

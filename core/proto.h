@@ -269,7 +269,8 @@ namespace proto {
         static const uint8_t SendPeers              = 0x4; // Please send me periodically peers recommendations
         static const uint8_t MiningFinalization     = 0x8; // I want to finalize block construction for my owned node
         static const uint8_t Extension1             = 0x10; // Supports Bbs with POW, more advanced proof/disproof scheme for SPV clients (?)
-	    static const uint8_t Recognized             = 0x1f;
+        static const uint8_t Extension2             = 0x20; // Supports large HdrPack, BlockPack with parameters
+	    static const uint8_t Recognized             = 0x3f;
     };
 
     struct IDType
@@ -279,7 +280,8 @@ namespace proto {
         static const uint8_t Viewer        = 'V';
     };
 
-    static const uint32_t g_HdrPackMaxSize = 128;
+    static const uint32_t g_HdrPackMaxSizeV0 = 128; // about 25K
+	static const uint32_t g_HdrPackMaxSize = 2048; // about 400K
 
     struct UtxoEvent
     {
