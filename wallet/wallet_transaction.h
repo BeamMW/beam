@@ -106,7 +106,7 @@ namespace beam { namespace wallet
         IWalletDB::Ptr GetWalletDB();
         bool IsInitiator() const;
 		uint32_t get_PeerVersion() const;
-
+        bool GetTip(Block::SystemState::Full& state) const;
     protected:
         bool CheckExpired();
         bool CheckExternalFailures();
@@ -118,7 +118,6 @@ namespace beam { namespace wallet
 
         void OnFailed(TxFailureReason reason, bool notify = false);
 
-        bool GetTip(Block::SystemState::Full& state) const;
 
         bool SendTxParameters(SetTxParameter&& msg) const;
         virtual void UpdateImpl() = 0;
@@ -177,6 +176,8 @@ namespace beam { namespace wallet
         bool FinalizeOutputs();
         Output::Ptr CreateOutput(Amount amount, bool bChange, bool shared = false, Height incubation = 0);
         void CreateKernel();
+        void GenerateBlindingExcess();
+        void GenerateNonce();
         ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
         bool GetInitialTxParams();
@@ -191,6 +192,7 @@ namespace beam { namespace wallet
         Amount GetAmount() const;
         const AmountList& GetAmountList() const;
         Amount GetFee() const;
+        Height GetLifetime() const;
         Height GetMinHeight() const;
         Height GetMaxHeight() const;
         const std::vector<Input::Ptr>& GetInputs() const;
@@ -200,6 +202,8 @@ namespace beam { namespace wallet
         const TxKernel& GetKernel() const;
         void StoreKernelID();
         std::string GetKernelIDString() const;
+        bool UpdateMaxHeight();
+        bool IsAcceptableMaxHeight() const;
 
     private:
         BaseTransaction& m_Tx;
@@ -208,6 +212,7 @@ namespace beam { namespace wallet
         AmountList m_AmountList;
         Amount m_Fee;
         Amount m_Change;
+        Height m_Lifetime;
         Height m_MinHeight;
         Height m_MaxHeight;
         std::vector<Input::Ptr> m_Inputs;
@@ -222,6 +227,7 @@ namespace beam { namespace wallet
         std::vector<Input::Ptr> m_PeerInputs;
         std::vector<Output::Ptr> m_PeerOutputs;
         ECC::Scalar::Native m_PeerOffset;
+        Height m_PeerMaxHeight;
 
         // deduced values, 
         TxKernel::Ptr m_Kernel;
