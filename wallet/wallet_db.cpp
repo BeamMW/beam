@@ -2576,12 +2576,14 @@ namespace beam
 
         PaymentInfo PaymentInfo::FromByteBuffer(const ByteBuffer& data)
         {
-            Deserializer der;
-            der.reset(data);
-
             PaymentInfo pi;
-            der & pi;
-            return pi;
+            if (!data.empty())
+            {
+                Deserializer der;
+                der.reset(data);
+                der & pi;
+            }
+           return pi;
         }
 
         ByteBuffer ExportPaymentProof(const IWalletDB& walletDB, const TxID& txID)
