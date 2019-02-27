@@ -242,7 +242,7 @@ after_success:
   - tar -cvzf beam-node-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/beam beam-node beam-node.cfg
   - tar -cvzf beam-wallet-cli-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet beam-wallet beam-wallet.cfg
   - tar -cvzf wallet-api-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet wallet-api wallet-api.cfg
-  - tar -cvzf explorer-node-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/explorer explorer-node
+  - tar -cvzf explorer-node-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/explorer explorer-node explorer-node.cfg
   
   # prep for deploy to AWS S3
   - cp $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT

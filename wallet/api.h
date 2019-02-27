@@ -24,28 +24,31 @@
 #define INVALID_PARAMS_JSON_RPC -32602
 #define INTERNAL_JSON_RPC_ERROR -32603
 #define INVALID_TX_STATUS -32001
+#define UNKNOWN_API_KEY -32002
 
 namespace beam
 {
     using json = nlohmann::json;
 
+#define API_WRITE_ACCESS true
+#define API_READ_ACCESS false
+
 #define WALLET_API_METHODS(macro) \
-    macro(CreateAddress,    "create_address") \
-    macro(ValidateAddress,  "validate_address") \
-    macro(Send,             "tx_send") \
-    macro(Replace,          "replace") \
-    macro(Status,           "tx_status") \
-    macro(Split,            "tx_split") \
-    macro(TxCancel,         "tx_cancel") \
-    macro(GetUtxo,          "get_utxo") \
-    macro(Lock,             "lock") \
-    macro(Unlock,           "unlock") \
-    macro(TxList,           "tx_list") \
-    macro(WalletStatus,     "wallet_status")
+    macro(CreateAddress,    "create_address",   API_WRITE_ACCESS)   \
+    macro(ValidateAddress,  "validate_address", API_READ_ACCESS)    \
+    macro(Send,             "tx_send",          API_WRITE_ACCESS)   \
+    macro(Replace,          "replace",          API_WRITE_ACCESS)   \
+    macro(Status,           "tx_status",        API_READ_ACCESS)    \
+    macro(Split,            "tx_split",         API_WRITE_ACCESS)   \
+    macro(TxCancel,         "tx_cancel",        API_WRITE_ACCESS)   \
+    macro(GetUtxo,          "get_utxo",         API_READ_ACCESS)    \
+    macro(Lock,             "lock",             API_WRITE_ACCESS)   \
+    macro(Unlock,           "unlock",           API_WRITE_ACCESS)   \
+    macro(TxList,           "tx_list",          API_READ_ACCESS)    \
+    macro(WalletStatus,     "wallet_status",    API_READ_ACCESS)
 
     struct CreateAddress
     {
-        std::string metadata;
         int lifetime;
 
         struct Response
@@ -125,6 +128,9 @@ namespace beam
 
     struct GetUtxo
     {
+        int count = 0;
+        int skip = 0;
+
         struct Response
         {
             std::vector<beam::Coin> utxos;
@@ -155,6 +161,9 @@ namespace beam
             boost::optional<Height> height;
         } filter;
 
+        int count = 0;
+        int skip = 0;
+
         struct Response
         {
             std::vector<Status::Response> resultList;
@@ -182,7 +191,7 @@ namespace beam
     public:
         virtual void onInvalidJsonRpc(const json& msg) = 0;
 
-#define MESSAGE_FUNC(api, name) \
+#define MESSAGE_FUNC(api, name, _) \
         virtual void onMessage(int id, const api& data) = 0;
 
         WALLET_API_METHODS(MESSAGE_FUNC)
@@ -193,9 +202,13 @@ namespace beam
     class WalletApi
     {
     public:
-        WalletApi(IWalletApiHandler& handler);
 
-#define RESPONSE_FUNC(api, name) \
+        // user api key and read/write access
+        using ACL = boost::optional<std::map<std::string, bool>>;
+
+        WalletApi(IWalletApiHandler& handler, ACL acl = boost::none);
+
+#define RESPONSE_FUNC(api, name, _) \
         void getResponse(int id, const api::Response& data, json& msg);
 
         WALLET_API_METHODS(RESPONSE_FUNC)
@@ -206,7 +219,7 @@ namespace beam
 
     private:
 
-#define MESSAGE_FUNC(api, name) \
+#define MESSAGE_FUNC(api, name, _) \
         void on##api##Message(int id, const json& msg);
 
         WALLET_API_METHODS(MESSAGE_FUNC)
@@ -215,6 +228,14 @@ namespace beam
 
     private:
         IWalletApiHandler& _handler;
-        std::map<std::string, std::function<void(int id, const json& msg)>> _methods;
+
+        struct FuncInfo
+        {
+            std::function<void(int id, const json& msg)> func;
+            bool writeAccess;
+        };
+
+        std::map<std::string, FuncInfo> _methods;
+        ACL _acl;
     };
 }

@@ -40,7 +40,7 @@ after_build:
     
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/wallet-api.exe c:/projects/beam/wallet/wallet-api.cfg
 
-    7z a c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node-%BEAM_VERSION%.zip c:/projects/beam/explorer/%BUILD_CONFIG%/explorer-node.exe
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node-%BEAM_VERSION%.zip c:/projects/beam/explorer/%BUILD_CONFIG%/explorer-node.exe c:/projects/beam/explorer/explorer-node.cfg
         
     mkdir pdb
     
