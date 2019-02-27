@@ -146,7 +146,7 @@ namespace
             m_LastAdddr = wa;
         }
 
-        void setNeverExpirationForAll() override {};
+        void setExpirationForAllAddresses(uint64_t expiration) override {};
         boost::optional<WalletAddress> getAddress(const WalletID& id) override
         {
             if (id == m_LastAdddr.m_walletID)

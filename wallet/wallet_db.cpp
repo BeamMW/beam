@@ -1906,7 +1906,7 @@ namespace beam
         notifyAddressChanged();
     }
 
-    void WalletDB::setNeverExpirationForAll()
+    void WalletDB::setExpirationForAllAddresses(uint64_t expiration)
     {
         sqlite::Transaction trans(_db);
 
@@ -1914,14 +1914,13 @@ namespace beam
             const char* updateReq = "UPDATE " ADDRESSES_NAME " SET duration = ?1 WHERE OwnID != 0;";
             sqlite::Statement stm(_db, updateReq);
 
-            stm.bind(1, 0);
+            stm.bind(1, expiration);
 
             stm.step();
         }
 
         trans.commit();
 
-        LOG_INFO() << "Expiration for all addresses  was updated to \"never\".";
         notifyAddressChanged();
     }
 
@@ -2315,7 +2314,7 @@ namespace beam
             return toByteBuffer(s);
         }
 
-        void changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID)
+        bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, uint64_t expiration)
         {
             if (walletID != Zero)
             {
@@ -2324,18 +2323,18 @@ namespace beam
                 if (!walletAddress.is_initialized())
                 {
                     LOG_INFO() << "Address " << to_string(walletID) << "is absent in wallet";
-                    return;
+                    return false;
                 }
 
-                walletAddress->m_duration = 0;
+                walletAddress->m_duration = expiration;
 
                 walletDB.saveAddress(*walletAddress);
 
-                LOG_INFO() << "Expiration for address " << to_string(walletID) << " was updated to \"never\".";
-                return;
+                return true;
             }
 
-            walletDB.setNeverExpirationForAll();
+            walletDB.setExpirationForAllAddresses(expiration);
+            return true;
         }
 
 		void Totals::Init(IWalletDB& walletDB)
