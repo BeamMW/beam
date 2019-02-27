@@ -101,6 +101,17 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
             return false;
         }
 
+        {
+            std::ifstream cfg("explorer-node.cfg");
+
+            if (cfg)
+            {
+                po::store(po::parse_config_file(cfg, cliOptions), vm);
+            }
+        }
+
+        vm.notify();
+
         o.nodeDbFilename = FILES_PREFIX "db";
         //o.accessControlFile = "api.keys";
 
