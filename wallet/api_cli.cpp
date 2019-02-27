@@ -835,16 +835,19 @@ int main(int argc, char* argv[])
                 }
             }
 
-            if (tlsOptions.certPath.empty() || !boost::filesystem::exists(tlsOptions.certPath))
+            if (tlsOptions.use)
             {
-                LOG_ERROR() << "TLS certificate not found, path is: " << tlsOptions.certPath;
-                return -1;
-            }
+                if (tlsOptions.certPath.empty() || !boost::filesystem::exists(tlsOptions.certPath))
+                {
+                    LOG_ERROR() << "TLS certificate not found, path is: " << tlsOptions.certPath;
+                    return -1;
+                }
 
-            if (tlsOptions.keyPath.empty() || !boost::filesystem::exists(tlsOptions.keyPath))
-            {
-                LOG_ERROR() << "TLS private key not found, path is: " << tlsOptions.keyPath;
-                return -1;
+                if (tlsOptions.keyPath.empty() || !boost::filesystem::exists(tlsOptions.keyPath))
+                {
+                    LOG_ERROR() << "TLS private key not found, path is: " << tlsOptions.keyPath;
+                    return -1;
+                }
             }
 
             if (vm.count(cli::NODE_ADDR) == 0)
