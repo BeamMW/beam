@@ -99,6 +99,7 @@ namespace beam
         const char* IMPORT_ADDRESSES = "import_addresses";
         const char* IMPORT_EXPORT_PATH = "file_location";
         const char* NO_FAST_SYNC = "no_fast_sync";
+        const char* IP_WHITELIST = "ip_whitelist";
 
         // wallet api
         const char* API_USE_HTTP = "use_http";

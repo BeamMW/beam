@@ -111,7 +111,8 @@ namespace beam
     class WalletApiServer : public IWalletApiServer
     {
     public:
-        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::Reactor& reactor, io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions)
+        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::Reactor& reactor, 
+            io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions, const std::vector<uint32_t>& whitelist)
             : _reactor(reactor)
             , _bindAddress(listenTo)
             , _useHttp(useHttp)
@@ -120,6 +121,7 @@ namespace beam
             , _wallet(wallet)
             , _wnet(wnet)
             , _acl(acl)
+            , _whitelist(whitelist)
         {
             start();
         }
@@ -186,6 +188,16 @@ namespace beam
             if (errorCode == 0) 
             {          
                 auto peer = newStream->peer_address();
+
+                if (!_whitelist.empty())
+                {
+                    if (std::find(_whitelist.begin(), _whitelist.end(), peer.ip()) == _whitelist.end())
+                    {
+                        LOG_WARNING() << peer.str() << " not in IP whitelist, closing";
+                        return;
+                    }
+                }
+
                 LOG_DEBUG() << "+peer " << peer;
 
                 checkConnections();
@@ -740,6 +752,7 @@ namespace beam
         WalletNetworkViaBbs& _wnet;
         std::vector<uint64_t> _pendingToClose;
         WalletApi::ACL _acl;
+        std::vector<uint32_t> _whitelist;
     };
 }
 
@@ -762,6 +775,7 @@ int main(int argc, char* argv[])
 
             bool useAcl;
             std::string aclPath;
+            std::string whitelist;
 
         } options;
 
@@ -771,6 +785,7 @@ int main(int argc, char* argv[])
         IWalletDB::Ptr walletDB;
         io::Reactor::Ptr reactor = io::Reactor::create();
         WalletApi::ACL acl;
+        std::vector<uint32_t> whitelist;
 
         {
             po::options_description desc("Wallet API general options");
@@ -781,6 +796,7 @@ int main(int argc, char* argv[])
                 (cli::WALLET_STORAGE, po::value<std::string>(&options.walletPath)->default_value("wallet.db"), "path to wallet file")
                 (cli::PASS, po::value<std::string>(), "password for the wallet")
                 (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
+                (cli::IP_WHITELIST, po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
             ;
 
             po::options_description authDesc("User authorization options");
@@ -850,6 +866,26 @@ int main(int argc, char* argv[])
                 }
             }
 
+            if (!options.whitelist.empty())
+            {
+                const auto& items = string_helpers::split(options.whitelist, ',');
+
+                for (const auto& item : items)
+                {
+                    io::Address addr;
+
+                    if (addr.resolve(item.c_str()))
+                    {
+                        whitelist.push_back(addr.ip());
+                    }
+                    else
+                    {
+                        LOG_ERROR() << "IP address not added to whitelist: " << item;
+                        return -1;
+                    }
+                }
+            }
+
             if (vm.count(cli::NODE_ADDR) == 0)
             {
                 LOG_ERROR() << "node address should be specified";
@@ -905,7 +941,8 @@ int main(int argc, char* argv[])
 
         wallet.set_Network(nnet, wnet);
 
-        WalletApiServer server(walletDB, wallet, wnet, *reactor, listenTo, options.useHttp, acl, tlsOptions);
+        WalletApiServer server(walletDB, wallet, wnet, *reactor, 
+            listenTo, options.useHttp, acl, tlsOptions, whitelist);
 
         io::Reactor::get_Current().run();
 
