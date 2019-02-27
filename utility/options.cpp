@@ -105,6 +105,7 @@ namespace beam
         const char* API_USE_TLS = "use_tls";
         const char* API_TLS_CERT = "tls_cert";
         const char* API_TLS_KEY = "tls_key";
+        const char* API_USE_ACL= "use_acl";
         const char* API_ACL_PATH = "acl_path";
 
         // treasury

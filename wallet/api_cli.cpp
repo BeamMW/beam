@@ -759,6 +759,8 @@ int main(int argc, char* argv[])
             std::string walletPath;
             std::string nodeURI;
             bool useHttp;
+
+            bool useAcl;
             std::string aclPath;
 
         } options;
@@ -771,7 +773,7 @@ int main(int argc, char* argv[])
         WalletApi::ACL acl;
 
         {
-            po::options_description desc("Wallet API options");
+            po::options_description desc("Wallet API general options");
             desc.add_options()
                 (cli::HELP_FULL, "list of all options")
                 (cli::PORT_FULL, po::value(&options.port)->default_value(10000), "port to start server on")
@@ -779,12 +781,23 @@ int main(int argc, char* argv[])
                 (cli::WALLET_STORAGE, po::value<std::string>(&options.walletPath)->default_value("wallet.db"), "path to wallet file")
                 (cli::PASS, po::value<std::string>(), "password for the wallet")
                 (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
-                (cli::API_ACL_PATH, po::value<std::string>(&options.aclPath)->default_value(""), "path to access control list (ACL) file")
+            ;
 
+            po::options_description authDesc("User authorization options");
+            authDesc.add_options()
+                (cli::API_USE_ACL, po::value<bool>(&options.useAcl)->default_value(false), "use Access Control List (ACL)")
+                (cli::API_ACL_PATH, po::value<std::string>(&options.aclPath)->default_value("wallet_api.acl"), "path to ACL file")
+            ;
+
+            po::options_description tlsDesc("TLS protocol options");
+            tlsDesc.add_options()
                 (cli::API_USE_TLS, po::value<bool>(&tlsOptions.use)->default_value(false), "use TLS protocol")
                 (cli::API_TLS_CERT, po::value<std::string>(&tlsOptions.certPath)->default_value("wallet_api.crt"), "path to TLS certificate")
                 (cli::API_TLS_KEY, po::value<std::string>(&tlsOptions.keyPath)->default_value("wallet_api.key"), "path to TLS private key")
             ;
+
+            desc.add(authDesc);
+            desc.add(tlsDesc);
 
             po::variables_map vm;
 
@@ -813,7 +826,7 @@ int main(int argc, char* argv[])
             LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
             
-            if (!options.aclPath.empty())
+            if (options.useAcl)
             {
                 if (!(boost::filesystem::exists(options.aclPath) && (acl = loadACL(options.aclPath))))
                 {
