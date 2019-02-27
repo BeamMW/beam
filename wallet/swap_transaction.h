@@ -21,6 +21,7 @@
 namespace beam::wallet
 {
     class LockTxBuilder;
+    class RefundTxBuilder;
 
     class AtomicSwapTransaction : public BaseTransaction
     {
@@ -30,6 +31,8 @@ namespace beam::wallet
             Invitation,
             SharedUTXOProofPart2,
             SharedUTXOProofPart3,
+            SharedUTXOProofDone,
+            Constructed,
 
             InvitationConfirmation
 
@@ -53,6 +56,9 @@ namespace beam::wallet
         void SendInvitation(const LockTxBuilder& lockBuilder, bool isSender);
         void SendBulletProofPart2(const LockTxBuilder& lockBuilder, bool isSender);
         void SendBulletProofPart3(const LockTxBuilder& lockBuilder, bool isSender);
+
+        void SendInvitation(const RefundTxBuilder& lockBuilder, bool isSender);
+        void ConfirmInvitation(const RefundTxBuilder& builder);
     };
 
     class LockTxBuilder: public BaseTxBuilder
@@ -88,5 +94,16 @@ namespace beam::wallet
         // deduced values, 
         boost::optional<ECC::RangeProof::CreatorParams> m_CreatorParams;
         ECC::RangeProof::Confidential::MultiSig m_ProofPartialMultiSig;
+    };
+
+    class RefundTxBuilder : public BaseTxBuilder
+    {
+    public:
+        RefundTxBuilder(AtomicSwapTransaction& tx, Amount amount, Amount fee);
+
+        void InitRefundTx(bool isSender);
+        void LoadPeerOffset();
+    private:
+        void InitInputAndOutputs();
     };
 }

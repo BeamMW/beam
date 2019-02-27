@@ -90,6 +90,15 @@ namespace beam::wallet
             return;
         }
 
+        assert(lockTxBuilder->GetPeerSignature());
+        if (!lockTxBuilder->IsPeerSignatureValid())
+        {
+            LOG_INFO() << GetTxID() << " Peer signature is invalid.";
+            return;
+        }
+
+        lockTxBuilder->FinalizeSignature();
+        // TODO: do it later
         lockTxBuilder->LoadPeerOffset();
 
         if (lockTxState == State::SharedUTXOProofPart2)
@@ -101,33 +110,90 @@ namespace beam::wallet
             if (isSender)
             {
                 // DEBUG
-                assert(lockTxBuilder->GetPeerSignature());
-                if (!lockTxBuilder->IsPeerSignatureValid())
-                {
-                    LOG_INFO() << GetTxID() << " Peer signature is invalid.";
-                    return;
-                }
-
-                lockTxBuilder->FinalizeSignature();
-
                 // TODO(alex.starun): create shared utxo ?
                 lockTxBuilder->AddSharedOutput(amount);
 
                 {
-                    // TEST
-                    //  m_Tx.GetParameter(TxParameterID::PeerOffset, m_PeerOffset, m_SubTxID);
+                    // TEST TX
                     auto tx = lockTxBuilder->CreateTransaction();
                     beam::TxBase::Context ctx;
                     tx->IsValid(ctx);
                 }
             }
-            return;
+            else
+            {
+                return;
+            }
         }
 
         if (lockTxState == State::SharedUTXOProofPart3)
         {
         }
 
+        // Shared UTXO Ready
+        // Create RefundTX
+        State refundTxState = GetState(SubTxIndex::REFUND_TX);
+        // TODO: calculating fee!
+        Amount refundFee = 0;
+        Amount refundAmount = amount - refundFee;
+        RefundTxBuilder refundTxBuilder{ *this, refundAmount, refundFee };
+
+        // send invite to get 
+        if (!refundTxBuilder.GetInitialTxParams() && refundTxState == State::Initial)
+        {
+            // TODO: implement separate version
+            if (CheckExpired())
+            {
+                return;
+            }
+
+            refundTxBuilder.InitRefundTx(isSender);
+        }
+
+        refundTxBuilder.CreateKernel();
+
+        if (!refundTxBuilder.GetPeerPublicExcessAndNonce())
+        {
+            assert(IsInitiator());
+            if (refundTxState == State::Initial)
+            {
+                SendInvitation(refundTxBuilder, isSender);
+                SetState(State::Invitation, SubTxIndex::REFUND_TX);
+            }
+            return;
+        }
+
+        // if !isSender -> validate minHeight
+        refundTxBuilder.SignPartial();
+
+        if (!refundTxBuilder.GetPeerSignature())
+        {
+            if (refundTxState == State::Initial)
+            {
+                // invited participant
+                assert(!IsInitiator());
+                ConfirmInvitation(refundTxBuilder);
+            }
+            return;
+        }
+
+        assert(refundTxBuilder.GetPeerSignature());
+        if (!refundTxBuilder.IsPeerSignatureValid())
+        {
+            LOG_INFO() << GetTxID() << " Peer signature is invalid.";
+            return;
+        }
+
+        refundTxBuilder.FinalizeSignature();
+
+        if (isSender)
+        {
+            // TEST TX
+            refundTxBuilder.LoadPeerOffset();
+            auto tx = refundTxBuilder.CreateTransaction();
+            beam::TxBase::Context ctx;
+            tx->IsValid(ctx);
+        }
     }
 
     void AtomicSwapTransaction::SendInvitation(const LockTxBuilder& lockBuilder, bool isSender)
@@ -193,6 +259,40 @@ namespace beam::wallet
             auto bulletProof = lockBuilder.GetSharedProof();
             msg.AddParameter(TxParameterID::PeerSharedBulletProofPart3, bulletProof.m_Part3);
         }
+
+        if (!SendTxParameters(move(msg)))
+        {
+            OnFailed(TxFailureReason::FailedToSendParameters, false);
+        }
+    }
+
+    void AtomicSwapTransaction::SendInvitation(const RefundTxBuilder& refundBuilder, bool isSender)
+    {
+        SetTxParameter msg;
+        msg.AddParameter(TxParameterID::SubTxIndex, SubTxIndex::REFUND_TX)
+            .AddParameter(TxParameterID::Amount, refundBuilder.GetAmount())
+            .AddParameter(TxParameterID::Fee, refundBuilder.GetFee())
+            .AddParameter(TxParameterID::IsSender, !isSender)
+            .AddParameter(TxParameterID::MinHeight, refundBuilder.GetMinHeight())
+            .AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
+            .AddParameter(TxParameterID::PeerPublicExcess, refundBuilder.GetPublicExcess())
+            .AddParameter(TxParameterID::PeerPublicNonce, refundBuilder.GetPublicNonce());
+
+        if (!SendTxParameters(move(msg)))
+        {
+            OnFailed(TxFailureReason::FailedToSendParameters, false);
+        }
+    }
+
+    void AtomicSwapTransaction::ConfirmInvitation(const RefundTxBuilder& builder)
+    {
+        SetTxParameter msg;
+        msg.AddParameter(TxParameterID::SubTxIndex, SubTxIndex::REFUND_TX)
+            .AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
+            .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
+            .AddParameter(TxParameterID::PeerSignature, builder.GetPartialSignature())
+            .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce())
+            .AddParameter(TxParameterID::PeerOffset, builder.GetOffset());
 
         if (!SendTxParameters(move(msg)))
         {
@@ -337,5 +437,57 @@ namespace beam::wallet
         commitment += m_Tx.GetMandatoryParameter<Point::Native>(TxParameterID::PeerPublicSharedBlindingFactor, m_SubTxID);
 
         return commitment;
+    }
+
+    RefundTxBuilder::RefundTxBuilder(AtomicSwapTransaction& tx, Amount amount, Amount fee)
+        : BaseTxBuilder(tx, AtomicSwapTransaction::SubTxIndex::REFUND_TX, { amount }, fee)
+    {
+    }
+
+    void RefundTxBuilder::InitRefundTx(bool isSender)
+    {
+        if (isSender)
+        {
+            // select shared UTXO as input and create output utxo
+            InitInputAndOutputs();
+
+            if (!FinalizeOutputs())
+            {
+                // TODO: transaction is too big :(
+            }
+        }
+        else
+        {
+            // init offset
+            ECC::Scalar::Native blindingFactor = m_Tx.GetMandatoryParameter<Scalar::Native>(TxParameterID::SharedBlindingFactor, AtomicSwapTransaction::SubTxIndex::LOCK_TX);
+            m_Offset += blindingFactor;
+            m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false, m_SubTxID);
+        }
+    }
+
+    void RefundTxBuilder::LoadPeerOffset()
+    {
+        m_Tx.GetParameter(TxParameterID::PeerOffset, m_PeerOffset, m_SubTxID);
+    }
+
+    void RefundTxBuilder::InitInputAndOutputs()
+    {
+        // load shared utxo as input
+        ECC::Scalar::Native blindingFactor = m_Tx.GetMandatoryParameter<Scalar::Native>(TxParameterID::SharedBlindingFactor, AtomicSwapTransaction::SubTxIndex::LOCK_TX);
+
+        // TODO: move it to separate function
+        Point::Native commitment(Zero);
+        Tag::AddValue(commitment, nullptr, GetAmount());
+        commitment += Context::get().G * blindingFactor;
+        commitment += m_Tx.GetMandatoryParameter<Point::Native>(TxParameterID::PeerPublicSharedBlindingFactor, AtomicSwapTransaction::SubTxIndex::LOCK_TX);
+
+        auto& input = m_Inputs.emplace_back(make_unique<Input>());
+        input->m_Commitment = commitment;
+        m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false, m_SubTxID);
+
+        m_Offset += blindingFactor;
+
+        // add output
+        AddOutput(GetAmount(), false);
     }
 } // namespace
