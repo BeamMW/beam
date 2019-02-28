@@ -341,7 +341,7 @@ private:
     }
 
     bool get_blocks(io::SerializedMsg& out, uint64_t startHeight, uint64_t n) override {
-        static const uint64_t maxElements = 100;
+        static const uint64_t maxElements = 1500;
         if (n > maxElements) n = maxElements;
         else if (n==0) n=1;
         Height endHeight = startHeight + n - 1;

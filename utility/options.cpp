@@ -99,7 +99,15 @@ namespace beam
         const char* IMPORT_ADDRESSES = "import_addresses";
         const char* IMPORT_EXPORT_PATH = "file_location";
         const char* NO_FAST_SYNC = "no_fast_sync";
-        const char* API_USE_HTTP = "api_use_http";
+        const char* IP_WHITELIST = "ip_whitelist";
+
+        // wallet api
+        const char* API_USE_HTTP = "use_http";
+        const char* API_USE_TLS = "use_tls";
+        const char* API_TLS_CERT = "tls_cert";
+        const char* API_TLS_KEY = "tls_key";
+        const char* API_USE_ACL= "use_acl";
+        const char* API_ACL_PATH = "acl_path";
 
         // treasury
         const char* TR_OPCODE = "tr_op";
@@ -189,7 +197,6 @@ namespace beam
             (cli::EXPIRATION_TIME, po::value<string>()->default_value("24h"), "expiration time for new own address [24h|never]")
             (cli::GENERATE_PHRASE, "command to generate phrases which will be used to create a secret according to BIP-39")
             (cli::KEY_SUBKEY, po::value<uint32_t>()->default_value(0), "Child key index.")
-            (cli::CHANGE_ADDRESS_EXPIRATION, po::value<string>(), "change address expiration")
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
 			(cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
 			(cli::PAYMENT_PROOF_REQUIRED, po::value<bool>(), "Set to disallow outgoing payments if the receiver doesn't supports the payment proof (older wallets)")

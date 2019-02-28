@@ -95,6 +95,7 @@ namespace beam
     MACRO(FailedToGetParameter,   9, "Failed to get parameter") \
     MACRO(TransactionExpired,     10, "Transaction has expired") \
     MACRO(NoPaymentProof,         11, "Payment not signed by the receiver") \
+    MACRO(MaxHeightIsUnacceptable,12, "kernel's max height is unacceptable") \
 
     enum TxFailureReason : int32_t
     {
@@ -199,11 +200,12 @@ namespace beam
             //Outputs = 9,
             CreateTime = 10,
             IsInitiator = 11,
-            MaxHeight = 12,
+            PeerMaxHeight = 12,
             AmountList = 13,
             PreselectedCoins = 14,
-
+            Lifetime = 15,
             PeerProtoVersion = 16,
+            MaxHeight = 17,
 
             AtomicSwapCoin = 20,
             AtomicSwapAmount = 21,
@@ -257,6 +259,7 @@ namespace beam
             LockedBlindingExcess = 132,
 
             KernelUnconfirmedHeight = 133,
+            PeerResponseHeight = 134,
 
             Offset = 140,
             SharedOffset = 141,

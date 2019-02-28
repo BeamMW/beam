@@ -348,16 +348,45 @@ namespace
         cout << options << std::endl;
     }
 
-    void changeAddressExpiration(const IWalletDB::Ptr& walletDB, const string& address)
+    int ChangeAddressExpiration(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
+        string address = vm[cli::WALLET_ADDR].as<string>();
+        string newTime = vm[cli::EXPIRATION_TIME].as<string>();
         WalletID walletID(Zero);
+        bool allAddresses = address == "*";
 
-        if (address != "*")
+        if (!allAddresses)
         {
             walletID.FromHex(address);
         }
+        uint64_t newDuration_s = 0;
+        if (newTime == "24h")
+        {
+            newDuration_s = 24 * 3600; //seconds
+        }
+        else if (newTime == "never")
+        {
+            newDuration_s = 0;
+        }
+        else
+        {
+            LOG_ERROR() << "Invalid address expiration time \"" << newTime << "\".";
+            return -1;
+        }
 
-        wallet::changeAddressExpiration(*walletDB, walletID);
+        if (wallet::changeAddressExpiration(*walletDB, walletID, newDuration_s))
+        {
+            if (allAddresses)
+            {
+                LOG_INFO() << "Expiration for all addresses  was changed to \"" << newTime << "\".";
+            }
+            else
+            {
+                LOG_INFO() << "Expiration for address " << to_string(walletID) << " was changed to \"" << newTime << "\".";
+            }
+            return 0;
+        }
+        return -1;
     }
 
     WalletAddress newAddress(const IWalletDB::Ptr& walletDB, const std::string& comment, bool isNever = false)
@@ -850,10 +879,7 @@ int main_impl(int argc, char* argv[])
 
                     if (command == cli::CHANGE_ADDRESS_EXPIRATION)
                     {
-                        string address = vm[cli::WALLET_ADDR].as<string>();
-
-                        changeAddressExpiration(walletDB, address);
-                        return 0;
+                        return ChangeAddressExpiration(vm, walletDB);
                     }
 
                     if (command == cli::EXPORT_MINER_KEY)

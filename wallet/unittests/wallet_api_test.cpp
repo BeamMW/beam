@@ -68,7 +68,7 @@ namespace
     {
         void onInvalidJsonRpc(const json& msg) override {}
         
-#define MESSAGE_FUNC(strct, name) virtual void onMessage(int id, const strct& data) override {};
+#define MESSAGE_FUNC(strct, name, _) virtual void onMessage(int id, const strct& data) override {};
         WALLET_API_METHODS(MESSAGE_FUNC)
 #undef MESSAGE_FUNC
     };
@@ -111,7 +111,6 @@ namespace
             void onMessage(int id, const CreateAddress& data) override 
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK(data.metadata == "<meta>custom user data</meta>");
             }
         };
 

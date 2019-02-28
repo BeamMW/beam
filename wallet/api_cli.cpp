@@ -19,13 +19,16 @@
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <map>
 
 #include "utility/helpers.h"
 #include "utility/io/timer.h"
 #include "utility/io/tcpserver.h"
+#include "utility/io/sslserver.h"
 #include "utility/io/json_serializer.h"
 #include "utility/options.h"
+#include "utility/string_helpers.h"
 
 #include "http/http_connection.h"
 #include "http/http_msg_creator.h"
@@ -42,10 +45,63 @@ using json = nlohmann::json;
 
 static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
 static const size_t PACKER_FRAGMENTS_SIZE = 4096;
-static const uint64_t CLOSE_CONNECTION_TIMER = 1;
 
 namespace beam
 {
+    struct TlsOptions
+    {
+        bool use;
+        std::string certPath;
+        std::string keyPath;
+    };
+
+    WalletApi::ACL loadACL(const std::string& path)
+    {
+        std::ifstream file(path);
+        std::string line;
+        WalletApi::ACL::value_type keys;
+        int curLine = 1;
+
+        while (std::getline(file, line)) 
+        {
+            boost::algorithm::trim(line);
+
+            auto key = string_helpers::split(line, ':');
+            bool parsed = false;
+
+            static const char* READ_ACCESS = "read";
+            static const char* WRITE_ACCESS = "write";
+
+            if (key.size() == 2)
+            {
+                boost::algorithm::trim(key[0]);
+                boost::algorithm::trim(key[1]);
+
+                parsed = !key[0].empty() && (key[1] == READ_ACCESS || key[1] == WRITE_ACCESS);
+            }
+
+            if (!parsed)
+            {
+                LOG_ERROR() << "ACL parsing error, line " << curLine;
+                return boost::none;
+            }
+
+            keys.insert({ key[0], key[1] == WRITE_ACCESS });
+            curLine++;
+        }
+
+        if (keys.empty())
+        {
+            LOG_WARNING() << "ACL file is empty";
+        }
+        else
+        {
+            LOG_INFO() << "ACL file successfully loaded";
+        }
+
+        return WalletApi::ACL(keys);
+    }
+
     class IWalletApiServer
     {
     public:
@@ -55,13 +111,17 @@ namespace beam
     class WalletApiServer : public IWalletApiServer
     {
     public:
-        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::Reactor& reactor, io::Address listenTo, bool useHttp)
+        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::Reactor& reactor, 
+            io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions, const std::vector<uint32_t>& whitelist)
             : _reactor(reactor)
             , _bindAddress(listenTo)
             , _useHttp(useHttp)
+            , _tlsOptions(tlsOptions)
             , _walletDB(walletDB)
             , _wallet(wallet)
             , _wnet(wnet)
+            , _acl(acl)
+            , _whitelist(whitelist)
         {
             start();
         }
@@ -79,11 +139,10 @@ namespace beam
 
             try
             {
-                _server = io::TcpServer::create(
-                    _reactor,
-                    _bindAddress,
-                    BIND_THIS_MEMFN(on_stream_accepted)
-                );
+                _server = _tlsOptions.use
+                    ? io::SslServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted), _tlsOptions.certPath.c_str(), _tlsOptions.keyPath.c_str())
+                    : io::TcpServer::create(_reactor, _bindAddress, BIND_THIS_MEMFN(on_stream_accepted));
+
             }
             catch (const std::exception& e)
             {
@@ -121,7 +180,7 @@ namespace beam
         template<typename T>
         std::shared_ptr<ApiConnection> createConnection(io::TcpStream::Ptr&& newStream)
         {
-            return std::static_pointer_cast<ApiConnection>(std::make_shared<T>(*this, _walletDB, _wallet, _wnet, std::move(newStream)));
+            return std::static_pointer_cast<ApiConnection>(std::make_shared<T>(*this, _walletDB, _wallet, _wnet, std::move(newStream), _acl));
         }
 
         void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
@@ -129,6 +188,16 @@ namespace beam
             if (errorCode == 0) 
             {          
                 auto peer = newStream->peer_address();
+
+                if (!_whitelist.empty())
+                {
+                    if (std::find(_whitelist.begin(), _whitelist.end(), peer.ip()) == _whitelist.end())
+                    {
+                        LOG_WARNING() << peer.str() << " not in IP whitelist, closing";
+                        return;
+                    }
+                }
+
                 LOG_DEBUG() << "+peer " << peer;
 
                 checkConnections();
@@ -145,10 +214,10 @@ namespace beam
         class ApiConnection : IWalletApiHandler, IWalletDbObserver
         {
         public:
-            ApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet)
+            ApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, WalletApi::ACL acl)
                 : _walletDB(walletDB)
                 , _wallet(wallet)
-                , _api(*this)
+                , _api(*this, acl)
                 , _wnet(wnet)
             {
                 _walletDB->subscribe(this);
@@ -205,7 +274,7 @@ namespace beam
 
             void onMessage(int id, const CreateAddress& data) override 
             {
-                LOG_DEBUG() << "CreateAddress(id = " << id << " metadata = " << data.metadata << " lifetime = " << data.lifetime << ")";
+                LOG_DEBUG() << "CreateAddress(id = " << id << " lifetime = " << data.lifetime << ")";
 
                 WalletAddress address = wallet::createAddress(*_walletDB);
                 address.m_duration = data.lifetime * 60 * 60;
@@ -265,7 +334,7 @@ namespace beam
 
                     ByteBuffer message(data.comment.begin(), data.comment.end());
 
-                    auto txId = _wallet.transfer_money(from, data.address, data.value, data.fee, true, 120, std::move(message));
+                    auto txId = _wallet.transfer_money(from, data.address, data.value, data.fee, true, 120, 720, std::move(message));
                     doResponse(id, Send::Response{ txId });
                 }
                 catch(...)
@@ -484,6 +553,7 @@ namespace beam
 
                 doResponse(id, res);
             }
+
         private:
             void methodNotImplementedYet(int id)
             {
@@ -500,8 +570,8 @@ namespace beam
         class TcpApiConnection : public ApiConnection
         {
         public:
-            TcpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream)
-                : ApiConnection(walletDB, wallet, wnet)
+            TcpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
+                : ApiConnection(walletDB, wallet, wnet, acl)
                 , _stream(std::move(newStream))
                 , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
                 , _server(server)
@@ -560,8 +630,8 @@ namespace beam
         class HttpApiConnection : public ApiConnection
         {
         public:
-            HttpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream)
-                : ApiConnection(walletDB, wallet, wnet)
+            HttpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
+                : ApiConnection(walletDB, wallet, wnet, acl)
                 , _keepalive(false)
                 , _msgCreator(2000)
                 , _packer(PACKER_FRAGMENTS_SIZE)
@@ -673,6 +743,7 @@ namespace beam
         io::TcpServer::Ptr _server;
         io::Address _bindAddress;
         bool _useHttp;
+        TlsOptions _tlsOptions;
 
         std::map<uint64_t, std::shared_ptr<ApiConnection>> _connections;
 
@@ -680,6 +751,8 @@ namespace beam
         Wallet& _wallet;
         WalletNetworkViaBbs& _wnet;
         std::vector<uint64_t> _pendingToClose;
+        WalletApi::ACL _acl;
+        std::vector<uint32_t> _whitelist;
     };
 }
 
@@ -699,14 +772,23 @@ int main(int argc, char* argv[])
             std::string walletPath;
             std::string nodeURI;
             bool useHttp;
+
+            bool useAcl;
+            std::string aclPath;
+            std::string whitelist;
+
         } options;
+
+        TlsOptions tlsOptions;
 
         io::Address node_addr;
         IWalletDB::Ptr walletDB;
         io::Reactor::Ptr reactor = io::Reactor::create();
+        WalletApi::ACL acl;
+        std::vector<uint32_t> whitelist;
 
         {
-            po::options_description desc("Wallet API options");
+            po::options_description desc("Wallet API general options");
             desc.add_options()
                 (cli::HELP_FULL, "list of all options")
                 (cli::PORT_FULL, po::value(&options.port)->default_value(10000), "port to start server on")
@@ -714,7 +796,24 @@ int main(int argc, char* argv[])
                 (cli::WALLET_STORAGE, po::value<std::string>(&options.walletPath)->default_value("wallet.db"), "path to wallet file")
                 (cli::PASS, po::value<std::string>(), "password for the wallet")
                 (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
+                (cli::IP_WHITELIST, po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
             ;
+
+            po::options_description authDesc("User authorization options");
+            authDesc.add_options()
+                (cli::API_USE_ACL, po::value<bool>(&options.useAcl)->default_value(false), "use Access Control List (ACL)")
+                (cli::API_ACL_PATH, po::value<std::string>(&options.aclPath)->default_value("wallet_api.acl"), "path to ACL file")
+            ;
+
+            po::options_description tlsDesc("TLS protocol options");
+            tlsDesc.add_options()
+                (cli::API_USE_TLS, po::value<bool>(&tlsOptions.use)->default_value(false), "use TLS protocol")
+                (cli::API_TLS_CERT, po::value<std::string>(&tlsOptions.certPath)->default_value("wallet_api.crt"), "path to TLS certificate")
+                (cli::API_TLS_KEY, po::value<std::string>(&tlsOptions.keyPath)->default_value("wallet_api.key"), "path to TLS private key")
+            ;
+
+            desc.add(authDesc);
+            desc.add(tlsDesc);
 
             po::variables_map vm;
 
@@ -742,6 +841,50 @@ int main(int argc, char* argv[])
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+            
+            if (options.useAcl)
+            {
+                if (!(boost::filesystem::exists(options.aclPath) && (acl = loadACL(options.aclPath))))
+                {
+                    LOG_ERROR() << "ACL file not loaded, path is: " << options.aclPath;
+                    return -1;
+                }
+            }
+
+            if (tlsOptions.use)
+            {
+                if (tlsOptions.certPath.empty() || !boost::filesystem::exists(tlsOptions.certPath))
+                {
+                    LOG_ERROR() << "TLS certificate not found, path is: " << tlsOptions.certPath;
+                    return -1;
+                }
+
+                if (tlsOptions.keyPath.empty() || !boost::filesystem::exists(tlsOptions.keyPath))
+                {
+                    LOG_ERROR() << "TLS private key not found, path is: " << tlsOptions.keyPath;
+                    return -1;
+                }
+            }
+
+            if (!options.whitelist.empty())
+            {
+                const auto& items = string_helpers::split(options.whitelist, ',');
+
+                for (const auto& item : items)
+                {
+                    io::Address addr;
+
+                    if (addr.resolve(item.c_str()))
+                    {
+                        whitelist.push_back(addr.ip());
+                    }
+                    else
+                    {
+                        LOG_ERROR() << "IP address not added to whitelist: " << item;
+                        return -1;
+                    }
+                }
+            }
 
             if (vm.count(cli::NODE_ADDR) == 0)
             {
@@ -798,7 +941,8 @@ int main(int argc, char* argv[])
 
         wallet.set_Network(nnet, wnet);
 
-        WalletApiServer server(walletDB, wallet, wnet, *reactor, listenTo, options.useHttp);
+        WalletApiServer server(walletDB, wallet, wnet, *reactor, 
+            listenTo, options.useHttp, acl, tlsOptions, whitelist);
 
         io::Reactor::get_Current().run();
 

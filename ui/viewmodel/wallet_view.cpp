@@ -239,7 +239,8 @@ QString TxObject::getFailureReason() const
             tr("Address is expired"),
             tr("Failed to get parameter"),
             tr("Transaction timed out"),
-            tr("Payment not signed by the receiver, please send wallet logs to Beam support")
+            tr("Payment not signed by the receiver, please send wallet logs to Beam support"),
+            tr("Kernel maximum height is too high")
         };
 
         return Reasons[getTxDescription().m_failureReason];
