@@ -288,6 +288,10 @@ namespace beam
             Outputs = 190,
             SharedOutputs = 191,
             LockedOutputs = 192,
+
+            PeerLockImage = 200,
+            PreImage = 201,
+    
             State = 255
 
         };

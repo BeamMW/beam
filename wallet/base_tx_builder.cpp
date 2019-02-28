@@ -151,6 +151,19 @@ namespace beam::wallet
         m_Kernel->m_Height.m_Max = m_MaxHeight;
         m_Kernel->m_Commitment = Zero;
 
+        Hash::Value peerLockImage;
+        if (m_Tx.GetParameter(TxParameterID::PeerLockImage, peerLockImage, m_SubTxID))
+        {
+            m_PeerLockImage = make_unique<Hash::Value>(move(peerLockImage));
+        }
+
+        uintBig preImage;
+        if (m_Tx.GetParameter(TxParameterID::PreImage, preImage, m_SubTxID))
+        {
+            m_Kernel->m_pHashLock = make_unique<TxKernel::HashLock>();
+            m_Kernel->m_pHashLock->m_Preimage = move(preImage);
+        }
+
         if (!m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess, m_SubTxID))
         {
             Key::ID kid;
@@ -184,7 +197,7 @@ namespace beam::wallet
         totalPublicExcess += m_PeerPublicExcess;
         m_Kernel->m_Commitment = totalPublicExcess;
 
-        m_Kernel->get_Hash(m_Message);
+        m_Kernel->get_Hash(m_Message, m_PeerLockImage.get());
         m_MultiSig.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
         
         
@@ -225,7 +238,7 @@ namespace beam::wallet
     {
         assert(m_Kernel);
         Merkle::Hash kernelID;
-        m_Kernel->get_ID(kernelID);
+        m_Kernel->get_ID(kernelID, m_PeerLockImage.get());
 
         m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
     }
@@ -338,10 +351,21 @@ namespace beam::wallet
     string BaseTxBuilder::GetKernelIDString() const
     {
         Merkle::Hash kernelID;
-        m_Kernel->get_ID(kernelID);
+        m_Kernel->get_ID(kernelID, m_PeerLockImage.get());
 
         char sz[Merkle::Hash::nTxtLen + 1];
         kernelID.Print(sz);
         return string(sz);
+    }
+
+    Hash::Value BaseTxBuilder::GetLockImage() const
+    {
+        Hash::Value lockImage(Zero);
+        if (m_Kernel->m_pHashLock)
+        {
+            Hash::Processor() << m_Kernel->m_pHashLock->m_Preimage >> lockImage;
+        }
+
+        return lockImage;
     }
 }

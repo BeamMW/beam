@@ -22,6 +22,7 @@ namespace beam::wallet
 {
     class LockTxBuilder;
     class RefundTxBuilder;
+    class RedeemTxBuilder;
 
     class AtomicSwapTransaction : public BaseTransaction
     {
@@ -59,12 +60,15 @@ namespace beam::wallet
 
         void SendInvitation(const RefundTxBuilder& lockBuilder, bool isSender);
         void ConfirmInvitation(const RefundTxBuilder& builder);
+
+        void SendInvitation(const RedeemTxBuilder& builder, bool isSender);
+        void ConfirmInvitation(const RedeemTxBuilder& builder);
     };
 
     class LockTxBuilder: public BaseTxBuilder
     {
     public:
-        LockTxBuilder(AtomicSwapTransaction& tx, Amount amount, Amount fee);
+        LockTxBuilder(BaseTransaction& tx, Amount amount, Amount fee);
 
         void AddSharedOutput(Amount amount);
 
@@ -99,10 +103,22 @@ namespace beam::wallet
     class RefundTxBuilder : public BaseTxBuilder
     {
     public:
-        RefundTxBuilder(AtomicSwapTransaction& tx, Amount amount, Amount fee);
+        RefundTxBuilder(BaseTransaction& tx, Amount amount, Amount fee);
 
         void InitRefundTx(bool isSender);
         void LoadPeerOffset();
+    private:
+        void InitInputAndOutputs();
+    };
+
+    class RedeemTxBuilder : public BaseTxBuilder
+    {
+    public:
+        RedeemTxBuilder(BaseTransaction& tx, Amount amount, Amount fee);
+
+        void InitRedeemTx(bool isSender);
+        void LoadPeerOffset();
+        //ECC::Hash::Value GetLockImage() const;
     private:
         void InitInputAndOutputs();
     };

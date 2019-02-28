@@ -59,6 +59,7 @@ namespace beam::wallet
         const ECC::Scalar::Native& GetPartialSignature() const;
         const TxKernel& GetKernel() const;
         std::string GetKernelIDString() const;
+        ECC::Hash::Value GetLockImage() const;
 
     protected:
         BaseTransaction& m_Tx;
@@ -82,6 +83,7 @@ namespace beam::wallet
         std::vector<Input::Ptr> m_PeerInputs;
         std::vector<Output::Ptr> m_PeerOutputs;
         ECC::Scalar::Native m_PeerOffset;
+        std::unique_ptr<ECC::Hash::Value> m_PeerLockImage;
 
         // deduced values, 
         TxKernel::Ptr m_Kernel;
