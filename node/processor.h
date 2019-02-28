@@ -148,7 +148,6 @@ public:
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
 		Difficulty m_DifficultyNext;
-		Height m_LoHorizon; // lowest accessible height
 
 	} m_Cursor;
 
@@ -158,6 +157,11 @@ public:
 	{
 		bool m_TreasuryHandled;
 		TxoID m_Txos; // total num of ever created TXOs, including treasury
+
+		Height m_LoHorizon; // lowest accessible height
+		Height m_Fossil; // from here and down - no original blocks
+		Height m_TxoLo;
+		Height m_TxoHi;
 
 	} m_Extra;
 

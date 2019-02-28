@@ -43,6 +43,11 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 	Merkle::Hash hv;
 	Blob blob(hv);
 
+	m_Extra.m_LoHorizon = m_DB.ParamIntGetDef(NodeDB::ParamID::LoHorizon, Rules::HeightGenesis - 1);
+	m_Extra.m_Fossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1);
+	m_Extra.m_TxoLo = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoLo, Rules::HeightGenesis - 1);
+	m_Extra.m_TxoHi = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
+
 	if (!m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob))
 	{
 		blob = Blob(Rules::get().Checksum);
@@ -141,8 +146,6 @@ void NodeProcessor::InitCursor()
 			m_DB.get_PredictedStatesHash(m_Cursor.m_History, sid);
 		else
 			ZeroObject(m_Cursor.m_History);
-
-		m_Cursor.m_LoHorizon = m_DB.ParamIntGetDef(NodeDB::ParamID::LoHorizon);
 	}
 	else
 	{
@@ -341,7 +344,7 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 
 void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64_t row, bool bBlock, Height hTarget)
 {
-	if (id.m_Height >= m_Cursor.m_LoHorizon)
+	if (id.m_Height >= m_Extra.m_LoHorizon)
 	{
 		PeerID peer;
 		bool bPeer = m_DB.get_Peer(row, peer);
@@ -468,20 +471,17 @@ Height NodeProcessor::PruneOld()
 		}
 	}
 
-	Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1);
-	assert(hFossil < m_Cursor.m_Sid.m_Height);
-
-	if (m_Cursor.m_Sid.m_Height - hFossil - 1 > (Height) Rules::get().Macroblock.MaxRollback)
+	if (m_Cursor.m_Sid.m_Height - 1 > m_Extra.m_Fossil + Rules::get().Macroblock.MaxRollback)
 	{
-		Height hTrg = m_Cursor.m_Sid.m_Height - Rules::get().Macroblock.MaxRollback - 1;
-		assert(hTrg > hFossil);
+		Height hTrg = m_Cursor.m_Sid.m_Height - 1 - Rules::get().Macroblock.MaxRollback;
+		assert(hTrg > m_Extra.m_Fossil);
 
 		do
 		{
-			hFossil++;
+			m_Extra.m_Fossil++;
 
 			NodeDB::WalkerState ws(m_DB);
-			for (m_DB.EnumStatesAt(ws, hFossil); ws.MoveNext(); )
+			for (m_DB.EnumStatesAt(ws, m_Extra.m_Fossil); ws.MoveNext(); )
 			{
 				if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
 					m_DB.DelStateBlockPRB(ws.m_Sid.m_Row);
@@ -496,27 +496,25 @@ Height NodeProcessor::PruneOld()
 				hRet++;
 			}
 
-		} while (hFossil < hTrg);
+		} while (m_Extra.m_Fossil < hTrg);
 
-		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &hFossil, NULL);
+		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &m_Extra.m_Fossil, NULL);
 	}
 
-	hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoLo, Rules::HeightGenesis - 1);
-	if (m_Cursor.m_Sid.m_Height - hFossil - 1 > m_Horizon.m_SchwarzschildLo)
+	if (m_Cursor.m_Sid.m_Height - 1 > m_Extra.m_TxoLo + m_Horizon.m_SchwarzschildLo)
 	{
-		hFossil = m_Cursor.m_Sid.m_Height - m_Horizon.m_SchwarzschildLo - 1;
+		m_Extra.m_TxoLo = m_Cursor.m_Sid.m_Height - 1 - m_Horizon.m_SchwarzschildLo;
 
-		hRet += m_DB.DeleteSpentTxos(hFossil);
-		m_DB.ParamSet(NodeDB::ParamID::HeightTxoLo, &hFossil, NULL);
+		hRet += m_DB.DeleteSpentTxos(m_Extra.m_TxoLo);
+		m_DB.ParamSet(NodeDB::ParamID::HeightTxoLo, &m_Extra.m_TxoLo, NULL);
 	}
 
-	hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
-	if (m_Cursor.m_Sid.m_Height - hFossil - 1 > m_Horizon.m_SchwarzschildHi)
+	if (m_Cursor.m_Sid.m_Height - 1 > m_Extra.m_TxoHi + m_Horizon.m_SchwarzschildHi)
 	{
-		Height hTrg = m_Cursor.m_Sid.m_Height - m_Horizon.m_SchwarzschildHi - 1;
+		Height hTrg = m_Cursor.m_Sid.m_Height - 1 - m_Horizon.m_SchwarzschildHi;
 
 		NodeDB::WalkerTxo wlk(m_DB);
-		for (m_DB.EnumTxosBySpent(wlk, hFossil + 1); wlk.MoveNext(); )
+		for (m_DB.EnumTxosBySpent(wlk, m_Extra.m_TxoHi + 1); wlk.MoveNext(); )
 		{
 			if (wlk.m_SpendHeight > hTrg)
 				break;
@@ -528,7 +526,8 @@ Height NodeProcessor::PruneOld()
 			hRet++;
 		}
 
-		m_DB.ParamSet(NodeDB::ParamID::HeightTxoHi, &hTrg, NULL);
+		m_Extra.m_TxoHi = hTrg;
+		m_DB.ParamSet(NodeDB::ParamID::HeightTxoHi, &m_Extra.m_TxoHi, NULL);
 	}
 
 	return hRet;
@@ -680,9 +679,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 	Merkle::FixedMmmr mmr;
 	size_t iTrg;
 
-	Height hFossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1);
-
-	if (h <= hFossil)
+	if (h <= m_Extra.m_Fossil)
 	{
 		Block::Body::RW rw;
 		if (!OpenLatestMacroblock(rw))
@@ -934,11 +931,11 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 			m_DB.set_StateExtra(sid.m_Row, &se);
 
-			assert(m_Cursor.m_LoHorizon <= m_Cursor.m_Sid.m_Height);
-			if (m_Cursor.m_Sid.m_Height - m_Cursor.m_LoHorizon > Rules::get().Macroblock.MaxRollback)
+			assert(m_Extra.m_LoHorizon <= m_Cursor.m_Sid.m_Height);
+			if (m_Cursor.m_Sid.m_Height - m_Extra.m_LoHorizon > Rules::get().Macroblock.MaxRollback)
 			{
-				m_Cursor.m_LoHorizon = m_Cursor.m_Sid.m_Height - Rules::get().Macroblock.MaxRollback;
-				m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Cursor.m_LoHorizon, NULL);
+				m_Extra.m_LoHorizon = m_Cursor.m_Sid.m_Height - Rules::get().Macroblock.MaxRollback;
+				m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Extra.m_LoHorizon, NULL);
 			}
 
 		}
@@ -1334,7 +1331,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 		}
 	}
 
-	if (s.m_Height < m_Cursor.m_LoHorizon)
+	if (s.m_Height < m_Extra.m_LoHorizon)
 		return DataStatus::Unreachable;
 
 	if (m_DB.StateFindSafe(id))
@@ -1381,7 +1378,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 		return DataStatus::Rejected;
 	}
 
-	if (id.m_Height < m_Cursor.m_LoHorizon)
+	if (id.m_Height < m_Extra.m_LoHorizon)
 		return DataStatus::Unreachable;
 
 	LOG_INFO() << id << " Block received";
@@ -2181,8 +2178,12 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	LOG_INFO() << "Recovering owner UTXOs...";
 	RecognizeUtxos(std::move(r), id.m_Height);
 
+	m_Extra.m_LoHorizon = m_Extra.m_Fossil = m_Extra.m_TxoHi = m_Extra.m_TxoLo = id.m_Height;
+
 	m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &id.m_Height, NULL);
 	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &id.m_Height, NULL);
+	m_DB.ParamSet(NodeDB::ParamID::HeightTxoLo, &id.m_Height, NULL);
+	m_DB.ParamSet(NodeDB::ParamID::HeightTxoHi, &id.m_Height, NULL);
 
 	InitCursor();
 
@@ -2444,13 +2445,11 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 
 	hHi1 = std::max(hHi1, sid.m_Height); // valid block can't spend its own output. Hence this means full block should be transferred
 
-	Height h1 = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
-	if (h1 > hHi1)
+	if (m_Extra.m_TxoHi > hHi1)
 		return false;
 
 	hLo1 = std::max(hLo1, sid.m_Height - 1);
-	h1 = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoLo, Rules::HeightGenesis - 1);
-	if (h1 > hLo1)
+	if (m_Extra.m_TxoLo > hLo1)
 		return false;
 
 	bool bFullBlock = (sid.m_Height >= hHi1);
