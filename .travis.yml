@@ -231,7 +231,7 @@ matrix:
 
 # TODO: version detection should be in one place
 before_install:
-  - BEAM_VERSION="1.2.$(git rev-list HEAD --count)"
+  - BEAM_VERSION="2.0.$(git rev-list HEAD --count)"
 
 before_script:
   - curl -sL https://raw.githubusercontent.com/travis-ci/artifacts/master/install | bash
