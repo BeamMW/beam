@@ -373,7 +373,7 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 		if (bTrgChange)
 		{
 			m_SyncData.m_Target.m_Height = pMaxTarget->m_Height - m_Horizon.m_SchwarzschildHi;
-			m_SyncData.m_Target.m_Row = pMaxTarget->m_Rows.at(pMaxTarget->m_Height - m_SyncData.m_Target.m_Height - 1);
+			m_SyncData.m_Target.m_Row = pMaxTarget->m_Rows.at(pMaxTarget->m_Height - m_SyncData.m_Target.m_Height);
 
 			Blob blob(&m_SyncData, sizeof(m_SyncData));
 			m_DB.ParamSet(NodeDB::ParamID::SyncData, nullptr, &blob);
@@ -557,22 +557,22 @@ void NodeProcessor::GoUpFast()
 
 bool NodeProcessor::GoUpFastInternal()
 {
-	EnumCongestionsInternal();
-	CongestionCache::TipCongestion* pTrg = m_CongestionCache.Find(m_SyncData.m_Target);
-	if (!pTrg)
-		return false;
+	std::vector<uint64_t> vPath;
+	vPath.reserve(m_SyncData.m_Target.m_Height - m_SyncData.m_h0);
 
-	size_t i1 = pTrg->m_Height - m_SyncData.m_Target.m_Height;
-	size_t i0 = pTrg->m_Height - m_Cursor.m_Sid.m_Height;
-	if ((i0 >= pTrg->m_Rows.size()) || (pTrg->m_Rows.at(i0) != m_Cursor.m_Sid.m_Row))
-		return false;
-
-	for (size_t i = i0; i < i1; i++)
+	for (NodeDB::StateID sid = m_SyncData.m_Target; sid.m_Height != m_SyncData.m_h0; )
 	{
-		if (!GoForward(pTrg->m_Rows.at(i + 1)))
+		vPath.push_back(sid.m_Row);
+		if (!m_DB.get_Prev(sid))
+			sid.SetNull();
+	}
+
+	for (size_t i = vPath.size(); i--; )
+	{
+		if (!GoForward(vPath[i]))
 		{
 			// oops
-			for (; i > i0; i--)
+			while (++i < vPath.size())
 				Rollback();
 
 			return false;

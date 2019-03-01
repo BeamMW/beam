@@ -369,9 +369,24 @@ bool Node::TryAssignTask(Task& t, Peer& p)
         if (nBlocks >= m_Cfg.m_MaxConcurrentBlocksRequest)
             return false;
 
-        proto::GetBody msg;
-        msg.m_ID = t.m_Key.first;
-        p.Send(msg);
+		if (m_Processor.m_SyncData.m_Target.m_Row)
+		{
+			if (!(proto::LoginFlags::Extension2 & p.m_LoginFlags))
+				return false;
+
+			proto::GetBody2 msg;
+			msg.m_ID = t.m_Key.first;
+			msg.m_HorizonLo0 = m_Processor.m_SyncData.m_h0;
+			msg.m_HorizonLo1 = m_Processor.m_SyncData.m_TxoLo;
+			msg.m_HorizonHi1 = m_Processor.m_SyncData.m_Target.m_Height;
+			p.Send(msg);
+		}
+		else
+		{
+			proto::GetBody msg;
+			msg.m_ID = t.m_Key.first;
+			p.Send(msg);
+		}
     }
     else
     {
