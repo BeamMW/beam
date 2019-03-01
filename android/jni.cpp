@@ -154,7 +154,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_API_INTERFACE(closeWallet)(JNIEnv *env, jobject
     }
 }
 
-JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(isWalletRan)(JNIEnv *env, jobject thiz)
+JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(isWalletRunning)(JNIEnv *env, jobject thiz)
 {
     return walletModel != nullptr;
 }
