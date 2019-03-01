@@ -75,11 +75,17 @@ set(UI_SRC
 	model/node_model.cpp
 )
 
+find_package(Qt5LinguistTools)
+if (Qt5LinguistTools_FOUND)
+    set(TS_FILES "${CMAKE_CURRENT_SOURCE_DIR}/translations/english.ts")
+    qt5_create_translation(QM_FILES ${CMAKE_CURRENT_SOURCE_DIR} ${TS_FILES})
+endif()
+
 if(WIN32)
 	add_definitions(-DWIN32_LEAN_AND_MEAN)
 endif()
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/beam.rc.in ${CMAKE_CURRENT_SOURCE_DIR}/beam.rc)
-add_executable(${TARGET_NAME} ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc ${MACOSX_BUNDLE_ICON_FILE})
+add_executable(${TARGET_NAME} ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc ${MACOSX_BUNDLE_ICON_FILE} ${QM_FILES})
 set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME ${OUTPUT_NAME})
 
 if(APPLE)

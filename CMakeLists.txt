@@ -199,9 +199,6 @@ if(UNIX OR WIN32)
     add_definitions(-DUV_INTERNAL)
 endif()
 
-include_directories($ENV{BOOST_ROOT}/include)
-link_directories($ENV{BOOST_ROOT}/lib)
-
 if(ANDROID)
     message("ANDROID_ABI: ${ANDROID_ABI}")
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
@@ -239,11 +236,12 @@ endif()
 
 if (WIN32)
     add_definitions(-DNOMINMAX)
-    find_package(Boost)
-    if (Boost_FOUND)
-        include_directories(${Boost_INCLUDE_DIRS})
-    endif()
 endif()
+
+find_package(Boost REQUIRED)
+add_library(boost INTERFACE IMPORTED)
+set_property(TARGET boost PROPERTY
+    INTERFACE_INCLUDE_DIRECTORIES ${Boost_INCLUDE_DIR})
 
 include_directories(${PROJECT_SOURCE_DIR})
 add_definitions(-DPROJECT_SOURCE_DIR=\"${PROJECT_SOURCE_DIR}\")
