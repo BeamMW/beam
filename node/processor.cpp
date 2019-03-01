@@ -43,6 +43,7 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 	Merkle::Hash hv;
 	Blob blob(hv);
 
+	ZeroObject(m_Extra);
 	m_Extra.m_LoHorizon = m_DB.ParamIntGetDef(NodeDB::ParamID::LoHorizon, Rules::HeightGenesis - 1);
 	m_Extra.m_Fossil = m_DB.ParamIntGetDef(NodeDB::ParamID::FossilHeight, Rules::HeightGenesis - 1);
 	m_Extra.m_TxoLo = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoLo, Rules::HeightGenesis - 1);
@@ -69,7 +70,6 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 	LogSyncData();
 
 	m_nSizeUtxoComission = 0;
-	ZeroObject(m_Extra);
 
 	TxoID nTreasury = 0;
 

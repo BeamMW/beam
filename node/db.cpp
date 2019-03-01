@@ -586,6 +586,9 @@ bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, Blob* p1, ByteBuffer* p2 /* = N
 		rs.get(0, *p0);
 	if (p1)
 	{
+		if (rs.IsNull(1))
+			return false;
+
 		const void* pPtr = rs.get_BlobStrict(1, p1->n);
 		memcpy((void*) p1->p, pPtr, p1->n);
 	}
