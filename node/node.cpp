@@ -108,6 +108,20 @@ void Node::UpdateSyncStatusRaw()
 		m_SyncStatus.m_Done = std::max(m_SyncStatus.m_Done, h);
 	}
 
+	if (m_Processor.m_SyncData.m_Target.m_Row)
+	{
+		m_SyncStatus.m_Total += (m_Processor.m_SyncData.m_Target.m_Height - m_Processor.m_Cursor.m_ID.m_Height) * (SyncStatus::s_WeightHdr + SyncStatus::s_WeightBlock);
+		m_SyncStatus.m_Done += (m_Processor.m_SyncData.m_Target.m_Height - m_Processor.m_Cursor.m_ID.m_Height) * SyncStatus::s_WeightHdr;
+
+		TaskSet::iterator it = m_setTasks.begin();
+		if (m_setTasks.end() != it)
+		{
+			const Block::SystemState::ID& id = it->m_Key.first;
+			if (id.m_Height > m_Processor.m_Cursor.m_ID.m_Height)
+				m_SyncStatus.m_Done += (id.m_Height - m_Processor.m_Cursor.m_ID.m_Height) * SyncStatus::s_WeightBlock;
+		}
+	}
+
 	bool bOnlyAssigned = (m_Processor.m_Cursor.m_ID.m_Height > 0);
 
 	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
