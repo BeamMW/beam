@@ -19,7 +19,10 @@ add_library(pow STATIC ${POW_SRC})
 target_compile_definitions(pow PRIVATE ENABLE_MINING)
 
 add_dependencies(pow crypto)
-target_link_libraries(pow crypto boost)
+target_link_libraries(pow crypto)
+if(Boost_FOUND)
+    target_link_libraries(pow boost)
+endif()
 
 target_include_directories(pow PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/crypto)
 
