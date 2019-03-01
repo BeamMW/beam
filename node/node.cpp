@@ -62,7 +62,7 @@ void Node::UpdateSyncStatus()
 
 	if (!(m_SyncStatus == stat) && m_UpdatedFromPeers)
 	{
-		if (!m_PostStartSynced && (m_SyncStatus.m_Done == m_SyncStatus.m_Total))
+		if (!m_PostStartSynced && (m_SyncStatus.m_Done == m_SyncStatus.m_Total) && !m_Processor.m_SyncData.m_Target.m_Row)
 		{
 			m_PostStartSynced = true;
 
@@ -1152,6 +1152,7 @@ void Node::Peer::SendLogin()
 
 	msgLogin.m_Flags =
 		proto::LoginFlags::Extension1 |
+		proto::LoginFlags::Extension2 |
 		proto::LoginFlags::SendPeers; // request a another node to periodically send a list of recommended peers
 
 	if (m_This.m_PostStartSynced)
