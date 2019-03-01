@@ -368,4 +368,9 @@ namespace beam::wallet
 
         return lockImage;
     }
+
+    SubTxID BaseTxBuilder::GetSubTxID() const
+    {
+        return m_SubTxID;
+    }
 }

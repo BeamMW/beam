@@ -366,9 +366,9 @@ namespace beam
 			<< m_Height.m_Max
 			<< m_Commitment
 			<< Amount(m_AssetEmission)
-			<< (bool) m_pHashLock;
+			<< (bool) (m_pHashLock || pLockImage);
 
-		if (m_pHashLock)
+		if (m_pHashLock || pLockImage)
 		{
 			if (!pLockImage)
 			{

@@ -60,6 +60,7 @@ namespace beam::wallet
         const TxKernel& GetKernel() const;
         std::string GetKernelIDString() const;
         ECC::Hash::Value GetLockImage() const;
+        SubTxID GetSubTxID() const;
 
     protected:
         BaseTransaction& m_Tx;

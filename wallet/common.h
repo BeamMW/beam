@@ -251,6 +251,8 @@ namespace beam
             PeerSharedBulletProofPart2 = 109,
             PeerSharedBulletProofPart3 = 110,
 
+            PeerLockImage = 115,
+
             // private parameters
             PrivateFirstParam = 128,
 
@@ -289,7 +291,6 @@ namespace beam
             SharedOutputs = 191,
             LockedOutputs = 192,
 
-            PeerLockImage = 200,
             PreImage = 201,
     
             State = 255

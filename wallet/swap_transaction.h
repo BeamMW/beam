@@ -21,8 +21,6 @@
 namespace beam::wallet
 {
     class LockTxBuilder;
-    class RefundTxBuilder;
-    class RedeemTxBuilder;
 
     class AtomicSwapTransaction : public BaseTransaction
     {
@@ -58,11 +56,8 @@ namespace beam::wallet
         void SendBulletProofPart2(const LockTxBuilder& lockBuilder, bool isSender);
         void SendBulletProofPart3(const LockTxBuilder& lockBuilder, bool isSender);
 
-        void SendInvitation(const RefundTxBuilder& lockBuilder, bool isSender);
-        void ConfirmInvitation(const RefundTxBuilder& builder);
-
-        void SendInvitation(const RedeemTxBuilder& builder, bool isSender);
-        void ConfirmInvitation(const RedeemTxBuilder& builder);
+        void SendSharedTxInvitation(const BaseTxBuilder& builder, bool shouldSendLockImage = false);
+        void ConfirmSharedTxInvitation(const BaseTxBuilder& builder);
     };
 
     class LockTxBuilder: public BaseTxBuilder
@@ -70,28 +65,29 @@ namespace beam::wallet
     public:
         LockTxBuilder(BaseTransaction& tx, Amount amount, Amount fee);
 
-        void AddSharedOutput(Amount amount);
+        Transaction::Ptr CreateTransaction() override;
 
         void LoadSharedParameters();
         void SharedUTXOProofPart2(bool shouldProduceMultisig);
         void SharedUTXOProofPart3(bool shouldProduceMultisig);
 
-        const ECC::uintBig& GetSharedSeed() const;
-        const ECC::Scalar::Native& GetSharedBlindingFactor() const;
         const ECC::RangeProof::Confidential& GetSharedProof() const;
         const ECC::RangeProof::Confidential::MultiSig& GetProofPartialMultiSig() const;
         ECC::Point::Native GetPublicSharedBlindingFactor() const;
 
-        void LoadPeerOffset();
-
     private:
 
-        ECC::Point::Native GetSharedCommitment();
+        void AddSharedOutput();
+        void LoadPeerOffset();
+
+        const ECC::uintBig& GetSharedSeed() const;
+        const ECC::Scalar::Native& GetSharedBlindingFactor() const;
         const ECC::RangeProof::CreatorParams& GetProofCreatorParams();
 
+        ECC::Point::Native GetSharedCommitment();
+
         ECC::Scalar::Native m_SharedBlindingFactor;
-        // NoLeak - ?
-        ECC::uintBig m_SharedSeed;
+        ECC::NoLeak<ECC::uintBig> m_SharedSeed;
         beam::Coin m_SharedCoin;
         ECC::RangeProof::Confidential m_SharedProof;
 
@@ -100,26 +96,19 @@ namespace beam::wallet
         ECC::RangeProof::Confidential::MultiSig m_ProofPartialMultiSig;
     };
 
-    class RefundTxBuilder : public BaseTxBuilder
+    class SharedTxBuilder : public BaseTxBuilder
     {
     public:
-        RefundTxBuilder(BaseTransaction& tx, Amount amount, Amount fee);
+        SharedTxBuilder(BaseTransaction& tx, SubTxID subTxID, Amount amount, Amount fee);
 
-        void InitRefundTx(bool isSender);
-        void LoadPeerOffset();
-    private:
+        void InitTx(bool isTxOwner, bool shouldInitSecret);
+        Transaction::Ptr CreateTransaction() override;
+
+    protected:
+
         void InitInputAndOutputs();
-    };
-
-    class RedeemTxBuilder : public BaseTxBuilder
-    {
-    public:
-        RedeemTxBuilder(BaseTransaction& tx, Amount amount, Amount fee);
-
-        void InitRedeemTx(bool isSender);
+        void InitOffset();
+        void InitSecret();
         void LoadPeerOffset();
-        //ECC::Hash::Value GetLockImage() const;
-    private:
-        void InitInputAndOutputs();
     };
 }
