@@ -2581,8 +2581,12 @@ namespace beam
                 Deserializer der;
                 der.reset(data);
                 der & pi;
+                if (der.bytes_left() > 0)
+                {
+                    throw std::runtime_error("Invalid data buffer");
+                }
             }
-           return pi;
+            return pi;
         }
 
         ByteBuffer ExportPaymentProof(const IWalletDB& walletDB, const TxID& txID)
