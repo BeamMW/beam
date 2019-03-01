@@ -678,7 +678,7 @@ namespace beam
 
 		// hi-level functions, should be used after all parts were validated and merged
 		bool IsValidTransaction();
-		bool IsValidBlock(const Block::BodyBase&);
+		bool IsValidBlock();
 	};
 
 	class Block::BodyBase::RW

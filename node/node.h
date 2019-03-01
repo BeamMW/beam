@@ -181,7 +181,7 @@ private:
 		void OnPeerInsane(const PeerID&) override;
 		void OnNewState() override;
 		void OnRolledBack() override;
-		bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&) override;
+		bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
 		void AdjustFossilEnd(Height&) override;
 		bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) override;
 		void OnModified() override;

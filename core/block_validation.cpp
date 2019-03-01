@@ -185,7 +185,7 @@ namespace beam
 		return m_Sigma == Zero;
 	}
 
-	bool TxBase::Context::IsValidBlock(const Block::BodyBase& bb)
+	bool TxBase::Context::IsValidBlock()
 	{
 		AmountBig::Type subsTotal, subsLocked;
 		Rules::get_Emission(subsTotal, m_Height);

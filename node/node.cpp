@@ -599,18 +599,9 @@ bool Node::Processor::Verifier::ValidateAndSummarize(TxBase::Context& ctx, const
     return !m_bFail;
 }
 
-bool Node::Processor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
+bool Node::Processor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r)
 {
-    if (hr.m_Min < Rules::HeightGenesis)
-        return false;
-
-    TxBase::Context ctx;
-    ctx.m_Height = hr;
-    ctx.m_bBlockMode = true;
-
-    return
-        m_Verifier.ValidateAndSummarize(ctx, block, std::move(r)) &&
-        ctx.IsValidBlock(block);
+	return m_Verifier.ValidateAndSummarize(ctx, txb, std::move(r));
 }
 
 void Node::Processor::Verifier::Thread(uint32_t iVerifier)

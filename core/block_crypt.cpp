@@ -1176,7 +1176,7 @@ namespace beam
 
 		return
 			ctx.ValidateAndSummarize(*this, std::move(r)) &&
-			ctx.IsValidBlock(*this);
+			ctx.IsValidBlock();
 	}
 
 	/////////////

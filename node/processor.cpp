@@ -2034,9 +2034,23 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	return nSize <= Rules::get().MaxBodySize;
 }
 
+bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r)
+{
+	return ctx.ValidateAndSummarize(txb, std::move(r));
+}
+
 bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
 {
-	return block.IsValid(hr, std::move(r));
+	if ((hr.m_Min < Rules::HeightGenesis) || hr.IsEmpty())
+		return false;
+
+	TxBase::Context ctx;
+	ctx.m_Height = hr;
+	ctx.m_bBlockMode = true;
+
+	return
+		ValidateAndSummarize(ctx, block, std::move(r)) &&
+		ctx.IsValidBlock();
 }
 
 void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::StateID& sid)
