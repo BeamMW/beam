@@ -144,6 +144,21 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(isWalletInitialized)(JNIEnv *
     return WalletDB::isInitialized(JString(env, appData).value() + "/" WALLET_FILENAME) ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_API_INTERFACE(closeWallet)(JNIEnv *env, jobject thiz)
+{
+    LOG_DEBUG() << "close wallet if it exists";
+
+    if (walletModel)
+    {
+        walletModel.reset();
+    }
+}
+
+JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(isWalletRan)(JNIEnv *env, jobject thiz)
+{
+    return walletModel != nullptr;
+}
+
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobject thiz, 
     jstring nodeAddrStr, jstring appDataStr, jstring passStr)
 {
@@ -161,7 +176,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
         LOG_DEBUG() << "wallet successfully opened.";
 
         walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value());
-                
+
         jobject walletObj = env->AllocObject(WalletClass);
 
         walletModel->start();
