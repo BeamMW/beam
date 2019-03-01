@@ -52,6 +52,7 @@ public:
 			DummyID,
 			HeightTxoLo, // Height starting from which and below Txo info is totally erased.
 			HeightTxoHi, // Height starting from which and below Txo infi is compacted, only the commitment is left
+			SyncData,
 		};
 	};
 

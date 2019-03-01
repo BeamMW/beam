@@ -61,6 +61,13 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 			throw std::runtime_error(os.str());
 		}
 
+	ZeroObject(m_SyncData);
+	blob.p = &m_SyncData;
+	blob.n = sizeof(m_SyncData);
+	m_DB.ParamGet(NodeDB::ParamID::SyncData, nullptr, &blob);
+
+	LogSyncData();
+
 	m_nSizeUtxoComission = 0;
 	ZeroObject(m_Extra);
 
@@ -91,6 +98,14 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 
 	if (!bResetCursor)
 		TryGoUp();
+}
+
+void NodeProcessor::LogSyncData()
+{
+	if (!m_SyncData.m_Target.m_Row)
+		return;
+
+	LOG_INFO() << "Fast-sync mode up to height " << m_SyncData.m_Target.m_Height;
 }
 
 NodeProcessor::~NodeProcessor()
@@ -175,14 +190,7 @@ NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::CongestionCache::F
 	for (TipList::iterator it = m_lstTips.begin(); m_lstTips.end() != it; it++)
 	{
 		TipCongestion& x = *it;
-		if (sid.m_Height > x.m_Height)
-			continue;
-
-		Height dh = x.m_Height - sid.m_Height;
-		if (dh >= x.m_Rows.size())
-			continue;
-
-		if (x.m_Rows.at(dh) != sid.m_Row)
+		if (!x.IsContained(sid))
 			continue;
 
 		// in case of several matches prefer the one with lower height
@@ -195,20 +203,28 @@ NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::CongestionCache::F
 	return pRet;
 }
 
-void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
+bool NodeProcessor::CongestionCache::TipCongestion::IsContained(const NodeDB::StateID& sid)
 {
-	if (!m_Extra.m_TreasuryHandled)
-	{
-		Block::SystemState::ID id;
-		ZeroObject(id);
-		RequestData(id, true, nullptr, 0);
-		return;
-	}
+	if (sid.m_Height > m_Height)
+		return false;
+
+	Height dh = m_Height - sid.m_Height;
+	if (dh >= m_Rows.size())
+		return false;
+
+	return (m_Rows.at(dh) == sid.m_Row);
+}
+
+NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::EnumCongestionsInternal()
+{
+	assert(m_Extra.m_TreasuryHandled);
 
 	CongestionCache cc;
 	cc.m_lstTips.swap(m_CongestionCache.m_lstTips);
 
-	// request all potentially missing data
+	CongestionCache::TipCongestion* pMaxTarget = nullptr;
+
+	// Find all potentially missing data
 	NodeDB::WalkerState ws(m_DB);
 	for (m_DB.EnumTips(ws); ws.MoveNext(); )
 	{
@@ -307,23 +323,91 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 		}
 
 		assert(pEntry && pEntry->m_Rows.size());
+		pEntry->m_bNeedHdrs = bNeedHdrs;
+
+		if (!bNeedHdrs && (!pMaxTarget || (pMaxTarget->m_Height < pEntry->m_Height)))
+			pMaxTarget = pEntry;
+	}
+
+	return pMaxTarget;
+}
+
+void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
+{
+	if (!m_Extra.m_TreasuryHandled)
+	{
+		Block::SystemState::ID id;
+		ZeroObject(id);
+		RequestData(id, true, nullptr, 0);
+		return;
+	}
+
+	CongestionCache::TipCongestion* pMaxTarget = EnumCongestionsInternal();
+
+	// Check the fast-sync status
+	if (pMaxTarget)
+	{
+		bool bFirstTime =
+			!m_SyncData.m_Target.m_Row &&
+			(pMaxTarget->m_Height > m_Cursor.m_ID.m_Height + m_Horizon.m_SchwarzschildHi + m_Horizon.m_SchwarzschildHi / 2);
+
+		if (bFirstTime)
+		{
+			// first time target acquisition
+			// TODO - verify the headers w.r.t. difficulty and Chainwork
+			m_SyncData.m_h0 = pMaxTarget->m_Height - pMaxTarget->m_Rows.size();
+
+			if (pMaxTarget->m_Height > m_Horizon.m_SchwarzschildLo)
+			{
+				m_SyncData.m_TxoLo = pMaxTarget->m_Height - m_Horizon.m_SchwarzschildLo;
+				// for more safety - delete all the blocks that could already be downloaded on this branch
+				// TODO
+			}
+		}
+
+		// check if it should be moved fwd
+		bool bTrgChange =
+			(m_SyncData.m_Target.m_Row || bFirstTime) &&
+			(pMaxTarget->m_Height > m_SyncData.m_Target.m_Height + m_Horizon.m_SchwarzschildHi);
+
+		if (bTrgChange)
+		{
+			m_SyncData.m_Target.m_Height = pMaxTarget->m_Height - m_Horizon.m_SchwarzschildHi;
+			m_SyncData.m_Target.m_Row = pMaxTarget->m_Rows.at(pMaxTarget->m_Height - m_SyncData.m_Target.m_Height - 1);
+
+			Blob blob(&m_SyncData, sizeof(m_SyncData));
+			m_DB.ParamSet(NodeDB::ParamID::SyncData, nullptr, &blob);
+		}
+
+		if (bFirstTime)
+			LogSyncData();
+	}
+
+	// request missing data
+	for (CongestionCache::TipList::iterator it = m_CongestionCache.m_lstTips.begin(); m_CongestionCache.m_lstTips.end() != it; it++)
+	{
+		CongestionCache::TipCongestion& x = *it;
 
 		Block::SystemState::ID id;
 
-		if (!bNeedHdrs)
+		if (!x.m_bNeedHdrs)
 		{
+			if (m_SyncData.m_Target.m_Row && !x.IsContained(m_SyncData.m_Target))
+				continue; // ignore irrelevant branches
+
 			uint32_t nRequested = 0;
 
-			for (size_t i = pEntry->m_Rows.size(); i--; )
+			for (size_t i = x.m_Rows.size(); i--; )
 			{
-				sid.m_Height = pEntry->m_Height - i;
-				sid.m_Row = pEntry->m_Rows.at(i);
+				NodeDB::StateID sid;
+				sid.m_Height = x.m_Height - i;
+				sid.m_Row = x.m_Rows.at(i);
 
 				if (NodeDB::StateFlags::Functional & m_DB.GetStateFlags(sid.m_Row))
 					continue;
 
 				m_DB.get_StateID(sid, id);
-				RequestDataInternal(id, sid.m_Row, true, pEntry->m_Height);
+				RequestDataInternal(id, sid.m_Row, true, x.m_Height);
 
 				if (++nRequested >= nMaxBlocksBacklog)
 					break;
@@ -331,13 +415,15 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 		}
 		else
 		{
+			uint64_t rowid = x.m_Rows.at(x.m_Rows.size() - 1);
+
 			Block::SystemState::Full s;
-			m_DB.get_State(sid.m_Row, s);
+			m_DB.get_State(rowid, s);
 
 			id.m_Height = s.m_Height - 1;
 			id.m_Hash = s.m_Prev;
 
-			RequestDataInternal(id, sid.m_Row, false, pEntry->m_Height);
+			RequestDataInternal(id, rowid, false, x.m_Height);
 		}
 	}
 }
@@ -367,6 +453,22 @@ void NodeProcessor::TryGoUp()
 
 	while (true)
 	{
+		if (m_SyncData.m_Target.m_Row)
+		{
+			if (!(NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(m_SyncData.m_Target.m_Row)))
+				return;
+
+			assert(m_Cursor.m_ID.m_Height >= m_SyncData.m_h0);
+			while (m_Cursor.m_ID.m_Height > m_SyncData.m_h0)
+			{
+				Rollback();
+				bDirty = true;
+			}
+
+			GoUpFast();
+			continue;
+		}
+
 		NodeDB::StateID sidTrg;
 		Difficulty::Raw wrkTrg;
 
@@ -436,6 +538,50 @@ void NodeProcessor::TryGoUp()
 	}
 }
 
+void NodeProcessor::GoUpFast()
+{
+	assert(m_SyncData.m_Target.m_Row);
+	assert(m_Cursor.m_ID.m_Height == m_SyncData.m_h0);
+
+	bool bRet = GoUpFastInternal();
+
+	if (bRet)
+	{
+		// raise fossil height, hTxoLo, hTxoHi
+	}
+	else
+	{
+		// delete all blocks of the fast-sync
+	}
+}
+
+bool NodeProcessor::GoUpFastInternal()
+{
+	EnumCongestionsInternal();
+	CongestionCache::TipCongestion* pTrg = m_CongestionCache.Find(m_SyncData.m_Target);
+	if (!pTrg)
+		return false;
+
+	size_t i1 = pTrg->m_Height - m_SyncData.m_Target.m_Height;
+	size_t i0 = pTrg->m_Height - m_Cursor.m_Sid.m_Height;
+	if ((i0 >= pTrg->m_Rows.size()) || (pTrg->m_Rows.at(i0) != m_Cursor.m_Sid.m_Row))
+		return false;
+
+	for (size_t i = i0; i < i1; i++)
+	{
+		if (!GoForward(pTrg->m_Rows.at(i + 1)))
+		{
+			// oops
+			for (; i > i0; i--)
+				Rollback();
+
+			return false;
+		}
+	}
+
+	return true;
+}
+
 Height NodeProcessor::PruneOld()
 {
 	if (m_Cursor.m_Sid.m_Height < Rules::HeightGenesis)
@@ -476,7 +622,9 @@ Height NodeProcessor::PruneOld()
 		Height hTrg = m_Cursor.m_Sid.m_Height - 1 - Rules::get().Macroblock.MaxRollback;
 		assert(hTrg > m_Extra.m_Fossil);
 
-		do
+		AdjustFossilEnd(hTrg); // should be removed once macroblocks are completely erased
+
+		while  (m_Extra.m_Fossil < hTrg)
 		{
 			m_Extra.m_Fossil++;
 
@@ -496,7 +644,7 @@ Height NodeProcessor::PruneOld()
 				hRet++;
 			}
 
-		} while (m_Extra.m_Fossil < hTrg);
+		}
 
 		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &m_Extra.m_Fossil, NULL);
 	}

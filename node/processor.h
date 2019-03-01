@@ -38,6 +38,8 @@ class NodeProcessor
 	size_t m_nSizeUtxoComission;
 
 	void TryGoUp();
+	void GoUpFast();
+	bool GoUpFastInternal();
 
 	bool GoForward(uint64_t);
 	void Rollback();
@@ -108,7 +110,10 @@ class NodeProcessor
 			:public boost::intrusive::list_base_hook<>
 		{
 			Height m_Height;
+			bool m_bNeedHdrs;
 			std::dvector<uint64_t> m_Rows;
+
+			bool IsContained(const NodeDB::StateID&);
 		};
 
 		typedef boost::intrusive::list<TipCongestion> TipList;
@@ -121,6 +126,8 @@ class NodeProcessor
 		TipCongestion* Find(const NodeDB::StateID&);
 
 	} m_CongestionCache;
+
+	CongestionCache::TipCongestion* EnumCongestionsInternal();
 
 public:
 
@@ -164,6 +171,16 @@ public:
 		Height m_TxoHi;
 
 	} m_Extra;
+
+	struct SyncData
+	{
+		NodeDB::StateID m_Target; // can move fwd during sync
+		Height m_h0;
+		Height m_TxoLo;
+
+	} m_SyncData;
+
+	void LogSyncData();
 
 	// Export compressed history elements. Suitable only for "small" ranges, otherwise may be both time & memory consumng.
 	void ExtractBlockWithExtra(Block::Body&, const NodeDB::StateID&);
