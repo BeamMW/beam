@@ -623,60 +623,84 @@ Height NodeProcessor::PruneOld()
 		assert(hTrg > m_Extra.m_Fossil);
 
 		AdjustFossilEnd(hTrg); // should be removed once macroblocks are completely erased
-
-		while  (m_Extra.m_Fossil < hTrg)
-		{
-			m_Extra.m_Fossil++;
-
-			NodeDB::WalkerState ws(m_DB);
-			for (m_DB.EnumStatesAt(ws, m_Extra.m_Fossil); ws.MoveNext(); )
-			{
-				if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
-					m_DB.DelStateBlockPRB(ws.m_Sid.m_Row);
-				else
-				{
-					m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
-
-					m_DB.DelStateBlockAll(ws.m_Sid.m_Row);
-					m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
-				}
-
-				hRet++;
-			}
-
-		}
-
-		m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &m_Extra.m_Fossil, NULL);
+		hRet += RaiseFossil(hTrg);
 	}
 
 	if (m_Cursor.m_Sid.m_Height - 1 > m_Extra.m_TxoLo + m_Horizon.m_SchwarzschildLo)
-	{
-		m_Extra.m_TxoLo = m_Cursor.m_Sid.m_Height - 1 - m_Horizon.m_SchwarzschildLo;
-
-		hRet += m_DB.DeleteSpentTxos(m_Extra.m_TxoLo);
-		m_DB.ParamSet(NodeDB::ParamID::HeightTxoLo, &m_Extra.m_TxoLo, NULL);
-	}
+		hRet += RaiseTxoLo(m_Cursor.m_Sid.m_Height - 1 - m_Horizon.m_SchwarzschildLo);
 
 	if (m_Cursor.m_Sid.m_Height - 1 > m_Extra.m_TxoHi + m_Horizon.m_SchwarzschildHi)
+		hRet += RaiseTxoHi(m_Cursor.m_Sid.m_Height - 1 - m_Horizon.m_SchwarzschildHi);
+
+	return hRet;
+}
+
+Height NodeProcessor::RaiseFossil(Height hTrg)
+{
+	if (hTrg <= m_Extra.m_Fossil)
+		return 0;
+
+	Height hRet = 0;
+
+	while (m_Extra.m_Fossil < hTrg)
 	{
-		Height hTrg = m_Cursor.m_Sid.m_Height - 1 - m_Horizon.m_SchwarzschildHi;
+		m_Extra.m_Fossil++;
 
-		NodeDB::WalkerTxo wlk(m_DB);
-		for (m_DB.EnumTxosBySpent(wlk, m_Extra.m_TxoHi + 1); wlk.MoveNext(); )
+		NodeDB::WalkerState ws(m_DB);
+		for (m_DB.EnumStatesAt(ws, m_Extra.m_Fossil); ws.MoveNext(); )
 		{
-			if (wlk.m_SpendHeight > hTrg)
-				break;
+			if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
+				m_DB.DelStateBlockPRB(ws.m_Sid.m_Row);
+			else
+			{
+				m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
 
-			uint8_t pNaked[s_TxoNakedMax];
-			TxoToNaked(pNaked, wlk.m_Value);
+				m_DB.DelStateBlockAll(ws.m_Sid.m_Row);
+				m_DB.set_Peer(ws.m_Sid.m_Row, NULL);
+			}
 
-			m_DB.TxoSetValue(wlk.m_ID, wlk.m_Value);
 			hRet++;
 		}
 
-		m_Extra.m_TxoHi = hTrg;
-		m_DB.ParamSet(NodeDB::ParamID::HeightTxoHi, &m_Extra.m_TxoHi, NULL);
 	}
+
+	m_DB.ParamSet(NodeDB::ParamID::FossilHeight, &m_Extra.m_Fossil, NULL);
+	return hRet;
+}
+
+Height NodeProcessor::RaiseTxoLo(Height hTrg)
+{
+	if (hTrg <= m_Extra.m_TxoLo)
+		return 0;
+
+	m_Extra.m_TxoLo = hTrg;
+	m_DB.ParamSet(NodeDB::ParamID::HeightTxoLo, &m_Extra.m_TxoLo, NULL);
+
+	return m_DB.DeleteSpentTxos(m_Extra.m_TxoLo);
+}
+
+Height NodeProcessor::RaiseTxoHi(Height hTrg)
+{
+	if (hTrg <= m_Extra.m_TxoHi)
+		return 0;
+
+	Height hRet = 0;
+
+	NodeDB::WalkerTxo wlk(m_DB);
+	for (m_DB.EnumTxosBySpent(wlk, m_Extra.m_TxoHi + 1); wlk.MoveNext(); )
+	{
+		if (wlk.m_SpendHeight > hTrg)
+			break;
+
+		uint8_t pNaked[s_TxoNakedMax];
+		TxoToNaked(pNaked, wlk.m_Value);
+
+		m_DB.TxoSetValue(wlk.m_ID, wlk.m_Value);
+		hRet++;
+	}
+
+	m_Extra.m_TxoHi = hTrg;
+	m_DB.ParamSet(NodeDB::ParamID::HeightTxoHi, &m_Extra.m_TxoHi, NULL);
 
 	return hRet;
 }

@@ -44,6 +44,9 @@ class NodeProcessor
 	bool GoForward(uint64_t);
 	void Rollback();
 	Height PruneOld();
+	Height RaiseFossil(Height);
+	Height RaiseTxoLo(Height);
+	Height RaiseTxoHi(Height);
 	void InitializeFromBlocks();
 	void InitializeUtxos(TxoID nTreasury);
 	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, Height hTarget);
