@@ -519,7 +519,7 @@ void NodeProcessor::TryGoUp()
 		for (size_t i = vPath.size(); i--; )
 		{
 			bDirty = true;
-			if (!GoForward(vPath[i]))
+			if (!GoForward(vPath[i], nullptr))
 			{
 				bPathOk = false;
 				break;
@@ -548,15 +548,38 @@ void NodeProcessor::GoUpFast()
 	if (bRet)
 	{
 		// raise fossil height, hTxoLo, hTxoHi
+		RaiseFossil(m_Cursor.m_ID.m_Height);
+		RaiseTxoHi(m_Cursor.m_ID.m_Height);
+		RaiseTxoLo(m_SyncData.m_TxoLo);
+
+		m_Extra.m_LoHorizon = m_Cursor.m_ID.m_Height;
+		m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Extra.m_LoHorizon, NULL);
 	}
 	else
 	{
+		// rapid rollback
+		while (m_Cursor.m_Sid.m_Height > m_SyncData.m_h0)
+			Rollback();
+
 		// delete all blocks of the fast-sync
+		for (NodeDB::StateID sid = m_SyncData.m_Target; sid.m_Height != m_SyncData.m_h0; )
+		{
+			m_DB.DelStateBlockAll(sid.m_Row);
+			m_DB.SetStateNotFunctional(sid.m_Row);
+
+			if (!m_DB.get_Prev(sid))
+				sid.SetNull();
+		}
 	}
+
+	ZeroObject(m_SyncData);
+	m_DB.ParamSet(NodeDB::ParamID::SyncData, nullptr, nullptr);
 }
 
 bool NodeProcessor::GoUpFastInternal()
 {
+	uint64_t rowid = m_Cursor.m_Sid.m_Row;
+
 	std::vector<uint64_t> vPath;
 	vPath.reserve(m_SyncData.m_Target.m_Height - m_SyncData.m_h0);
 
@@ -567,16 +590,44 @@ bool NodeProcessor::GoUpFastInternal()
 			sid.SetNull();
 	}
 
+	TxBase::Context ctx;
+	ctx.m_Height.m_Min = m_SyncData.m_h0 + 1;
+	ctx.m_Height.m_Max = m_SyncData.m_Target.m_Height;
+	ctx.m_bBlockMode = true;
+
 	for (size_t i = vPath.size(); i--; )
 	{
-		if (!GoForward(vPath[i]))
-		{
-			// oops
-			while (++i < vPath.size())
-				Rollback();
-
+		if (!GoForward(vPath[i], &ctx))
 			return false;
-		}
+	}
+
+	if (!ctx.IsValidBlock())
+		return false;
+
+	// Make sure no naked UTXOs are left
+	TxoID id0 = 0;
+	if (m_SyncData.m_h0)
+	{
+		StateExtra se;
+		if (!m_DB.get_StateExtra(rowid, se))
+			OnCorrupted();
+		se.m_Txos.Export(id0);
+	}
+	else
+		m_DB.ParamGet(NodeDB::ParamID::Treasury, &id0, nullptr, nullptr);
+
+	NodeDB::WalkerTxo wlk(m_DB);
+	for (m_DB.EnumTxos(wlk, id0); wlk.MoveNext(); )
+	{
+		if (wlk.m_SpendHeight != MaxHeight)
+			continue;
+
+		if (wlk.m_Value.n < s_TxoNakedMin)
+			OnCorrupted();
+
+		const uint8_t* pSrc = reinterpret_cast<const uint8_t*>(wlk.m_Value.p);
+		if (!(pSrc[0] & 0xc))
+			return false;
 	}
 
 	return true;
@@ -973,7 +1024,7 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 	return true;
 }
 
-bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
+bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd, TxBase::Context* pBatch)
 {
 	ByteBuffer bbP, bbE;
 	RollbackData rbData;
@@ -1047,7 +1098,65 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 				return false;
 			}
 
-			if (!VerifyBlock(block, block.get_Reader(), sid.m_Height))
+			bool bValid;
+
+			if (pBatch)
+			{
+				// In batch mode some outputs may be 'naked'. We'll add them as-is
+				class ReaderEx
+					:public TxVectors::Reader
+				{
+					void SkipNaked()
+					{
+						while (m_pUtxoOut && IsNaked(*m_pUtxoOut))
+							TxVectors::Reader::NextUtxoOut();
+					}
+				public:
+					ReaderEx(const TxVectors::Perishable& p, const TxVectors::Eternal& e)
+						:TxVectors::Reader(p, e) {
+					}
+
+					static bool IsNaked(const Output& x)
+					{
+						return !(x.m_pConfidential || x.m_pPublic);
+					}
+
+					void Clone(Ptr& pOut) override {
+						pOut.reset(new ReaderEx(m_P, m_E));
+					}
+					void Reset() override {
+						TxVectors::Reader::Reset();
+						SkipNaked();
+					}
+					void NextUtxoOut() override {
+						TxVectors::Reader::NextUtxoOut();
+						SkipNaked();
+					};
+
+				};
+
+				ReaderEx r(block, block);
+				bValid = ValidateAndSummarize(*pBatch, block, std::move(r));
+
+				for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+				{
+					const Output& x = *block.m_vOutputs[i];
+					if (ReaderEx::IsNaked(x))
+					{
+						// add it as-is
+						ECC::Point::Native pt;
+						if (pt.Import(x.m_Commitment))
+							pBatch->m_Sigma += pt;
+						else
+							bValid = false;
+					}
+				}
+				
+			}
+			else
+				bValid = VerifyBlock(block, block.get_Reader(), sid.m_Height);
+
+			if (!bValid)
 			{
 				LOG_WARNING() << id << " context-free verification failed";
 				return false;
@@ -1066,14 +1175,17 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 	if (bFirstTime && bOk)
 	{
-		// check the validity of state description.
-		Merkle::Hash hvDef;
-		get_Definition(hvDef, true);
-
-		if (s.m_Definition != hvDef)
+		if (!pBatch || (sid.m_Height >= m_SyncData.m_TxoLo))
 		{
-			LOG_WARNING() << id << " Header Definition mismatch";
-			bOk = false;
+			// check the validity of state description.
+			Merkle::Hash hvDef;
+			get_Definition(hvDef, true);
+
+			if (s.m_Definition != hvDef)
+			{
+				LOG_WARNING() << id << " Header Definition mismatch";
+				bOk = false;
+			}
 		}
 
 		if (bOk)
@@ -1103,11 +1215,15 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd)
 
 			m_DB.set_StateExtra(sid.m_Row, &se);
 
-			assert(m_Extra.m_LoHorizon <= m_Cursor.m_Sid.m_Height);
-			if (m_Cursor.m_Sid.m_Height - m_Extra.m_LoHorizon > Rules::get().Macroblock.MaxRollback)
+			if (!pBatch)
 			{
-				m_Extra.m_LoHorizon = m_Cursor.m_Sid.m_Height - Rules::get().Macroblock.MaxRollback;
-				m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Extra.m_LoHorizon, NULL);
+				// no need to adjust LoHorizon in batch mode
+				assert(m_Extra.m_LoHorizon <= m_Cursor.m_Sid.m_Height);
+				if (m_Cursor.m_Sid.m_Height - m_Extra.m_LoHorizon > Rules::get().Macroblock.MaxRollback)
+				{
+					m_Extra.m_LoHorizon = m_Cursor.m_Sid.m_Height - Rules::get().Macroblock.MaxRollback;
+					m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Extra.m_LoHorizon, NULL);
+				}
 			}
 
 		}
@@ -1444,27 +1560,30 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 	return true;
 }
 
-bool NodeProcessor::GoForward(uint64_t row)
+bool NodeProcessor::GoForward(uint64_t row, TxBase::Context* pBatch)
 {
 	NodeDB::StateID sid;
 	sid.m_Height = m_Cursor.m_Sid.m_Height + 1;
 	sid.m_Row = row;
 
-	if (HandleBlock(sid, true))
+	if (HandleBlock(sid, true, pBatch))
 	{
 		m_DB.MoveFwd(sid);
 		InitCursor();
 		return true;
 	}
 
-	m_DB.DelStateBlockAll(row);
-	m_DB.SetStateNotFunctional(row);
-
-	PeerID peer;
-	if (m_DB.get_Peer(row, peer))
+	if (!pBatch)
 	{
-		m_DB.set_Peer(row, NULL);
-		OnPeerInsane(peer);
+		m_DB.DelStateBlockAll(row);
+		m_DB.SetStateNotFunctional(row);
+
+		PeerID peer;
+		if (m_DB.get_Peer(row, peer))
+		{
+			m_DB.set_Peer(row, NULL);
+			OnPeerInsane(peer);
+		}
 	}
 
 	return false;
@@ -1476,7 +1595,7 @@ void NodeProcessor::Rollback()
 	m_DB.MoveBack(m_Cursor.m_Sid);
 	InitCursor();
 
-	if (!HandleBlock(sid, false))
+	if (!HandleBlock(sid, false, nullptr))
 		OnCorrupted();
 
 	OnRolledBack();
