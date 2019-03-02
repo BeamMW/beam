@@ -71,6 +71,7 @@ class NodeProcessor
 	static const uint32_t s_TxoNakedMax = s_TxoNakedMin + 0x10; // In case the output has the Incubation period - extra size is needed (actually less than this).
 
 	static void TxoToNaked(uint8_t* pBuf, Blob&);
+	static bool TxoIsNaked(const Blob&);
 
 	void InitCursor();
 	static void OnCorrupted();

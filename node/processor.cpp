@@ -622,11 +622,7 @@ bool NodeProcessor::GoUpFastInternal()
 		if (wlk.m_SpendHeight != MaxHeight)
 			continue;
 
-		if (wlk.m_Value.n < s_TxoNakedMin)
-			OnCorrupted();
-
-		const uint8_t* pSrc = reinterpret_cast<const uint8_t*>(wlk.m_Value.p);
-		if (!(pSrc[0] & 0xc))
+		if (TxoIsNaked(wlk.m_Value))
 			return false;
 	}
 
@@ -743,6 +739,9 @@ Height NodeProcessor::RaiseTxoHi(Height hTrg)
 		if (wlk.m_SpendHeight > hTrg)
 			break;
 
+		if (TxoIsNaked(wlk.m_Value))
+			continue;
+
 		uint8_t pNaked[s_TxoNakedMax];
 		TxoToNaked(pNaked, wlk.m_Value);
 
@@ -793,6 +792,17 @@ void NodeProcessor::TxoToNaked(uint8_t* pBuf, Blob& v)
 
 	memcpy(pBuf, sb.first, sb.second);
 	v.n = static_cast<uint32_t>(sb.second);
+}
+
+bool NodeProcessor::TxoIsNaked(const Blob& v)
+{
+	if (v.n < s_TxoNakedMin)
+		OnCorrupted();
+
+	const uint8_t* pSrc = reinterpret_cast<const uint8_t*>(v.p);
+
+	return !(pSrc[0] & 0xc);
+
 }
 
 void NodeProcessor::get_Definition(Merkle::Hash& hv, const Merkle::Hash& hvHist)
