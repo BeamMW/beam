@@ -142,7 +142,7 @@ private:
     void OnStateChanged() override {
         const auto& cursor = _nodeBackend.m_Cursor;
         _cache.currentHeight = cursor.m_Sid.m_Height;
-        _cache.lowHorizon = cursor.m_LoHorizon;
+        _cache.lowHorizon = _nodeBackend.m_Extra.m_LoHorizon;
         _statusDirty = true;
         if (_nextHook) _nextHook->OnStateChanged();
     }
@@ -152,7 +152,7 @@ private:
             const auto& cursor = _nodeBackend.m_Cursor;
 
             _cache.currentHeight = cursor.m_Sid.m_Height;
-            _cache.lowHorizon = cursor.m_LoHorizon;
+            _cache.lowHorizon = _nodeBackend.m_Extra.m_LoHorizon;
 
             char buf[80];
 
@@ -163,7 +163,7 @@ private:
                 json{
                     { "timestamp", cursor.m_Full.m_TimeStamp },
                     { "height", _cache.currentHeight },
-                    { "low_horizon", cursor.m_LoHorizon },
+                    { "low_horizon", _nodeBackend.m_Extra.m_LoHorizon },
                     { "hash", hash_to_hex(buf, cursor.m_ID.m_Hash) },
                     { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) }
                 }
@@ -306,7 +306,7 @@ private:
         if (_statusDirty) {
             const auto &cursor = _nodeBackend.m_Cursor;
             _cache.currentHeight = cursor.m_Sid.m_Height;
-            _cache.lowHorizon = cursor.m_LoHorizon;
+            _cache.lowHorizon = _nodeBackend.m_Extra.m_LoHorizon;
         }
 
         io::SharedBuffer body;
