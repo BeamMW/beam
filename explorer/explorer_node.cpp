@@ -4,6 +4,7 @@
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include "utility/options.h"
+#include "utility/string_helpers.h"
 #include "wallet/secstring.h"
 #include "core/ecc_native.h"
 #include <boost/program_options.hpp>
@@ -24,6 +25,7 @@ struct Options {
     int logLevel;
     Key::IPKdf::Ptr ownerKey;
     static const unsigned logRotationPeriod = 3*60*60*1000; // 3 hours
+    std::vector<uint32_t> whitelist;
 };
 
 static bool parse_cmdline(int argc, char* argv[], Options& o);
@@ -48,7 +50,7 @@ int main(int argc, char* argv[]) {
         setup_node(node, options);
         explorer::IAdapter::Ptr adapter = explorer::create_adapter(node);
         node.Initialize();
-        explorer::Server server(*adapter, *reactor, options.explorerListenTo, options.accessControlFile);
+        explorer::Server server(*adapter, *reactor, options.explorerListenTo, options.accessControlFile, options.whitelist);
         LOG_INFO() << "Node listens to " << options.nodeListenTo << ", explorer listens to " << options.explorerListenTo;
         reactor->run();
         LOG_INFO() << "Done";
@@ -71,11 +73,13 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
     po::options_description cliOptions("Node explorer options");
     cliOptions.add_options()
         (cli::HELP_FULL, "list of all options")
-        (cli::NODE_PEER, po::value<string>()->default_value("172.104.249.212:8101"), "peer address")
+        (cli::NODE_PEER, po::value<string>()->default_value("eu-node03.masternet.beam.mw:8100"), "peer address")
         (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the local node on")
         (API_PORT_PARAMETER, po::value<uint16_t>()->default_value(8888), "port to start the local api server on")
         (cli::KEY_OWNER, po::value<string>()->default_value(""), "owner viewer key")
-        (cli::PASS, po::value<string>()->default_value(""), "password for owner key");
+        (cli::PASS, po::value<string>()->default_value(""), "password for owner key")
+        (cli::IP_WHITELIST, po::value<std::string>()->default_value(""), "IP whitelist")
+    ;
         
 #ifdef NDEBUG
     o.logLevel = LOG_LEVEL_INFO;
@@ -96,6 +100,17 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
             cout << cliOptions << std::endl;
             return false;
         }
+
+        {
+            std::ifstream cfg("explorer-node.cfg");
+
+            if (cfg)
+            {
+                po::store(po::parse_config_file(cfg, cliOptions), vm);
+            }
+        }
+
+        vm.notify();
 
         o.nodeDbFilename = FILES_PREFIX "db";
         //o.accessControlFile = "api.keys";
@@ -122,6 +137,29 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
                     throw std::runtime_error("view key import failed");
 
                 o.ownerKey = kdf;
+            }
+        }
+
+#ifdef WIN32
+        WSADATA wsaData = { };
+        WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
+
+        std::string whitelist = vm[cli::IP_WHITELIST].as<string>();
+
+        if (!whitelist.empty())
+        {
+            const auto& items = string_helpers::split(whitelist, ',');
+
+            for (const auto& item : items)
+            {
+                io::Address addr;
+
+                if (addr.resolve(item.c_str()))
+                {
+                    o.whitelist.push_back(addr.ip());
+                }
+                else throw std::runtime_error("IP address not added to whitelist: " + item);
             }
         }
 

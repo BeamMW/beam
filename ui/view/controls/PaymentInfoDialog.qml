@@ -1,289 +1,298 @@
-import QtQuick 2.11
-import QtQuick.Controls 2.3
-import QtQuick.Layouts 1.11
-import "."
-import Beam.Wallet 1.0
+    import QtQuick 2.11
+    import QtQuick.Controls 2.3
+    import QtQuick.Layouts 1.11
+    import "."
+    import Beam.Wallet 1.0
 
-Dialog {
-    property PaymentInfoItem model
-    property bool shouldVerify: false
+    Dialog {
+        property PaymentInfoItem model
+        property bool shouldVerify: false
     
-    signal textCopied(string text);
+        signal textCopied(string text);
 
-    id: dialog
-    modal: true
+        id: dialog
+        modal: true
 
-    x: (parent.width - width) / 2
-    y: (parent.height - height) / 2
+        x: (parent.width - width) / 2
+        y: (parent.height - height) / 2
+
+        height: contentItem.implicitHeight
     
-    parent: Overlay.overlay
-    padding: 0
+        parent: Overlay.overlay
+        padding: 0
 
-    closePolicy: Popup.NoAutoClose | Popup.CloseOnEscape
+        closePolicy: Popup.NoAutoClose | Popup.CloseOnEscape
 
-    onClosed: {
-        paymentProofInput.text = ""
-    }
-
-    onOpened: {
-        forceActiveFocus();
-        if (shouldVerify)
-        {
-            paymentProofInput.forceActiveFocus();
+        onClosed: {
+            paymentProofInput.text = ""
         }
-    }
 
-    background: Rectangle {
-        radius: 10
-        color: Style.dark_slate_blue
-        anchors.fill: parent
-    }
+        onOpened: {
+            forceActiveFocus();
+            if (shouldVerify)
+            {
+                paymentProofInput.forceActiveFocus();
+            }
+        }
 
-    contentItem: ColumnLayout {
-        width: 400
-        GridLayout {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.maximumWidth: 400
-            Layout.margins: 30
-            rowSpacing: 20
-            columnSpacing: 13
-            columns: 2
+        background: Rectangle {
+            radius: 10
+            color: Style.dark_slate_blue
+            anchors.fill: parent
+        }
 
-            RowLayout {
-                Layout.columnSpan: 2
-                SFText {
+        contentItem: ColumnLayout {
+            GridLayout {
+                Layout.fillWidth: true
+                Layout.preferredWidth: 400
+                Layout.margins: 30
+                rowSpacing: 20
+                columnSpacing: 13
+                columns: 2
+
+                RowLayout {
+                    Layout.columnSpan: 2
+                    SFText {
+                        Layout.fillWidth: true
+                        horizontalAlignment: Text.AlignHCenter
+                        leftPadding: 30
+                        font.pixelSize: 18
+                        font.styleName: "Bold"
+                        font.weight: Font.Bold
+                        color: Style.white
+                        text: shouldVerify ? qsTr("Payment proof verification") : qsTr("Payment proof")
+                    }
+
+                    CustomToolButton {
+                        icon.source: "qrc:/assets/icon-cancel.svg"
+                        icon.width: 12
+                        icon.height: 12
+                        ToolTip.text: qsTr("close")
+                        onClicked: {
+                            dialog.close();
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    id: verifyLayout
                     Layout.fillWidth: true
-                    horizontalAlignment: Text.AlignHCenter
-                    leftPadding: 30
-                    font.pixelSize: 18
+                    Layout.columnSpan: 2
+                    Layout.alignment: Qt.AlignTop
+                    visible: shouldVerify
+                    SFText {
+                        Layout.alignment: Qt.AlignTop | Qt.AlignHCenter
+                        opacity: 0.5
+                        font.pixelSize: 14
+                        color: Style.white
+                        text: qsTr("Paste your payment proof here")
+                    }
+            
+                    function isInvalidPaymentProof()
+                    {
+                        return model && !model.isValid && paymentProofInput.length > 0;
+                    }
+            
+                    Flickable {
+                        id: flickable1
+                        clip: true
+                        //Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: paymentProofInput.height
+                        Layout.maximumHeight: 130
+                     //   contentWidth: parent.width
+                     //   contentHeight: paymentProofInput.height
+
+                        SFTextInput {
+                            id: paymentProofInput
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            focus: true
+                            activeFocusOnTab: true
+                            font.pixelSize: 14
+                            wrapMode: TextInput.Wrap
+                            color: verifyLayout.isInvalidPaymentProof() ? Style.validator_color : Style.white
+                            backgroundColor: color
+                            text: model ? model.paymentProof : ""
+                            Binding {
+                                target: model
+                                property: "paymentProof"
+                                value: paymentProofInput.text.trim()
+                            }
+                        }
+                    }
+
+                
+                    SFText {
+                        Layout.fillWidth: true
+                        font.pixelSize: 14
+                        font.italic: true
+                        text: qsTr("Cannot decode a proof, illegal sequence.")
+                        color: Style.validator_color
+                        visible: verifyLayout.isInvalidPaymentProof()
+                    }
+                }
+
+                SFText {
+                    Layout.alignment: Qt.AlignTop
+                    font.pixelSize: 14
                     font.styleName: "Bold"
                     font.weight: Font.Bold
                     color: Style.white
-                    text: shouldVerify ? qsTr("Payment proof verification") : qsTr("Payment proof")
+                    text: qsTr("Code:")
+                    visible: !shouldVerify
                 }
-
-                CustomToolButton {
-                    icon.source: "qrc:/assets/icon-cancel.svg"
-                    icon.width: 12
-                    icon.height: 12
-                    ToolTip.text: qsTr("close")
-                    onClicked: {
-                        dialog.close();
-                    }
-                }
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.columnSpan: 2
-                Layout.alignment: Qt.AlignTop
-                visible: shouldVerify
             
                 SFText {
-                    Layout.alignment: Qt.AlignTop | Qt.AlignHCenter
-                    opacity: 0.5
-                    font.pixelSize: 14
-                    color: Style.white
-                    text: qsTr("Paste your payment proof here")
-                }
-            
-                function isInvalidPaymentProof()
-                {
-                    return model && !model.isValid && paymentProofInput.length > 0;
-                }
-            
-                SFTextInput {
-                    id: paymentProofInput
                     Layout.fillWidth: true
-                    focus: true
-                    activeFocusOnTab: true
+                    wrapMode: Text.Wrap
                     font.pixelSize: 14
-                    wrapMode: TextInput.Wrap
-                    color: parent.isInvalidPaymentProof() ? Style.validator_color : Style.white
-                    backgroundColor: color
                     text: model ? model.paymentProof : ""
-                    Binding {
-                        target: model
-                        property: "paymentProof"
-                        value: paymentProofInput.text.trim()
-                    }
+                    color: Style.disable_text_color
+                    visible: !shouldVerify
                 }
+
+                SFText {
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.topMargin: 10
+                    Layout.columnSpan: 2
+                    font.pixelSize: 18
+                    font.styleName: "Bold";
+                    font.weight: Font.Bold
+                    color: Style.white
+                    text: qsTr("Details")
+                    visible: model? model.isValid : false
+                }
+            
+                SFText {
+                    Layout.alignment: Qt.AlignTop
+                    font.pixelSize: 14
+                    font.styleName: "Bold"
+                    font.weight: Font.Bold
+                    color: Style.white
+                    text: qsTr("Sender:")
+                    visible: model? model.isValid : false
+                }
+            
                 SFText {
                     Layout.fillWidth: true
+                    Layout.preferredHeight: 28
+                    wrapMode: Text.Wrap
                     font.pixelSize: 14
-                    font.italic: true
-                    text: qsTr("Cannot decode a proof, illegal sequence or belongs to a different sender.")
-                    color: Style.validator_color
-                    visible: parent.isInvalidPaymentProof()
+                    color: Style.disable_text_color
+                    text: model ? model.sender : ""
+                    verticalAlignment: Text.AlignBottom
+                    visible: model? model.isValid : false
+                }
+            
+                SFText {
+                    Layout.alignment: Qt.AlignTop
+                    font.pixelSize: 14
+                    font.styleName: "Bold"
+                    font.weight: Font.Bold
+                    color: Style.white
+                    text: qsTr("Receiver:")
+                    visible: model? model.isValid : false
+                }
+            
+                SFText {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 28
+                    wrapMode: Text.Wrap
+                    font.pixelSize: 14
+                    color: Style.disable_text_color
+                    text: model ? model.receiver : ""
+                    visible: model? model.isValid : false
+                }
+            
+                SFText {
+                    Layout.alignment: Qt.AlignTop
+                    font.pixelSize: 14
+                    font.styleName: "Bold"
+                    font.weight: Font.Bold
+                    color: Style.white
+                    text: qsTr("Amount:")
+                    visible: model? model.isValid : false
+                }
+            
+                SFText {
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
+                    font.pixelSize: 14
+                    color: Style.disable_text_color
+                    text: model ? model.amount + " " + qsTr("BEAM") : ""
+                    visible: model? model.isValid : false
+                }
+            
+                SFText {
+                    Layout.alignment: Qt.AlignTop
+                    font.pixelSize: 14
+                    font.styleName: "Bold"
+                    font.weight: Font.Bold
+                    color: Style.white
+                    text: qsTr("Kernel ID:")
+                    visible: model? model.isValid : false
+                }
+            
+                SFText {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 28
+                    wrapMode: Text.Wrap
+                    font.pixelSize: 14
+                    color: Style.disable_text_color
+                    text: model ? model.kernelID : ""
+                    visible: model? model.isValid : false
                 }
             }
-
-            SFText {
-                Layout.alignment: Qt.AlignTop
-                Layout.fillWidth: true
-                font.pixelSize: 14
-                font.styleName: "Bold"
-                font.weight: Font.Bold
-                color: Style.white
-                text: qsTr("Code:")
-                visible: !shouldVerify
-            }
-            
-            SFText {
-                Layout.fillWidth: true
-                wrapMode: Text.Wrap
-                font.pixelSize: 14
-                text: model ? model.paymentProof : ""
-                color: Style.disable_text_color
-                visible: !shouldVerify
-            }
-
-            SFText {
+            Row {
+                id: buttonsLayout
                 Layout.alignment: Qt.AlignHCenter
-                Layout.topMargin: 10
-                Layout.columnSpan: 2
-                font.pixelSize: 18
-                font.styleName: "Bold";
-                font.weight: Font.Bold
-                color: Style.white
-                text: qsTr("Details")
+                Layout.leftMargin: 30
+                Layout.rightMargin: 30
+                Layout.bottomMargin: 30
+                spacing: 20
                 visible: model? model.isValid : false
-            }
-            
-            SFText {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignTop
-                font.pixelSize: 14
-                font.styleName: "Bold"
-                font.weight: Font.Bold
-                color: Style.white
-                text: qsTr("Sender:")
-                visible: model? model.isValid : false
-            }
-            
-            SFText {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 28
-                wrapMode: Text.Wrap
-                font.pixelSize: 14
-                color: Style.disable_text_color
-                text: model ? model.sender : ""
-                verticalAlignment: Text.AlignBottom
-                visible: model? model.isValid : false
-            }
-            
-            SFText {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignTop
-                font.pixelSize: 14
-                font.styleName: "Bold"
-                font.weight: Font.Bold
-                color: Style.white
-                text: qsTr("Receiver:")
-                visible: model? model.isValid : false
-            }
-            
-            SFText {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 28
-                wrapMode: Text.Wrap
-                font.pixelSize: 14
-                color: Style.disable_text_color
-                text: model ? model.receiver : ""
-                visible: model? model.isValid : false
-            }
-            
-            SFText {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignTop
-                font.pixelSize: 14
-                font.styleName: "Bold"
-                font.weight: Font.Bold
-                color: Style.white
-                text: qsTr("Amount:")
-                visible: model? model.isValid : false
-            }
-            
-            SFText {
-                Layout.fillWidth: true
-                wrapMode: Text.Wrap
-                font.pixelSize: 14
-                color: Style.disable_text_color
-                text: model ? model.amount + " " + qsTr("BEAM") : ""
-                visible: model? model.isValid : false
-            }
-            
-            SFText {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignTop
-                font.pixelSize: 14
-                font.styleName: "Bold"
-                font.weight: Font.Bold
-                color: Style.white
-                text: qsTr("Kernel ID:")
-                visible: model? model.isValid : false
-            }
-            
-            SFText {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 28
-                wrapMode: Text.Wrap
-                font.pixelSize: 14
-                color: Style.disable_text_color
-                text: model ? model.kernelID : ""
-                visible: model? model.isValid : false
-            }
-        }
-        Row {
-            id: buttonsLayout
-            Layout.alignment: Qt.AlignHCenter
-            Layout.leftMargin: 30
-            Layout.rightMargin: 30
-            Layout.bottomMargin: 30
-            spacing: 20
-            visible: model? model.isValid : false
 
-            function copyDetails()
-            {
-                if (model)
+                function copyDetails()
                 {
-                    textCopied("Sender: " + model.sender + "\nReceiver: " + model.receiver + "\nAmount: " + model.amount + " BEAM" + "\nKernel ID: " + model.kernelID);
-                }
-            }
-
-            CustomButton {
-                icon.source: "qrc:/assets/icon-copy.svg"
-                text: qsTr("copy details")
-                visible: !shouldVerify
-                onClicked: {
-                    parent.copyDetails();
-                }
-            }
-            
-            PrimaryButton {
-                icon.source: "qrc:/assets/icon-copy-blue.svg"
-                text: qsTr("copy code")
-                visible: !shouldVerify
-                onClicked: {
                     if (model)
                     {
-                        textCopied(model.paymentProof);
+                        textCopied("Sender: " + model.sender + "\nReceiver: " + model.receiver + "\nAmount: " + model.amount + " BEAM" + "\nKernel ID: " + model.kernelID);
                     }
                 }
-            }
 
-            PrimaryButton {
-                icon.source: "qrc:/assets/icon-copy-blue.svg"
-                text: qsTr("copy details")
-                visible: shouldVerify
-                onClicked: {
-                    if (model)
-                    {
+                CustomButton {
+                    icon.source: "qrc:/assets/icon-copy.svg"
+                    text: qsTr("copy details")
+                    visible: !shouldVerify
+                    onClicked: {
                         parent.copyDetails();
+                    }
+                }
+            
+                PrimaryButton {
+                    icon.source: "qrc:/assets/icon-copy-blue.svg"
+                    text: qsTr("copy code")
+                    visible: !shouldVerify
+                    onClicked: {
+                        if (model)
+                        {
+                            textCopied(model.paymentProof);
+                        }
+                    }
+                }
+
+                PrimaryButton {
+                    icon.source: "qrc:/assets/icon-copy-blue.svg"
+                    text: qsTr("copy details")
+                    visible: shouldVerify
+                    onClicked: {
+                        if (model)
+                        {
+                            parent.copyDetails();
+                        }
                     }
                 }
             }
         }
     }
-}

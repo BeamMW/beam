@@ -146,7 +146,7 @@ namespace
             m_LastAdddr = wa;
         }
 
-        void setNeverExpirationForAll() override {};
+        void setExpirationForAllAddresses(uint64_t expiration) override {};
         boost::optional<WalletAddress> getAddress(const WalletID& id) override
         {
             if (id == m_LastAdddr.m_walletID)
@@ -1530,7 +1530,7 @@ namespace
 
     void TestExpiredTransaction()
     {
-        cout << "\nTesting expited Tx...\n";
+        cout << "\nTesting expired Tx...\n";
 
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
@@ -1549,13 +1549,14 @@ namespace
         TestNode node;
         TestWalletRig sender("sender", createSenderWalletDB(), f);
         TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+        timer->start(1000, true, [&node]() {node.AddBlock(); });
 
         WALLET_CHECK(sender.m_WalletDB->selectCoins(6).size() == 2);
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
         WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
-        auto txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true);
-
+        auto txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true, 1, 10);
         mainReactor->run();
 
         // check coins
@@ -1710,7 +1711,7 @@ int main()
 
     TestSplitTransaction();
 
-    ////TestSwapTransaction();
+    //TestSwapTransaction();
 
     TestTxToHimself();
 

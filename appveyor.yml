@@ -2,7 +2,6 @@ version: '{build}'
 image: Visual Studio 2017
 
 environment:
-  BEAM_VERSION_PREFIX: 1.2
   BOOST_ROOT: C:\Libraries\boost_1_67_0
   OPENSSL_ROOT_DIR: c:\beam-libs\openssl
   QT5_ROOT_DIR: c:\beam-libs\qt5-static-win
@@ -40,7 +39,7 @@ after_build:
     
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/wallet-api.exe c:/projects/beam/wallet/wallet-api.cfg
 
-    7z a c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node-%BEAM_VERSION%.zip c:/projects/beam/explorer/%BUILD_CONFIG%/explorer-node.exe
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node-%BEAM_VERSION%.zip c:/projects/beam/explorer/%BUILD_CONFIG%/explorer-node.exe c:/projects/beam/explorer/explorer-node.cfg
         
     mkdir pdb
     

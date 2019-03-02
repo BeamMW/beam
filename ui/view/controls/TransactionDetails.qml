@@ -14,11 +14,13 @@ RowLayout {
     spacing: 30
     GridLayout {
         Layout.fillWidth: true
+        Layout.preferredWidth: 4
         Layout.leftMargin: 30
         Layout.topMargin: 30
         Layout.bottomMargin: 30
         columnSpacing: 44
         rowSpacing: 14
+        columns: 2
 
         SFText {
             font.pixelSize: 14
@@ -29,9 +31,7 @@ RowLayout {
         }
         
         SFText {
-            Layout.fillWidth: true
             Layout.alignment: Qt.AlignTop
-            Layout.row: 1
             font.pixelSize: 14
             color: Style.bluey_grey
             text: qsTr("Sending address:")
@@ -48,11 +48,9 @@ RowLayout {
             }
             onCopyText: textCopied(text)
         }
-        
+
         SFText {
-            Layout.fillWidth: true
             Layout.alignment: Qt.AlignTop
-            Layout.row: 2
             font.pixelSize: 14
             color: Style.bluey_grey
             text: qsTr("Receiving address:")
@@ -71,9 +69,7 @@ RowLayout {
         }
         
         SFText {
-            Layout.fillWidth: true
             Layout.alignment: Qt.AlignTop
-            Layout.row: 3
             font.pixelSize: 14
             color: Style.bluey_grey
             text: qsTr("Transaction fee:")
@@ -90,9 +86,7 @@ RowLayout {
         }
         
         SFText {
-            Layout.fillWidth: true
             Layout.alignment: Qt.AlignTop
-            Layout.row: 4
             font.pixelSize: 14
             color: Style.bluey_grey
             text: qsTr("Comment:")
@@ -112,9 +106,7 @@ RowLayout {
             onCopyText: textCopied(text)
         }
         SFText {
-            Layout.fillWidth: true
             Layout.alignment: Qt.AlignTop
-            Layout.row: 5
             font.pixelSize: 14
             color: Style.bluey_grey
             text: qsTr("Kernel ID:")
@@ -132,9 +124,7 @@ RowLayout {
             onCopyText: textCopied(text)
         }
         SFText {
-            Layout.fillWidth: true
             Layout.alignment: Qt.AlignTop
-            Layout.row: 6
             font.pixelSize: 14
             color: Style.bluey_grey
             text: qsTr("Error: ")
@@ -164,13 +154,14 @@ RowLayout {
     GridLayout {
         Layout.fillWidth: true
         Layout.fillHeight: true
+        Layout.preferredWidth: 3
         Layout.rightMargin: 30
         Layout.topMargin: 30
         Layout.bottomMargin: 30
         columns: 2
         columnSpacing: 44
         rowSpacing: 14
-        visible: model ? !model.income : false
+        visible:  model ? !model.income : false
         
         Item {
             Layout.fillWidth: true

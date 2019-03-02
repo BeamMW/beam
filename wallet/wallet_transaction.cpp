@@ -164,11 +164,15 @@ namespace beam { namespace wallet
         }
 
         Height maxHeight = MaxHeight;
-        GetParameter(TxParameterID::MaxHeight, maxHeight);
-        
+        if (!GetParameter(TxParameterID::MaxHeight, maxHeight))
+        {
+            maxHeight = GetMandatoryParameter<Height>(TxParameterID::PeerResponseHeight);
+        }
+
         bool isRegistered = false;
         Merkle::Hash kernelID;
-        if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered) || !GetParameter(TxParameterID::KernelID, kernelID))
+        if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered)
+         || !GetParameter(TxParameterID::KernelID, kernelID))
         {
             Block::SystemState::Full state;
             if (GetTip(state) && state.m_Height > maxHeight)
@@ -316,11 +320,6 @@ namespace beam { namespace wallet
         {
             LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ") << PrintableAmount(builder.GetAmount()) << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
 
-            if (CheckExpired())
-            {
-                return;
-            }
-
             if (isSender)
             {
                 builder.SelectInputs();
@@ -356,7 +355,8 @@ namespace beam { namespace wallet
             }
         }
 
-        builder.CreateKernel();
+        builder.GenerateBlindingExcess();
+        builder.GenerateNonce();
         
         if (!isSelfTx && !builder.GetPeerPublicExcessAndNonce())
         {
@@ -369,6 +369,13 @@ namespace beam { namespace wallet
             return;
         }
 
+        if (!builder.UpdateMaxHeight())
+        {
+            OnFailed(TxFailureReason::MaxHeightIsUnacceptable, true);
+            return;
+        }
+
+        builder.CreateKernel();
         builder.SignPartial();
 
         bool hasPeersInputsAndOutputs = builder.GetPeerInputsAndOutputs();
@@ -542,7 +549,8 @@ namespace beam { namespace wallet
         msg.AddParameter(TxParameterID::Amount, builder.GetAmount())
             .AddParameter(TxParameterID::Fee, builder.GetFee())
             .AddParameter(TxParameterID::MinHeight, builder.GetMinHeight())
-            .AddParameter(TxParameterID::MaxHeight, builder.GetMaxHeight())
+            .AddParameter(TxParameterID::Lifetime, builder.GetLifetime())
+            .AddParameter(TxParameterID::PeerMaxHeight, builder.GetMaxHeight())
             .AddParameter(TxParameterID::IsSender, !isSender)
             .AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
             .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
@@ -562,7 +570,8 @@ namespace beam { namespace wallet
             .AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
             .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerSignature, builder.GetPartialSignature())
-            .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce());
+            .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce())
+            .AddParameter(TxParameterID::PeerMaxHeight, builder.GetMaxHeight());
         if (sendUtxos)
         {
             msg.AddParameter(TxParameterID::PeerInputs, builder.GetInputs())
@@ -668,8 +677,10 @@ namespace beam { namespace wallet
         , m_AmountList{ amountList }
         , m_Fee{ fee }
         , m_Change{0}
+        , m_Lifetime{120}
         , m_MinHeight{0}
         , m_MaxHeight{MaxHeight}
+        , m_PeerMaxHeight{ MaxHeight }
     {
     }
 
@@ -778,10 +789,15 @@ namespace beam { namespace wallet
         assert(!m_Kernel);
         m_Kernel = make_unique<TxKernel>();
         m_Kernel->m_Fee = m_Fee;
-        m_Kernel->m_Height.m_Min = m_MinHeight;
-        m_Kernel->m_Height.m_Max = m_MaxHeight;
+        m_Kernel->m_Height.m_Min = GetMinHeight();
+        m_Kernel->m_Height.m_Max = GetMaxHeight();
         m_Kernel->m_Commitment = Zero;
 
+        m_Tx.SetParameter(TxParameterID::MaxHeight, GetMaxHeight());
+    }
+
+    void TxBuilder::GenerateBlindingExcess()
+    {
         if (!m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess))
         {
             Key::ID kid;
@@ -796,8 +812,11 @@ namespace beam { namespace wallet
 
         m_Offset += m_BlindingExcess;
         m_BlindingExcess = -m_BlindingExcess;
+    }
 
-        // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
+    void TxBuilder::GenerateNonce()
+    {
+         // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
         NoLeak<Hash::Value> hvRandom;
         if (!m_Tx.GetParameter(TxParameterID::MyNonce, hvRandom.V))
         {
@@ -840,7 +859,9 @@ namespace beam { namespace wallet
         m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs);
         m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs);
         m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight);
-        m_Tx.GetParameter(TxParameterID::MaxHeight, m_MaxHeight);
+        m_Tx.GetParameter(TxParameterID::Lifetime, m_Lifetime);
+        m_Tx.GetParameter(TxParameterID::PeerMaxHeight, m_PeerMaxHeight);
+
         return m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess)
             && m_Tx.GetParameter(TxParameterID::Offset, m_Offset);
     }
@@ -921,6 +942,11 @@ namespace beam { namespace wallet
         return m_Fee;
     }
 
+    Height TxBuilder::GetLifetime() const
+    {
+        return m_Lifetime;
+    }
+
     Height TxBuilder::GetMinHeight() const
     {
         return m_MinHeight;
@@ -928,6 +954,10 @@ namespace beam { namespace wallet
 
     Height TxBuilder::GetMaxHeight() const
     {
+        if (m_MaxHeight == MaxHeight)
+        {
+            return m_MinHeight + m_Lifetime;
+        }
         return m_MaxHeight;
     }
 
@@ -974,5 +1004,48 @@ namespace beam { namespace wallet
         char sz[Merkle::Hash::nTxtLen + 1];
         kernelID.Print(sz);
         return string(sz);
+    }
+
+    bool TxBuilder::UpdateMaxHeight()
+    {
+        if (!m_Tx.GetParameter(TxParameterID::MaxHeight, m_MaxHeight))
+        {
+            bool isInitiator = m_Tx.IsInitiator();
+            bool hasPeerMaxHeight = m_PeerMaxHeight < MaxHeight;
+            if (!isInitiator)
+            {
+                if (m_Tx.GetParameter(TxParameterID::Lifetime, m_Lifetime))
+                {
+                    Block::SystemState::Full state;
+                    if (m_Tx.GetTip(state))
+                    {
+                        m_MaxHeight = state.m_Height + m_Lifetime;
+                    }
+                }
+                else if (hasPeerMaxHeight)
+                {
+                    m_MaxHeight = m_PeerMaxHeight;
+                }
+            }
+            else if (hasPeerMaxHeight)
+            {
+                if (IsAcceptableMaxHeight())
+                {
+                    m_MaxHeight = m_PeerMaxHeight;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    bool TxBuilder::IsAcceptableMaxHeight() const
+    {
+        Height maxAcceptableHeight = m_Tx.GetMandatoryParameter<Height>(TxParameterID::PeerResponseHeight) + 
+                                     m_Tx.GetMandatoryParameter<Height>(TxParameterID::Lifetime);
+        return m_PeerMaxHeight < MaxHeight && m_PeerMaxHeight <= maxAcceptableHeight;
     }
 }}
