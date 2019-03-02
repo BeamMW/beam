@@ -388,9 +388,12 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 			if (!(proto::LoginFlags::Extension2 & p.m_LoginFlags))
 				return false;
 
+			if (t.m_Key.first.m_Height > m_Processor.m_SyncData.m_Target.m_Height)
+				return false; // don't request blocks beyond current sync target! (this is artifact of request backlog)
+
 			proto::GetBody2 msg;
 			msg.m_ID = t.m_Key.first;
-			msg.m_HorizonLo0 = m_Processor.m_Extra.m_TxoLo;
+			msg.m_Height0 = m_Processor.m_SyncData.m_h0;
 			msg.m_HorizonLo1 = m_Processor.m_SyncData.m_TxoLo;
 			msg.m_HorizonHi1 = m_Processor.m_SyncData.m_Target.m_Height;
 			p.Send(msg);
@@ -1965,7 +1968,7 @@ void Node::Peer::OnMsg(proto::GetBody2&& msg)
 			sid.m_Height = msg.m_ID.m_Height;
 
 			proto::Body msgBody;
-			if (m_This.m_Processor.GetBlock(sid, msgBody.m_Eternal, msgBody.m_Perishable, msg.m_HorizonLo0, msg.m_HorizonLo1, msg.m_HorizonHi1))
+			if (m_This.m_Processor.GetBlock(sid, msgBody.m_Eternal, msgBody.m_Perishable, msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
 			{
 				Send(msgBody);
 				return;

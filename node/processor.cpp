@@ -2749,12 +2749,12 @@ bool NodeProcessor::UtxoRecoverSimple::OnInput(const Input& x)
 	return true; // ignore
 }
 
-bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal, ByteBuffer& bbPerishable, Height hLo0, Height hLo1, Height hHi1)
+bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal, ByteBuffer& bbPerishable, Height h0, Height hLo1, Height hHi1)
 {
-	// hLo0 - HorizonLo that peer currently has
+	// h0 - current peer Height
 	// hLo1 - HorizonLo that peer needs after the sync
 	// hHi1 - HorizonL1 that peer needs after the sync
-	if ((hLo0 > hLo1) || (hLo1 > hHi1) || (hLo0 >= sid.m_Height))
+	if ((hLo1 > hHi1) || (h0 >= sid.m_Height))
 		return false;
 
 	// For every output:
@@ -2764,7 +2764,7 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 
 	// For every input (commitment only):
 	//	if SpendHeight > hLo1 then transfer
-	//	if CreateHeight <= hLo0 then transfer
+	//	if CreateHeight <= h0 then transfer
 	//	Otherwise - don't transfer
 
 	hHi1 = std::max(hHi1, sid.m_Height); // valid block can't spend its own output. Hence this means full block should be transferred
@@ -2814,14 +2814,16 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 		m_DB.ParamGet(NodeDB::ParamID::Treasury, &id0, nullptr, nullptr);
 	}
 
-	if (hLo0 >= Rules::HeightGenesis)
+	if (h0 >= Rules::HeightGenesis)
 	{
 		StateExtra se2;
-		if (!m_DB.get_StateExtra(FindActiveAtStrict(hLo0), se2))
+		if (!m_DB.get_StateExtra(FindActiveAtStrict(h0), se2))
 			OnCorrupted();
 
 		se2.m_Txos.Export(idInpCut);
 	}
+	else
+		m_DB.ParamGet(NodeDB::ParamID::Treasury, &idInpCut, nullptr, nullptr);
 
 	TxBase txb;
 	txb.m_Offset = se.m_Offset;
@@ -2837,7 +2839,7 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 			break;
 
 		//	if SpendHeight > hLo1 then transfer
-		//	if CreateHeight <= hLo0 then transfer
+		//	if CreateHeight <= h0 then transfer
 		//	Otherwise - don't transfer
 		if ((sid.m_Height > hLo1) || (wlk.m_ID < idInpCut))
 		{
