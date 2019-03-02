@@ -221,7 +221,7 @@ public:
 	virtual void OnPeerInsane(const PeerID&) {}
 	virtual void OnNewState() {}
 	virtual void OnRolledBack() {}
-	virtual bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
+	virtual bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&, bool bBatchReset, bool bBatchFinalize);
 	virtual void AdjustFossilEnd(Height&) {}
 	virtual bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) { return false; }
 	virtual void OnModified() {}

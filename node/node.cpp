@@ -568,13 +568,16 @@ void Node::Processor::OnRolledBack()
     get_ParentObj().m_Compressor.OnRolledBack();
 }
 
-bool Node::Processor::Verifier::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r)
+bool Node::Processor::Verifier::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r, bool bBatchReset, bool bBatchFinalize)
 {
     uint32_t nThreads = get_ParentObj().get_ParentObj().m_Cfg.m_VerificationThreads;
     if (!nThreads)
     {
-        if (m_pBc)
-            m_pBc->Reset();
+		if (m_pBc)
+		{
+			if (bBatchReset)
+				m_pBc->Reset();
+		}
         else
         {
             m_pBc.reset(new Verifier::MyBatch);
@@ -582,9 +585,11 @@ bool Node::Processor::Verifier::ValidateAndSummarize(TxBase::Context& ctx, const
         }
         Verifier::MyBatch::Scope scope(*m_pBc);
 
-        return
-            ctx.ValidateAndSummarize(txb, std::move(r)) &&
-            m_pBc->Flush();
+		bool bRet = ctx.ValidateAndSummarize(txb, std::move(r));
+		if (bRet && bBatchFinalize)
+			bRet = m_pBc->Flush();
+
+		return bRet;
     }
 
     std::unique_lock<std::mutex> scope(m_Mutex);
@@ -603,6 +608,8 @@ bool Node::Processor::Verifier::ValidateAndSummarize(TxBase::Context& ctx, const
     m_pR = &r;
     m_pCtx = &ctx;
     m_bFail = false;
+	m_bBatchReset = bBatchReset;
+	m_bBatchFinalize = bBatchFinalize;
     m_Remaining = nThreads;
 
     m_TaskNew.notify_all();
@@ -613,9 +620,9 @@ bool Node::Processor::Verifier::ValidateAndSummarize(TxBase::Context& ctx, const
     return !m_bFail;
 }
 
-bool Node::Processor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r)
+bool Node::Processor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r, bool bBatchReset, bool bBatchFinalize)
 {
-	return m_Verifier.ValidateAndSummarize(ctx, txb, std::move(r));
+	return m_Verifier.ValidateAndSummarize(ctx, txb, std::move(r), bBatchReset, bBatchFinalize);
 }
 
 void Node::Processor::Verifier::Thread(uint32_t iVerifier)
@@ -640,7 +647,8 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
             iTask = m_iTask;
         }
 
-        p->Reset();
+		if (m_bBatchReset)
+			p->Reset();
 
         assert(m_Remaining);
 
@@ -654,7 +662,9 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
         TxBase::IReader::Ptr pR;
         m_pR->Clone(pR);
 
-        bool bValid = ctx.ValidateAndSummarize(*m_pTx, std::move(*pR)) && p->Flush();
+		bool bValid = ctx.ValidateAndSummarize(*m_pTx, std::move(*pR));
+		if (bValid && m_bBatchFinalize)
+			bValid = p->Flush();
 
         std::unique_lock<std::mutex> scope2(m_Mutex);
 
@@ -2034,7 +2044,7 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 bool Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 {
     return
-        m_Processor.m_Verifier.ValidateAndSummarize(ctx, tx, tx.get_Reader()) &&
+        m_Processor.m_Verifier.ValidateAndSummarize(ctx, tx, tx.get_Reader(), true, true) &&
         ctx.IsValidTransaction() &&
         m_Processor.ValidateTxContext(tx);
 }
@@ -3244,7 +3254,7 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
         // and do the overall validation
         TxBase::Context ctx;
         ctx.m_bBlockMode = true;
-        if (!m_This.m_Processor.m_Verifier.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader()))
+        if (!m_This.m_Processor.m_Verifier.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader(), true, true))
             ThrowUnexpected();
 
         if (ctx.m_Coinbase != AmountBig::Type(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))

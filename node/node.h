@@ -181,7 +181,7 @@ private:
 		void OnPeerInsane(const PeerID&) override;
 		void OnNewState() override;
 		void OnRolledBack() override;
-		bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
+		bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&, bool bBatchReset, bool bBatchFinalize);
 		void AdjustFossilEnd(Height&) override;
 		bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) override;
 		void OnModified() override;
@@ -198,6 +198,8 @@ private:
 			TxBase::Context* m_pCtx;
 
 			bool m_bFail;
+			bool m_bBatchReset;
+			bool m_bBatchFinalize;
 			uint32_t m_iTask;
 			uint32_t m_Remaining;
 
@@ -208,7 +210,7 @@ private:
 			std::vector<std::thread> m_vThreads;
 			std::unique_ptr<MyBatch> m_pBc;
 
-			bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
+			bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&, bool bBatchReset, bool bBatchFinalize);
 			void Thread(uint32_t);
 
 			IMPLEMENT_GET_PARENT_OBJ(Processor, m_Verifier)

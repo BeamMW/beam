@@ -595,13 +595,22 @@ bool NodeProcessor::GoUpFastInternal()
 	ctx.m_Height.m_Max = m_SyncData.m_Target.m_Height;
 	ctx.m_bBlockMode = true;
 
+	Transaction txDummy;
+	txDummy.m_Offset = Zero;
+
+	verify(ValidateAndSummarize(ctx, txDummy, txDummy.get_Reader(), true, false));
+
 	for (size_t i = vPath.size(); i--; )
 	{
 		if (!GoForward(vPath[i], &ctx))
 			return false;
 	}
 
-	if (!ctx.IsValidBlock())
+	bool bOk =
+		ValidateAndSummarize(ctx, txDummy, txDummy.get_Reader(), false, true) && // flush batch context
+		ctx.IsValidBlock(); // validate macroblock wrt height range
+
+	if (!bOk)
 		return false;
 
 	// Make sure no naked UTXOs are left
@@ -1146,7 +1155,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd, TxBase::C
 				};
 
 				ReaderEx r(block, block);
-				bValid = ValidateAndSummarize(*pBatch, block, std::move(r));
+				bValid = ValidateAndSummarize(*pBatch, block, std::move(r), false, false);
 
 				for (size_t i = 0; i < block.m_vOutputs.size(); i++)
 				{
@@ -2187,7 +2196,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	return nSize <= Rules::get().MaxBodySize;
 }
 
-bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r)
+bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r, bool bBatchReset, bool bBatchFinalize)
 {
 	return ctx.ValidateAndSummarize(txb, std::move(r));
 }
@@ -2202,7 +2211,7 @@ bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& 
 	ctx.m_bBlockMode = true;
 
 	return
-		ValidateAndSummarize(ctx, block, std::move(r)) &&
+		ValidateAndSummarize(ctx, block, std::move(r), true, true) &&
 		ctx.IsValidBlock();
 }
 
