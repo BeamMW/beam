@@ -390,7 +390,7 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 
 			proto::GetBody2 msg;
 			msg.m_ID = t.m_Key.first;
-			msg.m_HorizonLo0 = m_Processor.m_SyncData.m_h0;
+			msg.m_HorizonLo0 = m_Processor.m_Extra.m_TxoLo;
 			msg.m_HorizonLo1 = m_Processor.m_SyncData.m_TxoLo;
 			msg.m_HorizonHi1 = m_Processor.m_SyncData.m_Target.m_Height;
 			p.Send(msg);
