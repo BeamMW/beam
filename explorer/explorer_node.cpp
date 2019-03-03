@@ -188,7 +188,6 @@ void setup_node(Node& node, const Options& o) {
     node.m_Cfg.m_Listen.ip(o.nodeListenTo.ip());
     node.m_Cfg.m_MiningThreads = 0;
     node.m_Cfg.m_VerificationThreads = 1;
-    node.m_Cfg.m_Sync.m_NoFastSync = true;
 
     node.m_Keys.m_pOwner = o.ownerKey;
 

@@ -98,7 +98,6 @@ namespace beam
         extern const char* EXPORT_ADDRESSES;
         extern const char* IMPORT_ADDRESSES;
         extern const char* IMPORT_EXPORT_PATH;
-        extern const char* NO_FAST_SYNC;
         extern const char* IP_WHITELIST;
 
         // wallet api

@@ -306,11 +306,6 @@ int main_impl(int argc, char* argv[])
 					if (vm.count(cli::CHECKDB))
 						node.m_Cfg.m_ProcessorParams.m_CheckIntegrityAndVacuum = vm[cli::CHECKDB].as<bool>();
 
-                    if (vm.count(cli::NO_FAST_SYNC))
-                    {
-                        node.m_Cfg.m_Sync.m_NoFastSync = true;
-                    }
-
 					node.m_Cfg.m_Bbs = vm[cli::BBS_ENABLE].as<bool>();
 
 					node.Initialize(stratumServer.get());

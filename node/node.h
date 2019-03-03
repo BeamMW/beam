@@ -102,10 +102,6 @@ struct Node
 
 		ByteBuffer m_Treasury; // needed only for the 1st run
 
-		struct Sync {
-			bool m_NoFastSync = false;
-		} m_Sync;
-
 		struct Dandelion
 		{
 			uint16_t m_FluffProbability = 0x1999; // normalized wrt 16 bit. Equals to 0.1
