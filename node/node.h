@@ -103,12 +103,6 @@ struct Node
 		ByteBuffer m_Treasury; // needed only for the 1st run
 
 		struct Sync {
-			// during sync phase we try to pick the best peer to sync from.
-			// Our logic: decide when either examined enough peers, or timeout expires
-			uint32_t m_SrcPeers = 5;
-			uint32_t m_Timeout_ms = 10 * 1000; // timeout since at least 1 tip is received
-			uint32_t m_TimeoutHi_ms = 60 * 1000; // timeout since at least 1 peer connected.
-
 			bool m_NoFastSync = false;
 		} m_Sync;
 
@@ -263,34 +257,8 @@ private:
 	TaskList m_lstTasksUnassigned;
 	TaskSet m_setTasks;
 
-	struct FirstTimeSync
-	{
-		// there are 2 phases:
-		//	1. Detection, pick the best peer to sync from
-		//	2. Sync phase
-		bool m_bDetecting;
-
-		io::Timer::Ptr m_pTimer; // set during the 1st phase
-		Difficulty::Raw m_Best;
-
-		Block::SystemState::ID m_Trg;
-
-		uint32_t m_RequestsPending = 0;
-		uint8_t m_iData = 0;
-
-		uint64_t m_SizeTotal;
-		uint64_t m_SizeCompleted;
-	};
-
 	void UpdateSyncStatus();
 	void UpdateSyncStatusRaw();
-	void SetSyncTimer(uint32_t ms);
-	void OnSyncTimer();
-	void SyncCycle();
-	bool SyncCycle(Peer&);
-	void SyncCycle(Peer&, const ByteBuffer&);
-
-	std::unique_ptr<FirstTimeSync> m_pSync;
 
 	void TryAssignTask(Task&, const PeerID*);
 	bool TryAssignTask(Task&, Peer&);
@@ -298,7 +266,6 @@ private:
 
 	void InitKeys();
 	void InitIDs();
-	void InitMode();
 	void RefreshOwnedUtxos();
 
 	struct Wanted
@@ -321,7 +288,6 @@ private:
 		List m_lst;
 		Set m_set;
 		io::Timer::Ptr m_pTimer;
-		uint32_t m_Timeout_ms = 0;
 
 		void Delete(Item&);
 		void DeleteInternal(Item&);
@@ -447,10 +413,6 @@ private:
 			static const uint16_t Connected		= 0x001;
 			static const uint16_t PiRcvd		= 0x002;
 			static const uint16_t Owner			= 0x004;
-			static const uint16_t ProvenWorkReq	= 0x008;
-			static const uint16_t ProvenWork	= 0x010;
-			static const uint16_t SyncPending	= 0x020;
-			static const uint16_t DontSync		= 0x040;
 			static const uint16_t Finalizing	= 0x080;
 			static const uint16_t HasTreasury	= 0x100;
 			static const uint16_t Chocking		= 0x200;
@@ -486,7 +448,6 @@ private:
 		void SetTimer(uint32_t timeout_ms);
 		void KillTimer();
 		void OnResendPeers();
-		void SyncQuery();
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, uint8_t nByeReason);
 		void BroadcastTxs();
@@ -545,8 +506,6 @@ private:
 		virtual void OnMsg(proto::BbsPickChannelV0&&) override;
 		virtual void OnMsg(proto::BbsResetSync&&) override;
 		virtual void OnMsg(proto::MacroblockGet&&) override;
-		virtual void OnMsg(proto::Macroblock&&) override;
-		virtual void OnMsg(proto::ProofChainWork&&) override;
 		virtual void OnMsg(proto::GetUtxoEvents&&) override;
 		virtual void OnMsg(proto::BlockFinalization&&) override;
 	};
