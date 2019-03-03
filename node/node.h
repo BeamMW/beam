@@ -187,7 +187,7 @@ private:
 		bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) override;
 		void OnModified() override;
 		bool EnumViewerKeys(IKeyWalker&) override;
-		void OnUtxoEvent(const UtxoEvent::Key&, const UtxoEvent::Value&) override;
+		void OnUtxoEvent(const UtxoEvent::Value&) override;
 		void OnDummy(const Key::ID&, Height) override;
 
 		struct Verifier

@@ -731,7 +731,7 @@ bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
     return true;
 }
 
-void Node::Processor::OnUtxoEvent(const UtxoEvent::Key& key, const UtxoEvent::Value& evt)
+void Node::Processor::OnUtxoEvent(const UtxoEvent::Value& evt)
 {
 	if (get_ParentObj().m_Cfg.m_LogUtxos)
 	{

@@ -292,7 +292,7 @@ public:
 	};
 #pragma pack (pop)
 
-	virtual void OnUtxoEvent(const UtxoEvent::Key&, const UtxoEvent::Value&) {}
+	virtual void OnUtxoEvent(const UtxoEvent::Value&) {}
 	virtual void OnDummy(const Key::ID&, Height) {}
 
 	static bool IsDummy(const Key::IDV&);
