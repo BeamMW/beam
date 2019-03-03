@@ -611,8 +611,6 @@ void NodeProcessor::DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hS
 
 bool NodeProcessor::GoUpFastInternal()
 {
-	uint64_t rowid = m_Cursor.m_Sid.m_Row;
-
 	std::vector<uint64_t> vPath;
 	vPath.reserve(m_SyncData.m_Target.m_Height - m_SyncData.m_h0);
 
