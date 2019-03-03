@@ -1633,11 +1633,24 @@ namespace beam
 		//if (!cl.m_bCustomAssetRecognized)
 		//	fail_test("CA not recognized");
 
-		NodeProcessor::UtxoRecoverEx urec(node2.get_Processor());
-		urec.m_vKeys.push_back(node.m_Keys.m_pMiner);
-		urec.Proceed();
+		struct TxoRecover
+			:public NodeProcessor::ITxoRecover
+		{
+			uint32_t m_Recovered = 0;
 
-		verify_test(!urec.m_Map.empty());
+			TxoRecover(Key::IPKdf& key) :NodeProcessor::ITxoRecover(key) {}
+
+			virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, const Key::IDV& kidv) override
+			{
+				m_Recovered++;
+				return true;
+			}
+		};
+
+		TxoRecover wlk(*node.m_Keys.m_pMiner);
+		node2.get_Processor().EnumTxos(wlk);
+
+		verify_test(wlk.m_Recovered);
 	}
 
 

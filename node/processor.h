@@ -48,7 +48,7 @@ class NodeProcessor
 	Height RaiseTxoLo(Height);
 	Height RaiseTxoHi(Height);
 	void Vacuum();
-	void InitializeUtxos(TxoID nTreasury);
+	void InitializeUtxos();
 	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, Height hTarget);
 
 	struct RollbackData;
@@ -73,6 +73,8 @@ class NodeProcessor
 	static void TxoToNaked(uint8_t* pBuf, Blob&);
 	static bool TxoIsNaked(const Blob&);
 
+	TxoID get_TxosBefore(Height);
+
 	void InitCursor();
 	static void OnCorrupted();
 	void get_Definition(Merkle::Hash&, bool bForNextState);
@@ -83,29 +85,6 @@ class NodeProcessor
 	Timestamp get_MovingMedian();
 	void get_MovingMedianEx(uint64_t rowLast, uint32_t nWindow, THW&);
 
-	struct UtxoSig;
-	struct UnspentWalker;
-
-	struct IBlockWalker
-	{
-		virtual bool OnBlock(const Block::BodyBase&, TxBase::IReader&&, uint64_t rowid, Height, const Height* pHMax) = 0;
-	};
-
-	struct IUtxoWalker
-		:public IBlockWalker
-	{
-		NodeProcessor& m_This;
-		IUtxoWalker(NodeProcessor& x) :m_This(x) {}
-
-		Block::SystemState::Full m_Hdr;
-
-		virtual bool OnBlock(const Block::BodyBase&, TxBase::IReader&&, uint64_t rowid, Height, const Height* pHMax) override;
-
-		virtual bool OnInput(const Input&) = 0;
-		virtual bool OnOutput(const Output&) = 0;
-	};
-
-	bool EnumBlocks(IBlockWalker&);
 	Height OpenLatestMacroblock(Block::Body::RW&);
 
 	struct CongestionCache
@@ -278,39 +257,24 @@ public:
 
 	bool GetBlock(const NodeDB::StateID&, ByteBuffer& bbEthernal, ByteBuffer& bbPerishable, Height h0, Height hLo1, Height hHi1);
 
-	struct UtxoRecoverSimple
-		:public IUtxoWalker
+	struct ITxoWalker
 	{
-		std::vector<Key::IPKdf::Ptr> m_vKeys;
-
-		UtxoRecoverSimple(NodeProcessor& x) :IUtxoWalker(x) {}
-
-		bool Proceed();
-
-		virtual bool OnInput(const Input&) override;
-		virtual bool OnOutput(const Output&) override;
-
-		virtual bool OnOutput(uint32_t iKey, const Key::IDV&, const Output&) = 0;
+		// override at least one of those
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate);
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&);
 	};
 
-	struct UtxoRecoverEx
-		:public UtxoRecoverSimple
+	bool EnumTxos(ITxoWalker&);
+	bool EnumTxos(ITxoWalker&, const HeightRange&);
+
+	struct ITxoRecover
+		:public ITxoWalker
 	{
-		struct Value {
-			Key::IDV m_Kidv;
-			uint32_t m_iKey;
-			Input::Count m_Count;
+		Key::IPKdf& m_Key;
+		ITxoRecover(Key::IPKdf& key) :m_Key(key) {}
 
-			Value() :m_Count(0) {}
-		};
-		
-		typedef std::map<ECC::Point, Value> UtxoMap;
-		UtxoMap m_Map;
-
-		UtxoRecoverEx(NodeProcessor& x) :UtxoRecoverSimple(x) {}
-
-		virtual bool OnInput(const Input&) override;
-		virtual bool OnOutput(uint32_t iKey, const Key::IDV&, const Output&) override;
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&) override;
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, const Key::IDV&) = 0;
 	};
 
 #pragma pack (push, 1)

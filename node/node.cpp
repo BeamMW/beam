@@ -921,38 +921,29 @@ void Node::RefreshDecoys()
 
 	LOG_INFO() << "Rescanning decoys...";
 
-	struct Walker
-		:public NodeProcessor::UtxoRecoverSimple
+	struct TxoRecover
+		:public NodeProcessor::ITxoRecover
 	{
-		typedef NodeProcessor::UtxoRecoverSimple Parent;
-
-		Walker(NodeProcessor& x) :Parent(x) {}
-
-		Height m_Height;
+		Node& m_This;
 		uint32_t m_Recovered = 0;
 
-		virtual bool OnBlock(const Block::BodyBase& bb, TxBase::IReader&& r, uint64_t rowid, Height h, const Height* pHMax) override
+		TxoRecover(Node& x)
+			:NodeProcessor::ITxoRecover(*x.m_Keys.m_pDummy)
+			,m_This(x)
 		{
-			m_Height = pHMax ? *pHMax : h;
-			return Parent::OnBlock(bb, std::move(r), rowid, h, pHMax);
-
 		}
 
-		virtual bool OnOutput(uint32_t /* iKey */, const Key::IDV& kidv, const Output&) override
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, const Key::IDV& kidv) override
 		{
-			if (NodeProcessor::IsDummy(kidv))
-			{
-				m_This.OnDummy(kidv, m_Height);
-				m_Recovered++;
-			}
+			m_Recovered++;
+			m_This.get_Processor().OnDummy(kidv, hCreate);
 
 			return true;
 		}
 	};
 
-	Walker wlk(m_Processor);
-	wlk.m_vKeys.push_back(m_Keys.m_pDummy);
-	wlk.Proceed();
+	TxoRecover wlk(*this);
+	m_Processor.EnumTxos(wlk);
 
 	LOG_INFO() << "Recovered " << wlk.m_Recovered << " decoys";
 

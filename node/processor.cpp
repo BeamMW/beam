@@ -107,7 +107,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	InitCursor();
 
-	InitializeUtxos(nTreasury);
+	InitializeUtxos();
 
 	OnHorizonChanged();
 
@@ -2558,99 +2558,122 @@ Height NodeProcessor::OpenLatestMacroblock(Block::Body::RW& rw)
 	return Rules::HeightGenesis - 1;
 }
 
-bool NodeProcessor::EnumBlocks(IBlockWalker& wlk)
+TxoID NodeProcessor::get_TxosBefore(Height h)
 {
-	if (m_Cursor.m_ID.m_Height < Rules::HeightGenesis)
-		return true;
+	if (h < Rules::HeightGenesis)
+		return 0;
 
-	Block::Body::RW rw;
-
-	Height h = OpenLatestMacroblock(rw);
-	if (h >= Rules::HeightGenesis)
+	TxoID id;
+	if (Rules::HeightGenesis == h)
 	{
-		Block::BodyBase body;
-		Block::SystemState::Sequence::Prefix prefix;
-
-		rw.Reset();
-		rw.get_Start(body, prefix);
-
-		if (!wlk.OnBlock(body, std::move(rw), 0, Rules::HeightGenesis, &h))
-			return false;
+		id = 0;
+		m_DB.ParamGet(NodeDB::ParamID::Treasury, &id, nullptr, nullptr);
+	}
+	else
+	{
+		StateExtra se;
+		if (!m_DB.get_StateExtra(FindActiveAtStrict(h - 1), se))
+			OnCorrupted();
+		se.m_Txos.Export(id);
 	}
 
-	std::vector<uint64_t> vPath;
-	vPath.reserve(m_Cursor.m_ID.m_Height - h);
+	return id;
+}
 
-	for (Height h1 = h; h1 < m_Cursor.m_ID.m_Height; h1++)
+bool NodeProcessor::EnumTxos(ITxoWalker& wlk)
+{
+	return EnumTxos(wlk, HeightRange(Rules::HeightGenesis - 1, m_Cursor.m_ID.m_Height));
+}
+
+bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
+{
+	if (hr.IsEmpty())
+		return true;
+	assert(hr.m_Max <= m_Cursor.m_ID.m_Height);
+
+	TxoID id1 = get_TxosBefore(hr.m_Min);
+	Height h = hr.m_Min - 1; // don't care about overflow
+
+	NodeDB::WalkerTxo wlk(m_DB);
+	for (m_DB.EnumTxos(wlk, id1);  wlk.MoveNext(); )
 	{
-		uint64_t rowid;
-		if (vPath.empty())
-			rowid = FindActiveAtStrict(m_Cursor.m_ID.m_Height);
-		else
+		while (wlk.m_ID >= id1)
 		{
-			rowid = vPath.back();
-			if (!m_DB.get_Prev(rowid))
-				OnCorrupted();
+			if (++h > hr.m_Max)
+				break;
+			id1 = get_TxosBefore(h + 1);
 		}
 
-		vPath.push_back(rowid);
-	}
-
-	ByteBuffer bbP, bbE;
-	for (; !vPath.empty(); vPath.pop_back())
-	{
-		bbP.clear();
-		bbE.clear();
-
-		m_DB.GetStateBlock(vPath.back(), &bbP, &bbE, NULL);
-
-		Block::Body block;
-		ReadBody(block, bbP, bbE);
-
-		if (!wlk.OnBlock(block, block.get_Reader(), vPath.back(), ++h, NULL))
+		if (!wlkTxo.OnTxo(wlk, h))
 			return false;
 	}
 
 	return true;
 }
 
-void NodeProcessor::InitializeUtxos(TxoID id1)
+bool NodeProcessor::ITxoWalker::OnTxo(const NodeDB::WalkerTxo& wlk , Height hCreate)
+{
+	Deserializer der;
+	der.reset(wlk.m_Value.p, wlk.m_Value.n);
+
+	Output outp;
+	der & outp;
+
+	return OnTxo(wlk, hCreate, outp);
+}
+
+bool NodeProcessor::ITxoWalker::OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&)
+{
+	assert(false);
+	return false;
+}
+
+bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp)
+{
+	Key::IDV kidv;
+	if (!outp.Recover(m_Key, kidv))
+		return true;
+
+	return OnTxo(wlk, hCreate, kidv);
+}
+
+void NodeProcessor::InitializeUtxos()
 {
 	assert(!m_Extra.m_Txos);
 
-	Height h = Rules::HeightGenesis - 1;
-
-	NodeDB::WalkerTxo wlk(m_DB);
-	m_DB.EnumTxos(wlk, 0);
-
-	while (wlk.MoveNext())
+	struct Walker
+		:public ITxoWalker
 	{
-		m_Extra.m_Txos = wlk.m_ID + 1;
+		NodeProcessor& m_This;
+		Walker(NodeProcessor& x) :m_This(x) {}
 
-		while (wlk.m_ID >= id1)
+		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate) override
 		{
-			StateExtra se;
-			if (!m_DB.get_StateExtra(FindActiveAtStrict(++h), se))
+			m_This.m_Extra.m_Txos = wlk.m_ID + 1;
+
+			if (wlk.m_SpendHeight != MaxHeight)
+				return true;
+
+			uint8_t pNaked[s_TxoNakedMax];
+			Blob val = wlk.m_Value;
+			TxoToNaked(pNaked, val); // save allocation and deserialization of sig
+
+			Deserializer der;
+			der.reset(val.p, val.n);
+
+			Output outp;
+			der & outp;
+
+			m_This.m_Extra.m_Txos--;
+			if (!m_This.HandleBlockElement(outp, hCreate, nullptr, true))
 				OnCorrupted();
-			se.m_Txos.Export(id1);
+
+			return true;
 		}
+	};
 
-		if (wlk.m_SpendHeight != MaxHeight)
-			continue;
-
-		uint8_t pNaked[s_TxoNakedMax];
-		TxoToNaked(pNaked, wlk.m_Value); // save allocation and deserialization of sig
-
-		Deserializer der;
-		der.reset(wlk.m_Value.p, wlk.m_Value.n);
-
-		Output outp;
-		der & outp;
-
-		m_Extra.m_Txos--;
-		if (!HandleBlockElement(outp, h, nullptr, true))
-			OnCorrupted();
-	}
+	Walker wlk(*this);
+	EnumTxos(wlk);
 
 	if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
 	{
@@ -2660,75 +2683,6 @@ void NodeProcessor::InitializeUtxos(TxoID id1)
 		if (m_Cursor.m_Full.m_Definition != hv)
 			OnCorrupted();
 	}
-}
-
-bool NodeProcessor::IUtxoWalker::OnBlock(const Block::BodyBase&, TxBase::IReader&& r, uint64_t rowid, Height, const Height* pHMax)
-{
-	if (rowid)
-		m_This.get_DB().get_State(rowid, m_Hdr);
-	else
-		ZeroObject(m_Hdr);
-
-	for (r.Reset(); r.m_pUtxoIn; r.NextUtxoIn())
-		if (!OnInput(*r.m_pUtxoIn))
-			return false;
-
-	for ( ; r.m_pUtxoOut; r.NextUtxoOut())
-		if (!OnOutput(*r.m_pUtxoOut))
-			return false;
-
-	return true;
-}
-
-bool NodeProcessor::UtxoRecoverSimple::Proceed()
-{
-	ECC::Mode::Scope scope(ECC::Mode::Fast);
-	return m_This.EnumBlocks(*this);
-}
-
-bool NodeProcessor::UtxoRecoverEx::OnOutput(uint32_t iKey, const Key::IDV& kidv, const Output& x)
-{
-	Value& v0 = m_Map[x.m_Commitment];
-	if (v0.m_Count)
-		v0.m_Count++; // ignore overflow possibility
-	else
-	{
-		v0.m_Kidv = kidv;
-		v0.m_iKey = iKey;;
-		v0.m_Count = 1;
-	}
-
-	return true;
-}
-
-bool NodeProcessor::UtxoRecoverEx::OnInput(const Input& x)
-{
-	UtxoMap::iterator it = m_Map.find(x.m_Commitment);
-	if (m_Map.end() != it)
-	{
-		Value& v = it->second;
-		assert(v.m_Count);
-
-		if (! --v.m_Count)
-			m_Map.erase(it);
-	}
-	return true;
-}
-
-bool NodeProcessor::UtxoRecoverSimple::OnOutput(const Output& x)
-{
-	Key::IDV kidv;
-
-	for (uint32_t iKey = 0; iKey < m_vKeys.size(); iKey++)
-		if (x.Recover(*m_vKeys[iKey], kidv))
-			return OnOutput(iKey, kidv, x);
-
-	return true;
-}
-
-bool NodeProcessor::UtxoRecoverSimple::OnInput(const Input& x)
-{
-	return true; // ignore
 }
 
 bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal, ByteBuffer& bbPerishable, Height h0, Height hLo1, Height hHi1)
