@@ -35,6 +35,12 @@ NodeProcessor::Horizon::Horizon()
 {
 }
 
+void NodeProcessor::Initialize(const char* szPath)
+{
+	StartParams sp; // defaults
+	Initialize(szPath, sp);
+}
+
 void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 {
 	m_DB.Open(szPath);

@@ -725,11 +725,15 @@ bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
     const Keys& keys = get_ParentObj().m_Keys;
 
     // according to current design - a single master viewer key is enough
-    if (keys.m_pOwner && !w.OnKey(*keys.m_pOwner, 0))
-        return false;
-
-	if (keys.m_bRecoverViaDummyKey && !w.OnKey(*keys.m_pOwner, 1))
+	if (keys.m_pOwner && !w.OnKey(*keys.m_pOwner, 0)) {
+		// stupid compiler insists on parentheses here!
 		return false;
+	}
+
+	if (keys.m_bRecoverViaDummyKey && !w.OnKey(*keys.m_pOwner, 1)) {
+		// stupid compiler insists on parentheses here!
+		return false;
+	}
 
     return true;
 }

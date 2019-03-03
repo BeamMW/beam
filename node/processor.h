@@ -121,7 +121,9 @@ public:
 		bool m_CheckIntegrityAndVacuum = false;
 	};
 
-	void Initialize(const char* szPath, const StartParams& = StartParams());
+	void Initialize(const char* szPath);
+	void Initialize(const char* szPath, const StartParams&);
+
 	virtual ~NodeProcessor();
 
 	struct Horizon {
