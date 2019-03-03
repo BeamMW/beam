@@ -84,6 +84,8 @@ struct Node
 
 		struct HistoryCompression
 		{
+			bool m_bEnabled = false;
+
 			std::string m_sPathOutput;
 			std::string m_sPathTmp;
 

@@ -21,7 +21,9 @@ void Node::Compressor::Init()
 {
 	ZeroObject(m_hrNew);
 	m_bStop = true;
-	m_bEnabled = !get_ParentObj().m_Cfg.m_HistoryCompression.m_sPathOutput.empty();
+	m_bEnabled =
+		get_ParentObj().m_Cfg.m_HistoryCompression.m_bEnabled &&
+		!get_ParentObj().m_Cfg.m_HistoryCompression.m_sPathOutput.empty();
 
 	if (m_bEnabled)
 	{
