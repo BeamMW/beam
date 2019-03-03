@@ -217,6 +217,10 @@ public:
 	};
 	virtual bool EnumViewerKeys(IKeyWalker&) { return true; }
 
+	bool Recover(Key::IDV&, const Output&);
+
+	void RescanOwnedTxos();
+
 	uint64_t FindActiveAtStrict(Height);
 
 	bool ValidateTxContext(const Transaction&); // assuming context-free validation is already performed, but 
@@ -270,8 +274,8 @@ public:
 	struct ITxoRecover
 		:public ITxoWalker
 	{
-		Key::IPKdf& m_Key;
-		ITxoRecover(Key::IPKdf& key) :m_Key(key) {}
+		NodeProcessor& m_This;
+		ITxoRecover(NodeProcessor& x) :m_This(x) {}
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&) override;
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const Key::IDV&) = 0;

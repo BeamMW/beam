@@ -49,7 +49,7 @@ public:
 			SyncTarget,
 			LoHorizon, // Height of no-return. Navigation is impossible below it
 			Treasury,
-			DummyID,
+			DummyID, // hash of keys used to create UTXOs (owner key, dummy key)
 			HeightTxoLo, // Height starting from which and below Txo info is totally erased.
 			HeightTxoHi, // Height starting from which and below Txo infi is compacted, only the commitment is left
 			SyncData,

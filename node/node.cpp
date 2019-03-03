@@ -727,7 +727,10 @@ bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
     // according to current design - a single master viewer key is enough
     if (keys.m_pOwner && !w.OnKey(*keys.m_pOwner, 0))
         return false;
-        
+
+	if (keys.m_bRecoverViaDummyKey && !w.OnKey(*keys.m_pOwner, 1))
+		return false;
+
     return true;
 }
 
@@ -832,7 +835,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
 		m_Processor.OnTreasury(Blob(m_Cfg.m_Treasury));
 	}
 
-	RefreshDecoys();
+	RefreshOwnedUtxos();
     InitMode();
 
 	ZeroObject(m_SyncStatus);
@@ -905,49 +908,40 @@ void Node::InitIDs()
 
 }
 
-void Node::RefreshDecoys()
+void Node::RefreshOwnedUtxos()
 {
-	ECC::Scalar::Native sk;
-	m_Keys.m_pDummy->DeriveKey(sk, Key::ID(0, Key::Type::Decoy));
+	ECC::Hash::Processor hp;
+	if (m_Keys.m_pDummy)
+	{
+		ECC::Scalar::Native sk;
+		m_Keys.m_pDummy->DeriveKey(sk, Key::ID(0, Key::Type::Decoy));
+		hp << sk;
+	}
 
-	ECC::NoLeak<ECC::Scalar> s, s2;
-	s2.V = sk;
-	s.V = Zero;
-	Blob blob(s.V.m_Value);
+	if (m_Keys.m_pOwner)
+	{
+		ECC::uintBig hv(Zero);
+		ECC::Scalar::Native sk;
+		m_Keys.m_pOwner->DerivePKey(sk, hv);
+		hp << sk;
+	}
+
+	ECC::Hash::Value hv0, hv1(Zero);
+	hp >> hv0;
+
+	Blob blob(hv1);
 	m_Processor.get_DB().ParamGet(NodeDB::ParamID::DummyID, NULL, &blob);
 
-	if (s2.V == s.V)
-		return;
+	if (hv0 == hv1)
+		return; // unchaged
 
-	LOG_INFO() << "Rescanning decoys...";
+	if (m_Keys.m_pDummy && !(m_Keys.m_pOwner && m_Keys.m_pOwner->IsSame(*m_Keys.m_pDummy)))
+		m_Keys.m_bRecoverViaDummyKey = true;
 
-	struct TxoRecover
-		:public NodeProcessor::ITxoRecover
-	{
-		Node& m_This;
-		uint32_t m_Recovered = 0;
+	m_Processor.RescanOwnedTxos();
+	m_Keys.m_bRecoverViaDummyKey = false;
 
-		TxoRecover(Node& x)
-			:NodeProcessor::ITxoRecover(*x.m_Keys.m_pDummy)
-			,m_This(x)
-		{
-		}
-
-		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const Key::IDV& kidv) override
-		{
-			m_Recovered++;
-			m_This.get_Processor().OnDummy(kidv, hCreate);
-
-			return true;
-		}
-	};
-
-	TxoRecover wlk(*this);
-	m_Processor.EnumTxos(wlk);
-
-	LOG_INFO() << "Recovered " << wlk.m_Recovered << " decoys";
-
-	blob = Blob(s2.V.m_Value);
+	blob = Blob(hv0);
 	m_Processor.get_DB().ParamSet(NodeDB::ParamID::DummyID, NULL, &blob);
 }
 

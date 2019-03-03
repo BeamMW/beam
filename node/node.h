@@ -144,6 +144,7 @@ struct Node
 		Key::IKdf::Ptr m_pDummy;
 
 		Key::Index m_nMinerSubIndex = 0;
+		bool m_bRecoverViaDummyKey = false; // normally only owner key is used in runtime. On startup dummy can be used too to rescan dummies
 
 		void InitSingleKey(const ECC::uintBig& seed);
 		void SetSingleKey(const Key::IKdf::Ptr&);
@@ -298,7 +299,7 @@ private:
 	void InitKeys();
 	void InitIDs();
 	void InitMode();
-	void RefreshDecoys();
+	void RefreshOwnedUtxos();
 
 	struct Wanted
 	{

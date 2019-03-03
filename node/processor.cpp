@@ -1058,10 +1058,6 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 			SerializeBuffer sb = ser.buffer();
 			m_DB.TxoAdd(id0, Blob(sb.first, static_cast<uint32_t>(sb.second)));
 		}
-
-		TxVectors::Reader r = td.m_vGroups[iG].m_Data.get_Reader();
-		r.Reset();
-		RecognizeUtxos(std::move(r), 0);
 	}
 
 	m_Extra.m_TreasuryHandled = true;
@@ -1355,32 +1351,10 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 	{
 		const Output& x = *r.m_pUtxoOut;
 
-		struct Walker :public IKeyWalker
-		{
-			const Output& m_Output;
-			UtxoEvent::Value m_Value;
-
-			Walker(const Output& x) :m_Output(x) {}
-
-			virtual bool OnKey(Key::IPKdf& tag, Key::Index) override
-			{
-				Key::IDV kidv;
-				if (!m_Output.Recover(tag, kidv))
-					return true; // continue enumeration
-
-				m_Value.m_Kidv = kidv;
-				return false; // stop
-			}
-		};
-
-		Walker w(x);
-		w.m_Value.m_Added = 1;
-		if (!EnumViewerKeys(w))
+		Key::IDV kidv;
+		if (Recover(kidv, x))
 		{
 			// filter-out dummies
-			Key::IDV kidv;
-			kidv = w.m_Value.m_Kidv;
-
 			if (IsDummy(kidv))
 			{
 				OnDummy(kidv, hMax);
@@ -1388,26 +1362,83 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 			}
 
 			// bingo!
+			UtxoEvent::Value evt;
+			evt.m_Kidv = kidv;
+			evt.m_Added = 1;
+			evt.m_AssetID = r.m_pUtxoOut->m_AssetID;
+
 			Height h;
 			if (x.m_Maturity)
 			{
-				w.m_Value.m_Maturity = x.m_Maturity;
+				evt.m_Maturity = x.m_Maturity;
 				// try to reverse-engineer the original block from the maturity
 				h = x.m_Maturity - x.get_MinMaturity(0);
 			}
 			else
 			{
 				h = hMax;
-				w.m_Value.m_Maturity = x.get_MinMaturity(h);
+				evt.m_Maturity = x.get_MinMaturity(h);
 			}
 
-			w.m_Value.m_AssetID = r.m_pUtxoOut->m_AssetID;
-
 			const UtxoEvent::Key& key = x.m_Commitment;
-			m_DB.InsertEvent(h, Blob(&w.m_Value, sizeof(w.m_Value)), Blob(&key, sizeof(key)));
-			OnUtxoEvent(w.m_Value);
+			m_DB.InsertEvent(h, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+			OnUtxoEvent(evt);
 		}
 	}
+}
+
+void NodeProcessor::RescanOwnedTxos()
+{
+	LOG_INFO() << "Rescanning owned Txos...";
+
+	m_DB.DeleteEventsFrom(Rules::HeightGenesis - 1);
+
+	struct TxoRecover
+		:public ITxoRecover
+	{
+		uint32_t m_Total = 0;
+		uint32_t m_Unspent = 0;
+
+		TxoRecover(NodeProcessor& x) :ITxoRecover(x) {}
+
+		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp, const Key::IDV& kidv) override
+		{
+			if (IsDummy(kidv))
+			{
+				m_This.OnDummy(kidv, hCreate);
+				return true;
+			}
+
+			UtxoEvent::Value evt;
+			evt.m_Kidv = kidv;
+			evt.m_Maturity = outp.get_MinMaturity(hCreate);
+			evt.m_Added = 1;
+			evt.m_AssetID = outp.m_AssetID;
+
+			const UtxoEvent::Key& key = outp.m_Commitment;
+
+			m_This.get_DB().InsertEvent(hCreate, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+			m_This.OnUtxoEvent(evt);
+
+			m_Total++;
+
+			if (MaxHeight == wlk.m_SpendHeight)
+				m_Unspent++;
+			else
+			{
+				evt.m_Added = 0;
+				m_This.get_DB().InsertEvent(wlk.m_SpendHeight, Blob(&evt, sizeof(evt)), Blob(&key, sizeof(key)));
+				m_This.OnUtxoEvent(evt);
+			}
+
+			return true;
+		}
+	};
+
+	TxoRecover wlk(*this);
+	EnumTxos(wlk);
+
+	LOG_INFO() << "Recovered " << wlk.m_Unspent << "/" << wlk.m_Total << " unspent/total Txos";
 }
 
 bool NodeProcessor::IsDummy(const Key::IDV&  kidv)
@@ -1750,8 +1781,9 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnTreasury(const Blob& blob)
 	assert(m_Extra.m_TreasuryHandled);
 	m_DB.ParamSet(NodeDB::ParamID::Treasury, &m_Extra.m_Txos, &blob);
 
-
 	LOG_INFO() << "Treasury verified";
+
+	RescanOwnedTxos();
 
 	OnNewState();
 	TryGoUp();
@@ -2524,9 +2556,6 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 		m_DB.InsertKernel(hv, r.m_pKernel->m_Maturity);
 	}
 
-	LOG_INFO() << "Recovering owner UTXOs...";
-	RecognizeUtxos(std::move(r), id.m_Height);
-
 	m_Extra.m_LoHorizon = m_Extra.m_Fossil = m_Extra.m_TxoHi = m_Extra.m_TxoLo = id.m_Height;
 
 	m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &id.m_Height, NULL);
@@ -2535,6 +2564,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	m_DB.ParamSet(NodeDB::ParamID::HeightTxoHi, &id.m_Height, NULL);
 
 	InitCursor();
+	RescanOwnedTxos();
 
 	LOG_INFO() << "Macroblock import succeeded";
 
@@ -2629,10 +2659,33 @@ bool NodeProcessor::ITxoWalker::OnTxo(const NodeDB::WalkerTxo&, Height hCreate, 
 bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp)
 {
 	Key::IDV kidv;
-	if (!outp.Recover(m_Key, kidv))
+	if (!m_This.Recover(kidv, outp))
 		return true;
 
 	return OnTxo(wlk, hCreate, outp, kidv);
+}
+
+bool NodeProcessor::Recover(Key::IDV& kidv, const Output& outp)
+{
+	struct Walker :public IKeyWalker
+	{
+		Key::IDV& m_Kidv;
+		const Output& m_Outp;
+
+		Walker(Key::IDV& kidv, const Output& outp)
+			:m_Kidv(kidv)
+			,m_Outp(outp)
+		{
+		}
+
+		virtual bool OnKey(Key::IPKdf& tag, Key::Index) override
+		{
+			return !m_Outp.Recover(tag, m_Kidv);
+		}
+
+	} wlk(kidv, outp);
+
+	return !EnumViewerKeys(wlk);
 }
 
 void NodeProcessor::InitializeUtxos()
