@@ -647,16 +647,7 @@ bool NodeProcessor::GoUpFastInternal()
 		return false;
 
 	// Make sure no naked UTXOs are left
-	TxoID id0 = 0;
-	if (m_SyncData.m_h0)
-	{
-		StateExtra se;
-		if (!m_DB.get_StateExtra(rowid, se))
-			OnCorrupted();
-		se.m_Txos.Export(id0);
-	}
-	else
-		m_DB.ParamGet(NodeDB::ParamID::Treasury, &id0, nullptr, nullptr);
+	TxoID id0 = get_TxosBefore(m_SyncData.m_h0 + 1);
 
 	NodeDB::WalkerTxo wlk(m_DB);
 	for (m_DB.EnumTxos(wlk, id0); wlk.MoveNext(); )
@@ -2755,7 +2746,7 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 	if (!(m_DB.GetStateFlags(sid.m_Row) & NodeDB::StateFlags::Active))
 		return false;
 
-	TxoID id0, id1, idInpCut = 0;
+	TxoID id0, id1, idInpCut = get_TxosBefore(h0 + 1);
 
 	StateExtra se;
 	if (!m_DB.get_StateExtra(sid.m_Row, se))
@@ -2782,17 +2773,6 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 		id0 = 0;
 		m_DB.ParamGet(NodeDB::ParamID::Treasury, &id0, nullptr, nullptr);
 	}
-
-	if (h0 >= Rules::HeightGenesis)
-	{
-		StateExtra se2;
-		if (!m_DB.get_StateExtra(FindActiveAtStrict(h0), se2))
-			OnCorrupted();
-
-		se2.m_Txos.Export(idInpCut);
-	}
-	else
-		m_DB.ParamGet(NodeDB::ParamID::Treasury, &idInpCut, nullptr, nullptr);
 
 	TxBase txb;
 	txb.m_Offset = se.m_Offset;
