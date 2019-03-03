@@ -2634,7 +2634,7 @@ bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCre
 	if (!outp.Recover(m_Key, kidv))
 		return true;
 
-	return OnTxo(wlk, hCreate, kidv);
+	return OnTxo(wlk, hCreate, outp, kidv);
 }
 
 void NodeProcessor::InitializeUtxos()

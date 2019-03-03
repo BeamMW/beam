@@ -1640,7 +1640,7 @@ namespace beam
 
 			TxoRecover(Key::IPKdf& key) :NodeProcessor::ITxoRecover(key) {}
 
-			virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, const Key::IDV& kidv) override
+			virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const Key::IDV& kidv) override
 			{
 				m_Recovered++;
 				return true;

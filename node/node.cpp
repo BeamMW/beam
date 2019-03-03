@@ -933,7 +933,7 @@ void Node::RefreshDecoys()
 		{
 		}
 
-		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, const Key::IDV& kidv) override
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const Key::IDV& kidv) override
 		{
 			m_Recovered++;
 			m_This.get_Processor().OnDummy(kidv, hCreate);

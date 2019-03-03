@@ -274,7 +274,7 @@ public:
 		ITxoRecover(Key::IPKdf& key) :m_Key(key) {}
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&) override;
-		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, const Key::IDV&) = 0;
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const Key::IDV&) = 0;
 	};
 
 #pragma pack (push, 1)
