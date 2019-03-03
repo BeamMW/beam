@@ -85,8 +85,6 @@ class NodeProcessor
 	Timestamp get_MovingMedian();
 	void get_MovingMedianEx(uint64_t rowLast, uint32_t nWindow, THW&);
 
-	Height OpenLatestMacroblock(Block::Body::RW&);
-
 	struct CongestionCache
 	{
 		struct TipCongestion

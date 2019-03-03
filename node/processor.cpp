@@ -950,49 +950,24 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 	if (h < Rules::HeightGenesis)
 		return h;
 
+	uint64_t rowid = FindActiveAtStrict(h);
+
+	ByteBuffer bbE;
+	m_DB.GetStateBlock(rowid, NULL, &bbE, NULL);
+
+	TxVectors::Eternal txve;
+	TxVectors::Perishable txvp; // dummy
+
+	Deserializer der;
+	der.reset(bbE);
+	der & txve;
+
+	TxVectors::Reader r(txvp, txve);
+	r.Reset();
+
 	Merkle::FixedMmmr mmr;
-	size_t iTrg;
-
-	if (h <= m_Extra.m_Fossil)
-	{
-		Block::Body::RW rw;
-		if (!OpenLatestMacroblock(rw))
-			OnCorrupted();
-
-		rw.Reset();
-		rw.NextKernelFF(h);
-
-		// 1st calculate the count
-		uint64_t nTotal = 0;
-		for (; rw.m_pKernel && rw.m_pKernel->m_Maturity == h; rw.NextKernel())
-			nTotal++;
-
-		mmr.Reset(nTotal);
-		rw.Reset();
-		rw.NextKernelFF(h);
-
-		iTrg = ProcessKrnMmr(mmr, std::move(rw), h, idKrn, ppRes);
-	}
-	else
-	{
-		uint64_t rowid = FindActiveAtStrict(h);
-
-		ByteBuffer bbE;
-		m_DB.GetStateBlock(rowid, NULL, &bbE, NULL);
-
-		TxVectors::Eternal txve;
-		TxVectors::Perishable txvp; // dummy
-
-		Deserializer der;
-		der.reset(bbE);
-		der & txve;
-
-		TxVectors::Reader r(txvp, txve);
-		r.Reset();
-
-		mmr.Reset(txve.m_vKernels.size());
-		iTrg = ProcessKrnMmr(mmr, std::move(r), 0, idKrn, ppRes);
-	}
+	mmr.Reset(txve.m_vKernels.size());
+	size_t iTrg = ProcessKrnMmr(mmr, std::move(r), 0, idKrn, ppRes);
 
 	if (uint64_t(-1) == iTrg)
 		OnCorrupted();
@@ -2531,6 +2506,10 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	// Update DB state flags and cursor. This will also buils the MMR for prev states
 	LOG_INFO() << "Building auxilliary datas...";
 
+	TxVectors::Full txv;
+	TxVectors::Writer txwr(txv, txv);
+	ByteBuffer bbE;
+
 	r.Reset();
 	r.get_Start(body, s);
 	for (bool bFirstTime = true; r.get_NextHdr(s); s.NextPrefix())
@@ -2551,15 +2530,27 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 
 		m_DB.DelStateBlockPRB(sid.m_Row); // if somehow it was downloaded
 
+		txv.m_vKernels.clear();
+		bbE.clear();
+
+		for (; r.m_pKernel && (r.m_pKernel->m_Maturity == s.m_Height); r.NextKernel())
+		{
+			txwr.Write(*r.m_pKernel);
+
+			r.m_pKernel->get_ID(hv);
+			m_DB.InsertKernel(hv, r.m_pKernel->m_Maturity);
+		}
+
+		Serializer ser;
+		ser.swap_buf(bbE);
+		ser & Cast::Down<TxVectors::Eternal>(txv);
+		ser.swap_buf(bbE);
+
+		Blob bEmpty(nullptr, 0);
+		m_DB.SetStateBlock(sid.m_Row, bEmpty, bbE);
+
 		sid.m_Height = id.m_Height;
 		m_DB.MoveFwd(sid);
-	}
-
-	// kernels
-	for (; r.m_pKernel; r.NextKernel())
-	{
-		r.m_pKernel->get_ID(hv);
-		m_DB.InsertKernel(hv, r.m_pKernel->m_Maturity);
 	}
 
 	m_Extra.m_LoHorizon = m_Extra.m_Fossil = m_Extra.m_TxoHi = m_Extra.m_TxoLo = id.m_Height;
@@ -2575,21 +2566,6 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	LOG_INFO() << "Macroblock import succeeded";
 
 	return true;
-}
-
-Height NodeProcessor::OpenLatestMacroblock(Block::Body::RW& rw)
-{
-	NodeDB::WalkerState ws(m_DB);
-	for (m_DB.EnumMacroblocks(ws); ws.MoveNext(); )
-	{
-		if (ws.m_Sid.m_Height > m_Cursor.m_ID.m_Height)
-			continue; //?
-
-		if (OpenMacroblock(rw, ws.m_Sid))
-			return ws.m_Sid.m_Height;
-	}
-
-	return Rules::HeightGenesis - 1;
 }
 
 TxoID NodeProcessor::get_TxosBefore(Height h)
