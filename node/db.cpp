@@ -273,10 +273,6 @@ void NodeDB::Open(const char* szPath)
 	// Attempt to fix the "busy" error when PC goes to sleep and then awakes. Try the busy handler with non-zero timeout (maybe a single retry would be enough)
 	sqlite3_busy_timeout(m_pDb, 5000);
 
-	std::string s = ExecTextOut("PRAGMA integrity_check");
-	if (s != "ok")
-		ThrowError(("sqlite integrity: " + s).c_str());
-
 	ExecTextOut("PRAGMA locking_mode = EXCLUSIVE");
 
 	bool bCreate;
@@ -330,6 +326,13 @@ void NodeDB::Open(const char* szPath)
 	}
 
 	t.Commit();
+}
+
+void NodeDB::CheckIntegrity()
+{
+	std::string s = ExecTextOut("PRAGMA integrity_check");
+	if (s != "ok")
+		ThrowError(("sqlite integrity: " + s).c_str());
 }
 
 void NodeDB::Create()

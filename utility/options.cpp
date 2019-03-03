@@ -54,6 +54,7 @@ namespace beam
         const char* TREASURY = "treasury";
         const char* TREASURY_BLOCK = "treasury_path";
         const char* RESYNC = "resync";
+		const char* CHECKDB = "check_db";
         const char* CRASH = "crash";
         const char* INIT = "init";
         const char* RESTORE = "restore";
@@ -168,6 +169,7 @@ namespace beam
             (cli::STRATUM_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on startum server")
             (cli::IMPORT, po::value<Height>()->default_value(0), "Specify the blockchain height to import. The compressed history is asumed to be downloaded the the specified directory")
             (cli::RESYNC, po::value<bool>()->default_value(false), "Enforce re-synchronization (soft reset)")
+			(cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check and compact (vacuum)")
             (cli::BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS messaging")
             (cli::CRASH, po::value<int>()->default_value(0), "Induce crash (test proper handling)")
             (cli::KEY_OWNER, po::value<string>(), "Owner viewer key")

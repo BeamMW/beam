@@ -47,6 +47,7 @@ class NodeProcessor
 	Height RaiseFossil(Height);
 	Height RaiseTxoLo(Height);
 	Height RaiseTxoHi(Height);
+	void Vacuum();
 	void InitializeFromBlocks();
 	void InitializeUtxos(TxoID nTreasury);
 	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, Height hTarget);
@@ -137,7 +138,12 @@ class NodeProcessor
 
 public:
 
-	void Initialize(const char* szPath, bool bResetCursor = false);
+	struct StartParams {
+		bool m_ResetCursor = false;
+		bool m_CheckIntegrityAndVacuum = false;
+	};
+
+	void Initialize(const char* szPath, const StartParams& = StartParams());
 	virtual ~NodeProcessor();
 
 	struct Horizon {

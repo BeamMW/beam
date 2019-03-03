@@ -109,7 +109,6 @@ struct Node
 			uint32_t m_Timeout_ms = 10 * 1000; // timeout since at least 1 tip is received
 			uint32_t m_TimeoutHi_ms = 60 * 1000; // timeout since at least 1 peer connected.
 
-			bool m_ForceResync = false;
 			bool m_NoFastSync = false;
 		} m_Sync;
 
@@ -128,6 +127,8 @@ struct Node
 			uint32_t m_DummyLifetimeHi = 1440 * 7; // set to 0 to disable
 
 		} m_Dandelion;
+
+		NodeProcessor::StartParams m_ProcessorParams;
 
 		IObserver* m_Observer = nullptr;
 

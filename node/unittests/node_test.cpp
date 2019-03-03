@@ -974,7 +974,11 @@ namespace beam
 		{
 			MyNodeProcessor2 np;
 			np.m_Horizon = horz;
-			np.Initialize(g_sz, true); // reset cursor
+
+			NodeProcessor::StartParams sp;
+			sp.m_CheckIntegrityAndVacuum = true;
+			sp.m_ResetCursor = true;
+			np.Initialize(g_sz, sp);
 		}
 
 	}

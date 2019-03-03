@@ -35,9 +35,17 @@ NodeProcessor::Horizon::Horizon()
 {
 }
 
-void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false */)
+void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 {
 	m_DB.Open(szPath);
+
+	if (sp.m_CheckIntegrityAndVacuum)
+	{
+		LOG_INFO() << "DB integrity check...";
+		m_DB.CheckIntegrity();
+		Vacuum();
+	}
+
 	m_DbTx.Start(m_DB);
 
 	Merkle::Hash hv;
@@ -63,11 +71,20 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 		}
 
 	ZeroObject(m_SyncData);
-	blob.p = &m_SyncData;
-	blob.n = sizeof(m_SyncData);
-	m_DB.ParamGet(NodeDB::ParamID::SyncData, nullptr, &blob);
 
-	LogSyncData();
+	if (sp.m_ResetCursor)
+	{
+		m_DB.ParamSet(NodeDB::ParamID::SyncTarget, NULL, NULL);
+		m_DB.ParamGet(NodeDB::ParamID::SyncData, nullptr, nullptr);
+	}
+	else
+	{
+		blob.p = &m_SyncData;
+		blob.n = sizeof(m_SyncData);
+		m_DB.ParamGet(NodeDB::ParamID::SyncData, nullptr, &blob);
+
+		LogSyncData();
+	}
 
 	m_nSizeUtxoComission = 0;
 
@@ -81,7 +98,7 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 			m_Extra.m_TreasuryHandled = true;
 	}
 
-	if (bResetCursor)
+	if (sp.m_ResetCursor)
 	{
 		m_DB.ResetCursor();
 
@@ -96,7 +113,7 @@ void NodeProcessor::Initialize(const char* szPath, bool bResetCursor /* = false 
 
 	OnHorizonChanged();
 
-	if (!bResetCursor)
+	if (!sp.m_ResetCursor)
 		TryGoUp();
 }
 
@@ -127,15 +144,19 @@ void NodeProcessor::OnHorizonChanged()
 	m_Horizon.m_SchwarzschildLo = std::max(m_Horizon.m_SchwarzschildLo, m_Horizon.m_SchwarzschildHi);
 
 	if (PruneOld())
-	{
-		// probably horizon parameters have changed. Compact the DB
-		if (m_DbTx.IsInProgress())
-			m_DbTx.Commit();
+		Vacuum();
+}
 
-		m_DB.Vacuum();
+void NodeProcessor::Vacuum()
+{
+	if (m_DbTx.IsInProgress())
+		m_DbTx.Commit();
 
-		m_DbTx.Start(m_DB);
-	}
+	LOG_INFO() << "DB compacting...";
+	m_DB.Vacuum();
+	LOG_INFO() << "DB compacting completed";
+
+	m_DbTx.Start(m_DB);
 }
 
 void NodeProcessor::CommitDB()

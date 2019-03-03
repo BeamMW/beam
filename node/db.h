@@ -165,6 +165,7 @@ public:
 	void Open(const char* szPath);
 
 	void Vacuum();
+	void CheckIntegrity();
 
 	virtual void OnModified() {}
 

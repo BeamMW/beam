@@ -814,10 +814,7 @@ void Node::Keys::SetSingleKey(const Key::IKdf::Ptr& pKdf)
 void Node::Initialize(IExternalPOW* externalPOW)
 {
     m_Processor.m_Horizon = m_Cfg.m_Horizon;
-    m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_Sync.m_ForceResync);
-
-    if (m_Cfg.m_Sync.m_ForceResync)
-        m_Processor.get_DB().ParamSet(NodeDB::ParamID::SyncTarget, NULL, NULL);
+    m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_ProcessorParams);
 
     if (m_Cfg.m_VerificationThreads < 0)
         // use all the cores, don't subtract 'mining threads'. Verification has higher priority

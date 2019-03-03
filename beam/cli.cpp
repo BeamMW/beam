@@ -301,7 +301,10 @@ int main_impl(int argc, char* argv[])
 					}
 
 					if (vm.count(cli::RESYNC))
-						node.m_Cfg.m_Sync.m_ForceResync = vm[cli::RESYNC].as<bool>();
+						node.m_Cfg.m_ProcessorParams.m_ResetCursor = vm[cli::RESYNC].as<bool>();
+
+					if (vm.count(cli::CHECKDB))
+						node.m_Cfg.m_ProcessorParams.m_CheckIntegrityAndVacuum = vm[cli::CHECKDB].as<bool>();
 
                     if (vm.count(cli::NO_FAST_SYNC))
                     {
