@@ -307,7 +307,7 @@ public:
 	void MacroblockDel(uint64_t rowid);
 
 	void InsertEvent(Height, const Blob&, const Blob& key);
-	void DeleteEventsAbove(Height);
+	void DeleteEventsFrom(Height);
 
 	struct WalkerEvent {
 		Recordset m_Rs;
@@ -420,7 +420,7 @@ public:
 	};
 
 	void EnumTxos(WalkerTxo&, TxoID id0);
-	void EnumTxosBySpent(WalkerTxo&, Height h0);
+	void EnumTxosBySpent(WalkerTxo&, const HeightRange&);
 	uint64_t DeleteSpentTxos(Height hFrom);
 	void TxoSetValue(TxoID, const Blob&);
 

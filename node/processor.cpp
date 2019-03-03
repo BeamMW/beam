@@ -770,10 +770,9 @@ Height NodeProcessor::RaiseTxoHi(Height hTrg)
 	Height hRet = 0;
 
 	NodeDB::WalkerTxo wlk(m_DB);
-	for (m_DB.EnumTxosBySpent(wlk, m_Extra.m_TxoHi + 1); wlk.MoveNext(); )
+	for (m_DB.EnumTxosBySpent(wlk, HeightRange(m_Extra.m_TxoHi + 1, hTrg)); wlk.MoveNext(); )
 	{
-		if (wlk.m_SpendHeight > hTrg)
-			break;
+		assert(wlk.m_SpendHeight <= hTrg);
 
 		if (TxoIsNaked(wlk.m_Value))
 			continue;
@@ -1316,8 +1315,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd, TxBase::C
 		{
 			m_DB.TxoDelFrom(m_Extra.m_Txos);
 			m_DB.TxoDelSpentFrom(sid.m_Height);
-
-			m_DB.DeleteEventsAbove(m_Cursor.m_ID.m_Height);
+			m_DB.DeleteEventsFrom(sid.m_Height);
 		}
 
 		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
@@ -2771,8 +2769,7 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 	NodeDB::WalkerTxo wlk(m_DB);
 	for (m_DB.EnumTxosBySpent(wlk, sid.m_Height); wlk.MoveNext(); )
 	{
-		if (wlk.m_SpendHeight > sid.m_Height)
-			break;
+		assert(wlk.m_SpendHeight == sid.m_Height);
 
 		//	if SpendHeight > hLo1 then transfer
 		//	if CreateHeight <= h0 then transfer

@@ -1611,9 +1611,9 @@ void NodeDB::InsertEvent(Height h, const Blob& b, const Blob& key)
 	TestChanged1Row();
 }
 
-void NodeDB::DeleteEventsAbove(Height h)
+void NodeDB::DeleteEventsFrom(Height h)
 {
-	Recordset rs(*this, Query::EventDel, "DELETE FROM " TblEvents " WHERE " TblEvents_Height ">?");
+	Recordset rs(*this, Query::EventDel, "DELETE FROM " TblEvents " WHERE " TblEvents_Height ">=?");
 	rs.put(0, h);
 	rs.Step();
 }
@@ -1929,7 +1929,7 @@ void NodeDB::ResetCursor()
 	rs.Reset(Query::KernelDelAll, "DELETE FROM " TblKernels);
 	rs.Step();
 
-	DeleteEventsAbove(Rules::HeightGenesis - 1);
+	DeleteEventsFrom(Rules::HeightGenesis);
 
 	StateID sid;
 	sid.m_Row = 0;
@@ -2018,10 +2018,11 @@ void NodeDB::EnumTxos(WalkerTxo& wlk, TxoID id0)
 	wlk.m_Rs.put(0, id0);
 }
 
-void NodeDB::EnumTxosBySpent(WalkerTxo& wlk, Height h0)
+void NodeDB::EnumTxosBySpent(WalkerTxo& wlk, const HeightRange& hr)
 {
-	wlk.m_Rs.Reset(Query::TxoEnumBySpent, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_SpendHeight ">=? ORDER BY " TblTxo_SpendHeight);
-	wlk.m_Rs.put(0, h0);
+	wlk.m_Rs.Reset(Query::TxoEnumBySpent, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_SpendHeight ">=? AND " TblTxo_SpendHeight "<=? ORDER BY " TblTxo_SpendHeight);
+	wlk.m_Rs.put(0, hr.m_Min);
+	wlk.m_Rs.put(1, std::min(hr.m_Max, (MaxHeight >> 1))); // sqlite uses signed int64
 }
 
 bool NodeDB::WalkerTxo::MoveNext()
