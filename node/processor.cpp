@@ -38,6 +38,7 @@ NodeProcessor::Horizon::Horizon()
 void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 {
 	m_DB.Open(szPath);
+	m_DbTx.Start(m_DB);
 
 	if (sp.m_CheckIntegrityAndVacuum)
 	{
@@ -45,8 +46,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 		m_DB.CheckIntegrity();
 		Vacuum();
 	}
-
-	m_DbTx.Start(m_DB);
 
 	Merkle::Hash hv;
 	Blob blob(hv);
