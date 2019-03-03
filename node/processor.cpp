@@ -358,22 +358,26 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 			m_SyncData.m_h0 = pMaxTarget->m_Height - pMaxTarget->m_Rows.size();
 
 			if (pMaxTarget->m_Height > m_Horizon.m_SchwarzschildLo)
-			{
 				m_SyncData.m_TxoLo = pMaxTarget->m_Height - m_Horizon.m_SchwarzschildLo;
-				// for more safety - delete all the blocks that could already be downloaded on this branch
-				// TODO
-			}
+
+			m_SyncData.m_TxoLo = std::max(m_SyncData.m_TxoLo, m_Extra.m_TxoLo);
 		}
 
-		// check if it should be moved fwd
+		// check if the target should be moved fwd
 		bool bTrgChange =
 			(m_SyncData.m_Target.m_Row || bFirstTime) &&
 			(pMaxTarget->m_Height > m_SyncData.m_Target.m_Height + m_Horizon.m_SchwarzschildHi);
 
 		if (bTrgChange)
 		{
+			Height hTargetPrev = bFirstTime ? (pMaxTarget->m_Height - pMaxTarget->m_Rows.size()) : m_SyncData.m_Target.m_Height;
+
 			m_SyncData.m_Target.m_Height = pMaxTarget->m_Height - m_Horizon.m_SchwarzschildHi;
 			m_SyncData.m_Target.m_Row = pMaxTarget->m_Rows.at(pMaxTarget->m_Height - m_SyncData.m_Target.m_Height);
+
+			if (m_SyncData.m_TxoLo)
+				// ensure no old blocks, which could be generated with incorrect TxLo
+				DeleteBlocksInRange(m_SyncData.m_Target, hTargetPrev);
 
 			Blob blob(&m_SyncData, sizeof(m_SyncData));
 			m_DB.ParamSet(NodeDB::ParamID::SyncData, nullptr, &blob);
@@ -561,19 +565,23 @@ void NodeProcessor::GoUpFast()
 		while (m_Cursor.m_Sid.m_Height > m_SyncData.m_h0)
 			Rollback();
 
-		// delete all blocks of the fast-sync
-		for (NodeDB::StateID sid = m_SyncData.m_Target; sid.m_Height != m_SyncData.m_h0; )
-		{
-			m_DB.DelStateBlockAll(sid.m_Row);
-			m_DB.SetStateNotFunctional(sid.m_Row);
-
-			if (!m_DB.get_Prev(sid))
-				sid.SetNull();
-		}
+		DeleteBlocksInRange(m_SyncData.m_Target, m_SyncData.m_h0);
 	}
 
 	ZeroObject(m_SyncData);
 	m_DB.ParamSet(NodeDB::ParamID::SyncData, nullptr, nullptr);
+}
+
+void NodeProcessor::DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hStop)
+{
+	for (NodeDB::StateID sid = sidTop; sid.m_Height > hStop; )
+	{
+		m_DB.DelStateBlockAll(sid.m_Row);
+		m_DB.SetStateNotFunctional(sid.m_Row);
+
+		if (!m_DB.get_Prev(sid))
+			sid.SetNull();
+	}
 }
 
 bool NodeProcessor::GoUpFastInternal()

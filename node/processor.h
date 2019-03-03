@@ -133,6 +133,8 @@ class NodeProcessor
 
 	CongestionCache::TipCongestion* EnumCongestionsInternal();
 
+	void DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hStop);
+
 public:
 
 	void Initialize(const char* szPath, bool bResetCursor = false);
