@@ -48,7 +48,6 @@ class NodeProcessor
 	Height RaiseTxoLo(Height);
 	Height RaiseTxoHi(Height);
 	void Vacuum();
-	void InitializeFromBlocks();
 	void InitializeUtxos(TxoID nTreasury);
 	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, Height hTarget);
 

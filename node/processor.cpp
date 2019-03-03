@@ -108,7 +108,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	InitCursor();
 
-	//InitializeFromBlocks();
 	InitializeUtxos(nTreasury);
 
 	OnHorizonChanged();
@@ -2614,51 +2613,6 @@ bool NodeProcessor::EnumBlocks(IBlockWalker& wlk)
 	}
 
 	return true;
-}
-
-
-void NodeProcessor::InitializeFromBlocks()
-{
-	struct MyWalker
-		:public IBlockWalker
-	{
-		NodeProcessor* m_pThis;
-		bool m_bFirstBlock = true;
-
-		virtual bool OnBlock(const Block::BodyBase& body, TxBase::IReader&& r, uint64_t rowid, Height h, const Height* pHMax) override
-		{
-			if (pHMax)
-			{
-				LOG_INFO() << "Interpreting MB up to " << *pHMax << "...";
-			} else
-				if (m_bFirstBlock)
-				{
-					m_bFirstBlock = false;
-					LOG_INFO() << "Interpreting blocks up to " << m_pThis->m_Cursor.m_ID.m_Height << "...";
-				}
-
-			if (!m_pThis->HandleValidatedBlock(std::move(r), body, h, true, pHMax))
-				OnCorrupted();
-
-			return true;
-		}
-	};
-
-	if (m_Extra.m_TreasuryHandled)
-	{
-		MyWalker wlk;
-		wlk.m_pThis = this;
-		EnumBlocks(wlk);
-	}
-
-	if (m_Cursor.m_ID.m_Height >= Rules::HeightGenesis)
-	{
-		// final check
-		Merkle::Hash hv;
-		get_Definition(hv, false);
-		if (m_Cursor.m_Full.m_Definition != hv)
-			OnCorrupted();
-	}
 }
 
 void NodeProcessor::InitializeUtxos(TxoID id1)
