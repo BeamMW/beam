@@ -42,7 +42,7 @@ class NodeProcessor
 	bool GoUpFastInternal();
 
 	bool GoForward(uint64_t, TxBase::Context* pBatch);
-	void Rollback();
+	void RollbackTo(Height);
 	Height PruneOld();
 	Height RaiseFossil(Height);
 	Height RaiseTxoLo(Height);

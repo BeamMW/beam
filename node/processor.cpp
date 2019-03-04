@@ -488,13 +488,9 @@ void NodeProcessor::TryGoUp()
 			if (!(NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(m_SyncData.m_Target.m_Row)))
 				return;
 
-			assert(m_Cursor.m_ID.m_Height >= m_SyncData.m_h0);
-			while (m_Cursor.m_ID.m_Height > m_SyncData.m_h0)
-			{
-				Rollback();
-				bDirty = true;
-			}
+			bDirty = true;
 
+			RollbackTo(m_SyncData.m_h0);
 			GoUpFast();
 			continue;
 		}
@@ -520,35 +516,30 @@ void NodeProcessor::TryGoUp()
 				break; // already at maximum (though maybe at different tip)
 		}
 
+		bDirty = true;
+
 		// Calculate the path
 		std::vector<uint64_t> vPath;
-		while (sidTrg.m_Row != m_Cursor.m_Sid.m_Row)
+		while (true)
 		{
-			if (m_Cursor.m_Full.m_ChainWork > wrkTrg)
-			{
-				Rollback();
-				bDirty = true;
-			}
-			else
-			{
-				assert(sidTrg.m_Row);
-				vPath.push_back(sidTrg.m_Row);
+			vPath.push_back(sidTrg.m_Row);
 
-				if (m_DB.get_Prev(sidTrg))
-					m_DB.get_ChainWork(sidTrg.m_Row, wrkTrg);
-				else
-				{
-					sidTrg.SetNull();
-					wrkTrg = Zero;
-				}
+			if (!m_DB.get_Prev(sidTrg))
+			{
+				sidTrg.SetNull();
+				break;
 			}
+
+			if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(sidTrg.m_Row))
+				break;
 		}
+
+		RollbackTo(sidTrg.m_Height);
 
 		bool bPathOk = true;
 
 		for (size_t i = vPath.size(); i--; )
 		{
-			bDirty = true;
 			if (!GoForward(vPath[i], nullptr))
 			{
 				bPathOk = false;
@@ -588,9 +579,7 @@ void NodeProcessor::GoUpFast()
 	else
 	{
 		// rapid rollback
-		while (m_Cursor.m_Sid.m_Height > m_SyncData.m_h0)
-			Rollback();
-
+		RollbackTo(m_SyncData.m_h0);
 		DeleteBlocksInRange(m_SyncData.m_Target, m_SyncData.m_h0);
 	}
 
@@ -1653,16 +1642,95 @@ bool NodeProcessor::GoForward(uint64_t row, TxBase::Context* pBatch)
 	return false;
 }
 
-void NodeProcessor::Rollback()
+void NodeProcessor::RollbackTo(Height h)
 {
-	NodeDB::StateID sid = m_Cursor.m_Sid;
-	m_DB.MoveBack(m_Cursor.m_Sid);
+	assert(h <= m_Cursor.m_Sid.m_Height);
+	if (h == m_Cursor.m_Sid.m_Height)
+		return;
+
+	TxoID id0 = get_TxosBefore(h + 1);
+
+	// undo inputs
+	NodeDB::WalkerTxo wlk(m_DB);
+	for (m_DB.EnumTxosBySpent(wlk, HeightRange(h + 1, m_Cursor.m_Sid.m_Height)); wlk.MoveNext(); )
+	{
+		if (wlk.m_ID >= id0)
+			continue; // created and spent within this range - skip it
+
+		uint8_t pNaked[s_TxoNakedMax];
+		Blob val = wlk.m_Value;
+		TxoToNaked(pNaked, val);
+
+		Deserializer der;
+		der.reset(val.p, val.n);
+
+		Output outp;
+		der & outp;
+
+		Input inp;
+		inp.m_Commitment = outp.m_Commitment;
+		inp.m_ID = wlk.m_ID;
+
+		NodeDB::StateID sidPrev;
+		m_DB.FindStateByTxoID(sidPrev, wlk.m_ID); // relatively heavy operation: search for the original txo height
+		assert(sidPrev.m_Height <= h);
+
+		inp.m_Maturity = outp.get_MinMaturity(sidPrev.m_Height);
+
+		if (!HandleBlockElement(inp, 0, nullptr, false))
+			OnCorrupted();
+	}
+
+	// undo outputs
+	struct MyWalker
+		:public ITxoWalker_UnspentNaked
+	{
+		NodeProcessor* m_pThis;
+
+		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp) override
+		{
+			if (!m_pThis->HandleBlockElement(outp, hCreate, nullptr, false))
+				OnCorrupted();
+			return true;
+		}
+	};
+
+	MyWalker wlk2;
+	wlk2.m_pThis = this;
+	EnumTxos(wlk2, HeightRange(h + 1, m_Cursor.m_Sid.m_Height));
+
+	m_DB.TxoDelFrom(id0);
+	m_DB.TxoDelSpentFrom(h + 1);
+	m_DB.DeleteEventsFrom(h + 1);
+
+
+	// Kernels and cursor
+	ByteBuffer bbE;
+	TxVectors::Eternal txve;
+
+	for (; m_Cursor.m_Sid.m_Height > h; m_DB.MoveBack(m_Cursor.m_Sid))
+	{
+		txve.m_vKernels.clear();
+		bbE.clear();
+		m_DB.GetStateBlock(m_Cursor.m_Sid.m_Row, nullptr, &bbE, nullptr);
+
+		Deserializer der;
+		der.reset(bbE);
+		der & Cast::Down<TxVectors::Eternal>(txve);
+
+		for (size_t i = 0; i < txve.m_vKernels.size(); i++)
+		{
+			Merkle::Hash hv;
+			txve.m_vKernels[i]->get_ID(hv);
+
+			m_DB.DeleteKernel(hv, m_Cursor.m_Sid.m_Height);
+		}
+	}
+
 	InitCursor();
-
-	if (!HandleBlock(sid, false, nullptr))
-		OnCorrupted();
-
 	OnRolledBack();
+
+	m_Extra.m_Txos = id0;
 }
 
 NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::SystemState::Full& s, Block::SystemState::ID& id)
