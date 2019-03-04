@@ -1204,27 +1204,20 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd, TxBase::C
 			rbData.Import(block);
 			m_DB.SetStateRollback(sid.m_Row, rbData.m_Buf);
 
-			StateExtra se;
-			se.m_Txos = m_Extra.m_Txos;
-			se.m_Offset = block.m_Offset;
+			ECC::Scalar offsAcc = block.m_Offset;
 
 			if (sid.m_Height > Rules::HeightGenesis)
 			{
-				StateExtra sePrev;
-
 				uint64_t row = sid.m_Row;
-				if (!m_DB.get_Prev(row) ||
-					!m_DB.get_StateExtra(row, sePrev))
+				if (!m_DB.get_Prev(row))
 					OnCorrupted();
 
-				assert(se.m_Txos >= sePrev.m_Txos);
-
-				ECC::Scalar::Native offs(sePrev.m_Offset);
-				offs += se.m_Offset;
-				se.m_Offset = offs;
+				AdjustOffset(offsAcc, row, true);
 			}
 
-			m_DB.set_StateExtra(sid.m_Row, &se);
+			m_DB.set_StateExtra(sid.m_Row, &offsAcc);
+
+			m_DB.set_StateTxos(sid.m_Row, &m_Extra.m_Txos);
 
 			if (!pBatch)
 			{
@@ -1288,6 +1281,20 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd, TxBase::C
 	}
 
 	return bOk;
+}
+
+void NodeProcessor::AdjustOffset(ECC::Scalar& offs, uint64_t rowid, bool bAdd)
+{
+	ECC::Scalar offsPrev;
+	if (!m_DB.get_StateExtra(rowid, offsPrev))
+		OnCorrupted();
+
+	ECC::Scalar::Native s(offsPrev);
+	if (!bAdd)
+		s = -s;
+
+	s += offs;
+	offs = s;
 }
 
 void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
@@ -2570,10 +2577,9 @@ TxoID NodeProcessor::get_TxosBefore(Height h)
 	}
 	else
 	{
-		StateExtra se;
-		if (!m_DB.get_StateExtra(FindActiveAtStrict(h - 1), se))
+		id = m_DB.get_StateTxos(FindActiveAtStrict(h - 1));
+		if (MaxHeight == id)
 			OnCorrupted();
-		se.m_Txos.Export(id);
 	}
 
 	return id;
@@ -2744,36 +2750,24 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 	if (!(m_DB.GetStateFlags(sid.m_Row) & NodeDB::StateFlags::Active))
 		return false;
 
-	TxoID id0, id1, idInpCut = get_TxosBefore(h0 + 1);
+	TxBase txb;
 
-	StateExtra se;
-	if (!m_DB.get_StateExtra(sid.m_Row, se))
+	TxoID idInpCut = get_TxosBefore(h0 + 1);
+	TxoID id0;
+
+	TxoID id1 = m_DB.get_StateTxos(sid.m_Row);
+
+	if (!m_DB.get_StateExtra(sid.m_Row, txb.m_Offset))
 		OnCorrupted();
-
-	se.m_Txos.Export(id1);
 
 	uint64_t rowid = sid.m_Row;
 	if (m_DB.get_Prev(rowid))
 	{
-		ECC::Scalar::Native offs1(se.m_Offset);
-
-		if (!m_DB.get_StateExtra(rowid, se))
-			OnCorrupted();
-
-		se.m_Txos.Export(id0);
-		ECC::Scalar::Native offs0(se.m_Offset);
-		offs0 = -offs0;
-		offs1 += offs0;
-		se.m_Offset = offs1;
+		AdjustOffset(txb.m_Offset, rowid, false);
+		id0 = m_DB.get_StateTxos(rowid);
 	}
 	else
-	{
-		id0 = 0;
-		m_DB.ParamGet(NodeDB::ParamID::Treasury, &id0, nullptr, nullptr);
-	}
-
-	TxBase txb;
-	txb.m_Offset = se.m_Offset;
+		id0 = get_TxosBefore(Rules::HeightGenesis);
 
 	uintBigFor<uint32_t>::Type nCount(Zero);
 

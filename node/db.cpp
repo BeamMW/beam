@@ -41,6 +41,7 @@ namespace beam {
 #define TblStates_Rollback		"Rollback"
 #define TblStates_Peer			"Peer"
 #define TblStates_ChainWork		"ChainWork"
+#define TblStates_Txos			"Txos"
 #define TblStates_Extra			"Extra"
 
 #define TblTips					"Tips"
@@ -314,6 +315,8 @@ void NodeDB::Open(const char* szPath)
 		case nVersionMacro0:
 			CreateTableTxos();
 			ExecQuick("ALTER TABLE [" TblStates "] ADD [" TblStates_Extra "] BLOB");
+			ExecQuick("ALTER TABLE [" TblStates "] ADD [" TblStates_Txos "] INTEGER");
+			ExecQuick("CREATE INDEX [Idx" TblStates TblStates_Txos "] ON [" TblStates "] ([" TblStates_Txos "]);");
 
 			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
 			// no break;
@@ -364,11 +367,13 @@ void NodeDB::Create()
 		"[" TblStates_Rollback		"] BLOB,"
 		"[" TblStates_Peer			"] BLOB,"
 		"[" TblStates_ChainWork		"] BLOB,"
+		"[" TblStates_Txos			"] INTEGER,"
 		"[" TblStates_Extra			"] BLOB,"
 		"PRIMARY KEY (" TblStates_Height "," TblStates_Hash "),"
 		"FOREIGN KEY (" TblStates_RowPrev ") REFERENCES " TblStates "(OID))");
 
 	ExecQuick("CREATE INDEX [Idx" TblStates "Wrk] ON [" TblStates "] ([" TblStates_ChainWork "]);");
+	ExecQuick("CREATE INDEX [Idx" TblStates TblStates_Txos "] ON [" TblStates "] ([" TblStates_Txos "]);");
 
 	ExecQuick("CREATE TABLE [" TblTips "] ("
 		"[" TblTips_Height	"] INTEGER NOT NULL,"
@@ -593,8 +598,7 @@ bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, Blob* p1, ByteBuffer* p2 /* = N
 		if (rs.IsNull(1))
 			return false;
 
-		const void* pPtr = rs.get_BlobStrict(1, p1->n);
-		memcpy((void*) p1->p, pPtr, p1->n);
+		memcpy(Cast::NotConst(p1->p), rs.get_BlobStrict(1, p1->n), p1->n);
 	}
 	if (p2)
 		rs.get(1, *p2);
@@ -1121,17 +1125,17 @@ bool NodeDB::get_Peer(uint64_t rowid, PeerID& peer)
 	return true;
 }
 
-void NodeDB::set_StateExtra(uint64_t rowid, const StateExtra* pVal)
+void NodeDB::set_StateExtra(uint64_t rowid, const ECC::Scalar* pVal)
 {
 	Recordset rs(*this, Query::StateSetExtra, "UPDATE " TblStates " SET " TblStates_Extra "=? WHERE rowid=?");
 	if (pVal)
-		rs.put(0, Blob(pVal, sizeof(*pVal)));
+		rs.put(0, pVal->m_Value);
 	rs.put(1, rowid);
 	rs.Step();
 	TestChanged1Row();
 }
 
-bool NodeDB::get_StateExtra(uint64_t rowid, StateExtra& x)
+bool NodeDB::get_StateExtra(uint64_t rowid, ECC::Scalar& val)
 {
 	Recordset rs(*this, Query::StateGetExtra, "SELECT " TblStates_Extra " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
@@ -1140,8 +1144,32 @@ bool NodeDB::get_StateExtra(uint64_t rowid, StateExtra& x)
 	if (rs.IsNull(0))
 		return false;
 
-	rs.get_As(0, x);
+	rs.get(0, val.m_Value);
 	return true;
+}
+
+void NodeDB::set_StateTxos(uint64_t rowid, const TxoID* pId)
+{
+	Recordset rs(*this, Query::StateSetTxos, "UPDATE " TblStates " SET " TblStates_Txos "=? WHERE rowid=?");
+	if (pId)
+		rs.put(0, *pId);
+	rs.put(1, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
+TxoID NodeDB::get_StateTxos(uint64_t rowid)
+{
+	Recordset rs(*this, Query::StateGetTxos, "SELECT " TblStates_Txos " FROM " TblStates " WHERE rowid=?");
+	rs.put(0, rowid);
+	rs.StepStrict();
+
+	if (rs.IsNull(0))
+		return MaxHeight;
+
+	TxoID id;
+	rs.get(0, id);
+	return id;
 }
 
 void NodeDB::SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE)

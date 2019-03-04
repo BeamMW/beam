@@ -74,6 +74,7 @@ class NodeProcessor
 	static bool TxoIsNaked(const Blob&);
 
 	TxoID get_TxosBefore(Height);
+	void AdjustOffset(ECC::Scalar&, uint64_t rowid, bool bAdd);
 
 	void InitCursor();
 	static void OnCorrupted();
@@ -147,8 +148,6 @@ public:
 		Difficulty m_DifficultyNext;
 
 	} m_Cursor;
-
-	typedef NodeDB::StateExtra StateExtra;
 
 	struct Extra
 	{

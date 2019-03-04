@@ -30,14 +30,6 @@ public:
 		static const uint32_t Active		= 0x4;	// part of the current blockchain
 	};
 
-#pragma pack (push, 1)
-	struct StateExtra
-	{
-		ECC::Scalar m_Offset;
-		uintBigFor<TxoID>::Type m_Txos;
-	};
-#pragma pack (pop)
-
 	struct ParamID {
 		enum Enum {
 			DbVer,
@@ -91,6 +83,8 @@ public:
 			StateGetPeer,
 			StateSetExtra,
 			StateGetExtra,
+			StateSetTxos,
+			StateGetTxos,
 			TipAdd,
 			TipDel,
 			TipReachableAdd,
@@ -256,8 +250,11 @@ public:
 	void set_Peer(uint64_t rowid, const PeerID*);
 	bool get_Peer(uint64_t rowid, PeerID&);
 
-	void set_StateExtra(uint64_t rowid, const StateExtra*);
-	bool get_StateExtra(uint64_t rowid, StateExtra&);
+	void set_StateExtra(uint64_t rowid, const ECC::Scalar*);
+	bool get_StateExtra(uint64_t rowid, ECC::Scalar&);
+
+	void set_StateTxos(uint64_t rowid, const TxoID*);
+	TxoID get_StateTxos(uint64_t rowid);
 
 	void SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE);
 	void GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteBuffer* pRollback);
