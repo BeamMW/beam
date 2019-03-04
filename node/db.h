@@ -85,6 +85,7 @@ public:
 			StateGetExtra,
 			StateSetTxos,
 			StateGetTxos,
+			StateFindByTxos,
 			TipAdd,
 			TipDel,
 			TipReachableAdd,
@@ -269,6 +270,8 @@ public:
 	};
 
 	void get_StateID(const StateID&, Block::SystemState::ID&);
+
+	TxoID FindStateByTxoID(StateID&, TxoID); // returns the Txos at state end
 
 	struct WalkerState {
 		Recordset m_Rs;

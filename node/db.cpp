@@ -1172,6 +1172,21 @@ TxoID NodeDB::get_StateTxos(uint64_t rowid)
 	return id;
 }
 
+TxoID NodeDB::FindStateByTxoID(StateID& sid, TxoID id0)
+{
+	Recordset rs(*this, Query::StateFindByTxos, "SELECT rowid," TblStates_Height "," TblStates_Txos " FROM " TblStates
+		" WHERE " TblStates_Txos ">? AND " TblStates_Flags "& ? != 0  ORDER BY " TblStates_Txos " ASC," TblStates_Height " ASC LIMIT 1");
+	rs.put(0, id0);
+	rs.put(1, StateFlags::Active);
+	rs.StepStrict();
+
+	rs.get(0, sid.m_Row);
+	rs.get(1, sid.m_Height);
+	rs.get(2, id0);
+
+	return id0;
+}
+
 void NodeDB::SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE)
 {
 	Recordset rs(*this, Query::StateSetBlock, "UPDATE " TblStates " SET " TblStates_BodyP "=?," TblStates_BodyE "=? WHERE rowid=?");

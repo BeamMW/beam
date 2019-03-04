@@ -2602,11 +2602,22 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 	NodeDB::WalkerTxo wlk(m_DB);
 	for (m_DB.EnumTxos(wlk, id1);  wlk.MoveNext(); )
 	{
-		while (wlk.m_ID >= id1)
+		if (wlk.m_ID >= id1)
 		{
 			if (++h > hr.m_Max)
 				break;
-			id1 = get_TxosBefore(h + 1);
+
+			if (h < Rules::HeightGenesis)
+				id1 = get_TxosBefore(Rules::HeightGenesis); // treasury?
+
+			if (wlk.m_ID >= id1)
+			{
+				NodeDB::StateID sid;
+				id1 = m_DB.FindStateByTxoID(sid, wlk.m_ID);
+
+				assert(wlk.m_ID < id1);
+				h = sid.m_Height;
+			}
 		}
 
 		if (!wlkTxo.OnTxo(wlk, h))
