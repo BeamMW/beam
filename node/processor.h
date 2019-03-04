@@ -280,6 +280,12 @@ public:
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const Key::IDV&) = 0;
 	};
 
+	struct ITxoWalker_UnspentNaked
+		:public ITxoWalker
+	{
+		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
+	};
+
 #pragma pack (push, 1)
 	struct UtxoEvent
 	{

@@ -2689,31 +2689,36 @@ bool NodeProcessor::Recover(Key::IDV& kidv, const Output& outp)
 	return !EnumViewerKeys(wlk);
 }
 
+bool NodeProcessor::ITxoWalker_UnspentNaked::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate)
+{
+	if (wlk.m_SpendHeight != MaxHeight)
+		return true;
+
+	uint8_t pNaked[s_TxoNakedMax];
+	Blob val = wlk.m_Value;
+	TxoToNaked(pNaked, val); // save allocation and deserialization of sig
+
+	Deserializer der;
+	der.reset(val.p, val.n);
+
+	Output outp;
+	der & outp;
+
+	return Cast::Down<ITxoWalker>(*this).OnTxo(wlk, hCreate, outp);
+}
+
 void NodeProcessor::InitializeUtxos()
 {
 	assert(!m_Extra.m_Txos);
 
 	struct Walker
-		:public ITxoWalker
+		:public ITxoWalker_UnspentNaked
 	{
 		NodeProcessor& m_This;
 		Walker(NodeProcessor& x) :m_This(x) {}
 
-		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate) override
+		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp) override
 		{
-			if (wlk.m_SpendHeight != MaxHeight)
-				return true;
-
-			uint8_t pNaked[s_TxoNakedMax];
-			Blob val = wlk.m_Value;
-			TxoToNaked(pNaked, val); // save allocation and deserialization of sig
-
-			Deserializer der;
-			der.reset(val.p, val.n);
-
-			Output outp;
-			der & outp;
-
 			m_This.m_Extra.m_Txos = wlk.m_ID;
 			if (!m_This.HandleBlockElement(outp, hCreate, nullptr, true))
 				OnCorrupted();
