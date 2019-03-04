@@ -546,6 +546,10 @@ void Node::Processor::OnRolledBack()
 {
     LOG_INFO() << "Rolled back to: " << m_Cursor.m_ID;
     get_ParentObj().m_Compressor.OnRolledBack();
+
+	IObserver* pObserver = get_ParentObj().m_Cfg.m_Observer;
+	if (pObserver)
+		pObserver->OnRolledBack(m_Cursor.m_ID);
 }
 
 bool Node::Processor::Verifier::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r, bool bBatchReset, bool bBatchFinalize)
