@@ -193,7 +193,6 @@ public:
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }
 	UtxoTree& get_Utxos() { return m_Utxos; }
-	static void ReadBody(Block::Body&, const ByteBuffer& bbP, const ByteBuffer& bbE);
 
 	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);
 

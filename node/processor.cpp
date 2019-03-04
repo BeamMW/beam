@@ -888,17 +888,6 @@ struct NodeProcessor::RollbackData
 	}
 };
 
-void NodeProcessor::ReadBody(Block::Body& res, const ByteBuffer& bbP, const ByteBuffer& bbE)
-{
-	Deserializer der;
-	der.reset(bbP);
-	der & Cast::Down<Block::BodyBase>(res);
-	der & Cast::Down<TxVectors::Perishable>(res);
-
-	der.reset(bbE);
-	der & Cast::Down<TxVectors::Eternal>(res);
-}
-
 uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, TxBase::IReader&& r, Height h, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes)
 {
 	uint64_t iRet = uint64_t (-1);
@@ -1028,8 +1017,7 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, TxBase::Context* pBatch)
 {
 	ByteBuffer bbP, bbE;
-	RollbackData rbData;
-	m_DB.GetStateBlock(sid.m_Row, &bbP, &bbE, &rbData.m_Buf);
+	m_DB.GetStateBlock(sid.m_Row, &bbP, &bbE, nullptr);
 
 	Block::SystemState::Full s;
 	m_DB.get_State(sid.m_Row, s); // need it for logging anyway
@@ -1039,7 +1027,13 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, TxBase::Context* pBa
 
 	Block::Body block;
 	try {
-		ReadBody(block, bbP, bbE);
+		Deserializer der;
+		der.reset(bbP);
+		der & Cast::Down<Block::BodyBase>(block);
+		der & Cast::Down<TxVectors::Perishable>(block);
+
+		der.reset(bbE);
+		der & Cast::Down<TxVectors::Eternal>(block);
 	}
 	catch (const std::exception&) {
 		LOG_WARNING() << id << " Block deserialization failed";
@@ -1051,12 +1045,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, TxBase::Context* pBa
 	for (size_t i = 0; i < vKrnID.size(); i++)
 		block.m_vKernels[i]->get_ID(vKrnID[i]);
 
-	bool bFirstTime = false;
-
-	if (rbData.m_Buf.empty())
+	bool bFirstTime = (m_DB.get_StateTxos(sid.m_Row) == MaxHeight);
+	if (bFirstTime)
 	{
-		bFirstTime = true;
-
 		Difficulty::Raw wrk = m_Cursor.m_Full.m_ChainWork + s.m_PoW.m_Difficulty;
 
 		if (wrk != s.m_ChainWork)
@@ -1183,9 +1174,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, TxBase::Context* pBa
 
 		if (bOk)
 		{
-			rbData.Import(block);
-			m_DB.SetStateRollback(sid.m_Row, rbData.m_Buf);
-
 			ECC::Scalar offsAcc = block.m_Offset;
 
 			if (sid.m_Height > Rules::HeightGenesis)
