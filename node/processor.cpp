@@ -114,6 +114,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	InitCursor();
 
 	InitializeUtxos();
+	m_Extra.m_Txos = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
 
 	OnHorizonChanged();
 
@@ -1254,7 +1255,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd, TxBase::C
 				m_DB.TxoSetSpent(x.m_ID, sid.m_Height);
 			}
 
-			TxoID id0 = m_Extra.m_Txos - block.m_vOutputs.size();
+			assert(m_Extra.m_Txos > block.m_vOutputs.size());
+			TxoID id0 = m_Extra.m_Txos - block.m_vOutputs.size() - 1;
 			Serializer ser;
 
 			for (size_t i = 0; i < block.m_vOutputs.size(); i++, id0++)
@@ -1464,10 +1466,20 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 
 bool NodeProcessor::HandleValidatedBlock(TxBase::IReader&& r, const Block::BodyBase& body, Height h, bool bFwd, const Height* pHMax)
 {
+	// make sure we adjust txo count, to prevent the same Txos for consecutive blocks after cut-through
+	if (!bFwd)
+	{
+		assert(m_Extra.m_Txos);
+		m_Extra.m_Txos--;
+	}
+
 	if (!HandleValidatedTx(std::move(r), h, bFwd, pHMax))
 		return false;
 
 	// currently there's no extra info in the block that's needed
+
+	if (bFwd)
+		m_Extra.m_Txos++;
 
 	return true;
 }
@@ -1756,6 +1768,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnTreasury(const Blob& blob)
 		return DataStatus::Invalid;
 
 	assert(m_Extra.m_TreasuryHandled);
+	m_Extra.m_Txos++;
 	m_DB.ParamSet(NodeDB::ParamID::Treasury, &m_Extra.m_Txos, &blob);
 
 	LOG_INFO() << "Treasury verified";
@@ -2688,8 +2701,6 @@ void NodeProcessor::InitializeUtxos()
 
 		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate) override
 		{
-			m_This.m_Extra.m_Txos = wlk.m_ID + 1;
-
 			if (wlk.m_SpendHeight != MaxHeight)
 				return true;
 
@@ -2703,7 +2714,7 @@ void NodeProcessor::InitializeUtxos()
 			Output outp;
 			der & outp;
 
-			m_This.m_Extra.m_Txos--;
+			m_This.m_Extra.m_Txos = wlk.m_ID;
 			if (!m_This.HandleBlockElement(outp, hCreate, nullptr, true))
 				OnCorrupted();
 

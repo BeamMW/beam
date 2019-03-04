@@ -1175,7 +1175,7 @@ TxoID NodeDB::get_StateTxos(uint64_t rowid)
 TxoID NodeDB::FindStateByTxoID(StateID& sid, TxoID id0)
 {
 	Recordset rs(*this, Query::StateFindByTxos, "SELECT rowid," TblStates_Height "," TblStates_Txos " FROM " TblStates
-		" WHERE " TblStates_Txos ">? AND " TblStates_Flags "& ? != 0  ORDER BY " TblStates_Txos " ASC," TblStates_Height " ASC LIMIT 1");
+		" WHERE " TblStates_Txos ">? AND " TblStates_Flags "& ? != 0  ORDER BY " TblStates_Txos " ASC LIMIT 1");
 	rs.put(0, id0);
 	rs.put(1, StateFlags::Active);
 	rs.StepStrict();
