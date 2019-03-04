@@ -39,6 +39,8 @@ after_build:
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli-testnet-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet-testnet.exe c:/projects/beam/wallet/beam-wallet.cfg
     
     7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api-testnet-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/wallet-api-testnet.exe c:/projects/beam/wallet/wallet-api.cfg
+
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node-testnet-%BEAM_VERSION%.zip c:/projects/beam/explorer/%BUILD_CONFIG%/explorer-node-testnet.exe c:/projects/beam/explorer/explorer-node.cfg
         
     mkdir pdb
     
@@ -49,6 +51,8 @@ after_build:
     copy c:\projects\beam\beam\%BUILD_CONFIG%\beam-wallet-cli-testnet-%BEAM_VERSION%.zip c:\projects\beam\beam-wallet-cli-testnet-%BEAM_VERSION%.zip
 
     copy c:\projects\beam\beam\%BUILD_CONFIG%\wallet-api-testnet-%BEAM_VERSION%.zip c:\projects\beam\wallet-api-testnet-%BEAM_VERSION%.zip
+
+    copy c:\projects\beam\beam\%BUILD_CONFIG%\explorer-node-testnet-%BEAM_VERSION%.zip c:\projects\beam\explorer-node-testnet-%BEAM_VERSION%.zip
 
     copy c:\projects\beam\beam\beam-pdb-testnet-%BEAM_VERSION%.zip c:\projects\beam\pdb\beam-pdb-testnet-%BEAM_VERSION%.zip
 
@@ -66,8 +70,9 @@ on_success:
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api-testnet-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/wallet-api-testnet-%BEAM_VERSION%.zip"
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWalletTestnet-%BEAM_VERSION%-win64.exe" "%BUILDS_SERVER_PATH%/Beam-Wallet-Testnet-%BEAM_VERSION%.exe"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node-testnet-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/explorer-node-testnet-%BEAM_VERSION%.zip"
 
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWalletTestnet-%BEAM_VERSION%-win64.exe" "%BUILDS_SERVER_PATH%/Beam-Wallet-Testnet-%BEAM_VERSION%.exe"
 
     curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/beam-pdb-testnet-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/pdb/beam-pdb-testnet-%BEAM_VERSION%.zip"
 
@@ -80,6 +85,9 @@ artifacts:
 
   - path: wallet-api-testnet-%BEAM_VERSION%.zip
     name: BeamWalletApi
+
+  - path: explorer-node-testnet-%BEAM_VERSION%.zip
+    name: BeamNodeExplorer
 
   - path: pdb/beam-pdb-testnet-%BEAM_VERSION%.zip
     name: BeamPdb
@@ -98,7 +106,7 @@ deploy:
   unzip: false
   set_public: true
   folder: "%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win/"
-  artifact: BeamPdb, BeamWalletApi, BeamWalletCli, BeamNode, BeamWallet
+  artifact: BeamPdb, BeamWalletApi, BeamNodeExplorer, BeamWalletCli, BeamNode, BeamWallet
 
 notifications:
   - provider: Email

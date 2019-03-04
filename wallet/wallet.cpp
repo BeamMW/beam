@@ -236,17 +236,17 @@ namespace beam
 #undef THE_MACRO
     }
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, Height lifetime, ByteBuffer&& message)
+    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message)
     {
-        return transfer_money(from, to, AmountList{ amount }, fee, {}, sender, lifetime, move(message));
+        return transfer_money(from, to, AmountList{ amount }, fee, {}, sender, lifetime, responseTime, move(message));
     }
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, ByteBuffer&& message)
+    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message)
     {
-        return transfer_money(from, to, AmountList{ amount }, fee, coins, sender, lifetime, move(message));
+        return transfer_money(from, to, AmountList{ amount }, fee, coins, sender, lifetime, responseTime, move(message));
     }
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, ByteBuffer&& message)
+    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message)
     {
         auto receiverAddr = m_WalletDB->getAddress(to);
 
@@ -291,9 +291,9 @@ namespace beam
         return txID;
     }
 
-    TxID Wallet::split_coins(const WalletID& from, const AmountList& amountList, Amount fee, bool sender, Height lifetime,  ByteBuffer&& message)
+    TxID Wallet::split_coins(const WalletID& from, const AmountList& amountList, Amount fee, bool sender, Height lifetime, Height responseTime,  ByteBuffer&& message)
     {
-        return transfer_money(from, from, amountList, fee, {}, sender, lifetime, move(message));
+        return transfer_money(from, from, amountList, fee, {}, sender, lifetime, responseTime, move(message));
     }
 
     TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount)
