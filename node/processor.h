@@ -51,8 +51,6 @@ class NodeProcessor
 	void InitializeUtxos();
 	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, Height hTarget);
 
-	struct RollbackData;
-
 	bool HandleTreasury(const Blob&);
 
 	bool HandleBlock(const NodeDB::StateID&, TxBase::Context* pBatch);

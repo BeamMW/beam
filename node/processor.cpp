@@ -718,7 +718,7 @@ Height NodeProcessor::RaiseFossil(Height hTrg)
 		for (m_DB.EnumStatesAt(ws, m_Extra.m_Fossil); ws.MoveNext(); )
 		{
 			if (NodeDB::StateFlags::Active & m_DB.GetStateFlags(ws.m_Sid.m_Row))
-				m_DB.DelStateBlockPRB(ws.m_Sid.m_Row);
+				m_DB.DelStateBlockPP(ws.m_Sid.m_Row);
 			else
 			{
 				m_DB.SetStateNotFunctional(ws.m_Sid.m_Row);
@@ -836,58 +836,6 @@ void NodeProcessor::get_Definition(Merkle::Hash& hv, bool bForNextState)
 	get_Definition(hv, bForNextState ? m_Cursor.m_HistoryNext : m_Cursor.m_History);
 }
 
-struct NodeProcessor::RollbackData
-{
-	// helper structures for rollback
-	struct Utxo {
-		Height m_Maturity; // the extra info we need to restore an UTXO, in addition to the Input.
-		TxoID m_ID;
-	};
-
-	ByteBuffer m_Buf;
-
-	void Import(const TxVectors::Perishable& txv)
-	{
-		if (txv.m_vInputs.empty())
-			m_Buf.push_back(0); // make sure it's not empty, even if there were no inputs, this is how we distinguish processed blocks.
-		else
-		{
-			m_Buf.resize(sizeof(Utxo) * txv.m_vInputs.size());
-
-			Utxo* pDst = reinterpret_cast<Utxo*>(&m_Buf.front());
-
-			for (size_t i = 0; i < txv.m_vInputs.size(); i++)
-			{
-				Utxo& dst = pDst[i];
-				const Input& src = *txv.m_vInputs[i];
-
-				dst.m_Maturity = src.m_Maturity;
-				dst.m_ID = src.m_ID;
-			}
-		}
-	}
-
-	void Export(TxVectors::Perishable& txv) const
-	{
-		if (txv.m_vInputs.empty())
-			return;
-
-		if (sizeof(Utxo) * txv.m_vInputs.size() != m_Buf.size())
-			OnCorrupted();
-
-		const Utxo* pDst = reinterpret_cast<const Utxo*>(&m_Buf.front());
-
-		for (size_t i = 0; i < txv.m_vInputs.size(); i++)
-		{
-			const Utxo& dst = pDst[i];
-			Input& src = *txv.m_vInputs[i];
-
-			src.m_Maturity = dst.m_Maturity;
-			src.m_ID = dst.m_ID;
-		}
-	}
-};
-
 uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, TxBase::IReader&& r, Height h, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes)
 {
 	uint64_t iRet = uint64_t (-1);
@@ -921,7 +869,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 	uint64_t rowid = FindActiveAtStrict(h);
 
 	ByteBuffer bbE;
-	m_DB.GetStateBlock(rowid, NULL, &bbE, NULL);
+	m_DB.GetStateBlock(rowid, nullptr, &bbE);
 
 	TxVectors::Eternal txve;
 	TxVectors::Perishable txvp; // dummy
@@ -1017,7 +965,7 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, TxBase::Context* pBatch)
 {
 	ByteBuffer bbP, bbE;
-	m_DB.GetStateBlock(sid.m_Row, &bbP, &bbE, nullptr);
+	m_DB.GetStateBlock(sid.m_Row, &bbP, &bbE);
 
 	Block::SystemState::Full s;
 	m_DB.get_State(sid.m_Row, s); // need it for logging anyway
@@ -1677,7 +1625,7 @@ void NodeProcessor::RollbackTo(Height h)
 	{
 		txve.m_vKernels.clear();
 		bbE.clear();
-		m_DB.GetStateBlock(m_Cursor.m_Sid.m_Row, nullptr, &bbE, nullptr);
+		m_DB.GetStateBlock(m_Cursor.m_Sid.m_Row, nullptr, &bbE);
 
 		Deserializer der;
 		der.reset(bbE);
@@ -2298,7 +2246,7 @@ bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& 
 void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::StateID& sid)
 {
 	ByteBuffer bbE;
-	m_DB.GetStateBlock(sid.m_Row, nullptr, &bbE, nullptr);
+	m_DB.GetStateBlock(sid.m_Row, nullptr, &bbE);
 
 	Deserializer der;
 	der.reset(bbE);
@@ -2621,7 +2569,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 
 		m_DB.SetStateFunctional(sid.m_Row);
 
-		m_DB.DelStateBlockPRB(sid.m_Row); // if somehow it was downloaded
+		m_DB.DelStateBlockPP(sid.m_Row); // if somehow it was downloaded
 
 		txv.m_vKernels.clear();
 		bbE.clear();
@@ -2852,7 +2800,7 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 		return false;
 
 	bool bFullBlock = (sid.m_Height >= hHi1);
-	m_DB.GetStateBlock(sid.m_Row, bFullBlock ? &bbPerishable : nullptr, &bbEthernal, NULL);
+	m_DB.GetStateBlock(sid.m_Row, bFullBlock ? &bbPerishable : nullptr, &bbEthernal);
 
 	if (!bbPerishable.empty())
 		return true;

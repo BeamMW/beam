@@ -104,7 +104,6 @@ public:
 			StateGetBlock,
 			StateSetBlock,
 			StateDelBlock,
-			StateSetRollback,
 			EventIns,
 			EventDel,
 			EventEnum,
@@ -258,9 +257,8 @@ public:
 	TxoID get_StateTxos(uint64_t rowid);
 
 	void SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE);
-	void GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteBuffer* pRollback);
-	void SetStateRollback(uint64_t rowid, const Blob& rollback);
-	void DelStateBlockPRB(uint64_t rowid); // delete perishable, rollback, peer. Keep ethernal
+	void GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE);
+	void DelStateBlockPP(uint64_t rowid); // delete perishable, peer. Keep ethernal
 	void DelStateBlockAll(uint64_t rowid);
 
 	struct StateID {

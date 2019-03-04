@@ -288,17 +288,14 @@ namespace beam
 		db.set_Peer(pRows[0], NULL);
 		verify_test(!db.get_Peer(pRows[0], peer2));
 
-		ByteBuffer bbBodyP, bbBodyE, bbRollback;
-		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
+		ByteBuffer bbBodyP, bbBodyE;
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE);
 
-		db.SetStateRollback(pRows[0], bBodyP);
-		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
-
-		//db.DelStateBlockPRB(pRows[0]);
-		//db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
+		//db.DelStateBlockPP(pRows[0]);
+		//db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE);
 
 		db.DelStateBlockAll(pRows[0]);
-		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE);
 
 		tr.Commit();
 		tr.Start(db);

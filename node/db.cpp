@@ -38,7 +38,6 @@ namespace beam {
 #define TblStates_Mmr			"Mmr"
 #define TblStates_BodyP			"Perishable"
 #define TblStates_BodyE			"Ethernal"
-#define TblStates_Rollback		"Rollback"
 #define TblStates_Peer			"Peer"
 #define TblStates_ChainWork		"ChainWork"
 #define TblStates_Txos			"Txos"
@@ -318,6 +317,8 @@ void NodeDB::Open(const char* szPath)
 			ExecQuick("ALTER TABLE [" TblStates "] ADD [" TblStates_Txos "] INTEGER");
 			ExecQuick("CREATE INDEX [Idx" TblStates TblStates_Txos "] ON [" TblStates "] ([" TblStates_Txos "]);");
 
+			// rebuild States. Remove "Rollback" column
+
 			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
 			// no break;
 
@@ -364,7 +365,6 @@ void NodeDB::Create()
 		"[" TblStates_Mmr			"] BLOB,"
 		"[" TblStates_BodyP			"] BLOB,"
 		"[" TblStates_BodyE			"] BLOB,"
-		"[" TblStates_Rollback		"] BLOB,"
 		"[" TblStates_Peer			"] BLOB,"
 		"[" TblStates_ChainWork		"] BLOB,"
 		"[" TblStates_Txos			"] INTEGER,"
@@ -1200,9 +1200,9 @@ void NodeDB::SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE)
 	TestChanged1Row();
 }
 
-void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteBuffer* pRollback)
+void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE)
 {
-	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_BodyP "," TblStates_BodyE "," TblStates_Rollback " FROM " TblStates " WHERE rowid=?");
+	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_BodyP "," TblStates_BodyE " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 	rs.StepStrict();
 
@@ -1210,23 +1210,11 @@ void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteB
 		rs.get(0, *pP);
 	if (pE && !rs.IsNull(1))
 		rs.get(1, *pE);
-	if (pRollback && !rs.IsNull(2))
-		rs.get(2, *pRollback);
 }
 
-void NodeDB::SetStateRollback(uint64_t rowid, const Blob& rollback)
+void NodeDB::DelStateBlockPP(uint64_t rowid)
 {
-	Recordset rs(*this, Query::StateSetRollback, "UPDATE " TblStates " SET " TblStates_Rollback "=? WHERE rowid=?");
-	rs.put(0, rollback);
-	rs.put(1, rowid);
-
-	rs.Step();
-	TestChanged1Row();
-}
-
-void NodeDB::DelStateBlockPRB(uint64_t rowid)
-{
-	Recordset rs(*this, Query::StateDelBlock, "UPDATE " TblStates " SET " TblStates_BodyP "=NULL," TblStates_Rollback "=NULL," TblStates_Peer "=NULL WHERE rowid=?");
+	Recordset rs(*this, Query::StateDelBlock, "UPDATE " TblStates " SET " TblStates_BodyP "=NULL," TblStates_Peer "=NULL WHERE rowid=?");
 	rs.put(0, rowid);
 	rs.Step();
 	TestChanged1Row();
@@ -1236,7 +1224,6 @@ void NodeDB::DelStateBlockAll(uint64_t rowid)
 {
 	Blob bEmpty(NULL, 0);
 	SetStateBlock(rowid, bEmpty, bEmpty);
-	SetStateRollback(rowid, bEmpty);
 }
 
 void NodeDB::SetFlags(uint64_t rowid, uint32_t n)
