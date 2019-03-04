@@ -1025,7 +1025,7 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 	return true;
 }
 
-bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd, TxBase::Context* pBatch)
+bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, TxBase::Context* pBatch)
 {
 	ByteBuffer bbP, bbE;
 	RollbackData rbData;
@@ -1053,124 +1053,116 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd, TxBase::C
 
 	bool bFirstTime = false;
 
-	if (bFwd)
+	if (rbData.m_Buf.empty())
 	{
-		if (rbData.m_Buf.empty())
+		bFirstTime = true;
+
+		Difficulty::Raw wrk = m_Cursor.m_Full.m_ChainWork + s.m_PoW.m_Difficulty;
+
+		if (wrk != s.m_ChainWork)
 		{
-			bFirstTime = true;
+			LOG_WARNING() << id << " Chainwork expected=" << wrk <<", actual=" << s.m_ChainWork;
+			return false;
+		}
 
-			Difficulty::Raw wrk = m_Cursor.m_Full.m_ChainWork + s.m_PoW.m_Difficulty;
+		if (m_Cursor.m_DifficultyNext.m_Packed != s.m_PoW.m_Difficulty.m_Packed)
+		{
+			LOG_WARNING() << id << " Difficulty expected=" << m_Cursor.m_DifficultyNext << ", actual=" << s.m_PoW.m_Difficulty;
+			return false;
+		}
 
-			if (wrk != s.m_ChainWork)
-			{
-				LOG_WARNING() << id << " Chainwork expected=" << wrk <<", actual=" << s.m_ChainWork;
-				return false;
+		if (s.m_TimeStamp <= get_MovingMedian())
+		{
+			LOG_WARNING() << id << " Timestamp inconsistent wrt median";
+			return false;
+		}
+
+		struct MyFlyMmr :public Merkle::FlyMmr {
+			const Merkle::Hash* m_pHashes;
+			virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
+				hv = m_pHashes[n];
 			}
+		};
 
-			if (m_Cursor.m_DifficultyNext.m_Packed != s.m_PoW.m_Difficulty.m_Packed)
+		MyFlyMmr fmmr;
+		fmmr.m_Count = vKrnID.size();
+		fmmr.m_pHashes = vKrnID.empty() ? NULL : &vKrnID.front();
+
+		Merkle::Hash hv;
+		fmmr.get_Hash(hv);
+
+		if (s.m_Kernels != hv)
+		{
+			LOG_WARNING() << id << " Kernel commitment mismatch";
+			return false;
+		}
+
+		bool bValid;
+
+		if (pBatch)
+		{
+			// In batch mode some outputs may be 'naked'. We'll add them as-is
+			class ReaderEx
+				:public TxVectors::Reader
 			{
-				LOG_WARNING() << id << " Difficulty expected=" << m_Cursor.m_DifficultyNext << ", actual=" << s.m_PoW.m_Difficulty;
-				return false;
-			}
-
-			if (s.m_TimeStamp <= get_MovingMedian())
-			{
-				LOG_WARNING() << id << " Timestamp inconsistent wrt median";
-				return false;
-			}
-
-			struct MyFlyMmr :public Merkle::FlyMmr {
-				const Merkle::Hash* m_pHashes;
-				virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
-					hv = m_pHashes[n];
-				}
-			};
-
-			MyFlyMmr fmmr;
-			fmmr.m_Count = vKrnID.size();
-			fmmr.m_pHashes = vKrnID.empty() ? NULL : &vKrnID.front();
-
-			Merkle::Hash hv;
-			fmmr.get_Hash(hv);
-
-			if (s.m_Kernels != hv)
-			{
-				LOG_WARNING() << id << " Kernel commitment mismatch";
-				return false;
-			}
-
-			bool bValid;
-
-			if (pBatch)
-			{
-				// In batch mode some outputs may be 'naked'. We'll add them as-is
-				class ReaderEx
-					:public TxVectors::Reader
+				void SkipNaked()
 				{
-					void SkipNaked()
-					{
-						while (m_pUtxoOut && IsNaked(*m_pUtxoOut))
-							TxVectors::Reader::NextUtxoOut();
-					}
-				public:
-					ReaderEx(const TxVectors::Perishable& p, const TxVectors::Eternal& e)
-						:TxVectors::Reader(p, e) {
-					}
-
-					static bool IsNaked(const Output& x)
-					{
-						return !(x.m_pConfidential || x.m_pPublic);
-					}
-
-					void Clone(Ptr& pOut) override {
-						pOut.reset(new ReaderEx(m_P, m_E));
-					}
-					void Reset() override {
-						TxVectors::Reader::Reset();
-						SkipNaked();
-					}
-					void NextUtxoOut() override {
+					while (m_pUtxoOut && IsNaked(*m_pUtxoOut))
 						TxVectors::Reader::NextUtxoOut();
-						SkipNaked();
-					};
+				}
+			public:
+				ReaderEx(const TxVectors::Perishable& p, const TxVectors::Eternal& e)
+					:TxVectors::Reader(p, e) {
+				}
 
+				static bool IsNaked(const Output& x)
+				{
+					return !(x.m_pConfidential || x.m_pPublic);
+				}
+
+				void Clone(Ptr& pOut) override {
+					pOut.reset(new ReaderEx(m_P, m_E));
+				}
+				void Reset() override {
+					TxVectors::Reader::Reset();
+					SkipNaked();
+				}
+				void NextUtxoOut() override {
+					TxVectors::Reader::NextUtxoOut();
+					SkipNaked();
 				};
 
-				ReaderEx r(block, block);
-				bValid = ValidateAndSummarize(*pBatch, block, std::move(r), false, false);
+			};
 
-				for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-				{
-					const Output& x = *block.m_vOutputs[i];
-					if (ReaderEx::IsNaked(x))
-					{
-						// add it as-is
-						ECC::Point::Native pt;
-						if (pt.Import(x.m_Commitment))
-							pBatch->m_Sigma += pt;
-						else
-							bValid = false;
-					}
-				}
-				
-			}
-			else
-				bValid = VerifyBlock(block, block.get_Reader(), sid.m_Height);
+			ReaderEx r(block, block);
+			bValid = ValidateAndSummarize(*pBatch, block, std::move(r), false, false);
 
-			if (!bValid)
+			for (size_t i = 0; i < block.m_vOutputs.size(); i++)
 			{
-				LOG_WARNING() << id << " context-free verification failed";
-				return false;
+				const Output& x = *block.m_vOutputs[i];
+				if (ReaderEx::IsNaked(x))
+				{
+					// add it as-is
+					ECC::Point::Native pt;
+					if (pt.Import(x.m_Commitment))
+						pBatch->m_Sigma += pt;
+					else
+						bValid = false;
+				}
 			}
+				
+		}
+		else
+			bValid = VerifyBlock(block, block.get_Reader(), sid.m_Height);
+
+		if (!bValid)
+		{
+			LOG_WARNING() << id << " context-free verification failed";
+			return false;
 		}
 	}
-	else
-	{
-		assert(!rbData.m_Buf.empty());
-		rbData.Export(block);
-	}
 
-	bool bOk = HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, bFwd);
+	bool bOk = HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, true);
 	if (!bOk)
 		LOG_WARNING() << id << " invalid in its context";
 
@@ -1228,47 +1220,32 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, bool bFwd, TxBase::C
 	if (bOk)
 	{
 		for (size_t i = 0; i < vKrnID.size(); i++)
+			m_DB.InsertKernel(vKrnID[i], sid.m_Height);
+
+		for (size_t i = 0; i < block.m_vInputs.size(); i++)
 		{
-			const Merkle::Hash& hv = vKrnID[i];
-			if (bFwd)
-				m_DB.InsertKernel(hv, sid.m_Height);
-			else
-				m_DB.DeleteKernel(hv, sid.m_Height);
+			const Input& x = *block.m_vInputs[i];
+			m_DB.TxoSetSpent(x.m_ID, sid.m_Height);
 		}
 
-		if (bFwd)
+		assert(m_Extra.m_Txos > block.m_vOutputs.size());
+		TxoID id0 = m_Extra.m_Txos - block.m_vOutputs.size() - 1;
+		Serializer ser;
+
+		for (size_t i = 0; i < block.m_vOutputs.size(); i++, id0++)
 		{
-			for (size_t i = 0; i < block.m_vInputs.size(); i++)
-			{
-				const Input& x = *block.m_vInputs[i];
-				m_DB.TxoSetSpent(x.m_ID, sid.m_Height);
-			}
+			ser.reset();
+			ser & *block.m_vOutputs[i];
 
-			assert(m_Extra.m_Txos > block.m_vOutputs.size());
-			TxoID id0 = m_Extra.m_Txos - block.m_vOutputs.size() - 1;
-			Serializer ser;
-
-			for (size_t i = 0; i < block.m_vOutputs.size(); i++, id0++)
-			{
-				ser.reset();
-				ser & *block.m_vOutputs[i];
-
-				SerializeBuffer sb = ser.buffer();
-				m_DB.TxoAdd(id0, Blob(sb.first, static_cast<uint32_t>(sb.second)));
-			}
-
-			auto r = block.get_Reader();
-			r.Reset();
-			RecognizeUtxos(std::move(r), sid.m_Height);
-		}
-		else
-		{
-			m_DB.TxoDelFrom(m_Extra.m_Txos);
-			m_DB.TxoDelSpentFrom(sid.m_Height);
-			m_DB.DeleteEventsFrom(sid.m_Height);
+			SerializeBuffer sb = ser.buffer();
+			m_DB.TxoAdd(id0, Blob(sb.first, static_cast<uint32_t>(sb.second)));
 		}
 
-		LOG_INFO() << id << " Block interpreted. Fwd=" << bFwd;
+		auto r = block.get_Reader();
+		r.Reset();
+		RecognizeUtxos(std::move(r), sid.m_Height);
+
+		LOG_INFO() << id << " Block interpreted.";
 	}
 
 	return bOk;
@@ -1619,7 +1596,7 @@ bool NodeProcessor::GoForward(uint64_t row, TxBase::Context* pBatch)
 	sid.m_Height = m_Cursor.m_Sid.m_Height + 1;
 	sid.m_Row = row;
 
-	if (HandleBlock(sid, true, pBatch))
+	if (HandleBlock(sid, pBatch))
 	{
 		m_DB.MoveFwd(sid);
 		InitCursor();

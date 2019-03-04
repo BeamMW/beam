@@ -55,7 +55,7 @@ class NodeProcessor
 
 	bool HandleTreasury(const Blob&);
 
-	bool HandleBlock(const NodeDB::StateID&, bool bFwd, TxBase::Context* pBatch);
+	bool HandleBlock(const NodeDB::StateID&, TxBase::Context* pBatch);
 	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, const Height* = NULL);
 	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, const Height* = NULL);
 	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd);
