@@ -274,6 +274,7 @@ void NodeDB::Open(const char* szPath)
 	sqlite3_busy_timeout(m_pDb, 5000);
 
 	ExecTextOut("PRAGMA locking_mode = EXCLUSIVE");
+	ExecTextOut("PRAGMA journal_size_limit=1048576"); // limit journal file, otherwise it may remain huge even after tx commit, until the app is closed
 
 	bool bCreate;
 	{
