@@ -2309,23 +2309,74 @@ bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& 
 
 void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::StateID& sid)
 {
-	ByteBuffer bbP, bbE;
-	RollbackData rbData;
-	m_DB.GetStateBlock(sid.m_Row, &bbP, &bbE, &rbData.m_Buf);
+	ByteBuffer bbE;
+	m_DB.GetStateBlock(sid.m_Row, nullptr, &bbE, nullptr);
 
-	ReadBody(block, bbP, bbE);
-	rbData.Export(block);
-
-	for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-	{
-		Output& v = *block.m_vOutputs[i];
-		v.m_Maturity = v.get_MinMaturity(sid.m_Height);
-	}
-
-	block.NormalizeP(); // needed, since the maturity is adjusted non-even
+	Deserializer der;
+	der.reset(bbE);
+	der & Cast::Down<TxVectors::Eternal>(block);
 
 	for (size_t i = 0; i < block.m_vKernels.size(); i++)
 		block.m_vKernels[i]->m_Maturity = sid.m_Height;
+
+	TxoID id0;
+	TxoID id1 = m_DB.get_StateTxos(sid.m_Row);
+
+	if (!m_DB.get_StateExtra(sid.m_Row, block.m_Offset))
+		OnCorrupted();
+
+	uint64_t rowid = sid.m_Row;
+	if (m_DB.get_Prev(rowid))
+	{
+		AdjustOffset(block.m_Offset, rowid, false);
+		id0 = m_DB.get_StateTxos(rowid);
+	}
+	else
+		id0 = get_TxosBefore(Rules::HeightGenesis);
+
+	// inputs
+	NodeDB::WalkerTxo wlk(m_DB);
+	for (m_DB.EnumTxosBySpent(wlk, sid.m_Height); wlk.MoveNext(); )
+	{
+		assert(wlk.m_SpendHeight == sid.m_Height);
+
+		uint8_t pNaked[s_TxoNakedMax];
+		TxoToNaked(pNaked, wlk.m_Value);
+
+		der.reset(wlk.m_Value.p, wlk.m_Value.n);
+
+		Output outp;
+		der & outp;
+
+		NodeDB::StateID sidPrev;
+		m_DB.FindStateByTxoID(sidPrev, wlk.m_ID); // relatively heavy operation: search for the original txo height
+
+
+		block.m_vInputs.emplace_back();
+		Input::Ptr& pInp = block.m_vInputs.back();
+		pInp.reset(new Input);
+
+		pInp->m_Commitment = outp.m_Commitment;
+		pInp->m_Maturity = outp.get_MinMaturity(sidPrev.m_Height);
+	}
+
+	// outputs
+	for (m_DB.EnumTxos(wlk, id0); wlk.MoveNext(); )
+	{
+		if (wlk.m_ID >= id1)
+			break;
+
+		block.m_vOutputs.emplace_back();
+		Output::Ptr& pOutp = block.m_vOutputs.back();
+		pOutp.reset(new Output);
+
+		der.reset(wlk.m_Value.p, wlk.m_Value.n);
+		der & *pOutp;
+
+		pOutp->m_Maturity = pOutp->get_MinMaturity(sid.m_Height);
+	}
+
+	block.NormalizeP();
 }
 
 void NodeProcessor::SquashOnce(std::vector<Block::Body>& v)
