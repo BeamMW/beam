@@ -310,7 +310,7 @@ void NodeDB::Open(const char* szPath)
 			ExecQuick("DROP TABLE [" TblDummy "]");
 			CreateTableDummy();
 			// no break;
-/*
+
 		case nVersionMacro0:
 			CreateTableTxos();
 			ExecQuick("ALTER TABLE [" TblStates "] ADD [" TblStates_Extra "] BLOB");
@@ -318,10 +318,11 @@ void NodeDB::Open(const char* szPath)
 			ExecQuick("CREATE INDEX [Idx" TblStates TblStates_Txos "] ON [" TblStates "] ([" TblStates_Txos "]);");
 
 			// rebuild States. Remove "Rollback" column
+			ThrowError("upgrade not supported yet");
 
 			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
 			// no break;
-*/
+
 		case nVersionTop:
 			break;
 
