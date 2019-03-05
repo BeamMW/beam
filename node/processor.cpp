@@ -113,6 +113,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	InitCursor();
 
+	LOG_INFO() << "Loading UTXOs...";
 	InitializeUtxos();
 	m_Extra.m_Txos = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
 
@@ -564,10 +565,14 @@ void NodeProcessor::GoUpFast()
 	assert(m_SyncData.m_Target.m_Row);
 	assert(m_Cursor.m_ID.m_Height == m_SyncData.m_h0);
 
+	LOG_INFO() << "Interpreting Fast-sync data...";
+
 	bool bRet = GoUpFastInternal();
 
 	if (bRet)
 	{
+		LOG_INFO() << "Fast-sync succeeded";
+
 		// raise fossil height, hTxoLo, hTxoHi
 		RaiseFossil(m_Cursor.m_ID.m_Height);
 		RaiseTxoHi(m_Cursor.m_ID.m_Height);
@@ -578,6 +583,8 @@ void NodeProcessor::GoUpFast()
 	}
 	else
 	{
+		LOG_WARNING() << "Fast-sync failed";
+
 		// rapid rollback
 		RollbackTo(m_SyncData.m_h0);
 		DeleteBlocksInRange(m_SyncData.m_Target, m_SyncData.m_h0);
@@ -625,6 +632,8 @@ bool NodeProcessor::GoUpFastInternal()
 	{
 		if (!GoForward(vPath[i], &ctx))
 			return false;
+
+		m_DB.DelStateBlockAll(vPath[i]); // can delete it right away, since we don't need the block for rollback (in case fast-sync fails)
 	}
 
 	bool bOk =
@@ -1181,7 +1190,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, TxBase::Context* pBa
 		r.Reset();
 		RecognizeUtxos(std::move(r), sid.m_Height);
 
-		LOG_INFO() << id << " Block interpreted.";
+		if (!pBatch) {
+			LOG_INFO() << id << " Block interpreted.";
+		}
 	}
 
 	return bOk;
