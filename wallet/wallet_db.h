@@ -49,13 +49,13 @@ namespace beam
             ChangeV0, // deprecated.
             Spent,
 
-			count
+            count
         };
 
         Coin(Amount amount = 0, Key::Type keyType = Key::Type::Regular);
-		bool operator==(const Coin&) const;
-		bool operator!=(const Coin&) const;
-		bool isReward() const;
+        bool operator==(const Coin&) const;
+        bool operator!=(const Coin&) const;
+        bool isReward() const;
         std::string toStringID() const;
         Amount getAmount() const;
 
@@ -65,13 +65,13 @@ namespace beam
         Status m_status;
         Height m_maturity;      // coin can be spent only when chain is >= this value. Valid for confirmed coins (Available, Outgoing, Incoming, Change, Spent, Maturing).
         Height m_confirmHeight;
-		Height m_spentHeight;
-		boost::optional<TxID> m_createTxId;
+        Height m_spentHeight;
+        boost::optional<TxID> m_createTxId;
         boost::optional<TxID> m_spentTxId;
         uint32_t m_sessionId;
 
-		bool IsMaturityValid() const; // is/was the UTXO confirmed?
-		Height get_Maturity() const; // would return MaxHeight unless the UTXO was confirmed
+        bool IsMaturityValid() const; // is/was the UTXO confirmed?
+        Height get_Maturity() const; // would return MaxHeight unless the UTXO was confirmed
         static boost::optional<Coin::ID> FromString(const std::string& str);
     };
 
@@ -85,32 +85,16 @@ namespace beam
         Timestamp m_createTime;
         uint64_t  m_duration; // if it equals 0 then address never expires
         uint64_t  m_OwnID; // set for own address
+        
+        WalletAddress();
+        bool isExpired() const;
+        Timestamp getCreateTime() const;
+        Timestamp getExpirationTime() const;
 
-        bool isExpired() const
-        {
-            return getTimestamp() > getExpirationTime();
-        }
-
-        Timestamp getCreateTime() const
-        {
-            return m_createTime;
-        }
-
-        Timestamp getExpirationTime() const
-        {
-            if (m_duration == 0)
-            {
-                return Timestamp(-1);
-            } 
-            return m_createTime + m_duration;
-        }
-
-        WalletAddress() 
-            : m_walletID(Zero)
-            , m_createTime(0)
-            , m_duration(24 * 60 * 60) // 24h
-            , m_OwnID(false)
-        {}
+        void setLabel(const std::string& label);
+        void makeExpired();
+        void makeActive(uint64_t duration);
+        void makeEternal();
     };
 
     struct TxParameter
@@ -176,7 +160,7 @@ namespace beam
         virtual std::vector<WalletAddress> getAddresses(bool own) const = 0;
         virtual void saveAddress(const WalletAddress&) = 0;
         virtual void setExpirationForAllAddresses(uint64_t expiration) = 0;
-        virtual boost::optional<WalletAddress> getAddress(const WalletID&) = 0;
+        virtual boost::optional<WalletAddress> getAddress(const WalletID&) const = 0;
         virtual void deleteAddress(const WalletID&) = 0;
 
         virtual Timestamp getLastUpdateTime() const = 0;
@@ -240,7 +224,7 @@ namespace beam
         std::vector<WalletAddress> getAddresses(bool own) const override;
         void saveAddress(const WalletAddress&) override;
         void setExpirationForAllAddresses(uint64_t expiration) override;
-        boost::optional<WalletAddress> getAddress(const WalletID&) override;
+        boost::optional<WalletAddress> getAddress(const WalletID&) const override;
         void deleteAddress(const WalletID&) override;
 
         Timestamp getLastUpdateTime() const override;
@@ -267,12 +251,12 @@ namespace beam
         void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
         void notifySystemStateChanged();
         void notifyAddressChanged();
-		void CreateStorageTable();
-		static uint64_t get_RandomID();
-		bool updateRaw(const Coin&);
-		void insertRaw(const Coin&);
-		void insertNew(Coin&);
-		void saveRaw(const Coin&);
+        void CreateStorageTable();
+        static uint64_t get_RandomID();
+        bool updateRaw(const Coin&);
+        void insertRaw(const Coin&);
+        void insertNew(Coin&);
+        void saveRaw(const Coin&);
 
         using ParameterCache = std::map<TxID, std::map<wallet::TxParameterID, boost::optional<ByteBuffer>>>;
 
@@ -280,7 +264,7 @@ namespace beam
         void deleteParametersFromCache(const TxID& txID);
         void insertAddressToCache(const WalletID& id, const boost::optional<WalletAddress>& address) const;
         void deleteAddressFromCache(const WalletID& id);
-	private:
+    private:
 
         sqlite3* _db;
         Key::IKdf::Ptr m_pKdf;
@@ -302,7 +286,7 @@ namespace beam
 
     namespace wallet
     {
-		extern const char g_szPaymentProofRequired[];
+        extern const char g_szPaymentProofRequired[];
 
         template <typename Var>
         void setVar(IWalletDB& db, const char* name, const Var& var)
@@ -357,26 +341,26 @@ namespace beam
         Amount getSpentByTx(const IWalletDB& walletDB, TxStatus status);
         Amount getReceivedByTx(const IWalletDB& walletDB, TxStatus status);
 
-		Coin::Status GetCoinStatus(const IWalletDB&, const Coin&, Height hTop);
-		void DeduceStatus(const IWalletDB&, Coin&, Height hTop);
+        Coin::Status GetCoinStatus(const IWalletDB&, const Coin&, Height hTop);
+        void DeduceStatus(const IWalletDB&, Coin&, Height hTop);
 
-		struct Totals
-		{
-			Amount Avail;
-			Amount Maturing;
-			Amount Incoming;
-			Amount Unavail;
-			Amount Outgoing;
-			Amount AvailCoinbase;
-			Amount Coinbase;
-			Amount AvailFee;
-			Amount Fee;
-			Amount Unspent;
+        struct Totals
+        {
+            Amount Avail;
+            Amount Maturing;
+            Amount Incoming;
+            Amount Unavail;
+            Amount Outgoing;
+            Amount AvailCoinbase;
+            Amount Coinbase;
+            Amount AvailFee;
+            Amount Fee;
+            Amount Unspent;
 
-			Totals() {}
-			Totals(IWalletDB& db) { Init(db); }
-			void Init(IWalletDB&);
-		};
+            Totals() {}
+            Totals(IWalletDB& db) { Init(db); }
+            void Init(IWalletDB&);
+        };
 
         struct PaymentInfo
         {
