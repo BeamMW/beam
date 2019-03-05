@@ -149,7 +149,7 @@ public:
 
 	struct Extra
 	{
-		bool m_TreasuryHandled;
+		TxoID m_TxosTreasury;
 		TxoID m_Txos; // total num of ever created TXOs, including treasury
 
 		Height m_LoHorizon; // lowest accessible height
@@ -183,6 +183,8 @@ public:
 			Unreachable // beyond lo horizon
 		};
 	};
+
+	bool IsTreasuryHandled() const { return m_Extra.m_TxosTreasury > 0; }
 
 	DataStatus::Enum OnState(const Block::SystemState::Full&, const PeerID&);
 	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const Blob& bbP, const Blob& bbE, const PeerID&);

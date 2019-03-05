@@ -495,7 +495,7 @@ void Node::Processor::OnNewState()
 {
     m_Cwp.Reset();
 
-	if (!m_Extra.m_TreasuryHandled)
+	if (!IsTreasuryHandled())
         return;
 
     LOG_INFO() << "My Tip: " << m_Cursor.m_ID << ", Work = " << Difficulty::ToFloat(m_Cursor.m_Full.m_ChainWork);
@@ -815,7 +815,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
     LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
 	LOG_INFO() << "Tx replication is OFF";
 
-	if (!m_Cfg.m_Treasury.empty() && !m_Processor.m_Extra.m_TreasuryHandled) {
+	if (!m_Cfg.m_Treasury.empty() && !m_Processor.IsTreasuryHandled()) {
 		// stupid compiler insists on parentheses here!
 		m_Processor.OnTreasury(Blob(m_Cfg.m_Treasury));
 	}
@@ -1088,7 +1088,7 @@ void Node::Peer::OnConnectedSecure()
 
 	SendLogin();
 
-    if (m_This.m_Processor.m_Extra.m_TreasuryHandled)
+    if (m_This.m_Processor.IsTreasuryHandled())
     {
         proto::NewTip msg;
         msg.m_Description = m_This.m_Processor.m_Cursor.m_Full;
@@ -1647,7 +1647,7 @@ void Node::Peer::OnMsg(proto::GetBody2&& msg)
     }
     else
     {
-        if ((msg.m_ID.m_Hash == Zero) && m_This.m_Processor.m_Extra.m_TreasuryHandled)
+        if ((msg.m_ID.m_Hash == Zero) && m_This.m_Processor.IsTreasuryHandled())
         {
             proto::Body msgBody;
             if (m_This.m_Processor.get_DB().ParamGet(NodeDB::ParamID::Treasury, NULL, NULL, &msgBody.m_Eternal))
@@ -3181,7 +3181,7 @@ bool Node::Miner::Restart()
     if (!IsEnabled())
         return false; //  n/a
 
-    if (!get_ParentObj().m_Processor.m_Extra.m_TreasuryHandled || get_ParentObj().m_Processor.m_SyncData.m_Target.m_Row)
+    if (!get_ParentObj().m_Processor.IsTreasuryHandled() || get_ParentObj().m_Processor.m_SyncData.m_Target.m_Row)
         return false;
 
     m_pTaskToFinalize.reset();

@@ -93,21 +93,16 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	m_nSizeUtxoComission = 0;
 
-	TxoID nTreasury = 0;
-
 	if (Rules::get().TreasuryChecksum == Zero)
-		m_Extra.m_TreasuryHandled = true;
+		m_Extra.m_TxosTreasury = 1; // artificial gap
 	else
-	{
-		if (m_DB.ParamGet(NodeDB::ParamID::Treasury, &nTreasury, nullptr, nullptr))
-			m_Extra.m_TreasuryHandled = true;
-	}
+		m_DB.ParamGet(NodeDB::ParamID::Treasury, &m_Extra.m_TxosTreasury, nullptr, nullptr);
 
 	if (sp.m_ResetCursor)
 	{
 		m_DB.ResetCursor();
 
-		m_DB.TxoDelFrom(nTreasury);
+		m_DB.TxoDelFrom(m_Extra.m_TxosTreasury);
 		m_DB.TxoDelSpentFrom(Rules::HeightGenesis);
 	}
 
@@ -244,7 +239,7 @@ bool NodeProcessor::CongestionCache::TipCongestion::IsContained(const NodeDB::St
 
 NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::EnumCongestionsInternal()
 {
-	assert(m_Extra.m_TreasuryHandled);
+	assert(IsTreasuryHandled());
 
 	CongestionCache cc;
 	cc.m_lstTips.swap(m_CongestionCache.m_lstTips);
@@ -361,7 +356,7 @@ NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::EnumCongestionsInt
 
 void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 {
-	if (!m_Extra.m_TreasuryHandled)
+	if (!IsTreasuryHandled())
 	{
 		Block::SystemState::ID id;
 		ZeroObject(id);
@@ -476,7 +471,7 @@ void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64
 
 void NodeProcessor::TryGoUp()
 {
-	if (!m_Extra.m_TreasuryHandled)
+	if (!IsTreasuryHandled())
 		return;
 
 	bool bDirty = false;
@@ -903,7 +898,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 
 bool NodeProcessor::HandleTreasury(const Blob& blob)
 {
-	assert(!m_Extra.m_TreasuryHandled);
+	assert(!IsTreasuryHandled());
 
 	Deserializer der;
 	der.reset(blob.p, blob.n);
@@ -965,8 +960,6 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 			m_DB.TxoAdd(id0, Blob(sb.first, static_cast<uint32_t>(sb.second)));
 		}
 	}
-
-	m_Extra.m_TreasuryHandled = true;
 
 	return true;
 }
@@ -1753,15 +1746,15 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnTreasury(const Blob& blob)
 	if (Rules::get().TreasuryChecksum != hv)
 		return DataStatus::Invalid;
 
-	if (m_Extra.m_TreasuryHandled)
+	if (IsTreasuryHandled())
 		return DataStatus::Rejected;
 
 	if (!HandleTreasury(blob))
 		return DataStatus::Invalid;
 
-	assert(m_Extra.m_TreasuryHandled);
 	m_Extra.m_Txos++;
-	m_DB.ParamSet(NodeDB::ParamID::Treasury, &m_Extra.m_Txos, &blob);
+	m_Extra.m_TxosTreasury = m_Extra.m_Txos;
+	m_DB.ParamSet(NodeDB::ParamID::Treasury, &m_Extra.m_TxosTreasury, &blob);
 
 	LOG_INFO() << "Treasury verified";
 
@@ -2279,7 +2272,7 @@ void NodeProcessor::ExtractBlockWithExtra(Block::Body& block, const NodeDB::Stat
 		id0 = m_DB.get_StateTxos(rowid);
 	}
 	else
-		id0 = get_TxosBefore(Rules::HeightGenesis);
+		id0 = m_Extra.m_TxosTreasury;
 
 	// inputs
 	NodeDB::WalkerTxo wlk(m_DB);
@@ -2625,18 +2618,12 @@ TxoID NodeProcessor::get_TxosBefore(Height h)
 	if (h < Rules::HeightGenesis)
 		return 0;
 
-	TxoID id;
 	if (Rules::HeightGenesis == h)
-	{
-		id = 0;
-		m_DB.ParamGet(NodeDB::ParamID::Treasury, &id, nullptr, nullptr);
-	}
-	else
-	{
-		id = m_DB.get_StateTxos(FindActiveAtStrict(h - 1));
+		return m_Extra.m_TxosTreasury;
+
+	TxoID id = m_DB.get_StateTxos(FindActiveAtStrict(h - 1));
 		if (MaxHeight == id)
 			OnCorrupted();
-	}
 
 	return id;
 }
@@ -2664,7 +2651,7 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 				break;
 
 			if (h < Rules::HeightGenesis)
-				id1 = get_TxosBefore(Rules::HeightGenesis); // treasury?
+				id1 = m_Extra.m_TxosTreasury;
 
 			if (wlk.m_ID >= id1)
 			{
@@ -2837,7 +2824,7 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 		id0 = m_DB.get_StateTxos(rowid);
 	}
 	else
-		id0 = get_TxosBefore(Rules::HeightGenesis);
+		id0 = m_Extra.m_TxosTreasury;
 
 	uintBigFor<uint32_t>::Type nCount(Zero);
 
