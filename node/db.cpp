@@ -310,7 +310,7 @@ void NodeDB::Open(const char* szPath)
 			ExecQuick("DROP TABLE [" TblDummy "]");
 			CreateTableDummy();
 			// no break;
-
+/*
 		case nVersionMacro0:
 			CreateTableTxos();
 			ExecQuick("ALTER TABLE [" TblStates "] ADD [" TblStates_Extra "] BLOB");
@@ -321,7 +321,7 @@ void NodeDB::Open(const char* szPath)
 
 			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
 			// no break;
-
+*/
 		case nVersionTop:
 			break;
 
