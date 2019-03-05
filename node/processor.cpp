@@ -633,7 +633,7 @@ bool NodeProcessor::GoUpFastInternal()
 		if (!GoForward(vPath[i], &ctx))
 			return false;
 
-		m_DB.DelStateBlockAll(vPath[i]); // can delete it right away, since we don't need the block for rollback (in case fast-sync fails)
+		m_DB.DelStateBlockPP(vPath[i]); // can delete it right away, since we don't need the block for rollback (in case fast-sync fails)
 	}
 
 	bool bOk =
