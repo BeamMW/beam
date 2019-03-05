@@ -258,6 +258,13 @@ void TxObject::setFailureReason(beam::TxFailureReason reason)
     }
 }
 
+bool TxObject::hasPaymentProof() const
+{
+    return !income()
+        && (m_tx.m_status == TxStatus::Completed
+        || m_tx.m_status == TxStatus::Registering);
+}
+
 void TxObject::update(const beam::TxDescription& tx)
 {
     setStatus(tx.m_status);
