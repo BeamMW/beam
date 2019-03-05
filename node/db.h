@@ -419,7 +419,7 @@ public:
 
 	void EnumTxos(WalkerTxo&, TxoID id0);
 	void EnumTxosBySpent(WalkerTxo&, const HeightRange&);
-	uint64_t DeleteSpentTxos(Height hFrom);
+	uint64_t DeleteSpentTxos(const HeightRange&, TxoID id0); // delete Txos where (SpendHeight is within range) AND (TxoID >= id0)
 	void TxoSetValue(TxoID, const Blob&);
 
 	// reset cursor to zero. Keep all the data: local macroblocks, peers, bbs, dummy UTXOs

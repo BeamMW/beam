@@ -745,10 +745,12 @@ Height NodeProcessor::RaiseTxoLo(Height hTrg)
 	if (hTrg <= m_Extra.m_TxoLo)
 		return 0;
 
+	Height hRet = m_DB.DeleteSpentTxos(HeightRange(m_Extra.m_TxoLo + 1, hTrg), m_Extra.m_TxosTreasury);
+
 	m_Extra.m_TxoLo = hTrg;
 	m_DB.ParamSet(NodeDB::ParamID::HeightTxoLo, &m_Extra.m_TxoLo, NULL);
 
-	return m_DB.DeleteSpentTxos(m_Extra.m_TxoLo);
+	return hRet;
 }
 
 Height NodeProcessor::RaiseTxoHi(Height hTrg)

@@ -2073,10 +2073,14 @@ bool NodeDB::WalkerTxo::MoveNext()
 	return true;
 }
 
-uint64_t NodeDB::DeleteSpentTxos(Height hFrom)
+uint64_t NodeDB::DeleteSpentTxos(const HeightRange& hr, TxoID id0)
 {
-	Recordset rs(*this, Query::TxoDelSpentTxosFrom, "DELETE FROM " TblTxo " WHERE " TblTxo_SpendHeight "<=?");
-	rs.put(0, hFrom);
+	assert(!hr.IsEmpty());
+
+	Recordset rs(*this, Query::TxoDelSpentTxosFrom, "DELETE FROM " TblTxo " WHERE " TblTxo_SpendHeight ">=? AND " TblTxo_SpendHeight "<=? AND " TblTxo_ID ">=?");
+	rs.put(0, hr.m_Min);
+	rs.put(1, hr.m_Max);
+	rs.put(2, id0);
 	rs.Step();
 
 	return static_cast<uint64_t>(get_RowsChanged());
