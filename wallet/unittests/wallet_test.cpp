@@ -147,7 +147,7 @@ namespace
         }
 
         void setExpirationForAllAddresses(uint64_t expiration) override {};
-        boost::optional<WalletAddress> getAddress(const WalletID& id) override
+        boost::optional<WalletAddress> getAddress(const WalletID& id) const override
         {
             if (id == m_LastAdddr.m_walletID)
                 return m_LastAdddr;
