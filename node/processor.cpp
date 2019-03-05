@@ -698,11 +698,18 @@ Height NodeProcessor::PruneOld()
 		hRet += RaiseFossil(hTrg);
 	}
 
-	if (m_Cursor.m_Sid.m_Height - 1 > m_Extra.m_TxoLo + m_Horizon.m_SchwarzschildLo)
-		hRet += RaiseTxoLo(m_Cursor.m_Sid.m_Height - 1 - m_Horizon.m_SchwarzschildLo);
+	// add some reserve to Lo/Hi, to give some time to fast-syncing peers to download it
+	Height hReserve = Rules::get().Macroblock.MaxRollback / 2;
+	if (m_Cursor.m_Sid.m_Height > hReserve)
+	{
+		Height h = m_Cursor.m_Sid.m_Height - 1 - hReserve;
 
-	if (m_Cursor.m_Sid.m_Height - 1 > m_Extra.m_TxoHi + m_Horizon.m_SchwarzschildHi)
-		hRet += RaiseTxoHi(m_Cursor.m_Sid.m_Height - 1 - m_Horizon.m_SchwarzschildHi);
+		if (h > m_Extra.m_TxoLo + m_Horizon.m_SchwarzschildLo)
+			hRet += RaiseTxoLo(h - m_Horizon.m_SchwarzschildLo);
+
+		if (h > m_Extra.m_TxoHi + m_Horizon.m_SchwarzschildHi)
+			hRet += RaiseTxoHi(h - m_Horizon.m_SchwarzschildHi);
+	}
 
 	return hRet;
 }
@@ -1121,6 +1128,22 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, TxBase::Context* pBa
 			{
 				LOG_WARNING() << id << " Header Definition mismatch";
 				bOk = false;
+			}
+		}
+
+		if (pBatch && (sid.m_Height <= m_SyncData.m_TxoLo))
+		{
+			// make sure no spent txos above the requested h0
+			TxoID id0 = get_TxosBefore(m_SyncData.m_h0 + 1);
+
+			for (size_t i = 0; i < block.m_vInputs.size(); i++)
+			{
+				if (block.m_vInputs[i]->m_ID >= id0)
+				{
+					LOG_WARNING() << id << " Invalid input in cut-through block";
+					bOk = false;
+					break;
+				}
 			}
 		}
 
@@ -2624,8 +2647,8 @@ TxoID NodeProcessor::get_TxosBefore(Height h)
 		return m_Extra.m_TxosTreasury;
 
 	TxoID id = m_DB.get_StateTxos(FindActiveAtStrict(h - 1));
-		if (MaxHeight == id)
-			OnCorrupted();
+	if (MaxHeight == id)
+		OnCorrupted();
 
 	return id;
 }
@@ -2797,6 +2820,13 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 
 	hLo1 = std::max(hLo1, sid.m_Height - 1);
 	if (m_Extra.m_TxoLo > hLo1)
+		return false;
+
+	if ((h0 >= Rules::HeightGenesis) && (m_Extra.m_TxoLo > sid.m_Height))
+		return false; // we don't have any info for the range [Rules::HeightGenesis, h0].
+
+	// in case we're during sync - make sure we don't return non-full blocks as-is
+	if (m_SyncData.m_Target.m_Row && (sid.m_Height > m_Cursor.m_ID.m_Height))
 		return false;
 
 	bool bFullBlock = (sid.m_Height >= hHi1);
