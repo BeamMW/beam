@@ -412,6 +412,11 @@ namespace beam
         return m_TxID < x.m_TxID;
     }
 
+    bool Wallet::MyRequestKernel2::operator < (const MyRequestKernel2& x) const
+    {
+        return m_TxID < x.m_TxID;
+    }
+
     bool Wallet::MyRequestTransaction::operator < (const MyRequestTransaction& x) const
     {
         return m_TxID < x.m_TxID;
@@ -458,6 +463,35 @@ namespace beam
 
             if (PostReqUnique(*pVal))
                 LOG_INFO() << txID << " Get proof for kernel: " << pVal->m_Msg.m_ID;
+        }
+    }
+
+    void Wallet::confirm_kernel(const TxID& txID, const Merkle::Hash& kernelID)
+    {
+        if (auto it = m_Transactions.find(txID); it != m_Transactions.end())
+        {
+            MyRequestKernel::Ptr pVal(new MyRequestKernel);
+            pVal->m_TxID = txID;
+            pVal->m_Msg.m_ID = kernelID;
+
+            if (PostReqUnique(*pVal))
+                LOG_INFO() << txID << " Get proof for kernel: " << pVal->m_Msg.m_ID;
+        }
+    }
+
+    void Wallet::get_kernel(const TxID& txID, const Merkle::Hash& kernelID)
+    {
+        if (auto it = m_Transactions.find(txID); it != m_Transactions.end())
+        {
+            MyRequestKernel2::Ptr pVal(new MyRequestKernel2);
+            pVal->m_TxID = txID;
+            pVal->m_Msg.m_Fetch = true;
+            pVal->m_Msg.m_ID = kernelID;
+
+            if (PostReqUnique(*pVal))
+            {
+                LOG_INFO() << txID << " Get details for kernel: " << txID;
+            }
         }
     }
 
@@ -514,7 +548,7 @@ namespace beam
         auto it = m_Transactions.find(r.m_TxID);
         if (it != m_Transactions.end())
         {
-            it->second->SetParameter(TxParameterID::TransactionRegistered, r.m_Res.m_Value);
+            it->second->SetRegisteredStatus(r.m_Msg.m_Transaction, r.m_Res.m_Value);
             updateTransaction(r.m_TxID);
         }
     }
@@ -603,6 +637,22 @@ namespace beam
             Block::SystemState::Full sTip;
             get_tip(sTip);
             tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height);
+        }
+    }
+
+    void Wallet::OnRequestComplete(MyRequestKernel2 & r)
+    {
+        auto it = m_Transactions.find(r.m_TxID);
+        if (m_Transactions.end() == it)
+        {
+            return;
+        }
+        auto tx = it->second;
+
+        if (r.m_Res.m_Kernel && r.m_Res.m_Kernel->m_pHashLock)
+        {
+            tx->SetParameter(TxParameterID::PreImage, r.m_Res.m_Kernel->m_pHashLock->m_Preimage);
+            tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Height);
         }
     }
 

@@ -106,6 +106,11 @@ namespace beam::wallet
         bool IsInitiator() const;
         uint32_t get_PeerVersion() const;
 
+        virtual bool SetRegisteredStatus(Transaction::Ptr transaction, bool isRegistered)
+        {
+            return SetParameter(TxParameterID::TransactionRegistered, isRegistered);
+        };
+
     protected:
         bool CheckExpired();
         bool CheckExternalFailures();

@@ -27,6 +27,7 @@ namespace proto {
 #define REQUEST_TYPES_All(macro) \
 		macro(Utxo,			GetProofUtxo,		ProofUtxo) \
 		macro(Kernel,		GetProofKernel,		ProofKernel) \
+		macro(Kernel2,		GetProofKernel2,	ProofKernel2) \
 		macro(UtxoEvents,	GetUtxoEvents,		UtxoEvents) \
 		macro(Transaction,	NewTransaction,		Boolean) \
 		macro(BbsMsg,		BbsMsg,				Pong)

@@ -292,6 +292,11 @@ namespace
             cout << "confirm kernel\n";
         }
 
+        void confirm_kernel(const TxID&, const Merkle::Hash&) override
+        {
+            cout << "confirm kernel\n";
+        }
+
         bool get_tip(Block::SystemState::Full& state) const override
         {
             return true;
@@ -1606,6 +1611,8 @@ namespace
             void register_tx(const TxID&, Transaction::Ptr) override  {}
             void confirm_outputs(const std::vector<Coin>&) override  {}
             void confirm_kernel(const TxID&, const TxKernel&) override  {}
+            void confirm_kernel(const TxID&, const Merkle::Hash&) override {}
+            void get_kernel(const TxID& txID, const Merkle::Hash& kernelID) override {}
             bool get_tip(Block::SystemState::Full& state) const override { return false; }
             void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override {}
         } gateway;

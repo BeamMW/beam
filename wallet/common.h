@@ -362,6 +362,8 @@ namespace beam
             virtual void register_tx(const TxID&, Transaction::Ptr) = 0;
             virtual void confirm_outputs(const std::vector<Coin>&) = 0;
             virtual void confirm_kernel(const TxID&, const TxKernel&) = 0;
+            virtual void confirm_kernel(const TxID&, const Merkle::Hash& kernelID) = 0;
+            virtual void get_kernel(const TxID&, const Merkle::Hash& kernelID) = 0;
             virtual bool get_tip(Block::SystemState::Full& state) const = 0;
             virtual void send_tx_params(const WalletID& peerID, SetTxParameter&&) = 0;
         };
