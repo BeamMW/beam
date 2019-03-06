@@ -26,15 +26,28 @@ namespace beam::wallet
     {
         enum State : uint8_t
         {
+            BuildingLockTX,
+            BuildingRefundTX,
+            BuildingRedeemTX,
+
+            SendingLockTX,
+            SendingRefundTX,
+            SendingRedeemTX,
+
+            CompleteSwap,
+        };
+
+        enum SubTxState : uint8_t
+        {
             Initial,
             Invitation,
             SharedUTXOProofPart2,
-            SharedUTXOProofPart3,
             SharedUTXOProofDone,
             Constructed,
 
-            InvitationConfirmation
-
+            InvitationConfirmation,
+            Registration,
+            KernelConfirmation
         };
 
     public:
@@ -48,9 +61,13 @@ namespace beam::wallet
         AtomicSwapTransaction(INegotiatorGateway& gateway
                             , beam::IWalletDB::Ptr walletDB
                             , const TxID& txID);
+
+        bool SetRegisteredStatus(Transaction::Ptr transaction, bool isRegistered) override;
+
     private:
         TxType GetType() const override;
         State GetState(SubTxID subTxID) const;
+        SubTxState GetSubTxState(SubTxID subTxID) const;
         void UpdateImpl() override;
         void SendInvitation(const LockTxBuilder& lockBuilder, bool isSender);
         void SendBulletProofPart2(const LockTxBuilder& lockBuilder, bool isSender);
@@ -58,6 +75,29 @@ namespace beam::wallet
 
         void SendSharedTxInvitation(const BaseTxBuilder& builder, bool shouldSendLockImage = false);
         void ConfirmSharedTxInvitation(const BaseTxBuilder& builder);
+
+        SubTxState BuildLockTx();
+        SubTxState BuildRefundTx();
+        SubTxState BuildRedeemTx();
+
+        bool SendSubTx(Transaction::Ptr transaction, SubTxID subTxID);
+
+        bool IsBeamLockTimeExpired() const;
+
+        // wait SubTX in BEAM chain(request kernel proof), returns true if got kernel proof
+        bool IsSubTxCompleted(SubTxID subTxID) const;
+
+        bool GetPreimageFromChain(ECC::uintBig& preimage) const;
+
+        Amount GetAmount() const;
+        bool IsSender() const;
+
+        mutable boost::optional<bool> m_IsSender;
+        mutable boost::optional<beam::Amount> m_Amount;
+
+        Transaction::Ptr m_LockTx;
+        Transaction::Ptr m_RefundTx;
+        Transaction::Ptr m_RedeemTx;
     };
 
     class LockTxBuilder: public BaseTxBuilder
@@ -104,11 +144,17 @@ namespace beam::wallet
         void InitTx(bool isTxOwner, bool shouldInitSecret);
         Transaction::Ptr CreateTransaction() override;
 
+        bool GetSharedParameters();
+
     protected:
 
         void InitInputAndOutputs();
         void InitOffset();
         void InitSecret();
         void LoadPeerOffset();
+
+
+        ECC::Scalar::Native m_SharedBlindingFactor;
+        ECC::Point::Native m_PeerPublicSharedBlindingFactor;
     };
 }

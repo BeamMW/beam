@@ -18,12 +18,33 @@ using namespace ECC;
 
 namespace beam::wallet
 {
+    namespace
+    {
+        uint32_t kBeamLockTime = 1440;
+    }
+
     AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
                                                , beam::IWalletDB::Ptr walletDB
                                                , const TxID& txID)
         : BaseTransaction(gateway, walletDB, txID)
     {
 
+    }
+
+    bool AtomicSwapTransaction::SetRegisteredStatus(Transaction::Ptr transaction, bool isRegistered)
+    {
+        Merkle::Hash kernelID;
+        transaction->m_vKernels.back()->get_ID(kernelID);
+
+        SubTxIndex subTxID = SubTxIndex::LOCK_TX;
+        Merkle::Hash lockTxKernelID = GetMandatoryParameter<Merkle::Hash>(TxParameterID::KernelID, SubTxIndex::LOCK_TX);
+
+        if (kernelID != lockTxKernelID)
+        {
+            subTxID = IsSender() ? SubTxIndex::REFUND_TX : SubTxIndex::REDEEM_TX;
+        }
+
+        return SetParameter(TxParameterID::TransactionRegistered, isRegistered, false, subTxID);
     }
 
     TxType AtomicSwapTransaction::GetType() const
@@ -33,24 +54,155 @@ namespace beam::wallet
 
     AtomicSwapTransaction::State AtomicSwapTransaction::GetState(SubTxID subTxID) const
     {
-        State state = State::Initial;
+        State state = State::BuildingLockTX;
+        GetParameter(TxParameterID::State, state, subTxID);
+        return state;
+    }
+
+    AtomicSwapTransaction::SubTxState AtomicSwapTransaction::GetSubTxState(SubTxID subTxID) const
+    {
+        SubTxState state = SubTxState::Initial;
         GetParameter(TxParameterID::State, state, subTxID);
         return state;
     }
 
     void AtomicSwapTransaction::UpdateImpl()
     {
-        bool isSender = GetMandatoryParameter<bool>(TxParameterID::IsSender);
-        State lockTxState = GetState(SubTxIndex::LOCK_TX);
-        Amount amount = GetMandatoryParameter<Amount>(TxParameterID::Amount);
-        auto lockTxBuilder = std::make_unique<LockTxBuilder>(*this, amount, GetMandatoryParameter<Amount>(TxParameterID::Fee));
+        State state = GetState(kDefaultSubTxID);
 
-        if (!lockTxBuilder->GetInitialTxParams() && lockTxState == State::Initial)
+        switch (state)
         {
-            if (CheckExpired())
+        case State::BuildingLockTX:
+        {
+            auto lockTxState = BuildLockTx();
+            if (lockTxState != SubTxState::Constructed)
+                break;
+
+            state = State::BuildingRefundTX;
+            SetState(State::BuildingRefundTX);
+        }
+        case State::BuildingRefundTX:
+        {
+            auto subTxState = BuildRefundTx();
+            if (subTxState != SubTxState::Constructed)
+                break;
+
+            state = State::BuildingRedeemTX;
+            SetState(State::BuildingRedeemTX);
+        }
+        case State::BuildingRedeemTX:
+        {
+            auto subTxState = BuildRedeemTx();
+            if (subTxState != SubTxState::Constructed)
+                break;
+
+            state = State::SendingLockTX;
+            SetState(State::SendingLockTX);
+        }
+        case State::SendingLockTX:
+        {
+            bool isLockTxOwner = IsSender();
+
+            // TODO: load m_LockTx
+            if (m_LockTx && !SendSubTx(m_LockTx, SubTxIndex::LOCK_TX))
+                break;
+
+            if (!isLockTxOwner)
             {
-                return;
+                // validate BTC chain height (BTC timelock)
             }
+
+            if (!IsSubTxCompleted(SubTxIndex::LOCK_TX))
+                break;
+            
+            LOG_DEBUG() << GetTxID()<< " Lock TX completed.";
+
+            state = State::SendingRedeemTX;
+            SetState(State::SendingRedeemTX);
+
+            // TODO: change this
+            SetParameter(TxParameterID::KernelProofHeight, Height(0));
+        }
+        case State::SendingRedeemTX:
+        {
+            bool isRedeemTxOwner = !IsSender();
+
+            if (m_RedeemTx && !SendSubTx(m_RedeemTx, SubTxIndex::REDEEM_TX))
+                break;
+
+            if (!isRedeemTxOwner)
+            {
+                if (IsBeamLockTimeExpired())
+                {
+                    LOG_DEBUG() << GetTxID() << " Beam locktime expired.";
+
+                    // TODO: implement
+                    state = State::SendingRefundTX;
+                    SetState(State::SendingRefundTX);
+                    break;
+                }
+
+                // request kernel body for getting secret(preimage)
+                ECC::uintBig preimage(Zero);
+                if (!GetPreimageFromChain(preimage))
+                    break;
+
+                LOG_DEBUG() << GetTxID() << " Got preimage: " << preimage;
+                // Redeem BTC
+            }
+            else
+            {
+                if (!IsSubTxCompleted(SubTxIndex::REDEEM_TX))
+                    break;
+
+                LOG_DEBUG() << GetTxID() << " Redeem TX completed!";
+
+                state = State::CompleteSwap;
+                SetState(State::CompleteSwap);
+                break;
+            }
+        }
+        case State::SendingRefundTX:
+        {
+            assert(IsSender());
+
+            if (m_RefundTx && !SendSubTx(m_RefundTx, SubTxIndex::REFUND_TX))
+                break;
+
+            if (!IsSubTxCompleted(SubTxIndex::REFUND_TX))
+                break;
+
+            LOG_DEBUG() << GetTxID() << " Refund TX completed!";
+
+            state = State::CompleteSwap;
+            SetState(State::CompleteSwap);
+            break;
+        }
+        case State::CompleteSwap:
+        {
+            LOG_DEBUG() << GetTxID() << " Swap completed.";
+
+            UpdateTxDescription(TxStatus::Completed);
+            break;
+        }
+
+        default:
+            break;
+        }
+    }
+
+    AtomicSwapTransaction::SubTxState AtomicSwapTransaction::BuildLockTx()
+    {
+        // load state
+        SubTxState lockTxState = SubTxState::Initial;
+        GetParameter(TxParameterID::State, lockTxState, SubTxIndex::LOCK_TX);
+
+        bool isSender = IsSender();
+        auto lockTxBuilder = std::make_unique<LockTxBuilder>(*this, GetAmount(), GetMandatoryParameter<Amount>(TxParameterID::Fee));
+
+        if (!lockTxBuilder->GetInitialTxParams() && lockTxState == SubTxState::Initial)
+        {
+            // TODO: check expired!
 
             if (isSender)
             {
@@ -71,180 +223,291 @@ namespace beam::wallet
         if (!lockTxBuilder->GetPeerPublicExcessAndNonce())
         {
             assert(IsInitiator());
-            if (lockTxState == State::Initial)
+            if (lockTxState == SubTxState::Initial)
             {
                 SendInvitation(*lockTxBuilder, isSender);
-                SetState(State::Invitation, SubTxIndex::LOCK_TX);
+                SetState(SubTxState::Invitation, SubTxIndex::LOCK_TX);
+                lockTxState = SubTxState::Invitation;
             }
-            return;
+            return lockTxState;
         }
 
         lockTxBuilder->LoadSharedParameters();
         lockTxBuilder->SignPartial();
 
-        if (lockTxState == State::Initial || lockTxState == State::Invitation)
+        if (lockTxState == SubTxState::Initial || lockTxState == SubTxState::Invitation)
         {
             lockTxBuilder->SharedUTXOProofPart2(isSender);
             SendBulletProofPart2(*lockTxBuilder, isSender);
-            SetState(State::SharedUTXOProofPart2, SubTxIndex::LOCK_TX);
-            return;
+            SetState(SubTxState::SharedUTXOProofPart2, SubTxIndex::LOCK_TX);
+            lockTxState = SubTxState::SharedUTXOProofPart2;
+            return lockTxState;
         }
 
         assert(lockTxBuilder->GetPeerSignature());
         if (!lockTxBuilder->IsPeerSignatureValid())
         {
             LOG_INFO() << GetTxID() << " Peer signature is invalid.";
-            return;
+            return lockTxState;
         }
 
         lockTxBuilder->FinalizeSignature();
 
-        if (lockTxState == State::SharedUTXOProofPart2)
+        if (lockTxState == SubTxState::SharedUTXOProofPart2)
         {
             lockTxBuilder->SharedUTXOProofPart3(isSender);
             SendBulletProofPart3(*lockTxBuilder, isSender);
-            SetState(State::SharedUTXOProofPart3, SubTxIndex::LOCK_TX);
-
-            if (isSender)
-            {
-                // TEST TX
-                auto tx = lockTxBuilder->CreateTransaction();
-                beam::TxBase::Context ctx;
-                tx->IsValid(ctx);
-            }
+            SetState(SubTxState::Constructed, SubTxIndex::LOCK_TX);
+            lockTxState = SubTxState::Constructed;
         }
 
-        if (lockTxState == State::SharedUTXOProofPart3)
+        if (isSender && lockTxState == SubTxState::Constructed)
         {
+            // Create TX
+            auto transaction = lockTxBuilder->CreateTransaction();
+            beam::TxBase::Context context;
+            if (!transaction->IsValid(context))
+            {
+                // TODO: check
+                OnFailed(TxFailureReason::InvalidTransaction, true);
+                return lockTxState;
+            }
+
+            // TODO: return
+            m_LockTx = transaction;
+
+            return lockTxState;
         }
 
-        // Shared UTXO Ready
-        // Create RefundTX
-        State refundTxState = GetState(SubTxIndex::REFUND_TX);
+        return lockTxState;
+    }
+
+    AtomicSwapTransaction::SubTxState AtomicSwapTransaction::BuildRefundTx()
+    {
+        SubTxID subTxID = SubTxIndex::REFUND_TX;
+        SubTxState subTxState = GetSubTxState(subTxID);
         // TODO: calculating fee!
         Amount refundFee = 0;
-        Amount refundAmount = amount - refundFee;
-        SharedTxBuilder refundTxBuilder{ *this, SubTxIndex::REFUND_TX, refundAmount, refundFee };
+        Amount refundAmount = GetAmount() - refundFee;
+        bool isTxOwner = IsSender();
+        SharedTxBuilder builder{ *this, subTxID, refundAmount, refundFee };
+
+        if (!builder.GetSharedParameters())
+        {
+            return subTxState;
+        }
 
         // send invite to get 
-        if (!refundTxBuilder.GetInitialTxParams() && refundTxState == State::Initial)
+        if (!builder.GetInitialTxParams() && subTxState == SubTxState::Initial)
         {
-            // TODO: implement separate version
-            if (CheckExpired())
-            {
-                return;
-            }
-
-            refundTxBuilder.InitTx(isSender, false);
+            // TODO: check expired!
+            builder.InitTx(isTxOwner, false);
         }
 
-        refundTxBuilder.CreateKernel();
+        builder.CreateKernel();
 
-        if (!refundTxBuilder.GetPeerPublicExcessAndNonce())
+        if (!builder.GetPeerPublicExcessAndNonce())
         {
-            if (refundTxState == State::Initial && isSender)
+            if (subTxState == SubTxState::Initial && isTxOwner)
             {
-                SendSharedTxInvitation(refundTxBuilder);
-                SetState(State::Invitation, SubTxIndex::REFUND_TX);
+                SendSharedTxInvitation(builder);
+                SetState(SubTxState::Invitation, subTxID);
+                subTxState = SubTxState::Invitation;
             }
-            return;
+            return subTxState;
         }
 
-        // if !isSender -> validate minHeight
-        refundTxBuilder.SignPartial();
+        builder.SignPartial();
 
-        if (!refundTxBuilder.GetPeerSignature())
+        if (!builder.GetPeerSignature())
         {
-            if (refundTxState == State::Initial && !isSender)
+            if (subTxState == SubTxState::Initial && !isTxOwner)
             {
                 // invited participant
                 assert(!IsInitiator());
-                ConfirmSharedTxInvitation(refundTxBuilder);
+                ConfirmSharedTxInvitation(builder);
+                SetState(SubTxState::Constructed, subTxID);
+                subTxState = SubTxState::Constructed;
             }
-            else
-            {
-                return;
-            }
+            return subTxState;
         }
-        else
+
+        if (!builder.IsPeerSignatureValid())
         {
-            assert(isSender);
-
-            if (!refundTxBuilder.IsPeerSignatureValid())
-            {
-                LOG_INFO() << GetTxID() << " Peer signature is invalid.";
-                return;
-            }
-
-            refundTxBuilder.FinalizeSignature();
-
-            // TEST TX
-            auto tx = refundTxBuilder.CreateTransaction();
-            beam::TxBase::Context ctx;
-            tx->IsValid(ctx);
+            LOG_INFO() << GetTxID() << " Peer signature is invalid.";
+            return subTxState;
         }
 
-        // Create RedeemTX
-        State redeemTxState = GetState(SubTxIndex::REDEEM_TX);
+        builder.FinalizeSignature();
+
+        SetState(SubTxState::Constructed, subTxID);
+        subTxState = SubTxState::Constructed;
+
+        if (isTxOwner)
+        {
+            auto transaction = builder.CreateTransaction();
+            beam::TxBase::Context context;
+            transaction->IsValid(context);
+
+            m_RefundTx = transaction;
+        }
+
+        return subTxState;
+    }
+
+    AtomicSwapTransaction::SubTxState AtomicSwapTransaction::BuildRedeemTx()
+    {
+        SubTxID subTxID = SubTxIndex::REDEEM_TX;
+        SubTxState subTxState = GetSubTxState(subTxID);
         // TODO: calculating fee!
         Amount redeemFee = 0;
-        Amount redeemAmount = amount - redeemFee;
-        SharedTxBuilder redeemTxBuilder{ *this, SubTxIndex::REDEEM_TX, redeemAmount, redeemFee };
+        Amount redeemAmount = GetAmount() - redeemFee;
+        bool isTxOwner = !IsSender();
+        SharedTxBuilder builder{ *this, subTxID, redeemAmount, redeemFee };
+
+        if (!builder.GetSharedParameters())
+        {
+            return subTxState;
+        }
 
         // send invite to get 
-        if (!redeemTxBuilder.GetInitialTxParams() && redeemTxState == State::Initial)
+        if (!builder.GetInitialTxParams() && subTxState == SubTxState::Initial)
         {
-            // TODO: implement separate version
-            if (CheckExpired())
-            {
-                return;
-            }
-
-            redeemTxBuilder.InitTx(!isSender, true);
+            // TODO: check expired!
+            builder.InitTx(isTxOwner, true);
         }
 
-        redeemTxBuilder.CreateKernel();
+        builder.CreateKernel();
 
-        if (!redeemTxBuilder.GetPeerPublicExcessAndNonce())
+        if (!builder.GetPeerPublicExcessAndNonce())
         {
-            if (redeemTxState == State::Initial && !isSender)
+            if (subTxState == SubTxState::Initial && isTxOwner)
             {
                 // send invitation with LockImage
-                SendSharedTxInvitation(redeemTxBuilder, true);
-                SetState(State::Invitation, SubTxIndex::REDEEM_TX);
+                SendSharedTxInvitation(builder, true);
+                SetState(SubTxState::Invitation, subTxID);
+                subTxState = SubTxState::Invitation;
             }
-            return;
+            return subTxState;
         }
 
-        redeemTxBuilder.SignPartial();
+        builder.SignPartial();
 
-        if (!redeemTxBuilder.GetPeerSignature())
+        if (!builder.GetPeerSignature())
         {
-            if (redeemTxState == State::Initial && isSender)
+            if (subTxState == SubTxState::Initial && !isTxOwner)
             {
                 // invited participant
                 assert(IsInitiator());
-                ConfirmSharedTxInvitation(redeemTxBuilder);
+                ConfirmSharedTxInvitation(builder);
+                SetState(SubTxState::Constructed, subTxID);
+                subTxState = SubTxState::Constructed;
             }
-            return;
+            return subTxState;
         }
 
-        assert(redeemTxBuilder.GetPeerSignature());
-        if (!redeemTxBuilder.IsPeerSignatureValid())
+        if (!builder.IsPeerSignatureValid())
         {
             LOG_INFO() << GetTxID() << " Peer signature is invalid.";
-            return;
+            return subTxState;
         }
 
-        redeemTxBuilder.FinalizeSignature();
+        builder.FinalizeSignature();
 
-        if (!isSender)
+        SetState(SubTxState::Constructed, subTxID);
+        subTxState = SubTxState::Constructed;
+
+        if (isTxOwner)
         {
-            // TEST TX
-            auto tx = redeemTxBuilder.CreateTransaction();
-            beam::TxBase::Context ctx;
-            tx->IsValid(ctx);
+            auto transaction = builder.CreateTransaction();
+            beam::TxBase::Context context;
+            if (!transaction->IsValid(context))
+            {
+                // TODO: check
+                OnFailed(TxFailureReason::InvalidTransaction, true);
+                return subTxState;
+            }
+
+            m_RedeemTx = transaction;
         }
+
+        return subTxState;
+    }
+
+    bool AtomicSwapTransaction::SendSubTx(Transaction::Ptr transaction, SubTxID subTxID)
+    {
+        bool isRegistered = false;
+        if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered, subTxID))
+        {
+            m_Gateway.register_tx(GetTxID(), transaction);
+            return isRegistered;
+        }
+
+        if (!isRegistered)
+        {
+            OnFailed(TxFailureReason::FailedToRegister, true);
+            return isRegistered;
+        }
+
+        return isRegistered;
+    }
+
+    bool AtomicSwapTransaction::IsBeamLockTimeExpired() const
+    {
+        Height lockTimeHeight = MaxHeight;
+        GetParameter(TxParameterID::MinHeight, lockTimeHeight);
+
+        Block::SystemState::Full state;
+
+        return GetTip(state) && state.m_Height > (lockTimeHeight + kBeamLockTime);
+    }
+
+    bool AtomicSwapTransaction::IsSubTxCompleted(SubTxID subTxID) const
+    {
+        Height hProof = 0;
+        // TODO: check
+        GetParameter(TxParameterID::KernelProofHeight, hProof/*, subTxID*/);
+        if (!hProof)
+        {
+            Merkle::Hash kernelID = GetMandatoryParameter<Merkle::Hash>(TxParameterID::KernelID, subTxID);
+            m_Gateway.confirm_kernel(GetTxID(), kernelID);
+            return false;
+        }
+        return true;
+    }
+
+    bool AtomicSwapTransaction::GetPreimageFromChain(ECC::uintBig& preimage) const
+    {
+        Height hProof = 0;
+        GetParameter(TxParameterID::KernelProofHeight, hProof/*, subTxID*/);
+        GetParameter(TxParameterID::PreImage, preimage);
+
+        if (!hProof)
+        {
+            Merkle::Hash kernelID = GetMandatoryParameter<Merkle::Hash>(TxParameterID::KernelID, SubTxIndex::REDEEM_TX);
+            m_Gateway.get_kernel(GetTxID(), kernelID);
+            return false;
+        }
+
+        return true;
+    }
+
+    Amount AtomicSwapTransaction::GetAmount() const
+    {
+        if (!m_Amount.is_initialized())
+        {
+            m_Amount = GetMandatoryParameter<Amount>(TxParameterID::Amount);
+        }
+        return *m_Amount;
+    }
+
+    bool AtomicSwapTransaction::IsSender() const
+    {
+        if (!m_IsSender.is_initialized())
+        {
+            m_IsSender = GetMandatoryParameter<bool>(TxParameterID::IsSender);
+        }
+        return *m_IsSender;
     }
 
     void AtomicSwapTransaction::SendInvitation(const LockTxBuilder& lockBuilder, bool isSender)
@@ -509,6 +772,12 @@ namespace beam::wallet
         return BaseTxBuilder::CreateTransaction();
     }
 
+    bool SharedTxBuilder::GetSharedParameters()
+    {
+        return m_Tx.GetParameter(TxParameterID::SharedBlindingFactor, m_SharedBlindingFactor, AtomicSwapTransaction::SubTxIndex::LOCK_TX)
+            && m_Tx.GetParameter(TxParameterID::PeerPublicSharedBlindingFactor, m_PeerPublicSharedBlindingFactor, AtomicSwapTransaction::SubTxIndex::LOCK_TX);
+    }
+
     void SharedTxBuilder::InitTx(bool isTxOwner, bool shouldInitSecret)
     {
         if (isTxOwner)
@@ -537,19 +806,18 @@ namespace beam::wallet
     void SharedTxBuilder::InitInputAndOutputs()
     {
         // load shared utxo as input
-        ECC::Scalar::Native blindingFactor = m_Tx.GetMandatoryParameter<Scalar::Native>(TxParameterID::SharedBlindingFactor, AtomicSwapTransaction::SubTxIndex::LOCK_TX);
 
         // TODO: move it to separate function
         Point::Native commitment(Zero);
         Tag::AddValue(commitment, nullptr, GetAmount());
-        commitment += Context::get().G * blindingFactor;
-        commitment += m_Tx.GetMandatoryParameter<Point::Native>(TxParameterID::PeerPublicSharedBlindingFactor, AtomicSwapTransaction::SubTxIndex::LOCK_TX);
+        commitment += Context::get().G * m_SharedBlindingFactor;
+        commitment += m_PeerPublicSharedBlindingFactor;
 
         auto& input = m_Inputs.emplace_back(make_unique<Input>());
         input->m_Commitment = commitment;
         m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false, m_SubTxID);
 
-        m_Offset += blindingFactor;
+        m_Offset += m_SharedBlindingFactor;
 
         // add output
         AddOutput(GetAmount(), false);
@@ -557,8 +825,7 @@ namespace beam::wallet
 
     void SharedTxBuilder::InitOffset()
     {
-        ECC::Scalar::Native blindingFactor = m_Tx.GetMandatoryParameter<Scalar::Native>(TxParameterID::SharedBlindingFactor, AtomicSwapTransaction::SubTxIndex::LOCK_TX);
-        m_Offset += blindingFactor;
+        m_Offset += m_SharedBlindingFactor;
         m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false, m_SubTxID);
     }
 
