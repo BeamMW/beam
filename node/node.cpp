@@ -1769,7 +1769,7 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 {
 	Task& t = get_FirstTask();
 
-	if (!t.m_Key.second || t.m_bPack)
+	if (!t.m_Key.second)
 		ThrowUnexpected();
 
 	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
