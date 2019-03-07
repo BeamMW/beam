@@ -149,7 +149,7 @@ matrix:
         - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
         - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - sudo git clone --depth=1 https://github.com/BeamMW/boost-android.git /usr/local/boost_1_68-android
-        - sudo git clone --depth=1 https://github.com/nesbox/Prebuilt-OpenSSL-Android.git /usr/local/Prebuilt-OpenSSL-Android
+        - sudo git clone --depth=1 https://github.com/BeamMW/openssl-android.git /usr/local/Prebuilt-OpenSSL-Android
         - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
         - export BOOST_ROOT_ANDROID=/usr/local/boost_1_68-android
         - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android/Prebuilt
@@ -186,7 +186,7 @@ matrix:
         - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
         - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - sudo git clone --depth=1 https://github.com/BeamMW/boost-android.git /usr/local/boost_1_68-android
-        - sudo git clone --depth=1 https://github.com/nesbox/Prebuilt-OpenSSL-Android.git /usr/local/Prebuilt-OpenSSL-Android
+        - sudo git clone --depth=1 https://github.com/BeamMW/openssl-android.git /usr/local/Prebuilt-OpenSSL-Android
         - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
         - export BOOST_ROOT_ANDROID=/usr/local/boost_1_68-android
         - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android/Prebuilt
@@ -220,7 +220,7 @@ matrix:
         - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
         - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - sudo git clone --depth=1 https://github.com/BeamMW/boost-android.git /usr/local/boost_1_68-android
-        - sudo git clone --depth=1 https://github.com/nesbox/Prebuilt-OpenSSL-Android.git /usr/local/Prebuilt-OpenSSL-Android
+        - sudo git clone --depth=1 https://github.com/BeamMW/openssl-android.git /usr/local/Prebuilt-OpenSSL-Android
         - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
         - export BOOST_ROOT_ANDROID=/usr/local/boost_1_68-android
         - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android/Prebuilt
@@ -257,7 +257,7 @@ matrix:
         - wget "https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh"
         - sudo sh cmake-3.12.0-Linux-x86_64.sh --skip-license --prefix=/usr
         - sudo git clone --depth=1 https://github.com/BeamMW/boost-android.git /usr/local/boost_1_68-android
-        - sudo git clone --depth=1 https://github.com/nesbox/Prebuilt-OpenSSL-Android.git /usr/local/Prebuilt-OpenSSL-Android
+        - sudo git clone --depth=1 https://github.com/BeamMW/openssl-android.git /usr/local/Prebuilt-OpenSSL-Android
         - export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
         - export BOOST_ROOT_ANDROID=/usr/local/boost_1_68-android
         - export OPENSSL_ROOT_DIR_ANDROID=/usr/local/Prebuilt-OpenSSL-Android/Prebuilt
