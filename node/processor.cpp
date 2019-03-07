@@ -460,6 +460,22 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 	}
 }
 
+const uint64_t* NodeProcessor::get_CachedRows(const NodeDB::StateID& sid, Height nCountExtra)
+{
+	EnumCongestionsInternal();
+
+	CongestionCache::TipCongestion* pVal = m_CongestionCache.Find(sid);
+	if (pVal)
+	{
+		assert(pVal->m_Height >= sid.m_Height);
+		Height dh = pVal->m_Height >= sid.m_Height;
+
+		if (pVal->m_Rows.size() > nCountExtra + dh)
+			return &pVal->m_Rows.at(dh);
+	}
+	return nullptr;
+}
+
 void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64_t row, bool bBlock, const NodeDB::StateID& sidTrg)
 {
 	if (id.m_Height >= m_Extra.m_LoHorizon)

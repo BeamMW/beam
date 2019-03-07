@@ -303,6 +303,10 @@ void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 
 bool Node::TryAssignTask(Task& t, Peer& p)
 {
+	uint32_t nPacks = t.m_Key.second ? m_nTasksPackBody : m_nTasksPackHdr;
+	if (nPacks)
+		return false;
+
     if (!p.ShouldAssignTasks())
         return false;
 
@@ -337,26 +341,10 @@ bool Node::TryAssignTask(Task& t, Peer& p)
             nBlocks++;
 
     // assign
-    uint32_t nPackSize = 0;
-    if (t.m_Key.first.m_Height > m_Processor.m_Cursor.m_ID.m_Height)
-    {
-        Height dh = t.m_Key.first.m_Height - m_Processor.m_Cursor.m_ID.m_Height;
-
-        const uint32_t nThreshold = 5;
-
-        if (dh >= nThreshold)
-        {
-            nPackSize = (proto::LoginFlags::Extension2 & p.m_LoginFlags) ?
-				proto::g_HdrPackMaxSize :
-				proto::g_HdrPackMaxSizeV0;
-
-            if (nPackSize > dh)
-                nPackSize = (uint32_t) dh;
-        }
-    }
-
     if (t.m_Key.second)
     {
+		assert(!m_nTasksPackBody);
+
         if (nBlocks >= m_Cfg.m_MaxConcurrentBlocksRequest)
             return false;
 
@@ -369,11 +357,16 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 				return false; // don't request blocks beyond current sync target! (this is artifact of request backlog)
 
 			proto::GetBodyPack msg;
-			msg.m_Top = t.m_Key.first;
+			msg.m_Top.m_Height = m_Processor.m_SyncData.m_Target.m_Height;
+			m_Processor.get_DB().get_StateHash(m_Processor.m_SyncData.m_Target.m_Row, msg.m_Top.m_Hash);
+			msg.m_CountExtra = m_Processor.m_SyncData.m_Target.m_Height - t.m_Key.first.m_Height;
 			msg.m_Height0 = m_Processor.m_SyncData.m_h0;
 			msg.m_HorizonLo1 = m_Processor.m_SyncData.m_TxoLo;
 			msg.m_HorizonHi1 = m_Processor.m_SyncData.m_Target.m_Height;
 			p.Send(msg);
+
+			t.m_bPack = true;
+			m_nTasksPackBody++;
 		}
 		else
 		{
@@ -384,10 +377,27 @@ bool Node::TryAssignTask(Task& t, Peer& p)
     }
     else
     {
+		assert(!m_nTasksPackHdr);
+
         if (nBlocks)
             return false; // don't requests headers from the peer that transfers a block
 
-        if (!m_nTasksPackHdr && nPackSize)
+		uint32_t nPackSize = 0;
+		if (t.m_Key.first.m_Height > m_Processor.m_Cursor.m_ID.m_Height)
+		{
+			Height dh = t.m_Key.first.m_Height - m_Processor.m_Cursor.m_ID.m_Height;
+			if (dh > 1)
+			{
+				nPackSize = (proto::LoginFlags::Extension2 & p.m_LoginFlags) ?
+					proto::g_HdrPackMaxSize :
+					proto::g_HdrPackMaxSizeV0;
+
+				if (nPackSize > dh)
+					nPackSize = (uint32_t)dh;
+			}
+		}
+
+        if (nPackSize)
         {
             proto::GetHdrPack msg;
             msg.m_Top = t.m_Key.first;
@@ -455,7 +465,7 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 	{
 		Task& t = *it;
 		t.m_bNeeded = true;
-		if (t.m_sidTrg.m_Height < sidTrg.m_Height)
+		if (!t.m_pOwner && (t.m_sidTrg.m_Height < sidTrg.m_Height))
 			t.m_sidTrg = sidTrg;
 	}
 }
@@ -1707,22 +1717,67 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 
 void Node::Peer::OnMsg(proto::Body&& msg)
 {
-    Task& t = get_FirstTask();
+	Task& t = get_FirstTask();
 
-    if (!t.m_Key.second || t.m_bPack)
-        ThrowUnexpected();
+	if (!t.m_Key.second || t.m_bPack)
+		ThrowUnexpected();
 
-    assert((Flags::PiRcvd & m_Flags) && m_pInfo);
-    m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
+	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
+	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
 
-    const Block::SystemState::ID& id = t.m_Key.first;
-    Height h = id.m_Height;
+	const Block::SystemState::ID& id = t.m_Key.first;
+	Height h = id.m_Height;
 
-    NodeProcessor::DataStatus::Enum eStatus = h ?
-        m_This.m_Processor.OnBlock(id, msg.m_Body.m_Perishable, msg.m_Body.m_Eternal, m_pInfo->m_ID.m_Key) :
-        m_This.m_Processor.OnTreasury(msg.m_Body.m_Eternal);
+	NodeProcessor::DataStatus::Enum eStatus = h ?
+		m_This.m_Processor.OnBlock(id, msg.m_Body.m_Perishable, msg.m_Body.m_Eternal, m_pInfo->m_ID.m_Key) :
+		m_This.m_Processor.OnTreasury(msg.m_Body.m_Eternal);
 
-    OnFirstTaskDone(eStatus);
+	OnFirstTaskDone(eStatus);
+}
+
+void Node::Peer::OnMsg(proto::BodyPack&& msg)
+{
+	Task& t = get_FirstTask();
+
+	if (!t.m_Key.second || !t.m_bPack)
+		ThrowUnexpected();
+
+	const Block::SystemState::ID& id = t.m_Key.first;
+	Processor& p = m_This.m_Processor;
+
+	assert(t.m_sidTrg.m_Height >= id.m_Height);
+	Height hCountExtra = t.m_sidTrg.m_Height - id.m_Height;
+
+	if (msg.m_Bodies.size() > hCountExtra + 1)
+		ThrowUnexpected();
+
+	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
+	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
+
+	NodeProcessor::DataStatus::Enum eStatus = NodeProcessor::DataStatus::Rejected;
+	if (!msg.m_Bodies.empty())
+	{
+		const uint64_t* pPtr = p.get_CachedRows(t.m_sidTrg, hCountExtra);
+		if (pPtr)
+		{
+			eStatus = NodeProcessor::DataStatus::Accepted;
+
+			for (Height h = 0; h < msg.m_Bodies.size(); h++)
+			{
+				uint64_t rowid = pPtr[hCountExtra - h];
+				const proto::BodyBuffers& bb = msg.m_Bodies[h];
+
+				p.get_DB().SetStateBlock(rowid, bb.m_Perishable, bb.m_Eternal);
+				p.get_DB().SetStateFunctional(rowid);
+			}
+
+			LOG_INFO() << id << " Block pack received " << id.m_Height << "-" << (id.m_Height + msg.m_Bodies.size() - 1);
+
+			p.TryGoUp();
+		}
+	}
+
+	OnFirstTaskDone(eStatus);
 }
 
 void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)

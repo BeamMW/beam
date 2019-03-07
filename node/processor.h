@@ -37,7 +37,6 @@ class NodeProcessor
 
 	size_t m_nSizeUtxoComission;
 
-	void TryGoUp();
 	void GoUpFast();
 	bool GoUpFastInternal();
 
@@ -197,7 +196,11 @@ public:
 	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);
 
 	void CommitDB();
+
 	void EnumCongestions(uint32_t nMaxBlocksBacklog);
+	const uint64_t* get_CachedRows(const NodeDB::StateID&, Height nCountExtra); // retval valid till next call to this func, or to EnumCongestions()
+	void TryGoUp();
+
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 	bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
 
