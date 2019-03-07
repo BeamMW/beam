@@ -37,15 +37,15 @@ bool Node::SyncStatus::operator == (const SyncStatus& x) const
 
 void Node::RefreshCongestions()
 {
-    for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
-        it->m_hTarget = MaxHeight;
+	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
+		it->m_bNeeded = false;
 
     m_Processor.EnumCongestions(m_Cfg.m_MaxConcurrentBlocksRequest);
 
     for (TaskList::iterator it = m_lstTasksUnassigned.begin(); m_lstTasksUnassigned.end() != it; )
     {
         Task& t = *(it++);
-        if (t.m_hTarget == MaxHeight)
+        if (!t.m_bNeeded)
             DeleteUnassignedTask(t);
     }
 
@@ -104,19 +104,19 @@ void Node::UpdateSyncStatusRaw()
 	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
 	{
 		const Task& t = *it;
-		if (MaxHeight == t.m_hTarget)
+		if (!t.m_bNeeded)
 			continue;
-		if (m_Processor.m_Cursor.m_ID.m_Height >= t.m_hTarget)
+		if (m_Processor.m_Cursor.m_ID.m_Height >= t.m_sidTrg.m_Height)
 			continue;
 
 		if (bOnlyAssigned && !t.m_pOwner)
 			continue;
 
-		Height hVal = t.m_hTarget * (SyncStatus::s_WeightHdr + SyncStatus::s_WeightBlock);
+		Height hVal = t.m_sidTrg.m_Height * (SyncStatus::s_WeightHdr + SyncStatus::s_WeightBlock);
 		m_SyncStatus.m_Total = std::max(m_SyncStatus.m_Total, hVal);
 
 		Height h = t.m_Key.first.m_Height;
-		if (h > t.m_hTarget)
+		if (h > t.m_sidTrg.m_Height)
 			continue; // ?!
 
 		bool bBlock = t.m_Key.second;
@@ -128,7 +128,7 @@ void Node::UpdateSyncStatusRaw()
 			if (h)
 				h--;
 
-		hVal = hToCursor + (t.m_hTarget - h) * SyncStatus::s_WeightHdr;
+		hVal = hToCursor + (t.m_sidTrg.m_Height - h) * SyncStatus::s_WeightHdr;
 		m_SyncStatus.m_Done = std::max(m_SyncStatus.m_Done, hVal);
 	}
 
@@ -427,7 +427,7 @@ void Node::Peer::SetTimerWrtFirstTask()
         SetTimer(m_lstTasks.front().m_Key.second ? m_This.m_Cfg.m_Timeout.m_GetBlock_ms : m_This.m_Cfg.m_Timeout.m_GetState_ms);
 }
 
-void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock, const PeerID* pPreferredPeer, Height hTarget)
+void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock, const PeerID* pPreferredPeer, const NodeDB::StateID& sidTrg)
 {
     Task tKey;
     tKey.m_Key.first = id;
@@ -440,7 +440,8 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 
         Task* pTask = new Task;
         pTask->m_Key = tKey.m_Key;
-        pTask->m_hTarget = hTarget;
+        pTask->m_sidTrg = sidTrg;
+		pTask->m_bNeeded = true;
         pTask->m_bPack = false;
         pTask->m_pOwner = NULL;
 
@@ -453,8 +454,9 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 	else
 	{
 		Task& t = *it;
-		if ((t.m_hTarget == MaxHeight) || (t.m_hTarget < hTarget))
-			t.m_hTarget = hTarget;
+		t.m_bNeeded = true;
+		if (t.m_sidTrg.m_Height < sidTrg.m_Height)
+			t.m_sidTrg = sidTrg;
 	}
 }
 
@@ -1311,7 +1313,7 @@ void Node::Peer::ReleaseTask(Task& t)
     m_lstTasks.erase(TaskList::s_iterator_to(t));
     m_This.m_lstTasksUnassigned.push_back(t);
 
-    if (t.m_hTarget != MaxHeight)
+    if (t.m_bNeeded)
         m_This.TryAssignTask(t, NULL);
     else
         m_This.DeleteUnassignedTask(t);
@@ -1728,7 +1730,7 @@ void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
     if (NodeProcessor::DataStatus::Invalid == eStatus)
         ThrowUnexpected();
 
-    get_FirstTask().m_hTarget = MaxHeight;
+    get_FirstTask().m_bNeeded = false;
     OnFirstTaskDone();
 
     if (NodeProcessor::DataStatus::Accepted == eStatus)

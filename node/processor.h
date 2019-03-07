@@ -49,7 +49,7 @@ class NodeProcessor
 	Height RaiseTxoHi(Height);
 	void Vacuum();
 	void InitializeUtxos();
-	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, Height hTarget);
+	void RequestDataInternal(const Block::SystemState::ID&, uint64_t row, bool bBlock, const NodeDB::StateID& sidTrg);
 
 	bool HandleTreasury(const Blob&);
 
@@ -201,7 +201,7 @@ public:
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 	bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
 
-	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer, Height hTarget) {}
+	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer, const NodeDB::StateID& sidTrg) {}
 	virtual void OnPeerInsane(const PeerID&) {}
 	virtual void OnNewState() {}
 	virtual void OnRolledBack() {}

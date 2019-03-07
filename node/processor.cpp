@@ -360,7 +360,10 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 	{
 		Block::SystemState::ID id;
 		ZeroObject(id);
-		RequestData(id, true, nullptr, 0);
+		NodeDB::StateID sidTrg;
+		sidTrg.SetNull();
+
+		RequestData(id, true, nullptr, sidTrg);
 		return;
 	}
 
@@ -413,8 +416,11 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 	for (CongestionCache::TipList::iterator it = m_CongestionCache.m_lstTips.begin(); m_CongestionCache.m_lstTips.end() != it; it++)
 	{
 		CongestionCache::TipCongestion& x = *it;
-
 		Block::SystemState::ID id;
+
+		NodeDB::StateID sidTrg;
+		sidTrg.m_Height = x.m_Height;
+		sidTrg.m_Row = x.m_Rows.at(0);
 
 		if (!x.m_bNeedHdrs)
 		{
@@ -433,7 +439,7 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 					continue;
 
 				m_DB.get_StateID(sid, id);
-				RequestDataInternal(id, sid.m_Row, true, x.m_Height);
+				RequestDataInternal(id, sid.m_Row, true, sidTrg);
 
 				if (++nRequested >= nMaxBlocksBacklog)
 					break;
@@ -449,19 +455,19 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 			id.m_Height = s.m_Height - 1;
 			id.m_Hash = s.m_Prev;
 
-			RequestDataInternal(id, rowid, false, x.m_Height);
+			RequestDataInternal(id, rowid, false, sidTrg);
 		}
 	}
 }
 
-void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64_t row, bool bBlock, Height hTarget)
+void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64_t row, bool bBlock, const NodeDB::StateID& sidTrg)
 {
 	if (id.m_Height >= m_Extra.m_LoHorizon)
 	{
 		PeerID peer;
 		bool bPeer = m_DB.get_Peer(row, peer);
 
-		RequestData(id, bBlock, bPeer ? &peer : NULL, hTarget);
+		RequestData(id, bBlock, bPeer ? &peer : NULL, sidTrg);
 	}
 	else
 	{

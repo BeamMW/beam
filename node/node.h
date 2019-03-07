@@ -172,7 +172,7 @@ private:
 		:public NodeProcessor
 	{
 		// NodeProcessor
-		void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer, Height hTarget) override;
+		void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer, const NodeDB::StateID& sidTrg) override;
 		void OnPeerInsane(const PeerID&) override;
 		void OnNewState() override;
 		void OnRolledBack() override;
@@ -240,8 +240,9 @@ private:
 		typedef std::pair<Block::SystemState::ID, bool> Key;
 		Key m_Key;
 
+		bool m_bNeeded;
 		bool m_bPack;
-		Height m_hTarget;
+		NodeDB::StateID m_sidTrg;
 		Peer* m_pOwner;
 
 		bool operator < (const Task& t) const { return (m_Key < t.m_Key); }
