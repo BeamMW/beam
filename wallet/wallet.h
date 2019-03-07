@@ -96,6 +96,7 @@ namespace beam
         bool get_tip(Block::SystemState::Full& state) const override;
         void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override;
         void register_tx(const TxID& txId, Transaction::Ptr) override;
+        void UpdateOnNextTip(const TxID&) override;
 
         void OnWalletMessage(const WalletID& peerID, wallet::SetTxParameter&&) override;
 

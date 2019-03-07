@@ -172,7 +172,7 @@ private:
 		:public NodeProcessor
 	{
 		// NodeProcessor
-		void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer, Height hTarget) override;
+		void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer, const NodeDB::StateID& sidTrg) override;
 		void OnPeerInsane(const PeerID&) override;
 		void OnNewState() override;
 		void OnRolledBack() override;
@@ -240,8 +240,9 @@ private:
 		typedef std::pair<Block::SystemState::ID, bool> Key;
 		Key m_Key;
 
+		bool m_bNeeded;
 		bool m_bPack;
-		Height m_hTarget;
+		NodeDB::StateID m_sidTrg;
 		Peer* m_pOwner;
 
 		bool operator < (const Task& t) const { return (m_Key < t.m_Key); }
@@ -483,8 +484,9 @@ private:
 		virtual void OnMsg(proto::Hdr&&) override;
 		virtual void OnMsg(proto::HdrPack&&) override;
 		virtual void OnMsg(proto::GetBody&&) override;
-		virtual void OnMsg(proto::GetBody2&&) override;
+		virtual void OnMsg(proto::GetBodyPack&&) override;
 		virtual void OnMsg(proto::Body&&) override;
+		virtual void OnMsg(proto::BodyPack&&) override;
 		virtual void OnMsg(proto::NewTransaction&&) override;
 		virtual void OnMsg(proto::HaveTransaction&&) override;
 		virtual void OnMsg(proto::GetTransaction&&) override;
