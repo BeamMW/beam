@@ -111,6 +111,7 @@ namespace beam { namespace wallet
         bool CheckExpired();
         bool CheckExternalFailures();
         void ConfirmKernel(const TxKernel& kernel);
+        void UpdateOnNextTip();
         void CompleteTx();
         void RollbackTx();
 		void NotifyFailure(TxFailureReason);

@@ -351,6 +351,7 @@ namespace beam
             virtual void confirm_kernel(const TxID&, const TxKernel&) = 0;
             virtual bool get_tip(Block::SystemState::Full& state) const = 0;
             virtual void send_tx_params(const WalletID& peerID, SetTxParameter&&) = 0;
+            virtual void UpdateOnNextTip(const TxID&) = 0;
         };
 
         enum class ErrorType : uint8_t
