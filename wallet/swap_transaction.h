@@ -30,9 +30,17 @@ namespace beam::wallet
             BuildingRefundTX,
             BuildingRedeemTX,
 
-            SendingLockTX,
+            BuildingBeamLockTX,
+            BuildingBeamRefundTX,
+            BuildingBeamRedeemTX,
+
+            SendingContractTX,
             SendingRefundTX,
             SendingRedeemTX,
+
+            SendingBeamLockTX,
+            SendingBeamRefundTX,
+            SendingBeamRedeemTX,
 
             CompleteSwap,
         };
@@ -65,6 +73,8 @@ namespace beam::wallet
         bool SetRegisteredStatus(Transaction::Ptr transaction, bool isRegistered) override;
 
     private:
+        void SetNextState(State state);
+
         TxType GetType() const override;
         State GetState(SubTxID subTxID) const;
         SubTxState GetSubTxState(SubTxID subTxID) const;
@@ -98,6 +108,8 @@ namespace beam::wallet
         Transaction::Ptr m_LockTx;
         Transaction::Ptr m_RefundTx;
         Transaction::Ptr m_RedeemTx;
+
+        io::AsyncEvent::Ptr m_EventToUpdate;
     };
 
     class LockTxBuilder: public BaseTxBuilder

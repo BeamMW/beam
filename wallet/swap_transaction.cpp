@@ -47,6 +47,17 @@ namespace beam::wallet
         return SetParameter(TxParameterID::TransactionRegistered, isRegistered, false, subTxID);
     }
 
+    void AtomicSwapTransaction::SetNextState(State state)
+    {
+        SetState(state);
+        if (!m_EventToUpdate)
+        {
+            m_EventToUpdate = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { UpdateImpl(); });
+        }
+
+        m_EventToUpdate->post();
+    }
+
     TxType AtomicSwapTransaction::GetType() const
     {
         return TxType::AtomicSwap;
@@ -54,7 +65,7 @@ namespace beam::wallet
 
     AtomicSwapTransaction::State AtomicSwapTransaction::GetState(SubTxID subTxID) const
     {
-        State state = State::BuildingLockTX;
+        State state = State::BuildingBeamLockTX;
         GetParameter(TxParameterID::State, state, subTxID);
         return state;
     }
@@ -69,37 +80,67 @@ namespace beam::wallet
     void AtomicSwapTransaction::UpdateImpl()
     {
         State state = GetState(kDefaultSubTxID);
+        bool isBeamOwner = IsSender();
 
         switch (state)
         {
         case State::BuildingLockTX:
         {
+            assert(!isBeamOwner);
+            // build LOCK_TX
+            SetNextState(State::BuildingRefundTX);
+            break;
+        }
+        case State::BuildingRefundTX:
+            assert(!isBeamOwner);
+            SetNextState(State::BuildingBeamLockTX);
+            break;
+        case State::BuildingRedeemTX:
+        {
+            assert(isBeamOwner);
+            SetNextState(State::BuildingBeamLockTX);
+            break;
+        }
+        case State::BuildingBeamLockTX:
+        {
             auto lockTxState = BuildLockTx();
             if (lockTxState != SubTxState::Constructed)
                 break;
 
-            state = State::BuildingRefundTX;
-            SetState(State::BuildingRefundTX);
+            SetNextState(State::BuildingBeamRefundTX);
+            break;
         }
-        case State::BuildingRefundTX:
+        case State::BuildingBeamRefundTX:
         {
             auto subTxState = BuildRefundTx();
             if (subTxState != SubTxState::Constructed)
                 break;
 
-            state = State::BuildingRedeemTX;
-            SetState(State::BuildingRedeemTX);
+            SetNextState(State::BuildingBeamRedeemTX);
+            break;
         }
-        case State::BuildingRedeemTX:
+        case State::BuildingBeamRedeemTX:
         {
             auto subTxState = BuildRedeemTx();
             if (subTxState != SubTxState::Constructed)
                 break;
 
-            state = State::SendingLockTX;
-            SetState(State::SendingLockTX);
+            SetNextState(State::SendingBeamLockTX);
+            break;
         }
-        case State::SendingLockTX:
+
+        case State::SendingContractTX:
+        {
+            LOG_DEBUG() << "SendingContractTX - Not implemented yet.";
+            SetNextState(State::SendingBeamLockTX);
+            break;
+        }
+        case State::SendingRefundTX:
+            break;
+        case State::SendingRedeemTX:
+            break;
+
+        case State::SendingBeamLockTX:
         {
             bool isLockTxOwner = IsSender();
 
@@ -107,9 +148,9 @@ namespace beam::wallet
             if (m_LockTx && !SendSubTx(m_LockTx, SubTxIndex::LOCK_TX))
                 break;
 
-            if (!isLockTxOwner)
+            if (!isBeamOwner)
             {
-                // validate BTC chain height (BTC timelock)
+                // validate second chain height (second coin timelock)
             }
 
             if (!IsSubTxCompleted(SubTxIndex::LOCK_TX))
@@ -117,28 +158,25 @@ namespace beam::wallet
             
             LOG_DEBUG() << GetTxID()<< " Lock TX completed.";
 
-            state = State::SendingRedeemTX;
-            SetState(State::SendingRedeemTX);
-
             // TODO: change this
             SetParameter(TxParameterID::KernelProofHeight, Height(0));
-        }
-        case State::SendingRedeemTX:
-        {
-            bool isRedeemTxOwner = !IsSender();
 
+            SetNextState(State::SendingBeamRedeemTX);
+            break;
+        }
+        case State::SendingBeamRedeemTX:
+        {
             if (m_RedeemTx && !SendSubTx(m_RedeemTx, SubTxIndex::REDEEM_TX))
                 break;
 
-            if (!isRedeemTxOwner)
+            if (isBeamOwner)
             {
                 if (IsBeamLockTimeExpired())
                 {
                     LOG_DEBUG() << GetTxID() << " Beam locktime expired.";
 
                     // TODO: implement
-                    state = State::SendingRefundTX;
-                    SetState(State::SendingRefundTX);
+                    SetNextState(State::SendingBeamRefundTX);
                     break;
                 }
 
@@ -148,7 +186,9 @@ namespace beam::wallet
                     break;
 
                 LOG_DEBUG() << GetTxID() << " Got preimage: " << preimage;
-                // Redeem BTC
+                // Redeem second Coin
+
+                SetNextState(State::CompleteSwap);
             }
             else
             {
@@ -157,14 +197,13 @@ namespace beam::wallet
 
                 LOG_DEBUG() << GetTxID() << " Redeem TX completed!";
 
-                state = State::CompleteSwap;
-                SetState(State::CompleteSwap);
-                break;
+                SetNextState(State::CompleteSwap);
             }
+            break;
         }
-        case State::SendingRefundTX:
+        case State::SendingBeamRefundTX:
         {
-            assert(IsSender());
+            assert(isBeamOwner);
 
             if (m_RefundTx && !SendSubTx(m_RefundTx, SubTxIndex::REFUND_TX))
                 break;
@@ -174,8 +213,7 @@ namespace beam::wallet
 
             LOG_DEBUG() << GetTxID() << " Refund TX completed!";
 
-            state = State::CompleteSwap;
-            SetState(State::CompleteSwap);
+            SetNextState(State::CompleteSwap);
             break;
         }
         case State::CompleteSwap:
