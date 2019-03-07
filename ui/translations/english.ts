@@ -445,7 +445,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/TransactionDetails.qml" line="188"/>
+        <location filename="../view/controls/TransactionDetails.qml" line="189"/>
         <source>copy</source>
         <translation type="unfinished"></translation>
     </message>
@@ -702,12 +702,12 @@
 <context>
     <name>WalletViewModel</name>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="599"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="606"/>
         <source> beams</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="601"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="608"/>
         <source> groths</source>
         <translation type="unfinished"></translation>
     </message>

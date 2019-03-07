@@ -156,10 +156,16 @@ namespace beam { namespace wallet
     bool BaseTransaction::CheckExpired()
     {
         Height kernelConfirmHeight = 0;
-        
         if (GetParameter(TxParameterID::KernelProofHeight, kernelConfirmHeight) && kernelConfirmHeight > 0)
         {
             // completed tx
+            return false;
+        }
+
+        TxFailureReason reason = TxFailureReason::Unknown;
+        if (GetParameter(TxParameterID::FailureReason, reason))
+        {
+            // failed tx
             return false;
         }
 
@@ -318,10 +324,18 @@ namespace beam { namespace wallet
         TxBuilder builder{ *this, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee) };
         if (!builder.GetInitialTxParams() && txState == State::Initial)
         {
-            LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ") << PrintableAmount(builder.GetAmount()) << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
+            LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ")
+                << PrintableAmount(builder.GetAmount())
+                << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
 
             if (isSender)
             {
+                Height maxResponseHeight = 0;
+                if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight))
+                {
+                    LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
+                }
+                
                 builder.SelectInputs();
                 builder.AddChangeOutput();
             }
@@ -473,6 +487,11 @@ namespace beam { namespace wallet
                 {
                     return;
                 }
+            }
+
+            if (CheckExpired())
+            {
+                return;
             }
 
             // Construct transaction
@@ -903,7 +922,9 @@ namespace beam { namespace wallet
     Transaction::Ptr TxBuilder::CreateTransaction()
     {
         assert(m_Kernel);
-        LOG_INFO() << m_Tx.GetTxID() << " Transaction created. Kernel: " << GetKernelIDString();
+        LOG_INFO() << m_Tx.GetTxID() << " Transaction created. Kernel: " << GetKernelIDString()
+            << " min height: " << m_Kernel->m_Height.m_Min
+            << " max height: " << m_Kernel->m_Height.m_Max;
 
         // create transaction
         auto transaction = make_shared<Transaction>();

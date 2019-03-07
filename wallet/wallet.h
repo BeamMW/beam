@@ -120,6 +120,7 @@ namespace beam
         void report_sync_progress();
         void notifySyncProgress();
         void updateTransaction(const TxID& txID);
+        void UpdateOnSynced(wallet::BaseTransaction::Ptr tx);
         void saveKnownState();
         void RequestUtxoEvents();
         void AbortUtxoEvents();

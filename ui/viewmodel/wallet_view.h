@@ -41,7 +41,7 @@ class TxObject : public QObject
     Q_PROPERTY(QString fee              READ getFee              CONSTANT)
     Q_PROPERTY(QString kernelID         READ getKernelID         WRITE setKernelID  NOTIFY kernelIDChanged)
     Q_PROPERTY(QString failureReason    READ getFailureReason    NOTIFY failureReasonChanged)
-//    Q_PROPERTY(QString paymentProof     READ getPaymentProof     WRITE setPaymentProof NOTIFY paymentProofChanged)
+    Q_PROPERTY(bool hasPaymentProof     READ hasPaymentProof     NOTIFY kernelIDChanged)
 
 public:
 
@@ -66,8 +66,7 @@ public:
     QString getKernelID() const;
     void setKernelID(const QString& value);
     QString getFailureReason() const;
-    //QString getPaymentProof() const;
-    //void setPaymentProof(const QString& value);
+    bool hasPaymentProof() const;
 
     void setUserName(const QString& name);
     void setDisplayName(const QString& name);

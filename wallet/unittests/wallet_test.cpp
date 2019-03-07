@@ -586,6 +586,11 @@ namespace
                             Merkle::ProofBuilderHard bld2;
                             m_mcm.m_Mmr.get_Proof(bld2, iState);
                             msgOut.m_Proof.m_Outer.swap(bld2.m_Proof);
+                            msgOut.m_Proof.m_Outer.resize(msgOut.m_Proof.m_Outer.size() + 1);
+                            m_Utxos.get_Hash(msgOut.m_Proof.m_Outer.back());
+
+                            Block::SystemState::Full state = m_mcm.m_vStates[m_mcm.m_vStates.size()-1].m_Hdr;
+                            WALLET_CHECK(state.IsValidProofKernel(data.m_ID, msgOut.m_Proof));
                         }
 
                         return;
@@ -1559,7 +1564,7 @@ namespace
         auto txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true, 1, 10);
         mainReactor->run();
 
-        // check coins
+        // first tx with height == 0
         {
             vector<Coin> newSenderCoins = sender.GetCoins();
             vector<Coin> newReceiverCoins = receiver.GetCoins();
@@ -1570,9 +1575,29 @@ namespace
             auto sh = sender.m_WalletDB->getTxHistory();
             WALLET_CHECK(sh.size() == 1);
             WALLET_CHECK(sh[0].m_status == TxStatus::Failed);
-            WALLET_CHECK(sh[0].m_failureReason == TxFailureReason::TransactionExpired);
+            WALLET_CHECK(sh[0].m_failureReason == TxFailureReason::MaxHeightIsUnacceptable);
             auto rh = receiver.m_WalletDB->getTxHistory();
             WALLET_CHECK(rh.size() == 1);
+            WALLET_CHECK(rh[0].m_status == TxStatus::Failed);
+            WALLET_CHECK(rh[0].m_failureReason == TxFailureReason::TransactionExpired);
+        }
+
+        txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true, 0, 10);
+        mainReactor->run();
+
+        {
+            vector<Coin> newSenderCoins = sender.GetCoins();
+            vector<Coin> newReceiverCoins = receiver.GetCoins();
+
+            WALLET_CHECK(newSenderCoins.size() == 4);
+            WALLET_CHECK(newReceiverCoins.size() == 0);
+
+            auto sh = sender.m_WalletDB->getTxHistory();
+            WALLET_CHECK(sh.size() == 2);
+            WALLET_CHECK(sh[0].m_status == TxStatus::Failed);
+            WALLET_CHECK(sh[0].m_failureReason == TxFailureReason::TransactionExpired);
+            auto rh = receiver.m_WalletDB->getTxHistory();
+            WALLET_CHECK(rh.size() == 2);
             WALLET_CHECK(rh[0].m_status == TxStatus::Failed);
             WALLET_CHECK(rh[0].m_failureReason == TxFailureReason::TransactionExpired);
         }
@@ -1589,11 +1614,11 @@ namespace
             WALLET_CHECK(newReceiverCoins.size() == 1);
 
             auto sh = sender.m_WalletDB->getTxHistory();
-            WALLET_CHECK(sh.size() == 2);
+            WALLET_CHECK(sh.size() == 3);
             auto sit = find_if(sh.begin(), sh.end(), [&txId](const auto& t) {return t.m_txId == txId; });
             WALLET_CHECK(sit->m_status == TxStatus::Completed);
             auto rh = receiver.m_WalletDB->getTxHistory();
-            WALLET_CHECK(rh.size() == 2);
+            WALLET_CHECK(rh.size() == 3);
             auto rit = find_if(rh.begin(), rh.end(), [&txId](const auto& t) {return t.m_txId == txId; });
             WALLET_CHECK(rit->m_status == TxStatus::Completed);
         }
@@ -1662,7 +1687,7 @@ namespace
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        const int TxCount = 5;
+        const int TxCount = 100;
 
         int completedCount = 2 * TxCount;
         auto f = [&completedCount, mainReactor, count = 2 * TxCount](auto)
@@ -1689,7 +1714,7 @@ namespace
         
         mainReactor->run();
         sw.stop();
-        cout << "Transferring of " << TxCount << " transactions took :" << sw.milliseconds() << " ms\n";
+        cout << "Transferring of " << TxCount << " transactions took: " << sw.milliseconds() << " ms\n";
     }
 }
 

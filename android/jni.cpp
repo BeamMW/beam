@@ -122,6 +122,12 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
     {
         LOG_DEBUG() << "wallet successfully created.";
 
+        // generate default address
+
+        WalletAddress address = wallet::createAddress(*walletDB);
+        address.m_label = "default";
+        walletDB->saveAddress(address);
+
         walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value());
 
         jobject walletObj = env->AllocObject(WalletClass);
