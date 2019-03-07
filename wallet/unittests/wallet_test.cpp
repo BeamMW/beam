@@ -1575,7 +1575,7 @@ namespace
             auto sh = sender.m_WalletDB->getTxHistory();
             WALLET_CHECK(sh.size() == 1);
             WALLET_CHECK(sh[0].m_status == TxStatus::Failed);
-            WALLET_CHECK(sh[0].m_failureReason == TxFailureReason::MaxHeightIsUnacceptable);
+            WALLET_CHECK(sh[0].m_failureReason == TxFailureReason::TransactionExpired);
             auto rh = receiver.m_WalletDB->getTxHistory();
             WALLET_CHECK(rh.size() == 1);
             WALLET_CHECK(rh[0].m_status == TxStatus::Failed);
@@ -1638,6 +1638,7 @@ namespace
             void confirm_kernel(const TxID&, const TxKernel&) override  {}
             bool get_tip(Block::SystemState::Full& state) const override { return false; }
             void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override {}
+            void UpdateOnNextTip(const TxID&) override {};
         } gateway;
         TestWalletRig sender("sender", createSenderWalletDB());
         TestWalletRig receiver("receiver", createReceiverWalletDB());

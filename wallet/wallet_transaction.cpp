@@ -225,6 +225,11 @@ namespace beam { namespace wallet
         m_Gateway.confirm_kernel(GetTxID(), kernel);
     }
 
+    void BaseTransaction::UpdateOnNextTip()
+    {
+        m_Gateway.UpdateOnNextTip(GetTxID());
+    }
+
     void BaseTransaction::CompleteTx()
     {
         LOG_INFO() << GetTxID() << " Transaction completed";
@@ -380,6 +385,7 @@ namespace beam { namespace wallet
                 SendInvitation(builder, isSender);
                 SetState(State::Invitation);
             }
+            UpdateOnNextTip();
             return;
         }
 

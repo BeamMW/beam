@@ -366,6 +366,15 @@ namespace beam
         m_pWalletNetwork->Send(peerID, std::move(msg));
     }
 
+    void Wallet::UpdateOnNextTip(const TxID& txID)
+    {
+        auto it = m_Transactions.find(txID);
+        if (it != m_Transactions.end())
+        {
+            UpdateOnSynced(it->second);
+        }
+    }
+
     void Wallet::OnWalletMessage(const WalletID& myID, wallet::SetTxParameter&& msg)
     {
         auto t = getTransaction(myID, msg);
