@@ -1663,7 +1663,7 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 					size_t nSize = 0;
 
 					sid.m_Height -= msg.m_CountExtra;
-					Height hMax = std::min(msg.m_Top.m_Height, sid.m_Height + 1000);
+					Height hMax = std::min(msg.m_Top.m_Height, sid.m_Height + 2000);
 
 					for (; sid.m_Height <= hMax; sid.m_Height++)
 					{
@@ -1673,9 +1673,9 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 						if (!p.GetBlock(sid, bb.m_Eternal, bb.m_Perishable, msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
 							break;
 
+						nSize += bb.m_Eternal.size() + bb.m_Perishable.size();
 						msgBody.m_Bodies.push_back(std::move(bb));
 
-						nSize += bb.m_Eternal.size() + bb.m_Perishable.size();
 						if (nSize >= m_This.m_Cfg.m_BandwidthCtl.m_Chocking)
 							break;
 					}
