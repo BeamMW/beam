@@ -201,7 +201,7 @@ link_directories($ENV{BOOST_ROOT}/lib)
 if(ANDROID)
     message("ANDROID_ABI: ${ANDROID_ABI}")
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
-    include_directories($ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/include/boost-1_68)
+    include_directories($ENV{BOOST_ROOT_ANDROID}/include)
 
     if(ANDROID_ABI STREQUAL "armeabi-v7a")
         set(OPENSSL_ROOT_DIR_ANDROID $ENV{OPENSSL_ROOT_DIR_ANDROID}/armv7-shared)
