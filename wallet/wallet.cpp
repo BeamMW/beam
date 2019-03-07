@@ -258,6 +258,7 @@ namespace beam
             auto t = constructTransaction(tx.m_txId, TxType::Simple);
 
             m_Transactions.emplace(tx.m_txId, t);
+            UpdateOnSynced(t);
         }
     }
 

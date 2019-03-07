@@ -586,6 +586,11 @@ namespace
                             Merkle::ProofBuilderHard bld2;
                             m_mcm.m_Mmr.get_Proof(bld2, iState);
                             msgOut.m_Proof.m_Outer.swap(bld2.m_Proof);
+                            msgOut.m_Proof.m_Outer.resize(msgOut.m_Proof.m_Outer.size() + 1);
+                            m_Utxos.get_Hash(msgOut.m_Proof.m_Outer.back());
+
+                            Block::SystemState::Full state = m_mcm.m_vStates[m_mcm.m_vStates.size()-1].m_Hdr;
+                            WALLET_CHECK(state.IsValidProofKernel(data.m_ID, msgOut.m_Proof));
                         }
 
                         return;
@@ -1577,7 +1582,7 @@ namespace
             WALLET_CHECK(rh[0].m_failureReason == TxFailureReason::TransactionExpired);
         }
 
-        txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true, 1, 10);
+        txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true, 0, 10);
         mainReactor->run();
 
         {
@@ -1682,7 +1687,7 @@ namespace
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        const int TxCount = 5;
+        const int TxCount = 100;
 
         int completedCount = 2 * TxCount;
         auto f = [&completedCount, mainReactor, count = 2 * TxCount](auto)
