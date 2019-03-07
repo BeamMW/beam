@@ -1257,6 +1257,7 @@ bool Node::Peer::ShouldFinalizeMining()
 void Node::Peer::OnMsg(proto::Bye&& msg)
 {
     LOG_INFO() << "Peer " << m_RemoteAddr << " Received Bye." << msg.m_Reason;
+	NodeConnection::OnMsg(std::move(msg));
 }
 
 void Node::Peer::OnDisconnect(const DisconnectReason& dr)
