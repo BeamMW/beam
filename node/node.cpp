@@ -368,8 +368,8 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 			if (t.m_Key.first.m_Height > m_Processor.m_SyncData.m_Target.m_Height)
 				return false; // don't request blocks beyond current sync target! (this is artifact of request backlog)
 
-			proto::GetBody2 msg;
-			msg.m_ID = t.m_Key.first;
+			proto::GetBodyPack msg;
+			msg.m_Top = t.m_Key.first;
 			msg.m_Height0 = m_Processor.m_SyncData.m_h0;
 			msg.m_HorizonLo1 = m_Processor.m_SyncData.m_TxoLo;
 			msg.m_HorizonHi1 = m_Processor.m_SyncData.m_Target.m_Height;
@@ -1622,36 +1622,76 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 
 void Node::Peer::OnMsg(proto::GetBody&& msg)
 {
-	proto::GetBody2 msg2;
-	msg2.m_ID = msg.m_ID;
+	proto::GetBodyPack msg2;
+	msg2.m_Top = msg.m_ID;
 	OnMsg(std::move(msg2));
 }
 
-void Node::Peer::OnMsg(proto::GetBody2&& msg)
+void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 {
-    if (msg.m_ID.m_Height)
+	Processor& p = m_This.m_Processor; // alias
+
+    if (msg.m_Top.m_Height)
     {
 		NodeDB::StateID sid;
-		sid.m_Row = m_This.m_Processor.get_DB().StateFindSafe(msg.m_ID);
+		sid.m_Row = p.get_DB().StateFindSafe(msg.m_Top);
 		if (sid.m_Row)
 		{
-			sid.m_Height = msg.m_ID.m_Height;
+			sid.m_Height = msg.m_Top.m_Height;
 
-			proto::Body msgBody;
-			if (m_This.m_Processor.GetBlock(sid, msgBody.m_Eternal, msgBody.m_Perishable, msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
+			if (msg.m_CountExtra)
 			{
-				Send(msgBody);
-				return;
-			}
+				if (sid.m_Height - Rules::HeightGenesis < msg.m_CountExtra)
+					ThrowUnexpected();
 
+				if (NodeDB::StateFlags::Active & p.get_DB().GetStateFlags(sid.m_Row))
+				{
+					// functionality only supported for active states
+					proto::BodyPack msgBody;
+					size_t nSize = 0;
+
+					sid.m_Height -= msg.m_CountExtra;
+					Height hMax = std::min(msg.m_Top.m_Height, sid.m_Height + 1000);
+
+					for (; sid.m_Height <= hMax; sid.m_Height++)
+					{
+						sid.m_Row = p.FindActiveAtStrict(sid.m_Height);
+
+						proto::BodyBuffers bb;
+						if (!p.GetBlock(sid, bb.m_Eternal, bb.m_Perishable, msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
+							break;
+
+						msgBody.m_Bodies.push_back(std::move(bb));
+
+						nSize += bb.m_Eternal.size() + bb.m_Perishable.size();
+						if (nSize >= m_This.m_Cfg.m_BandwidthCtl.m_Chocking)
+							break;
+					}
+
+					if (msgBody.m_Bodies.size())
+					{
+						Send(msgBody);
+						return;
+					}
+				}
+			}
+			else
+			{
+				proto::Body msgBody;
+				if (p.GetBlock(sid, msgBody.m_Body.m_Eternal, msgBody.m_Body.m_Perishable, msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
+				{
+					Send(msgBody);
+					return;
+				}
+			}
 		}
     }
     else
     {
-        if ((msg.m_ID.m_Hash == Zero) && m_This.m_Processor.IsTreasuryHandled())
+        if ((msg.m_Top.m_Hash == Zero) && p.IsTreasuryHandled())
         {
             proto::Body msgBody;
-            if (m_This.m_Processor.get_DB().ParamGet(NodeDB::ParamID::Treasury, NULL, NULL, &msgBody.m_Eternal))
+            if (p.get_DB().ParamGet(NodeDB::ParamID::Treasury, NULL, NULL, &msgBody.m_Body.m_Eternal))
             {
                 Send(msgBody);
                 return;
@@ -1677,8 +1717,8 @@ void Node::Peer::OnMsg(proto::Body&& msg)
     Height h = id.m_Height;
 
     NodeProcessor::DataStatus::Enum eStatus = h ?
-        m_This.m_Processor.OnBlock(id, msg.m_Perishable, msg.m_Eternal, m_pInfo->m_ID.m_Key) :
-        m_This.m_Processor.OnTreasury(msg.m_Eternal);
+        m_This.m_Processor.OnBlock(id, msg.m_Body.m_Perishable, msg.m_Body.m_Eternal, m_pInfo->m_ID.m_Key) :
+        m_This.m_Processor.OnTreasury(msg.m_Body.m_Eternal);
 
     OnFirstTaskDone(eStatus);
 }
