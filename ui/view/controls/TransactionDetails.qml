@@ -97,7 +97,7 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.white
-            //wrapMode: Text.Wrap
+            wrapMode: Text.Wrap
             text: {
                 return model ? model.comment : "";
             }
@@ -136,7 +136,7 @@ RowLayout {
             copyMenuEnabled: true
             font.pixelSize: 14
             color: Style.white
-            //wrapMode: Text.Wrap
+            wrapMode: Text.Wrap
             visible: model ? model.failureReason.length > 0 : false
             text: {
                 if(model && model.failureReason.length > 0)
