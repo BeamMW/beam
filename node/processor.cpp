@@ -354,7 +354,7 @@ NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::EnumCongestionsInt
 	return pMaxTarget;
 }
 
-void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
+void NodeProcessor::EnumCongestions()
 {
 	if (!IsTreasuryHandled())
 	{
@@ -416,34 +416,32 @@ void NodeProcessor::EnumCongestions(uint32_t nMaxBlocksBacklog)
 	for (CongestionCache::TipList::iterator it = m_CongestionCache.m_lstTips.begin(); m_CongestionCache.m_lstTips.end() != it; it++)
 	{
 		CongestionCache::TipCongestion& x = *it;
+
+		if (!(x.m_bNeedHdrs || (&x == pMaxTarget)))
+			continue; // current policy - ask only for blocks with the largest proven (wrt headers) chainwork
+
 		Block::SystemState::ID id;
 
 		NodeDB::StateID sidTrg;
-		sidTrg.m_Height = x.m_Height;
-		sidTrg.m_Row = x.m_Rows.at(0);
+		if (m_SyncData.m_Target.m_Row)
+			sidTrg = m_SyncData.m_Target;
+		else
+		{
+			sidTrg.m_Height = x.m_Height;
+			sidTrg.m_Row = x.m_Rows.at(0);
+		}
 
 		if (!x.m_bNeedHdrs)
 		{
 			if (m_SyncData.m_Target.m_Row && !x.IsContained(m_SyncData.m_Target))
 				continue; // ignore irrelevant branches
 
-			uint32_t nRequested = 0;
+			NodeDB::StateID sid;
+			sid.m_Height = x.m_Height - (x.m_Rows.size() - 1);
+			sid.m_Row = x.m_Rows.at(x.m_Rows.size() - 1);
 
-			for (size_t i = x.m_Rows.size(); i--; )
-			{
-				NodeDB::StateID sid;
-				sid.m_Height = x.m_Height - i;
-				sid.m_Row = x.m_Rows.at(i);
-
-				if (NodeDB::StateFlags::Functional & m_DB.GetStateFlags(sid.m_Row))
-					continue;
-
-				m_DB.get_StateID(sid, id);
-				RequestDataInternal(id, sid.m_Row, true, sidTrg);
-
-				if (++nRequested >= nMaxBlocksBacklog)
-					break;
-			}
+			m_DB.get_StateID(sid, id);
+			RequestDataInternal(id, sid.m_Row, true, sidTrg);
 		}
 		else
 		{
@@ -609,6 +607,7 @@ void NodeProcessor::GoUpFast()
 
 	ZeroObject(m_SyncData);
 	m_DB.ParamSet(NodeDB::ParamID::SyncData, nullptr, nullptr);
+	CommitDB();
 }
 
 void NodeProcessor::DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hStop)

@@ -197,7 +197,7 @@ public:
 
 	void CommitDB();
 
-	void EnumCongestions(uint32_t nMaxBlocksBacklog);
+	void EnumCongestions();
 	const uint64_t* get_CachedRows(const NodeDB::StateID&, Height nCountExtra); // retval valid till next call to this func, or to EnumCongestions()
 	void TryGoUp();
 

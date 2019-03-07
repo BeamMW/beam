@@ -40,7 +40,7 @@ void Node::RefreshCongestions()
 	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
 		it->m_bNeeded = false;
 
-    m_Processor.EnumCongestions(m_Cfg.m_MaxConcurrentBlocksRequest);
+    m_Processor.EnumCongestions();
 
     for (TaskList::iterator it = m_lstTasksUnassigned.begin(); m_lstTasksUnassigned.end() != it; )
     {
@@ -345,24 +345,34 @@ bool Node::TryAssignTask(Task& t, Peer& p)
     {
 		assert(!m_nTasksPackBody);
 
-        if (nBlocks >= m_Cfg.m_MaxConcurrentBlocksRequest)
-            return false;
+		Height hCountExtra = t.m_sidTrg.m_Height - t.m_Key.first.m_Height;
 
-		if (m_Processor.m_SyncData.m_Target.m_Row)
+		if (proto::LoginFlags::Extension2 & p.m_LoginFlags)
 		{
-			if (!(proto::LoginFlags::Extension2 & p.m_LoginFlags))
-				return false;
-
-			if (t.m_Key.first.m_Height > m_Processor.m_SyncData.m_Target.m_Height)
-				return false; // don't request blocks beyond current sync target! (this is artifact of request backlog)
-
 			proto::GetBodyPack msg;
-			msg.m_Top.m_Height = m_Processor.m_SyncData.m_Target.m_Height;
-			m_Processor.get_DB().get_StateHash(m_Processor.m_SyncData.m_Target.m_Row, msg.m_Top.m_Hash);
-			msg.m_CountExtra = m_Processor.m_SyncData.m_Target.m_Height - t.m_Key.first.m_Height;
-			msg.m_Height0 = m_Processor.m_SyncData.m_h0;
-			msg.m_HorizonLo1 = m_Processor.m_SyncData.m_TxoLo;
-			msg.m_HorizonHi1 = m_Processor.m_SyncData.m_Target.m_Height;
+
+			if (t.m_Key.first.m_Height <= m_Processor.m_SyncData.m_Target.m_Height)
+			{
+				// fast-sync mode, diluted blocks request.
+				msg.m_Top.m_Height = m_Processor.m_SyncData.m_Target.m_Height;
+				if (m_Processor.m_SyncData.m_Target.m_Row)
+					m_Processor.get_DB().get_StateHash(m_Processor.m_SyncData.m_Target.m_Row, msg.m_Top.m_Hash);
+				else
+					msg.m_Top.m_Hash = Zero; // treasury
+
+				msg.m_CountExtra = m_Processor.m_SyncData.m_Target.m_Height - t.m_Key.first.m_Height;
+				msg.m_Height0 = m_Processor.m_SyncData.m_h0;
+				msg.m_HorizonLo1 = m_Processor.m_SyncData.m_TxoLo;
+				msg.m_HorizonHi1 = m_Processor.m_SyncData.m_Target.m_Height;
+			}
+			else
+			{
+				// std blocks request
+				msg.m_Top.m_Height = t.m_sidTrg.m_Height;
+				m_Processor.get_DB().get_StateHash(t.m_sidTrg.m_Row, msg.m_Top.m_Hash);
+				msg.m_CountExtra = hCountExtra;
+			}
+
 			p.Send(msg);
 
 			t.m_bPack = true;
@@ -370,9 +380,49 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 		}
 		else
 		{
-			proto::GetBody msg;
-			msg.m_ID = t.m_Key.first;
-			p.Send(msg);
+			// old peer
+			if (m_Processor.m_SyncData.m_Target.m_Row)
+				return false; // incompatible
+
+			for (const uint64_t* pPtr = nullptr; ; )
+			{
+				proto::GetBody msg;
+				msg.m_ID = t.m_Key.first;
+				p.Send(msg);
+
+				if (++nBlocks >= m_Cfg.m_MaxConcurrentBlocksRequest)
+					break;
+
+				if (msg.m_ID.m_Height >= t.m_sidTrg.m_Height)
+					break;
+
+				// request more blocks, if applicable
+				if (!pPtr)
+				{
+					pPtr = m_Processor.get_CachedRows(t.m_sidTrg, hCountExtra);
+					if (!pPtr)
+						break;
+				}
+
+				Task* pTask = new Task;
+				pTask->m_Key = t.m_Key;
+				m_setTasks.insert(*pTask);
+
+				pTask->m_pOwner = &p;
+				p.m_lstTasks.push_back(*pTask);
+
+				pTask->m_sidTrg = t.m_sidTrg;
+				pTask->m_bNeeded = false;
+				pTask->m_bPack = false;
+
+				t.m_Key.first.m_Height++;
+				uint64_t rowid = pPtr[t.m_sidTrg.m_Height - t.m_Key.first.m_Height];
+				m_Processor.get_DB().get_StateHash(rowid, t.m_Key.first.m_Hash);
+
+				m_setTasks.erase(TaskSet::s_iterator_to(t));
+				m_setTasks.insert(t);
+
+			}
 		}
     }
     else
@@ -1754,6 +1804,8 @@ void Node::Peer::OnMsg(proto::BodyPack&& msg)
 	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
 	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
 
+	bool bSync = (t.m_sidTrg.m_Height <= p.m_SyncData.m_Target.m_Height);
+
 	NodeProcessor::DataStatus::Enum eStatus = NodeProcessor::DataStatus::Rejected;
 	if (!msg.m_Bodies.empty())
 	{
@@ -1769,6 +1821,9 @@ void Node::Peer::OnMsg(proto::BodyPack&& msg)
 
 				p.get_DB().SetStateBlock(rowid, bb.m_Perishable, bb.m_Eternal);
 				p.get_DB().SetStateFunctional(rowid);
+
+				if (!bSync)
+					p.get_DB().set_Peer(rowid, &m_pInfo->m_ID.m_Key);
 			}
 
 			LOG_INFO() << id << " Block pack received " << id.m_Height << "-" << (id.m_Height + msg.m_Bodies.size() - 1);
