@@ -440,12 +440,17 @@ namespace beam
             if (bSynced)
                 tx->Update();
             else
-                m_TransactionsToUpdate.insert(tx);
+                UpdateOnSynced(tx);
         }
         else
         {
             LOG_DEBUG() << txID << " Unexpected event";
         }
+    }
+
+    void Wallet::UpdateOnSynced(BaseTransaction::Ptr tx)
+    {
+        m_TransactionsToUpdate.insert(tx);
     }
 
     void Wallet::OnRequestComplete(MyRequestUtxo& r)
@@ -486,6 +491,7 @@ namespace beam
             Block::SystemState::Full sTip;
             get_tip(sTip);
             tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height);
+            UpdateOnSynced(tx);
         }
     }
 
@@ -620,7 +626,7 @@ namespace beam
             {
                 h = 0;
                 pTx->SetParameter(TxParameterID::KernelProofHeight, h);
-                m_TransactionsToUpdate.insert(pTx);
+                UpdateOnSynced(pTx);
             }
         }
 
@@ -643,13 +649,6 @@ namespace beam
         LOG_INFO() << "Sync up to " << id;
 
         RequestUtxoEvents();
-
-        auto t = m_Transactions;
-        for (auto& p : t)
-        {
-            auto tx = p.second;
-            tx->Update();
-        }
 
         CheckSyncDone();
     }
@@ -706,6 +705,14 @@ namespace beam
             sTip.get_ID(id);
         else
             ZeroObject(id);
+
+        Block::SystemState::ID currentID;
+        m_WalletDB->getSystemStateID(currentID);
+
+        if (currentID == id)
+        {
+            return;
+        }
 
         m_WalletDB->setSystemStateID(id);
         LOG_INFO() << "Current state is " << id;

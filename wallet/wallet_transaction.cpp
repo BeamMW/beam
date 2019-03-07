@@ -156,10 +156,16 @@ namespace beam { namespace wallet
     bool BaseTransaction::CheckExpired()
     {
         Height kernelConfirmHeight = 0;
-        
         if (GetParameter(TxParameterID::KernelProofHeight, kernelConfirmHeight) && kernelConfirmHeight > 0)
         {
             // completed tx
+            return false;
+        }
+
+        TxFailureReason reason = TxFailureReason::Unknown;
+        if (GetParameter(TxParameterID::FailureReason, reason))
+        {
+            // failed tx
             return false;
         }
 
