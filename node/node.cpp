@@ -489,7 +489,7 @@ void Node::Peer::SetTimerWrtFirstTask()
 
 void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock, const PeerID* pPreferredPeer, const NodeDB::StateID& sidTrg)
 {
-    Task tKey;
+	Node::Task tKey;
     tKey.m_Key.first = id;
     tKey.m_Key.second = bBlock;
 
@@ -498,7 +498,7 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
     {
         LOG_INFO() << "Requesting " << (bBlock ? "block" : "header") << " " << id;
 
-        Task* pTask = new Task;
+		Node::Task* pTask = new Node::Task;
         pTask->m_Key = tKey.m_Key;
         pTask->m_sidTrg = sidTrg;
 		pTask->m_bNeeded = true;
@@ -513,7 +513,7 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 	}
 	else
 	{
-		Task& t = *it;
+		Node::Task& t = *it;
 		t.m_bNeeded = true;
 		if (!t.m_pOwner && (t.m_sidTrg.m_Height < sidTrg.m_Height))
 			t.m_sidTrg = sidTrg;
@@ -614,117 +614,101 @@ void Node::Processor::OnRolledBack()
 		pObserver->OnRolledBack(m_Cursor.m_ID);
 }
 
-bool Node::Processor::Verifier::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r, bool bBatchReset, bool bBatchFinalize)
+uint32_t Node::Processor::TaskProcessor::get_Threads()
 {
-    uint32_t nThreads = get_ParentObj().get_ParentObj().m_Cfg.m_VerificationThreads;
-    if (!nThreads)
-    {
-		if (m_pBc)
+	uint32_t nThreads = get_ParentObj().get_ParentObj().m_Cfg.m_VerificationThreads;
+	return std::max(nThreads, 1U);
+}
+
+void Node::Processor::TaskProcessor::Push(Task::Ptr&& pTask)
+{
+	assert(pTask);
+
+	if (m_vThreads.empty())
+	{
+		m_Run = true;
+
+		uint32_t nThreads = get_Threads();
+		m_vThreads.resize(nThreads);
+
+		for (uint32_t i = 0; i < nThreads; i++)
+			m_vThreads[i] = std::thread(&TaskProcessor::Thread, this, i);
+	}
+
+	std::unique_lock<std::mutex> scope(m_Mutex);
+
+	bool bEmpty = m_queTasks.empty();
+	m_queTasks.push_back(std::move(pTask));
+
+	if (bEmpty)
+		m_NewTask.notify_all();
+}
+
+void Node::Processor::TaskProcessor::Flush()
+{
+	std::unique_lock<std::mutex> scope(m_Mutex);
+
+	while (!m_queTasks.empty() || m_InProgress)
+		m_AllFinished.wait(scope);
+}
+
+void Node::Processor::TaskProcessor::Stop()
+{
+	if (m_vThreads.empty())
+		return;
+
+	{
+		std::unique_lock<std::mutex> scope(m_Mutex);
+		m_Run = false;
+		m_NewTask.notify_all();
+	}
+
+	for (size_t i = 0; i < m_vThreads.size(); i++)
+		if (m_vThreads[i].joinable())
+			m_vThreads[i].join();
+
+	m_vThreads.clear();
+}
+
+void Node::Processor::TaskProcessor::Thread(uint32_t)
+{
+	std::unique_ptr<MyBatch> p(new MyBatch);
+	p->m_bEnableBatch = true;
+	MyBatch::Scope scopeBatch(*p);
+
+	while (true)
+	{
+		Task::Ptr pTask;
+
 		{
-			if (bBatchReset)
-				m_pBc->Reset();
+			std::unique_lock<std::mutex> scope(m_Mutex);
+			while (true)
+			{
+				if (!m_Run)
+					return;
+
+				if (!m_queTasks.empty())
+				{
+					pTask = std::move(m_queTasks.front());
+					m_queTasks.pop_front();
+					m_InProgress++;
+
+					break;
+				}
+
+				m_NewTask.wait(scope);
+			}
 		}
-        else
-        {
-            m_pBc.reset(new Verifier::MyBatch);
-            m_pBc->m_bEnableBatch = true;
-        }
-        Verifier::MyBatch::Scope scope(*m_pBc);
 
-		bool bRet = ctx.ValidateAndSummarize(txb, std::move(r));
-		if (bRet && bBatchFinalize)
-			bRet = m_pBc->Flush();
+		assert(pTask);
+		pTask->Exec();
 
-		return bRet;
-    }
+		std::unique_lock<std::mutex> scope(m_Mutex);
 
-    std::unique_lock<std::mutex> scope(m_Mutex);
-
-    if (m_vThreads.empty())
-    {
-        m_iTask = 1;
-
-        m_vThreads.resize(nThreads);
-        for (uint32_t i = 0; i < nThreads; i++)
-            m_vThreads[i] = std::thread(&Verifier::Thread, this, i);
-    }
-
-    m_iTask ^= 2;
-    m_pTx = &txb;
-    m_pR = &r;
-    m_pCtx = &ctx;
-    m_bFail = false;
-	m_bBatchReset = bBatchReset;
-	m_bBatchFinalize = bBatchFinalize;
-    m_Remaining = nThreads;
-
-    m_TaskNew.notify_all();
-
-    while (m_Remaining)
-        m_TaskFinished.wait(scope);
-
-    return !m_bFail;
-}
-
-bool Node::Processor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r, bool bBatchReset, bool bBatchFinalize)
-{
-	return m_Verifier.ValidateAndSummarize(ctx, txb, std::move(r), bBatchReset, bBatchFinalize);
-}
-
-void Node::Processor::Verifier::Thread(uint32_t iVerifier)
-{
-    uint32_t nThreads = get_ParentObj().get_ParentObj().m_Cfg.m_VerificationThreads;
-
-    std::unique_ptr<Verifier::MyBatch> p(new Verifier::MyBatch);
-    p->m_bEnableBatch = true;
-    Verifier::MyBatch::Scope scope(*p);
-
-    for (uint32_t iTask = 1; ; )
-    {
-        {
-            std::unique_lock<std::mutex> scope2(m_Mutex);
-
-            while (m_iTask == iTask)
-                m_TaskNew.wait(scope2);
-
-            if (!m_iTask)
-                return;
-
-            iTask = m_iTask;
-        }
-
-		if (m_bBatchReset)
-			p->Reset();
-
-        assert(m_Remaining);
-
-        TxBase::Context ctx;
-        ctx.m_bBlockMode = m_pCtx->m_bBlockMode;
-        ctx.m_Height = m_pCtx->m_Height;
-        ctx.m_nVerifiers = nThreads;
-        ctx.m_iVerifier = iVerifier;
-        ctx.m_pAbort = &m_bFail; // obsolete actually
-
-        TxBase::IReader::Ptr pR;
-        m_pR->Clone(pR);
-
-		bool bValid = ctx.ValidateAndSummarize(*m_pTx, std::move(*pR));
-		if (bValid && m_bBatchFinalize)
-			bValid = p->Flush();
-
-        std::unique_lock<std::mutex> scope2(m_Mutex);
-
-        verify(m_Remaining--);
-
-        if (bValid && !m_bFail)
-            bValid = m_pCtx->Merge(ctx);
-
-        if (!bValid)
-            m_bFail = true;
-
-        if (!m_Remaining)
-            m_TaskFinished.notify_one();
-    }
+		assert(m_InProgress);
+		if (!--m_InProgress)
+			m_AllFinished.notify_one();
+	}
 }
 
 void Node::Processor::AdjustFossilEnd(Height& h)
@@ -1048,19 +1032,7 @@ Node::~Node()
 
     assert(m_setTasks.empty());
 
-    Processor::Verifier& v = m_Processor.m_Verifier; // alias
-    if (!v.m_vThreads.empty())
-    {
-        {
-            std::unique_lock<std::mutex> scope(v.m_Mutex);
-            v.m_iTask = 0;
-            v.m_TaskNew.notify_all();
-        }
-
-        for (size_t i = 0; i < v.m_vThreads.size(); i++)
-            if (v.m_vThreads[i].joinable())
-                v.m_vThreads[i].join();
-    }
+	m_Processor.m_TaskProcessor.Stop();
 
 	if (!std::uncaught_exceptions())
 		m_PeerMan.OnFlush();
@@ -1866,7 +1838,7 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 bool Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 {
     return
-        m_Processor.m_Verifier.ValidateAndSummarize(ctx, tx, tx.get_Reader(), true, true) &&
+        m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) &&
         ctx.IsValidTransaction() &&
         m_Processor.ValidateTxContext(tx);
 }
@@ -3076,7 +3048,7 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
         // and do the overall validation
         TxBase::Context ctx;
         ctx.m_bBlockMode = true;
-        if (!m_This.m_Processor.m_Verifier.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader(), true, true))
+        if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader()))
             ThrowUnexpected();
 
         if (ctx.m_Coinbase != AmountBig::Type(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))

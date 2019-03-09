@@ -202,16 +202,34 @@ public:
 	void TryGoUp();
 
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
-	bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
 
 	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer, const NodeDB::StateID& sidTrg) {}
 	virtual void OnPeerInsane(const PeerID&) {}
 	virtual void OnNewState() {}
 	virtual void OnRolledBack() {}
-	virtual bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&, bool bBatchReset, bool bBatchFinalize);
 	virtual void AdjustFossilEnd(Height&) {}
 	virtual bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) { return false; }
 	virtual void OnModified() {}
+
+	// parallel context-free execution
+	struct Task
+	{
+		typedef std::shared_ptr<Task> Ptr;
+		virtual void Exec() = 0;
+
+		struct Processor
+		{
+			virtual uint32_t get_Threads();
+			virtual void Push(Task::Ptr&&);
+			virtual void Flush();
+		};
+	};
+
+	Task::Processor m_SyncProcessor;
+	virtual Task::Processor& get_TaskProcessor() { return m_SyncProcessor; }
+
+	bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
+	bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&);
 
 	struct IKeyWalker {
 		virtual bool OnKey(Key::IPKdf&, Key::Index) = 0;

@@ -176,7 +176,6 @@ private:
 		void OnPeerInsane(const PeerID&) override;
 		void OnNewState() override;
 		void OnRolledBack() override;
-		bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&, bool bBatchReset, bool bBatchFinalize) override;
 		void AdjustFossilEnd(Height&) override;
 		bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) override;
 		void OnModified() override;
@@ -184,32 +183,34 @@ private:
 		void OnUtxoEvent(const UtxoEvent::Value&) override;
 		void OnDummy(const Key::ID&, Height) override;
 
-		struct Verifier
+		struct TaskProcessor
+			:public Task::Processor
 		{
-			typedef ECC::InnerProduct::BatchContextEx<100> MyBatch; // seems to be ok, for larger batches difference is marginal
-
-			const TxBase* m_pTx;
-			TxBase::IReader* m_pR;
-			TxBase::Context* m_pCtx;
-
-			bool m_bFail;
-			bool m_bBatchReset;
-			bool m_bBatchFinalize;
-			uint32_t m_iTask;
-			uint32_t m_Remaining;
+			virtual uint32_t get_Threads() override;
+			virtual void Push(Task::Ptr&&) override;
+			virtual void Flush() override;
 
 			std::mutex m_Mutex;
-			std::condition_variable m_TaskNew;
-			std::condition_variable m_TaskFinished;
+
+			std::deque<Task::Ptr> m_queTasks;
+			uint32_t m_InProgress = 0;
+			bool m_Run = false;
+			std::condition_variable m_NewTask;
+			std::condition_variable m_AllFinished;
 
 			std::vector<std::thread> m_vThreads;
-			std::unique_ptr<MyBatch> m_pBc;
 
-			bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&, bool bBatchReset, bool bBatchFinalize);
+			typedef ECC::InnerProduct::BatchContextEx<100> MyBatch; // seems to be ok, for larger batches difference is marginal
+
+			~TaskProcessor() { Stop(); }
+			void Stop();
 			void Thread(uint32_t);
 
-			IMPLEMENT_GET_PARENT_OBJ(Processor, m_Verifier)
-		} m_Verifier;
+			IMPLEMENT_GET_PARENT_OBJ(Node::Processor, m_TaskProcessor)
+		} m_TaskProcessor;
+
+		virtual Task::Processor& get_TaskProcessor() { return m_TaskProcessor; }
+
 
 		Block::ChainWorkProof m_Cwp; // cached
 		bool BuildCwp();

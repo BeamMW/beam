@@ -18,6 +18,7 @@
 #include "../utility/serialize.h"
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
+#include <condition_variable>
 
 namespace beam {
 
@@ -638,11 +639,7 @@ bool NodeProcessor::GoUpFastInternal()
 	ctx.m_Height.m_Min = m_SyncData.m_h0 + 1;
 	ctx.m_Height.m_Max = m_SyncData.m_Target.m_Height;
 	ctx.m_bBlockMode = true;
-
-	Transaction txDummy;
-	txDummy.m_Offset = Zero;
-
-	verify(ValidateAndSummarize(ctx, txDummy, txDummy.get_Reader(), true, false));
+	ctx.m_bAllowUnsignedOutputs = true;
 
 	for (size_t i = vPath.size(); i--; )
 	{
@@ -652,9 +649,7 @@ bool NodeProcessor::GoUpFastInternal()
 		m_DB.DelStateBlockPP(vPath[i]); // can delete it right away, since we don't need the block for rollback (in case fast-sync fails)
 	}
 
-	bool bOk =
-		ValidateAndSummarize(ctx, txDummy, txDummy.get_Reader(), false, true) && // flush batch context
-		ctx.IsValidBlock(); // validate macroblock wrt height range
+	bool bOk = ctx.IsValidBlock(); // validate macroblock wrt height range
 
 	if (!bOk)
 		return false;
@@ -1068,63 +1063,10 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, TxBase::Context* pBa
 			return false;
 		}
 
-		bool bValid;
-
-		if (pBatch)
-		{
+		bool bValid = pBatch ?
 			// In batch mode some outputs may be 'naked'. We'll add them as-is
-			class ReaderEx
-				:public TxVectors::Reader
-			{
-				void SkipNaked()
-				{
-					while (m_pUtxoOut && IsNaked(*m_pUtxoOut))
-						TxVectors::Reader::NextUtxoOut();
-				}
-			public:
-				ReaderEx(const TxVectors::Perishable& p, const TxVectors::Eternal& e)
-					:TxVectors::Reader(p, e) {
-				}
-
-				static bool IsNaked(const Output& x)
-				{
-					return !(x.m_pConfidential || x.m_pPublic);
-				}
-
-				void Clone(Ptr& pOut) override {
-					pOut.reset(new ReaderEx(m_P, m_E));
-				}
-				void Reset() override {
-					TxVectors::Reader::Reset();
-					SkipNaked();
-				}
-				void NextUtxoOut() override {
-					TxVectors::Reader::NextUtxoOut();
-					SkipNaked();
-				};
-
-			};
-
-			ReaderEx r(block, block);
-			bValid = ValidateAndSummarize(*pBatch, block, std::move(r), false, false);
-
-			for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-			{
-				const Output& x = *block.m_vOutputs[i];
-				if (ReaderEx::IsNaked(x))
-				{
-					// add it as-is
-					ECC::Point::Native pt;
-					if (pt.Import(x.m_Commitment))
-						pBatch->m_Sigma += pt;
-					else
-						bValid = false;
-				}
-			}
-				
-		}
-		else
-			bValid = VerifyBlock(block, block.get_Reader(), sid.m_Height);
+			ValidateAndSummarize(*pBatch, block, block.get_Reader()) :
+			VerifyBlock(block, block.get_Reader(), sid.m_Height);
 
 		if (!bValid)
 		{
@@ -2274,9 +2216,95 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	return nSize <= Rules::get().MaxBodySize;
 }
 
-bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r, bool bBatchReset, bool bBatchFinalize)
+uint32_t NodeProcessor::Task::Processor::get_Threads()
 {
-	return ctx.ValidateAndSummarize(txb, std::move(r));
+	return 1;
+}
+
+void NodeProcessor::Task::Processor::Push(Task::Ptr&& pTask)
+{
+	pTask->Exec();
+}
+
+void NodeProcessor::Task::Processor::Flush()
+{
+}
+
+bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r)
+{
+	struct MyTask
+		:public Task
+	{
+		struct Shared
+		{
+			std::mutex m_Mutex;
+			uint32_t m_Threads;
+			TxBase::Context* m_pCtx;
+			const TxBase* m_pTx;
+			TxBase::IReader* m_pR;
+			bool m_bFail;
+
+			void Exec(uint32_t iThread)
+			{
+				ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
+
+				TxBase::Context ctx;
+				ctx.m_bBlockMode = m_pCtx->m_bBlockMode;
+				ctx.m_Height = m_pCtx->m_Height;
+				ctx.m_bVerifyOrder = m_pCtx->m_bVerifyOrder;
+				ctx.m_bAllowUnsignedOutputs = m_pCtx->m_bAllowUnsignedOutputs;
+				ctx.m_nVerifiers = m_Threads;
+				ctx.m_iVerifier = iThread;
+				ctx.m_pAbort = &m_bFail;
+
+				TxBase::IReader::Ptr pR;
+				m_pR->Clone(pR);
+
+				if (pBc)
+					pBc->Reset();
+
+				bool bValid = ctx.ValidateAndSummarize(*m_pTx, std::move(*pR));
+				if (bValid && pBc)
+					bValid = pBc->Flush();
+
+				std::unique_lock<std::mutex> scope2(m_Mutex);
+
+				if (bValid && !m_bFail)
+					bValid = m_pCtx->Merge(ctx);
+
+				if (!bValid)
+					m_bFail = true;
+			}
+		};
+
+		Shared* m_pShared;
+		uint32_t m_iThread;
+
+		virtual void Exec() override
+		{
+			m_pShared->Exec(m_iThread);
+		}
+	};
+
+	Task::Processor& tp = get_TaskProcessor();
+	MyTask::Shared s;
+	s.m_bFail = false;
+	s.m_Threads = tp.get_Threads();
+	assert(s.m_Threads);
+	s.m_pCtx = &ctx;
+	s.m_pTx = &txb;
+	s.m_pR = &r;
+
+	for (uint32_t i = 0; i < s.m_Threads; i++)
+	{
+		std::shared_ptr<MyTask> pTask(new MyTask);
+		pTask->m_pShared = &s;
+		pTask->m_iThread = i;
+		tp.Push(std::move(pTask));
+	}
+
+	tp.Flush();
+	return !s.m_bFail;
 }
 
 bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& r, const HeightRange& hr)
@@ -2289,7 +2317,7 @@ bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& 
 	ctx.m_bBlockMode = true;
 
 	return
-		ValidateAndSummarize(ctx, block, std::move(r), true, true) &&
+		ValidateAndSummarize(ctx, block, std::move(r)) &&
 		ctx.IsValidBlock();
 }
 
