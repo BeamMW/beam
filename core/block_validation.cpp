@@ -27,6 +27,7 @@ namespace beam
 		m_Height.Reset();
 		m_bBlockMode = false;
 		m_bVerifyOrder = true;
+		m_bAllowUnsignedOutputs = false;
 		m_nVerifiers = 1;
 		m_iVerifier = 0;
 		m_pAbort = NULL;
@@ -136,8 +137,22 @@ namespace beam
 				if (m_bVerifyOrder && pPrev && (*pPrev > *r.m_pUtxoOut))
 					return false;
 
-				if (!r.m_pUtxoOut->IsValid(pt))
-					return false;
+				bool bSigned = r.m_pUtxoOut->m_pConfidential || r.m_pUtxoOut->m_pPublic;
+
+				if (bSigned)
+				{
+					if (!r.m_pUtxoOut->IsValid(pt))
+						return false;
+				}
+				else
+				{
+					// unsigned output
+					if (!m_bAllowUnsignedOutputs)
+						return false;
+
+					if (!pt.Import(r.m_pUtxoOut->m_Commitment))
+						return false;
+				}
 
 				m_Sigma += pt;
 
@@ -146,8 +161,11 @@ namespace beam
 					if (!m_bBlockMode)
 						return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
 
-					assert(r.m_pUtxoOut->m_pPublic); // must have already been checked
-					m_Coinbase += uintBigFrom(r.m_pUtxoOut->m_pPublic->m_Value);
+					if (bSigned)
+					{
+						assert(r.m_pUtxoOut->m_pPublic); // must have already been checked
+						m_Coinbase += uintBigFrom(r.m_pUtxoOut->m_pPublic->m_Value);
+					}
 				}
 			}
 		}

@@ -664,6 +664,7 @@ namespace beam
 		// Suitable for merged block validation
 
 		bool m_bVerifyOrder; // check the correct order, as well as elimination of spent outputs. On by default. Turned Off only for specific internal validations (such as treasury).
+		bool m_bAllowUnsignedOutputs; // allow outputs without signature (commitment only). Applicable for cut-through blocks only, outputs that are supposed to be consumed in the later block.
 
 		// for multi-tasking, parallel verification
 		uint32_t m_nVerifiers;
