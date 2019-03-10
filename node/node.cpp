@@ -1859,12 +1859,11 @@ void Node::Peer::OnMsg(proto::BodyPack&& msg)
 			}
 
 			LOG_INFO() << id << " Block pack received " << id.m_Height << "-" << (id.m_Height + msg.m_Bodies.size() - 1);
-
-			p.TryGoUp();
 		}
 	}
 
 	OnFirstTaskDone(eStatus);
+	p.TryGoUp();
 }
 
 void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
