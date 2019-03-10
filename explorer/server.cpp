@@ -165,10 +165,23 @@ bool Server::send_status(const HttpConnection::Ptr& conn) {
 }
 
 bool Server::send_block(const HttpConnection::Ptr &conn) {
-    auto height = _currentUrl.get_int_arg("height", 0);
-    if (!_backend.get_block(_body, height)) {
-        return send(conn, 500, "Internal error #2");
+
+    if (_currentUrl.has_arg("kernel"))
+    {
+        ByteBuffer kernel;
+
+        if (!_currentUrl.get_hex_arg("kernel", kernel) || !_backend.get_block(_body, kernel)) {
+            return send(conn, 500, "Internal error #2");
+        }
     }
+    else 
+    {
+        auto height = _currentUrl.get_int_arg("height", 0);
+        if (!_backend.get_block(_body, height)) {
+            return send(conn, 500, "Internal error #2");
+        }
+    }
+
     return send(conn, 200, "OK");
 }
 

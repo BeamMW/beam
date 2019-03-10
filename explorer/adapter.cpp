@@ -349,6 +349,15 @@ private:
         return get_block_impl(out, height, row, 0);
     }
 
+    bool get_block(io::SerializedMsg& out, const ByteBuffer& key) override {
+        NodeDB& db = _nodeBackend.get_DB();
+
+        Height height = db.FindKernel(key);
+        uint64_t row = 0;
+
+        return get_block_impl(out, height, row, 0);
+    }
+
     bool get_blocks(io::SerializedMsg& out, uint64_t startHeight, uint64_t n) override {
         static const uint64_t maxElements = 1500;
         if (n > maxElements) n = maxElements;
