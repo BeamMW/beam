@@ -623,6 +623,14 @@ void NodeProcessor::DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hS
 	}
 }
 
+struct NodeProcessor::MultiblockContext
+{
+	TxBase::Context m_Ctx;
+	TxoID m_id0;
+
+	MultiblockContext(const TxBase::Context::Params& pars) :m_Ctx(pars) {}
+};
+
 bool NodeProcessor::GoUpFastInternal()
 {
 	std::vector<uint64_t> vPath;
@@ -635,12 +643,15 @@ bool NodeProcessor::GoUpFastInternal()
 			sid.SetNull();
 	}
 
+
 	TxBase::Context::Params pars;
 	pars.m_bBlockMode = true;
 	pars.m_bAllowUnsignedOutputs = true;
-	TxBase::Context ctx(pars);
-	ctx.m_Height.m_Min = m_SyncData.m_h0 + 1;
-	ctx.m_Height.m_Max = m_SyncData.m_Target.m_Height;
+
+	MultiblockContext mbc(pars);
+	mbc.m_Ctx.m_Height.m_Min = m_SyncData.m_h0 + 1;
+	mbc.m_Ctx.m_Height.m_Max = m_SyncData.m_Target.m_Height;
+	mbc.m_id0 = get_TxosBefore(m_SyncData.m_h0 + 1); // IDs of the macroblock outputs start here
 
 	{
 		struct Task0 :public Task {
@@ -659,7 +670,7 @@ bool NodeProcessor::GoUpFastInternal()
 
 	for (size_t i = vPath.size(); i--; )
 	{
-		if (!GoForward(vPath[i], &ctx))
+		if (!GoForward(vPath[i], &mbc))
 			return false;
 
 		m_DB.DelStateBlockPP(vPath[i]); // can delete it right away, since we don't need the block for rollback (in case fast-sync fails)
@@ -680,7 +691,7 @@ bool NodeProcessor::GoUpFastInternal()
 	get_TaskProcessor().ExecAll(t1);
 
 	if (t1.m_Ok)
-		t1.m_Ok = ctx.IsValidBlock();
+		t1.m_Ok = mbc.m_Ctx.IsValidBlock();
 
 	if (!t1.m_Ok)
 		return false;
@@ -1020,7 +1031,7 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 	return true;
 }
 
-bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, TxBase::Context* pBatch)
+bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext* pMbc)
 {
 	ByteBuffer bbP, bbE;
 	m_DB.GetStateBlock(sid.m_Row, &bbP, &bbE);
@@ -1094,9 +1105,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, TxBase::Context* pBa
 			return false;
 		}
 
-		bool bValid = pBatch ?
+		bool bValid = pMbc ?
 			// In batch mode some outputs may be 'naked'. We'll add them as-is
-			ValidateAndSummarize(*pBatch, block, block.get_Reader()) :
+			ValidateAndSummarize(pMbc->m_Ctx, block, block.get_Reader()) :
 			VerifyBlock(block, block.get_Reader(), sid.m_Height);
 
 		if (!bValid)
@@ -1112,7 +1123,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, TxBase::Context* pBa
 
 	if (bFirstTime && bOk)
 	{
-		if (!pBatch || (sid.m_Height >= m_SyncData.m_TxoLo))
+		if (!pMbc || (sid.m_Height >= m_SyncData.m_TxoLo))
 		{
 			// check the validity of state description.
 			Merkle::Hash hvDef;
@@ -1125,14 +1136,12 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, TxBase::Context* pBa
 			}
 		}
 
-		if (pBatch && (sid.m_Height <= m_SyncData.m_TxoLo))
+		if (pMbc && (sid.m_Height <= m_SyncData.m_TxoLo))
 		{
 			// make sure no spent txos above the requested h0
-			TxoID id0 = get_TxosBefore(m_SyncData.m_h0 + 1);
-
 			for (size_t i = 0; i < block.m_vInputs.size(); i++)
 			{
-				if (block.m_vInputs[i]->m_ID >= id0)
+				if (block.m_vInputs[i]->m_ID >= pMbc->m_id0)
 				{
 					LOG_WARNING() << id << " Invalid input in cut-through block";
 					bOk = false;
@@ -1158,7 +1167,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, TxBase::Context* pBa
 
 			m_DB.set_StateTxos(sid.m_Row, &m_Extra.m_Txos);
 
-			if (!pBatch)
+			if (!pMbc)
 			{
 				// no need to adjust LoHorizon in batch mode
 				assert(m_Extra.m_LoHorizon <= m_Cursor.m_Sid.m_Height);
@@ -1202,7 +1211,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, TxBase::Context* pBa
 		r.Reset();
 		RecognizeUtxos(std::move(r), sid.m_Height);
 
-		if (!pBatch) {
+		if (!pMbc) {
 			LOG_INFO() << id << " Block interpreted.";
 		}
 	}
@@ -1549,20 +1558,20 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 	return true;
 }
 
-bool NodeProcessor::GoForward(uint64_t row, TxBase::Context* pBatch)
+bool NodeProcessor::GoForward(uint64_t row, MultiblockContext* pMbc)
 {
 	NodeDB::StateID sid;
 	sid.m_Height = m_Cursor.m_Sid.m_Height + 1;
 	sid.m_Row = row;
 
-	if (HandleBlock(sid, pBatch))
+	if (HandleBlock(sid, pMbc))
 	{
 		m_DB.MoveFwd(sid);
 		InitCursor();
 		return true;
 	}
 
-	if (!pBatch)
+	if (!pMbc)
 	{
 		m_DB.DelStateBlockAll(row);
 		m_DB.SetStateNotFunctional(row);

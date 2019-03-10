@@ -40,7 +40,9 @@ class NodeProcessor
 	void GoUpFast();
 	bool GoUpFastInternal();
 
-	bool GoForward(uint64_t, TxBase::Context* pBatch);
+	struct MultiblockContext;
+
+	bool GoForward(uint64_t, MultiblockContext*);
 	void RollbackTo(Height);
 	Height PruneOld();
 	Height RaiseFossil(Height);
@@ -52,7 +54,7 @@ class NodeProcessor
 
 	bool HandleTreasury(const Blob&);
 
-	bool HandleBlock(const NodeDB::StateID&, TxBase::Context* pBatch);
+	bool HandleBlock(const NodeDB::StateID&, MultiblockContext*);
 	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, const Height* = NULL);
 	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, const Height* = NULL);
 	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd);
