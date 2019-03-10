@@ -1221,6 +1221,9 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
     ECC::InitializeContext();
 
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
+
     TestWalletDataBase();
     TestStoreCoins();
     TestStoreTxRecord();

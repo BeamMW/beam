@@ -1790,16 +1790,16 @@ namespace
     {
         cout << "\nTesting tx performance...\n";
 
-        const int MaxTxCount = 10;
+        const int MaxTxCount = 1000;
         vector<PerformanceRig> tests;
 
         for (int i = 10; i <= MaxTxCount; i *= 10)
         {
-            /*for (int j = 1; j < 3; ++j)
+            for (int j = 1; j < 3; ++j)
             {
                 tests.emplace_back(i, j);
-            }*/
-            tests.emplace_back(i, 1);
+            }
+            //tests.emplace_back(i, 1);
         }
 
         for (auto& t : tests)
@@ -1827,8 +1827,12 @@ int main()
     TestP2PWalletNegotiationST();
     //TestP2PWalletReverseNegotiationST();
 
-    //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
-    TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
+    {
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+        //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
+        TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
+    }
 
     TestSplitTransaction();
 
@@ -1839,7 +1843,7 @@ int main()
     //TestExpiredTransaction();
 
     TestTransactionUpdate();
-    //TestTxPerformance();
+    TestTxPerformance();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

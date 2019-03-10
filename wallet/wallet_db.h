@@ -182,15 +182,21 @@ namespace beam
         virtual Amount getTransferredByTx(TxStatus status, bool isSender) const = 0;
     };
 
+    namespace sqlite
+    {
+        struct Statement;
+        struct Transaction;
+    }
+
     class WalletDB : public IWalletDB
     {
-        WalletDB();
     public:
         static bool isInitialized(const std::string& path);
         static Ptr init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey);
         static Ptr open(const std::string& path, const SecString& password);
 
-        WalletDB(const ECC::NoLeak<ECC::uintBig>& secretKey);
+        WalletDB(sqlite3* db);
+        WalletDB(sqlite3* db, const ECC::NoLeak<ECC::uintBig>& secretKey);
         ~WalletDB();
 
         beam::Key::IKdf::Ptr get_MasterKdf() const override;
@@ -264,11 +270,16 @@ namespace beam
         void deleteParametersFromCache(const TxID& txID);
         void insertAddressToCache(const WalletID& id, const boost::optional<WalletAddress>& address) const;
         void deleteAddressFromCache(const WalletID& id);
+        void flushDB();
+        void onModified();
+        void onFlushTimer();
     private:
-
+        friend struct sqlite::Statement;
         sqlite3* _db;
         Key::IKdf::Ptr m_pKdf;
-
+        io::Timer::Ptr m_FlushTimer;
+        bool m_isFlushPending;
+        std::unique_ptr<sqlite::Transaction> m_DbTransaction;
         std::vector<IWalletDbObserver*> m_subscribers;
 
         struct History :public Block::SystemState::IHistory {
