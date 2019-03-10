@@ -188,7 +188,7 @@ private:
 		{
 			virtual uint32_t get_Threads() override;
 			virtual void Push(Task::Ptr&&) override;
-			virtual void Flush(uint32_t nMaxTasks) override;
+			virtual uint32_t Flush(uint32_t nMaxTasks) override;
 			virtual void ExecAll(Task&) override;
 
 			std::mutex m_Mutex;

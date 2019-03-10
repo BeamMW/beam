@@ -223,7 +223,7 @@ public:
 		{
 			virtual uint32_t get_Threads();
 			virtual void Push(Task::Ptr&&);
-			virtual void Flush(uint32_t nMaxTasks);
+			virtual uint32_t Flush(uint32_t nMaxTasks);
 			virtual void ExecAll(Task&);
 		};
 	};

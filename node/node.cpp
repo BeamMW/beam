@@ -650,12 +650,14 @@ void Node::Processor::TaskProcessor::Push(Task::Ptr&& pTask)
 	m_NewTask.notify_one();
 }
 
-void Node::Processor::TaskProcessor::Flush(uint32_t nMaxTasks)
+uint32_t Node::Processor::TaskProcessor::Flush(uint32_t nMaxTasks)
 {
 	InitSafe();
 
 	std::unique_lock<std::mutex> scope(m_Mutex);
 	FlushLocked(scope, nMaxTasks);
+
+	return m_InProgress;
 }
 
 void Node::Processor::TaskProcessor::FlushLocked(std::unique_lock<std::mutex>& scope, uint32_t nMaxTasks)

@@ -2266,8 +2266,9 @@ void NodeProcessor::Task::Processor::Push(Task::Ptr&& pTask)
 	pTask->Exec();
 }
 
-void NodeProcessor::Task::Processor::Flush(uint32_t)
+uint32_t NodeProcessor::Task::Processor::Flush(uint32_t)
 {
+	return 0;
 }
 
 void NodeProcessor::Task::Processor::ExecAll(Task& t)
@@ -2307,7 +2308,7 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 				if (bValid && pBc)
 					bValid = pBc->Flush();
 
-				std::unique_lock<std::mutex> scope2(m_Mutex);
+				std::unique_lock<std::mutex> scope(m_Mutex);
 
 				if (bValid && !m_bFail)
 					bValid = m_pCtx->Merge(ctx);
