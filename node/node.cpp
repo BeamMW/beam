@@ -1978,8 +1978,10 @@ void CmpTx(const Transaction& tx1, const Transaction& tx2, bool& b1Covers, bool&
 
 bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 {
-    if (ptx->m_vInputs.empty() || ptx->m_vKernels.empty())
-        return false;
+	if (ptx->m_vInputs.empty() || ptx->m_vKernels.empty()) {
+		// stupid compiler insists on parentheses here!
+		return false;
+	}
 
 	Transaction::Context::Params pars;
 	Transaction::Context ctx(pars);
