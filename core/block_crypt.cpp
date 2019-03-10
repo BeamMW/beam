@@ -799,6 +799,8 @@ namespace beam
 
 		void AddTo(ECC::Point::Native& res, const Type& x)
 		{
+			ECC::Mode::Scope scope(ECC::Mode::Fast);
+
 			if (get_Hi(x))
 			{
 				ECC::Scalar s;

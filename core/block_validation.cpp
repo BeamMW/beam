@@ -82,6 +82,8 @@ namespace beam
 		if (m_Height.IsEmpty())
 			return false;
 
+		ECC::Mode::Scope scope(ECC::Mode::Fast);
+
 		m_Sigma = -m_Sigma;
 
 		assert(m_Params.m_nVerifiers);
@@ -189,7 +191,7 @@ namespace beam
 			}
 		}
 
-		if (ShouldVerify(iV))
+		if (ShouldVerify(iV) && !(txb.m_Offset.m_Value == Zero))
 			m_Sigma += ECC::Context::get().G * txb.m_Offset;
 
 		assert(!m_Height.IsEmpty());
