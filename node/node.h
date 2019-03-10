@@ -217,7 +217,7 @@ private:
 
 		} m_TaskProcessor;
 
-		virtual Task::Processor& get_TaskProcessor() { return m_TaskProcessor; }
+		virtual Task::Processor& get_TaskProcessor() override { return m_TaskProcessor; }
 
 
 		Block::ChainWorkProof m_Cwp; // cached
