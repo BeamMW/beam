@@ -652,6 +652,23 @@ namespace beam
 		// In other words Sigma = <all outputs> - <all inputs>
 		// Sigma is either zero or -Sum(Fee)*H, depending on what we validate
 
+		struct Params
+		{
+			bool m_bBlockMode; // in 'block' mode the hMin/hMax on input denote the range of heights. Each element is verified wrt it independently.
+			// i.e. different elements may have non-overlapping valid range, and it's valid.
+			// Suitable for merged block validation
+
+			bool m_bVerifyOrder; // check the correct order, as well as elimination of spent outputs. On by default. Turned Off only for specific internal validations (such as treasury).
+			bool m_bAllowUnsignedOutputs; // allow outputs without signature (commitment only). Applicable for cut-through blocks only, outputs that are supposed to be consumed in the later block.
+
+			// for multi-tasking, parallel verification
+			uint32_t m_nVerifiers;
+			volatile bool* m_pAbort;
+
+			Params(); // defaults
+		};
+
+		const Params& m_Params;
 
 		ECC::Point::Native m_Sigma;
 
@@ -659,19 +676,14 @@ namespace beam
 		AmountBig::Type m_Coinbase;
 		HeightRange m_Height;
 
-		bool m_bBlockMode; // in 'block' mode the hMin/hMax on input denote the range of heights. Each element is verified wrt it independently.
-		// i.e. different elements may have non-overlapping valid range, and it's valid.
-		// Suitable for merged block validation
-
-		bool m_bVerifyOrder; // check the correct order, as well as elimination of spent outputs. On by default. Turned Off only for specific internal validations (such as treasury).
-		bool m_bAllowUnsignedOutputs; // allow outputs without signature (commitment only). Applicable for cut-through blocks only, outputs that are supposed to be consumed in the later block.
-
-		// for multi-tasking, parallel verification
-		uint32_t m_nVerifiers;
 		uint32_t m_iVerifier;
-		volatile bool* m_pAbort;
 
-		Context() { Reset(); }
+		Context(const Params& p)
+			:m_Params(p)
+		{
+			Reset();
+		}
+
 		void Reset();
 
 		bool ValidateAndSummarize(const TxBase&, IReader&&);

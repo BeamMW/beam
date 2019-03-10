@@ -723,7 +723,8 @@ namespace beam
 
 			tx.Normalize();
 
-			Transaction::Context ctx;
+			Transaction::Context::Params pars;
+			Transaction::Context ctx(pars);
 			bool isTxValid = tx.IsValid(ctx);
 			verify_test(isTxValid);
 		}
@@ -774,7 +775,8 @@ namespace beam
 				verify_test(np.ValidateTxContext(*pTx));
 				verify_test(np.ValidateTxWrtHeight(*pTx));
 
-				Transaction::Context ctx;
+				Transaction::Context::Params pars;
+				Transaction::Context ctx(pars);
 				ctx.m_Height.m_Min = ctx.m_Height.m_Max = np.m_Cursor.m_Sid.m_Height + 1;
 				verify_test(pTx->IsValid(ctx));
 
@@ -1360,7 +1362,8 @@ namespace beam
 					if (!(bEmitAsset && Rules::get().CA.Deposit))
 						m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
 
-					Transaction::Context ctx;
+					Transaction::Context::Params pars;
+					Transaction::Context ctx(pars);
 					verify_test(msgTx.m_Transaction->IsValid(ctx));
 
 					Send(msgTx);

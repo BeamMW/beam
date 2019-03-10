@@ -766,8 +766,9 @@ namespace beam
         LOG_VERBOSE() << txId << " sending tx for registration";
 
 #ifndef NDEBUG
-        TxBase::Context ctx;
-        assert(data->IsValid(ctx));
+        TxBase::Context::Params pars;
+		TxBase::Context ctx(pars);
+		assert(data->IsValid(ctx));
 #endif // NDEBUG
 
         MyRequestTransaction::Ptr pReq(new MyRequestTransaction);

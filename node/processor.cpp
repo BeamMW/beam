@@ -635,11 +635,27 @@ bool NodeProcessor::GoUpFastInternal()
 			sid.SetNull();
 	}
 
-	TxBase::Context ctx;
+	TxBase::Context::Params pars;
+	pars.m_bBlockMode = true;
+	pars.m_bAllowUnsignedOutputs = true;
+	TxBase::Context ctx(pars);
 	ctx.m_Height.m_Min = m_SyncData.m_h0 + 1;
 	ctx.m_Height.m_Max = m_SyncData.m_Target.m_Height;
-	ctx.m_bBlockMode = true;
-	ctx.m_bAllowUnsignedOutputs = true;
+
+	{
+		struct Task0 :public Task {
+			virtual void Exec() override
+			{
+				ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
+				if (pBc)
+					pBc->Reset();
+			}
+		};
+
+		Task0 t;
+		Task::Processor& tp = get_TaskProcessor();
+		tp.ExecAll(t);
+	}
 
 	for (size_t i = vPath.size(); i--; )
 	{
@@ -649,9 +665,24 @@ bool NodeProcessor::GoUpFastInternal()
 		m_DB.DelStateBlockPP(vPath[i]); // can delete it right away, since we don't need the block for rollback (in case fast-sync fails)
 	}
 
-	bool bOk = ctx.IsValidBlock(); // validate macroblock wrt height range
+	struct Task1 :public Task
+	{
+		bool m_Ok = true;
+		virtual void Exec() override
+		{
+			ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
+			if (pBc && !pBc->Flush())
+				m_Ok = false;
+		}
+	};
 
-	if (!bOk)
+	Task1 t1;
+	get_TaskProcessor().ExecAll(t1);
+
+	if (t1.m_Ok)
+		t1.m_Ok = ctx.IsValidBlock();
+
+	if (!t1.m_Ok)
 		return false;
 
 	// Make sure no naked UTXOs are left
@@ -2243,7 +2274,7 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 		struct Shared
 		{
 			std::mutex m_Mutex;
-			uint32_t m_Threads;
+			TxBase::Context::Params m_Pars;
 			TxBase::Context* m_pCtx;
 			const TxBase* m_pTx;
 			TxBase::IReader* m_pR;
@@ -2253,14 +2284,9 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 			{
 				ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
 
-				TxBase::Context ctx;
-				ctx.m_bBlockMode = m_pCtx->m_bBlockMode;
+				TxBase::Context ctx(m_Pars);
 				ctx.m_Height = m_pCtx->m_Height;
-				ctx.m_bVerifyOrder = m_pCtx->m_bVerifyOrder;
-				ctx.m_bAllowUnsignedOutputs = m_pCtx->m_bAllowUnsignedOutputs;
-				ctx.m_nVerifiers = m_Threads;
 				ctx.m_iVerifier = iThread;
-				ctx.m_pAbort = &m_bFail;
 
 				TxBase::IReader::Ptr pR;
 				m_pR->Clone(pR);
@@ -2294,13 +2320,15 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 	Task::Processor& tp = get_TaskProcessor();
 	MyTask::Shared s;
 	s.m_bFail = false;
-	s.m_Threads = tp.get_Threads();
-	assert(s.m_Threads);
+	s.m_Pars = ctx.m_Params;
+	s.m_Pars.m_nVerifiers = tp.get_Threads();
+	s.m_Pars.m_pAbort = &s.m_bFail;
+	assert(s.m_Pars.m_nVerifiers);
 	s.m_pCtx = &ctx;
 	s.m_pTx = &txb;
 	s.m_pR = &r;
 
-	for (uint32_t i = 0; i < s.m_Threads; i++)
+	for (uint32_t i = 0; i < s.m_Pars.m_nVerifiers; i++)
 	{
 		std::unique_ptr<MyTask> pTask(new MyTask);
 		pTask->m_pShared = &s;
@@ -2317,9 +2345,10 @@ bool NodeProcessor::VerifyBlock(const Block::BodyBase& block, TxBase::IReader&& 
 	if ((hr.m_Min < Rules::HeightGenesis) || hr.IsEmpty())
 		return false;
 
-	TxBase::Context ctx;
+	TxBase::Context::Params pars;
+	pars.m_bBlockMode = true;
+	TxBase::Context ctx(pars);
 	ctx.m_Height = hr;
-	ctx.m_bBlockMode = true;
 
 	return
 		ValidateAndSummarize(ctx, block, std::move(r)) &&

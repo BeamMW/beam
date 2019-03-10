@@ -1170,9 +1170,11 @@ namespace beam
 		if ((hr.m_Min < Rules::HeightGenesis) || hr.IsEmpty())
 			return false;
 
-		TxBase::Context ctx;
+		TxBase::Context::Params pars;
+		pars.m_bBlockMode = true;
+
+		TxBase::Context ctx(pars);
 		ctx.m_Height = hr;
-		ctx.m_bBlockMode = true;
 
 		return
 			ctx.ValidateAndSummarize(*this, std::move(r)) &&

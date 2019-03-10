@@ -18,19 +18,20 @@ namespace beam
 {
 	/////////////
 	// Transaction
+	TxBase::Context::Params::Params()
+	{
+		ZeroObject(*this);
+		m_bVerifyOrder = true;
+		m_nVerifiers = 1;
+	}
+
 	void TxBase::Context::Reset()
 	{
 		m_Sigma = Zero;
-
-		ZeroObject(m_Fee);
-		ZeroObject(m_Coinbase);
+		m_Fee = Zero;
+		m_Coinbase = Zero;
 		m_Height.Reset();
-		m_bBlockMode = false;
-		m_bVerifyOrder = true;
-		m_bAllowUnsignedOutputs = false;
-		m_nVerifiers = 1;
 		m_iVerifier = 0;
-		m_pAbort = NULL;
 	}
 
 	bool TxBase::Context::ShouldVerify(uint32_t& iV) const
@@ -41,13 +42,13 @@ namespace beam
 			return false;
 		}
 
-		iV = m_nVerifiers - 1;
+		iV = m_Params.m_nVerifiers - 1;
 		return true;
 	}
 
 	bool TxBase::Context::ShouldAbort() const
 	{
-		return m_pAbort && *m_pAbort;
+		return m_Params.m_pAbort && *m_Params.m_pAbort;
 	}
 
 	bool TxBase::Context::HandleElementHeight(const HeightRange& hr)
@@ -57,7 +58,7 @@ namespace beam
 		if (r.IsEmpty())
 			return false;
 
-		if (!m_bBlockMode)
+		if (!m_Params.m_bBlockMode)
 			m_Height = r; // shrink permitted range
 
 		return true;
@@ -65,7 +66,7 @@ namespace beam
 
 	bool TxBase::Context::Merge(const Context& x)
 	{
-		assert(m_bBlockMode == x.m_bBlockMode);
+		assert(m_Params.m_bBlockMode == x.m_Params.m_bBlockMode);
 
 		if (!HandleElementHeight(x.m_Height))
 			return false;
@@ -83,7 +84,7 @@ namespace beam
 
 		m_Sigma = -m_Sigma;
 
-		assert(m_nVerifiers);
+		assert(m_Params.m_nVerifiers);
 		uint32_t iV = m_iVerifier;
 
 		// Inputs
@@ -98,7 +99,7 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (m_bVerifyOrder)
+				if (m_Params.m_bVerifyOrder)
 				{
 					if (pPrev && (*pPrev > *r.m_pUtxoIn))
 						return false;
@@ -134,7 +135,7 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (m_bVerifyOrder && pPrev && (*pPrev > *r.m_pUtxoOut))
+				if (m_Params.m_bVerifyOrder && pPrev && (*pPrev > *r.m_pUtxoOut))
 					return false;
 
 				bool bSigned = r.m_pUtxoOut->m_pConfidential || r.m_pUtxoOut->m_pPublic;
@@ -147,7 +148,7 @@ namespace beam
 				else
 				{
 					// unsigned output
-					if (!m_bAllowUnsignedOutputs)
+					if (!m_Params.m_bAllowUnsignedOutputs)
 						return false;
 
 					if (!pt.Import(r.m_pUtxoOut->m_Commitment))
@@ -158,7 +159,7 @@ namespace beam
 
 				if (r.m_pUtxoOut->m_Coinbase)
 				{
-					if (!m_bBlockMode)
+					if (!m_Params.m_bBlockMode)
 						return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
 
 					if (bSigned)
@@ -177,7 +178,7 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (m_bVerifyOrder && pPrev && (*pPrev > *r.m_pKernel))
+				if (m_Params.m_bVerifyOrder && pPrev && (*pPrev > *r.m_pKernel))
 					return false;
 
 				if (!r.m_pKernel->IsValid(m_Fee, m_Sigma))

@@ -1979,7 +1979,8 @@ bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
     if (ptx->m_vInputs.empty() || ptx->m_vKernels.empty())
         return false;
 
-    Transaction::Context ctx;
+	Transaction::Context::Params pars;
+	Transaction::Context ctx(pars);
     bool bTested = false;
     TxPool::Stem::Element* pDup = NULL;
 
@@ -2266,7 +2267,8 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
     Transaction::Ptr ptx;
     ptx.swap(ptxArg);
 
-    Transaction::Context ctx;
+	Transaction::Context::Params pars;
+	Transaction::Context ctx(pars);
     if (pElem)
     {
         ctx.m_Fee = pElem->m_Profit.m_Fee;
@@ -3104,8 +3106,9 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 
         // verify that all the outputs correspond to our viewer's Kdf (in case our comm was hacked this'd prevent mining for someone else)
         // and do the overall validation
-        TxBase::Context ctx;
-        ctx.m_bBlockMode = true;
+        TxBase::Context::Params pars;
+		pars.m_bBlockMode = true;
+		TxBase::Context ctx(pars);
         if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader()))
             ThrowUnexpected();
 

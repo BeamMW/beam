@@ -504,8 +504,9 @@ namespace beam { namespace wallet
             auto transaction = builder.CreateTransaction();
 
             // Verify final transaction
-            TxBase::Context ctx;
-            if (!transaction->IsValid(ctx))
+            TxBase::Context::Params pars;
+			TxBase::Context ctx(pars);
+			if (!transaction->IsValid(ctx))
             {
                 OnFailed(TxFailureReason::InvalidTransaction, true);
                 return;

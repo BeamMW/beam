@@ -962,7 +962,8 @@ void TestTransaction()
 
 	tm.m_Trans.Normalize();
 
-	beam::TxBase::Context ctx;
+	beam::TxBase::Context::Params pars;
+	beam::TxBase::Context ctx(pars);
 	verify_test(tm.m_Trans.IsValid(ctx));
 	verify_test(ctx.m_Fee == beam::AmountBig::Type(fee1 + fee2));
 }
@@ -975,7 +976,8 @@ void TestCutThrough()
 
 	tm.m_Trans.Normalize();
 
-	beam::TxBase::Context ctx;
+	beam::TxBase::Context::Params pars;
+	beam::TxBase::Context ctx(pars);
 	verify_test(ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader()));
 
 	beam::Input::Ptr pInp(new beam::Input);
