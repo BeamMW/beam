@@ -1582,25 +1582,25 @@ namespace
             WALLET_CHECK(rh[0].m_failureReason == TxFailureReason::TransactionExpired);
         }
 
-        txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true, 0, 10);
-        mainReactor->run();
+        //txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true, 0, 10);
+        //mainReactor->run();
 
-        {
-            vector<Coin> newSenderCoins = sender.GetCoins();
-            vector<Coin> newReceiverCoins = receiver.GetCoins();
+        //{
+        //    vector<Coin> newSenderCoins = sender.GetCoins();
+        //    vector<Coin> newReceiverCoins = receiver.GetCoins();
 
-            WALLET_CHECK(newSenderCoins.size() == 4);
-            WALLET_CHECK(newReceiverCoins.size() == 0);
+        //    WALLET_CHECK(newSenderCoins.size() == 4);
+        //    WALLET_CHECK(newReceiverCoins.size() == 0);
 
-            auto sh = sender.m_WalletDB->getTxHistory();
-            WALLET_CHECK(sh.size() == 2);
-            WALLET_CHECK(sh[0].m_status == TxStatus::Failed);
-            WALLET_CHECK(sh[0].m_failureReason == TxFailureReason::TransactionExpired);
-            auto rh = receiver.m_WalletDB->getTxHistory();
-            WALLET_CHECK(rh.size() == 2);
-            WALLET_CHECK(rh[0].m_status == TxStatus::Failed);
-            WALLET_CHECK(rh[0].m_failureReason == TxFailureReason::TransactionExpired);
-        }
+        //    auto sh = sender.m_WalletDB->getTxHistory();
+        //    WALLET_CHECK(sh.size() == 2);
+        //    WALLET_CHECK(sh[0].m_status == TxStatus::Failed);
+        //    WALLET_CHECK(sh[0].m_failureReason == TxFailureReason::TransactionExpired);
+        //    auto rh = receiver.m_WalletDB->getTxHistory();
+        //    WALLET_CHECK(rh.size() == 2);
+        //    WALLET_CHECK(rh[0].m_status == TxStatus::Failed);
+        //    WALLET_CHECK(rh[0].m_failureReason == TxFailureReason::TransactionExpired);
+        //}
 
         txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true);
 
@@ -1614,11 +1614,11 @@ namespace
             WALLET_CHECK(newReceiverCoins.size() == 1);
 
             auto sh = sender.m_WalletDB->getTxHistory();
-            WALLET_CHECK(sh.size() == 3);
+            WALLET_CHECK(sh.size() == 2);
             auto sit = find_if(sh.begin(), sh.end(), [&txId](const auto& t) {return t.m_txId == txId; });
             WALLET_CHECK(sit->m_status == TxStatus::Completed);
             auto rh = receiver.m_WalletDB->getTxHistory();
-            WALLET_CHECK(rh.size() == 3);
+            WALLET_CHECK(rh.size() == 2);
             auto rit = find_if(rh.begin(), rh.end(), [&txId](const auto& t) {return t.m_txId == txId; });
             WALLET_CHECK(rit->m_status == TxStatus::Completed);
         }
@@ -1681,41 +1681,136 @@ namespace
 
     }
 
+    class PerformanceRig
+    {
+    public:
+        PerformanceRig(int txCount, int txPerCall = 1)
+            : m_TxCount(txCount)
+            , m_TxPerCall(txPerCall)
+        {
+
+        }
+
+        void Run()
+        {
+            io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+            io::Reactor::Scope scope(*mainReactor);
+
+            int completedCount = 2 * m_TxCount;
+            auto f = [&completedCount, mainReactor, count = 2 * m_TxCount](auto)
+            {
+                --completedCount;
+                if (completedCount == 0)
+                {
+                    mainReactor->stop();
+                    completedCount = count;
+                }
+            };
+
+            TestNode node;
+            TestWalletRig sender("sender", createSenderWalletDB(m_TxCount, 6), f);
+            TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+
+            io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+            auto timestamp = GetTime_ms();
+            m_MaxLatency = 0;
+
+            timer->start(1, true, [&timestamp, this]()
+            {
+                auto newTimestamp = GetTime_ms();
+                auto latency = newTimestamp - timestamp;
+                timestamp = newTimestamp;
+                if (latency > 100)
+                {
+                    cout << "Latency: " << float(latency) / 1000 << " s\n";
+                }
+                m_MaxLatency = max(latency, m_MaxLatency);
+            });
+
+            helpers::StopWatch sw;
+            sw.start();
+
+            io::Timer::Ptr sendTimer = io::Timer::create(*mainReactor);
+
+            int sendCount = m_TxCount;
+            sendTimer->start(1, true, [&sender, &receiver, &sendCount, &sendTimer, this]()
+            {
+                for (int i = 0; i < m_TxPerCall && sendCount; ++i)
+                {
+                    if (sendCount--)
+                    {
+                        sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 5, 1, true, 200);
+                    }
+                    else
+                    {
+                        sendTimer->cancel();
+                    }
+                }
+            });
+
+            /*for (int i = 0; i < TxCount; ++i)
+            {
+                sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 5, 1, true, 200);
+            }*/
+
+            mainReactor->run();
+            sw.stop();
+            m_TotalTime = sw.milliseconds();
+        }
+
+        uint64_t GetTotalTime() const
+        {
+            return m_TotalTime;
+        }
+
+        uint32_t GetMaxLatency() const
+        {
+            return m_MaxLatency;
+        }
+
+        int GetTxCount() const
+        {
+            return m_TxCount;
+        }
+
+        int GetTxPerCall() const
+        {
+            return m_TxPerCall;
+        }
+
+
+    private:
+        int m_TxCount;
+        int m_TxPerCall;
+        uint32_t m_MaxLatency = 0;
+        uint64_t m_TotalTime = 0;
+    };
+
     void TestTxPerformance()
     {
         cout << "\nTesting tx performance...\n";
 
-        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-        io::Reactor::Scope scope(*mainReactor);
+        const int MaxTxCount = 10;
+        vector<PerformanceRig> tests;
 
-        const int TxCount = 100;
-
-        int completedCount = 2 * TxCount;
-        auto f = [&completedCount, mainReactor, count = 2 * TxCount](auto)
+        for (int i = 10; i <= MaxTxCount; i *= 10)
         {
-            --completedCount;
-            if (completedCount == 0)
+            /*for (int j = 1; j < 3; ++j)
             {
-                mainReactor->stop();
-                completedCount = count;
-            }
-        };
-
-        TestNode node;
-        TestWalletRig sender("sender", createSenderWalletDB(TxCount, 6), f);
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
-
-        helpers::StopWatch sw;
-        sw.start();
-
-        for (int i = 0; i < TxCount; ++i)
-        {
-            sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 5, 1, true, 200);
+                tests.emplace_back(i, j);
+            }*/
+            tests.emplace_back(i, 1);
         }
-        
-        mainReactor->run();
-        sw.stop();
-        cout << "Transferring of " << TxCount << " transactions took: " << sw.milliseconds() << " ms\n";
+
+        for (auto& t : tests)
+        {
+            t.Run();
+        }
+
+        for (auto& t : tests)
+        {
+            cout << "Transferring of " << t.GetTxCount() << " by " << t.GetTxPerCall() << " transactions per call took: " << t.GetTotalTime() << " ms\nMax api latency: " << t.GetMaxLatency() << " \n";
+        }
     }
 }
 
