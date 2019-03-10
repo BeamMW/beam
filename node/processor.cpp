@@ -629,6 +629,12 @@ struct NodeProcessor::MultiblockContext
 	TxoID m_id0;
 
 	MultiblockContext(const TxBase::Context::Params& pars) :m_Ctx(pars) {}
+
+	std::mutex m_Mutex;
+
+	ECC::Scalar::Native m_Offset;
+	size_t m_SizePending = 0;
+	bool m_bFail = false;
 };
 
 bool NodeProcessor::GoUpFastInternal()
@@ -653,6 +659,8 @@ bool NodeProcessor::GoUpFastInternal()
 	mbc.m_Ctx.m_Height.m_Max = m_SyncData.m_Target.m_Height;
 	mbc.m_id0 = get_TxosBefore(m_SyncData.m_h0 + 1); // IDs of the macroblock outputs start here
 
+	Task::Processor& tp = get_TaskProcessor();
+
 	{
 		struct Task0 :public Task {
 			virtual void Exec() override
@@ -664,37 +672,53 @@ bool NodeProcessor::GoUpFastInternal()
 		};
 
 		Task0 t;
-		Task::Processor& tp = get_TaskProcessor();
 		tp.ExecAll(t);
 	}
 
 	for (size_t i = vPath.size(); i--; )
 	{
 		if (!GoForward(vPath[i], &mbc))
-			return false;
+			mbc.m_bFail = true;
+
+		if (mbc.m_bFail)
+			break;
 
 		m_DB.DelStateBlockPP(vPath[i]); // can delete it right away, since we don't need the block for rollback (in case fast-sync fails)
 	}
 
-	struct Task1 :public Task
+	tp.Flush(0);
+	assert(!mbc.m_SizePending);
+
+	if (!mbc.m_bFail)
 	{
-		bool m_Ok = true;
-		virtual void Exec() override
+		struct Task1 :public Task
 		{
-			ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
-			if (pBc && !pBc->Flush())
-				m_Ok = false;
+			MultiblockContext* m_pMbc;
+			virtual void Exec() override
+			{
+				ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
+				if (pBc && !pBc->Flush())
+					m_pMbc->m_bFail = true;
+			}
+		};
+
+		Task1 t1;
+		t1.m_pMbc = &mbc;
+		get_TaskProcessor().ExecAll(t1);
+
+		if (!mbc.m_bFail)
+		{
+			// add cumulative offset of all the blocks
+			mbc.m_Ctx.m_Sigma += ECC::Context::get().G * mbc.m_Offset;
+			mbc.m_bFail = !mbc.m_Ctx.IsValidBlock();
 		}
-	};
+	}
 
-	Task1 t1;
-	get_TaskProcessor().ExecAll(t1);
-
-	if (t1.m_Ok)
-		t1.m_Ok = mbc.m_Ctx.IsValidBlock();
-
-	if (!t1.m_Ok)
+	if (mbc.m_bFail)
+	{
+		LOG_WARNING() << "cut-through verification failed";
 		return false;
+	}
 
 	// Make sure no naked UTXOs are left
 	TxoID id0 = get_TxosBefore(m_SyncData.m_h0 + 1);
@@ -1105,12 +1129,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext* p
 			return false;
 		}
 
-		bool bValid = pMbc ?
-			// In batch mode some outputs may be 'naked'. We'll add them as-is
-			ValidateAndSummarize(pMbc->m_Ctx, block, block.get_Reader()) :
-			VerifyBlock(block, block.get_Reader(), sid.m_Height);
-
-		if (!bValid)
+		if (!pMbc && !VerifyBlock(block, block.get_Reader(), sid.m_Height))
 		{
 			LOG_WARNING() << id << " context-free verification failed";
 			return false;
@@ -1211,7 +1230,72 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext* p
 		r.Reset();
 		RecognizeUtxos(std::move(r), sid.m_Height);
 
-		if (!pMbc) {
+		if (pMbc)
+		{
+			const size_t nSizeMax = 1024 * 1024 * 10; // fair enough
+
+			Task::Processor& tp = get_TaskProcessor();
+			for (uint32_t nTasks = static_cast<uint32_t>(-1); ; )
+			{
+				{
+					std::unique_lock<std::mutex> scope(pMbc->m_Mutex);
+					if (pMbc->m_SizePending <= nSizeMax)
+						break;
+				}
+
+				assert(nTasks);
+				nTasks = tp.Flush(nTasks - 1);
+			}
+
+			struct MyTask
+				:public Task
+			{
+				MultiblockContext* m_pMbc;
+				Block::Body m_Block;
+				size_t m_BlockSize;
+
+				virtual void Exec() override
+				{
+					TxBase::Context ctx(m_pMbc->m_Ctx.m_Params);
+					ctx.m_Height = m_pMbc->m_Ctx.m_Height;
+
+					beam::TxBase txbDummy;
+					txbDummy.m_Offset = Zero;
+
+					// reset input maturities, and verify the original order
+					for (size_t i = 0; i < m_Block.m_vInputs.size(); i++)
+						m_Block.m_vInputs[i]->m_Maturity = 0;
+
+					bool bValid = ctx.ValidateAndSummarize(txbDummy, m_Block.get_Reader());
+
+					std::unique_lock<std::mutex> scope(m_pMbc->m_Mutex);
+
+					if (bValid && !m_pMbc->m_bFail)
+						bValid = m_pMbc->m_Ctx.Merge(ctx);
+
+					if (!bValid)
+						m_pMbc->m_bFail = true;
+
+					assert(m_pMbc->m_SizePending >= m_BlockSize);
+					m_pMbc->m_SizePending -= m_BlockSize;
+
+					m_pMbc->m_Offset += m_Block.m_Offset;
+				}
+			};
+
+			std::unique_ptr<MyTask> pTask(new MyTask);
+			pTask->m_pMbc = pMbc;
+			pTask->m_Block = std::move(block);
+			pTask->m_BlockSize = bbE.size() + bbP.size();
+
+			{
+				std::unique_lock<std::mutex> scope(pMbc->m_Mutex);
+				pMbc->m_SizePending += pTask->m_BlockSize;
+			}
+
+			tp.Push(std::move(pTask));
+		}
+		else {
 			LOG_INFO() << id << " Block interpreted.";
 		}
 	}
