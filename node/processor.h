@@ -214,14 +214,15 @@ public:
 	// parallel context-free execution
 	struct Task
 	{
-		typedef std::shared_ptr<Task> Ptr;
+		typedef std::unique_ptr<Task> Ptr;
 		virtual void Exec() = 0;
 
 		struct Processor
 		{
 			virtual uint32_t get_Threads();
 			virtual void Push(Task::Ptr&&);
-			virtual void Flush();
+			virtual void Flush(uint32_t nMaxTasks);
+			virtual void ExecAll(Task&);
 		};
 	};
 

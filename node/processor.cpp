@@ -2226,8 +2226,13 @@ void NodeProcessor::Task::Processor::Push(Task::Ptr&& pTask)
 	pTask->Exec();
 }
 
-void NodeProcessor::Task::Processor::Flush()
+void NodeProcessor::Task::Processor::Flush(uint32_t)
 {
+}
+
+void NodeProcessor::Task::Processor::ExecAll(Task& t)
+{
+	t.Exec();
 }
 
 bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb, TxBase::IReader&& r)
@@ -2297,13 +2302,13 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 
 	for (uint32_t i = 0; i < s.m_Threads; i++)
 	{
-		std::shared_ptr<MyTask> pTask(new MyTask);
+		std::unique_ptr<MyTask> pTask(new MyTask);
 		pTask->m_pShared = &s;
 		pTask->m_iThread = i;
 		tp.Push(std::move(pTask));
 	}
 
-	tp.Flush();
+	tp.Flush(0);
 	return !s.m_bFail;
 }
 

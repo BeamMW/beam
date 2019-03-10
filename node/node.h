@@ -188,15 +188,18 @@ private:
 		{
 			virtual uint32_t get_Threads() override;
 			virtual void Push(Task::Ptr&&) override;
-			virtual void Flush() override;
+			virtual void Flush(uint32_t nMaxTasks) override;
+			virtual void ExecAll(Task&) override;
 
 			std::mutex m_Mutex;
 
 			std::deque<Task::Ptr> m_queTasks;
-			uint32_t m_InProgress = 0;
-			bool m_Run = false;
+			uint32_t m_InProgress;
+			uint32_t m_FlushTarget;
+			bool m_Run;
+			Task* m_pCtl;
 			std::condition_variable m_NewTask;
-			std::condition_variable m_AllFinished;
+			std::condition_variable m_Flushed;
 
 			std::vector<std::thread> m_vThreads;
 
@@ -207,6 +210,11 @@ private:
 			void Thread(uint32_t);
 
 			IMPLEMENT_GET_PARENT_OBJ(Node::Processor, m_TaskProcessor)
+
+		private:
+			void InitSafe();
+			void FlushLocked(std::unique_lock<std::mutex>&, uint32_t nMaxTasks);
+
 		} m_TaskProcessor;
 
 		virtual Task::Processor& get_TaskProcessor() { return m_TaskProcessor; }

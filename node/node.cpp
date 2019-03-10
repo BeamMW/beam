@@ -620,36 +620,69 @@ uint32_t Node::Processor::TaskProcessor::get_Threads()
 	return std::max(nThreads, 1U);
 }
 
+void Node::Processor::TaskProcessor::InitSafe()
+{
+	if (!m_vThreads.empty())
+		return;
+
+	m_Run = true;
+	m_pCtl = nullptr;
+	m_InProgress = 0;
+	m_FlushTarget = static_cast<uint32_t>(-1);
+
+	uint32_t nThreads = get_Threads();
+	m_vThreads.resize(nThreads);
+
+	for (uint32_t i = 0; i < nThreads; i++)
+		m_vThreads[i] = std::thread(&TaskProcessor::Thread, this, i);
+}
+
 void Node::Processor::TaskProcessor::Push(Task::Ptr&& pTask)
 {
 	assert(pTask);
-
-	if (m_vThreads.empty())
-	{
-		m_Run = true;
-
-		uint32_t nThreads = get_Threads();
-		m_vThreads.resize(nThreads);
-
-		for (uint32_t i = 0; i < nThreads; i++)
-			m_vThreads[i] = std::thread(&TaskProcessor::Thread, this, i);
-	}
+	InitSafe();
 
 	std::unique_lock<std::mutex> scope(m_Mutex);
 
-	bool bEmpty = m_queTasks.empty();
 	m_queTasks.push_back(std::move(pTask));
+	m_InProgress++;
 
-	if (bEmpty)
-		m_NewTask.notify_all();
+	m_NewTask.notify_one();
 }
 
-void Node::Processor::TaskProcessor::Flush()
+void Node::Processor::TaskProcessor::Flush(uint32_t nMaxTasks)
 {
-	std::unique_lock<std::mutex> scope(m_Mutex);
+	InitSafe();
 
-	while (!m_queTasks.empty() || m_InProgress)
-		m_AllFinished.wait(scope);
+	std::unique_lock<std::mutex> scope(m_Mutex);
+	FlushLocked(scope, nMaxTasks);
+}
+
+void Node::Processor::TaskProcessor::FlushLocked(std::unique_lock<std::mutex>& scope, uint32_t nMaxTasks)
+{
+	m_FlushTarget = nMaxTasks;
+
+	while (m_InProgress > nMaxTasks)
+		m_Flushed.wait(scope);
+
+	m_FlushTarget = static_cast<uint32_t>(-1);
+}
+
+void Node::Processor::TaskProcessor::ExecAll(Task& t)
+{
+	InitSafe();
+
+	std::unique_lock<std::mutex> scope(m_Mutex);
+	FlushLocked(scope, 0);
+
+	assert(!m_pCtl && !m_InProgress);
+	m_pCtl = &t;
+	m_InProgress = get_Threads();
+
+	m_NewTask.notify_all();
+
+	FlushLocked(scope, 0);
+	assert(!m_pCtl);
 }
 
 void Node::Processor::TaskProcessor::Stop()
@@ -668,6 +701,7 @@ void Node::Processor::TaskProcessor::Stop()
 			m_vThreads[i].join();
 
 	m_vThreads.clear();
+	m_queTasks.clear();
 }
 
 void Node::Processor::TaskProcessor::Thread(uint32_t)
@@ -678,7 +712,8 @@ void Node::Processor::TaskProcessor::Thread(uint32_t)
 
 	while (true)
 	{
-		Task::Ptr pTask;
+		Task::Ptr pGuard;
+		Task* pTask;
 
 		{
 			std::unique_lock<std::mutex> scope(m_Mutex);
@@ -689,10 +724,15 @@ void Node::Processor::TaskProcessor::Thread(uint32_t)
 
 				if (!m_queTasks.empty())
 				{
-					pTask = std::move(m_queTasks.front());
+					pGuard = std::move(m_queTasks.front());
+					pTask = pGuard.get();
 					m_queTasks.pop_front();
-					m_InProgress++;
+					break;
+				}
 
+				if (m_pCtl)
+				{
+					pTask = m_pCtl;
 					break;
 				}
 
@@ -700,14 +740,32 @@ void Node::Processor::TaskProcessor::Thread(uint32_t)
 			}
 		}
 
-		assert(pTask);
+		assert(pTask && m_InProgress);
 		pTask->Exec();
 
 		std::unique_lock<std::mutex> scope(m_Mutex);
 
 		assert(m_InProgress);
-		if (!--m_InProgress)
-			m_AllFinished.notify_one();
+		m_InProgress--;
+
+		if (pGuard)
+		{
+			// standard task
+			if (m_InProgress == m_FlushTarget)
+				m_Flushed.notify_one();
+		}
+		else
+		{
+			// control task
+			if (m_InProgress)
+				m_Flushed.wait(scope); // make sure we give other threads opportuinty to execute the control task
+			else
+			{
+				m_pCtl = nullptr;
+				m_Flushed.notify_all();
+			}
+		}
+
 	}
 }
 
