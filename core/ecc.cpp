@@ -15,8 +15,8 @@
 #include "common.h"
 #include "ecc_native.h"
 
-#define ENABLE_MODULE_GENERATOR
-#define ENABLE_MODULE_RANGEPROOF
+//#define ENABLE_MODULE_GENERATOR
+//#define ENABLE_MODULE_RANGEPROOF
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic push
@@ -26,7 +26,15 @@
 #	pragma warning (disable: 4706 4701) // assignment within conditional expression
 #endif
 
-#include "secp256k1-zkp/src/secp256k1.c"
+//#include "secp256k1-zkp/src/secp256k1.c"
+#include "group_impl.h"
+#include "secp256k1.h"
+#include "scalar_impl.h"
+#include "field_impl.h"
+#include "hash_impl.h"
+#include "ecmult.h"
+#include "ecmult_gen.h"
+#include "ecmult_gen_impl.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic pop
@@ -1693,6 +1701,13 @@ namespace ECC {
 } // namespace ECC
 
 // Needed for test
+
+struct secp256k1_context_struct {
+    secp256k1_ecmult_context ecmult_ctx;
+    secp256k1_ecmult_gen_context ecmult_gen_ctx;
+    secp256k1_callback illegal_callback;
+    secp256k1_callback error_callback;
+};
 void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a)
 {
 	secp256k1_ecmult_gen(&pCtx->ecmult_gen_ctx, r, a);
