@@ -140,6 +140,7 @@ public:
 			TxoEnumBySpent,
 			TxoDelSpentTxosFrom,
 			TxoSetValue,
+            BlockFind,
 
 			Dbg0,
 			Dbg1,
@@ -398,6 +399,7 @@ public:
 	void InsertKernel(const Blob&, Height h);
 	void DeleteKernel(const Blob&, Height h);
 	Height FindKernel(const Blob&); // in case of duplicates - returning the one with the largest Height
+    Height FindBlock(const Blob&);
 
 	uint64_t FindStateWorkGreater(const Difficulty::Raw&);
 
