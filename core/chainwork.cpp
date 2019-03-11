@@ -118,7 +118,7 @@ namespace beam
 
 			bool bAllCovered = (range >= m_Begin);
 
-			verify(UniformRandom(out, range));
+            VERIFY(UniformRandom(out, range));
 
 			range.Negate(); // convert to -range
 

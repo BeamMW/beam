@@ -278,7 +278,7 @@ void MiniDumpWriteGuarded(EXCEPTION_POINTERS* pExc)
 
 	MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, MiniDumpNormal, &mdei, NULL, NULL);
 
-	verify(CloseHandle(hFile));
+    VERIFY(CloseHandle(hFile));
 
 }
 

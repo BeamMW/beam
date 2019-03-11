@@ -13,6 +13,8 @@
 
 #include "swap_transaction.h"
 
+#include "bitcoin/bitcoin.hpp"
+
 using namespace std;
 using namespace ECC;
 

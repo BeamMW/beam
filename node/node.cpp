@@ -635,7 +635,7 @@ void Node::Processor::Verifier::Thread(uint32_t iVerifier)
 
         std::unique_lock<std::mutex> scope2(m_Mutex);
 
-        verify(m_Remaining--);
+        VERIFY(m_Remaining--);
 
         if (bValid && !m_bFail)
             bValid = m_pCtx->Merge(ctx);
@@ -2820,7 +2820,7 @@ void Node::Peer::OnMsg(proto::GetProofChainWork&& msg)
     if (p.BuildCwp())
     {
         msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
-        verify(msgOut.m_Proof.Crop(p.m_Cwp));
+        VERIFY(msgOut.m_Proof.Crop(p.m_Cwp));
     }
 
     Send(msgOut);
