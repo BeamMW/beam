@@ -75,7 +75,7 @@ matrix:
         - codesign -s "$MACOS_SIGN_IDENTITY" wallet/beam-wallet
         - codesign -s "$MACOS_SIGN_IDENTITY" wallet/wallet-api
         - codesign -s "$MACOS_SIGN_IDENTITY" explorer/explorer-node
-        - codesign -s "$MACOS_SIGN_IDENTITY" ui/Beam\ Wallet.app
+        - codesign -s "$MACOS_SIGN_IDENTITY" ui/Beam\ Wallet.app/Contents/MacOS/Beam\ Wallet
         - cpack
         - codesign -s "$MACOS_SIGN_IDENTITY" ./$BEAM_WALLET_UI_IN
 
