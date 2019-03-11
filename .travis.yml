@@ -64,7 +64,7 @@ matrix:
         - BUILD_TYPE=Release
         - OS_FOLDER=mac
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose;
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
         - echo BEAM_VERSION = $BEAM_VERSION
@@ -75,6 +75,8 @@ matrix:
         - codesign -s "$MACOS_SIGN_IDENTITY" wallet/beam-wallet
         - codesign -s "$MACOS_SIGN_IDENTITY" wallet/wallet-api
         - codesign -s "$MACOS_SIGN_IDENTITY" explorer/explorer-node
+        - codesign -s "$MACOS_SIGN_IDENTITY" ui/Beam\ Wallet.app
+        - cpack
         - codesign -s "$MACOS_SIGN_IDENTITY" ./$BEAM_WALLET_UI_IN
 
 ###############################################################################
