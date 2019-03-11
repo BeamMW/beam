@@ -71,6 +71,7 @@ namespace beam
         virtual ~Wallet();
 
         void set_Network(proto::FlyClient::INetwork&, IWalletNetwork&);
+        void initBitcoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address);
 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {} );
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {});
@@ -98,6 +99,7 @@ namespace beam
         bool get_tip(Block::SystemState::Full& state) const override;
         void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override;
         void register_tx(const TxID& txId, Transaction::Ptr) override;
+        BitcoinRPC::Ptr get_bitcoin_rpc() const override;
 
         void OnWalletMessage(const WalletID& peerID, wallet::SetTxParameter&&) override;
 
@@ -212,5 +214,7 @@ namespace beam
         uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
+
+        BitcoinRPC::Ptr m_bitcoinRPC;
     };
 }

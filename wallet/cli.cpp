@@ -992,30 +992,35 @@ int main_impl(int argc, char* argv[])
                         return HandleTreasury(vm, *walletDB->get_MasterKdf());
                     }
 
-                        io::Address btcNodeAddr;
-                        string btcUserName;
-                        SecString btcPass;
-                        if (vm.count(cli::BTC_NODE_ADDR) > 0)
+                    io::Address btcNodeAddr;
+                    string btcUserName;
+                    string btcPass;
+                    if (vm.count(cli::BTC_NODE_ADDR) > 0)
+                    {
+                        string btcNodeUri = vm[cli::BTC_NODE_ADDR].as<string>();
+                        if (!btcNodeAddr.resolve(btcNodeUri.c_str()))
                         {
-                            string btcNodeUri = vm[cli::BTC_NODE_ADDR].as<string>();
-                            if (!btcNodeAddr.resolve(btcNodeUri.c_str()))
-                            {
-                                LOG_ERROR() << "unable to resolve bitcoin node address: " << btcNodeUri;
-                                return -1;
-                            }
-
-                            if (vm.count(cli::BTC_USER_NAME) == 0)
-                            {
-                                LOG_ERROR() << "user name of bitcoin node should be specified";
-                                return -1;
-                            }
-                            btcUserName = vm[cli::BTC_USER_NAME].as<string>();
-                            if (!beam::read_btc_pass(btcPass, vm))
-                            {
-                                LOG_ERROR() << "Please, provide password for the bitcoin node.";
-                                return -1;
-                            }
+                            LOG_ERROR() << "unable to resolve bitcoin node address: " << btcNodeUri;
+                            return -1;
                         }
+
+                        if (vm.count(cli::BTC_USER_NAME) == 0)
+                        {
+                            LOG_ERROR() << "user name of bitcoin node should be specified";
+                            return -1;
+                        }
+
+                        btcUserName = vm[cli::BTC_USER_NAME].as<string>();
+
+                        // TODO roman.strilets: use SecString instead of std::string
+                        if (vm.count(cli::BTC_PASS) == 0)
+                        {
+                            LOG_ERROR() << "Please, provide password for the bitcoin node.";
+                            return -1;
+                        }
+
+                        btcPass = vm[cli::BTC_PASS].as<string>();
+                    }
 
                     if (command == cli::INFO)
                     {
@@ -1101,6 +1106,11 @@ int main_impl(int argc, char* argv[])
                     WalletNetworkViaBbs wnet(wallet, nnet, walletDB);
                         
                     wallet.set_Network(nnet, wnet);
+
+                    if (!btcUserName.empty() && !btcPass.empty())
+                    {
+                        wallet.initBitcoin(io::Reactor::get_Current(), btcUserName, btcPass, btcNodeAddr);
+                    }
 
                     if (isTxInitiator)
                     {

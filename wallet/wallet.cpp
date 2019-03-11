@@ -225,6 +225,11 @@ namespace beam
         m_pWalletNetwork = &netWallet;
     }
 
+    void Wallet::initBitcoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address)
+    {
+        m_bitcoinRPC = make_shared<BitcoinRPC>(reactor, userName, pass, address);
+    }
+
     Wallet::~Wallet()
     {
         // clear all requests
@@ -925,6 +930,11 @@ namespace beam
         pReq->m_Msg.m_Transaction = std::move(data);
 
         PostReqUnique(*pReq);
+    }
+
+    BitcoinRPC::Ptr Wallet::get_bitcoin_rpc() const
+    {
+        return m_bitcoinRPC;
     }
 
     void Wallet::subscribe(IWalletObserver* observer)

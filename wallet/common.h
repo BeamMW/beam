@@ -19,6 +19,7 @@
 
 #include "core/serialization_adapters.h"
 #include "core/proto.h"
+#include "bitcoin_rpc.h"
 #include <algorithm>
 
 namespace beam
@@ -366,6 +367,7 @@ namespace beam
             virtual void get_kernel(const TxID&, const Merkle::Hash& kernelID) = 0;
             virtual bool get_tip(Block::SystemState::Full& state) const = 0;
             virtual void send_tx_params(const WalletID& peerID, SetTxParameter&&) = 0;
+            virtual BitcoinRPC::Ptr get_bitcoin_rpc() const = 0;
         };
 
         enum class ErrorType : uint8_t

@@ -302,6 +302,10 @@ namespace
             return true;
         }
 
+        BitcoinRPC::Ptr get_bitcoin_rpc() const override
+        {
+            return nullptr;
+        }
     };
 
     class AsyncProcessor
@@ -1615,6 +1619,7 @@ namespace
             void get_kernel(const TxID& txID, const Merkle::Hash& kernelID) override {}
             bool get_tip(Block::SystemState::Full& state) const override { return false; }
             void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override {}
+            BitcoinRPC::Ptr get_bitcoin_rpc() const override { return nullptr; }
         } gateway;
         TestWalletRig sender("sender", createSenderWalletDB());
         TestWalletRig receiver("receiver", createReceiverWalletDB());

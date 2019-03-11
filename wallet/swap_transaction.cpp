@@ -142,8 +142,6 @@ namespace beam::wallet
 
         case State::SendingBeamLockTX:
         {
-            bool isLockTxOwner = IsSender();
-
             // TODO: load m_LockTx
             if (m_LockTx && !SendSubTx(m_LockTx, SubTxIndex::LOCK_TX))
                 break;

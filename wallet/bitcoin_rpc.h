@@ -22,6 +22,7 @@ namespace beam
     {
     public:
         using OnResponse = std::function<void(const std::string&)>;
+        using Ptr = std::shared_ptr<BitcoinRPC>;
 
         BitcoinRPC() = delete;
         BitcoinRPC(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address);
