@@ -8,6 +8,7 @@ add_definitions( -DSQLITE_HAS_CODEC )
 
 set(WALLET_SRC
     common.cpp
+    default_peers.cpp
     wallet.h
     wallet.cpp
     wallet_transaction.cpp
