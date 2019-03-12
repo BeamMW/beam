@@ -366,6 +366,12 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteAddress)(JNIEnv *env, jo
     walletModel->getAsync()->deleteAddress(id);
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(changeWalletPassword)(JNIEnv *env, jobject thiz,
+    jstring password)
+{
+    walletModel->getAsync()->changeWalletPassword(JString(env, password).value());
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv *env;
