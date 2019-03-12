@@ -365,13 +365,12 @@ namespace beam
 
             msg["result"].push_back(
             { 
-                {"id", utxo.m_ID.m_Idx},
+                {"id", utxo.toStringID()},
                 {"amount", utxo.m_ID.m_Value},
                 {"type", (const char*)FourCC::Text(utxo.m_ID.m_Type)},
                 {"maturity", utxo.get_Maturity()},
                 {"createTxId", createTxId},
                 {"spentTxId", spentTxId},
-                //{"sessionId", utxo.m_sessionId},
             });
         }
     }
