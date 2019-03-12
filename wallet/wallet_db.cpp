@@ -1073,8 +1073,6 @@ namespace beam
                     int version = 0;
                     wallet::getVar(*walletDB, Version, version);
 
-                    sqlite::Transaction trans(walletDB->_db);
-
                     switch (version)
                     {
                     case DbVersion10:
@@ -1157,7 +1155,7 @@ namespace beam
                         }
                     }
 
-                    trans.commit();
+                    walletDB->flushDB();
                 }
                 {
                     const char* req = "SELECT name FROM sqlite_master WHERE type='table' AND name='" STORAGE_NAME "';";
