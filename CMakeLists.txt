@@ -204,6 +204,9 @@ if(ANDROID)
     add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
     include_directories($ENV{BOOST_ROOT_ANDROID}/include)
 else()
+
+    find_package(Boost REQUIRED)
+
     if(BEAM_USE_STATIC)
         include(FindBoost)
         set(Boost_USE_MULTITHREADED ON)
@@ -222,7 +225,6 @@ endif()
 
 if (WIN32)
     add_definitions(-DNOMINMAX)
-    find_package(Boost REQUIRED)
 endif()
 
 include_directories(${PROJECT_SOURCE_DIR})
