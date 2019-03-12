@@ -101,12 +101,8 @@ namespace beam
 
     void WalletApi::onSendMessage(int id, const nlohmann::json& params)
     {
-        //checkJsonParam(params, "session", id);
         checkJsonParam(params, "value", id);
         checkJsonParam(params, "address", id);
-
-        //if (params["session"] < 0)
-        //    throwInvalidJsonRpc(id);
 
         if (params["value"] <= 0)
             throwInvalidJsonRpc(id);
@@ -115,8 +111,32 @@ namespace beam
             throwInvalidJsonRpc(id);
 
         Send send;
-        //send.session = params["session"];
         send.value = params["value"];
+
+        if (existsJsonParam(params, "coins"))
+        {
+            if (!params["coins"].is_array() || params["coins"].size() <= 0)
+                throw jsonrpc_exception{ INVALID_PARAMS_JSON_RPC , "Invalid 'coins' parameter.", id };
+
+            for (const auto& cid : params["coins"])
+            {
+                bool done = false;
+
+                if (cid.is_string())
+                {
+                    auto coinId = Coin::FromString(cid);
+
+                    if (coinId)
+                    {
+                        send.coins.push_back(*coinId);
+                        done = true;
+                    }
+                }
+
+                if(!done)
+                    throw jsonrpc_exception{ INVALID_PARAMS_JSON_RPC , "Invalid 'coin ID' parameter.", id };
+            }
+        }
 
         if (!send.address.FromHex(params["address"]))
         {

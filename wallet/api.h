@@ -70,8 +70,8 @@ namespace beam
 
     struct Send
     {
-        //int session;
         Amount value;
+        CoinIDList coins;
         Amount fee;
         boost::optional<WalletID> from;
         WalletID address;
