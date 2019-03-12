@@ -33,6 +33,7 @@
 #include "model/app_model.h"
 #include "version.h"
 #include "wallet/secstring.h"
+#include "wallet/default_peers.h"
 
 #include <boost/filesystem.hpp>
 #include <thread>
@@ -44,26 +45,6 @@ using namespace std;
 
 namespace
 {
-    const char* Peers[] =
-    {
-#ifdef BEAM_TESTNET
-        "ap-node01.testnet.beam.mw:8100",
-        "ap-node02.testnet.beam.mw:8100",
-        "ap-node03.testnet.beam.mw:8100",
-        "eu-node01.testnet.beam.mw:8100",
-        "eu-node02.testnet.beam.mw:8100",
-        "eu-node03.testnet.beam.mw:8100",
-        "us-node01.testnet.beam.mw:8100",
-        "us-node02.testnet.beam.mw:8100",
-        "us-node03.testnet.beam.mw:8100"
- #else
-        "eu-node01.masternet.beam.mw:8100",
-        "eu-node02.masternet.beam.mw:8100",
-        "eu-node03.masternet.beam.mw:8100",
-        "eu-node04.masternet.beam.mw:8100"
-#endif
-    };
-
     const QChar PHRASES_SEPARATOR = ';';
 
     boost::filesystem::path pathFromStdString(const std::string& path)
@@ -284,8 +265,9 @@ bool StartViewModel::getIsRunLocalNode() const
 
 QString StartViewModel::chooseRandomNode() const
 {
+    auto peers = getDefaultPeers();
     srand(time(0));
-    return QString(Peers[rand() % (sizeof(Peers) / sizeof(Peers[0]))]);
+    return QString(peers[rand() % peers.size()]);
 }
 
 QString StartViewModel::walletVersion() const
@@ -322,13 +304,15 @@ void StartViewModel::setupLocalNode(int port, const QString& localNodePeer)
     settings.setLocalNodePort(port);
     settings.setRunLocalNode(true);
     QStringList peers;
-    for (size_t i = 0; i < _countof(Peers); ++i)
+    
+    for (const auto& peer : getDefaultPeers())
     {
-        if (localNodePeer != Peers[i])
+        if (localNodePeer != peer)
         {
-            peers.push_back(Peers[i]);
+            peers.push_back(peer);
         }
     }
+
     peers.push_back(localNodePeer);
     settings.setLocalNodePeers(peers);
 }

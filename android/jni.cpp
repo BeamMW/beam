@@ -16,6 +16,7 @@
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
 #include "wallet/wallet_model_async.h"
+#include "wallet/default_peers.h"
 
 #include "utility/bridge.h"
 #include "utility/string_helpers.h"
@@ -210,6 +211,23 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createMnemonic)(JNIEnv *env, j
     }
 
     return phrasesArray;
+}
+
+JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(getDefaultPeers)(JNIEnv *env, jobject thiz)
+{
+    auto peers = beam::getDefaultPeers();
+
+    jobjectArray peersArray = env->NewObjectArray(static_cast<jsize>(peers.size()), env->FindClass("java/lang/String"), 0);
+
+    int i = 0;
+    for (auto& peer : peers)
+    {
+        jstring str = env->NewStringUTF(peer.c_str());
+        env->SetObjectArrayElement(peersArray, i++, str);
+        env->DeleteLocalRef(str);
+    }
+
+    return peersArray;
 }
 
 JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(checkReceiverAddress)(JNIEnv *env, jobject thiz, jstring address)

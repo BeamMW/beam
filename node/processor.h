@@ -218,6 +218,7 @@ public:
 	{
 		typedef std::unique_ptr<Task> Ptr;
 		virtual void Exec() = 0;
+        virtual ~Task() {};
 
 		struct Processor
 		{
