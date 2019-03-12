@@ -25,7 +25,7 @@ namespace beam
     {
     public:
         explicit AddressExpiredException()
-            : std::runtime_error(nullptr)
+            : std::runtime_error("")
         {
         }
 

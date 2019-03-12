@@ -279,7 +279,11 @@ void WalletModel::onSendMoneyVerified()
 
 void WalletModel::onCantSendToExpired()
 {
-    
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onCantSendToExpired", "()V");
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback);
 }
 
 void WalletModel::onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof)
