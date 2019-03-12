@@ -267,7 +267,7 @@ QString StartViewModel::chooseRandomNode() const
 {
     auto peers = getDefaultPeers();
     srand(time(0));
-    return QString(peers[rand() % peers.size()]);
+    return QString(peers[rand() % peers.size()].c_str());
 }
 
 QString StartViewModel::walletVersion() const
@@ -307,9 +307,9 @@ void StartViewModel::setupLocalNode(int port, const QString& localNodePeer)
     
     for (const auto& peer : getDefaultPeers())
     {
-        if (localNodePeer != peer)
+        if (localNodePeer != peer.c_str())
         {
-            peers.push_back(peer);
+            peers.push_back(peer.c_str());
         }
     }
 
