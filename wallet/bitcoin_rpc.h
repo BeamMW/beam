@@ -30,7 +30,7 @@ namespace beam
         void getBlockchainInfo(OnResponse callback);
         void dumpPrivKey(const std::string& btcAddress, OnResponse callback);
         void fundRawTransaction(const std::string& rawTx, OnResponse callback);
-        void signRawTransaction(OnResponse callback);
+        void signRawTransaction(const std::string& rawTx, OnResponse callback);
         void sendRawTransaction(const std::string& rawTx, OnResponse callback);
         void getNetworkInfo(OnResponse callback);
         void getWalletInfo(OnResponse callback);

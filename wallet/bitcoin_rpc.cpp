@@ -50,9 +50,9 @@ namespace beam
         sendRequest("fundrawtransaction", "\"" + rawTx + "\"", callback);
     }
 
-    void BitcoinRPC::signRawTransaction(OnResponse callback)
+    void BitcoinRPC::signRawTransaction(const std::string& rawTx, OnResponse callback)
     {
-        //sendRequest("signrawtransactionwithwallet", "\"" + rawTx + "\"", callback);
+        sendRequest("signrawtransactionwithwallet", "\"" + rawTx + "\"", callback);
     }
 
     void BitcoinRPC::sendRawTransaction(const std::string& rawTx, OnResponse callback)

@@ -34,6 +34,13 @@
 #endif
 
 #include "secp256k1-zkp/include/secp256k1_rangeproof.h" // For benchmark comparison with secp256k1
+#include "secp256k1-zkp/src/group_impl.h"
+#include "secp256k1-zkp/src/scalar_impl.h"
+#include "secp256k1-zkp/src/field_impl.h"
+#include "secp256k1-zkp/src/hash_impl.h"
+#include "secp256k1-zkp/src/ecmult.h"
+#include "secp256k1-zkp/src/ecmult_gen.h"
+#include "secp256k1-zkp/src/ecmult_gen_impl.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic pop
@@ -42,7 +49,19 @@
 #	pragma warning (pop)
 #endif
 
-void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a);
+// Needed for test
+
+struct secp256k1_context_struct {
+    secp256k1_ecmult_context ecmult_ctx;
+    secp256k1_ecmult_gen_context ecmult_gen_ctx;
+    secp256k1_callback illegal_callback;
+    secp256k1_callback error_callback;
+};
+
+void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a)
+{
+    secp256k1_ecmult_gen(&pCtx->ecmult_gen_ctx, r, a);
+}
 secp256k1_context* g_psecp256k1 = NULL;
 
 int g_TestsFailed = 0;
