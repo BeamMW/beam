@@ -39,7 +39,6 @@
 #include "secp256k1-zkp/src/field_impl.h"
 #include "secp256k1-zkp/src/hash_impl.h"
 #include "secp256k1-zkp/src/ecmult.h"
-#include "secp256k1-zkp/src/ecmult_gen.h"
 #include "secp256k1-zkp/src/ecmult_gen_impl.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)

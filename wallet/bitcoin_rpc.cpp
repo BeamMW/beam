@@ -80,9 +80,17 @@ namespace beam
         sendRequest("getrawchangeaddress", "", callback);
     }
 
-    void BitcoinRPC::createRawTransaction(OnResponse callback)
+    void BitcoinRPC::createRawTransaction(
+        const std::string& withdrawAddress,
+        const std::string& contractTxId,
+        int64_t amount,
+        int outputIndex,
+        OnResponse callback)
     {
-        //sendRequest("getrawchangeaddress", "", callback);
+        std::string args("[{\"txid\": \"" + contractTxId + "\", \"vout\":" + std::to_string(outputIndex) + ", \"Sequence\": " + std::to_string(libbitcoin::max_input_sequence - 1) + " }]");
+
+        args += ",[{\"" + withdrawAddress + "\": " + std::to_string(double(amount) / libbitcoin::satoshi_per_bitcoin) + "}]";
+        sendRequest("createrawtransaction", args, callback);
     }
 
     void BitcoinRPC::getRawTransaction(const std::string& txid, OnResponse callback)

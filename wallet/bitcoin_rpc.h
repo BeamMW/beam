@@ -36,7 +36,12 @@ namespace beam
         void getWalletInfo(OnResponse callback);
         void estimateFee(int blocks, OnResponse callback);
         void getRawChangeAddress(OnResponse callback);
-        void createRawTransaction(OnResponse callback);
+        void createRawTransaction(
+            const std::string& withdrawAddress, 
+            const std::string& contractTxId,
+            int64_t amount,
+            int outputIndex,
+            OnResponse callback);
         void getRawTransaction(const std::string& txid, OnResponse callback);
         void getBalance(OnResponse callback);
 
