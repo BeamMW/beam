@@ -71,6 +71,7 @@ namespace
     using WalletSubscriber = ScopedSubscriber<IWalletObserver, beam::Wallet>;
 
     static unique_ptr<WalletModel> walletModel;
+    static ECC::NoLeak<ECC::uintBig> passwordHash;
 
     void initLogger(const string& appData)
     {
@@ -122,6 +123,8 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
     if(walletDB)
     {
         LOG_DEBUG() << "wallet successfully created.";
+
+        passwordHash.V = beam::SecString(pass).hash().V;
 
         // generate default address
 
@@ -181,6 +184,8 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
     if(walletDB)
     {
         LOG_DEBUG() << "wallet successfully opened.";
+
+        passwordHash.V = beam::SecString(pass).hash().V;
 
         walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value());
 
@@ -366,10 +371,22 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteAddress)(JNIEnv *env, jo
     walletModel->getAsync()->deleteAddress(id);
 }
 
+JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(checkWalletPassword)(JNIEnv *env, jobject thiz,
+    jstring password)
+{
+    auto pass = JString(env, password).value();
+    auto hash = beam::SecString(pass).hash();
+
+    return passwordHash.V == hash.V;
+}
+
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(changeWalletPassword)(JNIEnv *env, jobject thiz,
     jstring password)
 {
-    walletModel->getAsync()->changeWalletPassword(JString(env, password).value());
+    auto pass = JString(env, password).value();
+
+    passwordHash.V = beam::SecString(pass).hash().V;
+    walletModel->getAsync()->changeWalletPassword(pass);
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
