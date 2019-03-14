@@ -93,6 +93,17 @@ namespace beam
         sendRequest("createrawtransaction", args, callback);
     }
 
+    void BitcoinRPC::createRawTransaction(const std::vector<std::string>& args, OnResponse callback)
+    {
+        std::string params;
+        for (auto& param : args) {
+            params += param + ",";
+        }
+        params.pop_back();
+
+        sendRequest("createrawtransaction", params, callback);
+    }
+
     void BitcoinRPC::getRawTransaction(const std::string& txid, OnResponse callback)
     {
         sendRequest("getrawtransaction", "\"" + txid + "\"", callback);
@@ -101,6 +112,11 @@ namespace beam
     void BitcoinRPC::getBalance(OnResponse callback)
     {
         sendRequest("getbalance", "", callback);
+    }
+
+    void BitcoinRPC::decodeRawTransaction(const std::string& rawTx, OnResponse callback)
+    {
+        sendRequest("decoderawtransaction", "\"" + rawTx + "\"", callback);
     }
 
     void BitcoinRPC::sendRequest(const std::string& method, const std::string& params, OnResponse callback)

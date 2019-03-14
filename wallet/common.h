@@ -207,12 +207,11 @@ namespace beam
 
             AtomicSwapCoin = 20,
             AtomicSwapAmount = 21,
+            AtomicSwapAddress = 22,
+            AtomicSwapPeerAddress = 23,
 
-            PeerPublicSharedBlindingFactor = 23,
-
-            LockedAmount = 25,
-            LockedMinHeight = 26,
-            
+            PeerPublicSharedBlindingFactor = 25,
+           
             IsSelfTx = 27,
 
             SubTxIndex = 28,

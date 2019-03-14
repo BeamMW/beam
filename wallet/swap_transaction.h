@@ -24,8 +24,12 @@ namespace beam::wallet
 
     class AtomicSwapTransaction : public BaseTransaction
     {
-        enum State : uint8_t
+        enum class State : uint8_t
         {
+            Initial,
+            Invitation,
+
+
             BuildingLockTX,
             BuildingRefundTX,
             BuildingRedeemTX,
@@ -34,7 +38,7 @@ namespace beam::wallet
             BuildingBeamRefundTX,
             BuildingBeamRedeemTX,
 
-            SendingContractTX,
+            HandlingContractTX,
             SendingRefundTX,
             SendingRedeemTX,
 
@@ -45,7 +49,7 @@ namespace beam::wallet
             CompleteSwap,
         };
 
-        enum SubTxState : uint8_t
+        enum class SubTxState : uint8_t
         {
             Initial,
             Invitation,
@@ -58,12 +62,22 @@ namespace beam::wallet
             KernelConfirmation
         };
 
+        enum class SwapTxState : uint8_t
+        {
+            Initial,
+            CreatingTx,
+            SigningTx,
+            Constructed
+        };
+
     public:
         enum SubTxIndex : SubTxID
         {
-            LOCK_TX = 2,
-            REFUND_TX = 3,
-            REDEEM_TX = 4
+            BEAM_LOCK_TX = 2,
+            BEAM_REFUND_TX = 3,
+            BEAM_REDEEM_TX = 4,
+            LOCK_TX = 5,
+            REFUND_TX = 6
         };
 
         AtomicSwapTransaction(INegotiatorGateway& gateway
@@ -74,6 +88,7 @@ namespace beam::wallet
 
     private:
         void SetNextState(State state);
+        void UpdateAsync();
 
         TxType GetType() const override;
         State GetState(SubTxID subTxID) const;
@@ -86,9 +101,24 @@ namespace beam::wallet
         void SendSharedTxInvitation(const BaseTxBuilder& builder, bool shouldSendLockImage = false);
         void ConfirmSharedTxInvitation(const BaseTxBuilder& builder);
 
-        SubTxState BuildLockTx();
-        SubTxState BuildRefundTx();
-        SubTxState BuildRedeemTx();
+        SubTxState BuildBeamLockTx();
+        SubTxState BuildBeamRefundTx();
+        SubTxState BuildBeamRedeemTx();
+
+        //
+        SwapTxState BuildLockTx();
+        SwapTxState BuildRefundTx();
+
+
+        void OnGetRawChangeAddress(const std::string& response);
+        void OnFundRawTransaction(const std::string& response);
+        void OnSignLockTransaction(const std::string& response);
+        void OnDecodeRawTransaction(const std::string& response);
+        void OnCreateRefundTransaction(const std::string& response);
+        void OnDumpSenderPrivateKey(const std::string& response);
+
+        void OnSendRawTransaction(const std::string& response);
+
 
         bool SendSubTx(Transaction::Ptr transaction, SubTxID subTxID);
 
@@ -110,6 +140,13 @@ namespace beam::wallet
         Transaction::Ptr m_RedeemTx;
 
         io::AsyncEvent::Ptr m_EventToUpdate;
+
+        // TODO: make a separate struct
+        // btc additional params
+        uint32_t m_ValuePosition = 0;
+        boost::optional<std::string> m_SwapLockRawTx;
+        boost::optional<std::string> m_SwapLockTxID;
+        boost::optional<std::string> m_SwapWithdrawRawTx;
     };
 
     class LockTxBuilder: public BaseTxBuilder
@@ -153,7 +190,7 @@ namespace beam::wallet
     public:
         SharedTxBuilder(BaseTransaction& tx, SubTxID subTxID, Amount amount, Amount fee);
 
-        void InitTx(bool isTxOwner, bool shouldInitSecret);
+        void InitTx(bool isTxOwner);
         Transaction::Ptr CreateTransaction() override;
 
         bool GetSharedParameters();
@@ -162,7 +199,6 @@ namespace beam::wallet
 
         void InitInputAndOutputs();
         void InitOffset();
-        void InitSecret();
         void LoadPeerOffset();
 
 

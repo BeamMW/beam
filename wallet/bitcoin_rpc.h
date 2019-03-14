@@ -42,8 +42,10 @@ namespace beam
             int64_t amount,
             int outputIndex,
             OnResponse callback);
+        void createRawTransaction(const std::vector<std::string>& args, OnResponse callback);
         void getRawTransaction(const std::string& txid, OnResponse callback);
         void getBalance(OnResponse callback);
+        void decodeRawTransaction(const std::string& rawTx, OnResponse callback);
 
     private:
 
