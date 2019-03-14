@@ -168,6 +168,7 @@ public:
 
 	} m_SyncData;
 
+	void SaveSyncData();
 	void LogSyncData();
 
 	// Export compressed history elements. Suitable only for "small" ranges, otherwise may be both time & memory consumng.

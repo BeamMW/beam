@@ -81,7 +81,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	if (sp.m_ResetCursor)
 	{
 		m_DB.ParamSet(NodeDB::ParamID::SyncTarget, NULL, NULL);
-		m_DB.ParamGet(NodeDB::ParamID::SyncData, nullptr, nullptr);
+		SaveSyncData();
 	}
 	else
 	{
@@ -125,6 +125,17 @@ void NodeProcessor::LogSyncData()
 		return;
 
 	LOG_INFO() << "Fast-sync mode up to height " << m_SyncData.m_Target.m_Height;
+}
+
+void NodeProcessor::SaveSyncData()
+{
+	if (m_SyncData.m_Target.m_Row)
+	{
+		Blob blob(&m_SyncData, sizeof(m_SyncData));
+		m_DB.ParamSet(NodeDB::ParamID::SyncData, nullptr, &blob);
+	}
+	else
+		m_DB.ParamSet(NodeDB::ParamID::SyncData, nullptr, nullptr);
 }
 
 NodeProcessor::~NodeProcessor()
@@ -405,8 +416,7 @@ void NodeProcessor::EnumCongestions()
 				// ensure no old blocks, which could be generated with incorrect TxLo
 				DeleteBlocksInRange(m_SyncData.m_Target, hTargetPrev);
 
-			Blob blob(&m_SyncData, sizeof(m_SyncData));
-			m_DB.ParamSet(NodeDB::ParamID::SyncData, nullptr, &blob);
+			SaveSyncData();
 		}
 
 		if (bFirstTime)
