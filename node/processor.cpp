@@ -500,6 +500,235 @@ void NodeProcessor::RequestDataInternal(const Block::SystemState::ID& id, uint64
 	}
 }
 
+struct NodeProcessor::MultiblockContext
+{
+	NodeProcessor& m_This;
+
+	std::mutex m_Mutex;
+
+	TxoID m_id0;
+	HeightRange m_InProgress;
+	PeerID  m_pidLast;
+
+	MultiblockContext(NodeProcessor& np)
+		:m_This(np)
+	{
+		m_InProgress.m_Max = m_This.m_Cursor.m_ID.m_Height;
+		m_InProgress.m_Min = m_InProgress.m_Max + 1;
+		assert(m_InProgress.IsEmpty());
+
+		m_id0 = m_This.get_TxosBefore(m_This.m_SyncData.m_h0 + 1); // inputs of blocks below TxLo must be before this
+
+		if (m_This.m_SyncData.m_Target.m_Row)
+			m_Sigma.Import(m_This.m_SyncData.m_Sigma);
+	}
+
+	~MultiblockContext()
+	{
+		m_This.get_TaskProcessor().Flush(0);
+
+		if (m_bBatchDirty)
+		{
+			// make sure we don't leave batch context is an invalid state
+			struct Task0 :public Task {
+				virtual void Exec() override
+				{
+					ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
+					if (pBc)
+						pBc->Reset();
+				}
+			};
+
+			Task0 t;
+			m_This.get_TaskProcessor().ExecAll(t);
+		}
+	}
+
+	ECC::Scalar::Native m_Offset;
+	ECC::Point::Native m_Sigma;
+
+	size_t m_SizePending = 0;
+	bool m_bFail = false;
+	bool m_bBatchDirty = false;
+
+	struct MyTask
+		:public NodeProcessor::Task
+	{
+		virtual void Exec() override;
+		virtual ~MyTask() {}
+
+		struct Shared {
+			typedef std::shared_ptr<Shared> Ptr;
+
+			MultiblockContext* m_pMbc;
+			Block::Body m_Body;
+			Height m_Height;
+			size_t m_Size;
+		};
+
+		Shared::Ptr m_pShared;
+	};
+
+	bool Flush()
+	{
+		FlushInternal();
+		return !m_bFail;
+	}
+
+	void FlushInternal()
+	{
+		if (m_bFail || m_InProgress.IsEmpty())
+			return;
+
+		Task::Processor& tp = m_This.get_TaskProcessor();
+		tp.Flush(0);
+
+		if (m_bFail)
+			return;
+
+		m_InProgress.m_Min = m_InProgress.m_Max + 1;
+
+		if (m_bBatchDirty)
+		{
+			struct Task1 :public Task
+			{
+				MultiblockContext* m_pMbc;
+				virtual void Exec() override
+				{
+					ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
+					if (pBc && !pBc->Flush())
+						m_pMbc->m_bFail = true;
+				}
+			};
+
+			Task1 t;
+			t.m_pMbc = this;
+			m_This.get_TaskProcessor().ExecAll(t);
+
+			if (m_bFail)
+				return;
+
+			m_bBatchDirty = false;
+		}
+
+		if (!(m_Offset == Zero))
+		{
+			ECC::Mode::Scope scopeFast(ECC::Mode::Fast);
+
+			m_Sigma += ECC::Context::get().G * m_Offset;
+			m_Offset = Zero;
+
+			m_Sigma.Export(m_This.m_SyncData.m_Sigma);
+			m_This.SaveSyncData();
+		}
+	}
+
+	void FinalizeSparseRange()
+	{
+		assert(!m_bFail && m_InProgress.IsEmpty());
+
+		// finalize multi-block arithmetics
+		TxBase::Context::Params pars;
+		pars.m_bBlockMode = true;
+		pars.m_bAllowUnsignedOutputs = true; // ignore verification of locked coinbase
+
+		TxBase::Context ctx(pars);
+		ctx.m_Height.m_Min = m_This.m_SyncData.m_h0 + 1;
+		ctx.m_Height.m_Max = m_This.m_SyncData.m_Target.m_Height;
+
+		ctx.m_Sigma = m_Sigma;
+
+		if (!ctx.IsValidBlock())
+			m_bFail = true;
+	}
+
+
+	void OnBlock(const PeerID& pid, const MyTask::Shared::Ptr& pShared)
+	{
+		assert(pShared->m_Height == m_This.m_Cursor.m_ID.m_Height + 1);
+
+		if (m_bFail)
+			return;
+
+		bool bMustFlush = (!m_InProgress.IsEmpty() && (m_pidLast != pid)); // PeerID changed
+
+		if (bMustFlush && !Flush())
+			return;
+
+		m_pidLast = pid;
+
+		std::unique_ptr<MyTask> pTask(new MyTask);
+		pTask->m_pShared = pShared;
+		pShared->m_pMbc = this;
+
+		const size_t nSizeMax = 1024 * 1024 * 10; // fair enough
+
+		Task::Processor& tp = m_This.get_TaskProcessor();
+		for (uint32_t nTasks = static_cast<uint32_t>(-1); ; )
+		{
+			{
+				std::unique_lock<std::mutex> scope(m_Mutex);
+				if (m_SizePending <= nSizeMax)
+				{
+					m_SizePending += pShared->m_Size;
+					break;
+				}
+			}
+
+			assert(nTasks);
+			nTasks = tp.Flush(nTasks - 1);
+		}
+
+		m_bBatchDirty = true;
+		m_InProgress.m_Max++;
+		assert(m_InProgress.m_Max == pShared->m_Height);
+		tp.Push(std::move(pTask));
+
+	}
+};
+
+void NodeProcessor::MultiblockContext::MyTask::Exec()
+{
+	Shared& s = *m_pShared;
+	MultiblockContext& mbc = *s.m_pMbc;
+
+	bool bFull = (s.m_Height > mbc.m_This.m_SyncData.m_Target.m_Height);
+
+	TxBase::Context::Params pars;
+	pars.m_bBlockMode = true;
+	pars.m_pAbort = &mbc.m_bFail;
+	pars.m_bAllowUnsignedOutputs = !bFull;
+
+	TxBase::Context ctx(pars);
+	ctx.m_Height = s.m_Height;
+
+	beam::TxBase txbDummy;
+	if (!bFull)
+		txbDummy.m_Offset = Zero;
+
+	bool bIgnoreMaturities = true;
+	TemporarySwap<bool> scopeMat(TxElement::s_IgnoreMaturity, bIgnoreMaturities);
+
+	bool bValid = ctx.ValidateAndSummarize(bFull ? s.m_Body : txbDummy, s.m_Body.get_Reader());
+
+	if (bValid && bFull)
+		bValid = ctx.IsValidBlock();
+
+	std::unique_lock<std::mutex> scope(mbc.m_Mutex);
+
+	if (bValid && !mbc.m_bFail && !bFull)
+	{
+		mbc.m_Offset += s.m_Body.m_Offset;
+		mbc.m_Sigma += ctx.m_Sigma;;
+	}
+
+	if (!bValid)
+		mbc.m_bFail = true;
+
+	assert(mbc.m_SizePending >= s.m_Size);
+	mbc.m_SizePending -= s.m_Size;
+}
+
 void NodeProcessor::TryGoUp()
 {
 	if (!IsTreasuryHandled())
@@ -510,18 +739,6 @@ void NodeProcessor::TryGoUp()
 
 	while (true)
 	{
-		if (m_SyncData.m_Target.m_Row)
-		{
-			if (!(NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(m_SyncData.m_Target.m_Row)))
-				return;
-
-			bDirty = true;
-
-			RollbackTo(m_SyncData.m_h0);
-			GoUpFast();
-			continue;
-		}
-
 		NodeDB::StateID sidTrg;
 		Difficulty::Raw wrkTrg;
 
@@ -563,19 +780,78 @@ void NodeProcessor::TryGoUp()
 
 		RollbackTo(sidTrg.m_Height);
 
-		bool bPathOk = true;
+		MultiblockContext mbc(*this);
 
 		for (size_t i = vPath.size(); i--; )
 		{
-			if (!GoForward(vPath[i], nullptr))
+			if (!GoForward(vPath[i], mbc))
 			{
-				bPathOk = false;
+				mbc.m_bFail = true;
 				break;
+			}
+
+			if (mbc.m_InProgress.m_Max == m_SyncData.m_Target.m_Height)
+			{
+				if (!mbc.Flush())
+					break;
+
+				mbc.FinalizeSparseRange();
+
+				if (!mbc.m_bFail)
+				{
+					// ensure no reduced UTXOs are left
+					NodeDB::WalkerTxo wlk(m_DB);
+					for (m_DB.EnumTxos(wlk, mbc.m_id0); wlk.MoveNext(); )
+					{
+						if (wlk.m_SpendHeight != MaxHeight)
+							continue;
+
+						if (TxoIsNaked(wlk.m_Value))
+						{
+							mbc.m_bFail = true;
+							break;
+						}
+					}
+
+				}
+
+				if (mbc.m_bFail)
+				{
+					LOG_WARNING() << "Fast-sync failed";
+
+					// rapid rollback
+					RollbackTo(m_SyncData.m_h0);
+					mbc.m_InProgress.m_Max = m_SyncData.m_h0;
+					mbc.m_InProgress.m_Min = mbc.m_InProgress.m_Max + 1;
+
+					DeleteBlocksInRange(m_SyncData.m_Target, m_SyncData.m_h0);
+				}
+				else
+				{
+					LOG_INFO() << "Fast-sync succeeded";
+
+					// raise fossil height, hTxoLo, hTxoHi
+					RaiseFossil(m_Cursor.m_ID.m_Height);
+					RaiseTxoHi(m_Cursor.m_ID.m_Height);
+					RaiseTxoLo(m_SyncData.m_TxoLo);
+
+					m_Extra.m_LoHorizon = m_Cursor.m_ID.m_Height;
+					m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Extra.m_LoHorizon, NULL);
+				}
+
+				ZeroObject(m_SyncData);
+				SaveSyncData();
+
+				if (mbc.m_bFail)
+					break;
+
 			}
 		}
 
-		if (bPathOk)
+		if (mbc.Flush())
 			break; // at position
+
+		RollbackTo(mbc.m_InProgress.m_Min - 1);
 	}
 
 	if (bDirty)
@@ -586,168 +862,25 @@ void NodeProcessor::TryGoUp()
 	}
 }
 
-void NodeProcessor::GoUpFast()
-{
-	assert(m_SyncData.m_Target.m_Row);
-	assert(m_Cursor.m_ID.m_Height == m_SyncData.m_h0);
-
-	LOG_INFO() << "Interpreting Fast-sync data...";
-
-	bool bRet = GoUpFastInternal();
-
-	if (bRet)
-	{
-		LOG_INFO() << "Fast-sync succeeded";
-
-		// raise fossil height, hTxoLo, hTxoHi
-		RaiseFossil(m_Cursor.m_ID.m_Height);
-		RaiseTxoHi(m_Cursor.m_ID.m_Height);
-		RaiseTxoLo(m_SyncData.m_TxoLo);
-
-		m_Extra.m_LoHorizon = m_Cursor.m_ID.m_Height;
-		m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Extra.m_LoHorizon, NULL);
-	}
-	else
-	{
-		LOG_WARNING() << "Fast-sync failed";
-
-		// rapid rollback
-		RollbackTo(m_SyncData.m_h0);
-		DeleteBlocksInRange(m_SyncData.m_Target, m_SyncData.m_h0);
-	}
-
-	ZeroObject(m_SyncData);
-	m_DB.ParamSet(NodeDB::ParamID::SyncData, nullptr, nullptr);
-	CommitDB();
-}
-
 void NodeProcessor::DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hStop)
 {
 	for (NodeDB::StateID sid = sidTop; sid.m_Height > hStop; )
 	{
 		m_DB.DelStateBlockAll(sid.m_Row);
 		m_DB.SetStateNotFunctional(sid.m_Row);
+		m_DB.set_StateExtra(sid.m_Row, nullptr);
+		m_DB.set_StateTxos(sid.m_Row, nullptr);
 
 		if (!m_DB.get_Prev(sid))
 			sid.SetNull();
 	}
-}
-
-struct NodeProcessor::MultiblockContext
-{
-	TxBase::Context m_Ctx;
-	TxoID m_id0;
-
-	MultiblockContext(const TxBase::Context::Params& pars) :m_Ctx(pars) {}
-
-	std::mutex m_Mutex;
-
-	ECC::Scalar::Native m_Offset;
-	size_t m_SizePending = 0;
-	bool m_bFail = false;
-};
-
-bool NodeProcessor::GoUpFastInternal()
-{
-	std::vector<uint64_t> vPath;
-	vPath.reserve(m_SyncData.m_Target.m_Height - m_SyncData.m_h0);
-
-	for (NodeDB::StateID sid = m_SyncData.m_Target; sid.m_Height != m_SyncData.m_h0; )
-	{
-		vPath.push_back(sid.m_Row);
-		if (!m_DB.get_Prev(sid))
-			sid.SetNull();
-	}
-
-
-	TxBase::Context::Params pars;
-	pars.m_bBlockMode = true;
-	pars.m_bAllowUnsignedOutputs = true;
-
-	MultiblockContext mbc(pars);
-	mbc.m_Ctx.m_Height.m_Min = m_SyncData.m_h0 + 1;
-	mbc.m_Ctx.m_Height.m_Max = m_SyncData.m_Target.m_Height;
-	mbc.m_id0 = get_TxosBefore(m_SyncData.m_h0 + 1); // IDs of the macroblock outputs start here
-
-	Task::Processor& tp = get_TaskProcessor();
-
-	{
-		struct Task0 :public Task {
-			virtual void Exec() override
-			{
-				ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
-				if (pBc)
-					pBc->Reset();
-			}
-		};
-
-		Task0 t;
-		tp.ExecAll(t);
-	}
-
-	for (size_t i = vPath.size(); i--; )
-	{
-		if (!GoForward(vPath[i], &mbc))
-			mbc.m_bFail = true;
-
-		if (mbc.m_bFail)
-			break;
-
-		m_DB.DelStateBlockPP(vPath[i]); // can delete it right away, since we don't need the block for rollback (in case fast-sync fails)
-	}
-
-	tp.Flush(0);
-	assert(!mbc.m_SizePending);
-
-	if (!mbc.m_bFail)
-	{
-		struct Task1 :public Task
-		{
-			MultiblockContext* m_pMbc;
-			virtual void Exec() override
-			{
-				ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
-				if (pBc && !pBc->Flush())
-					m_pMbc->m_bFail = true;
-			}
-		};
-
-		Task1 t1;
-		t1.m_pMbc = &mbc;
-		get_TaskProcessor().ExecAll(t1);
-
-		if (!mbc.m_bFail)
-		{
-			// add cumulative offset of all the blocks
-			mbc.m_Ctx.m_Sigma += ECC::Context::get().G * mbc.m_Offset;
-			mbc.m_bFail = !mbc.m_Ctx.IsValidBlock();
-		}
-	}
-
-	if (mbc.m_bFail)
-	{
-		LOG_WARNING() << "cut-through verification failed";
-		return false;
-	}
-
-	// Make sure no naked UTXOs are left
-	TxoID id0 = get_TxosBefore(m_SyncData.m_h0 + 1);
-
-	NodeDB::WalkerTxo wlk(m_DB);
-	for (m_DB.EnumTxos(wlk, id0); wlk.MoveNext(); )
-	{
-		if (wlk.m_SpendHeight != MaxHeight)
-			continue;
-
-		if (TxoIsNaked(wlk.m_Value))
-			return false;
-	}
-
-	return true;
 }
 
 Height NodeProcessor::PruneOld()
 {
+	if (m_SyncData.m_Target.m_Row)
+		return 0; // don't remove anything while in fast-sync mode
+
 	if (m_Cursor.m_Sid.m_Height < Rules::HeightGenesis)
 		return 0;
 
@@ -1065,7 +1198,7 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 	return true;
 }
 
-bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext* pMbc)
+bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& mbc)
 {
 	ByteBuffer bbP, bbE;
 	m_DB.GetStateBlock(sid.m_Row, &bbP, &bbE);
@@ -1076,7 +1209,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext* p
 	Block::SystemState::ID id;
 	s.get_ID(id);
 
-	Block::Body block;
+	MultiblockContext::MyTask::Shared::Ptr pShared = std::make_shared<MultiblockContext::MyTask::Shared>();
+	Block::Body& block = pShared->m_Body;
+
 	try {
 		Deserializer der;
 		der.reset(bbP);
@@ -1099,6 +1234,15 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext* p
 	bool bFirstTime = (m_DB.get_StateTxos(sid.m_Row) == MaxHeight);
 	if (bFirstTime)
 	{
+		pShared->m_Size = bbP.size() + bbE.size();
+		pShared->m_Height = sid.m_Height;
+
+		PeerID pid;
+		if (!m_DB.get_Peer(sid.m_Row, pid))
+			pid = Zero;
+
+		mbc.OnBlock(pid, pShared);
+
 		Difficulty::Raw wrk = m_Cursor.m_Full.m_ChainWork + s.m_PoW.m_Difficulty;
 
 		if (wrk != s.m_ChainWork)
@@ -1138,12 +1282,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext* p
 			LOG_WARNING() << id << " Kernel commitment mismatch";
 			return false;
 		}
-
-		if (!pMbc && !VerifyBlock(block, block.get_Reader(), sid.m_Height))
-		{
-			LOG_WARNING() << id << " context-free verification failed";
-			return false;
-		}
 	}
 
 	bool bOk = HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, true);
@@ -1152,7 +1290,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext* p
 
 	if (bFirstTime && bOk)
 	{
-		if (!pMbc || (sid.m_Height >= m_SyncData.m_TxoLo))
+		if (sid.m_Height >= m_SyncData.m_TxoLo)
 		{
 			// check the validity of state description.
 			Merkle::Hash hvDef;
@@ -1165,14 +1303,14 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext* p
 			}
 		}
 
-		if (pMbc && (sid.m_Height <= m_SyncData.m_TxoLo))
+		if (sid.m_Height <= m_SyncData.m_TxoLo)
 		{
 			// make sure no spent txos above the requested h0
 			for (size_t i = 0; i < block.m_vInputs.size(); i++)
 			{
-				if (block.m_vInputs[i]->m_ID >= pMbc->m_id0)
+				if (block.m_vInputs[i]->m_ID >= mbc.m_id0)
 				{
-					LOG_WARNING() << id << " Invalid input in cut-through block";
+					LOG_WARNING() << id << " Invalid input in sparse block";
 					bOk = false;
 					break;
 				}
@@ -1196,7 +1334,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext* p
 
 			m_DB.set_StateTxos(sid.m_Row, &m_Extra.m_Txos);
 
-			if (!pMbc)
+			if (!m_SyncData.m_Target.m_Row)
 			{
 				// no need to adjust LoHorizon in batch mode
 				assert(m_Extra.m_LoHorizon <= m_Cursor.m_Sid.m_Height);
@@ -1239,75 +1377,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext* p
 		auto r = block.get_Reader();
 		r.Reset();
 		RecognizeUtxos(std::move(r), sid.m_Height);
-
-		if (pMbc)
-		{
-			const size_t nSizeMax = 1024 * 1024 * 10; // fair enough
-
-			Task::Processor& tp = get_TaskProcessor();
-			for (uint32_t nTasks = static_cast<uint32_t>(-1); ; )
-			{
-				{
-					std::unique_lock<std::mutex> scope(pMbc->m_Mutex);
-					if (pMbc->m_SizePending <= nSizeMax)
-						break;
-				}
-
-				assert(nTasks);
-				nTasks = tp.Flush(nTasks - 1);
-			}
-
-			struct MyTask
-				:public Task
-			{
-				MultiblockContext* m_pMbc;
-				Block::Body m_Block;
-				size_t m_BlockSize;
-
-				virtual void Exec() override
-				{
-					TxBase::Context ctx(m_pMbc->m_Ctx.m_Params);
-					ctx.m_Height = m_pMbc->m_Ctx.m_Height;
-
-					beam::TxBase txbDummy;
-					txbDummy.m_Offset = Zero;
-
-					// reset input maturities, and verify the original order
-					for (size_t i = 0; i < m_Block.m_vInputs.size(); i++)
-						m_Block.m_vInputs[i]->m_Maturity = 0;
-
-					bool bValid = ctx.ValidateAndSummarize(txbDummy, m_Block.get_Reader());
-
-					std::unique_lock<std::mutex> scope(m_pMbc->m_Mutex);
-
-					if (bValid && !m_pMbc->m_bFail)
-						bValid = m_pMbc->m_Ctx.Merge(ctx);
-
-					if (!bValid)
-						m_pMbc->m_bFail = true;
-
-					assert(m_pMbc->m_SizePending >= m_BlockSize);
-					m_pMbc->m_SizePending -= m_BlockSize;
-
-					m_pMbc->m_Offset += m_Block.m_Offset;
-				}
-			};
-
-			std::unique_ptr<MyTask> pTask(new MyTask);
-			pTask->m_pMbc = pMbc;
-			pTask->m_Block = std::move(block);
-			pTask->m_BlockSize = bbE.size() + bbP.size();
-
-			{
-				std::unique_lock<std::mutex> scope(pMbc->m_Mutex);
-				pMbc->m_SizePending += pTask->m_BlockSize;
-			}
-
-			tp.Push(std::move(pTask));
-		}
-		else {
-			LOG_INFO() << id << " Block interpreted.";
-		}
 	}
 
 	return bOk;
@@ -1652,20 +1721,20 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 	return true;
 }
 
-bool NodeProcessor::GoForward(uint64_t row, MultiblockContext* pMbc)
+bool NodeProcessor::GoForward(uint64_t row, MultiblockContext& mbc)
 {
 	NodeDB::StateID sid;
 	sid.m_Height = m_Cursor.m_Sid.m_Height + 1;
 	sid.m_Row = row;
 
-	if (HandleBlock(sid, pMbc))
+	if (HandleBlock(sid, mbc))
 	{
 		m_DB.MoveFwd(sid);
 		InitCursor();
 		return true;
 	}
 
-	if (!pMbc)
+	//if (!pMbc)
 	{
 		m_DB.DelStateBlockAll(row);
 		m_DB.SetStateNotFunctional(row);
@@ -2419,6 +2488,8 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 		{
 			m_pShared->Exec(m_iThread);
 		}
+
+		virtual ~MyTask() {}
 	};
 
 	Task::Processor& tp = get_TaskProcessor();

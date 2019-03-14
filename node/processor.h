@@ -37,12 +37,9 @@ class NodeProcessor
 
 	size_t m_nSizeUtxoComission;
 
-	void GoUpFast();
-	bool GoUpFastInternal();
-
 	struct MultiblockContext;
 
-	bool GoForward(uint64_t, MultiblockContext*);
+	bool GoForward(uint64_t, MultiblockContext&);
 	void RollbackTo(Height);
 	Height PruneOld();
 	Height RaiseFossil(Height);
@@ -54,7 +51,7 @@ class NodeProcessor
 
 	bool HandleTreasury(const Blob&);
 
-	bool HandleBlock(const NodeDB::StateID&, MultiblockContext*);
+	bool HandleBlock(const NodeDB::StateID&, MultiblockContext&);
 	bool HandleValidatedTx(TxBase::IReader&&, Height, bool bFwd, const Height* = NULL);
 	bool HandleValidatedBlock(TxBase::IReader&&, const Block::BodyBase&, Height, bool bFwd, const Height* = NULL);
 	bool HandleBlockElement(const Input&, Height, const Height*, bool bFwd);
@@ -165,6 +162,7 @@ public:
 		NodeDB::StateID m_Target; // can move fwd during sync
 		Height m_h0;
 		Height m_TxoLo;
+		ECC::Point m_Sigma;
 
 	} m_SyncData;
 
