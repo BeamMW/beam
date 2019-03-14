@@ -166,6 +166,8 @@ public:
 
 	} m_SyncData;
 
+	bool IsFastSync() const { return m_SyncData.m_Target.m_Row != 0; }
+
 	void SaveSyncData();
 	void LogSyncData();
 

@@ -121,7 +121,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 void NodeProcessor::LogSyncData()
 {
-	if (!m_SyncData.m_Target.m_Row)
+	if (!IsFastSync())
 		return;
 
 	LOG_INFO() << "Fast-sync mode up to height " << m_SyncData.m_Target.m_Height;
@@ -129,7 +129,7 @@ void NodeProcessor::LogSyncData()
 
 void NodeProcessor::SaveSyncData()
 {
-	if (m_SyncData.m_Target.m_Row)
+	if (IsFastSync())
 	{
 		Blob blob(&m_SyncData, sizeof(m_SyncData));
 		m_DB.ParamSet(NodeDB::ParamID::SyncData, nullptr, &blob);
@@ -385,7 +385,7 @@ void NodeProcessor::EnumCongestions()
 	if (pMaxTarget)
 	{
 		bool bFirstTime =
-			!m_SyncData.m_Target.m_Row &&
+			!IsFastSync() &&
 			(pMaxTarget->m_Height > m_Cursor.m_ID.m_Height + m_Horizon.m_SchwarzschildHi + m_Horizon.m_SchwarzschildHi / 2);
 
 		if (bFirstTime)
@@ -402,7 +402,7 @@ void NodeProcessor::EnumCongestions()
 
 		// check if the target should be moved fwd
 		bool bTrgChange =
-			(m_SyncData.m_Target.m_Row || bFirstTime) &&
+			(IsFastSync() || bFirstTime) &&
 			(pMaxTarget->m_Height > m_SyncData.m_Target.m_Height + m_Horizon.m_SchwarzschildHi);
 
 		if (bTrgChange)
@@ -434,7 +434,7 @@ void NodeProcessor::EnumCongestions()
 		Block::SystemState::ID id;
 
 		NodeDB::StateID sidTrg;
-		if (m_SyncData.m_Target.m_Row)
+		if (IsFastSync())
 			sidTrg = m_SyncData.m_Target;
 		else
 		{
@@ -444,7 +444,7 @@ void NodeProcessor::EnumCongestions()
 
 		if (!x.m_bNeedHdrs)
 		{
-			if (m_SyncData.m_Target.m_Row && !x.IsContained(m_SyncData.m_Target))
+			if (IsFastSync() && !x.IsContained(m_SyncData.m_Target))
 				continue; // ignore irrelevant branches
 
 			NodeDB::StateID sid;
@@ -519,7 +519,7 @@ struct NodeProcessor::MultiblockContext
 
 		m_id0 = m_This.get_TxosBefore(m_This.m_SyncData.m_h0 + 1); // inputs of blocks below TxLo must be before this
 
-		if (m_This.m_SyncData.m_Target.m_Row)
+		if (m_This.IsFastSync())
 			m_Sigma.Import(m_This.m_SyncData.m_Sigma);
 	}
 
@@ -878,7 +878,7 @@ void NodeProcessor::DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hS
 
 Height NodeProcessor::PruneOld()
 {
-	if (m_SyncData.m_Target.m_Row)
+	if (IsFastSync())
 		return 0; // don't remove anything while in fast-sync mode
 
 	if (m_Cursor.m_Sid.m_Height < Rules::HeightGenesis)
@@ -1334,7 +1334,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 
 			m_DB.set_StateTxos(sid.m_Row, &m_Extra.m_Txos);
 
-			if (!m_SyncData.m_Target.m_Row)
+			if (!IsFastSync())
 			{
 				// no need to adjust LoHorizon in batch mode
 				assert(m_Extra.m_LoHorizon <= m_Cursor.m_Sid.m_Height);
@@ -3084,7 +3084,7 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 		return false; // we don't have any info for the range [Rules::HeightGenesis, h0].
 
 	// in case we're during sync - make sure we don't return non-full blocks as-is
-	if (m_SyncData.m_Target.m_Row && (sid.m_Height > m_Cursor.m_ID.m_Height))
+	if (IsFastSync() && (sid.m_Height > m_Cursor.m_ID.m_Height))
 		return false;
 
 	bool bFullBlock = (sid.m_Height >= hHi1);

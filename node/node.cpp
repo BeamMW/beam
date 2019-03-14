@@ -59,7 +59,7 @@ void Node::UpdateSyncStatus()
 
 	if (!(m_SyncStatus == stat) && m_UpdatedFromPeers)
 	{
-		if (!m_PostStartSynced && (m_SyncStatus.m_Done == m_SyncStatus.m_Total) && !m_Processor.m_SyncData.m_Target.m_Row)
+		if (!m_PostStartSynced && (m_SyncStatus.m_Done == m_SyncStatus.m_Total) && !m_Processor.IsFastSync())
 		{
 			m_PostStartSynced = true;
 
@@ -85,7 +85,7 @@ void Node::UpdateSyncStatusRaw()
 	m_SyncStatus.m_Total = hToCursor;
 	m_SyncStatus.m_Done = hToCursor;
 
-	if (m_Processor.m_SyncData.m_Target.m_Row)
+	if (m_Processor.IsFastSync())
 	{
 		m_SyncStatus.m_Total += (m_Processor.m_SyncData.m_Target.m_Height - m_Processor.m_Cursor.m_ID.m_Height) * (SyncStatus::s_WeightHdr + SyncStatus::s_WeightBlock);
 		m_SyncStatus.m_Done += (m_Processor.m_SyncData.m_Target.m_Height - m_Processor.m_Cursor.m_ID.m_Height) * SyncStatus::s_WeightHdr;
@@ -355,7 +355,7 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 			{
 				// fast-sync mode, diluted blocks request.
 				msg.m_Top.m_Height = m_Processor.m_SyncData.m_Target.m_Height;
-				if (m_Processor.m_SyncData.m_Target.m_Row)
+				if (m_Processor.IsFastSync())
 					m_Processor.get_DB().get_StateHash(m_Processor.m_SyncData.m_Target.m_Row, msg.m_Top.m_Hash);
 				else
 					msg.m_Top.m_Hash = Zero; // treasury
@@ -381,7 +381,7 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 		else
 		{
 			// old peer
-			if (m_Processor.m_SyncData.m_Target.m_Row)
+			if (m_Processor.IsFastSync())
 				return false; // incompatible
 
 			for (const uint64_t* pPtr = nullptr; ; )
@@ -3370,7 +3370,7 @@ bool Node::Miner::Restart()
     if (!IsEnabled())
         return false; //  n/a
 
-    if (!get_ParentObj().m_Processor.IsTreasuryHandled() || get_ParentObj().m_Processor.m_SyncData.m_Target.m_Row)
+    if (!get_ParentObj().m_Processor.IsTreasuryHandled() || get_ParentObj().m_Processor.IsFastSync())
         return false;
 
     m_pTaskToFinalize.reset();
