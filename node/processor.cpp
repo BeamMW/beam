@@ -1198,6 +1198,16 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 	return true;
 }
 
+std::ostream& operator << (std::ostream& s, const LogSid& sid)
+{
+	Block::SystemState::ID id;
+	id.m_Height = sid.m_Sid.m_Height;
+	sid.m_DB.get_StateHash(sid.m_Sid.m_Row, id.m_Hash);
+
+	s << id;
+	return s;
+}
+
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& mbc)
 {
 	ByteBuffer bbP, bbE;
@@ -1205,9 +1215,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 
 	Block::SystemState::Full s;
 	m_DB.get_State(sid.m_Row, s); // need it for logging anyway
-
-	Block::SystemState::ID id;
-	s.get_ID(id);
 
 	MultiblockContext::MyTask::Shared::Ptr pShared = std::make_shared<MultiblockContext::MyTask::Shared>();
 	Block::Body& block = pShared->m_Body;
@@ -1222,7 +1229,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 		der & Cast::Down<TxVectors::Eternal>(block);
 	}
 	catch (const std::exception&) {
-		LOG_WARNING() << id << " Block deserialization failed";
+		LOG_WARNING() << LogSid(m_DB, sid) << " Block deserialization failed";
 		return false;
 	}
 
@@ -1247,19 +1254,19 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 
 		if (wrk != s.m_ChainWork)
 		{
-			LOG_WARNING() << id << " Chainwork expected=" << wrk <<", actual=" << s.m_ChainWork;
+			LOG_WARNING() << LogSid(m_DB, sid) << " Chainwork expected=" << wrk <<", actual=" << s.m_ChainWork;
 			return false;
 		}
 
 		if (m_Cursor.m_DifficultyNext.m_Packed != s.m_PoW.m_Difficulty.m_Packed)
 		{
-			LOG_WARNING() << id << " Difficulty expected=" << m_Cursor.m_DifficultyNext << ", actual=" << s.m_PoW.m_Difficulty;
+			LOG_WARNING() << LogSid(m_DB, sid) << " Difficulty expected=" << m_Cursor.m_DifficultyNext << ", actual=" << s.m_PoW.m_Difficulty;
 			return false;
 		}
 
 		if (s.m_TimeStamp <= get_MovingMedian())
 		{
-			LOG_WARNING() << id << " Timestamp inconsistent wrt median";
+			LOG_WARNING() << LogSid(m_DB, sid) << " Timestamp inconsistent wrt median";
 			return false;
 		}
 
@@ -1279,14 +1286,14 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 
 		if (s.m_Kernels != hv)
 		{
-			LOG_WARNING() << id << " Kernel commitment mismatch";
+			LOG_WARNING() << LogSid(m_DB, sid) << " Kernel commitment mismatch";
 			return false;
 		}
 	}
 
 	bool bOk = HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, true);
 	if (!bOk)
-		LOG_WARNING() << id << " invalid in its context";
+		LOG_WARNING() << LogSid(m_DB, sid) << " invalid in its context";
 
 	if (bFirstTime && bOk)
 	{
@@ -1298,7 +1305,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 
 			if (s.m_Definition != hvDef)
 			{
-				LOG_WARNING() << id << " Header Definition mismatch";
+				LOG_WARNING() << LogSid(m_DB, sid) << " Header Definition mismatch";
 				bOk = false;
 			}
 		}
@@ -1310,7 +1317,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 			{
 				if (block.m_vInputs[i]->m_ID >= mbc.m_id0)
 				{
-					LOG_WARNING() << id << " Invalid input in sparse block";
+					LOG_WARNING() << LogSid(m_DB, sid) << " Invalid input in sparse block";
 					bOk = false;
 					break;
 				}
@@ -1731,6 +1738,10 @@ bool NodeProcessor::GoForward(uint64_t row, MultiblockContext& mbc)
 	{
 		m_DB.MoveFwd(sid);
 		InitCursor();
+
+		if (IsFastSync())
+			m_DB.DelStateBlockPP(sid.m_Row); // save space
+
 		return true;
 	}
 
@@ -1875,51 +1886,62 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 {
 	Block::SystemState::ID id;
 
-	DataStatus::Enum ret = OnStateInternal(s, id);
+	DataStatus::Enum ret = OnStateSilent(s, peer, id);
 	if (DataStatus::Accepted == ret)
 	{
-		uint64_t rowid = m_DB.InsertState(s);
-		m_DB.set_Peer(rowid, &peer);
-
 		LOG_INFO() << id << " Header accepted";
 	}
 	
 	return ret;
 }
 
-NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const Blob& bbP, const Blob& bbE, const PeerID& peer)
+NodeProcessor::DataStatus::Enum NodeProcessor::OnStateSilent(const Block::SystemState::Full& s, const PeerID& peer, Block::SystemState::ID& id)
 {
-	size_t nSize = size_t(bbP.n) + size_t(bbE.n);
-	if (nSize > Rules::get().MaxBodySize)
+	DataStatus::Enum ret = OnStateInternal(s, id);
+	if (DataStatus::Accepted == ret)
 	{
-		LOG_WARNING() << id << " Block too large: " << nSize;
-		return DataStatus::Invalid;
+		uint64_t rowid = m_DB.InsertState(s);
+		m_DB.set_Peer(rowid, &peer);
 	}
 
-	uint64_t rowid = m_DB.StateFindSafe(id);
-	if (!rowid)
+	return ret;
+}
+
+NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState::ID& id, const Blob& bbP, const Blob& bbE, const PeerID& peer)
+{
+	NodeDB::StateID sid;
+	sid.m_Row = m_DB.StateFindSafe(id);
+	if (!sid.m_Row)
 	{
 		LOG_WARNING() << id << " Block unexpected";
 		return DataStatus::Rejected;
 	}
 
-	if (NodeDB::StateFlags::Functional & m_DB.GetStateFlags(rowid))
+	sid.m_Height = id.m_Height;
+	return OnBlock(sid, bbP, bbE, peer);
+}
+
+NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const NodeDB::StateID& sid, const Blob& bbP, const Blob& bbE, const PeerID& peer)
+{
+	size_t nSize = size_t(bbP.n) + size_t(bbE.n);
+	if (nSize > Rules::get().MaxBodySize)
 	{
-		LOG_WARNING() << id << " Block already received";
+		LOG_WARNING() << LogSid(m_DB, sid) << " Block too large: " << nSize;
+		return DataStatus::Invalid;
+	}
+
+	if (NodeDB::StateFlags::Functional & m_DB.GetStateFlags(sid.m_Row))
+	{
+		LOG_WARNING() << LogSid(m_DB, sid) << " Block already received";
 		return DataStatus::Rejected;
 	}
 
-	if (id.m_Height < m_Extra.m_LoHorizon)
+	if (sid.m_Height < m_Extra.m_LoHorizon)
 		return DataStatus::Unreachable;
 
-	LOG_INFO() << id << " Block received";
-
-	m_DB.SetStateBlock(rowid, bbP, bbE);
-	m_DB.SetStateFunctional(rowid);
-	m_DB.set_Peer(rowid, &peer);
-
-	if (NodeDB::StateFlags::Reachable & m_DB.GetStateFlags(rowid))
-		TryGoUp();
+	m_DB.SetStateBlock(sid.m_Row, bbP, bbE);
+	m_DB.SetStateFunctional(sid.m_Row);
+	m_DB.set_Peer(sid.m_Row, &peer);
 
 	return DataStatus::Accepted;
 }

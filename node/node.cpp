@@ -1670,9 +1670,11 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
     uint32_t nAccepted = 0;
     bool bInvalid = false;
 
+	Block::SystemState::ID idLast;
+
     for (size_t i = msg.m_vElements.size(); ; )
     {
-        NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnState(s, m_pInfo->m_ID.m_Key);
+        NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnStateSilent(s, m_pInfo->m_ID.m_Key, idLast);
         switch (eStatus)
         {
         case NodeProcessor::DataStatus::Invalid:
@@ -1695,10 +1697,10 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
     }
 
     // just to be pedantic
-    Block::SystemState::ID id;
-    s.get_ID(id);
-    if (id != t.m_Key.first)
+    if (idLast != t.m_Key.first)
         bInvalid = true;
+
+	LOG_INFO() << "Hdr pack received " << msg.m_Prefix.m_Height << "-" << idLast;
 
     OnFirstTaskDone();
 
@@ -1810,10 +1812,13 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 	const Block::SystemState::ID& id = t.m_Key.first;
 	Height h = id.m_Height;
 
-	NodeProcessor::DataStatus::Enum eStatus = h ?
-		m_This.m_Processor.OnBlock(id, msg.m_Body.m_Perishable, msg.m_Body.m_Eternal, m_pInfo->m_ID.m_Key) :
-		m_This.m_Processor.OnTreasury(msg.m_Body.m_Eternal);
+	Processor& p = m_This.m_Processor; // alias
 
+	NodeProcessor::DataStatus::Enum eStatus = h ?
+		p.OnBlock(id, msg.m_Body.m_Perishable, msg.m_Body.m_Eternal, m_pInfo->m_ID.m_Key) :
+		p.OnTreasury(msg.m_Body.m_Eternal);
+
+	p.TryGoUp();
 	OnFirstTaskDone(eStatus);
 }
 
@@ -1836,34 +1841,36 @@ void Node::Peer::OnMsg(proto::BodyPack&& msg)
 	assert((Flags::PiRcvd & m_Flags) && m_pInfo);
 	m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardBlock, true);
 
-	bool bSync = (t.m_sidTrg.m_Height <= p.m_SyncData.m_Target.m_Height);
-
 	NodeProcessor::DataStatus::Enum eStatus = NodeProcessor::DataStatus::Rejected;
 	if (!msg.m_Bodies.empty())
 	{
 		const uint64_t* pPtr = p.get_CachedRows(t.m_sidTrg, hCountExtra);
 		if (pPtr)
 		{
+			LOG_INFO() << id << " Block pack received " << id.m_Height << "-" << (id.m_Height + msg.m_Bodies.size() - 1);
+
 			eStatus = NodeProcessor::DataStatus::Accepted;
 
 			for (Height h = 0; h < msg.m_Bodies.size(); h++)
 			{
-				uint64_t rowid = pPtr[hCountExtra - h];
+				NodeDB::StateID sid;
+				sid.m_Row = pPtr[hCountExtra - h];
+				sid.m_Height = id.m_Height + h;
+
 				const proto::BodyBuffers& bb = msg.m_Bodies[h];
 
-				p.get_DB().SetStateBlock(rowid, bb.m_Perishable, bb.m_Eternal);
-				p.get_DB().SetStateFunctional(rowid);
-
-				if (!bSync)
-					p.get_DB().set_Peer(rowid, &m_pInfo->m_ID.m_Key);
+				NodeProcessor::DataStatus::Enum es2 = p.OnBlock(sid, bb.m_Perishable, bb.m_Eternal, m_pInfo->m_ID.m_Key);
+				if (NodeProcessor::DataStatus::Invalid == es2)
+				{
+					p.OnPeerInsane(m_pInfo->m_ID.m_Key);
+					break;
+				}
 			}
-
-			LOG_INFO() << id << " Block pack received " << id.m_Height << "-" << (id.m_Height + msg.m_Bodies.size() - 1);
 		}
 	}
 
-	OnFirstTaskDone(eStatus);
 	p.TryGoUp();
+	OnFirstTaskDone(eStatus);
 }
 
 void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
@@ -3543,7 +3550,9 @@ void Node::Miner::OnMined()
 
     LOG_INFO() << "New block mined: " << id;
 
-    NodeProcessor::DataStatus::Enum eStatus = get_ParentObj().m_Processor.OnState(pTask->m_Hdr, get_ParentObj().m_MyPublicID);
+	Processor& p = get_ParentObj().m_Processor; // alias
+
+    NodeProcessor::DataStatus::Enum eStatus = p.OnState(pTask->m_Hdr, get_ParentObj().m_MyPublicID);
     switch (eStatus)
     {
     default:
@@ -3562,10 +3571,11 @@ void Node::Miner::OnMined()
     }
     assert(NodeProcessor::DataStatus::Accepted == eStatus);
 
-    eStatus = get_ParentObj().m_Processor.OnBlock(id, pTask->m_BodyP, pTask->m_BodyE, get_ParentObj().m_MyPublicID); // will likely trigger OnNewState(), and spread this block to the network
+    eStatus = p.OnBlock(id, pTask->m_BodyP, pTask->m_BodyE, get_ParentObj().m_MyPublicID);
     assert(NodeProcessor::DataStatus::Accepted == eStatus);
 
-    get_ParentObj().m_Processor.FlushDB();
+    p.FlushDB();
+	p.TryGoUp(); // will likely trigger OnNewState(), and spread this block to the network
 }
 
 struct Node::Beacon::OutCtx

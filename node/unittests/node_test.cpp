@@ -795,6 +795,7 @@ namespace beam
 			bc.m_Hdr.get_ID(id);
 
 			np.OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
+			np.TryGoUp();
 
 			np.m_Wallet.AddMyUtxo(Key::IDV(bc.m_Fees, h, Key::Type::Comission));
 			np.m_Wallet.AddMyUtxo(Key::IDV(Rules::get_Emission(h), h, Key::Type::Coinbase));
@@ -923,6 +924,7 @@ namespace beam
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
 				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
+				np.TryGoUp();
 			}
 		}
 
@@ -951,6 +953,7 @@ namespace beam
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
 				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
+				np.TryGoUp();
 			}
 		}
 
@@ -967,6 +970,7 @@ namespace beam
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
 				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
+				np.TryGoUp();
 			}
 		}
 
@@ -1057,6 +1061,7 @@ namespace beam
 					bc.m_Hdr.get_ID(id);
 
 					n.get_Processor().OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
+					n.get_Processor().TryGoUp();
 
 					m_HeightMax = std::max(m_HeightMax, bc.m_Hdr.m_Height);
 
@@ -1710,6 +1715,7 @@ namespace beam
 			Block::SystemState::ID id;
 			bc.m_Hdr.get_ID(id);
 			node.get_Processor().OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
+			node.get_Processor().TryGoUp();
 		}
 	}
 

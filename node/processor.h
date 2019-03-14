@@ -189,7 +189,9 @@ public:
 	bool IsTreasuryHandled() const { return m_Extra.m_TxosTreasury > 0; }
 
 	DataStatus::Enum OnState(const Block::SystemState::Full&, const PeerID&);
+	DataStatus::Enum OnStateSilent(const Block::SystemState::Full&, const PeerID&, Block::SystemState::ID&);
 	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const Blob& bbP, const Blob& bbE, const PeerID&);
+	DataStatus::Enum OnBlock(const NodeDB::StateID&, const Blob& bbP, const Blob& bbE, const PeerID&);
 	DataStatus::Enum OnTreasury(const Blob&);
 
 	// use only for data retrieval for peers
@@ -337,6 +339,18 @@ private:
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&);
 };
 
+struct LogSid
+{
+	NodeDB& m_DB;
+	const NodeDB::StateID& m_Sid;
+
+	LogSid(NodeDB& db, const NodeDB::StateID& sid)
+		:m_DB(db)
+		, m_Sid(sid)
+	{}
+};
+
+std::ostream& operator << (std::ostream& s, const LogSid&);
 
 
 } // namespace beam
