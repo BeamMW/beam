@@ -781,12 +781,13 @@ void NodeProcessor::TryGoUp()
 		RollbackTo(sidTrg.m_Height);
 
 		MultiblockContext mbc(*this);
+		bool bContextFail = false;
 
 		for (size_t i = vPath.size(); i--; )
 		{
 			if (!GoForward(vPath[i], mbc))
 			{
-				mbc.m_bFail = true;
+				bContextFail = mbc.m_bFail = true;
 				break;
 			}
 
@@ -808,7 +809,7 @@ void NodeProcessor::TryGoUp()
 
 						if (TxoIsNaked(wlk.m_Value))
 						{
-							mbc.m_bFail = true;
+							bContextFail = mbc.m_bFail = true;
 							break;
 						}
 					}
@@ -825,6 +826,15 @@ void NodeProcessor::TryGoUp()
 					mbc.m_InProgress.m_Min = mbc.m_InProgress.m_Max + 1;
 
 					DeleteBlocksInRange(m_SyncData.m_Target, m_SyncData.m_h0);
+
+					m_SyncData.m_Sigma = Zero;
+
+					if (m_SyncData.m_TxoLo > m_SyncData.m_h0) {
+						LOG_INFO() << "Retrying with lower TxLo";
+					} else {
+						LOG_WARNING() << "TxLo already low";
+					}
+
 				}
 				else
 				{
@@ -837,9 +847,10 @@ void NodeProcessor::TryGoUp()
 
 					m_Extra.m_LoHorizon = m_Cursor.m_ID.m_Height;
 					m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Extra.m_LoHorizon, NULL);
+
+					ZeroObject(m_SyncData);
 				}
 
-				ZeroObject(m_SyncData);
 				SaveSyncData();
 
 				if (mbc.m_bFail)
@@ -851,7 +862,15 @@ void NodeProcessor::TryGoUp()
 		if (mbc.Flush())
 			break; // at position
 
+		if (!bContextFail)
+			LOG_WARNING() << "Context-free verification failed";
+
+		NodeDB::StateID sidTop = m_Cursor.m_Sid;
+
 		RollbackTo(mbc.m_InProgress.m_Min - 1);
+
+		DeleteBlocksInRange(sidTop, m_Cursor.m_Sid.m_Height); // blocks from this peer
+		OnPeerInsane(mbc.m_pidLast);
 	}
 
 	if (bDirty)
@@ -1745,17 +1764,14 @@ bool NodeProcessor::GoForward(uint64_t row, MultiblockContext& mbc)
 		return true;
 	}
 
-	//if (!pMbc)
-	{
-		m_DB.DelStateBlockAll(row);
-		m_DB.SetStateNotFunctional(row);
+	m_DB.DelStateBlockAll(row);
+	m_DB.SetStateNotFunctional(row);
 
-		PeerID peer;
-		if (m_DB.get_Peer(row, peer))
-		{
-			m_DB.set_Peer(row, NULL);
-			OnPeerInsane(peer);
-		}
+	PeerID peer;
+	if (m_DB.get_Peer(row, peer))
+	{
+		m_DB.set_Peer(row, NULL);
+		OnPeerInsane(peer);
 	}
 
 	return false;

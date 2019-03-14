@@ -1702,7 +1702,7 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 
 	LOG_INFO() << "Hdr pack received " << msg.m_Prefix.m_Height << "-" << idLast;
 
-    OnFirstTaskDone();
+    OnFirstTaskDone(NodeProcessor::DataStatus::Accepted);
 
     if (nAccepted)
     {
