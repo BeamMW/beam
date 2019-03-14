@@ -562,6 +562,9 @@ void Node::Processor::OnNewState()
 
     LOG_INFO() << "My Tip: " << m_Cursor.m_ID << ", Work = " << Difficulty::ToFloat(m_Cursor.m_Full.m_ChainWork);
 
+	if (IsFastSync())
+		return;
+
     //get_ParentObj().m_TxPool.DeleteOutOfBound(m_Cursor.m_Sid.m_Height + 1);
     get_ParentObj().m_Processor.DeleteOutdated(get_ParentObj().m_TxPool); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
     // because in practice mining could be OFF (for instance, if miner key isn't defined, and owner wallet is offline).
@@ -1182,7 +1185,7 @@ void Node::Peer::OnConnectedSecure()
 
 	SendLogin();
 
-    if (m_This.m_Processor.IsTreasuryHandled())
+    if (m_This.m_Processor.IsTreasuryHandled() && !m_This.m_Processor.IsFastSync())
     {
         proto::NewTip msg;
         msg.m_Description = m_This.m_Processor.m_Cursor.m_Full;
@@ -2560,7 +2563,7 @@ void Node::Peer::OnMsg(proto::GetCommonState&& msg)
         if (id.m_Height < Rules::HeightGenesis)
             ThrowUnexpected();
 
-        if (id.m_Height < p.m_Cursor.m_ID.m_Height)
+        if ((id.m_Height < p.m_Cursor.m_ID.m_Height) && !p.IsFastSync())
         {
             Merkle::Hash hv;
             p.get_DB().get_StateHash(p.FindActiveAtStrict(id.m_Height), hv);
@@ -2587,7 +2590,7 @@ void Node::Peer::OnMsg(proto::GetProofState&& msg)
 
     Processor& p = m_This.m_Processor;
     const NodeDB::StateID& sid = p.m_Cursor.m_Sid;
-    if (msg.m_Height < sid.m_Height)
+    if ((msg.m_Height < sid.m_Height) && !p.IsFastSync())
         p.GenerateProofStateStrict(msgOut.m_Proof, msg.m_Height);
 
     Send(msgOut);
@@ -2610,23 +2613,28 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
     proto::ProofKernel msgOut;
 
     Processor& p = m_This.m_Processor;
-    Height h = p.get_ProofKernel(msgOut.m_Proof.m_Inner, NULL, msg.m_ID);
-    if (h)
-    {
-        uint64_t rowid = p.FindActiveAtStrict(h);
-        p.get_DB().get_State(rowid, msgOut.m_Proof.m_State);
+	if (!p.IsFastSync())
+	{
+		Height h = p.get_ProofKernel(msgOut.m_Proof.m_Inner, NULL, msg.m_ID);
+		if (h)
+		{
+			uint64_t rowid = p.FindActiveAtStrict(h);
+			p.get_DB().get_State(rowid, msgOut.m_Proof.m_State);
 
-        if (h < p.m_Cursor.m_ID.m_Height)
-            p.GenerateProofStateStrict(msgOut.m_Proof.m_Outer, h);
-    }
-
+			if (h < p.m_Cursor.m_ID.m_Height)
+				p.GenerateProofStateStrict(msgOut.m_Proof.m_Outer, h);
+		}
+	}
     Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::GetProofKernel2&& msg)
 {
     proto::ProofKernel2 msgOut;
-    msgOut.m_Height = m_This.m_Processor.get_ProofKernel(msgOut.m_Proof, msg.m_Fetch ? &msgOut.m_Kernel : NULL, msg.m_ID);
+
+	Processor& p = m_This.m_Processor;
+	if (!p.IsFastSync())
+		msgOut.m_Height = p.get_ProofKernel(msgOut.m_Proof, msg.m_Fetch ? &msgOut.m_Kernel : NULL, msg.m_ID);
     Send(msgOut);
 }
 
@@ -2659,26 +2667,30 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
         }
     } t;
 
-    t.m_pTree = &m_This.m_Processor.get_Utxos();
-    t.m_hvHistory = m_This.m_Processor.m_Cursor.m_History;
+	Processor& p = m_This.m_Processor;
+	if (!p.IsFastSync())
+	{
+		t.m_pTree = &p.get_Utxos();
+		t.m_hvHistory = p.m_Cursor.m_History;
 
-    UtxoTree::Cursor cu;
-    t.m_pCu = &cu;
+		UtxoTree::Cursor cu;
+		t.m_pCu = &cu;
 
-    // bounds
-    UtxoTree::Key kMin, kMax;
+		// bounds
+		UtxoTree::Key kMin, kMax;
 
-    UtxoTree::Key::Data d;
-    d.m_Commitment = msg.m_Utxo;
-    d.m_Maturity = msg.m_MaturityMin;
-    kMin = d;
-    d.m_Maturity = Height(-1);
-    kMax = d;
+		UtxoTree::Key::Data d;
+		d.m_Commitment = msg.m_Utxo;
+		d.m_Maturity = msg.m_MaturityMin;
+		kMin = d;
+		d.m_Maturity = Height(-1);
+		kMax = d;
 
-    t.m_pBound[0] = kMin.m_pArr;
-    t.m_pBound[1] = kMax.m_pArr;
+		t.m_pBound[0] = kMin.m_pArr;
+		t.m_pBound[1] = kMax.m_pArr;
 
-    t.m_pTree->Traverse(t);
+		t.m_pTree->Traverse(t);
+	}
 
     Send(t.m_Msg);
 }
@@ -2723,7 +2735,7 @@ void Node::Peer::OnMsg(proto::GetProofChainWork&& msg)
     proto::ProofChainWork msgOut;
 
     Processor& p = m_This.m_Processor;
-    if (p.BuildCwp())
+    if (!p.IsFastSync() && p.BuildCwp())
     {
         msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
         verify(msgOut.m_Proof.Crop(p.m_Cwp));
@@ -3053,7 +3065,8 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 
     if (Flags::Owner & m_Flags)
     {
-        NodeDB& db = m_This.m_Processor.get_DB();
+		Processor& p = m_This.m_Processor;
+		NodeDB& db = p.get_DB();
         NodeDB::WalkerEvent wlk(db);
 
         Height hLast = 0;
@@ -3063,6 +3076,9 @@ void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)
 
             if ((msgOut.m_Events.size() >= proto::UtxoEvent::s_Max) && (wlk.m_Height != hLast))
                 break;
+
+			if (p.IsFastSync() && (wlk.m_Height > p.m_SyncData.m_h0))
+				break;
 
             if (wlk.m_Body.n < sizeof(UE::Value) || (wlk.m_Key.n != sizeof(ECC::Point)))
                 continue; // although shouldn't happen
