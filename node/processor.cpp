@@ -557,16 +557,25 @@ struct NodeProcessor::MultiblockContext
 		virtual void Exec() override;
 		virtual ~MyTask() {}
 
-		struct Shared {
+		struct Shared
+		{
 			typedef std::shared_ptr<Shared> Ptr;
 
 			MultiblockContext* m_pMbc;
 			Block::Body m_Body;
-			Height m_Height;
 			size_t m_Size;
+			TxBase::Context::Params m_Pars;
+			TxBase::Context m_Ctx;
+			uint32_t m_Done;
+
+			Shared()
+				:m_Ctx(m_Pars)
+			{
+			}
 		};
 
 		Shared::Ptr m_pShared;
+		uint32_t m_iVerifier;
 	};
 
 	bool Flush()
@@ -645,7 +654,8 @@ struct NodeProcessor::MultiblockContext
 
 	void OnBlock(const PeerID& pid, const MyTask::Shared::Ptr& pShared)
 	{
-		assert(pShared->m_Height == m_This.m_Cursor.m_ID.m_Height + 1);
+		assert(pShared->m_Ctx.m_Height.m_Min == pShared->m_Ctx.m_Height.m_Max);
+		assert(pShared->m_Ctx.m_Height.m_Min == m_This.m_Cursor.m_ID.m_Height + 1);
 
 		if (m_bFail)
 			return;
@@ -656,10 +666,6 @@ struct NodeProcessor::MultiblockContext
 			return;
 
 		m_pidLast = pid;
-
-		std::unique_ptr<MyTask> pTask(new MyTask);
-		pTask->m_pShared = pShared;
-		pShared->m_pMbc = this;
 
 		const size_t nSizeMax = 1024 * 1024 * 10; // fair enough
 
@@ -681,9 +687,24 @@ struct NodeProcessor::MultiblockContext
 
 		m_bBatchDirty = true;
 		m_InProgress.m_Max++;
-		assert(m_InProgress.m_Max == pShared->m_Height);
-		tp.Push(std::move(pTask));
+		assert(m_InProgress.m_Max == pShared->m_Ctx.m_Height.m_Min);
 
+		bool bFull = (pShared->m_Ctx.m_Height.m_Min > m_This.m_SyncData.m_Target.m_Height);
+
+		pShared->m_pMbc = this;
+		pShared->m_Pars.m_bAllowUnsignedOutputs = !bFull;
+		pShared->m_Pars.m_bBlockMode = true;
+		pShared->m_Pars.m_pAbort = &m_bFail;
+		pShared->m_Pars.m_nVerifiers = tp.get_Threads();
+		pShared->m_Done = 0;
+
+		for (uint32_t i = 0; i < pShared->m_Pars.m_nVerifiers; i++)
+		{
+			std::unique_ptr<MyTask> pTask(new MyTask);
+			pTask->m_pShared = pShared;
+			pTask->m_iVerifier = i;
+			tp.Push(std::move(pTask));
+		}
 	}
 };
 
@@ -692,15 +713,11 @@ void NodeProcessor::MultiblockContext::MyTask::Exec()
 	Shared& s = *m_pShared;
 	MultiblockContext& mbc = *s.m_pMbc;
 
-	bool bFull = (s.m_Height > mbc.m_This.m_SyncData.m_Target.m_Height);
+	bool bFull = !s.m_Pars.m_bAllowUnsignedOutputs;
 
-	TxBase::Context::Params pars;
-	pars.m_bBlockMode = true;
-	pars.m_pAbort = &mbc.m_bFail;
-	pars.m_bAllowUnsignedOutputs = !bFull;
-
-	TxBase::Context ctx(pars);
-	ctx.m_Height = s.m_Height;
+	TxBase::Context ctx(s.m_Ctx.m_Params);
+	ctx.m_Height = s.m_Ctx.m_Height;
+	ctx.m_iVerifier = m_iVerifier;
 
 	beam::TxBase txbDummy;
 	if (!bFull)
@@ -711,22 +728,30 @@ void NodeProcessor::MultiblockContext::MyTask::Exec()
 
 	bool bValid = ctx.ValidateAndSummarize(bFull ? s.m_Body : txbDummy, s.m_Body.get_Reader());
 
-	if (bValid && bFull)
-		bValid = ctx.IsValidBlock();
-
 	std::unique_lock<std::mutex> scope(mbc.m_Mutex);
 
-	if (bValid && !mbc.m_bFail && !bFull)
+	if (bValid)
+		bValid = s.m_Ctx.Merge(ctx);
+
+	assert(s.m_Done < s.m_Pars.m_nVerifiers);
+	if (++s.m_Done == s.m_Pars.m_nVerifiers)
 	{
-		mbc.m_Offset += s.m_Body.m_Offset;
-		mbc.m_Sigma += ctx.m_Sigma;;
+		assert(mbc.m_SizePending >= s.m_Size);
+		mbc.m_SizePending -= s.m_Size;
+
+		if (bValid && bFull)
+			bValid = s.m_Ctx.IsValidBlock();
+
+		if (bValid && !bFull)
+		{
+			mbc.m_Offset += s.m_Body.m_Offset;
+			mbc.m_Sigma += s.m_Ctx.m_Sigma;
+		}
 	}
 
 	if (!bValid)
 		mbc.m_bFail = true;
 
-	assert(mbc.m_SizePending >= s.m_Size);
-	mbc.m_SizePending -= s.m_Size;
 }
 
 void NodeProcessor::TryGoUp()
@@ -1261,7 +1286,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 	if (bFirstTime)
 	{
 		pShared->m_Size = bbP.size() + bbE.size();
-		pShared->m_Height = sid.m_Height;
+		pShared->m_Ctx.m_Height = sid.m_Height;
 
 		PeerID pid;
 		if (!m_DB.get_Peer(sid.m_Row, pid))
