@@ -159,6 +159,8 @@ namespace beam
 
 		TxElement() :m_Maturity(0) {}
 
+		static thread_local bool s_IgnoreMaturity; // should maturity be ignored incomparison?
+
 		int cmp(const TxElement&) const;
 		COMPARISON_VIA_CMP
 	};

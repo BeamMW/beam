@@ -100,9 +100,14 @@ namespace beam
 
 	/////////////
 	// Input
+	thread_local bool TxElement::s_IgnoreMaturity = false;
+
 	int TxElement::cmp(const TxElement& v) const
 	{
-		CMP_MEMBER(m_Maturity)
+		if (!s_IgnoreMaturity)
+		{
+			CMP_MEMBER(m_Maturity)
+		}
 		CMP_MEMBER_EX(m_Commitment)
 		return 0;
 	}
@@ -560,7 +565,7 @@ namespace beam
 
 	int TxBase::CmpInOut(const Input& in, const Output& out)
 	{
-		if (in.m_Maturity)
+		if (in.m_Maturity && !TxElement::s_IgnoreMaturity)
 			return Cast::Down<TxElement>(in).cmp(out);
 
 		// if maturity isn't overridden (as in standard txs/blocks) - we consider the commitment and the coinbase flag.

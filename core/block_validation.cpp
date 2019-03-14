@@ -218,20 +218,23 @@ namespace beam
 		if (!(m_Sigma == Zero))
 			return false;
 
-		// Subsidy is bounded by num of blocks multiplied by coinbase emission
-		// There must at least some unspent coinbase UTXOs wrt maturity settings
-		if (m_Height.m_Max - m_Height.m_Min < Rules::get().Maturity.Coinbase)
-			subsLocked = subsTotal;
-		else
+		if (!m_Params.m_bAllowUnsignedOutputs)
 		{
-			HeightRange hr;
-			hr.m_Min = m_Height.m_Max - Rules::get().Maturity.Coinbase;
-			hr.m_Max = m_Height.m_Max;
-			Rules::get_Emission(subsLocked, hr);
-		}
+			// Subsidy is bounded by num of blocks multiplied by coinbase emission
+			// There must at least some unspent coinbase UTXOs wrt maturity settings
+			if (m_Height.m_Max - m_Height.m_Min < Rules::get().Maturity.Coinbase)
+				subsLocked = subsTotal;
+			else
+			{
+				HeightRange hr;
+				hr.m_Min = m_Height.m_Max - Rules::get().Maturity.Coinbase;
+				hr.m_Max = m_Height.m_Max;
+				Rules::get_Emission(subsLocked, hr);
+			}
 
-		if (m_Coinbase < subsLocked)
-			return false;
+			if (m_Coinbase < subsLocked)
+				return false;
+		}
 
 		return true;
 	}
