@@ -48,8 +48,6 @@ void Node::RefreshCongestions()
         if (!t.m_bNeeded)
             DeleteUnassignedTask(t);
     }
-
-	UpdateSyncStatus();
 }
 
 void Node::UpdateSyncStatus()
@@ -284,21 +282,33 @@ void Node::Wanted::OnTimer()
 
 void Node::TryAssignTask(Task& t, const PeerID* pPeerID)
 {
-    if (pPeerID)
-    {
-        bool bCreate = false;
-        PeerMan::PeerInfoPlus* pInfo = Cast::Up<PeerMan::PeerInfoPlus>(m_PeerMan.Find(*pPeerID, bCreate));
+	// prefer to request data from nodes supporting latest protocol
+	for (uint32_t iCycle = 0; iCycle < 2; iCycle++)
+	{
+		if (pPeerID)
+		{
+			bool bCreate = false;
+			PeerMan::PeerInfoPlus* pInfo = Cast::Up<PeerMan::PeerInfoPlus>(m_PeerMan.Find(*pPeerID, bCreate));
 
-        if (pInfo && pInfo->m_pLive && TryAssignTask(t, *pInfo->m_pLive))
-            return;
-    }
+			if (pInfo && pInfo->m_pLive && TryAssignTask(t, *pInfo->m_pLive, !iCycle))
+				return;
+		}
 
-    for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
-    {
-        Peer& p = *it;
-        if (TryAssignTask(t, p))
-            return;
-    }
+		for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
+		{
+			Peer& p = *it;
+			if (TryAssignTask(t, p, !iCycle))
+				return;
+		}
+	}
+}
+
+bool Node::TryAssignTask(Task& t, Peer& p, bool bMustSupportLatestProto)
+{
+	if (bMustSupportLatestProto && !(proto::LoginFlags::Extension2 & p.m_LoginFlags))
+		return false;
+
+	return TryAssignTask(t, p);
 }
 
 bool Node::TryAssignTask(Task& t, Peer& p)
@@ -1717,6 +1727,7 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
         if (bInvalid)
             ThrowUnexpected();
 
+	m_This.UpdateSyncStatus();
 }
 
 void Node::Peer::OnMsg(proto::GetBody&& msg)
@@ -1829,6 +1840,7 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 
 	p.TryGoUp();
 	OnFirstTaskDone(eStatus);
+	m_This.UpdateSyncStatus();
 }
 
 void Node::Peer::OnMsg(proto::BodyPack&& msg)
@@ -1880,6 +1892,7 @@ void Node::Peer::OnMsg(proto::BodyPack&& msg)
 
 	p.TryGoUp();
 	OnFirstTaskDone(eStatus);
+	m_This.UpdateSyncStatus();
 }
 
 void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
@@ -3598,6 +3611,7 @@ void Node::Miner::OnMined()
 
     p.FlushDB();
 	p.TryGoUp(); // will likely trigger OnNewState(), and spread this block to the network
+	get_ParentObj().UpdateSyncStatus();
 }
 
 struct Node::Beacon::OutCtx

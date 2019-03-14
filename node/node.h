@@ -271,6 +271,7 @@ private:
 
 	void TryAssignTask(Task&, const PeerID*);
 	bool TryAssignTask(Task&, Peer&);
+	bool TryAssignTask(Task&, Peer&, bool bMustSupportLatestProto);
 	void DeleteUnassignedTask(Task&);
 
 	void InitKeys();
