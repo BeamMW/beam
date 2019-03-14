@@ -285,7 +285,7 @@ public:
 	bool GenerateNewBlock(BlockContext&);
 	void DeleteOutdated(TxPool::Fluff&);
 
-	bool GetBlock(const NodeDB::StateID&, ByteBuffer& bbEthernal, ByteBuffer& bbPerishable, Height h0, Height hLo1, Height hHi1);
+	bool GetBlock(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1);
 
 	struct ITxoWalker
 	{

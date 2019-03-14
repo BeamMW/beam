@@ -1757,7 +1757,10 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 						sid.m_Row = p.FindActiveAtStrict(sid.m_Height);
 
 						proto::BodyBuffers bb;
-						if (!p.GetBlock(sid, bb.m_Eternal, bb.m_Perishable, msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
+						if (!p.GetBlock(sid,
+							msg.m_ExcludeE ? nullptr : &bb.m_Eternal,
+							msg.m_ExcludeP ? nullptr : &bb.m_Perishable,
+							msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
 							break;
 
 						nSize += bb.m_Eternal.size() + bb.m_Perishable.size();
@@ -1777,7 +1780,10 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 			else
 			{
 				proto::Body msgBody;
-				if (p.GetBlock(sid, msgBody.m_Body.m_Eternal, msgBody.m_Body.m_Perishable, msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
+				if (p.GetBlock(sid,
+					msg.m_ExcludeE ? nullptr : &msgBody.m_Body.m_Eternal,
+					msg.m_ExcludeP ? nullptr : &msgBody.m_Body.m_Perishable,
+					msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
 				{
 					Send(msgBody);
 					return;

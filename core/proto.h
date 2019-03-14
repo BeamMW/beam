@@ -54,6 +54,8 @@ namespace proto {
 
 #define BeamNodeMsg_GetBodyPack(macro) \
     macro(Block::SystemState::ID, Top) \
+    macro(bool, ExcludeP) \
+    macro(bool, ExcludeE) \
     macro(Height, CountExtra) \
     macro(Height, Height0) \
     macro(Height, HorizonLo1) \

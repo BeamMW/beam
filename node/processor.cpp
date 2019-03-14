@@ -3149,7 +3149,7 @@ void NodeProcessor::InitializeUtxos()
 	}
 }
 
-bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal, ByteBuffer& bbPerishable, Height h0, Height hLo1, Height hHi1)
+bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1)
 {
 	// h0 - current peer Height
 	// hLo1 - HorizonLo that peer needs after the sync
@@ -3184,9 +3184,9 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 		return false;
 
 	bool bFullBlock = (sid.m_Height >= hHi1);
-	m_DB.GetStateBlock(sid.m_Row, bFullBlock ? &bbPerishable : nullptr, &bbEthernal);
+	m_DB.GetStateBlock(sid.m_Row, bFullBlock ? pPerishable : nullptr, pEthernal);
 
-	if (!bbPerishable.empty())
+	if (!(pPerishable && pPerishable->empty()))
 		return true;
 
 	// re-create it from Txos
@@ -3279,8 +3279,8 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer& bbEthernal,
 	}
 
 	ser & nCount;
-	ser.swap_buf(bbPerishable);
-	bbPerishable.insert(bbPerishable.end(), bbBlob.begin(), bbBlob.end());
+	ser.swap_buf(*pPerishable);
+	pPerishable->insert(pPerishable->end(), bbBlob.begin(), bbBlob.end());
 
 	return true;
 }
