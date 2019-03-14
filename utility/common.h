@@ -46,7 +46,7 @@
 
 #ifndef BEAM_VERIFY
 #	ifdef  NDEBUG
-#		define VERIFY(x) ((void)(x))
+#		define BEAM_VERIFY(x) ((void)(x))
 #	else //  NDEBUG
 #		define BEAM_VERIFY(x) assert(x)
 #	endif //  NDEBUG
