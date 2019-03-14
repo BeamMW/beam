@@ -706,6 +706,29 @@ struct NodeProcessor::MultiblockContext
 			tp.Push(std::move(pTask));
 		}
 	}
+
+	void OnFastSyncFailed()
+	{
+		// rapid rollback
+		m_This.RollbackTo(m_This.m_SyncData.m_h0);
+		m_InProgress.m_Max = m_This.m_SyncData.m_h0;
+		m_InProgress.m_Min = m_InProgress.m_Max + 1;
+
+		m_This.DeleteBlocksInRange(m_This.m_SyncData.m_Target, m_This.m_SyncData.m_h0);
+
+		m_This.m_SyncData.m_Sigma = Zero;
+
+		if (m_This.m_SyncData.m_TxoLo > m_This.m_SyncData.m_h0) {
+			LOG_INFO() << "Retrying with lower TxLo";
+		}
+		else {
+			LOG_WARNING() << "TxLo already low";
+		}
+
+		m_This.SaveSyncData();
+
+		m_pidLast = Zero; // don't blame the last peer for the failure!
+	}
 };
 
 void NodeProcessor::MultiblockContext::MyTask::Exec()
@@ -813,6 +836,14 @@ void NodeProcessor::TryGoUp()
 			if (!GoForward(vPath[i], mbc))
 			{
 				bContextFail = mbc.m_bFail = true;
+
+				if (IsFastSync() && (m_Cursor.m_ID.m_Height + 1 == m_SyncData.m_TxoLo))
+				{
+					// probably problem in lower blocks
+					LOG_WARNING() << "Fast-sync failed on first above-TxLo block.";
+					mbc.OnFastSyncFailed();
+				}
+
 				break;
 			}
 
@@ -844,22 +875,7 @@ void NodeProcessor::TryGoUp()
 				if (mbc.m_bFail)
 				{
 					LOG_WARNING() << "Fast-sync failed";
-
-					// rapid rollback
-					RollbackTo(m_SyncData.m_h0);
-					mbc.m_InProgress.m_Max = m_SyncData.m_h0;
-					mbc.m_InProgress.m_Min = mbc.m_InProgress.m_Max + 1;
-
-					DeleteBlocksInRange(m_SyncData.m_Target, m_SyncData.m_h0);
-
-					m_SyncData.m_Sigma = Zero;
-
-					if (m_SyncData.m_TxoLo > m_SyncData.m_h0) {
-						LOG_INFO() << "Retrying with lower TxLo";
-					} else {
-						LOG_WARNING() << "TxLo already low";
-					}
-
+					mbc.OnFastSyncFailed();
 				}
 				else
 				{
@@ -874,9 +890,9 @@ void NodeProcessor::TryGoUp()
 					m_DB.ParamSet(NodeDB::ParamID::LoHorizon, &m_Extra.m_LoHorizon, NULL);
 
 					ZeroObject(m_SyncData);
+					SaveSyncData();
 				}
 
-				SaveSyncData();
 
 				if (mbc.m_bFail)
 					break;
