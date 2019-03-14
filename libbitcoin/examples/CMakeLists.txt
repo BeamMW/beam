@@ -2,8 +2,8 @@ set(TARGET_NAME sign_tx)
 
 add_executable(${TARGET_NAME} sign_tx.cpp)
 
-add_dependencies(${TARGET_NAME} libbitcoin secp256k1)
-target_link_libraries(${TARGET_NAME} libbitcoin secp256k1)
+add_dependencies(${TARGET_NAME} libbitcoin)
+target_link_libraries(${TARGET_NAME} libbitcoin)
 
 target_include_directories(${TARGET_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/libbitcoin/include")
 
@@ -45,8 +45,8 @@ set(TARGET_NAME atomic_swap)
 add_executable(${TARGET_NAME} atomic_swap.cpp)
 
 target_include_directories(${TARGET_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/libbitcoin/include")
-add_dependencies(${TARGET_NAME} http libbitcoin secp256k1)
-target_link_libraries(${TARGET_NAME} http libbitcoin secp256k1)
+add_dependencies(${TARGET_NAME} http libbitcoin)
+target_link_libraries(${TARGET_NAME} http libbitcoin)
 
 if(MSVC)
     target_compile_options(${TARGET_NAME} PRIVATE "/wd4244")

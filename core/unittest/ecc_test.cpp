@@ -49,7 +49,6 @@
 #endif
 
 // Needed for test
-
 struct secp256k1_context_struct {
     secp256k1_ecmult_context ecmult_ctx;
     secp256k1_ecmult_gen_context ecmult_gen_ctx;
@@ -61,6 +60,7 @@ void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const
 {
     secp256k1_ecmult_gen(&pCtx->ecmult_gen_ctx, r, a);
 }
+
 secp256k1_context* g_psecp256k1 = NULL;
 
 int g_TestsFailed = 0;

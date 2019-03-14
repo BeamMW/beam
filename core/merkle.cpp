@@ -120,7 +120,7 @@ void Mmr::get_Proof(Proof& proof, uint64_t i) const
 	ProofBuilderStd bld;
 	bld.m_Proof.swap(proof);
 
-    VERIFY(get_Proof(bld, i));
+    BEAM_VERIFY(get_Proof(bld, i));
 	bld.m_Proof.swap(proof);
 }
 
@@ -148,7 +148,7 @@ bool Mmr::get_Proof(IProofBuilder& proof, uint64_t i) const
 			if (nRemaining >> pos.H)
 				bFullSibling = true;
 			else
-                VERIFY(get_HashForRange(node.second, n0, nRemaining));
+                BEAM_VERIFY(get_HashForRange(node.second, n0, nRemaining));
 		}
 
 		if (bFullSibling)

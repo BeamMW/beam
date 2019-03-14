@@ -19,6 +19,8 @@ add_library(${TARGET_NAME} STATIC
 	$<TARGET_OBJECTS:libbitcoin_utility>
 	$<TARGET_OBJECTS:libbitcoin_wallet>)
 
+target_link_libraries(${TARGET_NAME} secp256k1)
+
 if(ANDROID)
     if(ANDROID_ABI STREQUAL "armeabi-v7a")
         target_link_libraries(${TARGET_NAME} 

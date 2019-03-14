@@ -44,11 +44,11 @@
 #	include <winsock2.h>
 #endif // WIN32
 
-#ifndef VERIFY
+#ifndef BEAM_VERIFY
 #	ifdef  NDEBUG
 #		define VERIFY(x) ((void)(x))
 #	else //  NDEBUG
-#		define VERIFY(x) assert(x)
+#		define BEAM_VERIFY(x) assert(x)
 #	endif //  NDEBUG
 #endif // verify
 

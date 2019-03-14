@@ -89,12 +89,12 @@ namespace beam
 	{
 #ifdef WIN32
 		if (m_pMapping)
-            VERIFY(UnmapViewOfFile(m_pMapping));
+            BEAM_VERIFY(UnmapViewOfFile(m_pMapping));
 		if (m_hMapping)
-            VERIFY(CloseHandle(m_hMapping));
+            BEAM_VERIFY(CloseHandle(m_hMapping));
 #else // WIN32
 		if (m_pMapping)
-            VERIFY(!munmap(m_pMapping, m_nMapping));
+            BEAM_VERIFY(!munmap(m_pMapping, m_nMapping));
 #endif // WIN32
 
 		ResetVarsMapping();
@@ -106,10 +106,10 @@ namespace beam
 
 #ifdef WIN32
 		if (INVALID_HANDLE_VALUE != m_hFile)
-            VERIFY(CloseHandle(m_hFile));
+            BEAM_VERIFY(CloseHandle(m_hFile));
 #else // WIN32
 		if (-1 != m_hFile)
-            VERIFY(!close(m_hFile));
+            BEAM_VERIFY(!close(m_hFile));
 #endif // WIN32
 
 		ResetVarsFile();

@@ -131,7 +131,7 @@ void NodeDB::Close()
 		for (size_t i = 0; i < _countof(m_pPrep); i++)
 			m_pPrep[i].Close();
 
-        VERIFY(SQLITE_OK == sqlite3_close(m_pDb));
+        BEAM_VERIFY(SQLITE_OK == sqlite3_close(m_pDb));
 		m_pDb = NULL;
 	}
 }
@@ -680,7 +680,7 @@ uint64_t NodeDB::InsertState(const Block::SystemState::Full& s)
 	rs.put(1, hash);
 	rs.put(2, StateFlags::Functional);
 
-    VERIFY(rs.Step());
+    BEAM_VERIFY(rs.Step());
 	rs.get(0, nCountNextF);
 
 	// Insert row
