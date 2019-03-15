@@ -168,6 +168,8 @@ namespace beam
                 || m_status == beam::TxStatus::Completed
                 || m_status == beam::TxStatus::Cancelled;
         }
+
+        std::string getStatusString() const;
     };
 
     namespace wallet

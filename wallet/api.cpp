@@ -395,6 +395,7 @@ namespace beam
         {
             {"txId", txIDToString(tx.m_txId)},
             {"status", tx.m_status},
+            {"status_string", tx.getStatusString()},
             {"sender", std::to_string(tx.m_sender ? tx.m_myId : tx.m_peerId)},
             {"receiver", std::to_string(tx.m_sender ? tx.m_peerId : tx.m_myId)},
             {"fee", tx.m_fee},
@@ -411,6 +412,11 @@ namespace beam
             {
                 msg["confirmations"] = systemHeight - kernelProofHeight;
             }
+        }
+
+        if (tx.m_status == TxStatus::Failed)
+        {
+            msg["failure_reason"] = wallet::GetFailureMessage(tx.m_failureReason);
         }
     }
 

@@ -91,65 +91,102 @@ namespace beam
     }
 }
 
-namespace beam::wallet
+namespace beam
 {
-    ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType)
+    namespace wallet
     {
-        switch (exceptionType)
+        ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType)
         {
-        case proto::NodeProcessingException::Type::Incompatible:
-            return ErrorType::NodeProtocolIncompatible;
-        case proto::NodeProcessingException::Type::TimeOutOfSync:
-            return ErrorType::TimeOutOfSync;
-        default:
-            return ErrorType::NodeProtocolBase;
+            switch (exceptionType)
+            {
+            case proto::NodeProcessingException::Type::Incompatible:
+                return ErrorType::NodeProtocolIncompatible;
+            case proto::NodeProcessingException::Type::TimeOutOfSync:
+                return ErrorType::TimeOutOfSync;
+            default:
+                return ErrorType::NodeProtocolBase;
+            }
+        }
+
+        ErrorType getWalletError(io::ErrorCode errorCode)
+        {
+            switch (errorCode)
+            {
+            case io::ErrorCode::EC_ETIMEDOUT:
+                return ErrorType::ConnectionTimedOut;
+            case io::ErrorCode::EC_ECONNREFUSED:
+                return ErrorType::ConnectionRefused;
+            case io::ErrorCode::EC_EHOSTUNREACH:
+                return ErrorType::ConnectionHostUnreach;
+            case io::ErrorCode::EC_EADDRINUSE:
+                return ErrorType::ConnectionAddrInUse;
+            default:
+                return ErrorType::ConnectionBase;
+            }
+        }
+
+        void PaymentConfirmation::get_Hash(Hash::Value& hv) const
+        {
+            Hash::Processor()
+                << "PaymentConfirmation"
+                << m_KernelID
+                << m_Sender
+                << m_Value
+                >> hv;
+        }
+
+        bool PaymentConfirmation::IsValid(const PeerID& pid) const
+        {
+            Point::Native pk;
+            if (!proto::ImportPeerID(pk, pid))
+                return false;
+
+            Hash::Value hv;
+            get_Hash(hv);
+
+            return m_Signature.IsValid(hv, pk);
+        }
+
+        void PaymentConfirmation::Sign(const Scalar::Native& sk)
+        {
+            Hash::Value hv;
+            get_Hash(hv);
+
+            m_Signature.Sign(hv, sk);
         }
     }
 
-    ErrorType getWalletError(io::ErrorCode errorCode)
+    std::string TxDescription::getStatusString() const
     {
-        switch (errorCode)
+        switch (m_status)
         {
-        case io::ErrorCode::EC_ETIMEDOUT:
-            return ErrorType::ConnectionTimedOut;
-        case io::ErrorCode::EC_ECONNREFUSED:
-            return ErrorType::ConnectionRefused;
-        case io::ErrorCode::EC_EHOSTUNREACH:
-            return ErrorType::ConnectionHostUnreach;
-        case io::ErrorCode::EC_EADDRINUSE:
-            return ErrorType::ConnectionAddrInUse;
-        default:
-            return ErrorType::ConnectionBase;
+        case TxStatus::Pending:
+            return "pending";
+        case TxStatus::InProgress:
+            return m_sender == false ? "waiting for sender" : "waiting for receiver";
+        case TxStatus::Registering:
+            return m_sender == false ? "receiving" : "sending";
+        case TxStatus::Completed:
+        {
+            if (m_selfTx)
+            {
+                return "completed";
+            }
+            return m_sender == false ? "received" : "sent";
         }
-    }
+        case TxStatus::Cancelled:
+            return "cancelled";
+        case TxStatus::Failed:
+            if (TxFailureReason::TransactionExpired == m_failureReason)
+            {
+                return "expired";
+            }
+            return "failed";
+        default:
+            break;
+        }
 
-    void PaymentConfirmation::get_Hash(Hash::Value& hv) const
-    {
-        Hash::Processor()
-            << "PaymentConfirmation"
-            << m_KernelID
-            << m_Sender
-            << m_Value
-            >> hv;
-    }
-
-    bool PaymentConfirmation::IsValid(const PeerID& pid) const
-    {
-        Point::Native pk;
-        if (!proto::ImportPeerID(pk, pid))
-            return false;
-
-        Hash::Value hv;
-        get_Hash(hv);
-
-        return m_Signature.IsValid(hv, pk);
-    }
-
-    void PaymentConfirmation::Sign(const Scalar::Native& sk)
-    {
-        Hash::Value hv;
-        get_Hash(hv);
-
-        m_Signature.Sign(hv, sk);
+        assert(false && "Unknown TX status!");
+        return "unknown";
     }
 }

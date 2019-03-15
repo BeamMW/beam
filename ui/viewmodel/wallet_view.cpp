@@ -102,36 +102,7 @@ QString TxObject::change() const
 
 QString TxObject::status() const
 {
-    switch (m_tx.m_status)
-    {
-    case TxStatus::Pending:
-        return tr("pending");
-    case TxStatus::InProgress:
-        return income() ? tr("waiting for sender") : tr("waiting for receiver");
-    case TxStatus::Registering:
-        return income() ? tr("receiving") : tr("sending");
-    case TxStatus::Completed:
-    {
-        if (m_tx.m_selfTx)
-        {
-            return tr("completed");
-        }
-        return income() ? tr("received") : tr("sent");
-    }
-    case TxStatus::Cancelled:
-        return tr("cancelled");
-    case TxStatus::Failed:
-        if (TxFailureReason::TransactionExpired == m_tx.m_failureReason)
-        {
-            return tr("expired");
-        }
-        return tr("failed");
-    default:
-        break;
-    }
-
-    assert(false && "Unknown TX status!");
-    return tr("unknown");
+    return m_tx.getStatusString();
 }
 
 bool TxObject::canCancel() const
