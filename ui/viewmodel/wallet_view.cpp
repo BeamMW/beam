@@ -102,7 +102,7 @@ QString TxObject::change() const
 
 QString TxObject::status() const
 {
-    return m_tx.getStatusString();
+    return m_tx.getStatusString().c_str();
 }
 
 bool TxObject::canCancel() const
