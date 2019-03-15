@@ -166,7 +166,7 @@ namespace beam { namespace wallet
         State GetState() const;
     private:
         io::AsyncEvent::Ptr m_CompletedEvent;
-        boost::optional<std::future<void>> m_OutputsFuture;
+        std::future<void> m_OutputsFuture;
     };
 
     class TxBuilder

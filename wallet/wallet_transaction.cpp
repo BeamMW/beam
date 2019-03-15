@@ -332,7 +332,7 @@ namespace beam { namespace wallet
         builder.GenerateBlindingExcess();
         if (!builder.GetInitialTxParams() && txState == State::Initial)
         {
-            if (m_OutputsFuture)
+            if (m_CompletedEvent)
             {
                 return;
             }
@@ -371,10 +371,9 @@ namespace beam { namespace wallet
                     {
                         //TODO: transaction is too big :(
                     }
-                    m_OutputsFuture.reset();
                     Update();
                 });
-                m_OutputsFuture = async(launch::async, [this, sharedBuilder, reactor = &io::Reactor::get_Current()]() mutable
+                m_OutputsFuture = async(launch::async, [this, sharedBuilder]() mutable
                 {
                     sharedBuilder->CreateOutputs();
                     m_CompletedEvent->post();
