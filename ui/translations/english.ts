@@ -339,22 +339,22 @@
 <context>
     <name>StartViewModel</name>
     <message>
-        <location filename="../viewmodel/start_view.cpp" line="369"/>
+        <location filename="../viewmodel/start_view.cpp" line="353"/>
         <source>Printer is not found. Please, check your printer preferences.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/start_view.cpp" line="417"/>
+        <location filename="../viewmodel/start_view.cpp" line="401"/>
         <source>Failed to print seed phrases. Please, check your printer.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/start_view.cpp" line="527"/>
+        <location filename="../viewmodel/start_view.cpp" line="511"/>
         <source>Select the wallet database file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/start_view.cpp" line="528"/>
+        <location filename="../viewmodel/start_view.cpp" line="512"/>
         <source>SQLite database file (*.db)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -453,127 +453,67 @@
 <context>
     <name>TxObject</name>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="108"/>
-        <source>pending</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="110"/>
-        <source>waiting for sender</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="110"/>
-        <source>waiting for receiver</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="112"/>
-        <source>receiving</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="112"/>
-        <source>sending</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="117"/>
-        <source>completed</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="119"/>
-        <source>received</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="119"/>
-        <source>sent</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="122"/>
-        <source>cancelled</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="126"/>
-        <source>expired</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="128"/>
-        <source>failed</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="134"/>
-        <source>unknown</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="231"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="202"/>
         <source>Unexpected reason, please send wallet logs to Beam support</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="232"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="203"/>
         <source>Transaction cancelled</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="233"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="204"/>
         <source>Receiver signature in not valid, please send wallet logs to Beam support</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="234"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="205"/>
         <source>Failed to register transaction with the blockchain, see node logs for details</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="235"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="206"/>
         <source>Transaction is not valid, please send wallet logs to Beam support</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="236"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="207"/>
         <source>Invalid kernel proof provided</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="237"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="208"/>
         <source>Failed to send tx parameters</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="238"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="209"/>
         <source>No inputs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="239"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="210"/>
         <source>Address is expired</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="240"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="211"/>
         <source>Failed to get parameter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="241"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="212"/>
         <source>Transaction timed out</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="242"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="213"/>
         <source>Payment not signed by the receiver, please send wallet logs to Beam support</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="243"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="214"/>
         <source>Kernel maximum height is too high</source>
         <translation type="unfinished"></translation>
     </message>
@@ -702,12 +642,12 @@
 <context>
     <name>WalletViewModel</name>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="606"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="577"/>
         <source> beams</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="608"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="579"/>
         <source> groths</source>
         <translation type="unfinished"></translation>
     </message>
