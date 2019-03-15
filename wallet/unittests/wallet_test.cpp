@@ -412,6 +412,7 @@ namespace
         struct KrnPerBlock
         {
             std::vector<Merkle::Hash> m_vKrnIDs;
+            std::vector<shared_ptr<TxKernel>> m_Kernels;
 
             struct Mmr :public Merkle::FlyMmr
             {
@@ -599,22 +600,50 @@ namespace
             }
         }
 
+        void GetProof(const proto::GetProofKernel2& data, proto::ProofKernel2& msgOut)
+        {
+            for (size_t iState = m_mcm.m_vStates.size(); iState--; )
+            {
+                const KrnPerBlock& kpb = m_vBlockKernels[iState];
+
+                for (size_t i = 0; i < kpb.m_vKrnIDs.size(); i++)
+                {
+                    if (kpb.m_vKrnIDs[i] == data.m_ID)
+                    {
+                        KrnPerBlock::Mmr fmmr(kpb);
+                        Merkle::ProofBuilderStd bld;
+                        fmmr.get_Proof(bld, i);
+
+                        msgOut.m_Proof.swap(bld.m_Proof);
+                        msgOut.m_Height = iState;
+
+                        if (data.m_Fetch)
+                        {
+                            msgOut.m_Kernel.reset(new TxKernel);
+                            *msgOut.m_Kernel = *kpb.m_Kernels[i];
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+
         void AddKernel(const TxKernel& krn)
         {
             Merkle::Hash hvKrn;
             krn.get_Hash(hvKrn);
-            AddKernel(hvKrn);
-        }
-
-        void AddKernel(const Merkle::Hash& hvKrn)
-        {
+            
             if (m_vBlockKernels.size() <= m_mcm.m_vStates.size())
                 m_vBlockKernels.emplace_back();
 
             KrnPerBlock& kpb = m_vBlockKernels.back();
             kpb.m_vKrnIDs.push_back(hvKrn);
-        }
 
+            auto ptr = make_shared<TxKernel>();
+            *ptr = krn;
+            kpb.m_Kernels.push_back(ptr);
+        }
+        
         void HandleTx(const proto::NewTransaction& data)
         {
             for (const auto& input : data.m_Transaction->m_vInputs)
@@ -713,6 +742,13 @@ namespace
             case Request::Type::Kernel:
                 {
                     proto::FlyClient::RequestKernel& v = static_cast<proto::FlyClient::RequestKernel&>(r);
+                    m_Shared.m_Blockchain.GetProof(v.m_Msg, v.m_Res);
+                }
+                break;
+
+            case Request::Type::Kernel2:
+                {
+                    proto::FlyClient::RequestKernel2& v = static_cast<proto::FlyClient::RequestKernel2&>(r);
                     m_Shared.m_Blockchain.GetProof(v.m_Msg, v.m_Res);
                 }
                 break;
