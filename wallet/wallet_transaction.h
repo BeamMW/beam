@@ -21,6 +21,8 @@
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
+#include <future>
+
 namespace beam { namespace wallet
 {
 
@@ -47,7 +49,6 @@ namespace beam { namespace wallet
         bool m_Notify;
         TxFailureReason m_Reason;
     };
- 
 
     //
     // State machine for managing per transaction negotiations between wallets
@@ -131,7 +132,6 @@ namespace beam { namespace wallet
 
         TxID m_ID;
         mutable boost::optional<bool> m_IsInitiator;
-
     };
 
     class TxBuilder;
@@ -164,6 +164,9 @@ namespace beam { namespace wallet
         void NotifyTransactionRegistered();
         bool IsSelfTx() const;
         State GetState() const;
+    private:
+        io::AsyncEvent::Ptr m_CompletedEvent;
+        boost::optional<std::future<void>> m_OutputsFuture;
     };
 
     class TxBuilder
@@ -172,10 +175,12 @@ namespace beam { namespace wallet
         TxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee);
 
         void SelectInputs();
-        void AddChangeOutput();
+        void AddChange();
+        void GenerateNewCoin(Amount amount, bool bChange);
         void AddOutput(Amount amount, bool bChange);
+        void CreateOutputs();
         bool FinalizeOutputs();
-        Output::Ptr CreateOutput(Amount amount, bool bChange, bool shared = false, Height incubation = 0);
+        Output::Ptr CreateOutput(Amount amount, bool bChange);
         void CreateKernel();
         void GenerateBlindingExcess();
         void GenerateNonce();
@@ -206,6 +211,7 @@ namespace beam { namespace wallet
         bool UpdateMaxHeight();
         bool IsAcceptableMaxHeight() const;
 
+        const std::vector<Coin>& GetCoins() const;
     private:
         BaseTransaction& m_Tx;
 
@@ -221,6 +227,8 @@ namespace beam { namespace wallet
         ECC::Scalar::Native m_BlindingExcess; // goes to kernel
         ECC::Scalar::Native m_Offset; // goes to offset
 
+        std::vector<Coin> m_Coins;
+
         // peer values
         ECC::Scalar::Native m_PartialSignature;
         ECC::Point::Native m_PeerPublicNonce;
@@ -230,7 +238,7 @@ namespace beam { namespace wallet
         ECC::Scalar::Native m_PeerOffset;
         Height m_PeerMaxHeight;
 
-        // deduced values, 
+        // deduced values,
         TxKernel::Ptr m_Kernel;
         ECC::Scalar::Native m_PeerSignature;
         ECC::Hash::Value m_Message;

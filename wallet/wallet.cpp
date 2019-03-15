@@ -719,11 +719,6 @@ namespace beam
         Block::SystemState::ID currentID;
         m_WalletDB->getSystemStateID(currentID);
 
-        if (currentID == id)
-        {
-            return;
-        }
-
         m_WalletDB->setSystemStateID(id);
         LOG_INFO() << "Current state is " << id;
         notifySyncProgress();

@@ -1715,7 +1715,8 @@ namespace
             auto timestamp = GetTime_ms();
             m_MaxLatency = 0;
 
-            timer->start(1, true, [&timestamp, this]()
+            io::AsyncEvent::Ptr accessEvent;
+            accessEvent = io::AsyncEvent::create(*mainReactor, [&timestamp, this, &accessEvent]()
             {
                 auto newTimestamp = GetTime_ms();
                 auto latency = newTimestamp - timestamp;
@@ -1725,7 +1726,9 @@ namespace
                     cout << "Latency: " << float(latency) / 1000 << " s\n";
                 }
                 m_MaxLatency = max(latency, m_MaxLatency);
+                accessEvent->post();
             });
+            accessEvent->post();
 
             helpers::StopWatch sw;
             sw.start();
@@ -1733,25 +1736,22 @@ namespace
             io::Timer::Ptr sendTimer = io::Timer::create(*mainReactor);
 
             int sendCount = m_TxCount;
-            sendTimer->start(1, true, [&sender, &receiver, &sendCount, &sendTimer, this]()
+            io::AsyncEvent::Ptr sendEvent;
+            sendEvent = io::AsyncEvent::create(*mainReactor, [&sender, &receiver, &sendCount, &sendEvent, this]()
             {
                 for (int i = 0; i < m_TxPerCall && sendCount; ++i)
                 {
                     if (sendCount--)
                     {
-                        sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 5, 1, true, 200);
-                    }
-                    else
-                    {
-                        sendTimer->cancel();
+                        sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 5, 1, true, 10000, 10000);
                     }
                 }
+                if (sendCount)
+                {
+                    sendEvent->post();
+                }
             });
-
-            /*for (int i = 0; i < TxCount; ++i)
-            {
-                sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 5, 1, true, 200);
-            }*/
+            sendEvent->post();
 
             mainReactor->run();
             sw.stop();
@@ -1790,16 +1790,17 @@ namespace
     {
         cout << "\nTesting tx performance...\n";
 
-        const int MaxTxCount = 1000;
+        const int MaxTxCount = 100;// 00;
         vector<PerformanceRig> tests;
 
         for (int i = 10; i <= MaxTxCount; i *= 10)
         {
-            for (int j = 1; j < 3; ++j)
+            /*for (int j = 1; j <= 5; ++j)
             {
                 tests.emplace_back(i, j);
-            }
-            //tests.emplace_back(i, 1);
+            }*/
+            tests.emplace_back(i, 1);
+            tests.emplace_back(i, i);
         }
 
         for (auto& t : tests)
@@ -1809,7 +1810,7 @@ namespace
 
         for (auto& t : tests)
         {
-            cout << "Transferring of " << t.GetTxCount() << " by " << t.GetTxPerCall() << " transactions per call took: " << t.GetTotalTime() << " ms\nMax api latency: " << t.GetMaxLatency() << " \n";
+            cout << "Transferring of " << t.GetTxCount() << " by " << t.GetTxPerCall() << " transactions per call took: " << t.GetTotalTime() << " ms Max api latency: " << t.GetMaxLatency() << endl;
         }
     }
 }
@@ -1843,7 +1844,7 @@ int main()
     //TestExpiredTransaction();
 
     TestTransactionUpdate();
-    TestTxPerformance();
+    //TestTxPerformance();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
