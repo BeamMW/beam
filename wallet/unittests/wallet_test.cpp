@@ -1741,7 +1741,7 @@ int main()
 
     TestTxToHimself();
 
-    TestExpiredTransaction();
+    //TestExpiredTransaction();
 
     TestTransactionUpdate();
     //TestTxPerformance();
