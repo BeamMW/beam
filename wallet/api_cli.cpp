@@ -29,6 +29,7 @@
 #include "utility/io/json_serializer.h"
 #include "utility/options.h"
 #include "utility/string_helpers.h"
+#include "utility/log_rotation.h"
 
 #include "http/http_connection.h"
 #include "http/http_msg_creator.h"
@@ -777,6 +778,8 @@ int main(int argc, char* argv[])
             std::string aclPath;
             std::string whitelist;
 
+            uint32_t logCleanupPeriod;
+
         } options;
 
         TlsOptions tlsOptions;
@@ -797,6 +800,7 @@ int main(int argc, char* argv[])
                 (cli::PASS, po::value<std::string>(), "password for the wallet")
                 (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
                 (cli::IP_WHITELIST, po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
+                (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
             ;
 
             po::options_description authDesc("User authorization options");
@@ -925,11 +929,7 @@ int main(int argc, char* argv[])
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
 
-        io::Timer::Ptr logRotateTimer = io::Timer::create(*reactor);
-        logRotateTimer->start(LOG_ROTATION_PERIOD, true, []() 
-            {
-                Logger::get()->rotate();
-            });
+        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
 
         Wallet wallet{ walletDB };
 

@@ -1,18 +1,24 @@
 #include "server.h"
 #include "adapter.h"
+#include "wallet/secstring.h"
+#include "core/ecc_native.h"
+
 #include "node/node.h"
 #include "utility/logger.h"
 #include "utility/helpers.h"
 #include "utility/options.h"
 #include "utility/string_helpers.h"
-#include "wallet/secstring.h"
-#include "core/ecc_native.h"
+#include "utility/log_rotation.h"
+
 #include <boost/program_options.hpp>
+#include <boost/filesystem.hpp>
+
 #include "version.h"
 
 using namespace beam;
 using namespace std;
 
+#define LOG_FILES_DIR "logs"
 #define FILES_PREFIX "explorer-node_"
 #define API_PORT_PARAMETER "api_port"
 
@@ -26,6 +32,7 @@ struct Options {
     Key::IPKdf::Ptr ownerKey;
     static const unsigned logRotationPeriod = 3*60*60*1000; // 3 hours
     std::vector<uint32_t> whitelist;
+    uint32_t logCleanupPeriod;
 };
 
 static bool parse_cmdline(int argc, char* argv[], Options& o);
@@ -36,16 +43,19 @@ int main(int argc, char* argv[]) {
     if (!parse_cmdline(argc, argv, options)) {
         return 1;
     }
-    auto logger = Logger::create(LOG_LEVEL_INFO, options.logLevel, options.logLevel, FILES_PREFIX);
+
+    const auto path = boost::filesystem::system_complete(LOG_FILES_DIR);
+    auto logger = Logger::create(LOG_LEVEL_INFO, options.logLevel, options.logLevel, FILES_PREFIX, path.string());
+
     int retCode = 0;
     try {
         io::Reactor::Ptr reactor = io::Reactor::create();
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
         io::Timer::Ptr logRotateTimer = io::Timer::create(*reactor);
-        logRotateTimer->start(
-            options.logRotationPeriod, true, []() { Logger::get()->rotate(); }
-        );
+
+        LogRotation logRotation(*reactor, options.logRotationPeriod, options.logCleanupPeriod);
+
         Node node;
         setup_node(node, options);
         explorer::IAdapter::Ptr adapter = explorer::create_adapter(node);
@@ -79,6 +89,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
         (cli::KEY_OWNER, po::value<string>()->default_value(""), "owner viewer key")
         (cli::PASS, po::value<string>()->default_value(""), "password for owner key")
         (cli::IP_WHITELIST, po::value<std::string>()->default_value(""), "IP whitelist")
+        (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
     ;
         
 #ifdef NDEBUG
@@ -111,6 +122,10 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
         }
 
         vm.notify();
+
+        o.logCleanupPeriod = vm[cli::LOG_CLEANUP_DAYS].as<uint32_t>() * 24 * 3600;
+
+        clean_old_logfiles(LOG_FILES_DIR, FILES_PREFIX, o.logCleanupPeriod);
 
         o.nodeDbFilename = FILES_PREFIX "db";
         //o.accessControlFile = "api.keys";
