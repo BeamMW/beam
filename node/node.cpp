@@ -1723,9 +1723,11 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
         m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader * nAccepted, true);
 
         m_This.RefreshCongestions(); // may delete us
-    } else
-        if (bInvalid)
-            ThrowUnexpected();
+    }
+    else if (bInvalid)
+    {
+        ThrowUnexpected();
+    }
 
 	m_This.UpdateSyncStatus();
 }
