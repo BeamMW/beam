@@ -77,7 +77,8 @@ namespace beam::wallet
             BEAM_REFUND_TX = 3,
             BEAM_REDEEM_TX = 4,
             LOCK_TX = 5,
-            REFUND_TX = 6
+            REFUND_TX = 6,
+            REDEEM_TX = 7
         };
 
         AtomicSwapTransaction(INegotiatorGateway& gateway
@@ -94,12 +95,15 @@ namespace beam::wallet
         State GetState(SubTxID subTxID) const;
         SubTxState GetSubTxState(SubTxID subTxID) const;
         void UpdateImpl() override;
-        void SendInvitation(const LockTxBuilder& lockBuilder, bool isSender);
+        void SendInvitation();
+        void SendExternalTxDetails();
+        void SendLockTxInvitation(const LockTxBuilder& lockBuilder, bool isSender);
         void SendBulletProofPart2(const LockTxBuilder& lockBuilder, bool isSender);
         void SendBulletProofPart3(const LockTxBuilder& lockBuilder, bool isSender);
 
         void SendSharedTxInvitation(const BaseTxBuilder& builder, bool shouldSendLockImage = false);
         void ConfirmSharedTxInvitation(const BaseTxBuilder& builder);
+
 
         SubTxState BuildBeamLockTx();
         SubTxState BuildBeamRefundTx();
@@ -107,18 +111,17 @@ namespace beam::wallet
 
         //
         SwapTxState BuildLockTx();
-        SwapTxState BuildRefundTx();
-
+        SwapTxState BuildWithdrawTx(SubTxID subTxID);
+        bool RegisterExternalTx(const std::string& rawTransaction, SubTxID subTxID);
+        void GetSwapLockTxConfirmations();
 
         void OnGetRawChangeAddress(const std::string& response);
         void OnFundRawTransaction(const std::string& response);
         void OnSignLockTransaction(const std::string& response);
-        void OnDecodeRawTransaction(const std::string& response);
         void OnCreateRefundTransaction(const std::string& response);
         void OnDumpSenderPrivateKey(const std::string& response);
-
-        void OnSendRawTransaction(const std::string& response);
-
+        void OnDumpReceiverPrivateKey(const std::string& response);
+        void OnGetSwapLockTxConfirmations(const std::string& response);
 
         bool SendSubTx(Transaction::Ptr transaction, SubTxID subTxID);
 
@@ -144,8 +147,8 @@ namespace beam::wallet
         // TODO: make a separate struct
         // btc additional params
         uint32_t m_ValuePosition = 0;
+        uint16_t m_SwapLockTxConfirmations = 0;
         boost::optional<std::string> m_SwapLockRawTx;
-        boost::optional<std::string> m_SwapLockTxID;
         boost::optional<std::string> m_SwapWithdrawRawTx;
     };
 

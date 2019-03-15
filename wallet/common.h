@@ -205,10 +205,12 @@ namespace beam
 
             PeerProtoVersion = 16,
 
-            AtomicSwapCoin = 20,
-            AtomicSwapAmount = 21,
-            AtomicSwapAddress = 22,
-            AtomicSwapPeerAddress = 23,
+            AtomicSwapCoin = 18,
+            AtomicSwapAmount = 19,
+            AtomicSwapAddress = 20,
+            AtomicSwapPeerAddress = 21,
+            AtomicSwapExternalTxID = 22,
+            AtomicSwapExternalTxOutputIndex = 23,
 
             PeerPublicSharedBlindingFactor = 25,
            

@@ -119,6 +119,11 @@ namespace beam
         sendRequest("decoderawtransaction", "\"" + rawTx + "\"", callback);
     }
 
+    void BitcoinRPC::getTxOut(const std::string& txid, int outputIndex, OnResponse callback)
+    {
+        sendRequest("gettxout", "\"" + txid + "\"" + "," + std::to_string(outputIndex), callback);
+    }
+
     void BitcoinRPC::sendRequest(const std::string& method, const std::string& params, OnResponse callback)
     {
         const std::string content(R"({"method":")" + method + R"(","params":[)" + params + "]}");

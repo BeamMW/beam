@@ -46,7 +46,7 @@ namespace beam
         void getRawTransaction(const std::string& txid, OnResponse callback);
         void getBalance(OnResponse callback);
         void decodeRawTransaction(const std::string& rawTx, OnResponse callback);
-
+        void getTxOut(const std::string& txid, int outputIndex, OnResponse callback);
     private:
 
         void sendRequest(const std::string& method, const std::string& params, OnResponse callback);
