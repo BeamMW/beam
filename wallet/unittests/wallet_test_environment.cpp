@@ -832,6 +832,13 @@ private:
             Send(msgOut);
         }
 
+        void OnMsg(proto::GetProofKernel2&& data) override
+        {
+            proto::ProofKernel2 msgOut;
+            m_This.m_Blockchain.GetProof(data, msgOut);
+            Send(msgOut);
+        }
+
         void OnMsg(proto::Login&& /*data*/) override
         {
         }
