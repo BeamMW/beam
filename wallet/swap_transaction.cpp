@@ -93,22 +93,25 @@ namespace beam::wallet
             return libbitcoin::chain::script(contract_operations);
         }
 
-        libbitcoin::chain::script CreateAtomicSwapContract(const BaseTransaction& transaction)
+        libbitcoin::chain::script CreateAtomicSwapContract(const BaseTransaction& transaction, bool isBtcOwner)
         {
-            // TODO: change locktime
-            Timestamp locktime = transaction.GetMandatoryParameter<Timestamp>(TxParameterID::CreateTime) + kBTCLockTimeSec;
+            Timestamp locktime = transaction.GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapLockTime);
             std::string peerSwapAddress = transaction.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPeerAddress);
             std::string swapAddress = transaction.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapAddress);
 
             // load secret or secretHash
-            uintBig preimage = transaction.GetMandatoryParameter<uintBig>(TxParameterID::PreImage, AtomicSwapTransaction::SubTxIndex::BEAM_REDEEM_TX);
+            uintBig preimage;
+            if (!transaction.GetParameter(TxParameterID::PreImage, preimage))
+            {
+                preimage = transaction.GetMandatoryParameter<uintBig>(TxParameterID::PreImage, AtomicSwapTransaction::SubTxIndex::BEAM_REDEEM_TX);
+            }
+
             Hash::Value lockImage(Zero);
             Hash::Processor() << preimage >> lockImage;
 
             libbitcoin::data_chunk secretHash = libbitcoin::to_chunk(lockImage.m_pData);
-            // TODO: sender || receiver
-            libbitcoin::wallet::payment_address senderAddress(swapAddress);
-            libbitcoin::wallet::payment_address receiverAddress(peerSwapAddress);
+            libbitcoin::wallet::payment_address senderAddress(isBtcOwner ? swapAddress : peerSwapAddress);
+            libbitcoin::wallet::payment_address receiverAddress(isBtcOwner ? peerSwapAddress : swapAddress);
 
             return AtomicSwapContract(senderAddress.hash(), receiverAddress.hash(), locktime, secretHash, secretHash.size());
         }
@@ -199,6 +202,9 @@ namespace beam::wallet
         {
             if (IsInitiator())
             {
+                // init locktime
+                auto locktime = GetMandatoryParameter<Timestamp>(TxParameterID::CreateTime) + kBTCLockTimeSec;
+                SetParameter(TxParameterID::AtomicSwapLockTime, locktime);
                 SendInvitation();
             }
             
@@ -298,12 +304,26 @@ namespace beam::wallet
         }
         case State::SendingRefundTX:
         {
+            assert(m_SwapWithdrawRawTx.is_initialized());
+
+            if (!RegisterExternalTx(*m_SwapWithdrawRawTx, SubTxIndex::REFUND_TX))
+                break;
+
             assert(false && "Not implemented yet.");
+
             break;
         }
         case State::SendingRedeemTX:
         {
-            assert(false && "Not implemented yet.");
+            assert(m_SwapWithdrawRawTx.is_initialized());
+
+            if (!RegisterExternalTx(*m_SwapWithdrawRawTx, SubTxIndex::REDEEM_TX))
+                break;
+
+            
+            LOG_DEBUG() << GetTxID() << " Redeem TX completed!";
+
+            SetNextState(State::CompleteSwap);
             break;
         }
         case State::SendingBeamLockTX:
@@ -321,7 +341,7 @@ namespace beam::wallet
             if (!IsSubTxCompleted(SubTxIndex::BEAM_LOCK_TX))
                 break;
             
-            LOG_DEBUG() << GetTxID()<< " Lock TX completed.";
+            LOG_DEBUG() << GetTxID()<< " Beam Lock TX completed.";
 
             // TODO: change this (dirty hack)
             SetParameter(TxParameterID::KernelProofHeight, Height(0));
@@ -359,7 +379,7 @@ namespace beam::wallet
                 if (!IsSubTxCompleted(SubTxIndex::BEAM_REDEEM_TX))
                     break;
 
-                LOG_DEBUG() << GetTxID() << " Redeem TX completed!";
+                LOG_DEBUG() << GetTxID() << " Beam Redeem TX completed!";
 
                 SetNextState(State::CompleteSwap);
             }
@@ -375,7 +395,7 @@ namespace beam::wallet
             if (!IsSubTxCompleted(SubTxIndex::BEAM_REFUND_TX))
                 break;
 
-            LOG_DEBUG() << GetTxID() << " Refund TX completed!";
+            LOG_DEBUG() << GetTxID() << " Beam Refund TX completed!";
 
             SetNextState(State::CompleteSwap);
             break;
@@ -384,7 +404,7 @@ namespace beam::wallet
         {
             LOG_DEBUG() << GetTxID() << " Swap completed.";
 
-            UpdateTxDescription(TxStatus::Completed);
+            CompleteTx();
             break;
         }
 
@@ -402,7 +422,7 @@ namespace beam::wallet
         {
             InitSecret(*this, SubTxIndex::BEAM_REDEEM_TX);
 
-            auto contractScript = CreateAtomicSwapContract(*this);
+            auto contractScript = CreateAtomicSwapContract(*this, true);
 
             Amount swapAmount = GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
             libbitcoin::chain::transaction contractTx;
@@ -432,9 +452,12 @@ namespace beam::wallet
 
         if (swapTxState == SwapTxState::Initial)
         {
-            Amount swapAmount = GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
+            // TODO: implement fee calculation
+            Amount fee = 1000;
+
+            Amount swapAmount = GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount) - fee;
             std::string swapAddress = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapAddress);
-            int outputIndex = GetMandatoryParameter<int>(TxParameterID::AtomicSwapExternalTxOutputIndex, SubTxIndex::LOCK_TX);
+            uint32_t outputIndex = GetMandatoryParameter<uint32_t>(TxParameterID::AtomicSwapExternalTxOutputIndex, SubTxIndex::LOCK_TX);
             auto swapLockTxID = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::LOCK_TX);
 
             std::vector<std::string> args;
@@ -442,7 +465,7 @@ namespace beam::wallet
             args.emplace_back("[{\"" + swapAddress + "\": " + std::to_string(double(swapAmount) / libbitcoin::satoshi_per_bitcoin) + "}]");
             if (subTxID == SubTxIndex::REFUND_TX)
             {
-                Timestamp locktime = GetMandatoryParameter<Timestamp>(TxParameterID::CreateTime) + kBTCLockTimeSec;
+                Timestamp locktime = GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapLockTime);
                 args.emplace_back(std::to_string(locktime));
             }
 
@@ -500,7 +523,7 @@ namespace beam::wallet
     void AtomicSwapTransaction::GetSwapLockTxConfirmations()
     {
         auto txID = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::LOCK_TX);
-        int outputIndex = GetMandatoryParameter<int>(TxParameterID::AtomicSwapExternalTxOutputIndex, SubTxIndex::LOCK_TX);
+        uint32_t outputIndex = GetMandatoryParameter<uint32_t>(TxParameterID::AtomicSwapExternalTxOutputIndex, SubTxIndex::LOCK_TX);
 
         m_Gateway.get_bitcoin_rpc()->getTxOut(txID, outputIndex, BIND_THIS_MEMFN(OnGetSwapLockTxConfirmations));
     }
@@ -512,7 +535,16 @@ namespace beam::wallet
         GetParameter(TxParameterID::State, lockTxState, SubTxIndex::BEAM_LOCK_TX);
 
         bool isSender = IsSender();
-        auto lockTxBuilder = std::make_unique<LockTxBuilder>(*this, GetAmount(), GetMandatoryParameter<Amount>(TxParameterID::Fee));
+        // TODO: check
+        Amount fee = 0;
+        GetParameter(TxParameterID::Fee, fee);
+
+        if (!fee)
+        {
+            return lockTxState;
+        }
+
+        auto lockTxBuilder = std::make_unique<LockTxBuilder>(*this, GetAmount(), fee);
 
         if (!lockTxBuilder->GetInitialTxParams() && lockTxState == SubTxState::Initial)
         {
@@ -557,7 +589,11 @@ namespace beam::wallet
             return lockTxState;
         }
 
-        assert(lockTxBuilder->GetPeerSignature());
+        if (!lockTxBuilder->GetPeerSignature())
+        {
+            return lockTxState;
+        }
+
         if (!lockTxBuilder->IsPeerSignatureValid())
         {
             LOG_INFO() << GetTxID() << " Peer signature is invalid.";
@@ -825,9 +861,10 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::SendInvitation()
     {
-        Amount swapAmount = GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
-        AtomicSwapCoin swapCoin = GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
-        std::string swapAddress = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapAddress);
+        auto swapAmount = GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
+        auto swapCoin = GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+        auto swapAddress = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapAddress);
+        auto swapLockTime = GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapLockTime);
 
         // send invitation
         SetTxParameter msg;
@@ -836,6 +873,7 @@ namespace beam::wallet
             .AddParameter(TxParameterID::AtomicSwapAmount, swapAmount)
             .AddParameter(TxParameterID::AtomicSwapCoin, swapCoin)
             .AddParameter(TxParameterID::AtomicSwapPeerAddress, swapAddress)
+            .AddParameter(TxParameterID::AtomicSwapLockTime, swapLockTime)
             .AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion);
 
         if (!SendTxParameters(move(msg)))
@@ -847,10 +885,12 @@ namespace beam::wallet
     void AtomicSwapTransaction::SendExternalTxDetails()
     {
         auto txID = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::LOCK_TX);
-        int outputIndex = GetMandatoryParameter<int>(TxParameterID::AtomicSwapExternalTxOutputIndex, SubTxIndex::LOCK_TX);
+        uint32_t outputIndex = GetMandatoryParameter<uint32_t>(TxParameterID::AtomicSwapExternalTxOutputIndex, SubTxIndex::LOCK_TX);
+        std::string swapAddress = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapAddress);
 
         SetTxParameter msg;
-        msg.AddParameter(TxParameterID::SubTxIndex, SubTxIndex::LOCK_TX)
+        msg.AddParameter(TxParameterID::AtomicSwapPeerAddress, swapAddress)
+            .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::LOCK_TX)
             .AddParameter(TxParameterID::AtomicSwapExternalTxID, txID)
             .AddParameter(TxParameterID::AtomicSwapExternalTxOutputIndex, outputIndex);
 
@@ -1034,7 +1074,7 @@ namespace beam::wallet
         libbitcoin::endorsement sig;
 
         uint32_t input_index = 0;
-        auto redeemScript = CreateAtomicSwapContract(*this);
+        auto redeemScript = CreateAtomicSwapContract(*this, true);
         libbitcoin::chain::script::create_endorsement(sig, wallet_key.secret(), redeemScript, withdrawTX, input_index, libbitcoin::machine::sighash_algorithm::all);
 
         // Create input script
@@ -1073,7 +1113,7 @@ namespace beam::wallet
         libbitcoin::endorsement sig;
 
         uint32_t input_index = 0;
-        auto redeemScript = CreateAtomicSwapContract(*this);
+        auto redeemScript = CreateAtomicSwapContract(*this, false);
         libbitcoin::chain::script::create_endorsement(sig, wallet_key.secret(), redeemScript, withdrawTX, input_index, libbitcoin::machine::sighash_algorithm::all);
 
         // Create input script

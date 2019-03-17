@@ -495,7 +495,7 @@ namespace beam
 
             if (PostReqUnique(*pVal))
             {
-                LOG_INFO() << txID << " Get details for kernel: " << txID;
+                LOG_INFO() << txID << " Get details for kernel: " << pVal->m_Msg.m_ID;
             }
         }
     }

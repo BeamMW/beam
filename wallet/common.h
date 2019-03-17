@@ -211,6 +211,7 @@ namespace beam
             AtomicSwapPeerAddress = 21,
             AtomicSwapExternalTxID = 22,
             AtomicSwapExternalTxOutputIndex = 23,
+            AtomicSwapLockTime = 24,
 
             PeerPublicSharedBlindingFactor = 25,
            

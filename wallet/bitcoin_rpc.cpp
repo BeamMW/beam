@@ -77,7 +77,7 @@ namespace beam
 
     void BitcoinRPC::getRawChangeAddress(OnResponse callback)
     {
-        sendRequest("getrawchangeaddress", "", callback);
+        sendRequest("getrawchangeaddress", "\"legacy\"", callback);
     }
 
     void BitcoinRPC::createRawTransaction(
