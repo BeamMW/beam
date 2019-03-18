@@ -1096,7 +1096,7 @@ private:
             else if (j["method"] == "sendrawtransaction")
             {
                 std::string tx = j["method"][0];
-                if (std::find(m_peers.begin(), m_peers.end(), tx) == m_peers.end())
+                if (std::find(m_rawTransactions.begin(), m_rawTransactions.end(), tx) == m_rawTransactions.end())
                 {
                     m_rawTransactions.push_back(tx);
                     sendRawTransaction(req);
