@@ -118,9 +118,8 @@ namespace beam::wallet
         void OnGetRawChangeAddress(const std::string& response);
         void OnFundRawTransaction(const std::string& response);
         void OnSignLockTransaction(const std::string& response);
-        void OnCreateRefundTransaction(const std::string& response);
-        void OnDumpSenderPrivateKey(const std::string& response);
-        void OnDumpReceiverPrivateKey(const std::string& response);
+        void OnCreateWithdrawTransaction(const std::string& response);
+        void OnDumpPrivateKey(SubTxID subTxID, const std::string& response);
         void OnGetSwapLockTxConfirmations(const std::string& response);
 
         bool SendSubTx(Transaction::Ptr transaction, SubTxID subTxID);
@@ -146,7 +145,6 @@ namespace beam::wallet
 
         // TODO: make a separate struct
         // btc additional params
-        uint32_t m_ValuePosition = 0;
         uint16_t m_SwapLockTxConfirmations = 0;
         boost::optional<std::string> m_SwapLockRawTx;
         boost::optional<std::string> m_SwapWithdrawRawTx;
