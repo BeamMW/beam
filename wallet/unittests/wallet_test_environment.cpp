@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "nlohmann/json.hpp"
+
 using namespace beam;
 using namespace std;
 using namespace ECC;
+using json = nlohmann::json;
 
 Coin CreateAvailCoin(Amount amount, Height maturity = 10)
 {
@@ -966,4 +969,182 @@ struct MyMmr : public Merkle::Mmr
     {
         get_At(pos) = hv;
     }
+};
+
+class TestBitcoinWallet
+{
+public:
+
+    struct Options
+    {
+        string m_rawAddress = "2NB9nqKnHgThByiSzVEVDg5cYC2HwEMBcEK";
+        string m_privateKey = "cTZEjMtL96FyC43AxEvUxbs3pinad2cH8wvLeeCYNUwPURqeknkG";
+        string m_rawLockTx = "";
+        string m_signLockTx = "";
+        string m_lockTx = "";
+        string m_refundTx = "";
+        string m_lockTxId = "";
+    };
+
+public:
+
+    TestBitcoinWallet(io::Reactor& reactor, const io::Address& addr, const Options& options)
+        : m_reactor(reactor)
+        , m_httpClient(reactor)
+        , m_msgCreator(1000)
+        , m_lastId(0)
+        , m_options(options)
+    {
+        m_server = io::TcpServer::create(
+            m_reactor,
+            addr,
+            BIND_THIS_MEMFN(onStreamAccepted)
+        );
+    }
+
+    void addPeer(const io::Address& addr)
+    {
+        m_peers.push_back(addr);
+    }
+
+private:
+
+    void onStreamAccepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode)
+    {
+        if (errorCode == 0)
+        {
+            LOG_DEBUG() << "Stream accepted";
+            uint64_t peerId = m_lastId++;
+            m_connections[peerId] = std::make_unique<HttpConnection>(
+                peerId,
+                BaseConnection::inbound,
+                BIND_THIS_MEMFN(onRequest),
+                10000,
+                1024,
+                std::move(newStream)
+                );
+        }
+        else
+        {
+            LOG_ERROR() << "Server error " << io::error_str(errorCode);
+            //g_stopEvent();
+        }
+    }
+
+    bool onRequest(uint64_t peerId, const HttpMsgReader::Message& msg)
+    {
+        const char* message = "OK";
+        static const HeaderPair headers[] =
+        {
+            {"Server", "BitcoinHttpServer"}
+        };
+        io::SharedBuffer body = generateResponse(msg);
+        io::SerializedMsg serialized;
+
+        if (m_connections[peerId] && m_msgCreator.create_response(
+            serialized, 200, message, headers, sizeof(headers) / sizeof(HeaderPair),
+            1, "text/plain", body.size))
+        {
+            serialized.push_back(body);
+            m_connections[peerId]->write_msg(serialized);
+            m_connections[peerId]->shutdown();
+        }
+        else
+        {
+            LOG_ERROR() << "Cannot create response";
+            //g_stopEvent();
+        }
+
+        m_connections.erase(peerId);
+
+        return false;
+    }
+
+    io::SharedBuffer generateResponse(const HttpMsgReader::Message& msg)
+    {
+        size_t sz = 0;
+        const void* rawReq = msg.msg->get_body(sz);
+        std::string result;
+        if (sz > 0 && rawReq)
+        {
+            std::string req(static_cast<const char*>(rawReq), sz);
+            json j = json::parse(req);
+            if (j["method"] == "fundrawtransaction")
+            {
+                result = R"({"result":{"hex":)" + m_options.m_lockTx + R"(, "fee": 0, "changepos": 0},"error":null,"id":null})";
+            }
+            else if (j["method"] == "dumpprivkey")
+            {
+                result = R"({"result":")" + m_options.m_privateKey + R"(","error":null,"id":null})";
+            }
+            else if (j["method"] == "signrawtransactionwithwallet")
+            {
+                result = R"({"result": {"hex": ")" + m_options.m_signLockTx + R"("},"error":null,"id":null})";
+            }
+            else if (j["method"] == "decoderawtransaction")
+            {
+                result = R"({"result": {"txid": ")" + m_options.m_lockTxId + R"("},"error":null,"id":null})";
+            }
+            else if (j["method"] == "createrawtransaction")
+            {
+                result = R"({"result": ")" + m_options.m_refundTx + R"(","error":null,"id":null})";
+            }
+            else if (j["method"] == "getrawchangeaddress")
+            {
+                result = R"( {"result":")" + m_options.m_rawAddress + R"(","error":null,"id":null})";
+            }
+            else if (j["method"] == "sendrawtransaction")
+            {
+                std::string tx = j["method"][0];
+                if (std::find(m_peers.begin(), m_peers.end(), tx) == m_peers.end())
+                {
+                    m_rawTransactions.push_back(tx);
+                    sendRawTransaction(req);
+                }
+            }
+        }
+        else
+        {
+            LOG_ERROR() << "Request is wrong";
+            //g_stopEvent();
+        }
+
+        io::SharedBuffer body;
+
+        body.assign(result.data(), result.size());
+        return body;
+    }
+
+    void sendRawTransaction(const string& msg)
+    {
+        for (const auto& peer : m_peers)
+        {
+            HttpClient::Request request;
+
+            request.address(peer)
+                .connectTimeoutMsec(2000)
+                .pathAndQuery("/")
+                //.headers(headers)
+                //.numHeaders(1)
+                .method("POST")
+                .body(msg.c_str(), msg.size());
+
+            request.callback([](uint64_t, const HttpMsgReader::Message&) -> bool {
+                return false;
+            });
+
+            m_httpClient.send_request(request);
+        }
+    }
+
+private:
+    io::Reactor& m_reactor;
+    io::TcpServer::Ptr m_server;
+    HttpClient m_httpClient;
+    std::map<uint64_t, HttpConnection::Ptr> m_connections;
+    HttpMsgCreator m_msgCreator;
+    uint64_t m_lastId;
+    Options m_options;
+    std::vector<io::Address> m_peers;
+    std::vector<std::string> m_rawTransactions;
 };
