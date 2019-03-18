@@ -26,10 +26,6 @@ if(MSVC)
 
     set_source_files_properties(ui.cpp PROPERTIES COMPILE_FLAGS "/wd4127") # QtCore/qvarlengtharray.h(274): warning C4127: conditional expression is constant
 
-elseif(APPLE)
-	set(MACOSX_BUNDLE_ICON_FILE beam.icns)
-	set(SYSTEM_TYPE MACOSX_BUNDLE)
-	set_source_files_properties(beam.icns PROPERTIES MACOSX_PACKAGE_LOCATION RESOURCES)
 endif()
 
 find_package(Qt5QuickCompiler)
@@ -94,10 +90,6 @@ endif()
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/beam.rc.in ${CMAKE_CURRENT_SOURCE_DIR}/beam.rc)
 add_executable(${TARGET_NAME} ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc ${MACOSX_BUNDLE_ICON_FILE} ${QM_FILES})
 set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME ${OUTPUT_NAME})
-
-if(APPLE)
-	set_target_properties(${TARGET_NAME} PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist)
-endif()
 
 configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 
@@ -271,9 +263,8 @@ else()
 	if(WIN32)
 		install(FILES ${CMAKE_PREFIX_PATH}\\\\bin\\\\opengl32sw.dll DESTINATION .)
 		install(FILES beam-wallet.cfg DESTINATION .)
+		install(TARGETS ${TARGET_NAME} DESTINATION .)
 	endif()
-
-	install(TARGETS ${TARGET_NAME} DESTINATION .)
 
     # Signing the installer
     #add_custom_target(signing-installer)
