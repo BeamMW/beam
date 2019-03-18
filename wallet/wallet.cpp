@@ -371,7 +371,7 @@ namespace beam
         auto it = m_Transactions.find(txID);
         if (it != m_Transactions.end())
         {
-            UpdateOnSynced(it->second);
+            UpdateOnNextTip(it->second);
         }
     }
 
@@ -463,6 +463,11 @@ namespace beam
         m_TransactionsToUpdate.insert(tx);
     }
 
+    void Wallet::UpdateOnNextTip(wallet::BaseTransaction::Ptr tx)
+    {
+        m_NextTipTransactionToUpdate.insert(tx);
+    }
+
     void Wallet::OnRequestComplete(MyRequestUtxo& r)
     {
         if (r.m_Res.m_Proofs.empty())
@@ -501,7 +506,7 @@ namespace beam
             Block::SystemState::Full sTip;
             get_tip(sTip);
             tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height);
-            UpdateOnSynced(tx);
+            UpdateOnNextTip(tx);
         }
     }
 
@@ -659,6 +664,12 @@ namespace beam
         LOG_INFO() << "Sync up to " << id;
 
         RequestUtxoEvents();
+
+        for (auto& tx : m_NextTipTransactionToUpdate)
+        {
+            UpdateOnSynced(tx);
+        }
+        m_NextTipTransactionToUpdate.clear();
 
         CheckSyncDone();
     }
