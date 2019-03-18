@@ -55,7 +55,7 @@
 <context>
     <name>AppModel</name>
     <message>
-        <location filename="../model/app_model.cpp" line="175"/>
+        <location filename="../model/app_model.cpp" line="176"/>
         <source>Failed to start node. Please check your node configuration</source>
         <translation type="unfinished"></translation>
     </message>

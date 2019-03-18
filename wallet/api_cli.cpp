@@ -915,7 +915,7 @@ int main(int argc, char* argv[])
                 return -1;
             }
 
-            walletDB = WalletDB::open(options.walletPath, pass);
+            walletDB = WalletDB::open(options.walletPath, pass, reactor);
             if (!walletDB)
             {
                 LOG_ERROR() << "Wallet not opened.";

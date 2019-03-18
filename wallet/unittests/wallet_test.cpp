@@ -236,7 +236,7 @@ namespace
             boost::filesystem::remove(path);
         }
                
-        auto walletDB = WalletDB::init(path, string("pass123"), seed);
+        auto walletDB = WalletDB::init(path, string("pass123"), seed, io::Reactor::get_Current().shared_from_this());
         //beam::Block::SystemState::ID id = {};
         //id.m_Height = 134;
         //walletDB->setSystemStateID(id);

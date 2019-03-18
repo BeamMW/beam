@@ -45,7 +45,7 @@ class WalletClient
     , private IWalletModelAsync
 {
 public:
-    WalletClient(beam::IWalletDB::Ptr walletDB, const std::string& nodeAddr);
+    WalletClient(beam::IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor);
     virtual ~WalletClient();
 
     void start();

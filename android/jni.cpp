@@ -115,10 +115,13 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         seed.assign(buf.data(), buf.size());
     }
 
+    auto reactor = io::Reactor::create();
     auto walletDB = WalletDB::init(
         appData + "/" WALLET_FILENAME,
         pass,
-        seed.hash());
+        seed.hash(),
+        reactor
+    );
 
     if(walletDB)
     {
@@ -132,7 +135,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         address.m_label = "default";
         walletDB->saveAddress(address);
 
-        walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value());
+        walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), rector);
 
         jobject walletObj = env->AllocObject(WalletClass);
 
@@ -179,7 +182,8 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
     LOG_DEBUG() << "opening wallet...";
 
     string pass = JString(env, passStr).value();
-    auto walletDB = WalletDB::open(appData + "/" WALLET_FILENAME, pass);
+    auto reactor = io::Reactor::create();
+    auto walletDB = WalletDB::open(appData + "/" WALLET_FILENAME, pass, reactor);
 
     if(walletDB)
     {
@@ -187,7 +191,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
 
         passwordHash.V = beam::SecString(pass).hash().V;
 
-        walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value());
+        walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
 
         jobject walletObj = env->AllocObject(WalletClass);
 

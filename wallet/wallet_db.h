@@ -192,11 +192,11 @@ namespace beam
     {
     public:
         static bool isInitialized(const std::string& path);
-        static Ptr init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey);
-        static Ptr open(const std::string& path, const SecString& password);
+        static Ptr init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor);
+        static Ptr open(const std::string& path, const SecString& password, io::Reactor::Ptr reactor);
 
-        WalletDB(sqlite3* db);
-        WalletDB(sqlite3* db, const ECC::NoLeak<ECC::uintBig>& secretKey);
+        WalletDB(sqlite3* db, io::Reactor::Ptr reactor);
+        WalletDB(sqlite3* db, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor);
         ~WalletDB();
 
         beam::Key::IKdf::Ptr get_MasterKdf() const override;
@@ -276,9 +276,10 @@ namespace beam
     private:
         friend struct sqlite::Statement;
         sqlite3* _db;
+        io::Reactor::Ptr m_Reactor;
         Key::IKdf::Ptr m_pKdf;
         io::Timer::Ptr m_FlushTimer;
-        bool m_isFlushPending;
+        bool m_IsFlushPending;
         std::unique_ptr<sqlite::Transaction> m_DbTransaction;
         std::vector<IWalletDbObserver*> m_subscribers;
 

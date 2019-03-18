@@ -997,7 +997,7 @@ namespace beam
          throwIfError(ret, _db);
     }
     
-    IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey)
+    IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor)
     {
         if (!isInitialized(path))
         {
@@ -1008,7 +1008,7 @@ namespace beam
             }
 
             enterKey(db, password);
-            auto walletDB = make_shared<WalletDB>(db, secretKey);
+            auto walletDB = make_shared<WalletDB>(db, secretKey, reactor);
 
             walletDB->CreateStorageTable();
 
@@ -1043,6 +1043,8 @@ namespace beam
                 wallet::setVar(*walletDB, Version, DbVersion);
             }
 
+            walletDB->flushDB();
+
             return static_pointer_cast<IWalletDB>(walletDB);
         }
 
@@ -1051,7 +1053,7 @@ namespace beam
         return Ptr();
     }
 
-    IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password)
+    IWalletDB::Ptr WalletDB::open(const string& path, const SecString& password, io::Reactor::Ptr reactor)
     {
         try
         {
@@ -1064,7 +1066,7 @@ namespace beam
                 }
 
                 enterKey(db, password);
-                std::shared_ptr<WalletDB> walletDB(new WalletDB(db));
+                auto walletDB = make_shared<WalletDB>(db, reactor);
                 {
                     int ret = sqlite3_busy_timeout(walletDB->_db, BusyTimeoutMs);
                     throwIfError(ret, walletDB->_db);
@@ -1216,15 +1218,17 @@ namespace beam
         return Ptr();
     }
 
-    WalletDB::WalletDB(sqlite3* db)
+    WalletDB::WalletDB(sqlite3* db, io::Reactor::Ptr reactor)
         : _db(db)
-        , m_isFlushPending(false)
+        , m_Reactor(reactor)
+        , m_IsFlushPending(false)
         , m_DbTransaction(new sqlite::Transaction(_db))
     {
+
     }
 
-    WalletDB::WalletDB(sqlite3* db, const ECC::NoLeak<ECC::uintBig>& secretKey)
-        : WalletDB(db)
+    WalletDB::WalletDB(sqlite3* db, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor)
+        : WalletDB(db, reactor)
     {
         ECC::HKdf::Create(m_pKdf, secretKey.V);
     }
@@ -2101,7 +2105,7 @@ namespace beam
 
     void WalletDB::flushDB()
     {
-        if (m_isFlushPending)
+        if (m_IsFlushPending)
         {
             assert(m_FlushTimer);
             m_FlushTimer->cancel();
@@ -2111,20 +2115,20 @@ namespace beam
 
     void WalletDB::onModified()
     {
-        if (!m_isFlushPending)
+        if (!m_IsFlushPending)
         {
             if (!m_FlushTimer)
             {
-                m_FlushTimer = io::Timer::create(io::Reactor::get_Current());
+                m_FlushTimer = io::Timer::create(*m_Reactor);
             }
             m_FlushTimer->start(50, false, BIND_THIS_MEMFN(onFlushTimer));
-            m_isFlushPending = true;
+            m_IsFlushPending = true;
         }
     }
 
     void WalletDB::onFlushTimer()
     {
-        m_isFlushPending = false;
+        m_IsFlushPending = false;
         if (m_DbTransaction)
         {
             m_DbTransaction->commit();

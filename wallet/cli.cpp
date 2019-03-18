@@ -853,7 +853,7 @@ int main_impl(int argc, char* argv[])
                             LOG_ERROR() << "Please, provide seed phrase for the wallet.";
                             return -1;
                         }
-                        auto walletDB = WalletDB::init(walletPath, pass, walletSeed);
+                        auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor);
                         if (walletDB)
                         {
                             LOG_INFO() << "wallet successfully created...";
@@ -870,7 +870,7 @@ int main_impl(int argc, char* argv[])
                         }
                     }
 
-                    auto walletDB = WalletDB::open(walletPath, pass);
+                    auto walletDB = WalletDB::open(walletPath, pass, reactor);
                     if (!walletDB)
                     {
                         LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet";

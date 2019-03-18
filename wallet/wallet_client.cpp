@@ -196,9 +196,9 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
 };
 }
 
-WalletClient::WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr)
+WalletClient::WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor)
     : m_walletDB(walletDB)
-    , m_reactor{ io::Reactor::create() }
+    , m_reactor{ reactor ? reactor : io::Reactor::create() }
     , m_async{ make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *m_reactor) }
     , m_isConnected(false)
     , m_nodeAddrStr(nodeAddr)

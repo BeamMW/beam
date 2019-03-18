@@ -32,6 +32,7 @@ AppModel* AppModel::getInstance()
 
 AppModel::AppModel(WalletSettings& settings)
     : m_settings{settings}
+    , m_walletReactor(beam::io::Reactor::create())
 {
     assert(s_instance == nullptr);
     s_instance = this;
@@ -55,7 +56,7 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
         boost::filesystem::path newName = dbFilePath + "_" + to_string(getTimestamp());
         boost::filesystem::rename(p, newName);
     }
-    m_db = WalletDB::init(dbFilePath, pass, seed.hash());
+    m_db = WalletDB::init(dbFilePath, pass, seed.hash(), m_walletReactor);
     if (!m_db)
         return false;
 
@@ -71,7 +72,7 @@ bool AppModel::createWallet(const SecString& seed, const SecString& pass)
 
 bool AppModel::openWallet(const beam::SecString& pass)
 {
-    m_db = WalletDB::open(m_settings.getWalletStorage(), pass);
+    m_db = WalletDB::open(m_settings.getWalletStorage(), pass, m_walletReactor);
     if (!m_db)
         return false;
 
@@ -195,7 +196,7 @@ void AppModel::start()
     else
         nodeAddrStr = m_settings.getNodeAddress().toStdString();
 
-    m_wallet = std::make_shared<WalletModel>(m_db, nodeAddrStr);
+    m_wallet = std::make_shared<WalletModel>(m_db, nodeAddrStr, m_walletReactor);
 
     if (!m_settings.getRunLocalNode())
         m_wallet->start();
