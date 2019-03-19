@@ -648,7 +648,10 @@ struct NodeProcessor::MultiblockContext
 
 			m_Sigma += ECC::Context::get().G * m_Offset;
 			m_Offset = Zero;
+		}
 
+		if (m_This.IsFastSync())
+		{
 			m_Sigma.Export(m_This.m_SyncData.m_Sigma);
 			m_This.SaveSyncData();
 		}
@@ -737,19 +740,22 @@ struct NodeProcessor::MultiblockContext
 		}
 	}
 
-	void OnFastSyncFailed()
+	void OnFastSyncFailed(bool bDeleteBlocks)
 	{
 		// rapid rollback
 		m_This.RollbackTo(m_This.m_SyncData.m_h0);
-		m_InProgress.m_Max = m_This.m_SyncData.m_h0;
+		m_InProgress.m_Max = m_This.m_Cursor.m_ID.m_Height;
 		m_InProgress.m_Min = m_InProgress.m_Max + 1;
 
-		m_This.DeleteBlocksInRange(m_This.m_SyncData.m_Target, m_This.m_SyncData.m_h0);
+		if (bDeleteBlocks)
+			m_This.DeleteBlocksInRange(m_This.m_SyncData.m_Target, m_This.m_SyncData.m_h0);
 
 		m_This.m_SyncData.m_Sigma = Zero;
 
-		if (m_This.m_SyncData.m_TxoLo > m_This.m_SyncData.m_h0) {
+		if (m_This.m_SyncData.m_TxoLo > m_This.m_SyncData.m_h0)
+		{
 			LOG_INFO() << "Retrying with lower TxLo";
+			m_This.m_SyncData.m_TxoLo = m_This.m_SyncData.m_h0;
 		}
 		else {
 			LOG_WARNING() << "TxLo already low";
@@ -872,7 +878,8 @@ void NodeProcessor::TryGoUp()
 				{
 					// probably problem in lower blocks
 					LOG_WARNING() << "Fast-sync failed on first above-TxLo block.";
-					mbc.OnFastSyncFailed();
+					mbc.m_pidLast = Zero; // don't blame the last peer
+					mbc.OnFastSyncFailed(true);
 				}
 
 				break;
@@ -884,29 +891,64 @@ void NodeProcessor::TryGoUp()
 					break;
 
 				mbc.FinalizeSparseRange();
+				bool bDeleteAllBlocks = mbc.m_bFail;
 
-				if (!mbc.m_bFail)
+				if (!bDeleteAllBlocks)
 				{
-					// ensure no reduced UTXOs are left
-					NodeDB::WalkerTxo wlk(m_DB);
-					for (m_DB.EnumTxos(wlk, mbc.m_id0); wlk.MoveNext(); )
-					{
-						if (wlk.m_SpendHeight != MaxHeight)
-							continue;
+					mbc.m_pidLast = Zero; // don't blame the last peer if something goes wrong
+					NodeDB::StateID sidFail;
+					sidFail.SetNull(); // suppress warning
 
-						if (TxoIsNaked(wlk.m_Value))
+					{
+						// ensure no reduced UTXOs are left
+						NodeDB::WalkerTxo wlk(m_DB);
+						for (m_DB.EnumTxos(wlk, mbc.m_id0); wlk.MoveNext(); )
 						{
-							bContextFail = mbc.m_bFail = true;
-							break;
+							if (wlk.m_SpendHeight != MaxHeight)
+								continue;
+
+							if (TxoIsNaked(wlk.m_Value))
+							{
+								bContextFail = mbc.m_bFail = true;
+								m_DB.FindStateByTxoID(sidFail, wlk.m_ID);
+								break;
+							}
 						}
 					}
 
+					if (mbc.m_bFail)
+					{
+						if (!m_DB.get_Peer(sidFail.m_Row, mbc.m_pidLast))
+							mbc.m_pidLast = Zero;
+
+						ByteBuffer bbP, bbE;
+						while (m_Cursor.m_Sid.m_Height > m_SyncData.m_h0)
+						{
+							NodeDB::StateID sid = m_Cursor.m_Sid;
+
+							bbP.clear();
+							if (!GetBlock(sid, &bbE, &bbP, m_SyncData.m_h0, m_SyncData.m_TxoLo, m_SyncData.m_Target.m_Height))
+								OnCorrupted();
+
+							if (sidFail.m_Height == sid.m_Height)
+							{
+								bbP.clear();
+								m_DB.SetStateNotFunctional(sid.m_Row);
+							}
+
+							RollbackTo(sid.m_Height - 1);
+
+							m_DB.SetStateBlock(sid.m_Row, bbP, bbE);
+							m_DB.set_StateExtra(sid.m_Row, nullptr);
+							m_DB.set_StateTxos(sid.m_Row, nullptr);
+						}
+					}
 				}
 
 				if (mbc.m_bFail)
 				{
 					LOG_WARNING() << "Fast-sync failed";
-					mbc.OnFastSyncFailed();
+					mbc.OnFastSyncFailed(bDeleteAllBlocks);
 				}
 				else
 				{
