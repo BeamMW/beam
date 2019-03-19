@@ -1056,6 +1056,7 @@ namespace beam::wallet
     {
         assert(!response.empty());
         json reply = json::parse(response);
+        LOG_DEBUG() << reply.dump(4);
         m_SwapWithdrawRawTx = reply["result"].get<std::string>();
         UpdateAsync();
     }

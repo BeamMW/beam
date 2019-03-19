@@ -1071,7 +1071,7 @@ private:
             json j = json::parse(req);
             if (j["method"] == "fundrawtransaction")
             {
-                result = R"({"result":{"hex":)" + m_options.m_lockTx + R"(, "fee": 0, "changepos": 0},"error":null,"id":null})";
+                result = R"({"result":{"hex":")" + m_options.m_lockTx + R"(", "fee": 0, "changepos": 0},"error":null,"id":null})";
             }
             else if (j["method"] == "dumpprivkey")
             {
@@ -1079,7 +1079,7 @@ private:
             }
             else if (j["method"] == "signrawtransactionwithwallet")
             {
-                result = R"({"result": {"hex": ")" + m_options.m_signLockTx + R"("},"error":null,"id":null})";
+                result = R"({"result": {"hex": ")" + m_options.m_signLockTx + R"(", "complete": true},"error":null,"id":null})";
             }
             else if (j["method"] == "decoderawtransaction")
             {
@@ -1095,12 +1095,25 @@ private:
             }
             else if (j["method"] == "sendrawtransaction")
             {
-                std::string tx = j["method"][0];
+                std::string tx = j["params"][0];
                 if (std::find(m_rawTransactions.begin(), m_rawTransactions.end(), tx) == m_rawTransactions.end())
                 {
                     m_rawTransactions.push_back(tx);
                     sendRawTransaction(req);
                 }
+                result = R"( {"result":")" + m_options.m_lockTxId + R"(","error":null,"id":null})";
+            }
+            else if (j["method"] == "gettxout")
+            {
+                std::string txid = j["params"][0];
+                if (m_txConfirmations.find(txid) == m_txConfirmations.end())
+                {
+                    m_txConfirmations[txid] = 0; // for test
+                }
+
+                ++m_txConfirmations[txid];
+
+                result = R"( {"result":{"confirmations":)" + std::to_string(m_txConfirmations[txid]) + R"(},"error":null,"id":null})";
             }
         }
         else
@@ -1147,4 +1160,5 @@ private:
     Options m_options;
     std::vector<io::Address> m_peers;
     std::vector<std::string> m_rawTransactions;
+    std::map<std::string, int> m_txConfirmations;
 };
