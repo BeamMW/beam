@@ -124,9 +124,6 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
         vm.notify();
 
         o.logCleanupPeriod = vm[cli::LOG_CLEANUP_DAYS].as<uint32_t>() * 24 * 3600;
-
-        clean_old_logfiles(LOG_FILES_DIR, FILES_PREFIX, o.logCleanupPeriod);
-
         o.nodeDbFilename = FILES_PREFIX "db";
         //o.accessControlFile = "api.keys";
 
