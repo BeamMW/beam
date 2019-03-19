@@ -339,22 +339,22 @@
 <context>
     <name>StartViewModel</name>
     <message>
-        <location filename="../viewmodel/start_view.cpp" line="353"/>
+        <location filename="../viewmodel/start_view.cpp" line="398"/>
         <source>Printer is not found. Please, check your printer preferences.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/start_view.cpp" line="401"/>
+        <location filename="../viewmodel/start_view.cpp" line="446"/>
         <source>Failed to print seed phrases. Please, check your printer.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/start_view.cpp" line="511"/>
+        <location filename="../viewmodel/start_view.cpp" line="556"/>
         <source>Select the wallet database file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/start_view.cpp" line="512"/>
+        <location filename="../viewmodel/start_view.cpp" line="557"/>
         <source>SQLite database file (*.db)</source>
         <translation type="unfinished"></translation>
     </message>

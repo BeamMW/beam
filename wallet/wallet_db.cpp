@@ -890,7 +890,7 @@ namespace beam
         const char* Version = "Version";
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
-        const int BusyTimeoutMs = 1000;
+        const int BusyTimeoutMs = 5000;
         const int DbVersion = 13;
         const int DbVersion12 = 12;
         const int DbVersion11 = 11;
@@ -1320,6 +1320,23 @@ namespace beam
     {
         // select all coins for TxID
         sqlite::Statement stm(this, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE createTxID=?1 ORDER BY amount DESC;");
+        stm.bind(1, txId);
+
+        vector<Coin> coins;
+
+        while (stm.step())
+        {
+            auto& coin = coins.emplace_back();
+            int colIdx = 0;
+            ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+        }
+
+        return coins;
+    }
+
+    std::vector<Coin> WalletDB::getCoinsByTx(const TxID& txId)
+    {
+        sqlite::Statement stm(this, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE createTxID=?1 OR spentTxID=?1;");
         stm.bind(1, txId);
 
         vector<Coin> coins;

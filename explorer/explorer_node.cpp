@@ -47,6 +47,8 @@ int main(int argc, char* argv[]) {
     const auto path = boost::filesystem::system_complete(LOG_FILES_DIR);
     auto logger = Logger::create(LOG_LEVEL_INFO, options.logLevel, options.logLevel, FILES_PREFIX, path.string());
 
+    clean_old_logfiles(LOG_FILES_DIR, FILES_PREFIX, options.logCleanupPeriod);
+
     int retCode = 0;
     try {
         io::Reactor::Ptr reactor = io::Reactor::create();
@@ -91,6 +93,8 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
         (cli::IP_WHITELIST, po::value<std::string>()->default_value(""), "IP whitelist")
         (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
     ;
+
+    cliOptions.add(createRulesOptionsDescription());
         
 #ifdef NDEBUG
     o.logLevel = LOG_LEVEL_INFO;
@@ -124,9 +128,6 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
         vm.notify();
 
         o.logCleanupPeriod = vm[cli::LOG_CLEANUP_DAYS].as<uint32_t>() * 24 * 3600;
-
-        clean_old_logfiles(LOG_FILES_DIR, FILES_PREFIX, o.logCleanupPeriod);
-
         o.nodeDbFilename = FILES_PREFIX "db";
         //o.accessControlFile = "api.keys";
 
@@ -177,6 +178,8 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
                 else throw std::runtime_error("IP address not added to whitelist: " + item);
             }
         }
+
+        getRulesOptions(vm);
 
         return true;
     }

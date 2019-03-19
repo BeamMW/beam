@@ -64,7 +64,7 @@ matrix:
         - BUILD_TYPE=Release
         - OS_FOLDER=mac
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_SIGN_MACOS_BINARY=On . && make -j 4 && ctest --verbose && cpack;
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
         - echo BEAM_VERSION = $BEAM_VERSION
