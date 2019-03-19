@@ -131,6 +131,7 @@ namespace beam
         virtual uint64_t AllocateKidRange(uint64_t nCount) = 0;
         virtual std::vector<Coin> selectCoins(Amount amount) = 0;
         virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) = 0;
+        virtual std::vector<Coin> getCoinsByTx(const TxID& txId) = 0;
         virtual std::vector<Coin> getCoinsByID(const CoinIDList& ids) = 0;
         virtual void store(Coin& coin) = 0;
         virtual void store(std::vector<Coin>&) = 0;
@@ -203,6 +204,7 @@ namespace beam
         uint64_t AllocateKidRange(uint64_t nCount) override;
         std::vector<Coin> selectCoins(Amount amount) override;
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override;
+        std::vector<Coin> getCoinsByTx(const TxID& txId) override;
         std::vector<Coin> getCoinsByID(const CoinIDList& ids) override;
         void store(Coin& coin) override;
         void store(std::vector<Coin>&) override;

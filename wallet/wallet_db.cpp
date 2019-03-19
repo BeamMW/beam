@@ -1334,6 +1334,23 @@ namespace beam
         return coins;
     }
 
+    std::vector<Coin> WalletDB::getCoinsByTx(const TxID& txId)
+    {
+        sqlite::Statement stm(this, "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE createTxID=?1 OR spentTxID=?1;");
+        stm.bind(1, txId);
+
+        vector<Coin> coins;
+
+        while (stm.step())
+        {
+            auto& coin = coins.emplace_back();
+            int colIdx = 0;
+            ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+        }
+
+        return coins;
+    }
+
     vector<Coin> WalletDB::getCoinsByID(const CoinIDList& ids)
     {
         vector<Coin> coins;
