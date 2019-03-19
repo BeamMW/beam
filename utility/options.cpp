@@ -219,29 +219,6 @@ namespace beam
             (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken())
             (cli::APPDATA_PATH, po::value<string>());
 
-#define RulesParams(macro) \
-    macro(Amount, Emission.Value0, "initial coinbase emission in a single block") \
-    macro(Amount, Emission.Drop0, "height of the last block that still has the initial emission, the drop is starting from the next block") \
-    macro(Amount, Emission.Drop1, "Each such a cycle there's a new drop") \
-    macro(Height, Maturity.Coinbase, "num of blocks before coinbase UTXO can be spent") \
-    macro(Height, Maturity.Std, "num of blocks before non-coinbase UTXO can be spent") \
-    macro(size_t, MaxBodySize, "Max block body size [bytes]") \
-    macro(uint32_t, DA.Target_s, "Desired rate of generated blocks [seconds]") \
-    macro(uint32_t, DA.MaxAhead_s, "Block timestamp tolerance [seconds]") \
-    macro(uint32_t, DA.WindowWork, "num of blocks in the window for the mining difficulty adjustment") \
-    macro(uint32_t, DA.WindowMedian0, "How many blocks are considered in calculating the timestamp median") \
-    macro(uint32_t, DA.WindowMedian1, "Num of blocks taken at both endings of WindowWork, to pick medians") \
-    macro(uint32_t, DA.Difficulty0, "Initial difficulty") \
-    macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
-    macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
-
-#define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
-
-        po::options_description rules_options("Rules configuration");
-        rules_options.add_options() RulesParams(THE_MACRO);
-
-#undef THE_MACRO
-
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };
         if (flags & GENERAL_OPTIONS)
@@ -267,9 +244,38 @@ namespace beam
             visible_options.add(uioptions);
         }
 
+        po::options_description rules_options = createRulesOptionsDescription();
         options.add(rules_options);
         visible_options.add(rules_options);
         return { options, visible_options };
+    }
+
+    po::options_description createRulesOptionsDescription()
+    {
+        #define RulesParams(macro) \
+            macro(Amount, Emission.Value0, "initial coinbase emission in a single block") \
+            macro(Amount, Emission.Drop0, "height of the last block that still has the initial emission, the drop is starting from the next block") \
+            macro(Amount, Emission.Drop1, "Each such a cycle there's a new drop") \
+            macro(Height, Maturity.Coinbase, "num of blocks before coinbase UTXO can be spent") \
+            macro(Height, Maturity.Std, "num of blocks before non-coinbase UTXO can be spent") \
+            macro(size_t, MaxBodySize, "Max block body size [bytes]") \
+            macro(uint32_t, DA.Target_s, "Desired rate of generated blocks [seconds]") \
+            macro(uint32_t, DA.MaxAhead_s, "Block timestamp tolerance [seconds]") \
+            macro(uint32_t, DA.WindowWork, "num of blocks in the window for the mining difficulty adjustment") \
+            macro(uint32_t, DA.WindowMedian0, "How many blocks are considered in calculating the timestamp median") \
+            macro(uint32_t, DA.WindowMedian1, "Num of blocks taken at both endings of WindowWork, to pick medians") \
+            macro(uint32_t, DA.Difficulty0, "Initial difficulty") \
+            macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
+            macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
+
+        #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
+
+            po::options_description rules_options("Rules configuration");
+            rules_options.add_options() RulesParams(THE_MACRO);
+
+        #undef THE_MACRO
+
+        return rules_options;
     }
 
     po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options, bool walletOptions)
@@ -294,12 +300,16 @@ namespace beam
             }
         }
 
+        getRulesOptions(vm);
 
+        return vm;
+    }
+
+    void getRulesOptions(po::variables_map& vm)
+    {
         #define THE_MACRO(type, name, comment) Rules::get().name = vm[#name].as<type>();
                 RulesParams(THE_MACRO);
         #undef THE_MACRO
-
-        return vm;
     }
 
     int getLogLevel(const std::string &dstLog, const po::variables_map& vm, int defaultValue)

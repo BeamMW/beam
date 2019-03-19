@@ -93,6 +93,8 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
         (cli::IP_WHITELIST, po::value<std::string>()->default_value(""), "IP whitelist")
         (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
     ;
+
+    cliOptions.add(createRulesOptionsDescription());
         
 #ifdef NDEBUG
     o.logLevel = LOG_LEVEL_INFO;
@@ -176,6 +178,8 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
                 else throw std::runtime_error("IP address not added to whitelist: " + item);
             }
         }
+
+        getRulesOptions(vm);
 
         return true;
     }

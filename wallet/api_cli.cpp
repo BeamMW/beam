@@ -818,6 +818,7 @@ int main(int argc, char* argv[])
 
             desc.add(authDesc);
             desc.add(tlsDesc);
+            desc.add(createRulesOptionsDescription());
 
             po::variables_map vm;
 
@@ -841,6 +842,8 @@ int main(int argc, char* argv[])
             }
 
             vm.notify();
+
+            getRulesOptions(vm);
 
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
