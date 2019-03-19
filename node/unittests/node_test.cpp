@@ -987,6 +987,228 @@ namespace beam
 
 	}
 
+	void TestNodeProcessor3(std::vector<BlockPlus::Ptr>& blockChain)
+	{
+		NodeProcessor np, npSrc;
+		np.m_Horizon.m_Branching = 5;
+		np.m_Horizon.m_SchwarzschildHi = 12;
+		np.m_Horizon.m_SchwarzschildLo = 30;
+		np.Initialize(g_sz);
+		np.OnTreasury(g_Treasury);
+
+		npSrc.Initialize(g_sz2);
+		npSrc.OnTreasury(g_Treasury);
+
+		PeerID pid(Zero);
+
+		for (size_t i = 0; i < blockChain.size(); i++)
+		{
+			const BlockPlus& bp = *blockChain[i];
+			verify_test(np.OnState(bp.m_Hdr, pid) == NodeProcessor::DataStatus::Accepted);
+
+			verify_test(npSrc.OnState(bp.m_Hdr, pid) == NodeProcessor::DataStatus::Accepted);
+
+			Block::SystemState::ID id;
+			bp.m_Hdr.get_ID(id);
+			verify_test(npSrc.OnBlock(id, bp.m_BodyP, bp.m_BodyE, pid) == NodeProcessor::DataStatus::Accepted);
+		}
+
+		npSrc.TryGoUp();
+		verify_test(npSrc.m_Cursor.m_ID.m_Height == blockChain.size());
+
+		np.EnumCongestions();
+
+		verify_test(np.IsFastSync()); // should go into fast-sync mode
+		verify_test(np.m_SyncData.m_TxoLo); // should be used on the 1st attempt
+
+		// 1st attempt - tamper with txlo. Remove arbitrary input
+		bool bTampered = false;
+		for (Height h = Rules::HeightGenesis; h <= np.m_SyncData.m_TxoLo; h++)
+		{
+			NodeDB::StateID sid;
+			sid.m_Row = npSrc.FindActiveAtStrict(h);
+			sid.m_Height = h;
+
+			ByteBuffer bbE, bbP;
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+
+			if (!bTampered)
+			{
+				Deserializer der;
+				der.reset(bbP);
+
+				Block::BodyBase bbb;
+				TxVectors::Perishable txvp;
+				der & bbb;
+				der & txvp;
+
+				verify_test(txvp.m_vInputs.empty()); // may contain only treasury, but we don't spend it in the test
+
+				if (!txvp.m_vOutputs.empty())
+				{
+					txvp.m_vOutputs.pop_back();
+
+					Serializer ser;
+					ser & bbb;
+					ser & txvp;
+					ser.swap_buf(bbP);
+
+					bTampered = true;
+				}
+			}
+
+			Block::SystemState::ID id;
+			blockChain[h-1]->m_Hdr.get_ID(id);
+			verify_test(np.OnBlock(id, bbP, bbE, pid) == NodeProcessor::DataStatus::Accepted);
+		}
+
+		np.TryGoUp();
+		verify_test(np.m_Cursor.m_ID.m_Height == Rules::HeightGenesis - 1); // should fall back to start
+		verify_test(!np.m_SyncData.m_TxoLo); // next attempt should be with TxLo disabled
+
+		// 2nd attempt. Tamper with the non-naked output
+		bTampered = false;
+		for (Height h = Rules::HeightGenesis; h <= np.m_SyncData.m_Target.m_Height; h++)
+		{
+			NodeDB::StateID sid;
+			sid.m_Row = npSrc.FindActiveAtStrict(h);
+			sid.m_Height = h;
+
+			ByteBuffer bbE, bbP;
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+
+			if (!bTampered)
+			{
+				Deserializer der;
+				der.reset(bbP);
+
+				Block::BodyBase bbb;
+				TxVectors::Perishable txvp;
+				der & bbb;
+				der & txvp;
+
+				for (size_t j = 0; j < txvp.m_vOutputs.size(); j++)
+				{
+					Output& outp = *txvp.m_vOutputs[j];
+					if (outp.m_pConfidential)
+					{
+						outp.m_pConfidential->m_P_Tag.m_pCondensed[0].m_Value.Inc();
+						bTampered = true;
+						break;
+					}
+				}
+
+				if (bTampered)
+				{
+					Serializer ser;
+					ser & bbb;
+					ser & txvp;
+					ser.swap_buf(bbP);
+				}
+			}
+
+			Block::SystemState::ID id;
+			blockChain[h - 1]->m_Hdr.get_ID(id);
+			verify_test(np.OnBlock(id, bbP, bbE, pid) == NodeProcessor::DataStatus::Accepted);
+
+			np.TryGoUp();
+
+			if (bTampered)
+			{
+				verify_test(np.m_Cursor.m_ID.m_Height == h - 1);
+				break;
+			}
+
+			verify_test(np.m_Cursor.m_ID.m_Height == h);
+		}
+
+		verify_test(bTampered);
+		// 3rd attempt. enforce "naked" output. The node won't notice a problem until all the blocks are fed
+		bTampered = false;
+
+		for (Height h = np.m_Cursor.m_ID.m_Height + 1; ; h++)
+		{
+			NodeDB::StateID sid;
+			sid.m_Row = npSrc.FindActiveAtStrict(h);
+			sid.m_Height = h;
+
+			ByteBuffer bbE, bbP;
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+
+			if (!bTampered)
+			{
+				Deserializer der;
+				der.reset(bbP);
+
+				Block::BodyBase bbb;
+				TxVectors::Perishable txvp;
+				der & bbb;
+				der & txvp;
+
+				for (size_t j = 0; j < txvp.m_vOutputs.size(); j++)
+				{
+					Output& outp = *txvp.m_vOutputs[j];
+					if (outp.m_pConfidential || outp.m_pPublic)
+					{
+						outp.m_pConfidential.reset();
+						outp.m_pPublic.reset();
+						bTampered = true;
+						break;
+					}
+				}
+
+				if (bTampered)
+				{
+					Serializer ser;
+					ser & bbb;
+					ser & txvp;
+					ser.swap_buf(bbP);
+				}
+			}
+
+			Block::SystemState::ID id;
+			blockChain[h - 1]->m_Hdr.get_ID(id);
+			verify_test(np.OnBlock(id, bbP, bbE, pid) == NodeProcessor::DataStatus::Accepted);
+
+			bool bLast = (h == np.m_SyncData.m_Target.m_Height);
+
+			np.TryGoUp();
+
+			if (bLast)
+			{
+				verify_test(np.m_Cursor.m_ID.m_Height == h - 1);
+				break;
+			}
+
+			verify_test(np.m_Cursor.m_ID.m_Height == h);
+		}
+
+		// 4th attempt. provide valid data
+		for (Height h = np.m_Cursor.m_ID.m_Height + 1; ; h++)
+		{
+			NodeDB::StateID sid;
+			sid.m_Row = npSrc.FindActiveAtStrict(h);
+			sid.m_Height = h;
+
+			ByteBuffer bbE, bbP;
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+
+			Block::SystemState::ID id;
+			blockChain[h - 1]->m_Hdr.get_ID(id);
+			verify_test(np.OnBlock(id, bbP, bbE, pid) == NodeProcessor::DataStatus::Accepted);
+
+			bool bLast = (h == np.m_SyncData.m_Target.m_Height);
+
+			np.TryGoUp();
+			verify_test(np.m_Cursor.m_ID.m_Height == h);
+
+			if (bLast)
+				break;
+		}
+
+		verify_test(!np.IsFastSync());
+	}
+
 	const uint16_t g_Port = 25003; // don't use the default port to prevent collisions with running nodes, beacons and etc.
 
 	void TestNodeConversation()
@@ -1981,6 +2203,13 @@ int main()
 
 		beam::TestNodeProcessor2(blockChain);
 		beam::DeleteFile(beam::g_sz);
+
+		printf("NodeProcessor test3...\n");
+		fflush(stdout);
+
+		beam::TestNodeProcessor3(blockChain);
+		beam::DeleteFile(beam::g_sz);
+		beam::DeleteFile(beam::g_sz2);
 	}
 
 	printf("NodeX2 concurrent test...\n");
