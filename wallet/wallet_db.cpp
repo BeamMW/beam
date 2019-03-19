@@ -890,7 +890,7 @@ namespace beam
         const char* Version = "Version";
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
-        const int BusyTimeoutMs = 1000;
+        const int BusyTimeoutMs = 5000;
         const int DbVersion = 13;
         const int DbVersion12 = 12;
         const int DbVersion11 = 11;
