@@ -29,11 +29,6 @@ namespace beam::wallet
             Initial,
             Invitation,
 
-
-            BuildingLockTX,
-            BuildingRefundTX,
-            BuildingRedeemTX,
-
             BuildingBeamLockTX,
             BuildingBeamRefundTX,
             BuildingBeamRedeemTX,
@@ -133,7 +128,9 @@ namespace beam::wallet
 
         Amount GetAmount() const;
         bool IsSender() const;
+        bool IsBeamSide() const;
 
+        mutable boost::optional<bool> m_IsBeamSide;
         mutable boost::optional<bool> m_IsSender;
         mutable boost::optional<beam::Amount> m_Amount;
 
@@ -158,8 +155,8 @@ namespace beam::wallet
         Transaction::Ptr CreateTransaction() override;
 
         void LoadSharedParameters();
-        void SharedUTXOProofPart2(bool shouldProduceMultisig);
-        void SharedUTXOProofPart3(bool shouldProduceMultisig);
+        bool SharedUTXOProofPart2(bool shouldProduceMultisig);
+        bool SharedUTXOProofPart3(bool shouldProduceMultisig);
 
         const ECC::RangeProof::Confidential& GetSharedProof() const;
         const ECC::RangeProof::Confidential::MultiSig& GetProofPartialMultiSig() const;
