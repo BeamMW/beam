@@ -895,6 +895,7 @@ namespace beam
 		NodeProcessor::Horizon horz;
 		horz.m_Branching = 12;
 		horz.m_SchwarzschildHi = 12;
+		horz.m_SchwarzschildLo = 15;
 
 		size_t nMid = blockChain.size() / 2;
 
@@ -1128,7 +1129,8 @@ namespace beam
 		ECC::SetRandom(node);
 
 		node.m_Cfg.m_Horizon.m_Branching = 6;
-		node.m_Cfg.m_Horizon.m_SchwarzschildHi = 8;
+		node.m_Cfg.m_Horizon.m_SchwarzschildHi = 10;
+		node.m_Cfg.m_Horizon.m_SchwarzschildLo = 14;
 		node.m_Cfg.m_VerificationThreads = -1;
 
 		node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
@@ -1939,6 +1941,7 @@ int main()
 
 	beam::Rules::get().AllowPublicUtxos = true;
 	beam::Rules::get().FakePoW = true;
+	beam::Rules::get().Macroblock.MaxRollback = 10;
 	beam::Rules::get().DA.WindowWork = 35;
 	beam::Rules::get().Maturity.Coinbase = 35; // lowered to see more txs
 	beam::Rules::get().Emission.Drop0 = 5;
