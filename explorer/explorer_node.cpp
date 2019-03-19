@@ -47,6 +47,8 @@ int main(int argc, char* argv[]) {
     const auto path = boost::filesystem::system_complete(LOG_FILES_DIR);
     auto logger = Logger::create(LOG_LEVEL_INFO, options.logLevel, options.logLevel, FILES_PREFIX, path.string());
 
+    clean_old_logfiles(LOG_FILES_DIR, FILES_PREFIX, options.logCleanupPeriod);
+
     int retCode = 0;
     try {
         io::Reactor::Ptr reactor = io::Reactor::create();
