@@ -344,7 +344,7 @@ elseif (APPLE)
     set(CPACK_BUNDLE_ICON ui/beam.icns)
     set(CPACK_BUNDLE_STARTUP_COMMAND "ui/Beam Wallet")
 
-    if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    if(BEAM_SIGN_MACOS_BINARY)
         set(CPACK_BUNDLE_APPLE_CERT_APP "Developer ID Application: Beam Development Limited (KNU2R94BJK)")
     endif()
 elseif (LINUX)
