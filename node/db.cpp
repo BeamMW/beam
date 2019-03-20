@@ -284,9 +284,6 @@ void NodeDB::Open(const char* szPath)
 	}
 
 	const uint64_t nVersionTop = 17;
-	const uint64_t nVersionMacro0 = 16;
-	const uint64_t nVersionDummy0 = 15;
-	const uint64_t nVersionNoBbsPoW = 14;
 
 	Transaction t(*this);
 
