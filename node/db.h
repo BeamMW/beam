@@ -108,9 +108,6 @@ public:
 			EventDel,
 			EventEnum,
 			EventFind,
-			MacroblockEnum,
-			MacroblockIns,
-			MacroblockDel,
 			PeerAdd,
 			PeerDel,
 			PeerEnum,
@@ -301,10 +298,6 @@ public:
 
 	void assert_valid(); // diagnostic, for tests only
 
-	void EnumMacroblocks(WalkerState&); // highest to lowest
-	void MacroblockIns(uint64_t rowid);
-	void MacroblockDel(uint64_t rowid);
-
 	void InsertEvent(Height, const Blob&, const Blob& key);
 	void DeleteEventsFrom(Height);
 
@@ -424,7 +417,7 @@ public:
 	uint64_t DeleteSpentTxos(const HeightRange&, TxoID id0); // delete Txos where (SpendHeight is within range) AND (TxoID >= id0)
 	void TxoSetValue(TxoID, const Blob&);
 
-	// reset cursor to zero. Keep all the data: local macroblocks, peers, bbs, dummy UTXOs
+	// reset cursor to zero. Keep all the data: local peers, bbs, dummy UTXOs
 	void ResetCursor();
 
 private:

@@ -58,9 +58,6 @@ namespace beam {
 #define TblEvents_Body			"Body"
 #define TblEvents_Key			"Key"
 
-#define TblCompressed			"Macroblocks"
-#define TblCompressed_Row1		"RowLast"
-
 #define TblPeer					"Peers"
 #define TblPeer_Key				"Key"
 #define TblPeer_Rating			"Rating"
@@ -372,11 +369,6 @@ void NodeDB::Create()
 
 	ExecQuick("CREATE INDEX [Idx" TblEvents "] ON [" TblEvents "] ([" TblEvents_Height "],[" TblEvents_Body "]);");
 	ExecQuick("CREATE INDEX [Idx" TblEvents TblEvents_Key "] ON [" TblEvents "] ([" TblEvents_Key "]);");
-
-	ExecQuick("CREATE TABLE [" TblCompressed "] ("
-		"[" TblCompressed_Row1	"] INTEGER NOT NULL,"
-		"PRIMARY KEY (" TblCompressed_Row1 "),"
-		"FOREIGN KEY (" TblCompressed_Row1 ") REFERENCES " TblStates "(OID))");
 
 	ExecQuick("CREATE TABLE [" TblPeer "] ("
 		"[" TblPeer_Key			"] BLOB NOT NULL,"
@@ -1641,29 +1633,6 @@ bool NodeDB::WalkerEvent::MoveNext()
 	else
 		m_Rs.get(2, m_Key);
 	return true;
-}
-
-void NodeDB::EnumMacroblocks(WalkerState& x)
-{
-	x.m_Rs.Reset(Query::MacroblockEnum, "SELECT " TblStates "." TblTips_Height "," TblCompressed_Row1
-		" FROM " TblCompressed " LEFT JOIN " TblStates " ON " TblCompressed_Row1 "=" TblStates ".rowid"
-		" ORDER BY " TblStates "." TblTips_Height " DESC");
-}
-
-void NodeDB::MacroblockIns(uint64_t rowid)
-{
-	Recordset rs(*this, Query::MacroblockIns, "INSERT INTO " TblCompressed " VALUES(?)");
-	rs.put(0, rowid);
-	rs.Step();
-	TestChanged1Row();
-}
-
-void NodeDB::MacroblockDel(uint64_t rowid)
-{
-	Recordset rs(*this, Query::MacroblockDel, "DELETE FROM " TblCompressed " WHERE " TblCompressed_Row1 "=?");
-	rs.put(0, rowid);
-	rs.Step();
-	TestChanged1Row();
 }
 
 void NodeDB::EnumPeers(WalkerPeer& x)
