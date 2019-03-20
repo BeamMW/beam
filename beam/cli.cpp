@@ -311,10 +311,6 @@ int main_impl(int argc, char* argv[])
 
 					node.Initialize(stratumServer.get());
 
-					Height hImport = vm[cli::IMPORT].as<Height>();
-					if (hImport)
-						node.ImportMacroblock(hImport);
-
 					io::Timer::Ptr pCrashTimer;
 
 					int nCrash = vm.count(cli::CRASH) ? vm[cli::CRASH].as<int>() : 0;

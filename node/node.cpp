@@ -1033,17 +1033,6 @@ void Node::Bbs::MaybeCleanup()
         Cleanup();
 }
 
-void Node::ImportMacroblock(Height h)
-{
-    Block::BodyBase::RW rw;
-
-    if (!m_Processor.ImportMacroBlock(rw))
-        throw std::runtime_error("import failed");
-
-    if (m_Processor.m_Cursor.m_Sid.m_Row)
-        m_Processor.get_DB().MacroblockIns(m_Processor.m_Cursor.m_Sid.m_Row);
-}
-
 Node::~Node()
 {
     LOG_INFO() << "Node stopping...";
@@ -3160,7 +3149,7 @@ void Node::Miner::Initialize(IExternalPOW* externalPOW)
 
 	m_External.m_pSolver = externalPOW;
 
-    SetTimer(0, true); // async start mining, since this method may be followed by ImportMacroblock.
+    SetTimer(0, true); // async start mining
 }
 
 void Node::Miner::OnFinalizerChanged(Peer* p)
