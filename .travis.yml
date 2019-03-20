@@ -75,6 +75,7 @@ matrix:
         - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" wallet/beam-wallet
         - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" wallet/wallet-api
         - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" explorer/explorer-node
+        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" $BEAM_WALLET_UI_IN
 
 ###############################################################################
 # Linux Debug
