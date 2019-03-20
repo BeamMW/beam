@@ -794,6 +794,27 @@ void Node::Processor::OnModified()
     }
 }
 
+void Node::Processor::TryGoUpAsync()
+{
+	if (!m_bGoUpPending)
+	{
+		if (!m_pGoUpTimer)
+			m_pGoUpTimer = io::Timer::create(io::Reactor::get_Current());
+
+		m_pGoUpTimer->start(0, false, [this]() { OnGoUpTimer(); });
+
+		m_bGoUpPending = true;
+	}
+}
+
+void Node::Processor::OnGoUpTimer()
+{
+	m_bGoUpPending = false;
+	TryGoUp();
+	get_ParentObj().RefreshCongestions();
+	get_ParentObj().UpdateSyncStatus();
+}
+
 bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
 {
     const Keys& keys = get_ParentObj().m_Keys;
@@ -1799,9 +1820,8 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 		p.OnBlock(id, msg.m_Body.m_Perishable, msg.m_Body.m_Eternal, m_pInfo->m_ID.m_Key) :
 		p.OnTreasury(msg.m_Body.m_Eternal);
 
-	p.TryGoUp();
+	p.TryGoUpAsync();
 	OnFirstTaskDone(eStatus);
-	m_This.UpdateSyncStatus();
 }
 
 void Node::Peer::OnMsg(proto::BodyPack&& msg)
@@ -1851,9 +1871,8 @@ void Node::Peer::OnMsg(proto::BodyPack&& msg)
 		}
 	}
 
-	p.TryGoUp();
+	p.TryGoUpAsync();
 	OnFirstTaskDone(eStatus);
-	m_This.UpdateSyncStatus();
 }
 
 void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
@@ -3522,8 +3541,7 @@ void Node::Miner::OnMined()
     assert(NodeProcessor::DataStatus::Accepted == eStatus);
 
     p.FlushDB();
-	p.TryGoUp(); // will likely trigger OnNewState(), and spread this block to the network
-	get_ParentObj().UpdateSyncStatus();
+	p.TryGoUpAsync(); // will likely trigger OnNewState(), and spread this block to the network
 }
 
 struct Node::Beacon::OutCtx

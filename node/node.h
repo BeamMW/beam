@@ -211,8 +211,12 @@ private:
 		bool m_bFlushPending = false;
 		io::Timer::Ptr m_pFlushTimer;
 		void OnFlushTimer();
-
 		void FlushDB();
+
+		bool m_bGoUpPending = false;
+		io::Timer::Ptr m_pGoUpTimer;
+		void TryGoUpAsync();
+		void OnGoUpTimer();
 
 		std::deque<PeerID> m_lstInsanePeers;
 		io::AsyncEvent::Ptr m_pAsyncPeerInsane;
