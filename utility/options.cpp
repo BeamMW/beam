@@ -133,16 +133,6 @@ namespace beam
 
     pair<po::options_description, po::options_description> createOptionsDescription(int flags)
     {
-#ifdef WIN32
-        char szLocalDir[] = ".\\";
-        char szTempDir[MAX_PATH] = { 0 };
-        GetTempPath(_countof(szTempDir), szTempDir);
-
-#else // WIN32
-        char szLocalDir[] = "./";
-        char szTempDir[] = "/tmp/";
-#endif // WIN32
-
         po::options_description general_options("General options");
         general_options.add_options()
             (cli::HELP_FULL, "list of all options")
