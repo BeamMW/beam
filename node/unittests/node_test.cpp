@@ -815,19 +815,7 @@ namespace beam
 		{
 			DeleteFile(g_sz2);
 
-			struct MyNodeProcessorX
-				:public NodeProcessor
-			{
-				std::string m_sPathMB;
-				virtual bool OpenMacroblock(Block::BodyBase::RW& rw, const NodeDB::StateID&) override
-				{
-					rw.m_sPath = m_sPathMB;
-					rw.ROpen();
-					return true;
-				}
-			};
-
-			MyNodeProcessorX np2;
+			NodeProcessor np2;
 			np2.Initialize(g_sz2);
 			np2.OnTreasury(g_Treasury);
 
@@ -849,17 +837,9 @@ namespace beam
 			verify_test(np2.ImportMacroBlock(rwData));
 			rwData.Close();
 
-			np2.get_DB().MacroblockIns(np2.m_Cursor.m_Sid.m_Row);
-			np2.m_sPathMB = g_sz3;
-
-			// Although NodeProcessor can import macroblocks not from the beginning - currently this mode is not supported, it will consider only the most recent
-			// macroblock during initialization, and kernel retrieval.
-			// try kernel proofs. Must be retrieved from the macroblock. Because of the above this test is only for kernels which are mature enough
+			// try kernel proofs.
 			for (size_t i = 0; i < np.m_Wallet.m_MyKernels.size(); i++)
 			{
-				if (np.m_Wallet.m_MyKernels[i].m_Height <= hMid)
-					continue;
-
 				TxKernel krn;
 				np.m_Wallet.m_MyKernels[i].Export(krn);
 
@@ -881,15 +861,6 @@ namespace beam
 	}
 
 
-	class MyNodeProcessor2
-		:public NodeProcessor
-	{
-	public:
-		// NodeProcessor
-		virtual void AdjustFossilEnd(Height& h) override { h = 0; } // don't fossile anything, since we're not creating macroblocks
-	};
-
-
 	void TestNodeProcessor2(std::vector<BlockPlus::Ptr>& blockChain)
 	{
 		NodeProcessor::Horizon horz;
@@ -900,7 +871,7 @@ namespace beam
 		size_t nMid = blockChain.size() / 2;
 
 		{
-			MyNodeProcessor2 np;
+			NodeProcessor np;
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 			np.OnTreasury(g_Treasury);
@@ -913,7 +884,7 @@ namespace beam
 		}
 
 		{
-			MyNodeProcessor2 np;
+			NodeProcessor np;
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
@@ -930,7 +901,7 @@ namespace beam
 		}
 
 		{
-			MyNodeProcessor2 np;
+			NodeProcessor np;
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
@@ -942,7 +913,7 @@ namespace beam
 		}
 
 		{
-			MyNodeProcessor2 np;
+			NodeProcessor np;
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
@@ -959,7 +930,7 @@ namespace beam
 		}
 
 		{
-			MyNodeProcessor2 np;
+			NodeProcessor np;
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
@@ -976,7 +947,7 @@ namespace beam
 		}
 
 		{
-			MyNodeProcessor2 np;
+			NodeProcessor np;
 			np.m_Horizon = horz;
 
 			NodeProcessor::StartParams sp;

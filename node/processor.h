@@ -211,8 +211,6 @@ public:
 	virtual void OnPeerInsane(const PeerID&) {}
 	virtual void OnNewState() {}
 	virtual void OnRolledBack() {}
-	virtual void AdjustFossilEnd(Height&) {}
-	virtual bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) { return false; }
 	virtual void OnModified() {}
 
 	// parallel context-free execution

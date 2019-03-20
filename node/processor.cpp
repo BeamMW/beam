@@ -1083,7 +1083,6 @@ Height NodeProcessor::PruneOld()
 		Height hTrg = m_Cursor.m_Sid.m_Height - 1 - Rules::get().Macroblock.MaxRollback;
 		assert(hTrg > m_Extra.m_Fossil);
 
-		AdjustFossilEnd(hTrg); // should be removed once macroblocks are completely erased
 		hRet += RaiseFossil(hTrg);
 	}
 

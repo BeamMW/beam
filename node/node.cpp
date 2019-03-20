@@ -781,15 +781,6 @@ void Node::Processor::TaskProcessor::Thread(uint32_t)
 	}
 }
 
-void Node::Processor::AdjustFossilEnd(Height& h)
-{
-}
-
-bool Node::Processor::OpenMacroblock(Block::BodyBase::RW& rw, const NodeDB::StateID& sid)
-{
-    return true;
-}
-
 void Node::Processor::OnModified()
 {
     if (!m_bFlushPending)

@@ -162,8 +162,6 @@ private:
 		void OnPeerInsane(const PeerID&) override;
 		void OnNewState() override;
 		void OnRolledBack() override;
-		void AdjustFossilEnd(Height&) override;
-		bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) override;
 		void OnModified() override;
 		bool EnumViewerKeys(IKeyWalker&) override;
 		void OnUtxoEvent(const UtxoEvent::Value&) override;
