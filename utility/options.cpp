@@ -100,6 +100,8 @@ namespace beam
         const char* IMPORT_ADDRESSES = "import_addresses";
         const char* IMPORT_EXPORT_PATH = "file_location";
         const char* IP_WHITELIST = "ip_whitelist";
+		const char* HORIZON_HI = "horizon_hi";
+		const char* HORIZON_LO = "horizon_lo";
 
         // wallet api
         const char* API_USE_HTTP = "use_http";
@@ -175,6 +177,8 @@ namespace beam
             (cli::KEY_MINE, po::value<string>(), "Standalone miner key")
             (cli::PASS, po::value<string>(), "password for keys")
 			(cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
+			(cli::HORIZON_HI, po::value<Height>()->default_value(MaxHeight), "spent TXO Hi-Horizon")
+			(cli::HORIZON_LO, po::value<Height>()->default_value(MaxHeight), "spent TXO Lo-Horizon")
             ;
 
         po::options_description node_treasury_options("Node treasury options");

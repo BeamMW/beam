@@ -99,6 +99,8 @@ namespace beam
         extern const char* IMPORT_ADDRESSES;
         extern const char* IMPORT_EXPORT_PATH;
         extern const char* IP_WHITELIST;
+		extern const char* HORIZON_HI;
+		extern const char* HORIZON_LO;
 
         // wallet api
         extern const char* API_USE_HTTP;
