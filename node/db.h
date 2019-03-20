@@ -38,7 +38,7 @@ public:
 			FossilHeight, // Height starting from which and below original blocks are erased
 			CfgChecksum,
 			MyID,
-			SyncTarget,
+			SyncTarget, // deprecated
 			LoHorizon, // Height of no-return. Navigation is impossible below it
 			Treasury,
 			DummyID, // hash of keys used to create UTXOs (owner key, dummy key)

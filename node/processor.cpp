@@ -80,7 +80,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	if (sp.m_ResetCursor)
 	{
-		m_DB.ParamSet(NodeDB::ParamID::SyncTarget, NULL, NULL);
 		SaveSyncData();
 	}
 	else
