@@ -608,8 +608,6 @@ void Node::Processor::OnNewState()
         peer.Send(msg);
     }
 
-    get_ParentObj().m_Compressor.OnNewState();
-
     get_ParentObj().RefreshCongestions();
 
 	IObserver* pObserver = get_ParentObj().m_Cfg.m_Observer;
@@ -620,7 +618,6 @@ void Node::Processor::OnNewState()
 void Node::Processor::OnRolledBack()
 {
     LOG_INFO() << "Rolled back to: " << m_Cursor.m_ID;
-    get_ParentObj().m_Compressor.OnRolledBack();
 
 	IObserver* pObserver = get_ParentObj().m_Cfg.m_Observer;
 	if (pObserver)
@@ -786,24 +783,10 @@ void Node::Processor::TaskProcessor::Thread(uint32_t)
 
 void Node::Processor::AdjustFossilEnd(Height& h)
 {
-    // blocks above the oldest macroblock should be accessible
-    Height hOldest = 0;
-
-    if (get_ParentObj().m_Compressor.m_bEnabled)
-    {
-        NodeDB::WalkerState ws(get_DB());
-        for (get_DB().EnumMacroblocks(ws); ws.MoveNext(); )
-            hOldest = ws.m_Sid.m_Height;
-    }
-
-    if (h > hOldest)
-        h = hOldest;
 }
 
 bool Node::Processor::OpenMacroblock(Block::BodyBase::RW& rw, const NodeDB::StateID& sid)
 {
-    get_ParentObj().m_Compressor.FmtPath(rw, sid.m_Height, NULL);
-    rw.ROpen();
     return true;
 }
 
@@ -953,7 +936,6 @@ void Node::Initialize(IExternalPOW* externalPOW)
 
     m_PeerMan.Initialize();
     m_Miner.Initialize(externalPOW);
-    m_Compressor.Init();
     m_Bbs.Cleanup();
 	m_Bbs.m_HighestPosted_s = m_Processor.get_DB().get_BbsMaxTime();
 
@@ -1063,8 +1045,6 @@ void Node::Bbs::MaybeCleanup()
 void Node::ImportMacroblock(Height h)
 {
     Block::BodyBase::RW rw;
-    m_Compressor.FmtPath(rw, h, NULL);
-    rw.ROpen();
 
     if (!m_Processor.ImportMacroBlock(rw))
         throw std::runtime_error("import failed");
@@ -1091,8 +1071,6 @@ Node::~Node()
             pt.m_Thread.join();
     }
     m_Miner.m_vThreads.clear();
-
-    m_Compressor.StopCurrent();
 
     for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; it++)
         it->m_LoginFlags = 0; // prevent re-assigning of tasks in the next loop
@@ -3029,56 +3007,7 @@ void Node::Peer::OnMsg(proto::MacroblockGet&& msg)
     if (msg.m_Data >= Block::BodyBase::RW::Type::count)
         ThrowUnexpected();
 
-    proto::Macroblock msgOut;
-
-    if (m_This.m_Cfg.m_HistoryCompression.m_UploadPortion)
-    {
-        Processor& p = m_This.m_Processor;
-        NodeDB::WalkerState ws(p.get_DB());
-        for (p.get_DB().EnumMacroblocks(ws); ws.MoveNext(); )
-        {
-            Block::SystemState::ID id;
-            p.get_DB().get_StateID(ws.m_Sid, id);
-
-            if (msg.m_ID.m_Height)
-            {
-                if (msg.m_ID.m_Height < ws.m_Sid.m_Height)
-                    continue;
-
-                if (id != msg.m_ID)
-                    break;
-
-                // don't care if exc
-                Block::Body::RW rw;
-                m_This.m_Compressor.FmtPath(rw, ws.m_Sid.m_Height, NULL);
-
-                std::string sPath;
-                rw.GetPath(sPath, msg.m_Data);
-
-                std::FStream fs;
-                if (fs.Open(sPath.c_str(), true) && (fs.get_Remaining() > msg.m_Offset))
-                {
-                    uint64_t nDelta = fs.get_Remaining() - msg.m_Offset;
-
-                    uint32_t nPortion = m_This.m_Cfg.m_HistoryCompression.m_UploadPortion;
-                    if (nPortion > nDelta)
-                        nPortion = (uint32_t)nDelta;
-
-                    fs.Seek(msg.m_Offset);
-
-                    msgOut.m_Portion.resize(nPortion);
-                    fs.read(&msgOut.m_Portion.at(0), nPortion);
-                }
-            }
-			else
-				msgOut.m_SizeTotal = m_This.m_Compressor.get_SizeTotal(id.m_Height);
-
-            msgOut.m_ID = id;
-            break;
-        }
-    }
-
-    Send(msgOut);
+    Send(proto::Macroblock()); // deprecated
 }
 
 void Node::Peer::OnMsg(proto::GetUtxoEvents&& msg)

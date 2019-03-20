@@ -83,20 +83,6 @@ struct Node
 
 		} m_BandwidthCtl;
 
-		struct HistoryCompression
-		{
-			bool m_bEnabled = false;
-
-			std::string m_sPathOutput;
-			std::string m_sPathTmp;
-
-			uint32_t m_Naggling = 32;	// combine up to 32 blocks in memory, before involving file system
-			uint32_t m_MaxBacklog = 1;	// should be enough (unless it'll take more than 6 hours to sync with current settings)
-
-			uint32_t m_UploadPortion = 5 * 1024 * 1024; // set to 0 to disable upload
-
-		} m_HistoryCompression;
-
 		struct TestMode {
 			// for testing only!
 			uint32_t m_FakePowSolveTime_ms = 15 * 1000;
@@ -631,40 +617,6 @@ private:
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Miner)
 	} m_Miner;
-
-	struct Compressor
-	{
-		void Init();
-		void OnRolledBack();
-		void Cleanup();
-		void Delete(const NodeDB::StateID&);
-		void OnNewState();
-		void FmtPath(std::string&, Height, const Height* pH0);
-		void FmtPath(Block::BodyBase::RW&, Height, const Height* pH0);
-		void StopCurrent();
-
-		void OnNotify();
-		void Proceed();
-		bool ProceedInternal();
-		bool SquashOnce(std::vector<HeightRange>&);
-		bool SquashOnce(Block::BodyBase::RW&, Block::BodyBase::RW& rwSrc0, Block::BodyBase::RW& rwSrc1);
-		uint64_t get_SizeTotal(Height);
-
-		PerThread m_Link;
-		std::mutex m_Mutex;
-		std::condition_variable m_Cond;
-
-		volatile bool m_bStop;
-		bool m_bEnabled;
-		bool m_bSuccess;
-
-		// current data exchanged
-		HeightRange m_hrNew; // requested range. If min is non-zero - should be merged with previously-generated
-		HeightRange m_hrInplaceRequest;
-		Merkle::Hash m_hvTag;
-
-		IMPLEMENT_GET_PARENT_OBJ(Node, m_Compressor)
-	} m_Compressor;
 };
 
 } // namespace beam

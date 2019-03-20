@@ -165,8 +165,6 @@ void NodeClient::runLocalNode()
 
     node.m_Keys.SetSingleKey(m_pKdf);
 
-    node.m_Cfg.m_HistoryCompression.m_sPathOutput = m_observer->getTempDir();
-
 	node.m_Cfg.m_Horizon.m_Branching = Rules::get().Macroblock.MaxRollback / 4; // inferior branches would be pruned when height difference is this.
 	node.m_Cfg.m_Horizon.m_SchwarzschildHi = 0; // would be adjusted anyway
 	node.m_Cfg.m_Horizon.m_SchwarzschildLo = 3600 * 24 * 180 / Rules::get().DA.Target_s; // 180-day period

@@ -283,9 +283,6 @@ int main_impl(int argc, char* argv[])
 						}
 					}
 
-					node.m_Cfg.m_HistoryCompression.m_sPathOutput = vm[cli::HISTORY].as<string>();
-					node.m_Cfg.m_HistoryCompression.m_sPathTmp = vm[cli::TEMP].as<string>();
-
 					LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
 					if (vm.count(cli::TREASURY_BLOCK))
