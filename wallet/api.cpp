@@ -352,6 +352,16 @@ namespace beam
         };
     }
 
+    void WalletApi::getResponse(int id, const DeleteAddress::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", "done"}
+        };
+    }
+
     void WalletApi::getResponse(int id, const ValidateAddress::Response& res, json& msg)
     {
         msg = json

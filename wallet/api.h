@@ -25,6 +25,7 @@
 #define INTERNAL_JSON_RPC_ERROR -32603
 #define INVALID_TX_STATUS -32001
 #define UNKNOWN_API_KEY -32002
+#define INVALID_ADDRESS -32003
 
 namespace beam
 {
@@ -62,10 +63,9 @@ namespace beam
 
     struct DeleteAddress
     {
-        struct Response
-        {
+        WalletID address;
 
-        };
+        struct Response {};
     };
 
     struct EditAddress

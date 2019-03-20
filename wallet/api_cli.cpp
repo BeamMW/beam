@@ -289,7 +289,25 @@ namespace beam
 
             void onMessage(int id, const DeleteAddress& data) override
             {
-                methodNotImplementedYet(id);
+                LOG_DEBUG() << "DeleteAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
+
+                auto addr = _walletDB->getAddress(data.address);
+
+                if (addr)
+                {
+                    if (addr->m_OwnID)
+                    {
+                        _wnet.DeleteOwnAddress(addr->m_OwnID);
+                    }
+
+                    _walletDB->deleteAddress(data.address);
+
+                    doResponse(id, DeleteAddress::Response{});
+                }
+                else
+                {
+                    doError(id, INVALID_ADDRESS, "Provided address doesn't exist.");
+                }
             }
 
             void onMessage(int id, const EditAddress& data) override
