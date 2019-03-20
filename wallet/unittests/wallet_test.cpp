@@ -543,10 +543,9 @@ namespace
 
         io::Address senderAddress;
         senderAddress.resolve("127.0.0.1:10400");
-        //senderAddress.resolve("127.0.0.1:13400");
+        
         io::Address receiverAddress;
         receiverAddress.resolve("127.0.0.1:10300");
-        //receiverAddress.resolve("127.0.0.1:13300");
 
         sender.m_Wallet.initBitcoin(*mainReactor, "Bob", "123", senderAddress);
         receiver.m_Wallet.initBitcoin(*mainReactor, "Alice", "123", receiverAddress);
@@ -555,16 +554,11 @@ namespace
         senderOptions.m_rawAddress = "2N8N2kr34rcGqHCo3aN6yqniid8a4Mt3FCv";
         senderOptions.m_privateKey = "cSFMca7FAeAgLRgvev5ajC1v1jzprBr1KoefUFFPS8aw3EYwLArM";
         senderOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
-        senderOptions.m_lockTxId = "8c5ce970f10d45b53665fe595c3dbc1762a56b02ef8a2f71bc3bc4dac5fdaf87";
-        senderOptions.m_lockScript = "6382012088a82092f532b212b4c4b2810fb1d9549c7920575141e8faa18da0e96d2e5bb88708c68876a914dc76a0e23226546aaed4bba40c6b67f11213fa3b6704713a925cb17576a914ddcdee5f0c8bded92cf97f0d82543a462fd68f306888ac";
-
+        
         TestBitcoinWallet senderBtcWallet(*mainReactor, senderAddress, senderOptions);
         TestBitcoinWallet::Options receiverOptions;
         receiverOptions.m_rawAddress = "2Mvfsv3JiwWXjjwNZD6LQJD4U4zaPAhSyNB";
         receiverOptions.m_privateKey = "cNoRPsNczFw6b7wTuwLx24gSnCPyF3CbvgVmFJYKyfe63nBsGFxr";
-        receiverOptions.m_lockTxId = "8c5ce970f10d45b53665fe595c3dbc1762a56b02ef8a2f71bc3bc4dac5fdaf8e";
-        receiverOptions.m_lockTx = "00000000010e8be07269ca3315541a606fbd7435f60098a35f04a24f1ebf7971d569054ec60000000000feffffff02d007000000000000616382012088a82092f532b212b4c4b2810fb1d9549c7920575141e8faa18da0e96d2e5bb88708c68876a914dc76a0e23226546aaed4bba40c6b67f11213fa3b6704713a925cb17576a914ddcdee5f0c8bded92cf97f0d82543a462fd68f306888acccd5052a0100000017a914327291b294ac751cc32b61c4f8b51dbef8eae7898700000000";
-        receiverOptions.m_signLockTx = "00000000010e8be07269ca3315541a606fbd7435f60098a35f04a24f1ebf7971d569054ec60000000048473044022000a3434c837b8474161085190a71d3e87c47e5b3d90225b2524e5602f184401e022027082581efee14f000458985bb37d7ae074e9475feda89f80e28fb9896ca616c01feffffff02d007000000000000616382012088a82092f532b212b4c4b2810fb1d9549c7920575141e8faa18da0e96d2e5bb88708c68876a914dc76a0e23226546aaed4bba40c6b67f11213fa3b6704713a925cb17576a914ddcdee5f0c8bded92cf97f0d82543a462fd68f306888acccd5052a0100000017a914327291b294ac751cc32b61c4f8b51dbef8eae7898700000000";
         receiverOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
 
         TestBitcoinWallet receiverBtcWallet(*mainReactor, receiverAddress, receiverOptions);

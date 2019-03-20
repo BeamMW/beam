@@ -981,12 +981,7 @@ public:
     {
         string m_rawAddress = "2NB9nqKnHgThByiSzVEVDg5cYC2HwEMBcEK";
         string m_privateKey = "cTZEjMtL96FyC43AxEvUxbs3pinad2cH8wvLeeCYNUwPURqeknkG";
-        string m_rawLockTx = "";
-        string m_signLockTx = "";
-        string m_lockTx = "";
         string m_refundTx = "";
-        string m_lockTxId = "";
-        string m_lockScript = "";
     };
 
 public:
@@ -1099,7 +1094,14 @@ private:
             }
             else if (j["method"] == "decoderawtransaction")
             {
-                result = R"({"result": {"txid": ")" + m_options.m_lockTxId + R"("},"error":null,"id":null})";
+                std::string hexTx = j["params"][0];
+
+                libbitcoin::data_chunk tx_data;
+                libbitcoin::decode_base16(tx_data, hexTx);
+                libbitcoin::chain::transaction tx = libbitcoin::chain::transaction::factory_from_data(tx_data);
+
+                std::string txId = libbitcoin::encode_hash(tx.hash());
+                result = R"({"result": {"txid": ")" + txId + R"("},"error":null,"id":null})";
             }
             else if (j["method"] == "createrawtransaction")
             {
