@@ -584,10 +584,12 @@ struct NodeProcessor::MultiblockContext
 			size_t m_Size;
 			TxBase::Context::Params m_Pars;
 			TxBase::Context m_Ctx;
+			bool m_Sparse;
 
 			SharedBlock(MultiblockContext& mbc)
 				:Shared(mbc)
 				,m_Ctx(m_Pars)
+				,m_Sparse(false)
 			{
 			}
 
@@ -617,8 +619,6 @@ struct NodeProcessor::MultiblockContext
 		if (m_bFail)
 			return;
 
-		m_InProgress.m_Min = m_InProgress.m_Max + 1;
-
 		if (m_bBatchDirty)
 		{
 			struct Task1 :public Task
@@ -642,40 +642,51 @@ struct NodeProcessor::MultiblockContext
 			m_bBatchDirty = false;
 		}
 
-		if (!(m_Offset == Zero))
-		{
-			ECC::Mode::Scope scopeFast(ECC::Mode::Fast);
-
-			m_Sigma += ECC::Context::get().G * m_Offset;
-			m_Offset = Zero;
-		}
-
 		if (m_This.IsFastSync())
 		{
+			if (!(m_Offset == Zero))
+			{
+				ECC::Mode::Scope scopeFast(ECC::Mode::Fast);
+
+				m_Sigma += ECC::Context::get().G * m_Offset;
+				m_Offset = Zero;
+			}
+
+			if (m_InProgress.m_Max == m_This.m_SyncData.m_TxoLo)
+			{
+				// finalize multi-block arithmetics
+				TxBase::Context::Params pars;
+				pars.m_bBlockMode = true;
+				pars.m_bAllowUnsignedOutputs = true; // ignore verification of locked coinbase
+
+				TxBase::Context ctx(pars);
+				ctx.m_Height.m_Min = m_This.m_SyncData.m_h0 + 1;
+				ctx.m_Height.m_Max = m_This.m_SyncData.m_TxoLo;
+
+				ctx.m_Sigma = m_Sigma;
+
+				if (!ctx.IsValidBlock())
+				{
+					m_bFail = true;
+					OnFastSyncFailedOnLo();
+
+					return;
+				}
+
+				m_Sigma = Zero;
+			}
+
 			m_Sigma.Export(m_This.m_SyncData.m_Sigma);
 			m_This.SaveSyncData();
 		}
+		else
+		{
+			assert(m_Offset == Zero);
+			assert(m_Sigma == Zero);
+		}
+
+		m_InProgress.m_Min = m_InProgress.m_Max + 1;
 	}
-
-	void FinalizeSparseRange()
-	{
-		assert(!m_bFail && m_InProgress.IsEmpty());
-
-		// finalize multi-block arithmetics
-		TxBase::Context::Params pars;
-		pars.m_bBlockMode = true;
-		pars.m_bAllowUnsignedOutputs = true; // ignore verification of locked coinbase
-
-		TxBase::Context ctx(pars);
-		ctx.m_Height.m_Min = m_This.m_SyncData.m_h0 + 1;
-		ctx.m_Height.m_Max = m_This.m_SyncData.m_Target.m_Height;
-
-		ctx.m_Sigma = m_Sigma;
-
-		if (!ctx.IsValidBlock())
-			m_bFail = true;
-	}
-
 
 	void OnBlock(const PeerID& pid, const MyTask::SharedBlock::Ptr& pShared)
 	{
@@ -685,7 +696,12 @@ struct NodeProcessor::MultiblockContext
 		if (m_bFail)
 			return;
 
-		bool bMustFlush = (!m_InProgress.IsEmpty() && (m_pidLast != pid)); // PeerID changed
+		bool bMustFlush =
+			!m_InProgress.IsEmpty() &&
+			(
+				(m_pidLast != pid) || // PeerID changed
+				(m_InProgress.m_Max == m_This.m_SyncData.m_TxoLo) // range complete up to TxLo
+			);
 
 		if (bMustFlush && !Flush())
 			return;
@@ -719,6 +735,7 @@ struct NodeProcessor::MultiblockContext
 		pShared->m_Pars.m_bBlockMode = true;
 		pShared->m_Pars.m_pAbort = &m_bFail;
 		pShared->m_Pars.m_nVerifiers = tp.get_Threads();
+		pShared->m_Sparse = (pShared->m_Ctx.m_Height.m_Min <= m_This.m_SyncData.m_TxoLo);
 
 		PushTasks(pShared, pShared->m_Pars);
 	}
@@ -765,6 +782,14 @@ struct NodeProcessor::MultiblockContext
 
 		m_pidLast = Zero; // don't blame the last peer for the failure!
 	}
+
+	void OnFastSyncFailedOnLo()
+	{
+		// probably problem in lower blocks
+		LOG_WARNING() << "Fast-sync failed on first above-TxLo block.";
+		m_pidLast = Zero; // don't blame the last peer
+		OnFastSyncFailed(true);
+	}
 };
 
 void NodeProcessor::MultiblockContext::MyTask::Exec()
@@ -774,20 +799,18 @@ void NodeProcessor::MultiblockContext::MyTask::Exec()
 
 void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerifier)
 {
-	bool bFull = !m_Pars.m_bAllowUnsignedOutputs;
-
 	TxBase::Context ctx(m_Ctx.m_Params);
 	ctx.m_Height = m_Ctx.m_Height;
 	ctx.m_iVerifier = iVerifier;
 
 	beam::TxBase txbDummy;
-	if (!bFull)
+	if (m_Sparse)
 		txbDummy.m_Offset = Zero;
 
 	bool bIgnoreMaturities = true;
 	TemporarySwap<bool> scopeMat(TxElement::s_IgnoreMaturity, bIgnoreMaturities);
 
-	bool bValid = ctx.ValidateAndSummarize(bFull ? m_Body : txbDummy, m_Body.get_Reader());
+	bool bValid = ctx.ValidateAndSummarize(m_Sparse ? txbDummy : m_Body, m_Body.get_Reader());
 
 	std::unique_lock<std::mutex> scope(m_Mbc.m_Mutex);
 
@@ -800,10 +823,10 @@ void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerif
 		assert(m_Mbc.m_SizePending >= m_Size);
 		m_Mbc.m_SizePending -= m_Size;
 
-		if (bValid && bFull)
+		if (bValid && !m_Sparse)
 			bValid = m_Ctx.IsValidBlock();
 
-		if (bValid && !bFull)
+		if (bValid && m_Sparse)
 		{
 			m_Mbc.m_Offset += m_Body.m_Offset;
 			m_Mbc.m_Sigma += m_Ctx.m_Sigma;
@@ -870,56 +893,69 @@ void NodeProcessor::TryGoUp()
 
 		for (size_t i = vPath.size(); i--; )
 		{
-			if (!GoForward(vPath[i], mbc))
+			NodeDB::StateID sidFwd;
+			sidFwd.m_Height = m_Cursor.m_Sid.m_Height + 1;
+			sidFwd.m_Row = vPath[i];
+
+			if (!HandleBlock(sidFwd, mbc))
 			{
 				bContextFail = mbc.m_bFail = true;
 
-				if (IsFastSync() && (m_Cursor.m_ID.m_Height + 1 == m_SyncData.m_TxoLo))
-				{
-					// probably problem in lower blocks
-					LOG_WARNING() << "Fast-sync failed on first above-TxLo block.";
-					mbc.m_pidLast = Zero; // don't blame the last peer
-					mbc.OnFastSyncFailed(true);
-				}
+				if (m_Cursor.m_ID.m_Height + 1 == m_SyncData.m_TxoLo)
+					mbc.OnFastSyncFailedOnLo();
 
 				break;
 			}
+
+			m_DB.MoveFwd(sidFwd);
+			InitCursor();
+
+			if (IsFastSync())
+				m_DB.DelStateBlockPP(sidFwd.m_Row); // save space
+
+			if (mbc.m_bFail)
+				break;
 
 			if (mbc.m_InProgress.m_Max == m_SyncData.m_Target.m_Height)
 			{
 				if (!mbc.Flush())
 					break;
 
-				mbc.FinalizeSparseRange();
-				bool bDeleteAllBlocks = mbc.m_bFail;
+				mbc.m_pidLast = Zero; // don't blame the last peer if something goes wrong
+				NodeDB::StateID sidFail;
+				sidFail.SetNull(); // suppress warning
 
-				if (!bDeleteAllBlocks)
 				{
-					mbc.m_pidLast = Zero; // don't blame the last peer if something goes wrong
-					NodeDB::StateID sidFail;
-					sidFail.SetNull(); // suppress warning
-
+					// ensure no reduced UTXOs are left
+					NodeDB::WalkerTxo wlk(m_DB);
+					for (m_DB.EnumTxos(wlk, mbc.m_id0); wlk.MoveNext(); )
 					{
-						// ensure no reduced UTXOs are left
-						NodeDB::WalkerTxo wlk(m_DB);
-						for (m_DB.EnumTxos(wlk, mbc.m_id0); wlk.MoveNext(); )
-						{
-							if (wlk.m_SpendHeight != MaxHeight)
-								continue;
+						if (wlk.m_SpendHeight != MaxHeight)
+							continue;
 
-							if (TxoIsNaked(wlk.m_Value))
-							{
-								bContextFail = mbc.m_bFail = true;
-								m_DB.FindStateByTxoID(sidFail, wlk.m_ID);
-								break;
-							}
+						if (TxoIsNaked(wlk.m_Value))
+						{
+							bContextFail = mbc.m_bFail = true;
+							m_DB.FindStateByTxoID(sidFail, wlk.m_ID);
+							break;
 						}
 					}
+				}
 
-					if (mbc.m_bFail)
+				if (mbc.m_bFail)
+				{
+					LOG_WARNING() << "Fast-sync failed";
+
+					if (!m_DB.get_Peer(sidFail.m_Row, mbc.m_pidLast))
+						mbc.m_pidLast = Zero;
+
+					if (m_SyncData.m_TxoLo > m_SyncData.m_h0)
 					{
-						if (!m_DB.get_Peer(sidFail.m_Row, mbc.m_pidLast))
-							mbc.m_pidLast = Zero;
+						mbc.OnFastSyncFailed(true);
+					}
+					else
+					{
+						// try to preserve blocks, recover them from the TXOs.
 
 						ByteBuffer bbP, bbE;
 						while (m_Cursor.m_Sid.m_Height > m_SyncData.m_h0)
@@ -942,13 +978,9 @@ void NodeProcessor::TryGoUp()
 							m_DB.set_StateExtra(sid.m_Row, nullptr);
 							m_DB.set_StateTxos(sid.m_Row, nullptr);
 						}
-					}
-				}
 
-				if (mbc.m_bFail)
-				{
-					LOG_WARNING() << "Fast-sync failed";
-					mbc.OnFastSyncFailed(bDeleteAllBlocks);
+						mbc.OnFastSyncFailed(false);
+					}
 				}
 				else
 				{
@@ -1860,37 +1892,6 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 
 	return true;
 }
-
-bool NodeProcessor::GoForward(uint64_t row, MultiblockContext& mbc)
-{
-	NodeDB::StateID sid;
-	sid.m_Height = m_Cursor.m_Sid.m_Height + 1;
-	sid.m_Row = row;
-
-	if (HandleBlock(sid, mbc))
-	{
-		m_DB.MoveFwd(sid);
-		InitCursor();
-
-		if (IsFastSync())
-			m_DB.DelStateBlockPP(sid.m_Row); // save space
-
-		return true;
-	}
-
-	m_DB.DelStateBlockAll(row);
-	m_DB.SetStateNotFunctional(row);
-
-	PeerID peer;
-	if (m_DB.get_Peer(row, peer))
-	{
-		m_DB.set_Peer(row, NULL);
-		OnPeerInsane(peer);
-	}
-
-	return false;
-}
-
 void NodeProcessor::RollbackTo(Height h)
 {
 	assert(h <= m_Cursor.m_Sid.m_Height);

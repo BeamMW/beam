@@ -39,7 +39,6 @@ class NodeProcessor
 
 	struct MultiblockContext;
 
-	bool GoForward(uint64_t, MultiblockContext&);
 	void RollbackTo(Height);
 	Height PruneOld();
 	Height RaiseFossil(Height);
