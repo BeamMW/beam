@@ -44,7 +44,7 @@ public:
     path_string_type operator()(path_string_type const& stem,
         path_string_type const& extension, unsigned int counter) const;
 
-    BOOST_DELETED_FUNCTION(file_counter_formatter& operator= (file_counter_formatter const&))
+    file_counter_formatter& operator= (file_counter_formatter const&) = delete;
 
 private:
     //! File counter width
