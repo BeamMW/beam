@@ -33,9 +33,6 @@ namespace beam
         extern const char* STRATUM_USE_TLS;
         extern const char* STORAGE;
         extern const char* WALLET_STORAGE;
-        extern const char* HISTORY;
-        extern const char* TEMP;
-        extern const char* IMPORT;
         extern const char* MINING_THREADS;
         extern const char* VERIFICATION_THREADS;
         extern const char* NODE_PEER;

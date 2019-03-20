@@ -36,9 +36,6 @@ namespace beam
         const char* STRATUM_USE_TLS = "stratum_use_tls";
         const char* STORAGE = "storage";
         const char* WALLET_STORAGE = "wallet_path";
-        const char* HISTORY = "history_dir";
-        const char* TEMP = "temp_dir";
-        const char* IMPORT = "import";
         const char* MINING_THREADS = "mining_threads";
         const char* VERIFICATION_THREADS = "verification_threads";
         const char* NODE_PEER = "peer";
@@ -159,8 +156,6 @@ namespace beam
         node_options.add_options()
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
             (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
-            (cli::HISTORY, po::value<string>()->default_value(szLocalDir), "directory for compressed history")
-            (cli::TEMP, po::value<string>()->default_value(szTempDir), "temp directory for compressed history, must be on the same volume")
             (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
 
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
@@ -168,7 +163,6 @@ namespace beam
             (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
             (cli::STRATUM_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on startum server")
-            (cli::IMPORT, po::value<Height>()->default_value(0), "Specify the blockchain height to import. The compressed history is asumed to be downloaded the the specified directory")
             (cli::RESYNC, po::value<bool>()->default_value(false), "Enforce re-synchronization (soft reset)")
 			(cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check and compact (vacuum)")
             (cli::BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS messaging")
