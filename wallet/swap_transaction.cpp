@@ -320,7 +320,11 @@ namespace beam::wallet
         }
         case State::SendingBeamLockTX:
         {
-            // TODO: load m_LockTx
+            if (!m_LockTx && isBeamOwner)
+            {
+                BuildBeamLockTx();
+            }
+
             if (m_LockTx && !SendSubTx(m_LockTx, SubTxIndex::BEAM_LOCK_TX))
                 break;
 
@@ -343,9 +347,6 @@ namespace beam::wallet
         }
         case State::SendingBeamRedeemTX:
         {
-            if (m_RedeemTx && !SendSubTx(m_RedeemTx, SubTxIndex::BEAM_REDEEM_TX))
-                break;
-
             if (isBeamOwner)
             {
                 if (IsBeamLockTimeExpired())
@@ -368,6 +369,14 @@ namespace beam::wallet
             }
             else
             {
+                if (!m_RedeemTx)
+                {
+                    BuildBeamRedeemTx();
+                }
+
+                if (m_RedeemTx && !SendSubTx(m_RedeemTx, SubTxIndex::BEAM_REDEEM_TX))
+                    break;
+
                 if (!IsSubTxCompleted(SubTxIndex::BEAM_REDEEM_TX))
                     break;
 
@@ -380,6 +389,11 @@ namespace beam::wallet
         case State::SendingBeamRefundTX:
         {
             assert(isBeamOwner);
+            if (!m_RefundTx)
+            {
+                BuildBeamRefundTx();
+            }
+
             if (m_RefundTx && !SendSubTx(m_RefundTx, SubTxIndex::BEAM_REFUND_TX))
                 break;
 
@@ -563,9 +577,9 @@ namespace beam::wallet
 
         if (!lockTxBuilder->GetPeerPublicExcessAndNonce())
         {
-            if (lockTxState == SubTxState::Initial && IsInitiator())
+            if (lockTxState == SubTxState::Initial && isBeamOwner)
             {
-                SendLockTxInvitation(*lockTxBuilder, isBeamOwner);
+                SendLockTxInvitation(*lockTxBuilder);
                 SetState(SubTxState::Invitation, SubTxIndex::BEAM_LOCK_TX);
                 lockTxState = SubTxState::Invitation;
             }
@@ -581,7 +595,7 @@ namespace beam::wallet
             {
                 return lockTxState;
             }
-            SendBulletProofPart2(*lockTxBuilder, isBeamOwner);
+            SendMultiSigProofPart2(*lockTxBuilder, isBeamOwner);
             SetState(SubTxState::SharedUTXOProofPart2, SubTxIndex::BEAM_LOCK_TX);
             lockTxState = SubTxState::SharedUTXOProofPart2;
             return lockTxState;
@@ -606,7 +620,7 @@ namespace beam::wallet
             {
                 return lockTxState;
             }
-            SendBulletProofPart3(*lockTxBuilder, isBeamOwner);
+            SendMultiSigProofPart3(*lockTxBuilder, isBeamOwner);
             SetState(SubTxState::Constructed, SubTxIndex::BEAM_LOCK_TX);
             lockTxState = SubTxState::Constructed;
         }
@@ -625,8 +639,6 @@ namespace beam::wallet
 
             // TODO: return
             m_LockTx = transaction;
-
-            return lockTxState;
         }
 
         return lockTxState;
@@ -913,7 +925,7 @@ namespace beam::wallet
         }
     }
 
-    void AtomicSwapTransaction::SendLockTxInvitation(const LockTxBuilder& lockBuilder, bool isSender)
+    void AtomicSwapTransaction::SendLockTxInvitation(const LockTxBuilder& lockBuilder)
     {
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::Fee, lockBuilder.GetFee())
@@ -928,14 +940,14 @@ namespace beam::wallet
         }
     }
 
-    void AtomicSwapTransaction::SendBulletProofPart2(const LockTxBuilder& lockBuilder, bool isSender)
+    void AtomicSwapTransaction::SendMultiSigProofPart2(const LockTxBuilder& lockBuilder, bool isMultiSigProofOwner)
     {
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
             .AddParameter(TxParameterID::PeerSignature, lockBuilder.GetPartialSignature())
             .AddParameter(TxParameterID::PeerOffset, lockBuilder.GetOffset())
             .AddParameter(TxParameterID::PeerPublicSharedBlindingFactor, lockBuilder.GetPublicSharedBlindingFactor());
-        if (isSender)
+        if (isMultiSigProofOwner)
         {
             auto proofPartialMultiSig = lockBuilder.GetProofPartialMultiSig();
             msg.AddParameter(TxParameterID::PeerSharedBulletProofMSig, proofPartialMultiSig);
@@ -954,23 +966,19 @@ namespace beam::wallet
         }
     }
 
-    void AtomicSwapTransaction::SendBulletProofPart3(const LockTxBuilder& lockBuilder, bool isSender)
+    void AtomicSwapTransaction::SendMultiSigProofPart3(const LockTxBuilder& lockBuilder, bool isMultiSigProofOwner)
     {
-        SetTxParameter msg;
-
-        msg.AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX);
-        // if !isSender -> send p3
-        // else send full bulletproof? output?
-
-        if (!isSender)
+        if (!isMultiSigProofOwner)
         {
             auto bulletProof = lockBuilder.GetSharedProof();
-            msg.AddParameter(TxParameterID::PeerSharedBulletProofPart3, bulletProof.m_Part3);
-        }
+            SetTxParameter msg;
+            msg.AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
+                .AddParameter(TxParameterID::PeerSharedBulletProofPart3, bulletProof.m_Part3);
 
-        if (!SendTxParameters(std::move(msg)))
-        {
-            OnFailed(TxFailureReason::FailedToSendParameters, false);
+            if (!SendTxParameters(std::move(msg)))
+            {
+                OnFailed(TxFailureReason::FailedToSendParameters, false);
+            }
         }
     }
 
@@ -1175,13 +1183,14 @@ namespace beam::wallet
     {
         if (shouldProduceMultisig)
         {
-            Oracle oracle;
-            oracle << (beam::Height)0; // CHECK, coin maturity
             // load peer part2
             if (!m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofPart2, m_SharedProof.m_Part2, m_SubTxID))
             {
                 return false;
             }
+
+            Oracle oracle;
+            oracle << (beam::Height)0; // CHECK, coin maturity
 
             // produce multisig
             m_SharedProof.CoSign(GetSharedSeed(), GetSharedBlindingFactor(), GetProofCreatorParams(), oracle, RangeProof::Confidential::Phase::Step2, &m_ProofPartialMultiSig);

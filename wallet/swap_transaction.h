@@ -92,9 +92,9 @@ namespace beam::wallet
         void UpdateImpl() override;
         void SendInvitation();
         void SendExternalTxDetails();
-        void SendLockTxInvitation(const LockTxBuilder& lockBuilder, bool isSender);
-        void SendBulletProofPart2(const LockTxBuilder& lockBuilder, bool isSender);
-        void SendBulletProofPart3(const LockTxBuilder& lockBuilder, bool isSender);
+        void SendLockTxInvitation(const LockTxBuilder& lockBuilder);
+        void SendMultiSigProofPart2(const LockTxBuilder& lockBuilder, bool isMultiSigProofOwner);
+        void SendMultiSigProofPart3(const LockTxBuilder& lockBuilder, bool isMultiSigProofOwner);
 
         void SendSharedTxInvitation(const BaseTxBuilder& builder, bool shouldSendLockImage = false);
         void ConfirmSharedTxInvitation(const BaseTxBuilder& builder);
