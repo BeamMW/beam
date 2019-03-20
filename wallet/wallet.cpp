@@ -301,7 +301,7 @@ namespace beam
         return transfer_money(from, from, amountList, fee, {}, sender, lifetime, move(message));
     }
 
-    TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount)
+    TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount, bool isBeamSide/*=true*/)
     {
         auto txID = wallet::GenerateTxID();
         auto tx = constructTransaction(txID, TxType::AtomicSwap);
@@ -319,6 +319,7 @@ namespace beam
 
         tx->SetParameter(TxParameterID::AtomicSwapCoin, swapCoin, false);
         tx->SetParameter(TxParameterID::AtomicSwapAmount, swapAmount, false);
+        tx->SetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide, false);
 
         m_Transactions.emplace(txID, tx);
 
