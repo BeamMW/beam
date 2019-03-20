@@ -81,6 +81,9 @@ struct Node
 			size_t m_Chocking = 1024 * 1024;
 			size_t m_Drown    = 1024*1024 * 20;
 
+			size_t m_MaxBodyPackSize = 1024 * 1024 * 8;
+			uint32_t m_MaxBodyPackCount = 3000;
+
 		} m_BandwidthCtl;
 
 		struct TestMode {
