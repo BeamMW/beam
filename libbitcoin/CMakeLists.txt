@@ -54,8 +54,4 @@ else()
     endif()
 endif()
 
-if(MSVC)
-    target_compile_options(${TARGET_NAME} PRIVATE "/wd4273")    
-endif()
-
 add_subdirectory(examples)

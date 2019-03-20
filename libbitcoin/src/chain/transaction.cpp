@@ -309,6 +309,30 @@ bool transaction::from_data(reader& source, bool wire, bool witness)
     return source;
 }
 
+// beam. only for testing
+bool transaction::from_data_without_inputs(const data_chunk& data)
+{
+    data_source istream(data);
+    istream_reader source(istream);
+
+    reset();
+
+    // Wire (satoshi protocol) deserialization.
+    version_ = source.read_4_bytes_little_endian();
+    read(source, inputs_, true, false);
+
+    read(source, outputs_, true, false);
+
+    locktime_ = source.read_4_bytes_little_endian();    
+
+    strip_witness();
+
+    if (!source)
+        reset();
+
+    return source;
+}
+
 // protected
 void transaction::reset()
 {

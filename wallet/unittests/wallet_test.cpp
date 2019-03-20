@@ -556,7 +556,7 @@ namespace
         senderOptions.m_privateKey = "cSFMca7FAeAgLRgvev5ajC1v1jzprBr1KoefUFFPS8aw3EYwLArM";
         senderOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
         senderOptions.m_lockTxId = "8c5ce970f10d45b53665fe595c3dbc1762a56b02ef8a2f71bc3bc4dac5fdaf87";
-        
+        senderOptions.m_lockScript = "6382012088a82092f532b212b4c4b2810fb1d9549c7920575141e8faa18da0e96d2e5bb88708c68876a914dc76a0e23226546aaed4bba40c6b67f11213fa3b6704713a925cb17576a914ddcdee5f0c8bded92cf97f0d82543a462fd68f306888ac";
 
         TestBitcoinWallet senderBtcWallet(*mainReactor, senderAddress, senderOptions);
         TestBitcoinWallet::Options receiverOptions;
@@ -569,6 +569,7 @@ namespace
 
         TestBitcoinWallet receiverBtcWallet(*mainReactor, receiverAddress, receiverOptions);
 
+        receiverBtcWallet.addPeer(senderAddress);
         /*TxID txID =*/ sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, 4, 1, wallet::AtomicSwapCoin::Bitcoin, 2000);
 
         auto receiverCoins = receiver.GetCoins();

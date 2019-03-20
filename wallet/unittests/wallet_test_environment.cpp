@@ -14,6 +14,8 @@
 
 #include "nlohmann/json.hpp"
 
+#include "bitcoin/bitcoin.hpp"
+
 using namespace beam;
 using namespace std;
 using namespace ECC;
@@ -984,6 +986,7 @@ public:
         string m_lockTx = "";
         string m_refundTx = "";
         string m_lockTxId = "";
+        string m_lockScript = "";
     };
 
 public:
@@ -1071,7 +1074,19 @@ private:
             json j = json::parse(req);
             if (j["method"] == "fundrawtransaction")
             {
-                result = R"({"result":{"hex":")" + m_options.m_lockTx + R"(", "fee": 0, "changepos": 0},"error":null,"id":null})";
+                std::string hexTx = j["params"][0];
+                libbitcoin::data_chunk tx_data;
+                libbitcoin::decode_base16(tx_data, hexTx);
+                libbitcoin::chain::transaction tx;
+                tx.from_data_without_inputs(tx_data);
+
+                libbitcoin::chain::input input;
+
+                tx.inputs().push_back(input);
+
+                std::string hexNewTx = libbitcoin::encode_base16(tx.to_data());
+
+                result = R"({"result":{"hex":")" + hexNewTx + R"(", "fee": 0, "changepos": 0},"error":null,"id":null})";
             }
             else if (j["method"] == "dumpprivkey")
             {
@@ -1079,7 +1094,8 @@ private:
             }
             else if (j["method"] == "signrawtransactionwithwallet")
             {
-                result = R"({"result": {"hex": ")" + m_options.m_signLockTx + R"(", "complete": true},"error":null,"id":null})";
+                std::string hexTx = j["params"][0];
+                result = R"({"result": {"hex": ")" + hexTx + R"(", "complete": true},"error":null,"id":null})";
             }
             else if (j["method"] == "decoderawtransaction")
             {
@@ -1095,25 +1111,42 @@ private:
             }
             else if (j["method"] == "sendrawtransaction")
             {
-                std::string tx = j["params"][0];
-                if (std::find(m_rawTransactions.begin(), m_rawTransactions.end(), tx) == m_rawTransactions.end())
+                std::string hexTx = j["params"][0];
+
+                libbitcoin::data_chunk tx_data;
+                libbitcoin::decode_base16(tx_data, hexTx);
+                libbitcoin::chain::transaction tx = libbitcoin::chain::transaction::factory_from_data(tx_data);
+
+                std::string txId = libbitcoin::encode_hash(tx.hash());
+
+                if (m_transactions.find(txId) == m_transactions.end())
                 {
-                    m_rawTransactions.push_back(tx);
+                    m_transactions[txId] = make_pair(hexTx, 0);
                     sendRawTransaction(req);
                 }
-                result = R"( {"result":")" + m_options.m_lockTxId + R"(","error":null,"id":null})";
+
+                result = R"( {"result":")" + txId + R"(","error":null,"id":null})";
             }
             else if (j["method"] == "gettxout")
             {
-                std::string txid = j["params"][0];
-                if (m_txConfirmations.find(txid) == m_txConfirmations.end())
+                std::string txId = j["params"][0];
+                std::string lockScript = "";
+                int confirmations = 0;
+                
+                auto idx = m_transactions.find(txId);
+                if (idx != m_transactions.end())
                 {
-                    m_txConfirmations[txid] = 0; // for test
+                    confirmations = ++idx->second.second;
+                    libbitcoin::data_chunk tx_data;
+                    libbitcoin::decode_base16(tx_data, idx->second.first);
+                    libbitcoin::chain::transaction tx = libbitcoin::chain::transaction::factory_from_data(tx_data);
+                    
+                    auto script = tx.outputs()[0].script();
+
+                    lockScript = libbitcoin::encode_base16(script.to_data(false));
                 }
 
-                ++m_txConfirmations[txid];
-
-                result = R"( {"result":{"confirmations":)" + std::to_string(m_txConfirmations[txid]) + R"(},"error":null,"id":null})";
+                result = R"( {"result":{"confirmations":)" + std::to_string(confirmations) + R"(,"scriptPubKey":{"hex":")" + lockScript + R"("}},"error":null,"id":null})";
             }
         }
         else
@@ -1160,5 +1193,6 @@ private:
     Options m_options;
     std::vector<io::Address> m_peers;
     std::vector<std::string> m_rawTransactions;
+    std::map<std::string, std::pair<std::string, int>> m_transactions;
     std::map<std::string, int> m_txConfirmations;
 };
