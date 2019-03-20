@@ -35,6 +35,9 @@ namespace beam
 
 #define WALLET_API_METHODS(macro) \
     macro(CreateAddress,    "create_address",   API_WRITE_ACCESS)   \
+    macro(DeleteAddress,    "delete_address",   API_WRITE_ACCESS)   \
+    macro(EditAddress,      "edit_address",     API_WRITE_ACCESS)   \
+    macro(AddrList,         "addr_list",        API_READ_ACCESS)    \
     macro(ValidateAddress,  "validate_address", API_READ_ACCESS)    \
     macro(Send,             "tx_send",          API_WRITE_ACCESS)   \
     macro(Replace,          "replace",          API_WRITE_ACCESS)   \
@@ -54,6 +57,30 @@ namespace beam
         struct Response
         {
             WalletID address;
+        };
+    };
+
+    struct DeleteAddress
+    {
+        struct Response
+        {
+
+        };
+    };
+
+    struct EditAddress
+    {
+        struct Response
+        {
+
+        };
+    };
+
+    struct AddrList
+    {
+        struct Response
+        {
+
         };
     };
 

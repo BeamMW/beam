@@ -287,6 +287,21 @@ namespace beam
                 doResponse(id, CreateAddress::Response{ address.m_walletID });
             }
 
+            void onMessage(int id, const DeleteAddress& data) override
+            {
+                methodNotImplementedYet(id);
+            }
+
+            void onMessage(int id, const EditAddress& data) override
+            {
+                methodNotImplementedYet(id);
+            }
+
+            void onMessage(int id, const AddrList& data) override
+            {
+                methodNotImplementedYet(id);
+            }
+
             void onMessage(int id, const ValidateAddress& data) override
             {
                 LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";

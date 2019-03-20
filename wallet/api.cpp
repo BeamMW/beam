@@ -86,6 +86,24 @@ namespace beam
         _handler.onMessage(id, createAddress);
     }
 
+    void WalletApi::onDeleteAddressMessage(int id, const nlohmann::json& params)
+    {
+        DeleteAddress deleteAddress;
+        _handler.onMessage(id, deleteAddress);
+    }
+
+    void WalletApi::onEditAddressMessage(int id, const nlohmann::json& params)
+    {
+        EditAddress editAddress;
+        _handler.onMessage(id, editAddress);
+    }
+
+    void WalletApi::onAddrListMessage(int id, const nlohmann::json& params)
+    {
+        AddrList addrList;
+        _handler.onMessage(id, addrList);
+    }
+
     void WalletApi::onValidateAddressMessage(int id, const nlohmann::json& params)
     {
         checkJsonParam(params, "address", id);
