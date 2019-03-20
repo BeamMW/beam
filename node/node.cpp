@@ -1724,9 +1724,10 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 
         m_This.RefreshCongestions(); // may delete us
     }
-    else if (bInvalid)
+    else
     {
-        ThrowUnexpected();
+		if (bInvalid)
+			ThrowUnexpected();
     }
 
 	m_This.UpdateSyncStatus();
