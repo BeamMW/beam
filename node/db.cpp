@@ -298,37 +298,8 @@ void NodeDB::Open(const char* szPath)
 	else
 	{
 		uint64_t nVer = ParamIntGetDef(ParamID::DbVer);
-
-		switch (nVer)
-		{
-		case nVersionNoBbsPoW:
-			ExecQuick("ALTER TABLE [" TblBbs "] ADD [" TblBbs_Nonce "] INTEGER");
-			// no break;
-
-		case nVersionDummy0:
-			ExecQuick("DROP INDEX [Idx" TblDummy "H]");
-			ExecQuick("DROP TABLE [" TblDummy "]");
-			CreateTableDummy();
-			// no break;
-
-		case nVersionMacro0:
-			CreateTableTxos();
-			ExecQuick("ALTER TABLE [" TblStates "] ADD [" TblStates_Extra "] BLOB");
-			ExecQuick("ALTER TABLE [" TblStates "] ADD [" TblStates_Txos "] INTEGER");
-			ExecQuick("CREATE INDEX [Idx" TblStates TblStates_Txos "] ON [" TblStates "] ([" TblStates_Txos "]);");
-
-			// rebuild States. Remove "Rollback" column
-			ThrowError("upgrade not supported yet");
-
-			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
-			// no break;
-
-		case nVersionTop:
-			break;
-
-		default:
-			ThrowError("wrong version");
-		}
+		if (nVer < nVersionTop)
+			throw std::runtime_error("node upgrade is not supported. Please, remove node.db and tempmb files");
 	}
 
 	t.Commit();
