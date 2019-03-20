@@ -72,6 +72,7 @@ namespace beam
 
         bool IsMaturityValid() const; // is/was the UTXO confirmed?
         Height get_Maturity() const; // would return MaxHeight unless the UTXO was confirmed
+        std::string getStatusString() const;
         static boost::optional<Coin::ID> FromString(const std::string& str);
     };
 
