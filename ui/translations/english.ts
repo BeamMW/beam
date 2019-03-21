@@ -226,73 +226,73 @@
 <context>
     <name>PaymentInfoDialog</name>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="63"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="64"/>
         <source>Payment proof verification</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="63"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="64"/>
         <source>Payment proof</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="70"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="71"/>
         <source>close</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="88"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="89"/>
         <source>Paste your payment proof here</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="130"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="129"/>
         <source>Cannot decode a proof, illegal sequence.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="142"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="141"/>
         <source>Code:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="163"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="162"/>
         <source>Details</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="173"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="172"/>
         <source>Sender:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="194"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="193"/>
         <source>Receiver:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="214"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="213"/>
         <source>Amount:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="223"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="222"/>
         <source>BEAM</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="233"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="232"/>
         <source>Kernel ID:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="266"/>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="287"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="265"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="286"/>
         <source>copy details</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="275"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="274"/>
         <source>copy code</source>
         <translation type="unfinished"></translation>
     </message>
@@ -339,22 +339,22 @@
 <context>
     <name>StartViewModel</name>
     <message>
-        <location filename="../viewmodel/start_view.cpp" line="398"/>
+        <location filename="../viewmodel/start_view.cpp" line="397"/>
         <source>Printer is not found. Please, check your printer preferences.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/start_view.cpp" line="446"/>
+        <location filename="../viewmodel/start_view.cpp" line="445"/>
         <source>Failed to print seed phrases. Please, check your printer.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/start_view.cpp" line="556"/>
+        <location filename="../viewmodel/start_view.cpp" line="555"/>
         <source>Select the wallet database file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/start_view.cpp" line="557"/>
+        <location filename="../viewmodel/start_view.cpp" line="556"/>
         <source>SQLite database file (*.db)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -642,12 +642,12 @@
 <context>
     <name>WalletViewModel</name>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="577"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="575"/>
         <source> beams</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="579"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="577"/>
         <source> groths</source>
         <translation type="unfinished"></translation>
     </message>

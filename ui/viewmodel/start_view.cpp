@@ -111,9 +111,8 @@ namespace
                 nodeDB.Open(nodePath.c_str());
                 return;
             }
-            catch (const beam::CorruptionException&)
+            catch (const beam::NodeDBUpgradeException&)
             {
-                // 
             }
             
             boost::filesystem::remove(pathFromStdString(nodePath));
@@ -121,7 +120,7 @@ namespace
             std::vector<boost::filesystem::path> macroBlockFiles;
             for (boost::filesystem::directory_iterator endDirIt, it{ appDataPath }; it != endDirIt; ++it)
             {
-                if (it->path().filename().wstring().find(L"temp") == 0)
+                if (it->path().filename().wstring().find(L"tempmb") == 0)
                 {
                     macroBlockFiles.push_back(it->path());
                 }

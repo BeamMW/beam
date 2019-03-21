@@ -20,6 +20,14 @@
 
 namespace beam {
 
+class NodeDBUpgradeException : public std::runtime_error
+{
+public:
+    NodeDBUpgradeException(const char* message)
+        : std::runtime_error(message)
+    {}
+};
+
 class NodeDB
 {
 public:

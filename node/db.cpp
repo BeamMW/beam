@@ -293,7 +293,7 @@ void NodeDB::Open(const char* szPath)
 	{
 		uint64_t nVer = ParamIntGetDef(ParamID::DbVer);
 		if (nVer < nVersionTop)
-			throw std::runtime_error("Node upgrade is not supported. Please, remove node.db and tempmb files");
+			throw NodeDBUpgradeException("Node upgrade is not supported. Please, remove node.db and tempmb files");
 	}
 
 	t.Commit();
