@@ -1,4 +1,4 @@
-set(TARGET_NAME explorer-node)
+set(TARGET_NAME explorer-node-testnet)
 
 set(EXPLORER_SRC
     server.cpp
