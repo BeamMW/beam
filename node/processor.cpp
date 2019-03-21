@@ -583,12 +583,10 @@ struct NodeProcessor::MultiblockContext
 			size_t m_Size;
 			TxBase::Context::Params m_Pars;
 			TxBase::Context m_Ctx;
-			bool m_Sparse;
 
 			SharedBlock(MultiblockContext& mbc)
 				:Shared(mbc)
 				,m_Ctx(m_Pars)
-				,m_Sparse(false)
 			{
 			}
 
@@ -734,7 +732,6 @@ struct NodeProcessor::MultiblockContext
 		pShared->m_Pars.m_bBlockMode = true;
 		pShared->m_Pars.m_pAbort = &m_bFail;
 		pShared->m_Pars.m_nVerifiers = tp.get_Threads();
-		pShared->m_Sparse = (pShared->m_Ctx.m_Height.m_Min <= m_This.m_SyncData.m_TxoLo);
 
 		PushTasks(pShared, pShared->m_Pars);
 	}
@@ -802,14 +799,16 @@ void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerif
 	ctx.m_Height = m_Ctx.m_Height;
 	ctx.m_iVerifier = iVerifier;
 
+	bool bSparse = (m_Ctx.m_Height.m_Min <= m_Mbc.m_This.m_SyncData.m_TxoLo);
+
 	beam::TxBase txbDummy;
-	if (m_Sparse)
+	if (bSparse)
 		txbDummy.m_Offset = Zero;
 
 	bool bIgnoreMaturities = true;
 	TemporarySwap<bool> scopeMat(TxElement::s_IgnoreMaturity, bIgnoreMaturities);
 
-	bool bValid = ctx.ValidateAndSummarize(m_Sparse ? txbDummy : m_Body, m_Body.get_Reader());
+	bool bValid = ctx.ValidateAndSummarize(bSparse ? txbDummy : m_Body, m_Body.get_Reader());
 
 	std::unique_lock<std::mutex> scope(m_Mbc.m_Mutex);
 
@@ -822,10 +821,10 @@ void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerif
 		assert(m_Mbc.m_SizePending >= m_Size);
 		m_Mbc.m_SizePending -= m_Size;
 
-		if (bValid && !m_Sparse)
+		if (bValid && !bSparse)
 			bValid = m_Ctx.IsValidBlock();
 
-		if (bValid && m_Sparse)
+		if (bValid && bSparse)
 		{
 			m_Mbc.m_Offset += m_Body.m_Offset;
 			m_Mbc.m_Sigma += m_Ctx.m_Sigma;
