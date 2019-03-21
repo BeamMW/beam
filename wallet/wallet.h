@@ -119,6 +119,9 @@ namespace beam::wallet
         void unsubscribe(IWalletObserver* observer) override;
         void cancel_tx(const TxID& txId) override;
         void delete_tx(const TxID& txId) override;
+
+        void ProcessTransaction(wallet::BaseTransaction::Ptr tx);
+        void RegisterTransactionType(wallet::TxType type, wallet::BaseTransaction::Creator creator);
         
     private:
         void RefreshTransactions();
@@ -291,6 +294,9 @@ namespace beam::wallet
 
         // List of transactions that are waiting for the next tip (new block) to arrive
         std::unordered_set<BaseTransaction::Ptr> m_NextTipTransactionToUpdate;
+
+        // List of registered transaction creators
+        std::unordered_map<wallet::TxType, wallet::BaseTransaction::Creator> m_TxCreators;
 
         // Functor for callback when transaction completed
         TxCompletedAction m_TxCompletedAction;
