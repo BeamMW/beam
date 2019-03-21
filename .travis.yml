@@ -67,6 +67,7 @@ matrix:
       language: cpp
       addons:
         apt:
+          update: true
           sources:
             - ubuntu-toolchain-r-test
             - sourceline: 'ppa:mhier/libboost-latest'
@@ -102,6 +103,7 @@ matrix:
       language: cpp
       addons:
         apt:
+          update: true
           sources:
             - ubuntu-toolchain-r-test
             - sourceline: 'ppa:mhier/libboost-latest'
