@@ -320,9 +320,9 @@ namespace beam
                 {
                     if (addr->m_OwnID)
                     {
-                        if (data.name)
+                        if (data.label)
                         {
-                            addr->setLabel(*data.name);
+                            addr->setLabel(*data.label);
                         }
 
                         if (data.action)

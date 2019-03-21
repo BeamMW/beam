@@ -72,7 +72,7 @@ namespace beam
     {
         WalletID address;
 
-        boost::optional<std::string> name;
+        boost::optional<std::string> label;
 
         enum Action { Expired, Eternal, Active };
         boost::optional<Action> action;

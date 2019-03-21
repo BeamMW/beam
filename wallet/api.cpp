@@ -100,20 +100,20 @@ namespace beam
     {
         checkJsonParam(params, "address", id);
 
-        if (!existsJsonParam(params, "name") && !existsJsonParam(params, "action"))
+        if (!existsJsonParam(params, "label") && !existsJsonParam(params, "action"))
             throwInvalidJsonRpc(id);
 
         EditAddress editAddress;
         editAddress.address.FromHex(params["address"]);
 
-        if (existsJsonParam(params, "name"))
+        if (existsJsonParam(params, "label"))
         {
-            std::string name = params["name"];
+            std::string label = params["label"];
 
-            if(name.empty())
+            if(label.empty())
                 throwInvalidJsonRpc(id);
 
-            editAddress.name = name;
+            editAddress.label = label;
         }
 
         if (existsJsonParam(params, "action"))
@@ -137,13 +137,11 @@ namespace beam
 
     void WalletApi::onAddrListMessage(int id, const nlohmann::json& params)
     {
+        checkJsonParam(params, "own", id);
+
         AddrList addrList;
 
-        if (existsJsonParam(params, "own"))
-        {
-            addrList.own = params["own"];
-        }
-        else addrList.own = false;
+        addrList.own = params["own"];
 
         _handler.onMessage(id, addrList);
     }
