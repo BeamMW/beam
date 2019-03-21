@@ -359,7 +359,9 @@ namespace beam
 
             void onMessage(int id, const AddrList& data) override
             {
-                methodNotImplementedYet(id);
+                LOG_DEBUG() << "AddrList(id = " << id << ")";
+
+                doResponse(id, AddrList::Response{ _walletDB->getAddresses(data.own) });
             }
 
             void onMessage(int id, const ValidateAddress& data) override

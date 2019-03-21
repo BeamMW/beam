@@ -82,7 +82,12 @@ namespace beam
 
     struct AddrList
     {
-        struct Response {};
+        bool own;
+
+        struct Response
+        {
+            std::vector<WalletAddress> list;
+        };
     };
 
     struct ValidateAddress

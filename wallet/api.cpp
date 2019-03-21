@@ -138,6 +138,13 @@ namespace beam
     void WalletApi::onAddrListMessage(int id, const nlohmann::json& params)
     {
         AddrList addrList;
+
+        if (existsJsonParam(params, "own"))
+        {
+            addrList.own = params["own"];
+        }
+        else addrList.own = false;
+
         _handler.onMessage(id, addrList);
     }
 
@@ -407,6 +414,30 @@ namespace beam
             {"id", id},
             {"result", "done"}
         };
+    }
+
+    void WalletApi::getResponse(int id, const AddrList::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", json::array()}
+        };
+
+        for (auto& addr : res.list)
+        {
+            msg["result"].push_back(
+            {
+                {"address", std::to_string(addr.m_walletID)},
+                {"label", addr.m_label},
+                {"category", addr.m_category},
+                {"create_time", addr.getCreateTime()},
+                {"duration", addr.m_duration},
+                {"expired", addr.isExpired()},
+                {"own", addr.m_OwnID != 0}
+            });
+        }
     }
 
     void WalletApi::getResponse(int id, const ValidateAddress::Response& res, json& msg)
