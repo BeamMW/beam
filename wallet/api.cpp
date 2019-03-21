@@ -509,6 +509,7 @@ namespace beam
             {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
             {"create_time", tx.m_createTime},
             {"kernel", to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes)},
+            {"income", !tx.m_sender}
         };
 
         if (kernelProofHeight > 0)
