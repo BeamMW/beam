@@ -69,9 +69,10 @@ matrix:
         apt:
           sources:
             - ubuntu-toolchain-r-test
+            - sourceline: 'ppa:mhier/libboost-latest'
           packages:
             - g++-7
-            - libboost-all-dev
+            - boost1.68
             - libssl-dev
             - curl
       install:
@@ -103,9 +104,10 @@ matrix:
         apt:
           sources:
             - ubuntu-toolchain-r-test
+            - sourceline: 'ppa:mhier/libboost-latest'
           packages:
             - g++-7
-            - libboost-all-dev
+            - boost1.68
             - libssl-dev
             - curl
             - libxi-dev
