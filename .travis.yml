@@ -71,10 +71,10 @@ matrix:
         - export BEAM_WALLET_UI_IN="BeamWalletTestnet-$BEAM_VERSION-Darwin.dmg"
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-Testnet-$BEAM_VERSION.dmg"
         # sign our builds
-        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" beam/beam-node
-        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" wallet/beam-wallet
-        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" wallet/wallet-api
-        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" explorer/explorer-node
+        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" beam/beam-node-testnet
+        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" wallet/beam-wallet-testnet
+        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" wallet/wallet-api-testnet
+        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" explorer/explorer-node-testnet
         - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" $BEAM_WALLET_UI_IN
 
 ###############################################################################
