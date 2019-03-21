@@ -25,6 +25,7 @@
 #define INTERNAL_JSON_RPC_ERROR -32603
 #define INVALID_TX_STATUS -32001
 #define UNKNOWN_API_KEY -32002
+#define INVALID_ADDRESS -32003
 
 namespace beam
 {
@@ -35,6 +36,9 @@ namespace beam
 
 #define WALLET_API_METHODS(macro) \
     macro(CreateAddress,    "create_address",   API_WRITE_ACCESS)   \
+    macro(DeleteAddress,    "delete_address",   API_WRITE_ACCESS)   \
+    macro(EditAddress,      "edit_address",     API_WRITE_ACCESS)   \
+    macro(AddrList,         "addr_list",        API_READ_ACCESS)    \
     macro(ValidateAddress,  "validate_address", API_READ_ACCESS)    \
     macro(Send,             "tx_send",          API_WRITE_ACCESS)   \
     macro(Replace,          "replace",          API_WRITE_ACCESS)   \
@@ -54,6 +58,35 @@ namespace beam
         struct Response
         {
             WalletID address;
+        };
+    };
+
+    struct DeleteAddress
+    {
+        WalletID address;
+
+        struct Response {};
+    };
+
+    struct EditAddress
+    {
+        WalletID address;
+
+        boost::optional<std::string> label;
+
+        enum Action { Expired, Eternal, Active };
+        boost::optional<Action> action;
+
+        struct Response {};
+    };
+
+    struct AddrList
+    {
+        bool own;
+
+        struct Response
+        {
+            std::vector<WalletAddress> list;
         };
     };
 

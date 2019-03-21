@@ -86,6 +86,66 @@ namespace beam
         _handler.onMessage(id, createAddress);
     }
 
+    void WalletApi::onDeleteAddressMessage(int id, const nlohmann::json& params)
+    {
+        checkJsonParam(params, "address", id);
+
+        DeleteAddress deleteAddress;
+        deleteAddress.address.FromHex(params["address"]);
+
+        _handler.onMessage(id, deleteAddress);
+    }
+
+    void WalletApi::onEditAddressMessage(int id, const nlohmann::json& params)
+    {
+        checkJsonParam(params, "address", id);
+
+        if (!existsJsonParam(params, "label") && !existsJsonParam(params, "action"))
+            throwInvalidJsonRpc(id);
+
+        EditAddress editAddress;
+        editAddress.address.FromHex(params["address"]);
+
+        if (existsJsonParam(params, "label"))
+        {
+            std::string label = params["label"];
+
+            if(label.empty())
+                throwInvalidJsonRpc(id);
+
+            editAddress.label = label;
+        }
+
+        if (existsJsonParam(params, "action"))
+        {
+            std::string action = params["action"];
+
+            static std::map<std::string, EditAddress::Action> Actions = 
+            {
+                {"expired", EditAddress::Expired},
+                {"active",  EditAddress::Active},
+                {"eternal", EditAddress::Eternal},
+            };
+
+            if(Actions.count(action) == 0) throwInvalidJsonRpc(id);
+
+            editAddress.action = Actions[action];
+        }
+
+        _handler.onMessage(id, editAddress);
+    }
+
+    void WalletApi::onAddrListMessage(int id, const nlohmann::json& params)
+    {
+        checkJsonParam(params, "own", id);
+
+        AddrList addrList;
+
+        addrList.own = params["own"];
+
+        _handler.onMessage(id, addrList);
+    }
+
     void WalletApi::onValidateAddressMessage(int id, const nlohmann::json& params)
     {
         checkJsonParam(params, "address", id);
@@ -334,6 +394,50 @@ namespace beam
         };
     }
 
+    void WalletApi::getResponse(int id, const DeleteAddress::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", "done"}
+        };
+    }
+
+    void WalletApi::getResponse(int id, const EditAddress::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", "done"}
+        };
+    }
+
+    void WalletApi::getResponse(int id, const AddrList::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", json::array()}
+        };
+
+        for (auto& addr : res.list)
+        {
+            msg["result"].push_back(
+            {
+                {"address", std::to_string(addr.m_walletID)},
+                {"label", addr.m_label},
+                {"category", addr.m_category},
+                {"create_time", addr.getCreateTime()},
+                {"duration", addr.m_duration},
+                {"expired", addr.isExpired()},
+                {"own", addr.m_OwnID != 0}
+            });
+        }
+    }
+
     void WalletApi::getResponse(int id, const ValidateAddress::Response& res, json& msg)
     {
         msg = json
@@ -371,6 +475,8 @@ namespace beam
                 {"maturity", utxo.get_Maturity()},
                 {"createTxId", createTxId},
                 {"spentTxId", spentTxId},
+                {"status", utxo.m_status},
+                {"status_string", utxo.getStatusString()}
             });
         }
     }
@@ -401,6 +507,7 @@ namespace beam
             {"fee", tx.m_fee},
             {"value", tx.m_amount},
             {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
+            {"create_time", tx.m_createTime},
             {"kernel", to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes)},
         };
 
