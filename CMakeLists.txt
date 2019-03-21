@@ -352,7 +352,7 @@ elseif (LINUX)
 
 endif ()
 
-set(CPACK_PACKAGE_NAME "BeamWallet")
+set(CPACK_PACKAGE_NAME "BeamWalletTestnet")
 set(CPACK_PACKAGE_VENDOR "Beam Development Limited")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Scalable confidential cryptocurrency")
 set(CPACK_PACKAGE_VERSION_MAJOR "${VERSION_MAJOR}")
