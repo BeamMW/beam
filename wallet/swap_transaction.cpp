@@ -686,7 +686,6 @@ namespace beam::wallet
             if (subTxState == SubTxState::Initial && !isTxOwner)
             {
                 // invited participant
-                assert(!IsInitiator());
                 ConfirmSharedTxInvitation(builder);
                 SetState(SubTxState::Constructed, subTxID);
                 subTxState = SubTxState::Constructed;
@@ -760,7 +759,6 @@ namespace beam::wallet
             if (subTxState == SubTxState::Initial && !isTxOwner)
             {
                 // invited participant
-                assert(IsInitiator());
                 ConfirmSharedTxInvitation(builder);
                 SetState(SubTxState::Constructed, subTxID);
                 subTxState = SubTxState::Constructed;
@@ -893,6 +891,7 @@ namespace beam::wallet
         // send invitation
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::Amount, GetAmount())
+            .AddParameter(TxParameterID::Fee, GetMandatoryParameter<Amount>(TxParameterID::Fee))
             .AddParameter(TxParameterID::IsSender, !IsSender())
             .AddParameter(TxParameterID::AtomicSwapAmount, swapAmount)
             .AddParameter(TxParameterID::AtomicSwapCoin, swapCoin)
@@ -927,8 +926,11 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::SendLockTxInvitation(const LockTxBuilder& lockBuilder)
     {
+        auto swapAddress = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapAddress);
+
         SetTxParameter msg;
-        msg.AddParameter(TxParameterID::Fee, lockBuilder.GetFee())
+        msg.AddParameter(TxParameterID::AtomicSwapPeerAddress, swapAddress)
+            .AddParameter(TxParameterID::Fee, lockBuilder.GetFee())
             .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
             .AddParameter(TxParameterID::MinHeight, lockBuilder.GetMinHeight())
             .AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())

@@ -519,7 +519,7 @@ namespace
         WALLET_CHECK(stx->m_sender == true);
     }
 
-    void TestSwapTransaction()
+    void TestSwapTransaction(bool isBeamOwnerStart)
     {
         cout << "\nTesting atomic swap transaction...\n";
 
@@ -564,7 +564,14 @@ namespace
         TestBitcoinWallet receiverBtcWallet(*mainReactor, receiverAddress, receiverOptions);
 
         receiverBtcWallet.addPeer(senderAddress);
-        /*TxID txID =*/ sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, 4, 1, wallet::AtomicSwapCoin::Bitcoin, 2000);
+        if (isBeamOwnerStart)
+        {
+            /*TxID txID =*/ sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, 4, 1, wallet::AtomicSwapCoin::Bitcoin, 2000, true);
+        }
+        else
+        {
+            /*TxID txID =*/ receiver.m_Wallet.swap_coins(receiver.m_WalletID, sender.m_WalletID, 4, 1, wallet::AtomicSwapCoin::Bitcoin, 2000, false);
+        }
 
         auto receiverCoins = receiver.GetCoins();
         WALLET_CHECK(receiverCoins.empty());
@@ -838,7 +845,8 @@ int main()
 
     TestSplitTransaction();
 
-    TestSwapTransaction();
+    TestSwapTransaction(true);
+    TestSwapTransaction(false);
 
     TestTxToHimself();
 

@@ -313,7 +313,7 @@ namespace beam
         tx->SetParameter(TxParameterID::MinHeight, m_WalletDB->getCurrentHeight(), false);
         tx->SetParameter(TxParameterID::PeerID, to, false);
         tx->SetParameter(TxParameterID::MyID, from, false);
-        tx->SetParameter(TxParameterID::IsSender, true, false);
+        tx->SetParameter(TxParameterID::IsSender, isBeamSide, false);
         tx->SetParameter(TxParameterID::IsInitiator, true, false);
         tx->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
 
@@ -978,7 +978,7 @@ namespace beam
         }
 
         bool isSender = false;
-        if (!msg.GetParameter(TxParameterID::IsSender, isSender) || isSender == true)
+        if (!msg.GetParameter(TxParameterID::IsSender, isSender) || (isSender == true && msg.m_Type != TxType::AtomicSwap))
         {
             return BaseTransaction::Ptr();
         }
