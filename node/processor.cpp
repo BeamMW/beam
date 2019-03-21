@@ -729,6 +729,7 @@ struct NodeProcessor::MultiblockContext
 		bool bFull = (pShared->m_Ctx.m_Height.m_Min > m_This.m_SyncData.m_Target.m_Height);
 
 		pShared->m_Pars.m_bAllowUnsignedOutputs = !bFull;
+		pShared->m_Pars.m_bVerifyOrder = bFull; // in case of unsigned outputs sometimes order of outputs may look incorrect (duplicated commitment, part of signatures removed)
 		pShared->m_Pars.m_bBlockMode = true;
 		pShared->m_Pars.m_pAbort = &m_bFail;
 		pShared->m_Pars.m_nVerifiers = tp.get_Threads();
