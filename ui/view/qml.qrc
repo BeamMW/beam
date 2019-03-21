@@ -20,6 +20,7 @@
         <file>controls/CustomTableView.qml</file>
         <file>controls/FeeSlider.qml</file>
         <file>controls/SFFontLoader.qml</file>
+        <file>controls/SFTextArea.qml</file>
         <file>root.qml</file>
         <file>start.qml</file>
         <file>main.qml</file>

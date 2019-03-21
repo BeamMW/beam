@@ -246,53 +246,53 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="129"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="134"/>
         <source>Cannot decode a proof, illegal sequence.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="141"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="146"/>
         <source>Code:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="162"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="167"/>
         <source>Details</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="172"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="177"/>
         <source>Sender:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="193"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="198"/>
         <source>Receiver:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="213"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="218"/>
         <source>Amount:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="222"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="227"/>
         <source>BEAM</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="232"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="237"/>
         <source>Kernel ID:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="265"/>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="286"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="270"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="291"/>
         <source>copy details</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/PaymentInfoDialog.qml" line="274"/>
+        <location filename="../view/controls/PaymentInfoDialog.qml" line="279"/>
         <source>copy code</source>
         <translation type="unfinished"></translation>
     </message>
@@ -302,6 +302,19 @@
     <message>
         <location filename="../view/controls/SFLabel.qml" line="54"/>
         <source>copy</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>SFTextArea</name>
+    <message>
+        <location filename="../view/controls/SFTextArea.qml" line="81"/>
+        <source>copy</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../view/controls/SFTextArea.qml" line="96"/>
+        <source>paste</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

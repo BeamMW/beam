@@ -98,21 +98,16 @@
                         id: scrollView
                         clip: true
                         Layout.fillWidth: true
-                        Layout.preferredHeight: paymentProofInput.height
-                        Layout.maximumHeight: 132
-                        contentWidth: parent.width
-
-                        SFTextInput {
+                        Layout.maximumHeight: 130
+                        
+                        SFTextArea {
                             id: paymentProofInput
-                            anchors.left: parent.left
-                            anchors.right: parent.right
                             focus: true
                             activeFocusOnTab: true
                             font.pixelSize: 14
                             wrapMode: TextInput.Wrap
                             color: verifyLayout.isInvalidPaymentProof() ? Style.validator_color : Style.white
-                            backgroundColor: color
-                            text: model ? model.paymentProof : ""
+                             text: model ? model.paymentProof : ""
                             Binding {
                                 target: model
                                 property: "paymentProof"
@@ -120,7 +115,13 @@
                             }
                         }
                     }
-
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.topMargin: -16
+                        color: paymentProofInput.color
+                        Layout.preferredHeight: (paymentProofInput.activeFocus || paymentProofInput.hovered) ? 2 : 1
+                        opacity: (paymentProofInput.activeFocus || paymentProofInput.hovered) ? 0.3 : 0.1
+                    }
                 
                     SFText {
                         Layout.fillWidth: true
