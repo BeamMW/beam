@@ -1,8 +1,9 @@
     import QtQuick 2.11
-    import QtQuick.Controls 2.3
+    import QtQuick.Controls 2.4
+
     import QtQuick.Layouts 1.11
-    import "."
     import Beam.Wallet 1.0
+    import "."
 
     Dialog {
         property PaymentInfoItem model
@@ -93,15 +94,13 @@
                         return model && !model.isValid && paymentProofInput.length > 0;
                     }
             
-                    Flickable {
-                        id: flickable1
+                    ScrollView {
+                        id: scrollView
                         clip: true
-                        //Layout.fillHeight: true
                         Layout.fillWidth: true
                         Layout.preferredHeight: paymentProofInput.height
-                        Layout.maximumHeight: 130
-                     //   contentWidth: parent.width
-                     //   contentHeight: paymentProofInput.height
+                        Layout.maximumHeight: 132
+                        contentWidth: parent.width
 
                         SFTextInput {
                             id: paymentProofInput
