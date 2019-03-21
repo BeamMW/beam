@@ -49,7 +49,7 @@ struct WaitHandle {
 struct WalletParams {
     IWalletDB::Ptr walletDB;
     io::Address nodeAddress;
-
+    io::Reactor::Ptr reactor;
 	WalletID sendFrom, sendTo;
 };
 
@@ -168,8 +168,10 @@ void test_offline(bool twoNodes) {
         receiverParams.nodeAddress = nodeAddress;
     }
 
-    senderParams.walletDB = init_wallet_db("_sender", &nodeParams.walletSeed);
-    receiverParams.walletDB = init_wallet_db("_receiver", 0);
+    senderParams.reactor = io::Reactor::create();
+    senderParams.walletDB = init_wallet_db("_sender", &nodeParams.walletSeed, senderParams.reactor);
+    receiverParams.reactor = io::Reactor::create();
+    receiverParams.walletDB = init_wallet_db("_receiver", 0, receiverParams.reactor);
 
 	WalletAddress wa = wallet::createAddress(*senderParams.walletDB);
 	senderParams.walletDB->saveAddress(wa);

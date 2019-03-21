@@ -17,11 +17,11 @@ BEGIN
 	BEGIN
 		BLOCK "04090000"
 		BEGIN
-			VALUE "CompanyName", "Beam"
+			VALUE "CompanyName", "Beam Development Limited"
 			VALUE "FileDescription", "Beam Wallet Testnet"
 			VALUE "FileVersion", "@VERSION_MAJOR@.@VERSION_MINOR@.@VERSION_REVISION@"
 			VALUE "InternalName", "Beam Wallet Testnet.exe"
-			VALUE "LegalCopyright", "https://beam-mw.com (C) 2018"
+			VALUE "LegalCopyright", "https://beam.mw (C) 2018"
 			VALUE "OriginalFilename", "Beam Wallet Testnet.exe"
 			VALUE "ProductName", "Beam"
 			VALUE "ProductVersion", "@VERSION_MAJOR@.@VERSION_MINOR@.@VERSION_REVISION@"

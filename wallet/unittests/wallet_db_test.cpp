@@ -38,7 +38,7 @@ namespace
         }
         ECC::NoLeak<ECC::uintBig> seed;
         seed.V = Zero;
-        auto walletDB = WalletDB::init(dbName, string("pass123"), seed);
+        auto walletDB = WalletDB::init(dbName, string("pass123"), seed, io::Reactor::get_Current().shared_from_this());
         beam::Block::SystemState::ID id = { };
         id.m_Height = 134;
         walletDB->setSystemStateID(id);
@@ -1220,6 +1220,9 @@ int main()
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
     ECC::InitializeContext();
+
+    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    io::Reactor::Scope scope(*mainReactor);
 
     TestWalletDataBase();
     TestStoreCoins();

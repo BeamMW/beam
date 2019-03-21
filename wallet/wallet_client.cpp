@@ -185,12 +185,20 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
             receiver_.refresh();
         });
     }
+
+    void exportPaymentProof(const beam::TxID& id) override
+    {
+        tx.send([id](BridgeInterface& receiver_) mutable
+        {
+            receiver_.exportPaymentProof(id);
+        });
+    }
 };
 }
 
-WalletClient::WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr)
+WalletClient::WalletClient(IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor)
     : m_walletDB(walletDB)
-    , m_reactor{ io::Reactor::create() }
+    , m_reactor{ reactor ? reactor : io::Reactor::create() }
     , m_async{ make_shared<WalletModelBridge>(*(static_cast<IWalletModelAsync*>(this)), *m_reactor) }
     , m_isConnected(false)
     , m_nodeAddrStr(nodeAddr)
@@ -517,7 +525,7 @@ void WalletClient::deleteAddress(const beam::WalletID& id)
     }
 }
 
-void WalletClient::saveAddressChanges(const beam::WalletID& id, const std::string& name, bool isNever, bool makeActive, bool makeExpired)
+void WalletClient::saveAddressChanges(const beam::WalletID& id, const std::string& name, bool makeEternal, bool makeActive, bool makeExpired)
 {
     try
     {
@@ -527,21 +535,19 @@ void WalletClient::saveAddressChanges(const beam::WalletID& id, const std::strin
         {
             if (addr->m_OwnID)
             {
-                addr->m_label = name;
+                addr->setLabel(name);
                 if (makeExpired)
                 {
-                    assert(addr->m_createTime < getTimestamp() - 1);
-                    addr->m_duration = getTimestamp() - addr->m_createTime - 1;
+                    addr->makeExpired();
                 }
-                else if (isNever)
+                else if (makeEternal)
                 {
-                    addr->m_duration = 0;
+                    addr->makeEternal();
                 }
-                else if (addr->m_duration == 0 || makeActive)
+                else if (makeActive)
                 {
                     // set expiration date to 24h since now
-                    addr->m_createTime = getTimestamp();
-                    addr->m_duration = 24 * 60 * 60; //24h
+                    addr->makeActive(24 * 60 * 60);
                 }
 
                 m_walletDB->saveAddress(*addr);
@@ -629,6 +635,11 @@ void WalletClient::refresh()
     catch (...) {
         LOG_UNHANDLED_EXCEPTION();
     }
+}
+
+void WalletClient::exportPaymentProof(const beam::TxID& id)
+{
+    onPaymentProofExported(id, beam::wallet::ExportPaymentProof(*m_walletDB, id));
 }
 
 WalletStatus WalletClient::getStatus() const

@@ -61,7 +61,7 @@ struct Node
 			uint32_t m_BbsChannelUpdate_ms = 60 * 5; // 5 minutes
 		} m_Timeout;
 
-		uint32_t m_MaxConcurrentBlocksRequest = 5;
+		uint32_t m_MaxConcurrentBlocksRequest = 18;
 		uint32_t m_BbsIdealChannelPopulation = 100;
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
@@ -81,19 +81,10 @@ struct Node
 			size_t m_Chocking = 1024 * 1024;
 			size_t m_Drown    = 1024*1024 * 20;
 
+			size_t m_MaxBodyPackSize = 1024 * 1024 * 5;
+			uint32_t m_MaxBodyPackCount = 3000;
+
 		} m_BandwidthCtl;
-
-		struct HistoryCompression
-		{
-			std::string m_sPathOutput;
-			std::string m_sPathTmp;
-
-			uint32_t m_Naggling = 32;	// combine up to 32 blocks in memory, before involving file system
-			uint32_t m_MaxBacklog = 1;	// should be enough (unless it'll take more than 6 hours to sync with current settings)
-
-			uint32_t m_UploadPortion = 5 * 1024 * 1024; // set to 0 to disable upload
-
-		} m_HistoryCompression;
 
 		struct TestMode {
 			// for testing only!
@@ -102,17 +93,6 @@ struct Node
 		} m_TestMode;
 
 		ByteBuffer m_Treasury; // needed only for the 1st run
-
-		struct Sync {
-			// during sync phase we try to pick the best peer to sync from.
-			// Our logic: decide when either examined enough peers, or timeout expires
-			uint32_t m_SrcPeers = 5;
-			uint32_t m_Timeout_ms = 10 * 1000; // timeout since at least 1 tip is received
-			uint32_t m_TimeoutHi_ms = 60 * 1000; // timeout since at least 1 peer connected.
-
-			bool m_ForceResync = false;
-			bool m_NoFastSync = false;
-		} m_Sync;
 
 		struct Dandelion
 		{
@@ -130,6 +110,8 @@ struct Node
 
 		} m_Dandelion;
 
+		NodeProcessor::StartParams m_ProcessorParams;
+
 		IObserver* m_Observer = nullptr;
 
 	} m_Cfg; // must not be changed after initialization
@@ -144,6 +126,7 @@ struct Node
 		Key::IKdf::Ptr m_pDummy;
 
 		Key::Index m_nMinerSubIndex = 0;
+		bool m_bRecoverViaDummyKey = false; // normally only owner key is used in runtime. On startup dummy can be used too to rescan dummies
 
 		void InitSingleKey(const ECC::uintBig& seed);
 		void SetSingleKey(const Key::IKdf::Ptr&);
@@ -152,7 +135,6 @@ struct Node
 
 	~Node();
 	void Initialize(IExternalPOW* externalPOW=nullptr);
-	void ImportMacroblock(Height); // throws on err
 
 	NodeProcessor& get_Processor() { return m_Processor; } // for tests only!
 
@@ -178,42 +160,51 @@ private:
 		:public NodeProcessor
 	{
 		// NodeProcessor
-		void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer, Height hTarget) override;
+		void RequestData(const Block::SystemState::ID&, bool bBlock, const PeerID* pPreferredPeer, const NodeDB::StateID& sidTrg) override;
 		void OnPeerInsane(const PeerID&) override;
 		void OnNewState() override;
 		void OnRolledBack() override;
-		bool VerifyBlock(const Block::BodyBase&, TxBase::IReader&&, const HeightRange&) override;
-		void AdjustFossilEnd(Height&) override;
-		bool OpenMacroblock(Block::BodyBase::RW&, const NodeDB::StateID&) override;
 		void OnModified() override;
 		bool EnumViewerKeys(IKeyWalker&) override;
-		void OnUtxoEvent(const UtxoEvent::Key&, const UtxoEvent::Value&) override;
+		void OnUtxoEvent(const UtxoEvent::Value&) override;
 		void OnDummy(const Key::ID&, Height) override;
 
-		struct Verifier
+		struct TaskProcessor
+			:public Task::Processor
 		{
-			typedef ECC::InnerProduct::BatchContextEx<100> MyBatch; // seems to be ok, for larger batches difference is marginal
-
-			const TxBase* m_pTx;
-			TxBase::IReader* m_pR;
-			TxBase::Context* m_pCtx;
-
-			bool m_bFail;
-			uint32_t m_iTask;
-			uint32_t m_Remaining;
+			virtual uint32_t get_Threads() override;
+			virtual void Push(Task::Ptr&&) override;
+			virtual uint32_t Flush(uint32_t nMaxTasks) override;
+			virtual void ExecAll(Task&) override;
 
 			std::mutex m_Mutex;
-			std::condition_variable m_TaskNew;
-			std::condition_variable m_TaskFinished;
+
+			std::deque<Task::Ptr> m_queTasks;
+			uint32_t m_InProgress;
+			uint32_t m_FlushTarget;
+			bool m_Run;
+			Task* m_pCtl;
+			std::condition_variable m_NewTask;
+			std::condition_variable m_Flushed;
 
 			std::vector<std::thread> m_vThreads;
-			std::unique_ptr<MyBatch> m_pBc;
 
-			bool ValidateAndSummarize(TxBase::Context&, const TxBase&, TxBase::IReader&&);
+			typedef ECC::InnerProduct::BatchContextEx<100> MyBatch; // seems to be ok, for larger batches difference is marginal
+
+			~TaskProcessor() { Stop(); }
+			void Stop();
 			void Thread(uint32_t);
 
-			IMPLEMENT_GET_PARENT_OBJ(Processor, m_Verifier)
-		} m_Verifier;
+			IMPLEMENT_GET_PARENT_OBJ(Node::Processor, m_TaskProcessor)
+
+		private:
+			void InitSafe();
+			void FlushLocked(std::unique_lock<std::mutex>&, uint32_t nMaxTasks);
+
+		} m_TaskProcessor;
+
+		virtual Task::Processor& get_TaskProcessor() override { return m_TaskProcessor; }
+
 
 		Block::ChainWorkProof m_Cwp; // cached
 		bool BuildCwp();
@@ -223,8 +214,12 @@ private:
 		bool m_bFlushPending = false;
 		io::Timer::Ptr m_pFlushTimer;
 		void OnFlushTimer();
-
 		void FlushDB();
+
+		bool m_bGoUpPending = false;
+		io::Timer::Ptr m_pGoUpTimer;
+		void TryGoUpAsync();
+		void OnGoUpTimer();
 
 		std::deque<PeerID> m_lstInsanePeers;
 		io::AsyncEvent::Ptr m_pAsyncPeerInsane;
@@ -244,8 +239,9 @@ private:
 		typedef std::pair<Block::SystemState::ID, bool> Key;
 		Key m_Key;
 
+		bool m_bNeeded;
 		bool m_bPack;
-		Height m_hTarget;
+		NodeDB::StateID m_sidTrg;
 		Peer* m_pOwner;
 
 		bool operator < (const Task& t) const { return (m_Key < t.m_Key); }
@@ -260,43 +256,17 @@ private:
 	TaskList m_lstTasksUnassigned;
 	TaskSet m_setTasks;
 
-	struct FirstTimeSync
-	{
-		// there are 2 phases:
-		//	1. Detection, pick the best peer to sync from
-		//	2. Sync phase
-		bool m_bDetecting;
-
-		io::Timer::Ptr m_pTimer; // set during the 1st phase
-		Difficulty::Raw m_Best;
-
-		Block::SystemState::ID m_Trg;
-
-		uint32_t m_RequestsPending = 0;
-		uint8_t m_iData = 0;
-
-		uint64_t m_SizeTotal;
-		uint64_t m_SizeCompleted;
-	};
-
 	void UpdateSyncStatus();
 	void UpdateSyncStatusRaw();
-	void SetSyncTimer(uint32_t ms);
-	void OnSyncTimer();
-	void SyncCycle();
-	bool SyncCycle(Peer&);
-	void SyncCycle(Peer&, const ByteBuffer&);
-
-	std::unique_ptr<FirstTimeSync> m_pSync;
 
 	void TryAssignTask(Task&, const PeerID*);
 	bool TryAssignTask(Task&, Peer&);
+	bool TryAssignTask(Task&, Peer&, bool bMustSupportLatestProto);
 	void DeleteUnassignedTask(Task&);
 
 	void InitKeys();
 	void InitIDs();
-	void InitMode();
-	void RefreshDecoys();
+	void RefreshOwnedUtxos();
 
 	struct Wanted
 	{
@@ -318,7 +288,6 @@ private:
 		List m_lst;
 		Set m_set;
 		io::Timer::Ptr m_pTimer;
-		uint32_t m_Timeout_ms = 0;
 
 		void Delete(Item&);
 		void DeleteInternal(Item&);
@@ -444,10 +413,6 @@ private:
 			static const uint16_t Connected		= 0x001;
 			static const uint16_t PiRcvd		= 0x002;
 			static const uint16_t Owner			= 0x004;
-			static const uint16_t ProvenWorkReq	= 0x008;
-			static const uint16_t ProvenWork	= 0x010;
-			static const uint16_t SyncPending	= 0x020;
-			static const uint16_t DontSync		= 0x040;
 			static const uint16_t Finalizing	= 0x080;
 			static const uint16_t HasTreasury	= 0x100;
 			static const uint16_t Chocking		= 0x200;
@@ -483,7 +448,6 @@ private:
 		void SetTimer(uint32_t timeout_ms);
 		void KillTimer();
 		void OnResendPeers();
-		void SyncQuery();
 		void SendBbsMsg(const NodeDB::WalkerBbs::Data&);
 		void DeleteSelf(bool bIsError, uint8_t nByeReason);
 		void BroadcastTxs();
@@ -520,7 +484,9 @@ private:
 		virtual void OnMsg(proto::Hdr&&) override;
 		virtual void OnMsg(proto::HdrPack&&) override;
 		virtual void OnMsg(proto::GetBody&&) override;
+		virtual void OnMsg(proto::GetBodyPack&&) override;
 		virtual void OnMsg(proto::Body&&) override;
+		virtual void OnMsg(proto::BodyPack&&) override;
 		virtual void OnMsg(proto::NewTransaction&&) override;
 		virtual void OnMsg(proto::HaveTransaction&&) override;
 		virtual void OnMsg(proto::GetTransaction&&) override;
@@ -541,8 +507,6 @@ private:
 		virtual void OnMsg(proto::BbsPickChannelV0&&) override;
 		virtual void OnMsg(proto::BbsResetSync&&) override;
 		virtual void OnMsg(proto::MacroblockGet&&) override;
-		virtual void OnMsg(proto::Macroblock&&) override;
-		virtual void OnMsg(proto::ProofChainWork&&) override;
 		virtual void OnMsg(proto::GetUtxoEvents&&) override;
 		virtual void OnMsg(proto::BlockFinalization&&) override;
 	};
@@ -657,40 +621,6 @@ private:
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Miner)
 	} m_Miner;
-
-	struct Compressor
-	{
-		void Init();
-		void OnRolledBack();
-		void Cleanup();
-		void Delete(const NodeDB::StateID&);
-		void OnNewState();
-		void FmtPath(std::string&, Height, const Height* pH0);
-		void FmtPath(Block::BodyBase::RW&, Height, const Height* pH0);
-		void StopCurrent();
-
-		void OnNotify();
-		void Proceed();
-		bool ProceedInternal();
-		bool SquashOnce(std::vector<HeightRange>&);
-		bool SquashOnce(Block::BodyBase::RW&, Block::BodyBase::RW& rwSrc0, Block::BodyBase::RW& rwSrc1);
-		uint64_t get_SizeTotal(Height);
-
-		PerThread m_Link;
-		std::mutex m_Mutex;
-		std::condition_variable m_Cond;
-
-		volatile bool m_bStop;
-		bool m_bEnabled;
-		bool m_bSuccess;
-
-		// current data exchanged
-		HeightRange m_hrNew; // requested range. If min is non-zero - should be merged with previously-generated
-		HeightRange m_hrInplaceRequest;
-		Merkle::Hash m_hvTag;
-
-		IMPLEMENT_GET_PARENT_OBJ(Node, m_Compressor)
-	} m_Compressor;
 };
 
 } // namespace beam

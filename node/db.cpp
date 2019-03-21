@@ -38,9 +38,10 @@ namespace beam {
 #define TblStates_Mmr			"Mmr"
 #define TblStates_BodyP			"Perishable"
 #define TblStates_BodyE			"Ethernal"
-#define TblStates_Rollback		"Rollback"
 #define TblStates_Peer			"Peer"
 #define TblStates_ChainWork		"ChainWork"
+#define TblStates_Txos			"Txos"
+#define TblStates_Extra			"Extra"
 
 #define TblTips					"Tips"
 #define TblTipsReachable		"TipsReachable"
@@ -56,9 +57,6 @@ namespace beam {
 #define TblEvents_Height		"Height"
 #define TblEvents_Body			"Body"
 #define TblEvents_Key			"Key"
-
-#define TblCompressed			"Macroblocks"
-#define TblCompressed_Row1		"RowLast"
 
 #define TblPeer					"Peers"
 #define TblPeer_Key				"Key"
@@ -77,6 +75,11 @@ namespace beam {
 #define TblDummy				"Dummies"
 #define TblDummy_ID				"ID"
 #define TblDummy_SpendHeight	"SpendHeight"
+
+#define TblTxo					"Txo"
+#define TblTxo_ID				"ID"
+#define TblTxo_Value			"Value"
+#define TblTxo_SpendHeight		"SpendHeight"
 
 NodeDB::NodeDB()
 	:m_pDb(NULL)
@@ -267,11 +270,8 @@ void NodeDB::Open(const char* szPath)
 	// Attempt to fix the "busy" error when PC goes to sleep and then awakes. Try the busy handler with non-zero timeout (maybe a single retry would be enough)
 	sqlite3_busy_timeout(m_pDb, 5000);
 
-	std::string s = ExecTextOut("PRAGMA integrity_check");
-	if (s != "ok")
-		ThrowError(("sqlite integrity: " + s).c_str());
-
 	ExecTextOut("PRAGMA locking_mode = EXCLUSIVE");
+	ExecTextOut("PRAGMA journal_size_limit=1048576"); // limit journal file, otherwise it may remain huge even after tx commit, until the app is closed
 
 	bool bCreate;
 	{
@@ -280,9 +280,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 16;
-	const uint64_t nVersionDummy0 = 15;
-	const uint64_t nVersionNoBbsPoW = 14;
+	const uint64_t nVersionTop = 17;
 
 	Transaction t(*this);
 
@@ -294,30 +292,18 @@ void NodeDB::Open(const char* szPath)
 	else
 	{
 		uint64_t nVer = ParamIntGetDef(ParamID::DbVer);
-
-		switch (nVer)
-		{
-		case nVersionNoBbsPoW:
-			ExecQuick("ALTER TABLE [" TblBbs "] ADD [" TblBbs_Nonce "] INTEGER");
-			// no break;
-
-		case nVersionDummy0:
-			ExecQuick("DROP INDEX [Idx" TblDummy "H]");
-			ExecQuick("DROP TABLE [" TblDummy "]");
-			CreateTableDummy();
-
-			ParamSet(ParamID::DbVer, &nVersionTop, NULL);
-			// no break;
-
-		case nVersionTop:
-			break;
-
-		default:
-			ThrowError("wrong version");
-		}
+		if (nVer < nVersionTop)
+			throw NodeDBUpgradeException("Node upgrade is not supported. Please, remove node.db and tempmb files");
 	}
 
 	t.Commit();
+}
+
+void NodeDB::CheckIntegrity()
+{
+	std::string s = ExecTextOut("PRAGMA integrity_check");
+	if (s != "ok")
+		ThrowError(("sqlite integrity: " + s).c_str());
 }
 
 void NodeDB::Create()
@@ -345,13 +331,15 @@ void NodeDB::Create()
 		"[" TblStates_Mmr			"] BLOB,"
 		"[" TblStates_BodyP			"] BLOB,"
 		"[" TblStates_BodyE			"] BLOB,"
-		"[" TblStates_Rollback		"] BLOB,"
 		"[" TblStates_Peer			"] BLOB,"
 		"[" TblStates_ChainWork		"] BLOB,"
+		"[" TblStates_Txos			"] INTEGER,"
+		"[" TblStates_Extra			"] BLOB,"
 		"PRIMARY KEY (" TblStates_Height "," TblStates_Hash "),"
 		"FOREIGN KEY (" TblStates_RowPrev ") REFERENCES " TblStates "(OID))");
 
 	ExecQuick("CREATE INDEX [Idx" TblStates "Wrk] ON [" TblStates "] ([" TblStates_ChainWork "]);");
+	ExecQuick("CREATE INDEX [Idx" TblStates TblStates_Txos "] ON [" TblStates "] ([" TblStates_Txos "]);");
 
 	ExecQuick("CREATE TABLE [" TblTips "] ("
 		"[" TblTips_Height	"] INTEGER NOT NULL,"
@@ -382,11 +370,6 @@ void NodeDB::Create()
 	ExecQuick("CREATE INDEX [Idx" TblEvents "] ON [" TblEvents "] ([" TblEvents_Height "],[" TblEvents_Body "]);");
 	ExecQuick("CREATE INDEX [Idx" TblEvents TblEvents_Key "] ON [" TblEvents "] ([" TblEvents_Key "]);");
 
-	ExecQuick("CREATE TABLE [" TblCompressed "] ("
-		"[" TblCompressed_Row1	"] INTEGER NOT NULL,"
-		"PRIMARY KEY (" TblCompressed_Row1 "),"
-		"FOREIGN KEY (" TblCompressed_Row1 ") REFERENCES " TblStates "(OID))");
-
 	ExecQuick("CREATE TABLE [" TblPeer "] ("
 		"[" TblPeer_Key			"] BLOB NOT NULL,"
 		"[" TblPeer_Rating		"] INTEGER NOT NULL,"
@@ -406,6 +389,7 @@ void NodeDB::Create()
 	ExecQuick("CREATE INDEX [Idx" TblBbs "Key] ON [" TblBbs "] ([" TblBbs_Key "]);");
 
 	CreateTableDummy();
+	CreateTableTxos();
 }
 
 void NodeDB::CreateTableDummy()
@@ -415,6 +399,16 @@ void NodeDB::CreateTableDummy()
 		"[" TblDummy_SpendHeight	"] INTEGER NOT NULL)");
 
 	ExecQuick("CREATE INDEX [Idx" TblDummy "H] ON [" TblDummy "] ([" TblDummy_SpendHeight "])");
+}
+
+void NodeDB::CreateTableTxos()
+{
+	ExecQuick("CREATE TABLE [" TblTxo "] ("
+		"[" TblTxo_ID				"] INTEGER NOT NULL PRIMARY KEY,"
+		"[" TblTxo_Value			"] BLOB NOT NULL,"
+		"[" TblTxo_SpendHeight		"] INTEGER)");
+
+	ExecQuick("CREATE INDEX [Idx" TblTxo "SH] ON [" TblTxo "] ([" TblTxo_SpendHeight "])");
 }
 
 void NodeDB::Vacuum()
@@ -562,8 +556,10 @@ bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, Blob* p1, ByteBuffer* p2 /* = N
 		rs.get(0, *p0);
 	if (p1)
 	{
-		const void* pPtr = rs.get_BlobStrict(1, p1->n);
-		memcpy((void*) p1->p, pPtr, p1->n);
+		if (rs.IsNull(1))
+			return false;
+
+		memcpy(Cast::NotConst(p1->p), rs.get_BlobStrict(1, p1->n), p1->n);
 	}
 	if (p2)
 		rs.get(1, *p2);
@@ -1090,6 +1086,68 @@ bool NodeDB::get_Peer(uint64_t rowid, PeerID& peer)
 	return true;
 }
 
+void NodeDB::set_StateExtra(uint64_t rowid, const ECC::Scalar* pVal)
+{
+	Recordset rs(*this, Query::StateSetExtra, "UPDATE " TblStates " SET " TblStates_Extra "=? WHERE rowid=?");
+	if (pVal)
+		rs.put(0, pVal->m_Value);
+	rs.put(1, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
+bool NodeDB::get_StateExtra(uint64_t rowid, ECC::Scalar& val)
+{
+	Recordset rs(*this, Query::StateGetExtra, "SELECT " TblStates_Extra " FROM " TblStates " WHERE rowid=?");
+	rs.put(0, rowid);
+	rs.StepStrict();
+
+	if (rs.IsNull(0))
+		return false;
+
+	rs.get(0, val.m_Value);
+	return true;
+}
+
+void NodeDB::set_StateTxos(uint64_t rowid, const TxoID* pId)
+{
+	Recordset rs(*this, Query::StateSetTxos, "UPDATE " TblStates " SET " TblStates_Txos "=? WHERE rowid=?");
+	if (pId)
+		rs.put(0, *pId);
+	rs.put(1, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
+TxoID NodeDB::get_StateTxos(uint64_t rowid)
+{
+	Recordset rs(*this, Query::StateGetTxos, "SELECT " TblStates_Txos " FROM " TblStates " WHERE rowid=?");
+	rs.put(0, rowid);
+	rs.StepStrict();
+
+	if (rs.IsNull(0))
+		return MaxHeight;
+
+	TxoID id;
+	rs.get(0, id);
+	return id;
+}
+
+TxoID NodeDB::FindStateByTxoID(StateID& sid, TxoID id0)
+{
+	Recordset rs(*this, Query::StateFindByTxos, "SELECT rowid," TblStates_Height "," TblStates_Txos " FROM " TblStates
+		" WHERE " TblStates_Txos ">? AND " TblStates_Flags "& ? != 0  ORDER BY " TblStates_Txos " ASC LIMIT 1");
+	rs.put(0, id0);
+	rs.put(1, StateFlags::Active);
+	rs.StepStrict();
+
+	rs.get(0, sid.m_Row);
+	rs.get(1, sid.m_Height);
+	rs.get(2, id0);
+
+	return id0;
+}
+
 void NodeDB::SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE)
 {
 	Recordset rs(*this, Query::StateSetBlock, "UPDATE " TblStates " SET " TblStates_BodyP "=?," TblStates_BodyE "=? WHERE rowid=?");
@@ -1103,9 +1161,9 @@ void NodeDB::SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE)
 	TestChanged1Row();
 }
 
-void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteBuffer* pRollback)
+void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE)
 {
-	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_BodyP "," TblStates_BodyE "," TblStates_Rollback " FROM " TblStates " WHERE rowid=?");
+	Recordset rs(*this, Query::StateGetBlock, "SELECT " TblStates_BodyP "," TblStates_BodyE " FROM " TblStates " WHERE rowid=?");
 	rs.put(0, rowid);
 	rs.StepStrict();
 
@@ -1113,33 +1171,20 @@ void NodeDB::GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteB
 		rs.get(0, *pP);
 	if (pE && !rs.IsNull(1))
 		rs.get(1, *pE);
-	if (pRollback && !rs.IsNull(2))
-		rs.get(2, *pRollback);
 }
 
-void NodeDB::SetStateRollback(uint64_t rowid, const Blob& rollback)
+void NodeDB::DelStateBlockPP(uint64_t rowid)
 {
-	Recordset rs(*this, Query::StateSetRollback, "UPDATE " TblStates " SET " TblStates_Rollback "=? WHERE rowid=?");
-	rs.put(0, rollback);
-	rs.put(1, rowid);
-
+	Recordset rs(*this, Query::StateDelBlock, "UPDATE " TblStates " SET " TblStates_BodyP "=NULL," TblStates_Peer "=NULL WHERE rowid=?");
+	rs.put(0, rowid);
 	rs.Step();
 	TestChanged1Row();
 }
-
-//void NodeDB::DelStateBlockPRB(uint64_t rowid)
-//{
-//	Recordset rs(*this, Query::StateDelBlock, "UPDATE " TblStates " SET " TblStates_BodyP "=?," TblStates_Rollback "=? WHERE rowid=?");
-//	rs.put(2, rowid);
-//	rs.Step();
-//	TestChanged1Row();
-//}
 
 void NodeDB::DelStateBlockAll(uint64_t rowid)
 {
 	Blob bEmpty(NULL, 0);
 	SetStateBlock(rowid, bEmpty, bEmpty);
-	SetStateRollback(rowid, bEmpty);
 }
 
 void NodeDB::SetFlags(uint64_t rowid, uint32_t n)
@@ -1558,9 +1603,9 @@ void NodeDB::InsertEvent(Height h, const Blob& b, const Blob& key)
 	TestChanged1Row();
 }
 
-void NodeDB::DeleteEventsAbove(Height h)
+void NodeDB::DeleteEventsFrom(Height h)
 {
-	Recordset rs(*this, Query::EventDel, "DELETE FROM " TblEvents " WHERE " TblEvents_Height ">?");
+	Recordset rs(*this, Query::EventDel, "DELETE FROM " TblEvents " WHERE " TblEvents_Height ">=?");
 	rs.put(0, h);
 	rs.Step();
 }
@@ -1588,29 +1633,6 @@ bool NodeDB::WalkerEvent::MoveNext()
 	else
 		m_Rs.get(2, m_Key);
 	return true;
-}
-
-void NodeDB::EnumMacroblocks(WalkerState& x)
-{
-	x.m_Rs.Reset(Query::MacroblockEnum, "SELECT " TblStates "." TblTips_Height "," TblCompressed_Row1
-		" FROM " TblCompressed " LEFT JOIN " TblStates " ON " TblCompressed_Row1 "=" TblStates ".rowid"
-		" ORDER BY " TblStates "." TblTips_Height " DESC");
-}
-
-void NodeDB::MacroblockIns(uint64_t rowid)
-{
-	Recordset rs(*this, Query::MacroblockIns, "INSERT INTO " TblCompressed " VALUES(?)");
-	rs.put(0, rowid);
-	rs.Step();
-	TestChanged1Row();
-}
-
-void NodeDB::MacroblockDel(uint64_t rowid)
-{
-	Recordset rs(*this, Query::MacroblockDel, "DELETE FROM " TblCompressed " WHERE " TblCompressed_Row1 "=?");
-	rs.put(0, rowid);
-	rs.Step();
-	TestChanged1Row();
 }
 
 void NodeDB::EnumPeers(WalkerPeer& x)
@@ -1876,7 +1898,7 @@ void NodeDB::ResetCursor()
 	rs.Reset(Query::KernelDelAll, "DELETE FROM " TblKernels);
 	rs.Step();
 
-	DeleteEventsAbove(Rules::HeightGenesis - 1);
+	DeleteEventsFrom(Rules::HeightGenesis);
 
 	StateID sid;
 	sid.m_Row = 0;
@@ -1925,6 +1947,103 @@ Height NodeDB::FindKernel(const Blob& key)
 
 	assert(h >= Rules::HeightGenesis);
 	return h;
+}
+
+Height NodeDB::FindBlock(const Blob& hash)
+{
+    Recordset rs(*this, Query::BlockFind, "SELECT " TblStates_Height " FROM " TblStates" WHERE " TblStates_Hash "=? ORDER BY " TblStates_Height " DESC LIMIT 1");
+    rs.put(0, hash);
+    if (!rs.Step())
+        return Rules::HeightGenesis - 1;
+
+    Height h;
+    rs.get(0, h);
+
+    assert(h >= Rules::HeightGenesis);
+    return h;
+}
+
+void NodeDB::TxoAdd(TxoID id, const Blob& b)
+{
+	Recordset rs(*this, Query::TxoAdd, "INSERT INTO " TblTxo "(" TblTxo_ID "," TblTxo_Value ") VALUES(?,?)");
+	rs.put(0, id);
+	rs.put(1, b);
+	rs.Step();
+}
+
+void NodeDB::TxoDelFrom(TxoID id)
+{
+	Recordset rs(*this, Query::TxoDelFrom, "DELETE FROM " TblTxo " WHERE " TblTxo_ID ">=?");
+	rs.put(0, id);
+	rs.Step();
+}
+
+void NodeDB::TxoSetSpent(TxoID id, Height h)
+{
+	Recordset rs(*this, Query::TxoSetSpent, "UPDATE " TblTxo " SET " TblTxo_SpendHeight "=? WHERE " TblTxo_ID "=?");
+	rs.put(0, h);
+	rs.put(1, id);
+
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::TxoDelSpentFrom(Height h)
+{
+	Recordset rs(*this, Query::TxoDelSpentFrom, "UPDATE " TblTxo " SET " TblTxo_SpendHeight "=NULL WHERE " TblTxo_SpendHeight ">=?");
+	rs.put(0, h);
+	rs.Step();
+}
+
+void NodeDB::EnumTxos(WalkerTxo& wlk, TxoID id0)
+{
+	wlk.m_Rs.Reset(Query::TxoEnum, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_ID ">=? ORDER BY " TblTxo_ID);
+	wlk.m_Rs.put(0, id0);
+}
+
+void NodeDB::EnumTxosBySpent(WalkerTxo& wlk, const HeightRange& hr)
+{
+	wlk.m_Rs.Reset(Query::TxoEnumBySpent, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_SpendHeight ">=? AND " TblTxo_SpendHeight "<=? ORDER BY " TblTxo_SpendHeight);
+	wlk.m_Rs.put(0, hr.m_Min);
+	wlk.m_Rs.put(1, std::min(hr.m_Max, (MaxHeight >> 1))); // sqlite uses signed int64
+}
+
+bool NodeDB::WalkerTxo::MoveNext()
+{
+	if (!m_Rs.Step())
+		return false;
+
+	m_Rs.get(0, m_ID);
+	m_Rs.get(1, m_Value);
+
+	if (m_Rs.IsNull(2))
+		m_SpendHeight = MaxHeight;
+	else
+		m_Rs.get(2, m_SpendHeight);
+
+	return true;
+}
+
+uint64_t NodeDB::DeleteSpentTxos(const HeightRange& hr, TxoID id0)
+{
+	assert(!hr.IsEmpty());
+
+	Recordset rs(*this, Query::TxoDelSpentTxosFrom, "DELETE FROM " TblTxo " WHERE " TblTxo_SpendHeight ">=? AND " TblTxo_SpendHeight "<=? AND " TblTxo_ID ">=?");
+	rs.put(0, hr.m_Min);
+	rs.put(1, hr.m_Max);
+	rs.put(2, id0);
+	rs.Step();
+
+	return static_cast<uint64_t>(get_RowsChanged());
+}
+
+void NodeDB::TxoSetValue(TxoID id, const Blob& v)
+{
+	Recordset rs(*this, Query::TxoSetValue, "UPDATE " TblTxo " SET " TblTxo_Value "=? WHERE " TblTxo_ID "=?");
+	rs.put(0, v);
+	rs.put(1, id);
+	rs.Step();
+	TestChanged1Row();
 }
 
 } // namespace beam

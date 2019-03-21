@@ -3,7 +3,7 @@
 
 namespace beam {
 
-IWalletDB::Ptr init_wallet_db(const std::string& path, ECC::uintBig* walletSeed);
+IWalletDB::Ptr init_wallet_db(const std::string& path, ECC::uintBig* walletSeed, io::Reactor::Ptr reactor);
 
 bool ReadTreasury(ByteBuffer&, const std::string& sPath);
 

@@ -96,6 +96,7 @@ namespace beam
         bool get_tip(Block::SystemState::Full& state) const override;
         void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override;
         void register_tx(const TxID& txId, Transaction::Ptr) override;
+        void UpdateOnNextTip(const TxID&) override;
 
         void OnWalletMessage(const WalletID& peerID, wallet::SetTxParameter&&) override;
 
@@ -120,6 +121,8 @@ namespace beam
         void report_sync_progress();
         void notifySyncProgress();
         void updateTransaction(const TxID& txID);
+        void UpdateOnSynced(wallet::BaseTransaction::Ptr tx);
+        void UpdateOnNextTip(wallet::BaseTransaction::Ptr tx);
         void saveKnownState();
         void RequestUtxoEvents();
         void AbortUtxoEvents();
@@ -204,6 +207,7 @@ namespace beam
         IWalletNetwork* m_pWalletNetwork;
         std::map<TxID, wallet::BaseTransaction::Ptr> m_Transactions;
         std::unordered_set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
+        std::unordered_set<wallet::BaseTransaction::Ptr> m_NextTipTransactionToUpdate;
         TxCompletedAction m_TxCompletedAction;
         uint32_t m_LastSyncTotal;
         uint32_t m_OwnedNodesOnline;

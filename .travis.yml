@@ -49,16 +49,34 @@ matrix:
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
         - export QT5_ROOT_DIR="/usr/local/qt5-static"
         - export QML_IMPORT_PATH="/usr/local/qt5-static/qml"
+        - openssl aes-256-cbc -K $encrypted_1f9ebee66ea9_key -iv $encrypted_1f9ebee66ea9_iv -in macos_cert.enc -out macos_cert.tar -d
+        - tar xvf macos_cert.tar
+        # create custom keychain
+        - security create-keychain -p travis macos-build.keychain
+        - security default-keychain -s macos-build.keychain
+        - security unlock-keychain -p travis macos-build.keychain
+        - security set-keychain-settings -t 3600 -l ~/Library/Keychains/macos-build.keychain
+        # import certificates
+        - security import distkey.p12 -P $MACOS_DISTRIBUTION_KEY_PASSWORD  -k ~/Library/Keychains/macos-build.keychain -T /usr/bin/codesign
+        - security import devapp.cer -k ~/Library/Keychains/macos-build.keychain -T /usr/bin/codesign
+        - security set-key-partition-list -S "apple-tool:,apple:" -s -k travis macos-build.keychain
       env: 
         - BUILD_TYPE=Release
         - OS_FOLDER=mac
       script:
-        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH . && make -j 4 && ctest --verbose && cpack;
+        - cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DDEBUG_MESSAGES_IN_RELEASE_MODE=On -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=$TRAVIS_BRANCH -DBEAM_SIGN_MACOS_BINARY=On . && make -j 4 && ctest --verbose && cpack;
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
         - echo BEAM_VERSION = $BEAM_VERSION
         - export BEAM_WALLET_UI_IN="BeamWalletTestnet-$BEAM_VERSION-Darwin.dmg"
         - export BEAM_WALLET_UI_OUT="Beam-Wallet-Testnet-$BEAM_VERSION.dmg"
+        # sign our builds
+        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" beam/beam-node
+        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" wallet/beam-wallet
+        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" wallet/wallet-api
+        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" explorer/explorer-node
+        - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" $BEAM_WALLET_UI_IN
+
 ###############################################################################
 # Linux Debug
 ###############################################################################
@@ -126,8 +144,8 @@ matrix:
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
         - echo BEAM_VERSION = $BEAM_VERSION
-        - export BEAM_WALLET_UI_IN="BeamWalletTestnet-$BEAM_VERSION-Linux.deb"
-        - export BEAM_WALLET_UI_OUT="Beam-Wallet-Testnet-$BEAM_VERSION.deb"
+        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Linux.deb"
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
 
 ###############################################################################
 # Android x86 Release

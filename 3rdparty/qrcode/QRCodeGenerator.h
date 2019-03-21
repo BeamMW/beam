@@ -30,7 +30,7 @@
 #define MAX_CODEBLOCK	  153 
 #define MAX_MODULESIZE	  177 
 
-#define QR_MARGIN	4
+#define QR_MARGIN	1
 
 
 /////////////////////////////////////////////////////////////////////////////

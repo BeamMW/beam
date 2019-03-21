@@ -14,6 +14,7 @@
 
 #pragma once
 #include "utility/io/errorhandling.h"
+#include "utility/common.h"
 #include <functional>
 #include <string_view>
 #include <memory>
@@ -39,6 +40,8 @@ struct HttpUrl {
     }
 
     int64_t get_int_arg(const std::string_view& name, int64_t defValue) const;
+    bool get_hex_arg(const std::string_view& name, ByteBuffer& buffer) const;
+    bool has_arg(const std::string_view& name) const;
 
     /// Parses path string, dirs contain 1st words in path. If dir is not found, all the rest is not parsed
     bool parse(const std::string& url, const std::map<std::string_view, int>& dirs);

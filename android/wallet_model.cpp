@@ -22,8 +22,8 @@ using namespace beam;
 using namespace beam::io;
 using namespace std;
 
-WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr)
-    : WalletClient(walletDB, nodeAddr)
+WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor)
+    : WalletClient(walletDB, nodeAddr, reactor)
 {    
 }
 
@@ -284,4 +284,9 @@ void WalletModel::onCantSendToExpired()
     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onCantSendToExpired", "()V");
 
     env->CallStaticVoidMethod(WalletListenerClass, callback);
+}
+
+void WalletModel::onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof)
+{
+
 }

@@ -16,6 +16,7 @@
 
 #include "core/common.h"
 #include "core/ecc_native.h"
+#include "core/merkle.h"
 
 #include "core/serialization_adapters.h"
 #include "core/proto.h"
@@ -94,6 +95,7 @@ namespace beam
     MACRO(FailedToGetParameter,   9, "Failed to get parameter") \
     MACRO(TransactionExpired,     10, "Transaction has expired") \
     MACRO(NoPaymentProof,         11, "Payment not signed by the receiver") \
+    MACRO(MaxHeightIsUnacceptable,12, "Kernel's max height is unacceptable") \
 
     enum TxFailureReason : int32_t
     {
@@ -166,6 +168,8 @@ namespace beam
                 || m_status == beam::TxStatus::Completed
                 || m_status == beam::TxStatus::Cancelled;
         }
+
+        std::string getStatusString() const;
     };
 
     namespace wallet
@@ -198,11 +202,12 @@ namespace beam
             //Outputs = 9,
             CreateTime = 10,
             IsInitiator = 11,
-            MaxHeight = 12,
+            PeerMaxHeight = 12,
             AmountList = 13,
             PreselectedCoins = 14,
-
+            Lifetime = 15,
             PeerProtoVersion = 16,
+            MaxHeight = 17,
 
             AtomicSwapCoin = 20,
             AtomicSwapAmount = 21,
@@ -256,6 +261,7 @@ namespace beam
             LockedBlindingExcess = 132,
 
             KernelUnconfirmedHeight = 133,
+            PeerResponseHeight = 134,
 
             Offset = 140,
             SharedOffset = 141,
@@ -347,6 +353,7 @@ namespace beam
             virtual void confirm_kernel(const TxID&, const TxKernel&) = 0;
             virtual bool get_tip(Block::SystemState::Full& state) const = 0;
             virtual void send_tx_params(const WalletID& peerID, SetTxParameter&&) = 0;
+            virtual void UpdateOnNextTip(const TxID&) = 0;
         };
 
         enum class ErrorType : uint8_t
@@ -384,4 +391,5 @@ namespace beam
 namespace std
 {
     string to_string(const beam::WalletID&);
+    string to_string(const beam::Merkle::Hash& hash);
 }
