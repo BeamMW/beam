@@ -144,8 +144,8 @@ matrix:
         # extract build version
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
         - echo BEAM_VERSION = $BEAM_VERSION
-        - export BEAM_WALLET_UI_IN="BeamWallet-$BEAM_VERSION-Linux.deb"
-        - export BEAM_WALLET_UI_OUT="Beam-Wallet-$BEAM_VERSION.deb"
+        - export BEAM_WALLET_UI_IN="BeamWalletTestnet-$BEAM_VERSION-Linux.deb"
+        - export BEAM_WALLET_UI_OUT="Beam-Wallet-Testnet-$BEAM_VERSION.deb"
 
 ###############################################################################
 # Android x86 Release
