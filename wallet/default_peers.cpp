@@ -20,15 +20,9 @@ namespace beam
         std::vector<std::string> result
         {
 #ifdef BEAM_TESTNET
-            "ap-node01.testnet.beam.mw:8100",
-            "ap-node02.testnet.beam.mw:8100",
-            "ap-node03.testnet.beam.mw:8100",
-            "eu-node01.testnet.beam.mw:8100",
-            "eu-node02.testnet.beam.mw:8100",
-            "eu-node03.testnet.beam.mw:8100",
-            "us-node01.testnet.beam.mw:8100",
-            "us-node02.testnet.beam.mw:8100",
-            "us-node03.testnet.beam.mw:8100"
+            "us-nodes.testnet.beam.mw:8100",
+            "eu-nodes.testnet.beam.mw:8100",
+            "ap-nodes.testnet.beam.mw:8100"
 #else
             "eu-node01.masternet.beam.mw:8100",
             "eu-node02.masternet.beam.mw:8100",
