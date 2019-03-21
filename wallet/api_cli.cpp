@@ -312,7 +312,49 @@ namespace beam
 
             void onMessage(int id, const EditAddress& data) override
             {
-                methodNotImplementedYet(id);
+                LOG_DEBUG() << "EditAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
+
+                auto addr = _walletDB->getAddress(data.address);
+
+                if (addr)
+                {
+                    if (addr->m_OwnID)
+                    {
+                        if (data.name)
+                        {
+                            addr->setLabel(*data.name);
+                        }
+
+                        if (data.action)
+                        {
+                            switch (*data.action)
+                            {
+                            case EditAddress::Active:
+                                addr->makeActive(24 * 60 * 60);
+                                break;
+                            case EditAddress::Expired:
+                                addr->makeExpired();
+                                break;
+                            case EditAddress::Eternal:
+                                addr->makeEternal();
+                                break;
+                            }
+                        }
+
+                        _walletDB->saveAddress(*addr);
+                        _wnet.AddOwnAddress(*addr);
+
+                        doResponse(id, EditAddress::Response{});
+                    }
+                    else
+                    {
+                        doError(id, INVALID_ADDRESS, "You can edit only own address.");
+                    }
+                }
+                else
+                {
+                    doError(id, INVALID_ADDRESS, "Provided address doesn't exist.");
+                }
             }
 
             void onMessage(int id, const AddrList& data) override

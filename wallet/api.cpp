@@ -88,13 +88,50 @@ namespace beam
 
     void WalletApi::onDeleteAddressMessage(int id, const nlohmann::json& params)
     {
+        checkJsonParam(params, "address", id);
+
         DeleteAddress deleteAddress;
+        deleteAddress.address.FromHex(params["address"]);
+
         _handler.onMessage(id, deleteAddress);
     }
 
     void WalletApi::onEditAddressMessage(int id, const nlohmann::json& params)
     {
+        checkJsonParam(params, "address", id);
+
+        if (!existsJsonParam(params, "name") && !existsJsonParam(params, "action"))
+            throwInvalidJsonRpc(id);
+
         EditAddress editAddress;
+        editAddress.address.FromHex(params["address"]);
+
+        if (existsJsonParam(params, "name"))
+        {
+            std::string name = params["name"];
+
+            if(name.empty())
+                throwInvalidJsonRpc(id);
+
+            editAddress.name = name;
+        }
+
+        if (existsJsonParam(params, "action"))
+        {
+            std::string action = params["action"];
+
+            static std::map<std::string, EditAddress::Action> Actions = 
+            {
+                {"expired", EditAddress::Expired},
+                {"active",  EditAddress::Active},
+                {"eternal", EditAddress::Eternal},
+            };
+
+            if(Actions.count(action) == 0) throwInvalidJsonRpc(id);
+
+            editAddress.action = Actions[action];
+        }
+
         _handler.onMessage(id, editAddress);
     }
 
@@ -353,6 +390,16 @@ namespace beam
     }
 
     void WalletApi::getResponse(int id, const DeleteAddress::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", "done"}
+        };
+    }
+
+    void WalletApi::getResponse(int id, const EditAddress::Response& res, json& msg)
     {
         msg = json
         {

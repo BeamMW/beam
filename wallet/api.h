@@ -70,18 +70,19 @@ namespace beam
 
     struct EditAddress
     {
-        struct Response
-        {
+        WalletID address;
 
-        };
+        boost::optional<std::string> name;
+
+        enum Action { Expired, Eternal, Active };
+        boost::optional<Action> action;
+
+        struct Response {};
     };
 
     struct AddrList
     {
-        struct Response
-        {
-
-        };
+        struct Response {};
     };
 
     struct ValidateAddress
