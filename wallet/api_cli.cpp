@@ -320,22 +320,22 @@ namespace beam
                 {
                     if (addr->m_OwnID)
                     {
-                        if (data.label)
+                        if (data.comment)
                         {
-                            addr->setLabel(*data.label);
+                            addr->setLabel(*data.comment);
                         }
 
-                        if (data.action)
+                        if (data.expiration)
                         {
-                            switch (*data.action)
+                            switch (*data.expiration)
                             {
-                            case EditAddress::Active:
+                            case EditAddress::OneDay:
                                 addr->makeActive(24 * 60 * 60);
                                 break;
                             case EditAddress::Expired:
                                 addr->makeExpired();
                                 break;
-                            case EditAddress::Eternal:
+                            case EditAddress::Never:
                                 addr->makeEternal();
                                 break;
                             }
