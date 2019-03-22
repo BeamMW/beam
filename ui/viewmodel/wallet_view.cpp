@@ -205,10 +205,10 @@ QString TxObject::getFailureReason() const
             tr("Failed to register transaction with the blockchain, see node logs for details"),
             tr("Transaction is not valid, please send wallet logs to Beam support"),
             tr("Invalid kernel proof provided"),
-            tr("Failed to send tx parameters"),
+            tr("Failed to send Transaction parameters"),
             tr("No inputs"),
             tr("Address is expired"),
-            tr("Failed to get parameter"),
+            tr("Failed to get transaction parameters"),
             tr("Transaction timed out"),
             tr("Payment not signed by the receiver, please send wallet logs to Beam support"),
             tr("Kernel maximum height is too high")
