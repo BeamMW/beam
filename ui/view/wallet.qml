@@ -994,8 +994,7 @@ Item {
                             SvgImage {
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
-                                anchors.leftMargin: 26
-                                sourceSize: Qt.size(28, 28)
+                                anchors.leftMargin: 26 
                                 source: "qrc:/assets/beam-circle.svg"
                             }
                         }
