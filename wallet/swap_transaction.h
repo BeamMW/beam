@@ -122,7 +122,7 @@ namespace beam::wallet
         bool IsBeamLockTimeExpired() const;
 
         // wait SubTX in BEAM chain(request kernel proof), returns true if got kernel proof
-        bool IsSubTxCompleted(SubTxID subTxID) const;
+        bool CompleteSubTx(SubTxID subTxID);
 
         bool GetPreimageFromChain(ECC::uintBig& preimage) const;
 

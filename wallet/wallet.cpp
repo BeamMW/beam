@@ -935,6 +935,10 @@ namespace beam
 
     BitcoinRPC::Ptr Wallet::get_bitcoin_rpc() const
     {
+        if (!m_bitcoinRPC)
+        {
+            LOG_DEBUG() << "Bitcoin RPC isn't initialized!";
+        }
         return m_bitcoinRPC;
     }
 

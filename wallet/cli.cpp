@@ -752,6 +752,42 @@ namespace
         }
         return coinIDs;
     }
+
+    bool LoadBaseParamsForTX(const po::variables_map& vm, Amount& amount, Amount& fee, WalletID& receiverWalletID)
+    {
+        if (vm.count(cli::RECEIVER_ADDR) == 0)
+        {
+            LOG_ERROR() << "receiver's address is missing";
+            return false;
+        }
+        if (vm.count(cli::AMOUNT) == 0)
+        {
+            LOG_ERROR() << "amount is missing";
+            return false;
+        }
+
+        receiverWalletID.FromHex(vm[cli::RECEIVER_ADDR].as<string>());
+
+        auto signedAmount = vm[cli::AMOUNT].as<double>();
+        if (signedAmount < 0)
+        {
+            LOG_ERROR() << "Unable to send negative amount of coins";
+            return false;
+        }
+
+        signedAmount *= Rules::Coin; // convert beams to coins
+
+        amount = static_cast<ECC::Amount>(std::round(signedAmount));
+        if (amount == 0)
+        {
+            LOG_ERROR() << "Unable to send zero coins";
+            return false;
+        }
+
+        fee = vm[cli::FEE].as<beam::Amount>();
+
+        return true;
+    }
 }
 
 io::Reactor::Ptr reactor;
@@ -817,7 +853,7 @@ int main_impl(int argc, char* argv[])
 
             Rules::get().UpdateChecksum();
 
-           {
+            {
                 reactor = io::Reactor::create();
                 io::Reactor::Scope scope(*reactor);
 
@@ -853,7 +889,8 @@ int main_impl(int argc, char* argv[])
                         && command != cli::WALLET_ADDRESS_LIST
                         && command != cli::WALLET_RESCAN
                         && command != cli::IMPORT_ADDRESSES
-                        && command != cli::EXPORT_ADDRESSES)
+                        && command != cli::EXPORT_ADDRESSES
+                        && command != cli::SWAP_COINS)
                     {
                         LOG_ERROR() << "unknown command: \'" << command << "\'";
                         return -1;
@@ -979,7 +1016,7 @@ int main_impl(int argc, char* argv[])
                         auto comment = vm[cli::NEW_ADDRESS_COMMENT].as<string>();
                         newAddress(walletDB, comment, vm[cli::EXPIRATION_TIME].as<string>() == "never");
 
-                        if (!vm.count(cli::LISTEN)) 
+                        if (!vm.count(cli::LISTEN))
                         {
                             return 0;
                         }
@@ -1061,38 +1098,9 @@ int main_impl(int argc, char* argv[])
                     Amount fee = 0;
                     WalletID receiverWalletID(Zero);
                     bool isTxInitiator = command == cli::SEND || command == cli::RECEIVE;
-                    if (isTxInitiator)
+                    if (isTxInitiator && !LoadBaseParamsForTX(vm, amount, fee, receiverWalletID))
                     {
-                        if (vm.count(cli::RECEIVER_ADDR) == 0)
-                        {
-                            LOG_ERROR() << "receiver's address is missing";
-                            return -1;
-                        }
-                        if (vm.count(cli::AMOUNT) == 0)
-                        {
-                            LOG_ERROR() << "amount is missing";
-                            return -1;
-                        }
-
-                        receiverWalletID.FromHex(vm[cli::RECEIVER_ADDR].as<string>());
-
-                        auto signedAmount = vm[cli::AMOUNT].as<double>();
-                        if (signedAmount < 0)
-                        {
-                            LOG_ERROR() << "Unable to send negative amount of coins";
-                            return -1;
-                        }
-
-                        signedAmount *= Rules::Coin; // convert beams to coins
-
-                        amount = static_cast<ECC::Amount>(std::round(signedAmount));
-                        if (amount == 0)
-                        {
-                            LOG_ERROR() << "Unable to send zero coins";
-                            return -1;
-                        }
-
-                        fee = vm[cli::FEE].as<beam::Amount>();
+                        return -1;
                     }
 
                     bool is_server = (command == cli::LISTEN || vm.count(cli::LISTEN));
@@ -1110,6 +1118,36 @@ int main_impl(int argc, char* argv[])
                     if (!btcUserName.empty() && !btcPass.empty())
                     {
                         wallet.initBitcoin(io::Reactor::get_Current(), btcUserName, btcPass, btcNodeAddr);
+                    }
+
+                    if (command == cli::SWAP_COINS)
+                    {
+                        if (btcUserName.empty() || btcPass.empty() || btcNodeAddr.empty())
+                        {
+                            LOG_ERROR() << "BTC node credentials should be provided";
+                            return -1;
+                        }
+
+                        if (!LoadBaseParamsForTX(vm, amount, fee, receiverWalletID))
+                        {
+                            return -1;
+                        }
+
+                        if (vm.count(cli::SWAP_AMOUNT) == 0)
+                        {
+                            LOG_ERROR() << "swap amount is missing";
+                            return -1;
+                        }
+
+                        Amount swapAmount = vm[cli::SWAP_AMOUNT].as<beam::Amount>();
+                        bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
+
+                        WalletAddress senderAddress = newAddress(walletDB, "");
+                        wnet.AddOwnAddress(senderAddress);
+
+                        wallet.swap_coins(isBeamSide ? senderAddress.m_walletID : receiverWalletID,
+                            isBeamSide ? receiverWalletID : senderAddress.m_walletID,
+                            move(amount), move(fee), wallet::AtomicSwapCoin::Bitcoin, swapAmount, isBeamSide);
                     }
 
                     if (isTxInitiator)

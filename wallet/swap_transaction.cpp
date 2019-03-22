@@ -189,8 +189,12 @@ namespace beam::wallet
             // load or generate BTC address
             if (std::string swapAddress; !GetParameter(TxParameterID::AtomicSwapAddress, swapAddress))
             {
-                // is need to setup type 'legacy'?
-                m_Gateway.get_bitcoin_rpc()->getRawChangeAddress(BIND_THIS_MEMFN(OnGetRawChangeAddress));
+                auto bitcoin_rpc = m_Gateway.get_bitcoin_rpc();
+                if (bitcoin_rpc)
+                {
+                    // is need to setup type 'legacy'?
+                    bitcoin_rpc->getRawChangeAddress(BIND_THIS_MEMFN(OnGetRawChangeAddress));
+                }
                 break;
             }
 
@@ -334,7 +338,7 @@ namespace beam::wallet
                 // SetNextState(State::SendingRefundTX);
             }
 
-            if (!IsSubTxCompleted(SubTxIndex::BEAM_LOCK_TX))
+            if (!CompleteSubTx(SubTxIndex::BEAM_LOCK_TX))
                 break;
             
             LOG_DEBUG() << GetTxID()<< " Beam Lock TX completed.";
@@ -377,7 +381,7 @@ namespace beam::wallet
                 if (m_RedeemTx && !SendSubTx(m_RedeemTx, SubTxIndex::BEAM_REDEEM_TX))
                     break;
 
-                if (!IsSubTxCompleted(SubTxIndex::BEAM_REDEEM_TX))
+                if (!CompleteSubTx(SubTxIndex::BEAM_REDEEM_TX))
                     break;
 
                 LOG_DEBUG() << GetTxID() << " Beam Redeem TX completed!";
@@ -397,7 +401,7 @@ namespace beam::wallet
             if (m_RefundTx && !SendSubTx(m_RefundTx, SubTxIndex::BEAM_REFUND_TX))
                 break;
 
-            if (!IsSubTxCompleted(SubTxIndex::BEAM_REFUND_TX))
+            if (!CompleteSubTx(SubTxIndex::BEAM_REFUND_TX))
                 break;
 
             LOG_DEBUG() << GetTxID() << " Beam Refund TX completed!";
@@ -434,7 +438,15 @@ namespace beam::wallet
 
             std::string hexTx = libbitcoin::encode_base16(contractTx.to_data());
 
-            m_Gateway.get_bitcoin_rpc()->fundRawTransaction(hexTx, BIND_THIS_MEMFN(OnFundRawTransaction));
+            auto bitcoin_rpc = m_Gateway.get_bitcoin_rpc();
+
+            if (!bitcoin_rpc)
+            {
+                return swapTxState;
+            }
+
+            bitcoin_rpc->fundRawTransaction(hexTx, BIND_THIS_MEMFN(OnFundRawTransaction));
+
             SetState(SwapTxState::CreatingTx, SubTxIndex::LOCK_TX);
             return SwapTxState::CreatingTx;
         }
@@ -473,7 +485,14 @@ namespace beam::wallet
                 args.emplace_back(std::to_string(locktime));
             }
 
-            m_Gateway.get_bitcoin_rpc()->createRawTransaction(args, BIND_THIS_MEMFN(OnCreateWithdrawTransaction));
+            auto bitcoin_rpc = m_Gateway.get_bitcoin_rpc();
+            
+            if (!bitcoin_rpc)
+            {
+                return swapTxState;
+            }
+
+            bitcoin_rpc->createRawTransaction(args, BIND_THIS_MEMFN(OnCreateWithdrawTransaction));
 
             SetState(SwapTxState::CreatingTx, subTxID);
             return SwapTxState::CreatingTx;
@@ -485,7 +504,11 @@ namespace beam::wallet
             auto callback = [this, subTxID](const std::string& response) {
                 OnDumpPrivateKey(subTxID, response);
             };
-            m_Gateway.get_bitcoin_rpc()->dumpPrivKey(swapAddress, callback);
+
+            if (auto bitcoin_rpc = m_Gateway.get_bitcoin_rpc(); bitcoin_rpc)
+            {
+                bitcoin_rpc->dumpPrivKey(swapAddress, callback);
+            }
         }
 
         if (swapTxState == SwapTxState::Constructed && !m_SwapWithdrawRawTx.is_initialized())
@@ -517,7 +540,10 @@ namespace beam::wallet
                 Update();
             };
 
-            m_Gateway.get_bitcoin_rpc()->sendRawTransaction(rawTransaction, callback);
+            if (auto bitcoin_rpc = m_Gateway.get_bitcoin_rpc(); bitcoin_rpc)
+            {
+                bitcoin_rpc->sendRawTransaction(rawTransaction, callback);
+            }
             return isRegistered;
         }
 
@@ -534,7 +560,10 @@ namespace beam::wallet
         auto txID = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::LOCK_TX);
         uint32_t outputIndex = GetMandatoryParameter<uint32_t>(TxParameterID::AtomicSwapExternalTxOutputIndex, SubTxIndex::LOCK_TX);
 
-        m_Gateway.get_bitcoin_rpc()->getTxOut(txID, outputIndex, BIND_THIS_MEMFN(OnGetSwapLockTxConfirmations));
+        if (auto bitcoin_rpc = m_Gateway.get_bitcoin_rpc(); bitcoin_rpc)
+        {
+            bitcoin_rpc->getTxOut(txID, outputIndex, BIND_THIS_MEMFN(OnGetSwapLockTxConfirmations));
+        }
     }
 
     AtomicSwapTransaction::SubTxState AtomicSwapTransaction::BuildBeamLockTx()
@@ -822,7 +851,7 @@ namespace beam::wallet
         return GetTip(state) && state.m_Height > (lockTimeHeight + kBeamLockTimeInBlocks);
     }
 
-    bool AtomicSwapTransaction::IsSubTxCompleted(SubTxID subTxID) const
+    bool AtomicSwapTransaction::CompleteSubTx(SubTxID subTxID)
     {
         Height hProof = 0;
         // TODO: check
@@ -833,6 +862,32 @@ namespace beam::wallet
             m_Gateway.confirm_kernel(GetTxID(), kernelID);
             return false;
         }
+
+        std::vector<Coin> modified;
+        m_WalletDB->visit([&](const Coin& coin)
+        {
+            bool bIn = (coin.m_createTxId == m_ID);
+            bool bOut = (coin.m_spentTxId == m_ID);
+            if (bIn || bOut)
+            {
+                modified.emplace_back();
+                Coin& c = modified.back();
+                c = coin;
+
+                if (bIn)
+                {
+                    c.m_confirmHeight = std::min(c.m_confirmHeight, hProof);
+                    c.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
+                }
+                if (bOut)
+                    c.m_spentHeight = std::min(c.m_spentHeight, hProof);
+            }
+
+            return true;
+        });
+
+        GetWalletDB()->save(modified);
+
         return true;
     }
 
@@ -1053,6 +1108,7 @@ namespace beam::wallet
         uint32_t valuePosition = changePos ? 0 : 1;
         SetParameter(TxParameterID::AtomicSwapExternalTxOutputIndex, valuePosition, false, SubTxIndex::LOCK_TX);
 
+        assert(m_Gateway.get_bitcoin_rpc());
         m_Gateway.get_bitcoin_rpc()->signRawTransaction(hexTx, BIND_THIS_MEMFN(OnSignLockTransaction));
     }
 
@@ -1074,7 +1130,6 @@ namespace beam::wallet
     {
         json reply = json::parse(response);
         assert(reply["error"].empty());
-        LOG_DEBUG() << reply.dump(4);
         if (!m_SwapWithdrawRawTx.is_initialized())
         {
             m_SwapWithdrawRawTx = reply["result"].get<std::string>();

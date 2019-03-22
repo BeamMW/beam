@@ -102,6 +102,9 @@ namespace beam
         extern const char* IMPORT_EXPORT_PATH;
         extern const char* NO_FAST_SYNC;
         extern const char* API_USE_HTTP;
+        extern const char* SWAP_COINS;
+        extern const char* SWAP_AMOUNT;
+        extern const char* SWAP_BEAM_SIDE;
  // treasury
         extern const char* TR_OPCODE;
         extern const char* TR_WID;
