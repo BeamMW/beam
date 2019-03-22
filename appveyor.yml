@@ -6,10 +6,10 @@ environment:
   OPENSSL_ROOT_DIR: c:\beam-libs\openssl
   QT5_ROOT_DIR: c:\beam-libs\qt5-static-win
   QML_IMPORT_PATH: c:\beam-libs\qt5-static-win\qml
-  BEAM_TARGET_SUFFIX: ""
-  BEAM_DISPLAY_SUFFIX: ""
-  BEAM_DISPLAY_SUFFIX2: ""
-  BEAM_DISPLAY_SUFFIX3: ""
+  BEAM_TARGET_SUFFIX: "-testnet"
+  BEAM_DISPLAY_SUFFIX: "Testnet"
+  BEAM_DISPLAY_SUFFIX2: "-Testnet"
+  BEAM_DISPLAY_SUFFIX3: " Testnet"
   BUILD_SERVER:
     secure: l9RqB2YbSnNIKZqTwnd67BHAXvbjmpj9zcf+YQPi9zfzsVeSysaoLD7gy4gSMjWurk2JVHjRpviw4bBxUbu2sA==  
   BUILD_CONFIG: RelWithDebInfo
