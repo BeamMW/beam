@@ -110,9 +110,6 @@ namespace beam
         {
             std::string comment = params["comment"];
 
-            if(comment.empty())
-                throwInvalidJsonRpc(id);
-
             editAddress.comment = comment;
         }
 
