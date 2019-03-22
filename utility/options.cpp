@@ -272,6 +272,7 @@ namespace beam
         po::positional_options_description positional;
         po::command_line_parser parser(argc, argv);
         parser.options(options);
+        parser.style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing);
         if (walletOptions)
         {
             positional.add(cli::COMMAND, 1);

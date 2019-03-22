@@ -108,6 +108,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
     {
         po::store(po::command_line_parser(argc, argv) // value stored first is preferred
             .options(cliOptions)
+            .style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing)
             .run(), vm);
 
         if (vm.count(cli::HELP))

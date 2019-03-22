@@ -901,6 +901,7 @@ int main(int argc, char* argv[])
 
             po::store(po::command_line_parser(argc, argv)
                 .options(desc)
+                .style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing)
                 .run(), vm);
 
             if (vm.count(cli::HELP))
