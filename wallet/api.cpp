@@ -100,7 +100,7 @@ namespace beam
     {
         checkJsonParam(params, "address", id);
 
-        if (!existsJsonParam(params, "comment") && !existsJsonParam(params, "action"))
+        if (!existsJsonParam(params, "comment") && !existsJsonParam(params, "expiration"))
             throwInvalidJsonRpc(id);
 
         EditAddress editAddress;
@@ -116,20 +116,20 @@ namespace beam
             editAddress.comment = comment;
         }
 
-        if (existsJsonParam(params, "action"))
+        if (existsJsonParam(params, "expiration"))
         {
-            std::string action = params["action"];
+            std::string expiration = params["expiration"];
 
-            static std::map<std::string, EditAddress::Action> Actions = 
+            static std::map<std::string, EditAddress::Expiration> Items =
             {
                 {"expired", EditAddress::Expired},
-                {"active",  EditAddress::Active},
-                {"eternal", EditAddress::Eternal},
+                {"24h",  EditAddress::OneDay},
+                {"never", EditAddress::Never},
             };
 
-            if(Actions.count(action) == 0) throwInvalidJsonRpc(id);
+            if(Items.count(expiration) == 0) throwInvalidJsonRpc(id);
 
-            editAddress.action = Actions[action];
+            editAddress.expiration = Items[expiration];
         }
 
         _handler.onMessage(id, editAddress);

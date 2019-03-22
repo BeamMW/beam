@@ -74,8 +74,8 @@ namespace beam
 
         boost::optional<std::string> comment;
 
-        enum Action { Expired, Eternal, Active };
-        boost::optional<Action> action;
+        enum Expiration { Expired, Never, OneDay };
+        boost::optional<Expiration> expiration;
 
         struct Response {};
     };
