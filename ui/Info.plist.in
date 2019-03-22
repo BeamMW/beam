@@ -13,7 +13,7 @@
 	<key>CFBundleGetInfoString</key>
 	<string></string>
 	<key>CFBundleIconFile</key>
-	<string>Beam Wallet.icns</string>
+	<string>Beam Wallet@BEAM_DISPLAY_SUFFIX@.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string></string>
 	<key>CFBundleInfoDictionaryVersion</key>
