@@ -1,19 +1,10 @@
 set (TARGET_NAME "beam-wallet-ui")
 
-if (BEAM_TESTNET)
-    if(LINUX)
-        set (OUTPUT_NAME "BeamWalletTestnet")
-    else()
-        set (OUTPUT_NAME "Beam Wallet Testnet")
-    endif()
+if(LINUX)
+    set (OUTPUT_NAME "BeamWallet${BEAM_SUFFIX_UPPER_CASE}")
 else()
-    if(LINUX)
-        set (OUTPUT_NAME "BeamWallet")
-    else()
-        set (OUTPUT_NAME "Beam Wallet")
-    endif()
+    set (OUTPUT_NAME "Beam Wallet${BEAM_DISPLAY_SUFFIX}")
 endif()
-
 set (CMAKE_PREFIX_PATH $ENV{QT5_ROOT_DIR})
 
 find_package(Qt5 COMPONENTS Qml Quick Svg PrintSupport REQUIRED)
@@ -98,6 +89,8 @@ if(WIN32)
 	add_definitions(-DWIN32_LEAN_AND_MEAN)
 endif()
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/beam.rc.in ${CMAKE_CURRENT_SOURCE_DIR}/beam.rc)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/beam.desktop.in ${CMAKE_CURRENT_SOURCE_DIR}/beam.desktop)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist)
 add_executable(${TARGET_NAME} ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc ${MACOSX_BUNDLE_ICON_FILE} ${QM_FILES})
 set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME ${OUTPUT_NAME})
 
@@ -129,7 +122,7 @@ target_link_libraries(${TARGET_NAME} wallet mnemonic Qt5::Qml Qt5::Quick Qt5::Sv
 if (BEAM_SIGN_PACKAGE AND WIN32)
     add_custom_command(
         TARGET ${TARGET_NAME} POST_BUILD
-        COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\Beam Wallet.exe"
+        COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\${OUTPUT_NAME}.exe"
     )
 endif()
 

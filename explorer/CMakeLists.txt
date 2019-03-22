@@ -1,4 +1,4 @@
-set(TARGET_NAME explorer-node-testnet)
+set(TARGET_NAME explorer-node${BEAM_TARGET_SUFFIX})
 
 set(EXPLORER_SRC
     server.cpp

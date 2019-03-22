@@ -1,8 +1,4 @@
-if (BEAM_TESTNET)
-    set(TARGET_NAME beam-wallet-testnet)
-else()
-    set(TARGET_NAME beam-wallet)
-endif()
+set(TARGET_NAME beam-wallet${BEAM_TARGET_SUFFIX})
 
 add_definitions( -DSQLITE_HAS_CODEC )
 
@@ -43,11 +39,7 @@ add_library(wallet_api_proto STATIC api.cpp)
 add_dependencies(wallet_api_proto wallet utility http)
 target_link_libraries(wallet_api_proto wallet utility http)
 
-if (BEAM_TESTNET)
-    set(WALLET_API_NAME wallet-api-testnet)
-else()
-    set(WALLET_API_NAME wallet-api)
-endif()
+set(WALLET_API_NAME wallet-api${BEAM_TARGET_SUFFIX})
 
 add_executable(${WALLET_API_NAME} api_cli.cpp)
 target_include_directories(${WALLET_API_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
@@ -61,23 +53,12 @@ endif()
 add_subdirectory(unittests)
 
 if (BEAM_SIGN_PACKAGE AND WIN32)
-    if (BEAM_TESTNET)
-        add_custom_command(
-            TARGET ${TARGET_NAME} POST_BUILD
-            COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\beam-wallet-testnet.exe"
-        )
-        add_custom_command(
-            TARGET ${TARGET_NAME} POST_BUILD
-            COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\wallet-api-tetnet.exe"
-        )
-    else()
-        add_custom_command(
-            TARGET ${TARGET_NAME} POST_BUILD
-            COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\beam-wallet.exe"
-        )
-        add_custom_command(
-            TARGET ${TARGET_NAME} POST_BUILD
-            COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\wallet-api.exe"
-        )
-    endif()
+    add_custom_command(
+        TARGET ${TARGET_NAME} POST_BUILD
+        COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\{TARGET_NAME}.exe"
+    )
+    add_custom_command(
+        TARGET ${WALLET_API_NAME} POST_BUILD
+        COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\${WALLET_API_NAME}.exe"
+    )
 endif()

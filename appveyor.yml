@@ -6,6 +6,10 @@ environment:
   OPENSSL_ROOT_DIR: c:\beam-libs\openssl
   QT5_ROOT_DIR: c:\beam-libs\qt5-static-win
   QML_IMPORT_PATH: c:\beam-libs\qt5-static-win\qml
+  BEAM_TARGET_SUFFIX: ""
+  BEAM_DISPLAY_SUFFIX: ""
+  BEAM_DISPLAY_SUFFIX2: ""
+  BEAM_DISPLAY_SUFFIX3: ""
   BUILD_SERVER:
     secure: l9RqB2YbSnNIKZqTwnd67BHAXvbjmpj9zcf+YQPi9zfzsVeSysaoLD7gy4gSMjWurk2JVHjRpviw4bBxUbu2sA==  
   BUILD_CONFIG: RelWithDebInfo
@@ -33,29 +37,29 @@ after_build:
 
     del beam_version.gen
     
-    7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-testnet-%BEAM_VERSION%.zip c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-testnet.exe c:/projects/beam/beam/beam-node.cfg
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/beam/%BUILD_CONFIG%/beam-node%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/beam/beam-node.cfg
     
-    7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli-testnet-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet-testnet.exe c:/projects/beam/wallet/beam-wallet.cfg
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/wallet/beam-wallet.cfg
     
-    7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api-testnet-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/wallet-api-testnet.exe c:/projects/beam/wallet/wallet-api.cfg
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/wallet/%BUILD_CONFIG%/wallet-api%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/wallet/wallet-api.cfg
 
-    7z a c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node-testnet-%BEAM_VERSION%.zip c:/projects/beam/explorer/%BUILD_CONFIG%/explorer-node-testnet.exe c:/projects/beam/explorer/explorer-node.cfg
+    7z a c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:/projects/beam/explorer/%BUILD_CONFIG%/explorer-node%BEAM_TARGET_SUFFIX%.exe c:/projects/beam/explorer/explorer-node.cfg
         
     mkdir pdb
     
-    7z a c:/projects/beam/beam/beam-pdb-testnet-%BEAM_VERSION%.zip "c:/projects/beam/ui/%BUILD_CONFIG%/Beam Wallet Testnet.pdb" "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-testnet.pdb" "c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet-testnet.pdb"
+    7z a c:/projects/beam/beam/beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip "c:/projects/beam/ui/%BUILD_CONFIG%/Beam Wallet%BEAM_DISPLAY_SUFFIX3%.pdb" "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node%BEAM_TARGET_SUFFIX%.pdb" "c:/projects/beam/wallet/%BUILD_CONFIG%/beam-wallet%BEAM_TARGET_SUFFIX%.pdb"
 
-    copy c:\projects\beam\beam\%BUILD_CONFIG%\beam-node-testnet-%BEAM_VERSION%.zip c:\projects\beam\beam-node-testnet-%BEAM_VERSION%.zip
+    copy c:\projects\beam\beam\%BUILD_CONFIG%\beam-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\beam-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
-    copy c:\projects\beam\beam\%BUILD_CONFIG%\beam-wallet-cli-testnet-%BEAM_VERSION%.zip c:\projects\beam\beam-wallet-cli-testnet-%BEAM_VERSION%.zip
+    copy c:\projects\beam\beam\%BUILD_CONFIG%\beam-wallet-cli%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\beam-wallet-cli%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
-    copy c:\projects\beam\beam\%BUILD_CONFIG%\wallet-api-testnet-%BEAM_VERSION%.zip c:\projects\beam\wallet-api-testnet-%BEAM_VERSION%.zip
+    copy c:\projects\beam\beam\%BUILD_CONFIG%\wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
-    copy c:\projects\beam\beam\%BUILD_CONFIG%\explorer-node-testnet-%BEAM_VERSION%.zip c:\projects\beam\explorer-node-testnet-%BEAM_VERSION%.zip
+    copy c:\projects\beam\beam\%BUILD_CONFIG%\explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
-    copy c:\projects\beam\beam\beam-pdb-testnet-%BEAM_VERSION%.zip c:\projects\beam\pdb\beam-pdb-testnet-%BEAM_VERSION%.zip
+    copy c:\projects\beam\beam\beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip c:\projects\beam\pdb\beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
 
-    copy c:\projects\beam\BeamWalletTestnet-%BEAM_VERSION%-win64.exe c:\projects\beam\Beam-Wallet-Testnet-%BEAM_VERSION%.exe
+    copy c:\projects\beam\BeamWallet%BEAM_DISPLAY_SUFFIX%-%BEAM_VERSION%-win64.exe c:\projects\beam\Beam-Wallet%BEAM_DISPLAY_SUFFIX2%-%BEAM_VERSION%.exe
 
 on_success:
 - ps: $env:DATE=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('yyyy.MM.dd')
@@ -63,35 +67,35 @@ on_success:
 - cmd: >-
     set BUILDS_SERVER_PATH=%BUILD_SERVER%/files/%APPVEYOR_REPO_BRANCH%/%DATE%/Release/win
               
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node-testnet-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/beam-node-testnet-%BEAM_VERSION%.zip"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/beam-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/beam-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli-testnet-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/beam-wallet-cli-testnet-%BEAM_VERSION%.zip"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/beam-wallet-cli%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/beam-wallet-cli%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api-testnet-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/wallet-api-testnet-%BEAM_VERSION%.zip"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node-testnet-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/explorer-node-testnet-%BEAM_VERSION%.zip"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/%BUILD_CONFIG%/explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWalletTestnet-%BEAM_VERSION%-win64.exe" "%BUILDS_SERVER_PATH%/Beam-Wallet-Testnet-%BEAM_VERSION%.exe"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/BeamWallet%BEAM_DISPLAY_SUFFIX%-%BEAM_VERSION%-win64.exe" "%BUILDS_SERVER_PATH%/Beam-Wallet%BEAM_DISPLAY_SUFFIX2%-%BEAM_VERSION%.exe"
 
-    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/beam-pdb-testnet-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/pdb/beam-pdb-testnet-%BEAM_VERSION%.zip"
+    curl --retry 3 --ftp-create-dirs -T "c:/projects/beam/beam/beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip" "%BUILDS_SERVER_PATH%/pdb/beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip"
 
 artifacts:
-  - path: beam-node-testnet-%BEAM_VERSION%.zip
+  - path: beam-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
     name: BeamNode
 
-  - path: beam-wallet-cli-testnet-%BEAM_VERSION%.zip
+  - path: beam-wallet-cli%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
     name: BeamWalletCli
 
-  - path: wallet-api-testnet-%BEAM_VERSION%.zip
+  - path: wallet-api%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
     name: BeamWalletApi
 
-  - path: explorer-node-testnet-%BEAM_VERSION%.zip
+  - path: explorer-node%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
     name: BeamNodeExplorer
 
-  - path: pdb/beam-pdb-testnet-%BEAM_VERSION%.zip
+  - path: pdb/beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
     name: BeamPdb
 
-  - path: Beam-Wallet-Testnet-%BEAM_VERSION%.exe
+  - path: Beam-Wallet%BEAM_DISPLAY_SUFFIX2%-%BEAM_VERSION%.exe
     name: BeamWallet
 
 deploy:
