@@ -57,8 +57,10 @@ namespace beam
         extern const char* EXPORT_MINER_KEY;
         extern const char* EXPORT_OWNER_KEY;
         extern const char* KEY_SUBKEY;
-        extern const char* KEY_OWNER;
-        extern const char* KEY_MINE;
+        extern const char* KEY_OWNER;  // deprecated
+        extern const char* OWNER_KEY;
+        extern const char* KEY_MINE;  // deprecated
+        extern const char* MINER_KEY;
         extern const char* BBS_ENABLE;
         extern const char* NEW_ADDRESS;
         extern const char* CANCEL_TX;

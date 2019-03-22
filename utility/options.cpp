@@ -58,8 +58,10 @@ namespace beam
         const char* EXPORT_MINER_KEY = "export_miner_key";
         const char* EXPORT_OWNER_KEY = "export_owner_key";
         const char* KEY_SUBKEY = "subkey";
-        const char* KEY_OWNER = "key_owner";
-        const char* KEY_MINE= "key_mine";
+        const char* KEY_OWNER = "key_owner";  // deprecated
+        const char* OWNER_KEY = "owner_key";
+        const char* KEY_MINE = "key_mine"; // deprecated
+        const char* MINER_KEY = "miner_key";
         const char* BBS_ENABLE = "bbs_enable";
         const char* NEW_ADDRESS = "new_addr";
         const char* NEW_ADDRESS_COMMENT = "comment";
@@ -157,8 +159,10 @@ namespace beam
 			(cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check and compact (vacuum)")
             (cli::BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS messaging")
             (cli::CRASH, po::value<int>()->default_value(0), "Induce crash (test proper handling)")
-            (cli::KEY_OWNER, po::value<string>(), "Owner viewer key")
-            (cli::KEY_MINE, po::value<string>(), "Standalone miner key")
+            (cli::OWNER_KEY, po::value<string>(), "Owner viewer key")
+            (cli::KEY_OWNER, po::value<string>(), "Owner viewer key (deprecated)")
+            (cli::MINER_KEY, po::value<string>(), "Standalone miner key")
+            (cli::KEY_MINE, po::value<string>(), "Standalone miner key (deprecated)")
             (cli::PASS, po::value<string>(), "password for keys")
 			(cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
 			(cli::HORIZON_HI, po::value<Height>()->default_value(MaxHeight), "spent TXO Hi-Horizon")
