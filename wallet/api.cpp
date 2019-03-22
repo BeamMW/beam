@@ -100,20 +100,20 @@ namespace beam
     {
         checkJsonParam(params, "address", id);
 
-        if (!existsJsonParam(params, "label") && !existsJsonParam(params, "action"))
+        if (!existsJsonParam(params, "comment") && !existsJsonParam(params, "action"))
             throwInvalidJsonRpc(id);
 
         EditAddress editAddress;
         editAddress.address.FromHex(params["address"]);
 
-        if (existsJsonParam(params, "label"))
+        if (existsJsonParam(params, "comment"))
         {
-            std::string label = params["label"];
+            std::string comment = params["comment"];
 
-            if(label.empty())
+            if(comment.empty())
                 throwInvalidJsonRpc(id);
 
-            editAddress.label = label;
+            editAddress.comment = comment;
         }
 
         if (existsJsonParam(params, "action"))
@@ -428,7 +428,7 @@ namespace beam
             msg["result"].push_back(
             {
                 {"address", std::to_string(addr.m_walletID)},
-                {"label", addr.m_label},
+                {"comment", addr.m_label},
                 {"category", addr.m_category},
                 {"create_time", addr.getCreateTime()},
                 {"duration", addr.m_duration},
