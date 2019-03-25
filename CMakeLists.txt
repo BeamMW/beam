@@ -235,6 +235,7 @@ endif()
 
 if(LINUX)
 	add_definitions(-DBOOST_NO_CXX11_SCOPED_ENUMS)
+    add_definitions(-DBOOST_NO_AUTO_PTR)
 endif()
 
 if (WIN32)
