@@ -677,9 +677,20 @@ namespace beam::wallet
     {
         SubTxID subTxID = SubTxIndex::BEAM_REFUND_TX;
         SubTxState subTxState = GetSubTxState(subTxID);
-        // TODO: calculating fee!
+
         Amount refundFee = 0;
-        Amount refundAmount = GetAmount() - refundFee;
+        Amount refundAmount = 0;
+
+        if (!GetParameter(TxParameterID::Amount, refundAmount, subTxID))
+        {
+            // TODO: calculating fee!
+            refundFee = 0;
+            refundAmount = GetAmount() - refundFee;
+
+            SetParameter(TxParameterID::Amount, refundAmount, subTxID);
+            SetParameter(TxParameterID::Fee, refundFee, subTxID);
+        }
+
         bool isTxOwner = IsBeamSide();
         SharedTxBuilder builder{ *this, subTxID, refundAmount, refundFee };
 
@@ -749,9 +760,20 @@ namespace beam::wallet
     {
         SubTxID subTxID = SubTxIndex::BEAM_REDEEM_TX;
         SubTxState subTxState = GetSubTxState(subTxID);
-        // TODO: calculating fee!
+
         Amount redeemFee = 0;
-        Amount redeemAmount = GetAmount() - redeemFee;
+        Amount redeemAmount = 0;
+
+        if (!GetParameter(TxParameterID::Amount, redeemAmount, subTxID))
+        {
+            // TODO: calculating fee!
+            redeemFee = 0;
+            redeemAmount = GetAmount() - redeemFee;
+
+            SetParameter(TxParameterID::Amount, redeemAmount, subTxID);
+            SetParameter(TxParameterID::Fee, redeemFee, subTxID);
+        }
+
         bool isTxOwner = !IsBeamSide();
         SharedTxBuilder builder{ *this, subTxID, redeemAmount, redeemFee };
 
@@ -861,6 +883,20 @@ namespace beam::wallet
             Merkle::Hash kernelID = GetMandatoryParameter<Merkle::Hash>(TxParameterID::KernelID, subTxID);
             m_Gateway.confirm_kernel(GetTxID(), kernelID);
             return false;
+        }
+
+        SetParameter(TxParameterID::KernelProofHeight, hProof, subTxID);
+
+        if ((SubTxIndex::BEAM_REDEEM_TX == subTxID) || (SubTxIndex::BEAM_REFUND_TX == subTxID))
+        {
+            // store Coin in DB
+            auto amount = GetMandatoryParameter<Amount>(TxParameterID::Amount, subTxID);
+            Coin withdrawUtxo(amount);
+
+            withdrawUtxo.m_createTxId = GetTxID();
+            withdrawUtxo.m_ID = GetMandatoryParameter<Coin::ID>(TxParameterID::SharedCoinID, subTxID);
+
+            GetWalletDB()->store(withdrawUtxo);
         }
 
         std::vector<Coin> modified;
@@ -1408,7 +1444,8 @@ namespace beam::wallet
         if (isTxOwner)
         {
             // select shared UTXO as input and create output utxo
-            InitInputAndOutputs();
+            InitInput();
+            InitOutput();
 
             if (!FinalizeOutputs())
             {
@@ -1422,7 +1459,7 @@ namespace beam::wallet
         }
     }
 
-    void SharedTxBuilder::InitInputAndOutputs()
+    void SharedTxBuilder::InitInput()
     {
         // load shared utxo as input
 
@@ -1437,9 +1474,27 @@ namespace beam::wallet
         m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false, m_SubTxID);
 
         m_Offset += m_SharedBlindingFactor;
+    }
+
+    void SharedTxBuilder::InitOutput()
+    {
+        beam::Coin outputCoin;
+
+        if (!m_Tx.GetParameter(TxParameterID::SharedCoinID, outputCoin.m_ID, m_SubTxID))
+        {
+            outputCoin = m_Tx.GetWalletDB()->generateSharedCoin(GetAmount());
+            m_Tx.SetParameter(TxParameterID::SharedCoinID, outputCoin.m_ID, m_SubTxID);
+        }
 
         // add output
-        AddOutput(GetAmount(), false);
+        Scalar::Native blindingFactor;
+        Output::Ptr output = std::make_unique<Output>();
+        output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(outputCoin.m_ID.m_SubIdx), outputCoin.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
+
+        blindingFactor = -blindingFactor;
+        m_Offset += blindingFactor;
+
+        m_Outputs.push_back(std::move(output));
     }
 
     void SharedTxBuilder::InitOffset()

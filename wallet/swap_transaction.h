@@ -195,7 +195,9 @@ namespace beam::wallet
 
     protected:
 
-        void InitInputAndOutputs();
+        void InitInput();
+        void InitOutput();
+
         void InitOffset();
         void LoadPeerOffset();
 
