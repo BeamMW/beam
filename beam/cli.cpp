@@ -78,6 +78,22 @@ namespace
 		if (boost::filesystem::exists(p / apiKeysFileName))
 			o.apiKeysFile = (p / apiKeysFileName).string();
 	}
+
+	template<typename T>
+	void get_parametr_with_deprecated_synonym(const po::variables_map& vm, const char* name, const char* deprecatedName, T* result)
+	{
+		auto var = vm[name];
+		if (var.empty())
+		{
+			var = vm[deprecatedName];
+			if (!var.empty())
+				LOG_WARNING() << "The \"" << deprecatedName << "\"" << " parameter is deprecated, use " << "\"" << name << "\" instead.";
+		}
+
+		if (!var.empty()) {
+			*result = var.as<T>();
+		}
+	}
 }
 
 #ifndef LOG_VERBOSE_ENABLED
@@ -211,17 +227,10 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_LogUtxos = vm[cli::LOG_UTXOS].as<bool>();
 
 					std::string sKeyOwner;
-					{
-						const auto& var = vm[cli::KEY_OWNER];
-						if (!var.empty())
-							sKeyOwner = var.as<std::string>();
-					}
+					get_parametr_with_deprecated_synonym(vm, cli::OWNER_KEY, cli::KEY_OWNER, &sKeyOwner);
+
 					std::string sKeyMine;
-					{
-						const auto& var = vm[cli::KEY_MINE];
-						if (!var.empty())
-							sKeyMine = var.as<std::string>();
-					}
+					get_parametr_with_deprecated_synonym(vm, cli::MINER_KEY, cli::KEY_MINE, &sKeyMine);
 
 					if (!(sKeyOwner.empty() && sKeyMine.empty()))
 					{

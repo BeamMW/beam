@@ -873,7 +873,7 @@ int main_impl(int argc, char* argv[])
                     auto walletDB = WalletDB::open(walletPath, pass, reactor);
                     if (!walletDB)
                     {
-                        LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet";
+                        LOG_ERROR() << "Please check your password. If password is lost, restore wallet.db from latest backup or delete it and restore from seed phrase.";
                         return -1;
                     }
 

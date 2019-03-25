@@ -329,7 +329,12 @@ namespace beam { namespace wallet
         auto sharedBuilder = make_shared<TxBuilder>(*this, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
         TxBuilder& builder = *sharedBuilder;
 
-        builder.GenerateBlindingExcess();
+        bool newGenerated = builder.GenerateBlindingExcess();
+        if (newGenerated && txState != State::Initial)
+        {
+            OnFailed(TxFailureReason::InvalidState);
+            return;
+        }
         if (!builder.GetInitialTxParams() && txState == State::Initial)
         {
             if (m_CompletedEvent)
@@ -859,8 +864,9 @@ namespace beam { namespace wallet
         m_Tx.SetParameter(TxParameterID::MaxHeight, GetMaxHeight());
     }
 
-    void TxBuilder::GenerateBlindingExcess()
+    bool TxBuilder::GenerateBlindingExcess()
     {
+        bool newGenerated = false;
         if (!m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess))
         {
             Key::ID kid;
@@ -871,10 +877,14 @@ namespace beam { namespace wallet
             m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_BlindingExcess, kid);
 
             m_Tx.SetParameter(TxParameterID::BlindingExcess, m_BlindingExcess, false);
+
+            newGenerated = true;
         }
 
         m_Offset += m_BlindingExcess;
         m_BlindingExcess = -m_BlindingExcess;
+
+        return newGenerated;
     }
 
     void TxBuilder::GenerateNonce()

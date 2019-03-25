@@ -555,7 +555,7 @@ Item {
                                 Layout.fillWidth: true
 
                                 SFText {
-                                    text: qsTr("Insufficient funds: you would need %1 to complete the transaction.").arg(viewModel.amountMissingToSend)
+                                    text: qsTr("Insufficient funds: you would need %1 to complete the transaction").arg(viewModel.amountMissingToSend)
                                     color: Style.validator_color
                                     font.pixelSize: 14
                                     fontSizeMode: Text.Fit
@@ -994,8 +994,7 @@ Item {
                             SvgImage {
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
-                                anchors.leftMargin: 26
-                                sourceSize: Qt.size(28, 28)
+                                anchors.leftMargin: 26 
                                 source: "qrc:/assets/beam-circle.svg"
                             }
                         }

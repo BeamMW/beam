@@ -497,7 +497,7 @@
     </message>
     <message>
         <location filename="../viewmodel/wallet_view.cpp" line="208"/>
-        <source>Failed to send tx parameters</source>
+        <source>Failed to send Transaction parameters</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -512,7 +512,7 @@
     </message>
     <message>
         <location filename="../viewmodel/wallet_view.cpp" line="211"/>
-        <source>Failed to get parameter</source>
+        <source>Failed to get transaction parameters</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -655,12 +655,12 @@
 <context>
     <name>WalletViewModel</name>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="575"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="580"/>
         <source> beams</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="577"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="582"/>
         <source> groths</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1249,7 +1249,7 @@ Are you sure?</source>
     </message>
     <message>
         <location filename="../view/wallet.qml" line="187"/>
-        <location filename="../view/wallet.qml" line="1221"/>
+        <location filename="../view/wallet.qml" line="1220"/>
         <source>delete</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1332,7 +1332,7 @@ Are you sure?</source>
     </message>
     <message>
         <location filename="../view/wallet.qml" line="558"/>
-        <source>Insufficient funds: you would need %1 to complete the transaction.</source>
+        <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1382,42 +1382,42 @@ Are you sure?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="1007"/>
+        <location filename="../view/wallet.qml" line="1006"/>
         <source>Date | time</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="1036"/>
+        <location filename="../view/wallet.qml" line="1035"/>
         <source>Address</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="1065"/>
+        <location filename="../view/wallet.qml" line="1064"/>
         <source>Amount</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="1096"/>
+        <location filename="../view/wallet.qml" line="1095"/>
         <source>Status</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="1186"/>
+        <location filename="../view/wallet.qml" line="1185"/>
         <source>Actions</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="1203"/>
+        <location filename="../view/wallet.qml" line="1202"/>
         <source>copy address</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="1213"/>
+        <location filename="../view/wallet.qml" line="1212"/>
         <source>cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="1225"/>
+        <location filename="../view/wallet.qml" line="1224"/>
         <source>The transaction will be deleted. This operation can not be undone</source>
         <translation type="unfinished"></translation>
     </message>
