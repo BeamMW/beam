@@ -182,7 +182,7 @@ namespace beam { namespace wallet
         bool FinalizeOutputs();
         Output::Ptr CreateOutput(Amount amount, bool bChange);
         void CreateKernel();
-        void GenerateBlindingExcess();
+        bool GenerateBlindingExcess();
         void GenerateNonce();
         ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;

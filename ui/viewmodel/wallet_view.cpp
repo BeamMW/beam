@@ -211,7 +211,8 @@ QString TxObject::getFailureReason() const
             tr("Failed to get transaction parameters"),
             tr("Transaction timed out"),
             tr("Payment not signed by the receiver, please send wallet logs to Beam support"),
-            tr("Kernel maximum height is too high")
+            tr("Kernel maximum height is too high"),
+            tr("Transaction has invalid state")
         };
 
         return Reasons[getTxDescription().m_failureReason];

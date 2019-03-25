@@ -96,6 +96,7 @@ namespace beam
     MACRO(TransactionExpired,     10, "Transaction has expired") \
     MACRO(NoPaymentProof,         11, "Payment not signed by the receiver") \
     MACRO(MaxHeightIsUnacceptable,12, "Kernel's max height is unacceptable") \
+    MACRO(InvalidState           ,13, "Transaction has invalid state") \
 
     enum TxFailureReason : int32_t
     {

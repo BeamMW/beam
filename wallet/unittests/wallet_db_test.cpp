@@ -249,6 +249,8 @@ void TestStoreTxRecord()
 
     WALLET_CHECK_NO_THROW(walletDB->saveTx(tr));
     WALLET_CHECK_NO_THROW(walletDB->saveTx(tr));
+    WALLET_CHECK(wallet::setTxParameter(*walletDB, id, TxParameterID::TransactionType, TxType::Simple, false));
+
     TxDescription tr2 = tr;
     tr2.m_txId = id;
     tr2.m_amount = 43;
@@ -274,6 +276,13 @@ void TestStoreTxRecord()
     TxID id2 = {{ 3,4,5 }};
     WALLET_CHECK_NO_THROW(walletDB->deleteTx(id2));
     WALLET_CHECK_NO_THROW(walletDB->deleteTx(id));
+    {
+        wallet::TxType type = TxType::Simple;
+        WALLET_CHECK(wallet::getTxParameter(*walletDB, id, TxParameterID::TransactionType, type));
+        WALLET_CHECK(type == TxType::Simple);
+    }
+    
+
 
     WALLET_CHECK_NO_THROW(walletDB->saveTx(tr2));
     WALLET_CHECK_NO_THROW(walletDB->saveTx(tr2));

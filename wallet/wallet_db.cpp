@@ -1863,10 +1863,11 @@ namespace beam
         auto tx = getTx(txId);
         if (tx.is_initialized())
         {
-            const char* req = "DELETE FROM " TX_PARAMS_NAME " WHERE txID=?1;";
+            const char* req = "DELETE FROM " TX_PARAMS_NAME " WHERE txID=?1 AND paramID!=?2;";
             sqlite::Statement stm(this, req);
 
             stm.bind(1, txId);
+            stm.bind(2, wallet::TxParameterID::TransactionType);
 
             stm.step();
             deleteParametersFromCache(txId);
