@@ -201,7 +201,7 @@ if(UNIX OR WIN32)
     add_definitions(-DUV_INTERNAL)
 endif()
 
-include_directories($ENV{BOOST_ROOT}/include)
+include_directories($ENV{BOOST_ROOT})
 link_directories($ENV{BOOST_ROOT}/lib)
 
 if(ANDROID)
