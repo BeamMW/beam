@@ -564,13 +564,15 @@ namespace
         TestBitcoinWallet receiverBtcWallet(*mainReactor, receiverAddress, receiverOptions);
 
         receiverBtcWallet.addPeer(senderAddress);
+        TxID txID = { {0} };
+
         if (isBeamOwnerStart)
         {
-            /*TxID txID =*/ sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, 4, 1, wallet::AtomicSwapCoin::Bitcoin, 2000, true);
+            txID = sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, 3, 1, wallet::AtomicSwapCoin::Bitcoin, 2000, true);
         }
         else
         {
-            /*TxID txID =*/ receiver.m_Wallet.swap_coins(receiver.m_WalletID, sender.m_WalletID, 4, 1, wallet::AtomicSwapCoin::Bitcoin, 2000, false);
+            txID = receiver.m_Wallet.swap_coins(receiver.m_WalletID, sender.m_WalletID, 3, 1, wallet::AtomicSwapCoin::Bitcoin, 2000, false);
         }
 
         auto receiverCoins = receiver.GetCoins();
@@ -583,7 +585,19 @@ namespace
 
         receiverCoins = receiver.GetCoins();
         WALLET_CHECK(receiverCoins.size() == 1);
-        WALLET_CHECK(receiverCoins[0].m_ID.m_Value == 4);
+        WALLET_CHECK(receiverCoins[0].m_ID.m_Value == 3);
+        WALLET_CHECK(receiverCoins[0].m_status == Coin::Available);
+        WALLET_CHECK(receiverCoins[0].m_createTxId == txID);
+
+        auto senderCoins = sender.GetCoins();
+        WALLET_CHECK(senderCoins.size() == 5);
+        WALLET_CHECK(senderCoins[0].m_ID.m_Value == 5);
+        WALLET_CHECK(senderCoins[0].m_status == Coin::Spent);
+        WALLET_CHECK(senderCoins[0].m_spentTxId == txID);
+        // change
+        WALLET_CHECK(senderCoins[4].m_ID.m_Value == 1);
+        WALLET_CHECK(senderCoins[4].m_status == Coin::Available);
+        WALLET_CHECK(senderCoins[4].m_createTxId == txID);
     }
 
     void TestSplitTransaction()
