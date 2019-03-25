@@ -475,14 +475,16 @@ void WalletViewModel::onStatus(const WalletStatus& status)
 
 void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<TxDescription>& items)
 {
+    QList<TxObject*> deletedObjects;
     if (action == beam::ChangeAction::Reset)
     {
-        qDeleteAll(_txList);
+        deletedObjects.swap(_txList);
         _txList.clear();
         for (const auto& item : items)
         {
             _txList.push_back(new TxObject(item));
         }
+        sortTx();
     }
     else if (action == beam::ChangeAction::Removed)
     {
@@ -491,10 +493,11 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
             auto it = find_if(_txList.begin(), _txList.end(), [&item](const auto& tx) {return item.m_txId == tx->getTxDescription().m_txId; });
             if (it != _txList.end())
             {
-                delete *it;
+                deletedObjects.push_back(*it);
                 _txList.erase(it);
             }
         }
+        emit transactionsChanged();
     }
     else if (action == beam::ChangeAction::Updated)
     {
@@ -509,6 +512,7 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
             }
             (*txIt)->update(item);
         }
+        sortTx();
     }
     else if (action == beam::ChangeAction::Added)
     {
@@ -517,9 +521,10 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
         {
             _txList.insert(0, new TxObject(item));
         }
+        sortTx();
     }
 
-    sortTx();
+    qDeleteAll(deletedObjects);
 
     // Get info for TxObject::_user_name (get wallets labels)
     _model.getAsync()->getAddresses(false);
