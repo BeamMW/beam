@@ -87,7 +87,7 @@ namespace
 		{
 			var = vm[deprecatedName];
 			if (!var.empty())
-				LOG_WARNING() << "\"" << deprecatedName << "\"" << " parameter was deprecated, use " << "\"" << name << "\"";
+				LOG_WARNING() << "The \"" << deprecatedName << "\"" << " parameter is deprecated, use " << "\"" << name << "\" instead.";
 		}
 
 		if (!var.empty()) {
