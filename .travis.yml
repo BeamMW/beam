@@ -88,7 +88,7 @@ matrix:
         - cd ${TRAVIS_BUILD_DIR}
         - cmake --version
         - sudo git clone --depth=1 https://github.com/BeamMW/boost-linux.git /usr/local/boost_1_69_0
-        - export BOOST_ROOT="/usr/local/opt/boost_1_69_0"
+        - export BOOST_ROOT="/usr/local/boost_1_69_0"
         - sudo add-apt-repository ppa:beineri/opt-qt-5.10.1-trusty -y
         - sudo apt-get update
         - sudo apt-get install qt510declarative qt510svg libgl1-mesa-dev-lts-xenial
