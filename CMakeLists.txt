@@ -202,7 +202,7 @@ if(UNIX OR WIN32)
 endif()
 
 include_directories($ENV{BOOST_ROOT})
-link_directories($ENV{BOOST_ROOT}/lib)
+link_directories($ENV{BOOST_ROOT}/lib/stage)
 
 if(ANDROID)
     message("ANDROID_ABI: ${ANDROID_ABI}")
