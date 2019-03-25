@@ -308,6 +308,11 @@ if (UV_INTERNAL)
     add_subdirectory(3rdparty/libuv)
 endif()
 
+if(Boost_FOUND)
+    add_library(boost INTERFACE IMPORTED)
+    set_property(TARGET boost PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${Boost_INCLUDE_DIR})
+endif()
+
 add_definitions(-DBC_STATIC)
 
 add_subdirectory(3rdparty/sqlite)
