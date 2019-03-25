@@ -308,13 +308,10 @@ if (UV_INTERNAL)
     add_subdirectory(3rdparty/libuv)
 endif()
 
-if(Boost_FOUND)
-    add_library(boost INTERFACE IMPORTED)
-    set_property(TARGET boost PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${Boost_INCLUDE_DIR})
-endif()
-
 add_definitions(-DBC_STATIC)
 
+add_subdirectory(3rdparty/secp256k1-zkp)
+add_subdirectory(libbitcoin)
 add_subdirectory(3rdparty/sqlite)
 add_subdirectory(utility)
 add_subdirectory(core)
@@ -326,8 +323,7 @@ add_subdirectory(node)
 add_subdirectory(beam)
 add_subdirectory(explorer)
 add_subdirectory(mnemonic)
-add_subdirectory(3rdparty/secp256k1-zkp)
-add_subdirectory(libbitcoin)
+
 
 if(ANDROID OR BEAM_BUILD_JNI)
     add_subdirectory(android)
