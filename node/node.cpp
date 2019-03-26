@@ -442,20 +442,17 @@ bool Node::TryAssignTask(Task& t, Peer& p)
         if (nBlocks)
             return false; // don't requests headers from the peer that transfers a block
 
-		uint32_t nPackSize = 0;
-		if (t.m_Key.first.m_Height > m_Processor.m_Cursor.m_ID.m_Height)
-		{
-			Height dh = t.m_Key.first.m_Height - m_Processor.m_Cursor.m_ID.m_Height;
-			if (dh > 1)
-			{
-				nPackSize = (proto::LoginFlags::Extension2 & p.m_LoginFlags) ?
-					proto::g_HdrPackMaxSize :
-					proto::g_HdrPackMaxSizeV0;
+		uint32_t nPackSize = (proto::LoginFlags::Extension2 & p.m_LoginFlags) ?
+			proto::g_HdrPackMaxSize :
+			proto::g_HdrPackMaxSizeV0;
 
-				if (nPackSize > dh)
-					nPackSize = (uint32_t)dh;
-			}
-		}
+		// make sure we're not dealing with overlaps
+		Height h0 = m_Processor.get_DB().get_HeightBelow(t.m_Key.first.m_Height);
+		assert(h0 < t.m_Key.first.m_Height);
+		Height dh = t.m_Key.first.m_Height - h0;
+
+		if (nPackSize > dh)
+			nPackSize = (uint32_t) dh;
 
         if (nPackSize)
         {

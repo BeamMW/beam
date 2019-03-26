@@ -1373,6 +1373,18 @@ void NodeDB::EnumFunctionalTips(WalkerState& x)
 		" ORDER BY "  TblTipsReachable "." TblTips_ChainWork " DESC");
 }
 
+Height NodeDB::get_HeightBelow(Height h)
+{
+	Recordset rs(*this, Query::FindHeightBelow, "SELECT " TblStates_Height " FROM " TblStates " WHERE " TblStates_Height "<? ORDER BY " TblStates_Height " DESC LIMIT 1");
+	rs.put(0, h);
+
+	if (!rs.Step())
+		return Rules::HeightGenesis - 1;
+
+	rs.get(0, h);
+	return h;
+}
+
 void NodeDB::EnumStatesAt(WalkerState& x, Height h)
 {
 	x.m_Rs.Reset(Query::EnumAtHeight, "SELECT " TblStates_Height ",rowid FROM " TblStates " WHERE " TblStates_Height "=? ORDER BY " TblStates_Hash);
