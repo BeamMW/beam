@@ -311,7 +311,7 @@ endif()
 add_definitions(-DBC_STATIC)
 
 add_subdirectory(3rdparty/secp256k1-zkp)
-add_subdirectory(libbitcoin)
+add_subdirectory(3rdparty/libbitcoin)
 add_subdirectory(3rdparty/sqlite)
 add_subdirectory(utility)
 add_subdirectory(core)

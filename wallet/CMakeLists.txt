@@ -21,12 +21,12 @@ set(WALLET_SRC
 add_library(bitcoin_rpc STATIC bitcoin_rpc.cpp)
 add_dependencies(bitcoin_rpc libbitcoin http)
 target_link_libraries(bitcoin_rpc libbitcoin http)
-target_include_directories(bitcoin_rpc PUBLIC "${CMAKE_SOURCE_DIR}/libbitcoin/include")
+target_include_directories(bitcoin_rpc PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/libbitcoin/include")
 
 add_library(wallet STATIC ${WALLET_SRC})
 add_dependencies(wallet core sqlite libbitcoin http bitcoin_rpc)
 target_link_libraries(wallet core sqlite libbitcoin http bitcoin_rpc)
-target_include_directories(wallet PUBLIC "${CMAKE_SOURCE_DIR}/libbitcoin/include")
+target_include_directories(wallet PUBLIC "${CMAKE_SOURCE_DIR}/3rdparty/libbitcoin/include")
 
 add_executable(${TARGET_NAME} cli.cpp)
 
