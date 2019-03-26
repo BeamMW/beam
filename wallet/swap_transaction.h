@@ -80,8 +80,6 @@ namespace beam::wallet
                             , beam::IWalletDB::Ptr walletDB
                             , const TxID& txID);
 
-        bool SetRegisteredStatus(Transaction::Ptr transaction, bool isRegistered) override;
-
     private:
         void SetNextState(State state);
         void UpdateAsync();
@@ -124,7 +122,7 @@ namespace beam::wallet
         // wait SubTX in BEAM chain(request kernel proof), returns true if got kernel proof
         bool CompleteSubTx(SubTxID subTxID);
 
-        bool GetPreimageFromChain(ECC::uintBig& preimage) const;
+        bool GetPreimageFromChain(ECC::uintBig& preimage, SubTxID subTxID) const;
 
         Amount GetAmount() const;
         bool IsSender() const;

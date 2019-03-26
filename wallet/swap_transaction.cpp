@@ -126,22 +126,6 @@ namespace beam::wallet
 
     }
 
-    bool AtomicSwapTransaction::SetRegisteredStatus(Transaction::Ptr transaction, bool isRegistered)
-    {
-        Merkle::Hash kernelID;
-        transaction->m_vKernels.back()->get_ID(kernelID);
-
-        SubTxIndex subTxID = SubTxIndex::BEAM_LOCK_TX;
-        Merkle::Hash lockTxKernelID = GetMandatoryParameter<Merkle::Hash>(TxParameterID::KernelID, SubTxIndex::BEAM_LOCK_TX);
-
-        if (kernelID != lockTxKernelID)
-        {
-            subTxID = IsSender() ? SubTxIndex::BEAM_REFUND_TX : SubTxIndex::BEAM_REDEEM_TX;
-        }
-
-        return SetParameter(TxParameterID::TransactionRegistered, isRegistered, false, subTxID);
-    }
-
     void AtomicSwapTransaction::SetNextState(State state)
     {
         SetState(state);
@@ -318,7 +302,6 @@ namespace beam::wallet
                 break;
             
             LOG_DEBUG() << GetTxID() << " Redeem TX completed!";
-
             SetNextState(State::CompleteSwap);
             break;
         }
@@ -342,10 +325,6 @@ namespace beam::wallet
                 break;
             
             LOG_DEBUG() << GetTxID()<< " Beam Lock TX completed.";
-
-            // TODO: change this (dirty hack)
-            SetParameter(TxParameterID::KernelProofHeight, Height(0));
-
             SetNextState(State::SendingBeamRedeemTX);
             break;
         }
@@ -363,11 +342,11 @@ namespace beam::wallet
 
                 // request kernel body for getting secret(preimage)
                 ECC::uintBig preimage(Zero);
-                if (!GetPreimageFromChain(preimage))
+                if (!GetPreimageFromChain(preimage, SubTxIndex::BEAM_REDEEM_TX))
                     break;
 
                 LOG_DEBUG() << GetTxID() << " Got preimage: " << preimage;
-                
+
                 // Redeem second Coin
                 SetNextState(State::SendingRedeemTX);
             }
@@ -385,7 +364,6 @@ namespace beam::wallet
                     break;
 
                 LOG_DEBUG() << GetTxID() << " Beam Redeem TX completed!";
-
                 SetNextState(State::CompleteSwap);
             }
             break;
@@ -405,14 +383,12 @@ namespace beam::wallet
                 break;
 
             LOG_DEBUG() << GetTxID() << " Beam Refund TX completed!";
-
             SetNextState(State::CompleteSwap);
             break;
         }
         case State::CompleteSwap:
         {
             LOG_DEBUG() << GetTxID() << " Swap completed.";
-
             CompleteTx();
             break;
         }
@@ -850,7 +826,7 @@ namespace beam::wallet
         bool isRegistered = false;
         if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered, subTxID))
         {
-            m_Gateway.register_tx(GetTxID(), transaction);
+            m_Gateway.register_tx(GetTxID(), transaction, subTxID);
             return isRegistered;
         }
 
@@ -876,16 +852,13 @@ namespace beam::wallet
     bool AtomicSwapTransaction::CompleteSubTx(SubTxID subTxID)
     {
         Height hProof = 0;
-        // TODO: check
-        GetParameter(TxParameterID::KernelProofHeight, hProof/*, subTxID*/);
+        GetParameter(TxParameterID::KernelProofHeight, hProof, subTxID);
         if (!hProof)
         {
             Merkle::Hash kernelID = GetMandatoryParameter<Merkle::Hash>(TxParameterID::KernelID, subTxID);
-            m_Gateway.confirm_kernel(GetTxID(), kernelID);
+            m_Gateway.confirm_kernel(GetTxID(), kernelID, subTxID);
             return false;
         }
-
-        SetParameter(TxParameterID::KernelProofHeight, hProof, subTxID);
 
         if ((SubTxIndex::BEAM_REDEEM_TX == subTxID) || (SubTxIndex::BEAM_REFUND_TX == subTxID))
         {
@@ -927,16 +900,16 @@ namespace beam::wallet
         return true;
     }
 
-    bool AtomicSwapTransaction::GetPreimageFromChain(ECC::uintBig& preimage) const
+    bool AtomicSwapTransaction::GetPreimageFromChain(ECC::uintBig& preimage, SubTxID subTxID) const
     {
         Height hProof = 0;
-        GetParameter(TxParameterID::KernelProofHeight, hProof/*, subTxID*/);
-        GetParameter(TxParameterID::PreImage, preimage);
+        GetParameter(TxParameterID::KernelProofHeight, hProof, subTxID);
+        GetParameter(TxParameterID::PreImage, preimage, subTxID);
 
         if (!hProof)
         {
             Merkle::Hash kernelID = GetMandatoryParameter<Merkle::Hash>(TxParameterID::KernelID, SubTxIndex::BEAM_REDEEM_TX);
-            m_Gateway.get_kernel(GetTxID(), kernelID);
+            m_Gateway.get_kernel(GetTxID(), kernelID, subTxID);
             return false;
         }
 
@@ -1204,7 +1177,7 @@ namespace beam::wallet
         }
         else
         {
-            auto secret = GetMandatoryParameter<ECC::uintBig>(TxParameterID::PreImage);
+            auto secret = GetMandatoryParameter<ECC::uintBig>(TxParameterID::PreImage, SubTxIndex::BEAM_REDEEM_TX);
 
             // <their sig> <their pubkey> <initiator secret> 1
             sig_script.push_back(libbitcoin::machine::operation(sig));

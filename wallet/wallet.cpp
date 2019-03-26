@@ -464,12 +464,13 @@ namespace beam
             get_ParentObj().CheckSyncDone();
     }
 
-    void Wallet::confirm_kernel(const TxID& txID, const TxKernel& kernel)
+    void Wallet::confirm_kernel(const TxID& txID, const TxKernel& kernel, wallet::SubTxID subTxID)
     {
         if (auto it = m_Transactions.find(txID); it != m_Transactions.end())
         {
             MyRequestKernel::Ptr pVal(new MyRequestKernel);
             pVal->m_TxID = txID;
+            pVal->m_SubTxID = subTxID;
             kernel.get_ID(pVal->m_Msg.m_ID);
 
             if (PostReqUnique(*pVal))
@@ -477,12 +478,13 @@ namespace beam
         }
     }
 
-    void Wallet::confirm_kernel(const TxID& txID, const Merkle::Hash& kernelID)
+    void Wallet::confirm_kernel(const TxID& txID, const Merkle::Hash& kernelID, wallet::SubTxID subTxID)
     {
         if (auto it = m_Transactions.find(txID); it != m_Transactions.end())
         {
             MyRequestKernel::Ptr pVal(new MyRequestKernel);
             pVal->m_TxID = txID;
+            pVal->m_SubTxID = subTxID;
             pVal->m_Msg.m_ID = kernelID;
 
             if (PostReqUnique(*pVal))
@@ -490,12 +492,13 @@ namespace beam
         }
     }
 
-    void Wallet::get_kernel(const TxID& txID, const Merkle::Hash& kernelID)
+    void Wallet::get_kernel(const TxID& txID, const Merkle::Hash& kernelID, wallet::SubTxID subTxID)
     {
         if (auto it = m_Transactions.find(txID); it != m_Transactions.end())
         {
             MyRequestKernel2::Ptr pVal(new MyRequestKernel2);
             pVal->m_TxID = txID;
+            pVal->m_SubTxID = subTxID;
             pVal->m_Msg.m_Fetch = true;
             pVal->m_Msg.m_ID = kernelID;
 
@@ -559,7 +562,7 @@ namespace beam
         auto it = m_Transactions.find(r.m_TxID);
         if (it != m_Transactions.end())
         {
-            it->second->SetRegisteredStatus(r.m_Msg.m_Transaction, r.m_Res.m_Value);
+            it->second->SetParameter(TxParameterID::TransactionRegistered, r.m_Res.m_Value, r.m_SubTxID);
             updateTransaction(r.m_TxID);
         }
     }
@@ -638,7 +641,7 @@ namespace beam
         {
             m_WalletDB->get_History().AddStates(&r.m_Res.m_Proof.m_State, 1); // why not?
 
-            if (tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Proof.m_State.m_Height))
+            if (tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Proof.m_State.m_Height, r.m_SubTxID))
             {
                 tx->Update();
             }
@@ -647,7 +650,7 @@ namespace beam
         {
             Block::SystemState::Full sTip;
             get_tip(sTip);
-            tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height);
+            tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height, r.m_SubTxID);
         }
     }
 
@@ -662,8 +665,8 @@ namespace beam
 
         if (r.m_Res.m_Kernel && r.m_Res.m_Kernel->m_pHashLock)
         {
-            tx->SetParameter(TxParameterID::PreImage, r.m_Res.m_Kernel->m_pHashLock->m_Preimage);
-            tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Height);
+            tx->SetParameter(TxParameterID::PreImage, r.m_Res.m_Kernel->m_pHashLock->m_Preimage, r.m_SubTxID);
+            tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Height, r.m_SubTxID);
         }
     }
 
@@ -922,7 +925,7 @@ namespace beam
         notifySyncProgress();
     }
 
-    void Wallet::register_tx(const TxID& txId, Transaction::Ptr data)
+    void Wallet::register_tx(const TxID& txId, Transaction::Ptr data, wallet::SubTxID subTxID)
     {
         LOG_VERBOSE() << txId << " sending tx for registration";
 
@@ -933,6 +936,7 @@ namespace beam
 
         MyRequestTransaction::Ptr pReq(new MyRequestTransaction);
         pReq->m_TxID = txId;
+        pReq->m_SubTxID = subTxID;
         pReq->m_Msg.m_Transaction = std::move(data);
 
         PostReqUnique(*pReq);

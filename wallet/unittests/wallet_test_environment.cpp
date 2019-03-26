@@ -251,7 +251,7 @@ struct TestGateway : wallet::INegotiatorGateway
         cout << __FUNCTION__ << "\n";
     }
 
-    void register_tx(const TxID&, Transaction::Ptr) override
+    void register_tx(const TxID&, Transaction::Ptr, wallet::SubTxID) override
     {
         cout << "sent tx registration request\n";
     }
@@ -261,12 +261,12 @@ struct TestGateway : wallet::INegotiatorGateway
         cout << "confirm outputs\n";
     }
 
-    void confirm_kernel(const TxID&, const TxKernel&) override
+    void confirm_kernel(const TxID&, const TxKernel&, wallet::SubTxID) override
     {
         cout << "confirm kernel\n";
     }
 
-    void confirm_kernel(const TxID&, const Merkle::Hash&) override
+    void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID) override
     {
         cout << "confirm kernel\n";
     }
