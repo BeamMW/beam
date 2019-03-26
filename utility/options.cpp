@@ -104,6 +104,7 @@ namespace beam
         const char* NO_FAST_SYNC = "no_fast_sync";
         const char* API_USE_HTTP = "api_use_http";
         const char* SWAP_COINS = "swap_coins";
+        const char* SWAP_LISTEN = "swap_listen";
         const char* SWAP_AMOUNT = "swap_amount";
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
 
@@ -204,7 +205,7 @@ namespace beam
 			(cli::PAYMENT_PROOF_REQUIRED, po::value<bool>(), "Set to disallow outgoing payments if the receiver doesn't supports the payment proof (older wallets)")
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("addresses.dat"), "path to import or export data (import_addresses|export_addresses)")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses|swap_coins]")
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses|swap_coins|swap_listen]")
             (cli::SWAP_AMOUNT, po::value<Amount>(), "swap amount in the smallest unit of the coin")
             (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner");
 

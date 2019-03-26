@@ -103,6 +103,7 @@ namespace beam
         extern const char* NO_FAST_SYNC;
         extern const char* API_USE_HTTP;
         extern const char* SWAP_COINS;
+        extern const char* SWAP_LISTEN;
         extern const char* SWAP_AMOUNT;
         extern const char* SWAP_BEAM_SIDE;
  // treasury

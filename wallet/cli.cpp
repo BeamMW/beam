@@ -890,7 +890,8 @@ int main_impl(int argc, char* argv[])
                         && command != cli::WALLET_RESCAN
                         && command != cli::IMPORT_ADDRESSES
                         && command != cli::EXPORT_ADDRESSES
-                        && command != cli::SWAP_COINS)
+                        && command != cli::SWAP_COINS
+                        && command != cli::SWAP_LISTEN)
                     {
                         LOG_ERROR() << "unknown command: \'" << command << "\'";
                         return -1;
@@ -1103,7 +1104,7 @@ int main_impl(int argc, char* argv[])
                         return -1;
                     }
 
-                    bool is_server = (command == cli::LISTEN || vm.count(cli::LISTEN));
+                    bool is_server = (command == cli::LISTEN || vm.count(cli::LISTEN)) || (command == cli::SWAP_LISTEN || vm.count(cli::SWAP_LISTEN));
 
                     Wallet wallet{ walletDB, is_server ? Wallet::TxCompletedAction() : [](auto) { io::Reactor::get_Current().stop(); } };
 
@@ -1148,6 +1149,47 @@ int main_impl(int argc, char* argv[])
                         wallet.swap_coins(isBeamSide ? senderAddress.m_walletID : receiverWalletID,
                             isBeamSide ? receiverWalletID : senderAddress.m_walletID,
                             move(amount), move(fee), wallet::AtomicSwapCoin::Bitcoin, swapAmount, isBeamSide);
+                    }
+
+                    if (command == cli::SWAP_LISTEN)
+                    {
+                        if (btcUserName.empty() || btcPass.empty() || btcNodeAddr.empty())
+                        {
+                            LOG_ERROR() << "BTC node credentials should be provided";
+                            return -1;
+                        }
+
+                        if (vm.count(cli::AMOUNT) == 0)
+                        {
+                            LOG_ERROR() << "amount is missing";
+                            return false;
+                        }
+
+                        auto signedAmount = vm[cli::AMOUNT].as<double>();
+                        if (signedAmount < 0)
+                        {
+                            LOG_ERROR() << "Unable to send negative amount of coins";
+                            return false;
+                        }
+
+                        signedAmount *= Rules::Coin; // convert beams to coins
+
+                        amount = static_cast<ECC::Amount>(std::round(signedAmount));
+                        if (amount == 0)
+                        {
+                            LOG_ERROR() << "Unable to send zero coins";
+                            return false;
+                        }
+
+                        if (vm.count(cli::SWAP_AMOUNT) == 0)
+                        {
+                            LOG_ERROR() << "swap amount is missing";
+                            return -1;
+                        }
+
+                        Amount swapAmount = vm[cli::SWAP_AMOUNT].as<beam::Amount>();
+                        bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
+                        wallet.initSwapConditions(amount, swapAmount, isBeamSide);
                     }
 
                     if (isTxInitiator)
