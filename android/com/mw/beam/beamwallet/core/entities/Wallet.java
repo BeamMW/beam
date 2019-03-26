@@ -30,14 +30,16 @@ public class Wallet
     public native void getAddresses(boolean own);
     public native void generateNewAddress();
     public native void saveAddress(WalletAddressDTO address, boolean own);
+    public native void saveAddressChanges(String addr, String name, boolean isNever, boolean makeActive, boolean makeExpired);
     public native void cancelTx(String id);
     public native void deleteTx(String id);
     public native void deleteAddress(String walletID);
+    public native void changeWalletPassword(String password);
+    public native boolean checkWalletPassword(String password);
 
     // not implemented
     public native void changeCurrentWalletIDs(); //const beam::WalletID& senderID, const beam::WalletID& receiverID);
     public native void setNodeAddress(); //const std::string& addr);
-    public native void changeWalletPassword();//const beam::SecString& password);
 
 }
 

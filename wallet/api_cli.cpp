@@ -29,6 +29,7 @@
 #include "utility/io/json_serializer.h"
 #include "utility/options.h"
 #include "utility/string_helpers.h"
+#include "utility/log_rotation.h"
 
 #include "http/http_connection.h"
 #include "http/http_msg_creator.h"
@@ -286,6 +287,83 @@ namespace beam
                 doResponse(id, CreateAddress::Response{ address.m_walletID });
             }
 
+            void onMessage(int id, const DeleteAddress& data) override
+            {
+                LOG_DEBUG() << "DeleteAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
+
+                auto addr = _walletDB->getAddress(data.address);
+
+                if (addr)
+                {
+                    if (addr->m_OwnID)
+                    {
+                        _wnet.DeleteOwnAddress(addr->m_OwnID);
+                    }
+
+                    _walletDB->deleteAddress(data.address);
+
+                    doResponse(id, DeleteAddress::Response{});
+                }
+                else
+                {
+                    doError(id, INVALID_ADDRESS, "Provided address doesn't exist.");
+                }
+            }
+
+            void onMessage(int id, const EditAddress& data) override
+            {
+                LOG_DEBUG() << "EditAddress(id = " << id << " address = " << std::to_string(data.address) << ")";
+
+                auto addr = _walletDB->getAddress(data.address);
+
+                if (addr)
+                {
+                    if (addr->m_OwnID)
+                    {
+                        if (data.comment)
+                        {
+                            addr->setLabel(*data.comment);
+                        }
+
+                        if (data.expiration)
+                        {
+                            switch (*data.expiration)
+                            {
+                            case EditAddress::OneDay:
+                                addr->makeActive(24 * 60 * 60);
+                                break;
+                            case EditAddress::Expired:
+                                addr->makeExpired();
+                                break;
+                            case EditAddress::Never:
+                                addr->makeEternal();
+                                break;
+                            }
+                        }
+
+                        _walletDB->saveAddress(*addr);
+                        _wnet.AddOwnAddress(*addr);
+
+                        doResponse(id, EditAddress::Response{});
+                    }
+                    else
+                    {
+                        doError(id, INVALID_ADDRESS, "You can edit only own address.");
+                    }
+                }
+                else
+                {
+                    doError(id, INVALID_ADDRESS, "Provided address doesn't exist.");
+                }
+            }
+
+            void onMessage(int id, const AddrList& data) override
+            {
+                LOG_DEBUG() << "AddrList(id = " << id << ")";
+
+                doResponse(id, AddrList::Response{ _walletDB->getAddresses(data.own) });
+            }
+
             void onMessage(int id, const ValidateAddress& data) override
             {
                 LOG_DEBUG() << "ValidateAddress( address = " << std::to_string(data.address) << ")";
@@ -334,7 +412,7 @@ namespace beam
 
                     ByteBuffer message(data.comment.begin(), data.comment.end());
 
-                    auto txId = _wallet.transfer_money(from, data.address, data.value, data.fee, true, 120, 720, std::move(message));
+                    auto txId = _wallet.transfer_money(from, data.address, data.value, data.fee, data.coins, true, 120, 720, std::move(message));
                     doResponse(id, Send::Response{ txId });
                 }
                 catch(...)
@@ -777,6 +855,8 @@ int main(int argc, char* argv[])
             std::string aclPath;
             std::string whitelist;
 
+            uint32_t logCleanupPeriod;
+
         } options;
 
         TlsOptions tlsOptions;
@@ -797,6 +877,7 @@ int main(int argc, char* argv[])
                 (cli::PASS, po::value<std::string>(), "password for the wallet")
                 (cli::API_USE_HTTP, po::value<bool>(&options.useHttp)->default_value(false), "use JSON RPC over HTTP")
                 (cli::IP_WHITELIST, po::value<std::string>(&options.whitelist)->default_value(""), "IP whitelist")
+                (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>(&options.logCleanupPeriod)->default_value(5), "old logfiles cleanup period(days)")
             ;
 
             po::options_description authDesc("User authorization options");
@@ -814,11 +895,13 @@ int main(int argc, char* argv[])
 
             desc.add(authDesc);
             desc.add(tlsDesc);
+            desc.add(createRulesOptionsDescription());
 
             po::variables_map vm;
 
             po::store(po::command_line_parser(argc, argv)
                 .options(desc)
+                .style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing)
                 .run(), vm);
 
             if (vm.count(cli::HELP))
@@ -837,6 +920,8 @@ int main(int argc, char* argv[])
             }
 
             vm.notify();
+
+            getRulesOptions(vm);
 
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
@@ -911,7 +996,7 @@ int main(int argc, char* argv[])
                 return -1;
             }
 
-            walletDB = WalletDB::open(options.walletPath, pass);
+            walletDB = WalletDB::open(options.walletPath, pass, reactor);
             if (!walletDB)
             {
                 LOG_ERROR() << "Wallet not opened.";
@@ -925,11 +1010,7 @@ int main(int argc, char* argv[])
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
 
-        io::Timer::Ptr logRotateTimer = io::Timer::create(*reactor);
-        logRotateTimer->start(LOG_ROTATION_PERIOD, true, []() 
-            {
-                Logger::get()->rotate();
-            });
+        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
 
         Wallet wallet{ walletDB };
 

@@ -30,7 +30,7 @@ bool ReadTreasury(ByteBuffer& bb, const string& sPath)
 	return f.read(&bb.front(), nSize) == nSize;
 }
 
-IWalletDB::Ptr init_wallet_db(const std::string& path, uintBig* walletSeed) {
+IWalletDB::Ptr init_wallet_db(const std::string& path, uintBig* walletSeed, io::Reactor::Ptr reactor) {
     static const std::string TEST_PASSWORD("12321");
 
     if (boost::filesystem::exists(path)) boost::filesystem::remove_all(path);
@@ -43,7 +43,7 @@ IWalletDB::Ptr init_wallet_db(const std::string& path, uintBig* walletSeed) {
     Hash::Processor() << password >> hv;
     seed.V = hv;
 
-    auto walletDB = WalletDB::init(path, password, seed);
+    auto walletDB = WalletDB::init(path, password, seed, reactor);
 
     if (walletSeed)
         *walletSeed = seed.V;

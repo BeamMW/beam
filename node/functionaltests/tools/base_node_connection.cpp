@@ -48,7 +48,10 @@ void BaseNodeConnection::ParseCommandLine(int argc, char* argv[])
 		("port", po::value<uint16_t>()->default_value(10000), "port")
 		("wallet_seed", po::value<std::string>()->default_value("321"), "wallet seed");
 
-	po::store(po::command_line_parser(argc, argv).options(options).run(), m_VM);
+	po::store(po::command_line_parser(argc, argv)
+        .options(options)
+        .style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing)
+        .run(), m_VM);
 }
 
 void BaseNodeConnection::InitKdf()

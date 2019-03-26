@@ -1052,12 +1052,12 @@ Item
 
                                 property var strengthTests: 
                                 [
-                                    {exp: new RegExp("(?=.{1,})")                                                               , color: "#ff625c", msg: "Very weak password"},
-                                    {exp: new RegExp("((?=.{6,})(?=.*[0-9]))|((?=.{6,})(?=.*[A-Z]))|((?=.{6,})(?=.*[a-z]))")    , color: "#ff625c", msg: "Weak password"},
-                                    {exp: new RegExp("((?=.{6,})(?=.*[A-Z])(?=.*[a-z]))|((?=.{6,})(?=.*[0-9])(?=.*[a-z]))")     , color: "#f4ce4a", msg: "Medium strength password"},
-                                    {exp: new RegExp("(?=.{8,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                              , color: "#f4ce4a", msg: "Medium strength password"},
-                                    {exp: new RegExp("(?=.{10,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                             , color: "#00f6d2", msg: "Strong password"},
-                                    {exp: new RegExp("(?=.{10,})(?=.*[!@#\$%\^&\*])(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")          , color: "#00f6d2", msg: "Very strong password"},
+                                    {exp: new RegExp("(?=.{1,})")                                                               , color: Style.weak_pass_color, msg: "Very weak password"},
+                                    {exp: new RegExp("((?=.{6,})(?=.*[0-9]))|((?=.{6,})(?=.*[A-Z]))|((?=.{6,})(?=.*[a-z]))")    , color: Style.weak_pass_color, msg: "Weak password"},
+                                    {exp: new RegExp("((?=.{6,})(?=.*[A-Z])(?=.*[a-z]))|((?=.{6,})(?=.*[0-9])(?=.*[a-z]))")     , color: Style.medium_strength_pass_color, msg: "Medium strength password"},
+                                    {exp: new RegExp("(?=.{8,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                              , color: Style.medium_strength_pass_color, msg: "Medium strength password"},
+                                    {exp: new RegExp("(?=.{10,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                             , color: Style.strong_pass_color, msg: "Strong password"},
+                                    {exp: new RegExp("(?=.{10,})(?=.*[!@#\$%\^&\*])(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")          , color: Style.strong_pass_color, msg: "Very strong password"},
                                 ]
 
                                 function passwordStrength(pass)
@@ -1091,7 +1091,7 @@ Item
 
                             SFText {
                                 text: strengthChecker.strength > 0 ? strengthChecker.strengthTests[strengthChecker.strength-1].msg : ""
-                                color: "#84a5b2"
+                                color: Style.strength_tests_msg_color
                                 font.pixelSize: 14
                                 height: 16
                                 width: parent.width
@@ -1260,7 +1260,7 @@ Item
 
                                 font.pixelSize: 14
                                 color: Style.white
-                                text: "10005"
+                                text: viewModel.defaultPortToListen()
                                 onTextChanged: if (portInput.text.length > 0) portError.text = ""
                             }
                             SFText {
@@ -1321,7 +1321,7 @@ Item
                                 width: parent.width - parent.spacing - remoteNodeButton.width
                                 font.pixelSize: 14
                                 color: Style.white
-                                text: "127.0.0.1:10005"
+                                text: viewModel.defaultRemoteNodeAddr()
                                 validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                 onTextChanged: if (remoteNodeAddrInput.text.length > 0) remoteNodeAddrError.text = ""
                                 bottomPadding: 8 // TODO add default value of this item to controls
@@ -1359,7 +1359,7 @@ Item
                         }
 
                         PrimaryButton {
-                            text: viewModel.isRecoveryMode ? qsTr("restore wallet") : qsTr("proceed to your wallet");
+                            text: viewModel.isRecoveryMode ? qsTr("restore wallet") : qsTr("start using your wallet");
                             icon.source: viewModel.isRecoveryMode ? "qrc:/assets/icon-restore-blue.svg" : "qrc:/assets/icon-next-blue.svg"
                             enabled: nodePreferencesGroup.checkState != Qt.Unchecked
                             onClicked:{

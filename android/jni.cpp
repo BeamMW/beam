@@ -16,6 +16,7 @@
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
 #include "wallet/wallet_model_async.h"
+#include "wallet/default_peers.h"
 
 #include "utility/bridge.h"
 #include "utility/string_helpers.h"
@@ -69,10 +70,8 @@ namespace
 
     using WalletSubscriber = ScopedSubscriber<IWalletObserver, beam::Wallet>;
 
-    // this code for node
-    //static unique_ptr<NodeModel> nodeModel;
-
     static unique_ptr<WalletModel> walletModel;
+    static ECC::NoLeak<ECC::uintBig> passwordHash;
 
     void initLogger(const string& appData)
     {
@@ -116,25 +115,27 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         seed.assign(buf.data(), buf.size());
     }
 
+    auto reactor = io::Reactor::create();
     auto walletDB = WalletDB::init(
         appData + "/" WALLET_FILENAME,
         pass,
-        seed.hash());
+        seed.hash(),
+        reactor
+    );
 
     if(walletDB)
     {
         LOG_DEBUG() << "wallet successfully created.";
 
-        // this code for node
-        /*LOG_DEBUG() << "try to start node";
+        passwordHash.V = beam::SecString(pass).hash().V;
 
-        nodeModel = make_unique<NodeModel>(appData);
+        // generate default address
 
-        nodeModel->setKdf(walletDB->get_MasterKdf());
-        nodeModel->startNode();
-        walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005");*/
+        WalletAddress address = wallet::createAddress(*walletDB);
+        address.m_label = "default";
+        walletDB->saveAddress(address);
 
-        walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value());
+        walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
 
         jobject walletObj = env->AllocObject(WalletClass);
 
@@ -156,6 +157,21 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(isWalletInitialized)(JNIEnv *
     return WalletDB::isInitialized(JString(env, appData).value() + "/" WALLET_FILENAME) ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_API_INTERFACE(closeWallet)(JNIEnv *env, jobject thiz)
+{
+    LOG_DEBUG() << "close wallet if it exists";
+
+    if (walletModel)
+    {
+        walletModel.reset();
+    }
+}
+
+JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(isWalletRunning)(JNIEnv *env, jobject thiz)
+{
+    return walletModel != nullptr;
+}
+
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobject thiz, 
     jstring nodeAddrStr, jstring appDataStr, jstring passStr)
 {
@@ -166,27 +182,17 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
     LOG_DEBUG() << "opening wallet...";
 
     string pass = JString(env, passStr).value();
-    auto walletDB = WalletDB::open(appData + "/" WALLET_FILENAME, pass);
+    auto reactor = io::Reactor::create();
+    auto walletDB = WalletDB::open(appData + "/" WALLET_FILENAME, pass, reactor);
 
     if(walletDB)
     {
         LOG_DEBUG() << "wallet successfully opened.";
 
-        // this code for node
-        /*LOG_DEBUG() << "try to start node";
+        passwordHash.V = beam::SecString(pass).hash().V;
 
-        nodeModel = make_unique<NodeModel>(appData);
+        walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
 
-        nodeModel->start();
-
-        nodeModel->setKdf(walletDB->get_MasterKdf());
-
-        nodeModel->startNode();
-
-        walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005");*/
-
-        walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value());
-                
         jobject walletObj = env->AllocObject(WalletClass);
 
         walletModel->start();
@@ -214,6 +220,23 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createMnemonic)(JNIEnv *env, j
     }
 
     return phrasesArray;
+}
+
+JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(getDefaultPeers)(JNIEnv *env, jobject thiz)
+{
+    auto peers = beam::getDefaultPeers();
+
+    jobjectArray peersArray = env->NewObjectArray(static_cast<jsize>(peers.size()), env->FindClass("java/lang/String"), 0);
+
+    int i = 0;
+    for (auto& peer : peers)
+    {
+        jstring str = env->NewStringUTF(peer.c_str());
+        env->SetObjectArrayElement(peersArray, i++, str);
+        env->DeleteLocalRef(str);
+    }
+
+    return peersArray;
 }
 
 JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(checkReceiverAddress)(JNIEnv *env, jobject thiz, jstring address)
@@ -249,16 +272,11 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendMoney)(JNIEnv *env, jobjec
 {
     LOG_DEBUG() << "sendMoney(" << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
 
-    WalletAddress peerAddr;
-    peerAddr.m_walletID.FromHex(JString(env, receiverAddr).value());
-    peerAddr.m_createTime = getTimestamp();
-
-    // TODO: implement UI for this situation
-    // TODO: don't save if you send to yourself
-    walletModel->getAsync()->saveAddress(peerAddr, false);
+    WalletID walletID(Zero);
+    walletID.FromHex(JString(env, receiverAddr).value());
 
     // TODO: show 'operation in process' animation here?
-    walletModel->getAsync()->sendMoney(peerAddr.m_walletID
+    walletModel->getAsync()->sendMoney(walletID
         , JString(env, comment).value()
         , beam::Amount(amount)
         , beam::Amount(fee));
@@ -304,6 +322,20 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
     walletModel->getAsync()->saveAddress(addr, own);
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddressChanges)(JNIEnv *env, jobject thiz,
+    jstring addr, jstring name, jboolean isNever, jboolean makeActive, jboolean makeExpired)
+{
+    WalletID walletID(Zero);
+
+    if (!walletID.FromHex(JString(env, addr).value()))
+    {
+        LOG_ERROR() << "Address is not valid!!!";
+
+        return;
+    }
+    walletModel->getAsync()->saveAddressChanges(walletID, JString(env, name).value(), isNever, makeActive, makeExpired);
+}
+
 // don't use it. i don't check it
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(cancelTx)(JNIEnv *env, jobject thiz,
     jstring txId)
@@ -341,6 +373,24 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteAddress)(JNIEnv *env, jo
         return;
     }
     walletModel->getAsync()->deleteAddress(id);
+}
+
+JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(checkWalletPassword)(JNIEnv *env, jobject thiz,
+    jstring password)
+{
+    auto pass = JString(env, password).value();
+    auto hash = beam::SecString(pass).hash();
+
+    return passwordHash.V == hash.V;
+}
+
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(changeWalletPassword)(JNIEnv *env, jobject thiz,
+    jstring password)
+{
+    auto pass = JString(env, password).value();
+
+    passwordHash.V = beam::SecString(pass).hash().V;
+    walletModel->getAsync()->changeWalletPassword(pass);
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)

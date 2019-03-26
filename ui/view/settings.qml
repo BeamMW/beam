@@ -9,7 +9,7 @@ import Beam.Wallet 1.0
 Rectangle {
 
     anchors.fill: parent
-    color: "#032e48"
+    color: Style.marine
 
     SettingsViewModel {id: viewModel}
 
@@ -225,7 +225,7 @@ Rectangle {
                                             leftPadding: 20
                                             rightPadding: 20
                                             text: "Add"
-                                            palette.button: "#708090"
+                                            palette.button: Style.gray_button_color
                                             palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
                                             enabled: newLocalNodePeer.acceptableInput && localNodeRun.checked
                                             onClicked: {
@@ -392,7 +392,7 @@ Rectangle {
                             CustomButton {
                                 text: "change wallet password"
                                 palette.buttonText : "white"
-                                palette.button: "#708090"
+                                palette.button: Style.gray_button_color
                                 icon.source: "qrc:/assets/icon-password.svg"
                                 icon.width: 16
                                 icon.height: 16
@@ -469,7 +469,7 @@ Rectangle {
                                 CustomButton {
                                     text: "save wallet logs"
                                     palette.buttonText : "white"
-                                    palette.button: "#708090"
+                                    palette.button: Style.gray_button_color
                                     onClicked: viewModel.reportProblem()
                                 }
                                 spacing: 30
@@ -477,7 +477,7 @@ Rectangle {
                                     icon.source: "qrc:/assets/icon-restore.svg"
                                     Layout.alignment: Qt.AlignRight
                                     text: qsTr("rescan")
-                                    palette.button: "#708090"
+                                    palette.button: Style.gray_button_color
                                     palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
                                     enabled: localNodeRun.checked && confirmRefreshDialog.canRefresh && viewModel.isLocalNodeRunning
                                     onClicked: {
@@ -510,7 +510,7 @@ Rectangle {
                                 text: qsTr("copy")
                                 icon.color: Style.white
                                 palette.buttonText : Style.white
-                                palette.button: "#708090"
+                                palette.button: Style.gray_button_color
                                 icon.source: "qrc:/assets/icon-copy.svg"
                                 onClicked: {
                                     viewModel.copyToClipboard(viewModel.walletLocation);

@@ -190,8 +190,8 @@ namespace
             WALLET_CHECK(result.size() == Count);
 
             for (int i = 0; i < Count; i++)
-            {
-                WALLET_CHECK(result[i]["id"] == 132 + i);
+            {                
+                WALLET_CHECK(Coin::FromString(result[i]["id"])->m_Idx == uint64_t(132 + i));
                 WALLET_CHECK(result[i]["amount"] == 1234 + i);
                 WALLET_CHECK(result[i]["type"] == "norm");
                 WALLET_CHECK(result[i]["maturity"] == 60);

@@ -123,6 +123,8 @@ public:
     Q_INVOKABLE void migrateWalletDB(const QString& path);
     Q_INVOKABLE void copyToClipboard(const QString& text);
     Q_INVOKABLE QString selectCustomWalletDB();
+    Q_INVOKABLE QString defaultPortToListen() const;
+    Q_INVOKABLE QString defaultRemoteNodeAddr() const;
 
 signals:
     void walletExistsChanged();

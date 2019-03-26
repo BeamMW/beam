@@ -15,10 +15,16 @@ namespace beamui
         return QString::fromStdString(id);
     }
 
+    QString toString(const beam::Merkle::Hash& walletID)
+    {
+        auto id = std::to_string(walletID);
+        return QString::fromStdString(id);
+    }
+
     QString BeamToString(const Amount& value)
     {
-        auto real_amount = double(int64_t(value)) / Rules::Coin;
-        QString qstr = QLocale().toString(real_amount, 'f', QLocale::FloatingPointShortest);
+        auto realAmount = double(int64_t(value)) / Rules::Coin;
+        QString qstr = QLocale().toString(realAmount, 'f', QLocale::FloatingPointShortest);
 
         return qstr;
     }

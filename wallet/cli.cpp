@@ -66,8 +66,6 @@ namespace beam
         string str = ss.str();
         os << str;
         assert(str.length() <= 30);
-        size_t c = 30 - str.length();
-        for (size_t i = 0; i < c; ++i) os << ' ';
         return os;
     }
 
@@ -109,65 +107,6 @@ namespace beam
 }
 namespace
 {
-    struct PaymentInfo
-    {
-        WalletID m_Sender;
-        WalletID m_Receiver;
-
-        Amount m_Amount;
-        Merkle::Hash m_KernelID;
-        Signature m_Signature;
-
-        template <typename Archive>
-        static void serializeWid(Archive& ar, WalletID& wid)
-        {
-            BbsChannel ch;
-            wid.m_Channel.Export(ch);
-
-            ar
-                & ch
-                & wid.m_Pk;
-
-            wid.m_Channel = ch;
-        }
-
-        template <typename Archive>
-        void serialize(Archive& ar)
-        {
-            serializeWid(ar, m_Sender);
-            serializeWid(ar, m_Receiver);
-            ar
-                & m_Amount
-                & m_KernelID
-                & m_Signature;
-        }
-
-        bool IsValid() const
-        {
-            wallet::PaymentConfirmation pc;
-            pc.m_Value = m_Amount;
-            pc.m_KernelID = m_KernelID;
-            pc.m_Signature = m_Signature;
-            pc.m_Sender = m_Sender.m_Pk;
-            return pc.IsValid(m_Receiver.m_Pk);
-        }
-
-        std::string to_string() const
-        {
-            char szKernelID[Merkle::Hash::nTxtLen + 1];
-            m_KernelID.Print(szKernelID);
-
-            std::ostringstream s;
-            s
-                << "Sender: " << std::to_string(m_Sender) << std::endl
-                << "Receiver: " << std::to_string(m_Receiver) << std::endl
-                << "Amount: " << PrintableAmount(m_Amount) << std::endl
-                << "KernelID: " << szKernelID << std::endl;
-
-            return s.str();
-        }
-    };
-
     void ResolveWID(PeerID& res, const std::string& s)
     {
         bool bValid = true;
@@ -409,16 +348,45 @@ namespace
         cout << options << std::endl;
     }
 
-    void changeAddressExpiration(const IWalletDB::Ptr& walletDB, const string& address)
+    int ChangeAddressExpiration(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
+        string address = vm[cli::WALLET_ADDR].as<string>();
+        string newTime = vm[cli::EXPIRATION_TIME].as<string>();
         WalletID walletID(Zero);
+        bool allAddresses = address == "*";
 
-        if (address != "*")
+        if (!allAddresses)
         {
             walletID.FromHex(address);
         }
+        uint64_t newDuration_s = 0;
+        if (newTime == "24h")
+        {
+            newDuration_s = 24 * 3600; //seconds
+        }
+        else if (newTime == "never")
+        {
+            newDuration_s = 0;
+        }
+        else
+        {
+            LOG_ERROR() << "Invalid address expiration time \"" << newTime << "\".";
+            return -1;
+        }
 
-        wallet::changeAddressExpiration(*walletDB, walletID);
+        if (wallet::changeAddressExpiration(*walletDB, walletID, newDuration_s))
+        {
+            if (allAddresses)
+            {
+                LOG_INFO() << "Expiration for all addresses  was changed to \"" << newTime << "\".";
+            }
+            else
+            {
+                LOG_INFO() << "Expiration for address " << to_string(walletID) << " was changed to \"" << newTime << "\".";
+            }
+            return 0;
+        }
+        return -1;
     }
 
     WalletAddress newAddress(const IWalletDB::Ptr& walletDB, const std::string& comment, bool isNever = false)
@@ -551,39 +519,45 @@ namespace
                 return 0;
             }
 
-            array<uint8_t, 4> columnWidths{ { 20, 26, 21, 35 } };
+            const array<uint8_t, 5> columnWidths{ { 20, 26, 21, 33, 65} };
 
-            cout << "TRANSACTIONS\n\n"
-                << "  |" << setw(columnWidths[0]) << "datetime" << " |"
-                << setw(columnWidths[1]) << "amount, BEAM" << " |"
-                << setw(columnWidths[2]) << "status" << " |"
-                << setw(columnWidths[3]) << "ID" << " |" << endl;
+            cout << "TRANSACTIONS\n\n  |"
+                << left << setw(columnWidths[0]) << " datetime" << " |"
+                << right << setw(columnWidths[1]) << " amount, BEAM" << " |"
+                << left << setw(columnWidths[2]) << " status" << " |"
+                << setw(columnWidths[3]) << " ID" << " |" 
+                << setw(columnWidths[4]) << " kernel ID" << " |" << endl;
 
             for (auto& tx : txHistory)
             {
                 cout << "   "
-                    << setw(columnWidths[0]) << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false) << "  "
-                    << setw(columnWidths[1]) << PrintableAmount(tx.m_amount, true) << "  "
-                    << setw(columnWidths[2]) << getTxStatus(tx) << "   " 
-                    << tx.m_txId << '\n';
+                    << " " << left << setw(columnWidths[0]) << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false)
+                    << " " << right << setw(columnWidths[1]) << PrintableAmount(tx.m_amount, true) << " "
+                    << " " << left << setw(columnWidths[2]+1) << getTxStatus(tx) 
+                    << " " << setw(columnWidths[3]+1) << to_hex(tx.m_txId.data(), tx.m_txId.size())
+                    << " " << setw(columnWidths[4]+1) << to_string(tx.m_kernelID) << '\n';
             }
             return 0;
         }
+        const array<uint8_t, 6> columnWidths{ { 49, 14, 14, 18, 30, 8} };
+        cout << "  |"
+            << left << setw(columnWidths[0]) << " ID" << " |"
+            << right << setw(columnWidths[1]) << " beam" << " |"
+            << setw(columnWidths[2]) << " groth" << " |"
+            << left << setw(columnWidths[3]) << " maturity" << " |"
+            << setw(columnWidths[4]) << " status" << " |"
+            << setw(columnWidths[5]) << " type" << endl;
 
-        cout << setw(48) << "id" << " |"
-            << setw(14) << "Beam" << " |"
-            << setw(14) << "Groth" << " |"
-            << setw(18) << "maturity" << " |"
-            << setw(30) << "status" << " |"
-            << setw(8) << "type" << endl;
-        walletDB->visit([](const Coin& c)->bool
+        
+        walletDB->visit([&columnWidths](const Coin& c)->bool
         {
-            cout << setw(48) << c.toStringID()
-                << setw(16) << c.m_ID.m_Value / Rules::Coin
-                << setw(16) << c.m_ID.m_Value % Rules::Coin
-                << setw(20) << (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity)) : "-")
-                << "   " << c.m_status
-                << setw(8) << c.m_ID.m_Type << endl;
+            cout << "   "
+                << " " << left << setw(columnWidths[0]) << c.toStringID()
+                << " " << right << setw(columnWidths[1]) << c.m_ID.m_Value / Rules::Coin << " "
+                << " " << right << setw(columnWidths[2]) << c.m_ID.m_Value % Rules::Coin << "  "
+                << " " << left << setw(columnWidths[3]+1) << (c.IsMaturityValid() ? std::to_string(static_cast<int64_t>(c.m_maturity)) : "-")
+                << " " << setw(columnWidths[4]+1) << c.m_status
+                << " " << setw(columnWidths[5]+1) << c.m_ID.m_Type << endl;
             return true;
         });
         return 0;
@@ -596,36 +570,14 @@ namespace
         if (txIdVec.size() >= 16)
             std::copy_n(txIdVec.begin(), 16, txId.begin());
 
-        PaymentInfo pi;
-        uint64_t nAddrOwnID;
-
-        bool bSuccess =
-            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::PeerID, pi.m_Receiver) &&
-            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::MyID, pi.m_Sender) &&
-            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::KernelID, pi.m_KernelID) &&
-            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::Amount, pi.m_Amount) &&
-            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::PaymentConfirmation, pi.m_Signature) &&
-            wallet::getTxParameter(*walletDB, txId, wallet::TxParameterID::MyAddressID, nAddrOwnID);
-
-        if (bSuccess)
+        auto res = wallet::ExportPaymentProof(*walletDB, txId);
+        if (!res.empty())
         {
-            LOG_INFO() << "Payment tx details:\n" << pi.to_string();
-            LOG_INFO() << "Sender address own ID: " << nAddrOwnID;
-
-            Serializer ser;
-            ser & pi;
-
-            auto res = ser.buffer();
             std::string sTxt;
-            sTxt.resize(res.second * 2);
+            sTxt.resize(res.size() * 2);
 
-            beam::to_hex(&sTxt.front(), res.first, res.second);
+            beam::to_hex(&sTxt.front(), res.data(), res.size());
             LOG_INFO() << "Exported form: " << sTxt;
-
-        }
-        else
-        {
-            LOG_WARNING() << "No payment confirmation for the specified transaction.";
         }
 
         return 0;
@@ -635,16 +587,8 @@ namespace
     {
         ByteBuffer buf = from_hex(vm[cli::PAYMENT_PROOF_DATA].as<string>());
 
-        Deserializer der;
-        der.reset(buf);
-
-        PaymentInfo pi;
-        der & pi;
-
-        if (!pi.IsValid())
+        if (!wallet::VerifyPaymentProof(buf))
             throw std::runtime_error("Payment proof is invalid");
-
-        LOG_INFO() << "Payment tx details:\n" << pi.to_string() << "Verified.";
 
         return 0;
     }
@@ -909,7 +853,7 @@ int main_impl(int argc, char* argv[])
                             LOG_ERROR() << "Please, provide seed phrase for the wallet.";
                             return -1;
                         }
-                        auto walletDB = WalletDB::init(walletPath, pass, walletSeed);
+                        auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor);
                         if (walletDB)
                         {
                             LOG_INFO() << "wallet successfully created...";
@@ -926,19 +870,16 @@ int main_impl(int argc, char* argv[])
                         }
                     }
 
-                    auto walletDB = WalletDB::open(walletPath, pass);
+                    auto walletDB = WalletDB::open(walletPath, pass, reactor);
                     if (!walletDB)
                     {
-                        LOG_ERROR() << "Wallet data unreadable, restore wallet.db from latest backup or delete it and reinitialize the wallet";
+                        LOG_ERROR() << "Please check your password. If password is lost, restore wallet.db from latest backup or delete it and restore from seed phrase.";
                         return -1;
                     }
 
                     if (command == cli::CHANGE_ADDRESS_EXPIRATION)
                     {
-                        string address = vm[cli::WALLET_ADDR].as<string>();
-
-                        changeAddressExpiration(walletDB, address);
-                        return 0;
+                        return ChangeAddressExpiration(vm, walletDB);
                     }
 
                     if (command == cli::EXPORT_MINER_KEY)

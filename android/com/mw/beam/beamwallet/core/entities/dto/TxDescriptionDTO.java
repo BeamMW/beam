@@ -27,6 +27,8 @@ public class TxDescriptionDTO
 	public long createTime;
 	public long modifyTime;
 	public boolean sender;
+    public boolean selfTx;
 	public int status;
     public String kernelId;
+    public int failureReason;
 }

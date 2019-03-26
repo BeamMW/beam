@@ -217,8 +217,9 @@ namespace beam
 			(m_pKernel->m_Height.m_Max != MaxHeight))
 			return false;
 
-		TxBase::Context ctx;
-		ctx.m_bVerifyOrder = false;
+		TxBase::Context::Params pars;
+		pars.m_bVerifyOrder = false;
+		TxBase::Context ctx(pars);
 		if (!ctx.ValidateAndSummarize(m_Base, Reader(*this)))
 			return false;
 
@@ -397,7 +398,8 @@ namespace beam
 	{
 		Mode::Scope scope(Mode::Fast);
 
-		TxBase::Context ctx;
+		TxBase::Context::Params pars;
+		TxBase::Context ctx(pars);
 		ZeroObject(ctx.m_Height); // current height is zero
 		if (!ctx.ValidateAndSummarize(m_Data, m_Data.get_Reader()))
 			return false;

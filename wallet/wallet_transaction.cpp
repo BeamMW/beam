@@ -30,7 +30,6 @@ namespace beam { namespace wallet
     using namespace ECC;
     using namespace std;
 
-
     TxID GenerateTxID()
     {
         boost::uuids::uuid id = boost::uuids::random_generator()();
@@ -152,23 +151,35 @@ namespace beam { namespace wallet
         LOG_INFO() << GetTxID() << " Transaction failed. Rollback...";
         m_WalletDB->rollbackTx(GetTxID());
     }
-    
+
     bool BaseTransaction::CheckExpired()
     {
         Height kernelConfirmHeight = 0;
-        
         if (GetParameter(TxParameterID::KernelProofHeight, kernelConfirmHeight) && kernelConfirmHeight > 0)
         {
             // completed tx
             return false;
         }
 
+        TxFailureReason reason = TxFailureReason::Unknown;
+        if (GetParameter(TxParameterID::FailureReason, reason))
+        {
+            // failed tx
+            return false;
+        }
+
         Height maxHeight = MaxHeight;
-        GetParameter(TxParameterID::MaxHeight, maxHeight);
-        
+        if (!GetParameter(TxParameterID::MaxHeight, maxHeight) 
+         && !GetParameter(TxParameterID::PeerResponseHeight, maxHeight))
+        {
+            // we have no data to make decision
+            return false;
+        }
+
         bool isRegistered = false;
         Merkle::Hash kernelID;
-        if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered) || !GetParameter(TxParameterID::KernelID, kernelID))
+        if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered)
+         || !GetParameter(TxParameterID::KernelID, kernelID))
         {
             Block::SystemState::Full state;
             if (GetTip(state) && state.m_Height > maxHeight)
@@ -213,6 +224,11 @@ namespace beam { namespace wallet
     {
         UpdateTxDescription(TxStatus::Registering);
         m_Gateway.confirm_kernel(GetTxID(), kernel);
+    }
+
+    void BaseTransaction::UpdateOnNextTip()
+    {
+        m_Gateway.UpdateOnNextTip(GetTxID());
     }
 
     void BaseTransaction::CompleteTx()
@@ -304,44 +320,71 @@ namespace beam { namespace wallet
         bool isSender = GetMandatoryParameter<bool>(TxParameterID::IsSender);
         bool isSelfTx = IsSelfTx();
         State txState = GetState();
-
         AmountList amoutList;
         if (!GetParameter(TxParameterID::AmountList, amoutList))
         {
             amoutList = AmountList{ GetMandatoryParameter<Amount>(TxParameterID::Amount) };
         }
 
-        TxBuilder builder{ *this, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee) };
+        auto sharedBuilder = make_shared<TxBuilder>(*this, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
+        TxBuilder& builder = *sharedBuilder;
+
+        bool newGenerated = builder.GenerateBlindingExcess();
+        if (newGenerated && txState != State::Initial)
+        {
+            OnFailed(TxFailureReason::InvalidState);
+            return;
+        }
         if (!builder.GetInitialTxParams() && txState == State::Initial)
         {
-            LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ") << PrintableAmount(builder.GetAmount()) << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
-
-            if (CheckExpired())
+            if (m_CompletedEvent)
             {
                 return;
             }
+            LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ")
+                << PrintableAmount(builder.GetAmount())
+                << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
 
             if (isSender)
             {
+                Height maxResponseHeight = 0;
+                if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight))
+                {
+                    LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
+                }
+                
                 builder.SelectInputs();
-                builder.AddChangeOutput();
+                builder.AddChange();
             }
 
             if (isSelfTx || !isSender)
             {
                 // create receiver utxo
-                for (auto& amount : builder.GetAmountList())
+                for (const auto& amount : builder.GetAmountList())
                 {
-                    builder.AddOutput(amount, false);
+                    builder.GenerateNewCoin(amount, false);
                 }
             }
 
-            if (!builder.FinalizeOutputs())
-            {
-                // TODO: transaction is too big :(
-            }
-
             UpdateTxDescription(TxStatus::InProgress);
+            
+            if (!builder.GetCoins().empty())
+            {
+                m_CompletedEvent = io::AsyncEvent::create(io::Reactor::get_Current(), [this, sharedBuilder]() mutable
+                {
+                    if (!sharedBuilder->FinalizeOutputs())
+                    {
+                        //TODO: transaction is too big :(
+                    }
+                    Update();
+                });
+                m_OutputsFuture = async(launch::async, [this, sharedBuilder]() mutable
+                {
+                    sharedBuilder->CreateOutputs();
+                    m_CompletedEvent->post();
+                });
+                return;
+            }
         }
 
         uint64_t nAddrOwnID;
@@ -356,7 +399,7 @@ namespace beam { namespace wallet
             }
         }
 
-        builder.CreateKernel();
+        builder.GenerateNonce();
         
         if (!isSelfTx && !builder.GetPeerPublicExcessAndNonce())
         {
@@ -366,9 +409,17 @@ namespace beam { namespace wallet
                 SendInvitation(builder, isSender);
                 SetState(State::Invitation);
             }
+            UpdateOnNextTip();
             return;
         }
 
+        if (!builder.UpdateMaxHeight())
+        {
+            OnFailed(TxFailureReason::MaxHeightIsUnacceptable, true);
+            return;
+        }
+
+        builder.CreateKernel();
         builder.SignPartial();
 
         bool hasPeersInputsAndOutputs = builder.GetPeerInputsAndOutputs();
@@ -468,12 +519,18 @@ namespace beam { namespace wallet
                 }
             }
 
+            if (CheckExpired())
+            {
+                return;
+            }
+
             // Construct transaction
             auto transaction = builder.CreateTransaction();
 
             // Verify final transaction
-            TxBase::Context ctx;
-            if (!transaction->IsValid(ctx))
+            TxBase::Context::Params pars;
+			TxBase::Context ctx(pars);
+			if (!transaction->IsValid(ctx))
             {
                 OnFailed(TxFailureReason::InvalidTransaction, true);
                 return;
@@ -507,29 +564,22 @@ namespace beam { namespace wallet
             return;
         }
 
-        vector<Coin> modified;
-        m_WalletDB->visit([&](const Coin& coin)
+        vector<Coin> modified = m_WalletDB->getCoinsByTx(GetTxID());
+        for (auto& coin : modified)
         {
             bool bIn = (coin.m_createTxId == m_ID);
             bool bOut = (coin.m_spentTxId == m_ID);
             if (bIn || bOut)
             {
-                modified.emplace_back();
-                Coin& c = modified.back();
-                c = coin;
-
                 if (bIn)
                 {
-                    c.m_confirmHeight = std::min(c.m_confirmHeight, hProof);
-                    c.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
+                    coin.m_confirmHeight = std::min(coin.m_confirmHeight, hProof);
+                    coin.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
                 }
                 if (bOut)
-                    c.m_spentHeight = std::min(c.m_spentHeight, hProof);
+                    coin.m_spentHeight = std::min(coin.m_spentHeight, hProof);
             }
-
-            return true;
-        });
-
+        }
 
         GetWalletDB()->save(modified);
 
@@ -542,7 +592,8 @@ namespace beam { namespace wallet
         msg.AddParameter(TxParameterID::Amount, builder.GetAmount())
             .AddParameter(TxParameterID::Fee, builder.GetFee())
             .AddParameter(TxParameterID::MinHeight, builder.GetMinHeight())
-            .AddParameter(TxParameterID::MaxHeight, builder.GetMaxHeight())
+            .AddParameter(TxParameterID::Lifetime, builder.GetLifetime())
+            .AddParameter(TxParameterID::PeerMaxHeight, builder.GetMaxHeight())
             .AddParameter(TxParameterID::IsSender, !isSender)
             .AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
             .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
@@ -562,7 +613,8 @@ namespace beam { namespace wallet
             .AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
             .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerSignature, builder.GetPartialSignature())
-            .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce());
+            .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce())
+            .AddParameter(TxParameterID::PeerMaxHeight, builder.GetMaxHeight());
         if (sendUtxos)
         {
             msg.AddParameter(TxParameterID::PeerInputs, builder.GetInputs())
@@ -668,8 +720,10 @@ namespace beam { namespace wallet
         , m_AmountList{ amountList }
         , m_Fee{ fee }
         , m_Change{0}
+        , m_Lifetime{120}
         , m_MinHeight{0}
         , m_MaxHeight{MaxHeight}
+        , m_PeerMaxHeight{ MaxHeight }
     {
     }
 
@@ -727,19 +781,44 @@ namespace beam { namespace wallet
         m_Tx.GetWalletDB()->save(coins);
     }
 
-    void TxBuilder::AddChangeOutput()
+    void TxBuilder::AddChange()
     {
         if (m_Change == 0)
         {
             return;
         }
 
-        AddOutput(m_Change, true);
+        GenerateNewCoin(m_Change, true);
+    }
+
+    void TxBuilder::GenerateNewCoin(Amount amount, bool bChange)
+    {
+        Coin& newUtxo = m_Coins.emplace_back(amount);
+        newUtxo.m_createTxId = m_Tx.GetTxID();
+        if (bChange)
+        {
+            newUtxo.m_ID.m_Type = Key::Type::Change;
+        }
+        m_Tx.GetWalletDB()->store(newUtxo);
+    }
+
+    void TxBuilder::CreateOutputs()
+    {
+        for (const auto& utxo : m_Coins)
+        {
+            Scalar::Native blindingFactor;
+            Output::Ptr output = make_unique<Output>();
+            output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(utxo.m_ID.m_SubIdx), utxo.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
+
+            blindingFactor = -blindingFactor;
+            m_Offset += blindingFactor;
+            m_Outputs.emplace_back(move(output));
+        }
     }
 
     void TxBuilder::AddOutput(Amount amount, bool bChange)
     {
-        m_Outputs.push_back(CreateOutput(amount, bChange, m_MinHeight));
+        m_Outputs.push_back(CreateOutput(amount, bChange));
     }
 
     bool TxBuilder::FinalizeOutputs()
@@ -752,7 +831,7 @@ namespace beam { namespace wallet
         return true;
     }
 
-    Output::Ptr TxBuilder::CreateOutput(Amount amount, bool bChange, bool shared, Height incubation)
+    Output::Ptr TxBuilder::CreateOutput(Amount amount, bool bChange)
     {
         Coin newUtxo(amount);
         newUtxo.m_createTxId = m_Tx.GetTxID();
@@ -778,10 +857,16 @@ namespace beam { namespace wallet
         assert(!m_Kernel);
         m_Kernel = make_unique<TxKernel>();
         m_Kernel->m_Fee = m_Fee;
-        m_Kernel->m_Height.m_Min = m_MinHeight;
-        m_Kernel->m_Height.m_Max = m_MaxHeight;
+        m_Kernel->m_Height.m_Min = GetMinHeight();
+        m_Kernel->m_Height.m_Max = GetMaxHeight();
         m_Kernel->m_Commitment = Zero;
 
+        m_Tx.SetParameter(TxParameterID::MaxHeight, GetMaxHeight());
+    }
+
+    bool TxBuilder::GenerateBlindingExcess()
+    {
+        bool newGenerated = false;
         if (!m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess))
         {
             Key::ID kid;
@@ -792,12 +877,19 @@ namespace beam { namespace wallet
             m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_BlindingExcess, kid);
 
             m_Tx.SetParameter(TxParameterID::BlindingExcess, m_BlindingExcess, false);
+
+            newGenerated = true;
         }
 
         m_Offset += m_BlindingExcess;
         m_BlindingExcess = -m_BlindingExcess;
 
-        // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
+        return newGenerated;
+    }
+
+    void TxBuilder::GenerateNonce()
+    {
+         // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
         NoLeak<Hash::Value> hvRandom;
         if (!m_Tx.GetParameter(TxParameterID::MyNonce, hvRandom.V))
         {
@@ -840,9 +932,10 @@ namespace beam { namespace wallet
         m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs);
         m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs);
         m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight);
-        m_Tx.GetParameter(TxParameterID::MaxHeight, m_MaxHeight);
-        return m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess)
-            && m_Tx.GetParameter(TxParameterID::Offset, m_Offset);
+        m_Tx.GetParameter(TxParameterID::Lifetime, m_Lifetime);
+        m_Tx.GetParameter(TxParameterID::PeerMaxHeight, m_PeerMaxHeight);
+
+        return m_Tx.GetParameter(TxParameterID::Offset, m_Offset);
     }
 
     bool TxBuilder::GetPeerInputsAndOutputs()
@@ -882,7 +975,9 @@ namespace beam { namespace wallet
     Transaction::Ptr TxBuilder::CreateTransaction()
     {
         assert(m_Kernel);
-        LOG_INFO() << m_Tx.GetTxID() << " Transaction created. Kernel: " << GetKernelIDString();
+        LOG_INFO() << m_Tx.GetTxID() << " Transaction created. Kernel: " << GetKernelIDString()
+            << " min height: " << m_Kernel->m_Height.m_Min
+            << " max height: " << m_Kernel->m_Height.m_Max;
 
         // create transaction
         auto transaction = make_shared<Transaction>();
@@ -921,6 +1016,11 @@ namespace beam { namespace wallet
         return m_Fee;
     }
 
+    Height TxBuilder::GetLifetime() const
+    {
+        return m_Lifetime;
+    }
+
     Height TxBuilder::GetMinHeight() const
     {
         return m_MinHeight;
@@ -928,6 +1028,10 @@ namespace beam { namespace wallet
 
     Height TxBuilder::GetMaxHeight() const
     {
+        if (m_MaxHeight == MaxHeight)
+        {
+            return m_MinHeight + m_Lifetime;
+        }
         return m_MaxHeight;
     }
 
@@ -974,5 +1078,53 @@ namespace beam { namespace wallet
         char sz[Merkle::Hash::nTxtLen + 1];
         kernelID.Print(sz);
         return string(sz);
+    }
+
+    bool TxBuilder::UpdateMaxHeight()
+    {
+        if (!m_Tx.GetParameter(TxParameterID::MaxHeight, m_MaxHeight))
+        {
+            bool isInitiator = m_Tx.IsInitiator();
+            bool hasPeerMaxHeight = m_PeerMaxHeight < MaxHeight;
+            if (!isInitiator)
+            {
+                if (m_Tx.GetParameter(TxParameterID::Lifetime, m_Lifetime))
+                {
+                    Block::SystemState::Full state;
+                    if (m_Tx.GetTip(state))
+                    {
+                        m_MaxHeight = state.m_Height + m_Lifetime;
+                    }
+                }
+                else if (hasPeerMaxHeight)
+                {
+                    m_MaxHeight = m_PeerMaxHeight;
+                }
+            }
+            else if (hasPeerMaxHeight)
+            {
+                if (IsAcceptableMaxHeight())
+                {
+                    m_MaxHeight = m_PeerMaxHeight;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    bool TxBuilder::IsAcceptableMaxHeight() const
+    {
+        Height maxAcceptableHeight = m_Tx.GetMandatoryParameter<Height>(TxParameterID::PeerResponseHeight) + 
+                                     m_Tx.GetMandatoryParameter<Height>(TxParameterID::Lifetime);
+        return m_PeerMaxHeight < MaxHeight && m_PeerMaxHeight <= maxAcceptableHeight;
+    }
+
+    const std::vector<Coin>& TxBuilder::GetCoins() const
+    {
+        return m_Coins;
     }
 }}

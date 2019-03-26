@@ -33,6 +33,7 @@
 #include "model/app_model.h"
 #include "version.h"
 #include "wallet/secstring.h"
+#include "wallet/default_peers.h"
 
 #include <boost/filesystem.hpp>
 #include <thread>
@@ -44,34 +45,6 @@ using namespace std;
 
 namespace
 {
-    const char* Peers[] =
-    {
-#ifdef BEAM_TESTNET
-        "ap-node01.testnet.beam.mw:8100",
-        "ap-node02.testnet.beam.mw:8100",
-        "ap-node03.testnet.beam.mw:8100",
-        "eu-node01.testnet.beam.mw:8100",
-        "eu-node02.testnet.beam.mw:8100",
-        "eu-node03.testnet.beam.mw:8100",
-        "us-node01.testnet.beam.mw:8100",
-        "us-node02.testnet.beam.mw:8100",
-        "us-node03.testnet.beam.mw:8100"
- #else
-    "eu-node01.mainnet.beam.mw:8100",
-    "eu-node02.mainnet.beam.mw:8100",
-    "eu-node03.mainnet.beam.mw:8100",
-    "eu-node04.mainnet.beam.mw:8100",
-    "us-node01.mainnet.beam.mw:8100",
-    "us-node02.mainnet.beam.mw:8100",
-    "us-node03.mainnet.beam.mw:8100",
-    "us-node04.mainnet.beam.mw:8100",
-    "ap-node01.mainnet.beam.mw:8100",
-    "ap-node02.mainnet.beam.mw:8100",
-    "ap-node03.mainnet.beam.mw:8100",
-    "ap-node04.mainnet.beam.mw:8100"
-#endif
-    };
-
     const QChar PHRASES_SEPARATOR = ';';
 
     boost::filesystem::path pathFromStdString(const std::string& path)
@@ -119,6 +92,49 @@ namespace
         }
 
         return walletDBs;
+    }
+
+    void removeNodeDataIfNeeded()
+    {
+        try
+        {
+            auto appDataPath = pathFromStdString(AppModel::getInstance()->getSettings().getAppDataPath());
+
+            if (!boost::filesystem::exists(appDataPath))
+            {
+                return;
+            }
+            string nodePath = AppModel::getInstance()->getSettings().getLocalNodeStorage();
+            try
+            {
+                beam::NodeDB nodeDB;
+                nodeDB.Open(nodePath.c_str());
+                return;
+            }
+            catch (const beam::NodeDBUpgradeException&)
+            {
+            }
+            
+            boost::filesystem::remove(pathFromStdString(nodePath));
+
+            std::vector<boost::filesystem::path> macroBlockFiles;
+            for (boost::filesystem::directory_iterator endDirIt, it{ appDataPath }; it != endDirIt; ++it)
+            {
+                if (it->path().filename().wstring().find(L"tempmb") == 0)
+                {
+                    macroBlockFiles.push_back(it->path());
+                }
+            }
+
+            for (auto& path : macroBlockFiles)
+            {
+                boost::filesystem::remove(path);
+            }
+        }
+        catch (std::exception &e)
+        {
+            LOG_ERROR() << e.what();
+        }
     }
 }
 
@@ -209,6 +225,7 @@ StartViewModel::StartViewModel()
     {
         // find all wallet.db in appData and defaultAppData
         findExistingWalletDB();
+        removeNodeDataIfNeeded();
     }
 }
 
@@ -292,8 +309,9 @@ bool StartViewModel::getIsRunLocalNode() const
 
 QString StartViewModel::chooseRandomNode() const
 {
+    auto peers = getDefaultPeers();
     srand(time(0));
-    return QString(Peers[rand() % (sizeof(Peers) / sizeof(Peers[0]))]);
+    return QString(peers[rand() % peers.size()].c_str());
 }
 
 QString StartViewModel::walletVersion() const
@@ -330,13 +348,15 @@ void StartViewModel::setupLocalNode(int port, const QString& localNodePeer)
     settings.setLocalNodePort(port);
     settings.setRunLocalNode(true);
     QStringList peers;
-    for (size_t i = 0; i < _countof(Peers); ++i)
+    
+    for (const auto& peer : getDefaultPeers())
     {
-        if (localNodePeer != Peers[i])
+        if (localNodePeer != peer.c_str())
         {
-            peers.push_back(Peers[i]);
+            peers.push_back(peer.c_str());
         }
     }
+
     peers.push_back(localNodePeer);
     settings.setLocalNodePeers(peers);
 }
@@ -536,4 +556,22 @@ QString StartViewModel::selectCustomWalletDB()
         QStandardPaths::writableLocation(QStandardPaths::DesktopLocation), tr("SQLite database file (*.db)"));
 
     return filePath;
+}
+
+QString StartViewModel::defaultPortToListen() const
+{
+#ifdef BEAM_TESTNET
+    return "11005";
+#else
+    return "10005";
+#endif  // BEAM_TESTNET
+}
+
+QString StartViewModel::defaultRemoteNodeAddr() const
+{
+#ifdef BEAM_TESTNET
+    return "127.0.0.1:11005";
+#else
+    return "127.0.0.1:10005";
+#endif // BEAM_TESTNET
 }

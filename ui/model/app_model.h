@@ -62,6 +62,7 @@ private:
     WalletSettings& m_settings;
     MessageManager m_messages;
     ECC::NoLeak<ECC::uintBig> m_passwordHash;
+    beam::io::Reactor::Ptr m_walletReactor;
     beam::IWalletDB::Ptr m_db;
     static AppModel* s_instance;
 };

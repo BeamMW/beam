@@ -1,6 +1,5 @@
 set(NODE_SRC
     node.cpp
-    node_compressor.cpp
     db.cpp
     processor.cpp
     txpool.cpp

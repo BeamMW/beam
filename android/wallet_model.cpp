@@ -22,8 +22,8 @@ using namespace beam;
 using namespace beam::io;
 using namespace std;
 
-WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr)
-    : WalletClient(walletDB, nodeAddr)
+WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor)
+    : WalletClient(walletDB, nodeAddr, reactor)
 {    
 }
 
@@ -95,8 +95,10 @@ void WalletModel::onTxStatus(beam::ChangeAction action, const std::vector<beam::
             setLongField(env, TxDescriptionClass, tx, "createTime", item.m_createTime);
             setLongField(env, TxDescriptionClass, tx, "modifyTime", item.m_modifyTime);
             setBooleanField(env, TxDescriptionClass, tx, "sender", item.m_sender);
+            setBooleanField(env, TxDescriptionClass, tx, "selfTx", item.m_selfTx);
             setIntField(env, TxDescriptionClass, tx, "status", static_cast<jint>(item.m_status));
             setStringField(env, TxDescriptionClass, tx, "kernelId", beam::to_hex(item.m_kernelID.m_pData, item.m_kernelID.nBytes));
+            setIntField(env, TxDescriptionClass, tx, "failureReason", static_cast<jint>(item.m_failureReason));
 
             env->SetObjectArrayElement(txItems, i, tx);
 
@@ -277,5 +279,14 @@ void WalletModel::onSendMoneyVerified()
 
 void WalletModel::onCantSendToExpired()
 {
-    
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onCantSendToExpired", "()V");
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback);
+}
+
+void WalletModel::onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof)
+{
+
 }

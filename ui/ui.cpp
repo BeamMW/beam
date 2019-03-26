@@ -80,7 +80,11 @@ using namespace beam;
 using namespace std;
 using namespace ECC;
 
+#ifdef BEAM_TESTNET
+static const char* AppName = "Beam Wallet Testnet";
+#else
 static const char* AppName = "Beam Wallet";
+#endif // BEAM_TESTNET
 
 int main (int argc, char* argv[])
 {
@@ -198,6 +202,7 @@ int main (int argc, char* argv[])
             qmlRegisterType<ContactItem>("Beam.Wallet", 1, 0, "ContactItem");
             qmlRegisterType<TxObject>("Beam.Wallet", 1, 0, "TxObject");
             qmlRegisterType<UtxoItem>("Beam.Wallet", 1, 0, "UtxoItem");
+            qmlRegisterType<PaymentInfoItem>("Beam.Wallet", 1, 0, "PaymentInfoItem");
             qmlRegisterType<WalletDBPathItem>("Beam.Wallet", 1, 0, "WalletDBPathItem");
 
             engine.load(QUrl("qrc:/root.qml"));

@@ -187,6 +187,27 @@ Item {
         okButtonText: qsTr("delete")
     }
 
+    PaymentInfoDialog {
+        id: paymentInfoDialog
+        onTextCopied: function(text){
+            viewModel.copyToClipboard(text);
+        }
+    }
+
+    PaymentInfoItem {
+        id: verifyInfo
+    }
+
+    PaymentInfoDialog {
+        id: paymentInfoVerifyDialog
+        shouldVerify: true
+        
+        model:verifyInfo 
+        onTextCopied: function(text){
+            viewModel.copyToClipboard(text);
+        }
+    }
+    
     SFText {
         font.pixelSize: 36
         color: Style.white
@@ -534,7 +555,7 @@ Item {
                                 Layout.fillWidth: true
 
                                 SFText {
-                                    text: qsTr("Insufficient funds: you would need %1 to complete the transaction.").arg(viewModel.amountMissingToSend)
+                                    text: qsTr("Insufficient funds: you would need %1 to complete the transaction").arg(viewModel.amountMissingToSend)
                                     color: Style.validator_color
                                     font.pixelSize: 14
                                     fontSizeMode: Text.Fit
@@ -914,13 +935,16 @@ Item {
 
                     text: qsTr("Transactions")
                 }
-            }
 
-            Rectangle {
-                anchors.fill: parent;
-                anchors.topMargin: 394+46-33
-
-                color: "#0a344d"
+                CustomToolButton {
+                    anchors.right: parent.right
+                    icon.source: "qrc:/assets/icon-proof.svg"
+                    ToolTip.text: qsTr("Verify payment")
+                    onClicked: {
+                        paymentInfoVerifyDialog.model.reset();
+                        paymentInfoVerifyDialog.open();
+                    }
+                }
             }
 
             CustomTableView {
@@ -970,8 +994,7 @@ Item {
                             SvgImage {
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
-                                anchors.leftMargin: 26
-                                sourceSize: Qt.size(28, 28)
+                                anchors.leftMargin: 26 
                                 source: "qrc:/assets/beam-circle.svg"
                             }
                         }
@@ -1209,7 +1232,7 @@ Item {
                         }
                     }
                 }
-
+                // Transaction details
                 rowDelegate: Item {
                     height: transactionsView.rowHeight
                     id: rowItem
@@ -1223,7 +1246,7 @@ Item {
                         Rectangle {
                             height: transactionsView.rowHeight
                             width: parent.width
-                            color: styleData.alternate ? "transparent" : Style.light_navy
+                            color: styleData.alternate ? Style.table_row_color1 : Style.light_navy
                         }
                         Item {
                             id: txDetails
@@ -1232,7 +1255,7 @@ Item {
                             width: parent.width
                             clip: true
 
-                            property int maximumHeight: 210 + commentTx.contentHeight + failureReason.contentHeight
+                            property int maximumHeight: detailsPanel.height
 
                             onMaximumHeightChanged: {
                                 if (!rowItem.collapsed) {
@@ -1246,160 +1269,17 @@ Item {
                                 color: Style.bright_sky_blue
                                 opacity: 0.1
                             }
-                            RowLayout {
-                                anchors.fill: parent
-                                GridLayout {
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: true
-                                    Layout.maximumWidth: transactionsView.width - 2 * Layout.margins
-                                    Layout.margins: 30
-                                    columns: 2
-                                    columnSpacing: 44
-                                    rowSpacing: 14
-
-                                    SFText {
-                                        font.pixelSize: 14
-                                        color: Style.white
-                                        text: qsTr("General transaction info")
-                                        font.styleName: "Bold"; font.weight: Font.Bold
-                                        Layout.columnSpan: 2
+                            TransactionDetails {
+                                id: detailsPanel
+                                width: transactionsView.width
+                                model: !!viewModel.transactions[styleData.row] ? viewModel.transactions[styleData.row] : null
+                                onTextCopied: function (text) { viewModel.copyToClipboard(text);}
+                                onShowDetails: {
+                                    if (model)
+                                    {
+                                        paymentInfoDialog.model = model.getPaymentInfo();
+                                        paymentInfoDialog.open();
                                     }
-
-                                    SFText {
-                                        Layout.row: 1
-                                        font.pixelSize: 14
-                                        color: Style.bluey_grey
-                                        text: qsTr("Sending address:")
-                                    }
-                                    SFLabel {
-                                        copyMenuEnabled: true
-                                        font.pixelSize: 14
-                                        color: Style.white
-                                        text: {
-                                            if(!!viewModel.transactions[styleData.row])
-                                            {
-                                                return viewModel.transactions[styleData.row].sendingAddress;
-                                            }
-                                            return "";
-                                        }
-                                        onCopyText: viewModel.copyToClipboard(text)
-                                    }
-
-                                    SFText {
-                                        Layout.row: 2
-                                        font.pixelSize: 14
-                                        color: Style.bluey_grey
-                                        text: qsTr("Receiving address:")
-                                    }
-                                    SFLabel {
-                                        copyMenuEnabled: true
-                                        font.pixelSize: 14
-                                        color: Style.white
-                                        text: {
-                                            if(!!viewModel.transactions[styleData.row])
-                                            {
-                                                return viewModel.transactions[styleData.row].receivingAddress;
-                                            }
-                                            return "";
-                                        }                      
-                                        onCopyText: viewModel.copyToClipboard(text)
-                                    }
-
-                                    SFText {
-                                        Layout.row: 3
-                                        font.pixelSize: 14
-                                        color: Style.bluey_grey
-                                        text: qsTr("Transaction fee:")
-                                    }
-                                    SFLabel {
-                                        copyMenuEnabled: true
-                                        font.pixelSize: 14
-                                        color: Style.white
-                                        text:{
-                                            if(!!viewModel.transactions[styleData.row])
-                                            {
-                                                return viewModel.transactions[styleData.row].fee;
-                                            }
-                                            return "";
-                                        }
-                                        onCopyText: viewModel.copyToClipboard(text)
-                                    }
-
-                                    SFText {
-                                       Layout.row: 4
-                                        font.pixelSize: 14
-                                        color: Style.bluey_grey
-                                        text: qsTr("Comment:")
-                                    }
-                                    SFLabel {
-                                        id: commentTx
-                                        copyMenuEnabled: true
-                                        font.pixelSize: 14
-                                        color: Style.white
-                                        text: {
-                                            if(!!viewModel.transactions[styleData.row])
-                                            {
-                                                return viewModel.transactions[styleData.row].comment;
-                                            }
-                                            return "";
-                                        }
-                                        font.styleName: "Italic"
-                                        Layout.fillWidth: true
-                                        elide: Text.ElideRight
-                                        onCopyText: viewModel.copyToClipboard(text)
-                                    }
-                                    SFText {
-                                       Layout.row: 5
-                                        font.pixelSize: 14
-                                        color: Style.bluey_grey
-                                        text: qsTr("Kernel ID:")
-                                    }
-                                    SFLabel {
-                                        id: kernelID
-                                        copyMenuEnabled: true
-                                        font.pixelSize: 14
-                                        color: Style.white
-                                        text: {
-                                            if(!!viewModel.transactions[styleData.row])
-                                            {
-                                                return viewModel.transactions[styleData.row].kernelID;
-                                            }
-                                            return "";
-                                        }
-                                        font.styleName: "Italic"
-                                        Layout.fillWidth: true
-                                        elide: Text.ElideRight
-                                        onCopyText: viewModel.copyToClipboard(text)
-                                    }
-                                    SFText {
-                                        Layout.row: 6
-                                        font.pixelSize: 14
-                                        color: Style.bluey_grey
-                                        text: qsTr("Error: ")
-                                        visible: !!viewModel.transactions[styleData.row] ? viewModel.transactions[styleData.row].failureReason.length > 0 : false
-                                    }
-                                    SFLabel {
-                                        id: failureReason
-                                        copyMenuEnabled: true
-                                        font.pixelSize: 14
-                                        color: Style.white
-                                        visible: !!viewModel.transactions[styleData.row] ? viewModel.transactions[styleData.row].failureReason.length > 0 : false
-                                        text: {
-                                            if(!!viewModel.transactions[styleData.row] && (viewModel.transactions[styleData.row].failureReason.length > 0))
-                                            {
-                                                return viewModel.transactions[styleData.row].failureReason;
-                                            }
-                                            return "";
-                                        }
-                                        font.styleName: "Italic"
-                                        Layout.fillWidth: true
-                                        elide: Text.ElideRight
-                                        onCopyText: viewModel.copyToClipboard(text)
-                                    }
-                                }
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: true
                                 }
                             }
                         }

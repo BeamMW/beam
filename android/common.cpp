@@ -24,14 +24,38 @@ jclass TxDescriptionClass = 0;
 jclass UtxoClass = 0;
 jclass WalletAddressClass = 0;
 
+namespace
+{
+    class ThreadJNIEnv
+    {
+    public:
+
+        ThreadJNIEnv()
+        {
+#if defined (__ANDROID__)
+            JVM->AttachCurrentThread(&m_env, NULL);
+#else
+            JVM->AttachCurrentThread((void**)&m_env, NULL);
+#endif
+        }
+
+        ~ThreadJNIEnv()
+        {
+            JVM->DetachCurrentThread();
+        }
+
+        JNIEnv* get() const
+        {
+            return m_env;
+        }
+
+    private:
+        JNIEnv* m_env;
+    };
+}
+
 JNIEnv* Android_JNI_getEnv(void)
 {
-    JNIEnv *env;
-#if defined (__ANDROID__)
-    JVM->AttachCurrentThread(&env, NULL);
-#else
-    JVM->AttachCurrentThread((void**)&env, NULL);
-#endif
-
-    return env;
+    static thread_local ThreadJNIEnv env;
+    return env.get();
 }

@@ -28,7 +28,7 @@ Component
             Layout.alignment: Qt.AlignHCenter
 
             text: qsTr("BEAM")
-            color: "#25c1ff"
+            color: Style.logo_text_color
             font.pixelSize: 32
             font.styleName: "Bold"; font.weight: Font.Bold
             font.letterSpacing: 20
@@ -48,7 +48,7 @@ Component
 
             text: qsTr("Scalable confidential cryptocurrency")
 
-            color: "#25c1ff"
+            color: Style.logo_text_color
             font.pixelSize: 18
             font.styleName: "Bold"; font.weight: Font.Bold
         }

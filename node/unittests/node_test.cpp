@@ -288,17 +288,14 @@ namespace beam
 		db.set_Peer(pRows[0], NULL);
 		verify_test(!db.get_Peer(pRows[0], peer2));
 
-		ByteBuffer bbBodyP, bbBodyE, bbRollback;
-		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
+		ByteBuffer bbBodyP, bbBodyE;
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE);
 
-		db.SetStateRollback(pRows[0], bBodyP);
-		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
-
-		//db.DelStateBlockPRB(pRows[0]);
-		//db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
+		//db.DelStateBlockPP(pRows[0]);
+		//db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE);
 
 		db.DelStateBlockAll(pRows[0]);
-		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE, &bbRollback);
+		db.GetStateBlock(pRows[0], &bbBodyP, &bbBodyE);
 
 		tr.Commit();
 		tr.Start(db);
@@ -726,7 +723,8 @@ namespace beam
 
 			tx.Normalize();
 
-			Transaction::Context ctx;
+			Transaction::Context::Params pars;
+			Transaction::Context ctx(pars);
 			bool isTxValid = tx.IsValid(ctx);
 			verify_test(isTxValid);
 		}
@@ -759,7 +757,7 @@ namespace beam
 	{
 		MyNodeProcessor1 np;
 		np.m_Horizon.m_Branching = 35;
-		//np.m_Horizon.m_Schwarzschild = 40; - will prevent extracting some macroblock ranges
+		//np.m_Horizon.m_SchwarzschildHi = 40; - will prevent extracting some macroblock ranges
 		np.Initialize(g_sz);
 		np.OnTreasury(g_Treasury);
 
@@ -777,7 +775,8 @@ namespace beam
 				verify_test(np.ValidateTxContext(*pTx));
 				verify_test(np.ValidateTxWrtHeight(*pTx));
 
-				Transaction::Context ctx;
+				Transaction::Context::Params pars;
+				Transaction::Context ctx(pars);
 				ctx.m_Height.m_Min = ctx.m_Height.m_Max = np.m_Cursor.m_Sid.m_Height + 1;
 				verify_test(pTx->IsValid(ctx));
 
@@ -796,6 +795,7 @@ namespace beam
 			bc.m_Hdr.get_ID(id);
 
 			np.OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
+			np.TryGoUp();
 
 			np.m_Wallet.AddMyUtxo(Key::IDV(bc.m_Fees, h, Key::Type::Comission));
 			np.m_Wallet.AddMyUtxo(Key::IDV(Rules::get_Emission(h), h, Key::Type::Coinbase));
@@ -815,19 +815,7 @@ namespace beam
 		{
 			DeleteFile(g_sz2);
 
-			struct MyNodeProcessorX
-				:public NodeProcessor
-			{
-				std::string m_sPathMB;
-				virtual bool OpenMacroblock(Block::BodyBase::RW& rw, const NodeDB::StateID&) override
-				{
-					rw.m_sPath = m_sPathMB;
-					rw.ROpen();
-					return true;
-				}
-			};
-
-			MyNodeProcessorX np2;
+			NodeProcessor np2;
 			np2.Initialize(g_sz2);
 			np2.OnTreasury(g_Treasury);
 
@@ -849,17 +837,9 @@ namespace beam
 			verify_test(np2.ImportMacroBlock(rwData));
 			rwData.Close();
 
-			np2.get_DB().MacroblockIns(np2.m_Cursor.m_Sid.m_Row);
-			np2.m_sPathMB = g_sz3;
-
-			// Although NodeProcessor can import macroblocks not from the beginning - currently this mode is not supported, it will consider only the most recent
-			// macroblock during initialization, and kernel retrieval.
-			// try kernel proofs. Must be retrieved from the macroblock. Because of the above this test is only for kernels which are mature enough
+			// try kernel proofs.
 			for (size_t i = 0; i < np.m_Wallet.m_MyKernels.size(); i++)
 			{
-				if (np.m_Wallet.m_MyKernels[i].m_Height <= hMid)
-					continue;
-
 				TxKernel krn;
 				np.m_Wallet.m_MyKernels[i].Export(krn);
 
@@ -881,25 +861,17 @@ namespace beam
 	}
 
 
-	class MyNodeProcessor2
-		:public NodeProcessor
-	{
-	public:
-		// NodeProcessor
-		virtual void AdjustFossilEnd(Height& h) override { h = 0; } // don't fossile anything, since we're not creating macroblocks
-	};
-
-
 	void TestNodeProcessor2(std::vector<BlockPlus::Ptr>& blockChain)
 	{
 		NodeProcessor::Horizon horz;
 		horz.m_Branching = 12;
-		horz.m_Schwarzschild = 12;
+		horz.m_SchwarzschildHi = 12;
+		horz.m_SchwarzschildLo = 15;
 
 		size_t nMid = blockChain.size() / 2;
 
 		{
-			MyNodeProcessor2 np;
+			NodeProcessor np;
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 			np.OnTreasury(g_Treasury);
@@ -912,7 +884,7 @@ namespace beam
 		}
 
 		{
-			MyNodeProcessor2 np;
+			NodeProcessor np;
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
@@ -924,11 +896,12 @@ namespace beam
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
 				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
+				np.TryGoUp();
 			}
 		}
 
 		{
-			MyNodeProcessor2 np;
+			NodeProcessor np;
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
@@ -940,7 +913,7 @@ namespace beam
 		}
 
 		{
-			MyNodeProcessor2 np;
+			NodeProcessor np;
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
@@ -952,11 +925,12 @@ namespace beam
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
 				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
+				np.TryGoUp();
 			}
 		}
 
 		{
-			MyNodeProcessor2 np;
+			NodeProcessor np;
 			np.m_Horizon = horz;
 			np.Initialize(g_sz);
 
@@ -968,15 +942,343 @@ namespace beam
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
 				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
+				np.TryGoUp();
 			}
 		}
 
 		{
-			MyNodeProcessor2 np;
+			NodeProcessor np;
 			np.m_Horizon = horz;
-			np.Initialize(g_sz, true); // reset cursor
+
+			NodeProcessor::StartParams sp;
+			sp.m_CheckIntegrityAndVacuum = true;
+			sp.m_ResetCursor = true;
+			np.Initialize(g_sz, sp);
 		}
 
+	}
+
+	void TestNodeProcessor3(std::vector<BlockPlus::Ptr>& blockChain)
+	{
+		NodeProcessor np, npSrc;
+		np.m_Horizon.m_Branching = 5;
+		np.m_Horizon.m_SchwarzschildHi = 12;
+		np.m_Horizon.m_SchwarzschildLo = 30;
+		np.Initialize(g_sz);
+		np.OnTreasury(g_Treasury);
+
+		npSrc.Initialize(g_sz2);
+		npSrc.OnTreasury(g_Treasury);
+
+		PeerID pid(Zero);
+
+		for (size_t i = 0; i < blockChain.size(); i++)
+		{
+			const BlockPlus& bp = *blockChain[i];
+			verify_test(np.OnState(bp.m_Hdr, pid) == NodeProcessor::DataStatus::Accepted);
+
+			verify_test(npSrc.OnState(bp.m_Hdr, pid) == NodeProcessor::DataStatus::Accepted);
+
+			Block::SystemState::ID id;
+			bp.m_Hdr.get_ID(id);
+			verify_test(npSrc.OnBlock(id, bp.m_BodyP, bp.m_BodyE, pid) == NodeProcessor::DataStatus::Accepted);
+		}
+
+		npSrc.TryGoUp();
+		verify_test(npSrc.m_Cursor.m_ID.m_Height == blockChain.size());
+
+		np.EnumCongestions();
+
+		verify_test(np.IsFastSync()); // should go into fast-sync mode
+		verify_test(np.m_SyncData.m_TxoLo); // should be used on the 1st attempt
+
+		// 1st attempt - tamper with txlo. Remove arbitrary input
+		bool bTampered = false;
+		for (Height h = Rules::HeightGenesis; h <= np.m_SyncData.m_TxoLo; h++)
+		{
+			NodeDB::StateID sid;
+			sid.m_Row = npSrc.FindActiveAtStrict(h);
+			sid.m_Height = h;
+
+			ByteBuffer bbE, bbP;
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+
+			if (!bTampered)
+			{
+				Deserializer der;
+				der.reset(bbP);
+
+				Block::BodyBase bbb;
+				TxVectors::Perishable txvp;
+				der & bbb;
+				der & txvp;
+
+				verify_test(txvp.m_vInputs.empty()); // may contain only treasury, but we don't spend it in the test
+
+				if (!txvp.m_vOutputs.empty())
+				{
+					txvp.m_vOutputs.pop_back();
+
+					Serializer ser;
+					ser & bbb;
+					ser & txvp;
+					ser.swap_buf(bbP);
+
+					bTampered = true;
+				}
+			}
+
+			Block::SystemState::ID id;
+			blockChain[h-1]->m_Hdr.get_ID(id);
+			verify_test(np.OnBlock(id, bbP, bbE, pid) == NodeProcessor::DataStatus::Accepted);
+		}
+
+		np.TryGoUp();
+		verify_test(np.m_Cursor.m_ID.m_Height == Rules::HeightGenesis - 1); // should fall back to start
+		verify_test(!np.m_SyncData.m_TxoLo); // next attempt should be with TxLo disabled
+
+
+		// 1.1 attempt - tamper with txlo. Modify block offset
+		np.m_SyncData.m_TxoLo = np.m_SyncData.m_Target.m_Height / 2;
+		bTampered = false;
+		for (Height h = Rules::HeightGenesis; h <= np.m_SyncData.m_TxoLo; h++)
+		{
+			NodeDB::StateID sid;
+			sid.m_Row = npSrc.FindActiveAtStrict(h);
+			sid.m_Height = h;
+
+			ByteBuffer bbE, bbP;
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+
+			if (!bTampered)
+			{
+				Deserializer der;
+				der.reset(bbP);
+
+				Block::BodyBase bbb;
+				TxVectors::Perishable txvp;
+				der & bbb;
+				der & txvp;
+
+				bbb.m_Offset.m_Value.Inc();
+
+				Serializer ser;
+				ser & bbb;
+				ser & txvp;
+				ser.swap_buf(bbP);
+
+				bTampered = true;
+			}
+
+			Block::SystemState::ID id;
+			blockChain[h - 1]->m_Hdr.get_ID(id);
+			verify_test(np.OnBlock(id, bbP, bbE, pid) == NodeProcessor::DataStatus::Accepted);
+		}
+
+		np.TryGoUp();
+		verify_test(np.m_Cursor.m_ID.m_Height == Rules::HeightGenesis - 1); // should fall back to start
+		verify_test(!np.m_SyncData.m_TxoLo); // next attempt should be with TxLo disabled
+
+		// 2nd attempt. Tamper with the non-naked output
+		np.m_SyncData.m_TxoLo = np.m_SyncData.m_Target.m_Height / 2;
+		bTampered = false;
+		for (Height h = Rules::HeightGenesis; h <= np.m_SyncData.m_Target.m_Height; h++)
+		{
+			NodeDB::StateID sid;
+			sid.m_Row = npSrc.FindActiveAtStrict(h);
+			sid.m_Height = h;
+
+			ByteBuffer bbE, bbP;
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+
+			if (!bTampered)
+			{
+				Deserializer der;
+				der.reset(bbP);
+
+				Block::BodyBase bbb;
+				TxVectors::Perishable txvp;
+				der & bbb;
+				der & txvp;
+
+				for (size_t j = 0; j < txvp.m_vOutputs.size(); j++)
+				{
+					Output& outp = *txvp.m_vOutputs[j];
+					if (outp.m_pConfidential)
+					{
+						outp.m_pConfidential->m_P_Tag.m_pCondensed[0].m_Value.Inc();
+						bTampered = true;
+						break;
+					}
+				}
+
+				if (bTampered)
+				{
+					Serializer ser;
+					ser & bbb;
+					ser & txvp;
+					ser.swap_buf(bbP);
+				}
+			}
+
+			Block::SystemState::ID id;
+			blockChain[h - 1]->m_Hdr.get_ID(id);
+			verify_test(np.OnBlock(id, bbP, bbE, pid) == NodeProcessor::DataStatus::Accepted);
+
+			np.TryGoUp();
+
+			if (bTampered)
+			{
+				verify_test(np.m_Cursor.m_ID.m_Height == h - 1);
+				break;
+			}
+
+			verify_test(np.m_Cursor.m_ID.m_Height == h);
+		}
+
+		verify_test(bTampered);
+		verify_test(np.m_SyncData.m_TxoLo);
+
+		// 3rd attempt. enforce "naked" output. The node won't notice a problem until all the blocks are fed
+		bTampered = false;
+
+		for (Height h = np.m_Cursor.m_ID.m_Height + 1; ; h++)
+		{
+			NodeDB::StateID sid;
+			sid.m_Row = npSrc.FindActiveAtStrict(h);
+			sid.m_Height = h;
+
+			ByteBuffer bbE, bbP;
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+
+			if (!bTampered)
+			{
+				Deserializer der;
+				der.reset(bbP);
+
+				Block::BodyBase bbb;
+				TxVectors::Perishable txvp;
+				der & bbb;
+				der & txvp;
+
+				for (size_t j = 0; j < txvp.m_vOutputs.size(); j++)
+				{
+					Output& outp = *txvp.m_vOutputs[j];
+					if (outp.m_pConfidential || outp.m_pPublic)
+					{
+						outp.m_pConfidential.reset();
+						outp.m_pPublic.reset();
+						bTampered = true;
+						break;
+					}
+				}
+
+				if (bTampered)
+				{
+					Serializer ser;
+					ser & bbb;
+					ser & txvp;
+					ser.swap_buf(bbP);
+				}
+			}
+
+			Block::SystemState::ID id;
+			blockChain[h - 1]->m_Hdr.get_ID(id);
+			verify_test(np.OnBlock(id, bbP, bbE, pid) == NodeProcessor::DataStatus::Accepted);
+
+			bool bLast = (h == np.m_SyncData.m_Target.m_Height);
+
+			np.TryGoUp();
+
+			if (bLast)
+			{
+				verify_test(np.m_Cursor.m_ID.m_Height == Rules::HeightGenesis - 1);
+				break;
+			}
+
+			verify_test(np.m_Cursor.m_ID.m_Height == h);
+		}
+
+		verify_test(!np.m_SyncData.m_TxoLo);
+
+		// 3.1 Same as above, but now TxoLo is zero, Node should not erase all the blocks on error
+		Height hTampered = 0;
+
+		for (Height h = np.m_Cursor.m_ID.m_Height + 1; ; h++)
+		{
+			NodeDB::StateID sid;
+			sid.m_Row = npSrc.FindActiveAtStrict(h);
+			sid.m_Height = h;
+
+			ByteBuffer bbE, bbP;
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+
+			if (!hTampered)
+			{
+				Deserializer der;
+				der.reset(bbP);
+
+				Block::BodyBase bbb;
+				TxVectors::Perishable txvp;
+				der & bbb;
+				der & txvp;
+
+				for (size_t j = 0; j < txvp.m_vOutputs.size(); j++)
+				{
+					Output& outp = *txvp.m_vOutputs[j];
+					if (outp.m_pConfidential || outp.m_pPublic)
+					{
+						outp.m_pConfidential.reset();
+						outp.m_pPublic.reset();
+						hTampered = h;
+						break;
+					}
+				}
+
+				if (hTampered)
+				{
+					Serializer ser;
+					ser & bbb;
+					ser & txvp;
+					ser.swap_buf(bbP);
+				}
+			}
+
+			Block::SystemState::ID id;
+			blockChain[h - 1]->m_Hdr.get_ID(id);
+			verify_test(np.OnBlock(id, bbP, bbE, pid) == NodeProcessor::DataStatus::Accepted);
+
+			bool bLast = (h == np.m_SyncData.m_Target.m_Height);
+
+			np.TryGoUp();
+
+			if (bLast)
+			{
+				verify_test(np.m_Cursor.m_ID.m_Height == hTampered - 1);
+				break;
+			}
+
+			verify_test(np.m_Cursor.m_ID.m_Height == h);
+		}
+
+		// 4th attempt. provide valid data
+		for (Height h = np.m_Cursor.m_ID.m_Height + 1; h <= blockChain.size(); h++)
+		{
+			NodeDB::StateID sid;
+			sid.m_Row = npSrc.FindActiveAtStrict(h);
+			sid.m_Height = h;
+
+			ByteBuffer bbE, bbP;
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height));
+
+			Block::SystemState::ID id;
+			blockChain[h - 1]->m_Hdr.get_ID(id);
+			np.OnBlock(id, bbP, bbE, pid);
+		}
+
+		np.TryGoUp();
+		verify_test(!np.IsFastSync());
+		verify_test(np.m_Cursor.m_ID.m_Height == blockChain.size());
 	}
 
 	const uint16_t g_Port = 25003; // don't use the default port to prevent collisions with running nodes, beacons and etc.
@@ -992,7 +1294,6 @@ namespace beam
 		node.m_Cfg.m_sPathLocal = g_sz;
 		node.m_Cfg.m_Listen.port(g_Port);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
-		node.m_Cfg.m_Sync.m_SrcPeers = 0;
 		node.m_Cfg.m_Treasury = g_Treasury;
 
 		node.m_Cfg.m_Timeout.m_GetBlock_ms = 1000 * 60;
@@ -1002,7 +1303,6 @@ namespace beam
 		node2.m_Cfg.m_Listen.port(g_Port + 1);
 		node2.m_Cfg.m_Listen.ip(INADDR_ANY);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
-		node2.m_Cfg.m_Sync.m_SrcPeers = 0;
 		node2.m_Cfg.m_Treasury = g_Treasury;
 
 		node2.m_Cfg.m_BeaconPort = g_Port;
@@ -1056,6 +1356,7 @@ namespace beam
 					bc.m_Hdr.get_ID(id);
 
 					n.get_Processor().OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
+					n.get_Processor().TryGoUp();
 
 					m_HeightMax = std::max(m_HeightMax, bc.m_Hdr.m_Height);
 
@@ -1122,15 +1423,14 @@ namespace beam
 		ECC::SetRandom(node);
 
 		node.m_Cfg.m_Horizon.m_Branching = 6;
-		node.m_Cfg.m_Horizon.m_Schwarzschild = 8;
+		node.m_Cfg.m_Horizon.m_SchwarzschildHi = 10;
+		node.m_Cfg.m_Horizon.m_SchwarzschildLo = 14;
 		node.m_Cfg.m_VerificationThreads = -1;
 
 		node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
 		node.m_Cfg.m_Dandelion.m_OutputsMin = 3;
 		node.m_Cfg.m_Dandelion.m_DummyLifetimeLo = 5;
 		node.m_Cfg.m_Dandelion.m_DummyLifetimeHi = 10;
-
-		node.m_Cfg.m_Sync.m_TimeoutHi_ms = 0; // start mining immediately
 
 		struct MyClient
 			:public proto::NodeConnection
@@ -1363,7 +1663,8 @@ namespace beam
 					if (!(bEmitAsset && Rules::get().CA.Deposit))
 						m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
 
-					Transaction::Context ctx;
+					Transaction::Context::Params pars;
+					Transaction::Context ctx(pars);
 					verify_test(msgTx.m_Transaction->IsValid(ctx));
 
 					Send(msgTx);
@@ -1609,7 +1910,6 @@ namespace beam
 		node2.m_Cfg.m_Connect[0].port(g_Port);
 		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
 
-		node2.m_Cfg.m_Sync.m_Timeout_ms = 0; // sync immediately after seeing 1st peer
 		node2.m_Cfg.m_Dandelion = node.m_Cfg.m_Dandelion;
 
 		ECC::SetRandom(node2);
@@ -1629,11 +1929,26 @@ namespace beam
 		//if (!cl.m_bCustomAssetRecognized)
 		//	fail_test("CA not recognized");
 
-		NodeProcessor::UtxoRecoverEx urec(node2.get_Processor());
-		urec.m_vKeys.push_back(node.m_Keys.m_pMiner);
-		urec.Proceed();
+		struct TxoRecover
+			:public NodeProcessor::ITxoRecover
+		{
+			uint32_t m_Recovered = 0;
 
-		verify_test(!urec.m_Map.empty());
+			TxoRecover(NodeProcessor& x) :NodeProcessor::ITxoRecover(x) {}
+
+			virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const Key::IDV& kidv) override
+			{
+				m_Recovered++;
+				return true;
+			}
+		};
+
+		TxoRecover wlk(node.get_Processor());
+		node2.get_Processor().EnumTxos(wlk);
+
+		node.get_Processor().RescanOwnedTxos();
+
+		verify_test(wlk.m_Recovered);
 	}
 
 
@@ -1696,6 +2011,7 @@ namespace beam
 			Block::SystemState::ID id;
 			bc.m_Hdr.get_ID(id);
 			node.get_Processor().OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
+			node.get_Processor().TryGoUp();
 		}
 	}
 
@@ -1919,6 +2235,7 @@ int main()
 
 	beam::Rules::get().AllowPublicUtxos = true;
 	beam::Rules::get().FakePoW = true;
+	beam::Rules::get().Macroblock.MaxRollback = 10;
 	beam::Rules::get().DA.WindowWork = 35;
 	beam::Rules::get().Maturity.Coinbase = 35; // lowered to see more txs
 	beam::Rules::get().Emission.Drop0 = 5;
@@ -1958,6 +2275,13 @@ int main()
 
 		beam::TestNodeProcessor2(blockChain);
 		beam::DeleteFile(beam::g_sz);
+
+		printf("NodeProcessor test3...\n");
+		fflush(stdout);
+
+		beam::TestNodeProcessor3(blockChain);
+		beam::DeleteFile(beam::g_sz);
+		beam::DeleteFile(beam::g_sz2);
 	}
 
 	printf("NodeX2 concurrent test...\n");

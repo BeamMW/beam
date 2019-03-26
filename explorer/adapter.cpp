@@ -142,7 +142,7 @@ private:
     void OnStateChanged() override {
         const auto& cursor = _nodeBackend.m_Cursor;
         _cache.currentHeight = cursor.m_Sid.m_Height;
-        _cache.lowHorizon = cursor.m_LoHorizon;
+        _cache.lowHorizon = _nodeBackend.m_Extra.m_LoHorizon;
         _statusDirty = true;
         if (_nextHook) _nextHook->OnStateChanged();
     }
@@ -161,7 +161,7 @@ private:
             const auto& cursor = _nodeBackend.m_Cursor;
 
             _cache.currentHeight = cursor.m_Sid.m_Height;
-            _cache.lowHorizon = cursor.m_LoHorizon;
+            _cache.lowHorizon = _nodeBackend.m_Extra.m_LoHorizon;
 
             char buf[80];
 
@@ -172,7 +172,7 @@ private:
                 json{
                     { "timestamp", cursor.m_Full.m_TimeStamp },
                     { "height", _cache.currentHeight },
-                    { "low_horizon", cursor.m_LoHorizon },
+                    { "low_horizon", _nodeBackend.m_Extra.m_LoHorizon },
                     { "hash", hash_to_hex(buf, cursor.m_ID.m_Hash) },
                     { "chainwork",  uint256_to_hex(buf, cursor.m_Full.m_ChainWork) }
                 }
@@ -315,7 +315,7 @@ private:
         if (_statusDirty) {
             const auto &cursor = _nodeBackend.m_Cursor;
             _cache.currentHeight = cursor.m_Sid.m_Height;
-            _cache.lowHorizon = cursor.m_LoHorizon;
+            _cache.lowHorizon = _nodeBackend.m_Extra.m_LoHorizon;
         }
 
         io::SharedBuffer body;
@@ -349,8 +349,26 @@ private:
         return get_block_impl(out, height, row, 0);
     }
 
+    bool get_block_by_hash(io::SerializedMsg& out, const ByteBuffer& hash) override {
+        NodeDB& db = _nodeBackend.get_DB();
+
+        Height height = db.FindBlock(hash);
+        uint64_t row = 0;
+
+        return get_block_impl(out, height, row, 0);
+    }
+
+    bool get_block_by_kernel(io::SerializedMsg& out, const ByteBuffer& key) override {
+        NodeDB& db = _nodeBackend.get_DB();
+
+        Height height = db.FindKernel(key);
+        uint64_t row = 0;
+
+        return get_block_impl(out, height, row, 0);
+    }
+
     bool get_blocks(io::SerializedMsg& out, uint64_t startHeight, uint64_t n) override {
-        static const uint64_t maxElements = 100;
+        static const uint64_t maxElements = 1500;
         if (n > maxElements) n = maxElements;
         else if (n==0) n=1;
         Height endHeight = startHeight + n - 1;
