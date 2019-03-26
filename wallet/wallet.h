@@ -72,6 +72,7 @@ namespace beam
 
         void set_Network(proto::FlyClient::INetwork&, IWalletNetwork&);
         void initBitcoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address);
+        void initSwapConditions(Amount beamAmount, Amount swapAmount, bool isBeamSide);
 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {} );
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {});
@@ -137,6 +138,13 @@ namespace beam
     private:
 
         static const char s_szNextUtxoEvt[];
+
+        struct SwapConditions
+        {
+            Amount beamAmount = 0;
+            Amount swapAmount = 0;
+            bool isBeamSide = 0;
+        };
 
 #define REQUEST_TYPES_Sync(macro) \
         macro(Utxo) \
@@ -216,5 +224,6 @@ namespace beam
         std::vector<IWalletObserver*> m_subscribers;
 
         BitcoinRPC::Ptr m_bitcoinRPC;
+        boost::optional<SwapConditions> m_swapConditions;
     };
 }

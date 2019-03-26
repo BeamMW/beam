@@ -230,6 +230,11 @@ namespace beam
         m_bitcoinRPC = make_shared<BitcoinRPC>(reactor, userName, pass, address);
     }
 
+    void Wallet::initSwapConditions(Amount beamAmount, Amount swapAmount, bool isBeamSide)
+    {
+        m_swapConditions = SwapConditions{ beamAmount, swapAmount, isBeamSide };
+    }
+
     Wallet::~Wallet()
     {
         // clear all requests
@@ -985,6 +990,36 @@ namespace beam
         if (!msg.GetParameter(TxParameterID::IsSender, isSender) || (isSender == true && msg.m_Type != TxType::AtomicSwap))
         {
             return BaseTransaction::Ptr();
+        }
+
+        if (msg.m_Type == TxType::AtomicSwap)
+        {
+            if (!m_swapConditions.is_initialized())
+            {
+                LOG_DEBUG() << "Swap rejected. Swap conditions aren't initialized.";
+                return BaseTransaction::Ptr();
+            }
+
+            // validate swapConditions
+            Amount amount = 0;
+            Amount swapAmount = 0;
+            bool isBeamSide = 0;
+
+            bool result = msg.GetParameter(TxParameterID::Amount, amount) &&
+                msg.GetParameter(TxParameterID::AtomicSwapAmount, swapAmount) &&
+                msg.GetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+
+            bool isValid = (amount == m_swapConditions->beamAmount) &&
+                (swapAmount == m_swapConditions->swapAmount) &&
+                (m_swapConditions->isBeamSide == isBeamSide);
+
+            if (!result || !isValid)
+            {
+                LOG_DEBUG() << "Swap rejected. Invalid conditions.";
+                return BaseTransaction::Ptr();
+            }
+
+            LOG_DEBUG() << "Swap accepted.";
         }
 
         auto t = constructTransaction(msg.m_TxID, msg.m_Type);

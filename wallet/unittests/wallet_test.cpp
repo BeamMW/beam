@@ -568,10 +568,12 @@ namespace
 
         if (isBeamOwnerStart)
         {
+            receiver.m_Wallet.initSwapConditions(3, 2000, false);
             txID = sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, 3, 1, wallet::AtomicSwapCoin::Bitcoin, 2000, true);
         }
         else
         {
+            sender.m_Wallet.initSwapConditions(3, 2000, true);
             txID = receiver.m_Wallet.swap_coins(receiver.m_WalletID, sender.m_WalletID, 3, 1, wallet::AtomicSwapCoin::Bitcoin, 2000, false);
         }
 
