@@ -36,6 +36,13 @@ struct Node
 		virtual void OnSyncProgress() = 0;
 		virtual void OnStateChanged() {}
 		virtual void OnRolledBack(const Block::SystemState::ID& id) {};
+
+        enum Error
+        {
+            EmptyPeerList
+        };
+
+        virtual void OnSyncError(Error error) {}
 	};
 
 	struct Config

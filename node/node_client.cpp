@@ -215,6 +215,18 @@ void NodeClient::runLocalNode()
             m_pModel->m_observer->onSyncProgressUpdated(static_cast<int>(s.m_Done), static_cast<int>(s.m_Total));
         }
 
+        void OnSyncError(Node::IObserver::Error error) override
+        {
+            switch (error)
+            {
+            case Node::IObserver::EmptyPeerList:
+                m_pModel->m_observer->onFailedToStartNode();
+                break;
+            default:
+                assert(false);
+            }
+        }
+
 		~MyObserver()
 		{
 			if (m_bReportedStarted)
