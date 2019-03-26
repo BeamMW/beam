@@ -15,26 +15,18 @@ set(WALLET_SRC
     wallet_client.cpp
     swap_transaction.cpp
     secstring2.cpp
-    unittests/util.cpp
-    bitcoin_rpc.h
-    bitcoin_rpc.cpp
+    unittests/util.cpp    
 )
 
+add_library(bitcoin_rpc STATIC bitcoin_rpc.cpp)
+add_dependencies(bitcoin_rpc libbitcoin http)
+target_link_libraries(bitcoin_rpc libbitcoin http)
+target_include_directories(bitcoin_rpc PUBLIC "${CMAKE_SOURCE_DIR}/libbitcoin/include")
+
 add_library(wallet STATIC ${WALLET_SRC})
-add_dependencies(wallet core sqlite libbitcoin http)
-target_link_libraries(wallet core sqlite libbitcoin http)
+add_dependencies(wallet core sqlite libbitcoin http bitcoin_rpc)
+target_link_libraries(wallet core sqlite libbitcoin http bitcoin_rpc)
 target_include_directories(wallet PUBLIC "${CMAKE_SOURCE_DIR}/libbitcoin/include")
-if(MSVC)
-    target_compile_options(wallet PUBLIC "/wd4245")
-    target_compile_options(wallet PUBLIC "/wd4505")
-    target_compile_options(wallet PUBLIC "/wd4996")
-elseif(APPLE)
-    target_compile_options(wallet PUBLIC -Wno-mismatched-tags)
-    target_compile_options(wallet PUBLIC -Wno-missing-braces)
-elseif(ANDROID)
-    target_compile_options(wallet PUBLIC -Wno-mismatched-tags)
-    target_compile_options(wallet PUBLIC -Wno-tautological-constant-compare)
-endif()
 
 add_executable(${TARGET_NAME} cli.cpp)
 
