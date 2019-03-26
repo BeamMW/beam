@@ -28,6 +28,7 @@ after_build:
 - ps: $env:BEAM_DISPLAY_SUFFIX=''
 - ps: $env:BEAM_DISPLAY_SUFFIX2=''
 - ps: $env:BEAM_DISPLAY_SUFFIX3=''
+- cmd: >-
     cpack --verbose -G NSIS -C %BUILD_CONFIG%
     
     set /p BEAM_VERSION=<beam_version.gen
