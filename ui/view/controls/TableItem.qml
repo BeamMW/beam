@@ -16,7 +16,7 @@ Item {
         anchors.right: parent.right
         anchors.leftMargin: 20
         font.pixelSize: 14
-        color: Style.white
+        color: Style.content_main
     }
 
     clip:true

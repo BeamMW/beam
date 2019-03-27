@@ -20,7 +20,7 @@ Dialog {
         
     background: Rectangle {
         radius: 10
-        color: Style.dark_slate_blue
+        color: Style.background_second
         anchors.fill: parent
     }
 
@@ -29,7 +29,7 @@ Dialog {
         anchors.fill: parent
         padding: 20
         font.pixelSize: 14
-        color: Style.white
+        color: Style.content_main
         wrapMode: Text.Wrap
         horizontalAlignment : Text.AlignHCenter
     }
@@ -38,7 +38,7 @@ Dialog {
         
         background: Rectangle {
             radius: 10
-            color: Style.dark_slate_blue
+            color: Style.background_second
             anchors.fill: parent
         }          
 
@@ -64,9 +64,9 @@ Dialog {
 
                 CustomButton {
                     id: okButton
-                    palette.button: Style.bright_teal
+                    palette.button: Style.content_accent_second
                     text: qsTr("delete")
-                    palette.buttonText: Style.marine
+                    palette.buttonText: Style.background
                     onClicked: {
                         accepted();
                         close();

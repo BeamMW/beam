@@ -9,7 +9,7 @@ import Beam.Wallet 1.0
 Rectangle {
 
     anchors.fill: parent
-    color: Style.marine
+    color: Style.background
 
     SettingsViewModel {id: viewModel}
 
@@ -32,7 +32,7 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop
                 font.pixelSize: 36
-                color: Style.white
+                color: Style.content_main
                 text: "Settings"
             }
 
@@ -41,7 +41,7 @@ Rectangle {
                 Layout.alignment: Qt.AlignBottom | Qt.AlignRight
                 horizontalAlignment: Text.AlignRight
                 font.pixelSize: 14
-                color: Style.white
+                color: Style.content_main
                 text: "Version: " + viewModel.version
             }
         }
@@ -67,7 +67,7 @@ Rectangle {
                         height: 150
 
                         radius: 10
-                        color: Style.dark_slate_blue
+                        color: Style.background_second
 
                         ColumnLayout {
                             anchors.fill: parent
@@ -78,7 +78,7 @@ Rectangle {
                                 Layout.alignment: Qt.AlignTop
                                 Layout.bottomMargin: 15
                                 text: qsTr("Remote node")
-                                color: Style.white
+                                color: Style.content_main
                                 font.pixelSize: 18
                                 font.styleName: "Bold"; font.weight: Font.Bold
                             }
@@ -86,7 +86,7 @@ Rectangle {
                             SFText {
                                 Layout.alignment: Qt.AlignTop
                                 text: qsTr("ip:port")
-                                color: localNodeRun.checked ? Style.disable_text_color : Style.white
+                                color: localNodeRun.checked ? Style.content_disabled : Style.content_main
                                 font.pixelSize: 12
                                 font.styleName: "Bold"; font.weight: Font.Bold
                             }
@@ -98,7 +98,7 @@ Rectangle {
                                 focus: true
                                 activeFocusOnTab: true
                                 font.pixelSize: 12
-                                color: readOnly ? Style.disable_text_color : Style.white
+                                color: readOnly ? Style.content_disabled : Style.content_main
                                 readOnly: localNodeRun.checked
                                 validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                 text: viewModel.nodeAddress
@@ -114,7 +114,7 @@ Rectangle {
                                 SFText {
                                     Layout.alignment: Qt.AlignTop
                                     id: nodeAddressError
-                                    color: Style.validator_color
+                                    color: Style.validator_error
                                     font.pixelSize: 10
                                     visible: !nodeAddress.acceptableInput
                                     text: "Invalid address"
@@ -128,7 +128,7 @@ Rectangle {
                         Layout.alignment: Qt.AlignTop
                         height: 320
                         radius: 10
-                        color: Style.dark_slate_blue
+                        color: Style.background_second
 
                         ColumnLayout {
                             anchors.fill: parent
@@ -136,7 +136,7 @@ Rectangle {
 
                             SFText {
                                 text: qsTr("Local node")
-                                color: Style.white
+                                color: Style.content_main
                                 font.pixelSize: 18
                                 font.styleName: "Bold"; font.weight: Font.Bold
                             }
@@ -166,7 +166,7 @@ Rectangle {
 
                                     SFText {
                                         text: qsTr("Local node port")
-                                        color: localNodeRun.checked ? Style.white : Style.disable_text_color
+                                        color: localNodeRun.checked ? Style.content_main : Style.content_disabled
                                         font.pixelSize: 12
                                         font.styleName: "Bold"; font.weight: Font.Bold
                                     }
@@ -176,7 +176,7 @@ Rectangle {
                                         width: parent.width
                                         activeFocusOnTab: true
                                         font.pixelSize: 12
-                                        color: readOnly ? Style.disable_text_color : Style.white
+                                        color: readOnly ? Style.content_disabled : Style.content_main
                                         readOnly: !localNodeRun.checked
                                         text: viewModel.localNodePort
                                         validator: IntValidator {
@@ -199,7 +199,7 @@ Rectangle {
                                     SFText {
                                         Layout.topMargin: 5
                                         text: qsTr("Peers")
-                                        color: localNodeRun.checked ? Style.white : Style.disable_text_color
+                                        color: localNodeRun.checked ? Style.content_main : Style.content_disabled
                                         font.pixelSize: 12
                                         font.styleName: "Bold"; font.weight: Font.Bold
                                     }
@@ -214,7 +214,7 @@ Rectangle {
                                             width: parent.width
                                             activeFocusOnTab: true
                                             font.pixelSize: 12
-                                            color: readOnly ? Style.disable_text_color : Style.white
+                                            color: readOnly ? Style.content_disabled : Style.content_main
                                             readOnly: !localNodeRun.checked
                                             validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                         }
@@ -225,8 +225,8 @@ Rectangle {
                                             leftPadding: 20
                                             rightPadding: 20
                                             text: "Add"
-                                            palette.button: Style.gray_button_color
-                                            palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
+                                            palette.button: Style.background_inconspicuous
+                                            palette.buttonText : localNodeRun.checked ? Style.content_main : Style.content_disabled
                                             enabled: newLocalNodePeer.acceptableInput && localNodeRun.checked
                                             onClicked: {
                                                 viewModel.addLocalNodePeer(newLocalNodePeer.text.trim());
@@ -237,7 +237,7 @@ Rectangle {
 
                                     SFText {
                                         text: qsTr("Please add at least one peer")
-                                        color: Style.validator_color
+                                        color: Style.validator_error
                                         font.pixelSize: 14
                                         fontSizeMode: Text.Fit
                                         minimumPixelSize: 10
@@ -261,7 +261,7 @@ Rectangle {
                                                 Layout.alignment: Qt.AlignVCenter
                                                 text: modelData
                                                 font.pixelSize: 12
-                                                color: Style.white
+                                                color: Style.content_main
                                                 height: 16
                                                 elide: Text.ElideRight
                                             }
@@ -308,7 +308,7 @@ Rectangle {
                                 width: parent.width
                                 topPadding: 20
                                 font.pixelSize: 18
-                                color: Style.white
+                                color: Style.content_main
                                 horizontalAlignment : Text.AlignHCenter
                                 text: qsTr("Rescan")
                             }
@@ -317,7 +317,7 @@ Rectangle {
                                 leftPadding: 20
                                 rightPadding: 20
                                 font.pixelSize: 14
-                                color: Style.white
+                                color: Style.content_main
                                 wrapMode: Text.Wrap
                                 horizontalAlignment : Text.AlignHCenter
                                 text: qsTr("Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time. \n\nAre you sure?")
@@ -340,7 +340,7 @@ Rectangle {
                     Rectangle {
                         Layout.fillWidth: true
                         radius: 10
-                        color: Style.dark_slate_blue
+                        color: Style.background_second
                         //height: childrenRect.height + 40
                         height: 150
 
@@ -353,7 +353,7 @@ Rectangle {
 
                             SFText {
                                 text: qsTr("General settings")
-                                color: Style.white
+                                color: Style.content_main
                                 font.pixelSize: 18
                                 font.styleName: "Bold"; font.weight: Font.Bold
                             }
@@ -365,7 +365,7 @@ Rectangle {
 
                                 SFText {
                                     text: qsTr("Lock screen in")
-                                    color: Style.white
+                                    color: Style.content_main
                                     font.pixelSize: 12
                                 }
 
@@ -392,7 +392,7 @@ Rectangle {
                             CustomButton {
                                 text: "change wallet password"
                                 palette.buttonText : "white"
-                                palette.button: Style.gray_button_color
+                                palette.button: Style.background_inconspicuous
                                 icon.source: "qrc:/assets/icon-password.svg"
                                 icon.width: 16
                                 icon.height: 16
@@ -405,7 +405,7 @@ Rectangle {
                         Layout.fillWidth: true
                         height: 320
                         radius: 10
-                        color: Style.dark_slate_blue
+                        color: Style.background_second
 
                         ColumnLayout {
                             anchors.fill: parent
@@ -414,7 +414,7 @@ Rectangle {
 
                             SFText {
                                 text: qsTr("Report problem")
-                                color: Style.white
+                                color: Style.content_main
                                 font.pixelSize: 18
                                 font.styleName: "Bold"; font.weight: Font.Bold
                             }
@@ -423,7 +423,7 @@ Rectangle {
                                 SFText {
                                     Layout.fillWidth: true
                                     text: qsTr("To report a problem:")
-                                    color: Style.white
+                                    color: Style.content_main
                                     font.pixelSize: 12
                                     font.styleName: "Bold"; font.weight: Font.Bold
                                     wrapMode: Text.WordWrap
@@ -432,7 +432,7 @@ Rectangle {
                                 SFText {
                                     Layout.fillWidth: true
                                     text: qsTr("1. Click 'Save wallet logs' and choose a destination folder for log archive")
-                                    color: Style.white
+                                    color: Style.content_main
                                     font.pixelSize: 12
                                     font.styleName: "Bold"; font.weight: Font.Bold
                                     wrapMode: Text.WordWrap
@@ -441,7 +441,7 @@ Rectangle {
                                 SFText {
                                     Layout.fillWidth: true
                                     text: qsTr("<style>a:link {color: '#00f6d2'}</style>2. Send email to <a href='mailto:support@beam.mw'>support@beam.mw</a> or open a ticket in <a href='https://github.com/beam-mw/beam'>github</a>")
-                                    color: Style.white
+                                    color: Style.content_main
                                     textFormat: Text.RichText
                                     font.pixelSize: 12
                                     font.styleName: "Bold"; font.weight: Font.Bold
@@ -458,7 +458,7 @@ Rectangle {
                                 SFText {
                                     Layout.fillWidth: true
                                     text: qsTr("3. Don't forget to attach logs archive")
-                                    color: Style.white
+                                    color: Style.content_main
                                     font.pixelSize: 12
                                     font.styleName: "Bold"; font.weight: Font.Bold
                                     wrapMode: Text.WordWrap
@@ -469,7 +469,7 @@ Rectangle {
                                 CustomButton {
                                     text: "save wallet logs"
                                     palette.buttonText : "white"
-                                    palette.button: Style.gray_button_color
+                                    palette.button: Style.background_inconspicuous
                                     onClicked: viewModel.reportProblem()
                                 }
                                 spacing: 30
@@ -477,8 +477,8 @@ Rectangle {
                                     icon.source: "qrc:/assets/icon-restore.svg"
                                     Layout.alignment: Qt.AlignRight
                                     text: qsTr("rescan")
-                                    palette.button: Style.gray_button_color
-                                    palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
+                                    palette.button: Style.background_inconspicuous
+                                    palette.buttonText : localNodeRun.checked ? Style.content_main : Style.content_disabled
                                     enabled: localNodeRun.checked && confirmRefreshDialog.canRefresh && viewModel.isLocalNodeRunning
                                     onClicked: {
                                         confirmRefreshDialog.open();
@@ -491,7 +491,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 Layout.minimumHeight: 20
                                 text: qsTr("Wallet folder location:")
-                                color: Style.white
+                                color: Style.content_main
                                 font.pixelSize: 18
                                 font.styleName: "Bold"; font.weight: Font.Bold
                                 wrapMode: Text.WordWrap
@@ -501,16 +501,16 @@ Rectangle {
                                 Layout.fillWidth: true
                                 
                                 font.pixelSize: 14
-                                color: Style.disable_text_color
+                                color: Style.content_disabled
                                 readOnly: true
                                 activeFocusOnTab: false
                                 text: viewModel.walletLocation
                             }
                             CustomButton {
                                 text: qsTr("copy")
-                                icon.color: Style.white
-                                palette.buttonText : Style.white
-                                palette.button: Style.gray_button_color
+                                icon.color: Style.content_main
+                                palette.buttonText : Style.content_main
+                                palette.button: Style.background_inconspicuous
                                 icon.source: "qrc:/assets/icon-copy.svg"
                                 onClicked: {
                                     viewModel.copyToClipboard(viewModel.walletLocation);

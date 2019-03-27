@@ -65,7 +65,9 @@ set(UI_SRC
 	viewmodel/messages_view.h
     viewmodel/messages_view.cpp
     viewmodel/statusbar_view.h
-    viewmodel/statusbar_view.cpp
+	viewmodel/statusbar_view.cpp
+	viewmodel/theme.h
+    viewmodel/theme.cpp
 
 	model/wallet_model.h
 	model/wallet_model.cpp
@@ -88,6 +90,23 @@ endif()
 if(WIN32)
 	add_definitions(-DWIN32_LEAN_AND_MEAN)
 endif()
+
+set(BEAM_ICON_SUFFIX "masternet")
+if(BEAM_TESTNET)
+    set(BEAM_ICON_SUFFIX "testnet")
+elseif(BEAM_MAINNET)
+    set(BEAM_ICON_SUFFIX "mainnet")
+endif()
+
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/icons/icon_${BEAM_ICON_SUFFIX}.ico
+          ${CMAKE_CURRENT_SOURCE_DIR}/icons/beam_${BEAM_ICON_SUFFIX}.png
+          ${CMAKE_CURRENT_SOURCE_DIR}/icons/beam_${BEAM_ICON_SUFFIX}.icns
+     DESTINATION  ${CMAKE_CURRENT_SOURCE_DIR})
+
+file(RENAME ${CMAKE_CURRENT_SOURCE_DIR}/icon_${BEAM_ICON_SUFFIX}.ico ${CMAKE_CURRENT_SOURCE_DIR}/icon.ico)
+file(RENAME ${CMAKE_CURRENT_SOURCE_DIR}/beam_${BEAM_ICON_SUFFIX}.png ${CMAKE_CURRENT_SOURCE_DIR}/beam.png)
+file(RENAME ${CMAKE_CURRENT_SOURCE_DIR}/beam_${BEAM_ICON_SUFFIX}.icns ${CMAKE_CURRENT_SOURCE_DIR}/beam.icns)
+
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/beam.rc.in ${CMAKE_CURRENT_SOURCE_DIR}/beam.rc)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/beam.desktop.in ${CMAKE_CURRENT_SOURCE_DIR}/beam.desktop)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist)

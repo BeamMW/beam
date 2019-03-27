@@ -38,7 +38,7 @@
 
         background: Rectangle {
             radius: 10
-            color: Style.dark_slate_blue
+            color: Style.background_second
             anchors.fill: parent
         }
 
@@ -60,7 +60,7 @@
                         font.pixelSize: 18
                         font.styleName: "Bold"
                         font.weight: Font.Bold
-                        color: Style.white
+                        color: Style.content_main
                         text: shouldVerify ? qsTr("Payment proof verification") : qsTr("Payment proof")
                     }
 
@@ -85,7 +85,7 @@
                         Layout.alignment: Qt.AlignTop | Qt.AlignHCenter
                         opacity: 0.5
                         font.pixelSize: 14
-                        color: Style.white
+                        color: Style.content_main
                         text: qsTr("Paste your payment proof here")
                     }
             
@@ -106,7 +106,7 @@
                             activeFocusOnTab: true
                             font.pixelSize: 14
                             wrapMode: TextInput.Wrap
-                            color: verifyLayout.isInvalidPaymentProof() ? Style.validator_color : Style.white
+                            color: verifyLayout.isInvalidPaymentProof() ? Style.validator_error : Style.content_main
                              text: model ? model.paymentProof : ""
                             Binding {
                                 target: model
@@ -128,7 +128,7 @@
                         font.pixelSize: 14
                         font.italic: true
                         text: qsTr("Cannot decode a proof, illegal sequence.")
-                        color: Style.validator_color
+                        color: Style.validator_error
                         visible: verifyLayout.isInvalidPaymentProof()
                     }
                 }
@@ -138,7 +138,7 @@
                     font.pixelSize: 14
                     font.styleName: "Bold"
                     font.weight: Font.Bold
-                    color: Style.white
+                    color: Style.content_main
                     text: qsTr("Code:")
                     visible: !shouldVerify
                 }
@@ -148,7 +148,7 @@
                     wrapMode: Text.Wrap
                     font.pixelSize: 14
                     text: model ? model.paymentProof : ""
-                    color: Style.disable_text_color
+                    color: Style.content_disabled
                     visible: !shouldVerify
                 }
 
@@ -159,7 +159,7 @@
                     font.pixelSize: 18
                     font.styleName: "Bold";
                     font.weight: Font.Bold
-                    color: Style.white
+                    color: Style.content_main
                     text: qsTr("Details")
                     visible: model? model.isValid : false
                 }
@@ -169,7 +169,7 @@
                     font.pixelSize: 14
                     font.styleName: "Bold"
                     font.weight: Font.Bold
-                    color: Style.white
+                    color: Style.content_main
                     text: qsTr("Sender:")
                     visible: model? model.isValid : false
                 }
@@ -179,7 +179,7 @@
                     Layout.preferredHeight: 28
                     wrapMode: Text.Wrap
                     font.pixelSize: 14
-                    color: Style.disable_text_color
+                    color: Style.content_disabled
                     text: model ? model.sender : ""
                     verticalAlignment: Text.AlignBottom
                     visible: model? model.isValid : false
@@ -190,7 +190,7 @@
                     font.pixelSize: 14
                     font.styleName: "Bold"
                     font.weight: Font.Bold
-                    color: Style.white
+                    color: Style.content_main
                     text: qsTr("Receiver:")
                     visible: model? model.isValid : false
                 }
@@ -200,7 +200,7 @@
                     Layout.preferredHeight: 28
                     wrapMode: Text.Wrap
                     font.pixelSize: 14
-                    color: Style.disable_text_color
+                    color: Style.content_disabled
                     text: model ? model.receiver : ""
                     visible: model? model.isValid : false
                 }
@@ -210,7 +210,7 @@
                     font.pixelSize: 14
                     font.styleName: "Bold"
                     font.weight: Font.Bold
-                    color: Style.white
+                    color: Style.content_main
                     text: qsTr("Amount:")
                     visible: model? model.isValid : false
                 }
@@ -219,7 +219,7 @@
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
                     font.pixelSize: 14
-                    color: Style.disable_text_color
+                    color: Style.content_disabled
                     text: model ? model.amount + " " + qsTr("BEAM") : ""
                     visible: model? model.isValid : false
                 }
@@ -229,7 +229,7 @@
                     font.pixelSize: 14
                     font.styleName: "Bold"
                     font.weight: Font.Bold
-                    color: Style.white
+                    color: Style.content_main
                     text: qsTr("Kernel ID:")
                     visible: model? model.isValid : false
                 }
@@ -239,7 +239,7 @@
                     Layout.preferredHeight: 28
                     wrapMode: Text.Wrap
                     font.pixelSize: 14
-                    color: Style.disable_text_color
+                    color: Style.content_disabled
                     text: model ? model.kernelID : ""
                     visible: model? model.isValid : false
                 }

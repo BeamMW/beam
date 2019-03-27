@@ -40,7 +40,7 @@ Item {
         
         background: Rectangle {
             radius: 10
-            color: Style.dark_slate_blue
+            color: Style.background_second
             anchors.fill: parent
         }
 
@@ -53,7 +53,7 @@ Item {
             SFText {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: qsTr("Can't send to the expired address.")
-                color: Style.white
+                color: Style.content_main
                 font.pixelSize: 14
                 font.styleName: "Bold"; font.weight: Font.Bold
             }
@@ -69,7 +69,7 @@ Item {
 
     ConfirmationDialog {
         id: confirmationDialog
-        okButtonColor: Style.heliotrope
+        okButtonColor: Style.content_accent_first
         okButtonText: qsTr("send")
         okButtonIconSource: "qrc:/assets/icon-send-blue.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
@@ -94,7 +94,7 @@ Item {
                     font.pixelSize: 18
                     font.styleName: "Bold";
                     font.weight: Font.Bold
-                    color: Style.white
+                    color: Style.content_main
                     text: qsTr("Please review the transaction details")
                 }
 
@@ -113,7 +113,7 @@ Item {
                         Layout.fillHeight: true
                         Layout.minimumHeight: 16
                         font.pixelSize: 14
-                        color: Style.disable_text_color
+                        color: Style.content_disabled
                         text: qsTr("Recipient:")
                         verticalAlignment: Text.AlignTop
                     }
@@ -126,7 +126,7 @@ Item {
                         wrapMode: Text.Wrap
                         maximumLineCount: 2
                         font.pixelSize: 14
-                        color: Style.white
+                        color: Style.content_main
                     }
 
                     SFText {
@@ -136,7 +136,7 @@ Item {
                         Layout.minimumHeight: 16
                         Layout.bottomMargin: 3
                         font.pixelSize: 14
-                        color: Style.disable_text_color
+                        color: Style.content_disabled
                         text: qsTr("Amount:")
                         verticalAlignment: Text.AlignBottom
                     }
@@ -147,7 +147,7 @@ Item {
                         Layout.fillHeight: true
                         Layout.minimumHeight: 29
                         font.pixelSize: 24
-                        color: Style.heliotrope
+                        color: Style.content_accent_first
                         verticalAlignment: Text.AlignBottom
                     }
 
@@ -156,7 +156,7 @@ Item {
                         Layout.fillWidth: true
                         Layout.minimumHeight: 16
                         font.pixelSize: 14
-                        color: Style.disable_text_color
+                        color: Style.content_disabled
                         text: qsTr("Transaction fee:")
                     }
 
@@ -165,7 +165,7 @@ Item {
                         Layout.fillWidth: true
                         Layout.minimumHeight: 16
                         font.pixelSize: 14
-                        color: Style.white
+                        color: Style.content_main
                     }
                 }
             }
@@ -210,7 +210,7 @@ Item {
     
     SFText {
         font.pixelSize: 36
-        color: Style.white
+        color: Style.content_main
         text: qsTr("Wallet")
     }
 
@@ -240,7 +240,7 @@ Item {
                     Layout.minimumHeight: 21
                     font.pixelSize: 18
                     font.styleName: "Bold"; font.weight: Font.Bold
-                    color: Style.white
+                    color: Style.content_main
                     text: qsTr("Receive Beam")
                 }
 
@@ -258,7 +258,7 @@ Item {
                             SFText {
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
-                                color: Style.white
+                                color: Style.content_main
                                 text: qsTr("My address")
                             }
 
@@ -266,7 +266,7 @@ Item {
                                 id: myAddressID
                                 width: parent.width
                                 font.pixelSize: 14
-                                color: Style.disable_text_color
+                                color: Style.content_disabled
                                 readOnly: true
                                 activeFocusOnTab: false
                                 text: viewModel.newReceiverAddr
@@ -277,7 +277,7 @@ Item {
                                 SFText {
                                     font.pixelSize: 14
                                     font.italic: true
-                                    color: Style.white
+                                    color: Style.content_main
                                     text: qsTr("Expires:")
                                 }
                                 CustomComboBox {
@@ -302,7 +302,7 @@ Item {
                             SFText {
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
-                                color: Style.white
+                                color: Style.content_main
                                 text: qsTr("Comment")
                             }
 
@@ -310,7 +310,7 @@ Item {
                                 id: myAddressName
                                 font.pixelSize: 14
                                 width: parent.width
-                                color: Style.white
+                                color: Style.content_main
                                 focus: true
                                 text: viewModel.newReceiverName
                             }
@@ -339,7 +339,7 @@ Item {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 font.pixelSize: 14
                                 font.italic: true
-                                color: Style.white
+                                color: Style.content_main
                                 text: qsTr("Scan to send")
                             }
                         }
@@ -350,7 +350,7 @@ Item {
                     Layout.alignment: Qt.AlignHCenter
                     Layout.minimumHeight: 16
                     font.pixelSize: 14
-                    color: Style.white
+                    color: Style.content_main
                     text: qsTr("Send this address to the sender over an external secure channel")
                 }
                 Row {
@@ -361,7 +361,7 @@ Item {
 
                     CustomButton {
                         text: qsTr("close")
-                        palette.buttonText: Style.white
+                        palette.buttonText: Style.content_main
                         icon.source: "qrc:/assets/icon-cancel-white.svg"
                         onClicked: {
                             walletView.pop();
@@ -370,9 +370,9 @@ Item {
 
                     CustomButton {
                         text: qsTr("copy")
-                        palette.buttonText: Style.marine
-                        icon.color: Style.marine
-                        palette.button: Style.bright_teal
+                        palette.buttonText: Style.background
+                        icon.color: Style.background
+                        palette.button: Style.content_accent_second
                         icon.source: "qrc:/assets/icon-copy.svg"
                         onClicked: {
                             viewModel.copyToClipboard(myAddressID.text);
@@ -414,7 +414,7 @@ Item {
                     Layout.alignment: Qt.AlignHCenter
                     font.pixelSize: 18
                     font.styleName: "Bold"; font.weight: Font.Bold
-                    color: Style.white
+                    color: Style.content_main
                     text: qsTr("Send Beam")
                 }
 
@@ -443,7 +443,7 @@ Item {
                             SFText {
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
-                                color: Style.white
+                                color: Style.content_main
                                 text: qsTr("Send To:")
                             }
 
@@ -452,7 +452,7 @@ Item {
 
                                 id: receiverAddrInput
                                 font.pixelSize: 14
-                                color: Style.white
+                                color: Style.content_main
                                 text: viewModel.receiverAddr
 
                                 validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,80}/ }
@@ -468,7 +468,7 @@ Item {
                             SFText {
                                 Layout.alignment: Qt.AlignTop
                                 id: receiverAddressError
-                                color: Style.validator_color
+                                color: Style.validator_error
                                 font.pixelSize: 10
                                 text: qsTr("Invalid address")
                                 visible: false
@@ -476,7 +476,7 @@ Item {
 
                             SFText {
                                 id: receiverName
-                                color: Style.white
+                                color: Style.content_main
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
                             }
@@ -502,7 +502,7 @@ Item {
                             SFText {
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
-                                color: Style.white
+                                color: Style.content_main
                                 text: qsTr("Transaction amount")
                             }
 
@@ -516,7 +516,7 @@ Item {
 
                                     font.pixelSize: 36
                                     font.styleName: "Light"; font.weight: Font.Light
-                                    color: Style.heliotrope
+                                    color: Style.content_accent_first
 
                                     property double amount: 0
 
@@ -545,7 +545,7 @@ Item {
 
                                 SFText {
                                     font.pixelSize: 24
-                                    color: Style.white
+                                    color: Style.content_main
                                     text: qsTr("BEAM")
                                 }
                             }
@@ -556,7 +556,7 @@ Item {
 
                                 SFText {
                                     text: qsTr("Insufficient funds: you would need %1 to complete the transaction").arg(viewModel.amountMissingToSend)
-                                    color: Style.validator_color
+                                    color: Style.validator_error
                                     font.pixelSize: 14
                                     fontSizeMode: Text.Fit
                                     minimumPixelSize: 10
@@ -587,7 +587,7 @@ Item {
                             SFText {
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
-                                color: Style.white
+                                color: Style.content_main
                                 text: qsTr("Comment")
                             }
 
@@ -596,7 +596,7 @@ Item {
                                 Layout.fillWidth: true
 
                                 font.pixelSize: 14
-                                color: Style.white
+                                color: Style.content_main
 
                                 maximumLength: 1024
                                 selectByMouse: true
@@ -623,7 +623,7 @@ Item {
                             SFText {
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
-                                color: Style.white
+                                color: Style.content_main
                                 text: qsTr("Transaction fee")
                             }
 
@@ -639,7 +639,7 @@ Item {
 
                                         font.pixelSize: 36
                                         font.styleName: "Light"; font.weight: Font.Light
-                                        color: Style.heliotrope
+                                        color: Style.content_accent_first
 
                                         text: viewModel.defaultFeeInGroth.toLocaleString(Qt.locale(), 'f', -128)
 
@@ -666,7 +666,7 @@ Item {
 
                                 SFText {
                                     font.pixelSize: 24
-                                    color: Style.white
+                                    color: Style.content_main
                                     text: qsTr("GROTH")
                                 }
                             }
@@ -707,7 +707,7 @@ Item {
                                                     Layout.alignment: Qt.AlignHCenter
                                                     font.pixelSize: 18
                                                     font.styleName: "Bold"; font.weight: Font.Bold
-                                                    color: Style.bluey_grey
+                                                    color: Style.content_inconspicuous
                                                     text: qsTr("Remaining")
                                                 }
 
@@ -720,7 +720,7 @@ Item {
                                                     SFText {
                                                         font.pixelSize: 24
                                                         font.styleName: "Light"; font.weight: Font.Light
-                                                        color: Style.bluey_grey
+                                                        color: Style.content_inconspicuous
                                                         text: viewModel.actualAvailable
                                                     }
 
@@ -739,7 +739,7 @@ Item {
                                             Layout.topMargin: 10
                                             Layout.bottomMargin: 10
                                             width: 1
-                                            color: Style.bluey_grey
+                                            color: Style.content_inconspicuous
                                         }
 
                                         Item {
@@ -755,7 +755,7 @@ Item {
                                                     Layout.alignment: Qt.AlignHCenter
                                                     font.pixelSize: 18
                                                     font.styleName: "Bold"; font.weight: Font.Bold
-                                                    color: Style.bluey_grey
+                                                    color: Style.content_inconspicuous
                                                     text: qsTr("Change")
                                                 }
 
@@ -768,7 +768,7 @@ Item {
                                                     SFText {
                                                         font.pixelSize: 24
                                                         font.styleName: "Light"; font.weight: Font.Light
-                                                        color: Style.bluey_grey
+                                                        color: Style.content_inconspicuous
                                                         text: viewModel.change
                                                     }
 
@@ -785,7 +785,7 @@ Item {
                                 Rectangle {
                                     anchors.fill: parent
                                     radius: 10
-                                    color: Style.white
+                                    color: Style.background_emphasize
                                     opacity: 0.1
                                 }
                             }
@@ -814,8 +814,8 @@ Item {
 
                     CustomButton {
                         text: qsTr("send")
-                        palette.buttonText: Style.marine
-                        palette.button: Style.heliotrope
+                        palette.buttonText: Style.background
+                        palette.button: Style.content_accent_first
                         icon.source: "qrc:/assets/icon-send-blue.svg"
                         enabled: {viewModel.isEnoughMoney && amount_input.amount > 0 && receiverAddrInput.acceptableInput }
                         onClicked: {
@@ -851,8 +851,8 @@ Item {
                 spacing: 19
 
                 CustomButton {
-                    palette.button: Style.bright_sky_blue
-                    palette.buttonText: Style.marine
+                    palette.button: Style.content_accent_third
+                    palette.buttonText: Style.background
                     icon.source: "qrc:/assets/icon-receive-blue.svg"
                     text: qsTr("receive")
 
@@ -863,8 +863,8 @@ Item {
                 }
 
                 CustomButton {
-                    palette.button: Style.heliotrope
-                    palette.buttonText: Style.marine
+                    palette.button: Style.content_accent_first
+                    palette.buttonText: Style.background
                     icon.source: "qrc:/assets/icon-send-blue.svg"
                     text: qsTr("send")
 
@@ -931,7 +931,7 @@ Item {
                         styleName: "Bold"; weight: Font.Bold
                     }
 
-                    color: Style.white
+                    color: Style.content_main
 
                     text: qsTr("Transactions")
                 }
@@ -1022,7 +1022,7 @@ Item {
                                 elide: Text.ElideRight
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: styleData.value
-                                color: Style.white
+                                color: Style.content_main
                                 copyMenuEnabled: true
                                 onCopyText: viewModel.copyToClipboard(text)
                             }
@@ -1051,7 +1051,7 @@ Item {
                                 elide: Text.ElideMiddle
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: styleData.value
-                                color: Style.white
+                                color: Style.content_main
                                 copyMenuEnabled: true
                                 onCopyText: viewModel.copyToClipboard(text)
                             }
@@ -1075,7 +1075,7 @@ Item {
                                 anchors.leftMargin: 20
                                 anchors.right: parent.right
                                 anchors.left: parent.left
-                                color: parent.income ? Style.bright_sky_blue : Style.heliotrope
+                                color: parent.income ? Style.content_accent_third : Style.content_accent_first
                                 elide: Text.ElideRight
                                 anchors.verticalCenter: parent.verticalCenter
                                 font.pixelSize: 24
@@ -1138,17 +1138,17 @@ Item {
 
                                     function getTextColor () {
                                         if (!viewModel.transactions[styleData.row]) {
-                                            return Style.white;
+                                            return Style.content_main;
                                         }
 
                                         if (viewModel.transactions[styleData.row].inProgress() || viewModel.transactions[styleData.row].isCompleted()) {
                                             if (viewModel.transactions[styleData.row].isSelfTx()) {
-                                                return Style.white;
+                                                return Style.content_main;
                                             }
-                                            return viewModel.transactions[styleData.row].income ? Style.bright_sky_blue : Style.heliotrope;
+                                            return viewModel.transactions[styleData.row].income ? Style.content_accent_third : Style.content_accent_first;
                                         }
 
-                                        return Style.white;
+                                        return Style.content_main;
                                     }
                                 }
                             }
@@ -1246,7 +1246,7 @@ Item {
                         Rectangle {
                             height: transactionsView.rowHeight
                             width: parent.width
-                            color: styleData.alternate ? Style.table_row_color1 : Style.light_navy
+                            color: styleData.alternate ? Style.background_second : Style.background_third
                         }
                         Item {
                             id: txDetails
@@ -1266,8 +1266,7 @@ Item {
 
                             Rectangle {
                                 anchors.fill: parent
-                                color: Style.bright_sky_blue
-                                opacity: 0.1
+                                color: Style.background_fourth
                             }
                             TransactionDetails {
                                 id: detailsPanel

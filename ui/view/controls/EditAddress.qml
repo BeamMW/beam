@@ -20,7 +20,7 @@ Dialog {
 
     background: Rectangle {
 		radius: 10
-        color: Style.dark_slate_blue
+        color: Style.background_second
         anchors.fill: parent
     }
 
@@ -33,7 +33,7 @@ Dialog {
         SFText {
 			anchors.horizontalCenter: parent.horizontalCenter
 			text: qsTr("Edit address")
-			color: Style.white
+			color: Style.content_main
 			font.pixelSize: 18
 			font.styleName: "Bold"; font.weight: Font.Bold
 		}
@@ -43,7 +43,7 @@ Dialog {
 
 			SFText {
 				text: qsTr("Address ID")
-				color: Style.white
+				color: Style.content_main
 				font.pixelSize: 12
 				font.styleName: "Bold"; font.weight: Font.Bold
 			}
@@ -54,7 +54,7 @@ Dialog {
 				width: parent.width
                 enabled: false
 				font.pixelSize: 12
-				color: Style.white
+				color: Style.content_main
                 text: rootControl.addressItem ? rootControl.addressItem.address : ""
 			}
     	}
@@ -64,7 +64,7 @@ Dialog {
 
 			SFText {
 				text: qsTr("Comment")
-				color: Style.white
+				color: Style.content_main
 				font.pixelSize: 12
 				font.styleName: "Bold"; font.weight: Font.Bold
 			}
@@ -74,7 +74,7 @@ Dialog {
 
 				width: parent.width
 				font.pixelSize: 12
-				color: Style.white
+				color: Style.content_main
                 enabled: false
                 text: rootControl.addressItem ? rootControl.addressItem.name : ""
 			}
@@ -85,7 +85,7 @@ Dialog {
 
 			SFText {
 				text: qsTr("Expires")
-				color: Style.white
+				color: Style.content_main
 				font.pixelSize: 12
 				font.styleName: "Bold"; font.weight: Font.Bold
 			}
@@ -107,7 +107,7 @@ Dialog {
 			CustomButton {
 				text: qsTr("cancel")
                 icon.source: "qrc:/assets/icon-cancel.svg"
-                icon.color: Style.white
+                icon.color: Style.content_main
 				onClicked: {
                     rootControl.close();
                 }

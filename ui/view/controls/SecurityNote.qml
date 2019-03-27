@@ -22,7 +22,7 @@ ColumnLayout {
             anchors.fill: icon
             radius: 7
             samples: 9
-            color: Style.bright_teal
+            color: Style.content_accent_second
             source: icon
         }
     }
@@ -33,7 +33,7 @@ ColumnLayout {
         Layout.maximumWidth: 200
         id: label
         horizontalAlignment: Qt.AlignHCenter
-        color: Style.white
+        color: Style.content_main
         font.pixelSize: 14
         wrapMode: Text.WordWrap
     }

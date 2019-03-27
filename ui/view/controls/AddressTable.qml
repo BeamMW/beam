@@ -44,7 +44,7 @@ CustomTableView {
                     elide: Text.ElideMiddle
                     anchors.verticalCenter: parent.verticalCenter
                     text: styleData.value
-                    color: Style.white
+                    color: Style.content_main
                     copyMenuEnabled: true
                     onCopyText: parentModel.copyToClipboard(text)
                 }
@@ -95,7 +95,7 @@ CustomTableView {
         Rectangle {
             anchors.fill: parent
 
-            color: styleData.selected ? Style.bright_sky_blue : Style.light_navy
+            color: styleData.selected ? Style.content_accent_third : Style.background_third
             visible: styleData.selected ? true : styleData.alternate
         }
     }

@@ -23,7 +23,7 @@ Item  {
 
         font.pixelSize: 12
         font.styleName: "Bold"; font.weight: Font.Bold
-        color: Style.white
+        color: Style.content_main
         opacity: 0.4
         text: label
 
@@ -43,7 +43,7 @@ Item  {
         width: text_label.width + 16
         height: 2
 
-        color: Style.bright_teal
+        color: Style.content_accent_second
 
         visible: false
     }
@@ -52,7 +52,7 @@ Item  {
         anchors.fill: led
         radius: 5
         samples: 9
-        color: Style.bright_teal
+        color: Style.content_accent_second
         source: led
 
         visible: led.visible
