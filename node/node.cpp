@@ -623,7 +623,13 @@ void Node::Processor::OnRolledBack()
 
 uint32_t Node::Processor::TaskProcessor::get_Threads()
 {
-	uint32_t nThreads = get_ParentObj().get_ParentObj().m_Cfg.m_VerificationThreads;
+	Config& cfg = get_ParentObj().get_ParentObj().m_Cfg; // alias
+
+	if (cfg.m_VerificationThreads < 0)
+		// use all the cores, don't subtract 'mining threads'. Verification has higher priority
+		cfg.m_VerificationThreads = std::thread::hardware_concurrency();
+
+	uint32_t nThreads = cfg.m_VerificationThreads;
 	return std::max(nThreads, 1U);
 }
 
@@ -914,10 +920,6 @@ void Node::Initialize(IExternalPOW* externalPOW)
 {
     m_Processor.m_Horizon = m_Cfg.m_Horizon;
     m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_ProcessorParams);
-
-    if (m_Cfg.m_VerificationThreads < 0)
-        // use all the cores, don't subtract 'mining threads'. Verification has higher priority
-        m_Cfg.m_VerificationThreads = std::thread::hardware_concurrency();
 
     InitKeys();
     InitIDs();
