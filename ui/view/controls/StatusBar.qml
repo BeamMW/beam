@@ -42,7 +42,7 @@ Item {
         anchors.left: parent.left
         width: childrenRect.width
 
-        property color color: Style.bright_teal
+        property color color: Style.content_accent_second
         property int radius: rootControl.indicator_radius
 
         Rectangle {
@@ -73,7 +73,7 @@ Item {
         anchors.left: parent.left
         visible: false
 
-        property color color: Style.bright_teal
+        property color color: Style.content_accent_second
         property int circle_line_width: 2
         property int animation_duration: 2000
 
@@ -108,7 +108,7 @@ Item {
         anchors.left: parent.indicator.right
         anchors.leftMargin: 5
         anchors.topMargin: -3
-        color: Style.bluey_grey
+        color: Style.content_inconspicuous
         font.pixelSize: 14
     }
     SFText {
@@ -117,7 +117,7 @@ Item {
         anchors.left: status_text.right
         anchors.leftMargin: 5
         anchors.topMargin: -3
-        color: Style.bluey_grey
+        color: Style.content_inconspicuous
         font.pixelSize: 14
         text: "(" + model.nodeSyncProgress + "%)"
         visible: model.nodeSyncProgress > 0 && update_indicator.visible
@@ -154,7 +154,7 @@ Item {
             StateChangeScript {
                 name: "onlineScript"
                 script: {
-                    online_indicator.color = Style.bright_teal;
+                    online_indicator.color = Style.content_accent_second;
                     rootControl.setIndicator(online_indicator);
                 }
             }

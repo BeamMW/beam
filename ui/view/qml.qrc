@@ -1,5 +1,9 @@
 <RCC>
     <qresource prefix="/">
+        <file>color_themes/AbstractColors.qml</file>
+        <file>color_themes/Mainnet.qml</file>
+        <file>color_themes/Masternet.qml</file>
+        <file>color_themes/Testnet.qml</file>
         <file>controls/Style.qml</file>
         <file>controls/qmldir</file>
         <file>controls/SvgImage.qml</file>
@@ -53,6 +57,8 @@
         <file>assets/logo.svg</file>
         <file>assets/start-logo.svg</file>
         <file>assets/icon.png</file>
+        <file>assets/icon_masternet.png</file>
+        <file>assets/icon_testnet.png</file>
         <file>assets/bg.svg</file>
         <file>assets/b-grey.svg</file>
         <file>assets/icon-dashboard.svg</file>

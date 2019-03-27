@@ -24,7 +24,7 @@ RowLayout {
 
         SFText {
             font.pixelSize: 14
-            color: Style.white
+            color: Style.content_main
             text: qsTr("General transaction info")
             font.styleName: "Bold"; font.weight: Font.Bold
             Layout.columnSpan: 2
@@ -33,14 +33,14 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.bluey_grey
+            color: Style.content_inconspicuous
             text: qsTr("Sending address:")
         }
         SFLabel {
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
-            color: Style.white
+            color: Style.content_main
             //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: {
@@ -52,14 +52,14 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.bluey_grey
+            color: Style.content_inconspicuous
             text: qsTr("Receiving address:")
         }
         SFLabel {
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
-            color: Style.white
+            color: Style.content_main
             //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: {
@@ -71,14 +71,14 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.bluey_grey
+            color: Style.content_inconspicuous
             text: qsTr("Transaction fee:")
         }
         SFLabel {
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
-            color: Style.white
+            color: Style.content_main
             text:{
                 return model ? model.fee : "";
             }
@@ -88,7 +88,7 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.bluey_grey
+            color: Style.content_inconspicuous
             text: qsTr("Comment:")
         }
         SFLabel {
@@ -96,7 +96,7 @@ RowLayout {
             id: commentTx
             copyMenuEnabled: true
             font.pixelSize: 14
-            color: Style.white
+            color: Style.content_main
             wrapMode: Text.Wrap
             text: {
                 return model ? model.comment : "";
@@ -108,7 +108,7 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.bluey_grey
+            color: Style.content_inconspicuous
             text: qsTr("Kernel ID:")
         }
         SFLabel {
@@ -116,7 +116,7 @@ RowLayout {
             id: kernelID
             copyMenuEnabled: true
             font.pixelSize: 14
-            color: Style.white
+            color: Style.content_main
             //wrapMode: Text.Wrap
             text: model ? model.kernelID : ""
             font.styleName: "Italic"
@@ -126,7 +126,7 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.bluey_grey
+            color: Style.content_inconspicuous
             text: qsTr("Error: ")
             visible: model ? model.failureReason.length > 0 : false
         }
@@ -135,7 +135,7 @@ RowLayout {
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
-            color: Style.white
+            color: Style.content_main
             wrapMode: Text.Wrap
             visible: model ? model.failureReason.length > 0 : false
             text: {
@@ -170,7 +170,7 @@ RowLayout {
         }
         SFText {
             font.pixelSize: 14
-            color: Style.white
+            color: Style.content_main
             text: qsTr("Payment proof")
             font.styleName: "Bold"; font.weight: Font.Bold
             Layout.columnSpan: 2

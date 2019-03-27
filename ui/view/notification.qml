@@ -5,12 +5,12 @@ import QtQuick.Controls.Styles 1.2
 Rectangle {
 
     anchors.fill: parent
-    color: Style.marine
+    color: Style.background
 
     Text {
         anchors.centerIn: parent
         font.pixelSize: 40
-        color: Style.white
+        color: Style.content_main
         text: qsTr("Notifications view")
     }
 }

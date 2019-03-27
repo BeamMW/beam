@@ -27,7 +27,7 @@ T.ProgressBar {
             scale: control.mirrored ? -1 : 1
             width: control.visualPosition * parent.width
             height: parent.height
-            color: Style.bright_teal
+            color: Style.content_accent_second
         }
     }
 
@@ -38,7 +38,7 @@ T.ProgressBar {
         y: (control.height - height) / 2
         height: 4
         radius: 10
-        border.color: Style.dark_slate_blue
+        border.color: Style.background_second
         color: "transparent"
     }
 
@@ -46,7 +46,7 @@ T.ProgressBar {
         anchors.fill: contentItem
         radius: 5
         samples: 9
-        color: Style.bright_teal
+        color: Style.content_accent_second
         source: contentItem
     }
 }

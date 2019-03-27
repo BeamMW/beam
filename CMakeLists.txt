@@ -139,12 +139,22 @@ if(SHOW_CODE_LOCATION)
     add_definitions(-DSHOW_CODE_LOCATION=1)
 endif()
 
+# comment next if block to avoid styling by branchname
 if(BRANCH_NAME MATCHES "testnet")
     add_definitions(-DBEAM_TESTNET)
+elseif(BRANCH_NAME MATCHES "mainnet")
+    add_definitions(-DBEAM_MAINNET)
 endif()
+
+# uncoment next line for nestnet
+#set(BEAM_TESTNET TRUE)
+# uncoment next line for mainnet
+#set(BEAM_TMAINNET TRUE)
 
 if(BEAM_TESTNET)
     add_definitions(-DBEAM_TESTNET)
+elseif(BEAM_MAINNET)
+    add_definitions(-DBEAM_MAINNET)
 endif()
 
 if(MSVC)

@@ -4,8 +4,8 @@ import QtQuick.Controls.Styles 1.2
 import "."
 
 CustomButton {
-    palette.button: Style.white
-    palette.buttonText: Style.white
+    palette.button: Style.content_main
+    palette.buttonText: Style.content_main
     textOpacity: 0.1
 
     SFText {
@@ -16,7 +16,7 @@ CustomButton {
         font.pixelSize: 12
         font.styleName: "Bold"; font.weight: Font.Bold
 
-        color: Style.white
+        color: Style.content_main
 
         text: parent.text
         visible: false

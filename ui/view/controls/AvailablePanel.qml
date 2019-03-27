@@ -7,7 +7,7 @@ import "."
 Rectangle {
     id: panel
     radius: 10
-    color: Style.dark_slate_blue
+    color: Style.background_second
 
     clip: true
 
@@ -28,7 +28,7 @@ Rectangle {
         anchors.topMargin: 30
         anchors.leftMargin: 30
         
-        color: Style.white
+        color: Style.content_main
         text: qsTr("Available")
     }
 
@@ -44,7 +44,7 @@ Rectangle {
             id: amount_text
             font.pixelSize: 36
             font.styleName: "Light"; font.weight: Font.Light
-            color: Style.bright_teal
+            color: Style.content_accent_second
 
             text: value
             anchors.bottom: parent.bottom
@@ -56,7 +56,7 @@ Rectangle {
             id: currency_text
             font.pixelSize: 24
             font.styleName: "Light"; font.weight: Font.Light
-            color: Style.bright_teal
+            color: Style.content_accent_second
 
             text: "BEAM"
             anchors.bottom: parent.bottom

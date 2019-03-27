@@ -18,7 +18,7 @@ Dialog {
 
 	background: Rectangle {
 		radius: 10
-        color: Style.dark_slate_blue
+        color: Style.background_second
         anchors.fill: parent            
     }
 
@@ -31,7 +31,7 @@ Dialog {
 		SFText {
 			anchors.horizontalCenter: parent.horizontalCenter
 			text: qsTr("Change wallet password")
-			color: Style.white
+			color: Style.content_main
 			font.pixelSize: 24
 			font.styleName: "Bold"; font.weight: Font.Bold
 		}
@@ -42,7 +42,7 @@ Dialog {
 
 			SFText {
 				text: qsTr("Enter old password")
-				color: Style.white
+				color: Style.content_main
 				font.pixelSize: 12
 				font.styleName: "Bold"; font.weight: Font.Bold
 			}
@@ -53,7 +53,7 @@ Dialog {
 				width: parent.width
 
 				font.pixelSize: 12
-				color: Style.white
+				color: Style.content_main
 				echoMode: TextInput.Password
 			}    		
     	}
@@ -64,7 +64,7 @@ Dialog {
 
 			SFText {
 				text: qsTr("Enter new password")
-				color: Style.white
+				color: Style.content_main
 				font.pixelSize: 12
 				font.styleName: "Bold"; font.weight: Font.Bold
 			}
@@ -75,7 +75,7 @@ Dialog {
 				width: parent.width
 
 				font.pixelSize: 12
-				color: Style.white
+				color: Style.content_main
 				echoMode: TextInput.Password
 			}    		
     	}
@@ -86,7 +86,7 @@ Dialog {
 
 			SFText {
 				text: qsTr("Confirm new password")
-				color: Style.white
+				color: Style.content_main
 				font.pixelSize: 12
 				font.styleName: "Bold"; font.weight: Font.Bold
 			}
@@ -97,7 +97,7 @@ Dialog {
 				width: parent.width
 
 				font.pixelSize: 12
-				color: Style.white
+				color: Style.content_main
 				echoMode: TextInput.Password
 			}
 
@@ -109,7 +109,7 @@ Dialog {
 
 			SFText {
 				id: error
-				color: Style.validator_color
+				color: Style.validator_error
 				font.pixelSize: 10
 			}			
 		}    	

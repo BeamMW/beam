@@ -28,7 +28,7 @@ ColumnLayout {
         Layout.minimumHeight: 40
         Layout.maximumHeight: 40
         font.pixelSize: 36
-        color: Style.white
+        color: Style.content_main
         text: qsTr("Addresses")
     }
 
@@ -167,7 +167,7 @@ ColumnLayout {
                             elide: Text.ElideMiddle
                             anchors.verticalCenter: parent.verticalCenter
                             text: styleData.value
-                            color: Style.white
+                            color: Style.content_main
                             copyMenuEnabled: true
                             onCopyText: viewModel.copyToClipboard(text)
                         }
@@ -202,7 +202,7 @@ ColumnLayout {
                 Rectangle {
                     anchors.fill: parent
 
-                    color: styleData.selected ? Style.bright_sky_blue : Style.light_navy
+                    color: styleData.selected ? Style.content_accent_third : Style.background_third
                     visible: styleData.selected ? true : styleData.alternate
                 }
             }

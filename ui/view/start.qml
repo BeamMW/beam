@@ -34,7 +34,7 @@ Item
             id: start
             Rectangle
             {
-                color: Style.marine
+                color: Style.background
 
                 Image {
                     fillMode: Image.PreserveAspectCrop
@@ -63,7 +63,7 @@ Item
                             horizontalAlignment : Text.AlignHCenter
                             width: parent.width
                             text: qsTr("Your funds will be fully restored from the blockchain. The transaction history and your addresses are stored locally and are encrypted with your password, hence it can't be restored.")
-                            color: Style.white
+                            color: Style.content_main
                             font.pixelSize: 14
                             wrapMode: Text.Wrap
                         }
@@ -72,7 +72,7 @@ Item
                             horizontalAlignment : Text.AlignHCenter
                             width: parent.width
                             text: qsTr("That's the final version till the future validation and process.")
-                            color: Style.white
+                            color: Style.content_main
                             font.pixelSize: 14
                             wrapMode: Text.Wrap
                         }
@@ -148,7 +148,7 @@ Item
             id: migrate
             Rectangle
             {
-                color: Style.marine
+                color: Style.background
 
                 Image {
                     fillMode: Image.PreserveAspectCrop
@@ -184,7 +184,7 @@ Item
                         Layout.alignment: Qt.AlignHCenter
                 
                         text: qsTr("Your wallet will be migrated to v.") + viewModel.walletVersion()
-                        color: Style.white
+                        color: Style.content_main
                         font.pixelSize: 14
                     }
 
@@ -216,7 +216,7 @@ Item
                     SFText {
                         Layout.alignment: Qt.AlignHCenter
                         text: qsTr("Login to another wallet or create new one")
-                        color: Style.bright_teal
+                        color: Style.content_accent_second
                         font.pixelSize: 14
                 
                         MouseArea {
@@ -242,7 +242,7 @@ Item
             id: selectWalletDBView
             Rectangle
             {
-                color: Style.marine
+                color: Style.background
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.topMargin: 50
@@ -251,7 +251,7 @@ Item
                         Layout.alignment: Qt.AlignHCenter
                         horizontalAlignment: Qt.AlignHCenter
                         text: qsTr("Select the wallet database file")
-                        color: Style.white
+                        color: Style.content_main
                         font.pixelSize: 36
                     }
 
@@ -277,7 +277,7 @@ Item
 
                         headerDelegate: Rectangle {
                             height: tableView.headerHeight
-                            color: Style.dark_slate_blue
+                            color: Style.background_second
 
                             SFLabel {
                                 anchors.verticalCenter: parent.verticalCenter
@@ -285,7 +285,7 @@ Item
                                 anchors.leftMargin: tableView.textLeftMargin
                                 horizontalAlignment: Qt.AlignHCenter
                                 font.pixelSize: tableView.headerTextFontSize
-                                color: Style.bluey_grey
+                                color: Style.content_inconspicuous
                                 font.weight: Font.Normal
                                 text: styleData.value
                             }
@@ -309,7 +309,7 @@ Item
                                     elide: Text.ElideLeft
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: styleData.value
-                                    color: Style.white
+                                    color: Style.content_main
                                     copyMenuEnabled: true
                                     onCopyText: viewModel.copyToClipboard(text)
                                 }
@@ -333,7 +333,7 @@ Item
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: Math.round(styleData.value / 1024) + qsTr(" kb")
-                                    color: Style.white
+                                    color: Style.content_main
                                 }
                             }
                         }
@@ -352,7 +352,7 @@ Item
 
                             Rectangle {
                                 anchors.fill: parent
-                                color: styleData.selected ? "#085469" : Style.light_navy
+                                color: styleData.selected ? "#085469" : Style.background_third
                                 visible: styleData.alternate || styleData.selected
                             }
                         }
@@ -368,7 +368,7 @@ Item
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: styleData.value
-                                color: Style.white
+                                color: Style.content_main
                             }
                         }
                     }
@@ -430,7 +430,7 @@ Item
                     SFText {
                         Layout.alignment: Qt.AlignHCenter
                         text: qsTr("Login to another wallet or create new one")
-                        color: Style.bright_teal
+                        color: Style.content_accent_second
                         font.pixelSize: 14
                 
                         MouseArea {
@@ -457,7 +457,7 @@ Item
             id: createWalletEntry
             Rectangle
             {
-                color: Style.marine
+                color: Style.background
                 property Item defaultFocusItem: generateRecoveryPhraseButton
 
                 ColumnLayout {
@@ -471,7 +471,7 @@ Item
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
                             text: qsTr("Create new wallet")
-                            color: Style.white
+                            color: Style.content_main
                             font.pixelSize: 36
                         }
                         SFText {
@@ -479,7 +479,7 @@ Item
                             horizontalAlignment: Qt.AlignHCenter
                             text: qsTr("Create new wallet with generating seed phrase.
         If you ever lose your device, you will need this phrase to recover your wallet!")
-                            color: Style.white
+                            color: Style.content_main
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
                         }
@@ -540,7 +540,7 @@ Item
         Component {
             id: generateRecoveryPhrase
             Rectangle {
-                color: Style.marine
+                color: Style.background
                 property Item defaultFocusItem: nextButton
 
                 ColumnLayout {
@@ -555,7 +555,7 @@ Item
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
                             text: qsTr("Create new wallet")
-                            color: Style.white
+                            color: Style.content_main
                             font.pixelSize: 36
                         }
                         SFText {
@@ -563,7 +563,7 @@ Item
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
                             text: qsTr("Your seed phrase is the access key to all the cryptocurrencies in your wallet. Write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.")
-                            color: Style.white
+                            color: Style.content_main
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
                         }
@@ -590,7 +590,7 @@ Item
                         Repeater {
                             model:viewModel.recoveryPhrases
                             Rectangle{
-                                border.color: Style.dark_slate_blue
+                                border.color: Style.background_second
                                 color: "transparent"
                                 width: 160
                                 height: 38
@@ -599,7 +599,7 @@ Item
                                     anchors.verticalCenter: parent.verticalCenter
                                     anchors.leftMargin: 9
                                     anchors.left: parent.left
-                                    color: Style.dark_slate_blue
+                                    color: Style.background_second
                                     width: 20
                                     height: 20
                                     radius: 10
@@ -608,7 +608,7 @@ Item
                                         anchors.horizontalCenter: parent.horizontalCenter
                                         text: modelData.index + 1
                                         font.pixelSize: 10
-                                        color: Style.white
+                                        color: Style.content_main
                                         opacity: 0.5
                                     }
                                 }
@@ -617,7 +617,7 @@ Item
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     text: modelData.phrase
                                     font.pixelSize: 14
-                                    color: Style.white
+                                    color: Style.content_main
                                 }
                             }
                         }
@@ -662,7 +662,7 @@ Item
         Component {
             id: checkRecoveryPhrase
             Rectangle {
-                color: Style.marine
+                color: Style.background
                 property Item defaultFocusItem: null
 
                 ColumnLayout {
@@ -677,7 +677,7 @@ Item
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
                             text: qsTr("Create new wallet")
-                            color: Style.white
+                            color: Style.content_main
                             font.pixelSize: 36
                         }
                         SFText {
@@ -685,7 +685,7 @@ Item
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
                             text: qsTr("To ensure the seed phrase is written down, please fill-in the specific words below")
-                            color: Style.white
+                            color: Style.content_main
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
                         }
@@ -712,7 +712,7 @@ Item
                                     height: 20
                                     Rectangle {
                                         color: "transparent"
-                                        border.color: Style.bluey_grey
+                                        border.color: Style.content_inconspicuous
                                         width: 20
                                         height: 20
                                         radius: 10
@@ -721,14 +721,14 @@ Item
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             text: modelData.index + 1
                                             font.pixelSize: 10
-                                            color: Style.bluey_grey
+                                            color: Style.content_inconspicuous
                                         }
                                         visible: modelData.value.length == 0
                                     }
 
                                     Rectangle {
                                         id: correctPhraseRect
-                                        color: modelData.isCorrect ? Style.bright_teal : Style.validator_color
+                                        color: modelData.isCorrect ? Style.content_accent_second : Style.validator_error
                                         width: 20
                                         height: 20
                                         radius: 10
@@ -737,7 +737,7 @@ Item
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             text: modelData.index + 1
                                             font.pixelSize: 10
-                                            color: Style.marine
+                                            color: Style.background
                                         }
                                         visible: modelData.value.length > 0
                                     }
@@ -746,7 +746,7 @@ Item
                                         anchors.fill: correctPhraseRect
                                         radius: 5
                                         samples: 9
-                                        color: modelData.isCorrect ? Style.bright_teal : Style.validator_color
+                                        color: modelData.isCorrect ? Style.content_accent_second : Style.validator_error
                                         source: correctPhraseRect
                                         visible: correctPhraseRect.visible
                                     }
@@ -758,8 +758,8 @@ Item
                                     anchors.bottomMargin: 6
                                     width: 121
                                     font.pixelSize: 14
-                                    color: (modelData.isCorrect || modelData.value.length == 0) ? Style.white : Style.validator_color
-                                    backgroundColor: (modelData.isCorrect || modelData.value.length == 0) ? Style.white : Style.validator_color
+                                    color: (modelData.isCorrect || modelData.value.length == 0) ? Style.content_main : Style.validator_error
+                                    backgroundColor: (modelData.isCorrect || modelData.value.length == 0) ? Style.content_main : Style.validator_error
                                     text: modelData.value
                                     Component.onCompleted: {
                                         modelData.value = "";
@@ -824,7 +824,7 @@ Item
         Component {
             id: restoreWallet
             Rectangle {
-                color: Style.marine
+                color: Style.background
                 property Item defaultFocusItem: null
 
                 ColumnLayout {
@@ -839,7 +839,7 @@ Item
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
                             text: qsTr("Restore wallet")
-                            color: Style.white
+                            color: Style.content_main
                             font.pixelSize: 36
                         }
                         SFText {
@@ -847,7 +847,7 @@ Item
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
                             text: qsTr("Type in or paste your seed phrase")
-                            color: Style.white
+                            color: Style.content_main
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
                         }
@@ -874,7 +874,7 @@ Item
                                     height: 20
                                     Rectangle {
                                         color: "transparent"
-                                        border.color: Style.dark_slate_blue
+                                        border.color: Style.background_second
                                         width: 20
                                         height: 20
                                         radius: 10
@@ -883,14 +883,14 @@ Item
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             text: modelData.index + 1
                                             font.pixelSize: 10
-                                            color: Style.dark_slate_blue
+                                            color: Style.background_second
                                         }
                                         visible: modelData.value.length == 0
                                     }
 
                                     Rectangle {
                                         id: correctPhraseRect
-                                        color: modelData.isAllowed ? Style.dark_slate_blue : Style.validator_color
+                                        color: modelData.isAllowed ? Style.background_second : Style.validator_error
                                         width: 20
                                         height: 20
                                         radius: 10
@@ -899,7 +899,7 @@ Item
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             text: modelData.index + 1
                                             font.pixelSize: 10
-                                            color: Style.white
+                                            color: Style.content_main
                                             opacity: 0.5
                                         }
                                         visible: modelData.value.length > 0
@@ -912,8 +912,8 @@ Item
                                     anchors.bottomMargin: 6
                                     width: 121
                                     font.pixelSize: 14
-                                    color: (modelData.isAllowed || modelData.value.length == 0) ? Style.white : Style.validator_color
-                                    backgroundColor: (modelData.isAllowed || modelData.value.length == 0) ? Style.white : Style.validator_color
+                                    color: (modelData.isAllowed || modelData.value.length == 0) ? Style.content_main : Style.validator_error
+                                    backgroundColor: (modelData.isAllowed || modelData.value.length == 0) ? Style.content_main : Style.validator_error
                                     text: modelData.value
                                     onTextEdited: {
                                         var phrases = text.split(viewModel.phrasesSeparator);
@@ -987,7 +987,7 @@ Item
             id: create
             Rectangle
             {
-                color: Style.marine
+                color: Style.background
 
                 property Item defaultFocusItem: password
 
@@ -1003,7 +1003,7 @@ Item
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
                             text: qsTr("Create new wallet")
-                            color: Style.white
+                            color: Style.content_main
                             font.pixelSize: 36
                         }
                         SFText {
@@ -1011,7 +1011,7 @@ Item
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
                             text: qsTr("Create password to access your wallet")
-                            color: Style.white
+                            color: Style.content_main
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
                         }
@@ -1030,7 +1030,7 @@ Item
 
                             SFText {
                                 text: qsTr("Enter password")
-                                color: Style.white
+                                color: Style.content_main
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
                             }
@@ -1042,7 +1042,7 @@ Item
                                 width: parent.width
 
                                 font.pixelSize: 14
-                                color: Style.white
+                                color: Style.content_main
                                 echoMode: TextInput.Password
                                 onTextChanged: if (password.text.length > 0) passwordError.text = ""
                             }
@@ -1052,12 +1052,12 @@ Item
 
                                 property var strengthTests: 
                                 [
-                                    {exp: new RegExp("(?=.{1,})")                                                               , color: Style.weak_pass_color, msg: "Very weak password"},
-                                    {exp: new RegExp("((?=.{6,})(?=.*[0-9]))|((?=.{6,})(?=.*[A-Z]))|((?=.{6,})(?=.*[a-z]))")    , color: Style.weak_pass_color, msg: "Weak password"},
-                                    {exp: new RegExp("((?=.{6,})(?=.*[A-Z])(?=.*[a-z]))|((?=.{6,})(?=.*[0-9])(?=.*[a-z]))")     , color: Style.medium_strength_pass_color, msg: "Medium strength password"},
-                                    {exp: new RegExp("(?=.{8,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                              , color: Style.medium_strength_pass_color, msg: "Medium strength password"},
-                                    {exp: new RegExp("(?=.{10,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                             , color: Style.strong_pass_color, msg: "Strong password"},
-                                    {exp: new RegExp("(?=.{10,})(?=.*[!@#\$%\^&\*])(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")          , color: Style.strong_pass_color, msg: "Very strong password"},
+                                    {exp: new RegExp("(?=.{1,})")                                                               , color: Style.validator_error, msg: "Very weak password"},
+                                    {exp: new RegExp("((?=.{6,})(?=.*[0-9]))|((?=.{6,})(?=.*[A-Z]))|((?=.{6,})(?=.*[a-z]))")    , color: Style.validator_error, msg: "Weak password"},
+                                    {exp: new RegExp("((?=.{6,})(?=.*[A-Z])(?=.*[a-z]))|((?=.{6,})(?=.*[0-9])(?=.*[a-z]))")     , color: Style.validator_warning, msg: "Medium strength password"},
+                                    {exp: new RegExp("(?=.{8,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                              , color: Style.validator_warning, msg: "Medium strength password"},
+                                    {exp: new RegExp("(?=.{10,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                             , color: Style.content_accent_second, msg: "Strong password"},
+                                    {exp: new RegExp("(?=.{10,})(?=.*[!@#\$%\^&\*])(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")          , color: Style.content_accent_second, msg: "Very strong password"},
                                 ]
 
                                 function passwordStrength(pass)
@@ -1082,16 +1082,16 @@ Item
                                         Layout.fillWidth: true
                                         height: 4
                                         border.width: index < parent.strength ? 0 : 1
-                                        border.color: Style.dark_slate_blue
+                                        border.color: Style.background_second
                                         radius: 10
-                                        color: index < parent.strength ? parent.strengthTests[parent.strength-1].color : Style.marine
+                                        color: index < parent.strength ? parent.strengthTests[parent.strength-1].color : Style.background
                                     }
                                 }
                             }
 
                             SFText {
                                 text: strengthChecker.strength > 0 ? strengthChecker.strengthTests[strengthChecker.strength-1].msg : ""
-                                color: Style.strength_tests_msg_color
+                                color: Style.content_inconspicuous
                                 font.pixelSize: 14
                                 height: 16
                                 width: parent.width
@@ -1105,7 +1105,7 @@ Item
 
                             SFText {
                                 text: qsTr("Confirm password")
-                                color: Style.white
+                                color: Style.content_main
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
                             }
@@ -1115,14 +1115,14 @@ Item
                                 width: parent.width
 
                                 font.pixelSize: 14
-                                color: Style.white
+                                color: Style.content_main
                                 echoMode: TextInput.Password
                                 onTextChanged: if (confirmPassword.text.length > 0) passwordError.text = ""
                             }
 
                             SFText {
                                 id: passwordError
-                                color: Style.validator_color
+                                color: Style.validator_error
                                 font.pixelSize: 14
                                 height: 16
                                 width: parent.width
@@ -1181,7 +1181,7 @@ Item
             Rectangle
             {   
                 id: nodeSetupRectangle
-                color: Style.marine
+                color: Style.background
                 property Item defaultFocusItem: localNodeButton
 
                 function onRestoreCancelled(useRandomNode) {
@@ -1215,7 +1215,7 @@ Item
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
                             text: qsTr("Setup node connectivity")
-                            color: Style.white
+                            color: Style.content_main
                             font.pixelSize: 36
                         }
                     }
@@ -1249,7 +1249,7 @@ Item
 
                             SFText {
                                 text: qsTr("Enter port to listen")
-                                color: Style.white
+                                color: Style.content_main
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
                             }
@@ -1259,13 +1259,13 @@ Item
                                 width: parent.width
 
                                 font.pixelSize: 14
-                                color: Style.white
+                                color: Style.content_main
                                 text: viewModel.defaultPortToListen()
                                 onTextChanged: if (portInput.text.length > 0) portError.text = ""
                             }
                             SFText {
                                 id: portError
-                                color: Style.validator_color
+                                color: Style.validator_error
                                 font.pixelSize: 14
                             }
 
@@ -1275,7 +1275,7 @@ Item
 
                                 SFText {
                                     text: qsTr("Peer")
-                                    color: Style.white
+                                    color: Style.content_main
                                     font.pixelSize: 14
                                     font.styleName: "Bold"; font.weight: Font.Bold
                                 }
@@ -1285,7 +1285,7 @@ Item
                                     Layout.fillWidth: true
                                     activeFocusOnTab: true
                                     font.pixelSize: 12
-                                    color: Style.white
+                                    color: Style.content_main
                                     text: viewModel.chooseRandomNode()
                                     validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                     onTextChanged: if (peerError.text.length > 0) peerError.text = ""
@@ -1293,7 +1293,7 @@ Item
                             }
                             SFText {
                                 id: peerError
-                                color: Style.validator_color
+                                color: Style.validator_error
                                 font.pixelSize: 14
                             }
                         }
@@ -1320,7 +1320,7 @@ Item
                                 visible: remoteNodeButton.checked
                                 width: parent.width - parent.spacing - remoteNodeButton.width
                                 font.pixelSize: 14
-                                color: Style.white
+                                color: Style.content_main
                                 text: viewModel.defaultRemoteNodeAddr()
                                 validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                 onTextChanged: if (remoteNodeAddrInput.text.length > 0) remoteNodeAddrError.text = ""
@@ -1337,7 +1337,7 @@ Item
 
                             SFText {
                                 id: remoteNodeAddrError
-                                color: Style.validator_color
+                                color: Style.validator_error
                                 font.pixelSize: 14
                             }
                         }
@@ -1427,7 +1427,7 @@ Item
                     root.parent.setSource("qrc:/loading.qml", {"isRecoveryMode" : false, "isCreating" : false});
                 }
 
-                color: Style.marine
+                color: Style.background
 
                 Image {
                     fillMode: Image.PreserveAspectCrop
@@ -1494,7 +1494,7 @@ Item
                         Layout.alignment: Qt.AlignHCenter
                 
                         text: qsTr("Enter your password to access the current wallet")
-                        color: Style.white
+                        color: Style.content_main
                         font.pixelSize: 14
                     }
 
@@ -1506,7 +1506,7 @@ Item
 
                         SFText {
                             text: qsTr("Enter password")
-                            color: Style.white
+                            color: Style.content_main
                             font.pixelSize: 14
                             font.styleName: "Bold"; font.weight: Font.Bold
                         }
@@ -1517,7 +1517,7 @@ Item
                             focus: true
                             activeFocusOnTab: true
                             font.pixelSize: 14
-                            color: Style.white
+                            color: Style.content_main
                             echoMode: TextInput.Password
                             onAccepted: btnCurrentWallet.clicked()
                             onTextChanged: if (openPassword.text.length > 0) openPasswordError.text = ""
@@ -1528,7 +1528,7 @@ Item
                             height: 16
                             width: parent.width
                             id: openPasswordError
-                            color: Style.validator_color
+                            color: Style.validator_error
                             font.pixelSize: 14
                         }
                     }

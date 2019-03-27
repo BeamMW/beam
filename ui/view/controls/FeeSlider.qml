@@ -24,7 +24,7 @@ T.Slider {
         implicitWidth: 20
         implicitHeight: 20
         radius: width / 2
-        color: control.enabled ? Style.bright_teal : Style.disable_text_color
+        color: control.enabled ? Style.content_accent_second : Style.content_disabled
 
         SFText {
 
@@ -37,7 +37,7 @@ T.Slider {
             y: -26
             font.pixelSize: 14
             text: control.value.toFixed(control.precision)
-            color: control.enabled ? Style.bright_teal : Style.disable_text_color
+            color: control.enabled ? Style.content_accent_second : Style.content_disabled
         }
     }
 
@@ -61,7 +61,7 @@ T.Slider {
 
         Rectangle {
             anchors.fill: parent
-            color: Style.white
+            color: Style.background_emphasize
             opacity: 0.1
             radius: 2
         }
@@ -73,7 +73,7 @@ T.Slider {
                 x: (handle.width / 2) + ((control.availableWidth - handle.width) / control.to) * index
                 width: 1
                 height: 4
-                color: Style.bluey_grey
+                color: Style.content_inconspicuous
                 visible: control.showTicks
             }
             model: control.to + 1
@@ -87,14 +87,14 @@ T.Slider {
             
             SFText {
                 font.pixelSize: 14
-                color: Style.bluey_grey
+                color: Style.content_inconspicuous
                 text: control.from.toFixed(control.precision)
             }
 
             SFText {
                 anchors.right: parent.right
                 font.pixelSize: 14
-                color: Style.bluey_grey
+                color: Style.content_inconspicuous
                 text: control.to.toFixed(control.precision)
             }            
         }

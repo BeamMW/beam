@@ -17,7 +17,7 @@ Item
 
     ConfirmationDialog {
         id: confirmationDialog
-        okButtonColor: Style.bright_teal
+        okButtonColor: Style.content_accent_second
         okButtonText: qsTr("change settings")
         okButtonIconSource: "qrc:/assets/icon-settings-blue.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
@@ -41,7 +41,7 @@ Item
                     font.pixelSize: 18
                     font.styleName: "Bold";
                     font.weight: Font.Bold
-                    color: Style.white
+                    color: Style.content_main
                 }
 
                 SFText {
@@ -52,7 +52,7 @@ Item
                     Layout.rightMargin: 60
                     Layout.bottomMargin: 30
                     font.pixelSize: 14
-                    color: Style.white
+                    color: Style.content_main
                 }
             }
         }
@@ -91,7 +91,7 @@ Item
     Rectangle
     {
         anchors.fill: parent
-        color: Style.marine
+        color: Style.background
 
         Image {
             fillMode: Image.PreserveAspectCrop
@@ -158,7 +158,7 @@ Item
                 Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
                 text: !isCreating ? qsTr("Loading wallet...") : ( isRecoveryMode ? qsTr("Restoring wallet...") : qsTr("Creating wallet..."))
                 font.pixelSize: 14
-                color: Style.white
+                color: Style.content_main
             }
             SFText {
                 Layout.bottomMargin: 30
@@ -166,7 +166,7 @@ Item
                 text: viewModel.progressMessage
                 font.pixelSize: 14
                 opacity: 0.5
-                color: Style.white
+                color: Style.content_main
             }
             CustomProgressBar {
                 Layout.alignment: Qt.AlignHCenter
