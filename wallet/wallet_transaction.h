@@ -80,6 +80,7 @@ namespace beam { namespace wallet
             T value{};
             if (!getTxParameter(*m_WalletDB, GetTxID(), paramID, value))
             {
+                LOG_ERROR() << GetTxID() << " Failed to get parameter: " << (int)paramID;
                 throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
             }
             return value;
