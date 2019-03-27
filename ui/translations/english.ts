@@ -530,6 +530,11 @@
         <source>Kernel maximum height is too high</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location filename="../viewmodel/wallet_view.cpp" line="215"/>
+        <source>Transaction has invalid state</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>UtxoItem</name>
@@ -655,12 +660,12 @@
 <context>
     <name>WalletViewModel</name>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="580"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="581"/>
         <source> beams</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="582"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="583"/>
         <source> groths</source>
         <translation type="unfinished"></translation>
     </message>
