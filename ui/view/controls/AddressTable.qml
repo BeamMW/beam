@@ -98,6 +98,18 @@ CustomTableView {
             color: styleData.selected ? Style.content_accent_third : Style.background_third
             visible: styleData.selected ? true : styleData.alternate
         }
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.RightButton
+            onClicked: {
+                if (mouse.button == Qt.RightButton && styleData.row != undefined)
+                {
+                    contextMenu.address = rootControl.model[styleData.row].address;
+                    contextMenu.addressItem = rootControl.model[styleData.row];
+                    contextMenu.popup();
+                }
+            }
+        }
     }
 
     itemDelegate: TableItem {
