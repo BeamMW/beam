@@ -442,20 +442,17 @@ bool Node::TryAssignTask(Task& t, Peer& p)
         if (nBlocks)
             return false; // don't requests headers from the peer that transfers a block
 
-		uint32_t nPackSize = 0;
-		if (t.m_Key.first.m_Height > m_Processor.m_Cursor.m_ID.m_Height)
-		{
-			Height dh = t.m_Key.first.m_Height - m_Processor.m_Cursor.m_ID.m_Height;
-			if (dh > 1)
-			{
-				nPackSize = (proto::LoginFlags::Extension2 & p.m_LoginFlags) ?
-					proto::g_HdrPackMaxSize :
-					proto::g_HdrPackMaxSizeV0;
+		uint32_t nPackSize = (proto::LoginFlags::Extension2 & p.m_LoginFlags) ?
+			proto::g_HdrPackMaxSize :
+			proto::g_HdrPackMaxSizeV0;
 
-				if (nPackSize > dh)
-					nPackSize = (uint32_t)dh;
-			}
-		}
+		// make sure we're not dealing with overlaps
+		Height h0 = m_Processor.get_DB().get_HeightBelow(t.m_Key.first.m_Height);
+		assert(h0 < t.m_Key.first.m_Height);
+		Height dh = t.m_Key.first.m_Height - h0;
+
+		if (nPackSize > dh)
+			nPackSize = (uint32_t) dh;
 
         if (nPackSize)
         {
@@ -626,7 +623,13 @@ void Node::Processor::OnRolledBack()
 
 uint32_t Node::Processor::TaskProcessor::get_Threads()
 {
-	uint32_t nThreads = get_ParentObj().get_ParentObj().m_Cfg.m_VerificationThreads;
+	Config& cfg = get_ParentObj().get_ParentObj().m_Cfg; // alias
+
+	if (cfg.m_VerificationThreads < 0)
+		// use all the cores, don't subtract 'mining threads'. Verification has higher priority
+		cfg.m_VerificationThreads = std::thread::hardware_concurrency();
+
+	uint32_t nThreads = cfg.m_VerificationThreads;
 	return std::max(nThreads, 1U);
 }
 
@@ -917,10 +920,6 @@ void Node::Initialize(IExternalPOW* externalPOW)
 {
     m_Processor.m_Horizon = m_Cfg.m_Horizon;
     m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_ProcessorParams);
-
-    if (m_Cfg.m_VerificationThreads < 0)
-        // use all the cores, don't subtract 'mining threads'. Verification has higher priority
-        m_Cfg.m_VerificationThreads = std::thread::hardware_concurrency();
 
     InitKeys();
     InitIDs();
