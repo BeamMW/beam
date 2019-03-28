@@ -68,7 +68,7 @@ namespace
     {
         void onInvalidJsonRpc(const json& msg) override {}
         
-#define MESSAGE_FUNC(strct, name) virtual void onMessage(int id, const strct& data) override {};
+#define MESSAGE_FUNC(strct, name, _) virtual void onMessage(int id, const strct& data) override {};
         WALLET_API_METHODS(MESSAGE_FUNC)
 #undef MESSAGE_FUNC
     };
@@ -111,7 +111,6 @@ namespace
             void onMessage(int id, const CreateAddress& data) override 
             {
                 WALLET_CHECK(id > 0);
-                WALLET_CHECK(data.metadata == "<meta>custom user data</meta>");
             }
         };
 
@@ -191,8 +190,8 @@ namespace
             WALLET_CHECK(result.size() == Count);
 
             for (int i = 0; i < Count; i++)
-            {
-                WALLET_CHECK(result[i]["id"] == 132 + i);
+            {                
+                WALLET_CHECK(Coin::FromString(result[i]["id"])->m_Idx == uint64_t(132 + i));
                 WALLET_CHECK(result[i]["amount"] == 1234 + i);
                 WALLET_CHECK(result[i]["type"] == "norm");
                 WALLET_CHECK(result[i]["maturity"] == 60);

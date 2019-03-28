@@ -78,6 +78,7 @@ namespace beam::wallet
             T value{};
             if (!getTxParameter(*m_WalletDB, GetTxID(), subTxID, paramID, value))
             {
+                LOG_ERROR() << GetTxID() << " Failed to get parameter: " << (int)paramID;
                 throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
             }
             return value;
@@ -105,19 +106,18 @@ namespace beam::wallet
         IWalletDB::Ptr GetWalletDB();
         bool IsInitiator() const;
         uint32_t get_PeerVersion() const;
-
+        bool GetTip(Block::SystemState::Full& state) const;
     protected:
         bool CheckExpired();
         bool CheckExternalFailures();
         void ConfirmKernel(const TxKernel& kernel);
+        void UpdateOnNextTip();
         void CompleteTx();
         void RollbackTx();
         void NotifyFailure(TxFailureReason);
         void UpdateTxDescription(TxStatus s);
 
         void OnFailed(TxFailureReason reason, bool notify = false);
-
-        bool GetTip(Block::SystemState::Full& state) const;
 
         bool SendTxParameters(SetTxParameter&& msg) const;
         virtual void UpdateImpl() = 0;

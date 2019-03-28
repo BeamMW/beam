@@ -52,9 +52,20 @@ namespace proto {
 #define BeamNodeMsg_GetBody(macro) \
     macro(Block::SystemState::ID, ID)
 
+#define BeamNodeMsg_GetBodyPack(macro) \
+    macro(Block::SystemState::ID, Top) \
+    macro(bool, ExcludeP) \
+    macro(bool, ExcludeE) \
+    macro(Height, CountExtra) \
+    macro(Height, Height0) \
+    macro(Height, HorizonLo1) \
+    macro(Height, HorizonHi1)
+
 #define BeamNodeMsg_Body(macro) \
-    macro(ByteBuffer, Perishable) \
-    macro(ByteBuffer, Eternal)
+    macro(BodyBuffers, Body)
+
+#define BeamNodeMsg_BodyPack(macro) \
+    macro(std::vector<BodyBuffers>, Bodies)
 
 #define BeamNodeMsg_GetProofState(macro) \
     macro(Height, Height)
@@ -236,6 +247,8 @@ namespace proto {
     macro(0x23, ProofCommonState) \
     macro(0x24, GetProofKernel2) \
     macro(0x25, ProofKernel2) \
+    macro(0x26, GetBodyPack) \
+    macro(0x27, BodyPack) \
     /* onwer-relevant */ \
     macro(0x2c, GetUtxoEvents) \
     macro(0x2d, UtxoEvents) \
@@ -262,7 +275,8 @@ namespace proto {
         static const uint8_t SendPeers              = 0x4; // Please send me periodically peers recommendations
         static const uint8_t MiningFinalization     = 0x8; // I want to finalize block construction for my owned node
         static const uint8_t Extension1             = 0x10; // Supports Bbs with POW, more advanced proof/disproof scheme for SPV clients (?)
-	    static const uint8_t Recognized             = 0x1f;
+        static const uint8_t Extension2             = 0x20; // Supports large HdrPack, BlockPack with parameters
+	    static const uint8_t Recognized             = 0x3f;
     };
 
     struct IDType
@@ -272,7 +286,8 @@ namespace proto {
         static const uint8_t Viewer        = 'V';
     };
 
-    static const uint32_t g_HdrPackMaxSize = 128;
+    static const uint32_t g_HdrPackMaxSizeV0 = 128; // about 25K
+	static const uint32_t g_HdrPackMaxSize = 2048; // about 400K
 
     struct UtxoEvent
     {
@@ -301,6 +316,20 @@ namespace proto {
         }
     };
 
+	struct BodyBuffers
+	{
+		ByteBuffer m_Perishable;
+		ByteBuffer m_Eternal;
+	
+	    template <typename Archive>
+	    void serialize(Archive& ar)
+	    {
+	        ar
+	            & m_Perishable
+	            & m_Eternal;
+	    }
+	};
+
     enum Unused_ { Unused };
     enum Uninitialized_ { Uninitialized };
 
@@ -323,6 +352,7 @@ namespace proto {
     inline void ZeroInit(ECC::Point& x) { ZeroObject(x); }
     inline void ZeroInit(ECC::Signature& x) { ZeroObject(x); }
     inline void ZeroInit(TxKernel::LongProof& x) { ZeroObject(x.m_State); }
+	inline void ZeroInit(BodyBuffers&) { }
 
     template <typename T> struct InitArg {
         typedef const T& TArg;

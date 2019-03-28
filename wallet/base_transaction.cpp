@@ -155,19 +155,31 @@ namespace beam::wallet
     bool BaseTransaction::CheckExpired()
     {
         Height kernelConfirmHeight = 0;
-
         if (GetParameter(TxParameterID::KernelProofHeight, kernelConfirmHeight) && kernelConfirmHeight > 0)
         {
             // completed tx
             return false;
         }
 
+        TxFailureReason reason = TxFailureReason::Unknown;
+        if (GetParameter(TxParameterID::FailureReason, reason))
+        {
+            // failed tx
+            return false;
+        }
+
         Height maxHeight = MaxHeight;
-        GetParameter(TxParameterID::MaxHeight, maxHeight);
+        if (!GetParameter(TxParameterID::MaxHeight, maxHeight)
+            && !GetParameter(TxParameterID::PeerResponseHeight, maxHeight))
+        {
+            // we have no data to make decision
+            return false;
+        }
 
         bool isRegistered = false;
         Merkle::Hash kernelID;
-        if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered) || !GetParameter(TxParameterID::KernelID, kernelID))
+        if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered)
+            || !GetParameter(TxParameterID::KernelID, kernelID))
         {
             Block::SystemState::Full state;
             if (GetTip(state) && state.m_Height > maxHeight)
@@ -212,6 +224,11 @@ namespace beam::wallet
     {
         UpdateTxDescription(TxStatus::Registering);
         m_Gateway.confirm_kernel(GetTxID(), kernel);
+    }
+
+    void BaseTransaction::UpdateOnNextTip()
+    {
+        m_Gateway.UpdateOnNextTip(GetTxID());
     }
 
     void BaseTransaction::CompleteTx()

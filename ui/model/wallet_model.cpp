@@ -17,13 +17,14 @@
 #include "utility/logger.h"
 #include "utility/bridge.h"
 #include "utility/io/asyncevent.h"
+#include "utility/helpers.h"
 
 using namespace beam;
 using namespace beam::io;
 using namespace std;
 
-WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr)
-    : WalletClient(walletDB, nodeAddr)
+WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor)
+    : WalletClient(walletDB, nodeAddr, reactor)
 {
     qRegisterMetaType<WalletStatus>("WalletStatus");
     qRegisterMetaType<ChangeAction>("beam::ChangeAction");
@@ -34,6 +35,7 @@ WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr)
     qRegisterMetaType<WalletID>("beam::WalletID");
     qRegisterMetaType<WalletAddress>("beam::WalletAddress");
     qRegisterMetaType<beam::wallet::ErrorType>("beam::wallet::ErrorType");
+    qRegisterMetaType<beam::TxID>("beam::TxID");
 }
 
 WalletModel::~WalletModel()
@@ -133,4 +135,13 @@ void WalletModel::onSendMoneyVerified()
 void WalletModel::onCantSendToExpired()
 {
     emit cantSendToExpired();
+}
+
+void WalletModel::onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof)
+{
+    string str;
+    str.resize(proof.size() * 2);
+
+    beam::to_hex(str.data(), proof.data(), proof.size());
+    emit paymentProofExported(txID, QString::fromStdString(str));
 }

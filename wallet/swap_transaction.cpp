@@ -567,7 +567,8 @@ namespace beam::wallet
             if (isBeamOwner)
             {
                 lockTxBuilder->SelectInputs();
-                lockTxBuilder->AddChangeOutput();
+                // TODO: check
+                lockTxBuilder->AddChange();
             }
 
             if (!lockTxBuilder->FinalizeOutputs())
@@ -634,7 +635,8 @@ namespace beam::wallet
         {
             // Create TX
             auto transaction = lockTxBuilder->CreateTransaction();
-            beam::TxBase::Context context;
+            TxBase::Context::Params pars;
+            TxBase::Context context(pars);
             if (!transaction->IsValid(context))
             {
                 // TODO: check
@@ -723,7 +725,8 @@ namespace beam::wallet
         if (isTxOwner)
         {
             auto transaction = builder.CreateTransaction();
-            beam::TxBase::Context context;
+            TxBase::Context::Params pars;
+            TxBase::Context context(pars);
             transaction->IsValid(context);
 
             m_RefundTx = transaction;
@@ -807,7 +810,8 @@ namespace beam::wallet
         if (isTxOwner)
         {
             auto transaction = builder.CreateTransaction();
-            beam::TxBase::Context context;
+            TxBase::Context::Params pars;
+            TxBase::Context context(pars);
             if (!transaction->IsValid(context))
             {
                 // TODO: check

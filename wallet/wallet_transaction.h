@@ -22,6 +22,8 @@
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
+#include <future>
+
 namespace beam::wallet
 {
     class BaseTxBuilder;
@@ -54,5 +56,8 @@ namespace beam::wallet
         void NotifyTransactionRegistered();
         bool IsSelfTx() const;
         State GetState() const;
+    private:
+        io::AsyncEvent::Ptr m_CompletedEvent;
+        std::future<void> m_OutputsFuture;
     };
 }

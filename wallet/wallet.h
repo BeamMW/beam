@@ -25,7 +25,7 @@ namespace beam
     {
     public:
         explicit AddressExpiredException()
-            : std::runtime_error(nullptr)
+            : std::runtime_error("")
         {
         }
 
@@ -74,10 +74,10 @@ namespace beam
         void initBitcoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address);
         void initSwapConditions(Amount beamAmount, Amount swapAmount, bool isBeamSide);
 
-        TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {} );
-        TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {});
-        TxID transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {});
-        TxID split_coins(const WalletID& from, const AmountList& amountList, Amount fee = 0, bool sender = true, Height lifetime = 120, ByteBuffer&& message = {});
+        TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = 120, Height responseTime = 12*60, ByteBuffer&& message = {} );
+        TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = 120, Height responseTime = 12 * 60, ByteBuffer&& message = {});
+        TxID transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = 120, Height responseTime = 12 * 60, ByteBuffer&& message = {});
+        TxID split_coins(const WalletID& from, const AmountList& amountList, Amount fee = 0, bool sender = true, Height lifetime = 120, Height responseTime = 12 * 60, ByteBuffer&& message = {});
         TxID swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount, bool isBeamSide = true);
         void Refresh();
 
@@ -100,6 +100,7 @@ namespace beam
         bool get_tip(Block::SystemState::Full& state) const override;
         void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override;
         void register_tx(const TxID& txId, Transaction::Ptr, wallet::SubTxID subTxID) override;
+        void UpdateOnNextTip(const TxID&) override;
         BitcoinRPC::Ptr get_bitcoin_rpc() const override;
 
         void OnWalletMessage(const WalletID& peerID, wallet::SetTxParameter&&) override;
@@ -125,6 +126,8 @@ namespace beam
         void report_sync_progress();
         void notifySyncProgress();
         void updateTransaction(const TxID& txID);
+        void UpdateOnSynced(wallet::BaseTransaction::Ptr tx);
+        void UpdateOnNextTip(wallet::BaseTransaction::Ptr tx);
         void saveKnownState();
         void RequestUtxoEvents();
         void AbortUtxoEvents();
@@ -229,6 +232,7 @@ namespace beam
         IWalletNetwork* m_pWalletNetwork;
         std::map<TxID, wallet::BaseTransaction::Ptr> m_Transactions;
         std::unordered_set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
+        std::unordered_set<wallet::BaseTransaction::Ptr> m_NextTipTransactionToUpdate;
         TxCompletedAction m_TxCompletedAction;
         uint32_t m_LastSyncTotal;
         uint32_t m_OwnedNodesOnline;

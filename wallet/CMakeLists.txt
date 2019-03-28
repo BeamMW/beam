@@ -1,9 +1,10 @@
-set(TARGET_NAME beam-wallet)
+set(TARGET_NAME beam-wallet${BEAM_TARGET_SUFFIX})
 
 add_definitions( -DSQLITE_HAS_CODEC )
 
 set(WALLET_SRC
     common.cpp
+    default_peers.cpp
     wallet.h
     wallet.cpp
     base_transaction.cpp
@@ -15,7 +16,7 @@ set(WALLET_SRC
     wallet_client.cpp
     swap_transaction.cpp
     secstring2.cpp
-    unittests/util.cpp    
+    unittests/util.cpp
 )
 
 add_library(bitcoin_rpc STATIC bitcoin_rpc.cpp)
@@ -46,13 +47,15 @@ add_library(wallet_api_proto STATIC api.cpp)
 add_dependencies(wallet_api_proto wallet utility http)
 target_link_libraries(wallet_api_proto wallet utility http)
 
-add_executable(wallet-api api_cli.cpp)
-target_include_directories(wallet-api PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-add_dependencies(wallet-api wallet utility wallet_api_proto)
-target_link_libraries(wallet-api wallet utility wallet_api_proto)
+set(WALLET_API_NAME wallet-api${BEAM_TARGET_SUFFIX})
+
+add_executable(${WALLET_API_NAME} api_cli.cpp)
+target_include_directories(${WALLET_API_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+add_dependencies(${WALLET_API_NAME} wallet utility wallet_api_proto)
+target_link_libraries(${WALLET_API_NAME} wallet utility wallet_api_proto)
 
 if(LINUX)
-    target_link_libraries(wallet-api -static-libstdc++ -static-libgcc)
+    target_link_libraries(${WALLET_API_NAME} -static-libstdc++ -static-libgcc)
 endif()
 
 add_subdirectory(unittests)
@@ -60,10 +63,10 @@ add_subdirectory(unittests)
 if (BEAM_SIGN_PACKAGE AND WIN32)
     add_custom_command(
         TARGET ${TARGET_NAME} POST_BUILD
-        COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\beam-wallet.exe"
+        COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\{TARGET_NAME}.exe"
     )
     add_custom_command(
-        TARGET ${TARGET_NAME} POST_BUILD
-        COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\wallet-api.exe"
+        TARGET ${WALLET_API_NAME} POST_BUILD
+        COMMAND ${SIGNTOOL_EXECUTABLE} sign ${SIGNTOOL_OPTIONS} "${CMAKE_CURRENT_BINARY_DIR}\\${WALLET_API_NAME}.exe"
     )
 endif()

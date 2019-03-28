@@ -20,6 +20,7 @@
 
 #include <boost/filesystem.hpp>
 #include "utility/logger.h"
+#include "wallet/default_peers.h"
 
 
 using namespace beam;
@@ -95,25 +96,5 @@ std::string NodeModel::getTempDir()
 
 std::vector<std::string> NodeModel::getLocalNodePeers()
 {
-    std::vector<std::string> result
-    {
-        #ifdef BEAM_TESTNET
-        "ap-node01.testnet.beam.mw:8100",
-        "ap-node02.testnet.beam.mw:8100",
-        "ap-node03.testnet.beam.mw:8100",
-        "eu-node01.testnet.beam.mw:8100",
-        "eu-node02.testnet.beam.mw:8100",
-        "eu-node03.testnet.beam.mw:8100",
-        "us-node01.testnet.beam.mw:8100",
-        "us-node02.testnet.beam.mw:8100",
-        "us-node03.testnet.beam.mw:8100"
- #else
-        "eu-node01.masternet.beam.mw:8100",
-        "eu-node02.masternet.beam.mw:8100",
-        "eu-node03.masternet.beam.mw:8100",
-        "eu-node04.masternet.beam.mw:8100"
-#endif
-    };
-
-    return result;
+    return getDefaultPeers();
 }

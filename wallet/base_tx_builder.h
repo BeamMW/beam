@@ -31,26 +31,31 @@ namespace beam::wallet
         BaseTxBuilder(BaseTransaction& tx, SubTxID subTxID, const AmountList& amount, Amount fee);
 
         void SelectInputs();
-        void AddChangeOutput();
+        void AddChange();
+        void GenerateNewCoin(Amount amount, bool bChange);
         virtual void AddOutput(Amount amount, bool bChange);
+        void CreateOutputs();
         bool FinalizeOutputs();
         Output::Ptr CreateOutput(Amount amount, bool bChange);
         void CreateKernel();
-        void FinalizeSignature();
-        virtual Transaction::Ptr CreateTransaction();
-        void SignPartial();
-        void StoreKernelID();
-        bool IsPeerSignatureValid() const;
-
+        void LoadKernelExtraData();
+        bool GenerateBlindingExcess();
+        void GenerateNonce();
         ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
         virtual bool GetInitialTxParams();
         bool GetPeerPublicExcessAndNonce();
         bool GetPeerSignature();
         bool GetPeerInputsAndOutputs();
+        void FinalizeSignature();
+        virtual Transaction::Ptr CreateTransaction();
+        void SignPartial();
+        bool IsPeerSignatureValid() const;
+
         Amount GetAmount() const;
         const AmountList& GetAmountList() const;
         Amount GetFee() const;
+        Height GetLifetime() const;
         Height GetMinHeight() const;
         Height GetMaxHeight() const;
         const std::vector<Input::Ptr>& GetInputs() const;
@@ -58,10 +63,14 @@ namespace beam::wallet
         const ECC::Scalar::Native& GetOffset() const;
         const ECC::Scalar::Native& GetPartialSignature() const;
         const TxKernel& GetKernel() const;
+        void StoreKernelID();
         std::string GetKernelIDString() const;
+        bool UpdateMaxHeight();
+        bool IsAcceptableMaxHeight() const;
         ECC::Hash::Value GetLockImage() const;
         SubTxID GetSubTxID() const;
 
+        const std::vector<Coin>& GetCoins() const;
     protected:
         BaseTransaction& m_Tx;
         SubTxID m_SubTxID;
@@ -70,12 +79,15 @@ namespace beam::wallet
         AmountList m_AmountList;
         Amount m_Fee;
         Amount m_Change;
+        Height m_Lifetime;
         Height m_MinHeight;
         Height m_MaxHeight;
         std::vector<Input::Ptr> m_Inputs;
         std::vector<Output::Ptr> m_Outputs;
         ECC::Scalar::Native m_BlindingExcess; // goes to kernel
         ECC::Scalar::Native m_Offset; // goes to offset
+
+        std::vector<Coin> m_Coins;
 
         // peer values
         ECC::Scalar::Native m_PartialSignature;
@@ -84,9 +96,10 @@ namespace beam::wallet
         std::vector<Input::Ptr> m_PeerInputs;
         std::vector<Output::Ptr> m_PeerOutputs;
         ECC::Scalar::Native m_PeerOffset;
+        Height m_PeerMaxHeight;
         std::unique_ptr<ECC::Hash::Value> m_PeerLockImage;
 
-        // deduced values, 
+        // deduced values,
         TxKernel::Ptr m_Kernel;
         ECC::Scalar::Native m_PeerSignature;
         ECC::Hash::Value m_Message;

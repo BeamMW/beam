@@ -677,7 +677,7 @@ namespace
 
     void TestExpiredTransaction()
     {
-        cout << "\nTesting expited Tx...\n";
+        cout << "\nTesting expired Tx...\n";
 
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
@@ -696,16 +696,17 @@ namespace
         TestNode node;
         TestWalletRig sender("sender", createSenderWalletDB(), f);
         TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+        timer->start(1000, true, [&node]() {node.AddBlock(); });
 
         WALLET_CHECK(sender.m_WalletDB->selectCoins(6).size() == 2);
         WALLET_CHECK(sender.m_WalletDB->getTxHistory().empty());
         WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
-        auto txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true);
-
+        auto txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true, 1, 10);
         mainReactor->run();
 
-        // check coins
+        // first tx with height == 0
         {
             vector<Coin> newSenderCoins = sender.GetCoins();
             vector<Coin> newReceiverCoins = receiver.GetCoins();
@@ -722,6 +723,26 @@ namespace
             WALLET_CHECK(rh[0].m_status == TxStatus::Failed);
             WALLET_CHECK(rh[0].m_failureReason == TxFailureReason::TransactionExpired);
         }
+
+        //txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true, 0, 10);
+        //mainReactor->run();
+
+        //{
+        //    vector<Coin> newSenderCoins = sender.GetCoins();
+        //    vector<Coin> newReceiverCoins = receiver.GetCoins();
+
+        //    WALLET_CHECK(newSenderCoins.size() == 4);
+        //    WALLET_CHECK(newReceiverCoins.size() == 0);
+
+        //    auto sh = sender.m_WalletDB->getTxHistory();
+        //    WALLET_CHECK(sh.size() == 2);
+        //    WALLET_CHECK(sh[0].m_status == TxStatus::Failed);
+        //    WALLET_CHECK(sh[0].m_failureReason == TxFailureReason::TransactionExpired);
+        //    auto rh = receiver.m_WalletDB->getTxHistory();
+        //    WALLET_CHECK(rh.size() == 2);
+        //    WALLET_CHECK(rh[0].m_status == TxStatus::Failed);
+        //    WALLET_CHECK(rh[0].m_failureReason == TxFailureReason::TransactionExpired);
+        //}
 
         txId = sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 4, 2, true);
 
@@ -761,6 +782,7 @@ namespace
             void get_kernel(const TxID& txID, const Merkle::Hash& kernelID, wallet::SubTxID subTxID) override {}
             bool get_tip(Block::SystemState::Full& state) const override { return false; }
             void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override {}
+            void UpdateOnNextTip(const TxID&) override {};
             BitcoinRPC::Ptr get_bitcoin_rpc() const override { return nullptr; }
         } gateway;
         TestWalletRig sender("sender", createSenderWalletDB());
@@ -808,37 +830,28 @@ namespace
     {
         cout << "\nTesting tx performance...\n";
 
-        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-        io::Reactor::Scope scope(*mainReactor);
+        const int MaxTxCount = 100;// 00;
+        vector<PerformanceRig> tests;
 
-        const int TxCount = 5;
-
-        int completedCount = 2 * TxCount;
-        auto f = [&completedCount, mainReactor, count = 2 * TxCount](auto)
+        for (int i = 10; i <= MaxTxCount; i *= 10)
         {
-            --completedCount;
-            if (completedCount == 0)
+            /*for (int j = 1; j <= 5; ++j)
             {
-                mainReactor->stop();
-                completedCount = count;
-            }
-        };
-
-        TestNode node;
-        TestWalletRig sender("sender", createSenderWalletDB(TxCount, 6), f);
-        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
-
-        helpers::StopWatch sw;
-        sw.start();
-
-        for (int i = 0; i < TxCount; ++i)
-        {
-            sender.m_Wallet.transfer_money(sender.m_WalletID, receiver.m_WalletID, 5, 1, true, 200);
+                tests.emplace_back(i, j);
+            }*/
+            tests.emplace_back(i, 1);
+            tests.emplace_back(i, i);
         }
-        
-        mainReactor->run();
-        sw.stop();
-        cout << "Transferring of " << TxCount << " transactions took :" << sw.milliseconds() << " ms\n";
+
+        for (auto& t : tests)
+        {
+            t.Run();
+        }
+
+        for (auto& t : tests)
+        {
+            cout << "Transferring of " << t.GetTxCount() << " by " << t.GetTxPerCall() << " transactions per call took: " << t.GetTotalTime() << " ms Max api latency: " << t.GetMaxLatency() << endl;
+        }
     }
 }
 
@@ -849,24 +862,27 @@ int main()
     logLevel = LOG_LEVEL_VERBOSE;
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
-
     Rules::get().FakePoW = true;
     Rules::get().UpdateChecksum();
 
     TestP2PWalletNegotiationST();
-    ////TestP2PWalletReverseNegotiationST();
+    //TestP2PWalletReverseNegotiationST();
 
-    ////TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
-    TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
+    {
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+        //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
+        TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
+    }
 
     TestSplitTransaction();
 
-    TestSwapTransaction(true);
-    TestSwapTransaction(false);
+    //TestSwapTransaction(true);
+    //TestSwapTransaction(false);
 
     TestTxToHimself();
 
-    TestExpiredTransaction();
+    //TestExpiredTransaction();
 
     TestTransactionUpdate();
     //TestTxPerformance();

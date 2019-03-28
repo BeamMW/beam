@@ -25,26 +25,6 @@
 #include <iomanip>
 #include <numeric>
 
-namespace std
-{
-    string to_string(const beam::WalletID& id)
-    {
-        static_assert(sizeof(id) == sizeof(id.m_Channel) + sizeof(id.m_Pk), "");
-
-		char szBuf[sizeof(id) * 2 + 1];
-		beam::to_hex(szBuf, &id, sizeof(id));
-
-		const char* szPtr = szBuf;
-		while (*szPtr == '0')
-			szPtr++;
-
-		if (!*szPtr)
-			szPtr--; // leave at least 1 symbol
-
-		return szPtr;
-	}
-}
-
 namespace beam
 {
     using namespace wallet;
@@ -92,93 +72,6 @@ namespace beam
             walletID.FromHex(addr) &&
             walletID.IsValid();
     }
-
-    std::ostream& operator<<(std::ostream& os, const TxID& uuid)
-    {
-        os << "[" << to_hex(uuid.data(), uuid.size()) << "]";
-        return os;
-    }
-
-    std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount)
-    {
-        const string_view beams{ " beams " };
-        const string_view chattles{ " groth " };
-        auto width = os.width();
-
-        if (amount.m_showPoint)
-        {
-            const char origFill = os.fill();
-            Amount groths = amount.m_value % Rules::Coin;
-            std::string grothsString { '0' };
-            size_t grothsLength = 1;
-
-            if (groths > 0)
-            {
-                std::string grothsText = std::to_string(groths);
-                size_t maxGrothsLength = std::lround(std::log10(Rules::Coin));
-
-                // additional length for add leading zeros
-                assert(maxGrothsLength >= grothsText.length());
-                size_t additionalLength = maxGrothsLength - grothsText.length();
-
-                // trim trailing zeros
-                grothsText.erase(grothsText.find_last_not_of('0') + 1, std::string::npos);
-
-                grothsLength = additionalLength + grothsText.length();
-                grothsString = grothsText;
-            }
-
-            assert(width > static_cast<decltype(width)>(grothsLength + beams.length()));
-
-            os << setw(width - grothsLength - beams.length()) << Amount(amount.m_value / Rules::Coin)
-                << "." << std::setfill('0') << setw(grothsLength) << grothsString << std::setfill(origFill)
-                << beams.data();
-
-            return os;
-        }
-
-        if (amount.m_value >= Rules::Coin)
-        {
-            os << setw(width - beams.length()) << Amount(amount.m_value / Rules::Coin) << beams.data();
-        }
-        Amount c = amount.m_value % Rules::Coin;
-        if (c > 0 || amount.m_value == 0)
-        {
-            os << setw(width - chattles.length()) << c << chattles.data();
-        }
-        return os;
-    }
-
-	void PaymentConfirmation::get_Hash(Hash::Value& hv) const
-	{
-		Hash::Processor()
-			<< "PaymentConfirmation"
-			<< m_KernelID
-			<< m_Sender
-			<< m_Value
-			>> hv;
-	}
-
-	bool PaymentConfirmation::IsValid(const PeerID& pid) const
-	{
-		Point::Native pk;
-		if (!proto::ImportPeerID(pk, pid))
-			return false;
-
-		Hash::Value hv;
-		get_Hash(hv);
-
-		return m_Signature.IsValid(hv, pk);
-	}
-
-	void PaymentConfirmation::Sign(const Scalar::Native& sk)
-	{
-		Hash::Value hv;
-		get_Hash(hv);
-
-		m_Signature.Sign(hv, sk);
-	}
-
 
     const char Wallet::s_szNextUtxoEvt[] = "NextUtxoEvent";
 
@@ -246,17 +139,17 @@ namespace beam
 #undef THE_MACRO
     }
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, Height lifetime, ByteBuffer&& message)
+    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message)
     {
-        return transfer_money(from, to, AmountList{ amount }, fee, {}, sender, lifetime, move(message));
+        return transfer_money(from, to, AmountList{ amount }, fee, {}, sender, lifetime, responseTime, move(message));
     }
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, ByteBuffer&& message)
+    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message)
     {
-        return transfer_money(from, to, AmountList{ amount }, fee, coins, sender, lifetime, move(message));
+        return transfer_money(from, to, AmountList{ amount }, fee, coins, sender, lifetime, responseTime, move(message));
     }
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, ByteBuffer&& message)
+    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message)
     {
         auto receiverAddr = m_WalletDB->getAddress(to);
 
@@ -274,7 +167,8 @@ namespace beam
         Height currentHeight = m_WalletDB->getCurrentHeight();
 
         tx->SetParameter(TxParameterID::TransactionType, TxType::Simple, false);
-        tx->SetParameter(TxParameterID::MaxHeight, currentHeight + lifetime, false); // transaction is valid +lifetime blocks from currentHeight
+        tx->SetParameter(TxParameterID::Lifetime, lifetime, false);
+        tx->SetParameter(TxParameterID::PeerResponseHeight, currentHeight + responseTime); 
         tx->SetParameter(TxParameterID::IsInitiator, true, false);
         tx->SetParameter(TxParameterID::AmountList, amountList, false);
         tx->SetParameter(TxParameterID::PreselectedCoins, coins, false);
@@ -301,9 +195,9 @@ namespace beam
         return txID;
     }
 
-    TxID Wallet::split_coins(const WalletID& from, const AmountList& amountList, Amount fee, bool sender, Height lifetime,  ByteBuffer&& message)
+    TxID Wallet::split_coins(const WalletID& from, const AmountList& amountList, Amount fee, bool sender, Height lifetime, Height responseTime,  ByteBuffer&& message)
     {
-        return transfer_money(from, from, amountList, fee, {}, sender, lifetime, move(message));
+        return transfer_money(from, from, amountList, fee, {}, sender, lifetime, responseTime, move(message));
     }
 
     TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount, bool isBeamSide/*=true*/)
@@ -375,6 +269,7 @@ namespace beam
             auto t = constructTransaction(tx.m_txId, TxType::Simple);
 
             m_Transactions.emplace(tx.m_txId, t);
+            UpdateOnSynced(t);
         }
     }
 
@@ -519,6 +414,15 @@ namespace beam
         m_pWalletNetwork->Send(peerID, std::move(msg));
     }
 
+    void Wallet::UpdateOnNextTip(const TxID& txID)
+    {
+        auto it = m_Transactions.find(txID);
+        if (it != m_Transactions.end())
+        {
+            UpdateOnNextTip(it->second);
+        }
+    }
+
     void Wallet::OnWalletMessage(const WalletID& myID, wallet::SetTxParameter&& msg)
     {
         auto t = getTransaction(myID, msg);
@@ -605,12 +509,22 @@ namespace beam
             if (bSynced)
                 tx->Update();
             else
-                m_TransactionsToUpdate.insert(tx);
+                UpdateOnSynced(tx);
         }
         else
         {
             LOG_DEBUG() << txID << " Unexpected event";
         }
+    }
+
+    void Wallet::UpdateOnSynced(BaseTransaction::Ptr tx)
+    {
+        m_TransactionsToUpdate.insert(tx);
+    }
+
+    void Wallet::UpdateOnNextTip(wallet::BaseTransaction::Ptr tx)
+    {
+        m_NextTipTransactionToUpdate.insert(tx);
     }
 
     void Wallet::OnRequestComplete(MyRequestUtxo& r)
@@ -651,6 +565,7 @@ namespace beam
             Block::SystemState::Full sTip;
             get_tip(sTip);
             tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height, r.m_SubTxID);
+            UpdateOnNextTip(tx);
         }
     }
 
@@ -801,7 +716,7 @@ namespace beam
             {
                 h = 0;
                 pTx->SetParameter(TxParameterID::KernelProofHeight, h);
-                m_TransactionsToUpdate.insert(pTx);
+                UpdateOnSynced(pTx);
             }
         }
 
@@ -825,12 +740,11 @@ namespace beam
 
         RequestUtxoEvents();
 
-        auto t = m_Transactions;
-        for (auto& p : t)
+        for (auto& tx : m_NextTipTransactionToUpdate)
         {
-            auto tx = p.second;
-            tx->Update();
+            UpdateOnSynced(tx);
         }
+        m_NextTipTransactionToUpdate.clear();
 
         CheckSyncDone();
     }
@@ -888,6 +802,9 @@ namespace beam
         else
             ZeroObject(id);
 
+        Block::SystemState::ID currentID;
+        m_WalletDB->getSystemStateID(currentID);
+
         m_WalletDB->setSystemStateID(id);
         LOG_INFO() << "Current state is " << id;
         notifySyncProgress();
@@ -930,7 +847,8 @@ namespace beam
         LOG_VERBOSE() << txId << " sending tx for registration";
 
 #ifndef NDEBUG
-        TxBase::Context ctx;
+        TxBase::Context::Params pars;
+        TxBase::Context ctx(pars);
         assert(data->IsValid(ctx));
 #endif // NDEBUG
 

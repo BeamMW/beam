@@ -138,4 +138,9 @@ public class WalletListener
 	{
 		System.out.println(">>>>>>>>>>>>>> async onNodeConnectionFailed() in Java");
 	}
+
+    static void onCantSendToExpired()
+	{
+		System.out.println(">>>>>>>>>>>>>> async onCantSendToExpired() in Java");
+	}
 }

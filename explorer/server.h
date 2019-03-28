@@ -26,7 +26,7 @@ struct IAdapter;
 
 class Server {
 public:
-    Server(IAdapter& adapter, io::Reactor& reactor, io::Address bindAddress, const std::string& keysFileName);
+    Server(IAdapter& adapter, io::Reactor& reactor, io::Address bindAddress, const std::string& keysFileName, const std::vector<uint32_t>& whitelist);
 
 private:
     class IPAccessControl {
@@ -66,6 +66,7 @@ private:
     io::SerializedMsg _body;
     //AccessControl _acl;
     IPAccessControl _acl;
+    std::vector<uint32_t> _whitelist;
 };
 
 }} //namespaces

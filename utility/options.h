@@ -33,9 +33,6 @@ namespace beam
         extern const char* STRATUM_USE_TLS;
         extern const char* STORAGE;
         extern const char* WALLET_STORAGE;
-        extern const char* HISTORY;
-        extern const char* TEMP;
-        extern const char* IMPORT;
         extern const char* MINING_THREADS;
         extern const char* VERIFICATION_THREADS;
         extern const char* NODE_PEER;
@@ -56,21 +53,24 @@ namespace beam
         extern const char* TREASURY;
         extern const char* TREASURY_BLOCK;
         extern const char* RESYNC;
+        extern const char* CHECKDB;
         extern const char* CRASH;
         extern const char* INIT;
         extern const char* RESTORE;
         extern const char* EXPORT_MINER_KEY;
         extern const char* EXPORT_OWNER_KEY;
         extern const char* KEY_SUBKEY;
-        extern const char* KEY_OWNER;
-        extern const char* KEY_MINE;
+        extern const char* KEY_OWNER;  // deprecated
+        extern const char* OWNER_KEY;
+        extern const char* KEY_MINE;  // deprecated
+        extern const char* MINER_KEY;
         extern const char* BBS_ENABLE;
         extern const char* NEW_ADDRESS;
         extern const char* CANCEL_TX;
-		extern const char* PAYMENT_PROOF_EXPORT;
-		extern const char* PAYMENT_PROOF_VERIFY;
-		extern const char* PAYMENT_PROOF_DATA;
-		extern const char* PAYMENT_PROOF_REQUIRED;
+        extern const char* PAYMENT_PROOF_EXPORT;
+        extern const char* PAYMENT_PROOF_VERIFY;
+        extern const char* PAYMENT_PROOF_DATA;
+        extern const char* PAYMENT_PROOF_REQUIRED;
         extern const char* SEND;
         extern const char* INFO;
         extern const char* NEW_ADDRESS_COMMENT;
@@ -88,7 +88,7 @@ namespace beam
         extern const char* LOG_DEBUG;
         extern const char* LOG_VERBOSE;
         extern const char* LOG_CLEANUP_DAYS;
-		extern const char* LOG_UTXOS;
+        extern const char* LOG_UTXOS;
         extern const char* VERSION;
         extern const char* VERSION_FULL;
         extern const char* GIT_COMMIT_HASH;
@@ -100,21 +100,32 @@ namespace beam
         extern const char* EXPORT_ADDRESSES;
         extern const char* IMPORT_ADDRESSES;
         extern const char* IMPORT_EXPORT_PATH;
-        extern const char* NO_FAST_SYNC;
-        extern const char* API_USE_HTTP;
+        extern const char* IP_WHITELIST;
+        extern const char* HORIZON_HI;
+        extern const char* HORIZON_LO;
         extern const char* SWAP_COINS;
         extern const char* SWAP_LISTEN;
         extern const char* SWAP_AMOUNT;
         extern const char* SWAP_BEAM_SIDE;
- // treasury
+
+
+        // wallet api
+        extern const char* API_USE_HTTP;
+        extern const char* API_USE_TLS;
+        extern const char* API_TLS_CERT;
+        extern const char* API_TLS_KEY;
+        extern const char* API_USE_ACL;
+        extern const char* API_ACL_PATH;
+
+        // treasury
         extern const char* TR_OPCODE;
         extern const char* TR_WID;
         extern const char* TR_PERC;
-		extern const char* TR_PERC_TOTAL;
-		extern const char* TR_COMMENT;
-		extern const char* TR_M;
-		extern const char* TR_N;
-		// ui
+        extern const char* TR_PERC_TOTAL;
+        extern const char* TR_COMMENT;
+        extern const char* TR_M;
+        extern const char* TR_N;
+        // ui
         extern const char* APPDATA_PATH;
     }
 
@@ -130,7 +141,11 @@ namespace beam
 
     std::pair<po::options_description, po::options_description> createOptionsDescription(int flags = ALL_OPTIONS);
 
+    po::options_description createRulesOptionsDescription();
+
     po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options, bool walletOptions = false);
+
+    void getRulesOptions(po::variables_map& vm);
 
     int getLogLevel(const std::string &dstLog, const po::variables_map& vm, int defaultValue = LOG_LEVEL_DEBUG);
 

@@ -45,7 +45,7 @@ class WalletClient
     , private IWalletModelAsync
 {
 public:
-    WalletClient(beam::IWalletDB::Ptr walletDB, const std::string& nodeAddr);
+    WalletClient(beam::IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor);
     virtual ~WalletClient();
 
     void start();
@@ -69,6 +69,7 @@ protected:
     virtual void FailedToStartWallet() = 0;
     virtual void onSendMoneyVerified() = 0;
     virtual void onCantSendToExpired() = 0;
+    virtual void onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof) = 0;
 
 private:
 
@@ -95,6 +96,7 @@ private:
     void changeWalletPassword(const beam::SecString& password) override;
     void getNetworkStatus() override;
     void refresh() override;
+    void exportPaymentProof(const beam::TxID& id) override;
 
     WalletStatus getStatus() const;
     std::vector<beam::Coin> getUtxos() const;

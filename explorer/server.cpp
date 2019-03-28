@@ -37,13 +37,14 @@ enum Dirs {
 
 } //namespace
 
-Server::Server(IAdapter& adapter, io::Reactor& reactor, io::Address bindAddress, const std::string& keysFileName) :
+Server::Server(IAdapter& adapter, io::Reactor& reactor, io::Address bindAddress, const std::string& keysFileName, const std::vector<uint32_t>& whitelist) :
     _msgCreator(2000),
     _backend(adapter),
     _reactor(reactor),
     _timers(reactor, 100),
     _bindAddress(bindAddress),
-    _acl(keysFileName) //TODO
+    _acl(keysFileName), //TODO
+    _whitelist(whitelist)
 {
     _timers.set_timer(SERVER_RESTART_TIMER, 0, BIND_THIS_MEMFN(start_server));
     _timers.set_timer(ACL_REFRESH_TIMER, ACL_REFRESH_INTERVAL, BIND_THIS_MEMFN(refresh_acl));
@@ -70,8 +71,19 @@ void Server::refresh_acl() {
 
 void Server::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode) {
     if (errorCode == 0) {
-        newStream->enable_keepalive(1);
+
         auto peer = newStream->peer_address();
+
+        if (!_whitelist.empty())
+        {
+            if (std::find(_whitelist.begin(), _whitelist.end(), peer.ip()) == _whitelist.end())
+            {
+                LOG_WARNING() << peer.str() << " not in IP whitelist, closing";
+                return;
+            }
+        }
+
+        newStream->enable_keepalive(1);
         LOG_DEBUG() << STS << "+peer " << peer;
         _connections[peer.u64()] = std::make_unique<HttpConnection>(
             peer.u64(),
@@ -153,10 +165,31 @@ bool Server::send_status(const HttpConnection::Ptr& conn) {
 }
 
 bool Server::send_block(const HttpConnection::Ptr &conn) {
-    auto height = _currentUrl.get_int_arg("height", 0);
-    if (!_backend.get_block(_body, height)) {
-        return send(conn, 500, "Internal error #2");
+
+    if (_currentUrl.has_arg("hash"))
+    {
+        ByteBuffer hash;
+
+        if (!_currentUrl.get_hex_arg("hash", hash) || !_backend.get_block_by_hash(_body, hash)) {
+            return send(conn, 500, "Internal error #2");
+        }
     }
+    else if (_currentUrl.has_arg("kernel"))
+    {
+        ByteBuffer kernel;
+
+        if (!_currentUrl.get_hex_arg("kernel", kernel) || !_backend.get_block_by_kernel(_body, kernel)) {
+            return send(conn, 500, "Internal error #2");
+        }
+    }
+    else 
+    {
+        auto height = _currentUrl.get_int_arg("height", 0);
+        if (!_backend.get_block(_body, height)) {
+            return send(conn, 500, "Internal error #2");
+        }
+    }
+
     return send(conn, 200, "OK");
 }
 

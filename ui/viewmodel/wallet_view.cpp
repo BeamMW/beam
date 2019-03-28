@@ -40,7 +40,15 @@ namespace
     }
 }
 
-TxObject::TxObject(const TxDescription& tx) : m_tx(tx)
+TxObject::TxObject(QObject* parent /*= nullptr*/)
+    : QObject(parent)
+{
+
+}
+
+TxObject::TxObject(const TxDescription& tx, QObject* parent/* = nullptr*/)
+    : QObject(parent)
+    , m_tx(tx)
 {
     auto kernelID = QString::fromStdString(to_hex(m_tx.m_kernelID.m_pData, m_tx.m_kernelID.nBytes));
     setKernelID(kernelID);
@@ -94,36 +102,7 @@ QString TxObject::change() const
 
 QString TxObject::status() const
 {
-    switch (m_tx.m_status)
-    {
-    case TxStatus::Pending:
-        return tr("pending");
-    case TxStatus::InProgress:
-        return income() ? tr("waiting for sender") : tr("waiting for receiver");
-    case TxStatus::Registering:
-        return income() ? tr("receiving") : tr("sending");
-    case TxStatus::Completed:
-    {
-        if (m_tx.m_selfTx)
-        {
-            return tr("completed");
-        }
-        return income() ? tr("received") : tr("sent");
-    }
-    case TxStatus::Cancelled:
-        return tr("cancelled");
-    case TxStatus::Failed:
-        if (TxFailureReason::TransactionExpired == m_tx.m_failureReason)
-        {
-            return tr("expired");
-        }
-        return tr("failed");
-    default:
-        break;
-    }
-
-    assert(false && "Unknown TX status!");
-    return tr("unknown");
+    return m_tx.getStatusString().c_str();
 }
 
 bool TxObject::canCancel() const
@@ -226,12 +205,14 @@ QString TxObject::getFailureReason() const
             tr("Failed to register transaction with the blockchain, see node logs for details"),
             tr("Transaction is not valid, please send wallet logs to Beam support"),
             tr("Invalid kernel proof provided"),
-            tr("Failed to send tx parameters"),
+            tr("Failed to send Transaction parameters"),
             tr("No inputs"),
             tr("Address is expired"),
-            tr("Failed to get parameter"),
+            tr("Failed to get transaction parameters"),
             tr("Transaction timed out"),
-            tr("Payment not signed by the receiver, please send wallet logs to Beam support")
+            tr("Payment not signed by the receiver, please send wallet logs to Beam support"),
+            tr("Kernel maximum height is too high"),
+            tr("Transaction has invalid state")
         };
 
         return Reasons[getTxDescription().m_failureReason];
@@ -247,6 +228,11 @@ void TxObject::setFailureReason(beam::TxFailureReason reason)
         m_tx.m_failureReason = reason;
         emit failureReasonChanged();
     }
+}
+
+bool TxObject::hasPaymentProof() const
+{
+    return !income() && m_tx.m_status == TxStatus::Completed;
 }
 
 void TxObject::update(const beam::TxDescription& tx)
@@ -280,6 +266,90 @@ bool TxObject::isSelfTx() const
     return m_tx.m_selfTx;
 }
 
+PaymentInfoItem* TxObject::getPaymentInfo()
+{
+    return new MyPaymentInfoItem(m_tx.m_txId, this);
+}
+
+//////////
+// PaymentInfoItem
+PaymentInfoItem::PaymentInfoItem(QObject* parent /*= nullptr*/)
+    : QObject(parent)
+{
+
+}
+
+QString PaymentInfoItem::getSender() const
+{
+    return toString(m_paymentInfo.m_Sender);
+}
+
+QString PaymentInfoItem::getReceiver() const
+{
+    return toString(m_paymentInfo.m_Receiver);
+}
+
+QString PaymentInfoItem::getAmount() const
+{
+    return BeamToString(m_paymentInfo.m_Amount);
+}
+
+QString PaymentInfoItem::getKernelID() const
+{
+    return toString(m_paymentInfo.m_KernelID);
+}
+
+bool PaymentInfoItem::isValid() const
+{
+    return m_paymentInfo.IsValid();
+}
+
+QString PaymentInfoItem::getPaymentProof() const
+{
+    return m_paymentProof;
+}
+
+void PaymentInfoItem::setPaymentProof(const QString& value)
+{
+    if (m_paymentProof != value)
+    {
+        m_paymentProof = value;
+        try
+        {
+            m_paymentInfo = wallet::PaymentInfo::FromByteBuffer(from_hex(m_paymentProof.toStdString()));
+            emit paymentProofChanged();
+        }
+        catch (...)
+        {
+            reset();
+        }
+    }
+}
+
+void PaymentInfoItem::reset()
+{
+    m_paymentInfo.Reset();
+    emit paymentProofChanged();
+}
+
+//////////
+// MyPaymentInfoItem
+MyPaymentInfoItem::MyPaymentInfoItem(const TxID& txID, QObject* parent/* = nullptr*/)
+    : PaymentInfoItem(parent)
+{
+    auto model = AppModel::getInstance()->getWallet();
+    connect(model.get(), SIGNAL(paymentProofExported(const beam::TxID&, const QString&)), SLOT(onPaymentProofExported(const beam::TxID&, const QString&)));
+    model->getAsync()->exportPaymentProof(txID);
+}
+
+void MyPaymentInfoItem::onPaymentProofExported(const beam::TxID& txID, const QString& proof)
+{
+    setPaymentProof(proof);
+}
+
+
+//////////
+// WalletViewModel
 WalletViewModel::WalletViewModel()
     : _model(*AppModel::getInstance()->getWallet())
     , _status{ 0, 0, 0, 0, {0, 0, 0}, {} }
@@ -314,7 +384,7 @@ WalletViewModel::WalletViewModel()
 
 WalletViewModel::~WalletViewModel()
 {
-
+    qDeleteAll(_txList);
 }
 
 void WalletViewModel::cancelTx(TxObject* pTxObject)
@@ -406,13 +476,16 @@ void WalletViewModel::onStatus(const WalletStatus& status)
 
 void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<TxDescription>& items)
 {
+    QList<TxObject*> deletedObjects;
     if (action == beam::ChangeAction::Reset)
     {
+        deletedObjects.swap(_txList);
         _txList.clear();
         for (const auto& item : items)
         {
             _txList.push_back(new TxObject(item));
         }
+        sortTx();
     }
     else if (action == beam::ChangeAction::Removed)
     {
@@ -421,9 +494,11 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
             auto it = find_if(_txList.begin(), _txList.end(), [&item](const auto& tx) {return item.m_txId == tx->getTxDescription().m_txId; });
             if (it != _txList.end())
             {
+                deletedObjects.push_back(*it);
                 _txList.erase(it);
             }
         }
+        emit transactionsChanged();
     }
     else if (action == beam::ChangeAction::Updated)
     {
@@ -438,6 +513,7 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
             }
             (*txIt)->update(item);
         }
+        sortTx();
     }
     else if (action == beam::ChangeAction::Added)
     {
@@ -446,9 +522,10 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
         {
             _txList.insert(0, new TxObject(item));
         }
+        sortTx();
     }
 
-    sortTx();
+    qDeleteAll(deletedObjects);
 
     // Get info for TxObject::_user_name (get wallets labels)
     _model.getAsync()->getAddresses(false);
@@ -808,8 +885,8 @@ void WalletViewModel::onGeneratedNewAddress(const beam::WalletAddress& addr)
         int qrImageSize = qrEncode.m_nSymbleSize;
         int encodeImageSize = qrImageSize + (QR_MARGIN * 2);
         QImage encodeImage(encodeImageSize, encodeImageSize, QImage::Format_ARGB32);
-        encodeImage.fill(Qt::transparent);
-        QColor color(Qt::white);
+        encodeImage.fill(Qt::white);
+        QColor color(Qt::transparent);
 
         for (int i = 0; i < qrImageSize; i++)
             for (int j = 0; j < qrImageSize; j++)

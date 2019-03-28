@@ -119,7 +119,8 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 	txNew.m_Offset = ECC::Scalar::Native(trg.m_pValue->m_Offset) + ECC::Scalar::Native(src.m_pValue->m_Offset);
 
 #ifdef _DEBUG
-	Transaction::Context ctx;
+	Transaction::Context::Params pars;
+	Transaction::Context ctx(pars);
 	assert(txNew.IsValid(ctx));
 #endif // _DEBUG
 

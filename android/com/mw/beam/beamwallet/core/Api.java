@@ -19,10 +19,13 @@ import  com.mw.beam.beamwallet.core.entities.Wallet;
 public class Api
 {
 	public native boolean isWalletInitialized(String path);	
+    public native void closeWallet();
+    public native boolean isWalletRunning();
 	public native Wallet createWallet(String nodeAddr, String path, String pass, String phrases);
 	public native Wallet openWallet(String nodeAddr, String path, String pass);
 	public native String[] createMnemonic();
     public native boolean checkReceiverAddress(String address);
+    public native String[] getDefaultPeers();
 
 	static 
 	{

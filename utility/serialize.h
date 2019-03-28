@@ -51,7 +51,7 @@ public:
     }
 
     SerializeBuffer buffer() {
-        return { (const char*) &_os.m_vec.at(0), _os.m_vec.size() };
+        return { _os.buf, _os.cur - _os.buf};
     }
 
     template <typename T> StaticBufferSerializer& operator&(const T& object) {

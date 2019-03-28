@@ -54,6 +54,10 @@ else()
     endif()
 endif()
 
+if(Boost_FOUND)
+    target_link_libraries(${TARGET_NAME} boost)
+endif()
+
 if(MSVC)
     target_compile_options(${TARGET_NAME} PUBLIC "/wd4245")
     target_compile_options(${TARGET_NAME} PUBLIC "/wd4505")

@@ -21,6 +21,7 @@
 #include <assert.h>
 
 #include "utility/logger.h"
+#include "utility/helpers.h"
 
 namespace beam {
 
@@ -101,6 +102,24 @@ int64_t HttpUrl::get_int_arg(const std::string_view& name, int64_t defValue) con
     int64_t ret = strtol(val.data(), &e, 10);
     if (size_t(e - val.data()) != val.size()) return defValue;
     return ret;
+}
+
+bool HttpUrl::get_hex_arg(const std::string_view& name, ByteBuffer& buffer) const
+{
+    auto it = args.find(name);
+    if (it == args.end()) return false;
+    const auto& val = it->second;
+    if (val.empty()) return false;
+
+    bool isValid = false;
+    buffer = from_hex(val.data(), &isValid);
+
+    return isValid;
+}
+
+bool HttpUrl::has_arg(const std::string_view& name) const
+{
+    return args.find(name) != args.end();
 }
 
 std::string HttpMsgReader::Message::error_str() const {

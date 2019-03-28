@@ -36,9 +36,6 @@ namespace beam
         const char* STRATUM_USE_TLS = "stratum_use_tls";
         const char* STORAGE = "storage";
         const char* WALLET_STORAGE = "wallet_path";
-        const char* HISTORY = "history_dir";
-        const char* TEMP = "temp_dir";
-        const char* IMPORT = "import";
         const char* MINING_THREADS = "mining_threads";
         const char* VERIFICATION_THREADS = "verification_threads";
         const char* NODE_PEER = "peer";
@@ -57,14 +54,17 @@ namespace beam
         const char* TREASURY = "treasury";
         const char* TREASURY_BLOCK = "treasury_path";
         const char* RESYNC = "resync";
+        const char* CHECKDB = "check_db";
         const char* CRASH = "crash";
         const char* INIT = "init";
         const char* RESTORE = "restore";
         const char* EXPORT_MINER_KEY = "export_miner_key";
         const char* EXPORT_OWNER_KEY = "export_owner_key";
         const char* KEY_SUBKEY = "subkey";
-        const char* KEY_OWNER = "key_owner";
-        const char* KEY_MINE= "key_mine";
+        const char* KEY_OWNER = "key_owner";  // deprecated
+        const char* OWNER_KEY = "owner_key";
+        const char* KEY_MINE = "key_mine"; // deprecated
+        const char* MINER_KEY = "miner_key";
         const char* BBS_ENABLE = "bbs_enable";
         const char* NEW_ADDRESS = "new_addr";
         const char* NEW_ADDRESS_COMMENT = "comment";
@@ -73,10 +73,10 @@ namespace beam
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
         const char* CANCEL_TX = "cancel_tx";
-		const char* PAYMENT_PROOF_EXPORT = "payment_proof_export";
-		const char* PAYMENT_PROOF_VERIFY = "payment_proof_verify";
-		const char* PAYMENT_PROOF_DATA = "payment_proof";
-		const char* PAYMENT_PROOF_REQUIRED = "payment_proof_required";
+        const char* PAYMENT_PROOF_EXPORT = "payment_proof_export";
+        const char* PAYMENT_PROOF_VERIFY = "payment_proof_verify";
+        const char* PAYMENT_PROOF_DATA = "payment_proof";
+        const char* PAYMENT_PROOF_REQUIRED = "payment_proof_required";
         const char* TX_ID = "tx_id";
         const char* SEED_PHRASE = "seed_phrase";
         const char* GENERATE_PHRASE = "generate_phrase";
@@ -89,7 +89,7 @@ namespace beam
         const char* LOG_DEBUG = "debug";
         const char* LOG_VERBOSE = "verbose";
         const char* LOG_CLEANUP_DAYS = "log_cleanup_days";
-		const char* LOG_UTXOS = "log_utxos";
+        const char* LOG_UTXOS = "log_utxos";
         const char* VERSION = "version";
         const char* VERSION_FULL = "version,v";
         const char* GIT_COMMIT_HASH = "git_commit_hash";
@@ -101,48 +101,47 @@ namespace beam
         const char* EXPORT_ADDRESSES = "export_addresses";
         const char* IMPORT_ADDRESSES = "import_addresses";
         const char* IMPORT_EXPORT_PATH = "file_location";
-        const char* NO_FAST_SYNC = "no_fast_sync";
-        const char* API_USE_HTTP = "api_use_http";
+        const char* IP_WHITELIST = "ip_whitelist";
+        const char* HORIZON_HI = "horizon_hi";
+        const char* HORIZON_LO = "horizon_lo";
         const char* SWAP_COINS = "swap_coins";
         const char* SWAP_LISTEN = "swap_listen";
         const char* SWAP_AMOUNT = "swap_amount";
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
 
+        // wallet api
+        const char* API_USE_HTTP = "use_http";
+        const char* API_USE_TLS = "use_tls";
+        const char* API_TLS_CERT = "tls_cert";
+        const char* API_TLS_KEY = "tls_key";
+        const char* API_USE_ACL= "use_acl";
+        const char* API_ACL_PATH = "acl_path";
+
         // treasury
         const char* TR_OPCODE = "tr_op";
         const char* TR_WID = "tr_wid";
         const char* TR_PERC = "tr_pecents";
-		const char* TR_PERC_TOTAL = "tr_pecents_total";
-		const char* TR_COMMENT = "tr_comment";
-		const char* TR_M = "tr_M";
-		const char* TR_N = "tr_N";
-		// ui
+        const char* TR_PERC_TOTAL = "tr_pecents_total";
+        const char* TR_COMMENT = "tr_comment";
+        const char* TR_M = "tr_M";
+        const char* TR_N = "tr_N";
+        // ui
         const char* APPDATA_PATH = "appdata";
     }
 
-	template <typename T> struct TypeCvt {
+    template <typename T> struct TypeCvt {
 
-		static const T& get(const T& x) {
-			return x;
-		}
+        static const T& get(const T& x) {
+            return x;
+        }
 
-		static const T& get(const Difficulty& x) {
-			return x.m_Packed;
-		}
-	};
+        static const T& get(const Difficulty& x) {
+            return x.m_Packed;
+        }
+    };
 
     pair<po::options_description, po::options_description> createOptionsDescription(int flags)
     {
-#ifdef WIN32
-        char szLocalDir[] = ".\\";
-        char szTempDir[MAX_PATH] = { 0 };
-        GetTempPath(_countof(szTempDir), szTempDir);
-
-#else // WIN32
-        char szLocalDir[] = "./";
-        char szTempDir[] = "/tmp/";
-#endif // WIN32
-
         po::options_description general_options("General options");
         general_options.add_options()
             (cli::HELP_FULL, "list of all options")
@@ -156,8 +155,6 @@ namespace beam
         node_options.add_options()
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
             (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
-            (cli::HISTORY, po::value<string>()->default_value(szLocalDir), "directory for compressed history")
-            (cli::TEMP, po::value<string>()->default_value(szTempDir), "temp directory for compressed history, must be on the same volume")
             (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
 
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
@@ -165,15 +162,18 @@ namespace beam
             (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
             (cli::STRATUM_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on startum server")
-            (cli::IMPORT, po::value<Height>()->default_value(0), "Specify the blockchain height to import. The compressed history is asumed to be downloaded the the specified directory")
             (cli::RESYNC, po::value<bool>()->default_value(false), "Enforce re-synchronization (soft reset)")
+            (cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check and compact (vacuum)")
             (cli::BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS messaging")
             (cli::CRASH, po::value<int>()->default_value(0), "Induce crash (test proper handling)")
-            (cli::KEY_OWNER, po::value<string>(), "Owner viewer key")
-            (cli::KEY_MINE, po::value<string>(), "Standalone miner key")
+            (cli::OWNER_KEY, po::value<string>(), "Owner viewer key")
+            (cli::KEY_OWNER, po::value<string>(), "Owner viewer key (deprecated)")
+            (cli::MINER_KEY, po::value<string>(), "Standalone miner key")
+            (cli::KEY_MINE, po::value<string>(), "Standalone miner key (deprecated)")
             (cli::PASS, po::value<string>(), "password for keys")
-            (cli::NO_FAST_SYNC, "ignode fast sync mechanism")
-			(cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
+            (cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
+            (cli::HORIZON_HI, po::value<Height>()->default_value(MaxHeight), "spent TXO Hi-Horizon")
+            (cli::HORIZON_LO, po::value<Height>()->default_value(MaxHeight), "spent TXO Lo-Horizon")
             ;
 
         po::options_description node_treasury_options("Node treasury options");
@@ -199,10 +199,9 @@ namespace beam
             (cli::EXPIRATION_TIME, po::value<string>()->default_value("24h"), "expiration time for new own address [24h|never]")
             (cli::GENERATE_PHRASE, "command to generate phrases which will be used to create a secret according to BIP-39")
             (cli::KEY_SUBKEY, po::value<uint32_t>()->default_value(0), "Child key index.")
-            (cli::CHANGE_ADDRESS_EXPIRATION, po::value<string>(), "change address expiration")
             (cli::WALLET_ADDR, po::value<string>()->default_value("*"), "wallet address")
-			(cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
-			(cli::PAYMENT_PROOF_REQUIRED, po::value<bool>(), "Set to disallow outgoing payments if the receiver doesn't supports the payment proof (older wallets)")
+            (cli::PAYMENT_PROOF_DATA, po::value<string>(), "payment proof data to verify")
+            (cli::PAYMENT_PROOF_REQUIRED, po::value<bool>(), "Set to disallow outgoing payments if the receiver doesn't supports the payment proof (older wallets)")
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("addresses.dat"), "path to import or export data (import_addresses|export_addresses)")
             (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses|swap_coins|swap_listen]")
@@ -214,38 +213,15 @@ namespace beam
             (cli::TR_OPCODE, po::value<uint32_t>()->default_value(0), "treasury operation: 0=print ID, 1=plan, 2=response, 3=import, 4=generate, 5=print")
             (cli::TR_WID, po::value<std::string>(), "treasury WalletID")
             (cli::TR_PERC, po::value<double>(), "treasury percent of the total emission, designated to this WalletID")
-			(cli::TR_PERC_TOTAL, po::value<double>(), "Total treasury percent of the total emission")
-			(cli::TR_M, po::value<uint32_t>()->default_value(0), "naggle index")
-			(cli::TR_N, po::value<uint32_t>()->default_value(1), "naggle count")
-			(cli::TR_COMMENT, po::value<std::string>(), "treasury custom message");
+            (cli::TR_PERC_TOTAL, po::value<double>(), "Total treasury percent of the total emission")
+            (cli::TR_M, po::value<uint32_t>()->default_value(0), "naggle index")
+            (cli::TR_N, po::value<uint32_t>()->default_value(1), "naggle count")
+            (cli::TR_COMMENT, po::value<std::string>(), "treasury custom message");
 
         po::options_description uioptions("UI options");
         uioptions.add_options()
             (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken())
             (cli::APPDATA_PATH, po::value<string>());
-
-#define RulesParams(macro) \
-    macro(Amount, Emission.Value0, "initial coinbase emission in a single block") \
-    macro(Amount, Emission.Drop0, "height of the last block that still has the initial emission, the drop is starting from the next block") \
-    macro(Amount, Emission.Drop1, "Each such a cycle there's a new drop") \
-    macro(Height, Maturity.Coinbase, "num of blocks before coinbase UTXO can be spent") \
-    macro(Height, Maturity.Std, "num of blocks before non-coinbase UTXO can be spent") \
-    macro(size_t, MaxBodySize, "Max block body size [bytes]") \
-    macro(uint32_t, DA.Target_s, "Desired rate of generated blocks [seconds]") \
-    macro(uint32_t, DA.MaxAhead_s, "Block timestamp tolerance [seconds]") \
-    macro(uint32_t, DA.WindowWork, "num of blocks in the window for the mining difficulty adjustment") \
-    macro(uint32_t, DA.WindowMedian0, "How many blocks are considered in calculating the timestamp median") \
-    macro(uint32_t, DA.WindowMedian1, "Num of blocks taken at both endings of WindowWork, to pick medians") \
-    macro(uint32_t, DA.Difficulty0, "Initial difficulty") \
-    macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
-    macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
-
-#define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
-
-        po::options_description rules_options("Rules configuration");
-        rules_options.add_options() RulesParams(THE_MACRO);
-
-#undef THE_MACRO
 
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };
@@ -272,9 +248,38 @@ namespace beam
             visible_options.add(uioptions);
         }
 
+        po::options_description rules_options = createRulesOptionsDescription();
         options.add(rules_options);
         visible_options.add(rules_options);
         return { options, visible_options };
+    }
+
+    po::options_description createRulesOptionsDescription()
+    {
+        #define RulesParams(macro) \
+            macro(Amount, Emission.Value0, "initial coinbase emission in a single block") \
+            macro(Amount, Emission.Drop0, "height of the last block that still has the initial emission, the drop is starting from the next block") \
+            macro(Amount, Emission.Drop1, "Each such a cycle there's a new drop") \
+            macro(Height, Maturity.Coinbase, "num of blocks before coinbase UTXO can be spent") \
+            macro(Height, Maturity.Std, "num of blocks before non-coinbase UTXO can be spent") \
+            macro(size_t, MaxBodySize, "Max block body size [bytes]") \
+            macro(uint32_t, DA.Target_s, "Desired rate of generated blocks [seconds]") \
+            macro(uint32_t, DA.MaxAhead_s, "Block timestamp tolerance [seconds]") \
+            macro(uint32_t, DA.WindowWork, "num of blocks in the window for the mining difficulty adjustment") \
+            macro(uint32_t, DA.WindowMedian0, "How many blocks are considered in calculating the timestamp median") \
+            macro(uint32_t, DA.WindowMedian1, "Num of blocks taken at both endings of WindowWork, to pick medians") \
+            macro(uint32_t, DA.Difficulty0, "Initial difficulty") \
+            macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
+            macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only")
+
+        #define THE_MACRO(type, name, comment) (#name, po::value<type>()->default_value(TypeCvt<type>::get(Rules::get().name)), comment)
+
+            po::options_description rules_options("Rules configuration");
+            rules_options.add_options() RulesParams(THE_MACRO);
+
+        #undef THE_MACRO
+
+        return rules_options;
     }
 
     po::variables_map getOptions(int argc, char* argv[], const char* configFile, const po::options_description& options, bool walletOptions)
@@ -283,6 +288,7 @@ namespace beam
         po::positional_options_description positional;
         po::command_line_parser parser(argc, argv);
         parser.options(options);
+        parser.style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing);
         if (walletOptions)
         {
             positional.add(cli::COMMAND, 1);
@@ -299,12 +305,16 @@ namespace beam
             }
         }
 
+        getRulesOptions(vm);
 
+        return vm;
+    }
+
+    void getRulesOptions(po::variables_map& vm)
+    {
         #define THE_MACRO(type, name, comment) Rules::get().name = vm[#name].as<type>();
                 RulesParams(THE_MACRO);
         #undef THE_MACRO
-
-        return vm;
     }
 
     int getLogLevel(const std::string &dstLog, const po::variables_map& vm, int defaultValue)

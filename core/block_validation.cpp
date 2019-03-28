@@ -18,18 +18,20 @@ namespace beam
 {
 	/////////////
 	// Transaction
+	TxBase::Context::Params::Params()
+	{
+		ZeroObject(*this);
+		m_bVerifyOrder = true;
+		m_nVerifiers = 1;
+	}
+
 	void TxBase::Context::Reset()
 	{
 		m_Sigma = Zero;
-
-		ZeroObject(m_Fee);
-		ZeroObject(m_Coinbase);
+		m_Fee = Zero;
+		m_Coinbase = Zero;
 		m_Height.Reset();
-		m_bBlockMode = false;
-		m_bVerifyOrder = true;
-		m_nVerifiers = 1;
 		m_iVerifier = 0;
-		m_pAbort = NULL;
 	}
 
 	bool TxBase::Context::ShouldVerify(uint32_t& iV) const
@@ -40,13 +42,13 @@ namespace beam
 			return false;
 		}
 
-		iV = m_nVerifiers - 1;
+		iV = m_Params.m_nVerifiers - 1;
 		return true;
 	}
 
 	bool TxBase::Context::ShouldAbort() const
 	{
-		return m_pAbort && *m_pAbort;
+		return m_Params.m_pAbort && *m_Params.m_pAbort;
 	}
 
 	bool TxBase::Context::HandleElementHeight(const HeightRange& hr)
@@ -56,7 +58,7 @@ namespace beam
 		if (r.IsEmpty())
 			return false;
 
-		if (!m_bBlockMode)
+		if (!m_Params.m_bBlockMode)
 			m_Height = r; // shrink permitted range
 
 		return true;
@@ -64,7 +66,7 @@ namespace beam
 
 	bool TxBase::Context::Merge(const Context& x)
 	{
-		assert(m_bBlockMode == x.m_bBlockMode);
+		assert(m_Params.m_bBlockMode == x.m_Params.m_bBlockMode);
 
 		if (!HandleElementHeight(x.m_Height))
 			return false;
@@ -80,9 +82,11 @@ namespace beam
 		if (m_Height.IsEmpty())
 			return false;
 
+		ECC::Mode::Scope scope(ECC::Mode::Fast);
+
 		m_Sigma = -m_Sigma;
 
-		assert(m_nVerifiers);
+		assert(m_Params.m_nVerifiers);
 		uint32_t iV = m_iVerifier;
 
 		// Inputs
@@ -97,7 +101,7 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (m_bVerifyOrder)
+				if (m_Params.m_bVerifyOrder)
 				{
 					if (pPrev && (*pPrev > *r.m_pUtxoIn))
 						return false;
@@ -133,21 +137,38 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (m_bVerifyOrder && pPrev && (*pPrev > *r.m_pUtxoOut))
+				if (m_Params.m_bVerifyOrder && pPrev && (*pPrev > *r.m_pUtxoOut))
 					return false;
 
-				if (!r.m_pUtxoOut->IsValid(pt))
-					return false;
+				bool bSigned = r.m_pUtxoOut->m_pConfidential || r.m_pUtxoOut->m_pPublic;
+
+				if (bSigned)
+				{
+					if (!r.m_pUtxoOut->IsValid(pt))
+						return false;
+				}
+				else
+				{
+					// unsigned output
+					if (!m_Params.m_bAllowUnsignedOutputs)
+						return false;
+
+					if (!pt.Import(r.m_pUtxoOut->m_Commitment))
+						return false;
+				}
 
 				m_Sigma += pt;
 
 				if (r.m_pUtxoOut->m_Coinbase)
 				{
-					if (!m_bBlockMode)
+					if (!m_Params.m_bBlockMode)
 						return false; // regular transactions should not produce coinbase outputs, only the miner should do this.
 
-					assert(r.m_pUtxoOut->m_pPublic); // must have already been checked
-					m_Coinbase += uintBigFrom(r.m_pUtxoOut->m_pPublic->m_Value);
+					if (bSigned)
+					{
+						assert(r.m_pUtxoOut->m_pPublic); // must have already been checked
+						m_Coinbase += uintBigFrom(r.m_pUtxoOut->m_pPublic->m_Value);
+					}
 				}
 			}
 		}
@@ -159,7 +180,7 @@ namespace beam
 
 			if (ShouldVerify(iV))
 			{
-				if (m_bVerifyOrder && pPrev && (*pPrev > *r.m_pKernel))
+				if (m_Params.m_bVerifyOrder && pPrev && (*pPrev > *r.m_pKernel))
 					return false;
 
 				if (!r.m_pKernel->IsValid(m_Fee, m_Sigma))
@@ -170,7 +191,7 @@ namespace beam
 			}
 		}
 
-		if (ShouldVerify(iV))
+		if (ShouldVerify(iV) && !(txb.m_Offset.m_Value == Zero))
 			m_Sigma += ECC::Context::get().G * txb.m_Offset;
 
 		assert(!m_Height.IsEmpty());
@@ -185,7 +206,7 @@ namespace beam
 		return m_Sigma == Zero;
 	}
 
-	bool TxBase::Context::IsValidBlock(const Block::BodyBase& bb)
+	bool TxBase::Context::IsValidBlock()
 	{
 		AmountBig::Type subsTotal, subsLocked;
 		Rules::get_Emission(subsTotal, m_Height);
@@ -197,20 +218,23 @@ namespace beam
 		if (!(m_Sigma == Zero))
 			return false;
 
-		// Subsidy is bounded by num of blocks multiplied by coinbase emission
-		// There must at least some unspent coinbase UTXOs wrt maturity settings
-		if (m_Height.m_Max - m_Height.m_Min < Rules::get().Maturity.Coinbase)
-			subsLocked = subsTotal;
-		else
+		if (!m_Params.m_bAllowUnsignedOutputs)
 		{
-			HeightRange hr;
-			hr.m_Min = m_Height.m_Max - Rules::get().Maturity.Coinbase;
-			hr.m_Max = m_Height.m_Max;
-			Rules::get_Emission(subsLocked, hr);
-		}
+			// Subsidy is bounded by num of blocks multiplied by coinbase emission
+			// There must at least some unspent coinbase UTXOs wrt maturity settings
+			if (m_Height.m_Max - m_Height.m_Min < Rules::get().Maturity.Coinbase)
+				subsLocked = subsTotal;
+			else
+			{
+				HeightRange hr;
+				hr.m_Min = m_Height.m_Max - Rules::get().Maturity.Coinbase;
+				hr.m_Max = m_Height.m_Max;
+				Rules::get_Emission(subsLocked, hr);
+			}
 
-		if (m_Coinbase < subsLocked)
-			return false;
+			if (m_Coinbase < subsLocked)
+				return false;
+		}
 
 		return true;
 	}

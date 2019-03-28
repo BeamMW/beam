@@ -814,8 +814,10 @@ void NodeConnection::VerifyCfg(const Login& msg)
 	}
 	else
 	{
-		if (!(proto::LoginFlags::Extension1 & msg.m_Flags)) {
-			LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses older protocol.";
+		const uint8_t nMask = proto::LoginFlags::Extension1 | proto::LoginFlags::Extension2;
+		uint8_t nFlags = nMask & msg.m_Flags;
+		if (nFlags != nMask) {
+			LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses older protocol: " << static_cast<uint32_t>(nFlags);
 		}
 	}
 }

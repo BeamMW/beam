@@ -43,44 +43,71 @@ namespace beam::wallet
         bool isSender = GetMandatoryParameter<bool>(TxParameterID::IsSender);
         bool isSelfTx = IsSelfTx();
         State txState = GetState();
-
         AmountList amoutList;
         if (!GetParameter(TxParameterID::AmountList, amoutList))
         {
             amoutList = AmountList{ GetMandatoryParameter<Amount>(TxParameterID::Amount) };
         }
 
-        BaseTxBuilder builder{ *this, kDefaultSubTxID, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee) };
+        auto sharedBuilder = make_shared<BaseTxBuilder>(*this, kDefaultSubTxID, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
+        BaseTxBuilder& builder = *sharedBuilder;
+
+        bool newGenerated = builder.GenerateBlindingExcess();
+        if (newGenerated && txState != State::Initial)
+        {
+            OnFailed(TxFailureReason::InvalidState);
+            return;
+        }
         if (!builder.GetInitialTxParams() && txState == State::Initial)
         {
-            LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ") << PrintableAmount(builder.GetAmount()) << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
-
-            if (CheckExpired())
+            if (m_CompletedEvent)
             {
                 return;
             }
+            LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ")
+                << PrintableAmount(builder.GetAmount())
+                << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
 
             if (isSender)
             {
+                Height maxResponseHeight = 0;
+                if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight))
+                {
+                    LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
+                }
+                
                 builder.SelectInputs();
-                builder.AddChangeOutput();
+                builder.AddChange();
             }
 
             if (isSelfTx || !isSender)
             {
                 // create receiver utxo
-                for (auto& amount : builder.GetAmountList())
+                for (const auto& amount : builder.GetAmountList())
                 {
-                    builder.AddOutput(amount, false);
+                    builder.GenerateNewCoin(amount, false);
                 }
             }
 
-            if (!builder.FinalizeOutputs())
-            {
-                // TODO: transaction is too big :(
-            }
-
             UpdateTxDescription(TxStatus::InProgress);
+            
+            if (!builder.GetCoins().empty())
+            {
+                m_CompletedEvent = io::AsyncEvent::create(io::Reactor::get_Current(), [this, sharedBuilder]() mutable
+                {
+                    if (!sharedBuilder->FinalizeOutputs())
+                    {
+                        //TODO: transaction is too big :(
+                    }
+                    Update();
+                });
+                m_OutputsFuture = async(launch::async, [this, sharedBuilder]() mutable
+                {
+                    sharedBuilder->CreateOutputs();
+                    m_CompletedEvent->post();
+                });
+                return;
+            }
         }
 
         uint64_t nAddrOwnID;
@@ -95,7 +122,7 @@ namespace beam::wallet
             }
         }
 
-        builder.CreateKernel();
+        builder.GenerateNonce();
         
         if (!isSelfTx && !builder.GetPeerPublicExcessAndNonce())
         {
@@ -105,9 +132,17 @@ namespace beam::wallet
                 SendInvitation(builder, isSender);
                 SetState(State::Invitation);
             }
+            UpdateOnNextTip();
             return;
         }
 
+        if (!builder.UpdateMaxHeight())
+        {
+            OnFailed(TxFailureReason::MaxHeightIsUnacceptable, true);
+            return;
+        }
+
+        builder.CreateKernel();
         builder.SignPartial();
 
         bool hasPeersInputsAndOutputs = builder.GetPeerInputsAndOutputs();
@@ -207,11 +242,17 @@ namespace beam::wallet
                 }
             }
 
+            if (CheckExpired())
+            {
+                return;
+            }
+
             // Construct transaction
             auto transaction = builder.CreateTransaction();
 
             // Verify final transaction
-            TxBase::Context ctx;
+            TxBase::Context::Params pars;
+            TxBase::Context ctx(pars);
             if (!transaction->IsValid(ctx))
             {
                 OnFailed(TxFailureReason::InvalidTransaction, true);
@@ -246,29 +287,22 @@ namespace beam::wallet
             return;
         }
 
-        vector<Coin> modified;
-        m_WalletDB->visit([&](const Coin& coin)
+        vector<Coin> modified = m_WalletDB->getCoinsByTx(GetTxID());
+        for (auto& coin : modified)
         {
             bool bIn = (coin.m_createTxId == m_ID);
             bool bOut = (coin.m_spentTxId == m_ID);
             if (bIn || bOut)
             {
-                modified.emplace_back();
-                Coin& c = modified.back();
-                c = coin;
-
                 if (bIn)
                 {
-                    c.m_confirmHeight = std::min(c.m_confirmHeight, hProof);
-                    c.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
+                    coin.m_confirmHeight = std::min(coin.m_confirmHeight, hProof);
+                    coin.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
                 }
                 if (bOut)
-                    c.m_spentHeight = std::min(c.m_spentHeight, hProof);
+                    coin.m_spentHeight = std::min(coin.m_spentHeight, hProof);
             }
-
-            return true;
-        });
-
+        }
 
         GetWalletDB()->save(modified);
 
@@ -281,7 +315,8 @@ namespace beam::wallet
         msg.AddParameter(TxParameterID::Amount, builder.GetAmount())
             .AddParameter(TxParameterID::Fee, builder.GetFee())
             .AddParameter(TxParameterID::MinHeight, builder.GetMinHeight())
-            .AddParameter(TxParameterID::MaxHeight, builder.GetMaxHeight())
+            .AddParameter(TxParameterID::Lifetime, builder.GetLifetime())
+            .AddParameter(TxParameterID::PeerMaxHeight, builder.GetMaxHeight())
             .AddParameter(TxParameterID::IsSender, !isSender)
             .AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
             .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
@@ -301,7 +336,8 @@ namespace beam::wallet
             .AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
             .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerSignature, builder.GetPartialSignature())
-            .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce());
+            .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce())
+            .AddParameter(TxParameterID::PeerMaxHeight, builder.GetMaxHeight());
         if (sendUtxos)
         {
             msg.AddParameter(TxParameterID::PeerInputs, builder.GetInputs())
@@ -401,4 +437,5 @@ namespace beam::wallet
             return false;
         }
     }
+
 }

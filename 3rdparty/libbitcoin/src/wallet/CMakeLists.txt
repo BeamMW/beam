@@ -29,3 +29,7 @@ else()
     target_compile_options(${TARGET_NAME} PUBLIC -Wno-reorder)
     target_compile_options(${TARGET_NAME} PUBLIC -Wno-unused-but-set-variable)
 endif()
+
+if(Boost_FOUND)
+    target_link_libraries(${TARGET_NAME} boost)
+endif()
