@@ -128,7 +128,7 @@ Dialog {
                     return false;
                 }
                 onClicked: {
-                    parentModel.saveChanges(addressID.text, addressName.text, expires.currentIndex == 1, rootControl.isExpiredAddress, expires.currentIndex == 2);
+                    parentModel.saveChanges(addressID.text, addressName.text, expires.currentIndex == 1, expires.currentIndex == 0, expires.currentIndex == 2);
                     rootControl.accepted();
                     rootControl.close();
                 }
