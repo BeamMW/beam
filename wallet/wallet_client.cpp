@@ -359,18 +359,6 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
 {
     try
     {
-        auto receiverAddr = m_walletDB->getAddress(receiver);
-
-        if (!receiverAddr)
-        {
-            WalletAddress peerAddr;
-            peerAddr.m_walletID = receiver;
-            peerAddr.m_createTime = getTimestamp();
-            peerAddr.m_label = comment;
-
-            saveAddress(peerAddr, false);
-        }
-
         WalletAddress senderAddress = wallet::createAddress(*m_walletDB);
         senderAddress.m_label = comment;
         saveAddress(senderAddress, true); // should update the wallet_network
@@ -381,7 +369,7 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
         auto s = m_wallet.lock();
         if (s)
         {
-            s->transfer_money(senderAddress.m_walletID, receiver, move(amount), move(fee), true, 120, 720, move(message));
+            s->transfer_money(senderAddress.m_walletID, receiver, move(amount), move(fee), true, 120, 720, move(message), true);
         }
 
         onSendMoneyVerified();

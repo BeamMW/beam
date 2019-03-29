@@ -129,17 +129,17 @@ namespace beam
 #undef THE_MACRO
     }
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message)
+    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message, bool saveReceiver)
     {
-        return transfer_money(from, to, AmountList{ amount }, fee, {}, sender, lifetime, responseTime, move(message));
+        return transfer_money(from, to, AmountList{ amount }, fee, {}, sender, lifetime, responseTime, move(message), saveReceiver);
     }
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message)
+    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message, bool saveReceiver)
     {
-        return transfer_money(from, to, AmountList{ amount }, fee, coins, sender, lifetime, responseTime, move(message));
+        return transfer_money(from, to, AmountList{ amount }, fee, coins, sender, lifetime, responseTime, move(message), saveReceiver);
     }
 
-    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message)
+    TxID Wallet::transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee, const CoinIDList& coins, bool sender, Height lifetime, Height responseTime, ByteBuffer&& message, bool saveReceiver)
     {
         auto receiverAddr = m_WalletDB->getAddress(to);
 
@@ -150,6 +150,15 @@ namespace beam
                 LOG_INFO() << "Can't send to the expired address.";
                 throw AddressExpiredException();
             }
+        }
+        else if (saveReceiver)
+        {
+            WalletAddress address;
+            address.m_walletID = to;
+            address.m_createTime = getTimestamp();
+            address.m_label = std::string(message.begin(), message.end());
+
+            m_WalletDB->saveAddress(address);
         }
 
         TxID txID = wallet::GenerateTxID();

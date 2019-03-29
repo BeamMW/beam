@@ -1023,7 +1023,7 @@ int main_impl(int argc, char* argv[])
                         WalletAddress senderAddress = newAddress(walletDB, "");
                         wnet.AddOwnAddress(senderAddress);
                         CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
-                        wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND);
+                        wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, true);
                     }
 
                     if (command == cli::CANCEL_TX) 
