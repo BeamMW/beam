@@ -24,28 +24,36 @@ target_link_libraries(${TARGET_NAME} secp256k1)
 if(ANDROID)
     if(ANDROID_ABI STREQUAL "armeabi-v7a")
         target_link_libraries(${TARGET_NAME} 
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_program_options-clang-mt-a32-1_68.a 
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_filesystem-clang-mt-a32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_system-clang-mt-a32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_thread-clang-mt-a32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_regex-clang-mt-a32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_log-clang-mt-a32-1_68.a)
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-a32-1_68.a 
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-a32-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-a32-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread-clang-mt-a32-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex-clang-mt-a32-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log-clang-mt-a32-1_68.a)
     elseif(ANDROID_ABI STREQUAL "x86")
         target_link_libraries(${TARGET_NAME} 
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_program_options-clang-mt-x32-1_68.a 
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_filesystem-clang-mt-x32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_system-clang-mt-x32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_thread-clang-mt-x32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_regex-clang-mt-x32-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_log-clang-mt-x32-1_68.a)
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-x32-1_68.a 
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-x32-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-x32-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread-clang-mt-x32-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex-clang-mt-x32-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log-clang-mt-x32-1_68.a)
+    elseif(ANDROID_ABI STREQUAL "x86_64")
+        target_link_libraries(utility 
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-x64-1_68.a 
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-x64-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-x64-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread-clang-mt-x64-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex-clang-mt-x64-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log-clang-mt-x64-1_68.a)
     elseif(ANDROID_ABI STREQUAL "arm64-v8a")
         target_link_libraries(${TARGET_NAME} 
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_program_options-clang-mt-a64-1_68.a 
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_filesystem-clang-mt-a64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_system-clang-mt-a64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_thread-clang-mt-a64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_regex-clang-mt-a64-1_68.a
-            $ENV{BOOST_ROOT_ANDROID}/${ANDROID_ABI}/lib/libboost_log-clang-mt-a64-1_68.a)
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-a64-1_68.a 
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-a64-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-a64-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread-clang-mt-a64-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex-clang-mt-a64-1_68.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log-clang-mt-a64-1_68.a)
     endif()
 else()
     find_package(Boost COMPONENTS system thread regex filesystem program_options log locale)
@@ -70,4 +78,4 @@ elseif(ANDROID)
     target_compile_options(${TARGET_NAME} PUBLIC -Wno-tautological-constant-compare)
 endif()
 
-add_subdirectory(examples)
+#add_subdirectory(examples)

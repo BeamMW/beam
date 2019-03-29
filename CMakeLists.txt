@@ -213,12 +213,12 @@ if(ANDROID)
 else()
 
     if(LINUX)
-	add_definitions(-DBOOST_NO_CXX11_SCOPED_ENUMS)
+        add_definitions(-DBOOST_NO_CXX11_SCOPED_ENUMS)
         add_definitions(-DBOOST_NO_AUTO_PTR)
     endif()
 
     if (WIN32)
-        add_definitions(-DNOMINMAX)        
+        add_definitions(-DNOMINMAX)
     endif()
 
     find_package(Boost REQUIRED)
