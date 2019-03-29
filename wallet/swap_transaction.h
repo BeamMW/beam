@@ -99,10 +99,16 @@ namespace beam::wallet
 
 
         SubTxState BuildBeamLockTx();
-        SubTxState BuildBeamRefundTx();
-        SubTxState BuildBeamRedeemTx();
+        SubTxState BuildBeamWithdrawTx(SubTxID subTxID, Transaction::Ptr& resultTx);
+        bool CompleteBeamWithdrawTx(SubTxID subTxID);
 
         //
+        bool LoadSwapAddress();
+        void InitExternalLockTime();
+        bool SendExternalLockTx();
+        bool SendExternalWithdrawTx(SubTxID subTxID);
+        bool ConfirmExternalLockTx();
+
         SwapTxState BuildLockTx();
         SwapTxState BuildWithdrawTx(SubTxID subTxID);
         bool RegisterExternalTx(const std::string& rawTransaction, SubTxID subTxID);
@@ -133,8 +139,7 @@ namespace beam::wallet
         mutable boost::optional<beam::Amount> m_Amount;
 
         Transaction::Ptr m_LockTx;
-        Transaction::Ptr m_RefundTx;
-        Transaction::Ptr m_RedeemTx;
+        Transaction::Ptr m_WithdrawTx;
 
         io::AsyncEvent::Ptr m_EventToUpdate;
 

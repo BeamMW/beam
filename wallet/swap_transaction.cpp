@@ -170,17 +170,8 @@ namespace beam::wallet
         {
         case State::Initial:
         {
-            // load or generate BTC address
-            if (std::string swapAddress; !GetParameter(TxParameterID::AtomicSwapAddress, swapAddress))
-            {
-                auto bitcoin_rpc = m_Gateway.get_bitcoin_rpc();
-                if (bitcoin_rpc)
-                {
-                    // is need to setup type 'legacy'?
-                    bitcoin_rpc->getRawChangeAddress(BIND_THIS_MEMFN(OnGetRawChangeAddress));
-                }
+            if (!LoadSwapAddress())
                 break;
-            }
 
             if (!isBeamOwner)
             {
@@ -195,8 +186,7 @@ namespace beam::wallet
             if (IsInitiator())
             {
                 // init locktime
-                auto externalLockTime = GetMandatoryParameter<Timestamp>(TxParameterID::CreateTime) + kBTCLockTimeSec;
-                SetParameter(TxParameterID::AtomicSwapExternalLockTime, externalLockTime);
+                InitExternalLockTime();
                 SendInvitation();
             }
             
@@ -214,19 +204,21 @@ namespace beam::wallet
         }
         case State::BuildingBeamRefundTX:
         {
-            auto subTxState = BuildBeamRefundTx();
+            auto subTxState = BuildBeamWithdrawTx(SubTxIndex::BEAM_REFUND_TX, m_WithdrawTx);
             if (subTxState != SubTxState::Constructed)
                 break;
 
+            m_WithdrawTx.reset();
             SetNextState(State::BuildingBeamRedeemTX);
             break;
         }
         case State::BuildingBeamRedeemTX:
         {
-            auto subTxState = BuildBeamRedeemTx();
+            auto subTxState = BuildBeamWithdrawTx(SubTxIndex::BEAM_REDEEM_TX, m_WithdrawTx);
             if (subTxState != SubTxState::Constructed)
                 break;
 
+            m_WithdrawTx.reset();
             SetNextState(State::HandlingContractTX);
             break;
         }
@@ -234,36 +226,17 @@ namespace beam::wallet
         {
             if (!isBeamOwner)
             {
-                auto lockTxState = BuildLockTx();
-                if (lockTxState != SwapTxState::Constructed)
-                    break;
-
-                // send contractTx
-                assert(m_SwapLockRawTx.is_initialized());
-
-                if (!RegisterExternalTx(*m_SwapLockRawTx, SubTxIndex::LOCK_TX))
+                if (!SendExternalLockTx())
                     break;
 
                 SendExternalTxDetails();
             }
             else
             {
-                // wait TxID from peer
-                std::string txID;
-                if (!GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::LOCK_TX))
-                    break;
-
                 // TODO: check current blockchain height and cancel swap if too late
 
-                if (m_SwapLockTxConfirmations < kBTCMinTxConfirmations)
-                {
-                    // validate expired?
-
-                    // TODO: timeout ?
-                    GetSwapLockTxConfirmations();
-                    UpdateOnNextTip();
+                if (!ConfirmExternalLockTx())
                     break;
-                }
             }
             SetNextState(State::SendingBeamLockTX);
             break;
@@ -271,35 +244,16 @@ namespace beam::wallet
         case State::SendingRefundTX:
         {
             assert(!isBeamOwner);
-            if (bool isRegistered = false; !GetParameter(TxParameterID::TransactionRegistered, isRegistered, SubTxIndex::REFUND_TX))
-            {
-                auto refundTxState = BuildWithdrawTx(SubTxIndex::REFUND_TX);
-                if (refundTxState != SwapTxState::Constructed)
-                    break;
-
-                assert(m_SwapWithdrawRawTx.is_initialized());
-            }
-
-            if (!RegisterExternalTx(*m_SwapWithdrawRawTx, SubTxIndex::REFUND_TX))
+            if (!SendExternalWithdrawTx(SubTxIndex::REFUND_TX))
                 break;
 
             assert(false && "Not implemented yet.");
-
             break;
         }
         case State::SendingRedeemTX:
         {
             assert(isBeamOwner);
-            if (bool isRegistered = false; !GetParameter(TxParameterID::TransactionRegistered, isRegistered, SubTxIndex::REDEEM_TX))
-            {
-                auto refundTxState = BuildWithdrawTx(SubTxIndex::REDEEM_TX);
-                if (refundTxState != SwapTxState::Constructed)
-                    break;
-
-                assert(m_SwapWithdrawRawTx.is_initialized());
-            }
-
-            if (!RegisterExternalTx(*m_SwapWithdrawRawTx, SubTxIndex::REDEEM_TX))
+            if (!SendExternalWithdrawTx(SubTxIndex::REDEEM_TX))
                 break;
             
             LOG_DEBUG() << GetTxID() << " Redeem TX completed!";
@@ -355,15 +309,7 @@ namespace beam::wallet
             }
             else
             {
-                if (!m_RedeemTx)
-                {
-                    BuildBeamRedeemTx();
-                }
-
-                if (m_RedeemTx && !SendSubTx(m_RedeemTx, SubTxIndex::BEAM_REDEEM_TX))
-                    break;
-
-                if (!CompleteSubTx(SubTxIndex::BEAM_REDEEM_TX))
+                if (!CompleteBeamWithdrawTx(SubTxIndex::BEAM_REDEEM_TX))
                     break;
 
                 LOG_DEBUG() << GetTxID() << " Beam Redeem TX completed!";
@@ -374,15 +320,7 @@ namespace beam::wallet
         case State::SendingBeamRefundTX:
         {
             assert(isBeamOwner);
-            if (!m_RefundTx)
-            {
-                BuildBeamRefundTx();
-            }
-
-            if (m_RefundTx && !SendSubTx(m_RefundTx, SubTxIndex::BEAM_REFUND_TX))
-                break;
-
-            if (!CompleteSubTx(SubTxIndex::BEAM_REFUND_TX))
+            if (!CompleteBeamWithdrawTx(SubTxIndex::BEAM_REFUND_TX))
                 break;
 
             LOG_DEBUG() << GetTxID() << " Beam Refund TX completed!";
@@ -399,6 +337,102 @@ namespace beam::wallet
         default:
             break;
         }
+    }
+
+    bool AtomicSwapTransaction::LoadSwapAddress()
+    {
+        // load or generate BTC address
+        if (std::string swapAddress; !GetParameter(TxParameterID::AtomicSwapAddress, swapAddress))
+        {
+            auto bitcoin_rpc = m_Gateway.get_bitcoin_rpc();
+            if (bitcoin_rpc)
+            {
+                // is need to setup type 'legacy'?
+                bitcoin_rpc->getRawChangeAddress(BIND_THIS_MEMFN(OnGetRawChangeAddress));
+            }
+            return false;
+        }
+        return true;
+    }
+
+    void AtomicSwapTransaction::InitExternalLockTime()
+    {
+        auto externalLockTime = GetMandatoryParameter<Timestamp>(TxParameterID::CreateTime) + kBTCLockTimeSec;
+        SetParameter(TxParameterID::AtomicSwapExternalLockTime, externalLockTime);
+    }
+
+    bool AtomicSwapTransaction::SendExternalLockTx()
+    {
+        auto lockTxState = BuildLockTx();
+        if (lockTxState != SwapTxState::Constructed)
+            return false;
+
+        // send contractTx
+        assert(m_SwapLockRawTx.is_initialized());
+
+        if (!RegisterExternalTx(*m_SwapLockRawTx, SubTxIndex::LOCK_TX))
+            return false;
+
+        return true;
+    }
+
+    bool AtomicSwapTransaction::SendExternalWithdrawTx(SubTxID subTxID)
+    {
+        if (bool isRegistered = false; !GetParameter(TxParameterID::TransactionRegistered, isRegistered, SubTxIndex::REFUND_TX))
+        {
+            auto refundTxState = BuildWithdrawTx(SubTxIndex::REFUND_TX);
+            if (refundTxState != SwapTxState::Constructed)
+                return false;
+
+            assert(m_SwapWithdrawRawTx.is_initialized());
+        }
+
+        if (!RegisterExternalTx(*m_SwapWithdrawRawTx, SubTxIndex::REFUND_TX))
+            return false;
+
+        // TODO: check confirmations
+
+        return true;
+    }
+
+    bool AtomicSwapTransaction::ConfirmExternalLockTx()
+    {
+        // wait TxID from peer
+        std::string txID;
+        if (!GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::LOCK_TX))
+            return false;
+
+        if (m_SwapLockTxConfirmations < kBTCMinTxConfirmations)
+        {
+            // validate expired?
+
+            // TODO: timeout ?
+            GetSwapLockTxConfirmations();
+            UpdateOnNextTip();
+            return false;
+        }
+
+        return true;
+    }
+
+    bool AtomicSwapTransaction::CompleteBeamWithdrawTx(SubTxID subTxID)
+    {
+        if (!m_WithdrawTx)
+        {
+            BuildBeamWithdrawTx(subTxID, m_WithdrawTx);
+        }
+
+        if (m_WithdrawTx && !SendSubTx(m_WithdrawTx, subTxID))
+        {
+            return false;
+        }
+
+        if (!CompleteSubTx(subTxID))
+        {
+            return false;
+        }
+
+        return true;
     }
 
     AtomicSwapTransaction::SwapTxState AtomicSwapTransaction::BuildLockTx()
@@ -662,118 +696,25 @@ namespace beam::wallet
         return lockTxState;
     }
 
-    AtomicSwapTransaction::SubTxState AtomicSwapTransaction::BuildBeamRefundTx()
+    AtomicSwapTransaction::SubTxState AtomicSwapTransaction::BuildBeamWithdrawTx(SubTxID subTxID, Transaction::Ptr& resultTx)
     {
-        SubTxID subTxID = SubTxIndex::BEAM_REFUND_TX;
         SubTxState subTxState = GetSubTxState(subTxID);
 
-        Amount refundFee = 0;
-        Amount refundAmount = 0;
+        Amount withdrawFee = 0;
+        Amount withdrawAmount = 0;
 
-        if (!GetParameter(TxParameterID::Amount, refundAmount, subTxID))
+        if (!GetParameter(TxParameterID::Amount, withdrawAmount, subTxID))
         {
             // TODO: calculating fee!
-            refundFee = 0;
-            refundAmount = GetAmount() - refundFee;
+            withdrawFee = 0;
+            withdrawAmount = GetAmount() - withdrawFee;
 
-            SetParameter(TxParameterID::Amount, refundAmount, subTxID);
-            SetParameter(TxParameterID::Fee, refundFee, subTxID);
+            SetParameter(TxParameterID::Amount, withdrawAmount, subTxID);
+            SetParameter(TxParameterID::Fee, withdrawFee, subTxID);
         }
 
-        bool isTxOwner = IsBeamSide();
-        SharedTxBuilder builder{ *this, subTxID, refundAmount, refundFee };
-
-        if (!builder.GetSharedParameters())
-        {
-            return subTxState;
-        }
-
-        // send invite to get 
-        if (!builder.GetInitialTxParams() && subTxState == SubTxState::Initial)
-        {
-            // TODO: check expired!
-            builder.InitTx(isTxOwner);
-        }
-
-        bool newGenerated = builder.GenerateBlindingExcess();
-        if (newGenerated && subTxState != SubTxState::Initial)
-        {
-            OnFailed(TxFailureReason::InvalidState);
-            return subTxState;
-        }
-
-        builder.GenerateNonce();
-
-        if (!builder.GetPeerPublicExcessAndNonce())
-        {
-            if (subTxState == SubTxState::Initial && isTxOwner)
-            {
-                SendSharedTxInvitation(builder);
-                SetState(SubTxState::Invitation, subTxID);
-                subTxState = SubTxState::Invitation;
-            }
-            return subTxState;
-        }
-
-        builder.CreateKernel();
-        builder.SignPartial();
-
-        if (!builder.GetPeerSignature())
-        {
-            if (subTxState == SubTxState::Initial && !isTxOwner)
-            {
-                // invited participant
-                ConfirmSharedTxInvitation(builder);
-                SetState(SubTxState::Constructed, subTxID);
-                subTxState = SubTxState::Constructed;
-            }
-            return subTxState;
-        }
-
-        if (!builder.IsPeerSignatureValid())
-        {
-            LOG_INFO() << GetTxID() << " Peer signature is invalid.";
-            return subTxState;
-        }
-
-        builder.FinalizeSignature();
-
-        SetState(SubTxState::Constructed, subTxID);
-        subTxState = SubTxState::Constructed;
-
-        if (isTxOwner)
-        {
-            auto transaction = builder.CreateTransaction();
-            TxBase::Context::Params pars;
-            TxBase::Context context(pars);
-            transaction->IsValid(context);
-
-            m_RefundTx = transaction;
-        }
-
-        return subTxState;
-    }
-
-    AtomicSwapTransaction::SubTxState AtomicSwapTransaction::BuildBeamRedeemTx()
-    {
-        SubTxID subTxID = SubTxIndex::BEAM_REDEEM_TX;
-        SubTxState subTxState = GetSubTxState(subTxID);
-
-        Amount redeemFee = 0;
-        Amount redeemAmount = 0;
-
-        if (!GetParameter(TxParameterID::Amount, redeemAmount, subTxID))
-        {
-            // TODO: calculating fee!
-            redeemFee = 0;
-            redeemAmount = GetAmount() - redeemFee;
-
-            SetParameter(TxParameterID::Amount, redeemAmount, subTxID);
-            SetParameter(TxParameterID::Fee, redeemFee, subTxID);
-        }
-
-        bool isTxOwner = !IsBeamSide();
-        SharedTxBuilder builder{ *this, subTxID, redeemAmount, redeemFee };
+        bool isTxOwner = (IsBeamSide() && (SubTxIndex::BEAM_REFUND_TX == subTxID)) || (!IsBeamSide() && (SubTxIndex::BEAM_REDEEM_TX == subTxID));
+        SharedTxBuilder builder{ *this, subTxID, withdrawAmount, withdrawFee };
 
         if (!builder.GetSharedParameters())
         {
@@ -801,8 +742,7 @@ namespace beam::wallet
         {
             if (subTxState == SubTxState::Initial && isTxOwner)
             {
-                // send invitation with LockImage
-                SendSharedTxInvitation(builder, true);
+                SendSharedTxInvitation(builder, SubTxIndex::BEAM_REDEEM_TX == subTxID);
                 SetState(SubTxState::Invitation, subTxID);
                 subTxState = SubTxState::Invitation;
             }
@@ -845,8 +785,7 @@ namespace beam::wallet
                 OnFailed(TxFailureReason::InvalidTransaction, true);
                 return subTxState;
             }
-
-            m_RedeemTx = transaction;
+            resultTx = transaction;
         }
 
         return subTxState;
