@@ -261,6 +261,7 @@ namespace beam::wallet
 
                     // TODO: timeout ?
                     GetSwapLockTxConfirmations();
+                    UpdateOnNextTip();
                     break;
                 }
             }
@@ -332,6 +333,8 @@ namespace beam::wallet
         {
             if (isBeamOwner)
             {
+                UpdateOnNextTip();
+
                 if (IsBeamLockTimeExpired())
                 {
                     LOG_DEBUG() << GetTxID() << " Beam locktime expired.";
@@ -560,6 +563,13 @@ namespace beam::wallet
 
         auto lockTxBuilder = std::make_unique<LockTxBuilder>(*this, GetAmount(), fee);
 
+        bool newGenerated = lockTxBuilder->GenerateBlindingExcess();
+        if (newGenerated && lockTxState != SubTxState::Initial)
+        {
+            OnFailed(TxFailureReason::InvalidState);
+            return lockTxState;
+        }
+
         if (!lockTxBuilder->GetInitialTxParams() && lockTxState == SubTxState::Initial)
         {
             // TODO: check expired!
@@ -567,8 +577,8 @@ namespace beam::wallet
             if (isBeamOwner)
             {
                 lockTxBuilder->SelectInputs();
-                // TODO: check
                 lockTxBuilder->AddChange();
+                lockTxBuilder->CreateOutputs();
             }
 
             if (!lockTxBuilder->FinalizeOutputs())
@@ -579,7 +589,7 @@ namespace beam::wallet
             UpdateTxDescription(TxStatus::InProgress);
         }
 
-        lockTxBuilder->CreateKernel();
+        lockTxBuilder->GenerateNonce();
 
         if (!lockTxBuilder->GetPeerPublicExcessAndNonce())
         {
@@ -593,6 +603,7 @@ namespace beam::wallet
         }
 
         lockTxBuilder->LoadSharedParameters();
+        lockTxBuilder->CreateKernel();
         lockTxBuilder->SignPartial();
 
         if (lockTxState == SubTxState::Initial || lockTxState == SubTxState::Invitation)
@@ -684,7 +695,14 @@ namespace beam::wallet
             builder.InitTx(isTxOwner);
         }
 
-        builder.CreateKernel();
+        bool newGenerated = builder.GenerateBlindingExcess();
+        if (newGenerated && subTxState != SubTxState::Initial)
+        {
+            OnFailed(TxFailureReason::InvalidState);
+            return subTxState;
+        }
+
+        builder.GenerateNonce();
 
         if (!builder.GetPeerPublicExcessAndNonce())
         {
@@ -697,6 +715,7 @@ namespace beam::wallet
             return subTxState;
         }
 
+        builder.CreateKernel();
         builder.SignPartial();
 
         if (!builder.GetPeerSignature())
@@ -768,6 +787,14 @@ namespace beam::wallet
             builder.InitTx(isTxOwner);
         }
 
+        bool newGenerated = builder.GenerateBlindingExcess();
+        if (newGenerated && subTxState != SubTxState::Initial)
+        {
+            OnFailed(TxFailureReason::InvalidState);
+            return subTxState;
+        }
+
+        builder.GenerateNonce();
         builder.CreateKernel();
 
         if (!builder.GetPeerPublicExcessAndNonce())
@@ -1232,11 +1259,6 @@ namespace beam::wallet
 
         // get confirmations
         m_SwapLockTxConfirmations = result["confirmations"];
-
-        if (m_SwapLockTxConfirmations >= kBTCMinTxConfirmations)
-        {
-            UpdateAsync();
-        }
     }
 
     LockTxBuilder::LockTxBuilder(BaseTransaction& tx, Amount amount, Amount fee)
