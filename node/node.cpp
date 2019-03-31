@@ -109,7 +109,8 @@ void Node::UpdateSyncStatusRaw()
 				continue; // don't account for unowned
 
 			hTotal = std::max(hTotal, t.m_sidTrg.m_Height);
-			hDoneHdrs = std::max(hDoneHdrs, m_Processor.m_Cursor.m_ID.m_Height + t.m_sidTrg.m_Height - t.m_Key.first.m_Height);
+			if (t.m_sidTrg.m_Height > t.m_Key.first.m_Height)
+				hDoneHdrs = std::max(hDoneHdrs, m_Processor.m_Cursor.m_ID.m_Height + t.m_sidTrg.m_Height - t.m_Key.first.m_Height);
 		}
 	}
 
