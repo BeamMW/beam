@@ -433,13 +433,8 @@ void NodeProcessor::EnumCongestions()
 		Block::SystemState::ID id;
 
 		NodeDB::StateID sidTrg;
-		if (IsFastSync())
-			sidTrg = m_SyncData.m_Target;
-		else
-		{
-			sidTrg.m_Height = x.m_Height;
-			sidTrg.m_Row = x.m_Rows.at(0);
-		}
+		sidTrg.m_Height = x.m_Height;
+		sidTrg.m_Row = x.m_Rows.at(0);
 
 		if (!x.m_bNeedHdrs)
 		{
