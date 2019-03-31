@@ -79,25 +79,12 @@ void Node::UpdateSyncStatus()
 
 void Node::UpdateSyncStatusRaw()
 {
-	Height hToCursor = m_Processor.m_Cursor.m_ID.m_Height * (SyncStatus::s_WeightHdr + SyncStatus::s_WeightBlock);
-	m_SyncStatus.m_Total = hToCursor;
-	m_SyncStatus.m_Done = hToCursor;
+	Height hTotal = m_Processor.m_Cursor.m_ID.m_Height;
+	Height hDoneBlocks = hTotal;
+	Height hDoneHdrs = hTotal;
 
 	if (m_Processor.IsFastSync())
-	{
-		m_SyncStatus.m_Total += (m_Processor.m_SyncData.m_Target.m_Height - m_Processor.m_Cursor.m_ID.m_Height) * (SyncStatus::s_WeightHdr + SyncStatus::s_WeightBlock);
-		m_SyncStatus.m_Done += (m_Processor.m_SyncData.m_Target.m_Height - m_Processor.m_Cursor.m_ID.m_Height) * SyncStatus::s_WeightHdr;
-
-		TaskSet::iterator it = m_setTasks.begin();
-		if (m_setTasks.end() != it)
-		{
-			const Block::SystemState::ID& id = it->m_Key.first;
-			if (id.m_Height > m_Processor.m_Cursor.m_ID.m_Height)
-				m_SyncStatus.m_Done += (id.m_Height - m_Processor.m_Cursor.m_ID.m_Height) * SyncStatus::s_WeightBlock;
-		}
-	}
-
-	bool bOnlyAssigned = (m_Processor.m_Cursor.m_ID.m_Height > 0);
+		hTotal = m_Processor.m_SyncData.m_Target.m_Height;
 
 	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
 	{
@@ -107,30 +94,40 @@ void Node::UpdateSyncStatusRaw()
 		if (m_Processor.m_Cursor.m_ID.m_Height >= t.m_sidTrg.m_Height)
 			continue;
 
-		if (bOnlyAssigned && !t.m_pOwner)
-			continue;
-
-		Height hVal = t.m_sidTrg.m_Height * (SyncStatus::s_WeightHdr + SyncStatus::s_WeightBlock);
-		m_SyncStatus.m_Total = std::max(m_SyncStatus.m_Total, hVal);
-
-		Height h = t.m_Key.first.m_Height;
-		if (h > t.m_sidTrg.m_Height)
-			continue; // ?!
-
 		bool bBlock = t.m_Key.second;
-		// If the request is the block - assume all the headers are received, as well as all the blocks up to cursor
-		// If the request is the header - assume headers are requested in reverse order, up to current cursor (which isn't true in case of fork, but it's a coarse estimate)
 		if (bBlock)
-			h = m_Processor.m_Cursor.m_ID.m_Height; // the height down to which all the headers are already downloaded
+		{
+			assert(t.m_Key.first.m_Height);
+			// all the blocks up to this had been dloaded
+			hTotal = std::max(hTotal, t.m_sidTrg.m_Height);
+			hDoneHdrs = std::max(hDoneHdrs, t.m_sidTrg.m_Height);
+			hDoneBlocks = std::max(hDoneBlocks, t.m_Key.first.m_Height - 1);
+		}
 		else
-			if (h)
-				h--;
+		{
+			if (!t.m_pOwner)
+				continue; // don't account for unowned
 
-		hVal = hToCursor + (t.m_sidTrg.m_Height - h) * SyncStatus::s_WeightHdr;
-		m_SyncStatus.m_Done = std::max(m_SyncStatus.m_Done, hVal);
+			hTotal = std::max(hTotal, t.m_sidTrg.m_Height);
+			hDoneHdrs = std::max(hDoneHdrs, m_Processor.m_Cursor.m_ID.m_Height + t.m_sidTrg.m_Height - t.m_Key.first.m_Height);
+		}
 	}
 
-	m_SyncStatus.m_Total = std::max(m_SyncStatus.m_Total, m_SyncStatus.m_Done);
+	// account for treasury
+	hTotal++;
+
+	if (m_Processor.IsTreasuryHandled())
+	{
+		hDoneBlocks++;
+		hDoneHdrs++;
+	}
+
+	// corrections
+	hDoneHdrs = std::max(hDoneHdrs, hDoneBlocks);
+	hTotal = std::max(hTotal, hDoneHdrs);
+
+	m_SyncStatus.m_Total = hTotal * (SyncStatus::s_WeightHdr + SyncStatus::s_WeightBlock);
+	m_SyncStatus.m_Done = hDoneHdrs * SyncStatus::s_WeightHdr + hDoneBlocks * SyncStatus::s_WeightBlock;
 }
 
 void Node::DeleteUnassignedTask(Task& t)
