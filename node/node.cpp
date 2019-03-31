@@ -135,7 +135,7 @@ void Node::UpdateSyncStatusRaw()
 
 void Node::DeleteUnassignedTask(Task& t)
 {
-    assert(!t.m_pOwner && !t.m_bPack);
+    assert(!t.m_pOwner && !t.m_nCount);
     m_lstTasksUnassigned.erase(TaskList::s_iterator_to(t));
     m_setTasks.erase(TaskSet::s_iterator_to(t));
     delete &t;
@@ -313,10 +313,6 @@ bool Node::TryAssignTask(Task& t, Peer& p, bool bMustSupportLatestProto)
 
 bool Node::TryAssignTask(Task& t, Peer& p)
 {
-	uint32_t nPacks = t.m_Key.second ? m_nTasksPackBody : m_nTasksPackHdr;
-	if (nPacks)
-		return false;
-
     if (!p.ShouldAssignTasks())
         return false;
 
@@ -353,7 +349,8 @@ bool Node::TryAssignTask(Task& t, Peer& p)
     // assign
     if (t.m_Key.second)
     {
-		assert(!m_nTasksPackBody);
+		if (m_nTasksPackBody >= m_Cfg.m_MaxConcurrentBlocksRequest)
+			return false; // too many blocks requested
 
 		Height hCountExtra = t.m_sidTrg.m_Height - t.m_Key.first.m_Height;
 
@@ -385,8 +382,8 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 
 			p.Send(msg);
 
-			t.m_bPack = true;
-			m_nTasksPackBody++;
+			t.m_nCount = std::min(static_cast<uint32_t>(msg.m_CountExtra), m_Cfg.m_BandwidthCtl.m_MaxBodyPackCount) + 1; // just an estimate, the actual num of blocks can be smaller
+			m_nTasksPackBody += t.m_nCount;
 		}
 		else
 		{
@@ -423,7 +420,8 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 
 				pTask->m_sidTrg = t.m_sidTrg;
 				pTask->m_bNeeded = false;
-				pTask->m_bPack = false;
+				pTask->m_nCount = 1;
+				m_nTasksPackBody++;
 
 				t.m_Key.first.m_Height++;
 				uint64_t rowid = pPtr[t.m_sidTrg.m_Height - t.m_Key.first.m_Height];
@@ -437,7 +435,8 @@ bool Node::TryAssignTask(Task& t, Peer& p)
     }
     else
     {
-		assert(!m_nTasksPackHdr);
+		if (m_nTasksPackHdr >= proto::g_HdrPackMaxSize)
+			return false; // too many hdrs requested
 
         if (nBlocks)
             return false; // don't requests headers from the peer that transfers a block
@@ -454,22 +453,15 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 		if (nPackSize > dh)
 			nPackSize = (uint32_t) dh;
 
-        if (nPackSize)
-        {
-            proto::GetHdrPack msg;
-            msg.m_Top = t.m_Key.first;
-            msg.m_Count = nPackSize;
-            p.Send(msg);
+		nPackSize = std::min(nPackSize, proto::g_HdrPackMaxSize - m_nTasksPackHdr);
 
-            t.m_bPack = true;
-            m_nTasksPackHdr++;
-        }
-        else
-        {
-            proto::GetHdr msg;
-            msg.m_ID = t.m_Key.first;
-            p.Send(msg);
-        }
+        proto::GetHdrPack msg;
+        msg.m_Top = t.m_Key.first;
+        msg.m_Count = nPackSize;
+        p.Send(msg);
+
+        t.m_nCount = nPackSize;
+        m_nTasksPackHdr += nPackSize;
     }
 
     bool bEmpty = p.m_lstTasks.empty();
@@ -509,7 +501,7 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
         pTask->m_Key = tKey.m_Key;
         pTask->m_sidTrg = sidTrg;
 		pTask->m_bNeeded = true;
-        pTask->m_bPack = false;
+        pTask->m_nCount = 0;
         pTask->m_pOwner = NULL;
 
         get_ParentObj().m_setTasks.insert(*pTask);
@@ -522,8 +514,14 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 	{
 		Node::Task& t = *it;
 		t.m_bNeeded = true;
-		if (!t.m_pOwner && (t.m_sidTrg.m_Height < sidTrg.m_Height))
-			t.m_sidTrg = sidTrg;
+
+		if (!t.m_pOwner)
+		{
+			if (t.m_sidTrg.m_Height < sidTrg.m_Height)
+				t.m_sidTrg = sidTrg;
+
+			get_ParentObj().TryAssignTask(t, pPreferredPeer);
+		}
 	}
 }
 
@@ -1384,13 +1382,13 @@ void Node::Peer::ReleaseTask(Task& t)
     assert(this == t.m_pOwner);
     t.m_pOwner = NULL;
 
-    if (t.m_bPack)
+    if (t.m_nCount)
     {
         uint32_t& nCounter = t.m_Key.second ? m_This.m_nTasksPackBody : m_This.m_nTasksPackHdr;
-        assert(nCounter);
+        assert(nCounter >= t.m_nCount);
 
-        nCounter--;
-        t.m_bPack = false;
+        nCounter -= t.m_nCount;
+		t.m_nCount = 0;
     }
 
     m_lstTasks.erase(TaskList::s_iterator_to(t));
@@ -1561,7 +1559,9 @@ void Node::Peer::OnFirstTaskDone()
     ReleaseTask(get_FirstTask());
     SetTimerWrtFirstTask();
 
-    TakeTasks(); // maybe can take more
+	// Refrain from using TakeTasks(), it will only try to assign tasks to this peer
+	m_This.RefreshCongestions();
+	m_This.m_Processor.TryGoUpAsync();
 }
 
 void Node::Peer::OnMsg(proto::DataMissing&&)
@@ -1591,7 +1591,7 @@ void Node::Peer::OnMsg(proto::Hdr&& msg)
 {
     Task& t = get_FirstTask();
 
-    if (t.m_Key.second || t.m_bPack)
+    if (t.m_Key.second || (t.m_nCount != 1))
         ThrowUnexpected();
 
     Block::SystemState::ID id;
@@ -1648,7 +1648,7 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 {
     Task& t = get_FirstTask();
 
-    if (t.m_Key.second || !t.m_bPack)
+    if (t.m_Key.second || !t.m_nCount)
         ThrowUnexpected();
 
     if (msg.m_vElements.empty() || (msg.m_vElements.size() > proto::g_HdrPackMaxSize))
@@ -1699,8 +1699,6 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
     {
         assert((Flags::PiRcvd & m_Flags) && m_pInfo);
         m_This.m_PeerMan.ModifyRating(*m_pInfo, PeerMan::Rating::RewardHeader * nAccepted, true);
-
-        m_This.RefreshCongestions(); // may delete us
     }
     else
     {
@@ -1827,7 +1825,7 @@ void Node::Peer::OnMsg(proto::BodyPack&& msg)
 {
 	Task& t = get_FirstTask();
 
-	if (!t.m_Key.second || !t.m_bPack)
+	if (!t.m_Key.second || !t.m_nCount)
 		ThrowUnexpected();
 
 	const Block::SystemState::ID& id = t.m_Key.first;
@@ -1881,9 +1879,6 @@ void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
 
     get_FirstTask().m_bNeeded = false;
     OnFirstTaskDone();
-
-    if (NodeProcessor::DataStatus::Accepted == eStatus)
-        m_This.RefreshCongestions();
 }
 
 void Node::Peer::OnMsg(proto::NewTransaction&& msg)

@@ -240,7 +240,7 @@ private:
 		Key m_Key;
 
 		bool m_bNeeded;
-		bool m_bPack;
+		uint32_t m_nCount;
 		NodeDB::StateID m_sidTrg;
 		Peer* m_pOwner;
 
