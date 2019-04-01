@@ -39,7 +39,7 @@ if(ANDROID)
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex-clang-mt-x32-1_68.a
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log-clang-mt-x32-1_68.a)
     elseif(ANDROID_ABI STREQUAL "x86_64")
-        target_link_libraries(utility 
+        target_link_libraries(${TARGET_NAME} 
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-x64-1_68.a 
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-x64-1_68.a
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-x64-1_68.a
@@ -78,4 +78,4 @@ elseif(ANDROID)
     target_compile_options(${TARGET_NAME} PUBLIC -Wno-tautological-constant-compare)
 endif()
 
-#add_subdirectory(examples)
+add_subdirectory(examples)
