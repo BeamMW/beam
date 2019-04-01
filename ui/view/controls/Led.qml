@@ -17,7 +17,7 @@ Item {
         anchors.fill: parent
         radius: 3
 
-        color: Style.content_inconspicuous
+        color: Style.content_secondary
     }
 
     Rectangle {
@@ -25,7 +25,7 @@ Item {
         anchors.fill: parent
         radius: 3
 
-        color: Style.content_accent_second
+        color: Style.active
         visible: root.turned_on
     }
 
@@ -33,7 +33,7 @@ Item {
         anchors.fill: led_light
         radius: 5
         samples: 9
-        color: Style.content_accent_second
+        color: Style.active
         source: led_light
         visible: root.turned_on
     }

@@ -41,7 +41,7 @@
 
 #include "translator.h"
 
-#include "utility/options.h"
+#include "utility/cli/options.h"
 
 #include <QtCore/QtPlugin>
 

@@ -9,7 +9,7 @@ import "."
 T.RadioButton {
     id: control
 	palette.windowText: Style.content_main
-	palette.text: Style.content_accent_second
+	palette.text: Style.active
 
     implicitWidth: Math.max(background ? background.implicitWidth : 0,
                             contentItem.implicitWidth + leftPadding + rightPadding)
@@ -36,7 +36,7 @@ T.RadioButton {
         radius: width / 2
         color: "transparent"//control.down ? control.palette.light : control.palette.base
         border.width: 1 //control.visualFocus ? 2 : 1
-        border.color: Style.content_inconspicuous //control.visualFocus ? control.palette.highlight : control.palette.mid
+        border.color: Style.content_secondary //control.visualFocus ? control.palette.highlight : control.palette.mid
 
         Rectangle {
             x: (parent.width - width) / 2

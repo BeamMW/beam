@@ -29,7 +29,7 @@ ComboBox {
             implicitWidth: 100
             implicitHeight: 40
             opacity: enabled ? 1 : 0.3
-            color:itemDelegate.highlighted ? Style.content_inconspicuous : Style.content_accent_third
+            color:itemDelegate.highlighted ? Style.content_secondary : Style.accent_incoming
         }
     }
 
@@ -55,7 +55,7 @@ ComboBox {
             width: control.width
             height: 1
             y: control.height - 1
-            color: Style.background_emphasize_alternate
+            color: Style.separator
         }
     }
 
@@ -78,7 +78,7 @@ ComboBox {
             Rectangle {
                 Layout.fillWidth: true
                 height: 1
-                color: Style.background_emphasize_alternate
+                color: Style.separator
             }*/
             ListView {
                 id: listView
@@ -97,14 +97,14 @@ ComboBox {
 
         background: Item {
             Rectangle {
-                color: Style.content_accent_third
+                color: Style.accent_incoming
                 anchors.left: parent.left
                 anchors.right: parent.right
                 height: control.height
             }
             Rectangle {
                 anchors.fill: parent
-                color: Style.content_accent_third
+                color: Style.accent_incoming
                 radius: 10
             }
         }

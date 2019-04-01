@@ -202,7 +202,7 @@ ColumnLayout {
                 Rectangle {
                     anchors.fill: parent
 
-                    color: styleData.selected ? Style.content_accent_third : Style.background_third
+                    color: styleData.selected ? Style.row_selected : Style.background_row_even
                     visible: styleData.selected ? true : styleData.alternate
                 }
             }
