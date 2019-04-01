@@ -122,11 +122,9 @@ struct Node
 
 		Key::IKdf::Ptr m_pGeneric; // used for internal nonce generation. Auto-generated from system random if not specified
 		Key::IPKdf::Ptr m_pOwner; // used for wallet authentication and UTXO tagging (this is the master view key)
-		Key::IKdf::Ptr m_pMiner; // if not set - offline mining would be impossible
-		Key::IKdf::Ptr m_pDummy;
+		Key::IKdf::Ptr m_pMiner; // if not set - offline mining and decoy creation would be impossible
 
 		Key::Index m_nMinerSubIndex = 0;
-		bool m_bRecoverViaDummyKey = false; // normally only owner key is used in runtime. On startup dummy can be used too to rescan dummies
 
 		void InitSingleKey(const ECC::uintBig& seed);
 		void SetSingleKey(const Key::IKdf::Ptr&);
