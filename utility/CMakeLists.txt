@@ -5,11 +5,12 @@ set(UTILITY_SRC
     log_rotation.cpp
     helpers.cpp
     config.cpp
-	options.cpp
 	string_helpers.cpp
 	asynccontext.cpp
 # ~etc
 )
+
+set(CLI_SRC cli/options.cpp)
 
 set(IO_SRC
     io/buffer.cpp
@@ -52,6 +53,10 @@ else()
     add_library(crypto STATIC ${PROJECT_SOURCE_DIR}/3rdparty/crypto/blake/sse/blake2b.cpp)
 endif()
 
+if(NOT ANDROID)
+    add_library(cli STATIC ${CLI_SRC})
+endif()
+
 if (UV_INTERNAL)
     add_dependencies(utility uv_a)
     target_link_libraries(utility uv_a)
@@ -70,22 +75,22 @@ target_link_libraries(utility mnemonic)
 if(ANDROID)
     if(ANDROID_ABI STREQUAL "armeabi-v7a")
         target_link_libraries(utility 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-a32-1_68.a 
+            # $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-a32-1_68.a 
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-a32-1_68.a
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-a32-1_68.a)
     elseif(ANDROID_ABI STREQUAL "x86")
         target_link_libraries(utility 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-x32-1_68.a 
+            # $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-x32-1_68.a 
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-x32-1_68.a
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-x32-1_68.a)
     elseif(ANDROID_ABI STREQUAL "x86_64")
         target_link_libraries(utility 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-x64-1_68.a 
+            # $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-x64-1_68.a 
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-x64-1_68.a
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-x64-1_68.a)
     elseif(ANDROID_ABI STREQUAL "arm64-v8a")
         target_link_libraries(utility 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-a64-1_68.a 
+            # $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options-clang-mt-a64-1_68.a 
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-a64-1_68.a
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-a64-1_68.a)
     endif()
@@ -93,9 +98,11 @@ if(ANDROID)
 else()
     if (Boost_FOUND)
         find_package(Boost COMPONENTS program_options filesystem)
-        target_link_libraries(utility Boost::program_options Boost::filesystem)
+        target_link_libraries(utility Boost::filesystem)
+        target_link_libraries(cli Boost::program_options)
     else()
-        target_link_libraries(utility boost_program_options boost_filesystem boost_system)
+        target_link_libraries(utility boost_filesystem boost_system)
+        target_link_libraries(cli boost_program_options)
     endif()
 endif()
 

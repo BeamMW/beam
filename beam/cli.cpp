@@ -19,8 +19,8 @@
 #include "core/ecc_native.h"
 #include "core/ecc.h"
 #include "core/serialization_adapters.h"
+#include "utility/cli/options.h"
 #include "utility/log_rotation.h"
-#include "utility/options.h"
 #include "utility/helpers.h"
 #include <iomanip>
 

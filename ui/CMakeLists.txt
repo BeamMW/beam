@@ -115,8 +115,8 @@ set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME ${OUTPUT_NAME})
 
 configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 
-add_dependencies(${TARGET_NAME} wallet mnemonic qrcode)
-target_link_libraries(${TARGET_NAME} qrcode)
+add_dependencies(${TARGET_NAME} wallet mnemonic qrcode cli)
+target_link_libraries(${TARGET_NAME} qrcode cli)
 
 if(LINUX)
 	set(CMAKE_POSITION_INDEPENDENT_CODE ON)

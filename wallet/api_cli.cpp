@@ -22,12 +22,12 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <map>
 
+#include "utility/cli/options.h"
 #include "utility/helpers.h"
 #include "utility/io/timer.h"
 #include "utility/io/tcpserver.h"
 #include "utility/io/sslserver.h"
 #include "utility/io/json_serializer.h"
-#include "utility/options.h"
 #include "utility/string_helpers.h"
 #include "utility/log_rotation.h"
 
