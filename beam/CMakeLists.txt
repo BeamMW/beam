@@ -9,8 +9,8 @@ endif()
 configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
-add_dependencies(${TARGET_NAME} node external_pow)
-target_link_libraries(${TARGET_NAME} node external_pow)
+add_dependencies(${TARGET_NAME} node external_pow cli)
+target_link_libraries(${TARGET_NAME} node external_pow cli)
 
 if (BEAM_SIGN_PACKAGE AND WIN32)
     add_custom_command(

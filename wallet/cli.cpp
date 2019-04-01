@@ -30,8 +30,8 @@
     #define LOG_VERBOSE_ENABLED 0
 #endif
 
+#include "utility/cli/options.h"
 #include "utility/log_rotation.h"
-#include "utility/options.h"
 #include "utility/helpers.h"
 #include <iomanip>
 

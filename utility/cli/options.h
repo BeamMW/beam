@@ -16,7 +16,7 @@
 
 #include <boost/program_options.hpp>
 #include "core/ecc.h"
-#include "logger.h"
+#include "utility/logger.h"
 
 namespace beam
 {
