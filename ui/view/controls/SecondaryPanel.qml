@@ -65,7 +65,7 @@ Rectangle {
                     font.pixelSize: 20
                     fontSizeMode: Text.Fit
                     minimumPixelSize: 14
-                    color: Style.content_accent_third
+                    color: Style.accent_incoming
                     text: (receiving !== "0") ? "+" + receiving : receiving;
                     elide: Text.ElideRight
                     copyMenuEnabled: true
@@ -105,7 +105,7 @@ Rectangle {
                     font.pixelSize: 20
                     fontSizeMode: Text.Fit
                     minimumPixelSize: 14
-                    color: Style.content_accent_first
+                    color: Style.accent_outgoing
                     text: (sending !== "0") ? "-" + sending : sending;
                     elide: Text.ElideRight
                     copyMenuEnabled: true

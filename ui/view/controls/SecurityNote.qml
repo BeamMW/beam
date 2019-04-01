@@ -22,7 +22,7 @@ ColumnLayout {
             anchors.fill: icon
             radius: 7
             samples: 9
-            color: Style.content_accent_second
+            color: Style.active
             source: icon
         }
     }

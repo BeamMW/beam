@@ -46,7 +46,7 @@ Menu {
             implicitWidth: 200
             implicitHeight: 40
             opacity: enabled ? 1 : 0.3
-            color: control.hovered ? Style.content_accent_third : "transparent"
+            color: control.hovered ? Style.accent_incoming : "transparent"
         }
     }
 
@@ -54,7 +54,7 @@ Menu {
         implicitWidth: 200
         implicitHeight: 40
         border.width: 1
-        border.color: Style.background_emphasize_alternate
+        border.color: Style.separator
         color: Style.background_second
 		//opacity: 0.1
         radius: 10

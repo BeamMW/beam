@@ -17,7 +17,7 @@ Item
 
     ConfirmationDialog {
         id: confirmationDialog
-        okButtonColor: Style.content_accent_second
+        okButtonColor: Style.active
         okButtonText: qsTr("change settings")
         okButtonIconSource: "qrc:/assets/icon-settings-blue.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
@@ -91,7 +91,7 @@ Item
     Rectangle
     {
         anchors.fill: parent
-        color: Style.background
+        color: Style.background_main
 
         Image {
             fillMode: Image.PreserveAspectCrop

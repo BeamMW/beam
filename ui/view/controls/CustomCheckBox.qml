@@ -6,7 +6,7 @@ import QtQuick.Controls.impl 2.4
 T.CheckBox {
     id: control
     palette.windowText: Style.content_main
-    palette.text: Style.content_accent_second
+    palette.text: Style.active
     implicitWidth: Math.max(background ? background.implicitWidth : 0,
                             contentItem.implicitWidth + leftPadding + rightPadding)
     implicitHeight: Math.max(background ? background.implicitHeight : 0,
@@ -27,7 +27,7 @@ T.CheckBox {
 
         color: "transparent"
         border.width: control.visualFocus ? 2 : 1
-        border.color: control.visualFocus ? control.palette.highlight :  Style.content_inconspicuous
+        border.color: control.visualFocus ? control.palette.highlight :  Style.content_secondary
 
         ColorImage {
             x: (parent.width - width) / 2

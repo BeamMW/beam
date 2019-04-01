@@ -43,7 +43,7 @@ Item  {
         width: text_label.width + 16
         height: 2
 
-        color: Style.content_accent_second
+        color: Style.active
 
         visible: false
     }
@@ -52,7 +52,7 @@ Item  {
         anchors.fill: led
         radius: 5
         samples: 9
-        color: Style.content_accent_second
+        color: Style.active
         source: led
 
         visible: led.visible

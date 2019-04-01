@@ -28,7 +28,7 @@ ComboBox {
             implicitWidth: 100
             implicitHeight: 20
             opacity: enabled ? 1 : 0.3
-            color:itemDelegate.highlighted ? Style.content_inconspicuous : Style.background_fourth
+            color:itemDelegate.highlighted ? Style.content_secondary : Style.background_details
         }
     }
 
@@ -81,14 +81,14 @@ ComboBox {
 
         background: Item {
             Rectangle {
-                color: Style.background_fourth
+                color: Style.background_details
                 anchors.left: parent.left
                 anchors.right: parent.right
                 height: control.height
             }
             Rectangle {
                 anchors.fill: parent
-                color: Style.background_fourth
+                color: Style.background_details
                 radius: 10
             }
         }

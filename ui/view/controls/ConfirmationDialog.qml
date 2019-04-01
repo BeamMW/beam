@@ -64,9 +64,9 @@ Dialog {
 
                 CustomButton {
                     id: okButton
-                    palette.button: Style.content_accent_second
+                    palette.button: Style.active
                     text: qsTr("delete")
-                    palette.buttonText: Style.background
+                    palette.buttonText: Style.content_opposite
                     onClicked: {
                         accepted();
                         close();
