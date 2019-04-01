@@ -17,7 +17,7 @@ Rectangle {
         id: statusbarModel
     }
 
-    color: Style.background
+    color: Style.background_main
 
     MouseArea {
         id: mainMouseArea
@@ -47,7 +47,7 @@ Rectangle {
         id: sidebar
         width: 70
         height: 0
-        color: Style.navigation_bar_background
+        color: Style.navigation_background
         border.width: 0
         anchors.bottom: parent.bottom
         anchors.left: parent.left
@@ -87,14 +87,14 @@ Rectangle {
                             y: 6
                             width: 4
                             height: 48
-                            color: selectedItem == index ? Style.navigation_bar_active : Style.navigation_bar_passive
+                            color: selectedItem == index ? Style.active : Style.passive
                         }
 
                         DropShadow {
                             anchors.fill: indicator
                             radius: 5
                             samples: 9
-                            color: Style.navigation_bar_shadow
+                            color: Style.active
                             source: indicator
                         }
 

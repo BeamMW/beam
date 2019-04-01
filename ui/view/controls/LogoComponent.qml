@@ -29,7 +29,7 @@ Component
             Layout.alignment: Qt.AlignHCenter
 
             text: qsTr("BEAM")
-            color: Style.content_accent_third
+            color: Style.accent_incoming
             font.pixelSize: 32
             font.styleName: "Bold"; font.weight: Font.Bold
             font.letterSpacing: 20
@@ -49,7 +49,7 @@ Component
 
             text: qsTr("Scalable confidential cryptocurrency")
 
-            color: Style.content_accent_third
+            color: Style.accent_incoming
             font.pixelSize: 18
             font.styleName: "Bold"; font.weight: Font.Bold
         }
@@ -67,7 +67,7 @@ Component
             id: stagingLabel
             visible: false
             Layout.alignment: Qt.AlignHCenter
-            color: Style.content_inconspicuous
+            color: Style.content_secondary
             font.pixelSize: 18
             font.styleName: "Bold"; font.weight: Font.Bold
         }

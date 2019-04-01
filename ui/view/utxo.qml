@@ -54,7 +54,7 @@ ColumnLayout {
                     Layout.minimumHeight: 20
                     Layout.maximumHeight: 20
                     font.pixelSize: 16
-                    color: Style.content_accent_second
+                    color: Style.active
                     text: viewModel.currentHeight
                 }
             }
@@ -62,7 +62,7 @@ ColumnLayout {
             Rectangle {
                 anchors.fill: parent
                 radius: 10
-                color: Style.background_emphasize
+                color: Style.white
                 opacity: 0.1
             }
         }
@@ -94,7 +94,7 @@ ColumnLayout {
                     Layout.minimumHeight: 20
                     Layout.maximumHeight: 20
                     font.pixelSize: 16
-                    color: Style.content_accent_second
+                    color: Style.active
                     text: viewModel.currentStateHash
                     elide: Text.ElideRight
                 }
@@ -103,7 +103,7 @@ ColumnLayout {
             Rectangle {
                 anchors.fill: parent
                 radius: 10
-                color: Style.background_emphasize
+                color: Style.white
                 opacity: 0.1
             }
         }
@@ -166,7 +166,7 @@ ColumnLayout {
                 height: tableView.rowHeight
                 readonly property var lineSeparator: "\n"
                 property var texts: styleData.value.split(lineSeparator)
-                property color secondLineColor: Style.content_inconspicuous
+                property color secondLineColor: Style.content_secondary
 
                 ColumnLayout {
                     anchors.right: parent.right
@@ -200,23 +200,23 @@ ColumnLayout {
 
                 function getTextColor(texts) {
                     if (texts[0] === "available") {
-                        return Style.content_accent_second;
+                        return Style.active;
                     }
                     else if (texts[0] == "maturing") {
-                        return Style.content_accent_first;
+                        return Style.accent_outgoing;
                     }
                     else if (texts[0] === "spent") {
-                        return Style.content_accent_first;
+                        return Style.accent_outgoing;
                     }
                     else if (texts[0] === "unavailable") {
                         return Style.content_main;
                     }
                     else if (texts[0] === "in progress") {
                         if (texts[1] === "(change)" || texts[1] === "(outgoing)") {
-                            return Style.content_accent_first;
+                            return Style.accent_outgoing;
                         }
                         else {
-                            return Style.content_accent_third;
+                            return Style.accent_incoming;
                         }
                     }
                     else {
@@ -248,7 +248,7 @@ ColumnLayout {
             Rectangle {
                 anchors.fill: parent
 
-                color: Style.background_third
+                color: Style.background_row_even
                 visible: styleData.alternate
             }
         }

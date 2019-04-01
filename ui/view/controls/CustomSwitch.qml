@@ -23,7 +23,7 @@ T.Switch {
         rightPadding: control.indicator.width + control.spacing
         text: control.text
         font: control.font
-        color: control.checked && control.enabled ? control.palette.text : Style.content_inconspicuous
+        color: control.checked && control.enabled ? control.palette.text : Style.content_secondary
         elide: Text.ElideRight
         verticalAlignment: Text.AlignVCenter
     }
@@ -35,7 +35,7 @@ T.Switch {
         y: parent.height / 2 - height / 2
         radius: 10
         color: "transparent"
-        border.color: Style.content_inconspicuous
+        border.color: Style.content_secondary
 
         Rectangle {
             x: control.checked ? parent.width - width - 2 : 2
@@ -43,7 +43,7 @@ T.Switch {
             width: 16
             height: 16
             radius: 10
-            color: control.checked && control.enabled ? Style.content_accent_second : Style.content_inconspicuous
+            color: control.checked && control.enabled ? Style.active : Style.content_secondary
         }
     }
 }

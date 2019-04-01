@@ -33,7 +33,7 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.content_inconspicuous
+            color: Style.content_secondary
             text: qsTr("Sending address:")
         }
         SFLabel {
@@ -52,7 +52,7 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.content_inconspicuous
+            color: Style.content_secondary
             text: qsTr("Receiving address:")
         }
         SFLabel {
@@ -71,7 +71,7 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.content_inconspicuous
+            color: Style.content_secondary
             text: qsTr("Transaction fee:")
         }
         SFLabel {
@@ -88,7 +88,7 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.content_inconspicuous
+            color: Style.content_secondary
             text: qsTr("Comment:")
         }
         SFLabel {
@@ -108,7 +108,7 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.content_inconspicuous
+            color: Style.content_secondary
             text: qsTr("Kernel ID:")
         }
         SFLabel {
@@ -126,7 +126,7 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.content_inconspicuous
+            color: Style.content_secondary
             text: qsTr("Error: ")
             visible: model ? model.failureReason.length > 0 : false
         }

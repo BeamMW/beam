@@ -4,8 +4,8 @@ import QtQuick.Controls.Styles 1.2
 import "."
 
 CustomButton {
-    palette.button: Style.content_accent_second
-    palette.buttonText: Style.background
+    palette.button: Style.active
+    palette.buttonText: Style.content_opposite
 
     SFText {
         id: text

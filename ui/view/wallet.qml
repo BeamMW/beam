@@ -69,7 +69,7 @@ Item {
 
     ConfirmationDialog {
         id: confirmationDialog
-        okButtonColor: Style.content_accent_first
+        okButtonColor: Style.accent_outgoing
         okButtonText: qsTr("send")
         okButtonIconSource: "qrc:/assets/icon-send-blue.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
@@ -147,7 +147,7 @@ Item {
                         Layout.fillHeight: true
                         Layout.minimumHeight: 29
                         font.pixelSize: 24
-                        color: Style.content_accent_first
+                        color: Style.accent_outgoing
                         verticalAlignment: Text.AlignBottom
                     }
 
@@ -370,9 +370,9 @@ Item {
 
                     CustomButton {
                         text: qsTr("copy")
-                        palette.buttonText: Style.background
-                        icon.color: Style.background
-                        palette.button: Style.content_accent_second
+                        palette.buttonText: Style.content_opposite
+                        icon.color: Style.content_opposite
+                        palette.button: Style.active
                         icon.source: "qrc:/assets/icon-copy.svg"
                         onClicked: {
                             viewModel.copyToClipboard(myAddressID.text);
@@ -516,7 +516,7 @@ Item {
 
                                     font.pixelSize: 36
                                     font.styleName: "Light"; font.weight: Font.Light
-                                    color: Style.content_accent_first
+                                    color: Style.accent_outgoing
 
                                     property double amount: 0
 
@@ -639,7 +639,7 @@ Item {
 
                                         font.pixelSize: 36
                                         font.styleName: "Light"; font.weight: Font.Light
-                                        color: Style.content_accent_first
+                                        color: Style.accent_outgoing
 
                                         text: viewModel.defaultFeeInGroth.toLocaleString(Qt.locale(), 'f', -128)
 
@@ -707,7 +707,7 @@ Item {
                                                     Layout.alignment: Qt.AlignHCenter
                                                     font.pixelSize: 18
                                                     font.styleName: "Bold"; font.weight: Font.Bold
-                                                    color: Style.content_inconspicuous
+                                                    color: Style.content_secondary
                                                     text: qsTr("Remaining")
                                                 }
 
@@ -720,7 +720,7 @@ Item {
                                                     SFText {
                                                         font.pixelSize: 24
                                                         font.styleName: "Light"; font.weight: Font.Light
-                                                        color: Style.content_inconspicuous
+                                                        color: Style.content_secondary
                                                         text: viewModel.actualAvailable
                                                     }
 
@@ -739,7 +739,7 @@ Item {
                                             Layout.topMargin: 10
                                             Layout.bottomMargin: 10
                                             width: 1
-                                            color: Style.content_inconspicuous
+                                            color: Style.content_secondary
                                         }
 
                                         Item {
@@ -755,7 +755,7 @@ Item {
                                                     Layout.alignment: Qt.AlignHCenter
                                                     font.pixelSize: 18
                                                     font.styleName: "Bold"; font.weight: Font.Bold
-                                                    color: Style.content_inconspicuous
+                                                    color: Style.content_secondary
                                                     text: qsTr("Change")
                                                 }
 
@@ -768,7 +768,7 @@ Item {
                                                     SFText {
                                                         font.pixelSize: 24
                                                         font.styleName: "Light"; font.weight: Font.Light
-                                                        color: Style.content_inconspicuous
+                                                        color: Style.content_secondary
                                                         text: viewModel.change
                                                     }
 
@@ -785,7 +785,7 @@ Item {
                                 Rectangle {
                                     anchors.fill: parent
                                     radius: 10
-                                    color: Style.background_emphasize
+                                    color: Style.white
                                     opacity: 0.1
                                 }
                             }
@@ -814,8 +814,8 @@ Item {
 
                     CustomButton {
                         text: qsTr("send")
-                        palette.buttonText: Style.background
-                        palette.button: Style.content_accent_first
+                        palette.buttonText: Style.content_opposite
+                        palette.button: Style.accent_outgoing
                         icon.source: "qrc:/assets/icon-send-blue.svg"
                         enabled: {viewModel.isEnoughMoney && amount_input.amount > 0 && receiverAddrInput.acceptableInput }
                         onClicked: {
@@ -851,8 +851,8 @@ Item {
                 spacing: 19
 
                 CustomButton {
-                    palette.button: Style.content_accent_third
-                    palette.buttonText: Style.background
+                    palette.button: Style.accent_incoming
+                    palette.buttonText: Style.content_opposite
                     icon.source: "qrc:/assets/icon-receive-blue.svg"
                     text: qsTr("receive")
 
@@ -863,8 +863,8 @@ Item {
                 }
 
                 CustomButton {
-                    palette.button: Style.content_accent_first
-                    palette.buttonText: Style.background
+                    palette.button: Style.accent_outgoing
+                    palette.buttonText: Style.content_opposite
                     icon.source: "qrc:/assets/icon-send-blue.svg"
                     text: qsTr("send")
 
@@ -1075,7 +1075,7 @@ Item {
                                 anchors.leftMargin: 20
                                 anchors.right: parent.right
                                 anchors.left: parent.left
-                                color: parent.income ? Style.content_accent_third : Style.content_accent_first
+                                color: parent.income ? Style.accent_incoming : Style.accent_outgoing
                                 elide: Text.ElideRight
                                 anchors.verticalCenter: parent.verticalCenter
                                 font.pixelSize: 24
@@ -1145,7 +1145,7 @@ Item {
                                             if (viewModel.transactions[styleData.row].isSelfTx()) {
                                                 return Style.content_main;
                                             }
-                                            return viewModel.transactions[styleData.row].income ? Style.content_accent_third : Style.content_accent_first;
+                                            return viewModel.transactions[styleData.row].income ? Style.accent_incoming : Style.accent_outgoing;
                                         }
 
                                         return Style.content_main;
@@ -1239,6 +1239,12 @@ Item {
                     property bool collapsed: true
 
                     width: parent.width
+                    Rectangle {
+                            height: transactionsView.rowHeight
+                            width: parent.width
+                            color: Style.background_row_even
+                            visible: styleData.alternate
+                    }
 
                     Column {
                         id: rowColumn
@@ -1246,7 +1252,7 @@ Item {
                         Rectangle {
                             height: transactionsView.rowHeight
                             width: parent.width
-                            color: styleData.alternate ? Style.background_second : Style.background_third
+                            color: "transparent"
                         }
                         Item {
                             id: txDetails
@@ -1266,7 +1272,7 @@ Item {
 
                             Rectangle {
                                 anchors.fill: parent
-                                color: Style.background_fourth
+                                color: Style.background_details
                             }
                             TransactionDetails {
                                 id: detailsPanel

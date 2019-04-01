@@ -34,7 +34,7 @@ Item
             id: start
             Rectangle
             {
-                color: Style.background
+                color: Style.background_main
 
                 Image {
                     fillMode: Image.PreserveAspectCrop
@@ -148,7 +148,7 @@ Item
             id: migrate
             Rectangle
             {
-                color: Style.background
+                color: Style.background_main
 
                 Image {
                     fillMode: Image.PreserveAspectCrop
@@ -216,7 +216,7 @@ Item
                     SFText {
                         Layout.alignment: Qt.AlignHCenter
                         text: qsTr("Login to another wallet or create new one")
-                        color: Style.content_accent_second
+                        color: Style.active
                         font.pixelSize: 14
                 
                         MouseArea {
@@ -242,7 +242,7 @@ Item
             id: selectWalletDBView
             Rectangle
             {
-                color: Style.background
+                color: Style.background_main
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.topMargin: 50
@@ -285,7 +285,7 @@ Item
                                 anchors.leftMargin: tableView.textLeftMargin
                                 horizontalAlignment: Qt.AlignHCenter
                                 font.pixelSize: tableView.headerTextFontSize
-                                color: Style.content_inconspicuous
+                                color: Style.content_secondary
                                 font.weight: Font.Normal
                                 text: styleData.value
                             }
@@ -352,7 +352,7 @@ Item
 
                             Rectangle {
                                 anchors.fill: parent
-                                color: styleData.selected ? "#085469" : Style.background_third
+                                color: styleData.selected ? Style.row_selected : Style.background_row_even
                                 visible: styleData.alternate || styleData.selected
                             }
                         }
@@ -430,7 +430,7 @@ Item
                     SFText {
                         Layout.alignment: Qt.AlignHCenter
                         text: qsTr("Login to another wallet or create new one")
-                        color: Style.content_accent_second
+                        color: Style.active
                         font.pixelSize: 14
                 
                         MouseArea {
@@ -457,7 +457,7 @@ Item
             id: createWalletEntry
             Rectangle
             {
-                color: Style.background
+                color: Style.background_main
                 property Item defaultFocusItem: generateRecoveryPhraseButton
 
                 ColumnLayout {
@@ -540,7 +540,7 @@ Item
         Component {
             id: generateRecoveryPhrase
             Rectangle {
-                color: Style.background
+                color: Style.background_main
                 property Item defaultFocusItem: nextButton
 
                 ColumnLayout {
@@ -662,7 +662,7 @@ Item
         Component {
             id: checkRecoveryPhrase
             Rectangle {
-                color: Style.background
+                color: Style.background_main
                 property Item defaultFocusItem: null
 
                 ColumnLayout {
@@ -712,7 +712,7 @@ Item
                                     height: 20
                                     Rectangle {
                                         color: "transparent"
-                                        border.color: Style.content_inconspicuous
+                                        border.color: Style.content_secondary
                                         width: 20
                                         height: 20
                                         radius: 10
@@ -721,14 +721,14 @@ Item
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             text: modelData.index + 1
                                             font.pixelSize: 10
-                                            color: Style.content_inconspicuous
+                                            color: Style.content_secondary
                                         }
                                         visible: modelData.value.length == 0
                                     }
 
                                     Rectangle {
                                         id: correctPhraseRect
-                                        color: modelData.isCorrect ? Style.content_accent_second : Style.validator_error
+                                        color: modelData.isCorrect ? Style.active : Style.validator_error
                                         width: 20
                                         height: 20
                                         radius: 10
@@ -737,7 +737,7 @@ Item
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             text: modelData.index + 1
                                             font.pixelSize: 10
-                                            color: Style.background
+                                            color: Style.background_main
                                         }
                                         visible: modelData.value.length > 0
                                     }
@@ -746,7 +746,7 @@ Item
                                         anchors.fill: correctPhraseRect
                                         radius: 5
                                         samples: 9
-                                        color: modelData.isCorrect ? Style.content_accent_second : Style.validator_error
+                                        color: modelData.isCorrect ? Style.active : Style.validator_error
                                         source: correctPhraseRect
                                         visible: correctPhraseRect.visible
                                     }
@@ -824,7 +824,7 @@ Item
         Component {
             id: restoreWallet
             Rectangle {
-                color: Style.background
+                color: Style.background_main
                 property Item defaultFocusItem: null
 
                 ColumnLayout {
@@ -987,7 +987,7 @@ Item
             id: create
             Rectangle
             {
-                color: Style.background
+                color: Style.background_main
 
                 property Item defaultFocusItem: password
 
@@ -1056,8 +1056,8 @@ Item
                                     {exp: new RegExp("((?=.{6,})(?=.*[0-9]))|((?=.{6,})(?=.*[A-Z]))|((?=.{6,})(?=.*[a-z]))")    , color: Style.validator_error, msg: "Weak password"},
                                     {exp: new RegExp("((?=.{6,})(?=.*[A-Z])(?=.*[a-z]))|((?=.{6,})(?=.*[0-9])(?=.*[a-z]))")     , color: Style.validator_warning, msg: "Medium strength password"},
                                     {exp: new RegExp("(?=.{8,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                              , color: Style.validator_warning, msg: "Medium strength password"},
-                                    {exp: new RegExp("(?=.{10,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                             , color: Style.content_accent_second, msg: "Strong password"},
-                                    {exp: new RegExp("(?=.{10,})(?=.*[!@#\$%\^&\*])(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")          , color: Style.content_accent_second, msg: "Very strong password"},
+                                    {exp: new RegExp("(?=.{10,})(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")                             , color: Style.active, msg: "Strong password"},
+                                    {exp: new RegExp("(?=.{10,})(?=.*[!@#\$%\^&\*])(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])")          , color: Style.active, msg: "Very strong password"},
                                 ]
 
                                 function passwordStrength(pass)
@@ -1084,14 +1084,14 @@ Item
                                         border.width: index < parent.strength ? 0 : 1
                                         border.color: Style.background_second
                                         radius: 10
-                                        color: index < parent.strength ? parent.strengthTests[parent.strength-1].color : Style.background
+                                        color: index < parent.strength ? parent.strengthTests[parent.strength-1].color : Style.background_main
                                     }
                                 }
                             }
 
                             SFText {
                                 text: strengthChecker.strength > 0 ? strengthChecker.strengthTests[strengthChecker.strength-1].msg : ""
-                                color: Style.content_inconspicuous
+                                color: Style.content_secondary
                                 font.pixelSize: 14
                                 height: 16
                                 width: parent.width
@@ -1181,7 +1181,7 @@ Item
             Rectangle
             {   
                 id: nodeSetupRectangle
-                color: Style.background
+                color: Style.background_main
                 property Item defaultFocusItem: localNodeButton
 
                 function onRestoreCancelled(useRandomNode) {
@@ -1427,7 +1427,7 @@ Item
                     root.parent.setSource("qrc:/loading.qml", {"isRecoveryMode" : false, "isCreating" : false});
                 }
 
-                color: Style.background
+                color: Style.background_main
 
                 Image {
                     fillMode: Image.PreserveAspectCrop
