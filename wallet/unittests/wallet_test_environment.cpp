@@ -989,6 +989,7 @@ public:
         string m_rawAddress = "2NB9nqKnHgThByiSzVEVDg5cYC2HwEMBcEK";
         string m_privateKey = "cTZEjMtL96FyC43AxEvUxbs3pinad2cH8wvLeeCYNUwPURqeknkG";
         string m_refundTx = "";
+        Amount m_amount = 0;
     };
 
 public:
@@ -1155,7 +1156,7 @@ private:
                     lockScript = libbitcoin::encode_base16(script.to_data(false));
                 }
 
-                result = R"( {"result":{"confirmations":)" + std::to_string(confirmations) + R"(,"scriptPubKey":{"hex":")" + lockScript + R"("}},"error":null,"id":null})";
+                result = R"( {"result":{"confirmations":)" + std::to_string(confirmations) + R"(,"value":)" + std::to_string(double(m_options.m_amount) / libbitcoin::satoshi_per_bitcoin) + R"(,"scriptPubKey":{"hex":")" + lockScript + R"("}},"error":null,"id":null})";
             }
         }
         else

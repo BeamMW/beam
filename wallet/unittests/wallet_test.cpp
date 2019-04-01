@@ -550,16 +550,22 @@ namespace
         sender.m_Wallet.initBitcoin(*mainReactor, "Bob", "123", senderAddress);
         receiver.m_Wallet.initBitcoin(*mainReactor, "Alice", "123", receiverAddress);
 
+        Amount beamAmount = 3;
+        Amount beamFee = 1;
+        Amount swapAmount = 2000;
+
         TestBitcoinWallet::Options senderOptions;
         senderOptions.m_rawAddress = "2N8N2kr34rcGqHCo3aN6yqniid8a4Mt3FCv";
         senderOptions.m_privateKey = "cSFMca7FAeAgLRgvev5ajC1v1jzprBr1KoefUFFPS8aw3EYwLArM";
         senderOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
+        senderOptions.m_amount = swapAmount;
         
         TestBitcoinWallet senderBtcWallet(*mainReactor, senderAddress, senderOptions);
         TestBitcoinWallet::Options receiverOptions;
         receiverOptions.m_rawAddress = "2Mvfsv3JiwWXjjwNZD6LQJD4U4zaPAhSyNB";
         receiverOptions.m_privateKey = "cNoRPsNczFw6b7wTuwLx24gSnCPyF3CbvgVmFJYKyfe63nBsGFxr";
         receiverOptions.m_refundTx = "0200000001809fc0890cb2724a941dfc3b7213a63b3017b0cddbed4f303be300cb55ddca830100000000ffffffff01e8030000000000001976a9146ed612a79317bc6ade234f299073b945ccb3e76b88ac00000000";
+        receiverOptions.m_amount = swapAmount;
 
         TestBitcoinWallet receiverBtcWallet(*mainReactor, receiverAddress, receiverOptions);
 
@@ -568,13 +574,13 @@ namespace
 
         if (isBeamOwnerStart)
         {
-            receiver.m_Wallet.initSwapConditions(3, 2000, false);
-            txID = sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, 3, 1, wallet::AtomicSwapCoin::Bitcoin, 2000, true);
+            receiver.m_Wallet.initSwapConditions(beamAmount, swapAmount, false);
+            txID = sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, true);
         }
         else
         {
-            sender.m_Wallet.initSwapConditions(3, 2000, true);
-            txID = receiver.m_Wallet.swap_coins(receiver.m_WalletID, sender.m_WalletID, 3, 1, wallet::AtomicSwapCoin::Bitcoin, 2000, false);
+            sender.m_Wallet.initSwapConditions(beamAmount, swapAmount, true);
+            txID = receiver.m_Wallet.swap_coins(receiver.m_WalletID, sender.m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, false);
         }
 
         auto receiverCoins = receiver.GetCoins();
@@ -587,7 +593,7 @@ namespace
 
         receiverCoins = receiver.GetCoins();
         WALLET_CHECK(receiverCoins.size() == 1);
-        WALLET_CHECK(receiverCoins[0].m_ID.m_Value == 3);
+        WALLET_CHECK(receiverCoins[0].m_ID.m_Value == beamAmount);
         WALLET_CHECK(receiverCoins[0].m_status == Coin::Available);
         WALLET_CHECK(receiverCoins[0].m_createTxId == txID);
 

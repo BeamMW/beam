@@ -1181,6 +1181,19 @@ namespace beam::wallet
             return;
         }
 
+        // validate amount
+        {
+            Amount swapAmount = GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
+            Amount outputAmount = static_cast<Amount>(std::round(result["value"].get<double>() * libbitcoin::satoshi_per_bitcoin));
+            if (swapAmount > outputAmount)
+            {
+                LOG_DEBUG() << GetTxID() << "Unexpected amount, excpected: " << swapAmount << ", got: " << outputAmount;
+
+                // TODO: implement error handling
+                return;
+            }
+        }
+
         // validate contract script
         libbitcoin::data_chunk scriptData;
         libbitcoin::decode_base16(scriptData, result["scriptPubKey"]["hex"]);
