@@ -824,11 +824,6 @@ bool Node::Processor::EnumViewerKeys(IKeyWalker& w)
 		return false;
 	}
 
-	if (keys.m_bRecoverViaDummyKey && !w.OnKey(*keys.m_pOwner, 1)) {
-		// stupid compiler insists on parentheses here!
-		return false;
-	}
-
     return true;
 }
 
@@ -908,7 +903,6 @@ void Node::Keys::SetSingleKey(const Key::IKdf::Ptr& pKdf)
     m_nMinerSubIndex = 0;
     m_pMiner = pKdf;
     m_pGeneric = pKdf;
-    m_pDummy = pKdf;
     m_pOwner = pKdf;
 }
 
@@ -986,29 +980,11 @@ void Node::InitIDs()
         m_MyPrivateID = s.V;
 
     proto::Sk2Pk(m_MyPublicID, m_MyPrivateID);
-
-    if (!m_Keys.m_pDummy)
-    {
-        // create it using Node-ID
-        ECC::NoLeak<ECC::Hash::Value> hv;
-        ECC::Hash::Processor() << m_MyPrivateID >> hv.V;
-
-        std::shared_ptr<ECC::HKdf> pKdf = std::make_shared<ECC::HKdf>();
-        pKdf->Generate(hv.V);
-        m_Keys.m_pDummy = std::move(pKdf);
-    }
-
 }
 
 void Node::RefreshOwnedUtxos()
 {
 	ECC::Hash::Processor hp;
-	if (m_Keys.m_pDummy)
-	{
-		ECC::Scalar::Native sk;
-		m_Keys.m_pDummy->DeriveKey(sk, Key::ID(0, Key::Type::Decoy));
-		hp << sk;
-	}
 
 	if (m_Keys.m_pOwner)
 	{
@@ -1027,11 +1003,7 @@ void Node::RefreshOwnedUtxos()
 	if (hv0 == hv1)
 		return; // unchaged
 
-	if (m_Keys.m_pDummy && !(m_Keys.m_pOwner && m_Keys.m_pOwner->IsSame(*m_Keys.m_pDummy)))
-		m_Keys.m_bRecoverViaDummyKey = true;
-
 	m_Processor.RescanOwnedTxos();
-	m_Keys.m_bRecoverViaDummyKey = false;
 
 	blob = Blob(hv0);
 	m_Processor.get_DB().ParamSet(NodeDB::ParamID::DummyID, NULL, &blob);
@@ -2045,7 +2017,7 @@ bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 
     assert(!pDup->m_bAggregating);
 
-    if (pDup->m_pValue->m_vOutputs.size() > m_Cfg.m_Dandelion.m_OutputsMax)
+    if ((pDup->m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMax) || !m_Keys.m_pMiner)
         OnTransactionAggregated(*pDup);
     else
     {
@@ -2144,6 +2116,9 @@ void Node::PerformAggregation(TxPool::Stem::Element& x)
 
 void Node::AddDummyInputs(Transaction& tx)
 {
+	if (!m_Keys.m_pMiner)
+		return;
+
     bool bModified = false;
 
     while (tx.m_vInputs.size() < m_Cfg.m_Dandelion.m_OutputsMax)
@@ -2164,7 +2139,7 @@ void Node::AddDummyInputs(Transaction& tx)
         UtxoTree::Key kMin, kMax;
 
         UtxoTree::Key::Data d;
-        SwitchCommitment().Create(sk, d.m_Commitment, *m_Keys.m_pDummy, kidv);
+        SwitchCommitment().Create(sk, d.m_Commitment, *m_Keys.m_pMiner, kidv);
         d.m_Maturity = 0;
         kMin = d;
 
@@ -2212,7 +2187,7 @@ void Node::AddDummyInputs(Transaction& tx)
 
 void Node::AddDummyOutputs(Transaction& tx)
 {
-    if (!m_Cfg.m_Dandelion.m_DummyLifetimeHi)
+    if (!m_Cfg.m_Dandelion.m_DummyLifetimeHi || !m_Keys.m_pMiner)
         return;
 
     // add dummy outputs
@@ -2236,7 +2211,7 @@ void Node::AddDummyOutputs(Transaction& tx)
 
         Output::Ptr pOutput(new Output);
         ECC::Scalar::Native sk;
-        pOutput->Create(sk, *m_Keys.m_pDummy, kidv, *m_Keys.m_pDummy);
+        pOutput->Create(sk, *m_Keys.m_pMiner, kidv, *m_Keys.m_pOwner);
 
 		Height h = SampleDummySpentHeight();
         db.InsertDummy(h, kidv);
