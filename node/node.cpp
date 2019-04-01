@@ -77,6 +77,27 @@ void Node::UpdateSyncStatus()
 	}
 }
 
+Height Node::get_MinSyncHeight() const
+{
+	if (m_Cfg.m_MinSyncHeight != MaxHeight)
+		return m_Cfg.m_MinSyncHeight;
+
+	const Rules& r = Rules::get(); // alias
+
+	if (!r.T0)
+		return 0;
+
+	if (!r.DA.Target_s)
+		return 0; // just to prevent crash
+
+	Timestamp dt_s = getTimestamp() - r.T0;
+
+	Height dh = dt_s / r.DA.Target_s;
+
+	return dh >> 1; // take 1/2 of the caluclated height
+
+}
+
 void Node::UpdateSyncStatusRaw()
 {
 	Height hTotal = m_Processor.m_Cursor.m_ID.m_Height;
@@ -85,6 +106,8 @@ void Node::UpdateSyncStatusRaw()
 
 	if (m_Processor.IsFastSync())
 		hTotal = m_Processor.m_SyncData.m_Target.m_Height;
+
+	hTotal = std::max(hTotal, get_MinSyncHeight());
 
 	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; it++)
 	{
@@ -916,6 +939,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
 
     LOG_INFO() << "Node ID=" << m_MyPublicID;
     LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
+	LOG_INFO() << "Minimum expected blockchain height: " << get_MinSyncHeight();
 	LOG_INFO() << "Tx replication is OFF";
 
 	if (!m_Cfg.m_Treasury.empty() && !m_Processor.IsTreasuryHandled()) {

@@ -126,6 +126,8 @@ namespace beam
 
 		ECC::Hash::Value Checksum;
 
+		Timestamp T0; // blockchain creation time. Used as a coarse estiamte of the expected blockchain height
+
 		void UpdateChecksum();
 
 		static Amount get_Emission(Height);
