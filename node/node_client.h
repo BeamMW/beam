@@ -37,6 +37,7 @@ public:
     virtual std::string getLocalNodeStorage() = 0;
     virtual std::string getTempDir() = 0;
     virtual std::vector<std::string> getLocalNodePeers() = 0;
+	virtual Height getNodeSyncHeightMin() = 0;
 };
 
 class NodeClient

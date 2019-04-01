@@ -28,6 +28,7 @@ using namespace std;
 namespace
 {
     const char* NodeAddressName = "node/address";
+	const char* NodeSyncHeightMin = "node/sync_height_min";
     const char* LockTimeoutName = "general/lock_timeout";
 
     const char* LocalNodeRun = "localnode/run";
@@ -89,6 +90,16 @@ void WalletSettings::setNodeAddress(const QString& addr)
         emit nodeAddressChanged();
     }
     
+}
+
+beam::Height WalletSettings::getNodeSyncHeightMin() const
+{
+	Lock lock(m_mutex);
+
+	bool ok = false;
+	beam::Height h = m_data.value(NodeSyncHeightMin).toULongLong(&ok);
+
+	return ok ? h : beam::MaxHeight;
 }
 
 int WalletSettings::getLockTimeout() const

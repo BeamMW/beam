@@ -30,6 +30,8 @@ public:
     QString getNodeAddress() const;
     void setNodeAddress(const QString& value);
 
+	beam::Height getNodeSyncHeightMin() const;
+
     int getLockTimeout() const;
     void setLockTimeout(int value);
 

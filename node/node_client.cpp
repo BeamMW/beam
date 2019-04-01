@@ -169,6 +169,8 @@ void NodeClient::runLocalNode()
 	node.m_Cfg.m_Horizon.m_SchwarzschildHi = 0; // would be adjusted anyway
 	node.m_Cfg.m_Horizon.m_SchwarzschildLo = 3600 * 24 * 180 / Rules::get().DA.Target_s; // 180-day period
 
+	node.m_Cfg.m_MinSyncHeight = m_observer->getNodeSyncHeightMin();
+
     auto peers = m_observer->getLocalNodePeers();
 
     for (const auto& peer : peers)

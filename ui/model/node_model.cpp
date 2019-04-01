@@ -110,3 +110,8 @@ std::vector<std::string> NodeModel::getLocalNodePeers()
 
     return result;
 }
+
+beam::Height NodeModel::getNodeSyncHeightMin()
+{
+	return AppModel::getInstance()->getSettings().getNodeSyncHeightMin();
+}
