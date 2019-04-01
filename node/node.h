@@ -62,7 +62,6 @@ struct Node
 		} m_Timeout;
 
 		uint32_t m_MaxConcurrentBlocksRequest = 18;
-		uint32_t m_BbsIdealChannelPopulation = 100;
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
 
