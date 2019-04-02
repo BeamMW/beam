@@ -935,6 +935,15 @@ void Node::Initialize(IExternalPOW* externalPOW)
     m_Processor.m_Horizon = m_Cfg.m_Horizon;
     m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_ProcessorParams);
 
+	if (m_Cfg.m_ProcessorParams.m_EraseSelfID)
+	{
+		m_Processor.get_DB().ParamSet(NodeDB::ParamID::MyID, nullptr, nullptr);
+		LOG_INFO() << "Node ID erased";
+
+		io::Reactor::get_Current().stop();
+		return;
+	}
+
     InitKeys();
     InitIDs();
 

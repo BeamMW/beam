@@ -114,6 +114,7 @@ public:
 		bool m_ResetCursor = false;
 		bool m_CheckIntegrityAndVacuum = false;
 		bool m_ResetSelfID = false;
+		bool m_EraseSelfID = false;
 	};
 
 	void Initialize(const char* szPath);
