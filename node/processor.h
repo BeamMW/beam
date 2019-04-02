@@ -113,6 +113,7 @@ public:
 	struct StartParams {
 		bool m_ResetCursor = false;
 		bool m_CheckIntegrityAndVacuum = false;
+		bool m_ResetSelfID = false;
 	};
 
 	void Initialize(const char* szPath);

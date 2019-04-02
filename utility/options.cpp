@@ -51,6 +51,7 @@ namespace beam
         const char* TREASURY = "treasury";
         const char* TREASURY_BLOCK = "treasury_path";
         const char* RESYNC = "resync";
+		const char* RESET_ID = "reset_id";
 		const char* CHECKDB = "check_db";
         const char* CRASH = "crash";
         const char* INIT = "init";
@@ -156,6 +157,7 @@ namespace beam
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
             (cli::STRATUM_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on startum server")
             (cli::RESYNC, po::value<bool>()->default_value(false), "Enforce re-synchronization (soft reset)")
+			(cli::RESET_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication). Must do if the node is cloned")
 			(cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check and compact (vacuum)")
             (cli::BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS messaging")
             (cli::CRASH, po::value<int>()->default_value(0), "Induce crash (test proper handling)")
