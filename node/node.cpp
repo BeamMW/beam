@@ -992,7 +992,9 @@ void Node::InitIDs()
 
     ECC::NoLeak<ECC::Scalar> s;
     Blob blob(s.V.m_Value);
-    bool bNewID = !m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob);
+    bool bNewID =
+		m_Cfg.m_ProcessorParams.m_ResetSelfID ||
+		!m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob);
 
     if (bNewID)
     {
