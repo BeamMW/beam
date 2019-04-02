@@ -312,6 +312,9 @@ int main_impl(int argc, char* argv[])
 					if (vm.count(cli::CHECKDB))
 						node.m_Cfg.m_ProcessorParams.m_CheckIntegrityAndVacuum = vm[cli::CHECKDB].as<bool>();
 
+					if (vm.count(cli::RESET_ID))
+						node.m_Cfg.m_ProcessorParams.m_ResetSelfID = vm[cli::RESET_ID].as<bool>();
+
 					node.m_Cfg.m_Bbs = vm[cli::BBS_ENABLE].as<bool>();
 
 					node.m_Cfg.m_Horizon.m_Branching = Rules::get().Macroblock.MaxRollback / 4; // inferior branches would be pruned when height difference is this.
