@@ -127,6 +127,30 @@ void Node::UpdateSyncStatusRaw()
 	hDoneHdrs = std::max(hDoneHdrs, hDoneBlocks);
 	hTotal = std::max(hTotal, hDoneHdrs);
 
+	// consider the timestamp of the tip, upon successful sync it should not be too far in the past
+	if (m_Processor.m_Cursor.m_ID.m_Height < Rules::HeightGenesis)
+		hTotal++;
+	else
+	{
+		Timestamp ts0_s = m_Processor.m_Cursor.m_Full.m_TimeStamp;
+		Timestamp ts1_s = getTimestamp();
+
+		const Timestamp tolerance_s = 60 * 60 * 24 * 2; // 2 days tolerance. In case blocks not created for some reason (mining turned off on testnet or etc.) we still don't want to get stuck in sync mode
+		ts0_s += tolerance_s;
+
+		if (ts1_s > ts0_s)
+		{
+			ts1_s -= ts0_s;
+
+			hTotal++;
+
+			const uint32_t& trg_s = Rules::get().DA.Target_s;
+			if (trg_s)
+				hTotal = std::max(hTotal, m_Processor.m_Cursor.m_ID.m_Height + ts1_s / trg_s);
+		}
+
+	}
+
 	m_SyncStatus.m_Total = hTotal * (SyncStatus::s_WeightHdr + SyncStatus::s_WeightBlock);
 	m_SyncStatus.m_Done = hDoneHdrs * SyncStatus::s_WeightHdr + hDoneBlocks * SyncStatus::s_WeightBlock;
 }
