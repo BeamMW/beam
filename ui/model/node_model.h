@@ -59,7 +59,6 @@ protected:
     std::string getLocalNodeStorage() override;
     std::string getTempDir() override;
     std::vector<std::string> getLocalNodePeers() override;
-	beam::Height getNodeSyncHeightMin() override;
 
 private:
     beam::NodeClient m_nodeClient;
