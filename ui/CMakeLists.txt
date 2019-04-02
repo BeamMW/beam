@@ -98,6 +98,8 @@ elseif(BEAM_MAINNET)
     set(BEAM_ICON_SUFFIX "mainnet")
 endif()
 
+add_definitions(-DAPP_NAME=\"${OUTPUT_NAME}\")
+
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/icons/icon_${BEAM_ICON_SUFFIX}.ico
           ${CMAKE_CURRENT_SOURCE_DIR}/icons/beam_${BEAM_ICON_SUFFIX}.png
           ${CMAKE_CURRENT_SOURCE_DIR}/icons/beam_${BEAM_ICON_SUFFIX}.icns

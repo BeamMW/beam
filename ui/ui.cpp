@@ -81,11 +81,11 @@ using namespace beam;
 using namespace std;
 using namespace ECC;
 
-#ifdef BEAM_TESTNET
-static const char* AppName = "Beam Wallet Testnet";
+#ifdef APP_NAME
+static const char* AppName = APP_NAME;
 #else
-static const char* AppName = "Beam Wallet";
-#endif // BEAM_TESTNET
+static const char* AppName = "Beam Wallet Masternet";
+#endif
 
 int main (int argc, char* argv[])
 {
