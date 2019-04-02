@@ -1118,8 +1118,15 @@ namespace beam { namespace wallet
 
     bool TxBuilder::IsAcceptableMaxHeight() const
     {
-        Height maxAcceptableHeight = m_Tx.GetMandatoryParameter<Height>(TxParameterID::PeerResponseHeight) + 
-                                     m_Tx.GetMandatoryParameter<Height>(TxParameterID::Lifetime);
+        Height lifetime = 0;
+        Height peerResponceHeight = 0;
+        if (!m_Tx.GetParameter(TxParameterID::Lifetime, lifetime)
+         || !m_Tx.GetParameter(TxParameterID::PeerResponseHeight, peerResponceHeight))
+        {
+            // possible situation during update from older version
+            return true; 
+        }
+        Height maxAcceptableHeight = lifetime + peerResponceHeight;
         return m_PeerMaxHeight < MaxHeight && m_PeerMaxHeight <= maxAcceptableHeight;
     }
 
