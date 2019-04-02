@@ -1023,7 +1023,8 @@ void Node::RefreshOwnedUtxos()
 
 	if (m_Keys.m_pOwner)
 	{
-		ECC::uintBig hv(Zero);
+		ECC::uintBig hv;
+		hv = m_Keys.m_nMinerSubIndex; // rescan also when miner subkey changes, to recover possible decoys that were rejected earlier
 		ECC::Scalar::Native sk;
 		m_Keys.m_pOwner->DerivePKey(sk, hv);
 		hp << sk;
@@ -2163,54 +2164,70 @@ void Node::AddDummyInputs(Transaction& tx)
         if (h > m_Processor.m_Cursor.m_ID.m_Height)
             break;
 
+		Key::IKdf::Ptr pChild;
+		Key::IKdf* pKdf = nullptr;
+
+		if (kidv.m_SubIdx == m_Keys.m_nMinerSubIndex)
+			pKdf = m_Keys.m_pMiner.get();
+		else
+		{
+			// was created by other miner. If we have the root key - we can recreate its key
+			if (!m_Keys.m_nMinerSubIndex)
+			{
+				ECC::HKdf::CreateChild(pChild, *m_Keys.m_pMiner, kidv.m_SubIdx);
+				pKdf = pChild.get();
+			}
+		}
+
 		kidv.m_Value = 0;
         bModified = true;
 
-        // ECC::Mode::Scope scope(ECC::Mode::Fast);
+		bool bFound = false;
+		if (pKdf)
+		{
+			ECC::Scalar::Native sk;
 
-        ECC::Scalar::Native sk;
+			// bounds
+			UtxoTree::Key kMin, kMax;
 
-        // bounds
-        UtxoTree::Key kMin, kMax;
+			UtxoTree::Key::Data d;
+			SwitchCommitment().Create(sk, d.m_Commitment, *pKdf, kidv);
+			d.m_Maturity = 0;
+			kMin = d;
 
-        UtxoTree::Key::Data d;
-        SwitchCommitment().Create(sk, d.m_Commitment, *m_Keys.m_pMiner, kidv);
-        d.m_Maturity = 0;
-        kMin = d;
+			d.m_Maturity = m_Processor.m_Cursor.m_ID.m_Height;
+			kMax = d;
 
-        d.m_Maturity = m_Processor.m_Cursor.m_ID.m_Height;
-        kMax = d;
+			// check if it's still unspent
+			struct Traveler :public UtxoTree::ITraveler {
+				virtual bool OnLeaf(const RadixTree::Leaf& x) override {
+					return false;
+				}
+			} t;
 
-        // check if it's still unspent
-        struct Traveler :public UtxoTree::ITraveler {
-            virtual bool OnLeaf(const RadixTree::Leaf& x) override {
-                return false;
-            }
-        } t;
+			UtxoTree::Cursor cu;
+			t.m_pCu = &cu;
+			t.m_pBound[0] = kMin.m_pArr;
+			t.m_pBound[1] = kMax.m_pArr;
 
-        UtxoTree::Cursor cu;
-        t.m_pCu = &cu;
-        t.m_pBound[0] = kMin.m_pArr;
-        t.m_pBound[1] = kMax.m_pArr;
+			bFound = !m_Processor.get_Utxos().Traverse(t);
+			if (bFound)
+			{
+				// unspent
+				Input::Ptr pInp(new Input);
+				pInp->m_Commitment = d.m_Commitment;
 
-        if (m_Processor.get_Utxos().Traverse(t))
-        {
-            // spent
-            m_Processor.get_DB().DeleteDummy(kidv);
-        }
-        else
-        {
-            // unspent
-            Input::Ptr pInp(new Input);
-            pInp->m_Commitment = d.m_Commitment;
+				tx.m_vInputs.push_back(std::move(pInp));
+				tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + ECC::Scalar::Native(sk);
 
-            tx.m_vInputs.push_back(std::move(pInp));
-            tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + ECC::Scalar::Native(sk);
+				/// in the (unlikely) case the tx will be lost - we'll retry spending this UTXO after the following num of blocks
+				m_Processor.get_DB().SetDummyHeight(kidv, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
+			}
+		}
 
-            /// in the (unlikely) case the tx will be lost - we'll retry spending this UTXO after the following num of blocks
-            m_Processor.get_DB().SetDummyHeight(kidv, m_Processor.m_Cursor.m_ID.m_Height + m_Cfg.m_Dandelion.m_DummyLifetimeLo + 1);
-        }
-
+		if (!bFound)
+			// spent
+			m_Processor.get_DB().DeleteDummy(kidv);
     }
 
     if (bModified)
@@ -2234,6 +2251,7 @@ void Node::AddDummyOutputs(Transaction& tx)
     {
 		Key::IDV kidv(Zero);
 		kidv.m_Type = Key::Type::Decoy;
+		kidv.m_SubIdx = m_Keys.m_nMinerSubIndex;
 
 		while (true)
 		{
