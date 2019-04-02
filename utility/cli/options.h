@@ -100,7 +100,6 @@ namespace beam
         extern const char* IP_WHITELIST;
 		extern const char* HORIZON_HI;
 		extern const char* HORIZON_LO;
-		extern const char* HEIGHT_MIN;
 
         // wallet api
         extern const char* API_USE_HTTP;

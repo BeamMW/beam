@@ -318,8 +318,6 @@ int main_impl(int argc, char* argv[])
 					node.m_Cfg.m_Horizon.m_SchwarzschildHi = vm[cli::HORIZON_HI].as<Height>();
 					node.m_Cfg.m_Horizon.m_SchwarzschildLo = vm[cli::HORIZON_LO].as<Height>();
 
-					node.m_Cfg.m_MinSyncHeight = vm[cli::HEIGHT_MIN].as<Height>();
-
 					node.Initialize(stratumServer.get());
 
 					io::Timer::Ptr pCrashTimer;

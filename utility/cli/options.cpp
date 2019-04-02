@@ -101,7 +101,6 @@ namespace beam
         const char* IP_WHITELIST = "ip_whitelist";
 		const char* HORIZON_HI = "horizon_hi";
 		const char* HORIZON_LO = "horizon_lo";
-		const char* HEIGHT_MIN = "sync_height_min";
 
         // wallet api
         const char* API_USE_HTTP = "use_http";
@@ -168,7 +167,6 @@ namespace beam
 			(cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
 			(cli::HORIZON_HI, po::value<Height>()->default_value(MaxHeight), "spent TXO Hi-Horizon")
 			(cli::HORIZON_LO, po::value<Height>()->default_value(MaxHeight), "spent TXO Lo-Horizon")
-			(cli::HEIGHT_MIN, po::value<Height>()->default_value(MaxHeight), "Minimum expected blockchain height")
             ;
 
         po::options_description node_treasury_options("Node treasury options");
