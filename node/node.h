@@ -113,8 +113,6 @@ struct Node
 
 		IObserver* m_Observer = nullptr;
 
-		Height m_MinSyncHeight = MaxHeight;
-
 	} m_Cfg; // must not be changed after initialization
 
 	struct Keys
@@ -257,7 +255,6 @@ private:
 
 	void UpdateSyncStatus();
 	void UpdateSyncStatusRaw();
-	Height get_MinSyncHeight() const;
 
 	void TryAssignTask(Task&, const PeerID*);
 	bool TryAssignTask(Task&, Peer&);
