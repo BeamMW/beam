@@ -318,8 +318,6 @@ add_subdirectory(p2p)
 add_subdirectory(http)
 add_subdirectory(wallet)
 add_subdirectory(node)
-add_subdirectory(beam)
-add_subdirectory(explorer)
 add_subdirectory(mnemonic)
 
 if(ANDROID OR BEAM_BUILD_JNI)
@@ -327,11 +325,16 @@ if(ANDROID OR BEAM_BUILD_JNI)
 endif()
 
 # TODO: uncomment this later
-if(NOT ANDROID AND BEAM_QT_UI_WALLET)
-    add_subdirectory(3rdparty/qrcode)
-    add_subdirectory(3rdparty/quazip)
-    add_subdirectory(ui)
-endif()
+if(NOT ANDROID)
+    add_subdirectory(beam)
+    add_subdirectory(explorer)
+
+    if(BEAM_QT_UI_WALLET)
+        add_subdirectory(3rdparty/qrcode)
+        add_subdirectory(3rdparty/quazip)
+        add_subdirectory(ui)
+    endif()
+ endif()
 
 ########################################################
 ### PACKAGING ##########################################
