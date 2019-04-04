@@ -515,10 +515,37 @@ namespace detail
 			return ar;
 		}
 
+		/// beam::TxKernel::RelativeLock serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::TxKernel::RelativeLock& val)
+		{
+			ar
+				& val.m_ID
+				& val.m_LockHeight
+				;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::TxKernel::RelativeLock& val)
+		{
+			ar
+				& val.m_ID
+				& val.m_LockHeight
+				;
+
+			return ar;
+		}
+
         /// beam::TxKernel serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::TxKernel& val)
         {
+			uint8_t nFlags2 =
+				(val.m_AssetEmission ? 1 : 0) |
+				(val.m_pRelativeLock ? 2 : 0);
+
 			uint8_t nFlags =
 				(val.m_Commitment.m_Y ? 1 : 0) |
 				(val.m_Fee ? 2 : 0) |
@@ -527,7 +554,7 @@ namespace detail
 				(val.m_Signature.m_NoncePub.m_Y ? 0x10 : 0) |
 				(val.m_pHashLock ? 0x20 : 0) |
 				(val.m_vNested.empty() ? 0 : 0x40) |
-				(val.m_AssetEmission ? 0x80 : 0);
+				(nFlags2 ? 0x80 : 0);
 
 			ar
 				& nFlags
@@ -556,9 +583,16 @@ namespace detail
 					save(ar, *val.m_vNested[i]);
 			}
 
-			if (0x80 & nFlags)
-				ar & val.m_AssetEmission;
+			if (nFlags2)
+			{
+				ar & nFlags2;
 
+				if (1 & nFlags2)
+					ar & val.m_AssetEmission;
+
+				if (2 & nFlags2)
+					ar & *val.m_pRelativeLock;
+			}
             return ar;
         }
 
@@ -617,10 +651,22 @@ namespace detail
 				}
 			}
 
+			val.m_AssetEmission = 0;
+
 			if (0x80 & nFlags)
-				ar & val.m_AssetEmission;
-			else
-				val.m_AssetEmission = 0;
+			{
+				uint8_t nFlags2;
+				ar & nFlags2;
+
+				if (1 & nFlags2)
+					ar & val.m_AssetEmission;
+
+				if (2 & nFlags2)
+				{
+					val.m_pRelativeLock.reset(new beam::TxKernel::RelativeLock);
+					ar & *val.m_pRelativeLock;
+				}
+			}
 
             return ar;
         }

@@ -365,13 +365,17 @@ namespace beam
 				return false; // parent Height range must be contained in ours.
 		}
 
+		uint8_t nFlags =
+			(m_pHashLock ? 1 : 0) |
+			(m_pRelativeLock ? 2 : 0);
+
 		ECC::Hash::Processor hp;
 		hp	<< m_Fee
 			<< m_Height.m_Min
 			<< m_Height.m_Max
 			<< m_Commitment
 			<< Amount(m_AssetEmission)
-			<< (bool) m_pHashLock;
+			<< nFlags;
 
 		if (m_pHashLock)
 		{
@@ -382,6 +386,16 @@ namespace beam
 			}
 
 			hp << *pLockImage;
+		}
+
+		if (m_pRelativeLock)
+		{
+			if (!Rules::get().RelativeLocks)
+				return false;
+
+			hp
+				<< m_pRelativeLock->m_ID
+				<< m_pRelativeLock->m_LockHeight;
 		}
 
 		ECC::Point::Native ptExcNested;
@@ -515,6 +529,7 @@ namespace beam
 			return -1;
 
 		CMP_MEMBER_PTR(m_pHashLock)
+		CMP_MEMBER_PTR(m_pRelativeLock)
 
 		return 0;
 	}
@@ -522,6 +537,13 @@ namespace beam
 	int TxKernel::HashLock::cmp(const HashLock& v) const
 	{
 		CMP_MEMBER_EX(m_Preimage)
+		return 0;
+	}
+
+	int TxKernel::RelativeLock::cmp(const RelativeLock& v) const
+	{
+		CMP_MEMBER_EX(m_ID)
+		CMP_MEMBER(m_LockHeight)
 		return 0;
 	}
 
@@ -542,6 +564,7 @@ namespace beam
 		m_Height = v.m_Height;
 		m_AssetEmission = v.m_AssetEmission;
 		ClonePtr(m_pHashLock, v.m_pHashLock);
+		ClonePtr(m_pRelativeLock, v.m_pRelativeLock);
 
 		m_vNested.resize(v.m_vNested.size());
 

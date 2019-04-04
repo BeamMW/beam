@@ -120,6 +120,7 @@ namespace beam
 
 		bool AllowPublicUtxos = false;
 		bool FakePoW = false;
+		bool RelativeLocks = false;
 
 		ECC::Hash::Value Prehistoric; // Prev hash of the 1st block
 		ECC::Hash::Value TreasuryChecksum;
@@ -276,6 +277,18 @@ namespace beam
 		};
 
 		std::unique_ptr<HashLock> m_pHashLock;
+
+		struct RelativeLock
+		{
+			Merkle::Hash m_ID;
+			Height m_LockHeight;
+
+			int cmp(const RelativeLock&) const;
+			COMPARISON_VIA_CMP
+		};
+
+		std::unique_ptr<RelativeLock> m_pRelativeLock;
+
 		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
 		static const uint32_t s_MaxRecursionDepth = 2;
