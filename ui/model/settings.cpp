@@ -28,7 +28,7 @@ using namespace std;
 namespace
 {
     const char* NodeAddressName = "node/address";
-    const char* LockTimeoutName = "general/lock_timeout";
+    const char* LockTimeoutName = "lock_timeout";
 
     const char* LocalNodeRun = "localnode/run";
     const char* LocalNodePort = "localnode/port";
