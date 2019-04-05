@@ -143,4 +143,9 @@ public class WalletListener
 	{
 		System.out.println(">>>>>>>>>>>>>> async onCantSendToExpired() in Java");
 	}
+
+    static void onPaymentProofExported(String txId, String proof)
+    {
+        System.out.println(">>>>>>>>>>>>>> async onPaymentProofExported() in Java");
+    }
 }

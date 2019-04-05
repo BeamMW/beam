@@ -288,5 +288,19 @@ void WalletModel::onCantSendToExpired()
 
 void WalletModel::onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof)
 {
+    string str;
+    str.resize(proof.size() * 2);
 
+    beam::to_hex(str.data(), proof.data(), proof.size());
+
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onPaymentProofExported", "(Ljava/lang/String;Ljava/lang/String;)V");
+
+    jstring jStrTxId = env->NewStringUTF(to_hex(txID.data(), txID.size()).c_str());
+    jstring jStrProof = env->NewStringUTF(str.c_str());
+    env->CallStaticVoidMethod(WalletListenerClass, callback, jStrTxId, jStrProof);
+
+    env->DeleteLocalRef(jStrTxId);
+    env->DeleteLocalRef(jStrProof);
 }
