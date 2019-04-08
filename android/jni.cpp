@@ -393,6 +393,17 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(changeWalletPassword)(JNIEnv *
     walletModel->getAsync()->changeWalletPassword(pass);
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getPaymentInfo)(JNIEnv *env, jobject thiz,
+    jstring txID)
+{
+    auto buffer = from_hex(JString(env, txID).value());
+    TxID id;
+
+    std::copy_n(buffer.begin(), id.size(), id.begin());
+
+    walletModel->getAsync()->exportPaymentProof(id);
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv *env;

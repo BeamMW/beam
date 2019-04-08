@@ -36,6 +36,7 @@ public class Wallet
     public native void deleteAddress(String walletID);
     public native void changeWalletPassword(String password);
     public native boolean checkWalletPassword(String password);
+    public native void getPaymentInfo(String txID);
 
     // not implemented
     public native void changeCurrentWalletIDs(); //const beam::WalletID& senderID, const beam::WalletID& receiverID);
