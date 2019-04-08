@@ -571,6 +571,8 @@ void WalletClient::setNodeAddress(const std::string& addr)
 
     if (nodeAddr.resolve(addr.c_str()))
     {
+        m_nodeAddrStr = addr;
+
         assert(!m_nodeNetwork.expired());
         auto s = m_nodeNetwork.lock();
         if (s)
