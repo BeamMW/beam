@@ -1540,7 +1540,7 @@ Item
                         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
                         cancelVisible: true
                         width: 460
-                        text: qsTr("If you login to another wallet, all unsaved transaction history for the current wallet will be lost.")
+                        text: qsTr("If you open another wallet, all unsaved transaction history for the current wallet will be lost.")
                         onAccepted: {
                             viewModel.isRecoveryMode = true;
                             startWizzardView.push(restoreWallet);
@@ -1573,6 +1573,14 @@ Item
                             onClicked: firstButtonAction()
                         }
 
+                        CustomButton {
+                            text: qsTr("open another wallet")
+                            icon.source: "qrc:/assets/icon-change.svg"
+                            onClicked: {
+                                confirmChangeWalletDialog.open();
+                            }
+                        }
+
                         PrimaryButton {
                             anchors.verticalCenter: parent.verticalCenter
                             id: btnCurrentWallet
@@ -1598,6 +1606,29 @@ Item
                         }
                     }
 
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 30
+                        Layout.maximumHeight: 65
+                    }
+
+                    SFText {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: qsTr("Forgot password?")
+                        color: Style.active
+                        font.pixelSize: 14
+                
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                confirmFogotPassDialog.open();
+                            }
+                            hoverEnabled: true
+                        }
+                    }
+                    
                     Item {
                         Layout.fillHeight: true
                         Layout.minimumHeight: 67
