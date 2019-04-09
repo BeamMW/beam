@@ -96,7 +96,7 @@ Dialog {
                 height: 20
                 currentIndex: rootControl.addressItem && rootControl.addressItem.neverExpired ? 1 : 0
 
-                model: rootControl.isExpiredAddress ? ["in 24 hours (since now)", "never"] : ["in 24 hours (since now)", "never", "now"]
+                model: rootControl.isExpiredAddress ? ["in 24 hours (from now)", "never"] : ["in 24 hours (from now)", "never", "now"]
             }
     	}
 
