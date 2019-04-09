@@ -194,6 +194,12 @@ int main_impl(int argc, char* argv[])
 
 			auto port = vm[cli::PORT].as<uint16_t>();
 
+            if (!port)
+            {
+                LOG_ERROR() << "Port must be specified";
+                return -1;
+            }
+
 			{
 				reactor = io::Reactor::create();
 				io::Reactor::Scope scope(*reactor);
@@ -270,25 +276,22 @@ int main_impl(int argc, char* argv[])
 
 					std::vector<std::string> vPeers = getCfgPeers(vm);
 
-					node.m_Cfg.m_Connect.resize(vPeers.size());
-
 					for (size_t i = 0; i < vPeers.size(); i++)
 					{
-						io::Address& addr = node.m_Cfg.m_Connect[i];
-						if (!addr.resolve(vPeers[i].c_str()))
+                        io::Address addr;
+
+                        if (addr.resolve(vPeers[i].c_str()))
+                        {
+						    if (!addr.port())
+						    {
+							    addr.port(port);
+						    }
+
+                            node.m_Cfg.m_Connect.push_back(addr);
+                        }
+                        else
 						{
 							LOG_ERROR() << "unable to resolve: " << vPeers[i];
-							return -1;
-						}
-
-						if (!addr.port())
-						{
-							if (!port)
-							{
-								LOG_ERROR() << "Port must be specified";
-								return -1;
-							}
-							addr.port(port);
 						}
 					}
 
