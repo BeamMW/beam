@@ -213,9 +213,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
         LOG_DEBUG() << "wallet successfully opened.";
 
         passwordHash.V = beam::SecString(pass).hash().V;
-        // this code for node
-        LOG_DEBUG() << "try to start node";
-
+        
         walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
                 
         jobject walletObj = env->AllocObject(WalletClass);
