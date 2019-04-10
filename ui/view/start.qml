@@ -1369,8 +1369,9 @@ Item
                                         portError.text = qsTr("Please, specify port number to listen on");
                                         return;
                                     }
-                                    if (parseInt(portInput.text.trim()) > 65535) {
-                                        portError.text = qsTr("Port must be a number between 0 and 65535");
+                                    var effectivePort = parseInt(portInput.text.trim());
+                                    if (effectivePort > 65535 || effectivePort < 1) {
+                                        portError.text = qsTr("Port must be a number between 1 and 65535");
                                         return;
                                     }
                                     if (localNodePeer.text.trim().length === 0) {
