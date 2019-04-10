@@ -1836,6 +1836,9 @@ namespace beam
 
             switch (static_cast<wallet::TxParameterID>(parameter.m_paramID))
             {
+            case wallet::TxParameterID::TransactionType:
+                deserialize(txDescription.m_txType, parameter.m_value);
+                break;
             case wallet::TxParameterID::Amount:
                 deserialize(txDescription.m_amount, parameter.m_value);
                 break;
@@ -1895,6 +1898,7 @@ namespace beam
     {
         ChangeAction action = ChangeAction::Added;
 
+        wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::TransactionType, p.m_txType, false);
         wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::Amount, p.m_amount, false);
         wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::Fee, p.m_fee, false);
         wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::Change, p.m_change, false);

@@ -25,6 +25,15 @@
 
 namespace beam
 {
+    namespace wallet
+    {
+        enum class TxType : uint8_t
+        {
+            Simple,
+            AtomicSwap
+        };
+    }
+
     using TxID = std::array<uint8_t, 16>;
 
 #pragma pack (push, 1)
@@ -111,6 +120,7 @@ namespace beam
         TxDescription() = default;
 
         TxDescription(const TxID& txId
+                    , wallet::TxType txType
                     , Amount amount
                     , Amount fee
                     , Height minHeight
@@ -120,6 +130,7 @@ namespace beam
                     , Timestamp createTime
                     , bool sender)
             : m_txId{ txId }
+            , m_txType{ txType }
             , m_amount{ amount }
             , m_fee{ fee }
             , m_change{}
@@ -136,6 +147,7 @@ namespace beam
         }
 
         TxID m_txId;
+        wallet::TxType m_txType = wallet::TxType::Simple;
         Amount m_amount=0;
         Amount m_fee=0;
         Amount m_change=0;
@@ -288,12 +300,6 @@ namespace beam
     
             State = 255
 
-        };
-
-        enum class TxType : uint8_t
-        {
-            Simple,
-            AtomicSwap
         };
 
         enum class AtomicSwapCoin

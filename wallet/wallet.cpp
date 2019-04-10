@@ -246,7 +246,7 @@ namespace beam
         {
             if (m_Transactions.find(tx.m_txId) == m_Transactions.end())
             {
-                auto t = constructTransaction(tx.m_txId, TxType::Simple);
+                auto t = constructTransaction(tx.m_txId, tx.m_txType);
                 if (t->SetParameter(TxParameterID::KernelProofHeight, Height(0), false)
                     && t->SetParameter(TxParameterID::KernelUnconfirmedHeight, Height(0), false))
                 {
@@ -266,7 +266,7 @@ namespace beam
     {
         if (tx.canResume() && m_Transactions.find(tx.m_txId) == m_Transactions.end())
         {
-            auto t = constructTransaction(tx.m_txId, TxType::Simple);
+            auto t = constructTransaction(tx.m_txId, tx.m_txType);
 
             m_Transactions.emplace(tx.m_txId, t);
             UpdateOnSynced(t);
