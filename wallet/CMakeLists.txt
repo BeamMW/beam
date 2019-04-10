@@ -14,7 +14,9 @@ set(WALLET_SRC
     wallet_db.cpp
     wallet_client.h
     wallet_client.cpp
-    swap_transaction.cpp
+    swaps/swap_transaction.cpp
+    swaps/lock_tx_builder.cpp
+    swaps/shared_tx_builder.cpp
     secstring2.cpp
     unittests/util.cpp
 )

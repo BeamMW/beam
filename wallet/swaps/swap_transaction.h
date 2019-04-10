@@ -14,9 +14,9 @@
 
 #pragma once
 
-#include "base_transaction.h"
-#include "base_tx_builder.h"
-
+#include "../base_transaction.h"
+#include "../base_tx_builder.h"
+#include "common.h"
 
 namespace beam::wallet
 {
@@ -66,7 +66,7 @@ namespace beam::wallet
         };
 
     public:
-        enum SubTxIndex : SubTxID
+        /*enum SubTxIndex : SubTxID
         {
             BEAM_LOCK_TX = 2,
             BEAM_REFUND_TX = 3,
@@ -74,7 +74,7 @@ namespace beam::wallet
             LOCK_TX = 5,
             REFUND_TX = 6,
             REDEEM_TX = 7
-        };
+        };*/
 
         AtomicSwapTransaction(INegotiatorGateway& gateway
                             , beam::IWalletDB::Ptr walletDB
@@ -148,64 +148,5 @@ namespace beam::wallet
         uint16_t m_SwapLockTxConfirmations = 0;
         boost::optional<std::string> m_SwapLockRawTx;
         boost::optional<std::string> m_SwapWithdrawRawTx;
-    };
-
-    class LockTxBuilder: public BaseTxBuilder
-    {
-    public:
-        LockTxBuilder(BaseTransaction& tx, Amount amount, Amount fee);
-
-        Transaction::Ptr CreateTransaction() override;
-
-        void LoadSharedParameters();
-        bool SharedUTXOProofPart2(bool shouldProduceMultisig);
-        bool SharedUTXOProofPart3(bool shouldProduceMultisig);
-
-        const ECC::RangeProof::Confidential& GetSharedProof() const;
-        const ECC::RangeProof::Confidential::MultiSig& GetProofPartialMultiSig() const;
-        ECC::Point::Native GetPublicSharedBlindingFactor() const;
-
-    private:
-
-        void AddSharedOutput();
-        void LoadPeerOffset();
-
-        const ECC::uintBig& GetSharedSeed() const;
-        const ECC::Scalar::Native& GetSharedBlindingFactor() const;
-        const ECC::RangeProof::CreatorParams& GetProofCreatorParams();
-
-        ECC::Point::Native GetSharedCommitment();
-
-        ECC::Scalar::Native m_SharedBlindingFactor;
-        ECC::NoLeak<ECC::uintBig> m_SharedSeed;
-        beam::Coin m_SharedCoin;
-        ECC::RangeProof::Confidential m_SharedProof;
-
-        // deduced values, 
-        boost::optional<ECC::RangeProof::CreatorParams> m_CreatorParams;
-        ECC::RangeProof::Confidential::MultiSig m_ProofPartialMultiSig;
-    };
-
-    class SharedTxBuilder : public BaseTxBuilder
-    {
-    public:
-        SharedTxBuilder(BaseTransaction& tx, SubTxID subTxID, Amount amount, Amount fee);
-
-        void InitTx(bool isTxOwner);
-        Transaction::Ptr CreateTransaction() override;
-
-        bool GetSharedParameters();
-
-    protected:
-
-        void InitInput();
-        void InitOutput();
-
-        void InitOffset();
-        void LoadPeerOffset();
-
-
-        ECC::Scalar::Native m_SharedBlindingFactor;
-        ECC::Point::Native m_PeerPublicSharedBlindingFactor;
-    };
+    };    
 }

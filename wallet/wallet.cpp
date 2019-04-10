@@ -19,7 +19,7 @@
 #include "core/block_crypt.h"
 #include "utility/logger.h"
 #include "utility/helpers.h"
-#include "swap_transaction.h"
+#include "swaps/swap_transaction.h"
 #include <algorithm>
 #include <random>
 #include <iomanip>
