@@ -1261,6 +1261,7 @@ Item
                                 font.pixelSize: 14
                                 color: Style.content_main
                                 text: viewModel.defaultPortToListen()
+                                validator: RegExpValidator { regExp: /^\d{1,5}$/ }
                                 onTextChanged: if (portInput.text.length > 0) portError.text = ""
                             }
                             SFText {
@@ -1365,7 +1366,11 @@ Item
                             onClicked:{
                                 if (localNodeButton.checked) {
                                     if (portInput.text.trim().length === 0) {
-                                        portError.text = qsTr("Please, specify port to listen ");
+                                        portError.text = qsTr("Please, specify port number to listen on");
+                                        return;
+                                    }
+                                    if (parseInt(portInput.text.trim()) > 65535) {
+                                        portError.text = qsTr("Port must be a number between 0 and 65535");
                                         return;
                                     }
                                     if (localNodePeer.text.trim().length === 0) {

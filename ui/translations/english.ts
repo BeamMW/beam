@@ -37,17 +37,17 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/AddressTable.qml" line="122"/>
+        <location filename="../view/controls/AddressTable.qml" line="134"/>
         <source>Actions</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/AddressTable.qml" line="141"/>
+        <location filename="../view/controls/AddressTable.qml" line="153"/>
         <source>edit address</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/AddressTable.qml" line="149"/>
+        <location filename="../view/controls/AddressTable.qml" line="161"/>
         <source>delete address</source>
         <translation type="unfinished"></translation>
     </message>
@@ -213,12 +213,12 @@
 <context>
     <name>LogoComponent</name>
     <message>
-        <location filename="../view/controls/LogoComponent.qml" line="30"/>
+        <location filename="../view/controls/LogoComponent.qml" line="31"/>
         <source>BEAM</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/LogoComponent.qml" line="49"/>
+        <location filename="../view/controls/LogoComponent.qml" line="50"/>
         <source>Scalable confidential cryptocurrency</source>
         <translation type="unfinished"></translation>
     </message>
@@ -897,8 +897,8 @@ Are you sure?</source>
     <message>
         <location filename="../view/start.qml" line="50"/>
         <location filename="../view/start.qml" line="131"/>
-        <location filename="../view/start.qml" line="1362"/>
-        <location filename="../view/start.qml" line="1552"/>
+        <location filename="../view/start.qml" line="1363"/>
+        <location filename="../view/start.qml" line="1557"/>
         <source>restore wallet</source>
         <translation type="unfinished"></translation>
     </message>
@@ -979,7 +979,7 @@ Are you sure?</source>
         <location filename="../view/start.qml" line="791"/>
         <location filename="../view/start.qml" line="953"/>
         <location filename="../view/start.qml" line="1144"/>
-        <location filename="../view/start.qml" line="1356"/>
+        <location filename="../view/start.qml" line="1357"/>
         <source>back</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1054,7 +1054,7 @@ Are you sure?</source>
     </message>
     <message>
         <location filename="../view/start.qml" line="1032"/>
-        <location filename="../view/start.qml" line="1508"/>
+        <location filename="../view/start.qml" line="1513"/>
         <source>Enter password</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1065,7 +1065,7 @@ Are you sure?</source>
     </message>
     <message>
         <location filename="../view/start.qml" line="1154"/>
-        <location filename="../view/start.qml" line="1584"/>
+        <location filename="../view/start.qml" line="1589"/>
         <source>Please, enter password</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1090,77 +1090,82 @@ Are you sure?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1277"/>
+        <location filename="../view/start.qml" line="1278"/>
         <source>Peer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1303"/>
+        <location filename="../view/start.qml" line="1304"/>
         <source>Connect to random remote node</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1313"/>
+        <location filename="../view/start.qml" line="1314"/>
         <source>Connect to specific remote node</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1362"/>
+        <location filename="../view/start.qml" line="1363"/>
         <source>start using your wallet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1368"/>
-        <source>Please, specify port to listen </source>
+        <location filename="../view/start.qml" line="1369"/>
+        <source>Please, specify port number to listen on</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1372"/>
+        <location filename="../view/start.qml" line="1373"/>
+        <source>Port must be a number between 0 and 65535</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../view/start.qml" line="1377"/>
         <source>Please, specify correct peer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1376"/>
+        <location filename="../view/start.qml" line="1381"/>
         <source>Please, specify peer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1384"/>
+        <location filename="../view/start.qml" line="1389"/>
         <source>Please, specify address of the remote node</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1418"/>
+        <location filename="../view/start.qml" line="1423"/>
         <source>login to another wallet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1496"/>
+        <location filename="../view/start.qml" line="1501"/>
         <source>Enter your password to access the current wallet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1538"/>
+        <location filename="../view/start.qml" line="1543"/>
         <source>change wallet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1543"/>
+        <location filename="../view/start.qml" line="1548"/>
         <source>If you login to another wallet, all unsaved transaction history for the current wallet will be lost.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1557"/>
+        <location filename="../view/start.qml" line="1562"/>
         <source>You can restore you wallet using your seed phrase but all transaction history will be lost.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1579"/>
+        <location filename="../view/start.qml" line="1584"/>
         <source>show my wallet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1590"/>
+        <location filename="../view/start.qml" line="1595"/>
         <source>Invalid password provided.</source>
         <translation type="unfinished"></translation>
     </message>
