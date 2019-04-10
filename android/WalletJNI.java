@@ -52,7 +52,7 @@ public class WalletJNI
 		}
 		else
 		{
-			wallet = api.createWallet(nodeAddr, "test", "123", "garbage;wild;fruit;vicious;jungle;snack;arrange;pink;scorpion;speed;used;frozen;");
+			wallet = api.createWallet(nodeAddr, "test", "123", "garbage;wild;fruit;vicious;jungle;snack;arrange;pink;scorpion;speed;used;frozen;", false);
 
 			System.out.println(wallet == null ? "wallet creation error" : "wallet successfully created");
 		}
