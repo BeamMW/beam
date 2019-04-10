@@ -145,10 +145,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         WalletAddress address = wallet::createAddress(*walletDB);
         address.m_label = "default";
         walletDB->saveAddress(address);
-        nodeModel->setKdf(walletDB->get_MasterKdf());
-        nodeModel->startNode();
-        walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005");
-
+        
         if (restore)
         {
             walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005", reactor);
