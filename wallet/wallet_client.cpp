@@ -271,21 +271,37 @@ void WalletClient::start()
                 {
                     m_walletClient.nodeConnectionFailed(reason);
                 }
+
+                void tryToConnect()
+                {
+                    if (!m_timer)
+                    {
+                        m_timer = io::Timer::create(io::Reactor::get_Current());
+                    }
+
+                    m_timer->start(m_Cfg.m_ReconnectTimeout_ms, false, [this]() {
+                        Address nodeAddr;
+                        if (nodeAddr.resolve(m_nodeAddrStr.c_str()))
+                        {
+                            m_Cfg.m_vNodes.push_back(nodeAddr);
+                            Connect();
+                        }
+                        else
+                        {
+                            LOG_ERROR() << "Unable to resolve node address: " << m_nodeAddrStr;
+                            tryToConnect();
+                        }
+                    });
+                }
+
+                std::string m_nodeAddrStr;
+
+            private:
+
+                io::Timer::Ptr m_timer;
             };
 
             auto nodeNetwork = make_shared<MyNodeNetwork>(*wallet, *this);
-
-            Address nodeAddr;
-            if (nodeAddr.resolve(m_nodeAddrStr.c_str()))
-            {
-                nodeNetwork->m_Cfg.m_vNodes.push_back(nodeAddr);
-            }
-            else
-            {
-                LOG_ERROR() << "Unable to resolve node address: " << m_nodeAddrStr;
-            }
-
-            nodeNetwork->m_Cfg.m_vNodes.push_back(nodeAddr);
 
             m_nodeNetwork = nodeNetwork;
 
@@ -295,7 +311,18 @@ void WalletClient::start()
 
             wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
-            nodeNetwork->Connect();
+            Address nodeAddr;
+            if (nodeAddr.resolve(m_nodeAddrStr.c_str()))
+            {
+                nodeNetwork->m_Cfg.m_vNodes.push_back(nodeAddr);
+                nodeNetwork->Connect();
+            }
+            else
+            {
+                LOG_ERROR() << "Unable to resolve node address: " << m_nodeAddrStr;
+                nodeNetwork->m_nodeAddrStr = m_nodeAddrStr;
+                nodeNetwork->tryToConnect();
+            }
 
             m_reactor->run();
         }
