@@ -20,6 +20,47 @@ Item
         id: logoComponent
     }
 
+    ConfirmationDialog {
+        id: restoreWalletConfirmation
+
+        okButtonText: qsTr("restore wallet")
+        okButtonIconSource: "qrc:/assets/icon-restore-blue.svg"
+        cancelVisible: true
+        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+        width: 460
+        height: 208
+
+        contentItem: Column {
+            anchors.fill: parent
+            anchors.margins: 30
+            spacing: 20
+
+            SFText {
+                horizontalAlignment : Text.AlignHCenter
+                width: parent.width
+                text: qsTr("Your funds will be fully restored from the blockchain. The transaction history and your addresses are stored locally and are encrypted with your password, hence it can't be restored.")
+                color: Style.content_main
+                font.pixelSize: 14
+                wrapMode: Text.Wrap
+            }
+
+            SFText {
+                horizontalAlignment : Text.AlignHCenter
+                width: parent.width
+                text: qsTr("That's the final version till the future validation and process.")
+                color: Style.content_main
+                font.pixelSize: 14
+                wrapMode: Text.Wrap
+            }
+        }
+        onAccepted: {
+            onClicked: {
+                viewModel.isRecoveryMode = true;
+                startWizzardView.push(restoreWallet);
+            }
+        }
+    }
+
     StackView {
         id: startWizzardView
         anchors.fill: parent
@@ -43,47 +84,6 @@ Item
                 }
 
                 property Item defaultFocusItem: createNewWallet
-
-                ConfirmationDialog {
-                    id: restoreWalletConfirmation
-
-                    okButtonText: qsTr("restore wallet")
-                    okButtonIconSource: "qrc:/assets/icon-restore-blue.svg"
-                    cancelVisible: true
-                    cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
-                    width: 460
-                    height: 208
-
-                    contentItem: Column {
-                        anchors.fill: parent
-                        anchors.margins: 30
-                        spacing: 20
-
-                        SFText {
-                            horizontalAlignment : Text.AlignHCenter
-                            width: parent.width
-                            text: qsTr("Your funds will be fully restored from the blockchain. The transaction history and your addresses are stored locally and are encrypted with your password, hence it can't be restored.")
-                            color: Style.content_main
-                            font.pixelSize: 14
-                            wrapMode: Text.Wrap
-                        }
-
-                        SFText {
-                            horizontalAlignment : Text.AlignHCenter
-                            width: parent.width
-                            text: qsTr("That's the final version till the future validation and process.")
-                            color: Style.content_main
-                            font.pixelSize: 14
-                            wrapMode: Text.Wrap
-                        }
-                    }
-                    onAccepted: {
-                        onClicked: {
-                            viewModel.isRecoveryMode = true;
-                            startWizzardView.push(restoreWallet);
-                        }
-                    }
-                }
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -1551,21 +1551,7 @@ Item
                             startWizzardView.push(restoreWallet);
                         }
                     }
-
-                    ConfirmationDialog {
-                        id: confirmFogotPassDialog
-                        okButtonText: qsTr("restore wallet")
-                        okButtonIconSource: "qrc:/assets/icon-restore-blue.svg"
-                        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
-                        cancelVisible: true
-                        width: 460
-                        text: qsTr("You can restore you wallet using your seed phrase but all transaction history will be lost.")
-                        onAccepted: {
-                            viewModel.isRecoveryMode = true;
-                            startWizzardView.push(restoreWallet);
-                        }
-                    }
-                    
+                   
                     Row {
                         Layout.alignment: Qt.AlignHCenter
                         Layout.topMargin: 33
@@ -1579,10 +1565,10 @@ Item
                         }
 
                         CustomButton {
-                            text: qsTr("open another wallet")
-                            icon.source: "qrc:/assets/icon-change.svg"
+                            text: qsTr("restore wallet")
+                            icon.source: "qrc:/assets/icon-restore.svg"
                             onClicked: {
-                                confirmChangeWalletDialog.open();
+                                restoreWalletConfirmation.open();
                             }
                         }
 
@@ -1610,30 +1596,7 @@ Item
                             }
                         }
                     }
-
-                    Item {
-                        Layout.fillHeight: true
-                        Layout.minimumHeight: 30
-                        Layout.maximumHeight: 65
-                    }
-
-                    SFText {
-                        Layout.alignment: Qt.AlignHCenter
-                        text: qsTr("Forgot password?")
-                        color: Style.active
-                        font.pixelSize: 14
-                
-                        MouseArea {
-                            anchors.fill: parent
-                            acceptedButtons: Qt.LeftButton
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                confirmFogotPassDialog.open();
-                            }
-                            hoverEnabled: true
-                        }
-                    }
-                    
+                   
                     Item {
                         Layout.fillHeight: true
                         Layout.minimumHeight: 67
