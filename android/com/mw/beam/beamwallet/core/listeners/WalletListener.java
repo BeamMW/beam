@@ -75,6 +75,11 @@ public class WalletListener
 		System.out.println(">>>>>>>>>>>>>> async onSyncProgressUpdated in Java [ " + done + " / " + total + " ]");
 	}
 
+    static void onNodeSyncProgressUpdated(int done, int total)
+	{
+		System.out.println(">>>>>>>>>>>>>> async onNodeSyncProgressUpdated in Java [ " + done + " / " + total + " ]");
+	}
+
 	static void onChangeCalculated(long amount)
 	{
 		System.out.println(">>>>>>>>>>> onChangeCalculated(" + amount + ") called");
@@ -147,5 +152,20 @@ public class WalletListener
     static void onPaymentProofExported(String txId, String proof)
     {
         System.out.println(">>>>>>>>>>>>>> async onPaymentProofExported() in Java");
+    }
+
+    static void onStartedNode()
+    {
+        System.out.println(">>>>>>>>>>>>>> async onStartedNode() in Java");
+    }
+
+    static void onStoppedNode()
+    {
+        System.out.println(">>>>>>>>>>>>>> async onStoppedNode() in Java");
+    }
+
+    static void onFailedToStartNode()
+    {
+        System.out.println(">>>>>>>>>>>>>> async onFailedToStartNode() in Java");
     }
 }

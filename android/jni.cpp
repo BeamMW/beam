@@ -92,7 +92,7 @@ extern "C" {
 #endif
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, jobject thiz, 
-    jstring nodeAddrStr, jstring appDataStr, jstring passStr, jstring phrasesStr)
+    jstring nodeAddrStr, jstring appDataStr, jstring passStr, jstring phrasesStr, jboolean restore)
 {
     auto appData = JString(env, appDataStr).value();
 
@@ -131,12 +131,17 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         LOG_DEBUG() << "wallet successfully created.";
 
         passwordHash.V = beam::SecString(pass).hash().V;
-        // this code for node
-        LOG_DEBUG() << "try to start node";
-
         // generate default address
         
-        nodeModel->start();
+        if (restore)
+        {
+            nodeModel = make_unique<NodeModel>(appData);
+            nodeModel->start();
+            nodeModel->setKdf(walletDB->get_MasterKdf());
+            nodeModel->startNode();
+        }
+        
+        // generate default address
         WalletAddress address = wallet::createAddress(*walletDB);
         address.m_label = "default";
         walletDB->saveAddress(address);
@@ -144,7 +149,14 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         nodeModel->startNode();
         walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005");
 
-        //walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
+        if (restore)
+        {
+            walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005", reactor);
+        }
+        else
+        {
+            walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
+        }
 
         jobject walletObj = env->AllocObject(WalletClass);
 
@@ -169,6 +181,11 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(isWalletInitialized)(JNIEnv *
 JNIEXPORT void JNICALL BEAM_JAVA_API_INTERFACE(closeWallet)(JNIEnv *env, jobject thiz)
 {
     LOG_DEBUG() << "close wallet if it exists";
+
+    if (nodeModel)
+    {
+        nodeModel.reset();
+    }
 
     if (walletModel)
     {
@@ -203,14 +220,6 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
         LOG_DEBUG() << "try to start node";
 
         walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value(), reactor);
-
-        nodeModel->start();
-        nodeModel->setKdf(walletDB->get_MasterKdf());
-        nodeModel->startNode();
-
-        walletModel = make_unique<WalletModel>(walletDB, "127.0.0.1:10005");
-
-        //walletModel = make_unique<WalletModel>(walletDB, JString(env, nodeAddrStr).value());
                 
         jobject walletObj = env->AllocObject(WalletClass);
 
