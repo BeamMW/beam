@@ -131,6 +131,11 @@ namespace beam::wallet
         return BaseTxBuilder::CreateTransaction();
     }
 
+    Height LockTxBuilder::GetMaxHeight() const
+    {
+        return m_MaxHeight;
+    }
+
     const ECC::uintBig& LockTxBuilder::GetSharedSeed() const
     {
         return m_SharedSeed.V;

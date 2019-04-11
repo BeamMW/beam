@@ -56,7 +56,7 @@ namespace beam::wallet
         Amount GetFee() const;
         Height GetLifetime() const;
         Height GetMinHeight() const;
-        Height GetMaxHeight() const;
+        virtual Height GetMaxHeight() const;
         const std::vector<Input::Ptr>& GetInputs() const;
         const std::vector<Output::Ptr>& GetOutputs() const;
         const ECC::Scalar::Native& GetOffset() const;

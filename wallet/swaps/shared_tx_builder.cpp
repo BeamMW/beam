@@ -30,6 +30,11 @@ namespace beam::wallet
         return BaseTxBuilder::CreateTransaction();
     }
 
+    Height SharedTxBuilder::GetMaxHeight() const
+    {
+        return m_MaxHeight;
+    }
+
     bool SharedTxBuilder::GetSharedParameters()
     {
         return m_Tx.GetParameter(TxParameterID::SharedBlindingFactor, m_SharedBlindingFactor, SubTxIndex::BEAM_LOCK_TX)

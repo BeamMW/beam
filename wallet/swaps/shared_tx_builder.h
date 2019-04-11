@@ -28,6 +28,7 @@ namespace beam::wallet
 
         void InitTx(bool isTxOwner);
         Transaction::Ptr CreateTransaction() override;
+        Height GetMaxHeight() const override;
 
         bool GetSharedParameters();
 
