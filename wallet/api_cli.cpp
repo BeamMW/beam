@@ -498,6 +498,29 @@ namespace beam
                 }
             }
 
+            void onMessage(int id, const TxDelete& data) override
+            {
+                LOG_DEBUG() << "TxDelete(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
+
+                if (_walletDB->getTx(data.txId))
+                {
+                    _walletDB->deleteTx(data.txId);
+
+                    if (_walletDB->getTx(data.txId))
+                    {
+                        doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction not deleted.");
+                    }
+                    else
+                    {
+                        doResponse(id, TxDelete::Response{true});
+                    }
+                }
+                else
+                {
+                    doError(id, INVALID_PARAMS_JSON_RPC, "Unknown transaction ID.");
+                }
+            }
+
             template<typename T>
             static void doPagination(size_t skip, size_t count, std::vector<T>& res)
             {
