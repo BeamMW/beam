@@ -181,6 +181,7 @@ namespace beam { namespace wallet
         void AddOutput(Amount amount, bool bChange);
         void CreateOutputs();
         bool FinalizeOutputs();
+        bool LoadKernel();
         Output::Ptr CreateOutput(Amount amount, bool bChange);
         void CreateKernel();
         bool GenerateBlindingExcess();

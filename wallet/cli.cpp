@@ -844,6 +844,8 @@ int main_impl(int argc, char* argv[])
                         }
                     }
 
+                    bool coldWallet = vm.count(cli::COLD_WALLET) > 0;
+
                     if (command == cli::INIT || command == cli::RESTORE)
                     {
                         NoLeak<uintBig> walletSeed;
@@ -853,7 +855,7 @@ int main_impl(int argc, char* argv[])
                             LOG_ERROR() << "Please, provide seed phrase for the wallet.";
                             return -1;
                         }
-                        auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor);
+                        auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor, coldWallet);
                         if (walletDB)
                         {
                             LOG_INFO() << "wallet successfully created...";
@@ -1009,14 +1011,29 @@ int main_impl(int argc, char* argv[])
                     bool is_server = (command == cli::LISTEN || vm.count(cli::LISTEN));
 
                     Wallet wallet{ walletDB, is_server ? Wallet::TxCompletedAction() : [](auto) { io::Reactor::get_Current().stop(); } };
+                    if (!coldWallet)
+                    {
+                        proto::FlyClient::NetworkStd nnet(wallet);
+                        nnet.m_Cfg.m_vNodes.push_back(node_addr);
+                        nnet.Connect();
 
-                    proto::FlyClient::NetworkStd nnet(wallet);
-                    nnet.m_Cfg.m_vNodes.push_back(node_addr);
-                    nnet.Connect();
+                        WalletNetworkViaBbs wnet(wallet, nnet, walletDB);
 
-                    WalletNetworkViaBbs wnet(wallet, nnet, walletDB);
-                        
-                    wallet.set_Network(nnet, wnet);
+                        wallet.set_Network(nnet, wnet);
+                    }
+                    else
+                    {
+                        struct ColdNetwork : beam::proto::FlyClient::INetwork
+                        {
+                            void Connect() override {};
+                            void Disconnect() override {};
+                            void PostRequestInternal(proto::FlyClient::Request&) override {};
+                        };
+
+                        ColdNetwork nnet;
+                        ColdWalletNetwork wnet(wallet);
+                        wallet.set_Network(nnet, wnet);
+                    }
 
                     if (isTxInitiator)
                     {

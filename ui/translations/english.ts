@@ -1065,7 +1065,7 @@ Are you sure?</source>
     </message>
     <message>
         <location filename="../view/start.qml" line="1154"/>
-        <location filename="../view/start.qml" line="1589"/>
+        <location filename="../view/start.qml" line="1597"/>
         <source>Please, enter password</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1151,7 +1151,7 @@ Are you sure?</source>
     </message>
     <message>
         <location filename="../view/start.qml" line="1548"/>
-        <source>If you login to another wallet, all unsaved transaction history for the current wallet will be lost.</source>
+        <source>If you open another wallet, all unsaved transaction history for the current wallet will be lost.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1160,13 +1160,23 @@ Are you sure?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1584"/>
+        <location filename="../view/start.qml" line="1582"/>
+        <source>open another wallet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../view/start.qml" line="1592"/>
         <source>show my wallet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1595"/>
+        <location filename="../view/start.qml" line="1603"/>
         <source>Invalid password provided.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../view/start.qml" line="1622"/>
+        <source>Forgot password?</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

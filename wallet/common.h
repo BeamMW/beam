@@ -286,6 +286,9 @@ namespace beam
             Outputs = 190,
             SharedOutputs = 191,
             LockedOutputs = 192,
+
+            Kernel = 200,
+
             State = 255
 
         };

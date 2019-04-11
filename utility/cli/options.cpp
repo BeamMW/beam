@@ -103,6 +103,7 @@ namespace beam
         const char* IP_WHITELIST = "ip_whitelist";
 		const char* HORIZON_HI = "horizon_hi";
 		const char* HORIZON_LO = "horizon_lo";
+        const char* COLD_WALLET = "cold_wallet";
 
         // wallet api
         const char* API_USE_HTTP = "use_http";
@@ -198,6 +199,7 @@ namespace beam
 			(cli::PAYMENT_PROOF_REQUIRED, po::value<bool>(), "Set to disallow outgoing payments if the receiver doesn't supports the payment proof (older wallets)")
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("addresses.dat"), "path to import or export data (import_addresses|export_addresses)")
+            (cli::COLD_WALLET, "used to init cold wallet")
             (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses|payment_proof_export|payment_proof_verify|utxo]");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
