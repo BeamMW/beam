@@ -22,6 +22,13 @@ namespace beam::wallet
     LockTxBuilder::LockTxBuilder(BaseTransaction& tx, Amount amount, Amount fee)
         : BaseTxBuilder(tx, SubTxIndex::BEAM_LOCK_TX, { amount }, fee)
     {
+        Height minHeight = 0;
+        if (!m_Tx.GetParameter(TxParameterID::MinHeight, minHeight, m_SubTxID))
+        {
+            // Get MinHeight from main TX
+            minHeight = m_Tx.GetMandatoryParameter<Height>(TxParameterID::MinHeight);
+            m_Tx.SetParameter(TxParameterID::MinHeight, minHeight, m_SubTxID);
+        }
     }
 
     void LockTxBuilder::LoadPeerOffset()

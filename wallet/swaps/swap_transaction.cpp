@@ -920,12 +920,14 @@ namespace beam::wallet
         auto swapCoin = GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
         auto swapAddress = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapAddress);
         auto swapLockTime = GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapExternalLockTime);
+        auto minHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight);
 
         // send invitation
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::Amount, GetAmount())
             .AddParameter(TxParameterID::Fee, GetMandatoryParameter<Amount>(TxParameterID::Fee))
             .AddParameter(TxParameterID::IsSender, !IsSender())
+            .AddParameter(TxParameterID::MinHeight, minHeight)
             .AddParameter(TxParameterID::AtomicSwapAmount, swapAmount)
             .AddParameter(TxParameterID::AtomicSwapCoin, swapCoin)
             .AddParameter(TxParameterID::AtomicSwapPeerAddress, swapAddress)

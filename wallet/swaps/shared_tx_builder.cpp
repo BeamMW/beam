@@ -22,6 +22,7 @@ namespace beam::wallet
     SharedTxBuilder::SharedTxBuilder(BaseTransaction& tx, SubTxID subTxID, Amount amount, Amount fee)
         : BaseTxBuilder(tx, subTxID, { amount }, fee)
     {
+        InitMinHeight();
     }
 
     Transaction::Ptr SharedTxBuilder::CreateTransaction()
@@ -103,6 +104,22 @@ namespace beam::wallet
     {
         m_Offset += m_SharedBlindingFactor;
         m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false, m_SubTxID);
+    }
+
+    void SharedTxBuilder::InitMinHeight()
+    {
+        Height minHeight = 0;
+        if (!m_Tx.GetParameter(TxParameterID::MinHeight, minHeight, m_SubTxID))
+        {
+            // Get MinHeight from main TX
+            minHeight = m_Tx.GetMandatoryParameter<Height>(TxParameterID::MinHeight);
+
+            if (SubTxIndex::BEAM_REFUND_TX == m_SubTxID)
+            {
+                minHeight += kBeamLockTimeInBlocks;
+            }
+            m_Tx.SetParameter(TxParameterID::MinHeight, minHeight, m_SubTxID);
+        }
     }
 
     void SharedTxBuilder::LoadPeerOffset()
