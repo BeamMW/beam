@@ -26,10 +26,6 @@ namespace beam::wallet
 {
     namespace
     {
-        uint32_t kBeamLockTimeInBlocks = 24 * 60;
-        uint32_t kBTCLockTimeSec = 2 * 24 * 60 * 60;
-        uint32_t kBTCMinTxConfirmations = 6;
-
         void InitSecret(BaseTransaction& transaction, SubTxID subTxID)
         {
             NoLeak<uintBig> preimage;
