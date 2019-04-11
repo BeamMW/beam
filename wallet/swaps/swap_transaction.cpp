@@ -381,16 +381,16 @@ namespace beam::wallet
 
     bool AtomicSwapTransaction::SendExternalWithdrawTx(SubTxID subTxID)
     {
-        if (bool isRegistered = false; !GetParameter(TxParameterID::TransactionRegistered, isRegistered, SubTxIndex::REFUND_TX))
+        if (bool isRegistered = false; !GetParameter(TxParameterID::TransactionRegistered, isRegistered, subTxID))
         {
-            auto refundTxState = BuildWithdrawTx(SubTxIndex::REFUND_TX);
+            auto refundTxState = BuildWithdrawTx(subTxID);
             if (refundTxState != SwapTxState::Constructed)
                 return false;
 
             assert(m_SwapWithdrawRawTx.is_initialized());
         }
 
-        if (!RegisterExternalTx(*m_SwapWithdrawRawTx, SubTxIndex::REFUND_TX))
+        if (!RegisterExternalTx(*m_SwapWithdrawRawTx, subTxID))
             return false;
 
         // TODO: check confirmations
