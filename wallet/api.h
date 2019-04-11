@@ -45,6 +45,7 @@ namespace beam
     macro(Status,           "tx_status",        API_READ_ACCESS)    \
     macro(Split,            "tx_split",         API_WRITE_ACCESS)   \
     macro(TxCancel,         "tx_cancel",        API_WRITE_ACCESS)   \
+    macro(TxDelete,         "tx_delete",        API_WRITE_ACCESS)   \
     macro(GetUtxo,          "get_utxo",         API_READ_ACCESS)    \
     macro(Lock,             "lock",             API_WRITE_ACCESS)   \
     macro(Unlock,           "unlock",           API_WRITE_ACCESS)   \
@@ -150,6 +151,17 @@ namespace beam
     };
 
     struct TxCancel
+    {
+        TxID txId;
+
+        struct Response
+        {
+            bool result;
+        };
+    };
+
+
+    struct TxDelete
     {
         TxID txId;
 
