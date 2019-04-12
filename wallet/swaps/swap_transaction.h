@@ -18,6 +18,8 @@
 #include "../base_tx_builder.h"
 #include "common.h"
 
+#include "second_side.h"
+
 namespace beam::wallet
 {
     class LockTxBuilder;
@@ -55,34 +57,16 @@ namespace beam::wallet
             InvitationConfirmation,
             Registration,
             KernelConfirmation
-        };
-
-        enum class SwapTxState : uint8_t
-        {
-            Initial,
-            CreatingTx,
-            SigningTx,
-            Constructed
-        };
+        };        
 
     public:
-        /*enum SubTxIndex : SubTxID
-        {
-            BEAM_LOCK_TX = 2,
-            BEAM_REFUND_TX = 3,
-            BEAM_REDEEM_TX = 4,
-            LOCK_TX = 5,
-            REFUND_TX = 6,
-            REDEEM_TX = 7
-        };*/
-
+        
         AtomicSwapTransaction(INegotiatorGateway& gateway
                             , beam::IWalletDB::Ptr walletDB
                             , const TxID& txID);
 
     private:
         void SetNextState(State state);
-        void UpdateAsync();
 
         TxType GetType() const override;
         State GetState(SubTxID subTxID) const;
@@ -101,26 +85,7 @@ namespace beam::wallet
         SubTxState BuildBeamLockTx();
         SubTxState BuildBeamWithdrawTx(SubTxID subTxID, Transaction::Ptr& resultTx);
         bool CompleteBeamWithdrawTx(SubTxID subTxID);
-
-        //
-        bool LoadSwapAddress();
-        void InitExternalLockTime();
-        bool SendExternalLockTx();
-        bool SendExternalWithdrawTx(SubTxID subTxID);
-        bool ConfirmExternalLockTx();
-
-        SwapTxState BuildLockTx();
-        SwapTxState BuildWithdrawTx(SubTxID subTxID);
-        bool RegisterExternalTx(const std::string& rawTransaction, SubTxID subTxID);
-        void GetSwapLockTxConfirmations();
-
-        void OnGetRawChangeAddress(const std::string& response);
-        void OnFundRawTransaction(const std::string& response);
-        void OnSignLockTransaction(const std::string& response);
-        void OnCreateWithdrawTransaction(const std::string& response);
-        void OnDumpPrivateKey(SubTxID subTxID, const std::string& response);
-        void OnGetSwapLockTxConfirmations(const std::string& response);
-
+                
         bool SendSubTx(Transaction::Ptr transaction, SubTxID subTxID);
 
         bool IsBeamLockTimeExpired() const;
@@ -141,12 +106,6 @@ namespace beam::wallet
         Transaction::Ptr m_LockTx;
         Transaction::Ptr m_WithdrawTx;
 
-        io::AsyncEvent::Ptr m_EventToUpdate;
-
-        // TODO: make a separate struct
-        // btc additional params
-        uint16_t m_SwapLockTxConfirmations = 0;
-        boost::optional<std::string> m_SwapLockRawTx;
-        boost::optional<std::string> m_SwapWithdrawRawTx;
+        std::shared_ptr<SecondSide> m_secondSide;
     };    
 }

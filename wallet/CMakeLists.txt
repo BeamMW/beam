@@ -17,6 +17,7 @@ set(WALLET_SRC
     swaps/swap_transaction.cpp
     swaps/lock_tx_builder.cpp
     swaps/shared_tx_builder.cpp
+    swaps/bitcoin_side.cpp
     secstring2.cpp
     unittests/util.cpp
 )

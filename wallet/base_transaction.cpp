@@ -100,6 +100,16 @@ namespace beam::wallet
         return m_Gateway.get_tip(state);
     }
 
+    void BaseTransaction::UpdateAsync()
+    {
+        if (!m_EventToUpdate)
+        {
+            m_EventToUpdate = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { UpdateImpl(); });
+        }
+
+        m_EventToUpdate->post();
+    }
+
     const TxID& BaseTransaction::GetTxID() const
     {
         return m_ID;

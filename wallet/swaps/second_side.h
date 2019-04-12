@@ -14,29 +14,16 @@
 
 #pragma once
 
-#include "../common.h"
 
 namespace beam::wallet
 {
-    constexpr uint32_t kBeamLockTimeInBlocks = 24 * 60;
-    constexpr uint32_t kBTCLockTimeSec = 2 * 24 * 60 * 60;
-    constexpr uint32_t kBTCMinTxConfirmations = 6;
-
-    enum SubTxIndex : SubTxID
+    class SecondSide
     {
-        BEAM_LOCK_TX = 2,
-        BEAM_REFUND_TX = 3,
-        BEAM_REDEEM_TX = 4,
-        LOCK_TX = 5,
-        REFUND_TX = 6,
-        REDEEM_TX = 7
-    };
-
-    enum class SwapTxState : uint8_t
-    {
-        Initial,
-        CreatingTx,
-        SigningTx,
-        Constructed
+    public:
+        virtual bool Initial() = 0;
+        virtual void InitLockTime() = 0;
+        virtual bool HandleContract() = 0;
+        virtual bool SendRefund() = 0;
+        virtual bool SendRedeem() = 0;
     };
 }

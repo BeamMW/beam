@@ -107,6 +107,7 @@ namespace beam::wallet
         bool IsInitiator() const;
         uint32_t get_PeerVersion() const;
         bool GetTip(Block::SystemState::Full& state) const;
+        void UpdateAsync();
     protected:
         bool CheckExpired();
         bool CheckExternalFailures();
@@ -130,5 +131,6 @@ namespace beam::wallet
 
         TxID m_ID;
         mutable boost::optional<bool> m_IsInitiator;
+        io::AsyncEvent::Ptr m_EventToUpdate;
     };
 }
