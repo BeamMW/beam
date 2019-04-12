@@ -895,20 +895,20 @@ Are you sure?</source>
 <context>
     <name>start</name>
     <message>
-        <location filename="../view/start.qml" line="50"/>
+        <location filename="../view/start.qml" line="26"/>
         <location filename="../view/start.qml" line="131"/>
         <location filename="../view/start.qml" line="1363"/>
-        <location filename="../view/start.qml" line="1557"/>
+        <location filename="../view/start.qml" line="1569"/>
         <source>restore wallet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="65"/>
+        <location filename="../view/start.qml" line="41"/>
         <source>Your funds will be fully restored from the blockchain. The transaction history and your addresses are stored locally and are encrypted with your password, hence it can&apos;t be restored.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="74"/>
+        <location filename="../view/start.qml" line="50"/>
         <source>That&apos;s the final version till the future validation and process.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1054,7 +1054,7 @@ Are you sure?</source>
     </message>
     <message>
         <location filename="../view/start.qml" line="1032"/>
-        <location filename="../view/start.qml" line="1513"/>
+        <location filename="../view/start.qml" line="1514"/>
         <source>Enter password</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1065,7 +1065,7 @@ Are you sure?</source>
     </message>
     <message>
         <location filename="../view/start.qml" line="1154"/>
-        <location filename="../view/start.qml" line="1589"/>
+        <location filename="../view/start.qml" line="1584"/>
         <source>Please, enter password</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1115,57 +1115,52 @@ Are you sure?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1373"/>
-        <source>Port must be a number between 0 and 65535</source>
+        <location filename="../view/start.qml" line="1374"/>
+        <source>Port must be a number between 1 and 65535</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1377"/>
+        <location filename="../view/start.qml" line="1549"/>
+        <source>If you open another wallet, all unsaved transaction history for the current wallet will be lost.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../view/start.qml" line="1378"/>
         <source>Please, specify correct peer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1381"/>
+        <location filename="../view/start.qml" line="1382"/>
         <source>Please, specify peer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1389"/>
+        <location filename="../view/start.qml" line="1390"/>
         <source>Please, specify address of the remote node</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1423"/>
+        <location filename="../view/start.qml" line="1424"/>
         <source>login to another wallet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1501"/>
+        <location filename="../view/start.qml" line="1502"/>
         <source>Enter your password to access the current wallet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1543"/>
+        <location filename="../view/start.qml" line="1544"/>
         <source>change wallet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1548"/>
-        <source>If you login to another wallet, all unsaved transaction history for the current wallet will be lost.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../view/start.qml" line="1562"/>
-        <source>You can restore you wallet using your seed phrase but all transaction history will be lost.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../view/start.qml" line="1584"/>
+        <location filename="../view/start.qml" line="1579"/>
         <source>show my wallet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1595"/>
+        <location filename="../view/start.qml" line="1590"/>
         <source>Invalid password provided.</source>
         <translation type="unfinished"></translation>
     </message>

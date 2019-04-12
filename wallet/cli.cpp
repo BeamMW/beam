@@ -37,6 +37,7 @@
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <iterator>
 #include <future>
 #include "version.h"
@@ -433,8 +434,9 @@ namespace
         else if (vm.count(cli::SEED_PHRASE))
         {
             auto tempPhrase = vm[cli::SEED_PHRASE].as<string>();
+            boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
             phrase = string_helpers::split(tempPhrase, ';');
-            assert(phrase.size() == 12);
+            assert(phrase.size() == WORD_COUNT);
             if (!isValidMnemonic(phrase, language::en))
             {
                 LOG_ERROR() << "Invalid seed phrases provided: " << tempPhrase;

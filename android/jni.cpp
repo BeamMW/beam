@@ -23,6 +23,7 @@
 #include "mnemonic/mnemonic.h"
 
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <jni.h>
 
 #include "common.h"
@@ -105,12 +106,17 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
     SecString seed;
     
     {
+        std::string st = JString(env, phrasesStr).value();
 
-        WordList phrases = string_helpers::split(JString(env, phrasesStr).value(), ';');
-        assert(phrases.size() == 12);
+        boost::algorithm::trim_if(st, [](char ch){ return ch == ';';});
+
+        WordList phrases = string_helpers::split(st, ';');
+
+        assert(phrases.size() == WORD_COUNT);
+
         if (!isValidMnemonic(phrases, language::en))
         {
-            LOG_ERROR() << "Invalid seed phrases provided: " << JString(env, phrasesStr).value();
+            LOG_ERROR() << "Invalid seed phrases provided: " << st;
             return nullptr;
         }
 
