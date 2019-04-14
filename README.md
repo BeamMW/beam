@@ -5,8 +5,11 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 
 **ANNOUNCEMENTS** 
 
-## 8.4.2019
+### 8.4.2019
+
 **Beam released Mobile Wallet for Android. [Release](https://github.com/BeamMW/android-wallet/releases/tag/Bright-Boson-2.0.0) | [Google Play Store](https://play.google.com/store/apps/details?id=com.mw.beam.beamwallet.mainnet)**
+
+
 
 **JOIN OUR COMMUNITY**
 
