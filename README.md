@@ -3,45 +3,33 @@
 
 BEAM is a next generation scalable, confidential cryptocurrency based on an elegant and innovative [Mimblewimble protocol](https://docs.beam.mw/Mimblewimble.pdf).
 
-[twitter](https://twitter.com/beamprivacy) | [medium](https://medium.com/beam-mw) | [reddit](https://www.reddit.com/r/beamprivacy/) | [beam forum](http://forum.beam-mw.com) | [gitter](https://gitter.im/beamprivacy/Lobby) | [telegram](https://t.me/BeamPrivacy) | [bitcointalk](https://bitcointalk.org/index.php?topic=5052151.0) | [youtube](https://www.youtube.com/channel/UCddqBnfSPWibf4f8OnEJm_w?)
+**ANNOUNCEMENTS** 
+
+8.4.2019 Beam released Mobile Wallet for Android. [Release](https://github.com/BeamMW/android-wallet/releases/tag/Bright-Boson-2.0.0) | [Google Play Store](https://play.google.com/store/apps/details?id=com.mw.beam.beamwallet.mainnet)
+
+**JOIN OUR COMMUNITY**
+
+[Beam International Community on Telegram](https://t.me/BeamPrivacy)
+[Beam Russian Speaking Community on Telegram](https://t.me/Beam_RU)
+
+[twitter](https://twitter.com/beamprivacy) | [medium](https://medium.com/beam-mw) | [reddit](https://www.reddit.com/r/beamprivacy/) | [beam forum](http://forum.beam-mw.com) | [gitter](https://gitter.im/beamprivacy/Lobby) | [bitcointalk](https://bitcointalk.org/index.php?topic=5052151.0) | [youtube](https://www.youtube.com/channel/UCddqBnfSPWibf4f8OnEJm_w?)
 
 
-[Read our position paper](https://docs.beam.mw/BEAM_Position_Paper_v0.2.2.pdf)
+**GET STATRED**
 
-
-**MAINNET IS LAUNCHED!** 
-
-http://beam.mw/downloads
+Get Beam binaries here: http://beam.mw/downloads
 
 If you build from source please use 'mainnet' branch
 
 Peers:
 
-eu-node01.mainnet.beam.mw:8100
+eu-nodes.mainnet.beam.mw:8100
 
-eu-node02.mainnet.beam.mw:8100
+us-nodes.mainnet.beam.mw:8100
 
-eu-node03.mainnet.beam.mw:8100
+ap-nodes.mainnet.beam.mw:8100
 
-eu-node04.mainnet.beam.mw:8100
-
-us-node01.mainnet.beam.mw:8100
-
-us-node02.mainnet.beam.mw:8100
-
-us-node03.mainnet.beam.mw:8100
-
-us-node04.mainnet.beam.mw:8100
-
-ap-node01.mainnet.beam.mw:8100
-
-ap-node02.mainnet.beam.mw:8100
-
-ap-node03.mainnet.beam.mw:8100
-
-ap-node04.mainnet.beam.mw:8100
-
-Latest docs are here: https://beam-docs.readthedocs.io/en/latest/index.html
+Latest documentation is here: https://documentation.beam.mw
 
 Things that make BEAM special include:
 
@@ -60,14 +48,15 @@ transactions, atomic swaps and more.
 years.
 * Implemented from scratch in C++.
 
+[Read our position paper](https://docs.beam.mw/BEAM_Position_Paper_v0.2.2.pdf)
+
 # Roadmap
 
-- March 2018     : Project started
-- June 2018      : Internal POC featuring fully functional node and CLI wallet
-- September 2018 : Testnet 1 and Desktop Wallet App (Windows, Mac, Linux)
-- December 2018  : Mainnet launch
+See Beam roadmap for 2019 on https://beam.mw
 
 # Current status
+
+# Mainnet
 
 - Fully functional wallet with key generator and storage supporting secure and confidential online transactions.
 - Full node with both transaction and block validation and full UTXO state management.
@@ -77,6 +66,17 @@ years.
 - Offline transactions using Secure BBS system
 - ChainWork - sublinear blockchain validation, based on FlyClient idea by Loi Luu, Benedikt Bünz, Mahdi Zamani
 - Compact history using cut through
+
+# Agile Atom 
+
+- Payment and Exchange APIs
+- Mining Pool APIs
+- Lightning Network position paper
+
+# Bright Boson 2.0
+- Payment proof
+- Ultra fast sync
+- Android Mobile wallet
 
 See [How to build](https://github.com/BeamMW/beam/wiki/How-to-build)
 
