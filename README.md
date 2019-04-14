@@ -1,26 +1,31 @@
 
 ![alt text](https://forum.beam-mw.com/uploads/beam_mw/original/1X/261e2a2eba2b6c8aadae678673f9e8e09a78f5cf.png "Beam Logo")
 
+### Welcome to Beam
+
+
 BEAM is a next generation scalable, confidential cryptocurrency based on an elegant and innovative [Mimblewimble protocol](https://docs.beam.mw/Mimblewimble.pdf).
 
-**ANNOUNCEMENTS** 
-
-### 8.4.2019
-
-**Beam released Mobile Wallet for Android. [Release](https://github.com/BeamMW/android-wallet/releases/tag/Bright-Boson-2.0.0) | [Google Play Store](https://play.google.com/store/apps/details?id=com.mw.beam.beamwallet.mainnet)**
+### ANNOUNCEMENTS
 
 
+**8.4.2019**
 
-**JOIN OUR COMMUNITY**
+**Beam released Mobile Wallet for Android**. [Release](https://github.com/BeamMW/android-wallet/releases/tag/Bright-Boson-2.0.0) | [Google Play Store](https://play.google.com/store/apps/details?id=com.mw.beam.beamwallet.mainnet)
+
+
+### JOIN OUR COMMUNITY
 
 [Beam International Community on Telegram](https://t.me/BeamPrivacy)
 
 [Beam Russian Speaking Community on Telegram](https://t.me/Beam_RU)
 
+
 [twitter](https://twitter.com/beamprivacy) | [medium](https://medium.com/beam-mw) | [reddit](https://www.reddit.com/r/beamprivacy/) | [beam forum](http://forum.beam-mw.com) | [gitter](https://gitter.im/beamprivacy/Lobby) | [bitcointalk](https://bitcointalk.org/index.php?topic=5052151.0) | [youtube](https://www.youtube.com/channel/UCddqBnfSPWibf4f8OnEJm_w?)
 
 
-**GET STATRED**
+### GET STATRED
+
 
 Get Beam binaries here: http://beam.mw/downloads
 
@@ -55,13 +60,13 @@ years.
 
 [Read our position paper](https://docs.beam.mw/BEAM_Position_Paper_v0.2.2.pdf)
 
-# Roadmap
+### Roadmap
 
 See Beam roadmap for 2019 on https://beam.mw
 
-# Current status
+### Current status
 
-# Mainnet
+#### Mainnet(January 3rd 2019)
 
 - Fully functional wallet with key generator and storage supporting secure and confidential online transactions.
 - Full node with both transaction and block validation and full UTXO state management.
@@ -72,13 +77,13 @@ See Beam roadmap for 2019 on https://beam.mw
 - ChainWork - sublinear blockchain validation, based on FlyClient idea by Loi Luu, Benedikt Bünz, Mahdi Zamani
 - Compact history using cut through
 
-# Agile Atom 
+#### Agile Atom (February 2019)
 
 - Payment and Exchange APIs
 - Mining Pool APIs
 - Lightning Network position paper
 
-# Bright Boson 2.0
+#### Bright Boson 2.0 (March 2019)
 - Payment proof
 - Ultra fast sync
 - Android Mobile wallet
