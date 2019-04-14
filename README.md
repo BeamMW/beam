@@ -6,7 +6,8 @@
 
 BEAM is a next generation scalable, confidential cryptocurrency based on an elegant and innovative [Mimblewimble protocol](https://docs.beam.mw/Mimblewimble.pdf).
 
-### ANNOUNCEMENTS\
+### ANNOUNCEMENTS
+
 
 
 **8.4.2019**
@@ -14,7 +15,8 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 **Beam released Mobile Wallet for Android**. [Release](https://github.com/BeamMW/android-wallet/releases/tag/Bright-Boson-2.0.0) | [Google Play Store](https://play.google.com/store/apps/details?id=com.mw.beam.beamwallet.mainnet)
 
 
-### JOIN OUR COMMUNITY\
+### JOIN OUR COMMUNITY
+
 
 [Beam International Community on Telegram](https://t.me/BeamPrivacy)
 
@@ -24,7 +26,7 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 [twitter](https://twitter.com/beamprivacy) | [medium](https://medium.com/beam-mw) | [reddit](https://www.reddit.com/r/beamprivacy/) | [beam forum](http://forum.beam-mw.com) | [gitter](https://gitter.im/beamprivacy/Lobby) | [bitcointalk](https://bitcointalk.org/index.php?topic=5052151.0) | [youtube](https://www.youtube.com/channel/UCddqBnfSPWibf4f8OnEJm_w?)
 
 
-### GET STARTED\
+### GET STARTED
 
 
 Get Beam binaries here: http://beam.mw/downloads
