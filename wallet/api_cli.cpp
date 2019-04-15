@@ -502,17 +502,26 @@ namespace beam
             {
                 LOG_DEBUG() << "TxDelete(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
-                if (_walletDB->getTx(data.txId))
-                {
-                    _walletDB->deleteTx(data.txId);
+                auto tx = _walletDB->getTx(data.txId);
 
-                    if (_walletDB->getTx(data.txId))
+                if (tx)
+                {
+                    if (tx->canDelete())
                     {
-                        doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction not deleted.");
+                        _walletDB->deleteTx(data.txId);
+
+                        if (_walletDB->getTx(data.txId))
+                        {
+                            doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction not deleted.");
+                        }
+                        else
+                        {
+                            doResponse(id, TxDelete::Response{true});
+                        }
                     }
                     else
                     {
-                        doResponse(id, TxDelete::Response{true});
+                        doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction can't be deleted.");
                     }
                 }
                 else
