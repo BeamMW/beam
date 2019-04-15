@@ -1120,11 +1120,6 @@ Are you sure?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/start.qml" line="1549"/>
-        <source>If you open another wallet, all unsaved transaction history for the current wallet will be lost.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../view/start.qml" line="1378"/>
         <source>Please, specify correct peer</source>
         <translation type="unfinished"></translation>
@@ -1152,6 +1147,11 @@ Are you sure?</source>
     <message>
         <location filename="../view/start.qml" line="1544"/>
         <source>change wallet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../view/start.qml" line="1549"/>
+        <source>If you open another wallet, all unsaved transaction history for the current wallet will be lost.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
