@@ -117,6 +117,21 @@ void SettingsViewModel::setLockTimeout(int value)
     }
 }
 
+bool SettingsViewModel::isPasswordReqiredToSpendMoney() const
+{
+    return m_isPasswordReqiredToSpendMoney;
+}
+
+void SettingsViewModel::setPasswordReqiredToSpendMoney(bool value)
+{
+    if (value != m_isPasswordReqiredToSpendMoney)
+    {
+        m_isPasswordReqiredToSpendMoney = value;
+        emit passwordReqiredToSpendMoneyChanged();
+        emit propertiesChanged();
+    }
+}
+
 uint SettingsViewModel::coreAmount() const
 {
     return std::thread::hardware_concurrency();
@@ -157,7 +172,8 @@ bool SettingsViewModel::isChanged() const
         || m_localNodeRun != m_settings.getRunLocalNode()
         || m_localNodePort != m_settings.getLocalNodePort()
         || m_localNodePeers != m_settings.getLocalNodePeers()
-        || m_lockTimeout != m_settings.getLockTimeout();
+        || m_lockTimeout != m_settings.getLockTimeout()
+        || m_isPasswordReqiredToSpendMoney != m_settings.isPasswordReqiredToSpendMoney();
 }
 
 void SettingsViewModel::applyChanges()
@@ -167,6 +183,7 @@ void SettingsViewModel::applyChanges()
     m_settings.setLocalNodePort(m_localNodePort);
     m_settings.setLocalNodePeers(m_localNodePeers);
     m_settings.setLockTimeout(m_lockTimeout);
+    m_settings.setPasswordReqiredToSpendMoney(m_isPasswordReqiredToSpendMoney);
     m_settings.applyChanges();
     emit propertiesChanged();
 }
@@ -195,6 +212,7 @@ void SettingsViewModel::undoChanges()
     setLocalNodePort(m_settings.getLocalNodePort());
     setLockTimeout(m_settings.getLockTimeout());
     setLocalNodePeers(m_settings.getLocalNodePeers());
+    setPasswordReqiredToSpendMoney(m_settings.isPasswordReqiredToSpendMoney());
 }
 
 void SettingsViewModel::reportProblem()

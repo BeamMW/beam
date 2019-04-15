@@ -64,7 +64,7 @@ Rectangle {
 
                     Rectangle {
                         Layout.fillWidth: true
-                        height: 150
+                        height: 180
 
                         radius: 10
                         color: Style.background_second
@@ -342,7 +342,7 @@ Rectangle {
                         radius: 10
                         color: Style.background_second
                         //height: childrenRect.height + 40
-                        height: 150
+                        height: 180
 
                         Column {
                             anchors.top: parent.top
@@ -385,6 +385,24 @@ Rectangle {
                                     }
 
                                     model: ["never", "1 minute", "5 minutes", "15 minutes", "30 minutes", "1 hour"]
+                                }
+                            }
+
+                            Row {
+                                width: parent.width
+                                spacing: 10
+
+                                CustomSwitch {
+                                    id: isPasswordReqiredToSpendMoney
+                                    text: qsTr("Ask password for every sending transaction")
+                                    font.pixelSize: 12
+                                    width: parent.width
+                                    checked: viewModel.isPasswordReqiredToSpendMoney
+                                    Binding {
+                                        target: viewModel
+                                        property: "isPasswordReqiredToSpendMoney"
+                                        value: isPasswordReqiredToSpendMoney.checked
+                                    }
                                 }
                             }
 

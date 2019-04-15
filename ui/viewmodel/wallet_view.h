@@ -17,6 +17,7 @@
 #include <QObject>
 #include <QQmlListProperty>
 #include "model/wallet_model.h"
+#include "model/settings.h"
 #include "messages_view.h"
 
 class PaymentInfoItem;
@@ -186,6 +187,8 @@ public:
     Q_INVOKABLE void saveNewAddress();
     Q_INVOKABLE void copyToClipboard(const QString& text);
     Q_INVOKABLE bool isValidReceiverAddress(const QString& value);
+    Q_INVOKABLE bool isPasswordReqiredToSpendMoney() const;
+    Q_INVOKABLE bool isPasswordValid(const QString& value) const;
 
 public:
     using TxList = QList<TxObject*>;
@@ -277,6 +280,7 @@ private:
 private:
 
     WalletModel& _model;
+    WalletSettings& _settings;
 
     WalletStatus _status ;
 

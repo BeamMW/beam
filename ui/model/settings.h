@@ -33,6 +33,9 @@ public:
     int getLockTimeout() const;
     void setLockTimeout(int value);
 
+    bool isPasswordReqiredToSpendMoney() const;
+    void setPasswordReqiredToSpendMoney(bool value);
+
     void initModel(WalletModel::Ptr model);
     std::string getWalletStorage() const;
     std::string getAppDataPath() const;

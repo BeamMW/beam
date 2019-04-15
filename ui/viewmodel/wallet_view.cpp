@@ -352,6 +352,7 @@ void MyPaymentInfoItem::onPaymentProofExported(const beam::TxID& txID, const QSt
 // WalletViewModel
 WalletViewModel::WalletViewModel()
     : _model(*AppModel::getInstance()->getWallet())
+    , _settings(AppModel::getInstance()->getSettings())
     , _status{ 0, 0, 0, 0, {0, 0, 0}, {} }
     , _sendAmount("0")
     , _feeGrothes("0")
@@ -603,8 +604,20 @@ void WalletViewModel::setReceiverAddr(const QString& value)
     }
 }
 
-bool WalletViewModel::isValidReceiverAddress(const QString& value) {
+bool WalletViewModel::isValidReceiverAddress(const QString& value)
+{
     return check_receiver_address(value.toStdString());
+}
+
+bool WalletViewModel::isPasswordReqiredToSpendMoney() const
+{
+    return _settings.isPasswordReqiredToSpendMoney();
+}
+
+bool WalletViewModel::isPasswordValid(const QString& value) const
+{
+    SecString secretPass = value.toStdString();
+    return AppModel::getInstance()->checkWalletPassword(secretPass);
 }
 
 void WalletViewModel::setSendAmount(const QString& value)
