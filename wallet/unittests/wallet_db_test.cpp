@@ -249,7 +249,11 @@ void TestStoreTxRecord()
 
     WALLET_CHECK_NO_THROW(walletDB->saveTx(tr));
     WALLET_CHECK_NO_THROW(walletDB->saveTx(tr));
-    WALLET_CHECK(wallet::setTxParameter(*walletDB, id, TxParameterID::TransactionType, TxType::Simple, false));
+    {
+        wallet::TxType type = TxType::Simple;
+        WALLET_CHECK(wallet::getTxParameter(*walletDB, id, TxParameterID::TransactionType, type));
+        WALLET_CHECK(type == TxType::Simple);
+    }
 
     TxDescription tr2 = tr;
     tr2.m_txId = id;
