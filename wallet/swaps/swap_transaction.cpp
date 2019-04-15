@@ -126,8 +126,21 @@ namespace beam::wallet
         }
         case State::HandlingContractTX:
         {
-            if (!m_secondSide->HandleContract())
-                break;
+            if (!isBeamOwner)
+            {
+                if (!m_secondSide->SendLockTx())
+                    break;
+
+                SendExternalTxDetails();
+            }
+            else
+            {
+                if (!m_secondSide->ConfirmLockTx())
+                {
+                    UpdateOnNextTip();
+                    break;
+                }
+            }
 
             SetNextState(State::SendingBeamLockTX);
             break;
@@ -615,15 +628,8 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::SendExternalTxDetails()
     {
-        auto txID = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::LOCK_TX);
-        uint32_t outputIndex = GetMandatoryParameter<uint32_t>(TxParameterID::AtomicSwapExternalTxOutputIndex, SubTxIndex::LOCK_TX);
-        std::string swapAddress = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapAddress);
-
         SetTxParameter msg;
-        msg.AddParameter(TxParameterID::AtomicSwapPeerAddress, swapAddress)
-            .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::LOCK_TX)
-            .AddParameter(TxParameterID::AtomicSwapExternalTxID, txID)
-            .AddParameter(TxParameterID::AtomicSwapExternalTxOutputIndex, outputIndex);
+        m_secondSide->AddTxDetails(msg);
 
         if (!SendTxParameters(std::move(msg)))
         {

@@ -17,12 +17,16 @@
 
 namespace beam::wallet
 {
+    struct SetTxParameter;
+
     class SecondSide
     {
     public:
         virtual bool Initial() = 0;
         virtual void InitLockTime() = 0;
-        virtual bool HandleContract() = 0;
+        virtual void AddTxDetails(SetTxParameter&) = 0;
+        virtual bool ConfirmLockTx() = 0;
+        virtual bool SendLockTx() = 0;
         virtual bool SendRefund() = 0;
         virtual bool SendRedeem() = 0;
     };

@@ -26,24 +26,23 @@ namespace beam::wallet
     public:
         BitcoinSide(BaseTransaction& tx, std::shared_ptr<BitcoinRPC> bitcoinRPC, bool isInitiator, bool isBtcOwner);
 
-        bool Initial();
-        void InitLockTime();
-        bool HandleContract();
-        bool SendRefund();
-        bool SendRedeem();
+        bool Initial() override;
+        void InitLockTime() override;
+        void AddTxDetails(SetTxParameter& txParameters) override;
+        bool ConfirmLockTx() override;
+        bool SendLockTx() override;
+        bool SendRefund() override;
+        bool SendRedeem() override;
 
     private:
         bool LoadSwapAddress();
         void InitSecret();
         libbitcoin::chain::script CreateAtomicSwapContract();
-        bool SendExternalLockTx();
-        void SendExternalTxDetails();
-        bool BitcoinSide::RegisterExternalTx(const std::string& rawTransaction, SubTxID subTxID);
-        bool ConfirmExternalLockTx();
+        bool BitcoinSide::RegisterTx(const std::string& rawTransaction, SubTxID subTxID);
         SwapTxState BuildLockTx();
         SwapTxState BitcoinSide::BuildWithdrawTx(SubTxID subTxID);
         void GetSwapLockTxConfirmations();
-        bool SendExternalWithdrawTx(SubTxID subTxID);
+        bool SendWithdrawTx(SubTxID subTxID);
 
         void OnGetRawChangeAddress(const std::string& response);
         void OnFundRawTransaction(const std::string& response);

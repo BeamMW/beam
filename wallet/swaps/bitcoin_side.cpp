@@ -115,32 +115,59 @@ namespace beam::wallet
         m_tx.SetParameter(TxParameterID::AtomicSwapExternalLockTime, externalLockTime);
     }
 
-    bool BitcoinSide::HandleContract()
+    void BitcoinSide::AddTxDetails(SetTxParameter& txParameters)
     {
-        if (m_isBtcOwner)
-        {
-            if (!SendExternalLockTx())
-                return false;
+        auto txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::LOCK_TX);
+        uint32_t outputIndex = m_tx.GetMandatoryParameter<uint32_t>(TxParameterID::AtomicSwapExternalTxOutputIndex, SubTxIndex::LOCK_TX);
+        std::string swapAddress = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapAddress);
 
-            SendExternalTxDetails();
-        }
-        else
+        txParameters.AddParameter(TxParameterID::AtomicSwapPeerAddress, swapAddress)
+            .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::LOCK_TX)
+            .AddParameter(TxParameterID::AtomicSwapExternalTxID, txID)
+            .AddParameter(TxParameterID::AtomicSwapExternalTxOutputIndex, outputIndex);
+    }
+
+    bool BitcoinSide::ConfirmLockTx()
+    {
+        // wait TxID from peer
+        std::string txID;
+        if (!m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::LOCK_TX))
+            return false;
+
+        if (m_SwapLockTxConfirmations < kBTCMinTxConfirmations)
         {
-            if (!ConfirmExternalLockTx())
-                return false;
+            // validate expired?
+
+            GetSwapLockTxConfirmations();
+            return false;
         }
+
+        return true;
+    }
+
+    bool BitcoinSide::SendLockTx()
+    {
+        auto lockTxState = BuildLockTx();
+        if (lockTxState != SwapTxState::Constructed)
+            return false;
+
+        // send contractTx
+        assert(m_SwapLockRawTx.is_initialized());
+
+        if (!RegisterTx(*m_SwapLockRawTx, SubTxIndex::LOCK_TX))
+            return false;
 
         return true;
     }
 
     bool BitcoinSide::SendRefund()
     {
-        return SendExternalWithdrawTx(SubTxIndex::REFUND_TX);
+        return SendWithdrawTx(SubTxIndex::REFUND_TX);
     }
 
     bool BitcoinSide::SendRedeem()
     {
-        return SendExternalWithdrawTx(SubTxIndex::REDEEM_TX);
+        return SendWithdrawTx(SubTxIndex::REDEEM_TX);
     }
 
     bool BitcoinSide::LoadSwapAddress()
@@ -188,42 +215,7 @@ namespace beam::wallet
         return AtomicSwapContract(senderAddress.hash(), receiverAddress.hash(), locktime, secretHash, secretHash.size());
     }
 
-    bool BitcoinSide::SendExternalLockTx()
-    {
-        auto lockTxState = BuildLockTx();
-        if (lockTxState != SwapTxState::Constructed)
-            return false;
-
-        // send contractTx
-        assert(m_SwapLockRawTx.is_initialized());
-
-        if (!RegisterExternalTx(*m_SwapLockRawTx, SubTxIndex::LOCK_TX))
-            return false;
-
-        return true;
-    }
-
-    void BitcoinSide::SendExternalTxDetails()
-    {
-        auto txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::LOCK_TX);
-        uint32_t outputIndex = m_tx.GetMandatoryParameter<uint32_t>(TxParameterID::AtomicSwapExternalTxOutputIndex, SubTxIndex::LOCK_TX);
-        std::string swapAddress = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapAddress);
-
-        SetTxParameter msg;
-        msg.AddParameter(TxParameterID::AtomicSwapPeerAddress, swapAddress)
-            .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::LOCK_TX)
-            .AddParameter(TxParameterID::AtomicSwapExternalTxID, txID)
-            .AddParameter(TxParameterID::AtomicSwapExternalTxOutputIndex, outputIndex);
-
-        // TODO roman.strilec
-        //if (!m_tx.SendTxParameters(std::move(msg)))
-        {
-            // TODO roman.strilec
-            //OnFailed(TxFailureReason::FailedToSendParameters, false);
-        }
-    }
-
-    bool BitcoinSide::RegisterExternalTx(const std::string& rawTransaction, SubTxID subTxID)
+    bool BitcoinSide::RegisterTx(const std::string& rawTransaction, SubTxID subTxID)
     {
         bool isRegistered = false;
         if (!m_tx.GetParameter(TxParameterID::TransactionRegistered, isRegistered, subTxID))
@@ -244,10 +236,7 @@ namespace beam::wallet
                 m_tx.Update();
             };
 
-            //if (auto bitcoin_rpc = m_Gateway.get_bitcoin_rpc(); bitcoin_rpc)
-            {
-                m_bitcoinRPC->sendRawTransaction(rawTransaction, callback);
-            }
+            m_bitcoinRPC->sendRawTransaction(rawTransaction, callback);
             return isRegistered;
         }
 
@@ -258,27 +247,6 @@ namespace beam::wallet
         }
 
         return isRegistered;
-    }
-
-    bool BitcoinSide::ConfirmExternalLockTx()
-    {
-        // wait TxID from peer
-        std::string txID;
-        if (!m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::LOCK_TX))
-            return false;
-
-        if (m_SwapLockTxConfirmations < kBTCMinTxConfirmations)
-        {
-            // validate expired?
-
-            // TODO: timeout ?
-            GetSwapLockTxConfirmations();
-            //TODO roman.strilec
-            //UpdateOnNextTip();
-            return false;
-        }
-
-        return true;
     }
 
     SwapTxState BitcoinSide::BuildLockTx()
@@ -296,13 +264,6 @@ namespace beam::wallet
             contractTx.outputs().push_back(output);
 
             std::string hexTx = libbitcoin::encode_base16(contractTx.to_data());
-
-            /*auto bitcoin_rpc = m_Gateway.get_bitcoin_rpc();
-
-            if (!bitcoin_rpc)
-            {
-                return swapTxState;
-            }*/
 
             m_bitcoinRPC->fundRawTransaction(hexTx, BIND_THIS_MEMFN(OnFundRawTransaction));
 
@@ -344,15 +305,7 @@ namespace beam::wallet
                 args.emplace_back(std::to_string(locktime));
             }
 
-            /*auto bitcoin_rpc = m_Gateway.get_bitcoin_rpc();
-            
-            if (!bitcoin_rpc)
-            {
-                return swapTxState;
-            }*/
-
             m_bitcoinRPC->createRawTransaction(args, BIND_THIS_MEMFN(OnCreateWithdrawTransaction));
-
             m_tx.SetState(SwapTxState::CreatingTx, subTxID);
             return SwapTxState::CreatingTx;
         }
@@ -364,10 +317,7 @@ namespace beam::wallet
                 OnDumpPrivateKey(subTxID, response);
             };
 
-            //if (auto bitcoin_rpc = m_Gateway.get_bitcoin_rpc(); bitcoin_rpc)
-            {
-                m_bitcoinRPC->dumpPrivKey(swapAddress, callback);
-            }
+            m_bitcoinRPC->dumpPrivKey(swapAddress, callback);
         }
 
         if (swapTxState == SwapTxState::Constructed && !m_SwapWithdrawRawTx.is_initialized())
@@ -383,13 +333,10 @@ namespace beam::wallet
         auto txID = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapExternalTxID, SubTxIndex::LOCK_TX);
         uint32_t outputIndex = m_tx.GetMandatoryParameter<uint32_t>(TxParameterID::AtomicSwapExternalTxOutputIndex, SubTxIndex::LOCK_TX);
 
-        //if (auto bitcoin_rpc = m_Gateway.get_bitcoin_rpc(); bitcoin_rpc)
-        {
-            m_bitcoinRPC->getTxOut(txID, outputIndex, BIND_THIS_MEMFN(OnGetSwapLockTxConfirmations));
-        }
+        m_bitcoinRPC->getTxOut(txID, outputIndex, BIND_THIS_MEMFN(OnGetSwapLockTxConfirmations));
     }
 
-    bool BitcoinSide::SendExternalWithdrawTx(SubTxID subTxID)
+    bool BitcoinSide::SendWithdrawTx(SubTxID subTxID)
     {
         if (bool isRegistered = false; !m_tx.GetParameter(TxParameterID::TransactionRegistered, isRegistered, subTxID))
         {
@@ -400,7 +347,7 @@ namespace beam::wallet
             assert(m_SwapWithdrawRawTx.is_initialized());
         }
 
-        if (!RegisterExternalTx(*m_SwapWithdrawRawTx, subTxID))
+        if (!RegisterTx(*m_SwapWithdrawRawTx, subTxID))
             return false;
 
         // TODO: check confirmations
@@ -441,7 +388,6 @@ namespace beam::wallet
         uint32_t valuePosition = changePos ? 0 : 1;
         m_tx.SetParameter(TxParameterID::AtomicSwapExternalTxOutputIndex, valuePosition, false, SubTxIndex::LOCK_TX);
 
-        //assert(m_Gateway.get_bitcoin_rpc());
         m_bitcoinRPC->signRawTransaction(hexTx, BIND_THIS_MEMFN(OnSignLockTransaction));
     }
 
@@ -485,8 +431,7 @@ namespace beam::wallet
         libbitcoin::endorsement sig;
 
         uint32_t input_index = 0;
-        // TODO roman.strilec
-        auto contractScript = CreateAtomicSwapContract(/**this, (SubTxIndex::REFUND_TX == subTxID)*/);
+        auto contractScript = CreateAtomicSwapContract();
         libbitcoin::chain::script::create_endorsement(sig, wallet_key.secret(), contractScript, withdrawTX, input_index, libbitcoin::machine::sighash_algorithm::all);
 
         // Create input script
