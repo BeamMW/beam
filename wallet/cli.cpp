@@ -587,7 +587,12 @@ namespace
 
     int VerifyPaymentProof(const po::variables_map& vm)
     {
-        ByteBuffer buf = from_hex(vm[cli::PAYMENT_PROOF_DATA].as<string>());
+        const auto& pprofData = vm[cli::PAYMENT_PROOF_DATA];
+        if (pprofData.empty())
+        {
+            throw std::runtime_error("No payment proof provided: --payment-proof parameter is missing");
+        }
+        ByteBuffer buf = from_hex(pprofData.as<string>());
 
         if (!wallet::VerifyPaymentProof(buf))
             throw std::runtime_error("Payment proof is invalid");
