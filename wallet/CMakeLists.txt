@@ -20,6 +20,8 @@ set(WALLET_SRC
     swaps/bitcoin_side.cpp
     secstring2.cpp
     unittests/util.cpp
+    bitcoind016.cpp
+    bitcoind017.cpp
 )
 
 add_library(bitcoin_rpc STATIC bitcoin_rpc.cpp)

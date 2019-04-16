@@ -15,6 +15,7 @@
 #include "nlohmann/json.hpp"
 
 #include "bitcoin/bitcoin.hpp"
+#include "http/http_client.h"
 
 using namespace beam;
 using namespace std;
@@ -276,7 +277,7 @@ struct TestGateway : wallet::INegotiatorGateway
         return true;
     }
 
-    BitcoinRPC::Ptr get_bitcoin_rpc() const override
+    IBitcoinBridge::Ptr get_bitcoin_rpc() const override
     {
         return nullptr;
     }

@@ -101,7 +101,7 @@ namespace beam
         void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override;
         void register_tx(const TxID& txId, Transaction::Ptr, wallet::SubTxID subTxID) override;
         void UpdateOnNextTip(const TxID&) override;
-        BitcoinRPC::Ptr get_bitcoin_rpc() const override;
+        IBitcoinBridge::Ptr get_bitcoin_rpc() const override;
 
         void OnWalletMessage(const WalletID& peerID, wallet::SetTxParameter&&) override;
 
@@ -239,7 +239,7 @@ namespace beam
 
         std::vector<IWalletObserver*> m_subscribers;
 
-        BitcoinRPC::Ptr m_bitcoinRPC;
+        IBitcoinBridge::Ptr m_bitcoinBridge;
         boost::optional<SwapConditions> m_swapConditions;
     };
 }

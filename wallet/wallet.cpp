@@ -24,6 +24,7 @@
 #include <random>
 #include <iomanip>
 #include <numeric>
+#include "bitcoind017.h"
 
 namespace beam
 {
@@ -120,7 +121,7 @@ namespace beam
 
     void Wallet::initBitcoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address)
     {
-        m_bitcoinRPC = make_shared<BitcoinRPC>(reactor, userName, pass, address);
+        m_bitcoinBridge = make_shared<Bitcoind017>(reactor, userName, pass, address);
     }
 
     void Wallet::initSwapConditions(Amount beamAmount, Amount swapAmount, bool isBeamSide)
@@ -860,13 +861,13 @@ namespace beam
         PostReqUnique(*pReq);
     }
 
-    BitcoinRPC::Ptr Wallet::get_bitcoin_rpc() const
+    IBitcoinBridge::Ptr Wallet::get_bitcoin_rpc() const
     {
-        if (!m_bitcoinRPC)
+        if (!m_bitcoinBridge)
         {
             LOG_DEBUG() << "Bitcoin RPC isn't initialized!";
         }
-        return m_bitcoinRPC;
+        return m_bitcoinBridge;
     }
 
     void Wallet::subscribe(IWalletObserver* observer)

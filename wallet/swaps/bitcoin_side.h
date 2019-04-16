@@ -24,7 +24,7 @@ namespace beam::wallet
     class BitcoinSide : public SecondSide
     {
     public:
-        BitcoinSide(BaseTransaction& tx, std::shared_ptr<BitcoinRPC> bitcoinRPC, bool isInitiator, bool isBtcOwner);
+        BitcoinSide(BaseTransaction& tx, std::shared_ptr<IBitcoinBridge> bitcoinBridge, bool isInitiator, bool isBtcOwner);
 
         bool Initial() override;
         void InitLockTime() override;
@@ -44,16 +44,16 @@ namespace beam::wallet
         void GetSwapLockTxConfirmations();
         bool SendWithdrawTx(SubTxID subTxID);
 
-        void OnGetRawChangeAddress(const std::string& response);
-        void OnFundRawTransaction(const std::string& response);
-        void OnSignLockTransaction(const std::string& response);
-        void OnCreateWithdrawTransaction(const std::string& response);
-        void OnDumpPrivateKey(SubTxID subTxID, const std::string& response);
-        void OnGetSwapLockTxConfirmations(const std::string& response);
+        void OnGetRawChangeAddress(const std::string& error, const std::string& address);
+        void OnFundRawTransaction(const std::string& error, const std::string& hexTx, int changePos);
+        void OnSignLockTransaction(const std::string& error, const std::string& hexTx, bool complete);
+        void OnCreateWithdrawTransaction(const std::string& error, const std::string& hexTx);
+        void OnDumpPrivateKey(SubTxID subTxID, const std::string& error, const std::string& privateKey);
+        void OnGetSwapLockTxConfirmations(const std::string& error, const std::string& hexScript, double amount, uint16_t confirmations);
 
     private:
         BaseTransaction& m_tx;
-        std::shared_ptr<BitcoinRPC> m_bitcoinRPC;
+        std::shared_ptr<IBitcoinBridge> m_bitcoinBridge;
         bool m_isInitiator;
         bool m_isBtcOwner;
 
