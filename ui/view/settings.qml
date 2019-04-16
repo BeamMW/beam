@@ -225,7 +225,7 @@ Rectangle {
                                             leftPadding: 20
                                             rightPadding: 20
                                             text: "Add"
-                                            palette.button: Style.background_inconspicuous
+                                            palette.button: Style.background_button
                                             palette.buttonText : localNodeRun.checked ? Style.content_main : Style.content_disabled
                                             enabled: newLocalNodePeer.acceptableInput && localNodeRun.checked
                                             onClicked: {
@@ -410,7 +410,7 @@ Rectangle {
                             CustomButton {
                                 text: "change wallet password"
                                 palette.buttonText : "white"
-                                palette.button: Style.background_inconspicuous
+                                palette.button: Style.background_button
                                 icon.source: "qrc:/assets/icon-password.svg"
                                 icon.width: 16
                                 icon.height: 16
@@ -487,7 +487,7 @@ Rectangle {
                                 CustomButton {
                                     text: "save wallet logs"
                                     palette.buttonText : "white"
-                                    palette.button: Style.background_inconspicuous
+                                    palette.button: Style.background_button
                                     onClicked: viewModel.reportProblem()
                                 }
                                 spacing: 30
@@ -495,7 +495,7 @@ Rectangle {
                                     icon.source: "qrc:/assets/icon-restore.svg"
                                     Layout.alignment: Qt.AlignRight
                                     text: qsTr("rescan")
-                                    palette.button: Style.background_inconspicuous
+                                    palette.button: Style.background_button
                                     palette.buttonText : localNodeRun.checked ? Style.content_main : Style.content_disabled
                                     enabled: localNodeRun.checked && confirmRefreshDialog.canRefresh && viewModel.isLocalNodeRunning
                                     onClicked: {
@@ -528,7 +528,7 @@ Rectangle {
                                 text: qsTr("copy")
                                 icon.color: Style.content_main
                                 palette.buttonText : Style.content_main
-                                palette.button: Style.background_inconspicuous
+                                palette.button: Style.background_button
                                 icon.source: "qrc:/assets/icon-copy.svg"
                                 onClicked: {
                                     viewModel.copyToClipboard(viewModel.walletLocation);

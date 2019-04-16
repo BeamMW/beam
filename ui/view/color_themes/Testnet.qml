@@ -15,6 +15,7 @@ AbstractColors {
     property color background_second:     "#342e41"
     property color background_row_even:   "#292236"
     property color background_details:    "#3e384a"
+    property color background_button:     "#708090"
     property color row_selected:          "#534e5e"
     property color separator:             "#342e41"
 
