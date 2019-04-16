@@ -24,6 +24,8 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 
 [Beam Russian Speaking Community on Telegram](https://t.me/Beam_RU)
 
+[Beam Japaneese Speaking Community](https://t.me/beamjp)
+
 [Beam Chineese Speaking Community on Telegram](https://t.me/beamchina)
 
 
