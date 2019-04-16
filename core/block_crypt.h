@@ -35,6 +35,8 @@ namespace beam
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
 
+	void HeightAdd(Height& trg, Height val); // saturates if overflow
+
 	struct HeightRange
 	{
 		// Convention: inclusive, i.e. both endings are part of the range.

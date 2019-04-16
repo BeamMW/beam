@@ -622,6 +622,7 @@ namespace beam
 			ECC::Scalar::Native m_k;
 			bool m_bUseHashlock;
 			Height m_Height = 0;
+			Merkle::Hash m_hvRelLock = Zero;
 
 			void Export(TxKernel& krn) const
 			{
@@ -632,6 +633,13 @@ namespace beam
 				{
 					krn.m_pHashLock.reset(new TxKernel::HashLock); // why not?
 					ECC::Hash::Processor() << m_Fee << m_k >> krn.m_pHashLock->m_Preimage;
+				}
+
+				if (!(m_hvRelLock == Zero))
+				{
+					krn.m_pRelativeLock.reset(new TxKernel::RelativeLock);
+					krn.m_pRelativeLock->m_ID = m_hvRelLock;
+					krn.m_pRelativeLock->m_LockHeight = 1;
 				}
 
 				ECC::Hash::Value hv;
@@ -649,6 +657,8 @@ namespace beam
 
 		typedef std::vector<MyKernel> KernelList;
 		KernelList m_MyKernels;
+
+		Merkle::Hash m_hvKrnRel = Zero;
 
 		bool MakeTx(Transaction::Ptr& pTx, Height h, Height hIncubation)
 		{
@@ -710,6 +720,11 @@ namespace beam
 				m_MyUtxos.insert(std::make_pair(h + 1 + hIncubation, utxoOut));
 			}
 
+			if (!(m_hvKrnRel == Zero))
+			{
+				mk.m_hvRelLock = m_hvKrnRel;
+				m_hvKrnRel = Zero;
+			}
 
 			m_pKdf->DeriveKey(mk.m_k, Key::ID(++m_nRunningIndex, Key::Type::Kernel));
 
@@ -1775,6 +1790,8 @@ namespace beam
 						TxKernel krn;
 						mk.Export(krn);
 						verify_test(m_vStates.back().IsValidProofKernel(krn, msg.m_Proof));
+
+						krn.get_ID(m_Wallet.m_hvKrnRel);
 					}
 				}
 				else
@@ -2241,6 +2258,7 @@ int main()
 	beam::Rules::get().Emission.Drop0 = 5;
 	beam::Rules::get().Emission.Drop1 = 8;
 	beam::Rules::get().CA.Enabled = true;
+	beam::Rules::get().RelativeLocks = true;
 	beam::Rules::get().UpdateChecksum();
 
 	beam::TestHalving();

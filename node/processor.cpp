@@ -1692,6 +1692,21 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 	uint32_t nInp = 0, nOut = 0;
 	r.Reset();
 
+	for (; r.m_pKernel; r.NextKernel())
+	{
+		if (!r.m_pKernel->m_pRelativeLock)
+			continue;
+		const TxKernel::RelativeLock& x = *r.m_pKernel->m_pRelativeLock;
+
+		Height h0 = m_DB.FindKernel(x.m_ID);
+		if (h0 < Rules::HeightGenesis)
+			return false;
+
+		HeightAdd(h0, x.m_LockHeight);
+		if (h0 > (pHMax ? *pHMax : h))
+			return false;
+	}
+
 	bool bOk = true;
 	for (; r.m_pUtxoIn; r.NextUtxoIn(), nInp++)
 		if (!HandleBlockElement(*r.m_pUtxoIn, h, pHMax, bFwd))
