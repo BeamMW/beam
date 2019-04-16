@@ -72,6 +72,7 @@ namespace beam
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
         const char* CANCEL_TX = "cancel_tx";
+        const char* DELETE_TX = "delete_tx";
 		const char* PAYMENT_PROOF_EXPORT = "payment_proof_export";
 		const char* PAYMENT_PROOF_VERIFY = "payment_proof_verify";
 		const char* PAYMENT_PROOF_DATA = "payment_proof";

@@ -781,28 +781,36 @@ int main_impl(int argc, char* argv[])
 
                     auto command = vm[cli::COMMAND].as<string>();
 
-                    if (command != cli::INIT
-                        && command != cli::RESTORE
-                        && command != cli::SEND
-                        && command != cli::RECEIVE
-                        && command != cli::LISTEN
-                        && command != cli::TREASURY
-                        && command != cli::INFO
-                        && command != cli::EXPORT_MINER_KEY
-                        && command != cli::EXPORT_OWNER_KEY
-                        && command != cli::NEW_ADDRESS
-                        && command != cli::CANCEL_TX
-                        && command != cli::CHANGE_ADDRESS_EXPIRATION
-                        && command != cli::PAYMENT_PROOF_EXPORT
-                        && command != cli::PAYMENT_PROOF_VERIFY
-                        && command != cli::GENERATE_PHRASE
-                        && command != cli::WALLET_ADDRESS_LIST
-                        && command != cli::WALLET_RESCAN
-                        && command != cli::IMPORT_ADDRESSES
-                        && command != cli::EXPORT_ADDRESSES)
                     {
-                        LOG_ERROR() << "unknown command: \'" << command << "\'";
-                        return -1;
+                        vector<string> commands =
+                        {
+                            cli::INIT,
+                            cli::RESTORE,
+                            cli::SEND,
+                            cli::RECEIVE,
+                            cli::LISTEN,
+                            cli::TREASURY,
+                            cli::INFO,
+                            cli::EXPORT_MINER_KEY,
+                            cli::EXPORT_OWNER_KEY,
+                            cli::NEW_ADDRESS,
+                            cli::CANCEL_TX,
+                            cli::DELETE_TX,
+                            cli::CHANGE_ADDRESS_EXPIRATION,
+                            cli::PAYMENT_PROOF_EXPORT,
+                            cli::PAYMENT_PROOF_VERIFY,
+                            cli::GENERATE_PHRASE,
+                            cli::WALLET_ADDRESS_LIST,
+                            cli::WALLET_RESCAN,
+                            cli::IMPORT_ADDRESSES,
+                            cli::EXPORT_ADDRESSES,
+                        };
+
+                        if (find(commands.cbegin(), commands.cend(), command) == commands.cend())
+                        {
+                            LOG_ERROR() << "unknown command: \'" << command << "\'";
+                            return -1;
+                        }
                     }
 
                     if (command == cli::GENERATE_PHRASE)
@@ -1028,7 +1036,8 @@ int main_impl(int argc, char* argv[])
                         wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, true);
                     }
 
-                    if (command == cli::CANCEL_TX) 
+                    bool deleteTx = command == cli::DELETE_TX;
+                    if (command == cli::CANCEL_TX || deleteTx)
                     {
                         auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
                         TxID txId;
@@ -1037,13 +1046,27 @@ int main_impl(int argc, char* argv[])
 
                         if (tx)
                         {
-                            if (tx->canCancel())
+                            if (deleteTx)
                             {
-                                wallet.cancel_tx(txId);
+                                if (tx->canDelete())
+                                {
+                                    wallet.delete_tx(txId);
+                                }
+                                else
+                                {
+                                    LOG_ERROR() << "Transaction could not be deleted. Invalid transaction status.";
+                                }
                             }
                             else
                             {
-                                LOG_ERROR() << "Transaction could not be cancelled. Invalid transaction status.";
+                                if (tx->canCancel())
+                                {
+                                    wallet.cancel_tx(txId);
+                                }
+                                else
+                                {
+                                    LOG_ERROR() << "Transaction could not be cancelled. Invalid transaction status.";
+                                }
                             }
                         }
                         else
