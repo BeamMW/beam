@@ -223,23 +223,21 @@ namespace beam
             PeerProtoVersion = 16,
             MaxHeight = 17,
 
-            AtomicSwapIsBeamSide = 20,
-            AtomicSwapCoin = 21,
-            AtomicSwapAmount = 22,
-            AtomicSwapAddress = 23,
-            AtomicSwapPeerAddress = 24,
-            AtomicSwapLockTime = 25,
-            AtomicSwapExternalLockTime = 26,
-            AtomicSwapExternalTx = 27,
-            AtomicSwapExternalTxID = 28,
-            AtomicSwapExternalTxOutputIndex = 29,
+            SubTxIndex = 25,
+            PeerPublicSharedBlindingFactor = 26,
 
-
-            PeerPublicSharedBlindingFactor = 30,
-           
-            IsSelfTx = 31,
-
-            SubTxIndex = 32,
+            IsSelfTx = 27,
+       
+            AtomicSwapIsBeamSide = 30,
+            AtomicSwapCoin = 31,
+            AtomicSwapAmount = 32,
+            AtomicSwapAddress = 33,
+            AtomicSwapPeerAddress = 34,
+            AtomicSwapLockTime = 35,
+            AtomicSwapExternalLockTime = 36,
+            AtomicSwapExternalTx = 37,
+            AtomicSwapExternalTxID = 38,
+            AtomicSwapExternalTxOutputIndex = 39,
 
             // signature parameters
 
