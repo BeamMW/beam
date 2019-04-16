@@ -17,11 +17,11 @@ set(WALLET_SRC
     swaps/swap_transaction.cpp
     swaps/lock_tx_builder.cpp
     swaps/shared_tx_builder.cpp
-    swaps/bitcoin_side.cpp
+    bitcoin/bitcoin_side.cpp
+    bitcoin/bitcoind016.cpp
+    bitcoin/bitcoind017.cpp
     secstring2.cpp
     unittests/util.cpp
-    bitcoind016.cpp
-    bitcoind017.cpp
 )
 
 add_library(bitcoin_rpc STATIC bitcoin_rpc.cpp)

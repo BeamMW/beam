@@ -17,8 +17,6 @@
 #include "bitcoin/bitcoin.hpp"
 #include "nlohmann/json.hpp"
 
-#include "common.h"
-
 using namespace ECC;
 using json = nlohmann::json;
 

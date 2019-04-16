@@ -14,10 +14,10 @@
 
 #pragma once
 
-#include "second_side.h"
+#include "../swaps/second_side.h"
+#include "../swaps/common.h"
 #include "../base_transaction.h"
 #include "bitcoin/bitcoin.hpp"
-#include "common.h"
 
 namespace beam::wallet
 {

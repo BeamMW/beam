@@ -20,7 +20,7 @@
 
 #include "core/serialization_adapters.h"
 #include "core/proto.h"
-#include "bitcoin_bridge.h"
+#include "bitcoin/bitcoin_bridge.h"
 #include <algorithm>
 
 namespace beam

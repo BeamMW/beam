@@ -24,7 +24,7 @@
 #include <random>
 #include <iomanip>
 #include <numeric>
-#include "bitcoind017.h"
+#include "bitcoin/bitcoind017.h"
 
 namespace beam
 {
