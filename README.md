@@ -17,17 +17,11 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 **Beam released Mobile Wallet for Android**. [Release](https://github.com/BeamMW/android-wallet/releases/tag/Bright-Boson-2.0.0) | [Google Play Store](https://play.google.com/store/apps/details?id=com.mw.beam.beamwallet.mainnet)
 
 
-### JOIN OUR COMMUNITY
+### JOIN OUR COMMUNITIES ON TELEGRAM
 
+[English](https://t.me/BeamPrivacy) | [Русский](https://t.me/Beam_RU) | [中文](https://t.me/beamchina) | [日本人](https://t.me/beamjp)
 
-[Beam International Community on Telegram](https://t.me/BeamPrivacy)
-
-[Beam Russian Speaking Community on Telegram](https://t.me/Beam_RU)
-
-[Beam Japaneese Speaking Community](https://t.me/beamjp)
-
-[Beam Chineese Speaking Community on Telegram](https://t.me/beamchina)
-
+### FOLLOW BEAM 
 
 [twitter](https://twitter.com/beamprivacy) | [medium](https://medium.com/beam-mw) | [reddit](https://www.reddit.com/r/beamprivacy/) | [beam forum](http://forum.beam-mw.com) | [gitter](https://gitter.im/beamprivacy/Lobby) | [bitcointalk](https://bitcointalk.org/index.php?topic=5052151.0) | [youtube](https://www.youtube.com/channel/UCddqBnfSPWibf4f8OnEJm_w?)
 
