@@ -590,7 +590,7 @@ namespace
         const auto& pprofData = vm[cli::PAYMENT_PROOF_DATA];
         if (pprofData.empty())
         {
-            throw std::runtime_error("No payment proof provided: --payment-proof parameter is missing");
+            throw std::runtime_error("No payment proof provided: --payment_proof parameter is missing");
         }
         ByteBuffer buf = from_hex(pprofData.as<string>());
 
