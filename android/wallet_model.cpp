@@ -309,7 +309,7 @@ void WalletModel::onPaymentProofExported(const beam::TxID& txID, const beam::Byt
 
     jstring jStrTxId = env->NewStringUTF(to_hex(txID.data(), txID.size()).c_str());
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onPaymentProofExported", "(Ljava/lang/String;L" BEAM_JAVA_PATH "/entities/dto/WalletAddressDTO;)V");
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onPaymentProofExported", "(Ljava/lang/String;L" BEAM_JAVA_PATH "/entities/dto/PaymentInfoDTO;)V");
 
     
     //jstring jStrProof = env->NewStringUTF(str.c_str());
