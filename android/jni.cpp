@@ -251,6 +251,23 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createMnemonic)(JNIEnv *env, j
     return phrasesArray;
 }
 
+JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(getDictionary)(JNIEnv *env, jobject thiz)
+{
+    //auto phrases = beam::createMnemonic(beam::getEntropy(), beam::language::en);
+
+    jobjectArray dictionary = env->NewObjectArray(static_cast<jsize>(beam::language::en.size()), env->FindClass("java/lang/String"), 0);
+
+    int i = 0;
+    for (auto& word : beam::language::en)
+    {
+        jstring str = env->NewStringUTF(word.c_str());
+        env->SetObjectArrayElement(dictionary, i++, str);
+        env->DeleteLocalRef(str);
+    }
+
+    return dictionary;
+}
+
 JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(getDefaultPeers)(JNIEnv *env, jobject thiz)
 {
     auto peers = beam::getDefaultPeers();

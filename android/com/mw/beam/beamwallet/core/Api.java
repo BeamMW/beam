@@ -24,6 +24,7 @@ public class Api
 	public native Wallet createWallet(String nodeAddr, String path, String pass, String phrases, boolean restore);
 	public native Wallet openWallet(String nodeAddr, String path, String pass);
 	public native String[] createMnemonic();
+    public native String[] getDictionary();
     public native boolean checkReceiverAddress(String address);
     public native String[] getDefaultPeers();
 
