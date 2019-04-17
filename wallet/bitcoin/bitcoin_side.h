@@ -18,15 +18,16 @@
 #include "../swaps/common.h"
 #include "../base_transaction.h"
 #include "bitcoin/bitcoin.hpp"
+#include "bitcoin_bridge.h"
 
 namespace beam::wallet
 {
     class BitcoinSide : public SecondSide
     {
     public:
-        BitcoinSide(BaseTransaction& tx, std::shared_ptr<IBitcoinBridge> bitcoinBridge, bool isInitiator, bool isBtcOwner);
+        BitcoinSide(BaseTransaction& tx, std::shared_ptr<IBitcoinBridge> bitcoinBridge);
 
-        bool Initial() override;
+        bool Initial(bool isBeamSide) override;
         void InitLockTime() override;
         void AddTxDetails(SetTxParameter& txParameters) override;
         bool ConfirmLockTx() override;
@@ -54,7 +55,7 @@ namespace beam::wallet
     private:
         BaseTransaction& m_tx;
         std::shared_ptr<IBitcoinBridge> m_bitcoinBridge;
-        bool m_isInitiator;
+        //bool m_isInitiator;
         bool m_isBtcOwner;
 
         // TODO: make a separate struct

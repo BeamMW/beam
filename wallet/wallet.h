@@ -18,6 +18,7 @@
 #include "wallet/wallet_transaction.h"
 #include <deque>
 #include "core/fly_client.h"
+#include "bitcoin/bitcoin_bridge.h"
 
 namespace beam
 {
@@ -101,7 +102,6 @@ namespace beam
         void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override;
         void register_tx(const TxID& txId, Transaction::Ptr, wallet::SubTxID subTxID) override;
         void UpdateOnNextTip(const TxID&) override;
-        IBitcoinBridge::Ptr get_bitcoin_rpc() const override;
 
         void OnWalletMessage(const WalletID& peerID, wallet::SetTxParameter&&) override;
 

@@ -276,11 +276,6 @@ struct TestGateway : wallet::INegotiatorGateway
     {
         return true;
     }
-
-    IBitcoinBridge::Ptr get_bitcoin_rpc() const override
-    {
-        return nullptr;
-    }
 };
 
 class AsyncProcessor

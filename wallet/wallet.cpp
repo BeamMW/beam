@@ -25,6 +25,7 @@
 #include <iomanip>
 #include <numeric>
 #include "bitcoin/bitcoind017.h"
+#include "bitcoin/bitcoin_side.h"
 
 namespace beam
 {
@@ -861,15 +862,6 @@ namespace beam
         PostReqUnique(*pReq);
     }
 
-    IBitcoinBridge::Ptr Wallet::get_bitcoin_rpc() const
-    {
-        if (!m_bitcoinBridge)
-        {
-            LOG_DEBUG() << "Bitcoin RPC isn't initialized!";
-        }
-        return m_bitcoinBridge;
-    }
-
     void Wallet::subscribe(IWalletObserver* observer)
     {
         assert(std::find(m_subscribers.begin(), m_subscribers.end(), observer) == m_subscribers.end());
@@ -972,7 +964,13 @@ namespace beam
         case TxType::Simple:
              return make_shared<SimpleTransaction>(*this, m_WalletDB, id);
         case TxType::AtomicSwap:
-            return make_shared<AtomicSwapTransaction>(*this, m_WalletDB, id);
+        {
+            auto transaction = make_shared<AtomicSwapTransaction>(*this, m_WalletDB, id);
+            auto bitcoinSide = std::make_shared<BitcoinSide>(*transaction, m_bitcoinBridge);
+
+            transaction->SetSecondSide(bitcoinSide);
+            return transaction;
+        }
         }
         return wallet::BaseTransaction::Ptr();
     }

@@ -65,6 +65,8 @@ namespace beam::wallet
                             , beam::IWalletDB::Ptr walletDB
                             , const TxID& txID);
 
+        void SetSecondSide(SecondSide::Ptr);
+
     private:
         void SetNextState(State state);
 
@@ -106,6 +108,6 @@ namespace beam::wallet
         Transaction::Ptr m_LockTx;
         Transaction::Ptr m_WithdrawTx;
 
-        std::shared_ptr<SecondSide> m_secondSide;
+        SecondSide::Ptr m_secondSide;
     };    
 }

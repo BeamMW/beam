@@ -18,7 +18,6 @@
 
 #include "lock_tx_builder.h"
 #include "shared_tx_builder.h"
-#include "../bitcoin/bitcoin_side.h"
 
 using namespace ECC;
 using json = nlohmann::json;
@@ -36,6 +35,11 @@ namespace beam::wallet
         : BaseTransaction(gateway, walletDB, txID)
     {
 
+    }
+
+    void AtomicSwapTransaction::SetSecondSide(SecondSide::Ptr value)
+    {
+        m_secondSide = value;
     }
 
     void AtomicSwapTransaction::SetNextState(State state)
@@ -68,16 +72,11 @@ namespace beam::wallet
         State state = GetState(kDefaultSubTxID);
         bool isBeamOwner = IsBeamSide();
 
-        if (!m_secondSide)
-        {
-            m_secondSide = std::make_shared<BitcoinSide>(*this, m_Gateway.get_bitcoin_rpc(), IsInitiator(), !isBeamOwner);
-        }
-
         switch (state)
         {
         case State::Initial:
         {
-            if (!m_secondSide->Initial())
+            if (!m_secondSide->Initial(isBeamOwner))
                 break;
 
             SetNextState(State::Invitation);
