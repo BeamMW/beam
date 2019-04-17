@@ -134,12 +134,12 @@
 <context>
     <name>ConfirmationDialog</name>
     <message>
-        <location filename="../view/controls/ConfirmationDialog.qml" line="58"/>
+        <location filename="../view/controls/ConfirmationDialog.qml" line="70"/>
         <source>cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/controls/ConfirmationDialog.qml" line="68"/>
+        <location filename="../view/controls/ConfirmationDialog.qml" line="80"/>
         <source>delete</source>
         <translation type="unfinished"></translation>
     </message>
@@ -660,12 +660,12 @@
 <context>
     <name>WalletViewModel</name>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="581"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="582"/>
         <source> beams</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../viewmodel/wallet_view.cpp" line="583"/>
+        <location filename="../viewmodel/wallet_view.cpp" line="584"/>
         <source> groths</source>
         <translation type="unfinished"></translation>
     </message>
@@ -820,7 +820,7 @@
     </message>
     <message>
         <location filename="../view/settings.qml" line="294"/>
-        <location filename="../view/settings.qml" line="479"/>
+        <location filename="../view/settings.qml" line="497"/>
         <source>rescan</source>
         <translation type="unfinished"></translation>
     </message>
@@ -847,47 +847,52 @@ Are you sure?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/settings.qml" line="416"/>
-        <source>Report problem</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../view/settings.qml" line="425"/>
-        <source>To report a problem:</source>
+        <location filename="../view/settings.qml" line="397"/>
+        <source>Ask password for every sending transaction</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../view/settings.qml" line="434"/>
-        <source>1. Click &apos;Save wallet logs&apos; and choose a destination folder for log archive</source>
+        <source>Report problem</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../view/settings.qml" line="443"/>
+        <source>To report a problem:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../view/settings.qml" line="452"/>
+        <source>1. Click &apos;Save wallet logs&apos; and choose a destination folder for log archive</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../view/settings.qml" line="461"/>
         <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;}&lt;/style&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/beam-mw/beam&apos;&gt;github&lt;/a&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/settings.qml" line="460"/>
+        <location filename="../view/settings.qml" line="478"/>
         <source>3. Don&apos;t forget to attach logs archive</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/settings.qml" line="493"/>
+        <location filename="../view/settings.qml" line="511"/>
         <source>Wallet folder location:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/settings.qml" line="510"/>
+        <location filename="../view/settings.qml" line="528"/>
         <source>copy</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/settings.qml" line="541"/>
+        <location filename="../view/settings.qml" line="559"/>
         <source>undo changes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/settings.qml" line="551"/>
+        <location filename="../view/settings.qml" line="569"/>
         <source>apply changes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1217,207 +1222,217 @@ Are you sure?</source>
     </message>
     <message>
         <location filename="../view/wallet.qml" line="73"/>
-        <location filename="../view/wallet.qml" line="816"/>
-        <location filename="../view/wallet.qml" line="869"/>
+        <location filename="../view/wallet.qml" line="889"/>
+        <location filename="../view/wallet.qml" line="942"/>
         <source>send</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="98"/>
-        <source>Please review the transaction details</source>
+        <location filename="../view/wallet.qml" line="91"/>
+        <source>Invalid password provided.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="117"/>
+        <location filename="../view/wallet.qml" line="126"/>
+        <source>Confirm transaction details</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../view/wallet.qml" line="145"/>
         <source>Recipient:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="140"/>
+        <location filename="../view/wallet.qml" line="168"/>
         <source>Amount:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="160"/>
+        <location filename="../view/wallet.qml" line="188"/>
         <source>Transaction fee:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="182"/>
+        <location filename="../view/wallet.qml" line="210"/>
+        <source>To broadcast your transaction please enter your password</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../view/wallet.qml" line="255"/>
         <source>got it</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="187"/>
-        <location filename="../view/wallet.qml" line="1220"/>
+        <location filename="../view/wallet.qml" line="260"/>
+        <location filename="../view/wallet.qml" line="1293"/>
         <source>delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="214"/>
+        <location filename="../view/wallet.qml" line="287"/>
         <source>Wallet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="244"/>
+        <location filename="../view/wallet.qml" line="317"/>
         <source>Receive Beam</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="262"/>
+        <location filename="../view/wallet.qml" line="335"/>
         <source>My address</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="281"/>
+        <location filename="../view/wallet.qml" line="354"/>
         <source>Expires:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="306"/>
-        <location filename="../view/wallet.qml" line="591"/>
+        <location filename="../view/wallet.qml" line="379"/>
+        <location filename="../view/wallet.qml" line="664"/>
         <source>Comment</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="343"/>
+        <location filename="../view/wallet.qml" line="416"/>
         <source>Scan to send</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="354"/>
+        <location filename="../view/wallet.qml" line="427"/>
         <source>Send this address to the sender over an external secure channel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="363"/>
+        <location filename="../view/wallet.qml" line="436"/>
         <source>close</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="372"/>
+        <location filename="../view/wallet.qml" line="445"/>
         <source>copy</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="418"/>
+        <location filename="../view/wallet.qml" line="491"/>
         <source>Send Beam</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="447"/>
+        <location filename="../view/wallet.qml" line="520"/>
         <source>Send To:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="461"/>
+        <location filename="../view/wallet.qml" line="534"/>
         <source>Please specify contact</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="473"/>
+        <location filename="../view/wallet.qml" line="546"/>
         <source>Invalid address</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="506"/>
+        <location filename="../view/wallet.qml" line="579"/>
         <source>Transaction amount</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="549"/>
-        <location filename="../view/wallet.qml" line="824"/>
+        <location filename="../view/wallet.qml" line="622"/>
+        <location filename="../view/wallet.qml" line="897"/>
         <source>BEAM</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="558"/>
+        <location filename="../view/wallet.qml" line="631"/>
         <source>Insufficient funds: you would need %1 to complete the transaction</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="627"/>
+        <location filename="../view/wallet.qml" line="700"/>
         <source>Transaction fee</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="670"/>
-        <location filename="../view/wallet.qml" line="825"/>
+        <location filename="../view/wallet.qml" line="743"/>
+        <location filename="../view/wallet.qml" line="898"/>
         <source>GROTH</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="711"/>
+        <location filename="../view/wallet.qml" line="784"/>
         <source>Remaining</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="759"/>
+        <location filename="../view/wallet.qml" line="832"/>
         <source>Change</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="808"/>
+        <location filename="../view/wallet.qml" line="881"/>
         <source>back</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="857"/>
+        <location filename="../view/wallet.qml" line="930"/>
         <source>receive</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="909"/>
+        <location filename="../view/wallet.qml" line="982"/>
         <source>In progress</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="936"/>
+        <location filename="../view/wallet.qml" line="1009"/>
         <source>Transactions</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="942"/>
+        <location filename="../view/wallet.qml" line="1015"/>
         <source>Verify payment</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="1006"/>
+        <location filename="../view/wallet.qml" line="1079"/>
         <source>Date | time</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="1035"/>
+        <location filename="../view/wallet.qml" line="1108"/>
         <source>Address</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="1064"/>
+        <location filename="../view/wallet.qml" line="1137"/>
         <source>Amount</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="1095"/>
+        <location filename="../view/wallet.qml" line="1168"/>
         <source>Status</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="1185"/>
+        <location filename="../view/wallet.qml" line="1258"/>
         <source>Actions</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="1202"/>
+        <location filename="../view/wallet.qml" line="1275"/>
         <source>copy address</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="1212"/>
+        <location filename="../view/wallet.qml" line="1285"/>
         <source>cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../view/wallet.qml" line="1224"/>
+        <location filename="../view/wallet.qml" line="1297"/>
         <source>The transaction will be deleted. This operation can not be undone</source>
         <translation type="unfinished"></translation>
     </message>

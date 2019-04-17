@@ -18,6 +18,7 @@ import com.mw.beam.beamwallet.core.entities.dto.WalletStatusDTO;
 import com.mw.beam.beamwallet.core.entities.dto.UtxoDTO;
 import com.mw.beam.beamwallet.core.entities.dto.TxDescriptionDTO;
 import com.mw.beam.beamwallet.core.entities.dto.WalletAddressDTO;
+import com.mw.beam.beamwallet.core.entities.dto.PaymentInfoDTO;
 
 import com.mw.beam.beamwallet.core.entities.Wallet;
 
@@ -149,7 +150,7 @@ public class WalletListener
 		System.out.println(">>>>>>>>>>>>>> async onCantSendToExpired() in Java");
 	}
 
-    static void onPaymentProofExported(String txId, String proof)
+    static void onPaymentProofExported(String txId, PaymentInfoDTO proof)
     {
         System.out.println(">>>>>>>>>>>>>> async onPaymentProofExported() in Java");
     }

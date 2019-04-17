@@ -23,6 +23,7 @@ jclass SystemStateClass = 0;
 jclass TxDescriptionClass = 0;
 jclass UtxoClass = 0;
 jclass WalletAddressClass = 0;
+jclass PaymentInfoClass = 0;
 
 namespace
 {

@@ -288,19 +288,33 @@ void WalletModel::onCantSendToExpired()
 
 void WalletModel::onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof)
 {
-    string str;
-    str.resize(proof.size() * 2);
+    string strProof;
+    strProof.resize(proof.size() * 2);
 
-    beam::to_hex(str.data(), proof.data(), proof.size());
+    beam::to_hex(strProof.data(), proof.data(), proof.size());
+    beam::wallet::PaymentInfo paymentInfo = wallet::PaymentInfo::FromByteBuffer(proof);
 
     JNIEnv* env = Android_JNI_getEnv();
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onPaymentProofExported", "(Ljava/lang/String;Ljava/lang/String;)V");
+    jobject jPaymentInfo = env->AllocObject(PaymentInfoClass);
+
+    {
+        setStringField(env, PaymentInfoClass, jPaymentInfo, "senderId", to_string(paymentInfo.m_Sender));
+        setStringField(env, PaymentInfoClass, jPaymentInfo, "receiverId", to_string(paymentInfo.m_Receiver));
+        setLongField(env, PaymentInfoClass, jPaymentInfo, "amount", paymentInfo.m_Amount);
+        setStringField(env, PaymentInfoClass, jPaymentInfo, "kernelId", to_string(paymentInfo.m_KernelID));
+        setBooleanField(env, PaymentInfoClass, jPaymentInfo, "isValid", paymentInfo.IsValid());
+        setStringField(env, PaymentInfoClass, jPaymentInfo, "rawProof", strProof);
+    }
 
     jstring jStrTxId = env->NewStringUTF(to_hex(txID.data(), txID.size()).c_str());
-    jstring jStrProof = env->NewStringUTF(str.c_str());
-    env->CallStaticVoidMethod(WalletListenerClass, callback, jStrTxId, jStrProof);
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onPaymentProofExported", "(Ljava/lang/String;L" BEAM_JAVA_PATH "/entities/dto/WalletAddressDTO;)V");
+
+    
+    //jstring jStrProof = env->NewStringUTF(str.c_str());
+    env->CallStaticVoidMethod(WalletListenerClass, callback, jStrTxId, jPaymentInfo);
 
     env->DeleteLocalRef(jStrTxId);
-    env->DeleteLocalRef(jStrProof);
+    env->DeleteLocalRef(jPaymentInfo);
 }
