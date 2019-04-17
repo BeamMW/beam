@@ -238,8 +238,7 @@ namespace beam::wallet
 
         if (!isRegistered)
         {
-            // TODO roman.strilec 
-            //m_tx.OnFailed(TxFailureReason::FailedToRegister, true);
+            m_tx.SetParameter(TxParameterID::FailureReason, TxFailureReason::FailedToRegister, false, subTxID);
         }
 
         return isRegistered;
@@ -456,9 +455,8 @@ namespace beam::wallet
             Amount outputAmount = static_cast<Amount>(amount * libbitcoin::satoshi_per_bitcoin);
             if (swapAmount > outputAmount)
             {
-                LOG_DEBUG() << m_tx.GetTxID() << "Unexpected amount, excpected: " << swapAmount << ", got: " << outputAmount;
-
-                // TODO: implement error handling
+                LOG_ERROR() << m_tx.GetTxID() << "Unexpected amount, excpected: " << swapAmount << ", got: " << outputAmount;
+                m_tx.SetParameter(TxParameterID::FailureReason, TxFailureReason::SwapInvalidAmount, false, SubTxIndex::LOCK_TX);
                 return;
             }
         }
@@ -474,7 +472,7 @@ namespace beam::wallet
 
         if (script != contractScript)
         {
-            // TODO: implement
+            m_tx.SetParameter(TxParameterID::FailureReason, TxFailureReason::SwapInvalidContract, false, SubTxIndex::LOCK_TX);
             return;
         }
 

@@ -74,6 +74,9 @@ namespace beam::wallet
         State GetState(SubTxID subTxID) const;
         SubTxState GetSubTxState(SubTxID subTxID) const;
         void UpdateImpl() override;
+        void RollbackTx() override;
+        void NotifyFailure(TxFailureReason) override;
+        void OnFailed(TxFailureReason reason, bool notify) override;
         void SendInvitation();
         void SendExternalTxDetails();
         void SendLockTxInvitation(const LockTxBuilder& lockBuilder);
@@ -100,6 +103,9 @@ namespace beam::wallet
         Amount GetAmount() const;
         bool IsSender() const;
         bool IsBeamSide() const;
+
+        void OnSubTxFailed(TxFailureReason reason, SubTxID subTxID, bool notify = false);
+        void CheckSubTxFailures();
 
         mutable boost::optional<bool> m_IsBeamSide;
         mutable boost::optional<bool> m_IsSender;

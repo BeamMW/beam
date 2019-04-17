@@ -106,6 +106,9 @@ namespace beam
     MACRO(NoPaymentProof,         11, "Payment not signed by the receiver") \
     MACRO(MaxHeightIsUnacceptable,12, "Kernel's max height is unacceptable") \
     MACRO(InvalidState           ,13, "Transaction has invalid state") \
+    MACRO(SubTxFailed            ,14, "Subtransaction has failed") \
+    MACRO(SwapInvalidAmount      ,15, "Contract's amount is not valid") \
+    MACRO(SwapInvalidContract    ,16, "Side chain has invalid contract") \
 
     enum TxFailureReason : int32_t
     {

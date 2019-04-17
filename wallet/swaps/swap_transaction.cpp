@@ -18,23 +18,18 @@
 
 #include "lock_tx_builder.h"
 #include "shared_tx_builder.h"
+#include "../bitcoin/bitcoin_side.h"
 
 using namespace ECC;
 using json = nlohmann::json;
 
 namespace beam::wallet
 {
-    namespace
-    {
-
-    }
-
     AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
                                                , beam::IWalletDB::Ptr walletDB
                                                , const TxID& txID)
         : BaseTransaction(gateway, walletDB, txID)
     {
-
     }
 
     void AtomicSwapTransaction::SetSecondSide(SecondSide::Ptr value)
@@ -71,6 +66,8 @@ namespace beam::wallet
     {
         State state = GetState(kDefaultSubTxID);
         bool isBeamOwner = IsBeamSide();
+
+        CheckSubTxFailures();
 
         switch (state)
         {
@@ -147,6 +144,9 @@ namespace beam::wallet
         case State::SendingRefundTX:
         {
             assert(!isBeamOwner);
+
+            // TODO(alex.starun): add check of LockTime
+
             if (!m_secondSide->SendRefund())
                 break;
 
@@ -223,7 +223,7 @@ namespace beam::wallet
         case State::SendingBeamRefundTX:
         {
             assert(isBeamOwner);
-            if (!CompleteBeamWithdrawTx(SubTxIndex::BEAM_REFUND_TX))
+            if (!IsBeamLockTimeExpired() && !CompleteBeamWithdrawTx(SubTxIndex::BEAM_REFUND_TX))
                 break;
 
             LOG_DEBUG() << GetTxID() << " Beam Refund TX completed!";
@@ -240,6 +240,56 @@ namespace beam::wallet
         default:
             break;
         }
+    }
+
+    void AtomicSwapTransaction::RollbackTx()
+    {
+        LOG_INFO() << GetTxID() << " Transaction failed. Rollback...";
+
+        if (IsBeamSide())
+        {
+            bool isRegistered = false;
+            if (GetParameter(TxParameterID::TransactionRegistered, isRegistered, SubTxIndex::BEAM_LOCK_TX) && isRegistered)
+            {
+                SetNextState(State::SendingBeamRefundTX);
+                return;
+            }
+        }
+        else
+        {
+            bool isRegistered = false;
+            if (GetParameter(TxParameterID::TransactionRegistered, isRegistered, SubTxIndex::LOCK_TX) && isRegistered)
+            {
+                SetNextState(State::SendingRefundTX);
+                return;
+            }
+        }
+
+        // Default rollback
+        // TODO(alex.starun): check
+        UpdateTxDescription(TxStatus::Cancelled);
+
+        m_WalletDB->rollbackTx(GetTxID());
+        m_Gateway.on_tx_completed(GetTxID());
+    }
+
+    void AtomicSwapTransaction::NotifyFailure(TxFailureReason)
+    {
+        assert(false && "Not implemented yet.");
+    }
+
+    void AtomicSwapTransaction::OnFailed(TxFailureReason reason, bool notify)
+    {
+        LOG_ERROR() << GetTxID() << " Failed. " << GetFailureMessage(reason);
+
+        if (notify)
+        {
+            NotifyFailure(reason);
+        }
+
+        SetParameter(TxParameterID::FailureReason, reason, false);
+
+        RollbackTx();
     }
 
     bool AtomicSwapTransaction::CompleteBeamWithdrawTx(SubTxID subTxID)
@@ -280,13 +330,6 @@ namespace beam::wallet
 
         auto lockTxBuilder = std::make_unique<LockTxBuilder>(*this, GetAmount(), fee);
 
-        bool newGenerated = lockTxBuilder->GenerateBlindingExcess();
-        if (newGenerated && lockTxState != SubTxState::Initial)
-        {
-            OnFailed(TxFailureReason::InvalidState);
-            return lockTxState;
-        }
-
         if (!lockTxBuilder->GetInitialTxParams() && lockTxState == SubTxState::Initial)
         {
             // TODO: check expired!
@@ -304,6 +347,13 @@ namespace beam::wallet
             }
 
             UpdateTxDescription(TxStatus::InProgress);
+        }
+
+        bool newGenerated = lockTxBuilder->GenerateBlindingExcess();
+        if (newGenerated && lockTxState != SubTxState::Initial)
+        {
+            OnSubTxFailed(TxFailureReason::InvalidState, SubTxIndex::BEAM_LOCK_TX);
+            return lockTxState;
         }
 
         lockTxBuilder->GenerateNonce();
@@ -342,7 +392,7 @@ namespace beam::wallet
 
         if (!lockTxBuilder->IsPeerSignatureValid())
         {
-            LOG_INFO() << GetTxID() << " Peer signature is invalid.";
+            OnSubTxFailed(TxFailureReason::InvalidPeerSignature, SubTxIndex::BEAM_LOCK_TX, true);
             return lockTxState;
         }
 
@@ -367,8 +417,7 @@ namespace beam::wallet
             TxBase::Context context(pars);
             if (!transaction->IsValid(context))
             {
-                // TODO: check
-                OnFailed(TxFailureReason::InvalidTransaction, true);
+                OnSubTxFailed(TxFailureReason::InvalidTransaction, SubTxIndex::BEAM_LOCK_TX, true);
                 return lockTxState;
             }
 
@@ -407,14 +456,13 @@ namespace beam::wallet
         // send invite to get 
         if (!builder.GetInitialTxParams() && subTxState == SubTxState::Initial)
         {
-            // TODO: check expired!
             builder.InitTx(isTxOwner);
         }
 
         bool newGenerated = builder.GenerateBlindingExcess();
         if (newGenerated && subTxState != SubTxState::Initial)
         {
-            OnFailed(TxFailureReason::InvalidState);
+            OnSubTxFailed(TxFailureReason::InvalidState, subTxID);
             return subTxState;
         }
 
@@ -448,7 +496,7 @@ namespace beam::wallet
 
         if (!builder.IsPeerSignatureValid())
         {
-            LOG_INFO() << GetTxID() << " Peer signature is invalid.";
+            OnSubTxFailed(TxFailureReason::InvalidPeerSignature, subTxID, true);
             return subTxState;
         }
 
@@ -464,8 +512,7 @@ namespace beam::wallet
             TxBase::Context context(pars);
             if (!transaction->IsValid(context))
             {
-                // TODO: check
-                OnFailed(TxFailureReason::InvalidTransaction, true);
+                OnSubTxFailed(TxFailureReason::InvalidTransaction, subTxID, true);
                 return subTxState;
             }
             resultTx = transaction;
@@ -485,7 +532,7 @@ namespace beam::wallet
 
         if (!isRegistered)
         {
-            OnFailed(TxFailureReason::FailedToRegister, true);
+            OnSubTxFailed(TxFailureReason::FailedToRegister, subTxID, subTxID == SubTxIndex::BEAM_LOCK_TX);
             return isRegistered;
         }
 
@@ -731,4 +778,22 @@ namespace beam::wallet
             OnFailed(TxFailureReason::FailedToSendParameters, false);
         }
     }
+
+    void AtomicSwapTransaction::OnSubTxFailed(TxFailureReason reason, SubTxID subTxID, bool notify)
+    {
+        LOG_ERROR() << GetTxID() << "[" << subTxID << "]" << " Failed. " << GetFailureMessage(reason);
+
+        SetParameter(TxParameterID::FailureReason, reason, false, subTxID);
+        OnFailed(TxFailureReason::SubTxFailed, notify);
+    }
+
+    void AtomicSwapTransaction::CheckSubTxFailures()
+    {
+        TxFailureReason reason = TxFailureReason::Unknown;
+        if (GetParameter(TxParameterID::FailureReason, reason, SubTxIndex::LOCK_TX))
+        {
+            OnSubTxFailed(reason, SubTxIndex::LOCK_TX, false);
+        }
+    }
+
 } // namespace

@@ -114,11 +114,11 @@ namespace beam::wallet
         void ConfirmKernel(const TxKernel& kernel);
         void UpdateOnNextTip();
         void CompleteTx();
-        void RollbackTx();
-        void NotifyFailure(TxFailureReason);
+        virtual void RollbackTx();
+        virtual void NotifyFailure(TxFailureReason);
         void UpdateTxDescription(TxStatus s);
 
-        void OnFailed(TxFailureReason reason, bool notify = false);
+        virtual void OnFailed(TxFailureReason reason, bool notify = false);
 
         bool SendTxParameters(SetTxParameter&& msg) const;
         virtual void UpdateImpl() = 0;
