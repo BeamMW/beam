@@ -29,22 +29,22 @@ WALLET_TEST_INIT
 
 namespace
 {
-    IWalletDB::Ptr createSqliteWalletDB()
+IWalletDB::Ptr createSqliteWalletDB()
+{
+    const char* dbName = "wallet.db";
+    if (boost::filesystem::exists(dbName))
     {
-        const char* dbName = "wallet.db";
-        if (boost::filesystem::exists(dbName))
-        {
-            boost::filesystem::remove(dbName);
-        }
-        ECC::NoLeak<ECC::uintBig> seed;
-        seed.V = Zero;
-        auto walletDB = WalletDB::init(dbName, string("pass123"), seed, io::Reactor::get_Current().shared_from_this());
-        beam::Block::SystemState::ID id = { };
-        id.m_Height = 134;
-        walletDB->setSystemStateID(id);
-        return walletDB;
+        boost::filesystem::remove(dbName);
     }
+    ECC::NoLeak<ECC::uintBig> seed;
+    seed.V = Zero;
+    auto walletDB = WalletDB::init(dbName, string("pass123"), seed, io::Reactor::get_Current().shared_from_this());
+    beam::Block::SystemState::ID id = { };
+    id.m_Height = 134;
+    walletDB->setSystemStateID(id);
+    return walletDB;
 }
+
 
 Coin CreateCoin(Amount amount, Height maturity = MaxHeight, Height confirmHeight = MaxHeight, Height spentHeight = MaxHeight)
 {
@@ -1221,6 +1221,73 @@ void TestTransferredByTx()
     WALLET_CHECK(historySumSent == sumSent);
 }
 
+void TestWalletMessages()
+{
+	auto db = createSqliteWalletDB();
+
+	{
+		auto messages = db->getWalletMessages();
+		WALLET_CHECK(messages.empty());
+	}
+
+	WalletID walletID = Zero;
+	WALLET_CHECK(walletID.FromHex("6b5992ffed7cb3c86bb7e408edfecafa047701eaa197ebf5b9e2df2f21b40caa4a"));
+	{
+		wallet::SetTxParameter msg;
+		msg.m_From = walletID;
+		msg.AddParameter(TxParameterID::Amount, 100);
+		msg.AddParameter(TxParameterID::PeerID, walletID);
+		msg.AddParameter(TxParameterID::Lifetime, 130);
+
+		auto id = db->saveWalletMessage(WalletMessage{ 0, walletID, msg});
+		WALLET_CHECK(id == 1);
+		auto messages = db->getWalletMessages();
+		WALLET_CHECK(messages.size() == 1);
+		WALLET_CHECK(messages[0].m_ID == 1);
+		WALLET_CHECK(messages[0].m_PeerID == walletID);
+		Amount amount = 0;
+		WALLET_CHECK(messages[0].m_Message.GetParameter(TxParameterID::Amount, amount) && amount == 100);
+		WalletID walletID2 = Zero;
+		WALLET_CHECK(messages[0].m_Message.GetParameter(TxParameterID::PeerID, walletID2) && walletID2 == walletID);
+		Height lifetime = 0;
+		WALLET_CHECK(messages[0].m_Message.GetParameter(TxParameterID::Lifetime, lifetime) && lifetime == 130);
+	}
+
+	{
+		wallet::SetTxParameter msg;
+		msg.m_From = walletID;
+		msg.AddParameter(TxParameterID::Amount, 200);
+		msg.AddParameter(TxParameterID::PeerID, walletID);
+		msg.AddParameter(TxParameterID::Lifetime, 230);
+
+		auto id = db->saveWalletMessage(WalletMessage{ 0, walletID, msg });
+		WALLET_CHECK(id == 2);
+		auto messages = db->getWalletMessages();
+		WALLET_CHECK(messages.size() == 2);
+		WALLET_CHECK(messages[1].m_ID == 2);
+		WALLET_CHECK(messages[1].m_PeerID == walletID);
+		Amount amount = 0;
+		WALLET_CHECK(messages[1].m_Message.GetParameter(TxParameterID::Amount, amount) && amount == 200);
+		WalletID walletID2 = Zero;
+		WALLET_CHECK(messages[1].m_Message.GetParameter(TxParameterID::PeerID, walletID2) && walletID2 == walletID);
+		Height lifetime = 0;
+		WALLET_CHECK(messages[1].m_Message.GetParameter(TxParameterID::Lifetime, lifetime) && lifetime == 230);
+	}
+	{
+		WALLET_CHECK_NO_THROW(db->deleteWalletMessage(0));
+		WALLET_CHECK_NO_THROW(db->deleteWalletMessage(10));
+		auto messages = db->getWalletMessages();
+		WALLET_CHECK(messages.size() == 2);
+	}
+	{
+		db->deleteWalletMessage(1);
+		auto messages = db->getWalletMessages();
+		WALLET_CHECK(messages.size() == 1);
+	}
+}
+
+}
+
 int main() 
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -1246,10 +1313,9 @@ int main()
     TestSelect5();
     TestSelect6();
     TestAddresses();
-
     TestTxParameters();
-
     TestTransferredByTx();
+	TestWalletMessages();
 
 
     return WALLET_CHECK_RESULT;

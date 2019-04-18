@@ -64,6 +64,7 @@
 #define ADDRESSES_NAME "addresses"
 #define TX_PARAMS_NAME "txparams"
 #define PRIVATE_VARIABLES_NAME "PrivateVariables"
+#define WALLET_MESSAGE_NAME "WalletMessages"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(name,  name,  TEXT UNIQUE, obj) sep \
@@ -87,6 +88,13 @@
     each(value,          value,          BLOB, obj)
 
 #define TX_PARAMS_FIELDS ENUM_TX_PARAMS_FIELDS(LIST, COMMA, )
+
+#define ENUM_WALLET_MESSAGE_FIELDS(each, sep, obj) \
+    each(ID,  ID,  INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, obj) sep \
+    each(PeerID, PeerID,   BLOB, obj) sep \
+    each(Message, Message, BLOB, obj)
+
+#define WALLET_MESSAGE_FIELDS ENUM_WALLET_MESSAGE_FIELDS(LIST, COMMA, )
 
 #define TblStates            "States"
 #define TblStates_Height     "Height"
@@ -674,6 +682,12 @@ namespace beam
                 bind(col, m.data(), m.size());
             }
 
+			void bind(int col, const wallet::SetTxParameter& msg)
+			{
+				ByteBuffer byteBuffer = toByteBuffer(msg);
+				bind(col, byteBuffer);
+			}
+			
             void bind(int col, const void* blob, size_t size)
             {
                 if (size > numeric_limits<int32_t>::max())// 0x7fffffff
@@ -796,6 +810,13 @@ namespace beam
                 }
             }
 
+			void get(int col, wallet::SetTxParameter& msg)
+			{
+				ByteBuffer buf;
+				get(col, buf);
+				fromByteBuffer(buf, msg);
+			}
+
             bool getBlobSafe(int col, void* blob, int size)
             {
                 if (sqlite3_column_bytes(_stm, col) != size)
@@ -893,6 +914,7 @@ namespace beam
         const char* LastUpdateTimeName = "LastUpdateTime";
         const int BusyTimeoutMs = 5000;
         const int DbVersion = 14;
+        const int DbVersion13 = 13;
         const int DbVersion12 = 12;
         const int DbVersion11 = 11;
         const int DbVersion10 = 10;
@@ -1004,15 +1026,33 @@ namespace beam
 #endif
     }
 
-    void WalletDB::CreateStorageTable()
-    {
-         const char* req = "CREATE TABLE " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST_WITH_TYPES, COMMA,) ");"
-                             "CREATE UNIQUE INDEX CoinIndex ON " STORAGE_NAME "(" ENUM_STORAGE_ID(LIST, COMMA, )  ");"
-                             "CREATE INDEX ConfirmIndex ON " STORAGE_NAME"(confirmHeight);";
-         int ret = sqlite3_exec(_db, req, nullptr, nullptr, nullptr);
-         throwIfError(ret, _db);
-    }
     
+    namespace
+    {
+		void CreateStorageTable(sqlite3* db)
+		{
+			const char* req = "CREATE TABLE " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST_WITH_TYPES, COMMA, ) ");"
+				"CREATE UNIQUE INDEX CoinIndex ON " STORAGE_NAME "(" ENUM_STORAGE_ID(LIST, COMMA, )  ");"
+				"CREATE INDEX ConfirmIndex ON " STORAGE_NAME"(confirmHeight);";
+			int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+			throwIfError(ret, db);
+		}
+
+        void CreateWalletMessageTable(sqlite3* db)
+        {
+            const char* req = "CREATE TABLE IF NOT EXISTS " WALLET_MESSAGE_NAME " (" ENUM_WALLET_MESSAGE_FIELDS(LIST_WITH_TYPES, COMMA, ) ");";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
+		void CreatePrivateVariablesTable(sqlite3* db)
+		{
+			const char* req = "CREATE TABLE " PRIVATE_VARIABLES_NAME " (" ENUM_VARIABLES_FIELDS(LIST_WITH_TYPES, COMMA, ) ");";
+			int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+			throwIfError(ret, db);
+		}
+    }
+
     IWalletDB::Ptr WalletDB::init(const string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, bool separateDBForPrivateData)
     {
         if (!isInitialized(path))
@@ -1035,18 +1075,14 @@ namespace beam
             enterKey(db, password);
             auto walletDB = make_shared<WalletDB>(db, secretKey, reactor, sdb);
 
-            walletDB->CreateStorageTable();
+            CreateStorageTable(walletDB->_db);
+            CreateWalletMessageTable(walletDB->_db);
+			CreatePrivateVariablesTable(walletDB->_db);
 
             {
                 const char* req = "CREATE TABLE " VARIABLES_NAME " (" ENUM_VARIABLES_FIELDS(LIST_WITH_TYPES, COMMA,) ");";
                 int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
                 throwIfError(ret, walletDB->_db);
-            }
-
-            {
-                const char* req = "CREATE TABLE " PRIVATE_VARIABLES_NAME " (" ENUM_VARIABLES_FIELDS(LIST_WITH_TYPES, COMMA, ) ");";
-                int ret = sqlite3_exec(sdb, req, nullptr, nullptr, nullptr);
-                throwIfError(ret, sdb);
             }
 
             {
@@ -1141,7 +1177,7 @@ namespace beam
                                 throwIfError(ret, walletDB->_db);
                             }
 
-                            walletDB->CreateStorageTable();
+                            CreateStorageTable(walletDB->_db);
 
                             {
                                 const char* req = "SELECT * FROM " STORAGE_NAME "_del;";
@@ -1185,9 +1221,30 @@ namespace beam
                             }
                         }
 
-                        wallet::setVar(*walletDB, Version, DbVersion);
-
                         // no break;
+
+                    case DbVersion13:
+                        CreateWalletMessageTable(walletDB->_db);
+						CreatePrivateVariablesTable(walletDB->_db);
+						{
+							ECC::NoLeak<ECC::Hash::Value> seed;
+							if (!wallet::getVar(*walletDB, WalletSeed, seed.V))
+							{
+								assert(false && "there is no seed for walletDB");
+								LOG_ERROR() << "there is no seed for walletDB";
+								return Ptr();
+							}
+							{
+								sqlite::Statement stm(walletDB.get(), "DELETE FROM " VARIABLES_NAME " WHERE name=?1;");
+								stm.bind(1, WalletSeed);
+								stm.step();
+							}
+
+							walletDB->setPrivateVarRaw(WalletSeed, &seed.V, sizeof(seed.V));
+						}
+						
+						wallet::setVar(*walletDB, Version, DbVersion);
+						// no break;
 
                     case DbVersion:
                         break; // ok
@@ -2290,6 +2347,40 @@ namespace beam
         }
 
         return totalAmount;
+    }
+
+    std::vector<WalletMessage> WalletDB::getWalletMessages() const
+    {
+		std::vector<WalletMessage> messages;
+		sqlite::Statement stm(this, "SELECT * FROM " WALLET_MESSAGE_NAME " ;");
+		while (stm.step())
+		{
+			auto& message = messages.emplace_back();
+			int colIdx = 0;
+			ENUM_WALLET_MESSAGE_FIELDS(STM_GET_LIST, NOSEP, message);
+		}
+		return messages;
+    }
+
+
+    uint64_t WalletDB::saveWalletMessage(const WalletMessage& message)
+    {
+        const char* req = "INSERT INTO " WALLET_MESSAGE_NAME " (PeerID, Message) VALUES(?,?)";
+        sqlite::Statement stm(this, req);
+		stm.bind(1, message.m_PeerID);
+		ByteBuffer t = toByteBuffer(message.m_Message);
+		stm.bind(2, t);
+
+		stm.step();
+
+		return sqlite3_last_insert_rowid(_db);
+    }
+
+    void WalletDB::deleteWalletMessage(uint64_t id)
+    {
+		sqlite::Statement stm(this, "DELETE FROM " WALLET_MESSAGE_NAME " WHERE ID == ?1;");
+		stm.bind(1, id);
+		stm.step();
     }
 
     bool WalletDB::History::Enum(IWalker& w, const Height* pBelow)

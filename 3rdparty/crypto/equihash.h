@@ -17,6 +17,7 @@
 
 #include <cstring>
 #include <exception>
+#include <stdexcept>
 #include <functional>
 #include <memory>
 #include <set>

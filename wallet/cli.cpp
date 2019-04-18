@@ -1011,6 +1011,7 @@ int main_impl(int argc, char* argv[])
                     bool is_server = (command == cli::LISTEN || vm.count(cli::LISTEN));
 
                     Wallet wallet{ walletDB, is_server ? Wallet::TxCompletedAction() : [](auto) { io::Reactor::get_Current().stop(); } };
+					
                     if (!coldWallet)
                     {
                         proto::FlyClient::NetworkStd nnet(wallet);
@@ -1031,14 +1032,14 @@ int main_impl(int argc, char* argv[])
                         };
 
                         ColdNetwork nnet;
-                        ColdWalletNetwork wnet(wallet);
+                        ColdWalletNetwork wnet(wallet, walletDB);
                         wallet.set_Network(nnet, wnet);
                     }
 
                     if (isTxInitiator)
                     {
                         WalletAddress senderAddress = newAddress(walletDB, "");
-                        wnet.AddOwnAddress(senderAddress);
+                        //wnet.AddOwnAddress(senderAddress);
                         CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
                         wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, true);
                     }

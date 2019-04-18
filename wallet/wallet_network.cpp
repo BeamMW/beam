@@ -472,56 +472,22 @@ namespace beam {
 
     bool ColdWalletNetwork::ProcessIncommingMessages()
     {
-        bool hasMessages = false;
-        
-        for (const auto& message : m_WalletDB->getWalletMessages())
+		auto messages = m_WalletDB->getWalletMessages();
+		if (messages.empty())
+		{
+			return false;
+		}
+        for (auto& message : messages)
         {
-
+			m_Wallet.OnWalletMessage(message.m_PeerID, move(message.m_Message));
+			m_WalletDB->deleteWalletMessage(message.m_ID);
         }
-        //boost::filesystem::path txPath = GetValidTxPath(m_Path);
-        //for (auto& entry : boost::filesystem::directory_iterator(txPath))
-        //{
-        //    if (is_regular_file(entry) && entry.path().extension() == ".in")
-        //    {
-        //        auto t = entry.path().extension();
-        //        std::FStream f;
-        //        if (f.Open(entry.path().string().c_str(), true, false))
-        //        {
-        //            wallet::SetTxParameter msg;
-        //            yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
-        //            arc & msg;
-        //            WalletID peerID;
-        //            if (peerID.FromHex(entry.path().stem().string()))
-        //            {
-        //                hasMessages = true;
-        //                m_Wallet.OnWalletMessage(peerID, move(msg));
-        //            }
-        //        }
-
-        //    }
-        //}
-        return hasMessages;
+		return true;
     }
 
     void ColdWalletNetwork::Send(const WalletID& peerID, wallet::SetTxParameter&& msg)
     {
-        try
-        {
-           /* boost::filesystem::path txPath = GetValidTxPath(m_Path);
-            txPath /= to_string(peerID);
-            txPath.replace_extension("out");
-            std::FStream f;
-            f.Open(txPath.string().c_str(), false, true);
-
-            yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(f);
-            arc & msg;*/
-            io::Reactor::get_Current().stop();
-        }
-        catch (const exception& ex)
-        {
-            LOG_ERROR() << ex.what();
-        }
+		m_WalletDB->saveWalletMessage(WalletMessage{ 0, peerID, msg });
+        io::Reactor::get_Current().stop();
     }
-
-
 }

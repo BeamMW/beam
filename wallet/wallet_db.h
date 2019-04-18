@@ -195,8 +195,8 @@ namespace beam
         virtual Amount getTransferredByTx(TxStatus status, bool isSender) const = 0;
 
         virtual std::vector<WalletMessage> getWalletMessages() const = 0;
-        virtual void saveWalletMessage(const WalletMessage& message) = 0;
-        virtual void deleteWalletMessage(int id) = 0;
+        virtual uint64_t saveWalletMessage(const WalletMessage& message) = 0;
+        virtual void deleteWalletMessage(uint64_t id) = 0;
     };
 
     namespace sqlite
@@ -274,6 +274,8 @@ namespace beam
         Amount getTransferredByTx(TxStatus status, bool isSender) const override;
 
         std::vector<WalletMessage> getWalletMessages() const override;
+        uint64_t saveWalletMessage(const WalletMessage& message) override;
+        void deleteWalletMessage(uint64_t id) override;
 
     private:
         void removeImpl(const Coin::ID& cid);
@@ -281,7 +283,6 @@ namespace beam
         void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
         void notifySystemStateChanged();
         void notifyAddressChanged();
-        void CreateStorageTable();
         static uint64_t get_RandomID();
         bool updateRaw(const Coin&);
         void insertRaw(const Coin&);

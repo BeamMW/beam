@@ -174,7 +174,21 @@ namespace beam
     };
 
     namespace wallet
-    {
+	{
+		template<typename T>
+		bool fromByteBuffer(const ByteBuffer& b, T& value)
+		{
+			if (!b.empty())
+			{
+				Deserializer d;
+				d.reset(b.data(), b.size());			
+				d & value;
+				return true;
+			}
+			ZeroObject(value);
+			return false;
+		}
+
         template <typename T>
         ByteBuffer toByteBuffer(const T& value)
         {
