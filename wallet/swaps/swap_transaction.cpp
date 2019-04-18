@@ -84,7 +84,11 @@ namespace beam::wallet
             if (IsInitiator())
             {
                 // init locktime
-                m_secondSide->InitLockTime();
+                if (!m_secondSide->InitLockTime())
+                {
+                    UpdateAsync();
+                    break;
+                }
                 SendInvitation();
             }
             
@@ -145,12 +149,17 @@ namespace beam::wallet
         {
             assert(!isBeamOwner);
 
-            // TODO(alex.starun): add check of LockTime
+            if (!m_secondSide->IsLockTimeExpired())
+            {
+                UpdateOnNextTip();
+                break;
+            }
 
             if (!m_secondSide->SendRefund())
                 break;
 
-            assert(false && "Not implemented yet.");
+            LOG_DEBUG() << GetTxID() << " Refund TX completed!";
+            SetNextState(State::CompleteSwap);
             break;
         }
         case State::SendingRedeemTX:
@@ -173,10 +182,10 @@ namespace beam::wallet
             if (m_LockTx && !SendSubTx(m_LockTx, SubTxIndex::BEAM_LOCK_TX))
                 break;
 
-            if (!isBeamOwner)
+            if (!isBeamOwner && m_secondSide->IsLockTimeExpired())
             {
-                // validate second chain height (second coin timelock)
-                // SetNextState(State::SendingRefundTX);
+                SetNextState(State::SendingRefundTX);
+                break;
             }
 
             if (!CompleteSubTx(SubTxIndex::BEAM_LOCK_TX))
@@ -223,7 +232,13 @@ namespace beam::wallet
         case State::SendingBeamRefundTX:
         {
             assert(isBeamOwner);
-            if (!IsBeamLockTimeExpired() && !CompleteBeamWithdrawTx(SubTxIndex::BEAM_REFUND_TX))
+            if (!IsBeamLockTimeExpired())
+            {
+                UpdateOnNextTip();
+                break;
+            }
+
+            if (!CompleteBeamWithdrawTx(SubTxIndex::BEAM_REFUND_TX))
                 break;
 
             LOG_DEBUG() << GetTxID() << " Beam Refund TX completed!";
@@ -275,7 +290,8 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::NotifyFailure(TxFailureReason)
     {
-        assert(false && "Not implemented yet.");
+        //assert(false && "Not implemented yet.");
+        LOG_DEBUG() << GetTxID() << "NotifyFailure not implemented yet.";
     }
 
     void AtomicSwapTransaction::OnFailed(TxFailureReason reason, bool notify)

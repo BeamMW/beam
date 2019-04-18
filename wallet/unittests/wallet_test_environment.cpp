@@ -1154,6 +1154,10 @@ private:
 
                 result = R"( {"result":{"confirmations":)" + std::to_string(confirmations) + R"(,"value":)" + std::to_string(double(m_options.m_amount) / libbitcoin::satoshi_per_bitcoin) + R"(,"scriptPubKey":{"hex":")" + lockScript + R"("}},"error":null,"id":null})";
             }
+            else if (j["method"] == "getblockcount")
+            {
+                result = R"( {"result":)" + std::to_string(m_blockCount++) + R"(,"error":null,"id":null})";
+            }
         }
         else
         {
@@ -1201,6 +1205,7 @@ private:
     std::vector<std::string> m_rawTransactions;
     std::map<std::string, std::pair<std::string, int>> m_transactions;
     std::map<std::string, int> m_txConfirmations;
+    uint64_t m_blockCount = 100;
 };
 
 class PerformanceRig

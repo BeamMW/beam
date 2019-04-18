@@ -124,6 +124,16 @@ namespace beam
         });
     }
 
+    void Bitcoind016::getBlockCount(std::function<void(const std::string&, uint64_t)> callback)
+    {
+        sendRequest("getblockcount", "", [callback](const std::string& response) {
+            json reply = json::parse(response);
+            std::string error = reply["error"].empty() ? "" : reply["error"].get<std::string>();
+
+            callback(error, reply["result"].get<uint64_t>());
+        });
+    }
+
     void Bitcoind016::sendRequest(const std::string& method, const std::string& params, std::function<void(const std::string&)> callback)
     {
         const std::string content(R"({"method":")" + method + R"(","params":[)" + params + "]}");

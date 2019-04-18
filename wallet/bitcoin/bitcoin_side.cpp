@@ -22,8 +22,9 @@ using json = nlohmann::json;
 
 namespace
 {
-    uint32_t kBTCLockTimeSec = 2 * 24 * 60 * 60;
-    uint32_t kBTCMinTxConfirmations = 6;
+    constexpr uint32_t kBTCLockTimeInBlocks = 2 * 24 * 6;
+    constexpr uint32_t kBTCLockTimeSec = 2 * 24 * 60 * 60;
+    constexpr uint32_t kBTCMinTxConfirmations = 6;
 
     libbitcoin::chain::script AtomicSwapContract(const libbitcoin::short_hash& hashPublicKeyA
         , const libbitcoin::short_hash& hashPublicKeyB
@@ -107,10 +108,18 @@ namespace beam::wallet
         return true;
     }
 
-    void BitcoinSide::InitLockTime()
+    bool BitcoinSide::InitLockTime()
     {
-        auto externalLockTime = m_tx.GetMandatoryParameter<Timestamp>(TxParameterID::CreateTime) + kBTCLockTimeSec;
-        m_tx.SetParameter(TxParameterID::AtomicSwapExternalLockTime, externalLockTime);
+        auto height = GetBlockCount();
+        if (!height)
+        {
+            return false;
+        }
+
+        auto externalLockPeriod = height + kBTCLockTimeInBlocks;
+        m_tx.SetParameter(TxParameterID::AtomicSwapExternalLockTime, externalLockPeriod);
+
+        return true;
     }
 
     void BitcoinSide::AddTxDetails(SetTxParameter& txParameters)
@@ -166,6 +175,15 @@ namespace beam::wallet
     bool BitcoinSide::SendRedeem()
     {
         return SendWithdrawTx(SubTxIndex::REDEEM_TX);
+    }
+
+    bool BitcoinSide::IsLockTimeExpired()
+    {
+        uint64_t height = GetBlockCount();
+        uint64_t lockHeight = 0;
+        m_tx.GetParameter(TxParameterID::AtomicSwapExternalLockTime, lockHeight);
+
+        return height >= lockHeight;
     }
 
     bool BitcoinSide::LoadSwapAddress()
@@ -347,6 +365,12 @@ namespace beam::wallet
         return true;
     }
 
+    uint64_t BitcoinSide::GetBlockCount()
+    {
+        m_bitcoinBridge->getBlockCount(BIND_THIS_MEMFN(OnGetBlockCount));
+        return m_blockCount;
+    }
+
     void BitcoinSide::OnGetRawChangeAddress(const std::string& error, const std::string& address)
     {
         assert(error.empty());
@@ -478,5 +502,11 @@ namespace beam::wallet
 
         // get confirmations
         m_SwapLockTxConfirmations = confirmations;
+    }
+
+    void BitcoinSide::OnGetBlockCount(const std::string& error, uint64_t blockCount)
+    {
+        assert(error.empty());
+        m_blockCount = blockCount;
     }
 }
