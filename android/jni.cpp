@@ -42,12 +42,6 @@ namespace fs = boost::filesystem;
 
 namespace
 {
-    string to_string(const beam::WalletID& id)
-    {
-        static_assert(sizeof(id) == sizeof(id.m_Channel) + sizeof(id.m_Pk), "");
-        return beam::to_hex(&id, sizeof(id));
-    }
-
     static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
 
     template<typename Observer, typename Notifier>
@@ -448,6 +442,26 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getPaymentInfo)(JNIEnv *env, j
     std::copy_n(buffer.begin(), id.size(), id.begin());
 
     walletModel->getAsync()->exportPaymentProof(id);
+}
+
+JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(verifyPaymentInfo)(JNIEnv *env, jobject thiz,
+    jstring rawPaymentInfo)
+{
+    string str = JString(env, rawPaymentInfo).value();
+    beam::wallet::PaymentInfo paymentInfo = wallet::PaymentInfo::FromByteBuffer(from_hex(str));
+
+    jobject jPaymentInfo = env->AllocObject(PaymentInfoClass);
+
+    {
+        setStringField(env, PaymentInfoClass, jPaymentInfo, "senderId", to_string(paymentInfo.m_Sender));
+        setStringField(env, PaymentInfoClass, jPaymentInfo, "receiverId", to_string(paymentInfo.m_Receiver));
+        setLongField(env, PaymentInfoClass, jPaymentInfo, "amount", paymentInfo.m_Amount);
+        setStringField(env, PaymentInfoClass, jPaymentInfo, "kernelId", to_string(paymentInfo.m_KernelID));
+        setBooleanField(env, PaymentInfoClass, jPaymentInfo, "isValid", paymentInfo.IsValid());
+        setStringField(env, PaymentInfoClass, jPaymentInfo, "rawProof", str);
+    }
+
+    return jPaymentInfo;
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)

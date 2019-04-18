@@ -16,6 +16,7 @@ package com.mw.beam.beamwallet.core.entities;
 
 import java.util.*; 
 import com.mw.beam.beamwallet.core.entities.dto.WalletAddressDTO;
+import com.mw.beam.beamwallet.core.entities.dto.PaymentInfoDTO;
 
 public class Wallet
 {
@@ -37,6 +38,7 @@ public class Wallet
     public native void changeWalletPassword(String password);
     public native boolean checkWalletPassword(String password);
     public native void getPaymentInfo(String txID);
+    public native PaymentInfoDTO verifyPaymentInfo(String paymentInfo);
 
     // not implemented
     public native void changeCurrentWalletIDs(); //const beam::WalletID& senderID, const beam::WalletID& receiverID);
