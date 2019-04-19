@@ -30,6 +30,7 @@ struct IWalletModelAsync
     virtual void getAddresses(bool own) = 0;
     virtual void cancelTx(const beam::TxID& id) = 0;
     virtual void deleteTx(const beam::TxID& id) = 0;
+    virtual void getCoinsByTx(const beam::TxID& txId) = 0;
     virtual void saveAddress(const beam::WalletAddress& address, bool bOwn) = 0;
     virtual void generateNewAddress() = 0;
     virtual void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) = 0;

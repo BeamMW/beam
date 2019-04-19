@@ -169,4 +169,9 @@ public class WalletListener
     {
         System.out.println(">>>>>>>>>>>>>> async onFailedToStartNode() in Java");
     }
+
+    static void onCoinsByTx(UtxoDTO[] utxos)
+    {
+        System.out.println(">>>>>>>>>>> onCoinsByTx called");
+    }
 }

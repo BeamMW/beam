@@ -111,6 +111,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
+    void getCoinsByTx(const beam::TxID& id) override
+    {
+        tx.send([id](BridgeInterface& receiver_) mutable
+        {
+            receiver_.getCoinsByTx(id);
+        });
+    }
+
     void saveAddress(const WalletAddress& address, bool bOwn) override
     {
         tx.send([address, bOwn](BridgeInterface& receiver_) mutable
@@ -475,6 +483,11 @@ void WalletClient::deleteTx(const beam::TxID& id)
     {
         static_pointer_cast<IWallet>(w)->delete_tx(id);
     }
+}
+
+void WalletClient::getCoinsByTx(const beam::TxID& id)
+{
+    onCoinsByTx(m_walletDB->getCoinsByTx(id));
 }
 
 void WalletClient::saveAddress(const WalletAddress& address, bool bOwn)

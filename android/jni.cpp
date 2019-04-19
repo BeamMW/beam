@@ -464,6 +464,17 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(verifyPaymentInfo)(JNIEnv *
     return jPaymentInfo;
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getCoinsByTx)(JNIEnv *env, jobject thiz,
+    jstring txID)
+{
+    auto buffer = from_hex(JString(env, txID).value());
+    TxID id;
+
+    std::copy_n(buffer.begin(), id.size(), id.begin());
+
+    walletModel->getAsync()->getCoinsByTx(id);
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv *env;

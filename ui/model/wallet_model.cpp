@@ -102,6 +102,11 @@ void WalletModel::onAddresses(bool own, const std::vector<beam::WalletAddress>& 
     emit adrresses(own, addrs);
 }
 
+void WalletModel::onCoinsByTx(const std::vector<beam::Coin>& coins)
+{
+
+}
+
 void WalletModel::onGeneratedNewAddress(const beam::WalletAddress& walletAddr)
 {
     emit generatedNewAddress(walletAddr);
