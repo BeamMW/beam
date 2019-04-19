@@ -448,7 +448,15 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(verifyPaymentInfo)(JNIEnv *
     jstring rawPaymentInfo)
 {
     string str = JString(env, rawPaymentInfo).value();
-    beam::wallet::PaymentInfo paymentInfo = wallet::PaymentInfo::FromByteBuffer(from_hex(str));
+    beam::wallet::PaymentInfo paymentInfo;
+    try
+    {
+        paymentInfo = wallet::PaymentInfo::FromByteBuffer(from_hex(str));
+    }
+    catch (...)
+    {
+        paymentInfo.Reset();
+    }
 
     jobject jPaymentInfo = env->AllocObject(PaymentInfoClass);
 
