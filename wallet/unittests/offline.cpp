@@ -72,12 +72,12 @@ WaitHandle run_wallet(const WalletParams& params) {
 
 			Wallet wallet{ params.walletDB, [](auto) { io::Reactor::get_Current().stop(); } };
 
-			proto::FlyClient::NetworkStd nnet(wallet);
-			nnet.m_Cfg.m_vNodes.push_back(params.nodeAddress);
-			nnet.Connect();
+			auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
+			nnet->m_Cfg.m_vNodes.push_back(params.nodeAddress);
+			nnet->Connect();
 
-			WalletNetworkViaBbs wnet(wallet, nnet, params.walletDB);
-			wallet.set_Network(nnet, wnet);
+			wallet.AddMessageEndpoint(std::make_shared<WalletNetworkViaBbs>(wallet, nnet, params.walletDB));
+			wallet.SetNodeEndpoint(nnet);
 
             if (sender) {
                 wallet.transfer_money(params.sendFrom, params.sendTo, 1000000, 100000, true);

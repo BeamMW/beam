@@ -1077,7 +1077,7 @@ namespace beam
 
             CreateStorageTable(walletDB->_db);
             CreateWalletMessageTable(walletDB->_db);
-			CreatePrivateVariablesTable(walletDB->_db);
+			CreatePrivateVariablesTable(walletDB->m_PrivateDB);
 
             {
                 const char* req = "CREATE TABLE " VARIABLES_NAME " (" ENUM_VARIABLES_FIELDS(LIST_WITH_TYPES, COMMA,) ");";
@@ -1225,7 +1225,7 @@ namespace beam
 
                     case DbVersion13:
                         CreateWalletMessageTable(walletDB->_db);
-						CreatePrivateVariablesTable(walletDB->_db);
+						CreatePrivateVariablesTable(walletDB->m_PrivateDB);
 						{
 							ECC::NoLeak<ECC::Hash::Value> seed;
 							if (!wallet::getVar(*walletDB, WalletSeed, seed.V))
@@ -1295,7 +1295,6 @@ namespace beam
                 }
 
                 ECC::NoLeak<ECC::Hash::Value> seed;
-                //if (!wallet::getVar(*walletDB, WalletSeed, seed.V))
                 if (walletDB->getPrivateVarRaw(WalletSeed, &seed.V, sizeof(seed.V)))
                 {
                     ECC::HKdf::Create(walletDB->m_pKdf, seed.V);
@@ -1722,14 +1721,22 @@ namespace beam
 
     bool WalletDB::getPrivateVarRaw(const char* name, void* data, int size) const
     {
-        const char* req = "SELECT value FROM " PRIVATE_VARIABLES_NAME " WHERE name=?1;";
+		{
+			sqlite::Statement stm(this, "SELECT name FROM sqlite_master WHERE type = 'table' AND name = '" PRIVATE_VARIABLES_NAME "';", true);
+			if (!stm.step())
+			{
+				return false; // public database
+			}
+		}
+		
+		{
+			const char* req = "SELECT value FROM " PRIVATE_VARIABLES_NAME " WHERE name=?1;";
 
-        sqlite::Statement stm(this, req, true);
-        stm.bind(1, name);
+			sqlite::Statement stm(this, req, true);
+			stm.bind(1, name);
 
-        return
-            stm.step() &&
-            stm.getBlobSafe(0, data, size);
+			return stm.step() && stm.getBlobSafe(0, data, size);
+		}
     }
 
     bool WalletDB::getBlob(const char* name, ByteBuffer& var) const

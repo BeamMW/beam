@@ -14,10 +14,6 @@
 
 #pragma once
 
-#include "p2p/protocol.h"
-#include "p2p/connection.h"
-#include "p2p/msg_reader.h"
-#include "utility/bridge.h"
 #include "utility/logger.h"
 #include "core/proto.h"
 #include "utility/io/timer.h"
@@ -29,10 +25,10 @@ namespace beam
 {
     namespace bi = boost::intrusive;
     class WalletNetworkViaBbs
-        : public IWalletNetwork
+        : public IWalletMessageEndpoint
     {
         IWallet& m_Wallet;
-        proto::FlyClient::INetwork& m_NodeNetwork;
+        std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
         IWalletDB::Ptr m_WalletDB;
 
         struct Addr
@@ -136,32 +132,34 @@ namespace beam
 
     public:
 
-        WalletNetworkViaBbs(IWallet&, proto::FlyClient::INetwork&, const IWalletDB::Ptr&);
+        WalletNetworkViaBbs(IWallet&, std::shared_ptr<proto::FlyClient::INetwork>, const IWalletDB::Ptr&);
         virtual ~WalletNetworkViaBbs();
 
 		bool m_MineOutgoing = true; // can be turned-off for testing
 
         void AddOwnAddress(const WalletAddress& address);
+        // IWalletMessageEndpoint
+        void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) override;
+		void Send(const WalletID& peerID, const ByteBuffer& msg) override;
+
         void DeleteOwnAddress(uint64_t ownID);
     private:
         void AddOwnAddress(uint64_t ownID, BbsChannel, Timestamp expirationTime, const WalletID& walletID);
-        // IWalletNetwork
-        void Send(const WalletID& peerID, wallet::SetTxParameter&& msg) override;
-
         void OnAddressTimer();
     private:
         io::Timer::Ptr m_AddressExpirationTimer;
     };
 
 
-    class ColdWalletNetwork
-        : public IWalletNetwork
+    class ColdWalletMessageEndpoint
+        : public IWalletMessageEndpoint
     {
     public:
-        ColdWalletNetwork(IWallet& wallet, IWalletDB::Ptr walletDB);
+        ColdWalletMessageEndpoint(IWallet& wallet, IWalletDB::Ptr walletDB);
         bool ProcessIncommingMessages();
     private:
-        void Send(const WalletID& peerID, wallet::SetTxParameter&& msg) override;
+        void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) override;
+		void Send(const WalletID& peerID, const ByteBuffer& msg) override;
     private:
         IWallet& m_Wallet;
         IWalletDB::Ptr m_WalletDB;

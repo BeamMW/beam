@@ -289,9 +289,10 @@ void WalletClient::start()
 
             m_nodeNetwork = nodeNetwork;
 
-            auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, *nodeNetwork, m_walletDB);
+            auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB);
             m_walletNetwork = walletNetwork;
-            wallet->set_Network(*nodeNetwork, *walletNetwork);
+            wallet->SetNodeEndpoint(nodeNetwork);
+			wallet->AddMessageEndpoint(walletNetwork);
 
             wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 

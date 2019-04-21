@@ -1014,26 +1014,15 @@ int main_impl(int argc, char* argv[])
 					
                     if (!coldWallet)
                     {
-                        proto::FlyClient::NetworkStd nnet(wallet);
-                        nnet.m_Cfg.m_vNodes.push_back(node_addr);
-                        nnet.Connect();
-
-                        WalletNetworkViaBbs wnet(wallet, nnet, walletDB);
-
-                        wallet.set_Network(nnet, wnet);
+                        auto nnet = make_shared<proto::FlyClient::NetworkStd>(wallet);
+                        nnet->m_Cfg.m_vNodes.push_back(node_addr);
+                        nnet->Connect();
+                        wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB));
+						wallet.SetNodeEndpoint(nnet);
                     }
                     else
                     {
-                        struct ColdNetwork : beam::proto::FlyClient::INetwork
-                        {
-                            void Connect() override {};
-                            void Disconnect() override {};
-                            void PostRequestInternal(proto::FlyClient::Request&) override {};
-                        };
-
-                        ColdNetwork nnet;
-                        ColdWalletNetwork wnet(wallet, walletDB);
-                        wallet.set_Network(nnet, wnet);
+						wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB));
                     }
 
                     if (isTxInitiator)

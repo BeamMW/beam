@@ -25,9 +25,9 @@ namespace
 
 namespace beam {
 
-	WalletNetworkViaBbs::WalletNetworkViaBbs(IWallet& w, proto::FlyClient::INetwork& net, const IWalletDB::Ptr& pWalletDB)
+	WalletNetworkViaBbs::WalletNetworkViaBbs(IWallet& w, shared_ptr<proto::FlyClient::INetwork> net, const IWalletDB::Ptr& pWalletDB)
 		: m_Wallet(w)
-		, m_NodeNetwork(net)
+		, m_NodeEndpoint(net)
 		, m_WalletDB(pWalletDB)
         , m_AddressExpirationTimer(io::Timer::create(io::Reactor::get_Current()))
 	{
@@ -94,7 +94,7 @@ namespace beam {
 	void WalletNetworkViaBbs::DeleteAddr(const Addr& v)
 	{
 		if (IsSingleChannelUser(v.m_Channel))
-			m_NodeNetwork.BbsSubscribe(v.m_Channel.m_Value, 0, NULL);
+			m_NodeEndpoint->BbsSubscribe(v.m_Channel.m_Value, 0, NULL);
 
 		m_Addresses.erase(WidSet::s_iterator_to(v.m_Wid));
 		m_Channels.erase(ChannelSet::s_iterator_to(v.m_Channel));
@@ -150,9 +150,13 @@ namespace beam {
             pAddr = new Addr;
             pAddr->m_ExpirationTime = expirationTime;
             pAddr->m_Wid.m_OwnID = ownID;
-            m_WalletDB->get_MasterKdf()->DeriveKey(pAddr->m_sk, Key::ID(ownID, Key::Type::Bbs));
 
-            proto::Sk2Pk(pAddr->m_Pk, pAddr->m_sk); // needed to "normalize" the sk, and calculate the channel
+			if (m_WalletDB->get_MasterKdf())
+			{
+				m_WalletDB->get_MasterKdf()->DeriveKey(pAddr->m_sk, Key::ID(ownID, Key::Type::Bbs));
+
+				proto::Sk2Pk(pAddr->m_Pk, pAddr->m_sk); // needed to "normalize" the sk, and calculate the channel
+			}
 
             pAddr->m_Channel.m_Value = nChannel;
 
@@ -172,7 +176,7 @@ namespace beam {
 			if (m_BbsTimestamps.end() != it)
 				ts = it->second;
 
-			m_NodeNetwork.BbsSubscribe(pAddr->m_Channel.m_Value, ts, &m_BbsSentEvt);
+			m_NodeEndpoint->BbsSubscribe(pAddr->m_Channel.m_Value, ts, &m_BbsSentEvt);
 		}
 
         LOG_INFO() << "WalletID " << to_string(walletID) << " subscribes to BBS channel " << pAddr->m_Channel.m_Value;
@@ -234,6 +238,12 @@ namespace beam {
 
 			ByteBuffer buf = msg.m_Message; // duplicate
 
+			if (!m_WalletDB->get_MasterKdf())
+			{
+				// public wallet
+				//m_WalletDB->saveWalletMessage();
+			}
+
 			uint8_t* pMsg = &buf.front();
 			uint32_t nSize = static_cast<uint32_t>(buf.size());
 
@@ -263,7 +273,7 @@ namespace beam {
 		}
 	}
 
-	void WalletNetworkViaBbs::Send(const WalletID& peerID, wallet::SetTxParameter&& msg)
+	void WalletNetworkViaBbs::Send(const WalletID& peerID, const wallet::SetTxParameter& msg)
 	{
 		Serializer ser;
 		ser & msg;
@@ -316,6 +326,43 @@ namespace beam {
 		}
 	}
 
+	void WalletNetworkViaBbs::Send(const WalletID& peerID, const ByteBuffer& msg)
+	{
+		Miner::Task::Ptr pTask = std::make_shared<Miner::Task>();
+		pTask->m_Msg.m_Message = msg;
+		
+		pTask->m_Done = false;
+		pTask->m_Msg.m_Channel = channel_from_wallet_id(peerID);
+
+		if (m_MineOutgoing)
+		{
+			proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
+
+			if (!m_Miner.m_pEvt)
+			{
+				m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
+				m_Miner.m_Shutdown = false;
+
+				uint32_t nThreads = std::thread::hardware_concurrency();
+				nThreads = (nThreads > 1) ? (nThreads - 1) : 1; // leave at least 1 vacant core for other things
+				m_Miner.m_vThreads.resize(nThreads);
+
+				for (uint32_t i = 0; i < nThreads; i++)
+					m_Miner.m_vThreads[i] = std::thread(&Miner::Thread, &m_Miner, i);
+			}
+
+			std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
+
+			m_Miner.m_Pending.push_back(std::move(pTask));
+			m_Miner.m_NewTask.notify_all();
+		}
+		else
+		{
+			pTask->m_Msg.m_TimePosted = getTimestamp();
+			OnMined(std::move(pTask->m_Msg));
+		}
+	}
+
 	void WalletNetworkViaBbs::OnMined()
 	{
 		while (true)
@@ -347,7 +394,7 @@ namespace beam {
 		m_PendingBbsMsgs.push_back(*pReq);
 		pReq->AddRef();
 
-		m_NodeNetwork.PostRequest(*pReq, m_BbsSentEvt);
+		m_NodeEndpoint->PostRequest(*pReq, m_BbsSentEvt);
 	}
 
     void WalletNetworkViaBbs::OnAddressTimer()
@@ -463,14 +510,14 @@ namespace beam {
     /////////////////////////////////
 
     
-    ColdWalletNetwork::ColdWalletNetwork(IWallet& wallet, IWalletDB::Ptr walletDB)
+    ColdWalletMessageEndpoint::ColdWalletMessageEndpoint(IWallet& wallet, IWalletDB::Ptr walletDB)
         : m_Wallet(wallet)
         , m_WalletDB(walletDB)
     {
 
     }
 
-    bool ColdWalletNetwork::ProcessIncommingMessages()
+    bool ColdWalletMessageEndpoint::ProcessIncommingMessages()
     {
 		auto messages = m_WalletDB->getWalletMessages();
 		if (messages.empty())
@@ -485,9 +532,15 @@ namespace beam {
 		return true;
     }
 
-    void ColdWalletNetwork::Send(const WalletID& peerID, wallet::SetTxParameter&& msg)
+    void ColdWalletMessageEndpoint::Send(const WalletID& peerID, const wallet::SetTxParameter& msg)
     {
 		m_WalletDB->saveWalletMessage(WalletMessage{ 0, peerID, msg });
         io::Reactor::get_Current().stop();
     }
+
+	void ColdWalletMessageEndpoint::Send(const WalletID& peerID, const ByteBuffer& msg)
+	{
+		//m_WalletDB->saveWalletMessage(WalletMessage{ 0, peerID, msg });
+		io::Reactor::get_Current().stop();
+	}
 }

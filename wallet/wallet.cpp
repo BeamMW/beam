@@ -77,8 +77,6 @@ namespace beam
 
     Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action)
         : m_WalletDB{ walletDB }
-        , m_pNodeNetwork(nullptr)
-        , m_pWalletNetwork(nullptr)
         , m_TxCompletedAction{move(action)}
         , m_LastSyncTotal(0)
         , m_OwnedNodesOnline(0)
@@ -112,11 +110,15 @@ namespace beam
         return m_WalletDB->get_History();
     }
 
-    void Wallet::set_Network(proto::FlyClient::INetwork& netNode, IWalletNetwork& netWallet)
+    void Wallet::SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint)
     {
-        m_pNodeNetwork = &netNode;
-        m_pWalletNetwork = &netWallet;
+        m_NodeEndpoint = nodeEndpoint;
     }
+
+	void Wallet::AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint)
+	{
+		m_MessageEndpoints.insert(endpoint);
+	}
 
     Wallet::~Wallet()
     {
@@ -372,7 +374,10 @@ namespace beam
 
     void Wallet::send_tx_params(const WalletID& peerID, SetTxParameter&& msg)
     {
-        m_pWalletNetwork->Send(peerID, std::move(msg));
+		for (auto& endpoint : m_MessageEndpoints)
+		{
+			endpoint->Send(peerID, std::move(msg));
+		}
     }
 
     void Wallet::UpdateOnNextTip(const TxID& txID)
@@ -681,12 +686,16 @@ namespace beam
         m_NextTipTransactionToUpdate.clear();
 
         CheckSyncDone();
+
+		ProcessStoredMessages();
     }
 
     void Wallet::OnTipUnchanged()
     {
         LOG_INFO() << "Tip has not been changed";
         notifySyncProgress();
+
+		ProcessStoredMessages();
     }
 
     void Wallet::getUtxoProof(const Coin::ID& cid)
@@ -869,4 +878,21 @@ namespace beam
         }
         return wallet::BaseTransaction::Ptr();
     }
+
+
+	void Wallet::ProcessStoredMessages()
+	{
+		if (m_MessageEndpoints.empty())
+		{
+			return;
+		}
+
+		auto messages = m_WalletDB->getWalletMessages();
+		for (auto& message : messages)
+		{
+			send_tx_params(message.m_PeerID, move(message.m_Message));
+			m_WalletDB->deleteWalletMessage(message.m_ID);
+		}
+	}
+
 }

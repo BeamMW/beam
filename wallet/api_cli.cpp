@@ -1014,15 +1014,15 @@ int main(int argc, char* argv[])
 
         Wallet wallet{ walletDB };
 
-        proto::FlyClient::NetworkStd nnet(wallet);
-        nnet.m_Cfg.m_vNodes.push_back(node_addr);
-        nnet.Connect();
+        auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
+        nnet->m_Cfg.m_vNodes.push_back(node_addr);
+        nnet->Connect();
 
-        WalletNetworkViaBbs wnet(wallet, nnet, walletDB);
+        auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB);
+		wallet.AddMessageEndpoint(wnet);
+        wallet.SetNodeEndpoint(nnet);
 
-        wallet.set_Network(nnet, wnet);
-
-        WalletApiServer server(walletDB, wallet, wnet, *reactor, 
+        WalletApiServer server(walletDB, wallet, *wnet, *reactor, 
             listenTo, options.useHttp, acl, tlsOptions, whitelist);
 
         io::Reactor::get_Current().run();

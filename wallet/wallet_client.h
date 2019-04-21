@@ -110,7 +110,7 @@ private:
     beam::io::Reactor::Ptr m_reactor;
     IWalletModelAsync::Ptr m_async;
     std::weak_ptr<beam::proto::FlyClient::INetwork> m_nodeNetwork;
-    std::weak_ptr<beam::IWalletNetwork> m_walletNetwork;
+    std::weak_ptr<beam::IWalletMessageEndpoint> m_walletNetwork;
     std::weak_ptr<beam::Wallet> m_wallet;
     bool m_isConnected;
     boost::optional<beam::wallet::ErrorType> m_walletError;

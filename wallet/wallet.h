@@ -53,9 +53,11 @@ namespace beam
     };
 
     // wallet-wallet comm
-    struct IWalletNetwork
+    struct IWalletMessageEndpoint
     {
-        virtual void Send(const WalletID& peerID, wallet::SetTxParameter&& msg) = 0;
+		using Ptr = std::shared_ptr<IWalletMessageEndpoint>;
+        virtual void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) = 0;
+		virtual void Send(const WalletID& peerID, const ByteBuffer& msg) = 0;
     };
 
 
@@ -70,7 +72,8 @@ namespace beam
         Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction());
         virtual ~Wallet();
 
-        void set_Network(proto::FlyClient::INetwork&, IWalletNetwork&);
+        void SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint);
+		void AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint);
 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = 120, Height responseTime = 12*60, ByteBuffer&& message = {}, bool saveReceiver = false);
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = 120, Height responseTime = 12 * 60, ByteBuffer&& message = {}, bool saveReceiver = false);
@@ -132,6 +135,7 @@ namespace beam
 
         wallet::BaseTransaction::Ptr getTransaction(const WalletID& myID, const wallet::SetTxParameter& msg);
         wallet::BaseTransaction::Ptr constructTransaction(const TxID& id, wallet::TxType type);
+		void ProcessStoredMessages();
 
     private:
 
@@ -189,10 +193,10 @@ namespace beam
         } \
         bool PostReqUnique(MyRequest##type& x) \
         { \
-            if (m_Pending##type.end() != m_Pending##type.find(x)) \
+            if (!m_NodeEndpoint || m_Pending##type.end() != m_Pending##type.find(x)) \
                 return false; \
             AddReq(x); \
-            m_pNodeNetwork->PostRequest(x, m_RequestHandler); \
+            m_NodeEndpoint->PostRequest(x, m_RequestHandler); \
              \
             if (SyncTasks::type::b) \
                 m_LastSyncTotal++; \
@@ -203,8 +207,7 @@ namespace beam
 #undef THE_MACRO
 
         IWalletDB::Ptr m_WalletDB;
-        proto::FlyClient::INetwork* m_pNodeNetwork;
-        IWalletNetwork* m_pWalletNetwork;
+        std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
         std::map<TxID, wallet::BaseTransaction::Ptr> m_Transactions;
         std::unordered_set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
         std::unordered_set<wallet::BaseTransaction::Ptr> m_NextTipTransactionToUpdate;
@@ -213,5 +216,6 @@ namespace beam
         uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
+		std::set<IWalletMessageEndpoint::Ptr> m_MessageEndpoints;
     };
 }
