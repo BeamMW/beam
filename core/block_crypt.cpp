@@ -359,6 +359,8 @@ namespace beam
 	{
 		if (pParent)
 		{
+			if (!m_CanEmbed)
+				return false;
 			// nested kernel restrictions
 			if ((m_Height.m_Min > pParent->m_Height.m_Min) ||
 				(m_Height.m_Max < pParent->m_Height.m_Max))
@@ -367,7 +369,8 @@ namespace beam
 
 		uint8_t nFlags =
 			(m_pHashLock ? 1 : 0) |
-			(m_pRelativeLock ? 2 : 0);
+			(m_pRelativeLock ? 2 : 0) |
+			(m_CanEmbed ? 4 : 0);
 
 		ECC::Hash::Processor hp;
 		hp	<< m_Fee

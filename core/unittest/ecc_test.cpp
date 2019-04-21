@@ -872,11 +872,11 @@ struct TransactionMaker
 		krn.m_Signature.m_k = kSig;
 	}
 
-	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested, bool bEmitCustomTag)
+	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested, bool bEmitCustomTag, bool bNested)
 	{
 		std::unique_ptr<beam::TxKernel> pKrn(new beam::TxKernel);
 		pKrn->m_Fee = fee;
-
+		pKrn->m_CanEmbed = bNested;
 		pKrn->m_vNested.swap(lstNested);
 
 		// hashlock
@@ -954,11 +954,11 @@ void TestTransaction()
 
 	Amount fee1 = 100, fee2 = 2;
 
-	tm.CreateTxKernel(lstNested, fee1, lstDummy, false);
+	tm.CreateTxKernel(lstNested, fee1, lstDummy, false, true);
 
 	tm.AddOutput(0, 738);
 	tm.AddInput(1, 740);
-	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested, true);
+	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested, true, false);
 
 	tm.m_Trans.Normalize();
 

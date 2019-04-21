@@ -544,7 +544,8 @@ namespace detail
         {
 			uint8_t nFlags2 =
 				(val.m_AssetEmission ? 1 : 0) |
-				(val.m_pRelativeLock ? 2 : 0);
+				(val.m_pRelativeLock ? 2 : 0) |
+				(val.m_CanEmbed ? 4 : 0);
 
 			uint8_t nFlags =
 				(val.m_Commitment.m_Y ? 1 : 0) |
@@ -666,6 +667,9 @@ namespace detail
 					val.m_pRelativeLock.reset(new beam::TxKernel::RelativeLock);
 					ar & *val.m_pRelativeLock;
 				}
+
+				if (4 & nFlags2)
+					val.m_CanEmbed = true;
 			}
 
             return ar;

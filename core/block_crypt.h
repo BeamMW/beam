@@ -264,10 +264,12 @@ namespace beam
 		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
 		HeightRange		m_Height;
 		AmountSigned	m_AssetEmission; // in case it's non-zero - the kernel commitment is the AssetID
+		bool			m_CanEmbed;
 
 		TxKernel()
 			:m_Fee(0)
 			,m_AssetEmission(0)
+			,m_CanEmbed(false)
 		{}
 
 		struct HashLock
