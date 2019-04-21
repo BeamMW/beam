@@ -32,11 +32,6 @@ namespace beam::wallet
     {
     }
 
-    void AtomicSwapTransaction::SetSecondSide(SecondSide::Ptr value)
-    {
-        m_secondSide = value;
-    }
-
     void AtomicSwapTransaction::SetNextState(State state)
     {
         SetState(state);
@@ -66,6 +61,11 @@ namespace beam::wallet
     {
         State state = GetState(kDefaultSubTxID);
         bool isBeamOwner = IsBeamSide();
+
+        if (!m_secondSide)
+        {
+            m_secondSide = m_Gateway.GetSecondSide(GetTxID());
+        }
 
         CheckSubTxFailures();
 

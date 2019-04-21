@@ -102,6 +102,7 @@ namespace beam
         void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override;
         void register_tx(const TxID& txId, Transaction::Ptr, wallet::SubTxID subTxID) override;
         void UpdateOnNextTip(const TxID&) override;
+        wallet::SecondSide::Ptr GetSecondSide(const TxID& txId) const override;
 
         void OnWalletMessage(const WalletID& peerID, wallet::SetTxParameter&&) override;
 

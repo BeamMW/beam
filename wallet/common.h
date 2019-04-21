@@ -20,6 +20,7 @@
 
 #include "core/serialization_adapters.h"
 #include "core/proto.h"
+#include "swaps/second_side.h"
 #include <algorithm>
 
 namespace beam
@@ -366,6 +367,7 @@ namespace beam
             virtual bool get_tip(Block::SystemState::Full& state) const = 0;
             virtual void send_tx_params(const WalletID& peerID, SetTxParameter&&) = 0;
             virtual void UpdateOnNextTip(const TxID&) = 0;
+            virtual SecondSide::Ptr GetSecondSide(const TxID&) const = 0;
         };
 
         enum class ErrorType : uint8_t

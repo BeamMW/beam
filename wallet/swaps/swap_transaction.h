@@ -65,8 +65,6 @@ namespace beam::wallet
                             , beam::IWalletDB::Ptr walletDB
                             , const TxID& txID);
 
-        void SetSecondSide(SecondSide::Ptr);
-
     private:
         void SetNextState(State state);
 

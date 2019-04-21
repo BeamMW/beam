@@ -276,6 +276,11 @@ struct TestGateway : wallet::INegotiatorGateway
     {
         return true;
     }
+
+    wallet::SecondSide::Ptr GetSecondSide(const TxID&) const override
+    {
+        return nullptr;
+    }
 };
 
 class AsyncProcessor

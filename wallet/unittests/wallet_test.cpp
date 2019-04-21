@@ -789,6 +789,7 @@ namespace
             bool get_tip(Block::SystemState::Full& state) const override { return false; }
             void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override {}
             void UpdateOnNextTip(const TxID&) override {};
+            wallet::SecondSide::Ptr GetSecondSide(const TxID&) const override { return nullptr; }
         } gateway;
         TestWalletRig sender("sender", createSenderWalletDB());
         TestWalletRig receiver("receiver", createReceiverWalletDB());

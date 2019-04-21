@@ -425,6 +425,29 @@ namespace beam
         }
     }
 
+    SecondSide::Ptr Wallet::GetSecondSide(const TxID& txID) const
+    {
+        auto it = m_Transactions.find(txID);
+        if (it != m_Transactions.end())
+        {
+            TxType type = it->second->GetMandatoryParameter<TxType>(TxParameterID::TransactionType);
+
+            if (type != TxType::AtomicSwap)
+            {
+                LOG_DEBUG() << "Transaction has invalid type.";
+                return nullptr;
+            }
+
+            auto swapCoin = it->second->GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+
+            if (swapCoin == AtomicSwapCoin::Bitcoin)
+            {
+                return std::make_shared<BitcoinSide>(*it->second, m_bitcoinBridge);
+            }
+        }
+        return nullptr;
+    }
+
     void Wallet::OnWalletMessage(const WalletID& myID, wallet::SetTxParameter&& msg)
     {
         auto t = getTransaction(myID, msg);
@@ -965,11 +988,7 @@ namespace beam
              return make_shared<SimpleTransaction>(*this, m_WalletDB, id);
         case TxType::AtomicSwap:
         {
-            auto transaction = make_shared<AtomicSwapTransaction>(*this, m_WalletDB, id);
-            auto bitcoinSide = std::make_shared<BitcoinSide>(*transaction, m_bitcoinBridge);
-
-            transaction->SetSecondSide(bitcoinSide);
-            return transaction;
+            return make_shared<AtomicSwapTransaction>(*this, m_WalletDB, id);
         }
         }
         return wallet::BaseTransaction::Ptr();
