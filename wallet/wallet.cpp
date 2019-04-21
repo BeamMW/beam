@@ -150,6 +150,16 @@ namespace beam
                 LOG_INFO() << "Can't send to the expired address.";
                 throw AddressExpiredException();
             }
+
+
+            // update address comment if changed
+            auto messageStr = std::string(message.begin(), message.end());
+
+            if (messageStr != receiverAddr->m_label)
+            {
+                receiverAddr->m_label = messageStr;
+                m_WalletDB->saveAddress(*receiverAddr);
+            }
         }
         else if (saveReceiver)
         {
