@@ -40,9 +40,9 @@ namespace beam::wallet
         bool LoadSwapAddress();
         void InitSecret();
         libbitcoin::chain::script CreateAtomicSwapContract();
-        bool BitcoinSide::RegisterTx(const std::string& rawTransaction, SubTxID subTxID);
+        bool RegisterTx(const std::string& rawTransaction, SubTxID subTxID);
         SwapTxState BuildLockTx();
-        SwapTxState BitcoinSide::BuildWithdrawTx(SubTxID subTxID);
+        SwapTxState BuildWithdrawTx(SubTxID subTxID);
         void GetSwapLockTxConfirmations();
         bool SendWithdrawTx(SubTxID subTxID);
         uint64_t GetBlockCount();
