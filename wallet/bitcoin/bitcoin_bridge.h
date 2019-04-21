@@ -48,5 +48,7 @@ namespace beam
         virtual void getTxOut(const std::string& txid, int outputIndex, std::function<void(const std::string&, const std::string&, double, uint16_t)> callback) = 0;
         // error, result
         virtual void getBlockCount(std::function<void(const std::string&, uint64_t)> callback) = 0;
+
+        virtual uint8_t getAddressVersion() = 0;
     };
 }

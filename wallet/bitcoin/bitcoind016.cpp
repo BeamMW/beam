@@ -166,4 +166,11 @@ namespace beam
 
         m_httpClient.send_request(request);
     }
+
+    uint8_t Bitcoind016::getAddressVersion()
+    {
+        // TODO roman.strile implement different version of address
+        // default for testnet
+        return libbitcoin::wallet::ec_private::testnet_wif;
+    }
 }

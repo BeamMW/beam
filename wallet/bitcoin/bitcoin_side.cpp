@@ -427,7 +427,7 @@ namespace beam::wallet
         libbitcoin::decode_base16(tx_data, *m_SwapWithdrawRawTx);
         libbitcoin::chain::transaction withdrawTX = libbitcoin::chain::transaction::factory_from_data(tx_data);
 
-        libbitcoin::wallet::ec_private wallet_key(privateKey, libbitcoin::wallet::ec_private::testnet_wif);
+        libbitcoin::wallet::ec_private wallet_key(privateKey, m_bitcoinBridge->getAddressVersion());
         libbitcoin::endorsement sig;
 
         uint32_t input_index = 0;
