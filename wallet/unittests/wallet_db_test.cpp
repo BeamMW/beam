@@ -48,16 +48,16 @@ IWalletDB::Ptr createSqliteWalletDB()
 
 Coin CreateCoin(Amount amount, Height maturity = MaxHeight, Height confirmHeight = MaxHeight, Height spentHeight = MaxHeight)
 {
-	Coin c(amount);
-	c.m_maturity = maturity;
-	c.m_confirmHeight = confirmHeight;
-	c.m_spentHeight = spentHeight;
-	return c;
+    Coin c(amount);
+    c.m_maturity = maturity;
+    c.m_confirmHeight = confirmHeight;
+    c.m_spentHeight = spentHeight;
+    return c;
 }
 
 Coin CreateAvailCoin(Amount amount, Height maturity = 10)
 {
-	return CreateCoin(amount, maturity, maturity);
+    return CreateCoin(amount, maturity, maturity);
 }
 
 void TestWalletDataBase()
@@ -83,18 +83,18 @@ void TestWalletDataBase()
         auto coins = walletDB->selectCoins(7);
         WALLET_CHECK(coins.size() == 2);
 
-		// simulate locking
-		TxID txID;
-		ZeroObject(txID);
+        // simulate locking
+        TxID txID;
+        ZeroObject(txID);
 
-		wallet::setTxParameter(*walletDB, txID, wallet::TxParameterID::Status, TxStatus::InProgress, false);
-		for (Coin& c : coins)
-			c.m_spentTxId = txID;
-		walletDB->save(coins);
+        wallet::setTxParameter(*walletDB, txID, wallet::TxParameterID::Status, TxStatus::InProgress, false);
+        for (Coin& c : coins)
+            c.m_spentTxId = txID;
+        walletDB->save(coins);
 
         for (size_t i = 0; i < coins.size(); ++i)
         {
-			walletDB->find(coins[i]); // would refresh the status
+            walletDB->find(coins[i]); // would refresh the status
             WALLET_CHECK(coins[i].m_status == Coin::Outgoing);
         }
     }
@@ -381,17 +381,17 @@ void TestRollback()
 
     {
         Coin coin1 = CreateCoin( 5, 7, Height(7), 8 );
-		db->store(coin1);
+        db->store(coin1);
     }
 
     {
         Coin coin1 = CreateCoin( 5, 5, Height(5), 6 );
-		db->store(coin1);
+        db->store(coin1);
     }
 
     {
         Coin coin1 = CreateCoin( 5, 5, Height(5), 7); // would be rolled-back
-		db->store(coin1);
+        db->store(coin1);
     }
 
     {
@@ -415,10 +415,10 @@ void TestRollback()
 
     WALLET_CHECK(coins.size() == 21);
 
-	for (const Coin& c : coins)
-	{
-		WALLET_CHECK((Coin::Unavailable == c.m_status) == (c.m_confirmHeight == MaxHeight));
-	}
+    for (const Coin& c : coins)
+    {
+        WALLET_CHECK((Coin::Unavailable == c.m_status) == (c.m_confirmHeight == MaxHeight));
+    }
 
     for (int i = 0; i < 5; ++i)
     {
@@ -453,12 +453,12 @@ void TestRollback()
         auto& c = coins[i];
         WALLET_CHECK(c.m_status == Coin::Spent);
     }
-	for (int i = 18; i < 19; ++i)
-	{
-		auto& c = coins[i];
-		WALLET_CHECK(c.m_status == Coin::Available);
-	}
-	for (int i = 19; i < 21; ++i)
+    for (int i = 18; i < 19; ++i)
+    {
+        auto& c = coins[i];
+        WALLET_CHECK(c.m_status == Coin::Available);
+    }
+    for (int i = 19; i < 21; ++i)
     {
         auto& c = coins[i];
         WALLET_CHECK(c.m_status == Coin::Available);
@@ -473,7 +473,7 @@ void TestBlockRollbackWithTx()
     TxID txID2 = { {1, 3, 4} };
     TxID txID3 = { {1, 3, 4, 9} };
 
-	Coin coin1 = CreateCoin(1, 6, 6);
+    Coin coin1 = CreateCoin(1, 6, 6);
     coin1.m_createTxId = txID1;
 
     Coin coin2 = CreateCoin(2, 4, 4, 6);
@@ -626,14 +626,14 @@ void TestTxRollback()
 
     Coin coin2 = CreateCoin(6, 11, 2);
     coin2.m_spentTxId = id;
-	walletDB->store(coin2);
+    walletDB->store(coin2);
 
     Coin coin3 = CreateCoin(3, 2);
     coin3.m_createTxId = id;
     walletDB->store(coin3);
     walletDB->save({ coin2 });
 
-	wallet::setTxParameter(*walletDB, id, wallet::TxParameterID::Status, TxStatus::Registering, true);
+    wallet::setTxParameter(*walletDB, id, wallet::TxParameterID::Status, TxStatus::Registering, true);
 
     vector<Coin> coins;
     walletDB->visit([&coins](const Coin& c)->bool
@@ -778,7 +778,7 @@ void TestSelect()
     // double coins
     for (Amount i = 1; i <= c; ++i)
     {
-		Coin coin = CreateAvailCoin(i);
+        Coin coin = CreateAvailCoin(i);
         db->store(coin);
     }
     for (Amount i = 1; i <= c; ++i)
@@ -992,7 +992,7 @@ void TestTxParameters()
     WALLET_CHECK(equal(b.begin(), b.end(), b2.begin(), b2.end()));
 
     ECC::Scalar::Native s, s2;
-	s = 123U;
+    s = 123U;
     WALLET_CHECK(wallet::setTxParameter(*db, txID, TxParameterID::BlindingExcess, s, false));
     WALLET_CHECK(wallet::getTxParameter(*db, txID, TxParameterID::BlindingExcess, s2));
     WALLET_CHECK(s == s2);
@@ -1223,67 +1223,86 @@ void TestTransferredByTx()
 
 void TestWalletMessages()
 {
-	auto db = createSqliteWalletDB();
+    auto db = createSqliteWalletDB();
 
-	{
-		auto messages = db->getWalletMessages();
-		WALLET_CHECK(messages.empty());
-	}
+    {
+        auto messages = db->getWalletMessages();
+        WALLET_CHECK(messages.empty());
+    }
 
-	WalletID walletID = Zero;
-	WALLET_CHECK(walletID.FromHex("6b5992ffed7cb3c86bb7e408edfecafa047701eaa197ebf5b9e2df2f21b40caa4a"));
-	{
-		wallet::SetTxParameter msg;
-		msg.m_From = walletID;
-		msg.AddParameter(TxParameterID::Amount, 100);
-		msg.AddParameter(TxParameterID::PeerID, walletID);
-		msg.AddParameter(TxParameterID::Lifetime, 130);
+    WalletID walletID = Zero;
+    WALLET_CHECK(walletID.FromHex("6b5992ffed7cb3c86bb7e408edfecafa047701eaa197ebf5b9e2df2f21b40caa4a"));
+    {
+        wallet::SetTxParameter msg;
+        msg.m_From = walletID;
+        msg.AddParameter(TxParameterID::Amount, 100);
+        msg.AddParameter(TxParameterID::PeerID, walletID);
+        msg.AddParameter(TxParameterID::Lifetime, 130);
 
-		auto id = db->saveWalletMessage(WalletMessage{ 0, walletID, msg});
-		WALLET_CHECK(id == 1);
-		auto messages = db->getWalletMessages();
-		WALLET_CHECK(messages.size() == 1);
-		WALLET_CHECK(messages[0].m_ID == 1);
-		WALLET_CHECK(messages[0].m_PeerID == walletID);
-		Amount amount = 0;
-		WALLET_CHECK(messages[0].m_Message.GetParameter(TxParameterID::Amount, amount) && amount == 100);
-		WalletID walletID2 = Zero;
-		WALLET_CHECK(messages[0].m_Message.GetParameter(TxParameterID::PeerID, walletID2) && walletID2 == walletID);
-		Height lifetime = 0;
-		WALLET_CHECK(messages[0].m_Message.GetParameter(TxParameterID::Lifetime, lifetime) && lifetime == 130);
-	}
+        auto id = db->saveWalletMessage(WalletMessage{ 0, walletID, toByteBuffer(msg)});
+        WALLET_CHECK(id == 1);
+        auto messages = db->getWalletMessages();
+        WALLET_CHECK(messages.size() == 1);
+        WALLET_CHECK(messages[0].m_ID == 1);
+        WALLET_CHECK(messages[0].m_PeerID == walletID);
+        Amount amount = 0;
+        SetTxParameter message;
+        WALLET_CHECK(fromByteBuffer(messages[0].m_Message, message));
+        WALLET_CHECK(message.GetParameter(TxParameterID::Amount, amount) && amount == 100);
+        WalletID walletID2 = Zero;
+        WALLET_CHECK(message.GetParameter(TxParameterID::PeerID, walletID2) && walletID2 == walletID);
+        Height lifetime = 0;
+        WALLET_CHECK(message.GetParameter(TxParameterID::Lifetime, lifetime) && lifetime == 130);
+    }
 
-	{
-		wallet::SetTxParameter msg;
-		msg.m_From = walletID;
-		msg.AddParameter(TxParameterID::Amount, 200);
-		msg.AddParameter(TxParameterID::PeerID, walletID);
-		msg.AddParameter(TxParameterID::Lifetime, 230);
+    {
+        wallet::SetTxParameter msg;
+        msg.m_From = walletID;
+        msg.AddParameter(TxParameterID::Amount, 200);
+        msg.AddParameter(TxParameterID::PeerID, walletID);
+        msg.AddParameter(TxParameterID::Lifetime, 230);
 
-		auto id = db->saveWalletMessage(WalletMessage{ 0, walletID, msg });
-		WALLET_CHECK(id == 2);
-		auto messages = db->getWalletMessages();
-		WALLET_CHECK(messages.size() == 2);
-		WALLET_CHECK(messages[1].m_ID == 2);
-		WALLET_CHECK(messages[1].m_PeerID == walletID);
-		Amount amount = 0;
-		WALLET_CHECK(messages[1].m_Message.GetParameter(TxParameterID::Amount, amount) && amount == 200);
-		WalletID walletID2 = Zero;
-		WALLET_CHECK(messages[1].m_Message.GetParameter(TxParameterID::PeerID, walletID2) && walletID2 == walletID);
-		Height lifetime = 0;
-		WALLET_CHECK(messages[1].m_Message.GetParameter(TxParameterID::Lifetime, lifetime) && lifetime == 230);
-	}
-	{
-		WALLET_CHECK_NO_THROW(db->deleteWalletMessage(0));
-		WALLET_CHECK_NO_THROW(db->deleteWalletMessage(10));
-		auto messages = db->getWalletMessages();
-		WALLET_CHECK(messages.size() == 2);
-	}
-	{
-		db->deleteWalletMessage(1);
-		auto messages = db->getWalletMessages();
-		WALLET_CHECK(messages.size() == 1);
-	}
+        auto id = db->saveWalletMessage(WalletMessage{ 0, walletID, toByteBuffer(msg) });
+        WALLET_CHECK(id == 2);
+        auto messages = db->getWalletMessages();
+        WALLET_CHECK(messages.size() == 2);
+        WALLET_CHECK(messages[1].m_ID == 2);
+        WALLET_CHECK(messages[1].m_PeerID == walletID);
+        Amount amount = 0;
+        SetTxParameter message;
+        WALLET_CHECK(fromByteBuffer(messages[1].m_Message, message));
+        WALLET_CHECK(message.GetParameter(TxParameterID::Amount, amount) && amount == 200);
+        WalletID walletID2 = Zero;
+        WALLET_CHECK(message.GetParameter(TxParameterID::PeerID, walletID2) && walletID2 == walletID);
+        Height lifetime = 0;
+        WALLET_CHECK(message.GetParameter(TxParameterID::Lifetime, lifetime) && lifetime == 230);
+    }
+    {
+        WALLET_CHECK_NO_THROW(db->deleteWalletMessage(0));
+        WALLET_CHECK_NO_THROW(db->deleteWalletMessage(10));
+        auto messages = db->getWalletMessages();
+        WALLET_CHECK(messages.size() == 2);
+    }
+    {
+        db->deleteWalletMessage(1);
+        auto messages = db->getWalletMessages();
+        WALLET_CHECK(messages.size() == 1);
+    }
+
+    {
+        auto incomming = db->getIncommingWalletMessages();
+        WALLET_CHECK(incomming.empty());
+        ByteBuffer b = { 1, 45, 6 };
+        auto id = db->saveIncommingWalletMessage(23, b);
+        WALLET_CHECK(id == 1);
+        incomming = db->getIncommingWalletMessages();
+        WALLET_CHECK(incomming.size() == 1);
+        WALLET_CHECK(incomming[0].m_Message == b);
+        WALLET_CHECK(incomming[0].m_Channel == 23);
+        db->deleteIncommingWalletMessage(1);
+        incomming = db->getIncommingWalletMessages();
+        WALLET_CHECK(incomming.empty());
+    }
 }
 
 }
@@ -1315,7 +1334,7 @@ int main()
     TestAddresses();
     TestTxParameters();
     TestTransferredByTx();
-	TestWalletMessages();
+    TestWalletMessages();
 
 
     return WALLET_CHECK_RESULT;

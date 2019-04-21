@@ -115,10 +115,10 @@ namespace beam
         m_NodeEndpoint = nodeEndpoint;
     }
 
-	void Wallet::AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint)
-	{
-		m_MessageEndpoints.insert(endpoint);
-	}
+    void Wallet::AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint)
+    {
+        m_MessageEndpoints.insert(endpoint);
+    }
 
     Wallet::~Wallet()
     {
@@ -284,15 +284,15 @@ namespace beam
 
     void Wallet::on_tx_completed(const TxID& txID)
     {
-		// Note: the passed TxID is (most probably) the member of the transaction, which we, most probably, are going to erase from the map, which can potentially delete it.
-		// Make sure we either copy the txID, or prolong the lifetime of the tx.
+        // Note: the passed TxID is (most probably) the member of the transaction, which we, most probably, are going to erase from the map, which can potentially delete it.
+        // Make sure we either copy the txID, or prolong the lifetime of the tx.
 
-		wallet::BaseTransaction::Ptr pGuard;
+        wallet::BaseTransaction::Ptr pGuard;
 
         auto it = m_Transactions.find(txID);
         if (it != m_Transactions.end())
         {
-			pGuard.swap(it->second);
+            pGuard.swap(it->second);
             m_Transactions.erase(it);
         }
  
@@ -374,10 +374,10 @@ namespace beam
 
     void Wallet::send_tx_params(const WalletID& peerID, SetTxParameter&& msg)
     {
-		for (auto& endpoint : m_MessageEndpoints)
-		{
-			endpoint->Send(peerID, std::move(msg));
-		}
+        for (auto& endpoint : m_MessageEndpoints)
+        {
+            endpoint->Send(peerID, msg);
+        }
     }
 
     void Wallet::UpdateOnNextTip(const TxID& txID)
@@ -563,26 +563,26 @@ namespace beam
     void Wallet::OnRequestComplete(MyRequestUtxoEvents& r)
     {
         const std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
-		for (size_t i = 0; i < v.size(); i++)
-		{
-			const proto::UtxoEvent& evt = v[i];
+        for (size_t i = 0; i < v.size(); i++)
+        {
+            const proto::UtxoEvent& evt = v[i];
 
-			// filter-out false positives
-			Scalar::Native sk;
-			Point comm;
-			m_WalletDB->calcCommitment(sk, comm, evt.m_Kidv);
+            // filter-out false positives
+            Scalar::Native sk;
+            Point comm;
+            m_WalletDB->calcCommitment(sk, comm, evt.m_Kidv);
 
-			if (comm == evt.m_Commitment)
-				ProcessUtxoEvent(evt);
-		}
+            if (comm == evt.m_Commitment)
+                ProcessUtxoEvent(evt);
+        }
 
-		if (r.m_Res.m_Events.size() < proto::UtxoEvent::s_Max)
-		{
-			Block::SystemState::Full sTip;
-			m_WalletDB->get_History().get_Tip(sTip);
+        if (r.m_Res.m_Events.size() < proto::UtxoEvent::s_Max)
+        {
+            Block::SystemState::Full sTip;
+            m_WalletDB->get_History().get_Tip(sTip);
 
-			SetUtxoEventsHeight(sTip.m_Height);
-		}
+            SetUtxoEventsHeight(sTip.m_Height);
+        }
         else
         {
             SetUtxoEventsHeight(r.m_Res.m_Events.back().m_Height);
@@ -614,19 +614,19 @@ namespace beam
         c.m_ID = evt.m_Kidv;
 
         bool bExists = m_WalletDB->find(c);
-		c.m_maturity = evt.m_Maturity;
+        c.m_maturity = evt.m_Maturity;
 
         LOG_INFO() << "CoinID: " << evt.m_Kidv << " Maturity=" << evt.m_Maturity << (evt.m_Added ? " Confirmed" : " Spent");
 
         if (evt.m_Added)
-			c.m_confirmHeight = std::min(c.m_confirmHeight, evt.m_Height); // in case of std utxo proofs - the event height may be bigger than actual utxo height
+            c.m_confirmHeight = std::min(c.m_confirmHeight, evt.m_Height); // in case of std utxo proofs - the event height may be bigger than actual utxo height
         else
         {
             if (!bExists)
                 return; // should alert!
 
-			c.m_spentHeight = std::min(c.m_spentHeight, evt.m_Height); // reported spend height may be bigger than it actuall was (in case of macroblocks)
-		}
+            c.m_spentHeight = std::min(c.m_spentHeight, evt.m_Height); // reported spend height may be bigger than it actuall was (in case of macroblocks)
+        }
 
         m_WalletDB->save(c);
     }
@@ -687,7 +687,7 @@ namespace beam
 
         CheckSyncDone();
 
-		ProcessStoredMessages();
+        ProcessStoredMessages();
     }
 
     void Wallet::OnTipUnchanged()
@@ -695,7 +695,7 @@ namespace beam
         LOG_INFO() << "Tip has not been changed";
         notifySyncProgress();
 
-		ProcessStoredMessages();
+        ProcessStoredMessages();
     }
 
     void Wallet::getUtxoProof(const Coin::ID& cid)
@@ -703,8 +703,8 @@ namespace beam
         MyRequestUtxo::Ptr pReq(new MyRequestUtxo);
         pReq->m_CoinID = cid;
 
-		Scalar::Native sk;
-		m_WalletDB->calcCommitment(sk, pReq->m_Msg.m_Utxo, cid);
+        Scalar::Native sk;
+        m_WalletDB->calcCommitment(sk, pReq->m_Msg.m_Utxo, cid);
 
         LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo;
 
@@ -791,8 +791,8 @@ namespace beam
 
 #ifndef NDEBUG
         TxBase::Context::Params pars;
-		TxBase::Context ctx(pars);
-		assert(data->IsValid(ctx));
+        TxBase::Context ctx(pars);
+        assert(data->IsValid(ctx));
 #endif // NDEBUG
 
         MyRequestTransaction::Ptr pReq(new MyRequestTransaction);
@@ -880,19 +880,23 @@ namespace beam
     }
 
 
-	void Wallet::ProcessStoredMessages()
-	{
-		if (m_MessageEndpoints.empty())
-		{
-			return;
-		}
-
-		auto messages = m_WalletDB->getWalletMessages();
-		for (auto& message : messages)
-		{
-			send_tx_params(message.m_PeerID, move(message.m_Message));
-			m_WalletDB->deleteWalletMessage(message.m_ID);
-		}
-	}
+    void Wallet::ProcessStoredMessages()
+    {
+        if (m_MessageEndpoints.empty())
+        {
+            return;
+        }
+        {
+            auto messages = m_WalletDB->getWalletMessages();
+            for (auto& message : messages)
+            {
+                for (auto& endpoint : m_MessageEndpoints)
+                {
+                    endpoint->SendEncryptedMessage(message.m_PeerID, message.m_Message);
+                }
+                m_WalletDB->deleteWalletMessage(message.m_ID);
+            }
+        }
+    }
 
 }

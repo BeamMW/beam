@@ -55,9 +55,9 @@ namespace beam
     // wallet-wallet comm
     struct IWalletMessageEndpoint
     {
-		using Ptr = std::shared_ptr<IWalletMessageEndpoint>;
+        using Ptr = std::shared_ptr<IWalletMessageEndpoint>;
         virtual void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) = 0;
-		virtual void Send(const WalletID& peerID, const ByteBuffer& msg) = 0;
+        virtual void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) = 0;
     };
 
 
@@ -73,7 +73,7 @@ namespace beam
         virtual ~Wallet();
 
         void SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint);
-		void AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint);
+        void AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint);
 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = 120, Height responseTime = 12*60, ByteBuffer&& message = {}, bool saveReceiver = false);
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = 120, Height responseTime = 12 * 60, ByteBuffer&& message = {}, bool saveReceiver = false);
@@ -135,7 +135,7 @@ namespace beam
 
         wallet::BaseTransaction::Ptr getTransaction(const WalletID& myID, const wallet::SetTxParameter& msg);
         wallet::BaseTransaction::Ptr constructTransaction(const TxID& id, wallet::TxType type);
-		void ProcessStoredMessages();
+        void ProcessStoredMessages();
 
     private:
 
@@ -216,6 +216,6 @@ namespace beam
         uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
-		std::set<IWalletMessageEndpoint::Ptr> m_MessageEndpoints;
+        std::set<IWalletMessageEndpoint::Ptr> m_MessageEndpoints;
     };
 }

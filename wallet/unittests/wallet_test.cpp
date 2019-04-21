@@ -227,22 +227,22 @@ namespace
         return std::static_pointer_cast<IWalletDB>(std::make_shared<T>());
     }
 
-	const string SenderWalletDB = "sender_wallet.db";
-	const string DBPassword = "pass123";
+    const string SenderWalletDB = "sender_wallet.db";
+    const string DBPassword = "pass123";
 
     IWalletDB::Ptr createSqliteWalletDB(const string& path, bool separateDBForPrivateData)
     {
-		if (boost::filesystem::exists(path))
+        if (boost::filesystem::exists(path))
         {
             boost::filesystem::remove(path);
         }
-		if (separateDBForPrivateData)
-		{
-			string privatePath = path + ".private";
-			boost::filesystem::remove(privatePath);
-		}
-		
-		ECC::NoLeak<ECC::uintBig> seed;
+        if (separateDBForPrivateData)
+        {
+            string privatePath = path + ".private";
+            boost::filesystem::remove(privatePath);
+        }
+        
+        ECC::NoLeak<ECC::uintBig> seed;
         seed.V = Zero;
                
         auto walletDB = WalletDB::init(path, DBPassword, seed, io::Reactor::get_Current().shared_from_this(), separateDBForPrivateData);
@@ -332,23 +332,29 @@ namespace
         }
     };
 
-	class OneTimeBbsEndpoint : public WalletNetworkViaBbs
-	{
-	public:
-		OneTimeBbsEndpoint(IWallet& wallet, std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint, const IWalletDB::Ptr& walletDB)
-			: WalletNetworkViaBbs(wallet, nodeEndpoint, walletDB)
-		{
+    class OneTimeBbsEndpoint : public WalletNetworkViaBbs
+    {
+    public:
+        OneTimeBbsEndpoint(IWallet& wallet, std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint, const IWalletDB::Ptr& walletDB)
+            : WalletNetworkViaBbs(wallet, nodeEndpoint, walletDB)
+        {
 
-		}
-	private:
-		void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) override
-		{
-			WalletNetworkViaBbs::Send(peerID, msg);
-			io::Reactor::get_Current().stop();
-		}
+        }
+    private:
+        /*void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) override
+        {
+            WalletNetworkViaBbs::Send(peerID, msg);
+            io::Reactor::get_Current().stop();
+        }*/
 
-	};
-		
+        void OnIncommingMessage() override
+        {
+            io::Reactor::get_Current().stop();
+        }
+
+
+    };
+        
 
     struct TestWalletRig
     {
@@ -356,38 +362,38 @@ namespace
             : m_WalletDB{walletDB}
             , m_Wallet{ m_WalletDB, move(action) }
         {
-			if (m_WalletDB->get_MasterKdf()) // can create secrets
-			{
-				WalletAddress wa = wallet::createAddress(*m_WalletDB);
-				m_WalletDB->saveAddress(wa);
-				m_WalletID = wa.m_walletID;
+            if (m_WalletDB->get_MasterKdf()) // can create secrets
+            {
+                WalletAddress wa = wallet::createAddress(*m_WalletDB);
+                m_WalletDB->saveAddress(wa);
+                m_WalletID = wa.m_walletID;
 //				m_WalletNetworkViaBbs.AddOwnAddress(wa);
-			}
-			else
-			{
-				auto addresses = m_WalletDB->getAddresses(true);
-				m_WalletID = addresses[0].m_walletID;
-			}
+            }
+            else
+            {
+                auto addresses = m_WalletDB->getAddresses(true);
+                m_WalletID = addresses[0].m_walletID;
+            }
 
-			if (coldWallet)
-			{
-				m_Wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(m_Wallet, m_WalletDB));
-			}
-			else
-			{
-				auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(m_Wallet);
-				nodeEndpoint->m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
-				nodeEndpoint->Connect();
-				//if (m_WalletDB->get_MasterKdf())
-				{
-					m_Wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB));
-				}
-				//else
-				{
-			//		m_Wallet.AddMessageEndpoint(make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB));
-				}
-				m_Wallet.SetNodeEndpoint(nodeEndpoint);
-			}
+            if (coldWallet)
+            {
+                m_Wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(m_Wallet, m_WalletDB));
+            }
+            else
+            {
+                auto nodeEndpoint = make_shared<proto::FlyClient::NetworkStd>(m_Wallet);
+                nodeEndpoint->m_Cfg.m_vNodes.push_back(io::Address::localhost().port(32125));
+                nodeEndpoint->Connect();
+                if (m_WalletDB->get_MasterKdf())
+                {
+                    m_Wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(m_Wallet, nodeEndpoint, m_WalletDB));
+                }
+                else
+                {
+                    m_Wallet.AddMessageEndpoint(make_shared<OneTimeBbsEndpoint>(m_Wallet, nodeEndpoint, m_WalletDB));
+                }
+                m_Wallet.SetNodeEndpoint(nodeEndpoint);
+            }
         }
 
         vector<Coin> GetCoins()
@@ -430,15 +436,9 @@ namespace
             PostAsync();
         }
 
-		virtual void Send(const WalletID& peerID, const ByteBuffer& msg) override
-		{
-		/*	WalletMap::iterator it = m_Map.find(peerID);
-			WALLET_CHECK(m_Map.end() != it);
-
-			it->second.m_Msgs.push_back(std::make_pair(peerID, msg));
-
-			PostAsync();*/
-		}
+        virtual void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override
+        {
+        }
 
         virtual void Proceed() override
         {
@@ -554,11 +554,11 @@ namespace
 
             if (!p->IsExt())
                 m_Utxos.Delete(cu);
-			else
-			{
-				p->PopID();
-				cu.InvalidateElement();
-			}
+            else
+            {
+                p->PopID();
+                cu.InvalidateElement();
+            }
 
             return true;
         }
@@ -803,20 +803,21 @@ namespace
             if (++count >= 2)
                 io::Reactor::get_Current().stop();
         };
+        
+        TestNodeNetwork::Shared tnns;
 
         Wallet sender(senderWalletDB, f);
         Wallet receiver(receiverWalletDB, f);
 
         auto twn = make_shared<TestWalletNetwork>();
-        TestNodeNetwork::Shared tnns;
-		auto netNodeS = make_shared<TestNodeNetwork>(tnns, sender);
-		auto netNodeR = make_shared<TestNodeNetwork>(tnns, receiver);
+        auto netNodeS = make_shared<TestNodeNetwork>(tnns, sender);
+        auto netNodeR = make_shared<TestNodeNetwork>(tnns, receiver);
 
-		sender.AddMessageEndpoint(twn);
-		sender.SetNodeEndpoint(netNodeS);
+        sender.AddMessageEndpoint(twn);
+        sender.SetNodeEndpoint(netNodeS);
 
-		receiver.AddMessageEndpoint(twn);
-		receiver.SetNodeEndpoint(netNodeR);
+        receiver.AddMessageEndpoint(twn);
+        receiver.SetNodeEndpoint(netNodeR);
 
         twn->m_Map[sender_id].m_pSink = &sender;
         twn->m_Map[receiver_id].m_pSink = &receiver;
@@ -1870,76 +1871,98 @@ namespace
         }
     }
 
-	void TestColdWallet()
-	{
-		cout << "\nTesting cold wallet...\n";
+    void TestColdWallet()
+    {
+        cout << "\nTesting cold wallet...\n";
 
-		io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-		io::Reactor::Scope scope(*mainReactor);
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
 
-		int completedCount = 2;
-		auto f = [&completedCount, mainReactor](auto)
-		{
-			--completedCount;
-			if (completedCount == 0)
-			{
-				mainReactor->stop();
-				completedCount = 2;
-			}
-		};
+        int completedCount = 2;
+        auto f = [&completedCount, mainReactor](auto)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+                mainReactor->stop();
+                completedCount = 2;
+            }
+        };
 
-		TestNode node;
-		TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
-		{
-			TestWalletRig privateSender("sender", createSenderWalletDB(true), f, true);
-			WALLET_CHECK(privateSender.m_WalletDB->selectCoins(6).size() == 2);
-			WALLET_CHECK(privateSender.m_WalletDB->getTxHistory().empty());
+        TestNode node;
+        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        {
+            TestWalletRig privateSender("sender", createSenderWalletDB(true), f, true);
+            WALLET_CHECK(privateSender.m_WalletDB->selectCoins(6).size() == 2);
+            WALLET_CHECK(privateSender.m_WalletDB->getTxHistory().empty());
 
-			// send from cold wallet
-			privateSender.m_Wallet.transfer_money(privateSender.m_WalletID, receiver.m_WalletID, 4, 2, true, 200);
-			mainReactor->run();
-		}
+            // send from cold wallet
+            privateSender.m_Wallet.transfer_money(privateSender.m_WalletID, receiver.m_WalletID, 4, 2, true, 200);
+            mainReactor->run();
+        }
 
-		string publicPath = "sender_public.db";
-		boost::filesystem::remove(publicPath);
-		boost::filesystem::copy_file(SenderWalletDB, publicPath);
+        string publicPath = "sender_public.db";
+        {
+            boost::filesystem::remove(publicPath);
+            boost::filesystem::copy_file(SenderWalletDB, publicPath);
 
-		auto publicDB = WalletDB::open(publicPath, DBPassword, io::Reactor::get_Current().shared_from_this());
-		TestWalletRig publicSender("public_sender", publicDB, f);
+            auto publicDB = WalletDB::open(publicPath, DBPassword, io::Reactor::get_Current().shared_from_this());
+            TestWalletRig publicSender("public_sender", publicDB, f);
 
-		WALLET_CHECK(publicSender.m_WalletDB->getTxHistory().size() == 1);
+            WALLET_CHECK(publicSender.m_WalletDB->getTxHistory().size() == 1);
 
-		WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
+            WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
-		mainReactor->run();
+            mainReactor->run();
+        }
 
-		// check coins
-		vector<Coin> newSenderCoins = publicSender.GetCoins();
-		vector<Coin> newReceiverCoins = receiver.GetCoins();
+        {
+            boost::filesystem::remove(publicPath);
+            boost::filesystem::copy_file(SenderWalletDB, publicPath);
+            auto privateDB = WalletDB::open(SenderWalletDB, DBPassword, io::Reactor::get_Current().shared_from_this());
+            TestWalletRig privateSender("sender", privateDB, f, true);
+            mainReactor->run();
+        }
 
-		WALLET_CHECK(newSenderCoins.size() == 4);
-		WALLET_CHECK(newReceiverCoins.size() == 1);
-		WALLET_CHECK(newReceiverCoins[0].m_ID.m_Value == 4);
-		WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Available);
-		WALLET_CHECK(newReceiverCoins[0].m_ID.m_Type == Key::Type::Regular);
 
-		WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 5);
-		WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
-		WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Regular);
+        boost::filesystem::copy_file(SenderWalletDB, publicPath);
 
-		WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 2);
-		WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
-		WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
+        auto publicDB = WalletDB::open(publicPath, DBPassword, io::Reactor::get_Current().shared_from_this());
+        TestWalletRig publicSender("public_sender", publicDB, f);
 
-		WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 1);
-		WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
-		WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
+        WALLET_CHECK(publicSender.m_WalletDB->getTxHistory().size() == 1);
 
-		WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 9);
-		WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
-		WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
+        WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
-	}
+        mainReactor->run();
+
+        // check coins
+        vector<Coin> newSenderCoins = publicSender.GetCoins();
+        vector<Coin> newReceiverCoins = receiver.GetCoins();
+
+        WALLET_CHECK(newSenderCoins.size() == 4);
+        WALLET_CHECK(newReceiverCoins.size() == 1);
+        WALLET_CHECK(newReceiverCoins[0].m_ID.m_Value == 4);
+        WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Available);
+        WALLET_CHECK(newReceiverCoins[0].m_ID.m_Type == Key::Type::Regular);
+
+        WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 5);
+        WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
+        WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Regular);
+
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 2);
+        WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
+
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 1);
+        WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
+
+        WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 9);
+        WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
+        WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
+
+    }
 }
 
 int main()
@@ -1973,7 +1996,7 @@ int main()
     //TestTransactionUpdate();
     ////TestTxPerformance();
 
-	TestColdWallet();
+    //TestColdWallet();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
