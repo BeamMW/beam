@@ -68,7 +68,7 @@ namespace beam
         Height m_spentHeight;
         boost::optional<TxID> m_createTxId;
         boost::optional<TxID> m_spentTxId;
-        uint32_t m_sessionId;
+        uint64_t m_sessionId;
 
         bool IsMaturityValid() const; // is/was the UTXO confirmed?
         Height get_Maturity() const; // would return MaxHeight unless the UTXO was confirmed
@@ -182,6 +182,10 @@ namespace beam
         virtual void ShrinkHistory() = 0;
 
         virtual Amount getTransferredByTx(TxStatus status, bool isSender) const = 0;
+
+        virtual bool lock(const CoinIDList& list, uint64_t session) = 0;
+        virtual bool unlock(uint64_t session) = 0;
+        virtual CoinIDList getLocked(uint64_t session) const = 0;
     };
 
     namespace sqlite
@@ -253,6 +257,10 @@ namespace beam
         void ShrinkHistory() override;
 
         Amount getTransferredByTx(TxStatus status, bool isSender) const override;
+
+        bool lock(const CoinIDList& list, uint64_t session) override;
+        bool unlock(uint64_t session) override;
+        CoinIDList getLocked(uint64_t session) const override;
 
     private:
         void removeImpl(const Coin::ID& cid);

@@ -412,18 +412,30 @@ namespace beam
 
                     ByteBuffer message(data.comment.begin(), data.comment.end());
 
-                    auto txId = _wallet.transfer_money(from, data.address, data.value, data.fee, data.coins, true, 120, 720, std::move(message), true);
+                    CoinIDList coins;
+
+                    if (data.session)
+                    {
+                        coins = _walletDB->getLocked(*data.session);
+
+                        if (coins.empty())
+                        {
+                            doError(id, INTERNAL_JSON_RPC_ERROR, "Requested session is empty.");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        coins = data.coins ? *data.coins : CoinIDList();
+                    }
+
+                    auto txId = _wallet.transfer_money(from, data.address, data.value, data.fee, coins, true, 120, 720, std::move(message), true);
                     doResponse(id, Send::Response{ txId });
                 }
                 catch(...)
                 {
                     doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction could not be created. Please look at logs.");
                 }
-            }
-
-            void onMessage(int id, const Replace& data) override
-            {
-                methodNotImplementedYet(id);
             }
 
             void onMessage(int id, const Status& data) override
@@ -593,19 +605,29 @@ namespace beam
                 response.sending = totals.Outgoing;
                 response.maturing = totals.Maturing;
 
-                response.locked = 0; // same as Outgoing?
-
                 doResponse(id, response);
             }
 
             void onMessage(int id, const Lock& data) override
             {
-                methodNotImplementedYet(id);
+                LOG_DEBUG() << "Lock(id = " << id << ")";
+
+                Lock::Response response;
+
+                response.result = _walletDB->lock(data.coins, data.session);
+
+                doResponse(id, response);
             }
 
             void onMessage(int id, const Unlock& data) override
             {
-                methodNotImplementedYet(id);
+                LOG_DEBUG() << "Unlock(id = " << id << " session = " << data.session << ")";
+
+                Unlock::Response response;
+
+                response.result = _walletDB->unlock(data.session);
+
+                doResponse(id, response);
             }
 
             void onMessage(int id, const TxList& data) override

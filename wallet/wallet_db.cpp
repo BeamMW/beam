@@ -2243,6 +2243,61 @@ namespace beam
         return totalAmount;
     }
 
+    bool WalletDB::lock(const CoinIDList& list, uint64_t session)
+    {
+        auto coins = getCoinsByID(list);
+        for (auto& coin : coins)
+        {
+            if (coin.m_sessionId == 0)
+            {
+                coin.m_sessionId = session;
+            }
+            else
+            {
+                // error, coin already locked
+                return false;
+            }
+        }
+
+        save(coins);
+
+        return !coins.empty();
+    }
+
+    bool WalletDB::unlock(uint64_t session)
+    {
+        const char* req = "UPDATE " STORAGE_NAME " SET sessionId=0 WHERE sessionId=?1;";
+        sqlite::Statement stm(this, req);
+
+        stm.bind(1, session);
+
+        stm.step();
+
+        return sqlite3_changes(_db) > 0;
+    }
+
+    CoinIDList WalletDB::getLocked(uint64_t session) const
+    {
+        const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE sessionId=?1;";
+        sqlite::Statement stm(this, req);
+
+        stm.bind(1, session);
+
+        CoinIDList list;
+
+        while (stm.step())
+        {
+            Coin coin;
+
+            int colIdx = 0;
+            ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+
+            list.push_back(coin.m_ID);
+        }
+
+        return list;
+    }
+
     bool WalletDB::History::Enum(IWalker& w, const Height* pBelow)
     {
         const char* req = pBelow ?
