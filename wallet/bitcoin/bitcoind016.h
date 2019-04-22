@@ -39,7 +39,7 @@ namespace beam
             Timestamp locktime,
             std::function<void(const std::string&, const std::string&)> callback) override;
         void getTxOut(const std::string& txid, int outputIndex, std::function<void(const std::string&, const std::string&, double, uint16_t)> callback) override;
-        void getBlockCount(std::function<void(const std::string&, uint64_t)> callback);
+        void getBlockCount(std::function<void(const std::string&, uint64_t)> callback) override;
 
         uint8_t getAddressVersion() override;
 
