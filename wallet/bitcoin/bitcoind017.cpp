@@ -30,8 +30,15 @@ namespace beam
     {
         sendRequest("signrawtransactionwithwallet", "\"" + rawTx + "\"", [callback](const std::string& response) {
             json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"].get<std::string>();
+            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
             const auto& result = reply["result"];
+            std::string hex;
+            bool isComplete = false;
+            if (!result.empty())
+            {
+                hex = result["hex"].get<std::string>();
+                isComplete = result["complete"].get<bool>();
+            }
 
             callback(error, result["hex"].get<std::string>(), result["complete"].get<bool>());
         });
@@ -54,9 +61,10 @@ namespace beam
         }
         sendRequest("createrawtransaction", args, [callback](const std::string& response) {
             json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"].get<std::string>();
+            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
+            std::string result = reply["result"].empty() ? "" : reply["result"].get<std::string>();
 
-            callback(error, reply["result"].get<std::string>());
+            callback(error, result);
         });
     }
 }

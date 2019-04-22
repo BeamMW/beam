@@ -42,9 +42,10 @@ namespace beam
     {
         sendRequest("dumpprivkey", "\"" + btcAddress + "\"", [callback] (const std::string& response){
             json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "": reply["error"].get<std::string>();
+            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
+            std::string result = reply["result"].empty() ? "" : reply["result"].get<std::string>();
 
-            callback(error, reply["result"].get<std::string>());
+            callback(error, result);
         });
     }
 
@@ -52,10 +53,19 @@ namespace beam
     {
         sendRequest("fundrawtransaction", "\"" + rawTx + "\"", [callback](const std::string& response) {
             json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"].get<std::string>();
+            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
             const auto& result = reply["result"];
 
-            callback(error, result["hex"].get<std::string>(), result["changepos"].get<int>());
+            std::string hex;
+            int changepos = -1;
+
+            if (!result.empty())
+            {
+                hex = result["hex"].get<std::string>();
+                changepos = result["changepos"].get<int>();
+            }
+
+            callback(error, hex, changepos);
         });
     }
 
@@ -63,10 +73,17 @@ namespace beam
     {
         sendRequest("signrawtransaction", "\"" + rawTx + "\"", [callback](const std::string& response) {
             json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"].get<std::string>();
+            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
             const auto& result = reply["result"];
+            std::string hex;
+            bool isComplete = false;
+            if (!result.empty())
+            {
+                hex = result["hex"].get<std::string>();
+                isComplete = result["complete"].get<bool>();
+            }
 
-            callback(error, result["hex"].get<std::string>(), result["complete"].get<bool>());
+            callback(error, hex, isComplete);
         });
     }
 
@@ -74,9 +91,10 @@ namespace beam
     {
         sendRequest("sendrawtransaction", "\"" + rawTx + "\"", [callback](const std::string& response) {
             json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"].get<std::string>();
+            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
+            std::string result = reply["result"].empty() ? "" : reply["result"].get<std::string>();
 
-            callback(error, reply["result"].get<std::string>());
+            callback(error, result);
         });
     }
 
@@ -84,9 +102,10 @@ namespace beam
     {
         sendRequest("getrawchangeaddress", "\"legacy\"", [callback](const std::string& response) {
             json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"].get<std::string>();
+            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
+            auto result = reply["result"].empty() ? "" : reply["result"].get<std::string>();
 
-            callback(error, reply["result"].get<std::string>());
+            callback(error, result);
         });
     }
 
@@ -107,9 +126,10 @@ namespace beam
         }
         sendRequest("createrawtransaction", args, [callback](const std::string& response) {
             json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"].get<std::string>();
+            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
+            auto result = reply["result"].empty() ? "" : reply["result"].get<std::string>();
 
-            callback(error, reply["result"].get<std::string>());
+            callback(error, result);
         });
     }
 
@@ -117,10 +137,20 @@ namespace beam
     {
         sendRequest("gettxout", "\"" + txid + "\"" + "," + std::to_string(outputIndex), [callback](const std::string& response) {
             json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"].get<std::string>();
+            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
             const auto& result = reply["result"];
+            double value = 0;
+            uint16_t confirmations = 0;
+            std::string scriptHex;
 
-            callback(error, result["scriptPubKey"]["hex"], result["value"].get<double>(), result["confirmations"]);
+            if (!result.empty())
+            {
+                scriptHex = result["scriptPubKey"]["hex"].get<std::string>();
+                value = result["value"].get<double>();
+                confirmations = result["confirmations"];
+            }
+
+            callback(error, scriptHex, value, confirmations);
         });
     }
 
@@ -128,9 +158,10 @@ namespace beam
     {
         sendRequest("getblockcount", "", [callback](const std::string& response) {
             json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"].get<std::string>();
+            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
+            uint64_t blockCount = reply["result"].empty() ? 0 : reply["result"].get<uint64_t>();
 
-            callback(error, reply["result"].get<uint64_t>());
+            callback(error, blockCount);
         });
     }
 
