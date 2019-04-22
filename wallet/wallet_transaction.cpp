@@ -984,7 +984,12 @@ namespace beam { namespace wallet
 
     bool TxBuilder::LoadKernel()
     {
-        return m_Tx.GetParameter(TxParameterID::Kernel, m_Kernel);
+        if (m_Tx.GetParameter(TxParameterID::Kernel, m_Kernel))
+        {
+            GetInitialTxParams();
+            return true;
+        }
+        return false;
     }
 
     Transaction::Ptr TxBuilder::CreateTransaction()

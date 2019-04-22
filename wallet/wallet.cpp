@@ -693,7 +693,8 @@ namespace beam
     void Wallet::OnTipUnchanged()
     {
         LOG_INFO() << "Tip has not been changed";
-        notifySyncProgress();
+
+        CheckSyncDone();
 
         ProcessStoredMessages();
     }

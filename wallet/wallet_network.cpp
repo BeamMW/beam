@@ -467,9 +467,17 @@ namespace beam {
 
         auto itBbs = m_BbsTimestamps.find(msg.m_Channel);
         if (m_BbsTimestamps.end() != itBbs)
+        {
+            if (itBbs->second > msg.m_TimePosted)
+            {
+                return; // ignore old messages
+            }
             itBbs->second = std::max(itBbs->second, msg.m_TimePosted);
+        }
         else
+        {
             m_BbsTimestamps[msg.m_Channel] = msg.m_TimePosted;
+        }
 
         if (!m_pTimerBbsTmSave)
         {

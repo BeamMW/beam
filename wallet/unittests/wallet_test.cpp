@@ -1903,6 +1903,7 @@ namespace
 
         string publicPath = "sender_public.db";
         {
+            // cold -> hot
             boost::filesystem::remove(publicPath);
             boost::filesystem::copy_file(SenderWalletDB, publicPath);
 
@@ -1910,29 +1911,26 @@ namespace
             TestWalletRig publicSender("public_sender", publicDB, f);
 
             WALLET_CHECK(publicSender.m_WalletDB->getTxHistory().size() == 1);
-
             WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
             mainReactor->run();
         }
 
         {
-            boost::filesystem::remove(publicPath);
-            boost::filesystem::copy_file(SenderWalletDB, publicPath);
+            // hot -> cold
+            boost::filesystem::remove(SenderWalletDB);
+            boost::filesystem::copy_file(publicPath, SenderWalletDB);
             auto privateDB = WalletDB::open(SenderWalletDB, DBPassword, io::Reactor::get_Current().shared_from_this());
             TestWalletRig privateSender("sender", privateDB, f, true);
-            mainReactor->run();
+            //mainReactor->run(); // no need in run()
         }
 
-
+        // cold -> hot
+        boost::filesystem::remove(publicPath);
         boost::filesystem::copy_file(SenderWalletDB, publicPath);
 
         auto publicDB = WalletDB::open(publicPath, DBPassword, io::Reactor::get_Current().shared_from_this());
         TestWalletRig publicSender("public_sender", publicDB, f);
-
-        WALLET_CHECK(publicSender.m_WalletDB->getTxHistory().size() == 1);
-
-        WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
 
         mainReactor->run();
 
@@ -1975,28 +1973,28 @@ int main()
     Rules::get().FakePoW = true;
     Rules::get().UpdateChecksum();
 
-    //TestP2PWalletNegotiationST();
-    ////TestP2PWalletReverseNegotiationST();
+    TestP2PWalletNegotiationST();
+    //TestP2PWalletReverseNegotiationST();
 
-    //{
-    //    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-    //    io::Reactor::Scope scope(*mainReactor);
-    //    //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
-    //    TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
-    //}
+    {
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+        //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
+        TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
+    }
 
-    //TestSplitTransaction();
+    TestSplitTransaction();
 
-    ////TestSwapTransaction();
+    //TestSwapTransaction();
 
-    //TestTxToHimself();
+    TestTxToHimself();
 
-    ////TestExpiredTransaction();
+    //TestExpiredTransaction();
 
-    //TestTransactionUpdate();
-    ////TestTxPerformance();
+    TestTransactionUpdate();
+    //TestTxPerformance();
 
-    //TestColdWallet();
+    TestColdWallet();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
