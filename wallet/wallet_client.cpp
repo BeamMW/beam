@@ -287,7 +287,18 @@ void WalletClient::start()
                         m_timer = io::Timer::create(io::Reactor::get_Current());
                     }
 
-                    m_timer->start(m_Cfg.m_ReconnectTimeout_ms, false, [this]() {
+                    if (m_attemptToConnect++ >= MAX_ATTEMPT_TO_CONNECT)
+                    {
+                        proto::NodeConnection::DisconnectReason reason;
+
+                        reason.m_Type = proto::NodeConnection::DisconnectReason::Io;
+                        reason.m_IoError = EC_HOST_RESOLVED_ERROR;
+                        m_walletClient.nodeConnectionFailed(reason);
+
+                        return;
+                    }
+
+                    m_timer->start(RECONNECTION_TIMEOUT, false, [this]() {
                         Address nodeAddr;
                         if (nodeAddr.resolve(m_nodeAddrStr.c_str()))
                         {
@@ -307,6 +318,10 @@ void WalletClient::start()
             private:
 
                 io::Timer::Ptr m_timer;
+                uint8_t m_attemptToConnect = 0;
+
+                const uint8_t MAX_ATTEMPT_TO_CONNECT = 5;
+                const uint16_t RECONNECTION_TIMEOUT = 1000;
             };
 
             auto nodeNetwork = make_shared<MyNodeNetwork>(*wallet, *this);
@@ -319,18 +334,8 @@ void WalletClient::start()
 
             wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
-            Address nodeAddr;
-            if (nodeAddr.resolve(m_nodeAddrStr.c_str()))
-            {
-                nodeNetwork->m_Cfg.m_vNodes.push_back(nodeAddr);
-                nodeNetwork->Connect();
-            }
-            else
-            {
-                LOG_ERROR() << "Unable to resolve node address: " << m_nodeAddrStr;
-                nodeNetwork->m_nodeAddrStr = m_nodeAddrStr;
-                nodeNetwork->tryToConnect();
-            }
+            nodeNetwork->m_nodeAddrStr = m_nodeAddrStr;
+            nodeNetwork->tryToConnect();
 
             m_reactor->run();
         }

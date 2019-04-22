@@ -140,7 +140,7 @@ public class WalletListener
 		System.out.println(">>>>>>>>>>>>>> async onNodeConnectedStatusChanged(" + isNodeConnected + ") in Java");
 	}
 
-	static void onNodeConnectionFailed()
+	static void onNodeConnectionFailed(int error)
 	{
 		System.out.println(">>>>>>>>>>>>>> async onNodeConnectionFailed() in Java");
 	}

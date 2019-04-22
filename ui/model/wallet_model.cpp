@@ -67,6 +67,8 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
     }
     case wallet::ErrorType::TimeOutOfSync:
         return tr("System time not synchronized.");
+    case wallet::ErrorType::HostResolvedError:
+        return tr("Incorrect node name or no Internet connection.");
     default:
         return tr("Unexpected error!");
     }

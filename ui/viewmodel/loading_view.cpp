@@ -189,6 +189,11 @@ void LoadingViewModel::onGetWalletError(beam::wallet::ErrorType error)
                 emit walletError(tr("Connection error"), m_walletModel.GetErrorString(error));
                 return;
             }
+            case beam::wallet::ErrorType::HostResolvedError:
+            {
+                emit walletError(tr("Connection error"), m_walletModel.GetErrorString(error));
+                return;
+            }
             default:
                 assert(false && "Unsupported error code!");
         }

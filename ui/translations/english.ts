@@ -652,7 +652,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../model/wallet_model.cpp" line="127"/>
+        <location filename="../model/wallet_model.cpp" line="132"/>
         <source>Failed to start wallet. Please check your wallet data location</source>
         <translation type="unfinished"></translation>
     </message>

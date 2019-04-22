@@ -266,13 +266,13 @@ void WalletModel::onNodeConnectionChanged(bool isNodeConnected)
 
 void WalletModel::onWalletError(beam::wallet::ErrorType error)
 {
-    LOG_DEBUG() << "onNodeConnectionFailed(): error = " << static_cast<int>(error);
+    LOG_DEBUG() << "onNodeConnectionFailed(): error = " << static_cast<uint8_t>(error);
 
     JNIEnv* env = Android_JNI_getEnv();
 
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNodeConnectionFailed", "()V");
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNodeConnectionFailed", "(I)V");
 
-    env->CallStaticVoidMethod(WalletListenerClass, callback);
+    env->CallStaticVoidMethod(WalletListenerClass, callback, static_cast<uint8_t>(error));
 }
 
 void WalletModel::FailedToStartWallet()
