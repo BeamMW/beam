@@ -735,7 +735,6 @@ namespace beam {
     
     ColdWalletMessageEndpoint::ColdWalletMessageEndpoint(IWallet& wallet, IWalletDB::Ptr walletDB)
         : BaseMessageEndpoint(wallet, walletDB)
-        , m_Wallet(wallet)
         , m_WalletDB(walletDB)
     {
         Subscribe();

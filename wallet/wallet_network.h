@@ -225,7 +225,6 @@ namespace beam
         //void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) override;
         void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override;
     private:
-        IWallet& m_Wallet;
         IWalletDB::Ptr m_WalletDB;
     };
 }
