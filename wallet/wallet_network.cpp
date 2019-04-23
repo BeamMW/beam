@@ -47,10 +47,12 @@ namespace beam {
 				AddOwnAddress(address);
 
         m_AddressExpirationTimer->start(AddressUpdateInterval_ms, false, [this] { OnAddressTimer(); });
+        m_WalletDB->subscribe(this);
 	}
 
 	WalletNetworkViaBbs::~WalletNetworkViaBbs()
 	{
+        m_WalletDB->unsubscribe(this);
 		m_Miner.Stop();
 
 		while (!m_PendingBbsMsgs.empty())
@@ -139,6 +141,10 @@ namespace beam {
 
 	void WalletNetworkViaBbs::AddOwnAddress(uint64_t ownID, BbsChannel nChannel, Timestamp expirationTime, const WalletID& walletID)
 	{
+        if (!ownID)
+        {
+            return;
+        }
 		Addr::Wid key;
 		key.m_OwnID = ownID;
 
@@ -180,6 +186,10 @@ namespace beam {
 
 	void WalletNetworkViaBbs::DeleteOwnAddress(uint64_t ownID)
 	{
+        if (!ownID)
+        {
+            return;
+        }
 		Addr::Wid key;
 		key.m_OwnID = ownID;
 
@@ -365,6 +375,26 @@ namespace beam {
             DeleteAddr(*address);
         }
         m_AddressExpirationTimer->start(AddressUpdateInterval_ms, false, [this] { OnAddressTimer(); });
+    }
+
+    void WalletNetworkViaBbs::onAddressChanged(ChangeAction action, const vector<WalletAddress>& items)
+    {
+        switch (action)
+        {
+        case ChangeAction::Added:
+        case ChangeAction::Updated:
+            for (const auto& address : items)
+            {
+                AddOwnAddress(address);
+            }
+            break;
+        case ChangeAction::Removed:
+            for (const auto& address : items)
+            {
+                DeleteOwnAddress(address.m_OwnID);
+            }
+            break;
+        }
     }
 
 	void WalletNetworkViaBbs::Miner::Stop()

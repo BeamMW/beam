@@ -370,7 +370,7 @@ WalletViewModel::WalletViewModel()
     connect(&_model, SIGNAL(changeCurrentWalletIDs(beam::WalletID, beam::WalletID)),
         SLOT(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)));
 
-    connect(&_model, SIGNAL(adrresses(bool, const std::vector<beam::WalletAddress>&)),
+    connect(&_model, SIGNAL(addressesChanged(bool, const std::vector<beam::WalletAddress>&)),
         SLOT(onAddresses(bool, const std::vector<beam::WalletAddress>&)));
 
     connect(&_model, SIGNAL(generatedNewAddress(const beam::WalletAddress&)),

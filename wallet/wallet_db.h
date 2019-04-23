@@ -115,10 +115,10 @@ namespace beam
 
     struct IWalletDbObserver
     {
-        virtual void onCoinsChanged() = 0;
-        virtual void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) = 0;
-        virtual void onSystemStateChanged() = 0;
-        virtual void onAddressChanged() = 0;
+        virtual void onCoinsChanged() {};
+        virtual void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) {};
+        virtual void onSystemStateChanged() {};
+        virtual void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) {};
     };
 
     struct IWalletDB
@@ -267,7 +267,7 @@ namespace beam
         void notifyCoinsChanged();
         void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
         void notifySystemStateChanged();
-        void notifyAddressChanged();
+        void notifyAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items);
         void CreateStorageTable();
         static uint64_t get_RandomID();
         bool updateRaw(const Coin&);

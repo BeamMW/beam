@@ -38,7 +38,7 @@ signals:
     void syncProgressUpdated(int done, int total);
     void changeCalculated(beam::Amount change);
     void allUtxoChanged(const std::vector<beam::Coin>& utxos);
-    void adrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
+    void addressesChanged(bool own, const std::vector<beam::WalletAddress>& addresses);
     void generatedNewAddress(const beam::WalletAddress& walletAddr);
     void changeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
     void nodeConnectionChanged(bool isNodeConnected);

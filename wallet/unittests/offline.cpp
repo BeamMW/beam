@@ -32,7 +32,7 @@ struct WalletDBObserver : IWalletDbObserver {
     void onSystemStateChanged()  {
         LOG_INFO() << _who << " " << __FUNCTION__;
     }
-    void onAddressChanged()  {
+    void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)  {
         LOG_INFO() << _who << " " << __FUNCTION__;
     }
 

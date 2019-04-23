@@ -30,6 +30,7 @@ namespace beam
     namespace bi = boost::intrusive;
     class WalletNetworkViaBbs
         : public IWalletNetwork
+        , private IWalletDbObserver
     {
         IWallet& m_Wallet;
         proto::FlyClient::INetwork& m_NodeNetwork;
@@ -140,15 +141,16 @@ namespace beam
         virtual ~WalletNetworkViaBbs();
 
 		bool m_MineOutgoing = true; // can be turned-off for testing
-
+    private:
         void AddOwnAddress(const WalletAddress& address);
         void DeleteOwnAddress(uint64_t ownID);
-    private:
+
         void AddOwnAddress(uint64_t ownID, BbsChannel, Timestamp expirationTime, const WalletID& walletID);
         // IWalletNetwork
         virtual void Send(const WalletID& peerID, wallet::SetTxParameter&& msg) override;
 
         void OnAddressTimer();
+        void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
     private:
         io::Timer::Ptr m_AddressExpirationTimer;
     };

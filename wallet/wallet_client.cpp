@@ -384,8 +384,9 @@ void WalletClient::onSystemStateChanged()
     onStatus(getStatus());
 }
 
-void WalletClient::onAddressChanged()
+void WalletClient::onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)
 {
+    // TODO: need to change this behavior
     onAddresses(true, m_walletDB->getAddresses(true));
     onAddresses(false, m_walletDB->getAddresses(false));
 }
@@ -498,15 +499,6 @@ void WalletClient::getCoinsByTx(const beam::TxID& id)
 void WalletClient::saveAddress(const WalletAddress& address, bool bOwn)
 {
     m_walletDB->saveAddress(address);
-
-    if (bOwn)
-    {
-        auto s = m_walletNetwork.lock();
-        if (s)
-        {
-            static_pointer_cast<WalletNetworkViaBbs>(s)->AddOwnAddress(address);
-        }
-    }
 }
 
 void WalletClient::changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID)
@@ -538,14 +530,6 @@ void WalletClient::deleteAddress(const beam::WalletID& id)
         auto pVal = m_walletDB->getAddress(id);
         if (pVal)
         {
-            if (pVal->m_OwnID)
-            {
-                auto s = m_walletNetwork.lock();
-                if (s)
-                {
-                    static_pointer_cast<WalletNetworkViaBbs>(s)->DeleteOwnAddress(pVal->m_OwnID);
-                }
-            }
             m_walletDB->deleteAddress(id);
         }
     }
@@ -584,12 +568,6 @@ void WalletClient::saveAddressChanges(const beam::WalletID& id, const std::strin
                 }
 
                 m_walletDB->saveAddress(*addr);
-
-                auto s = m_walletNetwork.lock();
-                if (s)
-                {
-                    static_pointer_cast<WalletNetworkViaBbs>(s)->AddOwnAddress(*addr);
-                }
             }
             else
             {

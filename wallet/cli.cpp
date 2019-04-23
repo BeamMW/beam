@@ -1036,7 +1036,6 @@ int main_impl(int argc, char* argv[])
                     if (isTxInitiator)
                     {
                         WalletAddress senderAddress = newAddress(walletDB, "");
-                        wnet.AddOwnAddress(senderAddress);
                         CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
                         wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, true);
                     }

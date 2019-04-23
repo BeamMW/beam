@@ -77,7 +77,7 @@ private:
     void onCoinsChanged() override;
     void onTransactionChanged(beam::ChangeAction action, std::vector<beam::TxDescription>&& items) override;
     void onSystemStateChanged() override;
-    void onAddressChanged() override;
+    void onAddressChanged(beam::ChangeAction action, const std::vector<beam::WalletAddress>& items) override;
     void onSyncProgress(int done, int total) override;
 
     void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee) override;
