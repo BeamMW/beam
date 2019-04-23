@@ -237,7 +237,13 @@ namespace beam::wallet
         if (!m_tx.GetParameter(TxParameterID::TransactionRegistered, isRegistered, subTxID))
         {
             auto callback = [this, subTxID](const std::string& error, const std::string& txID) {
-                assert(error.empty());
+                if (!error.empty())
+                {
+                    LOG_ERROR() << m_tx.GetTxID() << " Bridge internal error: " << error;
+                    m_tx.SetParameter(TxParameterID::FailureReason, TxFailureReason::SwapSecondSideBridgeError, false, subTxID);
+                    m_tx.UpdateAsync();
+                    return;
+                }
 
                 bool isRegistered = !txID.empty();
                 m_tx.SetParameter(TxParameterID::TransactionRegistered, isRegistered, false, subTxID);
