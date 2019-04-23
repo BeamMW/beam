@@ -31,10 +31,15 @@ using namespace std;
 
 SettingsViewModel::SettingsViewModel()
     : m_settings{AppModel::getInstance()->getSettings()}
+    , m_isValidNodeAddress{true}
+    , m_isNeedToCheckAddress(false)
+    , m_isNeedToApplyChanges(false)
 {
     undoChanges();
     connect(&AppModel::getInstance()->getNode(), SIGNAL(startedNode()), SLOT(onNodeStarted()));
     connect(&AppModel::getInstance()->getNode(), SIGNAL(stoppedNode()), SLOT(onNodeStopped()));
+
+    m_timerId = startTimer(CHECK_INTERVAL);
 }
 
 void SettingsViewModel::onNodeStarted()
@@ -52,6 +57,11 @@ bool SettingsViewModel::isLocalNodeRunning() const
     return AppModel::getInstance()->getNode().isNodeRunning();
 }
 
+bool SettingsViewModel::isValidNodeAddress() const
+{
+    return m_isValidNodeAddress;
+}
+
 QString SettingsViewModel::getNodeAddress() const
 {
     return m_nodeAddress;
@@ -61,6 +71,11 @@ void SettingsViewModel::setNodeAddress(const QString& value)
 {
     if (value != m_nodeAddress)
     {
+        if (!m_isNeedToCheckAddress)
+        {
+            m_isNeedToCheckAddress = true;
+            m_timerId = startTimer(CHECK_INTERVAL);
+        }
         m_nodeAddress = value;
         emit nodeAddressChanged();
         emit propertiesChanged();
@@ -178,6 +193,12 @@ bool SettingsViewModel::isChanged() const
 
 void SettingsViewModel::applyChanges()
 {
+    if (m_isNeedToCheckAddress)
+    {
+        m_isNeedToApplyChanges;
+        return;
+    }
+
     m_settings.setNodeAddress(m_nodeAddress);
     m_settings.setRunLocalNode(m_localNodeRun);
     m_settings.setLocalNodePort(m_localNodePort);
@@ -229,4 +250,30 @@ bool SettingsViewModel::checkWalletPassword(const QString& oldPass) const
 void SettingsViewModel::changeWalletPassword(const QString& pass)
 {
     AppModel::getInstance()->changeWalletPassword(pass.toStdString());
+}
+
+void SettingsViewModel::timerEvent(QTimerEvent *event)
+{
+    if (m_isNeedToCheckAddress && !m_localNodeRun)
+    {
+        m_isNeedToCheckAddress = false;
+
+        io::Address nodeAddr;
+
+        if (nodeAddr.resolve(m_nodeAddress.toStdString().c_str()) != m_isValidNodeAddress)
+        {
+            m_isValidNodeAddress = !m_isValidNodeAddress;
+            emit validNodeAddressChanged();
+        }
+
+        killTimer(m_timerId);
+    }
+
+    if (m_isNeedToApplyChanges)
+    {
+        if (m_isValidNodeAddress)
+            applyChanges();
+
+        m_isNeedToApplyChanges = false;
+    }
 }

@@ -33,8 +33,9 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(QStringList localNodePeers READ getLocalNodePeers NOTIFY localNodePeersChanged)
     Q_PROPERTY(int lockTimeout READ getLockTimeout WRITE setLockTimeout NOTIFY lockTimeoutChanged)
     Q_PROPERTY(QString walletLocation READ getWalletLocation CONSTANT)
-    Q_PROPERTY(bool isLocalNodeRunning READ isLocalNodeRunning  NOTIFY localNodeRunningChanged)
+    Q_PROPERTY(bool isLocalNodeRunning READ isLocalNodeRunning NOTIFY localNodeRunningChanged)
     Q_PROPERTY(bool isPasswordReqiredToSpendMoney READ isPasswordReqiredToSpendMoney WRITE setPasswordReqiredToSpendMoney NOTIFY passwordReqiredToSpendMoneyChanged)
+    Q_PROPERTY(bool isValidNodeAddress READ isValidNodeAddress NOTIFY validNodeAddressChanged)
 public:
 
     SettingsViewModel();
@@ -55,6 +56,7 @@ public:
     void setLocalNodePeers(const QStringList& localNodePeers);
     QString getWalletLocation() const;
     bool isLocalNodeRunning() const;
+    bool isValidNodeAddress() const;
 
     bool isChanged() const;
 
@@ -83,6 +85,11 @@ signals:
     void lockTimeoutChanged();
     void localNodeRunningChanged();
     void passwordReqiredToSpendMoneyChanged();
+    void validNodeAddressChanged();
+
+protected:
+    void timerEvent(QTimerEvent *event) override;
+
 private:
     WalletSettings& m_settings;
 
@@ -92,4 +99,10 @@ private:
     QStringList m_localNodePeers;
     int m_lockTimeout;
     bool m_isPasswordReqiredToSpendMoney;
+    bool m_isValidNodeAddress;
+    bool m_isNeedToCheckAddress;
+    bool m_isNeedToApplyChanges;
+    int m_timerId;
+
+    const int CHECK_INTERVAL = 1000;
 };

@@ -116,7 +116,7 @@ Rectangle {
                                     id: nodeAddressError
                                     color: Style.validator_error
                                     font.pixelSize: 10
-                                    visible: !nodeAddress.acceptableInput
+                                    visible: (!nodeAddress.acceptableInput || !localNodeRun.checked && !viewModel.isValidNodeAddress)
                                     text: "Invalid address"
                                 }
                             }
@@ -568,10 +568,10 @@ Rectangle {
             PrimaryButton {        
                 text: qsTr("apply changes")
                 enabled: {
-                    viewModel.isChanged 
+                    viewModel.isChanged
                     && nodeAddress.acceptableInput
                     && localNodePort.acceptableInput
-                    && (localNodeRun.checked ? (viewModel.localNodePeers.length > 0) : true)
+                    && (localNodeRun.checked ? (viewModel.localNodePeers.length > 0) : viewModel.isValidNodeAddress)
                 }
                 onClicked: viewModel.applyChanges()
             }
