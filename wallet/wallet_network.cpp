@@ -394,6 +394,9 @@ namespace beam {
                 DeleteOwnAddress(address.m_OwnID);
             }
             break;
+        case ChangeAction::Reset:
+            assert(false && "invalid address change action");
+            break;
         }
     }
 
