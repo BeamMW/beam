@@ -122,7 +122,6 @@ namespace beam
 
 		bool AllowPublicUtxos = false;
 		bool FakePoW = false;
-		bool RelativeLocks = false;
 
 		ECC::Hash::Value Prehistoric; // Prev hash of the 1st block
 		ECC::Hash::Value TreasuryChecksum;

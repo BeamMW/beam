@@ -393,9 +393,6 @@ namespace beam
 
 		if (m_pRelativeLock)
 		{
-			if (!Rules::get().RelativeLocks)
-				return false;
-
 			hp
 				<< m_pRelativeLock->m_ID
 				<< m_pRelativeLock->m_LockHeight;

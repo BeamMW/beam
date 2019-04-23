@@ -2258,7 +2258,6 @@ int main()
 	beam::Rules::get().Emission.Drop0 = 5;
 	beam::Rules::get().Emission.Drop1 = 8;
 	beam::Rules::get().CA.Enabled = true;
-	beam::Rules::get().RelativeLocks = true;
 	beam::Rules::get().UpdateChecksum();
 
 	beam::TestHalving();
