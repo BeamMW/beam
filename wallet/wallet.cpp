@@ -354,13 +354,13 @@ namespace beam
             get_ParentObj().CheckSyncDone();
     }
 
-    void Wallet::confirm_kernel(const TxID& txID, const TxKernel& kernel)
+    void Wallet::confirm_kernel(const TxID& txID, const Merkle::Hash& kernelID)
     {
         if (auto it = m_Transactions.find(txID); it != m_Transactions.end())
         {
             MyRequestKernel::Ptr pVal(new MyRequestKernel);
             pVal->m_TxID = txID;
-            kernel.get_ID(pVal->m_Msg.m_ID);
+            pVal->m_Msg.m_ID = kernelID;
 
             if (PostReqUnique(*pVal))
                 LOG_INFO() << txID << " Get proof for kernel: " << pVal->m_Msg.m_ID;

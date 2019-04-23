@@ -95,7 +95,7 @@ namespace beam
         void on_tx_completed(const TxID& txID) override;
 
         void confirm_outputs(const std::vector<Coin>&) override;
-        void confirm_kernel(const TxID&, const TxKernel&) override;
+        void confirm_kernel(const TxID&, const Merkle::Hash&) override;
         bool get_tip(Block::SystemState::Full& state) const override;
         void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override;
         void register_tx(const TxID& txId, Transaction::Ptr) override;

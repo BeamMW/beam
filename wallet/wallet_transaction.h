@@ -112,7 +112,7 @@ namespace beam { namespace wallet
     protected:
         bool CheckExpired();
         bool CheckExternalFailures();
-        void ConfirmKernel(const TxKernel& kernel);
+        void ConfirmKernel(const Merkle::Hash& kernelID);
         void UpdateOnNextTip();
         void CompleteTx();
         void RollbackTx();
@@ -155,6 +155,7 @@ namespace beam { namespace wallet
         SimpleTransaction(INegotiatorGateway& gateway
                         , beam::IWalletDB::Ptr walletDB
                         , const TxID& txID);
+        virtual ~SimpleTransaction();
     private:
         TxType GetType() const override;
         void UpdateImpl() override;
@@ -182,6 +183,7 @@ namespace beam { namespace wallet
         void CreateOutputs();
         bool FinalizeOutputs();
         bool LoadKernel();
+        bool HasKernelID() const;
         Output::Ptr CreateOutput(Amount amount, bool bChange);
         void CreateKernel();
         bool GenerateBlindingExcess();
@@ -208,6 +210,7 @@ namespace beam { namespace wallet
         const ECC::Scalar::Native& GetOffset() const;
         const ECC::Scalar::Native& GetPartialSignature() const;
         const TxKernel& GetKernel() const;
+        const Merkle::Hash& GetKernelID() const;
         void StoreKernelID();
         std::string GetKernelIDString() const;
         bool UpdateMaxHeight();
@@ -245,5 +248,7 @@ namespace beam { namespace wallet
         ECC::Scalar::Native m_PeerSignature;
         ECC::Hash::Value m_Message;
         ECC::Signature::MultiSig m_MultiSig;
+
+        mutable boost::optional<Merkle::Hash> m_KernelID;
     };
 }}

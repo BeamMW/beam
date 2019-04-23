@@ -220,10 +220,10 @@ namespace beam { namespace wallet
         return false;
     }
 
-    void BaseTransaction::ConfirmKernel(const TxKernel& kernel)
+    void BaseTransaction::ConfirmKernel(const Merkle::Hash& kernelID)
     {
         UpdateTxDescription(TxStatus::Registering);
-        m_Gateway.confirm_kernel(GetTxID(), kernel);
+        m_Gateway.confirm_kernel(GetTxID(), kernelID);
     }
 
     void BaseTransaction::UpdateOnNextTip()
@@ -310,6 +310,11 @@ namespace beam { namespace wallet
 
     }
 
+    SimpleTransaction::~SimpleTransaction()
+    {
+
+    }
+
     TxType SimpleTransaction::GetType() const
     {
         return TxType::Simple;
@@ -331,8 +336,7 @@ namespace beam { namespace wallet
 
         bool hasPeersInputsAndOutputs = builder.GetPeerInputsAndOutputs();
 
-        Merkle::Hash kernelID;
-        if (!builder.LoadKernel() || !GetParameter(TxParameterID::KernelID, kernelID))
+        if (!builder.LoadKernel() && !builder.HasKernelID())
         {
             if (!m_WalletDB->get_MasterKdf())
             {
@@ -450,7 +454,7 @@ namespace beam { namespace wallet
                         SetParameter(TxParameterID::TransactionRegistered, true);
 
                         SetState(State::KernelConfirmation);
-                        ConfirmKernel(builder.GetKernel());
+                        ConfirmKernel(builder.GetKernelID());
                     }
                     else
                     {
@@ -570,7 +574,7 @@ namespace beam { namespace wallet
                 }
             }
             SetState(State::KernelConfirmation);
-            ConfirmKernel(builder.GetKernel());
+            ConfirmKernel(builder.GetKernelID());
             return;
         }
 
@@ -992,6 +996,12 @@ namespace beam { namespace wallet
         return false;
     }
 
+    bool TxBuilder::HasKernelID() const
+    {
+        Merkle::Hash kernelID;
+        return m_Tx.GetParameter(TxParameterID::KernelID, kernelID);
+    }
+
     Transaction::Ptr TxBuilder::CreateTransaction()
     {
         assert(m_Kernel);
@@ -1079,6 +1089,24 @@ namespace beam { namespace wallet
     {
         assert(m_Kernel);
         return *m_Kernel;
+    }
+
+    const Merkle::Hash& TxBuilder::GetKernelID() const
+    {
+        if (!m_KernelID)
+        {
+            Merkle::Hash kernelID;
+            if (m_Tx.GetParameter(TxParameterID::KernelID, kernelID))
+            {
+                m_KernelID = kernelID;
+            }
+            else
+            {
+                assert(false && "KernelID is not stored");
+            }
+            
+        }
+        return *m_KernelID;
     }
 
     void TxBuilder::StoreKernelID()
