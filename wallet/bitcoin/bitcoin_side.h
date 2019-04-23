@@ -50,7 +50,7 @@ namespace beam::wallet
         void OnGetRawChangeAddress(const std::string& error, const std::string& address);
         void OnFundRawTransaction(const std::string& error, const std::string& hexTx, int changePos);
         void OnSignLockTransaction(const std::string& error, const std::string& hexTx, bool complete);
-        void OnCreateWithdrawTransaction(const std::string& error, const std::string& hexTx);
+        void OnCreateWithdrawTransaction(SubTxID subTxID, const std::string& error, const std::string& hexTx);
         void OnDumpPrivateKey(SubTxID subTxID, const std::string& error, const std::string& privateKey);
         void OnGetSwapLockTxConfirmations(const std::string& error, const std::string& hexScript, double amount, uint16_t confirmations);
         void OnGetBlockCount(const std::string& error, uint64_t blockCount);

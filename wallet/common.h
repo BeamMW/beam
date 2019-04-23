@@ -93,23 +93,24 @@ namespace beam
     };
 
 #define BEAM_TX_FAILURE_REASON_MAP(MACRO) \
-    MACRO(Unknown,                0, "Unknown reason") \
-    MACRO(Cancelled,              1, "Transaction was cancelled") \
-    MACRO(InvalidPeerSignature,   2, "Peer's signature in not valid ") \
-    MACRO(FailedToRegister,       3, "Failed to register transaction") \
-    MACRO(InvalidTransaction,     4, "Transaction is not valid") \
-    MACRO(InvalidKernelProof,     5, "Invalid kernel proof provided") \
-    MACRO(FailedToSendParameters, 6, "Failed to send tx parameters") \
-    MACRO(NoInputs,               7, "No inputs") \
-    MACRO(ExpiredAddressProvided, 8, "Address is expired") \
-    MACRO(FailedToGetParameter,   9, "Failed to get parameter") \
-    MACRO(TransactionExpired,     10, "Transaction has expired") \
-    MACRO(NoPaymentProof,         11, "Payment not signed by the receiver") \
-    MACRO(MaxHeightIsUnacceptable,12, "Kernel's max height is unacceptable") \
-    MACRO(InvalidState           ,13, "Transaction has invalid state") \
-    MACRO(SubTxFailed            ,14, "Subtransaction has failed") \
-    MACRO(SwapInvalidAmount      ,15, "Contract's amount is not valid") \
-    MACRO(SwapInvalidContract    ,16, "Side chain has invalid contract") \
+    MACRO(Unknown,                      0, "Unknown reason") \
+    MACRO(Cancelled,                    1, "Transaction was cancelled") \
+    MACRO(InvalidPeerSignature,         2, "Peer's signature in not valid ") \
+    MACRO(FailedToRegister,             3, "Failed to register transaction") \
+    MACRO(InvalidTransaction,           4, "Transaction is not valid") \
+    MACRO(InvalidKernelProof,           5, "Invalid kernel proof provided") \
+    MACRO(FailedToSendParameters,       6, "Failed to send tx parameters") \
+    MACRO(NoInputs,                     7, "No inputs") \
+    MACRO(ExpiredAddressProvided,       8, "Address is expired") \
+    MACRO(FailedToGetParameter,         9, "Failed to get parameter") \
+    MACRO(TransactionExpired,           10, "Transaction has expired") \
+    MACRO(NoPaymentProof,               11, "Payment not signed by the receiver") \
+    MACRO(MaxHeightIsUnacceptable,      12, "Kernel's max height is unacceptable") \
+    MACRO(InvalidState,                 13, "Transaction has invalid state") \
+    MACRO(SubTxFailed,                  14, "Subtransaction has failed") \
+    MACRO(SwapInvalidAmount,            15, "Contract's amount is not valid") \
+    MACRO(SwapInvalidContract,          16, "Side chain has invalid contract") \
+    MACRO(SwapSecondSideBridgeError,    17, "Side chain bridge has internal error") \
 
     enum TxFailureReason : int32_t
     {
