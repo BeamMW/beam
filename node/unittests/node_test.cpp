@@ -1934,6 +1934,7 @@ namespace beam
 
 		ECC::SetRandom(node2);
 		node2.Initialize();
+		verify_test(node2.get_AcessiblePeerCount() == 1);
 
 		pReactor->run();
 
