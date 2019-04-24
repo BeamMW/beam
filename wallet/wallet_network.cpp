@@ -156,12 +156,6 @@ namespace beam {
         if (pAddr && IsSingleChannelUser(pAddr->m_Channel))
         {
             OnChannelAdded(pAddr->m_Channel.m_Value);
-            //Timestamp ts = 0;
-            //auto it = m_BbsTimestamps.find(pAddr->m_Channel.m_Value);
-            //if (m_BbsTimestamps.end() != it)
-            //	ts = it->second;
-
-            //m_NodeEndpoint->BbsSubscribe(pAddr->m_Channel.m_Value, ts, &m_BbsSentEvt);
         }
 
         LOG_INFO() << "WalletID " << to_string(walletID) << " subscribes to BBS channel " << pAddr->m_Channel.m_Value;
@@ -183,7 +177,6 @@ namespace beam {
         {
             OnChannelDeleted(v.m_Channel.m_Value);
         }
-        //	m_NodeEndpoint->BbsSubscribe(v.m_Channel.m_Value, 0, NULL);
 
         m_Addresses.erase(WidSet::s_iterator_to(v.m_Wid));
         m_Channels.erase(ChannelSet::s_iterator_to(v.m_Channel));
@@ -219,42 +212,10 @@ namespace beam {
         ECC::Scalar::Native nonce;
         m_WalletDB->get_MasterKdf()->DeriveKey(nonce, hvRandom.V);
 
-       // Miner::Task::Ptr pTask = std::make_shared<Miner::Task>();
-
         ByteBuffer encryptedMessage;
         if (proto::Bbs::Encrypt(encryptedMessage, peerID.m_Pk, nonce, sb.first, static_cast<uint32_t>(sb.second)))
         {
             SendEncryptedMessage(peerID, encryptedMessage);
-            //pTask->m_Done = false;
-            //pTask->m_Msg.m_Channel = channel_from_wallet_id(peerID);
-
-            //if (m_MineOutgoing)
-            //{
-            //    proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
-
-            //    if (!m_Miner.m_pEvt)
-            //    {
-            //        m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
-            //        m_Miner.m_Shutdown = false;
-
-            //        uint32_t nThreads = std::thread::hardware_concurrency();
-            //        nThreads = (nThreads > 1) ? (nThreads - 1) : 1; // leave at least 1 vacant core for other things
-            //        m_Miner.m_vThreads.resize(nThreads);
-
-            //        for (uint32_t i = 0; i < nThreads; i++)
-            //            m_Miner.m_vThreads[i] = std::thread(&Miner::Thread, &m_Miner, i);
-            //    }
-
-            //    std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
-
-            //    m_Miner.m_Pending.push_back(std::move(pTask));
-            //    m_Miner.m_NewTask.notify_all();
-            //}
-            //else
-            //{
-            //    pTask->m_Msg.m_TimePosted = getTimestamp();
-            //    OnMined(std::move(pTask->m_Msg));
-            //}
         }
         else
         {
@@ -282,10 +243,9 @@ namespace beam {
     ///////////////////////////
 
     WalletNetworkViaBbs::WalletNetworkViaBbs(IWallet& w, shared_ptr<proto::FlyClient::INetwork> net, const IWalletDB::Ptr& pWalletDB)
-        : BaseMessageEndpoint(w, pWalletDB)//m_Wallet(w)
+        : BaseMessageEndpoint(w, pWalletDB)
         , m_NodeEndpoint(net)
         , m_WalletDB(pWalletDB)
-       // , m_AddressExpirationTimer(io::Timer::create(io::Reactor::get_Current()))
     {
         ByteBuffer buffer;
         m_WalletDB->getBlob(BBS_TIMESTAMPS, buffer);
@@ -298,12 +258,6 @@ namespace beam {
         }
 
         Subscribe();
-        //auto myAddresses = m_WalletDB->getAddresses(true);
-        //for (const auto& address : myAddresses)
-        //	if (!address.isExpired())
-        //		AddOwnAddress(address);
-
-  //      m_AddressExpirationTimer->start(AddressUpdateInterval_ms, false, [this] { OnAddressTimer(); });
     }
 
     WalletNetworkViaBbs::~WalletNetworkViaBbs()
@@ -314,8 +268,6 @@ namespace beam {
             DeleteReq(m_PendingBbsMsgs.front());
 
         Unsubscribe();
-        //while (!m_Addresses.empty())
-        //	DeleteAddr(m_Addresses.begin()->get_ParentObj());
 
         try {
             SaveBbsTimestamps();
@@ -349,99 +301,12 @@ namespace beam {
         m_WalletDB->setVarRaw(BBS_TIMESTAMPS, buffer.data(), static_cast<int>(buffer.size()));
     }
 
-    //void WalletNetworkViaBbs::DeleteAddr(const Addr& v)
-    //{
-    //	if (IsSingleChannelUser(v.m_Channel))
-    //		m_NodeEndpoint->BbsSubscribe(v.m_Channel.m_Value, 0, NULL);
-
-    //	m_Addresses.erase(WidSet::s_iterator_to(v.m_Wid));
-    //	m_Channels.erase(ChannelSet::s_iterator_to(v.m_Channel));
-    //	delete &v;
-    //}
-
-    //bool WalletNetworkViaBbs::IsSingleChannelUser(const Addr::Channel& c)
-    //{
-    //	ChannelSet::const_iterator it = ChannelSet::s_iterator_to(c);
-    //	ChannelSet::const_iterator it2 = it;
-    //	if (((++it2) != m_Channels.end()) && (it2->m_Value == c.m_Value))
-    //		return false;
-
-    //	if (it != m_Channels.begin())
-    //	{
-    //		it2 = it;
-    //		if ((--it2)->m_Value == it->m_Value)
-    //			return false;
-    //	}
-
-    //	return true;
-    //}
-
     void WalletNetworkViaBbs::DeleteReq(MyRequestBbsMsg& r)
     {
         m_PendingBbsMsgs.erase(BbsMsgList::s_iterator_to(r));
         r.m_pTrg = NULL;
         r.Release();
     }
-
-    //void WalletNetworkViaBbs::AddOwnAddress(const WalletAddress& address)
-    //{
- //       AddOwnAddress(address.m_OwnID, channel_from_wallet_id(address.m_walletID), address.getExpirationTime(), address.m_walletID);
-    //}
-
-    //void WalletNetworkViaBbs::AddOwnAddress(uint64_t ownID, BbsChannel nChannel, Timestamp expirationTime, const WalletID& walletID)
-    //{
-    //	Addr::Wid key;
-    //	key.m_OwnID = ownID;
-
- //       Addr* pAddr = nullptr;
- //       auto itW = m_Addresses.find(key);
-
- //       if (m_Addresses.end() == itW)
- //       {
- //           pAddr = new Addr;
- //           pAddr->m_ExpirationTime = expirationTime;
- //           pAddr->m_Wid.m_OwnID = ownID;
-
-    //		if (m_WalletDB->get_MasterKdf())
-    //		{
-    //			m_WalletDB->get_MasterKdf()->DeriveKey(pAddr->m_sk, Key::ID(ownID, Key::Type::Bbs));
-
-    //			proto::Sk2Pk(pAddr->m_Pk, pAddr->m_sk); // needed to "normalize" the sk, and calculate the channel
-    //		}
-
- //           pAddr->m_Channel.m_Value = nChannel;
-
- //           m_Addresses.insert(pAddr->m_Wid);
- //           m_Channels.insert(pAddr->m_Channel);
- //       }
- //       else
- //       {
- //           pAddr = &(itW->get_ParentObj());
- //           pAddr->m_ExpirationTime = expirationTime;
- //       }
-
-    //	if (pAddr && IsSingleChannelUser(pAddr->m_Channel))
-    //	{
-    //		Timestamp ts = 0;
-    //		auto it = m_BbsTimestamps.find(pAddr->m_Channel.m_Value);
-    //		if (m_BbsTimestamps.end() != it)
-    //			ts = it->second;
-
-    //		m_NodeEndpoint->BbsSubscribe(pAddr->m_Channel.m_Value, ts, &m_BbsSentEvt);
-    //	}
-
- //       LOG_INFO() << "WalletID " << to_string(walletID) << " subscribes to BBS channel " << pAddr->m_Channel.m_Value;
-    //}
-
-    //void WalletNetworkViaBbs::DeleteOwnAddress(uint64_t ownID)
-    //{
-    //	Addr::Wid key;
-    //	key.m_OwnID = ownID;
-
-    //	auto it = m_Addresses.find(key);
-    //	if (m_Addresses.end() != it)
-    //		DeleteAddr(it->get_ParentObj());
-    //}
 
     void WalletNetworkViaBbs::OnTimerBbsTmSave()
     {
@@ -486,52 +351,6 @@ namespace beam {
         }
 
         ProcessMessage(msg.m_Channel, msg.m_Message);
-
-        //Addr::Channel key;
-        //key.m_Value = msg.m_Channel;
-
-        //for (ChannelSet::iterator it = m_Channels.lower_bound(key); ; it++)
-        //{
-        //	if (m_Channels.end() == it)
-        //		break;
-        //	if (it->m_Value != msg.m_Channel)
-        //		break; // as well
-
-        //	ByteBuffer buf = msg.m_Message; // duplicate
-
-        //	if (!m_WalletDB->get_MasterKdf())
-        //	{
-        //		// public wallet
-        //		//m_WalletDB->saveWalletMessage();
-        //	}
-
-        //	uint8_t* pMsg = &buf.front();
-        //	uint32_t nSize = static_cast<uint32_t>(buf.size());
-
-        //	if (!proto::Bbs::Decrypt(pMsg, nSize, it->get_ParentObj().m_sk))
-        //		continue;
-
-        //	wallet::SetTxParameter msgWallet;
-        //	bool bValid = false;
-
-        //	try {
-        //		Deserializer der;
-        //		der.reset(pMsg, nSize);
-        //		der & msgWallet;
-        //		bValid = true;
-        //	}  catch (const std::exception&) {
-        //		LOG_WARNING() << "BBS deserialization failed";
-        //	}
-        //		
-        //	if (bValid)
-        //	{
-        //		WalletID wid;
-        //		wid.m_Pk = it->get_ParentObj().m_Pk;
-        //		wid.m_Channel = it->m_Value;
-        //		m_Wallet.OnWalletMessage(wid, std::move(msgWallet));
-        //		break;
-        //	}
-        //}
     }
 
     void WalletNetworkViaBbs::SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg)
@@ -619,23 +438,6 @@ namespace beam {
 
         m_NodeEndpoint->PostRequest(*pReq, m_BbsSentEvt);
     }
-
-    //void WalletNetworkViaBbs::OnAddressTimer()
-    //{
-    //    vector<Addr*> addressesToDelete;
-    //    for (const auto& address : m_Addresses)
-    //    {
-    //        if (address.get_ParentObj().IsExpired())
-    //        {
-    //            addressesToDelete.push_back(&address.get_ParentObj());
-    //        }
-    //    }
-    //    for (const auto& address : addressesToDelete)
-    //    {
-    //        DeleteAddr(*address);
-    //    }
-    //    m_AddressExpirationTimer->start(AddressUpdateInterval_ms, false, [this] { OnAddressTimer(); });
-    //}
 
     void WalletNetworkViaBbs::Miner::Stop()
     {
@@ -731,8 +533,6 @@ namespace beam {
     }
 
     /////////////////////////////////
-
-    
     ColdWalletMessageEndpoint::ColdWalletMessageEndpoint(IWallet& wallet, IWalletDB::Ptr walletDB)
         : BaseMessageEndpoint(wallet, walletDB)
         , m_WalletDB(walletDB)

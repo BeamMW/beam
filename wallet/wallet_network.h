@@ -56,8 +56,8 @@ namespace beam
         virtual ~BaseMessageEndpoint();
         void AddOwnAddress(const WalletAddress& address);
         void DeleteOwnAddress(uint64_t ownID);
-        void ProcessMessage(BbsChannel channel, const ByteBuffer& msg);
     protected:
+        void ProcessMessage(BbsChannel channel, const ByteBuffer& msg);
         void Subscribe();
         void Unsubscribe();
         virtual void OnChannelAdded(BbsChannel channel) {};
@@ -66,7 +66,7 @@ namespace beam
     private:
         void DeleteAddr(const Addr&);
         bool IsSingleChannelUser(const Addr::Channel&);
-    public:
+
         // IWalletMessageEndpoint
         void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) override;
         void AddOwnAddress(uint64_t ownID, BbsChannel, Timestamp expirationTime, const WalletID& walletID);
@@ -86,44 +86,10 @@ namespace beam
 
 
     class WalletNetworkViaBbs
-        : public BaseMessageEndpoint//IWalletMessageEndpoint
+        : public BaseMessageEndpoint
     {
-        //IWallet& m_Wallet;
         std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
         IWalletDB::Ptr m_WalletDB;
-
-        //struct Addr
-        //{
-        //    struct Wid :public boost::intrusive::set_base_hook<> {
-        //        uint64_t m_OwnID;
-        //        bool operator < (const Wid& x) const { return m_OwnID < x.m_OwnID; }
-        //        IMPLEMENT_GET_PARENT_OBJ(Addr, m_Wid)
-        //    } m_Wid;
-
-        //    struct Channel :public boost::intrusive::set_base_hook<> {
-        //        BbsChannel m_Value;
-        //        bool operator < (const Channel& x) const { return m_Value < x.m_Value; }
-        //        IMPLEMENT_GET_PARENT_OBJ(Addr, m_Channel)
-        //    } m_Channel;
-
-        //    bool IsExpired() const
-        //    {
-        //        return getTimestamp() > m_ExpirationTime;
-        //    }
-
-        //    ECC::Scalar::Native m_sk; // private addr
-        //    PeerID m_Pk; // self public addr
-        //    Timestamp m_ExpirationTime;
-        //};
-
-        //typedef bi::multiset<Addr::Wid> WidSet;
-        //WidSet m_Addresses;
-
-        //typedef  bi::multiset<Addr::Channel> ChannelSet;
-        //ChannelSet m_Channels;
-
-        //void DeleteAddr(const Addr&);
-        //bool IsSingleChannelUser(const Addr::Channel&);
 
         struct MyRequestBbsMsg
             :public proto::FlyClient::RequestBbsMsg
@@ -148,8 +114,6 @@ namespace beam
         } m_BbsSentEvt;
 
         void OnMsg(const proto::BbsMsg&);
-
-        //static BbsChannel channel_from_wallet_id(const WalletID& walletID);
 
         std::unordered_map<BbsChannel, Timestamp> m_BbsTimestamps;
         io::Timer::Ptr m_pTimerBbsTmSave;
@@ -201,28 +165,18 @@ namespace beam
     private:
         void OnChannelAdded(BbsChannel channel) override;
         void OnChannelDeleted(BbsChannel channel) override;
-  //      void AddOwnAddress(const WalletAddress& address);
         // IWalletMessageEndpoint
-        //void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) override;
         void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override;
-
-  //      void DeleteOwnAddress(uint64_t ownID);
-  //  private:
-  //      void AddOwnAddress(uint64_t ownID, BbsChannel, Timestamp expirationTime, const WalletID& walletID);
-  //      void OnAddressTimer();
-    private:
-        //io::Timer::Ptr m_AddressExpirationTimer;
     };
 
 
     class ColdWalletMessageEndpoint
-        : public BaseMessageEndpoint//IWalletMessageEndpoint
+        : public BaseMessageEndpoint
     {
     public:
         ColdWalletMessageEndpoint(IWallet& wallet, IWalletDB::Ptr walletDB);
         ~ColdWalletMessageEndpoint();
     private:
-        //void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) override;
         void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override;
     private:
         IWalletDB::Ptr m_WalletDB;
