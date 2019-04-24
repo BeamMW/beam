@@ -497,7 +497,7 @@ namespace
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
 
-		wallet::Totals totals(*walletDB);
+        wallet::Totals totals(*walletDB);
 
         cout << "____Wallet summary____\n\n"
             << "Current height............" << stateID.m_Height << '\n'
@@ -1033,11 +1033,11 @@ int main_impl(int argc, char* argv[])
                         nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
                         nnet->Connect();
                         wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB));
-						wallet.SetNodeEndpoint(nnet);
+                        wallet.SetNodeEndpoint(nnet);
                     }
                     else
                     {
-						wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB));
+                        wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB));
                     }
 
                     if (isTxInitiator)
@@ -1045,6 +1045,10 @@ int main_impl(int argc, char* argv[])
                         WalletAddress senderAddress = newAddress(walletDB, "");
                         CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
                         wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, 120, 720, {}, true);
+                    }
+                    else if (coldWallet)
+                    {
+                        return 0;
                     }
 
                     bool deleteTx = command == cli::DELETE_TX;
