@@ -964,6 +964,7 @@ void TestTransaction()
 
 	beam::TxBase::Context::Params pars;
 	beam::TxBase::Context ctx(pars);
+	ctx.m_Height.m_Min = beam::Rules::get().Forks.H1;
 	verify_test(tm.m_Trans.IsValid(ctx));
 	verify_test(ctx.m_Fee == beam::AmountBig::Type(fee1 + fee2));
 }
@@ -978,6 +979,7 @@ void TestCutThrough()
 
 	beam::TxBase::Context::Params pars;
 	beam::TxBase::Context ctx(pars);
+	ctx.m_Height.m_Min = beam::Rules::get().Forks.H1;
 	verify_test(ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader()));
 
 	beam::Input::Ptr pInp(new beam::Input);
@@ -985,11 +987,13 @@ void TestCutThrough()
 	tm.m_Trans.m_vInputs.push_back(std::move(pInp));
 
 	ctx.Reset();
+	ctx.m_Height = beam::Rules::get().Forks.H1;
 	verify_test(!ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader())); // redundant outputs must be banned!
 
 	verify_test(tm.m_Trans.Normalize() == 1);
 
 	ctx.Reset();
+	ctx.m_Height = beam::Rules::get().Forks.H1;
 	verify_test(ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader()));
 }
 
@@ -1880,6 +1884,7 @@ int main()
 	g_psecp256k1 = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 
 	beam::Rules::get().CA.Enabled = true;
+	beam::Rules::get().Forks.H1 = 3;
 	ECC::TestAll();
 	ECC::RunBenchmark();
 

@@ -134,6 +134,10 @@ namespace beam
 		static void get_Emission(AmountBig::Type&, const HeightRange&);
 		static void get_Emission(AmountBig::Type&, const HeightRange&, Amount base);
 
+		struct {
+			Height H1 = 0; // starting from this height the blockchain format should obey the newer scheme
+		} Forks;
+
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
 	};

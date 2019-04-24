@@ -826,7 +826,8 @@ namespace beam
 		Block::BodyBase::RW rwData;
 		rwData.m_sPath = g_sz3;
 
-		Height hMid = blockChain.size() / 2 + Rules::HeightGenesis;
+		//Height hMid = blockChain.size() / 2 + Rules::HeightGenesis;
+		Height hMid = Rules::get().Forks.H1 - 1;
 
 		{
 			DeleteFile(g_sz2);
@@ -2248,8 +2249,6 @@ namespace beam
 int main()
 {
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
-
-	beam::PrepareTreasury();
 	beam::PrintEmissionSchedule();
 
 	beam::Rules::get().AllowPublicUtxos = true;
@@ -2260,7 +2259,10 @@ int main()
 	beam::Rules::get().Emission.Drop0 = 5;
 	beam::Rules::get().Emission.Drop1 = 8;
 	beam::Rules::get().CA.Enabled = true;
+	beam::Rules::get().Forks.H1 = 16;
 	beam::Rules::get().UpdateChecksum();
+
+	beam::PrepareTreasury();
 
 	beam::TestHalving();
 	beam::TestChainworkProof();
