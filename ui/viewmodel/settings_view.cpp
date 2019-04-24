@@ -31,10 +31,15 @@ using namespace std;
 
 SettingsViewModel::SettingsViewModel()
     : m_settings{AppModel::getInstance()->getSettings()}
+    , m_isValidNodeAddress{true}
+    , m_isNeedToCheckAddress(false)
+    , m_isNeedToApplyChanges(false)
 {
     undoChanges();
     connect(&AppModel::getInstance()->getNode(), SIGNAL(startedNode()), SLOT(onNodeStarted()));
     connect(&AppModel::getInstance()->getNode(), SIGNAL(stoppedNode()), SLOT(onNodeStopped()));
+
+    m_timerId = startTimer(CHECK_INTERVAL);
 }
 
 void SettingsViewModel::onNodeStarted()
@@ -52,6 +57,11 @@ bool SettingsViewModel::isLocalNodeRunning() const
     return AppModel::getInstance()->getNode().isNodeRunning();
 }
 
+bool SettingsViewModel::isValidNodeAddress() const
+{
+    return m_isValidNodeAddress;
+}
+
 QString SettingsViewModel::getNodeAddress() const
 {
     return m_nodeAddress;
@@ -61,6 +71,11 @@ void SettingsViewModel::setNodeAddress(const QString& value)
 {
     if (value != m_nodeAddress)
     {
+        if (!m_isNeedToCheckAddress)
+        {
+            m_isNeedToCheckAddress = true;
+            m_timerId = startTimer(CHECK_INTERVAL);
+        }
         m_nodeAddress = value;
         emit nodeAddressChanged();
         emit propertiesChanged();
@@ -117,6 +132,21 @@ void SettingsViewModel::setLockTimeout(int value)
     }
 }
 
+bool SettingsViewModel::isPasswordReqiredToSpendMoney() const
+{
+    return m_isPasswordReqiredToSpendMoney;
+}
+
+void SettingsViewModel::setPasswordReqiredToSpendMoney(bool value)
+{
+    if (value != m_isPasswordReqiredToSpendMoney)
+    {
+        m_isPasswordReqiredToSpendMoney = value;
+        emit passwordReqiredToSpendMoneyChanged();
+        emit propertiesChanged();
+    }
+}
+
 uint SettingsViewModel::coreAmount() const
 {
     return std::thread::hardware_concurrency();
@@ -157,16 +187,24 @@ bool SettingsViewModel::isChanged() const
         || m_localNodeRun != m_settings.getRunLocalNode()
         || m_localNodePort != m_settings.getLocalNodePort()
         || m_localNodePeers != m_settings.getLocalNodePeers()
-        || m_lockTimeout != m_settings.getLockTimeout();
+        || m_lockTimeout != m_settings.getLockTimeout()
+        || m_isPasswordReqiredToSpendMoney != m_settings.isPasswordReqiredToSpendMoney();
 }
 
 void SettingsViewModel::applyChanges()
 {
+    if (m_isNeedToCheckAddress)
+    {
+        m_isNeedToApplyChanges;
+        return;
+    }
+
     m_settings.setNodeAddress(m_nodeAddress);
     m_settings.setRunLocalNode(m_localNodeRun);
     m_settings.setLocalNodePort(m_localNodePort);
     m_settings.setLocalNodePeers(m_localNodePeers);
     m_settings.setLockTimeout(m_lockTimeout);
+    m_settings.setPasswordReqiredToSpendMoney(m_isPasswordReqiredToSpendMoney);
     m_settings.applyChanges();
     emit propertiesChanged();
 }
@@ -195,6 +233,7 @@ void SettingsViewModel::undoChanges()
     setLocalNodePort(m_settings.getLocalNodePort());
     setLockTimeout(m_settings.getLockTimeout());
     setLocalNodePeers(m_settings.getLocalNodePeers());
+    setPasswordReqiredToSpendMoney(m_settings.isPasswordReqiredToSpendMoney());
 }
 
 void SettingsViewModel::reportProblem()
@@ -211,4 +250,30 @@ bool SettingsViewModel::checkWalletPassword(const QString& oldPass) const
 void SettingsViewModel::changeWalletPassword(const QString& pass)
 {
     AppModel::getInstance()->changeWalletPassword(pass.toStdString());
+}
+
+void SettingsViewModel::timerEvent(QTimerEvent *event)
+{
+    if (m_isNeedToCheckAddress && !m_localNodeRun)
+    {
+        m_isNeedToCheckAddress = false;
+
+        io::Address nodeAddr;
+
+        if (nodeAddr.resolve(m_nodeAddress.toStdString().c_str()) != m_isValidNodeAddress)
+        {
+            m_isValidNodeAddress = !m_isValidNodeAddress;
+            emit validNodeAddressChanged();
+        }
+
+        killTimer(m_timerId);
+    }
+
+    if (m_isNeedToApplyChanges)
+    {
+        if (m_isValidNodeAddress)
+            applyChanges();
+
+        m_isNeedToApplyChanges = false;
+    }
 }

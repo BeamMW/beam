@@ -73,10 +73,38 @@ Item {
         okButtonText: qsTr("send")
         okButtonIconSource: "qrc:/assets/icon-send-blue.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+        okButtonEnable: viewModel.isPasswordReqiredToSpendMoney() ? requirePasswordInput.text.length : true
 
         property alias addressText: addressLabel.text
         property alias amountText: amountLabel.text
         property alias feeText: feeLabel.text
+        property Item defaultFocusItem: viewModel.isPasswordReqiredToSpendMoney() ? requirePasswordInput : cancelButton
+
+        function confirmationHandler() {
+            if (viewModel.isPasswordReqiredToSpendMoney()) {
+                if (requirePasswordInput.text.length == 0) {
+                    requirePasswordInput.forceActiveFocus(Qt.TabFocusReason);
+                    return;
+                }
+                if (!viewModel.isPasswordValid(requirePasswordInput.text)) {
+                    requirePasswordInput.forceActiveFocus(Qt.TabFocusReason);
+                    requirePasswordError.text = qsTr("Invalid password provided.");
+                    return;
+                }
+            }
+            accepted();
+            close();
+        }
+
+        function openHandler() {
+            var defaultFocusItem = viewModel.isPasswordReqiredToSpendMoney() ? requirePasswordInput : cancelButton;
+            defaultFocusItem.forceActiveFocus(Qt.TabFocusReason);
+        }
+
+        function requirePasswordInputKeyEnter() {
+            okButton.forceActiveFocus(Qt.TabFocusReason);
+            okButton.clicked();
+        }
 
         contentItem: Item {
             id: sendConfirmationContent
@@ -95,7 +123,7 @@ Item {
                     font.styleName: "Bold";
                     font.weight: Font.Bold
                     color: Style.content_main
-                    text: qsTr("Please review the transaction details")
+                    text: qsTr("Confirm transaction details")
                 }
 
                 GridLayout {
@@ -106,7 +134,7 @@ Item {
                     columnSpacing: 14
                     rowSpacing: 12
                     columns: 2
-                    rows: 3
+                    rows: 5
 
                     SFText {
                         Layout.fillWidth: true
@@ -167,8 +195,53 @@ Item {
                         font.pixelSize: 14
                         color: Style.content_main
                     }
+
+                    SFText {
+                        id: requirePasswordLabel
+                        visible: viewModel.isPasswordReqiredToSpendMoney()
+                        Layout.row: 4
+                        Layout.columnSpan: 2
+                        Layout.topMargin: 50
+                        horizontalAlignment: Text.AlignHCenter
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 16
+                        font.pixelSize: 14
+                        color: Style.content_main
+                        text: qsTr("To broadcast your transaction please enter your password")
+                    }
+
+                    SFTextInput {
+                        id: requirePasswordInput
+                        visible: viewModel.isPasswordReqiredToSpendMoney()
+                        Layout.row: 5
+                        Layout.columnSpan: 2
+                        Layout.fillWidth: true
+                        focus: true
+                        activeFocusOnTab: true
+                        font.pixelSize: 14
+                        color: Style.content_main
+                        echoMode: TextInput.Password
+                        onAccepted: confirmationDialog.requirePasswordInputKeyEnter()
+                        onTextChanged: if (requirePasswordError.text.length > 0) requirePasswordError.text = ""
+
+                    }
+                    SFText {
+                        id: requirePasswordError
+                        visible: viewModel.isPasswordReqiredToSpendMoney()
+                        Layout.row: 6
+                        Layout.columnSpan: 2
+                        Layout.bottomMargin: 15
+                        height: 16
+                        width: parent.width
+                        color: Style.validator_error
+                        font.pixelSize: 14
+                    }
                 }
             }
+        }
+
+        onClosed: {
+            requirePasswordInput.text = "";
         }
 
         onAccepted: {

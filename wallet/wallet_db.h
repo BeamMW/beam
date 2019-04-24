@@ -68,7 +68,7 @@ namespace beam
         Height m_spentHeight;
         boost::optional<TxID> m_createTxId;
         boost::optional<TxID> m_spentTxId;
-        uint32_t m_sessionId;
+        uint64_t m_sessionId;
 
         bool IsMaturityValid() const; // is/was the UTXO confirmed?
         Height get_Maturity() const; // would return MaxHeight unless the UTXO was confirmed
@@ -127,12 +127,22 @@ namespace beam
         Reset
     };
 
+    class CannotGenerateSecretException : public std::runtime_error
+    {
+    public:
+        explicit CannotGenerateSecretException()
+            : std::runtime_error("")
+        {
+        }
+
+    };
+
     struct IWalletDbObserver
     {
-        virtual void onCoinsChanged() = 0;
-        virtual void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) = 0;
-        virtual void onSystemStateChanged() = 0;
-        virtual void onAddressChanged() = 0;
+        virtual void onCoinsChanged() {};
+        virtual void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) {};
+        virtual void onSystemStateChanged() {};
+        virtual void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) {};
     };
 
     struct IWalletDB
@@ -200,6 +210,10 @@ namespace beam
         virtual void ShrinkHistory() = 0;
 
         virtual Amount getTransferredByTx(TxStatus status, bool isSender) const = 0;
+
+        virtual bool lock(const CoinIDList& list, uint64_t session) = 0;
+        virtual bool unlock(uint64_t session) = 0;
+        virtual CoinIDList getLocked(uint64_t session) const = 0;
 
         virtual std::vector<WalletMessage> getWalletMessages() const = 0;
         virtual uint64_t saveWalletMessage(const WalletMessage& message) = 0;
@@ -284,6 +298,10 @@ namespace beam
 
         Amount getTransferredByTx(TxStatus status, bool isSender) const override;
 
+        bool lock(const CoinIDList& list, uint64_t session) override;
+        bool unlock(uint64_t session) override;
+        CoinIDList getLocked(uint64_t session) const override;
+
         std::vector<WalletMessage> getWalletMessages() const override;
         uint64_t saveWalletMessage(const WalletMessage& message) override;
         void deleteWalletMessage(uint64_t id) override;
@@ -297,7 +315,7 @@ namespace beam
         void notifyCoinsChanged();
         void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
         void notifySystemStateChanged();
-        void notifyAddressChanged();
+        void notifyAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items);
         static uint64_t get_RandomID();
         bool updateRaw(const Coin&);
         void insertRaw(const Coin&);

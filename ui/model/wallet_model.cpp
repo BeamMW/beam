@@ -67,6 +67,8 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
     }
     case wallet::ErrorType::TimeOutOfSync:
         return tr("System time not synchronized.");
+    case wallet::ErrorType::HostResolvedError:
+        return tr("Incorrect node name or no Internet connection.");
     default:
         return tr("Unexpected error!");
     }
@@ -99,7 +101,12 @@ void WalletModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxos)
 
 void WalletModel::onAddresses(bool own, const std::vector<beam::WalletAddress>& addrs)
 {
-    emit adrresses(own, addrs);
+    emit addressesChanged(own, addrs);
+}
+
+void WalletModel::onCoinsByTx(const std::vector<beam::Coin>& coins)
+{
+
 }
 
 void WalletModel::onGeneratedNewAddress(const beam::WalletAddress& walletAddr)

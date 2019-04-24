@@ -29,6 +29,7 @@ namespace
 {
     const char* NodeAddressName = "node/address";
     const char* LockTimeoutName = "lock_timeout";
+    const char* RequirePasswordToSpendMoney = "require_password_to_spend_money";
 
     const char* LocalNodeRun = "localnode/run";
     const char* LocalNodePort = "localnode/port";
@@ -107,6 +108,18 @@ void WalletSettings::setLockTimeout(int value)
         }
         emit lockTimeoutChanged();
     }
+}
+
+bool WalletSettings::isPasswordReqiredToSpendMoney() const
+{
+    Lock lock(m_mutex);
+    return m_data.value(RequirePasswordToSpendMoney, true).toBool();
+}
+
+void WalletSettings::setPasswordReqiredToSpendMoney(bool value)
+{
+    Lock lock(m_mutex);
+    m_data.setValue(RequirePasswordToSpendMoney, value);
 }
 
 bool WalletSettings::getRunLocalNode() const

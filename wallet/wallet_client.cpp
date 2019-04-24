@@ -111,6 +111,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
+    void getCoinsByTx(const beam::TxID& id) override
+    {
+        tx.send([id](BridgeInterface& receiver_) mutable
+        {
+            receiver_.getCoinsByTx(id);
+        });
+    }
+
     void saveAddress(const WalletAddress& address, bool bOwn) override
     {
         tx.send([address, bOwn](BridgeInterface& receiver_) mutable
@@ -271,21 +279,52 @@ void WalletClient::start()
                 {
                     m_walletClient.nodeConnectionFailed(reason);
                 }
+
+                void tryToConnect()
+                {
+                    if (!m_timer)
+                    {
+                        m_timer = io::Timer::create(io::Reactor::get_Current());
+                    }
+
+                    if (m_attemptToConnect++ >= MAX_ATTEMPT_TO_CONNECT)
+                    {
+                        proto::NodeConnection::DisconnectReason reason;
+
+                        reason.m_Type = proto::NodeConnection::DisconnectReason::Io;
+                        reason.m_IoError = EC_HOST_RESOLVED_ERROR;
+                        m_walletClient.nodeConnectionFailed(reason);
+
+                        return;
+                    }
+
+                    m_timer->start(RECONNECTION_TIMEOUT, false, [this]() {
+                        Address nodeAddr;
+                        if (nodeAddr.resolve(m_nodeAddrStr.c_str()))
+                        {
+                            m_Cfg.m_vNodes.push_back(nodeAddr);
+                            Connect();
+                        }
+                        else
+                        {
+                            LOG_ERROR() << "Unable to resolve node address: " << m_nodeAddrStr;
+                            tryToConnect();
+                        }
+                    });
+                }
+
+                std::string m_nodeAddrStr;
+
+            private:
+
+                io::Timer::Ptr m_timer;
+                uint8_t m_attemptToConnect = 0;
+
+                const uint8_t MAX_ATTEMPT_TO_CONNECT = 5;
+                const uint16_t RECONNECTION_TIMEOUT = 1000;
             };
 
             auto nodeNetwork = make_shared<MyNodeNetwork>(*wallet, *this);
-
-            Address nodeAddr;
-            if (nodeAddr.resolve(m_nodeAddrStr.c_str()))
-            {
-                nodeNetwork->m_Cfg.m_vNodes.push_back(nodeAddr);
-            }
-            else
-            {
-                LOG_ERROR() << "Unable to resolve node address: " << m_nodeAddrStr;
-            }
-
-            nodeNetwork->m_Cfg.m_vNodes.push_back(nodeAddr);
 
             m_nodeNetwork = nodeNetwork;
 
@@ -296,7 +335,8 @@ void WalletClient::start()
 
             wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
-            nodeNetwork->Connect();
+            nodeNetwork->m_nodeAddrStr = m_nodeAddrStr;
+            nodeNetwork->tryToConnect();
 
             m_reactor->run();
         }
@@ -345,8 +385,9 @@ void WalletClient::onSystemStateChanged()
     onStatus(getStatus());
 }
 
-void WalletClient::onAddressChanged()
+void WalletClient::onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)
 {
+    // TODO: need to change this behavior
     onAddresses(true, m_walletDB->getAddresses(true));
     onAddresses(false, m_walletDB->getAddresses(false));
 }
@@ -451,18 +492,14 @@ void WalletClient::deleteTx(const beam::TxID& id)
     }
 }
 
+void WalletClient::getCoinsByTx(const beam::TxID& id)
+{
+    onCoinsByTx(m_walletDB->getCoinsByTx(id));
+}
+
 void WalletClient::saveAddress(const WalletAddress& address, bool bOwn)
 {
     m_walletDB->saveAddress(address);
-
-    if (bOwn)
-    {
-        auto s = m_walletNetwork.lock();
-        if (s)
-        {
-            static_pointer_cast<WalletNetworkViaBbs>(s)->AddOwnAddress(address);
-        }
-    }
 }
 
 void WalletClient::changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID)
@@ -494,14 +531,6 @@ void WalletClient::deleteAddress(const beam::WalletID& id)
         auto pVal = m_walletDB->getAddress(id);
         if (pVal)
         {
-            if (pVal->m_OwnID)
-            {
-                auto s = m_walletNetwork.lock();
-                if (s)
-                {
-                    static_pointer_cast<WalletNetworkViaBbs>(s)->DeleteOwnAddress(pVal->m_OwnID);
-                }
-            }
             m_walletDB->deleteAddress(id);
         }
     }
@@ -540,12 +569,6 @@ void WalletClient::saveAddressChanges(const beam::WalletID& id, const std::strin
                 }
 
                 m_walletDB->saveAddress(*addr);
-
-                auto s = m_walletNetwork.lock();
-                if (s)
-                {
-                    static_pointer_cast<WalletNetworkViaBbs>(s)->AddOwnAddress(*addr);
-                }
             }
             else
             {

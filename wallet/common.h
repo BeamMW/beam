@@ -385,6 +385,7 @@ namespace beam
             ConnectionAddrInUse,
             TimeOutOfSync,
             InternalNodeStartFailed,
+            HostResolvedError,
         };
 
         ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType);

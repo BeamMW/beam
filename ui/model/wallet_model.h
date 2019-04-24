@@ -38,7 +38,7 @@ signals:
     void syncProgressUpdated(int done, int total);
     void changeCalculated(beam::Amount change);
     void allUtxoChanged(const std::vector<beam::Coin>& utxos);
-    void adrresses(bool own, const std::vector<beam::WalletAddress>& addresses);
+    void addressesChanged(bool own, const std::vector<beam::WalletAddress>& addresses);
     void generatedNewAddress(const beam::WalletAddress& walletAddr);
     void changeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
     void nodeConnectionChanged(bool isNodeConnected);
@@ -62,4 +62,5 @@ private:
     void onSendMoneyVerified() override;
     void onCantSendToExpired() override;
     void onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof) override;
+    void onCoinsByTx(const std::vector<beam::Coin>& coins) override;
 };

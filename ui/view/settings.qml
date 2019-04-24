@@ -64,7 +64,7 @@ Rectangle {
 
                     Rectangle {
                         Layout.fillWidth: true
-                        height: 150
+                        height: 180
 
                         radius: 10
                         color: Style.background_second
@@ -100,7 +100,7 @@ Rectangle {
                                 font.pixelSize: 12
                                 color: readOnly ? Style.content_disabled : Style.content_main
                                 readOnly: localNodeRun.checked
-                                validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
+                                validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([1-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                 text: viewModel.nodeAddress
                                 Binding {
                                     target: viewModel
@@ -116,7 +116,7 @@ Rectangle {
                                     id: nodeAddressError
                                     color: Style.validator_error
                                     font.pixelSize: 10
-                                    visible: !nodeAddress.acceptableInput
+                                    visible: (!nodeAddress.acceptableInput || !localNodeRun.checked && !viewModel.isValidNodeAddress)
                                     text: "Invalid address"
                                 }
                             }
@@ -180,7 +180,7 @@ Rectangle {
                                         readOnly: !localNodeRun.checked
                                         text: viewModel.localNodePort
                                         validator: IntValidator {
-                                            bottom: 0
+                                            bottom: 1
                                             top: 65535
                                         }
                                         Binding {
@@ -216,7 +216,7 @@ Rectangle {
                                             font.pixelSize: 12
                                             color: readOnly ? Style.content_disabled : Style.content_main
                                             readOnly: !localNodeRun.checked
-                                            validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
+                                            validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([1-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                         }
                                     
                                         CustomButton {
@@ -225,7 +225,7 @@ Rectangle {
                                             leftPadding: 20
                                             rightPadding: 20
                                             text: "Add"
-                                            palette.button: Style.background_inconspicuous
+                                            palette.button: Style.background_button
                                             palette.buttonText : localNodeRun.checked ? Style.content_main : Style.content_disabled
                                             enabled: newLocalNodePeer.acceptableInput && localNodeRun.checked
                                             onClicked: {
@@ -342,7 +342,7 @@ Rectangle {
                         radius: 10
                         color: Style.background_second
                         //height: childrenRect.height + 40
-                        height: 150
+                        height: 180
 
                         Column {
                             anchors.top: parent.top
@@ -388,11 +388,29 @@ Rectangle {
                                 }
                             }
 
+                            Row {
+                                width: parent.width
+                                spacing: 10
+
+                                CustomSwitch {
+                                    id: isPasswordReqiredToSpendMoney
+                                    text: qsTr("Ask password for every sending transaction")
+                                    font.pixelSize: 12
+                                    width: parent.width
+                                    checked: viewModel.isPasswordReqiredToSpendMoney
+                                    Binding {
+                                        target: viewModel
+                                        property: "isPasswordReqiredToSpendMoney"
+                                        value: isPasswordReqiredToSpendMoney.checked
+                                    }
+                                }
+                            }
+
 
                             CustomButton {
                                 text: "change wallet password"
                                 palette.buttonText : "white"
-                                palette.button: Style.background_inconspicuous
+                                palette.button: Style.background_button
                                 icon.source: "qrc:/assets/icon-password.svg"
                                 icon.width: 16
                                 icon.height: 16
@@ -469,7 +487,7 @@ Rectangle {
                                 CustomButton {
                                     text: "save wallet logs"
                                     palette.buttonText : "white"
-                                    palette.button: Style.background_inconspicuous
+                                    palette.button: Style.background_button
                                     onClicked: viewModel.reportProblem()
                                 }
                                 spacing: 30
@@ -477,7 +495,7 @@ Rectangle {
                                     icon.source: "qrc:/assets/icon-restore.svg"
                                     Layout.alignment: Qt.AlignRight
                                     text: qsTr("rescan")
-                                    palette.button: Style.background_inconspicuous
+                                    palette.button: Style.background_button
                                     palette.buttonText : localNodeRun.checked ? Style.content_main : Style.content_disabled
                                     enabled: localNodeRun.checked && confirmRefreshDialog.canRefresh && viewModel.isLocalNodeRunning
                                     onClicked: {
@@ -510,7 +528,7 @@ Rectangle {
                                 text: qsTr("copy")
                                 icon.color: Style.content_main
                                 palette.buttonText : Style.content_main
-                                palette.button: Style.background_inconspicuous
+                                palette.button: Style.background_button
                                 icon.source: "qrc:/assets/icon-copy.svg"
                                 onClicked: {
                                     viewModel.copyToClipboard(viewModel.walletLocation);
@@ -550,10 +568,10 @@ Rectangle {
             PrimaryButton {        
                 text: qsTr("apply changes")
                 enabled: {
-                    viewModel.isChanged 
+                    viewModel.isChanged
                     && nodeAddress.acceptableInput
                     && localNodePort.acceptableInput
-                    && (localNodeRun.checked ? (viewModel.localNodePeers.length > 0) : true)
+                    && (localNodeRun.checked ? (viewModel.localNodePeers.length > 0) : viewModel.isValidNodeAddress)
                 }
                 onClicked: viewModel.applyChanges()
             }

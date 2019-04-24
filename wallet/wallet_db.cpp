@@ -690,12 +690,6 @@ namespace beam
                 bind(col, m.data(), m.size());
             }
 
-            void bind(int col, const wallet::SetTxParameter& msg)
-            {
-                ByteBuffer byteBuffer = toByteBuffer(msg);
-                bind(col, byteBuffer);
-            }
-            
             void bind(int col, const void* blob, size_t size)
             {
                 if (size > numeric_limits<int32_t>::max())// 0x7fffffff
@@ -816,13 +810,6 @@ namespace beam
                     b.resize(size);
                     memcpy(&b.front(), sqlite3_column_blob(_stm, col), size);
                 }
-            }
-
-            void get(int col, wallet::SetTxParameter& msg)
-            {
-                ByteBuffer buf;
-                get(col, buf);
-                fromByteBuffer(buf, msg);
             }
 
             bool getBlobSafe(int col, void* blob, int size)
@@ -1034,7 +1021,6 @@ namespace beam
 #endif
     }
 
-    
     namespace
     {
         void CreateStorageTable(sqlite3* db)
@@ -1115,13 +1101,12 @@ namespace beam
             {
                 const char* req = "CREATE TABLE [" TblStates "] ("
                     "[" TblStates_Height    "] INTEGER NOT NULL PRIMARY KEY,"
-                    "[" TblStates_Hdr       "] BLOB NOT NULL)";
+                    "[" TblStates_Hdr        "] BLOB NOT NULL)";
                 int ret = sqlite3_exec(walletDB->_db, req, nullptr, nullptr, nullptr);
                 throwIfError(ret, walletDB->_db);
             }
 
             {
-                //wallet::setVar(*walletDB, WalletSeed, secretKey.V);
                 walletDB->setPrivateVarRaw(WalletSeed, &secretKey.V, sizeof(secretKey.V));
                 wallet::setVar(*walletDB, Version, DbVersion);
             }
@@ -2025,7 +2010,6 @@ namespace beam
     {
         vector<WalletAddress> res;
         const char* req = "SELECT * FROM " ADDRESSES_NAME " ORDER BY createTime DESC;";
-
         sqlite::Statement stm(this, req);
 
         while (stm.step())
@@ -2042,6 +2026,7 @@ namespace beam
 
     void WalletDB::saveAddress(const WalletAddress& address)
     {
+        ChangeAction action = ChangeAction::Added;
         {
             const char* selectReq = "SELECT * FROM " ADDRESSES_NAME " WHERE walletID=?1;";
             sqlite::Statement stm2(this, selectReq);
@@ -2058,6 +2043,8 @@ namespace beam
                 stm.bind(4, address.m_duration);
                 stm.bind(5, address.m_createTime);
                 stm.step();
+
+                action = ChangeAction::Updated;
             }
             else
             {
@@ -2070,11 +2057,22 @@ namespace beam
         }
 
         insertAddressToCache(address.m_walletID, address);
-        notifyAddressChanged();
+        notifyAddressChanged(action, { address });
     }
 
     void WalletDB::setExpirationForAllAddresses(uint64_t expiration)
     {
+        vector<WalletAddress> changedItems;
+        {
+            const char* req = "SELECT * FROM " ADDRESSES_NAME " WHERE OwnID != 0;";
+            sqlite::Statement stm(this, req);
+            while (stm.step())
+            {
+                auto& a = changedItems.emplace_back();
+                int colIdx = 0;
+                ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, a);
+            }
+        }
         {
             const char* updateReq = "UPDATE " ADDRESSES_NAME " SET duration = ?1 WHERE OwnID != 0;";
             sqlite::Statement stm(this, updateReq);
@@ -2083,7 +2081,7 @@ namespace beam
 
             stm.step();
         }
-        notifyAddressChanged();
+        notifyAddressChanged(ChangeAction::Updated, changedItems);
     }
 
     boost::optional<WalletAddress> WalletDB::getAddress(const WalletID& id) const
@@ -2121,16 +2119,20 @@ namespace beam
 
     void WalletDB::deleteAddress(const WalletID& id)
     {
-        const char* req = "DELETE FROM " ADDRESSES_NAME " WHERE walletID=?1;";
-        sqlite::Statement stm(this, req);
+        auto address = getAddress(id);
+        if (address)
+        {
+            const char* req = "DELETE FROM " ADDRESSES_NAME " WHERE walletID=?1;";
+            sqlite::Statement stm(this, req);
 
-        stm.bind(1, id);
+            stm.bind(1, id);
 
-        stm.step();
+            stm.step();
 
-        deleteAddressFromCache(id);
+            deleteAddressFromCache(id);
 
-        notifyAddressChanged();
+            notifyAddressChanged(ChangeAction::Removed, {*address});
+        }
     }
 
 
@@ -2315,9 +2317,12 @@ namespace beam
         for (auto sub : m_subscribers) sub->onSystemStateChanged();
     }
 
-    void WalletDB::notifyAddressChanged()
+    void WalletDB::notifyAddressChanged(ChangeAction action, const vector<WalletAddress>& items)
     {
-        for (auto sub : m_subscribers) sub->onAddressChanged();
+        for (auto sub : m_subscribers)
+        {
+            sub->onAddressChanged(action, items);
+        }
     }
 
     Block::SystemState::IHistory& WalletDB::get_History()
@@ -2369,6 +2374,61 @@ namespace beam
         }
 
         return totalAmount;
+    }
+
+    bool WalletDB::lock(const CoinIDList& list, uint64_t session)
+    {
+        auto coins = getCoinsByID(list);
+        for (auto& coin : coins)
+        {
+            if (coin.m_sessionId == 0)
+            {
+                coin.m_sessionId = session;
+            }
+            else
+            {
+                // error, coin already locked
+                return false;
+            }
+        }
+
+        save(coins);
+
+        return !coins.empty();
+    }
+
+    bool WalletDB::unlock(uint64_t session)
+    {
+        const char* req = "UPDATE " STORAGE_NAME " SET sessionId=0 WHERE sessionId=?1;";
+        sqlite::Statement stm(this, req);
+
+        stm.bind(1, session);
+
+        stm.step();
+
+        return sqlite3_changes(_db) > 0;
+    }
+
+    CoinIDList WalletDB::getLocked(uint64_t session) const
+    {
+        const char* req = "SELECT " STORAGE_FIELDS " FROM " STORAGE_NAME " WHERE sessionId=?1;";
+        sqlite::Statement stm(this, req);
+
+        stm.bind(1, session);
+
+        CoinIDList list;
+
+        while (stm.step())
+        {
+            Coin coin;
+
+            int colIdx = 0;
+            ENUM_ALL_STORAGE_FIELDS(STM_GET_LIST, NOSEP, coin);
+
+            list.push_back(coin.m_ID);
+        }
+
+        return list;
     }
 
     std::vector<WalletMessage> WalletDB::getWalletMessages() const
@@ -2658,6 +2718,10 @@ namespace beam
 
         WalletID generateWalletIDFromIndex(IWalletDB& walletDB, uint64_t ownID)
         {
+            if (!walletDB.get_MasterKdf())
+            {
+                throw CannotGenerateSecretException();
+            }
             WalletID walletID(Zero);
 
             ECC::Scalar::Native sk;

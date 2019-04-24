@@ -66,6 +66,7 @@ namespace beam
         extern const char* BBS_ENABLE;
         extern const char* NEW_ADDRESS;
         extern const char* CANCEL_TX;
+        extern const char* DELETE_TX;
 		extern const char* PAYMENT_PROOF_EXPORT;
 		extern const char* PAYMENT_PROOF_VERIFY;
 		extern const char* PAYMENT_PROOF_DATA;

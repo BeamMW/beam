@@ -15,6 +15,7 @@ QtObject {
     property color background_second;
     property color background_row_even;
     property color background_details;
+    property color background_button;
     property color row_selected;
     property color separator;
 

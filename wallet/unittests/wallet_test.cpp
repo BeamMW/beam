@@ -361,7 +361,6 @@ namespace
                 WalletAddress wa = wallet::createAddress(*m_WalletDB);
                 m_WalletDB->saveAddress(wa);
                 m_WalletID = wa.m_walletID;
-//				m_WalletNetworkViaBbs.AddOwnAddress(wa);
             }
             else
             {

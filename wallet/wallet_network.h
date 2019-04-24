@@ -84,9 +84,9 @@ namespace beam
         io::Timer::Ptr m_AddressExpirationTimer;
     };
 
-
     class WalletNetworkViaBbs
         : public BaseMessageEndpoint
+        , private IWalletDbObserver
     {
         std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
         IWalletDB::Ptr m_WalletDB;
@@ -167,8 +167,8 @@ namespace beam
         void OnChannelDeleted(BbsChannel channel) override;
         // IWalletMessageEndpoint
         void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override;
+        void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
     };
-
 
     class ColdWalletMessageEndpoint
         : public BaseMessageEndpoint

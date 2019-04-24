@@ -39,6 +39,7 @@ else()
 			com/mw/beam/beamwallet/core/entities/dto/SystemStateDTO.java
 			com/mw/beam/beamwallet/core/entities/dto/WalletStatusDTO.java
             com/mw/beam/beamwallet/core/entities/dto/WalletAddressDTO.java
+            com/mw/beam/beamwallet/core/entities/dto/PaymentInfoDTO.java
 			com/mw/beam/beamwallet/core/listeners/WalletListener.java
 		ENTRY_POINT WalletJNI
 	)

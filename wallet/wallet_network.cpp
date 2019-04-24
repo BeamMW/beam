@@ -21,7 +21,6 @@ namespace
     const char* BBS_TIMESTAMPS = "BbsTimestamps";
     const unsigned AddressUpdateInterval_ms = 60 * 1000; // check addresses every minute
 
-
     beam::BbsChannel channel_from_wallet_id(const beam::WalletID& walletID)
     {
         beam::BbsChannel ret;
@@ -245,113 +244,115 @@ namespace beam {
     WalletNetworkViaBbs::WalletNetworkViaBbs(IWallet& w, shared_ptr<proto::FlyClient::INetwork> net, const IWalletDB::Ptr& pWalletDB)
         : BaseMessageEndpoint(w, pWalletDB)
         , m_NodeEndpoint(net)
-        , m_WalletDB(pWalletDB)
-    {
-        ByteBuffer buffer;
-        m_WalletDB->getBlob(BBS_TIMESTAMPS, buffer);
-        if (!buffer.empty())
-        {
-            Deserializer d;
-            d.reset(buffer.data(), buffer.size());
+		, m_WalletDB(pWalletDB)
+	{
+		ByteBuffer buffer;
+		m_WalletDB->getBlob(BBS_TIMESTAMPS, buffer);
+		if (!buffer.empty())
+		{
+			Deserializer d;
+			d.reset(buffer.data(), buffer.size());
 
-            d & m_BbsTimestamps;
-        }
+			d & m_BbsTimestamps;
+		}
 
         Subscribe();
-    }
+        m_WalletDB->subscribe(this);
+	}
 
-    WalletNetworkViaBbs::~WalletNetworkViaBbs()
-    {
-        m_Miner.Stop();
+	WalletNetworkViaBbs::~WalletNetworkViaBbs()
+	{
+        m_WalletDB->unsubscribe(this);
+		m_Miner.Stop();
 
-        while (!m_PendingBbsMsgs.empty())
-            DeleteReq(m_PendingBbsMsgs.front());
+		while (!m_PendingBbsMsgs.empty())
+			DeleteReq(m_PendingBbsMsgs.front());
 
         Unsubscribe();
 
-        try {
-            SaveBbsTimestamps();
-        } 
+		try {
+			SaveBbsTimestamps();
+		} 
         catch (const std::exception& e)
         {
             LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...) {
             LOG_UNHANDLED_EXCEPTION();
-        }
-    }
+		}
+	}
 
-    void WalletNetworkViaBbs::SaveBbsTimestamps()
-    {
-        Timestamp tsThreshold = getTimestamp() - 3600 * 24 * 3;
+	void WalletNetworkViaBbs::SaveBbsTimestamps()
+	{
+		Timestamp tsThreshold = getTimestamp() - 3600 * 24 * 3;
 
-        for (auto it = m_BbsTimestamps.begin(); m_BbsTimestamps.end() != it; )
-        {
-            auto it2 = it++;
-            if (it2->second < tsThreshold)
-                m_BbsTimestamps.erase(it2);
-        }
+		for (auto it = m_BbsTimestamps.begin(); m_BbsTimestamps.end() != it; )
+		{
+			auto it2 = it++;
+			if (it2->second < tsThreshold)
+				m_BbsTimestamps.erase(it2);
+		}
 
-        Serializer s;
-        s & m_BbsTimestamps;
+		Serializer s;
+		s & m_BbsTimestamps;
 
-        ByteBuffer buffer;
-        s.swap_buf(buffer);
+		ByteBuffer buffer;
+		s.swap_buf(buffer);
 
-        m_WalletDB->setVarRaw(BBS_TIMESTAMPS, buffer.data(), static_cast<int>(buffer.size()));
-    }
+		m_WalletDB->setVarRaw(BBS_TIMESTAMPS, buffer.data(), static_cast<int>(buffer.size()));
+	}
 
-    void WalletNetworkViaBbs::DeleteReq(MyRequestBbsMsg& r)
-    {
-        m_PendingBbsMsgs.erase(BbsMsgList::s_iterator_to(r));
-        r.m_pTrg = NULL;
-        r.Release();
-    }
+	void WalletNetworkViaBbs::DeleteReq(MyRequestBbsMsg& r)
+	{
+		m_PendingBbsMsgs.erase(BbsMsgList::s_iterator_to(r));
+		r.m_pTrg = NULL;
+		r.Release();
+	}
 
-    void WalletNetworkViaBbs::OnTimerBbsTmSave()
-    {
-        m_pTimerBbsTmSave.reset();
-        SaveBbsTimestamps();
-    }
+	void WalletNetworkViaBbs::OnTimerBbsTmSave()
+	{
+		m_pTimerBbsTmSave.reset();
+		SaveBbsTimestamps();
+	}
 
-    void WalletNetworkViaBbs::BbsSentEvt::OnComplete(proto::FlyClient::Request& r)
-    {
-        assert(r.get_Type() == proto::FlyClient::Request::Type::BbsMsg);
-        get_ParentObj().DeleteReq(static_cast<MyRequestBbsMsg&>(r));
-    }
+	void WalletNetworkViaBbs::BbsSentEvt::OnComplete(proto::FlyClient::Request& r)
+	{
+		assert(r.get_Type() == proto::FlyClient::Request::Type::BbsMsg);
+		get_ParentObj().DeleteReq(static_cast<MyRequestBbsMsg&>(r));
+	}
 
-    void WalletNetworkViaBbs::BbsSentEvt::OnMsg(proto::BbsMsg&& msg)
-    {
-        get_ParentObj().OnMsg(msg);
-    }
+	void WalletNetworkViaBbs::BbsSentEvt::OnMsg(proto::BbsMsg&& msg)
+	{
+		get_ParentObj().OnMsg(msg);
+	}
 
-    void WalletNetworkViaBbs::OnMsg(const proto::BbsMsg& msg)
-    {
-        if (msg.m_Message.empty())
-            return;
+	void WalletNetworkViaBbs::OnMsg(const proto::BbsMsg& msg)
+	{
+		if (msg.m_Message.empty())
+			return;
 
-        auto itBbs = m_BbsTimestamps.find(msg.m_Channel);
-        if (m_BbsTimestamps.end() != itBbs)
+		auto itBbs = m_BbsTimestamps.find(msg.m_Channel);
+		if (m_BbsTimestamps.end() != itBbs)
         {
             if (itBbs->second > msg.m_TimePosted)
             {
                 return; // ignore old messages
             }
-            itBbs->second = std::max(itBbs->second, msg.m_TimePosted);
+			itBbs->second = std::max(itBbs->second, msg.m_TimePosted);
         }
-        else
+		else
         {
-            m_BbsTimestamps[msg.m_Channel] = msg.m_TimePosted;
+			m_BbsTimestamps[msg.m_Channel] = msg.m_TimePosted;
         }
 
-        if (!m_pTimerBbsTmSave)
-        {
-            m_pTimerBbsTmSave = io::Timer::create(io::Reactor::get_Current());
-            m_pTimerBbsTmSave->start(60*1000, false, [this]() { OnTimerBbsTmSave(); });
-        }
+		if (!m_pTimerBbsTmSave)
+		{
+			m_pTimerBbsTmSave = io::Timer::create(io::Reactor::get_Current());
+			m_pTimerBbsTmSave->start(60*1000, false, [this]() { OnTimerBbsTmSave(); });
+		}
 
         ProcessMessage(msg.m_Channel, msg.m_Message);
-    }
+	}
 
     void WalletNetworkViaBbs::SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg)
     {
@@ -391,146 +392,169 @@ namespace beam {
     }
 
     void WalletNetworkViaBbs::OnChannelAdded(BbsChannel channel)
-    {
+	{
         Timestamp ts = 0;
         auto it = m_BbsTimestamps.find(channel);
         if (m_BbsTimestamps.end() != it)
             ts = it->second;
 
         m_NodeEndpoint->BbsSubscribe(channel, ts, &m_BbsSentEvt);
-    }
+	}
 
     void WalletNetworkViaBbs::OnChannelDeleted(BbsChannel channel)
     {
         m_NodeEndpoint->BbsSubscribe(channel, 0, nullptr);
-    }
+	}
 
-    void WalletNetworkViaBbs::OnMined()
-    {
-        while (true)
-        {
-            Miner::Task::Ptr pTask;
-            {
-                std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
+	void WalletNetworkViaBbs::OnMined()
+	{
+		while (true)
+		{
+			Miner::Task::Ptr pTask;
+			{
+				std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
 
-                if (!m_Miner.m_Done.empty())
-                {
-                    pTask = std::move(m_Miner.m_Done.front());
-                    m_Miner.m_Done.pop_front();
-                }
-            }
+				if (!m_Miner.m_Done.empty())
+				{
+					pTask = std::move(m_Miner.m_Done.front());
+					m_Miner.m_Done.pop_front();
+				}
+			}
 
-            if (!pTask)
-                break;
+			if (!pTask)
+				break;
 
-            OnMined(std::move(pTask->m_Msg));
-        }
-    }
+			OnMined(std::move(pTask->m_Msg));
+		}
+	}
 
-    void WalletNetworkViaBbs::OnMined(proto::BbsMsg&& msg)
-    {
-        MyRequestBbsMsg::Ptr pReq(new MyRequestBbsMsg);
+	void WalletNetworkViaBbs::OnMined(proto::BbsMsg&& msg)
+	{
+		MyRequestBbsMsg::Ptr pReq(new MyRequestBbsMsg);
 
-        pReq->m_Msg = std::move(msg);
+		pReq->m_Msg = std::move(msg);
 
-        m_PendingBbsMsgs.push_back(*pReq);
-        pReq->AddRef();
+		m_PendingBbsMsgs.push_back(*pReq);
+		pReq->AddRef();
 
         m_NodeEndpoint->PostRequest(*pReq, m_BbsSentEvt);
-    }
+	}
 
-    void WalletNetworkViaBbs::Miner::Stop()
+    void WalletNetworkViaBbs::onAddressChanged(ChangeAction action, const vector<WalletAddress>& items)
     {
-        if (!m_vThreads.empty())
+        switch (action)
         {
+        case ChangeAction::Added:
+        case ChangeAction::Updated:
+            for (const auto& address : items)
             {
-                std::unique_lock<std::mutex> scope(m_Mutex);
-                m_Shutdown = true;
-                m_NewTask.notify_all();
+                AddOwnAddress(address);
             }
-
-            for (size_t i = 0; i < m_vThreads.size(); i++)
-                if (m_vThreads[i].joinable())
-                    m_vThreads[i].join();
-
-            m_vThreads.clear();
-            m_pEvt.reset();
+            break;
+        case ChangeAction::Removed:
+            for (const auto& address : items)
+            {
+                DeleteOwnAddress(address.m_OwnID);
+            }
+            break;
+        case ChangeAction::Reset:
+            assert(false && "invalid address change action");
+            break;
         }
     }
 
-    void WalletNetworkViaBbs::Miner::Thread(uint32_t iThread)
-    {
-        proto::Bbs::NonceType nStep = static_cast<uint32_t>(m_vThreads.size());
+	void WalletNetworkViaBbs::Miner::Stop()
+	{
+		if (!m_vThreads.empty())
+		{
+			{
+				std::unique_lock<std::mutex> scope(m_Mutex);
+				m_Shutdown = true;
+				m_NewTask.notify_all();
+			}
 
-        while (true)
-        {
-            Task::Ptr pTask;
+			for (size_t i = 0; i < m_vThreads.size(); i++)
+				if (m_vThreads[i].joinable())
+					m_vThreads[i].join();
 
-            for (std::unique_lock<std::mutex> scope(m_Mutex); ; m_NewTask.wait(scope))
-            {
-                if (m_Shutdown)
-                    return;
+			m_vThreads.clear();
+			m_pEvt.reset();
+		}
+	}
 
-                if (!m_Pending.empty())
-                {
-                    pTask = m_Pending.front();
-                    break;
-                }
-            }
+	void WalletNetworkViaBbs::Miner::Thread(uint32_t iThread)
+	{
+		proto::Bbs::NonceType nStep = static_cast<uint32_t>(m_vThreads.size());
 
-            Timestamp ts = 0;
-            proto::Bbs::NonceType nonce = iThread;
-            bool bSuccess = false;
+		while (true)
+		{
+			Task::Ptr pTask;
 
-            for (uint32_t i = 0; ; i++)
-            {
-                if (pTask->m_Done || m_Shutdown)
-                    break;
+			for (std::unique_lock<std::mutex> scope(m_Mutex); ; m_NewTask.wait(scope))
+			{
+				if (m_Shutdown)
+					return;
 
-                if (!(i & 0xff))
-                    ts = getTimestamp();
+				if (!m_Pending.empty())
+				{
+					pTask = m_Pending.front();
+					break;
+				}
+			}
 
-                // attempt to mine it
-                ECC::Hash::Value hv;
-                ECC::Hash::Processor hp = pTask->m_hpPartial;
-                hp
-                    << ts
-                    << nonce
-                    >> hv;
+			Timestamp ts = 0;
+			proto::Bbs::NonceType nonce = iThread;
+			bool bSuccess = false;
 
-                if (proto::Bbs::IsHashValid(hv))
-                {
-                    bSuccess = true;
-                    break;
-                }
+			for (uint32_t i = 0; ; i++)
+			{
+				if (pTask->m_Done || m_Shutdown)
+					break;
 
-                nonce += nStep;
-            }
+				if (!(i & 0xff))
+					ts = getTimestamp();
 
-            if (bSuccess)
-            {
-                std::unique_lock<std::mutex> scope(m_Mutex);
+				// attempt to mine it
+				ECC::Hash::Value hv;
+				ECC::Hash::Processor hp = pTask->m_hpPartial;
+				hp
+					<< ts
+					<< nonce
+					>> hv;
 
-                if (pTask->m_Done)
-                    bSuccess = false;
-                else
-                {
-                    assert(m_Pending.front() == pTask);
+				if (proto::Bbs::IsHashValid(hv))
+				{
+					bSuccess = true;
+					break;
+				}
 
-                    pTask->m_Msg.m_TimePosted = ts;
-                    pTask->m_Msg.m_Nonce = nonce;
+				nonce += nStep;
+			}
 
-                    pTask->m_Done = true;
-                    m_Pending.pop_front();
-                    m_Done.push_back(std::move(pTask));
-                }
-            }
+			if (bSuccess)
+			{
+				std::unique_lock<std::mutex> scope(m_Mutex);
 
-            if (bSuccess)
-                m_pEvt->post();
-        }
+				if (pTask->m_Done)
+					bSuccess = false;
+				else
+				{
+					assert(m_Pending.front() == pTask);
 
-    }
+					pTask->m_Msg.m_TimePosted = ts;
+					pTask->m_Msg.m_Nonce = nonce;
+
+					pTask->m_Done = true;
+					m_Pending.pop_front();
+					m_Done.push_back(std::move(pTask));
+				}
+			}
+
+			if (bSuccess)
+				m_pEvt->post();
+		}
+
+	}
 
     /////////////////////////////////
     ColdWalletMessageEndpoint::ColdWalletMessageEndpoint(IWallet& wallet, IWalletDB::Ptr walletDB)

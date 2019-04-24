@@ -70,13 +70,14 @@ protected:
     virtual void onSendMoneyVerified() = 0;
     virtual void onCantSendToExpired() = 0;
     virtual void onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof) = 0;
+    virtual void onCoinsByTx(const std::vector<beam::Coin>& coins) = 0;
 
 private:
 
     void onCoinsChanged() override;
     void onTransactionChanged(beam::ChangeAction action, std::vector<beam::TxDescription>&& items) override;
     void onSystemStateChanged() override;
-    void onAddressChanged() override;
+    void onAddressChanged(beam::ChangeAction action, const std::vector<beam::WalletAddress>& items) override;
     void onSyncProgress(int done, int total) override;
 
     void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee) override;
@@ -87,6 +88,7 @@ private:
     void getAddresses(bool own) override;
     void cancelTx(const beam::TxID& id) override;
     void deleteTx(const beam::TxID& id) override;
+    void getCoinsByTx(const beam::TxID& txId) override;
     void saveAddress(const beam::WalletAddress& address, bool bOwn) override;
     void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override;
     void generateNewAddress() override;

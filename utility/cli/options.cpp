@@ -72,6 +72,7 @@ namespace beam
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
         const char* CANCEL_TX = "cancel_tx";
+        const char* DELETE_TX = "delete_tx";
 		const char* PAYMENT_PROOF_EXPORT = "payment_proof_export";
 		const char* PAYMENT_PROOF_VERIFY = "payment_proof_verify";
 		const char* PAYMENT_PROOF_DATA = "payment_proof";
@@ -200,7 +201,7 @@ namespace beam
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("addresses.dat"), "path to import or export data (import_addresses|export_addresses)")
             (cli::COLD_WALLET, "used to init cold wallet")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses|payment_proof_export|payment_proof_verify|utxo]");
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx]");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()

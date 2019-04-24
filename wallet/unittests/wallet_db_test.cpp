@@ -45,7 +45,6 @@ IWalletDB::Ptr createSqliteWalletDB()
     return walletDB;
 }
 
-
 Coin CreateCoin(Amount amount, Height maturity = MaxHeight, Height confirmHeight = MaxHeight, Height spentHeight = MaxHeight)
 {
     Coin c(amount);

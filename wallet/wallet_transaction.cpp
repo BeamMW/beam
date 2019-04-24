@@ -310,11 +310,6 @@ namespace beam { namespace wallet
 
     }
 
-    SimpleTransaction::~SimpleTransaction()
-    {
-
-    }
-
     TxType SimpleTransaction::GetType() const
     {
         return TxType::Simple;
@@ -1129,7 +1124,9 @@ namespace beam { namespace wallet
 
     bool TxBuilder::UpdateMaxHeight()
     {
-        if (!m_Tx.GetParameter(TxParameterID::MaxHeight, m_MaxHeight))
+        Merkle::Hash kernelId;
+        if (!m_Tx.GetParameter(TxParameterID::MaxHeight, m_MaxHeight) &&
+            !m_Tx.GetParameter(TxParameterID::KernelID, kernelId))
         {
             bool isInitiator = m_Tx.IsInitiator();
             bool hasPeerMaxHeight = m_PeerMaxHeight < MaxHeight;

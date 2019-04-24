@@ -352,6 +352,7 @@ void MyPaymentInfoItem::onPaymentProofExported(const beam::TxID& txID, const QSt
 // WalletViewModel
 WalletViewModel::WalletViewModel()
     : _model(*AppModel::getInstance()->getWallet())
+    , _settings(AppModel::getInstance()->getSettings())
     , _status{ 0, 0, 0, 0, {0, 0, 0}, {} }
     , _sendAmount("0")
     , _feeGrothes("0")
@@ -369,7 +370,7 @@ WalletViewModel::WalletViewModel()
     connect(&_model, SIGNAL(changeCurrentWalletIDs(beam::WalletID, beam::WalletID)),
         SLOT(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)));
 
-    connect(&_model, SIGNAL(adrresses(bool, const std::vector<beam::WalletAddress>&)),
+    connect(&_model, SIGNAL(addressesChanged(bool, const std::vector<beam::WalletAddress>&)),
         SLOT(onAddresses(bool, const std::vector<beam::WalletAddress>&)));
 
     connect(&_model, SIGNAL(generatedNewAddress(const beam::WalletAddress&)),
@@ -603,8 +604,20 @@ void WalletViewModel::setReceiverAddr(const QString& value)
     }
 }
 
-bool WalletViewModel::isValidReceiverAddress(const QString& value) {
+bool WalletViewModel::isValidReceiverAddress(const QString& value)
+{
     return check_receiver_address(value.toStdString());
+}
+
+bool WalletViewModel::isPasswordReqiredToSpendMoney() const
+{
+    return _settings.isPasswordReqiredToSpendMoney();
+}
+
+bool WalletViewModel::isPasswordValid(const QString& value) const
+{
+    SecString secretPass = value.toStdString();
+    return AppModel::getInstance()->checkWalletPassword(secretPass);
 }
 
 void WalletViewModel::setSendAmount(const QString& value)

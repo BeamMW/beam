@@ -155,7 +155,6 @@ namespace beam { namespace wallet
         SimpleTransaction(INegotiatorGateway& gateway
                         , beam::IWalletDB::Ptr walletDB
                         , const TxID& txID);
-        virtual ~SimpleTransaction();
     private:
         TxType GetType() const override;
         void UpdateImpl() override;
