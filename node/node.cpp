@@ -2398,7 +2398,7 @@ bool Node::Dandelion::ValidateTxContext(const Transaction& tx)
 
 void Node::Peer::OnMsg(proto::Login&& msg)
 {
-    VerifyCfg(msg);
+    VerifyCfg(msg, m_This.m_Processor.m_Cursor.m_ID.m_Height);
 
     if ((m_LoginFlags ^ msg.m_Flags) & proto::LoginFlags::SendPeers)
     {

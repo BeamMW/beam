@@ -803,7 +803,7 @@ void NodeConnection::OnMsg(Time&& msg)
 	}
 }
 
-void NodeConnection::VerifyCfg(const Login& msg)
+void NodeConnection::VerifyCfg(const Login& msg, Height hVer)
 {
 	if (msg.m_CfgChecksum != Rules::get().Checksum) {
 		ThrowUnexpected("Incompatible peer cfg!", NodeProcessingException::Type::Incompatible);
@@ -818,6 +818,10 @@ void NodeConnection::VerifyCfg(const Login& msg)
 		uint8_t nFlags = nMask & msg.m_Flags;
 		if (nFlags != nMask) {
 			LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses older protocol: " << static_cast<uint32_t>(nFlags);
+
+			if (hVer >= Rules::get().Forks.H1) {
+				ThrowUnexpected("Legacy", NodeProcessingException::Type::Incompatible);
+			}
 		}
 	}
 }

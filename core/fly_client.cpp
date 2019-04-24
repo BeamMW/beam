@@ -227,7 +227,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(GetBlockFinalization&& msg)
 
 void FlyClient::NetworkStd::Connection::OnMsg(Login&& msg)
 {
-    VerifyCfg(msg);
+    VerifyCfg(msg, 0);
 
     m_LoginFlags = msg.m_Flags;
     AssignRequests();

@@ -534,7 +534,7 @@ namespace proto {
         void ProvePKdfObscured(Key::IPKdf&, uint8_t nIDType);
         bool IsKdfObscured(Key::IPKdf&, const PeerID&);
         bool IsPKdfObscured(Key::IPKdf&, const PeerID&);
-        void VerifyCfg(const Login&); // will throw NodeProcessingException if incompatible
+        void VerifyCfg(const Login&, Height hVer); // will throw NodeProcessingException if incompatible
 
         virtual void OnMsg(SChannelInitiate&&) override;
         virtual void OnMsg(SChannelReady&&) override;
