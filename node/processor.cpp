@@ -2152,9 +2152,6 @@ Difficulty NodeProcessor::get_NextDifficulty()
 	if (!m_Cursor.m_Sid.m_Row)
 		return r.DA.Difficulty0; // 1st block
 
-	//if (m_Cursor.m_Full.m_Height - Rules::HeightGenesis < r.DA.WindowWork)
-	//	return r.DA.Difficulty0; // 1st block difficulty 0
-
 	THW thw0, thw1;
 
 	get_MovingMedianEx(m_Cursor.m_Sid.m_Row, r.DA.WindowMedian1, thw1);
@@ -2189,10 +2186,29 @@ Difficulty NodeProcessor::get_NextDifficulty()
 	uint32_t dh = static_cast<uint32_t>(thw1.second.first - thw0.second.first);
 
 	uint32_t dtTrg_s = r.DA.Target_s * dh;
-	uint32_t dtSrc_s =
-		(thw1.first >= thw0.first + dtTrg_s * 2) ? (dtTrg_s * 2) :
-		(thw1.first <= thw0.first + dtTrg_s / 2) ? (dtTrg_s / 2) :
-		static_cast<uint32_t>(thw1.first - thw0.first);
+
+	// actual dt, only making sure it's non-negative
+	uint32_t dtSrc_s = (thw1.first > thw0.first) ? static_cast<uint32_t>(thw1.first - thw0.first) : 0;
+
+	if (m_Cursor.m_Full.m_Height >= r.Forks.H1)
+	{
+		// Apply dampening. Recalculate dtSrc_s := dtSrc_s * M/N + dtTrg_s * (N-M)/N
+		// Use 64-bit arithmetic to avoid overflow
+
+		uint64_t nVal =
+			static_cast<uint64_t>(dtSrc_s) * r.DA.Damp.M +
+			static_cast<uint64_t>(dtTrg_s) * (r.DA.Damp.N - r.DA.Damp.M);
+
+		uint32_t dt_s = static_cast<uint32_t>(nVal / r.DA.Damp.N);
+
+		if ((dt_s > dtSrc_s) != (dt_s > dtTrg_s)) // another overflow verification. The result normally must sit between src and trg (assuming valid damp parameters, i.e. M < N).
+			dtSrc_s = dt_s;
+	}
+
+	// apply "emergency" threshold
+	dtSrc_s = std::min(dtSrc_s, dtTrg_s * 2);
+	dtSrc_s = std::max(dtSrc_s, dtTrg_s / 2);
+
 
 	Difficulty::Raw& dWrk = thw0.second.second;
 	dWrk.Negate();

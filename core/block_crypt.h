@@ -107,6 +107,12 @@ namespace beam
 			uint32_t WindowMedian0	= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
 			uint32_t WindowMedian1	= 7; // Num of blocks taken at both endings of WindowWork, to pick medians.
 			Difficulty Difficulty0	= Difficulty(8 << Difficulty::s_MantissaBits); // 2^8 = 256
+
+			struct {
+				// damp factor. Adjustment of actual dt toward expected, effectively dampens
+				uint32_t M = 1; // Multiplier of the actual dt
+				uint32_t N = 3; // Denominator. The goal is multiplied by (N-M)
+			} Damp;
 		} DA;
 
 		struct {
