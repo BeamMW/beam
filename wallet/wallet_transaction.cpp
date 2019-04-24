@@ -530,6 +530,7 @@ namespace beam { namespace wallet
             // Verify final transaction
             TxBase::Context::Params pars;
 			TxBase::Context ctx(pars);
+			ctx.m_Height.m_Min = builder.GetMinHeight();
 			if (!transaction->IsValid(ctx))
             {
                 OnFailed(TxFailureReason::InvalidTransaction, true);

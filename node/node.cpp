@@ -1993,6 +1993,7 @@ bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 
 	Transaction::Context::Params pars;
 	Transaction::Context ctx(pars);
+	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
     bool bTested = false;
     TxPool::Stem::Element* pDup = NULL;
 
@@ -2301,6 +2302,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 
 	Transaction::Context::Params pars;
 	Transaction::Context ctx(pars);
+	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
     if (pElem)
     {
         ctx.m_Fee = pElem->m_Profit.m_Fee;
@@ -3105,6 +3107,7 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
         TxBase::Context::Params pars;
 		pars.m_bBlockMode = true;
 		TxBase::Context ctx(pars);
+		ctx.m_Height = m_This.m_Processor.m_Cursor.m_ID.m_Height + 1;
         if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader()))
             ThrowUnexpected();
 

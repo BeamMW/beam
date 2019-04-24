@@ -783,6 +783,7 @@ namespace beam
 #ifndef NDEBUG
         TxBase::Context::Params pars;
 		TxBase::Context ctx(pars);
+		ctx.m_Height.m_Min = m_WalletDB->getCurrentHeight();
 		assert(data->IsValid(ctx));
 #endif // NDEBUG
 

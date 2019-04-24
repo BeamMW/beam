@@ -740,6 +740,7 @@ namespace beam
 
 			Transaction::Context::Params pars;
 			Transaction::Context ctx(pars);
+			ctx.m_Height.m_Min = h;
 			bool isTxValid = tx.IsValid(ctx);
 			verify_test(isTxValid);
 		}
@@ -792,7 +793,7 @@ namespace beam
 
 				Transaction::Context::Params pars;
 				Transaction::Context ctx(pars);
-				ctx.m_Height.m_Min = ctx.m_Height.m_Max = np.m_Cursor.m_Sid.m_Height + 1;
+				ctx.m_Height = np.m_Cursor.m_Sid.m_Height + 1;
 				verify_test(pTx->IsValid(ctx));
 
 				Transaction::KeyType key;
@@ -1680,6 +1681,7 @@ namespace beam
 
 					Transaction::Context::Params pars;
 					Transaction::Context ctx(pars);
+					ctx.m_Height.m_Min = msg.m_Description.m_Height + 1;
 					verify_test(msgTx.m_Transaction->IsValid(ctx));
 
 					Send(msgTx);

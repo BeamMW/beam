@@ -220,6 +220,7 @@ namespace beam
 		TxBase::Context::Params pars;
 		pars.m_bVerifyOrder = false;
 		TxBase::Context ctx(pars);
+		ZeroObject(ctx.m_Height);
 		if (!ctx.ValidateAndSummarize(m_Base, Reader(*this)))
 			return false;
 
