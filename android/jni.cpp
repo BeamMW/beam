@@ -483,6 +483,14 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getCoinsByTx)(JNIEnv *env, job
     walletModel->getAsync()->getCoinsByTx(id);
 }
 
+JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(changeNodeAddress)(JNIEnv *env, jobject thiz,
+    jstring address)
+{
+    auto addr = JString(env, address).value();
+
+    walletModel->getAsync()->setNodeAddress(addr);
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv *env;
