@@ -38,6 +38,7 @@ namespace beam
         const char* WALLET_STORAGE = "wallet_path";
         const char* MINING_THREADS = "mining_threads";
         const char* VERIFICATION_THREADS = "verification_threads";
+        const char* NONCEPREFIX_DIGITS = "nonceprefix_digits";
         const char* NODE_PEER = "peer";
         const char* PASS = "pass";
         const char* AMOUNT = "amount";
@@ -155,6 +156,7 @@ namespace beam
             (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
 
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
+            (cli::NONCEPREFIX_DIGITS, po::value<unsigned>()->default_value(0), "number of hex digits for nonce prefix for stratum client (0..6)")
             (cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
             (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")

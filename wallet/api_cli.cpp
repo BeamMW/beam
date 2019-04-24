@@ -112,7 +112,7 @@ namespace beam
     class WalletApiServer : public IWalletApiServer
     {
     public:
-        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::Reactor& reactor, 
+        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, IWalletNetwork& wnet, io::Reactor& reactor, 
             io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions, const std::vector<uint32_t>& whitelist)
             : _reactor(reactor)
             , _bindAddress(listenTo)
@@ -215,7 +215,7 @@ namespace beam
         class ApiConnection : IWalletApiHandler, IWalletDbObserver
         {
         public:
-            ApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, WalletApi::ACL acl)
+            ApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, IWalletNetwork& wnet, WalletApi::ACL acl)
                 : _walletDB(walletDB)
                 , _wallet(wallet)
                 , _api(*this, acl)
@@ -228,16 +228,6 @@ namespace beam
             {
                 _walletDB->unsubscribe(this);
             }
-
-            void onCoinsChanged() override {}
-            void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) override {}
-
-            void onSystemStateChanged() override 
-            {
-                
-            }
-
-            void onAddressChanged() override {}
 
             virtual void serializeMsg(const json& msg) = 0;
 
@@ -282,8 +272,6 @@ namespace beam
 
                 _walletDB->saveAddress(address);
 
-                _wnet.AddOwnAddress(address);
-
                 doResponse(id, CreateAddress::Response{ address.m_walletID });
             }
 
@@ -295,11 +283,6 @@ namespace beam
 
                 if (addr)
                 {
-                    if (addr->m_OwnID)
-                    {
-                        _wnet.DeleteOwnAddress(addr->m_OwnID);
-                    }
-
                     _walletDB->deleteAddress(data.address);
 
                     doResponse(id, DeleteAddress::Response{});
@@ -342,7 +325,6 @@ namespace beam
                         }
 
                         _walletDB->saveAddress(*addr);
-                        _wnet.AddOwnAddress(*addr);
 
                         doResponse(id, EditAddress::Response{});
                     }
@@ -404,8 +386,6 @@ namespace beam
                     {
                         WalletAddress senderAddress = wallet::createAddress(*_walletDB);
                         _walletDB->saveAddress(senderAddress);
-
-                        _wnet.AddOwnAddress(senderAddress);
 
                         from = senderAddress.m_walletID;     
                     }
@@ -474,7 +454,6 @@ namespace beam
                 {
                      WalletAddress senderAddress = wallet::createAddress(*_walletDB);
                     _walletDB->saveAddress(senderAddress);
-                    _wnet.AddOwnAddress(senderAddress);
 
                     auto txId = _wallet.split_coins(senderAddress.m_walletID, data.coins, data.fee);
                     doResponse(id, Send::Response{ txId });
@@ -696,13 +675,13 @@ namespace beam
             IWalletDB::Ptr _walletDB;
             Wallet& _wallet;
             WalletApi _api;
-            WalletNetworkViaBbs& _wnet;
+            IWalletNetwork& _wnet;
         };
 
         class TcpApiConnection : public ApiConnection
         {
         public:
-            TcpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
+            TcpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, IWalletNetwork& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
                 : ApiConnection(walletDB, wallet, wnet, acl)
                 , _stream(std::move(newStream))
                 , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
@@ -762,7 +741,7 @@ namespace beam
         class HttpApiConnection : public ApiConnection
         {
         public:
-            HttpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
+            HttpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, IWalletNetwork& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
                 : ApiConnection(walletDB, wallet, wnet, acl)
                 , _keepalive(false)
                 , _msgCreator(2000)
@@ -881,7 +860,7 @@ namespace beam
 
         IWalletDB::Ptr _walletDB;
         Wallet& _wallet;
-        WalletNetworkViaBbs& _wnet;
+        IWalletNetwork& _wnet;
         std::vector<uint64_t> _pendingToClose;
         WalletApi::ACL _acl;
         std::vector<uint32_t> _whitelist;

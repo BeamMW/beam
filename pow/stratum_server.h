@@ -33,7 +33,7 @@ struct ConnectionToServer {
 
 class Server : public IExternalPOW, public ConnectionToServer {
 public:
-    Server(const IExternalPOW::Options& o, io::Reactor& reactor, io::Address listenTo);
+    Server(const IExternalPOW::Options& o, io::Reactor& reactor, io::Address listenTo, unsigned noncePrefixDigits);
 
 private:
     class AccessControl {
@@ -52,9 +52,11 @@ private:
 
     class Connection : public ParserCallback {
     public:
-        Connection(ConnectionToServer& owner, uint64_t id, io::TcpStream::Ptr&& newStream);
+        Connection(ConnectionToServer& owner, uint64_t id, std::string nonceprefix, io::TcpStream::Ptr&& newStream);
 
         void set_logged_in() { _loggedIn = true; }
+
+        const std::string& get_nonceprefix() { return _nonceprefix; }
 
         bool send_msg(const io::SerializedMsg& msg, bool onlyIfLoggedIn, bool shutdown=false);
 
@@ -73,6 +75,7 @@ private:
 
         ConnectionToServer& _owner;
         uint64_t _id;
+        const std::string _nonceprefix;
         io::TcpStream::Ptr _stream;
         LineReader _lineReader;
         bool _loggedIn;
@@ -83,6 +86,8 @@ private:
     void refresh_acl();
 
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode);
+
+    std::string gen_nonceprefix(uint64_t connId);
 
     bool on_login(uint64_t from, const Login& login) override;
     bool on_solution(uint64_t from, const Solution& solution) override;
@@ -122,6 +127,8 @@ private:
 
     io::SerializedMsg _currentMsg;
     std::vector<uint64_t> _deadConnections;
+    unsigned _prefixDigits; // nonceprefix hex digits, 0..6
+    uint64_t _prefixSeed;
 };
 
 }} //namespaces

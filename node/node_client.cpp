@@ -229,6 +229,10 @@ void NodeClient::runLocalNode()
     node.m_Cfg.m_Observer = &obs;
     node.Initialize();
 
+    if (node.get_AcessiblePeerCount() == 0)
+    {
+        throw std::runtime_error("Resolved peer list is empty");
+    }
     m_isRunning = true;
 
     io::Reactor::get_Current().run();

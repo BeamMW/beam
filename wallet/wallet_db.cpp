@@ -1897,7 +1897,6 @@ namespace beam
     {
         vector<WalletAddress> res;
         const char* req = "SELECT * FROM " ADDRESSES_NAME " ORDER BY createTime DESC;";
-
         sqlite::Statement stm(this, req);
 
         while (stm.step())
@@ -1914,6 +1913,7 @@ namespace beam
 
     void WalletDB::saveAddress(const WalletAddress& address)
     {
+        ChangeAction action = ChangeAction::Added;
         {
             const char* selectReq = "SELECT * FROM " ADDRESSES_NAME " WHERE walletID=?1;";
             sqlite::Statement stm2(this, selectReq);
@@ -1930,6 +1930,8 @@ namespace beam
                 stm.bind(4, address.m_duration);
                 stm.bind(5, address.m_createTime);
                 stm.step();
+
+                action = ChangeAction::Updated;
             }
             else
             {
@@ -1942,11 +1944,22 @@ namespace beam
         }
 
         insertAddressToCache(address.m_walletID, address);
-        notifyAddressChanged();
+        notifyAddressChanged(action, { address });
     }
 
     void WalletDB::setExpirationForAllAddresses(uint64_t expiration)
     {
+        vector<WalletAddress> changedItems;
+        {
+            const char* req = "SELECT * FROM " ADDRESSES_NAME " WHERE OwnID != 0;";
+            sqlite::Statement stm(this, req);
+            while (stm.step())
+            {
+                auto& a = changedItems.emplace_back();
+                int colIdx = 0;
+                ENUM_ADDRESS_FIELDS(STM_GET_LIST, NOSEP, a);
+            }
+        }
         {
             const char* updateReq = "UPDATE " ADDRESSES_NAME " SET duration = ?1 WHERE OwnID != 0;";
             sqlite::Statement stm(this, updateReq);
@@ -1955,7 +1968,7 @@ namespace beam
 
             stm.step();
         }
-        notifyAddressChanged();
+        notifyAddressChanged(ChangeAction::Updated, changedItems);
     }
 
     boost::optional<WalletAddress> WalletDB::getAddress(const WalletID& id) const
@@ -1993,16 +2006,20 @@ namespace beam
 
     void WalletDB::deleteAddress(const WalletID& id)
     {
-        const char* req = "DELETE FROM " ADDRESSES_NAME " WHERE walletID=?1;";
-        sqlite::Statement stm(this, req);
+        auto address = getAddress(id);
+        if (address)
+        {
+            const char* req = "DELETE FROM " ADDRESSES_NAME " WHERE walletID=?1;";
+            sqlite::Statement stm(this, req);
 
-        stm.bind(1, id);
+            stm.bind(1, id);
 
-        stm.step();
+            stm.step();
 
-        deleteAddressFromCache(id);
+            deleteAddressFromCache(id);
 
-        notifyAddressChanged();
+            notifyAddressChanged(ChangeAction::Removed, {*address});
+        }
     }
 
 
@@ -2187,9 +2204,12 @@ namespace beam
         for (auto sub : m_subscribers) sub->onSystemStateChanged();
     }
 
-    void WalletDB::notifyAddressChanged()
+    void WalletDB::notifyAddressChanged(ChangeAction action, const vector<WalletAddress>& items)
     {
-        for (auto sub : m_subscribers) sub->onAddressChanged();
+        for (auto sub : m_subscribers)
+        {
+            sub->onAddressChanged(action, items);
+        }
     }
 
     Block::SystemState::IHistory& WalletDB::get_History()

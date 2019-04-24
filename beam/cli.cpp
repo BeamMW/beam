@@ -214,7 +214,9 @@ int main_impl(int argc, char* argv[])
 				if (stratumPort > 0) {
 					IExternalPOW::Options powOptions;
                     find_certificates(powOptions, vm[cli::STRATUM_SECRETS_PATH].as<string>(), vm[cli::STRATUM_USE_TLS].as<bool>());
-					stratumServer = IExternalPOW::create(powOptions, *reactor, io::Address().port(stratumPort));
+                    unsigned noncePrefixDigits = vm[cli::NONCEPREFIX_DIGITS].as<unsigned>();
+                    if (noncePrefixDigits > 6) noncePrefixDigits = 6;
+					stratumServer = IExternalPOW::create(powOptions, *reactor, io::Address().port(stratumPort), noncePrefixDigits);
 				}
 
 				{
