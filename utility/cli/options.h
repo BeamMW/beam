@@ -35,6 +35,7 @@ namespace beam
         extern const char* WALLET_STORAGE;
         extern const char* MINING_THREADS;
         extern const char* VERIFICATION_THREADS;
+        extern const char* NONCEPREFIX_DIGITS;
         extern const char* NODE_PEER;
         extern const char* PASS;
         extern const char* AMOUNT;

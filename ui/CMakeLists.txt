@@ -81,11 +81,12 @@ set(UI_SRC
 	model/node_model.cpp
 )
 
-find_package(Qt5LinguistTools)
-if (Qt5LinguistTools_FOUND)
-    set(TS_FILES "${CMAKE_CURRENT_SOURCE_DIR}/translations/english.ts")
-    qt5_create_translation(QM_FILES ${CMAKE_CURRENT_SOURCE_DIR} ${TS_FILES})
-endif()
+# TODO too slow
+#find_package(Qt5LinguistTools)
+#if (Qt5LinguistTools_FOUND)
+#    set(TS_FILES "${CMAKE_CURRENT_SOURCE_DIR}/translations/english.ts")
+#    qt5_create_translation(QM_FILES ${CMAKE_CURRENT_SOURCE_DIR} ${TS_FILES})
+#endif()
 
 if(WIN32)
 	add_definitions(-DWIN32_LEAN_AND_MEAN)

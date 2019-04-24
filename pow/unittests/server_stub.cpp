@@ -29,7 +29,7 @@ Block::PoW POW;
 static const unsigned TIMER_MSEC = 280000;
 io::Timer::Ptr feedJobsTimer;
 
-void got_new_block();
+IExternalPOW::BlockFoundResult got_new_block();
 
 void gen_new_job() {
     ECC::GenRandom(&POW.m_Nonce, Block::PoW::NonceType::nBytes);
@@ -48,16 +48,19 @@ void gen_new_job() {
     feedJobsTimer->start(TIMER_MSEC, false, &gen_new_job);
 }
 
-void got_new_block() {
+IExternalPOW::BlockFoundResult got_new_block() {
     feedJobsTimer->cancel();
+    IExternalPOW::BlockFoundResult result = IExternalPOW::solution_rejected;
     if (server) {
         std::string blockId;
         server->get_last_found_block(blockId, POW);
         if (POW.IsValid(hash.m_pData, 32)) {
             LOG_INFO() << "got valid block" << TRACE(blockId);
+            result = IExternalPOW::solution_accepted;
         }
         gen_new_job();
     }
+    return result;
 }
 
 void find_certificates(IExternalPOW::Options& o) {
@@ -85,7 +88,7 @@ void run_without_node() {
     feedJobsTimer = io::Timer::create(*reactor);
     IExternalPOW::Options options;
     find_certificates(options);
-    server = IExternalPOW::create(options, *reactor, listenTo);
+    server = IExternalPOW::create(options, *reactor, listenTo, 5);
     gen_new_job();
     reactor->run();
     feedJobsTimer.reset();
@@ -103,7 +106,7 @@ void run_with_node() {
     feedJobsTimer = io::Timer::create(*reactor);
     IExternalPOW::Options options;
     find_certificates(options);
-    server = IExternalPOW::create(options, *reactor, listenTo);
+    server = IExternalPOW::create(options, *reactor, listenTo, 5);
 
     Rules::get().DA.Difficulty0 = 0;
     Rules::get().UpdateChecksum();

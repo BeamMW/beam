@@ -22,6 +22,7 @@
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/set.hpp>
 #include <condition_variable>
+#include <pow/external_pow.h>
 
 namespace beam
 {
@@ -588,7 +589,7 @@ private:
 		void OnRefresh(uint32_t iIdx);
 		void OnRefreshExternal();
 		void OnMined();
-		void OnMinedExternal();
+		IExternalPOW::BlockFoundResult OnMinedExternal();
 		void OnFinalizerChanged(Peer*);
 
 		void HardAbortSafe();
