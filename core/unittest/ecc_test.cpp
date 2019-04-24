@@ -720,16 +720,16 @@ void TestRangeProof(bool bCustomTag)
 	{
 		beam::Output outp;
 		outp.m_AssetID = aid;
-		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf, true);
 		outp.m_Coinbase = true; // others may be disallowed
-		verify_test(outp.IsValid(comm));
+		outp.Create(beam::Rules::get().Forks.H1, sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf, true);
+		verify_test(outp.IsValid(beam::Rules::get().Forks.H1, comm));
 		WriteSizeSerialized("Out-UTXO-Public", outp);
 	}
 	{
 		beam::Output outp;
 		outp.m_AssetID = aid;
-		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf);
-		verify_test(outp.IsValid(comm));
+		outp.Create(beam::Rules::get().Forks.H1, sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf);
+		verify_test(outp.IsValid(beam::Rules::get().Forks.H1, comm));
 		WriteSizeSerialized("Out-UTXO-Confidential", outp);
 	}
 
@@ -801,11 +801,11 @@ struct TransactionMaker
 
 			if (pAssetID)
 				pOut->m_AssetID = *pAssetID;
-			pOut->Create(k, kdf, kidv, kdf);
+			pOut->Create(beam::Rules::get().Forks.H1, k, kdf, kidv, kdf);
 
 			// test recovery
 			Key::IDV kidv2;
-			verify_test(pOut->Recover(kdf, kidv2));
+			verify_test(pOut->Recover(beam::Rules::get().Forks.H1, kdf, kidv2));
 			verify_test(kidv == kidv2);
 
 			t.m_vOutputs.push_back(std::move(pOut));
@@ -872,11 +872,11 @@ struct TransactionMaker
 		krn.m_Signature.m_k = kSig;
 	}
 
-	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested, bool bEmitCustomTag)
+	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested, bool bEmitCustomTag, bool bNested)
 	{
 		std::unique_ptr<beam::TxKernel> pKrn(new beam::TxKernel);
 		pKrn->m_Fee = fee;
-
+		pKrn->m_CanEmbed = bNested;
 		pKrn->m_vNested.swap(lstNested);
 
 		// hashlock
@@ -920,11 +920,11 @@ struct TransactionMaker
 
 		Point::Native exc;
 		beam::AmountBig::Type fee2;
-		verify_test(!pKrn->IsValid(fee2, exc)); // should not pass validation unless correct hash preimage is specified
+		verify_test(!pKrn->IsValid(beam::Rules::get().Forks.H1, fee2, exc)); // should not pass validation unless correct hash preimage is specified
 
 		// finish HL: add hash preimage
 		pKrn->m_pHashLock->m_Preimage = hlPreimage;
-		verify_test(pKrn->IsValid(fee2, exc));
+		verify_test(pKrn->IsValid(beam::Rules::get().Forks.H1, fee2, exc));
 
 		lstTrg.push_back(std::move(pKrn));
 	}
@@ -954,16 +954,17 @@ void TestTransaction()
 
 	Amount fee1 = 100, fee2 = 2;
 
-	tm.CreateTxKernel(lstNested, fee1, lstDummy, false);
+	tm.CreateTxKernel(lstNested, fee1, lstDummy, false, true);
 
 	tm.AddOutput(0, 738);
 	tm.AddInput(1, 740);
-	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested, true);
+	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested, true, false);
 
 	tm.m_Trans.Normalize();
 
 	beam::TxBase::Context::Params pars;
 	beam::TxBase::Context ctx(pars);
+	ctx.m_Height.m_Min = beam::Rules::get().Forks.H1;
 	verify_test(tm.m_Trans.IsValid(ctx));
 	verify_test(ctx.m_Fee == beam::AmountBig::Type(fee1 + fee2));
 }
@@ -978,6 +979,7 @@ void TestCutThrough()
 
 	beam::TxBase::Context::Params pars;
 	beam::TxBase::Context ctx(pars);
+	ctx.m_Height.m_Min = beam::Rules::get().Forks.H1;
 	verify_test(ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader()));
 
 	beam::Input::Ptr pInp(new beam::Input);
@@ -985,11 +987,13 @@ void TestCutThrough()
 	tm.m_Trans.m_vInputs.push_back(std::move(pInp));
 
 	ctx.Reset();
+	ctx.m_Height = beam::Rules::get().Forks.H1;
 	verify_test(!ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader())); // redundant outputs must be banned!
 
 	verify_test(tm.m_Trans.Normalize() == 1);
 
 	ctx.Reset();
+	ctx.m_Height = beam::Rules::get().Forks.H1;
 	verify_test(ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader()));
 }
 
@@ -1880,6 +1884,7 @@ int main()
 	g_psecp256k1 = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 
 	beam::Rules::get().CA.Enabled = true;
+	beam::Rules::get().Forks.H1 = 3;
 	ECC::TestAll();
 	ECC::RunBenchmark();
 

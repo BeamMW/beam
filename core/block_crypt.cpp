@@ -210,7 +210,7 @@ namespace beam
 
 	/////////////
 	// Output
-	bool Output::IsValid(ECC::Point::Native& comm) const
+	bool Output::IsValid(Height hVer, ECC::Point::Native& comm) const
 	{
 		if (!comm.Import(m_Commitment))
 			return false;
@@ -218,7 +218,7 @@ namespace beam
 		SwitchCommitment sc(&m_AssetID);
 
 		ECC::Oracle oracle;
-		oracle << m_Incubation;
+		Prepare(oracle, hVer);
 
 		if (m_pConfidential)
 		{
@@ -267,13 +267,13 @@ namespace beam
 		return 0;
 	}
 
-	void Output::Create(ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const Key::IDV& kidv, Key::IPKdf& tagKdf, bool bPublic /* = false */)
+	void Output::Create(Height hVer, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const Key::IDV& kidv, Key::IPKdf& tagKdf, bool bPublic /* = false */)
 	{
 		SwitchCommitment sc(&m_AssetID);
 		sc.Create(sk, m_Commitment, coinKdf, kidv);
 
 		ECC::Oracle oracle;
-		oracle << m_Incubation;
+		Prepare(oracle, hVer);
 
 		ECC::RangeProof::CreatorParams cp;
 		cp.m_Kidv = kidv;
@@ -302,13 +302,24 @@ namespace beam
 		ECC::Hash::Processor() << sk >> seed;
 	}
 
-	bool Output::Recover(Key::IPKdf& tagKdf, Key::IDV& kidv) const
+	void Output::Prepare(ECC::Oracle& oracle, Height hVer) const
+	{
+		oracle << m_Incubation;
+
+		if (hVer >= Rules::get().Forks.H1)
+		{
+			oracle
+				<< m_Commitment;
+		}
+	}
+
+	bool Output::Recover(Height hVer, Key::IPKdf& tagKdf, Key::IDV& kidv) const
 	{
 		ECC::RangeProof::CreatorParams cp;
 		get_SeedKid(cp.m_Seed.V, tagKdf);
 
 		ECC::Oracle oracle;
-		oracle << m_Incubation;
+		Prepare(oracle, hVer);
 
 		bool bSuccess =
 			m_pConfidential ? m_pConfidential->Recover(oracle, cp) :
@@ -355,15 +366,26 @@ namespace beam
 
 	/////////////
 	// TxKernel
-	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig::Type* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const
+	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig::Type* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pFork) const
 	{
+		if (pFork && (*pFork < Rules::get().Forks.H1) && (m_CanEmbed || m_pRelativeLock))
+			return false; // unsupported for that version
+
 		if (pParent)
 		{
+			if (!m_CanEmbed && pFork && (*pFork >= Rules::get().Forks.H1)) // for older version embedding is implicitly allowed (though unlikely to be used)
+				return false;
+
 			// nested kernel restrictions
 			if ((m_Height.m_Min > pParent->m_Height.m_Min) ||
 				(m_Height.m_Max < pParent->m_Height.m_Max))
 				return false; // parent Height range must be contained in ours.
 		}
+
+		uint8_t nFlags =
+			(m_pHashLock ? 1 : 0) |
+			(m_pRelativeLock ? 2 : 0) |
+			(m_CanEmbed ? 4 : 0);
 
 		ECC::Hash::Processor hp;
 		hp	<< m_Fee
@@ -371,7 +393,7 @@ namespace beam
 			<< m_Height.m_Max
 			<< m_Commitment
 			<< Amount(m_AssetEmission)
-			<< (bool) m_pHashLock;
+			<< nFlags;
 
 		if (m_pHashLock)
 		{
@@ -382,6 +404,13 @@ namespace beam
 			}
 
 			hp << *pLockImage;
+		}
+
+		if (m_pRelativeLock)
+		{
+			hp
+				<< m_pRelativeLock->m_ID
+				<< m_pRelativeLock->m_LockHeight;
 		}
 
 		ECC::Point::Native ptExcNested;
@@ -402,7 +431,7 @@ namespace beam
 				return false;
 			p0Krn = &v;
 
-			if (!v.Traverse(hv, pFee, pExcess ? &ptExcNested : NULL, this, NULL))
+			if (!v.Traverse(hv, pFee, pExcess ? &ptExcNested : nullptr, this, nullptr, pFork))
 				return false;
 
 			hp << hv;
@@ -470,13 +499,13 @@ namespace beam
 
 	void TxKernel::get_Hash(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
 	{
-		Traverse(out, NULL, NULL, NULL, pLockImage);
+		Traverse(out, nullptr, nullptr, nullptr, pLockImage, nullptr);
 	}
 
-	bool TxKernel::IsValid(AmountBig::Type& fee, ECC::Point::Native& exc) const
+	bool TxKernel::IsValid(Height hVer, AmountBig::Type& fee, ECC::Point::Native& exc) const
 	{
 		ECC::Hash::Value hv;
-		return Traverse(hv, &fee, &exc, NULL, NULL);
+		return Traverse(hv, &fee, &exc, nullptr, nullptr, &hVer);
 	}
 
 	void TxKernel::get_ID(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
@@ -515,6 +544,7 @@ namespace beam
 			return -1;
 
 		CMP_MEMBER_PTR(m_pHashLock)
+		CMP_MEMBER_PTR(m_pRelativeLock)
 
 		return 0;
 	}
@@ -522,6 +552,13 @@ namespace beam
 	int TxKernel::HashLock::cmp(const HashLock& v) const
 	{
 		CMP_MEMBER_EX(m_Preimage)
+		return 0;
+	}
+
+	int TxKernel::RelativeLock::cmp(const RelativeLock& v) const
+	{
+		CMP_MEMBER_EX(m_ID)
+		CMP_MEMBER(m_LockHeight)
 		return 0;
 	}
 
@@ -542,6 +579,7 @@ namespace beam
 		m_Height = v.m_Height;
 		m_AssetEmission = v.m_AssetEmission;
 		ClonePtr(m_pHashLock, v.m_pHashLock);
+		ClonePtr(m_pRelativeLock, v.m_pRelativeLock);
 
 		m_vNested.resize(v.m_vNested.size());
 
@@ -851,6 +889,8 @@ namespace beam
 			0x39, 0x81, 0x47, 0x67, 0x6e, 0x16, 0x62, 0xf4,
 			0x3c, 0x26, 0xa5, 0x26, 0xd2, 0xe2, 0x20, 0x63,
 		};
+
+		Forks.H1 = MaxHeight; // not yet decided
 	}
 
 	Amount Rules::get_EmissionEx(Height h, Height& hEnd, Amount base) const
@@ -960,7 +1000,6 @@ namespace beam
 			// out
 			>> Checksum;
 	}
-
 
 	int Block::SystemState::ID::cmp(const ID& v) const
 	{
@@ -1293,7 +1332,7 @@ namespace beam
 		{
 			pOutp.reset(new Output);
 			pOutp->m_Coinbase = true;
-			pOutp->Create(sk, m_Coin, Key::IDV(val, m_Height, Key::Type::Coinbase, m_SubIdx), m_Tag);
+			pOutp->Create(m_Height, sk, m_Coin, Key::IDV(val, m_Height, Key::Type::Coinbase, m_SubIdx), m_Tag);
 
 			m_Offset += sk;
 		}
@@ -1323,7 +1362,7 @@ namespace beam
 		ECC::Scalar::Native sk;
 
 		pOutp.reset(new Output);
-		pOutp->Create(sk, m_Coin, Key::IDV(fees, m_Height, Key::Type::Comission, m_SubIdx), m_Tag);
+		pOutp->Create(m_Height, sk, m_Coin, Key::IDV(fees, m_Height, Key::Type::Comission, m_SubIdx), m_Tag);
 
 		m_Offset += sk;
 	}

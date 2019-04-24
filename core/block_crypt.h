@@ -36,6 +36,8 @@ namespace beam
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
 
+	void HeightAdd(Height& trg, Height val); // saturates if overflow
+
 	struct HeightRange
 	{
 		// Convention: inclusive, i.e. both endings are part of the range.
@@ -132,6 +134,10 @@ namespace beam
 		static Amount get_Emission(Height);
 		static void get_Emission(AmountBig::Type&, const HeightRange&);
 		static void get_Emission(AmountBig::Type&, const HeightRange&, Amount base);
+
+		struct {
+			Height H1 = 0; // starting from this height the blockchain format should obey the newer scheme
+		} Forks;
 
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
@@ -234,12 +240,12 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
-		void Create(ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
+		void Create(Height hVer, ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
 
-		bool Recover(Key::IPKdf& tagKdf, Key::IDV&) const;
+		bool Recover(Height hVer, Key::IPKdf& tagKdf, Key::IDV&) const;
 		bool VerifyRecovered(Key::IPKdf& coinKdf, const Key::IDV&) const;
 
-		bool IsValid(ECC::Point::Native& comm) const;
+		bool IsValid(Height hVer, ECC::Point::Native& comm) const;
 		Height get_MinMaturity(Height h) const; // regardless to the explicitly-overridden
 
 		void operator = (const Output&);
@@ -248,6 +254,7 @@ namespace beam
 
 	private:
 		void get_SeedKid(ECC::uintBig&, Key::IPKdf&) const;
+		void Prepare(ECC::Oracle&, Height hVer) const;
 	};
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }
@@ -262,10 +269,12 @@ namespace beam
 		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
 		HeightRange		m_Height;
 		AmountSigned	m_AssetEmission; // in case it's non-zero - the kernel commitment is the AssetID
+		bool			m_CanEmbed;
 
 		TxKernel()
 			:m_Fee(0)
 			,m_AssetEmission(0)
+			,m_CanEmbed(false)
 		{}
 
 		struct HashLock
@@ -277,6 +286,18 @@ namespace beam
 		};
 
 		std::unique_ptr<HashLock> m_pHashLock;
+
+		struct RelativeLock
+		{
+			Merkle::Hash m_ID;
+			Height m_LockHeight;
+
+			int cmp(const RelativeLock&) const;
+			COMPARISON_VIA_CMP
+		};
+
+		std::unique_ptr<RelativeLock> m_pRelativeLock;
+
 		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
 		static const uint32_t s_MaxRecursionDepth = 2;
@@ -290,7 +311,7 @@ namespace beam
 		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all, including the m_Commitment (i.e. the public key)
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
-		bool IsValid(AmountBig::Type& fee, ECC::Point::Native& exc) const;
+		bool IsValid(Height hVer, AmountBig::Type& fee, ECC::Point::Native& exc) const;
 		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
 
 		struct LongProof; // legacy
@@ -300,7 +321,7 @@ namespace beam
 		COMPARISON_VIA_CMP
 
 	private:
-		bool Traverse(ECC::Hash::Value&, AmountBig::Type*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const;
+		bool Traverse(ECC::Hash::Value&, AmountBig::Type*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pFork) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }

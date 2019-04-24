@@ -1593,7 +1593,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 		const Output& x = *r.m_pUtxoOut;
 
 		Key::IDV kidv;
-		if (Recover(kidv, x))
+		if (Recover(kidv, x, hMax))
 		{
 			// filter-out dummies
 			if (IsDummy(kidv))
@@ -1691,6 +1691,21 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 {
 	uint32_t nInp = 0, nOut = 0;
 	r.Reset();
+
+	for (; r.m_pKernel; r.NextKernel())
+	{
+		if (!r.m_pKernel->m_pRelativeLock)
+			continue;
+		const TxKernel::RelativeLock& x = *r.m_pKernel->m_pRelativeLock;
+
+		Height h0 = m_DB.FindKernel(x.m_ID);
+		if (h0 < Rules::HeightGenesis)
+			return false;
+
+		HeightAdd(h0, x.m_LockHeight);
+		if (h0 > (pHMax ? *pHMax : h))
+			return false;
+	}
 
 	bool bOk = true;
 	for (; r.m_pUtxoIn; r.NextUtxoIn(), nInp++)
@@ -2239,14 +2254,29 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return thw.first;
 }
 
-bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx) const
+bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx)
 {
 	Height h = m_Cursor.m_Sid.m_Height + 1;
 
 	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
-		if (!tx.m_vKernels[i]->m_Height.IsInRange(h))
+	{
+		const TxKernel& krn = *tx.m_vKernels[i];
+		if (!krn.m_Height.IsInRange(h))
 			return false;
 
+		if (krn.m_pRelativeLock)
+		{
+			const TxKernel::RelativeLock& x = *krn.m_pRelativeLock;
+
+			Height h0 = m_DB.FindKernel(x.m_ID);
+			if (h0 < Rules::HeightGenesis)
+				return false;
+
+			HeightAdd(h0, x.m_LockHeight);
+			if (h0 > h)
+				return false;
+		}
+	}
 	return true;
 }
 
@@ -3105,18 +3135,19 @@ bool NodeProcessor::ITxoWalker::OnTxo(const NodeDB::WalkerTxo&, Height hCreate, 
 bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp)
 {
 	Key::IDV kidv;
-	if (!m_This.Recover(kidv, outp))
+	if (!m_This.Recover(kidv, outp, hCreate))
 		return true;
 
 	return OnTxo(wlk, hCreate, outp, kidv);
 }
 
-bool NodeProcessor::Recover(Key::IDV& kidv, const Output& outp)
+bool NodeProcessor::Recover(Key::IDV& kidv, const Output& outp, Height hMax)
 {
 	struct Walker :public IKeyWalker
 	{
 		Key::IDV& m_Kidv;
 		const Output& m_Outp;
+		Height m_Height;
 
 		Walker(Key::IDV& kidv, const Output& outp)
 			:m_Kidv(kidv)
@@ -3126,10 +3157,12 @@ bool NodeProcessor::Recover(Key::IDV& kidv, const Output& outp)
 
 		virtual bool OnKey(Key::IPKdf& tag, Key::Index) override
 		{
-			return !m_Outp.Recover(tag, m_Kidv);
+			return !m_Outp.Recover(m_Height, tag, m_Kidv);
 		}
 
 	} wlk(kidv, outp);
+
+	wlk.m_Height = hMax;
 
 	return !EnumViewerKeys(wlk);
 }
