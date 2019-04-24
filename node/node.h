@@ -73,7 +73,6 @@ struct Node
 		int m_VerificationThreads = 0;
 
 		bool m_Bbs = true;
-		bool m_BbsAllowV0 = true; // allow older format, without pow
 
 		struct BandwidthCtl
 		{

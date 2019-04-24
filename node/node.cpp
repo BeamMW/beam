@@ -2790,7 +2790,7 @@ void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
 
 void Node::Peer::OnMsg(proto::BbsMsgV0&& msg0)
 {
-	if (!m_This.m_Cfg.m_BbsAllowV0)
+	if (m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::get().Forks.H1)
 		return; // drop
 
 	proto::BbsMsg msg;
@@ -2803,7 +2803,7 @@ void Node::Peer::OnMsg(proto::BbsMsgV0&& msg0)
 
 void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 {
-	if (!m_This.m_Cfg.m_BbsAllowV0)
+	if (m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::get().Forks.H1)
 	{
 		// test the hash
 		ECC::Hash::Value hv;
