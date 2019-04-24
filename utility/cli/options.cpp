@@ -123,6 +123,7 @@ namespace beam
 		const char* TR_N = "tr_N";
 		// ui
         const char* APPDATA_PATH = "appdata";
+        const char* LANG = "lang";
     }
 
 	template <typename T> struct TypeCvt {
@@ -214,7 +215,8 @@ namespace beam
         po::options_description uioptions("UI options");
         uioptions.add_options()
             (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken())
-            (cli::APPDATA_PATH, po::value<string>());
+            (cli::APPDATA_PATH, po::value<string>())
+            (cli::LANG, po::value<string>());
 
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };

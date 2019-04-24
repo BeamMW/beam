@@ -29,7 +29,8 @@ Rectangle {
         anchors.leftMargin: 30
         
         color: Style.content_main
-        text: qsTr("Available")
+        //% "Available"
+        text: qsTrId("available-panel-available")
     }
 
     Row

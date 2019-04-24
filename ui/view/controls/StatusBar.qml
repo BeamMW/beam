@@ -13,13 +13,13 @@ Item {
     
     property string status: {
         if (model.isFailedStatus)
-            qsTr("error")
+            "error"
         else if (model.isSyncInProgress)
-            qsTr("updating")
+            "updating"
         else if (model.isOnline)
-            qsTr("online")
+            "online"
         else
-            qsTr("connecting")
+            "connecting"
     }
 
     state: "connecting"
@@ -139,7 +139,11 @@ Item {
         State {
             name: "connecting"
             when: (rootControl.status === "connecting")
-            PropertyChanges {target: status_text; text: qsTr("connecting") + model.branchName}
+            PropertyChanges {
+                target: status_text;
+                //% "connecting"
+                text: qsTrId("status-connecting") + model.branchName
+            }
             StateChangeScript {
                 name: "connectingScript"
                 script: {
@@ -150,7 +154,11 @@ Item {
         State {
             name: "online"
             when: (rootControl.status === "online")
-            PropertyChanges {target: status_text; text: qsTr("online") + model.branchName}
+            PropertyChanges {
+                target: status_text;
+                //% "online"
+                text: qsTrId("status-online") + model.branchName
+            }
             StateChangeScript {
                 name: "onlineScript"
                 script: {
@@ -162,7 +170,11 @@ Item {
         State {
             name: "updating"
             when: (rootControl.status === "updating")
-            PropertyChanges {target: status_text; text: qsTr("updating...") + model.branchName}
+            PropertyChanges {
+                target: status_text;
+                //% "updating"
+                text: qsTrId("status-updating") + "..." + model.branchName
+            }
             StateChangeScript {
                 name: "updatingScript"
                 script: {
@@ -173,7 +185,10 @@ Item {
         State {
             name: "error"
             when: (rootControl.status === "error")
-            PropertyChanges {target: status_text; text: rootControl.error_msg + model.branchName}
+            PropertyChanges {
+                target: status_text;
+                text: rootControl.error_msg + model.branchName
+            }
             StateChangeScript {
                 name: "errorScript"
                 script: {

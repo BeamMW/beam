@@ -52,7 +52,8 @@ Rectangle {
                     font.weight: Font.Bold
                     color: Style.content_main
                     opacity: 0.6
-                    text: qsTr("RECEIVING")
+                    //% "RECEIVING"
+                    text: qsTrId("secondary-panel-receiving")
                 }
 
                 SFLabel {
@@ -92,7 +93,8 @@ Rectangle {
                     font.weight: Font.Bold
                     color: Style.content_main
                     opacity: 0.6
-                    text: qsTr("SENDING")
+                    //% "SENDING"
+                    text: qsTrId("secondary-panel-sending")
                 }
 
                 SFLabel {
@@ -132,7 +134,8 @@ Rectangle {
                     font.weight: Font.Bold
                     color: Style.content_main
                     opacity: 0.6
-                    text: qsTr("MATURING")
+                    //% "MATURING"
+                    text: qsTrId("secondary-panel-maturing")
                 }
 
                 SFLabel {

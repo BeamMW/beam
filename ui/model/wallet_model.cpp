@@ -49,28 +49,38 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
     switch (type)
     {
     case wallet::ErrorType::NodeProtocolBase:
-        return tr("Node protocol error!");
+        //% "Node protocol error!"
+        return qtTrId("wallet-model-node-protocol-error");
     case wallet::ErrorType::NodeProtocolIncompatible:
-        return tr("You are trying to connect to incompatible peer.");
+        //% "You are trying to connect to incompatible peer."
+        return qtTrId("wallet-model-incompatible-peer");
     case wallet::ErrorType::ConnectionBase:
-        return tr("Connection error.");
+        //% "Connection error."
+        return qtTrId("wallet-model-connection-base-error");
     case wallet::ErrorType::ConnectionTimedOut:
-        return tr("Connection timed out.");
+        //% "Connection timed out."
+        return qtTrId("wallet-model-connection-time-out-error");
     case wallet::ErrorType::ConnectionRefused:
-        return tr("Cannot connect to node: ") + getNodeAddress().c_str();
+        //% "Cannot connect to node:"
+        return qtTrId("wallet-model-connection-refused-error") + " " +  getNodeAddress().c_str();
     case wallet::ErrorType::ConnectionHostUnreach:
-        return tr("Node is unreachable: ") + getNodeAddress().c_str();
+        //% "Node is unreachable:"
+        return qtTrId("wallet-model-connection-host-unreach-error") + " " + getNodeAddress().c_str();
     case wallet::ErrorType::ConnectionAddrInUse:
     {
         auto localNodePort = AppModel::getInstance()->getSettings().getLocalNodePort();
-        return QString(tr("The port %1 is already in use. Check if a wallet is already running on this machine or change the port settings.")).arg(QString::number(localNodePort));
+        //% "The port %1 is already in use. Check if a wallet is already running on this machine or change the port settings."
+        return qtTrId("wallet-model-connection-addr-in-use-error").arg(QString::number(localNodePort));
     }
     case wallet::ErrorType::TimeOutOfSync:
-        return tr("System time not synchronized.");
+        //% "System time not synchronized."
+        return qtTrId("wallet-model-time-sync-error");
     case wallet::ErrorType::HostResolvedError:
-        return tr("Incorrect node name or no Internet connection.");
+        //% "Incorrect node name or no Internet connection."
+        return qtTrId("wallet-model-host-unresolved-error");
     default:
-        return tr("Unexpected error!");
+        //% "Unexpected error!"
+        return qtTrId("wallet-model-undefined-error");
     }
 }
 
@@ -131,7 +141,8 @@ void WalletModel::onWalletError(beam::wallet::ErrorType error)
 
 void WalletModel::FailedToStartWallet()
 {
-    AppModel::getInstance()->getMessages().addMessage(tr("Failed to start wallet. Please check your wallet data location"));
+    //% "Failed to start wallet. Please check your wallet data location
+    AppModel::getInstance()->getMessages().addMessage(qtTrId("wallet-model-data-location-error"));
 }
 
 void WalletModel::onSendMoneyVerified()

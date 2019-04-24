@@ -18,7 +18,8 @@ Item
     ConfirmationDialog {
         id: confirmationDialog
         okButtonColor: Style.active
-        okButtonText: qsTr("change settings")
+        //% "change settings"
+        okButtonText: qsTrId("loading-change-settings-button")
         okButtonIconSource: "qrc:/assets/icon-settings-blue.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
 
@@ -156,7 +157,14 @@ Item
             SFText {
                   Layout.bottomMargin: 6
                 Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
-                text: !isCreating ? qsTr("Loading wallet...") : ( isRecoveryMode ? qsTr("Restoring wallet...") : qsTr("Creating wallet..."))
+                text: !isCreating ? 
+                        //% "Loading wallet..."
+                        qsTrId("loading-loading") :
+                        ( isRecoveryMode ?
+                            //% "Restoring wallet..."
+                            qsTrId("loading-restoring") :
+                            //% "Creating wallet..."
+                            qsTrId("loading-creating"))
                 font.pixelSize: 14
                 color: Style.content_main
             }
@@ -184,7 +192,8 @@ Item
 
                 CustomButton {
                     visible: isCreating
-                    text: qsTr("cancel")
+                    //% "cancel"
+                    text: qsTrId("loading-cancel-button")
                     icon.source: "qrc:/assets/icon-cancel.svg"
                     onClicked: {
                         cancelCreating();

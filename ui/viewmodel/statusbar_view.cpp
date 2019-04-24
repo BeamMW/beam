@@ -144,7 +144,8 @@ void StatusbarViewModel::onNodeConnectionChanged(bool isNodeConnected)
     if (!m_isFailedStatus)
     {
         // Failed status must have arrived already
-        setWalletStatusErrorMsg(tr("Wallet is not connected to the node"));
+        //% "Wallet is not connected to the node"
+        setWalletStatusErrorMsg(qtTrId("status-bar-view-not-connected"));
         setIsFailedStatus(true);
     }
 }

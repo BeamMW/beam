@@ -29,23 +29,16 @@ if(MSVC)
 
 endif()
 
-find_package(Qt5QuickCompiler)
-if(Qt5QuickCompiler_FOUND)
-	qtquick_compiler_add_resources(QT_RESOURCES view/qml.qrc)
-else()
-    qt5_add_resources(QT_RESOURCES view/qml.qrc)
-endif()
-
 set(UI_SRC
 	ui.cpp
-	translator.h
-	translator.cpp
 	viewmodel/start_view.h
 	viewmodel/start_view.cpp
     viewmodel/loading_view.h
 	viewmodel/loading_view.cpp
 	viewmodel/utxo_view.h
 	viewmodel/utxo_view.cpp
+	viewmodel/utxo_view_status.h
+	viewmodel/utxo_view_type.h
 	viewmodel/main_view.h
 	viewmodel/main_view.cpp
 	viewmodel/dashboard_view.h
@@ -83,8 +76,44 @@ set(UI_SRC
 
 find_package(Qt5LinguistTools)
 if (Qt5LinguistTools_FOUND)
-    set(TS_FILES "${CMAKE_CURRENT_SOURCE_DIR}/translations/english.ts")
-    qt5_create_translation(QM_FILES ${CMAKE_CURRENT_SOURCE_DIR} ${TS_FILES})
+##################### UPDATE TS
+	add_custom_target(UpdateTs)
+	list(APPEND SUPPORTED_LANGS "en_US")
+	list(APPEND SUPPORTED_LANGS "ru_RU")
+	foreach(SUPPORTED_LANG ${SUPPORTED_LANGS})
+		set(TS_FILE "${CMAKE_CURRENT_SOURCE_DIR}/i18n/${SUPPORTED_LANG}.ts")
+		list(APPEND TS_FILES "${TS_FILE}")
+		add_custom_command(TARGET UpdateTs
+						   COMMAND lupdate -recursive -locations none ${CMAKE_CURRENT_SOURCE_DIR} -ts "${TS_FILE}")
+	endforeach()
+
+################### CREQTE QM
+	add_custom_target(CreateQm DEPENDS UpdateTs)
+	foreach(TS_FILE ${TS_FILES})
+		get_filename_component(TS_FILE_WE ${TS_FILE} NAME_WE)
+		set(QM_FILE_NAME "${TS_FILE_WE}.qm")
+		list(APPEND QM_FILES "${QM_FILE_NAME}")
+		add_custom_command(TARGET CreateQm
+						   COMMAND lrelease -idbased "${TS_FILE}" -qm "${CMAKE_CURRENT_BINARY_DIR}/${QM_FILE_NAME}"
+						   BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/${QM_FILE_NAME}")
+    endforeach()
+    
+############### translates QRC
+    set(TRANSLATIONS_QRC_FILE_NAME "translations.qrc")
+    set(TRANSLATIONS_QRC_FILE "${CMAKE_CURRENT_BINARY_DIR}/${TRANSLATIONS_QRC_FILE_NAME}")
+
+    file(WRITE "${TRANSLATIONS_QRC_FILE}" "<RCC><qresource prefix=\"/translations\">")
+    foreach (QM_FILE ${QM_FILES})
+        file(APPEND "${TRANSLATIONS_QRC_FILE}" "<file>${QM_FILE}</file>")
+    endforeach ()
+    file(APPEND "${TRANSLATIONS_QRC_FILE}" "</qresource></RCC>")
+endif()
+
+find_package(Qt5QuickCompiler)
+if(Qt5QuickCompiler_FOUND)
+	qtquick_compiler_add_resources(QT_RESOURCES view/qml.qrc ${TRANSLATIONS_QRC_FILE})
+else()
+    qt5_add_resources(QT_RESOURCES view/qml.qrc ${TRANSLATIONS_QRC_FILE})
 endif()
 
 if(WIN32)
