@@ -19,8 +19,13 @@ Item {
         }
 
         onCantSendToExpired: {
-            walletView.enabled = true
+            walletView.enabled = true;
             cantSendToExpiredDialog.open();
+        }
+
+        onNewAddressFailed: {
+            walletView.enabled = true;
+            newAddressFailedDialog.open();
         }
     }
 
@@ -63,6 +68,48 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 icon.source: "qrc:/assets/icon-done.svg"
                 onClicked: cantSendToExpiredDialog.close()
+            }
+        }
+    }
+
+    Dialog {
+        id: newAddressFailedDialog
+
+        modal: true
+
+        width: 400
+        height: 160
+
+        x: (parent.width - width) / 2
+        y: (parent.height - height) / 2
+        visible: false
+        
+        background: Rectangle {
+            radius: 10
+            color: Style.background_second
+            anchors.fill: parent
+        }
+
+        contentItem: Column {
+            anchors.fill: parent
+            anchors.margins: 30
+
+            spacing: 40
+
+            SFText {
+                width: parent.width
+                text: qsTr("You cannot generate new address. Your wallet doesn't have a master key.")
+                color: Style.content_main
+                font.pixelSize: 14
+                font.styleName: "Bold"; font.weight: Font.Bold
+                wrapMode: Text.WordWrap
+            }
+
+            PrimaryButton {
+                text: qsTr("ok")
+                anchors.horizontalCenter: parent.horizontalCenter
+                icon.source: "qrc:/assets/icon-done.svg"
+                onClicked: newAddressFailedDialog.close()
             }
         }
     }

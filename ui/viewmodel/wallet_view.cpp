@@ -376,6 +376,8 @@ WalletViewModel::WalletViewModel()
     connect(&_model, SIGNAL(generatedNewAddress(const beam::WalletAddress&)),
         SLOT(onGeneratedNewAddress(const beam::WalletAddress&)));
 
+    connect(&_model, SIGNAL(newAddressFailed()), SLOT(onNewAddressFailed()));
+
     connect(&_model, SIGNAL(sendMoneyVerified()), SLOT(onSendMoneyVerified()));
 
     connect(&_model, SIGNAL(cantSendToExpired()), SLOT(onCantSendToExpired()));
@@ -918,6 +920,11 @@ void WalletViewModel::onGeneratedNewAddress(const beam::WalletAddress& addr)
     }
 
     emit newReceiverAddrChanged();
+}
+
+void WalletViewModel::onNewAddressFailed()
+{
+    emit newAddressFailed();
 }
 
 void WalletViewModel::onSendMoneyVerified()

@@ -416,6 +416,11 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
 
         onSendMoneyVerified();
     }
+    catch (const beam::CannotGenerateSecretException&)
+    {
+        onNewAddressFailed();
+        return;
+    }
     catch (const beam::AddressExpiredException&)
     {
         onCantSendToExpired();
@@ -514,6 +519,10 @@ void WalletClient::generateNewAddress()
         WalletAddress address = wallet::createAddress(*m_walletDB);
 
         onGeneratedNewAddress(address);
+    }
+    catch (const beam::CannotGenerateSecretException&)
+    {
+        onNewAddressFailed();
     }
     catch (const std::exception& e)
     {

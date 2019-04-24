@@ -114,6 +114,11 @@ void WalletModel::onGeneratedNewAddress(const beam::WalletAddress& walletAddr)
     emit generatedNewAddress(walletAddr);
 }
 
+void WalletModel::onNewAddressFailed()
+{
+    emit newAddressFailed();
+}
+
 void WalletModel::onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID)
 {
     emit changeCurrentWalletIDs(senderID, receiverID);
