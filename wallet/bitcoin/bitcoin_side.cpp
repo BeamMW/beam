@@ -87,16 +87,15 @@ namespace
 
 namespace beam::wallet
 {
-    BitcoinSide::BitcoinSide(BaseTransaction& tx, IBitcoinBridge::Ptr bitcoinBridge)
+    BitcoinSide::BitcoinSide(BaseTransaction& tx, IBitcoinBridge::Ptr bitcoinBridge, bool isBeamSide)
         : m_tx(tx)
         , m_bitcoinBridge(bitcoinBridge)
-        , m_isBtcOwner(false)
+        , m_isBtcOwner(!isBeamSide)
     {
     }
 
-    bool BitcoinSide::Initial(bool isBeamSide)
+    bool BitcoinSide::Initial()
     {
-        m_isBtcOwner = !isBeamSide;
         if (!LoadSwapAddress())
             return false;
 

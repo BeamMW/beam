@@ -442,7 +442,8 @@ namespace beam
 
             if (swapCoin == AtomicSwapCoin::Bitcoin)
             {
-                return std::make_shared<BitcoinSide>(*it->second, m_bitcoinBridge);
+                bool isBeamSide = it->second->GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+                return std::make_shared<BitcoinSide>(*it->second, m_bitcoinBridge, isBeamSide);
             }
         }
         return nullptr;

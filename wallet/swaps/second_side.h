@@ -25,7 +25,7 @@ namespace beam::wallet
     public:
         using Ptr = std::shared_ptr<SecondSide>;
 
-        virtual bool Initial(bool isBeamSide) = 0;
+        virtual bool Initial() = 0;
         virtual bool InitLockTime() = 0;
         virtual void AddTxDetails(SetTxParameter&) = 0;
         virtual bool ConfirmLockTx() = 0;
