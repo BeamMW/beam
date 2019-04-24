@@ -1764,7 +1764,7 @@ namespace beam
 
 						AmountBig::Type fee;
 						ECC::Point::Native exc;
-						verify_test(msg.m_Kernel->IsValid(fee, exc));
+						verify_test(msg.m_Kernel->IsValid(msg.m_Height, fee, exc));
 
 						Merkle::Hash hv;
 						msg.m_Kernel->get_ID(hv);

@@ -366,12 +366,16 @@ namespace beam
 
 	/////////////
 	// TxKernel
-	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig::Type* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const
+	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig::Type* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pFork) const
 	{
+		if (pFork && (*pFork < Rules::get().Forks.H1) && (m_CanEmbed || m_pRelativeLock))
+			return false; // unsupported for that version
+
 		if (pParent)
 		{
-			if (!m_CanEmbed)
+			if (!m_CanEmbed && pFork && (*pFork >= Rules::get().Forks.H1)) // for older version embedding is implicitly allowed (though unlikely to be used)
 				return false;
+
 			// nested kernel restrictions
 			if ((m_Height.m_Min > pParent->m_Height.m_Min) ||
 				(m_Height.m_Max < pParent->m_Height.m_Max))
@@ -427,7 +431,7 @@ namespace beam
 				return false;
 			p0Krn = &v;
 
-			if (!v.Traverse(hv, pFee, pExcess ? &ptExcNested : NULL, this, NULL))
+			if (!v.Traverse(hv, pFee, pExcess ? &ptExcNested : nullptr, this, nullptr, pFork))
 				return false;
 
 			hp << hv;
@@ -495,13 +499,13 @@ namespace beam
 
 	void TxKernel::get_Hash(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
 	{
-		Traverse(out, NULL, NULL, NULL, pLockImage);
+		Traverse(out, nullptr, nullptr, nullptr, pLockImage, nullptr);
 	}
 
-	bool TxKernel::IsValid(AmountBig::Type& fee, ECC::Point::Native& exc) const
+	bool TxKernel::IsValid(Height hVer, AmountBig::Type& fee, ECC::Point::Native& exc) const
 	{
 		ECC::Hash::Value hv;
-		return Traverse(hv, &fee, &exc, NULL, NULL);
+		return Traverse(hv, &fee, &exc, nullptr, nullptr, &hVer);
 	}
 
 	void TxKernel::get_ID(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const

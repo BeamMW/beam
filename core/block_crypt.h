@@ -310,7 +310,7 @@ namespace beam
 		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all, including the m_Commitment (i.e. the public key)
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
-		bool IsValid(AmountBig::Type& fee, ECC::Point::Native& exc) const;
+		bool IsValid(Height hVer, AmountBig::Type& fee, ECC::Point::Native& exc) const;
 		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
 
 		struct LongProof; // legacy
@@ -320,7 +320,7 @@ namespace beam
 		COMPARISON_VIA_CMP
 
 	private:
-		bool Traverse(ECC::Hash::Value&, AmountBig::Type*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const;
+		bool Traverse(ECC::Hash::Value&, AmountBig::Type*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pFork) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }

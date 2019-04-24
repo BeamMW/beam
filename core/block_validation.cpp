@@ -196,7 +196,7 @@ namespace beam
 				if (m_Params.m_bVerifyOrder && pPrev && (*pPrev > *r.m_pKernel))
 					return false;
 
-				if (!r.m_pKernel->IsValid(m_Fee, m_Sigma))
+				if (!r.m_pKernel->IsValid(m_Height.m_Min, m_Fee, m_Sigma))
 					return false;
 
 				if (!HandleElementHeight(r.m_pKernel->m_Height))

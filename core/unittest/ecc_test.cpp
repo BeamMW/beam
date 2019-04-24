@@ -920,11 +920,11 @@ struct TransactionMaker
 
 		Point::Native exc;
 		beam::AmountBig::Type fee2;
-		verify_test(!pKrn->IsValid(fee2, exc)); // should not pass validation unless correct hash preimage is specified
+		verify_test(!pKrn->IsValid(beam::Rules::get().Forks.H1, fee2, exc)); // should not pass validation unless correct hash preimage is specified
 
 		// finish HL: add hash preimage
 		pKrn->m_pHashLock->m_Preimage = hlPreimage;
-		verify_test(pKrn->IsValid(fee2, exc));
+		verify_test(pKrn->IsValid(beam::Rules::get().Forks.H1, fee2, exc));
 
 		lstTrg.push_back(std::move(pKrn));
 	}
