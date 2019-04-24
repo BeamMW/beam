@@ -942,7 +942,6 @@
     <message id="wallet-model-data-location-error">
         <source>Failed to start wallet. Please check your wallet data location
 </source>
-        <oldsource>Failed to start wallet. Please check your wallet data location</oldsource>
         <translation>Невозможно запустьти приложение. Проверьте путь к данным кошелька.</translation>
     </message>
     <message id="address-item-never">
