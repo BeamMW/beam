@@ -2254,14 +2254,29 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return thw.first;
 }
 
-bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx) const
+bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx)
 {
 	Height h = m_Cursor.m_Sid.m_Height + 1;
 
 	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
-		if (!tx.m_vKernels[i]->m_Height.IsInRange(h))
+	{
+		const TxKernel& krn = *tx.m_vKernels[i];
+		if (!krn.m_Height.IsInRange(h))
 			return false;
 
+		if (krn.m_pRelativeLock)
+		{
+			const TxKernel::RelativeLock& x = *krn.m_pRelativeLock;
+
+			Height h0 = m_DB.FindKernel(x.m_ID);
+			if (h0 < Rules::HeightGenesis)
+				return false;
+
+			HeightAdd(h0, x.m_LockHeight);
+			if (h0 > h)
+				return false;
+		}
+	}
 	return true;
 }
 
