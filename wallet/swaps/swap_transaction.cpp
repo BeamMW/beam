@@ -101,6 +101,7 @@ namespace beam::wallet
             if (lockTxState != SubTxState::Constructed)
                 break;
 
+            LOG_DEBUG() << GetTxID() << " Beam LockTX constructed.";
             SetNextState(State::BuildingBeamRefundTX);
             break;
         }
@@ -111,6 +112,7 @@ namespace beam::wallet
                 break;
 
             m_WithdrawTx.reset();
+            LOG_DEBUG() << GetTxID() << " Beam RefundTX constructed.";
             SetNextState(State::BuildingBeamRedeemTX);
             break;
         }
@@ -121,6 +123,7 @@ namespace beam::wallet
                 break;
 
             m_WithdrawTx.reset();
+            LOG_DEBUG() << GetTxID() << " Beam RedeemTX constructed.";
             SetNextState(State::HandlingContractTX);
             break;
         }
@@ -142,6 +145,7 @@ namespace beam::wallet
                 }
             }
 
+            LOG_DEBUG() << GetTxID() << " LockTX completed.";
             SetNextState(State::SendingBeamLockTX);
             break;
         }
@@ -158,7 +162,7 @@ namespace beam::wallet
             if (!m_secondSide->SendRefund())
                 break;
 
-            LOG_DEBUG() << GetTxID() << " Refund TX completed!";
+            LOG_DEBUG() << GetTxID() << " RefundTX completed!";
             SetNextState(State::CompleteSwap);
             break;
         }
@@ -168,7 +172,7 @@ namespace beam::wallet
             if (!m_secondSide->SendRedeem())
                 break;
             
-            LOG_DEBUG() << GetTxID() << " Redeem TX completed!";
+            LOG_DEBUG() << GetTxID() << " RedeemTX completed!";
             SetNextState(State::CompleteSwap);
             break;
         }
@@ -184,6 +188,7 @@ namespace beam::wallet
 
             if (!isBeamOwner && m_secondSide->IsLockTimeExpired())
             {
+                LOG_INFO() << GetTxID() << " Locktime is expired.";
                 SetNextState(State::SendingRefundTX);
                 break;
             }
@@ -191,7 +196,7 @@ namespace beam::wallet
             if (!CompleteSubTx(SubTxIndex::BEAM_LOCK_TX))
                 break;
             
-            LOG_DEBUG() << GetTxID()<< " Beam Lock TX completed.";
+            LOG_DEBUG() << GetTxID()<< " Beam LockTX completed.";
             SetNextState(State::SendingBeamRedeemTX);
             break;
         }
@@ -203,8 +208,7 @@ namespace beam::wallet
 
                 if (IsBeamLockTimeExpired())
                 {
-                    LOG_DEBUG() << GetTxID() << " Beam locktime expired.";
-
+                    LOG_INFO() << GetTxID() << " Beam locktime expired.";
                     SetNextState(State::SendingBeamRefundTX);
                     break;
                 }
@@ -224,7 +228,7 @@ namespace beam::wallet
                 if (!CompleteBeamWithdrawTx(SubTxIndex::BEAM_REDEEM_TX))
                     break;
 
-                LOG_DEBUG() << GetTxID() << " Beam Redeem TX completed!";
+                LOG_DEBUG() << GetTxID() << " Beam RedeemTX completed!";
                 SetNextState(State::CompleteSwap);
             }
             break;
