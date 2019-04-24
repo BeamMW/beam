@@ -1044,7 +1044,7 @@ int main_impl(int argc, char* argv[])
                     {
                         WalletAddress senderAddress = newAddress(walletDB, "");
                         CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
-                        wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, true);
+                        wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, 120, 720, {}, true);
                     }
 
                     bool deleteTx = command == cli::DELETE_TX;
