@@ -242,7 +242,7 @@ public:
 	};
 	virtual bool EnumViewerKeys(IKeyWalker&) { return true; }
 
-	bool Recover(Key::IDV&, const Output&);
+	bool Recover(Key::IDV&, const Output&, Height hMax);
 
 	void RescanOwnedTxos();
 

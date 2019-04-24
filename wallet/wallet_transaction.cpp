@@ -809,7 +809,7 @@ namespace beam { namespace wallet
         {
             Scalar::Native blindingFactor;
             Output::Ptr output = make_unique<Output>();
-            output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(utxo.m_ID.m_SubIdx), utxo.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
+            output->Create(m_MinHeight, blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(utxo.m_ID.m_SubIdx), utxo.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
 
             blindingFactor = -blindingFactor;
             m_Offset += blindingFactor;
@@ -844,7 +844,7 @@ namespace beam { namespace wallet
 
         Scalar::Native blindingFactor;
         Output::Ptr output = make_unique<Output>();
-        output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(newUtxo.m_ID.m_SubIdx), newUtxo.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
+        output->Create(m_MinHeight, blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(newUtxo.m_ID.m_SubIdx), newUtxo.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
 
         blindingFactor = -blindingFactor;
         m_Offset += blindingFactor;

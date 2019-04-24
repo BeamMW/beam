@@ -185,7 +185,7 @@ namespace beam
 			kidv.m_Type = Key::Type::Treasury;
 			kidv.m_Value = c0.m_Value;
 
-			c.m_pOutput->Create(sk, kdf, kidv, kdf);
+			c.m_pOutput->Create(Rules::HeightGenesis - 1, sk, kdf, kidv, kdf);
 			offset += sk;
 
 			Hash::Value hv;
@@ -532,7 +532,7 @@ namespace beam
 			{
 				const Output& outp = *g.m_Data.m_vOutputs[iO];
 				Key::IDV kidv;
-				if (outp.Recover(kdf, kidv))
+				if (outp.Recover(Rules::HeightGenesis - 1, kdf, kidv))
 				{
 					out.emplace_back();
 					out.back().m_Incubation = outp.m_Incubation;

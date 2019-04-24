@@ -570,13 +570,13 @@ namespace beam
 			Key::IDV m_Kidv;
 		};
 
-		void ToOutput(const MyUtxo& utxo, TxVectors::Perishable& txv, ECC::Scalar::Native& offset, Height hIncubation) const
+		void ToOutput(const MyUtxo& utxo, TxVectors::Perishable& txv, ECC::Scalar::Native& offset, Height h, Height hIncubation) const
 		{
 			ECC::Scalar::Native k;
 
 			Output::Ptr pOut(new Output);
 			pOut->m_Incubation = hIncubation;
-			pOut->Create(k, *m_pKdf, utxo.m_Kidv, *m_pKdf, true); // confidential transactions will be too slow for test in debug mode.
+			pOut->Create(h + 1, k, *m_pKdf, utxo.m_Kidv, *m_pKdf, true); // confidential transactions will be too slow for test in debug mode.
 			txv.m_vOutputs.push_back(std::move(pOut));
 
 			k = -k;
@@ -715,7 +715,7 @@ namespace beam
 				utxoOut.m_Kidv.m_SubIdx = 0;
 				utxoOut.m_Kidv.m_Type = Key::Type::Regular;
 
-				ToOutput(utxoOut, tx, kOffset, hIncubation);
+				ToOutput(utxoOut, tx, kOffset, h, hIncubation);
 
 				m_MyUtxos.insert(std::make_pair(h + 1 + hIncubation, utxoOut));
 			}
@@ -1664,7 +1664,7 @@ namespace beam
 
 						Output::Ptr pOutp(new Output);
 						pOutp->m_AssetID = m_AssetEmitted;
-						pOutp->Create(skOut, *m_Wallet.m_pKdf, kidv, *m_Wallet.m_pKdf);
+						pOutp->Create(msg.m_Description.m_Height + 1, skOut, *m_Wallet.m_pKdf, kidv, *m_Wallet.m_pKdf);
 
 						skAsset += skOut;
 						skAsset = -skAsset;

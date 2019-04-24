@@ -239,12 +239,12 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
-		void Create(ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
+		void Create(Height hVer, ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
 
-		bool Recover(Key::IPKdf& tagKdf, Key::IDV&) const;
+		bool Recover(Height hVer, Key::IPKdf& tagKdf, Key::IDV&) const;
 		bool VerifyRecovered(Key::IPKdf& coinKdf, const Key::IDV&) const;
 
-		bool IsValid(ECC::Point::Native& comm) const;
+		bool IsValid(Height hVer, ECC::Point::Native& comm) const;
 		Height get_MinMaturity(Height h) const; // regardless to the explicitly-overridden
 
 		void operator = (const Output&);
@@ -253,6 +253,7 @@ namespace beam
 
 	private:
 		void get_SeedKid(ECC::uintBig&, Key::IPKdf&) const;
+		void Prepare(ECC::Oracle&, Height hVer) const;
 	};
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }

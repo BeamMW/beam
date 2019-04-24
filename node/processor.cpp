@@ -1593,7 +1593,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 		const Output& x = *r.m_pUtxoOut;
 
 		Key::IDV kidv;
-		if (Recover(kidv, x))
+		if (Recover(kidv, x, hMax))
 		{
 			// filter-out dummies
 			if (IsDummy(kidv))
@@ -3120,18 +3120,19 @@ bool NodeProcessor::ITxoWalker::OnTxo(const NodeDB::WalkerTxo&, Height hCreate, 
 bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp)
 {
 	Key::IDV kidv;
-	if (!m_This.Recover(kidv, outp))
+	if (!m_This.Recover(kidv, outp, hCreate))
 		return true;
 
 	return OnTxo(wlk, hCreate, outp, kidv);
 }
 
-bool NodeProcessor::Recover(Key::IDV& kidv, const Output& outp)
+bool NodeProcessor::Recover(Key::IDV& kidv, const Output& outp, Height hMax)
 {
 	struct Walker :public IKeyWalker
 	{
 		Key::IDV& m_Kidv;
 		const Output& m_Outp;
+		Height m_Height;
 
 		Walker(Key::IDV& kidv, const Output& outp)
 			:m_Kidv(kidv)
@@ -3141,10 +3142,12 @@ bool NodeProcessor::Recover(Key::IDV& kidv, const Output& outp)
 
 		virtual bool OnKey(Key::IPKdf& tag, Key::Index) override
 		{
-			return !m_Outp.Recover(tag, m_Kidv);
+			return !m_Outp.Recover(m_Height, tag, m_Kidv);
 		}
 
 	} wlk(kidv, outp);
+
+	wlk.m_Height = hMax;
 
 	return !EnumViewerKeys(wlk);
 }

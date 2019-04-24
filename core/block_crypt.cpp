@@ -210,7 +210,7 @@ namespace beam
 
 	/////////////
 	// Output
-	bool Output::IsValid(ECC::Point::Native& comm) const
+	bool Output::IsValid(Height hVer, ECC::Point::Native& comm) const
 	{
 		if (!comm.Import(m_Commitment))
 			return false;
@@ -218,7 +218,7 @@ namespace beam
 		SwitchCommitment sc(&m_AssetID);
 
 		ECC::Oracle oracle;
-		oracle << m_Incubation;
+		Prepare(oracle, hVer);
 
 		if (m_pConfidential)
 		{
@@ -267,13 +267,13 @@ namespace beam
 		return 0;
 	}
 
-	void Output::Create(ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const Key::IDV& kidv, Key::IPKdf& tagKdf, bool bPublic /* = false */)
+	void Output::Create(Height hVer, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const Key::IDV& kidv, Key::IPKdf& tagKdf, bool bPublic /* = false */)
 	{
 		SwitchCommitment sc(&m_AssetID);
 		sc.Create(sk, m_Commitment, coinKdf, kidv);
 
 		ECC::Oracle oracle;
-		oracle << m_Incubation;
+		Prepare(oracle, hVer);
 
 		ECC::RangeProof::CreatorParams cp;
 		cp.m_Kidv = kidv;
@@ -302,13 +302,24 @@ namespace beam
 		ECC::Hash::Processor() << sk >> seed;
 	}
 
-	bool Output::Recover(Key::IPKdf& tagKdf, Key::IDV& kidv) const
+	void Output::Prepare(ECC::Oracle& oracle, Height hVer) const
+	{
+		oracle << m_Incubation;
+
+		if (hVer >= Rules::get().Forks.H1)
+		{
+			oracle
+				<< m_Commitment;
+		}
+	}
+
+	bool Output::Recover(Height hVer, Key::IPKdf& tagKdf, Key::IDV& kidv) const
 	{
 		ECC::RangeProof::CreatorParams cp;
 		get_SeedKid(cp.m_Seed.V, tagKdf);
 
 		ECC::Oracle oracle;
-		oracle << m_Incubation;
+		Prepare(oracle, hVer);
 
 		bool bSuccess =
 			m_pConfidential ? m_pConfidential->Recover(oracle, cp) :
@@ -1317,7 +1328,7 @@ namespace beam
 		{
 			pOutp.reset(new Output);
 			pOutp->m_Coinbase = true;
-			pOutp->Create(sk, m_Coin, Key::IDV(val, m_Height, Key::Type::Coinbase, m_SubIdx), m_Tag);
+			pOutp->Create(m_Height, sk, m_Coin, Key::IDV(val, m_Height, Key::Type::Coinbase, m_SubIdx), m_Tag);
 
 			m_Offset += sk;
 		}
@@ -1347,7 +1358,7 @@ namespace beam
 		ECC::Scalar::Native sk;
 
 		pOutp.reset(new Output);
-		pOutp->Create(sk, m_Coin, Key::IDV(fees, m_Height, Key::Type::Comission, m_SubIdx), m_Tag);
+		pOutp->Create(m_Height, sk, m_Coin, Key::IDV(fees, m_Height, Key::Type::Comission, m_SubIdx), m_Tag);
 
 		m_Offset += sk;
 	}

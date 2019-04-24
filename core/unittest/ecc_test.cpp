@@ -720,16 +720,16 @@ void TestRangeProof(bool bCustomTag)
 	{
 		beam::Output outp;
 		outp.m_AssetID = aid;
-		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf, true);
 		outp.m_Coinbase = true; // others may be disallowed
-		verify_test(outp.IsValid(comm));
+		outp.Create(beam::Rules::get().Forks.H1, sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf, true);
+		verify_test(outp.IsValid(beam::Rules::get().Forks.H1, comm));
 		WriteSizeSerialized("Out-UTXO-Public", outp);
 	}
 	{
 		beam::Output outp;
 		outp.m_AssetID = aid;
-		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf);
-		verify_test(outp.IsValid(comm));
+		outp.Create(beam::Rules::get().Forks.H1, sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf);
+		verify_test(outp.IsValid(beam::Rules::get().Forks.H1, comm));
 		WriteSizeSerialized("Out-UTXO-Confidential", outp);
 	}
 
@@ -801,11 +801,11 @@ struct TransactionMaker
 
 			if (pAssetID)
 				pOut->m_AssetID = *pAssetID;
-			pOut->Create(k, kdf, kidv, kdf);
+			pOut->Create(beam::Rules::get().Forks.H1, k, kdf, kidv, kdf);
 
 			// test recovery
 			Key::IDV kidv2;
-			verify_test(pOut->Recover(kdf, kidv2));
+			verify_test(pOut->Recover(beam::Rules::get().Forks.H1, kdf, kidv2));
 			verify_test(kidv == kidv2);
 
 			t.m_vOutputs.push_back(std::move(pOut));

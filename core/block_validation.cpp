@@ -157,7 +157,7 @@ namespace beam
 
 				if (bSigned)
 				{
-					if (!r.m_pUtxoOut->IsValid(pt))
+					if (!r.m_pUtxoOut->IsValid(m_Height.m_Min, pt))
 						return false;
 				}
 				else
