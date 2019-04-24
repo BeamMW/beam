@@ -40,7 +40,7 @@ namespace beam
                 isComplete = result["complete"].get<bool>();
             }
 
-            callback(error, result["hex"].get<std::string>(), result["complete"].get<bool>());
+            callback(error, hex, isComplete);
         });
     }
 
