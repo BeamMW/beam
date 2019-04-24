@@ -45,10 +45,10 @@ namespace
     constexpr uint16_t JSON_FORMAT_INDENT = 4;
 
     libbitcoin::chain::script AtomicSwapContract(const libbitcoin::short_hash& hashPublicKeyA
-                                               , const libbitcoin::short_hash& hashPublicKeyB
-                                               , int64_t locktime
-                                               , const libbitcoin::data_chunk& secretHash
-                                               , size_t secretSize)
+        , const libbitcoin::short_hash& hashPublicKeyB
+        , int64_t locktime
+        , const libbitcoin::data_chunk& secretHash
+        , size_t secretSize)
     {
         using namespace libbitcoin::machine;
 
@@ -106,13 +106,13 @@ namespace
     {
     public:
         /// Returns true to keep connection alive, false to close connection
-        using OnResponse = std::function<void (const json& reply)>;
+        using OnResponse = std::function<void(const json& reply)>;
 
         RPCClient(const std::string& host
-                , const uint16_t port
-                , const std::string& user
-                , const std::string& password
-                , io::Reactor::Ptr reactor)
+            , const uint16_t port
+            , const std::string& user
+            , const std::string& password
+            , io::Reactor::Ptr reactor)
             : m_reactor{ !reactor ? io::Reactor::create() : reactor }
             , m_host(host)
             , m_port(port)
@@ -141,12 +141,12 @@ namespace
 
     void RPCClient::CallRPC(const std::string& strMethod, const std::vector<std::string>& args, const OnResponse& callback)
     {
-        std::string userWithPass{m_user + ":" + m_password};
+        std::string userWithPass{ m_user + ":" + m_password };
 
         libbitcoin::data_chunk t(userWithPass.begin(), userWithPass.end());
         std::string auth("Basic " + libbitcoin::encode_base64(t));
         std::string_view authView(auth);
-        const HeaderPair headers[] = {{"Authorization", authView.data()}};
+        const HeaderPair headers[] = { {"Authorization", authView.data()} };
         std::string params;
         for (auto& param : args) {
             params += param + ",";
@@ -168,7 +168,7 @@ namespace
         //request.body(data, strlen(data));
 
         LOG_INFO() << requestData << "\n";
-        
+
         request.callback([callback](uint64_t id, const HttpMsgReader::Message& msg) -> bool {
             LOG_INFO() << "response from " << id;
             size_t sz = 0;
@@ -214,30 +214,30 @@ class AtomicSwapHelper
 {
 public:
     AtomicSwapHelper(const std::string& host
-             , const uint16_t port
-             , const std::string& user
-             , const std::string& password
-             , io::Reactor::Ptr reactor);
+        , const uint16_t port
+        , const std::string& user
+        , const std::string& password
+        , io::Reactor::Ptr reactor);
     ~AtomicSwapHelper() = default;
 
     void CreateContractTX(const std::string& senderAddress
-                        , const std::string& recieverAddress
-                        , const libbitcoin::data_chunk& secretHash
-                        , size_t secretSize
-                        , int64_t amount
-                        , int64_t locktime);
+        , const std::string& recieverAddress
+        , const libbitcoin::data_chunk& secretHash
+        , size_t secretSize
+        , int64_t amount
+        , int64_t locktime);
 
     void CreateRefundTx(const std::string& withdrawAddress
-                      , const std::string& contractTxId
-                      , int64_t amount
-                      , int64_t locktime
-                      , int outputIndex);
+        , const std::string& contractTxId
+        , int64_t amount
+        , int64_t locktime
+        , int outputIndex);
 
     void CreateRedeemTx(const std::string& withdrawAddress
-                      , const std::string& contractTxId
-                      , int64_t amount
-                      , const std::string& secret
-                      , int outputIndex);
+        , const std::string& contractTxId
+        , int64_t amount
+        , const std::string& secret
+        , int outputIndex);
 
     void SetRedeemScript(libbitcoin::chain::script& script) { m_redeemScript = script; }
 
@@ -264,21 +264,21 @@ private:
 };
 
 AtomicSwapHelper::AtomicSwapHelper(const std::string& host
-                     , const uint16_t port
-                     , const std::string& user
-                     , const std::string& password
-                     , io::Reactor::Ptr reactor)
+    , const uint16_t port
+    , const std::string& user
+    , const std::string& password
+    , io::Reactor::Ptr reactor)
     : m_reactor{ !reactor ? io::Reactor::create() : reactor }
-    , m_rpcClient(std::make_unique<RPCClient>(host, PORT, user, password, m_reactor))
-{    
+    , m_rpcClient(std::make_unique<RPCClient>(host, port, user, password, m_reactor))
+{
 }
 
 void AtomicSwapHelper::CreateContractTX(const std::string& senderAddressRaw
-                                , const std::string& receiverAddressRaw
-                                , const libbitcoin::data_chunk& secretHash
-                                , size_t secretSize
-                                , int64_t amount
-                                , int64_t locktime)
+    , const std::string& receiverAddressRaw
+    , const libbitcoin::data_chunk& secretHash
+    , size_t secretSize
+    , int64_t amount
+    , int64_t locktime)
 {
     libbitcoin::wallet::payment_address senderAddress(senderAddressRaw);
     libbitcoin::wallet::payment_address receiverAddress(receiverAddressRaw);
@@ -336,15 +336,15 @@ void AtomicSwapHelper::OnSendContractTx(const json& reply)
 }
 
 void AtomicSwapHelper::CreateRefundTx(const std::string& withdrawAddress
-                              , const std::string& contractTxId
-                              , int64_t amount
-                              , int64_t locktime
-                              , int outputIndex)
+    , const std::string& contractTxId
+    , int64_t amount
+    , int64_t locktime
+    , int outputIndex)
 {
     m_withdrawAddress = withdrawAddress;
     std::vector<std::string> args;
     args.emplace_back("[{\"txid\": \"" + contractTxId + "\", \"vout\":" + std::to_string(outputIndex) + ", \"Sequence\": " + std::to_string(libbitcoin::max_input_sequence - 1) + " }]");
-    args.emplace_back("[{\"" + withdrawAddress + "\": " + std::to_string(double(amount)/libbitcoin::satoshi_per_bitcoin) + "}]");
+    args.emplace_back("[{\"" + withdrawAddress + "\": " + std::to_string(double(amount) / libbitcoin::satoshi_per_bitcoin) + "}]");
     args.emplace_back(std::to_string(locktime));
 
     m_rpcClient->CallRPC("createrawtransaction", args, BIND_THIS_MEMFN(OnCreateRawRefundTx));
@@ -362,8 +362,8 @@ void AtomicSwapHelper::OnCreateRawRefundTx(const json& reply)
     libbitcoin::data_chunk tx_data;
     libbitcoin::decode_base16(tx_data, result.get<std::string>());
     m_withdrawTX = libbitcoin::chain::transaction::factory_from_data(tx_data);
-    
-    m_rpcClient->CallRPC("dumpprivkey", { "\"" + m_withdrawAddress + "\""}, BIND_THIS_MEMFN(OnDumpSenderPrivateKey));    // load private key !
+
+    m_rpcClient->CallRPC("dumpprivkey", { "\"" + m_withdrawAddress + "\"" }, BIND_THIS_MEMFN(OnDumpSenderPrivateKey));    // load private key !
 }
 
 void AtomicSwapHelper::OnDumpSenderPrivateKey(const json& reply)
@@ -371,7 +371,7 @@ void AtomicSwapHelper::OnDumpSenderPrivateKey(const json& reply)
     // Parse reply
     const auto& error = reply["error"];
     const auto& result = reply["result"];
-    
+
     LOG_INFO() << error.dump(JSON_FORMAT_INDENT) << "\n";
     LOG_INFO() << result.dump(JSON_FORMAT_INDENT) << "\n";
 
@@ -401,10 +401,10 @@ void AtomicSwapHelper::OnDumpSenderPrivateKey(const json& reply)
 }
 
 void AtomicSwapHelper::CreateRedeemTx(const std::string& withdrawAddress
-                              , const std::string& contractTxId
-                              , int64_t amount
-                              , const std::string& secret
-                              , int outputIndex)
+    , const std::string& contractTxId
+    , int64_t amount
+    , const std::string& secret
+    , int outputIndex)
 {
     m_withdrawAddress = withdrawAddress;
     m_secret = secret;
@@ -481,13 +481,14 @@ void testAtomicSwap(const boost::program_options::variables_map& vm)
         });
     });
 
-    auto swap = AtomicSwapHelper("127.0.0.1", PORT, "123", "123", reactor);
+    auto swap = AtomicSwapHelper("127.0.0.1", 13400, "Bob", "123", reactor);
+    //auto swap = AtomicSwapHelper("127.0.0.1", 13300, "Alice", "123", reactor);
     //auto swap = AtomicSwapHelper("127.0.0.1", 18443, "", "", reactor);
     //{
-    //    const std::string receiverAddressRaw = "mhmmxbxTyE4m4jv9bJVsxv7xBs1MT4BbBz";
-    //    const std::string senderAddressRaw = "mibf5s68agrhMbLp9hBtujQVuMA1eoqmyV";
+    //    const std::string receiverAddressRaw = "myNs8Tv1D8GfC14QwC3dgH1v5h7Yg2pQHV";
+    //    const std::string senderAddressRaw = "mfbzZH33ppZKL28vtnosKSEWNEYmYHSPAV";
     //    const int64_t amount = 6 * libbitcoin::satoshi_per_bitcoin;
-    //    const int64_t locktime = 1537870990;
+    //    const int64_t locktime = 1552550930;
     //    const std::string secret = "secret string!";
     //    const uint16_t outputIndex = 1;
 
@@ -559,7 +560,7 @@ int main(int argc, char* argv[]) {
     boost::program_options::options_description options("Allowed options");
     options.add_options()
         ("help", "produce help message")
-        (CREATE, boost::program_options::value<std::string>(), "description")
+        (CREATE, "description")
 
         (SENDER_ADDRESS, boost::program_options::value<std::string>(), "description")
         (RECEIVER_ADDRESS, boost::program_options::value<std::string>(), "description")
@@ -568,8 +569,8 @@ int main(int argc, char* argv[]) {
         (LOCKTIME, boost::program_options::value<int64_t>(), "description")
 
 
-        (REFUND, boost::program_options::value<std::string>(), "description")
-        (REDEEM, boost::program_options::value<std::string>(), "description")
+        (REFUND, "description")
+        (REDEEM, "description")
 
         (ADDRESS, boost::program_options::value<std::string>(), "description")
         (TXID, boost::program_options::value<std::string>(), "description")
@@ -580,10 +581,6 @@ int main(int argc, char* argv[]) {
     boost::program_options::variables_map vm;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, options), vm);
     boost::program_options::notify(vm);
-
-    int a = 0;
-    std::cin >> a;
-    std::cout << a;
 
     if (vm.count("help")) {
         std::cout << options << "\n";
