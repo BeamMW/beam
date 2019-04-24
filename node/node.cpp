@@ -976,6 +976,11 @@ void Node::Initialize(IExternalPOW* externalPOW)
 	m_Processor.OnHorizonChanged(); // invoke it once again, after the Compressor initialized and maybe deleted some of backlog, perhaps fossil height may go up
 }
 
+uint32_t Node::get_AcessiblePeerCount() const
+{
+	return static_cast<uint32_t>(m_PeerMan.get_Addrs().size());
+}
+
 void Node::InitKeys()
 {
     if (!m_Keys.m_pOwner)

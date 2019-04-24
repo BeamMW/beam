@@ -611,6 +611,7 @@ void WalletClient::setNodeAddress(const std::string& addr)
     else
     {
         LOG_ERROR() << "Unable to resolve node address: " << addr;
+        onWalletError(wallet::ErrorType::HostResolvedError);
     }
 }
 

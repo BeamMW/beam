@@ -40,6 +40,7 @@ public class Wallet
     public native void getPaymentInfo(String txID);
     public native PaymentInfoDTO verifyPaymentInfo(String paymentInfo);
     public native void getCoinsByTx(String txID);
+    public native void changeNodeAddress(String address);
 
     // not implemented
     public native void changeCurrentWalletIDs(); //const beam::WalletID& senderID, const beam::WalletID& receiverID);
