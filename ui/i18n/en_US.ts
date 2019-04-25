@@ -912,10 +912,8 @@
         <translation>Unexpected error!</translation>
     </message>
     <message id="wallet-model-data-location-error">
-        <source>Failed to start wallet. Please check your wallet data location
-</source>
-        <translation>Failed to start wallet. Please check your wallet data location
-</translation>
+        <source>Failed to start wallet. Please check your wallet data location</source>
+        <translation>Failed to start wallet. Please check your wallet data location</translation>
     </message>
     <message id="address-item-never">
         <source>never</source>

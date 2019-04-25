@@ -77,7 +77,7 @@ set(UI_SRC
 find_package(Qt5LinguistTools)
 if (Qt5LinguistTools_FOUND)
 ##################### UPDATE TS
-    add_custom_target(UpdateTs)
+    add_custom_target(UpdateTs ALL)
     list(APPEND SUPPORTED_LANGS "en_US")
     list(APPEND SUPPORTED_LANGS "ru_RU")
     foreach(SUPPORTED_LANG ${SUPPORTED_LANGS})
@@ -88,7 +88,7 @@ if (Qt5LinguistTools_FOUND)
     endforeach()
 
 ################### CREQTE QM
-    add_custom_target(CreateQm DEPENDS UpdateTs)
+    add_custom_target(CreateQm ALL DEPENDS UpdateTs)
     foreach(TS_FILE ${TS_FILES})
         get_filename_component(TS_FILE_WE ${TS_FILE} NAME_WE)
         set(QM_FILE_NAME "${TS_FILE_WE}.qm")

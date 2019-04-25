@@ -940,8 +940,7 @@
         <translation>Неизвестная ошибка!</translation>
     </message>
     <message id="wallet-model-data-location-error">
-        <source>Failed to start wallet. Please check your wallet data location
-</source>
+        <source>Failed to start wallet. Please check your wallet data location</source>
         <translation>Невозможно запустьти приложение. Проверьте путь к данным кошелька.</translation>
     </message>
     <message id="address-item-never">
