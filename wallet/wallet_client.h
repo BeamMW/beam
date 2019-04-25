@@ -63,6 +63,7 @@ protected:
     virtual void onAllUtxoChanged(const std::vector<beam::Coin>& utxos) = 0;
     virtual void onAddresses(bool own, const std::vector<beam::WalletAddress>& addresses) = 0;
     virtual void onGeneratedNewAddress(const beam::WalletAddress& walletAddr) = 0;
+    virtual void onNewAddressFailed() = 0;
     virtual void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) = 0;
     virtual void onNodeConnectionChanged(bool isNodeConnected) = 0;
     virtual void onWalletError(beam::wallet::ErrorType error) = 0;
@@ -112,7 +113,7 @@ private:
     beam::io::Reactor::Ptr m_reactor;
     IWalletModelAsync::Ptr m_async;
     std::weak_ptr<beam::proto::FlyClient::INetwork> m_nodeNetwork;
-    std::weak_ptr<beam::IWalletNetwork> m_walletNetwork;
+    std::weak_ptr<beam::IWalletMessageEndpoint> m_walletNetwork;
     std::weak_ptr<beam::Wallet> m_wallet;
     bool m_isConnected;
     boost::optional<beam::wallet::ErrorType> m_walletError;

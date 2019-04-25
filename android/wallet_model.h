@@ -34,6 +34,7 @@ private:
     void onAllUtxoChanged(const std::vector<beam::Coin>& utxos) override;
     void onAddresses(bool own, const std::vector<beam::WalletAddress>& addrs) override;
     void onGeneratedNewAddress(const beam::WalletAddress& walletAddr) override;
+    void onNewAddressFailed() override;
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) override;
     void onNodeConnectionChanged(bool isNodeConnected) override;
     void onWalletError(beam::wallet::ErrorType error) override;

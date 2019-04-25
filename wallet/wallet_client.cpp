@@ -328,9 +328,10 @@ void WalletClient::start()
 
             m_nodeNetwork = nodeNetwork;
 
-            auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, *nodeNetwork, m_walletDB);
+            auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB);
             m_walletNetwork = walletNetwork;
-            wallet->set_Network(*nodeNetwork, *walletNetwork);
+            wallet->SetNodeEndpoint(nodeNetwork);
+			wallet->AddMessageEndpoint(walletNetwork);
 
             wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
@@ -414,6 +415,11 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
         }
 
         onSendMoneyVerified();
+    }
+    catch (const beam::CannotGenerateSecretException&)
+    {
+        onNewAddressFailed();
+        return;
     }
     catch (const beam::AddressExpiredException&)
     {
@@ -513,6 +519,10 @@ void WalletClient::generateNewAddress()
         WalletAddress address = wallet::createAddress(*m_walletDB);
 
         onGeneratedNewAddress(address);
+    }
+    catch (const beam::CannotGenerateSecretException&)
+    {
+        onNewAddressFailed();
     }
     catch (const std::exception& e)
     {
