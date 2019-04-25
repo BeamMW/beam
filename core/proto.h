@@ -276,8 +276,14 @@ namespace proto {
         static const uint8_t MiningFinalization     = 0x8; // I want to finalize block construction for my owned node
         static const uint8_t Extension1             = 0x10; // Supports Bbs with POW, more advanced proof/disproof scheme for SPV clients (?)
         static const uint8_t Extension2             = 0x20; // Supports large HdrPack, BlockPack with parameters
-	    static const uint8_t Recognized             = 0x3f;
-    };
+        static const uint8_t Extension3             = 0x40; // Supports Login1, compatible with Fork H1
+	    static const uint8_t Recognized             = 0x7f;
+
+		static const uint8_t ExtensionsAll =
+			Extension1 |
+			Extension2 |
+			Extension3;
+	};
 
     struct IDType
     {

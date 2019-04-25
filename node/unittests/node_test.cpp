@@ -1481,7 +1481,7 @@ namespace beam
 
 				proto::Login msg;
 				msg.m_CfgChecksum = Rules::get().Checksum;
-				msg.m_Flags = proto::LoginFlags::Extension1;
+				msg.m_Flags = proto::LoginFlags::ExtensionsAll;
 				Send(msg);
 
 				Send(proto::GetExternalAddr(Zero));
@@ -1697,7 +1697,7 @@ namespace beam
 					// switch offline/online mining modes
 					proto::Login msgLogin;
 					msgLogin.m_CfgChecksum = Rules::get().Checksum;
-					msgLogin.m_Flags = proto::LoginFlags::Extension1;
+					msgLogin.m_Flags = proto::LoginFlags::ExtensionsAll;
 					if (msg.m_Description.m_Height % 8)
 						msgLogin.m_Flags |= proto::LoginFlags::MiningFinalization;
 					Send(msgLogin);
@@ -1874,7 +1874,7 @@ namespace beam
 			virtual void OnConnectedSecure() override {
 				proto::Login msg;
 				msg.m_CfgChecksum = Rules::get().Checksum;
-				msg.m_Flags = proto::LoginFlags::SendPeers | proto::LoginFlags::Extension1;
+				msg.m_Flags = proto::LoginFlags::SendPeers | proto::LoginFlags::ExtensionsAll;
 				Send(msg);
 			}
 

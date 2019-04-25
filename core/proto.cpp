@@ -814,10 +814,10 @@ void NodeConnection::VerifyCfg(const Login& msg, Height hVer)
 	}
 	else
 	{
-		const uint8_t nMask = proto::LoginFlags::Extension1 | proto::LoginFlags::Extension2;
-		uint8_t nFlags = nMask & msg.m_Flags;
+		const uint32_t nMask = proto::LoginFlags::ExtensionsAll;
+		uint32_t nFlags = nMask & msg.m_Flags;
 		if (nFlags != nMask) {
-			LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses older protocol: " << static_cast<uint32_t>(nFlags);
+			LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses older protocol: " << nFlags;
 
 			if (hVer >= Rules::get().Forks.H1) {
 				ThrowUnexpected("Legacy", NodeProcessingException::Type::Incompatible);

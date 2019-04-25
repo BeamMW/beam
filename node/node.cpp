@@ -1196,8 +1196,7 @@ void Node::Peer::SendLogin()
 	msgLogin.m_CfgChecksum = Rules::get().Checksum; // checksum of all consesnsus related configuration
 
 	msgLogin.m_Flags =
-		proto::LoginFlags::Extension1 |
-		proto::LoginFlags::Extension2 |
+		proto::LoginFlags::ExtensionsAll |
 		proto::LoginFlags::SendPeers; // request a another node to periodically send a list of recommended peers
 
 	if (m_This.m_PostStartSynced)
