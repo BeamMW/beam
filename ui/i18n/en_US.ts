@@ -1168,4 +1168,15 @@
         <translation>1 hour</translation>
     </message>
 </context>
+<context>
+    <name>wallet</name>
+    <message>
+        <source>You cannot generate new address. Your wallet doesn&apos;t have a master key.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ok</source>
+        <translation type="unfinished">ok</translation>
+    </message>
+</context>
 </TS>
