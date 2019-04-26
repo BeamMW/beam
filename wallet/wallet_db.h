@@ -112,7 +112,7 @@ namespace beam
         ByteBuffer m_Message;
     };
 
-    struct IncommingWalletMessage
+    struct IncomingWalletMessage
     {
         int m_ID;
         BbsChannel m_Channel;
@@ -219,9 +219,9 @@ namespace beam
         virtual uint64_t saveWalletMessage(const WalletMessage& message) = 0;
         virtual void deleteWalletMessage(uint64_t id) = 0;
 
-        virtual std::vector<IncommingWalletMessage> getIncommingWalletMessages() const = 0;
-        virtual uint64_t saveIncommingWalletMessage(BbsChannel channel, const ByteBuffer& message) = 0;
-        virtual void deleteIncommingWalletMessage(uint64_t id) = 0;
+        virtual std::vector<IncomingWalletMessage> getIncomingWalletMessages() const = 0;
+        virtual uint64_t saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message) = 0;
+        virtual void deleteIncomingWalletMessage(uint64_t id) = 0;
     };
 
     namespace sqlite
@@ -306,9 +306,9 @@ namespace beam
         uint64_t saveWalletMessage(const WalletMessage& message) override;
         void deleteWalletMessage(uint64_t id) override;
 
-        std::vector<IncommingWalletMessage> getIncommingWalletMessages() const override;
-        uint64_t saveIncommingWalletMessage(BbsChannel channel, const ByteBuffer& message) override;
-        void deleteIncommingWalletMessage(uint64_t id) override;
+        std::vector<IncomingWalletMessage> getIncomingWalletMessages() const override;
+        uint64_t saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message) override;
+        void deleteIncomingWalletMessage(uint64_t id) override;
 
     private:
         void removeImpl(const Coin::ID& cid);

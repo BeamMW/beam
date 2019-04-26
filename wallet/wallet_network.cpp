@@ -79,8 +79,8 @@ namespace beam {
             if (!m_WalletDB->get_MasterKdf())
             {
                 // public wallet
-                m_WalletDB->saveIncommingWalletMessage(channel, msg);
-                OnIncommingMessage();
+                m_WalletDB->saveIncomingWalletMessage(channel, msg);
+                OnIncomingMessage();
                 return;
             }
 
@@ -564,11 +564,11 @@ namespace beam {
         Subscribe();
 
         {
-            auto messages = m_WalletDB->getIncommingWalletMessages();
+            auto messages = m_WalletDB->getIncomingWalletMessages();
             for (auto& message : messages)
             {
                 ProcessMessage(message.m_Channel, message.m_Message);
-                m_WalletDB->deleteIncommingWalletMessage(message.m_ID);
+                m_WalletDB->deleteIncomingWalletMessage(message.m_ID);
             }
         }
     }

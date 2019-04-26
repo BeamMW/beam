@@ -65,7 +65,7 @@
 #define TX_PARAMS_NAME "txparams"
 #define PRIVATE_VARIABLES_NAME "PrivateVariables"
 #define WALLET_MESSAGE_NAME "WalletMessages"
-#define INCOMMING_WALLET_MESSAGE_NAME "IncommingWalletMessages"
+#define INCOMING_WALLET_MESSAGE_NAME "IncomingWalletMessages"
 
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(name,  name,  TEXT UNIQUE, obj) sep \
@@ -97,12 +97,12 @@
 
 #define WALLET_MESSAGE_FIELDS ENUM_WALLET_MESSAGE_FIELDS(LIST, COMMA, )
 
-#define ENUM_INCOMMING_WALLET_MESSAGE_FIELDS(each, sep, obj) \
+#define ENUM_INCOMING_WALLET_MESSAGE_FIELDS(each, sep, obj) \
     each(ID,  ID,  INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, obj) sep \
     each(Channel, Channel, INTEGER, obj) sep \
     each(Message, Message, BLOB, obj)
 
-#define INCOMMING_WALLET_MESSAGE_FIELDS ENUM_INCOMMING_WALLET_MESSAGE_FIELDS(LIST, COMMA, )
+#define INCOMING_WALLET_MESSAGE_FIELDS ENUM_INCOMING_WALLET_MESSAGE_FIELDS(LIST, COMMA, )
 
 #define TblStates            "States"
 #define TblStates_Height     "Height"
@@ -1040,7 +1040,7 @@ namespace beam
                 throwIfError(ret, db);
             }
             {
-                const char* req = "CREATE TABLE IF NOT EXISTS " INCOMMING_WALLET_MESSAGE_NAME " (" ENUM_INCOMMING_WALLET_MESSAGE_FIELDS(LIST_WITH_TYPES, COMMA, ) ");";
+                const char* req = "CREATE TABLE IF NOT EXISTS " INCOMING_WALLET_MESSAGE_NAME " (" ENUM_INCOMING_WALLET_MESSAGE_FIELDS(LIST_WITH_TYPES, COMMA, ) ");";
                 int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
                 throwIfError(ret, db);
             }
@@ -2463,22 +2463,22 @@ namespace beam
         stm.step();
     }
 
-    std::vector<IncommingWalletMessage> WalletDB::getIncommingWalletMessages() const
+    std::vector<IncomingWalletMessage> WalletDB::getIncomingWalletMessages() const
     {
-        std::vector<IncommingWalletMessage> messages;
-        sqlite::Statement stm(this, "SELECT * FROM " INCOMMING_WALLET_MESSAGE_NAME " ;");
+        std::vector<IncomingWalletMessage> messages;
+        sqlite::Statement stm(this, "SELECT * FROM " INCOMING_WALLET_MESSAGE_NAME " ;");
         while (stm.step())
         {
             auto& message = messages.emplace_back();
             int colIdx = 0;
-            ENUM_INCOMMING_WALLET_MESSAGE_FIELDS(STM_GET_LIST, NOSEP, message);
+            ENUM_INCOMING_WALLET_MESSAGE_FIELDS(STM_GET_LIST, NOSEP, message);
         }
         return messages;
     }
 
-    uint64_t WalletDB::saveIncommingWalletMessage(BbsChannel channel, const ByteBuffer& message)
+    uint64_t WalletDB::saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message)
     {
-        const char* req = "INSERT INTO " INCOMMING_WALLET_MESSAGE_NAME " (Channel, Message) VALUES(?,?)";
+        const char* req = "INSERT INTO " INCOMING_WALLET_MESSAGE_NAME " (Channel, Message) VALUES(?,?)";
         sqlite::Statement stm(this, req);
         stm.bind(1, channel);
         stm.bind(2, message);
@@ -2488,9 +2488,9 @@ namespace beam
         return sqlite3_last_insert_rowid(_db);
     }
 
-    void WalletDB::deleteIncommingWalletMessage(uint64_t id)
+    void WalletDB::deleteIncomingWalletMessage(uint64_t id)
     {
-        sqlite::Statement stm(this, "DELETE FROM " INCOMMING_WALLET_MESSAGE_NAME " WHERE ID == ?1;");
+        sqlite::Statement stm(this, "DELETE FROM " INCOMING_WALLET_MESSAGE_NAME " WHERE ID == ?1;");
         stm.bind(1, id);
         stm.step();
     }

@@ -62,7 +62,7 @@ namespace beam
         void Unsubscribe();
         virtual void OnChannelAdded(BbsChannel channel) {};
         virtual void OnChannelDeleted(BbsChannel channel) {};
-        virtual void OnIncommingMessage() {};
+        virtual void OnIncomingMessage() {};
     private:
         void DeleteAddr(const Addr&);
         bool IsSingleChannelUser(const Addr::Channel&);

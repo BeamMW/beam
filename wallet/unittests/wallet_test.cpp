@@ -342,7 +342,7 @@ namespace
 
         }
     private:
-        void OnIncommingMessage() override
+        void OnIncomingMessage() override
         {
             io::Reactor::get_Current().stop();
         }

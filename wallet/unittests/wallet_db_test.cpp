@@ -1289,18 +1289,18 @@ void TestWalletMessages()
     }
 
     {
-        auto incomming = db->getIncommingWalletMessages();
-        WALLET_CHECK(incomming.empty());
+        auto incoming = db->getIncomingWalletMessages();
+        WALLET_CHECK(incoming.empty());
         ByteBuffer b = { 1, 45, 6 };
-        auto id = db->saveIncommingWalletMessage(23, b);
+        auto id = db->saveIncomingWalletMessage(23, b);
         WALLET_CHECK(id == 1);
-        incomming = db->getIncommingWalletMessages();
-        WALLET_CHECK(incomming.size() == 1);
-        WALLET_CHECK(incomming[0].m_Message == b);
-        WALLET_CHECK(incomming[0].m_Channel == 23);
-        db->deleteIncommingWalletMessage(1);
-        incomming = db->getIncommingWalletMessages();
-        WALLET_CHECK(incomming.empty());
+        incoming = db->getIncomingWalletMessages();
+        WALLET_CHECK(incoming.size() == 1);
+        WALLET_CHECK(incoming[0].m_Message == b);
+        WALLET_CHECK(incoming[0].m_Channel == 23);
+        db->deleteIncomingWalletMessage(1);
+        incoming = db->getIncomingWalletMessages();
+        WALLET_CHECK(incoming.empty());
     }
 }
 
