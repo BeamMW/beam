@@ -1167,16 +1167,20 @@
         <source>1 hour</source>
         <translation>1 час</translation>
     </message>
+    <message id="receive-amount-label">
+        <source>Transaction amount</source>
+        <translation type="unfinished">Сумма транзакции</translation>
+    </message>
 </context>
 <context>
     <name>wallet</name>
     <message>
-        <source>You cannot generate new address. Your wallet doesn&apos;t have a master key.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>ok</source>
         <translation type="unfinished">ok</translation>
+    </message>
+    <message>
+        <source>You cannot generate new address. Your wallet doesn&apos;t have a master key.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

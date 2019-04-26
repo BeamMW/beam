@@ -150,6 +150,8 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
     Q_PROPERTY(QString amountMissingToSend READ getAmountMissingToSend NOTIFY actualAvailableChanged)
 
+    Q_PROPERTY(QString amountForReceive READ getAmountForReceive WRITE setAmountForReceive NOTIFY amountForReceiveChanged)
+
     Q_PROPERTY(QString feeGrothes READ feeGrothes WRITE setFeeGrothes NOTIFY feeGrothesChanged)
 
     Q_PROPERTY(QString receiverAddr READ getReceiverAddr WRITE setReceiverAddr NOTIFY receiverAddrChanged)
@@ -204,6 +206,8 @@ public:
     QQmlListProperty<TxObject> getTransactions();
     QString sendAmount() const;
     QString getAmountMissingToSend() const;
+    const QString& getAmountForReceive() const;
+    void setAmountForReceive(const QString& value);
     QString feeGrothes() const;
     bool getIsOfflineStatus() const;
     bool getIsFailedStatus() const;
@@ -257,6 +261,7 @@ signals:
     void stateChanged();
 
     void sendAmountChanged();
+    void amountForReceiveChanged();
     void feeGrothesChanged();
     void transactionsChanged();
     void actualAvailableChanged();
@@ -279,6 +284,8 @@ private:
 
     std::function<bool(const TxObject*, const TxObject*)> generateComparer();
 
+    void updateReceiverQRCode();
+
 private:
 
     WalletModel& _model;
@@ -287,6 +294,7 @@ private:
     WalletStatus _status ;
 
     QString _sendAmount;
+    QString _amountForReceive;
     QString _feeGrothes;
 
     beam::Amount _change;

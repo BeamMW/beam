@@ -22,6 +22,7 @@
 #include "qrcode/QRCodeGenerator.h"
 #include <QtGui/qimage.h>
 #include <QtCore/qbuffer.h>
+#include <QUrlQuery>
 
 using namespace beam;
 using namespace std;
@@ -602,6 +603,22 @@ QString WalletViewModel::getAmountMissingToSend() const
     return QLocale().toString(static_cast<qulonglong>(missed)) + " " + qtTrId("tx-curency-sub-name");
 }
 
+const QString& WalletViewModel::getAmountForReceive() const
+{
+    return _amountForReceive;
+}
+
+void WalletViewModel::setAmountForReceive(const QString& value)
+{
+    auto trimmedValue = value.trimmed();
+    if (trimmedValue != _amountForReceive)
+    {
+        _amountForReceive = trimmedValue;
+        updateReceiverQRCode();
+        emit amountForReceiveChanged();
+    }
+}
+
 QString WalletViewModel::feeGrothes() const
 {
     return _feeGrothes;
@@ -866,6 +883,7 @@ void WalletViewModel::setNewReceiverName(const QString& value)
     if (_newReceiverName != trimmedValue)
     {
         _newReceiverName = trimmedValue;
+        updateReceiverQRCode();
         emit newReceiverNameChanged();
     }
 }
@@ -907,8 +925,41 @@ void WalletViewModel::onGeneratedNewAddress(const beam::WalletAddress& addr)
     _newReceiverAddrQR = "";
     setExpires(0);
 
+    updateReceiverQRCode();
+}
+
+void WalletViewModel::onNewAddressFailed()
+{
+    emit newAddressFailed();
+}
+
+void WalletViewModel::onSendMoneyVerified()
+{
+    // retranslate to qml
+    emit sendMoneyVerified();
+}
+
+void WalletViewModel::onCantSendToExpired()
+{
+    // retranslate to qml
+    emit cantSendToExpired();
+}
+
+void WalletViewModel::updateReceiverQRCode()
+{
+    QUrlQuery query;
+    if (!_amountForReceive.isEmpty())
+    {
+        query.addQueryItem("amount", _amountForReceive);
+    }
+
+    QUrl url;
+    url.setScheme("beam");
+    url.setPath(toString(_newReceiverAddr.m_walletID));
+    url.setQuery(query);
+
     CQR_Encode qrEncode;
-    QString strAddr(toString(_newReceiverAddr.m_walletID));
+    QString strAddr = url.toString(QUrl::FullyEncoded);
     bool success = qrEncode.EncodeData(1, 0, true, -1, strAddr.toUtf8().data());
 
     if (success)
@@ -936,21 +987,4 @@ void WalletViewModel::onGeneratedNewAddress(const beam::WalletAddress& addr)
     }
 
     emit newReceiverAddrChanged();
-}
-
-void WalletViewModel::onNewAddressFailed()
-{
-    emit newAddressFailed();
-}
-
-void WalletViewModel::onSendMoneyVerified()
-{
-    // retranslate to qml
-    emit sendMoneyVerified();
-}
-
-void WalletViewModel::onCantSendToExpired()
-{
-    // retranslate to qml
-    emit cantSendToExpired();
 }

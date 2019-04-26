@@ -439,6 +439,63 @@ Item {
                                 }
                             }
 
+                            // Amount
+                            ColumnLayout {
+                                width: parent.width
+
+                                SFText {
+                                    font.pixelSize: 14
+                                    font.styleName: "Bold"; font.weight: Font.Bold
+                                    color: Style.content_main
+                                    //% "Transaction amount"
+                                    text: qsTrId("receive-amount-label")
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+
+                                    SFTextInput {
+                                        Layout.fillWidth: true
+
+                                        id: receiveAmountInput
+
+                                        font.pixelSize: 36
+                                        font.styleName: "Light"; font.weight: Font.Light
+                                        color: Style.accent_outgoing
+
+                                        property double amount: 0
+
+                                        validator: RegExpValidator { regExp: /^(([1-9][0-9]{0,7})|(1[0-9]{8})|(2[0-4][0-9]{7})|(25[0-3][0-9]{6})|(0))(\.[0-9]{0,7}[1-9])?$/ }
+                                        selectByMouse: true
+                                    
+                                        onTextChanged: {
+                                            if (focus) {
+                                                amount = text ? text : 0;
+                                            }
+                                        }
+
+                                        onFocusChanged: {
+                                            if (amount > 0) {
+                                                text = focus ? amount : amount.toLocaleString(Qt.locale(), 'f', -128);
+                                            }
+                                        }
+                                    }
+
+                                    Binding {
+                                        target: viewModel
+                                        property: "amountForReceive"
+                                        value: receiveAmountInput.amount
+                                    }
+
+                                    SFText {
+                                        font.pixelSize: 24
+                                        color: Style.content_main
+                                        //% "BEAM"
+                                        text: qsTrId("send-curency-name")
+                                    }
+                                }
+                            }
+                            // Comment
                             SFText {
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
