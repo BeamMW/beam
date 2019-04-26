@@ -105,7 +105,7 @@ private:
                        << " and height=" << job.height;
 
             if (_fakeSolver) {
-                ECC::GenRandom(&job.pow.m_Indices[0], job.pow.m_Indices.size());
+                ECC::GenRandom(&job.pow.m_Indices[0], (uint32_t)job.pow.m_Indices.size());
                 {
                     std::lock_guard<std::mutex> lk(_mutex);
                     _lastFoundBlock = job.pow;
