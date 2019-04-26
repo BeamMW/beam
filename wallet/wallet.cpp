@@ -421,12 +421,13 @@ namespace beam
 
     void Wallet::OnRequestComplete(MyRequestTransaction& r)
     {
-        LOG_DEBUG() << r.m_TxID << (r.m_Res.m_Value ? " has registered" : " has failed to register");
+		bool bOk = (proto::TxStatus::Ok == r.m_Res.m_Value);
+        LOG_DEBUG() << r.m_TxID << (bOk ? " has registered" : " has failed to register");
         
         auto it = m_Transactions.find(r.m_TxID);
         if (it != m_Transactions.end())
         {
-            it->second->SetParameter(TxParameterID::TransactionRegistered, r.m_Res.m_Value);
+            it->second->SetParameter(TxParameterID::TransactionRegistered, bOk);
             updateTransaction(r.m_TxID);
         }
     }

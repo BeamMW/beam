@@ -1901,8 +1901,13 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
         m_This.OnTransactionFluff(std::move(msg.m_Transaction), this, NULL);
     else
     {
-        proto::Boolean msgOut;
-        msgOut.m_Value = m_This.OnTransactionStem(std::move(msg.m_Transaction), this);
+		bool bRes = m_This.OnTransactionStem(std::move(msg.m_Transaction), this);
+
+        proto::Status msgOut;
+		msgOut.m_Value = bRes ?
+			proto::TxStatus::Ok :
+			proto::TxStatus::Unspecified;
+
         Send(msgOut);
     }
 }

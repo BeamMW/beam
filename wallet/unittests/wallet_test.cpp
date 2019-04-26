@@ -701,7 +701,7 @@ namespace
             case Request::Type::Transaction:
                 {
                     proto::FlyClient::RequestTransaction& v = static_cast<proto::FlyClient::RequestTransaction&>(r);
-                    v.m_Res.m_Value = true;
+                    v.m_Res.m_Value = proto::TxStatus::Ok;
 
                     m_Shared.m_Blockchain.HandleTx(v.m_Msg);
                     m_Shared.AddBlock();
@@ -850,7 +850,7 @@ namespace
             {
                 m_This.m_Blockchain.HandleTx(data);
 
-                Send(proto::Boolean{ true });
+                Send(proto::Status{ proto::TxStatus::Ok });
                 m_This.AddBlock();
             }
 

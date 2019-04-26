@@ -46,8 +46,8 @@ namespace proto {
 
 #define BeamNodeMsg_DataMissing(macro)
 
-#define BeamNodeMsg_Boolean(macro) \
-    macro(bool, Value)
+#define BeamNodeMsg_Status(macro) \
+    macro(uint8_t, Value)
 
 #define BeamNodeMsg_GetBody(macro) \
     macro(Block::SystemState::ID, ID)
@@ -224,7 +224,7 @@ namespace proto {
     macro(0x0b, GetTime) \
     macro(0x0c, Time) \
     macro(0x0d, DataMissing) \
-    macro(0x0e, Boolean) \
+    macro(0x0e, Status) \
     /* blockchain status */ \
     macro(0x10, NewTip) \
     macro(0x11, GetHdr) \
@@ -276,7 +276,7 @@ namespace proto {
         static const uint8_t MiningFinalization     = 0x8; // I want to finalize block construction for my owned node
         static const uint8_t Extension1             = 0x10; // Supports Bbs with POW, more advanced proof/disproof scheme for SPV clients (?)
         static const uint8_t Extension2             = 0x20; // Supports large HdrPack, BlockPack with parameters
-        static const uint8_t Extension3             = 0x40; // Supports Login1, compatible with Fork H1
+        static const uint8_t Extension3             = 0x40; // Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
 	    static const uint8_t Recognized             = 0x7f;
 
 		static const uint8_t ExtensionsAll =
@@ -383,6 +383,14 @@ namespace proto {
 
 		bool Encrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void*, uint32_t); // will fail iff addr is invalid
 		bool Decrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr);
+	};
+
+	struct TxStatus
+	{
+		// for backward compatibility, since it's former Boolean
+		static const uint8_t Unspecified = 0;
+		static const uint8_t Ok = 0x1;
+		// advanced codes
 	};
 
 
