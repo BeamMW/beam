@@ -299,17 +299,17 @@ void WalletClient::start()
                         m_timer = io::Timer::create(io::Reactor::get_Current());
                     }
 
-                    if (m_attemptToConnect >= MAX_ATTEMPT_TO_CONNECT)
+                    if (m_attemptToConnect < MAX_ATTEMPT_TO_CONNECT)
+                    {
+                        ++m_attemptToConnect;
+                    }
+                    else if (m_attemptToConnect == MAX_ATTEMPT_TO_CONNECT)
                     {
                         proto::NodeConnection::DisconnectReason reason;
 
                         reason.m_Type = proto::NodeConnection::DisconnectReason::Io;
                         reason.m_IoError = EC_HOST_RESOLVED_ERROR;
                         m_walletClient.nodeConnectionFailed(reason);
-                    }
-                    else
-                    {
-                        ++m_attemptToConnect;
                     }
 
                     m_timer->start(RECONNECTION_TIMEOUT, false, [this]() {
