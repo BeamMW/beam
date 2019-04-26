@@ -135,6 +135,11 @@ public class WalletListener
 		System.out.println(addr.walletID);
 	}
 
+	static void onNewAddressFailed()
+	{
+		System.out.println(">>>>>>>>>>> onNewAddressFailed() called");
+	}
+
 	static void onNodeConnectedStatusChanged(boolean isNodeConnected)
 	{
 		System.out.println(">>>>>>>>>>>>>> async onNodeConnectedStatusChanged(" + isNodeConnected + ") in Java");

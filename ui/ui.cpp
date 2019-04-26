@@ -18,12 +18,15 @@
 
 #include <QInputDialog>
 #include <QMessageBox>
+#include <QTranslator>
 
 #include <qqmlcontext.h>
 #include "viewmodel/start_view.h"
 #include "viewmodel/loading_view.h"
 #include "viewmodel/main_view.h"
 #include "viewmodel/utxo_view.h"
+#include "viewmodel/utxo_view_status.h"
+#include "viewmodel/utxo_view_type.h"
 #include "viewmodel/dashboard_view.h"
 #include "viewmodel/address_book_view.h"
 #include "viewmodel/wallet_view.h"
@@ -38,8 +41,6 @@
 #include "wallet/wallet_db.h"
 #include "utility/log_rotation.h"
 #include "core/ecc_native.h"
-
-#include "translator.h"
 
 #include "utility/cli/options.h"
 
@@ -152,6 +153,22 @@ int main (int argc, char* argv[])
             appDataDir = QString::fromStdString(vm[cli::APPDATA_PATH].as<string>());
         }
 
+        //TODO(sergey.zavarza) replace language choise with selectbox
+        QTranslator translator;
+        bool isTranslationLoaded = false;
+        if (vm.count(cli::LANG) && vm[cli::LANG].as<string>() == "ru")
+        {
+            isTranslationLoaded = translator.load("ru_RU", ":/translations");
+        }
+        else
+        {
+            isTranslationLoaded = translator.load("en_US", ":/translations");
+        }
+        if (isTranslationLoaded)
+        {
+            app.installTranslator(&translator);
+        }
+
         int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
         int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
 
@@ -198,6 +215,8 @@ int main (int argc, char* argv[])
             qmlRegisterType<MainViewModel>("Beam.Wallet", 1, 0, "MainViewModel");
             qmlRegisterType<DashboardViewModel>("Beam.Wallet", 1, 0, "DashboardViewModel");
             qmlRegisterType<WalletViewModel>("Beam.Wallet", 1, 0, "WalletViewModel");
+            qmlRegisterType<UtxoViewStatus>("Beam.Wallet", 1, 0, "UtxoStatus");
+            qmlRegisterType<UtxoViewType>("Beam.Wallet", 1, 0, "UtxoType");
             qmlRegisterType<UtxoViewModel>("Beam.Wallet", 1, 0, "UtxoViewModel");
             qmlRegisterType<SettingsViewModel>("Beam.Wallet", 1, 0, "SettingsViewModel");
             qmlRegisterType<AddressBookViewModel>("Beam.Wallet", 1, 0, "AddressBookViewModel");

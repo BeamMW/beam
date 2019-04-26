@@ -249,6 +249,11 @@ void WalletModel::onGeneratedNewAddress(const beam::WalletAddress& address)
     env->DeleteLocalRef(addr);
 }
 
+void WalletModel::onNewAddressFailed()
+{
+
+}
+
 void WalletModel::onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID)
 {
 }

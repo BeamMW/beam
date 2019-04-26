@@ -19,8 +19,13 @@ Item {
         }
 
         onCantSendToExpired: {
-            walletView.enabled = true
+            walletView.enabled = true;
             cantSendToExpiredDialog.open();
+        }
+
+        onNewAddressFailed: {
+            walletView.enabled = true;
+            newAddressFailedDialog.open();
         }
     }
 
@@ -52,14 +57,16 @@ Item {
 
             SFText {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: qsTr("Can't send to the expired address.")
+                //% "Can't send to the expired address."
+                text: qsTrId("cant-send-to-expired-message")
                 color: Style.content_main
                 font.pixelSize: 14
                 font.styleName: "Bold"; font.weight: Font.Bold
             }
 
             PrimaryButton {
-                text: qsTr("ok")
+                //% "ok"
+                text: qsTrId("cant-send-to-expired-ok-button")
                 anchors.horizontalCenter: parent.horizontalCenter
                 icon.source: "qrc:/assets/icon-done.svg"
                 onClicked: cantSendToExpiredDialog.close()
@@ -67,10 +74,53 @@ Item {
         }
     }
 
+    Dialog {
+        id: newAddressFailedDialog
+
+        modal: true
+
+        width: 400
+        height: 160
+
+        x: (parent.width - width) / 2
+        y: (parent.height - height) / 2
+        visible: false
+        
+        background: Rectangle {
+            radius: 10
+            color: Style.background_second
+            anchors.fill: parent
+        }
+
+        contentItem: Column {
+            anchors.fill: parent
+            anchors.margins: 30
+
+            spacing: 40
+
+            SFText {
+                width: parent.width
+                text: qsTr("You cannot generate new address. Your wallet doesn't have a master key.")
+                color: Style.content_main
+                font.pixelSize: 14
+                font.styleName: "Bold"; font.weight: Font.Bold
+                wrapMode: Text.WordWrap
+            }
+
+            PrimaryButton {
+                text: qsTr("ok")
+                anchors.horizontalCenter: parent.horizontalCenter
+                icon.source: "qrc:/assets/icon-done.svg"
+                onClicked: newAddressFailedDialog.close()
+            }
+        }
+    }
+
     ConfirmationDialog {
         id: confirmationDialog
         okButtonColor: Style.accent_outgoing
-        okButtonText: qsTr("send")
+        //% "send"
+        okButtonText: qsTrId("send-confirmation-button")
         okButtonIconSource: "qrc:/assets/icon-send-blue.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
         okButtonEnable: viewModel.isPasswordReqiredToSpendMoney() ? requirePasswordInput.text.length : true
@@ -88,7 +138,8 @@ Item {
                 }
                 if (!viewModel.isPasswordValid(requirePasswordInput.text)) {
                     requirePasswordInput.forceActiveFocus(Qt.TabFocusReason);
-                    requirePasswordError.text = qsTr("Invalid password provided.");
+                    //% "Invalid password provided."
+                    requirePasswordError.text = qsTrId("send-confirmation-pwd-fail");
                     return;
                 }
             }
@@ -123,7 +174,8 @@ Item {
                     font.styleName: "Bold";
                     font.weight: Font.Bold
                     color: Style.content_main
-                    text: qsTr("Confirm transaction details")
+                    //% "Confirm transaction details"
+                    text: qsTrId("send-confirmation-title")
                 }
 
                 GridLayout {
@@ -142,7 +194,8 @@ Item {
                         Layout.minimumHeight: 16
                         font.pixelSize: 14
                         color: Style.content_disabled
-                        text: qsTr("Recipient:")
+                        //% "Recipient:"
+                        text: qsTrId("send-confirmation-recipient-label")
                         verticalAlignment: Text.AlignTop
                     }
 
@@ -165,7 +218,8 @@ Item {
                         Layout.bottomMargin: 3
                         font.pixelSize: 14
                         color: Style.content_disabled
-                        text: qsTr("Amount:")
+                        //% "Amount:"
+                        text: qsTrId("send-confirmation-amount-label")
                         verticalAlignment: Text.AlignBottom
                     }
 
@@ -185,7 +239,8 @@ Item {
                         Layout.minimumHeight: 16
                         font.pixelSize: 14
                         color: Style.content_disabled
-                        text: qsTr("Transaction fee:")
+                        //% "Transaction fee:"
+                        text: qsTrId("send-confirmation-fee-label")
                     }
 
                     SFText {
@@ -207,7 +262,8 @@ Item {
                         Layout.minimumHeight: 16
                         font.pixelSize: 14
                         color: Style.content_main
-                        text: qsTr("To broadcast your transaction please enter your password")
+                        //% "To broadcast your transaction please enter your password"
+                        text: qsTrId("send-confirmation-pwd-require-message")
                     }
 
                     SFTextInput {
@@ -252,12 +308,14 @@ Item {
 
     ConfirmationDialog {
         id: invalidAddressDialog
-        okButtonText: qsTr("got it")
+        //% "got it"
+        okButtonText: qsTrId("invalid-addr-got-it-button")
     }
 
     ConfirmationDialog {
         id: deleteTransactionDialog
-        okButtonText: qsTr("delete")
+        //% "delete"
+        okButtonText: qsTrId("delete-transaction-delete-button")
     }
 
     PaymentInfoDialog {
@@ -284,7 +342,8 @@ Item {
     SFText {
         font.pixelSize: 36
         color: Style.content_main
-        text: qsTr("Wallet")
+        //% "Wallet"
+        text: qsTrId("wallet-title")
     }
 
     StatusBar {
@@ -314,7 +373,8 @@ Item {
                     font.pixelSize: 18
                     font.styleName: "Bold"; font.weight: Font.Bold
                     color: Style.content_main
-                    text: qsTr("Receive Beam")
+                    //% "Receive Beam"
+                    text: qsTrId("wallet-receive-title")
                 }
 
                 RowLayout {
@@ -332,7 +392,8 @@ Item {
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
                                 color: Style.content_main
-                                text: qsTr("My address")
+                                //% "My address"
+                                text: qsTrId("wallet-receive-my-addr-label")
                             }
 
                             SFTextInput {
@@ -351,7 +412,8 @@ Item {
                                     font.pixelSize: 14
                                     font.italic: true
                                     color: Style.content_main
-                                    text: qsTr("Expires:")
+                                    //% "Expires:"
+                                    text: qsTrId("wallet-receive-expires-label")
                                 }
                                 CustomComboBox {
                                     id: expiresControl
@@ -368,7 +430,12 @@ Item {
                                         value: expiresControl.currentIndex
                                     }
 
-                                    model: ["24 hours", "never"]
+                                    model: [
+                                        //% "24 hours"
+                                        qsTrId("wallet-receive-expires-24"),
+                                        //% "never"
+                                        qsTrId("wallet-receive-expires-never")
+                                    ]
                                 }
                             }
 
@@ -376,7 +443,8 @@ Item {
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
                                 color: Style.content_main
-                                text: qsTr("Comment")
+                                //% "Comment"
+                                text: qsTrId("wallet-receive-comment-label")
                             }
 
                             SFTextInput {
@@ -413,7 +481,8 @@ Item {
                                 font.pixelSize: 14
                                 font.italic: true
                                 color: Style.content_main
-                                text: qsTr("Scan to send")
+                                //% "Scan to send"
+                                text: qsTrId("wallet-receive-qr-label")
                             }
                         }
                     }
@@ -424,7 +493,8 @@ Item {
                     Layout.minimumHeight: 16
                     font.pixelSize: 14
                     color: Style.content_main
-                    text: qsTr("Send this address to the sender over an external secure channel")
+                    //% "Send this address to the sender over an external secure channel"
+                    text: qsTrId("wallet-receive-propogate-addr-message")
                 }
                 Row {
                     Layout.alignment: Qt.AlignHCenter
@@ -433,7 +503,8 @@ Item {
                     spacing: 19
 
                     CustomButton {
-                        text: qsTr("close")
+                        //% "close"
+                        text: qsTrId("wallet-receive-close-button")
                         palette.buttonText: Style.content_main
                         icon.source: "qrc:/assets/icon-cancel-white.svg"
                         onClicked: {
@@ -442,7 +513,8 @@ Item {
                     }
 
                     CustomButton {
-                        text: qsTr("copy")
+                        //% "copy"
+                        text: qsTrId("wallet-receive-copy-button")
                         palette.buttonText: Style.content_opposite
                         icon.color: Style.content_opposite
                         palette.button: Style.active
@@ -488,7 +560,8 @@ Item {
                     font.pixelSize: 18
                     font.styleName: "Bold"; font.weight: Font.Bold
                     color: Style.content_main
-                    text: qsTr("Send Beam")
+                    //% "Send Beam"
+                    text: qsTrId("send-title")
                 }
 
                 Item {
@@ -517,7 +590,8 @@ Item {
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
                                 color: Style.content_main
-                                text: qsTr("Send To:")
+                                //% "Send To:"
+                                text: qsTrId("send-send-to-label")
                             }
 
                             SFTextInput {
@@ -531,7 +605,8 @@ Item {
                                 validator: RegExpValidator { regExp: /[0-9a-fA-F]{1,80}/ }
                                 selectByMouse: true
 
-                                placeholderText: qsTr("Please specify contact")
+                                //% "Please specify contact"
+                                placeholderText: qsTrId("send-contact-placeholder")
 
                                 onTextChanged : {
                                     receiverAddressError.visible = receiverAddrInput.text.length > 0 && !viewModel.isValidReceiverAddress(receiverAddrInput.text)
@@ -543,7 +618,8 @@ Item {
                                 id: receiverAddressError
                                 color: Style.validator_error
                                 font.pixelSize: 10
-                                text: qsTr("Invalid address")
+                                //% "Invalid address"
+                                text: qsTrId("send-addr-fail")
                                 visible: false
                             }
 
@@ -576,7 +652,8 @@ Item {
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
                                 color: Style.content_main
-                                text: qsTr("Transaction amount")
+                                //% "Transaction amount"
+                                text: qsTrId("send-amount-label")
                             }
 
                             RowLayout {
@@ -619,7 +696,8 @@ Item {
                                 SFText {
                                     font.pixelSize: 24
                                     color: Style.content_main
-                                    text: qsTr("BEAM")
+                                    //% "BEAM"
+                                    text: qsTrId("send-curency-name")
                                 }
                             }
                             Item {
@@ -628,7 +706,8 @@ Item {
                                 Layout.fillWidth: true
 
                                 SFText {
-                                    text: qsTr("Insufficient funds: you would need %1 to complete the transaction").arg(viewModel.amountMissingToSend)
+                                    //% "Insufficient funds: you would need %1 to complete the transaction"
+                                    text: qsTrId("send-founds-fail").arg(viewModel.amountMissingToSend)
                                     color: Style.validator_error
                                     font.pixelSize: 14
                                     fontSizeMode: Text.Fit
@@ -661,7 +740,8 @@ Item {
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
                                 color: Style.content_main
-                                text: qsTr("Comment")
+                                //% "Comment"
+                                text: qsTrId("send-comment-label")
                             }
 
                             SFTextInput {
@@ -697,7 +777,8 @@ Item {
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
                                 color: Style.content_main
-                                text: qsTr("Transaction fee")
+                                //% "Transaction fee"
+                                text: qsTrId("send-fee-label")
                             }
 
                             RowLayout {
@@ -740,7 +821,8 @@ Item {
                                 SFText {
                                     font.pixelSize: 24
                                     color: Style.content_main
-                                    text: qsTr("GROTH")
+                                    //% "GROTH"
+                                    text: qsTrId("send-curency-sub-name")
                                 }
                             }
 
@@ -781,7 +863,8 @@ Item {
                                                     font.pixelSize: 18
                                                     font.styleName: "Bold"; font.weight: Font.Bold
                                                     color: Style.content_secondary
-                                                    text: qsTr("Remaining")
+                                                    //% "Remaining"
+                                                    text: qsTrId("send-remaining-label")
                                                 }
 
                                                 RowLayout
@@ -829,7 +912,8 @@ Item {
                                                     font.pixelSize: 18
                                                     font.styleName: "Bold"; font.weight: Font.Bold
                                                     color: Style.content_secondary
-                                                    text: qsTr("Change")
+                                                    //% "Change"
+                                                    text: qsTrId("send-change-label")
                                                 }
 
                                                 RowLayout
@@ -878,7 +962,8 @@ Item {
                     spacing: 30
 
                     CustomButton {
-                        text: qsTr("back")
+                        //% "back"
+                        text: qsTrId("send-back-button")
                         icon.source: "qrc:/assets/icon-back.svg"
                         onClicked: {
                             walletView.pop();
@@ -886,7 +971,8 @@ Item {
                     }
 
                     CustomButton {
-                        text: qsTr("send")
+                        //% "send"
+                        text: qsTrId("send-send-button")
                         palette.buttonText: Style.content_opposite
                         palette.button: Style.accent_outgoing
                         icon.source: "qrc:/assets/icon-send-blue.svg"
@@ -894,12 +980,15 @@ Item {
                         onClicked: {
                             if (viewModel.isValidReceiverAddress(viewModel.receiverAddr)) {
                                 confirmationDialog.addressText = viewModel.receiverAddr;
-                                confirmationDialog.amountText = amount_input.amount.toLocaleString(Qt.locale(), 'f', -128) + " " + qsTr("BEAM");
-                                confirmationDialog.feeText = fee_input.amount.toLocaleString(Qt.locale(), 'f', -128) + " " + qsTr("GROTH");
+                                //% "BEAM"
+                                confirmationDialog.amountText = amount_input.amount.toLocaleString(Qt.locale(), 'f', -128) + " " + qsTrId("send-curency-name");
+                                //% "GROTH"
+                                confirmationDialog.feeText = fee_input.amount.toLocaleString(Qt.locale(), 'f', -128) + " " + qsTrId("send-curency-sub-name");
 
                                 confirmationDialog.open();
                             } else {
-                                var message = "Address %1 is invalid";
+                                //% "Address %1 is invalid"
+                                var message = qsTrId("send-send-fail");
                                 invalidAddressDialog.text = message.arg(viewModel.receiverAddr);
                                 invalidAddressDialog.open();
                             }
@@ -927,7 +1016,8 @@ Item {
                     palette.button: Style.accent_incoming
                     palette.buttonText: Style.content_opposite
                     icon.source: "qrc:/assets/icon-receive-blue.svg"
-                    text: qsTr("receive")
+                    //% "receive"
+                    text: qsTrId("wallet-receive-button")
 
                     onClicked: {
                         viewModel.generateNewAddress();
@@ -939,7 +1029,8 @@ Item {
                     palette.button: Style.accent_outgoing
                     palette.buttonText: Style.content_opposite
                     icon.source: "qrc:/assets/icon-send-blue.svg"
-                    text: qsTr("send")
+                    //% "send"
+                    text: qsTrId("wallet-send-button")
 
                     onClicked: {
                         walletView.push(send_layout);
@@ -979,7 +1070,8 @@ Item {
                         Layout.fillHeight: true
                         Layout.fillWidth: true
 
-                        title: qsTr("In progress")
+                        //% "In progress"
+                        title: qsTrId("wallet-in-progress-title")
                         receiving: viewModel.receiving
                         sending: viewModel.sending
                         maturing: viewModel.maturing
@@ -1006,13 +1098,15 @@ Item {
 
                     color: Style.content_main
 
-                    text: qsTr("Transactions")
+                    //% "Transactions"
+                    text: qsTrId("wallet-transactions-title")
                 }
 
                 CustomToolButton {
                     anchors.right: parent.right
                     icon.source: "qrc:/assets/icon-proof.svg"
-                    ToolTip.text: qsTr("Verify payment")
+                    //% "Verify payment"
+                    ToolTip.text: qsTrId("wallet-verify-payment")
                     onClicked: {
                         paymentInfoVerifyDialog.model.reset();
                         paymentInfoVerifyDialog.open();
@@ -1076,7 +1170,8 @@ Item {
 
                 TableViewColumn {
                     role: viewModel.dateRole
-                    title: qsTr("Date | time")
+                    //% "Date | time"
+                    title: qsTrId("wallet-txs-date-time")
                     width: 160 * transactionsView.resizableWidth / 960
                     elideMode: Text.ElideRight
                     resizable: false
@@ -1105,7 +1200,8 @@ Item {
 
                 TableViewColumn {
                     role: viewModel.userRole
-                    title: qsTr("Address")
+                    //% "Address"
+                    title: qsTrId("wallet-txs-addr")
                     width: 400 * transactionsView.resizableWidth / 960
                     elideMode: Text.ElideMiddle
                     resizable: false
@@ -1134,7 +1230,8 @@ Item {
 
                 TableViewColumn {
                     role: viewModel.amountRole
-                    title: qsTr("Amount")
+                    //% "Amount"
+                    title: qsTrId("wallet-txs-amount")
                     width: 200 * transactionsView.resizableWidth / 960
                     elideMode: Text.ElideRight
                     movable: false
@@ -1165,7 +1262,8 @@ Item {
 
                 TableViewColumn {
                     role: viewModel.statusRole
-                    title: qsTr("Status")
+                    //% "Status"
+                    title: qsTrId("wallet-txs-status")
                     width: 200 * transactionsView.resizableWidth / 960
                     elideMode: Text.ElideRight
                     movable: false
@@ -1205,7 +1303,7 @@ Item {
                                     font.italic: true
                                     color: getTextColor()
                                     elide: Text.ElideRight
-                                    text: styleData.value
+                                    text: txStatusText(styleData.value)
                                     copyMenuEnabled: true
                                     onCopyText: viewModel.copyToClipboard(text)
 
@@ -1222,6 +1320,35 @@ Item {
                                         }
 
                                         return Style.content_main;
+                                    }
+
+                                    function txStatusText(value) {
+                                        switch(value) {
+                                            //% "pending"
+                                            case "pending": return qsTrId("wallet-txs-status-pending");
+                                            //% "waiting for sender"
+                                            case "waiting for sender": return qsTrId("wallet-txs-status-waiting-sender");
+                                            //% "waiting for receiver"
+                                            case "waiting for receiver": return qsTrId("wallet-txs-status-waiting-receiver");
+                                            //% "receiving"
+                                            case "receiving": return qsTrId("wallet-txs-status-receiving");
+                                            //% "sending"
+                                            case "sending": return qsTrId("wallet-txs-status-sending");
+                                            //% "completed"
+                                            case "completed": return qsTrId("wallet-txs-status-completed");
+                                            //% "received"
+                                            case "received": return qsTrId("wallet-txs-status-received");
+                                            //% "sent"
+                                            case "sent": return qsTrId("wallet-txs-status-sent");
+                                            //% "cancelled"
+                                            case "cancelled": return qsTrId("wallet-txs-status-cancelled");
+                                            //% "expired"
+                                            case "expired": return qsTrId("wallet-txs-status-expired");
+                                            //% "failed"
+                                            case "failed": return qsTrId("wallet-txs-status-failed");
+                                            //% "unknown"
+                                            default: return qsTrId("wallet-txs-status-unknown");
+                                        }
                                     }
                                 }
                             }
@@ -1255,7 +1382,8 @@ Item {
                                 spacing: 10
                                 CustomToolButton {
                                     icon.source: "qrc:/assets/icon-actions.svg"
-                                    ToolTip.text: qsTr("Actions")
+                                    //% "Actions"
+                                    ToolTip.text: qsTrId("wallet-txs-actions-tooltip")
                                     onClicked: {
                                         txContextMenu.transaction = viewModel.transactions[styleData.row];
                                         txContextMenu.popup();
@@ -1272,7 +1400,8 @@ Item {
                     dim: false
                     property TxObject transaction
                     Action {
-                        text: qsTr("copy address")
+                        //% "copy address"
+                        text: qsTrId("wallet-txs-copy-addr-cm")
                         icon.source: "qrc:/assets/icon-copy.svg"
                         onTriggered: {
                             if (!!txContextMenu.transaction)
@@ -1282,7 +1411,8 @@ Item {
                         }
                     }
                     Action {
-                        text: qsTr("cancel")
+                        //% "cancel"
+                        text: qsTrId("wallet-txs-cancel-cm")
                         onTriggered: {
                            viewModel.cancelTx(txContextMenu.transaction);
                         }
@@ -1290,11 +1420,13 @@ Item {
                         icon.source: "qrc:/assets/icon-cancel.svg"
                     }
                     Action {
-                        text: qsTr("delete")
+                        //% "delete"
+                        text: qsTrId("wallet-txs-delete-cm")
                         icon.source: "qrc:/assets/icon-delete.svg"
                         enabled: !!txContextMenu.transaction && txContextMenu.transaction.canDelete
                         onTriggered: {
-                            deleteTransactionDialog.text = qsTr("The transaction will be deleted. This operation can not be undone");
+                            //% "The transaction will be deleted. This operation can not be undone"
+                            deleteTransactionDialog.text = qsTrId("wallet-txs-delete-message");
                             deleteTransactionDialog.open();
                         }
                     }

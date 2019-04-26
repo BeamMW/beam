@@ -113,7 +113,7 @@ void WalletSettings::setLockTimeout(int value)
 bool WalletSettings::isPasswordReqiredToSpendMoney() const
 {
     Lock lock(m_mutex);
-    return m_data.value(RequirePasswordToSpendMoney, true).toBool();
+    return m_data.value(RequirePasswordToSpendMoney, false).toBool();
 }
 
 void WalletSettings::setPasswordReqiredToSpendMoney(bool value)

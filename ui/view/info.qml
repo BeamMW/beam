@@ -11,6 +11,7 @@ Rectangle {
         anchors.centerIn: parent
         font.pixelSize: 40
         color: Style.content_main
-        text: qsTr("Info view")
+        //% "Info view"
+        text: qsTrId("info-title")
     }
 }
