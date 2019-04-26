@@ -28,6 +28,7 @@ Merkle::Hash hash;
 Block::PoW POW;
 static const unsigned TIMER_MSEC = 280000;
 io::Timer::Ptr feedJobsTimer;
+bool tls = false;
 
 IExternalPOW::BlockFoundResult got_new_block();
 
@@ -68,13 +69,15 @@ void find_certificates(IExternalPOW::Options& o) {
     static const std::string keyFileName("test.key");
     static const std::string unittestPath(PROJECT_SOURCE_DIR "/utility/unittest/");
 
-    using namespace boost::filesystem;
-    if (exists(certFileName) && exists(keyFileName)) {
-        o.certFile = certFileName;
-        o.privKeyFile = keyFileName;
-    } else if (exists(path(unittestPath + certFileName)) && exists(path(unittestPath + keyFileName))) {
-        o.certFile = unittestPath + certFileName;
-        o.privKeyFile = unittestPath + keyFileName;
+    if (tls) {
+        using namespace boost::filesystem;
+        if (exists(certFileName) && exists(keyFileName)) {
+            o.certFile = certFileName;
+            o.privKeyFile = keyFileName;
+        } else if (exists(path(unittestPath + certFileName)) && exists(path(unittestPath + keyFileName))) {
+            o.certFile = unittestPath + certFileName;
+            o.privKeyFile = unittestPath + keyFileName;
+        }
     }
 
     o.apiKeysFile = "api.keys";

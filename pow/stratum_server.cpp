@@ -167,19 +167,17 @@ bool Server::on_solution(uint64_t from, const Solution& sol) {
 
     LOG_INFO() << STS << "solution to " << sol.id << " from " << io::Address::from_u64(from);
 	IExternalPOW::BlockFoundResult result = _recentResult.onBlockFound();
-    bool accepted = false;
     stratum::ResultCode stratumCode = stratum::solution_rejected;
     if (result == IExternalPOW::solution_accepted) {
-        accepted = true;
         stratumCode = stratum::solution_accepted;
     } else if (result == IExternalPOW::solution_expired) {
         stratumCode = stratum::solution_expired;
     }
     Result res(sol.id, stratumCode);
     append_json_msg(_fw, res);
-    bool sent = _connections[from]->send_msg(_currentMsg, true, !accepted);
+    bool sent = _connections[from]->send_msg(_currentMsg, true);
     _currentMsg.clear();
-    return accepted && sent;
+    return sent;
 }
 
 void Server::on_bad_peer(uint64_t from) {

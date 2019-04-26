@@ -42,7 +42,6 @@ Method get_method(const std::string& str) {
 }
 
 std::string get_result_msg(int code) {
-    if (code == 0) return std::string();
     switch (code) {
 #define R_MESSAGE(code, _, message) case code: return message;
     STRATUM_RESULTS(R_MESSAGE)
