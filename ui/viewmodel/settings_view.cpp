@@ -39,6 +39,9 @@ SettingsViewModel::SettingsViewModel()
     connect(&AppModel::getInstance()->getNode(), SIGNAL(startedNode()), SLOT(onNodeStarted()));
     connect(&AppModel::getInstance()->getNode(), SIGNAL(stoppedNode()), SLOT(onNodeStopped()));
 
+    connect(AppModel::getInstance()->getWallet().get(), SIGNAL(addressChecked(const QString&, bool)),
+        SLOT(onAddressChecked(const QString&, bool)));
+
     m_timerId = startTimer(CHECK_INTERVAL);
 }
 
@@ -50,6 +53,23 @@ void SettingsViewModel::onNodeStarted()
 void SettingsViewModel::onNodeStopped()
 {
     emit localNodeRunningChanged();
+}
+
+void SettingsViewModel::onAddressChecked(const QString& addr, bool isValid)
+{
+    if (m_nodeAddress == addr && m_isValidNodeAddress != isValid)
+    {
+        m_isValidNodeAddress = isValid;
+        emit validNodeAddressChanged();
+
+        if (m_isNeedToApplyChanges)
+        {
+            if (m_isValidNodeAddress)
+                applyChanges();
+
+            m_isNeedToApplyChanges = false;
+        }
+    }
 }
 
 bool SettingsViewModel::isLocalNodeRunning() const
@@ -71,12 +91,14 @@ void SettingsViewModel::setNodeAddress(const QString& value)
 {
     if (value != m_nodeAddress)
     {
+        m_nodeAddress = value;
+
         if (!m_isNeedToCheckAddress)
         {
             m_isNeedToCheckAddress = true;
             m_timerId = startTimer(CHECK_INTERVAL);
         }
-        m_nodeAddress = value;
+
         emit nodeAddressChanged();
         emit propertiesChanged();
     }
@@ -97,6 +119,13 @@ void SettingsViewModel::setLocalNodeRun(bool value)
     if (value != m_localNodeRun)
     {
         m_localNodeRun = value;
+
+        if (!m_localNodeRun && !m_isNeedToCheckAddress)
+        {
+            m_isNeedToCheckAddress = true;
+            m_timerId = startTimer(CHECK_INTERVAL);
+        }
+
         emit localNodeRunChanged();
         emit propertiesChanged();
     }
@@ -193,9 +222,9 @@ bool SettingsViewModel::isChanged() const
 
 void SettingsViewModel::applyChanges()
 {
-    if (m_isNeedToCheckAddress)
+    if (!m_localNodeRun && m_isNeedToCheckAddress)
     {
-        m_isNeedToApplyChanges;
+        m_isNeedToApplyChanges = true;
         return;
     }
 
@@ -258,22 +287,8 @@ void SettingsViewModel::timerEvent(QTimerEvent *event)
     {
         m_isNeedToCheckAddress = false;
 
-        io::Address nodeAddr;
-
-        if (nodeAddr.resolve(m_nodeAddress.toStdString().c_str()) != m_isValidNodeAddress)
-        {
-            m_isValidNodeAddress = !m_isValidNodeAddress;
-            emit validNodeAddressChanged();
-        }
+        AppModel::getInstance()->getWallet()->getAsync()->checkAddress(m_nodeAddress.toStdString());
 
         killTimer(m_timerId);
-    }
-
-    if (m_isNeedToApplyChanges)
-    {
-        if (m_isValidNodeAddress)
-            applyChanges();
-
-        m_isNeedToApplyChanges = false;
     }
 }

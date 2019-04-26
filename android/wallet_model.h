@@ -43,4 +43,5 @@ private:
     void onCantSendToExpired() override;
     void onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof) override;
     void onCoinsByTx(const std::vector<beam::Coin>& coins) override;
+    void onAddressChecked(const std::string& addr, bool isValid) override;
 };

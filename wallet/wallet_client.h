@@ -72,6 +72,7 @@ protected:
     virtual void onCantSendToExpired() = 0;
     virtual void onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof) = 0;
     virtual void onCoinsByTx(const std::vector<beam::Coin>& coins) = 0;
+    virtual void onAddressChecked(const std::string& addr, bool isValid) = 0;
 
 private:
 
@@ -100,6 +101,7 @@ private:
     void getNetworkStatus() override;
     void refresh() override;
     void exportPaymentProof(const beam::TxID& id) override;
+    void checkAddress(const std::string& addr) override;
 
     WalletStatus getStatus() const;
     std::vector<beam::Coin> getUtxos() const;

@@ -75,6 +75,7 @@ public slots:
     void changeWalletPassword(const QString& pass);
     void onNodeStarted();
     void onNodeStopped();
+    void onAddressChecked(const QString& addr, bool isValid);
 
 signals:
     void nodeAddressChanged();

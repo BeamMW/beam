@@ -343,3 +343,8 @@ void WalletModel::onCoinsByTx(const std::vector<beam::Coin>& coins)
 
     env->DeleteLocalRef(utxos);
 }
+
+void WalletModel::onAddressChecked(const std::string& addr, bool isValid)
+{
+
+}

@@ -201,6 +201,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
             receiver_.exportPaymentProof(id);
         });
     }
+
+    void checkAddress(const std::string& addr) override
+    {
+        tx.send([addr](BridgeInterface& receiver_) mutable
+        {
+            receiver_.checkAddress(addr);
+        });
+    }
 };
 }
 
@@ -664,6 +672,13 @@ void WalletClient::refresh()
 void WalletClient::exportPaymentProof(const beam::TxID& id)
 {
     onPaymentProofExported(id, beam::wallet::ExportPaymentProof(*m_walletDB, id));
+}
+
+void WalletClient::checkAddress(const std::string& addr)
+{
+    io::Address nodeAddr;
+
+    onAddressChecked(addr, nodeAddr.resolve(addr.c_str()));
 }
 
 WalletStatus WalletClient::getStatus() const
