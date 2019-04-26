@@ -25,6 +25,11 @@ using json = nlohmann::json;
 
 namespace beam::wallet
 {
+    namespace
+    {
+        constexpr Amount kMinFeeInGroth = 10;
+    }
+
     AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
                                                , beam::IWalletDB::Ptr walletDB
                                                , const TxID& txID)
@@ -55,6 +60,12 @@ namespace beam::wallet
         SubTxState state = SubTxState::Initial;
         GetParameter(TxParameterID::State, state, subTxID);
         return state;
+    }
+
+    Amount AtomicSwapTransaction::GetWithdrawFee() const
+    {
+        // TODO(alex.starun): implement fee calculation
+        return kMinFeeInGroth;
     }
 
     void AtomicSwapTransaction::UpdateImpl()
@@ -339,7 +350,6 @@ namespace beam::wallet
         GetParameter(TxParameterID::State, lockTxState, SubTxIndex::BEAM_LOCK_TX);
 
         bool isBeamOwner = IsBeamSide();
-        // TODO: check
         Amount fee = 0;
         GetParameter(TxParameterID::Fee, fee);
 
@@ -455,10 +465,10 @@ namespace beam::wallet
         Amount withdrawFee = 0;
         Amount withdrawAmount = 0;
 
-        if (!GetParameter(TxParameterID::Amount, withdrawAmount, subTxID))
+        if (!GetParameter(TxParameterID::Amount, withdrawAmount, subTxID) ||
+            !GetParameter(TxParameterID::Fee, withdrawFee, subTxID))
         {
-            // TODO: calculating fee!
-            withdrawFee = 0;
+            withdrawFee = GetWithdrawFee();
             withdrawAmount = GetAmount() - withdrawFee;
 
             SetParameter(TxParameterID::Amount, withdrawAmount, subTxID);

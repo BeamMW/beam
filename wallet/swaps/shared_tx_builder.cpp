@@ -65,10 +65,9 @@ namespace beam::wallet
     void SharedTxBuilder::InitInput()
     {
         // load shared utxo as input
-
-        // TODO: move it to separate function
         Point::Native commitment(Zero);
-        Tag::AddValue(commitment, nullptr, GetAmount());
+        Amount amount = m_Tx.GetMandatoryParameter<Amount>(TxParameterID::Amount);
+        Tag::AddValue(commitment, nullptr, amount);
         commitment += Context::get().G * m_SharedBlindingFactor;
         commitment += m_PeerPublicSharedBlindingFactor;
 

@@ -71,6 +71,7 @@ namespace beam::wallet
         TxType GetType() const override;
         State GetState(SubTxID subTxID) const;
         SubTxState GetSubTxState(SubTxID subTxID) const;
+        Amount GetWithdrawFee() const;
         void UpdateImpl() override;
         void RollbackTx() override;
         void NotifyFailure(TxFailureReason) override;
