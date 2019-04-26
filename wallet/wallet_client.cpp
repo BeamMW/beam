@@ -290,20 +290,26 @@ void WalletClient::start()
 
                 void tryToConnect()
                 {
+                    // if user changed address to correct (using of setNodeAddress)
+                    if (m_Cfg.m_vNodes.size() > 0)
+                        return;
+
                     if (!m_timer)
                     {
                         m_timer = io::Timer::create(io::Reactor::get_Current());
                     }
 
-                    if (m_attemptToConnect++ >= MAX_ATTEMPT_TO_CONNECT)
+                    if (m_attemptToConnect >= MAX_ATTEMPT_TO_CONNECT)
                     {
                         proto::NodeConnection::DisconnectReason reason;
 
                         reason.m_Type = proto::NodeConnection::DisconnectReason::Io;
                         reason.m_IoError = EC_HOST_RESOLVED_ERROR;
                         m_walletClient.nodeConnectionFailed(reason);
-
-                        return;
+                    }
+                    else
+                    {
+                        ++m_attemptToConnect;
                     }
 
                     m_timer->start(RECONNECTION_TIMEOUT, false, [this]() {
@@ -315,7 +321,6 @@ void WalletClient::start()
                         }
                         else
                         {
-                            LOG_ERROR() << "Unable to resolve node address: " << m_nodeAddrStr;
                             tryToConnect();
                         }
                     });
