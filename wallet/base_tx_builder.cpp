@@ -70,7 +70,7 @@ namespace beam::wallet
         {
             Totals totals(*m_Tx.GetWalletDB());
 
-            LOG_ERROR() << m_Tx.GetTxID() << " You only have " << PrintableAmount(totals.Avail);
+            LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(totals.Avail);
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
         }
 
@@ -259,7 +259,7 @@ namespace beam::wallet
     Transaction::Ptr BaseTxBuilder::CreateTransaction()
     {
         assert(m_Kernel);
-        LOG_INFO() << m_Tx.GetTxID() << " Transaction created. Kernel: " << GetKernelIDString()
+        LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " Transaction created. Kernel: " << GetKernelIDString()
             << " min height: " << m_Kernel->m_Height.m_Min
             << " max height: " << m_Kernel->m_Height.m_Max;
 
@@ -314,7 +314,7 @@ namespace beam::wallet
     {
         if (m_Tx.GetParameter(TxParameterID::PeerSignature, m_PeerSignature, m_SubTxID))
         {
-            LOG_DEBUG() << m_Tx.GetTxID() << " Received PeerSig:\t" << Scalar(m_PeerSignature);
+            LOG_DEBUG() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " Received PeerSig:\t" << Scalar(m_PeerSignature);
             return true;
         }
 

@@ -371,7 +371,7 @@ namespace beam
             kernel.get_ID(pVal->m_Msg.m_ID);
 
             if (PostReqUnique(*pVal))
-                LOG_INFO() << txID << " Get proof for kernel: " << pVal->m_Msg.m_ID;
+                LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for kernel: " << pVal->m_Msg.m_ID;
         }
     }
 
@@ -385,7 +385,7 @@ namespace beam
             pVal->m_Msg.m_ID = kernelID;
 
             if (PostReqUnique(*pVal))
-                LOG_INFO() << txID << " Get proof for kernel: " << pVal->m_Msg.m_ID;
+                LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for kernel: " << pVal->m_Msg.m_ID;
         }
     }
 
@@ -401,7 +401,7 @@ namespace beam
 
             if (PostReqUnique(*pVal))
             {
-                LOG_INFO() << txID << " Get details for kernel: " << pVal->m_Msg.m_ID;
+                LOG_INFO() << txID << "[" << subTxID << "]" << " Get details for kernel: " << pVal->m_Msg.m_ID;
             }
         }
     }
@@ -434,7 +434,7 @@ namespace beam
 
             if (type != TxType::AtomicSwap)
             {
-                LOG_DEBUG() << "Transaction has invalid type.";
+                LOG_DEBUG() << txID << "Transaction has invalid type.";
                 return nullptr;
             }
 
@@ -487,7 +487,7 @@ namespace beam
 
     void Wallet::OnRequestComplete(MyRequestTransaction& r)
     {
-        LOG_DEBUG() << r.m_TxID << (r.m_Res.m_Value ? " has registered" : " has failed to register");
+        LOG_DEBUG() << r.m_TxID << "[" << r.m_SubTxID << "]" << (r.m_Res.m_Value ? " has registered" : " has failed to register");
         
         auto it = m_Transactions.find(r.m_TxID);
         if (it != m_Transactions.end())
@@ -870,7 +870,7 @@ namespace beam
 
     void Wallet::register_tx(const TxID& txId, Transaction::Ptr data, wallet::SubTxID subTxID)
     {
-        LOG_VERBOSE() << txId << " sending tx for registration";
+        LOG_VERBOSE() << txId << "[" << subTxID << "]" << " sending tx for registration";
 
 #ifndef NDEBUG
         TxBase::Context::Params pars;
@@ -935,7 +935,7 @@ namespace beam
         {
             if (!m_swapConditions.is_initialized())
             {
-                LOG_DEBUG() << "Swap rejected. Swap conditions aren't initialized.";
+                LOG_DEBUG() << msg.m_TxID << " Swap rejected. Swap conditions aren't initialized.";
                 return BaseTransaction::Ptr();
             }
 
@@ -954,11 +954,11 @@ namespace beam
 
             if (!result || !isValid)
             {
-                LOG_DEBUG() << "Swap rejected. Invalid conditions.";
+                LOG_DEBUG() << msg.m_TxID << " Swap rejected. Invalid conditions.";
                 return BaseTransaction::Ptr();
             }
 
-            LOG_DEBUG() << "Swap accepted.";
+            LOG_DEBUG() << msg.m_TxID << " Swap accepted.";
         }
 
         auto t = constructTransaction(msg.m_TxID, msg.m_Type);
