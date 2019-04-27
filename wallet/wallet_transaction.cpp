@@ -176,9 +176,9 @@ namespace beam { namespace wallet
             return false;
         }
 
-        bool isRegistered = false;
+        uint8_t nRegistered = proto::TxStatus::Unspecified;
         Merkle::Hash kernelID;
-        if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered)
+        if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered)
          || !GetParameter(TxParameterID::KernelID, kernelID))
         {
             Block::SystemState::Full state;
@@ -437,7 +437,7 @@ namespace beam { namespace wallet
                 if (GetParameter(TxParameterID::PeerProtoVersion, nVer))
                 {
                     // for peers with new flow, we assume that after we have responded, we have to switch to the state of awaiting for proofs
-                    SetParameter(TxParameterID::TransactionRegistered, true);
+                    SetParameter(TxParameterID::TransactionRegistered, proto::TxStatus::Ok);
 
                     SetState(State::KernelConfirmation);
                     ConfirmKernel(builder.GetKernel());
@@ -502,8 +502,8 @@ namespace beam { namespace wallet
 
         builder.FinalizeSignature();
 
-        bool isRegistered = false;
-        if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered))
+        uint8_t nRegistered = proto::TxStatus::Unspecified;
+        if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
         {
             if (!isSelfTx && (!hasPeersInputsAndOutputs || IsInitiator()))
             {
@@ -541,7 +541,7 @@ namespace beam { namespace wallet
             return;
         }
 
-        if (!isRegistered)
+        if (proto::TxStatus::Ok != nRegistered)
         {
             OnFailed(TxFailureReason::FailedToRegister, true);
             return;
@@ -678,7 +678,7 @@ namespace beam { namespace wallet
     void SimpleTransaction::NotifyTransactionRegistered()
     {
         SetTxParameter msg;
-        msg.AddParameter(TxParameterID::TransactionRegistered, true);
+        msg.AddParameter(TxParameterID::TransactionRegistered, proto::TxStatus::Ok);
         SendTxParameters(move(msg));
     }
 
