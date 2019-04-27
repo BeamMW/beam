@@ -850,7 +850,10 @@ namespace
             {
                 m_This.m_Blockchain.HandleTx(data);
 
-                Send(proto::Status{ proto::TxStatus::Ok });
+				proto::Status msg;
+				msg.m_Value = proto::TxStatus::Ok;
+                Send(msg);
+
                 m_This.AddBlock();
             }
 

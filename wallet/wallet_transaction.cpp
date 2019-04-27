@@ -437,7 +437,8 @@ namespace beam { namespace wallet
                 if (GetParameter(TxParameterID::PeerProtoVersion, nVer))
                 {
                     // for peers with new flow, we assume that after we have responded, we have to switch to the state of awaiting for proofs
-                    SetParameter(TxParameterID::TransactionRegistered, proto::TxStatus::Ok);
+					uint8_t nCode = proto::TxStatus::Ok; // compiler workaround (ref to static const)
+                    SetParameter(TxParameterID::TransactionRegistered, nCode);
 
                     SetState(State::KernelConfirmation);
                     ConfirmKernel(builder.GetKernel());
@@ -678,7 +679,8 @@ namespace beam { namespace wallet
     void SimpleTransaction::NotifyTransactionRegistered()
     {
         SetTxParameter msg;
-        msg.AddParameter(TxParameterID::TransactionRegistered, proto::TxStatus::Ok);
+		uint8_t nCode = proto::TxStatus::Ok; // compiler workaround (ref to static const)
+        msg.AddParameter(TxParameterID::TransactionRegistered, nCode);
         SendTxParameters(move(msg));
     }
 
