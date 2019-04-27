@@ -16,7 +16,7 @@
 #include <openssl/bio.h>
 #include <assert.h>
 
-#define LOG_DEBUG_ENABLED 0
+#define LOG_DEBUG_ENABLED 1
 #include "utility/logger.h"
 
 namespace beam { namespace io {
@@ -92,13 +92,13 @@ SSLContext::Ptr SSLContext::create_server_ctx(const char* certFileName, const ch
 
 SSLContext::Ptr SSLContext::create_client_context() {
     SSL_CTX* ctx = init_ctx(false);
-    SSL_CTX_set_verify(
+    /*SSL_CTX_set_verify(
         ctx, SSL_VERIFY_PEER,
         [](int ok, X509_STORE_CTX* ctx) ->int {
             // TODO !!!
             return 1;
         }
-    );
+    );*/
     return Ptr(new SSLContext(ctx, false));
 }
 
@@ -146,7 +146,6 @@ SSLIO::SSLIO(
 }
 
 SSLIO::~SSLIO() {
-    LOG_DEBUG() << __FUNCTION__;
     if (_ssl) SSL_free(_ssl);
 }
 

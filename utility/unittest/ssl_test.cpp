@@ -62,6 +62,9 @@ namespace {
 
         server = std::make_unique<SSLIO>(serverCtx, on_decrypted, on_encrypted_server);
         client = std::make_unique<SSLIO>(clientCtx, on_decrypted, on_encrypted_client);
+
+        client->flush();
+
         SharedBuffer aBuf(a, strlen(a));
         SharedBuffer bBuf(b, strlen(b));
         for (int i=0; i<4321; ++i) {

@@ -497,7 +497,7 @@ namespace
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
 
-		wallet::Totals totals(*walletDB);
+        wallet::Totals totals(*walletDB);
 
         cout << "____Wallet summary____\n\n"
             << "Current height............" << stateID.m_Height << '\n'
@@ -787,7 +787,7 @@ int main_impl(int argc, char* argv[])
                     auto command = vm[cli::COMMAND].as<string>();
 
                     {
-                        vector<string> commands =
+                        const vector<string> commands =
                         {
                             cli::INIT,
                             cli::RESTORE,
@@ -859,6 +859,8 @@ int main_impl(int argc, char* argv[])
                         }
                     }
 
+                    bool coldWallet = vm.count(cli::COLD_WALLET) > 0;
+
                     if (command == cli::INIT || command == cli::RESTORE)
                     {
                         NoLeak<uintBig> walletSeed;
@@ -868,7 +870,7 @@ int main_impl(int argc, char* argv[])
                             LOG_ERROR() << "Please, provide seed phrase for the wallet.";
                             return -1;
                         }
-                        auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor);
+                        auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor, coldWallet);
                         if (walletDB)
                         {
                             LOG_INFO() << "wallet successfully created...";
@@ -968,20 +970,6 @@ int main_impl(int argc, char* argv[])
                         return ShowAddressList(walletDB);
                     }
 
-                    if (vm.count(cli::NODE_ADDR) == 0)
-                    {
-                        LOG_ERROR() << "node address should be specified";
-                        return -1;
-                    }
-
-                    string nodeURI = vm[cli::NODE_ADDR].as<string>();
-                    io::Address node_addr;
-                    if (!node_addr.resolve(nodeURI.c_str()))
-                    {
-                        LOG_ERROR() << "unable to resolve node address: " << nodeURI;
-                        return -1;
-                    }
-
                     io::Address receiverAddr;
                     Amount amount = 0;
                     Amount fee = 0;
@@ -1024,20 +1012,43 @@ int main_impl(int argc, char* argv[])
                     bool is_server = (command == cli::LISTEN || vm.count(cli::LISTEN));
 
                     Wallet wallet{ walletDB, is_server ? Wallet::TxCompletedAction() : [](auto) { io::Reactor::get_Current().stop(); } };
-
-                    proto::FlyClient::NetworkStd nnet(wallet);
-                    nnet.m_Cfg.m_vNodes.push_back(node_addr);
-                    nnet.Connect();
-
-                    WalletNetworkViaBbs wnet(wallet, nnet, walletDB);
                         
-                    wallet.set_Network(nnet, wnet);
+                    if (!coldWallet)
+                    {
+                        if (vm.count(cli::NODE_ADDR) == 0)
+                        {
+                            LOG_ERROR() << "node address should be specified";
+                            return -1;
+                        }
+
+                        string nodeURI = vm[cli::NODE_ADDR].as<string>();
+                        io::Address nodeAddress;
+                        if (!nodeAddress.resolve(nodeURI.c_str()))
+                        {
+                            LOG_ERROR() << "unable to resolve node address: " << nodeURI;
+                            return -1;
+                        }
+
+                        auto nnet = make_shared<proto::FlyClient::NetworkStd>(wallet);
+                        nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
+                        nnet->Connect();
+                        wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB));
+                        wallet.SetNodeEndpoint(nnet);
+                    }
+                    else
+                    {
+                        wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB));
+                    }
 
                     if (isTxInitiator)
                     {
                         WalletAddress senderAddress = newAddress(walletDB, "");
                         CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
-                        wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, true);
+                        wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, 120, 720, {}, true);
+                    }
+                    else if (coldWallet)
+                    {
+                        return 0;
                     }
 
                     bool deleteTx = command == cli::DELETE_TX;

@@ -28,7 +28,8 @@ Component
         {
             Layout.alignment: Qt.AlignHCenter
 
-            text: qsTr("BEAM")
+            //% "BEAM"
+            text: qsTrId("logo-name")
             color: Style.accent_incoming
             font.pixelSize: 32
             font.styleName: "Bold"; font.weight: Font.Bold
@@ -47,7 +48,8 @@ Component
         {
             Layout.alignment: Qt.AlignHCenter
 
-            text: qsTr("Scalable confidential cryptocurrency")
+            //% "Scalable confidential cryptocurrency"
+            text: qsTrId("logo-description")
 
             color: Style.accent_incoming
             font.pixelSize: 18

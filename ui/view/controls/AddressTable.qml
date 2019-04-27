@@ -18,7 +18,8 @@ CustomTableView {
 
     TableViewColumn {
         role: parentModel.nameRole
-        title: qsTr("Comment")
+        //% "Comment"
+        title: qsTrId("address-table-head-comment")
         width: 150 * rootControl.resizableWidth / 750
         resizable: false
         movable: false
@@ -26,7 +27,8 @@ CustomTableView {
 
     TableViewColumn {
         role: parentModel.addressRole
-        title: qsTr("Address")
+        //% "Address"
+        title: qsTrId("address-table-head-address")
         width: 150 *  rootControl.resizableWidth / 750
         movable: false
         resizable: false
@@ -54,7 +56,8 @@ CustomTableView {
 
     TableViewColumn {
         role: parentModel.categoryRole
-        title: qsTr("Category")
+        //% "Category"
+        title: qsTrId("address-table-head-category")
         width: 150 *  rootControl.resizableWidth / 750
         resizable: false
         movable: false
@@ -62,7 +65,8 @@ CustomTableView {
 
     TableViewColumn {
         role: parentModel.expirationRole
-        title: qsTr("Expiration date")
+        //% "Expiration date"
+        title: qsTrId("address-table-head-exp-date")
         width: 150 *  rootControl.resizableWidth / 750
         resizable: false
         movable: false
@@ -70,7 +74,8 @@ CustomTableView {
 
     TableViewColumn {
         role:parentModel.createdRole
-        title: qsTr("Created")
+        //% "Created"
+        title: qsTrId("address-table-head-created")
         width: 150 *  rootControl.resizableWidth / 750
         resizable: false
         movable: false
@@ -131,7 +136,8 @@ CustomTableView {
                     spacing: 10
                     CustomToolButton {
                         icon.source: "qrc:/assets/icon-actions.svg"
-                        ToolTip.text: qsTr("Actions")
+                        //% "Actions"
+                        ToolTip.text: qsTrId("address-table-head-tooltip-actions")
                         onClicked: {
                             contextMenu.address = rootControl.model[styleData.row].address;
                             contextMenu.addressItem = rootControl.model[styleData.row];
@@ -150,7 +156,8 @@ CustomTableView {
         property string address
         property var addressItem
         Action {
-            text: qsTr("edit address")
+            //% "edit address"
+            text: qsTrId("address-table-cm-edit")
             icon.source: "qrc:/assets/icon-edit.svg"
             onTriggered: {
                 editDialog.addressItem = contextMenu.addressItem;
@@ -158,7 +165,8 @@ CustomTableView {
             }
         }
         Action {
-            text: qsTr("delete address")
+            //% "delete address"
+            text: qsTrId("address-table-cm-delete")
             icon.source: "qrc:/assets/icon-delete.svg"
             onTriggered: {
                 viewModel.deleteAddress(contextMenu.address);

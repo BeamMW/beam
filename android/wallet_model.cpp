@@ -249,6 +249,11 @@ void WalletModel::onGeneratedNewAddress(const beam::WalletAddress& address)
     env->DeleteLocalRef(addr);
 }
 
+void WalletModel::onNewAddressFailed()
+{
+
+}
+
 void WalletModel::onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID)
 {
 }
@@ -337,4 +342,9 @@ void WalletModel::onCoinsByTx(const std::vector<beam::Coin>& coins)
     env->CallStaticVoidMethod(WalletListenerClass, callback, utxos);
 
     env->DeleteLocalRef(utxos);
+}
+
+void WalletModel::onAddressChecked(const std::string& addr, bool isValid)
+{
+
 }

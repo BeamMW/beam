@@ -112,7 +112,7 @@ namespace beam
     class WalletApiServer : public IWalletApiServer
     {
     public:
-        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, IWalletNetwork& wnet, io::Reactor& reactor, 
+        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, io::Reactor& reactor, 
             io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions, const std::vector<uint32_t>& whitelist)
             : _reactor(reactor)
             , _bindAddress(listenTo)
@@ -215,7 +215,7 @@ namespace beam
         class ApiConnection : IWalletApiHandler, IWalletDbObserver
         {
         public:
-            ApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, IWalletNetwork& wnet, WalletApi::ACL acl)
+            ApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, WalletApi::ACL acl)
                 : _walletDB(walletDB)
                 , _wallet(wallet)
                 , _api(*this, acl)
@@ -675,13 +675,13 @@ namespace beam
             IWalletDB::Ptr _walletDB;
             Wallet& _wallet;
             WalletApi _api;
-            IWalletNetwork& _wnet;
+            IWalletMessageEndpoint& _wnet;
         };
 
         class TcpApiConnection : public ApiConnection
         {
         public:
-            TcpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, IWalletNetwork& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
+            TcpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
                 : ApiConnection(walletDB, wallet, wnet, acl)
                 , _stream(std::move(newStream))
                 , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
@@ -741,7 +741,7 @@ namespace beam
         class HttpApiConnection : public ApiConnection
         {
         public:
-            HttpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, IWalletNetwork& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
+            HttpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
                 : ApiConnection(walletDB, wallet, wnet, acl)
                 , _keepalive(false)
                 , _msgCreator(2000)
@@ -860,7 +860,7 @@ namespace beam
 
         IWalletDB::Ptr _walletDB;
         Wallet& _wallet;
-        IWalletNetwork& _wnet;
+        IWalletMessageEndpoint& _wnet;
         std::vector<uint64_t> _pendingToClose;
         WalletApi::ACL _acl;
         std::vector<uint32_t> _whitelist;
@@ -1047,15 +1047,15 @@ int main(int argc, char* argv[])
 
         Wallet wallet{ walletDB };
 
-        proto::FlyClient::NetworkStd nnet(wallet);
-        nnet.m_Cfg.m_vNodes.push_back(node_addr);
-        nnet.Connect();
+        auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
+        nnet->m_Cfg.m_vNodes.push_back(node_addr);
+        nnet->Connect();
 
-        WalletNetworkViaBbs wnet(wallet, nnet, walletDB);
+        auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB);
+		wallet.AddMessageEndpoint(wnet);
+        wallet.SetNodeEndpoint(nnet);
 
-        wallet.set_Network(nnet, wnet);
-
-        WalletApiServer server(walletDB, wallet, wnet, *reactor, 
+        WalletApiServer server(walletDB, wallet, *wnet, *reactor, 
             listenTo, options.useHttp, acl, tlsOptions, whitelist);
 
         io::Reactor::get_Current().run();

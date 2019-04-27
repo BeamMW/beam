@@ -154,7 +154,7 @@ void beamStratum::readStratum(const boost::system::error_code& err) {
 		std::string response;
 		getline(is, response);
 
-		if (debug) cout << "Incomming Stratum: " << response << endl;
+		if (debug) cout << "Incoming Stratum: " << response << endl;
 
 		// Parse the input to a property tree
 		pt::iptree jsonTree;

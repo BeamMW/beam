@@ -201,6 +201,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
             receiver_.exportPaymentProof(id);
         });
     }
+
+    void checkAddress(const std::string& addr) override
+    {
+        tx.send([addr](BridgeInterface& receiver_) mutable
+        {
+            receiver_.checkAddress(addr);
+        });
+    }
 };
 }
 
@@ -282,20 +290,26 @@ void WalletClient::start()
 
                 void tryToConnect()
                 {
+                    // if user changed address to correct (using of setNodeAddress)
+                    if (m_Cfg.m_vNodes.size() > 0)
+                        return;
+
                     if (!m_timer)
                     {
                         m_timer = io::Timer::create(io::Reactor::get_Current());
                     }
 
-                    if (m_attemptToConnect++ >= MAX_ATTEMPT_TO_CONNECT)
+                    if (m_attemptToConnect < MAX_ATTEMPT_TO_CONNECT)
+                    {
+                        ++m_attemptToConnect;
+                    }
+                    else if (m_attemptToConnect == MAX_ATTEMPT_TO_CONNECT)
                     {
                         proto::NodeConnection::DisconnectReason reason;
 
                         reason.m_Type = proto::NodeConnection::DisconnectReason::Io;
                         reason.m_IoError = EC_HOST_RESOLVED_ERROR;
                         m_walletClient.nodeConnectionFailed(reason);
-
-                        return;
                     }
 
                     m_timer->start(RECONNECTION_TIMEOUT, false, [this]() {
@@ -307,7 +321,6 @@ void WalletClient::start()
                         }
                         else
                         {
-                            LOG_ERROR() << "Unable to resolve node address: " << m_nodeAddrStr;
                             tryToConnect();
                         }
                     });
@@ -328,9 +341,10 @@ void WalletClient::start()
 
             m_nodeNetwork = nodeNetwork;
 
-            auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, *nodeNetwork, m_walletDB);
+            auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB);
             m_walletNetwork = walletNetwork;
-            wallet->set_Network(*nodeNetwork, *walletNetwork);
+            wallet->SetNodeEndpoint(nodeNetwork);
+			wallet->AddMessageEndpoint(walletNetwork);
 
             wallet_subscriber = make_unique<WalletSubscriber>(static_cast<IWalletObserver*>(this), wallet);
 
@@ -414,6 +428,11 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
         }
 
         onSendMoneyVerified();
+    }
+    catch (const beam::CannotGenerateSecretException&)
+    {
+        onNewAddressFailed();
+        return;
     }
     catch (const beam::AddressExpiredException&)
     {
@@ -514,6 +533,10 @@ void WalletClient::generateNewAddress()
 
         onGeneratedNewAddress(address);
     }
+    catch (const beam::CannotGenerateSecretException&)
+    {
+        onNewAddressFailed();
+    }
     catch (const std::exception& e)
     {
         LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
@@ -611,6 +634,7 @@ void WalletClient::setNodeAddress(const std::string& addr)
     else
     {
         LOG_ERROR() << "Unable to resolve node address: " << addr;
+        onWalletError(wallet::ErrorType::HostResolvedError);
     }
 }
 
@@ -653,6 +677,13 @@ void WalletClient::refresh()
 void WalletClient::exportPaymentProof(const beam::TxID& id)
 {
     onPaymentProofExported(id, beam::wallet::ExportPaymentProof(*m_walletDB, id));
+}
+
+void WalletClient::checkAddress(const std::string& addr)
+{
+    io::Address nodeAddr;
+
+    onAddressChecked(addr, nodeAddr.resolve(addr.c_str()));
 }
 
 WalletStatus WalletClient::getStatus() const

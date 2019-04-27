@@ -9,7 +9,7 @@ namespace beam {
 
 class ExternalPOWStub : public IExternalPOW {
 public:
-    ExternalPOWStub() : _seed(0), _changed(false), _stop(false) {
+    explicit ExternalPOWStub(bool fakeSolver) : _seed(0), _changed(false), _stop(false), _fakeSolver(fakeSolver) {
         ECC::GenRandom(&_seed, 8);
         _thread.start(BIND_THIS_MEMFN(thread_func));
     }
@@ -104,7 +104,16 @@ private:
                        << " and difficulty=" << job.pow.m_Difficulty 
                        << " and height=" << job.height;
 
-            if ( (job.pow.*SolveFn) (job.input.m_pData, Merkle::Hash::nBytes, cancelFn)) {
+            if (_fakeSolver) {
+                ECC::GenRandom(&job.pow.m_Indices[0], (uint32_t)job.pow.m_Indices.size());
+                {
+                    std::lock_guard<std::mutex> lk(_mutex);
+                    _lastFoundBlock = job.pow;
+                    _lastFoundBlockID = job.jobID;
+                }
+                job.callback();
+
+            } else if ( (job.pow.*SolveFn) (job.input.m_pData, Merkle::Hash::nBytes, cancelFn)) {
                 {
                     std::lock_guard<std::mutex> lk(_mutex);
                     _lastFoundBlock = job.pow;
@@ -124,10 +133,11 @@ private:
     Thread _thread;
     std::mutex _mutex;
     std::condition_variable _cond;
+    bool _fakeSolver;
 };
 
-std::unique_ptr<IExternalPOW> IExternalPOW::create_local_solver() {
-    return std::make_unique<ExternalPOWStub>();
+std::unique_ptr<IExternalPOW> IExternalPOW::create_local_solver(bool fakeSolver) {
+    return std::make_unique<ExternalPOWStub>(fakeSolver);
 }
 
 } //namespace

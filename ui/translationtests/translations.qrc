@@ -1,7 +1,0 @@
-<RCC>
-    <qresource prefix="/">
-        <file>QmlLanguage_ru.qm</file>
-        <file>QmlLanguage_by.qm</file>
-        <file>QmlLanguage_de.qm</file>
-    </qresource>
-</RCC>

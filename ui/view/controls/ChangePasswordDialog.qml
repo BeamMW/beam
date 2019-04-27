@@ -30,7 +30,8 @@ Dialog {
 
 		SFText {
 			anchors.horizontalCenter: parent.horizontalCenter
-			text: qsTr("Change wallet password")
+			//% "Change wallet password"
+			text: qsTrId("change-pwd-title")
 			color: Style.content_main
 			font.pixelSize: 24
 			font.styleName: "Bold"; font.weight: Font.Bold
@@ -41,7 +42,8 @@ Dialog {
     		width: parent.width
 
 			SFText {
-				text: qsTr("Enter old password")
+				//% "Enter old password"
+				text: qsTrId("change-pwd-old-pwd-label")
 				color: Style.content_main
 				font.pixelSize: 12
 				font.styleName: "Bold"; font.weight: Font.Bold
@@ -63,7 +65,8 @@ Dialog {
     		width: parent.width
 
 			SFText {
-				text: qsTr("Enter new password")
+				//% "Enter new password"
+				text: qsTrId("change-pwd-new-pwd-label")
 				color: Style.content_main
 				font.pixelSize: 12
 				font.styleName: "Bold"; font.weight: Font.Bold
@@ -85,7 +88,8 @@ Dialog {
     		width: parent.width
 
 			SFText {
-				text: qsTr("Confirm new password")
+				//% "Confirm new password"
+				text: qsTrId("change-pwd-confirm-pwd-label")
 				color: Style.content_main
 				font.pixelSize: 12
 				font.styleName: "Bold"; font.weight: Font.Bold
@@ -119,36 +123,44 @@ Dialog {
 			spacing: 30
 
 			CustomButton {
-				text: qsTr("cancel")
+				//% "cancel"
+				text: qsTrId("change-pwd-cancel")
 				onClicked: control.close()
 			}
 
 			PrimaryButton {
-				text: qsTr("change password")
+				//% "change password"
+				text: qsTrId("change-pwd-ok")
 				onClicked: {
 					if(oldPass.text.length == 0)
 					{
-						error.text = qsTr("Please, enter old password");
+						//% "Please, enter old password"
+						error.text = qsTrId("change-pwd-old-empty");
 					}
 					else if(newPass.text.length == 0)
 					{
-						error.text = qsTr("Please, enter new password");
+						//% "Please, enter new password"
+						error.text = qsTrId("change-pwd-new-empty");
 					}
 					else if(confirmPass.text.length == 0)
 					{
-						error.text = qsTr("Please, confirm new password");
+						//% "Please, confirm new password"
+						error.text = qsTrId("change-pwd-confirm-empty");
 					}
 					else if(newPass.text == oldPass.text)
 					{
-						error.text = qsTr("New password cannot be the same as old");
+						//% "New password cannot be the same as old"
+						error.text = qsTrId("change-pwd-new-same-as-old");
 					}
 					else if(newPass.text != confirmPass.text)
 					{
-						error.text = qsTr("New password doesn't match the confirm password");
+						//% "New password doesn't match the confirm password"
+						error.text = qsTrId("change-pwd-confirm-fail");
 					}
 					else if(!viewModel.checkWalletPassword(oldPass.text))
 					{
-						error.text = qsTr("The old password you have entered is incorrect");
+						//% "The old password you have entered is incorrect"
+						error.text = qsTrId("change-pwd-old-fail");
 					}
 					else
 					{

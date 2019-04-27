@@ -57,7 +57,10 @@ QString AddressItem::getCategory() const
 QString AddressItem::getExpirationDate() const
 {
     if (m_walletAddress.m_duration == 0)
-        return tr("never");
+    {
+        //% "never"
+        return qtTrId("address-item-never");
+    }
 
     return toString(m_walletAddress.getExpirationTime());
 }
