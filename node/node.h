@@ -319,7 +319,7 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Dandelion)
 	} m_Dandelion;
 
-	bool OnTransactionStem(Transaction::Ptr&&, const Peer*);
+	uint8_t OnTransactionStem(Transaction::Ptr&&, const Peer*);
 	void OnTransactionAggregated(Dandelion::Element&);
 	void PerformAggregation(Dandelion::Element&);
 	void AddDummyInputs(Transaction&);
@@ -327,8 +327,8 @@ private:
 	Height SampleDummySpentHeight();
 	bool OnTransactionFluff(Transaction::Ptr&&, const Peer*, Dandelion::Element*);
 
-	bool ValidateTx(Transaction::Context&, const Transaction&); // complete validation
-	void LogTx(const Transaction&, bool bValid, const Transaction::KeyType&);
+	uint8_t ValidateTx(Transaction::Context&, const Transaction&); // complete validation
+	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
 
 	struct Bbs
 	{

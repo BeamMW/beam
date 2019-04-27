@@ -1901,26 +1901,28 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
         m_This.OnTransactionFluff(std::move(msg.m_Transaction), this, NULL);
     else
     {
-		bool bRes = m_This.OnTransactionStem(std::move(msg.m_Transaction), this);
-
         proto::Status msgOut;
-		msgOut.m_Value = bRes ?
-			proto::TxStatus::Ok :
-			proto::TxStatus::Unspecified;
+		msgOut.m_Value = m_This.OnTransactionStem(std::move(msg.m_Transaction), this);
+
+		if (!(proto::LoginFlags::Extension3 & m_LoginFlags) && (proto::TxStatus::Ok != msgOut.m_Value))
+			msgOut.m_Value = proto::TxStatus::Unspecified; // legacy client
 
         Send(msgOut);
     }
 }
 
-bool Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
+uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 {
-    return
-        m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) &&
-        ctx.IsValidTransaction() &&
-        m_Processor.ValidateTxContext(tx);
+	if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
+		return proto::TxStatus::Invalid;
+
+	if (!m_Processor.ValidateTxContext(tx))
+		return proto::TxStatus::InvalidContext;
+
+	return proto::TxStatus::Ok;
 }
 
-void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType& key)
+void Node::LogTx(const Transaction& tx, uint8_t nStatus, const Transaction::KeyType& key)
 {
     std::ostringstream os;
 
@@ -1953,7 +1955,7 @@ void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType&
         os << "\n\tK: " << sz << " Fee=" << krn.m_Fee;
     }
 
-    os << "\n\tValid: " << bValid;
+    os << "\n\tStatus: " << static_cast<uint32_t>(nStatus);
     LOG_INFO() << os.str();
 }
 
@@ -1993,11 +1995,11 @@ void CmpTx(const Transaction& tx1, const Transaction& tx2, bool& b1Covers, bool&
 {
 }
 
-bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
+uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 {
 	if (ptx->m_vInputs.empty() || ptx->m_vKernels.empty()) {
 		// stupid compiler insists on parentheses here!
-		return false;
+		return proto::TxStatus::TooSmall;
 	}
 
 	Transaction::Context::Params pars;
@@ -2023,29 +2025,38 @@ bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
         pElem->m_pValue->get_Reader().Compare(std::move(ptx->get_Reader()), bElemCovers, bNewCovers);
 
         if (!bNewCovers)
-            return false; // the new tx is reduced, drop it
+            return proto::TxStatus::Obscured; // the new tx is reduced, drop it
 
         if (bElemCovers)
         {
             pDup = pElem; // exact match
 
             if (pDup->m_bAggregating)
-                return true; // it shouldn't have been received, but nevermind, just ignore
+                return proto::TxStatus::Ok; // it shouldn't have been received, but nevermind, just ignore
 
             break;
         }
 
-        if (!bTested && !ValidateTx(ctx, *ptx))
-            return false;
-        bTested = true;
+		if (!bTested)
+		{
+			uint8_t nCode = ValidateTx(ctx, *ptx);
+			if (proto::TxStatus::Ok != nCode)
+				return nCode;
+
+			bTested = true;
+		}
 
         m_Dandelion.Delete(*pElem);
     }
 
     if (!pDup)
     {
-        if (!bTested && !ValidateTx(ctx, *ptx))
-            return false;
+		if (!bTested)
+		{
+			uint8_t nCode = ValidateTx(ctx, *ptx);
+			if (proto::TxStatus::Ok != nCode)
+				return nCode;
+		}
 
         AddDummyInputs(*ptx);
 
@@ -2071,7 +2082,7 @@ bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
         PerformAggregation(*pDup);
     }
 
-    return true;
+    return proto::TxStatus::Ok;
 }
 
 void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
@@ -2343,10 +2354,10 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
     m_Wtx.Delete(key.m_Key);
 
     // new transaction
-    bool bValid = pElem ? true: ValidateTx(ctx, tx);
-    LogTx(tx, bValid, key.m_Key);
+    uint8_t nCode = pElem ? proto::TxStatus::Ok : ValidateTx(ctx, tx);
+    LogTx(tx, nCode, key.m_Key);
 
-	if (!bValid) {
+	if (proto::TxStatus::Ok != nCode) {
 		return false; // stupid compiler insists on parentheses here!
 	}
 
