@@ -326,6 +326,8 @@ namespace beam
 		int cmp(const TxKernel&) const;
 		COMPARISON_VIA_CMP
 
+		size_t get_TotalCount() const; // including self and nested
+
 	private:
 		bool Traverse(ECC::Hash::Value&, AmountBig::Type*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pFork) const;
 	};
@@ -438,6 +440,16 @@ namespace beam
 		typedef uintBig_t<ECC::nBytes> KeyType; // key len for map of transactions. Can actually be less than 256 bits.
 
 		void get_Key(KeyType&) const;
+
+		struct FeeSettings
+		{
+			Amount m_Output;
+			Amount m_Kernel; // nested kernels are accounted too
+
+			FeeSettings(); // defaults
+
+			Amount Calculate(const Transaction&) const;
+		};
 	};
 
 	struct Block

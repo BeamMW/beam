@@ -497,6 +497,16 @@ namespace beam
 		return true;
 	}
 
+	size_t TxKernel::get_TotalCount() const
+	{
+		size_t ret = 1;
+
+		for (auto it = m_vNested.begin(); m_vNested.end() != it; it++)
+			ret += (*it)->get_TotalCount();
+
+		return ret;
+	}
+
 	void TxKernel::get_Hash(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const
 	{
 		Traverse(out, nullptr, nullptr, nullptr, pLockImage, nullptr);
@@ -589,6 +599,24 @@ namespace beam
 
 	/////////////
 	// Transaction
+	Transaction::FeeSettings::FeeSettings()
+	{
+		m_Output = 10;
+		m_Kernel = 10;
+	}
+
+	Amount Transaction::FeeSettings::Calculate(const Transaction& t) const
+	{
+		size_t nKernels = 0;
+		for (size_t i = 0; i < t.m_vKernels.size(); i++)
+			nKernels += t.m_vKernels[i]->get_TotalCount();
+
+
+		return
+			m_Output * t.m_vOutputs.size() +
+			m_Kernel * nKernels;
+	}
+
 	template <class T>
 	void RebuildVectorWithoutNulls(std::vector<T>& v, size_t nDel)
 	{

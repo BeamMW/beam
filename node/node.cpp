@@ -1925,6 +1925,15 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 	if (!m_Processor.ValidateTxContext(tx))
 		return proto::TxStatus::InvalidContext;
 
+	if (ctx.m_Height.m_Min >= Rules::get().Forks.H1)
+	{
+		Transaction::FeeSettings feeSettings;
+		AmountBig::Type fees = feeSettings.Calculate(tx);
+
+		if (ctx.m_Fee < fees)
+			return proto::TxStatus::LowFee;
+	}
+
 	return proto::TxStatus::Ok;
 }
 
