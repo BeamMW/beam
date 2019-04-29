@@ -63,18 +63,40 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	m_Extra.m_TxoLo = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoLo, Rules::HeightGenesis - 1);
 	m_Extra.m_TxoHi = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
 
-	if (!m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob))
+	bool bUpdateChecksum = !m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
+	if (!bUpdateChecksum)
 	{
-		blob = Blob(Rules::get().pForks[0].m_Hash);
+		const HeightHash* pFork = Rules::get().FindFork(hv);
+		if (&Rules::get().get_LastFork() != pFork)
+		{
+			if (!pFork)
+			{
+				std::ostringstream os;
+				os << "Data configuration is incompatible: " << hv;
+				throw std::runtime_error(os.str());
+			}
+
+			NodeDB::StateID sid;
+			m_DB.get_Cursor(sid);
+
+			if (sid.m_Height >= pFork[1].m_Height)
+			{
+				std::ostringstream os;
+				os << "Data configuration: " << hv << ", Fork didn't happen at " << pFork[1].m_Height;
+				throw std::runtime_error(os.str());
+			}
+
+			bUpdateChecksum = true;
+		}
+	}
+
+	if (bUpdateChecksum)
+	{
+		LOG_INFO() << "Settings configuration";
+
+		blob = Blob(Rules::get().get_LastFork().m_Hash);
 		m_DB.ParamSet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	}
-	else
-		if (hv != Rules::get().pForks[0].m_Hash)
-		{
-			std::ostringstream os;
-			os << "Data configuration is incompatible: " << hv << ". Current configuration: " << Rules::get().pForks[0];
-			throw std::runtime_error(os.str());
-		}
 
 	ZeroObject(m_SyncData);
 

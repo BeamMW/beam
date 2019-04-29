@@ -1041,6 +1041,17 @@ namespace beam
 			>> pForks[1].m_Hash;
 	}
 
+	const HeightHash* Rules::FindFork(const Merkle::Hash& hv) const
+	{
+		for (size_t i = _countof(pForks); i--; )
+		{
+			if (pForks[i].m_Hash == hv)
+				return pForks + i;
+		}
+
+		return nullptr;
+	}
+
 	std::string Rules::get_SignatureStr() const
 	{
 		std::ostringstream os;
