@@ -1193,7 +1193,7 @@ void Node::Peer::OnConnectedSecure()
 void Node::Peer::SendLogin()
 {
 	proto::Login msgLogin;
-	msgLogin.m_CfgChecksum = Rules::get().Checksum; // checksum of all consesnsus related configuration
+	msgLogin.m_CfgChecksum = Rules::get().pForks[0].m_Hash; // checksum of all consesnsus related configuration
 
 	msgLogin.m_Flags =
 		proto::LoginFlags::ExtensionsAll |
@@ -1925,7 +1925,7 @@ uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 	if (!m_Processor.ValidateTxContext(tx))
 		return proto::TxStatus::InvalidContext;
 
-	if (ctx.m_Height.m_Min >= Rules::get().Forks.H1)
+	if (ctx.m_Height.m_Min >= Rules::get().pForks[1].m_Height)
 	{
 		Transaction::FeeSettings feeSettings;
 		AmountBig::Type fees = feeSettings.Calculate(tx);
@@ -2820,7 +2820,7 @@ void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
 
 void Node::Peer::OnMsg(proto::BbsMsgV0&& msg0)
 {
-	if (m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::get().Forks.H1 && !Rules::get().FakePoW)
+	if (m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::get().pForks[1].m_Height && !Rules::get().FakePoW)
 		return; // drop
 
 	proto::BbsMsg msg;
@@ -2833,7 +2833,7 @@ void Node::Peer::OnMsg(proto::BbsMsgV0&& msg0)
 
 void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 {
-	if ((m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::get().Forks.H1) && !Rules::get().FakePoW)
+	if ((m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::get().pForks[1].m_Height) && !Rules::get().FakePoW)
 	{
 		// test the hash
 		ECC::Hash::Value hv;
@@ -3695,7 +3695,7 @@ void Node::Beacon::OnTimer()
         m_pOut = new OutCtx;
         m_pOut->m_Refs = 1;
 
-        m_pOut->m_Message.m_CfgChecksum = Rules::get().Checksum;
+        m_pOut->m_Message.m_CfgChecksum = Rules::get().pForks[0].m_Hash;
         m_pOut->m_Message.m_NodeID = get_ParentObj().m_MyPublicID;
         m_pOut->m_Message.m_Port = htons(get_ParentObj().m_Cfg.m_Listen.port());
 
@@ -3736,7 +3736,7 @@ void Node::Beacon::OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, c
 
     memcpy(&msg, buf->base, sizeof(msg)); // copy it to prevent (potential) datatype misallignment and etc.
 
-    if (msg.m_CfgChecksum != Rules::get().Checksum)
+    if (msg.m_CfgChecksum != Rules::get().pForks[0].m_Hash)
         return;
 
     Beacon* pThis = (Beacon*)handle->data;

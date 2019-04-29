@@ -14,6 +14,7 @@
 
 #include <ctime>
 #include <chrono>
+#include <sstream>
 #include "block_crypt.h"
 
 namespace beam
@@ -306,7 +307,7 @@ namespace beam
 	{
 		oracle << m_Incubation;
 
-		if (hVer >= Rules::get().Forks.H1)
+		if (hVer >= Rules::get().pForks[1].m_Height)
 		{
 			oracle
 				<< m_Commitment;
@@ -368,12 +369,12 @@ namespace beam
 	// TxKernel
 	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig::Type* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pFork) const
 	{
-		if (pFork && (*pFork < Rules::get().Forks.H1) && (m_CanEmbed || m_pRelativeLock))
+		if (pFork && (*pFork < Rules::get().pForks[1].m_Height) && (m_CanEmbed || m_pRelativeLock))
 			return false; // unsupported for that version
 
 		if (pParent)
 		{
-			if (!m_CanEmbed && pFork && (*pFork >= Rules::get().Forks.H1)) // for older version embedding is implicitly allowed (though unlikely to be used)
+			if (!m_CanEmbed && pFork && (*pFork >= Rules::get().pForks[1].m_Height)) // for older version embedding is implicitly allowed (though unlikely to be used)
 				return false;
 
 			// nested kernel restrictions
@@ -918,7 +919,9 @@ namespace beam
 			0x3c, 0x26, 0xa5, 0x26, 0xd2, 0xe2, 0x20, 0x63,
 		};
 
-		Forks.H1 = MaxHeight; // not yet decided
+		ZeroObject(pForks);
+		for (size_t i = 1; i < _countof(pForks); i++)
+			pForks[i].m_Height = MaxHeight; // not yet decided
 	}
 
 	Amount Rules::get_EmissionEx(Height h, Height& hEnd, Amount base) const
@@ -994,7 +997,8 @@ namespace beam
 	void Rules::UpdateChecksum()
 	{
 		// all parameters, including const (in case they'll be hardcoded to different values in later versions)
-		ECC::Hash::Processor()
+		ECC::Oracle oracle;
+		oracle
 			<< ECC::Context::get().m_hvChecksum
 			<< Prehistoric
 			<< TreasuryChecksum
@@ -1026,10 +1030,34 @@ namespace beam
             << "masternet"
 #endif
 			// out
-			>> Checksum;
+			>> pForks[0].m_Hash;
+
+		oracle
+			<< "fork1"
+			<< pForks[1].m_Height
+			<< DA.Damp.M
+			<< DA.Damp.N
+			// out
+			>> pForks[1].m_Hash;
 	}
 
-	int Block::SystemState::ID::cmp(const ID& v) const
+	std::string Rules::get_SignatureStr() const
+	{
+		std::ostringstream os;
+
+		for (size_t i = 0; ; )
+		{
+			os << pForks[i];
+			if (++i == _countof(pForks))
+				break;
+
+			os << ", ";
+		}
+
+		return os.str();
+	}
+
+	int HeightHash::cmp(const HeightHash& v) const
 	{
 		CMP_MEMBER(m_Height)
 		CMP_MEMBER_EX(m_Hash)

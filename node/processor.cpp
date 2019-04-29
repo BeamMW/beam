@@ -65,14 +65,14 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 
 	if (!m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob))
 	{
-		blob = Blob(Rules::get().Checksum);
+		blob = Blob(Rules::get().pForks[0].m_Hash);
 		m_DB.ParamSet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	}
 	else
-		if (hv != Rules::get().Checksum)
+		if (hv != Rules::get().pForks[0].m_Hash)
 		{
 			std::ostringstream os;
-			os << "Data configuration is incompatible: " << hv << ". Current configuration: " << Rules::get().Checksum;
+			os << "Data configuration is incompatible: " << hv << ". Current configuration: " << Rules::get().pForks[0];
 			throw std::runtime_error(os.str());
 		}
 
@@ -2190,7 +2190,7 @@ Difficulty NodeProcessor::get_NextDifficulty()
 	// actual dt, only making sure it's non-negative
 	uint32_t dtSrc_s = (thw1.first > thw0.first) ? static_cast<uint32_t>(thw1.first - thw0.first) : 0;
 
-	if (m_Cursor.m_Full.m_Height >= r.Forks.H1)
+	if (m_Cursor.m_Full.m_Height >= r.pForks[1].m_Height)
 	{
 		// Apply dampening. Recalculate dtSrc_s := dtSrc_s * M/N + dtTrg_s * (N-M)/N
 		// Use 64-bit arithmetic to avoid overflow

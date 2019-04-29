@@ -958,7 +958,7 @@ int main(int argc, char* argv[])
 
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
-            LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+            LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
             
             if (options.useAcl)
             {

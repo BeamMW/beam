@@ -77,7 +77,7 @@ namespace
 
         Rules::get().UpdateChecksum();
         LOG_INFO() << "Beam Mobile Wallet " << appVersion << " (" << BRANCH_NAME << ")";
-        LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+        LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
     }
 }
 

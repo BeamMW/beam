@@ -79,6 +79,15 @@ namespace beam
 	typedef int64_t AmountSigned;
 	static_assert(sizeof(Amount) == sizeof(AmountSigned), "");
 
+	struct HeightHash
+	{
+		Merkle::Hash	m_Hash;
+		Height			m_Height;
+
+		int cmp(const HeightHash&) const;
+		COMPARISON_VIA_CMP
+	};
+
 	struct Rules
 	{
 		Rules();
@@ -133,17 +142,15 @@ namespace beam
 		ECC::Hash::Value Prehistoric; // Prev hash of the 1st block
 		ECC::Hash::Value TreasuryChecksum;
 
-		ECC::Hash::Value Checksum;
-
 		void UpdateChecksum();
 
 		static Amount get_Emission(Height);
 		static void get_Emission(AmountBig::Type&, const HeightRange&);
 		static void get_Emission(AmountBig::Type&, const HeightRange&, Amount base);
 
-		struct {
-			Height H1 = 0; // starting from this height the blockchain format should obey the newer scheme
-		} Forks;
+		HeightHash pForks[2];
+
+		std::string get_SignatureStr() const;
 
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
@@ -492,13 +499,7 @@ namespace beam
 
 		struct SystemState
 		{
-			struct ID {
-				Merkle::Hash	m_Hash; // explained later
-				Height			m_Height;
-
-				int cmp(const ID&) const;
-				COMPARISON_VIA_CMP
-			};
+			typedef HeightHash ID;
 
 			struct Sequence
 			{

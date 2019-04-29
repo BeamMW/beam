@@ -1886,7 +1886,7 @@ int main()
 	g_psecp256k1 = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 
 	beam::Rules::get().CA.Enabled = true;
-	beam::Rules::get().Forks.H1 = g_hFork;
+	beam::Rules::get().pForks[1].m_Height = g_hFork;
 	ECC::TestAll();
 	ECC::RunBenchmark();
 

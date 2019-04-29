@@ -106,7 +106,7 @@ void FlyClient::NetworkStd::Connection::ResetInternal()
 void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 {
     Login msg;
-    msg.m_CfgChecksum = Rules::get().Checksum;
+    msg.m_CfgChecksum = Rules::get().pForks[0].m_Hash;
     msg.m_Flags = LoginFlags::MiningFinalization | LoginFlags::ExtensionsAll;
     Send(msg);
 

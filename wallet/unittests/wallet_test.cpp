@@ -880,7 +880,7 @@ namespace
                 ProveID(sk, proto::IDType::Node);
 
                 proto::Login msg;
-                msg.m_CfgChecksum = Rules::get().Checksum;
+                msg.m_CfgChecksum = Rules::get().pForks[0].m_Hash;
                 msg.m_Flags =
                     proto::LoginFlags::ExtensionsAll |
                     proto::LoginFlags::SpreadingTransactions |

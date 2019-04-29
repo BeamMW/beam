@@ -84,13 +84,13 @@ namespace beam
 
 		const Rules& rules = Rules::get(); // alias
 
-		if ((m_Height.m_Min < rules.Forks.H1) && (m_Height.m_Max >= rules.Forks.H1))
+		if ((m_Height.m_Min < rules.pForks[1].m_Height) && (m_Height.m_Max >= rules.pForks[1].m_Height))
 		{
 			// mixed version are not allowed!
 			if (m_Params.m_bBlockMode)
 				return false;
 
-			m_Height.m_Max = rules.Forks.H1 - 1;
+			m_Height.m_Max = rules.pForks[1].m_Height - 1;
 			assert(!m_Height.IsEmpty());
 
 		}

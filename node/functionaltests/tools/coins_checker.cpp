@@ -51,7 +51,7 @@ void CoinsChecker::InitChecker()
 void CoinsChecker::OnConnectedSecure()
 {
 	proto::Login msg;
-	msg.m_CfgChecksum = Rules::get().Checksum;
+	msg.m_CfgChecksum = Rules::get().pForks[0].m_Hash;
 	msg.m_Flags = proto::LoginFlags::ExtensionsAll;
 	Send(msg);
 }

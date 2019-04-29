@@ -827,7 +827,7 @@ namespace beam
 		rwData.m_sPath = g_sz3;
 
 		//Height hMid = blockChain.size() / 2 + Rules::HeightGenesis;
-		Height hMid = Rules::get().Forks.H1 - 1;
+		Height hMid = Rules::get().pForks[1].m_Height - 1;
 
 		{
 			DeleteFile(g_sz2);
@@ -1480,7 +1480,7 @@ namespace beam
 				SetTimer(90 * 1000);
 
 				proto::Login msg;
-				msg.m_CfgChecksum = Rules::get().Checksum;
+				msg.m_CfgChecksum = Rules::get().pForks[0].m_Hash;
 				msg.m_Flags = proto::LoginFlags::ExtensionsAll;
 				Send(msg);
 
@@ -1696,7 +1696,7 @@ namespace beam
 				{
 					// switch offline/online mining modes
 					proto::Login msgLogin;
-					msgLogin.m_CfgChecksum = Rules::get().Checksum;
+					msgLogin.m_CfgChecksum = Rules::get().pForks[0].m_Hash;
 					msgLogin.m_Flags = proto::LoginFlags::ExtensionsAll;
 					if (msg.m_Description.m_Height % 8)
 						msgLogin.m_Flags |= proto::LoginFlags::MiningFinalization;
@@ -1873,7 +1873,7 @@ namespace beam
 
 			virtual void OnConnectedSecure() override {
 				proto::Login msg;
-				msg.m_CfgChecksum = Rules::get().Checksum;
+				msg.m_CfgChecksum = Rules::get().pForks[0].m_Hash;
 				msg.m_Flags = proto::LoginFlags::SendPeers | proto::LoginFlags::ExtensionsAll;
 				Send(msg);
 			}
@@ -2260,7 +2260,7 @@ int main()
 	beam::Rules::get().Emission.Drop0 = 5;
 	beam::Rules::get().Emission.Drop1 = 8;
 	beam::Rules::get().CA.Enabled = true;
-	beam::Rules::get().Forks.H1 = 16;
+	beam::Rules::get().pForks[1].m_Height = 16;
 	beam::Rules::get().UpdateChecksum();
 
 	beam::PrepareTreasury();
