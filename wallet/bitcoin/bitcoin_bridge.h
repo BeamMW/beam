@@ -26,17 +26,17 @@ namespace beam
     public:
         using Ptr = std::shared_ptr<IBitcoinBridge>;
 
-        // error, result
+        // error, private key
         virtual void dumpPrivKey(const std::string& btcAddress, std::function<void(const std::string&, const std::string&)> callback) = 0;
-        // error, result, changepos
+        // error, transaction (hex), changepos
         virtual void fundRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&, int)> callback) = 0;
-        //error, hex, complete
+        //error, transaction (hex), complete
         virtual void signRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&, bool)> callback) = 0;
-        // error, result
+        // error, transaction ID
         virtual void sendRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&)> callback) = 0;
-        // error, result
+        // error, address
         virtual void getRawChangeAddress(std::function<void(const std::string&, const std::string&)> callback) = 0;
-        // error, result
+        // error, transaction (hex)
         virtual void createRawTransaction(
             const std::string& withdrawAddress,
             const std::string& contractTxId,
@@ -44,9 +44,9 @@ namespace beam
             int outputIndex,
             Timestamp locktime,
             std::function<void(const std::string&, const std::string&)> callback) = 0;
-        // error, value, hex, confirmations
+        // error, value, script (hex), confirmations
         virtual void getTxOut(const std::string& txid, int outputIndex, std::function<void(const std::string&, const std::string&, double, uint16_t)> callback) = 0;
-        // error, result
+        // error, block count
         virtual void getBlockCount(std::function<void(const std::string&, uint64_t)> callback) = 0;
 
         virtual uint8_t getAddressVersion() = 0;
