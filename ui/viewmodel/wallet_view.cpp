@@ -23,6 +23,7 @@
 #include <QtGui/qimage.h>
 #include <QtCore/qbuffer.h>
 #include <QUrlQuery>
+#include "utility/helpers.h"
 
 using namespace beam;
 using namespace std;
@@ -192,6 +193,11 @@ void TxObject::setKernelID(const QString& value)
         m_kernelID = value;
         emit kernelIDChanged();
     }
+}
+
+QString TxObject::getTransactionID() const
+{
+    return QString::fromStdString(to_hex(m_tx.m_txId.data(), m_tx.m_txId.size()));
 }
 
 QString TxObject::getFailureReason() const

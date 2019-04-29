@@ -1171,6 +1171,10 @@
         <source>Transaction amount</source>
         <translation type="unfinished">Transaction amount</translation>
     </message>
+    <message id="tx-details-tx-id-label">
+        <source>Transaction ID:</source>
+        <translation>Transaction ID:</translation>
+    </message>
 </context>
 <context>
     <name>wallet</name>
