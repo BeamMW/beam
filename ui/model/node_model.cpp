@@ -110,3 +110,8 @@ std::vector<std::string> NodeModel::getLocalNodePeers()
 
     return result;
 }
+
+void NodeModel::onNodeThreadFinished()
+{
+
+}
