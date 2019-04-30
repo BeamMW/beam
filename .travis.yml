@@ -186,6 +186,7 @@ matrix:
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
         - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/android-$ANDROID_ABI
         - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
+        - tar -cvzf libwallet-jni.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni.tar.gz $BUILDS_SERVER_LATEST_PATH/
         - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni-$BEAM_VERSION.tar.gz
@@ -226,6 +227,7 @@ matrix:
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
         - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/android-$ANDROID_ABI
         - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
+        - tar -cvzf libwallet-jni.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni.tar.gz $BUILDS_SERVER_LATEST_PATH/
         - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni-$BEAM_VERSION.tar.gz
@@ -266,6 +268,7 @@ matrix:
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
         - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/android-$ANDROID_ABI
         - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
+        - tar -cvzf libwallet-jni.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni.tar.gz $BUILDS_SERVER_LATEST_PATH/
         - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni-$BEAM_VERSION.tar.gz
@@ -306,10 +309,11 @@ matrix:
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
         - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/android-$ANDROID_ABI
         - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
+        - tar -cvzf libwallet-jni.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni.tar.gz $BUILDS_SERVER_LATEST_PATH/
         - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni-$BEAM_VERSION.tar.gz
-        - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni.tar.gzz
+        - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni.tar.gz
 
 ###############################################################################
 # Common part
