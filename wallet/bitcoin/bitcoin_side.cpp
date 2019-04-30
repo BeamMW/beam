@@ -515,6 +515,11 @@ namespace beam::wallet
             return;
         }
 
+        if (hexScript.empty())
+        {
+            return;
+        }
+
         // validate amount
         {
             Amount swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
