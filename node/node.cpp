@@ -3695,7 +3695,7 @@ void Node::Beacon::OnTimer()
         m_pOut = new OutCtx;
         m_pOut->m_Refs = 1;
 
-        m_pOut->m_Message.m_CfgChecksum = Rules::get().pForks[0].m_Hash;
+        m_pOut->m_Message.m_CfgChecksum = Rules::get().get_LastFork().m_Hash;
         m_pOut->m_Message.m_NodeID = get_ParentObj().m_MyPublicID;
         m_pOut->m_Message.m_Port = htons(get_ParentObj().m_Cfg.m_Listen.port());
 
@@ -3736,7 +3736,7 @@ void Node::Beacon::OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, c
 
     memcpy(&msg, buf->base, sizeof(msg)); // copy it to prevent (potential) datatype misallignment and etc.
 
-    if (msg.m_CfgChecksum != Rules::get().pForks[0].m_Hash)
+    if (msg.m_CfgChecksum != Rules::get().get_LastFork().m_Hash)
         return;
 
     Beacon* pThis = (Beacon*)handle->data;
