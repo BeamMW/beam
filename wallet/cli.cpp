@@ -1046,10 +1046,6 @@ int main_impl(int argc, char* argv[])
                         CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
                         wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, 120, 720, {}, true);
                     }
-                    else if (coldWallet)
-                    {
-                        return 0;
-                    }
 
                     bool deleteTx = command == cli::DELETE_TX;
                     if (command == cli::CANCEL_TX || deleteTx)

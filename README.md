@@ -1,5 +1,5 @@
 
-![alt text](https://camo.githubusercontent.com/e8f6957610e67524ef6fe1b0a968f87e52bd1132/68747470733a2f2f666f72756d2e6265616d2d6d772e636f6d2f75706c6f6164732f6265616d5f6d772f6f726967696e616c2f31582f323631653261326562613262366338616164616536373836373366396538653039613738663563662e706e67 "Beam Logo")
+![alt text](https://s3.eu-central-1.amazonaws.com/website-storage.beam.mw/media/homepage/scc/scc-1.jpg "Beam Logo")
 
 ### Welcome to Beam
 
@@ -14,7 +14,7 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 **Bright Boson 2.0 with ultra fast sync, payment proof and lots of improvements**
 
 
-**Beam released Mobile Wallet for Android**. [Release](https://github.com/BeamMW/android-wallet/releases/tag/Bright-Boson-2.0.0) | [Google Play Store](https://play.google.com/store/apps/details?id=com.mw.beam.beamwallet.mainnet)
+**Beam released Mobile Wallet for iOS**. [Download](https://www.beam.mw/downloads/mainnet-ios)
 
 
 ### JOIN OUR COMMUNITIES ON TELEGRAM
@@ -23,7 +23,7 @@ BEAM is a next generation scalable, confidential cryptocurrency based on an eleg
 
 ### FOLLOW BEAM 
 
-[twitter](https://twitter.com/beamprivacy) | [medium](https://medium.com/beam-mw) | [reddit](https://www.reddit.com/r/beamprivacy/) | [beam forum](http://forum.beam-mw.com) | [gitter](https://gitter.im/beamprivacy/Lobby) | [bitcointalk](https://bitcointalk.org/index.php?topic=5052151.0) | [youtube](https://www.youtube.com/channel/UCddqBnfSPWibf4f8OnEJm_w?)
+[twitter](https://twitter.com/beamprivacy) | [medium](https://medium.com/beam-mw) | [reddit](https://www.reddit.com/r/beamprivacy/) | [gitter](https://gitter.im/beamprivacy/Lobby) | [bitcointalk](https://bitcointalk.org/index.php?topic=5052151.0) | [youtube](https://www.youtube.com/channel/UCddqBnfSPWibf4f8OnEJm_w?)
 
 
 ### GET STARTED

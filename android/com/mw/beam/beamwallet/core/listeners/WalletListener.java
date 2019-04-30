@@ -179,4 +179,9 @@ public class WalletListener
     {
         System.out.println(">>>>>>>>>>> onCoinsByTx called");
     }
+
+    static void onNodeThreadFinished()
+    {
+        System.out.println(">>>>>>>>>>> onNodeThreadFinished called");
+    }
 }

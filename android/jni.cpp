@@ -76,7 +76,7 @@ namespace
         static auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "wallet_", (fs::path(appData) / fs::path("logs")).string());
 
         Rules::get().UpdateChecksum();
-        LOG_INFO() << "Beam Mobile Wallet " << appVersion << " (" << BRANCH_NAME << ")";
+        LOG_INFO() << "Beam Mobile Wallet " << appVersion << " (" << BRANCH_NAME << ") library: " << PROJECT_VERSION;
         LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
     }
 }

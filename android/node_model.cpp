@@ -127,3 +127,12 @@ std::vector<std::string> NodeModel::getLocalNodePeers()
 {
     return getDefaultPeers();
 }
+
+void NodeModel::onNodeThreadFinished()
+{
+    JNIEnv* env = Android_JNI_getEnv();
+
+    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onNodeThreadFinished", "()V");
+
+    env->CallStaticVoidMethod(WalletListenerClass, callback);
+}

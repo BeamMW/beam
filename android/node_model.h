@@ -48,6 +48,8 @@ protected:
     std::string getTempDir() override;
     std::vector<std::string> getLocalNodePeers() override;
 
+    void onNodeThreadFinished() override;
+
 private:
     beam::NodeClient m_nodeClient;
     std::string m_appPath;

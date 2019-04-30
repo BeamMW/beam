@@ -41,6 +41,7 @@ class TxObject : public QObject
     Q_PROPERTY(QString receivingAddress READ getReceivingAddress CONSTANT)
     Q_PROPERTY(QString fee              READ getFee              CONSTANT)
     Q_PROPERTY(QString kernelID         READ getKernelID         WRITE setKernelID  NOTIFY kernelIDChanged)
+    Q_PROPERTY(QString transactionID    READ getTransactionID    CONSTANT)
     Q_PROPERTY(QString failureReason    READ getFailureReason    NOTIFY failureReasonChanged)
     Q_PROPERTY(bool hasPaymentProof     READ hasPaymentProof     NOTIFY kernelIDChanged)
 
@@ -66,6 +67,7 @@ public:
     beam::WalletID peerId() const;
     QString getKernelID() const;
     void setKernelID(const QString& value);
+    QString getTransactionID() const;
     QString getFailureReason() const;
     bool hasPaymentProof() const;
 

@@ -448,7 +448,14 @@ namespace beam {
         case ChangeAction::Updated:
             for (const auto& address : items)
             {
-                AddOwnAddress(address);
+                if (!address.isExpired())
+                {
+                    AddOwnAddress(address);
+                }
+                else
+                {
+                    DeleteOwnAddress(address.m_OwnID);
+                }
             }
             break;
         case ChangeAction::Removed:

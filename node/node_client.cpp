@@ -146,6 +146,8 @@ void NodeClient::start()
         catch (...) {
             LOG_UNHANDLED_EXCEPTION();
         }
+
+        m_observer->onNodeThreadFinished();
     });
 }
 
