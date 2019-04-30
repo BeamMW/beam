@@ -549,6 +549,12 @@ bool UtxoTree::MyLeaf::IsExt() const
 	return 0 != (s_User & m_Bits);
 }
 
+bool UtxoTree::MyLeaf::IsCommitmentDuplicated() const
+{
+	const uint16_t nBitsPostCommitment = Key::s_Bits - Key::s_BitsCommitment;
+	return get_Bits() <= nBitsPostCommitment;
+}
+
 UtxoTree::MyLeaf::~MyLeaf()
 {
 	while (IsExt())

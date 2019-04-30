@@ -245,6 +245,7 @@ namespace beam
 	{
 		Cast::Down<TxElement>(*this) = v;
 		m_Coinbase = v.m_Coinbase;
+		m_CanDuplicate = v.m_CanDuplicate;
 		m_Incubation = v.m_Incubation;
 		m_AssetID = v.m_AssetID;
 		ClonePtr(m_pConfidential, v.m_pConfidential);
@@ -260,6 +261,7 @@ namespace beam
 		}
 
 		CMP_MEMBER(m_Coinbase)
+		CMP_MEMBER(m_CanDuplicate)
 		CMP_MEMBER(m_Incubation)
 		CMP_MEMBER_EX(m_AssetID)
 		CMP_MEMBER_PTR(m_pConfidential)
@@ -310,7 +312,8 @@ namespace beam
 		if (hVer >= Rules::get().pForks[1].m_Height)
 		{
 			oracle
-				<< m_Commitment;
+				<< m_Commitment
+				<< m_CanDuplicate;
 		}
 	}
 
