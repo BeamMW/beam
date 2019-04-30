@@ -230,6 +230,79 @@ namespace beam
         _handler.onMessage(id, send);
     }
 
+    void WalletApi::onInitBitcoinMessage(int id, const nlohmann::json& params)
+    {
+        checkJsonParam(params, "btcUserName", id);
+        checkJsonParam(params, "btcPass", id);
+        checkJsonParam(params, "btcNodeAddr", id);
+
+        if (params["btcUserName"].empty())
+            throwInvalidJsonRpc(id);
+
+        if (params["btcPass"].empty())
+            throwInvalidJsonRpc(id);
+
+        if (params["btcNodeAddr"].empty())
+            throwInvalidJsonRpc(id);
+
+        InitBitcoin data;
+
+        data.btcUserName = params["btcUserName"];
+        data.btcPass = params["btcPass"];
+        data.btcNodeAddr = params["btcNodeAddr"];
+
+        _handler.onMessage(id, data);
+    }
+
+    void WalletApi::onStartSwapMessage(int id, const nlohmann::json& params)
+    {
+        checkJsonParam(params, "amount", id);
+        checkJsonParam(params, "fee", id);
+        checkJsonParam(params, "swapAmount", id);
+        checkJsonParam(params, "beamSide", id);
+        checkJsonParam(params, "address", id);
+
+        if (params["amount"] < 0)
+            throwInvalidJsonRpc(id);
+
+        if (params["fee"] < 0)
+            throwInvalidJsonRpc(id);
+
+        if (params["swapAmount"] < 0)
+            throwInvalidJsonRpc(id);
+
+        StartSwap data;
+
+        data.amount = params["amount"];
+        data.fee = params["fee"];
+        data.swapAmount = params["swapAmount"];
+        data.beamSide = params["beamSide"];
+        data.address.FromHex(params["address"]);
+
+        _handler.onMessage(id, data);
+    }
+
+    void WalletApi::onAcceptSwapMessage(int id, const nlohmann::json& params)
+    {
+        checkJsonParam(params, "amount", id);
+        checkJsonParam(params, "swapAmount", id);
+        checkJsonParam(params, "beamSide", id);
+        
+        if (params["amount"] < 0)
+            throwInvalidJsonRpc(id);
+
+        if (params["swapAmount"] < 0)
+            throwInvalidJsonRpc(id);
+
+        AcceptSwap data;
+
+        data.amount = params["amount"];
+        data.swapAmount = params["swapAmount"];
+        data.beamSide = params["beamSide"];
+
+        _handler.onMessage(id, data);
+    }
+
     void WalletApi::onReplaceMessage(int id, const nlohmann::json& params)
     {
         Replace replace;
@@ -504,6 +577,40 @@ namespace beam
                     {"txId", txIDToString(res.txId)}
                 }
             }
+        };
+    }
+
+    void WalletApi::getResponse(int id, const InitBitcoin::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", "done"}
+        };
+    }
+
+    void WalletApi::getResponse(int id, const StartSwap::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result",
+                {
+                    {"txId", txIDToString(res.txId)}
+                }
+            }
+        };
+    }
+
+    void WalletApi::getResponse(int id, const AcceptSwap::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", "done"}
         };
     }
 

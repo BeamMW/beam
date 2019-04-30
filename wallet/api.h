@@ -41,6 +41,9 @@ namespace beam
     macro(AddrList,         "addr_list",        API_READ_ACCESS)    \
     macro(ValidateAddress,  "validate_address", API_READ_ACCESS)    \
     macro(Send,             "tx_send",          API_WRITE_ACCESS)   \
+    macro(InitBitcoin,      "init_bitcoin",     API_WRITE_ACCESS)   \
+    macro(StartSwap,        "start_swap",       API_WRITE_ACCESS)   \
+    macro(AcceptSwap,       "accept_swap",      API_WRITE_ACCESS)   \
     macro(Replace,          "replace",          API_WRITE_ACCESS)   \
     macro(Status,           "tx_status",        API_READ_ACCESS)    \
     macro(Split,            "tx_split",         API_WRITE_ACCESS)   \
@@ -115,6 +118,38 @@ namespace beam
         {
             TxID txId;
         };
+    };
+
+    struct InitBitcoin
+    {
+        std::string btcUserName;
+        std::string btcPass;
+        std::string btcNodeAddr;
+
+        struct Response {};
+    };
+
+    struct StartSwap
+    {
+        Amount amount;
+        Amount fee;
+        Amount swapAmount;
+        bool beamSide;
+        WalletID address;
+
+        struct Response
+        {
+            TxID txId;
+        };
+    };
+
+    struct AcceptSwap
+    {
+        Amount amount;
+        Amount swapAmount;
+        bool beamSide;
+
+        struct Response {};
     };
 
     struct Replace
