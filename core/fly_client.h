@@ -197,9 +197,10 @@ namespace proto {
 
 				// NodeConnection
 				virtual void OnConnectedSecure() override;
+				virtual void OnLogin(Login&&) override;
+				virtual void SetupLogin(Login&) override;
 				virtual void OnDisconnect(const DisconnectReason&) override;
 				virtual void OnMsg(proto::Authentication&& msg) override;
-				virtual void OnMsg(proto::Login&& msg) override;
 				virtual void OnMsg(proto::GetBlockFinalization&& msg) override;
 				virtual void OnMsg(proto::NewTip&& msg) override;
 				virtual void OnMsg(proto::ProofCommonState&& msg) override;

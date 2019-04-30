@@ -1478,11 +1478,7 @@ namespace beam
 			virtual void OnConnectedSecure() override
 			{
 				SetTimer(90 * 1000);
-
-				proto::Login msg;
-				msg.m_CfgChecksum = Rules::get().pForks[0].m_Hash;
-				msg.m_Flags = proto::LoginFlags::ExtensionsAll;
-				Send(msg);
+				SendLogin();
 
 				Send(proto::GetExternalAddr(Zero));
 			}
@@ -1695,14 +1691,18 @@ namespace beam
 				if (!(msg.m_Description.m_Height % 4))
 				{
 					// switch offline/online mining modes
-					proto::Login msgLogin;
-					msgLogin.m_CfgChecksum = Rules::get().pForks[0].m_Hash;
-					msgLogin.m_Flags = proto::LoginFlags::ExtensionsAll;
-					if (msg.m_Description.m_Height % 8)
-						msgLogin.m_Flags |= proto::LoginFlags::MiningFinalization;
-					Send(msgLogin);
+					m_MiningFinalization = ((msg.m_Description.m_Height % 8) != 0);
+					SendLogin();
 				}
 
+			}
+
+			bool m_MiningFinalization = false;
+
+			virtual void SetupLogin(proto::Login& msg) override
+			{
+				if (m_MiningFinalization)
+					msg.m_Flags |= proto::LoginFlags::MiningFinalization;
 			}
 
 			virtual void OnMsg(proto::ProofState&& msg) override
@@ -1871,11 +1871,14 @@ namespace beam
 		{
 			MyClient* m_pOtherClient;
 
-			virtual void OnConnectedSecure() override {
-				proto::Login msg;
-				msg.m_CfgChecksum = Rules::get().pForks[0].m_Hash;
-				msg.m_Flags = proto::LoginFlags::SendPeers | proto::LoginFlags::ExtensionsAll;
-				Send(msg);
+			virtual void OnConnectedSecure() override
+			{
+				SendLogin();
+			}
+
+			virtual void SetupLogin(proto::Login& msg) override
+			{
+				msg.m_Flags |= proto::LoginFlags::SendPeers;
 			}
 
 			virtual void OnDisconnect(const DisconnectReason&) override {

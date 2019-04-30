@@ -879,17 +879,18 @@ namespace
                 sk = 23U;
                 ProveID(sk, proto::IDType::Node);
 
-                proto::Login msg;
-                msg.m_CfgChecksum = Rules::get().pForks[0].m_Hash;
-                msg.m_Flags =
-                    proto::LoginFlags::ExtensionsAll |
-                    proto::LoginFlags::SpreadingTransactions |
-                    proto::LoginFlags::Bbs |
-                    proto::LoginFlags::SendPeers;
-                Send(msg);
+				SendLogin();
 
-                SendTip();
+				SendTip();
             }
+
+			void SetupLogin(proto::Login& msg) override
+			{
+				msg.m_Flags |=
+					proto::LoginFlags::SpreadingTransactions |
+					proto::LoginFlags::Bbs |
+					proto::LoginFlags::SendPeers;
+			}
 
             void SendTip()
             {
@@ -921,10 +922,6 @@ namespace
                 proto::ProofKernel msgOut;
                 m_This.m_Blockchain.GetProof(data, msgOut);
                 Send(msgOut);
-            }
-
-            void OnMsg(proto::Login&& /*data*/) override
-            {
             }
 
             void OnMsg(proto::GetProofState&&) override

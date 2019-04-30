@@ -108,9 +108,13 @@ namespace proto {
 #define BeamNodeMsg_ProofChainWork(macro) \
     macro(Block::ChainWorkProof, Proof)
 
-#define BeamNodeMsg_Login(macro) \
+#define BeamNodeMsg_Login0(macro) \
     macro(ECC::Hash::Value, CfgChecksum) \
     macro(uint8_t, Flags)
+
+#define BeamNodeMsg_Login(macro) \
+    macro(std::vector<ECC::Hash::Value>, Cfgs) \
+    macro(uint32_t, Flags)
 
 #define BeamNodeMsg_Ping(macro)
 #define BeamNodeMsg_Pong(macro)
@@ -210,7 +214,7 @@ namespace proto {
 
 #define BeamNodeMsgsAll(macro) \
     /* general msgs */ \
-    macro(0x00, Login) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
+    macro(0x00, Login0) \
     macro(0x01, Bye) \
     macro(0x02, Ping) \
     macro(0x03, Pong) \
@@ -225,6 +229,7 @@ namespace proto {
     macro(0x0c, Time) \
     macro(0x0d, DataMissing) \
     macro(0x0e, Status) \
+    macro(0x0f, Login) \
     /* blockchain status */ \
     macro(0x10, NewTip) \
     macro(0x11, GetHdr) \
@@ -517,6 +522,8 @@ namespace proto {
         std::unique_ptr<Connection> m_Connection;
         io::AsyncEvent::Ptr m_pAsyncFail;
         bool m_ConnectPending;
+		bool m_RulesCfgSent;
+		bool m_PeerSupportsLogin1;
 
         SerializedMsg m_SerializeCache;
 
@@ -534,6 +541,8 @@ namespace proto {
 #undef THE_MACRO
 
         void HashAddNonce(ECC::Hash::Processor&, bool bRemote);
+
+		void OnLoginInternal(Height hPeerMaxVer, Login&&);
 
     public:
 
@@ -554,7 +563,6 @@ namespace proto {
         void ProvePKdfObscured(Key::IPKdf&, uint8_t nIDType);
         bool IsKdfObscured(Key::IPKdf&, const PeerID&);
         bool IsPKdfObscured(Key::IPKdf&, const PeerID&);
-        void VerifyCfg(const Login&, Height hVer); // will throw NodeProcessingException if incompatible
 
         virtual void OnMsg(SChannelInitiate&&) override;
         virtual void OnMsg(SChannelReady&&) override;
@@ -563,8 +571,16 @@ namespace proto {
 		virtual void OnMsg(Ping&&) override;
 		virtual void OnMsg(GetTime&&) override;
 		virtual void OnMsg(Time&&) override;
+		virtual void OnMsg(Login0&&) override;
+		virtual void OnMsg(Login&&) override;
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
+
+		// Login-specific
+		void SendLogin();
+		virtual void SetupLogin(Login&);
+		virtual void OnLogin(Login&&);
+		virtual Height get_MinPeerFork();
 
         bool IsLive() const;
         bool IsSecureIn() const;

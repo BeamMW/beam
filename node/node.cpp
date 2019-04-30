@@ -1190,22 +1190,20 @@ void Node::Peer::OnConnectedSecure()
     }
 }
 
-void Node::Peer::SendLogin()
+void Node::Peer::SetupLogin(proto::Login& msg)
 {
-	proto::Login msgLogin;
-	msgLogin.m_CfgChecksum = Rules::get().pForks[0].m_Hash; // checksum of all consesnsus related configuration
-
-	msgLogin.m_Flags =
-		proto::LoginFlags::ExtensionsAll |
-		proto::LoginFlags::SendPeers; // request a another node to periodically send a list of recommended peers
+	msg.m_Flags |= proto::LoginFlags::SendPeers; // request a another node to periodically send a list of recommended peers
 
 	if (m_This.m_PostStartSynced)
-		msgLogin.m_Flags |= proto::LoginFlags::SpreadingTransactions; // indicate ability to receive and broadcast transactions
+		msg.m_Flags |= proto::LoginFlags::SpreadingTransactions; // indicate ability to receive and broadcast transactions
 
 	if (m_This.m_Cfg.m_Bbs)
-		msgLogin.m_Flags |= proto::LoginFlags::Bbs; // indicate ability to receive and broadcast BBS messages
+		msg.m_Flags |= proto::LoginFlags::Bbs; // indicate ability to receive and broadcast BBS messages
+}
 
-	Send(msgLogin);
+Height Node::Peer::get_MinPeerFork()
+{
+	return m_This.m_Processor.m_Cursor.m_ID.m_Height + 1;
 }
 
 void Node::Peer::OnMsg(proto::Authentication&& msg)
@@ -2426,10 +2424,8 @@ bool Node::Dandelion::ValidateTxContext(const Transaction& tx)
     return get_ParentObj().m_Processor.ValidateTxContext(tx);
 }
 
-void Node::Peer::OnMsg(proto::Login&& msg)
+void Node::Peer::OnLogin(proto::Login&& msg)
 {
-    VerifyCfg(msg, m_This.m_Processor.m_Cursor.m_ID.m_Height);
-
     if ((m_LoginFlags ^ msg.m_Flags) & proto::LoginFlags::SendPeers)
     {
         if (msg.m_Flags & proto::LoginFlags::SendPeers)
@@ -2457,7 +2453,7 @@ void Node::Peer::OnMsg(proto::Login&& msg)
 		Send(msgOut);
 	}
 
-    m_LoginFlags = msg.m_Flags;
+    m_LoginFlags = static_cast<uint8_t>(msg.m_Flags);
 
 	if (b != ShouldFinalizeMining()) {
 		// stupid compiler insists on parentheses!

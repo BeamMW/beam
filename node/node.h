@@ -461,7 +461,6 @@ private:
 		void BroadcastBbs(Bbs::Subscription&);
 		void OnChocking();
 		void SetTxCursor(TxPool::Fluff::Element*);
-		void SendLogin();
 
 		bool IsChocking(size_t nExtra = 0);
 		bool ShouldAssignTasks();
@@ -478,9 +477,12 @@ private:
 		virtual void OnConnectedSecure() override;
 		virtual void OnDisconnect(const DisconnectReason&) override;
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&) override; // Must be overridden to support SChannel
+		// login
+		virtual void SetupLogin(proto::Login&) override;
+		virtual void OnLogin(proto::Login&&) override;
+		virtual Height get_MinPeerFork() override;
 		// messages
 		virtual void OnMsg(proto::Authentication&&) override;
-		virtual void OnMsg(proto::Login&&) override;
 		virtual void OnMsg(proto::Bye&&) override;
 		virtual void OnMsg(proto::Pong&&) override;
 		virtual void OnMsg(proto::NewTip&&) override;
