@@ -361,6 +361,7 @@ namespace beam
 			const Output* m_pUtxoOut;
 			const TxKernel* m_pKernel;
 
+			virtual ~IReader() {}
 			virtual void Clone(Ptr&) = 0;
 			virtual void Reset() = 0;
 			// For all the following methods: the returned pointer should be valid during at least 2 consequent calls!
@@ -374,6 +375,7 @@ namespace beam
 
 		struct IWriter
 		{
+			virtual ~IWriter() {}
 			virtual void Write(const Input&) = 0;
 			virtual void Write(const Output&) = 0;
 			virtual void Write(const TxKernel&) = 0;
