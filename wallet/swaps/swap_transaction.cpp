@@ -299,7 +299,7 @@ namespace beam::wallet
         // TODO(alex.starun): check
         UpdateTxDescription(TxStatus::Cancelled);
 
-        m_WalletDB->rollbackTx(GetTxID());
+        GetWalletDB()->rollbackTx(GetTxID());
         m_Gateway.on_tx_completed(GetTxID());
     }
 
@@ -603,7 +603,7 @@ namespace beam::wallet
         }
 
         std::vector<Coin> modified;
-        m_WalletDB->visit([&](const Coin& coin)
+        GetWalletDB()->visit([&](const Coin& coin)
         {
             bool bIn = (coin.m_createTxId == m_ID);
             bool bOut = (coin.m_spentTxId == m_ID);
