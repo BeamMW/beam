@@ -526,7 +526,8 @@ namespace beam::wallet
             Amount outputAmount = static_cast<Amount>(amount * libbitcoin::satoshi_per_bitcoin);
             if (swapAmount > outputAmount)
             {
-                LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << "Unexpected amount, expected: " << swapAmount << ", got: " << outputAmount;
+                LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" 
+                    << " Unexpected amount, expected: " << swapAmount << ", got: " << outputAmount;
                 m_tx.SetParameter(TxParameterID::FailureReason, TxFailureReason::SwapInvalidAmount, false, SubTxIndex::LOCK_TX);
                 return;
             }
@@ -548,7 +549,12 @@ namespace beam::wallet
         }
 
         // get confirmations
-        m_SwapLockTxConfirmations = confirmations;
+        if (m_SwapLockTxConfirmations != confirmations)
+        {
+            LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << confirmations << "/" 
+                << kBTCMinTxConfirmations <<" confirmations are received.";
+            m_SwapLockTxConfirmations = confirmations;
+        }
     }
 
     void BitcoinSide::OnGetBlockCount(const std::string& error, uint64_t blockCount)
