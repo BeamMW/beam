@@ -468,7 +468,6 @@ namespace beam::wallet
         if (!GetParameter(TxParameterID::Amount, withdrawAmount, subTxID) ||
             !GetParameter(TxParameterID::Fee, withdrawFee, subTxID))
         {
-            withdrawFee = GetWithdrawFee();
             withdrawAmount = GetAmount() - withdrawFee;
 
             SetParameter(TxParameterID::Amount, withdrawAmount, subTxID);
