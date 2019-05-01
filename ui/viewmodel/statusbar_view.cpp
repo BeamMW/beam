@@ -38,11 +38,8 @@ StatusbarViewModel::StatusbarViewModel()
     connect(&m_model, SIGNAL(syncProgressUpdated(int, int)),
         SLOT(onSyncProgressUpdated(int, int)));
 
-    if (AppModel::getInstance()->getSettings().getRunLocalNode())
-    {
-        connect(&AppModel::getInstance()->getNode(), SIGNAL(syncProgressUpdated(int, int)),
+    connect(&AppModel::getInstance()->getNode(), SIGNAL(syncProgressUpdated(int, int)),
             SLOT(onNodeSyncProgressUpdated(int, int)));
-    }
 
     m_model.getAsync()->getNetworkStatus();
 }
