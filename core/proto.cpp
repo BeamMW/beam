@@ -650,7 +650,7 @@ void NodeConnection::SendLogin()
 		Login0 msg0;
 		msg0.m_CfgChecksum = r.pForks[0].m_Hash;
 		msg0.m_Flags = static_cast<uint8_t>(msg.m_Flags);
-		Send(msg);
+		Send(msg0);
 	}
 }
 
