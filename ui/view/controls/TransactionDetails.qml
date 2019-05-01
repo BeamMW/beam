@@ -114,6 +114,24 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
+            //% "Transaction ID:"
+            text: qsTrId("tx-details-tx-id-label")
+        }
+        SFLabel {
+            Layout.fillWidth: true
+            id: transactionID
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            color: Style.content_main
+            text: model ? model.transactionID : ""
+            font.styleName: "Italic"
+            elide: Text.ElideMiddle
+            onCopyText: textCopied(text)
+        }
+        SFText {
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
             //% "Kernel ID:"
             text: qsTrId("tx-details-kernel-id-label")
         }
@@ -125,24 +143,6 @@ RowLayout {
             color: Style.content_main
             //wrapMode: Text.Wrap
             text: model ? model.kernelID : ""
-            font.styleName: "Italic"
-            elide: Text.ElideMiddle
-            onCopyText: textCopied(text)
-        }
-        SFText {
-            Layout.alignment: Qt.AlignTop
-            font.pixelSize: 14
-            color: Style.content_secondary
-            //% "Transaction ID:"
-            text: qsTrId("tx-details-tx-id-label")
-        }
-        SFLabel {
-            Layout.fillWidth: true
-            id: transactionID
-            copyMenuEnabled: true
-            font.pixelSize: 14
-            color: Style.content_main
-            text: model ? model.transactionID : ""
             font.styleName: "Italic"
             elide: Text.ElideMiddle
             onCopyText: textCopied(text)
