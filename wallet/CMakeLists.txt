@@ -20,6 +20,7 @@ set(WALLET_SRC
     bitcoin/bitcoin_side.cpp
     bitcoin/bitcoind016.cpp
     bitcoin/bitcoind017.cpp
+    litecoin/litecoind016.cpp
     secstring2.cpp
     unittests/util.cpp
 )

@@ -1,7 +1,7 @@
 var net = require('net');
 
 var client = new net.Socket();
-client.connect(10010, '127.0.0.1', function () {
+client.connect(10000, '127.0.0.1', function () {
     console.log('Connected');
     client.write(JSON.stringify(
 		{

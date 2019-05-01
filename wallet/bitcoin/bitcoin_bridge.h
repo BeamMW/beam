@@ -26,6 +26,8 @@ namespace beam
     public:
         using Ptr = std::shared_ptr<IBitcoinBridge>;
 
+        virtual ~IBitcoinBridge() {};
+
         // error, private key
         virtual void dumpPrivKey(const std::string& btcAddress, std::function<void(const std::string&, const std::string&)> callback) = 0;
         // error, transaction (hex), changepos
