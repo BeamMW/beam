@@ -18,6 +18,7 @@
 #include <memory>
 #include <atomic>
 #include <condition_variable>
+#include "node/node.h"
 #include "core/block_crypt.h"
 #include "utility/io/errorhandling.h"
 #include "utility/io/reactor.h"
@@ -30,8 +31,8 @@ public:
     virtual void onSyncProgressUpdated(int done, int total) = 0;
     virtual void onStartedNode() = 0;
     virtual void onStoppedNode() = 0;
-    virtual void onFailedToStartNode() = 0;
     virtual void onFailedToStartNode(io::ErrorCode errorCode) = 0;
+    virtual void onSyncError(Node::IObserver::Error error) = 0;
 
     virtual uint16_t getLocalNodePort() = 0;
     virtual std::string getLocalNodeStorage() = 0;
