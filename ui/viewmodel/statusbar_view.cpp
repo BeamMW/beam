@@ -40,6 +40,9 @@ StatusbarViewModel::StatusbarViewModel()
 
     connect(&AppModel::getInstance()->getNode(), SIGNAL(syncProgressUpdated(int, int)),
             SLOT(onNodeSyncProgressUpdated(int, int)));
+    
+    connect(&AppModel::getInstance()->getNode(), SIGNAL(failedToSyncNode(beam::wallet::ErrorType)),
+            SLOT(onGetWalletError(beam::wallet::ErrorType)));
 
     m_model.getAsync()->getNetworkStatus();
 }

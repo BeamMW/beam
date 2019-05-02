@@ -249,4 +249,3 @@ void AppModel::changeWalletPassword(const std::string& pass)
 
     m_wallet->getAsync()->changeWalletPassword(pass);
 }
-

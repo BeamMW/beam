@@ -154,7 +154,7 @@ bool Server::on_solution(uint64_t from, const Solution& sol) {
 	        memcmp(sol.nonce.c_str(), nonceprefix.c_str(), _prefixDigits) != 0
 	    ) {
             Result res(sol.id, stratum::solution_rejected);
-            res.nonceprefix = nonceprefix;
+            //res.nonceprefix = nonceprefix;
             append_json_msg(_fw, res);
             _connections[from]->send_msg(_currentMsg, true, true);
             _currentMsg.clear();

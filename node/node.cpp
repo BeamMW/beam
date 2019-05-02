@@ -1371,6 +1371,10 @@ void Node::Peer::OnDisconnect(const DisconnectReason& dr)
         break;
 
     case DisconnectReason::ProcessingExc:
+        if (dr.m_ExceptionDetails.m_ExceptionType == proto::NodeProcessingException::Type::TimeOutOfSync)
+        {
+            m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge);
+        }
     case DisconnectReason::Protocol:
         nByeReason = ByeReason::Ban;
         break;

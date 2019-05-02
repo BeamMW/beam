@@ -31,6 +31,23 @@ namespace beam
     using namespace std;
     using namespace ECC;
 
+    namespace
+    {
+        bool IsValidTimeStamp(Timestamp currentBlockTime_s)
+        {
+            Timestamp currentTime_s = getTimestamp();
+            const Timestamp tolerance_s = 60 * 10; // 10 minutes tolerance.
+            currentBlockTime_s += tolerance_s;
+
+            if (currentTime_s > currentBlockTime_s)
+            {
+                LOG_INFO() << "It seems that node is not up to date";
+                return false;
+            }
+            return true;
+        }
+    }
+
     int WalletID::cmp(const WalletID& x) const
     {
         int n = m_Channel.cmp(x.m_Channel);
@@ -468,7 +485,7 @@ namespace beam
         if (it != m_Transactions.end())
         {
             auto tx = it->second;
-            bool bSynced = !SyncRemains();
+            bool bSynced = !SyncRemains() && IsNodeInSync();
 
             if (bSynced)
                 tx->Update();
@@ -762,6 +779,11 @@ namespace beam
         LOG_INFO() << "Current state is " << id;
         notifySyncProgress();
 
+        if (!IsValidTimeStamp(sTip.m_TimeStamp))
+        {
+            // we are not ready to process transactions
+            return;
+        }
         std::unordered_set<wallet::BaseTransaction::Ptr> txSet;
         txSet.swap(m_TransactionsToUpdate);
 
@@ -907,5 +929,16 @@ namespace beam
                 m_WalletDB->deleteWalletMessage(message.m_ID);
             }
         }
+    }
+
+    bool Wallet::IsNodeInSync() const
+    {
+        if (m_NodeEndpoint)
+        {
+            Block::SystemState::Full sTip;
+            get_tip(sTip);
+            return IsValidTimeStamp(sTip.m_TimeStamp);
+        }
+        return true; // to allow made air-gapped transactions
     }
 }

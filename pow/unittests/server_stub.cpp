@@ -91,7 +91,7 @@ void run_without_node() {
     feedJobsTimer = io::Timer::create(*reactor);
     IExternalPOW::Options options;
     find_certificates(options);
-    server = IExternalPOW::create(options, *reactor, listenTo, 5);
+    server = IExternalPOW::create(options, *reactor, listenTo, 0);
     gen_new_job();
     reactor->run();
     feedJobsTimer.reset();

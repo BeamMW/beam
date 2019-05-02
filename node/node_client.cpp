@@ -14,7 +14,6 @@
 
 #include "node_client.h"
 
-#include "node/node.h"
 #include <mutex>
 
 #include "pow/external_pow.h"
@@ -135,7 +134,7 @@ void NodeClient::start()
                     }
 
                     if (bErr)
-                        m_observer->onFailedToStartNode();
+                        m_observer->onSyncError(Node::IObserver::Error::EmptyPeerList);
                 }
             }
         }
@@ -219,14 +218,7 @@ void NodeClient::runLocalNode()
 
         void OnSyncError(Node::IObserver::Error error) override
         {
-            switch (error)
-            {
-            case Node::IObserver::EmptyPeerList:
-                m_pModel->m_observer->onFailedToStartNode();
-                break;
-            default:
-                assert(false);
-            }
+            m_pModel->m_observer->onSyncError(error);
         }
 
 		~MyObserver()

@@ -65,7 +65,7 @@ public:
 
 private:
     bool on_raw_message(void* data, size_t size) {
-        LOG_VERBOSE() << "got " << std::string((char*)data, size-1);
+        LOG_DEBUG() << "got " << std::string((char*)data, size-1);
         return stratum::parse_json_msg(data, size, *this);
     }
 

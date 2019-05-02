@@ -89,13 +89,17 @@ void NodeModel::onStoppedNode()
     env->CallStaticVoidMethod(WalletListenerClass, callback);
 }
 
-void NodeModel::onFailedToStartNode()
+// void NodeModel::onFailedToStartNode()
+// {
+//     JNIEnv* env = Android_JNI_getEnv();
+
+//     jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onFailedToStartNode", "()V");
+
+//     env->CallStaticVoidMethod(WalletListenerClass, callback);
+// }
+
+void NodeModel::onSyncError(beam::Node::IObserver::Error error)
 {
-    JNIEnv* env = Android_JNI_getEnv();
-
-    jmethodID callback = env->GetStaticMethodID(WalletListenerClass, "onFailedToStartNode", "()V");
-
-    env->CallStaticVoidMethod(WalletListenerClass, callback);
 }
 
 void NodeModel::onFailedToStartNode(io::ErrorCode /*errorCode*/)

@@ -39,7 +39,8 @@ struct Node
 
         enum Error
         {
-            EmptyPeerList
+            EmptyPeerList,
+			TimeDiffToLarge
         };
 
         virtual void OnSyncError(Error error) {}
