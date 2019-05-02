@@ -682,9 +682,12 @@ void TestRangeProof(bool bCustomTag)
 		Scalar::Native pSk[nSigners];
 		uintBig pSeed[nSigners];
 
-		// 1st cycle. peers produce Part2
+		// 1st cycle. peers produce Part2, aggregate commitment
 		RangeProof::Confidential::Part2 p2;
 		ZeroObject(p2);
+
+		comm = Zero;
+		Tag::AddValue(comm, &tag.m_hGen, cp.m_Kidv.m_Value);
 
 		RangeProof::Confidential::MultiSig msig;
 
@@ -693,36 +696,37 @@ void TestRangeProof(bool bCustomTag)
 			SetRandom(pSk[i]);
 			SetRandom(pSeed[i]);
 
+			comm += Context::get().G * pSk[i];
+
 			if (i + 1 < nSigners)
 				verify_test(RangeProof::Confidential::MultiSig::CoSignPart(pSeed[i], p2)); // p2 aggregation
 			else
 			{
 				Oracle oracle;
 				bp.m_Part2 = p2;
-				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Step2, &msig, &tag.m_hGen)); // add last p2, produce msig
+				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Step2, &tag.m_hGen)); // add last p2, produce msig
 				p2 = bp.m_Part2;
+
+				msig.m_Part1 = bp.m_Part1;
+				msig.m_Part2 = bp.m_Part2;
 			}
 		}
 
-		// 2nd cycle. Peers produce Part3, commitment is aggregated too
+		// 2nd cycle. Peers produce Part3
 		RangeProof::Confidential::Part3 p3;
 		ZeroObject(p3);
 
-		comm = Zero;
-		Tag::AddValue(comm, &tag.m_hGen, cp.m_Kidv.m_Value);
-
 		for (uint32_t i = 0; i < nSigners; i++)
 		{
-			comm += Context::get().G * pSk[i];
+			Oracle oracle;
 
 			if (i + 1 < nSigners)
-				msig.CoSignPart(pSeed[i], pSk[i], p3);
+				msig.CoSignPart(pSeed[i], pSk[i], oracle, p3);
 			else
 			{
-				Oracle oracle;
 				bp.m_Part2 = p2;
 				bp.m_Part3 = p3;
-				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Finalize, nullptr, &tag.m_hGen));
+				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Finalize, &tag.m_hGen));
 			}
 		}
 

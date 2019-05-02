@@ -385,11 +385,13 @@ namespace ECC
 			// multisig
 			struct MultiSig
 			{
-				Scalar x, zz;
+				Part1 m_Part1;
+				Part2 m_Part2;
+
 				struct Impl;
 
 				static bool CoSignPart(const uintBig& seedSk, Part2&);
-				void CoSignPart(const uintBig& seedSk, const Scalar::Native& sk, Part3&) const;
+				void CoSignPart(const uintBig& seedSk, const Scalar::Native& sk, Oracle&, Part3&) const;
 			};
 
 			struct Phase {
@@ -401,12 +403,13 @@ namespace ECC
 				};
 			};
 
-			bool CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, MultiSig* pMsigOut = nullptr, const Point::Native* pHGen = nullptr); // for multi-sig use 1,2,3 for 1st-pass
+			bool CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams&, Oracle&, Phase::Enum, const Point::Native* pHGen = nullptr);
 
 
 		private:
-			struct ChallengeSetBase;
-			struct ChallengeSet;
+			struct ChallengeSet0;
+			struct ChallengeSet1;
+			struct ChallengeSet2;
 			static void CalcA(Point&, const Scalar::Native& alpha, Amount v);
 		};
 
