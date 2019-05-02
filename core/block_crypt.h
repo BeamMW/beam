@@ -244,12 +244,14 @@ namespace beam
 
 		bool		m_Coinbase;
 		bool		m_CanDuplicate;
+		bool		m_RecoveryOnly;
 		Height		m_Incubation; // # of blocks before it's mature
 		AssetID		m_AssetID;
 
 		Output()
 			:m_Coinbase(false)
 			,m_CanDuplicate(false)
+			,m_RecoveryOnly(false)
 			,m_Incubation(0)
 		{
 			m_AssetID = Zero;

@@ -560,7 +560,16 @@ void TestRangeProof(bool bCustomTag)
 		RangeProof::CreatorParams cp2;
 		cp2.m_Seed = cp.m_Seed;
 
-		rp.Recover(cp2);
+		verify_test(rp.Recover(cp2));
+		verify_test(cp.m_Kidv == cp2.m_Kidv);
+
+		// leave only data needed for recovery
+		RangeProof::Public rp2;
+		ZeroObject(rp2);
+		rp2.m_Recovery = rp.m_Recovery;
+		rp2.m_Value = rp.m_Value;
+
+		verify_test(rp2.Recover(cp2));
 		verify_test(cp.m_Kidv == cp2.m_Kidv);
 	}
 
@@ -624,7 +633,18 @@ void TestRangeProof(bool bCustomTag)
 		RangeProof::CreatorParams cp2;
 		cp2.m_Seed = cp.m_Seed;
 
-		bp.Recover(oracle, cp2);
+		verify_test(bp.Recover(oracle, cp2));
+		verify_test(cp.m_Kidv == cp2.m_Kidv);
+
+		// leave only data needed for recovery
+		RangeProof::Confidential bp2 = bp;
+
+		ZeroObject(bp2.m_Part3);
+		ZeroObject(bp2.m_tDot);
+		ZeroObject(bp2.m_P_Tag);
+
+		oracle = Oracle();
+		verify_test(bp2.Recover(oracle, cp2));
 		verify_test(cp.m_Kidv == cp2.m_Kidv);
 	}
 
@@ -726,6 +746,9 @@ void TestRangeProof(bool bCustomTag)
 		outp.Create(g_hFork, sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf, true);
 		verify_test(outp.IsValid(g_hFork, comm));
 		WriteSizeSerialized("Out-UTXO-Public", outp);
+
+		outp.m_RecoveryOnly = true;
+		WriteSizeSerialized("Out-UTXO-Public-RecoveryOnly", outp);
 	}
 	{
 		beam::Output outp;
@@ -733,6 +756,9 @@ void TestRangeProof(bool bCustomTag)
 		outp.Create(g_hFork, sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf);
 		verify_test(outp.IsValid(g_hFork, comm));
 		WriteSizeSerialized("Out-UTXO-Confidential", outp);
+
+		outp.m_RecoveryOnly = true;
+		WriteSizeSerialized("Out-UTXO-Confidential-RecoveryOnly", outp);
 	}
 
 	WriteSizeSerialized("In-Utxo", beam::Input());
