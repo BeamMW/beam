@@ -26,6 +26,8 @@
 #include <numeric>
 #include "bitcoin/bitcoind017.h"
 #include "bitcoin/bitcoin_side.h"
+#include "litecoin/litecoind016.h"
+#include "litecoin/litecoin_side.h"
 
 namespace beam
 {
@@ -125,9 +127,14 @@ namespace beam
         m_bitcoinBridge = make_shared<Bitcoind017>(reactor, userName, pass, address);
     }
 
-    void Wallet::initSwapConditions(Amount beamAmount, Amount swapAmount, bool isBeamSide)
+    void Wallet::initLitecoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address)
     {
-        m_swapConditions = SwapConditions{ beamAmount, swapAmount, isBeamSide };
+        m_litecoinBridge = make_shared<Litecoind016>(reactor, userName, pass, address);
+    }
+
+    void Wallet::initSwapConditions(Amount beamAmount, Amount swapAmount, AtomicSwapCoin swapCoin, bool isBeamSide)
+    {
+        m_swapConditions.push_back(SwapConditions{ beamAmount, swapAmount, swapCoin, isBeamSide });
     }
 
     Wallet::~Wallet()
@@ -444,6 +451,12 @@ namespace beam
             {
                 bool isBeamSide = it->second->GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
                 return std::make_shared<BitcoinSide>(*it->second, m_bitcoinBridge, isBeamSide);
+            }
+
+            if (swapCoin == AtomicSwapCoin::Litecoin)
+            {
+                bool isBeamSide = it->second->GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
+                return std::make_shared<LitecoinSide>(*it->second, m_litecoinBridge, isBeamSide);
             }
         }
         return nullptr;
@@ -933,7 +946,7 @@ namespace beam
 
         if (msg.m_Type == TxType::AtomicSwap)
         {
-            if (!m_swapConditions.is_initialized())
+            if (m_swapConditions.empty())
             {
                 LOG_DEBUG() << msg.m_TxID << " Swap rejected. Swap conditions aren't initialized.";
                 return BaseTransaction::Ptr();
@@ -942,21 +955,23 @@ namespace beam
             // validate swapConditions
             Amount amount = 0;
             Amount swapAmount = 0;
+            wallet::AtomicSwapCoin swapCoin = wallet::AtomicSwapCoin::Bitcoin;
             bool isBeamSide = 0;
 
             bool result = msg.GetParameter(TxParameterID::Amount, amount) &&
                 msg.GetParameter(TxParameterID::AtomicSwapAmount, swapAmount) &&
+                msg.GetParameter(TxParameterID::AtomicSwapCoin, swapCoin) &&
                 msg.GetParameter(TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
 
-            bool isValid = (amount == m_swapConditions->beamAmount) &&
-                (swapAmount == m_swapConditions->swapAmount) &&
-                (m_swapConditions->isBeamSide == isBeamSide);
+            auto idx = std::find(m_swapConditions.begin(), m_swapConditions.end(), SwapConditions{ amount, swapAmount, swapCoin, isBeamSide });
 
-            if (!result || !isValid)
+            if (!result || idx == m_swapConditions.end())
             {
                 LOG_DEBUG() << msg.m_TxID << " Swap rejected. Invalid conditions.";
                 return BaseTransaction::Ptr();
             }
+
+            m_swapConditions.erase(idx);
 
             LOG_DEBUG() << msg.m_TxID << " Swap accepted.";
         }

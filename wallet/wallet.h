@@ -73,7 +73,8 @@ namespace beam
 
         void set_Network(proto::FlyClient::INetwork&, IWalletNetwork&);
         void initBitcoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address);
-        void initSwapConditions(Amount beamAmount, Amount swapAmount, bool isBeamSide);
+        void initLitecoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address);
+        void initSwapConditions(Amount beamAmount, Amount swapAmount, wallet::AtomicSwapCoin swapCoin, bool isBeamSide);
 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = 120, Height responseTime = 12*60, ByteBuffer&& message = {} );
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = 120, Height responseTime = 12 * 60, ByteBuffer&& message = {});
@@ -147,7 +148,16 @@ namespace beam
         {
             Amount beamAmount = 0;
             Amount swapAmount = 0;
+            wallet::AtomicSwapCoin swapCoin;
             bool isBeamSide = 0;
+
+            bool operator== (const SwapConditions& other)
+            {
+                return beamAmount == other.beamAmount &&
+                    swapAmount == other.swapAmount &&
+                    swapCoin == other.swapCoin &&
+                    isBeamSide == other.isBeamSide;
+            }
         };
 
 #define REQUEST_TYPES_Sync(macro) \
@@ -241,6 +251,7 @@ namespace beam
         std::vector<IWalletObserver*> m_subscribers;
 
         IBitcoinBridge::Ptr m_bitcoinBridge;
-        boost::optional<SwapConditions> m_swapConditions;
+        IBitcoinBridge::Ptr m_litecoinBridge;
+        std::vector<SwapConditions> m_swapConditions;
     };
 }

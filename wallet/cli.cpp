@@ -1130,7 +1130,7 @@ int main_impl(int argc, char* argv[])
 
                         Amount swapAmount = vm[cli::SWAP_AMOUNT].as<beam::Amount>();
                         bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
-                        wallet.initSwapConditions(amount, swapAmount, isBeamSide);
+                        wallet.initSwapConditions(amount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, isBeamSide);
                     }
 
                     if (isTxInitiator)

@@ -42,6 +42,7 @@ namespace beam
     macro(ValidateAddress,  "validate_address", API_READ_ACCESS)    \
     macro(Send,             "tx_send",          API_WRITE_ACCESS)   \
     macro(InitBitcoin,      "init_bitcoin",     API_WRITE_ACCESS)   \
+    macro(InitLitecoin,     "init_litecoin",    API_WRITE_ACCESS)   \
     macro(StartSwap,        "start_swap",       API_WRITE_ACCESS)   \
     macro(AcceptSwap,       "accept_swap",      API_WRITE_ACCESS)   \
     macro(Replace,          "replace",          API_WRITE_ACCESS)   \
@@ -129,11 +130,21 @@ namespace beam
         struct Response {};
     };
 
+    struct InitLitecoin
+    {
+        std::string ltcUserName;
+        std::string ltcPass;
+        std::string ltcNodeAddr;
+
+        struct Response {};
+    };
+
     struct StartSwap
     {
         Amount amount;
         Amount fee;
         Amount swapAmount;
+        wallet::AtomicSwapCoin swapCoin;
         bool beamSide;
         WalletID address;
 
@@ -147,6 +158,7 @@ namespace beam
     {
         Amount amount;
         Amount swapAmount;
+        wallet::AtomicSwapCoin swapCoin;
         bool beamSide;
 
         struct Response {};

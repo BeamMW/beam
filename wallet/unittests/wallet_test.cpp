@@ -574,12 +574,12 @@ namespace
 
         if (isBeamOwnerStart)
         {
-            receiver.m_Wallet.initSwapConditions(beamAmount, swapAmount, false);
+            receiver.m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, false);
             txID = sender.m_Wallet.swap_coins(sender.m_WalletID, receiver.m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, true);
         }
         else
         {
-            sender.m_Wallet.initSwapConditions(beamAmount, swapAmount, true);
+            sender.m_Wallet.initSwapConditions(beamAmount, swapAmount, wallet::AtomicSwapCoin::Bitcoin, true);
             txID = receiver.m_Wallet.swap_coins(receiver.m_WalletID, sender.m_WalletID, beamAmount, beamFee, wallet::AtomicSwapCoin::Bitcoin, swapAmount, false);
         }
 

@@ -306,7 +306,8 @@ namespace beam
 
         enum class AtomicSwapCoin
         {
-            Bitcoin
+            Bitcoin,
+            Litecoin
         };
 
         using SubTxID = uint16_t;

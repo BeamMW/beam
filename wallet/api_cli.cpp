@@ -438,6 +438,23 @@ namespace beam
                 }
             }
 
+            void onMessage(int id, const InitLitecoin& data) override
+            {
+                LOG_DEBUG() << "InitLitecoin";
+
+                io::Address ltcNodeAddr;
+                if (ltcNodeAddr.resolve(data.ltcNodeAddr.c_str()))
+                {
+                    _wallet.initLitecoin(io::Reactor::get_Current(), data.ltcUserName, data.ltcPass, ltcNodeAddr);
+
+                    doResponse(id, EditAddress::Response{});
+                }
+                else
+                {
+                    doError(id, INVALID_ADDRESS, "Bitcoin node address is not resolved.");
+                }
+            }
+
             void onMessage(int id, const StartSwap& data) override
             {
                 LOG_DEBUG() << "StartSwap(id = " << id << " amount = " << data.amount << " fee = " << data.fee << " address = " << std::to_string(data.address) << " swap amount = " << data.swapAmount << " isBeamSide = " << data.beamSide << ")";
@@ -468,7 +485,7 @@ namespace beam
 
                 try
                 {
-                    _wallet.initSwapConditions(data.amount, data.swapAmount, data.beamSide);
+                    _wallet.initSwapConditions(data.amount, data.swapAmount, data.swapCoin, data.beamSide);
                     doResponse(id, AcceptSwap::Response{});
                 }
                 catch (...)

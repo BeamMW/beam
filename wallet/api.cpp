@@ -254,6 +254,30 @@ namespace beam
         _handler.onMessage(id, data);
     }
 
+    void WalletApi::onInitLitecoinMessage(int id, const nlohmann::json& params)
+    {
+        checkJsonParam(params, "ltcUserName", id);
+        checkJsonParam(params, "ltcPass", id);
+        checkJsonParam(params, "ltcNodeAddr", id);
+
+        if (params["ltcUserName"].empty())
+            throwInvalidJsonRpc(id);
+
+        if (params["ltcPass"].empty())
+            throwInvalidJsonRpc(id);
+
+        if (params["ltcNodeAddr"].empty())
+            throwInvalidJsonRpc(id);
+
+        InitLitecoin data;
+
+        data.ltcUserName = params["ltcUserName"];
+        data.ltcPass = params["ltcPass"];
+        data.ltcNodeAddr = params["ltcNodeAddr"];
+
+        _handler.onMessage(id, data);
+    }
+
     void WalletApi::onStartSwapMessage(int id, const nlohmann::json& params)
     {
         checkJsonParam(params, "amount", id);
@@ -278,6 +302,12 @@ namespace beam
         data.swapAmount = params["swapAmount"];
         data.beamSide = params["beamSide"];
         data.address.FromHex(params["address"]);
+        data.swapCoin = wallet::AtomicSwapCoin::Bitcoin;
+
+        if (existsJsonParam(params, "swapCoin"))
+        {
+            data.swapCoin = params["swapCoin"];
+        }
 
         _handler.onMessage(id, data);
     }
@@ -299,6 +329,13 @@ namespace beam
         data.amount = params["amount"];
         data.swapAmount = params["swapAmount"];
         data.beamSide = params["beamSide"];
+
+        data.swapCoin = wallet::AtomicSwapCoin::Bitcoin;
+
+        if (existsJsonParam(params, "swapCoin"))
+        {
+            data.swapCoin = params["swapCoin"];
+        }
 
         _handler.onMessage(id, data);
     }
@@ -581,6 +618,16 @@ namespace beam
     }
 
     void WalletApi::getResponse(int id, const InitBitcoin::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {"jsonrpc", "2.0"},
+            {"id", id},
+            {"result", "done"}
+        };
+    }
+
+    void WalletApi::getResponse(int id, const InitLitecoin::Response& res, json& msg)
     {
         msg = json
         {
