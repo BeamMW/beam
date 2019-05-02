@@ -925,7 +925,7 @@ namespace ECC {
 
 		cp.m_Kidv = pad.V;
 
-		// by now the probability of false positive if 2^-8, which is quite a lot
+		// by now the probability of false positive if 2^-64 (padding is 8 bytes)
 		// Calculate m_Part1.m_A, which depends on alpha and the value.
 
 		alpha_minus_params += params; // just alpha
