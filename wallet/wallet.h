@@ -136,6 +136,7 @@ namespace beam
         wallet::BaseTransaction::Ptr getTransaction(const WalletID& myID, const wallet::SetTxParameter& msg);
         wallet::BaseTransaction::Ptr constructTransaction(const TxID& id, wallet::TxType type);
         void ProcessStoredMessages();
+        bool IsNodeInSync() const;
 
     private:
 
