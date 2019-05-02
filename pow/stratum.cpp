@@ -122,7 +122,7 @@ template<> void parse(const json& o, Solution& m) {
 template<> void parse(const json& o, Result& m) {
     m.code = o[l_code];
     m.description = o[l_description];
-    m.nonceprefix = o[l_nonceprefix];
+    m.nonceprefix = o.value(l_nonceprefix, std::string());
 }
 
 } //namespace
@@ -201,7 +201,7 @@ bool append_json_msg(io::FragmentWriter& packer, const Result& m) {
     append_base(o, m);
     o[l_code] = m.code;
     o[l_description] = m.description;
-    o[l_nonceprefix] = m.nonceprefix;
+    if (!m.nonceprefix.empty()) o[l_nonceprefix] = m.nonceprefix;
     return serialize_json_msg(packer, o);
 }
 
