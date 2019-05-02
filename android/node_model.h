@@ -40,7 +40,7 @@ protected:
     void onSyncProgressUpdated(int done, int total) override;
     void onStartedNode() override;
     void onStoppedNode() override;
-    void onFailedToStartNode() override;
+    // void onFailedToStartNode() override;
     void onFailedToStartNode(beam::io::ErrorCode errorCode) override;
 
     uint16_t getLocalNodePort() override;
