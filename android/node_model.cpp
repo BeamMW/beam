@@ -98,6 +98,10 @@ void NodeModel::onStoppedNode()
 //     env->CallStaticVoidMethod(WalletListenerClass, callback);
 // }
 
+void NodeModel::onSyncError(beam::Node::IObserver::Error error)
+{
+}
+
 void NodeModel::onFailedToStartNode(io::ErrorCode /*errorCode*/)
 {
     JNIEnv* env = Android_JNI_getEnv();
