@@ -376,6 +376,7 @@ WalletViewModel::WalletViewModel()
     , _settings(AppModel::getInstance()->getSettings())
     , _status{ 0, 0, 0, 0, {0, 0, 0}, {} }
     , _sendAmount("0")
+    , _amountForReceive(0.0)
     , _feeGrothes("0")
     , _change(0)
     , _expires(0)
@@ -609,17 +610,16 @@ QString WalletViewModel::getAmountMissingToSend() const
     return QLocale().toString(static_cast<qulonglong>(missed)) + " " + qtTrId("tx-curency-sub-name");
 }
 
-const QString& WalletViewModel::getAmountForReceive() const
+double WalletViewModel::getAmountForReceive() const
 {
     return _amountForReceive;
 }
 
-void WalletViewModel::setAmountForReceive(const QString& value)
+void WalletViewModel::setAmountForReceive(double value)
 {
-    auto trimmedValue = value.trimmed();
-    if (trimmedValue != _amountForReceive)
+    if (value != _amountForReceive)
     {
-        _amountForReceive = trimmedValue;
+        _amountForReceive = value;
         updateReceiverQRCode();
         emit amountForReceiveChanged();
     }
@@ -954,11 +954,11 @@ void WalletViewModel::onCantSendToExpired()
 void WalletViewModel::updateReceiverQRCode()
 {
     QUrlQuery query;
-    if (!_amountForReceive.isEmpty())
+    if (_amountForReceive > 0)
     {
-        query.addQueryItem("amount", _amountForReceive);
+        query.addQueryItem("amount", QLocale("C").toString(_amountForReceive, 'f', -128));
     }
-
+    
     QUrl url;
     url.setScheme("beam");
     url.setPath(toString(_newReceiverAddr.m_walletID));
@@ -966,6 +966,7 @@ void WalletViewModel::updateReceiverQRCode()
 
     CQR_Encode qrEncode;
     QString strAddr = url.toString(QUrl::FullyEncoded);
+    LOG_DEBUG() << strAddr.toStdString();
     bool success = qrEncode.EncodeData(1, 0, true, -1, strAddr.toUtf8().data());
 
     if (success)
