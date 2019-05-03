@@ -37,7 +37,7 @@ namespace beam::wallet
         , m_AmountList{ amountList }
         , m_Fee{ fee }
         , m_Change{ 0 }
-        , m_Lifetime{ 120 }
+        , m_Lifetime{ kDefaultTxLifetime }
         , m_MinHeight{ 0 }
         , m_MaxHeight{ MaxHeight }
         , m_PeerMaxHeight{ MaxHeight }

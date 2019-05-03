@@ -15,6 +15,7 @@
 #pragma once
 
 #include "wallet/wallet_db.h"
+#include "wallet/common.h"
 #include "wallet/wallet_transaction.h"
 #include <deque>
 #include "core/fly_client.h"
@@ -76,10 +77,10 @@ namespace beam
         void initLitecoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address);
         void initSwapConditions(Amount beamAmount, Amount swapAmount, wallet::AtomicSwapCoin swapCoin, bool isBeamSide);
 
-        TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = 120, Height responseTime = 12*60, ByteBuffer&& message = {} );
-        TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = 120, Height responseTime = 12 * 60, ByteBuffer&& message = {});
-        TxID transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = 120, Height responseTime = 12 * 60, ByteBuffer&& message = {});
-        TxID split_coins(const WalletID& from, const AmountList& amountList, Amount fee = 0, bool sender = true, Height lifetime = 120, Height responseTime = 12 * 60, ByteBuffer&& message = {});
+        TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {} );
+        TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {});
+        TxID transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {});
+        TxID split_coins(const WalletID& from, const AmountList& amountList, Amount fee = 0, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {});
         TxID swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount, bool isBeamSide = true);
         void Refresh();
 
