@@ -736,8 +736,8 @@
         <translation>начать обновление</translation>
     </message>
     <message id="start-login-another-message">
-        <source>Login to another wallet or create new one</source>
-        <translation>Залогиниться в другой кошелек или создать новый</translation>
+        <source>Restore wallet or create new one</source>
+        <translation>Восстановить кошелек или создать новый</translation>
     </message>
     <message id="start-select-db-message">
         <source>Select the wallet database file</source>

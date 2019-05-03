@@ -271,10 +271,6 @@
         <source>Invalid password provided.</source>
         <translation>Invalid password provided.</translation>
     </message>
-    <message id="open-login-another-button">
-        <source>login to another wallet</source>
-        <translation>login to another wallet</translation>
-    </message>
     <message id="confirmation-cancel-button">
         <source>cancel</source>
         <translation>cancel</translation>
@@ -708,8 +704,8 @@
         <translation>start migration</translation>
     </message>
     <message id="start-login-another-message">
-        <source>Login to another wallet or create new one</source>
-        <translation>Login to another wallet or create new one</translation>
+        <source>Restore wallet or create new one</source>
+        <translation>Restore wallet or create new one</translation>
     </message>
     <message id="start-select-db-message">
         <source>Select the wallet database file</source>
@@ -1174,6 +1170,10 @@
     <message id="tx-details-tx-id-label">
         <source>Transaction ID:</source>
         <translation>Transaction ID:</translation>
+    </message>
+    <message id="open-login-another-button">
+        <source>login to another wallet</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

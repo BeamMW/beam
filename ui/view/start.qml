@@ -220,7 +220,7 @@ Item
 
                     SFText {
                         Layout.alignment: Qt.AlignHCenter
-                        //% "Login to another wallet or create new one"
+                        //% "Restore wallet or create new one"
                         text: qsTrId("start-login-another-message")
                         color: Style.active
                         font.pixelSize: 14
@@ -447,7 +447,7 @@ Item
 
                     SFText {
                         Layout.alignment: Qt.AlignHCenter
-                        //% "Login to another wallet or create new one"
+                        //% "Restore wallet or create new one"
                         text: qsTrId("start-login-another-message")
                         color: Style.active
                         font.pixelSize: 14
