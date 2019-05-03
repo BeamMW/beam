@@ -65,6 +65,9 @@ namespace beam::wallet
                             , beam::IWalletDB::Ptr walletDB
                             , const TxID& txID);
 
+        void Update() override;
+        void Cancel() override;
+
     private:
         void SetNextState(State state);
 
@@ -76,6 +79,7 @@ namespace beam::wallet
         void RollbackTx() override;
         void NotifyFailure(TxFailureReason) override;
         void OnFailed(TxFailureReason reason, bool notify) override;
+        bool CheckExpired() override;
         void SendInvitation();
         void SendExternalTxDetails();
         void SendLockTxInvitation(const LockTxBuilder& lockBuilder);

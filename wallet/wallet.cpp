@@ -209,7 +209,8 @@ namespace beam
         return transfer_money(from, from, amountList, fee, {}, sender, lifetime, responseTime, move(message));
     }
 
-    TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount, bool isBeamSide/*=true*/)
+    TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin,
+        Amount swapAmount, bool isBeamSide/*=true*/, Height lifetime/* = kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
     {
         auto txID = wallet::GenerateTxID();
         auto tx = constructTransaction(txID, TxType::AtomicSwap);
@@ -218,8 +219,11 @@ namespace beam
         tx->SetParameter(TxParameterID::CreateTime, getTimestamp(), false);
         tx->SetParameter(TxParameterID::Amount, amount, false);
         tx->SetParameter(TxParameterID::Fee, fee, false);
-        tx->SetParameter(TxParameterID::MinHeight, m_WalletDB->getCurrentHeight(), false);
+        tx->SetParameter(TxParameterID::Lifetime, lifetime, false);
         tx->SetParameter(TxParameterID::PeerID, to, false);
+
+        // Must be reset on first Update when we already have correct current height.
+        tx->SetParameter(TxParameterID::PeerResponseHeight, responseTime);
         tx->SetParameter(TxParameterID::MyID, from, false);
         tx->SetParameter(TxParameterID::IsSender, isBeamSide, false);
         tx->SetParameter(TxParameterID::IsInitiator, true, false);

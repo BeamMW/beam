@@ -25,7 +25,6 @@ namespace beam::wallet
         LockTxBuilder(BaseTransaction& tx, Amount amount, Amount fee);
 
         Transaction::Ptr CreateTransaction() override;
-        Height GetMaxHeight() const override;
 
         void LoadSharedParameters();
         bool SharedUTXOProofPart2(bool shouldProduceMultisig);

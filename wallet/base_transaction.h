@@ -109,7 +109,7 @@ namespace beam::wallet
         bool GetTip(Block::SystemState::Full& state) const;
         void UpdateAsync();
     protected:
-        bool CheckExpired();
+        virtual bool CheckExpired();
         bool CheckExternalFailures();
         void ConfirmKernel(const TxKernel& kernel);
         void UpdateOnNextTip();

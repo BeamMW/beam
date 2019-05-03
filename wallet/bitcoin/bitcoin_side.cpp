@@ -245,6 +245,7 @@ namespace beam::wallet
                 }
 
                 bool isRegistered = !txID.empty();
+                LOG_DEBUG() << m_tx.GetTxID() << "[" << subTxID << "]" << (isRegistered ? " has registered." : " has failed to register.");
                 m_tx.SetParameter(TxParameterID::TransactionRegistered, isRegistered, false, subTxID);
 
                 if (!txID.empty())

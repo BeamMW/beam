@@ -37,6 +37,30 @@ namespace beam::wallet
     {
     }
 
+    void AtomicSwapTransaction::Update()
+    {
+        try
+        {
+            UpdateImpl();
+
+            //CheckExpired();
+        }
+        catch (const TransactionFailedException& ex)
+        {
+            LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+            OnFailed(ex.GetReason(), ex.ShouldNofify());
+        }
+        catch (const std::exception& ex)
+        {
+            LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+        }
+    }
+
+    void AtomicSwapTransaction::Cancel()
+    {
+        LOG_DEBUG() << GetTxID() << " Cancel not implemented yet.";
+    }
+
     void AtomicSwapTransaction::SetNextState(State state)
     {
         SetState(state);
@@ -72,6 +96,15 @@ namespace beam::wallet
     {
         State state = GetState(kDefaultSubTxID);
         bool isBeamOwner = IsBeamSide();
+
+        if (Height minHeight = 0; (state == State::Initial) && IsInitiator() && !GetParameter(TxParameterID::MinHeight, minHeight))
+        {
+            // init all heights
+            Height currentHeight = m_WalletDB->getCurrentHeight();
+            Height responseTime = GetMandatoryParameter<Height>(TxParameterID::PeerResponseHeight);
+            SetParameter(TxParameterID::MinHeight, currentHeight, false);
+            SetParameter(TxParameterID::PeerResponseHeight, responseTime + currentHeight);
+        }
 
         if (!m_secondSide)
         {
@@ -306,7 +339,7 @@ namespace beam::wallet
     void AtomicSwapTransaction::NotifyFailure(TxFailureReason)
     {
         //assert(false && "Not implemented yet.");
-        LOG_DEBUG() << GetTxID() << "NotifyFailure not implemented yet.";
+        LOG_DEBUG() << GetTxID() << " NotifyFailure not implemented yet.";
     }
 
     void AtomicSwapTransaction::OnFailed(TxFailureReason reason, bool notify)
@@ -321,6 +354,27 @@ namespace beam::wallet
         SetParameter(TxParameterID::FailureReason, reason, false);
 
         RollbackTx();
+    }
+
+    bool AtomicSwapTransaction::CheckExpired()
+    {
+        if (IsBeamSide())
+        {
+            bool isRegistered = true;
+            if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered, SubTxIndex::BEAM_LOCK_TX))
+            {
+                Block::SystemState::Full state;
+                Height lockTxMaxHeight = MaxHeight;
+
+                if (GetParameter(TxParameterID::MaxHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX) && GetTip(state) && state.m_Height > lockTxMaxHeight)
+                {
+                    LOG_INFO() << GetTxID() << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << lockTxMaxHeight;
+                    OnFailed(TxFailureReason::TransactionExpired, false);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     bool AtomicSwapTransaction::CompleteBeamWithdrawTx(SubTxID subTxID)
@@ -366,6 +420,12 @@ namespace beam::wallet
 
             if (isBeamOwner)
             {
+                Height maxResponseHeight = 0;
+                if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight))
+                {
+                    LOG_INFO() << GetTxID() << "[" << SubTxIndex::BEAM_LOCK_TX << "]" << " Max height for response: " << maxResponseHeight;
+                }
+
                 lockTxBuilder->SelectInputs();
                 lockTxBuilder->AddChange();
                 lockTxBuilder->CreateOutputs();
@@ -396,6 +456,12 @@ namespace beam::wallet
                 SetState(SubTxState::Invitation, SubTxIndex::BEAM_LOCK_TX);
                 lockTxState = SubTxState::Invitation;
             }
+            return lockTxState;
+        }
+
+        if (!lockTxBuilder->UpdateMaxHeight())
+        {
+            OnSubTxFailed(TxFailureReason::MaxHeightIsUnacceptable, SubTxIndex::BEAM_LOCK_TX, true);
             return lockTxState;
         }
 
@@ -721,6 +787,8 @@ namespace beam::wallet
             .AddParameter(TxParameterID::Fee, lockBuilder.GetFee())
             .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
             .AddParameter(TxParameterID::MinHeight, lockBuilder.GetMinHeight())
+            .AddParameter(TxParameterID::Lifetime, lockBuilder.GetLifetime())
+            .AddParameter(TxParameterID::PeerMaxHeight, lockBuilder.GetMaxHeight())
             .AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce());
 
@@ -747,7 +815,8 @@ namespace beam::wallet
             auto bulletProof = lockBuilder.GetSharedProof();
             msg.AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
                 .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce())
-                .AddParameter(TxParameterID::PeerSharedBulletProofPart2, bulletProof.m_Part2);
+                .AddParameter(TxParameterID::PeerSharedBulletProofPart2, bulletProof.m_Part2)
+                .AddParameter(TxParameterID::PeerMaxHeight, lockBuilder.GetMaxHeight());
         }
 
         if (!SendTxParameters(std::move(msg)))
@@ -818,8 +887,12 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::CheckSubTxFailures()
     {
+        State state = GetState(kDefaultSubTxID);
         TxFailureReason reason = TxFailureReason::Unknown;
-        if (GetParameter(TxParameterID::FailureReason, reason, SubTxIndex::LOCK_TX))
+
+        if ((state == State::Initial ||
+            state == State::Invitation ||
+            state == State::HandlingContractTX) && GetParameter(TxParameterID::FailureReason, reason, SubTxIndex::LOCK_TX))
         {
             OnSubTxFailed(reason, SubTxIndex::LOCK_TX, false);
         }
