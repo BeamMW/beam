@@ -306,7 +306,10 @@ namespace beam
 
         if (existsJsonParam(params, "swapCoin"))
         {
-            data.swapCoin = params["swapCoin"];
+            data.swapCoin = wallet::from_string(params["swapCoin"]);
+
+            if (data.swapCoin == wallet::AtomicSwapCoin::Unknown)
+                throwInvalidJsonRpc(id);
         }
 
         _handler.onMessage(id, data);
@@ -334,7 +337,10 @@ namespace beam
 
         if (existsJsonParam(params, "swapCoin"))
         {
-            data.swapCoin = params["swapCoin"];
+            data.swapCoin = wallet::from_string(params["swapCoin"]);
+
+            if (data.swapCoin == wallet::AtomicSwapCoin::Unknown)
+                throwInvalidJsonRpc(id);
         }
 
         _handler.onMessage(id, data);

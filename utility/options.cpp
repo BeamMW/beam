@@ -42,6 +42,8 @@ namespace beam
         const char* PASS = "pass";
         const char* BTC_PASS = "btc_pass";
         const char* BTC_USER_NAME = "btc_user";
+        const char* LTC_PASS = "ltc_pass";
+        const char* LTC_USER_NAME = "ltc_user";
         const char* AMOUNT = "amount";
         const char* AMOUNT_FULL = "amount,a";
         const char* RECEIVER_ADDR = "receiver_addr";
@@ -49,6 +51,7 @@ namespace beam
         const char* NODE_ADDR = "node_addr";
         const char* NODE_ADDR_FULL = "node_addr,n";
         const char* BTC_NODE_ADDR = "btc_node_addr";
+        const char* LTC_NODE_ADDR = "ltc_node_addr";
         const char* COMMAND = "command";
         const char* LISTEN = "listen";
         const char* TREASURY = "treasury";
@@ -107,6 +110,7 @@ namespace beam
         const char* SWAP_COINS = "swap_coins";
         const char* SWAP_LISTEN = "swap_listen";
         const char* SWAP_AMOUNT = "swap_amount";
+        const char* SWAP_COIN = "swap_coin";
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
 
         // wallet api
@@ -186,11 +190,14 @@ namespace beam
             (cli::SEED_PHRASE, po::value<string>(), "phrase to generate secret key according to BIP-39.")
             (cli::BTC_PASS, po::value<string>(), "password for the bitcoin node")
             (cli::BTC_USER_NAME, po::value<string>(), "user name for the bitcoin node")
+            (cli::LTC_PASS, po::value<string>(), "password for the litecoin node")
+            (cli::LTC_USER_NAME, po::value<string>(), "user name for the litecoin node")
             (cli::AMOUNT_FULL, po::value<double>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::FEE_FULL, po::value<Amount>()->default_value(0), "fee (in Groth, 100,000,000 groth = 1 Beam)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
             (cli::BTC_NODE_ADDR, po::value<string>(), "address of bitcoin node")
+            (cli::LTC_NODE_ADDR, po::value<string>(), "address of litecoin node")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to wallet file")
             (cli::TX_HISTORY, "print transacrions' history in info command")
             (cli::LISTEN, "start listen after new_addr command")
@@ -206,6 +213,7 @@ namespace beam
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("addresses.dat"), "path to import or export data (import_addresses|export_addresses)")
             (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses|swap_coins|swap_listen]")
             (cli::SWAP_AMOUNT, po::value<Amount>(), "swap amount in the smallest unit of the coin")
+            (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc)")
             (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner");
 
         po::options_description wallet_treasury_options("Wallet treasury options");

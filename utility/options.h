@@ -39,6 +39,8 @@ namespace beam
         extern const char* PASS;
         extern const char* BTC_PASS;
         extern const char* BTC_USER_NAME;
+        extern const char* LTC_PASS;
+        extern const char* LTC_USER_NAME;
         extern const char* AMOUNT;
         extern const char* AMOUNT_FULL;
         extern const char* RECEIVER_ADDR;
@@ -46,6 +48,7 @@ namespace beam
         extern const char* NODE_ADDR;
         extern const char* NODE_ADDR_FULL;
         extern const char* BTC_NODE_ADDR;
+        extern const char* LTC_NODE_ADDR;
         extern const char* COMMAND;
         extern const char* NODE;
         extern const char* WALLET;
@@ -106,6 +109,7 @@ namespace beam
         extern const char* SWAP_COINS;
         extern const char* SWAP_LISTEN;
         extern const char* SWAP_AMOUNT;
+        extern const char* SWAP_COIN;
         extern const char* SWAP_BEAM_SIDE;
 
 

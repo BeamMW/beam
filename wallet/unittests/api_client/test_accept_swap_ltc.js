@@ -1,20 +1,19 @@
 var net = require('net');
 
 var client = new net.Socket();
-client.connect(10000, '127.0.0.1', function () {
+client.connect(10010, '127.0.0.1', function () {
     console.log('Connected');
     client.write(JSON.stringify(
 		{
 		    jsonrpc: '2.0',
 		    id: 123,
-		    method: 'start_swap',
+		    method: 'accept_swap',
 		    params:
 			{
 			    "amount": 1000,
-			    "fee": 10,
-			    "swapAmount": 50000,
-			    "beamSide": true,
-			    "address": "10b741984e87cfee90b11133371a652c4e0421ecb5b8bc9be24834f90f161d94920"
+			    "swapAmount": 90000,
+                "swapCoin": "ltc",
+			    "beamSide": false,
 			}
 		}) + '\n');
 });

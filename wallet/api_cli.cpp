@@ -470,7 +470,7 @@ namespace beam
 
                     from = senderAddress.m_walletID;
 
-                    auto txId = _wallet.swap_coins(from, data.address, data.amount, data.fee, wallet::AtomicSwapCoin::Bitcoin, data.swapAmount, data.beamSide);
+                    auto txId = _wallet.swap_coins(from, data.address, data.amount, data.fee, data.swapCoin, data.swapAmount, data.beamSide);
                     doResponse(id, StartSwap::Response{ txId });
                 }
                 catch (...)

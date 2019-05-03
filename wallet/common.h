@@ -307,8 +307,11 @@ namespace beam
         enum class AtomicSwapCoin
         {
             Bitcoin,
-            Litecoin
+            Litecoin,
+            Unknown
         };
+
+        AtomicSwapCoin from_string(const std::string& value);
 
         using SubTxID = uint16_t;
         const SubTxID kDefaultSubTxID = 1;
@@ -408,4 +411,5 @@ namespace std
 {
     string to_string(const beam::WalletID&);
     string to_string(const beam::Merkle::Hash& hash);
+    string to_string(beam::wallet::AtomicSwapCoin value);
 }
