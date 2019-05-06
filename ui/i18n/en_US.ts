@@ -1164,8 +1164,8 @@
         <translation>1 hour</translation>
     </message>
     <message id="receive-amount-label">
-        <source>Transaction amount</source>
-        <translation type="unfinished">Transaction amount</translation>
+        <source>Receive amount (optional)</source>
+        <translation>Receive amount (optional)</translation>
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID:</source>

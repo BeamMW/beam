@@ -447,7 +447,7 @@ Item {
                                     font.pixelSize: 14
                                     font.styleName: "Bold"; font.weight: Font.Bold
                                     color: Style.content_main
-                                    //% "Transaction amount"
+                                    //% "Receive amount (optional)"
                                     text: qsTrId("receive-amount-label")
                                 }
 

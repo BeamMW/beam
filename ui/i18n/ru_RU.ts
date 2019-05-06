@@ -1168,8 +1168,8 @@
         <translation>1 час</translation>
     </message>
     <message id="receive-amount-label">
-        <source>Transaction amount</source>
-        <translation type="unfinished">Сумма транзакции</translation>
+        <source>Receive amount (optional)</source>
+        <translation>Сумма (опционально)</translation>
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID:</source>

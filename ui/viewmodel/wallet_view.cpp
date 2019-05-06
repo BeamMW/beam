@@ -966,7 +966,6 @@ void WalletViewModel::updateReceiverQRCode()
 
     CQR_Encode qrEncode;
     QString strAddr = url.toString(QUrl::FullyEncoded);
-    LOG_DEBUG() << strAddr.toStdString();
     bool success = qrEncode.EncodeData(1, 0, true, -1, strAddr.toUtf8().data());
 
     if (success)
