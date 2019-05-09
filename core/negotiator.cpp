@@ -20,6 +20,28 @@ namespace Negotiator {
 
 namespace Gateway
 {
+	uint32_t NestedImpl::CvtCode(uint32_t code) const
+	{
+		return code | m_Msk;
+	}
+
+	NestedImpl::NestedImpl(uint32_t iChild)
+		:m_Msk(iChild << 16)
+	{
+		assert(iChild);
+	}
+
+	Nested::Nested(IBase* p, uint32_t iChild)
+		:NestedImpl(iChild)
+		,m_pNext(p)
+	{
+	}
+
+	void Nested::Send(uint32_t code, ByteBuffer&& buf)
+	{
+		m_pNext->Send(CvtCode(code), std::move(buf));
+	}
+
 	void Direct::Send(uint32_t code, ByteBuffer&& buf)
 	{
 		const uint32_t msk = (uint32_t(1) << 16) - 1;
@@ -44,6 +66,22 @@ namespace Gateway
 
 namespace Storage
 {
+
+	Nested::Nested(IBase* p, uint32_t iChild)
+		:NestedImpl(iChild)
+		,m_pNext(p)
+	{
+	}
+
+	void Nested::Send(uint32_t code, ByteBuffer&& buf)
+	{
+		m_pNext->Send(CvtCode(code), std::move(buf));
+	}
+
+	bool Nested::Read(uint32_t code, Blob& blob)
+	{
+		return m_pNext->Read(CvtCode(code), blob);
+	}
 
 	void Map::Send(uint32_t code, ByteBuffer&& buf)
 	{

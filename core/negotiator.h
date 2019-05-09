@@ -54,6 +54,24 @@ namespace Negotiator {
 		struct IBase {
 			virtual void Send(uint32_t code, ByteBuffer&&) = 0;
 		};
+
+		struct NestedImpl
+		{
+			const uint32_t m_Msk;
+			NestedImpl(uint32_t iChild);
+
+			uint32_t CvtCode(uint32_t code) const;
+		};
+
+		struct Nested
+			:public IBase
+			,public NestedImpl
+		{
+			IBase* m_pNext;
+			Nested(IBase*, uint32_t iChild);
+
+			virtual void Send(uint32_t code, ByteBuffer&& buf) override;
+		};
 	}
 
 	namespace Storage
@@ -63,6 +81,18 @@ namespace Negotiator {
 		{
 			virtual bool Read(uint32_t code, Blob&) = 0;
 		};
+
+		struct Nested
+			:public IBase
+			,public Gateway::NestedImpl
+		{
+			IBase* m_pNext;
+			Nested(IBase*, uint32_t iChild);
+
+			virtual void Send(uint32_t code, ByteBuffer&& buf) override;
+			virtual bool Read(uint32_t code, Blob& blob) override;
+		};
+
 	}
 
 
