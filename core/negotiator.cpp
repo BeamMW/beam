@@ -19,5 +19,49 @@ namespace beam {
 namespace Negotiator {
 
 
+/////////////////////
+// IBase
+
+void IBase::OnFail()
+{
+	Set(Status::Error, Codes::Status);
+}
+
+void IBase::OnDone()
+{
+	Set(Status::Success, Codes::Status);
+}
+
+bool IBase::RaiseTo(uint32_t pos)
+{
+	if (m_Pos >= pos)
+		return false;
+
+	m_Pos = pos;
+	return true;
+}
+
+uint32_t IBase::Update()
+{
+	uint32_t nStatus = Status::Pending;
+	if (Get(nStatus, Codes::Status))
+		return nStatus;
+
+	uint32_t nPos = 0;
+	Get(nPos, Codes::Position);
+	m_Pos = nPos;
+
+	Update2();
+
+	if (Get(nStatus, Codes::Status) && (nStatus > Status::Success))
+		return nStatus;
+
+	assert(m_Pos >= nPos);
+	if (m_Pos > nPos)
+		Set(m_Pos, Codes::Position);
+
+	return nStatus;
+}
+
 } // namespace Negotiator
 } // namespace beam
