@@ -265,5 +265,67 @@ namespace Negotiator {
 		};
 	};
 
+	//////////////////////////////////////////
+	// WithdrawTx - part of lightning network
+	// Consists internally of 3 negotiations:
+	//		create msig1 - a newer multisigned UTXO
+	//		transaction mgis0 -> msig1
+	//		transaction msig1 -> outputs (withdrawal) with relative timelock w.r.t. previous transaction
+
+	class WithdrawTx
+		:public IBase
+	{
+		virtual void Update2() override;
+
+	public:
+
+		Multisig m_MSig; // msig1
+		MultiTx m_Tx1; // msig0 - > msig1
+		MultiTx m_Tx2; // msig1 -> outputs, timelocked
+
+		// Worker object, handles remapping of storage and gateway for inner objects
+		class Worker
+		{
+			WithdrawTx& m_This;
+
+			struct S0 :public Storage::Nested
+			{
+				S0() :Storage::Nested(get_ParentObj().m_This.m_pStorage, 1) {}
+
+				virtual bool Read(uint32_t code, Blob& blob) override;
+
+				IMPLEMENT_GET_PARENT_OBJ(Worker, m_s0)
+			} m_s0;
+
+			struct S1 :public Storage::Nested
+			{
+				S1() :Storage::Nested(get_ParentObj().m_This.m_pStorage, 2) {}
+
+				virtual bool Read(uint32_t code, Blob& blob) override;
+
+				IMPLEMENT_GET_PARENT_OBJ(Worker, m_s1)
+			} m_s1;
+
+			struct S2 :public Storage::Nested
+			{
+				S2() :Storage::Nested(get_ParentObj().m_This.m_pStorage, 3) {}
+
+				virtual bool Read(uint32_t code, Blob& blob) override;
+
+				IMPLEMENT_GET_PARENT_OBJ(Worker, m_s2)
+			} m_s2;
+
+			Gateway::Nested m_Gw0;
+			Gateway::Nested m_Gw1;
+			Gateway::Nested m_Gw2;
+
+		public:
+			Worker(WithdrawTx& x);
+		};
+	};
+
+
+
+
 } // namespace Negotiator
 } // namespace beam

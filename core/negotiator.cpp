@@ -655,5 +655,138 @@ void MultiTx::Update2()
 	OnDone();
 }
 
+
+/////////////////////
+// WithdrawTx
+
+WithdrawTx::Worker::Worker(WithdrawTx& x)
+	:m_This(x)
+	,m_Gw0(x.m_pGateway, 1)
+	,m_Gw1(x.m_pGateway, 2)
+	,m_Gw2(x.m_pGateway, 3)
+{
+	x.m_MSig.m_pStorage = &m_s0;
+	x.m_Tx1.m_pStorage = &m_s1;
+	x.m_Tx2.m_pStorage = &m_s2;
+
+	x.m_MSig.m_pGateway = &m_Gw0;
+	x.m_Tx1.m_pGateway = &m_Gw1;
+	x.m_Tx2.m_pGateway = &m_Gw2;
+}
+
+bool WithdrawTx::Worker::S0::Read(uint32_t code, Blob& blob)
+{
+	switch (code)
+	{
+	case Codes::Role:
+		return m_pNext->Read(Codes::Role, blob);
+	}
+
+	return Storage::Nested::Read(code, blob);
+}
+
+bool WithdrawTx::Worker::S1::Read(uint32_t code, Blob& blob)
+{
+	switch (code)
+	{
+	case Codes::Role:
+		return m_pNext->Read(Codes::Role, blob);
+
+	case MultiTx::Codes::OutpMsKidv:
+		return get_ParentObj().m_s0.Read(Multisig::Codes::Kidv, blob);
+
+	case MultiTx::Codes::OutpMsTxo:
+		return get_ParentObj().m_s0.Read(Multisig::Codes::OutputTxo, blob);
+
+	case MultiTx::Codes::Block:
+		{
+			// block it until Tx2 is ready. Should be invoked only for Role==1
+			uint32_t status = 0;
+			get_ParentObj().m_This.m_Tx2.Get(status, Codes::Status);
+
+			if (Status::Success == status)
+				return false; // i.e. not blocked
+		}
+		return m_pNext->Read(Codes::Role, blob);; // should contain Rule==1, means Block==1
+	}
+
+	return Storage::Nested::Read(code, blob);
+}
+
+bool WithdrawTx::Worker::S2::Read(uint32_t code, Blob& blob)
+{
+	switch (code)
+	{
+	case Codes::Role:
+		return m_pNext->Read(Codes::Role, blob);
+
+	case MultiTx::Codes::InpMsKidv:
+		return get_ParentObj().m_s0.Read(Multisig::Codes::Kidv, blob);
+
+	case MultiTx::Codes::InpMsCommitment:
+		return get_ParentObj().m_s0.Read(Multisig::Codes::Commitment, blob);
+
+	case MultiTx::Codes::KrnLockID:
+		return get_ParentObj().m_s1.Read(MultiTx::Codes::KernelID, blob);
+	}
+
+	return Storage::Nested::Read(code, blob);
+}
+
+
+void WithdrawTx::Update2()
+{
+	Worker wrk(*this);
+
+	// update all internal txs. They have dependencies, hence the order is important (to save p2p roundtrips).
+	//
+	// MSig is not dependent on anything. Hence it's always the 1st
+	// Tx1: msig0 -> msig1
+	//		Blocked at "point of no return" until Tx2 is completed. Applicable for Role==1 only
+	// Tx2: msig1 -> outs, timelocked
+	//		Needs KernelID of Tx1
+	//
+	// Current order of update:
+	//		MSig
+	//		Tx1
+	//		Tx2
+	//		Tx1 iff Tx2 completed
+
+
+	uint32_t status0 = m_MSig.Update();
+	if (status0 > Status::Success)
+	{
+		OnFail();
+		return;
+	}
+
+	uint32_t status1 = m_Tx1.Update();
+	if (status1 > Status::Success)
+	{
+		OnFail();
+		return;
+	}
+
+	uint32_t status2 = m_Tx2.Update();
+	if (status2 > Status::Success)
+	{
+		OnFail();
+		return;
+	}
+
+	if (status2 == Status::Success)
+	{
+		status1 = m_Tx1.Update();
+		if (status1 > Status::Success)
+		{
+			OnFail();
+			return;
+		}
+	}
+
+	if (status0 && status1 && status2)
+		OnDone();
+}
+
 } // namespace Negotiator
 } // namespace beam
