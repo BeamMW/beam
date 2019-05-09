@@ -134,5 +134,28 @@ namespace Negotiator {
 		uint32_t Update();
 	};
 
+	namespace Gateway
+	{
+		// directly update peer's storage. Suitable for local peers
+		struct Direct :public IBase
+		{
+			Negotiator::IBase& m_Peer;
+			Direct(Negotiator::IBase& x) :m_Peer(x) {}
+
+			virtual void Send(uint32_t code, ByteBuffer&& buf) override;
+		};
+	}
+
+	namespace Storage
+	{
+		struct Map
+			:public IBase
+			,public std::map<uint32_t, ByteBuffer>
+		{
+			virtual void Send(uint32_t code, ByteBuffer&& buf) override;
+			virtual bool Read(uint32_t code, Blob& blob) override;
+		};
+	}
+
 } // namespace Negotiator
 } // namespace beam

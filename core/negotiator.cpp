@@ -18,6 +18,49 @@
 namespace beam {
 namespace Negotiator {
 
+namespace Gateway
+{
+	void Direct::Send(uint32_t code, ByteBuffer&& buf)
+	{
+		const uint32_t msk = (uint32_t(1) << 16) - 1;
+		if ((code & msk) >= Codes::Private)
+		{
+			assert(false);
+			return;
+		}
+
+		Blob blob;
+		if (m_Peer.m_pStorage->Read(code, blob))
+		{
+			assert(false);
+			return;
+		}
+
+		m_Peer.m_pStorage->Send(code, std::move(buf));
+	}
+
+
+} // namespace Gateway
+
+namespace Storage
+{
+
+	void Map::Send(uint32_t code, ByteBuffer&& buf)
+	{
+		operator [](code) = std::move(buf);
+	}
+
+	bool Map::Read(uint32_t code, Blob& blob)
+	{
+		const_iterator it = find(code);
+		if (end() == it)
+			return false;
+
+		blob = Blob(it->second);
+		return true;
+	}
+
+} // namespace Storage
 
 /////////////////////
 // IBase
