@@ -157,5 +157,32 @@ namespace Negotiator {
 		};
 	}
 
+
+	//////////////////////////////////////////
+	// Multisig - create a multi-signed UTXO
+
+	class Multisig
+		:public IBase
+	{
+		struct Impl;
+		virtual void Update2() override;
+	public:
+
+		struct Codes
+			:public Negotiator::Codes
+		{
+			static const uint32_t Kidv = Input0 + 1;
+			static const uint32_t ShareResult = Input0 + 2;
+			static const uint32_t Commitment = Output0 + 1;
+			static const uint32_t OutputTxo = Output0 + 0;
+			static const uint32_t Nonce = Variable0 + 1;
+			static const uint32_t PubKeyPlus = PeerVariable0 + 0;
+			static const uint32_t BpPart2 = PeerVariable0 + 1;
+			static const uint32_t BpBothPart = PeerVariable0 + 2;
+			static const uint32_t BpPart3 = PeerVariable0 + 3;
+			static const uint32_t BpFull = PeerVariable0 + 4;
+		};
+	};
+
 } // namespace Negotiator
 } // namespace beam

@@ -275,7 +275,6 @@ namespace beam
 		int cmp(const Output&) const;
 		COMPARISON_VIA_CMP
 
-	private:
 		void get_SeedKid(ECC::uintBig&, Key::IPKdf&) const;
 		void Prepare(ECC::Oracle&, Height hVer) const;
 	};
