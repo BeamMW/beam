@@ -184,5 +184,56 @@ namespace Negotiator {
 		};
 	};
 
+	//////////////////////////////////////////
+	// MultiTx - create a transaction with arbitrary inputs and outputs.
+	// Up to 1 multisigned UTXO on both endings
+	// Optionally with relative timelock
+
+	class MultiTx
+		:public IBase
+	{
+		void CalcInput(const Key::IDV& kidv, ECC::Scalar::Native& offs, ECC::Point& comm);
+		void CalcMSig(const Key::IDV& kidv, ECC::Scalar::Native& offs);
+		ECC::Point& PushInput(Transaction& tx);
+		bool BuildTxPart(Transaction& tx, bool bIsSender, ECC::Scalar::Native& offs);
+		bool ReadKrn(TxKernel& krn, ECC::Hash::Value& hv);
+
+		virtual void Update2() override;
+
+	public:
+
+		struct Codes
+			:public Negotiator::Codes
+		{
+			static const uint32_t ShareResult = Input0 + 2;
+
+			static const uint32_t InpKidvs = Input0 + 21;
+			static const uint32_t InpMsKidv = Input0 + 22;
+			static const uint32_t InpMsCommitment = Input0 + 23;
+
+			static const uint32_t OutpKidvs = Input0 + 11;
+			static const uint32_t OutpMsKidv = Input0 + 12;
+			static const uint32_t OutpMsTxo = Input0 + 13;
+
+			static const uint32_t KrnH0 = Input0 + 5;
+			static const uint32_t KrnH1 = Input0 + 6;
+			static const uint32_t KrnFee = Input0 + 7;
+			static const uint32_t KrnLockHeight = Input0 + 8;
+			static const uint32_t KrnLockID = Input0 + 9;
+
+			static const uint32_t Block = Input0 + 30; // don't continue beyond "point of no return", i.e. where the peer can complete the transaction
+
+			static const uint32_t Nonce = Variable0 + 1;
+
+			static const uint32_t KrnCommitment = PeerVariable0 + 0;
+			static const uint32_t KrnNonce = PeerVariable0 + 1;
+			static const uint32_t KrnSig = PeerVariable0 + 2;
+			static const uint32_t TxPartial = PeerVariable0 + 3;
+
+			static const uint32_t TxFinal = Output0 + 0;
+			static const uint32_t KernelID = Output0 + 1;
+		};
+	};
+
 } // namespace Negotiator
 } // namespace beam
