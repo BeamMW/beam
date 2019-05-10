@@ -937,7 +937,7 @@ int main_impl(int argc, char* argv[])
                         auto comment = vm[cli::NEW_ADDRESS_COMMENT].as<string>();
                         newAddress(walletDB, comment, vm[cli::EXPIRATION_TIME].as<string>() == "never");
 
-                        if (!vm.count(cli::LISTEN)) 
+                        if (!vm.count(cli::LISTEN))
                         {
                             return 0;
                         }
@@ -1011,86 +1011,88 @@ int main_impl(int argc, char* argv[])
 
                     bool is_server = (command == cli::LISTEN || vm.count(cli::LISTEN));
 
-                    Wallet wallet{ walletDB, is_server ? Wallet::TxCompletedAction() : [](auto) { io::Reactor::get_Current().stop(); } };
-                        
-                    if (!coldWallet)
+                    Wallet wallet{ walletDB, is_server ? Wallet::TxCompletedAction() : [](auto) { io::Reactor::get_Current().stop(); },
+                                            !coldWallet ? Wallet::UpdateCompletedAction() : []() {io::Reactor::get_Current().stop(); } };
                     {
-                        if (vm.count(cli::NODE_ADDR) == 0)
+                        wallet::AsyncContextHolder holder(wallet);
+                        if (!coldWallet)
                         {
-                            LOG_ERROR() << "node address should be specified";
-                            return -1;
-                        }
-
-                        string nodeURI = vm[cli::NODE_ADDR].as<string>();
-                        io::Address nodeAddress;
-                        if (!nodeAddress.resolve(nodeURI.c_str()))
-                        {
-                            LOG_ERROR() << "unable to resolve node address: " << nodeURI;
-                            return -1;
-                        }
-
-                        auto nnet = make_shared<proto::FlyClient::NetworkStd>(wallet);
-                        nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
-                        nnet->Connect();
-                        wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB));
-                        wallet.SetNodeEndpoint(nnet);
-                    }
-                    else
-                    {
-                        wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB));
-                    }
-
-                    if (isTxInitiator)
-                    {
-                        WalletAddress senderAddress = newAddress(walletDB, "");
-                        CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
-                        wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, 120, 720, {}, true);
-                    }
-
-                    bool deleteTx = command == cli::DELETE_TX;
-                    if (command == cli::CANCEL_TX || deleteTx)
-                    {
-                        auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
-                        TxID txId;
-                        std::copy_n(txIdVec.begin(), 16, txId.begin());
-                        auto tx = walletDB->getTx(txId);
-
-                        if (tx)
-                        {
-                            if (deleteTx)
+                            if (vm.count(cli::NODE_ADDR) == 0)
                             {
-                                if (tx->canDelete())
+                                LOG_ERROR() << "node address should be specified";
+                                return -1;
+                            }
+
+                            string nodeURI = vm[cli::NODE_ADDR].as<string>();
+                            io::Address nodeAddress;
+                            if (!nodeAddress.resolve(nodeURI.c_str()))
+                            {
+                                LOG_ERROR() << "unable to resolve node address: " << nodeURI;
+                                return -1;
+                            }
+
+                            auto nnet = make_shared<proto::FlyClient::NetworkStd>(wallet);
+                            nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
+                            nnet->Connect();
+                            wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB));
+                            wallet.SetNodeEndpoint(nnet);
+                        }
+                        else
+                        {
+                            wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB));
+                        }
+
+                        if (isTxInitiator)
+                        {
+                            WalletAddress senderAddress = newAddress(walletDB, "");
+                            CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
+                            wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, 120, 720, {}, true);
+                        }
+
+                        bool deleteTx = command == cli::DELETE_TX;
+                        if (command == cli::CANCEL_TX || deleteTx)
+                        {
+                            auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
+                            TxID txId;
+                            std::copy_n(txIdVec.begin(), 16, txId.begin());
+                            auto tx = walletDB->getTx(txId);
+
+                            if (tx)
+                            {
+                                if (deleteTx)
                                 {
-                                    wallet.delete_tx(txId);
+                                    if (tx->canDelete())
+                                    {
+                                        wallet.delete_tx(txId);
+                                    }
+                                    else
+                                    {
+                                        LOG_ERROR() << "Transaction could not be deleted. Invalid transaction status.";
+                                    }
                                 }
                                 else
                                 {
-                                    LOG_ERROR() << "Transaction could not be deleted. Invalid transaction status.";
+                                    if (tx->canCancel())
+                                    {
+                                        wallet.cancel_tx(txId);
+                                    }
+                                    else
+                                    {
+                                        LOG_ERROR() << "Transaction could not be cancelled. Invalid transaction status.";
+                                    }
                                 }
                             }
                             else
                             {
-                                if (tx->canCancel())
-                                {
-                                    wallet.cancel_tx(txId);
-                                }
-                                else
-                                {
-                                    LOG_ERROR() << "Transaction could not be cancelled. Invalid transaction status.";
-                                }
+                                LOG_ERROR() << "Unknown transaction ID.";
                             }
                         }
-                        else
+
+                        if (command == cli::WALLET_RESCAN)
                         {
-                            LOG_ERROR() << "Unknown transaction ID.";
+                            wallet.Refresh();
                         }
                     }
-
-                    if (command == cli::WALLET_RESCAN)
-                    {
-                        wallet.Refresh();
-                    }
-
                     io::Reactor::get_Current().run();
                 }
             }
