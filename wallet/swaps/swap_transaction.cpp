@@ -423,7 +423,8 @@ namespace beam::wallet
                 Height maxResponseHeight = 0;
                 if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight))
                 {
-                    LOG_INFO() << GetTxID() << "[" << SubTxIndex::BEAM_LOCK_TX << "]" << " Max height for response: " << maxResponseHeight;
+                    LOG_INFO() << GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::BEAM_LOCK_TX) << "]"
+                        << " Max height for response: " << maxResponseHeight;
                 }
 
                 lockTxBuilder->SelectInputs();
