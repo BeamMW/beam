@@ -20,28 +20,6 @@ namespace Negotiator {
 
 namespace Gateway
 {
-	uint32_t NestedImpl::CvtCode(uint32_t code) const
-	{
-		return code | m_Msk;
-	}
-
-	NestedImpl::NestedImpl(uint32_t iChild)
-		:m_Msk(iChild << 16)
-	{
-		assert(iChild);
-	}
-
-	Nested::Nested(IBase* p, uint32_t iChild)
-		:NestedImpl(iChild)
-		,m_pNext(p)
-	{
-	}
-
-	void Nested::Send(uint32_t code, ByteBuffer&& buf)
-	{
-		m_pNext->Send(CvtCode(code), std::move(buf));
-	}
-
 	void Direct::Send(uint32_t code, ByteBuffer&& buf)
 	{
 		const uint32_t msk = (uint32_t(1) << 16) - 1;
@@ -58,32 +36,14 @@ namespace Gateway
 			return;
 		}
 
-		m_Peer.m_pStorage->Send(code, std::move(buf));
+		m_Peer.m_pStorage->Write(code, std::move(buf));
 	}
-
 
 } // namespace Gateway
 
 namespace Storage
 {
-
-	Nested::Nested(IBase* p, uint32_t iChild)
-		:NestedImpl(iChild)
-		,m_pNext(p)
-	{
-	}
-
-	void Nested::Send(uint32_t code, ByteBuffer&& buf)
-	{
-		m_pNext->Send(CvtCode(code), std::move(buf));
-	}
-
-	bool Nested::Read(uint32_t code, Blob& blob)
-	{
-		return m_pNext->Read(CvtCode(code), blob);
-	}
-
-	void Map::Send(uint32_t code, ByteBuffer&& buf)
+	void Map::Write(uint32_t code, ByteBuffer&& buf)
 	{
 		operator [](code) = std::move(buf);
 	}
@@ -99,6 +59,38 @@ namespace Storage
 	}
 
 } // namespace Storage
+
+/////////////////////
+// IBase::Router
+
+IBase::Router::Router(Gateway::IBase* pG, Storage::IBase* pS, uint32_t iChannel, Negotiator::IBase& n)
+	:m_iChannel(iChannel)
+	,m_pG(pG)
+	,m_pS(pS)
+{
+	n.m_pGateway = this;
+	n.m_pStorage = this;
+}
+
+uint32_t IBase::Router::Remap(uint32_t code) const
+{
+	return code + (m_iChannel << 16);
+}
+
+void IBase::Router::Send(uint32_t code, ByteBuffer&& buf)
+{
+	m_pG->Send(Remap(code), std::move(buf));
+}
+
+void IBase::Router::Write(uint32_t code, ByteBuffer&& buf)
+{
+	m_pS->Write(Remap(code), std::move(buf));
+}
+
+bool IBase::Router::Read(uint32_t code, Blob& blob)
+{
+	return m_pS->Read(Remap(code), blob);
+}
 
 /////////////////////
 // IBase
@@ -727,26 +719,16 @@ void MultiTx::Update2()
 
 WithdrawTx::Worker::Worker(WithdrawTx& x)
 	:m_This(x)
-	,m_Gw0(x.m_pGateway, 1)
-	,m_Gw1(x.m_pGateway, 2)
-	,m_Gw2(x.m_pGateway, 3)
 {
-	x.m_MSig.m_pStorage = &m_s0;
-	x.m_Tx1.m_pStorage = &m_s1;
-	x.m_Tx2.m_pStorage = &m_s2;
-
-	x.m_MSig.m_pGateway = &m_Gw0;
-	x.m_Tx1.m_pGateway = &m_Gw1;
-	x.m_Tx2.m_pGateway = &m_Gw2;
 }
 
 bool WithdrawTx::Worker::get_One(Blob& blob)
 {
-	if (!m_s0.m_pNext->Read(Codes::One, blob))
+	if (!m_This.m_pStorage->Read(Codes::One, blob))
 	{
 		m_This.Set(uint32_t(1), Codes::One);
 
-		if (!m_s0.m_pNext->Read(Codes::One, blob))
+		if (!m_This.m_pStorage->Read(Codes::One, blob))
 		{
 			m_This.OnFail(); // Must not happen, but add extra protection
 			return false;
@@ -761,10 +743,10 @@ bool WithdrawTx::Worker::S0::Read(uint32_t code, Blob& blob)
 	switch (code)
 	{
 	case Codes::Role:
-		return m_pNext->Read(Codes::Role, blob);
+		return m_pS->Read(Codes::Role, blob);
 	}
 
-	return Storage::Nested::Read(code, blob);
+	return Router::Read(code, blob);
 }
 
 bool WithdrawTx::Worker::S1::Read(uint32_t code, Blob& blob)
@@ -772,7 +754,7 @@ bool WithdrawTx::Worker::S1::Read(uint32_t code, Blob& blob)
 	switch (code)
 	{
 	case Codes::Role:
-		return m_pNext->Read(Codes::Role, blob);
+		return m_pS->Read(Codes::Role, blob);
 
 	case MultiTx::Codes::OutpMsKidv:
 		return get_ParentObj().m_s0.Read(Multisig::Codes::Kidv, blob);
@@ -797,7 +779,7 @@ bool WithdrawTx::Worker::S1::Read(uint32_t code, Blob& blob)
 		return get_ParentObj().get_One(blob);
 	}
 
-	return Storage::Nested::Read(code, blob);
+	return Router::Read(code, blob);
 }
 
 bool WithdrawTx::Worker::S2::Read(uint32_t code, Blob& blob)
@@ -805,7 +787,7 @@ bool WithdrawTx::Worker::S2::Read(uint32_t code, Blob& blob)
 	switch (code)
 	{
 	case Codes::Role:
-		return m_pNext->Read(Codes::Role, blob);
+		return m_pS->Read(Codes::Role, blob);
 
 	case MultiTx::Codes::InpMsKidv:
 		return get_ParentObj().m_s0.Read(Multisig::Codes::Kidv, blob);
@@ -822,7 +804,7 @@ bool WithdrawTx::Worker::S2::Read(uint32_t code, Blob& blob)
 		return get_ParentObj().get_One(blob);
 	}
 
-	return Storage::Nested::Read(code, blob);
+	return Router::Read(code, blob);
 }
 
 

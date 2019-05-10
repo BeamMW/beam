@@ -54,45 +54,14 @@ namespace Negotiator {
 		struct IBase {
 			virtual void Send(uint32_t code, ByteBuffer&&) = 0;
 		};
-
-		struct NestedImpl
-		{
-			const uint32_t m_Msk;
-			NestedImpl(uint32_t iChild);
-
-			uint32_t CvtCode(uint32_t code) const;
-		};
-
-		struct Nested
-			:public IBase
-			,public NestedImpl
-		{
-			IBase* m_pNext;
-			Nested(IBase*, uint32_t iChild);
-
-			virtual void Send(uint32_t code, ByteBuffer&& buf) override;
-		};
 	}
 
 	namespace Storage
 	{
-		struct IBase
-			:public Gateway::IBase
-		{
+		struct IBase {
+			virtual void Write(uint32_t code, ByteBuffer&&) = 0;
 			virtual bool Read(uint32_t code, Blob&) = 0;
 		};
-
-		struct Nested
-			:public IBase
-			,public Gateway::NestedImpl
-		{
-			IBase* m_pNext;
-			Nested(IBase*, uint32_t iChild);
-
-			virtual void Send(uint32_t code, ByteBuffer&& buf) override;
-			virtual bool Read(uint32_t code, Blob& blob) override;
-		};
-
 	}
 
 
@@ -127,6 +96,29 @@ namespace Negotiator {
 
 		virtual void Update2() = 0;
 
+		class Router
+			:public Gateway::IBase
+			,public Storage::IBase
+		{
+		protected:
+			const uint32_t m_iChannel;
+			Gateway::IBase* m_pG;
+			Storage::IBase* m_pS;
+
+			uint32_t Remap(uint32_t code) const;
+		public:
+
+			Router(Gateway::IBase*, Storage::IBase*, uint32_t iChannel, Negotiator::IBase&);
+
+			// Gateway::IBase
+			virtual void Send(uint32_t code, ByteBuffer&& buf) override;
+			// Storage::IBase
+			virtual void Write(uint32_t code, ByteBuffer&&) override;
+			virtual bool Read(uint32_t code, Blob& blob) override;
+		};
+
+
+
 	public:
 
 		Key::IKdf::Ptr m_pKdf;
@@ -158,7 +150,7 @@ namespace Negotiator {
 		{
 			ByteBuffer buf;
 			WriteRaw(buf, val);
-			m_pStorage->Send(code, std::move(buf));
+			m_pStorage->Write(code, std::move(buf));
 		}
 
 		uint32_t Update();
@@ -182,7 +174,7 @@ namespace Negotiator {
 			:public IBase
 			,public std::map<uint32_t, ByteBuffer>
 		{
-			virtual void Send(uint32_t code, ByteBuffer&& buf) override;
+			virtual void Write(uint32_t code, ByteBuffer&& buf) override;
 			virtual bool Read(uint32_t code, Blob& blob) override;
 		};
 	}
@@ -296,36 +288,32 @@ namespace Negotiator {
 		{
 			WithdrawTx& m_This;
 
-			struct S0 :public Storage::Nested
+			struct S0 :public Router
 			{
-				S0() :Storage::Nested(get_ParentObj().m_This.m_pStorage, 1) {}
+				S0() :Router(get_ParentObj().m_This.m_pGateway, get_ParentObj().m_This.m_pStorage, 1, get_ParentObj().m_This.m_MSig) {}
 
 				virtual bool Read(uint32_t code, Blob& blob) override;
 
 				IMPLEMENT_GET_PARENT_OBJ(Worker, m_s0)
 			} m_s0;
 
-			struct S1 :public Storage::Nested
+			struct S1 :public Router
 			{
-				S1() :Storage::Nested(get_ParentObj().m_This.m_pStorage, 2) {}
+				S1() :Router(get_ParentObj().m_This.m_pGateway, get_ParentObj().m_This.m_pStorage, 2, get_ParentObj().m_This.m_Tx1) {}
 
 				virtual bool Read(uint32_t code, Blob& blob) override;
 
 				IMPLEMENT_GET_PARENT_OBJ(Worker, m_s1)
 			} m_s1;
 
-			struct S2 :public Storage::Nested
+			struct S2 :public Router
 			{
-				S2() :Storage::Nested(get_ParentObj().m_This.m_pStorage, 3) {}
+				S2() :Router(get_ParentObj().m_This.m_pGateway, get_ParentObj().m_This.m_pStorage, 3, get_ParentObj().m_This.m_Tx2) {}
 
 				virtual bool Read(uint32_t code, Blob& blob) override;
 
 				IMPLEMENT_GET_PARENT_OBJ(Worker, m_s2)
 			} m_s2;
-
-			Gateway::Nested m_Gw0;
-			Gateway::Nested m_Gw1;
-			Gateway::Nested m_Gw2;
 
 			bool get_One(Blob& blob);
 
