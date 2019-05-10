@@ -6,14 +6,11 @@ environment:
   OPENSSL_ROOT_DIR: c:\beam-libs\openssl
   QT5_ROOT_DIR: c:\beam-libs\qt5-static-win
   QML_IMPORT_PATH: c:\beam-libs\qt5-static-win\qml
-  BEAM_TARGET_SUFFIX: "-testnet"
-  BEAM_DISPLAY_SUFFIX: "Testnet"
-  BEAM_DISPLAY_SUFFIX2: "-Testnet"
-  BEAM_DISPLAY_SUFFIX3: " Testnet"
   BUILD_SERVER:
     secure: l9RqB2YbSnNIKZqTwnd67BHAXvbjmpj9zcf+YQPi9zfzsVeSysaoLD7gy4gSMjWurk2JVHjRpviw4bBxUbu2sA==  
   BUILD_CONFIG: RelWithDebInfo
-
+  PATH: c:\beam-libs\qt5-static-win\bin;$(PATH)
+ 
 before_build:
   - cmd: git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
   - cmd: git clone --depth=1 https://github.com/nesbox/qt5-static-win.git c:/beam-libs/qt5-static-win
@@ -28,6 +25,10 @@ build_script:
 after_build:
 - ps: $env:DATE=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('yyyy.MM.dd')
 - ps: $env:TIME=[TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "Belarus Standard Time").ToString('HH:mm:ss')
+- ps: $env:BEAM_TARGET_SUFFIX='-testnet'
+- ps: $env:BEAM_DISPLAY_SUFFIX='Testnet'
+- ps: $env:BEAM_DISPLAY_SUFFIX2='-Testnet'
+- ps: $env:BEAM_DISPLAY_SUFFIX3=' Testnet'
 - cmd: >-
     cpack --verbose -G NSIS -C %BUILD_CONFIG%
     

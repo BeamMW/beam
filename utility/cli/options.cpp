@@ -38,6 +38,7 @@ namespace beam
         const char* WALLET_STORAGE = "wallet_path";
         const char* MINING_THREADS = "mining_threads";
         const char* VERIFICATION_THREADS = "verification_threads";
+        const char* NONCEPREFIX_DIGITS = "nonceprefix_digits";
         const char* NODE_PEER = "peer";
         const char* PASS = "pass";
         const char* AMOUNT = "amount";
@@ -72,6 +73,7 @@ namespace beam
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
         const char* CANCEL_TX = "cancel_tx";
+        const char* DELETE_TX = "delete_tx";
 		const char* PAYMENT_PROOF_EXPORT = "payment_proof_export";
 		const char* PAYMENT_PROOF_VERIFY = "payment_proof_verify";
 		const char* PAYMENT_PROOF_DATA = "payment_proof";
@@ -103,6 +105,7 @@ namespace beam
         const char* IP_WHITELIST = "ip_whitelist";
 		const char* HORIZON_HI = "horizon_hi";
 		const char* HORIZON_LO = "horizon_lo";
+        const char* COLD_WALLET = "cold_wallet";
 
         // wallet api
         const char* API_USE_HTTP = "use_http";
@@ -122,6 +125,7 @@ namespace beam
 		const char* TR_N = "tr_N";
 		// ui
         const char* APPDATA_PATH = "appdata";
+        const char* LANG = "lang";
     }
 
 	template <typename T> struct TypeCvt {
@@ -153,6 +157,7 @@ namespace beam
             (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
 
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
+            (cli::NONCEPREFIX_DIGITS, po::value<unsigned>()->default_value(0), "number of hex digits for nonce prefix for stratum client (0..6)")
             (cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
             (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
@@ -198,7 +203,8 @@ namespace beam
 			(cli::PAYMENT_PROOF_REQUIRED, po::value<bool>(), "Set to disallow outgoing payments if the receiver doesn't supports the payment proof (older wallets)")
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("addresses.dat"), "path to import or export data (import_addresses|export_addresses)")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses]");
+            (cli::COLD_WALLET, "used to init cold wallet")
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx]");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()
@@ -213,7 +219,8 @@ namespace beam
         po::options_description uioptions("UI options");
         uioptions.add_options()
             (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken())
-            (cli::APPDATA_PATH, po::value<string>());
+            (cli::APPDATA_PATH, po::value<string>())
+            (cli::LANG, po::value<string>());
 
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };

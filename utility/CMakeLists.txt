@@ -53,9 +53,9 @@ else()
     add_library(crypto STATIC ${PROJECT_SOURCE_DIR}/3rdparty/crypto/blake/sse/blake2b.cpp)
 endif()
 
-if(NOT ANDROID)
+#if(NOT ANDROID)
     add_library(cli STATIC ${CLI_SRC})
-endif()
+#endif()
 
 if (UV_INTERNAL)
     add_dependencies(utility uv_a)

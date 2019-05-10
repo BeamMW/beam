@@ -72,14 +72,26 @@ void NodeModel::onStoppedNode()
     emit stoppedNode();
 }
 
-void NodeModel::onFailedToStartNode()
-{
-    emit failedToStartNode(beam::wallet::ErrorType::InternalNodeStartFailed);
-}
-
 void NodeModel::onFailedToStartNode(io::ErrorCode errorCode)
 {
     emit failedToStartNode(wallet::getWalletError(errorCode));
+}
+
+void NodeModel::onSyncError(beam::Node::IObserver::Error error)
+{
+    switch(error)
+    {
+        case Node::IObserver::Error::TimeDiffToLarge:
+            emit failedToSyncNode(
+                wallet::getWalletError(
+                    proto::NodeProcessingException::Type::TimeOutOfSync));
+            break;
+        case Node::IObserver::Error::EmptyPeerList:
+            emit failedToStartNode(wallet::ErrorType::InternalNodeStartFailed);
+            break;
+        default:
+            assert(false);
+    }
 }
 
 uint16_t NodeModel::getLocalNodePort()
@@ -109,4 +121,9 @@ std::vector<std::string> NodeModel::getLocalNodePeers()
     }
 
     return result;
+}
+
+void NodeModel::onNodeThreadFinished()
+{
+
 }

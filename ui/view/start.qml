@@ -20,6 +20,50 @@ Item
         id: logoComponent
     }
 
+    ConfirmationDialog {
+        id: restoreWalletConfirmation
+
+        //% "restore wallet"
+        okButtonText: qsTrId("start-restore-button")
+        okButtonIconSource: "qrc:/assets/icon-restore-blue.svg"
+        cancelVisible: true
+        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+        width: 460
+        height: 208
+
+        contentItem: Column {
+            anchors.fill: parent
+            anchors.margins: 30
+            spacing: 20
+
+            SFText {
+                horizontalAlignment : Text.AlignHCenter
+                width: parent.width
+                //% "Your funds will be fully restored from the blockchain. The transaction history and your addresses are stored locally and are encrypted with your password, hence it can't be restored."
+                text: qsTrId("start-restore-message-line-1")
+                color: Style.content_main
+                font.pixelSize: 14
+                wrapMode: Text.Wrap
+            }
+
+            SFText {
+                horizontalAlignment : Text.AlignHCenter
+                width: parent.width
+                //% "That's the final version till the future validation and process."
+                text: qsTrId("start-restore-message-line-2")
+                color: Style.content_main
+                font.pixelSize: 14
+                wrapMode: Text.Wrap
+            }
+        }
+        onAccepted: {
+            onClicked: {
+                viewModel.isRecoveryMode = true;
+                startWizzardView.push(restoreWallet);
+            }
+        }
+    }
+
     StackView {
         id: startWizzardView
         anchors.fill: parent
@@ -43,47 +87,6 @@ Item
                 }
 
                 property Item defaultFocusItem: createNewWallet
-
-                ConfirmationDialog {
-                    id: restoreWalletConfirmation
-
-                    okButtonText: qsTr("restore wallet")
-                    okButtonIconSource: "qrc:/assets/icon-restore-blue.svg"
-                    cancelVisible: true
-                    cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
-                    width: 460
-                    height: 208
-
-                    contentItem: Column {
-                        anchors.fill: parent
-                        anchors.margins: 30
-                        spacing: 20
-
-                        SFText {
-                            horizontalAlignment : Text.AlignHCenter
-                            width: parent.width
-                            text: qsTr("Your funds will be fully restored from the blockchain. The transaction history and your addresses are stored locally and are encrypted with your password, hence it can't be restored.")
-                            color: Style.content_main
-                            font.pixelSize: 14
-                            wrapMode: Text.Wrap
-                        }
-
-                        SFText {
-                            horizontalAlignment : Text.AlignHCenter
-                            width: parent.width
-                            text: qsTr("That's the final version till the future validation and process.")
-                            color: Style.content_main
-                            font.pixelSize: 14
-                            wrapMode: Text.Wrap
-                        }
-                    }
-                    onAccepted: {
-                        onClicked: {
-                            viewModel.isRecoveryMode = true;
-                            startWizzardView.push(restoreWallet);
-                        }
-                    }
-                }
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -117,8 +120,8 @@ Item
                         PrimaryButton {
                             id: createNewWallet
                             anchors.verticalCenter: parent.verticalCenter
-
-                            text: qsTr("create new wallet")
+                            //% "create new wallet"
+                            text: qsTrId("start-create-button")
                             icon.source: "qrc:/assets/icon-add-blue.svg"
                             onClicked: 
                             {
@@ -128,7 +131,8 @@ Item
                         }
 
                         CustomButton {
-                            text: qsTr("restore wallet")
+                            //% "restore wallet"
+                            text: qsTrId("start-restore-button")
                             icon.source: "qrc:/assets/icon-restore.svg"
                             onClicked: {
                                 restoreWalletConfirmation.open();
@@ -182,8 +186,8 @@ Item
 
                     SFText {
                         Layout.alignment: Qt.AlignHCenter
-                
-                        text: qsTr("Your wallet will be migrated to v.") + viewModel.walletVersion()
+                        //% "Your wallet will be migrated to v."
+                        text: qsTrId("start-migration-message") + viewModel.walletVersion()
                         color: Style.content_main
                         font.pixelSize: 14
                     }
@@ -199,7 +203,8 @@ Item
                         Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
                         Layout.minimumHeight: 38
 
-                        text: qsTr("start migration")
+                        //% "start migration"
+                        text: qsTrId("start-migration-button")
                         icon.source: "qrc:/assets/icon-repeat.svg"
                         onClicked: 
                         {
@@ -215,7 +220,8 @@ Item
 
                     SFText {
                         Layout.alignment: Qt.AlignHCenter
-                        text: qsTr("Login to another wallet or create new one")
+                        //% "Restore wallet or create new one"
+                        text: qsTrId("start-login-another-message")
                         color: Style.active
                         font.pixelSize: 14
                 
@@ -250,7 +256,8 @@ Item
                     SFText {
                         Layout.alignment: Qt.AlignHCenter
                         horizontalAlignment: Qt.AlignHCenter
-                        text: qsTr("Select the wallet database file")
+                        //% "Select the wallet database file"
+                        text: qsTrId("start-select-db-message")
                         color: Style.content_main
                         font.pixelSize: 36
                     }
@@ -293,7 +300,8 @@ Item
 
                         TableViewColumn {
                             role: "fullPath"
-                            title: qsTr("Name")
+                            //% "Name"
+                            title: qsTrId("start-select-db-thead-name")
                             width: 300
                             movable: false
                             delegate: Item {
@@ -318,7 +326,8 @@ Item
 
                         TableViewColumn {
                             role: "fileSize"
-                            title: qsTr("Size")
+                            //% "Size"
+                            title: qsTrId("start-select-db-thead-size")
                             width: 120
                             movable: false
                             delegate: Item {
@@ -332,7 +341,8 @@ Item
                                     anchors.leftMargin: tableView.textLeftMargin
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: Math.round(styleData.value / 1024) + qsTr(" kb")
+                                    //% "kb"
+                                    text: Math.round(styleData.value / 1024) + " " + qsTrId("kb-unit")
                                     color: Style.content_main
                                 }
                             }
@@ -340,7 +350,8 @@ Item
 
                         TableViewColumn {
                             role: "lastWriteDateString"
-                            title: qsTr("Date modified")
+                            //% "Date modified"
+                            title: qsTrId("start-select-db-thead-modified")
                             width: 150 
                             movable: false
                         }
@@ -384,7 +395,8 @@ Item
                         spacing: 30
 
                         CustomButton {
-                            text: qsTr("select file manually");
+                            //% "select file manually"
+                            text: qsTrId("start-select-db-manual-button")
                             icon.source: "qrc:/assets/icon-folder.svg"
                             onClicked: {
                                 // open fileOpenDialog
@@ -398,7 +410,8 @@ Item
 
                         PrimaryButton {
                             id: nextButton
-                            text: qsTr("next")
+                            //% "next"
+                            text: qsTrId("start-next-button")
                             icon.source: "qrc:/assets/icon-next-blue.svg"
                             enabled: tableView.currentRow >= 0
                             onClicked: {
@@ -416,8 +429,13 @@ Item
                             // copy wallet.db                         
                             viewModel.migrateWalletDB(path);
                             viewModel.isRecoveryMode = false;
-                            startWizzardView.push(open, {"firstButtonVisible": true, "firstButtonText": qsTr("back"), 
-                                                         "firstButtonIcon": "qrc:/assets/icon-back.svg", "firstButtonAction": backAction});
+                            startWizzardView.push(open, {
+                                "firstButtonVisible": true,
+                                //% "back"
+                                "firstButtonText": qsTrId("start-back-button"), 
+                                "firstButtonIcon": "qrc:/assets/icon-back.svg",
+                                "firstButtonAction": backAction
+                            });
                         }
                     }
 
@@ -429,7 +447,8 @@ Item
 
                     SFText {
                         Layout.alignment: Qt.AlignHCenter
-                        text: qsTr("Login to another wallet or create new one")
+                        //% "Restore wallet or create new one"
+                        text: qsTrId("start-login-another-message")
                         color: Style.active
                         font.pixelSize: 14
                 
@@ -470,15 +489,25 @@ Item
                         SFText {
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Create new wallet")
+                            //% "Create new wallet"
+                            text: qsTrId("start-create-new-title")
                             color: Style.content_main
                             font.pixelSize: 36
                         }
                         SFText {
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Create new wallet with generating seed phrase.
-        If you ever lose your device, you will need this phrase to recover your wallet!")
+                            //% "Create new wallet with generating seed phrase."
+                            text: qsTrId("start-create-new-message-line-1")
+                            color: Style.content_main
+                            wrapMode: Text.WordWrap
+                            font.pixelSize: 14
+                        }
+                        SFText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            horizontalAlignment: Qt.AlignHCenter
+                            //% "If you ever lose your device, you will need this phrase to recover your wallet!"
+                            text: qsTrId("start-create-new-message-line-2")
                             color: Style.content_main
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
@@ -493,15 +522,18 @@ Item
                         Layout.maximumHeight: 500
                         SecurityNote{
                             iconSource: "qrc:/assets/eye.svg"
-                            text: qsTr("Do not let anyone see your seed phrase");
+                            //% "Do not let anyone see your seed phrase"
+                            text: qsTrId("start-create-new-securiry-note-1")
                         }
                         SecurityNote{
                             iconSource: "qrc:/assets/password.svg"
-                            text: qsTr("Never type your seed phrase into password managers or elsewhere");
+                            //% "Never type your seed phrase into password managers or elsewhere"
+                            text: qsTrId("start-create-new-securiry-note-2")
                         }
                         SecurityNote{
                             iconSource: "qrc:/assets/copy-two-paper-sheets-interface-symbol.svg"
-                            text: qsTr("Keep the copies of your seed phrase in a safe place");
+                            //% "Keep the copies of your seed phrase in a safe place"
+                            text: qsTrId("start-create-new-securiry-note-3")
                         }
                     }
 
@@ -514,15 +546,16 @@ Item
                         spacing: 30
 
                         CustomButton {
-                            text: qsTr("back");
+                            //% "back"
+                            text: qsTrId("start-back-button")
                             icon.source: "qrc:/assets/icon-back.svg"
                             onClicked: startWizzardView.pop();
                         }
 
                         PrimaryButton {
                             id: generateRecoveryPhraseButton
-
-                            text: qsTr("generate seed phrase")
+                            //% "generate seed phrase"
+                            text: qsTrId("start-generata-seed-phrase-button")
                             icon.source: "qrc:/assets/icon-recovery.svg"
                             onClicked: startWizzardView.push(generateRecoveryPhrase);
                         }
@@ -554,7 +587,8 @@ Item
                         SFText {
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Create new wallet")
+                            //% "Create new wallet"
+                            text: qsTrId("start-create-new-title")
                             color: Style.content_main
                             font.pixelSize: 36
                         }
@@ -562,7 +596,8 @@ Item
                             anchors.left: parent.left
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Your seed phrase is the access key to all the cryptocurrencies in your wallet. Write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.")
+                            //% "Your seed phrase is the access key to all the cryptocurrencies in your wallet. Write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money."
+                            text: qsTrId("start-generate-seed-phrase-message")
                             color: Style.content_main
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
@@ -570,11 +605,13 @@ Item
                     }
                     ConfirmationDialog {
                         id: confirRecoveryPhrasesDialog
-                        okButtonText: qsTr("I understand")
+                        //% "I understand"
+                        okButtonText: qsTrId("start-confirm-seed-phrase-button")
                         okButtonIconSource: "qrc:/assets/icon-done.svg"
                         cancelVisible: false
                         width: 460
-                        text: qsTr("It is strictly recommended to write down the seed phrase on a paper. Storing it in a file makes it prone to cyber attacks and, therefore, less secure.")
+                        //% "It is strictly recommended to write down the seed phrase on a paper. Storing it in a file makes it prone to cyber attacks and, therefore, less secure."
+                        text: qsTrId("start-confirm-seed-phrase-message")
                         onAccepted: {
                             onClicked: startWizzardView.push(checkRecoveryPhrase);
                         }
@@ -634,7 +671,8 @@ Item
                         spacing: 30
 
                         CustomButton {
-                            text: qsTr("back");
+                            //% "back"
+                            text: qsTrId("start-back-button")
                             icon.source: "qrc:/assets/icon-back.svg"
                             onClicked: {
                                 startWizzardView.pop();
@@ -642,15 +680,10 @@ Item
                             }
                         }
 
-                        CustomButton {
-                            text: qsTr("copy to clipboard")
-                            icon.source: "qrc:/assets/icon-copy.svg"
-                            onClicked: {viewModel.copyPhrasesToClipboard();}
-                        }
-
                         PrimaryButton {
                             id: nextButton
-                            text: qsTr("next")
+                            //% "next"
+                            text: qsTrId("start-next-button")
                             icon.source: "qrc:/assets/icon-next-blue.svg"
                             onClicked: {confirRecoveryPhrasesDialog.open();}
                         }
@@ -682,7 +715,8 @@ Item
                         SFText {
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Create new wallet")
+                            //% "Create new wallet"
+                            text: qsTrId("start-create-new-title")
                             color: Style.content_main
                             font.pixelSize: 36
                         }
@@ -690,7 +724,8 @@ Item
                             anchors.left: parent.left
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("To ensure the seed phrase is written down, please fill-in the specific words below")
+                            //% "To ensure the seed phrase is written down, please fill-in the specific words below"
+                            text: qsTrId("start-check-seed-phrase-message")
                             color: Style.content_main
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
@@ -794,7 +829,8 @@ Item
                         spacing: 30
 
                         CustomButton {
-                            text: qsTr("back");
+                            //% "back"
+                            text: qsTrId("start-back-button")
                             icon.source: "qrc:/assets/icon-back.svg"
                             onClicked: {
                                 startWizzardView.pop();
@@ -804,7 +840,8 @@ Item
 
                         PrimaryButton {
                             id: checkRecoveryNextButton
-                            text: qsTr("next")
+                            //% "next"
+                            text: qsTrId("start-next-button")
                             enabled: {
                                 var enable = true;
                                 for(var i = 0; i < viewModel.checkPhrases.length; ++i)
@@ -844,7 +881,8 @@ Item
                         SFText {
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Restore wallet")
+                            //% "Restore wallet"
+                            text: qsTrId("start-restore-title")
                             color: Style.content_main
                             font.pixelSize: 36
                         }
@@ -852,7 +890,8 @@ Item
                             anchors.left: parent.left
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Type in or paste your seed phrase")
+                            //% "Type in or paste your seed phrase"
+                            text: qsTrId("start-restore-message")
                             color: Style.content_main
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
@@ -956,7 +995,8 @@ Item
                         spacing: 30
 
                         CustomButton {
-                            text: qsTr("back");
+                            //% "back"
+                            text: qsTrId("start-back-button")
                             icon.source: "qrc:/assets/icon-back.svg"
                             onClicked: {
                                 startWizzardView.pop();
@@ -966,7 +1006,8 @@ Item
 
                         PrimaryButton {
                             id: checkRecoveryNextButton
-                            text: qsTr("next")
+                            //% "next"
+                            text: qsTrId("start-next-button")
                             enabled: {
                                 var enable = true;
                                 for(var i = 0; i < viewModel.recoveryPhrases.length; ++i)
@@ -1008,7 +1049,8 @@ Item
                         SFText {
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Create new wallet")
+                            //% "Create new wallet"
+                            text: qsTrId("start-create-new-title")
                             color: Style.content_main
                             font.pixelSize: 36
                         }
@@ -1016,7 +1058,8 @@ Item
                             anchors.left: parent.left
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Create password to access your wallet")
+                            //% "Create password to access your wallet"
+                            text: qsTrId("start-create-pwd-message")
                             color: Style.content_main
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
@@ -1035,7 +1078,8 @@ Item
                             spacing: 10
 
                             SFText {
-                                text: qsTr("Enter password")
+                                //% "Enter password"
+                                text: qsTrId("start-create-pwd-label")
                                 color: Style.content_main
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
@@ -1110,7 +1154,8 @@ Item
                             spacing: 10
 
                             SFText {
-                                text: qsTr("Confirm password")
+                                //% "Confirm password"
+                                text: qsTrId("start-create-pwd-confirm-label")
                                 color: Style.content_main
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
@@ -1147,21 +1192,25 @@ Item
                         spacing: 30
 
                         CustomButton {
-                            text: qsTr("back");
+                            //% "back"
+                            text: qsTrId("start-back-button")
                             icon.source: "qrc:/assets/icon-back.svg"
                             onClicked: startWizzardView.pop();
                         }
                         PrimaryButton {
-                            text: qsTr("next")
+                            //% "next"
+                            text: qsTrId("start-next-button")
                             icon.source : "qrc:/assets/icon-next-blue.svg"
                             onClicked: {
                                 if(password.text.length == 0)
                                 {
-                                    passwordError.text = qsTr("Please, enter password");
+                                    //% "Please, enter password"
+                                    passwordError.text = qsTrId("start-create-pwd-empty-error");
                                 }
                                 else if(password.text != confirmPassword.text)
                                 {
-                                    passwordError.text = qsTr("Passwords do not match");
+                                    //% "Passwords do not match"
+                                    passwordError.text = qsTrId("start-create-pwd-not-match-error");
                                 }
                                 else
                                 {
@@ -1220,7 +1269,8 @@ Item
                         SFText {
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
-                            text: qsTr("Setup node connectivity")
+                            //% "Setup node connectivity"
+                            text: qsTrId("start-node-title")
                             color: Style.content_main
                             font.pixelSize: 36
                         }
@@ -1240,7 +1290,8 @@ Item
 
                         CustomRadioButton {
                             id: localNodeButton
-                            text: qsTr("Run integrated node (recommended)")
+                            //% "Run integrated node (recommended)"
+                            text: qsTrId("start-node-integrated-radio")
                             ButtonGroup.group: nodePreferencesGroup
                             font.pixelSize: 14
                             checked: true
@@ -1254,7 +1305,8 @@ Item
                             spacing: 10
 
                             SFText {
-                                text: qsTr("Enter port to listen")
+                                //% "Enter port to listen"
+                                text: qsTrId("start-node-port-label")
                                 color: Style.content_main
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
@@ -1267,6 +1319,7 @@ Item
                                 font.pixelSize: 14
                                 color: Style.content_main
                                 text: viewModel.defaultPortToListen()
+                                validator: RegExpValidator { regExp: /^\d{1,5}$/ }
                                 onTextChanged: if (portInput.text.length > 0) portError.text = ""
                             }
                             SFText {
@@ -1280,7 +1333,8 @@ Item
                                 spacing: 10
 
                                 SFText {
-                                    text: qsTr("Peer")
+                                    //% "Peer"
+                                    text: qsTrId("start-node-peer-label")
                                     color: Style.content_main
                                     font.pixelSize: 14
                                     font.styleName: "Bold"; font.weight: Font.Bold
@@ -1306,7 +1360,8 @@ Item
 
                         CustomRadioButton {
                             id: randomNodeButton
-                            text: qsTr("Connect to random remote node")
+                            //% "Connect to random remote node"
+                            text: qsTrId("start-node-random-radio")
                             ButtonGroup.group: nodePreferencesGroup
                             font.pixelSize: 14
                             enabled: viewModel.isRecoveryMode == false
@@ -1316,7 +1371,8 @@ Item
                             spacing: 10
                             CustomRadioButton {
                                 id: remoteNodeButton
-                                text: qsTr("Connect to specific remote node")
+                                //% "Connect to specific remote node"
+                                text: qsTrId("start-node-remote-radio")
                                 ButtonGroup.group: nodePreferencesGroup
                                 font.pixelSize: 14
                                 enabled: viewModel.isRecoveryMode == false
@@ -1359,27 +1415,41 @@ Item
                         spacing: 30
 
                         CustomButton {
-                            text: qsTr("back");
+                            //% "back"
+                            text: qsTrId("start-back-button")
                             icon.source: "qrc:/assets/icon-back.svg"
                             onClicked: startWizzardView.pop();
                         }
 
                         PrimaryButton {
-                            text: viewModel.isRecoveryMode ? qsTr("restore wallet") : qsTr("start using your wallet");
+                            text: viewModel.isRecoveryMode ?
+                                //% "restore wallet"
+                                qsTrId("start-finish-button-restore") :
+                                //% "start using your wallet"
+                                qsTrId("start-finish-button");
                             icon.source: viewModel.isRecoveryMode ? "qrc:/assets/icon-restore-blue.svg" : "qrc:/assets/icon-next-blue.svg"
                             enabled: nodePreferencesGroup.checkState != Qt.Unchecked
                             onClicked:{
                                 if (localNodeButton.checked) {
                                     if (portInput.text.trim().length === 0) {
-                                        portError.text = qsTr("Please, specify port to listen ");
+                                        //% "Please, specify port number to listen on"
+                                        portError.text = qsTrId("start-node-port-empty-error");
+                                        return;
+                                    }
+                                    var effectivePort = parseInt(portInput.text.trim());
+                                    if (effectivePort > 65535 || effectivePort < 1) {
+                                        //% "Port must be a number between 1 and 65535"
+                                        portError.text = qsTrId("start-node-port-value-error");
                                         return;
                                     }
                                     if (localNodePeer.text.trim().length === 0) {
-                                        peerError.text = qsTr("Please, specify correct peer");
+                                        //% "Please, specify peer"
+                                        peerError.text = qsTrId("start-node-peer-empty-error");
                                         return;
                                     }
                                     if (!localNodePeer.acceptableInput) {
-                                        peerError.text = qsTr("Please, specify peer");
+                                        //% "Please, specify correct peer"
+                                        peerError.text = qsTrId("start-node-peer-error");
                                         return;
                                     }
 
@@ -1387,7 +1457,8 @@ Item
                                 }
                                 else if (remoteNodeButton.checked) {
                                     if (remoteNodeAddrInput.text.trim().length === 0) {
-                                        remoteNodeAddrError.text = qsTr("Please, specify address of the remote node");
+                                        //% "Please, specify address of the remote node"
+                                        remoteNodeAddrError.text = qsTrId("start-node-empty-error");
                                         return;
                                     }
                                     viewModel.setupRemoteNode(remoteNodeAddrInput.text.trim());
@@ -1421,7 +1492,8 @@ Item
                 property Item defaultFocusItem: openPassword
 
                 property bool firstButtonVisible: false
-                property string firstButtonText: qsTr("login to another wallet")
+                //% "login to another wallet"
+                property string firstButtonText: qsTrId("open-login-another-button")
                 property var firstButtonIcon: "qrc:/assets/icon-change.svg"
                 property var firstButtonAction: confirmChangeWalletDialog.open
 
@@ -1499,7 +1571,8 @@ Item
                     SFText {
                         Layout.alignment: Qt.AlignHCenter
                 
-                        text: qsTr("Enter your password to access the current wallet")
+                        //% "Enter your password to access the current wallet"
+                        text: qsTrId("open-pwd-invitation")
                         color: Style.content_main
                         font.pixelSize: 14
                     }
@@ -1511,7 +1584,8 @@ Item
                         spacing: 2
 
                         SFText {
-                            text: qsTr("Enter password")
+                            //% "Enter password"
+                            text: qsTrId("open-pwd-label")
                             color: Style.content_main
                             font.pixelSize: 14
                             font.styleName: "Bold"; font.weight: Font.Bold
@@ -1541,32 +1615,20 @@ Item
 
                     ConfirmationDialog {
                         id: confirmChangeWalletDialog
-                        okButtonText: qsTr("change wallet")
+                        //% "change wallet"
+                        okButtonText: qsTrId("open-change-wallet-button")
                         okButtonIconSource: "qrc:/assets/icon-change-blue.svg"
                         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
                         cancelVisible: true
                         width: 460
-                        text: qsTr("If you login to another wallet, all unsaved transaction history for the current wallet will be lost.")
+                        //% "If you open another wallet, all unsaved transaction history for the current wallet will be lost."
+                        text: qsTrId("open-change-wallet-message")
                         onAccepted: {
                             viewModel.isRecoveryMode = true;
                             startWizzardView.push(restoreWallet);
                         }
                     }
-
-                    ConfirmationDialog {
-                        id: confirmFogotPassDialog
-                        okButtonText: qsTr("restore wallet")
-                        okButtonIconSource: "qrc:/assets/icon-restore-blue.svg"
-                        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
-                        cancelVisible: true
-                        width: 460
-                        text: qsTr("You can restore you wallet using your seed phrase but all transaction history will be lost.")
-                        onAccepted: {
-                            viewModel.isRecoveryMode = true;
-                            startWizzardView.push(restoreWallet);
-                        }
-                    }
-                    
+                   
                     Row {
                         Layout.alignment: Qt.AlignHCenter
                         Layout.topMargin: 33
@@ -1579,21 +1641,33 @@ Item
                             onClicked: firstButtonAction()
                         }
 
+                        CustomButton {
+                            //% "restore wallet"
+                            text: qsTrId("open-restore-wallet-button")
+                            icon.source: "qrc:/assets/icon-restore.svg"
+                            onClicked: {
+                                restoreWalletConfirmation.open();
+                            }
+                        }
+
                         PrimaryButton {
                             anchors.verticalCenter: parent.verticalCenter
                             id: btnCurrentWallet
-                            text: qsTr("show my wallet")
+                            //% "show my wallet"
+                            text: qsTrId("open-show-wallet-button")
                             icon.source: "qrc:/assets/icon-wallet-small.svg"
                             onClicked: {
                                 if(openPassword.text.length == 0)
                                 {
-                                    openPasswordError.text = qsTr("Please, enter password");
+                                    //% "Please, enter password"
+                                    openPasswordError.text = qsTrId("open-pwd-empty");
                                 }
                                 else
                                 {
                                     if(!openWallet(openPassword.text))
                                     {
-                                        openPasswordError.text = qsTr("Invalid password provided.");
+                                        //% "Invalid password provided."
+                                        openPasswordError.text = qsTrId("open-pwd-fail");
                                     }
                                     else
                                     {
@@ -1603,7 +1677,7 @@ Item
                             }
                         }
                     }
-
+                   
                     Item {
                         Layout.fillHeight: true
                         Layout.minimumHeight: 67

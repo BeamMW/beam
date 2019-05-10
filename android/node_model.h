@@ -40,13 +40,16 @@ protected:
     void onSyncProgressUpdated(int done, int total) override;
     void onStartedNode() override;
     void onStoppedNode() override;
-    void onFailedToStartNode() override;
+    // void onFailedToStartNode() override;
     void onFailedToStartNode(beam::io::ErrorCode errorCode) override;
+    void onSyncError(beam::Node::IObserver::Error error) override;
 
     uint16_t getLocalNodePort() override;
     std::string getLocalNodeStorage() override;
     std::string getTempDir() override;
     std::vector<std::string> getLocalNodePeers() override;
+
+    void onNodeThreadFinished() override;
 
 private:
     beam::NodeClient m_nodeClient;

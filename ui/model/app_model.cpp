@@ -173,7 +173,8 @@ void AppModel::onFailedToStartNode(beam::wallet::ErrorType errorCode)
         return;
     }
 
-    getMessages().addMessage(tr("Failed to start node. Please check your node configuration"));
+    //% "Failed to start node. Please check your node configuration"
+    getMessages().addMessage(qtTrId("appmodel-failed-start-node"));
 }
 
 void AppModel::start()
@@ -248,4 +249,3 @@ void AppModel::changeWalletPassword(const std::string& pass)
 
     m_wallet->getAsync()->changeWalletPassword(pass);
 }
-

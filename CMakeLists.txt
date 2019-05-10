@@ -5,8 +5,8 @@ set(VERSION_MINOR 0)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
-set(BEAM_SUFFIX_LOWER_CASE "testnet")
-set(BEAM_SUFFIX_UPPER_CASE "Testnet")
+set(BEAM_SUFFIX_LOWER_CASE "masternet")
+set(BEAM_SUFFIX_UPPER_CASE "Masternet")
 set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}")
 set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}")
 
@@ -139,9 +139,31 @@ if(SHOW_CODE_LOCATION)
     add_definitions(-DSHOW_CODE_LOCATION=1)
 endif()
 
-#it's enabled by default for testnet
+# comment next if block to avoid styling by branchname
+if(BRANCH_NAME MATCHES "testnet")
+    add_definitions(-DBEAM_TESTNET)
+elseif(BRANCH_NAME MATCHES "mainnet")
+    add_definitions(-DBEAM_MAINNET)
+endif()
+
+# uncoment next line for testnet
 set(BEAM_TESTNET TRUE)
-add_definitions(-DBEAM_TESTNET)
+# uncoment next line for mainnet
+#set(BEAM_MAINNET TRUE)
+
+if(BEAM_TESTNET)
+    add_definitions(-DBEAM_TESTNET)
+    set(BEAM_SUFFIX_LOWER_CASE "testnet")
+    set(BEAM_SUFFIX_UPPER_CASE "Testnet")
+    set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}")
+    set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}")
+elseif(BEAM_MAINNET)
+    add_definitions(-DBEAM_MAINNET)
+    set(BEAM_SUFFIX_LOWER_CASE "")
+    set(BEAM_SUFFIX_UPPER_CASE "")
+    set(BEAM_TARGET_SUFFIX "")
+    set(BEAM_DISPLAY_SUFFIX "")
+endif()
 
 if(MSVC)
     if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")

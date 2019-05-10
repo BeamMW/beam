@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2019 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,24 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+package com.mw.beam.beamwallet.core.entities.dto;
 
-#include <QObject>
-#include <QTranslator>
-
-class Translator : public QObject
+public class PaymentInfoDTO
 {
-	Q_OBJECT
-
-public:
-	explicit Translator(QObject *parent = 0);
-
-signals:
-	void languageChanged();
-
-public:
-	Q_INVOKABLE void setTranslation(QString translation);
-
-private:
-	QTranslator m_translator;
-};
+	public String senderId;
+    public String receiverId;
+	public long amount;
+	public String kernelId;
+    public boolean isValid;
+    public String rawProof;
+}

@@ -25,7 +25,8 @@ RowLayout {
         SFText {
             font.pixelSize: 14
             color: Style.content_main
-            text: qsTr("General transaction info")
+            //% "General transaction info"
+            text: qsTrId("tx-details-title")
             font.styleName: "Bold"; font.weight: Font.Bold
             Layout.columnSpan: 2
         }
@@ -34,7 +35,8 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            text: qsTr("Sending address:")
+            //% "Sending address:"
+            text: qsTrId("tx-details-sending-addr-label")
         }
         SFLabel {
             Layout.fillWidth: true
@@ -53,7 +55,8 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            text: qsTr("Receiving address:")
+            //% "Receiving address:"
+            text: qsTrId("tx-details-receiving-addr-label")
         }
         SFLabel {
             Layout.fillWidth: true
@@ -72,7 +75,8 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            text: qsTr("Transaction fee:")
+            //% "Transaction fee:"
+            text: qsTrId("tx-details-fee-label")
         }
         SFLabel {
             Layout.fillWidth: true
@@ -89,7 +93,8 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            text: qsTr("Comment:")
+            //% "Comment:"
+            text: qsTrId("tx-details-comment-label")
         }
         SFLabel {
             Layout.fillWidth: true
@@ -109,7 +114,26 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            text: qsTr("Kernel ID:")
+            //% "Transaction ID:"
+            text: qsTrId("tx-details-tx-id-label")
+        }
+        SFLabel {
+            Layout.fillWidth: true
+            id: transactionID
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            color: Style.content_main
+            text: model ? model.transactionID : ""
+            font.styleName: "Italic"
+            elide: Text.ElideMiddle
+            onCopyText: textCopied(text)
+        }
+        SFText {
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
+            //% "Kernel ID:"
+            text: qsTrId("tx-details-kernel-id-label")
         }
         SFLabel {
             Layout.fillWidth: true
@@ -127,7 +151,8 @@ RowLayout {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
             color: Style.content_secondary
-            text: qsTr("Error: ")
+            //% "Error: "
+            text: qsTrId("tx-details-error-label")
             visible: model ? model.failureReason.length > 0 : false
         }
         SFLabel {
@@ -171,14 +196,16 @@ RowLayout {
         SFText {
             font.pixelSize: 14
             color: Style.content_main
-            text: qsTr("Payment proof")
+            //% "Payment proof"
+            text: qsTrId("tx-details-payment-proof-label")
             font.styleName: "Bold"; font.weight: Font.Bold
             Layout.columnSpan: 2
         }
         Row {
             spacing: 20
             CustomButton {
-                text: qsTr("details")
+                //% "details"
+                text: qsTrId("tx-details-details-button")
                 icon.source: "qrc:/assets/icon-details.svg"
                 icon.width: 21
                 icon.height: 14
@@ -186,7 +213,8 @@ RowLayout {
                 onClicked: showDetails();
             }
             CustomButton {
-                text: qsTr("copy")
+                //% "copy"
+                text: qsTrId("tx-details-copy-button")
                 icon.source: "qrc:/assets/icon-copy.svg"
                 enabled: model ? model.hasPaymentProof && !model.isSelfTx() : false
                 onClicked: {

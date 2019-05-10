@@ -32,7 +32,8 @@ Dialog {
 
         SFText {
 			anchors.horizontalCenter: parent.horizontalCenter
-			text: qsTr("Edit address")
+			//% "Edit address"
+			text: qsTrId("edit-addr-title")
 			color: Style.content_main
 			font.pixelSize: 18
 			font.styleName: "Bold"; font.weight: Font.Bold
@@ -42,7 +43,8 @@ Dialog {
     		width: parent.width
 
 			SFText {
-				text: qsTr("Address ID")
+				//% "Address ID"
+				text: qsTrId("edit-addr-addr-id")
 				color: Style.content_main
 				font.pixelSize: 12
 				font.styleName: "Bold"; font.weight: Font.Bold
@@ -63,7 +65,8 @@ Dialog {
     		width: parent.width
 
 			SFText {
-				text: qsTr("Comment")
+				//% "Comment"
+				text: qsTrId("edit-addr-comment")
 				color: Style.content_main
 				font.pixelSize: 12
 				font.styleName: "Bold"; font.weight: Font.Bold
@@ -84,7 +87,8 @@ Dialog {
     		width: parent.width
 
 			SFText {
-				text: qsTr("Expires")
+				//% "Expires"
+				text: qsTrId("edit-addr-expires")
 				color: Style.content_main
 				font.pixelSize: 12
 				font.styleName: "Bold"; font.weight: Font.Bold
@@ -96,7 +100,7 @@ Dialog {
                 height: 20
                 currentIndex: rootControl.addressItem && rootControl.addressItem.neverExpired ? 1 : 0
 
-                model: rootControl.isExpiredAddress ? ["in 24 hours (since now)", "never"] : ["in 24 hours (since now)", "never", "now"]
+                model: rootControl.isExpiredAddress ? ["in 24 hours (from now)", "never"] : ["in 24 hours (from now)", "never", "now"]
             }
     	}
 
@@ -105,7 +109,8 @@ Dialog {
 			spacing: 30
 
 			CustomButton {
-				text: qsTr("cancel")
+				//% "cancel"
+				text: qsTrId("edit-addr-cancel-button")
                 icon.source: "qrc:/assets/icon-cancel.svg"
                 icon.color: Style.content_main
 				onClicked: {
@@ -114,7 +119,11 @@ Dialog {
 			}
 
 			PrimaryButton {
-				text: rootControl.isExpiredAddress ? qsTr("make active") : qsTr("save")
+				text: rootControl.isExpiredAddress ?
+						//% "make active"
+					  	qsTrId("edit-addr-make-active-button") :
+						//% "save"
+						qsTrId("edit-addr-save-button")
                 icon.source: "qrc:/assets/icon-done.svg"
                 enabled: {
                     if (rootControl.isExpiredAddress)
@@ -128,7 +137,7 @@ Dialog {
                     return false;
                 }
                 onClicked: {
-                    parentModel.saveChanges(addressID.text, addressName.text, expires.currentIndex == 1, rootControl.isExpiredAddress, expires.currentIndex == 2);
+                    parentModel.saveChanges(addressID.text, addressName.text, expires.currentIndex == 1, expires.currentIndex == 0, expires.currentIndex == 2);
                     rootControl.accepted();
                     rootControl.close();
                 }

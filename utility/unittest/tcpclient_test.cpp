@@ -51,7 +51,7 @@ int calc_errors() {
     return retCode;
 }
 
-#define DOMAIN_NAME "example.com"
+#define DOMAIN_NAME "beam.mw"
 
 bool on_recv(ErrorCode what, void* data, size_t size) {
     if (data && size) {

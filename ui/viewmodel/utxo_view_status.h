@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2019 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,10 +14,23 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
+#include <QObject>
 
-namespace string_helpers
+class UtxoViewStatus : public QObject
 {
-	std::vector<std::string> split(const std::string& s, char delim);
-}
+    Q_OBJECT
+public:
+    UtxoViewStatus() : QObject() {}
+
+    enum EnStatus
+    {
+        Undefined = 0,
+        Unavailable,
+        Available,
+        Maturing,
+        Outgoing,
+        Incoming,
+        Spent,
+    };
+    Q_ENUMS(EnStatus)
+};

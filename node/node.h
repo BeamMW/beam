@@ -22,6 +22,7 @@
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/set.hpp>
 #include <condition_variable>
+#include <pow/external_pow.h>
 
 namespace beam
 {
@@ -35,6 +36,14 @@ struct Node
 		virtual void OnSyncProgress() = 0;
 		virtual void OnStateChanged() {}
 		virtual void OnRolledBack(const Block::SystemState::ID& id) {};
+
+        enum Error
+        {
+            EmptyPeerList,
+			TimeDiffToLarge
+        };
+
+        virtual void OnSyncError(Error error) {}
 	};
 
 	struct Config
@@ -147,6 +156,8 @@ struct Node
 		bool operator == (const SyncStatus&) const;
 
 	} m_SyncStatus;
+
+	uint32_t get_AcessiblePeerCount() const; // all the peers with known addresses. Including temporarily banned
 
 private:
 
@@ -588,7 +599,7 @@ private:
 		void OnRefresh(uint32_t iIdx);
 		void OnRefreshExternal();
 		void OnMined();
-		void OnMinedExternal();
+		IExternalPOW::BlockFoundResult OnMinedExternal();
 		void OnFinalizerChanged(Peer*);
 
 		void HardAbortSafe();

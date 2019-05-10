@@ -73,7 +73,8 @@ ComboBox {
                 font.pixelSize: 12
                 verticalAlignment: Text.AlignVCenter
 
-                text: qsTr("create new address")
+                //% "create new address"
+                text: qsTrId("create-new-address")
             }
             Rectangle {
                 Layout.fillWidth: true

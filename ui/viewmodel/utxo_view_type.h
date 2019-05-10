@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2019 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,10 +14,22 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
+#include <QObject>
 
-namespace string_helpers
+class UtxoViewType : public QObject
 {
-	std::vector<std::string> split(const std::string& s, char delim);
-}
+    Q_OBJECT
+public:
+    UtxoViewType() : QObject() {}
+
+    enum EnType
+    {
+        Undefined = 0,
+        Comission,
+        Coinbase,
+        Regular,
+        Change,
+        Treasury,
+    };
+    Q_ENUMS(EnType)
+};

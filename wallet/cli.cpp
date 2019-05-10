@@ -37,6 +37,7 @@
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <iterator>
 #include <future>
 #include "version.h"
@@ -433,8 +434,9 @@ namespace
         else if (vm.count(cli::SEED_PHRASE))
         {
             auto tempPhrase = vm[cli::SEED_PHRASE].as<string>();
+            boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
             phrase = string_helpers::split(tempPhrase, ';');
-            assert(phrase.size() == 12);
+            assert(phrase.size() == WORD_COUNT);
             if (!isValidMnemonic(phrase, language::en))
             {
                 LOG_ERROR() << "Invalid seed phrases provided: " << tempPhrase;
@@ -495,7 +497,7 @@ namespace
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
 
-		wallet::Totals totals(*walletDB);
+        wallet::Totals totals(*walletDB);
 
         cout << "____Wallet summary____\n\n"
             << "Current height............" << stateID.m_Height << '\n'
@@ -585,7 +587,12 @@ namespace
 
     int VerifyPaymentProof(const po::variables_map& vm)
     {
-        ByteBuffer buf = from_hex(vm[cli::PAYMENT_PROOF_DATA].as<string>());
+        const auto& pprofData = vm[cli::PAYMENT_PROOF_DATA];
+        if (pprofData.empty())
+        {
+            throw std::runtime_error("No payment proof provided: --payment_proof parameter is missing");
+        }
+        ByteBuffer buf = from_hex(pprofData.as<string>());
 
         if (!wallet::VerifyPaymentProof(buf))
             throw std::runtime_error("Payment proof is invalid");
@@ -779,28 +786,36 @@ int main_impl(int argc, char* argv[])
 
                     auto command = vm[cli::COMMAND].as<string>();
 
-                    if (command != cli::INIT
-                        && command != cli::RESTORE
-                        && command != cli::SEND
-                        && command != cli::RECEIVE
-                        && command != cli::LISTEN
-                        && command != cli::TREASURY
-                        && command != cli::INFO
-                        && command != cli::EXPORT_MINER_KEY
-                        && command != cli::EXPORT_OWNER_KEY
-                        && command != cli::NEW_ADDRESS
-                        && command != cli::CANCEL_TX
-                        && command != cli::CHANGE_ADDRESS_EXPIRATION
-                        && command != cli::PAYMENT_PROOF_EXPORT
-                        && command != cli::PAYMENT_PROOF_VERIFY
-                        && command != cli::GENERATE_PHRASE
-                        && command != cli::WALLET_ADDRESS_LIST
-                        && command != cli::WALLET_RESCAN
-                        && command != cli::IMPORT_ADDRESSES
-                        && command != cli::EXPORT_ADDRESSES)
                     {
-                        LOG_ERROR() << "unknown command: \'" << command << "\'";
-                        return -1;
+                        const vector<string> commands =
+                        {
+                            cli::INIT,
+                            cli::RESTORE,
+                            cli::SEND,
+                            cli::RECEIVE,
+                            cli::LISTEN,
+                            cli::TREASURY,
+                            cli::INFO,
+                            cli::EXPORT_MINER_KEY,
+                            cli::EXPORT_OWNER_KEY,
+                            cli::NEW_ADDRESS,
+                            cli::CANCEL_TX,
+                            cli::DELETE_TX,
+                            cli::CHANGE_ADDRESS_EXPIRATION,
+                            cli::PAYMENT_PROOF_EXPORT,
+                            cli::PAYMENT_PROOF_VERIFY,
+                            cli::GENERATE_PHRASE,
+                            cli::WALLET_ADDRESS_LIST,
+                            cli::WALLET_RESCAN,
+                            cli::IMPORT_ADDRESSES,
+                            cli::EXPORT_ADDRESSES,
+                        };
+
+                        if (find(commands.cbegin(), commands.cend(), command) == commands.cend())
+                        {
+                            LOG_ERROR() << "unknown command: \'" << command << "\'";
+                            return -1;
+                        }
                     }
 
                     if (command == cli::GENERATE_PHRASE)
@@ -844,6 +859,8 @@ int main_impl(int argc, char* argv[])
                         }
                     }
 
+                    bool coldWallet = vm.count(cli::COLD_WALLET) > 0;
+
                     if (command == cli::INIT || command == cli::RESTORE)
                     {
                         NoLeak<uintBig> walletSeed;
@@ -853,7 +870,7 @@ int main_impl(int argc, char* argv[])
                             LOG_ERROR() << "Please, provide seed phrase for the wallet.";
                             return -1;
                         }
-                        auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor);
+                        auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor, coldWallet);
                         if (walletDB)
                         {
                             LOG_INFO() << "wallet successfully created...";
@@ -953,20 +970,6 @@ int main_impl(int argc, char* argv[])
                         return ShowAddressList(walletDB);
                     }
 
-                    if (vm.count(cli::NODE_ADDR) == 0)
-                    {
-                        LOG_ERROR() << "node address should be specified";
-                        return -1;
-                    }
-
-                    string nodeURI = vm[cli::NODE_ADDR].as<string>();
-                    io::Address node_addr;
-                    if (!node_addr.resolve(nodeURI.c_str()))
-                    {
-                        LOG_ERROR() << "unable to resolve node address: " << nodeURI;
-                        return -1;
-                    }
-
                     io::Address receiverAddr;
                     Amount amount = 0;
                     Amount fee = 0;
@@ -1009,24 +1012,43 @@ int main_impl(int argc, char* argv[])
                     bool is_server = (command == cli::LISTEN || vm.count(cli::LISTEN));
 
                     Wallet wallet{ walletDB, is_server ? Wallet::TxCompletedAction() : [](auto) { io::Reactor::get_Current().stop(); } };
-
-                    proto::FlyClient::NetworkStd nnet(wallet);
-                    nnet.m_Cfg.m_vNodes.push_back(node_addr);
-                    nnet.Connect();
-
-                    WalletNetworkViaBbs wnet(wallet, nnet, walletDB);
                         
-                    wallet.set_Network(nnet, wnet);
+                    if (!coldWallet)
+                    {
+                        if (vm.count(cli::NODE_ADDR) == 0)
+                        {
+                            LOG_ERROR() << "node address should be specified";
+                            return -1;
+                        }
+
+                        string nodeURI = vm[cli::NODE_ADDR].as<string>();
+                        io::Address nodeAddress;
+                        if (!nodeAddress.resolve(nodeURI.c_str()))
+                        {
+                            LOG_ERROR() << "unable to resolve node address: " << nodeURI;
+                            return -1;
+                        }
+
+                        auto nnet = make_shared<proto::FlyClient::NetworkStd>(wallet);
+                        nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
+                        nnet->Connect();
+                        wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB));
+                        wallet.SetNodeEndpoint(nnet);
+                    }
+                    else
+                    {
+                        wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB));
+                    }
 
                     if (isTxInitiator)
                     {
                         WalletAddress senderAddress = newAddress(walletDB, "");
-                        wnet.AddOwnAddress(senderAddress);
                         CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
-                        wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND);
+                        wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, 120, 720, {}, true);
                     }
 
-                    if (command == cli::CANCEL_TX) 
+                    bool deleteTx = command == cli::DELETE_TX;
+                    if (command == cli::CANCEL_TX || deleteTx)
                     {
                         auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
                         TxID txId;
@@ -1035,13 +1057,27 @@ int main_impl(int argc, char* argv[])
 
                         if (tx)
                         {
-                            if (tx->canCancel())
+                            if (deleteTx)
                             {
-                                wallet.cancel_tx(txId);
+                                if (tx->canDelete())
+                                {
+                                    wallet.delete_tx(txId);
+                                }
+                                else
+                                {
+                                    LOG_ERROR() << "Transaction could not be deleted. Invalid transaction status.";
+                                }
                             }
                             else
                             {
-                                LOG_ERROR() << "Transaction could not be cancelled. Invalid transaction status.";
+                                if (tx->canCancel())
+                                {
+                                    wallet.cancel_tx(txId);
+                                }
+                                else
+                                {
+                                    LOG_ERROR() << "Transaction could not be cancelled. Invalid transaction status.";
+                                }
                             }
                         }
                         else
