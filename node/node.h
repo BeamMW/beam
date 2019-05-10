@@ -39,11 +39,11 @@ struct Node
 
         enum Error
         {
-            EmptyPeerList,
+			Unknown,
 			TimeDiffToLarge
         };
 
-        virtual void OnSyncError(Error error) {}
+        virtual void OnSyncError(Error error = Unknown) {}
 	};
 
 	struct Config

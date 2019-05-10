@@ -156,7 +156,12 @@ void AppModel::applySettingsChanges()
 void AppModel::startedNode()
 {
     if (m_wallet && !m_wallet->isRunning())
+    {
+        disconnect(
+            &m_nodeModel, SIGNAL(failedToSyncNode(beam::wallet::ErrorType)),
+            this, SLOT(onFailedToStartNode(beam::wallet::ErrorType)));
         m_wallet->start();
+    }
 }
 
 void AppModel::stoppedNode()
@@ -170,6 +175,13 @@ void AppModel::onFailedToStartNode(beam::wallet::ErrorType errorCode)
     if (errorCode == beam::wallet::ErrorType::ConnectionAddrInUse && m_wallet)
     {
         emit m_wallet->walletError(errorCode);
+        return;
+    }
+
+    if (errorCode == beam::wallet::ErrorType::TimeOutOfSync && m_wallet)
+    {
+        //% "Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet."
+        getMessages().addMessage(qtTrId("appmodel-failed-time-not-synced"));
         return;
     }
 
@@ -187,6 +199,7 @@ void AppModel::start()
     {
         connect(&m_nodeModel, SIGNAL(startedNode()), SLOT(startedNode()));
         connect(&m_nodeModel, SIGNAL(failedToStartNode(beam::wallet::ErrorType)), SLOT(onFailedToStartNode(beam::wallet::ErrorType)));
+        connect(&m_nodeModel, SIGNAL(failedToSyncNode(beam::wallet::ErrorType)), SLOT(onFailedToStartNode(beam::wallet::ErrorType)));
 
         m_nodeModel.startNode();
 

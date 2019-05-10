@@ -1175,6 +1175,10 @@
         <source>login to another wallet</source>
         <translation type="unfinished"></translation>
     </message>
+    <message id="appmodel-failed-time-not-synced">
+        <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
+        <translation>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</translation>
+    </message>
 </context>
 <context>
     <name>wallet</name>
