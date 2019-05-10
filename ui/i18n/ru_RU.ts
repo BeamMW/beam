@@ -1175,6 +1175,10 @@
         <source>Transaction ID:</source>
         <translation>Идентификатор транзакции:</translation>
     </message>
+    <message id="appmodel-failed-time-not-synced">
+        <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
+        <translation>Невозможно запустить локальный узел: время компьютера не синхронизированно. Проверьте настройки времени и перезапустите кошелек.</translation>
+    </message>
 </context>
 <context>
     <name>wallet</name>
