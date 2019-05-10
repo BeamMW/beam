@@ -20,6 +20,7 @@
 #include "../serialization_adapters.h"
 #include "../aes.h"
 #include "../proto.h"
+#include "../negotiator.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #pragma GCC diagnostic ignored "-Wunused-result"
@@ -1001,6 +1002,196 @@ void TestTransaction()
 	verify_test(ctx.m_Fee == beam::AmountBig::Type(fee1 + fee2));
 }
 
+bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b)
+{
+	using namespace beam;
+	using namespace Negotiator;
+
+	Gateway::Direct ga(a), gb(b);
+	a.m_pGateway = &gb;
+	b.m_pGateway = &ga;
+
+	IBase* pArr[2];
+	pArr[0] = &a;
+	pArr[1] = &b;
+
+	for (size_t i = 0; i < _countof(pArr); i++)
+	{
+		IBase& v = *pArr[i];
+		v.Set(static_cast<uint32_t>(i), Codes::Role);
+	}
+
+	while (true)
+	{
+		bool bDone = true, bFail = false;
+
+		for (size_t i = 0; i < _countof(pArr); i++)
+		{
+			IBase& v = *pArr[i];
+
+			uint32_t status = v.Update();
+			if (Status::Success != status)
+			{
+				bDone = false;
+				if (Status::Pending != status)
+					bFail = true;
+			}
+		}
+
+		if (bFail)
+			return false;
+		if (bDone)
+			return true;
+	}
+}
+
+Amount SetKidvs(beam::Negotiator::IBase& neg, const Amount* p, size_t n, uint32_t code, uint32_t i0 = 0)
+{
+	std::vector<Key::IDV> vec;
+	vec.resize(n);
+	Amount sum = 0;
+
+	for (size_t i = 0; i < n; i++)
+	{
+		Key::IDV& kidv = vec[i];
+		ZeroObject(kidv);
+
+		kidv.m_Type = Key::Type::Regular;
+		kidv.m_Idx = i0 + static_cast<uint32_t>(i);
+
+		kidv.m_Value = p[i];
+		sum += p[i];
+	}
+
+	neg.Set(vec, code);
+	return sum;
+}
+
+void TestNegotiation()
+{
+	using namespace beam;
+	using namespace Negotiator;
+
+	const Amount valMSig = 11;
+
+	Multisig pT1[2];
+	Storage::Map pS1[2];
+
+	for (size_t i = 0; i < _countof(pT1); i++)
+	{
+		IBase& v = pT1[i];
+
+		uintBig seed;
+		SetRandom(seed);
+		HKdf::Create(v.m_pKdf, seed);
+
+		v.m_pStorage = pS1 + i;
+
+		Key::IDV kidv(Zero);
+		kidv.m_Value = valMSig;
+		kidv.m_Idx = 500;
+		kidv.m_Type = FOURCC_FROM(msg2);
+		v.Set(kidv, Multisig::Codes::Kidv);
+	}
+
+	verify_test(RunNegLoop(pT1[0], pT1[1]));
+
+
+	MultiTx pT2[2];
+	Storage::Map pS2[2];
+
+	for (size_t i = 0; i < _countof(pT2); i++)
+	{
+		IBase& v = pT2[i];
+		v.m_pKdf = pT1[i].m_pKdf;
+		v.m_pStorage = pS2 + i;
+	}
+
+	const Amount pIn0[] = { 30, 50, 45 };
+	const Amount pOut0[] = { 11, 12 };
+
+	const Amount pIn1[] = { 6 };
+	const Amount pOut1[] = { 17, 55 };
+
+	Amount fee = valMSig;
+
+	fee += SetKidvs(pT2[0], pIn0, _countof(pIn0), MultiTx::Codes::InpKidvs);
+	fee -= SetKidvs(pT2[0], pOut0, _countof(pOut0), MultiTx::Codes::OutpKidvs, 700);
+
+	fee += SetKidvs(pT2[1], pIn1, _countof(pIn1), MultiTx::Codes::InpKidvs);
+	fee -= SetKidvs(pT2[1], pOut1, _countof(pOut1), MultiTx::Codes::OutpKidvs, 500);
+
+	for (size_t i = 0; i < _countof(pT2); i++)
+	{
+		IBase& v = pT2[i];
+		v.Set(fee, MultiTx::Codes::KrnFee);
+
+		Key::IDV kidv(Zero);
+		kidv.m_Value = valMSig;
+		kidv.m_Idx = 500;
+		kidv.m_Type = FOURCC_FROM(msg2);
+		v.Set(kidv, MultiTx::Codes::InpMsKidv);
+		pS2[i][MultiTx::Codes::InpMsCommitment] = pS1[i][Multisig::Codes::Commitment];
+
+//			v.Set(kidv, MultiTx::Codes::OutpMsKidv);
+//			pS2[i][MultiTx::Codes::OutpMsTxo] = pS1[i][Multisig::Codes::OutputTxo];
+	}
+
+	verify_test(RunNegLoop(pT2[0], pT2[1]));
+
+	WithdrawTx pT3[2];
+	Storage::Map pS3[2];
+
+	for (size_t i = 0; i < _countof(pT3); i++)
+	{
+		WithdrawTx& v = pT3[i];
+		v.m_pKdf = pT1[i].m_pKdf;
+		v.m_pStorage = pS3 + i;
+
+		WithdrawTx::Worker wrk(v);
+
+		// new multisig
+		v.m_MSig.m_pKdf = v.m_pKdf;
+		Key::IDV kidv(Zero);
+		kidv.m_Value = valMSig;
+		kidv.m_Idx = 800;
+		kidv.m_Type = FOURCC_FROM(msg2);
+		v.m_MSig.Set(kidv, Multisig::Codes::Kidv);
+
+		// msig0 -> msig1
+		v.m_Tx1.m_pKdf = v.m_pKdf;
+		kidv.m_Idx = 500;
+
+		v.m_Tx1.Set(kidv, MultiTx::Codes::InpMsKidv);
+
+		ECC::Point commInp;
+		verify_test(pT1[i].Get(commInp, Multisig::Codes::Commitment));
+		v.m_Tx1.Set(commInp, MultiTx::Codes::InpMsCommitment);
+
+		// msig1 -> outs
+		v.m_Tx2.m_pKdf = v.m_pKdf;
+		kidv.m_Idx = 300;
+		kidv.m_Type = Key::Type::Regular;
+
+		Amount half = kidv.m_Value / 2;
+		if (i)
+			kidv.m_Value = half;
+		else
+			kidv.m_Value -= half;
+
+		std::vector<Key::IDV> vec;
+		vec.push_back(kidv);
+		v.m_Tx2.Set(vec, MultiTx::Codes::OutpKidvs);
+
+		v.m_Tx2.Set(uint32_t(1), MultiTx::Codes::ShareResult); // both peers must have valid (msig1 -> outs)
+
+		Height hLock = 1440;
+		v.m_Tx2.Set(hLock, MultiTx::Codes::KrnLockHeight);
+	}
+
+	verify_test(RunNegLoop(pT3[0], pT3[1]));
+}
+
 void TestCutThrough()
 {
 	TransactionMaker tm;
@@ -1401,6 +1592,7 @@ void TestAll()
 	TestRangeProof(false);
 	TestRangeProof(true);
 	TestTransaction();
+	TestNegotiation();
 	TestCutThrough();
 	TestAES();
 	TestKdf();
