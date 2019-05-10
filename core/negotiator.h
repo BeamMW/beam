@@ -278,6 +278,12 @@ namespace Negotiator {
 	{
 		virtual void Update2() override;
 
+		struct Codes
+			:public Negotiator::Codes
+		{
+			static const uint32_t One = Variable0 + 1;
+		};
+
 	public:
 
 		Multisig m_MSig; // msig1
@@ -319,6 +325,8 @@ namespace Negotiator {
 			Gateway::Nested m_Gw0;
 			Gateway::Nested m_Gw1;
 			Gateway::Nested m_Gw2;
+
+			bool get_One(Blob& blob);
 
 		public:
 			Worker(WithdrawTx& x);

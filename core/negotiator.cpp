@@ -709,6 +709,22 @@ WithdrawTx::Worker::Worker(WithdrawTx& x)
 	x.m_Tx2.m_pGateway = &m_Gw2;
 }
 
+bool WithdrawTx::Worker::get_One(Blob& blob)
+{
+	if (!m_s0.m_pNext->Read(Codes::One, blob))
+	{
+		m_This.Set(uint32_t(1), Codes::One);
+
+		if (!m_s0.m_pNext->Read(Codes::One, blob))
+		{
+			m_This.OnFail(); // Must not happen, but add extra protection
+			return false;
+		}
+	}
+
+	return true;
+}
+
 bool WithdrawTx::Worker::S0::Read(uint32_t code, Blob& blob)
 {
 	switch (code)
@@ -742,7 +758,11 @@ bool WithdrawTx::Worker::S1::Read(uint32_t code, Blob& blob)
 			if (Status::Success == status)
 				return false; // i.e. not blocked
 		}
-		return m_pNext->Read(Codes::Role, blob);; // should contain Rule==1, means Block==1
+
+		// no break;
+
+	case MultiTx::Codes::RestrictInputs:
+		return get_ParentObj().get_One(blob);
 	}
 
 	return Storage::Nested::Read(code, blob);
@@ -763,6 +783,10 @@ bool WithdrawTx::Worker::S2::Read(uint32_t code, Blob& blob)
 
 	case MultiTx::Codes::KrnLockID:
 		return get_ParentObj().m_s1.Read(MultiTx::Codes::KernelID, blob);
+
+	case MultiTx::Codes::ShareResult: // both peers must have valid (msig1 -> outs)
+	case MultiTx::Codes::RestrictInputs:
+		return get_ParentObj().get_One(blob);
 	}
 
 	return Storage::Nested::Read(code, blob);
