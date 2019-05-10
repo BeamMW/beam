@@ -572,6 +572,23 @@ namespace
         if (txIdVec.size() >= 16)
             std::copy_n(txIdVec.begin(), 16, txId.begin());
 
+        auto tx = walletDB->getTx(txId);
+        if (!tx)
+        {
+            LOG_ERROR() << "Failed to export payment proof, transaction does not exist.";
+            return -1;
+        }
+        if (!tx->m_sender || tx->m_selfTx)
+        {
+            LOG_ERROR() << "Cannot export payment proof for receiver or self transaction.";
+            return -1;
+        }
+        if (tx->m_status != TxStatus::Completed)
+        {
+            LOG_ERROR() << "Failed to export payment proof. Transaction is not completed.";
+            return -1;
+        }
+
         auto res = wallet::ExportPaymentProof(*walletDB, txId);
         if (!res.empty())
         {
