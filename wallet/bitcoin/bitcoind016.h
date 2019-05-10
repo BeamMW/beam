@@ -24,7 +24,7 @@ namespace beam
     {
     public:
         Bitcoind016() = delete;
-        Bitcoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address);
+        Bitcoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, bool mainnet = false);
 
         void dumpPrivKey(const std::string& btcAddress, std::function<void(const std::string&, const std::string&)> callback) override;
         void fundRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&, int)> callback) override;
@@ -45,10 +45,12 @@ namespace beam
 
     protected:
         void sendRequest(const std::string& method, const std::string& params, std::function<void(const std::string&)> callback);
+        bool isMainnet() const;
 
     private:
         HttpClient m_httpClient;
         io::Address m_address;
         std::string m_authorization;
+        bool m_isMainnet = false;
     };
 }

@@ -31,10 +31,11 @@ namespace beam
         }
     }
 
-    Bitcoind016::Bitcoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address)
+    Bitcoind016::Bitcoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, bool mainnet)
         : m_httpClient(reactor)
         , m_address(address)
         , m_authorization(generateAuthorization(userName, pass))
+        , m_isMainnet(mainnet)
     {
     }
 
@@ -165,6 +166,16 @@ namespace beam
         });
     }
 
+    uint8_t Bitcoind016::getAddressVersion()
+    {
+        if (isMainnet())
+        {
+            return libbitcoin::wallet::ec_private::mainnet_wif;
+        }
+        
+        return libbitcoin::wallet::ec_private::testnet_wif;
+    }
+
     void Bitcoind016::sendRequest(const std::string& method, const std::string& params, std::function<void(const std::string&)> callback)
     {
         const std::string content(R"({"method":")" + method + R"(","params":[)" + params + "]}");
@@ -198,10 +209,8 @@ namespace beam
         m_httpClient.send_request(request);
     }
 
-    uint8_t Bitcoind016::getAddressVersion()
+    bool Bitcoind016::isMainnet() const
     {
-        // TODO roman.strile implement different version of address
-        // default for testnet
-        return libbitcoin::wallet::ec_private::testnet_wif;
+        return m_isMainnet;
     }
 }

@@ -22,7 +22,7 @@ namespace beam
     {
     public:
         Litecoind016() = delete;
-        Litecoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address);
+        Litecoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, bool mainnet = false);
 
         uint8_t getAddressVersion() override;
 

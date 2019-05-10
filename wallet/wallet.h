@@ -73,8 +73,8 @@ namespace beam
         virtual ~Wallet();
 
         void set_Network(proto::FlyClient::INetwork&, IWalletNetwork&);
-        void initBitcoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address);
-        void initLitecoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address);
+        void initBitcoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, bool mainnet = false);
+        void initLitecoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, bool mainnet = false);
         void initSwapConditions(Amount beamAmount, Amount swapAmount, wallet::AtomicSwapCoin swapCoin, bool isBeamSide);
 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {} );

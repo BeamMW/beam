@@ -18,15 +18,19 @@
 
 namespace beam
 {
-    Litecoind016::Litecoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address)
-        : Bitcoind016(reactor, userName, pass, address)
+    Litecoind016::Litecoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, bool mainnet)
+        : Bitcoind016(reactor, userName, pass, address, mainnet)
     {
     }
 
     uint8_t Litecoind016::getAddressVersion()
     {
-        // TODO roman.strile implement different version of address
-        // default for testnet
+        if (isMainnet())
+        {
+            // litecoin mainnet virsion WIF
+            return 176;
+        }
+
         return libbitcoin::wallet::ec_private::testnet_wif;
     }
 }
