@@ -633,6 +633,39 @@ void MultiTx::Update2()
 	if (!Get(txPeer, Codes::TxPartial))
 		return;
 
+	uint32_t nRestrictInputs = 0;
+	Get(nRestrictInputs, Codes::RestrictInputs);
+	if (nRestrictInputs)
+	{
+		Key::IDV kidvMsig;
+		if ((iRole > 0) && Get(kidvMsig, Codes::InpMsKidv))
+		{
+			if (txPeer.m_vInputs.size() != 1)
+			{
+				OnFail();
+				return;
+			}
+
+			ECC::Point comm;
+			if (!Get(comm, Codes::InpMsCommitment))
+				return;
+
+			if (comm != txPeer.m_vInputs.front()->m_Commitment)
+			{
+				OnFail();
+				return;
+			}
+		}
+		else
+		{
+			if (!txPeer.m_vInputs.empty())
+			{
+				OnFail();
+				return;
+			}
+		}
+	}
+
 	Transaction txFull;
 	TxVectors::Writer wtx(txFull, txFull);
 

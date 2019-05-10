@@ -1167,6 +1167,7 @@ void TestNegotiation()
 		ECC::Point commInp;
 		verify_test(pT1[i].Get(commInp, Multisig::Codes::Commitment));
 		v.m_Tx1.Set(commInp, MultiTx::Codes::InpMsCommitment);
+		v.m_Tx1.Set(uint32_t(1), MultiTx::Codes::RestrictInputs);
 
 		// msig1 -> outs
 		v.m_Tx2.m_pKdf = v.m_pKdf;
@@ -1184,6 +1185,7 @@ void TestNegotiation()
 		v.m_Tx2.Set(vec, MultiTx::Codes::OutpKidvs);
 
 		v.m_Tx2.Set(uint32_t(1), MultiTx::Codes::ShareResult); // both peers must have valid (msig1 -> outs)
+		v.m_Tx2.Set(uint32_t(1), MultiTx::Codes::RestrictInputs);
 
 		Height hLock = 1440;
 		v.m_Tx2.Set(hLock, MultiTx::Codes::KrnLockHeight);

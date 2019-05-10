@@ -252,6 +252,7 @@ namespace Negotiator {
 			static const uint32_t KrnLockID = Input0 + 9;
 
 			static const uint32_t Block = Input0 + 30; // don't continue beyond "point of no return", i.e. where the peer can complete the transaction
+			static const uint32_t RestrictInputs = Input0 + 31; // peer isn't allowed to add inputs (i.e. spoil tx with non-existing inputs)
 
 			static const uint32_t Nonce = Variable0 + 1;
 
