@@ -96,7 +96,7 @@ artifacts:
   - path: pdb/beam-pdb%BEAM_TARGET_SUFFIX%-%BEAM_VERSION%.zip
     name: BeamPdb
 
-  - path: Beam-Wallet%BEAM_TARGET_SUFFIX2%-%BEAM_VERSION%.exe
+  - path: Beam-Wallet%BEAM_DISPLAY_SUFFIX2%-%BEAM_VERSION%.exe
     name: BeamWallet
 
 deploy:
