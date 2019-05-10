@@ -439,7 +439,7 @@ namespace
             assert(phrase.size() == WORD_COUNT);
             if (!isValidMnemonic(phrase, language::en))
             {
-                LOG_ERROR() << "Invalid seed phrases provided: " << tempPhrase;
+                LOG_ERROR() << "Invalid seed phrase provided: " << tempPhrase;
                 return false;
             }
         }
@@ -867,7 +867,7 @@ int main_impl(int argc, char* argv[])
                         walletSeed.V = Zero;
                         if (!ReadWalletSeed(walletSeed, vm, command == cli::INIT))
                         {
-                            LOG_ERROR() << "Please, provide seed phrase for the wallet.";
+                            LOG_ERROR() << "Please, provide a valid seed phrase for the wallet.";
                             return -1;
                         }
                         auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor, coldWallet);

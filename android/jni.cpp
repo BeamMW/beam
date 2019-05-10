@@ -110,7 +110,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
         if (!isValidMnemonic(phrases, language::en))
         {
-            LOG_ERROR() << "Invalid seed phrases provided: " << st;
+            LOG_ERROR() << "Invalid seed phrase provided: " << st;
             return nullptr;
         }
 

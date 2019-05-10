@@ -968,7 +968,7 @@
         <translation>Принтер не найден. Пожалуйста, проверьте настройки принтера.</translation>
     </message>
     <message id="start-view-printer-error">
-        <source>Failed to print seed phrases. Please, check your printer.</source>
+        <source>Failed to print seed phrase. Please, check your printer.</source>
         <translation>Ошибка печати. Пожалуйста, проверьте настройки принтера.</translation>
     </message>
     <message id="start-view-select-db">
