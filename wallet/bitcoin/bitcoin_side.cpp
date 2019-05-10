@@ -524,7 +524,7 @@ namespace beam::wallet
         // validate amount
         {
             Amount swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
-            Amount outputAmount = static_cast<Amount>(amount * libbitcoin::satoshi_per_bitcoin);
+            Amount outputAmount = static_cast<Amount>(std::round(amount * libbitcoin::satoshi_per_bitcoin));
             if (swapAmount > outputAmount)
             {
                 LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" 
