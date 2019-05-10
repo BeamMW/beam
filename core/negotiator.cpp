@@ -105,12 +105,14 @@ namespace Storage
 
 void IBase::OnFail()
 {
-	Set(Status::Error, Codes::Status);
+	uint32_t val = Status::Error;
+	Set(val, Codes::Status);
 }
 
 void IBase::OnDone()
 {
-	Set(Status::Success, Codes::Status);
+	uint32_t val = Status::Success;
+	Set(val, Codes::Status);
 }
 
 bool IBase::RaiseTo(uint32_t pos)

@@ -1131,7 +1131,11 @@ void TestNegotiation()
 		kidv.m_Idx = 500;
 		kidv.m_Type = FOURCC_FROM(msg2);
 		v.Set(kidv, MultiTx::Codes::InpMsKidv);
-		pS2[i][MultiTx::Codes::InpMsCommitment] = pS1[i][Multisig::Codes::Commitment];
+
+		uint32_t idxTrg = MultiTx::Codes::InpMsCommitment;
+		uint32_t idxSrc = Multisig::Codes::Commitment;
+
+		pS2[i][idxTrg] = pS1[i][idxSrc];
 
 //			v.Set(kidv, MultiTx::Codes::OutpMsKidv);
 //			pS2[i][MultiTx::Codes::OutpMsTxo] = pS1[i][Multisig::Codes::OutputTxo];
