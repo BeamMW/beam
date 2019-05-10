@@ -668,28 +668,22 @@ namespace beam::wallet
             GetWalletDB()->store(withdrawUtxo);
         }
 
-        std::vector<Coin> modified;
-        GetWalletDB()->visit([&](const Coin& coin)
+        std::vector<Coin> modified = GetWalletDB()->getCoinsByTx(GetTxID());
+        for (auto& coin : modified)
         {
             bool bIn = (coin.m_createTxId == m_ID);
             bool bOut = (coin.m_spentTxId == m_ID);
             if (bIn || bOut)
             {
-                modified.emplace_back();
-                Coin& c = modified.back();
-                c = coin;
-
                 if (bIn)
                 {
-                    c.m_confirmHeight = std::min(c.m_confirmHeight, hProof);
-                    c.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
+                    coin.m_confirmHeight = std::min(coin.m_confirmHeight, hProof);
+                    coin.m_maturity = hProof + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
                 }
                 if (bOut)
-                    c.m_spentHeight = std::min(c.m_spentHeight, hProof);
+                    coin.m_spentHeight = std::min(coin.m_spentHeight, hProof);
             }
-
-            return true;
-        });
+        }
 
         GetWalletDB()->save(modified);
 
