@@ -736,8 +736,8 @@
         <translation>начать обновление</translation>
     </message>
     <message id="start-login-another-message">
-        <source>Login to another wallet or create new one</source>
-        <translation>Залогиниться в другой кошелек или создать новый</translation>
+        <source>Restore wallet or create new one</source>
+        <translation>Восстановить кошелек или создать новый</translation>
     </message>
     <message id="start-select-db-message">
         <source>Select the wallet database file</source>
@@ -1168,8 +1168,8 @@
         <translation>1 час</translation>
     </message>
     <message id="receive-amount-label">
-        <source>Transaction amount</source>
-        <translation type="unfinished">Сумма транзакции</translation>
+        <source>Receive amount (optional)</source>
+        <translation>Сумма (опционально)</translation>
     </message>
     <message id="tx-details-tx-id-label">
         <source>Transaction ID:</source>

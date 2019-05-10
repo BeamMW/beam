@@ -1375,6 +1375,7 @@ void Node::Peer::OnDisconnect(const DisconnectReason& dr)
         {
             m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge);
         }
+        // no break;
     case DisconnectReason::Protocol:
         nByeReason = ByeReason::Ban;
         break;
@@ -1536,7 +1537,9 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
         switch (p.OnState(m_Tip, m_pInfo->m_ID.m_Key))
         {
         case NodeProcessor::DataStatus::Invalid:
-            ThrowUnexpected();
+            m_Tip.m_TimeStamp > getTimestamp() ?
+                m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge):
+                ThrowUnexpected();
             // no break;
 
         case NodeProcessor::DataStatus::Accepted:
@@ -1551,7 +1554,6 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
         default:
             break; // suppress warning
         }
-
     }
 
 	TakeTasks();

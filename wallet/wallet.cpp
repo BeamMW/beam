@@ -191,11 +191,10 @@ namespace beam
 
         TxID txID = wallet::GenerateTxID();
         auto tx = constructTransaction(txID, TxType::Simple);
-        Height currentHeight = m_WalletDB->getCurrentHeight();
 
         tx->SetParameter(TxParameterID::TransactionType, TxType::Simple, false);
         tx->SetParameter(TxParameterID::Lifetime, lifetime, false);
-        tx->SetParameter(TxParameterID::PeerResponseHeight, currentHeight + responseTime); 
+        tx->SetParameter(TxParameterID::PeerResponseHeight, responseTime); 
         tx->SetParameter(TxParameterID::IsInitiator, true, false);
         tx->SetParameter(TxParameterID::AmountList, amountList, false);
         tx->SetParameter(TxParameterID::PreselectedCoins, coins, false);
@@ -205,7 +204,6 @@ namespace beam
         txDescription.m_txId = txID;
         txDescription.m_amount = std::accumulate(amountList.begin(), amountList.end(), 0ULL);
         txDescription.m_fee = fee;
-        txDescription.m_minHeight = currentHeight;
         txDescription.m_peerId = to;
         txDescription.m_myId = from;
         txDescription.m_message = move(message);

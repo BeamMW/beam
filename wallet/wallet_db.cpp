@@ -1880,7 +1880,7 @@ namespace beam
         txDescription.m_txId = txId;
 
         const std::set<wallet::TxParameterID> mandatoryParams{ wallet::TxParameterID::Amount, wallet::TxParameterID::Fee,
-            wallet::TxParameterID::MinHeight, wallet::TxParameterID::PeerID,
+            wallet::TxParameterID::PeerID,
             wallet::TxParameterID::MyID, wallet::TxParameterID::CreateTime,
             wallet::TxParameterID::IsSender };
         std::set<wallet::TxParameterID> gottenParams;
@@ -1957,7 +1957,10 @@ namespace beam
         wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::Amount, p.m_amount, false);
         wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::Fee, p.m_fee, false);
         wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::Change, p.m_change, false);
-        wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::MinHeight, p.m_minHeight, false);
+        if (p.m_minHeight)
+        {
+            wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::MinHeight, p.m_minHeight, false);
+        }
         wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::PeerID, p.m_peerId, false);
         wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::MyID, p.m_myId, false);
         wallet::setTxParameter(*this, p.m_txId, wallet::TxParameterID::Message, p.m_message, false);

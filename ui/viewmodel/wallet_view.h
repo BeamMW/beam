@@ -152,7 +152,7 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
     Q_PROPERTY(QString amountMissingToSend READ getAmountMissingToSend NOTIFY actualAvailableChanged)
 
-    Q_PROPERTY(QString amountForReceive READ getAmountForReceive WRITE setAmountForReceive NOTIFY amountForReceiveChanged)
+    Q_PROPERTY(double amountForReceive READ getAmountForReceive WRITE setAmountForReceive NOTIFY amountForReceiveChanged)
 
     Q_PROPERTY(QString feeGrothes READ feeGrothes WRITE setFeeGrothes NOTIFY feeGrothesChanged)
 
@@ -208,8 +208,8 @@ public:
     QQmlListProperty<TxObject> getTransactions();
     QString sendAmount() const;
     QString getAmountMissingToSend() const;
-    const QString& getAmountForReceive() const;
-    void setAmountForReceive(const QString& value);
+    double getAmountForReceive() const;
+    void setAmountForReceive(double value);
     QString feeGrothes() const;
     bool getIsOfflineStatus() const;
     bool getIsFailedStatus() const;
@@ -296,7 +296,7 @@ private:
     WalletStatus _status ;
 
     QString _sendAmount;
-    QString _amountForReceive;
+    double _amountForReceive;
     QString _feeGrothes;
 
     beam::Amount _change;

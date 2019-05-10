@@ -447,7 +447,7 @@ Item {
                                     font.pixelSize: 14
                                     font.styleName: "Bold"; font.weight: Font.Bold
                                     color: Style.content_main
-                                    //% "Transaction amount"
+                                    //% "Receive amount (optional)"
                                     text: qsTrId("receive-amount-label")
                                 }
 
@@ -476,7 +476,7 @@ Item {
 
                                         onFocusChanged: {
                                             if (amount > 0) {
-                                                text = focus ? amount : amount.toLocaleString(Qt.locale(), 'f', -128);
+                                                text = amount.toLocaleString(focus ? Qt.locale("C") : Qt.locale(), 'f', -128);
                                             }
                                         }
                                     }
@@ -738,8 +738,7 @@ Item {
 
                                     onFocusChanged: {
                                         if (amount > 0) {
-                                            // QLocale::FloatingPointShortest = -128
-                                            text = focus ? amount : amount.toLocaleString(Qt.locale(), 'f', -128);
+                                            text = amount.toLocaleString(focus ? Qt.locale("C") : Qt.locale(), 'f', -128);
                                         }
                                     }
                                 }

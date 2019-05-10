@@ -66,7 +66,7 @@ namespace beam { namespace wallet
         return m_Reason;
     }
 
-    const uint32_t BaseTransaction::s_ProtoVersion = 1;
+    const uint32_t BaseTransaction::s_ProtoVersion = 2;
 
 
     BaseTransaction::BaseTransaction(INegotiatorGateway& gateway
@@ -936,7 +936,19 @@ namespace beam { namespace wallet
     {
         m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs);
         m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs);
-        m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight);
+        if (!m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight))
+        {
+            // adjust min height, this allows create transaction when node is out of sync
+            auto currentHeight = m_Tx.GetWalletDB()->getCurrentHeight();
+            m_MinHeight = currentHeight;
+            m_Tx.SetParameter(TxParameterID::MinHeight, m_MinHeight);
+            Height maxResponseHeight = 0;
+            if (m_Tx.GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight))
+            {
+                // adjust responce height, if min height din not set then then it should be equal to responce time
+                m_Tx.SetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight + currentHeight);
+            }
+        }
         m_Tx.GetParameter(TxParameterID::Lifetime, m_Lifetime);
         m_Tx.GetParameter(TxParameterID::PeerMaxHeight, m_PeerMaxHeight);
 
