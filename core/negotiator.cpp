@@ -635,9 +635,9 @@ void MultiTx::Update2()
 	if (!Get(txPeer, Codes::TxPartial))
 		return;
 
-	uint32_t nRestrictInputs = 0;
-	Get(nRestrictInputs, Codes::RestrictInputs);
-	if (nRestrictInputs)
+	uint32_t nRestrict = 0;
+	Get(nRestrict, Codes::RestrictInputs);
+	if (nRestrict)
 	{
 		Key::IDV kidvMsig;
 		if ((iRole > 0) && Get(kidvMsig, Codes::InpMsKidv))
@@ -666,6 +666,37 @@ void MultiTx::Update2()
 				return;
 			}
 		}
+	}
+
+	nRestrict = 0;
+	Get(nRestrict, Codes::RestrictOutputs);
+	if (nRestrict)
+	{
+		uint32_t nMaxPeerOutputs = 1;
+
+		Key::IDV kidvMsig;
+		if ((iRole > 0) && Get(kidvMsig, Codes::OutpMsKidv))
+			nMaxPeerOutputs++; // the peer is supposed to add it
+
+		if (txPeer.m_vOutputs.size() > nMaxPeerOutputs)
+		{
+			OnFail();
+			return;
+		}
+
+/*
+
+		TODO: either remove the m_CanDuplicate flag at all from the protocol (i.e. always allow duplication), or make sure we create Outputs with it set to true.
+
+		for (size_t i = 0; i < txPeer.m_vOutputs.size(); i++)
+		{
+			if (!txPeer.m_vOutputs[i]->m_CanDuplicate)
+			{
+				OnFail();
+				return;
+			}
+		}
+*/
 	}
 
 	Transaction txFull;
@@ -762,6 +793,7 @@ bool WithdrawTx::Worker::S1::Read(uint32_t code, Blob& blob)
 		// no break;
 
 	case MultiTx::Codes::RestrictInputs:
+	case MultiTx::Codes::RestrictOutputs:
 		return get_ParentObj().get_One(blob);
 	}
 
@@ -786,6 +818,7 @@ bool WithdrawTx::Worker::S2::Read(uint32_t code, Blob& blob)
 
 	case MultiTx::Codes::ShareResult: // both peers must have valid (msig1 -> outs)
 	case MultiTx::Codes::RestrictInputs:
+	case MultiTx::Codes::RestrictOutputs:
 		return get_ParentObj().get_One(blob);
 	}
 

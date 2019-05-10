@@ -253,6 +253,7 @@ namespace Negotiator {
 
 			static const uint32_t Block = Input0 + 30; // don't continue beyond "point of no return", i.e. where the peer can complete the transaction
 			static const uint32_t RestrictInputs = Input0 + 31; // peer isn't allowed to add inputs (i.e. spoil tx with non-existing inputs)
+			static const uint32_t RestrictOutputs = Input0 + 32; // peer isn't allowed to "inflate" transaction (making it invalid or less likely to be mined). Can add up to 1 own output with DoNotDuplicate flag, no extra kernels
 
 			static const uint32_t Nonce = Variable0 + 1;
 
