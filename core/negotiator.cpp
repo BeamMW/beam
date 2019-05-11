@@ -752,11 +752,32 @@ bool WithdrawTx::Worker::S2::Read(uint32_t code, Blob& blob)
 	return Router::Read(code, blob);
 }
 
-void WithdrawTx::Setup()
+void WithdrawTx::Setup(
+	const Key::IDV* pMsig1,
+	const Key::IDV* pMsig0,
+	const ECC::Point* pComm0,
+	const std::vector<Key::IDV>* pOuts,
+	Height hLock)
 {
 	m_MSig.m_pKdf = m_pKdf;
 	m_Tx1.m_pKdf = m_pKdf;
 	m_Tx2.m_pKdf = m_pKdf;
+
+	if (pMsig1)
+		m_MSig.Set(*pMsig1, Multisig::Codes::Kidv);
+
+	if (pMsig0)
+		m_Tx1.Set(*pMsig0, MultiTx::Codes::InpMsKidv);
+
+	if (pComm0)
+		m_Tx1.Set(*pComm0, MultiTx::Codes::InpMsCommitment);
+
+	if (pOuts)
+		m_Tx2.Set(*pOuts, MultiTx::Codes::OutpKidvs);
+
+	if (hLock)
+		m_Tx2.Set(hLock, MultiTx::Codes::KrnLockHeight);
+
 }
 
 
@@ -909,6 +930,32 @@ bool ChannelOpen::Worker::SB::Read(uint32_t code, Blob& blob)
 	return Router::Read(code, blob);
 }
 
+void ChannelOpen::Setup(
+	const std::vector<Key::IDV>* pInps,
+	const std::vector<Key::IDV>* pOutsChange,
+	const Key::IDV* pMsig0,
+	const Key::IDV* pMsig1A,
+	const Key::IDV* pMsig1B,
+	const std::vector<Key::IDV>* pOutsWd,
+	Height hLock)
+{
+	m_MSig.m_pKdf = m_pKdf;
+	m_Tx0.m_pKdf = m_pKdf;
+	m_WdA.m_pKdf = m_pKdf;
+	m_WdB.m_pKdf = m_pKdf;
+
+	if (pMsig0)
+		m_MSig.Set(*pMsig0, Multisig::Codes::Kidv);
+
+	if (pInps)
+		m_Tx0.Set(*pInps, MultiTx::Codes::InpKidvs);
+
+	if (pOutsChange)
+		m_Tx0.Set(*pOutsChange, MultiTx::Codes::OutpKidvs);
+
+	m_WdA.Setup(pMsig1A, nullptr, nullptr, pOutsWd, hLock);
+	m_WdB.Setup(pMsig1B, nullptr, nullptr, nullptr, 0);
+}
 
 void ChannelOpen::Update2()
 {
@@ -997,6 +1044,21 @@ bool ChannelUpdate::Worker::SB::Read(uint32_t code, Blob& blob)
 	}
 
 	return Router::Read(code, blob);
+}
+
+void ChannelUpdate::Setup(
+	const Key::IDV* pMsig0,
+	const ECC::Point* pComm0,
+	const Key::IDV* pMsig1A,
+	const Key::IDV* pMsig1B,
+	const std::vector<Key::IDV>* pOutsWd,
+	Height hLock)
+{
+	m_WdA.m_pKdf = m_pKdf;
+	m_WdB.m_pKdf = m_pKdf;
+
+	m_WdA.Setup(pMsig1A, pMsig0, pComm0, pOutsWd, hLock);
+	m_WdB.Setup(pMsig1B, nullptr, nullptr, nullptr, 0);
 }
 
 void ChannelUpdate::Update2()

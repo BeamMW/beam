@@ -316,7 +316,12 @@ namespace Negotiator {
 		MultiTx m_Tx1; // msig0 - > msig1
 		MultiTx m_Tx2; // msig1 -> outputs, timelocked
 
-		void Setup();
+		void Setup(
+			const Key::IDV* pMsig1,
+			const Key::IDV* pMsig0,
+			const ECC::Point* pComm0,
+			const std::vector<Key::IDV>* pOuts,
+			Height hLock);
 
 		// Worker object, handles remapping of storage and gateway for inner objects
 		class Worker
@@ -373,6 +378,15 @@ namespace Negotiator {
 		MultiTx m_Tx0; // inputs -> msig0
 		WithdrawTx m_WdA; // withdraw for Role==0
 		WithdrawTx m_WdB; // withdraw for Role==1
+
+		void Setup(
+			const std::vector<Key::IDV>* pInps,
+			const std::vector<Key::IDV>* pOutsChange,
+			const Key::IDV* pMsig0,
+			const Key::IDV* pMsig1A,
+			const Key::IDV* pMsig1B,
+			const std::vector<Key::IDV>* pOutsWd,
+			Height hLock);
 
 		// Worker object, handles remapping of storage and gateway for inner objects
 		class Worker
@@ -438,6 +452,14 @@ namespace Negotiator {
 
 		WithdrawTx m_WdA; // withdraw for Role==0
 		WithdrawTx m_WdB; // withdraw for Role==1
+
+		void Setup(
+			const Key::IDV* pMsig0,
+			const ECC::Point* pComm0,
+			const Key::IDV* pMsig1A,
+			const Key::IDV* pMsig1B,
+			const std::vector<Key::IDV>* pOutsWd,
+			Height hLock);
 
 		// Worker object, handles remapping of storage and gateway for inner objects
 		class Worker
