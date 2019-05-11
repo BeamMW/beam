@@ -1,5 +1,29 @@
 set (TARGET_NAME "beam-wallet-ui")
 
+function(BEAM_TRANSLATIONS_UPDATE_TS supported_langs out_ts_files)
+    find_package(Qt5LinguistTools)
+    foreach(SUPPORTED_LANG ${supported_langs})
+        set(TS_FILE "${CMAKE_CURRENT_SOURCE_DIR}/i18n/${SUPPORTED_LANG}.ts")
+        list(APPEND TS_FILES "${TS_FILE}")
+        message("update: ${TS_FILE}")
+        execute_process(COMMAND lupdate -recursive -locations none ${CMAKE_CURRENT_SOURCE_DIR} -ts "${TS_FILE}")
+    endforeach()
+    set(${out_ts_files} ${TS_FILES} PARENT_SCOPE)
+endfunction()
+
+function(BEAM_TRANSLATIONS_COMPILE_QM ts_files out_qm_files)
+    find_package(Qt5LinguistTools)
+    foreach(TS_FILE ${ts_files})
+        message("compile: ${TS_FILE}")
+        get_filename_component(TS_FILE_WE ${TS_FILE} NAME_WE)
+        set(QM_FILE_NAME "${TS_FILE_WE}.qm")
+        list(APPEND QM_FILES "${QM_FILE_NAME}")
+        execute_process(COMMAND lrelease -idbased "${TS_FILE}" -qm "${CMAKE_CURRENT_SOURCE_DIR}/${QM_FILE_NAME}")
+        message("compiled translation: ${CMAKE_CURRENT_SOURCE_DIR}/${QM_FILE_NAME}")
+    endforeach()
+    set(${out_qm_files} ${QM_FILES} PARENT_SCOPE)
+endfunction()
+
 if(LINUX)
     set (OUTPUT_NAME "BeamWallet${BEAM_SUFFIX_UPPER_CASE}")
 else()
@@ -28,6 +52,9 @@ if(MSVC)
     set_source_files_properties(ui.cpp PROPERTIES COMPILE_FLAGS "/wd4127") # QtCore/qvarlengtharray.h(274): warning C4127: conditional expression is constant
 
 endif()
+
+list(APPEND SUPPORTED_LANGS "en_US")
+list(APPEND SUPPORTED_LANGS "ru_RU")
 
 set(UI_SRC
     ui.cpp
@@ -74,40 +101,18 @@ set(UI_SRC
     model/node_model.cpp
 )
 
-find_package(Qt5LinguistTools)
-if (Qt5LinguistTools_FOUND)
-##################### UPDATE TS
-    add_custom_target(UpdateTs ALL)
-    list(APPEND SUPPORTED_LANGS "en_US")
-    list(APPEND SUPPORTED_LANGS "ru_RU")
-    foreach(SUPPORTED_LANG ${SUPPORTED_LANGS})
-        set(TS_FILE "${CMAKE_CURRENT_SOURCE_DIR}/i18n/${SUPPORTED_LANG}.ts")
-        list(APPEND TS_FILES "${TS_FILE}")
-        add_custom_command(TARGET UpdateTs
-                           COMMAND lupdate -recursive -locations none ${CMAKE_CURRENT_SOURCE_DIR} -ts "${TS_FILE}")
-    endforeach()
+beam_translations_update_ts("${SUPPORTED_LANGS}" TS_FILES)
+beam_translations_compile_qm("${TS_FILES}" QM_FILES)
+   
+set(TRANSLATIONS_QRC_FILE_NAME "translations.qrc")
+set(TRANSLATIONS_QRC_FILE "${CMAKE_CURRENT_SOURCE_DIR}/${TRANSLATIONS_QRC_FILE_NAME}")
 
-################### CREQTE QM
-    add_custom_target(CreateQm ALL DEPENDS UpdateTs)
-    foreach(TS_FILE ${TS_FILES})
-        get_filename_component(TS_FILE_WE ${TS_FILE} NAME_WE)
-        set(QM_FILE_NAME "${TS_FILE_WE}.qm")
-        list(APPEND QM_FILES "${QM_FILE_NAME}")
-        add_custom_command(TARGET CreateQm
-                           COMMAND lrelease -idbased "${TS_FILE}" -qm "${CMAKE_CURRENT_BINARY_DIR}/${QM_FILE_NAME}"
-                           BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/${QM_FILE_NAME}")
-    endforeach()
-    
-############### translates QRC
-    set(TRANSLATIONS_QRC_FILE_NAME "translations.qrc")
-    set(TRANSLATIONS_QRC_FILE "${CMAKE_CURRENT_BINARY_DIR}/${TRANSLATIONS_QRC_FILE_NAME}")
+file(WRITE "${TRANSLATIONS_QRC_FILE}" "<RCC>\n\t<qresource prefix=\"/translations\">\n")
+foreach (QM_FILE ${QM_FILES})
+    file(APPEND "${TRANSLATIONS_QRC_FILE}" "\t\t<file>${QM_FILE}</file>\n")
+endforeach ()
+file(APPEND "${TRANSLATIONS_QRC_FILE}" "\t</qresource>\n</RCC>")
 
-    file(WRITE "${TRANSLATIONS_QRC_FILE}" "<RCC><qresource prefix=\"/translations\">")
-    foreach (QM_FILE ${QM_FILES})
-        file(APPEND "${TRANSLATIONS_QRC_FILE}" "<file>${QM_FILE}</file>")
-    endforeach ()
-    file(APPEND "${TRANSLATIONS_QRC_FILE}" "</qresource></RCC>")
-endif()
 
 find_package(Qt5QuickCompiler)
 if(Qt5QuickCompiler_FOUND)
@@ -141,7 +146,7 @@ file(RENAME ${CMAKE_CURRENT_SOURCE_DIR}/beam_${BEAM_ICON_SUFFIX}.icns ${CMAKE_CU
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/beam.rc.in ${CMAKE_CURRENT_SOURCE_DIR}/beam.rc)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/beam.desktop.in ${CMAKE_CURRENT_SOURCE_DIR}/beam.desktop)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist)
-add_executable(${TARGET_NAME} ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc ${MACOSX_BUNDLE_ICON_FILE} ${QM_FILES})
+add_executable(${TARGET_NAME} ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc ${MACOSX_BUNDLE_ICON_FILE})
 set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME ${OUTPUT_NAME})
 
 configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")

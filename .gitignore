@@ -104,4 +104,6 @@ ui/beam.icns
 ui/icon.ico
 ui/Info.plist
 ui/beam.desktop
+ui/*.qm
+ui/translations.qrc
 beam_version.gen
