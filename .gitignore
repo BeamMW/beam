@@ -99,4 +99,9 @@ CMakeSettings.json
 beam/wallet.dat
 3rdparty/opencl-miner/equihash_150_5.dat
 ui/beam.rc
+ui/beam.png
+ui/beam.icns
+ui/icon.ico
+ui/Info.plist
+ui/beam.desktop
 beam_version.gen

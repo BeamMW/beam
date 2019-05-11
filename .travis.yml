@@ -30,6 +30,7 @@ matrix:
         - echo BEAM_VERSION = $BEAM_VERSION
         - export BEAM_WALLET_UI_IN="BeamWallet$BEAM_DISPLAY_SUFFIX-$BEAM_VERSION-Darwin.dmg"
         - export BEAM_WALLET_UI_OUT="Beam-Wallet$BEAM_DISPLAY_SUFFIX2-$BEAM_VERSION.dmg"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet$BEAM_DISPLAY_SUFFIX2.dmg"
 
 ###############################################################################
 # OSX Release
@@ -45,7 +46,7 @@ matrix:
         - brew unlink boost 
         - brew install cmake boost
         - sudo git clone --depth=1 https://github.com/nesbox/qt5-static-mac.git /usr/local/qt5-static
-        - export PATH=~/qt5-static/bin:$PATH
+        - export PATH=/usr/local/qt5-static/bin:$PATH
         - export OPENSSL_ROOT_DIR="/usr/local/opt/openssl"
         - export QT5_ROOT_DIR="/usr/local/qt5-static"
         - export QML_IMPORT_PATH="/usr/local/qt5-static/qml"
@@ -70,6 +71,7 @@ matrix:
         - echo BEAM_VERSION = $BEAM_VERSION
         - export BEAM_WALLET_UI_IN="BeamWallet$BEAM_DISPLAY_SUFFIX-$BEAM_VERSION-Darwin.dmg"
         - export BEAM_WALLET_UI_OUT="Beam-Wallet$BEAM_DISPLAY_SUFFIX2-$BEAM_VERSION.dmg"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet$BEAM_DISPLAY_SUFFIX2.dmg"
         # sign our builds
         - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" beam/beam-node$BEAM_TARGET_SUFFIX
         - codesign --force --deep --sign "$MACOS_SIGN_IDENTITY" wallet/beam-wallet$BEAM_TARGET_SUFFIX
@@ -122,6 +124,7 @@ matrix:
         - echo BEAM_VERSION = $BEAM_VERSION
         - export BEAM_WALLET_UI_IN="BeamWallet$BEAM_DISPLAY_SUFFIX-$BEAM_VERSION-Linux.deb"
         - export BEAM_WALLET_UI_OUT="Beam-Wallet$BEAM_DISPLAY_SUFFIX2-$BEAM_VERSION.deb"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet$BEAM_DISPLAY_SUFFIX2.deb"
 ###############################################################################
 # Linux Release
 ###############################################################################
@@ -171,6 +174,7 @@ matrix:
         - echo BEAM_VERSION = $BEAM_VERSION
         - export BEAM_WALLET_UI_IN="BeamWallet$BEAM_DISPLAY_SUFFIX-$BEAM_VERSION-Linux.deb"
         - export BEAM_WALLET_UI_OUT="Beam-Wallet$BEAM_DISPLAY_SUFFIX2-$BEAM_VERSION.deb"
+        - export BEAM_WALLET_UI_OUT_VERLESS="Beam-Wallet$BEAM_DISPLAY_SUFFIX2.deb"
 
 ###############################################################################
 # Android x86 Release
@@ -205,9 +209,13 @@ matrix:
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
         - echo BEAM_VERSION = $BEAM_VERSION 
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
+        - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/android-$ANDROID_ABI
         - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
+        - tar -cvzf libwallet-jni.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+        - curl --retry 3 --ftp-create-dirs -T libwallet-jni.tar.gz $BUILDS_SERVER_LATEST_PATH/
         - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni-$BEAM_VERSION.tar.gz
+        - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni.tar.gz
 
 ###############################################################################
 # Android x86_64 Release
@@ -242,9 +250,13 @@ matrix:
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
         - echo BEAM_VERSION = $BEAM_VERSION
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
+        - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/android-$ANDROID_ABI
         - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
+        - tar -cvzf libwallet-jni.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+        - curl --retry 3 --ftp-create-dirs -T libwallet-jni.tar.gz $BUILDS_SERVER_LATEST_PATH/
         - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni-$BEAM_VERSION.tar.gz
+        - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni.tar.gz
 
 ###############################################################################
 # Android ARMv7 Release
@@ -279,9 +291,13 @@ matrix:
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
         - echo BEAM_VERSION = $BEAM_VERSION
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
+        - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/android-$ANDROID_ABI
         - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
+        - tar -cvzf libwallet-jni.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+        - curl --retry 3 --ftp-create-dirs -T libwallet-jni.tar.gz $BUILDS_SERVER_LATEST_PATH/
         - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni-$BEAM_VERSION.tar.gz
+        - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni.tar.gz
 
 ###############################################################################
 # Android ARMv8 Release
@@ -316,18 +332,22 @@ matrix:
         - BEAM_VERSION="$(cat beam_version.gen)" && rm beam_version.gen
         - echo BEAM_VERSION = $BEAM_VERSION
         - BUILDS_SERVER_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI
+        - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/android-$ANDROID_ABI
         - tar -cvzf libwallet-jni-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
+        - tar -cvzf libwallet-jni.tar.gz --directory=$HOME/build/BeamMW/beam/android libwallet-jni.so com
         - curl --retry 3 --ftp-create-dirs -T libwallet-jni-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
+        - curl --retry 3 --ftp-create-dirs -T libwallet-jni.tar.gz $BUILDS_SERVER_LATEST_PATH/
         - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni-$BEAM_VERSION.tar.gz
+        - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/android-$ANDROID_ABI/" libwallet-jni.tar.gz
 
 ###############################################################################
 # Common part
 ###############################################################################
 before_script:
   - curl -sL https://raw.githubusercontent.com/travis-ci/artifacts/master/install | bash
-  - BEAM_TARGET_SUFFIX=""
-  - BEAM_DISPLAY_SUFFIX=""
-  - BEAM_DISPLAY_SUFFIX2=""
+  - BEAM_TARGET_SUFFIX="-masternet"
+  - BEAM_DISPLAY_SUFFIX="Masternet"
+  - BEAM_DISPLAY_SUFFIX2="-Masternet"
 
 after_success:
   # deploy using ftp server
@@ -336,10 +356,7 @@ after_success:
   - tar -cvzf beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet beam-wallet$BEAM_TARGET_SUFFIX beam-wallet.cfg
   - tar -cvzf wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/wallet wallet-api$BEAM_TARGET_SUFFIX wallet-api.cfg
   - tar -cvzf explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz --directory=$HOME/build/BeamMW/beam/explorer explorer-node$BEAM_TARGET_SUFFIX explorer-node.cfg
-  
-  # prep for deploy to AWS S3
-  - cp $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT
-   
+    
   # upload binaries to FTP
   - curl --retry 3 --ftp-create-dirs -T beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
@@ -347,12 +364,37 @@ after_success:
   - curl --retry 3 --ftp-create-dirs -T explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_PATH/
   - curl --retry 3 --ftp-create-dirs -T "$HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN" "$BUILDS_SERVER_PATH/$BEAM_WALLET_UI_OUT"
 
+  # upload binaries to FTP, to the latest folder
+  - BUILDS_SERVER_LATEST_PATH=${BUILD_SERVER}/files/$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER
+  - curl --retry 3 --ftp-create-dirs -T beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/beam-node$BEAM_TARGET_SUFFIX.tar.gz
+  - curl --retry 3 --ftp-create-dirs -T beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
+  - curl --retry 3 --ftp-create-dirs -T wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/wallet-api$BEAM_TARGET_SUFFIX.tar.gz
+  - curl --retry 3 --ftp-create-dirs -T explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz $BUILDS_SERVER_LATEST_PATH/explorer-node$BEAM_TARGET_SUFFIX.tar.gz
+  - curl --retry 3 --ftp-create-dirs -T "$HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN" "$BUILDS_SERVER_LATEST_PATH/$BEAM_WALLET_UI_OUT_VERLESS"
+
+  # prep for deploy to AWS S3
+  - cp $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT
+
   # upload binaries to S3
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz
   - artifacts upload --target-paths "$TRAVIS_BRANCH/$(date +%Y.%m.%d)/$BUILD_TYPE/$OS_FOLDER/" $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT
+
+  # prep for deploy to AWS S3, latest folder
+  - cp beam-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz beam-node$BEAM_TARGET_SUFFIX.tar.gz
+  - cp beam-wallet-cli$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
+  - cp wallet-api$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz wallet-api$BEAM_TARGET_SUFFIX.tar.gz
+  - cp explorer-node$BEAM_TARGET_SUFFIX-$BEAM_VERSION.tar.gz explorer-node$BEAM_TARGET_SUFFIX.tar.gz
+  - cp $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_IN $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT_VERLESS
+
+  # upload binaries to S3, to the latest folder
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" beam-node$BEAM_TARGET_SUFFIX.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" beam-wallet-cli$BEAM_TARGET_SUFFIX.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" wallet-api$BEAM_TARGET_SUFFIX.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" explorer-node$BEAM_TARGET_SUFFIX.tar.gz
+  - artifacts upload --target-paths "$TRAVIS_BRANCH/latest/$BUILD_TYPE/$OS_FOLDER/" $HOME/build/BeamMW/beam/$BEAM_WALLET_UI_OUT_VERLESS
 
 notifications:
   email:

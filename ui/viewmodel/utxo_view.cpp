@@ -53,43 +53,41 @@ QString UtxoItem::maturity() const
     return QString::number(_coin.m_maturity);
 }
 
-QString UtxoItem::status() const
+UtxoViewStatus::EnStatus UtxoItem::status() const
 {
-    switch(_coin.m_status)
+switch(_coin.m_status)
     {
         case Coin::Available:
-            return tr("available");
+            return UtxoViewStatus::Available;
         case Coin::Maturing:
-            return tr("maturing\n(till block height ") + QString::number(_coin.m_maturity) + ")";
+            return UtxoViewStatus::Maturing;
         case Coin::Unavailable:
-            return tr("unavailable\n(mining result rollback)");
+            return UtxoViewStatus::Unavailable;
         case Coin::Outgoing:
-            return tr("in progress\n(outgoing)");
+            return UtxoViewStatus::Outgoing;
         case Coin::Incoming:
-			return (_coin.m_ID.m_Type == Key::Type::Change) ?
-				tr("in progress\n(change)") :
-				tr("in progress\n(incoming)");
+			return UtxoViewStatus::Incoming;
         case Coin::Spent:
-            return tr("spent");
+            return UtxoViewStatus::Spent;
         default:
             assert(false && "Unknown key type");
     }
 
-    return "";
+    return UtxoViewStatus::Undefined;
 }
 
-QString UtxoItem::type() const
+UtxoViewType::EnType UtxoItem::type() const
 {
     switch (_coin.m_ID.m_Type)
     {
-    case Key::Type::Comission: return tr("Transaction fee");
-    case Key::Type::Coinbase: return tr("Coinbase");
-    case Key::Type::Regular: return tr("Regular");
-    case Key::Type::Change: return tr("Change");
-    case Key::Type::Treasury: return tr("Treasury");
+        case Key::Type::Comission: return UtxoViewType::Comission;
+        case Key::Type::Coinbase: return UtxoViewType::Coinbase;
+        case Key::Type::Regular: return UtxoViewType::Regular;
+        case Key::Type::Change: return UtxoViewType::Change;
+        case Key::Type::Treasury: return UtxoViewType::Treasury;
     }
 
-    return FourCC::Text(_coin.m_ID.m_Type).m_sz;
+    return UtxoViewType::Undefined;
 }
 
 beam::Amount UtxoItem::rawAmount() const

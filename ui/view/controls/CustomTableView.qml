@@ -19,7 +19,7 @@ TableView {
             implicitHeight: 16
             radius: 6
             anchors.fill: parent
-            color: Style.white
+            color: Style.white  //
             opacity: 0.1
         }
     }
@@ -28,14 +28,14 @@ TableView {
     headerDelegate: Rectangle {
         height: headerHeight
 
-        color: Style.dark_slate_blue
+        color: Style.background_second
 
         IconLabel {
             anchors.verticalCenter: parent.verticalCenter
             anchors.left: parent.left
             anchors.leftMargin: headerTextLeftMargin
             font.pixelSize: headerTextFontSize
-            color: tableView.sortIndicatorColumn == styleData.column ? Style.white : Style.bluey_grey
+            color: tableView.sortIndicatorColumn == styleData.column ? Style.content_main : Style.content_secondary
             font.weight: tableView.sortIndicatorColumn == styleData.column ? Font.Bold : Font.Normal
             font.family: "SF Pro Display"
             font.styleName: "Regular"

@@ -52,178 +52,189 @@ namespace beam::wallet
         auto sharedBuilder = make_shared<BaseTxBuilder>(*this, kDefaultSubTxID, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
         BaseTxBuilder& builder = *sharedBuilder;
 
-        bool newGenerated = builder.GenerateBlindingExcess();
-        if (newGenerated && txState != State::Initial)
-        {
-            OnFailed(TxFailureReason::InvalidState);
-            return;
-        }
-        if (!builder.GetInitialTxParams() && txState == State::Initial)
-        {
-            if (m_CompletedEvent)
-            {
-                return;
-            }
-            LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ")
-                << PrintableAmount(builder.GetAmount())
-                << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
-
-            if (isSender)
-            {
-                Height maxResponseHeight = 0;
-                if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight))
-                {
-                    LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
-                }
-                
-                builder.SelectInputs();
-                builder.AddChange();
-            }
-
-            if (isSelfTx || !isSender)
-            {
-                // create receiver utxo
-                for (const auto& amount : builder.GetAmountList())
-                {
-                    builder.GenerateNewCoin(amount, false);
-                }
-            }
-
-            UpdateTxDescription(TxStatus::InProgress);
-            
-            if (!builder.GetCoins().empty())
-            {
-                m_CompletedEvent = io::AsyncEvent::create(io::Reactor::get_Current(), [this, sharedBuilder]() mutable
-                {
-                    if (!sharedBuilder->FinalizeOutputs())
-                    {
-                        //TODO: transaction is too big :(
-                    }
-                    Update();
-                });
-                m_OutputsFuture = async(launch::async, [this, sharedBuilder]() mutable
-                {
-                    sharedBuilder->CreateOutputs();
-                    m_CompletedEvent->post();
-                });
-                return;
-            }
-        }
-
-        uint64_t nAddrOwnID;
-        if (!GetParameter(TxParameterID::MyAddressID, nAddrOwnID))
-        {
-            WalletID wid;
-            if (GetParameter(TxParameterID::MyID, wid))
-            {
-                auto waddr = m_WalletDB->getAddress(wid);
-                if (waddr && waddr->m_OwnID)
-                    SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
-            }
-        }
-
-        builder.GenerateNonce();
-        
-        if (!isSelfTx && !builder.GetPeerPublicExcessAndNonce())
-        {
-            assert(IsInitiator());
-            if (txState == State::Initial)
-            {
-                SendInvitation(builder, isSender);
-                SetState(State::Invitation);
-            }
-            UpdateOnNextTip();
-            return;
-        }
-
-        if (!builder.UpdateMaxHeight())
-        {
-            OnFailed(TxFailureReason::MaxHeightIsUnacceptable, true);
-            return;
-        }
-
-        builder.CreateKernel();
-        builder.SignPartial();
-
         bool hasPeersInputsAndOutputs = builder.GetPeerInputsAndOutputs();
-        if (!isSelfTx && !builder.GetPeerSignature())
+
+        if (!builder.LoadKernel() && !builder.HasKernelID())
         {
-            if (txState == State::Initial)
+            if (!m_WalletDB->get_MasterKdf())
             {
-                // invited participant
-                assert(!IsInitiator());
-                
-                UpdateTxDescription(TxStatus::Registering);
-                ConfirmInvitation(builder, !hasPeersInputsAndOutputs);
-
-                uint32_t nVer = 0;
-                if (GetParameter(TxParameterID::PeerProtoVersion, nVer))
-                {
-                    // for peers with new flow, we assume that after we have responded, we have to switch to the state of awaiting for proofs
-                    SetParameter(TxParameterID::TransactionRegistered, true);
-
-                    SetState(State::KernelConfirmation);
-                    ConfirmKernel(builder.GetKernel());
-                }
-                else
-                {
-                    SetState(State::InvitationConfirmation);
-                }
+                // public wallet
                 return;
             }
-            if (IsInitiator())
+
+            bool newGenerated = builder.GenerateBlindingExcess();
+            if (newGenerated && txState != State::Initial)
             {
+                OnFailed(TxFailureReason::InvalidState);
                 return;
             }
-        }
-
-        if (IsInitiator() && !builder.IsPeerSignatureValid())
-        {
-            OnFailed(TxFailureReason::InvalidPeerSignature, true);
-            return;
-        }
-
-        if (!isSelfTx && isSender && IsInitiator())
-        {
-            // verify peer payment acknowledgement
-
-            wallet::PaymentConfirmation pc;
-            WalletID widPeer, widMy;
-            bool bSuccess =
-                GetParameter(TxParameterID::PeerID, widPeer) &&
-                GetParameter(TxParameterID::MyID, widMy) &&
-                GetParameter(TxParameterID::KernelID, pc.m_KernelID) &&
-                GetParameter(TxParameterID::Amount, pc.m_Value) &&
-                GetParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);
-
-            if (bSuccess)
+            if (!builder.GetInitialTxParams() && txState == State::Initial)
             {
-                pc.m_Sender = widMy.m_Pk;
-                bSuccess = pc.IsValid(widPeer.m_Pk);
-            }
-
-            if (!bSuccess)
-            {
-                if (!get_PeerVersion())
+                if (m_CompletedEvent)
                 {
-                    // older wallets don't support it. Check if unsigned payments are ok
-                    uint8_t nRequired = 0;
-                    wallet::getVar(*m_WalletDB, wallet::g_szPaymentProofRequired, nRequired);
+                    return;
+                }
+                LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ")
+                    << PrintableAmount(builder.GetAmount())
+                    << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
 
-                    if (!nRequired)
-                        bSuccess = true;
+                if (isSender)
+                {
+                    Height maxResponseHeight = 0;
+                    if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight))
+                    {
+                        LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
+                    }
+
+                    builder.SelectInputs();
+                    builder.AddChange();
                 }
 
-                if (!bSuccess)
+                if (isSelfTx || !isSender)
                 {
-                    OnFailed(TxFailureReason::NoPaymentProof);
+                    // create receiver utxo
+                    for (const auto& amount : builder.GetAmountList())
+                    {
+                        builder.GenerateNewCoin(amount, false);
+                    }
+                }
+
+                UpdateTxDescription(TxStatus::InProgress);
+
+                if (!builder.GetCoins().empty())
+                {
+                    m_Gateway.OnAsyncStarted();
+                    m_CompletedEvent = io::AsyncEvent::create(io::Reactor::get_Current(), [this, sharedBuilder]() mutable
+                        {
+                            if (!sharedBuilder->FinalizeOutputs())
+                            {
+                                //TODO: transaction is too big :(
+                            }
+                            Update();
+                            m_Gateway.OnAsyncFinished();
+                        });
+                    m_OutputsFuture = async(launch::async, [this, sharedBuilder]() mutable
+                        {
+                            sharedBuilder->CreateOutputs();
+                            m_CompletedEvent->post();
+                        });
                     return;
                 }
             }
 
-        }
+            uint64_t nAddrOwnID;
+            if (!GetParameter(TxParameterID::MyAddressID, nAddrOwnID))
+            {
+                WalletID wid;
+                if (GetParameter(TxParameterID::MyID, wid))
+                {
+                    auto waddr = m_WalletDB->getAddress(wid);
+                    if (waddr && waddr->m_OwnID)
+                        SetParameter(TxParameterID::MyAddressID, waddr->m_OwnID);
+                }
+            }
 
-        builder.FinalizeSignature();
+            builder.GenerateNonce();
+
+            if (!isSelfTx && !builder.GetPeerPublicExcessAndNonce())
+            {
+                assert(IsInitiator());
+                if (txState == State::Initial)
+                {
+                    SendInvitation(builder, isSender);
+                    SetState(State::Invitation);
+                }
+                UpdateOnNextTip();
+                return;
+            }
+
+            if (!builder.UpdateMaxHeight())
+            {
+                OnFailed(TxFailureReason::MaxHeightIsUnacceptable, true);
+                return;
+            }
+
+            builder.CreateKernel();
+            builder.SignPartial();
+
+            if (!isSelfTx && !builder.GetPeerSignature())
+            {
+                if (txState == State::Initial)
+                {
+                    // invited participant
+                    assert(!IsInitiator());
+
+                    UpdateTxDescription(TxStatus::Registering);
+                    ConfirmInvitation(builder, !hasPeersInputsAndOutputs);
+
+                    uint32_t nVer = 0;
+                    if (GetParameter(TxParameterID::PeerProtoVersion, nVer))
+                    {
+                        // for peers with new flow, we assume that after we have responded, we have to switch to the state of awaiting for proofs
+                        SetParameter(TxParameterID::TransactionRegistered, true);
+
+                        SetState(State::KernelConfirmation);
+                        ConfirmKernel(builder.GetKernelID());
+                    }
+                    else
+                    {
+                        SetState(State::InvitationConfirmation);
+                    }
+                    return;
+                }
+                if (IsInitiator())
+                {
+                    return;
+                }
+            }
+
+            if (IsInitiator() && !builder.IsPeerSignatureValid())
+            {
+                OnFailed(TxFailureReason::InvalidPeerSignature, true);
+                return;
+            }
+
+            if (!isSelfTx && isSender && IsInitiator())
+            {
+                // verify peer payment acknowledgement
+
+                wallet::PaymentConfirmation pc;
+                WalletID widPeer, widMy;
+                bool bSuccess =
+                    GetParameter(TxParameterID::PeerID, widPeer) &&
+                    GetParameter(TxParameterID::MyID, widMy) &&
+                    GetParameter(TxParameterID::KernelID, pc.m_KernelID) &&
+                    GetParameter(TxParameterID::Amount, pc.m_Value) &&
+                    GetParameter(TxParameterID::PaymentConfirmation, pc.m_Signature);
+
+                if (bSuccess)
+                {
+                    pc.m_Sender = widMy.m_Pk;
+                    bSuccess = pc.IsValid(widPeer.m_Pk);
+                }
+
+                if (!bSuccess)
+                {
+                    if (!get_PeerVersion())
+                    {
+                        // older wallets don't support it. Check if unsigned payments are ok
+                        uint8_t nRequired = 0;
+                        wallet::getVar(*m_WalletDB, wallet::g_szPaymentProofRequired, nRequired);
+
+                        if (!nRequired)
+                            bSuccess = true;
+                    }
+
+                    if (!bSuccess)
+                    {
+                        OnFailed(TxFailureReason::NoPaymentProof);
+                        return;
+                    }
+                }
+            }
+
+            builder.FinalizeSignature();
+        }
 
         bool isRegistered = false;
         if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered))
@@ -283,7 +294,7 @@ namespace beam::wallet
                 }
             }
             SetState(State::KernelConfirmation);
-            ConfirmKernel(builder.GetKernel());
+            ConfirmKernel(builder.GetKernelID());
             return;
         }
 

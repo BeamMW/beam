@@ -104,6 +104,7 @@ namespace beam {
 				s.m_Hdr.m_Height = Rules::HeightGenesis;
 				s.m_Hdr.m_Prev = Rules::get().Prehistoric;
 				s.m_Hdr.m_PoW.m_Difficulty = Rules::get().DA.Difficulty0;
+                s.m_Hdr.m_TimeStamp = getTimestamp();
 			}
 
 			if (!((i + 1) % 8000))

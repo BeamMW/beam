@@ -56,9 +56,9 @@ namespace beam::wallet
     public:
         using Ptr = std::shared_ptr<BaseTransaction>;
         BaseTransaction(INegotiatorGateway& gateway
-            , beam::IWalletDB::Ptr walletDB
-            , const TxID& txID);
-        virtual ~BaseTransaction() {}
+                      , beam::IWalletDB::Ptr walletDB
+                      , const TxID& txID);
+        virtual ~BaseTransaction(){}
 
         const TxID& GetTxID() const;
         void Update() override;
@@ -111,7 +111,7 @@ namespace beam::wallet
     protected:
         virtual bool CheckExpired();
         bool CheckExternalFailures();
-        void ConfirmKernel(const TxKernel& kernel);
+        void ConfirmKernel(const Merkle::Hash& kernelID);
         void UpdateOnNextTip();
         void CompleteTx();
         virtual void RollbackTx();

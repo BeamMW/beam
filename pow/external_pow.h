@@ -20,7 +20,10 @@ namespace beam {
 
 class IExternalPOW {
 public:
-    using BlockFound = std::function<void()>;
+    enum BlockFoundResult { solution_accepted, solution_rejected, solution_expired };
+
+    using BlockFound = std::function<BlockFoundResult()>;
+
     using CancelCallback = std::function<bool()>;
 
     struct Options {
@@ -30,10 +33,12 @@ public:
     };
 
     // creates stratum server
-    static std::unique_ptr<IExternalPOW> create(const Options& o, io::Reactor& reactor, io::Address listenTo);
+    static std::unique_ptr<IExternalPOW> create(
+        const Options& o, io::Reactor& reactor, io::Address listenTo, unsigned noncePrefixDigits
+    );
 
     // creates local solver (stub)
-    static std::unique_ptr<IExternalPOW> create_local_solver();
+    static std::unique_ptr<IExternalPOW> create_local_solver(bool fakeSolver);
 
     static std::unique_ptr<IExternalPOW> create_opencl_solver(const std::vector<int32_t>& devices);
 

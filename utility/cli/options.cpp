@@ -38,6 +38,7 @@ namespace beam
         const char* WALLET_STORAGE = "wallet_path";
         const char* MINING_THREADS = "mining_threads";
         const char* VERIFICATION_THREADS = "verification_threads";
+        const char* NONCEPREFIX_DIGITS = "nonceprefix_digits";
         const char* NODE_PEER = "peer";
         const char* PASS = "pass";
         const char* BTC_PASS = "btc_pass";
@@ -57,6 +58,8 @@ namespace beam
         const char* TREASURY = "treasury";
         const char* TREASURY_BLOCK = "treasury_path";
         const char* RESYNC = "resync";
+        const char* RESET_ID = "reset_id";
+        const char* ERASE_ID = "erase_id";
         const char* CHECKDB = "check_db";
         const char* CRASH = "crash";
         const char* INIT = "init";
@@ -76,6 +79,7 @@ namespace beam
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
         const char* CANCEL_TX = "cancel_tx";
+        const char* DELETE_TX = "delete_tx";
         const char* PAYMENT_PROOF_EXPORT = "payment_proof_export";
         const char* PAYMENT_PROOF_VERIFY = "payment_proof_verify";
         const char* PAYMENT_PROOF_DATA = "payment_proof";
@@ -107,6 +111,7 @@ namespace beam
         const char* IP_WHITELIST = "ip_whitelist";
         const char* HORIZON_HI = "horizon_hi";
         const char* HORIZON_LO = "horizon_lo";
+        const char* COLD_WALLET = "cold_wallet";
         const char* SWAP_COINS = "swap_coins";
         const char* SWAP_LISTEN = "swap_listen";
         const char* SWAP_AMOUNT = "swap_amount";
@@ -131,6 +136,7 @@ namespace beam
         const char* TR_N = "tr_N";
         // ui
         const char* APPDATA_PATH = "appdata";
+        const char* LANG = "lang";
     }
 
     template <typename T> struct TypeCvt {
@@ -162,11 +168,14 @@ namespace beam
             (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
 
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
+            (cli::NONCEPREFIX_DIGITS, po::value<unsigned>()->default_value(0), "number of hex digits for nonce prefix for stratum client (0..6)")
             (cli::NODE_PEER, po::value<vector<string>>()->multitoken(), "nodes to connect to")
             (cli::STRATUM_PORT, po::value<uint16_t>()->default_value(0), "port to start stratum server on")
             (cli::STRATUM_SECRETS_PATH, po::value<string>()->default_value("."), "path to stratum server api keys file, and tls certificate and private key")
             (cli::STRATUM_USE_TLS, po::value<bool>()->default_value(true), "enable TLS on startum server")
             (cli::RESYNC, po::value<bool>()->default_value(false), "Enforce re-synchronization (soft reset)")
+            (cli::RESET_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication). Must do if the node is cloned")
+            (cli::ERASE_ID, po::value<bool>()->default_value(false), "Reset self ID (used for network authentication) and stop before re-creating the new one.")
             (cli::CHECKDB, po::value<bool>()->default_value(false), "DB integrity check and compact (vacuum)")
             (cli::BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS messaging")
             (cli::CRASH, po::value<int>()->default_value(0), "Induce crash (test proper handling)")
@@ -211,7 +220,8 @@ namespace beam
             (cli::PAYMENT_PROOF_REQUIRED, po::value<bool>(), "Set to disallow outgoing payments if the receiver doesn't supports the payment proof (older wallets)")
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("addresses.dat"), "path to import or export data (import_addresses|export_addresses)")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses|swap_coins|swap_listen]")
+            (cli::COLD_WALLET, "used to init cold wallet")
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_coins|swap_listen]")
             (cli::SWAP_AMOUNT, po::value<Amount>(), "swap amount in the smallest unit of the coin")
             (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc)")
             (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner");
@@ -229,7 +239,8 @@ namespace beam
         po::options_description uioptions("UI options");
         uioptions.add_options()
             (cli::WALLET_ADDR, po::value<vector<string>>()->multitoken())
-            (cli::APPDATA_PATH, po::value<string>());
+            (cli::APPDATA_PATH, po::value<string>())
+            (cli::LANG, po::value<string>());
 
         po::options_description options{ "Allowed options" };
         po::options_description visible_options{ "Allowed options" };

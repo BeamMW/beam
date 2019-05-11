@@ -41,6 +41,7 @@ extern jclass SystemStateClass;
 extern jclass TxDescriptionClass;
 extern jclass UtxoClass;
 extern jclass WalletAddressClass;
+extern jclass PaymentInfoClass;
 
 JNIEnv* Android_JNI_getEnv(void);
 

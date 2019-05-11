@@ -9,8 +9,20 @@ Dialog {
     property alias okButtonText: okButton.text
     property alias okButtonIconSource: okButton.icon.source
     property alias okButtonColor: okButton.palette.button
-    property alias cancelVisible : cancelButton.visible
+    property alias okButtonEnable: okButton.enabled
+    property alias cancelVisible: cancelButton.visible
+    property alias cancelEnable: cancelButton.enabled
     property alias cancelButtonIconSource: cancelButton.icon.source
+    property alias okButton: okButton
+    property alias cancelButton: cancelButton
+    function confirmationHandler() {
+        accepted();
+        close();
+    }
+
+    function openHandler() {
+        cancelButton.forceActiveFocus(Qt.TabFocusReason);
+    } 
 
     modal: true
 
@@ -20,7 +32,7 @@ Dialog {
         
     background: Rectangle {
         radius: 10
-        color: Style.dark_slate_blue
+        color: Style.background_second
         anchors.fill: parent
     }
 
@@ -29,7 +41,7 @@ Dialog {
         anchors.fill: parent
         padding: 20
         font.pixelSize: 14
-        color: Style.white
+        color: Style.content_main
         wrapMode: Text.Wrap
         horizontalAlignment : Text.AlignHCenter
     }
@@ -38,7 +50,7 @@ Dialog {
         
         background: Rectangle {
             radius: 10
-            color: Style.dark_slate_blue
+            color: Style.background_second
             anchors.fill: parent
         }          
 
@@ -55,7 +67,8 @@ Dialog {
                 CustomButton {
                     id: cancelButton
                     focus: true
-                    text: qsTr("cancel")
+                    //% "cancel"
+                    text: qsTrId("confirmation-cancel-button")
                     onClicked: { 
                         rejected();
                         close();
@@ -64,12 +77,12 @@ Dialog {
 
                 CustomButton {
                     id: okButton
-                    palette.button: Style.bright_teal
-                    text: qsTr("delete")
-                    palette.buttonText: Style.marine
+                    palette.button: Style.active
+                    //% "delete"
+                    text: qsTrId("confirmation-delete-button")
+                    palette.buttonText: Style.content_opposite
                     onClicked: {
-                        accepted();
-                        close();
+                        confirmationHandler();
                     }
                 }
             }
@@ -80,6 +93,6 @@ Dialog {
     }
 
     onOpened: {
-        cancelButton.forceActiveFocus(Qt.TabFocusReason);
+        openHandler();
     }
 }

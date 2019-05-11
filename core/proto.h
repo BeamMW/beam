@@ -282,8 +282,8 @@ namespace proto {
     struct IDType
     {
         static const uint8_t Node        = 'N';
-        static const uint8_t Owner        = 'O';
-        static const uint8_t Viewer        = 'V';
+        static const uint8_t Owner       = 'O';
+        static const uint8_t Viewer      = 'V';
     };
 
     static const uint32_t g_HdrPackMaxSizeV0 = 128; // about 25K
@@ -557,11 +557,11 @@ namespace proto {
         struct ByeReason
         {
             static const uint8_t Stopping    = 's';
-            static const uint8_t Ban        = 'b';
+            static const uint8_t Ban         = 'b';
             static const uint8_t Loopback    = 'L';
-            static const uint8_t Duplicate    = 'd';
-            static const uint8_t Timeout    = 't';
-            static const uint8_t Other        = 'o';
+            static const uint8_t Duplicate   = 'd';
+            static const uint8_t Timeout     = 't';
+            static const uint8_t Other       = 'o';
         };
 
         struct DisconnectReason

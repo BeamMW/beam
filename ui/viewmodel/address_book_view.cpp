@@ -57,7 +57,10 @@ QString AddressItem::getCategory() const
 QString AddressItem::getExpirationDate() const
 {
     if (m_walletAddress.m_duration == 0)
-        return tr("never");
+    {
+        //% "never"
+        return qtTrId("address-item-never");
+    }
 
     return toString(m_walletAddress.getExpirationTime());
 }
@@ -114,7 +117,7 @@ AddressBookViewModel::AddressBookViewModel()
     connect(&m_model, SIGNAL(walletStatus(const WalletStatus&)),
         SLOT(onStatus(const WalletStatus&)));
 
-    connect(&m_model, SIGNAL(adrresses(bool, const std::vector<beam::WalletAddress>&)),
+    connect(&m_model, SIGNAL(addressesChanged(bool, const std::vector<beam::WalletAddress>&)),
         SLOT(onAddresses(bool, const std::vector<beam::WalletAddress>&)));
 
     getAddressesFromModel();

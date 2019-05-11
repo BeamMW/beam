@@ -24,8 +24,9 @@ RowLayout {
 
         SFText {
             font.pixelSize: 14
-            color: Style.white
-            text: qsTr("General transaction info")
+            color: Style.content_main
+            //% "General transaction info"
+            text: qsTrId("tx-details-title")
             font.styleName: "Bold"; font.weight: Font.Bold
             Layout.columnSpan: 2
         }
@@ -33,14 +34,15 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.bluey_grey
-            text: qsTr("Sending address:")
+            color: Style.content_secondary
+            //% "Sending address:"
+            text: qsTrId("tx-details-sending-addr-label")
         }
         SFLabel {
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
-            color: Style.white
+            color: Style.content_main
             //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: {
@@ -52,14 +54,15 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.bluey_grey
-            text: qsTr("Receiving address:")
+            color: Style.content_secondary
+            //% "Receiving address:"
+            text: qsTrId("tx-details-receiving-addr-label")
         }
         SFLabel {
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
-            color: Style.white
+            color: Style.content_main
             //wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             text: {
@@ -71,14 +74,15 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.bluey_grey
-            text: qsTr("Transaction fee:")
+            color: Style.content_secondary
+            //% "Transaction fee:"
+            text: qsTrId("tx-details-fee-label")
         }
         SFLabel {
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
-            color: Style.white
+            color: Style.content_main
             text:{
                 return model ? model.fee : "";
             }
@@ -88,15 +92,16 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.bluey_grey
-            text: qsTr("Comment:")
+            color: Style.content_secondary
+            //% "Comment:"
+            text: qsTrId("tx-details-comment-label")
         }
         SFLabel {
             Layout.fillWidth: true
             id: commentTx
             copyMenuEnabled: true
             font.pixelSize: 14
-            color: Style.white
+            color: Style.content_main
             wrapMode: Text.Wrap
             text: {
                 return model ? model.comment : "";
@@ -108,15 +113,34 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.bluey_grey
-            text: qsTr("Kernel ID:")
+            color: Style.content_secondary
+            //% "Transaction ID:"
+            text: qsTrId("tx-details-tx-id-label")
+        }
+        SFLabel {
+            Layout.fillWidth: true
+            id: transactionID
+            copyMenuEnabled: true
+            font.pixelSize: 14
+            color: Style.content_main
+            text: model ? model.transactionID : ""
+            font.styleName: "Italic"
+            elide: Text.ElideMiddle
+            onCopyText: textCopied(text)
+        }
+        SFText {
+            Layout.alignment: Qt.AlignTop
+            font.pixelSize: 14
+            color: Style.content_secondary
+            //% "Kernel ID:"
+            text: qsTrId("tx-details-kernel-id-label")
         }
         SFLabel {
             Layout.fillWidth: true
             id: kernelID
             copyMenuEnabled: true
             font.pixelSize: 14
-            color: Style.white
+            color: Style.content_main
             //wrapMode: Text.Wrap
             text: model ? model.kernelID : ""
             font.styleName: "Italic"
@@ -126,8 +150,9 @@ RowLayout {
         SFText {
             Layout.alignment: Qt.AlignTop
             font.pixelSize: 14
-            color: Style.bluey_grey
-            text: qsTr("Error: ")
+            color: Style.content_secondary
+            //% "Error: "
+            text: qsTrId("tx-details-error-label")
             visible: model ? model.failureReason.length > 0 : false
         }
         SFLabel {
@@ -135,7 +160,7 @@ RowLayout {
             Layout.fillWidth: true
             copyMenuEnabled: true
             font.pixelSize: 14
-            color: Style.white
+            color: Style.content_main
             wrapMode: Text.Wrap
             visible: model ? model.failureReason.length > 0 : false
             text: {
@@ -170,15 +195,17 @@ RowLayout {
         }
         SFText {
             font.pixelSize: 14
-            color: Style.white
-            text: qsTr("Payment proof")
+            color: Style.content_main
+            //% "Payment proof"
+            text: qsTrId("tx-details-payment-proof-label")
             font.styleName: "Bold"; font.weight: Font.Bold
             Layout.columnSpan: 2
         }
         Row {
             spacing: 20
             CustomButton {
-                text: qsTr("details")
+                //% "details"
+                text: qsTrId("tx-details-details-button")
                 icon.source: "qrc:/assets/icon-details.svg"
                 icon.width: 21
                 icon.height: 14
@@ -186,7 +213,8 @@ RowLayout {
                 onClicked: showDetails();
             }
             CustomButton {
-                text: qsTr("copy")
+                //% "copy"
+                text: qsTrId("tx-details-copy-button")
                 icon.source: "qrc:/assets/icon-copy.svg"
                 enabled: model ? model.hasPaymentProof && !model.isSelfTx() : false
                 onClicked: {

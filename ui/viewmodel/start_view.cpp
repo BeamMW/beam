@@ -394,7 +394,8 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
     {
         if (QPrinterInfo::availablePrinters().isEmpty())
         {
-            AppModel::getInstance()->getMessages().addMessage(tr("Printer is not found. Please, check your printer preferences."));
+            //% "Printer is not found. Please, check your printer preferences."
+            AppModel::getInstance()->getMessages().addMessage(qtTrId("start-view-printer-not-found-error"));
             return;
         }
         QImage image = qvariant_cast<QImage>(viewData);
@@ -442,7 +443,8 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
     }
     catch (...)
     {
-        AppModel::getInstance()->getMessages().addMessage(tr("Failed to print seed phrases. Please, check your printer."));
+        //% "Failed to print seed phrase. Please, check your printer."
+        AppModel::getInstance()->getMessages().addMessage(qtTrId("start-view-printer-error"));
     }
 }
 
@@ -552,8 +554,12 @@ void StartViewModel::copyToClipboard(const QString& text)
 
 QString StartViewModel::selectCustomWalletDB()
 {
-    QString filePath = QFileDialog::getOpenFileName(nullptr, tr("Select the wallet database file"),
-        QStandardPaths::writableLocation(QStandardPaths::DesktopLocation), tr("SQLite database file (*.db)"));
+    QString filePath = QFileDialog::getOpenFileName(
+        nullptr,
+        //% "Select the wallet database file"
+        qtTrId("start-view-select-db"),
+        //% "SQLite database file (*.db)"
+        QStandardPaths::writableLocation(QStandardPaths::DesktopLocation), qtTrId("start-view-db-file-filter"));
 
     return filePath;
 }

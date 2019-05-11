@@ -18,6 +18,7 @@ import com.mw.beam.beamwallet.core.entities.dto.WalletStatusDTO;
 import com.mw.beam.beamwallet.core.entities.dto.UtxoDTO;
 import com.mw.beam.beamwallet.core.entities.dto.TxDescriptionDTO;
 import com.mw.beam.beamwallet.core.entities.dto.WalletAddressDTO;
+import com.mw.beam.beamwallet.core.entities.dto.PaymentInfoDTO;
 
 import com.mw.beam.beamwallet.core.entities.Wallet;
 
@@ -75,6 +76,11 @@ public class WalletListener
 		System.out.println(">>>>>>>>>>>>>> async onSyncProgressUpdated in Java [ " + done + " / " + total + " ]");
 	}
 
+    static void onNodeSyncProgressUpdated(int done, int total)
+	{
+		System.out.println(">>>>>>>>>>>>>> async onNodeSyncProgressUpdated in Java [ " + done + " / " + total + " ]");
+	}
+
 	static void onChangeCalculated(long amount)
 	{
 		System.out.println(">>>>>>>>>>> onChangeCalculated(" + amount + ") called");
@@ -129,12 +135,17 @@ public class WalletListener
 		System.out.println(addr.walletID);
 	}
 
+	static void onNewAddressFailed()
+	{
+		System.out.println(">>>>>>>>>>> onNewAddressFailed() called");
+	}
+
 	static void onNodeConnectedStatusChanged(boolean isNodeConnected)
 	{
 		System.out.println(">>>>>>>>>>>>>> async onNodeConnectedStatusChanged(" + isNodeConnected + ") in Java");
 	}
 
-	static void onNodeConnectionFailed()
+	static void onNodeConnectionFailed(int error)
 	{
 		System.out.println(">>>>>>>>>>>>>> async onNodeConnectionFailed() in Java");
 	}
@@ -143,4 +154,34 @@ public class WalletListener
 	{
 		System.out.println(">>>>>>>>>>>>>> async onCantSendToExpired() in Java");
 	}
+
+    static void onPaymentProofExported(String txId, PaymentInfoDTO proof)
+    {
+        System.out.println(">>>>>>>>>>>>>> async onPaymentProofExported() in Java");
+    }
+
+    static void onStartedNode()
+    {
+        System.out.println(">>>>>>>>>>>>>> async onStartedNode() in Java");
+    }
+
+    static void onStoppedNode()
+    {
+        System.out.println(">>>>>>>>>>>>>> async onStoppedNode() in Java");
+    }
+
+    static void onFailedToStartNode()
+    {
+        System.out.println(">>>>>>>>>>>>>> async onFailedToStartNode() in Java");
+    }
+
+    static void onCoinsByTx(UtxoDTO[] utxos)
+    {
+        System.out.println(">>>>>>>>>>> onCoinsByTx called");
+    }
+
+    static void onNodeThreadFinished()
+    {
+        System.out.println(">>>>>>>>>>> onNodeThreadFinished called");
+    }
 }

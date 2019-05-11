@@ -194,6 +194,20 @@ namespace beam
 
     namespace wallet
     {
+        template<typename T>
+        bool fromByteBuffer(const ByteBuffer& b, T& value)
+        {
+            if (!b.empty())
+            {
+                Deserializer d;
+                d.reset(b.data(), b.size());
+                d & value;
+                return true;
+            }
+            ZeroObject(value);
+            return false;
+        }
+
         template <typename T>
         ByteBuffer toByteBuffer(const T& value)
         {
@@ -300,6 +314,7 @@ namespace beam
            
             Outputs = 190,
 
+            Kernel = 200,
             PreImage = 201,
     
             State = 255
@@ -359,16 +374,37 @@ namespace beam
             }
 
             SERIALIZE(m_From, m_TxID, m_Type, m_Parameters);
-            static const size_t MaxParams = 20;
         };
 
-        struct INegotiatorGateway
+        // �ontext to take into account all async wallet operations
+        struct IAsyncContext
+        {
+            virtual void OnAsyncStarted() = 0;
+            virtual void OnAsyncFinished() = 0;
+        };
+
+        class AsyncContextHolder
+        {
+        public:
+            AsyncContextHolder(IAsyncContext& context)
+                : m_Context(context)
+            {
+                m_Context.OnAsyncStarted();
+            }
+            ~AsyncContextHolder()
+            {
+                m_Context.OnAsyncFinished();
+            }
+        private:
+            IAsyncContext& m_Context;
+        };
+
+        struct INegotiatorGateway : IAsyncContext
         {
             virtual ~INegotiatorGateway() {}
             virtual void on_tx_completed(const TxID& ) = 0;
             virtual void register_tx(const TxID&, Transaction::Ptr, SubTxID subTxID = kDefaultSubTxID) = 0;
             virtual void confirm_outputs(const std::vector<Coin>&) = 0;
-            virtual void confirm_kernel(const TxID&, const TxKernel&, SubTxID subTxID = kDefaultSubTxID) = 0;
             virtual void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
             virtual void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
             virtual bool get_tip(Block::SystemState::Full& state) const = 0;
@@ -388,6 +424,7 @@ namespace beam
             ConnectionAddrInUse,
             TimeOutOfSync,
             InternalNodeStartFailed,
+            HostResolvedError,
         };
 
         ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType);

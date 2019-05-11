@@ -143,6 +143,8 @@ namespace beam
                 return ErrorType::ConnectionHostUnreach;
             case io::ErrorCode::EC_EADDRINUSE:
                 return ErrorType::ConnectionAddrInUse;
+            case io::ErrorCode::EC_HOST_RESOLVED_ERROR:
+                return ErrorType::HostResolvedError;
             default:
                 return ErrorType::ConnectionBase;
             }

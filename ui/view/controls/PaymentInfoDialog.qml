@@ -38,7 +38,7 @@
 
         background: Rectangle {
             radius: 10
-            color: Style.dark_slate_blue
+            color: Style.background_second
             anchors.fill: parent
         }
 
@@ -60,15 +60,20 @@
                         font.pixelSize: 18
                         font.styleName: "Bold"
                         font.weight: Font.Bold
-                        color: Style.white
-                        text: shouldVerify ? qsTr("Payment proof verification") : qsTr("Payment proof")
+                        color: Style.content_main
+                        text: shouldVerify ? 
+                            //% "Payment proof verification"
+                            qsTrId("payment-info-proof-verification") :
+                            //% "Payment proof"
+                            qsTrId("payment-info-proof")
                     }
 
                     CustomToolButton {
                         icon.source: "qrc:/assets/icon-cancel.svg"
                         icon.width: 12
                         icon.height: 12
-                        ToolTip.text: qsTr("close")
+                        //% "close"
+                        ToolTip.text: qsTrId("payment-info-close-button")
                         onClicked: {
                             dialog.close();
                         }
@@ -85,8 +90,9 @@
                         Layout.alignment: Qt.AlignTop | Qt.AlignHCenter
                         opacity: 0.5
                         font.pixelSize: 14
-                        color: Style.white
-                        text: qsTr("Paste your payment proof here")
+                        color: Style.content_main
+                        //% "Paste your payment proof here"
+                        text: qsTrId("payment-info-proof-label")
                     }
             
                     function isInvalidPaymentProof()
@@ -106,7 +112,7 @@
                             activeFocusOnTab: true
                             font.pixelSize: 14
                             wrapMode: TextInput.Wrap
-                            color: verifyLayout.isInvalidPaymentProof() ? Style.validator_color : Style.white
+                            color: verifyLayout.isInvalidPaymentProof() ? Style.validator_error : Style.content_main
                              text: model ? model.paymentProof : ""
                             Binding {
                                 target: model
@@ -127,8 +133,9 @@
                         Layout.fillWidth: true
                         font.pixelSize: 14
                         font.italic: true
-                        text: qsTr("Cannot decode a proof, illegal sequence.")
-                        color: Style.validator_color
+                        //% "Cannot decode a proof, illegal sequence."
+                        text: qsTrId("payment-info-proof-decode-fail")
+                        color: Style.validator_error
                         visible: verifyLayout.isInvalidPaymentProof()
                     }
                 }
@@ -138,8 +145,9 @@
                     font.pixelSize: 14
                     font.styleName: "Bold"
                     font.weight: Font.Bold
-                    color: Style.white
-                    text: qsTr("Code:")
+                    color: Style.content_main
+                    //% "Code:"
+                    text: qsTrId("payment-info-proof-code-label")
                     visible: !shouldVerify
                 }
             
@@ -148,7 +156,7 @@
                     wrapMode: Text.Wrap
                     font.pixelSize: 14
                     text: model ? model.paymentProof : ""
-                    color: Style.disable_text_color
+                    color: Style.content_disabled
                     visible: !shouldVerify
                 }
 
@@ -159,8 +167,9 @@
                     font.pixelSize: 18
                     font.styleName: "Bold";
                     font.weight: Font.Bold
-                    color: Style.white
-                    text: qsTr("Details")
+                    color: Style.content_main
+                    //% "Details"
+                    text: qsTrId("payment-info-proof-details-label")
                     visible: model? model.isValid : false
                 }
             
@@ -169,8 +178,9 @@
                     font.pixelSize: 14
                     font.styleName: "Bold"
                     font.weight: Font.Bold
-                    color: Style.white
-                    text: qsTr("Sender:")
+                    color: Style.content_main
+                    //% "Sender:"
+                    text: qsTrId("payment-info-proof-sender-label")
                     visible: model? model.isValid : false
                 }
             
@@ -179,7 +189,7 @@
                     Layout.preferredHeight: 28
                     wrapMode: Text.Wrap
                     font.pixelSize: 14
-                    color: Style.disable_text_color
+                    color: Style.content_disabled
                     text: model ? model.sender : ""
                     verticalAlignment: Text.AlignBottom
                     visible: model? model.isValid : false
@@ -190,8 +200,9 @@
                     font.pixelSize: 14
                     font.styleName: "Bold"
                     font.weight: Font.Bold
-                    color: Style.white
-                    text: qsTr("Receiver:")
+                    color: Style.content_main
+                    //% "Receiver:"
+                    text: qsTrId("payment-info-proof-receiver-label")
                     visible: model? model.isValid : false
                 }
             
@@ -200,7 +211,7 @@
                     Layout.preferredHeight: 28
                     wrapMode: Text.Wrap
                     font.pixelSize: 14
-                    color: Style.disable_text_color
+                    color: Style.content_disabled
                     text: model ? model.receiver : ""
                     visible: model? model.isValid : false
                 }
@@ -210,8 +221,9 @@
                     font.pixelSize: 14
                     font.styleName: "Bold"
                     font.weight: Font.Bold
-                    color: Style.white
-                    text: qsTr("Amount:")
+                    color: Style.content_main
+                    //% "Amount:"
+                    text: qsTrId("payment-info-proof-amount-label")
                     visible: model? model.isValid : false
                 }
             
@@ -219,8 +231,8 @@
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
                     font.pixelSize: 14
-                    color: Style.disable_text_color
-                    text: model ? model.amount + " " + qsTr("BEAM") : ""
+                    color: Style.content_disabled
+                    text: model ? model.amount + " BEAM" : ""
                     visible: model? model.isValid : false
                 }
             
@@ -229,8 +241,9 @@
                     font.pixelSize: 14
                     font.styleName: "Bold"
                     font.weight: Font.Bold
-                    color: Style.white
-                    text: qsTr("Kernel ID:")
+                    color: Style.content_main
+                    //% "Kernel ID:"
+                    text: qsTrId("payment-info-proof-kernel-id-label")
                     visible: model? model.isValid : false
                 }
             
@@ -239,7 +252,7 @@
                     Layout.preferredHeight: 28
                     wrapMode: Text.Wrap
                     font.pixelSize: 14
-                    color: Style.disable_text_color
+                    color: Style.content_disabled
                     text: model ? model.kernelID : ""
                     visible: model? model.isValid : false
                 }
@@ -263,7 +276,8 @@
 
                 CustomButton {
                     icon.source: "qrc:/assets/icon-copy.svg"
-                    text: qsTr("copy details")
+                    //% "copy details"
+                    text: qsTrId("payment-info-copy-details-button")
                     visible: !shouldVerify
                     onClicked: {
                         parent.copyDetails();
@@ -272,7 +286,8 @@
             
                 PrimaryButton {
                     icon.source: "qrc:/assets/icon-copy-blue.svg"
-                    text: qsTr("copy code")
+                    //% "copy code"
+                    text: qsTrId("payment-info-copy-code-button")
                     visible: !shouldVerify
                     onClicked: {
                         if (model)
@@ -284,7 +299,8 @@
 
                 PrimaryButton {
                     icon.source: "qrc:/assets/icon-copy-blue.svg"
-                    text: qsTr("copy details")
+                    //% "copy details"
+                    text: qsTrId("payment-info-copy-details-button")
                     visible: shouldVerify
                     onClicked: {
                         if (model)

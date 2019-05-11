@@ -27,9 +27,9 @@
 namespace beam {
 
 std::unique_ptr<IExternalPOW> IExternalPOW::create(
-    const IExternalPOW::Options& o, io::Reactor& reactor, io::Address listenTo
+    const IExternalPOW::Options& o, io::Reactor& reactor, io::Address listenTo, unsigned noncePrefixDigits
 ) {
-    return std::make_unique<stratum::Server>(o, reactor, listenTo);
+    return std::make_unique<stratum::Server>(o, reactor, listenTo, noncePrefixDigits);
 }
 
 namespace stratum {
@@ -41,17 +41,23 @@ static const unsigned ACL_REFRESH_INTERVAL = 5000;
 
 static const char STS[] = "stratum server ";
 
-Server::Server(const IExternalPOW::Options& o, io::Reactor& reactor, io::Address listenTo) :
+Server::Server(const IExternalPOW::Options& o, io::Reactor& reactor, io::Address listenTo, unsigned noncePrefixDigits) :
     _options(o),
     _reactor(reactor),
     _bindAddress(listenTo),
     _timers(reactor, 100),
     _fw(4096, 0, [this](io::SharedBuffer&& buf){ _currentMsg.push_back(buf); }),
-    _acl(o.apiKeysFile)
+    _acl(o.apiKeysFile),
+    _prefixDigits(noncePrefixDigits),
+    _prefixSeed(0)
 {
+    assert(_prefixDigits <= 6);
     _timers.set_timer(SERVER_RESTART_TIMER, 0, BIND_THIS_MEMFN(start_server));
     if (!o.apiKeysFile.empty()) {
         _timers.set_timer(ACL_REFRESH_TIMER, 0, BIND_THIS_MEMFN(refresh_acl));
+    }
+    if (_prefixDigits > 0) {
+        ECC::GenRandom(&_prefixSeed, 8);
     }
 }
 
@@ -92,6 +98,7 @@ void Server::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode er
         _connections[peer.u64()] = std::make_unique<Connection>(
             *this,
             peer.u64(),
+            gen_nonceprefix(peer.u64()),
             std::move(newStream)
         );
     } else {
@@ -100,35 +107,77 @@ void Server::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode er
     }
 }
 
+std::string Server::gen_nonceprefix(uint64_t connId) {
+    std::string x;
+    if (_prefixDigits > 0) {
+        ECC::Hash::Processor p;
+        ECC::Hash::Value v;
+        p << _prefixSeed << connId;
+        p >> v;
+        x = to_hex(v.m_pData, 3);
+        x = x.substr(0, _prefixDigits);
+    }
+    return x;
+}
+
 bool Server::on_login(uint64_t from, const Login& login) {
     assert(_connections.count(from) > 0);
 
+    auto& conn = _connections[from];
+    bool loginSuccess = false;
     if (_acl.check(login.api_key)) {
-        auto& conn = _connections[from];
         conn->set_logged_in();
-
-        // TODO send result first
-        return _connections[from]->send_msg(_recentJob.msg, true);
+        loginSuccess = true;
     } else {
         LOG_INFO() << STS << "peer login failed, key=" << login.api_key;
-        Result res(login.id, login_failed);
-        append_json_msg(_fw, res);
-        _connections[from]->send_msg(_currentMsg, false, true);
-        _currentMsg.clear();
     }
-    return false;
+
+    Result res(login.id, loginSuccess ? stratum::no_error : stratum::login_failed);
+    res.nonceprefix = conn->get_nonceprefix();
+    append_json_msg(_fw, res);
+    bool sent = conn->send_msg(_currentMsg, false, !loginSuccess);
+    _currentMsg.clear();
+
+    if (!sent || !loginSuccess)
+        return false;
+
+    return _connections[from]->send_msg(_recentJob.msg, true);
 }
 
 bool Server::on_solution(uint64_t from, const Solution& sol) {
-
 	LOG_DEBUG() << TRACE(sol.nonce) << TRACE(sol.output);
+
+	if (_prefixDigits > 0) {
+	    const std::string& nonceprefix = _connections[from]->get_nonceprefix();
+	    if (
+	        sol.nonce.size() < _prefixDigits ||
+	        memcmp(sol.nonce.c_str(), nonceprefix.c_str(), _prefixDigits) != 0
+	    ) {
+            Result res(sol.id, stratum::solution_rejected);
+            //res.nonceprefix = nonceprefix;
+            append_json_msg(_fw, res);
+            _connections[from]->send_msg(_currentMsg, true, true);
+            _currentMsg.clear();
+            return false;
+	    }
+	}
 
 	_recentResult.id = sol.id;
     sol.fill_pow(_recentResult.pow);
 
     LOG_INFO() << STS << "solution to " << sol.id << " from " << io::Address::from_u64(from);
-	_recentResult.onBlockFound();
-    return true;
+	IExternalPOW::BlockFoundResult result = _recentResult.onBlockFound();
+    stratum::ResultCode stratumCode = stratum::solution_rejected;
+    if (result == IExternalPOW::solution_accepted) {
+        stratumCode = stratum::solution_accepted;
+    } else if (result == IExternalPOW::solution_expired) {
+        stratumCode = stratum::solution_expired;
+    }
+    Result res(sol.id, stratumCode);
+    append_json_msg(_fw, res);
+    bool sent = _connections[from]->send_msg(_currentMsg, true);
+    _currentMsg.clear();
+    return sent;
 }
 
 void Server::on_bad_peer(uint64_t from) {
@@ -224,9 +273,12 @@ bool Server::AccessControl::check(const std::string& key) {
     return _keys.count(key) > 0;
 }
 
-Server::Connection::Connection(ConnectionToServer& owner, uint64_t id, io::TcpStream::Ptr&& newStream) :
+Server::Connection::Connection(
+    ConnectionToServer& owner, uint64_t id, std::string nonceprefix, io::TcpStream::Ptr&& newStream
+) :
     _owner(owner),
     _id(id),
+    _nonceprefix(std::move(nonceprefix)),
     _stream(std::move(newStream)),
     _lineReader(BIND_THIS_MEMFN(on_raw_message)),
     _loggedIn(false)

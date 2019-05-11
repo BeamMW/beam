@@ -36,6 +36,8 @@ namespace beam::wallet
         void AddOutput(Amount amount, bool bChange);
         void CreateOutputs();
         bool FinalizeOutputs();
+        bool LoadKernel();
+        bool HasKernelID() const;
         Output::Ptr CreateOutput(Amount amount, bool bChange);
         void CreateKernel();
         bool GenerateBlindingExcess();
@@ -62,6 +64,7 @@ namespace beam::wallet
         const ECC::Scalar::Native& GetOffset() const;
         const ECC::Scalar::Native& GetPartialSignature() const;
         const TxKernel& GetKernel() const;
+        const Merkle::Hash& GetKernelID() const;
         void StoreKernelID();
         std::string GetKernelIDString() const;
         bool UpdateMaxHeight();
@@ -103,5 +106,7 @@ namespace beam::wallet
         ECC::Scalar::Native m_PeerSignature;
         ECC::Hash::Value m_Message;
         ECC::Signature::MultiSig m_MultiSig;
+
+        mutable boost::optional<Merkle::Hash> m_KernelID;
     };
 }

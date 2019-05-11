@@ -17,6 +17,7 @@
 #include <QObject>
 #include <QQmlListProperty>
 #include "model/wallet_model.h"
+#include "model/settings.h"
 #include "messages_view.h"
 
 class PaymentInfoItem;
@@ -40,6 +41,7 @@ class TxObject : public QObject
     Q_PROPERTY(QString receivingAddress READ getReceivingAddress CONSTANT)
     Q_PROPERTY(QString fee              READ getFee              CONSTANT)
     Q_PROPERTY(QString kernelID         READ getKernelID         WRITE setKernelID  NOTIFY kernelIDChanged)
+    Q_PROPERTY(QString transactionID    READ getTransactionID    CONSTANT)
     Q_PROPERTY(QString failureReason    READ getFailureReason    NOTIFY failureReasonChanged)
     Q_PROPERTY(bool hasPaymentProof     READ hasPaymentProof     NOTIFY kernelIDChanged)
 
@@ -65,6 +67,7 @@ public:
     beam::WalletID peerId() const;
     QString getKernelID() const;
     void setKernelID(const QString& value);
+    QString getTransactionID() const;
     QString getFailureReason() const;
     bool hasPaymentProof() const;
 
@@ -149,6 +152,8 @@ class WalletViewModel : public QObject
     Q_PROPERTY(QString sendAmount READ sendAmount WRITE setSendAmount NOTIFY sendAmountChanged)
     Q_PROPERTY(QString amountMissingToSend READ getAmountMissingToSend NOTIFY actualAvailableChanged)
 
+    Q_PROPERTY(double amountForReceive READ getAmountForReceive WRITE setAmountForReceive NOTIFY amountForReceiveChanged)
+
     Q_PROPERTY(QString feeGrothes READ feeGrothes WRITE setFeeGrothes NOTIFY feeGrothesChanged)
 
     Q_PROPERTY(QString receiverAddr READ getReceiverAddr WRITE setReceiverAddr NOTIFY receiverAddrChanged)
@@ -186,6 +191,8 @@ public:
     Q_INVOKABLE void saveNewAddress();
     Q_INVOKABLE void copyToClipboard(const QString& text);
     Q_INVOKABLE bool isValidReceiverAddress(const QString& value);
+    Q_INVOKABLE bool isPasswordReqiredToSpendMoney() const;
+    Q_INVOKABLE bool isPasswordValid(const QString& value) const;
 
 public:
     using TxList = QList<TxObject*>;
@@ -201,6 +208,8 @@ public:
     QQmlListProperty<TxObject> getTransactions();
     QString sendAmount() const;
     QString getAmountMissingToSend() const;
+    double getAmountForReceive() const;
+    void setAmountForReceive(double value);
     QString feeGrothes() const;
     bool getIsOfflineStatus() const;
     bool getIsFailedStatus() const;
@@ -246,6 +255,7 @@ public slots:
     void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
     void onAddresses(bool own, const std::vector<beam::WalletAddress>& addresses);
     void onGeneratedNewAddress(const beam::WalletAddress& addr);
+    void onNewAddressFailed();
     void onSendMoneyVerified();
     void onCantSendToExpired();
 
@@ -253,6 +263,7 @@ signals:
     void stateChanged();
 
     void sendAmountChanged();
+    void amountForReceiveChanged();
     void feeGrothesChanged();
     void transactionsChanged();
     void actualAvailableChanged();
@@ -264,6 +275,7 @@ signals:
     void expiresChanged();
     void sendMoneyVerified();
     void cantSendToExpired();
+    void newAddressFailed();
 
 private:
     beam::Amount calcSendAmount() const;
@@ -274,13 +286,17 @@ private:
 
     std::function<bool(const TxObject*, const TxObject*)> generateComparer();
 
+    void updateReceiverQRCode();
+
 private:
 
     WalletModel& _model;
+    WalletSettings& _settings;
 
     WalletStatus _status ;
 
     QString _sendAmount;
+    double _amountForReceive;
     QString _feeGrothes;
 
     beam::Amount _change;

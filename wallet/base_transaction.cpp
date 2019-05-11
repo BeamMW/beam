@@ -66,12 +66,12 @@ namespace beam::wallet
         return m_Reason;
     }
 
-    const uint32_t BaseTransaction::s_ProtoVersion = 1;
+    const uint32_t BaseTransaction::s_ProtoVersion = 2;
 
 
     BaseTransaction::BaseTransaction(INegotiatorGateway& gateway
-        , beam::IWalletDB::Ptr walletDB
-        , const TxID& txID)
+                                   , beam::IWalletDB::Ptr walletDB
+                                   , const TxID& txID)
         : m_Gateway{ gateway }
         , m_WalletDB{ walletDB }
         , m_ID{ txID }
@@ -117,6 +117,7 @@ namespace beam::wallet
 
     void BaseTransaction::Update()
     {
+        AsyncContextHolder async(m_Gateway);
         try
         {
             if (CheckExternalFailures())
@@ -143,9 +144,20 @@ namespace beam::wallet
     {
         TxStatus s = TxStatus::Failed;
         GetParameter(TxParameterID::Status, s);
+        // TODO: add CanCancel() method
         if (s == TxStatus::Pending || s == TxStatus::InProgress)
         {
-            NotifyFailure(TxFailureReason::Cancelled);
+            if (s == TxStatus::InProgress)
+            {
+                if (!m_WalletDB->get_MasterKdf())
+                {
+                    // cannot create encrypted message
+                    return;
+                }
+                // notify about cancellation if we have started negotiations
+                NotifyFailure(TxFailureReason::Cancelled);
+
+            }
             UpdateTxDescription(TxStatus::Cancelled);
             RollbackTx();
             m_Gateway.on_tx_completed(GetTxID());
@@ -164,23 +176,18 @@ namespace beam::wallet
 
     bool BaseTransaction::CheckExpired()
     {
-        Height kernelConfirmHeight = 0;
-        if (GetParameter(TxParameterID::KernelProofHeight, kernelConfirmHeight) && kernelConfirmHeight > 0)
+        TxStatus s = TxStatus::Failed;
+        if (GetParameter(TxParameterID::Status, s)
+            && (s == TxStatus::Failed 
+             || s == TxStatus::Cancelled 
+             || s == TxStatus::Completed ))
         {
-            // completed tx
-            return false;
-        }
-
-        TxFailureReason reason = TxFailureReason::Unknown;
-        if (GetParameter(TxParameterID::FailureReason, reason))
-        {
-            // failed tx
             return false;
         }
 
         Height maxHeight = MaxHeight;
-        if (!GetParameter(TxParameterID::MaxHeight, maxHeight)
-            && !GetParameter(TxParameterID::PeerResponseHeight, maxHeight))
+        if (!GetParameter(TxParameterID::MaxHeight, maxHeight) 
+         && !GetParameter(TxParameterID::PeerResponseHeight, maxHeight))
         {
             // we have no data to make decision
             return false;
@@ -189,7 +196,7 @@ namespace beam::wallet
         bool isRegistered = false;
         Merkle::Hash kernelID;
         if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered)
-            || !GetParameter(TxParameterID::KernelID, kernelID))
+         || !GetParameter(TxParameterID::KernelID, kernelID))
         {
             Block::SystemState::Full state;
             if (GetTip(state) && state.m_Height > maxHeight)
@@ -230,10 +237,10 @@ namespace beam::wallet
         return false;
     }
 
-    void BaseTransaction::ConfirmKernel(const TxKernel& kernel)
+    void BaseTransaction::ConfirmKernel(const Merkle::Hash& kernelID)
     {
         UpdateTxDescription(TxStatus::Registering);
-        m_Gateway.confirm_kernel(GetTxID(), kernel);
+        m_Gateway.confirm_kernel(GetTxID(), kernelID);
     }
 
     void BaseTransaction::UpdateOnNextTip()

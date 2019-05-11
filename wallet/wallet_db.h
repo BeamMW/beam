@@ -68,7 +68,7 @@ namespace beam
         Height m_spentHeight;
         boost::optional<TxID> m_createTxId;
         boost::optional<TxID> m_spentTxId;
-        uint32_t m_sessionId;
+        uint64_t m_sessionId;
 
         bool IsMaturityValid() const; // is/was the UTXO confirmed?
         Height get_Maturity() const; // would return MaxHeight unless the UTXO was confirmed
@@ -106,6 +106,20 @@ namespace beam
         ByteBuffer m_value;
     };
 
+    struct WalletMessage
+    {
+        int m_ID;
+        WalletID m_PeerID;
+        ByteBuffer m_Message;
+    };
+
+    struct IncomingWalletMessage
+    {
+        int m_ID;
+        BbsChannel m_Channel;
+        ByteBuffer m_Message;
+    };
+
     enum class ChangeAction
     {
         Added,
@@ -114,12 +128,22 @@ namespace beam
         Reset
     };
 
+    class CannotGenerateSecretException : public std::runtime_error
+    {
+    public:
+        explicit CannotGenerateSecretException()
+            : std::runtime_error("")
+        {
+        }
+
+    };
+
     struct IWalletDbObserver
     {
-        virtual void onCoinsChanged() = 0;
-        virtual void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) = 0;
-        virtual void onSystemStateChanged() = 0;
-        virtual void onAddressChanged() = 0;
+        virtual void onCoinsChanged() {};
+        virtual void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) {};
+        virtual void onSystemStateChanged() {};
+        virtual void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) {};
     };
 
     struct IWalletDB
@@ -149,6 +173,10 @@ namespace beam
 
         virtual void setVarRaw(const char* name, const void* data, size_t size) = 0;
         virtual bool getVarRaw(const char* name, void* data, int size) const = 0;
+
+        virtual void setPrivateVarRaw(const char* name, const void* data, size_t size) = 0;
+        virtual bool getPrivateVarRaw(const char* name, void* data, int size) const = 0;
+
         virtual bool getBlob(const char* name, ByteBuffer& var) const = 0;
         virtual Height getCurrentHeight() const = 0;
         virtual void rollbackConfirmedUtxo(Height minHeight) = 0;
@@ -182,6 +210,18 @@ namespace beam
 
         virtual Block::SystemState::IHistory& get_History() = 0;
         virtual void ShrinkHistory() = 0;
+
+        virtual bool lock(const CoinIDList& list, uint64_t session) = 0;
+        virtual bool unlock(uint64_t session) = 0;
+        virtual CoinIDList getLocked(uint64_t session) const = 0;
+
+        virtual std::vector<WalletMessage> getWalletMessages() const = 0;
+        virtual uint64_t saveWalletMessage(const WalletMessage& message) = 0;
+        virtual void deleteWalletMessage(uint64_t id) = 0;
+
+        virtual std::vector<IncomingWalletMessage> getIncomingWalletMessages() const = 0;
+        virtual uint64_t saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message) = 0;
+        virtual void deleteIncomingWalletMessage(uint64_t id) = 0;
     };
 
     namespace sqlite
@@ -194,11 +234,11 @@ namespace beam
     {
     public:
         static bool isInitialized(const std::string& path);
-        static Ptr init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor);
+        static Ptr init(const std::string& path, const SecString& password, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, bool separateDBForPrivateData = false);
         static Ptr open(const std::string& path, const SecString& password, io::Reactor::Ptr reactor);
 
-        WalletDB(sqlite3* db, io::Reactor::Ptr reactor);
-        WalletDB(sqlite3* db, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor);
+        WalletDB(sqlite3* db, io::Reactor::Ptr reactor, sqlite3* sdb);
+        WalletDB(sqlite3* db, const ECC::NoLeak<ECC::uintBig>& secretKey, io::Reactor::Ptr reactor, sqlite3* sdb);
         ~WalletDB();
 
         beam::Key::IKdf::Ptr get_MasterKdf() const override;
@@ -221,6 +261,10 @@ namespace beam
 
         void setVarRaw(const char* name, const void* data, size_t size) override;
         bool getVarRaw(const char* name, void* data, int size) const override;
+
+        void setPrivateVarRaw(const char* name, const void* data, size_t size) override;
+        bool getPrivateVarRaw(const char* name, void* data, int size) const override;
+
         bool getBlob(const char* name, ByteBuffer& var) const override;
         Height getCurrentHeight() const override;
         void rollbackConfirmedUtxo(Height minHeight) override;
@@ -253,17 +297,24 @@ namespace beam
         Block::SystemState::IHistory& get_History() override;
         void ShrinkHistory() override;
 
+        bool lock(const CoinIDList& list, uint64_t session) override;
+        bool unlock(uint64_t session) override;
+        CoinIDList getLocked(uint64_t session) const override;
+
+        std::vector<WalletMessage> getWalletMessages() const override;
+        uint64_t saveWalletMessage(const WalletMessage& message) override;
+        void deleteWalletMessage(uint64_t id) override;
+
+        std::vector<IncomingWalletMessage> getIncomingWalletMessages() const override;
+        uint64_t saveIncomingWalletMessage(BbsChannel channel, const ByteBuffer& message) override;
+        void deleteIncomingWalletMessage(uint64_t id) override;
+
     private:
         void removeImpl(const Coin::ID& cid);
         void notifyCoinsChanged();
         void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
         void notifySystemStateChanged();
-        void notifyAddressChanged();
-        void CreateStorageTable();
-        void CreateAddressesTable();
-        void CreateVariablesTable();
-        void CreateTxParamsTable();
-        void CreateStatesTable();
+        void notifyAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items);
 
         static uint64_t get_RandomID();
         bool updateRaw(const Coin&);
@@ -283,6 +334,7 @@ namespace beam
     private:
         friend struct sqlite::Statement;
         sqlite3* _db;
+        sqlite3* m_PrivateDB;
         io::Reactor::Ptr m_Reactor;
         Key::IKdf::Ptr m_pKdf;
         io::Timer::Ptr m_FlushTimer;

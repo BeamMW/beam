@@ -45,7 +45,6 @@ namespace beam
     macro(InitLitecoin,     "init_litecoin",    API_WRITE_ACCESS)   \
     macro(StartSwap,        "start_swap",       API_WRITE_ACCESS)   \
     macro(AcceptSwap,       "accept_swap",      API_WRITE_ACCESS)   \
-    macro(Replace,          "replace",          API_WRITE_ACCESS)   \
     macro(Status,           "tx_status",        API_READ_ACCESS)    \
     macro(Split,            "tx_split",         API_WRITE_ACCESS)   \
     macro(TxCancel,         "tx_cancel",        API_WRITE_ACCESS)   \
@@ -109,9 +108,10 @@ namespace beam
     struct Send
     {
         Amount value;
-        CoinIDList coins;
         Amount fee;
+        boost::optional<CoinIDList> coins;
         boost::optional<WalletID> from;
+        boost::optional<uint64_t> session;
         WalletID address;
         std::string comment;
 
@@ -162,14 +162,6 @@ namespace beam
         bool beamSide;
 
         struct Response {};
-    };
-
-    struct Replace
-    {
-        struct Response
-        {
-
-        };
     };
 
     struct Status
@@ -231,17 +223,22 @@ namespace beam
 
     struct Lock
     {
+        CoinIDList coins;
+        uint64_t session;
+
         struct Response
         {
-
+            bool result;
         };
     };
 
     struct Unlock
     {
+        uint64_t session;
+
         struct Response
         {
-
+            bool result;
         };
     };
 
@@ -273,7 +270,6 @@ namespace beam
             Amount receiving = 0;
             Amount sending = 0;
             Amount maturing = 0;
-            Amount locked = 0;
             double difficulty = 0;
         };
     };

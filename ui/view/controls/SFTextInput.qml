@@ -28,7 +28,7 @@ T.TextField {
     verticalAlignment: TextInput.AlignVCenter
 
     property alias backgroundColor : backgroundRect.color
-    backgroundColor: Style.white
+    backgroundColor: Style.content_main
 
 	selectByMouse: true
 	
@@ -78,7 +78,8 @@ T.TextField {
         modal: true
         dim: false
         Action {
-            text: qsTr("copy")
+            //% "copy"
+            text: qsTrId("sf-text-input-cm-copy")
             icon.source: "qrc:/assets/icon-copy.svg"
             enabled: control.enabled && (control.echoMode === TextInput.Normal)
             onTriggered: {
@@ -93,7 +94,8 @@ T.TextField {
             }
         }
         Action {
-            text: qsTr("paste")
+            //% "paste"
+            text: qsTrId("sf-text-input-cm-paste")
             icon.source: "qrc:/assets/icon-edit.svg"
             enabled: control.canPaste
             onTriggered: {

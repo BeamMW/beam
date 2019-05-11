@@ -63,6 +63,7 @@ protected:
     virtual void onAllUtxoChanged(const std::vector<beam::Coin>& utxos) = 0;
     virtual void onAddresses(bool own, const std::vector<beam::WalletAddress>& addresses) = 0;
     virtual void onGeneratedNewAddress(const beam::WalletAddress& walletAddr) = 0;
+    virtual void onNewAddressFailed() = 0;
     virtual void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID) = 0;
     virtual void onNodeConnectionChanged(bool isNodeConnected) = 0;
     virtual void onWalletError(beam::wallet::ErrorType error) = 0;
@@ -70,13 +71,15 @@ protected:
     virtual void onSendMoneyVerified() = 0;
     virtual void onCantSendToExpired() = 0;
     virtual void onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof) = 0;
+    virtual void onCoinsByTx(const std::vector<beam::Coin>& coins) = 0;
+    virtual void onAddressChecked(const std::string& addr, bool isValid) = 0;
 
 private:
 
     void onCoinsChanged() override;
     void onTransactionChanged(beam::ChangeAction action, std::vector<beam::TxDescription>&& items) override;
     void onSystemStateChanged() override;
-    void onAddressChanged() override;
+    void onAddressChanged(beam::ChangeAction action, const std::vector<beam::WalletAddress>& items) override;
     void onSyncProgress(int done, int total) override;
 
     void sendMoney(const beam::WalletID& receiver, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee) override;
@@ -87,6 +90,7 @@ private:
     void getAddresses(bool own) override;
     void cancelTx(const beam::TxID& id) override;
     void deleteTx(const beam::TxID& id) override;
+    void getCoinsByTx(const beam::TxID& txId) override;
     void saveAddress(const beam::WalletAddress& address, bool bOwn) override;
     void changeCurrentWalletIDs(const beam::WalletID& senderID, const beam::WalletID& receiverID) override;
     void generateNewAddress() override;
@@ -97,6 +101,7 @@ private:
     void getNetworkStatus() override;
     void refresh() override;
     void exportPaymentProof(const beam::TxID& id) override;
+    void checkAddress(const std::string& addr) override;
 
     WalletStatus getStatus() const;
     std::vector<beam::Coin> getUtxos() const;
@@ -110,7 +115,7 @@ private:
     beam::io::Reactor::Ptr m_reactor;
     IWalletModelAsync::Ptr m_async;
     std::weak_ptr<beam::proto::FlyClient::INetwork> m_nodeNetwork;
-    std::weak_ptr<beam::IWalletNetwork> m_walletNetwork;
+    std::weak_ptr<beam::IWalletMessageEndpoint> m_walletNetwork;
     std::weak_ptr<beam::Wallet> m_wallet;
     bool m_isConnected;
     boost::optional<beam::wallet::ErrorType> m_walletError;

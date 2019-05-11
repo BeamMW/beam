@@ -30,13 +30,14 @@
     #define LOG_VERBOSE_ENABLED 0
 #endif
 
+#include "utility/cli/options.h"
 #include "utility/log_rotation.h"
-#include "utility/options.h"
 #include "utility/helpers.h"
 #include <iomanip>
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <iterator>
 #include <future>
 #include "version.h"
@@ -433,11 +434,12 @@ namespace
         else if (vm.count(cli::SEED_PHRASE))
         {
             auto tempPhrase = vm[cli::SEED_PHRASE].as<string>();
+            boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
             phrase = string_helpers::split(tempPhrase, ';');
-            assert(phrase.size() == 12);
+            assert(phrase.size() == WORD_COUNT);
             if (!isValidMnemonic(phrase, language::en))
             {
-                LOG_ERROR() << "Invalid seed phrases provided: " << tempPhrase;
+                LOG_ERROR() << "Invalid seed phrase provided: " << tempPhrase;
                 return false;
             }
         }
@@ -495,7 +497,7 @@ namespace
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
 
-		wallet::Totals totals(*walletDB);
+        wallet::Totals totals(*walletDB);
 
         cout << "____Wallet summary____\n\n"
             << "Current height............" << stateID.m_Height << '\n'
@@ -570,6 +572,23 @@ namespace
         if (txIdVec.size() >= 16)
             std::copy_n(txIdVec.begin(), 16, txId.begin());
 
+        auto tx = walletDB->getTx(txId);
+        if (!tx)
+        {
+            LOG_ERROR() << "Failed to export payment proof, transaction does not exist.";
+            return -1;
+        }
+        if (!tx->m_sender || tx->m_selfTx)
+        {
+            LOG_ERROR() << "Cannot export payment proof for receiver or self transaction.";
+            return -1;
+        }
+        if (tx->m_status != TxStatus::Completed)
+        {
+            LOG_ERROR() << "Failed to export payment proof. Transaction is not completed.";
+            return -1;
+        }
+
         auto res = wallet::ExportPaymentProof(*walletDB, txId);
         if (!res.empty())
         {
@@ -585,7 +604,12 @@ namespace
 
     int VerifyPaymentProof(const po::variables_map& vm)
     {
-        ByteBuffer buf = from_hex(vm[cli::PAYMENT_PROOF_DATA].as<string>());
+        const auto& pprofData = vm[cli::PAYMENT_PROOF_DATA];
+        if (pprofData.empty())
+        {
+            throw std::runtime_error("No payment proof provided: --payment_proof parameter is missing");
+        }
+        ByteBuffer buf = from_hex(pprofData.as<string>());
 
         if (!wallet::VerifyPaymentProof(buf))
             throw std::runtime_error("Payment proof is invalid");
@@ -815,30 +839,38 @@ int main_impl(int argc, char* argv[])
 
                     auto command = vm[cli::COMMAND].as<string>();
 
-                    if (command != cli::INIT
-                        && command != cli::RESTORE
-                        && command != cli::SEND
-                        && command != cli::RECEIVE
-                        && command != cli::LISTEN
-                        && command != cli::TREASURY
-                        && command != cli::INFO
-                        && command != cli::EXPORT_MINER_KEY
-                        && command != cli::EXPORT_OWNER_KEY
-                        && command != cli::NEW_ADDRESS
-                        && command != cli::CANCEL_TX
-                        && command != cli::CHANGE_ADDRESS_EXPIRATION
-                        && command != cli::PAYMENT_PROOF_EXPORT
-                        && command != cli::PAYMENT_PROOF_VERIFY
-                        && command != cli::GENERATE_PHRASE
-                        && command != cli::WALLET_ADDRESS_LIST
-                        && command != cli::WALLET_RESCAN
-                        && command != cli::IMPORT_ADDRESSES
-                        && command != cli::EXPORT_ADDRESSES
-                        && command != cli::SWAP_COINS
-                        && command != cli::SWAP_LISTEN)
                     {
-                        LOG_ERROR() << "unknown command: \'" << command << "\'";
-                        return -1;
+                        const vector<string> commands =
+                        {
+                            cli::INIT,
+                            cli::RESTORE,
+                            cli::SEND,
+                            cli::RECEIVE,
+                            cli::LISTEN,
+                            cli::TREASURY,
+                            cli::INFO,
+                            cli::EXPORT_MINER_KEY,
+                            cli::EXPORT_OWNER_KEY,
+                            cli::NEW_ADDRESS,
+                            cli::CANCEL_TX,
+                            cli::DELETE_TX,
+                            cli::CHANGE_ADDRESS_EXPIRATION,
+                            cli::PAYMENT_PROOF_EXPORT,
+                            cli::PAYMENT_PROOF_VERIFY,
+                            cli::GENERATE_PHRASE,
+                            cli::WALLET_ADDRESS_LIST,
+                            cli::WALLET_RESCAN,
+                            cli::IMPORT_ADDRESSES,
+                            cli::EXPORT_ADDRESSES,
+                            cli::SWAP_COINS,
+                            cli::SWAP_LISTEN
+                        };
+
+                        if (find(commands.cbegin(), commands.cend(), command) == commands.cend())
+                        {
+                            LOG_ERROR() << "unknown command: \'" << command << "\'";
+                            return -1;
+                        }
                     }
 
                     if (command == cli::GENERATE_PHRASE)
@@ -882,16 +914,18 @@ int main_impl(int argc, char* argv[])
                         }
                     }
 
+                    bool coldWallet = vm.count(cli::COLD_WALLET) > 0;
+
                     if (command == cli::INIT || command == cli::RESTORE)
                     {
                         NoLeak<uintBig> walletSeed;
                         walletSeed.V = Zero;
                         if (!ReadWalletSeed(walletSeed, vm, command == cli::INIT))
                         {
-                            LOG_ERROR() << "Please, provide seed phrase for the wallet.";
+                            LOG_ERROR() << "Please, provide a valid seed phrase for the wallet.";
                             return -1;
                         }
-                        auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor);
+                        auto walletDB = WalletDB::init(walletPath, pass, walletSeed, reactor, coldWallet);
                         if (walletDB)
                         {
                             LOG_INFO() << "wallet successfully created...";
@@ -1051,20 +1085,6 @@ int main_impl(int argc, char* argv[])
                         return ShowAddressList(walletDB);
                     }
 
-                    if (vm.count(cli::NODE_ADDR) == 0)
-                    {
-                        LOG_ERROR() << "node address should be specified";
-                        return -1;
-                    }
-
-                    string nodeURI = vm[cli::NODE_ADDR].as<string>();
-                    io::Address node_addr;
-                    if (!node_addr.resolve(nodeURI.c_str()))
-                    {
-                        LOG_ERROR() << "unable to resolve node address: " << nodeURI;
-                        return -1;
-                    }
-
                     io::Address receiverAddr;
                     Amount amount = 0;
                     Amount fee = 0;
@@ -1077,72 +1097,77 @@ int main_impl(int argc, char* argv[])
 
                     bool is_server = (command == cli::LISTEN || vm.count(cli::LISTEN)) || (command == cli::SWAP_LISTEN || vm.count(cli::SWAP_LISTEN));
 
-                    Wallet wallet{ walletDB, is_server ? Wallet::TxCompletedAction() : [](auto) { io::Reactor::get_Current().stop(); } };
-
-                    proto::FlyClient::NetworkStd nnet(wallet);
-                    nnet.m_Cfg.m_vNodes.push_back(node_addr);
-                    nnet.Connect();
-
-                    WalletNetworkViaBbs wnet(wallet, nnet, walletDB);
-                        
-                    wallet.set_Network(nnet, wnet);
-
-                    if (!btcUserName.empty() && !btcPass.empty())
+                    Wallet wallet{ walletDB, is_server ? Wallet::TxCompletedAction() : [](auto) { io::Reactor::get_Current().stop(); },
+                                            !coldWallet ? Wallet::UpdateCompletedAction() : []() {io::Reactor::get_Current().stop(); } };
                     {
-                        wallet.initBitcoin(io::Reactor::get_Current(), btcUserName, btcPass, btcNodeAddr);
-                    }
-
-                    if (!ltcUserName.empty() && !ltcPass.empty())
-                    {
-                        wallet.initLitecoin(io::Reactor::get_Current(), ltcUserName, ltcPass, ltcNodeAddr);
-                    }
-
-                    if (command == cli::SWAP_COINS || command == cli::SWAP_LISTEN)
-                    {
-                        wallet::AtomicSwapCoin swapCoin = wallet::AtomicSwapCoin::Bitcoin;
-
-                        if (vm.count(cli::SWAP_COIN) > 0)
+                        wallet::AsyncContextHolder holder(wallet);
+                        if (!coldWallet)
                         {
-                            swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
-
-                            if (swapCoin == wallet::AtomicSwapCoin::Unknown)
+                            if (vm.count(cli::NODE_ADDR) == 0)
                             {
-                                LOG_ERROR() << "Unknown coin for swap";
+                                LOG_ERROR() << "node address should be specified";
                                 return -1;
                             }
-                        }
 
-                        if (swapCoin == wallet::AtomicSwapCoin::Bitcoin)
-                        {
-                            if (btcUserName.empty() || btcPass.empty() || btcNodeAddr.empty())
+                            string nodeURI = vm[cli::NODE_ADDR].as<string>();
+                            io::Address nodeAddress;
+                            if (!nodeAddress.resolve(nodeURI.c_str()))
                             {
-                                LOG_ERROR() << "BTC node credentials should be provided";
+                                LOG_ERROR() << "unable to resolve node address: " << nodeURI;
                                 return -1;
                             }
+
+                            auto nnet = make_shared<proto::FlyClient::NetworkStd>(wallet);
+                            nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
+                            nnet->Connect();
+                            wallet.AddMessageEndpoint(make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB));
+                            wallet.SetNodeEndpoint(nnet);
                         }
                         else
                         {
-                            if (ltcUserName.empty() || ltcPass.empty() || ltcNodeAddr.empty())
+                            wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB));
+                        }
+
+                        if (!btcUserName.empty() && !btcPass.empty())
+                        {
+                            wallet.initBitcoin(io::Reactor::get_Current(), btcUserName, btcPass, btcNodeAddr);
+                        }
+
+                        if (!ltcUserName.empty() && !ltcPass.empty())
+                        {
+                            wallet.initLitecoin(io::Reactor::get_Current(), ltcUserName, ltcPass, ltcNodeAddr);
+                        }
+
+                        if (command == cli::SWAP_COINS || command == cli::SWAP_LISTEN)
+                        {
+                            wallet::AtomicSwapCoin swapCoin = wallet::AtomicSwapCoin::Bitcoin;
+
+                            if (vm.count(cli::SWAP_COIN) > 0)
                             {
-                                LOG_ERROR() << "LTC node credentials should be provided";
-                                return -1;
+                                swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
+
+                                if (swapCoin == wallet::AtomicSwapCoin::Unknown)
+                                {
+                                    LOG_ERROR() << "Unknown coin for swap";
+                                    return -1;
+                                }
                             }
-                        }
 
-                        if (vm.count(cli::SWAP_AMOUNT) == 0)
-                        {
-                            LOG_ERROR() << "swap amount is missing";
-                            return -1;
-                        }
-
-                        Amount swapAmount = vm[cli::SWAP_AMOUNT].as<beam::Amount>();
-                        bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
-
-                        if (command == cli::SWAP_COINS)
-                        {
-                            if (!LoadBaseParamsForTX(vm, amount, fee, receiverWalletID))
+                            if (swapCoin == wallet::AtomicSwapCoin::Bitcoin)
                             {
-                                return -1;
+                                if (btcUserName.empty() || btcPass.empty() || btcNodeAddr.empty())
+                                {
+                                    LOG_ERROR() << "BTC node credentials should be provided";
+                                    return -1;
+                                }
+                            }
+                            else
+                            {
+                                if (ltcUserName.empty() || ltcPass.empty() || ltcNodeAddr.empty())
+                                {
+                                    LOG_ERROR() << "LTC node credentials should be provided";
+                                    return -1;
+                                }
                             }
 
                             if (vm.count(cli::SWAP_AMOUNT) == 0)
@@ -1151,79 +1176,108 @@ int main_impl(int argc, char* argv[])
                                 return -1;
                             }
 
+                            Amount swapAmount = vm[cli::SWAP_AMOUNT].as<beam::Amount>();
+                            bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
+
+                            if (command == cli::SWAP_COINS)
+                            {
+                                if (!LoadBaseParamsForTX(vm, amount, fee, receiverWalletID))
+                                {
+                                    return -1;
+                                }
+
+                                if (vm.count(cli::SWAP_AMOUNT) == 0)
+                                {
+                                    LOG_ERROR() << "swap amount is missing";
+                                    return -1;
+                                }
+
+                                WalletAddress senderAddress = newAddress(walletDB, "");
+
+                                wallet.swap_coins(isBeamSide ? senderAddress.m_walletID : receiverWalletID,
+                                    isBeamSide ? receiverWalletID : senderAddress.m_walletID,
+                                    move(amount), move(fee), swapCoin, swapAmount, isBeamSide);
+                            }
+
+                            if (command == cli::SWAP_LISTEN)
+                            {
+                                if (vm.count(cli::AMOUNT) == 0)
+                                {
+                                    LOG_ERROR() << "amount is missing";
+                                    return false;
+                                }
+
+                                auto signedAmount = vm[cli::AMOUNT].as<double>();
+                                if (signedAmount < 0)
+                                {
+                                    LOG_ERROR() << "Unable to send negative amount of coins";
+                                    return false;
+                                }
+
+                                signedAmount *= Rules::Coin; // convert beams to coins
+
+                                amount = static_cast<ECC::Amount>(std::round(signedAmount));
+                                if (amount == 0)
+                                {
+                                    LOG_ERROR() << "Unable to send zero coins";
+                                    return false;
+                                }
+
+                                wallet.initSwapConditions(amount, swapAmount, swapCoin, isBeamSide);
+                            }
+                        }
+
+                        if (isTxInitiator)
+                        {
                             WalletAddress senderAddress = newAddress(walletDB, "");
-                            wnet.AddOwnAddress(senderAddress);
-
-                            wallet.swap_coins(isBeamSide ? senderAddress.m_walletID : receiverWalletID,
-                                isBeamSide ? receiverWalletID : senderAddress.m_walletID,
-                                move(amount), move(fee), swapCoin, swapAmount, isBeamSide);
+                            CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
+                            wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND, 120, 720, {}, true);
                         }
 
-                        if (command == cli::SWAP_LISTEN)
+                        bool deleteTx = command == cli::DELETE_TX;
+                        if (command == cli::CANCEL_TX || deleteTx)
                         {
-                            if (vm.count(cli::AMOUNT) == 0)
+                            auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
+                            TxID txId;
+                            std::copy_n(txIdVec.begin(), 16, txId.begin());
+                            auto tx = walletDB->getTx(txId);
+
+                            if (tx)
                             {
-                                LOG_ERROR() << "amount is missing";
-                                return false;
-                            }
-
-                            auto signedAmount = vm[cli::AMOUNT].as<double>();
-                            if (signedAmount < 0)
-                            {
-                                LOG_ERROR() << "Unable to send negative amount of coins";
-                                return false;
-                            }
-
-                            signedAmount *= Rules::Coin; // convert beams to coins
-
-                            amount = static_cast<ECC::Amount>(std::round(signedAmount));
-                            if (amount == 0)
-                            {
-                                LOG_ERROR() << "Unable to send zero coins";
-                                return false;
-                            }
-
-                            wallet.initSwapConditions(amount, swapAmount, swapCoin, isBeamSide);
-                        }
-                    }
-
-                    if (isTxInitiator)
-                    {
-                        WalletAddress senderAddress = newAddress(walletDB, "");
-                        wnet.AddOwnAddress(senderAddress);
-                        CoinIDList coinIDs = GetPreselectedCoinIDs(vm);
-                        wallet.transfer_money(senderAddress.m_walletID, receiverWalletID, move(amount), move(fee), coinIDs, command == cli::SEND);
-                    }
-
-                    if (command == cli::CANCEL_TX) 
-                    {
-                        auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
-                        TxID txId;
-                        std::copy_n(txIdVec.begin(), 16, txId.begin());
-                        auto tx = walletDB->getTx(txId);
-
-                        if (tx)
-                        {
-                            if (tx->canCancel())
-                            {
-                                wallet.cancel_tx(txId);
+                                if (deleteTx)
+                                {
+                                    if (tx->canDelete())
+                                    {
+                                        wallet.delete_tx(txId);
+                                    }
+                                    else
+                                    {
+                                        LOG_ERROR() << "Transaction could not be deleted. Invalid transaction status.";
+                                    }
+                                }
+                                else
+                                {
+                                    if (tx->canCancel())
+                                    {
+                                        wallet.cancel_tx(txId);
+                                    }
+                                    else
+                                    {
+                                        LOG_ERROR() << "Transaction could not be cancelled. Invalid transaction status.";
+                                    }
+                                }
                             }
                             else
                             {
-                                LOG_ERROR() << "Transaction could not be cancelled. Invalid transaction status.";
+                                LOG_ERROR() << "Unknown transaction ID.";
                             }
                         }
-                        else
+
+                        if (command == cli::WALLET_RESCAN)
                         {
-                            LOG_ERROR() << "Unknown transaction ID.";
+                            wallet.Refresh();
                         }
                     }
-
-                    if (command == cli::WALLET_RESCAN)
-                    {
-                        wallet.Refresh();
-                    }
-
                     io::Reactor::get_Current().run();
                 }
             }

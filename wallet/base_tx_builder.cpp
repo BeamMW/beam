@@ -227,71 +227,7 @@ namespace beam::wallet
             ECC::GenRandom(hvRandom.V);
             m_Tx.SetParameter(TxParameterID::MyNonce, hvRandom.V, false, m_SubTxID);
         }
-
         m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_MultiSig.m_Nonce, hvRandom.V);
-    }
-
-    void BaseTxBuilder::SignPartial()
-    {
-        // create signature
-        Point::Native totalPublicExcess = GetPublicExcess();
-        totalPublicExcess += m_PeerPublicExcess;
-        m_Kernel->m_Commitment = totalPublicExcess;
-
-        m_Kernel->get_Hash(m_Message, m_PeerLockImage.get());
-        m_MultiSig.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
-
-
-        m_MultiSig.SignPartial(m_PartialSignature, m_Message, m_BlindingExcess);
-
-        StoreKernelID();
-    }
-
-    void BaseTxBuilder::FinalizeSignature()
-    {
-        // final signature
-        m_Kernel->m_Signature.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
-        m_Kernel->m_Signature.m_k = m_PartialSignature + m_PeerSignature;
-
-        StoreKernelID();
-    }
-
-    Transaction::Ptr BaseTxBuilder::CreateTransaction()
-    {
-        assert(m_Kernel);
-        LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " Transaction created. Kernel: " << GetKernelIDString()
-            << " min height: " << m_Kernel->m_Height.m_Min
-            << " max height: " << m_Kernel->m_Height.m_Max;
-
-        // create transaction
-        auto transaction = make_shared<Transaction>();
-        transaction->m_vKernels.push_back(move(m_Kernel));
-        transaction->m_Offset = m_Offset + m_PeerOffset;
-        transaction->m_vInputs = move(m_Inputs);
-        transaction->m_vOutputs = move(m_Outputs);
-        move(m_PeerInputs.begin(), m_PeerInputs.end(), back_inserter(transaction->m_vInputs));
-        move(m_PeerOutputs.begin(), m_PeerOutputs.end(), back_inserter(transaction->m_vOutputs));
-
-        transaction->Normalize();
-
-        return transaction;
-    }
-
-    void BaseTxBuilder::StoreKernelID()
-    {
-        assert(m_Kernel);
-        Merkle::Hash kernelID;
-        m_Kernel->get_ID(kernelID, m_PeerLockImage.get());
-
-        m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
-    }
-
-    bool BaseTxBuilder::IsPeerSignatureValid() const
-    {
-        Signature peerSig;
-        peerSig.m_NoncePub = m_MultiSig.m_NoncePub;
-        peerSig.m_k = m_PeerSignature;
-        return peerSig.IsValidPartial(m_Message, m_PeerPublicNonce, m_PeerPublicExcess);
     }
 
     Point::Native BaseTxBuilder::GetPublicExcess() const
@@ -325,7 +261,20 @@ namespace beam::wallet
     {
         m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs, m_SubTxID);
         m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs, m_SubTxID);
-        m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID);
+
+        if (!m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID))
+        {
+            // adjust min height, this allows create transaction when node is out of sync
+            auto currentHeight = m_Tx.GetWalletDB()->getCurrentHeight();
+            m_MinHeight = currentHeight;
+            m_Tx.SetParameter(TxParameterID::MinHeight, m_MinHeight, m_SubTxID);
+            Height maxResponseHeight = 0;
+            if (m_Tx.GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight, m_SubTxID))
+            {
+                // adjust responce height, if min height din not set then then it should be equal to responce time
+                m_Tx.SetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight + currentHeight, m_SubTxID);
+            }
+        }
         m_Tx.GetParameter(TxParameterID::Lifetime, m_Lifetime, m_SubTxID);
         m_Tx.GetParameter(TxParameterID::PeerMaxHeight, m_PeerMaxHeight, m_SubTxID);
 
@@ -337,8 +286,79 @@ namespace beam::wallet
         // used temporary vars to avoid non-short circuit evaluation
         bool hasInputs = m_Tx.GetParameter(TxParameterID::PeerInputs, m_PeerInputs, m_SubTxID);
         bool hasOutputs = (m_Tx.GetParameter(TxParameterID::PeerOutputs, m_PeerOutputs, m_SubTxID)
-            && m_Tx.GetParameter(TxParameterID::PeerOffset, m_PeerOffset, m_SubTxID));
+                        && m_Tx.GetParameter(TxParameterID::PeerOffset, m_PeerOffset, m_SubTxID));
         return hasInputs || hasOutputs;
+    }
+
+    void BaseTxBuilder::SignPartial()
+    {
+        // create signature
+        Point::Native totalPublicExcess = GetPublicExcess();
+        totalPublicExcess += m_PeerPublicExcess;
+        m_Kernel->m_Commitment = totalPublicExcess;
+
+        m_Kernel->get_Hash(m_Message, m_PeerLockImage.get());
+        m_MultiSig.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
+
+
+        m_MultiSig.SignPartial(m_PartialSignature, m_Message, m_BlindingExcess);
+
+        StoreKernelID();
+    }
+
+    void BaseTxBuilder::FinalizeSignature()
+    {
+        // final signature
+        m_Kernel->m_Signature.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
+        m_Kernel->m_Signature.m_k = m_PartialSignature + m_PeerSignature;
+
+        StoreKernelID();
+        m_Tx.SetParameter(TxParameterID::Kernel, m_Kernel);
+    }
+
+    bool BaseTxBuilder::LoadKernel()
+    {
+        if (m_Tx.GetParameter(TxParameterID::Kernel, m_Kernel))
+        {
+            GetInitialTxParams();
+            return true;
+        }
+        return false;
+    }
+
+    bool BaseTxBuilder::HasKernelID() const
+    {
+        Merkle::Hash kernelID;
+        return m_Tx.GetParameter(TxParameterID::KernelID, kernelID);
+    }
+
+    Transaction::Ptr BaseTxBuilder::CreateTransaction()
+    {
+        assert(m_Kernel);
+        LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " Transaction created. Kernel: " << GetKernelIDString()
+            << " min height: " << m_Kernel->m_Height.m_Min
+            << " max height: " << m_Kernel->m_Height.m_Max;
+
+        // create transaction
+        auto transaction = make_shared<Transaction>();
+        transaction->m_vKernels.push_back(move(m_Kernel));
+        transaction->m_Offset = m_Offset + m_PeerOffset;
+        transaction->m_vInputs = move(m_Inputs);
+        transaction->m_vOutputs = move(m_Outputs);
+        move(m_PeerInputs.begin(), m_PeerInputs.end(), back_inserter(transaction->m_vInputs));
+        move(m_PeerOutputs.begin(), m_PeerOutputs.end(), back_inserter(transaction->m_vOutputs));
+
+        transaction->Normalize();
+
+        return transaction;
+    }
+
+    bool BaseTxBuilder::IsPeerSignatureValid() const
+    {
+        Signature peerSig;
+        peerSig.m_NoncePub = m_MultiSig.m_NoncePub;
+        peerSig.m_k = m_PeerSignature;
+        return peerSig.IsValidPartial(m_Message, m_PeerPublicNonce, m_PeerPublicExcess);
     }
 
     Amount BaseTxBuilder::GetAmount() const
@@ -401,16 +421,6 @@ namespace beam::wallet
         return *m_Kernel;
     }
 
-    string BaseTxBuilder::GetKernelIDString() const
-    {
-        Merkle::Hash kernelID;
-        m_Kernel->get_ID(kernelID, m_PeerLockImage.get());
-
-        char sz[Merkle::Hash::nTxtLen + 1];
-        kernelID.Print(sz);
-        return string(sz);
-    }
-
     Hash::Value BaseTxBuilder::GetLockImage() const
     {
         Hash::Value lockImage(Zero);
@@ -422,6 +432,42 @@ namespace beam::wallet
         return lockImage;
     }
 
+    const Merkle::Hash& BaseTxBuilder::GetKernelID() const
+    {
+        if (!m_KernelID)
+        {
+            Merkle::Hash kernelID;
+            if (m_Tx.GetParameter(TxParameterID::KernelID, kernelID, m_SubTxID))
+            {
+                m_KernelID = kernelID;
+            }
+            else
+            {
+                assert(false && "KernelID is not stored");
+            }
+            
+        }
+        return *m_KernelID;
+    }
+
+    void BaseTxBuilder::StoreKernelID()
+    {
+        assert(m_Kernel);
+        Merkle::Hash kernelID;
+        m_Kernel->get_ID(kernelID, m_PeerLockImage.get());
+
+        m_Tx.SetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
+    }
+
+    string BaseTxBuilder::GetKernelIDString() const
+    {
+        Merkle::Hash kernelID;
+        m_Tx.GetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
+        char sz[Merkle::Hash::nTxtLen + 1];
+        kernelID.Print(sz);
+        return string(sz);
+    }
+
     SubTxID BaseTxBuilder::GetSubTxID() const
     {
         return m_SubTxID;
@@ -429,7 +475,9 @@ namespace beam::wallet
 
     bool BaseTxBuilder::UpdateMaxHeight()
     {
-        if (!m_Tx.GetParameter(TxParameterID::MaxHeight, m_MaxHeight, m_SubTxID))
+        Merkle::Hash kernelId;
+        if (!m_Tx.GetParameter(TxParameterID::MaxHeight, m_MaxHeight, m_SubTxID) &&
+            !m_Tx.GetParameter(TxParameterID::KernelID, kernelId, m_SubTxID))
         {
             bool isInitiator = m_Tx.IsInitiator();
             bool hasPeerMaxHeight = m_PeerMaxHeight < MaxHeight;

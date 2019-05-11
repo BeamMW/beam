@@ -36,6 +36,8 @@ namespace beam
 
     typedef std::vector<std::string> WordList;
 
+    const size_t WORD_COUNT = 12;
+
     std::vector<uint8_t> getEntropy();
 
     // implementation of bip39 for 12 words

@@ -13,13 +13,13 @@ Item {
     
     property string status: {
         if (model.isFailedStatus)
-            qsTr("error")
+            "error"
         else if (model.isSyncInProgress)
-            qsTr("updating")
+            "updating"
         else if (model.isOnline)
-            qsTr("online")
+            "online"
         else
-            qsTr("connecting")
+            "connecting"
     }
 
     state: "connecting"
@@ -42,7 +42,7 @@ Item {
         anchors.left: parent.left
         width: childrenRect.width
 
-        property color color: Style.bright_teal
+        property color color: Style.active
         property int radius: rootControl.indicator_radius
 
         Rectangle {
@@ -73,7 +73,7 @@ Item {
         anchors.left: parent.left
         visible: false
 
-        property color color: Style.bright_teal
+        property color color: Style.active
         property int circle_line_width: 2
         property int animation_duration: 2000
 
@@ -108,7 +108,7 @@ Item {
         anchors.left: parent.indicator.right
         anchors.leftMargin: 5
         anchors.topMargin: -3
-        color: Style.bluey_grey
+        color: Style.content_secondary
         font.pixelSize: 14
     }
     SFText {
@@ -117,7 +117,7 @@ Item {
         anchors.left: status_text.right
         anchors.leftMargin: 5
         anchors.topMargin: -3
-        color: Style.bluey_grey
+        color: Style.content_secondary
         font.pixelSize: 14
         text: "(" + model.nodeSyncProgress + "%)"
         visible: model.nodeSyncProgress > 0 && update_indicator.visible
@@ -139,7 +139,11 @@ Item {
         State {
             name: "connecting"
             when: (rootControl.status === "connecting")
-            PropertyChanges {target: status_text; text: qsTr("connecting") + model.branchName}
+            PropertyChanges {
+                target: status_text;
+                //% "connecting"
+                text: qsTrId("status-connecting") + model.branchName
+            }
             StateChangeScript {
                 name: "connectingScript"
                 script: {
@@ -150,11 +154,15 @@ Item {
         State {
             name: "online"
             when: (rootControl.status === "online")
-            PropertyChanges {target: status_text; text: qsTr("online") + model.branchName}
+            PropertyChanges {
+                target: status_text;
+                //% "online"
+                text: qsTrId("status-online") + model.branchName
+            }
             StateChangeScript {
                 name: "onlineScript"
                 script: {
-                    online_indicator.color = Style.bright_teal;
+                    online_indicator.color = Style.active;
                     rootControl.setIndicator(online_indicator);
                 }
             }
@@ -162,7 +170,11 @@ Item {
         State {
             name: "updating"
             when: (rootControl.status === "updating")
-            PropertyChanges {target: status_text; text: qsTr("updating...") + model.branchName}
+            PropertyChanges {
+                target: status_text;
+                //% "updating"
+                text: qsTrId("status-updating") + "..." + model.branchName
+            }
             StateChangeScript {
                 name: "updatingScript"
                 script: {
@@ -173,7 +185,10 @@ Item {
         State {
             name: "error"
             when: (rootControl.status === "error")
-            PropertyChanges {target: status_text; text: rootControl.error_msg + model.branchName}
+            PropertyChanges {
+                target: status_text;
+                text: rootControl.error_msg + model.branchName
+            }
             StateChangeScript {
                 name: "errorScript"
                 script: {

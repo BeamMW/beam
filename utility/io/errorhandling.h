@@ -26,6 +26,7 @@ enum ErrorCode {
     EC_WRITE_BUFFER_OVERFLOW = UV_ERRNO_MAX - 1,
     EC_FILE_CORRUPTED = UV_ERRNO_MAX - 2,
     EC_SSL_ERROR = UV_ERRNO_MAX - 3,
+    EC_HOST_RESOLVED_ERROR = UV_ERRNO_MAX - 4,
 #define XX(code, _) EC_ ## code = UV_ ## code,
     UV_ERRNO_MAP(XX)
 #undef XX

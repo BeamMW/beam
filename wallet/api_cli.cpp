@@ -22,12 +22,12 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <map>
 
+#include "utility/cli/options.h"
 #include "utility/helpers.h"
 #include "utility/io/timer.h"
 #include "utility/io/tcpserver.h"
 #include "utility/io/sslserver.h"
 #include "utility/io/json_serializer.h"
-#include "utility/options.h"
 #include "utility/string_helpers.h"
 #include "utility/log_rotation.h"
 
@@ -112,7 +112,7 @@ namespace beam
     class WalletApiServer : public IWalletApiServer
     {
     public:
-        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::Reactor& reactor, 
+        WalletApiServer(IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, io::Reactor& reactor, 
             io::Address listenTo, bool useHttp, WalletApi::ACL acl, const TlsOptions& tlsOptions, const std::vector<uint32_t>& whitelist)
             : _reactor(reactor)
             , _bindAddress(listenTo)
@@ -215,7 +215,7 @@ namespace beam
         class ApiConnection : IWalletApiHandler, IWalletDbObserver
         {
         public:
-            ApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, WalletApi::ACL acl)
+            ApiConnection(IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, WalletApi::ACL acl)
                 : _walletDB(walletDB)
                 , _wallet(wallet)
                 , _api(*this, acl)
@@ -228,16 +228,6 @@ namespace beam
             {
                 _walletDB->unsubscribe(this);
             }
-
-            void onCoinsChanged() override {}
-            void onTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items) override {}
-
-            void onSystemStateChanged() override 
-            {
-                
-            }
-
-            void onAddressChanged() override {}
 
             virtual void serializeMsg(const json& msg) = 0;
 
@@ -282,8 +272,6 @@ namespace beam
 
                 _walletDB->saveAddress(address);
 
-                _wnet.AddOwnAddress(address);
-
                 doResponse(id, CreateAddress::Response{ address.m_walletID });
             }
 
@@ -295,11 +283,6 @@ namespace beam
 
                 if (addr)
                 {
-                    if (addr->m_OwnID)
-                    {
-                        _wnet.DeleteOwnAddress(addr->m_OwnID);
-                    }
-
                     _walletDB->deleteAddress(data.address);
 
                     doResponse(id, DeleteAddress::Response{});
@@ -342,7 +325,6 @@ namespace beam
                         }
 
                         _walletDB->saveAddress(*addr);
-                        _wnet.AddOwnAddress(*addr);
 
                         doResponse(id, EditAddress::Response{});
                     }
@@ -405,14 +387,30 @@ namespace beam
                         WalletAddress senderAddress = wallet::createAddress(*_walletDB);
                         _walletDB->saveAddress(senderAddress);
 
-                        _wnet.AddOwnAddress(senderAddress);
-
                         from = senderAddress.m_walletID;     
                     }
 
                     ByteBuffer message(data.comment.begin(), data.comment.end());
 
-                    auto txId = _wallet.transfer_money(from, data.address, data.value, data.fee, data.coins, true, kDefaultTxLifetime, kDefaultTxResponseTime, std::move(message));
+                    CoinIDList coins;
+
+                    if (data.session)
+                    {
+                        coins = _walletDB->getLocked(*data.session);
+
+                        if (coins.empty())
+                        {
+                            doError(id, INTERNAL_JSON_RPC_ERROR, "Requested session is empty.");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        coins = data.coins ? *data.coins : CoinIDList();
+                    }
+
+                    auto txId = _wallet.transfer_money(from, data.address, data.value, data.fee, coins, true, kDefaultTxLifetime, kDefaultTxResponseTime, std::move(message), true);
+
                     doResponse(id, Send::Response{ txId });
                 }
                 catch(...)
@@ -466,8 +464,6 @@ namespace beam
                     WalletAddress senderAddress = wallet::createAddress(*_walletDB);
                     _walletDB->saveAddress(senderAddress);
 
-                    _wnet.AddOwnAddress(senderAddress);
-
                     from = senderAddress.m_walletID;
 
                     auto txId = _wallet.swap_coins(from, data.address, data.amount, data.fee, data.swapCoin, data.swapAmount, data.beamSide);
@@ -492,11 +488,6 @@ namespace beam
                 {
                     doError(id, INTERNAL_JSON_RPC_ERROR, "Atomic swap transaction could not be created. Please look at logs.");
                 }
-            }
-
-            void onMessage(int id, const Replace& data) override
-            {
-                methodNotImplementedYet(id);
             }
 
             void onMessage(int id, const Status& data) override
@@ -535,7 +526,6 @@ namespace beam
                 {
                      WalletAddress senderAddress = wallet::createAddress(*_walletDB);
                     _walletDB->saveAddress(senderAddress);
-                    _wnet.AddOwnAddress(senderAddress);
 
                     auto txId = _wallet.split_coins(senderAddress.m_walletID, data.coins, data.fee);
                     doResponse(id, Send::Response{ txId });
@@ -666,19 +656,29 @@ namespace beam
                 response.sending = totals.Outgoing;
                 response.maturing = totals.Maturing;
 
-                response.locked = 0; // same as Outgoing?
-
                 doResponse(id, response);
             }
 
             void onMessage(int id, const Lock& data) override
             {
-                methodNotImplementedYet(id);
+                LOG_DEBUG() << "Lock(id = " << id << ")";
+
+                Lock::Response response;
+
+                response.result = _walletDB->lock(data.coins, data.session);
+
+                doResponse(id, response);
             }
 
             void onMessage(int id, const Unlock& data) override
             {
-                methodNotImplementedYet(id);
+                LOG_DEBUG() << "Unlock(id = " << id << " session = " << data.session << ")";
+
+                Unlock::Response response;
+
+                response.result = _walletDB->unlock(data.session);
+
+                doResponse(id, response);
             }
 
             void onMessage(int id, const TxList& data) override
@@ -747,13 +747,13 @@ namespace beam
             IWalletDB::Ptr _walletDB;
             Wallet& _wallet;
             WalletApi _api;
-            WalletNetworkViaBbs& _wnet;
+            IWalletMessageEndpoint& _wnet;
         };
 
         class TcpApiConnection : public ApiConnection
         {
         public:
-            TcpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
+            TcpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
                 : ApiConnection(walletDB, wallet, wnet, acl)
                 , _stream(std::move(newStream))
                 , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write))
@@ -813,7 +813,7 @@ namespace beam
         class HttpApiConnection : public ApiConnection
         {
         public:
-            HttpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, WalletNetworkViaBbs& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
+            HttpApiConnection(IWalletApiServer& server, IWalletDB::Ptr walletDB, Wallet& wallet, IWalletMessageEndpoint& wnet, io::TcpStream::Ptr&& newStream, WalletApi::ACL acl)
                 : ApiConnection(walletDB, wallet, wnet, acl)
                 , _keepalive(false)
                 , _msgCreator(2000)
@@ -932,7 +932,7 @@ namespace beam
 
         IWalletDB::Ptr _walletDB;
         Wallet& _wallet;
-        WalletNetworkViaBbs& _wnet;
+        IWalletMessageEndpoint& _wnet;
         std::vector<uint64_t> _pendingToClose;
         WalletApi::ACL _acl;
         std::vector<uint32_t> _whitelist;
@@ -1119,15 +1119,15 @@ int main(int argc, char* argv[])
 
         Wallet wallet{ walletDB };
 
-        proto::FlyClient::NetworkStd nnet(wallet);
-        nnet.m_Cfg.m_vNodes.push_back(node_addr);
-        nnet.Connect();
+        auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
+        nnet->m_Cfg.m_vNodes.push_back(node_addr);
+        nnet->Connect();
 
-        WalletNetworkViaBbs wnet(wallet, nnet, walletDB);
+        auto wnet = std::make_shared<WalletNetworkViaBbs>(wallet, nnet, walletDB);
+		wallet.AddMessageEndpoint(wnet);
+        wallet.SetNodeEndpoint(nnet);
 
-        wallet.set_Network(nnet, wnet);
-
-        WalletApiServer server(walletDB, wallet, wnet, *reactor, 
+        WalletApiServer server(walletDB, wallet, *wnet, *reactor, 
             listenTo, options.useHttp, acl, tlsOptions, whitelist);
 
         io::Reactor::get_Current().run();

@@ -28,8 +28,9 @@ ColumnLayout {
         Layout.minimumHeight: 40
         Layout.maximumHeight: 40
         font.pixelSize: 36
-        color: Style.white
-        text: qsTr("Addresses")
+        color: Style.content_main
+        //% "Addresses"
+        text: qsTrId("addresses-tittle")
     }
 
     StatusBar {
@@ -52,19 +53,22 @@ ColumnLayout {
         TxFilter{
             id: activeAddressesFilter
             Layout.leftMargin: 20
-            label: qsTr("MY ACTIVE ADDRESSES")
+            //% "MY ACTIVE ADDRESSES"
+            label: qsTrId("addresses-tab-active")
             onClicked: addressRoot.state = "active"
         }
 
         TxFilter{
             id: expiredAddressesFilter
-            label: qsTr("MY EXPIRED ADDRESSES")
+            //% "MY EXPIRED ADDRESSES"
+            label: qsTrId("addresses-tab-expired")
             onClicked: addressRoot.state = "expired"
         }
 
         TxFilter{
             id: contactsFilter
-            label: qsTr("CONTACTS")
+            //% "CONTACTS"
+            label: qsTrId("addresses-tab-contacts")
             onClicked: addressRoot.state = "contacts"
         }
 
@@ -143,14 +147,16 @@ ColumnLayout {
 
             TableViewColumn {
                 role: viewModel.nameRole
-                title: qsTr("Comment")
+                //% "Comment"
+                title: qsTrId("addresses-head-comment")
                 width: 280 * contactsView.resizableWidth / 740
                 movable: false
             }
 
             TableViewColumn {
                 role: viewModel.addressRole
-                title: qsTr("Contact")
+                //% "Contact"
+                title: qsTrId("addresses-head-contact")
                 width: 170 * contactsView.resizableWidth / 740
                 movable: false
                 delegate: Item {
@@ -167,7 +173,7 @@ ColumnLayout {
                             elide: Text.ElideMiddle
                             anchors.verticalCenter: parent.verticalCenter
                             text: styleData.value
-                            color: Style.white
+                            color: Style.content_main
                             copyMenuEnabled: true
                             onCopyText: viewModel.copyToClipboard(text)
                         }
@@ -177,7 +183,8 @@ ColumnLayout {
 
             TableViewColumn {
                 role: viewModel.categoryRole
-                title: qsTr("Category")
+                //% "Category"
+                title: qsTrId("addresses-head-category")
                 width: 290 * contactsView.resizableWidth / 740
                 movable: false
             }
@@ -202,7 +209,7 @@ ColumnLayout {
                 Rectangle {
                     anchors.fill: parent
 
-                    color: styleData.selected ? Style.bright_sky_blue : Style.light_navy
+                    color: styleData.selected ? Style.row_selected : Style.background_row_even
                     visible: styleData.selected ? true : styleData.alternate
                 }
             }
@@ -226,7 +233,8 @@ ColumnLayout {
                             spacing: 10
                             CustomToolButton {
                                 icon.source: "qrc:/assets/icon-actions.svg"
-                                ToolTip.text: qsTr("Actions")
+                                //% "Actions"
+                                ToolTip.text: qsTrId("addresses-head-actions-tooltip")
                                 onClicked: {
                                     contextMenu.address = contactsView.model[styleData.row].address;
                                     contextMenu.popup();
@@ -243,7 +251,8 @@ ColumnLayout {
                 dim: false
                 property string address
                 Action {
-                    text: qsTr("delete contact")
+                    //% "delete contact"
+                    text: qsTrId("addresses-contextmenu-delete")
                     icon.source: "qrc:/assets/icon-delete.svg"
                     onTriggered: {
                         viewModel.deleteAddress(contextMenu.address);

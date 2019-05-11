@@ -71,18 +71,23 @@ namespace
                 io::Reactor::get_Current().stop();
         };
 
+        TestNodeNetwork::Shared tnns;
+
         Wallet sender(senderWalletDB, f);
         Wallet receiver(receiverWalletDB, f);
 
-        TestWalletNetwork twn;
-        TestNodeNetwork::Shared tnns;
-        TestNodeNetwork netNodeS(tnns, sender), netNodeR(tnns, receiver);
+        auto twn = make_shared<TestWalletNetwork>();
+        auto netNodeS = make_shared<TestNodeNetwork>(tnns, sender);
+        auto netNodeR = make_shared<TestNodeNetwork>(tnns, receiver);
 
-        sender.set_Network(netNodeS, twn);
-        receiver.set_Network(netNodeR, twn);
+        sender.AddMessageEndpoint(twn);
+        sender.SetNodeEndpoint(netNodeS);
 
-        twn.m_Map[sender_id].m_pSink = &sender;
-        twn.m_Map[receiver_id].m_pSink = &receiver;
+        receiver.AddMessageEndpoint(twn);
+        receiver.SetNodeEndpoint(netNodeR);
+
+        twn->m_Map[sender_id].m_pSink = &sender;
+        twn->m_Map[receiver_id].m_pSink = &receiver;
 
         tnns.AddBlock();
 
@@ -99,7 +104,7 @@ namespace
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        auto senderWalletDB = createSqliteWalletDB("sender_wallet.db");
+        auto senderWalletDB = createSqliteWalletDB("sender_wallet.db", false);
 
         // add coin with keyType - Coinbase
         beam::Amount coin_amount = 40;
@@ -615,7 +620,7 @@ namespace
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        auto senderWalletDB = createSqliteWalletDB("sender_wallet.db");
+        auto senderWalletDB = createSqliteWalletDB("sender_wallet.db", false);
 
         // add coin with keyType - Coinbase
         beam::Amount coin_amount = 40;
@@ -780,10 +785,11 @@ namespace
         io::Reactor::Scope scope(*mainReactor);
         struct TestGateway : wallet::INegotiatorGateway
         {
+            void OnAsyncStarted() override {}
+            void OnAsyncFinished() override {}
             void on_tx_completed(const TxID&) override {}
             void register_tx(const TxID&, Transaction::Ptr, wallet::SubTxID) override  {}
             void confirm_outputs(const std::vector<Coin>&) override  {}
-            void confirm_kernel(const TxID&, const TxKernel&, wallet::SubTxID subTxID) override  {}
             void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID subTxID) override {}
             void get_kernel(const TxID& txID, const Merkle::Hash& kernelID, wallet::SubTxID subTxID) override {}
             bool get_tip(Block::SystemState::Full& state) const override { return false; }
@@ -859,6 +865,193 @@ namespace
             cout << "Transferring of " << t.GetTxCount() << " by " << t.GetTxPerCall() << " transactions per call took: " << t.GetTotalTime() << " ms Max api latency: " << t.GetMaxLatency() << endl;
         }
     }
+
+    void TestColdWalletSending()
+    {
+        cout << "\nTesting cold wallet sending...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        int completedCount = 2;
+        auto f = [&completedCount, mainReactor](auto)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+                mainReactor->stop();
+                completedCount = 2;
+            }
+        };
+
+        TestNode node;
+        TestWalletRig receiver("receiver", createReceiverWalletDB(), f);
+        {
+            TestWalletRig privateSender("sender", createSenderWalletDB(true), f, true);
+            WALLET_CHECK(privateSender.m_WalletDB->selectCoins(6).size() == 2);
+            WALLET_CHECK(privateSender.m_WalletDB->getTxHistory().empty());
+
+            // send from cold wallet
+            privateSender.m_Wallet.transfer_money(privateSender.m_WalletID, receiver.m_WalletID, 4, 2, true, 200);
+            mainReactor->run();
+        }
+
+        string publicPath = "sender_public.db";
+        {
+            // cold -> hot
+            boost::filesystem::remove(publicPath);
+            boost::filesystem::copy_file(SenderWalletDB, publicPath);
+
+            auto publicDB = WalletDB::open(publicPath, DBPassword, io::Reactor::get_Current().shared_from_this());
+            TestWalletRig publicSender("public_sender", publicDB, f, false, true);
+
+            WALLET_CHECK(publicSender.m_WalletDB->getTxHistory().size() == 1);
+            WALLET_CHECK(receiver.m_WalletDB->getTxHistory().empty());
+
+            mainReactor->run();
+        }
+
+        {
+            // hot -> cold
+            boost::filesystem::remove(SenderWalletDB);
+            boost::filesystem::copy_file(publicPath, SenderWalletDB);
+            auto privateDB = WalletDB::open(SenderWalletDB, DBPassword, io::Reactor::get_Current().shared_from_this());
+            TestWalletRig privateSender("sender", privateDB, f, true);
+            mainReactor->run();
+        }
+
+        // cold -> hot
+        boost::filesystem::remove(publicPath);
+        boost::filesystem::copy_file(SenderWalletDB, publicPath);
+
+        auto publicDB = WalletDB::open(publicPath, DBPassword, io::Reactor::get_Current().shared_from_this());
+        TestWalletRig publicSender("public_sender", publicDB, f);
+
+        mainReactor->run();
+
+        // check coins
+        vector<Coin> newSenderCoins = publicSender.GetCoins();
+        vector<Coin> newReceiverCoins = receiver.GetCoins();
+
+        WALLET_CHECK(newSenderCoins.size() == 4);
+        WALLET_CHECK(newReceiverCoins.size() == 1);
+        WALLET_CHECK(newReceiverCoins[0].m_ID.m_Value == 4);
+        WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Available);
+        WALLET_CHECK(newReceiverCoins[0].m_ID.m_Type == Key::Type::Regular);
+
+        WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 5);
+        WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
+        WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Regular);
+
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 2);
+        WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
+
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 1);
+        WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
+
+        WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 9);
+        WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
+        WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
+
+    }
+
+
+    void TestColdWalletReceiving()
+    {
+        cout << "\nTesting cold wallet receiving...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        int completedCount = 2;
+        auto f = [&completedCount, mainReactor](auto)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+                mainReactor->stop();
+                completedCount = 2;
+            }
+        };
+
+        TestNode node;
+        TestWalletRig sender("sender", createSenderWalletDB(), f);
+
+        {
+            // create cold wallet
+            TestWalletRig privateSender("receiver", createReceiverWalletDB(true), f, true);
+        }
+
+        string publicPath = "receiver_public.db";
+        {
+            // cold -> hot
+            boost::filesystem::remove(publicPath);
+            boost::filesystem::copy_file(ReceiverWalletDB, publicPath);
+
+            auto publicDB = WalletDB::open(publicPath, DBPassword, io::Reactor::get_Current().shared_from_this());
+            TestWalletRig publicReceiver("public_receiver", publicDB, f, false, true);
+
+            sender.m_Wallet.transfer_money(sender.m_WalletID, publicReceiver.m_WalletID, 4, 2, true, 200);
+
+            mainReactor->run();
+        }
+
+        {
+            // hot -> cold
+            boost::filesystem::remove(ReceiverWalletDB);
+            boost::filesystem::copy_file(publicPath, ReceiverWalletDB);
+            auto privateDB = WalletDB::open(ReceiverWalletDB, DBPassword, io::Reactor::get_Current().shared_from_this());
+            TestWalletRig privateReceiver("receiver", privateDB, f, true);
+            mainReactor->run();
+        }
+
+        {
+            // cold -> hot
+            boost::filesystem::remove(publicPath);
+            boost::filesystem::copy_file(ReceiverWalletDB, publicPath);
+
+            auto publicDB = WalletDB::open(publicPath, DBPassword, io::Reactor::get_Current().shared_from_this());
+            TestWalletRig publicReceiver("public_receiver", publicDB, f, false, true);
+
+            mainReactor->run();
+            mainReactor->run(); // to allow receiver complete his transaction
+        }
+
+        // hot -> cold
+        boost::filesystem::remove(ReceiverWalletDB);
+        boost::filesystem::copy_file(publicPath, ReceiverWalletDB);
+        auto privateDB = WalletDB::open(ReceiverWalletDB, DBPassword, io::Reactor::get_Current().shared_from_this());
+        TestWalletRig privateReceiver("receiver", privateDB, f, true);
+
+        // check coins
+        vector<Coin> newSenderCoins = sender.GetCoins();
+        vector<Coin> newReceiverCoins = privateReceiver.GetCoins();
+
+        WALLET_CHECK(newSenderCoins.size() == 4);
+        WALLET_CHECK(newReceiverCoins.size() == 1);
+        WALLET_CHECK(newReceiverCoins[0].m_ID.m_Value == 4);
+        WALLET_CHECK(newReceiverCoins[0].m_status == Coin::Available);
+        WALLET_CHECK(newReceiverCoins[0].m_ID.m_Type == Key::Type::Regular);
+
+        WALLET_CHECK(newSenderCoins[0].m_ID.m_Value == 5);
+        WALLET_CHECK(newSenderCoins[0].m_status == Coin::Spent);
+        WALLET_CHECK(newSenderCoins[0].m_ID.m_Type == Key::Type::Regular);
+
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Value == 2);
+        WALLET_CHECK(newSenderCoins[1].m_status == Coin::Available);
+        WALLET_CHECK(newSenderCoins[1].m_ID.m_Type == Key::Type::Regular);
+
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Value == 1);
+        WALLET_CHECK(newSenderCoins[2].m_status == Coin::Spent);
+        WALLET_CHECK(newSenderCoins[2].m_ID.m_Type == Key::Type::Regular);
+
+        WALLET_CHECK(newSenderCoins[3].m_ID.m_Value == 9);
+        WALLET_CHECK(newSenderCoins[3].m_status == Coin::Available);
+        WALLET_CHECK(newSenderCoins[3].m_ID.m_Type == Key::Type::Regular);
+
+    }
 }
 
 int main()
@@ -871,27 +1064,30 @@ int main()
     Rules::get().FakePoW = true;
     Rules::get().UpdateChecksum();
 
-    TestP2PWalletNegotiationST();
-    //TestP2PWalletReverseNegotiationST();
+    //TestP2PWalletNegotiationST();
+    ////TestP2PWalletReverseNegotiationST();
 
-    {
-        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-        io::Reactor::Scope scope(*mainReactor);
-        //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
-        TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
-    }
+    //{
+    //    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+    //    io::Reactor::Scope scope(*mainReactor);
+    //    //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
+    //    TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
+    //}
 
-    TestSplitTransaction();
+    //TestSplitTransaction();
 
     TestSwapTransaction(true);
     TestSwapTransaction(false);
 
-    TestTxToHimself();
+    //TestTxToHimself();
 
-    //TestExpiredTransaction();
+    ////TestExpiredTransaction();
 
-    TestTransactionUpdate();
-    //TestTxPerformance();
+    //TestTransactionUpdate();
+    ////TestTxPerformance();
+
+    TestColdWalletSending();
+    TestColdWalletReceiving();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
