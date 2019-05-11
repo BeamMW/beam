@@ -1895,19 +1895,6 @@ bool NodeProcessor::HandleBlockElement(const Output& v, Height h, const Height* 
 	{
 		TxoID nID = m_Extra.m_Txos;
 
-		if (!v.m_CanDuplicate && (h >= Rules::get().pForks[1].m_Height)) // duplication is implicitly allowed before H1
-		{
-			if (!bCreate)
-				return false;
-
-			// The key is unique, but the commitment may still be duplicated. In such a case the key would fork past commitment
-			if (p->IsCommitmentDuplicated())
-			{
-				m_Utxos.Delete(cu);
-				return false;
-			}
-		}
-
 		if (bCreate)
 			p->m_ID = nID;
 		else
@@ -2380,45 +2367,6 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 
 		if (m_Utxos.Traverse(t))
 			return false; // some input UTXOs are missing
-	}
-
-	if (h >= Rules::get().pForks[1].m_Height)
-	{
-		// check outputs duplication
-		for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
-		{
-			const Output& v = *tx.m_vOutputs[i];
-			if (v.m_CanDuplicate)
-				continue;
-
-			if (i && (tx.m_vOutputs[i - 1]->m_Commitment == v.m_Commitment))
-				return false; // already duplicated
-
-			struct Traveler :public UtxoTree::ITraveler
-			{
-				virtual bool OnLeaf(const RadixTree::Leaf& x) override
-				{
-					return false; // stop iteration
-				}
-			} t;
-
-			UtxoTree::Key kMin, kMax;
-
-			UtxoTree::Key::Data d;
-			d.m_Commitment = v.m_Commitment;
-			d.m_Maturity = 0;
-			kMin = d;
-			d.m_Maturity = MaxHeight;
-			kMax = d;
-
-			UtxoTree::Cursor cu;
-			t.m_pCu = &cu;
-			t.m_pBound[0] = kMin.m_pArr;
-			t.m_pBound[1] = kMax.m_pArr;
-
-			if (!m_Utxos.Traverse(t))
-				return false; // duplicated
-		}
 	}
 
 	return true;

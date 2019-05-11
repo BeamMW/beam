@@ -245,7 +245,6 @@ namespace beam
 	{
 		Cast::Down<TxElement>(*this) = v;
 		m_Coinbase = v.m_Coinbase;
-		m_CanDuplicate = v.m_CanDuplicate;
 		m_RecoveryOnly = v.m_RecoveryOnly;
 		m_Incubation = v.m_Incubation;
 		m_AssetID = v.m_AssetID;
@@ -262,7 +261,6 @@ namespace beam
 		}
 
 		CMP_MEMBER(m_Coinbase)
-		CMP_MEMBER(m_CanDuplicate)
 		CMP_MEMBER(m_RecoveryOnly)
 		CMP_MEMBER(m_Incubation)
 		CMP_MEMBER_EX(m_AssetID)
@@ -313,9 +311,7 @@ namespace beam
 
 		if (hVer >= Rules::get().pForks[1].m_Height)
 		{
-			oracle
-				<< m_Commitment
-				<< m_CanDuplicate;
+			oracle << m_Commitment;
 		}
 	}
 

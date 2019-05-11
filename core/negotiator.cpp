@@ -621,17 +621,6 @@ uint32_t MultiTx::Update2()
 
 		if (txPeer.m_vOutputs.size() > nMaxPeerOutputs)
 			return Status::Error;
-
-/*
-
-		TODO: either remove the m_CanDuplicate flag at all from the protocol (i.e. always allow duplication), or make sure we create Outputs with it set to true.
-
-		for (size_t i = 0; i < txPeer.m_vOutputs.size(); i++)
-		{
-			if (!txPeer.m_vOutputs[i]->m_CanDuplicate)
-				return Status::Error;
-		}
-*/
 	}
 
 	Transaction txFull;
