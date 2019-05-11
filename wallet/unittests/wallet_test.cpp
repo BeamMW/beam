@@ -1064,27 +1064,27 @@ int main()
     Rules::get().FakePoW = true;
     Rules::get().UpdateChecksum();
 
-    //TestP2PWalletNegotiationST();
-    ////TestP2PWalletReverseNegotiationST();
+    TestP2PWalletNegotiationST();
+    //TestP2PWalletReverseNegotiationST();
 
-    //{
-    //    io::Reactor::Ptr mainReactor{ io::Reactor::create() };
-    //    io::Reactor::Scope scope(*mainReactor);
-    //    //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
-    //    TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
-    //}
+    {
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+        //TestWalletNegotiation(CreateWalletDB<TestWalletDB>(), CreateWalletDB<TestWalletDB2>());
+        TestWalletNegotiation(createSenderWalletDB(), createReceiverWalletDB());
+    }
 
-    //TestSplitTransaction();
+    TestSplitTransaction();
 
     TestSwapTransaction(true);
     TestSwapTransaction(false);
 
-    //TestTxToHimself();
+    TestTxToHimself();
 
-    ////TestExpiredTransaction();
+    //TestExpiredTransaction();
 
-    //TestTransactionUpdate();
-    ////TestTxPerformance();
+    TestTransactionUpdate();
+    //TestTxPerformance();
 
     TestColdWalletSending();
     TestColdWalletReceiving();
