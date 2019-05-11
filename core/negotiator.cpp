@@ -573,6 +573,8 @@ uint32_t MultiTx::Update2()
 		{
 			tx.Normalize();
 			Send(tx, Codes::TxPartial);
+
+			Set(uint32_t(1), Codes::BarrierCrossed);
 		}
 	}
 

@@ -287,6 +287,7 @@ namespace Negotiator {
 
 			static const uint32_t TxFinal = Output0 + 0;
 			static const uint32_t KernelID = Output0 + 1;
+			static const uint32_t BarrierCrossed = Output0 + 2; // peer may come up with a valid tx
 		};
 	};
 
