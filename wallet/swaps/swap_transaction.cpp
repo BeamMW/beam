@@ -14,14 +14,12 @@
 #include "swap_transaction.h"
 
 #include "bitcoin/bitcoin.hpp"
-#include "nlohmann/json.hpp"
 
 #include "lock_tx_builder.h"
 #include "shared_tx_builder.h"
 #include "../bitcoin/bitcoin_side.h"
 
 using namespace ECC;
-using json = nlohmann::json;
 
 namespace beam::wallet
 {
@@ -145,7 +143,7 @@ namespace beam::wallet
             if (lockTxState != SubTxState::Constructed)
                 break;
 
-            LOG_DEBUG() << GetTxID() << " Beam LockTX constructed.";
+            LOG_INFO() << GetTxID() << " Beam LockTX constructed.";
             SetNextState(State::BuildingBeamRefundTX);
             break;
         }
@@ -156,7 +154,7 @@ namespace beam::wallet
                 break;
 
             m_WithdrawTx.reset();
-            LOG_DEBUG() << GetTxID() << " Beam RefundTX constructed.";
+            LOG_INFO() << GetTxID() << " Beam RefundTX constructed.";
             SetNextState(State::BuildingBeamRedeemTX);
             break;
         }
@@ -167,7 +165,7 @@ namespace beam::wallet
                 break;
 
             m_WithdrawTx.reset();
-            LOG_DEBUG() << GetTxID() << " Beam RedeemTX constructed.";
+            LOG_INFO() << GetTxID() << " Beam RedeemTX constructed.";
             SetNextState(State::HandlingContractTX);
             break;
         }
@@ -189,7 +187,7 @@ namespace beam::wallet
                 }
             }
 
-            LOG_DEBUG() << GetTxID() << " LockTX completed.";
+            LOG_INFO() << GetTxID() << " LockTX completed.";
             SetNextState(State::SendingBeamLockTX);
             break;
         }
@@ -206,7 +204,7 @@ namespace beam::wallet
             if (!m_secondSide->SendRefund())
                 break;
 
-            LOG_DEBUG() << GetTxID() << " RefundTX completed!";
+            LOG_INFO() << GetTxID() << " RefundTX completed!";
             SetNextState(State::CompleteSwap);
             break;
         }
@@ -216,7 +214,7 @@ namespace beam::wallet
             if (!m_secondSide->SendRedeem())
                 break;
             
-            LOG_DEBUG() << GetTxID() << " RedeemTX completed!";
+            LOG_INFO() << GetTxID() << " RedeemTX completed!";
             SetNextState(State::CompleteSwap);
             break;
         }
@@ -240,7 +238,7 @@ namespace beam::wallet
             if (!CompleteSubTx(SubTxIndex::BEAM_LOCK_TX))
                 break;
             
-            LOG_DEBUG() << GetTxID()<< " Beam LockTX completed.";
+            LOG_INFO() << GetTxID()<< " Beam LockTX completed.";
             SetNextState(State::SendingBeamRedeemTX);
             break;
         }
@@ -272,7 +270,7 @@ namespace beam::wallet
                 if (!CompleteBeamWithdrawTx(SubTxIndex::BEAM_REDEEM_TX))
                     break;
 
-                LOG_DEBUG() << GetTxID() << " Beam RedeemTX completed!";
+                LOG_INFO() << GetTxID() << " Beam RedeemTX completed!";
                 SetNextState(State::CompleteSwap);
             }
             break;
@@ -289,13 +287,13 @@ namespace beam::wallet
             if (!CompleteBeamWithdrawTx(SubTxIndex::BEAM_REFUND_TX))
                 break;
 
-            LOG_DEBUG() << GetTxID() << " Beam Refund TX completed!";
+            LOG_INFO() << GetTxID() << " Beam Refund TX completed!";
             SetNextState(State::CompleteSwap);
             break;
         }
         case State::CompleteSwap:
         {
-            LOG_DEBUG() << GetTxID() << " Swap completed.";
+            LOG_INFO() << GetTxID() << " Swap completed.";
             CompleteTx();
             break;
         }
