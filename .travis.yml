@@ -142,6 +142,7 @@ matrix:
             - curl
             - libxi-dev
             - libcups2-dev
+            - libgl-dev
       install:
         - export TZ=Etc/GMT-3
         # install new version cmake
