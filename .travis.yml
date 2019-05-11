@@ -90,10 +90,8 @@ matrix:
           update: true
           sources:
             - ubuntu-toolchain-r-test
-            - sourceline: 'ppa:mhier/libboost-latest'
           packages:
             - g++-7
-            #- boost1.68
             - libssl-dev
             - curl
       install:
@@ -131,21 +129,17 @@ matrix:
 
     - os: linux
       language: cpp
-      dist: xenial
       addons:
         apt:
           update: true
           sources:
             - ubuntu-toolchain-r-test
-            - sourceline: 'ppa:mhier/libboost-latest'
           packages:
             - g++-7
-            - boost1.68
             - libssl-dev
             - curl
             - libxi-dev
             - libcups2-dev
-            - libgl-dev
       install:
         - export TZ=Etc/GMT-3
         # install new version cmake
@@ -157,8 +151,8 @@ matrix:
         - PATH=${DEPS_DIR}/cmake-install:${DEPS_DIR}/cmake-install/bin:$PATH
         - cd ${TRAVIS_BUILD_DIR}
         - cmake --version
-        #- sudo git clone --depth=1 https://github.com/BeamMW/boost-linux.git /usr/local/boost_1_69_0
-        #- export BOOST_ROOT="/usr/local/boost_1_69_0"
+        - sudo git clone --depth=1 https://github.com/BeamMW/boost-linux.git /usr/local/boost_1_69_0
+        - export BOOST_ROOT="/usr/local/boost_1_69_0"
         - eval "CC=gcc-7 && CXX=g++-7"
         - git clone --depth=1 https://github.com/nesbox/qt5-static-linux.git /home/travis/qt5-static
         - export QT5_ROOT_DIR="/home/travis/qt5-static"
