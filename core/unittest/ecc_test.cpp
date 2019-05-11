@@ -1190,6 +1190,65 @@ void TestNegotiation()
 	}
 
 	verify_test(RunNegLoop(pT3[0], pT3[1]));
+
+
+
+	ChannelOpen pT4[2];
+	Storage::Map pS4[2];
+
+
+	for (size_t i = 0; i < _countof(pT4); i++)
+	{
+		ChannelOpen& v = pT4[i];
+		v.m_pKdf = pT1[i].m_pKdf;
+		v.m_pStorage = pS4 + i;
+
+		v.m_MSig.m_pKdf = v.m_pKdf;
+		v.m_Tx0.m_pKdf = v.m_pKdf;
+		v.m_WdA.m_pKdf = v.m_pKdf;
+		v.m_WdB.m_pKdf = v.m_pKdf;
+		v.m_WdA.Setup();
+		v.m_WdB.Setup();
+
+		Amount half = valMSig / 2;
+		Amount nMyValue = i ? half : (valMSig - half);
+
+		ChannelOpen::Worker wrk(v);
+
+		// msig0
+		Key::IDV kidv(Zero);
+		kidv.m_Value = valMSig;
+		kidv.m_Idx = 710;
+		kidv.m_Type = FOURCC_FROM(msg2);
+		v.m_MSig.Set(kidv, Multisig::Codes::Kidv);
+
+		// tx0 input
+		SetKidvs(v.m_Tx0, &nMyValue, 1, MultiTx::Codes::InpKidvs, 445);
+
+		// WdA: msig0 -> msig1
+		kidv.m_Idx = 711;
+		v.m_WdA.m_MSig.Set(kidv, Multisig::Codes::Kidv);
+
+		// WdB: msig0 -> msig1
+		kidv.m_Idx = 712;
+		v.m_WdB.m_MSig.Set(kidv, Multisig::Codes::Kidv);
+
+		// WdA: msig1 -> outs
+		kidv.m_Idx = 300;
+		kidv.m_Type = Key::Type::Regular;
+		kidv.m_Value = nMyValue;
+
+		std::vector<Key::IDV> vec;
+		vec.push_back(kidv);
+		v.m_WdA.m_Tx2.Set(vec, MultiTx::Codes::OutpKidvs);
+
+		Height hLock = 1440;
+		v.m_WdA.m_Tx2.Set(hLock, MultiTx::Codes::KrnLockHeight);
+	}
+
+	verify_test(RunNegLoop(pT4[0], pT4[1]));
+
+
 }
 
 void TestCutThrough()

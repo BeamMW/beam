@@ -859,5 +859,160 @@ void WithdrawTx::Update2()
 		OnDone();
 }
 
+/////////////////////
+// ChannelOpen
+
+ChannelOpen::Worker::Worker(ChannelOpen& x)
+	:m_s0(x.m_pGateway, x.m_pStorage, 1, x.m_MSig)
+	,m_s1(x.m_pGateway, x.m_pStorage, 2, x.m_Tx0)
+	,m_sa(x.m_pGateway, x.m_pStorage, 3, x.m_WdA)
+	,m_sb(x.m_pGateway, x.m_pStorage, 3 + WithdrawTx::s_Channels, x.m_WdB)
+	,m_wrkA(x.m_WdA)
+	,m_wrkB(x.m_WdB)
+{
+}
+
+bool ChannelOpen::Worker::get_One(Blob& blob)
+{
+	return m_s0.get_S()->ReadConst(Codes::One, blob, uint32_t(1));
+}
+
+bool ChannelOpen::Worker::S0::Read(uint32_t code, Blob& blob)
+{
+	switch (code)
+	{
+	case Codes::Role:
+		return m_pS->Read(Codes::Role, blob);
+	}
+
+	return Router::Read(code, blob);
+}
+
+bool ChannelOpen::Worker::S1::Read(uint32_t code, Blob& blob)
+{
+	switch (code)
+	{
+	case Codes::Role:
+		return m_pS->Read(Codes::Role, blob);
+
+	case MultiTx::Codes::OutpMsKidv:
+		return get_ParentObj().m_s0.Read(Multisig::Codes::Kidv, blob);
+
+	case MultiTx::Codes::OutpMsTxo:
+		return get_ParentObj().m_s0.Read(Multisig::Codes::OutputTxo, blob);
+
+	case MultiTx::Codes::Block:
+		{
+			// block it until our Withdrawal is fully prepared
+			uint32_t iRole = 0;
+			m_pS->Get(iRole, Codes::Role);
+
+			Router& s = iRole ?
+				Cast::Down<Router>(get_ParentObj().m_sb) :
+				Cast::Down<Router>(get_ParentObj().m_sa);
+
+			uint32_t status = 0;
+			s.Get(status, Codes::Status);
+
+			if (Status::Success == status)
+				return false; // i.e. not blocked
+		}
+		return get_ParentObj().get_One(blob);
+	}
+
+	return Router::Read(code, blob);
+}
+
+bool ChannelOpen::Worker::SA::Read(uint32_t code, Blob& blob)
+{
+	switch (code)
+	{
+	case Codes::Role:
+		return m_pS->Read(Codes::Role, blob);
+
+	case MultiTx::Codes::InpMsKidv + (2 << 16):
+		return get_ParentObj().m_s0.Read(Multisig::Codes::Kidv, blob);
+
+	case MultiTx::Codes::InpMsCommitment + (2 << 16):
+		return get_ParentObj().m_s0.Read(Multisig::Codes::Commitment, blob);
+	}
+
+	return Router::Read(code, blob);
+}
+
+bool ChannelOpen::Worker::SB::Read(uint32_t code, Blob& blob)
+{
+	switch (code)
+	{
+	case Codes::Role:
+		{
+			// role should be reversed
+			uint32_t iRole = 0;
+			m_pS->Get(iRole, Codes::Role);
+
+			if (iRole)
+				return false;
+		}
+		return get_ParentObj().get_One(blob);
+
+	case MultiTx::Codes::InpMsKidv + (2 << 16):
+	case MultiTx::Codes::InpMsCommitment + (2 << 16) :
+	case MultiTx::Codes::OutpKidvs + (3 << 16) :
+	case MultiTx::Codes::KrnLockHeight + (3 << 16) :
+		// use parameters from SA
+		return get_ParentObj().m_sa.Read(code, blob);
+	}
+
+	return Router::Read(code, blob);
+}
+
+
+void ChannelOpen::Update2()
+{
+	Worker wrk(*this);
+
+	// update all internal txs. Dependencies:
+	//
+	// MSig is not dependent on anything.
+	// m_Tx0: depends on MSig. In addition it's blocked until on of (m_WdA, m_WdB) is ready.
+	// m_WdA: depends on MSig
+	// m_WdB: depends on MSig
+
+	// Hence our order is:
+	// MSig is first
+	// m_Tx0 is last
+
+	uint32_t status0 = m_MSig.Update();
+	if (status0 > Status::Success)
+	{
+		OnFail();
+		return;
+	}
+
+	uint32_t statusA = m_WdA.Update();
+	if (statusA > Status::Success)
+	{
+		OnFail();
+		return;
+	}
+
+	uint32_t statusB = m_WdB.Update();
+	if (statusB > Status::Success)
+	{
+		OnFail();
+		return;
+	}
+
+	uint32_t status1 = m_Tx0.Update();
+	if (status1 > Status::Success)
+	{
+		OnFail();
+		return;
+	}
+
+	if (status0 && status1 && statusA && statusB)
+		OnDone();
+}
+
 } // namespace Negotiator
 } // namespace beam

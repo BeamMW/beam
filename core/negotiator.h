@@ -354,6 +354,72 @@ namespace Negotiator {
 		static const uint32_t s_Channels = 4;
 	};
 
+	//////////////////////////////////////////
+	// ChannelOpen
+	class ChannelOpen
+		:public IBase
+	{
+		virtual void Update2() override;
+
+		struct Codes
+			:public Negotiator::Codes
+		{
+			static const uint32_t One = Variable0 + 1;
+		};
+
+	public:
+
+		Multisig m_MSig; // msig0
+		MultiTx m_Tx0; // inputs -> msig0
+		WithdrawTx m_WdA; // withdraw for Role==0
+		WithdrawTx m_WdB; // withdraw for Role==1
+
+		// Worker object, handles remapping of storage and gateway for inner objects
+		class Worker
+		{
+			struct S0 :public Router
+			{
+				using Router::Router;
+				virtual bool Read(uint32_t code, Blob& blob) override;
+
+				IMPLEMENT_GET_PARENT_OBJ(Worker, m_s0)
+			} m_s0;
+
+			struct S1 :public Router
+			{
+				using Router::Router;
+				virtual bool Read(uint32_t code, Blob& blob) override;
+
+				IMPLEMENT_GET_PARENT_OBJ(Worker, m_s1)
+			} m_s1;
+
+			struct SA :public Router
+			{
+				using Router::Router;
+				virtual bool Read(uint32_t code, Blob& blob) override;
+
+				IMPLEMENT_GET_PARENT_OBJ(Worker, m_sa)
+			} m_sa;
+
+			struct SB :public Router
+			{
+				using Router::Router;
+				virtual bool Read(uint32_t code, Blob& blob) override;
+
+				IMPLEMENT_GET_PARENT_OBJ(Worker, m_sb)
+			} m_sb;
+
+			WithdrawTx::Worker m_wrkA;
+			WithdrawTx::Worker m_wrkB;
+
+			bool get_One(Blob& blob);
+
+		public:
+			Worker(ChannelOpen&);
+		};
+
+		static const uint32_t s_Channels = 3 + WithdrawTx::s_Channels * 2;
+	};
 
 
 
