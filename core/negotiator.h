@@ -163,6 +163,8 @@ namespace Negotiator {
 
 			Router(Gateway::IBase*, Storage::IBase*, uint32_t iChannel, Negotiator::IBase&);
 
+			Storage::IBase* get_S() { return m_pS; }
+
 			// Gateway::IBase
 			virtual void Send(uint32_t code, ByteBuffer&& buf) override;
 			// Storage::IBase
@@ -317,12 +319,9 @@ namespace Negotiator {
 		// Worker object, handles remapping of storage and gateway for inner objects
 		class Worker
 		{
-			WithdrawTx& m_This;
-
 			struct S0 :public Router
 			{
-				S0() :Router(get_ParentObj().m_This.m_pGateway, get_ParentObj().m_This.m_pStorage, 1, get_ParentObj().m_This.m_MSig) {}
-
+				using Router::Router;
 				virtual bool Read(uint32_t code, Blob& blob) override;
 
 				IMPLEMENT_GET_PARENT_OBJ(Worker, m_s0)
@@ -330,8 +329,7 @@ namespace Negotiator {
 
 			struct S1 :public Router
 			{
-				S1() :Router(get_ParentObj().m_This.m_pGateway, get_ParentObj().m_This.m_pStorage, 2, get_ParentObj().m_This.m_Tx1) {}
-
+				using Router::Router;
 				virtual bool Read(uint32_t code, Blob& blob) override;
 
 				IMPLEMENT_GET_PARENT_OBJ(Worker, m_s1)
@@ -339,8 +337,7 @@ namespace Negotiator {
 
 			struct S2 :public Router
 			{
-				S2() :Router(get_ParentObj().m_This.m_pGateway, get_ParentObj().m_This.m_pStorage, 3, get_ParentObj().m_This.m_Tx2) {}
-
+				using Router::Router;
 				virtual bool Read(uint32_t code, Blob& blob) override;
 
 				IMPLEMENT_GET_PARENT_OBJ(Worker, m_s2)
@@ -349,8 +346,10 @@ namespace Negotiator {
 			bool get_One(Blob& blob);
 
 		public:
-			Worker(WithdrawTx& x);
+			Worker(WithdrawTx&);
 		};
+
+		static const uint32_t s_Channels = 4;
 	};
 
 

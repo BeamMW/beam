@@ -716,26 +716,16 @@ void MultiTx::Update2()
 
 /////////////////////
 // WithdrawTx
-
 WithdrawTx::Worker::Worker(WithdrawTx& x)
-	:m_This(x)
+	:m_s0(x.m_pGateway, x.m_pStorage, 1, x.m_MSig)
+	,m_s1(x.m_pGateway, x.m_pStorage, 2, x.m_Tx1)
+	,m_s2(x.m_pGateway, x.m_pStorage, 3, x.m_Tx2)
 {
 }
 
 bool WithdrawTx::Worker::get_One(Blob& blob)
 {
-	if (!m_This.m_pStorage->Read(Codes::One, blob))
-	{
-		m_This.Set(uint32_t(1), Codes::One);
-
-		if (!m_This.m_pStorage->Read(Codes::One, blob))
-		{
-			m_This.OnFail(); // Must not happen, but add extra protection
-			return false;
-		}
-	}
-
-	return true;
+	return m_s0.get_S()->ReadConst(Codes::One, blob, uint32_t(1));
 }
 
 bool WithdrawTx::Worker::S0::Read(uint32_t code, Blob& blob)
@@ -766,7 +756,7 @@ bool WithdrawTx::Worker::S1::Read(uint32_t code, Blob& blob)
 		{
 			// block it until Tx2 is ready. Should be invoked only for Role==1
 			uint32_t status = 0;
-			get_ParentObj().m_This.m_Tx2.Get(status, Codes::Status);
+			get_ParentObj().m_s2.Get(status, Codes::Status);
 
 			if (Status::Success == status)
 				return false; // i.e. not blocked
