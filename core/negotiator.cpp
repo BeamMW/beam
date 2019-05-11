@@ -237,10 +237,7 @@ void Multisig::Update2()
 
 		ECC::Point::Native commPeer;
 		if (!pkp.IsValid(commPeer))
-		{
-			OnFail();
-			return;
-		}
+			return OnFail();
 
 		comm += commPeer;
 		comm += ECC::Context::get().H * kidv.m_Value;
@@ -279,10 +276,7 @@ void Multisig::Update2()
 
 		o2 = oracle;
 		if (!bp.CoSign(seedSk.V, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Step2)) // add self p2, produce msig
-		{
-			OnFail();
-			return;
-		}
+			return OnFail();
 
 		if (RaiseTo(2))
 		{
@@ -297,10 +291,7 @@ void Multisig::Update2()
 
 		o2 = oracle;
 		if (!bp.CoSign(seedSk.V, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Finalize))
-		{
-			OnFail();
-			return;
-		}
+			return OnFail();
 
 		if (nShareRes && RaiseTo(3))
 			Send(bp, Codes::BpFull);
@@ -312,10 +303,7 @@ void Multisig::Update2()
 			Impl::Part2Plus p2;
 			ZeroObject(p2);
 			if (!Impl::MSigPlus::CoSignPart(seedSk.V, p2))
-			{
-				OnFail();
-				return;
-			}
+				return OnFail();
 
 			Send(p2, Codes::BpPart2);
 		}
@@ -347,10 +335,7 @@ void Multisig::Update2()
 
 	ECC::Point::Native pt;
 	if (!outp.IsValid(hVer, pt))
-	{
-		OnFail();
-		return;
-	}
+		return OnFail();
 
 	Set(outp, Codes::OutputTxo);
 	OnDone();
@@ -516,10 +501,7 @@ void MultiTx::Update2()
 		// finalize signature
 		ECC::Scalar::Native k;
 		if (!msigKrn.m_NoncePub.Import(krn.m_Signature.m_NoncePub))
-		{
-			OnFail();
-			return;
-		}
+			return OnFail();
 
 		ECC::Hash::Value hv;
 		if (!ReadKrn(krn, hv))
@@ -533,10 +515,7 @@ void MultiTx::Update2()
 		ECC::Point::Native comm;
 		AmountBig::Type fee(Zero);
 		if (!krn.IsValid(hVer, fee, comm))
-		{
-			OnFail();
-			return;
-		}
+			return OnFail();
 
 		assert(fee == AmountBig::Type(krn.m_Fee));
 
@@ -561,20 +540,14 @@ void MultiTx::Update2()
 						
 			ECC::Point::Native comm;
 			if (!comm.Import(krn.m_Signature.m_NoncePub))
-			{
-				OnFail();
-				return;
-			}
+				return OnFail();
 
 			comm += ECC::Context::get().G * msigKrn.m_Nonce;
 			msigKrn.m_NoncePub = comm;
 			krn.m_Signature.m_NoncePub = msigKrn.m_NoncePub;
 
 			if (!comm.Import(krn.m_Commitment))
-			{
-				OnFail();
-				return;
-			}
+				return OnFail();
 
 			comm += ECC::Context::get().G * skKrn;
 			krn.m_Commitment = comm;
@@ -635,28 +608,19 @@ void MultiTx::Update2()
 		if ((iRole > 0) && Get(kidvMsig, Codes::InpMsKidv))
 		{
 			if (txPeer.m_vInputs.size() != 1)
-			{
-				OnFail();
-				return;
-			}
+				return OnFail();
 
 			ECC::Point comm;
 			if (!Get(comm, Codes::InpMsCommitment))
 				return;
 
 			if (comm != txPeer.m_vInputs.front()->m_Commitment)
-			{
-				OnFail();
-				return;
-			}
+				return OnFail();
 		}
 		else
 		{
 			if (!txPeer.m_vInputs.empty())
-			{
-				OnFail();
-				return;
-			}
+				return OnFail();
 		}
 	}
 
@@ -671,10 +635,7 @@ void MultiTx::Update2()
 			nMaxPeerOutputs++; // the peer is supposed to add it
 
 		if (txPeer.m_vOutputs.size() > nMaxPeerOutputs)
-		{
-			OnFail();
-			return;
-		}
+			return OnFail();
 
 /*
 
@@ -683,10 +644,7 @@ void MultiTx::Update2()
 		for (size_t i = 0; i < txPeer.m_vOutputs.size(); i++)
 		{
 			if (!txPeer.m_vOutputs[i]->m_CanDuplicate)
-			{
-				OnFail();
-				return;
-			}
+				return OnFail();
 		}
 */
 	}
@@ -704,10 +662,7 @@ void MultiTx::Update2()
 	TxBase::Context ctx(pars);
 	ctx.m_Height.m_Min = Rules::get().get_LastFork().m_Height;
 	if (!txFull.IsValid(ctx))
-	{
-		OnFail();
-		return;
-	}
+		return OnFail();
 
 	Set(txFull, Codes::TxFinal);
 	OnDone();
@@ -826,33 +781,21 @@ void WithdrawTx::Update2()
 
 	uint32_t status0 = m_MSig.Update();
 	if (status0 > Status::Success)
-	{
-		OnFail();
-		return;
-	}
+		return OnFail();
 
 	uint32_t status1 = m_Tx1.Update();
 	if (status1 > Status::Success)
-	{
-		OnFail();
-		return;
-	}
+		return OnFail();
 
 	uint32_t status2 = m_Tx2.Update();
 	if (status2 > Status::Success)
-	{
-		OnFail();
-		return;
-	}
+		return OnFail();
 
 	if (status2 == Status::Success)
 	{
 		status1 = m_Tx1.Update();
 		if (status1 > Status::Success)
-		{
-			OnFail();
-			return;
-		}
+			return OnFail();
 	}
 
 	if (status0 && status1 && status2)
@@ -984,31 +927,19 @@ void ChannelOpen::Update2()
 
 	uint32_t status0 = m_MSig.Update();
 	if (status0 > Status::Success)
-	{
-		OnFail();
-		return;
-	}
+		return OnFail();
 
 	uint32_t statusA = m_WdA.Update();
 	if (statusA > Status::Success)
-	{
-		OnFail();
-		return;
-	}
+		return OnFail();
 
 	uint32_t statusB = m_WdB.Update();
 	if (statusB > Status::Success)
-	{
-		OnFail();
-		return;
-	}
+		return OnFail();
 
 	uint32_t status1 = m_Tx0.Update();
 	if (status1 > Status::Success)
-	{
-		OnFail();
-		return;
-	}
+		return OnFail();
 
 	if (status0 && status1 && statusA && statusB)
 		OnDone();
