@@ -489,6 +489,15 @@ namespace Negotiator {
 			:public Negotiator::Codes
 		{
 			static const uint32_t One = Variable0 + 1;
+
+			static const uint32_t PeerBlindingFactor = PeerVariable0 + 0;
+
+			static const uint32_t KidvPrev = Input0 + 1;
+			static const uint32_t KidvPrevPeer = Input0 + 2;
+			static const uint32_t CommitmentPrevPeer = Input0 + 3;
+
+			static const uint32_t PeerKey = Output0 + 0;
+			static const uint32_t SelfKeyRevealed = Output0 + 1;
 		};
 
 	public:
@@ -499,7 +508,22 @@ namespace Negotiator {
 			const Key::IDV* pMsig1A,
 			const Key::IDV* pMsig1B,
 			const std::vector<Key::IDV>* pOutsWd,
-			Height hLock);
+			Height hLock,
+			const Key::IDV* pMsigPrevMy, // should be revealed to the peer
+			const Key::IDV* pMsigPrevPeer, // my part, that must be complemented by peer
+			const ECC::Point* pCommPrevPeer); // the commitment, that should be obtained from my part and the blinding factor revealed by the peer
+
+
+		struct Result
+			:public ChannelWithdrawal::Result
+		{
+			// prev channel state
+			bool m_RevealedSelfKey;
+			bool m_PeerKeyValid;
+			ECC::Scalar m_PeerKey;
+		};
+
+		void get_Result(Result&);
 
 		// Worker object, handles remapping of storage and gateway for inner objects
 		class Worker

@@ -1083,13 +1083,23 @@ void ChannelUpdate::Setup(
 	const Key::IDV* pMsig1A,
 	const Key::IDV* pMsig1B,
 	const std::vector<Key::IDV>* pOutsWd,
-	Height hLock)
+	Height hLock,
+	const Key::IDV* pMsigPrevMy,
+	const Key::IDV* pMsigPrevPeer,
+	const ECC::Point* pCommPrevPeer)
 {
 	m_WdA.m_pKdf = m_pKdf;
 	m_WdB.m_pKdf = m_pKdf;
 
 	m_WdA.Setup(pMsig1A, pMsig0, pComm0, pOutsWd, hLock);
 	m_WdB.Setup(pMsig1B, nullptr, nullptr, nullptr, 0);
+
+	if (pMsigPrevMy)
+		Set(*pMsigPrevMy, Codes::KidvPrev);
+	if (pMsigPrevPeer)
+		Set(*pMsigPrevPeer, Codes::KidvPrevPeer);
+	if (pCommPrevPeer)
+		Set(*pCommPrevPeer, Codes::CommitmentPrevPeer);
 }
 
 uint32_t ChannelUpdate::Update2()
@@ -1105,10 +1115,75 @@ uint32_t ChannelUpdate::Update2()
 	if (statusB > Status::Success)
 		return statusB;
 
-	if (statusA && statusB)
+	uint32_t iRole = 0;
+	Get(iRole, Codes::Role);
+
+	ECC::Scalar k;
+
+	uint32_t statusMy = iRole ? statusB : statusA;
+	if ((Status::Success == statusMy) && (m_Pos < 1))
+	{
+		// send my previous blinding factor
+		Key::IDV kidv;
+		if (Get(kidv, Codes::KidvPrev))
+		{
+			ECC::Scalar::Native sk;
+			m_pKdf->DeriveKey(sk, kidv);
+			k = sk; // not secret anymore
+
+			RaiseTo(1);
+			Send(k, Codes::PeerBlindingFactor);
+
+			Set(uint32_t(1), Codes::SelfKeyRevealed);
+		}
+	}
+
+	bool bGotPeerKey = false;
+	uint32_t statusPeer = iRole ? statusA : statusB;
+	if (Status::Success == statusPeer)
+	{
+		bGotPeerKey = Get(k, Codes::PeerKey);
+		if (!bGotPeerKey && Get(k, Codes::PeerBlindingFactor))
+		{
+			Key::IDV kidv;
+			ECC::Point comm;
+			if (Get(kidv, Codes::KidvPrevPeer) && Get(comm, Codes::CommitmentPrevPeer))
+			{
+				// verify it
+				ECC::Scalar::Native sk;
+				m_pKdf->DeriveKey(sk, kidv);
+
+				sk += ECC::Scalar::Native(k);
+
+				comm.m_Y = !comm.m_Y; // negate
+				ECC::Point::Native pt;
+				pt.Import(comm); // don't care
+
+				pt += ECC::Commitment(sk, kidv.m_Value);
+
+				if (!(pt == Zero))
+					return Status::Error;
+
+				Set(k, Codes::PeerKey);
+				bGotPeerKey = true;
+			}
+		}
+	}
+
+	if (statusA && statusB && bGotPeerKey)
 		return Status::Success;
 
 	return 0;
+}
+
+void ChannelUpdate::get_Result(Result& r)
+{
+	ChannelWithdrawal::get_Result(r);
+
+	uint32_t val = 0;
+	Get(val, Codes::SelfKeyRevealed);
+	r.m_RevealedSelfKey = (val > 0);
+	r.m_PeerKeyValid = Get(r.m_PeerKey, Codes::PeerKey);
 }
 
 } // namespace Negotiator

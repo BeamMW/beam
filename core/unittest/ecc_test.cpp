@@ -1183,10 +1183,16 @@ void TestNegotiation()
 	verify_test(RunNegLoop(pT3[0], pT3[1]));
 
 
+	struct ChannelData
+	{
+		Key::IDV m_msMy;
+		Key::IDV m_msPeer;
+		ECC::Point m_CommPeer;
+	};
 
 	ChannelOpen pT4[2];
 	Storage::Map pS4[2];
-
+	ChannelData pCData[2];
 
 	for (size_t i = 0; i < _countof(pT4); i++)
 	{
@@ -1221,6 +1227,10 @@ void TestNegotiation()
 		msB.m_Idx++;
 
 		v.Setup(&vIn, nullptr, &ms0, &msA, &msB, &vOutWd, 1440);
+
+		ChannelData& cd = pCData[i];
+		cd.m_msMy = i ? msB : msA;
+		cd.m_msPeer = i ? msA : msB;
 	}
 
 	verify_test(RunNegLoop(pT4[0], pT4[1]));
@@ -1234,6 +1244,8 @@ void TestNegotiation()
 		verify_test(!r.m_tx1.m_vKernels.empty());
 		verify_test(!r.m_tx2.m_vKernels.empty());
 		verify_test(!r.m_txPeer2.m_vKernels.empty());
+
+		pCData[i].m_CommPeer = r.m_CommPeer1;
 	}
 
 
@@ -1271,11 +1283,25 @@ void TestNegotiation()
 		vOutWd[0].m_Type = Key::Type::Regular;
 		vOutWd[0].m_Value = nMyValue;
 
+		ChannelData& cd = pCData[i];
 
-		v.Setup(&ms0, &comm0, &msA, &msB, &vOutWd, 1443);
+		v.Setup(&ms0, &comm0, &msA, &msB, &vOutWd, 1443, &cd.m_msMy, &cd.m_msPeer, &cd.m_CommPeer);
 	}
 
 	verify_test(RunNegLoop(pT5[0], pT5[1]));
+
+	for (int i = 0; i < 2; i++)
+	{
+		ChannelUpdate::Result r;
+		ChannelUpdate::Worker wrk(pT5[i]);
+		pT5[i].get_Result(r);
+
+		verify_test(!r.m_tx1.m_vKernels.empty());
+		verify_test(!r.m_tx2.m_vKernels.empty());
+		verify_test(!r.m_txPeer2.m_vKernels.empty());
+
+		verify_test(r.m_RevealedSelfKey && r.m_PeerKeyValid);
+	}
 }
 
 void TestCutThrough()
