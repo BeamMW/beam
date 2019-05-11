@@ -368,9 +368,36 @@ namespace Negotiator {
 	};
 
 	//////////////////////////////////////////
+	// ChannelWithdrawal - base (abstract)
+	class ChannelWithdrawal
+		:public IBase
+	{
+	public:
+		WithdrawTx m_WdA; // withdraw for Role==0
+		WithdrawTx m_WdB; // withdraw for Role==1
+
+		struct Result
+		{
+			// My withdrawal path
+			ECC::Point m_Comm1;
+			Transaction m_tx1;
+			Transaction m_tx2;
+			// Peer's 2nd withdrawal tx
+			ECC::Point m_CommPeer1;
+			Transaction m_txPeer2;
+		};
+
+	protected:
+
+		ChannelWithdrawal() {}
+
+		void get_Result(Result&);
+	};
+
+	//////////////////////////////////////////
 	// ChannelOpen
 	class ChannelOpen
-		:public IBase
+		:public ChannelWithdrawal
 	{
 		virtual uint32_t Update2() override;
 
@@ -384,8 +411,6 @@ namespace Negotiator {
 
 		Multisig m_MSig; // msig0
 		MultiTx m_Tx0; // inputs -> msig0
-		WithdrawTx m_WdA; // withdraw for Role==0
-		WithdrawTx m_WdB; // withdraw for Role==1
 
 		void Setup(
 			const std::vector<Key::IDV>* pInps,
@@ -397,18 +422,11 @@ namespace Negotiator {
 			Height hLock);
 
 		struct Result
+			:public ChannelWithdrawal::Result
 		{
 			// Channel open
 			ECC::Point m_Comm0;
 			Transaction m_txOpen; // Set iff Role==0.
-			
-			// My withdrawal path
-			ECC::Point m_Comm1;
-			Transaction m_tx1;
-			Transaction m_tx2;
-			// Peer's 2nd withdrawal tx
-			ECC::Point m_CommPeer1;
-			Transaction m_txPeer2;
 		};
 
 		void get_Result(Result&);
@@ -463,7 +481,7 @@ namespace Negotiator {
 	//////////////////////////////////////////
 	// ChannelUpdate
 	class ChannelUpdate
-		:public IBase
+		:public ChannelWithdrawal
 	{
 		virtual uint32_t Update2() override;
 
@@ -474,9 +492,6 @@ namespace Negotiator {
 		};
 
 	public:
-
-		WithdrawTx m_WdA; // withdraw for Role==0
-		WithdrawTx m_WdB; // withdraw for Role==1
 
 		void Setup(
 			const Key::IDV* pMsig0,

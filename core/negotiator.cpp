@@ -958,6 +958,11 @@ void ChannelOpen::get_Result(Result& r)
 
 	m_Tx0.Get(r.m_txOpen, MultiTx::Codes::TxFinal);
 
+	ChannelWithdrawal::get_Result(r);
+}
+
+void ChannelWithdrawal::get_Result(Result& r)
+{
 	uint32_t iRole = 0;
 	Get(iRole, Codes::Role);
 
