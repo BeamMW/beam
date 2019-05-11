@@ -92,9 +92,10 @@ namespace beam
 
     const char Wallet::s_szNextUtxoEvt[] = "NextUtxoEvent";
 
-    Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action)
+    Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
         : m_WalletDB{ walletDB }
         , m_TxCompletedAction{move(action)}
+        , m_UpdateCompleted{move(updateCompleted)}
         , m_LastSyncTotal(0)
         , m_OwnedNodesOnline(0)
     {
@@ -279,6 +280,7 @@ namespace beam
             }
         }
         auto t = m_Transactions;
+        AsyncContextHolder holder(*this);
         for (auto& p : t)
         {
             auto tx = p.second;
@@ -303,6 +305,27 @@ namespace beam
         for (auto& tx : txs)
         {
             ResumeTransaction(tx);
+        }
+    }
+
+    void Wallet::OnAsyncStarted()
+    {
+        if (m_AsyncUpdateCounter == 0)
+        {
+            LOG_DEBUG() << "Async update started!";
+        }
+        ++m_AsyncUpdateCounter;
+    }
+
+    void Wallet::OnAsyncFinished()
+    {
+        if (--m_AsyncUpdateCounter == 0)
+        {
+            LOG_DEBUG() << "Async update finished!";
+            if (m_UpdateCompleted)
+            {
+                m_UpdateCompleted();
+            }
         }
     }
 
@@ -486,9 +509,14 @@ namespace beam
             bool bSynced = !SyncRemains() && IsNodeInSync();
 
             if (bSynced)
+            {
+                AsyncContextHolder holder(*this);
                 tx->Update();
+            }
             else
+            {
                 UpdateOnSynced(tx);
+            }
         }
         else
         {
@@ -536,6 +564,7 @@ namespace beam
 
             if (tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Proof.m_State.m_Height))
             {
+                AsyncContextHolder holder(*this);
                 tx->Update();
             }
         }
@@ -785,6 +814,7 @@ namespace beam
         std::unordered_set<wallet::BaseTransaction::Ptr> txSet;
         txSet.swap(m_TransactionsToUpdate);
 
+        AsyncContextHolder async(*this);
         for (auto it = txSet.begin(); txSet.end() != it; it++)
         {
             wallet::BaseTransaction::Ptr pTx = *it;

@@ -66,7 +66,7 @@ namespace beam { namespace wallet
         void Update() override;
         void Cancel() override;
 
-		static const uint32_t s_ProtoVersion;
+        static const uint32_t s_ProtoVersion;
 
         template <typename T>
         bool GetParameter(TxParameterID paramID, T& value) const
@@ -107,7 +107,7 @@ namespace beam { namespace wallet
 
         IWalletDB::Ptr GetWalletDB();
         bool IsInitiator() const;
-		uint32_t get_PeerVersion() const;
+        uint32_t get_PeerVersion() const;
         bool GetTip(Block::SystemState::Full& state) const;
     protected:
         bool CheckExpired();

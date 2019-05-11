@@ -936,8 +936,8 @@
         <translation>Printer is not found. Please, check your printer preferences.</translation>
     </message>
     <message id="start-view-printer-error">
-        <source>Failed to print seed phrases. Please, check your printer.</source>
-        <translation>Failed to print seed phrases. Please, check your printer.</translation>
+        <source>Failed to print seed phrase. Please, check your printer.</source>
+        <translation>Failed to print seed phrase. Please, check your printer.</translation>
     </message>
     <message id="start-view-select-db">
         <source>Select the wallet database file</source>

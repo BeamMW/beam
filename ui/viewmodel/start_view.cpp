@@ -443,7 +443,7 @@ void StartViewModel::printRecoveryPhrases(QVariant viewData )
     }
     catch (...)
     {
-        //% "Failed to print seed phrases. Please, check your printer."
+        //% "Failed to print seed phrase. Please, check your printer."
         AppModel::getInstance()->getMessages().addMessage(qtTrId("start-view-printer-error"));
     }
 }
