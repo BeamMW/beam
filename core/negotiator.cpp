@@ -577,7 +577,7 @@ void MultiTx::Update2()
 	if (iRole || nShareRes)
 	{
 		uint32_t nBlock = 0;
-		Get(nBlock, Codes::Block);
+		Get(nBlock, Codes::Barrier);
 
 		if (nBlock)
 			return; // oops
@@ -707,7 +707,7 @@ bool WithdrawTx::Worker::S1::Read(uint32_t code, Blob& blob)
 	case MultiTx::Codes::OutpMsTxo:
 		return get_ParentObj().m_s0.Read(Multisig::Codes::OutputTxo, blob);
 
-	case MultiTx::Codes::Block:
+	case MultiTx::Codes::Barrier:
 		{
 			// block it until Tx2 is ready. Should be invoked only for Role==1
 			uint32_t status = 0;
@@ -844,7 +844,7 @@ bool ChannelOpen::Worker::S1::Read(uint32_t code, Blob& blob)
 	case MultiTx::Codes::OutpMsTxo:
 		return get_ParentObj().m_s0.Read(Multisig::Codes::OutputTxo, blob);
 
-	case MultiTx::Codes::Block:
+	case MultiTx::Codes::Barrier:
 		{
 			// block it until our Withdrawal is fully prepared
 			uint32_t iRole = 0;
