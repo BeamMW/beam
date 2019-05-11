@@ -24,6 +24,7 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <numeric>
 #include "utility/logger.h"
+#include "hw_wallet.h"
 
 namespace beam { namespace wallet
 {
@@ -743,6 +744,10 @@ namespace beam { namespace wallet
         , m_MaxHeight{MaxHeight}
         , m_PeerMaxHeight{ MaxHeight }
     {
+        // TODO: just for test
+        HWWallet hwWallet;
+
+        LOG_INFO() << "HWWallet.getOwnerKey(): " << hwWallet.getOwnerKey();
     }
 
     void TxBuilder::SelectInputs()

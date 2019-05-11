@@ -165,6 +165,11 @@ elseif(BEAM_MAINNET)
     set(BEAM_DISPLAY_SUFFIX "")
 endif()
 
+if(NOT ANDROID)
+    add_subdirectory(3rdparty/protobuf/cmake)
+    add_subdirectory(3rdparty/curl)
+endif()
+
 if(MSVC)
     if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
 		string(REGEX REPLACE "/W[0-4]" "/W4 /WX" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")

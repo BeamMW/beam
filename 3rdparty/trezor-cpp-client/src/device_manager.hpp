@@ -130,7 +130,7 @@ protected:
 
   void call(std::string message) throw()
   {
-    m_request_queue.push(m_request_queue.size(), [&, message](int size) {
+    m_request_queue.push(m_request_queue.size(), [&, message](size_t size) {
       if (m_session != "null")
       {
         throw std::runtime_error("previous session must be completed");

@@ -8,15 +8,15 @@
 #include "queue.h"
 #include "models/call.hpp"
 
-template <typename OUT, typename IN>
-using InQueueFunction = std::function<OUT(const IN &)>;
-template <typename OUT, typename IN>
-using PopCallback = std::function<void(const IN &, const OUT &)>;
-template <typename OUT, typename IN>
-using InQueueItem = std::tuple<IN, InQueueFunction<OUT, IN>, PopCallback<OUT, IN>>;
+template <typename O, typename I>
+using InQueueFunction = std::function<O(const I &)>;
+template <typename O, typename I>
+using PopCallback = std::function<void(const I &, const O &)>;
+template <typename O, typename I>
+using InQueueItem = std::tuple<I, InQueueFunction<O, I>, PopCallback<O, I>>;
 
-template <typename OUT, typename IN>
-class WorkingQueue : public Queue<InQueueItem<OUT, IN>>
+template <typename O, typename I>
+class WorkingQueue : public Queue<InQueueItem<O, I>>
 {
   public:
     WorkingQueue()
@@ -46,35 +46,35 @@ class WorkingQueue : public Queue<InQueueItem<OUT, IN>>
         m_pushLock = false;
     }
 
-    void push(const IN &args, InQueueFunction<OUT, IN> function, PopCallback<OUT, IN> callback = nullptr)
+    void push(const I &args, InQueueFunction<O, I> function, PopCallback<O, I> callback = nullptr)
     {
         if (!m_pushLock)
         {
             if (!replase(args, function, callback))
             {
-                Queue<InQueueItem<OUT, IN>>::push(std::make_tuple(args, function, callback));
+                Queue<InQueueItem<O, I>>::push(std::make_tuple(args, function, callback));
             }
         }
     }
 
-    void remove(const IN &args)
+    void remove(const I &args)
     {
-        std::unique_lock<std::mutex> mlock(Queue<InQueueItem<OUT, IN>>::m_mutex);
+        std::unique_lock<std::mutex> mlock(Queue<InQueueItem<O, I>>::m_mutex);
 
-        auto &deque = Queue<InQueueItem<OUT, IN>>::m_deque;
+        auto &deque = Queue<InQueueItem<O, I>>::m_deque;
         deque.erase(
-            std::remove_if(deque.begin(), deque.end(), [&](const InQueueItem<OUT, IN> &item) {
+            std::remove_if(deque.begin(), deque.end(), [&](const InQueueItem<O, I> &item) {
                 return std::get<0>(item) == args;
             }),
             deque.end());
     }
 
-    bool replase(const IN &old_args, InQueueFunction<OUT, IN> new_function, PopCallback<OUT, IN> new_callback)
+    bool replase(const I &old_args, InQueueFunction<O, I> new_function, PopCallback<O, I> new_callback)
     {
-        std::unique_lock<std::mutex> mlock(Queue<InQueueItem<OUT, IN>>::m_mutex);
-        auto &deque = Queue<InQueueItem<OUT, IN>>::m_deque;
+        std::unique_lock<std::mutex> mlock(Queue<InQueueItem<O, I>>::m_mutex);
+        auto &deque = Queue<InQueueItem<O, I>>::m_deque;
 
-        auto it = std::find_if(deque.begin(), deque.end(), [&](const InQueueItem<OUT, IN> &item) {
+        auto it = std::find_if(deque.begin(), deque.end(), [&](const InQueueItem<O, I> &item) {
             return std::get<0>(item) == old_args;
         });
 
@@ -87,7 +87,7 @@ class WorkingQueue : public Queue<InQueueItem<OUT, IN>>
         return false;
     }
 
-    void setGlobalPopCallback(PopCallback<OUT, IN> callback)
+    void setGlobalPopCallback(PopCallback<O, I> callback)
     {
         m_globalPopCallback = callback;
     }
@@ -102,8 +102,8 @@ class WorkingQueue : public Queue<InQueueItem<OUT, IN>>
     {
         while (m_alive.test_and_set())
         {
-            InQueueItem<OUT, IN> item;
-            if (Queue<InQueueItem<OUT, IN>>::pop(item))
+            InQueueItem<O, I> item;
+            if (Queue<InQueueItem<O, I>>::pop(item))
             {
                 auto result = std::move(std::get<1>(item)(std::get<0>(item)));
                 auto pop_callback = std::get<2>(item);
@@ -127,7 +127,7 @@ class WorkingQueue : public Queue<InQueueItem<OUT, IN>>
 
     std::atomic_flag m_alive = {1};
     std::thread m_thread;
-    PopCallback<OUT, IN> m_globalPopCallback;
+    PopCallback<O, I> m_globalPopCallback;
     std::atomic<unsigned long> m_PauseMillis;
 
     std::atomic_bool m_pushLock;
