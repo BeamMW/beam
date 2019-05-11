@@ -945,5 +945,76 @@ void ChannelOpen::Update2()
 		OnDone();
 }
 
+
+/////////////////////
+// ChannelUpdate
+
+ChannelUpdate::Worker::Worker(ChannelUpdate& x)
+	:m_sa(x.m_pGateway, x.m_pStorage, 1, x.m_WdA)
+	,m_sb(x.m_pGateway, x.m_pStorage, 1 + WithdrawTx::s_Channels, x.m_WdB)
+	,m_wrkA(x.m_WdA)
+	,m_wrkB(x.m_WdB)
+{
+}
+
+bool ChannelUpdate::Worker::get_One(Blob& blob)
+{
+	return m_sa.get_S()->ReadConst(Codes::One, blob, uint32_t(1));
+}
+
+bool ChannelUpdate::Worker::SA::Read(uint32_t code, Blob& blob)
+{
+	switch (code)
+	{
+	case Codes::Role:
+		return m_pS->Read(Codes::Role, blob);
+	}
+
+	return Router::Read(code, blob);
+}
+
+bool ChannelUpdate::Worker::SB::Read(uint32_t code, Blob& blob)
+{
+	switch (code)
+	{
+	case Codes::Role:
+		{
+			// role should be reversed
+			uint32_t iRole = 0;
+			m_pS->Get(iRole, Codes::Role);
+
+			if (iRole)
+				return false;
+		}
+		return get_ParentObj().get_One(blob);
+
+	case MultiTx::Codes::InpMsKidv + (2 << 16):
+	case MultiTx::Codes::InpMsCommitment + (2 << 16) :
+	case MultiTx::Codes::OutpKidvs + (3 << 16) :
+	case MultiTx::Codes::KrnLockHeight + (3 << 16) :
+		// use parameters from SA
+		return get_ParentObj().m_sa.Read(code, blob);
+	}
+
+	return Router::Read(code, blob);
+}
+
+void ChannelUpdate::Update2()
+{
+	Worker wrk(*this);
+
+	// m_WdA and m_WdB are independent
+	uint32_t statusA = m_WdA.Update();
+	if (statusA > Status::Success)
+		return OnFail();
+
+	uint32_t statusB = m_WdB.Update();
+	if (statusB > Status::Success)
+		return OnFail();
+
+	if (statusA && statusB)
+		OnDone();
+}
+
 } // namespace Negotiator
 } // namespace beam
