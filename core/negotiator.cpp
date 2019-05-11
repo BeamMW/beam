@@ -797,6 +797,13 @@ bool WithdrawTx::Worker::S2::Read(uint32_t code, Blob& blob)
 	return Router::Read(code, blob);
 }
 
+void WithdrawTx::Setup()
+{
+	m_MSig.m_pKdf = m_pKdf;
+	m_Tx1.m_pKdf = m_pKdf;
+	m_Tx2.m_pKdf = m_pKdf;
+}
+
 
 void WithdrawTx::Update2()
 {

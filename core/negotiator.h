@@ -316,6 +316,8 @@ namespace Negotiator {
 		MultiTx m_Tx1; // msig0 - > msig1
 		MultiTx m_Tx2; // msig1 -> outputs, timelocked
 
+		void Setup();
+
 		// Worker object, handles remapping of storage and gateway for inner objects
 		class Worker
 		{

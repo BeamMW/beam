@@ -1151,11 +1151,11 @@ void TestNegotiation()
 		WithdrawTx& v = pT3[i];
 		v.m_pKdf = pT1[i].m_pKdf;
 		v.m_pStorage = pS3 + i;
+		v.Setup();
 
 		WithdrawTx::Worker wrk(v);
 
 		// new multisig
-		v.m_MSig.m_pKdf = v.m_pKdf;
 		Key::IDV kidv(Zero);
 		kidv.m_Value = valMSig;
 		kidv.m_Idx = 800;
@@ -1163,7 +1163,6 @@ void TestNegotiation()
 		v.m_MSig.Set(kidv, Multisig::Codes::Kidv);
 
 		// msig0 -> msig1
-		v.m_Tx1.m_pKdf = v.m_pKdf;
 		kidv.m_Idx = 500;
 
 		v.m_Tx1.Set(kidv, MultiTx::Codes::InpMsKidv);
@@ -1173,7 +1172,6 @@ void TestNegotiation()
 		v.m_Tx1.Set(commInp, MultiTx::Codes::InpMsCommitment);
 
 		// msig1 -> outs
-		v.m_Tx2.m_pKdf = v.m_pKdf;
 		kidv.m_Idx = 300;
 		kidv.m_Type = Key::Type::Regular;
 
