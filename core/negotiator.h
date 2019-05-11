@@ -49,46 +49,99 @@ namespace Negotiator {
 		static const uint32_t Error = 2; // generic
 	};
 
-	namespace Gateway
-	{
-		struct IBase {
-			virtual void Send(uint32_t code, ByteBuffer&&) = 0;
-		};
-	}
-
-	namespace Storage
-	{
-		struct IBase {
-			virtual void Write(uint32_t code, ByteBuffer&&) = 0;
-			virtual bool Read(uint32_t code, Blob&) = 0;
-		};
-	}
-
-
-	class IBase
+	namespace Serialization
 	{
 		template <typename T>
-		static void WriteRaw(ByteBuffer& buf, const T& val)
+		static void Write(ByteBuffer& buf, const T& val)
 		{
 			Serializer ser;
 			ser & val;
 			ser.swap_buf(buf);
 		}
 
+		template <typename T>
+		bool Read(T& val, const Blob& blob)
+		{
+			Deserializer der;
+			der.reset(blob.p, blob.n);
+
+			try {
+				der & val;
+			}
+			catch (...) {
+				return false;
+			}
+
+			return true;
+		}
+	}
+
+	namespace Gateway
+	{
+		struct IBase
+		{
+			virtual void Send(uint32_t code, ByteBuffer&&) = 0;
+
+			template <typename T>
+			void Send(const T& val, uint32_t code)
+			{
+				assert(code < Codes::Private);
+
+				ByteBuffer buf;
+				Serialization::Write(buf, val);
+				Send(code, std::move(buf));
+			}
+
+		};
+	}
+
+	namespace Storage
+	{
+		struct IBase
+		{
+			virtual void Write(uint32_t code, ByteBuffer&&) = 0;
+			virtual bool Read(uint32_t code, Blob&) = 0;
+
+			template <typename T>
+			bool Get(T& val, uint32_t code)
+			{
+				Blob blob;
+				return
+					Read(code, blob) &&
+					Serialization::Read(val, blob);
+			}
+
+			template <typename T>
+			void Set(const T& val, uint32_t code)
+			{
+				ByteBuffer buf;
+				Serialization::Write(buf, val);
+				Write(code, std::move(buf));
+			}
+
+			template <typename T>
+			bool ReadConst(uint32_t code, Blob& blob, const T& val)
+			{
+				if (Read(code, blob))
+					return true;
+
+				// set it artifica
+				Set(val, code);
+
+				return Read(code, blob);
+			}
+		};
+	}
+
+
+	class IBase
+	{
 	protected:
 
 		uint32_t m_Pos; // logical position. Should be updated at least when something is transmitted to peer, to prevent duplicated transmission
 
 		template <typename T>
-		void Send(const T& val, uint32_t code)
-		{
-			assert(code < Codes::Private);
-
-			ByteBuffer buf;
-			WriteRaw(buf, val);
-
-			m_pGateway->Send(code, std::move(buf));
-		}
+		void Send(const T& val, uint32_t code) { m_pGateway->Send(val, code); }
 
 		void OnFail();
 		void OnDone();
@@ -126,32 +179,10 @@ namespace Negotiator {
 		Gateway::IBase* m_pGateway = nullptr;
 
 		template <typename T>
-		bool Get(T& val, uint32_t code)
-		{
-			Blob blob;
-			if (m_pStorage->Read(code, blob))
-			{
-				Deserializer der;
-				der.reset(blob.p, blob.n);
-
-				try {
-					der & val;
-					return true;
-				}
-				catch (...) {
-				}
-			}
-
-			return false;
-		}
+		bool Get(T& val, uint32_t code) { return m_pStorage->Get(val, code); }
 
 		template <typename T>
-		void Set(const T& val, uint32_t code)
-		{
-			ByteBuffer buf;
-			WriteRaw(buf, val);
-			m_pStorage->Write(code, std::move(buf));
-		}
+		void Set(const T& val, uint32_t code) { m_pStorage->Set(val, code); }
 
 		uint32_t Update();
 	};
