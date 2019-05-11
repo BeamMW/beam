@@ -137,7 +137,7 @@ matrix:
             - sourceline: 'ppa:mhier/libboost-latest'
           packages:
             - g++-7
-            - boost1.68
+            - boost
             - libssl-dev
             - curl
             - libxi-dev
