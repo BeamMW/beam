@@ -1092,6 +1092,8 @@ void TestNegotiation()
 		kidv.m_Idx = 500;
 		kidv.m_Type = FOURCC_FROM(msg2);
 		v.Set(kidv, Multisig::Codes::Kidv);
+
+		v.Set(uint32_t(1), Multisig::Codes::ShareResult);
 	}
 
 	verify_test(RunNegLoop(pT1[0], pT1[1]));
@@ -1223,6 +1225,16 @@ void TestNegotiation()
 
 	verify_test(RunNegLoop(pT4[0], pT4[1]));
 
+	for (int i = 0; i < 2; i++)
+	{
+		ChannelOpen::Result r;
+		ChannelOpen::Worker wrk(pT4[i]);
+		pT4[i].get_Result(r);
+
+		verify_test(!r.m_tx1.m_vKernels.empty());
+		verify_test(!r.m_tx2.m_vKernels.empty());
+		verify_test(!r.m_txPeer2.m_vKernels.empty());
+	}
 
 
 	ChannelUpdate pT5[2];

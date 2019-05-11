@@ -760,9 +760,16 @@ void WithdrawTx::Setup(
 
 	if (hLock)
 		m_Tx2.Set(hLock, MultiTx::Codes::KrnLockHeight);
-
 }
 
+void WithdrawTx::get_Result(Result& r)
+{
+	if (!m_MSig.Get(r.m_Comm1, Multisig::Codes::Commitment))
+		r.m_Comm1 = Zero;
+
+	m_Tx1.Get(r.m_tx1, MultiTx::Codes::TxFinal);
+	m_Tx2.Get(r.m_tx2, MultiTx::Codes::TxFinal);
+}
 
 uint32_t WithdrawTx::Update2()
 {
@@ -940,6 +947,36 @@ void ChannelOpen::Setup(
 
 	m_WdA.Setup(pMsig1A, nullptr, nullptr, pOutsWd, hLock);
 	m_WdB.Setup(pMsig1B, nullptr, nullptr, nullptr, 0);
+}
+
+void ChannelOpen::get_Result(Result& r)
+{
+	if (!m_MSig.Get(r.m_Comm0, Multisig::Codes::Commitment))
+		r.m_Comm0 = Zero;
+
+	m_Tx0.Get(r.m_txOpen, MultiTx::Codes::TxFinal);
+
+	uint32_t iRole = 0;
+	Get(iRole, Codes::Role);
+
+	{
+		WithdrawTx& x = iRole ? m_WdB : m_WdA;
+		WithdrawTx::Result rx;
+		x.get_Result(rx);
+
+		r.m_Comm1 = rx.m_Comm1;
+		r.m_tx1 = std::move(rx.m_tx1);
+		r.m_tx2 = std::move(rx.m_tx2);
+	}
+
+	{
+		WithdrawTx& x = iRole ? m_WdA : m_WdB;
+		WithdrawTx::Result rx;
+		x.get_Result(rx);
+
+		r.m_CommPeer1 = rx.m_Comm1;
+		r.m_txPeer2 = std::move(rx.m_tx2);
+	}
 }
 
 uint32_t ChannelOpen::Update2()

@@ -321,6 +321,15 @@ namespace Negotiator {
 			const std::vector<Key::IDV>* pOuts,
 			Height hLock);
 
+		struct Result
+		{
+			ECC::Point m_Comm1;
+			Transaction m_tx1; // msig0 -> msig1. Set iff Role==0
+			Transaction m_tx2; // msig1 -> outputs, timelocked
+		};
+
+		void get_Result(Result&);
+
 		// Worker object, handles remapping of storage and gateway for inner objects
 		class Worker
 		{
@@ -385,6 +394,23 @@ namespace Negotiator {
 			const Key::IDV* pMsig1B,
 			const std::vector<Key::IDV>* pOutsWd,
 			Height hLock);
+
+		struct Result
+		{
+			// Channel open
+			ECC::Point m_Comm0;
+			Transaction m_txOpen; // Set iff Role==0.
+			
+			// My withdrawal path
+			ECC::Point m_Comm1;
+			Transaction m_tx1;
+			Transaction m_tx2;
+			// Peer's 2nd withdrawal tx
+			ECC::Point m_CommPeer1;
+			Transaction m_txPeer2;
+		};
+
+		void get_Result(Result&);
 
 		// Worker object, handles remapping of storage and gateway for inner objects
 		class Worker
