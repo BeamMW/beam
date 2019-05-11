@@ -1304,6 +1304,152 @@ void TestNegotiation()
 	}
 }
 
+
+void TestLightning()
+{
+	using namespace beam;
+	using namespace Negotiator;
+
+	struct Peer
+	{
+		Key::IKdf::Ptr m_pKdf;
+		uint64_t m_CoinID;
+
+		Amount m_Balance;
+		Amount m_TotalLocked;
+
+		std::unique_ptr<ChannelOpen::Result> m_pOpen;
+		std::vector< std::unique_ptr<ChannelUpdate::Result> > m_vUpdates;
+
+		Key::IDV m_ms0, m_msMy, m_msPeer;
+
+		void PrepareCoin(Key::IDV& kidv, Amount val)
+		{
+			kidv.m_Idx = m_CoinID++;
+			kidv.m_SubIdx = 0;
+			kidv.m_Type = Key::Type::Regular; // by default
+			kidv.m_Value = val;
+		}
+
+		void Open(ChannelOpen& neg, Amount nPeerValue, uint32_t iRole)
+		{
+			ChannelOpen::Worker wrk(neg);
+
+			assert(m_Balance);
+			Amount nChange = m_Balance / 3;
+
+			std::vector<Key::IDV> vIn, vChange, vOutWd;
+			vIn.resize(1);
+			PrepareCoin(vIn[0], m_Balance + nChange);
+			vChange.resize(1);
+			PrepareCoin(vChange[0], nChange);
+
+			vOutWd.resize(1, Zero);
+			PrepareCoin(vOutWd[0], m_Balance);
+
+			m_TotalLocked = m_Balance + nPeerValue;
+			Key::IDV msA, msB;
+			PrepareCoin(m_ms0, m_TotalLocked);
+			PrepareCoin(msA, m_TotalLocked);
+			PrepareCoin(msB, m_TotalLocked);
+
+			m_ms0.m_Type = msA.m_Type = msB.m_Type = FOURCC_FROM(musg);
+
+			neg.m_pKdf = m_pKdf;
+			neg.Setup(&vIn, &vChange, &m_ms0, &msA, &msB, &vOutWd, 1440);
+
+			m_msMy = iRole ? msB : msA;
+			m_msPeer = iRole ? msA : msB;
+		}
+
+		void Update(ChannelUpdate& neg, uint32_t iRole)
+		{
+			ChannelUpdate::Worker wrk(neg);
+
+			std::vector<Key::IDV> vOutWd;
+			vOutWd.resize(1);
+			PrepareCoin(vOutWd[0], m_Balance);
+
+			Key::IDV msA, msB;
+			PrepareCoin(msA, m_TotalLocked);
+			PrepareCoin(msB, m_TotalLocked);
+
+			msA.m_Type = msB.m_Type = FOURCC_FROM(musg);
+
+			ChannelWithdrawal::Result& rLast = m_vUpdates.empty() ?
+				Cast::Down<ChannelWithdrawal::Result>(*m_pOpen) :
+				Cast::Down<ChannelWithdrawal::Result>(*m_vUpdates.back());
+
+			neg.m_pKdf = m_pKdf;
+			neg.Setup(&m_ms0, &m_pOpen->m_Comm0, &msA, &msB, &vOutWd, 1440, &m_msMy, &m_msPeer, &rLast.m_CommPeer1);
+
+			m_msMy = iRole ? msB : msA;
+			m_msPeer = iRole ? msA : msB;
+		}
+	};
+
+	Peer pPeer[2];
+
+	for (int i = 0; i < 2; i++)
+	{
+		uintBig seed;
+		SetRandom(seed);
+		HKdf::Create(pPeer[i].m_pKdf, seed);
+
+		seed.ExportWord<0>(pPeer[i].m_CoinID);
+	}
+
+	pPeer[0].m_Balance = 100500;
+	pPeer[1].m_Balance = 78950;
+
+	// open channel
+	{
+		ChannelOpen pNeg[2];
+		Storage::Map pS[2];
+
+		for (int i = 0; i < 2; i++)
+		{
+			pNeg[i].m_pStorage = pS + i;
+			pPeer[i].Open(pNeg[i], pPeer[!i].m_Balance, i);
+		}
+
+		verify_test(RunNegLoop(pNeg[0], pNeg[1]));
+
+		for (int i = 0; i < 2; i++)
+		{
+			ChannelOpen::Worker wrk(pNeg[i]);
+			pPeer[i].m_pOpen.reset(new ChannelOpen::Result);
+			pNeg[i].get_Result(*pPeer[i].m_pOpen);
+		}
+	}
+
+	// update several times
+	for (int j = 0; j < 10; j++)
+	{
+		ChannelUpdate pNeg[2];
+		Storage::Map pS[2];
+
+		pPeer[0].m_Balance += 50;
+		pPeer[1].m_Balance -= 50;
+
+		for (int i = 0; i < 2; i++)
+		{
+			pNeg[i].m_pStorage = pS + i;
+			pPeer[i].Update(pNeg[i], i);
+		}
+
+		verify_test(RunNegLoop(pNeg[0], pNeg[1]));
+
+		for (int i = 0; i < 2; i++)
+		{
+			ChannelUpdate::Worker wrk(pNeg[i]);
+			pPeer[i].m_vUpdates.emplace_back();
+			pPeer[i].m_vUpdates.back().reset(new ChannelUpdate::Result);
+			pNeg[i].get_Result(*pPeer[i].m_vUpdates.back());
+		}
+	}
+}
+
 void TestCutThrough()
 {
 	TransactionMaker tm;
@@ -1705,6 +1851,7 @@ void TestAll()
 	TestRangeProof(true);
 	TestTransaction();
 	TestNegotiation();
+	TestLightning();
 	TestCutThrough();
 	TestAES();
 	TestKdf();
