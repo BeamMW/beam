@@ -95,18 +95,6 @@ bool IBase::Router::Read(uint32_t code, Blob& blob)
 /////////////////////
 // IBase
 
-void IBase::OnFail()
-{
-	uint32_t val = Status::Error;
-	Set(val, Codes::Status);
-}
-
-void IBase::OnDone()
-{
-	uint32_t val = Status::Success;
-	Set(val, Codes::Status);
-}
-
 bool IBase::RaiseTo(uint32_t pos)
 {
 	if (m_Pos >= pos)
@@ -118,18 +106,20 @@ bool IBase::RaiseTo(uint32_t pos)
 
 uint32_t IBase::Update()
 {
+	static_assert(Status::Pending == 0, "");
 	uint32_t nStatus = Status::Pending;
-	if (Get(nStatus, Codes::Status))
+
+	Get(nStatus, Codes::Status);
+	if (nStatus)
 		return nStatus;
 
 	uint32_t nPos = 0;
 	Get(nPos, Codes::Position);
 	m_Pos = nPos;
 
-	Update2();
-
-	if (Get(nStatus, Codes::Status) && (nStatus > Status::Success))
-		return nStatus;
+	nStatus = Update2();
+	if (nStatus)
+		Set(nStatus, Codes::Status);
 
 	assert(m_Pos >= nPos);
 	if (m_Pos > nPos)
@@ -207,13 +197,13 @@ struct Multisig::Impl
 };
 
 
-void Multisig::Update2()
+uint32_t Multisig::Update2()
 {
 	const Height hVer = MaxHeight;
 
 	ECC::Key::IDV kidv;
 	if (!Get(kidv, Codes::Kidv))
-		return;
+		return 0;
 
 	ECC::Scalar::Native sk;
 	m_pKdf->DeriveKey(sk, kidv);
@@ -233,11 +223,11 @@ void Multisig::Update2()
 		}
 
 		if (!Get(pkp, Codes::PubKeyPlus))
-			return;
+			return 0;
 
 		ECC::Point::Native commPeer;
 		if (!pkp.IsValid(commPeer))
-			return OnFail();
+			return Status::Error;
 
 		comm += commPeer;
 		comm += ECC::Context::get().H * kidv.m_Value;
@@ -268,7 +258,7 @@ void Multisig::Update2()
 	if (!iRole)
 	{
 		if (!Get(Cast::Up<Impl::Part2Plus>(bp.m_Part2), Codes::BpPart2))
-			return;
+			return 0;
 
 		ECC::RangeProof::CreatorParams cp;
 		cp.m_Kidv = kidv;
@@ -276,7 +266,7 @@ void Multisig::Update2()
 
 		o2 = oracle;
 		if (!bp.CoSign(seedSk.V, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Step2)) // add self p2, produce msig
-			return OnFail();
+			return Status::Error;
 
 		if (RaiseTo(2))
 		{
@@ -287,11 +277,11 @@ void Multisig::Update2()
 		}
 
 		if (!Get(bp.m_Part3.m_TauX, Codes::BpPart3))
-			return;
+			return 0;
 
 		o2 = oracle;
 		if (!bp.CoSign(seedSk.V, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Finalize))
-			return OnFail();
+			return Status::Error;
 
 		if (nShareRes && RaiseTo(3))
 			Send(bp, Codes::BpFull);
@@ -303,14 +293,14 @@ void Multisig::Update2()
 			Impl::Part2Plus p2;
 			ZeroObject(p2);
 			if (!Impl::MSigPlus::CoSignPart(seedSk.V, p2))
-				return OnFail();
+				return Status::Error;
 
 			Send(p2, Codes::BpPart2);
 		}
 
 		Impl::MSigPlus msig;
 		if (!Get(msig, Codes::BpBothPart))
-			return;
+			return 0;
 
 		if (RaiseTo(3))
 		{
@@ -324,21 +314,18 @@ void Multisig::Update2()
 		}
 
 		if (!nShareRes)
-		{
-			OnDone();
-			return;
-		}
+			return Status::Success;
 
 		if (!Get(bp, Codes::BpFull))
-			return;
+			return 0;
 	}
 
 	ECC::Point::Native pt;
 	if (!outp.IsValid(hVer, pt))
-		return OnFail();
+		return Status::Error;
 
 	Set(outp, Codes::OutputTxo);
-	OnDone();
+	return Status::Success;
 }
 
 /////////////////////
@@ -447,7 +434,7 @@ bool MultiTx::ReadKrn(TxKernel& krn, ECC::Hash::Value& hv)
 	return true;
 }
 
-void MultiTx::Update2()
+uint32_t MultiTx::Update2()
 {
 	const Height hVer = MaxHeight;
 
@@ -496,16 +483,16 @@ void MultiTx::Update2()
 		if (!Get(krn.m_Commitment, Codes::KrnCommitment) ||
 			!Get(krn.m_Signature.m_NoncePub, Codes::KrnNonce) ||
 			!Get(krn.m_Signature.m_k, Codes::KrnSig))
-			return;
+			return 0;
 
 		// finalize signature
 		ECC::Scalar::Native k;
 		if (!msigKrn.m_NoncePub.Import(krn.m_Signature.m_NoncePub))
-			return OnFail();
+			return Status::Error;
 
 		ECC::Hash::Value hv;
 		if (!ReadKrn(krn, hv))
-			return;
+			return 0;
 
 		msigKrn.SignPartial(k, hv, skKrn);
 
@@ -515,7 +502,7 @@ void MultiTx::Update2()
 		ECC::Point::Native comm;
 		AmountBig::Type fee(Zero);
 		if (!krn.IsValid(hVer, fee, comm))
-			return OnFail();
+			return Status::Error;
 
 		assert(fee == AmountBig::Type(krn.m_Fee));
 
@@ -535,26 +522,26 @@ void MultiTx::Update2()
 			if (!Get(krn.m_Commitment, Codes::KrnCommitment) ||
 				!Get(krn.m_Signature.m_NoncePub, Codes::KrnNonce))
 			{
-				return;
+				return 0;
 			}
 						
 			ECC::Point::Native comm;
 			if (!comm.Import(krn.m_Signature.m_NoncePub))
-				return OnFail();
+				return Status::Error;
 
 			comm += ECC::Context::get().G * msigKrn.m_Nonce;
 			msigKrn.m_NoncePub = comm;
 			krn.m_Signature.m_NoncePub = msigKrn.m_NoncePub;
 
 			if (!comm.Import(krn.m_Commitment))
-				return OnFail();
+				return Status::Error;
 
 			comm += ECC::Context::get().G * skKrn;
 			krn.m_Commitment = comm;
 
 			ECC::Hash::Value hv;
 			if (!ReadKrn(krn, hv))
-				return;
+				return 0;
 
 			ECC::Scalar::Native k;
 			msigKrn.SignPartial(k, hv, skKrn);
@@ -572,7 +559,7 @@ void MultiTx::Update2()
 	}
 
 	if (!BuildTxPart(tx, !iRole, skKrn))
-		return;
+		return 0;
 
 	if (iRole || nShareRes)
 	{
@@ -580,7 +567,7 @@ void MultiTx::Update2()
 		Get(nBlock, Codes::Barrier);
 
 		if (nBlock)
-			return; // oops
+			return 0; // oops
 
 		if (RaiseTo(3))
 		{
@@ -590,15 +577,11 @@ void MultiTx::Update2()
 	}
 
 	if (iRole && !nShareRes)
-	{
-		OnDone();
-		return;
-	}
-
+		return Status::Success;
 
 	Transaction txPeer;
 	if (!Get(txPeer, Codes::TxPartial))
-		return;
+		return 0;
 
 	uint32_t nRestrict = 0;
 	Get(nRestrict, Codes::RestrictInputs);
@@ -608,19 +591,19 @@ void MultiTx::Update2()
 		if ((iRole > 0) && Get(kidvMsig, Codes::InpMsKidv))
 		{
 			if (txPeer.m_vInputs.size() != 1)
-				return OnFail();
+				return Status::Error;
 
 			ECC::Point comm;
 			if (!Get(comm, Codes::InpMsCommitment))
-				return;
+				return 0;
 
 			if (comm != txPeer.m_vInputs.front()->m_Commitment)
-				return OnFail();
+				return Status::Error;
 		}
 		else
 		{
 			if (!txPeer.m_vInputs.empty())
-				return OnFail();
+				return Status::Error;
 		}
 	}
 
@@ -635,7 +618,7 @@ void MultiTx::Update2()
 			nMaxPeerOutputs++; // the peer is supposed to add it
 
 		if (txPeer.m_vOutputs.size() > nMaxPeerOutputs)
-			return OnFail();
+			return Status::Error;
 
 /*
 
@@ -644,7 +627,7 @@ void MultiTx::Update2()
 		for (size_t i = 0; i < txPeer.m_vOutputs.size(); i++)
 		{
 			if (!txPeer.m_vOutputs[i]->m_CanDuplicate)
-				return OnFail();
+				return Status::Error;
 		}
 */
 	}
@@ -662,10 +645,10 @@ void MultiTx::Update2()
 	TxBase::Context ctx(pars);
 	ctx.m_Height.m_Min = Rules::get().get_LastFork().m_Height;
 	if (!txFull.IsValid(ctx))
-		return OnFail();
+		return Status::Error;
 
 	Set(txFull, Codes::TxFinal);
-	OnDone();
+	return Status::Success;
 }
 
 
@@ -781,7 +764,7 @@ void WithdrawTx::Setup(
 }
 
 
-void WithdrawTx::Update2()
+uint32_t WithdrawTx::Update2()
 {
 	Worker wrk(*this);
 
@@ -802,25 +785,27 @@ void WithdrawTx::Update2()
 
 	uint32_t status0 = m_MSig.Update();
 	if (status0 > Status::Success)
-		return OnFail();
+		return status0;
 
 	uint32_t status1 = m_Tx1.Update();
 	if (status1 > Status::Success)
-		return OnFail();
+		return status1;
 
 	uint32_t status2 = m_Tx2.Update();
 	if (status2 > Status::Success)
-		return OnFail();
+		return status2;
 
 	if (status2 == Status::Success)
 	{
 		status1 = m_Tx1.Update();
 		if (status1 > Status::Success)
-			return OnFail();
+			return status1;
 	}
 
 	if (status0 && status1 && status2)
-		OnDone();
+		return Status::Success;
+
+	return 0;
 }
 
 /////////////////////
@@ -957,7 +942,7 @@ void ChannelOpen::Setup(
 	m_WdB.Setup(pMsig1B, nullptr, nullptr, nullptr, 0);
 }
 
-void ChannelOpen::Update2()
+uint32_t ChannelOpen::Update2()
 {
 	Worker wrk(*this);
 
@@ -974,22 +959,24 @@ void ChannelOpen::Update2()
 
 	uint32_t status0 = m_MSig.Update();
 	if (status0 > Status::Success)
-		return OnFail();
+		return status0;
 
 	uint32_t statusA = m_WdA.Update();
 	if (statusA > Status::Success)
-		return OnFail();
+		return statusA;
 
 	uint32_t statusB = m_WdB.Update();
 	if (statusB > Status::Success)
-		return OnFail();
+		return statusB;
 
 	uint32_t status1 = m_Tx0.Update();
 	if (status1 > Status::Success)
-		return OnFail();
+		return status1;
 
 	if (status0 && status1 && statusA && statusB)
-		OnDone();
+		return Status::Success;
+
+	return 0;
 }
 
 
@@ -1061,21 +1048,23 @@ void ChannelUpdate::Setup(
 	m_WdB.Setup(pMsig1B, nullptr, nullptr, nullptr, 0);
 }
 
-void ChannelUpdate::Update2()
+uint32_t ChannelUpdate::Update2()
 {
 	Worker wrk(*this);
 
 	// m_WdA and m_WdB are independent
 	uint32_t statusA = m_WdA.Update();
 	if (statusA > Status::Success)
-		return OnFail();
+		return statusA;
 
 	uint32_t statusB = m_WdB.Update();
 	if (statusB > Status::Success)
-		return OnFail();
+		return statusB;
 
 	if (statusA && statusB)
-		OnDone();
+		return Status::Success;
+
+	return 0;
 }
 
 } // namespace Negotiator

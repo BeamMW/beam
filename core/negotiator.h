@@ -143,11 +143,9 @@ namespace Negotiator {
 		template <typename T>
 		void Send(const T& val, uint32_t code) { m_pGateway->Send(val, code); }
 
-		void OnFail();
-		void OnDone();
 		bool RaiseTo(uint32_t pos);
 
-		virtual void Update2() = 0;
+		virtual uint32_t Update2() = 0;
 
 		class Router
 			:public Gateway::IBase
@@ -220,7 +218,7 @@ namespace Negotiator {
 		:public IBase
 	{
 		struct Impl;
-		virtual void Update2() override;
+		virtual uint32_t Update2() override;
 	public:
 
 		struct Codes
@@ -253,7 +251,7 @@ namespace Negotiator {
 		bool BuildTxPart(Transaction& tx, bool bIsSender, ECC::Scalar::Native& offs);
 		bool ReadKrn(TxKernel& krn, ECC::Hash::Value& hv);
 
-		virtual void Update2() override;
+		virtual uint32_t Update2() override;
 
 	public:
 
@@ -302,7 +300,7 @@ namespace Negotiator {
 	class WithdrawTx
 		:public IBase
 	{
-		virtual void Update2() override;
+		virtual uint32_t Update2() override;
 
 		struct Codes
 			:public Negotiator::Codes
@@ -364,7 +362,7 @@ namespace Negotiator {
 	class ChannelOpen
 		:public IBase
 	{
-		virtual void Update2() override;
+		virtual uint32_t Update2() override;
 
 		struct Codes
 			:public Negotiator::Codes
@@ -440,7 +438,7 @@ namespace Negotiator {
 	class ChannelUpdate
 		:public IBase
 	{
-		virtual void Update2() override;
+		virtual uint32_t Update2() override;
 
 		struct Codes
 			:public Negotiator::Codes
