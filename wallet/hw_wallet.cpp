@@ -34,77 +34,92 @@
 
 namespace beam
 {
-    HWWallet::HWWallet()
+    class HWWalletImpl
     {
-        Client client;
-        std::vector<std::unique_ptr<DeviceManager>> trezors;
-        std::vector<std::unique_ptr<std::atomic_flag>> is_alive_flags;
-
-        auto enumerates = client.enumerate();
-
-        if (enumerates.size() == 0)
+    public:
+        HWWalletImpl()
         {
-            //LOG_DEBUG() << "there is no device connected";
-        }
+            auto enumerates = m_client.enumerate();
 
-        auto clear_flag = [&](size_t queue_size, size_t idx) {
-            if (queue_size == 0)
-                is_alive_flags.at(idx)->clear();
-        };
-
-        for (auto enumerate : enumerates)
-        {
-            trezors.push_back(std::unique_ptr<DeviceManager>(new DeviceManager()));
-            auto af = std::unique_ptr<std::atomic_flag>(new std::atomic_flag());
-            af->test_and_set();
-            is_alive_flags.emplace_back(move(af));
-            auto is_alive_idx = is_alive_flags.size() - 1;
-            auto& trezor = trezors.back();
-
-            if (enumerate.session != "null")
+            if (enumerates.size() == 0)
             {
-                client.release(enumerate.session);
-                enumerate.session = "null";
+                //LOG_DEBUG() << "there is no device connected";
+                return;
             }
 
-            trezor->callback_Failure([&, is_alive_idx](const Message &msg, size_t queue_size) {
-                std::cout << "FAIL REASON: " << child_cast<Message, Failure>(msg).message() << std::endl;
-                clear_flag(queue_size, is_alive_idx);
-            });
+            auto& enumerate = enumerates.front();
 
-            trezor->callback_Success([&, is_alive_idx](const Message &msg, size_t queue_size) {
-                std::cout << "SUCCESS: " << child_cast<Message, Success>(msg).message() << std::endl;
-                clear_flag(queue_size, is_alive_idx);
-            });
-
-            try
             {
-                trezor->init(enumerate);
-                trezor->call_Ping("hello beam", true);
-                trezor->call_BeamGetOwnerKey(true, [&, is_alive_idx](const Message &msg, size_t queue_size) {
-                    std::cout << "BEAM OWNER KEY: " << child_cast<Message, BeamOwnerKey>(msg).key() << std::endl;
-                    clear_flag(queue_size, is_alive_idx);
+                m_trezor = std::make_unique<DeviceManager>();
+
+                if (enumerate.session != "null")
+                {
+                    m_client.release(enumerate.session);
+                    enumerate.session = "null";
+                }
+
+                m_trezor->callback_Failure([&](const Message &msg, size_t queue_size) 
+                {
+                    //LOG_INFO() << "FAIL REASON: " << child_cast<Message, Failure>(msg).message();
                 });
-                //trezor->call_BeamGenerateNonce(1, [&, is_alive_idx](const Message &msg, size_t queue_size) {
-                //    std::cout << "BEAM NONCE IN SLOT 1: ";
-                //    print_bin(reinterpret_cast<const uint8_t*>(child_cast<Message, BeamECCImage>(msg).image_x().c_str()), 32);
-                //    clear_flag(queue_size, is_alive_idx);
-                //});
-            }
-            catch (std::runtime_error e)
-            {
-                std::cout << e.what() << std::endl;
+
+                m_trezor->callback_Success([&](const Message &msg, size_t queue_size) 
+                {
+                    //LOG_INFO() << "SUCCESS: " << child_cast<Message, Success>(msg).message();
+                });
+
+                try
+                {
+                    m_trezor->init(enumerate);
+                    m_trezor->call_Ping("hello beam", true);
+                }
+                catch (std::runtime_error e)
+                {
+                    //LOG_ERROR() << e.what();
+                }
             }
         }
 
-        for (auto& is_alive : is_alive_flags)
-            while (is_alive->test_and_set())
-                ; // waiting
-        curl_global_cleanup();
-    }
+        ~HWWalletImpl()
+        {
+            
+        }
 
-    std::string HWWallet::getOwnerKey() const
+        void getOwnerKey(HWWallet::Result<std::string> callback)
+        {
+            if (m_trezor)
+            {
+                std::atomic_flag m_runningFlag;
+                m_runningFlag.test_and_set();
+                std::string result;
+
+                m_trezor->call_BeamGetOwnerKey(true, [&m_runningFlag, &result](const Message &msg, size_t queue_size)
+                {
+                    result = child_cast<Message, BeamOwnerKey>(msg).key();
+                    m_runningFlag.clear();
+                });
+
+                while (m_runningFlag.test_and_set());
+
+                callback(result);
+            }
+            else
+            {
+                // LOG_ERROR() << "HW wallet not initialized";
+            }
+        }
+    private:
+
+        Client m_client;
+        std::unique_ptr<DeviceManager> m_trezor;
+
+    };
+
+    HWWallet::HWWallet() 
+        : m_impl(std::make_shared<HWWalletImpl>()) {}
+
+    void HWWallet::getOwnerKey(Result<std::string> callback) const
     {
-        return "owner key";
+        m_impl->getOwnerKey(callback);
     }
 }

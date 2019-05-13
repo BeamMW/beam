@@ -23,6 +23,8 @@
 
 #include <future>
 
+#include "hw_wallet.h"
+
 namespace beam { namespace wallet
 {
 
@@ -249,5 +251,7 @@ namespace beam { namespace wallet
         ECC::Signature::MultiSig m_MultiSig;
 
         mutable boost::optional<Merkle::Hash> m_KernelID;
+
+        HWWallet m_hwWallet;
     };
 }}

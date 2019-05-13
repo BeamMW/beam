@@ -18,11 +18,18 @@
 
 namespace beam
 {
+    class HWWalletImpl;
+
     class HWWallet
     {
     public:
         HWWallet();
 
-        std::string getOwnerKey() const;
+        template<typename T> using Result = std::function<void(const T& key)>;
+
+        void getOwnerKey(Result<std::string> callback) const;
+
+    private:
+        std::shared_ptr<HWWalletImpl> m_impl;
     };
 }
