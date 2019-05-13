@@ -407,17 +407,17 @@
         <source>Notifications view</source>
         <translation>Notifications view</translation>
     </message>
-    <message id="status-updating">
-        <source>updating</source>
-        <translation>updating</translation>
+    <message id="status-connecting">
+        <source>connecting</source>
+        <translation>connecting</translation>
     </message>
     <message id="status-online">
         <source>online</source>
         <translation>online</translation>
     </message>
-    <message id="status-connecting">
-        <source>connecting</source>
-        <translation>connecting</translation>
+    <message id="status-updating">
+        <source>updating</source>
+        <translation>updating</translation>
     </message>
     <message id="tx-details-title">
         <source>General transaction info</source>
@@ -684,8 +684,8 @@
         <translation>restore wallet</translation>
     </message>
     <message id="start-restore-message-line-1">
-        <source>Your funds will be fully restored from the blockchain. The transaction history and your addresses are stored locally and are encrypted with your password, hence it can&apos;t be restored.</source>
-        <translation>Your funds will be fully restored from the blockchain. The transaction history and your addresses are stored locally and are encrypted with your password, hence it can&apos;t be restored.</translation>
+        <source>Your funds will be fully restored from the blockchain. The transaction history and addresses are stored only locally, hence can&apos;t be restored.</source>
+        <translation>Your funds will be fully restored from the blockchain. The transaction history and addresses are stored only locally, hence can&apos;t be restored.</translation>
     </message>
     <message id="start-restore-message-line-2">
         <source>That&apos;s the final version till the future validation and process.</source>
@@ -871,7 +871,7 @@
         <source>Node protocol error!</source>
         <translation>Node protocol error!</translation>
     </message>
-    <message id="wallet-model-incompatible-peer">
+    <message id="wallet-model-incompatible-peer-error">
         <source>You are trying to connect to incompatible peer.</source>
         <translation>You are trying to connect to incompatible peer.</translation>
     </message>
@@ -1179,16 +1179,13 @@
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
         <translation>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</translation>
     </message>
-</context>
-<context>
-    <name>wallet</name>
-    <message>
-        <source>ok</source>
-        <translation type="unfinished">ok</translation>
-    </message>
-    <message>
+    <message id="can-not-generate-new-address-message">
         <source>You cannot generate new address. Your wallet doesn&apos;t have a master key.</source>
-        <translation type="unfinished"></translation>
+        <translation>You cannot generate new address. Your wallet doesn&apos;t have a master key.</translation>
+    </message>
+    <message id="can-not-generate-new-address-ok-button">
+        <source>ok</source>
+        <translation>ok</translation>
     </message>
 </context>
 </TS>

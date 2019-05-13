@@ -100,7 +100,9 @@ Item {
 
             SFText {
                 width: parent.width
-                text: qsTr("You cannot generate new address. Your wallet doesn't have a master key.")
+                // text: qsTr("You cannot generate new address. Your wallet doesn't have a master key.")
+                //% "You cannot generate new address. Your wallet doesn't have a master key."
+                text: qsTrId("can-not-generate-new-address-message")
                 color: Style.content_main
                 font.pixelSize: 14
                 font.styleName: "Bold"; font.weight: Font.Bold
@@ -108,7 +110,9 @@ Item {
             }
 
             PrimaryButton {
-                text: qsTr("ok")
+                // text: qsTr("ok")
+                //% "ok"
+                text: qsTrId("can-not-generate-new-address-ok-button")
                 anchors.horizontalCenter: parent.horizontalCenter
                 icon.source: "qrc:/assets/icon-done.svg"
                 onClicked: newAddressFailedDialog.close()

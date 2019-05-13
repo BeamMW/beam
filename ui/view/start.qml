@@ -39,7 +39,7 @@ Item
             SFText {
                 horizontalAlignment : Text.AlignHCenter
                 width: parent.width
-                //% "Your funds will be fully restored from the blockchain. The transaction history and your addresses are stored locally and are encrypted with your password, hence it can't be restored."
+                //% "Your funds will be fully restored from the blockchain. The transaction history and addresses are stored only locally, hence can't be restored."
                 text: qsTrId("start-restore-message-line-1")
                 color: Style.content_main
                 font.pixelSize: 14

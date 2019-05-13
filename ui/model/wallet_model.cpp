@@ -53,7 +53,7 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
         return qtTrId("wallet-model-node-protocol-error");
     case wallet::ErrorType::NodeProtocolIncompatible:
         //% "You are trying to connect to incompatible peer."
-        return qtTrId("wallet-model-incompatible-peer");
+        return qtTrId("wallet-model-incompatible-peer-error");
     case wallet::ErrorType::ConnectionBase:
         //% "Connection error."
         return qtTrId("wallet-model-connection-base-error");
