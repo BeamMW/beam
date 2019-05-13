@@ -31,13 +31,18 @@ namespace beam
 
     };
 
+    // Interface for walelt observer. 
     struct IWalletObserver : IWalletDbObserver
     {
+        // Callback for wallet sync progress. 
+        // @param done - number of done tasks
+        // @param total - number of total tasks
         virtual void onSyncProgress(int done, int total) = 0;
     };
 
-    struct IWallet
-        : public proto::FlyClient
+    // Wallet base class. 
+    // Extends FlyClient protocol for communication with own or remote node
+    struct IWallet : public proto::FlyClient
     {
         using Ptr = std::shared_ptr<IWallet>;
         virtual ~IWallet() {}
@@ -45,14 +50,17 @@ namespace beam
         virtual void subscribe(IWalletObserver* observer) = 0;
         virtual void unsubscribe(IWalletObserver* observer) = 0;
 
+        // TODO: Consider removing these methods from the interface
         virtual void cancel_tx(const TxID& id) = 0;
         virtual void delete_tx(const TxID& id) = 0;
 
+        // Callback for receiving notifications on SBBS messages
         virtual void OnWalletMessage(const WalletID& peerID, wallet::SetTxParameter&&) = 0;
 
     };
 
-    // wallet-wallet comm
+    // Interface for sending wallet to wallet messages
+    // Used as a base for SBBS and Cold walelt endpoints
     struct IWalletMessageEndpoint
     {
         using Ptr = std::shared_ptr<IWalletMessageEndpoint>;
@@ -76,11 +84,14 @@ namespace beam
         void SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint);
         void AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint);
 
+        // Metods for creating transactions. Return TxID. 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = 120, Height responseTime = 12*60, ByteBuffer&& message = {}, bool saveReceiver = false);
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = 120, Height responseTime = 12 * 60, ByteBuffer&& message = {}, bool saveReceiver = false);
         TxID transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = 120, Height responseTime = 12 * 60, ByteBuffer&& message = {}, bool saveReceiver = false);
         TxID split_coins(const WalletID& from, const AmountList& amountList, Amount fee = 0, bool sender = true, Height lifetime = 120, Height responseTime = 12 * 60, ByteBuffer&& message = {});
         TxID swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount);
+
+        // Resets wallet state and rescans the blockchain from scratch
         void Refresh();
 
         // IWallet
@@ -145,6 +156,10 @@ namespace beam
     private:
 
         static const char s_szNextUtxoEvt[];
+
+// The following macros define
+// Wallet to Node messages (requests) to get update on blockchain state
+// These messages are used during the synchronization process
 
 #define REQUEST_TYPES_Sync(macro) \
         macro(Utxo) \
@@ -211,7 +226,8 @@ namespace beam
         REQUEST_TYPES_All(THE_MACRO)
 #undef THE_MACRO
 
-        IWalletDB::Ptr m_WalletDB;
+
+        IWalletDB::Ptr m_WalletDB; 
         std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
         std::map<TxID, wallet::BaseTransaction::Ptr> m_Transactions;
         std::unordered_set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
