@@ -46,13 +46,13 @@ public class WalletJNI
 
 		if(api.isWalletInitialized("test"))
 		{
-			wallet = api.openWallet(nodeAddr, "test", "123");
+			wallet = api.openWallet("1.0.0.0", nodeAddr, "test", "123");
 
 			System.out.println(wallet == null ? "wallet opening error" : "wallet successfully opened");
 		}
 		else
 		{
-			wallet = api.createWallet(nodeAddr, "test", "123", "garbage;wild;fruit;vicious;jungle;snack;arrange;pink;scorpion;speed;used;frozen;");
+			wallet = api.createWallet("1.0.0.0", nodeAddr, "test", "123", "garbage;wild;fruit;vicious;jungle;snack;arrange;pink;scorpion;speed;used;frozen;", false);
 
 			System.out.println(wallet == null ? "wallet creation error" : "wallet successfully created");
 		}

@@ -976,6 +976,11 @@ void Node::Initialize(IExternalPOW* externalPOW)
 	m_Processor.OnHorizonChanged(); // invoke it once again, after the Compressor initialized and maybe deleted some of backlog, perhaps fossil height may go up
 }
 
+uint32_t Node::get_AcessiblePeerCount() const
+{
+	return static_cast<uint32_t>(m_PeerMan.get_Addrs().size());
+}
+
 void Node::InitKeys()
 {
     if (!m_Keys.m_pOwner)
@@ -1369,6 +1374,11 @@ void Node::Peer::OnDisconnect(const DisconnectReason& dr)
         break;
 
     case DisconnectReason::ProcessingExc:
+        if (dr.m_ExceptionDetails.m_ExceptionType == proto::NodeProcessingException::Type::TimeOutOfSync)
+        {
+            m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge);
+        }
+        // no break;
     case DisconnectReason::Protocol:
         nByeReason = ByeReason::Ban;
         break;
@@ -1460,6 +1470,7 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 	SetTxCursor(nullptr);
 
     m_This.m_lstPeers.erase(PeerList::s_iterator_to(*this));
+   
     delete this;
 }
 
@@ -1524,7 +1535,9 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
         switch (p.OnState(m_Tip, m_pInfo->m_ID.m_Key))
         {
         case NodeProcessor::DataStatus::Invalid:
-            ThrowUnexpected();
+            m_Tip.m_TimeStamp > getTimestamp() ?
+                m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge):
+                ThrowUnexpected();
             // no break;
 
         case NodeProcessor::DataStatus::Accepted:
@@ -1539,7 +1552,6 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
         default:
             break; // suppress warning
         }
-
     }
 
 	TakeTasks();
@@ -3476,7 +3488,7 @@ void Node::Miner::OnRefreshExternal()
 	m_External.m_pSolver->new_job(std::to_string(jobID), hv, m_pTask->m_Hdr.m_PoW, m_pTask->m_Hdr.m_Height , BIND_THIS_MEMFN(OnMinedExternal), fnCancel);
 }
 
-void Node::Miner::OnMinedExternal()
+IExternalPOW::BlockFoundResult Node::Miner::OnMinedExternal()
 {
 	std::string jobID_;
 	Block::PoW POW;
@@ -3496,7 +3508,7 @@ void Node::Miner::OnMinedExternal()
     if (bReject)
     {
         LOG_INFO() << "Solution is rejected due it is outdated.";
-		return; // outdated
+		return IExternalPOW::solution_expired; // outdated
     }
 
 	Task::Ptr& pTask = m_External.get_At(jobID);
@@ -3504,7 +3516,7 @@ void Node::Miner::OnMinedExternal()
     if (!pTask || *pTask->m_pStop)
     {
         LOG_INFO() << "Solution is rejected due block mining has been canceled.";
-		return; // already cancelled
+		return IExternalPOW::solution_rejected; // already cancelled
     }
 
 	pTask->m_Hdr.m_PoW.m_Nonce = POW.m_Nonce;
@@ -3513,12 +3525,13 @@ void Node::Miner::OnMinedExternal()
     if (!pTask->m_Hdr.IsValidPoW())
     {
         LOG_INFO() << "invalid solution from external miner";
-        return;
+        return IExternalPOW::solution_rejected;
     }
 
 	m_pTask = pTask;
     *m_pTask->m_pStop = true;
     m_pEvtMined->post();
+    return IExternalPOW::solution_accepted;
 }
 
 void Node::Miner::OnMined()

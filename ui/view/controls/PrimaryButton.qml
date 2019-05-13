@@ -4,8 +4,8 @@ import QtQuick.Controls.Styles 1.2
 import "."
 
 CustomButton {
-    palette.button: Style.bright_teal
-    palette.buttonText: Style.marine
+    palette.button: Style.active
+    palette.buttonText: Style.content_opposite
 
     SFText {
         id: text
@@ -15,7 +15,7 @@ CustomButton {
         font.pixelSize: 12
         font.styleName: "Bold"; font.weight: Font.Bold
 
-        color: Style.white
+        color: Style.content_main
 
         text: parent.text
         visible: false

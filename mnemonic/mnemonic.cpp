@@ -26,7 +26,6 @@ namespace beam
 {
     namespace
     {
-        const size_t wordCount = 12;
         const size_t bitsPerWord = 11;
         const uint8_t byteBits = 8;
         const std::string passphrasePrefix = "mnemonic";
@@ -62,7 +61,7 @@ namespace beam
         std::vector<std::string> words;
         size_t bit = 0;
 
-        for (size_t word = 0; word < wordCount; word++)
+        for (size_t word = 0; word < WORD_COUNT; word++)
         {
             size_t position = 0;
             for (size_t loop = 0; loop < bitsPerWord; loop++)
@@ -112,6 +111,6 @@ namespace beam
 
     bool isValidMnemonic(const WordList& words, const Dictionary& dict)
     {
-        return words.size() == 12 && all_of(words.begin(), words.end(), [&dict](const string& w) {return isAllowedWord(w, dict); });
+        return words.size() == WORD_COUNT && all_of(words.begin(), words.end(), [&dict](const string& w) {return isAllowedWord(w, dict); });
     }
 }

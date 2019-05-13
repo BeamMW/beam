@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #pragma once
+#include <limits>
 #include "ecc_native.h"
 #include "merkle.h"
 #include "difficulty.h"
@@ -21,7 +22,7 @@ namespace beam
 {
 	class IExternalPOW;
 
-	const Height MaxHeight = static_cast<Height>(-1);
+	const Height MaxHeight = std::numeric_limits<Height>::max();
 
 	typedef ECC::Hash::Value PeerID;
 	typedef uint64_t BbsChannel;

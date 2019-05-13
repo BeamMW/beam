@@ -5,8 +5,8 @@ import QtQuick.Controls.impl 2.4
 
 T.CheckBox {
     id: control
-    palette.windowText: Style.white
-    palette.text: Style.bright_teal
+    palette.windowText: Style.content_main
+    palette.text: Style.active
     implicitWidth: Math.max(background ? background.implicitWidth : 0,
                             contentItem.implicitWidth + leftPadding + rightPadding)
     implicitHeight: Math.max(background ? background.implicitHeight : 0,
@@ -27,13 +27,13 @@ T.CheckBox {
 
         color: "transparent"
         border.width: control.visualFocus ? 2 : 1
-        border.color: control.visualFocus ? control.palette.highlight :  Style.bluey_grey
+        border.color: control.visualFocus ? control.palette.highlight :  Style.content_secondary
 
         ColorImage {
             x: (parent.width - width) / 2
             y: (parent.height - height) / 2
             defaultColor: "#353637"
-            color: control.enabled ? control.palette.text : Style.disable_text_color
+            color: control.enabled ? control.palette.text : Style.content_disabled
             source: "qrc:/qt-project.org/imports/QtQuick/Controls.2/images/check.png"
             visible: control.checkState === Qt.Checked
         }

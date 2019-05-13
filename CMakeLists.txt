@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.1)
 
 set(VERSION_MAJOR 2)
-set(VERSION_MINOR 0)
+set(VERSION_MINOR 1)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
-set(BEAM_SUFFIX_LOWER_CASE "")
-set(BEAM_SUFFIX_UPPER_CASE "")
-set(BEAM_TARGET_SUFFIX "")
-set(BEAM_DISPLAY_SUFFIX "")
+set(BEAM_SUFFIX_LOWER_CASE "masternet")
+set(BEAM_SUFFIX_UPPER_CASE "Masternet")
+set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}")
+set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}")
 
 if (BEAM_SIGN_PACKAGE AND WIN32)
   #  add_custom_target(signing ALL DEPENDS beam-wallet-ui COMMENT "Signing Package...")
@@ -139,12 +139,30 @@ if(SHOW_CODE_LOCATION)
     add_definitions(-DSHOW_CODE_LOCATION=1)
 endif()
 
+# comment next if block to avoid styling by branchname
 if(BRANCH_NAME MATCHES "testnet")
     add_definitions(-DBEAM_TESTNET)
+elseif(BRANCH_NAME MATCHES "mainnet")
+    add_definitions(-DBEAM_MAINNET)
 endif()
+
+# uncoment next line for testnet
+#set(BEAM_TESTNET TRUE)
+# uncoment next line for mainnet
+set(BEAM_MAINNET TRUE)
 
 if(BEAM_TESTNET)
     add_definitions(-DBEAM_TESTNET)
+    set(BEAM_SUFFIX_LOWER_CASE "testnet")
+    set(BEAM_SUFFIX_UPPER_CASE "Testnet")
+    set(BEAM_TARGET_SUFFIX "-${BEAM_SUFFIX_LOWER_CASE}")
+    set(BEAM_DISPLAY_SUFFIX " ${BEAM_SUFFIX_UPPER_CASE}")
+elseif(BEAM_MAINNET)
+    add_definitions(-DBEAM_MAINNET)
+    set(BEAM_SUFFIX_LOWER_CASE "")
+    set(BEAM_SUFFIX_UPPER_CASE "")
+    set(BEAM_TARGET_SUFFIX "")
+    set(BEAM_DISPLAY_SUFFIX "")
 endif()
 
 if(MSVC)
@@ -308,8 +326,6 @@ add_subdirectory(p2p)
 add_subdirectory(http)
 add_subdirectory(wallet)
 add_subdirectory(node)
-add_subdirectory(beam)
-add_subdirectory(explorer)
 add_subdirectory(mnemonic)
 
 if(ANDROID OR BEAM_BUILD_JNI)
@@ -317,11 +333,16 @@ if(ANDROID OR BEAM_BUILD_JNI)
 endif()
 
 # TODO: uncomment this later
-if(NOT ANDROID AND BEAM_QT_UI_WALLET)
-    add_subdirectory(3rdparty/qrcode)
-    add_subdirectory(3rdparty/quazip)
-    add_subdirectory(ui)
-endif()
+if(NOT ANDROID)
+    add_subdirectory(beam)
+    add_subdirectory(explorer)
+
+    if(BEAM_QT_UI_WALLET)
+        add_subdirectory(3rdparty/qrcode)
+        add_subdirectory(3rdparty/quazip)
+        add_subdirectory(ui)
+    endif()
+ endif()
 
 ########################################################
 ### PACKAGING ##########################################

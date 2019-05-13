@@ -9,7 +9,7 @@ import Beam.Wallet 1.0
 Rectangle {
 
     anchors.fill: parent
-    color: Style.marine
+    color: Style.background_main
 
     SettingsViewModel {id: viewModel}
 
@@ -32,8 +32,9 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop
                 font.pixelSize: 36
-                color: Style.white
-                text: "Settings"
+                color: Style.content_main
+                //% "Settings"
+                text: qsTrId("settings-title")
             }
 
             SFText {
@@ -41,8 +42,9 @@ Rectangle {
                 Layout.alignment: Qt.AlignBottom | Qt.AlignRight
                 horizontalAlignment: Text.AlignRight
                 font.pixelSize: 14
-                color: Style.white
-                text: "Version: " + viewModel.version
+                color: Style.content_main
+                //% "Version: "
+                text: qsTrId("settings-version") + viewModel.version
             }
         }
 
@@ -64,10 +66,10 @@ Rectangle {
 
                     Rectangle {
                         Layout.fillWidth: true
-                        height: 150
+                        height: 180
 
                         radius: 10
-                        color: Style.dark_slate_blue
+                        color: Style.background_second
 
                         ColumnLayout {
                             anchors.fill: parent
@@ -77,16 +79,18 @@ Rectangle {
                             SFText {
                                 Layout.alignment: Qt.AlignTop
                                 Layout.bottomMargin: 15
-                                text: qsTr("Remote node")
-                                color: Style.white
+                                //% "Remote node"
+                                text: qsTrId("settings-remote-node-title")
+                                color: Style.content_main
                                 font.pixelSize: 18
                                 font.styleName: "Bold"; font.weight: Font.Bold
                             }
 
                             SFText {
                                 Layout.alignment: Qt.AlignTop
-                                text: qsTr("ip:port")
-                                color: localNodeRun.checked ? Style.disable_text_color : Style.white
+                                //% "ip:port"
+                                text: qsTrId("settings-remote-node-ip-port")
+                                color: localNodeRun.checked ? Style.content_disabled : Style.content_main
                                 font.pixelSize: 12
                                 font.styleName: "Bold"; font.weight: Font.Bold
                             }
@@ -98,9 +102,9 @@ Rectangle {
                                 focus: true
                                 activeFocusOnTab: true
                                 font.pixelSize: 12
-                                color: readOnly ? Style.disable_text_color : Style.white
+                                color: readOnly ? Style.content_disabled : Style.content_main
                                 readOnly: localNodeRun.checked
-                                validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
+                                validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([1-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                 text: viewModel.nodeAddress
                                 Binding {
                                     target: viewModel
@@ -114,9 +118,9 @@ Rectangle {
                                 SFText {
                                     Layout.alignment: Qt.AlignTop
                                     id: nodeAddressError
-                                    color: Style.validator_color
+                                    color: Style.validator_error
                                     font.pixelSize: 10
-                                    visible: !nodeAddress.acceptableInput
+                                    visible: (!nodeAddress.acceptableInput || !localNodeRun.checked && !viewModel.isValidNodeAddress)
                                     text: "Invalid address"
                                 }
                             }
@@ -128,15 +132,16 @@ Rectangle {
                         Layout.alignment: Qt.AlignTop
                         height: 320
                         radius: 10
-                        color: Style.dark_slate_blue
+                        color: Style.background_second
 
                         ColumnLayout {
                             anchors.fill: parent
                             anchors.margins: 20
 
                             SFText {
-                                text: qsTr("Local node")
-                                color: Style.white
+                                //% "Local node"
+                                text: qsTrId("settings-local-node-title")
+                                color: Style.content_main
                                 font.pixelSize: 18
                                 font.styleName: "Bold"; font.weight: Font.Bold
                             }
@@ -153,7 +158,8 @@ Rectangle {
 
                                     CustomSwitch {
                                         id: localNodeRun
-                                        text: qsTr("Run local node")
+                                        //% "Run local node"
+                                        text: qsTrId("settings-local-node-run-checkbox")
                                         font.pixelSize: 12
                                         width: parent.width
                                         checked: viewModel.localNodeRun
@@ -165,8 +171,9 @@ Rectangle {
                                     }
 
                                     SFText {
-                                        text: qsTr("Local node port")
-                                        color: localNodeRun.checked ? Style.white : Style.disable_text_color
+                                        //% "Local node port"
+                                        text: qsTrId("settings-local-node-port")
+                                        color: localNodeRun.checked ? Style.content_main : Style.content_disabled
                                         font.pixelSize: 12
                                         font.styleName: "Bold"; font.weight: Font.Bold
                                     }
@@ -176,11 +183,11 @@ Rectangle {
                                         width: parent.width
                                         activeFocusOnTab: true
                                         font.pixelSize: 12
-                                        color: readOnly ? Style.disable_text_color : Style.white
+                                        color: readOnly ? Style.content_disabled : Style.content_main
                                         readOnly: !localNodeRun.checked
                                         text: viewModel.localNodePort
                                         validator: IntValidator {
-                                            bottom: 0
+                                            bottom: 1
                                             top: 65535
                                         }
                                         Binding {
@@ -198,8 +205,9 @@ Rectangle {
 
                                     SFText {
                                         Layout.topMargin: 5
-                                        text: qsTr("Peers")
-                                        color: localNodeRun.checked ? Style.white : Style.disable_text_color
+                                        //% "Peers"
+                                        text: qsTrId("settings-local-node-peers")
+                                        color: localNodeRun.checked ? Style.content_main : Style.content_disabled
                                         font.pixelSize: 12
                                         font.styleName: "Bold"; font.weight: Font.Bold
                                     }
@@ -214,9 +222,9 @@ Rectangle {
                                             width: parent.width
                                             activeFocusOnTab: true
                                             font.pixelSize: 12
-                                            color: readOnly ? Style.disable_text_color : Style.white
+                                            color: readOnly ? Style.content_disabled : Style.content_main
                                             readOnly: !localNodeRun.checked
-                                            validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
+                                            validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([1-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                         }
                                     
                                         CustomButton {
@@ -225,8 +233,8 @@ Rectangle {
                                             leftPadding: 20
                                             rightPadding: 20
                                             text: "Add"
-                                            palette.button: Style.gray_button_color
-                                            palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
+                                            palette.button: Style.background_button
+                                            palette.buttonText : localNodeRun.checked ? Style.content_main : Style.content_disabled
                                             enabled: newLocalNodePeer.acceptableInput && localNodeRun.checked
                                             onClicked: {
                                                 viewModel.addLocalNodePeer(newLocalNodePeer.text.trim());
@@ -236,8 +244,9 @@ Rectangle {
                                     }
 
                                     SFText {
-                                        text: qsTr("Please add at least one peer")
-                                        color: Style.validator_color
+                                        //% "Please add at least one peer"
+                                        text: qsTrId("settings-local-node-no-peers-error")
+                                        color: Style.validator_error
                                         font.pixelSize: 14
                                         fontSizeMode: Text.Fit
                                         minimumPixelSize: 10
@@ -261,7 +270,7 @@ Rectangle {
                                                 Layout.alignment: Qt.AlignVCenter
                                                 text: modelData
                                                 font.pixelSize: 12
-                                                color: Style.white
+                                                color: Style.content_main
                                                 height: 16
                                                 elide: Text.ElideRight
                                             }
@@ -291,7 +300,8 @@ Rectangle {
                 ConfirmationDialog {
                     id: confirmRefreshDialog
                     property bool canRefresh: true
-                    okButtonText: qsTr("rescan")
+                    //% "rescan"
+                    okButtonText: qsTrId("settings-rescan-confirmation-button")
                     okButtonIconSource: "qrc:/assets/icon-repeat.svg"
                     cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
                     cancelVisible: true
@@ -308,19 +318,33 @@ Rectangle {
                                 width: parent.width
                                 topPadding: 20
                                 font.pixelSize: 18
-                                color: Style.white
+                                color: Style.content_main
                                 horizontalAlignment : Text.AlignHCenter
-                                text: qsTr("Rescan")
+                                //% "Rescan"
+                                text: qsTrId("settings-rescan-confirmation-title")
                             }
                             SFText {
                                 width: parent.width
                                 leftPadding: 20
                                 rightPadding: 20
                                 font.pixelSize: 14
-                                color: Style.white
+                                color: Style.content_main
                                 wrapMode: Text.Wrap
                                 horizontalAlignment : Text.AlignHCenter
-                                text: qsTr("Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time. \n\nAre you sure?")
+                                //% "Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time."
+                                text: qsTrId("settings-rescan-confirmation-message")
+                            }
+                            SFText {
+                                width: parent.width
+                                leftPadding: 20
+                                rightPadding: 20
+                                topPadding: -15
+                                font.pixelSize: 14
+                                color: Style.content_main
+                                wrapMode: Text.Wrap
+                                horizontalAlignment : Text.AlignHCenter
+                                //% "Are you sure?"
+                                text: qsTrId("settings-rescan-confirmation-message-line-2")
                             }
                         }
                     }
@@ -340,9 +364,9 @@ Rectangle {
                     Rectangle {
                         Layout.fillWidth: true
                         radius: 10
-                        color: Style.dark_slate_blue
+                        color: Style.background_second
                         //height: childrenRect.height + 40
-                        height: 150
+                        height: 180
 
                         Column {
                             anchors.top: parent.top
@@ -352,8 +376,9 @@ Rectangle {
                             spacing: 10
 
                             SFText {
-                                text: qsTr("General settings")
-                                color: Style.white
+                                //% "General settings"
+                                text: qsTrId("settings-general-title")
+                                color: Style.content_main
                                 font.pixelSize: 18
                                 font.styleName: "Bold"; font.weight: Font.Bold
                             }
@@ -364,8 +389,9 @@ Rectangle {
                                 spacing: 10
 
                                 SFText {
-                                    text: qsTr("Lock screen in")
-                                    color: Style.white
+                                    //% "Lock screen in"
+                                    text: qsTrId("settings-general-lock-screen")
+                                    color: Style.content_main
                                     font.pixelSize: 12
                                 }
 
@@ -384,15 +410,48 @@ Rectangle {
                                         value: lockTimeoutControl.currentIndex
                                     }
 
-                                    model: ["never", "1 minute", "5 minutes", "15 minutes", "30 minutes", "1 hour"]
+                                    model: [
+                                        //% "never"
+                                        qsTrId("settings-general-lock-screen-never"),
+                                        //% "1 minute"
+                                        qsTrId("settings-general-lock-screen-1m"),
+                                        //% "5 minutes"
+                                        qsTrId("settings-general-lock-screen-5m"),
+                                        //% "15 minutes"
+                                        qsTrId("settings-general-lock-screen-15m"),
+                                        //% "30 minutes"
+                                        qsTrId("settings-general-lock-screen-30m"),
+                                        //% "1 hour"
+                                        qsTrId("settings-general-lock-screen-1h"),
+                                    ]
+                                }
+                            }
+
+                            Row {
+                                width: parent.width
+                                spacing: 10
+
+                                CustomSwitch {
+                                    id: isPasswordReqiredToSpendMoney
+                                    //% "Ask password for every sending transaction"
+                                    text: qsTrId("settings-general-require-pwd-to-spend")
+                                    font.pixelSize: 12
+                                    width: parent.width
+                                    checked: viewModel.isPasswordReqiredToSpendMoney
+                                    Binding {
+                                        target: viewModel
+                                        property: "isPasswordReqiredToSpendMoney"
+                                        value: isPasswordReqiredToSpendMoney.checked
+                                    }
                                 }
                             }
 
 
                             CustomButton {
-                                text: "change wallet password"
+                                //% "change wallet password"
+                                text: qsTrId("settings-general-change-pwd-button")
                                 palette.buttonText : "white"
-                                palette.button: Style.gray_button_color
+                                palette.button: Style.background_button
                                 icon.source: "qrc:/assets/icon-password.svg"
                                 icon.width: 16
                                 icon.height: 16
@@ -405,7 +464,7 @@ Rectangle {
                         Layout.fillWidth: true
                         height: 320
                         radius: 10
-                        color: Style.dark_slate_blue
+                        color: Style.background_second
 
                         ColumnLayout {
                             anchors.fill: parent
@@ -413,8 +472,9 @@ Rectangle {
                             spacing: 10
 
                             SFText {
-                                text: qsTr("Report problem")
-                                color: Style.white
+                                //% "Report problem"
+                                text: qsTrId("settings-report-problem-title")
+                                color: Style.content_main
                                 font.pixelSize: 18
                                 font.styleName: "Bold"; font.weight: Font.Bold
                             }
@@ -422,8 +482,9 @@ Rectangle {
                             ColumnLayout {
                                 SFText {
                                     Layout.fillWidth: true
-                                    text: qsTr("To report a problem:")
-                                    color: Style.white
+                                    //% "To report a problem:"
+                                    text: qsTrId("settings-report-problem-title-2")
+                                    color: Style.content_main
                                     font.pixelSize: 12
                                     font.styleName: "Bold"; font.weight: Font.Bold
                                     wrapMode: Text.WordWrap
@@ -431,8 +492,9 @@ Rectangle {
 
                                 SFText {
                                     Layout.fillWidth: true
-                                    text: qsTr("1. Click 'Save wallet logs' and choose a destination folder for log archive")
-                                    color: Style.white
+                                    //% "1. Click 'Save wallet logs' and choose a destination folder for log archive"
+                                    text: qsTrId("settings-report-problem-message-line-1")
+                                    color: Style.content_main
                                     font.pixelSize: 12
                                     font.styleName: "Bold"; font.weight: Font.Bold
                                     wrapMode: Text.WordWrap
@@ -440,8 +502,9 @@ Rectangle {
 
                                 SFText {
                                     Layout.fillWidth: true
-                                    text: qsTr("<style>a:link {color: '#00f6d2'}</style>2. Send email to <a href='mailto:support@beam.mw'>support@beam.mw</a> or open a ticket in <a href='https://github.com/beam-mw/beam'>github</a>")
-                                    color: Style.white
+                                    //% "<style>a:link {color: '#00f6d2'}</style>2. Send email to <a href='mailto:support@beam.mw'>support@beam.mw</a> or open a ticket in <a href='https://github.com/beam-mw/beam'>github</a>"
+                                    text: qsTrId("settings-report-problem-message-line-2")
+                                    color: Style.content_main
                                     textFormat: Text.RichText
                                     font.pixelSize: 12
                                     font.styleName: "Bold"; font.weight: Font.Bold
@@ -457,8 +520,9 @@ Rectangle {
 
                                 SFText {
                                     Layout.fillWidth: true
-                                    text: qsTr("3. Don't forget to attach logs archive")
-                                    color: Style.white
+                                    //% "3. Don't forget to attach logs archive"
+                                    text: qsTrId("settings-report-problem-message-line-3")
+                                    color: Style.content_main
                                     font.pixelSize: 12
                                     font.styleName: "Bold"; font.weight: Font.Bold
                                     wrapMode: Text.WordWrap
@@ -467,18 +531,20 @@ Rectangle {
                             RowLayout {
                                 Layout.fillWidth: true
                                 CustomButton {
-                                    text: "save wallet logs"
+                                    //% "save wallet logs"
+                                    text: qsTrId("settings-report-problem-save-log-button")
                                     palette.buttonText : "white"
-                                    palette.button: Style.gray_button_color
+                                    palette.button: Style.background_button
                                     onClicked: viewModel.reportProblem()
                                 }
                                 spacing: 30
                                 CustomButton {
                                     icon.source: "qrc:/assets/icon-restore.svg"
                                     Layout.alignment: Qt.AlignRight
-                                    text: qsTr("rescan")
-                                    palette.button: Style.gray_button_color
-                                    palette.buttonText : localNodeRun.checked ? Style.white : Style.disable_text_color
+                                    //% "rescan"
+                                    text: qsTrId("settings-rescan-button")
+                                    palette.button: Style.background_button
+                                    palette.buttonText : localNodeRun.checked ? Style.content_main : Style.content_disabled
                                     enabled: localNodeRun.checked && confirmRefreshDialog.canRefresh && viewModel.isLocalNodeRunning
                                     onClicked: {
                                         confirmRefreshDialog.open();
@@ -490,8 +556,9 @@ Rectangle {
                                 Layout.topMargin: 20
                                 Layout.fillWidth: true
                                 Layout.minimumHeight: 20
-                                text: qsTr("Wallet folder location:")
-                                color: Style.white
+                                //% "Wallet folder location:"
+                                text: qsTrId("settings-wallet-location-label")
+                                color: Style.content_main
                                 font.pixelSize: 18
                                 font.styleName: "Bold"; font.weight: Font.Bold
                                 wrapMode: Text.WordWrap
@@ -501,16 +568,17 @@ Rectangle {
                                 Layout.fillWidth: true
                                 
                                 font.pixelSize: 14
-                                color: Style.disable_text_color
+                                color: Style.content_disabled
                                 readOnly: true
                                 activeFocusOnTab: false
                                 text: viewModel.walletLocation
                             }
                             CustomButton {
-                                text: qsTr("copy")
-                                icon.color: Style.white
-                                palette.buttonText : Style.white
-                                palette.button: Style.gray_button_color
+                                //% "copy"
+                                text: qsTrId("settings-wallet-location-copy-button")
+                                icon.color: Style.content_main
+                                palette.buttonText : Style.content_main
+                                palette.button: Style.background_button
                                 icon.source: "qrc:/assets/icon-copy.svg"
                                 onClicked: {
                                     viewModel.copyToClipboard(viewModel.walletLocation);
@@ -538,7 +606,8 @@ Rectangle {
             Layout.alignment: Qt.AlignHCenter
             spacing: 30
             PrimaryButton {
-                text: qsTr("undo changes")
+                //% "undo changes"
+                text: qsTrId("settings-undo")
                 enabled: {
                     viewModel.isChanged 
                     && nodeAddress.acceptableInput
@@ -547,13 +616,14 @@ Rectangle {
                 onClicked: viewModel.undoChanges()
             }
 
-            PrimaryButton {        
-                text: qsTr("apply changes")
+            PrimaryButton {      
+                //% "apply changes"
+                text: qsTrId("settings-apply")  
                 enabled: {
-                    viewModel.isChanged 
+                    viewModel.isChanged
                     && nodeAddress.acceptableInput
                     && localNodePort.acceptableInput
-                    && (localNodeRun.checked ? (viewModel.localNodePeers.length > 0) : true)
+                    && (localNodeRun.checked ? (viewModel.localNodePeers.length > 0) : viewModel.isValidNodeAddress)
                 }
                 onClicked: viewModel.applyChanges()
             }

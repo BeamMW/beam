@@ -15,7 +15,7 @@ Window  {
     Popup {
         id: notifications
         closePolicy: Popup.NoAutoClose
-        palette.window : Style.marine
+        palette.window : Style.background_main
 		MessagesViewModel {id: viewModel}
 
         parent: Overlay.overlay
@@ -50,7 +50,7 @@ Window  {
                         Layout.alignment: Qt.AlignVCenter
                         text: modelData
                         font.pixelSize: 14
-                        color: Style.white
+                        color: Style.content_main
                         height: 16
                     }
                     CustomToolButton {

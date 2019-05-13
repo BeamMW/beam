@@ -14,10 +14,6 @@
 
 #pragma once
 
-#include "p2p/protocol.h"
-#include "p2p/connection.h"
-#include "p2p/msg_reader.h"
-#include "utility/bridge.h"
 #include "utility/logger.h"
 #include "core/proto.h"
 #include "utility/io/timer.h"
@@ -28,13 +24,10 @@
 namespace beam
 {
     namespace bi = boost::intrusive;
-    class WalletNetworkViaBbs
-        : public IWalletNetwork
-    {
-        IWallet& m_Wallet;
-        proto::FlyClient::INetwork& m_NodeNetwork;
-        IWalletDB::Ptr m_WalletDB;
 
+    class BaseMessageEndpoint
+        : public IWalletMessageEndpoint
+    {
         struct Addr
         {
             struct Wid :public boost::intrusive::set_base_hook<> {
@@ -58,15 +51,45 @@ namespace beam
             PeerID m_Pk; // self public addr
             Timestamp m_ExpirationTime;
         };
+    public:
+        BaseMessageEndpoint(IWallet&, const IWalletDB::Ptr&);
+        virtual ~BaseMessageEndpoint();
+        void AddOwnAddress(const WalletAddress& address);
+        void DeleteOwnAddress(uint64_t ownID);
+    protected:
+        void ProcessMessage(BbsChannel channel, const ByteBuffer& msg);
+        void Subscribe();
+        void Unsubscribe();
+        virtual void OnChannelAdded(BbsChannel channel) {};
+        virtual void OnChannelDeleted(BbsChannel channel) {};
+        virtual void OnIncomingMessage() {};
+    private:
+        void DeleteAddr(const Addr&);
+        bool IsSingleChannelUser(const Addr::Channel&);
 
+        // IWalletMessageEndpoint
+        void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) override;
+        void AddOwnAddress(uint64_t ownID, BbsChannel, Timestamp expirationTime, const WalletID& walletID);
+        void OnAddressTimer();
+        
+    private:
         typedef bi::multiset<Addr::Wid> WidSet;
         WidSet m_Addresses;
 
         typedef  bi::multiset<Addr::Channel> ChannelSet;
         ChannelSet m_Channels;
 
-        void DeleteAddr(const Addr&);
-        bool IsSingleChannelUser(const Addr::Channel&);
+        IWallet& m_Wallet;
+        IWalletDB::Ptr m_WalletDB;
+        io::Timer::Ptr m_AddressExpirationTimer;
+    };
+
+    class WalletNetworkViaBbs
+        : public BaseMessageEndpoint
+        , private IWalletDbObserver
+    {
+        std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
+        IWalletDB::Ptr m_WalletDB;
 
         struct MyRequestBbsMsg
             :public proto::FlyClient::RequestBbsMsg
@@ -92,64 +115,70 @@ namespace beam
 
         void OnMsg(const proto::BbsMsg&);
 
-        static BbsChannel channel_from_wallet_id(const WalletID& walletID);
-
         std::unordered_map<BbsChannel, Timestamp> m_BbsTimestamps;
         io::Timer::Ptr m_pTimerBbsTmSave;
         void OnTimerBbsTmSave();
         void SaveBbsTimestamps();
 
-		struct Miner
-		{
-			// message mining
-			std::vector<std::thread> m_vThreads;
-			std::mutex m_Mutex;
-			std::condition_variable m_NewTask;
+        struct Miner
+        {
+            // message mining
+            std::vector<std::thread> m_vThreads;
+            std::mutex m_Mutex;
+            std::condition_variable m_NewTask;
 
-			volatile bool m_Shutdown;
-			io::AsyncEvent::Ptr m_pEvt;
+            volatile bool m_Shutdown;
+            io::AsyncEvent::Ptr m_pEvt;
 
-			struct Task
-			{
-				proto::BbsMsg m_Msg;
-				ECC::Hash::Processor m_hpPartial;
-				volatile bool m_Done;
+            struct Task
+            {
+                proto::BbsMsg m_Msg;
+                ECC::Hash::Processor m_hpPartial;
+                volatile bool m_Done;
 
-				typedef std::shared_ptr<Task> Ptr;
-			};
+                typedef std::shared_ptr<Task> Ptr;
+            };
 
-			typedef std::deque<Task::Ptr> TaskQueue;
+            typedef std::deque<Task::Ptr> TaskQueue;
 
-			TaskQueue m_Pending;
-			TaskQueue m_Done;
+            TaskQueue m_Pending;
+            TaskQueue m_Done;
 
-			Miner() :m_Shutdown(false) {}
-			~Miner() { Stop(); }
+            Miner() :m_Shutdown(false) {}
+            ~Miner() { Stop(); }
 
-			void Stop();
-			void Thread(uint32_t);
+            void Stop();
+            void Thread(uint32_t);
 
-		} m_Miner;
+        } m_Miner;
 
-		void OnMined();
-		void OnMined(proto::BbsMsg&&);
+        void OnMined();
+        void OnMined(proto::BbsMsg&&);
 
     public:
 
-        WalletNetworkViaBbs(IWallet&, proto::FlyClient::INetwork&, const IWalletDB::Ptr&);
+        WalletNetworkViaBbs(IWallet&, std::shared_ptr<proto::FlyClient::INetwork>, const IWalletDB::Ptr&);
         virtual ~WalletNetworkViaBbs();
 
-		bool m_MineOutgoing = true; // can be turned-off for testing
+        bool m_MineOutgoing = true; // can be turned-off for testing
 
-        void AddOwnAddress(const WalletAddress& address);
-        void DeleteOwnAddress(uint64_t ownID);
     private:
-        void AddOwnAddress(uint64_t ownID, BbsChannel, Timestamp expirationTime, const WalletID& walletID);
-        // IWalletNetwork
-        virtual void Send(const WalletID& peerID, wallet::SetTxParameter&& msg) override;
+        void OnChannelAdded(BbsChannel channel) override;
+        void OnChannelDeleted(BbsChannel channel) override;
+        // IWalletMessageEndpoint
+        void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override;
+        void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
+    };
 
-        void OnAddressTimer();
+    class ColdWalletMessageEndpoint
+        : public BaseMessageEndpoint
+    {
+    public:
+        ColdWalletMessageEndpoint(IWallet& wallet, IWalletDB::Ptr walletDB);
+        ~ColdWalletMessageEndpoint();
     private:
-        io::Timer::Ptr m_AddressExpirationTimer;
+        void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override;
+    private:
+        IWalletDB::Ptr m_WalletDB;
     };
 }

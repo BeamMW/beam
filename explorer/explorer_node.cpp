@@ -4,9 +4,9 @@
 #include "core/ecc_native.h"
 
 #include "node/node.h"
+#include "utility/cli/options.h"
 #include "utility/logger.h"
 #include "utility/helpers.h"
-#include "utility/options.h"
 #include "utility/string_helpers.h"
 #include "utility/log_rotation.h"
 

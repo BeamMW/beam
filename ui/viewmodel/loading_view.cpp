@@ -84,11 +84,12 @@ void LoadingViewModel::updateProgress()
 		nodeSyncProgress = std::min(1., static_cast<double>(m_nodeDone) / static_cast<double>(m_nodeTotal));
 
 	bool bLocalNode = AppModel::getInstance()->getSettings().getRunLocalNode();
-	QString progressMessage = tr("");
+	QString progressMessage = "";
 
     if (bLocalNode && (!m_nodeTotal || (m_nodeDone < m_nodeTotal)))
     {
-        progressMessage = tr("Downloading blocks");
+        //% "Downloading blocks"
+        progressMessage = qtTrId("loading-view-download-blocks");
     }
 	else
 	{
@@ -99,7 +100,10 @@ void LoadingViewModel::updateProgress()
 			syncWithNode();
 
 		if (m_done < m_total)
-			progressMessage = QString::asprintf(tr("Scanning UTXO %d/%d").toStdString().c_str(), m_done, m_total);
+        {
+            //% "Scanning UTXO %d/%d"
+			progressMessage = QString::asprintf(qtTrId("loading-view-scaning-utxo").toStdString().c_str(), m_done, m_total);
+        }
 		else
 		{
 			emit syncCompleted();
@@ -110,7 +114,7 @@ void LoadingViewModel::updateProgress()
 
     if (p > 0)
     {
-        progressMessage.append(QString::asprintf(tr(" %d%%").toStdString().c_str(), static_cast<int>(p * 100)));
+        progressMessage.append(QString::asprintf(" %d%%", static_cast<int>(p * 100)));
     }
 
     setProgressMessage(progressMessage);
@@ -181,12 +185,15 @@ void LoadingViewModel::onGetWalletError(beam::wallet::ErrorType error)
         {
             case beam::wallet::ErrorType::NodeProtocolIncompatible:
             {
-                emit walletError(tr("Incompatible peer"), m_walletModel.GetErrorString(error));
+                //% "Incompatible peer"
+                emit walletError(qtTrId("loading-view-protocol-error"), m_walletModel.GetErrorString(error));
                 return;
             }
             case beam::wallet::ErrorType::ConnectionAddrInUse:
+            case beam::wallet::ErrorType::HostResolvedError:
             {
-                emit walletError(tr("Connection error"), m_walletModel.GetErrorString(error));
+                //% "Connection error"
+                emit walletError(qtTrId("loading-view-connection-error"), m_walletModel.GetErrorString(error));
                 return;
             }
             default:

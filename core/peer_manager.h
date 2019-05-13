@@ -154,6 +154,7 @@ namespace beam {
 		virtual void DeletePeer(PeerInfo&) = 0;
 
 		const RawRatingSet& get_Ratings() const { return m_Ratings; }
+		const AddrSet& get_Addrs() const { return m_Addr; }
 
 	private:
 		PeerIDSet m_IDs;

@@ -24,7 +24,7 @@ T.Slider {
         implicitWidth: 20
         implicitHeight: 20
         radius: width / 2
-        color: control.enabled ? Style.bright_teal : Style.disable_text_color
+        color: control.enabled ? Style.active : Style.content_disabled
 
         SFText {
 
@@ -37,7 +37,7 @@ T.Slider {
             y: -26
             font.pixelSize: 14
             text: control.value.toFixed(control.precision)
-            color: control.enabled ? Style.bright_teal : Style.disable_text_color
+            color: control.enabled ? Style.active : Style.content_disabled
         }
     }
 
@@ -73,7 +73,7 @@ T.Slider {
                 x: (handle.width / 2) + ((control.availableWidth - handle.width) / control.to) * index
                 width: 1
                 height: 4
-                color: Style.bluey_grey
+                color: Style.content_secondary
                 visible: control.showTicks
             }
             model: control.to + 1
@@ -87,14 +87,14 @@ T.Slider {
             
             SFText {
                 font.pixelSize: 14
-                color: Style.bluey_grey
+                color: Style.content_secondary
                 text: control.from.toFixed(control.precision)
             }
 
             SFText {
                 anchors.right: parent.right
                 font.pixelSize: 14
-                color: Style.bluey_grey
+                color: Style.content_secondary
                 text: control.to.toFixed(control.precision)
             }            
         }

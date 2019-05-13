@@ -28,8 +28,9 @@ Merkle::Hash hash;
 Block::PoW POW;
 static const unsigned TIMER_MSEC = 280000;
 io::Timer::Ptr feedJobsTimer;
+bool tls = false;
 
-void got_new_block();
+IExternalPOW::BlockFoundResult got_new_block();
 
 void gen_new_job() {
     ECC::GenRandom(&POW.m_Nonce, Block::PoW::NonceType::nBytes);
@@ -48,16 +49,19 @@ void gen_new_job() {
     feedJobsTimer->start(TIMER_MSEC, false, &gen_new_job);
 }
 
-void got_new_block() {
+IExternalPOW::BlockFoundResult got_new_block() {
     feedJobsTimer->cancel();
+    IExternalPOW::BlockFoundResult result = IExternalPOW::solution_rejected;
     if (server) {
         std::string blockId;
         server->get_last_found_block(blockId, POW);
         if (POW.IsValid(hash.m_pData, 32)) {
             LOG_INFO() << "got valid block" << TRACE(blockId);
+            result = IExternalPOW::solution_accepted;
         }
         gen_new_job();
     }
+    return result;
 }
 
 void find_certificates(IExternalPOW::Options& o) {
@@ -65,13 +69,15 @@ void find_certificates(IExternalPOW::Options& o) {
     static const std::string keyFileName("test.key");
     static const std::string unittestPath(PROJECT_SOURCE_DIR "/utility/unittest/");
 
-    using namespace boost::filesystem;
-    if (exists(certFileName) && exists(keyFileName)) {
-        o.certFile = certFileName;
-        o.privKeyFile = keyFileName;
-    } else if (exists(path(unittestPath + certFileName)) && exists(path(unittestPath + keyFileName))) {
-        o.certFile = unittestPath + certFileName;
-        o.privKeyFile = unittestPath + keyFileName;
+    if (tls) {
+        using namespace boost::filesystem;
+        if (exists(certFileName) && exists(keyFileName)) {
+            o.certFile = certFileName;
+            o.privKeyFile = keyFileName;
+        } else if (exists(path(unittestPath + certFileName)) && exists(path(unittestPath + keyFileName))) {
+            o.certFile = unittestPath + certFileName;
+            o.privKeyFile = unittestPath + keyFileName;
+        }
     }
 
     o.apiKeysFile = "api.keys";
@@ -85,7 +91,7 @@ void run_without_node() {
     feedJobsTimer = io::Timer::create(*reactor);
     IExternalPOW::Options options;
     find_certificates(options);
-    server = IExternalPOW::create(options, *reactor, listenTo);
+    server = IExternalPOW::create(options, *reactor, listenTo, 0);
     gen_new_job();
     reactor->run();
     feedJobsTimer.reset();
@@ -103,7 +109,7 @@ void run_with_node() {
     feedJobsTimer = io::Timer::create(*reactor);
     IExternalPOW::Options options;
     find_certificates(options);
-    server = IExternalPOW::create(options, *reactor, listenTo);
+    server = IExternalPOW::create(options, *reactor, listenTo, 5);
 
     Rules::get().DA.Difficulty0 = 0;
     Rules::get().UpdateChecksum();

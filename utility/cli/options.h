@@ -16,7 +16,7 @@
 
 #include <boost/program_options.hpp>
 #include "core/ecc.h"
-#include "logger.h"
+#include "utility/logger.h"
 
 namespace beam
 {
@@ -35,6 +35,7 @@ namespace beam
         extern const char* WALLET_STORAGE;
         extern const char* MINING_THREADS;
         extern const char* VERIFICATION_THREADS;
+        extern const char* NONCEPREFIX_DIGITS;
         extern const char* NODE_PEER;
         extern const char* PASS;
         extern const char* AMOUNT;
@@ -66,6 +67,7 @@ namespace beam
         extern const char* BBS_ENABLE;
         extern const char* NEW_ADDRESS;
         extern const char* CANCEL_TX;
+        extern const char* DELETE_TX;
 		extern const char* PAYMENT_PROOF_EXPORT;
 		extern const char* PAYMENT_PROOF_VERIFY;
 		extern const char* PAYMENT_PROOF_DATA;
@@ -102,6 +104,7 @@ namespace beam
         extern const char* IP_WHITELIST;
 		extern const char* HORIZON_HI;
 		extern const char* HORIZON_LO;
+        extern const char* COLD_WALLET;
 
         // wallet api
         extern const char* API_USE_HTTP;
@@ -121,6 +124,7 @@ namespace beam
 		extern const char* TR_N;
 		// ui
         extern const char* APPDATA_PATH;
+        extern const char* LANG;
     }
 
     enum OptionsFlag : int

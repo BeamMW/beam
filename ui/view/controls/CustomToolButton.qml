@@ -12,8 +12,8 @@ ToolButton {
                              contentItem.implicitHeight + topPadding + bottomPadding)
     baselineOffset: contentItem.y + contentItem.baselineOffset
 
-	palette.buttonText: Style.white
-	palette.highlight: Style.white
+	palette.buttonText: Style.content_main
+	palette.highlight: Style.content_main
 	palette.button: "transparent"
     padding: 8
     spacing: 8

@@ -17,8 +17,9 @@ Item
 
     ConfirmationDialog {
         id: confirmationDialog
-        okButtonColor: Style.bright_teal
-        okButtonText: qsTr("change settings")
+        okButtonColor: Style.active
+        //% "change settings"
+        okButtonText: qsTrId("loading-change-settings-button")
         okButtonIconSource: "qrc:/assets/icon-settings-blue.svg"
         cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
 
@@ -41,7 +42,7 @@ Item
                     font.pixelSize: 18
                     font.styleName: "Bold";
                     font.weight: Font.Bold
-                    color: Style.white
+                    color: Style.content_main
                 }
 
                 SFText {
@@ -52,7 +53,7 @@ Item
                     Layout.rightMargin: 60
                     Layout.bottomMargin: 30
                     font.pixelSize: 14
-                    color: Style.white
+                    color: Style.content_main
                 }
             }
         }
@@ -91,7 +92,7 @@ Item
     Rectangle
     {
         anchors.fill: parent
-        color: Style.marine
+        color: Style.background_main
 
         Image {
             fillMode: Image.PreserveAspectCrop
@@ -156,9 +157,16 @@ Item
             SFText {
                   Layout.bottomMargin: 6
                 Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
-                text: !isCreating ? qsTr("Loading wallet...") : ( isRecoveryMode ? qsTr("Restoring wallet...") : qsTr("Creating wallet..."))
+                text: !isCreating ? 
+                        //% "Loading wallet..."
+                        qsTrId("loading-loading") :
+                        ( isRecoveryMode ?
+                            //% "Restoring wallet..."
+                            qsTrId("loading-restoring") :
+                            //% "Creating wallet..."
+                            qsTrId("loading-creating"))
                 font.pixelSize: 14
-                color: Style.white
+                color: Style.content_main
             }
             SFText {
                 Layout.bottomMargin: 30
@@ -166,7 +174,7 @@ Item
                 text: viewModel.progressMessage
                 font.pixelSize: 14
                 opacity: 0.5
-                color: Style.white
+                color: Style.content_main
             }
             CustomProgressBar {
                 Layout.alignment: Qt.AlignHCenter
@@ -184,7 +192,8 @@ Item
 
                 CustomButton {
                     visible: isCreating
-                    text: qsTr("cancel")
+                    //% "cancel"
+                    text: qsTrId("loading-cancel-button")
                     icon.source: "qrc:/assets/icon-cancel.svg"
                     onClicked: {
                         cancelCreating();
