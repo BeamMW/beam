@@ -48,6 +48,19 @@ namespace std
         hash.Print(sz);
         return string(sz);
     }
+
+    string to_string(beam::wallet::AtomicSwapCoin value)
+    {
+        switch (value)
+        {
+        case beam::wallet::AtomicSwapCoin::Bitcoin:
+            return "btc";
+        case beam::wallet::AtomicSwapCoin::Litecoin:
+            return "ltc";
+        default:
+            return "";
+        }
+    }
 }
 
 namespace beam
@@ -95,6 +108,16 @@ namespace beam
 {
     namespace wallet
     {
+        AtomicSwapCoin from_string(const std::string& value)
+        {
+            if (value == "btc")
+                return AtomicSwapCoin::Bitcoin;
+            else if (value == "ltc")
+                return AtomicSwapCoin::Litecoin;
+
+            return AtomicSwapCoin::Unknown;
+        }
+
         ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType)
         {
             switch (exceptionType)

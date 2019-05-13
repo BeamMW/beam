@@ -409,12 +409,84 @@ namespace beam
                         coins = data.coins ? *data.coins : CoinIDList();
                     }
 
-                    auto txId = _wallet.transfer_money(from, data.address, data.value, data.fee, coins, true, 120, 720, std::move(message), true);
+                    auto txId = _wallet.transfer_money(from, data.address, data.value, data.fee, coins, true, kDefaultTxLifetime, kDefaultTxResponseTime, std::move(message), true);
+
                     doResponse(id, Send::Response{ txId });
                 }
                 catch(...)
                 {
                     doError(id, INTERNAL_JSON_RPC_ERROR, "Transaction could not be created. Please look at logs.");
+                }
+            }
+
+            void onMessage(int id, const InitBitcoin& data) override
+            {
+                LOG_DEBUG() << "InitBitcoin";
+
+                io::Address btcNodeAddr;
+                if (btcNodeAddr.resolve(data.btcNodeAddr.c_str()))
+                {
+                    _wallet.initBitcoin(io::Reactor::get_Current(), data.btcUserName, data.btcPass, btcNodeAddr);
+
+                    doResponse(id, EditAddress::Response{});
+                }
+                else
+                {
+                    doError(id, INVALID_ADDRESS, "Bitcoin node address is not resolved.");
+                }
+            }
+
+            void onMessage(int id, const InitLitecoin& data) override
+            {
+                LOG_DEBUG() << "InitLitecoin";
+
+                io::Address ltcNodeAddr;
+                if (ltcNodeAddr.resolve(data.ltcNodeAddr.c_str()))
+                {
+                    _wallet.initLitecoin(io::Reactor::get_Current(), data.ltcUserName, data.ltcPass, ltcNodeAddr);
+
+                    doResponse(id, EditAddress::Response{});
+                }
+                else
+                {
+                    doError(id, INVALID_ADDRESS, "Bitcoin node address is not resolved.");
+                }
+            }
+
+            void onMessage(int id, const StartSwap& data) override
+            {
+                LOG_DEBUG() << "StartSwap(id = " << id << " amount = " << data.amount << " fee = " << data.fee << " address = " << std::to_string(data.address) << " swap amount = " << data.swapAmount << " isBeamSide = " << data.beamSide << ")";
+
+                try
+                {
+                    WalletID from(Zero);
+                    
+                    WalletAddress senderAddress = wallet::createAddress(*_walletDB);
+                    _walletDB->saveAddress(senderAddress);
+
+                    from = senderAddress.m_walletID;
+
+                    auto txId = _wallet.swap_coins(from, data.address, data.amount, data.fee, data.swapCoin, data.swapAmount, data.beamSide);
+                    doResponse(id, StartSwap::Response{ txId });
+                }
+                catch (...)
+                {
+                    doError(id, INTERNAL_JSON_RPC_ERROR, "Atomic swap transaction could not be created. Please look at logs.");
+                }
+            }
+
+            void onMessage(int id, const AcceptSwap& data) override
+            {
+                LOG_DEBUG() << "AcceptSwap(id = " << id << " amount = " << data.amount << " swap amount = " << data.swapAmount << " isBeamSide = " << data.beamSide << ")";
+
+                try
+                {
+                    _wallet.initSwapConditions(data.amount, data.swapAmount, data.swapCoin, data.beamSide);
+                    doResponse(id, AcceptSwap::Response{});
+                }
+                catch (...)
+                {
+                    doError(id, INTERNAL_JSON_RPC_ERROR, "Atomic swap transaction could not be created. Please look at logs.");
                 }
             }
 

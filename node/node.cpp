@@ -2773,7 +2773,7 @@ void Node::Peer::OnMsg(proto::GetProofChainWork&& msg)
     if (!p.IsFastSync() && p.BuildCwp())
     {
         msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
-        verify(msgOut.m_Proof.Crop(p.m_Cwp));
+        BEAM_VERIFY(msgOut.m_Proof.Crop(p.m_Cwp));
     }
 
     Send(msgOut);

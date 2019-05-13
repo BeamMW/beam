@@ -1,0 +1,27 @@
+set(TARGET_NAME libbitcoin_config)
+
+file(GLOB SOURCES "*.cpp")
+file(GLOB HEADERS "${LIBBITCOIN_INCLUDE_DIR}/config/*.hpp")
+
+add_library(${TARGET_NAME} OBJECT ${SOURCES} ${HEADERS})
+
+if(MSVC)
+    target_compile_options(${TARGET_NAME} PUBLIC "/wd4996")
+    target_compile_options(${TARGET_NAME} PUBLIC "/wd4251")
+    target_compile_options(${TARGET_NAME} PUBLIC "/wd4273")
+    #target_compile_options(libbitcoin_config PRIVATE "/wd2491")
+elseif(APPLE)
+    target_compile_options(${TARGET_NAME} PUBLIC -Wno-reorder)
+    target_compile_options(${TARGET_NAME} PUBLIC -Wno-delete-non-virtual-dtor)
+elseif(ANDROID)
+    target_compile_options(${TARGET_NAME} PUBLIC -Wno-delete-non-virtual-dtor)
+    target_compile_options(${TARGET_NAME} PUBLIC -Wno-reorder)
+    target_compile_options(${TARGET_NAME} PUBLIC -Wno-tautological-constant-out-of-range-compare)
+else()
+    target_compile_options(${TARGET_NAME} PUBLIC -Wno-reorder)
+    target_compile_options(${TARGET_NAME} PUBLIC -fpermissive)
+endif()
+
+if(Boost_FOUND)
+    target_link_libraries(${TARGET_NAME} boost)
+endif()

@@ -182,6 +182,8 @@ if(MSVC)
     SET(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /OPT:REF /INCREMENTAL:NO")
     SET(CMAKE_EXE_LINKER_FLAGS_MINSIZEREL "${CMAKE_EXE_LINKER_FLAGS_MINSIZEREL} /OPT:REF /INCREMENTAL:NO")
 
+    add_definitions(-D_WIN32_WINNT=0x0600)
+
     if(BEAM_USE_STATIC)
         # use static runtime
         foreach(flag_var CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
@@ -228,26 +230,29 @@ if(ANDROID)
     include_directories($ENV{BOOST_ROOT_ANDROID}/include)
 else()
 
+    if(LINUX)
+        add_definitions(-DBOOST_NO_CXX11_SCOPED_ENUMS)
+        add_definitions(-DBOOST_NO_AUTO_PTR)
+    endif()
+
+    if (WIN32)
+        add_definitions(-DNOMINMAX)
+    endif()
+
     find_package(Boost REQUIRED)
 
     if(BEAM_USE_STATIC)
         include(FindBoost)
+
         set(Boost_USE_MULTITHREADED ON)
         set(Boost_USE_STATIC_LIBS ON)
         set(Boost_USE_STATIC_RUNTIME ON)
-        else()
+    else()
         if (WIN32)
             add_definitions( -DBOOST_ALL_DYN_LINK )
         endif()
     endif()
-endif()
 
-if(LINUX)
-	add_definitions(-DBOOST_NO_CXX11_SCOPED_ENUMS)
-endif()
-
-if (WIN32)
-    add_definitions(-DNOMINMAX)
 endif()
 
 include_directories(${PROJECT_SOURCE_DIR})
@@ -318,6 +323,10 @@ if(Boost_FOUND)
     set_property(TARGET boost PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${Boost_INCLUDE_DIR})
 endif()
 
+add_definitions(-DBC_STATIC)
+
+add_subdirectory(3rdparty/secp256k1-zkp)
+add_subdirectory(3rdparty/libbitcoin)
 add_subdirectory(3rdparty/sqlite)
 add_subdirectory(utility)
 add_subdirectory(core)
@@ -327,6 +336,7 @@ add_subdirectory(http)
 add_subdirectory(wallet)
 add_subdirectory(node)
 add_subdirectory(mnemonic)
+
 
 if(ANDROID OR BEAM_BUILD_JNI)
     add_subdirectory(android)

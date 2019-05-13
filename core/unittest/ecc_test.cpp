@@ -34,6 +34,12 @@
 #endif
 
 #include "secp256k1-zkp/include/secp256k1_rangeproof.h" // For benchmark comparison with secp256k1
+#include "secp256k1-zkp/src/group_impl.h"
+#include "secp256k1-zkp/src/scalar_impl.h"
+#include "secp256k1-zkp/src/field_impl.h"
+#include "secp256k1-zkp/src/hash_impl.h"
+#include "secp256k1-zkp/src/ecmult.h"
+#include "secp256k1-zkp/src/ecmult_gen_impl.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic pop
@@ -42,7 +48,19 @@
 #	pragma warning (pop)
 #endif
 
-void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a);
+// Needed for test
+struct secp256k1_context_struct {
+    secp256k1_ecmult_context ecmult_ctx;
+    secp256k1_ecmult_gen_context ecmult_gen_ctx;
+    secp256k1_callback illegal_callback;
+    secp256k1_callback error_callback;
+};
+
+void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a)
+{
+    secp256k1_ecmult_gen(&pCtx->ecmult_gen_ctx, r, a);
+}
+
 secp256k1_context* g_psecp256k1 = NULL;
 
 int g_TestsFailed = 0;
@@ -740,6 +758,196 @@ void TestRangeProof(bool bCustomTag)
 	WriteSizeSerialized("Kernel(simple)", txk);
 }
 
+void TestMultiSigOutput(bool bCustomTag)
+{
+    ECC::Amount amount = 5000;
+
+    beam::AssetID assetID(Zero);
+    AssetTag assetTag;
+    assetTag.m_hGen = beam::SwitchCommitment(&assetID).m_hGen;
+
+    beam::Key::IKdf::Ptr pKdf_A;
+    beam::Key::IKdf::Ptr pKdf_B;
+    uintBig secretB;
+    uintBig secretA;
+    SetRandom(secretA);
+    SetRandom(secretB);
+    ECC::HKdf::Create(pKdf_B, secretB);
+    ECC::HKdf::Create(pKdf_A, secretA);
+    // need only for last side - proof creator
+    RangeProof::CreatorParams creatorParamsB;
+    SetRandomOrd(creatorParamsB.m_Kidv.m_Idx);
+    creatorParamsB.m_Kidv.m_Type = Key::Type::Regular;
+    creatorParamsB.m_Kidv.m_Value = amount;
+    SetRandomOrd(creatorParamsB.m_Kidv.m_SubIdx);
+
+    // multi-signed bulletproof
+    // blindingFactor = sk + sk1
+    Scalar::Native blindingFactorA;
+    Scalar::Native blindingFactorB;
+    beam::SwitchCommitment switchCommitment;
+    switchCommitment.Create(blindingFactorA, *pKdf_A, creatorParamsB.m_Kidv);
+    switchCommitment.Create(blindingFactorB, *pKdf_B, creatorParamsB.m_Kidv);
+
+    // seed from RangeProof::Confidential::Create
+    uintBig seedA;
+    uintBig seedB;
+    {
+        Oracle oracle;
+        RangeProof::Confidential::GenerateSeed(seedA, blindingFactorA, amount, oracle);
+        RangeProof::Confidential::GenerateSeed(seedB, blindingFactorB, amount, oracle);
+    }
+    Point::Native commitment(Zero);
+    Tag::AddValue(commitment, &assetTag.m_hGen, amount);
+    commitment += Context::get().G * blindingFactorA;
+    commitment += Context::get().G * blindingFactorB;
+
+    // from Output::get_SeedKid    
+    beam::Output::GenerateSeedKid(creatorParamsB.m_Seed.V, commitment, *pKdf_B);
+
+    // 1st cycle. peers produce Part2
+    RangeProof::Confidential::Part2 p2;
+    ZeroObject(p2);
+
+    RangeProof::Confidential::MultiSig multiSig;
+    RangeProof::Confidential bulletproof;
+
+    // A part2
+    verify_test(RangeProof::Confidential::MultiSig::CoSignPart(seedA, p2)); // p2 aggregation
+
+    // B part2
+    {
+        Oracle oracle;
+        bulletproof.m_Part2 = p2;
+        oracle << (beam::Height)0; // CHECK
+        verify_test(bulletproof.CoSign(seedB, blindingFactorB, creatorParamsB, oracle, RangeProof::Confidential::Phase::Step2, &multiSig, &assetTag.m_hGen)); // add last p2, produce msig
+        p2 = bulletproof.m_Part2;
+    }
+
+    // 2nd cycle. Peers produce Part3, commitment is aggregated too
+    RangeProof::Confidential::Part3 p3;
+    ZeroObject(p3);
+
+    // A part3
+    multiSig.CoSignPart(seedA, blindingFactorA, p3);
+
+    // B part3
+    {
+        Oracle oracle;
+        bulletproof.m_Part2 = p2;
+        bulletproof.m_Part3 = p3;
+        oracle << (beam::Height)0; // CHECK!
+        verify_test(bulletproof.CoSign(seedB, blindingFactorB, creatorParamsB, oracle, RangeProof::Confidential::Phase::Finalize, nullptr, &assetTag.m_hGen));
+    }
+
+    {
+        // test
+        Oracle oracle;
+        oracle << (beam::Height)0;
+        verify_test(bulletproof.IsValid(commitment, oracle, &assetTag.m_hGen));
+    }
+
+    //==========================================================
+    Scalar::Native offset;
+
+    // create Input
+    std::unique_ptr<beam::Input> pInput(new beam::Input);
+
+    // create test coin
+    Key::IDV kidv;
+    SetRandomOrd(kidv.m_Idx);
+    kidv.m_Type = Key::Type::Regular;
+    kidv.m_SubIdx = 0;
+    kidv.m_Value = amount;
+    Scalar::Native k;
+    beam::SwitchCommitment(nullptr).Create(k, pInput->m_Commitment, *pKdf_A, kidv);
+    offset = k;
+
+    // output
+    std::unique_ptr<beam::Output> pOutput(new beam::Output);
+    pOutput->m_Commitment = commitment;
+    pOutput->m_pConfidential = std::make_unique<ECC::RangeProof::Confidential>();
+    *(pOutput->m_pConfidential) = bulletproof;
+    {
+        ECC::Point::Native comm;
+        verify_test(pOutput->IsValid(comm));
+    }
+    Scalar::Native outputBlindingFactor;
+    outputBlindingFactor = blindingFactorA + blindingFactorB;
+    outputBlindingFactor = -outputBlindingFactor;
+    offset += outputBlindingFactor;
+
+    // kernel
+    ECC::Scalar::Native blindingExcessA;
+    ECC::Scalar::Native blindingExcessB;
+    SetRandom(blindingExcessA);
+    SetRandom(blindingExcessB);
+    offset += blindingExcessA;
+    offset += blindingExcessB;
+
+    blindingExcessA = -blindingExcessA;
+    blindingExcessB = -blindingExcessB;
+
+    ECC::Point::Native blindingExcessPublicA = Context::get().G * blindingExcessA;
+    ECC::Point::Native blindingExcessPublicB = Context::get().G * blindingExcessB;
+
+    ECC::Scalar::Native nonceA;
+    ECC::Scalar::Native nonceB;
+    SetRandom(nonceA);
+    SetRandom(nonceB);
+    ECC::Point::Native noncePublicA = Context::get().G * nonceA;
+    ECC::Point::Native noncePublicB = Context::get().G * nonceB;
+    ECC::Point::Native noncePublic = noncePublicA + noncePublicB;
+
+    ECC::Hash::Value message;
+    std::unique_ptr<beam::TxKernel> pKernel(new beam::TxKernel);
+    pKernel->m_Fee = 0;
+    pKernel->m_Height.m_Min = 100;
+    pKernel->m_Height.m_Max = 220;
+    pKernel->m_Commitment = blindingExcessPublicA + blindingExcessPublicB;
+    pKernel->get_Hash(message);
+
+    ECC::Signature::MultiSig multiSigKernel;
+    ECC::Scalar::Native partialSignatureA;
+    ECC::Scalar::Native partialSignatureB;
+
+    multiSigKernel.m_Nonce = nonceA;
+    multiSigKernel.m_NoncePub = noncePublic;
+    multiSigKernel.SignPartial(partialSignatureA, message, blindingExcessA);
+    {
+        // test Signature
+        Signature peerSig;
+        peerSig.m_NoncePub = noncePublic;
+        peerSig.m_k = partialSignatureA;
+        verify_test(peerSig.IsValidPartial(message, noncePublicA, blindingExcessPublicA));
+    }
+
+    multiSigKernel.m_Nonce = nonceB;
+    multiSigKernel.SignPartial(partialSignatureB, message, blindingExcessB);
+    {
+        // test Signature
+        Signature peerSig;
+        peerSig.m_NoncePub = noncePublic;
+        peerSig.m_k = partialSignatureB;
+        verify_test(peerSig.IsValidPartial(message, noncePublicB, blindingExcessPublicB));
+    }
+
+    pKernel->m_Signature.m_k = partialSignatureA + partialSignatureB;
+    pKernel->m_Signature.m_NoncePub = noncePublic;
+
+    // create transaction
+    beam::Transaction transaction;
+    transaction.m_vKernels.push_back(move(pKernel));
+    transaction.m_Offset = offset;
+    transaction.m_vInputs.push_back(std::move(pInput));
+    transaction.m_vOutputs.push_back(std::move(pOutput));
+    transaction.Normalize();
+
+    beam::TxBase::Context::Params pars;
+    beam::TxBase::Context context(pars);
+    verify_test(transaction.IsValid(context));
+}
+
 struct TransactionMaker
 {
 	beam::Transaction m_Trans;
@@ -1365,6 +1573,7 @@ void TestAll()
 	TestRangeProof(false);
 	TestRangeProof(true);
 	TestTransaction();
+    TestMultiSigOutput(false);
 	TestCutThrough();
 	TestAES();
 	TestKdf();

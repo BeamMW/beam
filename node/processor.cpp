@@ -1512,7 +1512,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, MultiblockContext& m
 
 		}
 		else
-			verify(HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, false));
+            BEAM_VERIFY(HandleValidatedBlock(block.get_Reader(), block, sid.m_Height, false));
 	}
 
 	if (bOk)
@@ -2518,7 +2518,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	if (nSizeEstimated)
 		bc.m_Hdr.m_Height = h;
 
-	verify(HandleValidatedTx(bc.m_Block.get_Reader(), h, false)); // undo changes
+    BEAM_VERIFY(HandleValidatedTx(bc.m_Block.get_Reader(), h, false)); // undo changes
 
 	// reset input maturities
 	for (size_t i = 0; i < bc.m_Block.m_vInputs.size(); i++)
@@ -2541,7 +2541,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		return false; // ?!
 	}
 	GenerateNewHdr(bc);
-	verify(HandleValidatedTx(bc.m_Block.get_Reader(), h, false)); // undo changes
+    BEAM_VERIFY(HandleValidatedTx(bc.m_Block.get_Reader(), h, false)); // undo changes
 
 
 	Serializer ser;
@@ -2958,7 +2958,7 @@ bool NodeProcessor::ImportMacroBlockInternal(Block::BodyBase::IMacroReader& r)
 	{
 		LOG_WARNING() << "Definition mismatch";
 
-		verify(HandleValidatedBlock(std::move(r), body, m_Cursor.m_ID.m_Height + 1, false, &id.m_Height));
+        BEAM_VERIFY(HandleValidatedBlock(std::move(r), body, m_Cursor.m_ID.m_Height + 1, false, &id.m_Height));
 
 		return false;
 	}

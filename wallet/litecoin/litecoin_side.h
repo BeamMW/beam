@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2019 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,23 +14,9 @@
 
 #pragma once
 
-#include "wallet_transaction.h"
+#include "../bitcoin/bitcoin_side.h"
 
-namespace beam 
+namespace beam::wallet
 {
-    namespace wallet
-    {
-        class AtomicSwapTransaction : public BaseTransaction
-        {
-        public:
-            AtomicSwapTransaction(INegotiatorGateway& gateway
-                                , beam::IWalletDB::Ptr walletDB
-                                , const TxID& txID);
-        private:
-            TxType GetType() const override;
-            void UpdateImpl() override;
-            void Send();
-            void Receive();
-        };
-    }
+    using LitecoinSide = BitcoinSide;
 }
