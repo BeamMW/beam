@@ -492,7 +492,7 @@ namespace beam
 
             if (type != TxType::AtomicSwap)
             {
-                LOG_DEBUG() << txID << "Transaction has invalid type.";
+                LOG_ERROR() << txID << "Transaction has invalid type.";
                 return nullptr;
             }
 
@@ -500,16 +500,31 @@ namespace beam
 
             if (swapCoin == AtomicSwapCoin::Bitcoin)
             {
+                if (!m_bitcoinBridge)
+                {
+                    LOG_ERROR() << "Bitcoin bridge is not initialized";
+                    return nullptr;
+                }
+
                 bool isBeamSide = it->second->GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
                 return std::make_shared<BitcoinSide>(*it->second, m_bitcoinBridge, isBeamSide);
             }
 
             if (swapCoin == AtomicSwapCoin::Litecoin)
             {
+                if (!m_litecoinBridge)
+                {
+                    LOG_ERROR() << "Litecoin bridge is not initialized";
+                    return nullptr;
+                }
+
                 bool isBeamSide = it->second->GetMandatoryParameter<bool>(TxParameterID::AtomicSwapIsBeamSide);
                 return std::make_shared<LitecoinSide>(*it->second, m_litecoinBridge, isBeamSide);
             }
         }
+
+        LOG_ERROR() << "Transaction is absent in wallet.";
+
         return nullptr;
     }
 

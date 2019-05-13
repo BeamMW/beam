@@ -107,6 +107,11 @@ namespace beam::wallet
         if (!m_secondSide)
         {
             m_secondSide = m_Gateway.GetSecondSide(GetTxID());
+
+            if (!m_secondSide)
+            {
+                return;
+            }
         }
 
         CheckSubTxFailures();
