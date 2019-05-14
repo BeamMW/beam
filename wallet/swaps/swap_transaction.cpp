@@ -489,20 +489,26 @@ namespace beam::wallet
 
         lockTxBuilder->GenerateNonce();
 
+        if (!lockTxBuilder->UpdateMaxHeight())
+        {
+            OnSubTxFailed(TxFailureReason::MaxHeightIsUnacceptable, SubTxIndex::BEAM_LOCK_TX, true);
+            return lockTxState;
+        }
+
         if (!lockTxBuilder->GetPeerPublicExcessAndNonce())
         {
             if (lockTxState == SubTxState::Initial && isBeamOwner)
             {
+                if (!IsInitiator())
+                {
+                    // When swap started not from Beam side, we should save MaxHeight
+                    SetParameter(TxParameterID::MaxHeight, lockTxBuilder->GetMaxHeight(), false, SubTxIndex::BEAM_LOCK_TX);
+                }
+
                 SendLockTxInvitation(*lockTxBuilder);
                 SetState(SubTxState::Invitation, SubTxIndex::BEAM_LOCK_TX);
                 lockTxState = SubTxState::Invitation;
             }
-            return lockTxState;
-        }
-
-        if (!lockTxBuilder->UpdateMaxHeight())
-        {
-            OnSubTxFailed(TxFailureReason::MaxHeightIsUnacceptable, SubTxIndex::BEAM_LOCK_TX, true);
             return lockTxState;
         }
 
@@ -782,6 +788,7 @@ namespace beam::wallet
         auto swapAddress = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapAddress);
         auto swapLockTime = GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapExternalLockTime);
         auto minHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight);
+        auto lifetime = GetMandatoryParameter<Height>(TxParameterID::Lifetime);
 
         // send invitation
         SetTxParameter msg;
@@ -789,6 +796,7 @@ namespace beam::wallet
             .AddParameter(TxParameterID::Fee, GetMandatoryParameter<Amount>(TxParameterID::Fee))
             .AddParameter(TxParameterID::IsSender, !IsSender())
             .AddParameter(TxParameterID::MinHeight, minHeight)
+            .AddParameter(TxParameterID::Lifetime, lifetime)
             .AddParameter(TxParameterID::AtomicSwapAmount, swapAmount)
             .AddParameter(TxParameterID::AtomicSwapCoin, swapCoin)
             .AddParameter(TxParameterID::AtomicSwapPeerAddress, swapAddress)
@@ -821,8 +829,6 @@ namespace beam::wallet
         msg.AddParameter(TxParameterID::AtomicSwapPeerAddress, swapAddress)
             .AddParameter(TxParameterID::Fee, lockBuilder.GetFee())
             .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
-            .AddParameter(TxParameterID::MinHeight, lockBuilder.GetMinHeight())
-            .AddParameter(TxParameterID::Lifetime, lockBuilder.GetLifetime())
             .AddParameter(TxParameterID::PeerMaxHeight, lockBuilder.GetMaxHeight())
             .AddParameter(TxParameterID::PeerPublicExcess, lockBuilder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerPublicNonce, lockBuilder.GetPublicNonce());
