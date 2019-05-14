@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.1)
 
 set(VERSION_MAJOR 2)
-set(VERSION_MINOR 0)
+set(VERSION_MINOR 1)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
@@ -137,13 +137,6 @@ endif()
 
 if(SHOW_CODE_LOCATION)
     add_definitions(-DSHOW_CODE_LOCATION=1)
-endif()
-
-# comment next if block to avoid styling by branchname
-if(BRANCH_NAME MATCHES "testnet")
-    add_definitions(-DBEAM_TESTNET)
-elseif(BRANCH_NAME MATCHES "mainnet")
-    add_definitions(-DBEAM_MAINNET)
 endif()
 
 # uncoment next line for testnet

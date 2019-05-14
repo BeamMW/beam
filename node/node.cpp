@@ -1470,11 +1470,7 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 	SetTxCursor(nullptr);
 
     m_This.m_lstPeers.erase(PeerList::s_iterator_to(*this));
-
-    // raise an error if the node banned all the peers while synchronizing
-    if (m_This.m_lstPeers.empty() && nByeReason == ByeReason::Ban)
-        m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::EmptyPeerList);
-    
+   
     delete this;
 }
 

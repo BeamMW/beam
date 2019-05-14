@@ -134,7 +134,7 @@ void NodeClient::start()
                     }
 
                     if (bErr)
-                        m_observer->onSyncError(Node::IObserver::Error::EmptyPeerList);
+                        m_observer->onSyncError(Node::IObserver::Error::Unknown);
                 }
             }
         }
