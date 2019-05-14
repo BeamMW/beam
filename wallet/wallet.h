@@ -75,8 +75,9 @@ namespace beam
         : public IWallet
         , public wallet::INegotiatorGateway
     {
-        using Callback = std::function<void()>;
     public:
+
+        // Type definitions for callback functors
         using TxCompletedAction = std::function<void(const TxID& tx_id)>;
         using UpdateCompletedAction = std::function<void()>;
 
@@ -86,6 +87,8 @@ namespace beam
         void SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint);
         void AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint);
 
+        // Metods for Atomic Swaps
+        // TODO: Refactor
         void initBitcoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, bool mainnet = false);
         void initLitecoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, bool mainnet = false);
         void initSwapConditions(Amount beamAmount, Amount swapAmount, wallet::AtomicSwapCoin swapCoin, bool isBeamSide);
@@ -267,18 +270,35 @@ namespace beam
 
         IWalletDB::Ptr m_WalletDB; 
         std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
+
+        // List of currently active (incomplete) transactions
         std::map<TxID, wallet::BaseTransaction::Ptr> m_Transactions;
+
+        // List of transactions that are waiting for wallet to finish sync before tx update
         std::unordered_set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
+
+        // List of transactions that are waiting for the next tip (new block) to arrive
         std::unordered_set<wallet::BaseTransaction::Ptr> m_NextTipTransactionToUpdate;
+
+        // Functor for callback when transaction completed
         TxCompletedAction m_TxCompletedAction;
+
+        // Functor for callback on completion of all async updates
         UpdateCompletedAction m_UpdateCompleted;
+
+        // Number of tasks running during sync with Node
         uint32_t m_LastSyncTotal;
+
         uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
         std::set<IWalletMessageEndpoint::Ptr> m_MessageEndpoints;
+
+        // Counter of running transaction updates. Used by Cold wallet
         int m_AsyncUpdateCounter = 0;
 
+        // Members for Atomic Swaps
+        // TODO: Refactor this
         IBitcoinBridge::Ptr m_bitcoinBridge;
         IBitcoinBridge::Ptr m_litecoinBridge;
         std::vector<SwapConditions> m_swapConditions;
