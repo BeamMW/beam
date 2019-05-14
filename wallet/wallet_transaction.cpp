@@ -30,6 +30,57 @@ namespace beam { namespace wallet
     using namespace ECC;
     using namespace std;
 
+    //class Operation
+    //{
+    //public:
+    //    Operation(INegotiatorGateway& gateway) 
+    //        : m_Gateway(gateway)
+    //    {
+    //    }
+
+    //    void Update() 
+    //    {
+    //        UpdateImpl();
+    //    }
+    //protected:
+    //    virtual void UpdateImpl()
+    //    {
+    //    }
+    //protected:
+    //    INegotiatorGateway& m_Gateway;
+    //};
+
+    //class AsyncOperation : public Operation
+    //{
+    //public:
+    //    AsyncOperation(INegotiatorGateway& gateway)
+    //        : Operation(gateway)
+    //    {
+    //    
+    //    }
+    //protected:
+    //    void UpdateImpl() override
+    //    {
+    //        m_Gateway.OnAsyncStarted();
+    //        m_CompletedEvent = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() mutable
+    //            {
+    //                Update();
+    //                m_Gateway.OnAsyncFinished();
+    //            });
+    //        m_Future = async(launch::async, [this]() mutable
+    //            {
+    //                UpdateImpl();
+    //                m_CompletedEvent->post();
+    //            });
+    //        return;
+    //    }
+    //private:
+    //    io::AsyncEvent::Ptr m_CompletedEvent;
+    //    future<void> m_Future;
+    //};
+
+
+
     TxID GenerateTxID()
     {
         boost::uuids::uuid id = boost::uuids::random_generator()();
@@ -346,12 +397,6 @@ namespace beam { namespace wallet
                 return;
             }
 
-            bool newGenerated = builder.GenerateBlindingExcess();
-            if (newGenerated && txState != State::Initial)
-            {
-                OnFailed(TxFailureReason::InvalidState);
-                return;
-            }
             if (!builder.GetInitialTxParams() && txState == State::Initial)
             {
                 if (m_CompletedEvent)
@@ -385,7 +430,24 @@ namespace beam { namespace wallet
 
                 UpdateTxDescription(TxStatus::InProgress);
 
-                if (!builder.GetCoins().empty())
+                builder.GenerateOffset();
+            }
+
+            if (!builder.GetInputs())
+            {
+                if (!builder.GetInputCoins().empty())
+                {
+                    m_Gateway.OnAsyncStarted();
+                    builder.CreateInputs();
+                    builder.FinalizeInputs();
+                    m_Gateway.OnAsyncFinished();
+                    //return;
+                }
+            }
+
+            if (!builder.GetOutputs())
+            {
+                if (!builder.GetOutputCoins().empty())
                 {
                     m_Gateway.OnAsyncStarted();
                     m_CompletedEvent = io::AsyncEvent::create(io::Reactor::get_Current(), [this, sharedBuilder]() mutable
@@ -775,26 +837,20 @@ namespace beam { namespace wallet
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);
         }
 
-        m_Inputs.reserve(m_Inputs.size() + coins.size());
+        m_InputCoins.reserve(coins.size());
+
         Amount total = 0;
         for (auto& coin : coins)
         {
             coin.m_spentTxId = m_Tx.GetTxID();
-
-            auto& input = m_Inputs.emplace_back(make_unique<Input>());
-
-            Scalar::Native blindingFactor;
-            m_Tx.GetWalletDB()->calcCommitment(blindingFactor, input->m_Commitment, coin.m_ID);
-
-            m_Offset += blindingFactor;
             total += coin.m_ID.m_Value;
+            m_InputCoins.push_back(coin.m_ID);
         }
 
         m_Change += total - amountWithFee;
 
         m_Tx.SetParameter(TxParameterID::Change, m_Change, false);
-        m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false);
-        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false);
+        m_Tx.SetParameter(TxParameterID::InputCoins, m_InputCoins, false);
 
         m_Tx.GetWalletDB()->save(coins);
     }
@@ -811,25 +867,23 @@ namespace beam { namespace wallet
 
     void TxBuilder::GenerateNewCoin(Amount amount, bool bChange)
     {
-        Coin& newUtxo = m_Coins.emplace_back(amount);
+        Coin newUtxo{ amount };
         newUtxo.m_createTxId = m_Tx.GetTxID();
         if (bChange)
         {
             newUtxo.m_ID.m_Type = Key::Type::Change;
         }
         m_Tx.GetWalletDB()->store(newUtxo);
+        m_OutputCoins.push_back(newUtxo.m_ID);
     }
 
     void TxBuilder::CreateOutputs()
     {
-        for (const auto& utxo : m_Coins)
+        for (const auto& coinID : m_OutputCoins)
         {
             Scalar::Native blindingFactor;
             Output::Ptr output = make_unique<Output>();
-            output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(utxo.m_ID.m_SubIdx), utxo.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
-
-            blindingFactor = -blindingFactor;
-            m_Offset += blindingFactor;
+            output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(coinID.m_SubIdx), coinID, *m_Tx.GetWalletDB()->get_MasterKdf());
             m_Outputs.emplace_back(move(output));
         }
     }
@@ -842,7 +896,7 @@ namespace beam { namespace wallet
     bool TxBuilder::FinalizeOutputs()
     {
         m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false);
-        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false);
+        m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false);
         
         // TODO: check transaction size here
 
@@ -863,10 +917,23 @@ namespace beam { namespace wallet
         Output::Ptr output = make_unique<Output>();
         output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(newUtxo.m_ID.m_SubIdx), newUtxo.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
 
-        blindingFactor = -blindingFactor;
-        m_Offset += blindingFactor;
-
         return output;
+    }
+
+    void TxBuilder::CreateInputs()
+    {
+        m_Inputs.reserve(m_InputCoins.size());
+        for (auto& coinID : m_InputCoins)
+        {
+            auto& input = m_Inputs.emplace_back(make_unique<Input>());
+            Scalar::Native blindingFactor;
+            m_Tx.GetWalletDB()->calcCommitment(blindingFactor, input->m_Commitment, coinID);
+        }
+    }
+
+    void TxBuilder::FinalizeInputs()
+    {
+        m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false);
     }
 
     void TxBuilder::CreateKernel()
@@ -882,29 +949,13 @@ namespace beam { namespace wallet
         m_Tx.SetParameter(TxParameterID::MaxHeight, GetMaxHeight());
     }
 
-    bool TxBuilder::GenerateBlindingExcess()
+    void TxBuilder::GenerateOffset()
     {
-        bool newGenerated = false;
-        if (!m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess))
-        {
-            Key::ID kid;
-            kid.m_Idx = m_Tx.GetWalletDB()->AllocateKidRange(1);
-            kid.m_Type = FOURCC_FROM(KerW);
-            kid.m_SubIdx = 0;
-
-            m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_BlindingExcess, kid);
-
-            m_Tx.SetParameter(TxParameterID::BlindingExcess, m_BlindingExcess, false);
-
-            newGenerated = true;
-        }
-
-        m_Offset += m_BlindingExcess;
-        m_BlindingExcess = -m_BlindingExcess;
-
-        return newGenerated;
+        m_Offset.GenRandomNnz();
+        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false);
+        LOG_DEBUG() << m_Tx.GetTxID() << " Offset: " << Scalar(m_Offset);
     }
-
+     
     void TxBuilder::GenerateNonce()
     {
         // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
@@ -917,9 +968,69 @@ namespace beam { namespace wallet
         m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_MultiSig.m_Nonce, hvRandom.V);
     }
 
+    Scalar::Native TxBuilder::GetExcess() const
+    {
+        // Excess = Sum(input blinfing factors) - Sum(output blinfing factors) - offset
+        Point commitment;
+        Scalar::Native blindingFactor;
+        Scalar::Native excess = m_Offset;
+        for (const auto& coinID : m_OutputCoins)
+        {
+            m_Tx.GetWalletDB()->calcCommitment(blindingFactor, commitment, coinID);
+            excess += blindingFactor;
+        }
+        excess = -excess;
+
+        for (const auto& coinID : m_InputCoins)
+        {
+            m_Tx.GetWalletDB()->calcCommitment(blindingFactor, commitment, coinID);
+            excess += blindingFactor;
+        }
+        return excess;
+    }
+
     Point::Native TxBuilder::GetPublicExcess() const
     {
-        return Context::get().G * m_BlindingExcess;
+        // PublicExcess = Sum(inputs) - Sum(outputs) - offset * G - (Sum(input amounts) - Sum(output amounts)) * H
+        Point::Native publicAmount = Zero;
+        Amount amount = 0;
+        for (const auto& cid : m_InputCoins)
+        {
+            amount += cid.m_Value;
+        }
+        AmountBig::AddTo(publicAmount, amount);
+        amount = 0;
+        publicAmount = -publicAmount;
+        for (const auto& cid : m_OutputCoins)
+        {
+            amount += cid.m_Value;
+        }
+        AmountBig::AddTo(publicAmount, amount);
+
+        Point::Native publicExcess = Context::get().G * m_Offset;
+        {
+            Point::Native commitment;
+            
+            for (const auto& output : m_Outputs)
+            {
+                if (commitment.Import(output->m_Commitment))
+                {
+                    publicExcess += commitment;
+                }
+            }
+
+            publicExcess = -publicExcess;
+            for (const auto& input : m_Inputs)
+            {
+                if (commitment.Import(input->m_Commitment))
+                {
+                    publicExcess += commitment;
+                }
+            }
+        }
+        publicExcess += publicAmount;
+        LOG_DEBUG() << m_Tx.GetTxID() << " Public excess: " << publicExcess;
+        return publicExcess;
     }
 
     Point::Native TxBuilder::GetPublicNonce() const
@@ -948,6 +1059,9 @@ namespace beam { namespace wallet
     {
         m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs);
         m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs);
+        m_Tx.GetParameter(TxParameterID::InputCoins, m_InputCoins);
+        m_Tx.GetParameter(TxParameterID::OutputCoins, m_OutputCoins);
+
         if (!m_Tx.GetParameter(TxParameterID::MinHeight, m_MinHeight))
         {
             // adjust min height, this allows create transaction when node is out of sync
@@ -965,6 +1079,16 @@ namespace beam { namespace wallet
         m_Tx.GetParameter(TxParameterID::PeerMaxHeight, m_PeerMaxHeight);
 
         return m_Tx.GetParameter(TxParameterID::Offset, m_Offset);
+    }
+
+    bool TxBuilder::GetInputs()
+    {
+        return m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs);
+    }
+
+    bool TxBuilder::GetOutputs()
+    {
+        return m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs);
     }
 
     bool TxBuilder::GetPeerInputsAndOutputs()
@@ -985,9 +1109,9 @@ namespace beam { namespace wallet
 
         m_Kernel->get_Hash(m_Message);
         m_MultiSig.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
-        
-        
-        m_MultiSig.SignPartial(m_PartialSignature, m_Message, m_BlindingExcess);
+
+        auto excess = GetExcess();
+        m_MultiSig.SignPartial(m_PartialSignature, m_Message, excess);
 
         StoreKernelID();
     }
@@ -1195,8 +1319,13 @@ namespace beam { namespace wallet
         return m_PeerMaxHeight < MaxHeight && m_PeerMaxHeight <= maxAcceptableHeight;
     }
 
-    const std::vector<Coin>& TxBuilder::GetCoins() const
+    const std::vector<Coin::ID>& TxBuilder::GetInputCoins() const
     {
-        return m_Coins;
+        return m_InputCoins;
+    }
+
+    const std::vector<Coin::ID>& TxBuilder::GetOutputCoins() const
+    {
+        return m_OutputCoins;
     }
 }}

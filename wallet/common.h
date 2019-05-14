@@ -296,6 +296,8 @@ namespace beam
             Inputs = 180,
             SharedInputs = 181,
             LockedInputs = 182,
+            InputCoins = 183,
+            OutputCoins = 184,
             
             Outputs = 190,
             SharedOutputs = 191,

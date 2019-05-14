@@ -185,15 +185,20 @@ namespace beam { namespace wallet
         bool HasKernelID() const;
         Output::Ptr CreateOutput(Amount amount, bool bChange);
         void CreateKernel();
-        bool GenerateBlindingExcess();
+        void GenerateOffset();
         void GenerateNonce();
+        ECC::Scalar::Native GetExcess() const;
         ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
         bool GetInitialTxParams();
+        bool GetInputs();
+        bool GetOutputs();
         bool GetPeerPublicExcessAndNonce();
         bool GetPeerSignature();
         bool GetPeerInputsAndOutputs();
         void FinalizeSignature();
+        void CreateInputs();
+        void FinalizeInputs();
         Transaction::Ptr CreateTransaction();
         void SignPartial();
         bool IsPeerSignatureValid() const;
@@ -215,7 +220,8 @@ namespace beam { namespace wallet
         bool UpdateMaxHeight();
         bool IsAcceptableMaxHeight() const;
 
-        const std::vector<Coin>& GetCoins() const;
+        const std::vector<Coin::ID>& GetInputCoins() const;
+        const std::vector<Coin::ID>& GetOutputCoins() const;
     private:
         BaseTransaction& m_Tx;
 
@@ -231,7 +237,8 @@ namespace beam { namespace wallet
         ECC::Scalar::Native m_BlindingExcess; // goes to kernel
         ECC::Scalar::Native m_Offset; // goes to offset
 
-        std::vector<Coin> m_Coins;
+        std::vector<Coin::ID> m_InputCoins;
+        std::vector<Coin::ID> m_OutputCoins;
 
         // peer values
         ECC::Scalar::Native m_PartialSignature;
