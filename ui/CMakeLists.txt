@@ -24,6 +24,7 @@ function(BEAM_TRANSLATIONS_COMPILE_QM ts_files out_qm_files)
     set(${out_qm_files} ${QM_FILES} PARENT_SCOPE)
 endfunction()
 
+set(APP_NAME "Beam Wallet${BEAM_DISPLAY_SUFFIX}")
 if(LINUX)
     set (OUTPUT_NAME "BeamWallet${BEAM_SUFFIX_UPPER_CASE}")
 else()
@@ -132,7 +133,7 @@ elseif(BEAM_MAINNET)
     set(BEAM_ICON_SUFFIX "mainnet")
 endif()
 
-add_definitions(-DAPP_NAME=\"${OUTPUT_NAME}\")
+add_definitions(-DAPP_NAME=\"${APP_NAME}\")
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/icons/icon_${BEAM_ICON_SUFFIX}.ico
           ${CMAKE_CURRENT_SOURCE_DIR}/icons/beam_${BEAM_ICON_SUFFIX}.png
