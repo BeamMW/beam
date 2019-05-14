@@ -743,10 +743,12 @@ namespace beam { namespace wallet
         , m_MaxHeight{MaxHeight}
         , m_PeerMaxHeight{ MaxHeight }
     {
+#if defined(BEAM_HW_WALLET)
         m_hwWallet.getOwnerKey([](const std::string& key)
         {
             LOG_INFO() << "HWWallet.getOwnerKey(): " << key;
         });
+#endif
     }
 
     void TxBuilder::SelectInputs()

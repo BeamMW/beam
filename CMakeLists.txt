@@ -165,8 +165,19 @@ elseif(BEAM_MAINNET)
     set(BEAM_DISPLAY_SUFFIX "")
 endif()
 
-if(NOT ANDROID)
+option(BEAM_HW_WALLET "Build with hardware wallet support" ON)
+
+if(BEAM_HW_WALLET)
+
+    if(WIN32)
+        set(protobuf_MSVC_STATIC_RUNTIME OFF)
+    endif()
+
+    set(protobuf_BUILD_TESTS OFF)
+    set(protobuf_BUILD_PROTOC_BINARIES OFF)
     add_subdirectory(3rdparty/protobuf/cmake)
+
+    set(BUILD_CURL_EXE OFF)
     add_subdirectory(3rdparty/curl)
 endif()
 

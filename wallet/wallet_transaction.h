@@ -23,7 +23,9 @@
 
 #include <future>
 
+#if defined(BEAM_HW_WALLET)
 #include "hw_wallet.h"
+#endif
 
 namespace beam { namespace wallet
 {
@@ -252,6 +254,8 @@ namespace beam { namespace wallet
 
         mutable boost::optional<Merkle::Hash> m_KernelID;
 
+#if defined(BEAM_HW_WALLET)
         HWWallet m_hwWallet;
+#endif
     };
 }}
