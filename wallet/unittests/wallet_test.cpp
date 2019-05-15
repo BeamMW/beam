@@ -1979,7 +1979,7 @@ namespace
 
         {
             // create cold wallet
-            TestWalletRig privateSender("receiver", createReceiverWalletDB(true), f, true);
+            TestWalletRig privateReceiver("receiver", createReceiverWalletDB(true), f, true);
         }
 
         string publicPath = "receiver_public.db";
@@ -2014,7 +2014,7 @@ namespace
             TestWalletRig publicReceiver("public_receiver", publicDB, f, false, true);
 
             mainReactor->run();
-            mainReactor->run(); // to allow receiver complete his transaction
+            mainReactor->run(); // to allow receiver complete this transaction
         }
 
         // hot -> cold
