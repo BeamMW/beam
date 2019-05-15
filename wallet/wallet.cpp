@@ -862,11 +862,8 @@ namespace beam
         {
             const auto& pTx = it->second;
 
-            Height h;
-            if (pTx->GetParameter(TxParameterID::KernelProofHeight, h) && (h > sTip.m_Height))
+            if (pTx->Rollback(sTip.m_Height))
             {
-                h = 0;
-                pTx->SetParameter(TxParameterID::KernelProofHeight, h);
                 UpdateOnSynced(pTx);
             }
         }

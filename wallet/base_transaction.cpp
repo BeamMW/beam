@@ -168,6 +168,20 @@ namespace beam::wallet
         }
     }
 
+    bool BaseTransaction::Rollback(Height height)
+    {
+        Height proofHeight;
+
+        if (GetParameter(TxParameterID::KernelProofHeight, proofHeight) && (proofHeight > height))
+        {
+            SetParameter(TxParameterID::Status, TxStatus::Registering);
+            SetParameter(TxParameterID::KernelProofHeight, 0);
+            SetParameter(TxParameterID::KernelUnconfirmedHeight, 0);
+            return true;
+        }
+        return false;
+    }
+
     void BaseTransaction::RollbackTx()
     {
         LOG_INFO() << GetTxID() << " Transaction failed. Rollback...";

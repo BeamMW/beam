@@ -68,6 +68,8 @@ namespace beam::wallet
         void Update() override;
         void Cancel() override;
 
+        bool Rollback(Height height) override;
+
     private:
         void SetNextState(State state);
 

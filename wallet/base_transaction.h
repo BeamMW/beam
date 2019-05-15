@@ -31,6 +31,7 @@ namespace beam::wallet
         virtual TxType GetType() const = 0;
         virtual void Update() = 0;
         virtual void Cancel() = 0;
+        virtual bool Rollback(Height height) = 0;
     };
 
 
@@ -63,6 +64,8 @@ namespace beam::wallet
         const TxID& GetTxID() const;
         void Update() override;
         void Cancel() override;
+
+        bool Rollback(Height height) override;
 
         static const uint32_t s_ProtoVersion;
 

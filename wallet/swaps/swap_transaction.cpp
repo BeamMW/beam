@@ -59,6 +59,43 @@ namespace beam::wallet
         LOG_DEBUG() << GetTxID() << " Cancel not implemented yet.";
     }
 
+    bool AtomicSwapTransaction::Rollback(Height height)
+    {
+        State state = GetState(kDefaultSubTxID);
+        Height proofHeight;
+
+        if (IsBeamSide())
+        {
+            if (GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_LOCK_TX)
+                && proofHeight > height
+                && state != State::SendingBeamLockTX)
+            {
+                SetState(State::SendingBeamLockTX);
+                return true;
+            }
+
+            if (GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_REFUND_TX)
+                && proofHeight > height
+                && state != State::SendingBeamRefundTX)
+            {
+                SetState(State::SendingBeamRefundTX);
+                return true;
+            }
+        }
+        else
+        {
+            if (GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_REDEEM_TX) 
+                && proofHeight > height 
+                && state != State::SendingBeamRedeemTX)
+            {
+                SetState(State::SendingBeamRedeemTX);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     void AtomicSwapTransaction::SetNextState(State state)
     {
         SetState(state);

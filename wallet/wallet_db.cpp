@@ -1838,6 +1838,7 @@ namespace beam
 
     void WalletDB::rollbackConfirmedUtxo(Height minHeight)
     {
+        // TODO roman.strilets: maybe this is obsolete code. need to investigate. look at Wallet::OnRolledBack()
         // Transactions
         {
             vector<TxID> rollbackedTransaction;
