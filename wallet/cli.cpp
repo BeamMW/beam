@@ -1194,8 +1194,7 @@ int main_impl(int argc, char* argv[])
 
                                 WalletAddress senderAddress = newAddress(walletDB, "");
 
-                                wallet.swap_coins(isBeamSide ? senderAddress.m_walletID : receiverWalletID,
-                                    isBeamSide ? receiverWalletID : senderAddress.m_walletID,
+                                wallet.swap_coins(senderAddress.m_walletID, receiverWalletID,                                    
                                     move(amount), move(fee), swapCoin, swapAmount, isBeamSide);
                             }
 
