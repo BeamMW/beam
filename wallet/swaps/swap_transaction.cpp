@@ -472,14 +472,7 @@ namespace beam::wallet
         GetParameter(TxParameterID::State, lockTxState, SubTxIndex::BEAM_LOCK_TX);
 
         bool isBeamOwner = IsBeamSide();
-        Amount fee = 0;
-        GetParameter(TxParameterID::Fee, fee);
-
-        if (!fee)
-        {
-            return lockTxState;
-        }
-
+        auto fee = GetMandatoryParameter<Amount>(TxParameterID::Fee);
         auto lockTxBuilder = std::make_unique<LockTxBuilder>(*this, GetAmount(), fee);
 
         if (!lockTxBuilder->GetInitialTxParams() && lockTxState == SubTxState::Initial)
