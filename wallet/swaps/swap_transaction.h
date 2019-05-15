@@ -43,6 +43,8 @@ namespace beam::wallet
             SendingBeamRefundTX,
             SendingBeamRedeemTX,
 
+            Cancelled,
+
             CompleteSwap,
         };
 

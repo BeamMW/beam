@@ -56,7 +56,29 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::Cancel()
     {
-        LOG_DEBUG() << GetTxID() << " Cancel not implemented yet.";
+        State state = GetState(kDefaultSubTxID);
+
+        switch (state)
+        {
+        case State::HandlingContractTX:
+            if (!IsBeamSide())
+            {
+                break;
+            }
+        case State::Initial:
+        case State::Invitation:
+        case State::BuildingBeamLockTX:
+        case State::BuildingBeamRedeemTX:
+        case State::BuildingBeamRefundTX:
+        {
+            SetNextState(State::Cancelled);
+            return;
+        }
+        default:
+            break;
+        }
+
+        LOG_INFO() << GetTxID() << " You cannot cancel transaction in state: " << static_cast<int>(state);
     }
 
     bool AtomicSwapTransaction::Rollback(Height height)
@@ -183,8 +205,7 @@ namespace beam::wallet
         {
             auto lockTxState = BuildBeamLockTx();
             if (lockTxState != SubTxState::Constructed)
-                break;
-
+                break;            
             LOG_INFO() << GetTxID() << " Beam LockTX constructed.";
             SetNextState(State::BuildingBeamRefundTX);
             break;
@@ -337,6 +358,13 @@ namespace beam::wallet
         {
             LOG_INFO() << GetTxID() << " Swap completed.";
             CompleteTx();
+            break;
+        }
+        case State::Cancelled:
+        {
+            LOG_INFO() << GetTxID() << " Transaction cancelled.";
+            // TODO roman.strilec: need to implement notification of counterparty
+            RollbackTx();
             break;
         }
 
