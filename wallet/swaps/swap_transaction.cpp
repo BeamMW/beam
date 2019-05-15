@@ -41,7 +41,7 @@ namespace beam::wallet
         {
             UpdateImpl();
 
-            //CheckExpired();
+            CheckExpired();
         }
         catch (const TransactionFailedException& ex)
         {
