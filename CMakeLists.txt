@@ -170,21 +170,22 @@ option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
 if(BEAM_HW_WALLET)
 
     if(BEAM_USE_STATIC)
-        set(BUILD_SHARED_LIBS OFF)
+        set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
 
         if(WIN32)
-            set(CURL_STATIC_CRT ON)
+            set(CURL_STATIC_CRT ON CACHE BOOL "")
         endif()
 
         add_definitions(-DCURL_STATICLIB)
     else()        
         if(WIN32)
-            set(protobuf_MSVC_STATIC_RUNTIME OFF)
+            set(protobuf_MSVC_STATIC_RUNTIME OFF CACHE BOOL "")
         endif()
     endif()
 
-    set(protobuf_BUILD_TESTS OFF)
-    set(protobuf_BUILD_PROTOC_BINARIES OFF)
+    set(protobuf_BUILD_TESTS OFF CACHE BOOL "")
+    set(protobuf_BUILD_PROTOC_BINARIES OFF CACHE BOOL "")
+
     add_subdirectory(3rdparty/protobuf/cmake)
 
 endif()
@@ -242,8 +243,8 @@ else()
 endif()
 
 if(BEAM_HW_WALLET)
-    set(HTTP_ONLY ON)
-    set(BUILD_CURL_EXE OFF)
+    set(HTTP_ONLY ON CACHE BOOL "")
+    set(BUILD_CURL_EXE OFF CACHE BOOL "")
     add_subdirectory(3rdparty/curl)
 endif()
 

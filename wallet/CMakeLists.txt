@@ -34,10 +34,12 @@ if (NOT ANDROID)
             ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src/messages/messages-beam.pb.cc
         )
 
-        target_compile_options(hw_wallet PRIVATE "/wd4125")
-        target_compile_options(hw_wallet PRIVATE "/wd4127")
-        target_compile_options(hw_wallet PRIVATE "/wd4244")
-        target_compile_options(hw_wallet PRIVATE "/wd4996")
+        if(MSVC)
+            target_compile_options(hw_wallet PRIVATE "/wd4125")
+            target_compile_options(hw_wallet PRIVATE "/wd4127")
+            target_compile_options(hw_wallet PRIVATE "/wd4244")
+            target_compile_options(hw_wallet PRIVATE "/wd4996")
+        endif()
 
         target_include_directories(hw_wallet PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client)
         target_include_directories(hw_wallet PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src)

@@ -37,7 +37,7 @@ public:
         });
   }
 
-  void init(const Enumerate &enumerate) throw()
+  void init(const Enumerate &enumerate)
   {
     if (enumerate.session != "null")
       throw std::runtime_error("device already occupied, complete the previous session first");
