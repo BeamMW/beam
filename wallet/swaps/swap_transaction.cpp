@@ -711,7 +711,7 @@ namespace beam::wallet
             withdrawUtxo.m_createTxId = GetTxID();
             withdrawUtxo.m_ID = GetMandatoryParameter<Coin::ID>(TxParameterID::SharedCoinID, subTxID);
 
-            GetWalletDB()->store(withdrawUtxo);
+            GetWalletDB()->save(withdrawUtxo);
         }
 
         std::vector<Coin> modified = GetWalletDB()->getCoinsByTx(GetTxID());
