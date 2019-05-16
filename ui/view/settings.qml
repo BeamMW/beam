@@ -386,45 +386,13 @@ Rectangle {
                             }
 
                             Row {
-                                width: parent.width
-                                spacing: 10
-                                ColumnLayout {
-                                    width: parent.width * 2 / 3
-                                    SFText {
-                                        //% "Language"
-                                        text: qsTrId("settings-general-language")
-                                        color: Style.content_main
-                                        font.pixelSize: 12
-                                    }
-                                }
-                                ColumnLayout {
-                                    width: parent.width / 3
-                                    CustomComboBox {
-                                        id: language
-                                        Layout.fillWidth: true
-                                        height: 20
-                                        Layout.alignment: Qt.AlignRight
-                                        anchors.top: parent.top
-
-                                        model: viewModel.supportedLanguages
-                                        currentIndex: viewModel.currentLanguageIndex
-                                        Binding {
-                                            target: viewModel
-                                            property: "currentLanguage"
-                                            value: language.currentText
-                                        }
-                                    }
-                                }
-                            }
-
-                            Row {
-                                width: parent.width
+                                width: parent.width * 0.57
                                 spacing: 10
 
                                 ColumnLayout {
-                                    width: parent.width * 2 / 3
+                                    width: parent.width * 0.4
                                     SFText {
-                                        //% "Lock screen in"
+                                        //% "Lock screen"
                                         text: qsTrId("settings-general-lock-screen")
                                         color: Style.content_main
                                         font.pixelSize: 12
@@ -432,7 +400,7 @@ Rectangle {
                                 }
 
                                 ColumnLayout {
-                                    width: parent.width / 3
+                                    width: parent.width * 0.6
                                     CustomComboBox {
                                         id: lockTimeoutControl
                                         Layout.fillWidth: true
@@ -461,6 +429,38 @@ Rectangle {
                                             //% "1 hour"
                                             qsTrId("settings-general-lock-screen-1h"),
                                         ]
+                                    }
+                                }
+                            }
+
+                            Row {
+                                width: parent.width * 0.57
+                                spacing: 10
+                                ColumnLayout {
+                                    width: parent.width * 0.4
+                                    SFText {
+                                        //% "Language"
+                                        text: qsTrId("settings-general-language")
+                                        color: Style.content_main
+                                        font.pixelSize: 12
+                                    }
+                                }
+                                ColumnLayout {
+                                    width: parent.width * 0.6
+                                    CustomComboBox {
+                                        id: language
+                                        Layout.fillWidth: true
+                                        height: 20
+                                        Layout.alignment: Qt.AlignRight
+                                        anchors.top: parent.top
+
+                                        model: viewModel.supportedLanguages
+                                        currentIndex: viewModel.currentLanguageIndex
+                                        Binding {
+                                            target: viewModel
+                                            property: "currentLanguage"
+                                            value: language.currentText
+                                        }
                                     }
                                 }
                             }

@@ -156,7 +156,7 @@
         <translation>Основные настройки</translation>
     </message>
     <message id="settings-general-lock-screen">
-        <source>Lock screen in</source>
+        <source>Lock screen</source>
         <translation>Блокировать экран</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend">

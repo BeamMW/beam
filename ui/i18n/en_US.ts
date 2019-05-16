@@ -124,8 +124,8 @@
         <translation>General settings</translation>
     </message>
     <message id="settings-general-lock-screen">
-        <source>Lock screen in</source>
-        <translation>Lock screen in</translation>
+        <source>Lock screen</source>
+        <translation>Lock screen</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend">
         <source>Ask password for every sending transaction</source>
