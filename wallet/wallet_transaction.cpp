@@ -54,7 +54,8 @@ namespace beam::wallet
 
         bool hasPeersInputsAndOutputs = builder.GetPeerInputsAndOutputs();
 
-        if (!builder.LoadKernel() && !builder.HasKernelID())
+        if ((isSender && !builder.LoadKernel())
+         || (!isSender && !builder.HasKernelID()))
         {
             if (!m_WalletDB->get_MasterKdf())
             {
