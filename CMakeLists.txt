@@ -158,6 +158,31 @@ elseif(BEAM_MAINNET)
     set(BEAM_DISPLAY_SUFFIX "")
 endif()
 
+option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
+
+if(BEAM_HW_WALLET)
+
+    if(BEAM_USE_STATIC)
+        set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
+
+        if(WIN32)
+            set(CURL_STATIC_CRT ON CACHE BOOL "")
+        endif()
+
+        add_definitions(-DCURL_STATICLIB)
+    else()        
+        if(WIN32)
+            set(protobuf_MSVC_STATIC_RUNTIME OFF CACHE BOOL "")
+        endif()
+    endif()
+
+    set(protobuf_BUILD_TESTS OFF CACHE BOOL "")
+    set(protobuf_BUILD_PROTOC_BINARIES OFF CACHE BOOL "")
+
+    add_subdirectory(3rdparty/protobuf/cmake)
+
+endif()
+
 if(MSVC)
     if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
 		string(REGEX REPLACE "/W[0-4]" "/W4 /WX" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
@@ -210,6 +235,12 @@ else()
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-value") # proto.h
 
 
+endif()
+
+if(BEAM_HW_WALLET)
+    set(HTTP_ONLY ON CACHE BOOL "")
+    set(BUILD_CURL_EXE OFF CACHE BOOL "")
+    add_subdirectory(3rdparty/curl)
 endif()
 
 if(UNIX OR WIN32)
