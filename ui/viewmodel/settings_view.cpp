@@ -34,6 +34,7 @@ SettingsViewModel::SettingsViewModel()
     , m_isValidNodeAddress{true}
     , m_isNeedToCheckAddress(false)
     , m_isNeedToApplyChanges(false)
+    , m_supportedLanguages(WalletSettings::getSupportedLanguages())
 {
     undoChanges();
     connect(&AppModel::getInstance()->getNode(), SIGNAL(startedNode()), SLOT(onNodeStarted()));
@@ -176,6 +177,37 @@ void SettingsViewModel::setPasswordReqiredToSpendMoney(bool value)
     }
 }
 
+QStringList SettingsViewModel::getSupportedLanguages() const
+{
+    return m_supportedLanguages;
+}
+
+int SettingsViewModel::getCurrentLanguageIndex() const
+{
+    return m_currentLanguageIndex;
+}
+
+void SettingsViewModel::setCurrentLanguageIndex(int value)
+{
+    m_currentLanguageIndex = value;
+    emit currentLanguageIndexChanged();
+    emit propertiesChanged();
+}
+
+QString SettingsViewModel::getCurrentLanguage() const
+{
+    return m_supportedLanguages[m_currentLanguageIndex];
+}
+
+void SettingsViewModel::setCurrentLanguage(QString value)
+{
+    auto index = m_supportedLanguages.indexOf(value);
+    if (index != -1 )
+    {
+        setCurrentLanguageIndex(index);
+    }
+}
+
 uint SettingsViewModel::coreAmount() const
 {
     return std::thread::hardware_concurrency();
@@ -217,7 +249,8 @@ bool SettingsViewModel::isChanged() const
         || m_localNodePort != m_settings.getLocalNodePort()
         || m_localNodePeers != m_settings.getLocalNodePeers()
         || m_lockTimeout != m_settings.getLockTimeout()
-        || m_isPasswordReqiredToSpendMoney != m_settings.isPasswordReqiredToSpendMoney();
+        || m_isPasswordReqiredToSpendMoney != m_settings.isPasswordReqiredToSpendMoney()
+        || getCurrentLanguage() != m_settings.getLanguageName();
 }
 
 void SettingsViewModel::applyChanges()
@@ -234,6 +267,8 @@ void SettingsViewModel::applyChanges()
     m_settings.setLocalNodePeers(m_localNodePeers);
     m_settings.setLockTimeout(m_lockTimeout);
     m_settings.setPasswordReqiredToSpendMoney(m_isPasswordReqiredToSpendMoney);
+    m_settings.setLocaleByLanguageName(
+            m_supportedLanguages[m_currentLanguageIndex]);
     m_settings.applyChanges();
     emit propertiesChanged();
 }
@@ -263,6 +298,8 @@ void SettingsViewModel::undoChanges()
     setLockTimeout(m_settings.getLockTimeout());
     setLocalNodePeers(m_settings.getLocalNodePeers());
     setPasswordReqiredToSpendMoney(m_settings.isPasswordReqiredToSpendMoney());
+    setCurrentLanguageIndex(
+            m_supportedLanguages.indexOf(m_settings.getLanguageName()));
 }
 
 void SettingsViewModel::reportProblem()

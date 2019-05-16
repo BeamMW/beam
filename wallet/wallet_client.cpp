@@ -424,7 +424,7 @@ void WalletClient::sendMoney(const beam::WalletID& receiver, const std::string& 
         auto s = m_wallet.lock();
         if (s)
         {
-            s->transfer_money(senderAddress.m_walletID, receiver, move(amount), move(fee), true, 120, 720, move(message), true);
+            s->transfer_money(senderAddress.m_walletID, receiver, move(amount), move(fee), true, kDefaultTxLifetime, kDefaultTxResponseTime, move(message), true);
         }
 
         onSendMoneyVerified();

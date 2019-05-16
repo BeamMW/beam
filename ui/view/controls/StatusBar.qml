@@ -10,17 +10,19 @@ Item {
     y: 53
 
     property var model
-    
-    property string status: {
+
+    function getStatus() {
         if (model.isFailedStatus)
-            "error"
+            return "error";
         else if (model.isSyncInProgress)
-            "updating"
+            return "updating";
         else if (model.isOnline)
-            "online"
+            return "online";
         else
-            "connecting"
+            return "connecting";
     }
+    
+    property string status: getStatus()
 
     state: "connecting"
 

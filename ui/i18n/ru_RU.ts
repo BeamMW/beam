@@ -443,17 +443,17 @@
         <source>Notifications view</source>
         <translation>Оповещения</translation>
     </message>
-    <message id="status-updating">
-        <source>updating</source>
-        <translation>обновление</translation>
+    <message id="status-connecting">
+        <source>connecting</source>
+        <translation>подключение</translation>
     </message>
     <message id="status-online">
         <source>online</source>
         <translation>в сети</translation>
     </message>
-    <message id="status-connecting">
-        <source>connecting</source>
-        <translation>подключение</translation>
+    <message id="status-updating">
+        <source>updating</source>
+        <translation>обновление</translation>
     </message>
     <message id="tx-details-title">
         <source>General transaction info</source>
@@ -716,12 +716,12 @@
         <translation>восстановить кошелек</translation>
     </message>
     <message id="start-restore-message-line-1">
-        <source>Your funds will be fully restored from the blockchain. The transaction history and your addresses are stored locally and are encrypted with your password, hence it can&apos;t be restored.</source>
-        <translation>Ваши средства будут восстановлены из цепочки блоков. История ваших транзакций и ваши адреса хранятся локально, зашифрованные паролем, их восстановление невожможно</translation>
+        <source>Your funds will be fully restored from the blockchain. The transaction history and addresses are stored only locally, hence can&apos;t be restored.</source>
+        <translation>Ваши средства будут восстановлены из цепочки блоков. История ваших транзакций и ваши адреса хранятся локально, поэтому их восстановление невожможно.</translation>
     </message>
     <message id="start-restore-message-line-2">
         <source>That&apos;s the final version till the future validation and process.</source>
-        <translation type="unfinished"></translation>
+        <translation>Вы используете последнюю версию.</translation>
     </message>
     <message id="start-create-button">
         <source>create new wallet</source>
@@ -903,7 +903,7 @@
         <source>Node protocol error!</source>
         <translation>Ошибка протокола</translation>
     </message>
-    <message id="wallet-model-incompatible-peer">
+    <message id="wallet-model-incompatible-peer-error">
         <source>You are trying to connect to incompatible peer.</source>
         <translation>Несовместимый пир</translation>
     </message>
@@ -1175,16 +1175,21 @@
         <source>Transaction ID:</source>
         <translation>Идентификатор транзакции:</translation>
     </message>
-</context>
-<context>
-    <name>wallet</name>
-    <message>
-        <source>ok</source>
-        <translation type="unfinished">ok</translation>
+    <message id="appmodel-failed-time-not-synced">
+        <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
+        <translation>Невозможно запустить локальный узел: время компьютера не синхронизированно. Проверьте настройки времени и перезапустите кошелек.</translation>
     </message>
-    <message>
+    <message id="can-not-generate-new-address-message">
         <source>You cannot generate new address. Your wallet doesn&apos;t have a master key.</source>
-        <translation type="unfinished"></translation>
+        <translation>Вы не можете сгенерировать новый адрес. В кошельке отсутствует мастер-ключ</translation>
+    </message>
+    <message id="can-not-generate-new-address-ok-button">
+        <source>ok</source>
+        <translation>Хорошо</translation>
+    </message>
+    <message id="settings-general-language">
+        <source>Language</source>
+        <translation>Язык</translation>
     </message>
 </context>
 </TS>

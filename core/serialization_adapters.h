@@ -367,6 +367,67 @@ namespace detail
 			return ar;
 		}
 
+        /// ECC::RangeProof::Confidential::Part2
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::Part2& v)
+        {
+            ar
+                & v.m_T1
+                & v.m_T2;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential::Part2& v)
+        {
+            ar
+                & v.m_T1
+                & v.m_T2;
+
+            return ar;
+        }
+
+        /// ECC::RangeProof::Confidential::Part3
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::Part3& v)
+        {
+            ar
+                & v.m_TauX;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential::Part3& v)
+        {
+            ar
+                & v.m_TauX;
+
+            return ar;
+        }
+
+        /// ECC::RangeProof::Confidential::MultiSig
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::MultiSig& v)
+        {
+            ar
+                & v.x
+                & v.zz;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential::MultiSig& v)
+        {
+            ar
+                & v.x
+                & v.zz;
+
+            return ar;
+        }
+
         /// ECC::RangeProof::Public serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const ECC::RangeProof::Public& val)

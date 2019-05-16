@@ -38,12 +38,18 @@ namespace beam
         extern const char* NONCEPREFIX_DIGITS;
         extern const char* NODE_PEER;
         extern const char* PASS;
+        extern const char* BTC_PASS;
+        extern const char* BTC_USER_NAME;
+        extern const char* LTC_PASS;
+        extern const char* LTC_USER_NAME;
         extern const char* AMOUNT;
         extern const char* AMOUNT_FULL;
         extern const char* RECEIVER_ADDR;
         extern const char* RECEIVER_ADDR_FULL;
         extern const char* NODE_ADDR;
         extern const char* NODE_ADDR_FULL;
+        extern const char* BTC_NODE_ADDR;
+        extern const char* LTC_NODE_ADDR;
         extern const char* COMMAND;
         extern const char* NODE;
         extern const char* WALLET;
@@ -51,9 +57,9 @@ namespace beam
         extern const char* TREASURY;
         extern const char* TREASURY_BLOCK;
         extern const char* RESYNC;
-		extern const char* RESET_ID;
-		extern const char* ERASE_ID;
-		extern const char* CHECKDB;
+        extern const char* RESET_ID;
+        extern const char* ERASE_ID;
+        extern const char* CHECKDB;
         extern const char* CRASH;
         extern const char* INIT;
         extern const char* RESTORE;
@@ -68,10 +74,10 @@ namespace beam
         extern const char* NEW_ADDRESS;
         extern const char* CANCEL_TX;
         extern const char* DELETE_TX;
-		extern const char* PAYMENT_PROOF_EXPORT;
-		extern const char* PAYMENT_PROOF_VERIFY;
-		extern const char* PAYMENT_PROOF_DATA;
-		extern const char* PAYMENT_PROOF_REQUIRED;
+        extern const char* PAYMENT_PROOF_EXPORT;
+        extern const char* PAYMENT_PROOF_VERIFY;
+        extern const char* PAYMENT_PROOF_DATA;
+        extern const char* PAYMENT_PROOF_REQUIRED;
         extern const char* SEND;
         extern const char* INFO;
         extern const char* NEW_ADDRESS_COMMENT;
@@ -89,7 +95,7 @@ namespace beam
         extern const char* LOG_DEBUG;
         extern const char* LOG_VERBOSE;
         extern const char* LOG_CLEANUP_DAYS;
-		extern const char* LOG_UTXOS;
+        extern const char* LOG_UTXOS;
         extern const char* VERSION;
         extern const char* VERSION_FULL;
         extern const char* GIT_COMMIT_HASH;
@@ -102,9 +108,15 @@ namespace beam
         extern const char* IMPORT_ADDRESSES;
         extern const char* IMPORT_EXPORT_PATH;
         extern const char* IP_WHITELIST;
-		extern const char* HORIZON_HI;
-		extern const char* HORIZON_LO;
+        extern const char* HORIZON_HI;
+        extern const char* HORIZON_LO;
         extern const char* COLD_WALLET;
+        extern const char* SWAP_COINS;
+        extern const char* SWAP_LISTEN;
+        extern const char* SWAP_AMOUNT;
+        extern const char* SWAP_COIN;
+        extern const char* SWAP_BEAM_SIDE;
+
 
         // wallet api
         extern const char* API_USE_HTTP;
@@ -118,13 +130,12 @@ namespace beam
         extern const char* TR_OPCODE;
         extern const char* TR_WID;
         extern const char* TR_PERC;
-		extern const char* TR_PERC_TOTAL;
-		extern const char* TR_COMMENT;
-		extern const char* TR_M;
-		extern const char* TR_N;
-		// ui
+        extern const char* TR_PERC_TOTAL;
+        extern const char* TR_COMMENT;
+        extern const char* TR_M;
+        extern const char* TR_N;
+        // ui
         extern const char* APPDATA_PATH;
-        extern const char* LANG;
     }
 
     enum OptionsFlag : int
@@ -153,4 +164,5 @@ namespace beam
 
     bool read_wallet_pass(SecString& pass, const po::variables_map& vm);
     bool confirm_wallet_pass(const SecString& pass);
+    bool read_btc_pass(SecString& pass, po::variables_map& vm);
 }

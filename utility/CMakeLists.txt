@@ -90,7 +90,6 @@ if(ANDROID)
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem-clang-mt-a64-1_68.a
             $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_system-clang-mt-a64-1_68.a)
     endif()
-
 else()
     if (Boost_FOUND)
         find_package(Boost COMPONENTS program_options filesystem)

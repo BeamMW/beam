@@ -30,8 +30,10 @@ void MessagesViewModel::deleteMessage(int index)
 
 void MessagesViewModel::AddMessage(const QString& value)
 {
-    m_messages.push_back(value);
-    emit messagesChanged();
+    if (m_messages.isEmpty() || !m_messages.contains(value)) {
+        m_messages.push_back(value);
+        emit messagesChanged();
+    }
 }
 
 QStringList MessagesViewModel::getMessages() const
