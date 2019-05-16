@@ -375,55 +375,93 @@ Rectangle {
                             anchors.margins: 20
                             spacing: 10
 
-                            SFText {
-                                //% "General settings"
-                                text: qsTrId("settings-general-title")
-                                color: Style.content_main
-                                font.pixelSize: 18
-                                font.styleName: "Bold"; font.weight: Font.Bold
+                            Row {
+                                SFText {
+                                    //% "General settings"
+                                    text: qsTrId("settings-general-title")
+                                    color: Style.content_main
+                                    font.pixelSize: 18
+                                    font.styleName: "Bold"; font.weight: Font.Bold
+                                }
                             }
 
                             Row {
                                 width: parent.width
+                                spacing: 10
+                                ColumnLayout {
+                                    width: parent.width * 2 / 3
+                                    SFText {
+                                        //% "Language"
+                                        text: qsTrId("settings-general-language")
+                                        color: Style.content_main
+                                        font.pixelSize: 12
+                                    }
+                                }
+                                ColumnLayout {
+                                    width: parent.width / 3
+                                    CustomComboBox {
+                                        id: language
+                                        Layout.fillWidth: true
+                                        height: 20
+                                        Layout.alignment: Qt.AlignRight
+                                        anchors.top: parent.top
 
+                                        model: viewModel.supportedLanguages
+                                        currentIndex: viewModel.currentLanguageIndex
+                                        Binding {
+                                            target: viewModel
+                                            property: "currentLanguage"
+                                            value: language.currentText
+                                        }
+                                    }
+                                }
+                            }
+
+                            Row {
+                                width: parent.width
                                 spacing: 10
 
-                                SFText {
-                                    //% "Lock screen in"
-                                    text: qsTrId("settings-general-lock-screen")
-                                    color: Style.content_main
-                                    font.pixelSize: 12
+                                ColumnLayout {
+                                    width: parent.width * 2 / 3
+                                    SFText {
+                                        //% "Lock screen in"
+                                        text: qsTrId("settings-general-lock-screen")
+                                        color: Style.content_main
+                                        font.pixelSize: 12
+                                    }
                                 }
 
-                                CustomComboBox {
-                                    id: lockTimeoutControl
-                                    width: 100
-                                    height: 20
-                                    anchors.top: parent.top
-                                    anchors.topMargin: -3
+                                ColumnLayout {
+                                    width: parent.width / 3
+                                    CustomComboBox {
+                                        id: lockTimeoutControl
+                                        Layout.fillWidth: true
+                                        height: 20
+                                        anchors.top: parent.top
 
-                                    currentIndex: viewModel.lockTimeout
+                                        currentIndex: viewModel.lockTimeout
 
-                                    Binding {
-                                        target: viewModel
-                                        property: "lockTimeout"
-                                        value: lockTimeoutControl.currentIndex
+                                        Binding {
+                                            target: viewModel
+                                            property: "lockTimeout"
+                                            value: lockTimeoutControl.currentIndex
+                                        }
+
+                                        model: [
+                                            //% "never"
+                                            qsTrId("settings-general-lock-screen-never"),
+                                            //% "1 minute"
+                                            qsTrId("settings-general-lock-screen-1m"),
+                                            //% "5 minutes"
+                                            qsTrId("settings-general-lock-screen-5m"),
+                                            //% "15 minutes"
+                                            qsTrId("settings-general-lock-screen-15m"),
+                                            //% "30 minutes"
+                                            qsTrId("settings-general-lock-screen-30m"),
+                                            //% "1 hour"
+                                            qsTrId("settings-general-lock-screen-1h"),
+                                        ]
                                     }
-
-                                    model: [
-                                        //% "never"
-                                        qsTrId("settings-general-lock-screen-never"),
-                                        //% "1 minute"
-                                        qsTrId("settings-general-lock-screen-1m"),
-                                        //% "5 minutes"
-                                        qsTrId("settings-general-lock-screen-5m"),
-                                        //% "15 minutes"
-                                        qsTrId("settings-general-lock-screen-15m"),
-                                        //% "30 minutes"
-                                        qsTrId("settings-general-lock-screen-30m"),
-                                        //% "1 hour"
-                                        qsTrId("settings-general-lock-screen-1h"),
-                                    ]
                                 }
                             }
 

@@ -17,10 +17,17 @@
 #include "utility/logger.h"
 
 #include <boost/filesystem.hpp>
+#include <QApplication>
+#include <QTranslator>
 
 using namespace beam;
 using namespace ECC;
 using namespace std;
+
+namespace
+{
+const char* kDefaultTranslationsPath = ":/translations";
+}
 
 AppModel* AppModel::s_instance = nullptr;
 
@@ -30,12 +37,17 @@ AppModel* AppModel::getInstance()
     return s_instance;
 }
 
-AppModel::AppModel(WalletSettings& settings)
+AppModel::AppModel(WalletSettings& settings, QQmlApplicationEngine& qmlEngine)
     : m_settings{settings}
+    , m_qmlEngine{qmlEngine}
     , m_walletReactor(beam::io::Reactor::create())
+    , m_translator(make_unique<QTranslator>())
 {
     assert(s_instance == nullptr);
     s_instance = this;
+
+    loadTranslation();    
+    connect(&m_settings, SIGNAL(localeChanged()), SLOT(onLocaleChanged()));
 
     m_nodeModel.start();
 }
@@ -130,6 +142,19 @@ void AppModel::resetWalletImpl()
     }
 }
 
+void AppModel::loadTranslation()
+{
+    auto locale = m_settings.getLocale();
+    if (m_translator->load(locale, kDefaultTranslationsPath))
+    {
+        qApp->installTranslator(m_translator.get());
+    }
+    else
+    {
+        LOG_WARNING() << "Can't load translation";
+    }
+}
+
 void AppModel::applySettingsChanges()
 {
     if (m_nodeModel.isNodeRunning())
@@ -187,6 +212,14 @@ void AppModel::onFailedToStartNode(beam::wallet::ErrorType errorCode)
 
     //% "Failed to start node. Please check your node configuration"
     getMessages().addMessage(qtTrId("appmodel-failed-start-node"));
+}
+
+void AppModel::onLocaleChanged()
+{
+    qApp->removeTranslator(m_translator.get());
+    m_translator = make_unique<QTranslator>();
+    loadTranslation();
+    m_qmlEngine.retranslate();
 }
 
 void AppModel::start()

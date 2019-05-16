@@ -35,6 +35,9 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(QString walletLocation READ getWalletLocation CONSTANT)
     Q_PROPERTY(bool isLocalNodeRunning READ isLocalNodeRunning NOTIFY localNodeRunningChanged)
     Q_PROPERTY(bool isPasswordReqiredToSpendMoney READ isPasswordReqiredToSpendMoney WRITE setPasswordReqiredToSpendMoney NOTIFY passwordReqiredToSpendMoneyChanged)
+    Q_PROPERTY(QStringList supportedLanguages READ getSupportedLanguages)
+    Q_PROPERTY(int currentLanguageIndex READ getCurrentLanguageIndex NOTIFY currentLanguageIndexChanged)
+    Q_PROPERTY(QString currentLanguage READ getCurrentLanguage WRITE setCurrentLanguage)
     Q_PROPERTY(bool isValidNodeAddress READ isValidNodeAddress NOTIFY validNodeAddressChanged)
 public:
 
@@ -51,6 +54,11 @@ public:
     void setLockTimeout(int value);
     bool isPasswordReqiredToSpendMoney() const;
     void setPasswordReqiredToSpendMoney(bool value);
+    QStringList getSupportedLanguages() const;
+    int getCurrentLanguageIndex() const;
+    void setCurrentLanguageIndex(int value);
+    QString getCurrentLanguage() const;
+    void setCurrentLanguage(QString value);
 
     QStringList getLocalNodePeers() const;
     void setLocalNodePeers(const QStringList& localNodePeers);
@@ -87,6 +95,7 @@ signals:
     void localNodeRunningChanged();
     void passwordReqiredToSpendMoneyChanged();
     void validNodeAddressChanged();
+    void currentLanguageIndexChanged();
 
 protected:
     void timerEvent(QTimerEvent *event) override;
@@ -103,6 +112,8 @@ private:
     bool m_isValidNodeAddress;
     bool m_isNeedToCheckAddress;
     bool m_isNeedToApplyChanges;
+    QStringList m_supportedLanguages;
+    int m_currentLanguageIndex;
     int m_timerId;
 
     const int CHECK_INTERVAL = 1000;

@@ -52,6 +52,11 @@ public:
     QStringList getLocalNodePeers() const;
     void setLocalNodePeers(const QStringList& qPeers);
 
+    QString getLocale() const;
+    QString getLanguageName() const;
+    void setLocaleByLanguageName(const QString& language);
+    static QStringList getSupportedLanguages();
+
 public:
     static const char* WalletCfg;
     static const char* LogsFolder;
@@ -67,6 +72,7 @@ signals:
     void localNodePortChanged();
     void localNodePeersChanged();
     void localNodeSynchronizedChanged();
+    void localeChanged();
 
 private:
     QSettings m_data;

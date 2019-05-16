@@ -1187,5 +1187,9 @@
         <source>ok</source>
         <translation>ok</translation>
     </message>
+    <message id="settings-general-language">
+        <source>Language</source>
+        <translation>Language</translation>
+    </message>
 </context>
 </TS>

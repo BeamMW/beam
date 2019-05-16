@@ -136,7 +136,6 @@ namespace beam
         extern const char* TR_N;
         // ui
         extern const char* APPDATA_PATH;
-        extern const char* LANG;
     }
 
     enum OptionsFlag : int
