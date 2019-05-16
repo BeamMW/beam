@@ -386,11 +386,11 @@ Rectangle {
                             }
 
                             Row {
-                                width: parent.width * 0.57
+                                width: parent.width
                                 spacing: 10
 
                                 ColumnLayout {
-                                    width: parent.width * 0.4
+                                    width: parent.width * 0.66
                                     SFText {
                                         //% "Lock screen"
                                         text: qsTrId("settings-general-lock-screen")
@@ -400,7 +400,7 @@ Rectangle {
                                 }
 
                                 ColumnLayout {
-                                    width: parent.width * 0.6
+                                    width: parent.width * 0.33
                                     CustomComboBox {
                                         id: lockTimeoutControl
                                         Layout.fillWidth: true
@@ -434,10 +434,10 @@ Rectangle {
                             }
 
                             Row {
-                                width: parent.width * 0.57
+                                width: parent.width
                                 spacing: 10
                                 ColumnLayout {
-                                    width: parent.width * 0.4
+                                    width: parent.width * 0.66
                                     SFText {
                                         //% "Language"
                                         text: qsTrId("settings-general-language")
@@ -446,7 +446,7 @@ Rectangle {
                                     }
                                 }
                                 ColumnLayout {
-                                    width: parent.width * 0.6
+                                    width: parent.width * 0.33
                                     CustomComboBox {
                                         id: language
                                         Layout.fillWidth: true
