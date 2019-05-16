@@ -42,6 +42,15 @@ namespace beam::wallet
         , m_MaxHeight{ MaxHeight }
         , m_PeerMaxHeight{ MaxHeight }
     {
+
+// TODO: just for test
+#if defined(BEAM_HW_WALLET)
+        m_hwWallet.getOwnerKey([](const std::string& key)
+        {
+            LOG_INFO() << "HWWallet.getOwnerKey(): " << key;
+        });
+#endif
+
     }
 
     void BaseTxBuilder::SelectInputs()
