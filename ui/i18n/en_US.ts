@@ -1191,5 +1191,21 @@
         <source>Language</source>
         <translation>Language</translation>
     </message>
+    <message id="available-panel-where-to-buy">
+        <source>Where to buy BEAM?</source>
+        <translation>Where to buy BEAM?</translation>
+    </message>
+    <message id="open-external-open">
+        <source>open</source>
+        <translation>open</translation>
+    </message>
+    <message id="open-external-title">
+        <source>External link</source>
+        <translation>External link</translation>
+    </message>
+    <message id="open-external-message">
+        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
+        <translation>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose &quot;Cancel&quot;. You can chage your choice in app setting anytime.</translation>
+    </message>
 </context>
 </TS>

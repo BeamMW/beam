@@ -1191,5 +1191,21 @@
         <source>Language</source>
         <translation>Язык</translation>
     </message>
+    <message id="available-panel-where-to-buy">
+        <source>Where to buy BEAM?</source>
+        <translation>Где купить BEAM?</translation>
+    </message>
+    <message id="open-external-open">
+        <source>open</source>
+        <translation>открыть</translation>
+    </message>
+    <message id="open-external-title">
+        <source>External link</source>
+        <translation>Внешняя ссылка</translation>
+    </message>
+    <message id="open-external-message">
+        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
+        <translation>Кошелек пытается открыть внешнюю ссылку в браузере. Это действие может раскрыть ваш IP адрес серверу. Что бы избежать этого, нажмите &quot;отмена&quot;. Вы можете изменить свой выбор в настройках в любое время.</translation>
+    </message>
 </context>
 </TS>
