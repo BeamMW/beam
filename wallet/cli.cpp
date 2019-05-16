@@ -1095,7 +1095,7 @@ int main_impl(int argc, char* argv[])
                         return -1;
                     }
 
-                    bool is_server = (command == cli::LISTEN || vm.count(cli::LISTEN)) || (command == cli::SWAP_LISTEN || vm.count(cli::SWAP_LISTEN));
+                    bool is_server = command == cli::LISTEN || vm.count(cli::LISTEN);
 
                     Wallet wallet{ walletDB, is_server ? Wallet::TxCompletedAction() : [](auto) { io::Reactor::get_Current().stop(); },
                                             !coldWallet ? Wallet::UpdateCompletedAction() : []() {io::Reactor::get_Current().stop(); } };
