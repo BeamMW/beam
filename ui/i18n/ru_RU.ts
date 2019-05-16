@@ -795,7 +795,7 @@
         <source>Keep the copies of your seed phrase in a safe place</source>
         <translation>Держите копию вашей контрольной фразы в надежном месте</translation>
     </message>
-    <message id="start-generata-seed-phrase-button">
+    <message id="start-generate-seed-phrase-button">
         <source>generate seed phrase</source>
         <translation>генерировать контрольную фразу</translation>
     </message>

@@ -763,7 +763,7 @@
         <source>Keep the copies of your seed phrase in a safe place</source>
         <translation>Keep the copies of your seed phrase in a safe place</translation>
     </message>
-    <message id="start-generata-seed-phrase-button">
+    <message id="start-generate-seed-phrase-button">
         <source>generate seed phrase</source>
         <translation>generate seed phrase</translation>
     </message>
