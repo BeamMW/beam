@@ -199,7 +199,7 @@ struct Multisig::Impl
 
 uint32_t Multisig::Update2()
 {
-	const Height hVer = MaxHeight;
+	const Height hScheme = MaxHeight;
 
 	ECC::Key::IDV kidv;
 	if (!Get(kidv, Codes::Kidv))
@@ -250,7 +250,7 @@ uint32_t Multisig::Update2()
 	ECC::RangeProof::Confidential& bp = *outp.m_pConfidential;
 
 	ECC::Oracle oracle, o2;
-	outp.Prepare(oracle, hVer);
+	outp.Prepare(oracle, hScheme);
 
 	uint32_t nShareRes = 0;
 	Get(nShareRes, Codes::ShareResult);
@@ -321,7 +321,7 @@ uint32_t Multisig::Update2()
 	}
 
 	ECC::Point::Native pt;
-	if (!outp.IsValid(hVer, pt))
+	if (!outp.IsValid(hScheme, pt))
 		return Status::Error;
 
 	Set(outp, Codes::OutputTxo);
@@ -354,7 +354,7 @@ ECC::Point& MultiTx::PushInput(Transaction& tx)
 
 bool MultiTx::BuildTxPart(Transaction& tx, bool bIsSender, ECC::Scalar::Native& offs)
 {
-	const Height hVer = MaxHeight;
+	const Height hScheme = MaxHeight;
 
 	offs = -offs; // initially contains kernel offset
 	ECC::Scalar::Native sk;
@@ -389,7 +389,7 @@ bool MultiTx::BuildTxPart(Transaction& tx, bool bIsSender, ECC::Scalar::Native& 
 		for (size_t i = 0; i < vec.size(); i++)
 		{
 			tx.m_vOutputs.emplace_back(new Output);
-			tx.m_vOutputs.back()->Create(hVer, sk, *m_pKdf, vec[i], *m_pKdf);
+			tx.m_vOutputs.back()->Create(hScheme, sk, *m_pKdf, vec[i], *m_pKdf);
 			offs += sk;
 		}
 		vec.clear();
@@ -436,7 +436,7 @@ bool MultiTx::ReadKrn(TxKernel& krn, ECC::Hash::Value& hv)
 
 uint32_t MultiTx::Update2()
 {
-	const Height hVer = MaxHeight;
+	const Height hScheme = MaxHeight;
 
 	ECC::Oracle oracle;
 	ECC::Scalar::Native skKrn;
@@ -501,7 +501,7 @@ uint32_t MultiTx::Update2()
 
 		ECC::Point::Native comm;
 		AmountBig::Type fee(Zero);
-		if (!krn.IsValid(hVer, fee, comm))
+		if (!krn.IsValid(hScheme, fee, comm))
 			return Status::Error;
 
 		assert(fee == AmountBig::Type(krn.m_Fee));

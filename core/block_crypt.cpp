@@ -211,7 +211,7 @@ namespace beam
 
 	/////////////
 	// Output
-	bool Output::IsValid(Height hVer, ECC::Point::Native& comm) const
+	bool Output::IsValid(Height hScheme, ECC::Point::Native& comm) const
 	{
 		if (!comm.Import(m_Commitment))
 			return false;
@@ -219,7 +219,7 @@ namespace beam
 		SwitchCommitment sc(&m_AssetID);
 
 		ECC::Oracle oracle;
-		Prepare(oracle, hVer);
+		Prepare(oracle, hScheme);
 
 		if (m_pConfidential)
 		{
@@ -270,13 +270,13 @@ namespace beam
 		return 0;
 	}
 
-	void Output::Create(Height hVer, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const Key::IDV& kidv, Key::IPKdf& tagKdf, bool bPublic /* = false */)
+	void Output::Create(Height hScheme, ECC::Scalar::Native& sk, Key::IKdf& coinKdf, const Key::IDV& kidv, Key::IPKdf& tagKdf, bool bPublic /* = false */)
 	{
 		SwitchCommitment sc(&m_AssetID);
 		sc.Create(sk, m_Commitment, coinKdf, kidv);
 
 		ECC::Oracle oracle;
-		Prepare(oracle, hVer);
+		Prepare(oracle, hScheme);
 
 		ECC::RangeProof::CreatorParams cp;
 		cp.m_Kidv = kidv;
@@ -305,23 +305,23 @@ namespace beam
 		ECC::Hash::Processor() << sk >> seed;
 	}
 
-	void Output::Prepare(ECC::Oracle& oracle, Height hVer) const
+	void Output::Prepare(ECC::Oracle& oracle, Height hScheme) const
 	{
 		oracle << m_Incubation;
 
-		if (hVer >= Rules::get().pForks[1].m_Height)
+		if (hScheme >= Rules::get().pForks[1].m_Height)
 		{
 			oracle << m_Commitment;
 		}
 	}
 
-	bool Output::Recover(Height hVer, Key::IPKdf& tagKdf, Key::IDV& kidv) const
+	bool Output::Recover(Height hScheme, Key::IPKdf& tagKdf, Key::IDV& kidv) const
 	{
 		ECC::RangeProof::CreatorParams cp;
         GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
 
 		ECC::Oracle oracle;
-		Prepare(oracle, hVer);
+		Prepare(oracle, hScheme);
 
 		bool bSuccess =
 			m_pConfidential ? m_pConfidential->Recover(oracle, cp) :
@@ -368,14 +368,14 @@ namespace beam
 
 	/////////////
 	// TxKernel
-	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig::Type* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pFork) const
+	bool TxKernel::Traverse(ECC::Hash::Value& hv, AmountBig::Type* pFee, ECC::Point::Native* pExcess, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pScheme) const
 	{
-		if (pFork && (*pFork < Rules::get().pForks[1].m_Height) && (m_CanEmbed || m_pRelativeLock))
+		if (pScheme && (*pScheme < Rules::get().pForks[1].m_Height) && (m_CanEmbed || m_pRelativeLock))
 			return false; // unsupported for that version
 
 		if (pParent)
 		{
-			if (!m_CanEmbed && pFork && (*pFork >= Rules::get().pForks[1].m_Height)) // for older version embedding is implicitly allowed (though unlikely to be used)
+			if (!m_CanEmbed && pScheme && (*pScheme >= Rules::get().pForks[1].m_Height)) // for older version embedding is implicitly allowed (though unlikely to be used)
 				return false;
 
 			// nested kernel restrictions
@@ -433,7 +433,7 @@ namespace beam
 				return false;
 			p0Krn = &v;
 
-			if (!v.Traverse(hv, pFee, pExcess ? &ptExcNested : nullptr, this, nullptr, pFork))
+			if (!v.Traverse(hv, pFee, pExcess ? &ptExcNested : nullptr, this, nullptr, pScheme))
 				return false;
 
 			hp << hv;
@@ -514,10 +514,10 @@ namespace beam
 		Traverse(out, nullptr, nullptr, nullptr, pLockImage, nullptr);
 	}
 
-	bool TxKernel::IsValid(Height hVer, AmountBig::Type& fee, ECC::Point::Native& exc) const
+	bool TxKernel::IsValid(Height hScheme, AmountBig::Type& fee, ECC::Point::Native& exc) const
 	{
 		ECC::Hash::Value hv;
-		return Traverse(hv, &fee, &exc, nullptr, nullptr, &hVer);
+		return Traverse(hv, &fee, &exc, nullptr, nullptr, &hScheme);
 	}
 
 	void TxKernel::get_ID(Merkle::Hash& out, const ECC::Hash::Value* pLockImage /* = NULL */) const

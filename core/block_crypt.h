@@ -257,12 +257,12 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
-		void Create(Height hVer, ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
+		void Create(Height hScheme, ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
 
-		bool Recover(Height hVer, Key::IPKdf& tagKdf, Key::IDV&) const;
+		bool Recover(Height hScheme, Key::IPKdf& tagKdf, Key::IDV&) const;
 		bool VerifyRecovered(Key::IPKdf& coinKdf, const Key::IDV&) const;
 
-		bool IsValid(Height hVer, ECC::Point::Native& comm) const;
+		bool IsValid(Height hScheme, ECC::Point::Native& comm) const;
 		Height get_MinMaturity(Height h) const; // regardless to the explicitly-overridden
 
 		void operator = (const Output&);
@@ -270,7 +270,7 @@ namespace beam
 		COMPARISON_VIA_CMP
 
 		static void GenerateSeedKid(ECC::uintBig&, const ECC::Point& comm, Key::IPKdf&);
-		void Prepare(ECC::Oracle&, Height hVer) const;
+		void Prepare(ECC::Oracle&, Height hScheme) const;
 	};
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }
@@ -327,7 +327,7 @@ namespace beam
 		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all, including the m_Commitment (i.e. the public key)
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
-		bool IsValid(Height hVer, AmountBig::Type& fee, ECC::Point::Native& exc) const;
+		bool IsValid(Height hScheme, AmountBig::Type& fee, ECC::Point::Native& exc) const;
 		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
 
 		struct LongProof; // legacy
@@ -339,7 +339,7 @@ namespace beam
 		size_t get_TotalCount() const; // including self and nested
 
 	private:
-		bool Traverse(ECC::Hash::Value&, AmountBig::Type*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pFork) const;
+		bool Traverse(ECC::Hash::Value&, AmountBig::Type*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pScheme) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }

@@ -713,16 +713,16 @@ void NodeConnection::OnMsg(Login&& msg)
 		const HeightHash* pFork = r.FindFork(msg.m_Cfgs[i]);
 		if (pFork)
 		{
-			Height hMaxVer = MaxHeight;
+			Height hMaxScheme = MaxHeight;
 			if (&r.get_LastFork() != pFork)
 			{
 				if (i + 1 != msg.m_Cfgs.size())
 					break; // overlap config found, but then we have incompatible forks.
 
-				hMaxVer = pFork[1].m_Height - 1;
+				hMaxScheme = pFork[1].m_Height - 1;
 			}
 
-			OnLoginInternal(hMaxVer, std::move(msg));
+			OnLoginInternal(hMaxScheme, std::move(msg));
 			return;
 		}
 	}
@@ -742,7 +742,7 @@ void NodeConnection::OnMsg(Login&& msg)
 	ThrowUnexpected(os.str().c_str(), NodeProcessingException::Type::Incompatible);
 }
 
-void NodeConnection::OnLoginInternal(Height hVer, Login&& msg)
+void NodeConnection::OnLoginInternal(Height hScheme, Login&& msg)
 {
 	if ((~LoginFlags::Recognized) & msg.m_Flags) {
 		LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses newer protocol.";
@@ -755,12 +755,12 @@ void NodeConnection::OnLoginInternal(Height hVer, Login&& msg)
 		{
 			LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses older protocol: " << nFlags2;
 
-			hVer = std::min(hVer, Rules::get().pForks[1].m_Height - 1); // doesn't support extensions - must be before the fork
+			hScheme = std::min(hScheme, Rules::get().pForks[1].m_Height - 1); // doesn't support extensions - must be before the 1st fork
 		}
 	}
 
-	Height hMinVer = get_MinPeerFork();
-	if (hVer < hMinVer)
+	Height hMinScheme = get_MinPeerFork();
+	if (hScheme < hMinScheme)
 		ThrowUnexpected("Legacy", NodeProcessingException::Type::Incompatible);
 
 	OnLogin(std::move(msg));
