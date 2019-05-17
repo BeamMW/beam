@@ -199,8 +199,6 @@ struct Multisig::Impl
 
 uint32_t Multisig::Update2()
 {
-	const Height hScheme = MaxHeight;
-
 	ECC::Key::IDV kidv;
 	if (!Get(kidv, Codes::Kidv))
 		return 0;
@@ -248,6 +246,10 @@ uint32_t Multisig::Update2()
 
 	outp.m_pConfidential.reset(new ECC::RangeProof::Confidential);
 	ECC::RangeProof::Confidential& bp = *outp.m_pConfidential;
+
+	Height hScheme = MaxHeight;
+	if (!Get(hScheme, Codes::Scheme))
+		return 0;
 
 	ECC::Oracle oracle, o2;
 	outp.Prepare(oracle, hScheme);
@@ -354,7 +356,9 @@ ECC::Point& MultiTx::PushInput(Transaction& tx)
 
 bool MultiTx::BuildTxPart(Transaction& tx, bool bIsSender, ECC::Scalar::Native& offs)
 {
-	const Height hScheme = MaxHeight;
+	Height hScheme = MaxHeight;
+	if (!Get(hScheme, Codes::Scheme))
+		return false;
 
 	offs = -offs; // initially contains kernel offset
 	ECC::Scalar::Native sk;
@@ -436,7 +440,9 @@ bool MultiTx::ReadKrn(TxKernel& krn, ECC::Hash::Value& hv)
 
 uint32_t MultiTx::Update2()
 {
-	const Height hScheme = MaxHeight;
+	Height hScheme = MaxHeight;
+	if (!Get(hScheme, Codes::Scheme))
+		return 0;
 
 	ECC::Oracle oracle;
 	ECC::Scalar::Native skKrn;
@@ -662,7 +668,8 @@ bool WithdrawTx::Worker::S0::Read(uint32_t code, Blob& blob)
 	switch (code)
 	{
 	case Codes::Role:
-		return m_pS->Read(Codes::Role, blob);
+	case Codes::Scheme:
+		return m_pS->Read(code, blob);
 	}
 
 	return Router::Read(code, blob);
@@ -673,7 +680,8 @@ bool WithdrawTx::Worker::S1::Read(uint32_t code, Blob& blob)
 	switch (code)
 	{
 	case Codes::Role:
-		return m_pS->Read(Codes::Role, blob);
+	case Codes::Scheme:
+		return m_pS->Read(code, blob);
 
 	case MultiTx::Codes::OutpMsKidv:
 		return get_ParentObj().m_s0.Read(Multisig::Codes::Kidv, blob);
@@ -706,7 +714,8 @@ bool WithdrawTx::Worker::S2::Read(uint32_t code, Blob& blob)
 	switch (code)
 	{
 	case Codes::Role:
-		return m_pS->Read(Codes::Role, blob);
+	case Codes::Scheme:
+		return m_pS->Read(code, blob);
 
 	case MultiTx::Codes::InpMsKidv:
 		return get_ParentObj().m_s0.Read(Multisig::Codes::Kidv, blob);
@@ -829,7 +838,8 @@ bool ChannelOpen::Worker::S0::Read(uint32_t code, Blob& blob)
 	switch (code)
 	{
 	case Codes::Role:
-		return m_pS->Read(Codes::Role, blob);
+	case Codes::Scheme:
+		return m_pS->Read(code, blob);
 	}
 
 	return Router::Read(code, blob);
@@ -840,7 +850,8 @@ bool ChannelOpen::Worker::S1::Read(uint32_t code, Blob& blob)
 	switch (code)
 	{
 	case Codes::Role:
-		return m_pS->Read(Codes::Role, blob);
+	case Codes::Scheme:
+		return m_pS->Read(code, blob);
 
 	case MultiTx::Codes::OutpMsKidv:
 		return get_ParentObj().m_s0.Read(Multisig::Codes::Kidv, blob);
@@ -875,7 +886,8 @@ bool ChannelOpen::Worker::SA::Read(uint32_t code, Blob& blob)
 	switch (code)
 	{
 	case Codes::Role:
-		return m_pS->Read(Codes::Role, blob);
+	case Codes::Scheme:
+		return m_pS->Read(code, blob);
 
 	case MultiTx::Codes::InpMsKidv + (2 << 16):
 		return get_ParentObj().m_s0.Read(Multisig::Codes::Kidv, blob);
@@ -901,6 +913,9 @@ bool ChannelOpen::Worker::SB::Read(uint32_t code, Blob& blob)
 				return false;
 		}
 		return get_ParentObj().get_One(blob);
+
+	case Codes::Scheme:
+		return m_pS->Read(Codes::Scheme, blob);
 
 	case MultiTx::Codes::InpMsKidv + (2 << 16):
 	case MultiTx::Codes::InpMsCommitment + (2 << 16) :
@@ -1034,7 +1049,8 @@ bool ChannelUpdate::Worker::SA::Read(uint32_t code, Blob& blob)
 	switch (code)
 	{
 	case Codes::Role:
-		return m_pS->Read(Codes::Role, blob);
+	case Codes::Scheme:
+		return m_pS->Read(code, blob);
 	}
 
 	return Router::Read(code, blob);
@@ -1054,6 +1070,9 @@ bool ChannelUpdate::Worker::SB::Read(uint32_t code, Blob& blob)
 				return false;
 		}
 		return get_ParentObj().get_One(blob);
+
+	case Codes::Scheme:
+		return m_pS->Read(Codes::Scheme, blob);
 
 	case MultiTx::Codes::InpMsKidv + (2 << 16):
 	case MultiTx::Codes::InpMsCommitment + (2 << 16) :

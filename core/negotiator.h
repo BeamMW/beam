@@ -33,6 +33,7 @@ namespace Negotiator {
 		static const uint32_t Input0 = 129; // Input parameters, usually set by the caller
 
 		static const uint32_t Role = Input0; // initiator, acceptor, etc.
+		static const uint32_t Scheme = Input0 + 1;
 
 		static const uint32_t Variable0 = 190; // Internal variables, set during operation
 		static const uint32_t Position = Variable0;
@@ -224,8 +225,8 @@ namespace Negotiator {
 		struct Codes
 			:public Negotiator::Codes
 		{
-			static const uint32_t Kidv = Input0 + 1;
-			static const uint32_t ShareResult = Input0 + 2;
+			static const uint32_t Kidv = Input0 + 5;
+			static const uint32_t ShareResult = Input0 + 6;
 			static const uint32_t Commitment = Output0 + 1;
 			static const uint32_t OutputTxo = Output0 + 0;
 			static const uint32_t Nonce = Variable0 + 1;
@@ -258,7 +259,7 @@ namespace Negotiator {
 		struct Codes
 			:public Negotiator::Codes
 		{
-			static const uint32_t ShareResult = Input0 + 2;
+			static const uint32_t ShareResult = Input0 + 35;
 
 			static const uint32_t InpKidvs = Input0 + 21;
 			static const uint32_t InpMsKidv = Input0 + 22;
@@ -492,9 +493,9 @@ namespace Negotiator {
 
 			static const uint32_t PeerBlindingFactor = PeerVariable0 + 0;
 
-			static const uint32_t KidvPrev = Input0 + 1;
-			static const uint32_t KidvPrevPeer = Input0 + 2;
-			static const uint32_t CommitmentPrevPeer = Input0 + 3;
+			static const uint32_t KidvPrev = Input0 + 5;
+			static const uint32_t KidvPrevPeer = Input0 + 6;
+			static const uint32_t CommitmentPrevPeer = Input0 + 7;
 
 			static const uint32_t PeerKey = Output0 + 0;
 			static const uint32_t SelfKeyRevealed = Output0 + 1;

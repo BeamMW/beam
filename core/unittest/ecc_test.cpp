@@ -1234,6 +1234,7 @@ bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b)
 	{
 		IBase& v = *pArr[i];
 		v.Set(static_cast<uint32_t>(i), Codes::Role);
+		v.Set(g_hFork, Codes::Scheme);
 	}
 
 	while (true)
