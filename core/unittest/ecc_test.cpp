@@ -791,13 +791,9 @@ void TestRangeProof(bool bCustomTag)
 	WriteSizeSerialized("Kernel(simple)", txk);
 }
 
-void TestMultiSigOutput(bool bCustomTag)
+void TestMultiSigOutput()
 {
     ECC::Amount amount = 5000;
-
-    beam::AssetID assetID(Zero);
-    AssetTag assetTag;
-    assetTag.m_hGen = beam::SwitchCommitment(&assetID).m_hGen;
 
     beam::Key::IKdf::Ptr pKdf_A;
     beam::Key::IKdf::Ptr pKdf_B;
@@ -831,29 +827,37 @@ void TestMultiSigOutput(bool bCustomTag)
         RangeProof::Confidential::GenerateSeed(seedB, blindingFactorB, amount, oracle);
     }
     Point::Native commitment(Zero);
-    Tag::AddValue(commitment, &assetTag.m_hGen, amount);
+    Tag::AddValue(commitment, nullptr, amount);
     commitment += Context::get().G * blindingFactorA;
     commitment += Context::get().G * blindingFactorB;
 
+	beam::Output outp;
+	outp.m_Commitment = commitment;
+
+	Oracle o0; // context for creating the bulletproof.
+	outp.Prepare(o0, g_hFork);
+
     // from Output::get_SeedKid    
-    beam::Output::GenerateSeedKid(creatorParamsB.m_Seed.V, commitment, *pKdf_B);
+    beam::Output::GenerateSeedKid(creatorParamsB.m_Seed.V, outp.m_Commitment, *pKdf_B);
 
     // 1st cycle. peers produce Part2
     RangeProof::Confidential::Part2 p2;
     ZeroObject(p2);
 
-    RangeProof::Confidential::MultiSig multiSig;
-    RangeProof::Confidential bulletproof;
-
     // A part2
     verify_test(RangeProof::Confidential::MultiSig::CoSignPart(seedA, p2)); // p2 aggregation
 
     // B part2
-    {
-        Oracle oracle;
-        bulletproof.m_Part2 = p2;
-        oracle << (beam::Height)0; // CHECK
-        verify_test(bulletproof.CoSign(seedB, blindingFactorB, creatorParamsB, oracle, RangeProof::Confidential::Phase::Step2, &multiSig, &assetTag.m_hGen)); // add last p2, produce msig
+	RangeProof::Confidential::MultiSig multiSig;
+	{
+        Oracle oracle(o0);
+		RangeProof::Confidential bulletproof;
+		bulletproof.m_Part2 = p2;
+
+        verify_test(bulletproof.CoSign(seedB, blindingFactorB, creatorParamsB, oracle, RangeProof::Confidential::Phase::Step2)); // add last p2, produce msig
+
+		multiSig.m_Part1 = bulletproof.m_Part1;
+		multiSig.m_Part2 = bulletproof.m_Part2;
         p2 = bulletproof.m_Part2;
     }
 
@@ -862,22 +866,26 @@ void TestMultiSigOutput(bool bCustomTag)
     ZeroObject(p3);
 
     // A part3
-    multiSig.CoSignPart(seedA, blindingFactorA, p3);
+	{
+		Oracle oracle(o0);
+		multiSig.CoSignPart(seedA, blindingFactorA, oracle, p3);
+	}
 
     // B part3
     {
-        Oracle oracle;
-        bulletproof.m_Part2 = p2;
-        bulletproof.m_Part3 = p3;
-        oracle << (beam::Height)0; // CHECK!
-        verify_test(bulletproof.CoSign(seedB, blindingFactorB, creatorParamsB, oracle, RangeProof::Confidential::Phase::Finalize, nullptr, &assetTag.m_hGen));
+		outp.m_pConfidential = std::make_unique<ECC::RangeProof::Confidential>();
+		outp.m_pConfidential->m_Part1 = multiSig.m_Part1;
+		outp.m_pConfidential->m_Part2 = multiSig.m_Part2;
+		outp.m_pConfidential->m_Part3 = p3;
+
+		Oracle oracle(o0);
+		verify_test(outp.m_pConfidential->CoSign(seedB, blindingFactorB, creatorParamsB, oracle, RangeProof::Confidential::Phase::Finalize));
     }
 
     {
         // test
-        Oracle oracle;
-        oracle << (beam::Height)0;
-        verify_test(bulletproof.IsValid(commitment, oracle, &assetTag.m_hGen));
+        Oracle oracle(o0);
+        verify_test(outp.IsValid(g_hFork, commitment));
     }
 
     //==========================================================
@@ -898,12 +906,10 @@ void TestMultiSigOutput(bool bCustomTag)
 
     // output
     std::unique_ptr<beam::Output> pOutput(new beam::Output);
-    pOutput->m_Commitment = commitment;
-    pOutput->m_pConfidential = std::make_unique<ECC::RangeProof::Confidential>();
-    *(pOutput->m_pConfidential) = bulletproof;
+	*pOutput = outp;
     {
         ECC::Point::Native comm;
-        verify_test(pOutput->IsValid(comm));
+        verify_test(pOutput->IsValid(g_hFork, comm));
     }
     Scalar::Native outputBlindingFactor;
     outputBlindingFactor = blindingFactorA + blindingFactorB;
@@ -978,6 +984,7 @@ void TestMultiSigOutput(bool bCustomTag)
 
     beam::TxBase::Context::Params pars;
     beam::TxBase::Context context(pars);
+	context.m_Height.m_Min = g_hFork;
     verify_test(transaction.IsValid(context));
 }
 
@@ -2058,7 +2065,7 @@ void TestAll()
 	TestRangeProof(false);
 	TestRangeProof(true);
 	TestTransaction();
-    TestMultiSigOutput(false);
+    TestMultiSigOutput();
 	TestNegotiation();
 	TestLightning();
 	TestCutThrough();

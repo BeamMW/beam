@@ -696,10 +696,10 @@ namespace beam::wallet
         if (proto::TxStatus::Ok != nRegistered)
         {
             OnSubTxFailed(TxFailureReason::FailedToRegister, subTxID, subTxID == SubTxIndex::BEAM_LOCK_TX);
-            return isRegistered;
+            return false;
         }
 
-        return proto::TxStatus::Ok == nRegistered;
+        return true;
     }
 
     bool AtomicSwapTransaction::IsBeamLockTimeExpired() const

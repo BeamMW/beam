@@ -88,10 +88,13 @@ namespace beam::wallet
             m_Tx.SetParameter(TxParameterID::SharedCoinID, outputCoin.m_ID, m_SubTxID);
         }
 
+		Height minHeight = 0;
+		m_Tx.GetParameter(TxParameterID::MinHeight, minHeight, m_SubTxID);
+
         // add output
         Scalar::Native blindingFactor;
         Output::Ptr output = std::make_unique<Output>();
-        output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(outputCoin.m_ID.m_SubIdx), outputCoin.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
+        output->Create(minHeight, blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(outputCoin.m_ID.m_SubIdx), outputCoin.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
 
         blindingFactor = -blindingFactor;
         m_Offset += blindingFactor;

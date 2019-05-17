@@ -55,11 +55,20 @@ namespace beam::wallet
                 return false;
             }
 
+			Output outp;
+			outp.m_Commitment = GetSharedCommitment();
+
+			Height minHeight = 0;
+			m_Tx.GetParameter(TxParameterID::MinHeight, minHeight, m_SubTxID);
+
             Oracle oracle;
-            oracle << (beam::Height)0; // CHECK, coin maturity
+			outp.Prepare(oracle, minHeight);
 
             // produce multisig
-            m_SharedProof.CoSign(GetSharedSeed(), GetSharedBlindingFactor(), GetProofCreatorParams(), oracle, RangeProof::Confidential::Phase::Step2, &m_ProofPartialMultiSig);
+            m_SharedProof.CoSign(GetSharedSeed(), GetSharedBlindingFactor(), GetProofCreatorParams(), oracle, RangeProof::Confidential::Phase::Step2);
+
+			m_ProofPartialMultiSig.m_Part1 = m_SharedProof.m_Part1;
+			m_ProofPartialMultiSig.m_Part2 = m_SharedProof.m_Part2;
 
             // save SharedBulletProofMSig and BulletProof ?
             m_Tx.SetParameter(TxParameterID::SharedBulletProof, m_SharedProof, m_SubTxID);
@@ -74,10 +83,17 @@ namespace beam::wallet
 
     bool LockTxBuilder::SharedUTXOProofPart3(bool shouldProduceMultisig)
     {
-        if (shouldProduceMultisig)
+		Output outp;
+		outp.m_Commitment = GetSharedCommitment();
+
+		Height minHeight = 0;
+		m_Tx.GetParameter(TxParameterID::MinHeight, minHeight, m_SubTxID);
+
+		Oracle oracle;
+		outp.Prepare(oracle, minHeight);
+
+		if (shouldProduceMultisig)
         {
-            Oracle oracle;
-            oracle << (beam::Height)0; // CHECK!
             // load peer part3
             if (!m_Tx.GetParameter(TxParameterID::PeerSharedBulletProofPart3, m_SharedProof.m_Part3, m_SubTxID))
             {
@@ -97,7 +113,7 @@ namespace beam::wallet
             }
 
             ZeroObject(m_SharedProof.m_Part3);
-            m_ProofPartialMultiSig.CoSignPart(GetSharedSeed(), GetSharedBlindingFactor(), m_SharedProof.m_Part3);
+            m_ProofPartialMultiSig.CoSignPart(GetSharedSeed(), GetSharedBlindingFactor(), oracle, m_SharedProof.m_Part3);
         }
         return true;
     }

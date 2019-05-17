@@ -247,7 +247,7 @@ namespace beam::wallet
                 bool isRegistered = !txID.empty();
                 LOG_DEBUG() << m_tx.GetTxID() << "[" << subTxID << "]" << (isRegistered ? " has registered." : " has failed to register.");
 
-				nRegistered = isRegistered ? proto::TxStatus::Ok : proto::TxStatus::Unspecified;
+				uint8_t nRegistered = isRegistered ? proto::TxStatus::Ok : proto::TxStatus::Unspecified;
                 m_tx.SetParameter(TxParameterID::TransactionRegistered, nRegistered, false, subTxID);
 
                 if (!txID.empty())
@@ -262,12 +262,12 @@ namespace beam::wallet
             return (proto::TxStatus::Ok == nRegistered);
         }
 
-        if (!isRegistered)
+        if (proto::TxStatus::Ok != nRegistered)
         {
             m_tx.SetParameter(TxParameterID::FailureReason, TxFailureReason::FailedToRegister, false, subTxID);
         }
 
-        return isRegistered;
+        return (proto::TxStatus::Ok == nRegistered);
     }
 
     SwapTxState BitcoinSide::BuildLockTx()

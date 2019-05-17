@@ -729,7 +729,7 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel2& req)
         AmountBig::Type fee;
         ECC::Point::Native exc;
 
-        if (!req.m_Res.m_Kernel->IsValid(fee, exc))
+        if (!req.m_Res.m_Kernel->IsValid(req.m_Res.m_Height, fee, exc))
         {
             ThrowUnexpected();
         }

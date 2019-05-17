@@ -262,7 +262,7 @@ uint32_t Multisig::Update2()
 
 		ECC::RangeProof::CreatorParams cp;
 		cp.m_Kidv = kidv;
-		outp.get_SeedKid(cp.m_Seed.V, *m_pKdf);
+		beam::Output::GenerateSeedKid(cp.m_Seed.V, outp.m_Commitment, *m_pKdf);
 
 		o2 = oracle;
 		if (!bp.CoSign(seedSk.V, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Step2)) // add self p2, produce msig
@@ -548,7 +548,7 @@ uint32_t MultiTx::Update2()
 
 			krn.m_Signature.m_k = k; // incomplete yet
 
-			verify(RaiseTo(1));
+			BEAM_VERIFY(RaiseTo(1));
 
 			Send(krn.m_Commitment, Codes::KrnCommitment);
 			Send(krn.m_Signature.m_NoncePub, Codes::KrnNonce);

@@ -449,9 +449,11 @@ namespace detail
         template<typename Archive>
         static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::MultiSig& v)
         {
-            ar
-                & v.x
-                & v.zz;
+			ar
+				& v.m_Part1.m_A
+				& v.m_Part1.m_S
+				& v.m_Part2.m_T1
+				& v.m_Part2.m_T2;
 
             return ar;
         }
@@ -459,9 +461,11 @@ namespace detail
         template<typename Archive>
         static Archive& load(Archive& ar, ECC::RangeProof::Confidential::MultiSig& v)
         {
-            ar
-                & v.x
-                & v.zz;
+			ar
+				& v.m_Part1.m_A
+				& v.m_Part1.m_S
+				& v.m_Part2.m_T1
+				& v.m_Part2.m_T2;
 
             return ar;
         }
