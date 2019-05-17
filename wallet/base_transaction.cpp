@@ -207,9 +207,9 @@ namespace beam::wallet
             return false;
         }
 
-        bool isRegistered = false;
+		uint8_t nRegistered = proto::TxStatus::Unspecified;
         Merkle::Hash kernelID;
-        if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered)
+		if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered)
          || !GetParameter(TxParameterID::KernelID, kernelID))
         {
             Block::SystemState::Full state;

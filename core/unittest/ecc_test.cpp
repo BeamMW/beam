@@ -20,6 +20,7 @@
 #include "../serialization_adapters.h"
 #include "../aes.h"
 #include "../proto.h"
+#include "../negotiator.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #pragma GCC diagnostic ignored "-Wunused-result"
@@ -64,6 +65,8 @@ void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const
 secp256k1_context* g_psecp256k1 = NULL;
 
 int g_TestsFailed = 0;
+
+const beam::Height g_hFork = 3; // whatever
 
 void TestFailed(const char* szExpr, uint32_t nLine)
 {
@@ -576,7 +579,16 @@ void TestRangeProof(bool bCustomTag)
 		RangeProof::CreatorParams cp2;
 		cp2.m_Seed = cp.m_Seed;
 
-		rp.Recover(cp2);
+		verify_test(rp.Recover(cp2));
+		verify_test(cp.m_Kidv == cp2.m_Kidv);
+
+		// leave only data needed for recovery
+		RangeProof::Public rp2;
+		ZeroObject(rp2);
+		rp2.m_Recovery = rp.m_Recovery;
+		rp2.m_Value = rp.m_Value;
+
+		verify_test(rp2.Recover(cp2));
 		verify_test(cp.m_Kidv == cp2.m_Kidv);
 	}
 
@@ -640,7 +652,18 @@ void TestRangeProof(bool bCustomTag)
 		RangeProof::CreatorParams cp2;
 		cp2.m_Seed = cp.m_Seed;
 
-		bp.Recover(oracle, cp2);
+		verify_test(bp.Recover(oracle, cp2));
+		verify_test(cp.m_Kidv == cp2.m_Kidv);
+
+		// leave only data needed for recovery
+		RangeProof::Confidential bp2 = bp;
+
+		ZeroObject(bp2.m_Part3);
+		ZeroObject(bp2.m_tDot);
+		ZeroObject(bp2.m_P_Tag);
+
+		oracle = Oracle();
+		verify_test(bp2.Recover(oracle, cp2));
 		verify_test(cp.m_Kidv == cp2.m_Kidv);
 	}
 
@@ -678,9 +701,12 @@ void TestRangeProof(bool bCustomTag)
 		Scalar::Native pSk[nSigners];
 		uintBig pSeed[nSigners];
 
-		// 1st cycle. peers produce Part2
+		// 1st cycle. peers produce Part2, aggregate commitment
 		RangeProof::Confidential::Part2 p2;
 		ZeroObject(p2);
+
+		comm = Zero;
+		Tag::AddValue(comm, &tag.m_hGen, cp.m_Kidv.m_Value);
 
 		RangeProof::Confidential::MultiSig msig;
 
@@ -689,36 +715,37 @@ void TestRangeProof(bool bCustomTag)
 			SetRandom(pSk[i]);
 			SetRandom(pSeed[i]);
 
+			comm += Context::get().G * pSk[i];
+
 			if (i + 1 < nSigners)
 				verify_test(RangeProof::Confidential::MultiSig::CoSignPart(pSeed[i], p2)); // p2 aggregation
 			else
 			{
 				Oracle oracle;
 				bp.m_Part2 = p2;
-				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Step2, &msig, &tag.m_hGen)); // add last p2, produce msig
+				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Step2, &tag.m_hGen)); // add last p2, produce msig
 				p2 = bp.m_Part2;
+
+				msig.m_Part1 = bp.m_Part1;
+				msig.m_Part2 = bp.m_Part2;
 			}
 		}
 
-		// 2nd cycle. Peers produce Part3, commitment is aggregated too
+		// 2nd cycle. Peers produce Part3
 		RangeProof::Confidential::Part3 p3;
 		ZeroObject(p3);
 
-		comm = Zero;
-		Tag::AddValue(comm, &tag.m_hGen, cp.m_Kidv.m_Value);
-
 		for (uint32_t i = 0; i < nSigners; i++)
 		{
-			comm += Context::get().G * pSk[i];
+			Oracle oracle;
 
 			if (i + 1 < nSigners)
-				msig.CoSignPart(pSeed[i], pSk[i], p3);
+				msig.CoSignPart(pSeed[i], pSk[i], oracle, p3);
 			else
 			{
-				Oracle oracle;
 				bp.m_Part2 = p2;
 				bp.m_Part3 = p3;
-				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Finalize, nullptr, &tag.m_hGen));
+				verify_test(bp.CoSign(pSeed[i], pSk[i], cp, oracle, RangeProof::Confidential::Phase::Finalize, &tag.m_hGen));
 			}
 		}
 
@@ -738,17 +765,23 @@ void TestRangeProof(bool bCustomTag)
 	{
 		beam::Output outp;
 		outp.m_AssetID = aid;
-		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf, true);
 		outp.m_Coinbase = true; // others may be disallowed
-		verify_test(outp.IsValid(comm));
+		outp.Create(g_hFork, sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf, true);
+		verify_test(outp.IsValid(g_hFork, comm));
 		WriteSizeSerialized("Out-UTXO-Public", outp);
+
+		outp.m_RecoveryOnly = true;
+		WriteSizeSerialized("Out-UTXO-Public-RecoveryOnly", outp);
 	}
 	{
 		beam::Output outp;
 		outp.m_AssetID = aid;
-		outp.Create(sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf);
-		verify_test(outp.IsValid(comm));
+		outp.Create(g_hFork, sk, kdf, Key::IDV(20300, 1, Key::Type::Regular), kdf);
+		verify_test(outp.IsValid(g_hFork, comm));
 		WriteSizeSerialized("Out-UTXO-Confidential", outp);
+
+		outp.m_RecoveryOnly = true;
+		WriteSizeSerialized("Out-UTXO-Confidential-RecoveryOnly", outp);
 	}
 
 	WriteSizeSerialized("In-Utxo", beam::Input());
@@ -1009,11 +1042,11 @@ struct TransactionMaker
 
 			if (pAssetID)
 				pOut->m_AssetID = *pAssetID;
-			pOut->Create(k, kdf, kidv, kdf);
+			pOut->Create(g_hFork, k, kdf, kidv, kdf);
 
 			// test recovery
 			Key::IDV kidv2;
-			verify_test(pOut->Recover(kdf, kidv2));
+			verify_test(pOut->Recover(g_hFork, kdf, kidv2));
 			verify_test(kidv == kidv2);
 
 			t.m_vOutputs.push_back(std::move(pOut));
@@ -1080,11 +1113,11 @@ struct TransactionMaker
 		krn.m_Signature.m_k = kSig;
 	}
 
-	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested, bool bEmitCustomTag)
+	void CreateTxKernel(std::vector<beam::TxKernel::Ptr>& lstTrg, Amount fee, std::vector<beam::TxKernel::Ptr>& lstNested, bool bEmitCustomTag, bool bNested)
 	{
 		std::unique_ptr<beam::TxKernel> pKrn(new beam::TxKernel);
 		pKrn->m_Fee = fee;
-
+		pKrn->m_CanEmbed = bNested;
 		pKrn->m_vNested.swap(lstNested);
 
 		// hashlock
@@ -1128,11 +1161,11 @@ struct TransactionMaker
 
 		Point::Native exc;
 		beam::AmountBig::Type fee2;
-		verify_test(!pKrn->IsValid(fee2, exc)); // should not pass validation unless correct hash preimage is specified
+		verify_test(!pKrn->IsValid(g_hFork, fee2, exc)); // should not pass validation unless correct hash preimage is specified
 
 		// finish HL: add hash preimage
 		pKrn->m_pHashLock->m_Preimage = hlPreimage;
-		verify_test(pKrn->IsValid(fee2, exc));
+		verify_test(pKrn->IsValid(g_hFork, fee2, exc));
 
 		lstTrg.push_back(std::move(pKrn));
 	}
@@ -1162,18 +1195,467 @@ void TestTransaction()
 
 	Amount fee1 = 100, fee2 = 2;
 
-	tm.CreateTxKernel(lstNested, fee1, lstDummy, false);
+	tm.CreateTxKernel(lstNested, fee1, lstDummy, false, true);
 
 	tm.AddOutput(0, 738);
 	tm.AddInput(1, 740);
-	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested, true);
+	tm.CreateTxKernel(tm.m_Trans.m_vKernels, fee2, lstNested, true, false);
 
 	tm.m_Trans.Normalize();
 
 	beam::TxBase::Context::Params pars;
 	beam::TxBase::Context ctx(pars);
+	ctx.m_Height.m_Min = g_hFork;
 	verify_test(tm.m_Trans.IsValid(ctx));
 	verify_test(ctx.m_Fee == beam::AmountBig::Type(fee1 + fee2));
+}
+
+bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b)
+{
+	using namespace beam;
+	using namespace Negotiator;
+
+	Gateway::Direct ga(a), gb(b);
+	a.m_pGateway = &gb;
+	b.m_pGateway = &ga;
+
+	IBase* pArr[2];
+	pArr[0] = &a;
+	pArr[1] = &b;
+
+	for (size_t i = 0; i < _countof(pArr); i++)
+	{
+		IBase& v = *pArr[i];
+		v.Set(static_cast<uint32_t>(i), Codes::Role);
+	}
+
+	while (true)
+	{
+		bool bDone = true, bFail = false;
+
+		for (size_t i = 0; i < _countof(pArr); i++)
+		{
+			IBase& v = *pArr[i];
+
+			uint32_t status = v.Update();
+			if (Status::Success != status)
+			{
+				bDone = false;
+				if (Status::Pending != status)
+					bFail = true;
+			}
+		}
+
+		if (bFail)
+			return false;
+		if (bDone)
+			return true;
+	}
+}
+
+Amount SetKidvs(beam::Negotiator::IBase& neg, const Amount* p, size_t n, uint32_t code, uint32_t i0 = 0)
+{
+	std::vector<Key::IDV> vec;
+	vec.resize(n);
+	Amount sum = 0;
+
+	for (size_t i = 0; i < n; i++)
+	{
+		Key::IDV& kidv = vec[i];
+		ZeroObject(kidv);
+
+		kidv.m_Type = Key::Type::Regular;
+		kidv.m_Idx = i0 + static_cast<uint32_t>(i);
+
+		kidv.m_Value = p[i];
+		sum += p[i];
+	}
+
+	neg.Set(vec, code);
+	return sum;
+}
+
+void TestNegotiation()
+{
+	using namespace beam;
+	using namespace Negotiator;
+
+	const Amount valMSig = 11;
+
+	Multisig pT1[2];
+	Storage::Map pS1[2];
+
+	for (size_t i = 0; i < _countof(pT1); i++)
+	{
+		IBase& v = pT1[i];
+
+		uintBig seed;
+		SetRandom(seed);
+		HKdf::Create(v.m_pKdf, seed);
+
+		v.m_pStorage = pS1 + i;
+
+		Key::IDV kidv(Zero);
+		kidv.m_Value = valMSig;
+		kidv.m_Idx = 500;
+		kidv.m_Type = FOURCC_FROM(msg2);
+		v.Set(kidv, Multisig::Codes::Kidv);
+
+		v.Set(uint32_t(1), Multisig::Codes::ShareResult);
+	}
+
+	verify_test(RunNegLoop(pT1[0], pT1[1]));
+
+
+	MultiTx pT2[2];
+	Storage::Map pS2[2];
+
+	for (size_t i = 0; i < _countof(pT2); i++)
+	{
+		IBase& v = pT2[i];
+		v.m_pKdf = pT1[i].m_pKdf;
+		v.m_pStorage = pS2 + i;
+	}
+
+	const Amount pIn0[] = { 30, 50, 45 };
+	const Amount pOut0[] = { 11, 12 };
+
+	const Amount pIn1[] = { 6 };
+	const Amount pOut1[] = { 17, 55 };
+
+	Amount fee = valMSig;
+
+	fee += SetKidvs(pT2[0], pIn0, _countof(pIn0), MultiTx::Codes::InpKidvs);
+	fee -= SetKidvs(pT2[0], pOut0, _countof(pOut0), MultiTx::Codes::OutpKidvs, 700);
+
+	fee += SetKidvs(pT2[1], pIn1, _countof(pIn1), MultiTx::Codes::InpKidvs);
+	fee -= SetKidvs(pT2[1], pOut1, _countof(pOut1), MultiTx::Codes::OutpKidvs, 500);
+
+	for (size_t i = 0; i < _countof(pT2); i++)
+	{
+		IBase& v = pT2[i];
+		v.Set(fee, MultiTx::Codes::KrnFee);
+
+		Key::IDV kidv(Zero);
+		kidv.m_Value = valMSig;
+		kidv.m_Idx = 500;
+		kidv.m_Type = FOURCC_FROM(msg2);
+		v.Set(kidv, MultiTx::Codes::InpMsKidv);
+
+		uint32_t idxTrg = MultiTx::Codes::InpMsCommitment;
+		uint32_t idxSrc = Multisig::Codes::Commitment;
+
+		pS2[i][idxTrg] = pS1[i][idxSrc];
+
+//			v.Set(kidv, MultiTx::Codes::OutpMsKidv);
+//			pS2[i][MultiTx::Codes::OutpMsTxo] = pS1[i][Multisig::Codes::OutputTxo];
+	}
+
+	verify_test(RunNegLoop(pT2[0], pT2[1]));
+
+	WithdrawTx pT3[2];
+	Storage::Map pS3[2];
+
+	for (size_t i = 0; i < _countof(pT3); i++)
+	{
+		WithdrawTx& v = pT3[i];
+		v.m_pKdf = pT1[i].m_pKdf;
+		v.m_pStorage = pS3 + i;
+
+		WithdrawTx::Worker wrk(v);
+
+		// new multisig
+		Key::IDV ms0(Zero);
+		ms0.m_Value = valMSig;
+		ms0.m_Idx = 500;
+		ms0.m_Type = FOURCC_FROM(msg2);
+
+		Key::IDV ms1 = ms0;
+		ms1.m_Idx = 800;
+
+		ECC::Point comm0;
+		verify_test(pT1[i].Get(comm0, Multisig::Codes::Commitment));
+
+
+		std::vector<Key::IDV> vec;
+		vec.resize(1, Zero);
+		vec[0].m_Idx = 315;
+		vec[0].m_Type = Key::Type::Regular;
+
+		Amount half = valMSig / 2;
+		vec[0].m_Value = i ? half : (valMSig - half);
+
+		v.Setup(&ms1, &ms0, &comm0, &vec, 1440);
+	}
+
+	verify_test(RunNegLoop(pT3[0], pT3[1]));
+
+
+	struct ChannelData
+	{
+		Key::IDV m_msMy;
+		Key::IDV m_msPeer;
+		ECC::Point m_CommPeer;
+	};
+
+	ChannelOpen pT4[2];
+	Storage::Map pS4[2];
+	ChannelData pCData[2];
+
+	for (size_t i = 0; i < _countof(pT4); i++)
+	{
+		ChannelOpen& v = pT4[i];
+		v.m_pKdf = pT1[i].m_pKdf;
+		v.m_pStorage = pS4 + i;
+
+		ChannelOpen::Worker wrk(v);
+
+		Amount half = valMSig / 2;
+		Amount nMyValue = i ? half : (valMSig - half);
+
+		std::vector<Key::IDV> vIn, vOutWd;
+		vIn.resize(1, Zero);
+		vIn[0].m_Idx = 215;
+		vIn[0].m_Type = Key::Type::Regular;
+		vIn[0].m_Value = nMyValue;
+
+		vOutWd.resize(1, Zero);
+		vOutWd[0].m_Idx = 216;
+		vOutWd[0].m_Type = Key::Type::Regular;
+		vOutWd[0].m_Value = nMyValue;
+
+		Key::IDV ms0(Zero);
+		ms0.m_Value = valMSig;
+		ms0.m_Type = FOURCC_FROM(msg2);
+		ms0.m_Idx = 220;
+
+		Key::IDV msA = ms0;
+		msA.m_Idx++;
+		Key::IDV msB = msA;
+		msB.m_Idx++;
+
+		v.Setup(&vIn, nullptr, &ms0, &msA, &msB, &vOutWd, 1440);
+
+		ChannelData& cd = pCData[i];
+		cd.m_msMy = i ? msB : msA;
+		cd.m_msPeer = i ? msA : msB;
+	}
+
+	verify_test(RunNegLoop(pT4[0], pT4[1]));
+
+	for (int i = 0; i < 2; i++)
+	{
+		ChannelOpen::Result r;
+		ChannelOpen::Worker wrk(pT4[i]);
+		pT4[i].get_Result(r);
+
+		verify_test(!r.m_tx1.m_vKernels.empty());
+		verify_test(!r.m_tx2.m_vKernels.empty());
+		verify_test(!r.m_txPeer2.m_vKernels.empty());
+
+		pCData[i].m_CommPeer = r.m_CommPeer1;
+	}
+
+
+	ChannelUpdate pT5[2];
+	Storage::Map pS5[2];
+
+
+	for (size_t i = 0; i < _countof(pT5); i++)
+	{
+		ChannelUpdate& v = pT5[i];
+		v.m_pKdf = pT1[i].m_pKdf;
+		v.m_pStorage = pS5 + i;
+
+		ChannelUpdate::Worker wrk(v);
+
+		Amount nPart = valMSig / 3;
+		Amount nMyValue = i ? nPart : (valMSig - nPart);
+
+		Key::IDV ms0;
+		ECC::Point comm0;
+		{
+			ChannelOpen::Worker wrk2(pT4[i]);
+			pT4[i].m_MSig.Get(comm0, Multisig::Codes::Commitment);
+			pT4[i].m_MSig.Get(ms0, Multisig::Codes::Kidv);
+		}
+
+		Key::IDV msA = ms0;
+		msA.m_Idx += 15;
+		Key::IDV msB = msA;
+		msB.m_Idx++;
+
+		std::vector<Key::IDV> vOutWd;
+		vOutWd.resize(1, Zero);
+		vOutWd[0].m_Idx = 216;
+		vOutWd[0].m_Type = Key::Type::Regular;
+		vOutWd[0].m_Value = nMyValue;
+
+		ChannelData& cd = pCData[i];
+
+		v.Setup(&ms0, &comm0, &msA, &msB, &vOutWd, 1443, &cd.m_msMy, &cd.m_msPeer, &cd.m_CommPeer);
+	}
+
+	verify_test(RunNegLoop(pT5[0], pT5[1]));
+
+	for (int i = 0; i < 2; i++)
+	{
+		ChannelUpdate::Result r;
+		ChannelUpdate::Worker wrk(pT5[i]);
+		pT5[i].get_Result(r);
+
+		verify_test(!r.m_tx1.m_vKernels.empty());
+		verify_test(!r.m_tx2.m_vKernels.empty());
+		verify_test(!r.m_txPeer2.m_vKernels.empty());
+
+		verify_test(r.m_RevealedSelfKey && r.m_PeerKeyValid);
+	}
+}
+
+
+void TestLightning()
+{
+	using namespace beam;
+	using namespace Negotiator;
+
+	struct Peer
+	{
+		Key::IKdf::Ptr m_pKdf;
+		uint64_t m_CoinID;
+
+		Amount m_Balance;
+		Amount m_TotalLocked;
+
+		std::unique_ptr<ChannelOpen::Result> m_pOpen;
+		std::vector< std::unique_ptr<ChannelUpdate::Result> > m_vUpdates;
+
+		Key::IDV m_ms0, m_msMy, m_msPeer;
+
+		void PrepareCoin(Key::IDV& kidv, Amount val)
+		{
+			kidv.m_Idx = m_CoinID++;
+			kidv.m_SubIdx = 0;
+			kidv.m_Type = Key::Type::Regular; // by default
+			kidv.m_Value = val;
+		}
+
+		void Open(ChannelOpen& neg, Amount nPeerValue, uint32_t iRole)
+		{
+			ChannelOpen::Worker wrk(neg);
+
+			assert(m_Balance);
+			Amount nChange = m_Balance / 3;
+
+			std::vector<Key::IDV> vIn, vChange, vOutWd;
+			vIn.resize(1);
+			PrepareCoin(vIn[0], m_Balance + nChange);
+			vChange.resize(1);
+			PrepareCoin(vChange[0], nChange);
+
+			vOutWd.resize(1, Zero);
+			PrepareCoin(vOutWd[0], m_Balance);
+
+			m_TotalLocked = m_Balance + nPeerValue;
+			Key::IDV msA, msB;
+			PrepareCoin(m_ms0, m_TotalLocked);
+			PrepareCoin(msA, m_TotalLocked);
+			PrepareCoin(msB, m_TotalLocked);
+
+			m_ms0.m_Type = msA.m_Type = msB.m_Type = FOURCC_FROM(musg);
+
+			neg.m_pKdf = m_pKdf;
+			neg.Setup(&vIn, &vChange, &m_ms0, &msA, &msB, &vOutWd, 1440);
+
+			m_msMy = iRole ? msB : msA;
+			m_msPeer = iRole ? msA : msB;
+		}
+
+		void Update(ChannelUpdate& neg, uint32_t iRole)
+		{
+			ChannelUpdate::Worker wrk(neg);
+
+			std::vector<Key::IDV> vOutWd;
+			vOutWd.resize(1);
+			PrepareCoin(vOutWd[0], m_Balance);
+
+			Key::IDV msA, msB;
+			PrepareCoin(msA, m_TotalLocked);
+			PrepareCoin(msB, m_TotalLocked);
+
+			msA.m_Type = msB.m_Type = FOURCC_FROM(musg);
+
+			ChannelWithdrawal::Result& rLast = m_vUpdates.empty() ?
+				Cast::Down<ChannelWithdrawal::Result>(*m_pOpen) :
+				Cast::Down<ChannelWithdrawal::Result>(*m_vUpdates.back());
+
+			neg.m_pKdf = m_pKdf;
+			neg.Setup(&m_ms0, &m_pOpen->m_Comm0, &msA, &msB, &vOutWd, 1440, &m_msMy, &m_msPeer, &rLast.m_CommPeer1);
+
+			m_msMy = iRole ? msB : msA;
+			m_msPeer = iRole ? msA : msB;
+		}
+	};
+
+	Peer pPeer[2];
+
+	for (int i = 0; i < 2; i++)
+	{
+		uintBig seed;
+		SetRandom(seed);
+		HKdf::Create(pPeer[i].m_pKdf, seed);
+
+		seed.ExportWord<0>(pPeer[i].m_CoinID);
+	}
+
+	pPeer[0].m_Balance = 100500;
+	pPeer[1].m_Balance = 78950;
+
+	// open channel
+	{
+		ChannelOpen pNeg[2];
+		Storage::Map pS[2];
+
+		for (int i = 0; i < 2; i++)
+		{
+			pNeg[i].m_pStorage = pS + i;
+			pPeer[i].Open(pNeg[i], pPeer[!i].m_Balance, i);
+		}
+
+		verify_test(RunNegLoop(pNeg[0], pNeg[1]));
+
+		for (int i = 0; i < 2; i++)
+		{
+			ChannelOpen::Worker wrk(pNeg[i]);
+			pPeer[i].m_pOpen.reset(new ChannelOpen::Result);
+			pNeg[i].get_Result(*pPeer[i].m_pOpen);
+		}
+	}
+
+	// update several times
+	for (int j = 0; j < 10; j++)
+	{
+		ChannelUpdate pNeg[2];
+		Storage::Map pS[2];
+
+		pPeer[0].m_Balance += 50;
+		pPeer[1].m_Balance -= 50;
+
+		for (int i = 0; i < 2; i++)
+		{
+			pNeg[i].m_pStorage = pS + i;
+			pPeer[i].Update(pNeg[i], i);
+		}
+
+		verify_test(RunNegLoop(pNeg[0], pNeg[1]));
+
+		for (int i = 0; i < 2; i++)
+		{
+			ChannelUpdate::Worker wrk(pNeg[i]);
+			pPeer[i].m_vUpdates.emplace_back();
+			pPeer[i].m_vUpdates.back().reset(new ChannelUpdate::Result);
+			pNeg[i].get_Result(*pPeer[i].m_vUpdates.back());
+		}
+	}
 }
 
 void TestCutThrough()
@@ -1186,6 +1668,7 @@ void TestCutThrough()
 
 	beam::TxBase::Context::Params pars;
 	beam::TxBase::Context ctx(pars);
+	ctx.m_Height.m_Min = g_hFork;
 	verify_test(ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader()));
 
 	beam::Input::Ptr pInp(new beam::Input);
@@ -1193,11 +1676,13 @@ void TestCutThrough()
 	tm.m_Trans.m_vInputs.push_back(std::move(pInp));
 
 	ctx.Reset();
+	ctx.m_Height = g_hFork;
 	verify_test(!ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader())); // redundant outputs must be banned!
 
 	verify_test(tm.m_Trans.Normalize() == 1);
 
 	ctx.Reset();
+	ctx.m_Height = g_hFork;
 	verify_test(ctx.ValidateAndSummarize(tm.m_Trans, tm.m_Trans.get_Reader()));
 }
 
@@ -1574,6 +2059,8 @@ void TestAll()
 	TestRangeProof(true);
 	TestTransaction();
     TestMultiSigOutput(false);
+	TestNegotiation();
+	TestLightning();
 	TestCutThrough();
 	TestAES();
 	TestKdf();
@@ -2089,6 +2576,7 @@ int main()
 	g_psecp256k1 = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 
 	beam::Rules::get().CA.Enabled = true;
+	beam::Rules::get().pForks[1].m_Height = g_hFork;
 	ECC::TestAll();
 	ECC::RunBenchmark();
 

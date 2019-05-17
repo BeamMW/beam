@@ -172,7 +172,8 @@ namespace beam::wallet
                     if (GetParameter(TxParameterID::PeerProtoVersion, nVer))
                     {
                         // for peers with new flow, we assume that after we have responded, we have to switch to the state of awaiting for proofs
-                        SetParameter(TxParameterID::TransactionRegistered, true);
+						uint8_t nCode = proto::TxStatus::Ok; // compiler workaround (ref to static const)
+						SetParameter(TxParameterID::TransactionRegistered, nCode);
 
                         SetState(State::KernelConfirmation);
                         ConfirmKernel(builder.GetKernelID());
@@ -237,8 +238,8 @@ namespace beam::wallet
             builder.FinalizeSignature();
         }
 
-        bool isRegistered = false;
-        if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered))
+        uint8_t nRegistered = proto::TxStatus::Unspecified;
+        if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered))
         {
             if (!isSelfTx && (!hasPeersInputsAndOutputs || IsInitiator()))
             {
@@ -264,8 +265,9 @@ namespace beam::wallet
 
             // Verify final transaction
             TxBase::Context::Params pars;
-            TxBase::Context ctx(pars);
-            if (!transaction->IsValid(ctx))
+			TxBase::Context ctx(pars);
+			ctx.m_Height.m_Min = builder.GetMinHeight();
+			if (!transaction->IsValid(ctx))
             {
                 OnFailed(TxFailureReason::InvalidTransaction, true);
                 return;
@@ -275,7 +277,7 @@ namespace beam::wallet
             return;
         }
 
-        if (!isRegistered)
+        if (proto::TxStatus::Ok != nRegistered)
         {
             OnFailed(TxFailureReason::FailedToRegister, true);
             return;
@@ -412,7 +414,8 @@ namespace beam::wallet
     void SimpleTransaction::NotifyTransactionRegistered()
     {
         SetTxParameter msg;
-        msg.AddParameter(TxParameterID::TransactionRegistered, true);
+		uint8_t nCode = proto::TxStatus::Ok; // compiler workaround (ref to static const)
+        msg.AddParameter(TxParameterID::TransactionRegistered, nCode);
         SendTxParameters(move(msg));
     }
 

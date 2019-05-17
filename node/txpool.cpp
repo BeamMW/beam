@@ -118,11 +118,12 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 
 	txNew.m_Offset = ECC::Scalar::Native(trg.m_pValue->m_Offset) + ECC::Scalar::Native(src.m_pValue->m_Offset);
 
-#ifdef _DEBUG
-	Transaction::Context::Params pars;
-	Transaction::Context ctx(pars);
-	assert(txNew.IsValid(ctx));
-#endif // _DEBUG
+//#ifdef _DEBUG
+//	Transaction::Context::Params pars;
+//	Transaction::Context ctx(pars);
+////	ctx.m_Height = ;
+//	assert(txNew.IsValid(ctx));
+//#endif // _DEBUG
 
 	if (!ValidateTxContext(txNew))
 		return false; // conflicting txs, can't merge

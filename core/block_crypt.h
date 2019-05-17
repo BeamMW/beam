@@ -36,6 +36,8 @@ namespace beam
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
 
+	void HeightAdd(Height& trg, Height val); // saturates if overflow
+
 	struct HeightRange
 	{
 		// Convention: inclusive, i.e. both endings are part of the range.
@@ -77,6 +79,15 @@ namespace beam
 	typedef int64_t AmountSigned;
 	static_assert(sizeof(Amount) == sizeof(AmountSigned), "");
 
+	struct HeightHash
+	{
+		Merkle::Hash	m_Hash;
+		Height			m_Height;
+
+		int cmp(const HeightHash&) const;
+		COMPARISON_VIA_CMP
+	};
+
 	struct Rules
 	{
 		Rules();
@@ -105,6 +116,12 @@ namespace beam
 			uint32_t WindowMedian0	= 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
 			uint32_t WindowMedian1	= 7; // Num of blocks taken at both endings of WindowWork, to pick medians.
 			Difficulty Difficulty0	= Difficulty(8 << Difficulty::s_MantissaBits); // 2^8 = 256
+
+			struct {
+				// damp factor. Adjustment of actual dt toward expected, effectively dampens
+				uint32_t M = 1; // Multiplier of the actual dt
+				uint32_t N = 3; // Denominator. The goal is multiplied by (N-M)
+			} Damp;
 		} DA;
 
 		struct {
@@ -125,13 +142,21 @@ namespace beam
 		ECC::Hash::Value Prehistoric; // Prev hash of the 1st block
 		ECC::Hash::Value TreasuryChecksum;
 
-		ECC::Hash::Value Checksum;
-
 		void UpdateChecksum();
 
 		static Amount get_Emission(Height);
 		static void get_Emission(AmountBig::Type&, const HeightRange&);
 		static void get_Emission(AmountBig::Type&, const HeightRange&, Amount base);
+
+		HeightHash pForks[2];
+
+		const HeightHash& get_LastFork() const {
+			return pForks[_countof(pForks) - 1];
+		}
+
+		const HeightHash* FindFork(const Merkle::Hash&) const;
+
+		std::string get_SignatureStr() const;
 
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
@@ -218,11 +243,13 @@ namespace beam
 		typedef std::unique_ptr<Output> Ptr;
 
 		bool		m_Coinbase;
+		bool		m_RecoveryOnly;
 		Height		m_Incubation; // # of blocks before it's mature
 		AssetID		m_AssetID;
 
 		Output()
 			:m_Coinbase(false)
+			,m_RecoveryOnly(false)
 			,m_Incubation(0)
 		{
 			m_AssetID = Zero;
@@ -234,12 +261,12 @@ namespace beam
 		std::unique_ptr<ECC::RangeProof::Confidential>	m_pConfidential;
 		std::unique_ptr<ECC::RangeProof::Public>		m_pPublic;
 
-		void Create(ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
+		void Create(Height hVer, ECC::Scalar::Native&, Key::IKdf& coinKdf, const Key::IDV&, Key::IPKdf& tagKdf, bool bPublic = false);
 
-		bool Recover(Key::IPKdf& tagKdf, Key::IDV&) const;
+		bool Recover(Height hVer, Key::IPKdf& tagKdf, Key::IDV&) const;
 		bool VerifyRecovered(Key::IPKdf& coinKdf, const Key::IDV&) const;
 
-		bool IsValid(ECC::Point::Native& comm) const;
+		bool IsValid(Height hVer, ECC::Point::Native& comm) const;
 		Height get_MinMaturity(Height h) const; // regardless to the explicitly-overridden
 
 		void operator = (const Output&);
@@ -247,6 +274,7 @@ namespace beam
 		COMPARISON_VIA_CMP
 
 		static void GenerateSeedKid(ECC::uintBig&, const ECC::Point& comm, Key::IPKdf&);
+		void Prepare(ECC::Oracle&, Height hVer) const;
 	};
 
 	inline bool operator < (const Output::Ptr& a, const Output::Ptr& b) { return *a < *b; }
@@ -261,10 +289,12 @@ namespace beam
 		Amount			m_Fee;			// can be 0 (for instance for coinbase transactions)
 		HeightRange		m_Height;
 		AmountSigned	m_AssetEmission; // in case it's non-zero - the kernel commitment is the AssetID
+		bool			m_CanEmbed;
 
 		TxKernel()
 			:m_Fee(0)
 			,m_AssetEmission(0)
+			,m_CanEmbed(false)
 		{}
 
 		struct HashLock
@@ -276,6 +306,18 @@ namespace beam
 		};
 
 		std::unique_ptr<HashLock> m_pHashLock;
+
+		struct RelativeLock
+		{
+			Merkle::Hash m_ID;
+			Height m_LockHeight;
+
+			int cmp(const RelativeLock&) const;
+			COMPARISON_VIA_CMP
+		};
+
+		std::unique_ptr<RelativeLock> m_pRelativeLock;
+
 		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
 		static const uint32_t s_MaxRecursionDepth = 2;
@@ -289,7 +331,7 @@ namespace beam
 		void get_Hash(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // for signature. Contains all, including the m_Commitment (i.e. the public key)
 		void get_ID(Merkle::Hash&, const ECC::Hash::Value* pLockImage = NULL) const; // unique kernel identifier in the system.
 
-		bool IsValid(AmountBig::Type& fee, ECC::Point::Native& exc) const;
+		bool IsValid(Height hVer, AmountBig::Type& fee, ECC::Point::Native& exc) const;
 		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
 
 		struct LongProof; // legacy
@@ -298,8 +340,10 @@ namespace beam
 		int cmp(const TxKernel&) const;
 		COMPARISON_VIA_CMP
 
+		size_t get_TotalCount() const; // including self and nested
+
 	private:
-		bool Traverse(ECC::Hash::Value&, AmountBig::Type*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage) const;
+		bool Traverse(ECC::Hash::Value&, AmountBig::Type*, ECC::Point::Native*, const TxKernel* pParent, const ECC::Hash::Value* pLockImage, const Height* pFork) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
@@ -318,6 +362,7 @@ namespace beam
 			const Output* m_pUtxoOut;
 			const TxKernel* m_pKernel;
 
+			virtual ~IReader() {}
 			virtual void Clone(Ptr&) = 0;
 			virtual void Reset() = 0;
 			// For all the following methods: the returned pointer should be valid during at least 2 consequent calls!
@@ -331,6 +376,7 @@ namespace beam
 
 		struct IWriter
 		{
+			virtual ~IWriter() {}
 			virtual void Write(const Input&) = 0;
 			virtual void Write(const Output&) = 0;
 			virtual void Write(const TxKernel&) = 0;
@@ -410,6 +456,16 @@ namespace beam
 		typedef uintBig_t<ECC::nBytes> KeyType; // key len for map of transactions. Can actually be less than 256 bits.
 
 		void get_Key(KeyType&) const;
+
+		struct FeeSettings
+		{
+			Amount m_Output;
+			Amount m_Kernel; // nested kernels are accounted too
+
+			FeeSettings(); // defaults
+
+			Amount Calculate(const Transaction&) const;
+		};
 	};
 
 	struct Block
@@ -452,13 +508,7 @@ namespace beam
 
 		struct SystemState
 		{
-			struct ID {
-				Merkle::Hash	m_Hash; // explained later
-				Height			m_Height;
-
-				int cmp(const ID&) const;
-				COMPARISON_VIA_CMP
-			};
+			typedef HeightHash ID;
 
 			struct Sequence
 			{

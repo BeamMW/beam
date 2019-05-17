@@ -632,22 +632,28 @@ namespace ECC {
 		void Init(const uintBig& seedSk);
 
 		void AddInfo1(Point::Native& ptT1, Point::Native& ptT2) const;
-		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet&) const;
+		void AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet1&) const;
 	};
 
-	struct RangeProof::Confidential::ChallengeSetBase
+	struct RangeProof::Confidential::ChallengeSet0
 	{
 		Scalar::Native x, y, z;
-		void Init(const Part1&, Oracle&);
-		void Init(const Part2&, Oracle&);
+		void Init1(const Part1&, Oracle&);
+		void Init2(const Part2&, Oracle&);
 	};
 
-	struct RangeProof::Confidential::ChallengeSet
-		:public ChallengeSetBase
+	struct RangeProof::Confidential::ChallengeSet1
+		:public ChallengeSet0
 	{
-		Scalar::Native yInv, zz;
-		void Init(const Part1&, Oracle&);
-		void Init(const Part2&, Oracle&);
+		Scalar::Native zz;
+		void Init1(const Part1&, Oracle&);
+	};
+
+	struct RangeProof::Confidential::ChallengeSet2
+		:public ChallengeSet1
+	{
+		Scalar::Native yInv;
+		void Init1(const Part1&, Oracle&);
 	};
 
 #pragma pack (push, 1)
@@ -659,7 +665,7 @@ namespace ECC {
 
 #pragma pack (pop)
 
-	bool RangeProof::Confidential::CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, MultiSig* pMsigOut /* = nullptr */, const Point::Native* pHGen /* = nullptr */)
+	bool RangeProof::Confidential::CoSign(const uintBig& seedSk, const Scalar::Native& sk, const CreatorParams& cp, Oracle& oracle, Phase::Enum ePhase, const Point::Native* pHGen /* = nullptr */)
 	{
 		NonceGeneratorBp nonceGen(cp.m_Seed.V);
 
@@ -707,8 +713,8 @@ namespace ECC {
 		//	return; // stop after A,S calculated
 
 		// get challenges
-		ChallengeSet cs;
-		cs.Init(m_Part1, oracle);
+		ChallengeSet2 cs;
+		cs.Init1(m_Part1, oracle);
 
 		// calculate t1, t2 - parts of vec(L)*vec(R) which depend on (future) x and x^2.
 		Scalar::Native t0(Zero), t1(Zero), t2(Zero);
@@ -796,13 +802,7 @@ namespace ECC {
 			m_Part2.m_T2 = comm2;
 		}
 
-		cs.Init(m_Part2, oracle); // get challenge 
-
-		if (pMsigOut)
-		{
-			pMsigOut->x = cs.x;
-			pMsigOut->zz = cs.zz;
-		}
+		cs.Init2(m_Part2, oracle); // get challenge 
 
 		if (Phase::Step2 == ePhase)
 			return true; // stop after T1,T2 calculated
@@ -906,9 +906,9 @@ namespace ECC {
 		nonceGen >> ro;
 
 		// get challenges
-		ChallengeSetBase cs;
-		cs.Init(m_Part1, oracle);
-		cs.Init(m_Part2, oracle);
+		ChallengeSet0 cs;
+		cs.Init1(m_Part1, oracle);
+		cs.Init2(m_Part2, oracle);
 
 		// m_Mu = alpha + ro*x
 		// alpha = m_Mu - ro*x = alpha_minus_params + params
@@ -929,7 +929,7 @@ namespace ECC {
 
 		cp.m_Kidv = pad.V;
 
-		// by now the probability of false positive if 2^-8, which is quite a lot
+		// by now the probability of false positive if 2^-64 (padding is 8 bytes)
 		// Calculate m_Part1.m_A, which depends on alpha and the value.
 
 		alpha_minus_params += params; // just alpha
@@ -953,7 +953,7 @@ namespace ECC {
 		ptT2 = Context::get().G * m_tau2;
 	}
 
-	void RangeProof::Confidential::MultiSig::Impl::AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet& cs) const
+	void RangeProof::Confidential::MultiSig::Impl::AddInfo2(Scalar::Native& taux, const Scalar::Native& sk, const ChallengeSet1& cs) const
 	{
 		// m_TauX = tau2*x^2 + tau1*x + sk*z^2
 		taux = m_tau2;
@@ -991,14 +991,14 @@ namespace ECC {
 		return true;
 	}
 
-	void RangeProof::Confidential::MultiSig::CoSignPart(const uintBig& seedSk, const Scalar::Native& sk, Part3& p3) const
+	void RangeProof::Confidential::MultiSig::CoSignPart(const uintBig& seedSk, const Scalar::Native& sk, Oracle& oracle, Part3& p3) const
 	{
 		Impl msig;
 		msig.Init(seedSk);
 
-		ChallengeSet cs;
-		cs.x = x;
-		cs.zz = zz;
+		ChallengeSet1 cs;
+		cs.Init1(m_Part1, oracle);
+		cs.Init2(m_Part2, oracle);
 
 		Scalar::Native taux;
 		msig.AddInfo2(taux, sk, cs);
@@ -1007,31 +1007,30 @@ namespace ECC {
 		p3.m_TauX = taux;
 	}
 
-	void RangeProof::Confidential::ChallengeSetBase::Init(const Part1& p1, Oracle& oracle)
+	void RangeProof::Confidential::ChallengeSet0::Init1(const Part1& p1, Oracle& oracle)
 	{
 		oracle << p1.m_A << p1.m_S;
 		oracle >> y;
 		oracle >> z;
 	}
 
-	void RangeProof::Confidential::ChallengeSet::Init(const Part1& p1, Oracle& oracle)
+	void RangeProof::Confidential::ChallengeSet1::Init1(const Part1& p1, Oracle& oracle)
 	{
-		ChallengeSetBase::Init(p1, oracle);
-
-		yInv.SetInv(y);
+		ChallengeSet0::Init1(p1, oracle);
 		zz = z;
 		zz *= z;
 	}
 
-	void RangeProof::Confidential::ChallengeSetBase::Init(const Part2& p2, Oracle& oracle)
+	void RangeProof::Confidential::ChallengeSet2::Init1(const Part1& p1, Oracle& oracle)
+	{
+		ChallengeSet1::Init1(p1, oracle);
+		yInv.SetInv(y);
+	}
+
+	void RangeProof::Confidential::ChallengeSet0::Init2(const Part2& p2, Oracle& oracle)
 	{
 		oracle << p2.m_T1 << p2.m_T2;
 		oracle >> x;
-	}
-
-	void RangeProof::Confidential::ChallengeSet::Init(const Part2& p2, Oracle& oracle)
-	{
-		ChallengeSetBase::Init(p2, oracle);
 	}
 
 	bool RangeProof::Confidential::IsValid(const Point::Native& commitment, Oracle& oracle, const Point::Native* pHGen /* = nullptr */) const
@@ -1053,9 +1052,9 @@ namespace ECC {
 
 		Mode::Scope scope(Mode::Fast);
 
-		ChallengeSet cs;
-		cs.Init(m_Part1, oracle);
-		cs.Init(m_Part2, oracle);
+		ChallengeSet2 cs;
+		cs.Init1(m_Part1, oracle);
+		cs.Init2(m_Part2, oracle);
 
 		Scalar::Native xx, zz, tDot;
 

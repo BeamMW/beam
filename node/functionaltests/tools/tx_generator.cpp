@@ -86,7 +86,7 @@ const proto::NewTransaction& TxGenerator::GetTransaction()
 bool TxGenerator::IsValid() const
 {
 	Transaction::Context ctx;
-
+	ctx.m_Height.m_Min = ;
 	return m_MsgTx.m_Transaction->IsValid(ctx);
 }
 

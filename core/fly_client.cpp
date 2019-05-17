@@ -105,16 +105,18 @@ void FlyClient::NetworkStd::Connection::ResetInternal()
 
 void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 {
-    Login msg;
-    msg.m_CfgChecksum = Rules::get().Checksum;
-    msg.m_Flags = LoginFlags::MiningFinalization | LoginFlags::Extension1;
-    Send(msg);
+	SendLogin();
 
     if (!(Flags::ReportedConnected & m_Flags))
     {
         m_Flags |= Flags::ReportedConnected;
         m_This.OnNodeConnected(m_iIndex, true);
     }
+}
+
+void FlyClient::NetworkStd::Connection::SetupLogin(Login& msg)
+{
+	msg.m_Flags |= LoginFlags::MiningFinalization;
 }
 
 void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)
@@ -225,11 +227,9 @@ void FlyClient::NetworkStd::Connection::OnMsg(GetBlockFinalization&& msg)
     Send(msgOut);
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(Login&& msg)
+void FlyClient::NetworkStd::Connection::OnLogin(Login&& msg)
 {
-    VerifyCfg(msg);
-
-    m_LoginFlags = msg.m_Flags;
+    m_LoginFlags = static_cast<uint8_t>(msg.m_Flags);
     AssignRequests();
 
     if (LoginFlags::Bbs & m_LoginFlags)

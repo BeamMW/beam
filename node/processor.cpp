@@ -63,18 +63,40 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
 	m_Extra.m_TxoLo = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoLo, Rules::HeightGenesis - 1);
 	m_Extra.m_TxoHi = m_DB.ParamIntGetDef(NodeDB::ParamID::HeightTxoHi, Rules::HeightGenesis - 1);
 
-	if (!m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob))
+	bool bUpdateChecksum = !m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
+	if (!bUpdateChecksum)
 	{
-		blob = Blob(Rules::get().Checksum);
+		const HeightHash* pFork = Rules::get().FindFork(hv);
+		if (&Rules::get().get_LastFork() != pFork)
+		{
+			if (!pFork)
+			{
+				std::ostringstream os;
+				os << "Data configuration is incompatible: " << hv;
+				throw std::runtime_error(os.str());
+			}
+
+			NodeDB::StateID sid;
+			m_DB.get_Cursor(sid);
+
+			if (sid.m_Height >= pFork[1].m_Height)
+			{
+				std::ostringstream os;
+				os << "Data configuration: " << hv << ", Fork didn't happen at " << pFork[1].m_Height;
+				throw std::runtime_error(os.str());
+			}
+
+			bUpdateChecksum = true;
+		}
+	}
+
+	if (bUpdateChecksum)
+	{
+		LOG_INFO() << "Settings configuration";
+
+		blob = Blob(Rules::get().get_LastFork().m_Hash);
 		m_DB.ParamSet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	}
-	else
-		if (hv != Rules::get().Checksum)
-		{
-			std::ostringstream os;
-			os << "Data configuration is incompatible: " << hv << ". Current configuration: " << Rules::get().Checksum;
-			throw std::runtime_error(os.str());
-		}
 
 	ZeroObject(m_SyncData);
 
@@ -1593,7 +1615,7 @@ void NodeProcessor::RecognizeUtxos(TxBase::IReader&& r, Height hMax)
 		const Output& x = *r.m_pUtxoOut;
 
 		Key::IDV kidv;
-		if (Recover(kidv, x))
+		if (Recover(kidv, x, hMax))
 		{
 			// filter-out dummies
 			if (IsDummy(kidv))
@@ -1691,6 +1713,21 @@ bool NodeProcessor::HandleValidatedTx(TxBase::IReader&& r, Height h, bool bFwd, 
 {
 	uint32_t nInp = 0, nOut = 0;
 	r.Reset();
+
+	for (; r.m_pKernel; r.NextKernel())
+	{
+		if (!r.m_pKernel->m_pRelativeLock)
+			continue;
+		const TxKernel::RelativeLock& x = *r.m_pKernel->m_pRelativeLock;
+
+		Height h0 = m_DB.FindKernel(x.m_ID);
+		if (h0 < Rules::HeightGenesis)
+			return false;
+
+		HeightAdd(h0, x.m_LockHeight);
+		if (h0 > (pHMax ? *pHMax : h))
+			return false;
+	}
 
 	bool bOk = true;
 	for (; r.m_pUtxoIn; r.NextUtxoIn(), nInp++)
@@ -2137,9 +2174,6 @@ Difficulty NodeProcessor::get_NextDifficulty()
 	if (!m_Cursor.m_Sid.m_Row)
 		return r.DA.Difficulty0; // 1st block
 
-	//if (m_Cursor.m_Full.m_Height - Rules::HeightGenesis < r.DA.WindowWork)
-	//	return r.DA.Difficulty0; // 1st block difficulty 0
-
 	THW thw0, thw1;
 
 	get_MovingMedianEx(m_Cursor.m_Sid.m_Row, r.DA.WindowMedian1, thw1);
@@ -2174,10 +2208,29 @@ Difficulty NodeProcessor::get_NextDifficulty()
 	uint32_t dh = static_cast<uint32_t>(thw1.second.first - thw0.second.first);
 
 	uint32_t dtTrg_s = r.DA.Target_s * dh;
-	uint32_t dtSrc_s =
-		(thw1.first >= thw0.first + dtTrg_s * 2) ? (dtTrg_s * 2) :
-		(thw1.first <= thw0.first + dtTrg_s / 2) ? (dtTrg_s / 2) :
-		static_cast<uint32_t>(thw1.first - thw0.first);
+
+	// actual dt, only making sure it's non-negative
+	uint32_t dtSrc_s = (thw1.first > thw0.first) ? static_cast<uint32_t>(thw1.first - thw0.first) : 0;
+
+	if (m_Cursor.m_Full.m_Height >= r.pForks[1].m_Height)
+	{
+		// Apply dampening. Recalculate dtSrc_s := dtSrc_s * M/N + dtTrg_s * (N-M)/N
+		// Use 64-bit arithmetic to avoid overflow
+
+		uint64_t nVal =
+			static_cast<uint64_t>(dtSrc_s) * r.DA.Damp.M +
+			static_cast<uint64_t>(dtTrg_s) * (r.DA.Damp.N - r.DA.Damp.M);
+
+		uint32_t dt_s = static_cast<uint32_t>(nVal / r.DA.Damp.N);
+
+		if ((dt_s > dtSrc_s) != (dt_s > dtTrg_s)) // another overflow verification. The result normally must sit between src and trg (assuming valid damp parameters, i.e. M < N).
+			dtSrc_s = dt_s;
+	}
+
+	// apply "emergency" threshold
+	dtSrc_s = std::min(dtSrc_s, dtTrg_s * 2);
+	dtSrc_s = std::max(dtSrc_s, dtTrg_s / 2);
+
 
 	Difficulty::Raw& dWrk = thw0.second.second;
 	dWrk.Negate();
@@ -2239,14 +2292,29 @@ Timestamp NodeProcessor::get_MovingMedian()
 	return thw.first;
 }
 
-bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx) const
+bool NodeProcessor::ValidateTxWrtHeight(const Transaction& tx)
 {
 	Height h = m_Cursor.m_Sid.m_Height + 1;
 
 	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
-		if (!tx.m_vKernels[i]->m_Height.IsInRange(h))
+	{
+		const TxKernel& krn = *tx.m_vKernels[i];
+		if (!krn.m_Height.IsInRange(h))
 			return false;
 
+		if (krn.m_pRelativeLock)
+		{
+			const TxKernel::RelativeLock& x = *krn.m_pRelativeLock;
+
+			Height h0 = m_DB.FindKernel(x.m_ID);
+			if (h0 < Rules::HeightGenesis)
+				return false;
+
+			HeightAdd(h0, x.m_LockHeight);
+			if (h0 > h)
+				return false;
+		}
+	}
 	return true;
 }
 
@@ -3105,18 +3173,19 @@ bool NodeProcessor::ITxoWalker::OnTxo(const NodeDB::WalkerTxo&, Height hCreate, 
 bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp)
 {
 	Key::IDV kidv;
-	if (!m_This.Recover(kidv, outp))
+	if (!m_This.Recover(kidv, outp, hCreate))
 		return true;
 
 	return OnTxo(wlk, hCreate, outp, kidv);
 }
 
-bool NodeProcessor::Recover(Key::IDV& kidv, const Output& outp)
+bool NodeProcessor::Recover(Key::IDV& kidv, const Output& outp, Height hMax)
 {
 	struct Walker :public IKeyWalker
 	{
 		Key::IDV& m_Kidv;
 		const Output& m_Outp;
+		Height m_Height;
 
 		Walker(Key::IDV& kidv, const Output& outp)
 			:m_Kidv(kidv)
@@ -3126,10 +3195,12 @@ bool NodeProcessor::Recover(Key::IDV& kidv, const Output& outp)
 
 		virtual bool OnKey(Key::IPKdf& tag, Key::Index) override
 		{
-			return !m_Outp.Recover(tag, m_Kidv);
+			return !m_Outp.Recover(m_Height, tag, m_Kidv);
 		}
 
 	} wlk(kidv, outp);
+
+	wlk.m_Height = hMax;
 
 	return !EnumViewerKeys(wlk);
 }

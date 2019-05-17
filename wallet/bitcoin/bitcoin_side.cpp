@@ -232,8 +232,8 @@ namespace beam::wallet
 
     bool BitcoinSide::RegisterTx(const std::string& rawTransaction, SubTxID subTxID)
     {
-        bool isRegistered = false;
-        if (!m_tx.GetParameter(TxParameterID::TransactionRegistered, isRegistered, subTxID))
+		uint8_t nRegistered = proto::TxStatus::Unspecified;
+        if (!m_tx.GetParameter(TxParameterID::TransactionRegistered, nRegistered, subTxID))
         {
             auto callback = [this, subTxID](const std::string& error, const std::string& txID) {
                 if (!error.empty())
@@ -246,7 +246,9 @@ namespace beam::wallet
 
                 bool isRegistered = !txID.empty();
                 LOG_DEBUG() << m_tx.GetTxID() << "[" << subTxID << "]" << (isRegistered ? " has registered." : " has failed to register.");
-                m_tx.SetParameter(TxParameterID::TransactionRegistered, isRegistered, false, subTxID);
+
+				nRegistered = isRegistered ? proto::TxStatus::Ok : proto::TxStatus::Unspecified;
+                m_tx.SetParameter(TxParameterID::TransactionRegistered, nRegistered, false, subTxID);
 
                 if (!txID.empty())
                 {
@@ -257,7 +259,7 @@ namespace beam::wallet
             };
 
             m_bitcoinBridge->sendRawTransaction(rawTransaction, callback);
-            return isRegistered;
+            return (proto::TxStatus::Ok == nRegistered);
         }
 
         if (!isRegistered)
@@ -357,7 +359,7 @@ namespace beam::wallet
 
     bool BitcoinSide::SendWithdrawTx(SubTxID subTxID)
     {
-        if (bool isRegistered = false; !m_tx.GetParameter(TxParameterID::TransactionRegistered, isRegistered, subTxID))
+        if (uint8_t nRegistered = proto::TxStatus::Unspecified; !m_tx.GetParameter(TxParameterID::TransactionRegistered, nRegistered, subTxID)) // TODO
         {
             auto refundTxState = BuildWithdrawTx(subTxID);
             if (refundTxState != SwapTxState::Constructed)

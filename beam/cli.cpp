@@ -190,7 +190,7 @@ int main_impl(int argc, char* argv[])
 
 			Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Node " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
-			LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+			LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
 			auto port = vm[cli::PORT].as<uint16_t>();
 

@@ -880,7 +880,7 @@ int main_impl(int argc, char* argv[])
                     }
 
                     LOG_INFO() << "Beam Wallet " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
-                    LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+                    LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
                     assert(vm.count(cli::WALLET_STORAGE) > 0);
                     auto walletPath = vm[cli::WALLET_STORAGE].as<string>();

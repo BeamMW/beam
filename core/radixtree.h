@@ -229,6 +229,7 @@ public:
 		};
 
 		bool IsExt() const;
+		bool IsCommitmentDuplicated() const;
 
 		void PushID(TxoID);
 		TxoID PopID();

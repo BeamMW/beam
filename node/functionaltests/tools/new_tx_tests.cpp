@@ -23,16 +23,17 @@ NewTxConnection::NewTxConnection(int argc, char* argv[])
 {
 }
 
-void NewTxConnection::OnMsg(proto::Boolean&& msg)
+void NewTxConnection::OnMsg(proto::Status&& msg)
 {
-	if (msg.m_Value != m_Results[m_Index])
+	bool bOk = (proto::TxStatus::Ok == msg.m_Value);
+	if (bOk != m_Results[m_Index])
 	{
-		LOG_INFO() << "Failed: node returned " << msg.m_Value;
+		LOG_INFO() << "Failed: node returned " << static_cast<uint32_t>(msg.m_Value);
 		m_Failed = true;
 	}
 	else
 	{
-		LOG_INFO() << "Ok: node returned " << msg.m_Value;
+		LOG_INFO() << "Ok: node returned " << static_cast<uint32_t>(msg.m_Value);
 	}
 
 	++m_Index;

@@ -82,7 +82,6 @@ struct Node
 		int m_VerificationThreads = 0;
 
 		bool m_Bbs = true;
-		bool m_BbsAllowV0 = true; // allow older format, without pow
 
 		struct BandwidthCtl
 		{
@@ -329,7 +328,7 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Dandelion)
 	} m_Dandelion;
 
-	bool OnTransactionStem(Transaction::Ptr&&, const Peer*);
+	uint8_t OnTransactionStem(Transaction::Ptr&&, const Peer*);
 	void OnTransactionAggregated(Dandelion::Element&);
 	void PerformAggregation(Dandelion::Element&);
 	void AddDummyInputs(Transaction&);
@@ -337,8 +336,8 @@ private:
 	Height SampleDummySpentHeight();
 	bool OnTransactionFluff(Transaction::Ptr&&, const Peer*, Dandelion::Element*);
 
-	bool ValidateTx(Transaction::Context&, const Transaction&); // complete validation
-	void LogTx(const Transaction&, bool bValid, const Transaction::KeyType&);
+	uint8_t ValidateTx(Transaction::Context&, const Transaction&); // complete validation
+	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
 
 	struct Bbs
 	{
@@ -463,7 +462,6 @@ private:
 		void BroadcastBbs(Bbs::Subscription&);
 		void OnChocking();
 		void SetTxCursor(TxPool::Fluff::Element*);
-		void SendLogin();
 
 		bool IsChocking(size_t nExtra = 0);
 		bool ShouldAssignTasks();
@@ -480,9 +478,12 @@ private:
 		virtual void OnConnectedSecure() override;
 		virtual void OnDisconnect(const DisconnectReason&) override;
 		virtual void GenerateSChannelNonce(ECC::Scalar::Native&) override; // Must be overridden to support SChannel
+		// login
+		virtual void SetupLogin(proto::Login&) override;
+		virtual void OnLogin(proto::Login&&) override;
+		virtual Height get_MinPeerFork() override;
 		// messages
 		virtual void OnMsg(proto::Authentication&&) override;
-		virtual void OnMsg(proto::Login&&) override;
 		virtual void OnMsg(proto::Bye&&) override;
 		virtual void OnMsg(proto::Pong&&) override;
 		virtual void OnMsg(proto::NewTip&&) override;

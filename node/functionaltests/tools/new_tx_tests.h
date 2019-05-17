@@ -22,8 +22,8 @@ class NewTxConnection : public BaseTestNode
 public:
 	NewTxConnection(int argc, char* argv[]);
 protected:
-	void OnMsg(beam::proto::Boolean&& msg) override;
+	void OnMsg(beam::proto::Status&& msg) override;
 
 protected:
-	std::vector<bool> m_Results;
+	std::vector<uint8_t> m_Results;
 };

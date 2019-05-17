@@ -604,7 +604,7 @@ namespace beam
 
     void Wallet::OnRequestComplete(MyRequestTransaction& r)
     {
-        LOG_DEBUG() << r.m_TxID << "[" << r.m_SubTxID << "]" << (r.m_Res.m_Value ? " has registered" : " has failed to register");
+        LOG_DEBUG() << r.m_TxID << "[" << r.m_SubTxID << "]" << " register status " << static_cast<uint32_t>(r.m_Res.m_Value);
         
         auto it = m_Transactions.find(r.m_TxID);
         if (it != m_Transactions.end())
@@ -1007,8 +1007,9 @@ namespace beam
 
 #ifndef NDEBUG
         TxBase::Context::Params pars;
-        TxBase::Context ctx(pars);
-        assert(data->IsValid(ctx));
+		TxBase::Context ctx(pars);
+		ctx.m_Height.m_Min = m_WalletDB->getCurrentHeight();
+		assert(data->IsValid(ctx));
 #endif // NDEBUG
 
         MyRequestTransaction::Ptr pReq(new MyRequestTransaction);

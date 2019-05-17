@@ -170,7 +170,7 @@ int main (int argc, char* argv[])
         {
             Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Wallet UI " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
-            LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+            LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
             WalletSettings settings(appDataDir);
             QQmlApplicationEngine engine;

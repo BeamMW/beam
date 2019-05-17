@@ -200,7 +200,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
 void setup_node(Node& node, const Options& o) {
     Rules::get().UpdateChecksum();
     LOG_INFO() << "Beam Node Explorer " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
-    LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+    LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
     node.m_Cfg.m_sPathLocal = o.nodeDbFilename;
     node.m_Cfg.m_Listen.port(o.nodeListenTo.port());

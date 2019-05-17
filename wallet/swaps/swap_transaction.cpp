@@ -379,8 +379,8 @@ namespace beam::wallet
 
         if (IsBeamSide())
         {
-            bool isRegistered = false;
-            if (GetParameter(TxParameterID::TransactionRegistered, isRegistered, SubTxIndex::BEAM_LOCK_TX) && isRegistered)
+			uint8_t nRegistered = proto::TxStatus::Unspecified;
+            if (GetParameter(TxParameterID::TransactionRegistered, nRegistered, SubTxIndex::BEAM_LOCK_TX) && (proto::TxStatus::Ok == nRegistered))
             {
                 SetNextState(State::SendingBeamRefundTX);
                 return;
@@ -388,8 +388,8 @@ namespace beam::wallet
         }
         else
         {
-            bool isRegistered = false;
-            if (GetParameter(TxParameterID::TransactionRegistered, isRegistered, SubTxIndex::LOCK_TX) && isRegistered)
+			uint8_t nRegistered = proto::TxStatus::Unspecified;
+			if (GetParameter(TxParameterID::TransactionRegistered, nRegistered, SubTxIndex::LOCK_TX) && (proto::TxStatus::Ok == nRegistered))
             {
                 SetNextState(State::SendingRefundTX);
                 return;
@@ -428,8 +428,8 @@ namespace beam::wallet
     {
         if (IsBeamSide())
         {
-            bool isRegistered = true;
-            if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered, SubTxIndex::BEAM_LOCK_TX))
+			uint8_t nRegistered = proto::TxStatus::Unspecified;
+            if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered, SubTxIndex::BEAM_LOCK_TX))
             {
                 Block::SystemState::Full state;
                 Height lockTxMaxHeight = MaxHeight;
@@ -686,20 +686,20 @@ namespace beam::wallet
 
     bool AtomicSwapTransaction::SendSubTx(Transaction::Ptr transaction, SubTxID subTxID)
     {
-        bool isRegistered = false;
-        if (!GetParameter(TxParameterID::TransactionRegistered, isRegistered, subTxID))
+		uint8_t nRegistered = proto::TxStatus::Unspecified;
+        if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered, subTxID))
         {
             m_Gateway.register_tx(GetTxID(), transaction, subTxID);
-            return isRegistered;
+            return (proto::TxStatus::Ok == nRegistered);
         }
 
-        if (!isRegistered)
+        if (proto::TxStatus::Ok != nRegistered)
         {
             OnSubTxFailed(TxFailureReason::FailedToRegister, subTxID, subTxID == SubTxIndex::BEAM_LOCK_TX);
             return isRegistered;
         }
 
-        return isRegistered;
+        return proto::TxStatus::Ok == nRegistered;
     }
 
     bool AtomicSwapTransaction::IsBeamLockTimeExpired() const

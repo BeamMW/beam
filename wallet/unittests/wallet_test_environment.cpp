@@ -754,7 +754,7 @@ struct TestNodeNetwork
         case Request::Type::Transaction:
         {
             proto::FlyClient::RequestTransaction& v = static_cast<proto::FlyClient::RequestTransaction&>(r);
-            v.m_Res.m_Value = true;
+			v.m_Res.m_Value = proto::TxStatus::Ok;
 
             m_Shared.m_Blockchain.HandleTx(v.m_Msg);
             m_Shared.AddBlock();
@@ -844,17 +844,18 @@ private:
             sk = 23U;
             ProveID(sk, proto::IDType::Node);
 
-            proto::Login msg;
-            msg.m_CfgChecksum = Rules::get().Checksum;
-            msg.m_Flags =
-                proto::LoginFlags::Extension1 |
-                proto::LoginFlags::SpreadingTransactions |
-                proto::LoginFlags::Bbs |
-                proto::LoginFlags::SendPeers;
-            Send(msg);
+            SendLogin();
 
             SendTip();
         }
+
+		void SetupLogin(proto::Login& msg) override
+		{
+			msg.m_Flags |=
+				proto::LoginFlags::SpreadingTransactions |
+				proto::LoginFlags::Bbs |
+				proto::LoginFlags::SendPeers;
+		}
 
         void SendTip()
         {
@@ -867,8 +868,11 @@ private:
         {
             m_This.m_Blockchain.HandleTx(data);
 
-            Send(proto::Boolean{ true });
-            m_This.AddBlock();
+			proto::Status msg;
+			msg.m_Value = proto::TxStatus::Ok;
+			Send(msg);
+
+			m_This.AddBlock();
         }
 
         void OnMsg(proto::GetProofUtxo&& data) override
@@ -890,10 +894,6 @@ private:
             proto::ProofKernel2 msgOut;
             m_This.m_Blockchain.GetProof(data, msgOut);
             Send(msgOut);
-        }
-
-        void OnMsg(proto::Login&& /*data*/) override
-        {
         }
 
         void OnMsg(proto::GetProofState&&) override

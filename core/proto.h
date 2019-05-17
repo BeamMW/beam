@@ -46,8 +46,8 @@ namespace proto {
 
 #define BeamNodeMsg_DataMissing(macro)
 
-#define BeamNodeMsg_Boolean(macro) \
-    macro(bool, Value)
+#define BeamNodeMsg_Status(macro) \
+    macro(uint8_t, Value)
 
 #define BeamNodeMsg_GetBody(macro) \
     macro(Block::SystemState::ID, ID)
@@ -108,9 +108,13 @@ namespace proto {
 #define BeamNodeMsg_ProofChainWork(macro) \
     macro(Block::ChainWorkProof, Proof)
 
-#define BeamNodeMsg_Login(macro) \
+#define BeamNodeMsg_Login0(macro) \
     macro(ECC::Hash::Value, CfgChecksum) \
     macro(uint8_t, Flags)
+
+#define BeamNodeMsg_Login(macro) \
+    macro(std::vector<ECC::Hash::Value>, Cfgs) \
+    macro(uint32_t, Flags)
 
 #define BeamNodeMsg_Ping(macro)
 #define BeamNodeMsg_Pong(macro)
@@ -210,7 +214,7 @@ namespace proto {
 
 #define BeamNodeMsgsAll(macro) \
     /* general msgs */ \
-    macro(0x00, Login) /* usually sent by node once when connected, but theoretically me be re-sent if cfg changes. */ \
+    macro(0x00, Login0) \
     macro(0x01, Bye) \
     macro(0x02, Ping) \
     macro(0x03, Pong) \
@@ -224,7 +228,8 @@ namespace proto {
     macro(0x0b, GetTime) \
     macro(0x0c, Time) \
     macro(0x0d, DataMissing) \
-    macro(0x0e, Boolean) \
+    macro(0x0e, Status) \
+    macro(0x0f, Login) \
     /* blockchain status */ \
     macro(0x10, NewTip) \
     macro(0x11, GetHdr) \
@@ -276,14 +281,20 @@ namespace proto {
         static const uint8_t MiningFinalization     = 0x8; // I want to finalize block construction for my owned node
         static const uint8_t Extension1             = 0x10; // Supports Bbs with POW, more advanced proof/disproof scheme for SPV clients (?)
         static const uint8_t Extension2             = 0x20; // Supports large HdrPack, BlockPack with parameters
-	    static const uint8_t Recognized             = 0x3f;
-    };
+        static const uint8_t Extension3             = 0x40; // Supports Login1, Status (former Boolean) for NewTransaction result, compatible with Fork H1
+	    static const uint8_t Recognized             = 0x7f;
+
+		static const uint8_t ExtensionsAll =
+			Extension1 |
+			Extension2 |
+			Extension3;
+	};
 
     struct IDType
     {
         static const uint8_t Node        = 'N';
-        static const uint8_t Owner       = 'O';
-        static const uint8_t Viewer      = 'V';
+        static const uint8_t Owner        = 'O';
+        static const uint8_t Viewer        = 'V';
     };
 
     static const uint32_t g_HdrPackMaxSizeV0 = 128; // about 25K
@@ -377,6 +388,20 @@ namespace proto {
 
 		bool Encrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void*, uint32_t); // will fail iff addr is invalid
 		bool Decrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr);
+	};
+
+	struct TxStatus
+	{
+		// for backward compatibility, since it's former Boolean
+		static const uint8_t Unspecified = 0;
+		static const uint8_t Ok = 0x1;
+		// advanced codes
+		static const uint8_t TooSmall = 0x2; // doesn't contain minimal elements: at least 1 input and 1 kernel
+		static const uint8_t Obscured = 0x3; // partial overlap with another tx. Dropped due to potential collision (not necessarily an error)
+
+		static const uint8_t Invalid = 0x10; // context-free validation failed
+		static const uint8_t InvalidContext = 0x11; // invalid in context (bad inputs, maturity or time lock problems)
+		static const uint8_t LowFee = 0x12; // fee below minimum
 	};
 
 
@@ -497,6 +522,8 @@ namespace proto {
         std::unique_ptr<Connection> m_Connection;
         io::AsyncEvent::Ptr m_pAsyncFail;
         bool m_ConnectPending;
+		bool m_RulesCfgSent;
+		bool m_PeerSupportsLogin1;
 
         SerializedMsg m_SerializeCache;
 
@@ -514,6 +541,8 @@ namespace proto {
 #undef THE_MACRO
 
         void HashAddNonce(ECC::Hash::Processor&, bool bRemote);
+
+		void OnLoginInternal(Height hPeerMaxVer, Login&&);
 
     public:
 
@@ -534,7 +563,6 @@ namespace proto {
         void ProvePKdfObscured(Key::IPKdf&, uint8_t nIDType);
         bool IsKdfObscured(Key::IPKdf&, const PeerID&);
         bool IsPKdfObscured(Key::IPKdf&, const PeerID&);
-        void VerifyCfg(const Login&); // will throw NodeProcessingException if incompatible
 
         virtual void OnMsg(SChannelInitiate&&) override;
         virtual void OnMsg(SChannelReady&&) override;
@@ -543,8 +571,16 @@ namespace proto {
 		virtual void OnMsg(Ping&&) override;
 		virtual void OnMsg(GetTime&&) override;
 		virtual void OnMsg(Time&&) override;
+		virtual void OnMsg(Login0&&) override;
+		virtual void OnMsg(Login&&) override;
 
         virtual void GenerateSChannelNonce(ECC::Scalar::Native&); // Must be overridden to support SChannel
+
+		// Login-specific
+		void SendLogin();
+		virtual void SetupLogin(Login&);
+		virtual void OnLogin(Login&&);
+		virtual Height get_MinPeerFork();
 
         bool IsLive() const;
         bool IsSecureIn() const;
@@ -557,11 +593,11 @@ namespace proto {
         struct ByeReason
         {
             static const uint8_t Stopping    = 's';
-            static const uint8_t Ban         = 'b';
+            static const uint8_t Ban        = 'b';
             static const uint8_t Loopback    = 'L';
-            static const uint8_t Duplicate   = 'd';
-            static const uint8_t Timeout     = 't';
-            static const uint8_t Other       = 'o';
+            static const uint8_t Duplicate    = 'd';
+            static const uint8_t Timeout    = 't';
+            static const uint8_t Other        = 'o';
         };
 
         struct DisconnectReason

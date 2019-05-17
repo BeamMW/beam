@@ -85,7 +85,7 @@ namespace beam
 
 			if (Type::hd == iData)
 			{
-				if (hv != Rules::get().Checksum)
+				if (hv != Rules::get().pForks[0].m_Hash)
 					throw std::runtime_error("Block rules mismatch");
 
 				arc & m_hvContentTag;
@@ -101,7 +101,7 @@ namespace beam
 			yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(m_pS[iData]);
 
 			if (Type::hd == iData)
-				arc & Rules::get().Checksum;
+				arc & Rules::get().pForks[0].m_Hash;
 
 			arc & m_hvContentTag;
 		}
