@@ -1053,6 +1053,18 @@ namespace beam
 		return nullptr;
 	}
 
+	const HeightHash& Rules::get_LastFork() const
+	{
+		size_t i = _countof(pForks);
+		while (--i)
+		{
+			if (MaxHeight != pForks[i].m_Height)
+				break;
+		}
+
+		return pForks[i];
+	}
+
 	std::string Rules::get_SignatureStr() const
 	{
 		std::ostringstream os;

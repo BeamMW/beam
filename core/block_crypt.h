@@ -150,12 +150,8 @@ namespace beam
 
 		HeightHash pForks[2];
 
-		const HeightHash& get_LastFork() const {
-			return pForks[_countof(pForks) - 1];
-		}
-
+		const HeightHash& get_LastFork() const;
 		const HeightHash* FindFork(const Merkle::Hash&) const;
-
 		std::string get_SignatureStr() const;
 
 	private:
