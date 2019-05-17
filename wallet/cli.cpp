@@ -1130,12 +1130,14 @@ int main_impl(int argc, char* argv[])
 
                         if (!btcUserName.empty() && !btcPass.empty())
                         {
-                            wallet.initBitcoin(io::Reactor::get_Current(), btcUserName, btcPass, btcNodeAddr);
+                            Amount swapFeeRate = vm[cli::SWAP_FEERATE].as<Amount>();
+                            wallet.initBitcoin(io::Reactor::get_Current(), btcUserName, btcPass, btcNodeAddr, swapFeeRate);
                         }
 
                         if (!ltcUserName.empty() && !ltcPass.empty())
                         {
-                            wallet.initLitecoin(io::Reactor::get_Current(), ltcUserName, ltcPass, ltcNodeAddr);
+                            Amount swapFeeRate = vm[cli::SWAP_FEERATE].as<Amount>();
+                            wallet.initLitecoin(io::Reactor::get_Current(), ltcUserName, ltcPass, ltcNodeAddr, swapFeeRate);
                         }
 
                         if (command == cli::SWAP_COINS || command == cli::SWAP_LISTEN)

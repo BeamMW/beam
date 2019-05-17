@@ -271,11 +271,15 @@ namespace beam
         if (params["btcNodeAddr"].empty())
             throwInvalidJsonRpc(id);
 
+        if (params["feeRate"].empty())
+            throwInvalidJsonRpc(id);
+
         InitBitcoin data;
 
         data.btcUserName = params["btcUserName"];
         data.btcPass = params["btcPass"];
         data.btcNodeAddr = params["btcNodeAddr"];
+        data.feeRate = params["feeRate"];
 
         _handler.onMessage(id, data);
     }
@@ -295,11 +299,15 @@ namespace beam
         if (params["ltcNodeAddr"].empty())
             throwInvalidJsonRpc(id);
 
+        if (params["feeRate"].empty())
+            throwInvalidJsonRpc(id);
+
         InitLitecoin data;
 
         data.ltcUserName = params["ltcUserName"];
         data.ltcPass = params["ltcPass"];
         data.ltcNodeAddr = params["ltcNodeAddr"];
+        data.feeRate = params["feeRate"];
 
         _handler.onMessage(id, data);
     }

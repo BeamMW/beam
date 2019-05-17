@@ -31,11 +31,13 @@ namespace beam
         }
     }
 
-    Bitcoind016::Bitcoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, bool mainnet)
+    Bitcoind016::Bitcoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass,
+        const io::Address& address, Amount feeRate, bool mainnet)
         : m_httpClient(reactor)
         , m_address(address)
         , m_authorization(generateAuthorization(userName, pass))
         , m_isMainnet(mainnet)
+        , m_feeRate(feeRate)
     {
     }
 
@@ -50,9 +52,15 @@ namespace beam
         });
     }
 
-    void Bitcoind016::fundRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&, int)> callback)
+    void Bitcoind016::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const std::string&, const std::string&, int)> callback)
     {
-        sendRequest("fundrawtransaction", "\"" + rawTx + "\"", [callback](const std::string& response) {
+        std::string params = "\"" + rawTx + "\"";
+        if (feeRate)
+        {
+            params += ", {\"feeRate\": " + std::to_string(double(feeRate) / libbitcoin::satoshi_per_bitcoin) + "}";
+        }
+
+        sendRequest("fundrawtransaction", params, [callback](const std::string& response) {
             json reply = json::parse(response);
             std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
             const auto& result = reply["result"];
@@ -174,6 +182,11 @@ namespace beam
         }
         
         return libbitcoin::wallet::ec_private::testnet_wif;
+    }
+
+    Amount Bitcoind016::getFeeRate() const
+    {
+        return m_feeRate;
     }
 
     void Bitcoind016::sendRequest(const std::string& method, const std::string& params, std::function<void(const std::string&)> callback)

@@ -25,6 +25,7 @@ namespace
     constexpr uint32_t kBTCLockTimeInBlocks = 2 * 24 * 6;
     constexpr uint32_t kBTCLockTimeSec = 2 * 24 * 60 * 60;
     constexpr uint32_t kBTCMinTxConfirmations = 6;
+    constexpr uint32_t kBTCWithdrawTxAverageSize = 240;
 
     libbitcoin::chain::script AtomicSwapContract(const libbitcoin::short_hash& hashPublicKeyA
         , const libbitcoin::short_hash& hashPublicKeyB
@@ -284,7 +285,7 @@ namespace beam::wallet
 
             std::string hexTx = libbitcoin::encode_base16(contractTx.to_data());
 
-            m_bitcoinBridge->fundRawTransaction(hexTx, BIND_THIS_MEMFN(OnFundRawTransaction));
+            m_bitcoinBridge->fundRawTransaction(hexTx, m_bitcoinBridge->getFeeRate(), BIND_THIS_MEMFN(OnFundRawTransaction));
 
             m_tx.SetState(SwapTxState::CreatingTx, SubTxIndex::LOCK_TX);
             return SwapTxState::CreatingTx;
@@ -306,9 +307,7 @@ namespace beam::wallet
 
         if (swapTxState == SwapTxState::Initial)
         {
-            // TODO: implement fee calculation
-            Amount fee = 1000;
-
+            Amount fee = static_cast<Amount>(std::round(double(kBTCWithdrawTxAverageSize * m_bitcoinBridge->getFeeRate()) / 1000));
             Amount swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
             swapAmount = swapAmount - fee;
             std::string swapAddress = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapAddress);
