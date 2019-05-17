@@ -552,12 +552,13 @@ namespace
         io::Address receiverAddress;
         receiverAddress.resolve("127.0.0.1:10300");
 
-        sender.m_Wallet.initBitcoin(*mainReactor, "Bob", "123", senderAddress);
-        receiver.m_Wallet.initBitcoin(*mainReactor, "Alice", "123", receiverAddress);
-
         Amount beamAmount = 3;
         Amount beamFee = 1;
         Amount swapAmount = 2000;
+        Amount feeRate = 256;
+
+        sender.m_Wallet.initBitcoin(*mainReactor, "Bob", "123", senderAddress, feeRate);
+        receiver.m_Wallet.initBitcoin(*mainReactor, "Alice", "123", receiverAddress, feeRate);
 
         TestBitcoinWallet::Options senderOptions;
         senderOptions.m_rawAddress = "2N8N2kr34rcGqHCo3aN6yqniid8a4Mt3FCv";
