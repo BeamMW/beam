@@ -31,7 +31,7 @@ namespace beam
         // error, private key
         virtual void dumpPrivKey(const std::string& btcAddress, std::function<void(const std::string&, const std::string&)> callback) = 0;
         // error, transaction (hex), changepos
-        virtual void fundRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&, int)> callback) = 0;
+        virtual void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const std::string&, const std::string&, int)> callback) = 0;
         //error, transaction (hex), complete
         virtual void signRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&, bool)> callback) = 0;
         // error, transaction ID
@@ -52,5 +52,7 @@ namespace beam
         virtual void getBlockCount(std::function<void(const std::string&, uint64_t)> callback) = 0;
 
         virtual uint8_t getAddressVersion() = 0;
+
+        virtual Amount getFeeRate() const = 0;
     };
 }

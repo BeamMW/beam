@@ -426,7 +426,7 @@ namespace beam
                 io::Address btcNodeAddr;
                 if (btcNodeAddr.resolve(data.btcNodeAddr.c_str()))
                 {
-                    _wallet.initBitcoin(io::Reactor::get_Current(), data.btcUserName, data.btcPass, btcNodeAddr);
+                    _wallet.initBitcoin(io::Reactor::get_Current(), data.btcUserName, data.btcPass, btcNodeAddr, data.feeRate);
 
                     doResponse(id, EditAddress::Response{});
                 }
@@ -443,7 +443,7 @@ namespace beam
                 io::Address ltcNodeAddr;
                 if (ltcNodeAddr.resolve(data.ltcNodeAddr.c_str()))
                 {
-                    _wallet.initLitecoin(io::Reactor::get_Current(), data.ltcUserName, data.ltcPass, ltcNodeAddr);
+                    _wallet.initLitecoin(io::Reactor::get_Current(), data.ltcUserName, data.ltcPass, ltcNodeAddr, data.feeRate);
 
                     doResponse(id, EditAddress::Response{});
                 }

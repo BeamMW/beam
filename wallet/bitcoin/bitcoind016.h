@@ -24,10 +24,10 @@ namespace beam
     {
     public:
         Bitcoind016() = delete;
-        Bitcoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, bool mainnet = false);
+        Bitcoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, bool mainnet = false);
 
         void dumpPrivKey(const std::string& btcAddress, std::function<void(const std::string&, const std::string&)> callback) override;
-        void fundRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&, int)> callback) override;
+        void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const std::string&, const std::string&, int)> callback) override;
         void signRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&, bool)> callback) override;
         void sendRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&)> callback) override;
         void getRawChangeAddress(std::function<void(const std::string&, const std::string&)> callback) override;
@@ -43,6 +43,8 @@ namespace beam
 
         uint8_t getAddressVersion() override;
 
+        Amount getFeeRate() const override;
+
     protected:
         void sendRequest(const std::string& method, const std::string& params, std::function<void(const std::string&)> callback);
         bool isMainnet() const;
@@ -52,5 +54,6 @@ namespace beam
         io::Address m_address;
         std::string m_authorization;
         bool m_isMainnet = false;
+        Amount m_feeRate = 0;
     };
 }

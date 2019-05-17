@@ -115,6 +115,7 @@ namespace beam
         const char* SWAP_COINS = "swap_coins";
         const char* SWAP_LISTEN = "swap_listen";
         const char* SWAP_AMOUNT = "swap_amount";
+        const char* SWAP_FEERATE = "swap_feerate";
         const char* SWAP_COIN = "swap_coin";
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
 
@@ -222,6 +223,7 @@ namespace beam
             (cli::COLD_WALLET, "used to init cold wallet")
             (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_coins|swap_listen]")
             (cli::SWAP_AMOUNT, po::value<Amount>(), "swap amount in the smallest unit of the coin")
+            (cli::SWAP_FEERATE, po::value<Amount>()->default_value(20000), "The specific feerate you are willing to pay(satoshis(or photons) per KB)")
             (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc)")
             (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner");
 

@@ -126,6 +126,7 @@ namespace beam
         std::string btcUserName;
         std::string btcPass;
         std::string btcNodeAddr;
+        Amount feeRate;
 
         struct Response {};
     };
@@ -135,6 +136,7 @@ namespace beam
         std::string ltcUserName;
         std::string ltcPass;
         std::string ltcNodeAddr;
+        Amount feeRate;
 
         struct Response {};
     };
