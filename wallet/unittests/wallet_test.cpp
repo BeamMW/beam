@@ -593,7 +593,7 @@ namespace
         WALLET_CHECK(receiverCoins.empty());
 
         io::Timer::Ptr timer = io::Timer::create(*mainReactor);
-        timer->start(30000, true, [&node]() {node.AddBlock(); });
+        timer->start(5000, true, [&node]() {node.AddBlock(); });
 
         mainReactor->run();
 
