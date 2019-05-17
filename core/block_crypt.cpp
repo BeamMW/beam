@@ -1057,13 +1057,16 @@ namespace beam
 	{
 		std::ostringstream os;
 
-		for (size_t i = 0; ; )
+		for (size_t i = 0; i < _countof(pForks); i++)
 		{
-			os << pForks[i];
-			if (++i == _countof(pForks))
-				break;
+			const HeightHash& x = pForks[i];
+			if (MaxHeight == x.m_Height)
+				break; // skip those
 
-			os << ", ";
+			if (i)
+				os << ", ";
+
+			os << x;
 		}
 
 		return os.str();

@@ -640,7 +640,12 @@ void NodeConnection::SendLogin()
 			msg.m_Cfgs.reserve(_countof(r.pForks) - iFork);
 
 			for (; iFork < _countof(r.pForks); iFork++)
+			{
+				const HeightHash& x = r.pForks[iFork];
+				if (MaxHeight == x.m_Height)
+					break;
 				msg.m_Cfgs.push_back(r.pForks[iFork].m_Hash);
+			}
 		}
 
 		Send(msg);
