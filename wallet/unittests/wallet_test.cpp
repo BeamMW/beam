@@ -354,6 +354,7 @@ namespace
     {
         TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), bool coldWallet = false, bool oneTimeBbsEndpoint = false)
             : m_WalletDB{walletDB}
+            , m_KeyKeeper{make_shared<wallet::LocalPrivateKeyKeeper>(walletDB->get_MasterKdf())}
             , m_Wallet{ m_WalletDB, move(action), coldWallet ? []() {io::Reactor::get_Current().stop(); } : Wallet::UpdateCompletedAction() }
         {
             if (m_WalletDB->get_MasterKdf()) // can create secrets
@@ -402,6 +403,7 @@ namespace
 
         WalletID m_WalletID;
         IWalletDB::Ptr m_WalletDB;
+        wallet::IPrivateKeyKeeper::Ptr m_KeyKeeper;
         int m_CompletedCount{1};
         Wallet m_Wallet;
     };
@@ -1696,7 +1698,7 @@ namespace
         TestWalletRig receiver("receiver", createReceiverWalletDB());
 
         TxID txID = wallet::GenerateTxID();
-        auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, txID);
+        auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
 
         tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);

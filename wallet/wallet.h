@@ -211,6 +211,7 @@ namespace beam
 #undef THE_MACRO
 
         IWalletDB::Ptr m_WalletDB;
+        wallet::IPrivateKeyKeeper::Ptr m_KeyKeeper;
         std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
         std::map<TxID, wallet::BaseTransaction::Ptr> m_Transactions;
         std::unordered_set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;

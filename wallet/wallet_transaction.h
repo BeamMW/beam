@@ -38,6 +38,41 @@ namespace beam { namespace wallet
     };
 
 
+    
+    //
+    // Interface to master key storage. HW wallet etc.
+    // Only public info should cross its boundary.
+    //
+    struct IPrivateKeyKeeper
+    {
+        using Ptr = std::shared_ptr<IPrivateKeyKeeper>;
+
+        template<typename R>
+        using Callback = std::function<void(const R&)>;
+        using ExceptionCallback = Callback<std::exception>;
+        using PublicKeys = std::vector<ECC::Point>;
+        using BulletProofs = std::vector<std::unique_ptr<ECC::RangeProof::Confidential>>;
+
+        virtual void GenerateKey(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) = 0;
+        virtual void GenerateBulletProof(const std::vector<Key::IDV>& ids, Callback<BulletProofs>&&, ExceptionCallback&&) = 0;
+    };
+
+
+    class LocalPrivateKeyKeeper : public IPrivateKeyKeeper
+    {
+    public:
+        LocalPrivateKeyKeeper(Key::IKdf::Ptr kdf);
+    private:
+        void GenerateKey(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
+        void GenerateBulletProof(const std::vector<Key::IDV>& ids, Callback<BulletProofs>&&, ExceptionCallback&&) override;
+    private:
+        ECC::uintBig GetSeedKid(Key::IPKdf& tagKdf, const ECC::Point& commitment) const;
+        Key::IKdf::Ptr GetChildKdf(Key::Index iKdf) const;
+    private:
+        IWalletDB::Ptr m_WalletDB;
+        Key::IKdf::Ptr m_MasterKdf;
+    };
+
     std::string GetFailureMessage(TxFailureReason reason);
 
     class TransactionFailedException : public std::runtime_error
@@ -60,7 +95,8 @@ namespace beam { namespace wallet
     public:
         using Ptr = std::shared_ptr<BaseTransaction>;
         BaseTransaction(INegotiatorGateway& gateway
-                      , beam::IWalletDB::Ptr walletDB
+                      , IWalletDB::Ptr walletDB
+                      , IPrivateKeyKeeper::Ptr keyKeeper
                       , const TxID& txID);
         virtual ~BaseTransaction(){}
 
@@ -108,6 +144,7 @@ namespace beam { namespace wallet
         }
 
         IWalletDB::Ptr GetWalletDB();
+        IPrivateKeyKeeper::Ptr GetKeyKeeper();
         bool IsInitiator() const;
         uint32_t get_PeerVersion() const;
         bool GetTip(Block::SystemState::Full& state) const;
@@ -133,7 +170,8 @@ namespace beam { namespace wallet
     protected:
 
         INegotiatorGateway& m_Gateway;
-        beam::IWalletDB::Ptr m_WalletDB;
+        IWalletDB::Ptr m_WalletDB;
+        IPrivateKeyKeeper::Ptr m_KeyKeeper;
 
         TxID m_ID;
         mutable boost::optional<bool> m_IsInitiator;
@@ -157,7 +195,8 @@ namespace beam { namespace wallet
         };
     public:
         SimpleTransaction(INegotiatorGateway& gateway
-                        , beam::IWalletDB::Ptr walletDB
+                        , IWalletDB::Ptr walletDB
+                        , IPrivateKeyKeeper::Ptr keyKeeper
                         , const TxID& txID);
     private:
         TxType GetType() const override;
@@ -170,11 +209,12 @@ namespace beam { namespace wallet
         bool IsSelfTx() const;
         State GetState() const;
     private:
-        io::AsyncEvent::Ptr m_CompletedEvent;
+        std::future<void> m_InputsFuture;
         std::future<void> m_OutputsFuture;
+        std::shared_ptr<TxBuilder> m_TxBuilder;
     };
 
-    class TxBuilder
+    class TxBuilder : public std::enable_shared_from_this<TxBuilder>
     {
     public:
         TxBuilder(BaseTransaction& tx, const AmountList& amount, Amount fee);
@@ -260,5 +300,6 @@ namespace beam { namespace wallet
         ECC::Signature::MultiSig m_MultiSig;
 
         mutable boost::optional<Merkle::Hash> m_KernelID;
+        io::AsyncEvent::Ptr m_AsyncCompletedEvent;
     };
 }}

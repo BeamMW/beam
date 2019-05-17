@@ -94,6 +94,7 @@ namespace beam
 
     Wallet::Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action, UpdateCompletedAction&& updateCompleted)
         : m_WalletDB{ walletDB }
+        , m_KeyKeeper{ walletDB->get_MasterKdf() ? make_shared<LocalPrivateKeyKeeper>(walletDB->get_MasterKdf()): IPrivateKeyKeeper::Ptr() }
         , m_TxCompletedAction{move(action)}
         , m_UpdateCompleted{move(updateCompleted)}
         , m_LastSyncTotal(0)
@@ -932,9 +933,9 @@ namespace beam
         switch (type)
         {
         case TxType::Simple:
-             return make_shared<SimpleTransaction>(*this, m_WalletDB, id);
+             return make_shared<SimpleTransaction>(*this, m_WalletDB, m_KeyKeeper, id);
         case TxType::AtomicSwap:
-            return make_shared<AtomicSwapTransaction>(*this, m_WalletDB, id);
+            return make_shared<AtomicSwapTransaction>(*this, m_WalletDB, m_KeyKeeper, id);
         }
         return wallet::BaseTransaction::Ptr();
     }

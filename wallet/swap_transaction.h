@@ -24,7 +24,8 @@ namespace beam
         {
         public:
             AtomicSwapTransaction(INegotiatorGateway& gateway
-                                , beam::IWalletDB::Ptr walletDB
+                                , IWalletDB::Ptr walletDB
+                                , IPrivateKeyKeeper::Ptr keyKeeper
                                 , const TxID& txID);
         private:
             TxType GetType() const override;

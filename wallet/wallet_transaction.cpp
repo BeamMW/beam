@@ -66,14 +66,114 @@ namespace beam { namespace wallet
         return m_Reason;
     }
 
-    const uint32_t BaseTransaction::s_ProtoVersion = 2;
+    ///
+
+    LocalPrivateKeyKeeper::LocalPrivateKeyKeeper(Key::IKdf::Ptr kdf)
+        : m_MasterKdf(kdf)
+    {
+    }
+
+    void LocalPrivateKeyKeeper::GenerateKey(const vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    {
+        try
+        {
+            PublicKeys result;
+            Scalar::Native secretKey;
+            result.reserve(ids.size());
+            if (createCoinKey)
+            {
+                for (const auto& coinID : ids)
+                {
+                    Point& publicKey = result.emplace_back();
+                    SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(coinID.m_SubIdx), coinID);
+                }
+            }
+            else
+            {
+                for (const auto& keyID : ids)
+                {
+                    Point& publicKey = result.emplace_back();
+                    m_MasterKdf->DeriveKey(secretKey, keyID);
+                    publicKey = Context::get().G * secretKey;
+                }
+            }
+        //    auto eventHolder = make_shared<io::AsyncEvent::Ptr>();
+           // *eventHolder = io::AsyncEvent::create(io::Reactor::get_Current(), [eventHolder, result = move(result), cb = move(resultCallback)]() { cb(result); });
+          //  (*eventHolder)->post();
+            resultCallback(result);
+        }
+        catch (const exception & ex)
+        {
+            //io::AsyncEvent::create(io::Reactor::get_Current(), [ex, cb = move(exceptionCallback)]() { cb(ex); })->post();
+            exceptionCallback(ex);
+        }
+    }
+
+    void LocalPrivateKeyKeeper::GenerateBulletProof(const std::vector<Key::IDV>& ids, Callback<BulletProofs>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    {
+        try
+        {
+            BulletProofs result;
+            Scalar::Native secretKey;
+            Point commitment;
+            result.reserve(ids.size());
+            for (const auto& coinID : ids)
+            {
+                SwitchCommitment sc;
+                sc.Create(secretKey, commitment, *GetChildKdf(coinID.m_SubIdx), coinID);
+
+                ECC::Oracle oracle;
+                oracle << 0U;// m_Incubation;
+
+                ECC::RangeProof::CreatorParams cp;
+                cp.m_Kidv = coinID;
+                cp.m_Seed.V = GetSeedKid(*m_MasterKdf, commitment);
+
+                auto& bulletProof = result.emplace_back(make_unique<ECC::RangeProof::Confidential>());
+                bulletProof->Create(secretKey, cp, oracle, &sc.m_hGen);
+            }
+            resultCallback(result);
+        }
+        catch (const exception & ex)
+        {
+            exceptionCallback(ex);
+        }
+    }
+
+    ECC::uintBig LocalPrivateKeyKeeper::GetSeedKid(Key::IPKdf& tagKdf, const Point& commitment) const
+    {
+        uintBig seed;
+        ECC::Hash::Processor() << commitment >> seed;
+
+        ECC::Scalar::Native sk;
+        tagKdf.DerivePKey(sk, seed);
+
+        ECC::Hash::Processor() << sk >> seed;
+        return seed;
+    }
+
+    Key::IKdf::Ptr LocalPrivateKeyKeeper::GetChildKdf(Key::Index iKdf) const
+    {
+        if (!iKdf || m_MasterKdf)
+            return m_MasterKdf; // by convention 0 is not a childd
+
+        Key::IKdf::Ptr pRet;
+        ECC::HKdf::CreateChild(pRet, *m_MasterKdf, iKdf);
+        return pRet;
+    }
+
+    ///
+
+    const uint32_t BaseTransaction::s_ProtoVersion = 3;
 
 
     BaseTransaction::BaseTransaction(INegotiatorGateway& gateway
-                                   , beam::IWalletDB::Ptr walletDB
+                                   , IWalletDB::Ptr walletDB
+                                   , IPrivateKeyKeeper::Ptr keyKeeper
                                    , const TxID& txID)
         : m_Gateway{ gateway }
         , m_WalletDB{ walletDB }
+        , m_KeyKeeper{keyKeeper}
         , m_ID{ txID }
     {
         assert(walletDB);
@@ -139,7 +239,7 @@ namespace beam { namespace wallet
         {
             if (s == TxStatus::InProgress)
             {
-                if (!m_WalletDB->get_MasterKdf())
+                if (!m_KeyKeeper)
                 {
                     // cannot create encrypted message
                     return;
@@ -294,6 +394,11 @@ namespace beam { namespace wallet
         return m_WalletDB;
     }
 
+    IPrivateKeyKeeper::Ptr BaseTransaction::GetKeyKeeper()
+    {
+        return m_KeyKeeper;
+    }
+
     bool BaseTransaction::SendTxParameters(SetTxParameter&& msg) const
     {
         msg.m_TxID = GetTxID();
@@ -330,9 +435,10 @@ namespace beam { namespace wallet
     }
 
     SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway
-                                        , beam::IWalletDB::Ptr walletDB
+                                        , IWalletDB::Ptr walletDB
+                                        , IPrivateKeyKeeper::Ptr keyKeeper
                                         , const TxID& txID)
-        : BaseTransaction{ gateway, walletDB, txID }
+        : BaseTransaction{ gateway, walletDB, keyKeeper, txID }
     {
 
     }
@@ -353,14 +459,18 @@ namespace beam { namespace wallet
             amoutList = AmountList{ GetMandatoryParameter<Amount>(TxParameterID::Amount) };
         }
 
-        auto sharedBuilder = make_shared<TxBuilder>(*this, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
+        if (!m_TxBuilder)
+        {
+            m_TxBuilder = make_shared<TxBuilder>(*this, amoutList, GetMandatoryParameter<Amount>(TxParameterID::Fee));
+        }
+        auto sharedBuilder = m_TxBuilder;
         TxBuilder& builder = *sharedBuilder;
 
         bool hasPeersInputsAndOutputs = builder.GetPeerInputsAndOutputs();
 
         if (!builder.LoadKernel() && !builder.HasKernelID())
         {
-            if (!m_WalletDB->get_MasterKdf())
+            if (!m_KeyKeeper)
             {
                 // public wallet
                 return;
@@ -368,10 +478,6 @@ namespace beam { namespace wallet
 
             if (!builder.GetInitialTxParams() && txState == State::Initial)
             {
-                if (m_CompletedEvent)
-                {
-                    return;
-                }
                 LOG_INFO() << GetTxID() << (isSender ? " Sending " : " Receiving ")
                     << PrintableAmount(builder.GetAmount())
                     << " (fee: " << PrintableAmount(builder.GetFee()) << ")";
@@ -406,10 +512,7 @@ namespace beam { namespace wallet
             {
                 if (!builder.GetInputCoins().empty())
                 {
-                    m_Gateway.OnAsyncStarted();
                     builder.CreateInputs();
-                    builder.FinalizeInputs();
-                    m_Gateway.OnAsyncFinished();
                     //return;
                 }
             }
@@ -418,18 +521,23 @@ namespace beam { namespace wallet
             {
                 if (!builder.GetOutputCoins().empty())
                 {
-                    m_OutputsFuture = DoThreadAsync(
-                        [sharedBuilder]()
-                        {
-                            sharedBuilder->CreateOutputs();
-                        },
-                        [sharedBuilder]()
-                        {
-                            if (!sharedBuilder->FinalizeOutputs())
-                            {
-                                //TODO: transaction is too big :(
-                            }
-                        });
+                    //if (m_OutputsFuture.valid())
+                    //{
+                    //    return;
+                    //}
+                    //m_OutputsFuture = DoThreadAsync(
+                    //    [sharedBuilder]()
+                    //    {
+                    //        sharedBuilder->CreateOutputs();
+                    //    },
+                    //    [sharedBuilder]()
+                    //    {
+                    //        if (!sharedBuilder->FinalizeOutputs())
+                    //        {
+                    //            //TODO: transaction is too big :(
+                    //        }
+                    //    });
+                    builder.CreateOutputs();
                     return;
                 }
             }
@@ -842,6 +950,7 @@ namespace beam { namespace wallet
         }
         m_Tx.GetWalletDB()->store(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
+        m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false);
     }
 
     void TxBuilder::CreateOutputs()
@@ -853,12 +962,29 @@ namespace beam { namespace wallet
             output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(coinID.m_SubIdx), coinID, *m_Tx.GetWalletDB()->get_MasterKdf());
             m_Outputs.emplace_back(move(output));
         }
+
+        auto thisHolder = shared_from_this();
+        m_Tx.GetKeyKeeper()->GenerateKey(m_OutputCoins, true,
+            [thisHolder, this](const auto & result)
+            {
+                m_Outputs.reserve(result.size());
+                for (const auto& commitment : result)
+                {
+                    auto& output = m_Outputs.emplace_back(make_unique<Output>());
+                    output->m_Commitment = commitment;
+                }
+                //FinalizeOutputs();
+                //m_Tx.Update();
+            },
+            [thisHolder, this](const exception&)
+            {
+                //m_Tx.Update();
+            });
     }
 
     bool TxBuilder::FinalizeOutputs()
     {
         m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false);
-        m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false);
         
         // TODO: check transaction size here
 
@@ -867,13 +993,23 @@ namespace beam { namespace wallet
 
     void TxBuilder::CreateInputs()
     {
-        m_Inputs.reserve(m_InputCoins.size());
-        for (auto& coinID : m_InputCoins)
-        {
-            auto& input = m_Inputs.emplace_back(make_unique<Input>());
-            Scalar::Native blindingFactor;
-            m_Tx.GetWalletDB()->calcCommitment(blindingFactor, input->m_Commitment, coinID);
-        }
+        auto thisHolder = shared_from_this();
+        m_Tx.GetKeyKeeper()->GenerateKey(m_InputCoins, true,
+            [thisHolder, this](const auto & result)
+            {
+                m_Inputs.reserve(result.size());
+                for (const auto& commitment : result)
+                {
+                    auto& input = m_Inputs.emplace_back(make_unique<Input>());
+                    input->m_Commitment = commitment;
+                }
+                FinalizeInputs();
+                //m_Tx.Update();
+            },
+            [thisHolder, this](const exception &)
+            {
+                //m_Tx.Update();
+            });
     }
 
     void TxBuilder::FinalizeInputs()
@@ -915,6 +1051,7 @@ namespace beam { namespace wallet
         //if (!m_Tx.GetParameter(TxParameterID::NonceSlot, m_NonceSlot))
         //{
         //    // allocate nonce slot
+        //    m_NonceSlot = AllocateNonceSlot();
         //    m_Tx.SetParameter(TxParameterID::NonceSlot, m_NonceSlot, false);
         //}
     }

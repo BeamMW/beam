@@ -19,9 +19,10 @@ using namespace ECC;
 namespace beam {namespace wallet
 {
     AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
-                                               , beam::IWalletDB::Ptr walletDB
+                                               , IWalletDB::Ptr walletDB
+                                               , IPrivateKeyKeeper::Ptr keyKeeper
                                                , const TxID& txID)
-        : BaseTransaction(gateway, walletDB, txID)
+        : BaseTransaction(gateway, walletDB, keyKeeper, txID)
     {
 
     }
