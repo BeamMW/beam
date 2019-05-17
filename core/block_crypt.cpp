@@ -1046,7 +1046,9 @@ namespace beam
 	{
 		for (size_t i = _countof(pForks); i--; )
 		{
-			if (pForks[i].m_Hash == hv)
+			const HeightHash& x = pForks[i];
+
+			if ((MaxHeight!= x.m_Height) && (x.m_Hash == hv))
 				return pForks + i;
 		}
 
