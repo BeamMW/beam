@@ -65,7 +65,6 @@ namespace beam
         : public IWallet
         , public wallet::INegotiatorGateway
     {
-        using Callback = std::function<void()>;
     public:
         using TxCompletedAction = std::function<void(const TxID& tx_id)>;
         using UpdateCompletedAction = std::function<void()>;

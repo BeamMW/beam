@@ -28,6 +28,7 @@ namespace beam { namespace wallet
 
     TxID GenerateTxID();
 
+    // Interface for all possible transaction types
     struct ITransaction
     {
         using Ptr = std::shared_ptr<ITransaction>;
@@ -51,9 +52,10 @@ namespace beam { namespace wallet
     };
 
     //
-    // State machine for managing per transaction negotiations between wallets
+    // Base state machine for managing per transaction negotiations between wallets
     // 
     class BaseTransaction : public ITransaction
+                          , public std::enable_shared_from_this<ITransaction>
     {
     public:
         using Ptr = std::shared_ptr<BaseTransaction>;
@@ -126,6 +128,8 @@ namespace beam { namespace wallet
         virtual void UpdateImpl() = 0;
 
         virtual bool ShouldNotifyAboutChanges(TxParameterID paramID) const { return true; };
+
+        std::future<void> DoThreadAsync(Functor&& functor, CompletionCallback&& callback);
     protected:
 
         INegotiatorGateway& m_Gateway;
@@ -178,12 +182,10 @@ namespace beam { namespace wallet
         void SelectInputs();
         void AddChange();
         void GenerateNewCoin(Amount amount, bool bChange);
-        void AddOutput(Amount amount, bool bChange);
         void CreateOutputs();
         bool FinalizeOutputs();
         bool LoadKernel();
         bool HasKernelID() const;
-        Output::Ptr CreateOutput(Amount amount, bool bChange);
         void CreateKernel();
         void GenerateOffset();
         void GenerateNonce();
@@ -222,6 +224,7 @@ namespace beam { namespace wallet
 
         const std::vector<Coin::ID>& GetInputCoins() const;
         const std::vector<Coin::ID>& GetOutputCoins() const;
+
     private:
         BaseTransaction& m_Tx;
 
@@ -239,6 +242,7 @@ namespace beam { namespace wallet
 
         std::vector<Coin::ID> m_InputCoins;
         std::vector<Coin::ID> m_OutputCoins;
+        uint8_t m_NonceSlot = 0;
 
         // peer values
         ECC::Scalar::Native m_PartialSignature;

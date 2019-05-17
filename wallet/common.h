@@ -291,6 +291,7 @@ namespace beam
             SharedBlindingFactor = 160,
             LockedBlindingFactor = 161,
             MyNonce = 162,
+            NonceSlot = 163,
             SharedPeerBlindingFactor = 170,
 
             Inputs = 180,

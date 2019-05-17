@@ -30,57 +30,6 @@ namespace beam { namespace wallet
     using namespace ECC;
     using namespace std;
 
-    //class Operation
-    //{
-    //public:
-    //    Operation(INegotiatorGateway& gateway) 
-    //        : m_Gateway(gateway)
-    //    {
-    //    }
-
-    //    void Update() 
-    //    {
-    //        UpdateImpl();
-    //    }
-    //protected:
-    //    virtual void UpdateImpl()
-    //    {
-    //    }
-    //protected:
-    //    INegotiatorGateway& m_Gateway;
-    //};
-
-    //class AsyncOperation : public Operation
-    //{
-    //public:
-    //    AsyncOperation(INegotiatorGateway& gateway)
-    //        : Operation(gateway)
-    //    {
-    //    
-    //    }
-    //protected:
-    //    void UpdateImpl() override
-    //    {
-    //        m_Gateway.OnAsyncStarted();
-    //        m_CompletedEvent = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() mutable
-    //            {
-    //                Update();
-    //                m_Gateway.OnAsyncFinished();
-    //            });
-    //        m_Future = async(launch::async, [this]() mutable
-    //            {
-    //                UpdateImpl();
-    //                m_CompletedEvent->post();
-    //            });
-    //        return;
-    //    }
-    //private:
-    //    io::AsyncEvent::Ptr m_CompletedEvent;
-    //    future<void> m_Future;
-    //};
-
-
-
     TxID GenerateTxID()
     {
         boost::uuids::uuid id = boost::uuids::random_generator()();
@@ -360,6 +309,26 @@ namespace beam { namespace wallet
         return false;
     }
 
+    future<void> BaseTransaction::DoThreadAsync(Functor&& functor, CompletionCallback&& callback)
+    {
+        weak_ptr<ITransaction> txRef = shared_from_this();
+        m_Gateway.OnAsyncStarted();
+        return do_thread_async(
+            [functor = move(functor)]() 
+            {
+                functor();
+            },
+            [txRef, this, callback = move(callback)]()
+            {
+                if (auto txGuard = txRef.lock())
+                {
+                    callback();
+                    Update();
+                    m_Gateway.OnAsyncFinished();
+                }
+            });
+    }
+
     SimpleTransaction::SimpleTransaction(INegotiatorGateway& gateway
                                         , beam::IWalletDB::Ptr walletDB
                                         , const TxID& txID)
@@ -449,20 +418,17 @@ namespace beam { namespace wallet
             {
                 if (!builder.GetOutputCoins().empty())
                 {
-                    m_Gateway.OnAsyncStarted();
-                    m_CompletedEvent = io::AsyncEvent::create(io::Reactor::get_Current(), [this, sharedBuilder]() mutable
+                    m_OutputsFuture = DoThreadAsync(
+                        [sharedBuilder]()
+                        {
+                            sharedBuilder->CreateOutputs();
+                        },
+                        [sharedBuilder]()
                         {
                             if (!sharedBuilder->FinalizeOutputs())
                             {
                                 //TODO: transaction is too big :(
                             }
-                            Update();
-                            m_Gateway.OnAsyncFinished();
-                        });
-                    m_OutputsFuture = async(launch::async, [this, sharedBuilder]() mutable
-                        {
-                            sharedBuilder->CreateOutputs();
-                            m_CompletedEvent->post();
                         });
                     return;
                 }
@@ -804,6 +770,7 @@ namespace beam { namespace wallet
         , m_MinHeight{0}
         , m_MaxHeight{MaxHeight}
         , m_PeerMaxHeight{ MaxHeight }
+        , m_NonceSlot{0}
     {
     }
 
@@ -888,11 +855,6 @@ namespace beam { namespace wallet
         }
     }
 
-    void TxBuilder::AddOutput(Amount amount, bool bChange)
-    {
-        m_Outputs.push_back(CreateOutput(amount, bChange));
-    }
-
     bool TxBuilder::FinalizeOutputs()
     {
         m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false);
@@ -901,23 +863,6 @@ namespace beam { namespace wallet
         // TODO: check transaction size here
 
         return true;
-    }
-
-    Output::Ptr TxBuilder::CreateOutput(Amount amount, bool bChange)
-    {
-        Coin newUtxo(amount);
-        newUtxo.m_createTxId = m_Tx.GetTxID();
-        if (bChange)
-        {
-            newUtxo.m_ID.m_Type = Key::Type::Change;
-        }
-        m_Tx.GetWalletDB()->store(newUtxo);
-
-        Scalar::Native blindingFactor;
-        Output::Ptr output = make_unique<Output>();
-        output->Create(blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(newUtxo.m_ID.m_SubIdx), newUtxo.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
-
-        return output;
     }
 
     void TxBuilder::CreateInputs()
@@ -966,6 +911,12 @@ namespace beam { namespace wallet
             m_Tx.SetParameter(TxParameterID::MyNonce, hvRandom.V, false);
         }
         m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_MultiSig.m_Nonce, hvRandom.V);
+
+        //if (!m_Tx.GetParameter(TxParameterID::NonceSlot, m_NonceSlot))
+        //{
+        //    // allocate nonce slot
+        //    m_Tx.SetParameter(TxParameterID::NonceSlot, m_NonceSlot, false);
+        //}
     }
 
     Scalar::Native TxBuilder::GetExcess() const
