@@ -970,6 +970,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
 
     m_PeerMan.Initialize();
     m_Miner.Initialize(externalPOW);
+	m_Processor.get_DB().get_BbsTotals(m_Bbs.m_Totals);
     m_Bbs.Cleanup();
 	m_Bbs.m_HighestPosted_s = m_Processor.get_DB().get_BbsMaxTime();
 
@@ -1050,16 +1051,44 @@ void Node::RefreshOwnedUtxos()
 	m_Processor.get_DB().ParamSet(NodeDB::ParamID::DummyID, NULL, &blob);
 }
 
+bool Node::Bbs::IsInLimits() const
+{
+	const NodeDB::BbsTotals& lims = get_ParentObj().m_Cfg.m_Bbs.m_Limit;
+
+	return
+		(m_Totals.m_Count <= lims.m_Count) &&
+		(m_Totals.m_Size <= lims.m_Size);
+}
+
 void Node::Bbs::Cleanup()
 {
-    get_ParentObj().m_Processor.get_DB().BbsDelOld(getTimestamp() - get_ParentObj().m_Cfg.m_Timeout.m_BbsMessageTimeout_s);
+	NodeDB& db = get_ParentObj().m_Processor.get_DB();
+	NodeDB::WalkerBbsTimeLen wlk(db);
+
+	Timestamp ts = getTimestamp() - get_ParentObj().m_Cfg.m_Bbs.m_MessageTimeout_s;
+
+	for (db.EnumAllBbs(wlk); wlk.MoveNext(); )
+	{
+		if (IsInLimits() && (wlk.m_Time >= ts))
+			break;
+
+		db.BbsDel(wlk.m_ID);
+		m_Totals.m_Count--;
+		m_Totals.m_Size -= wlk.m_Size;
+	}
+
+	m_LastCleanup_ms = GetTime_ms();
 }
 
 void Node::Bbs::MaybeCleanup()
 {
-    uint32_t dt_ms = GetTime_ms() - m_LastCleanup_ms;
-    if (dt_ms >= get_ParentObj().m_Cfg.m_Timeout.m_BbsCleanupPeriod_ms)
-        Cleanup();
+	if (IsInLimits())
+	{
+		uint32_t dt_ms = GetTime_ms() - m_LastCleanup_ms;
+		if (dt_ms < get_ParentObj().m_Cfg.m_Bbs.m_CleanupPeriod_ms)
+			return;
+	}
+	Cleanup();
 }
 
 Node::~Node()
@@ -1197,7 +1226,7 @@ void Node::Peer::SetupLogin(proto::Login& msg)
 	if (m_This.m_PostStartSynced)
 		msg.m_Flags |= proto::LoginFlags::SpreadingTransactions; // indicate ability to receive and broadcast transactions
 
-	if (m_This.m_Cfg.m_Bbs)
+	if (m_This.m_Cfg.m_Bbs.IsEnabled())
 		msg.m_Flags |= proto::LoginFlags::Bbs; // indicate ability to receive and broadcast BBS messages
 }
 
@@ -2444,7 +2473,7 @@ void Node::Peer::OnLogin(proto::Login&& msg)
 
     bool b = ShouldFinalizeMining();
 
-	if (m_This.m_Cfg.m_Bbs &&
+	if (m_This.m_Cfg.m_Bbs.IsEnabled() &&
 		!(proto::LoginFlags::Bbs & m_LoginFlags) &&
 		(proto::LoginFlags::Bbs & msg.m_Flags))
 	{
@@ -2844,7 +2873,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
 void Node::Peer::OnMsg(const proto::BbsMsg& msg, bool bNonceValid)
 {
-	if (!m_This.m_Cfg.m_Bbs)
+	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
 
 	if (msg.m_Message.size() > proto::Bbs::s_MaxMsgSize)
@@ -2855,7 +2884,7 @@ void Node::Peer::OnMsg(const proto::BbsMsg& msg, bool bNonceValid)
 	if (msg.m_TimePosted > t + Rules::get().DA.MaxAhead_s)
 		return; // too much ahead of time
 
-	if (msg.m_TimePosted + m_This.m_Cfg.m_Timeout.m_BbsMessageTimeout_s  < t)
+	if (msg.m_TimePosted + m_This.m_Cfg.m_Bbs.m_MessageTimeout_s  < t)
 		return; // too old
 
 	if (msg.m_TimePosted + Rules::get().DA.MaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
@@ -2881,6 +2910,8 @@ void Node::Peer::OnMsg(const proto::BbsMsg& msg, bool bNonceValid)
     m_This.m_Bbs.m_W.Delete(wlk.m_Data.m_Key);
 
 	m_This.m_Bbs.m_HighestPosted_s = std::max(m_This.m_Bbs.m_HighestPosted_s, msg.m_TimePosted);
+	m_This.m_Bbs.m_Totals.m_Count++;
+	m_This.m_Bbs.m_Totals.m_Size += wlk.m_Data.m_Message.n;
 
     // 1. Send to other BBS-es
 
@@ -2922,7 +2953,7 @@ void Node::Peer::OnMsg(const proto::BbsMsg& msg, bool bNonceValid)
 
 void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
 {
-	if (!m_This.m_Cfg.m_Bbs)
+	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
 
     NodeDB& db = m_This.m_Processor.get_DB();
@@ -2946,7 +2977,7 @@ void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
 
 void Node::Peer::OnMsg(proto::BbsGetMsg&& msg)
 {
-	if (!m_This.m_Cfg.m_Bbs)
+	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
 
 	NodeDB& db = m_This.m_Processor.get_DB();
@@ -2983,7 +3014,7 @@ void Node::Peer::SendBbsMsg(const NodeDB::WalkerBbs::Data& d)
 
 void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
 {
-	if (!m_This.m_Cfg.m_Bbs)
+	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
 
 	Bbs::Subscription::InPeer key;
@@ -3034,7 +3065,7 @@ void Node::Peer::BroadcastBbs(Bbs::Subscription& s)
 
 void Node::Peer::OnMsg(proto::BbsResetSync&& msg)
 {
-	if (!m_This.m_Cfg.m_Bbs)
+	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
 
 	m_CursorBbs = m_This.m_Processor.get_DB().BbsFindCursor(msg.m_TimeFrom) - 1;
@@ -3043,7 +3074,7 @@ void Node::Peer::OnMsg(proto::BbsResetSync&& msg)
 
 void Node::Peer::OnMsg(proto::BbsPickChannelV0&& msg)
 {
-	if (!m_This.m_Cfg.m_Bbs)
+	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
 
 	if (proto::LoginFlags::Extension1 & m_LoginFlags)

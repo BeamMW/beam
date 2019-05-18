@@ -476,8 +476,6 @@ namespace beam
 				;
 		}
 
-		db.BbsDelOld(267);
-
 		for (wlkbbs.m_Data.m_Channel = 0; wlkbbs.m_Data.m_Channel < 7; wlkbbs.m_Data.m_Channel++)
 		{
 			wlkbbs.m_ID = 0;
