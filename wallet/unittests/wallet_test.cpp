@@ -1056,48 +1056,82 @@ namespace
     }
 }
 
-bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b)
+bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const char* szTask)
 {
-	using namespace beam;
 	using namespace Negotiator;
+
+	struct MyGateway :public Gateway::Direct
+	{
+		MyGateway(Negotiator::IBase& x) :Gateway::Direct(x) {}
+		size_t m_Size = 0;
+
+		virtual void Send(uint32_t code, ByteBuffer&& buf) override
+		{
+			m_Size += sizeof(code) + sizeof(size_t) + buf.size();
+			Gateway::Direct::Send(code, std::move(buf));
+		}
+	};
 
 	Gateway::Direct ga(a), gb(b);
 	a.m_pGateway = &gb;
 	b.m_pGateway = &ga;
 
-	IBase* pArr[2];
+	const uint32_t nPeers = 2;
+
+	IBase* pArr[nPeers];
 	pArr[0] = &a;
 	pArr[1] = &b;
 
-	for (size_t i = 0; i < _countof(pArr); i++)
+	for (uint32_t i = 0; i < nPeers; i++)
 	{
 		IBase& v = *pArr[i];
-		v.Set(static_cast<uint32_t>(i), Codes::Role);
+		v.Set(i, Codes::Role);
 		v.Set(Rules::get().get_LastFork().m_Height, Codes::Scheme);
 	}
 
-	while (true)
+	cout << "\nNegotiating: " << szTask << std::endl;
+
+	bool pDone[nPeers] = { false };
+
+	uint32_t nDone = 0;
+
+	for (uint32_t i = 0; ; ++i %= nPeers)
 	{
-		bool bDone = true, bFail = false;
+		if (pDone[i])
+			continue;
 
-		for (size_t i = 0; i < _countof(pArr); i++)
+		IBase& v = *pArr[i];
+
+		MyGateway gw(*pArr[!i]);
+		v.m_pGateway = &gw;
+
+		uint32_t status = v.Update();
+
+		char chThis = static_cast<char>('A' + i);
+
+		if (gw.m_Size)
 		{
-			IBase& v = *pArr[i];
-
-			uint32_t status = v.Update();
-			if (Status::Success != status)
-			{
-				bDone = false;
-				if (Status::Pending != status)
-					bFail = true;
-			}
+			char chOther = static_cast<char>('A' + !i);
+			cout << "\t" << chThis << " -> " << chOther << ' ' << gw.m_Size << " bytes" << std::endl;
 		}
 
-		if (bFail)
-			return false;
-		if (bDone)
-			return true;
+		if (!status)
+			continue;
+
+		if (Status::Success != status)
+		{
+			cout << "\t" << chThis << " Failed!" << std::endl;
+			return false; // fail
+		}
+
+		pDone[i] = true;
+
+		cout << "\t" << chThis << " done" << std::endl;
+		if (++nDone == _countof(pArr))
+			break;
 	}
+
+	return true;
 }
 
 Amount SetKidvs(beam::Negotiator::IBase& neg, const Amount* p, size_t n, uint32_t code, uint32_t i0 = 0)
@@ -1126,6 +1160,8 @@ void TestNegotiation()
 {
 	using namespace Negotiator;
 
+	cout << "TestNegotiation" << std::endl;
+
 	const Amount valMSig = 11;
 
 	Multisig pT1[2];
@@ -1150,7 +1186,7 @@ void TestNegotiation()
 		v.Set(uint32_t(1), Multisig::Codes::ShareResult);
 	}
 
-	WALLET_CHECK(RunNegLoop(pT1[0], pT1[1]));
+	WALLET_CHECK(RunNegLoop(pT1[0], pT1[1], "MuSig"));
 
 
 	MultiTx pT2[2];
@@ -1194,7 +1230,7 @@ void TestNegotiation()
 		pS2[i][idxTrg] = pS1[i][idxSrc];
 	}
 
-	WALLET_CHECK(RunNegLoop(pT2[0], pT2[1]));
+	WALLET_CHECK(RunNegLoop(pT2[0], pT2[1], "Transaction-with-MuSig"));
 
 	WithdrawTx pT3[2];
 	Storage::Map pS3[2];
@@ -1231,7 +1267,7 @@ void TestNegotiation()
 		v.Setup(&ms1, &ms0, &comm0, &vec, 1440);
 	}
 
-	WALLET_CHECK(RunNegLoop(pT3[0], pT3[1]));
+	WALLET_CHECK(RunNegLoop(pT3[0], pT3[1], "Withdraw-Tx ritual"));
 
 
 	struct ChannelData
@@ -1284,7 +1320,7 @@ void TestNegotiation()
 		cd.m_msPeer = i ? msA : msB;
 	}
 
-	WALLET_CHECK(RunNegLoop(pT4[0], pT4[1]));
+	WALLET_CHECK(RunNegLoop(pT4[0], pT4[1], "Lightning channel open"));
 
 	for (int i = 0; i < 2; i++)
 	{
@@ -1339,7 +1375,7 @@ void TestNegotiation()
 		v.Setup(&ms0, &comm0, &msA, &msB, &vOutWd, 1443, &cd.m_msMy, &cd.m_msPeer, &cd.m_CommPeer);
 	}
 
-	WALLET_CHECK(RunNegLoop(pT5[0], pT5[1]));
+	WALLET_CHECK(RunNegLoop(pT5[0], pT5[1], "Lightning channel update"));
 
 	for (int i = 0; i < 2; i++)
 	{
@@ -1358,8 +1394,9 @@ void TestNegotiation()
 
 void TestLightning()
 {
-	using namespace beam;
 	using namespace Negotiator;
+
+	cout << "TestLightning" << std::endl;
 
 	struct Peer
 	{
@@ -1464,7 +1501,7 @@ void TestLightning()
 			pPeer[i].Open(pNeg[i], pPeer[!i].m_Balance, i);
 		}
 
-		WALLET_CHECK(RunNegLoop(pNeg[0], pNeg[1]));
+		WALLET_CHECK(RunNegLoop(pNeg[0], pNeg[1], "Lightning channel open"));
 
 		for (int i = 0; i < 2; i++)
 		{
@@ -1475,7 +1512,7 @@ void TestLightning()
 	}
 
 	// update several times
-	for (int j = 0; j < 10; j++)
+	for (int j = 0; j < 5; j++)
 	{
 		ChannelUpdate pNeg[2];
 		Storage::Map pS[2];
@@ -1489,7 +1526,7 @@ void TestLightning()
 			pPeer[i].Update(pNeg[i], i);
 		}
 
-		WALLET_CHECK(RunNegLoop(pNeg[0], pNeg[1]));
+		WALLET_CHECK(RunNegLoop(pNeg[0], pNeg[1], "Lightning channel update"));
 
 		for (int i = 0; i < 2; i++)
 		{
