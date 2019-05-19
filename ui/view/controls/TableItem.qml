@@ -1,4 +1,4 @@
-import QtQuick 2.3
+import QtQuick 2.11
 import QtQuick.Controls 1.2
 import QtQuick.Controls.Styles 1.2
 import QtGraphicalEffects 1.0
@@ -16,7 +16,7 @@ Item {
         anchors.right: parent.right
         anchors.leftMargin: 20
         font.pixelSize: 14
-        color: Style.white
+        color: Style.content_main
     }
 
     clip:true

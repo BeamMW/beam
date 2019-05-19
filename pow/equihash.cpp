@@ -13,10 +13,12 @@
 // limitations under the License.
 
 #include "core/block_crypt.h"
-#include "impl/crypto/equihash.h"
-#include "impl/uint256.h"
-#include "impl/arith_uint256.h"
+#include "crypto/equihash.h"
+#include "uint256.h"
+#include "arith_uint256.h"
 #include <utility>
+#include "utility/logger.h"
+#include <mutex>
 
 namespace beam
 {
@@ -38,10 +40,7 @@ struct Block::PoW::Helper
 	bool TestDifficulty(const uint8_t* pSol, uint32_t nSol, Difficulty d) const
 	{
 		ECC::Hash::Value hv;
-
-		blake2b_state b2s = m_Blake;
-		blake2b_update(&b2s, pSol, nSol);
-		blake2b_final(&b2s, hv.m_pData, hv.nBytes);
+		ECC::Hash::Processor() << Blob(pSol, nSol) >> hv;
 
 		return d.IsTargetReached(hv);
 	}
@@ -53,7 +52,7 @@ bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, const Cancel& fn
 
 	std::function<bool(const beam::ByteBuffer&)> fnValid = [this, &hlp](const beam::ByteBuffer& solution)
 		{
-			if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
+    		if (!hlp.TestDifficulty(&solution.front(), (uint32_t) solution.size(), m_Difficulty))
 				return false;
 			assert(solution.size() == m_Indices.size());
             std::copy(solution.begin(), solution.end(), m_Indices.begin());

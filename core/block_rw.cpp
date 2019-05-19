@@ -14,8 +14,11 @@
 
 //#include <ctime>
 #include "block_crypt.h"
-#include "../utility/serialize.h"
-#include "../core/serialization_adapters.h"
+#include "utility/serialize.h"
+#include "utilstrencodings.h"
+#include "core/serialization_adapters.h"
+#include "aes.h"
+#include "pkcs5_pbkdf2.h"
 
 namespace beam
 {
@@ -48,6 +51,7 @@ namespace beam
 		using namespace std;
 
 		m_bRead = bRead;
+		ZeroObject(m_pMaturity);
 
 		if (bRead)
 		{
@@ -81,7 +85,7 @@ namespace beam
 
 			if (Type::hd == iData)
 			{
-				if (hv != Rules::get().Checksum)
+				if (hv != Rules::get().pForks[0].m_Hash)
 					throw std::runtime_error("Block rules mismatch");
 
 				arc & m_hvContentTag;
@@ -97,7 +101,7 @@ namespace beam
 			yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(m_pS[iData]);
 
 			if (Type::hd == iData)
-				arc & Rules::get().Checksum;
+				arc & Rules::get().pForks[0].m_Hash;
 
 			arc & m_hvContentTag;
 		}
@@ -137,11 +141,16 @@ namespace beam
 				PostOpen(i);
 			}
 
+		ZeroObject(m_pMaturity);
+		m_KrnSizeTotal() = m_pS[Type::ko].Tell() + m_pS[Type::ko].get_Remaining();
+
+		LoadMaturity(Type::ko); // maturity of the 1st kernel
+		NextKernelThreshold();
+
 		// preload
-		LoadInternal(m_pUtxoIn,		Type::ui, m_pGuardUtxoIn);
-		LoadInternal(m_pUtxoOut,	Type::uo, m_pGuardUtxoOut);
-		LoadInternal(m_pKernelIn,	Type::ki, m_pGuardKernelIn);
-		LoadInternal(m_pKernelOut,	Type::ko, m_pGuardKernelOut);
+		RW::NextUtxoIn();
+		RW::NextUtxoOut();
+		RW::NextKernel();
 	}
 
 	void Block::BodyBase::RW::Flush()
@@ -162,28 +171,63 @@ namespace beam
 
 	void Block::BodyBase::RW::NextUtxoIn()
 	{
+		LoadMaturity(Type::ui);
 		LoadInternal(m_pUtxoIn, Type::ui, m_pGuardUtxoIn);
 	}
 
 	void Block::BodyBase::RW::NextUtxoOut()
 	{
+		LoadMaturity(Type::uo);
 		LoadInternal(m_pUtxoOut, Type::uo, m_pGuardUtxoOut);
 	}
 
-	void Block::BodyBase::RW::NextKernelIn()
+	void Block::BodyBase::RW::NextKernel()
 	{
-		LoadInternal(m_pKernelIn, Type::ki, m_pGuardKernelIn);
+		uint64_t nPos = m_KrnSizeTotal() - m_pS[Type::ko].get_Remaining();
+
+		while (nPos == m_KrnThresholdPos())
+		{
+			m_pMaturity[Type::ko]++;
+			NextKernelThreshold();
+		}
+
+		if (nPos > m_KrnThresholdPos())
+			throw std::runtime_error("bad kx");
+
+		LoadInternal(m_pKernel, Type::ko, m_pGuardKernel);
 	}
 
-	void Block::BodyBase::RW::NextKernelOut()
+	void Block::BodyBase::RW::NextKernelFF(Height hMin)
 	{
-		LoadInternal(m_pKernelOut, Type::ko, m_pGuardKernelOut);
+		if (m_pMaturity[Type::ko] >= hMin)
+			return;
+
+		Height dh = hMin - m_pMaturity[Type::ko];
+		if (dh > 1)
+		{
+			if (dh > 2)
+			{
+				uint64_t offs = (dh - 2) * sizeof(m_KrnThresholdPos());
+
+				std::FStream& s = m_pS[Type::kx];
+				s.Seek(s.Tell() + std::min(s.get_Remaining(), offs));
+			}
+			NextKernelThreshold();
+		}
+
+		std::FStream& s2 = m_pS[Type::ko];
+		s2.Seek(std::min(m_KrnThresholdPos(), m_KrnSizeTotal()));
+
+		m_pMaturity[Type::ko] = hMin;
+		NextKernelThreshold();
+
+		LoadInternal(m_pKernel, Type::ko, m_pGuardKernel);
 	}
 
 	void Block::BodyBase::RW::get_Start(BodyBase& body, SystemState::Sequence::Prefix& prefix)
 	{
 		if (!m_pS[Type::hd].IsOpen())
-			std::ThrowIoError();
+			std::ThrowLastError();
 		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(m_pS[Type::hd]);
 
 		arc & body;
@@ -202,23 +246,36 @@ namespace beam
 		return true;
 	}
 
-	void Block::BodyBase::RW::WriteIn(const Input& v)
+	void Block::BodyBase::RW::Write(const Input& v)
 	{
+		WriteMaturity(v, Type::ui);
 		WriteInternal(v, Type::ui);
 	}
 
-	void Block::BodyBase::RW::WriteIn(const TxKernel& v)
+	void Block::BodyBase::RW::Write(const Output& v)
 	{
-		WriteInternal(v, Type::ki);
-	}
-
-	void Block::BodyBase::RW::WriteOut(const Output& v)
-	{
+		WriteMaturity(v, Type::uo);
 		WriteInternal(v, Type::uo);
 	}
 
-	void Block::BodyBase::RW::WriteOut(const TxKernel& v)
+	void Block::BodyBase::RW::Write(const TxKernel& v)
 	{
+		if (!m_pMaturity[Type::ko])
+		{
+			if (!v.m_Maturity)
+				throw std::runtime_error("bad ko");
+			WriteMaturity(v, Type::ko);
+		}
+
+		if (v.m_Maturity < m_pMaturity[Type::ko])
+			throw std::runtime_error("bad ko");
+
+		for (; v.m_Maturity > m_pMaturity[Type::ko]; m_pMaturity[Type::ko]++)
+		{
+			uintBigFor<Height>::Type val = m_pS[Type::ko].Tell();
+			WriteInternal(val, Type::kx);
+		}
+
 		WriteInternal(v, Type::ko);
 	}
 
@@ -233,19 +290,52 @@ namespace beam
 		WriteInternal(elem, Type::hd);
 	}
 
+	bool Block::BodyBase::RW::LoadMaturity(int iData)
+	{
+		std::FStream& s = m_pS[iData];
+		if (!s.get_Remaining())
+			return false;
+
+		yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
+
+		Height dh;
+		arc & dh;
+		m_pMaturity[iData] += dh;
+
+		return true;
+	}
+
+	void Block::BodyBase::RW::NextKernelThreshold()
+	{
+		std::FStream& s = m_pS[Type::kx];
+		if (s.get_Remaining())
+		{
+			yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
+
+			uintBigFor<Height>::Type val;
+			arc & val;
+
+			val.Export(m_KrnThresholdPos());
+		}
+		else
+			m_KrnThresholdPos() = MaxHeight;
+	}
+
 	template <typename T>
 	void Block::BodyBase::RW::LoadInternal(const T*& pPtr, int iData, typename T::Ptr* ppGuard)
 	{
 		std::FStream& s = m_pS[iData];
 
-		if (s.IsOpen() && s.get_Remaining())
+		if (s.get_Remaining())
 		{
 			ppGuard[0].swap(ppGuard[1]);
 			//if (!ppGuard[0])
 				ppGuard[0].reset(new T);
 
 			yas::binary_iarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
+
 			arc & *ppGuard[0];
+			ppGuard[0]->m_Maturity = m_pMaturity[iData];
 
 			pPtr = ppGuard[0].get();
 		}
@@ -253,15 +343,37 @@ namespace beam
 			pPtr = NULL;
 	}
 
+	void Block::BodyBase::RW::WriteMaturity(const TxElement& v, int iData)
+	{
+		Height dh = v.m_Maturity - m_pMaturity[iData];
+		WriteInternal(dh, iData);
+		m_pMaturity[iData] = v.m_Maturity;
+	}
+
 	template <typename T>
 	void Block::BodyBase::RW::WriteInternal(const T& v, int iData)
 	{
 		std::FStream& s = m_pS[iData];
 		if (!s.IsOpen() && !OpenInternal(iData))
-			std::ThrowIoError();
+			std::ThrowLastError();
 
 		yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> arc(s);
 		arc & v;
+	}
+
+	size_t TxBase::IReader::get_SizeNetto()
+	{
+		SerializerSizeCounter ssc;
+		Reset();
+
+		for (; m_pUtxoIn; NextUtxoIn())
+			ssc & *m_pUtxoIn;
+		for (; m_pUtxoOut; NextUtxoOut())
+			ssc & *m_pUtxoOut;
+		for (; m_pKernel; NextKernel())
+			ssc & *m_pKernel;
+
+		return ssc.m_Counter.m_Value;
 	}
 
 	void TxBase::IWriter::Dump(IReader&& r)
@@ -269,13 +381,11 @@ namespace beam
 		r.Reset();
 
 		for (; r.m_pUtxoIn; r.NextUtxoIn())
-			WriteIn(*r.m_pUtxoIn);
+			Write(*r.m_pUtxoIn);
 		for (; r.m_pUtxoOut; r.NextUtxoOut())
-			WriteOut(*r.m_pUtxoOut);
-		for (; r.m_pKernelIn; r.NextKernelIn())
-			WriteIn(*r.m_pKernelIn);
-		for (; r.m_pKernelOut; r.NextKernelOut())
-			WriteOut(*r.m_pKernelOut);
+			Write(*r.m_pUtxoOut);
+		for (; r.m_pKernel; r.NextKernel())
+			Write(*r.m_pKernel);
 	}
 
 	bool TxBase::IWriter::Combine(IReader&& r0, IReader&& r1, const volatile bool& bStop)
@@ -320,7 +430,7 @@ namespace beam
 			{
 				if (pOut)
 				{
-					int n = pInp->cmp_CaM(*pOut);
+					int n = CmpInOut(*pInp, *pOut);
 					if (n > 0)
 						pInp = NULL;
 					else
@@ -340,12 +450,12 @@ namespace beam
 
 			if (pInp)
 			{
-				WriteIn(*pInp);
+				Write(*pInp);
 				ppR[iInp]->NextUtxoIn();
 			}
 			else
 			{
-				WriteOut(*pOut);
+				Write(*pOut);
 				ppR[iOut]->NextUtxoOut();
 			}
 		}
@@ -357,59 +467,24 @@ namespace beam
 			if (bStop)
 				return false;
 
-			const TxKernel* pInp = NULL;
-			const TxKernel* pOut = NULL;
-			int iInp = 0, iOut = 0; // initialized just to suppress the warning, not really needed
+			const TxKernel* pKrn = NULL;
+			int iSrc = 0; // initialized just to suppress the warning, not really needed
 
 			for (int i = 0; i < nR; i++)
 			{
-				const TxKernel* pi = ppR[i]->m_pKernelIn;
-				if (pi && (!pInp || (*pInp > *pi)))
+				const TxKernel* po = ppR[i]->m_pKernel;
+				if (po && (!pKrn || (*pKrn > *po)))
 				{
-					pInp = pi;
-					iInp = i;
-				}
-
-				const TxKernel* po = ppR[i]->m_pKernelOut;
-				if (po && (!pOut || (*pOut > *po)))
-				{
-					pOut = po;
-					iOut = i;
+					pKrn = po;
+					iSrc = i;
 				}
 			}
 
-			if (pInp)
-			{
-				if (pOut)
-				{
-					int n = pInp->cmp(*pOut);
-					if (n > 0)
-						pInp = NULL;
-					else
-						if (!n)
-						{
-							// skip both
-							ppR[iInp]->NextUtxoIn();
-							ppR[iOut]->NextUtxoOut();
-							continue;
-						}
-				}
-			}
-			else
-				if (!pOut)
-					break;
+			if (!pKrn)
+				break;
 
-
-			if (pInp)
-			{
-				WriteIn(*pInp);
-				ppR[iInp]->NextKernelIn();
-			}
-			else
-			{
-				WriteOut(*pOut);
-				ppR[iOut]->NextKernelOut();
-			}
+			Write(*pKrn);
+			ppR[iSrc]->NextKernel();
 		}
 
 		return true;
@@ -444,6 +519,126 @@ namespace beam
 		}
 
 		return true;
+	}
+
+	/////////////
+	// KeyString
+	void KeyString::Export(const ECC::HKdf& v)
+	{
+		ECC::NoLeak<ECC::HKdf::Packed> p;
+		v.Export(p.V);
+		Export(&p.V, sizeof(p.V), 's');
+	}
+
+	void KeyString::Export(const ECC::HKdfPub& v)
+	{
+		ECC::NoLeak<ECC::HKdfPub::Packed> p;
+		v.Export(p.V);
+		Export(&p.V, sizeof(p.V), 'P');
+	}
+
+	void KeyString::Export(void* p, uint32_t nData, uint8_t nCode)
+	{
+		ByteBuffer bb;
+		bb.resize(sizeof(MacValue) + nData + 1 + m_sMeta.size());
+		MacValue& mv = reinterpret_cast<MacValue&>(bb.at(0));
+
+		bb[sizeof(MacValue)] = nCode;
+		memcpy(&bb.at(1) + sizeof(MacValue), p, nData);
+		memcpy(&bb.at(1) + sizeof(MacValue) + nData, m_sMeta.c_str(), m_sMeta.size());
+
+		XCrypt(mv, static_cast<uint32_t>(nData + 1 + m_sMeta.size()), true);
+
+		m_sRes = EncodeBase64(&bb.at(0), bb.size());
+	}
+
+	bool KeyString::Import(ECC::HKdf& v)
+	{
+		ECC::NoLeak<ECC::HKdf::Packed> p;
+		return
+			Import(&p.V, sizeof(p.V), 's') &&
+			v.Import(p.V);
+	}
+
+	bool KeyString::Import(ECC::HKdfPub& v)
+	{
+		ECC::NoLeak<ECC::HKdfPub::Packed> p;
+		return
+			Import(&p.V, sizeof(p.V), 'P') &&
+			v.Import(p.V);
+	}
+
+	bool KeyString::Import(void* p, uint32_t nData, uint8_t nCode)
+	{
+		bool bInvalid = false;
+		ByteBuffer bb = DecodeBase64(m_sRes.c_str(), &bInvalid);
+
+		if (bInvalid || (bb.size() < sizeof(MacValue) + 1 + nData))
+			return false;
+
+		MacValue& mv = reinterpret_cast<MacValue&>(bb.at(0));
+		MacValue mvOrg = mv;
+
+		XCrypt(mv, static_cast<uint32_t>(bb.size()) - sizeof(mv), false);
+
+		if ((mv != mvOrg) || (bb[sizeof(MacValue)] != nCode))
+			return false;
+
+		memcpy(p, &bb.at(1) + sizeof(MacValue), nData);
+
+		m_sMeta.resize(bb.size() - (sizeof(MacValue) + 1 + nData));
+		if (!m_sMeta.empty())
+			memcpy(&m_sMeta.front(), &bb.at(1) + sizeof(MacValue) + nData, m_sMeta.size());
+
+		return true;
+	}
+
+	void KeyString::XCrypt(MacValue& mv, uint32_t nSize, bool bEnc) const
+	{
+		static_assert(AES::s_KeyBytes == sizeof(m_hvSecret.V), "");
+		AES::Encoder enc;
+		enc.Init(m_hvSecret.V.m_pData);
+
+		AES::StreamCipher c;
+		ECC::NoLeak<ECC::Hash::Value> hvIV;
+		ECC::Hash::Processor() << m_hvSecret.V >> hvIV.V;
+
+		c.m_Counter = hvIV.V; // truncated
+		c.m_nBuf = 0;
+
+		ECC::Hash::Mac hmac;
+		hmac.Reset(m_hvSecret.V.m_pData, m_hvSecret.V.nBytes);
+
+		if (bEnc)
+			hmac.Write(reinterpret_cast<uint8_t*>(&mv + 1), nSize);
+
+		c.XCrypt(enc, reinterpret_cast<uint8_t*>(&mv + 1), nSize);
+
+		if (!bEnc)
+			hmac.Write(reinterpret_cast<uint8_t*>(&mv + 1), nSize);
+
+		hmac >> hvIV.V;
+		mv = hvIV.V;
+	}
+
+	void KeyString::SetPassword(const std::string& s)
+	{
+		SetPassword(Blob(s.data(), static_cast<uint32_t>(s.size())));
+	}
+
+	void KeyString::SetPassword(const Blob& b)
+	{
+		int nRes = pkcs5_pbkdf2(
+			reinterpret_cast<const uint8_t*>(b.p),
+			b.n,
+			NULL,
+			0,
+			m_hvSecret.V.m_pData,
+			m_hvSecret.V.nBytes,
+			65536);
+
+		if (nRes)
+			throw std::runtime_error("pbkdf2 fail");
 	}
 
 } // namespace beam

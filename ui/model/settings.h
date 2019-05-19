@@ -33,36 +33,35 @@ public:
     int getLockTimeout() const;
     void setLockTimeout(int value);
 
+    bool isPasswordReqiredToSpendMoney() const;
+    void setPasswordReqiredToSpendMoney(bool value);
+
     void initModel(WalletModel::Ptr model);
     std::string getWalletStorage() const;
-    std::string getBbsStorage() const;
-    void emergencyReset();
-	void reportProblem();
-
-    bool getGenerateGenesys() const;
-    void setGenerateGenesys(bool value);
+    std::string getAppDataPath() const;
+    void reportProblem();
 
     bool getRunLocalNode() const;
     void setRunLocalNode(bool value);
 
     uint getLocalNodePort() const;
     void setLocalNodePort(uint port);
-    uint getLocalNodeMiningThreads() const;
-    void setLocalNodeMiningThreads(uint n);
-    uint getLocalNodeVerificationThreads() const;
-    void setLocalNodeVerificationThreads(uint n);
     std::string getLocalNodeStorage() const;
     std::string getTempDir() const;
 
     QStringList getLocalNodePeers() const;
     void setLocalNodePeers(const QStringList& qPeers);
 
-    bool getLocalNodeSynchronized() const;
-    void setLocalNodeSynchronized(bool value);
+    QString getLocale() const;
+    QString getLanguageName() const;
+    void setLocaleByLanguageName(const QString& language);
+    static QStringList getSupportedLanguages();
 
 public:
-	static const char* WalletCfg;
-	static const char* LogsFolder;
+    static const char* WalletCfg;
+    static const char* LogsFolder;
+    static const char* SettingsFile;
+    static const char* WalletDBFile;
 
     void applyChanges();
 
@@ -71,11 +70,9 @@ signals:
     void lockTimeoutChanged();
     void localNodeRunChanged();
     void localNodePortChanged();
-    void localNodeMiningThreadsChanged();
-    void localNodeVerificationThreadsChanged();
-    void localNodeGenerateGenesysChanged();
     void localNodePeersChanged();
     void localNodeSynchronizedChanged();
+    void localeChanged();
 
 private:
     QSettings m_data;

@@ -14,404 +14,579 @@
 
 #include "wallet_network.h"
 
-// protocol version
-#define WALLET_MAJOR 0
-#define WALLET_MINOR 0
-#define WALLET_REV   2
-
 using namespace std;
 
 namespace
 {
     const char* BBS_TIMESTAMPS = "BbsTimestamps";
+    const unsigned AddressUpdateInterval_ms = 60 * 1000; // check addresses every minute
+
+    beam::BbsChannel channel_from_wallet_id(const beam::WalletID& walletID)
+    {
+        beam::BbsChannel ret;
+        walletID.m_Channel.Export(ret);
+        return ret;
+    }
 }
+
 
 namespace beam {
 
-    WalletNetworkIO::WalletNetworkIO(io::Address node_address
-                                   , IKeyChain::Ptr keychain
-                                   , IKeyStore::Ptr keyStore
-                                   , io::Reactor::Ptr reactor
-                                   , unsigned reconnect_ms
-                                   , unsigned sync_period_ms)
+    ///////////////////////////
 
-        : m_protocol{ WALLET_MAJOR, WALLET_MINOR, WALLET_REV, 150, *this, 20000 }
-        , m_msgReader{ m_protocol, 1, 20000 }
-        , m_walletID(Zero)
-        , m_node_address{node_address}
-        , m_reactor{ !reactor ? io::Reactor::create() : reactor }
-        , m_keychain{keychain}
-        , m_is_node_connected{false}
-        , m_reactor_scope{*m_reactor }
-        , m_reconnect_ms{ reconnect_ms }
-        , m_sync_period_ms{ sync_period_ms }
-        , m_close_timeout_ms{ 10 *1000 }
-        , m_sync_timer{io::Timer::create(*m_reactor)}
-        , m_keystore(keyStore)
-        , m_lastReceiver(0)
+    BaseMessageEndpoint::BaseMessageEndpoint(IWallet& w, const IWalletDB::Ptr& pWalletDB)
+        : m_Wallet(w)
+        , m_WalletDB(pWalletDB)
+        , m_AddressExpirationTimer(io::Timer::create(io::Reactor::get_Current()))
     {
-        m_protocol.add_message_handler<WalletNetworkIO, wallet::SetTxParameter,     &WalletNetworkIO::on_message>(setTxParameterCode, this, 1, 20000);
 
-        ByteBuffer buffer;
-        m_keychain->getBlob(BBS_TIMESTAMPS, buffer);
-        if (!buffer.empty())
-        {
-            Deserializer d;
-            d.reset(buffer.data(), buffer.size());
-
-            d & m_bbs_timestamps;
-        }
-
-        m_keystore->get_enabled_keys(m_myPubKeys);
-        for (const auto& k : m_myPubKeys)
-        {
-            listen_to_bbs_channel(k);
-        }
     }
 
-    WalletNetworkIO::~WalletNetworkIO()
+    BaseMessageEndpoint::~BaseMessageEndpoint()
     {
-        try
+        
+    }
+
+    void BaseMessageEndpoint::Subscribe()
+    {
+        auto myAddresses = m_WalletDB->getAddresses(true);
+        for (const auto& address : myAddresses)
+            if (!address.isExpired())
+                AddOwnAddress(address);
+
+        m_AddressExpirationTimer->start(AddressUpdateInterval_ms, false, [this] { OnAddressTimer(); });
+    }
+
+    void BaseMessageEndpoint::Unsubscribe()
+    {
+        while (!m_Addresses.empty())
+            DeleteAddr(m_Addresses.begin()->get_ParentObj());
+    }
+
+    void BaseMessageEndpoint::ProcessMessage(BbsChannel channel, const ByteBuffer& msg)
+    {
+        Addr::Channel key;
+        key.m_Value = channel;
+
+        for (ChannelSet::iterator it = m_Channels.lower_bound(key); ; it++)
         {
-            Serializer s;
-            s & m_bbs_timestamps;
-            ByteBuffer buffer;
-            s.swap_buf(buffer);
-            if (!buffer.empty())
+            if (m_Channels.end() == it)
+                break;
+            if (it->m_Value != channel)
+                break; // as well
+
+
+            if (!m_WalletDB->get_MasterKdf())
             {
-                m_keychain->setVarRaw(BBS_TIMESTAMPS, buffer.data(), static_cast<int>(buffer.size()));
+                // public wallet
+                m_WalletDB->saveIncomingWalletMessage(channel, msg);
+                OnIncomingMessage();
+                return;
+            }
+
+            ByteBuffer buf = msg; // duplicate
+            uint8_t* pMsg = &buf.front();
+            uint32_t nSize = static_cast<uint32_t>(buf.size());
+
+            if (!proto::Bbs::Decrypt(pMsg, nSize, it->get_ParentObj().m_sk))
+                continue;
+
+            wallet::SetTxParameter msgWallet;
+            bool bValid = false;
+
+            try {
+                Deserializer der;
+                der.reset(pMsg, nSize);
+                der& msgWallet;
+                bValid = true;
+            }
+            catch (const std::exception&) {
+                LOG_WARNING() << "BBS deserialization failed";
+            }
+
+            if (bValid)
+            {
+                WalletID wid;
+                wid.m_Pk = it->get_ParentObj().m_Pk;
+                wid.m_Channel = it->m_Value;
+                m_Wallet.OnWalletMessage(wid, std::move(msgWallet));
+                break;
             }
         }
-        catch(...)
-        { }
     }
 
-    void WalletNetworkIO::start()
+    void BaseMessageEndpoint::AddOwnAddress(const WalletAddress& address)
     {
-        m_reactor->run();
+        AddOwnAddress(address.m_OwnID, channel_from_wallet_id(address.m_walletID), address.getExpirationTime(), address.m_walletID);
     }
 
-    void WalletNetworkIO::stop()
+    void BaseMessageEndpoint::AddOwnAddress(uint64_t ownID, BbsChannel nChannel, Timestamp expirationTime, const WalletID& walletID)
     {
-        m_reactor->stop();
-    }
+        Addr::Wid key;
+        key.m_OwnID = ownID;
 
-    void WalletNetworkIO::add_wallet(const WalletID& walletID)
-    {
-        m_wallets.insert(walletID);
-    }
+        Addr* pAddr = nullptr;
+        auto itW = m_Addresses.find(key);
 
-    void WalletNetworkIO::send_tx_message(const WalletID& to, wallet::SetTxParameter&& msg)
-    {
-        send(to, setTxParameterCode, move(msg));
-    }
-
-    void WalletNetworkIO::send_node_message(proto::NewTransaction&& msg)
-    {
-        send_to_node(move(msg));
-    }
-
-    void WalletNetworkIO::send_node_message(proto::GetProofUtxo&& msg)
-    {
-        send_to_node(move(msg));
-    }
-
-    void WalletNetworkIO::send_node_message(proto::GetHdr&& msg)
-    {
-        send_to_node(move(msg));
-    }
-
-    void WalletNetworkIO::send_node_message(proto::GetMined&& msg)
-    {
-        send_to_node(move(msg));
-    }
-
-    void WalletNetworkIO::send_node_message(proto::GetProofState&& msg)
-    {
-        send_to_node(move(msg));
-    }
-
-    void WalletNetworkIO::send_node_message(proto::GetProofKernel&& msg)
-    {
-        send_to_node(move(msg));
-    }
-
-    void WalletNetworkIO::new_own_address(const WalletID& address)
-    {
-        auto p = m_myPubKeys.insert(address);
-        if (p.second)
+        if (m_Addresses.end() == itW)
         {
-            listen_to_bbs_channel(address);
-        }
-    }
+            pAddr = new Addr;
+            pAddr->m_ExpirationTime = expirationTime;
+            pAddr->m_Wid.m_OwnID = ownID;
 
-    void WalletNetworkIO::address_deleted(const WalletID& address)
-    {
-        m_myPubKeys.erase(address);
-    }
-
-    void WalletNetworkIO::close_node_connection()
-    {
-        if (m_is_node_connected && !m_close_timer)
-        {
-            m_close_timer = io::Timer::create(*m_reactor);
-            m_close_timer->start(m_close_timeout_ms, false, BIND_THIS_MEMFN(on_close_connection_timer));
-        }
-    }
-
-    void WalletNetworkIO::on_close_connection_timer()
-    {
-        LOG_DEBUG() << "Close node connection";
-
-        reset_connection();
-        start_sync_timer();
-    }
-
-    void WalletNetworkIO::postpone_close_timer()
-    {
-        if (m_close_timer)
-        {
-            m_close_timer->restart(m_close_timeout_ms, false);
-        }
-    }
-
-    bool WalletNetworkIO::on_message(uint64_t, wallet::SetTxParameter&& msg)
-    {
-        assert(m_lastReceiver);
-        get_wallet().handle_tx_message(*m_lastReceiver, move(msg));
-        return true;
-    }
-
-    void WalletNetworkIO::connect_node()
-    {
-        if (m_is_node_connected == false && !m_node_connection && !m_node_address.empty())
-        {
-            m_sync_timer->cancel();
-
-            create_node_connection();
-            m_node_connection->connect(BIND_THIS_MEMFN(on_node_connected));
-        }
-    }
-
-    void WalletNetworkIO::start_sync_timer()
-    {
-        m_sync_timer->start(m_sync_period_ms, false, BIND_THIS_MEMFN(on_sync_timer));
-    }
-
-    void WalletNetworkIO::on_sync_timer()
-    {
-        if (!m_is_node_connected)
-        {
-            connect_node();
-        }
-    }
-
-    void WalletNetworkIO::on_node_connected()
-    {
-        m_is_node_connected = true;
-        for (const auto& k : m_myPubKeys)
-        {
-            listen_to_bbs_channel(k);
-        }
-
-        vector<ConnectCallback> t;
-        t.swap(m_node_connect_callbacks);
-        for (auto& cb : t)
-        {
-            cb();
-        }
-    }
-
-    void WalletNetworkIO::on_node_disconnected()
-    {
-        m_is_node_connected = false;
-    }
-
-    void WalletNetworkIO::on_protocol_error(uint64_t, ProtocolError error)
-    {
-        LOG_ERROR() << "Wallet protocol error: " << error;
-        m_msgReader.reset();
-    }
-
-    void WalletNetworkIO::on_connection_error(uint64_t, io::ErrorCode errorCode)
-    {
-        LOG_ERROR() << "Wallet connection error: " << io::error_str(errorCode);
-        m_msgReader.reset();
-    }
-
-    void WalletNetworkIO::create_node_connection()
-    {
-        assert(!m_node_connection && !m_is_node_connected);
-        m_node_connection = make_unique<WalletNodeConnection>(m_node_address, get_wallet(), m_reactor, m_reconnect_ms, *this);
-    }
-
-    void WalletNetworkIO::update_wallets(const WalletID& walletID)
-    {
-        auto p = m_keychain->getPeer(walletID);
-        if (p.is_initialized())
-        {
-            add_wallet(p->m_walletID);
-        }
-    }
-
-    bool WalletNetworkIO::handle_decrypted_message(uint64_t timestamp, const void* buf, size_t size)
-    {
-        assert(m_lastReceiver);
-        m_bbs_timestamps[channel_from_wallet_id(*m_lastReceiver)] = timestamp;
-        m_msgReader.new_data_from_stream(io::EC_OK, buf, size);
-        return true;
-    }
-
-    void WalletNetworkIO::listen_to_bbs_channel(const WalletID& walletID)
-    {
-        if (m_is_node_connected)
-        {
-            uint32_t channel = channel_from_wallet_id(walletID);
-            LOG_INFO() << "WalletID " << to_string(walletID) << " subscribes to BBS channel " << channel;
-            proto::BbsSubscribe msg;
-            msg.m_Channel = channel;
-            msg.m_TimeFrom = m_bbs_timestamps[channel];
-            msg.m_On = true;
-            send_to_node(move(msg));
-        }
-    }
-
-    bool WalletNetworkIO::handle_bbs_message(proto::BbsMsg&& msg)
-    {
-        postpone_close_timer();
-        uint8_t* out = 0;
-        uint32_t size = 0;
-
-        for (const auto& k : m_myPubKeys)
-        {
-            uint32_t channel = channel_from_wallet_id(k);
-
-            if (channel != msg.m_Channel) continue;
-            ByteBuffer decryptBuffer(msg.m_Message); // we have to allocate memory for decrypted message
-            if (m_keystore->decrypt(out, size, decryptBuffer, k))
+            if (m_WalletDB->get_MasterKdf())
             {
-                LOG_DEBUG() << "Succeeded to decrypt BBS message from channel=" << msg.m_Channel;
-                m_lastReceiver = &k;
-                return handle_decrypted_message(msg.m_TimePosted, out, size);
+                m_WalletDB->get_MasterKdf()->DeriveKey(pAddr->m_sk, Key::ID(ownID, Key::Type::Bbs));
+
+                proto::Sk2Pk(pAddr->m_Pk, pAddr->m_sk); // needed to "normalize" the sk, and calculate the channel
+            }
+
+            pAddr->m_Channel.m_Value = nChannel;
+
+            m_Addresses.insert(pAddr->m_Wid);
+            m_Channels.insert(pAddr->m_Channel);
+        }
+        else
+        {
+            pAddr = &(itW->get_ParentObj());
+            pAddr->m_ExpirationTime = expirationTime;
+        }
+
+        if (pAddr && IsSingleChannelUser(pAddr->m_Channel))
+        {
+            OnChannelAdded(pAddr->m_Channel.m_Value);
+        }
+
+        LOG_INFO() << "WalletID " << to_string(walletID) << " subscribes to BBS channel " << pAddr->m_Channel.m_Value;
+    }
+
+    void BaseMessageEndpoint::DeleteOwnAddress(uint64_t ownID)
+    {
+        Addr::Wid key;
+        key.m_OwnID = ownID;
+
+        auto it = m_Addresses.find(key);
+        if (m_Addresses.end() != it)
+            DeleteAddr(it->get_ParentObj());
+    }
+
+    void BaseMessageEndpoint::DeleteAddr(const Addr& v)
+    {
+        if (IsSingleChannelUser(v.m_Channel))
+        {
+            OnChannelDeleted(v.m_Channel.m_Value);
+        }
+
+        m_Addresses.erase(WidSet::s_iterator_to(v.m_Wid));
+        m_Channels.erase(ChannelSet::s_iterator_to(v.m_Channel));
+        delete& v;
+    }
+
+    bool BaseMessageEndpoint::IsSingleChannelUser(const Addr::Channel& c)
+    {
+        ChannelSet::const_iterator it = ChannelSet::s_iterator_to(c);
+        ChannelSet::const_iterator it2 = it;
+        if (((++it2) != m_Channels.end()) && (it2->m_Value == c.m_Value))
+            return false;
+
+        if (it != m_Channels.begin())
+        {
+            it2 = it;
+            if ((--it2)->m_Value == it->m_Value)
+                return false;
+        }
+
+        return true;
+    }
+
+    void BaseMessageEndpoint::Send(const WalletID& peerID, const wallet::SetTxParameter& msg)
+    {
+        Serializer ser;
+        ser& msg;
+        SerializeBuffer sb = ser.buffer();
+
+        ECC::NoLeak<ECC::Hash::Value> hvRandom;
+        ECC::GenRandom(hvRandom.V);
+
+        ECC::Scalar::Native nonce;
+        m_WalletDB->get_MasterKdf()->DeriveKey(nonce, hvRandom.V);
+
+        ByteBuffer encryptedMessage;
+        if (proto::Bbs::Encrypt(encryptedMessage, peerID.m_Pk, nonce, sb.first, static_cast<uint32_t>(sb.second)))
+        {
+            SendEncryptedMessage(peerID, encryptedMessage);
+        }
+        else
+        {
+            LOG_WARNING() << "BBS serialization failed (bad peerID?)";
+        }
+    }
+
+    void BaseMessageEndpoint::OnAddressTimer()
+    {
+        vector<Addr*> addressesToDelete;
+        for (const auto& address : m_Addresses)
+        {
+            if (address.get_ParentObj().IsExpired())
+            {
+                addressesToDelete.push_back(&address.get_ParentObj());
             }
         }
-
-        return true;
-    }
-
-    void WalletNetworkIO::set_node_address(io::Address node_address)
-    {
-        reset_connection();
-
-        m_node_address = node_address;
-
-        connect_node();
-    }
-
-    void WalletNetworkIO::reset_connection()
-    {
-        get_wallet().abort_sync();
-
-        m_close_timer.reset();
-        m_is_node_connected = false;
-        m_node_connection.reset();
-    }
-
-    WalletNetworkIO::WalletNodeConnection::WalletNodeConnection(const io::Address& address, IWallet& wallet, io::Reactor::Ptr reactor, unsigned reconnectMsec, WalletNetworkIO& io)
-        : m_address{address}
-        , m_wallet {wallet}
-        , m_connecting{false}
-        , m_timer{io::Timer::create(*reactor)}
-        , m_reconnectMsec{reconnectMsec}
-        , m_io{io}
-    {
-    }
-
-    void WalletNetworkIO::WalletNodeConnection::connect(NodeConnectCallback&& cb)
-    {
-        LOG_DEBUG() << "Connecting to node...";
-        m_callbacks.emplace_back(move(cb));
-        if (!m_connecting)
+        for (const auto& address : addressesToDelete)
         {
-            Connect(m_address);
+            DeleteAddr(*address);
         }
+        m_AddressExpirationTimer->start(AddressUpdateInterval_ms, false, [this] { OnAddressTimer(); });
     }
 
-    void WalletNetworkIO::WalletNodeConnection::OnConnectedSecure()
-    {
-        LOG_INFO() << "Wallet connected to node";
-        m_connecting = false;
-        proto::Config msgCfg;
-        msgCfg.m_CfgChecksum = Rules::get().Checksum;
-        Send(msgCfg);
+    ///////////////////////////
 
-        for (auto& cb : m_callbacks)
+    WalletNetworkViaBbs::WalletNetworkViaBbs(IWallet& w, shared_ptr<proto::FlyClient::INetwork> net, const IWalletDB::Ptr& pWalletDB)
+        : BaseMessageEndpoint(w, pWalletDB)
+        , m_NodeEndpoint(net)
+		, m_WalletDB(pWalletDB)
+	{
+		ByteBuffer buffer;
+		m_WalletDB->getBlob(BBS_TIMESTAMPS, buffer);
+		if (!buffer.empty())
+		{
+			Deserializer d;
+			d.reset(buffer.data(), buffer.size());
+
+			d & m_BbsTimestamps;
+		}
+
+        Subscribe();
+        m_WalletDB->subscribe(this);
+	}
+
+	WalletNetworkViaBbs::~WalletNetworkViaBbs()
+	{
+        m_WalletDB->unsubscribe(this);
+		m_Miner.Stop();
+
+		while (!m_PendingBbsMsgs.empty())
+			DeleteReq(m_PendingBbsMsgs.front());
+
+        Unsubscribe();
+
+		try {
+			SaveBbsTimestamps();
+		} 
+        catch (const std::exception& e)
         {
-            cb();
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
-        m_callbacks.clear();
-    }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+		}
+	}
 
-    void WalletNetworkIO::WalletNodeConnection::OnDisconnect(const DisconnectReason& r)
-    {
-        LOG_INFO() << "Could not connect to node, retrying...";
-        LOG_VERBOSE() << "Wallet failed to connect to node, error: " << r;
-        m_io.on_node_disconnected();
-        m_wallet.abort_sync();
-        m_timer->cancel();
-        Reset();
-        m_timer->start(m_reconnectMsec, false, [this]() {Connect(m_address); });
-    }
+	void WalletNetworkViaBbs::SaveBbsTimestamps()
+	{
+		Timestamp tsThreshold = getTimestamp() - 3600 * 24 * 3;
 
-    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Boolean&& msg)
-    {
-        return m_wallet.handle_node_message(move(msg));
-    }
+		for (auto it = m_BbsTimestamps.begin(); m_BbsTimestamps.end() != it; )
+		{
+			auto it2 = it++;
+			if (it2->second < tsThreshold)
+				m_BbsTimestamps.erase(it2);
+		}
 
-    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::ProofUtxo&& msg)
-    {
-        return m_wallet.handle_node_message(move(msg));
-    }
+		Serializer s;
+		s & m_BbsTimestamps;
 
-    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::ProofKernel&& msg)
-    {
-        return m_wallet.handle_node_message(move(msg));
-    }
+		ByteBuffer buffer;
+		s.swap_buf(buffer);
 
-    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::NewTip&& msg)
-    {
-        return m_wallet.handle_node_message(move(msg));
-    }
+		m_WalletDB->setVarRaw(BBS_TIMESTAMPS, buffer.data(), static_cast<int>(buffer.size()));
+	}
 
-    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Mined&& msg)
-    {
-        return m_wallet.handle_node_message(move(msg));
-    }
+	void WalletNetworkViaBbs::DeleteReq(MyRequestBbsMsg& r)
+	{
+		m_PendingBbsMsgs.erase(BbsMsgList::s_iterator_to(r));
+		r.m_pTrg = NULL;
+		r.Release();
+	}
 
-    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::ProofState&& msg)
-    {
-        return m_wallet.handle_node_message(move(msg));
-    }
+	void WalletNetworkViaBbs::OnTimerBbsTmSave()
+	{
+		m_pTimerBbsTmSave.reset();
+		SaveBbsTimestamps();
+	}
 
-    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::BbsMsg&& msg)
-    {
-        return m_io.handle_bbs_message(move(msg));
-    }
+	void WalletNetworkViaBbs::BbsSentEvt::OnComplete(proto::FlyClient::Request& r)
+	{
+		assert(r.get_Type() == proto::FlyClient::Request::Type::BbsMsg);
+		get_ParentObj().DeleteReq(static_cast<MyRequestBbsMsg&>(r));
+	}
 
-    bool WalletNetworkIO::WalletNodeConnection::OnMsg2(proto::Authentication&& msg)
-    {
-        proto::NodeConnection::OnMsg(std::move(msg));
+	void WalletNetworkViaBbs::BbsSentEvt::OnMsg(proto::BbsMsg&& msg)
+	{
+		get_ParentObj().OnMsg(msg);
+	}
 
-        if (proto::IDType::Node == msg.m_IDType)
+	void WalletNetworkViaBbs::OnMsg(const proto::BbsMsg& msg)
+	{
+		if (msg.m_Message.empty())
+			return;
+
+		auto itBbs = m_BbsTimestamps.find(msg.m_Channel);
+		if (m_BbsTimestamps.end() != itBbs)
         {
-            ECC::Scalar::Native sk;
-            if (m_wallet.get_IdentityKeyForNode(sk, msg.m_ID))
+            if (itBbs->second > msg.m_TimePosted)
             {
-                ProveID(sk, proto::IDType::Owner);
+                return; // ignore old messages
+            }
+			itBbs->second = std::max(itBbs->second, msg.m_TimePosted);
+        }
+		else
+        {
+			m_BbsTimestamps[msg.m_Channel] = msg.m_TimePosted;
+        }
+
+		if (!m_pTimerBbsTmSave)
+		{
+			m_pTimerBbsTmSave = io::Timer::create(io::Reactor::get_Current());
+			m_pTimerBbsTmSave->start(60*1000, false, [this]() { OnTimerBbsTmSave(); });
+		}
+
+        ProcessMessage(msg.m_Channel, msg.m_Message);
+	}
+
+    void WalletNetworkViaBbs::SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg)
+    {
+        Miner::Task::Ptr pTask = std::make_shared<Miner::Task>();
+        pTask->m_Msg.m_Message = msg;
+        
+        pTask->m_Done = false;
+        pTask->m_Msg.m_Channel = channel_from_wallet_id(peerID);
+
+        if (m_MineOutgoing)
+        {
+            proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
+
+            if (!m_Miner.m_pEvt)
+            {
+                m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
+                m_Miner.m_Shutdown = false;
+
+                uint32_t nThreads = std::thread::hardware_concurrency();
+                nThreads = (nThreads > 1) ? (nThreads - 1) : 1; // leave at least 1 vacant core for other things
+                m_Miner.m_vThreads.resize(nThreads);
+
+                for (uint32_t i = 0; i < nThreads; i++)
+                    m_Miner.m_vThreads[i] = std::thread(&Miner::Thread, &m_Miner, i);
+            }
+
+            std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
+
+            m_Miner.m_Pending.push_back(std::move(pTask));
+            m_Miner.m_NewTask.notify_all();
+        }
+        else
+        {
+            pTask->m_Msg.m_TimePosted = getTimestamp();
+            OnMined(std::move(pTask->m_Msg));
+        }
+    }
+
+    void WalletNetworkViaBbs::OnChannelAdded(BbsChannel channel)
+	{
+        Timestamp ts = 0;
+        auto it = m_BbsTimestamps.find(channel);
+        if (m_BbsTimestamps.end() != it)
+            ts = it->second;
+
+        m_NodeEndpoint->BbsSubscribe(channel, ts, &m_BbsSentEvt);
+	}
+
+    void WalletNetworkViaBbs::OnChannelDeleted(BbsChannel channel)
+    {
+        m_NodeEndpoint->BbsSubscribe(channel, 0, nullptr);
+	}
+
+	void WalletNetworkViaBbs::OnMined()
+	{
+		while (true)
+		{
+			Miner::Task::Ptr pTask;
+			{
+				std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
+
+				if (!m_Miner.m_Done.empty())
+				{
+					pTask = std::move(m_Miner.m_Done.front());
+					m_Miner.m_Done.pop_front();
+				}
+			}
+
+			if (!pTask)
+				break;
+
+			OnMined(std::move(pTask->m_Msg));
+		}
+	}
+
+	void WalletNetworkViaBbs::OnMined(proto::BbsMsg&& msg)
+	{
+		MyRequestBbsMsg::Ptr pReq(new MyRequestBbsMsg);
+
+		pReq->m_Msg = std::move(msg);
+
+		m_PendingBbsMsgs.push_back(*pReq);
+		pReq->AddRef();
+
+        m_NodeEndpoint->PostRequest(*pReq, m_BbsSentEvt);
+	}
+
+    void WalletNetworkViaBbs::onAddressChanged(ChangeAction action, const vector<WalletAddress>& items)
+    {
+        switch (action)
+        {
+        case ChangeAction::Added:
+        case ChangeAction::Updated:
+            for (const auto& address : items)
+            {
+                if (!address.isExpired())
+                {
+                    AddOwnAddress(address);
+                }
+                else
+                {
+                    DeleteOwnAddress(address.m_OwnID);
+                }
+            }
+            break;
+        case ChangeAction::Removed:
+            for (const auto& address : items)
+            {
+                DeleteOwnAddress(address.m_OwnID);
+            }
+            break;
+        case ChangeAction::Reset:
+            assert(false && "invalid address change action");
+            break;
+        }
+    }
+
+	void WalletNetworkViaBbs::Miner::Stop()
+	{
+		if (!m_vThreads.empty())
+		{
+			{
+				std::unique_lock<std::mutex> scope(m_Mutex);
+				m_Shutdown = true;
+				m_NewTask.notify_all();
+			}
+
+			for (size_t i = 0; i < m_vThreads.size(); i++)
+				if (m_vThreads[i].joinable())
+					m_vThreads[i].join();
+
+			m_vThreads.clear();
+			m_pEvt.reset();
+		}
+	}
+
+	void WalletNetworkViaBbs::Miner::Thread(uint32_t iThread)
+	{
+		proto::Bbs::NonceType nStep = static_cast<uint32_t>(m_vThreads.size());
+
+		while (true)
+		{
+			Task::Ptr pTask;
+
+			for (std::unique_lock<std::mutex> scope(m_Mutex); ; m_NewTask.wait(scope))
+			{
+				if (m_Shutdown)
+					return;
+
+				if (!m_Pending.empty())
+				{
+					pTask = m_Pending.front();
+					break;
+				}
+			}
+
+			Timestamp ts = 0;
+			proto::Bbs::NonceType nonce = iThread;
+			bool bSuccess = false;
+
+			for (uint32_t i = 0; ; i++)
+			{
+				if (pTask->m_Done || m_Shutdown)
+					break;
+
+				if (!(i & 0xff))
+					ts = getTimestamp();
+
+				// attempt to mine it
+				ECC::Hash::Value hv;
+				ECC::Hash::Processor hp = pTask->m_hpPartial;
+				hp
+					<< ts
+					<< nonce
+					>> hv;
+
+				if (proto::Bbs::IsHashValid(hv))
+				{
+					bSuccess = true;
+					break;
+				}
+
+				nonce += nStep;
+			}
+
+			if (bSuccess)
+			{
+				std::unique_lock<std::mutex> scope(m_Mutex);
+
+				if (pTask->m_Done)
+					bSuccess = false;
+				else
+				{
+					assert(m_Pending.front() == pTask);
+
+					pTask->m_Msg.m_TimePosted = ts;
+					pTask->m_Msg.m_Nonce = nonce;
+
+					pTask->m_Done = true;
+					m_Pending.pop_front();
+					m_Done.push_back(std::move(pTask));
+				}
+			}
+
+			if (bSuccess)
+				m_pEvt->post();
+		}
+
+	}
+
+    /////////////////////////////////
+    ColdWalletMessageEndpoint::ColdWalletMessageEndpoint(IWallet& wallet, IWalletDB::Ptr walletDB)
+        : BaseMessageEndpoint(wallet, walletDB)
+        , m_WalletDB(walletDB)
+    {
+        Subscribe();
+
+        {
+            auto messages = m_WalletDB->getIncomingWalletMessages();
+            for (auto& message : messages)
+            {
+                ProcessMessage(message.m_Channel, message.m_Message);
+                m_WalletDB->deleteIncomingWalletMessage(message.m_ID);
             }
         }
-
-        return true;
     }
 
+    ColdWalletMessageEndpoint::~ColdWalletMessageEndpoint()
+    {
+        Unsubscribe();
+    }
+
+    void ColdWalletMessageEndpoint::SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg)
+    {
+        m_WalletDB->saveWalletMessage(WalletMessage{ 0, peerID, msg });
+    }
 }

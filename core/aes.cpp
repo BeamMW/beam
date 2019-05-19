@@ -817,11 +817,9 @@ void AES::StreamCipher::Reset()
 void AES::StreamCipher::PerfXor(uint8_t* pBuf, uint32_t nSize)
 {
 	assert(m_nBuf >= nSize);
-	const uint8_t* pXor = m_pBuf + _countof(m_pBuf) - m_nBuf;
-	m_nBuf -= (uint8_t) nSize;
 
-	for (uint32_t i = 0; i < nSize; i++)
-		pBuf[i] ^= pXor[i];
+	memxor(pBuf, m_pBuf + _countof(m_pBuf) - m_nBuf, nSize);
+	m_nBuf -= (uint8_t) nSize;
 }
 
 void AES::StreamCipher::XCrypt(const Encoder& enc, uint8_t* pBuf, uint32_t nSize)

@@ -25,6 +25,8 @@ class MainViewModel : public QObject
 public:
     MainViewModel();
 
+    Q_INVOKABLE void resetLockTimer();
+
 signals:
     void gotoStartScreen();
 

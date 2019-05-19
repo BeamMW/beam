@@ -16,7 +16,9 @@
 #include "utility/io/timer.h"
 #include <assert.h>
 
-#define LOG_VERBOSE_ENABLED 0
+#ifndef LOG_VERBOSE_ENABLED
+    #define LOG_VERBOSE_ENABLED 0
+#endif
 #include "utility/logger.h"
 
 using namespace beam;
@@ -39,7 +41,7 @@ uint16_t serverPort=33333;
 
 void on_timer() {
     timer->cancel();
-    reactor->tcp_connect(Address(serverIp, serverPort), 1, [](uint64_t, shared_ptr<TcpStream>&&, int){}, 1000, Address(clientIp, 0));
+    reactor->tcp_connect(Address(serverIp, serverPort), 1, [](uint64_t, shared_ptr<TcpStream>&&, int){}, 1000, false, Address(clientIp, 0));
 }
 
 void tcpserver_test() {

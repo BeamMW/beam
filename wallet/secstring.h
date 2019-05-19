@@ -96,12 +96,11 @@ public:
     ECC::NoLeak<ECC::uintBig> hash() const
     {
         ECC::NoLeak<ECC::uintBig> hash;
-        hash.V = Zero;
-        {
-            ECC::Hash::Processor hp;
-            hp.Write(data(), (uint32_t)size());
-            hp >> hash.V;
-        }
+
+        ECC::Hash::Processor()
+			<< Blob(data(), (uint32_t)size())
+			>> hash.V;
+
         return hash;
     }
 };

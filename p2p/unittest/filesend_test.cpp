@@ -29,10 +29,10 @@ using namespace std;
 using PeerLocator = uint64_t;
 
 std::vector<uint8_t> checksum(const io::SharedBuffer& buf) {
-    ECC::Hash::Processor hp;
-	hp.Write(buf.data, (uint32_t) buf.size);
-    ECC::Hash::Value h;
-    hp >> h;
+	ECC::Hash::Value h;
+	ECC::Hash::Processor()
+		<< Blob(buf.data, (uint32_t) buf.size)
+		>> h;
     return std::vector<uint8_t>((uint8_t*)h.m_pData, (uint8_t*)h.m_pData + 32);
 }
 

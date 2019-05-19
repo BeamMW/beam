@@ -51,7 +51,7 @@ public:
     }
 
     SerializeBuffer buffer() {
-        return { (const char*) &_os.m_vec.at(0), _os.m_vec.size() };
+        return { _os.buf, _os.cur - _os.buf};
     }
 
     template <typename T> StaticBufferSerializer& operator&(const T& object) {
@@ -113,11 +113,12 @@ struct SerializerSizeCounter
 {
 	struct Counter
 	{
-		size_t m_Value;
+		size_t m_Value; // should not overflow, since it's used only for objects of limited size (tx elements, etc.)
 
 		size_t write(const void * /*ptr*/, const size_t size)
 		{
 			m_Value += size;
+			assert(m_Value >= size); // no overflow
 			return size;
 		}
 
@@ -148,6 +149,10 @@ public:
     void reset(const void* buf, size_t size) {
         _is.reset(buf, size);
     }
+
+	void reset(const std::vector<uint8_t>& bb) {
+		reset(bb.empty() ? nullptr : &bb.front(), bb.size());
+	}
 
     /// Returns bytes unconsumed from the buffer
     size_t bytes_left() {

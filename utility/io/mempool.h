@@ -48,7 +48,7 @@ public:
         if (_pool.size() > _maxSize) {
             free(h);
         } else {
-            memset(h, 0, DATA_SIZE);
+            memset(static_cast<void*>(h), 0, DATA_SIZE);
             _pool.push_back(h);
         }
     }

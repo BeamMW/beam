@@ -15,105 +15,121 @@
 #include "node_model.h"
 #include "app_model.h"
 #include "node/node.h"
+#include <mutex>
+
+#include "pow/external_pow.h"
+
+#include <boost/filesystem.hpp>
+
 
 using namespace beam;
 using namespace beam::io;
 using namespace std;
 
-NodeModel::NodeModel(const ECC::NoLeak<ECC::uintBig>& seed)
-    : m_seed{seed}
+NodeModel::NodeModel()
+    : m_nodeClient(this)
 {
 
 }
 
-NodeModel::~NodeModel()
+void NodeModel::setKdf(beam::Key::IKdf::Ptr kdf)
 {
-    try
-    {
-        {
-            auto r = m_reactor.lock();
-            if (!r)
-            {
-                return;
-            }
-            r->stop();
-
-        }
-        wait();
-    }
-    catch (...)
-    {
-
-    }
+    m_nodeClient.setKdf(kdf);
 }
 
-void NodeModel::run()
+void NodeModel::startNode()
 {
-    try
-    {
-        auto reactor = io::Reactor::create();
-        m_reactor = reactor;// store weak ref
-        io::Reactor::Scope scope(*reactor);
-
-        auto& settings = AppModel::getInstance()->getSettings();
-
-        Node node;
-        node.m_Cfg.m_Listen.port(settings.getLocalNodePort());
-        node.m_Cfg.m_Listen.ip(INADDR_ANY);
-        node.m_Cfg.m_sPathLocal = settings.getLocalNodeStorage();
-        if (settings.getLocalNodeSynchronized())
-        {
-            node.m_Cfg.m_MiningThreads = settings.getLocalNodeMiningThreads();
-            node.m_Cfg.m_VerificationThreads = settings.getLocalNodeVerificationThreads();
-        }
-        else
-        {
-            node.m_Cfg.m_MiningThreads = node.m_Cfg.m_VerificationThreads = 0;
-        }
-
-        node.m_Cfg.m_WalletKey = m_seed;
-
-
-        node.m_Cfg.m_HistoryCompression.m_sPathOutput = settings.getTempDir();
-        node.m_Cfg.m_HistoryCompression.m_sPathTmp = settings.getTempDir();
-
-        auto qPeers = settings.getLocalNodePeers();
-
-        for (const auto& qPeer : qPeers)
-        {
-            Address peer_addr;
-            if (peer_addr.resolve(qPeer.toStdString().c_str()))
-            {
-                node.m_Cfg.m_Connect.emplace_back(peer_addr);
-            }
-        }
-
-        LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
-
-        if (settings.getGenerateGenesys())
-        {
-            node.m_Cfg.m_vTreasury.resize(1);
-            node.m_Cfg.m_vTreasury[0].ZeroInit();
-        }
-
-        node.m_Cfg.m_Observer = this;
-
-        node.Initialize();
-
-        reactor->run();
-    }
-    catch (const runtime_error& ex)
-    {
-        LOG_ERROR() << ex.what();
-        AppModel::getInstance()->getMessages().addMessage(tr("Failed to start node. Please check your node configuration"));
-    }
-    catch (...)
-    {
-        LOG_ERROR() << "Unhandled exception";
-    }
+    m_nodeClient.startNode();
 }
 
-void NodeModel::OnSyncProgress(int done, int total)
+void NodeModel::stopNode()
+{
+    m_nodeClient.stopNode();
+}
+
+void NodeModel::start()
+{
+    m_nodeClient.start();
+}
+
+bool NodeModel::isNodeRunning() const
+{
+    return m_nodeClient.isNodeRunning();
+}
+
+void NodeModel::onSyncProgressUpdated(int done, int total)
 {
     emit syncProgressUpdated(done, total);
+}
+
+void NodeModel::onStartedNode()
+{
+    emit startedNode();
+}
+
+void NodeModel::onStoppedNode()
+{
+    emit stoppedNode();
+}
+
+void NodeModel::onFailedToStartNode(io::ErrorCode errorCode)
+{
+    emit failedToStartNode(wallet::getWalletError(errorCode));
+}
+
+void NodeModel::onSyncError(beam::Node::IObserver::Error error)
+{
+    switch(error)
+    {
+        case Node::IObserver::Error::TimeDiffToLarge:
+        {   
+            emit failedToSyncNode(
+                wallet::getWalletError(
+                    proto::NodeProcessingException::Type::TimeOutOfSync));
+            break;
+        }
+        case Node::IObserver::Error::Unknown:
+        {
+            emit failedToStartNode(wallet::ErrorType::InternalNodeStartFailed);
+            break;
+        }
+        default:
+        {
+            assert(false);
+        }
+    }
+}
+
+uint16_t NodeModel::getLocalNodePort()
+{
+    return AppModel::getInstance()->getSettings().getLocalNodePort();
+}
+
+std::string NodeModel::getLocalNodeStorage()
+{
+    return AppModel::getInstance()->getSettings().getLocalNodeStorage();
+}
+
+std::string NodeModel::getTempDir()
+{
+    return AppModel::getInstance()->getSettings().getTempDir();
+}
+
+std::vector<std::string> NodeModel::getLocalNodePeers()
+{
+    std::vector<std::string> result;
+
+    auto peers = AppModel::getInstance()->getSettings().getLocalNodePeers();
+
+    for (const auto& peer : peers)
+    {
+        result.push_back(peer.toStdString());
+    }
+
+    return result;
+}
+
+void NodeModel::onNodeThreadFinished()
+{
+
 }

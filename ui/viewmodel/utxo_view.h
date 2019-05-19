@@ -17,29 +17,30 @@
 #include <QObject>
 #include <QQmlListProperty>
 #include "model/wallet_model.h"
+#include "viewmodel/utxo_view_status.h"
+#include "viewmodel/utxo_view_type.h"
 
 class UtxoItem : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QString amount       READ amount     NOTIFY changed)
-    Q_PROPERTY(QString height       READ height     NOTIFY changed)
     Q_PROPERTY(QString maturity     READ maturity   NOTIFY changed)
-    Q_PROPERTY(QString status       READ status     NOTIFY changed)
-    Q_PROPERTY(QString type         READ type       NOTIFY changed)
+    Q_PROPERTY(int status           READ status     NOTIFY changed)
+    Q_PROPERTY(int type             READ type       NOTIFY changed)
 public:
 
     UtxoItem() = default;
     UtxoItem(const beam::Coin& coin);
+    virtual ~UtxoItem();
 
     QString amount() const;
-    QString height() const;
     QString maturity() const;
-    QString status() const;
-    QString type() const;
+    UtxoViewStatus::EnStatus status() const;
+    UtxoViewType::EnType type() const;
 
     beam::Amount rawAmount() const;
-    beam::Height rawHeight() const;
     beam::Height rawMaturity() const;
+	const beam::Coin::ID& get_ID() const;
 
 signals:
     void changed();

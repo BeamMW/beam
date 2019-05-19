@@ -138,7 +138,7 @@ namespace {
 std::atomic<bool> g_quit = false;
 
 void signal_handler(int sig) {
-    if (sig == SIGINT || sig == SIGTERM)
+    if (sig == SIGINT || sig == SIGTERM || sig == SIGHUP)
         g_quit = true;
 }
 

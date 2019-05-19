@@ -204,10 +204,39 @@ namespace beam
 		for (size_t i = 0; i < d.m_Commitment.m_X.nBytes; i++)
 			d.m_Commitment.m_X.m_pData[i] = (uint8_t) rand();
 
-		d.m_Commitment.m_Y	= (1 & rand()) != 0;
+		d.m_Commitment.m_Y = (1 & rand());
 
 		for (size_t i = 0; i < sizeof(d.m_Maturity); i++)
 			((uint8_t*) &d.m_Maturity)[i] = (uint8_t) rand();
+	}
+
+	void SetLeafID(TxoID& var, uint32_t i, bool bTest)
+	{
+		if (bTest)
+			verify_test(var == i);
+		else
+			var = i;
+	}
+
+	void SetLeafIDs(UtxoTree::MyLeaf& x, uint32_t i, bool bTest)
+	{
+		bool bExt = !(i % 12);
+		if (bTest)
+			verify_test(x.IsExt() == bExt);
+
+		if (bExt)
+		{
+			if (!bTest)
+			{
+				for (uint32_t j = 0; j < 2; j++)
+					x.PushID(0);
+			}
+
+			for (auto it = x.m_pIDs->begin(); x.m_pIDs->end() != it; it++)
+				SetLeafID(*it, i++, bTest);
+		}
+		else
+			SetLeafID(x.m_ID, i, bTest);
 	}
 
 	void TestUtxoTree()
@@ -237,7 +266,8 @@ namespace beam
 			UtxoTree::MyLeaf* p = t.Find(cu, key, bCreate);
 
 			verify_test(p && bCreate);
-			p->m_Value.m_Count = i;
+
+			SetLeafIDs(*p, i, false);
 
 			if (!(i % 17))
 			{
@@ -255,7 +285,7 @@ namespace beam
 					t.get_Proof(proof, cu);
 
 					Merkle::Hash hvElement;
-					p->m_Value.get_Hash(hvElement, p->m_Key);
+					p->get_Hash(hvElement);
 
 					Merkle::Interpret(hvElement, proof);
 					verify_test(hvElement == hv1);
@@ -275,7 +305,8 @@ namespace beam
 			UtxoTree::MyLeaf* p = t.Find(cu, vKeys[i], bCreate);
 
 			verify_test(p && !bCreate);
-			verify_test(p->m_Value.m_Count == i);
+			SetLeafIDs(*p, i, true);
+
 			t.Delete(cu);
 
 			if (!(i % 31))
@@ -295,7 +326,7 @@ namespace beam
 			UtxoTree::MyLeaf* p = t.Find(cu, key, bCreate);
 
 			verify_test(p && bCreate);
-			p->m_Value.m_Count = i;
+			SetLeafIDs(*p, i, false);
 
 			if (!(i % 11))
 				t.get_Hash(hv2); // try to confuse clean/dirty
@@ -334,7 +365,7 @@ namespace beam
 
 			virtual bool OnLeaf(const RadixTree::Leaf& x) override
 			{
-				const UtxoTree::MyLeaf& v = (UtxoTree::MyLeaf&) x;
+				const UtxoTree::MyLeaf& v = Cast::Up<UtxoTree::MyLeaf>(x);
 				verify_test(v.m_Key >= m_Min);
 				verify_test(v.m_Key <= m_Max);
 				verify_test(v.m_Key > m_Last);
@@ -384,7 +415,7 @@ namespace beam
 
 		virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
 		{
-			hv = ((MyMmr*) this)->get_At(pos);
+			hv = Cast::NotConst(this)->get_At(pos);
 		}
 
 		virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override
@@ -442,6 +473,22 @@ namespace beam
 		MyMmr mmr;
 		MyDmmr dmmr;
 		Merkle::CompactMmr cmmr;
+		Merkle::FixedMmmr fmmr(vHashes.size());
+
+		struct MyFlyMmr
+			:public Merkle::FlyMmr
+		{
+			const Merkle::Hash* m_pHashes;
+
+			virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override
+			{
+				verify_test(n < m_Count);
+				hv = m_pHashes[n];
+			}
+		};
+
+		MyFlyMmr flymmr;
+		flymmr.m_pHashes = &vHashes.front();
 
 		for (uint32_t i = 0; i < vHashes.size(); i++)
 		{
@@ -450,23 +497,32 @@ namespace beam
 			for (uint32_t j = 0; j < hv.nBytes; j++)
 				hv.m_pData[j] = (uint8_t)rand();
 
-			Merkle::Hash hvRoot, hvRoot2, hvRoot3;
+			Merkle::Hash hvRoot, hvRoot2, hvRoot3, hvRoot4, hvRoot5;
 
 			mmr.get_PredictedHash(hvRoot, hv);
 			dmmr.get_PredictedHash(hvRoot2, hv);
 			cmmr.get_PredictedHash(hvRoot3, hv);
+			fmmr.get_PredictedHash(hvRoot4, hv);
 			verify_test(hvRoot == hvRoot2);
 			verify_test(hvRoot == hvRoot3);
+			verify_test(hvRoot == hvRoot4);
 
 			mmr.Append(hv);
 			dmmr.MyAppend(hv);
 			cmmr.Append(hv);
+			fmmr.Append(hv);
+
+			flymmr.m_Count++;
 
 			mmr.get_Hash(hvRoot);
 			verify_test(hvRoot == hvRoot3);
 			dmmr.get_Hash(hvRoot);
 			verify_test(hvRoot == hvRoot3);
 			cmmr.get_Hash(hvRoot);
+			verify_test(hvRoot == hvRoot3);
+			fmmr.get_Hash(hvRoot);
+			verify_test(hvRoot == hvRoot3);
+			flymmr.get_Hash(hvRoot);
 			verify_test(hvRoot == hvRoot3);
 
 			vSet.clear();
@@ -478,8 +534,18 @@ namespace beam
 
 				Merkle::ProofBuilderStd bld;
 				dmmr.get_Proof(bld, j);
-
 				verify_test(proof == bld.m_Proof);
+
+				bld.m_Proof.clear();
+				fmmr.get_Proof(bld, j);
+				verify_test(proof == bld.m_Proof);
+
+				if (i < 40) // flymmr is too heavy (everything is literally recalculated every time).
+				{
+					bld.m_Proof.clear();
+					flymmr.get_Proof(bld, j);
+					verify_test(proof == bld.m_Proof);
+				}
 
 				Merkle::Hash hv2 = vHashes[j];
 				Merkle::Interpret(hv2, proof);

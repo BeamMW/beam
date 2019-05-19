@@ -50,13 +50,15 @@ WaitHandle run_node(const NodeParams& params) {
             node.m_Cfg.m_MiningThreads = 1;
             node.m_Cfg.m_VerificationThreads = 1;
             node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 500;
-            node.m_Cfg.m_WalletKey.V = params.walletSeed;
+
+			node.m_Keys.InitSingleKey(params.walletSeed);
+
             if (!params.connectTo.empty()) {
                 node.m_Cfg.m_Connect.push_back(params.connectTo);
             }
             if (!params.treasuryPath.empty()) {
-                ReadTreasury(node.m_Cfg.m_vTreasury, params.treasuryPath);
-                LOG_INFO() << "Treasury blocks read: " << node.m_Cfg.m_vTreasury.size();
+                ReadTreasury(node.m_Cfg.m_Treasury, params.treasuryPath);
+                LOG_INFO() << "Treasury blocks read: " << node.m_Cfg.m_Treasury.size();
             }
 
             explorer::IAdapter::Ptr adapter = explorer::create_adapter(node);
@@ -86,11 +88,9 @@ int test_adapter(int seconds) {
     nodeParams.nodeAddress = io::Address::localhost().port(NODE_PORT);
     nodeParams.treasuryPath = FILENAME "_";
 
-    ECC::Hash::Processor hp;
-    hp.Write("xxx", 3);
-    hp >> nodeParams.walletSeed;
-
-    IKeyChain::Ptr kc = init_keychain(FILENAME, &nodeParams.walletSeed);
+    ECC::Hash::Processor()
+		<< Blob("xxx", 3)
+		>> nodeParams.walletSeed;
 
     WaitHandle nodeWH = run_node(nodeParams);
 
@@ -120,8 +120,8 @@ int main(int argc, char* argv[]) {
         }
     );
     ECC::InitializeContext();
-    Rules::get().DesiredRate_s = 1; // 1 minute
-    Rules::get().StartDifficulty = 1;
+    Rules::get().DA.Target_s = 1; // 1 minute
+    Rules::get().DA.Difficulty0 = 1;
 
     int seconds = 0;
     if (argc > 1) {

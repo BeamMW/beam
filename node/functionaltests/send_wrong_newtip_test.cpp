@@ -23,7 +23,7 @@ class TestNodeConnection : public BaseTestNode
 public:
 	TestNodeConnection(int argc, char* argv[]);
 private:
-	bool OnMsg2(proto::Boolean&& msg) override;
+	bool OnMsg2(proto::Status&& msg) override;
 	bool OnMsg2(proto::NewTip&& msg) override;	
 	
 private:
@@ -37,7 +37,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	m_Timeout = 60 * 1000;
 }
 
-bool TestNodeConnection::OnMsg2(proto::Boolean&& msg)
+bool TestNodeConnection::OnMsg2(proto::Status&& msg)
 {
 	LOG_INFO() << "Node returned: " << msg.m_Value;
 	return true;
@@ -86,9 +86,6 @@ bool TestNodeConnection::OnMsg2(proto::NewTip&& msg)
 int main(int argc, char* argv[])
 {
 	int logLevel = LOG_LEVEL_DEBUG;
-#if LOG_VERBOSE_ENABLED
-	logLevel = LOG_LEVEL_VERBOSE;
-#endif
 	auto logger = Logger::create(logLevel, logLevel);
 
 	TestNodeConnection connection(argc, argv);

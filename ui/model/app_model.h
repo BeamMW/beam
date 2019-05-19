@@ -20,22 +20,25 @@
 #include "node_model.h"
 #include "wallet/secstring.h"
 #include <memory>
-#include "wallet/keystore.h"
 
-class AppModel
+#include <QQmlApplicationEngine>
+
+class QTranslator;
+class AppModel : public QObject
 {
+    Q_OBJECT
 public:
 
     static AppModel* getInstance();
 
-    AppModel(WalletSettings& settings);
+    AppModel(WalletSettings& settings, QQmlApplicationEngine& qmlEngine);
     ~AppModel();
 
     WalletModel::Ptr getWallet() const;
 
     bool createWallet(const beam::SecString& seed, const beam::SecString& pass);
     bool openWallet(const beam::SecString& pass);
-	bool checkWalletPassword(const beam::SecString& pass) const;
+    bool checkWalletPassword(const beam::SecString& pass) const;
     void changeWalletPassword(const std::string& pass);
 
     void applySettingsChanges();
@@ -43,18 +46,30 @@ public:
     WalletSettings& getSettings();
     MessageManager& getMessages();
     NodeModel& getNode();
-private:
-    void start(beam::IKeyStore::Ptr);
+    void resetWallet();
 
-    void startNode();
+public slots:
+    void startedNode();
+    void stoppedNode();
+    void onFailedToStartNode(beam::wallet::ErrorType errorCode);
+    void onLocaleChanged();
+
+private:
+    void start();
+    void OnWalledOpened(const beam::SecString& pass);
+    void resetWalletImpl();
+    void loadTranslation();
 
 private:
 
     WalletModel::Ptr m_wallet;
-    std::unique_ptr<NodeModel> m_node;
+    NodeModel m_nodeModel;
     WalletSettings& m_settings;
+    QQmlApplicationEngine& m_qmlEngine;
     MessageManager m_messages;
-	ECC::NoLeak<ECC::uintBig> m_passwordHash;
-    beam::IKeyChain::Ptr m_db;
+    ECC::NoLeak<ECC::uintBig> m_passwordHash;
+    beam::io::Reactor::Ptr m_walletReactor;
+    beam::IWalletDB::Ptr m_db;
+    std::unique_ptr<QTranslator> m_translator;
     static AppModel* s_instance;
 };

@@ -21,12 +21,12 @@ namespace beam {
 // RadixTree
 uint16_t RadixTree::Node::get_Bits() const
 {
-	return m_Bits & ~(s_Clean | s_Leaf);
+	return m_Bits & ~(s_Clean | s_Leaf | s_User);
 }
 
 const uint8_t* RadixTree::get_NodeKey(const Node& n) const
 {
-	return (Node::s_Leaf & n.m_Bits) ? GetLeafKey((const Leaf&) n) : ((const Joint&) n).m_pKeyPtr;
+	return (Node::s_Leaf & n.m_Bits) ? GetLeafKey(Cast::Up<Leaf>(n)) : Cast::Up<Joint>(n).m_pKeyPtr;
 }
 
 RadixTree::RadixTree()
@@ -51,7 +51,7 @@ void RadixTree::Clear()
 void RadixTree::DeleteNode(Node* p)
 {
 	if (Node::s_Leaf & p->m_Bits)
-		DeleteLeaf((Leaf*) p);
+		DeleteLeaf(Cast::Up<Leaf>(p));
 	else
 	{
 		Joint* p1 = (Joint*) p;
@@ -81,12 +81,12 @@ uint8_t RadixTree::CursorBase::get_Bit(const uint8_t* p0) const
 RadixTree::Leaf& RadixTree::CursorBase::get_Leaf() const
 {
 	assert(m_nPtrs);
-	Leaf* p = (Leaf*) m_pp[m_nPtrs - 1];
+	Leaf* p = Cast::Up<Leaf>(m_pp[m_nPtrs - 1]);
 	assert(Node::s_Leaf & p->m_Bits);
 	return *p;
 }
 
-void RadixTree::CursorBase::Invalidate()
+void RadixTree::CursorBase::InvalidateElement()
 {
 	for (uint16_t n = m_nPtrs; n--; )
 	{
@@ -108,7 +108,7 @@ void RadixTree::ReplaceTip(CursorBase& cu, Node* pNew)
 
 	if (cu.m_nPtrs > 1)
 	{
-		Joint* pPrev = (Joint*) cu.m_pp[cu.m_nPtrs - 2];
+		Joint* pPrev = Cast::Up<Joint>(cu.m_pp[cu.m_nPtrs - 2]);
 		assert(pPrev);
 
 		for (size_t i = 0; ; i++)
@@ -159,7 +159,7 @@ bool RadixTree::Goto(CursorBase& cu, const uint8_t* pKey, uint16_t nBits) const
 
 		assert(cu.m_nPosInLastNode == p->get_Bits());
 
-		Joint* pN = (Joint*) p;
+		Joint* pN = Cast::Up<Joint>(p);
 		p = pN->m_ppC[cu.get_Bit(pKey)];
 
 		assert(p); // joints should have both children!
@@ -207,7 +207,7 @@ RadixTree::Leaf* RadixTree::Find(CursorBase& cu, const uint8_t* pKey, uint16_t n
 
 	if (cu.m_nPtrs)
 	{
-		cu.Invalidate();
+		cu.InvalidateElement();
 
 		uint16_t iC = cu.get_Bit(pKey);
 
@@ -254,9 +254,9 @@ void RadixTree::Delete(CursorBase& cu)
 {
 	assert(cu.m_nPtrs);
 
-	cu.Invalidate();
+	cu.InvalidateElement();
 
-	Leaf* p = (Leaf*) cu.m_pp[cu.m_nPtrs - 1];
+	Leaf* p = Cast::Up<Leaf>(cu.m_pp[cu.m_nPtrs - 1]);
 	assert(Node::s_Leaf & p->m_Bits);
 
 	const uint8_t* pKeyDead = GetLeafKey(*p);
@@ -270,7 +270,7 @@ void RadixTree::Delete(CursorBase& cu)
 	{
 		cu.m_nPtrs--;
 
-		Joint* pPrev = (Joint*) cu.m_pp[cu.m_nPtrs - 1];
+		Joint* pPrev = Cast::Up<Joint>(cu.m_pp[cu.m_nPtrs - 1]);
 		for (size_t i = 0; ; i++)
 		{
 			assert(i < _countof(pPrev->m_ppC));
@@ -282,7 +282,7 @@ void RadixTree::Delete(CursorBase& cu)
 
 				for (uint16_t j = cu.m_nPtrs; j--; )
 				{
-					Joint* pPrev2 = (Joint*) cu.m_pp[j];
+					Joint* pPrev2 = Cast::Up<Joint>(cu.m_pp[j]);
 					if (pPrev2->m_pKeyPtr != pKeyDead)
 						break;
 
@@ -304,7 +304,7 @@ void RadixTree::Delete(CursorBase& cu)
 bool RadixTree::Traverse(const Node& n, ITraveler& t) const
 {
 	if (t.m_pCu->m_pp)
-		t.m_pCu->m_pp[t.m_pCu->m_nPtrs++] = (Node*) &n;
+		t.m_pCu->m_pp[t.m_pCu->m_nPtrs++] = Cast::NotConst(&n);
 
 	uint16_t nBits = n.get_Bits();
 	if (nBits)
@@ -331,7 +331,7 @@ bool RadixTree::Traverse(const Node& n, ITraveler& t) const
 	}
 
 	if (Node::s_Leaf & n.m_Bits)
-		return t.OnLeaf((const Leaf&) n);
+		return t.OnLeaf(Cast::Up<Leaf>(n));
 
 	nBits = t.m_pCu->m_nBits;
 	uint16_t nPtrs = t.m_pCu->m_nPtrs;
@@ -339,7 +339,7 @@ bool RadixTree::Traverse(const Node& n, ITraveler& t) const
 	const uint8_t* pBound[2];
 	memcpy(pBound, t.m_pBound, sizeof(t.m_pBound));
 
-	const Joint& x = (const Joint&) n;
+	const Joint& x = Cast::Up<Joint>(n);
 	for (uint8_t i = 0; i < _countof(x.m_ppC); i++)
 	{
 		bool bSkip = false;
@@ -461,7 +461,7 @@ const Merkle::Hash& RadixHashTree::get_Hash(Node& n, Merkle::Hash& hv)
 		return ret;
 	}
 
-	MyJoint& x = (MyJoint&) n;
+	MyJoint& x = Cast::Up<MyJoint>(n);
 	if (!(Node::s_Clean & x.m_Bits))
 	{
 		ECC::Hash::Processor hp;
@@ -491,7 +491,7 @@ void RadixHashTree::get_Proof(Merkle::Proof& proof, const CursorBase& cu)
 
 	for (proof.resize(nOut + n); n--; nOut++)
 	{
-		const Joint& x = (const Joint&) *pp[n];
+		const Joint& x = Cast::Up<Joint>(*pp[n]);
 
 		Merkle::Node& node = proof[nOut];
 		node.first = (x.m_ppC[0] == pPrev);
@@ -506,34 +506,94 @@ void RadixHashTree::get_Proof(Merkle::Proof& proof, const CursorBase& cu)
 
 /////////////////////////////
 // UtxoTree
-void UtxoTree::Value::get_Hash(Merkle::Hash& hv, const Key& key) const
+void UtxoTree::MyLeaf::get_Hash(Merkle::Hash& hv, const Key& key, Input::Count nCount)
 {
-	ECC::Hash::Processor hp;
-	hp.Write(key.m_pArr, Key::s_Bytes); // whole description of the UTXO
-	hp << m_Count;
-
-	hp >> hv;
+	ECC::Hash::Processor()
+		<< Blob(key.m_pArr, Key::s_Bytes) // whole description of the UTXO
+		<< nCount
+		>> hv;
 }
 
-void Input::State::get_ID(Merkle::Hash& hv, const Input& inp) const
+void UtxoTree::MyLeaf::get_Hash(Merkle::Hash& hv) const
+{
+	get_Hash(hv, m_Key, get_Count());
+}
+
+void Input::State::get_ID(Merkle::Hash& hv, const ECC::Point& comm) const
 {
 	UtxoTree::Key::Data d;
-	d.m_Commitment = inp.m_Commitment;
+	d.m_Commitment = comm;
 	d.m_Maturity = m_Maturity;
 
 	UtxoTree::Key key;
 	key = d;
 
-	UtxoTree::Value val;
-	val.m_Count = m_Count;
-	val.get_Hash(hv, key);
+	UtxoTree::MyLeaf::get_Hash(hv, key, m_Count);
 }
 
 const Merkle::Hash& UtxoTree::get_LeafHash(Node& n, Merkle::Hash& hv)
 {
-	MyLeaf& x = (MyLeaf&) n;
-	x.m_Value.get_Hash(hv, x.m_Key);
+	Cast::Up<MyLeaf>(n).get_Hash(hv);
 	return hv;
+}
+
+Input::Count UtxoTree::MyLeaf::get_Count() const
+{
+	return IsExt() ?
+		static_cast<Input::Count>(m_pIDs->size()) :
+		1;
+}
+
+bool UtxoTree::MyLeaf::IsExt() const
+{
+	return 0 != (s_User & m_Bits);
+}
+
+bool UtxoTree::MyLeaf::IsCommitmentDuplicated() const
+{
+	const uint16_t nBitsPostCommitment = Key::s_Bits - Key::s_BitsCommitment;
+	return get_Bits() <= nBitsPostCommitment;
+}
+
+UtxoTree::MyLeaf::~MyLeaf()
+{
+	while (IsExt())
+		PopID();
+}
+
+void UtxoTree::MyLeaf::PushID(TxoID x)
+{
+	if (!IsExt())
+	{
+		TxoID val = m_ID;
+
+		m_pIDs = new std::deque<TxoID>;
+		m_Bits |= s_User;
+
+		m_pIDs->push_back(val);
+	}
+
+	m_pIDs->push_back(x);
+}
+
+TxoID UtxoTree::MyLeaf::PopID()
+{
+	assert(IsExt() && (m_pIDs->size() > 1));
+
+	TxoID ret = m_pIDs->back();
+	m_pIDs->pop_back();
+
+	if (1 == m_pIDs->size())
+	{
+		TxoID val = m_pIDs->back();
+
+		delete m_pIDs;
+		m_Bits &= ~s_User;
+
+		m_ID = val;
+	}
+
+	return ret;
 }
 
 void UtxoTree::SaveIntenral(ISerializer& s) const
@@ -546,9 +606,20 @@ void UtxoTree::SaveIntenral(ISerializer& s) const
 	{
 		ISerializer* m_pS;
 		virtual bool OnLeaf(const Leaf& n) override {
-			MyLeaf& x = (MyLeaf&) n;
+			MyLeaf& x = Cast::Up<MyLeaf>(Cast::NotConst(n));
 			m_pS->Process(x.m_Key);
-			m_pS->Process(x.m_Value);
+
+			Input::Count n2 = x.get_Count();
+			m_pS->Process(n2);
+
+			if (x.IsExt())
+			{
+				for (auto it = x.m_pIDs->begin(); x.m_pIDs->end() != it; it++)
+					m_pS->Process(*it);
+			}
+			else
+				m_pS->Process(x.m_ID);
+
 			return true;
 		}
 	} t;
@@ -582,9 +653,18 @@ void UtxoTree::LoadIntenral(ISerializer& s)
 		Cursor cu;
 		bool bCreate = true;
 		MyLeaf* p = Find(cu, key, bCreate);
+		assert(bCreate);
 
-		p->m_Value.m_Count = 0;
-		s.Process(p->m_Value);
+		Input::Count n2 = 0;
+		s.Process(n2);
+		s.Process(p->m_ID);
+
+		while (--n2)
+		{
+			TxoID val = 0;
+			s.Process(val);
+			p->PushID(val);
+		}
 	}
 }
 
@@ -598,7 +678,7 @@ UtxoTree::Key::Data& UtxoTree::Key::Data::operator = (const Key& key)
 	memcpy(m_Commitment.m_X.m_pData, key.m_pArr, m_Commitment.m_X.nBytes);
 	const uint8_t* pKey = key.m_pArr + m_Commitment.m_X.nBytes;
 
-	m_Commitment.m_Y	= (1 & (pKey[0] >> 7)) != 0;
+	m_Commitment.m_Y = 1 & (pKey[0] >> 7);
 
 	m_Maturity = 0;
 	for (size_t i = 0; i < sizeof(m_Maturity); i++, pKey++)

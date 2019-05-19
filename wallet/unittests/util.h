@@ -3,9 +3,9 @@
 
 namespace beam {
 
-IKeyChain::Ptr init_keychain(const std::string& path, ECC::uintBig* walletSeed);
+IWalletDB::Ptr init_wallet_db(const std::string& path, ECC::uintBig* walletSeed, io::Reactor::Ptr reactor);
 
-bool ReadTreasury(std::vector<Block::Body>& vBlocks, const std::string& sPath);
+bool ReadTreasury(ByteBuffer&, const std::string& sPath);
 
 } //namespace
 

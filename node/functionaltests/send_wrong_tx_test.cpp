@@ -41,7 +41,7 @@ void TestNodeConnection::GenerateTests()
 	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Send tx with input = empty, output = 1, fee = 0";
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 		
 		// Inputs are empty
 		
@@ -63,7 +63,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx with input = 1, output = empty, fee = 0";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs
 		gen.GenerateInputInTx(2, 1);
@@ -85,7 +85,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx with input = 1, output = 1, fee = 1";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs 
 		gen.GenerateInputInTx(3, 1);
@@ -108,7 +108,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx with 2 inputs, 2 ouputs and 1 kernel";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs 
 		gen.GenerateInputInTx(4, 1);
@@ -133,7 +133,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx with 2 inputs, 1 ouputs and 1 kernel";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs 
 		gen.GenerateInputInTx(6, 1);
@@ -156,7 +156,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx with 1 inputs, 2 ouputs and 1 kernel";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs 
 		gen.GenerateInputInTx(7, 2);
@@ -179,7 +179,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx with input = 1, output = 2, fee = 0";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs 
 		gen.GenerateInputInTx(8, 1);
@@ -201,7 +201,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx with input = 2, output = 1, fee = 0";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs 
 		gen.GenerateInputInTx(9, 2);
@@ -223,7 +223,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx with input = 2, output = 3, fee = 0";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs 
 		gen.GenerateInputInTx(10, 2);
@@ -245,7 +245,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx with input = 4, output = 2, fee = 2";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs 
 		gen.GenerateInputInTx(11, 4);
@@ -267,7 +267,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx with input = 4, output = 2, fee = 1, fee = 1";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs 
 		gen.GenerateInputInTx(12, 4);
@@ -290,7 +290,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx with input = 4, output = 2, fee = 1, fee = 1, fee = 1";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs 
 		gen.GenerateInputInTx(13, 4);
@@ -314,7 +314,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx with input = 4, output = 2, fee = 3";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs 
 		gen.GenerateInputInTx(14, 4);
@@ -336,7 +336,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx with input = 2, without output, fee = 2";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs 
 		gen.GenerateInputInTx(15, 2);
@@ -355,7 +355,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx with input = 2, output = 1, fee = 1, offset of tx = 0";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs 
 		gen.GenerateInputInTx(16, 2);
@@ -379,7 +379,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx without input, output , fee ";
 
-		TxGenerator gen(m_Kdf);		
+		TxGenerator gen(*m_pKdf);
 
 		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
@@ -391,13 +391,13 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx with input.m_Commitment = ouput.m_Commitment, fee = 0";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs 
-		gen.GenerateInputInTx(17, 2, KeyType::Coinbase);
+		gen.GenerateInputInTx(17, 2, Key::Type::Coinbase);
 
 		// Outputs
-		gen.GenerateOutputInTx(17, 2, KeyType::Coinbase);
+		gen.GenerateOutputInTx(17, 2, Key::Type::Coinbase);
 
 		// Kernels
 		gen.GenerateKernel(17, 0);
@@ -414,13 +414,13 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx with input = 0, ouput = 0, fee = 0";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs 
 		gen.GenerateInputInTx(18, 0);
 
 		// Outputs
-		gen.GenerateOutputInTx(18, 0, KeyType::Regular, false);
+		gen.GenerateOutputInTx(18, 0, Key::Type::Regular, false);
 
 		// Kernels
 		gen.GenerateKernel(18, 0);
@@ -437,13 +437,13 @@ void TestNodeConnection::GenerateTests()
 	{
 		LOG_INFO() << "Send tx with input = 2, ouput = 0, fee = 2";
 
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		// Inputs 
 		gen.GenerateInputInTx(19, 2);
 
 		// Outputs
-		gen.GenerateOutputInTx(19, 0, KeyType::Regular, false);
+		gen.GenerateOutputInTx(19, 0, Key::Type::Regular, false);
 
 		// Kernels
 		gen.GenerateKernel(19, 2);
@@ -460,9 +460,6 @@ void TestNodeConnection::GenerateTests()
 int main(int argc, char* argv[])
 {
 	int logLevel = LOG_LEVEL_DEBUG;
-#if LOG_VERBOSE_ENABLED
-	logLevel = LOG_LEVEL_VERBOSE;
-#endif
 	auto logger = Logger::create(logLevel, logLevel);
 
 	TestNodeConnection connection(argc, argv);

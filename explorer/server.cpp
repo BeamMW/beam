@@ -1,7 +1,20 @@
+// Copyright 2018 The Beam Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "server.h"
 #include "adapter.h"
 #include "utility/logger.h"
-// TODO suppress warnings #include "secp256k1-zkp/src/hash_impl.h"
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <fstream>
@@ -10,7 +23,7 @@ namespace beam { namespace explorer {
 
 namespace {
 
-#define STS "Status server: "
+#define STS "Explorer server: "
 
 static const uint64_t SERVER_RESTART_TIMER = 1;
 static const uint64_t ACL_REFRESH_TIMER = 2;
@@ -24,13 +37,14 @@ enum Dirs {
 
 } //namespace
 
-Server::Server(IAdapter& adapter, io::Reactor& reactor, io::Address bindAddress, const std::string& keysFileName) :
+Server::Server(IAdapter& adapter, io::Reactor& reactor, io::Address bindAddress, const std::string& keysFileName, const std::vector<uint32_t>& whitelist) :
     _msgCreator(2000),
     _backend(adapter),
     _reactor(reactor),
     _timers(reactor, 100),
     _bindAddress(bindAddress),
-    _acl(keysFileName) //TODO
+    _acl(keysFileName), //TODO
+    _whitelist(whitelist)
 {
     _timers.set_timer(SERVER_RESTART_TIMER, 0, BIND_THIS_MEMFN(start_server));
     _timers.set_timer(ACL_REFRESH_TIMER, ACL_REFRESH_INTERVAL, BIND_THIS_MEMFN(refresh_acl));
@@ -57,7 +71,19 @@ void Server::refresh_acl() {
 
 void Server::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode) {
     if (errorCode == 0) {
+
         auto peer = newStream->peer_address();
+
+        if (!_whitelist.empty())
+        {
+            if (std::find(_whitelist.begin(), _whitelist.end(), peer.ip()) == _whitelist.end())
+            {
+                LOG_WARNING() << peer.str() << " not in IP whitelist, closing";
+                return;
+            }
+        }
+
+        newStream->enable_keepalive(1);
         LOG_DEBUG() << STS << "+peer " << peer;
         _connections[peer.u64()] = std::make_unique<HttpConnection>(
             peer.u64(),
@@ -139,17 +165,41 @@ bool Server::send_status(const HttpConnection::Ptr& conn) {
 }
 
 bool Server::send_block(const HttpConnection::Ptr &conn) {
-    auto height = _currentUrl.get_int_arg("height", 0);
-    if (!_backend.get_block(_body, height)) {
-        return send(conn, 500, "Internal error #2");
+
+    if (_currentUrl.has_arg("hash"))
+    {
+        ByteBuffer hash;
+
+        if (!_currentUrl.get_hex_arg("hash", hash) || !_backend.get_block_by_hash(_body, hash)) {
+            return send(conn, 500, "Internal error #2");
+        }
     }
+    else if (_currentUrl.has_arg("kernel"))
+    {
+        ByteBuffer kernel;
+
+        if (!_currentUrl.get_hex_arg("kernel", kernel) || !_backend.get_block_by_kernel(_body, kernel)) {
+            return send(conn, 500, "Internal error #2");
+        }
+    }
+    else 
+    {
+        auto height = _currentUrl.get_int_arg("height", 0);
+        if (!_backend.get_block(_body, height)) {
+            return send(conn, 500, "Internal error #2");
+        }
+    }
+
     return send(conn, 200, "OK");
 }
 
 bool Server::send_blocks(const HttpConnection::Ptr& conn) {
-    auto start = _currentUrl.get_int_arg("start", 0);
-    auto end = _currentUrl.get_int_arg("end", 0);
-    if (!_backend.get_blocks(_body, start, end)) {
+    auto start = _currentUrl.get_int_arg("height", 0);
+    auto n = _currentUrl.get_int_arg("n", 0);
+    if (start <= 0 || n < 0) {
+        return send(conn, 400, "Bad request");
+    }
+    if (!_backend.get_blocks(_body, start, n)) {
         return send(conn, 500, "Internal error #3");
     }
     return send(conn, 200, "OK");
@@ -186,21 +236,6 @@ bool Server::send(const HttpConnection::Ptr& conn, int code, const char* message
     _body.clear();
     return (ok && code == 200);
 }
-
-namespace {
-    /*
-
-void sha(const std::string_view& left, const std::string_view& right, char* outBase16) {
-    secp256k1_sha256_t ctx;
-    secp256k1_sha256_initialize(&ctx);
-    secp256k1_sha256_write(&ctx, (const unsigned char*)left.data(), left.size());
-    secp256k1_sha256_write(&ctx, (const unsigned char*)right.data(), right.size());
-    unsigned char out32[32];
-    secp256k1_sha256_finalize(&ctx, out32);
-    to_hex(outBase16, out32, 32);
-}
-*/
-} //namespace
 
 Server::IPAccessControl::IPAccessControl(const std::string &ipsFileName) :
     _enabled(!ipsFileName.empty()),
@@ -239,59 +274,7 @@ void Server::IPAccessControl::refresh() {
 bool Server::IPAccessControl::check(io::Address peerAddress) {
     static const uint32_t localhostIP = io::Address::localhost().ip();
     if (!_enabled || peerAddress.ip() == localhostIP) return true;
-    return _ips.count(peerAddress.ip());
+    return _ips.count(peerAddress.ip()) > 0;
 }
-
-/*
-Server::AccessControl::AccessControl(const std::string &keysFileName) :
-    _enabled(!keysFileName.empty()),
-    _keysFileName(keysFileName),
-    _lastModified(0)
-{
-    refresh();
-}
-
-void Server::AccessControl::refresh() {
-    using namespace boost::filesystem;
-
-    if (!_enabled) return;
-
-    try {
-        path p(_keysFileName);
-        auto t = last_write_time(p);
-        if (t <= _lastModified) {
-            return;
-        }
-        _lastModified = t;
-        std::ifstream file(_keysFileName);
-        std::string line;
-        char maskBuf[80];
-        while (std::getline(file, line)) {
-            boost::algorithm::trim(line);
-            if (line.size() < 8) continue;
-            sha(line, line, maskBuf);
-            _keys[std::string(maskBuf)] = line;
-        }
-    } catch (std::exception& e) {
-        LOG_ERROR() << e.what();
-    }
-}
-
-bool Server::AccessControl::check(
-    const std::string_view& mask, const std::string_view& nonce, const std::string_view& hash
-) {
-    if (!_enabled) return true;
-
-    if (mask.size() != 64 || hash.size() != 64 || nonce.empty()) {
-        return false;
-    }
-    std::string k(mask);
-    auto it = _keys.find(k);
-    if (it == _keys.end()) return false;
-    char buf[80];
-    sha(it->second, nonce, buf);
-    return memcmp(hash.data(), buf, 64) == 0;
-}
-*/
 
 }} //namespaces

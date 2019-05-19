@@ -40,7 +40,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		m_Tests.push_back([this, i]()
 		{
-			TxGenerator gen(m_Kdf);
+			TxGenerator gen(*m_pKdf);
 			
 			// Inputs
 			gen.GenerateInputInTx(i, 1);
@@ -61,9 +61,6 @@ void TestNodeConnection::GenerateTests()
 int main(int argc, char* argv[])
 {
 	int logLevel = LOG_LEVEL_DEBUG;
-#if LOG_VERBOSE_ENABLED
-	logLevel = LOG_LEVEL_VERBOSE;
-#endif
 	auto logger = Logger::create(logLevel, logLevel);
 	TestNodeConnection connection(argc, argv);
 

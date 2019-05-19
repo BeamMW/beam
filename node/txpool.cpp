@@ -13,23 +13,21 @@
 // limitations under the License.
 
 #include "processor.h"
-#include "../utility/serialize.h"
-#include "../core/serialization_adapters.h"
 #include "../utility/logger.h"
 #include "../utility/logger_checkpoints.h"
 
 namespace beam {
 
-void TxPool::Profit::SetSize(const Transaction& tx)
+template <typename Archive, typename TPtr>
+void save_VecPtr(Archive& ar, const std::vector<TPtr>& v)
 {
-	SerializerSizeCounter ssc;
-	ssc & tx;
-	m_nSize = (uint32_t) ssc.m_Counter.m_Value;
+	for (uint32_t i = 0; i < v.size(); i++)
+		ar & *v[i];
 }
 
-void TxPool::Profit::SetFee(const Transaction::Context& ctx)
+void TxPool::Profit::SetSize(const Transaction& tx)
 {
-	m_Fee = ctx.m_Fee.Hi ? Amount(-1) : ctx.m_Fee.Lo; // ignore huge fees (which are  highly unlikely), saturate.
+	m_nSize = (uint32_t) tx.get_Reader().get_SizeNetto();
 }
 
 bool TxPool::Profit::operator < (const Profit& t) const
@@ -38,34 +36,54 @@ bool TxPool::Profit::operator < (const Profit& t) const
 	//	return m_Fee * t.m_nSize > t.m_Fee * m_nSize;
 
 	return
-		(uintBigFrom(m_Fee) * uintBigFrom(t.m_nSize)) >
-		(uintBigFrom(t.m_Fee) * uintBigFrom(m_nSize));
+		(m_Fee * uintBigFrom(t.m_nSize)) >
+		(t.m_Fee * uintBigFrom(m_nSize));
 }
 
 /////////////////////////////
 // Fluff
-void TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key)
+TxPool::Fluff::Element* TxPool::Fluff::AddValidTx(Transaction::Ptr&& pValue, const Transaction::Context& ctx, const Transaction::KeyType& key)
 {
 	assert(pValue);
 
 	Element* p = new Element;
 	p->m_pValue = std::move(pValue);
 	p->m_Threshold.m_Value	= ctx.m_Height.m_Max;
-	p->m_Profit.SetFee(ctx);
+	p->m_Profit.m_Fee = ctx.m_Fee;
 	p->m_Profit.SetSize(*p->m_pValue);
 	p->m_Tx.m_Key = key;
 
 	m_setThreshold.insert(p->m_Threshold);
 	m_setProfit.insert(p->m_Profit);
 	m_setTxs.insert(p->m_Tx);
+
+	p->m_Queue.m_Refs = 1;
+	m_Queue.push_back(p->m_Queue);
+
+	return p;
 }
 
 void TxPool::Fluff::Delete(Element& x)
 {
+	assert(x.m_pValue);
+	x.m_pValue.reset();
+
 	m_setThreshold.erase(ThresholdSet::s_iterator_to(x.m_Threshold));
 	m_setProfit.erase(ProfitSet::s_iterator_to(x.m_Profit));
 	m_setTxs.erase(TxSet::s_iterator_to(x.m_Tx));
-	delete &x;
+
+	Release(x);
+}
+
+void TxPool::Fluff::Release(Element& x)
+{
+	assert(x.m_Queue.m_Refs);
+	if (!--x.m_Queue.m_Refs)
+	{
+		assert(!x.m_pValue);
+		m_Queue.erase(Queue::s_iterator_to(x.m_Queue));
+		delete &x;
+	}
 }
 
 void TxPool::Fluff::DeleteOutOfBound(Height h)
@@ -78,12 +96,6 @@ void TxPool::Fluff::DeleteOutOfBound(Height h)
 
 		Delete(t.get_ParentObj());
 	}
-}
-
-void TxPool::Fluff::ShrinkUpTo(uint32_t nCount)
-{
-	while (m_setProfit.size() > nCount)
-		Delete(m_setProfit.rbegin()->get_ParentObj());
 }
 
 void TxPool::Fluff::Clear()
@@ -99,25 +111,24 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 	assert(trg.m_bAggregating && src.m_bAggregating);
 
 	Transaction txNew;
-	Transaction::Writer wtx(txNew);
+	TxVectors::Writer wtx(txNew, txNew);
 
 	volatile bool bStop = false;
 	wtx.Combine(trg.m_pValue->get_Reader(), src.m_pValue->get_Reader(), bStop);
 
 	txNew.m_Offset = ECC::Scalar::Native(trg.m_pValue->m_Offset) + ECC::Scalar::Native(src.m_pValue->m_Offset);
 
-#ifdef _DEBUG
-	Transaction::Context ctx;
-	assert(txNew.IsValid(ctx));
-#endif // _DEBUG
+//#ifdef _DEBUG
+//	Transaction::Context::Params pars;
+//	Transaction::Context ctx(pars);
+////	ctx.m_Height = ;
+//	assert(txNew.IsValid(ctx));
+//#endif // _DEBUG
 
 	if (!ValidateTxContext(txNew))
 		return false; // conflicting txs, can't merge
 
 	trg.m_Profit.m_Fee += src.m_Profit.m_Fee;
-	if (trg.m_Profit.m_Fee < src.m_Profit.m_Fee)
-		trg.m_Profit.m_Fee = Amount(-1); // overflow, set max
-
 	trg.m_Profit.SetSize(txNew);
 
 	Delete(src);
@@ -125,8 +136,7 @@ bool TxPool::Stem::TryMerge(Element& trg, Element& src)
 
 	trg.m_pValue->m_vInputs.swap(txNew.m_vInputs);
 	trg.m_pValue->m_vOutputs.swap(txNew.m_vOutputs);
-	trg.m_pValue->m_vKernelsInput.swap(txNew.m_vKernelsInput);
-	trg.m_pValue->m_vKernelsOutput.swap(txNew.m_vKernelsOutput);
+	trg.m_pValue->m_vKernels.swap(txNew.m_vKernels);
 	trg.m_pValue->m_Offset = txNew.m_Offset;
 
 	InsertKrn(trg);
@@ -196,12 +206,12 @@ void TxPool::Stem::DeleteTimer(Element& x)
 void TxPool::Stem::InsertKrn(Element& x)
 {
 	const Transaction& tx = *x.m_pValue;
-	x.m_vKrn.resize(tx.m_vKernelsOutput.size());
+	x.m_vKrn.resize(tx.m_vKernels.size());
 
 	for (size_t i = 0; i < x.m_vKrn.size(); i++)
 	{
 		Element::Kernel& n = x.m_vKrn[i];
-		tx.m_vKernelsOutput[i]->get_ID(n.m_hv);
+		tx.m_vKernels[i]->get_ID(n.m_hv);
 		m_setKrns.insert(n);
 		n.m_pThis = &x;
 	}

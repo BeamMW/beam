@@ -51,7 +51,7 @@ void TestNodeConnection::GenerateTests()
 	m_Tests.push_back([this]()
 	{
 		LOG_INFO() << "Generate transaction";
-		TxGenerator gen(m_Kdf);
+		TxGenerator gen(*m_pKdf);
 
 		Amount amount = 20000;
 
@@ -61,7 +61,7 @@ void TestNodeConnection::GenerateTests()
 		// Outputs
 		for (Amount i = 0; i < amount; ++i)
 		{
-			gen.GenerateOutputInTx(1, 1, beam::KeyType::Regular, true);
+			gen.GenerateOutputInTx(1, 1, beam::Key::Type::Regular, true);
 		}
 
 		// Kernels
@@ -77,9 +77,6 @@ void TestNodeConnection::GenerateTests()
 int main(int argc, char* argv[])
 {
 	int logLevel = LOG_LEVEL_DEBUG;
-#if LOG_VERBOSE_ENABLED
-	logLevel = LOG_LEVEL_VERBOSE;
-#endif
 	auto logger = Logger::create(logLevel, logLevel);
 
 	TestNodeConnection connection(argc, argv);

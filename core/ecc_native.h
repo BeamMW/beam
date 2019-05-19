@@ -26,11 +26,11 @@
 #	pragma warning (disable: 4706) // assignment within conditional expression
 #endif
 
-#include "../secp256k1-zkp/src/basic-config.h"
-#include "../secp256k1-zkp/include/secp256k1.h"
-#include "../secp256k1-zkp/src/scalar.h"
-#include "../secp256k1-zkp/src/group.h"
-#include "../secp256k1-zkp/src/hash.h"
+#include "secp256k1-zkp/src/basic-config.h"
+#include "secp256k1-zkp/include/secp256k1.h"
+#include "secp256k1-zkp/src/scalar.h"
+#include "secp256k1-zkp/src/group.h"
+#include "secp256k1-zkp/src/hash.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic pop
@@ -63,6 +63,7 @@ namespace ECC
 	public:
 
 		const secp256k1_scalar& get() const { return *this; }
+		secp256k1_scalar& get_Raw() { return *this; } // use with care
 
 #ifdef USE_SCALAR_4X64
 		typedef uint64_t uint;
@@ -99,7 +100,8 @@ namespace ECC
 		bool Import(const Scalar&); // on overflow auto-normalizes and returns true
 		void Export(Scalar&) const;
 
-		void GenerateNonce(const uintBig& sk, const uintBig& msg, const uintBig* pMsg2, uint32_t nAttempt = 0);
+		bool ImportNnz(const Scalar&); // returns true if succeeded: i.e. must not overflow & non-zero. Constant time guaranteed.
+		void GenRandomNnz();
 	};
 
 	class Point::Native
@@ -110,7 +112,6 @@ namespace ECC
 		typedef Op::Binary<Op::Plus, Native, Native>		Plus;
 		typedef Op::Binary<Op::Mul, Native, Scalar::Native>	Mul;
 
-		bool ImportInternal(const Point&);
 		Native(const Point&);
 	public:
 		secp256k1_gej& get_Raw() { return *this; } // use with care
@@ -138,8 +139,11 @@ namespace ECC
 		template <class Setter> Native& operator = (const Setter& v) { v.Assign(*this, true); return *this; }
 		template <class Setter> Native& operator += (const Setter& v) { v.Assign(*this, false); return *this; }
 
+		bool ImportNnz(const Point&); // won't accept zero point, doesn't zero itself in case of failure
 		bool Import(const Point&);
 		bool Export(Point&) const; // if the point is zero - returns false and zeroes the result
+
+		static void ExportEx(Point&, const secp256k1_ge&);
 	};
 
 #ifdef NDEBUG
@@ -221,8 +225,10 @@ namespace ECC
 				Scalar::Native m_Scalar;
 			} m_Secure;
 
-			void Initialize(const char* szSeed, Oracle&);
+			void Initialize(Oracle&, Hash::Processor& hpRes);
 			void Initialize(Point::Native&, Oracle&);
+
+			void Assign(Point::Native&, bool bSet) const;
 		};
 
 		Casual* m_pCasual;
@@ -265,6 +271,27 @@ namespace ECC
 			MultiMac::Calculate(res);
 		}
 	};
+
+	struct ScalarGenerator
+	{
+		// needed to quickly calculate power of a predefined scalar.
+		// Used to quickly sample a scalar and its inverse, by actually sampling the order.
+		// Implementation is *NOT* secure (constant time/memory access). Should be used with challenges, but not nonces!
+
+		static const uint32_t nBitsPerLevel = 8;
+		static const uint32_t nLevels = nBits / nBitsPerLevel;
+		static_assert(nLevels * nBitsPerLevel == nBits, "");
+
+		struct PerLevel {
+			Scalar::Native m_pVal[(1 << nBitsPerLevel) - 1];
+		};
+
+		PerLevel m_pLevel[nLevels];
+
+		void Initialize(const Scalar::Native&);
+		void Calculate(Scalar::Native& trg, const Scalar& pwr) const;
+	};
+
 
 	namespace Generator
 	{
@@ -362,7 +389,13 @@ namespace ECC
 		Scalar::Native	m_Nonce;	// specific signer
 		Point::Native	m_NoncePub;	// sum of all co-signers
 
-		void GenerateNonce(const Hash::Value& msg, const Scalar::Native& sk);
+		//	NOTE: Schnorr's multisig should be used carefully. If done naively it has the following potential weaknesses:
+		//	1. Key cancellation. (The attacker may exclude you and actually create a signature for its private key).
+		//		This isn't a problem for our case, but should be taken into consideration if used in other schemes.
+		// 2. Private Key leak. If the same message signed with the same key but co-signers use different nonces (altering the challenge) - there's a potential for key leak. 
+		//		This is indeed the case if the nonce is generated from the secret key and the message only.
+		//		In order to prevent this the signer **MUST**  use an additional source of randomness, and make sure it's different for every ritual.
+
 		void SignPartial(Scalar::Native& k, const Hash::Value& msg, const Scalar::Native& sk) const;
 	};
 
@@ -372,15 +405,19 @@ namespace ECC
 	{
 		bool m_bInitialized;
 
-		void Write(const char*);
+		void Write(const void*, uint32_t);
 		void Write(bool);
 		void Write(uint8_t);
 		void Write(const Scalar&);
 		void Write(const Scalar::Native&);
 		void Write(const Point&);
 		void Write(const Point::Native&);
-		template <uint32_t nBits_>
-		void Write(const beam::uintBig_t<nBits_>& x) { Write(x.m_pData, x.nBytes); }
+		void Write(const beam::Blob&);
+		template <uint32_t nBytes_>
+		void Write(const beam::uintBig_t<nBytes_>& x) { Write(x.m_pData, x.nBytes); }
+		template <uint32_t n>
+		void Write(const char(&sz)[n]) { Write(sz, n); }
+		void Write(const std::string& str) { Write(str.c_str(), static_cast<uint32_t>(str.size() + 1)); }
 
 		template <typename T>
 		void Write(T v)
@@ -404,8 +441,6 @@ namespace ECC
 
 		void Reset();
 
-		void Write(const void*, uint32_t);
-
 		template <typename T>
 		Processor& operator << (const T& t) { Write(t); return *this; }
 
@@ -427,6 +462,127 @@ namespace ECC
 		void operator >> (Value& hv) { Finalize(hv); }
 	};
 
+	class NonceGenerator
+	{
+		// RFC-5869
+		Hash::Mac m_HMac;
+
+		Hash::Value m_Prk;
+		Hash::Value m_Okm;
+		beam::uintBig_t<1> m_Counter; // wraps-around, it's fine
+		bool m_bFirstTime;
+
+		void Reset();
+		void WriteIkm(const beam::Blob&);
+
+	public:
+
+		template <uint32_t nSalt>
+		NonceGenerator(const char(&szSalt)[nSalt])
+			:m_HMac(szSalt, nSalt)
+		{
+			Reset();
+		}
+
+		~NonceGenerator() { SecureErase(*this); }
+
+		beam::Blob m_Context;
+
+		template <uint32_t nContext>
+		NonceGenerator& SetContext(const char(&szContext)[nContext]) {
+			m_Context.p = szContext;
+			m_Context.n = nContext;
+			return *this;
+		}
+
+		template <typename T>
+		NonceGenerator& operator << (const T& t) {
+			WriteIkm(t);
+			return *this;
+		}
+
+		const Hash::Value& get_Okm();
+		NonceGenerator& operator >> (Hash::Value&);
+		NonceGenerator& operator >> (Scalar::Native&);
+	};
+
+	class HKdf
+		:public Key::IKdf
+	{
+		friend class HKdfPub;
+		HKdf(const HKdf&) = delete;
+
+		struct Generator
+		{
+			Generator();
+			// according to rfc5869
+			NoLeak<uintBig> m_Secret;
+			void Generate(Scalar::Native&, const Hash::Value&) const;
+
+		} m_Generator;
+
+		Scalar::Native m_kCoFactor;
+	public:
+		HKdf();
+		virtual ~HKdf();
+		// IPKdf
+		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
+		// IKdf
+		virtual void DeriveKey(Scalar::Native&, const Hash::Value&) override;
+
+#pragma pack (push, 1)
+		struct Packed
+		{
+			uintBig m_Secret;
+			Scalar m_kCoFactor;
+		};
+		static_assert(sizeof(Packed) == uintBig::nBytes * 2, "");
+#pragma pack (pop)
+
+		void Export(Packed&) const;
+		bool Import(const Packed&);
+
+		void Generate(const Hash::Value&);
+		static void Create(Ptr&, const Hash::Value&);
+
+		void GenerateChild(Key::IKdf&, Key::Index iKdf);
+		static void CreateChild(Ptr&, Key::IKdf&, Key::Index iKdf);
+	};
+
+	class HKdfPub
+		:public Key::IPKdf
+	{
+		HKdfPub(const HKdfPub&) = delete;
+
+		HKdf::Generator m_Generator;
+		Point::Native m_PkG;
+		Point::Native m_PkJ;
+
+	public:
+		HKdfPub();
+		virtual ~HKdfPub();
+
+		// IPKdf
+		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
+		virtual void DerivePKeyG(Point::Native&, const Hash::Value&) override;
+		virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) override;
+
+#pragma pack (push, 1)
+		struct Packed
+		{
+			uintBig m_Secret;
+			Point m_PkG;
+			Point m_PkJ;
+		};
+		static_assert(sizeof(Packed) == uintBig::nBytes * 3 + 2, "");
+#pragma pack (pop)
+
+		void Export(Packed&) const;
+		bool Import(const Packed&);
+
+		void GenerateFrom(const HKdf&);
+	};
+
 	struct Context
 	{
 		static const Context& get();
@@ -434,6 +590,7 @@ namespace ECC
 		Generator::Obscured						G;
 		Generator::Obscured						H_Big;
 		Generator::Simple<sizeof(Amount) << 3>	H;
+		Generator::Obscured						J; // for switch/ElGamal commitment
 
 		struct IppCalculator
 		{
@@ -502,6 +659,10 @@ namespace ECC
 		bool m_bDirty;
 		Scalar::Native m_Multiplier; // must be initialized in a non-trivial way
 
+#ifndef NDEBUG
+        int m_CasualAtEndExpected;
+#endif // NDEBUG
+
 		bool AddCasual(const Point& p, const Scalar::Native& k);
 		void AddCasual(const Point::Native& pt, const Scalar::Native& k);
 		void AddPrepared(uint32_t i, const Scalar::Native& k);
@@ -536,6 +697,12 @@ namespace ECC
 		Commitment(const Scalar::Native& k_, const Amount& val_) :k(k_) ,val(val_) {}
 		void Assign(Point::Native& res, bool bSet) const;
 	};
+
+	namespace Tag
+	{
+		bool IsCustom(const Point::Native* pHGen);
+		void AddValue(Point::Native&, const Point::Native* pHGen, Amount);
+	}
 
 	class Oracle
 	{

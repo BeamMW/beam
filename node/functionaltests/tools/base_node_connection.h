@@ -29,7 +29,7 @@ protected:
 	void InitKdf();
 
 protected:
-	ECC::Kdf m_Kdf;
+	beam::Key::IKdf::Ptr m_pKdf;
 	boost::program_options::variables_map m_VM;
 };
 

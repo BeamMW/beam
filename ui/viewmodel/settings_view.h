@@ -16,43 +16,55 @@
 
 #include <QObject>
 #include <QSettings>
+#include <QQmlListProperty>
 
 #include "model/settings.h"
+
 
 class SettingsViewModel : public QObject
 {
     Q_OBJECT
 
     Q_PROPERTY(QString nodeAddress READ getNodeAddress WRITE setNodeAddress NOTIFY nodeAddressChanged)
-    Q_PROPERTY(QString version READ version CONSTANT)
+    Q_PROPERTY(QString version READ getVersion CONSTANT)
     Q_PROPERTY(bool localNodeRun READ getLocalNodeRun WRITE setLocalNodeRun NOTIFY localNodeRunChanged)
     Q_PROPERTY(uint localNodePort READ getLocalNodePort WRITE setLocalNodePort NOTIFY localNodePortChanged)
-    Q_PROPERTY(uint localNodeMiningThreads READ getLocalNodeMiningThreads WRITE setLocalNodeMiningThreads NOTIFY localNodeMiningThreadsChanged)
-    Q_PROPERTY(uint localNodeVerificationThreads READ getLocalNodeVerificationThreads WRITE setLocalNodeVerificationThreads NOTIFY localNodeVerificationThreadsChanged)
     Q_PROPERTY(bool isChanged READ isChanged NOTIFY propertiesChanged)
     Q_PROPERTY(QStringList localNodePeers READ getLocalNodePeers NOTIFY localNodePeersChanged)
     Q_PROPERTY(int lockTimeout READ getLockTimeout WRITE setLockTimeout NOTIFY lockTimeoutChanged)
-
+    Q_PROPERTY(QString walletLocation READ getWalletLocation CONSTANT)
+    Q_PROPERTY(bool isLocalNodeRunning READ isLocalNodeRunning NOTIFY localNodeRunningChanged)
+    Q_PROPERTY(bool isPasswordReqiredToSpendMoney READ isPasswordReqiredToSpendMoney WRITE setPasswordReqiredToSpendMoney NOTIFY passwordReqiredToSpendMoneyChanged)
+    Q_PROPERTY(QStringList supportedLanguages READ getSupportedLanguages)
+    Q_PROPERTY(int currentLanguageIndex READ getCurrentLanguageIndex NOTIFY currentLanguageIndexChanged)
+    Q_PROPERTY(QString currentLanguage READ getCurrentLanguage WRITE setCurrentLanguage)
+    Q_PROPERTY(bool isValidNodeAddress READ isValidNodeAddress NOTIFY validNodeAddressChanged)
 public:
 
     SettingsViewModel();
 
     QString getNodeAddress() const;
     void setNodeAddress(const QString& value);
-    QString version() const;
+    QString getVersion() const;
     bool getLocalNodeRun() const;
     void setLocalNodeRun(bool value);
     uint getLocalNodePort() const;
     void setLocalNodePort(uint value);
-    uint getLocalNodeMiningThreads() const;
-    void setLocalNodeMiningThreads(uint value);
-    uint getLocalNodeVerificationThreads() const;
-    void setLocalNodeVerificationThreads(uint value);
     int getLockTimeout() const;
     void setLockTimeout(int value);
+    bool isPasswordReqiredToSpendMoney() const;
+    void setPasswordReqiredToSpendMoney(bool value);
+    QStringList getSupportedLanguages() const;
+    int getCurrentLanguageIndex() const;
+    void setCurrentLanguageIndex(int value);
+    QString getCurrentLanguage() const;
+    void setCurrentLanguage(QString value);
 
     QStringList getLocalNodePeers() const;
     void setLocalNodePeers(const QStringList& localNodePeers);
+    QString getWalletLocation() const;
+    bool isLocalNodeRunning() const;
+    bool isValidNodeAddress() const;
 
     bool isChanged() const;
 
@@ -60,32 +72,49 @@ public:
     Q_INVOKABLE void addLocalNodePeer(const QString& localNodePeer);
     Q_INVOKABLE void deleteLocalNodePeer(int index);
     Q_INVOKABLE void openUrl(const QString& url);
+    Q_INVOKABLE void copyToClipboard(const QString& text);
+    Q_INVOKABLE void refreshWallet();
 
 public slots:
     void applyChanges();
     void undoChanges();
-    void emergencyReset();
 	void reportProblem();
     bool checkWalletPassword(const QString& oldPass) const;
     void changeWalletPassword(const QString& pass);
+    void onNodeStarted();
+    void onNodeStopped();
+    void onAddressChecked(const QString& addr, bool isValid);
 
 signals:
     void nodeAddressChanged();
     void localNodeRunChanged();
     void localNodePortChanged();
-    void localNodeMiningThreadsChanged();
-    void localNodeVerificationThreadsChanged();
     void localNodePeersChanged();
     void propertiesChanged();
     void lockTimeoutChanged();
+    void localNodeRunningChanged();
+    void passwordReqiredToSpendMoneyChanged();
+    void validNodeAddressChanged();
+    void currentLanguageIndexChanged();
+
+protected:
+    void timerEvent(QTimerEvent *event) override;
+
 private:
     WalletSettings& m_settings;
 
     QString m_nodeAddress;
     bool m_localNodeRun;
     uint m_localNodePort;
-    uint m_localNodeMiningThreads;
-    uint m_localNodeVerificationThreads;
     QStringList m_localNodePeers;
     int m_lockTimeout;
+    bool m_isPasswordReqiredToSpendMoney;
+    bool m_isValidNodeAddress;
+    bool m_isNeedToCheckAddress;
+    bool m_isNeedToApplyChanges;
+    QStringList m_supportedLanguages;
+    int m_currentLanguageIndex;
+    int m_timerId;
+
+    const int CHECK_INTERVAL = 1000;
 };

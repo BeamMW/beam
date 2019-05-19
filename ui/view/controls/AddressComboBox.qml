@@ -29,7 +29,7 @@ ComboBox {
             implicitWidth: 100
             implicitHeight: 40
             opacity: enabled ? 1 : 0.3
-            color:itemDelegate.highlighted ? Style.bluey_grey : Style.combobox_color
+            color:itemDelegate.highlighted ? Style.content_secondary : Style.accent_incoming
         }
     }
 
@@ -55,7 +55,7 @@ ComboBox {
             width: control.width
             height: 1
             y: control.height - 1
-            color: Style.separator_color
+            color: Style.separator
         }
     }
 
@@ -69,16 +69,17 @@ ComboBox {
                 Layout.fillWidth: true
                 Layout.minimumHeight: control.height
                 Layout.leftMargin: 20
-                color: Style.disable_text_color
+                color: Style.content_disabled
                 font.pixelSize: 12
                 verticalAlignment: Text.AlignVCenter
 
-                text: qsTr("create new address")
+                //% "create new address"
+                text: qsTrId("create-new-address")
             }
             Rectangle {
                 Layout.fillWidth: true
                 height: 1
-                color: Style.separator_color
+                color: Style.separator
             }*/
             ListView {
                 id: listView
@@ -97,14 +98,14 @@ ComboBox {
 
         background: Item {
             Rectangle {
-                color: Style.combobox_color
+                color: Style.accent_incoming
                 anchors.left: parent.left
                 anchors.right: parent.right
                 height: control.height
             }
             Rectangle {
                 anchors.fill: parent
-                color: Style.combobox_color
+                color: Style.accent_incoming
                 radius: 10
             }
         }

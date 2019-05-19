@@ -48,17 +48,16 @@ void BaseNodeConnection::ParseCommandLine(int argc, char* argv[])
 		("port", po::value<uint16_t>()->default_value(10000), "port")
 		("wallet_seed", po::value<std::string>()->default_value("321"), "wallet seed");
 
-	po::store(po::command_line_parser(argc, argv).options(options).run(), m_VM);
+	po::store(po::command_line_parser(argc, argv)
+        .options(options)
+        .style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing)
+        .run(), m_VM);
 }
 
 void BaseNodeConnection::InitKdf()
 {
-	NoLeak<uintBig> walletSeed;
 	SecString seed(m_VM["wallet_seed"].as<std::string>());
-
-	walletSeed.V = seed.hash().V;
-
-	m_Kdf.m_Secret = walletSeed;
+	ECC::HKdf::Create(m_pKdf, seed.hash().V);
 }
 
 BaseTestNode::BaseTestNode(int argc, char* argv[])
@@ -102,11 +101,7 @@ void BaseTestNode::OnMsg(proto::Authentication&& msg)
     proto::NodeConnection::OnMsg(std::move(msg));
 
     if (proto::IDType::Node == msg.m_IDType)
-    {
-        ECC::Scalar::Native sk;
-        DeriveKey(sk, m_Kdf, 0, KeyType::Identity);
-        ProveID(sk, proto::IDType::Owner);
-    }
+		ProveKdfObscured(*m_pKdf, proto::IDType::Owner);
 
     if (m_Timeout > 0)
     {

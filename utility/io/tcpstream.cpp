@@ -94,7 +94,7 @@ Result TcpStream::write(const SharedBuffer& buf, bool flush) {
     return do_write(flush);
 }
 
-Result TcpStream::write(const std::vector<SharedBuffer>& fragments, bool flush) {
+Result TcpStream::write(const SerializedMsg& fragments, bool flush) {
     if (!is_connected()) return make_unexpected(EC_ENOTCONN);
     if (!fragments.empty()) {
         for (const auto& f : fragments) {
@@ -104,12 +104,13 @@ Result TcpStream::write(const std::vector<SharedBuffer>& fragments, bool flush) 
     return do_write(flush);
 }
 
+/*
 Result TcpStream::write(const BufferChain& fragments, bool flush) {
     if (!is_connected()) return make_unexpected(EC_ENOTCONN);
     _writeBuffer.append(fragments);
     return do_write(flush);
 }
-
+*/
 void TcpStream::shutdown() {
     if (is_connected()) {
         disable_read();
@@ -117,6 +118,12 @@ void TcpStream::shutdown() {
         _reactor->shutdown_tcpstream(this);
         assert(!_callback);
         assert(!is_connected());
+    }
+}
+
+void TcpStream::enable_keepalive(unsigned initialDelaySecs) {
+    if (_handle) {
+        uv_tcp_keepalive((uv_tcp_t*)_handle, 1, initialDelaySecs);
     }
 }
 
@@ -175,12 +182,13 @@ void TcpStream::read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf)
     }
 }
 
-void TcpStream::on_read(ErrorCode errorCode, void* data, size_t size) {
+bool TcpStream::on_read(ErrorCode errorCode, void* data, size_t size) {
     if (_callback) {
         _state.received += size;
         LOG_DEBUG() << __FUNCTION__ << TRACE(size) << TRACE(_state.unsent) << TRACE(_state.sent) << TRACE(_state.received);
-        _callback(errorCode, data, size);
+        return _callback(errorCode, data, size);
     }
+    return false;
 }
 
 }} //namespaces

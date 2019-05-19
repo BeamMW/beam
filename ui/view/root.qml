@@ -1,12 +1,13 @@
-import QtQuick 2.3
+import QtQuick 2.11
 import QtQuick.Controls 2.4
 import QtQuick.Layouts 1.3
+import QtQuick.Window 2.2
 import "controls"
 import Beam.Wallet 1.0
 
-Item {
-    width: 1024
-    height: 768
+Window  {
+    width: Math.min(1024, Screen.desktopAvailableWidth - 10)
+    height: Math.min(768, Screen.desktopAvailableHeight - 80)
     property alias source: rootLoader.source
 
     SFFontLoader {}
@@ -14,7 +15,7 @@ Item {
     Popup {
         id: notifications
         closePolicy: Popup.NoAutoClose
-        palette.window : Style.marine
+        palette.window : Style.background_main
 		MessagesViewModel {id: viewModel}
 
         parent: Overlay.overlay
@@ -49,7 +50,7 @@ Item {
                         Layout.alignment: Qt.AlignVCenter
                         text: modelData
                         font.pixelSize: 14
-                        color: Style.white
+                        color: Style.content_main
                         height: 16
                     }
                     CustomToolButton {

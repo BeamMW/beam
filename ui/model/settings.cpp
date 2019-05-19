@@ -13,11 +13,14 @@
 // limitations under the License.
 
 #include "settings.h"
-#include <QtQuick>
+
+#include <algorithm>
+#include <map>
+
 #include <QFileDialog>
+#include <QtQuick>
 
-#include "app_model.h"
-
+#include "ui/model/app_model.h"
 #include "version.h"
 
 #include "quazip/quazip.h"
@@ -27,25 +30,30 @@ using namespace std;
 
 namespace
 {
-    const char* NodeAddressName = "node/address";
-    const char* LockTimeoutName = "general/lock_timeout";
+    const char* kNodeAddressName = "node/address";
+    const char* kLocaleName = "locale";
+    const char* kLockTimeoutName = "lock_timeout";
+    const char* kRequirePasswordToSpendMoney = "require_password_to_spend_money";
 
-    const char* LocalNodeRun = "localnode/run";
-    const char* LocalNodePort = "localnode/port";
-    const char* LocalNodeMiningThreads = "localnode/mining_threads";
-    const char* LocalNodeVerificationThreads = "localnode/verification_threads";
-    const char* LocalNodeGenerateGenesys = "localnode/generate_genesys";
-    const char* LocalNodeSynchronized = "localnode/synchronized";
-    const char* LocalNodePeers = "localnode/peers";
+    const char* kLocalNodeRun = "localnode/run";
+    const char* kLocalNodePort = "localnode/port";
+    const char* kLocalNodePeers = "localnode/peers";
 
-    const char* SettingsIni = "settings.ini";
+    const char* kDefaultLocale = "en_US";
+
+    const std::map<QString, QString> kSupportedLangs { 
+        { "en_US", "English" }, 
+        { "ru_RU", "Русский" } 
+    };
 }
 
 const char* WalletSettings::WalletCfg = "beam-wallet.cfg";
 const char* WalletSettings::LogsFolder = "logs";
+const char* WalletSettings::SettingsFile = "settings.ini";
+const char* WalletSettings::WalletDBFile = "wallet.db";
 
 WalletSettings::WalletSettings(const QDir& appDataDir)
-    : m_data{ appDataDir.filePath(SettingsIni), QSettings::IniFormat }
+    : m_data{ appDataDir.filePath(SettingsFile), QSettings::IniFormat }
     , m_appDataDir{appDataDir}
 {
 
@@ -54,19 +62,26 @@ WalletSettings::WalletSettings(const QDir& appDataDir)
 string WalletSettings::getWalletStorage() const
 {
     Lock lock(m_mutex);
-    return m_appDataDir.filePath("wallet.db").toStdString();
+
+    auto version = QString::fromStdString(PROJECT_VERSION);
+    if (!m_appDataDir.exists(version))
+    {
+        m_appDataDir.mkdir(version);
+    }
+    
+    return m_appDataDir.filePath(version + "/" + WalletDBFile).toStdString();
 }
 
-string WalletSettings::getBbsStorage() const
+string WalletSettings::getAppDataPath() const
 {
     Lock lock(m_mutex);
-    return m_appDataDir.filePath("keys.bbs").toStdString();
+    return m_appDataDir.path().toStdString();
 }
 
 QString WalletSettings::getNodeAddress() const
 {
     Lock lock(m_mutex);
-    return m_data.value(NodeAddressName).toString();
+    return m_data.value(kNodeAddressName).toString();
 }
 
 void WalletSettings::setNodeAddress(const QString& addr)
@@ -76,11 +91,11 @@ void WalletSettings::setNodeAddress(const QString& addr)
         auto walletModel = AppModel::getInstance()->getWallet();
         if (walletModel)
         {
-            walletModel->async->setNodeAddress(addr.toStdString());
+            walletModel->getAsync()->setNodeAddress(addr.toStdString());
         }
         {
             Lock lock(m_mutex);
-            m_data.setValue(NodeAddressName, addr);
+            m_data.setValue(kNodeAddressName, addr);
         }
         
         emit nodeAddressChanged();
@@ -91,7 +106,7 @@ void WalletSettings::setNodeAddress(const QString& addr)
 int WalletSettings::getLockTimeout() const
 {
     Lock lock(m_mutex);
-    return m_data.value(LockTimeoutName, 0).toInt();
+    return m_data.value(kLockTimeoutName, 0).toInt();
 }
 
 void WalletSettings::setLockTimeout(int value)
@@ -100,50 +115,35 @@ void WalletSettings::setLockTimeout(int value)
     {
         {
             Lock lock(m_mutex);
-            m_data.setValue(LockTimeoutName, value);
+            m_data.setValue(kLockTimeoutName, value);
         }
         emit lockTimeoutChanged();
     }
 }
 
-void WalletSettings::emergencyReset()
-{
-    auto walletModel = AppModel::getInstance()->getWallet();
-    if (walletModel)
-    {
-        walletModel->async->emergencyReset();
-    }
-}
-
-bool WalletSettings::getGenerateGenesys() const
+bool WalletSettings::isPasswordReqiredToSpendMoney() const
 {
     Lock lock(m_mutex);
-    return m_data.value(LocalNodeGenerateGenesys, false).toBool();
+    return m_data.value(kRequirePasswordToSpendMoney, false).toBool();
 }
 
-void WalletSettings::setGenerateGenesys(bool value)
+void WalletSettings::setPasswordReqiredToSpendMoney(bool value)
 {
-    if (getGenerateGenesys() != value)
-    {
-        {
-            Lock lock(m_mutex);
-            m_data.setValue(LocalNodeGenerateGenesys, value);
-        }
-        emit localNodeGenerateGenesysChanged();
-    }
+    Lock lock(m_mutex);
+    m_data.setValue(kRequirePasswordToSpendMoney, value);
 }
 
 bool WalletSettings::getRunLocalNode() const
 {
     Lock lock(m_mutex);
-    return m_data.value(LocalNodeRun, false).toBool();
+    return m_data.value(kLocalNodeRun, false).toBool();
 }
 
 void WalletSettings::setRunLocalNode(bool value)
 {
     {
         Lock lock(m_mutex);
-        m_data.setValue(LocalNodeRun, value);
+        m_data.setValue(kLocalNodeRun, value);
     }
     emit localNodeRunChanged();
 }
@@ -151,64 +151,20 @@ void WalletSettings::setRunLocalNode(bool value)
 uint WalletSettings::getLocalNodePort() const
 {
     Lock lock(m_mutex);
-    return m_data.value(LocalNodePort, 10000).toUInt();
+#ifdef BEAM_TESTNET
+    return m_data.value(kLocalNodePort, 11005).toUInt();
+#else
+    return m_data.value(kLocalNodePort, 10005).toUInt();
+#endif // BEAM_TESTNET
 }
 
 void WalletSettings::setLocalNodePort(uint port)
 {
     {
         Lock lock(m_mutex);
-        m_data.setValue(LocalNodePort, port);
+        m_data.setValue(kLocalNodePort, port);
     }
     emit localNodePortChanged();
-}
-
-uint WalletSettings::getLocalNodeMiningThreads() const
-{
-    Lock lock(m_mutex);
-    return m_data.value(LocalNodeMiningThreads, 1).toUInt();
-}
-
-void WalletSettings::setLocalNodeMiningThreads(uint n)
-{
-    {
-        Lock lock(m_mutex);
-        m_data.setValue(LocalNodeMiningThreads, n);
-    }
-    emit localNodeMiningThreadsChanged();
-}
-
-uint WalletSettings::getLocalNodeVerificationThreads() const
-{
-    Lock lock(m_mutex);
-    return m_data.value(LocalNodeVerificationThreads, 1).toUInt();
-}
-
-void WalletSettings::setLocalNodeVerificationThreads(uint n)
-{
-    {
-        Lock lock(m_mutex);
-        m_data.setValue(LocalNodeVerificationThreads, n);
-    }
-    emit localNodeVerificationThreadsChanged();
-}
-
-bool WalletSettings::getLocalNodeSynchronized() const
-{
-    Lock lock(m_mutex);
-    return m_data.value(LocalNodeSynchronized, false).toBool();
-}
-
-void WalletSettings::setLocalNodeSynchronized(bool value)
-{
-    if (getLocalNodeSynchronized() != value)
-    {
-        {
-            Lock lock(m_mutex);
-            m_data.setValue(LocalNodeSynchronized, value);
-        }
-        emit localNodeSynchronizedChanged();
-    }
 }
 
 string WalletSettings::getLocalNodeStorage() const
@@ -225,83 +181,164 @@ string WalletSettings::getTempDir() const
 
 static void zipLocalFile(QuaZip& zip, const QString& path, const QString& folder = QString())
 {
-	QFile file(path);
-	if (file.open(QIODevice::ReadOnly))
-	{
-		QuaZipFile zipFile(&zip);
+    QFile file(path);
+    if (file.open(QIODevice::ReadOnly))
+    {
+        QuaZipFile zipFile(&zip);
 
-		zipFile.open(QIODevice::WriteOnly, QuaZipNewInfo((folder.isEmpty() ? "" : folder) + QFileInfo(file).fileName(), file.fileName()));
-		zipFile.write(file.readAll());
-		file.close();
-		zipFile.close();
-	}
+        zipFile.open(QIODevice::WriteOnly, QuaZipNewInfo((folder.isEmpty() ? "" : folder) + QFileInfo(file).fileName(), file.fileName()));
+        zipFile.write(file.readAll());
+        file.close();
+        zipFile.close();
+    }
 }
 
 QStringList WalletSettings::getLocalNodePeers() const
 {
     Lock lock(m_mutex);
-    return m_data.value(LocalNodePeers).value<QStringList>();
+    return m_data.value(kLocalNodePeers).value<QStringList>();
 }
 
 void WalletSettings::setLocalNodePeers(const QStringList& qPeers)
 {
     {
         Lock lock(m_mutex);
-        m_data.setValue(LocalNodePeers, QVariant::fromValue(qPeers));
+        m_data.setValue(kLocalNodePeers, QVariant::fromValue(qPeers));
     }
     emit localNodePeersChanged();
 }
 
+QString WalletSettings::getLocale() const
+{
+    QString savedLocale;
+    {
+        Lock lock(m_mutex);
+        savedLocale = m_data.value(kLocaleName).toString();
+    }
+
+    if (savedLocale.isEmpty())
+    {
+        auto systemLocale = QLocale::system().name();
+        const auto& it = kSupportedLangs.find(systemLocale);
+        if (it != kSupportedLangs.end())
+        {
+            return systemLocale;
+        }
+    }
+    else
+    {
+        const auto& it = kSupportedLangs.find(savedLocale);
+        if (it != kSupportedLangs.end())
+        {
+            return savedLocale;
+        }
+    }
+    return QString::fromUtf8(kDefaultLocale);
+}
+
+QString WalletSettings::getLanguageName() const
+{
+    return kSupportedLangs.at(getLocale());
+}
+
+void WalletSettings::setLocaleByLanguageName(const QString& language)
+{
+    const auto& it = std::find_if(
+            kSupportedLangs.begin(),
+            kSupportedLangs.end(),
+            [language] (const auto& mapedObject) -> bool
+            {
+                return mapedObject.second == language;
+            });
+    auto locale = 
+            it != kSupportedLangs.end()
+                ? it->first
+                : QString::fromUtf8(kDefaultLocale);
+    {
+        Lock lock(m_mutex);
+        m_data.setValue(kLocaleName, locale);
+    }
+    emit localeChanged();
+}
+
+// static
+QStringList WalletSettings::getSupportedLanguages()
+{
+    QStringList languagesNames;
+    std::transform(kSupportedLangs.begin(),
+                   kSupportedLangs.end(),
+                   std::back_inserter(languagesNames),
+                   [] (const auto& lang) -> QString {
+                       return lang.second;
+                   });
+    return languagesNames;
+}
+
 void WalletSettings::reportProblem()
 {
-	auto logsFolder = QString::fromStdString(LogsFolder) + "/";
+    auto logsFolder = QString::fromStdString(LogsFolder) + "/";
 
-	QFile zipFile = m_appDataDir.filePath("beam v" + QString::fromStdString(PROJECT_VERSION) 
-		+ " " + QSysInfo::productType().toLower() + " report.zip");
+    QFile zipFile = m_appDataDir.filePath("beam v" + QString::fromStdString(PROJECT_VERSION) 
+        + " " + QSysInfo::productType().toLower() + " report.zip");
 
-	QuaZip zip(zipFile.fileName());
-	zip.open(QuaZip::mdCreate);
+    QuaZip zip(zipFile.fileName());
+    zip.open(QuaZip::mdCreate);
 
-	// save settings.ini
-	zipLocalFile(zip, m_appDataDir.filePath(SettingsIni));
+    // save settings.ini
+    zipLocalFile(zip, m_appDataDir.filePath(SettingsFile));
 
-	// save .cfg
-	zipLocalFile(zip, QDir(QDir::currentPath()).filePath(WalletCfg));
+    // save .cfg
+    zipLocalFile(zip, QDir(QDir::currentPath()).filePath(WalletCfg));
 
-	// create 'logs' folder
-	{
-		QuaZipFile zipLogsFile(&zip);
+    // create 'logs' folder
+    {
+        QuaZipFile zipLogsFile(&zip);
         zipLogsFile.open(QIODevice::WriteOnly, QuaZipNewInfo(logsFolder, logsFolder));
         zipLogsFile.close();
-	}
+    }
 
-	QDirIterator it(m_appDataDir.filePath(LogsFolder));
+    {
+        QDirIterator it(m_appDataDir.filePath(LogsFolder));
 
-	while (it.hasNext())
-	{
-		zipLocalFile(zip, it.next(), logsFolder);
-	}
+        while (it.hasNext())
+        {
+            zipLocalFile(zip, it.next(), logsFolder);
+        }
+    }
 
-	zip.close();
+    {
+        QDirIterator it(m_appDataDir);
 
-	QString path = QFileDialog::getSaveFileName(nullptr, "Save problem report", 
-		QDir(QStandardPaths::writableLocation(QStandardPaths::DesktopLocation)).filePath(QFileInfo(zipFile).fileName()),
-		"Archives (*.zip)");
+        while (it.hasNext())
+        {
+            const auto& name = it.next();
+            if (QFileInfo(name).completeSuffix() == "dmp")
+            {
+                zipLocalFile(zip, m_appDataDir.filePath(name));
+            }
+        }
+    }
 
-	if (path.isEmpty())
-	{
-		zipFile.remove();
-	}
-	else
-	{
-		{
-			QFile file(path);
-			if(file.exists())
-				file.remove();
-		}
+    zip.close();
 
-		zipFile.rename(path);
-	}
+    QString path = QFileDialog::getSaveFileName(nullptr, "Save problem report", 
+        QDir(QStandardPaths::writableLocation(QStandardPaths::DesktopLocation)).filePath(QFileInfo(zipFile).fileName()),
+        "Archives (*.zip)");
+
+    if (path.isEmpty())
+    {
+        zipFile.remove();
+    }
+    else
+    {
+        {
+            QFile file(path);
+            if(file.exists())
+                file.remove();
+        }
+
+        zipFile.rename(path);
+    }
 }
 
 void WalletSettings::applyChanges()

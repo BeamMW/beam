@@ -15,7 +15,9 @@
 #include "../node.h"
 #include "../../core/ecc_native.h"
 
-#define LOG_VERBOSE_ENABLED 0
+#ifndef LOG_VERBOSE_ENABLED
+    #define LOG_VERBOSE_ENABLED 0
+#endif
 #include "utility/logger.h"
 #include "utility/test_helpers.h"
 

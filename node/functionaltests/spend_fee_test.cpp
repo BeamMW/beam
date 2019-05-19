@@ -28,7 +28,7 @@ public:
 private:
 	void GenerateTests() override;
 	void OnMsg(proto::NewTip&&) override;
-	void OnMsg(proto::Boolean&&) override;
+	void OnMsg(proto::Status&&) override;
 	void OnMsg(proto::Mined&&) override;
 
 private:
@@ -50,8 +50,8 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 	, m_IsNeedToCheckFee(false)
 	, m_IsNewToCheckSpending(false)
 	, m_Counter(0)
-	, m_Generator(m_Kdf)
-	, m_FeeGenerator(m_Kdf)
+	, m_Generator(*m_pKdf)
+	, m_FeeGenerator(*m_pKdf)
 	, m_CoinsChecker(argc, argv)
 {
 	m_Timeout = 5 * 60 * 1000;
@@ -118,11 +118,11 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 	}
 }
 
-void TestNodeConnection::OnMsg(proto::Boolean&& msg)
+void TestNodeConnection::OnMsg(proto::Status&& msg)
 {
-	LOG_INFO() << "Boolean: value = " << msg.m_Value;
+	LOG_INFO() << "Status: value = " << static_cast<uint32_t>(msg.m_Value);
 
-	if (!msg.m_Value)
+	if (proto::TxStatus::Ok != msg.m_Value)
 	{
 		LOG_INFO() << "Failed: tx is invalid";
 		m_Failed = true;
@@ -143,7 +143,7 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 		{
 			isHaveFee = true;
 
-			m_FeeGenerator.GenerateInputInTx(mined.m_ID.m_Height, mined.m_Fees, KeyType::Comission);
+			m_FeeGenerator.GenerateInputInTx(mined.m_ID.m_Height, mined.m_Fees, Key::Type::Comission);
 			m_FeeGenerator.GenerateOutputInTx(mined.m_ID.m_Height + 1, mined.m_Fees);
 			m_FeeGenerator.GenerateKernel(mined.m_ID.m_Height + 1);
 
@@ -177,9 +177,6 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 int main(int argc, char* argv[])
 {
 	int logLevel = LOG_LEVEL_DEBUG;
-#if LOG_VERBOSE_ENABLED
-	logLevel = LOG_LEVEL_VERBOSE;
-#endif
 	auto logger = Logger::create(logLevel, logLevel);
 
 	TestNodeConnection connection(argc, argv);

@@ -97,7 +97,7 @@ namespace detail
 		static const uint32_t N_Max = (N + 7) & ~7;
 		uint8_t m_pF[N_Max >> 3];
 
-		void get(uint32_t i, bool& b) const
+		void get(uint32_t i, uint8_t& b) const
 		{
 			assert(i < N_Max);
 			uint8_t x = m_pF[i >> 3];
@@ -105,7 +105,7 @@ namespace detail
 
 			b = (0 != (x & msk));
 		}
-		void set(uint32_t i, bool b)
+		void set(uint32_t i, uint8_t b)
 		{
 			// assume flags are zero-initialized
 			if (b)
@@ -114,8 +114,7 @@ namespace detail
 				uint8_t& x = m_pF[i >> 3];
 				uint8_t msk = 1 << (i & 7);
 
-				if (b)
-					x |= msk;
+				x |= msk;
 			}
 		}
 
@@ -165,21 +164,38 @@ namespace detail
         }
 
         /// ECC::uintBig serialization
-        template<typename Archive, uint32_t nBits_>
-        static Archive& save(Archive& ar, const beam::uintBig_t<nBits_>& val)
+        template<typename Archive, uint32_t nBytes_>
+        static Archive& save(Archive& ar, const beam::uintBig_t<nBytes_>& val)
         {
             ar & val.m_pData;
             return ar;
         }
 
-        template<typename Archive, uint32_t nBits_>
-        static Archive& load(Archive& ar, beam::uintBig_t<nBits_>& val)
+        template<typename Archive, uint32_t nBytes_>
+        static Archive& load(Archive& ar, beam::uintBig_t<nBytes_>& val)
         {
             ar & val.m_pData;
             return ar;
         }
 
-        /// ECC::Scalar serialization
+		/// beam::FourCC serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::FourCC& val)
+		{
+			ar & beam::uintBigFrom(val.V);
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::FourCC& val)
+		{
+			beam::uintBigFor<uint32_t>::Type x;
+			ar & x;
+			x.Export(val.V);
+			return ar;
+		}
+
+		/// ECC::Scalar serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const ECC::Scalar& scalar)
         {
@@ -197,7 +213,32 @@ namespace detail
             return ar;
         }
 
-        /// ECC::Signature serialization
+		/// ECC::Key::IDV serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const ECC::Key::IDV& kidv)
+		{
+			ar
+				& kidv.m_Idx
+				& kidv.m_Type
+				& kidv.m_SubIdx
+				& kidv.m_Value;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, ECC::Key::IDV& kidv)
+		{
+			ar
+				& kidv.m_Idx
+				& kidv.m_Type
+				& kidv.m_SubIdx
+				& kidv.m_Value;
+
+			return ar;
+		}
+
+		/// ECC::Signature serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const ECC::Signature& val)
         {
@@ -270,81 +311,206 @@ namespace detail
 
         /// ECC::RangeProof::Confidential serialization
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& v)
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential& v, bool bRecoveryOnly = false)
         {
 			ar
 				& v.m_Part1.m_A.m_X
 				& v.m_Part1.m_S.m_X
 				& v.m_Part2.m_T1.m_X
-				& v.m_Part2.m_T2.m_X
-				& v.m_Part3.m_TauX
-				& v.m_Mu
-				& v.m_tDot;
+				& v.m_Part2.m_T2.m_X;
 
-			save_nobits(ar, v.m_P_Tag);
+			if (bRecoveryOnly)
+			{
+				uint8_t nFlags =
+					(v.m_Part1.m_A.m_Y ? 1 : 0) |
+					(v.m_Part1.m_S.m_Y ? 2 : 0) |
+					(v.m_Part2.m_T1.m_Y ? 4 : 0) |
+					(v.m_Part2.m_T2.m_Y ? 8 : 0);
 
-			InnerProductFlags ipf;
-			ZeroObject(ipf);
+				ar
+					& v.m_Mu
+					& nFlags;
+			}
+			else
+			{
+				ar
+					& v.m_Part3.m_TauX
+					& v.m_Mu
+					& v.m_tDot;
 
-			ipf.save(v.m_P_Tag);
+				save_nobits(ar, v.m_P_Tag);
 
-			static_assert(ipf.N_Max - ipf.N == 4, "");
-			ipf.set(ipf.N + 0, v.m_Part1.m_A.m_Y);
-			ipf.set(ipf.N + 1, v.m_Part1.m_S.m_Y);
-			ipf.set(ipf.N + 2, v.m_Part2.m_T1.m_Y);
-			ipf.set(ipf.N + 3, v.m_Part2.m_T2.m_Y);
+				InnerProductFlags ipf;
+				ZeroObject(ipf);
 
-			ar & ipf.m_pF;
+				ipf.save(v.m_P_Tag);
+
+				static_assert(ipf.N_Max - ipf.N == 4, "");
+				ipf.set(ipf.N + 0, v.m_Part1.m_A.m_Y);
+				ipf.set(ipf.N + 1, v.m_Part1.m_S.m_Y);
+				ipf.set(ipf.N + 2, v.m_Part2.m_T1.m_Y);
+				ipf.set(ipf.N + 3, v.m_Part2.m_T2.m_Y);
+
+				ar & ipf.m_pF;
+			}
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::RangeProof::Confidential& v)
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential& v, bool bRecoveryOnly = false)
         {
 			ar
 				& v.m_Part1.m_A.m_X
 				& v.m_Part1.m_S.m_X
 				& v.m_Part2.m_T1.m_X
-				& v.m_Part2.m_T2.m_X
-				& v.m_Part3.m_TauX
-				& v.m_Mu
-				& v.m_tDot;
+				& v.m_Part2.m_T2.m_X;
 
-			load_nobits(ar, v.m_P_Tag);
+			if (bRecoveryOnly)
+			{
+				uint8_t nFlags;
 
-			InnerProductFlags ipf;
-			ar & ipf.m_pF;
+				ar
+					& v.m_Mu
+					& nFlags;
 
-			ipf.load(v.m_P_Tag);
+				v.m_Part1.m_A.m_Y = 0 != (1 & nFlags);
+				v.m_Part1.m_S.m_Y = 0 != (2 & nFlags);
+				v.m_Part2.m_T1.m_Y = 0 != (4 & nFlags);
+				v.m_Part2.m_T2.m_Y = 0 != (8 & nFlags);
 
-			static_assert(ipf.N_Max - ipf.N == 4, "");
-			ipf.get(ipf.N + 0, v.m_Part1.m_A.m_Y);
-			ipf.get(ipf.N + 1, v.m_Part1.m_S.m_Y);
-			ipf.get(ipf.N + 2, v.m_Part2.m_T1.m_Y);
-			ipf.get(ipf.N + 3, v.m_Part2.m_T2.m_Y);
+				ZeroObject(v.m_Part3);
+				ZeroObject(v.m_tDot);
+				ZeroObject(v.m_P_Tag);
+			}
+			else
+			{
+				ar
+					& v.m_Part3.m_TauX
+					& v.m_Mu
+					& v.m_tDot;
 
+				load_nobits(ar, v.m_P_Tag);
+
+				InnerProductFlags ipf;
+				ar & ipf.m_pF;
+
+				ipf.load(v.m_P_Tag);
+
+				static_assert(ipf.N_Max - ipf.N == 4, "");
+				ipf.get(ipf.N + 0, v.m_Part1.m_A.m_Y);
+				ipf.get(ipf.N + 1, v.m_Part1.m_S.m_Y);
+				ipf.get(ipf.N + 2, v.m_Part2.m_T1.m_Y);
+				ipf.get(ipf.N + 3, v.m_Part2.m_T2.m_Y);
+			}
 			return ar;
 		}
 
-        /// ECC::RangeProof::Public serialization
+        /// ECC::RangeProof::Confidential::Part2
         template<typename Archive>
-        static Archive& save(Archive& ar, const ECC::RangeProof::Public& val)
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::Part2& v)
         {
             ar
-                & val.m_Value
-                & val.m_Signature
-            ;
+                & v.m_T1
+                & v.m_T2;
 
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, ECC::RangeProof::Public& val)
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential::Part2& v)
         {
             ar
-                & val.m_Value
-                & val.m_Signature
-            ;
+                & v.m_T1
+                & v.m_T2;
+
+            return ar;
+        }
+
+        /// ECC::RangeProof::Confidential::Part3
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::Part3& v)
+        {
+            ar
+                & v.m_TauX;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential::Part3& v)
+        {
+            ar
+                & v.m_TauX;
+
+            return ar;
+        }
+
+        /// ECC::RangeProof::Confidential::MultiSig
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::RangeProof::Confidential::MultiSig& v)
+        {
+			ar
+				& v.m_Part1.m_A
+				& v.m_Part1.m_S
+				& v.m_Part2.m_T1
+				& v.m_Part2.m_T2;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::RangeProof::Confidential::MultiSig& v)
+        {
+			ar
+				& v.m_Part1.m_A
+				& v.m_Part1.m_S
+				& v.m_Part2.m_T1
+				& v.m_Part2.m_T2;
+
+            return ar;
+        }
+
+        /// ECC::RangeProof::Public serialization
+        template<typename Archive>
+        static Archive& save(Archive& ar, const ECC::RangeProof::Public& val, bool bRecoveryOnly = false)
+        {
+			ar & val.m_Value;
+
+			if (!bRecoveryOnly)
+			{
+				ar & val.m_Signature;
+			}
+
+            ar
+				& val.m_Recovery.m_Kid.m_Idx
+				& val.m_Recovery.m_Kid.m_Type
+				& val.m_Recovery.m_Kid.m_SubIdx
+				& val.m_Recovery.m_Checksum
+				;
+
+            return ar;
+        }
+
+        template<typename Archive>
+        static Archive& load(Archive& ar, ECC::RangeProof::Public& val, bool bRecoveryOnly = false)
+        {
+			ar & val.m_Value;
+
+			if (bRecoveryOnly)
+			{
+				ZeroObject(val.m_Signature);
+			}
+			else
+			{
+				ar & val.m_Signature;
+			}
+
+			ar
+				& val.m_Recovery.m_Kid.m_Idx
+				& val.m_Recovery.m_Kid.m_Type
+				& val.m_Recovery.m_Kid.m_SubIdx
+				& val.m_Recovery.m_Checksum
+				;
 
             return ar;
         }
@@ -358,15 +524,11 @@ namespace detail
         static Archive& save(Archive& ar, const beam::Input& input)
         {
 			uint8_t nFlags =
-				(input.m_Commitment.m_Y ? 1 : 0) |
-				(input.m_Maturity ? 0x2 : 0);
+				(input.m_Commitment.m_Y ? 1 : 0);
 
 			ar
 				& nFlags
 				& input.m_Commitment.m_X;
-
-			if (input.m_Maturity)
-				ar & input.m_Maturity;
 
             return ar;
         }
@@ -379,10 +541,7 @@ namespace detail
 				& nFlags
 				& input.m_Commitment.m_X;
 
-			input.m_Commitment.m_Y = 0 != (1 & nFlags);
-
-			if (0x2 & nFlags)
-				ar & input.m_Maturity;
+			input.m_Commitment.m_Y = (1 & nFlags);
 
             return ar;
         }
@@ -397,23 +556,24 @@ namespace detail
 				(output.m_pConfidential ? 4 : 0) |
 				(output.m_pPublic ? 8 : 0) |
 				(output.m_Incubation ? 0x10 : 0) |
-				(output.m_Maturity ? 0x20 : 0);
+				((output.m_AssetID == beam::Zero) ? 0 : 0x20) |
+				(output.m_RecoveryOnly ? 0x40 : 0);
 
 			ar
 				& nFlags
 				& output.m_Commitment.m_X;
 
 			if (output.m_pConfidential)
-				ar & *output.m_pConfidential;
+				save(ar, *output.m_pConfidential, output.m_RecoveryOnly);
 
 			if (output.m_pPublic)
-				ar & *output.m_pPublic;
+				save(ar, *output.m_pPublic, output.m_RecoveryOnly);
 
 			if (output.m_Incubation)
 				ar & output.m_Incubation;
 
-			if (output.m_Maturity)
-				ar & output.m_Maturity;
+			if (0x20 & nFlags)
+				ar & output.m_AssetID;
 
             return ar;
         }
@@ -426,26 +586,29 @@ namespace detail
 				& nFlags
 				& output.m_Commitment.m_X;
 
-			output.m_Commitment.m_Y = 0 != (1 & nFlags);
+			output.m_Commitment.m_Y = (1 & nFlags);
 			output.m_Coinbase = 0 != (2 & nFlags);
+			output.m_RecoveryOnly = 0 != (0x40 & nFlags);
 
 			if (4 & nFlags)
 			{
 				output.m_pConfidential = std::make_unique<ECC::RangeProof::Confidential>();
-				ar & *output.m_pConfidential;
+				load(ar, *output.m_pConfidential, output.m_RecoveryOnly);
 			}
 
 			if (8 & nFlags)
 			{
 				output.m_pPublic = std::make_unique<ECC::RangeProof::Public>();
-				ar & *output.m_pPublic;
+				load(ar, *output.m_pPublic, output.m_RecoveryOnly);
 			}
 
 			if (0x10 & nFlags)
 				ar & output.m_Incubation;
 
 			if (0x20 & nFlags)
-				ar & output.m_Maturity;
+				ar & output.m_AssetID;
+			else
+				output.m_AssetID = beam::Zero;
 
             return ar;
         }
@@ -471,33 +634,63 @@ namespace detail
 			return ar;
 		}
 
+		/// beam::TxKernel::RelativeLock serialization
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::TxKernel::RelativeLock& val)
+		{
+			ar
+				& val.m_ID
+				& val.m_LockHeight
+				;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::TxKernel::RelativeLock& val)
+		{
+			ar
+				& val.m_ID
+				& val.m_LockHeight
+				;
+
+			return ar;
+		}
+
         /// beam::TxKernel serialization
         template<typename Archive>
         static Archive& save(Archive& ar, const beam::TxKernel& val)
         {
+			uint8_t nFlags2 =
+				(val.m_AssetEmission ? 1 : 0) |
+				(val.m_pRelativeLock ? 2 : 0) |
+				(val.m_CanEmbed ? 4 : 0);
+
 			uint8_t nFlags =
-				(val.m_Multiplier ? 1 : 0) |
+				(val.m_Commitment.m_Y ? 1 : 0) |
 				(val.m_Fee ? 2 : 0) |
 				(val.m_Height.m_Min ? 4 : 0) |
 				((val.m_Height.m_Max != beam::Height(-1)) ? 8 : 0) |
 				(val.m_Signature.m_NoncePub.m_Y ? 0x10 : 0) |
 				(val.m_pHashLock ? 0x20 : 0) |
-				(val.m_vNested.empty() ? 0 : 0x40);
+				(val.m_vNested.empty() ? 0 : 0x40) |
+				(nFlags2 ? 0x80 : 0);
 
 			ar
 				& nFlags
-				& val.m_Excess
+				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_k;
 
-			if (1 & nFlags)
-				ar & val.m_Multiplier;
 			if (2 & nFlags)
 				ar & val.m_Fee;
 			if (4 & nFlags)
 				ar & val.m_Height.m_Min;
 			if (8 & nFlags)
-				ar & val.m_Height.m_Max;
+			{
+				beam::Height dh = val.m_Height.m_Max - val.m_Height.m_Min;
+				ar & dh;
+			}
 			if (0x20 & nFlags)
 				ar & *val.m_pHashLock;
 
@@ -510,6 +703,16 @@ namespace detail
 					save(ar, *val.m_vNested[i]);
 			}
 
+			if (nFlags2)
+			{
+				ar & nFlags2;
+
+				if (1 & nFlags2)
+					ar & val.m_AssetEmission;
+
+				if (2 & nFlags2)
+					ar & *val.m_pRelativeLock;
+			}
             return ar;
         }
 
@@ -519,14 +722,11 @@ namespace detail
 			uint8_t nFlags;
 			ar
 				& nFlags
-				& val.m_Excess
+				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_k;
 
-			if (1 & nFlags)
-				ar & val.m_Multiplier;
-			else
-				val.m_Multiplier = 0;
+			val.m_Commitment.m_Y = (1 & nFlags);
 
 			if (2 & nFlags)
 				ar & val.m_Fee;
@@ -539,7 +739,11 @@ namespace detail
 				val.m_Height.m_Min = 0;
 
 			if (8 & nFlags)
-				ar & val.m_Height.m_Max;
+			{
+				beam::Height dh;
+				ar & dh;
+				val.m_Height.m_Max = val.m_Height.m_Min + dh;
+			}
 			else
 				val.m_Height.m_Max = beam::Height(-1);
 
@@ -565,6 +769,26 @@ namespace detail
 					v = std::make_unique<beam::TxKernel>();
 					load_Recursive(ar, *v, nRecusion);
 				}
+			}
+
+			val.m_AssetEmission = 0;
+
+			if (0x80 & nFlags)
+			{
+				uint8_t nFlags2;
+				ar & nFlags2;
+
+				if (1 & nFlags2)
+					ar & val.m_AssetEmission;
+
+				if (2 & nFlags2)
+				{
+					val.m_pRelativeLock.reset(new beam::TxKernel::RelativeLock);
+					ar & *val.m_pRelativeLock;
+				}
+
+				if (4 & nFlags2)
+					val.m_CanEmbed = true;
 			}
 
             return ar;
@@ -595,38 +819,70 @@ namespace detail
             return ar;
         }
 
-        template<typename Archive>
-        static Archive& save(Archive& ar, const beam::TxVectors& txv)
-        {
-			ar
-				& txv.m_vInputs
-				& txv.m_vOutputs
-				& txv.m_vKernelsInput
-				& txv.m_vKernelsOutput;
+		template <typename Archive, typename TPtr>
+		static void save_VecPtr(Archive& ar, const std::vector<TPtr>& v)
+		{
+			uint32_t nSize = static_cast<uint32_t>(v.size());
+			ar & beam::uintBigFrom(nSize);
 
+			for (uint32_t i = 0; i < nSize; i++)
+				ar & *v[i];
+		}
+
+		template <typename Archive, typename TPtr>
+		static void load_VecPtr(Archive& ar, std::vector<TPtr>& v)
+		{
+			beam::uintBigFor<uint32_t>::Type x;
+			ar & x;
+			
+			uint32_t nSize;
+			x.Export(nSize);
+
+			v.resize(nSize);
+			for (uint32_t i = 0; i < nSize; i++)
+			{
+				v[i].reset(new typename TPtr::element_type);
+				ar & *v[i];
+			}
+		}
+
+        template<typename Archive>
+        static Archive& save(Archive& ar, const beam::TxVectors::Perishable& txv)
+        {
+			save_VecPtr(ar, txv.m_vInputs);
+			save_VecPtr(ar, txv.m_vOutputs);
             return ar;
         }
 
         template<typename Archive>
-        static Archive& load(Archive& ar, beam::TxVectors& txv)
+        static Archive& load(Archive& ar, beam::TxVectors::Perishable& txv)
         {
-			ar
-				& txv.m_vInputs
-				& txv.m_vOutputs
-				& txv.m_vKernelsInput
-				& txv.m_vKernelsOutput;
-
-			txv.TestNoNulls();
-
+			load_VecPtr(ar, txv.m_vInputs);
+			load_VecPtr(ar, txv.m_vOutputs);
             return ar;
         }
 
-        template<typename Archive>
+		template<typename Archive>
+		static Archive& save(Archive& ar, const beam::TxVectors::Eternal& txv)
+		{
+			save_VecPtr(ar, txv.m_vKernels);
+			return ar;
+		}
+
+		template<typename Archive>
+		static Archive& load(Archive& ar, beam::TxVectors::Eternal& txv)
+		{
+			load_VecPtr(ar, txv.m_vKernels);
+			return ar;
+		}
+
+		template<typename Archive>
         static Archive& save(Archive& ar, const beam::Transaction& tx)
         {
 			ar
-				& (beam::TxVectors&) tx
-				& (beam::TxBase&) tx;
+				& Cast::Down<beam::TxVectors::Perishable>(tx)
+				& Cast::Down<beam::TxVectors::Eternal>(tx)
+				& Cast::Down<beam::TxBase>(tx);
 
             return ar;
         }
@@ -635,8 +891,9 @@ namespace detail
         static Archive& load(Archive& ar, beam::Transaction& tx)
         {
 			ar
-				& (beam::TxVectors&) tx
-				& (beam::TxBase&) tx;
+				& Cast::Down<beam::TxVectors::Perishable>(tx)
+				& Cast::Down<beam::TxVectors::Eternal>(tx)
+				& Cast::Down<beam::TxBase>(tx);
 
             return ar;
         }
@@ -709,6 +966,7 @@ namespace detail
 		static Archive& save(Archive& ar, const beam::Block::SystemState::Sequence::Element& v)
 		{
 			ar
+				& v.m_Kernels
 				& v.m_Definition
 				& v.m_TimeStamp
 				& v.m_PoW;
@@ -720,6 +978,7 @@ namespace detail
 		static Archive& load(Archive& ar, beam::Block::SystemState::Sequence::Element& v)
 		{
 			ar
+				& v.m_Kernels
 				& v.m_Definition
 				& v.m_TimeStamp
 				& v.m_PoW;
@@ -730,8 +989,8 @@ namespace detail
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::Block::SystemState::Full& v)
 		{
-			save(ar, (const beam::Block::SystemState::Sequence::Prefix&) v);
-			save(ar, (const beam::Block::SystemState::Sequence::Element&) v);
+			save(ar, Cast::Down<beam::Block::SystemState::Sequence::Prefix>(v));
+			save(ar, Cast::Down<beam::Block::SystemState::Sequence::Element>(v));
 
 			return ar;
 		}
@@ -739,8 +998,8 @@ namespace detail
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::Block::SystemState::Full& v)
 		{
-			load(ar, (beam::Block::SystemState::Sequence::Prefix&) v);
-			load(ar, (beam::Block::SystemState::Sequence::Element&) v);
+			load(ar, Cast::Down<beam::Block::SystemState::Sequence::Prefix>(v));
+			load(ar, Cast::Down<beam::Block::SystemState::Sequence::Element>(v));
 
 			return ar;
 		}
@@ -748,44 +1007,23 @@ namespace detail
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::Block::BodyBase& bb)
 		{
-			uint8_t nFlags =
-				(bb.m_Subsidy.Hi ? 1 : 0) |
-				(bb.m_SubsidyClosing ? 2 : 0);
-
-			ar & (const beam::TxBase&) bb;
-			ar & nFlags;
-			ar & bb.m_Subsidy.Lo;
-
-			if (bb.m_Subsidy.Hi)
-				ar & bb.m_Subsidy.Hi;
-
+			ar & Cast::Down<beam::TxBase>(bb);
 			return ar;
 		}
 
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::Block::BodyBase& bb)
 		{
-			uint8_t nFlags;
-
-			ar & (beam::TxBase&) bb;
-			ar & nFlags;
-			ar & bb.m_Subsidy.Lo;
-
-			if (1 & nFlags)
-				ar & bb.m_Subsidy.Hi;
-			else
-				bb.m_Subsidy.Hi = 0;
-
-			bb.m_SubsidyClosing = ((2 & nFlags) != 0);
-
+			ar & Cast::Down<beam::TxBase>(bb);
 			return ar;
 		}
 
 		template<typename Archive>
 		static Archive& save(Archive& ar, const beam::Block::Body& bb)
 		{
-			ar & (const beam::Block::BodyBase&) bb;
-			ar & (const beam::TxVectors&) bb;
+			ar & Cast::Down<beam::Block::BodyBase>(bb);
+			ar & Cast::Down<beam::TxVectors::Perishable>(bb);
+			ar & Cast::Down<beam::TxVectors::Eternal>(bb);
 
 			return ar;
 		}
@@ -793,8 +1031,9 @@ namespace detail
 		template<typename Archive>
 		static Archive& load(Archive& ar, beam::Block::Body& bb)
 		{
-			ar & (beam::Block::BodyBase&) bb;
-			ar & (beam::TxVectors&) bb;
+			ar & Cast::Down<beam::Block::BodyBase>(bb);
+			ar & Cast::Down<beam::TxVectors::Perishable>(bb);
+			ar & Cast::Down<beam::TxVectors::Eternal>(bb);
 
 			return ar;
 		}

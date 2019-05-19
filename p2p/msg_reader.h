@@ -31,7 +31,7 @@ public:
 
     /// Called from the stream on new data.
     /// Calls the callback whenever a new protocol message is exctracted or on errors
-    void new_data_from_stream(io::ErrorCode connectionStatus, const void* data, size_t size);
+    bool new_data_from_stream(io::ErrorCode connectionStatus, const void* data, size_t size);
 
     /// Allows receiving messages of given type
     void enable_msg_type(MsgType type);

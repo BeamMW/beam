@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "../../utility/serialize.h"
-#include "../../core/serialization_adapters.h"
-#include "../../core/ecc_native.h"
+#include "utility/serialize.h"
+#include "core/serialization_adapters.h"
+#include "core/ecc_native.h"
 #include "proto.h"
 #include "../utility/logger.h"
-#include "../utility/logger_checkpoints.h"
 
 namespace beam {
 namespace proto {
@@ -25,437 +24,534 @@ namespace proto {
 /////////////////////////
 // ProtocolPlus
 ProtocolPlus::ProtocolPlus(uint8_t v0, uint8_t v1, uint8_t v2, size_t maxMessageTypes, IErrorHandler& errorHandler, size_t serializedFragmentsSize)
-	:Protocol(v0, v1, v2, maxMessageTypes, errorHandler, serializedFragmentsSize)
+    :Protocol(v0, v1, v2, maxMessageTypes, errorHandler, serializedFragmentsSize)
 {
-	ResetVars();
+    ResetVars();
 }
 
 void ProtocolPlus::ResetVars()
 {
-	m_Mode = Mode::Plaintext;
-	ZeroObject(m_MyNonce);
-	ZeroObject(m_RemoteNonce);
+    m_Mode = Mode::Plaintext;
+    m_MyNonce = Zero;
+    m_RemoteNonce = Zero;
 }
 
 void ProtocolPlus::Decrypt(uint8_t* p, uint32_t nSize)
 {
-	if (Mode::Duplex == m_Mode)
-		m_CipherIn.XCrypt(m_Enc, p, nSize);
+    if (Mode::Duplex == m_Mode)
+        m_CipherIn.XCrypt(m_Enc, p, nSize);
 }
 
 uint32_t ProtocolPlus::get_MacSize()
 {
-	return (Mode::Duplex == m_Mode) ? sizeof(uint64_t) : 0;
+    return (Mode::Duplex == m_Mode) ? sizeof(uint64_t) : 0;
 }
 
 bool ProtocolPlus::VerifyMsg(const uint8_t* p, uint32_t nSize)
 {
-	if (Mode::Duplex != m_Mode)
-		return true;
+    if (Mode::Duplex != m_Mode)
+        return true;
 
-	MacValue hmac;
+    MacValue hmac;
 
-	if (nSize < hmac.nBytes)
-		return false; // could happen on (sort of) overflow attack?
+    if (nSize < hmac.nBytes)
+        return false; // could happen on (sort of) overflow attack?
 
-	ECC::Hash::Mac hm = m_HMac;
-	hm.Write(p, nSize - hmac.nBytes);
+    ECC::Hash::Mac hm = m_HMac;
+    hm.Write(p, nSize - hmac.nBytes);
 
-	get_HMac(hm, hmac);
+    get_HMac(hm, hmac);
 
-	return !memcmp(p + nSize - hmac.nBytes, hmac.m_pData, hmac.nBytes);
+    return !memcmp(p + nSize - hmac.nBytes, hmac.m_pData, hmac.nBytes);
 }
 
 void ProtocolPlus::get_HMac(ECC::Hash::Mac& hm, MacValue& res)
 {
-	ECC::Hash::Value hv;
-	hm >> hv;
+    ECC::Hash::Value hv;
+    hm >> hv;
 
-	//static_assert(hv.nBytes >= res.nBytes, "");
-	res = hv;
+    //static_assert(hv.nBytes >= res.nBytes, "");
+    res = hv;
 }
 
 void ProtocolPlus::Encrypt(SerializedMsg& sm, MsgSerializer& ser)
 {
-	MacValue hmac;
+    MacValue hmac;
 
-	if (Mode::Plaintext != m_Mode)
-	{
-		// 1. append dummy of the needed size
-		hmac = Zero;
-		ser & hmac;
-	}
+    if (Mode::Plaintext != m_Mode)
+    {
+        // 1. append dummy of the needed size
+        hmac = Zero;
+        ser & hmac;
+    }
 
-	ser.finalize(sm);
+    ser.finalize(sm);
 
-	if (Mode::Plaintext != m_Mode)
-	{
-		// 2. get size
-		size_t n = 0;
+    if (Mode::Plaintext != m_Mode)
+    {
+        // 2. get size
+        size_t n = 0;
 
-		for (size_t i = 0; i < sm.size(); i++)
-			n += sm[i].size;
+        for (size_t i = 0; i < sm.size(); i++)
+            n += sm[i].size;
 
-		// 3. Calculate
-		ECC::Hash::Mac hm = m_HMac;
-		size_t n2 = n - MacValue::nBytes;
+        // 3. Calculate
+        ECC::Hash::Mac hm = m_HMac;
+        size_t n2 = n - MacValue::nBytes;
 
-		for (size_t i = 0; ; i++)
-		{
-			assert(i < sm.size());
-			io::IOVec& iov = sm[i];
-			if (iov.size >= n2)
-			{
-				hm.Write(iov.data, (uint32_t) n2);
-				break;
-			}
+        for (size_t i = 0; ; i++)
+        {
+            assert(i < sm.size());
+            io::IOVec& iov = sm[i];
+            if (iov.size >= n2)
+            {
+                hm.Write(iov.data, (uint32_t) n2);
+                break;
+            }
 
-			hm.Write(iov.data, (uint32_t)iov.size);
-			n2 -= iov.size;
-		}
+            hm.Write(iov.data, (uint32_t)iov.size);
+            n2 -= iov.size;
+        }
 
-		get_HMac(hm, hmac);
+        get_HMac(hm, hmac);
 
-		// 4. Overwrite the hmac, encrypt
-		n2 = n;
+        // 4. Overwrite the hmac, encrypt
+        n2 = n;
 
-		for (size_t i = 0; i < sm.size(); i++)
-		{
-			io::IOVec& iov = sm[i];
-			uint8_t* dst = (uint8_t*) iov.data;
+        for (size_t i = 0; i < sm.size(); i++)
+        {
+            io::IOVec& iov = sm[i];
+            uint8_t* dst = (uint8_t*) iov.data;
 
-			if (n2 <= hmac.nBytes)
-				memcpy(dst, hmac.m_pData + hmac.nBytes - n2, iov.size);
-			else
-			{
-				size_t offs = n2 - hmac.nBytes;
-				if (offs < iov.size)
-					memcpy(dst + offs, hmac.m_pData, iov.size - offs);
-			}
+            if (n2 <= hmac.nBytes)
+                memcpy(dst, hmac.m_pData + hmac.nBytes - n2, iov.size);
+            else
+            {
+                size_t offs = n2 - hmac.nBytes;
+                if (offs < iov.size)
+                    memcpy(dst + offs, hmac.m_pData, iov.size - offs);
+            }
 
-			n2 -= iov.size;
+            n2 -= iov.size;
 
-			m_CipherOut.XCrypt(m_Enc, dst, (uint32_t) iov.size);
-		}
-	}
+            m_CipherOut.XCrypt(m_Enc, dst, (uint32_t) iov.size);
+        }
+    }
 }
 
 void InitCipherIV(AES::StreamCipher& c, const ECC::Hash::Value& hvSecret, const ECC::Hash::Value& hvParam)
 {
-	ECC::NoLeak<ECC::Hash::Value> hvIV;
-	ECC::Hash::Processor() << hvSecret << hvParam >> hvIV.V;
+    ECC::NoLeak<ECC::Hash::Value> hvIV;
+    ECC::Hash::Processor() << hvSecret << hvParam >> hvIV.V;
 
-	//static_assert(hvIV.V.nBytes >= c.m_Counter.nBytes, "");
-	c.m_Counter = hvIV.V;
+    //static_assert(hvIV.V.nBytes >= c.m_Counter.nBytes, "");
+    c.m_Counter = hvIV.V;
 
-	c.m_nBuf = 0;
+    c.m_nBuf = 0;
+}
+
+bool ImportPeerID(ECC::Point::Native& res, const PeerID& pid)
+{
+    ECC::Point pt;
+    pt.m_X = pid;
+    pt.m_Y = 0;
+
+    return res.ImportNnz(pt);
 }
 
 bool InitViaDiffieHellman(const ECC::Scalar::Native& myPrivate, const PeerID& remotePublic, AES::Encoder& enc, ECC::Hash::Mac& hmac, AES::StreamCipher* pCipherOut, AES::StreamCipher* pCipherIn)
 {
-	// Diffie-Hellman
-	ECC::Point pt;
-	pt.m_X = remotePublic;
-	pt.m_Y = false;
+    // Diffie-Hellman
+    ECC::Point::Native p;
+    ImportPeerID(p, remotePublic);
 
-	ECC::Point::Native p;
-	if (!p.Import(pt))
-		return false;
+    ECC::Point::Native ptSecret = p * myPrivate;
 
-	ECC::Point::Native ptSecret = p * myPrivate;
+    ECC::NoLeak<ECC::Hash::Value> hvSecret;
+    ECC::Hash::Processor() << ptSecret >> hvSecret.V;
 
-	ECC::NoLeak<ECC::Hash::Value> hvSecret;
-	ECC::Hash::Processor() << ptSecret >> hvSecret.V;
+    static_assert(AES::s_KeyBytes == ECC::Hash::Value::nBytes, "");
+    enc.Init(hvSecret.V.m_pData);
 
-	static_assert(AES::s_KeyBytes == ECC::Hash::Value::nBytes, "");
-	enc.Init(hvSecret.V.m_pData);
+    hmac.Reset(hvSecret.V.m_pData, hvSecret.V.nBytes);
 
-	hmac.Reset(hvSecret.V.m_pData, hvSecret.V.nBytes);
+    if (pCipherOut)
+        InitCipherIV(*pCipherOut, hvSecret.V, remotePublic);
 
-	if (pCipherOut)
-		InitCipherIV(*pCipherOut, hvSecret.V, remotePublic);
+    if (pCipherIn)
+    {
+        PeerID myPublic;
+        Sk2Pk(myPublic, Cast::NotConst(myPrivate)); // my private must have been already normalized. Should not be modified.
+        InitCipherIV(*pCipherIn, hvSecret.V, myPublic);
+    }
 
-	if (pCipherIn)
-	{
-		PeerID myPublic;
-		Sk2Pk(myPublic, (ECC::Scalar::Native&) myPrivate); // my private must have been already normalized. Should not be modified.
-		InitCipherIV(*pCipherIn, hvSecret.V, myPublic);
-	}
-
-	return true;
+    return true;
 }
 
 void ProtocolPlus::InitCipher()
 {
-	assert(!(m_MyNonce == Zero));
+    assert(!(m_MyNonce == Zero));
 
-	if (!InitViaDiffieHellman(m_MyNonce, m_RemoteNonce, m_Enc, m_HMac, &m_CipherOut, &m_CipherIn))
-		NodeConnection::ThrowUnexpected();
+    if (!InitViaDiffieHellman(m_MyNonce, m_RemoteNonce, m_Enc, m_HMac, &m_CipherOut, &m_CipherIn))
+        NodeConnection::ThrowUnexpected();
 }
 
 void Sk2Pk(PeerID& res, ECC::Scalar::Native& sk)
 {
-	ECC::Point pt = ECC::Point::Native(ECC::Context::get().G * sk);
-	if (pt.m_Y)
-		sk = -sk;
+    ECC::Point pt = ECC::Point::Native(ECC::Context::get().G * sk);
+    if (pt.m_Y)
+        sk = -sk;
 
-	res = pt.m_X;
+    res = pt.m_X;
 }
 
-bool BbsEncrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void* p, uint32_t n)
+bool Bbs::Encrypt(ByteBuffer& res, const PeerID& publicAddr, ECC::Scalar::Native& nonce, const void* p, uint32_t n)
 {
-	PeerID myPublic;
-	Sk2Pk(myPublic, nonce);
+    PeerID myPublic;
+    Sk2Pk(myPublic, nonce);
 
-	AES::Encoder enc;
-	AES::StreamCipher cOut;
-	ECC::Hash::Mac hmac;
-	if (!InitViaDiffieHellman(nonce, publicAddr, enc, hmac, &cOut, NULL))
-		return false; // bad address
+    AES::Encoder enc;
+    AES::StreamCipher cOut;
+    ECC::Hash::Mac hmac;
+    if (!InitViaDiffieHellman(nonce, publicAddr, enc, hmac, &cOut, NULL))
+        return false; // bad address
 
-	hmac.Write(p, n);
-	ECC::Hash::Value hvMac;
-	hmac >> hvMac;
+    hmac.Write(p, n);
+    ECC::Hash::Value hvMac;
+    hmac >> hvMac;
 
-	res.resize(myPublic.nBytes + hvMac.nBytes + n);
-	uint8_t* pDst = &res.at(0);
+    res.resize(myPublic.nBytes + hvMac.nBytes + n);
+    uint8_t* pDst = &res.at(0);
 
-	memcpy(pDst, myPublic.m_pData, myPublic.nBytes);
-	memcpy(pDst + myPublic.nBytes, hvMac.m_pData, hvMac.nBytes);
-	memcpy(pDst + myPublic.nBytes + hvMac.nBytes, p, n);
+    memcpy(pDst, myPublic.m_pData, myPublic.nBytes);
+    memcpy(pDst + myPublic.nBytes, hvMac.m_pData, hvMac.nBytes);
+    memcpy(pDst + myPublic.nBytes + hvMac.nBytes, p, n);
 
-	cOut.XCrypt(enc, pDst + myPublic.nBytes, hvMac.nBytes + n);
+    cOut.XCrypt(enc, pDst + myPublic.nBytes, hvMac.nBytes + n);
 
-	return true;
+    return true;
 }
 
-bool BbsDecrypt(uint8_t*& p, uint32_t& n, ECC::Scalar::Native& privateAddr)
+bool Bbs::Decrypt(uint8_t*& p, uint32_t& n, const ECC::Scalar::Native& privateAddr)
 {
-	PeerID remotePublic;
-	ECC::Hash::Value hvMac, hvMac2;
+    PeerID remotePublic;
+    ECC::Hash::Value hvMac, hvMac2;
 
-	if (n < remotePublic.nBytes + hvMac.nBytes)
-		return false;
+    if (n < remotePublic.nBytes + hvMac.nBytes)
+        return false;
 
-	memcpy(remotePublic.m_pData, p, remotePublic.nBytes);
+    memcpy(remotePublic.m_pData, p, remotePublic.nBytes);
 
-	AES::Encoder enc;
-	AES::StreamCipher cIn;
-	ECC::Hash::Mac hmac;
-	if (!InitViaDiffieHellman(privateAddr, remotePublic, enc, hmac, NULL, &cIn))
-		return false; // bad address
+    AES::Encoder enc;
+    AES::StreamCipher cIn;
+    ECC::Hash::Mac hmac;
+    if (!InitViaDiffieHellman(privateAddr, remotePublic, enc, hmac, NULL, &cIn))
+        return false; // bad address
 
-	cIn.XCrypt(enc, p + remotePublic.nBytes, n - remotePublic.nBytes);
+    cIn.XCrypt(enc, p + remotePublic.nBytes, n - remotePublic.nBytes);
 
-	memcpy(hvMac.m_pData, p + remotePublic.nBytes, hvMac.nBytes);
+    memcpy(hvMac.m_pData, p + remotePublic.nBytes, hvMac.nBytes);
 
-	p += remotePublic.nBytes + hvMac.nBytes;
-	n -= (remotePublic.nBytes + hvMac.nBytes);
+    p += remotePublic.nBytes + hvMac.nBytes;
+    n -= (remotePublic.nBytes + hvMac.nBytes);
 
-	hmac.Write(p, n);
-	hmac >> hvMac2;
+    hmac.Write(p, n);
+    hmac >> hvMac2;
 
-	return (hvMac == hvMac2);
+    return (hvMac == hvMac2);
+}
+
+void Bbs::get_HashPartial(ECC::Hash::Processor& hp, const BbsMsg& msg)
+{
+	hp
+		<< "bbs.msg"
+		<< msg.m_Channel
+		<< Blob(msg.m_Message);
+}
+
+void Bbs::get_Hash(ECC::Hash::Value& hv, const BbsMsg& msg)
+{
+	ECC::Hash::Processor hp;
+	get_HashPartial(hp, msg);
+
+	hp
+		<< msg.m_TimePosted
+		<< msg.m_Nonce
+		>> hv;
+}
+
+bool Bbs::IsHashValid(const ECC::Hash::Value& hv)
+{
+	uint32_t nHigh;
+	hv.ExportWord<0>(nHigh);
+
+	return nHigh < (1 << 10); // upper 22 bits should be zero, probability ~ 1 / 4mln
 }
 
 union HighestMsgCode
 {
 #define THE_MACRO(code, msg) uint8_t m_pBuf_##msg[code + 1];
-	BeamNodeMsgsAll(THE_MACRO)
+    BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 };
+
+bool NotCalled_VerifyNoDuplicatedIDs(uint32_t id)
+{
+    switch (id)
+    {
+#define THE_MACRO(code, msg) \
+    case code:
+        BeamNodeMsgsAll(THE_MACRO)
+#undef THE_MACRO
+        return true;
+    }
+    return false;
+}
 
 /////////////////////////
 // NodeConnection
 NodeConnection::NodeConnection()
-	:m_Protocol('B', 'm', 4, sizeof(HighestMsgCode), *this, 20000)
-	,m_ConnectPending(false)
+    :m_Protocol('B', 'm', 10, sizeof(HighestMsgCode), *this, 20000)
+    ,m_ConnectPending(false)
+	,m_RulesCfgSent(false)
+	,m_PeerSupportsLogin1(false)
 {
 #define THE_MACRO(code, msg) \
-	m_Protocol.add_message_handler<NodeConnection, msg##_NoInit, &NodeConnection::OnMsgInternal>(uint8_t(code), this, 0, 1024*1024*10);
+    m_Protocol.add_message_handler<NodeConnection, msg##_NoInit, &NodeConnection::OnMsgInternal>(uint8_t(code), this, 0, 1024*1024*10);
 
-	BeamNodeMsgsAll(THE_MACRO)
+    BeamNodeMsgsAll(THE_MACRO)
 #undef THE_MACRO
 }
 
 NodeConnection::~NodeConnection()
 {
-	Reset();
+    Reset();
 }
 
 void NodeConnection::Reset()
 {
-	if (m_ConnectPending)
-	{
-		io::Reactor::get_Current().cancel_tcp_connect(uint64_t(this));
-		m_ConnectPending = false;
-	}
+    if (m_ConnectPending)
+    {
+        io::Reactor::get_Current().cancel_tcp_connect(uint64_t(this));
+        m_ConnectPending = false;
+    }
 
-	m_Connection = NULL;
-	m_pAsyncFail = NULL;
+	m_RulesCfgSent = false;
+	m_PeerSupportsLogin1 = false;
+    m_Connection = NULL;
+    m_pAsyncFail = NULL;
 
-	m_Protocol.ResetVars();
+    m_Protocol.ResetVars();
 }
 
 
 void NodeConnection::TestIoResultAsync(const io::Result& res)
 {
-	if (res)
-		return; // ok
+    if (res)
+        return; // ok
 
-	if (m_pAsyncFail)
-		return;
+    if (m_pAsyncFail)
+        return;
 
-	io::ErrorCode err = res.error();
+    io::ErrorCode err = res.error();
 
-	io::AsyncEvent::Callback cb = [this, err]() {
-		OnIoErr(err);
-	};
+    io::AsyncEvent::Callback cb = [this, err]() {
+        OnIoErr(err);
+    };
 
-	m_pAsyncFail = io::AsyncEvent::create(io::Reactor::get_Current(), std::move(cb));
-	m_pAsyncFail->get_trigger()();
+    m_pAsyncFail = io::AsyncEvent::create(io::Reactor::get_Current(), std::move(cb));
+    m_pAsyncFail->get_trigger()();
+}
+
+void NodeConnection::TestNotDrown()
+{
+	if (!m_pAsyncFail && m_UnsentHiMark && (get_Unsent() > m_UnsentHiMark))
+	{
+		io::AsyncEvent::Callback cb = [this]()
+		{
+			DisconnectReason r;
+			r.m_Type = DisconnectReason::Drown;
+			OnDisconnect(r);
+		};
+
+		m_pAsyncFail = io::AsyncEvent::create(io::Reactor::get_Current(), std::move(cb));
+		m_pAsyncFail->get_trigger()();
+	}
 }
 
 void NodeConnection::OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode status)
 {
-	NodeConnection* pThis = (NodeConnection*)tag;
-	assert(pThis);
-	pThis->OnConnectInternal2(std::move(newStream), status);
+    NodeConnection* pThis = (NodeConnection*)tag;
+    assert(pThis);
+    pThis->OnConnectInternal2(std::move(newStream), status);
 }
 
 void NodeConnection::OnConnectInternal2(io::TcpStream::Ptr&& newStream, io::ErrorCode status)
 {
-	assert(!m_Connection && m_ConnectPending);
-	m_ConnectPending = false;
+    assert(!m_Connection && m_ConnectPending);
+    m_ConnectPending = false;
 
-	if (newStream)
-	{
-		Accept(std::move(newStream));
+    if (newStream)
+    {
+        Accept(std::move(newStream));
 
-		try {
-			SecureConnect();
-		}
-		catch (const std::exception& e) {
-			OnExc(e);
-		}
-	}
-	else
-		OnIoErr(status);
+        try {
+            SecureConnect();
+        }
+        catch (const NodeProcessingException& e) {
+            OnProcessingExc(e);
+        }
+        catch (const std::exception& e) {
+            OnExc(e);
+        }
+    }
+    else
+        OnIoErr(status);
 }
 
 void NodeConnection::OnExc(const std::exception& e)
 {
-	DisconnectReason r;
-	r.m_Type = DisconnectReason::ProcessingExc;
-	r.m_szErrorMsg = e.what();
-	OnDisconnect(r);
+    DisconnectReason r;
+    r.m_Type = DisconnectReason::ProcessingExc;
+    r.m_ExceptionDetails.m_ExceptionType = NodeProcessingException::Type::Base;
+    r.m_ExceptionDetails.m_szErrorMsg = e.what();
+    OnDisconnect(r);
+}
+
+void NodeConnection::OnProcessingExc(const NodeProcessingException& exception)
+{
+    DisconnectReason r;
+    r.m_Type = DisconnectReason::ProcessingExc;
+    r.m_ExceptionDetails.m_ExceptionType = exception.type();
+    r.m_ExceptionDetails.m_szErrorMsg = exception.what();
+    OnDisconnect(r);
 }
 
 void NodeConnection::OnIoErr(io::ErrorCode err)
 {
-	DisconnectReason r;
-	r.m_Type = DisconnectReason::Io;
-	r.m_IoError = err;
-	OnDisconnect(r);
+    DisconnectReason r;
+    r.m_Type = DisconnectReason::Io;
+    r.m_IoError = err;
+    OnDisconnect(r);
+}
+
+size_t NodeConnection::get_Unsent() const
+{
+	return m_Connection ? m_Connection->get_Unsent() : 0;
 }
 
 void NodeConnection::on_protocol_error(uint64_t, ProtocolError error)
 {
-	Reset();
+    Reset();
 
-	DisconnectReason r;
-	r.m_Type = DisconnectReason::Protocol;
-	r.m_eProtoCode = error;
-	OnDisconnect(r);
+    DisconnectReason r;
+    r.m_Type = DisconnectReason::Protocol;
+    r.m_eProtoCode = error;
+    OnDisconnect(r);
 }
 
 std::ostream& operator << (std::ostream& s, const NodeConnection::DisconnectReason& r)
 {
-	switch (r.m_Type)
-	{
-	case NodeConnection::DisconnectReason::Io:
-		s << io::error_descr(r.m_IoError);
+    switch (r.m_Type)
+    {
+    case NodeConnection::DisconnectReason::Io:
+        s << io::error_descr(r.m_IoError);
+        break;
+
+    case NodeConnection::DisconnectReason::Protocol:
+        s << "Protocol " << r.m_eProtoCode;
+        break;
+
+    case NodeConnection::DisconnectReason::ProcessingExc:
+        s << r.m_ExceptionDetails.m_szErrorMsg;
+        break;
+
+    case NodeConnection::DisconnectReason::Bye:
+        s << "Bye " << r.m_ByeReason;
+        break;
+
+	case NodeConnection::DisconnectReason::Drown:
+		s << "Drown";
 		break;
 
-	case NodeConnection::DisconnectReason::Protocol:
-		s << "Protocol " << r.m_eProtoCode;
-		break;
-
-	case NodeConnection::DisconnectReason::ProcessingExc:
-		s << r.m_szErrorMsg;
-		break;
-
-	case NodeConnection::DisconnectReason::Bye:
-		s << "Bye " << r.m_ByeReason;
-		break;
-
-	default:
-		assert(false);
-	}
-	return s;
+    default:
+        assert(false);
+    }
+    return s;
 }
 
 void NodeConnection::on_connection_error(uint64_t, io::ErrorCode errorCode)
 {
-	Reset();
-	OnIoErr(errorCode);
+    Reset();
+    OnIoErr(errorCode);
 }
 
-void NodeConnection::ThrowUnexpected(const char* sz)
+void NodeConnection::ThrowUnexpected(const char* sz, NodeProcessingException::Type type)
 {
-	throw std::runtime_error(sz ? sz : "proto violation");
+    throw NodeProcessingException(sz ? sz : "proto violation", type);
 }
 
 void NodeConnection::Connect(const io::Address& addr)
 {
-	assert(!m_Connection && !m_ConnectPending);
+    assert(!m_Connection && !m_ConnectPending);
 
-	io::Result res = io::Reactor::get_Current().tcp_connect(
-		addr,
-		uint64_t(this),
-		OnConnectInternal);
+    io::Result res = io::Reactor::get_Current().tcp_connect(
+        addr,
+        uint64_t(this),
+        OnConnectInternal);
 
-	TestIoResultAsync(res);
-	m_ConnectPending = true;
+    TestIoResultAsync(res);
+    m_ConnectPending = true;
 }
 
 void NodeConnection::Accept(io::TcpStream::Ptr&& newStream)
 {
-	assert(!m_Connection && !m_ConnectPending);
+    assert(!m_Connection && !m_ConnectPending);
 
-	m_Connection = std::make_unique<Connection>(
-		m_Protocol,
-		uint64_t(this),
+    newStream->enable_keepalive(Rules::get().DA.Target_s); // it should be comparable to the block rate
+
+    m_Connection = std::make_unique<Connection>(
+        m_Protocol,
+        uint64_t(this),
         Connection::inbound,
-		100,
-		std::move(newStream)
-		);
+        100,
+        std::move(newStream)
+        );
+}
+
+bool NodeConnection::IsLive() const
+{
+    return m_Connection && !m_pAsyncFail;
 }
 
 #define THE_MACRO(code, msg) \
 void NodeConnection::Send(const msg& v) \
 { \
-	if (m_pAsyncFail || !m_Connection) \
-		return; \
-	m_SerializeCache.clear(); \
-	MsgSerializer& ser = m_Protocol.serializeNoFinalize(m_SerializeCache, uint8_t(code), v); \
-	m_Protocol.Encrypt(m_SerializeCache, ser); \
-	io::Result res = m_Connection->write_msg(m_SerializeCache); \
-	m_SerializeCache.clear(); \
+    if (!IsLive()) \
+        return; \
+    m_SerializeCache.clear(); \
+    MsgSerializer& ser = m_Protocol.serializeNoFinalize(m_SerializeCache, uint8_t(code), v); \
+    m_Protocol.Encrypt(m_SerializeCache, ser); \
+    io::Result res = m_Connection->write_msg(m_SerializeCache); \
+    m_SerializeCache.clear(); \
 \
-	TestIoResultAsync(res); \
+    TestIoResultAsync(res); \
+    TestNotDrown(); \
 } \
 \
 bool NodeConnection::OnMsgInternal(uint64_t, msg##_NoInit&& v) \
 { \
-	try { \
-		/* checkpoint */ \
-		TestInputMsgContext(code); \
+    try { \
+        /* checkpoint */ \
+        TestInputMsgContext(code); \
         return OnMsg2(std::move(v)); \
-	} catch (const std::exception& e) { \
-		OnExc(e); \
-		return false; \
-	} \
+    } catch (const NodeProcessingException& e) { \
+        OnProcessingExc(e); \
+        return false; \
+    } catch (const std::exception& e) { \
+        OnExc(e); \
+        return false; \
+    } \
 } \
 
 BeamNodeMsgsAll(THE_MACRO)
@@ -463,468 +559,411 @@ BeamNodeMsgsAll(THE_MACRO)
 
 void NodeConnection::TestInputMsgContext(uint8_t code)
 {
-	if (!IsSecureIn())
-	{
-		// currently we demand all the trafic encrypted. The only messages that can be sent over non-secure network is those used to establish it
-		switch (code)
-		{
-		case SChannelInitiate::s_Code:
-		case SChannelReady::s_Code:
-			break;
+    if (!IsSecureIn())
+    {
+        // currently we demand all the trafic encrypted. The only messages that can be sent over non-secure network is those used to establish it
+        switch (code)
+        {
+        case SChannelInitiate::s_Code:
+        case SChannelReady::s_Code:
+            break;
 
-		default:
-			ThrowUnexpected("non-secure comm");
-		}
-	}
+        default:
+            ThrowUnexpected("non-secure comm");
+        }
+    }
 }
 
 void NodeConnection::GenerateSChannelNonce(ECC::Scalar::Native& sk)
 {
-	ECC::NoLeak<ECC::uintBig> secret;
-	ECC::GenRandom(secret.V.m_pData, secret.V.nBytes);
-
-	ECC::Hash::Value hv(Zero);
-	sk.GenerateNonce(secret.V, hv, NULL);
+    sk.GenRandomNnz();
 }
 
 void NodeConnection::SecureConnect()
 {
-	if (!(m_Protocol.m_MyNonce == Zero))
-		return; // already sent
+    if (!(m_Protocol.m_MyNonce == Zero))
+        return; // already sent
 
-	GenerateSChannelNonce(m_Protocol.m_MyNonce);
+    GenerateSChannelNonce(m_Protocol.m_MyNonce);
 
-	if (m_Protocol.m_MyNonce == Zero)
-		ThrowUnexpected("SChannel not supported");
+    if (m_Protocol.m_MyNonce == Zero)
+        ThrowUnexpected("SChannel not supported");
 
-	SChannelInitiate msg;
-	Sk2Pk(msg.m_NoncePub, m_Protocol.m_MyNonce);
-	Send(msg);
+    SChannelInitiate msg;
+    Sk2Pk(msg.m_NoncePub, m_Protocol.m_MyNonce);
+    Send(msg);
 }
 
 void NodeConnection::OnMsg(SChannelInitiate&& msg)
 {
-	if ((ProtocolPlus::Mode::Plaintext != m_Protocol.m_Mode) || (msg.m_NoncePub == Zero))
-		ThrowUnexpected();
+    if ((ProtocolPlus::Mode::Plaintext != m_Protocol.m_Mode) || (msg.m_NoncePub == Zero))
+        ThrowUnexpected();
 
-	SecureConnect(); // unless already sent
+    SecureConnect(); // unless already sent
 
-	SChannelReady msgOut(Zero);
-	Send(msgOut); // activating new cipher.
+    SChannelReady msgOut(Zero);
+    Send(msgOut); // activating new cipher.
 
-	m_Protocol.m_RemoteNonce = msg.m_NoncePub;
-	m_Protocol.InitCipher();
+    m_Protocol.m_RemoteNonce = msg.m_NoncePub;
+    m_Protocol.InitCipher();
 
-	m_Protocol.m_Mode = ProtocolPlus::Mode::Outgoing;
+    m_Protocol.m_Mode = ProtocolPlus::Mode::Outgoing;
+
+	Send(proto::GetTime(Zero)); // in the next proto - better to send the time right away, instead of asking for it
 
 	OnConnectedSecure();
 }
 
+void NodeConnection::SendLogin()
+{
+	Login msg;
+	msg.m_Flags = LoginFlags::ExtensionsAll;
+	SetupLogin(msg);
+
+	const Rules& r = Rules::get();
+
+	if (m_PeerSupportsLogin1)
+	{
+
+		if (!m_RulesCfgSent)
+		{
+			m_RulesCfgSent = true;
+
+			Height hMin = get_MinPeerFork();
+			size_t iFork = _countof(r.pForks);
+			while (iFork)
+			{
+				if (r.pForks[--iFork].m_Height <= hMin)
+					break;
+			}
+
+			msg.m_Cfgs.reserve(_countof(r.pForks) - iFork);
+
+			for (; iFork < _countof(r.pForks); iFork++)
+			{
+				const HeightHash& x = r.pForks[iFork];
+				if (MaxHeight == x.m_Height)
+					break;
+				msg.m_Cfgs.push_back(r.pForks[iFork].m_Hash);
+			}
+		}
+
+		Send(msg);
+	}
+	else
+	{
+		Login0 msg0;
+		msg0.m_CfgChecksum = r.pForks[0].m_Hash;
+		msg0.m_Flags = static_cast<uint8_t>(msg.m_Flags);
+		Send(msg0);
+	}
+}
+
+void NodeConnection::SetupLogin(Login&)
+{
+}
+
+Height NodeConnection::get_MinPeerFork()
+{
+	return Rules::HeightGenesis - 1;
+}
+
+void NodeConnection::OnLogin(Login&&)
+{
+}
+
+void NodeConnection::OnMsg(Login0&& msg0)
+{
+	const Rules& r = Rules::get();
+
+	if (msg0.m_CfgChecksum != r.pForks[0].m_Hash)
+	{
+		std::ostringstream os;
+		os << "Incompatible peer cfg: " << msg0.m_CfgChecksum;
+
+		ThrowUnexpected(os.str().c_str(), NodeProcessingException::Type::Incompatible);
+	}
+
+	if (!m_PeerSupportsLogin1 && (LoginFlags::Extension3 & msg0.m_Flags))
+	{
+		m_PeerSupportsLogin1 = true;
+		SendLogin();
+	}
+
+	Login msg;
+	msg.m_Flags = msg0.m_Flags;
+
+	OnLoginInternal(MaxHeight, std::move(msg));
+}
+
+void NodeConnection::OnMsg(Login&& msg)
+{
+	if (msg.m_Cfgs.empty()) // Peers send cfgs only on 1st login
+	{
+		OnLoginInternal(MaxHeight, std::move(msg));
+		return;
+	}
+
+	const Rules& r = Rules::get();
+	for (size_t i = msg.m_Cfgs.size(); ; )
+	{
+		if (!i--)
+			break; // no compatible cfg found
+
+		const HeightHash* pFork = r.FindFork(msg.m_Cfgs[i]);
+		if (pFork)
+		{
+			Height hMaxScheme = MaxHeight;
+			if (&r.get_LastFork() != pFork)
+			{
+				if (i + 1 != msg.m_Cfgs.size())
+					break; // overlap config found, but then we have incompatible forks.
+
+				hMaxScheme = pFork[1].m_Height - 1;
+			}
+
+			OnLoginInternal(hMaxScheme, std::move(msg));
+			return;
+		}
+	}
+
+	std::ostringstream os;
+	os << "Incompatible peer cfgs: ";
+
+	for (size_t i = 0; ; )
+	{
+		os << msg.m_Cfgs[i];
+		if (++i == msg.m_Cfgs.size())
+			break;
+
+		os << ", ";
+	}
+
+	ThrowUnexpected(os.str().c_str(), NodeProcessingException::Type::Incompatible);
+}
+
+void NodeConnection::OnLoginInternal(Height hScheme, Login&& msg)
+{
+	if ((~LoginFlags::Recognized) & msg.m_Flags) {
+		LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses newer protocol.";
+	}
+	else
+	{
+		const uint32_t nMask = LoginFlags::ExtensionsAll;
+		uint32_t nFlags2 = nMask & msg.m_Flags;
+		if (nFlags2 != nMask)
+		{
+			LOG_WARNING() << "Peer " << m_Connection->peer_address() << " Uses older protocol: " << nFlags2;
+
+			hScheme = std::min(hScheme, Rules::get().pForks[1].m_Height - 1); // doesn't support extensions - must be before the 1st fork
+		}
+	}
+
+	Height hMinScheme = get_MinPeerFork();
+	if (hScheme < hMinScheme)
+		ThrowUnexpected("Legacy", NodeProcessingException::Type::Incompatible);
+
+	OnLogin(std::move(msg));
+}
+
 void NodeConnection::OnMsg(SChannelReady&& msg)
 {
-	if (ProtocolPlus::Mode::Outgoing != m_Protocol.m_Mode)
-		ThrowUnexpected();
+    if (ProtocolPlus::Mode::Outgoing != m_Protocol.m_Mode)
+        ThrowUnexpected();
 
-	m_Protocol.m_Mode = ProtocolPlus::Mode::Duplex;
+    m_Protocol.m_Mode = ProtocolPlus::Mode::Duplex;
 }
 
 void NodeConnection::ProveID(ECC::Scalar::Native& sk, uint8_t nIDType)
 {
-	assert(IsSecureOut());
+    assert(IsSecureOut());
 
-	// confirm our ID
-	ECC::Hash::Value hv;
-	ECC::Hash::Processor() << m_Protocol.m_RemoteNonce >> hv;
+    // confirm our ID
+    ECC::Hash::Processor hp;
+    HashAddNonce(hp, true);
+    ECC::Hash::Value hv;
+    hp >> hv;
 
-	Authentication msgOut;
-	msgOut.m_IDType = nIDType;
-	Sk2Pk(msgOut.m_ID, sk);
-	msgOut.m_Sig.Sign(hv, sk);
+    Authentication msgOut;
+    msgOut.m_IDType = nIDType;
+    Sk2Pk(msgOut.m_ID, sk);
+    msgOut.m_Sig.Sign(hv, sk);
 
-	Send(msgOut);
+    Send(msgOut);
+}
+
+void NodeConnection::HashAddNonce(ECC::Hash::Processor& hp, bool bRemote)
+{
+    if (bRemote)
+        hp << m_Protocol.m_RemoteNonce;
+    else
+    {
+        ECC::Hash::Value hv;
+        Sk2Pk(hv, m_Protocol.m_MyNonce);
+        hp << hv;
+    }
+}
+
+void NodeConnection::ProveKdfObscured(Key::IKdf& kdf, uint8_t nIDType)
+{
+    ECC::Hash::Processor hp;
+    hp << (uint32_t) Key::Type::Identity;
+    HashAddNonce(hp, true);
+    HashAddNonce(hp, false);
+
+    ECC::Hash::Value hv;
+    hp >> hv;
+
+    ECC::Scalar::Native sk;
+    kdf.DeriveKey(sk, hv);
+
+    ProveID(sk, nIDType);
+
+}
+
+void NodeConnection::ProvePKdfObscured(Key::IPKdf& kdf, uint8_t nIDType)
+{
+    struct MyKdf
+        :public Key::IKdf
+    {
+        Key::IPKdf& m_Kdf;
+        MyKdf(Key::IPKdf& kdf) :m_Kdf(kdf) {}
+
+        virtual void DerivePKey(ECC::Scalar::Native&, const ECC::Hash::Value&) override
+        {
+            assert(false);
+        }
+
+        virtual void DeriveKey(ECC::Scalar::Native& out, const ECC::Hash::Value& hv) override
+        {
+            m_Kdf.DerivePKey(out, hv);
+        }
+    };
+
+    MyKdf myKdf(kdf);
+    ProveKdfObscured(myKdf, nIDType);
+}
+
+bool NodeConnection::IsKdfObscured(Key::IPKdf& kdf, const PeerID& id)
+{
+    ECC::Hash::Processor hp;
+    hp << (uint32_t)Key::Type::Identity;
+    HashAddNonce(hp, false);
+    HashAddNonce(hp, true);
+
+    ECC::Hash::Value hv;
+    hp >> hv;
+
+    ECC::Point::Native pt;
+    kdf.DerivePKeyG(pt, hv);
+
+    return id == ECC::Point(pt).m_X;
+}
+
+bool NodeConnection::IsPKdfObscured(Key::IPKdf& kdf, const PeerID& id)
+{
+    struct MyPKdf
+        :public Key::IPKdf
+    {
+        Key::IPKdf& m_Kdf;
+        MyPKdf(Key::IPKdf& kdf) :m_Kdf(kdf) {}
+
+        virtual void DerivePKeyG(ECC::Point::Native& out, const ECC::Hash::Value& hv) override
+        {
+            ECC::Scalar::Native s;
+            m_Kdf.DerivePKey(s, hv);
+            out = ECC::Context::get().G * s;
+        }
+
+        virtual void DerivePKeyJ(ECC::Point::Native& out, const ECC::Hash::Value& hv) override
+        {
+            assert(false);
+        }
+
+        virtual void DerivePKey(ECC::Scalar::Native&, const ECC::Hash::Value&) override
+        {
+            assert(false);
+        }
+    };
+
+    MyPKdf myKdf(kdf);
+    return IsKdfObscured(myKdf, id);
 }
 
 bool NodeConnection::IsSecureIn() const
 {
-	return ProtocolPlus::Mode::Duplex == m_Protocol.m_Mode;
+    return ProtocolPlus::Mode::Duplex == m_Protocol.m_Mode;
 }
 
 bool NodeConnection::IsSecureOut() const
 {
-	return ProtocolPlus::Mode::Plaintext != m_Protocol.m_Mode;
+    return ProtocolPlus::Mode::Plaintext != m_Protocol.m_Mode;
 }
 
 void NodeConnection::OnMsg(Authentication&& msg)
 {
-	if (!IsSecureIn())
-		ThrowUnexpected();
+    if (!IsSecureIn())
+        ThrowUnexpected();
 
-	// verify ID
-	PeerID myPubNonce;
-	Sk2Pk(myPubNonce, m_Protocol.m_MyNonce);
+    // verify ID
+    ECC::Hash::Processor hp;
+    HashAddNonce(hp, false);
 
-	ECC::Hash::Value hv;
-	ECC::Hash::Processor() << myPubNonce >> hv;
+    ECC::Hash::Value hv;
+    hp >> hv;
 
-	ECC::Point pt;
-	pt.m_X = msg.m_ID;
-	pt.m_Y = false;
+    ECC::Point pt;
+    pt.m_X = msg.m_ID;
+    pt.m_Y = 0;
 
-	ECC::Point::Native p;
-	if (!p.Import(pt))
-		ThrowUnexpected();
+    ECC::Point::Native p;
+    if (!p.Import(pt))
+        ThrowUnexpected();
 
-	if (!msg.m_Sig.IsValid(hv, p))
-		ThrowUnexpected();
+    if (!msg.m_Sig.IsValid(hv, p))
+        ThrowUnexpected();
 }
 
 void NodeConnection::OnMsg(Bye&& msg)
 {
-	DisconnectReason r;
-	r.m_Type = DisconnectReason::Bye;
-	r.m_ByeReason = msg.m_Reason;
-	OnDisconnect(r);
+    DisconnectReason r;
+    r.m_Type = DisconnectReason::Bye;
+    r.m_ByeReason = msg.m_Reason;
+    OnDisconnect(r);
+}
+
+void NodeConnection::OnMsg(Ping&& msg)
+{
+	Send(Pong(Zero));
+}
+
+void NodeConnection::OnMsg(GetTime&& msg)
+{
+	proto::Time msgOut;
+	msgOut.m_Value = getTimestamp();
+	Send(msgOut);
+}
+
+void NodeConnection::OnMsg(Time&& msg)
+{
+	uint32_t dtMax_s = Rules::get().DA.MaxAhead_s * 3 / 4; // time diff should be no more than 3/4 of the max allowed time diff in blocks
+	Timestamp ts = getTimestamp();
+
+	if ((ts + dtMax_s < msg.m_Value) ||
+		(ts > msg.m_Value + dtMax_s))
+	{
+		std::ostringstream os;
+		os << "Time diff too large. Local=" << ts << ", Remote=" << msg.m_Value;
+
+		ThrowUnexpected(os.str().c_str(), NodeProcessingException::Type::TimeOutOfSync);
+	}
 }
 
 /////////////////////////
 // NodeConnection::Server
 void NodeConnection::Server::Listen(const io::Address& addr)
 {
-	m_pServer = io::TcpServer::create(io::Reactor::get_Current(), addr, BIND_THIS_MEMFN(OnAccepted));
-}
-
-/////////////////////////
-// PeerManager
-uint32_t PeerManager::Rating::Saturate(uint32_t v)
-{
-	// try not to take const refernce on Max, so its value can directly be substituted (otherwise gcc link error)
-	return (v < Max) ? v : Max;
-}
-
-void PeerManager::Rating::Inc(uint32_t& r, uint32_t delta)
-{
-	r = Saturate(r + delta);
-}
-
-void PeerManager::Rating::Dec(uint32_t& r, uint32_t delta)
-{
-	r = (r > delta) ? (r - delta) : 1;
-}
-
-uint32_t PeerManager::PeerInfo::AdjustedRating::get() const
-{
-	return Rating::Saturate(get_ParentObj().m_RawRating.m_Value + m_Increment);
-}
-
-void PeerManager::Update()
-{
-	uint32_t nTicks_ms = GetTimeNnz_ms();
-
-	if (m_TicksLast_ms)
-		UpdateRatingsInternal(nTicks_ms);
-
-	m_TicksLast_ms = nTicks_ms;
-
-	// select recommended peers
-	uint32_t nSelected = 0;
-
-	for (ActiveList::iterator it = m_Active.begin(); m_Active.end() != it; it++)
-	{
-		PeerInfo& pi = it->get_ParentObj();
-		assert(pi.m_Active.m_Now);
-
-		bool bTooEarlyToDisconnect = (nTicks_ms - pi.m_LastActivity_ms < m_Cfg.m_TimeoutDisconnect_ms);
-
-		it->m_Next = bTooEarlyToDisconnect;
-		if (bTooEarlyToDisconnect)
-			nSelected++;
-	}
-
-	// 1st group
-	uint32_t nHighest = 0;
-	for (RawRatingSet::iterator it = m_Ratings.begin(); (nHighest < m_Cfg.m_DesiredHighest) && (nSelected < m_Cfg.m_DesiredTotal) && (m_Ratings.end() != it); it++, nHighest++)
-		ActivatePeerInternal(it->get_ParentObj(), nTicks_ms, nSelected);
-
-	// 2nd group
-	for (AdjustedRatingSet::iterator it = m_AdjustedRatings.begin(); (nSelected < m_Cfg.m_DesiredTotal) && (m_AdjustedRatings.end() != it); it++)
-		ActivatePeerInternal(it->get_ParentObj(), nTicks_ms, nSelected);
-
-	// remove excess
-	for (ActiveList::iterator it = m_Active.begin(); m_Active.end() != it; )
-	{
-		PeerInfo& pi = (it++)->get_ParentObj();
-		assert(pi.m_Active.m_Now);
-
-		if (!pi.m_Active.m_Next)
-		{
-			OnActive(pi, false);
-			DeactivatePeer(pi);
-		}
-	}
-}
-
-void PeerManager::ActivatePeerInternal(PeerInfo& pi, uint32_t nTicks_ms, uint32_t& nSelected)
-{
-	if (pi.m_Active.m_Now && pi.m_Active.m_Next)
-		return; // already selected
-
-	if (pi.m_Addr.m_Value.empty())
-		return; // current adddress unknown
-
-	if (!pi.m_Active.m_Now && (nTicks_ms - pi.m_LastActivity_ms < m_Cfg.m_TimeoutReconnect_ms))
-		return; // too early for reconnect
-
-	nSelected++;
-
-	pi.m_Active.m_Next = true;
-
-	if (!pi.m_Active.m_Now)
-	{
-		OnActive(pi, true);
-		ActivatePeer(pi);
-	}
-}
-
-void PeerManager::UpdateRatingsInternal(uint32_t t_ms)
-{
-	// calc dt in seconds, resistant to rounding
-	uint32_t dt_ms = t_ms - m_TicksLast_ms;
-	uint32_t dt_s = dt_ms / 1000;
-	if ((t_ms % 1000) < (m_TicksLast_ms % 1000))
-		dt_s++;
-
-	uint32_t rInc = dt_s * m_Cfg.m_StarvationRatioInc;
-	uint32_t rDec = dt_s * m_Cfg.m_StarvationRatioDec;
-
-	// First unban peers
-	for (RawRatingSet::reverse_iterator it = m_Ratings.rbegin(); m_Ratings.rend() != it; )
-	{
-		PeerInfo& pi = (it++)->get_ParentObj();
-		if (pi.m_RawRating.m_Value)
-			break; // starting from this - not banned
-
-		assert(!pi.m_AdjustedRating.m_Increment); // shouldn't be adjusted while banned
-
-		uint32_t dtThis_ms = t_ms - pi.m_LastActivity_ms;
-		if (dtThis_ms >= m_Cfg.m_TimeoutBan_ms)
-			ModifyRatingInternal(pi, 1, true, false);
-	}
-
-	// For inactive peers: modify adjusted ratings in-place, no need to rebuild the tree. For active (presumably lesser part) rebuild is necessary
-	for (AdjustedRatingSet::iterator it = m_AdjustedRatings.begin(); m_AdjustedRatings.end() != it; )
-	{
-		PeerInfo& pi = (it++)->get_ParentObj();
-
-		if (pi.m_Active.m_Now)
-			m_AdjustedRatings.erase(AdjustedRatingSet::s_iterator_to(pi.m_AdjustedRating));
-		else
-			Rating::Inc(pi.m_AdjustedRating.m_Increment, rInc);
-	}
-
-	for (ActiveList::iterator it = m_Active.begin(); m_Active.end() != it; it++)
-	{
-		PeerInfo& pi = it->get_ParentObj();
-		assert(pi.m_Active.m_Now);
-		assert(pi.m_RawRating.m_Value); // must not be banned (i.e. must be re-inserted into m_AdjustedRatings).
-
-		uint32_t& val = pi.m_AdjustedRating.m_Increment;
-		val = (val > rDec) ? (val - rDec) : 0;
-		m_AdjustedRatings.insert(pi.m_AdjustedRating);
-	}
-}
-
-PeerManager::PeerInfo* PeerManager::Find(const PeerID& id, bool& bCreate)
-{
-	PeerInfo::ID pid;
-	pid.m_Key = id;
-
-	PeerIDSet::iterator it = m_IDs.find(pid);
-	if (m_IDs.end() != it)
-	{
-		bCreate = false;
-		return &it->get_ParentObj();
-	}
-
-	if (!bCreate)
-		return NULL;
-
-	PeerInfo* ret = AllocPeer();
-
-	ret->m_ID.m_Key = id;
-	if (!(id == Zero))
-		m_IDs.insert(ret->m_ID);
-
-	ret->m_RawRating.m_Value = Rating::Initial;
-	m_Ratings.insert(ret->m_RawRating);
-
-	ret->m_AdjustedRating.m_Increment = 0;
-	m_AdjustedRatings.insert(ret->m_AdjustedRating);
-
-	ret->m_Active.m_Now = false;
-	ret->m_LastSeen = 0;
-	ret->m_LastActivity_ms = 0;
-
-	LOG_INFO() << *ret << " New";
-
-	return ret;
-}
-
-void PeerManager::OnSeen(PeerInfo& pi)
-{
-	pi.m_LastSeen = getTimestamp();
-}
-
-void PeerManager::ModifyRating(PeerInfo& pi, uint32_t delta, bool bAdd)
-{
-	ModifyRatingInternal(pi, delta, bAdd, false);
-}
-
-void PeerManager::Ban(PeerInfo& pi)
-{
-	ModifyRatingInternal(pi, 0, false, true);
-}
-
-void PeerManager::ModifyRatingInternal(PeerInfo& pi, uint32_t delta, bool bAdd, bool ban)
-{
-	uint32_t r0 = pi.m_RawRating.m_Value;
-
-	m_Ratings.erase(RawRatingSet::s_iterator_to(pi.m_RawRating));
-	if (pi.m_RawRating.m_Value)
-		m_AdjustedRatings.erase(AdjustedRatingSet::s_iterator_to(pi.m_AdjustedRating));
-
-	if (ban)
-	{
-		pi.m_RawRating.m_Value = 0;
-		pi.m_AdjustedRating.m_Increment = 0;
-	}
-	else
-	{
-		if (bAdd)
-			Rating::Inc(pi.m_RawRating.m_Value, delta);
-		else
-			Rating::Dec(pi.m_RawRating.m_Value, delta);
-
-		assert(pi.m_RawRating.m_Value);
-		m_AdjustedRatings.insert(pi.m_AdjustedRating);
-	}
-
-	m_Ratings.insert(pi.m_RawRating);
-
-	LOG_INFO() << pi << " Rating " << r0 << " -> " << pi.m_RawRating.m_Value;
-}
-
-void PeerManager::RemoveAddr(PeerInfo& pi)
-{
-	if (!pi.m_Addr.m_Value.empty())
-	{
-		m_Addr.erase(AddrSet::s_iterator_to(pi.m_Addr));
-		pi.m_Addr.m_Value = io::Address();
-		assert(pi.m_Addr.m_Value.empty());
-	}
-}
-
-void PeerManager::ModifyAddr(PeerInfo& pi, const io::Address& addr)
-{
-	if (addr == pi.m_Addr.m_Value)
-		return;
-
-	LOG_INFO() << pi << " Address changed to " << addr;
-
-	RemoveAddr(pi);
-
-	if (addr.empty())
-		return;
-
-	PeerInfo::Addr pia;
-	pia.m_Value = addr;
-
-	AddrSet::iterator it = m_Addr.find(pia);
-	if (m_Addr.end() != it)
-		RemoveAddr(it->get_ParentObj());
-
-	pi.m_Addr.m_Value = addr;
-	m_Addr.insert(pi.m_Addr);
-	assert(!pi.m_Addr.m_Value.empty());
-}
-
-void PeerManager::OnActive(PeerInfo& pi, bool bActive)
-{
-	if (pi.m_Active.m_Now != bActive)
-	{
-		pi.m_Active.m_Now = bActive;
-		pi.m_LastActivity_ms = GetTimeNnz_ms();
-
-		if (bActive)
-			m_Active.push_back(pi.m_Active);
-		else
-			m_Active.erase(ActiveList::s_iterator_to(pi.m_Active));
-	}
-}
-
-void PeerManager::OnRemoteError(PeerInfo& pi, bool bShouldBan)
-{
-	if (bShouldBan)
-		Ban(pi);
-	else
-	{
-		uint32_t dt_ms = GetTimeNnz_ms() - pi.m_LastActivity_ms;
-		if (dt_ms < m_Cfg.m_TimeoutDisconnect_ms)
-			ModifyRating(pi, Rating::PenaltyNetworkErr, false);
-	}
-}
-
-PeerManager::PeerInfo* PeerManager::OnPeer(const PeerID& id, const io::Address& addr, bool bAddrVerified)
-{
-	if (id == Zero)
-	{
-		if (!bAddrVerified)
-			return NULL;
-
-		// find by addr
-		PeerInfo::Addr pia;
-		pia.m_Value = addr;
-
-		AddrSet::iterator it = m_Addr.find(pia);
-		if (m_Addr.end() != it)
-			return &it->get_ParentObj();
-	}
-
-	bool bCreate = true;
-	PeerInfo* pRet = Find(id, bCreate);
-
-	if (bAddrVerified || !pRet->m_Addr.m_Value.empty() || (getTimestamp() - pRet->m_LastSeen > m_Cfg.m_TimeoutAddrChange_s))
-		ModifyAddr(*pRet, addr);
-
-	return pRet;
-}
-
-void PeerManager::Delete(PeerInfo& pi)
-{
-	OnActive(pi, false);
-	RemoveAddr(pi);
-	m_Ratings.erase(RawRatingSet::s_iterator_to(pi.m_RawRating));
-
-	if (pi.m_RawRating.m_Value)
-		m_AdjustedRatings.erase(AdjustedRatingSet::s_iterator_to(pi.m_AdjustedRating));
-
-	if (!(pi.m_ID.m_Key == Zero))
-		m_IDs.erase(PeerIDSet::s_iterator_to(pi.m_ID));
-
-	DeletePeer(pi);
-}
-
-void PeerManager::Clear()
-{
-	while (!m_Ratings.empty())
-		Delete(m_Ratings.begin()->get_ParentObj());
-
-	assert(m_AdjustedRatings.empty() && m_Active.empty());
-}
-
-std::ostream& operator << (std::ostream& s, const PeerManager::PeerInfo& pi)
-{
-	s << "PI " << pi.m_ID.m_Key << "--" << pi.m_Addr.m_Value;
-	return s;
+    m_pServer = io::TcpServer::create(io::Reactor::get_Current(), addr, BIND_THIS_MEMFN(OnAccepted));
 }
 
 } // namespace proto

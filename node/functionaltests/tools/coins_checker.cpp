@@ -50,9 +50,7 @@ void CoinsChecker::InitChecker()
 
 void CoinsChecker::OnConnectedSecure()
 {
-	proto::Config msg;
-	msg.m_CfgChecksum = Rules::get().Checksum;
-	Send(msg);
+	SendLogin();
 }
 
 void CoinsChecker::OnMsg(proto::Authentication&& msg)
@@ -60,11 +58,7 @@ void CoinsChecker::OnMsg(proto::Authentication&& msg)
     proto::NodeConnection::OnMsg(std::move(msg));
 
     if (proto::IDType::Node == msg.m_IDType)
-    {
-        ECC::Scalar::Native sk;
-        DeriveKey(sk, m_Kdf, 0, KeyType::Identity);
-        ProveID(sk, proto::IDType::Owner);
-    }
+		ProveKdfObscured(*m_pKdf, proto::IDType::Owner);
 }
 
 void CoinsChecker::OnDisconnect(const DisconnectReason& reason)

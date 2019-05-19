@@ -14,196 +14,171 @@
 
 #pragma once
 
-#include "p2p/protocol.h"
-#include "p2p/connection.h"
-#include "p2p/msg_reader.h"
-#include "keystore.h"
-#include "utility/bridge.h"
 #include "utility/logger.h"
 #include "core/proto.h"
 #include "utility/io/timer.h"
 #include <boost/intrusive/set.hpp>
+#include <boost/intrusive/list.hpp>
 #include "wallet.h"
 
 namespace beam
 {
     namespace bi = boost::intrusive;
 
-    enum WalletNetworkMessageCodes : uint8_t
+    class BaseMessageEndpoint
+        : public IWalletMessageEndpoint
     {
-        senderInvitationCode     = 100,
-        senderConfirmationCode   ,
-        receiverConfirmationCode ,
-        receiverRegisteredCode   ,
-        failedCode,
-        setTxParameterCode
+        struct Addr
+        {
+            struct Wid :public boost::intrusive::set_base_hook<> {
+                uint64_t m_OwnID;
+                bool operator < (const Wid& x) const { return m_OwnID < x.m_OwnID; }
+                IMPLEMENT_GET_PARENT_OBJ(Addr, m_Wid)
+            } m_Wid;
+
+            struct Channel :public boost::intrusive::set_base_hook<> {
+                BbsChannel m_Value;
+                bool operator < (const Channel& x) const { return m_Value < x.m_Value; }
+                IMPLEMENT_GET_PARENT_OBJ(Addr, m_Channel)
+            } m_Channel;
+
+            bool IsExpired() const
+            {
+                return getTimestamp() > m_ExpirationTime;
+            }
+
+            ECC::Scalar::Native m_sk; // private addr
+            PeerID m_Pk; // self public addr
+            Timestamp m_ExpirationTime;
+        };
+    public:
+        BaseMessageEndpoint(IWallet&, const IWalletDB::Ptr&);
+        virtual ~BaseMessageEndpoint();
+        void AddOwnAddress(const WalletAddress& address);
+        void DeleteOwnAddress(uint64_t ownID);
+    protected:
+        void ProcessMessage(BbsChannel channel, const ByteBuffer& msg);
+        void Subscribe();
+        void Unsubscribe();
+        virtual void OnChannelAdded(BbsChannel channel) {};
+        virtual void OnChannelDeleted(BbsChannel channel) {};
+        virtual void OnIncomingMessage() {};
+    private:
+        void DeleteAddr(const Addr&);
+        bool IsSingleChannelUser(const Addr::Channel&);
+
+        // IWalletMessageEndpoint
+        void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) override;
+        void AddOwnAddress(uint64_t ownID, BbsChannel, Timestamp expirationTime, const WalletID& walletID);
+        void OnAddressTimer();
+        
+    private:
+        typedef bi::multiset<Addr::Wid> WidSet;
+        WidSet m_Addresses;
+
+        typedef  bi::multiset<Addr::Channel> ChannelSet;
+        ChannelSet m_Channels;
+
+        IWallet& m_Wallet;
+        IWalletDB::Ptr m_WalletDB;
+        io::Timer::Ptr m_AddressExpirationTimer;
     };
 
-    inline uint32_t channel_from_wallet_id(const WalletID& walletID) {
-        // TODO to be reviewed, 32 channels
-        return walletID.m_pData[0] >> 3;
-    }
-
-    class WalletNetworkIO : public IErrorHandler
-                          , public NetworkIOBase
+    class WalletNetworkViaBbs
+        : public BaseMessageEndpoint
+        , private IWalletDbObserver
     {
-        using ConnectCallback = std::function<void()>;
-    public:
+        std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
+        IWalletDB::Ptr m_WalletDB;
 
-
-        WalletNetworkIO(io::Address node_address
-                      , IKeyChain::Ptr keychain
-                      , IKeyStore::Ptr keyStore
-                      , io::Reactor::Ptr reactor = io::Reactor::Ptr()
-                      , unsigned reconnect_ms = 1000 // 1 sec
-                      , unsigned sync_period_ms = 20 * 1000);  // 20 sec
-
-        virtual ~WalletNetworkIO();
-
-        void start();
-        void stop();
-
-        void add_wallet(const WalletID& walletID);
-
-    private:
-        // INetworkIO
-        void send_tx_message(const WalletID& to, wallet::SetTxParameter&&) override;
-
-        void send_node_message(proto::NewTransaction&&) override;
-        void send_node_message(proto::GetProofUtxo&&) override;
-        void send_node_message(proto::GetHdr&&) override;
-        void send_node_message(proto::GetMined&&) override;
-        void send_node_message(proto::GetProofState&&) override;
-        void send_node_message(proto::GetProofKernel&&) override;
-
-		void set_node_address(io::Address node_address) override;
-
-        //void close_connection(const WalletID& id) override;
-        void connect_node() override;
-        void close_node_connection() override;
-
-        void new_own_address(const WalletID& address) override;
-        void address_deleted(const WalletID& address) override;
-
-        // IMsgHandler
-        void on_protocol_error(uint64_t fromStream, ProtocolError error) override;;
-        void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override;
-
-        bool handle_decrypted_message(uint64_t timestamp, const void* buf, size_t size);
-
-        // handlers for the protocol messages
-        bool on_message(uint64_t, wallet::SetTxParameter&& msg);
-
-        void start_sync_timer();
-        void on_sync_timer();
-        void on_close_connection_timer();
-        void postpone_close_timer();
-        void on_node_connected();
-        void on_node_disconnected();
-
-        void create_node_connection();
-
-        template <typename T>
-        void send(const WalletID& walletID, MsgType type, T&& msg)
+        struct MyRequestBbsMsg
+            :public proto::FlyClient::RequestBbsMsg
+            ,public boost::intrusive::list_base_hook<>
         {
-            update_wallets(walletID);
-
-            uint32_t channel = channel_from_wallet_id(walletID);
-            LOG_DEBUG() << "BBS send message to channel=" << channel << "[" << to_hex(walletID.m_pData, 32) << "]  my pubkey=" << to_hex(msg.m_from.m_pData, 32);
-            proto::BbsMsg bbsMsg;
-            bbsMsg.m_Channel = channel;
-            bbsMsg.m_TimePosted = getTimestamp();
-            m_protocol.serialize(m_msgToSend, type, msg);
-
-            if (!m_keystore->encrypt(bbsMsg.m_Message, m_msgToSend, walletID)) {
-                LOG_ERROR() << "Failed to encrypt BBS message";
-            } else {
-                send_to_node(std::move(bbsMsg));
-            }
-        }
-
-        template<typename T>
-        void send_to_node(T&& msg)
-        {
-            if (!m_is_node_connected)
-            {
-                auto f = [this, msg = std::move(msg)]()
-                {
-                    m_node_connection->Send(msg);
-                };
-                m_node_connect_callbacks.emplace_back(std::move(f));
-                connect_node();
-            }
-            else
-            {
-                postpone_close_timer();
-                m_node_connection->Send(msg);
-            }
-        }
-
-        void update_wallets(const WalletID& walletID);
-
-        void listen_to_bbs_channel(const WalletID& walletID);
-
-        bool handle_bbs_message(proto::BbsMsg&& msg);
-
-        void reset_connection();
-
-        class WalletNodeConnection : public proto::NodeConnection
-        {
-        public:
-            using NodeConnectCallback = std::function<void()>;
-            WalletNodeConnection(const io::Address& address, IWallet& wallet, io::Reactor::Ptr reactor, unsigned reconnectMsec, WalletNetworkIO& io);
-            void connect(NodeConnectCallback&& cb);
-        private:
-            // NodeConnection
-            void OnConnectedSecure() override;
-			void OnDisconnect(const DisconnectReason&) override;
-			bool OnMsg2(proto::Boolean&& msg) override;
-            bool OnMsg2(proto::ProofUtxo&& msg) override;
-			bool OnMsg2(proto::ProofState&& msg) override;
-            bool OnMsg2(proto::ProofKernel&& msg) override;
-			bool OnMsg2(proto::NewTip&& msg) override;
-            bool OnMsg2(proto::Mined&& msg) override;
-            bool OnMsg2(proto::BbsMsg&& msg) override;
-			bool OnMsg2(proto::Authentication&& msg) override;
-		private:
-            io::Address m_address;
-            IWallet & m_wallet;
-            std::vector<NodeConnectCallback> m_callbacks;
-            bool m_connecting;
-            io::Timer::Ptr m_timer;
-            unsigned m_reconnectMsec;
-            WalletNetworkIO& m_io;
+            typedef boost::intrusive_ptr<MyRequestBbsMsg> Ptr;
+            virtual ~MyRequestBbsMsg() {}
         };
 
+        typedef boost::intrusive::list<MyRequestBbsMsg> BbsMsgList;
+        BbsMsgList m_PendingBbsMsgs;
+
+        void DeleteReq(MyRequestBbsMsg& r);
+
+        struct BbsSentEvt
+            :public proto::FlyClient::Request::IHandler
+            ,public proto::FlyClient::IBbsReceiver
+        {
+            virtual void OnComplete(proto::FlyClient::Request&) override;
+            virtual void OnMsg(proto::BbsMsg&&) override;
+            IMPLEMENT_GET_PARENT_OBJ(WalletNetworkViaBbs, m_BbsSentEvt)
+        } m_BbsSentEvt;
+
+        void OnMsg(const proto::BbsMsg&);
+
+        std::unordered_map<BbsChannel, Timestamp> m_BbsTimestamps;
+        io::Timer::Ptr m_pTimerBbsTmSave;
+        void OnTimerBbsTmSave();
+        void SaveBbsTimestamps();
+
+        struct Miner
+        {
+            // message mining
+            std::vector<std::thread> m_vThreads;
+            std::mutex m_Mutex;
+            std::condition_variable m_NewTask;
+
+            volatile bool m_Shutdown;
+            io::AsyncEvent::Ptr m_pEvt;
+
+            struct Task
+            {
+                proto::BbsMsg m_Msg;
+                ECC::Hash::Processor m_hpPartial;
+                volatile bool m_Done;
+
+                typedef std::shared_ptr<Task> Ptr;
+            };
+
+            typedef std::deque<Task::Ptr> TaskQueue;
+
+            TaskQueue m_Pending;
+            TaskQueue m_Done;
+
+            Miner() :m_Shutdown(false) {}
+            ~Miner() { Stop(); }
+
+            void Stop();
+            void Thread(uint32_t);
+
+        } m_Miner;
+
+        void OnMined();
+        void OnMined(proto::BbsMsg&&);
+
+    public:
+
+        WalletNetworkViaBbs(IWallet&, std::shared_ptr<proto::FlyClient::INetwork>, const IWalletDB::Ptr&);
+        virtual ~WalletNetworkViaBbs();
+
+        bool m_MineOutgoing = true; // can be turned-off for testing
+
     private:
+        void OnChannelAdded(BbsChannel channel) override;
+        void OnChannelDeleted(BbsChannel channel) override;
+        // IWalletMessageEndpoint
+        void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override;
+        void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
+    };
 
-        Protocol m_protocol;
-        MsgReader m_msgReader;
-        WalletID m_walletID;
-        io::Address m_node_address;
-        io::Reactor::Ptr m_reactor;
-        IKeyChain::Ptr m_keychain;
-
-        std::set<WalletID> m_wallets;
-
-        bool m_is_node_connected;
-        io::Reactor::Scope m_reactor_scope;
-        unsigned m_reconnect_ms;
-        unsigned m_sync_period_ms;
-        unsigned m_close_timeout_ms;
-        std::unique_ptr<WalletNodeConnection> m_node_connection;
-        SerializedMsg m_msgToSend;
-        io::Timer::Ptr m_sync_timer;
-        io::Timer::Ptr m_close_timer;
-
-        std::vector<ConnectCallback> m_node_connect_callbacks;
-
-        // channel# -> last message time
-        std::map<uint32_t, uint64_t> m_bbs_timestamps;
-        IKeyStore::Ptr m_keystore;
-        std::set<PubKey> m_myPubKeys;
-        const WalletID* m_lastReceiver;
+    class ColdWalletMessageEndpoint
+        : public BaseMessageEndpoint
+    {
+    public:
+        ColdWalletMessageEndpoint(IWallet& wallet, IWalletDB::Ptr walletDB);
+        ~ColdWalletMessageEndpoint();
+    private:
+        void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) override;
+    private:
+        IWalletDB::Ptr m_WalletDB;
     };
 }

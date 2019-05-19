@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "p2p/http_connection.h"
-#include "p2p/http_msg_creator.h"
+#include "http/http_connection.h"
+#include "http/http_msg_creator.h"
 #include "utility/io/tcpserver.h"
 #include "utility/io/coarsetimer.h"
 #include "utility/helpers.h"
@@ -26,25 +26,9 @@ struct IAdapter;
 
 class Server {
 public:
-    Server(IAdapter& adapter, io::Reactor& reactor, io::Address bindAddress, const std::string& keysFileName);
+    Server(IAdapter& adapter, io::Reactor& reactor, io::Address bindAddress, const std::string& keysFileName, const std::vector<uint32_t>& whitelist);
 
 private:
-    /*
-    class AccessControl {
-    public:
-        explicit AccessControl(const std::string& keysFileName);
-
-        bool check(const std::string_view& mask, const std::string_view& nonce, const std::string_view& hash);
-
-        void refresh();
-    private:
-        bool _enabled;
-        std::string _keysFileName;
-        time_t _lastModified;
-        std::map<std::string, std::string> _keys;
-    };
-     */
-
     class IPAccessControl {
     public:
         explicit IPAccessControl(const std::string& ipsFileName);
@@ -82,6 +66,7 @@ private:
     io::SerializedMsg _body;
     //AccessControl _acl;
     IPAccessControl _acl;
+    std::vector<uint32_t> _whitelist;
 };
 
 }} //namespaces

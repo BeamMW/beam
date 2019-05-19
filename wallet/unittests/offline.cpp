@@ -14,7 +14,6 @@
 
 
 #include "util.h"
-#include "wallet/keystore.h"
 #include "wallet/wallet_network.h"
 #include "node/node.h"
 #include "utility/logger.h"
@@ -23,8 +22,8 @@
 
 namespace beam {
 
-struct KeyChainObserver : IKeyChainObserver {
-    void onKeychainChanged() {
+struct WalletDBObserver : IWalletDbObserver {
+    void onCoinsChanged() {
         LOG_DEBUG() << _who << " " << __FUNCTION__;
     }
     void onTransactionChanged(ChangeAction, std::vector<TxDescription>&& )  {
@@ -33,14 +32,11 @@ struct KeyChainObserver : IKeyChainObserver {
     void onSystemStateChanged()  {
         LOG_INFO() << _who << " " << __FUNCTION__;
     }
-    void onTxPeerChanged()  {
-        LOG_INFO() << _who << " " << __FUNCTION__;
-    }
-    void onAddressChanged()  {
+    void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)  {
         LOG_INFO() << _who << " " << __FUNCTION__;
     }
 
-    KeyChainObserver(std::string who) : _who(std::move(who)) {}
+    WalletDBObserver(std::string who) : _who(std::move(who)) {}
 
     std::string _who;
 };
@@ -51,10 +47,10 @@ struct WaitHandle {
 };
 
 struct WalletParams {
-    IKeyChain::Ptr keychain;
-    IKeyStore::Ptr keystore;
+    IWalletDB::Ptr walletDB;
     io::Address nodeAddress;
-    PubKey sendFrom, sendTo;
+    io::Reactor::Ptr reactor;
+	WalletID sendFrom, sendTo;
 };
 
 WaitHandle run_wallet(const WalletParams& params) {
@@ -68,24 +64,26 @@ WaitHandle run_wallet(const WalletParams& params) {
 
             bool sender = !(params.sendTo == Zero);
 
-            if (sender) {
-                TxPeer receiverPeer = {};
-//                 receiverPeer.m_walletID = sendTo;
-                params.keychain->addPeer(receiverPeer);
-            }
+//            if (sender) {
+//                TxPeer receiverPeer = {};
+////                 receiverPeer.m_walletID = sendTo;
+//                params.walletDB->addPeer(receiverPeer);
+//            }
 
-            auto wallet_io = std::make_shared<WalletNetworkIO>(params.nodeAddress, params.keychain, params.keystore, reactor);
+			Wallet wallet{ params.walletDB, [](auto) { io::Reactor::get_Current().stop(); } };
 
-            Wallet wallet{ params.keychain
-                 , wallet_io
-                 , false
-                 , [wallet_io](auto) { wallet_io->stop(); } };
+			auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(wallet);
+			nnet->m_Cfg.m_vNodes.push_back(params.nodeAddress);
+			nnet->Connect();
+
+			wallet.AddMessageEndpoint(std::make_shared<WalletNetworkViaBbs>(wallet, nnet, params.walletDB));
+			wallet.SetNodeEndpoint(nnet);
 
             if (sender) {
                 wallet.transfer_money(params.sendFrom, params.sendTo, 1000000, 100000, true);
             }
 
-            wallet_io->start();
+			io::Reactor::get_Current().run();
         }
     );
 
@@ -115,15 +113,16 @@ WaitHandle run_node(const NodeParams& params) {
             node.m_Cfg.m_Listen.ip(params.nodeAddress.ip());
             node.m_Cfg.m_MiningThreads = 1;
             node.m_Cfg.m_VerificationThreads = 1;
-            node.m_Cfg.m_WalletKey.V = params.walletSeed;
+
+			node.m_Keys.InitSingleKey(params.walletSeed);
 
             node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 500;
 
             if (!params.connectTo.empty()) {
                 node.m_Cfg.m_Connect.push_back(params.connectTo);
             } else {
-                ReadTreasury(node.m_Cfg.m_vTreasury, "_sender_");
-                LOG_INFO() << "Treasury blocs read: " << node.m_Cfg.m_vTreasury.size();
+                ReadTreasury(node.m_Cfg.m_Treasury, "_sender_");
+                LOG_INFO() << "Treasury blocs read: " << node.m_Cfg.m_Treasury.size();
             }
 
             LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
@@ -169,28 +168,22 @@ void test_offline(bool twoNodes) {
         receiverParams.nodeAddress = nodeAddress;
     }
 
-    senderParams.keychain = init_keychain("_sender", &nodeParams.walletSeed);
-    receiverParams.keychain = init_keychain("_receiver", 0);
+    senderParams.reactor = io::Reactor::create();
+    senderParams.walletDB = init_wallet_db("_sender", &nodeParams.walletSeed, senderParams.reactor);
+    receiverParams.reactor = io::Reactor::create();
+    receiverParams.walletDB = init_wallet_db("_receiver", 0, receiverParams.reactor);
 
-    static const char KS_PASSWORD[] = "carbophos";
+	WalletAddress wa = wallet::createAddress(*senderParams.walletDB);
+	senderParams.walletDB->saveAddress(wa);
+	senderParams.sendFrom = wa.m_walletID;
+    wa = wallet::createAddress(*senderParams.walletDB);
+    receiverParams.walletDB->saveAddress(wa);
+	senderParams.sendTo = wa.m_walletID;
 
-    IKeyStore::Options ksOptions;
-    ksOptions.flags = IKeyStore::Options::local_file | IKeyStore::Options::enable_all_keys;
-    ksOptions.fileName = "_sender_ks";
-    senderParams.keystore = IKeyStore::create(ksOptions, KS_PASSWORD, sizeof(KS_PASSWORD));
-    ksOptions.fileName = "_receiver_ks";
-    receiverParams.keystore = IKeyStore::create(ksOptions, KS_PASSWORD, sizeof(KS_PASSWORD));
+    WalletDBObserver senderObserver("AAAAAAAAAAAAAAAAAAAAAA"), receiverObserver("BBBBBBBBBBBBBBBBBBBBBB");
 
-    senderParams.keystore->gen_keypair(senderParams.sendFrom);
-    senderParams.keystore->save_keypair(senderParams.sendFrom, true);
-
-    receiverParams.keystore->gen_keypair(senderParams.sendTo);
-    receiverParams.keystore->save_keypair(senderParams.sendTo, true);
-
-    KeyChainObserver senderObserver("AAAAAAAAAAAAAAAAAAAAAA"), receiverObserver("BBBBBBBBBBBBBBBBBBBBBB");
-
-    senderParams.keychain->subscribe(&senderObserver);
-    receiverParams.keychain->subscribe(&receiverObserver);
+    senderParams.walletDB->subscribe(&senderObserver);
+    receiverParams.walletDB->subscribe(&receiverObserver);
 
     WaitHandle node2WH;
     if (twoNodes) {

@@ -15,7 +15,9 @@
 #include "timer.h"
 #include <assert.h>
 
-#define LOG_VERBOSE_ENABLED 0
+#ifndef LOG_VERBOSE_ENABLED
+    #define LOG_VERBOSE_ENABLED 0
+#endif
 #include "utility/logger.h"
 
 namespace beam { namespace io {
@@ -27,7 +29,7 @@ Timer::Ptr Timer::create(Reactor& reactor) {
     return timer;
 }
 
-Result Timer::start(unsigned intervalMsec, bool isPeriodic, Callback&& callback) {
+Result Timer::start(unsigned intervalMsec, bool isPeriodic, Callback callback) {
     assert(callback);
     _callback = std::move(callback);
     if (intervalMsec == unsigned(-1)) {

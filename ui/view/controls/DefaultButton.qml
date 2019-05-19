@@ -1,14 +1,12 @@
-import QtQuick 2.3
+import QtQuick 2.11
 import QtQuick.Controls 1.2
 import QtQuick.Controls.Styles 1.2
 import "."
 
 CustomButton {
-    palette.button: Style.white
-    palette.buttonText: Style.white
+    palette.button: Style.content_main
+    palette.buttonText: Style.content_main
     textOpacity: 0.1
-    width: text.width + 60
-    height: text.height + 24
 
     SFText {
         id: text
@@ -18,7 +16,7 @@ CustomButton {
         font.pixelSize: 12
         font.styleName: "Bold"; font.weight: Font.Bold
 
-        color: Style.white
+        color: Style.content_main
 
         text: parent.text
         visible: false

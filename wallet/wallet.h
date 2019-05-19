@@ -15,192 +15,292 @@
 #pragma once
 
 #include "wallet/wallet_db.h"
+#include "wallet/common.h"
 #include "wallet/wallet_transaction.h"
 #include <deque>
-#include "core/proto.h"
+#include "core/fly_client.h"
+#include "bitcoin/bitcoin_bridge.h"
 
 namespace beam
 {
-    struct IWalletObserver : IKeyChainObserver
+    class AddressExpiredException : public std::runtime_error
     {
+    public:
+        explicit AddressExpiredException()
+            : std::runtime_error("")
+        {
+        }
+
+    };
+
+    // Interface for walelt observer. 
+    struct IWalletObserver : IWalletDbObserver
+    {
+        // Callback for wallet sync progress. 
+        // @param done - number of done tasks
+        // @param total - number of total tasks
         virtual void onSyncProgress(int done, int total) = 0;
     };
 
-    struct IWallet
+    // Wallet base class. 
+    // Extends FlyClient protocol for communication with own or remote node
+    struct IWallet : public proto::FlyClient
     {
         using Ptr = std::shared_ptr<IWallet>;
         virtual ~IWallet() {}
-        // wallet to wallet responses
-        virtual void handle_tx_message(const WalletID&, wallet::SetTxParameter&&) = 0;
-
-        // node to wallet responses
-        virtual bool handle_node_message(proto::Boolean&&) = 0;
-        virtual bool handle_node_message(proto::ProofUtxo&&) = 0;
-        virtual bool handle_node_message(proto::ProofState&& msg) = 0;
-        virtual bool handle_node_message(proto::ProofKernel&& msg) = 0;
-        virtual bool handle_node_message(proto::NewTip&&) = 0;
-        virtual bool handle_node_message(proto::Mined&& msg) = 0;
-
-        virtual void abort_sync() = 0;
 
         virtual void subscribe(IWalletObserver* observer) = 0;
         virtual void unsubscribe(IWalletObserver* observer) = 0;
 
+        // TODO: Consider removing these methods from the interface
         virtual void cancel_tx(const TxID& id) = 0;
         virtual void delete_tx(const TxID& id) = 0;
 
-        virtual void set_node_address(io::Address node_address) = 0;
-        virtual void emergencyReset() = 0;
+        // Callback for receiving notifications on SBBS messages
+        virtual void OnWalletMessage(const WalletID& peerID, wallet::SetTxParameter&&) = 0;
 
-        virtual bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) = 0;
     };
 
-    struct INetworkIO 
+    // Interface for sending wallet to wallet messages
+    // Used as a base for SBBS and Cold walelt endpoints
+    struct IWalletMessageEndpoint
     {
-        using Ptr = std::shared_ptr<INetworkIO>;
-        virtual ~INetworkIO() {}
-        virtual void set_wallet(IWallet*) = 0;
-        // wallet to wallet requests
-        virtual void send_tx_message(const WalletID& to, wallet::SetTxParameter&&) = 0;
-
-        // wallet to node requests
-        virtual void send_node_message(proto::NewTransaction&&) = 0;
-        virtual void send_node_message(proto::GetProofUtxo&&) = 0;
-        virtual void send_node_message(proto::GetHdr&&) = 0;
-        virtual void send_node_message(proto::GetMined&&) = 0;
-        virtual void send_node_message(proto::GetProofState&&) = 0;
-        virtual void send_node_message(proto::GetProofKernel&&) = 0;
-        // connection control
-        //virtual void close_connection(const WalletID& id) = 0;
-        virtual void connect_node() = 0;
-        virtual void close_node_connection() = 0;
-
-        virtual void new_own_address(const WalletID& address) = 0;
-        virtual void address_deleted(const WalletID& address) = 0;
-        
-        virtual void set_node_address(io::Address node_address) = 0;
+        using Ptr = std::shared_ptr<IWalletMessageEndpoint>;
+        virtual void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) = 0;
+        virtual void SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg) = 0;
     };
 
-    class NetworkIOBase : public INetworkIO
-    {
-    protected:
-        NetworkIOBase() : m_wallet{ nullptr }
-        {
 
-        }
-        IWallet& get_wallet() const
-        {
-            assert(m_wallet);
-            return *m_wallet;
-        }
-    private:
-        void set_wallet(IWallet* wallet) override
-        {
-            m_wallet = wallet;
-            if (wallet != nullptr)
-            {
-                connect_node();
-            }
-        }
-        IWallet* m_wallet; // wallet holds reference to INetworkIO
-    };
-
-    class Wallet : public IWallet
-                 , public wallet::INegotiatorGateway
+    class Wallet
+        : public IWallet
+        , public wallet::INegotiatorGateway
     {
-        using Callback = std::function<void()>;
     public:
-        using TxCompletedAction = std::function<void(const TxID& tx_id)>;
 
-        Wallet(IKeyChain::Ptr keyChain, INetworkIO::Ptr network, bool holdNodeConnection = false, TxCompletedAction&& action = TxCompletedAction());
+        // Type definitions for callback functors
+        using TxCompletedAction = std::function<void(const TxID& tx_id)>;
+        using UpdateCompletedAction = std::function<void()>;
+
+        Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction());
         virtual ~Wallet();
 
-        TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, ByteBuffer&& message = {} );
-        TxID swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount);
-        void resume_tx(const TxDescription& tx);
-        void resume_all_tx();
+        void SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint);
+        void AddMessageEndpoint(IWalletMessageEndpoint::Ptr endpoint);
 
+        // Metods for Atomic Swaps
+        // TODO: Refactor
+        void initBitcoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, bool mainnet = false);
+        void initLitecoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, bool mainnet = false);
+        void initSwapConditions(Amount beamAmount, Amount swapAmount, wallet::AtomicSwapCoin swapCoin, bool isBeamSide);
+
+        TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {}, bool saveReceiver = false);
+        TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {}, bool saveReceiver = false);
+        TxID transfer_money(const WalletID& from, const WalletID& to, const AmountList& amountList, Amount fee = 0, const CoinIDList& coins = {}, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {}, bool saveReceiver = false);
+        TxID split_coins(const WalletID& from, const AmountList& amountList, Amount fee = 0, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {});
+        TxID swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, wallet::AtomicSwapCoin swapCoin, Amount swapAmount, bool isBeamSide = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime);
+
+
+        // Resets wallet state and rescans the blockchain from scratch
+        void Refresh();
+
+        // IWallet
+        void subscribe(IWalletObserver* observer) override;
+        void unsubscribe(IWalletObserver* observer) override;
+        void cancel_tx(const TxID& txId) override;
+        void delete_tx(const TxID& txId) override;
+        
+    private:
+        void RefreshTransactions();
+        void ResumeTransaction(const TxDescription& tx);
+        void ResumeAllTransactions();
+
+        void OnAsyncStarted() override;
+        void OnAsyncFinished() override;
         void on_tx_completed(const TxID& txID) override;
 
         void confirm_outputs(const std::vector<Coin>&) override;
-        void confirm_kernel(const TxID&, const TxKernel&) override;
+        void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, wallet::SubTxID subTxID) override;
+        void get_kernel(const TxID&, const Merkle::Hash& kernelID, wallet::SubTxID subTxID) override;
         bool get_tip(Block::SystemState::Full& state) const override;
-        bool isTestMode() const override;
         void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override;
-        void register_tx(const TxID& txId, Transaction::Ptr) override;
+        void register_tx(const TxID& txId, Transaction::Ptr, wallet::SubTxID subTxID) override;
+        void UpdateOnNextTip(const TxID&) override;
+        wallet::SecondSide::Ptr GetSecondSide(const TxID& txId) const override;
 
-        void handle_tx_message(const WalletID&, wallet::SetTxParameter&&) override;
+        void OnWalletMessage(const WalletID& peerID, wallet::SetTxParameter&&) override;
 
-        bool handle_node_message(proto::Boolean&& res) override;
-        bool handle_node_message(proto::ProofUtxo&& proof) override;
-        bool handle_node_message(proto::ProofState&& msg) override;
-        bool handle_node_message(proto::ProofKernel&& msg) override;
-        bool handle_node_message(proto::NewTip&& msg) override;
-        bool handle_node_message(proto::Mined&& msg) override;
+        // FlyClient
+        void OnNewTip() override;
+        void OnTipUnchanged() override;
+        void OnRolledBack() override;
+        void get_Kdf(Key::IKdf::Ptr&) override;
+        Block::SystemState::IHistory& get_History() override;
+        void OnOwnedNode(const PeerID&, bool bUp) override;
 
-        void abort_sync() override;
-
-        void subscribe(IWalletObserver* observer) override;
-        void unsubscribe(IWalletObserver* observer) override;
-
-        void handle_tx_registered(const TxID& txId, bool res);
-
-        void cancel_tx(const TxID& txId) override;
-        void delete_tx(const TxID& txId) override;
-
-        void set_node_address(io::Address node_address) override;
-        void emergencyReset() override;
-        bool get_IdentityKeyForNode(ECC::Scalar::Native&, const PeerID& idNode) override;
-
-    private:
-
-        void getUtxoProofs(const std::vector<Coin>& coins);
-        void do_fast_forward();
-        void enter_sync();
-        bool exit_sync();
-        void report_sync_progress();
-        bool close_node_connection();
-        void notifySyncProgress();
-        void resetSystemState();
-        void updateTransaction(const TxID& txID);
-
-        virtual bool IsTestMode() const { return false; }
-
-        template <typename Message>
-        void send_tx_message(const TxDescription& txDesc, Message&& msg)
+        struct RequestHandler
+            : public proto::FlyClient::Request::IHandler
         {
-            msg.m_from = txDesc.m_myId;
-            m_network->send_tx_message(txDesc.m_peerId, std::move(msg));
-        }
+            virtual void OnComplete(Request&) override;
+            IMPLEMENT_GET_PARENT_OBJ(Wallet, m_RequestHandler)
+        } m_RequestHandler;
+
+        uint32_t SyncRemains() const;
+        void CheckSyncDone();
+        void getUtxoProof(const Coin::ID&);
+        void report_sync_progress();
+        void notifySyncProgress();
+        void updateTransaction(const TxID& txID);
+        void UpdateOnSynced(wallet::BaseTransaction::Ptr tx);
+        void UpdateOnNextTip(wallet::BaseTransaction::Ptr tx);
+        void saveKnownState();
+        void RequestUtxoEvents();
+        void AbortUtxoEvents();
+        void ProcessUtxoEvent(const proto::UtxoEvent&);
+        void SetUtxoEventsHeight(Height);
+        Height GetUtxoEventsHeightNext();
 
         wallet::BaseTransaction::Ptr getTransaction(const WalletID& myID, const wallet::SetTxParameter& msg);
         wallet::BaseTransaction::Ptr constructTransaction(const TxID& id, wallet::TxType type);
+        void ProcessStoredMessages();
+        bool IsNodeInSync() const;
 
     private:
 
-        struct StateFinder;
+        static const char s_szNextUtxoEvt[];
 
-        IKeyChain::Ptr m_keyChain;
-        INetworkIO::Ptr m_network;
-        std::map<TxID, wallet::BaseTransaction::Ptr> m_transactions;
-        std::set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
-        TxCompletedAction m_tx_completed_action;
-        std::deque<std::pair<TxID, Transaction::Ptr>> m_reg_requests;
-        std::vector<std::pair<TxID, Transaction::Ptr>> m_pending_reg_requests;
-        std::deque<Coin> m_pendingUtxoProofs;
-        std::set<uint64_t> m_PendingUtxoUnique;
-        std::deque<wallet::BaseTransaction::Ptr> m_pendingKernelProofs;
-        std::vector<Callback> m_pendingEvents;
+        struct SwapConditions
+        {
+            Amount beamAmount = 0;
+            Amount swapAmount = 0;
+            wallet::AtomicSwapCoin swapCoin;
+            bool isBeamSide = 0;
 
-        Block::SystemState::Full m_newState;
-        Block::SystemState::ID m_knownStateID;
-        std::unique_ptr<StateFinder> m_stateFinder;
+            bool operator== (const SwapConditions& other)
+            {
+                return beamAmount == other.beamAmount &&
+                    swapAmount == other.swapAmount &&
+                    swapCoin == other.swapCoin &&
+                    isBeamSide == other.isBeamSide;
+            }
+        };
 
-        int m_syncDone;
-        int m_syncTotal;
-        bool m_synchronized;
-        bool m_holdNodeConnection;
+// The following macros define
+// Wallet to Node messages (requests) to get update on blockchain state
+// These messages are used during the synchronization process
+
+
+#define REQUEST_TYPES_Sync(macro) \
+        macro(Utxo) \
+        macro(Kernel) \
+        macro(UtxoEvents)
+
+        struct AllTasks {
+#define THE_MACRO(type, msgOut, msgIn) struct type { static const bool b = false; };
+            REQUEST_TYPES_All(THE_MACRO)
+#undef THE_MACRO
+        };
+
+        struct SyncTasks :public AllTasks {
+#define THE_MACRO(type) struct type { static const bool b = true; };
+            REQUEST_TYPES_Sync(THE_MACRO)
+#undef THE_MACRO
+        };
+
+        struct ExtraData :public AllTasks {
+            struct Transaction
+            {
+                TxID m_TxID;
+                wallet::SubTxID m_SubTxID = wallet::kDefaultSubTxID;
+            };
+            struct Utxo { Coin::ID m_CoinID; };
+            struct Kernel
+            {
+                TxID m_TxID;
+                wallet::SubTxID m_SubTxID = wallet::kDefaultSubTxID;
+            };
+            struct Kernel2
+            {
+                TxID m_TxID;
+                wallet::SubTxID m_SubTxID = wallet::kDefaultSubTxID;
+            };
+        };
+
+#define THE_MACRO(type, msgOut, msgIn) \
+        struct MyRequest##type \
+            :public Request##type \
+            ,public boost::intrusive::set_base_hook<> \
+            ,public ExtraData::type \
+        { \
+            typedef boost::intrusive_ptr<MyRequest##type> Ptr; \
+            bool operator < (const MyRequest##type&) const; \
+            virtual ~MyRequest##type() {} \
+        }; \
+         \
+        typedef boost::intrusive::multiset<MyRequest##type> RequestSet##type; \
+        RequestSet##type m_Pending##type; \
+         \
+        void DeleteReq(MyRequest##type& r) \
+        { \
+            m_Pending##type.erase(RequestSet##type::s_iterator_to(r)); \
+            r.m_pTrg = NULL; \
+            r.Release(); \
+        } \
+        void OnRequestComplete(MyRequest##type&); \
+         \
+        void AddReq(MyRequest##type& x) \
+        { \
+            m_Pending##type.insert(x); \
+            x.AddRef(); \
+        } \
+        bool PostReqUnique(MyRequest##type& x) \
+        { \
+            if (!m_NodeEndpoint || m_Pending##type.end() != m_Pending##type.find(x)) \
+                return false; \
+            AddReq(x); \
+            m_NodeEndpoint->PostRequest(x, m_RequestHandler); \
+             \
+            if (SyncTasks::type::b) \
+                m_LastSyncTotal++; \
+            return true; \
+        }
+
+        REQUEST_TYPES_All(THE_MACRO)
+#undef THE_MACRO
+
+
+        IWalletDB::Ptr m_WalletDB; 
+        std::shared_ptr<proto::FlyClient::INetwork> m_NodeEndpoint;
+
+        // List of currently active (incomplete) transactions
+        std::map<TxID, wallet::BaseTransaction::Ptr> m_Transactions;
+
+        // List of transactions that are waiting for wallet to finish sync before tx update
+        std::unordered_set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
+
+        // List of transactions that are waiting for the next tip (new block) to arrive
+        std::unordered_set<wallet::BaseTransaction::Ptr> m_NextTipTransactionToUpdate;
+
+        // Functor for callback when transaction completed
+        TxCompletedAction m_TxCompletedAction;
+
+        // Functor for callback on completion of all async updates
+        UpdateCompletedAction m_UpdateCompleted;
+
+        // Number of tasks running during sync with Node
+        uint32_t m_LastSyncTotal;
+
+        uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
+        std::set<IWalletMessageEndpoint::Ptr> m_MessageEndpoints;
+
+        // Counter of running transaction updates. Used by Cold wallet
+        int m_AsyncUpdateCounter = 0;
+
+        // Members for Atomic Swaps
+        // TODO: Refactor this
+        IBitcoinBridge::Ptr m_bitcoinBridge;
+        IBitcoinBridge::Ptr m_litecoinBridge;
+        std::vector<SwapConditions> m_swapConditions;
     };
 }

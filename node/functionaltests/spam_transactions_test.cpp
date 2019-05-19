@@ -48,7 +48,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[], int h)
 
 void TestNodeConnection::BeforeConnection(Height h)
 {
-	TxGenerator gen(m_Kdf);
+	TxGenerator gen(*m_pKdf);
 
 	Amount amount = 18000;
 
@@ -94,9 +94,6 @@ void SendData(int argc, char* argv[], int h)
 int main(int argc, char* argv[])
 {
 	int logLevel = LOG_LEVEL_DEBUG;
-#if LOG_VERBOSE_ENABLED
-	logLevel = LOG_LEVEL_VERBOSE;
-#endif
 	auto logger = Logger::create(logLevel, logLevel);
 	std::vector<std::future<void>> futures;
 
