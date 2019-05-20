@@ -109,11 +109,11 @@ namespace beam { namespace wallet
         }
     }
 
-    void LocalPrivateKeyKeeper::GenerateBulletProof(const std::vector<Key::IDV>& ids, Callback<BulletProofs>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    void LocalPrivateKeyKeeper::GenerateRangeProof(const std::vector<Key::IDV>& ids, Callback<RangeProofs>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
         try
         {
-            BulletProofs result;
+            RangeProofs result;
             Scalar::Native secretKey;
             Point commitment;
             result.reserve(ids.size());
@@ -521,23 +521,23 @@ namespace beam { namespace wallet
             {
                 if (!builder.GetOutputCoins().empty())
                 {
-                    //if (m_OutputsFuture.valid())
-                    //{
-                    //    return;
-                    //}
-                    //m_OutputsFuture = DoThreadAsync(
-                    //    [sharedBuilder]()
-                    //    {
-                    //        sharedBuilder->CreateOutputs();
-                    //    },
-                    //    [sharedBuilder]()
-                    //    {
-                    //        if (!sharedBuilder->FinalizeOutputs())
-                    //        {
-                    //            //TODO: transaction is too big :(
-                    //        }
-                    //    });
-                    builder.CreateOutputs();
+                    if (m_OutputsFuture.valid())
+                    {
+                        return;
+                    }
+                    m_OutputsFuture = DoThreadAsync(
+                        [sharedBuilder]()
+                        {
+                            sharedBuilder->CreateOutputs();
+                        },
+                        [sharedBuilder]()
+                        {
+                            if (!sharedBuilder->FinalizeOutputs())
+                            {
+                                //TODO: transaction is too big :(
+                            }
+                        });
+                    //builder.CreateOutputs();
                     return;
                 }
             }
@@ -962,23 +962,47 @@ namespace beam { namespace wallet
             m_Outputs.emplace_back(move(output));
         }
 
-        auto thisHolder = shared_from_this();
-        m_Tx.GetKeyKeeper()->GenerateKey(m_OutputCoins, true,
-            [thisHolder, this](const auto & result)
-            {
-                m_Outputs.reserve(result.size());
-                for (const auto& commitment : result)
-                {
-                    auto& output = m_Outputs.emplace_back(make_unique<Output>());
-                    output->m_Commitment = commitment;
-                }
-                //FinalizeOutputs();
-                //m_Tx.Update();
-            },
-            [thisHolder, this](const exception&)
-            {
-                //m_Tx.Update();
-            });
+        //auto thisHolder = shared_from_this();
+        //m_Tx.GetKeyKeeper()->GenerateKey(m_OutputCoins, true,
+        //    [thisHolder, this](auto& result)
+        //    {
+        //        m_Outputs.reserve(result.size());
+        //        for (const auto& commitment : result)
+        //        {
+        //            auto& output = m_Outputs.emplace_back(make_unique<Output>());
+        //            output->m_Commitment = commitment;
+        //        }
+
+        //        m_Tx.GetKeyKeeper()->GenerateRangeProof(m_OutputCoins,
+        //            [thisHolder, this](auto & result)
+        //            {
+        //                if (result.size() != m_Outputs.size())
+        //                {
+        //                    return;
+        //                }
+
+        //                for (size_t i = 0; i < result.size(); ++i)
+        //                {
+        //                    m_Outputs[i]->m_pConfidential = move(result[i]);
+        //                }
+
+
+        //                FinalizeOutputs();
+        //                m_Tx.Update();
+        //            },
+        //            [thisHolder, this](const exception&)
+        //            {
+        //                //m_Tx.Update();
+        //            });
+
+        //        //FinalizeOutputs();
+        //        //m_Tx.Update();
+        //    },
+        //    [thisHolder, this](const exception&)
+        //    {
+        //        //m_Tx.Update();
+        //    });
+        
     }
 
     bool TxBuilder::FinalizeOutputs()

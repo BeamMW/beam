@@ -48,13 +48,13 @@ namespace beam { namespace wallet
         using Ptr = std::shared_ptr<IPrivateKeyKeeper>;
 
         template<typename R>
-        using Callback = std::function<void(const R&)>;
-        using ExceptionCallback = Callback<std::exception>;
+        using Callback = std::function<void(R&)>;
+        using ExceptionCallback = Callback<const std::exception>;
         using PublicKeys = std::vector<ECC::Point>;
-        using BulletProofs = std::vector<std::unique_ptr<ECC::RangeProof::Confidential>>;
+        using RangeProofs = std::vector<std::unique_ptr<ECC::RangeProof::Confidential>>;
 
         virtual void GenerateKey(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) = 0;
-        virtual void GenerateBulletProof(const std::vector<Key::IDV>& ids, Callback<BulletProofs>&&, ExceptionCallback&&) = 0;
+        virtual void GenerateRangeProof(const std::vector<Key::IDV>& ids, Callback<RangeProofs>&&, ExceptionCallback&&) = 0;
     };
 
 
@@ -64,7 +64,7 @@ namespace beam { namespace wallet
         LocalPrivateKeyKeeper(Key::IKdf::Ptr kdf);
     private:
         void GenerateKey(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
-        void GenerateBulletProof(const std::vector<Key::IDV>& ids, Callback<BulletProofs>&&, ExceptionCallback&&) override;
+        void GenerateRangeProof(const std::vector<Key::IDV>& ids, Callback<RangeProofs>&&, ExceptionCallback&&) override;
     private:
         ECC::uintBig GetSeedKid(Key::IPKdf& tagKdf, const ECC::Point& commitment) const;
         Key::IKdf::Ptr GetChildKdf(Key::Index iKdf) const;
