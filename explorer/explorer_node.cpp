@@ -19,7 +19,7 @@ using namespace beam;
 using namespace std;
 
 #define LOG_FILES_DIR "logs"
-#define FILES_PREFIX "explorer-node_"
+#define FILES_PREFIX "explorer-node"
 #define API_PORT_PARAMETER "api_port"
 
 struct Options {
@@ -129,7 +129,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
         vm.notify();
 
         o.logCleanupPeriod = vm[cli::LOG_CLEANUP_DAYS].as<uint32_t>() * 24 * 3600;
-        o.nodeDbFilename = FILES_PREFIX "db";
+        o.nodeDbFilename = FILES_PREFIX ".db";
         //o.accessControlFile = "api.keys";
 
         o.nodeConnectTo = vm[cli::NODE_PEER].as<string>();
