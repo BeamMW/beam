@@ -404,8 +404,8 @@ Rectangle {
                                     CustomComboBox {
                                         id: lockTimeoutControl
                                         Layout.fillWidth: true
+                                        Layout.alignment: Qt.AlignRight | Qt.AlignTop
                                         height: 20
-                                        anchors.top: parent.top
 
                                         currentIndex: viewModel.lockTimeout
 
@@ -451,8 +451,7 @@ Rectangle {
                                         id: language
                                         Layout.fillWidth: true
                                         height: 20
-                                        Layout.alignment: Qt.AlignRight
-                                        anchors.top: parent.top
+                                        Layout.alignment: Qt.AlignRight | Qt.AlignTop
 
                                         model: viewModel.supportedLanguages
                                         currentIndex: viewModel.currentLanguageIndex
