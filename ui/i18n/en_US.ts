@@ -99,7 +99,7 @@
         <source>Local node port</source>
         <translation>Local node port</translation>
     </message>
-    <message id="settings-local-node-peers">
+    <message id="settings-peers">
         <source>Peers</source>
         <translation>Peers</translation>
     </message>
@@ -1238,6 +1238,10 @@
     <message id="start-create-open-button">
         <source>open my wallet</source>
         <translation>open my wallet</translation>
+    </message>
+    <message id="settings-peers-add-button">
+        <source>Add</source>
+        <translation>Add</translation>
     </message>
 </context>
 </TS>

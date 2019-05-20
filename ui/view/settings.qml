@@ -206,7 +206,7 @@ Rectangle {
                                     SFText {
                                         Layout.topMargin: 5
                                         //% "Peers"
-                                        text: qsTrId("settings-local-node-peers")
+                                        text: qsTrId("settings-peers")
                                         color: localNodeRun.checked ? Style.content_main : Style.content_disabled
                                         font.pixelSize: 12
                                         font.styleName: "Bold"; font.weight: Font.Bold
@@ -232,7 +232,8 @@ Rectangle {
                                             Layout.minimumWidth: 70
                                             leftPadding: 20
                                             rightPadding: 20
-                                            text: "Add"
+                                            //% "Add"
+                                            text: qsTrId("settings-peers-add-button")
                                             palette.button: Style.background_button
                                             palette.buttonText : localNodeRun.checked ? Style.content_main : Style.content_disabled
                                             enabled: newLocalNodePeer.acceptableInput && localNodeRun.checked

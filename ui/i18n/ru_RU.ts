@@ -127,7 +127,7 @@
         <source>Local node port</source>
         <translation>Порт локального узла</translation>
     </message>
-    <message id="settings-local-node-peers">
+    <message id="settings-peers">
         <source>Peers</source>
         <translation>Пиры</translation>
     </message>
@@ -1238,6 +1238,10 @@
     <message id="start-create-open-button">
         <source>open my wallet</source>
         <translation>открыть кошелек</translation>
+    </message>
+    <message id="settings-peers-add-button">
+        <source>Add</source>
+        <translation>Добавить</translation>
     </message>
 </context>
 </TS>

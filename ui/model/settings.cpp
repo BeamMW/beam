@@ -216,23 +216,14 @@ QString WalletSettings::getLocale() const
         savedLocale = m_data.value(kLocaleName).toString();
     }
 
-    if (savedLocale.isEmpty())
-    {
-        auto systemLocale = QLocale::system().name();
-        const auto& it = kSupportedLangs.find(systemLocale);
-        if (it != kSupportedLangs.end())
-        {
-            return systemLocale;
-        }
-    }
-    else
-    {
+    if (!savedLocale.isEmpty()) {
         const auto& it = kSupportedLangs.find(savedLocale);
         if (it != kSupportedLangs.end())
         {
             return savedLocale;
         }
     }
+
     return QString::fromUtf8(kDefaultLocale);
 }
 
