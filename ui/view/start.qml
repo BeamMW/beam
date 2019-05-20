@@ -1565,6 +1565,10 @@ Item
 
                 color: Style.background_main
 
+                Keys.onPressed: {
+                    viewModel.checkCapsLock();
+                }
+
                 Image {
                     fillMode: Image.PreserveAspectCrop
                     anchors.fill: parent
@@ -1627,7 +1631,6 @@ Item
                             echoMode: TextInput.Password
                             onAccepted: btnCurrentWallet.clicked()
                             onTextChanged: if (openPassword.text.length > 0) openPasswordError.text = ""
-
                         }
 
                         SFText {
@@ -1674,8 +1677,39 @@ Item
 
                     Item {
                         Layout.fillHeight: true
-                        Layout.minimumHeight: 65
-                        Layout.maximumHeight: 65
+                        Layout.minimumHeight: 20
+                        Layout.maximumHeight: 20
+                    }
+                    Item {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 36
+                        Layout.maximumHeight: 36
+                        Rectangle {
+                            id: capsWarning
+                            anchors.centerIn: parent
+                            color: Style.caps_warning
+                            width: 152
+                            height: 36
+                            radius: 6
+                            opacity: 0.2
+                            visible: viewModel.isCapsLockOn    
+                        }
+                        SFText {
+                            anchors.centerIn: capsWarning
+                            horizontalAlignment: Qt.AlignHCenter
+                            verticalAlignment: Qt.AlignVCenter
+                            //% "Caps lock is on!"
+                            text: qsTrId("start-open-caps-warning")
+                            color: Style.content_main
+                            font.pixelSize: 14
+                            visible: viewModel.isCapsLockOn 
+                        }
+                    }
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 9
+                        Layout.maximumHeight: 6
                     }
 
                     Row {

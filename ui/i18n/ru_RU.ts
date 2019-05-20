@@ -1243,5 +1243,9 @@
         <source>Add</source>
         <translation>Добавить</translation>
     </message>
+    <message id="start-open-caps-warning">
+        <source>Caps lock is on!</source>
+        <translation>Включен CapsLock!</translation>
+    </message>
 </context>
 </TS>

@@ -1243,5 +1243,9 @@
         <source>Add</source>
         <translation>Add</translation>
     </message>
+    <message id="start-open-caps-warning">
+        <source>Caps lock is on!</source>
+        <translation>Caps lock is on!</translation>
+    </message>
 </context>
 </TS>

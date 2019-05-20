@@ -89,6 +89,7 @@ class StartViewModel : public QObject
     Q_PROPERTY(QString remoteNodeAddress READ getRemoteNodeAddress CONSTANT)
     Q_PROPERTY(QString localNodePeer READ getLocalNodePeer CONSTANT)
     Q_PROPERTY(QQmlListProperty<WalletDBPathItem> walletDBpaths READ getWalletDBpaths CONSTANT)
+    Q_PROPERTY(bool isCapsLockOn READ isCapsLockOn NOTIFY capsLockStateMayBeChanged)
 
 public:
 
@@ -107,6 +108,7 @@ public:
     QString getRemoteNodeAddress() const;
     QString getLocalNodePeer() const;
     QQmlListProperty<WalletDBPathItem> getWalletDBpaths();
+    bool isCapsLockOn() const;
 
     Q_INVOKABLE void setupLocalNode(int port, const QString& localNodePeer);
     Q_INVOKABLE void setupRemoteNode(const QString& nodeAddress);
@@ -125,6 +127,7 @@ public:
     Q_INVOKABLE QString selectCustomWalletDB();
     Q_INVOKABLE QString defaultPortToListen() const;
     Q_INVOKABLE QString defaultRemoteNodeAddr() const;
+    Q_INVOKABLE void checkCapsLock();
 
 signals:
     void walletExistsChanged();
@@ -132,6 +135,7 @@ signals:
     void recoveryPhrasesChanged();
     void checkPhrasesChanged();
     void isRecoveryModeChanged();
+    void capsLockStateMayBeChanged();
 
 public slots:
     bool createWallet();
