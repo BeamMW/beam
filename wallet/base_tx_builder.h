@@ -21,10 +21,6 @@
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
-#if defined(BEAM_HW_WALLET)
-#include "hw_wallet.h"
-#endif
-
 namespace beam::wallet
 {
     class BaseTransaction;
@@ -112,9 +108,5 @@ namespace beam::wallet
         ECC::Signature::MultiSig m_MultiSig;
 
         mutable boost::optional<Merkle::Hash> m_KernelID;
-
-#if defined(BEAM_HW_WALLET)
-        HWWallet m_hwWallet;
-#endif
     };
 }
