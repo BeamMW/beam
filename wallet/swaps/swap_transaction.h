@@ -84,6 +84,7 @@ namespace beam::wallet
         void NotifyFailure(TxFailureReason) override;
         void OnFailed(TxFailureReason reason, bool notify) override;
         bool CheckExpired() override;
+        bool CheckExternalFailures() override;
         void SendInvitation();
         void SendExternalTxDetails();
         void SendLockTxInvitation(const LockTxBuilder& lockBuilder);

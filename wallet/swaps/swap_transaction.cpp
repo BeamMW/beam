@@ -39,6 +39,11 @@ namespace beam::wallet
     {
         try
         {
+            if (CheckExternalFailures())
+            {
+                return;
+            }
+
             UpdateImpl();
 
             CheckExpired();
@@ -364,7 +369,11 @@ namespace beam::wallet
         {
             LOG_INFO() << GetTxID() << " Transaction cancelled.";
             // TODO roman.strilec: need to implement notification of counterparty
+            UpdateTxDescription(TxStatus::Cancelled);
+
             RollbackTx();
+
+            m_Gateway.on_tx_completed(GetTxID());
             break;
         }
 
@@ -375,39 +384,19 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::RollbackTx()
     {
-        LOG_INFO() << GetTxID() << " Transaction failed. Rollback...";
-
-        if (IsBeamSide())
-        {
-			uint8_t nRegistered = proto::TxStatus::Unspecified;
-            if (GetParameter(TxParameterID::TransactionRegistered, nRegistered, SubTxIndex::BEAM_LOCK_TX) && (proto::TxStatus::Ok == nRegistered))
-            {
-                SetNextState(State::SendingBeamRefundTX);
-                return;
-            }
-        }
-        else
-        {
-			uint8_t nRegistered = proto::TxStatus::Unspecified;
-			if (GetParameter(TxParameterID::TransactionRegistered, nRegistered, SubTxIndex::LOCK_TX) && (proto::TxStatus::Ok == nRegistered))
-            {
-                SetNextState(State::SendingRefundTX);
-                return;
-            }
-        }
-
-        // Default rollback
-        // TODO(alex.starun): check
-        UpdateTxDescription(TxStatus::Cancelled);
+        LOG_INFO() << GetTxID() << " Rollback...";
 
         GetWalletDB()->rollbackTx(GetTxID());
-        m_Gateway.on_tx_completed(GetTxID());
     }
 
-    void AtomicSwapTransaction::NotifyFailure(TxFailureReason)
+    void AtomicSwapTransaction::NotifyFailure(TxFailureReason reason)
     {
         //assert(false && "Not implemented yet.");
         LOG_DEBUG() << GetTxID() << " NotifyFailure not implemented yet.";
+
+        SetTxParameter msg;
+        msg.AddParameter(TxParameterID::FailureReason, reason);
+        SendTxParameters(std::move(msg));
     }
 
     void AtomicSwapTransaction::OnFailed(TxFailureReason reason, bool notify)
@@ -419,9 +408,78 @@ namespace beam::wallet
             NotifyFailure(reason);
         }
 
-        SetParameter(TxParameterID::FailureReason, reason, false);
+        SetParameter(TxParameterID::InternalFailureReason, reason, false);
 
-        RollbackTx();
+        State state = GetState(kDefaultSubTxID);
+        bool isBeamSide = IsBeamSide();
+
+        switch (state)
+        {
+        case State::Initial:
+        case State::Invitation:
+        {
+            break;
+        }
+        case State::BuildingBeamLockTX:
+        case State::BuildingBeamRedeemTX:
+        case State::BuildingBeamRefundTX:
+        {
+            RollbackTx();
+
+            break;
+        }
+        case State::HandlingContractTX:
+        {
+            RollbackTx();
+            
+            break;
+        }
+        case State::SendingBeamLockTX:
+        {
+            if (isBeamSide)
+            {
+                RollbackTx();
+                break;
+            }
+            else
+            {
+                assert(false && "");
+                return;
+            }
+        }
+        case State::SendingBeamRedeemTX:
+        {
+            if (isBeamSide)
+            {
+                assert(false && "");
+                return;
+            }
+            else
+            {
+                SetNextState(State::SendingRefundTX);
+                return;
+            }
+        }
+        case State::SendingRedeemTX:
+        {            
+            if (isBeamSide)
+            {
+                LOG_ERROR() << "";
+                return;
+            }
+            else
+            {
+                assert(false && "");
+                return;
+            }
+            break;
+        }
+        default:
+            return;
+        }
+
+        UpdateTxDescription(TxStatus::Failed);
+        m_Gateway.on_tx_completed(GetTxID());
     }
 
     bool AtomicSwapTransaction::CheckExpired()
@@ -440,6 +498,69 @@ namespace beam::wallet
                     OnFailed(TxFailureReason::TransactionExpired, false);
                     return true;
                 }
+            }
+        }
+        return false;
+    }
+
+    bool AtomicSwapTransaction::CheckExternalFailures()
+    {
+        TxFailureReason reason = TxFailureReason::Unknown;
+        if (GetParameter(TxParameterID::FailureReason, reason))
+        {
+            State state = GetState(kDefaultSubTxID);
+
+            switch (state)
+            {
+            case State::Initial:
+            case State::Invitation:
+            {
+                UpdateTxDescription(TxStatus::Failed);
+                m_Gateway.on_tx_completed(GetTxID());
+
+                return true;
+            }
+            case State::BuildingBeamLockTX:
+            case State::BuildingBeamRedeemTX:
+            case State::BuildingBeamRefundTX:
+            {
+                RollbackTx();
+                UpdateTxDescription(TxStatus::Failed);
+                m_Gateway.on_tx_completed(GetTxID());
+
+                return true;
+            }
+            case State::HandlingContractTX:
+            {
+                if (IsBeamSide())
+                {
+                    RollbackTx();
+                    UpdateTxDescription(TxStatus::Failed);
+                    m_Gateway.on_tx_completed(GetTxID());
+
+                    return true;
+                }
+
+                // nothing
+                break;
+            }
+            case State::SendingBeamLockTX:
+            {
+                // nothing
+                break;
+            }
+            case State::SendingBeamRedeemTX:
+            {
+                // nothing
+                break;
+            }
+            case State::SendingRedeemTX:
+            {
+                // nothing
+                break;
+            }
+            default:
+                break;
             }
         }
         return false;
@@ -943,7 +1064,7 @@ namespace beam::wallet
     {
         LOG_ERROR() << GetTxID() << "[" << subTxID << "]" << " Failed. " << GetFailureMessage(reason);
 
-        SetParameter(TxParameterID::FailureReason, reason, false, subTxID);
+        SetParameter(TxParameterID::InternalFailureReason, reason, false, subTxID);
         OnFailed(TxFailureReason::SubTxFailed, notify);
     }
 
@@ -954,7 +1075,7 @@ namespace beam::wallet
 
         if ((state == State::Initial ||
             state == State::Invitation ||
-            state == State::HandlingContractTX) && GetParameter(TxParameterID::FailureReason, reason, SubTxIndex::LOCK_TX))
+            state == State::HandlingContractTX) && GetParameter(TxParameterID::InternalFailureReason, reason, SubTxIndex::LOCK_TX))
         {
             OnSubTxFailed(reason, SubTxIndex::LOCK_TX, false);
         }

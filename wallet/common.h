@@ -316,6 +316,8 @@ namespace beam
 
             Kernel = 200,
             PreImage = 201,
+
+            InternalFailureReason = 210,
     
             State = 255
 

@@ -240,7 +240,7 @@ namespace beam::wallet
                 if (!error.empty())
                 {
                     LOG_ERROR() << m_tx.GetTxID() << "[" << subTxID << "]" << " Bridge internal error: " << error;
-                    m_tx.SetParameter(TxParameterID::FailureReason, TxFailureReason::SwapSecondSideBridgeError, false, subTxID);
+                    m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapSecondSideBridgeError, false, subTxID);
                     m_tx.UpdateAsync();
                     return;
                 }
@@ -265,7 +265,7 @@ namespace beam::wallet
 
         if (proto::TxStatus::Ok != nRegistered)
         {
-            m_tx.SetParameter(TxParameterID::FailureReason, TxFailureReason::FailedToRegister, false, subTxID);
+            m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::FailedToRegister, false, subTxID);
         }
 
         return (proto::TxStatus::Ok == nRegistered);
@@ -386,7 +386,7 @@ namespace beam::wallet
         if (!error.empty())
         {
             LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Bridge internal error: " << error;
-            m_tx.SetParameter(TxParameterID::FailureReason, TxFailureReason::SwapSecondSideBridgeError, false, SubTxIndex::LOCK_TX);
+            m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapSecondSideBridgeError, false, SubTxIndex::LOCK_TX);
             m_tx.UpdateAsync();
             return;
         }
@@ -405,7 +405,7 @@ namespace beam::wallet
         if (!error.empty())
         {
             LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Bridge internal error: " << error;
-            m_tx.SetParameter(TxParameterID::FailureReason, TxFailureReason::SwapSecondSideBridgeError, false, SubTxIndex::LOCK_TX);
+            m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapSecondSideBridgeError, false, SubTxIndex::LOCK_TX);
             m_tx.UpdateAsync();
             return;
         }
@@ -422,7 +422,7 @@ namespace beam::wallet
         if (!error.empty())
         {
             LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Bridge internal error: " << error;
-            m_tx.SetParameter(TxParameterID::FailureReason, TxFailureReason::SwapSecondSideBridgeError, false, SubTxIndex::LOCK_TX);
+            m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapSecondSideBridgeError, false, SubTxIndex::LOCK_TX);
             m_tx.UpdateAsync();
             return;
         }
@@ -439,7 +439,7 @@ namespace beam::wallet
         if (!error.empty())
         {
             LOG_ERROR() << m_tx.GetTxID() << "[" << subTxID << "]" << " Bridge internal error: " << error;
-            m_tx.SetParameter(TxParameterID::FailureReason, TxFailureReason::SwapSecondSideBridgeError, false, subTxID);
+            m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapSecondSideBridgeError, false, subTxID);
             m_tx.UpdateAsync();
             return;
         }
@@ -456,7 +456,7 @@ namespace beam::wallet
         if (!error.empty())
         {
             LOG_ERROR() << m_tx.GetTxID() << "[" << subTxID << "]" << " Bridge internal error: " << error;
-            m_tx.SetParameter(TxParameterID::FailureReason, TxFailureReason::SwapSecondSideBridgeError, false, subTxID);
+            m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapSecondSideBridgeError, false, subTxID);
             m_tx.UpdateAsync();
             return;
         }
@@ -512,7 +512,7 @@ namespace beam::wallet
         if (!error.empty())
         {
             LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Bridge internal error: " << error;
-            m_tx.SetParameter(TxParameterID::FailureReason, TxFailureReason::SwapSecondSideBridgeError, false, SubTxIndex::LOCK_TX);
+            m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapSecondSideBridgeError, false, SubTxIndex::LOCK_TX);
             m_tx.UpdateAsync();
             return;
         }
@@ -530,7 +530,7 @@ namespace beam::wallet
             {
                 LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" 
                     << " Unexpected amount, expected: " << swapAmount << ", got: " << outputAmount;
-                m_tx.SetParameter(TxParameterID::FailureReason, TxFailureReason::SwapInvalidAmount, false, SubTxIndex::LOCK_TX);
+                m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapInvalidAmount, false, SubTxIndex::LOCK_TX);
                 return;
             }
         }
@@ -546,7 +546,7 @@ namespace beam::wallet
 
         if (script != contractScript)
         {
-            m_tx.SetParameter(TxParameterID::FailureReason, TxFailureReason::SwapInvalidContract, false, SubTxIndex::LOCK_TX);
+            m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapInvalidContract, false, SubTxIndex::LOCK_TX);
             return;
         }
 
@@ -564,7 +564,7 @@ namespace beam::wallet
         if (!error.empty())
         {
             LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Bridge internal error: " << error;
-            m_tx.SetParameter(TxParameterID::FailureReason, TxFailureReason::SwapSecondSideBridgeError, false, SubTxIndex::LOCK_TX);
+            m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapSecondSideBridgeError, false, SubTxIndex::LOCK_TX);
             m_tx.UpdateAsync();
             return;
         }
