@@ -878,7 +878,6 @@ namespace beam { namespace wallet
         , m_MinHeight{0}
         , m_MaxHeight{MaxHeight}
         , m_PeerMaxHeight{ MaxHeight }
-        , m_NonceSlot{0}
     {
     }
 
