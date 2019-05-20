@@ -242,14 +242,14 @@ public:
 	};
 	virtual bool EnumViewerKeys(IKeyWalker&) { return true; }
 
-	bool Recover(Key::IDV&, const Output&);
+	bool Recover(Key::IDV&, const Output&, Height hMax);
 
 	void RescanOwnedTxos();
 
 	uint64_t FindActiveAtStrict(Height);
 
 	bool ValidateTxContext(const Transaction&); // assuming context-free validation is already performed, but 
-	bool ValidateTxWrtHeight(const Transaction&) const;
+	bool ValidateTxWrtHeight(const Transaction&);
 
 	struct GeneratedBlock
 	{

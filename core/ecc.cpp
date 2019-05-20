@@ -15,9 +15,6 @@
 #include "common.h"
 #include "ecc_native.h"
 
-#define ENABLE_MODULE_GENERATOR
-#define ENABLE_MODULE_RANGEPROOF
-
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic push
 #	pragma GCC diagnostic ignored "-Wunused-function"
@@ -26,7 +23,10 @@
 #	pragma warning (disable: 4706 4701) // assignment within conditional expression
 #endif
 
-#include "secp256k1-zkp/src/secp256k1.c"
+#include "secp256k1-zkp/src/group_impl.h"
+#include "secp256k1-zkp/src/scalar_impl.h"
+#include "secp256k1-zkp/src/field_impl.h"
+#include "secp256k1-zkp/src/hash_impl.h"
 
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
 #	pragma GCC diagnostic pop
@@ -1691,9 +1691,3 @@ namespace ECC {
 	} // namespace RangeProof
 
 } // namespace ECC
-
-// Needed for test
-void secp256k1_ecmult_gen(const secp256k1_context* pCtx, secp256k1_gej *r, const secp256k1_scalar *a)
-{
-	secp256k1_ecmult_gen(&pCtx->ecmult_gen_ctx, r, a);
-}

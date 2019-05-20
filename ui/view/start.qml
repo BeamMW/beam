@@ -39,7 +39,7 @@ Item
             SFText {
                 horizontalAlignment : Text.AlignHCenter
                 width: parent.width
-                //% "Your funds will be fully restored from the blockchain. The transaction history and your addresses are stored locally and are encrypted with your password, hence it can't be restored."
+                //% "Your funds will be fully restored from the blockchain. The transaction history and addresses are stored only locally, hence can't be restored."
                 text: qsTrId("start-restore-message-line-1")
                 color: Style.content_main
                 font.pixelSize: 14
@@ -116,6 +116,15 @@ Item
                         Layout.alignment: Qt.AlignHCenter
                         
                         spacing: 30
+
+                        CustomButton {
+                            text: qsTrId("start-back-button")
+                            icon.source: "qrc:/assets/icon-back.svg"
+                            visible: startWizzardView.depth > 1
+                            onClicked: {
+                                startWizzardView.pop();
+                            }
+                        }
 
                         PrimaryButton {
                             id: createNewWallet
@@ -395,6 +404,15 @@ Item
                         spacing: 30
 
                         CustomButton {
+                            text: qsTrId("start-back-button")
+                            icon.source: "qrc:/assets/icon-back.svg"
+                            visible: startWizzardView.depth > 1
+                            onClicked: {
+                                startWizzardView.pop();
+                            }
+                        }
+
+                        CustomButton {
                             //% "select file manually"
                             text: qsTrId("start-select-db-manual-button")
                             icon.source: "qrc:/assets/icon-folder.svg"
@@ -555,7 +573,7 @@ Item
                         PrimaryButton {
                             id: generateRecoveryPhraseButton
                             //% "generate seed phrase"
-                            text: qsTrId("start-generata-seed-phrase-button")
+                            text: qsTrId("start-generate-seed-phrase-button")
                             icon.source: "qrc:/assets/icon-recovery.svg"
                             onClicked: startWizzardView.push(generateRecoveryPhrase);
                         }

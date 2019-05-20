@@ -82,15 +82,21 @@ void NodeModel::onSyncError(beam::Node::IObserver::Error error)
     switch(error)
     {
         case Node::IObserver::Error::TimeDiffToLarge:
+        {   
             emit failedToSyncNode(
                 wallet::getWalletError(
                     proto::NodeProcessingException::Type::TimeOutOfSync));
             break;
-        case Node::IObserver::Error::EmptyPeerList:
+        }
+        case Node::IObserver::Error::Unknown:
+        {
             emit failedToStartNode(wallet::ErrorType::InternalNodeStartFailed);
             break;
+        }
         default:
+        {
             assert(false);
+        }
     }
 }
 

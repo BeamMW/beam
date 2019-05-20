@@ -124,8 +124,8 @@
         <translation>General settings</translation>
     </message>
     <message id="settings-general-lock-screen">
-        <source>Lock screen in</source>
-        <translation>Lock screen in</translation>
+        <source>Lock screen</source>
+        <translation>Lock screen</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend">
         <source>Ask password for every sending transaction</source>
@@ -407,17 +407,17 @@
         <source>Notifications view</source>
         <translation>Notifications view</translation>
     </message>
-    <message id="status-updating">
-        <source>updating</source>
-        <translation>updating</translation>
+    <message id="status-connecting">
+        <source>connecting</source>
+        <translation>connecting</translation>
     </message>
     <message id="status-online">
         <source>online</source>
         <translation>online</translation>
     </message>
-    <message id="status-connecting">
-        <source>connecting</source>
-        <translation>connecting</translation>
+    <message id="status-updating">
+        <source>updating</source>
+        <translation>updating</translation>
     </message>
     <message id="tx-details-title">
         <source>General transaction info</source>
@@ -684,8 +684,8 @@
         <translation>restore wallet</translation>
     </message>
     <message id="start-restore-message-line-1">
-        <source>Your funds will be fully restored from the blockchain. The transaction history and your addresses are stored locally and are encrypted with your password, hence it can&apos;t be restored.</source>
-        <translation>Your funds will be fully restored from the blockchain. The transaction history and your addresses are stored locally and are encrypted with your password, hence it can&apos;t be restored.</translation>
+        <source>Your funds will be fully restored from the blockchain. The transaction history and addresses are stored only locally, hence can&apos;t be restored.</source>
+        <translation>Your funds will be fully restored from the blockchain. The transaction history and addresses are stored only locally, hence can&apos;t be restored.</translation>
     </message>
     <message id="start-restore-message-line-2">
         <source>That&apos;s the final version till the future validation and process.</source>
@@ -763,7 +763,7 @@
         <source>Keep the copies of your seed phrase in a safe place</source>
         <translation>Keep the copies of your seed phrase in a safe place</translation>
     </message>
-    <message id="start-generata-seed-phrase-button">
+    <message id="start-generate-seed-phrase-button">
         <source>generate seed phrase</source>
         <translation>generate seed phrase</translation>
     </message>
@@ -871,7 +871,7 @@
         <source>Node protocol error!</source>
         <translation>Node protocol error!</translation>
     </message>
-    <message id="wallet-model-incompatible-peer">
+    <message id="wallet-model-incompatible-peer-error">
         <source>You are trying to connect to incompatible peer.</source>
         <translation>You are trying to connect to incompatible peer.</translation>
     </message>
@@ -1173,18 +1173,39 @@
     </message>
     <message id="open-login-another-button">
         <source>login to another wallet</source>
-        <translation type="unfinished"></translation>
+        <translation>login to another wallet</translation>
     </message>
-</context>
-<context>
-    <name>wallet</name>
-    <message>
-        <source>ok</source>
-        <translation type="unfinished">ok</translation>
+    <message id="appmodel-failed-time-not-synced">
+        <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
+        <translation>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</translation>
     </message>
-    <message>
+    <message id="can-not-generate-new-address-message">
         <source>You cannot generate new address. Your wallet doesn&apos;t have a master key.</source>
-        <translation type="unfinished"></translation>
+        <translation>You cannot generate new address. Your wallet doesn&apos;t have a master key.</translation>
+    </message>
+    <message id="can-not-generate-new-address-ok-button">
+        <source>ok</source>
+        <translation>ok</translation>
+    </message>
+    <message id="settings-general-language">
+        <source>Language</source>
+        <translation>Language</translation>
+    </message>
+    <message id="available-panel-where-to-buy">
+        <source>Where to buy BEAM?</source>
+        <translation>Where to buy BEAM?</translation>
+    </message>
+    <message id="open-external-open">
+        <source>open</source>
+        <translation>open</translation>
+    </message>
+    <message id="open-external-title">
+        <source>External link</source>
+        <translation>External link</translation>
+    </message>
+    <message id="open-external-message">
+        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
+        <translation>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose &quot;Cancel&quot;. You can chage your choice in app setting anytime.</translation>
     </message>
 </context>
 </TS>

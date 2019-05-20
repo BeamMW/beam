@@ -156,7 +156,7 @@
         <translation>Основные настройки</translation>
     </message>
     <message id="settings-general-lock-screen">
-        <source>Lock screen in</source>
+        <source>Lock screen</source>
         <translation>Блокировать экран</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend">
@@ -443,17 +443,17 @@
         <source>Notifications view</source>
         <translation>Оповещения</translation>
     </message>
-    <message id="status-updating">
-        <source>updating</source>
-        <translation>обновление</translation>
+    <message id="status-connecting">
+        <source>connecting</source>
+        <translation>подключение</translation>
     </message>
     <message id="status-online">
         <source>online</source>
         <translation>в сети</translation>
     </message>
-    <message id="status-connecting">
-        <source>connecting</source>
-        <translation>подключение</translation>
+    <message id="status-updating">
+        <source>updating</source>
+        <translation>обновление</translation>
     </message>
     <message id="tx-details-title">
         <source>General transaction info</source>
@@ -716,12 +716,12 @@
         <translation>восстановить кошелек</translation>
     </message>
     <message id="start-restore-message-line-1">
-        <source>Your funds will be fully restored from the blockchain. The transaction history and your addresses are stored locally and are encrypted with your password, hence it can&apos;t be restored.</source>
-        <translation>Ваши средства будут восстановлены из цепочки блоков. История ваших транзакций и ваши адреса хранятся локально, зашифрованные паролем, их восстановление невожможно</translation>
+        <source>Your funds will be fully restored from the blockchain. The transaction history and addresses are stored only locally, hence can&apos;t be restored.</source>
+        <translation>Ваши средства будут восстановлены из цепочки блоков. История ваших транзакций и ваши адреса хранятся локально, поэтому их восстановление невожможно.</translation>
     </message>
     <message id="start-restore-message-line-2">
         <source>That&apos;s the final version till the future validation and process.</source>
-        <translation type="unfinished"></translation>
+        <translation>Вы используете последнюю версию.</translation>
     </message>
     <message id="start-create-button">
         <source>create new wallet</source>
@@ -795,7 +795,7 @@
         <source>Keep the copies of your seed phrase in a safe place</source>
         <translation>Держите копию вашей контрольной фразы в надежном месте</translation>
     </message>
-    <message id="start-generata-seed-phrase-button">
+    <message id="start-generate-seed-phrase-button">
         <source>generate seed phrase</source>
         <translation>генерировать контрольную фразу</translation>
     </message>
@@ -903,7 +903,7 @@
         <source>Node protocol error!</source>
         <translation>Ошибка протокола</translation>
     </message>
-    <message id="wallet-model-incompatible-peer">
+    <message id="wallet-model-incompatible-peer-error">
         <source>You are trying to connect to incompatible peer.</source>
         <translation>Несовместимый пир</translation>
     </message>
@@ -1175,16 +1175,37 @@
         <source>Transaction ID:</source>
         <translation>Идентификатор транзакции:</translation>
     </message>
-</context>
-<context>
-    <name>wallet</name>
-    <message>
-        <source>ok</source>
-        <translation type="unfinished">ok</translation>
+    <message id="appmodel-failed-time-not-synced">
+        <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
+        <translation>Невозможно запустить локальный узел: время компьютера не синхронизированно. Проверьте настройки времени и перезапустите кошелек.</translation>
     </message>
-    <message>
+    <message id="can-not-generate-new-address-message">
         <source>You cannot generate new address. Your wallet doesn&apos;t have a master key.</source>
-        <translation type="unfinished"></translation>
+        <translation>Вы не можете сгенерировать новый адрес. В кошельке отсутствует мастер-ключ</translation>
+    </message>
+    <message id="can-not-generate-new-address-ok-button">
+        <source>ok</source>
+        <translation>Хорошо</translation>
+    </message>
+    <message id="settings-general-language">
+        <source>Language</source>
+        <translation>Язык</translation>
+    </message>
+    <message id="available-panel-where-to-buy">
+        <source>Where to buy BEAM?</source>
+        <translation>Где купить BEAM?</translation>
+    </message>
+    <message id="open-external-open">
+        <source>open</source>
+        <translation>открыть</translation>
+    </message>
+    <message id="open-external-title">
+        <source>External link</source>
+        <translation>Внешняя ссылка</translation>
+    </message>
+    <message id="open-external-message">
+        <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
+        <translation>Кошелек пытается открыть внешнюю ссылку в браузере. Это действие может раскрыть ваш IP адрес серверу. Что бы избежать этого, нажмите &quot;отмена&quot;. Вы можете изменить свой выбор в настройках в любое время.</translation>
     </message>
 </context>
 </TS>

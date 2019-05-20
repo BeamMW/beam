@@ -13,6 +13,7 @@ Rectangle {
 
     property string value
     property alias color: panel.color
+    property var onOpenExternal: null
 
     signal copyValueText()
 
@@ -31,6 +32,45 @@ Rectangle {
         color: Style.content_main
         //% "Available"
         text: qsTrId("available-panel-available")
+    }
+    Rectangle {
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.topMargin: 33
+        anchors.rightMargin: 30
+        width: whereToBuy.width + 10 +whereToBuyIcon.width
+        height: 15
+        color: parent.color
+
+        SFText {
+            id: whereToBuy
+            font.pixelSize: 14
+            anchors.right: whereToBuyIcon.left
+            anchors.top: parent.top
+            anchors.rightMargin: 10
+            
+            color: Style.active
+            opacity: 0.5
+            //% "Where to buy BEAM?"
+            text: qsTrId("available-panel-where-to-buy")
+        }
+        SvgImage {
+            id: whereToBuyIcon
+            anchors.top: parent.top
+            anchors.right: parent.right
+            source: "qrc:/assets/icon-external-link.svg"
+        }
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.LeftButton
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+                if (onOpenExternal && typeof onOpenExternal === 'function') {
+                    onOpenExternal();
+                }
+            }
+            hoverEnabled: true
+        }
     }
 
     Row

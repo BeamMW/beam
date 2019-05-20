@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.1)
 
 set(VERSION_MAJOR 2)
-set(VERSION_MINOR 0)
+set(VERSION_MINOR 1)
 set(VERSION_REVISION 0)
 set(GIT_COMMIT_HASH "unknown")
 
@@ -139,13 +139,6 @@ if(SHOW_CODE_LOCATION)
     add_definitions(-DSHOW_CODE_LOCATION=1)
 endif()
 
-# comment next if block to avoid styling by branchname
-if(BRANCH_NAME MATCHES "testnet")
-    add_definitions(-DBEAM_TESTNET)
-elseif(BRANCH_NAME MATCHES "mainnet")
-    add_definitions(-DBEAM_MAINNET)
-endif()
-
 # uncoment next line for testnet
 #set(BEAM_TESTNET TRUE)
 # uncoment next line for mainnet
@@ -165,6 +158,31 @@ elseif(BEAM_MAINNET)
     set(BEAM_DISPLAY_SUFFIX "")
 endif()
 
+option(BEAM_HW_WALLET "Build with hardware wallet support" OFF)
+
+if(BEAM_HW_WALLET)
+
+    if(BEAM_USE_STATIC)
+        set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
+
+        if(WIN32)
+            set(CURL_STATIC_CRT ON CACHE BOOL "")
+        endif()
+
+        add_definitions(-DCURL_STATICLIB)
+    else()        
+        if(WIN32)
+            set(protobuf_MSVC_STATIC_RUNTIME OFF CACHE BOOL "")
+        endif()
+    endif()
+
+    set(protobuf_BUILD_TESTS OFF CACHE BOOL "")
+    set(protobuf_BUILD_PROTOC_BINARIES OFF CACHE BOOL "")
+
+    add_subdirectory(3rdparty/protobuf/cmake)
+
+endif()
+
 if(MSVC)
     if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
 		string(REGEX REPLACE "/W[0-4]" "/W4 /WX" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
@@ -181,6 +199,8 @@ if(MSVC)
     SET(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /OPT:REF /INCREMENTAL:NO")
     SET(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /OPT:REF /INCREMENTAL:NO")
     SET(CMAKE_EXE_LINKER_FLAGS_MINSIZEREL "${CMAKE_EXE_LINKER_FLAGS_MINSIZEREL} /OPT:REF /INCREMENTAL:NO")
+
+    add_definitions(-D_WIN32_WINNT=0x0600)
 
     if(BEAM_USE_STATIC)
         # use static runtime
@@ -217,6 +237,12 @@ else()
 
 endif()
 
+if(BEAM_HW_WALLET)
+    set(HTTP_ONLY ON CACHE BOOL "")
+    set(BUILD_CURL_EXE OFF CACHE BOOL "")
+    add_subdirectory(3rdparty/curl)
+endif()
+
 if(UNIX OR WIN32)
     set(UV_INTERNAL ON)
     add_definitions(-DUV_INTERNAL)
@@ -228,26 +254,29 @@ if(ANDROID)
     include_directories($ENV{BOOST_ROOT_ANDROID}/include)
 else()
 
+    if(LINUX)
+        add_definitions(-DBOOST_NO_CXX11_SCOPED_ENUMS)
+        add_definitions(-DBOOST_NO_AUTO_PTR)
+    endif()
+
+    if (WIN32)
+        add_definitions(-DNOMINMAX)
+    endif()
+
     find_package(Boost REQUIRED)
 
     if(BEAM_USE_STATIC)
         include(FindBoost)
+
         set(Boost_USE_MULTITHREADED ON)
         set(Boost_USE_STATIC_LIBS ON)
         set(Boost_USE_STATIC_RUNTIME ON)
-        else()
+    else()
         if (WIN32)
             add_definitions( -DBOOST_ALL_DYN_LINK )
         endif()
     endif()
-endif()
 
-if(LINUX)
-	add_definitions(-DBOOST_NO_CXX11_SCOPED_ENUMS)
-endif()
-
-if (WIN32)
-    add_definitions(-DNOMINMAX)
 endif()
 
 include_directories(${PROJECT_SOURCE_DIR})
@@ -318,6 +347,10 @@ if(Boost_FOUND)
     set_property(TARGET boost PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${Boost_INCLUDE_DIR})
 endif()
 
+add_definitions(-DBC_STATIC)
+
+add_subdirectory(3rdparty/secp256k1-zkp)
+add_subdirectory(3rdparty/libbitcoin)
 add_subdirectory(3rdparty/sqlite)
 add_subdirectory(utility)
 add_subdirectory(core)
@@ -327,6 +360,7 @@ add_subdirectory(http)
 add_subdirectory(wallet)
 add_subdirectory(node)
 add_subdirectory(mnemonic)
+
 
 if(ANDROID OR BEAM_BUILD_JNI)
     add_subdirectory(android)

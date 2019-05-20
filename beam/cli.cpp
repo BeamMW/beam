@@ -190,7 +190,7 @@ int main_impl(int argc, char* argv[])
 
 			Rules::get().UpdateChecksum();
             LOG_INFO() << "Beam Node " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
-			LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+			LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
 			auto port = vm[cli::PORT].as<uint16_t>();
 
@@ -323,7 +323,8 @@ int main_impl(int argc, char* argv[])
 					if (vm.count(cli::ERASE_ID))
 						node.m_Cfg.m_ProcessorParams.m_EraseSelfID = vm[cli::ERASE_ID].as<bool>();
 
-					node.m_Cfg.m_Bbs = vm[cli::BBS_ENABLE].as<bool>();
+					if (!vm[cli::BBS_ENABLE].as<bool>())
+						ZeroObject(node.m_Cfg.m_Bbs.m_Limit);
 
 					node.m_Cfg.m_Horizon.m_Branching = Rules::get().Macroblock.MaxRollback / 4; // inferior branches would be pruned when height difference is this.
 					node.m_Cfg.m_Horizon.m_SchwarzschildHi = vm[cli::HORIZON_HI].as<Height>();

@@ -27,7 +27,7 @@ public:
 private:
 	void GenerateTests() override;
 	void OnMsg(proto::NewTip&&) override;
-	void OnMsg(proto::Boolean&&) override;
+	void OnMsg(proto::Status&&) override;
 
 private:
 	bool m_IsInit;
@@ -120,11 +120,11 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 	}
 }
 
-void TestNodeConnection::OnMsg(proto::Boolean&& msg)
+void TestNodeConnection::OnMsg(proto::Status&& msg)
 {
-	LOG_INFO() << "Boolean: value = " << msg.m_Value;
+	LOG_INFO() << "Status: value = " << static_cast<uint32_t>(msg.m_Value);
 
-	if (!msg.m_Value)
+	if (proto::TxStatus::Ok != msg.m_Value)
 	{
 		LOG_INFO() << "Failed: tx is invalid";
 		m_Failed = true;

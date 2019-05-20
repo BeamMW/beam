@@ -970,6 +970,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
 
     m_PeerMan.Initialize();
     m_Miner.Initialize(externalPOW);
+	m_Processor.get_DB().get_BbsTotals(m_Bbs.m_Totals);
     m_Bbs.Cleanup();
 	m_Bbs.m_HighestPosted_s = m_Processor.get_DB().get_BbsMaxTime();
 
@@ -1050,16 +1051,44 @@ void Node::RefreshOwnedUtxos()
 	m_Processor.get_DB().ParamSet(NodeDB::ParamID::DummyID, NULL, &blob);
 }
 
+bool Node::Bbs::IsInLimits() const
+{
+	const NodeDB::BbsTotals& lims = get_ParentObj().m_Cfg.m_Bbs.m_Limit;
+
+	return
+		(m_Totals.m_Count <= lims.m_Count) &&
+		(m_Totals.m_Size <= lims.m_Size);
+}
+
 void Node::Bbs::Cleanup()
 {
-    get_ParentObj().m_Processor.get_DB().BbsDelOld(getTimestamp() - get_ParentObj().m_Cfg.m_Timeout.m_BbsMessageTimeout_s);
+	NodeDB& db = get_ParentObj().m_Processor.get_DB();
+	NodeDB::WalkerBbsTimeLen wlk(db);
+
+	Timestamp ts = getTimestamp() - get_ParentObj().m_Cfg.m_Bbs.m_MessageTimeout_s;
+
+	for (db.EnumAllBbs(wlk); wlk.MoveNext(); )
+	{
+		if (IsInLimits() && (wlk.m_Time >= ts))
+			break;
+
+		db.BbsDel(wlk.m_ID);
+		m_Totals.m_Count--;
+		m_Totals.m_Size -= wlk.m_Size;
+	}
+
+	m_LastCleanup_ms = GetTime_ms();
 }
 
 void Node::Bbs::MaybeCleanup()
 {
-    uint32_t dt_ms = GetTime_ms() - m_LastCleanup_ms;
-    if (dt_ms >= get_ParentObj().m_Cfg.m_Timeout.m_BbsCleanupPeriod_ms)
-        Cleanup();
+	if (IsInLimits())
+	{
+		uint32_t dt_ms = GetTime_ms() - m_LastCleanup_ms;
+		if (dt_ms < get_ParentObj().m_Cfg.m_Bbs.m_CleanupPeriod_ms)
+			return;
+	}
+	Cleanup();
 }
 
 Node::~Node()
@@ -1190,23 +1219,20 @@ void Node::Peer::OnConnectedSecure()
     }
 }
 
-void Node::Peer::SendLogin()
+void Node::Peer::SetupLogin(proto::Login& msg)
 {
-	proto::Login msgLogin;
-	msgLogin.m_CfgChecksum = Rules::get().Checksum; // checksum of all consesnsus related configuration
-
-	msgLogin.m_Flags =
-		proto::LoginFlags::Extension1 |
-		proto::LoginFlags::Extension2 |
-		proto::LoginFlags::SendPeers; // request a another node to periodically send a list of recommended peers
+	msg.m_Flags |= proto::LoginFlags::SendPeers; // request a another node to periodically send a list of recommended peers
 
 	if (m_This.m_PostStartSynced)
-		msgLogin.m_Flags |= proto::LoginFlags::SpreadingTransactions; // indicate ability to receive and broadcast transactions
+		msg.m_Flags |= proto::LoginFlags::SpreadingTransactions; // indicate ability to receive and broadcast transactions
 
-	if (m_This.m_Cfg.m_Bbs)
-		msgLogin.m_Flags |= proto::LoginFlags::Bbs; // indicate ability to receive and broadcast BBS messages
+	if (m_This.m_Cfg.m_Bbs.IsEnabled())
+		msg.m_Flags |= proto::LoginFlags::Bbs; // indicate ability to receive and broadcast BBS messages
+}
 
-	Send(msgLogin);
+Height Node::Peer::get_MinPeerFork()
+{
+	return m_This.m_Processor.m_Cursor.m_ID.m_Height + 1;
 }
 
 void Node::Peer::OnMsg(proto::Authentication&& msg)
@@ -1470,11 +1496,6 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 	SetTxCursor(nullptr);
 
     m_This.m_lstPeers.erase(PeerList::s_iterator_to(*this));
-
-    // raise an error if the node banned all the peers while synchronizing
-    if (m_This.m_lstPeers.empty() && nByeReason == ByeReason::Ban)
-        m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::EmptyPeerList);
-    
     delete this;
 }
 
@@ -1913,21 +1934,37 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
         m_This.OnTransactionFluff(std::move(msg.m_Transaction), this, NULL);
     else
     {
-        proto::Boolean msgOut;
-        msgOut.m_Value = m_This.OnTransactionStem(std::move(msg.m_Transaction), this);
+        proto::Status msgOut;
+		msgOut.m_Value = m_This.OnTransactionStem(std::move(msg.m_Transaction), this);
+
+		if (!(proto::LoginFlags::Extension3 & m_LoginFlags) && (proto::TxStatus::Ok != msgOut.m_Value))
+			msgOut.m_Value = proto::TxStatus::Unspecified; // legacy client
+
         Send(msgOut);
     }
 }
 
-bool Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
+uint8_t Node::ValidateTx(Transaction::Context& ctx, const Transaction& tx)
 {
-    return
-        m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) &&
-        ctx.IsValidTransaction() &&
-        m_Processor.ValidateTxContext(tx);
+	if (!(m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader()) && ctx.IsValidTransaction()))
+		return proto::TxStatus::Invalid;
+
+	if (!m_Processor.ValidateTxContext(tx))
+		return proto::TxStatus::InvalidContext;
+
+	if (ctx.m_Height.m_Min >= Rules::get().pForks[1].m_Height)
+	{
+		Transaction::FeeSettings feeSettings;
+		AmountBig::Type fees = feeSettings.Calculate(tx);
+
+		if (ctx.m_Fee < fees)
+			return proto::TxStatus::LowFee;
+	}
+
+	return proto::TxStatus::Ok;
 }
 
-void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType& key)
+void Node::LogTx(const Transaction& tx, uint8_t nStatus, const Transaction::KeyType& key)
 {
     std::ostringstream os;
 
@@ -1960,7 +1997,7 @@ void Node::LogTx(const Transaction& tx, bool bValid, const Transaction::KeyType&
         os << "\n\tK: " << sz << " Fee=" << krn.m_Fee;
     }
 
-    os << "\n\tValid: " << bValid;
+    os << "\n\tStatus: " << static_cast<uint32_t>(nStatus);
     LOG_INFO() << os.str();
 }
 
@@ -2000,15 +2037,16 @@ void CmpTx(const Transaction& tx1, const Transaction& tx2, bool& b1Covers, bool&
 {
 }
 
-bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
+uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 {
 	if (ptx->m_vInputs.empty() || ptx->m_vKernels.empty()) {
 		// stupid compiler insists on parentheses here!
-		return false;
+		return proto::TxStatus::TooSmall;
 	}
 
 	Transaction::Context::Params pars;
 	Transaction::Context ctx(pars);
+	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
     bool bTested = false;
     TxPool::Stem::Element* pDup = NULL;
 
@@ -2029,29 +2067,38 @@ bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
         pElem->m_pValue->get_Reader().Compare(std::move(ptx->get_Reader()), bElemCovers, bNewCovers);
 
         if (!bNewCovers)
-            return false; // the new tx is reduced, drop it
+            return proto::TxStatus::Obscured; // the new tx is reduced, drop it
 
         if (bElemCovers)
         {
             pDup = pElem; // exact match
 
             if (pDup->m_bAggregating)
-                return true; // it shouldn't have been received, but nevermind, just ignore
+                return proto::TxStatus::Ok; // it shouldn't have been received, but nevermind, just ignore
 
             break;
         }
 
-        if (!bTested && !ValidateTx(ctx, *ptx))
-            return false;
-        bTested = true;
+		if (!bTested)
+		{
+			uint8_t nCode = ValidateTx(ctx, *ptx);
+			if (proto::TxStatus::Ok != nCode)
+				return nCode;
+
+			bTested = true;
+		}
 
         m_Dandelion.Delete(*pElem);
     }
 
     if (!pDup)
     {
-        if (!bTested && !ValidateTx(ctx, *ptx))
-            return false;
+		if (!bTested)
+		{
+			uint8_t nCode = ValidateTx(ctx, *ptx);
+			if (proto::TxStatus::Ok != nCode)
+				return nCode;
+		}
 
         AddDummyInputs(*ptx);
 
@@ -2077,7 +2124,7 @@ bool Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
         PerformAggregation(*pDup);
     }
 
-    return true;
+    return proto::TxStatus::Ok;
 }
 
 void Node::OnTransactionAggregated(TxPool::Stem::Element& x)
@@ -2280,7 +2327,7 @@ void Node::AddDummyOutputs(Transaction& tx)
 
         Output::Ptr pOutput(new Output);
         ECC::Scalar::Native sk;
-        pOutput->Create(sk, *m_Keys.m_pMiner, kidv, *m_Keys.m_pOwner);
+        pOutput->Create(m_Processor.m_Cursor.m_ID.m_Height + 1, sk, *m_Keys.m_pMiner, kidv, *m_Keys.m_pOwner);
 
 		Height h = SampleDummySpentHeight();
         db.InsertDummy(h, kidv);
@@ -2317,6 +2364,7 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
 
 	Transaction::Context::Params pars;
 	Transaction::Context ctx(pars);
+	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
     if (pElem)
     {
         ctx.m_Fee = pElem->m_Profit.m_Fee;
@@ -2348,10 +2396,10 @@ bool Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, const Peer* pPeer, TxPo
     m_Wtx.Delete(key.m_Key);
 
     // new transaction
-    bool bValid = pElem ? true: ValidateTx(ctx, tx);
-    LogTx(tx, bValid, key.m_Key);
+    uint8_t nCode = pElem ? proto::TxStatus::Ok : ValidateTx(ctx, tx);
+    LogTx(tx, nCode, key.m_Key);
 
-	if (!bValid) {
+	if (proto::TxStatus::Ok != nCode) {
 		return false; // stupid compiler insists on parentheses here!
 	}
 
@@ -2405,10 +2453,8 @@ bool Node::Dandelion::ValidateTxContext(const Transaction& tx)
     return get_ParentObj().m_Processor.ValidateTxContext(tx);
 }
 
-void Node::Peer::OnMsg(proto::Login&& msg)
+void Node::Peer::OnLogin(proto::Login&& msg)
 {
-    VerifyCfg(msg);
-
     if ((m_LoginFlags ^ msg.m_Flags) & proto::LoginFlags::SendPeers)
     {
         if (msg.m_Flags & proto::LoginFlags::SendPeers)
@@ -2427,7 +2473,7 @@ void Node::Peer::OnMsg(proto::Login&& msg)
 
     bool b = ShouldFinalizeMining();
 
-	if (m_This.m_Cfg.m_Bbs &&
+	if (m_This.m_Cfg.m_Bbs.IsEnabled() &&
 		!(proto::LoginFlags::Bbs & m_LoginFlags) &&
 		(proto::LoginFlags::Bbs & msg.m_Flags))
 	{
@@ -2436,7 +2482,7 @@ void Node::Peer::OnMsg(proto::Login&& msg)
 		Send(msgOut);
 	}
 
-    m_LoginFlags = msg.m_Flags;
+    m_LoginFlags = static_cast<uint8_t>(msg.m_Flags);
 
 	if (b != ShouldFinalizeMining()) {
 		// stupid compiler insists on parentheses!
@@ -2773,7 +2819,7 @@ void Node::Peer::OnMsg(proto::GetProofChainWork&& msg)
     if (!p.IsFastSync() && p.BuildCwp())
     {
         msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
-        verify(msgOut.m_Proof.Crop(p.m_Cwp));
+        BEAM_VERIFY(msgOut.m_Proof.Crop(p.m_Cwp));
     }
 
     Send(msgOut);
@@ -2799,7 +2845,7 @@ void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
 
 void Node::Peer::OnMsg(proto::BbsMsgV0&& msg0)
 {
-	if (!m_This.m_Cfg.m_BbsAllowV0)
+	if (m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::get().pForks[1].m_Height && !Rules::get().FakePoW)
 		return; // drop
 
 	proto::BbsMsg msg;
@@ -2812,7 +2858,7 @@ void Node::Peer::OnMsg(proto::BbsMsgV0&& msg0)
 
 void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 {
-	if (!m_This.m_Cfg.m_BbsAllowV0)
+	if ((m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::get().pForks[1].m_Height) && !Rules::get().FakePoW)
 	{
 		// test the hash
 		ECC::Hash::Value hv;
@@ -2827,7 +2873,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
 void Node::Peer::OnMsg(const proto::BbsMsg& msg, bool bNonceValid)
 {
-	if (!m_This.m_Cfg.m_Bbs)
+	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
 
 	if (msg.m_Message.size() > proto::Bbs::s_MaxMsgSize)
@@ -2838,7 +2884,7 @@ void Node::Peer::OnMsg(const proto::BbsMsg& msg, bool bNonceValid)
 	if (msg.m_TimePosted > t + Rules::get().DA.MaxAhead_s)
 		return; // too much ahead of time
 
-	if (msg.m_TimePosted + m_This.m_Cfg.m_Timeout.m_BbsMessageTimeout_s  < t)
+	if (msg.m_TimePosted + m_This.m_Cfg.m_Bbs.m_MessageTimeout_s  < t)
 		return; // too old
 
 	if (msg.m_TimePosted + Rules::get().DA.MaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
@@ -2864,6 +2910,8 @@ void Node::Peer::OnMsg(const proto::BbsMsg& msg, bool bNonceValid)
     m_This.m_Bbs.m_W.Delete(wlk.m_Data.m_Key);
 
 	m_This.m_Bbs.m_HighestPosted_s = std::max(m_This.m_Bbs.m_HighestPosted_s, msg.m_TimePosted);
+	m_This.m_Bbs.m_Totals.m_Count++;
+	m_This.m_Bbs.m_Totals.m_Size += wlk.m_Data.m_Message.n;
 
     // 1. Send to other BBS-es
 
@@ -2905,7 +2953,7 @@ void Node::Peer::OnMsg(const proto::BbsMsg& msg, bool bNonceValid)
 
 void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
 {
-	if (!m_This.m_Cfg.m_Bbs)
+	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
 
     NodeDB& db = m_This.m_Processor.get_DB();
@@ -2929,7 +2977,7 @@ void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
 
 void Node::Peer::OnMsg(proto::BbsGetMsg&& msg)
 {
-	if (!m_This.m_Cfg.m_Bbs)
+	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
 
 	NodeDB& db = m_This.m_Processor.get_DB();
@@ -2966,7 +3014,7 @@ void Node::Peer::SendBbsMsg(const NodeDB::WalkerBbs::Data& d)
 
 void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
 {
-	if (!m_This.m_Cfg.m_Bbs)
+	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
 
 	Bbs::Subscription::InPeer key;
@@ -3017,7 +3065,7 @@ void Node::Peer::BroadcastBbs(Bbs::Subscription& s)
 
 void Node::Peer::OnMsg(proto::BbsResetSync&& msg)
 {
-	if (!m_This.m_Cfg.m_Bbs)
+	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
 
 	m_CursorBbs = m_This.m_Processor.get_DB().BbsFindCursor(msg.m_TimeFrom) - 1;
@@ -3026,7 +3074,7 @@ void Node::Peer::OnMsg(proto::BbsResetSync&& msg)
 
 void Node::Peer::OnMsg(proto::BbsPickChannelV0&& msg)
 {
-	if (!m_This.m_Cfg.m_Bbs)
+	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
 
 	if (proto::LoginFlags::Extension1 & m_LoginFlags)
@@ -3121,6 +3169,7 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
         TxBase::Context::Params pars;
 		pars.m_bBlockMode = true;
 		TxBase::Context ctx(pars);
+		ctx.m_Height = m_This.m_Processor.m_Cursor.m_ID.m_Height + 1;
         if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader()))
             ThrowUnexpected();
 
@@ -3140,7 +3189,7 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
         for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
         {
             Key::IDV kidv;
-            if (!tx.m_vOutputs[i]->Recover(*m_This.m_Keys.m_pOwner, kidv))
+            if (!tx.m_vOutputs[i]->Recover(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1, *m_This.m_Keys.m_pOwner, kidv))
                 ThrowUnexpected();
         }
 
@@ -3673,7 +3722,7 @@ void Node::Beacon::OnTimer()
         m_pOut = new OutCtx;
         m_pOut->m_Refs = 1;
 
-        m_pOut->m_Message.m_CfgChecksum = Rules::get().Checksum;
+        m_pOut->m_Message.m_CfgChecksum = Rules::get().get_LastFork().m_Hash;
         m_pOut->m_Message.m_NodeID = get_ParentObj().m_MyPublicID;
         m_pOut->m_Message.m_Port = htons(get_ParentObj().m_Cfg.m_Listen.port());
 
@@ -3714,7 +3763,7 @@ void Node::Beacon::OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, c
 
     memcpy(&msg, buf->base, sizeof(msg)); // copy it to prevent (potential) datatype misallignment and etc.
 
-    if (msg.m_CfgChecksum != Rules::get().Checksum)
+    if (msg.m_CfgChecksum != Rules::get().get_LastFork().m_Hash)
         return;
 
     Beacon* pThis = (Beacon*)handle->data;

@@ -27,8 +27,9 @@ namespace proto {
 #define REQUEST_TYPES_All(macro) \
 		macro(Utxo,			GetProofUtxo,		ProofUtxo) \
 		macro(Kernel,		GetProofKernel,		ProofKernel) \
+		macro(Kernel2,		GetProofKernel2,	ProofKernel2) \
 		macro(UtxoEvents,	GetUtxoEvents,		UtxoEvents) \
-		macro(Transaction,	NewTransaction,		Boolean) \
+		macro(Transaction,	NewTransaction,		Status) \
 		macro(BbsMsg,		BbsMsg,				Pong)
 
 		class Request
@@ -197,9 +198,10 @@ namespace proto {
 
 				// NodeConnection
 				virtual void OnConnectedSecure() override;
+				virtual void OnLogin(Login&&) override;
+				virtual void SetupLogin(Login&) override;
 				virtual void OnDisconnect(const DisconnectReason&) override;
 				virtual void OnMsg(proto::Authentication&& msg) override;
-				virtual void OnMsg(proto::Login&& msg) override;
 				virtual void OnMsg(proto::GetBlockFinalization&& msg) override;
 				virtual void OnMsg(proto::NewTip&& msg) override;
 				virtual void OnMsg(proto::ProofCommonState&& msg) override;

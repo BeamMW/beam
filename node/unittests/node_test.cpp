@@ -476,8 +476,6 @@ namespace beam
 				;
 		}
 
-		db.BbsDelOld(267);
-
 		for (wlkbbs.m_Data.m_Channel = 0; wlkbbs.m_Data.m_Channel < 7; wlkbbs.m_Data.m_Channel++)
 		{
 			wlkbbs.m_ID = 0;
@@ -570,13 +568,13 @@ namespace beam
 			Key::IDV m_Kidv;
 		};
 
-		void ToOutput(const MyUtxo& utxo, TxVectors::Perishable& txv, ECC::Scalar::Native& offset, Height hIncubation) const
+		void ToOutput(const MyUtxo& utxo, TxVectors::Perishable& txv, ECC::Scalar::Native& offset, Height h, Height hIncubation) const
 		{
 			ECC::Scalar::Native k;
 
 			Output::Ptr pOut(new Output);
 			pOut->m_Incubation = hIncubation;
-			pOut->Create(k, *m_pKdf, utxo.m_Kidv, *m_pKdf, true); // confidential transactions will be too slow for test in debug mode.
+			pOut->Create(h + 1, k, *m_pKdf, utxo.m_Kidv, *m_pKdf, true); // confidential transactions will be too slow for test in debug mode.
 			txv.m_vOutputs.push_back(std::move(pOut));
 
 			k = -k;
@@ -622,6 +620,7 @@ namespace beam
 			ECC::Scalar::Native m_k;
 			bool m_bUseHashlock;
 			Height m_Height = 0;
+			Merkle::Hash m_hvRelLock = Zero;
 
 			void Export(TxKernel& krn) const
 			{
@@ -632,6 +631,13 @@ namespace beam
 				{
 					krn.m_pHashLock.reset(new TxKernel::HashLock); // why not?
 					ECC::Hash::Processor() << m_Fee << m_k >> krn.m_pHashLock->m_Preimage;
+				}
+
+				if (!(m_hvRelLock == Zero))
+				{
+					krn.m_pRelativeLock.reset(new TxKernel::RelativeLock);
+					krn.m_pRelativeLock->m_ID = m_hvRelLock;
+					krn.m_pRelativeLock->m_LockHeight = 1;
 				}
 
 				ECC::Hash::Value hv;
@@ -649,6 +655,8 @@ namespace beam
 
 		typedef std::vector<MyKernel> KernelList;
 		KernelList m_MyKernels;
+
+		Merkle::Hash m_hvKrnRel = Zero;
 
 		bool MakeTx(Transaction::Ptr& pTx, Height h, Height hIncubation)
 		{
@@ -705,11 +713,16 @@ namespace beam
 				utxoOut.m_Kidv.m_SubIdx = 0;
 				utxoOut.m_Kidv.m_Type = Key::Type::Regular;
 
-				ToOutput(utxoOut, tx, kOffset, hIncubation);
+				ToOutput(utxoOut, tx, kOffset, h, hIncubation);
 
 				m_MyUtxos.insert(std::make_pair(h + 1 + hIncubation, utxoOut));
 			}
 
+			if (!(m_hvKrnRel == Zero))
+			{
+				mk.m_hvRelLock = m_hvKrnRel;
+				m_hvKrnRel = Zero;
+			}
 
 			m_pKdf->DeriveKey(mk.m_k, Key::ID(++m_nRunningIndex, Key::Type::Kernel));
 
@@ -725,6 +738,7 @@ namespace beam
 
 			Transaction::Context::Params pars;
 			Transaction::Context ctx(pars);
+			ctx.m_Height.m_Min = h;
 			bool isTxValid = tx.IsValid(ctx);
 			verify_test(isTxValid);
 		}
@@ -777,7 +791,7 @@ namespace beam
 
 				Transaction::Context::Params pars;
 				Transaction::Context ctx(pars);
-				ctx.m_Height.m_Min = ctx.m_Height.m_Max = np.m_Cursor.m_Sid.m_Height + 1;
+				ctx.m_Height = np.m_Cursor.m_Sid.m_Height + 1;
 				verify_test(pTx->IsValid(ctx));
 
 				Transaction::KeyType key;
@@ -810,7 +824,8 @@ namespace beam
 		Block::BodyBase::RW rwData;
 		rwData.m_sPath = g_sz3;
 
-		Height hMid = blockChain.size() / 2 + Rules::HeightGenesis;
+		//Height hMid = blockChain.size() / 2 + Rules::HeightGenesis;
+		Height hMid = Rules::get().pForks[1].m_Height - 1;
 
 		{
 			DeleteFile(g_sz2);
@@ -1461,11 +1476,7 @@ namespace beam
 			virtual void OnConnectedSecure() override
 			{
 				SetTimer(90 * 1000);
-
-				proto::Login msg;
-				msg.m_CfgChecksum = Rules::get().Checksum;
-				msg.m_Flags = proto::LoginFlags::Extension1;
-				Send(msg);
+				SendLogin();
 
 				Send(proto::GetExternalAddr(Zero));
 			}
@@ -1647,7 +1658,7 @@ namespace beam
 
 						Output::Ptr pOutp(new Output);
 						pOutp->m_AssetID = m_AssetEmitted;
-						pOutp->Create(skOut, *m_Wallet.m_pKdf, kidv, *m_Wallet.m_pKdf);
+						pOutp->Create(msg.m_Description.m_Height + 1, skOut, *m_Wallet.m_pKdf, kidv, *m_Wallet.m_pKdf);
 
 						skAsset += skOut;
 						skAsset = -skAsset;
@@ -1665,6 +1676,7 @@ namespace beam
 
 					Transaction::Context::Params pars;
 					Transaction::Context ctx(pars);
+					ctx.m_Height.m_Min = msg.m_Description.m_Height + 1;
 					verify_test(msgTx.m_Transaction->IsValid(ctx));
 
 					Send(msgTx);
@@ -1677,14 +1689,18 @@ namespace beam
 				if (!(msg.m_Description.m_Height % 4))
 				{
 					// switch offline/online mining modes
-					proto::Login msgLogin;
-					msgLogin.m_CfgChecksum = Rules::get().Checksum;
-					msgLogin.m_Flags = proto::LoginFlags::Extension1;
-					if (msg.m_Description.m_Height % 8)
-						msgLogin.m_Flags |= proto::LoginFlags::MiningFinalization;
-					Send(msgLogin);
+					m_MiningFinalization = ((msg.m_Description.m_Height % 8) != 0);
+					SendLogin();
 				}
 
+			}
+
+			bool m_MiningFinalization = false;
+
+			virtual void SetupLogin(proto::Login& msg) override
+			{
+				if (m_MiningFinalization)
+					msg.m_Flags |= proto::LoginFlags::MiningFinalization;
 			}
 
 			virtual void OnMsg(proto::ProofState&& msg) override
@@ -1746,7 +1762,7 @@ namespace beam
 
 						AmountBig::Type fee;
 						ECC::Point::Native exc;
-						verify_test(msg.m_Kernel->IsValid(fee, exc));
+						verify_test(msg.m_Kernel->IsValid(msg.m_Height, fee, exc));
 
 						Merkle::Hash hv;
 						msg.m_Kernel->get_ID(hv);
@@ -1775,6 +1791,8 @@ namespace beam
 						TxKernel krn;
 						mk.Export(krn);
 						verify_test(m_vStates.back().IsValidProofKernel(krn, msg.m_Proof));
+
+						krn.get_ID(m_Wallet.m_hvKrnRel);
 					}
 				}
 				else
@@ -1851,11 +1869,14 @@ namespace beam
 		{
 			MyClient* m_pOtherClient;
 
-			virtual void OnConnectedSecure() override {
-				proto::Login msg;
-				msg.m_CfgChecksum = Rules::get().Checksum;
-				msg.m_Flags = proto::LoginFlags::SendPeers | proto::LoginFlags::Extension1;
-				Send(msg);
+			virtual void OnConnectedSecure() override
+			{
+				SendLogin();
+			}
+
+			virtual void SetupLogin(proto::Login& msg) override
+			{
+				msg.m_Flags |= proto::LoginFlags::SendPeers;
 			}
 
 			virtual void OnDisconnect(const DisconnectReason&) override {
@@ -2230,8 +2251,6 @@ namespace beam
 int main()
 {
 	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
-
-	beam::PrepareTreasury();
 	beam::PrintEmissionSchedule();
 
 	beam::Rules::get().AllowPublicUtxos = true;
@@ -2242,7 +2261,10 @@ int main()
 	beam::Rules::get().Emission.Drop0 = 5;
 	beam::Rules::get().Emission.Drop1 = 8;
 	beam::Rules::get().CA.Enabled = true;
+	beam::Rules::get().pForks[1].m_Height = 16;
 	beam::Rules::get().UpdateChecksum();
+
+	beam::PrepareTreasury();
 
 	beam::TestHalving();
 	beam::TestChainworkProof();

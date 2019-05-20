@@ -105,16 +105,18 @@ void FlyClient::NetworkStd::Connection::ResetInternal()
 
 void FlyClient::NetworkStd::Connection::OnConnectedSecure()
 {
-    Login msg;
-    msg.m_CfgChecksum = Rules::get().Checksum;
-    msg.m_Flags = LoginFlags::MiningFinalization | LoginFlags::Extension1;
-    Send(msg);
+	SendLogin();
 
     if (!(Flags::ReportedConnected & m_Flags))
     {
         m_Flags |= Flags::ReportedConnected;
         m_This.OnNodeConnected(m_iIndex, true);
     }
+}
+
+void FlyClient::NetworkStd::Connection::SetupLogin(Login& msg)
+{
+	msg.m_Flags |= LoginFlags::MiningFinalization;
 }
 
 void FlyClient::NetworkStd::Connection::OnDisconnect(const DisconnectReason& dr)
@@ -225,11 +227,9 @@ void FlyClient::NetworkStd::Connection::OnMsg(GetBlockFinalization&& msg)
     Send(msgOut);
 }
 
-void FlyClient::NetworkStd::Connection::OnMsg(Login&& msg)
+void FlyClient::NetworkStd::Connection::OnLogin(Login&& msg)
 {
-    VerifyCfg(msg);
-
-    m_LoginFlags = msg.m_Flags;
+    m_LoginFlags = static_cast<uint8_t>(msg.m_Flags);
     AssignRequests();
 
     if (LoginFlags::Bbs & m_LoginFlags)
@@ -715,6 +715,25 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel& req)
     if (!req.m_Res.m_Proof.empty())
         if (!m_Tip.IsValidProofKernel(req.m_Msg.m_ID, req.m_Res.m_Proof))
             ThrowUnexpected();
+}
+
+bool FlyClient::NetworkStd::Connection::IsSupported(RequestKernel2& req)
+{
+    return (Flags::Node & m_Flags) && IsAtTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel2& req)
+{
+    if (req.m_Res.m_Kernel)
+    {
+        AmountBig::Type fee;
+        ECC::Point::Native exc;
+
+        if (!req.m_Res.m_Kernel->IsValid(req.m_Res.m_Height, fee, exc))
+        {
+            ThrowUnexpected();
+        }
+    }
 }
 
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestUtxoEvents& req)

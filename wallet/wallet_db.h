@@ -101,6 +101,7 @@ namespace beam
     struct TxParameter
     {
         TxID m_txID;
+        int m_subTxID = static_cast<int>(wallet::kDefaultSubTxID);
         int m_paramID;
         ByteBuffer m_value;
     };
@@ -158,6 +159,7 @@ namespace beam
         virtual std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) = 0;
         virtual std::vector<Coin> getCoinsByTx(const TxID& txId) = 0;
         virtual std::vector<Coin> getCoinsByID(const CoinIDList& ids) = 0;
+        virtual Coin generateSharedCoin(Amount amount) = 0;
         virtual void store(Coin& coin) = 0;
         virtual void store(std::vector<Coin>&) = 0;
         virtual void save(const Coin& coin) = 0;
@@ -202,14 +204,12 @@ namespace beam
 
         virtual void changePassword(const SecString& password) = 0;
 
-        virtual bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID,
+        virtual bool setTxParameter(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID,
             const ByteBuffer& blob, bool shouldNotifyAboutChanges) = 0;
-        virtual bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) const = 0;
+        virtual bool getTxParameter(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID, ByteBuffer& blob) const = 0;
 
         virtual Block::SystemState::IHistory& get_History() = 0;
         virtual void ShrinkHistory() = 0;
-
-        virtual Amount getTransferredByTx(TxStatus status, bool isSender) const = 0;
 
         virtual bool lock(const CoinIDList& list, uint64_t session) = 0;
         virtual bool unlock(uint64_t session) = 0;
@@ -247,6 +247,7 @@ namespace beam
         std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override;
         std::vector<Coin> getCoinsByTx(const TxID& txId) override;
         std::vector<Coin> getCoinsByID(const CoinIDList& ids) override;
+        Coin generateSharedCoin(Amount amount) override;
         void store(Coin& coin) override;
         void store(std::vector<Coin>&) override;
         void save(const Coin& coin) override;
@@ -289,14 +290,12 @@ namespace beam
 
         void changePassword(const SecString& password) override;
 
-        bool setTxParameter(const TxID& txID, wallet::TxParameterID paramID,
+        bool setTxParameter(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID,
             const ByteBuffer& blob, bool shouldNotifyAboutChanges) override;
-        bool getTxParameter(const TxID& txID, wallet::TxParameterID paramID, ByteBuffer& blob) const override;
+        bool getTxParameter(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID, ByteBuffer& blob) const override;
 
         Block::SystemState::IHistory& get_History() override;
         void ShrinkHistory() override;
-
-        Amount getTransferredByTx(TxStatus status, bool isSender) const override;
 
         bool lock(const CoinIDList& list, uint64_t session) override;
         bool unlock(uint64_t session) override;
@@ -316,15 +315,16 @@ namespace beam
         void notifyTransactionChanged(ChangeAction action, std::vector<TxDescription>&& items);
         void notifySystemStateChanged();
         void notifyAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items);
+
         static uint64_t get_RandomID();
         bool updateRaw(const Coin&);
         void insertRaw(const Coin&);
         void insertNew(Coin&);
         void saveRaw(const Coin&);
 
-        using ParameterCache = std::map<TxID, std::map<wallet::TxParameterID, boost::optional<ByteBuffer>>>;
+        using ParameterCache = std::map<TxID, std::map<wallet::SubTxID, std::map<wallet::TxParameterID, boost::optional<ByteBuffer>>>>;
 
-        void insertParameterToCache(const TxID& txID, wallet::TxParameterID paramID, const boost::optional<ByteBuffer>& blob) const;
+        void insertParameterToCache(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID, const boost::optional<ByteBuffer>& blob) const;
         void deleteParametersFromCache(const TxID& txID);
         void insertAddressToCache(const WalletID& id, const boost::optional<WalletAddress>& address) const;
         void deleteAddressFromCache(const WalletID& id);
@@ -372,10 +372,10 @@ namespace beam
         }
 
         template <typename T>
-        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, T& value)
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, T& value)
         {
             ByteBuffer b;
-            if (db.getTxParameter(txID, paramID, b))
+            if (db.getTxParameter(txID, subTxID, paramID, b))
             {
                 if (!b.empty())
                 {
@@ -392,6 +392,26 @@ namespace beam
             return false;
         }
 
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, ECC::Point::Native& value);
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& value);
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, ECC::Scalar::Native& value);
+
+        template <typename T>
+        bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges)
+        {
+            return db.setTxParameter(txID, subTxID, paramID, toByteBuffer(value), shouldNotifyAboutChanges);
+        }
+
+        bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, const ECC::Point::Native& value, bool shouldNotifyAboutChanges);
+        bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, const ECC::Scalar::Native& value, bool shouldNotifyAboutChanges);
+        bool setTxParameter(IWalletDB& db, const TxID& txID, SubTxID subTxID, TxParameterID paramID, const ByteBuffer& value, bool shouldNotifyAboutChanges);
+
+        template <typename T>
+        bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, T& value)
+        {
+            return getTxParameter(db, txID, kDefaultSubTxID, paramID, value);
+        }
+
         bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ECC::Point::Native& value);
         bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ByteBuffer& value);
         bool getTxParameter(const IWalletDB& db, const TxID& txID, TxParameterID paramID, ECC::Scalar::Native& value);
@@ -399,7 +419,7 @@ namespace beam
         template <typename T>
         bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges)
         {
-            return db.setTxParameter(txID, paramID, toByteBuffer(value), shouldNotifyAboutChanges);
+            return setTxParameter(db, txID, kDefaultSubTxID, paramID, toByteBuffer(value), shouldNotifyAboutChanges);
         }
 
         bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ECC::Point::Native& value, bool shouldNotifyAboutChanges);
@@ -409,8 +429,6 @@ namespace beam
         bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, uint64_t expiration);
         WalletAddress createAddress(IWalletDB& walletDB);
         WalletID generateWalletIDFromIndex(IWalletDB& walletDB, uint64_t ownID);
-        Amount getSpentByTx(const IWalletDB& walletDB, TxStatus status);
-        Amount getReceivedByTx(const IWalletDB& walletDB, TxStatus status);
 
         Coin::Status GetCoinStatus(const IWalletDB&, const Coin&, Height hTop);
         void DeduceStatus(const IWalletDB&, Coin&, Height hTop);

@@ -113,7 +113,7 @@ void run_with_node() {
 
     Rules::get().DA.Difficulty0 = 0;
     Rules::get().UpdateChecksum();
-    LOG_INFO() << "Rules signature: " << Rules::get().Checksum;
+    LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
     Node node;
     node.m_Cfg.m_sPathLocal = "xxxxx";
