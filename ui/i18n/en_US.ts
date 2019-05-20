@@ -239,25 +239,9 @@
         <source>Creating wallet...</source>
         <translation>Creating wallet...</translation>
     </message>
-    <message id="open-pwd-invitation">
-        <source>Enter your password to access the current wallet</source>
-        <translation>Enter your password to access the current wallet</translation>
-    </message>
-    <message id="open-pwd-label">
-        <source>Enter password</source>
-        <translation>Enter password</translation>
-    </message>
-    <message id="open-change-wallet-button">
-        <source>change wallet</source>
-        <translation>change wallet</translation>
-    </message>
-    <message id="open-change-wallet-message">
-        <source>If you open another wallet, all unsaved transaction history for the current wallet will be lost.</source>
-        <translation>If you open another wallet, all unsaved transaction history for the current wallet will be lost.</translation>
-    </message>
-    <message id="open-restore-wallet-button">
-        <source>restore wallet</source>
-        <translation>restore wallet</translation>
+    <message id="start-open-pwd-invitation">
+        <source>Enter your password to access the wallet</source>
+        <translation>Enter your password to access the wallet</translation>
     </message>
     <message id="open-show-wallet-button">
         <source>show my wallet</source>
@@ -679,17 +663,13 @@
         <source>The transaction will be deleted. This operation can not be undone</source>
         <translation>The transaction will be deleted. This operation can not be undone</translation>
     </message>
-    <message id="start-restore-button">
-        <source>restore wallet</source>
-        <translation>restore wallet</translation>
+    <message id="start-restore-confirm-button">
+        <source>I agree</source>
+        <translation>I agree</translation>
     </message>
-    <message id="start-restore-message-line-1">
-        <source>Your funds will be fully restored from the blockchain. The transaction history and addresses are stored only locally, hence can&apos;t be restored.</source>
-        <translation>Your funds will be fully restored from the blockchain. The transaction history and addresses are stored only locally, hence can&apos;t be restored.</translation>
-    </message>
-    <message id="start-restore-message-line-2">
-        <source>That&apos;s the final version till the future validation and process.</source>
-        <translation>That&apos;s the final version till the future validation and process.</translation>
+    <message id="start-restore-message-line">
+        <source>You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</source>
+        <translation>You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</translation>
     </message>
     <message id="start-create-button">
         <source>create new wallet</source>
@@ -795,9 +775,9 @@
         <source>Create password to access your wallet</source>
         <translation>Create password to access your wallet</translation>
     </message>
-    <message id="start-create-pwd-label">
-        <source>Enter password</source>
-        <translation>Enter password</translation>
+    <message id="start-pwd-label">
+        <source>Password</source>
+        <translation>Password</translation>
     </message>
     <message id="start-create-pwd-confirm-label">
         <source>Confirm password</source>
@@ -1171,10 +1151,6 @@
         <source>Transaction ID:</source>
         <translation>Transaction ID:</translation>
     </message>
-    <message id="open-login-another-button">
-        <source>login to another wallet</source>
-        <translation>login to another wallet</translation>
-    </message>
     <message id="appmodel-failed-time-not-synced">
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
         <translation>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</translation>
@@ -1206,6 +1182,62 @@
     <message id="open-external-message">
         <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
         <translation>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose &quot;Cancel&quot;. You can chage your choice in app setting anytime.</translation>
+    </message>
+    <message id="start-restore-message-title">
+        <source>Restore wallet</source>
+        <translation>Restore wallet</translation>
+    </message>
+    <message id="start-open-restore-link">
+        <source>Restore wallet or create a new one</source>
+        <translation>Restore wallet or create a new one</translation>
+    </message>
+    <message id="start-open-change-wallet-confirm">
+        <source>proceed</source>
+        <translation>proceed</translation>
+    </message>
+    <message id="start-open-change-wallet-title">
+        <source>Restore wallet or create new one</source>
+        <translation>Restore wallet or create new one</translation>
+    </message>
+    <message id="start-open-change-wallet-message">
+        <source>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</source>
+        <translation>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</translation>
+    </message>
+    <message id="start-restore-link">
+        <source>Restore wallet</source>
+        <translation>Restore wallet</translation>
+    </message>
+    <message id="start-create-finish-button">
+        <source>start using your wallet</source>
+        <translation>start using your wallet</translation>
+    </message>
+    <message id="loading-restore-message-line1">
+        <source>Please wait for synchronization and do not close or minimize the application.</source>
+        <translation>Please wait for synchronization and do not close or minimize the application.</translation>
+    </message>
+    <message id="loading-restore-message-line2">
+        <source>Only the wallet balance (UTXO) can be restored, transaction info and addresses are always private and never kept in the blockchain.</source>
+        <translation>Only the wallet balance (UTXO) can be restored, transaction info and addresses are always private and never kept in the blockchain.</translation>
+    </message>
+    <message id="start-recovery-title">
+        <source>Create new password</source>
+        <translation>Create new password</translation>
+    </message>
+    <message id="start-recovery-pwd-message">
+        <source>Create new password to access your wallet</source>
+        <translation>Create new password to access your wallet</translation>
+    </message>
+    <message id="start-create-pwd-strength-message">
+        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
+        <translation>Strong password needs to meet the following requirements:
+        •  the length must be at least 10 characters
+        •  must contain at least one lowercase letter
+        •  must contain at least one uppercase letter
+        •  must contain at least one number</translation>
+    </message>
+    <message id="start-create-open-button">
+        <source>open my wallet</source>
+        <translation>open my wallet</translation>
     </message>
 </context>
 </TS>
