@@ -14,7 +14,7 @@ Item
     anchors.fill: parent
     property bool isLockedMode: false
 
-    StartViewModel { id: viewModel }    
+    StartViewModel { id: viewModel }  
     
     LogoComponent {
         id: logoComponent
@@ -23,13 +23,12 @@ Item
     ConfirmationDialog {
         id: restoreWalletConfirmation
 
-        //% "restore wallet"
-        okButtonText: qsTrId("start-restore-button")
-        okButtonIconSource: "qrc:/assets/icon-restore-blue.svg"
-        cancelVisible: true
-        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+        //% "I agree"
+        okButtonText: qsTrId("start-restore-confirm-button")
+        okButtonIconSource: "qrc:/assets/icon-done.svg"
+        cancelVisible: false
         width: 460
-        height: 208
+        height: 243
 
         contentItem: Column {
             anchors.fill: parent
@@ -37,20 +36,21 @@ Item
             spacing: 20
 
             SFText {
-                horizontalAlignment : Text.AlignHCenter
-                width: parent.width
-                //% "Your funds will be fully restored from the blockchain. The transaction history and addresses are stored only locally, hence can't be restored."
-                text: qsTrId("start-restore-message-line-1")
+                anchors.horizontalCenter: parent.horizontalCenter
+                horizontalAlignment: Qt.AlignHCenter
+                //% "Restore wallet"
+                text: qsTrId("start-restore-message-title")
                 color: Style.content_main
-                font.pixelSize: 14
-                wrapMode: Text.Wrap
+                font.pixelSize: 18
+                font.styleName: "Bold"
+                font.weight: Font.Bold
             }
 
             SFText {
                 horizontalAlignment : Text.AlignHCenter
                 width: parent.width
-                //% "That's the final version till the future validation and process."
-                text: qsTrId("start-restore-message-line-2")
+                //% "You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device."
+                text: qsTrId("start-restore-message-line")
                 color: Style.content_main
                 font.pixelSize: 14
                 wrapMode: Text.Wrap
@@ -109,12 +109,11 @@ Item
                     Item {
                         Layout.fillHeight: true
                         Layout.minimumHeight: 122
-                        Layout.maximumHeight: 237
+                        Layout.maximumHeight: 207
                     }
 
                     Row {
                         Layout.alignment: Qt.AlignHCenter
-                        
                         spacing: 30
 
                         CustomButton {
@@ -138,13 +137,31 @@ Item
                                 startWizzardView.push(createWalletEntry);
                             }
                         }
+                    }
 
-                        CustomButton {
-                            //% "restore wallet"
-                            text: qsTrId("start-restore-button")
-                            icon.source: "qrc:/assets/icon-restore.svg"
-                            onClicked: {
-                                restoreWalletConfirmation.open();
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 65
+                        Layout.maximumHeight: 65
+                    }
+
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
+                        spacing: 30
+                        SFText {
+                            Layout.alignment: Qt.AlignHCenter
+                            //% "Restore wallet"
+                            text: qsTrId("start-restore-link")
+                            color: Style.active
+                            font.pixelSize: 14
+                            MouseArea {
+                                anchors.fill: parent
+                                acceptedButtons: Qt.LeftButton
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    restoreWalletConfirmation.open();
+                                }
+                                hoverEnabled: true
                             }
                         }
                     }
@@ -1055,6 +1072,24 @@ Item
                 color: Style.background_main
 
                 property Item defaultFocusItem: password
+                property var onEnterPassword: function() {
+                    if(password.text.length == 0)
+                    {
+                        //% "Please, enter password"
+                        passwordError.text = qsTrId("start-create-pwd-empty-error");
+                    }
+                    else if(password.text != confirmPassword.text)
+                    {
+                        //% "Passwords do not match"
+                        passwordError.text = qsTrId("start-create-pwd-not-match-error");
+                        confirmPassword.color = Style.validator_error
+                    }
+                    else
+                    {
+                        viewModel.setPassword(password.text);
+                        startWizzardView.push(nodeSetup);
+                    }
+                }
 
                 ColumnLayout {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -1067,8 +1102,11 @@ Item
                         SFText {
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Qt.AlignHCenter
-                            //% "Create new wallet"
-                            text: qsTrId("start-create-new-title")
+                            text: viewModel.isRecoveryMode
+                                //% "Create new password"
+                                ? qsTrId("start-recovery-title")
+                                //% "Create new wallet"
+                                : qsTrId("start-create-new-title")
                             color: Style.content_main
                             font.pixelSize: 36
                         }
@@ -1076,8 +1114,11 @@ Item
                             anchors.left: parent.left
                             anchors.right: parent.right
                             horizontalAlignment: Qt.AlignHCenter
-                            //% "Create password to access your wallet"
-                            text: qsTrId("start-create-pwd-message")
+                            text: viewModel.isRecoveryMode
+                                //% "Create new password to access your wallet"
+                                ? qsTrId("start-recovery-pwd-message")
+                                //% "Create password to access your wallet"
+                                : qsTrId("start-create-pwd-message")
                             color: Style.content_main
                             wrapMode: Text.WordWrap
                             font.pixelSize: 14
@@ -1092,32 +1133,30 @@ Item
 
                         Column {
                             width: parent.width
-
                             spacing: 10
 
                             SFText {
-                                //% "Enter password"
-                                text: qsTrId("start-create-pwd-label")
+                                //% "Password"
+                                text: qsTrId("start-pwd-label")
                                 color: Style.content_main
                                 font.pixelSize: 14
                                 font.styleName: "Bold"; font.weight: Font.Bold
                             }
 
                             SFTextInput {
-
                                 id:password
-
                                 width: parent.width
-
                                 font.pixelSize: 14
                                 color: Style.content_main
                                 echoMode: TextInput.Password
                                 onTextChanged: if (password.text.length > 0) passwordError.text = ""
+                                onAccepted: {
+                                    confirmPassword.forceActiveFocus();
+                                }
                             }
 
                             RowLayout{
                                 id: strengthChecker
-
                                 property var strengthTests: 
                                 [
                                     {exp: new RegExp("(?=.{1,})")                                                               , color: Style.validator_error, msg: "Very weak password"},
@@ -1138,9 +1177,7 @@ Item
                                 }
 
                                 property var strength: passwordStrength(password.text)
-
                                 width: parent.width
-
                                 spacing: 8
 
                                 Repeater{
@@ -1162,6 +1199,17 @@ Item
                                 color: Style.content_secondary
                                 font.pixelSize: 14
                                 height: 16
+                                width: parent.width
+                            }
+
+                            SFText {
+                                //% "Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number"
+                                text: qsTrId("start-create-pwd-strength-message")
+                                // text: "Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number"
+                                color: Style.content_secondary
+                                visible: strengthChecker.strength > 0 && strengthChecker.strength < 6
+                                font.pixelSize: 14
+                                height: 80
                                 width: parent.width
                             }
                         }
@@ -1186,7 +1234,13 @@ Item
                                 font.pixelSize: 14
                                 color: Style.content_main
                                 echoMode: TextInput.Password
-                                onTextChanged: if (confirmPassword.text.length > 0) passwordError.text = ""
+                                onTextChanged: {
+                                    if (confirmPassword.text.length > 0) passwordError.text = ""
+                                    this.color = Style.content_main;
+                                }
+                                onAccepted: {
+                                    onEnterPassword();
+                                } 
                             }
 
                             SFText {
@@ -1216,25 +1270,17 @@ Item
                             onClicked: startWizzardView.pop();
                         }
                         PrimaryButton {
-                            //% "next"
-                            text: qsTrId("start-next-button")
-                            icon.source : "qrc:/assets/icon-next-blue.svg"
+                            
+                            text: viewModel.isRecoveryMode
+                                //% "open my wallet"
+                                ? qsTrId("start-create-open-button")
+                                //% "start using your wallet"
+                                : qsTrId("start-create-finish-button")
+                            icon.source : viewModel.isRecoveryMode
+                                ? "qrc:/assets/icon-wallet-small.svg"
+                                : "qrc:/assets/icon-next-blue.svg"
                             onClicked: {
-                                if(password.text.length == 0)
-                                {
-                                    //% "Please, enter password"
-                                    passwordError.text = qsTrId("start-create-pwd-empty-error");
-                                }
-                                else if(password.text != confirmPassword.text)
-                                {
-                                    //% "Passwords do not match"
-                                    passwordError.text = qsTrId("start-create-pwd-not-match-error");
-                                }
-                                else
-                                {
-                                    viewModel.setPassword(password.text);
-                                    startWizzardView.push(nodeSetup);
-                                }
+                                onEnterPassword();
                             }
                         }
                     }
@@ -1509,12 +1555,6 @@ Item
             {
                 property Item defaultFocusItem: openPassword
 
-                property bool firstButtonVisible: false
-                //% "login to another wallet"
-                property string firstButtonText: qsTrId("open-login-another-button")
-                property var firstButtonIcon: "qrc:/assets/icon-change.svg"
-                property var firstButtonAction: confirmChangeWalletDialog.open
-
                 // default methods for open wallet, can be changed for unlock wallet
                 property var openWallet: function (pass) {
                     return viewModel.openWallet(pass);
@@ -1537,7 +1577,7 @@ Item
                     Item {
                         Layout.fillHeight: true
                         Layout.fillWidth: true
-                        Layout.minimumHeight: 70
+                        Layout.minimumHeight: 100
                         Layout.maximumHeight: 280
                     }
 
@@ -1546,37 +1586,6 @@ Item
                         Layout.alignment: Qt.AlignHCenter
                         Layout.fillHeight: true
                         Layout.minimumHeight: 200//187
-                        Layout.maximumHeight: 269
-                    }
-                    Item {
-                        Layout.fillHeight: true
-                        Layout.minimumHeight: 30
-                        Layout.maximumHeight: 89
-
-                    }
-                    Item {
-                        Layout.preferredHeight: 186 
-                    }
-
-                    Item {
-                        Layout.fillHeight: true
-                        Layout.fillWidth: true
-                        Layout.minimumHeight: 67
-                    }
-                }
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    spacing: 0
-                    Item {
-                        Layout.fillHeight: true
-                        Layout.minimumHeight: 70
-                        Layout.maximumHeight: 280
-                    }
-
-                    Item {
-                        Layout.fillHeight: true
-                        Layout.minimumHeight: 200
                         Layout.maximumHeight: 269
                     }
 
@@ -1588,9 +1597,8 @@ Item
 
                     SFText {
                         Layout.alignment: Qt.AlignHCenter
-                
-                        //% "Enter your password to access the current wallet"
-                        text: qsTrId("open-pwd-invitation")
+                        //% "Enter your password to access the wallet"
+                        text: qsTrId("start-open-pwd-invitation")
                         color: Style.content_main
                         font.pixelSize: 14
                     }
@@ -1602,8 +1610,8 @@ Item
                         spacing: 2
 
                         SFText {
-                            //% "Enter password"
-                            text: qsTrId("open-pwd-label")
+                            //% "Password"
+                            text: qsTrId("start-pwd-label")
                             color: Style.content_main
                             font.pixelSize: 14
                             font.styleName: "Bold"; font.weight: Font.Bold
@@ -1630,44 +1638,12 @@ Item
                             font.pixelSize: 14
                         }
                     }
-
-                    ConfirmationDialog {
-                        id: confirmChangeWalletDialog
-                        //% "change wallet"
-                        okButtonText: qsTrId("open-change-wallet-button")
-                        okButtonIconSource: "qrc:/assets/icon-change-blue.svg"
-                        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
-                        cancelVisible: true
-                        width: 460
-                        //% "If you open another wallet, all unsaved transaction history for the current wallet will be lost."
-                        text: qsTrId("open-change-wallet-message")
-                        onAccepted: {
-                            viewModel.isRecoveryMode = true;
-                            startWizzardView.push(restoreWallet);
-                        }
-                    }
-                   
+                  
                     Row {
                         Layout.alignment: Qt.AlignHCenter
-                        Layout.topMargin: 33
+                        Layout.topMargin: 18
                         spacing: 19
                         
-                        CustomButton {
-                            visible: firstButtonVisible
-                            text: firstButtonText
-                            icon.source: firstButtonIcon
-                            onClicked: firstButtonAction()
-                        }
-
-                        CustomButton {
-                            //% "restore wallet"
-                            text: qsTrId("open-restore-wallet-button")
-                            icon.source: "qrc:/assets/icon-restore.svg"
-                            onClicked: {
-                                restoreWalletConfirmation.open();
-                            }
-                        }
-
                         PrimaryButton {
                             anchors.verticalCenter: parent.verticalCenter
                             id: btnCurrentWallet
@@ -1695,10 +1671,78 @@ Item
                             }
                         }
                     }
+
+                    Item {
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 65
+                        Layout.maximumHeight: 65
+                    }
+
+                    Row {
+                        Layout.alignment: Qt.AlignHCenter
+                        spacing: 30
+                        SFText {
+                            Layout.alignment: Qt.AlignHCenter
+                            //% "Restore wallet or create a new one"
+                            text: qsTrId("start-open-restore-link")
+                            color: Style.active
+                            font.pixelSize: 14
+                            MouseArea {
+                                anchors.fill: parent
+                                acceptedButtons: Qt.LeftButton
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    confirmChangeWalletDialog.open();
+                                }
+                                hoverEnabled: true
+                            }
+                        }
+                    }
                    
                     Item {
                         Layout.fillHeight: true
                         Layout.minimumHeight: 67
+                    }
+
+                    ConfirmationDialog {
+                        id: confirmChangeWalletDialog
+                        //% "proceed"
+                        okButtonText: qsTrId("start-open-change-wallet-confirm")
+                        okButtonIconSource: "qrc:/assets/icon-done.svg"
+                        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+                        cancelVisible: true
+                        width: 460
+                        height: 195
+                        contentItem: Column {
+                            anchors.fill: parent
+                            anchors.margins: 30
+                            spacing: 20
+
+                            SFText {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                horizontalAlignment: Qt.AlignHCenter
+                                //% "Restore wallet or create new one"
+                                text: qsTrId("start-open-change-wallet-title")
+                                color: Style.content_main
+                                font.pixelSize: 18
+                                font.styleName: "Bold"
+                                font.weight: Font.Bold
+                            }
+
+                            SFText {
+                                horizontalAlignment : Text.AlignHCenter
+                                width: parent.width
+                                //% "If you'll restore a wallet all transaction history and addresses will be lost."
+                                text: qsTrId("start-open-change-wallet-message")
+                                color: Style.content_main
+                                font.pixelSize: 14
+                                wrapMode: Text.Wrap
+                            }
+                        }
+                        onAccepted: {
+                            viewModel.isRecoveryMode = false;
+                            startWizzardView.push(start);
+                        }
                     }
                 }
             }
