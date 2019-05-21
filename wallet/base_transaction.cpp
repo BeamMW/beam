@@ -89,11 +89,11 @@ namespace beam::wallet
         }
     }
 
-    void LocalPrivateKeyKeeper::GenerateRangeProof(const std::vector<Key::IDV>& ids, Callback<RangeProofs>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    void LocalPrivateKeyKeeper::GenerateRangeProof(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<RangeProofs>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
         try
         {
-            resultCallback(GenerateRangeProofSync(ids));
+            resultCallback(GenerateRangeProofSync(schemeHeight, ids));
         }
         catch (const exception & ex)
         {
@@ -128,7 +128,7 @@ namespace beam::wallet
         return result;
     }
 
-    IPrivateKeyKeeper::RangeProofs LocalPrivateKeyKeeper::GenerateRangeProofSync(const std::vector<Key::IDV>& ids)
+    IPrivateKeyKeeper::RangeProofs LocalPrivateKeyKeeper::GenerateRangeProofSync(Height schemeHeigh, const std::vector<Key::IDV>& ids)
     {
         RangeProofs result;
         Scalar::Native secretKey;
@@ -136,18 +136,11 @@ namespace beam::wallet
         result.reserve(ids.size());
         for (const auto& coinID : ids)
         {
-            SwitchCommitment sc;
-            sc.Create(secretKey, commitment, *GetChildKdf(coinID.m_SubIdx), coinID);
+            Output output;
+            output.Create(schemeHeigh, secretKey, *GetChildKdf(coinID.m_SubIdx), coinID, *m_MasterKdf);
 
-            ECC::Oracle oracle;
-            oracle << 0U;// m_Incubation;
-
-            ECC::RangeProof::CreatorParams cp;
-            cp.m_Kidv = coinID;
-            cp.m_Seed.V = GetSeedKid(*m_MasterKdf, commitment);
-
-            auto& bulletProof = result.emplace_back(make_unique<ECC::RangeProof::Confidential>());
-            bulletProof->Create(secretKey, cp, oracle, &sc.m_hGen);
+            assert(output.m_pConfidential);
+            result.emplace_back(move(output.m_pConfidential));
         }
         return result;
     }

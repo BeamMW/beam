@@ -117,13 +117,34 @@ namespace beam::wallet
 
     void BaseTxBuilder::CreateOutputs()
     {
-        for (const auto& coinID : m_OutputCoins)
+        //for (const auto& coinID : m_OutputCoins)
+        //{
+        //    Scalar::Native blindingFactor;
+        //    Output::Ptr output = make_unique<Output>();
+        //    output->Create(m_MinHeight, blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(coinID.m_SubIdx), coinID, *m_Tx.GetWalletDB()->get_MasterKdf());
+        //    m_Outputs.emplace_back(move(output));
+        //}
+
+        auto commitments = m_Tx.GetKeyKeeper()->GenerateKeySync(m_OutputCoins, true);
+        m_Outputs.reserve(commitments.size());
+        for (const auto& commitment : commitments)
         {
-            Scalar::Native blindingFactor;
-            Output::Ptr output = make_unique<Output>();
-            output->Create(m_MinHeight, blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(coinID.m_SubIdx), coinID, *m_Tx.GetWalletDB()->get_MasterKdf());
-            m_Outputs.emplace_back(move(output));
+            auto& output = m_Outputs.emplace_back(make_unique<Output>());
+            output->m_Commitment = commitment;
         }
+
+        auto rangeProofs = m_Tx.GetKeyKeeper()->GenerateRangeProofSync(m_MinHeight, m_OutputCoins);
+        if (rangeProofs.size() != m_Outputs.size())
+        {
+            return;
+        }
+
+        for (size_t i = 0; i < rangeProofs.size(); ++i)
+        {
+            m_Outputs[i]->m_pConfidential = move(rangeProofs[i]);
+        }
+
+        FinalizeOutputs();
 
         //auto thisHolder = shared_from_this();
         //m_Tx.GetKeyKeeper()->GenerateKey(m_OutputCoins, true,
@@ -178,23 +199,31 @@ namespace beam::wallet
 
     void BaseTxBuilder::CreateInputs()
     {
-        auto thisHolder = shared_from_this();
-        m_Tx.GetKeyKeeper()->GenerateKey(m_InputCoins, true,
-            [thisHolder, this](const auto & result)
-            {
-                m_Inputs.reserve(result.size());
-                for (const auto& commitment : result)
-                {
-                    auto& input = m_Inputs.emplace_back(make_unique<Input>());
-                    input->m_Commitment = commitment;
-                }
-                FinalizeInputs();
-                //m_Tx.Update();
-            },
-            [thisHolder, this](const exception&)
-            {
-                //m_Tx.Update();
-            });
+        //auto thisHolder = shared_from_this();
+        //m_Tx.GetKeyKeeper()->GenerateKey(m_InputCoins, true,
+        //    [thisHolder, this](const auto & result)
+        //    {
+        //        m_Inputs.reserve(result.size());
+        //        for (const auto& commitment : result)
+        //        {
+        //            auto& input = m_Inputs.emplace_back(make_unique<Input>());
+        //            input->m_Commitment = commitment;
+        //        }
+        //        FinalizeInputs();
+        //        //m_Tx.Update();
+        //    },
+        //    [thisHolder, this](const exception&)
+        //    {
+        //        //m_Tx.Update();
+        //    });
+        auto commitments = m_Tx.GetKeyKeeper()->GenerateKeySync(m_InputCoins, true);
+        m_Inputs.reserve(commitments.size());
+        for (const auto& commitment : commitments)
+        {
+            auto& input = m_Inputs.emplace_back(make_unique<Input>());
+            input->m_Commitment = commitment;
+        }
+        FinalizeInputs();
     }
 
     void BaseTxBuilder::FinalizeInputs()
