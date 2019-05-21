@@ -28,6 +28,11 @@ namespace beam
         template<typename T> using Result = std::function<void(const T& key)>;
 
         void getOwnerKey(Result<std::string> callback) const;
+        void generateNonce(uint8_t slot, Result<std::string> callback) const;
+        void generateKey(Result<std::string> callback) const;
+
+        std::string getOwnerKeySync() const;
+        std::string generateNonceSync(uint8_t slot) const;
 
     private:
         std::shared_ptr<HWWalletImpl> m_impl;
