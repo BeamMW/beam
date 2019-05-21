@@ -13,9 +13,11 @@
 // limitations under the License.
 #include <QtGlobal>
 
-#ifdef Q_OS_WIN32
+#if defined(Q_OS_WIN32)
 #include <windows.h>
-#else
+#elif defined(Q_OS_MACOS)
+#define CANTDETECTCAPS false
+#elif defined(Q_OS_LINUX)
 #include <X11/XKBlib.h>
 #endif
 
@@ -23,9 +25,11 @@ namespace keyboard {
 bool isCapsLockOn()
 {
     // platform dependent method of determining if CAPS LOCK is on
-#ifdef WIN32 // MS Windows version
+#if defined(Q_OS_WIN32)
     return (GetKeyState(VK_CAPITAL) & 0x0001) == 1;
-#else // X11 version (Linux/Unix/Mac OS X/etc...)
+#elif defined(Q_OS_MACOS)
+    return CANTDETECTCAPS;
+#elif defined(Q_OS_LINUX)
     Display* d = XOpenDisplay(static_cast<char*>(0));
     bool caps_state = false;
     if (d) {
@@ -34,6 +38,8 @@ bool isCapsLockOn()
         caps_state = (n & 0x0001) == 1;
     }
     return caps_state;
+#else
+    return false;
 #endif
 }
 }

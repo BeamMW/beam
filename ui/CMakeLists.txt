@@ -156,7 +156,7 @@ configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}
 
 add_dependencies(${TARGET_NAME} wallet mnemonic qrcode cli)
 target_link_libraries(${TARGET_NAME} qrcode cli)
-if (UNIX)
+if (LINUX)
     target_link_libraries(${TARGET_NAME} X11)
 endif()
 
