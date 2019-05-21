@@ -1,3 +1,4 @@
+import QtQml 2.11
 import QtQuick 2.11
 import QtQuick.Controls 1.2
 import QtQuick.Controls 2.4
@@ -14,7 +15,10 @@ Item
     anchors.fill: parent
     property bool isLockedMode: false
 
-    StartViewModel { id: viewModel }  
+    StartViewModel { id: viewModel }
+    Timer {
+        id: timer
+    }  
     
     LogoComponent {
         id: logoComponent
@@ -1566,7 +1570,11 @@ Item
                 color: Style.background_main
 
                 Keys.onPressed: {
-                    viewModel.checkCapsLock();
+                    // Linux hack, X11 return caps state with delay
+                    timer.interval = 500;
+                    timer.repeat = false;
+                    timer.triggered.connect(function(){viewModel.checkCapsLock();});
+                    timer.start();
                 }
 
                 Image {
