@@ -16,7 +16,7 @@
 #if defined(Q_OS_WIN32)
 #include <windows.h>
 #elif defined(Q_OS_MACOS)
-#define CANTDETECTCAPS false
+#include <Carbon/Carbon.h>
 #elif defined(Q_OS_LINUX)
 #include <X11/XKBlib.h>
 #endif
@@ -24,16 +24,16 @@
 namespace keyboard {
 bool isCapsLockOn()
 {
-    // platform dependent method of determining if CAPS LOCK is on
 #if defined(Q_OS_WIN32)
     return (GetKeyState(VK_CAPITAL) & 0x0001) == 1;
 #elif defined(Q_OS_MACOS)
-    return CANTDETECTCAPS;
+    uint modifiers = GetCurrentKeyModifiers();
+    return modifiers & alphaLock;
 #elif defined(Q_OS_LINUX)
     Display* d = XOpenDisplay(static_cast<char*>(0));
     bool caps_state = false;
     if (d) {
-        unsigned n;
+        uint n;
         XkbGetIndicatorState(d, XkbUseCoreKbd, &n);
         caps_state = (n & 0x0001) == 1;
     }

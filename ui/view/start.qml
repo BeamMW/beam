@@ -1,4 +1,3 @@
-import QtQml 2.11
 import QtQuick 2.11
 import QtQuick.Controls 1.2
 import QtQuick.Controls 2.4
@@ -16,9 +15,6 @@ Item
     property bool isLockedMode: false
 
     StartViewModel { id: viewModel }
-    Timer {
-        id: timer
-    }  
     
     LogoComponent {
         id: logoComponent
@@ -1566,15 +1562,44 @@ Item
                 property var loadWallet: function () {
                     root.parent.setSource("qrc:/loading.qml", {"isRecoveryMode" : false, "isCreating" : false});
                 }
+                
+                property var checkCapsLockOnActivation: function () {
+                    // OSX hack, to handle capslock shutdonw
+                    if (Qt.platform.os == "osx") {
+                        viewModel.checkCapsLock();
+                        if (viewModel.isCapsLockOn) {
+                            var timer = Qt.createQmlObject('import QtQml 2.11; Timer {}', open, "osxCapsTimer");
+                            timer.interval = 500;
+                            timer.repeat = true;
+                            timer.triggered.connect(viewModel.checkCapsLock);
+                            timer.start();
+                        }
+                    }
+                }
+                Component.onCompleted: root.parent.activated.connect(checkCapsLockOnActivation)
+                Component.onDestruction: root.parent.activated.disconnect(checkCapsLockOnActivation)
 
                 color: Style.background_main
 
                 Keys.onPressed: {
+                    console.log("Keys.onPressed:");
+                    console.log(Qt.platform.os);
                     // Linux hack, X11 return caps state with delay
-                    timer.interval = 500;
-                    timer.repeat = false;
-                    timer.triggered.connect(function(){viewModel.checkCapsLock();});
-                    timer.start();
+                    if (Qt.platform.os == "linux") {
+                        var timer = Qt.createQmlObject('import QtQml 2.11; Timer {}', open, "linuxCapsTimer");
+                        timer.interval = 500;
+                        timer.repeat = false;
+                        timer.triggered.connect(viewModel.checkCapsLock);
+                        timer.start();
+                    } else {
+                        viewModel.checkCapsLock();
+                    }
+                }
+                Keys.onReleased: {
+                    // OSX hack, to handle capslock shutdonw
+                    if (Qt.platform.os == "osx") {
+                        viewModel.checkCapsLock();
+                    }
                 }
 
                 Image {
