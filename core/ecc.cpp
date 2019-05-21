@@ -546,7 +546,11 @@ namespace ECC {
         size_t dataSize = 65;
         std::vector<uint8_t> data(dataSize);
 
-        secp256k1_ec_pubkey_serialize(nullptr, data.data(), &dataSize, &pubkey, 0);
+        secp256k1_context* context = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+
+        secp256k1_ec_pubkey_serialize(context, data.data(), &dataSize, &pubkey, 0);
+
+        secp256k1_context_destroy(context);
 
         return data;
     }
