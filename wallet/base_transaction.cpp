@@ -77,30 +77,10 @@ namespace beam::wallet
     {
         try
         {
-            PublicKeys result;
-            Scalar::Native secretKey;
-            result.reserve(ids.size());
-            if (createCoinKey)
-            {
-                for (const auto& coinID : ids)
-                {
-                    Point& publicKey = result.emplace_back();
-                    SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(coinID.m_SubIdx), coinID);
-                }
-            }
-            else
-            {
-                for (const auto& keyID : ids)
-                {
-                    Point& publicKey = result.emplace_back();
-                    m_MasterKdf->DeriveKey(secretKey, keyID);
-                    publicKey = Context::get().G * secretKey;
-                }
-            }
             //    auto eventHolder = make_shared<io::AsyncEvent::Ptr>();
                // *eventHolder = io::AsyncEvent::create(io::Reactor::get_Current(), [eventHolder, result = move(result), cb = move(resultCallback)]() { cb(result); });
               //  (*eventHolder)->post();
-            resultCallback(result);
+            resultCallback(GenerateKeySync(ids, createCoinKey));
         }
         catch (const exception & ex)
         {
@@ -113,32 +93,85 @@ namespace beam::wallet
     {
         try
         {
-            RangeProofs result;
-            Scalar::Native secretKey;
-            Point commitment;
-            result.reserve(ids.size());
-            for (const auto& coinID : ids)
-            {
-                SwitchCommitment sc;
-                sc.Create(secretKey, commitment, *GetChildKdf(coinID.m_SubIdx), coinID);
-
-                ECC::Oracle oracle;
-                oracle << 0U;// m_Incubation;
-
-                ECC::RangeProof::CreatorParams cp;
-                cp.m_Kidv = coinID;
-                cp.m_Seed.V = GetSeedKid(*m_MasterKdf, commitment);
-
-                auto& bulletProof = result.emplace_back(make_unique<ECC::RangeProof::Confidential>());
-                bulletProof->Create(secretKey, cp, oracle, &sc.m_hGen);
-            }
-            resultCallback(result);
+            resultCallback(GenerateRangeProofSync(ids));
         }
         catch (const exception & ex)
         {
             exceptionCallback(ex);
         }
     }
+
+    ////
+
+    IPrivateKeyKeeper::PublicKeys LocalPrivateKeyKeeper::GenerateKeySync(const std::vector<Key::IDV>& ids, bool createCoinKey)
+    {
+        PublicKeys result;
+        Scalar::Native secretKey;
+        result.reserve(ids.size());
+        if (createCoinKey)
+        {
+            for (const auto& coinID : ids)
+            {
+                Point& publicKey = result.emplace_back();
+                SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(coinID.m_SubIdx), coinID);
+            }
+        }
+        else
+        {
+            for (const auto& keyID : ids)
+            {
+                Point& publicKey = result.emplace_back();
+                m_MasterKdf->DeriveKey(secretKey, keyID);
+                publicKey = Context::get().G * secretKey;
+            }
+        }
+        return result;
+    }
+
+    IPrivateKeyKeeper::RangeProofs LocalPrivateKeyKeeper::GenerateRangeProofSync(const std::vector<Key::IDV>& ids)
+    {
+        RangeProofs result;
+        Scalar::Native secretKey;
+        Point commitment;
+        result.reserve(ids.size());
+        for (const auto& coinID : ids)
+        {
+            SwitchCommitment sc;
+            sc.Create(secretKey, commitment, *GetChildKdf(coinID.m_SubIdx), coinID);
+
+            ECC::Oracle oracle;
+            oracle << 0U;// m_Incubation;
+
+            ECC::RangeProof::CreatorParams cp;
+            cp.m_Kidv = coinID;
+            cp.m_Seed.V = GetSeedKid(*m_MasterKdf, commitment);
+
+            auto& bulletProof = result.emplace_back(make_unique<ECC::RangeProof::Confidential>());
+            bulletProof->Create(secretKey, cp, oracle, &sc.m_hGen);
+        }
+        return result;
+    }
+
+    IPrivateKeyKeeper::Nonce LocalPrivateKeyKeeper::GenerateNonceSync()
+    {
+        // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
+        NoLeak<Hash::Value> hvRandom;
+        ECC::GenRandom(hvRandom.V);
+        NoLeak<Scalar::Native>& nonce = m_Nonces.emplace_back();
+        m_MasterKdf->DeriveKey(nonce.V, hvRandom.V);
+
+        Nonce result;
+        result.m_Slot = static_cast<uint8_t>(m_Nonces.size());
+        result.m_PublicValue = Context::get().G * nonce.V;
+        return result;
+    }
+
+    Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const Scalar& offset, uint8_t nonceSlot, const ECC::Hash::Value& message, const Point& peerPublicNonce, const Point& peerPublicExcess)
+    {
+        return Scalar();
+    }
+
+    ////
 
     ECC::uintBig LocalPrivateKeyKeeper::GetSeedKid(Key::IPKdf& tagKdf, const Point& commitment) const
     {
