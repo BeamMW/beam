@@ -41,7 +41,6 @@ namespace beam::wallet
         bool GenerateBlindingExcess();
         void GenerateOffset();
         void GenerateNonce();
-        ECC::Scalar::Native GetExcess() const;
         ECC::Point::Native GetPublicExcess() const;
         ECC::Point::Native GetPublicNonce() const;
         bool GetInitialTxParams();
@@ -97,7 +96,7 @@ namespace beam::wallet
 
         std::vector<Coin::ID> m_InputCoins;
         std::vector<Coin::ID> m_OutputCoins;
-        uint8_t m_NonceSlot = 0;
+        size_t m_NonceSlot = 0;
 
         // peer values
         ECC::Scalar::Native m_PartialSignature;
@@ -113,7 +112,6 @@ namespace beam::wallet
         TxKernel::Ptr m_Kernel;
         ECC::Scalar::Native m_PeerSignature;
         ECC::Hash::Value m_Message;
-        ECC::Signature::MultiSig m_MultiSig;
 
         mutable boost::optional<Merkle::Hash> m_KernelID;
         io::AsyncEvent::Ptr m_AsyncCompletedEvent;

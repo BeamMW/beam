@@ -101,6 +101,44 @@ namespace beam::wallet
         }
     }
 
+    size_t LocalPrivateKeyKeeper::AllocateNonceSlot()
+    {
+        if (m_Nonces.empty())
+        {
+            return 0;
+        }
+        if (m_Nonces.size() == numeric_limits<uint8_t>::max())
+        {
+            throw runtime_error("has no place  for nonces");
+        }
+
+        size_t i = 0;
+        auto it = m_Nonces.begin();
+        while (it != m_Nonces.end() && i < numeric_limits<size_t>::max())
+        {
+            if (i > it->first)
+            {
+                ++it;
+            }
+            else if (i == it->first)
+            {
+                ++it;
+                ++i;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
+        NoLeak<Hash::Value> hvRandom;
+        ECC::GenRandom(hvRandom.V);
+
+        m_Nonces.insert({ i, hvRandom });
+        return i;
+    }
+
     ////
 
     IPrivateKeyKeeper::PublicKeys LocalPrivateKeyKeeper::GenerateKeySync(const std::vector<Key::IDV>& ids, bool createCoinKey)
@@ -145,23 +183,24 @@ namespace beam::wallet
         return result;
     }
 
-    IPrivateKeyKeeper::Nonce LocalPrivateKeyKeeper::GenerateNonceSync()
+    ECC::Point LocalPrivateKeyKeeper::GenerateNonceSync(size_t slot)
     {
-        // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
-        NoLeak<Hash::Value> hvRandom;
-        ECC::GenRandom(hvRandom.V);
-        NoLeak<Scalar::Native>& nonce = m_Nonces.emplace_back();
-        m_MasterKdf->DeriveKey(nonce.V, hvRandom.V);
-
-        Nonce result;
-        result.m_Slot = static_cast<uint8_t>(m_Nonces.size());
-        result.m_PublicValue = Context::get().G * nonce.V;
+        Point result = Context::get().G * GetNonce(slot);
         return result;
     }
 
-    Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const Scalar& offset, uint8_t nonceSlot, const ECC::Hash::Value& message, const Point& peerPublicNonce, const Point& peerPublicExcess)
+    Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const Point::Native& publicNonce, const Point::Native& commitment)
     {
-        return Scalar();
+
+        auto excess = GetExcess(inputs, outputs, offset);
+
+        ECC::Signature::MultiSig multiSig;
+        ECC::Scalar::Native partialSignature;
+        multiSig.m_NoncePub = publicNonce;
+        multiSig.m_Nonce = GetNonce(nonceSlot);
+        multiSig.SignPartial(partialSignature, message, excess);
+        
+        return Scalar(partialSignature);
     }
 
     ////
@@ -186,6 +225,36 @@ namespace beam::wallet
         Key::IKdf::Ptr pRet;
         ECC::HKdf::CreateChild(pRet, *m_MasterKdf, iKdf);
         return pRet;
+    }
+
+    Scalar::Native LocalPrivateKeyKeeper::GetNonce(size_t slot)
+    {
+        auto randomValue = m_Nonces[slot];
+
+        NoLeak<Scalar::Native> nonce;
+        m_MasterKdf->DeriveKey(nonce.V, randomValue.V);
+        return nonce.V;
+    }
+
+    Scalar::Native LocalPrivateKeyKeeper::GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset) const
+    {
+        // Excess = Sum(input blinfing factors) - Sum(output blinfing factors) - offset
+        Point commitment;
+        Scalar::Native blindingFactor;
+        Scalar::Native excess = offset;
+        for (const auto& coinID : outputs)
+        {
+            SwitchCommitment().Create(blindingFactor, commitment, *GetChildKdf(coinID.m_SubIdx), coinID);
+            excess += blindingFactor;
+        }
+        excess = -excess;
+
+        for (const auto& coinID : inputs)
+        {
+            SwitchCommitment().Create(blindingFactor, commitment, *GetChildKdf(coinID.m_SubIdx), coinID);
+            excess += blindingFactor;
+        }
+        return excess;
     }
 
     ///

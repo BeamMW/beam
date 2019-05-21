@@ -62,14 +62,19 @@ namespace beam::wallet
         virtual void GenerateKey(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) = 0;
         virtual void GenerateRangeProof(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<RangeProofs>&&, ExceptionCallback&&) = 0;
 
+        virtual size_t AllocateNonceSlot() = 0;
 
         // sync part for integration test
         virtual PublicKeys GenerateKeySync(const std::vector<Key::IDV>& ids, bool createCoinKey) = 0;
         virtual RangeProofs GenerateRangeProofSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) = 0;
-        virtual Nonce GenerateNonceSync() = 0;
-        virtual ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar& offset, uint8_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point& peerPublicNonce, const ECC::Point& peerPublicExcess) = 0;
+        virtual ECC::Point GenerateNonceSync(size_t slot) = 0;
+        virtual ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) = 0;
     };
 
+
+    //
+    // Private key keeper in local storage implementation
+    //
     class LocalPrivateKeyKeeper : public IPrivateKeyKeeper
     {
     public:
@@ -78,19 +83,23 @@ namespace beam::wallet
         void GenerateKey(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
         void GenerateRangeProof(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<RangeProofs>&&, ExceptionCallback&&) override;
 
+        size_t AllocateNonceSlot() override;
+
         PublicKeys GenerateKeySync(const std::vector<Key::IDV>& ids, bool createCoinKey) override;
         RangeProofs GenerateRangeProofSync(Height schemeHeight, const std::vector<Key::IDV>& ids) override;
-        Nonce GenerateNonceSync() override;
-        ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar& offset, uint8_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point& peerPublicNonce, const ECC::Point& peerPublicExcess) override;
+        ECC::Point GenerateNonceSync(size_t slot) override;
+        ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) override;
 
     private:
         ECC::uintBig GetSeedKid(Key::IPKdf& tagKdf, const ECC::Point& commitment) const;
         Key::IKdf::Ptr GetChildKdf(Key::Index iKdf) const;
+        ECC::Scalar::Native GetNonce(size_t slot);
+        ECC::Scalar::Native GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset) const;
     private:
         IWalletDB::Ptr m_WalletDB;
         Key::IKdf::Ptr m_MasterKdf;
 
-        std::vector<ECC::NoLeak<ECC::Scalar::Native>> m_Nonces;
+        std::map<size_t, ECC::NoLeak<ECC::Hash::Value>> m_Nonces;
     };
 
     std::string GetFailureMessage(TxFailureReason reason);

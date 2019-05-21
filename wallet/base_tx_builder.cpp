@@ -291,34 +291,11 @@ namespace beam::wallet
     void BaseTxBuilder::GenerateNonce()
     {
         // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
-        NoLeak<Hash::Value> hvRandom;
-        if (!m_Tx.GetParameter(TxParameterID::MyNonce, hvRandom.V, m_SubTxID))
+        if (!m_Tx.GetParameter(TxParameterID::NonceSlot, m_NonceSlot, m_SubTxID))
         {
-            ECC::GenRandom(hvRandom.V);
-            m_Tx.SetParameter(TxParameterID::MyNonce, hvRandom.V, false, m_SubTxID);
+            m_NonceSlot = m_Tx.GetKeyKeeper()->AllocateNonceSlot();
+            m_Tx.SetParameter(TxParameterID::NonceSlot, m_NonceSlot, false, m_SubTxID);
         }
-        m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_MultiSig.m_Nonce, hvRandom.V);
-    }
-
-    Scalar::Native BaseTxBuilder::GetExcess() const
-    {
-        // Excess = Sum(input blinfing factors) - Sum(output blinfing factors) - offset
-        Point commitment;
-        Scalar::Native blindingFactor;
-        Scalar::Native excess = m_Offset;
-        for (const auto& coinID : m_OutputCoins)
-        {
-            m_Tx.GetWalletDB()->calcCommitment(blindingFactor, commitment, coinID);
-            excess += blindingFactor;
-        }
-        excess = -excess;
-
-        for (const auto& coinID : m_InputCoins)
-        {
-            m_Tx.GetWalletDB()->calcCommitment(blindingFactor, commitment, coinID);
-            excess += blindingFactor;
-        }
-        return excess;
     }
 
     Point::Native BaseTxBuilder::GetPublicExcess() const
@@ -367,7 +344,10 @@ namespace beam::wallet
 
     Point::Native BaseTxBuilder::GetPublicNonce() const
     {
-        return Context::get().G* m_MultiSig.m_Nonce;
+        auto pt = m_Tx.GetKeyKeeper()->GenerateNonceSync(m_NonceSlot);
+        Point::Native publicNonce;
+        publicNonce.Import(pt);
+        return publicNonce;
     }
 
     bool BaseTxBuilder::GetPeerPublicExcessAndNonce()
@@ -440,10 +420,8 @@ namespace beam::wallet
         m_Kernel->m_Commitment = totalPublicExcess;
 
         m_Kernel->get_Hash(m_Message, m_PeerLockImage.get());
-        m_MultiSig.m_NoncePub = GetPublicNonce() + m_PeerPublicNonce;
 
-        auto excess = GetExcess();
-        m_MultiSig.SignPartial(m_PartialSignature, m_Message, excess);
+        m_PartialSignature = m_Tx.GetKeyKeeper()->SignSync(m_InputCoins, m_OutputCoins, m_Offset, m_NonceSlot, m_Message, GetPublicNonce() + m_PeerPublicNonce, totalPublicExcess);
 
         StoreKernelID();
     }
@@ -498,7 +476,7 @@ namespace beam::wallet
     bool BaseTxBuilder::IsPeerSignatureValid() const
     {
         Signature peerSig;
-        peerSig.m_NoncePub = m_MultiSig.m_NoncePub;
+        peerSig.m_NoncePub = m_PeerPublicNonce + GetPublicNonce();
         peerSig.m_k = m_PeerSignature;
         return peerSig.IsValidPartial(m_Message, m_PeerPublicNonce, m_PeerPublicExcess);
     }
