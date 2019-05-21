@@ -35,7 +35,7 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(QString walletLocation READ getWalletLocation CONSTANT)
     Q_PROPERTY(bool isLocalNodeRunning READ isLocalNodeRunning NOTIFY localNodeRunningChanged)
     Q_PROPERTY(bool isPasswordReqiredToSpendMoney READ isPasswordReqiredToSpendMoney WRITE setPasswordReqiredToSpendMoney NOTIFY passwordReqiredToSpendMoneyChanged)
-    Q_PROPERTY(QStringList supportedLanguages READ getSupportedLanguages)
+    Q_PROPERTY(QStringList supportedLanguages READ getSupportedLanguages NOTIFY currentLanguageIndexChanged)
     Q_PROPERTY(int currentLanguageIndex READ getCurrentLanguageIndex NOTIFY currentLanguageIndexChanged)
     Q_PROPERTY(QString currentLanguage READ getCurrentLanguage WRITE setCurrentLanguage)
     Q_PROPERTY(bool isValidNodeAddress READ isValidNodeAddress NOTIFY validNodeAddressChanged)

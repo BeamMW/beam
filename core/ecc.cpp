@@ -512,6 +512,45 @@ namespace ECC {
 		return operator += (Native(v));
 	}
 
+    secp256k1_pubkey ConvertPointToPubkey(const Point& point)
+    {
+        Point::Native native;
+
+        native.Import(point);
+
+        NoLeak<secp256k1_gej> gej;
+        NoLeak<secp256k1_ge> ge;
+
+        gej.V = native.get_Raw();
+        secp256k1_ge_set_gej(&ge.V, &gej.V);
+
+        const size_t dataSize = 64;
+        secp256k1_pubkey pubkey;
+
+        if constexpr (sizeof(secp256k1_ge_storage) == dataSize)
+        {
+            secp256k1_ge_storage s;
+            secp256k1_ge_to_storage(&s, &ge.V);
+            memcpy(&pubkey.data[0], &s, dataSize);
+        }
+        else 
+        {
+            assert(false && "Unsupported case");
+        }
+
+        return pubkey;
+    }
+
+    std::vector<uint8_t> SerializePubkey(const secp256k1_pubkey& pubkey)
+    {
+        size_t dataSize = 65;
+        std::vector<uint8_t> data(dataSize);
+
+        secp256k1_ec_pubkey_serialize(nullptr, data.data(), &dataSize, &pubkey, 0);
+
+        return data;
+    }
+
 	/////////////////////
 	// Generator
 	namespace Generator

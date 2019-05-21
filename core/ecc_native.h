@@ -146,6 +146,9 @@ namespace ECC
 		static void ExportEx(Point&, const secp256k1_ge&);
 	};
 
+    secp256k1_pubkey ConvertPointToPubkey(const Point& point);
+    std::vector<uint8_t> SerializePubkey(const secp256k1_pubkey& pubkey);
+
 #ifdef NDEBUG
 #	define ECC_COMPACT_GEN // init time is insignificant in release build. ~1sec in debug.
 #endif // NDEBUG

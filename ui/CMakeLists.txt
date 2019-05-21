@@ -94,6 +94,8 @@ set(UI_SRC
     model/wallet_model.cpp
     model/app_model.h
     model/app_model.cpp
+    model/keyboard.h
+    model/keyboard.cpp
     model/settings.h
     model/settings.cpp
     model/messages.h
@@ -154,6 +156,9 @@ configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}
 
 add_dependencies(${TARGET_NAME} wallet mnemonic qrcode cli)
 target_link_libraries(${TARGET_NAME} qrcode cli)
+if (LINUX)
+    target_link_libraries(${TARGET_NAME} X11)
+endif()
 
 if(LINUX)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)

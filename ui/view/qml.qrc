@@ -109,7 +109,6 @@
         <file>assets/copy-two-paper-sheets-interface-symbol.svg</file>
         <file>assets/eye.svg</file>
         <file>assets/icon-back.svg</file>
-        <file>assets/icon-back-blue.svg</file>
         <file>assets/icon-print.svg</file>
         <file>assets/icon-recovery.svg</file>
         <file>assets/password.svg</file>
@@ -127,8 +126,6 @@
         <file>controls/AddressTable.qml</file>
         <file>assets/icon-transactions.svg</file>
         <file>controls/StatusBar.qml</file>
-        <file>assets/icon-change.svg</file>
-        <file>assets/icon-change-blue.svg</file>
         <file>assets/icon-maturing.svg</file>
         <file>controls/EditAddress.qml</file>
         <file>assets/icon-repeat.svg</file>
