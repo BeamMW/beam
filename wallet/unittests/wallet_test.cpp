@@ -1581,8 +1581,8 @@ int main()
 
     TestSplitTransaction();
 
-    TestSwapTransaction(true);
-    TestSwapTransaction(false);
+    //TestSwapTransaction(true);
+    //TestSwapTransaction(false);
 
     TestTxToHimself();
 

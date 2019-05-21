@@ -176,7 +176,6 @@ namespace beam::wallet
         , m_ID{ txID }
     {
         assert(walletDB);
-        assert(keyKeeper);
     }
 
     bool BaseTransaction::IsInitiator() const
