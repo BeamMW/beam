@@ -1564,16 +1564,14 @@ Item
                 }
                 
                 property var checkCapsLockOnActivation: function () {
+                    viewModel.checkCapsLock();
                     // OSX hack, to handle capslock shutdonw
-                    if (Qt.platform.os == "osx") {
-                        viewModel.checkCapsLock();
-                        if (viewModel.isCapsLockOn) {
-                            var timer = Qt.createQmlObject('import QtQml 2.11; Timer {}', open, "osxCapsTimer");
-                            timer.interval = 500;
-                            timer.repeat = true;
-                            timer.triggered.connect(viewModel.checkCapsLock);
-                            timer.start();
-                        }
+                    if (Qt.platform.os == "osx" && viewModel.isCapsLockOn) {
+                        var timer = Qt.createQmlObject('import QtQml 2.11; Timer {}', open, "osxCapsTimer");
+                        timer.interval = 500;
+                        timer.repeat = true;
+                        timer.triggered.connect(viewModel.checkCapsLock);
+                        timer.start();
                     }
                 }
                 Component.onCompleted: root.parent.activated.connect(checkCapsLockOnActivation)
