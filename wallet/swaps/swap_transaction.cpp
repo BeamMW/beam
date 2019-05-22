@@ -754,7 +754,7 @@ namespace beam::wallet
 
         if (!builder.GetPeerPublicExcessAndNonce())
         {
-            if (subTxState == SubTxState::Initial && IsBeamSide())
+            if (subTxState == SubTxState::Initial && isTxOwner)
             {
                 SendSharedTxInvitation(builder);
                 SetState(SubTxState::Invitation, subTxID);
@@ -767,7 +767,7 @@ namespace beam::wallet
 
         if (!builder.GetPeerSignature())
         {
-            if (subTxState == SubTxState::Initial && !IsBeamSide())
+            if (subTxState == SubTxState::Initial && !isTxOwner)
             {
                 // invited participant
                 ConfirmSharedTxInvitation(builder);
@@ -780,50 +780,62 @@ namespace beam::wallet
             }
             return subTxState;
         }
-        else if (subTxID == SubTxIndex::BEAM_REDEEM_TX && IsBeamSide())
+        
+        if (subTxID == SubTxIndex::BEAM_REDEEM_TX)
         {
-            SetTxParameter msg;
-            msg.AddParameter(TxParameterID::SubTxIndex, builder.GetSubTxID())
-                .AddParameter(TxParameterID::PeerSignature, builder.GetPartialSignature());
-
-            if (!SendTxParameters(std::move(msg)))
+            if (IsBeamSide())
             {
-                OnFailed(TxFailureReason::FailedToSendParameters, false);
-            }
-
-            // save SecretPublicKey
-            {
-                auto peerPublicNonce = GetMandatoryParameter<Point::Native>(TxParameterID::PeerPublicNonce, subTxID);
-                Scalar::Native challenge;
+                // save SecretPublicKey
                 {
-                    Point::Native publicNonceNative = builder.GetPublicNonce() + peerPublicNonce;
-                    Point publicNonce;
-                    publicNonceNative.Export(publicNonce);
+                    auto peerPublicNonce = GetMandatoryParameter<Point::Native>(TxParameterID::PeerPublicNonce, subTxID);
+                    Scalar::Native challenge;
+                    {
+                        Point::Native publicNonceNative = builder.GetPublicNonce() + peerPublicNonce;
+                        Point publicNonce;
+                        publicNonceNative.Export(publicNonce);
 
-                    // Signature::get_Challenge(e, m_NoncePub, msg);
-                    uintBig message;
-                    builder.GetKernel().get_Hash(message);
+                        // Signature::get_Challenge(e, m_NoncePub, msg);
+                        uintBig message;
+                        builder.GetKernel().get_Hash(message);
 
-                    Oracle() << publicNonce << message >> challenge;
+                        Oracle() << publicNonce << message >> challenge;
+                    }
+
+                    Scalar::Native peerSignature = GetMandatoryParameter<Scalar::Native>(TxParameterID::PeerSignature, subTxID);
+                    auto peerPublicExcess = GetMandatoryParameter<Point::Native>(TxParameterID::PeerPublicExcess, subTxID);
+
+                    Point::Native pt = Context::get().G * peerSignature;
+
+                    pt += peerPublicExcess * challenge;
+                    pt += peerPublicNonce;
+                    assert(!(pt == Zero));
+
+                    Point secretPublicKey;
+                    pt.Export(secretPublicKey);
+
+                    SetParameter(TxParameterID::AtomicSwapSecretPublicKey, secretPublicKey, subTxID);
                 }
 
-                Scalar::Native peerSignature = GetMandatoryParameter<Scalar::Native>(TxParameterID::PeerSignature, subTxID);
-                auto peerPublicExcess = GetMandatoryParameter<Point::Native>(TxParameterID::PeerPublicExcess, subTxID);
-
-                Point::Native pt = Context::get().G * peerSignature;
-
-                pt += peerPublicExcess * challenge;
-                pt += peerPublicNonce;
-                assert(!(pt == Zero));
-
-                Point secretPublicKey;
-                pt.Export(secretPublicKey);
-
-                SetParameter(TxParameterID::AtomicSwapSecretPublicKey, secretPublicKey, subTxID);
+                SetState(SubTxState::Constructed, subTxID);
+                return SubTxState::Constructed;
             }
+            else
+            {
+                // Send BTC side partial sign with secret
+                auto partialSign = builder.GetPartialSignature();
+                Scalar secretPrivateKey;
+                GetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.m_Value, SubTxIndex::BEAM_REDEEM_TX);
+                partialSign += secretPrivateKey;
 
-            SetState(SubTxState::Constructed, subTxID);
-            return SubTxState::Constructed;
+                SetTxParameter msg;
+                msg.AddParameter(TxParameterID::SubTxIndex, builder.GetSubTxID())
+                    .AddParameter(TxParameterID::PeerSignature, partialSign);
+
+                if (!SendTxParameters(std::move(msg)))
+                {
+                    OnFailed(TxFailureReason::FailedToSendParameters, false);
+                }
+            }
         }
 
         if (!builder.IsPeerSignatureValid())
@@ -1089,21 +1101,10 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::ConfirmSharedTxInvitation(const BaseTxBuilder& builder)
     {
-        auto partialSign = builder.GetPartialSignature();
-
-        if (builder.GetSubTxID() == SubTxIndex::BEAM_REDEEM_TX)
-        {
-            assert(!IsBeamSide());
-            Scalar secretPrivateKey;
-            GetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.m_Value, SubTxIndex::BEAM_REDEEM_TX);
-            // TODO: check
-            partialSign += secretPrivateKey;
-        }
-
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::SubTxIndex, builder.GetSubTxID())
             .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
-            .AddParameter(TxParameterID::PeerSignature, partialSign)
+            .AddParameter(TxParameterID::PeerSignature, builder.GetPartialSignature())
             .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce())
             .AddParameter(TxParameterID::PeerOffset, builder.GetOffset());
 
@@ -1170,8 +1171,6 @@ namespace beam::wallet
         secretPrivateKeyNative.Export(secretPrivateKey);
 
         SetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.m_Value, false, BEAM_REDEEM_TX);
-
-        LOG_DEBUG() << GetTxID() << "Secret " << secretPrivateKey;
     }
 
 } // namespace
