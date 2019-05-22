@@ -105,7 +105,7 @@ namespace beam::wallet
         uint32_t outputIndex = m_tx.GetMandatoryParameter<uint32_t>(TxParameterID::AtomicSwapExternalTxOutputIndex, SubTxIndex::LOCK_TX);
         std::string swapPublicKeyStr = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey);
 
-        txParameters.AddParameter(TxParameterID::AtomicSwapPublicKey, swapPublicKeyStr)
+        txParameters.AddParameter(TxParameterID::AtomicSwapPeerPublicKey, swapPublicKeyStr)
             .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::LOCK_TX)
             .AddParameter(TxParameterID::AtomicSwapExternalTxID, txID)
             .AddParameter(TxParameterID::AtomicSwapExternalTxOutputIndex, outputIndex);

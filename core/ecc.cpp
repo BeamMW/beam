@@ -577,7 +577,7 @@ namespace ECC {
 
         secp256k1_context* context = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 
-        secp256k1_ec_pubkey_serialize(context, data.data(), &dataSize, &pubkey, 0);
+        secp256k1_ec_pubkey_serialize(context, data.data(), &dataSize, &pubkey, SECP256K1_EC_UNCOMPRESSED);
 
         secp256k1_context_destroy(context);
 
