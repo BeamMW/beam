@@ -117,33 +117,7 @@ namespace beam::wallet
 
     void BaseTxBuilder::CreateOutputs()
     {
-        //for (const auto& coinID : m_OutputCoins)
-        //{
-        //    Scalar::Native blindingFactor;
-        //    Output::Ptr output = make_unique<Output>();
-        //    output->Create(m_MinHeight, blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(coinID.m_SubIdx), coinID, *m_Tx.GetWalletDB()->get_MasterKdf());
-        //    m_Outputs.emplace_back(move(output));
-        //}
-
-        auto commitments = m_Tx.GetKeyKeeper()->GenerateKeySync(m_OutputCoins, true);
-        m_Outputs.reserve(commitments.size());
-        for (const auto& commitment : commitments)
-        {
-            auto& output = m_Outputs.emplace_back(make_unique<Output>());
-            output->m_Commitment = commitment;
-        }
-
-        auto rangeProofs = m_Tx.GetKeyKeeper()->GenerateRangeProofSync(m_MinHeight, m_OutputCoins);
-        if (rangeProofs.size() != m_Outputs.size())
-        {
-            return;
-        }
-
-        for (size_t i = 0; i < rangeProofs.size(); ++i)
-        {
-            m_Outputs[i]->m_pConfidential = move(rangeProofs[i]);
-        }
-
+        m_Outputs = m_Tx.GetKeyKeeper()->GenerateOutputsSync(m_MinHeight, m_OutputCoins);
         FinalizeOutputs();
 
         //auto thisHolder = shared_from_this();
@@ -296,6 +270,13 @@ namespace beam::wallet
             m_NonceSlot = m_Tx.GetKeyKeeper()->AllocateNonceSlot();
             m_Tx.SetParameter(TxParameterID::NonceSlot, m_NonceSlot, false, m_SubTxID);
         }
+        
+        if (!m_Tx.GetParameter(TxParameterID::PublicNonce, m_PublicNonce, m_SubTxID))
+        {
+            auto pt = m_Tx.GetKeyKeeper()->GenerateNonceSync(m_NonceSlot);
+            m_PublicNonce.Import(pt);
+            m_Tx.SetParameter(TxParameterID::PublicNonce, m_PublicNonce, false, m_SubTxID);
+        }
     }
 
     Point::Native BaseTxBuilder::GetPublicExcess() const
@@ -344,10 +325,7 @@ namespace beam::wallet
 
     Point::Native BaseTxBuilder::GetPublicNonce() const
     {
-        auto pt = m_Tx.GetKeyKeeper()->GenerateNonceSync(m_NonceSlot);
-        Point::Native publicNonce;
-        publicNonce.Import(pt);
-        return publicNonce;
+        return m_PublicNonce;
     }
 
     bool BaseTxBuilder::GetPeerPublicExcessAndNonce()

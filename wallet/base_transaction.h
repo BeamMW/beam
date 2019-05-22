@@ -52,6 +52,7 @@ namespace beam::wallet
         using ExceptionCallback = Callback<const std::exception&>;
         using PublicKeys = std::vector<ECC::Point>;
         using RangeProofs = std::vector<std::unique_ptr<ECC::RangeProof::Confidential>>;
+        using Outputs = std::vector<Output::Ptr>;
 
         struct Nonce
         {
@@ -60,13 +61,14 @@ namespace beam::wallet
         };
 
         virtual void GenerateKey(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) = 0;
-        virtual void GenerateRangeProof(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<RangeProofs>&&, ExceptionCallback&&) = 0;
+        //virtual void GenerateRangeProof(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<RangeProofs>&&, ExceptionCallback&&) = 0;
 
         virtual size_t AllocateNonceSlot() = 0;
 
         // sync part for integration test
         virtual PublicKeys GenerateKeySync(const std::vector<Key::IDV>& ids, bool createCoinKey) = 0;
-        virtual RangeProofs GenerateRangeProofSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) = 0;
+        virtual Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) = 0;
+        //virtual RangeProofs GenerateRangeProofSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) = 0;
         virtual ECC::Point GenerateNonceSync(size_t slot) = 0;
         virtual ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) = 0;
     };
@@ -81,12 +83,13 @@ namespace beam::wallet
         LocalPrivateKeyKeeper(Key::IKdf::Ptr kdf);
     private:
         void GenerateKey(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
-        void GenerateRangeProof(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<RangeProofs>&&, ExceptionCallback&&) override;
+        //void GenerateRangeProof(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<RangeProofs>&&, ExceptionCallback&&) override;
 
         size_t AllocateNonceSlot() override;
 
         PublicKeys GenerateKeySync(const std::vector<Key::IDV>& ids, bool createCoinKey) override;
-        RangeProofs GenerateRangeProofSync(Height schemeHeight, const std::vector<Key::IDV>& ids) override;
+        Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override;
+        //RangeProofs GenerateRangeProofSync(Height schemeHeight, const std::vector<Key::IDV>& ids) override;
         ECC::Point GenerateNonceSync(size_t slot) override;
         ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) override;
 

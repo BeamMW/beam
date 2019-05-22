@@ -89,17 +89,17 @@ namespace beam::wallet
         }
     }
 
-    void LocalPrivateKeyKeeper::GenerateRangeProof(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<RangeProofs>&& resultCallback, ExceptionCallback&& exceptionCallback)
-    {
-        try
-        {
-            resultCallback(GenerateRangeProofSync(schemeHeight, ids));
-        }
-        catch (const exception & ex)
-        {
-            exceptionCallback(ex);
-        }
-    }
+    //void LocalPrivateKeyKeeper::GenerateRangeProof(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<RangeProofs>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    //{
+    //    //try
+    //    //{
+    //    //    resultCallback(GenerateRangeProofSync(schemeHeight, ids));
+    //    //}
+    //    //catch (const exception & ex)
+    //    //{
+    //    //    exceptionCallback(ex);
+    //    //}
+    //}
 
     size_t LocalPrivateKeyKeeper::AllocateNonceSlot()
     {
@@ -166,22 +166,36 @@ namespace beam::wallet
         return result;
     }
 
-    IPrivateKeyKeeper::RangeProofs LocalPrivateKeyKeeper::GenerateRangeProofSync(Height schemeHeigh, const std::vector<Key::IDV>& ids)
+    IPrivateKeyKeeper::Outputs LocalPrivateKeyKeeper::GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids)
     {
-        RangeProofs result;
+        Outputs result;
         Scalar::Native secretKey;
         Point commitment;
         result.reserve(ids.size());
         for (const auto& coinID : ids)
         {
-            Output output;
-            output.Create(schemeHeigh, secretKey, *GetChildKdf(coinID.m_SubIdx), coinID, *m_MasterKdf);
-
-            assert(output.m_pConfidential);
-            result.emplace_back(move(output.m_pConfidential));
+            auto& output = result.emplace_back(make_unique<Output>());
+            output->Create(schemeHeigh, secretKey, *GetChildKdf(coinID.m_SubIdx), coinID, *m_MasterKdf);
         }
         return result;
     }
+
+    //IPrivateKeyKeeper::RangeProofs LocalPrivateKeyKeeper::GenerateRangeProofSync(Height schemeHeigh, const std::vector<Key::IDV>& ids)
+    //{
+    //    RangeProofs result;
+    //    Scalar::Native secretKey;
+    //    Point commitment;
+    //    result.reserve(ids.size());
+    //    for (const auto& coinID : ids)
+    //    {
+    //        Output output;
+    //        output.Create(schemeHeigh, secretKey, *GetChildKdf(coinID.m_SubIdx), coinID, *m_MasterKdf);
+
+    //        assert(output.m_pConfidential);
+    //        result.emplace_back(move(output.m_pConfidential));
+    //    }
+    //    return result;
+    //}
 
     ECC::Point LocalPrivateKeyKeeper::GenerateNonceSync(size_t slot)
     {

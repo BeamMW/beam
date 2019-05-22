@@ -306,6 +306,7 @@ namespace beam
             SharedBlindingFactor = 160,
             MyNonce = 162,
             NonceSlot = 163,
+            PublicNonce = 164,
             SharedBulletProof = 171,
             SharedCoinID = 172,
             SharedSeed = 173,
