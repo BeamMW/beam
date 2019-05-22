@@ -92,7 +92,7 @@ namespace beam::wallet
         void SendMultiSigProofPart2(const LockTxBuilder& lockBuilder, bool isMultiSigProofOwner);
         void SendMultiSigProofPart3(const LockTxBuilder& lockBuilder, bool isMultiSigProofOwner);
 
-        void SendSharedTxInvitation(const BaseTxBuilder& builder, bool shouldSendLockImage = false);
+        void SendSharedTxInvitation(const BaseTxBuilder& builder);
         void ConfirmSharedTxInvitation(const BaseTxBuilder& builder);
 
 
@@ -107,7 +107,7 @@ namespace beam::wallet
         // wait SubTX in BEAM chain(request kernel proof), returns true if got kernel proof
         bool CompleteSubTx(SubTxID subTxID);
 
-        bool GetPreimageFromChain(ECC::uintBig& preimage, SubTxID subTxID) const;
+        bool GetKernelFromChain(SubTxID subTxID) const;
 
         Amount GetAmount() const;
         bool IsSender() const;
@@ -115,6 +115,7 @@ namespace beam::wallet
 
         void OnSubTxFailed(TxFailureReason reason, SubTxID subTxID, bool notify = false);
         void CheckSubTxFailures();
+        void ExtractSecretPrivateKey();
 
         mutable boost::optional<bool> m_IsBeamSide;
         mutable boost::optional<bool> m_IsSender;

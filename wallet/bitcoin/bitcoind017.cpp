@@ -21,8 +21,8 @@ using json = nlohmann::json;
 
 namespace beam
 {
-    Bitcoind017::Bitcoind017(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, bool mainnet)
-        : Bitcoind016(reactor, userName, pass, address, feeRate, mainnet)
+    Bitcoind017::Bitcoind017(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, Amount confirmations, bool mainnet)
+        : Bitcoind016(reactor, userName, pass, address, feeRate, confirmations, mainnet)
     {
     }
 

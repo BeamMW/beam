@@ -52,7 +52,7 @@ namespace beam
         virtual void getBlockCount(std::function<void(const std::string&, uint64_t)> callback) = 0;
 
         virtual uint8_t getAddressVersion() = 0;
-
         virtual Amount getFeeRate() const = 0;
+        virtual Amount getMaxConfirmations() const = 0;
     };
 }

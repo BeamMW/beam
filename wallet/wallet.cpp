@@ -158,14 +158,14 @@ namespace beam
 
     // Atomic Swap related methods
     // TODO: Refactor
-    void Wallet::initBitcoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, bool mainnet)
+    void Wallet::initBitcoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, Amount confirmations, bool mainnet)
     {
-        m_bitcoinBridge = make_shared<Bitcoind017>(reactor, userName, pass, address, feeRate, mainnet);
+        m_bitcoinBridge = make_shared<Bitcoind017>(reactor, userName, pass, address, feeRate, confirmations, mainnet);
     }
 
-    void Wallet::initLitecoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate,  bool mainnet)
+    void Wallet::initLitecoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, Amount confirmations, bool mainnet)
     {
-        m_litecoinBridge = make_shared<Litecoind016>(reactor, userName, pass, address, feeRate, mainnet);
+        m_litecoinBridge = make_shared<Litecoind016>(reactor, userName, pass, address, feeRate, confirmations, mainnet);
     }
 
     void Wallet::initSwapConditions(Amount beamAmount, Amount swapAmount, AtomicSwapCoin swapCoin, bool isBeamSide)
@@ -732,7 +732,7 @@ namespace beam
 
         if (r.m_Res.m_Kernel && r.m_Res.m_Kernel->m_pHashLock)
         {
-            tx->SetParameter(TxParameterID::PreImage, r.m_Res.m_Kernel->m_pHashLock->m_Preimage, r.m_SubTxID);
+            tx->SetParameter(TxParameterID::Kernel, r.m_Res.m_Kernel, r.m_SubTxID);
             tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Height, r.m_SubTxID);
         }
     }

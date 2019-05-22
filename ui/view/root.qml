@@ -72,5 +72,12 @@ Window  {
         height: parent.height
 	    focus: true
         source : "qrc:/start.qml"
+        signal activated()
+    }
+
+    onActiveChanged: {
+        if (this.active) {
+            rootLoader.activated();
+        }
     }
 }

@@ -15,6 +15,7 @@
 #pragma once
 
 #include "core/common.h"
+#include "core/ecc.h"
 
 namespace beam
 {
@@ -29,10 +30,11 @@ namespace beam
 
         void getOwnerKey(Result<std::string> callback) const;
         void generateNonce(uint8_t slot, Result<std::string> callback) const;
-        void generateKey(Result<std::string> callback) const;
+        void generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<std::string> callback) const;
 
         std::string getOwnerKeySync() const;
         std::string generateNonceSync(uint8_t slot) const;
+        std::string generateKeySync(const ECC::Key::IDV& idv, bool isCoinKey) const;
 
     private:
         std::shared_ptr<HWWalletImpl> m_impl;
