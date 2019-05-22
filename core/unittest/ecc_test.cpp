@@ -1217,6 +1217,380 @@ void TestTransaction()
 	verify_test(ctx.m_Fee == beam::AmountBig::Type(fee1 + fee2));
 }
 
+struct IHWWallet
+{
+	static const uint32_t s_Slots = 16;
+
+	virtual void ResetNonce(Point::Native& res, uint32_t iSlot) = 0;
+
+	struct TransactionInOuts
+	{
+		const Key::IDV* m_pInputs;
+		const Key::IDV* m_pOutputs;
+		uint32_t m_Inputs;
+		uint32_t m_Outputs;
+		Scalar::Native* m_pOffset; // optionally the blinding factor can be split into 2 parts, one of which'd be revealed here
+	};
+
+	virtual void SummarizeCommtiment(Point::Native& res, const TransactionInOuts&) = 0;
+
+	void CreateInput(beam::Input& res, const Key::IDV& kidv)
+	{
+		TransactionInOuts tx;
+		tx.m_Outputs = 0;
+		tx.m_Inputs = 1;
+		tx.m_pInputs = &kidv;
+		tx.m_pOffset = nullptr;
+
+		Point::Native pt(Zero);
+		SummarizeCommtiment(pt, tx);
+
+		res.m_Commitment = pt;
+	}
+
+	virtual void CreateOutput(beam::Output&, const Key::IDV&) = 0;
+
+	struct TransactionData
+		:public TransactionInOuts
+	{
+		// common kernel parameters
+		beam::HeightRange m_Height;
+		beam::Amount m_Fee;
+		// aggregated data
+		Point m_KernelCommitment;
+		Point m_KernelNonce;
+		// nonce slot used
+		uint32_t m_iNonce;
+	};
+
+	virtual bool SignTransaction(Scalar::Native& res, const TransactionData& tx) = 0;
+};
+
+struct HWWalletEmulator
+	:public IHWWallet
+{
+	Scalar m_pNonces[s_Slots];
+	Scalar m_nonceLast;
+	Key::IKdf::Ptr m_pKdf;
+
+	void Initialize()
+	{
+		// random wallet initialization
+		Hash::Value hv;
+		GenRandom(hv);
+		HKdf::Create(m_pKdf, hv);
+
+		// pre-initialize all the nonces
+		GenRandom(m_nonceLast.m_Value);
+		for (uint32_t i = 0; i < s_Slots; i++)
+			Regenerate(i);
+	}
+
+	// Regenerate a specific nonce
+	void Regenerate(uint32_t iSlot)
+	{
+		do
+			Hash::Processor() << m_nonceLast.m_Value >> m_nonceLast.m_Value;
+		while (!m_nonceLast.IsValid());
+
+		m_pNonces[iSlot] = m_nonceLast;
+	}
+
+	virtual void ResetNonce(Point::Native& res, uint32_t iSlot) override
+	{
+		iSlot %= s_Slots;
+		Regenerate(iSlot);
+
+		res = Context::get().G * m_pNonces[iSlot];
+	}
+
+	// Add the blinding factor and value of a specific TXO
+	void SummarizeOnce(Scalar::Native& res, beam::AmountBig::Type& dVal, const Key::IDV& kidv)
+	{
+		Scalar::Native sk;
+		beam::SwitchCommitment().Create(sk, *m_pKdf, kidv);
+		res += sk;
+		dVal += beam::AmountBig::Type(kidv.m_Value);
+	}
+
+	// Summarize blinding factors and values of several in/out TXOs
+	void Summarize(Scalar::Native& res, beam::AmountBig::Type& dVal, const TransactionInOuts& tx)
+	{
+		res = -res;
+		dVal.Negate();
+
+		for (uint32_t i = 0; i < tx.m_Outputs; i++)
+			SummarizeOnce(res, dVal, tx.m_pOutputs[i]);
+
+		res = -res;
+		dVal.Negate();
+
+		for (uint32_t i = 0; i < tx.m_Inputs; i++)
+			SummarizeOnce(res, dVal, tx.m_pInputs[i]);
+
+		if (!tx.m_pOffset)
+			return;
+
+		// Extract a part of the blinding factor in a deterministic way
+		Scalar::Native offs;
+		Oracle()
+			<< res
+			<< dVal
+			>> offs;
+
+		res += offs;
+		offs = -offs;
+
+		*tx.m_pOffset += offs;
+	}
+
+	virtual void SummarizeCommtiment(Point::Native& res, const TransactionInOuts& tx) override
+	{
+		// Summarize (as above), but return only the commitment
+		Scalar::Native sk(Zero);
+		beam::AmountBig::Type dVal(Zero);
+		Summarize(sk, dVal, tx);
+
+		res = Context::get().G * sk;
+
+		if (beam::AmountBig::get_Hi(dVal))
+		{
+			beam::AmountBig::Type dValMinus = dVal;
+			dValMinus.Negate();
+
+			if (dValMinus < dVal)
+			{
+				res = -res;
+				beam::AmountBig::AddTo(res, dValMinus);
+				res = -res;
+				return;
+			}
+		}
+
+		beam::AmountBig::AddTo(res, dVal);
+	}
+
+	virtual void CreateOutput(beam::Output& outp, const Key::IDV& kidv)
+	{
+		Scalar::Native sk;
+		outp.Create(g_hFork, sk, *m_pKdf, kidv, *m_pKdf);
+	}
+
+	virtual bool SignTransaction(Scalar::Native& res, const TransactionData& tx) override
+	{
+		if (tx.m_iNonce >= s_Slots)
+			return false;
+
+		beam::AmountBig::Type dVal(Zero);
+		Scalar::Native skTotal(Zero);
+
+		// calculate the overall blinding factor, and the sum being sent/transferred
+		Summarize(skTotal, dVal, tx);
+
+
+		bool bSending = !beam::AmountBig::get_Hi(dVal);
+		if (!bSending)
+		{
+			dVal.Negate();
+			if (beam::AmountBig::get_Hi(dVal))
+				return false; // overflow
+		}
+
+		Amount valueTransferred = beam::AmountBig::get_Lo(dVal);
+
+		// Ask user permission to send/receive the valueTransferred
+		// ...
+		valueTransferred;
+
+
+		// Calculate the kernelID
+		beam::TxKernel krn;
+		krn.m_Height = tx.m_Height;
+		krn.m_Fee = tx.m_Fee;
+		krn.m_Commitment = tx.m_KernelCommitment;
+
+		Hash::Value krnID;
+		krn.get_ID(krnID);
+
+		// Create partial signature
+
+		Signature::MultiSig msig;
+		msig.m_NoncePub.Import(tx.m_KernelNonce);
+
+		msig.m_Nonce = m_pNonces[tx.m_iNonce];
+		Regenerate(tx.m_iNonce);
+
+		msig.SignPartial(res, krnID, skTotal);
+
+		return true; // finito!
+	}
+};
+
+
+struct MyWallet
+{
+	IHWWallet& m_HW;
+
+	uint32_t m_iSlot; // slot selected for the transaction
+	beam::TxKernel m_Kernel;
+
+	uint64_t m_nLastCoinIndex = 0;
+
+	std::vector<Key::IDV> m_vIns;
+	std::vector<Key::IDV> m_vOuts;
+
+	Amount m_Balance = 0; // in - out
+	beam::Transaction m_Tx;
+
+	void AddInp(Amount val)
+	{
+		Key::IDV kidv(val, ++m_nLastCoinIndex, Key::Type::Regular);
+		m_vIns.push_back(kidv);
+
+		beam::Input::Ptr pInp(new beam::Input);
+		m_HW.CreateInput(*pInp, kidv);
+
+		m_Tx.m_vInputs.push_back(std::move(pInp));
+		m_Balance += val;
+	}
+
+	void AddOutp(Amount val)
+	{
+		Key::IDV kidv(val, ++m_nLastCoinIndex, Key::Type::Regular);
+		m_vOuts.push_back(kidv);
+
+		beam::Output::Ptr pOutp(new beam::Output);
+		m_HW.CreateOutput(*pOutp, kidv);
+
+		m_Tx.m_vOutputs.push_back(std::move(pOutp));
+		m_Balance -= val;
+	}
+
+	void CalcCommitment(Point::Native& res, Scalar::Native& offset)
+	{
+		IHWWallet::TransactionInOuts tx;
+		AssignTxBase(tx, offset);
+		m_HW.SummarizeCommtiment(res, tx);
+	}
+
+	void AssignTxBase(IHWWallet::TransactionInOuts& tx, Scalar::Native& offset)
+	{
+		tx.m_pInputs = m_vIns.empty() ? nullptr : &m_vIns.front();
+		tx.m_pOutputs = m_vOuts.empty() ? nullptr : &m_vOuts.front();
+		tx.m_Inputs = static_cast<uint32_t>(m_vIns.size());
+		tx.m_Outputs = static_cast<uint32_t>(m_vOuts.size());
+		tx.m_pOffset = &offset;
+	}
+
+	bool SignTx(Scalar::Native& res)
+	{
+		Scalar::Native offset(Zero);
+
+		IHWWallet::TransactionData tx;
+		AssignTxBase(tx, offset);
+
+		tx.m_Height = m_Kernel.m_Height;
+		tx.m_Fee = m_Kernel.m_Fee;
+		tx.m_KernelCommitment = m_Kernel.m_Commitment;
+		tx.m_KernelNonce = m_Kernel.m_Signature.m_NoncePub;
+		tx.m_iNonce = m_iSlot;
+
+		return m_HW.SignTransaction(res, tx);
+	}
+
+	MyWallet(IHWWallet& hw)
+		:m_HW(hw)
+	{
+		m_Kernel.m_Commitment = Zero;
+		ZeroObject(m_Kernel.m_Signature);
+	}
+};
+
+void TestTransactionHW()
+{
+	HWWalletEmulator hw1, hw2;
+	hw1.Initialize();
+	hw2.Initialize();
+
+	MyWallet mw1(hw1), mw2(hw2);
+
+	// peers agree on the transaction details, including kernel height and fees
+	mw1.m_Kernel.m_Fee = mw2.m_Kernel.m_Fee = 100;
+	mw1.m_Kernel.m_Height.m_Min = mw2.m_Kernel.m_Height.m_Min = 25000;
+	mw1.m_Kernel.m_Height.m_Max = mw2.m_Kernel.m_Height.m_Max = 27500;
+
+	// peers agree on the amount transferred, each selects its inputs and outputs
+	mw1.AddInp(350000);
+	mw1.AddInp(250000);
+	mw1.AddOutp(170000);
+
+	mw2.AddInp(190000);
+	mw2.AddOutp(mw1.m_Balance + mw2.m_Balance - mw2.m_Kernel.m_Fee);
+
+	assert(mw1.m_Balance + mw2.m_Balance - mw2.m_Kernel.m_Fee == 0);
+
+	// Peers aggregate their commitments and offsets
+	Scalar::Native offs;
+	Point::Native pt(Zero), pt2(Zero);
+	mw1.CalcCommitment(pt, offs);
+	mw2.CalcCommitment(pt2, offs);
+	pt += pt2;
+
+	// reduce the fee from the commitment
+	pt = -pt;
+	pt += Context::get().H * mw2.m_Kernel.m_Fee;
+	pt = -pt;
+
+	mw1.m_Kernel.m_Commitment = pt;
+	mw2.m_Kernel.m_Commitment = mw1.m_Kernel.m_Commitment;
+
+	// Peers aggregate their nonces
+	mw1.m_iSlot = 6;
+	mw1.m_HW.ResetNonce(pt, mw1.m_iSlot);
+
+	mw2.m_iSlot = 11;
+	mw2.m_HW.ResetNonce(pt2, mw2.m_iSlot);
+
+	pt += pt2;
+
+	mw1.m_Kernel.m_Signature.m_NoncePub = pt;
+	mw2.m_Kernel.m_Signature.m_NoncePub = mw1.m_Kernel.m_Signature.m_NoncePub;
+
+	// each peer produces the partial signature
+	Scalar::Native k1, k2;
+	verify_test(mw1.SignTx(k1));
+	verify_test(mw2.SignTx(k2));
+
+	k1 += k2;
+	mw1.m_Kernel.m_Signature.m_k = k1;
+	mw2.m_Kernel.m_Signature.m_k = mw1.m_Kernel.m_Signature.m_k;
+
+	{
+		beam::AmountBig::Type fees;
+		Point::Native exc;
+		verify_test(mw1.m_Kernel.IsValid(g_hFork, fees, exc));
+	}
+
+	// merge txs
+	beam::Transaction txFull;
+	beam::TxVectors::Writer wtx(txFull, txFull);
+
+	volatile bool bStop = false;
+	wtx.Combine(mw1.m_Tx.get_Reader(), mw2.m_Tx.get_Reader(), bStop);
+	txFull.m_Offset = Zero;
+	txFull.Normalize();
+
+	beam::TxKernel::Ptr pKrn(new beam::TxKernel);
+	*pKrn = mw1.m_Kernel;
+	txFull.m_vKernels.push_back(std::move(pKrn));
+	txFull.m_Offset = offs;
+
+	beam::TxBase::Context::Params pars;
+	beam::TxBase::Context ctx(pars);
+	ctx.m_Height.m_Min = g_hFork;
+	verify_test(txFull.IsValid(ctx));
+}
+
 void TestCutThrough()
 {
 	TransactionMaker tm;
@@ -1617,6 +1991,7 @@ void TestAll()
 	TestRangeProof(false);
 	TestRangeProof(true);
 	TestTransaction();
+	TestTransactionHW();
     TestMultiSigOutput();
 	TestCutThrough();
 	TestAES();
