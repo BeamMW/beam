@@ -113,7 +113,7 @@ namespace beam::wallet
         void UpdateAsync();
     protected:
         virtual bool CheckExpired();
-        bool CheckExternalFailures();
+        virtual bool CheckExternalFailures();
         void ConfirmKernel(const Merkle::Hash& kernelID);
         void UpdateOnNextTip();
         void CompleteTx();

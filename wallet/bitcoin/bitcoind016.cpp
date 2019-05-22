@@ -32,12 +32,13 @@ namespace beam
     }
 
     Bitcoind016::Bitcoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass,
-        const io::Address& address, Amount feeRate, bool mainnet)
+        const io::Address& address, Amount feeRate, Amount confirmations, bool mainnet)
         : m_httpClient(reactor)
         , m_address(address)
         , m_authorization(generateAuthorization(userName, pass))
         , m_isMainnet(mainnet)
         , m_feeRate(feeRate)
+        , m_confirmations(confirmations)
     {
     }
 
@@ -187,6 +188,11 @@ namespace beam
     Amount Bitcoind016::getFeeRate() const
     {
         return m_feeRate;
+    }
+
+    Amount Bitcoind016::getTxMinConfirmations() const
+    {
+        return m_confirmations;
     }
 
     void Bitcoind016::sendRequest(const std::string& method, const std::string& params, std::function<void(const std::string&)> callback)

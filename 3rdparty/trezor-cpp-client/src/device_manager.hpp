@@ -73,6 +73,22 @@ public:
     call(pack_message(message));
   }
 
+  void call_BeamGenerateKey(uint64_t idx, uint32_t type, uint32_t subIdx, uint64_t value, bool isCoinKey, MessageCallback callback)
+  {
+    m_callbacks[MessageType_BeamPublicKey] = callback;
+
+    BeamGenerateKey message;
+    auto kidv = message.mutable_kidv();
+    kidv->set_idx(idx);
+    kidv->set_type(type);
+    kidv->set_sub_idx(subIdx);
+    kidv->set_value(value);
+    //message.set_allocated_kidv(kidv);
+    message.set_is_coin_key(isCoinKey);
+    call(pack_message(message));
+    //message.release_kidv();
+  }
+
   void callback_Failure(MessageCallback callback)
   {
     m_callbacks[MessageType_Failure] = callback;
@@ -99,6 +115,9 @@ protected:
       break;
     case MessageType_BeamECCImage:
       execute_callback<MessageType_BeamECCImage, BeamECCImage>(call);
+      break;
+    case MessageType_BeamPublicKey:
+      execute_callback<MessageType_BeamPublicKey, BeamPublicKey>(call);
       break;
     case INTERNAL_ERROR:
     {

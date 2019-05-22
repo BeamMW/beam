@@ -12,19 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
-
-#include "../bitcoin/bitcoind016.h"
-
-namespace beam
-{
-    class Litecoind016 : public Bitcoind016
-    {
-    public:
-        Litecoind016() = delete;
-        Litecoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, Amount confirmations = 6, bool mainnet = false);
-
-        uint8_t getAddressVersion() override;
-
-    };
+namespace keyboard {
+	bool isCapsLockOn();
 }

@@ -127,7 +127,7 @@
         <source>Local node port</source>
         <translation>Порт локального узла</translation>
     </message>
-    <message id="settings-local-node-peers">
+    <message id="settings-peers">
         <source>Peers</source>
         <translation>Пиры</translation>
     </message>
@@ -271,29 +271,9 @@
         <source>Creating wallet...</source>
         <translation>Создание кошелька ...</translation>
     </message>
-    <message id="open-login-another-button">
-        <source>login to another wallet</source>
-        <translation>открыть другой кошелек</translation>
-    </message>
-    <message id="open-pwd-invitation">
-        <source>Enter your password to access the current wallet</source>
+    <message id="start-open-pwd-invitation">
+        <source>Enter your password to access the wallet</source>
         <translation>Что бы получить доступ к кошельку, введите пароль</translation>
-    </message>
-    <message id="open-pwd-label">
-        <source>Enter password</source>
-        <translation>Введите пароль</translation>
-    </message>
-    <message id="open-change-wallet-button">
-        <source>change wallet</source>
-        <translation>сменить кошелек</translation>
-    </message>
-    <message id="open-change-wallet-message">
-        <source>If you open another wallet, all unsaved transaction history for the current wallet will be lost.</source>
-        <translation>Если вы смените кошелек, несохраненная история транзакций будет потеряна.</translation>
-    </message>
-    <message id="open-restore-wallet-button">
-        <source>restore wallet</source>
-        <translation>восстановить кошелек</translation>
     </message>
     <message id="open-show-wallet-button">
         <source>show my wallet</source>
@@ -711,17 +691,13 @@
         <source>The transaction will be deleted. This operation can not be undone</source>
         <translation>Транзакция будет удалена. Эта операция необратима.</translation>
     </message>
-    <message id="start-restore-button">
-        <source>restore wallet</source>
-        <translation>восстановить кошелек</translation>
+    <message id="start-restore-confirm-button">
+        <source>I agree</source>
+        <translation>Я соглашаюсь</translation>
     </message>
-    <message id="start-restore-message-line-1">
-        <source>Your funds will be fully restored from the blockchain. The transaction history and addresses are stored only locally, hence can&apos;t be restored.</source>
-        <translation>Ваши средства будут восстановлены из цепочки блоков. История ваших транзакций и ваши адреса хранятся локально, поэтому их восстановление невожможно.</translation>
-    </message>
-    <message id="start-restore-message-line-2">
-        <source>That&apos;s the final version till the future validation and process.</source>
-        <translation>Вы используете последнюю версию.</translation>
+    <message id="start-restore-message-line">
+        <source>You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</source>
+        <translation>Вы пытаетесь восстановить существующий кошелек. Пожалуйста, обратите внимание, если ваш кошелек используется на другом устройстве, ваш баланс будет восстановлен до актуального состояния, но история транзакций и адреса будут хранится эксклюзивно для каждого устройства.</translation>
     </message>
     <message id="start-create-button">
         <source>create new wallet</source>
@@ -827,9 +803,9 @@
         <source>Create password to access your wallet</source>
         <translation>Защитете ваш кошелек паролем</translation>
     </message>
-    <message id="start-create-pwd-label">
-        <source>Enter password</source>
-        <translation>Введите пароль</translation>
+    <message id="start-pwd-label">
+        <source>Password</source>
+        <translation>Пароль</translation>
     </message>
     <message id="start-create-pwd-confirm-label">
         <source>Confirm password</source>
@@ -1206,6 +1182,70 @@
     <message id="open-external-message">
         <source>Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime.</source>
         <translation>Кошелек пытается открыть внешнюю ссылку в браузере. Это действие может раскрыть ваш IP адрес серверу. Что бы избежать этого, нажмите &quot;отмена&quot;. Вы можете изменить свой выбор в настройках в любое время.</translation>
+    </message>
+    <message id="start-restore-message-title">
+        <source>Restore wallet</source>
+        <translation>Восстановить кошелек</translation>
+    </message>
+    <message id="start-open-restore-link">
+        <source>Restore wallet or create a new one</source>
+        <translation>Восстановить кошелек или создать новый</translation>
+    </message>
+    <message id="start-open-change-wallet-confirm">
+        <source>proceed</source>
+        <translation>продолжить</translation>
+    </message>
+    <message id="start-open-change-wallet-title">
+        <source>Restore wallet or create new one</source>
+        <translation>Восстановить кошелек или создать новый</translation>
+    </message>
+    <message id="start-open-change-wallet-message">
+        <source>If you&apos;ll restore a wallet all transaction history and addresses will be lost.</source>
+        <translation>Если вы восстановите кошелек, история транзакций и адреса будут потеряны на этом устройстве.</translation>
+    </message>
+    <message id="start-restore-link">
+        <source>Restore wallet</source>
+        <translation>Восстановить кошелек</translation>
+    </message>
+    <message id="start-create-finish-button">
+        <source>start using your wallet</source>
+        <translation>начните использовать кошелек</translation>
+    </message>
+    <message id="loading-restore-message-line1">
+        <source>Please wait for synchronization and do not close or minimize the application.</source>
+        <translation>Пожалуйста, дождитесь завершения синхронизации, не закрывайте и не сворачивайте окно.</translation>
+    </message>
+    <message id="loading-restore-message-line2">
+        <source>Only the wallet balance (UTXO) can be restored, transaction info and addresses are always private and never kept in the blockchain.</source>
+        <translation>Будет восстановлен только баланс кошелька (UTXO), информация о транзакциях и адресах является приватной и не хранится в блокчейн.</translation>
+    </message>
+    <message id="start-recovery-title">
+        <source>Create new password</source>
+        <translation>Создать новый пароль</translation>
+    </message>
+    <message id="start-recovery-pwd-message">
+        <source>Create new password to access your wallet</source>
+        <translation>Создать новый пароль для доступа к вашему кошельку</translation>
+    </message>
+    <message id="start-create-pwd-strength-message">
+        <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
+        <translation>Хорошия пароль должен соответствовать следующим требованиям:
+        •  длинна минимум 10 символов
+        •  содержит хотя бы одну строчную букву
+        •  содержит хотя бы одну прописную букву
+        •  содержит хотя бы одну цифру</translation>
+    </message>
+    <message id="start-create-open-button">
+        <source>open my wallet</source>
+        <translation>открыть кошелек</translation>
+    </message>
+    <message id="settings-peers-add-button">
+        <source>Add</source>
+        <translation>Добавить</translation>
+    </message>
+    <message id="start-open-caps-warning">
+        <source>Caps lock is on!</source>
+        <translation>Включен CapsLock!</translation>
     </message>
 </context>
 </TS>

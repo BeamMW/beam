@@ -70,28 +70,31 @@ class Client
     }
 
   protected:
-    template <typename T>
-    std::pair<T, std::string> perform(std::string url, const char *body = nullptr) const
-    {
-        auto result = perform(url, body);
-        T response;
+      template <typename T>
+      std::pair<T, std::string> perform(std::string url, const char *body = nullptr) const
+      {
+          auto result = perform(url, body);
+          T response = T();
 
-        try
-        {
-            response = nlohmann::json::parse(result.c_str(), result.c_str() + result.size()).get<T>();
-        }
-        catch (nlohmann::detail::parse_error e)
-        {
-            // std::cout << "NOT JSON: " << result << std::endl;
-        }
-        catch (nlohmann::detail::exception e)
-        {
-            std::cout << "CATCHED: " << e.what() << std::endl
+          if (!result.empty())
+          {
+              try
+              {
+                  response = nlohmann::json::parse(result.c_str(), result.c_str() + result.size()).get<T>();
+              }
+              catch (nlohmann::detail::parse_error e)
+              {
+                  // std::cout << "NOT JSON: " << result << std::endl;
+              }
+              catch (nlohmann::detail::exception e)
+              {
+                  std::cout << "CATCHED: " << e.what() << std::endl
                       << "WAS: " << result << std::endl;
-        }
+              }
+          }
 
-        return std::make_pair(response, result);
-    }
+          return std::make_pair(response, result);
+      }
 
     std::string perform(std::string url, const char *body = nullptr) const
     {

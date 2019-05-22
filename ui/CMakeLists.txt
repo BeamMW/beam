@@ -94,6 +94,8 @@ set(UI_SRC
     model/wallet_model.cpp
     model/app_model.h
     model/app_model.cpp
+    model/keyboard.h
+    model/keyboard.cpp
     model/settings.h
     model/settings.cpp
     model/messages.h
@@ -147,6 +149,12 @@ file(RENAME ${CMAKE_CURRENT_SOURCE_DIR}/beam_${BEAM_ICON_SUFFIX}.icns ${CMAKE_CU
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/beam.rc.in ${CMAKE_CURRENT_SOURCE_DIR}/beam.rc)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/beam.desktop.in ${CMAKE_CURRENT_SOURCE_DIR}/beam.desktop)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist)
+if (APPLE)
+    find_library(CARBON_LIBRARY Carbon)
+    if(NOT CARBON_LIBRARY)
+        message(FATAL_ERROR "Carbon framework not found")
+    endif()
+endif()
 add_executable(${TARGET_NAME} ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc ${MACOSX_BUNDLE_ICON_FILE})
 set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME ${OUTPUT_NAME})
 
@@ -154,9 +162,13 @@ configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}
 
 add_dependencies(${TARGET_NAME} wallet mnemonic qrcode cli)
 target_link_libraries(${TARGET_NAME} qrcode cli)
-
-if(LINUX)
+if (LINUX)
+    target_link_libraries(${TARGET_NAME} X11)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
+if (APPLE)
+    target_link_libraries(${TARGET_NAME} ${CARBON_LIBRARY})
 endif()
 
 # link with QuaZip library

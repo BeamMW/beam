@@ -182,13 +182,42 @@ Item
                 value: viewModel.progress
             }
 
+            SFText {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.topMargin: 30
+                width: 584
+                //% "Please wait for synchronization and do not close or minimize the application."
+                text: qsTrId("loading-restore-message-line1")
+                font.pixelSize: 14
+                color: Style.content_secondary
+                font.italic: true
+                visible: isRecoveryMode
+            }
+
+            Row {
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.topMargin: 25
+                SFText {
+                    horizontalAlignment: Qt.AlignHCenter
+                    width: 548
+                    height: 30
+                    //% "Only the wallet balance (UTXO) can be restored, transaction info and addresses are always private and never kept in the blockchain."
+                    text: qsTrId("loading-restore-message-line2")
+                    font.pixelSize: 14
+                    color: Style.content_secondary
+                    visible: isRecoveryMode
+                    wrapMode: Text.Wrap
+                    font.italic: true
+                }
+            }
+
             Item {
                 Layout.fillHeight: true
             }
 
             Row {
                 Layout.alignment: Qt.AlignBottom | Qt.AlignHCenter
-                Layout.topMargin: 52
+                Layout.topMargin: isRecoveryMode ? 40 : 52
 
                 CustomButton {
                     visible: isCreating
@@ -202,7 +231,7 @@ Item
             }
             Item {
                 Layout.fillHeight: true
-                Layout.minimumHeight: 67
+                Layout.minimumHeight: isRecoveryMode ? 40 : 67
             }
         }
     }

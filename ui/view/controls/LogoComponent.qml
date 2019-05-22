@@ -81,7 +81,6 @@ Component
                 stagingLabel.text = themeName.toUpperCase();
                 stagingLabel.visible = true;
             }
-
         }
     }
 }

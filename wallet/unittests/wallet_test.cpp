@@ -40,6 +40,10 @@
 #include <boost/filesystem.hpp>
 #include <boost/intrusive/list.hpp>
 
+#if defined(BEAM_HW_WALLET)
+#include "wallet/hw_wallet.h"
+#endif
+
 using namespace beam;
 using namespace std;
 using namespace ECC;
@@ -1538,6 +1542,23 @@ void TestLightning()
 	}
 }
 
+#if defined(BEAM_HW_WALLET)
+void TestHWWallet()
+{
+    cout << "Test HW wallet" << std::endl;
+
+    HWWallet hw;
+    hw.getOwnerKey([](const std::string& key)
+    {
+        LOG_INFO() << "HWWallet.getOwnerKey(): " << key;
+    });
+
+    hw.generateNonce(1, [](const std::string& nonce)
+    {
+        LOG_INFO() << "HWWallet.generateNonce(): " << nonce;
+    });
+}
+#endif
 
 int main()
 {
@@ -1577,6 +1598,10 @@ int main()
 
     TestColdWalletSending();
     TestColdWalletReceiving();
+
+#if defined(BEAM_HW_WALLET)
+    TestHWWallet();
+#endif
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

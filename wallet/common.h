@@ -251,8 +251,8 @@ namespace beam
             AtomicSwapIsBeamSide = 30,
             AtomicSwapCoin = 31,
             AtomicSwapAmount = 32,
-            AtomicSwapAddress = 33,
-            AtomicSwapPeerAddress = 34,
+            AtomicSwapPublicKey = 33,
+            AtomicSwapPeerPublicKey = 34,
             AtomicSwapLockTime = 35,
             AtomicSwapExternalLockTime = 36,
             AtomicSwapExternalTx = 37,
@@ -316,6 +316,10 @@ namespace beam
 
             Kernel = 200,
             PreImage = 201,
+            AtomicSwapSecretPrivateKey = 202,
+            AtomicSwapSecretPublicKey = 203,
+
+            InternalFailureReason = 210,
     
             State = 255
 
