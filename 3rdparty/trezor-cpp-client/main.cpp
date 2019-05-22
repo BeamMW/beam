@@ -61,6 +61,14 @@ int main()
                 print_bin(reinterpret_cast<const uint8_t*>(child_cast<Message, BeamECCImage>(msg).image_x().c_str()), 32);
                 clear_flag(queue_size, is_alive_idx);
             });
+            trezor->call_BeamGenerateKey(0, 0, 0, 1, true, [&, is_alive_idx](const Message &msg, size_t queue_size) {
+                std::cout << "BEAM GENERATED PUBLIC KEY:" << std::endl;
+                std::cout << "pub_x: ";
+                print_bin(reinterpret_cast<const uint8_t*>(child_cast<Message, BeamPublicKey>(msg).pub_x().c_str()), 32);
+                std::cout << "pub_y: ";
+                print_bin(reinterpret_cast<const uint8_t*>(child_cast<Message, BeamPublicKey>(msg).pub_y().c_str()), 1);
+                clear_flag(queue_size, is_alive_idx);
+            });
         }
         catch (std::runtime_error e)
         {

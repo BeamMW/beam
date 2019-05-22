@@ -62,18 +62,18 @@ namespace beam
                 m_trezor->callback_Failure([&](const Message &msg, size_t queue_size) 
                 {
                     // !TODO: handle errors here
-                    //LOG_INFO() << "FAIL REASON: " << child_cast<Message, Failure>(msg).message();
+                    std::cout << "FAIL REASON: " << child_cast<Message, Failure>(msg).message() << std::endl;
                 });
 
                 m_trezor->callback_Success([&](const Message &msg, size_t queue_size) 
                 {
-                    //LOG_INFO() << "SUCCESS: " << child_cast<Message, Success>(msg).message();
+                    std::cout << "SUCCESS: " << child_cast<Message, Success>(msg).message() << std::endl;
                 });
 
                 try
                 {
                     m_trezor->init(enumerate);
-                    m_trezor->call_Ping("hello beam", true);
+                    //m_trezor->call_Ping("hello beam", true);
                 }
                 catch (std::runtime_error e)
                 {
@@ -135,6 +135,30 @@ namespace beam
             }
         }
 
+        void generateKey(const ECC::Key::IDV& idv, bool isCoinKey, HWWallet::Result<std::string> callback)
+        {
+            if (m_trezor)
+            {
+                std::atomic_flag m_runningFlag;
+                m_runningFlag.test_and_set();
+                std::string result;
+
+                m_trezor->call_BeamGenerateKey(idv.m_Idx, idv.m_Type, idv.m_SubIdx, idv.m_Value, isCoinKey, [&m_runningFlag, &result](const Message &msg, size_t queue_size)
+                {
+                    result = to_hex(reinterpret_cast<const uint8_t*>(child_cast<Message, BeamPublicKey>(msg).pub_x().c_str()), 32);
+                    m_runningFlag.clear();
+                });
+
+                while (m_runningFlag.test_and_set());
+
+                callback(result);
+            }
+            else
+            {
+                // LOG_ERROR() << "HW wallet not initialized";
+            }
+        }
+
     private:
 
         Client m_client;
@@ -153,6 +177,11 @@ namespace beam
     void HWWallet::generateNonce(uint8_t slot, Result<std::string> callback) const
     {
         m_impl->generateNonce(slot, callback);
+    }
+
+    void HWWallet::generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<std::string> callback) const
+    {
+        m_impl->generateKey(idv, isCoinKey, callback);
     }
 
     std::string HWWallet::getOwnerKeySync() const
@@ -178,4 +207,17 @@ namespace beam
 
         return result;
     }
+
+    std::string HWWallet::generateKeySync(const ECC::Key::IDV& idv, bool isCoinKey) const
+    {
+        std::string result;
+
+        generateKey(idv, isCoinKey, [&result](const std::string& key)
+        {
+            result = key;
+        });
+
+        return result;
+    }
+
 }
