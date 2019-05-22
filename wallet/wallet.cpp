@@ -731,7 +731,7 @@ namespace beam
 
         if (r.m_Res.m_Kernel && r.m_Res.m_Kernel->m_pHashLock)
         {
-            tx->SetParameter(TxParameterID::PreImage, r.m_Res.m_Kernel->m_pHashLock->m_Preimage, r.m_SubTxID);
+            tx->SetParameter(TxParameterID::Kernel, r.m_Res.m_Kernel, r.m_SubTxID);
             tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Height, r.m_SubTxID);
         }
     }
