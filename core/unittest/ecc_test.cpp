@@ -315,6 +315,43 @@ void TestPoints()
 		verify_test(p_ == p2_);
 	}
 
+    // substraction
+    {
+        Point::Native pointNative;
+        Point point;
+
+        pointNative = Zero;
+
+        verify_test(pointNative == Zero);
+
+        point.m_Y = 0;
+        SetRandom(point.m_X);
+
+        pointNative.Import(point);
+
+        verify_test(pointNative != Zero);
+
+        pointNative -= pointNative;
+
+        verify_test(pointNative == Zero);
+    }
+
+    {
+        Scalar::Native scalarNative;
+
+        scalarNative = Zero;
+
+        verify_test(scalarNative == Zero);
+
+        SetRandom(scalarNative);
+
+        verify_test(scalarNative != Zero);
+
+        scalarNative -= scalarNative;
+
+        verify_test(scalarNative == Zero);
+    }
+
 	// multiplication
 	Scalar::Native s0, s1;
 

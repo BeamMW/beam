@@ -262,6 +262,13 @@ namespace ECC {
 		return *this;
 	}
 
+    Scalar::Native& Scalar::Native::operator = (Minus2 v)
+    {
+        Scalar::Native temp = -v.y;
+        secp256k1_scalar_add(this, &v.x, &temp);
+        return *this;
+    }
+
 	Scalar::Native& Scalar::Native::operator = (Mul v)
 	{
 		secp256k1_scalar_mul(this, &v.x, &v.y);
@@ -502,6 +509,13 @@ namespace ECC {
 		secp256k1_gej_add_var(this, &v.x, &v.y, NULL);
 		return *this;
 	}
+
+    Point::Native& Point::Native::operator = (Minus2 v)
+    {
+        Point::Native temp = -v.y;
+        secp256k1_gej_add_var(this, &v.x, &temp, NULL);
+        return *this;
+    }
 
 	Point::Native& Point::Native::operator = (Double v)
 	{

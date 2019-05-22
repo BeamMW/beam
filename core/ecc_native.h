@@ -59,6 +59,7 @@ namespace ECC
 	{
 		typedef Op::Unary<Op::Minus, Native>			Minus;
 		typedef Op::Binary<Op::Plus, Native, Native>	Plus;
+        typedef Op::Binary<Op::Minus, Native, Native>	Minus2;
 		typedef Op::Binary<Op::Mul, Native, Native>		Mul;
 	public:
 
@@ -77,6 +78,7 @@ namespace ECC
 
 		Minus	operator - () const { return Minus(*this); }
 		Plus	operator + (const Native& y) const { return Plus(*this, y); }
+        Minus2	operator - (const Native& y) const { return Minus2(*this, y); }
 		Mul		operator * (const Native& y) const { return Mul(*this, y); }
 
 		bool operator == (Zero_) const;
@@ -89,9 +91,11 @@ namespace ECC
 		Native& operator = (uint64_t);
 		Native& operator = (Minus);
 		Native& operator = (Plus);
+        Native& operator = (Minus2);
 		Native& operator = (Mul);
 		Native& operator = (const Scalar&);
 		Native& operator += (const Native& v) { return *this = *this + v; }
+        Native& operator -= (const Native& v) { return *this = *this - v; }
 		Native& operator *= (const Native& v) { return *this = *this * v; }
 
 		void SetSqr(const Native&);
@@ -112,6 +116,7 @@ namespace ECC
 		typedef Op::Unary<Op::Minus, Native>				Minus;
 		typedef Op::Unary<Op::Double, Native>				Double;
 		typedef Op::Binary<Op::Plus, Native, Native>		Plus;
+        typedef Op::Binary<Op::Minus, Native, Native>		Minus2;
 		typedef Op::Binary<Op::Mul, Native, Scalar::Native>	Mul;
 
 		Native(const Point&);
@@ -124,6 +129,7 @@ namespace ECC
 
 		Minus	operator - () const { return Minus(*this); }
 		Plus	operator + (const Native& y_) const { return Plus(*this, y_); }
+        Minus2	operator - (const Native& y_) const { return Minus2(*this, y_); }
 		Mul		operator * (const Scalar::Native& y_) const { return Mul(*this, y_); }
 		Double	operator * (Two_) const { return Double(*this); }
 
@@ -133,8 +139,10 @@ namespace ECC
 		Native& operator = (Zero_);
 		Native& operator = (Minus);
 		Native& operator = (Plus);
+        Native& operator = (Minus2);
 		Native& operator = (Double);
 		Native& operator += (const Native& v) { return *this = *this + v; }
+        Native& operator -= (const Native& v) { return *this = *this - v; }
 
 		Native& operator = (Mul);
 		Native& operator += (Mul);
