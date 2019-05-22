@@ -80,7 +80,9 @@ namespace ECC
 		Mul		operator * (const Native& y) const { return Mul(*this, y); }
 
 		bool operator == (Zero_) const;
+        bool operator != (Zero_) const;
 		bool operator == (const Native&) const;
+        bool operator != (const Native&) const;
 
 		Native& operator = (Zero_);
 		Native& operator = (uint32_t);
@@ -126,6 +128,7 @@ namespace ECC
 		Double	operator * (Two_) const { return Double(*this); }
 
 		bool operator == (Zero_) const;
+        bool operator != (Zero_) const;
 
 		Native& operator = (Zero_);
 		Native& operator = (Minus);

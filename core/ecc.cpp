@@ -186,6 +186,11 @@ namespace ECC {
 		return secp256k1_scalar_is_zero(this) != 0; // constant time guaranteed
 	}
 
+    bool Scalar::Native::operator != (Zero_ v) const
+    {
+        return !(operator == (v));
+    }
+
 	bool Scalar::Native::operator == (const Native& v) const
 	{
 		// Used in tests only, but implemented with constant mem-time guarantee
@@ -193,6 +198,11 @@ namespace ECC {
 		x += v;
 		return x == Zero;
 	}
+
+    bool Scalar::Native::operator != (const Native& v) const
+    {
+        return !(operator == (v));
+    }
 
 	Scalar::Native& Scalar::Native::operator = (Minus v)
 	{
@@ -475,6 +485,11 @@ namespace ECC {
 	{
 		return secp256k1_gej_is_infinity(this) != 0;
 	}
+
+    bool Point::Native::operator != (Zero_ v) const
+    {
+        return !(operator == (v));
+    }
 
 	Point::Native& Point::Native::operator = (Minus v)
 	{
