@@ -18,8 +18,8 @@
 
 namespace beam
 {
-    Litecoind016::Litecoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, bool mainnet)
-        : Bitcoind016(reactor, userName, pass, address, feeRate, mainnet)
+    Litecoind016::Litecoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, Amount confirmations, bool mainnet)
+        : Bitcoind016(reactor, userName, pass, address, feeRate, confirmations, mainnet)
     {
     }
 

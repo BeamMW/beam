@@ -89,8 +89,8 @@ namespace beam
 
         // Metods for Atomic Swaps
         // TODO: Refactor
-        void initBitcoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, bool mainnet = false);
-        void initLitecoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, bool mainnet = false);
+        void initBitcoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, Amount confirmations = 6, bool mainnet = false);
+        void initLitecoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, Amount confirmations = 6, bool mainnet = false);
         void initSwapConditions(Amount beamAmount, Amount swapAmount, wallet::AtomicSwapCoin swapCoin, bool isBeamSide);
 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {}, bool saveReceiver = false);

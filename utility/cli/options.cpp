@@ -118,6 +118,8 @@ namespace beam
         const char* SWAP_FEERATE = "swap_feerate";
         const char* SWAP_COIN = "swap_coin";
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
+        const char* BTC_CONFIRMATIONS = "btc_confiramtions";
+        const char* LTC_CONFIRMATIONS = "ltc_confiramtions";
 
         // wallet api
         const char* API_USE_HTTP = "use_http";
@@ -225,7 +227,9 @@ namespace beam
             (cli::SWAP_AMOUNT, po::value<Amount>(), "swap amount in the smallest unit of the coin")
             (cli::SWAP_FEERATE, po::value<Amount>()->default_value(20000), "The specific feerate you are willing to pay(satoshis(or photons) per KB)")
             (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc)")
-            (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner");
+            (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner")
+            (cli::BTC_CONFIRMATIONS, po::value<Amount>()->default_value(6), "confirmations count in bitcoin chain")
+            (cli::LTC_CONFIRMATIONS, po::value<Amount>()->default_value(6), "confirmations count in litecoin chain");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()

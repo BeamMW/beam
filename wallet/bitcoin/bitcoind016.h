@@ -24,7 +24,7 @@ namespace beam
     {
     public:
         Bitcoind016() = delete;
-        Bitcoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, bool mainnet = false);
+        Bitcoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, Amount confirmations = 6, bool mainnet = false);
 
         void dumpPrivKey(const std::string& btcAddress, std::function<void(const std::string&, const std::string&)> callback) override;
         void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const std::string&, const std::string&, int)> callback) override;
@@ -42,8 +42,8 @@ namespace beam
         void getBlockCount(std::function<void(const std::string&, uint64_t)> callback) override;
 
         uint8_t getAddressVersion() override;
-
         Amount getFeeRate() const override;
+        Amount getMaxConfirmations() const override;
 
     protected:
         void sendRequest(const std::string& method, const std::string& params, std::function<void(const std::string&)> callback);
@@ -55,5 +55,6 @@ namespace beam
         std::string m_authorization;
         bool m_isMainnet = false;
         Amount m_feeRate = 0;
+        Amount m_confirmations = 6;
     };
 }
