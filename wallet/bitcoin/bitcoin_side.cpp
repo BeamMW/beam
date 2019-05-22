@@ -474,7 +474,6 @@ namespace beam::wallet
 
         // Create input script
         libbitcoin::machine::operation::list sig_script;
-        libbitcoin::ec_compressed pubkey = wallet_key.to_public().point();
 
         if (SubTxIndex::REFUND_TX == subTxID)
         {
