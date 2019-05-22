@@ -1266,7 +1266,6 @@ struct IHWWallet
 		const Key::IDV* m_pOutputs;
 		uint32_t m_Inputs;
 		uint32_t m_Outputs;
-		Scalar::Native* m_pOffset; // optionally the blinding factor can be split into 2 parts, one of which'd be revealed here
 	};
 
 	virtual void SummarizeCommtiment(Point::Native& res, const TransactionInOuts&) = 0;
@@ -1277,7 +1276,6 @@ struct IHWWallet
 		tx.m_Outputs = 0;
 		tx.m_Inputs = 1;
 		tx.m_pInputs = &kidv;
-		tx.m_pOffset = nullptr;
 
 		Point::Native pt(Zero);
 		SummarizeCommtiment(pt, tx);
@@ -1298,6 +1296,8 @@ struct IHWWallet
 		Point m_KernelNonce;
 		// nonce slot used
 		uint32_t m_iNonce;
+		// Additional explicit blinding factor that should be added
+		Scalar::Native m_Offset;
 	};
 
 	virtual bool SignTransaction(Scalar::Native& res, const TransactionData& tx) = 0;
@@ -1364,21 +1364,6 @@ struct HWWalletEmulator
 
 		for (uint32_t i = 0; i < tx.m_Inputs; i++)
 			SummarizeOnce(res, dVal, tx.m_pInputs[i]);
-
-		if (!tx.m_pOffset)
-			return;
-
-		// Extract a part of the blinding factor in a deterministic way
-		Scalar::Native offs;
-		Oracle()
-			<< res
-			<< dVal
-			>> offs;
-
-		res += offs;
-		offs = -offs;
-
-		*tx.m_pOffset += offs;
 	}
 
 	virtual void SummarizeCommtiment(Point::Native& res, const TransactionInOuts& tx) override
@@ -1419,7 +1404,7 @@ struct HWWalletEmulator
 			return false;
 
 		beam::AmountBig::Type dVal(Zero);
-		Scalar::Native skTotal(Zero);
+		Scalar::Native skTotal = tx.m_Offset;
 
 		// calculate the overall blinding factor, and the sum being sent/transferred
 		Summarize(skTotal, dVal, tx);
@@ -1479,6 +1464,8 @@ struct MyWallet
 	Amount m_Balance = 0; // in - out
 	beam::Transaction m_Tx;
 
+	Scalar::Native m_Offset;
+
 	void AddInp(Amount val)
 	{
 		Key::IDV kidv(val, ++m_nLastCoinIndex, Key::Type::Regular);
@@ -1503,34 +1490,35 @@ struct MyWallet
 		m_Balance -= val;
 	}
 
-	void CalcCommitment(Point::Native& res, Scalar::Native& offset)
+	void CalcCommitment(Point::Native& res)
 	{
 		IHWWallet::TransactionInOuts tx;
-		AssignTxBase(tx, offset);
+		AssignTxBase(tx);
 		m_HW.SummarizeCommtiment(res, tx);
+
+		res += Context::get().G * m_Offset;
 	}
 
-	void AssignTxBase(IHWWallet::TransactionInOuts& tx, Scalar::Native& offset)
+	void AssignTxBase(IHWWallet::TransactionInOuts& tx)
 	{
 		tx.m_pInputs = m_vIns.empty() ? nullptr : &m_vIns.front();
 		tx.m_pOutputs = m_vOuts.empty() ? nullptr : &m_vOuts.front();
 		tx.m_Inputs = static_cast<uint32_t>(m_vIns.size());
 		tx.m_Outputs = static_cast<uint32_t>(m_vOuts.size());
-		tx.m_pOffset = &offset;
 	}
 
 	bool SignTx(Scalar::Native& res)
 	{
-		Scalar::Native offset(Zero);
-
 		IHWWallet::TransactionData tx;
-		AssignTxBase(tx, offset);
+		AssignTxBase(tx);
 
 		tx.m_Height = m_Kernel.m_Height;
 		tx.m_Fee = m_Kernel.m_Fee;
 		tx.m_KernelCommitment = m_Kernel.m_Commitment;
 		tx.m_KernelNonce = m_Kernel.m_Signature.m_NoncePub;
 		tx.m_iNonce = m_iSlot;
+
+		tx.m_Offset = m_Offset;
 
 		return m_HW.SignTransaction(res, tx);
 	}
@@ -1550,6 +1538,8 @@ void TestTransactionHW()
 	hw2.Initialize();
 
 	MyWallet mw1(hw1), mw2(hw2);
+	SetRandom(mw1.m_Offset);
+	SetRandom(mw2.m_Offset);
 
 	// peers agree on the transaction details, including kernel height and fees
 	mw1.m_Kernel.m_Fee = mw2.m_Kernel.m_Fee = 100;
@@ -1567,10 +1557,9 @@ void TestTransactionHW()
 	assert(mw1.m_Balance + mw2.m_Balance - mw2.m_Kernel.m_Fee == 0);
 
 	// Peers aggregate their commitments and offsets
-	Scalar::Native offs;
 	Point::Native pt(Zero), pt2(Zero);
-	mw1.CalcCommitment(pt, offs);
-	mw2.CalcCommitment(pt2, offs);
+	mw1.CalcCommitment(pt);
+	mw2.CalcCommitment(pt2);
 	pt += pt2;
 
 	// reduce the fee from the commitment
@@ -1620,7 +1609,10 @@ void TestTransactionHW()
 	beam::TxKernel::Ptr pKrn(new beam::TxKernel);
 	*pKrn = mw1.m_Kernel;
 	txFull.m_vKernels.push_back(std::move(pKrn));
-	txFull.m_Offset = offs;
+
+	Scalar::Native offs = mw1.m_Offset;
+	offs += mw2.m_Offset;
+	txFull.m_Offset = -offs;
 
 	beam::TxBase::Context::Params pars;
 	beam::TxBase::Context ctx(pars);
