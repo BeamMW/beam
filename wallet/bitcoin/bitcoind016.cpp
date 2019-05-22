@@ -190,7 +190,7 @@ namespace beam
         return m_feeRate;
     }
 
-    Amount Bitcoind016::getMaxConfirmations() const
+    Amount Bitcoind016::getTxMinConfirmations() const
     {
         return m_confirmations;
     }

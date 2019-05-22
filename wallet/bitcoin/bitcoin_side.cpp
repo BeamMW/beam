@@ -24,7 +24,6 @@ namespace
 {
     constexpr uint32_t kBTCLockTimeInBlocks = 2 * 24 * 6;
     constexpr uint32_t kBTCLockTimeSec = 2 * 24 * 60 * 60;
-    constexpr uint32_t kBTCMinTxConfirmations = 6;
     constexpr uint32_t kBTCWithdrawTxAverageSize = 240;
 
     libbitcoin::chain::script AtomicSwapContract(const libbitcoin::ec_compressed& publicKeyA
@@ -119,7 +118,7 @@ namespace beam::wallet
         if (!m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txID, SubTxIndex::LOCK_TX))
             return false;
 
-        if (m_SwapLockTxConfirmations < kBTCMinTxConfirmations)
+        if (m_SwapLockTxConfirmations < m_bitcoinBridge->getTxMinConfirmations())
         {
             // validate expired?
 
@@ -559,7 +558,7 @@ namespace beam::wallet
         if (m_SwapLockTxConfirmations != confirmations)
         {
             LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << confirmations << "/" 
-                << kBTCMinTxConfirmations <<" confirmations are received.";
+                << m_bitcoinBridge->getTxMinConfirmations() <<" confirmations are received.";
             m_SwapLockTxConfirmations = confirmations;
         }
     }
