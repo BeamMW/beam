@@ -882,6 +882,14 @@ int main_impl(int argc, char* argv[])
                     LOG_INFO() << "Beam Wallet " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
                     LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
+                    bool coldWallet = vm.count(cli::COLD_WALLET) > 0;
+
+                    if (coldWallet && command == cli::RESTORE)
+                    {
+                        LOG_ERROR() << "You can't use 'restore' command in terms of Cold Wallet.";
+                        return -1;
+                    }
+
                     assert(vm.count(cli::WALLET_STORAGE) > 0);
                     auto walletPath = vm[cli::WALLET_STORAGE].as<string>();
 
@@ -913,8 +921,6 @@ int main_impl(int argc, char* argv[])
                             return -1;
                         }
                     }
-
-                    bool coldWallet = vm.count(cli::COLD_WALLET) > 0;
 
                     if (command == cli::INIT || command == cli::RESTORE)
                     {
