@@ -21,7 +21,9 @@
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
+#if defined(BEAM_HW_WALLET)
 #include "hw_wallet.h"
+#endif
 
 namespace beam::wallet
 {
@@ -75,6 +77,7 @@ namespace beam::wallet
         virtual ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) = 0;
     };
 
+#if defined(BEAM_HW_WALLET)
     //
     // Private key keeper in HW wallet implementation
     //
@@ -96,6 +99,11 @@ namespace beam::wallet
             return {};
         }
 
+        Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override
+        {
+            return {};
+        }
+
         ECC::Point GenerateNonceSync(size_t slot) override
         {            
             return m_hwWallet.generateNonceSync(static_cast<uint8_t>(slot));
@@ -109,6 +117,7 @@ namespace beam::wallet
 
         beam::HWWallet m_hwWallet;
     };
+#endif
 
     //
     // Private key keeper in local storage implementation
