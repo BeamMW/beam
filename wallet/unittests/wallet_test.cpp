@@ -1553,7 +1553,7 @@ void TestHWWallet()
         LOG_INFO() << "HWWallet.getOwnerKey(): " << key;
     });
 
-    hw.generateNonce(1, [](const std::string& nonce)
+    hw.generateNonce(1, [](const ECC::Point& nonce)
     {
         LOG_INFO() << "HWWallet.generateNonce(): " << nonce;
     });

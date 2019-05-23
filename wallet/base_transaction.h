@@ -21,6 +21,8 @@
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
+#include "hw_wallet.h"
+
 namespace beam::wallet
 {
     TxID GenerateTxID();
@@ -73,6 +75,50 @@ namespace beam::wallet
         virtual ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) = 0;
     };
 
+    //
+    // Private key keeper in HW wallet implementation
+    //
+    class HWWalletKeyKeeper : public IPrivateKeyKeeper
+    {
+    public:
+        void GenerateKey(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) override
+        {
+
+        }
+
+        void GenerateRangeProof(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<RangeProofs>&&, ExceptionCallback&&) override
+        {
+
+        }
+
+        size_t AllocateNonceSlot()
+        {
+            return 0;
+        }
+
+        PublicKeys GenerateKeySync(const std::vector<Key::IDV>& ids, bool createCoinKey) override
+        {
+            return {};
+        }
+
+        RangeProofs GenerateRangeProofSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override
+        {
+            return {};
+        }
+
+        ECC::Point GenerateNonceSync(size_t slot) override
+        {            
+            return m_hwWallet.generateNonceSync(static_cast<uint8_t>(slot));
+        }
+
+        ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) override
+        {
+            return {};
+        }
+    private:
+
+        beam::HWWallet m_hwWallet;
+    };
 
     //
     // Private key keeper in local storage implementation
