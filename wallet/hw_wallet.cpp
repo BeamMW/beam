@@ -97,7 +97,7 @@ namespace beam
 
                 m_trezor->call_BeamGetOwnerKey(true, [&m_runningFlag, &result](const Message &msg, size_t queue_size)
                 {
-                    result = child_cast<Message, BeamOwnerKey>(msg).key();
+                    result = child_cast<Message, hw::trezor::messages::beam::BeamOwnerKey>(msg).key();
                     m_runningFlag.clear();
                 });
 
@@ -121,7 +121,7 @@ namespace beam
 
                 m_trezor->call_BeamGenerateNonce(slot, [&m_runningFlag, &result](const Message &msg, size_t queue_size)
                 {
-                    result = to_hex(reinterpret_cast<const uint8_t*>(child_cast<Message, BeamECCImage>(msg).image_x().c_str()), 32);
+                    result = to_hex(reinterpret_cast<const uint8_t*>(child_cast<Message, hw::trezor::messages::beam::BeamECCImage>(msg).image_x().c_str()), 32);
                     m_runningFlag.clear();
                 });
 
@@ -145,7 +145,7 @@ namespace beam
 
                 m_trezor->call_BeamGenerateKey(idv.m_Idx, idv.m_Type, idv.m_SubIdx, idv.m_Value, isCoinKey, [&m_runningFlag, &result](const Message &msg, size_t queue_size)
                 {
-                    result = to_hex(reinterpret_cast<const uint8_t*>(child_cast<Message, BeamPublicKey>(msg).pub_x().c_str()), 32);
+                    result = to_hex(reinterpret_cast<const uint8_t*>(child_cast<Message, hw::trezor::messages::beam::BeamPublicKey>(msg).pub_x().c_str()), 32);
                     m_runningFlag.clear();
                 });
 
