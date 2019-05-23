@@ -43,6 +43,148 @@ ColumnLayout {
         property bool isOwn
     }
 
+    Dialog {
+        id: showQR
+        property var addressItem: null
+        modal: true
+        width: 462
+        height: 541
+
+        x: (parent.width - width) / 2
+        y: (parent.height - height) / 2
+        visible: false
+        
+        background: Rectangle {
+            radius: 10
+            color: Style.background_second
+            anchors.fill: parent
+        }
+
+        contentItem: ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 30
+            spacing: 0
+
+            Item {
+                width: parent.width
+                height: 29
+
+                SFText {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    //: show QR dialog title
+                    //% "QR code"
+                    text: qsTrId("show-qr-title")
+                    color: Style.content_main
+                    font.pixelSize: 24
+                    font.styleName: "Bold"; font.weight: Font.Bold
+                }
+                Image {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    fillMode: Image.Pad     
+                    source: "qrc:/assets/icon-cancel-16.svg"
+                    MouseArea {
+                        anchors.fill: parent
+                        acceptedButtons: Qt.LeftButton
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            showQR.close();
+                        }
+                    }
+                }
+            }
+
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 40
+                Layout.maximumHeight: 40
+            }
+
+            Image {
+                    Layout.alignment: Qt.AlignHCenter
+                    fillMode: Image.Pad
+                    source: showQR.addressItem ? viewModel.generateQR(showQR.addressItem.address, 164, 164) : ""
+            }
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 40
+                Layout.maximumHeight: 40
+            }
+
+            SFText {
+                Layout.alignment: Qt.AlignHCenter
+                //: transaction token label
+                //% "Your transaction token:"
+                text: qsTrId("show-qr-tx-token-label")
+                color: Style.content_main
+                font.pixelSize: 14
+                font.styleName: "Bold"; font.weight: Font.Bold
+            }
+
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 10
+                Layout.maximumHeight: 10
+            }
+
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 45
+                Layout.maximumHeight: 45
+            
+                SFLabel {
+                    height: 48
+                    width: 392
+                    horizontalAlignment: Text.AlignHCenter
+                    text: showQR.addressItem ? showQR.addressItem.address : ""
+                    color: Style.content_secondary
+                    font.pixelSize: 14
+                    wrapMode: Text.Wrap
+                    copyMenuEnabled: true
+                    onCopyText: viewModel.copyToClipboard(text)
+                }
+            }
+
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 20
+                Layout.maximumHeight: 20
+            }
+
+            SFText {
+                width: 400
+                height: 32
+                Layout.alignment: Qt.AlignHCenter
+                horizontalAlignment: Text.AlignHCenter
+                //: show QR dialog message, how to use this QR
+                //% "Scan this QR code or send this token to the sender over secure channel"
+                text: qsTrId("show-qr-message")
+                color: Style.content_main
+                font.pixelSize: 14
+            }
+
+            Item {
+                Layout.fillHeight: true
+                Layout.minimumHeight: 25
+                Layout.maximumHeight: 25
+            }
+
+            Row {
+                Layout.alignment: Qt.AlignHCenter
+                CustomButton {
+                    height: 38
+                    //: show QR dialog close button
+                    //% "close"
+                    text: qsTrId("show-qr-close-button")
+                    Layout.alignment: Qt.AlignHCenter
+                    icon.source: "qrc:/assets/icon-cancel-16.svg"
+                    onClicked: showQR.close()
+                }
+            }
+        }
+    }
+
     RowLayout {
         Layout.fillWidth: true
         Layout.minimumHeight: 40
@@ -89,6 +231,7 @@ ColumnLayout {
             visible: false
 
             editDialog: editActiveAddress
+            showQRDialog: showQR
 
             sortIndicatorVisible: true
             sortIndicatorColumn: 4
@@ -114,6 +257,7 @@ ColumnLayout {
             parentModel: viewModel
 
             editDialog: editExpiredAddress
+            showQRDialog: showQR
             isExpired: true
 
             sortIndicatorVisible: true

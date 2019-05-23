@@ -1247,5 +1247,31 @@
         <source>Caps lock is on!</source>
         <translation>Включен CapsLock!</translation>
     </message>
+    <message id="show-qr-title">
+        <source>QR code</source>
+        <extracomment>show QR dialog title</extracomment>
+        <translation>QR код</translation>
+    </message>
+    <message id="show-qr-tx-token-label">
+        <source>Your transaction token:</source>
+        <extracomment>transaction token label</extracomment>
+        <translation>Токен вашей транзакции:</translation>
+    </message>
+    <message id="show-qr-message">
+        <source>Scan this QR code or send this token to the sender over secure channel</source>
+        <extracomment>show QR dialog message, how to use this QR</extracomment>
+        <translation>Сканируйте этот QR код,
+для отправки отправителю, через безопасное соединение</translation>
+    </message>
+    <message id="show-qr-close-button">
+        <source>close</source>
+        <extracomment>show QR dialog close button</extracomment>
+        <translation>закрыть</translation>
+    </message>
+    <message id="address-table-cm-show-qr">
+        <source>show QR code</source>
+        <extracomment>Entry in adress table context menu to show QR</extracomment>
+        <translation>показать QR код</translation>
+    </message>
 </context>
 </TS>

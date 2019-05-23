@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <memory>
 #include <QObject>
 #include <QQmlListProperty>
 #include "model/wallet_model.h"
@@ -21,6 +22,7 @@
 #include "messages_view.h"
 
 class PaymentInfoItem;
+class QR;
 
 class TxObject : public QObject
 {
@@ -258,6 +260,7 @@ public slots:
     void onNewAddressFailed();
     void onSendMoneyVerified();
     void onCantSendToExpired();
+    void onReceiverQRChanged();
 
 signals:
     void stateChanged();
@@ -286,8 +289,6 @@ private:
 
     std::function<bool(const TxObject*, const TxObject*)> generateComparer();
 
-    void updateReceiverQRCode();
-
 private:
 
     WalletModel& _model;
@@ -305,11 +306,11 @@ private:
 
     QString _receiverAddr;
     beam::WalletAddress _newReceiverAddr;
-    QString _newReceiverAddrQR;
     QString _newReceiverName;
     QString _comment;
 
     Qt::SortOrder _sortOrder;
     QString _sortRole;
     int _expires;
+    std::unique_ptr<QR> _qr;
 };
