@@ -4,3 +4,6 @@
 [submodule "3rdparty/protobuf"]
 	path = 3rdparty/protobuf
 	url = https://github.com/protocolbuffers/protobuf.git
+[submodule "3rdparty/trezor-cpp-client"]
+	path = 3rdparty/trezor-cpp-client
+	url = https://github.com/BeamMW/trezor-cpp-client.git

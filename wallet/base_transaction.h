@@ -86,22 +86,12 @@ namespace beam::wallet
 
         }
 
-        void GenerateRangeProof(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<RangeProofs>&&, ExceptionCallback&&) override
-        {
-
-        }
-
         size_t AllocateNonceSlot()
         {
             return 0;
         }
 
         PublicKeys GenerateKeySync(const std::vector<Key::IDV>& ids, bool createCoinKey) override
-        {
-            return {};
-        }
-
-        RangeProofs GenerateRangeProofSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override
         {
             return {};
         }
