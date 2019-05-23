@@ -1341,26 +1341,28 @@ struct HWWalletEmulator
 		res = Context::get().G * m_pNonces[iSlot];
 	}
 
+	typedef int64_t AmountSigned;
+
 	// Add the blinding factor and value of a specific TXO
-	void SummarizeOnce(Scalar::Native& res, beam::AmountBig::Type& dVal, const Key::IDV& kidv)
+	void SummarizeOnce(Scalar::Native& res, AmountSigned& dVal, const Key::IDV& kidv)
 	{
 		Scalar::Native sk;
 		beam::SwitchCommitment().Create(sk, *m_pKdf, kidv);
 		res += sk;
-		dVal += beam::AmountBig::Type(kidv.m_Value);
+		dVal += kidv.m_Value;
 	}
 
 	// Summarize blinding factors and values of several in/out TXOs
-	void Summarize(Scalar::Native& res, beam::AmountBig::Type& dVal, const TransactionInOuts& tx)
+	void Summarize(Scalar::Native& res, AmountSigned& dVal, const TransactionInOuts& tx)
 	{
 		res = -res;
-		dVal.Negate();
+		dVal = -dVal;
 
 		for (uint32_t i = 0; i < tx.m_Outputs; i++)
 			SummarizeOnce(res, dVal, tx.m_pOutputs[i]);
 
 		res = -res;
-		dVal.Negate();
+		dVal = -dVal;
 
 		for (uint32_t i = 0; i < tx.m_Inputs; i++)
 			SummarizeOnce(res, dVal, tx.m_pInputs[i]);
@@ -1370,26 +1372,19 @@ struct HWWalletEmulator
 	{
 		// Summarize (as above), but return only the commitment
 		Scalar::Native sk(Zero);
-		beam::AmountBig::Type dVal(Zero);
+		AmountSigned dVal = 0;
 		Summarize(sk, dVal, tx);
 
 		res = Context::get().G * sk;
 
-		if (beam::AmountBig::get_Hi(dVal))
+		if (dVal < 0)
 		{
-			beam::AmountBig::Type dValMinus = dVal;
-			dValMinus.Negate();
-
-			if (dValMinus < dVal)
-			{
-				res = -res;
-				beam::AmountBig::AddTo(res, dValMinus);
-				res = -res;
-				return;
-			}
+			res = -res;
+			res += Context::get().H * Amount(-dVal);
+			res = -res;
 		}
-
-		beam::AmountBig::AddTo(res, dVal);
+		else
+			res += Context::get().H * Amount(dVal);
 	}
 
 	virtual void CreateOutput(beam::Output& outp, const Key::IDV& kidv)
@@ -1403,22 +1398,18 @@ struct HWWalletEmulator
 		if (tx.m_iNonce >= s_Slots)
 			return false;
 
-		beam::AmountBig::Type dVal(Zero);
+		AmountSigned dVal = 0;
 		Scalar::Native skTotal = tx.m_Offset;
 
 		// calculate the overall blinding factor, and the sum being sent/transferred
 		Summarize(skTotal, dVal, tx);
 
 
-		bool bSending = !beam::AmountBig::get_Hi(dVal);
+		bool bSending = (dVal > 0);
 		if (!bSending)
-		{
-			dVal.Negate();
-			if (beam::AmountBig::get_Hi(dVal))
-				return false; // overflow
-		}
+			dVal = -dVal;
 
-		Amount valueTransferred = beam::AmountBig::get_Lo(dVal);
+		Amount valueTransferred = dVal;
 
 		// Ask user permission to send/receive the valueTransferred
 		// ...
