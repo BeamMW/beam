@@ -886,7 +886,7 @@ int main_impl(int argc, char* argv[])
 
                     if (coldWallet && command == cli::RESTORE)
                     {
-                        LOG_ERROR() << "You can't use 'restore' command in terms of Cold Wallet.";
+                        LOG_ERROR() << "You can't restore cold wallet.";
                         return -1;
                     }
 
