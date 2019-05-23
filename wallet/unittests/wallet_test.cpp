@@ -354,7 +354,7 @@ namespace
     {
         TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), bool coldWallet = false, bool oneTimeBbsEndpoint = false)
             : m_WalletDB{walletDB}
-            , m_Wallet{ m_WalletDB, move(action) }
+            , m_Wallet{ m_WalletDB, move(action), coldWallet ? []() {io::Reactor::get_Current().stop(); } : Wallet::UpdateCompletedAction() }
         {
             if (m_WalletDB->get_MasterKdf()) // can create secrets
             {
@@ -1682,6 +1682,8 @@ namespace
         io::Reactor::Scope scope(*mainReactor);
         struct TestGateway : wallet::INegotiatorGateway
         {
+            void OnAsyncStarted() override {}
+            void OnAsyncFinished() override {}
             void on_tx_completed(const TxID&) override {}
             void register_tx(const TxID&, Transaction::Ptr) override  {}
             void confirm_outputs(const std::vector<Coin>&) override  {}
@@ -1915,7 +1917,7 @@ namespace
             boost::filesystem::copy_file(publicPath, SenderWalletDB);
             auto privateDB = WalletDB::open(SenderWalletDB, DBPassword, io::Reactor::get_Current().shared_from_this());
             TestWalletRig privateSender("sender", privateDB, f, true);
-            //mainReactor->run(); // no need in run()
+            mainReactor->run();
         }
 
         // cold -> hot

@@ -359,10 +359,32 @@ namespace beam
             }
 
             SERIALIZE(m_From, m_TxID, m_Type, m_Parameters);
-            static const size_t MaxParams = 20;
         };
 
-        struct INegotiatorGateway
+        // Ñontext to take into account all async wallet operations
+        struct IAsyncContext
+        {
+            virtual void OnAsyncStarted() = 0;
+            virtual void OnAsyncFinished() = 0;
+        };
+
+        class AsyncContextHolder
+        {
+        public:
+            AsyncContextHolder(IAsyncContext& context)
+                : m_Context(context)
+            {
+                m_Context.OnAsyncStarted();
+            }
+            ~AsyncContextHolder()
+            {
+                m_Context.OnAsyncFinished();
+            }
+        private:
+            IAsyncContext& m_Context;
+        };
+
+        struct INegotiatorGateway : IAsyncContext
         {
             virtual ~INegotiatorGateway() {}
             virtual void on_tx_completed(const TxID& ) = 0;

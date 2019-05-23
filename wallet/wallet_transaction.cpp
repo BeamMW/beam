@@ -107,6 +107,7 @@ namespace beam { namespace wallet
 
     void BaseTransaction::Update()
     {
+        AsyncContextHolder async(m_Gateway);
         try
         {
             if (CheckExternalFailures())
@@ -133,9 +134,20 @@ namespace beam { namespace wallet
     {
         TxStatus s = TxStatus::Failed;
         GetParameter(TxParameterID::Status, s);
+        // TODO: add CanCancel() method
         if (s == TxStatus::Pending || s == TxStatus::InProgress)
         {
-            NotifyFailure(TxFailureReason::Cancelled);
+            if (s == TxStatus::InProgress)
+            {
+                if (!m_WalletDB->get_MasterKdf())
+                {
+                    // cannot create encrypted message
+                    return;
+                }
+                // notify about cancellation if we have started negotiations
+                NotifyFailure(TxFailureReason::Cancelled);
+
+            }
             UpdateTxDescription(TxStatus::Cancelled);
             RollbackTx();
             m_Gateway.on_tx_completed(GetTxID());
@@ -376,6 +388,7 @@ namespace beam { namespace wallet
 
                 if (!builder.GetCoins().empty())
                 {
+                    m_Gateway.OnAsyncStarted();
                     m_CompletedEvent = io::AsyncEvent::create(io::Reactor::get_Current(), [this, sharedBuilder]() mutable
                         {
                             if (!sharedBuilder->FinalizeOutputs())
@@ -383,6 +396,7 @@ namespace beam { namespace wallet
                                 //TODO: transaction is too big :(
                             }
                             Update();
+                            m_Gateway.OnAsyncFinished();
                         });
                     m_OutputsFuture = async(launch::async, [this, sharedBuilder]() mutable
                         {
