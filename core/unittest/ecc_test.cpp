@@ -1268,7 +1268,7 @@ struct IHWWallet
 		uint32_t m_Outputs;
 	};
 
-	virtual void SummarizeCommtiment(Point::Native& res, const TransactionInOuts&) = 0;
+	virtual void SummarizeCommitment(Point::Native& res, const TransactionInOuts&) = 0;
 
 	void CreateInput(beam::Input& res, const Key::IDV& kidv)
 	{
@@ -1278,7 +1278,7 @@ struct IHWWallet
 		tx.m_pInputs = &kidv;
 
 		Point::Native pt(Zero);
-		SummarizeCommtiment(pt, tx);
+		SummarizeCommitment(pt, tx);
 
 		res.m_Commitment = pt;
 	}
@@ -1368,7 +1368,7 @@ struct HWWalletEmulator
 			SummarizeOnce(res, dVal, tx.m_pInputs[i]);
 	}
 
-	virtual void SummarizeCommtiment(Point::Native& res, const TransactionInOuts& tx) override
+	virtual void SummarizeCommitment(Point::Native& res, const TransactionInOuts& tx) override
 	{
 		// Summarize (as above), but return only the commitment
 		Scalar::Native sk(Zero);
@@ -1485,7 +1485,7 @@ struct MyWallet
 	{
 		IHWWallet::TransactionInOuts tx;
 		AssignTxBase(tx);
-		m_HW.SummarizeCommtiment(res, tx);
+		m_HW.SummarizeCommitment(res, tx);
 
 		res += Context::get().G * m_Offset;
 	}
