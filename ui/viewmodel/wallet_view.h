@@ -184,6 +184,7 @@ class WalletViewModel : public QObject
     Q_PROPERTY(int defaultFeeInGroth READ getDefaultFeeInGroth CONSTANT)
 
     Q_PROPERTY(int expires READ getExpires WRITE setExpires NOTIFY expiresChanged)
+    Q_PROPERTY(bool isAllowedBeamMWLinks READ isAllowedBeamMWLinks WRITE allowBeamMWLinks NOTIFY beamMWLinksAllowed)
 
 public:
 
@@ -248,6 +249,9 @@ public:
     void setExpires(int value);
     int getExpires() const;
 
+    bool isAllowedBeamMWLinks() const;
+    void allowBeamMWLinks(bool value);
+
 public slots:
     void onStatus(const WalletStatus& amount);
     void onTxStatus(beam::ChangeAction action, const std::vector<beam::TxDescription>& items);
@@ -279,6 +283,7 @@ signals:
     void sendMoneyVerified();
     void cantSendToExpired();
     void newAddressFailed();
+    void beamMWLinksAllowed();
 
 private:
     beam::Amount calcSendAmount() const;

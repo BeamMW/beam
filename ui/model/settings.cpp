@@ -34,6 +34,7 @@ namespace
     const char* kLocaleName = "locale";
     const char* kLockTimeoutName = "lock_timeout";
     const char* kRequirePasswordToSpendMoney = "require_password_to_spend_money";
+    const char* kIsAlowedBeamMWLink = "beam_mw_links_allowed";
 
     const char* kLocalNodeRun = "localnode/run";
     const char* kLocalNodePort = "localnode/port";
@@ -131,6 +132,18 @@ void WalletSettings::setPasswordReqiredToSpendMoney(bool value)
 {
     Lock lock(m_mutex);
     m_data.setValue(kRequirePasswordToSpendMoney, value);
+}
+
+bool WalletSettings::isAllowedBeamMWLinks() const
+{
+    Lock lock(m_mutex);
+    return m_data.value(kIsAlowedBeamMWLink, false).toBool();
+}
+
+void WalletSettings::setAllowedBeamMWLinks(bool value)
+{
+    Lock lock(m_mutex);
+    m_data.setValue(kIsAlowedBeamMWLink, value);
 }
 
 bool WalletSettings::getRunLocalNode() const

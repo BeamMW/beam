@@ -13,6 +13,10 @@ Rectangle {
 
     SettingsViewModel {id: viewModel}
 
+    OpenExternalLinkConfirmation {
+        id: beamMW
+    }
+
     ChangePasswordDialog {
         id: changePasswordDialog        
     }
@@ -66,7 +70,7 @@ Rectangle {
 
                     Rectangle {
                         Layout.fillWidth: true
-                        height: 180
+                        height: 220
 
                         radius: 10
                         color: Style.background_second
@@ -367,7 +371,7 @@ Rectangle {
                         radius: 10
                         color: Style.background_second
                         //height: childrenRect.height + 40
-                        height: 180
+                        height: 220
 
                         Column {
                             anchors.top: parent.top
@@ -480,6 +484,75 @@ Rectangle {
                                         target: viewModel
                                         property: "isPasswordReqiredToSpendMoney"
                                         value: isPasswordReqiredToSpendMoney.checked
+                                    }
+                                }
+                            }
+
+                            Row {
+                                width: parent.width
+                                spacing: 10
+
+                                CustomSwitch {
+                                    id: allowBeamMWLinks
+                                    contentItem: Item {
+                                        Text {
+                                            id: allowBeamMWLinksLabelP1
+                                            //: general settings, label for alow access beam.mw part 1
+                                            //% "Allow access to "
+                                            text: qsTrId("settings-general-allow-beammw-label-p1")
+                                            font: allowBeamMWLinks.font
+                                            color: allowBeamMWLinks.checked && allowBeamMWLinks.enabled ? allowBeamMWLinks.palette.text : Style.content_secondary
+                                            verticalAlignment: Text.AlignVCenter
+                                            anchors.left: parent.left
+                                        }
+                                        Text {
+                                            id: allowBeamMWLinksLabelP
+                                            //: general settings, label for alow access beam.mw part 2 (link)
+                                            //% "beam.mw"
+                                            text: qsTrId("settings-general-allow-beammw-label-p2")
+                                            font: allowBeamMWLinks.font
+                                            color: Style.active
+                                            verticalAlignment: Text.AlignVCenter
+                                            anchors.left: allowBeamMWLinksLabelP1.right
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                acceptedButtons: Qt.LeftButton
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    var externalLink = "https://www.beam.mw/";
+                                                    if (viewModel.isAllowedBeamMWLinks) {
+                                                        Qt.openUrlExternally(externalLink);
+                                                    } else {
+                                                        beamMW.externalUrl = externalLink;
+                                                        beamMW.onOkClicked = function () {
+                                                            viewModel.isAllowedBeamMWLinks = true;
+                                                            viewModel.applyChanges();
+                                                        };
+                                                        beamMW.open();
+                                                    }
+                                                }
+                                                hoverEnabled: true
+                                            }
+                                        }
+                                        Text {
+                                            id: allowBeamMWLinksLabelP3
+                                            rightPadding: allowBeamMWLinks.indicator.width + allowBeamMWLinks.spacing
+                                            //: general settings, label for alow access beam.mw part 3
+                                            //% " (Exchanges and news feed)"
+                                            text: qsTrId("settings-general-allow-beammw-label-p3")
+                                            font: allowBeamMWLinks.font
+                                            color: allowBeamMWLinks.checked && allowBeamMWLinks.enabled ? allowBeamMWLinks.palette.text : Style.content_secondary
+                                            verticalAlignment: Text.AlignVCenter
+                                            anchors.left: allowBeamMWLinksLabelP.right
+                                        }
+                                    }
+                                    font.pixelSize: 12
+                                    width: parent.width
+                                    checked: viewModel.isAllowedBeamMWLinks
+                                    Binding {
+                                        target: viewModel
+                                        property: "isAllowedBeamMWLinks"
+                                        value: allowBeamMWLinks.checked
                                     }
                                 }
                             }

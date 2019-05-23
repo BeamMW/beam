@@ -36,6 +36,9 @@ public:
     bool isPasswordReqiredToSpendMoney() const;
     void setPasswordReqiredToSpendMoney(bool value);
 
+    bool isAllowedBeamMWLinks() const;
+    void setAllowedBeamMWLinks(bool value);
+
     void initModel(WalletModel::Ptr model);
     std::string getWalletStorage() const;
     std::string getAppDataPath() const;

@@ -1273,5 +1273,20 @@
         <extracomment>Entry in adress table context menu to show QR</extracomment>
         <translation>показать QR код</translation>
     </message>
+    <message id="settings-general-allow-beammw-label-p1">
+        <source>Allow access to </source>
+        <extracomment>general settings, label for alow access beam.mw part 1</extracomment>
+        <translation>Открывать в браузере </translation>
+    </message>
+    <message id="settings-general-allow-beammw-label-p2">
+        <source>beam.mw</source>
+        <extracomment>general settings, label for alow access beam.mw part 2 (link)</extracomment>
+        <translation>beam.mw</translation>
+    </message>
+    <message id="settings-general-allow-beammw-label-p3">
+        <source> (Exchanges and news feed)</source>
+        <extracomment>general settings, label for alow access beam.mw part 3</extracomment>
+        <translation> (Обменники и новости)</translation>
+    </message>
 </context>
 </TS>

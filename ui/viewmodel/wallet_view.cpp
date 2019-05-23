@@ -778,6 +778,16 @@ int WalletViewModel::getExpires() const
     return _expires;
 }
 
+bool WalletViewModel::isAllowedBeamMWLinks() const
+{
+    return _settings.isAllowedBeamMWLinks();
+}
+
+void WalletViewModel::allowBeamMWLinks(bool value)
+{
+    _settings.setAllowedBeamMWLinks(value);
+}
+
 QQmlListProperty<TxObject> WalletViewModel::getTransactions()
 {
     return QQmlListProperty<TxObject>(this, _txList);
