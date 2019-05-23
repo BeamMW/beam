@@ -1387,7 +1387,7 @@ struct HWWalletEmulator
 			res += Context::get().H * Amount(dVal);
 	}
 
-	virtual void CreateOutput(beam::Output& outp, const Key::IDV& kidv)
+	virtual void CreateOutput(beam::Output& outp, const Key::IDV& kidv)  override
 	{
 		Scalar::Native sk;
 		outp.Create(g_hFork, sk, *m_pKdf, kidv, *m_pKdf);
