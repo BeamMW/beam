@@ -31,18 +31,13 @@
 #endif
 #include "settings_view.h"
 #include "model/app_model.h"
+#include "model/keyboard.h"
 #include "version.h"
 #include "wallet/secstring.h"
 #include "wallet/default_peers.h"
 
 #include <boost/filesystem.hpp>
 #include <thread>
-
-#ifdef Q_OS_WIN32
-#include <windows.h>
-#else
-#include <X11/XKBlib.h>
-#endif
 
 using namespace beam;
 using namespace ECC;
@@ -345,22 +340,9 @@ QQmlListProperty<WalletDBPathItem> StartViewModel::getWalletDBpaths()
     return QQmlListProperty<WalletDBPathItem>(this, m_walletDBpaths);
 }
 
-/// SEE http://stackoverflow.com/questions/2968336/qt-password-field-warn-about-caps-lock
 bool StartViewModel::isCapsLockOn() const
 {
-// platform dependent method of determining if CAPS LOCK is on
-#ifdef Q_OS_WIN32 // MS Windows version
-    return (GetKeyState(VK_CAPITAL) & 0x0001) == 1;
-#else // X11 version (Linux/Unix/Mac OS X/etc...)
-    Display* d = XOpenDisplay((char*)0);
-    bool caps_state = false;
-    if (d) {
-        unsigned n;
-        XkbGetIndicatorState(d, XkbUseCoreKbd, &n);
-        caps_state = (n & 0x01) == 1;
-    }
-    return caps_state;
-#endif
+    return keyboard::isCapsLockOn();
 }
 
 void StartViewModel::setupLocalNode(int port, const QString& localNodePeer)

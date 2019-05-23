@@ -323,12 +323,11 @@ namespace beam::wallet
                     break;
                 }
 
-                // request kernel body for getting secret(preimage)
-                ECC::uintBig preimage(Zero);
-                if (!GetPreimageFromChain(preimage, SubTxIndex::BEAM_REDEEM_TX))
+                // request kernel body for getting secretPrivateKey
+                if (!GetKernelFromChain(SubTxIndex::BEAM_REDEEM_TX))
                     break;
 
-                LOG_DEBUG() << GetTxID() << " Got preimage: " << preimage;
+                ExtractSecretPrivateKey();
 
                 // Redeem second Coin
                 SetNextState(State::SendingRedeemTX);
@@ -757,7 +756,7 @@ namespace beam::wallet
         {
             if (subTxState == SubTxState::Initial && isTxOwner)
             {
-                SendSharedTxInvitation(builder, SubTxIndex::BEAM_REDEEM_TX == subTxID);
+                SendSharedTxInvitation(builder);
                 SetState(SubTxState::Invitation, subTxID);
                 subTxState = SubTxState::Invitation;
             }
@@ -772,10 +771,71 @@ namespace beam::wallet
             {
                 // invited participant
                 ConfirmSharedTxInvitation(builder);
-                SetState(SubTxState::Constructed, subTxID);
-                subTxState = SubTxState::Constructed;
+
+                if (subTxID == SubTxIndex::BEAM_REFUND_TX)
+                {
+                    SetState(SubTxState::Constructed, subTxID);
+                    subTxState = SubTxState::Constructed;
+                }
             }
             return subTxState;
+        }
+        
+        if (subTxID == SubTxIndex::BEAM_REDEEM_TX)
+        {
+            if (IsBeamSide())
+            {
+                // save SecretPublicKey
+                {
+                    auto peerPublicNonce = GetMandatoryParameter<Point::Native>(TxParameterID::PeerPublicNonce, subTxID);
+                    Scalar::Native challenge;
+                    {
+                        Point::Native publicNonceNative = builder.GetPublicNonce() + peerPublicNonce;
+                        Point publicNonce;
+                        publicNonceNative.Export(publicNonce);
+
+                        // Signature::get_Challenge(e, m_NoncePub, msg);
+                        uintBig message;
+                        builder.GetKernel().get_Hash(message);
+
+                        Oracle() << publicNonce << message >> challenge;
+                    }
+
+                    Scalar::Native peerSignature = GetMandatoryParameter<Scalar::Native>(TxParameterID::PeerSignature, subTxID);
+                    auto peerPublicExcess = GetMandatoryParameter<Point::Native>(TxParameterID::PeerPublicExcess, subTxID);
+
+                    Point::Native pt = Context::get().G * peerSignature;
+
+                    pt += peerPublicExcess * challenge;
+                    pt += peerPublicNonce;
+                    assert(!(pt == Zero));
+
+                    Point secretPublicKey;
+                    pt.Export(secretPublicKey);
+
+                    SetParameter(TxParameterID::AtomicSwapSecretPublicKey, secretPublicKey, subTxID);
+                }
+
+                SetState(SubTxState::Constructed, subTxID);
+                return SubTxState::Constructed;
+            }
+            else
+            {
+                // Send BTC side partial sign with secret
+                auto partialSign = builder.GetPartialSignature();
+                Scalar secretPrivateKey;
+                GetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.m_Value, SubTxIndex::BEAM_REDEEM_TX);
+                partialSign += secretPrivateKey;
+
+                SetTxParameter msg;
+                msg.AddParameter(TxParameterID::SubTxIndex, builder.GetSubTxID())
+                    .AddParameter(TxParameterID::PeerSignature, partialSign);
+
+                if (!SendTxParameters(std::move(msg)))
+                {
+                    OnFailed(TxFailureReason::FailedToSendParameters, false);
+                }
+            }
         }
 
         if (!builder.IsPeerSignatureValid())
@@ -878,11 +938,10 @@ namespace beam::wallet
         return true;
     }
 
-    bool AtomicSwapTransaction::GetPreimageFromChain(ECC::uintBig& preimage, SubTxID subTxID) const
+    bool AtomicSwapTransaction::GetKernelFromChain(SubTxID subTxID) const
     {
         Height hProof = 0;
         GetParameter(TxParameterID::KernelProofHeight, hProof, subTxID);
-        GetParameter(TxParameterID::PreImage, preimage, subTxID);
 
         if (!hProof)
         {
@@ -927,7 +986,7 @@ namespace beam::wallet
     {
         auto swapAmount = GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
         auto swapCoin = GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
-        auto swapAddress = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapAddress);
+        auto swapPublicKey = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey);
         auto swapLockTime = GetMandatoryParameter<Timestamp>(TxParameterID::AtomicSwapExternalLockTime);
         auto minHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight);
         auto lifetime = GetMandatoryParameter<Height>(TxParameterID::Lifetime);
@@ -941,7 +1000,7 @@ namespace beam::wallet
             .AddParameter(TxParameterID::Lifetime, lifetime)
             .AddParameter(TxParameterID::AtomicSwapAmount, swapAmount)
             .AddParameter(TxParameterID::AtomicSwapCoin, swapCoin)
-            .AddParameter(TxParameterID::AtomicSwapPeerAddress, swapAddress)
+            .AddParameter(TxParameterID::AtomicSwapPeerPublicKey, swapPublicKey)
             .AddParameter(TxParameterID::AtomicSwapExternalLockTime, swapLockTime)
             .AddParameter(TxParameterID::AtomicSwapIsBeamSide, !IsBeamSide())
             .AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion);
@@ -965,10 +1024,10 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::SendLockTxInvitation(const LockTxBuilder& lockBuilder)
     {
-        auto swapAddress = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapAddress);
+        auto swapPublicKey = GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapPublicKey);
 
         SetTxParameter msg;
-        msg.AddParameter(TxParameterID::AtomicSwapPeerAddress, swapAddress)
+        msg.AddParameter(TxParameterID::AtomicSwapPeerPublicKey, swapPublicKey)
             .AddParameter(TxParameterID::Fee, lockBuilder.GetFee())
             .AddParameter(TxParameterID::SubTxIndex, SubTxIndex::BEAM_LOCK_TX)
             .AddParameter(TxParameterID::PeerMaxHeight, lockBuilder.GetMaxHeight())
@@ -1024,7 +1083,7 @@ namespace beam::wallet
         }
     }
 
-    void AtomicSwapTransaction::SendSharedTxInvitation(const BaseTxBuilder& builder, bool shouldSendLockImage /*= false*/)
+    void AtomicSwapTransaction::SendSharedTxInvitation(const BaseTxBuilder& builder)
     {
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::SubTxIndex, builder.GetSubTxID())
@@ -1034,11 +1093,6 @@ namespace beam::wallet
             .AddParameter(TxParameterID::PeerPublicExcess, builder.GetPublicExcess())
             .AddParameter(TxParameterID::PeerPublicNonce, builder.GetPublicNonce());
     
-        if (shouldSendLockImage)
-        {
-            msg.AddParameter(TxParameterID::PeerLockImage, builder.GetLockImage());
-        }
-
         if (!SendTxParameters(std::move(msg)))
         {
             OnFailed(TxFailureReason::FailedToSendParameters, false);
@@ -1079,6 +1133,44 @@ namespace beam::wallet
         {
             OnSubTxFailed(reason, SubTxIndex::LOCK_TX, false);
         }
+    }
+
+    void AtomicSwapTransaction::ExtractSecretPrivateKey()
+    {
+        auto subTxID = SubTxIndex::BEAM_REDEEM_TX;
+        TxKernel::Ptr kernel = GetMandatoryParameter<TxKernel::Ptr>(TxParameterID::Kernel, subTxID);
+
+        Scalar::Native peerSignature = GetMandatoryParameter<Scalar::Native>(TxParameterID::PeerSignature, subTxID);
+        Scalar::Native partialSignature;
+
+        // create partial signature
+        {
+            // load Nonce and Excess
+            ECC::Signature::MultiSig multiSig;
+            {
+                NoLeak<Hash::Value> hvRandom;
+                GetParameter(TxParameterID::MyNonce, hvRandom.V, subTxID);
+                GetWalletDB()->get_MasterKdf()->DeriveKey(multiSig.m_Nonce, hvRandom.V);
+            }
+
+            Scalar::Native blindingExcess = GetMandatoryParameter<Scalar::Native>(TxParameterID::BlindingExcess, subTxID);
+            ECC::Hash::Value message;
+            kernel->get_Hash(message);
+
+            multiSig.m_NoncePub.Import(kernel->m_Signature.m_NoncePub);
+            multiSig.SignPartial(partialSignature, message, blindingExcess);
+        }
+
+        Scalar::Native fullSignature;
+        fullSignature.Import(kernel->m_Signature.m_k);
+        fullSignature = -fullSignature;
+        Scalar::Native secretPrivateKeyNative = peerSignature + partialSignature;
+        secretPrivateKeyNative += fullSignature;
+
+        Scalar secretPrivateKey;
+        secretPrivateKeyNative.Export(secretPrivateKey);
+
+        SetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.m_Value, false, BEAM_REDEEM_TX);
     }
 
 } // namespace

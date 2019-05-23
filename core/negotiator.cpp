@@ -595,6 +595,7 @@ uint32_t MultiTx::Update2()
 	Get(nRestrict, Codes::RestrictInputs);
 	if (nRestrict)
 	{
+		// The only input should be the shared MuSig
 		Key::IDV kidvMsig;
 		if ((iRole > 0) && Get(kidvMsig, Codes::InpMsKidv))
 		{
@@ -620,12 +621,18 @@ uint32_t MultiTx::Update2()
 	if (nRestrict)
 	{
 		uint32_t nMaxPeerOutputs = 1;
+		uint32_t nMaxKernels = 0;
 
-		Key::IDV kidvMsig;
-		if ((iRole > 0) && Get(kidvMsig, Codes::OutpMsKidv))
-			nMaxPeerOutputs++; // the peer is supposed to add it
+		if (iRole > 0)
+		{
+			nMaxKernels++; // peer should add it
 
-		if (txPeer.m_vOutputs.size() > nMaxPeerOutputs)
+			Key::IDV kidvMsig;
+			if (Get(kidvMsig, Codes::OutpMsKidv))
+				nMaxPeerOutputs++; // the peer is supposed to add it
+		}
+
+		if ((txPeer.m_vOutputs.size() > nMaxPeerOutputs) || (txPeer.m_vKernels.size() > nMaxKernels))
 			return Status::Error;
 	}
 

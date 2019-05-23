@@ -46,6 +46,7 @@ namespace beam::wallet
         void GetSwapLockTxConfirmations();
         bool SendWithdrawTx(SubTxID subTxID);
         uint64_t GetBlockCount();
+        std::string GetWithdrawAddress() const;
 
         void OnGetRawChangeAddress(const std::string& error, const std::string& address);
         void OnFundRawTransaction(const std::string& error, const std::string& hexTx, int changePos);
