@@ -68,8 +68,9 @@ namespace beam
         using Callback = std::function<void()>;
     public:
         using TxCompletedAction = std::function<void(const TxID& tx_id)>;
+        using UpdateCompletedAction = std::function<void()>;
 
-        Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction());
+        Wallet(IWalletDB::Ptr walletDB, TxCompletedAction&& action = TxCompletedAction(), UpdateCompletedAction&& updateCompleted = UpdateCompletedAction());
         virtual ~Wallet();
 
         void SetNodeEndpoint(std::shared_ptr<proto::FlyClient::INetwork> nodeEndpoint);
@@ -92,6 +93,9 @@ namespace beam
         void RefreshTransactions();
         void ResumeTransaction(const TxDescription& tx);
         void ResumeAllTransactions();
+
+        void OnAsyncStarted() override;
+        void OnAsyncFinished() override;
         void on_tx_completed(const TxID& txID) override;
 
         void confirm_outputs(const std::vector<Coin>&) override;
@@ -213,10 +217,12 @@ namespace beam
         std::unordered_set<wallet::BaseTransaction::Ptr> m_TransactionsToUpdate;
         std::unordered_set<wallet::BaseTransaction::Ptr> m_NextTipTransactionToUpdate;
         TxCompletedAction m_TxCompletedAction;
+        UpdateCompletedAction m_UpdateCompleted;
         uint32_t m_LastSyncTotal;
         uint32_t m_OwnedNodesOnline;
 
         std::vector<IWalletObserver*> m_subscribers;
         std::set<IWalletMessageEndpoint::Ptr> m_MessageEndpoints;
+        int m_AsyncUpdateCounter = 0;
     };
 }

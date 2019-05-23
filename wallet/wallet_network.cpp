@@ -588,6 +588,5 @@ namespace beam {
     void ColdWalletMessageEndpoint::SendEncryptedMessage(const WalletID& peerID, const ByteBuffer& msg)
     {
         m_WalletDB->saveWalletMessage(WalletMessage{ 0, peerID, msg });
-        io::Reactor::get_Current().stop();
     }
 }
