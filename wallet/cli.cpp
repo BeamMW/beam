@@ -19,6 +19,8 @@
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
 #include "wallet/secstring.h"
+#include "wallet/litecoin/options.h"
+#include "wallet/bitcoin/options.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "core/treasury.h"
@@ -1011,13 +1013,11 @@ int main_impl(int argc, char* argv[])
                         return HandleTreasury(vm, *walletDB->get_MasterKdf());
                     }
 
-                    io::Address btcNodeAddr;
-                    string btcUserName;
-                    string btcPass;
-                    if (vm.count(cli::BTC_NODE_ADDR) > 0)
+                    BitcoinOptions btcOptions;
+                    if (vm.count(cli::BTC_NODE_ADDR) > 0 || vm.count(cli::BTC_USER_NAME) > 0 || vm.count(cli::BTC_PASS) > 0)
                     {
                         string btcNodeUri = vm[cli::BTC_NODE_ADDR].as<string>();
-                        if (!btcNodeAddr.resolve(btcNodeUri.c_str()))
+                        if (!btcOptions.m_address.resolve(btcNodeUri.c_str()))
                         {
                             LOG_ERROR() << "unable to resolve bitcoin node address: " << btcNodeUri;
                             return -1;
@@ -1029,7 +1029,7 @@ int main_impl(int argc, char* argv[])
                             return -1;
                         }
 
-                        btcUserName = vm[cli::BTC_USER_NAME].as<string>();
+                        btcOptions.m_userName = vm[cli::BTC_USER_NAME].as<string>();
 
                         // TODO roman.strilets: use SecString instead of std::string
                         if (vm.count(cli::BTC_PASS) == 0)
@@ -1038,16 +1038,14 @@ int main_impl(int argc, char* argv[])
                             return -1;
                         }
 
-                        btcPass = vm[cli::BTC_PASS].as<string>();
+                        btcOptions.m_pass = vm[cli::BTC_PASS].as<string>();
                     }
 
-                    io::Address ltcNodeAddr;
-                    string ltcUserName;
-                    string ltcPass;
-                    if (vm.count(cli::LTC_NODE_ADDR) > 0)
+                    LitecoinOptions ltcOptions;
+                    if (vm.count(cli::LTC_NODE_ADDR) > 0 || vm.count(cli::LTC_USER_NAME) > 0 || vm.count(cli::LTC_PASS) > 0)
                     {
                         string ltcNodeUri = vm[cli::LTC_NODE_ADDR].as<string>();
-                        if (!ltcNodeAddr.resolve(ltcNodeUri.c_str()))
+                        if (!ltcOptions.m_address.resolve(ltcNodeUri.c_str()))
                         {
                             LOG_ERROR() << "unable to resolve litecoin node address: " << ltcNodeUri;
                             return -1;
@@ -1059,7 +1057,7 @@ int main_impl(int argc, char* argv[])
                             return -1;
                         }
 
-                        ltcUserName = vm[cli::LTC_USER_NAME].as<string>();
+                        ltcOptions.m_userName = vm[cli::LTC_USER_NAME].as<string>();
 
                         // TODO roman.strilets: use SecString instead of std::string
                         if (vm.count(cli::LTC_PASS) == 0)
@@ -1068,7 +1066,7 @@ int main_impl(int argc, char* argv[])
                             return -1;
                         }
 
-                        ltcPass = vm[cli::LTC_PASS].as<string>();
+                        ltcOptions.m_pass = vm[cli::LTC_PASS].as<string>();
                     }
 
                     if (command == cli::INFO)
@@ -1134,16 +1132,37 @@ int main_impl(int argc, char* argv[])
                             wallet.AddMessageEndpoint(make_shared<ColdWalletMessageEndpoint>(wallet, walletDB));
                         }
 
-                        if (!btcUserName.empty() && !btcPass.empty())
+                        if (!btcOptions.m_userName.empty() && !btcOptions.m_pass.empty())
                         {
-                            Amount swapFeeRate = vm[cli::SWAP_FEERATE].as<Amount>();
-                            wallet.initBitcoin(io::Reactor::get_Current(), btcUserName, btcPass, btcNodeAddr, swapFeeRate);
+                            btcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Amount>();
+                            
+                            if (vm.count(cli::BTC_CONFIRMATIONS) > 0)
+                            {
+                                btcOptions.m_confirmations = vm[cli::BTC_CONFIRMATIONS].as<Amount>();
+                            }
+
+                            if (vm.count(cli::BTC_LOCK_TIME) > 0)
+                            {
+                                btcOptions.m_lockTimeInBlocks = vm[cli::BTC_LOCK_TIME].as<uint32_t>();
+                            }
+                            
+                            wallet.initBitcoin(io::Reactor::get_Current(), btcOptions);
                         }
 
-                        if (!ltcUserName.empty() && !ltcPass.empty())
+                        if (!ltcOptions.m_userName.empty() && !ltcOptions.m_pass.empty())
                         {
-                            Amount swapFeeRate = vm[cli::SWAP_FEERATE].as<Amount>();
-                            wallet.initLitecoin(io::Reactor::get_Current(), ltcUserName, ltcPass, ltcNodeAddr, swapFeeRate);
+                            ltcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Amount>();
+
+                            if (vm.count(cli::LTC_CONFIRMATIONS) > 0)
+                            {
+                                ltcOptions.m_confirmations = vm[cli::LTC_CONFIRMATIONS].as<Amount>();
+                            }
+
+                            if (vm.count(cli::LTC_LOCK_TIME) > 0)
+                            {
+                                ltcOptions.m_lockTimeInBlocks = vm[cli::LTC_LOCK_TIME].as<uint32_t>();
+                            }
+                            wallet.initLitecoin(io::Reactor::get_Current(), ltcOptions);
                         }
 
                         if (command == cli::SWAP_COINS || command == cli::SWAP_LISTEN)
@@ -1163,7 +1182,7 @@ int main_impl(int argc, char* argv[])
 
                             if (swapCoin == wallet::AtomicSwapCoin::Bitcoin)
                             {
-                                if (btcUserName.empty() || btcPass.empty() || btcNodeAddr.empty())
+                                if (btcOptions.m_userName.empty() || btcOptions.m_pass.empty() || btcOptions.m_address.empty())
                                 {
                                     LOG_ERROR() << "BTC node credentials should be provided";
                                     return -1;
@@ -1171,7 +1190,7 @@ int main_impl(int argc, char* argv[])
                             }
                             else
                             {
-                                if (ltcUserName.empty() || ltcPass.empty() || ltcNodeAddr.empty())
+                                if (ltcOptions.m_userName.empty() || ltcOptions.m_pass.empty() || ltcOptions.m_address.empty())
                                 {
                                     LOG_ERROR() << "LTC node credentials should be provided";
                                     return -1;

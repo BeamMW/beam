@@ -119,6 +119,8 @@ namespace beam
         extern const char* SWAP_BEAM_SIDE;
         extern const char* BTC_CONFIRMATIONS;
         extern const char* LTC_CONFIRMATIONS;
+        extern const char* BTC_LOCK_TIME;
+        extern const char* LTC_LOCK_TIME;
 
 
         // wallet api

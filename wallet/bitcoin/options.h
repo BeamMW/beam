@@ -12,25 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "litecoind016.h"
+#pragma once
 
-#include "bitcoin/bitcoin.hpp"
+#include "utility/io/address.h"
+#include "utility/common.h"
 
 namespace beam
 {
-    Litecoind016::Litecoind016(io::Reactor& reactor, const LitecoinOptions& options)
-        : Bitcoind016(reactor, options)
+    struct BitcoinOptions
     {
-    }
-
-    uint8_t Litecoind016::getAddressVersion()
-    {
-        if (isMainnet())
-        {
-            // litecoin mainnet virsion WIF
-            return 176;
-        }
-
-        return libbitcoin::wallet::ec_private::testnet_wif;
-    }
+        std::string m_userName;
+        std::string m_pass;
+        io::Address m_address;
+        Amount m_feeRate;
+        Amount m_confirmations = 6;
+        bool m_mainnet = false;
+        uint32_t m_lockTimeInBlocks = 2 * 24 * 6;
+    };
 }

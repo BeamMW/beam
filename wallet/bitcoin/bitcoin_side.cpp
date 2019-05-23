@@ -22,7 +22,6 @@ using json = nlohmann::json;
 
 namespace
 {
-    constexpr uint32_t kBTCLockTimeInBlocks = 2 * 24 * 6;
     constexpr uint32_t kBTCLockTimeSec = 2 * 24 * 60 * 60;
     constexpr uint32_t kBTCWithdrawTxAverageSize = 240;
 
@@ -93,7 +92,7 @@ namespace beam::wallet
             return false;
         }
 
-        auto externalLockPeriod = height + kBTCLockTimeInBlocks;
+        auto externalLockPeriod = height + m_bitcoinBridge->getLockTimeInBlocks();
         m_tx.SetParameter(TxParameterID::AtomicSwapExternalLockTime, externalLockPeriod);
 
         return true;

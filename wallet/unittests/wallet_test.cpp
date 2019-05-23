@@ -20,6 +20,8 @@
 #include "wallet/wallet_network.h"
 #include "wallet/wallet.h"
 #include "wallet/secstring.h"
+#include "wallet/bitcoin/options.h"
+#include "wallet/litecoin/options.h"
 #include "utility/test_helpers.h"
 #include "../../core/radixtree.h"
 #include "../../core/unittest/mini_blockchain.h"
@@ -562,8 +564,20 @@ namespace
         Amount swapAmount = 2000;
         Amount feeRate = 256;
 
-        sender.m_Wallet.initBitcoin(*mainReactor, "Bob", "123", senderAddress, feeRate);
-        receiver.m_Wallet.initBitcoin(*mainReactor, "Alice", "123", receiverAddress, feeRate);
+        BitcoinOptions bobOptions;
+        bobOptions.m_userName = "Bob";
+        bobOptions.m_pass = "123";
+        bobOptions.m_address = senderAddress;
+        bobOptions.m_feeRate = feeRate;
+
+        BitcoinOptions aliceOptions;
+        aliceOptions.m_userName = "Alice";
+        aliceOptions.m_pass = "123";
+        aliceOptions.m_address = receiverAddress;
+        aliceOptions.m_feeRate = feeRate;
+
+        sender.m_Wallet.initBitcoin(*mainReactor, bobOptions);
+        receiver.m_Wallet.initBitcoin(*mainReactor, aliceOptions);
 
         TestBitcoinWallet::Options senderOptions;
         senderOptions.m_rawAddress = "2N8N2kr34rcGqHCo3aN6yqniid8a4Mt3FCv";

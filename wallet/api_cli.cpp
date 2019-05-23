@@ -38,6 +38,8 @@
 
 #include "wallet/wallet_db.h"
 #include "wallet/wallet_network.h"
+#include "wallet/bitcoin/options.h"
+#include "wallet/litecoin/options.h"
 
 #include "nlohmann/json.hpp"
 #include "version.h"
@@ -426,7 +428,13 @@ namespace beam
                 io::Address btcNodeAddr;
                 if (btcNodeAddr.resolve(data.btcNodeAddr.c_str()))
                 {
-                    _wallet.initBitcoin(io::Reactor::get_Current(), data.btcUserName, data.btcPass, btcNodeAddr, data.feeRate);
+                    BitcoinOptions options;
+
+                    options.m_userName = data.btcUserName;
+                    options.m_pass = data.btcPass;
+                    options.m_address = btcNodeAddr;
+                    options.m_feeRate = data.feeRate;
+                    _wallet.initBitcoin(io::Reactor::get_Current(), options);
 
                     doResponse(id, EditAddress::Response{});
                 }
@@ -443,7 +451,13 @@ namespace beam
                 io::Address ltcNodeAddr;
                 if (ltcNodeAddr.resolve(data.ltcNodeAddr.c_str()))
                 {
-                    _wallet.initLitecoin(io::Reactor::get_Current(), data.ltcUserName, data.ltcPass, ltcNodeAddr, data.feeRate);
+                    LitecoinOptions options;
+
+                    options.m_userName = data.ltcUserName;
+                    options.m_pass = data.ltcPass;
+                    options.m_address = ltcNodeAddr;
+                    options.m_feeRate = data.feeRate;
+                    _wallet.initLitecoin(io::Reactor::get_Current(), options);
 
                     doResponse(id, EditAddress::Response{});
                 }
