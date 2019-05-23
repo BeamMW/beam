@@ -1154,6 +1154,7 @@ namespace beam::wallet
             }
 
             Scalar::Native blindingExcess = GetMandatoryParameter<Scalar::Native>(TxParameterID::BlindingExcess, subTxID);
+            blindingExcess = -blindingExcess;
             ECC::Hash::Value message;
             kernel->get_Hash(message);
 
@@ -1164,6 +1165,7 @@ namespace beam::wallet
         Scalar::Native fullSignature;
         fullSignature.Import(kernel->m_Signature.m_k);
         fullSignature = -fullSignature;
+
         Scalar::Native secretPrivateKeyNative = peerSignature + partialSignature;
         secretPrivateKeyNative += fullSignature;
 
