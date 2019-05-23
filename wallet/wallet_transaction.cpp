@@ -54,9 +54,11 @@ namespace beam::wallet
 
         bool hasPeersInputsAndOutputs = builder.GetPeerInputsAndOutputs();
 
+        // Check if we already have signed kernel
         if ((isSender && !builder.LoadKernel())
          || (!isSender && !builder.HasKernelID()))
         {
+            // We need master kdf to go on beyond this point
             if (!m_WalletDB->get_MasterKdf())
             {
                 // public wallet
@@ -198,7 +200,7 @@ namespace beam::wallet
 
             if (!isSelfTx && isSender && IsInitiator())
             {
-                // verify peer payment acknowledgement
+                // verify peer payment confirmation
 
                 wallet::PaymentConfirmation pc;
                 WalletID widPeer, widMy;
