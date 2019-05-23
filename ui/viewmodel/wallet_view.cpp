@@ -23,6 +23,7 @@
 #include <QtGui/qimage.h>
 #include <QtCore/qbuffer.h>
 #include <QUrlQuery>
+#include "model/qr.h"
 #include "utility/helpers.h"
 
 using namespace beam;
@@ -380,6 +381,7 @@ WalletViewModel::WalletViewModel()
     , _feeGrothes("0")
     , _change(0)
     , _expires(0)
+    , _qr(std::make_unique<QR>())
 {
     connect(&_model, SIGNAL(walletStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
@@ -404,11 +406,15 @@ WalletViewModel::WalletViewModel()
 
     connect(&_model, SIGNAL(cantSendToExpired()), SLOT(onCantSendToExpired()));
 
+    connect(_qr.get(), SIGNAL(qrDataChanged()), SLOT(onReceiverQRChanged()));
+
     _model.getAsync()->getWalletStatus();
 }
 
 WalletViewModel::~WalletViewModel()
 {
+    disconnect(_qr.get(), SIGNAL(qrDataChanged()),
+               this, SLOT(onReceiverQRChanged()));
     qDeleteAll(_txList);
 }
 
@@ -620,7 +626,7 @@ void WalletViewModel::setAmountForReceive(double value)
     if (value != _amountForReceive)
     {
         _amountForReceive = value;
-        updateReceiverQRCode();
+        _qr->setAmount(_amountForReceive);
         emit amountForReceiveChanged();
     }
 }
@@ -880,7 +886,7 @@ QString WalletViewModel::getNewReceiverAddr() const
 
 QString WalletViewModel::getNewReceiverAddrQR() const
 {
-    return _newReceiverAddrQR;
+    return _qr->getEncoded();
 }
 
 void WalletViewModel::setNewReceiverName(const QString& value)
@@ -889,7 +895,6 @@ void WalletViewModel::setNewReceiverName(const QString& value)
     if (_newReceiverName != trimmedValue)
     {
         _newReceiverName = trimmedValue;
-        updateReceiverQRCode();
         emit newReceiverNameChanged();
     }
 }
@@ -928,10 +933,8 @@ void WalletViewModel::onAddresses(bool own, const std::vector<beam::WalletAddres
 void WalletViewModel::onGeneratedNewAddress(const beam::WalletAddress& addr)
 {
     _newReceiverAddr = addr;
-    _newReceiverAddrQR = "";
     setExpires(0);
-
-    updateReceiverQRCode();
+    _qr->setAddr(toString(_newReceiverAddr.m_walletID));
 }
 
 void WalletViewModel::onNewAddressFailed()
@@ -951,46 +954,7 @@ void WalletViewModel::onCantSendToExpired()
     emit cantSendToExpired();
 }
 
-void WalletViewModel::updateReceiverQRCode()
+void WalletViewModel::onReceiverQRChanged()
 {
-    QUrlQuery query;
-    if (_amountForReceive > 0)
-    {
-        query.addQueryItem("amount", QLocale("C").toString(_amountForReceive, 'f', -128));
-    }
-    
-    QUrl url;
-    url.setScheme("beam");
-    url.setPath(toString(_newReceiverAddr.m_walletID));
-    url.setQuery(query);
-
-    CQR_Encode qrEncode;
-    QString strAddr = url.toString(QUrl::FullyEncoded);
-    bool success = qrEncode.EncodeData(1, 0, true, -1, strAddr.toUtf8().data());
-
-    if (success)
-    {
-        int qrImageSize = qrEncode.m_nSymbleSize;
-        int encodeImageSize = qrImageSize + (QR_MARGIN * 2);
-        QImage encodeImage(encodeImageSize, encodeImageSize, QImage::Format_ARGB32);
-        encodeImage.fill(Qt::white);
-        QColor color(Qt::transparent);
-
-        for (int i = 0; i < qrImageSize; i++)
-            for (int j = 0; j < qrImageSize; j++)
-                if (qrEncode.m_byModuleData[i][j])
-                    encodeImage.setPixel(i + QR_MARGIN, j + QR_MARGIN, color.rgba());
-
-        encodeImage = encodeImage.scaled(200, 200);
-
-        QByteArray bArray;
-        QBuffer buffer(&bArray);
-        buffer.open(QIODevice::WriteOnly);
-        encodeImage.save(&buffer, "png");
-
-        _newReceiverAddrQR = "data:image/png;base64,";
-        _newReceiverAddrQR.append(QString::fromLatin1(bArray.toBase64().data()));
-    }
-
     emit newReceiverAddrChanged();
 }

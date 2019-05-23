@@ -262,6 +262,13 @@ namespace ECC {
 		return *this;
 	}
 
+    Scalar::Native& Scalar::Native::operator = (Minus2 v)
+    {
+        Scalar::Native temp = -v.y;
+        secp256k1_scalar_add(this, &v.x, &temp);
+        return *this;
+    }
+
 	Scalar::Native& Scalar::Native::operator = (Mul v)
 	{
 		secp256k1_scalar_mul(this, &v.x, &v.y);
@@ -503,6 +510,13 @@ namespace ECC {
 		return *this;
 	}
 
+    Point::Native& Point::Native::operator = (Minus2 v)
+    {
+        Point::Native temp = -v.y;
+        secp256k1_gej_add_var(this, &v.x, &temp, NULL);
+        return *this;
+    }
+
 	Point::Native& Point::Native::operator = (Double v)
 	{
 		secp256k1_gej_double_var(this, &v.x, NULL);
@@ -563,7 +577,7 @@ namespace ECC {
 
         secp256k1_context* context = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 
-        secp256k1_ec_pubkey_serialize(context, data.data(), &dataSize, &pubkey, 0);
+        secp256k1_ec_pubkey_serialize(context, data.data(), &dataSize, &pubkey, SECP256K1_EC_UNCOMPRESSED);
 
         secp256k1_context_destroy(context);
 

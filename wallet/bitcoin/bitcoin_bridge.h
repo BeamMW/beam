@@ -53,6 +53,6 @@ namespace beam
 
         virtual uint8_t getAddressVersion() = 0;
         virtual Amount getFeeRate() const = 0;
-        virtual Amount getMaxConfirmations() const = 0;
+        virtual Amount getTxMinConfirmations() const = 0;
     };
 }

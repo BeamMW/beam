@@ -1,4 +1,0 @@
-[submodule "vendor/trezor-common"]
-	path = vendor/trezor-common
-	url = https://github.com/BeamMW/trezor-common
-	branch = beam

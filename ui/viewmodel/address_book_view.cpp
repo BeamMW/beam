@@ -17,6 +17,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include "model/app_model.h"
+#include "model/qr.h"
 
 using namespace std;
 using namespace beam;
@@ -250,6 +251,14 @@ void AddressBookViewModel::saveChanges(const QString& addr, const QString& name,
     walletID.FromHex(addr.toStdString());
 
     m_model.getAsync()->saveAddressChanges(walletID, name.toStdString(), isNever, makeActive, makeExpired);
+}
+
+// static
+QString AddressBookViewModel::generateQR(
+        const QString& addr, uint width, uint height)
+{
+    QR qr(addr, width, height);
+    return qr.getEncoded();
 }
 
 void AddressBookViewModel::onStatus(const WalletStatus&)

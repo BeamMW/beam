@@ -43,7 +43,7 @@ namespace beam
 
         uint8_t getAddressVersion() override;
         Amount getFeeRate() const override;
-        Amount getMaxConfirmations() const override;
+        Amount getTxMinConfirmations() const override;
 
     protected:
         void sendRequest(const std::string& method, const std::string& params, std::function<void(const std::string&)> callback);

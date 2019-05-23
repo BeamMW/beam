@@ -121,6 +121,7 @@ namespace beam
 #undef MACRO
     };
 
+    // Specifies key transaction parameters for interaction with Wallet Clients
     struct TxDescription
     {
         TxDescription() = default;
@@ -221,9 +222,11 @@ namespace beam
         ByteBuffer toByteBuffer(const ECC::Point::Native& value);
         ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
 
+        // Ids of the transaction parameters
         enum class TxParameterID : uint8_t
         {
             // public parameters
+            // Can bet set during outside communications
             TransactionType = 0,
             IsSender = 1,
             Amount = 2,
@@ -382,7 +385,7 @@ namespace beam
             SERIALIZE(m_From, m_TxID, m_Type, m_Parameters);
         };
 
-        // �ontext to take into account all async wallet operations
+        // context to take into account all async wallet operations
         struct IAsyncContext
         {
             virtual void OnAsyncStarted() = 0;

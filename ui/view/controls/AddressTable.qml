@@ -11,6 +11,7 @@ CustomTableView {
     property var parentModel
     property bool isExpired: false
     property var editDialog
+    property var showQRDialog
     anchors.fill: parent
     frameVisible: false
     selectionMode: SelectionMode.NoSelection
@@ -155,6 +156,16 @@ CustomTableView {
         dim: false
         property string address
         property var addressItem
+        Action {
+            //: Entry in adress table context menu to show QR
+            //% "show QR code"
+            text: qsTrId("address-table-cm-show-qr")
+            icon.source: "qrc:/assets/icon-qr.svg"
+            onTriggered: {
+                showQRDialog.addressItem = contextMenu.addressItem;
+                showQRDialog.open();
+            }
+        }
         Action {
             //% "edit address"
             text: qsTrId("address-table-cm-edit")
