@@ -327,11 +327,17 @@ void TestPoints()
         point.m_Y = 0;
         SetRandom(point.m_X);
 
-        pointNative.Import(point);
+        while (!pointNative.Import(point))
+        {
+            point.m_X.Inc();
+        }
 
         verify_test(pointNative != Zero);
 
-        pointNative -= pointNative;
+        Point::Native pointNative2;
+        pointNative2 = pointNative;
+
+        pointNative -= pointNative2;
 
         verify_test(pointNative == Zero);
     }
@@ -347,7 +353,9 @@ void TestPoints()
 
         verify_test(scalarNative != Zero);
 
-        scalarNative -= scalarNative;
+        Scalar::Native scalarNative2;
+        scalarNative2 = scalarNative;
+        scalarNative -= scalarNative2;
 
         verify_test(scalarNative == Zero);
     }
