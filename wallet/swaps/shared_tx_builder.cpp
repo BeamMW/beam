@@ -58,8 +58,10 @@ namespace beam::wallet
         else
         {
             // init offset
-            InitOffset();
+//            InitOffset();
         }
+
+        GenerateOffset();
     }
 
     void SharedTxBuilder::InitInput()
@@ -75,7 +77,7 @@ namespace beam::wallet
         input->m_Commitment = commitment;
         m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false, m_SubTxID);
 
-        m_Offset += m_SharedBlindingFactor;
+       // m_Offset += m_SharedBlindingFactor;
     }
 
     void SharedTxBuilder::InitOutput()
@@ -96,17 +98,18 @@ namespace beam::wallet
         Output::Ptr output = std::make_unique<Output>();
         output->Create(minHeight, blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(outputCoin.m_ID.m_SubIdx), outputCoin.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
 
-        blindingFactor = -blindingFactor;
-        m_Offset += blindingFactor;
+      //  blindingFactor = -blindingFactor;
+      //  m_Offset += blindingFactor;
 
         m_Outputs.push_back(std::move(output));
+        m_OutputCoins.push_back(outputCoin.m_ID);
     }
 
-    void SharedTxBuilder::InitOffset()
-    {
-        m_Offset += m_SharedBlindingFactor;
-        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false, m_SubTxID);
-    }
+    //void SharedTxBuilder::InitOffset()
+    //{
+    //    //m_Offset += m_SharedBlindingFactor;
+    //    //m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false, m_SubTxID);
+    //}
 
     void SharedTxBuilder::InitMinHeight()
     {

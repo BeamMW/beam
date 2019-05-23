@@ -112,7 +112,7 @@ namespace beam::wallet
         }
         m_Tx.GetWalletDB()->store(newUtxo);
         m_OutputCoins.push_back(newUtxo.m_ID);
-        m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false);
+        m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
     }
 
     void BaseTxBuilder::CreateOutputs()
@@ -202,7 +202,7 @@ namespace beam::wallet
 
     void BaseTxBuilder::FinalizeInputs()
     {
-        m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false);
+        m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false, m_SubTxID);
     }
 
     void BaseTxBuilder::CreateKernel()
@@ -235,32 +235,32 @@ namespace beam::wallet
     void BaseTxBuilder::GenerateOffset()
     {
         m_Offset.GenRandomNnz();
-        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false);
+        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false, m_SubTxID);
         LOG_DEBUG() << m_Tx.GetTxID() << " Offset: " << Scalar(m_Offset);
     }
 
-    bool BaseTxBuilder::GenerateBlindingExcess()
-    {
-        bool newGenerated = false;
-        if (!m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess, m_SubTxID))
-        {
-            Key::ID kid;
-            kid.m_Idx = m_Tx.GetWalletDB()->AllocateKidRange(1);
-            kid.m_Type = FOURCC_FROM(KerW);
-            kid.m_SubIdx = 0;
+    //bool BaseTxBuilder::GenerateBlindingExcess()
+    //{
+    //    bool newGenerated = false;
+    //    if (!m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess, m_SubTxID))
+    //    {
+    //        Key::ID kid;
+    //        kid.m_Idx = m_Tx.GetWalletDB()->AllocateKidRange(1);
+    //        kid.m_Type = FOURCC_FROM(KerW);
+    //        kid.m_SubIdx = 0;
 
-            m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_BlindingExcess, kid);
+    //        m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_BlindingExcess, kid);
 
-            m_Tx.SetParameter(TxParameterID::BlindingExcess, m_BlindingExcess, false, m_SubTxID);
+    //        m_Tx.SetParameter(TxParameterID::BlindingExcess, m_BlindingExcess, false, m_SubTxID);
 
-            newGenerated = true;
-        }
+    //        newGenerated = true;
+    //    }
 
-        m_Offset += m_BlindingExcess;
-        m_BlindingExcess = -m_BlindingExcess;
+    //    m_Offset += m_BlindingExcess;
+    //    m_BlindingExcess = -m_BlindingExcess;
 
-        return newGenerated;
-    }
+    //    return newGenerated;
+    //}
 
     void BaseTxBuilder::GenerateNonce()
     {
@@ -411,7 +411,7 @@ namespace beam::wallet
         m_Kernel->m_Signature.m_k = m_PartialSignature + m_PeerSignature;
 
         StoreKernelID();
-        m_Tx.SetParameter(TxParameterID::Kernel, m_Kernel);
+        m_Tx.SetParameter(TxParameterID::Kernel, m_Kernel, m_SubTxID);
     }
 
     bool BaseTxBuilder::LoadKernel()

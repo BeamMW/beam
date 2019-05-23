@@ -620,14 +620,16 @@ namespace beam::wallet
             }
 
             UpdateTxDescription(TxStatus::InProgress);
+
+            lockTxBuilder->GenerateOffset();
         }
 
-        bool newGenerated = lockTxBuilder->GenerateBlindingExcess();
-        if (newGenerated && lockTxState != SubTxState::Initial)
-        {
-            OnSubTxFailed(TxFailureReason::InvalidState, SubTxIndex::BEAM_LOCK_TX);
-            return lockTxState;
-        }
+        //bool newGenerated = lockTxBuilder->GenerateBlindingExcess();
+        //if (newGenerated && lockTxState != SubTxState::Initial)
+        //{
+        //    OnSubTxFailed(TxFailureReason::InvalidState, SubTxIndex::BEAM_LOCK_TX);
+        //    return lockTxState;
+        //}
 
         lockTxBuilder->GenerateNonce();
 
@@ -743,12 +745,12 @@ namespace beam::wallet
             builder.InitTx(isTxOwner);
         }
 
-        bool newGenerated = builder.GenerateBlindingExcess();
-        if (newGenerated && subTxState != SubTxState::Initial)
-        {
-            OnSubTxFailed(TxFailureReason::InvalidState, subTxID);
-            return subTxState;
-        }
+        //bool newGenerated = builder.GenerateBlindingExcess();
+        //if (newGenerated && subTxState != SubTxState::Initial)
+        //{
+        //    OnSubTxFailed(TxFailureReason::InvalidState, subTxID);
+        //    return subTxState;
+        //}
 
         builder.GenerateNonce();
         builder.CreateKernel();

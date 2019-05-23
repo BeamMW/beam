@@ -38,7 +38,7 @@ namespace beam::wallet
         bool LoadKernel();
         bool HasKernelID() const;
         void CreateKernel();
-        bool GenerateBlindingExcess();
+ //       bool GenerateBlindingExcess();
         void GenerateOffset();
         void GenerateNonce();
         ECC::Point::Native GetPublicExcess() const;
@@ -91,7 +91,7 @@ namespace beam::wallet
         Height m_MaxHeight;
         std::vector<Input::Ptr> m_Inputs;
         std::vector<Output::Ptr> m_Outputs;
-        ECC::Scalar::Native m_BlindingExcess; // goes to kernel
+ //       ECC::Scalar::Native m_BlindingExcess; // goes to kernel
         ECC::Scalar::Native m_Offset; // goes to offset
 
         std::vector<Coin::ID> m_InputCoins;

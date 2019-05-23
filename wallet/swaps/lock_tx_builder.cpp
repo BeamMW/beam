@@ -152,8 +152,8 @@ namespace beam::wallet
             m_Tx.GetParameter(TxParameterID::SharedBulletProof, m_SharedProof, m_SubTxID);
         }
 
-        ECC::Scalar::Native blindingFactor = -m_SharedBlindingFactor;
-        m_Offset += blindingFactor;
+       // ECC::Scalar::Native blindingFactor = -m_SharedBlindingFactor;
+        //m_Offset += blindingFactor;
     }
 
     Transaction::Ptr LockTxBuilder::CreateTransaction()
