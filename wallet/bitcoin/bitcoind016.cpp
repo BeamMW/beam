@@ -182,7 +182,7 @@ namespace beam
             return libbitcoin::wallet::ec_private::mainnet_wif;
         }
         
-        return libbitcoin::wallet::ec_private::testnet_wif;
+        return libbitcoin::wallet::ec_private::testnet_p2kh;
     }
 
     Amount Bitcoind016::getFeeRate() const
