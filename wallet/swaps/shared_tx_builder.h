@@ -24,13 +24,14 @@ namespace beam::wallet
     class SharedTxBuilder : public BaseTxBuilder
     {
     public:
-        SharedTxBuilder(BaseTransaction& tx, SubTxID subTxID, Amount amount, Amount fee);
+        SharedTxBuilder(BaseTransaction& tx, SubTxID subTxID, Amount amount = 0, Amount fee = 0);
 
         void InitTx(bool isTxOwner);
         Transaction::Ptr CreateTransaction() override;
         Height GetMaxHeight() const override;
 
         bool GetSharedParameters();
+        ECC::Point::Native GetPublicExcess() const override;
 
     protected:
 

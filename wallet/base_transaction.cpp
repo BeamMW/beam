@@ -205,7 +205,6 @@ namespace beam::wallet
 
     Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const Point::Native& publicNonce, const Point::Native& commitment)
     {
-
         auto excess = GetExcess(inputs, outputs, offset);
 
         ECC::Signature::MultiSig multiSig;
@@ -213,7 +212,7 @@ namespace beam::wallet
         multiSig.m_NoncePub = publicNonce;
         multiSig.m_Nonce = GetNonce(nonceSlot);
         multiSig.SignPartial(partialSignature, message, excess);
-        
+    
         return Scalar(partialSignature);
     }
 

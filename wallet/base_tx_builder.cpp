@@ -42,6 +42,14 @@ namespace beam::wallet
         , m_MaxHeight{ MaxHeight }
         , m_PeerMaxHeight{ MaxHeight }
     {
+        if (m_AmountList.empty())
+        {
+            m_Tx.GetParameter(TxParameterID::AmountList, m_AmountList, m_SubTxID);
+        }
+        if (m_Fee == 0)
+        {
+            m_Tx.GetParameter(TxParameterID::Fee, m_Fee, m_SubTxID);
+        }
     }
 
     void BaseTxBuilder::SelectInputs()
@@ -115,10 +123,11 @@ namespace beam::wallet
         m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, false, m_SubTxID);
     }
 
-    void BaseTxBuilder::CreateOutputs()
+    bool BaseTxBuilder::CreateOutputs()
     {
         m_Outputs = m_Tx.GetKeyKeeper()->GenerateOutputsSync(m_MinHeight, m_OutputCoins);
         FinalizeOutputs();
+        return false; // true if async operation has run
 
         //auto thisHolder = shared_from_this();
         //m_Tx.GetKeyKeeper()->GenerateKey(m_OutputCoins, true,
@@ -171,8 +180,12 @@ namespace beam::wallet
         return true;
     }
 
-    void BaseTxBuilder::CreateInputs()
+    bool BaseTxBuilder::CreateInputs()
     {
+        if (GetInputs() || GetInputCoins().empty())
+        {
+            return false;
+        }
         //auto thisHolder = shared_from_this();
         //m_Tx.GetKeyKeeper()->GenerateKey(m_InputCoins, true,
         //    [thisHolder, this](const auto & result)
@@ -198,6 +211,7 @@ namespace beam::wallet
             input->m_Commitment = commitment;
         }
         FinalizeInputs();
+        return false; // true if async operation has run
     }
 
     void BaseTxBuilder::FinalizeInputs()
@@ -238,29 +252,6 @@ namespace beam::wallet
         m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false, m_SubTxID);
         LOG_DEBUG() << m_Tx.GetTxID() << " Offset: " << Scalar(m_Offset);
     }
-
-    //bool BaseTxBuilder::GenerateBlindingExcess()
-    //{
-    //    bool newGenerated = false;
-    //    if (!m_Tx.GetParameter(TxParameterID::BlindingExcess, m_BlindingExcess, m_SubTxID))
-    //    {
-    //        Key::ID kid;
-    //        kid.m_Idx = m_Tx.GetWalletDB()->AllocateKidRange(1);
-    //        kid.m_Type = FOURCC_FROM(KerW);
-    //        kid.m_SubIdx = 0;
-
-    //        m_Tx.GetWalletDB()->get_MasterKdf()->DeriveKey(m_BlindingExcess, kid);
-
-    //        m_Tx.SetParameter(TxParameterID::BlindingExcess, m_BlindingExcess, false, m_SubTxID);
-
-    //        newGenerated = true;
-    //    }
-
-    //    m_Offset += m_BlindingExcess;
-    //    m_BlindingExcess = -m_BlindingExcess;
-
-    //    return newGenerated;
-    //}
 
     void BaseTxBuilder::GenerateNonce()
     {
@@ -373,12 +364,12 @@ namespace beam::wallet
 
     bool BaseTxBuilder::GetInputs()
     {
-        return m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs);
+        return m_Tx.GetParameter(TxParameterID::Inputs, m_Inputs, m_SubTxID);
     }
 
     bool BaseTxBuilder::GetOutputs()
     {
-        return m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs);
+        return m_Tx.GetParameter(TxParameterID::Outputs, m_Outputs, m_SubTxID);
     }
 
     bool BaseTxBuilder::GetPeerInputsAndOutputs()
@@ -416,7 +407,7 @@ namespace beam::wallet
 
     bool BaseTxBuilder::LoadKernel()
     {
-        if (m_Tx.GetParameter(TxParameterID::Kernel, m_Kernel))
+        if (m_Tx.GetParameter(TxParameterID::Kernel, m_Kernel, m_SubTxID))
         {
             GetInitialTxParams();
             return true;
@@ -427,7 +418,7 @@ namespace beam::wallet
     bool BaseTxBuilder::HasKernelID() const
     {
         Merkle::Hash kernelID;
-        return m_Tx.GetParameter(TxParameterID::KernelID, kernelID);
+        return m_Tx.GetParameter(TxParameterID::KernelID, kernelID, m_SubTxID);
     }
 
     Transaction::Ptr BaseTxBuilder::CreateTransaction()

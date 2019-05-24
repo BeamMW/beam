@@ -33,6 +33,7 @@ namespace beam::wallet
         const ECC::RangeProof::Confidential& GetSharedProof() const;
         const ECC::RangeProof::Confidential::MultiSig& GetProofPartialMultiSig() const;
         ECC::Point::Native GetPublicSharedBlindingFactor() const;
+        ECC::Point::Native GetPublicExcess() const override;
 
     private:
 

@@ -102,13 +102,9 @@ namespace beam::wallet
                 builder.GenerateOffset();
             }
 
-            if (!builder.GetInputs())
+            if (builder.CreateInputs())
             {
-                if (!builder.GetInputCoins().empty())
-                {
-                    builder.CreateInputs();
-                    //return;
-                }
+                return;
             }
 
             if (!builder.GetOutputs())

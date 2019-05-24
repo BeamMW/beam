@@ -624,14 +624,10 @@ namespace beam::wallet
             lockTxBuilder->GenerateOffset();
         }
 
-        //bool newGenerated = lockTxBuilder->GenerateBlindingExcess();
-        //if (newGenerated && lockTxState != SubTxState::Initial)
-        //{
-        //    OnSubTxFailed(TxFailureReason::InvalidState, SubTxIndex::BEAM_LOCK_TX);
-        //    return lockTxState;
-        //}
+        lockTxBuilder->CreateInputs();
 
         lockTxBuilder->GenerateNonce();
+        lockTxBuilder->LoadSharedParameters();
 
         if (!lockTxBuilder->UpdateMaxHeight())
         {
@@ -656,7 +652,6 @@ namespace beam::wallet
             return lockTxState;
         }
 
-        lockTxBuilder->LoadSharedParameters();
         lockTxBuilder->CreateKernel();
         lockTxBuilder->SignPartial();
 
@@ -745,13 +740,6 @@ namespace beam::wallet
             builder.InitTx(isTxOwner);
         }
 
-        //bool newGenerated = builder.GenerateBlindingExcess();
-        //if (newGenerated && subTxState != SubTxState::Initial)
-        //{
-        //    OnSubTxFailed(TxFailureReason::InvalidState, subTxID);
-        //    return subTxState;
-        //}
-
         builder.GenerateNonce();
         builder.CreateKernel();
 
@@ -783,7 +771,7 @@ namespace beam::wallet
             }
             return subTxState;
         }
-        
+
         if (subTxID == SubTxIndex::BEAM_REDEEM_TX)
         {
             if (IsBeamSide())
@@ -833,6 +821,7 @@ namespace beam::wallet
                 SetTxParameter msg;
                 msg.AddParameter(TxParameterID::SubTxIndex, builder.GetSubTxID())
                     .AddParameter(TxParameterID::PeerSignature, partialSign);
+        //.AddParameter(TxParameterID::PeerOffset, builder.GetOffset())
 
                 if (!SendTxParameters(std::move(msg)))
                 {
@@ -1143,26 +1132,15 @@ namespace beam::wallet
         auto subTxID = SubTxIndex::BEAM_REDEEM_TX;
         TxKernel::Ptr kernel = GetMandatoryParameter<TxKernel::Ptr>(TxParameterID::Kernel, subTxID);
 
+        SharedTxBuilder builder{ *this, subTxID };
+        builder.GetInitialTxParams();
+        builder.GetPeerPublicExcessAndNonce();
+        builder.GenerateNonce();
+        builder.CreateKernel();
+        builder.SignPartial();
+
         Scalar::Native peerSignature = GetMandatoryParameter<Scalar::Native>(TxParameterID::PeerSignature, subTxID);
-        Scalar::Native partialSignature;
-
-        // create partial signature
-        {
-            // load Nonce and Excess
-            ECC::Signature::MultiSig multiSig;
-            {
-                NoLeak<Hash::Value> hvRandom;
-                GetParameter(TxParameterID::MyNonce, hvRandom.V, subTxID);
-                GetWalletDB()->get_MasterKdf()->DeriveKey(multiSig.m_Nonce, hvRandom.V);
-            }
-
-            Scalar::Native blindingExcess = GetMandatoryParameter<Scalar::Native>(TxParameterID::BlindingExcess, subTxID);
-            ECC::Hash::Value message;
-            kernel->get_Hash(message);
-
-            multiSig.m_NoncePub.Import(kernel->m_Signature.m_NoncePub);
-            multiSig.SignPartial(partialSignature, message, blindingExcess);
-        }
+        Scalar::Native partialSignature = builder.GetPartialSignature();
 
         Scalar::Native fullSignature;
         fullSignature.Import(kernel->m_Signature.m_k);
