@@ -803,20 +803,7 @@ namespace
 
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
-        struct TestGateway : wallet::INegotiatorGateway
-        {
-            void OnAsyncStarted() override {}
-            void OnAsyncFinished() override {}
-            void on_tx_completed(const TxID&) override {}
-            void register_tx(const TxID&, Transaction::Ptr, wallet::SubTxID) override  {}
-            void confirm_outputs(const std::vector<Coin>&) override  {}
-            void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID subTxID) override {}
-            void get_kernel(const TxID& txID, const Merkle::Hash& kernelID, wallet::SubTxID subTxID) override {}
-            bool get_tip(Block::SystemState::Full& state) const override { return false; }
-            void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override {}
-            void UpdateOnNextTip(const TxID&) override {};
-            wallet::SecondSide::Ptr GetSecondSide(const TxID&) const override { return nullptr; }
-        } gateway;
+        EmptyTestGateway gateway;
         TestWalletRig sender("sender", createSenderWalletDB());
         TestWalletRig receiver("receiver", createReceiverWalletDB());
 
@@ -856,6 +843,96 @@ namespace
 
         cout << UpdateCount << " updates: " << sw.milliseconds() << " ms\n";
 
+    }
+
+    void TestTxExceptionHandling()
+    {
+        cout << "\nTesting exception processing by transaction ...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        TestWalletRig sender("sender", createSenderWalletDB());
+        TestWalletRig receiver("receiver", createReceiverWalletDB());
+        Height currentHeight = sender.m_WalletDB->getCurrentHeight();
+
+        // process TransactionFailedException
+        {
+            struct TestGateway : EmptyTestGateway
+            {
+                bool get_tip(Block::SystemState::Full& state) const override
+                {
+                    throw wallet::TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
+                }
+            } gateway;
+
+            TxID txID = wallet::GenerateTxID();
+            auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, txID);
+
+            tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
+            tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
+            tx->SetParameter(wallet::TxParameterID::IsInitiator, true, false);
+
+            TxDescription txDescription;
+
+            txDescription.m_txId = txID;
+            txDescription.m_amount = 1;
+            txDescription.m_fee = 2;
+            txDescription.m_minHeight = currentHeight;
+            txDescription.m_peerId = receiver.m_WalletID;
+            txDescription.m_myId = sender.m_WalletID;
+            txDescription.m_message = {};
+            txDescription.m_createTime = getTimestamp();
+            txDescription.m_sender = true;
+            txDescription.m_status = TxStatus::Pending;
+            txDescription.m_selfTx = false;
+            sender.m_WalletDB->saveTx(txDescription);
+
+            tx->Update();
+
+            auto result = sender.m_WalletDB->getTx(txID);
+
+            WALLET_CHECK(result->m_status == TxStatus::Failed);
+        }
+
+        // process unknown exception
+        {
+            struct TestGateway : EmptyTestGateway
+            {
+                bool get_tip(Block::SystemState::Full& state) const override
+                {
+                    throw exception();
+                }
+            } gateway;
+
+            TxID txID = wallet::GenerateTxID();
+            auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, txID);
+
+            tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
+            tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
+            tx->SetParameter(wallet::TxParameterID::IsInitiator, true, false);
+
+            TxDescription txDescription;
+
+            txDescription.m_txId = txID;
+            txDescription.m_amount = 1;
+            txDescription.m_fee = 2;
+            txDescription.m_minHeight = currentHeight;
+            txDescription.m_peerId = receiver.m_WalletID;
+            txDescription.m_myId = sender.m_WalletID;
+            txDescription.m_message = {};
+            txDescription.m_createTime = getTimestamp();
+            txDescription.m_sender = true;
+            txDescription.m_status = TxStatus::Pending;
+            txDescription.m_selfTx = false;
+            sender.m_WalletDB->saveTx(txDescription);
+
+            tx->Update();
+
+            auto result = sender.m_WalletDB->getTx(txID);
+
+            WALLET_CHECK(result->m_status == TxStatus::Failed);
+        }
     }
 
     void TestTxPerformance()
@@ -1613,6 +1690,7 @@ int main()
     TestColdWalletSending();
     TestColdWalletReceiving();
 
+    TestTxExceptionHandling();
 #if defined(BEAM_HW_WALLET)
     TestHWWallet();
 #endif
