@@ -199,7 +199,7 @@ namespace beam::wallet
 
     ECC::Point LocalPrivateKeyKeeper::GenerateNonceSync(size_t slot)
     {
-        Point result = Context::get().G * GetNonce(slot);
+        Point::Native result = Context::get().G * GetNonce(slot);
         return result;
     }
 
