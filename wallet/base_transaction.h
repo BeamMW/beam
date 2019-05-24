@@ -89,7 +89,7 @@ namespace beam::wallet
 
         }
 
-        size_t AllocateNonceSlot()
+        size_t AllocateNonceSlot() override
         {
             return 0;
         }
