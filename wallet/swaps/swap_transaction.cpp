@@ -35,30 +35,6 @@ namespace beam::wallet
     {
     }
 
-    void AtomicSwapTransaction::Update()
-    {
-        try
-        {
-            if (CheckExternalFailures())
-            {
-                return;
-            }
-
-            UpdateImpl();
-
-            CheckExpired();
-        }
-        catch (const TransactionFailedException& ex)
-        {
-            LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
-            OnFailed(ex.GetReason(), ex.ShouldNofify());
-        }
-        catch (const std::exception& ex)
-        {
-            LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
-        }
-    }
-
     void AtomicSwapTransaction::Cancel()
     {
         State state = GetState(kDefaultSubTxID);

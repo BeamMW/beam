@@ -67,7 +67,6 @@ namespace beam::wallet
                             , beam::IWalletDB::Ptr walletDB
                             , const TxID& txID);
 
-        void Update() override;
         void Cancel() override;
 
         bool Rollback(Height height) override;
