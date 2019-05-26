@@ -171,8 +171,6 @@ namespace Negotiator {
 			virtual bool Read(uint32_t code, Blob& blob) override;
 		};
 
-
-
 	public:
 
 		Key::IKdf::Ptr m_pKdf;
@@ -184,6 +182,18 @@ namespace Negotiator {
 
 		template <typename T>
 		void Set(const T& val, uint32_t code) { m_pStorage->Set(val, code); }
+
+		template <typename T>
+		void SetGet(bool bSet, T* pVal, uint32_t code)
+		{
+			if (pVal)
+			{
+				if (bSet)
+					Set<T>(*pVal, code);
+				else
+					Get<T>(*pVal, code);
+			}
+		}
 
 		uint32_t Update();
 	};
@@ -316,12 +326,12 @@ namespace Negotiator {
 		MultiTx m_Tx1; // msig0 - > msig1
 		MultiTx m_Tx2; // msig1 -> outputs, timelocked
 
-		void Setup(
-			const Key::IDV* pMsig1,
-			const Key::IDV* pMsig0,
-			const ECC::Point* pComm0,
-			const std::vector<Key::IDV>* pOuts,
-			Height hLock);
+		void Setup(bool bSet,
+			Key::IDV* pMsig1,
+			Key::IDV* pMsig0,
+			ECC::Point* pComm0,
+			std::vector<Key::IDV>* pOuts,
+			Height* pLock);
 
 		struct Result
 		{
@@ -413,14 +423,14 @@ namespace Negotiator {
 		Multisig m_MSig; // msig0
 		MultiTx m_Tx0; // inputs -> msig0
 
-		void Setup(
-			const std::vector<Key::IDV>* pInps,
-			const std::vector<Key::IDV>* pOutsChange,
-			const Key::IDV* pMsig0,
-			const Key::IDV* pMsig1A,
-			const Key::IDV* pMsig1B,
-			const std::vector<Key::IDV>* pOutsWd,
-			Height hLock);
+		void Setup(bool bSet,
+			std::vector<Key::IDV>* pInps,
+			std::vector<Key::IDV>* pOutsChange,
+			Key::IDV* pMsig0,
+			Key::IDV* pMsig1A,
+			Key::IDV* pMsig1B,
+			std::vector<Key::IDV>* pOutsWd,
+			Height* pLock);
 
 		struct Result
 			:public ChannelWithdrawal::Result
@@ -431,6 +441,13 @@ namespace Negotiator {
 		};
 
 		void get_Result(Result&);
+
+		struct DoneParts {
+			static const uint8_t Main = 1; // my withdrawal path, opening tx
+			static const uint8_t PeerWd = 2; // peer withdrawal path.
+		};
+
+		uint8_t get_DoneParts();
 
 		// Worker object, handles remapping of storage and gateway for inner objects
 		class Worker
@@ -503,16 +520,16 @@ namespace Negotiator {
 
 	public:
 
-		void Setup(
-			const Key::IDV* pMsig0,
-			const ECC::Point* pComm0,
-			const Key::IDV* pMsig1A,
-			const Key::IDV* pMsig1B,
-			const std::vector<Key::IDV>* pOutsWd,
-			Height hLock,
-			const Key::IDV* pMsigPrevMy, // should be revealed to the peer
-			const Key::IDV* pMsigPrevPeer, // my part, that must be complemented by peer
-			const ECC::Point* pCommPrevPeer); // the commitment, that should be obtained from my part and the blinding factor revealed by the peer
+		void Setup(bool bSet,
+			Key::IDV* pMsig0,
+			ECC::Point* pComm0,
+			Key::IDV* pMsig1A,
+			Key::IDV* pMsig1B,
+			std::vector<Key::IDV>* pOutsWd,
+			Height* pLock,
+			Key::IDV* pMsigPrevMy, // should be revealed to the peer
+			Key::IDV* pMsigPrevPeer, // my part, that must be complemented by peer
+			ECC::Point* pCommPrevPeer); // the commitment, that should be obtained from my part and the blinding factor revealed by the peer
 
 
 		struct Result
@@ -525,6 +542,14 @@ namespace Negotiator {
 		};
 
 		void get_Result(Result&);
+
+		struct DoneParts {
+			static const uint8_t Main = 1; // my withdrawal path, I already compromised prev wd
+			static const uint8_t PeerWd = 2; // peer withdrawal path
+			static const uint8_t PeerKey = 4; // peer compromised prev wd
+		};
+
+		uint8_t get_DoneParts();
 
 		// Worker object, handles remapping of storage and gateway for inner objects
 		class Worker

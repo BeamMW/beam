@@ -742,31 +742,22 @@ bool WithdrawTx::Worker::S2::Read(uint32_t code, Blob& blob)
 	return Router::Read(code, blob);
 }
 
-void WithdrawTx::Setup(
-	const Key::IDV* pMsig1,
-	const Key::IDV* pMsig0,
-	const ECC::Point* pComm0,
-	const std::vector<Key::IDV>* pOuts,
-	Height hLock)
+void WithdrawTx::Setup(bool bSet,
+	Key::IDV* pMsig1,
+	Key::IDV* pMsig0,
+	ECC::Point* pComm0,
+	std::vector<Key::IDV>* pOuts,
+	Height* pLock)
 {
 	m_MSig.m_pKdf = m_pKdf;
 	m_Tx1.m_pKdf = m_pKdf;
 	m_Tx2.m_pKdf = m_pKdf;
 
-	if (pMsig1)
-		m_MSig.Set(*pMsig1, Multisig::Codes::Kidv);
-
-	if (pMsig0)
-		m_Tx1.Set(*pMsig0, MultiTx::Codes::InpMsKidv);
-
-	if (pComm0)
-		m_Tx1.Set(*pComm0, MultiTx::Codes::InpMsCommitment);
-
-	if (pOuts)
-		m_Tx2.Set(*pOuts, MultiTx::Codes::OutpKidvs);
-
-	if (hLock)
-		m_Tx2.Set(hLock, MultiTx::Codes::KrnLockHeight);
+	m_MSig.SetGet(bSet, pMsig1, Multisig::Codes::Kidv);
+	m_Tx1.SetGet(bSet, pMsig0, MultiTx::Codes::InpMsKidv);
+	m_Tx1.SetGet(bSet, pComm0, MultiTx::Codes::InpMsCommitment);
+	m_Tx2.SetGet(bSet, pOuts, MultiTx::Codes::OutpKidvs);
+	m_Tx2.SetGet(bSet, pLock, MultiTx::Codes::KrnLockHeight);
 }
 
 void WithdrawTx::get_Result(Result& r)
@@ -935,31 +926,26 @@ bool ChannelOpen::Worker::SB::Read(uint32_t code, Blob& blob)
 	return Router::Read(code, blob);
 }
 
-void ChannelOpen::Setup(
-	const std::vector<Key::IDV>* pInps,
-	const std::vector<Key::IDV>* pOutsChange,
-	const Key::IDV* pMsig0,
-	const Key::IDV* pMsig1A,
-	const Key::IDV* pMsig1B,
-	const std::vector<Key::IDV>* pOutsWd,
-	Height hLock)
+void ChannelOpen::Setup(bool bSet,
+	std::vector<Key::IDV>* pInps,
+	std::vector<Key::IDV>* pOutsChange,
+	Key::IDV* pMsig0,
+	Key::IDV* pMsig1A,
+	Key::IDV* pMsig1B,
+	std::vector<Key::IDV>* pOutsWd,
+	Height* pLock)
 {
 	m_MSig.m_pKdf = m_pKdf;
 	m_Tx0.m_pKdf = m_pKdf;
 	m_WdA.m_pKdf = m_pKdf;
 	m_WdB.m_pKdf = m_pKdf;
 
-	if (pMsig0)
-		m_MSig.Set(*pMsig0, Multisig::Codes::Kidv);
+	m_MSig.SetGet(bSet, pMsig0, Multisig::Codes::Kidv);
+	m_Tx0.SetGet(bSet, pInps, MultiTx::Codes::InpKidvs);
+	m_Tx0.SetGet(bSet, pOutsChange, MultiTx::Codes::OutpKidvs);
 
-	if (pInps)
-		m_Tx0.Set(*pInps, MultiTx::Codes::InpKidvs);
-
-	if (pOutsChange)
-		m_Tx0.Set(*pOutsChange, MultiTx::Codes::OutpKidvs);
-
-	m_WdA.Setup(pMsig1A, nullptr, nullptr, pOutsWd, hLock);
-	m_WdB.Setup(pMsig1B, nullptr, nullptr, nullptr, 0);
+	m_WdA.Setup(bSet, pMsig1A, nullptr, nullptr, pOutsWd, pLock);
+	m_WdB.Setup(bSet, pMsig1B, nullptr, nullptr, nullptr, 0);
 }
 
 void ChannelOpen::get_Result(Result& r)
@@ -995,6 +981,32 @@ void ChannelWithdrawal::get_Result(Result& r)
 		r.m_CommPeer1 = rx.m_Comm1;
 		r.m_txPeer2 = std::move(rx.m_tx2);
 	}
+}
+
+uint8_t ChannelOpen::get_DoneParts()
+{
+	uint8_t ret = 0;
+
+	uint32_t iRole = 0;
+	Get(iRole, Codes::Role);
+
+	{
+		uint32_t status = 0;
+		m_Tx0.Get(status, Codes::Status);
+		if (Status::Success == status)
+			ret |= DoneParts::Main;
+	}
+
+	{
+		WithdrawTx& x = iRole ? m_WdA : m_WdB;
+		uint32_t status = 0;
+		x.Get(status, Codes::Status);
+
+		if (Status::Success == status)
+			ret |= DoneParts::PeerWd;
+	}
+
+	return ret;
 }
 
 uint32_t ChannelOpen::Update2()
@@ -1092,29 +1104,26 @@ bool ChannelUpdate::Worker::SB::Read(uint32_t code, Blob& blob)
 	return Router::Read(code, blob);
 }
 
-void ChannelUpdate::Setup(
-	const Key::IDV* pMsig0,
-	const ECC::Point* pComm0,
-	const Key::IDV* pMsig1A,
-	const Key::IDV* pMsig1B,
-	const std::vector<Key::IDV>* pOutsWd,
-	Height hLock,
-	const Key::IDV* pMsigPrevMy,
-	const Key::IDV* pMsigPrevPeer,
-	const ECC::Point* pCommPrevPeer)
+void ChannelUpdate::Setup(bool bSet,
+	Key::IDV* pMsig0,
+	ECC::Point* pComm0,
+	Key::IDV* pMsig1A,
+	Key::IDV* pMsig1B,
+	std::vector<Key::IDV>* pOutsWd,
+	Height* pLock,
+	Key::IDV* pMsigPrevMy,
+	Key::IDV* pMsigPrevPeer,
+	ECC::Point* pCommPrevPeer)
 {
 	m_WdA.m_pKdf = m_pKdf;
 	m_WdB.m_pKdf = m_pKdf;
 
-	m_WdA.Setup(pMsig1A, pMsig0, pComm0, pOutsWd, hLock);
-	m_WdB.Setup(pMsig1B, nullptr, nullptr, nullptr, 0);
+	m_WdA.Setup(bSet, pMsig1A, pMsig0, pComm0, pOutsWd, pLock);
+	m_WdB.Setup(bSet, pMsig1B, nullptr, nullptr, nullptr, nullptr);
 
-	if (pMsigPrevMy)
-		Set(*pMsigPrevMy, Codes::KidvPrev);
-	if (pMsigPrevPeer)
-		Set(*pMsigPrevPeer, Codes::KidvPrevPeer);
-	if (pCommPrevPeer)
-		Set(*pCommPrevPeer, Codes::CommitmentPrevPeer);
+	SetGet(bSet, pMsigPrevMy, Codes::KidvPrev);
+	SetGet(bSet, pMsigPrevPeer, Codes::KidvPrevPeer);
+	SetGet(bSet, pCommPrevPeer, Codes::CommitmentPrevPeer);
 }
 
 uint32_t ChannelUpdate::Update2()
@@ -1199,6 +1208,38 @@ void ChannelUpdate::get_Result(Result& r)
 	Get(val, Codes::SelfKeyRevealed);
 	r.m_RevealedSelfKey = (val > 0);
 	r.m_PeerKeyValid = Get(r.m_PeerKey, Codes::PeerKey);
+}
+
+uint8_t ChannelUpdate::get_DoneParts()
+{
+	uint8_t ret = 0;
+
+	uint32_t iRole = 0;
+	Get(iRole, Codes::Role);
+
+	{
+		WithdrawTx& x = iRole ? m_WdB : m_WdA;
+		uint32_t status = 0;
+		x.Get(status, Codes::Status);
+
+		if (Status::Success == status)
+			ret |= DoneParts::Main;
+	}
+
+	{
+		WithdrawTx& x = iRole ? m_WdA : m_WdB;
+		uint32_t status = 0;
+		x.Get(status, Codes::Status);
+
+		if (Status::Success == status)
+			ret |= DoneParts::PeerWd;
+	}
+
+	ECC::Scalar peerKey;
+	if (Get(peerKey, Codes::PeerKey))
+		ret |= DoneParts::PeerKey;
+
+	return ret;
 }
 
 } // namespace Negotiator
