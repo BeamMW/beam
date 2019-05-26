@@ -1080,7 +1080,7 @@ bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const ch
 
 	struct MyGateway :public Gateway::Direct
 	{
-		MyGateway(Negotiator::IBase& x) :Gateway::Direct(x) {}
+		MyGateway(Storage::IBase& x) :Gateway::Direct(x) {}
 		size_t m_Size = 0;
 
 		virtual void Send(uint32_t code, ByteBuffer&& buf) override
@@ -1089,10 +1089,6 @@ bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const ch
 			Gateway::Direct::Send(code, std::move(buf));
 		}
 	};
-
-	Gateway::Direct ga(a), gb(b);
-	a.m_pGateway = &gb;
-	b.m_pGateway = &ga;
 
 	const uint32_t nPeers = 2;
 
@@ -1120,7 +1116,7 @@ bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const ch
 
 		IBase& v = *pArr[i];
 
-		MyGateway gw(*pArr[!i]);
+		MyGateway gw(*pArr[!i]->m_pStorage);
 		v.m_pGateway = &gw;
 
 		uint32_t status = v.Update();

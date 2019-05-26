@@ -193,8 +193,8 @@ namespace Negotiator {
 		// directly update peer's storage. Suitable for local peers
 		struct Direct :public IBase
 		{
-			Negotiator::IBase& m_Peer;
-			Direct(Negotiator::IBase& x) :m_Peer(x) {}
+			Storage::IBase& m_Trg;
+			Direct(Storage::IBase& x) :m_Trg(x) {}
 
 			virtual void Send(uint32_t code, ByteBuffer&& buf) override;
 		};

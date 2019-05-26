@@ -30,13 +30,13 @@ namespace Gateway
 		}
 
 		Blob blob;
-		if (m_Peer.m_pStorage->Read(code, blob))
+		if (m_Trg.Read(code, blob))
 		{
 			assert(false);
 			return;
 		}
 
-		m_Peer.m_pStorage->Write(code, std::move(buf));
+		m_Trg.Write(code, std::move(buf));
 	}
 
 } // namespace Gateway
