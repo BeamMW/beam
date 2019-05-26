@@ -2033,10 +2033,6 @@ uint32_t Node::RandomUInt32(uint32_t threshold)
     return threshold;
 }
 
-void CmpTx(const Transaction& tx1, const Transaction& tx2, bool& b1Covers, bool& b2Covers)
-{
-}
-
 uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, const Peer* pPeer)
 {
 	if (ptx->m_vInputs.empty() || ptx->m_vKernels.empty()) {
