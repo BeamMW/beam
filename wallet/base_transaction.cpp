@@ -68,9 +68,16 @@ namespace beam::wallet
 
     ///
 
-    LocalPrivateKeyKeeper::LocalPrivateKeyKeeper(Key::IKdf::Ptr kdf)
-        : m_MasterKdf(kdf)
+    namespace
     {
+        const char* LOCAL_NONCE_SEEDS = "NonceSeeds";
+    }
+
+    LocalPrivateKeyKeeper::LocalPrivateKeyKeeper(IWalletDB::Ptr walletDB)
+        : m_WalletDB(walletDB)
+        , m_MasterKdf(walletDB->get_MasterKdf())
+    {
+        LoadNonceSeeds();
     }
 
     void LocalPrivateKeyKeeper::GenerateKey(const vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback)
@@ -103,10 +110,6 @@ namespace beam::wallet
 
     size_t LocalPrivateKeyKeeper::AllocateNonceSlot()
     {
-        if (m_Nonces.empty())
-        {
-            return 0;
-        }
         if (m_Nonces.size() == numeric_limits<uint8_t>::max())
         {
             throw runtime_error("has no place  for nonces");
@@ -135,7 +138,10 @@ namespace beam::wallet
         NoLeak<Hash::Value> hvRandom;
         ECC::GenRandom(hvRandom.V);
 
-        m_Nonces.insert({ i, hvRandom });
+        m_Nonces.insert({ i, hvRandom.V });
+
+        SaveNonceSeeds();
+
         return i;
     }
 
@@ -216,6 +222,26 @@ namespace beam::wallet
         return Scalar(partialSignature);
     }
 
+    void LocalPrivateKeyKeeper::LoadNonceSeeds()
+    {
+        ByteBuffer buffer;
+        if (m_WalletDB->getBlob(LOCAL_NONCE_SEEDS, buffer) && !buffer.empty())
+        {
+            Deserializer d;
+            d.reset(buffer);
+            d & m_Nonces;
+        }
+    }
+
+    void LocalPrivateKeyKeeper::SaveNonceSeeds()
+    {
+        Serializer s;
+        s& m_Nonces;
+        ByteBuffer buffer;
+        s.swap_buf(buffer);
+        m_WalletDB->setVarRaw(LOCAL_NONCE_SEEDS, buffer.data(), buffer.size());
+    }
+
     ////
 
     ECC::uintBig LocalPrivateKeyKeeper::GetSeedKid(Key::IPKdf& tagKdf, const Point& commitment) const
@@ -245,7 +271,7 @@ namespace beam::wallet
         auto randomValue = m_Nonces[slot];
 
         NoLeak<Scalar::Native> nonce;
-        m_MasterKdf->DeriveKey(nonce.V, randomValue.V);
+        m_MasterKdf->DeriveKey(nonce.V, randomValue);
         return nonce.V;
     }
 

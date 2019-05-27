@@ -125,7 +125,7 @@ namespace beam::wallet
     class LocalPrivateKeyKeeper : public IPrivateKeyKeeper
     {
     public:
-        LocalPrivateKeyKeeper(Key::IKdf::Ptr kdf);
+        LocalPrivateKeyKeeper(IWalletDB::Ptr walletDB);
     private:
         void GenerateKey(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
         //void GenerateRangeProof(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<RangeProofs>&&, ExceptionCallback&&) override;
@@ -143,11 +143,13 @@ namespace beam::wallet
         Key::IKdf::Ptr GetChildKdf(Key::Index iKdf) const;
         ECC::Scalar::Native GetNonce(size_t slot);
         ECC::Scalar::Native GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset) const;
+        void LoadNonceSeeds();
+        void SaveNonceSeeds();
     private:
         IWalletDB::Ptr m_WalletDB;
         Key::IKdf::Ptr m_MasterKdf;
 
-        std::map<size_t, ECC::NoLeak<ECC::Hash::Value>> m_Nonces;
+        std::map<size_t, ECC::Hash::Value> m_Nonces;
     };
 
     std::string GetFailureMessage(TxFailureReason reason);
