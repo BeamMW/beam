@@ -12,6 +12,7 @@ set(CORE_SRC
     radixtree.cpp
     merkle.cpp
     negotiator.cpp
+    lightning.cpp
     proto.cpp
     peer_manager.cpp
     fly_client.cpp
