@@ -344,6 +344,7 @@ namespace beam::wallet
         catch (const exception & ex)
         {
             LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
+            OnFailed(TxFailureReason::Unknown);
         }
     }
 

@@ -35,6 +35,7 @@ class SettingsViewModel : public QObject
     Q_PROPERTY(QString walletLocation READ getWalletLocation CONSTANT)
     Q_PROPERTY(bool isLocalNodeRunning READ isLocalNodeRunning NOTIFY localNodeRunningChanged)
     Q_PROPERTY(bool isPasswordReqiredToSpendMoney READ isPasswordReqiredToSpendMoney WRITE setPasswordReqiredToSpendMoney NOTIFY passwordReqiredToSpendMoneyChanged)
+    Q_PROPERTY(bool isAllowedBeamMWLinks READ isAllowedBeamMWLinks WRITE allowBeamMWLinks NOTIFY beamMWLinksAllowed)
     Q_PROPERTY(QStringList supportedLanguages READ getSupportedLanguages NOTIFY currentLanguageIndexChanged)
     Q_PROPERTY(int currentLanguageIndex READ getCurrentLanguageIndex NOTIFY currentLanguageIndexChanged)
     Q_PROPERTY(QString currentLanguage READ getCurrentLanguage WRITE setCurrentLanguage)
@@ -54,6 +55,8 @@ public:
     void setLockTimeout(int value);
     bool isPasswordReqiredToSpendMoney() const;
     void setPasswordReqiredToSpendMoney(bool value);
+    bool isAllowedBeamMWLinks() const;
+    void allowBeamMWLinks(bool value);
     QStringList getSupportedLanguages() const;
     int getCurrentLanguageIndex() const;
     void setCurrentLanguageIndex(int value);
@@ -96,6 +99,7 @@ signals:
     void passwordReqiredToSpendMoneyChanged();
     void validNodeAddressChanged();
     void currentLanguageIndexChanged();
+    void beamMWLinksAllowed();
 
 protected:
     void timerEvent(QTimerEvent *event) override;
@@ -109,6 +113,7 @@ private:
     QStringList m_localNodePeers;
     int m_lockTimeout;
     bool m_isPasswordReqiredToSpendMoney;
+    bool m_isAllowedBeamMWLinks;
     bool m_isValidNodeAddress;
     bool m_isNeedToCheckAddress;
     bool m_isNeedToApplyChanges;

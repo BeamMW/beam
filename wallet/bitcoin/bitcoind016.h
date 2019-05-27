@@ -15,8 +15,8 @@
 #pragma once
 
 #include "bitcoin_bridge.h"
-
 #include "http/http_client.h"
+#include "options.h"
 
 namespace beam
 {
@@ -24,7 +24,7 @@ namespace beam
     {
     public:
         Bitcoind016() = delete;
-        Bitcoind016(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, Amount confirmations = 6, bool mainnet = false);
+        Bitcoind016(io::Reactor& reactor, const BitcoinOptions& options);
 
         void dumpPrivKey(const std::string& btcAddress, std::function<void(const std::string&, const std::string&)> callback) override;
         void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const std::string&, const std::string&, int)> callback) override;
@@ -44,6 +44,7 @@ namespace beam
         uint8_t getAddressVersion() override;
         Amount getFeeRate() const override;
         Amount getTxMinConfirmations() const override;
+        uint32_t getLockTimeInBlocks() const override;
 
     protected:
         void sendRequest(const std::string& method, const std::string& params, std::function<void(const std::string&)> callback);
@@ -51,10 +52,11 @@ namespace beam
 
     private:
         HttpClient m_httpClient;
-        io::Address m_address;
+        //io::Address m_address;
+        BitcoinOptions m_options;
         std::string m_authorization;
-        bool m_isMainnet = false;
+        /*bool m_isMainnet = false;
         Amount m_feeRate = 0;
-        Amount m_confirmations = 6;
+        Amount m_confirmations = 6;*/
     };
 }

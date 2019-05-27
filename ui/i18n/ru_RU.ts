@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1" language="ru_RU">
+<TS version="2.1" language="ru_RU" sourcelanguage="en_US">
 <context>
     <name></name>
     <message id="addresses-tittle">
@@ -21,7 +21,7 @@
     </message>
     <message id="addresses-head-comment">
         <source>Comment</source>
-        <translation>Коментарий</translation>
+        <translation>Комментарий</translation>
     </message>
     <message id="addresses-head-contact">
         <source>Contact</source>
@@ -41,7 +41,7 @@
     </message>
     <message id="address-table-head-comment">
         <source>Comment</source>
-        <translation>Коментарий</translation>
+        <translation>Комментарий</translation>
     </message>
     <message id="address-table-head-address">
         <source>Address</source>
@@ -75,34 +75,6 @@
         <source>Available</source>
         <translation>Доступно</translation>
     </message>
-    <message id="utxo-utxo">
-        <source>UTXO</source>
-        <translation>UTXO</translation>
-    </message>
-    <message id="utxo-blockchain-height">
-        <source>Blockchain Height</source>
-        <translation>Высота цепочки блоков</translation>
-    </message>
-    <message id="utxo-last-block-hash">
-        <source>Last block hash</source>
-        <translation>Хэш последнего блока</translation>
-    </message>
-    <message id="utxo-head-amount">
-        <source>Amount</source>
-        <translation>Доступно</translation>
-    </message>
-    <message id="utxo-head-maturity">
-        <source>Maturity</source>
-        <translation>Подтвержден</translation>
-    </message>
-    <message id="utxo-head-status">
-        <source>Status</source>
-        <translation>Статус</translation>
-    </message>
-    <message id="utxo-head-type">
-        <source>Type</source>
-        <translation>Тип</translation>
-    </message>
     <message id="settings-version">
         <source>Version: </source>
         <translation>Версия: </translation>
@@ -133,7 +105,7 @@
     </message>
     <message id="settings-local-node-no-peers-error">
         <source>Please add at least one peer</source>
-        <translation>Пожалуйста, добавьте хотябы одного пира</translation>
+        <translation>Пожалуйста, добавьте хотя бы одного пира</translation>
     </message>
     <message id="settings-rescan-confirmation-button">
         <source>rescan</source>
@@ -146,10 +118,6 @@
     <message id="settings-rescan-confirmation-message">
         <source>Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</source>
         <translation>Сканирование обновит информацию о транзакциях и UTXO в соответствии с последним состоянием цепочки блоков. Процесс может занять некоторое время.</translation>
-    </message>
-    <message id="settings-rescan-confirmation-message-line-2">
-        <source>Are you sure?</source>
-        <translation>Вы Уверены?</translation>
     </message>
     <message id="settings-general-title">
         <source>General settings</source>
@@ -241,7 +209,7 @@
     </message>
     <message id="change-pwd-old-pwd-label">
         <source>Enter old password</source>
-        <translation>Введить старый пароль</translation>
+        <translation>Введите старый пароль</translation>
     </message>
     <message id="change-pwd-new-pwd-label">
         <source>Enter new password</source>
@@ -261,15 +229,15 @@
     </message>
     <message id="loading-loading">
         <source>Loading wallet...</source>
-        <translation>Загрузка кошелька ...</translation>
+        <translation>Загрузка кошелька...</translation>
     </message>
     <message id="loading-restoring">
         <source>Restoring wallet...</source>
-        <translation>Восстановление кошелька ...</translation>
+        <translation>Восстановление кошелька...</translation>
     </message>
     <message id="loading-creating">
         <source>Creating wallet...</source>
-        <translation>Создание кошелька ...</translation>
+        <translation>Создание кошелька...</translation>
     </message>
     <message id="start-open-pwd-invitation">
         <source>Enter your password to access the wallet</source>
@@ -285,7 +253,7 @@
     </message>
     <message id="open-pwd-fail">
         <source>Invalid password provided.</source>
-        <translation>Неверный пароль</translation>
+        <translation>Неверный пароль.</translation>
     </message>
     <message id="confirmation-cancel-button">
         <source>cancel</source>
@@ -305,7 +273,7 @@
     </message>
     <message id="edit-addr-comment">
         <source>Comment</source>
-        <translation>Коментарий</translation>
+        <translation>Комментарий</translation>
     </message>
     <message id="edit-addr-expires">
         <source>Expires</source>
@@ -365,7 +333,7 @@
     </message>
     <message id="payment-info-proof-kernel-id-label">
         <source>Kernel ID:</source>
-        <translation>Идентефикатор ядра:</translation>
+        <translation>Идентификатор ядра:</translation>
     </message>
     <message id="payment-info-copy-details-button">
         <source>copy details</source>
@@ -453,7 +421,7 @@
     </message>
     <message id="tx-details-comment-label">
         <source>Comment:</source>
-        <translation>Коментарий:</translation>
+        <translation>Комментарий:</translation>
     </message>
     <message id="tx-details-kernel-id-label">
         <source>Kernel ID:</source>
@@ -479,6 +447,10 @@
         <source>save wallet logs</source>
         <translation>сохранить лог</translation>
     </message>
+    <message id="settings-rescan-confirmation-message-line-2">
+        <source>Are you sure?</source>
+        <translation>Вы уверены?</translation>
+    </message>
     <message id="settings-general-change-pwd-button">
         <source>change wallet password</source>
         <translation>сменить пароль</translation>
@@ -493,7 +465,7 @@
     </message>
     <message id="cant-send-to-expired-ok-button">
         <source>ok</source>
-        <translation>ok</translation>
+        <translation>Хорошо</translation>
     </message>
     <message id="send-confirmation-button">
         <source>send</source>
@@ -501,7 +473,7 @@
     </message>
     <message id="send-confirmation-pwd-fail">
         <source>Invalid password provided.</source>
-        <translation>Неверный пароль</translation>
+        <translation>Неверный пароль.</translation>
     </message>
     <message id="send-confirmation-title">
         <source>Confirm transaction details</source>
@@ -521,7 +493,7 @@
     </message>
     <message id="send-confirmation-pwd-require-message">
         <source>To broadcast your transaction please enter your password</source>
-        <translation>Что бы совершить транзакцию, введите пароль</translation>
+        <translation>Чтобы совершить транзакцию, введите пароль</translation>
     </message>
     <message id="wallet-title">
         <source>Wallet</source>
@@ -545,15 +517,15 @@
     </message>
     <message id="wallet-receive-expires-never">
         <source>never</source>
-        <translation>бессрочно</translation>
+        <translation>никогда</translation>
     </message>
     <message id="wallet-receive-comment-label">
         <source>Comment</source>
-        <translation>Коментарий</translation>
+        <translation>Комментарий</translation>
     </message>
     <message id="wallet-receive-qr-label">
         <source>Scan to send</source>
-        <translation>Сканируйте, что бы отправить</translation>
+        <translation>Сканируйте, чтобы отправить</translation>
     </message>
     <message id="wallet-receive-propogate-addr-message">
         <source>Send this address to the sender over an external secure channel</source>
@@ -589,7 +561,7 @@
     </message>
     <message id="send-addr-fail">
         <source>Invalid address</source>
-        <translation>Не правильный адрес</translation>
+        <translation>Неправильный адрес</translation>
     </message>
     <message id="send-amount-label">
         <source>Transaction amount</source>
@@ -605,11 +577,11 @@
     </message>
     <message id="send-comment-label">
         <source>Comment</source>
-        <translation>Коментарий</translation>
+        <translation>Комментарий</translation>
     </message>
     <message id="send-fee-label">
         <source>Transaction fee</source>
-        <translation>Коммисия</translation>
+        <translation>Комиссия</translation>
     </message>
     <message id="send-curency-sub-name">
         <source>GROTH</source>
@@ -645,7 +617,7 @@
     </message>
     <message id="wallet-in-progress-title">
         <source>In progress</source>
-        <translation>В обработке</translation>
+        <translation>В процессе</translation>
     </message>
     <message id="wallet-transactions-title">
         <source>Transactions</source>
@@ -657,7 +629,7 @@
     </message>
     <message id="wallet-txs-date-time">
         <source>Date | time</source>
-        <translation>Дата | Время</translation>
+        <translation>Дата | время</translation>
     </message>
     <message id="wallet-txs-addr">
         <source>Address</source>
@@ -693,7 +665,7 @@
     </message>
     <message id="start-restore-confirm-button">
         <source>I agree</source>
-        <translation>Я соглашаюсь</translation>
+        <translation>Я согласен</translation>
     </message>
     <message id="start-restore-message-line">
         <source>You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device.</source>
@@ -777,7 +749,7 @@
     </message>
     <message id="start-generate-seed-phrase-message">
         <source>Your seed phrase is the access key to all the cryptocurrencies in your wallet. Write down the phrase to keep it in a safe or in a locked vault. Without the phrase you will not be able to recover your money.</source>
-        <translation>Ваша контрольная фраза является ключём для доступа к кошельку. Храните вашу контрольную фразу в защищенном месте. Без вашей контрольной фразы вам не удасться восстановить доступ к вашим деньгам.</translation>
+        <translation>Ваша контрольная фраза является ключём для доступа к кошельку. Храните вашу контрольную фразу в защищенном месте. Без вашей контрольной фразы вам не удастся восстановить доступ к вашим деньгам.</translation>
     </message>
     <message id="start-confirm-seed-phrase-button">
         <source>I understand</source>
@@ -785,7 +757,7 @@
     </message>
     <message id="start-confirm-seed-phrase-message">
         <source>It is strictly recommended to write down the seed phrase on a paper. Storing it in a file makes it prone to cyber attacks and, therefore, less secure.</source>
-        <translation>Строго рекомендуем записать вашу контрольную фразу на бумаге. Хранение вашей контрольной фразы в цифровом виде увеличивает риски кибератак, и менее безопасно</translation>
+        <translation>Строго рекомендуем записать вашу контрольную фразу на бумаге. Хранение вашей контрольной фразы в цифровом виде увеличивает риски кибератак, и менее безопасно.</translation>
     </message>
     <message id="start-check-seed-phrase-message">
         <source>To ensure the seed phrase is written down, please fill-in the specific words below</source>
@@ -797,11 +769,11 @@
     </message>
     <message id="start-restore-message">
         <source>Type in or paste your seed phrase</source>
-        <translation>Введите вашу контрольныю фразу</translation>
+        <translation>Введите вашу контрольную фразу</translation>
     </message>
     <message id="start-create-pwd-message">
         <source>Create password to access your wallet</source>
-        <translation>Защитете ваш кошелек паролем</translation>
+        <translation>Защитите ваш кошелек паролем</translation>
     </message>
     <message id="start-pwd-label">
         <source>Password</source>
@@ -825,7 +797,7 @@
     </message>
     <message id="start-node-integrated-radio">
         <source>Run integrated node (recommended)</source>
-        <translation>Запускать встроеный узел</translation>
+        <translation>Запускать встроенный узел (рекомендовано)</translation>
     </message>
     <message id="start-node-port-label">
         <source>Enter port to listen</source>
@@ -917,11 +889,11 @@
     </message>
     <message id="wallet-model-data-location-error">
         <source>Failed to start wallet. Please check your wallet data location</source>
-        <translation>Невозможно запустьти приложение. Проверьте путь к данным кошелька.</translation>
+        <translation>Невозможно запустить приложение. Проверьте путь к данным кошелька.</translation>
     </message>
     <message id="address-item-never">
         <source>never</source>
-        <translation>бессрочно</translation>
+        <translation>никогда</translation>
     </message>
     <message id="loading-view-download-blocks">
         <source>Downloading blocks</source>
@@ -981,7 +953,7 @@
     </message>
     <message id="tx-failture-kernel-invalid">
         <source>Invalid kernel proof provided</source>
-        <translation>Некоректное ядро транзакции</translation>
+        <translation>Некорректное ядро транзакции</translation>
     </message>
     <message id="tx-failture-parameters-not-sended">
         <source>Failed to send Transaction parameters</source>
@@ -1023,6 +995,34 @@
         <source>groths</source>
         <translation>groths</translation>
     </message>
+    <message id="utxo-utxo">
+        <source>UTXO</source>
+        <translation>UTXO</translation>
+    </message>
+    <message id="utxo-blockchain-height">
+        <source>Blockchain Height</source>
+        <translation>Высота цепочки блоков</translation>
+    </message>
+    <message id="utxo-last-block-hash">
+        <source>Last block hash</source>
+        <translation>Хэш последнего блока</translation>
+    </message>
+    <message id="utxo-head-amount">
+        <source>Amount</source>
+        <translation>Сумма</translation>
+    </message>
+    <message id="utxo-head-maturity">
+        <source>Maturity</source>
+        <translation>Подтвержден</translation>
+    </message>
+    <message id="utxo-head-status">
+        <source>Status</source>
+        <translation>Статус</translation>
+    </message>
+    <message id="utxo-head-type">
+        <source>Type</source>
+        <translation>Тип</translation>
+    </message>
     <message id="utxo-status-available">
         <source>available</source>
         <translation>доступно</translation>
@@ -1049,11 +1049,11 @@
     </message>
     <message id="utxo-status-spent">
         <source>spent</source>
-        <translation>израсходованно</translation>
+        <translation>израсходовано</translation>
     </message>
     <message id="utxo-type-fee">
         <source>Transaction fee</source>
-        <translation>Коммисия</translation>
+        <translation>Комиссия</translation>
     </message>
     <message id="utxo-type-coinbase">
         <source>Coinbase</source>
@@ -1117,7 +1117,7 @@
     </message>
     <message id="wallet-txs-status-unknown">
         <source>unknown</source>
-        <translation>неопределено</translation>
+        <translation>не определено</translation>
     </message>
     <message id="settings-general-lock-screen-never">
         <source>never</source>
@@ -1153,11 +1153,11 @@
     </message>
     <message id="appmodel-failed-time-not-synced">
         <source>Failed to start the integrated node: the timezone settings of your machine are out of sync. Please fix them and restart the wallet.</source>
-        <translation>Невозможно запустить локальный узел: время компьютера не синхронизированно. Проверьте настройки времени и перезапустите кошелек.</translation>
+        <translation>Невозможно запустить локальный узел: время компьютера не синхронизировано. Проверьте настройки времени и перезапустите кошелек.</translation>
     </message>
     <message id="can-not-generate-new-address-message">
         <source>You cannot generate new address. Your wallet doesn&apos;t have a master key.</source>
-        <translation>Вы не можете сгенерировать новый адрес. В кошельке отсутствует мастер-ключ</translation>
+        <translation>Вы не можете сгенерировать новый адрес. В кошельке отсутствует мастер-ключ.</translation>
     </message>
     <message id="can-not-generate-new-address-ok-button">
         <source>ok</source>
@@ -1230,7 +1230,7 @@
     <message id="start-create-pwd-strength-message">
         <source>Strong password needs to meet the following requirements:\n•  the length must be at least 10 characters\n•  must contain at least one lowercase letter\n•  must contain at least one uppercase letter\n•  must contain at least one number</source>
         <translation>Хорошия пароль должен соответствовать следующим требованиям:
-        •  длинна минимум 10 символов
+        •  длина минимум 10 символов
         •  содержит хотя бы одну строчную букву
         •  содержит хотя бы одну прописную букву
         •  содержит хотя бы одну цифру</translation>
@@ -1255,13 +1255,13 @@
     <message id="show-qr-tx-token-label">
         <source>Your transaction token:</source>
         <extracomment>transaction token label</extracomment>
-        <translation>Токен вашей транзакции:</translation>
+        <translation>Токен транзакции:</translation>
     </message>
     <message id="show-qr-message">
         <source>Scan this QR code or send this token to the sender over secure channel</source>
         <extracomment>show QR dialog message, how to use this QR</extracomment>
-        <translation>Сканируйте этот QR код,
-для отправки отправителю, через безопасное соединение</translation>
+        <translation>Сканируйте этот QR код
+или этот токен отправителю по защищенному соединению</translation>
     </message>
     <message id="show-qr-close-button">
         <source>close</source>
@@ -1272,6 +1272,21 @@
         <source>show QR code</source>
         <extracomment>Entry in adress table context menu to show QR</extracomment>
         <translation>показать QR код</translation>
+    </message>
+    <message id="settings-general-allow-beammw-label-p1">
+        <source>Allow access to </source>
+        <extracomment>general settings, label for alow access beam.mw part 1</extracomment>
+        <translation>Разрешить доступ к </translation>
+    </message>
+    <message id="settings-general-allow-beammw-label-p2">
+        <source>beam.mw</source>
+        <extracomment>general settings, label for alow access beam.mw part 2 (link)</extracomment>
+        <translation>beam.mw</translation>
+    </message>
+    <message id="settings-general-allow-beammw-label-p3">
+        <source> (Exchanges and news feed)</source>
+        <extracomment>general settings, label for alow access beam.mw part 3</extracomment>
+        <translation> (Обменники и новости)</translation>
     </message>
 </context>
 </TS>

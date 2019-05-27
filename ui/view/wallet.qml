@@ -322,54 +322,9 @@ Item {
         okButtonText: qsTrId("delete-transaction-delete-button")
     }
 
-    ConfirmationDialog {
-        id: openExternal
-
-        //% "open"
-        okButtonText: qsTrId("open-external-open")
-        okButtonIconSource: "qrc:/assets/icon-external-link-black.svg"
-        cancelVisible: true
-        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
-        width: 460
-        height: 217
-
-        contentItem: Item {
-            id: openExternalContent
-            Column {
-                anchors.fill: parent
-                
-                SFText {
-                    width: parent.width
-                    topPadding: 20
-                    font.pixelSize: 18
-                    font.styleName: "Bold";
-                    font.weight: Font.Bold
-                    color: Style.content_main
-                    horizontalAlignment : Text.AlignHCenter
-                    //% "External link"
-                    text: qsTrId("open-external-title")
-                }
-                SFText {
-                    width: parent.width
-                    topPadding: 15
-                    leftPadding: 15
-                    rightPadding: 15
-                    font.pixelSize: 14
-                    color: Style.content_main
-                    wrapMode: Text.Wrap
-                    horizontalAlignment : Text.AlignHCenter
-                    //% "Beam Wallet app requires permission to open external link in the browser. This action will expose your IP to the web server. To avoid it, choose -Cancel-. You can chage your choice in app setting anytime."
-                    text: qsTrId("open-external-message")
-                }
-            }
-        }
-
-        onAccepted: {
-            onClicked: {
-                Qt.openUrlExternally("https://www.beam.mw/#exchanges");
-            }
-        }
-    }
+    OpenExternalLinkConfirmation {
+        id: exchangesList
+    }   
 
     PaymentInfoDialog {
         id: paymentInfoDialog
@@ -1173,7 +1128,16 @@ Item {
                         value: viewModel.available
                         onCopyValueText: viewModel.copyToClipboard(value)
                         onOpenExternal : function() {
-                            openExternal.open();
+                            var externalLink = "https://www.beam.mw/#exchanges";
+                            if (viewModel.isAllowedBeamMWLinks) {
+                                Qt.openUrlExternally(externalLink);
+                            } else {
+                                exchangesList.externalUrl = externalLink;
+                                exchangesList.onOkClicked = function () {
+                                    viewModel.isAllowedBeamMWLinks = true;
+                                };
+                                exchangesList.open();
+                            }
                         }
                     }
 

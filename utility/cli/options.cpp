@@ -120,6 +120,8 @@ namespace beam
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
         const char* BTC_CONFIRMATIONS = "btc_confiramtions";
         const char* LTC_CONFIRMATIONS = "ltc_confiramtions";
+        const char* BTC_LOCK_TIME = "btc_lock_time";
+        const char* LTC_LOCK_TIME = "ltc_lock_time";
 
         // wallet api
         const char* API_USE_HTTP = "use_http";
@@ -228,8 +230,10 @@ namespace beam
             (cli::SWAP_FEERATE, po::value<Amount>()->default_value(20000), "The specific feerate you are willing to pay(satoshis(or photons) per KB)")
             (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc)")
             (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner")
-            (cli::BTC_CONFIRMATIONS, po::value<Amount>()->default_value(6), "confirmations count in bitcoin chain")
-            (cli::LTC_CONFIRMATIONS, po::value<Amount>()->default_value(6), "confirmations count in litecoin chain");
+            (cli::BTC_CONFIRMATIONS, po::value<Amount>(), "confirmations count in bitcoin chain")
+            (cli::LTC_CONFIRMATIONS, po::value<Amount>(), "confirmations count in litecoin chain")
+            (cli::BTC_LOCK_TIME, po::value<uint32_t>(), "lock time in blocks bitcoin transaction")
+            (cli::LTC_LOCK_TIME, po::value<uint32_t>(), "lock time in blocks litecoin transaction");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()

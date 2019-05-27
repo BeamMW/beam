@@ -28,14 +28,15 @@ Item
         okButtonIconSource: "qrc:/assets/icon-done.svg"
         cancelVisible: false
         width: 460
-        height: 243
+        height: contentItem.implicitHeight + footer.implicitHeight
+        padding: 0
 
         contentItem: Column {
-            anchors.fill: parent
-            anchors.margins: 30
-            spacing: 20
-
+            width: parent.width
+            height: restoreWalletConfirmationTitle.implicitHeight + restoreWalletConfirmationMessage.implicitHeight
             SFText {
+                id: restoreWalletConfirmationTitle
+                topPadding: 20
                 anchors.horizontalCenter: parent.horizontalCenter
                 horizontalAlignment: Qt.AlignHCenter
                 //% "Restore wallet"
@@ -47,6 +48,9 @@ Item
             }
 
             SFText {
+                id: restoreWalletConfirmationMessage
+                padding: 30
+                anchors.horizontalCenter: parent.horizontalCenter
                 horizontalAlignment : Text.AlignHCenter
                 width: parent.width
                 //% "You are trying to restore an existing Beam Wallet. Please notice that if you use your wallet on another device, your balance will be up to date, but  transaction history and addresses will be kept separately on each device."

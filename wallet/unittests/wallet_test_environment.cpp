@@ -22,6 +22,21 @@ using namespace std;
 using namespace ECC;
 using json = nlohmann::json;
 
+struct EmptyTestGateway : wallet::INegotiatorGateway
+{
+    void OnAsyncStarted() override {}
+    void OnAsyncFinished() override {}
+    void on_tx_completed(const TxID&) override {}
+    void register_tx(const TxID&, Transaction::Ptr, wallet::SubTxID) override {}
+    void confirm_outputs(const std::vector<Coin>&) override {}
+    void confirm_kernel(const TxID&, const Merkle::Hash&, wallet::SubTxID subTxID) override {}
+    void get_kernel(const TxID& txID, const Merkle::Hash& kernelID, wallet::SubTxID subTxID) override {}
+    bool get_tip(Block::SystemState::Full& state) const override { return false; }
+    void send_tx_params(const WalletID& peerID, wallet::SetTxParameter&&) override {}
+    void UpdateOnNextTip(const TxID&) override {};
+    wallet::SecondSide::Ptr GetSecondSide(const TxID&) const override { return nullptr; }
+};
+
 Coin CreateAvailCoin(Amount amount, Height maturity = 10)
 {
     Coin c(amount);

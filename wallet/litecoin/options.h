@@ -12,25 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "litecoind016.h"
+#pragma once
 
-#include "bitcoin/bitcoin.hpp"
+#include "../bitcoin/options.h"
 
 namespace beam
 {
-    Litecoind016::Litecoind016(io::Reactor& reactor, const LitecoinOptions& options)
-        : Bitcoind016(reactor, options)
-    {
-    }
-
-    uint8_t Litecoind016::getAddressVersion()
-    {
-        if (isMainnet())
-        {
-            // litecoin mainnet virsion WIF
-            return 176;
-        }
-
-        return libbitcoin::wallet::ec_private::testnet_wif;
-    }
+    using LitecoinOptions = BitcoinOptions;
 }

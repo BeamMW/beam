@@ -68,7 +68,6 @@ namespace beam::wallet
                             , IPrivateKeyKeeper::Ptr keyKeeper
                             , const TxID& txID);
 
-        void Update() override;
         void Cancel() override;
 
         bool Rollback(Height height) override;

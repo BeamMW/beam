@@ -20,6 +20,8 @@
 #include <deque>
 #include "core/fly_client.h"
 #include "bitcoin/bitcoin_bridge.h"
+#include "bitcoin/options.h"
+#include "litecoin/options.h"
 
 namespace beam
 {
@@ -89,8 +91,8 @@ namespace beam
 
         // Metods for Atomic Swaps
         // TODO: Refactor
-        void initBitcoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, Amount confirmations = 6, bool mainnet = false);
-        void initLitecoin(io::Reactor& reactor, const std::string& userName, const std::string& pass, const io::Address& address, Amount feeRate, Amount confirmations = 6, bool mainnet = false);
+        void initBitcoin(io::Reactor& reactor, const BitcoinOptions& options);
+        void initLitecoin(io::Reactor& reactor, const LitecoinOptions& options);
         void initSwapConditions(Amount beamAmount, Amount swapAmount, wallet::AtomicSwapCoin swapCoin, bool isBeamSide);
 
         TxID transfer_money(const WalletID& from, const WalletID& to, Amount amount, Amount fee = 0, bool sender = true, Height lifetime = kDefaultTxLifetime, Height responseTime = kDefaultTxResponseTime, ByteBuffer&& message = {}, bool saveReceiver = false);
