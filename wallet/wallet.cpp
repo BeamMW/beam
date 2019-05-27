@@ -1094,7 +1094,7 @@ namespace beam::wallet
 
             m_swapConditions.erase(idx);
 
-            LOG_DEBUG() << msg.m_TxID << " Swap accepted.";
+            LOG_DEBUG() << msg.m_TxID << " Swap conditions match.";
         }
 
         auto t = constructTransaction(msg.m_TxID, msg.m_Type);
