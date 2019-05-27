@@ -867,7 +867,7 @@ namespace
             } gateway;
 
             TxID txID = wallet::GenerateTxID();
-            auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, txID);
+            auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
 
             tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
             tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
@@ -906,7 +906,7 @@ namespace
             } gateway;
 
             TxID txID = wallet::GenerateTxID();
-            auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, txID);
+            auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
 
             tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
             tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
