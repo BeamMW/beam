@@ -3295,8 +3295,6 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
         static_assert(s.m_PoW.m_Nonce.nBytes <= hv.nBytes);
         s.m_PoW.m_Nonce = hv;
 
-        LOG_INFO() << "Mining nonce = " << s.m_PoW.m_Nonce;
-
         Block::PoW::Cancel fnCancel = [this, pTask](bool bRetrying)
         {
             if (*pTask->m_pStop)
