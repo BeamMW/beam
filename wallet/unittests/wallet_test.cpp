@@ -1256,6 +1256,9 @@ void TestNegotiation()
 	const Amount valMSig = 11;
 	Height hLock = 1440;
 
+	WithdrawTx::CommonParam cpWd;
+	cpWd.m_Krn2.m_pLock = &hLock;
+
 	Multisig pT1[2];
 	Storage::Map pS1[2];
 
@@ -1356,7 +1359,7 @@ void TestNegotiation()
 		Amount half = valMSig / 2;
 		vec[0].m_Value = i ? half : (valMSig - half);
 
-		v.Setup(true, &ms1, &ms0, &comm0, &vec, &hLock);
+		v.Setup(true, &ms1, &ms0, &comm0, &vec, cpWd);
 	}
 
 	WALLET_CHECK(RunNegLoop(pT3[0], pT3[1], "Withdraw-Tx ritual"));
@@ -1405,7 +1408,7 @@ void TestNegotiation()
 		Key::IDV msB = msA;
 		msB.m_Idx++;
 
-		v.Setup(true, &vIn, nullptr, &ms0, &msA, &msB, &vOutWd, &hLock);
+		v.Setup(true, &vIn, nullptr, &ms0, &msA, &msB, &vOutWd, cpWd);
 
 		ChannelData& cd = pCData[i];
 		cd.m_msMy = i ? msB : msA;
@@ -1464,7 +1467,7 @@ void TestNegotiation()
 
 		ChannelData& cd = pCData[i];
 
-		v.Setup(true, &ms0, &comm0, &msA, &msB, &vOutWd, &hLock, &cd.m_msMy, &cd.m_msPeer, &cd.m_CommPeer);
+		v.Setup(true, &ms0, &comm0, &msA, &msB, &vOutWd, cpWd, &cd.m_msMy, &cd.m_msPeer, &cd.m_CommPeer);
 	}
 
 	WALLET_CHECK(RunNegLoop(pT5[0], pT5[1], "Lightning channel update"));
@@ -1537,8 +1540,11 @@ void TestLightning()
 
 			m_ms0.m_Type = msA.m_Type = msB.m_Type = FOURCC_FROM(musg);
 
+			WithdrawTx::CommonParam cp;
+			cp.m_Krn2.m_pLock = &m_hLock;
+
 			neg.m_pKdf = m_pKdf;
-			neg.Setup(true, &vIn, &vChange, &m_ms0, &msA, &msB, &vOutWd, &m_hLock);
+			neg.Setup(true, &vIn, &vChange, &m_ms0, &msA, &msB, &vOutWd, cp);
 
 			m_msMy = iRole ? msB : msA;
 			m_msPeer = iRole ? msA : msB;
@@ -1562,8 +1568,11 @@ void TestLightning()
 				Cast::Down<ChannelWithdrawal::Result>(*m_pOpen) :
 				Cast::Down<ChannelWithdrawal::Result>(*m_vUpdates.back());
 
+			WithdrawTx::CommonParam cp;
+			cp.m_Krn2.m_pLock = &m_hLock;
+
 			neg.m_pKdf = m_pKdf;
-			neg.Setup(true, &m_ms0, &m_pOpen->m_Comm0, &msA, &msB, &vOutWd, &m_hLock, &m_msMy, &m_msPeer, &rLast.m_CommPeer1);
+			neg.Setup(true, &m_ms0, &m_pOpen->m_Comm0, &msA, &msB, &vOutWd, cp, &m_msMy, &m_msPeer, &rLast.m_CommPeer1);
 
 			m_msMy = iRole ? msB : msA;
 			m_msPeer = iRole ? msA : msB;

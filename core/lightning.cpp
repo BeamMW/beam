@@ -162,7 +162,7 @@ void Channel::UpdateNegotiation(Storage::Map& dataInOut)
 			Key::IDV* pB = &d.m_msPeer;
 			SwapIfRole(x, pA, pB);
 
-			x.Setup(false, nullptr, nullptr, &m_pOpen->m_ms0, pA, pB, nullptr, nullptr);
+			x.Setup(false, nullptr, nullptr, &m_pOpen->m_ms0, pA, pB, nullptr, WithdrawTx::CommonParam());
 		}
 		break;
 
@@ -199,7 +199,7 @@ void Channel::UpdateNegotiation(Storage::Map& dataInOut)
 			Key::IDV* pB = &d.m_msPeer;
 			SwapIfRole(x, pA, pB);
 
-			x.Setup(false, nullptr, nullptr, pA, pB, nullptr, nullptr, nullptr, nullptr, nullptr);
+			x.Setup(false, nullptr, nullptr, pA, pB, nullptr, WithdrawTx::CommonParam(), nullptr, nullptr, nullptr);
 		}
 		break;
 
