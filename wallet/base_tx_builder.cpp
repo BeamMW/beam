@@ -424,9 +424,20 @@ namespace beam::wallet
     Transaction::Ptr BaseTxBuilder::CreateTransaction()
     {
         assert(m_Kernel);
-        LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " Transaction created. Kernel: " << GetKernelIDString()
-            << " min height: " << m_Kernel->m_Height.m_Min
-            << " max height: " << m_Kernel->m_Height.m_Max;
+        // Don't display in log infinite max height
+        if (m_Kernel->m_Height.m_Max == MaxHeight)
+        {
+            LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"
+                << " Transaction created. Kernel: " << GetKernelIDString()
+                << " min height: " << m_Kernel->m_Height.m_Min;
+        }
+        else
+        {
+            LOG_INFO() << m_Tx.GetTxID() << "[" << m_SubTxID << "]"
+                << " Transaction created. Kernel: " << GetKernelIDString()
+                << " min height: " << m_Kernel->m_Height.m_Min
+                << " max height: " << m_Kernel->m_Height.m_Max;
+        }
 
         // create transaction
         auto transaction = make_shared<Transaction>();
