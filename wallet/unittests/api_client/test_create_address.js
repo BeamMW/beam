@@ -10,8 +10,8 @@ client.connect(10000, '127.0.0.1', function() {
 			method: 'create_address',
 			params: 
 			{
-				lifetime: 24,
-				metadata: '<meta>hello</meta>'
+				"expiration": "24h",
+				"comment" : "test comment"
 			}
 		}) + '\n');
 });

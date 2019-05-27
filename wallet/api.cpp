@@ -73,15 +73,36 @@ namespace beam
             throwInvalidJsonRpc(id);
     }
 
+    void FillAddressData(int id, const nlohmann::json& params, AddressData& data)
+    {
+        if (existsJsonParam(params, "comment"))
+        {
+            std::string comment = params["comment"];
+
+            data.comment = comment;
+        }
+
+        if (existsJsonParam(params, "expiration"))
+        {
+            std::string expiration = params["expiration"];
+
+            static std::map<std::string, AddressData::Expiration> Items =
+            {
+                {"expired", AddressData::Expired},
+                {"24h",  AddressData::OneDay},
+                {"never", AddressData::Never},
+            };
+
+            if(Items.count(expiration) == 0) throwInvalidJsonRpc(id);
+
+            data.expiration = Items[expiration];
+        }
+    }
+
     void WalletApi::onCreateAddressMessage(int id, const nlohmann::json& params)
     {
-        checkJsonParam(params, "lifetime", id);
-
         CreateAddress createAddress;
-        createAddress.lifetime = params["lifetime"];
-
-        if (params["lifetime"] < 0)
-            throwInvalidJsonRpc(id);
+        FillAddressData(id, params, createAddress);
 
         _handler.onMessage(id, createAddress);
     }
@@ -106,28 +127,8 @@ namespace beam
         EditAddress editAddress;
         editAddress.address.FromHex(params["address"]);
 
-        if (existsJsonParam(params, "comment"))
-        {
-            std::string comment = params["comment"];
+        FillAddressData(id, params, editAddress);
 
-            editAddress.comment = comment;
-        }
-
-        if (existsJsonParam(params, "expiration"))
-        {
-            std::string expiration = params["expiration"];
-
-            static std::map<std::string, EditAddress::Expiration> Items =
-            {
-                {"expired", EditAddress::Expired},
-                {"24h",  EditAddress::OneDay},
-                {"never", EditAddress::Never},
-            };
-
-            if(Items.count(expiration) == 0) throwInvalidJsonRpc(id);
-
-            editAddress.expiration = Items[expiration];
-        }
 
         _handler.onMessage(id, editAddress);
     }

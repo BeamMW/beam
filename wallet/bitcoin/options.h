@@ -25,7 +25,7 @@ namespace beam
         std::string m_pass;
         io::Address m_address;
         Amount m_feeRate;
-        Amount m_confirmations = 6;
+        uint16_t m_confirmations = 6;
         bool m_mainnet = false;
         uint32_t m_lockTimeInBlocks = 2 * 24 * 6;
     };
