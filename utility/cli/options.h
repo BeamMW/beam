@@ -167,6 +167,16 @@ namespace beam
 
     class SecString;
 
+    template <typename T>
+    struct Nonnegative {
+        static_assert(std::is_unsigned<T>::value, "Nonnegative<T> requires unsigned type.");
+
+        Nonnegative() {}
+        explicit Nonnegative(const T& v) : value(v) {}
+
+        T value = 0;
+    };
+
     bool read_wallet_pass(SecString& pass, const po::variables_map& vm);
     bool confirm_wallet_pass(const SecString& pass);
     bool read_btc_pass(SecString& pass, po::variables_map& vm);

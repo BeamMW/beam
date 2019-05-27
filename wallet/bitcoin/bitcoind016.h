@@ -43,7 +43,7 @@ namespace beam
 
         uint8_t getAddressVersion() override;
         Amount getFeeRate() const override;
-        Amount getTxMinConfirmations() const override;
+        uint16_t getTxMinConfirmations() const override;
         uint32_t getLockTimeInBlocks() const override;
 
     protected:

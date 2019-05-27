@@ -621,7 +621,7 @@ namespace
 
     int ExportMinerKey(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, const beam::SecString& pass)
     {
-        uint32_t subKey = vm[cli::KEY_SUBKEY].as<uint32_t>();
+        uint32_t subKey = vm[cli::KEY_SUBKEY].as<Nonnegative<uint32_t>>().value;
         if (subKey < 1)
         {
             cout << "Please, specify Subkey number --subkey=N (N > 0)" << endl;
@@ -754,7 +754,7 @@ namespace
             return false;
         }
 
-        fee = vm[cli::FEE].as<beam::Amount>();
+        fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
 
         return true;
     }
@@ -1134,16 +1134,16 @@ int main_impl(int argc, char* argv[])
 
                         if (!btcOptions.m_userName.empty() && !btcOptions.m_pass.empty())
                         {
-                            btcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Amount>();
+                            btcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Nonnegative<Amount>>().value;
                             
                             if (vm.count(cli::BTC_CONFIRMATIONS) > 0)
                             {
-                                btcOptions.m_confirmations = vm[cli::BTC_CONFIRMATIONS].as<Amount>();
+                                btcOptions.m_confirmations = vm[cli::BTC_CONFIRMATIONS].as<Nonnegative<uint16_t>>().value;
                             }
 
                             if (vm.count(cli::BTC_LOCK_TIME) > 0)
                             {
-                                btcOptions.m_lockTimeInBlocks = vm[cli::BTC_LOCK_TIME].as<uint32_t>();
+                                btcOptions.m_lockTimeInBlocks = vm[cli::BTC_LOCK_TIME].as<Nonnegative<uint32_t>>().value;
                             }
                             
                             wallet.initBitcoin(io::Reactor::get_Current(), btcOptions);
@@ -1151,16 +1151,16 @@ int main_impl(int argc, char* argv[])
 
                         if (!ltcOptions.m_userName.empty() && !ltcOptions.m_pass.empty())
                         {
-                            ltcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Amount>();
+                            ltcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Nonnegative<Amount>>().value;
 
                             if (vm.count(cli::LTC_CONFIRMATIONS) > 0)
                             {
-                                ltcOptions.m_confirmations = vm[cli::LTC_CONFIRMATIONS].as<Amount>();
+                                ltcOptions.m_confirmations = vm[cli::LTC_CONFIRMATIONS].as<Nonnegative<uint16_t>>().value;
                             }
 
                             if (vm.count(cli::LTC_LOCK_TIME) > 0)
                             {
-                                ltcOptions.m_lockTimeInBlocks = vm[cli::LTC_LOCK_TIME].as<uint32_t>();
+                                ltcOptions.m_lockTimeInBlocks = vm[cli::LTC_LOCK_TIME].as<Nonnegative<uint32_t>>().value;
                             }
                             wallet.initLitecoin(io::Reactor::get_Current(), ltcOptions);
                         }
@@ -1203,7 +1203,7 @@ int main_impl(int argc, char* argv[])
                                 return -1;
                             }
 
-                            Amount swapAmount = vm[cli::SWAP_AMOUNT].as<beam::Amount>();
+                            Amount swapAmount = vm[cli::SWAP_AMOUNT].as<Nonnegative<Amount>>().value;
                             bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
                             if (command == cli::SWAP_COINS)
