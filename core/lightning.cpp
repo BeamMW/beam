@@ -384,6 +384,9 @@ void Channel::RequestHandler::OnComplete(proto::FlyClient::Request& x)
 	case proto::FlyClient::Request::Type::Transaction:
 		get_ParentObj().OnRequestComplete(Cast::Up<proto::FlyClient::RequestTransaction>(x));
 		break;
+
+	default: // suppress warning
+		break;
 	}
 }
 
