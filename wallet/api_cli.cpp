@@ -265,12 +265,36 @@ namespace beam
                 serializeMsg(msg);
             }
 
+            void FillAddressData(const AddressData& data, WalletAddress& address)
+            {
+                if (data.comment)
+                {
+                    address.setLabel(*data.comment);
+                }
+
+                if (data.expiration)
+                {
+                    switch (*data.expiration)
+                    {
+                    case EditAddress::OneDay:
+                        address.makeActive(24 * 60 * 60);
+                        break;
+                    case EditAddress::Expired:
+                        address.makeExpired();
+                        break;
+                    case EditAddress::Never:
+                        address.makeEternal();
+                        break;
+                    }
+                }
+            }
+
             void onMessage(int id, const CreateAddress& data) override 
             {
-                LOG_DEBUG() << "CreateAddress(id = " << id << " lifetime = " << data.lifetime << ")";
+                LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
                 WalletAddress address = wallet::createAddress(*_walletDB);
-                address.m_duration = data.lifetime * 60 * 60;
+                FillAddressData(data, address);
 
                 _walletDB->saveAddress(address);
 
@@ -305,27 +329,7 @@ namespace beam
                 {
                     if (addr->m_OwnID)
                     {
-                        if (data.comment)
-                        {
-                            addr->setLabel(*data.comment);
-                        }
-
-                        if (data.expiration)
-                        {
-                            switch (*data.expiration)
-                            {
-                            case EditAddress::OneDay:
-                                addr->makeActive(24 * 60 * 60);
-                                break;
-                            case EditAddress::Expired:
-                                addr->makeExpired();
-                                break;
-                            case EditAddress::Never:
-                                addr->makeEternal();
-                                break;
-                            }
-                        }
-
+                        FillAddressData(data, *addr);
                         _walletDB->saveAddress(*addr);
 
                         doResponse(id, EditAddress::Response{});
