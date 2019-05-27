@@ -997,7 +997,7 @@
     </message>
     <message id="utxo-utxo">
         <source>UTXO</source>
-        <translation type="unfinished">UTXO</translation>
+        <translation>UTXO</translation>
     </message>
     <message id="utxo-blockchain-height">
         <source>Blockchain Height</source>
@@ -1250,42 +1250,43 @@
     <message id="show-qr-title">
         <source>QR code</source>
         <extracomment>show QR dialog title</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>QR код</translation>
     </message>
     <message id="show-qr-tx-token-label">
         <source>Your transaction token:</source>
         <extracomment>transaction token label</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Токен транзакции:</translation>
     </message>
     <message id="show-qr-message">
         <source>Scan this QR code or send this token to the sender over secure channel</source>
         <extracomment>show QR dialog message, how to use this QR</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Сканируйте этот QR код
+или этот токен отправителю по защищенному соединению</translation>
     </message>
     <message id="show-qr-close-button">
         <source>close</source>
         <extracomment>show QR dialog close button</extracomment>
-        <translation type="unfinished">закрыть</translation>
+        <translation>закрыть</translation>
     </message>
     <message id="address-table-cm-show-qr">
         <source>show QR code</source>
         <extracomment>Entry in adress table context menu to show QR</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>показать QR код</translation>
     </message>
     <message id="settings-general-allow-beammw-label-p1">
         <source>Allow access to </source>
         <extracomment>general settings, label for alow access beam.mw part 1</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Разрешить доступ к </translation>
     </message>
     <message id="settings-general-allow-beammw-label-p2">
         <source>beam.mw</source>
         <extracomment>general settings, label for alow access beam.mw part 2 (link)</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>beam.mw</translation>
     </message>
     <message id="settings-general-allow-beammw-label-p3">
         <source> (Exchanges and news feed)</source>
         <extracomment>general settings, label for alow access beam.mw part 3</extracomment>
-        <translation type="unfinished"></translation>
+        <translation> (Обменники и новости)</translation>
     </message>
 </context>
 </TS>
