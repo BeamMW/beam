@@ -25,7 +25,6 @@ struct Channel::MuSigLocator
 	virtual ~MuSigLocator() {}
 
 	size_t m_iIndex;
-	size_t m_nTotal; // size of m_vUpdates may change during lookup, this is to prevent the confuse
 	bool m_Initiator;
 };
 
@@ -281,7 +280,7 @@ void Channel::Update()
 		}
 
 		MuSigLocator::Ptr pReq(new MuSigLocator);
-		pReq->m_iIndex = pReq->m_nTotal = m_vUpdates.size();
+		pReq->m_iIndex = MaxHeight;
 		pReq->m_Initiator = false;
 		pReq->m_Msg.m_Utxo = m_pOpen->m_Comm0;
 
@@ -302,7 +301,7 @@ void Channel::Update()
 				for (; ; iPath--)
 				{
 					const DataUpdate& d = *m_vUpdates[iPath];
-					if (!d.m_tx1.m_vKernels.empty() && !d.m_tx2.m_vKernels.empty())
+					if (d.IsWithdrawalReady())
 						break; // good enough
 
 					// we must never reveal our key before we obtain the full withdrawal path
@@ -429,7 +428,7 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 		// continue search
 		if (r.m_Initiator)
 		{
-			assert(r.m_iIndex < m_vUpdates.size()); // !!!
+			assert(r.m_iIndex < m_vUpdates.size());
 
 			r.m_Initiator = false;
 			r.m_Msg.m_Utxo = m_vUpdates[r.m_iIndex]->m_CommPeer1;
@@ -444,9 +443,20 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 				return;
 			}
 
-			r.m_iIndex--;
-			r.m_Initiator = true;
-			r.m_Msg.m_Utxo = m_vUpdates[r.m_iIndex]->m_Comm1;
+			r.m_iIndex = std::min(r.m_iIndex, m_vUpdates.size());
+			while (true)
+			{
+				assert(r.m_iIndex);
+				const DataUpdate& d = *m_vUpdates[--r.m_iIndex];
+
+				if (d.IsWithdrawalReady())
+				{
+					r.m_Initiator = true;
+					r.m_Msg.m_Utxo = d.m_Comm1;
+					break;
+				}
+			}
+
 		}
 
 		r.m_pTrg = nullptr;
@@ -457,7 +467,7 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 	else
 	{
 		// bingo!
-		if (r.m_iIndex == r.m_nTotal)
+		if (r.m_iIndex == MaxHeight)
 		{
 			m_State.m_hQueryLast = get_Tip();
 			ZeroObject(m_State.m_Close); // msig0 is still intact
