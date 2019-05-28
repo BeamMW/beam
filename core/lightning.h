@@ -127,6 +127,7 @@ namespace Lightning {
 				Opening2, // negoiation is over, waiting for confirmation
 				OpenFailed, // no open confirmation up to max height
 				Open,
+				Updating, // negotiating to create a new update point
 				Closing1, // decided to close
 				Closing2, // Phase1 close confirmed
 				Closed // Phase2 close confirmed

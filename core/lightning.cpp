@@ -57,7 +57,12 @@ Channel::State::Enum Channel::get_State() const
 	}
 
 	if (!m_State.m_Close.m_hPhase1)
-		return m_State.m_Terminate ? State::Closing1 : State::Open;
+	{
+		if (m_State.m_Terminate)
+			return State::Closing1;
+
+		return m_pNegCtx ? State::Updating : State::Open;
+	}
 
 	return m_State.m_Close.m_hPhase2 ? State::Closed : State::Closing2;
 }
