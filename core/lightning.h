@@ -74,6 +74,8 @@ namespace Lightning {
 			ChannelUpdate m_Inst;
 		};
 
+		struct Codes;
+
 	public:
 
 		struct DataOpen
@@ -152,17 +154,17 @@ namespace Lightning {
 		bool IsUnfairPeerClosed() const;
 
 
+		bool Open(Amount nMy, Amount nOther, const HeightRange& hr0);
 
-		bool Open(uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0);
-
-		bool UpdateBalance(Amount nMyNew);
+		bool Transfer(Amount);
 
 		void Close(); // initiate non-cooperative closing
 
 		void OnRolledBack();
 
-		void UpdateNegotiation(Storage::Map& dataIn, Storage::Map& dataOut);
 		void Update(); // w.r.t. blockchain
+
+		void OnPeerData(Storage::Map& dataIn);
 
 		bool IsSafeToForget(Height hMaxRollback); // returns true if the channel is either closed or couldn't be opened (i.e. no chance), and it's safe w.r.t. max rollback depth.
 		void Forget(); // If the channel didn't open - the locked inputs will are unlocked
@@ -171,10 +173,9 @@ namespace Lightning {
 		virtual Height get_Tip() const = 0;
 		virtual proto::FlyClient::INetwork& get_Net() = 0;
 		virtual void get_Kdf(Key::IKdf::Ptr&) = 0;
-
 		virtual void AllocTxoID(Key::IDV&) = 0; // Type and Value are fixed. Should adjust ID and SubIdx
-
 		virtual Amount SelectInputs(std::vector<Key::IDV>& vInp, Amount valRequired) { return 0; }
+		virtual void SendPeer(Storage::Map&& dataOut) = 0;
 
 		enum struct CoinState {
 			Locked,
@@ -188,6 +189,10 @@ namespace Lightning {
 
 	private:
 		DataUpdate& CreateUpdatePoint(uint32_t iRole, const Key::IDV& msA, const Key::IDV& msB, const Key::IDV& outp);
+		bool OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0);
+		bool TransferInternal(Amount nMyNew);
+		void UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut);
+		void SendPeerInternal(Storage::Map&);
 	};
 
 

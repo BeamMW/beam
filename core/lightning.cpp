@@ -17,6 +17,23 @@
 namespace beam {
 namespace Lightning {
 
+struct Channel::Codes
+	:public Negotiator::Codes
+{
+	static const uint32_t Control0 = 1024 << 16;
+
+	static const uint32_t Revision = Control0 + 3;
+
+	static const uint32_t Fee = Control0 + 11; // all txs
+	static const uint32_t H0 = Control0 + 12;
+	static const uint32_t H1 = Control0 + 13;
+	static const uint32_t HLock = Control0 + 14;
+
+	static const uint32_t ValueMy = Control0 + 21;
+	static const uint32_t ValueYours = Control0 + 22;
+	static const uint32_t ValueTansfer = Control0 + 25;
+};
+
 struct Channel::MuSigLocator
 	:public proto::FlyClient::RequestUtxo
 {
@@ -79,7 +96,83 @@ bool Channel::IsUnfairPeerClosed() const
 
 }
 
-void Channel::UpdateNegotiation(Storage::Map& dataIn, Storage::Map& dataOut)
+void Channel::OnPeerData(Storage::Map& dataIn)
+{
+	if (m_State.m_Terminate)
+		return; // no negotiations
+
+	uint32_t nRev = 0;
+	dataIn.Get(nRev, Codes::Revision);
+	if (!nRev)
+	{
+		Close(); // by convention - it's a channel close request
+		return;
+	}
+
+	if (nRev < m_vUpdates.size())
+		return;
+
+	if (nRev > m_vUpdates.size())
+	{
+		if (m_pNegCtx)
+			return;
+
+		if (nRev > m_vUpdates.size() + 1)
+			return;
+
+		// new negotiation?
+		if (m_vUpdates.empty())
+		{
+			// should be channel open request
+			Amount nMy = 0, nPeer = 0;
+			HeightRange hr0;
+
+			bool bOk =
+				dataIn.Get(m_Params.m_hLockTime, Codes::HLock) &&
+				dataIn.Get(m_Params.m_Fee, Codes::Fee) &&
+				dataIn.Get(nPeer, Codes::ValueMy) &&
+				dataIn.Get(nMy, Codes::ValueYours);
+
+			if (!bOk)
+				return;
+
+				dataIn.Get(hr0.m_Min, Channel::Codes::H0);
+				dataIn.Get(hr0.m_Max, Channel::Codes::H1);
+
+			// TODO - ask permissions to open a channel with those conditions
+
+			if (!OpenInternal(1, nMy, nPeer, hr0))
+				return;
+
+		}
+		else
+		{
+			// should be value transfer
+			Amount val = 0;
+			if (!dataIn.Get(val, Codes::ValueTansfer))
+				return;
+
+			Amount valMy = m_vUpdates.back()->m_Outp.m_Value;
+			val += valMy;
+
+			if (val < valMy)
+				return; // overflow attack!
+
+			if (!TransferInternal(val))
+				return;
+		}
+	}
+
+	if (!m_pNegCtx)
+		return;
+
+	Storage::Map dataOut;
+	UpdateNegotiator(dataIn, dataOut);
+
+	SendPeerInternal(dataOut);
+}
+
+void Channel::UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut)
 {
 	if (!m_pNegCtx)
 		return;
@@ -712,7 +805,50 @@ bool Channel::DataUpdate::IsPhase2UnfairPeerPunish() const
 		!m_txPeer2.m_vKernels.front()->m_pRelativeLock;
 }
 
-bool Channel::Open(uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0)
+bool Channel::Open(Amount nMy, Amount nOther, const HeightRange& hr0)
+{
+	if (!OpenInternal(0, nMy, nOther, hr0))
+		return false;
+
+	Storage::Map dataIn, dataOut;
+
+	dataOut.Set(m_Params.m_hLockTime, Codes::HLock);
+	dataOut.Set(m_Params.m_Fee, Codes::Fee);
+	dataOut.Set(nMy, Codes::ValueMy);
+	dataOut.Set(nOther, Codes::ValueYours);
+	dataOut.Set(hr0.m_Min, Channel::Codes::H0);
+	dataOut.Set(hr0.m_Max, Channel::Codes::H1);
+
+	UpdateNegotiator(dataIn, dataOut);
+
+	SendPeerInternal(dataOut);
+
+	return true;
+}
+
+bool Channel::Transfer(Amount val)
+{
+	if (!m_pOpen)
+		return false;
+
+	Amount valMy = m_vUpdates.back()->m_Outp.m_Value;
+
+	if (valMy < val)
+		return false;
+
+	if (!TransferInternal(valMy - val))
+		return false;
+
+	Storage::Map dataIn, dataOut;
+	dataOut.Set(val, Codes::ValueTansfer);
+
+	UpdateNegotiator(dataIn, dataOut);
+	SendPeerInternal(dataOut);
+
+	return true;
+}
+
+bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0)
 {
 	if (m_pOpen || m_pNegCtx)
 		return false; // already in progress
@@ -803,7 +939,7 @@ bool Channel::Open(uint32_t iRole, Amount nMy, Amount nOther, const HeightRange&
 	return true;
 }
 
-bool Channel::UpdateBalance(Amount nMyNew)
+bool Channel::TransferInternal(Amount nMyNew)
 {
 	if (m_pNegCtx || (State::Open != get_State()))
 		return false;
@@ -920,6 +1056,15 @@ void Channel::OnInpCoinsChanged()
 
 	if (m_pOpen->m_kidvChange.m_Value)
 		OnCoin(m_pOpen->m_kidvChange, m_pOpen->m_hOpened, CoinState::Confirmed, !m_pOpen->m_hOpened);
+}
+
+void Channel::SendPeerInternal(Storage::Map& dataOut)
+{
+	if (!dataOut.empty())
+	{
+		dataOut.Set(static_cast<uint32_t>(m_vUpdates.size()), Codes::Revision);
+		SendPeer(std::move(dataOut));
+	}
 }
 
 } // namespace Lightning
