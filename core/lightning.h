@@ -87,6 +87,9 @@ namespace Lightning {
 			Merkle::Hash m_hvKernel0; // open tx kernel. To ensure opening confirmed we should query the kernel, not the Comm0, because it may be spent already
 			// confirmation
 			Height m_hOpened;
+			// initial funds
+			std::vector<Key::IDV> m_vInp;
+			Key::IDV m_kidvChange;
 		};
 
 		struct DataUpdate
@@ -119,8 +122,8 @@ namespace Lightning {
 			enum Enum {
 				None,
 				Opening0, // negotiating, no-return barrier not crossed yet. Safe to forget
-				Opening1, // negotiating, no-return barrier crossed, waiting confirmation (shouldn't happen if the peer is sane)
-				Opening2, // waiting for confirmation
+				Opening1, // negotiating, no-return barrier crossed, waiting confirmation
+				Opening2, // negoiation is over, waiting for confirmation
 				OpenFailed, // no open confirmation up to max height
 				Open,
 				Closing1, // decided to close
@@ -148,7 +151,7 @@ namespace Lightning {
 
 
 
-		bool Open(const std::vector<Key::IDV>& vIn, uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0);
+		bool Open(uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0);
 
 		bool UpdateBalance(Amount nMyNew);
 
@@ -159,12 +162,26 @@ namespace Lightning {
 		void UpdateNegotiation(Storage::Map& dataIn, Storage::Map& dataOut);
 		void Update(); // w.r.t. blockchain
 
+		bool IsSafeToForget(Height hMaxRollback); // returns true if the channel is either closed or couldn't be opened (i.e. no chance), and it's safe w.r.t. max rollback depth.
+		void Forget(); // If the channel didn't open - the locked inputs will are unlocked
+
 		virtual ~Channel();
 		virtual Height get_Tip() const = 0;
 		virtual proto::FlyClient::INetwork& get_Net() = 0;
 		virtual void get_Kdf(Key::IKdf::Ptr&) = 0;
 
 		virtual void AllocTxoID(Key::IDV&) = 0; // Type and Value are fixed. Should adjust ID and SubIdx
+
+		virtual Amount SelectInputs(std::vector<Key::IDV>& vInp, Amount valRequired) { return 0; }
+
+		enum struct CoinState {
+			Locked,
+			Unlocked,
+		};
+
+		virtual void OnCoin(const Key::IDV&, Height, CoinState) {}
+
+		void OnCoin(const std::vector<Key::IDV>&, Height, CoinState);
 	};
 
 

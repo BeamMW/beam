@@ -45,8 +45,8 @@ Channel::State::Enum Channel::get_State() const
 				return State::Opening0; // no withdrawal path yet
 
 			// still negotiating, however the barrier may already be crossed (I don't have opening tx - then maybe other peer has).
-			// More precisely - check our Role. nevermind.
-			return m_pOpen->m_txOpen.m_vKernels.empty() ? State::Opening1 : State::Opening0;
+			// More precisely - can check our Role. nevermind.
+			return State::Opening1;
 		}
 
 		assert(!m_vUpdates.empty());
@@ -709,7 +709,7 @@ bool Channel::DataUpdate::IsPhase2UnfairPeerPunish() const
 		!m_txPeer2.m_vKernels.front()->m_pRelativeLock;
 }
 
-bool Channel::Open(const std::vector<Key::IDV>& vIn, uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0)
+bool Channel::Open(uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0)
 {
 	if (m_pOpen || m_pNegCtx)
 		return false; // already in progress
@@ -718,11 +718,11 @@ bool Channel::Open(const std::vector<Key::IDV>& vIn, uint32_t iRole, Amount nMy,
 	if (iRole)
 		nMyFee = m_Params.m_Fee - nMyFee; // in case it's odd
 
-	Amount nChange = 0;
-	for (size_t i = 0; i < vIn.size(); i++)
-		nChange += vIn[i].m_Value;
+	std::vector<Key::IDV> vIn;
+	Amount nRequired = nMy + nMyFee * 3; // fee to create msig0, plus 2-stage withdrawal
 
-	if (nChange < nMy + nMyFee * 3) // fee to create msig0, plus 2-stage withdrawal
+	Amount nChange = SelectInputs(vIn, nRequired);
+	if (nChange < nRequired)
 		return false;
 	nChange -= (nMy + nMyFee * 3);
 
@@ -786,6 +786,14 @@ bool Channel::Open(const std::vector<Key::IDV>& vIn, uint32_t iRole, Amount nMy,
 	m_pOpen->m_hrLimit = hr0;
 	ZeroObject(m_pOpen->m_hvKernel0);
 	m_pOpen->m_hOpened = 0;
+
+	OnCoin(vIn, 0, CoinState::Locked);
+	m_pOpen->m_vInp = std::move(vIn);
+
+	if (vChg.empty())
+		ZeroObject(m_pOpen->m_kidvChange);
+	else
+		m_pOpen->m_kidvChange = vChg.front();
 
 	return true;
 }
@@ -855,6 +863,46 @@ void Channel::Close()
 		m_pNegCtx.reset();
 		Update();
 	}
+}
+
+bool Channel::IsSafeToForget(Height hMaxRollback)
+{
+	if (!m_pOpen)
+		return true;
+
+	if (!m_pOpen->m_hOpened)
+	{
+		return
+			(m_State.m_hQueryLast >= m_pOpen->m_hrLimit.m_Max + hMaxRollback) || // too late
+			m_vUpdates.empty(); // negotiation is at a very early stage
+	}
+
+	return m_State.m_Close.m_hPhase2 && (m_State.m_Close.m_hPhase2 + hMaxRollback <= get_Tip());
+}
+
+void Channel::Forget()
+{
+	if (m_pOpen)
+	{
+		if (!m_pOpen->m_hOpened)
+			OnCoin(m_pOpen->m_vInp, 0, CoinState::Unlocked);
+
+		m_pOpen.reset();
+	}
+
+	CancelRequest();
+	CancelTx();
+
+	m_pNegCtx.reset();
+	m_vUpdates.clear();
+	
+	ZeroObject(m_State);
+}
+
+void Channel::OnCoin(const std::vector<Key::IDV>& v, Height h, CoinState e)
+{
+	for (size_t i = 0; i < v.size(); i++)
+		OnCoin(v[i], h, e);
 }
 
 } // namespace Lightning
