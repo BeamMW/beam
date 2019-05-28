@@ -32,15 +32,25 @@ struct Channel::MuSigLocator
 Channel::State::Enum Channel::get_State() const
 {
 	if (!m_pOpen)
-		return m_pNegCtx ? State::Opening0 : State::None;
+		return State::None;
 
 	if (!m_pOpen->m_hOpened)
 	{
-		if (m_pNegCtx)
-			// only 1 peer has the opening tx
-			return m_pOpen->m_txOpen.m_vKernels.empty() ? State::Opening1 : State::Opening0;
+		if (m_State.m_hQueryLast >= m_pOpen->m_hrLimit.m_Max)
+			return State::OpenFailed;
 
-		return (m_State.m_hQueryLast < m_pOpen->m_hrLimit.m_Max) ? State::Opening2 : State::OpenFailed;
+		if (m_pNegCtx && (NegotiationCtx::Open == m_pNegCtx->m_eType))
+		{
+			if (m_vUpdates.empty())
+				return State::Opening0; // no withdrawal path yet
+
+			// still negotiating, however the barrier may already be crossed (I don't have opening tx - then maybe other peer has).
+			// More precisely - check our Role. nevermind.
+			return m_pOpen->m_txOpen.m_vKernels.empty() ? State::Opening1 : State::Opening0;
+		}
+
+		assert(!m_vUpdates.empty());
+		return State::Opening2;
 	}
 
 	if (!m_State.m_Close.m_hPhase1)
@@ -131,29 +141,23 @@ void Channel::UpdateNegotiation(Storage::Map& dataIn, Storage::Map& dataOut)
 			if (!(ChannelOpen::DoneParts::Main & nDone1))
 				break;
 
+			assert(m_pOpen && !m_pOpen->m_hOpened);
+
 			ChannelOpen::Result res;
 			x.get_Result(res);
 
 			if (!(ChannelOpen::DoneParts::Main & nDone0))
 			{
-				assert(!m_pOpen);
-				m_pOpen.reset(new DataOpen);
-				m_pOpen->m_hOpened = 0; // not yet
-
 				m_pOpen->m_Comm0 = res.m_Comm0;
-
 				m_pOpen->m_txOpen = std::move(res.m_txOpen);
-
 				x.m_Tx0.Get(m_pOpen->m_hvKernel0, MultiTx::Codes::KernelID);
-				x.m_Tx0.Get(m_pOpen->m_hrLimit.m_Min, MultiTx::Codes::KrnH0);
-				x.m_Tx0.Get(m_pOpen->m_hrLimit.m_Max, MultiTx::Codes::KrnH1);
 
 				assert(m_vUpdates.empty());
 				AddUpdatePoint();
 
 			}
 
-			assert(m_pOpen && (m_vUpdates.size() == 1));
+			assert(m_vUpdates.size() == 1);
 
 
 			DataUpdate& d = *m_vUpdates.front();
@@ -167,7 +171,7 @@ void Channel::UpdateNegotiation(Storage::Map& dataIn, Storage::Map& dataOut)
 			Key::IDV* pB = &d.m_msPeer;
 			SwapIfRole(x, pA, pB);
 
-			x.Setup(false, nullptr, nullptr, &m_pOpen->m_ms0, MultiTx::KernelParam(), pA, pB, nullptr, WithdrawTx::CommonParam());
+			x.Setup(false, nullptr, nullptr, nullptr, MultiTx::KernelParam(), pA, pB, nullptr, WithdrawTx::CommonParam());
 		}
 		break;
 
@@ -238,12 +242,19 @@ void Channel::Update()
 		return; // all finished
 
 	if (!m_pOpen)
-		return; // negotiation is still in progress
+		return;
 
 	Height hTip = get_Tip();
 
 	if (!m_pOpen->m_hOpened)
 	{
+		if (m_vUpdates.empty())
+		{
+			// early negotiation stage
+			m_State.m_hQueryLast = hTip;
+			return;
+		}
+
 		if (hTip < m_pOpen->m_hrLimit.m_Min)
 			return;
 
@@ -341,12 +352,6 @@ void Channel::AddUpdatePoint()
 	m_vUpdates.push_back(std::unique_ptr<DataUpdate>(new DataUpdate));
 }
 
-void Channel::OnRolledBackH(Height h, Height& hVar)
-{
-	if (hVar > h)
-		hVar = 0;
-}
-
 void Channel::CancelRequest()
 {
 	if (m_pRequest)
@@ -373,18 +378,37 @@ Channel::~Channel()
 
 void Channel::OnRolledBack()
 {
-	Height h = get_Tip();
-	if (m_pOpen)
-	{
-		OnRolledBackH(h, m_pOpen->m_hOpened);
-		OnRolledBackH(h, m_State.m_hQueryLast);
-		OnRolledBackH(h, m_State.m_hTxSentLast);
-	}
-
-	OnRolledBackH(h, m_State.m_Close.m_hPhase1);
-	OnRolledBackH(h, m_State.m_Close.m_hPhase2);
+	if (!m_pOpen)
+		return;
 
 	CancelRequest();
+	Height h = get_Tip();
+
+	if (m_State.m_Close.m_hPhase2)
+	{
+		if (h >= m_State.m_Close.m_hPhase2)
+			return;
+		m_State.m_Close.m_hPhase2 = 0;
+	}
+
+	m_State.m_hQueryLast = std::min(m_State.m_hQueryLast, h);
+
+	if (m_State.m_hTxSentLast > h)
+		m_State.m_hTxSentLast = 0; // could be lost
+
+	if (m_State.m_Close.m_hPhase1)
+	{
+		if (h >= m_State.m_Close.m_hPhase1)
+			return;
+		m_State.m_Close.m_hPhase1 = 0;
+	}
+
+	if (m_pOpen->m_hOpened)
+	{
+		if (h >= m_pOpen->m_hOpened)
+			return;
+		m_pOpen->m_hOpened = 0;
+	}
 }
 
 void Channel::RequestHandler::OnComplete(proto::FlyClient::Request& x)
@@ -560,7 +584,16 @@ void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
 		if (!m_pOpen->m_hOpened)
 		{
 			if (m_pOpen->m_hvKernel0 == r.m_Msg.m_ID)
+			{
 				m_pOpen->m_hOpened = h;
+
+				if (m_pNegCtx)
+				{
+					// non-typical situation, the peer maybe malicious (doesn't complete the part that it needs, yet allows the opening).
+					assert(NegotiationCtx::Open == m_pNegCtx->m_eType);
+					m_pNegCtx.reset();
+				}
+			}
 		}
 
 		if (m_State.m_Close.m_hPhase1)
@@ -746,10 +779,18 @@ bool Channel::Open(const std::vector<Key::IDV>& vIn, uint32_t iRole, Amount nMy,
 		p->m_Inst.Setup(true, &Cast::NotConst(vIn), &vChg, &ms0, krn1, &msA, &msB, &vOut, cp);
 	}
 
+
+	m_pOpen.reset(new DataOpen);
+	ZeroObject(m_pOpen->m_Comm0);
+	m_pOpen->m_ms0 = ms0;
+	m_pOpen->m_hrLimit = hr0;
+	ZeroObject(m_pOpen->m_hvKernel0);
+	m_pOpen->m_hOpened = 0;
+
 	return true;
 }
 
-bool Channel::Update(Amount nMyNew)
+bool Channel::UpdateBalance(Amount nMyNew)
 {
 	if (m_pNegCtx || (State::Open != get_State()))
 		return false;

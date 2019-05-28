@@ -31,7 +31,6 @@ namespace Lightning {
 		void SendTx(const Transaction& tx);
 		void SendTxNoSpam(const Transaction& tx, Height h);
 		void ConfirmKernel(const Merkle::Hash& hv, Height h);
-		static void OnRolledBackH(Height h, Height& hVar);
 		void CreatePunishmentTx();
 
 		struct MuSigLocator;
@@ -120,7 +119,7 @@ namespace Lightning {
 			enum Enum {
 				None,
 				Opening0, // negotiating, no-return barrier not crossed yet. Safe to forget
-				Opening1, // negotiating, no-return barrier crossed
+				Opening1, // negotiating, no-return barrier crossed, waiting confirmation (shouldn't happen if the peer is sane)
 				Opening2, // waiting for confirmation
 				OpenFailed, // no open confirmation up to max height
 				Open,
@@ -151,7 +150,7 @@ namespace Lightning {
 
 		bool Open(const std::vector<Key::IDV>& vIn, uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0);
 
-		bool Update(Amount nMyNew);
+		bool UpdateBalance(Amount nMyNew);
 
 		void Close(); // initiate non-cooperative closing
 
