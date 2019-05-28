@@ -21,6 +21,8 @@
 #include "wallet/secstring.h"
 #include "wallet/litecoin/options.h"
 #include "wallet/bitcoin/options.h"
+#include "wallet/swaps/common.h"
+#include "wallet/swaps/swap_transaction.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "core/treasury.h"
@@ -104,6 +106,59 @@ namespace beam
         case TxStatus::Failed: return TxFailureReason::TransactionExpired == tx.m_failureReason ? Expired : Failed;
         default:
             assert(false && "Unknown status");
+        }
+
+        return "";
+    }
+
+    const char* getSwapTxStatus(const IWalletDB::Ptr& walletDB, const TxDescription& tx)
+    {
+        constexpr char* Initial = "Initial";
+        constexpr char* Invitation = "Invitation";
+        constexpr char* BuildingBeamLockTX = "Building Beam LockTX";
+        constexpr char* BuildingBeamRefundTX = "Building Beam RefundTX";
+        constexpr char* BuildingBeamRedeemTX = "Building Beam RedeemTX";
+        constexpr char* HandlingContractTX = "Handling LockTX";
+        constexpr char* SendingRefundTX = "Sending RefundTX";
+        constexpr char* SendingRedeemTX = "Sending RedeemTX";
+        constexpr char* SendingBeamLockTX = "Sending Beam LockTX";
+        constexpr char* SendingBeamRefundTX = "Sending Beam RefundTX";
+        constexpr char* SendingBeamRedeemTX = "Sending Beam RedeemTX";
+
+        if (tx.m_status != TxStatus::InProgress)
+        {
+            return getTxStatus(tx);
+        }
+
+        wallet::AtomicSwapTransaction::State state = wallet::AtomicSwapTransaction::State::CompleteSwap;
+        wallet::getTxParameter(*walletDB, tx.m_txId, wallet::TxParameterID::State, state);
+
+        switch (state)
+        {
+        case wallet::AtomicSwapTransaction::State::Initial:
+            return Initial;
+        case wallet::AtomicSwapTransaction::State::Invitation:
+            return Invitation;
+        case wallet::AtomicSwapTransaction::State::BuildingBeamLockTX:
+            return BuildingBeamLockTX;
+        case wallet::AtomicSwapTransaction::State::BuildingBeamRefundTX:
+            return BuildingBeamRefundTX;
+        case wallet::AtomicSwapTransaction::State::BuildingBeamRedeemTX:
+            return BuildingBeamRedeemTX;
+        case wallet::AtomicSwapTransaction::State::HandlingContractTX:
+            return HandlingContractTX;
+        case wallet::AtomicSwapTransaction::State::SendingRefundTX:
+            return SendingRefundTX;
+        case wallet::AtomicSwapTransaction::State::SendingRedeemTX:
+            return SendingRedeemTX;
+        case wallet::AtomicSwapTransaction::State::SendingBeamLockTX:
+            return SendingBeamLockTX;
+        case wallet::AtomicSwapTransaction::State::SendingBeamRefundTX:
+            return SendingBeamRefundTX;
+        case wallet::AtomicSwapTransaction::State::SendingBeamRedeemTX:
+            return SendingBeamRedeemTX;
+        default:
+            assert(false && "Unexpected status");
         }
 
         return "";
@@ -544,6 +599,44 @@ namespace
             }
             return 0;
         }
+
+        if (vm.count(cli::SWAP_TX_LIST))
+        {
+            auto txHistory = walletDB->getTxHistory(wallet::TxType::AtomicSwap);
+            if (txHistory.empty())
+            {
+                cout << "No swap transactions\n";
+                return 0;
+            }
+
+            const array<uint8_t, 6> columnWidths{ { 20, 26, 18, 11, 23, 33} };
+
+            cout << "SWAP TRANSACTIONS\n\n  |"
+                << left << setw(columnWidths[0]) << " datetime" << " |"
+                << right << setw(columnWidths[1]) << " amount, BEAM" << " |"
+                << right << setw(columnWidths[2]) << " swap amount" << " |"
+                << left << setw(columnWidths[3]) << " beam side" << " |"
+                << left << setw(columnWidths[4]) << " status" << " |"
+                << setw(columnWidths[5]) << " ID" << " |" << endl;
+
+            for (auto& tx : txHistory)
+            {
+                Amount swapAmount = 0;
+                wallet::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapAmount, swapAmount);
+                bool isBeamSide = false;
+                wallet::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+
+                cout << "   "
+                    << " " << left << setw(columnWidths[0]) << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false)
+                    << " " << right << setw(columnWidths[1]) << PrintableAmount(tx.m_amount, true) << " "
+                    << " " << right << setw(columnWidths[2]) << swapAmount << " "
+                    << " " << right << setw(columnWidths[3]) << isBeamSide << "  "
+                    << " " << left << setw(columnWidths[4]) << getSwapTxStatus(walletDB, tx)
+                    << " " << setw(columnWidths[5] + 1) << to_hex(tx.m_txId.data(), tx.m_txId.size()) << '\n';
+            }
+            return 0;
+        }
+
         const array<uint8_t, 6> columnWidths{ { 49, 14, 14, 18, 30, 8} };
         cout << "  |"
             << left << setw(columnWidths[0]) << " ID" << " |"

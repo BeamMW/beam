@@ -26,6 +26,19 @@ namespace beam::wallet
 
     class AtomicSwapTransaction : public BaseTransaction
     {
+        enum class SubTxState : uint8_t
+        {
+            Initial,
+            Invitation,
+            SharedUTXOProofPart2,
+            SharedUTXOProofDone,
+            Constructed,
+
+            InvitationConfirmation,
+            Registration,
+            KernelConfirmation
+        };
+    public:
         enum class State : uint8_t
         {
             Initial,
@@ -47,19 +60,6 @@ namespace beam::wallet
 
             CompleteSwap,
         };
-
-        enum class SubTxState : uint8_t
-        {
-            Initial,
-            Invitation,
-            SharedUTXOProofPart2,
-            SharedUTXOProofDone,
-            Constructed,
-
-            InvitationConfirmation,
-            Registration,
-            KernelConfirmation
-        };        
 
     public:
         
