@@ -171,7 +171,11 @@ void Channel::UpdateNegotiation(Storage::Map& dataIn, Storage::Map& dataOut)
 			Key::IDV* pB = &d.m_msPeer;
 			SwapIfRole(x, pA, pB);
 
-			x.Setup(false, nullptr, nullptr, nullptr, MultiTx::KernelParam(), pA, pB, nullptr, WithdrawTx::CommonParam());
+			std::vector<Key::IDV> vWd;
+			x.Setup(false, nullptr, nullptr, nullptr, MultiTx::KernelParam(), pA, pB, &vWd, WithdrawTx::CommonParam());
+
+			if (!vWd.empty())
+				d.m_Outp = vWd.front();
 		}
 		break;
 
@@ -214,8 +218,12 @@ void Channel::UpdateNegotiation(Storage::Map& dataIn, Storage::Map& dataOut)
 			Key::IDV* pB = &d.m_msPeer;
 			SwapIfRole(x, pA, pB);
 
-			x.Setup(false, nullptr, nullptr, pA, pB, nullptr, WithdrawTx::CommonParam(), nullptr, nullptr, nullptr);
-		}
+			std::vector<Key::IDV> vWd;
+			x.Setup(false, nullptr, nullptr, pA, pB, &vWd, WithdrawTx::CommonParam(), nullptr, nullptr, nullptr);
+
+			if (!vWd.empty())
+				d.m_Outp = vWd.front();
+	}
 		break;
 
 	default:
@@ -388,6 +396,9 @@ void Channel::OnRolledBack()
 	{
 		if (h >= m_State.m_Close.m_hPhase2)
 			return;
+
+		OnCoin(m_vUpdates[m_State.m_Close.m_Initiator]->m_Outp, m_State.m_Close.m_hPhase2, CoinState::Confirmed, true); // remove confirmation
+
 		m_State.m_Close.m_hPhase2 = 0;
 	}
 
@@ -408,6 +419,7 @@ void Channel::OnRolledBack()
 		if (h >= m_pOpen->m_hOpened)
 			return;
 		m_pOpen->m_hOpened = 0;
+		OnInpCoinsChanged();
 	}
 }
 
@@ -527,7 +539,7 @@ void Channel::CreatePunishmentTx()
 	pKdf->DeriveKey(offs, d.m_msPeer); // our part
 	offs += ECC::Scalar::Native(d1.m_PeerKey); // peer part
 
-	Key::IDV kidvOut;
+	Key::IDV& kidvOut = d.m_Outp;
 	kidvOut.m_Value = d.m_msPeer.m_Value - m_Params.m_Fee;
 	kidvOut.m_Type = Key::Type::Regular;
 	AllocTxoID(kidvOut);
@@ -586,6 +598,7 @@ void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
 			if (m_pOpen->m_hvKernel0 == r.m_Msg.m_ID)
 			{
 				m_pOpen->m_hOpened = h;
+				OnInpCoinsChanged();
 
 				if (m_pNegCtx)
 				{
@@ -596,14 +609,17 @@ void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
 			}
 		}
 
-		if (m_State.m_Close.m_hPhase1)
+		if (m_State.m_Close.m_hPhase1 && !m_State.m_Close.m_hPhase2)
 		{
 			const DataUpdate& d = *m_vUpdates[m_State.m_Close.m_iPath];
 			Merkle::Hash hv;
 			d.get_Phase2ID(hv, m_State.m_Close.m_Initiator);
 
 			if (hv == r.m_Msg.m_ID)
+			{
 				m_State.m_Close.m_hPhase2 = h;
+				OnCoin(d.m_Outp, h, CoinState::Confirmed, false); // confirmed
+			}
 		}
 
 	}
@@ -787,7 +803,7 @@ bool Channel::Open(uint32_t iRole, Amount nMy, Amount nOther, const HeightRange&
 	ZeroObject(m_pOpen->m_hvKernel0);
 	m_pOpen->m_hOpened = 0;
 
-	OnCoin(vIn, 0, CoinState::Locked);
+	OnCoin(vIn, 0, CoinState::Locked, false);
 	m_pOpen->m_vInp = std::move(vIn);
 
 	if (vChg.empty())
@@ -885,7 +901,7 @@ void Channel::Forget()
 	if (m_pOpen)
 	{
 		if (!m_pOpen->m_hOpened)
-			OnCoin(m_pOpen->m_vInp, 0, CoinState::Unlocked);
+			OnCoin(m_pOpen->m_vInp, 0, CoinState::Locked, true);
 
 		m_pOpen.reset();
 	}
@@ -899,10 +915,20 @@ void Channel::Forget()
 	ZeroObject(m_State);
 }
 
-void Channel::OnCoin(const std::vector<Key::IDV>& v, Height h, CoinState e)
+void Channel::OnCoin(const std::vector<Key::IDV>& v, Height h, CoinState e, bool bReverse)
 {
 	for (size_t i = 0; i < v.size(); i++)
-		OnCoin(v[i], h, e);
+		OnCoin(v[i], h, e, bReverse);
+}
+
+void Channel::OnInpCoinsChanged()
+{
+	assert(m_pOpen);
+
+	OnCoin(m_pOpen->m_vInp, m_pOpen->m_hOpened, CoinState::Spent, !m_pOpen->m_hOpened);
+
+	if (m_pOpen->m_kidvChange.m_Value)
+		OnCoin(m_pOpen->m_kidvChange, m_pOpen->m_hOpened, CoinState::Confirmed, !m_pOpen->m_hOpened);
 }
 
 } // namespace Lightning

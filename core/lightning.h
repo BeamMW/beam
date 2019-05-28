@@ -32,6 +32,7 @@ namespace Lightning {
 		void SendTxNoSpam(const Transaction& tx, Height h);
 		void ConfirmKernel(const Merkle::Hash& hv, Height h);
 		void CreatePunishmentTx();
+		void OnInpCoinsChanged();
 
 		struct MuSigLocator;
 
@@ -97,6 +98,7 @@ namespace Lightning {
 		{
 			Key::IDV m_msMy; // my part of msigN for my withdrawal
 			Key::IDV m_msPeer; // my part of msigN for peer withdrawal
+			Key::IDV m_Outp; // phase2 output
 
 			const Transaction& get_TxPhase2(bool bInitiator) const;
 			void get_Phase2ID(Merkle::Hash& hv, bool bInitiator) const;
@@ -176,12 +178,13 @@ namespace Lightning {
 
 		enum struct CoinState {
 			Locked,
-			Unlocked,
+			Confirmed,
+			Spent,
 		};
 
-		virtual void OnCoin(const Key::IDV&, Height, CoinState) {}
+		virtual void OnCoin(const Key::IDV&, Height, CoinState, bool bReverse) {}
 
-		void OnCoin(const std::vector<Key::IDV>&, Height, CoinState);
+		void OnCoin(const std::vector<Key::IDV>&, Height, CoinState, bool bReverse);
 	};
 
 
