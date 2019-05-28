@@ -16,6 +16,7 @@
 #include "ui_helpers.h"
 #include "model/app_model.h"
 using namespace beam;
+using namespace beam::wallet;
 using namespace std;
 using namespace beamui;
 
@@ -30,7 +31,7 @@ bool compareUtxo(const T& lf, const T& rt, Qt::SortOrder sortOrder)
 }
 }
 
-UtxoItem::UtxoItem(const beam::Coin& coin)
+UtxoItem::UtxoItem(const beam::wallet::Coin& coin)
     : _coin{ coin }
 {
 
@@ -95,7 +96,7 @@ beam::Amount UtxoItem::rawAmount() const
     return _coin.m_ID.m_Value;
 }
 
-const beam::Coin::ID& UtxoItem::get_ID() const
+const beam::wallet::Coin::ID& UtxoItem::get_ID() const
 {
 	return _coin.m_ID;
 }
@@ -159,7 +160,7 @@ void UtxoViewModel::setSortOrder(Qt::SortOrder value)
     sortUtxos();
 }
 
-void UtxoViewModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxos)
+void UtxoViewModel::onAllUtxoChanged(const std::vector<beam::wallet::Coin>& utxos)
 {
     // TODO: It's dirty hack. Should use QAbstractListModel instead of QQmlListProperty
     auto tmpList = _allUtxos;

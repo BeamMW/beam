@@ -191,14 +191,14 @@ namespace beam::wallet
         template <typename T>
         bool GetParameter(TxParameterID paramID, T& value, SubTxID subTxID = kDefaultSubTxID) const
         {
-            return getTxParameter(*m_WalletDB, GetTxID(), subTxID, paramID, value);
+            return storage::getTxParameter(*m_WalletDB, GetTxID(), subTxID, paramID, value);
         }
 
         template <typename T>
         T GetMandatoryParameter(TxParameterID paramID, SubTxID subTxID = kDefaultSubTxID) const
         {
             T value{};
-            if (!getTxParameter(*m_WalletDB, GetTxID(), subTxID, paramID, value))
+            if (!storage::getTxParameter(*m_WalletDB, GetTxID(), subTxID, paramID, value))
             {
                 LOG_ERROR() << GetTxID() << " Failed to get parameter: " << (int)paramID;
                 throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
@@ -216,7 +216,7 @@ namespace beam::wallet
         template <typename T>
         bool SetParameter(TxParameterID paramID, const T& value, bool shouldNotifyAboutChanges, SubTxID subTxID = kDefaultSubTxID)
         {
-            return setTxParameter(*m_WalletDB, GetTxID(), subTxID, paramID, value, shouldNotifyAboutChanges);
+            return storage::setTxParameter(*m_WalletDB, GetTxID(), subTxID, paramID, value, shouldNotifyAboutChanges);
         }
 
         template <typename T>
@@ -251,7 +251,7 @@ namespace beam::wallet
     protected:
 
         INegotiatorGateway& m_Gateway;
-        beam::IWalletDB::Ptr m_WalletDB;
+        IWalletDB::Ptr m_WalletDB;
         IPrivateKeyKeeper::Ptr m_KeyKeeper;
 
         TxID m_ID;

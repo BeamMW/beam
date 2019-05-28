@@ -50,7 +50,7 @@ class TxObject : public QObject
 public:
 
     TxObject(QObject* parent = nullptr);
-    TxObject(const beam::TxDescription& tx, QObject* parent = nullptr);
+    TxObject(const beam::wallet::TxDescription& tx, QObject* parent = nullptr);
 
     bool income() const;
     QString date() const;
@@ -66,7 +66,7 @@ public:
     QString getSendingAddress() const;
     QString getReceivingAddress() const;
     QString getFee() const;
-    beam::WalletID peerId() const;
+    beam::wallet::WalletID peerId() const;
     QString getKernelID() const;
     void setKernelID(const QString& value);
     QString getTransactionID() const;
@@ -75,12 +75,12 @@ public:
 
     void setUserName(const QString& name);
     void setDisplayName(const QString& name);
-    void setStatus(beam::TxStatus status);
-    void setFailureReason(beam::TxFailureReason reason);
+    void setStatus(beam::wallet::TxStatus status);
+    void setFailureReason(beam::wallet::TxFailureReason reason);
 
-    void update(const beam::TxDescription& tx);
+    void update(const beam::wallet::TxDescription& tx);
 
-    const beam::TxDescription& getTxDescription() const;
+    const beam::wallet::TxDescription& getTxDescription() const;
 
     Q_INVOKABLE bool inProgress() const;
     Q_INVOKABLE bool isCompleted() const;
@@ -99,7 +99,7 @@ signals:
     void kernelIDChanged();
     void failureReasonChanged();
 private:
-    beam::TxDescription m_tx;
+    beam::wallet::TxDescription m_tx;
     QString m_userName;
     QString m_displayName;
     QString m_kernelID;
@@ -130,16 +130,16 @@ signals:
     void paymentProofChanged();
 private:
     QString m_paymentProof;
-    beam::wallet::PaymentInfo m_paymentInfo;
+    beam::wallet::storage::PaymentInfo m_paymentInfo;
 };
 
 class MyPaymentInfoItem : public PaymentInfoItem
 {
     Q_OBJECT
 public:
-    MyPaymentInfoItem(const beam::TxID& txID, QObject* parent = nullptr);
+    MyPaymentInfoItem(const beam::wallet::TxID& txID, QObject* parent = nullptr);
 private slots:
-    void onPaymentProofExported(const beam::TxID& txID, const QString& proof);
+    void onPaymentProofExported(const beam::wallet::TxID& txID, const QString& proof);
 };
 
 class WalletViewModel : public QObject
@@ -253,14 +253,14 @@ public:
     void allowBeamMWLinks(bool value);
 
 public slots:
-    void onStatus(const WalletStatus& amount);
-    void onTxStatus(beam::ChangeAction action, const std::vector<beam::TxDescription>& items);
+    void onStatus(const beam::wallet::WalletStatus& amount);
+    void onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& items);
     void sendMoney();
     void syncWithNode();
     void onChangeCalculated(beam::Amount change);
-    void onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID);
-    void onAddresses(bool own, const std::vector<beam::WalletAddress>& addresses);
-    void onGeneratedNewAddress(const beam::WalletAddress& addr);
+    void onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID);
+    void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses);
+    void onGeneratedNewAddress(const beam::wallet::WalletAddress& addr);
     void onNewAddressFailed();
     void onSendMoneyVerified();
     void onCantSendToExpired();
@@ -299,7 +299,7 @@ private:
     WalletModel& _model;
     WalletSettings& _settings;
 
-    WalletStatus _status ;
+    beam::wallet::WalletStatus _status ;
 
     QString _sendAmount;
     double _amountForReceive;
@@ -310,7 +310,7 @@ private:
     TxList _txList;
 
     QString _receiverAddr;
-    beam::WalletAddress _newReceiverAddr;
+    beam::wallet::WalletAddress _newReceiverAddr;
     QString _newReceiverName;
     QString _comment;
 

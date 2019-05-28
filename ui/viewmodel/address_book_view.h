@@ -34,7 +34,7 @@ class AddressItem : public QObject
 public:
 
     AddressItem() = default;
-    AddressItem(const beam::WalletAddress&);
+    AddressItem(const beam::wallet::WalletAddress&);
 
     QString getAddress() const;
     QString getName() const;
@@ -48,7 +48,7 @@ public:
     beam::Timestamp getExpirationTimestamp() const;
 
 private:
-    beam::WalletAddress m_walletAddress;
+    beam::wallet::WalletAddress m_walletAddress;
 };
 
 class ContactItem : public QObject
@@ -60,14 +60,14 @@ class ContactItem : public QObject
 
 public:
     ContactItem() = default;
-    ContactItem(const beam::WalletAddress&);
+    ContactItem(const beam::wallet::WalletAddress&);
 
     QString getAddress() const;
     QString getName() const;
     QString getCategory() const;
 
 private:
-    beam::WalletAddress m_walletAddress;
+    beam::wallet::WalletAddress m_walletAddress;
 };
 
 class AddressBookViewModel : public QObject
@@ -127,8 +127,8 @@ public:
     void setContactSortRole(QString);
 
 public slots:
-    void onStatus(const WalletStatus& amount);
-    void onAddresses(bool own, const std::vector<beam::WalletAddress>& addresses);
+    void onStatus(const beam::wallet::WalletStatus& amount);
+    void onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses);
 
 signals:
     void contactsChanged();

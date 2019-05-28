@@ -236,7 +236,7 @@ StartViewModel::~StartViewModel()
 
 bool StartViewModel::walletExists() const
 {
-    return WalletDB::isInitialized(AppModel::getInstance()->getSettings().getWalletStorage());
+    return wallet::WalletDB::isInitialized(AppModel::getInstance()->getSettings().getWalletStorage());
 }
 
 bool StartViewModel::getIsRecoveryMode() const

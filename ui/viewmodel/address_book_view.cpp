@@ -21,6 +21,7 @@
 
 using namespace std;
 using namespace beam;
+using namespace beam::wallet;
 using namespace beamui;
 
 namespace
@@ -34,7 +35,7 @@ namespace
     }
 }
 
-AddressItem::AddressItem(const beam::WalletAddress& address)
+AddressItem::AddressItem(const beam::wallet::WalletAddress& address)
     : m_walletAddress(address)
 {
 
@@ -91,7 +92,7 @@ beam::Timestamp AddressItem::getExpirationTimestamp() const
     return m_walletAddress.getExpirationTime();
 }
 
-ContactItem::ContactItem(const beam::WalletAddress& address)
+ContactItem::ContactItem(const beam::wallet::WalletAddress& address)
     : m_walletAddress(address)
 {
 

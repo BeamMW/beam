@@ -27,6 +27,7 @@
 #include "utility/helpers.h"
 
 using namespace beam;
+using namespace beam::wallet;
 using namespace std;
 using namespace beamui;
 
@@ -136,7 +137,7 @@ void TxObject::setDisplayName(const QString& name)
     }
 }
 
-beam::WalletID TxObject::peerId() const
+beam::wallet::WalletID TxObject::peerId() const
 {
     return m_tx.m_peerId;
 }
@@ -168,12 +169,12 @@ QString TxObject::getFee() const
     return QString{};
 }
 
-const beam::TxDescription& TxObject::getTxDescription() const
+const beam::wallet::TxDescription& TxObject::getTxDescription() const
 {
     return m_tx;
 }
 
-void TxObject::setStatus(beam::TxStatus status)
+void TxObject::setStatus(beam::wallet::TxStatus status)
 {
     if (m_tx.m_status != status)
     {
@@ -243,7 +244,7 @@ QString TxObject::getFailureReason() const
     return QString();
 }
 
-void TxObject::setFailureReason(beam::TxFailureReason reason)
+void TxObject::setFailureReason(beam::wallet::TxFailureReason reason)
 {
     if (m_tx.m_failureReason != reason)
     {
@@ -257,7 +258,7 @@ bool TxObject::hasPaymentProof() const
     return !income() && m_tx.m_status == TxStatus::Completed;
 }
 
-void TxObject::update(const beam::TxDescription& tx)
+void TxObject::update(const beam::wallet::TxDescription& tx)
 {
     setStatus(tx.m_status);
     auto kernelID = QString::fromStdString(to_hex(tx.m_kernelID.m_pData, tx.m_kernelID.nBytes));
@@ -338,7 +339,7 @@ void PaymentInfoItem::setPaymentProof(const QString& value)
         m_paymentProof = value;
         try
         {
-            m_paymentInfo = wallet::PaymentInfo::FromByteBuffer(from_hex(m_paymentProof.toStdString()));
+            m_paymentInfo = wallet::storage::PaymentInfo::FromByteBuffer(from_hex(m_paymentProof.toStdString()));
             emit paymentProofChanged();
         }
         catch (...)
@@ -364,7 +365,7 @@ MyPaymentInfoItem::MyPaymentInfoItem(const TxID& txID, QObject* parent/* = nullp
     model->getAsync()->exportPaymentProof(txID);
 }
 
-void MyPaymentInfoItem::onPaymentProofExported(const beam::TxID& txID, const QString& proof)
+void MyPaymentInfoItem::onPaymentProofExported(const beam::wallet::TxID& txID, const QString& proof)
 {
     setPaymentProof(proof);
 }
@@ -505,10 +506,10 @@ void WalletViewModel::onStatus(const WalletStatus& status)
     }
 }
 
-void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<TxDescription>& items)
+void WalletViewModel::onTxStatus(beam::wallet::ChangeAction action, const std::vector<TxDescription>& items)
 {
     QList<TxObject*> deletedObjects;
-    if (action == beam::ChangeAction::Reset)
+    if (action == beam::wallet::ChangeAction::Reset)
     {
         deletedObjects.swap(_txList);
         _txList.clear();
@@ -518,7 +519,7 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
         }
         sortTx();
     }
-    else if (action == beam::ChangeAction::Removed)
+    else if (action == beam::wallet::ChangeAction::Removed)
     {
         for (const auto& item : items)
         {
@@ -531,7 +532,7 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
         }
         emit transactionsChanged();
     }
-    else if (action == beam::ChangeAction::Updated)
+    else if (action == beam::wallet::ChangeAction::Updated)
     {
         auto txIt = _txList.begin();
         auto txEnd = _txList.end();
@@ -546,7 +547,7 @@ void WalletViewModel::onTxStatus(beam::ChangeAction action, const std::vector<Tx
         }
         sortTx();
     }
-    else if (action == beam::ChangeAction::Added)
+    else if (action == beam::wallet::ChangeAction::Added)
     {
         // TODO in sort order
         for (const auto& item : items)
@@ -573,7 +574,7 @@ void WalletViewModel::onChangeCalculated(beam::Amount change)
     emit actualAvailableChanged();
 }
 
-void WalletViewModel::onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID)
+void WalletViewModel::onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID)
 {
     //setSenderAddr(toString(senderID));
     setReceiverAddr(toString(receiverID));
@@ -914,7 +915,7 @@ QString WalletViewModel::getNewReceiverName() const
     return _newReceiverName;
 }
 
-void WalletViewModel::onAddresses(bool own, const std::vector<beam::WalletAddress>& addresses)
+void WalletViewModel::onAddresses(bool own, const std::vector<WalletAddress>& addresses)
 {
     if (own)
     {
@@ -940,7 +941,7 @@ void WalletViewModel::onAddresses(bool own, const std::vector<beam::WalletAddres
     }
 }
 
-void WalletViewModel::onGeneratedNewAddress(const beam::WalletAddress& addr)
+void WalletViewModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& addr)
 {
     _newReceiverAddr = addr;
     setExpires(0);

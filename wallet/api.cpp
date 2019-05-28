@@ -18,7 +18,7 @@
 
 using json = nlohmann::json;
 
-namespace beam
+namespace beam::wallet
 {
     namespace
     {

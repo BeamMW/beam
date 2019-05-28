@@ -209,7 +209,7 @@ namespace beam::wallet
             {
                 // verify peer payment confirmation
 
-                wallet::PaymentConfirmation pc;
+                PaymentConfirmation pc;
                 WalletID widPeer, widMy;
                 bool bSuccess =
                     GetParameter(TxParameterID::PeerID, widPeer) &&
@@ -230,7 +230,7 @@ namespace beam::wallet
                     {
                         // older wallets don't support it. Check if unsigned payments are ok
                         uint8_t nRequired = 0;
-                        wallet::getVar(*m_WalletDB, wallet::g_szPaymentProofRequired, nRequired);
+                        storage::getVar(*m_WalletDB, storage::g_szPaymentProofRequired, nRequired);
 
                         if (!nRequired)
                             bSuccess = true;
@@ -371,7 +371,7 @@ namespace beam::wallet
         assert(!IsSelfTx());
         if (!GetMandatoryParameter<bool>(TxParameterID::IsSender))
         {
-            wallet::PaymentConfirmation pc;
+            PaymentConfirmation pc;
             WalletID widPeer, widMy;
             bool bSuccess =
                 GetParameter(TxParameterID::PeerID, widPeer) &&

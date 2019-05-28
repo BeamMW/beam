@@ -93,7 +93,7 @@ class StartViewModel : public QObject
 
 public:
 
-    using DoneCallback = std::function<bool (beam::IWalletDB::Ptr db, const std::string& walletPass)>;
+    using DoneCallback = std::function<bool (beam::wallet::IWalletDB::Ptr db, const std::string& walletPass)>;
 
     StartViewModel();
     ~StartViewModel();

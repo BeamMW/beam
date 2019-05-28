@@ -76,7 +76,7 @@ namespace beam::wallet
 
         if (coins.empty())
         {
-            Totals totals(*m_Tx.GetWalletDB());
+            storage::Totals totals(*m_Tx.GetWalletDB());
 
             LOG_ERROR() << m_Tx.GetTxID() << "[" << m_SubTxID << "]" << " You only have " << PrintableAmount(totals.Avail);
             throw TransactionFailedException(!m_Tx.IsInitiator(), TxFailureReason::NoInputs);

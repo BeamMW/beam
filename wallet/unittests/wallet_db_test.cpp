@@ -24,6 +24,7 @@
 using namespace std;
 using namespace ECC;
 using namespace beam;
+using namespace beam::wallet;
 
 WALLET_TEST_INIT
 
@@ -86,7 +87,7 @@ void TestWalletDataBase()
         TxID txID;
         ZeroObject(txID);
 
-        wallet::setTxParameter(*walletDB, txID, wallet::TxParameterID::Status, TxStatus::InProgress, false);
+        storage::setTxParameter(*walletDB, txID, wallet::TxParameterID::Status, TxStatus::InProgress, false);
         for (Coin& c : coins)
             c.m_spentTxId = txID;
         walletDB->save(coins);
@@ -106,11 +107,11 @@ void TestWalletDataBase()
         a.m_Height = rand();
 
         const char* name = "SystemStateID";
-        wallet::setVar(*walletDB, name, "dummy");
-        wallet::setVar(*walletDB, name, a);
+        storage::setVar(*walletDB, name, "dummy");
+        storage::setVar(*walletDB, name, a);
 
         Block::SystemState::ID b;
-        WALLET_CHECK(wallet::getVar(*walletDB, name, b));
+        WALLET_CHECK(storage::getVar(*walletDB, name, b));
 
         WALLET_CHECK(a == b);
     }
@@ -250,7 +251,7 @@ void TestStoreTxRecord()
     WALLET_CHECK_NO_THROW(walletDB->saveTx(tr));
     {
         wallet::TxType type = TxType::Simple;
-        WALLET_CHECK(wallet::getTxParameter(*walletDB, id, TxParameterID::TransactionType, type));
+        WALLET_CHECK(storage::getTxParameter(*walletDB, id, TxParameterID::TransactionType, type));
         WALLET_CHECK(type == TxType::Simple);
     }
 
@@ -281,7 +282,7 @@ void TestStoreTxRecord()
     WALLET_CHECK_NO_THROW(walletDB->deleteTx(id));
     {
         wallet::TxType type = TxType::Simple;
-        WALLET_CHECK(wallet::getTxParameter(*walletDB, id, TxParameterID::TransactionType, type));
+        WALLET_CHECK(storage::getTxParameter(*walletDB, id, TxParameterID::TransactionType, type));
         WALLET_CHECK(type == TxType::Simple);
     }
     
@@ -501,8 +502,8 @@ void TestBlockRollbackWithTx()
 
         db->saveTx(tx);
 
-        wallet::setTxParameter(*db, txID1, wallet::TxParameterID::KernelUnconfirmedHeight, Height(5), false);
-        wallet::setTxParameter(*db, txID1, wallet::TxParameterID::KernelProofHeight, Height(6), false);
+        storage::setTxParameter(*db, txID1, wallet::TxParameterID::KernelUnconfirmedHeight, Height(5), false);
+        storage::setTxParameter(*db, txID1, wallet::TxParameterID::KernelProofHeight, Height(6), false);
     }
 
     {
@@ -520,8 +521,8 @@ void TestBlockRollbackWithTx()
         tx.m_sender = true;
 
         db->saveTx(tx);
-        wallet::setTxParameter(*db, txID2, wallet::TxParameterID::KernelUnconfirmedHeight, Height(3), false);
-        wallet::setTxParameter(*db, txID2, wallet::TxParameterID::KernelProofHeight, Height(4), false);
+        storage::setTxParameter(*db, txID2, wallet::TxParameterID::KernelUnconfirmedHeight, Height(3), false);
+        storage::setTxParameter(*db, txID2, wallet::TxParameterID::KernelProofHeight, Height(4), false);
     }
 
     {
@@ -540,7 +541,7 @@ void TestBlockRollbackWithTx()
 
         db->saveTx(tx);
 
-        wallet::setTxParameter(*db, txID3, wallet::TxParameterID::KernelProofHeight, Height(5), false);
+        storage::setTxParameter(*db, txID3, wallet::TxParameterID::KernelProofHeight, Height(5), false);
     }
     
     db->store(coin1);
@@ -589,27 +590,27 @@ void TestBlockRollbackWithTx()
             auto tx = db->getTx(txID1);
             WALLET_CHECK(tx->m_status == TxStatus::Registering);
             Height h = 0;
-            WALLET_CHECK(wallet::getTxParameter(*db, txID1, wallet::TxParameterID::KernelProofHeight, h));
+            WALLET_CHECK(storage::getTxParameter(*db, txID1, wallet::TxParameterID::KernelProofHeight, h));
             WALLET_CHECK(h == 0);
-            WALLET_CHECK(wallet::getTxParameter(*db, txID1, wallet::TxParameterID::KernelUnconfirmedHeight, h));
+            WALLET_CHECK(storage::getTxParameter(*db, txID1, wallet::TxParameterID::KernelUnconfirmedHeight, h));
             WALLET_CHECK(h == 0);
         }
         {
             auto tx = db->getTx(txID2);
             WALLET_CHECK(tx->m_status == TxStatus::Completed);
             Height h = 0;
-            WALLET_CHECK(wallet::getTxParameter(*db, txID2, wallet::TxParameterID::KernelProofHeight, h));
+            WALLET_CHECK(storage::getTxParameter(*db, txID2, wallet::TxParameterID::KernelProofHeight, h));
             WALLET_CHECK(h == 4);
-            WALLET_CHECK(wallet::getTxParameter(*db, txID2, wallet::TxParameterID::KernelUnconfirmedHeight, h));
+            WALLET_CHECK(storage::getTxParameter(*db, txID2, wallet::TxParameterID::KernelUnconfirmedHeight, h));
             WALLET_CHECK(h == 3);
         }
         {
             auto tx = db->getTx(txID3);
             WALLET_CHECK(tx->m_status == TxStatus::Completed);
             Height h = 0;
-            WALLET_CHECK(wallet::getTxParameter(*db, txID3, wallet::TxParameterID::KernelProofHeight, h));
+            WALLET_CHECK(storage::getTxParameter(*db, txID3, wallet::TxParameterID::KernelProofHeight, h));
             WALLET_CHECK(h == 5);
-            WALLET_CHECK(!wallet::getTxParameter(*db, txID3, wallet::TxParameterID::KernelUnconfirmedHeight, h));
+            WALLET_CHECK(!storage::getTxParameter(*db, txID3, wallet::TxParameterID::KernelUnconfirmedHeight, h));
 
         }
     }
@@ -636,7 +637,7 @@ void TestTxRollback()
     walletDB->store(coin3);
     walletDB->save({ coin2 });
 
-    wallet::setTxParameter(*walletDB, id, wallet::TxParameterID::Status, TxStatus::Registering, true);
+    storage::setTxParameter(*walletDB, id, wallet::TxParameterID::Status, TxStatus::Registering, true);
 
     vector<Coin> coins;
     walletDB->visit([&coins](const Coin& c)->bool
@@ -691,7 +692,7 @@ void TestAddresses()
     a.m_createTime = beam::getTimestamp();
     a.m_duration = 23;
     a.m_OwnID = 44;
-    a.m_walletID = generateWalletIDFromIndex(*db, a.m_OwnID);
+    a.m_walletID = storage::generateWalletIDFromIndex(*db, a.m_OwnID);
 
     db->saveAddress(a);
 
@@ -717,7 +718,7 @@ void TestAddresses()
     WALLET_CHECK(addresses[0].m_duration == a.m_duration);
     WALLET_CHECK(addresses[0].m_OwnID == a.m_OwnID);
 
-    auto exported = wallet::ExportAddressesToJson(*db);
+    auto exported = storage::ExportAddressesToJson(*db);
     WALLET_CHECK(!exported.empty());
  
     auto a2 = db->getAddress(a.m_walletID);
@@ -729,7 +730,7 @@ void TestAddresses()
     a2 = db->getAddress(a.m_walletID);
     WALLET_CHECK(!a2.is_initialized());
 
-    WALLET_CHECK(wallet::ImportAddressesFromJson(*db, &exported[0], exported.size()));
+    WALLET_CHECK(storage::ImportAddressesFromJson(*db, &exported[0], exported.size()));
     {
         auto a3 = db->getAddress(a.m_walletID);
         WALLET_CHECK(a3.is_initialized());
@@ -966,38 +967,38 @@ void TestTxParameters()
     TxID txID = { {1, 3, 5} };
     // public parameter cannot be overriten
     Amount amount = 0;
-    WALLET_CHECK(!wallet::getTxParameter(*db, txID, TxParameterID::Amount, amount));
+    WALLET_CHECK(!storage::getTxParameter(*db, txID, TxParameterID::Amount, amount));
     WALLET_CHECK(amount == 0);
-    WALLET_CHECK(wallet::setTxParameter(*db, txID, TxParameterID::Amount, 8765, false));
-    WALLET_CHECK(wallet::getTxParameter(*db, txID, TxParameterID::Amount, amount));
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::Amount, 8765, false));
+    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::Amount, amount));
     WALLET_CHECK(amount == 8765);
-    WALLET_CHECK(!wallet::setTxParameter(*db, txID, TxParameterID::Amount, 786, false));
-    WALLET_CHECK(wallet::getTxParameter(*db, txID, TxParameterID::Amount, amount));
+    WALLET_CHECK(!storage::setTxParameter(*db, txID, TxParameterID::Amount, 786, false));
+    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::Amount, amount));
     WALLET_CHECK(amount == 8765);
 
     // private parameter can be overriten
     TxStatus status = TxStatus::Pending;
-    WALLET_CHECK(!wallet::getTxParameter(*db, txID, TxParameterID::Status, status));
+    WALLET_CHECK(!storage::getTxParameter(*db, txID, TxParameterID::Status, status));
     WALLET_CHECK(status == TxStatus::Pending);
-    WALLET_CHECK(wallet::setTxParameter(*db, txID, TxParameterID::Status, TxStatus::Completed, false));
-    WALLET_CHECK(wallet::getTxParameter(*db, txID, TxParameterID::Status, status));
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::Status, TxStatus::Completed, false));
+    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::Status, status));
     WALLET_CHECK(status == TxStatus::Completed);
-    WALLET_CHECK(wallet::setTxParameter(*db, txID, TxParameterID::Status, TxStatus::InProgress, false));
-    WALLET_CHECK(wallet::getTxParameter(*db, txID, TxParameterID::Status, status));
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::Status, TxStatus::InProgress, false));
+    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::Status, status));
     WALLET_CHECK(status == TxStatus::InProgress);
 
     // check different types
 
     ByteBuffer b = { 1, 2, 3 };
-    WALLET_CHECK(wallet::setTxParameter(*db, txID, TxParameterID::Status, b, false));
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::Status, b, false));
     ByteBuffer b2;
-    WALLET_CHECK(wallet::getTxParameter(*db, txID, TxParameterID::Status, b2));
+    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::Status, b2));
     WALLET_CHECK(equal(b.begin(), b.end(), b2.begin(), b2.end()));
 
     ECC::Scalar::Native s, s2;
     s = 123U;
-    WALLET_CHECK(wallet::setTxParameter(*db, txID, TxParameterID::BlindingExcess, s, false));
-    WALLET_CHECK(wallet::getTxParameter(*db, txID, TxParameterID::BlindingExcess, s2));
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::BlindingExcess, s, false));
+    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::BlindingExcess, s2));
     WALLET_CHECK(s == s2);
 
     ECC::Point p;
@@ -1005,8 +1006,8 @@ void TestTxParameters()
     p.m_Y = 0;
     ECC::Point::Native pt, pt2;
     pt.Import(p);
-    WALLET_CHECK(wallet::setTxParameter(*db, txID, TxParameterID::PeerPublicNonce, pt, false));
-    WALLET_CHECK(wallet::getTxParameter(*db, txID, TxParameterID::PeerPublicNonce, pt2));
+    WALLET_CHECK(storage::setTxParameter(*db, txID, TxParameterID::PeerPublicNonce, pt, false));
+    WALLET_CHECK(storage::getTxParameter(*db, txID, TxParameterID::PeerPublicNonce, pt2));
     WALLET_CHECK(p == pt2);
 }
 
@@ -1168,7 +1169,7 @@ void TestWalletMessages()
         msg.AddParameter(TxParameterID::PeerID, walletID);
         msg.AddParameter(TxParameterID::Lifetime, 130);
 
-        auto id = db->saveWalletMessage(WalletMessage{ 0, walletID, toByteBuffer(msg)});
+        auto id = db->saveWalletMessage(WalletMessage{ 0, walletID, storage::toByteBuffer(msg)});
         WALLET_CHECK(id == 1);
         auto messages = db->getWalletMessages();
         WALLET_CHECK(messages.size() == 1);
@@ -1176,7 +1177,7 @@ void TestWalletMessages()
         WALLET_CHECK(messages[0].m_PeerID == walletID);
         Amount amount = 0;
         SetTxParameter message;
-        WALLET_CHECK(fromByteBuffer(messages[0].m_Message, message));
+        WALLET_CHECK(storage::fromByteBuffer(messages[0].m_Message, message));
         WALLET_CHECK(message.GetParameter(TxParameterID::Amount, amount) && amount == 100);
         WalletID walletID2 = Zero;
         WALLET_CHECK(message.GetParameter(TxParameterID::PeerID, walletID2) && walletID2 == walletID);
@@ -1191,7 +1192,7 @@ void TestWalletMessages()
         msg.AddParameter(TxParameterID::PeerID, walletID);
         msg.AddParameter(TxParameterID::Lifetime, 230);
 
-        auto id = db->saveWalletMessage(WalletMessage{ 0, walletID, toByteBuffer(msg) });
+        auto id = db->saveWalletMessage(WalletMessage{ 0, walletID, storage::toByteBuffer(msg) });
         WALLET_CHECK(id == 2);
         auto messages = db->getWalletMessages();
         WALLET_CHECK(messages.size() == 2);
@@ -1199,7 +1200,7 @@ void TestWalletMessages()
         WALLET_CHECK(messages[1].m_PeerID == walletID);
         Amount amount = 0;
         SetTxParameter message;
-        WALLET_CHECK(fromByteBuffer(messages[1].m_Message, message));
+        WALLET_CHECK(storage::fromByteBuffer(messages[1].m_Message, message));
         WALLET_CHECK(message.GetParameter(TxParameterID::Amount, amount) && amount == 200);
         WalletID walletID2 = Zero;
         WALLET_CHECK(message.GetParameter(TxParameterID::PeerID, walletID2) && walletID2 == walletID);

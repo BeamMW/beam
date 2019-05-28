@@ -18,6 +18,7 @@
 #include "http/http_client.h"
 
 using namespace beam;
+using namespace beam::wallet;
 using namespace std;
 using namespace ECC;
 using json = nlohmann::json;
@@ -65,9 +66,9 @@ public:
         return m_pKdf;
     }
 
-    std::vector<beam::Coin> selectCoins(ECC::Amount amount) override
+    std::vector<Coin> selectCoins(ECC::Amount amount) override
     {
-        std::vector<beam::Coin> res;
+        std::vector<Coin> res;
         ECC::Amount t = 0;
         for (auto& c : m_coins)
         {
@@ -89,15 +90,15 @@ public:
         return ret;
     }
     bool find(Coin& coin) override { return false; }
-    std::vector<beam::Coin> getCoinsCreatedByTx(const TxID& txId) override { return {}; };
+    std::vector<Coin> getCoinsCreatedByTx(const TxID& txId) override { return {}; };
     std::vector<Coin> getCoinsByID(const CoinIDList& ids) override { return {}; };
-    void store(beam::Coin&) override {}
-    void store(std::vector<beam::Coin>&) override {}
-    void save(const beam::Coin&) override {}
-    void save(const std::vector<beam::Coin>&) override {}
-    void remove(const std::vector<beam::Coin::ID>&) override {}
-    void remove(const beam::Coin::ID&) override {}
-    void visit(std::function<bool(const beam::Coin& coin)>) override {}
+    void store(Coin&) override {}
+    void store(std::vector<Coin>&) override {}
+    void save(const Coin&) override {}
+    void save(const std::vector<Coin>&) override {}
+    void remove(const std::vector<Coin::ID>&) override {}
+    void remove(const Coin::ID&) override {}
+    void visit(std::function<bool(const Coin& coin)>) override {}
     void setVarRaw(const char*, const void*, size_t) override {}
     bool getVarRaw(const char*, void*, int) const override { return false; }
     bool getBlob(const char* name, ByteBuffer& var) const override { return false; }
@@ -112,17 +113,17 @@ public:
     boost::optional<TxDescription> getTx(const TxID&) override { return boost::optional<TxDescription>{}; };
     void saveTx(const TxDescription& p) override
     {
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Amount, wallet::toByteBuffer(p.m_amount), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Fee, wallet::toByteBuffer(p.m_fee), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Change, wallet::toByteBuffer(p.m_change), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MinHeight, wallet::toByteBuffer(p.m_minHeight), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::PeerID, wallet::toByteBuffer(p.m_peerId), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MyID, wallet::toByteBuffer(p.m_myId), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Message, wallet::toByteBuffer(p.m_message), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::CreateTime, wallet::toByteBuffer(p.m_createTime), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::ModifyTime, wallet::toByteBuffer(p.m_modifyTime), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::IsSender, wallet::toByteBuffer(p.m_sender), false);
-        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Status, wallet::toByteBuffer(p.m_status), false);
+        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Amount, storage::toByteBuffer(p.m_amount), false);
+        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Fee, storage::toByteBuffer(p.m_fee), false);
+        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Change, storage::toByteBuffer(p.m_change), false);
+        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MinHeight, storage::toByteBuffer(p.m_minHeight), false);
+        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::PeerID, storage::toByteBuffer(p.m_peerId), false);
+        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::MyID, storage::toByteBuffer(p.m_myId), false);
+        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Message, storage::toByteBuffer(p.m_message), false);
+        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::CreateTime, storage::toByteBuffer(p.m_createTime), false);
+        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::ModifyTime, storage::toByteBuffer(p.m_modifyTime), false);
+        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::IsSender, storage::toByteBuffer(p.m_sender), false);
+        setTxParameter(p.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::Status, storage::toByteBuffer(p.m_status), false);
     };
     void deleteTx(const TxID&) override {};
     void rollbackTx(const TxID&) override {}
@@ -184,7 +185,7 @@ public:
     void ShrinkHistory() override {}
 
 protected:
-    std::vector<beam::Coin> m_coins;
+    std::vector<Coin> m_coins;
     std::map<wallet::TxParameterID, ByteBuffer> m_params;
 };
 
@@ -351,7 +352,7 @@ struct TestWalletRig
     {
         if (m_WalletDB->get_MasterKdf()) // can create secrets
         {
-            WalletAddress wa = wallet::createAddress(*m_WalletDB);
+            WalletAddress wa = storage::createAddress(*m_WalletDB);
             m_WalletDB->saveAddress(wa);
             m_WalletID = wa.m_walletID;
         }

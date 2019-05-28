@@ -48,7 +48,7 @@ namespace beam::wallet
 
         ECC::Scalar::Native m_SharedBlindingFactor;
         ECC::NoLeak<ECC::uintBig> m_SharedSeed;
-        beam::Coin m_SharedCoin;
+        Coin m_SharedCoin;
         ECC::RangeProof::Confidential m_SharedProof;
 
         // deduced values, 

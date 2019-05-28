@@ -46,6 +46,7 @@
 
 using namespace std;
 using namespace beam;
+using namespace beam::wallet;
 using namespace ECC;
 
 namespace beam
@@ -377,7 +378,7 @@ namespace
             return -1;
         }
 
-        if (wallet::changeAddressExpiration(*walletDB, walletID, newDuration_s))
+        if (storage::changeAddressExpiration(*walletDB, walletID, newDuration_s))
         {
             if (allAddresses)
             {
@@ -394,7 +395,7 @@ namespace
 
     WalletAddress newAddress(const IWalletDB::Ptr& walletDB, const std::string& comment, bool isNever = false)
     {
-        WalletAddress address = wallet::createAddress(*walletDB);
+        WalletAddress address = storage::createAddress(*walletDB);
 
         if (isNever)
         {
@@ -499,7 +500,7 @@ namespace
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
 
-        wallet::Totals totals(*walletDB);
+        storage::Totals totals(*walletDB);
 
         cout << "____Wallet summary____\n\n"
             << "Current height............" << stateID.m_Height << '\n'
@@ -591,7 +592,7 @@ namespace
             return -1;
         }
 
-        auto res = wallet::ExportPaymentProof(*walletDB, txId);
+        auto res = storage::ExportPaymentProof(*walletDB, txId);
         if (!res.empty())
         {
             std::string sTxt;
@@ -613,7 +614,7 @@ namespace
         }
         ByteBuffer buf = from_hex(pprofData.as<string>());
 
-        if (!wallet::VerifyPaymentProof(buf))
+        if (!storage::VerifyPaymentProof(buf))
             throw std::runtime_error("Payment proof is invalid");
 
         return 0;
@@ -686,7 +687,7 @@ namespace
 
     int ExportAddresses(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
-        auto s = wallet::ExportAddressesToJson(*walletDB);
+        auto s = storage::ExportAddressesToJson(*walletDB);
         return SaveExportedData(ByteBuffer(s.begin(), s.end()), vm[cli::IMPORT_EXPORT_PATH].as<string>()) ? 0 : -1;
     }
 
@@ -698,7 +699,7 @@ namespace
             return -1;
         }
         const char* p = (char*)(&buffer[0]);
-        return wallet::ImportAddressesFromJson(*walletDB, p, buffer.size()) ? 0 : -1;
+        return storage::ImportAddressesFromJson(*walletDB, p, buffer.size()) ? 0 : -1;
     }
 
     CoinIDList GetPreselectedCoinIDs(const po::variables_map& vm)
@@ -988,7 +989,7 @@ int main_impl(int argc, char* argv[])
                         {
                             bool b = var.as<bool>();
                             uint8_t n = b ? 1 : 0;
-                            wallet::setVar(*walletDB, wallet::g_szPaymentProofRequired, n);
+                            storage::setVar(*walletDB, storage::g_szPaymentProofRequired, n);
 
                             cout << "Parameter set: Payment proof required: " << static_cast<uint32_t>(n) << std::endl;
                             return 0;

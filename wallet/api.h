@@ -27,7 +27,7 @@
 #define UNKNOWN_API_KEY -32002
 #define INVALID_ADDRESS -32003
 
-namespace beam
+namespace beam::wallet
 {
     using json = nlohmann::json;
 
@@ -67,20 +67,20 @@ namespace beam
     {
         struct Response
         {
-            WalletID address;
+            wallet::WalletID address;
         };
     };
 
     struct DeleteAddress
     {
-        WalletID address;
+        wallet::WalletID address;
 
         struct Response {};
     };
 
     struct EditAddress : AddressData
     {
-        WalletID address;
+        wallet::WalletID address;
 
         struct Response {};
     };
@@ -91,13 +91,13 @@ namespace beam
 
         struct Response
         {
-            std::vector<WalletAddress> list;
+            std::vector<wallet::WalletAddress> list;
         };
     };
 
     struct ValidateAddress
     {
-        WalletID address = Zero;
+        wallet::WalletID address = Zero;
 
         struct Response
         {
@@ -110,15 +110,15 @@ namespace beam
     {
         Amount value;
         Amount fee;
-        boost::optional<CoinIDList> coins;
-        boost::optional<WalletID> from;
+        boost::optional<wallet::CoinIDList> coins;
+        boost::optional<wallet::WalletID> from;
         boost::optional<uint64_t> session;
-        WalletID address;
+        wallet::WalletID address;
         std::string comment;
 
         struct Response
         {
-            TxID txId;
+            wallet::TxID txId;
         };
     };
 
@@ -149,11 +149,11 @@ namespace beam
         Amount swapAmount;
         wallet::AtomicSwapCoin swapCoin;
         bool beamSide;
-        WalletID address;
+        wallet::WalletID address;
 
         struct Response
         {
-            TxID txId;
+            wallet::TxID txId;
         };
     };
 
@@ -169,11 +169,11 @@ namespace beam
 
     struct Status
     {
-        TxID txId;
+        wallet::TxID txId;
 
         struct Response
         {
-            TxDescription tx;
+            wallet::TxDescription tx;
             Height kernelProofHeight;
             Height systemHeight;
             uint64_t confirmations;
@@ -188,13 +188,13 @@ namespace beam
 
         struct Response
         {
-            TxID txId;
+            wallet::TxID txId;
         };
     };
 
     struct TxCancel
     {
-        TxID txId;
+        wallet::TxID txId;
 
         struct Response
         {
@@ -205,7 +205,7 @@ namespace beam
 
     struct TxDelete
     {
-        TxID txId;
+        wallet::TxID txId;
 
         struct Response
         {
@@ -220,13 +220,13 @@ namespace beam
 
         struct Response
         {
-            std::vector<beam::Coin> utxos;
+            std::vector<wallet::Coin> utxos;
         };
     };
 
     struct Lock
     {
-        CoinIDList coins;
+        wallet::CoinIDList coins;
         uint64_t session;
 
         struct Response
@@ -249,7 +249,7 @@ namespace beam
     {
         struct
         {
-            boost::optional<TxStatus> status;
+            boost::optional<wallet::TxStatus> status;
             boost::optional<Height> height;
         } filter;
 

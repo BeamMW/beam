@@ -25,7 +25,7 @@ using namespace beam;
 
 namespace std
 {
-    string to_string(const beam::WalletID& id)
+    string to_string(const beam::wallet::WalletID& id)
     {
         static_assert(sizeof(id) == sizeof(id.m_Channel) + sizeof(id.m_Pk), "");
 
@@ -65,7 +65,7 @@ namespace std
 
 namespace beam
 {
-    std::ostream& operator<<(std::ostream& os, const TxID& uuid)
+    std::ostream& operator<<(std::ostream& os, const wallet::TxID& uuid)
     {
         stringstream ss;
         ss << "[" << to_hex(uuid.data(), uuid.size()) << "]";
@@ -73,7 +73,7 @@ namespace beam
         return os;
     }
 
-    std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount)
+    std::ostream& operator<<(std::ostream& os, const wallet::PrintableAmount& amount)
     {
         stringstream ss;
 
@@ -104,81 +104,78 @@ namespace beam
     }
 }
 
-namespace beam
+namespace beam::wallet
 {
-    namespace wallet
+    AtomicSwapCoin from_string(const std::string& value)
     {
-        AtomicSwapCoin from_string(const std::string& value)
+        if (value == "btc")
+            return AtomicSwapCoin::Bitcoin;
+        else if (value == "ltc")
+            return AtomicSwapCoin::Litecoin;
+
+        return AtomicSwapCoin::Unknown;
+    }
+
+    ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType)
+    {
+        switch (exceptionType)
         {
-            if (value == "btc")
-                return AtomicSwapCoin::Bitcoin;
-            else if (value == "ltc")
-                return AtomicSwapCoin::Litecoin;
-
-            return AtomicSwapCoin::Unknown;
+        case proto::NodeProcessingException::Type::Incompatible:
+            return ErrorType::NodeProtocolIncompatible;
+        case proto::NodeProcessingException::Type::TimeOutOfSync:
+            return ErrorType::TimeOutOfSync;
+        default:
+            return ErrorType::NodeProtocolBase;
         }
+    }
 
-        ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType)
+    ErrorType getWalletError(io::ErrorCode errorCode)
+    {
+        switch (errorCode)
         {
-            switch (exceptionType)
-            {
-            case proto::NodeProcessingException::Type::Incompatible:
-                return ErrorType::NodeProtocolIncompatible;
-            case proto::NodeProcessingException::Type::TimeOutOfSync:
-                return ErrorType::TimeOutOfSync;
-            default:
-                return ErrorType::NodeProtocolBase;
-            }
+        case io::ErrorCode::EC_ETIMEDOUT:
+            return ErrorType::ConnectionTimedOut;
+        case io::ErrorCode::EC_ECONNREFUSED:
+            return ErrorType::ConnectionRefused;
+        case io::ErrorCode::EC_EHOSTUNREACH:
+            return ErrorType::ConnectionHostUnreach;
+        case io::ErrorCode::EC_EADDRINUSE:
+            return ErrorType::ConnectionAddrInUse;
+        case io::ErrorCode::EC_HOST_RESOLVED_ERROR:
+            return ErrorType::HostResolvedError;
+        default:
+            return ErrorType::ConnectionBase;
         }
+    }
 
-        ErrorType getWalletError(io::ErrorCode errorCode)
-        {
-            switch (errorCode)
-            {
-            case io::ErrorCode::EC_ETIMEDOUT:
-                return ErrorType::ConnectionTimedOut;
-            case io::ErrorCode::EC_ECONNREFUSED:
-                return ErrorType::ConnectionRefused;
-            case io::ErrorCode::EC_EHOSTUNREACH:
-                return ErrorType::ConnectionHostUnreach;
-            case io::ErrorCode::EC_EADDRINUSE:
-                return ErrorType::ConnectionAddrInUse;
-            case io::ErrorCode::EC_HOST_RESOLVED_ERROR:
-                return ErrorType::HostResolvedError;
-            default:
-                return ErrorType::ConnectionBase;
-            }
-        }
+    void PaymentConfirmation::get_Hash(Hash::Value& hv) const
+    {
+        Hash::Processor()
+            << "PaymentConfirmation"
+            << m_KernelID
+            << m_Sender
+            << m_Value
+            >> hv;
+    }
 
-        void PaymentConfirmation::get_Hash(Hash::Value& hv) const
-        {
-            Hash::Processor()
-                << "PaymentConfirmation"
-                << m_KernelID
-                << m_Sender
-                << m_Value
-                >> hv;
-        }
+    bool PaymentConfirmation::IsValid(const PeerID& pid) const
+    {
+        Point::Native pk;
+        if (!proto::ImportPeerID(pk, pid))
+            return false;
 
-        bool PaymentConfirmation::IsValid(const PeerID& pid) const
-        {
-            Point::Native pk;
-            if (!proto::ImportPeerID(pk, pid))
-                return false;
+        Hash::Value hv;
+        get_Hash(hv);
 
-            Hash::Value hv;
-            get_Hash(hv);
+        return m_Signature.IsValid(hv, pk);
+    }
 
-            return m_Signature.IsValid(hv, pk);
-        }
+    void PaymentConfirmation::Sign(const Scalar::Native& sk)
+    {
+        Hash::Value hv;
+        get_Hash(hv);
 
-        void PaymentConfirmation::Sign(const Scalar::Native& sk)
-        {
-            Hash::Value hv;
-            get_Hash(hv);
-
-            m_Signature.Sign(hv, sk);
-        }
+        m_Signature.Sign(hv, sk);
     }
 
     std::string TxDescription::getStatusString() const

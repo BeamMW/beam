@@ -21,7 +21,7 @@ namespace
     const char* BBS_TIMESTAMPS = "BbsTimestamps";
     const unsigned AddressUpdateInterval_ms = 60 * 1000; // check addresses every minute
 
-    beam::BbsChannel channel_from_wallet_id(const beam::WalletID& walletID)
+    beam::BbsChannel channel_from_wallet_id(const beam::wallet::WalletID& walletID)
     {
         beam::BbsChannel ret;
         walletID.m_Channel.Export(ret);
@@ -30,7 +30,7 @@ namespace
 }
 
 
-namespace beam {
+namespace beam::wallet {
 
     ///////////////////////////
 
@@ -91,7 +91,7 @@ namespace beam {
             if (!proto::Bbs::Decrypt(pMsg, nSize, it->get_ParentObj().m_sk))
                 continue;
 
-            wallet::SetTxParameter msgWallet;
+            SetTxParameter msgWallet;
             bool bValid = false;
 
             try {
@@ -199,7 +199,7 @@ namespace beam {
         return true;
     }
 
-    void BaseMessageEndpoint::Send(const WalletID& peerID, const wallet::SetTxParameter& msg)
+    void BaseMessageEndpoint::Send(const WalletID& peerID, const SetTxParameter& msg)
     {
         Serializer ser;
         ser& msg;

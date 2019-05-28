@@ -99,7 +99,7 @@ namespace beam::wallet
 
     void SharedTxBuilder::InitOutput()
     {
-        beam::Coin outputCoin;
+        Coin outputCoin;
 
         if (!m_Tx.GetParameter(TxParameterID::SharedCoinID, outputCoin.m_ID, m_SubTxID))
         {
