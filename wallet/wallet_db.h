@@ -231,7 +231,7 @@ namespace beam::wallet
 
         // /////////////////////////////////////////////
         // Transaction management
-        virtual std::vector<TxDescription> getTxHistory(uint64_t start = 0, int count = std::numeric_limits<int>::max()) = 0;
+        virtual std::vector<TxDescription> getTxHistory(wallet::TxType txType = wallet::TxType::Simple, uint64_t start = 0, int count = std::numeric_limits<int>::max()) = 0;
         virtual boost::optional<TxDescription> getTx(const TxID& txId) = 0;
         virtual void saveTx(const TxDescription& p) = 0;
         virtual void deleteTx(const TxID& txId) = 0;
@@ -319,7 +319,7 @@ namespace beam::wallet
         Height getCurrentHeight() const override;
         void rollbackConfirmedUtxo(Height minHeight) override;
 
-        std::vector<TxDescription> getTxHistory(uint64_t start, int count) override;
+        std::vector<TxDescription> getTxHistory(wallet::TxType txType, uint64_t start, int count) override;
         boost::optional<TxDescription> getTx(const TxID& txId) override;
         void saveTx(const TxDescription& p) override;
         void deleteTx(const TxID& txId) override;

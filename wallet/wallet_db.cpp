@@ -1653,25 +1653,52 @@ namespace beam::wallet
         notifyCoinsChanged();
     }
 
-    vector<TxDescription> WalletDB::getTxHistory(uint64_t start, int count)
+    vector<TxDescription> WalletDB::getTxHistory(wallet::TxType txType, uint64_t start, int count)
     {
         // TODO this is temporary solution
         int txCount = 0;
         {
-            sqlite::Statement stm(this, "SELECT COUNT(DISTINCT txID) FROM " TX_PARAMS_NAME " ;");
+            std::string req = "SELECT COUNT(DISTINCT txID) FROM " TX_PARAMS_NAME " WHERE paramID = ?1";
+            req += (txType != wallet::TxType::ALL) ? " AND value = ?2 ;" : " ;";
+
+            sqlite::Statement stm(this, req.c_str());
+            stm.bind(1, wallet::TxParameterID::TransactionType);
+
+            ByteBuffer typeBlob;
+            if (txType != wallet::TxType::ALL)
+            {
+                typeBlob = toByteBuffer(txType);
+                stm.bind(2, typeBlob);
+            }
+
             stm.step();
             stm.get(0, txCount);
         }
-        
+
         vector<TxDescription> res;
         if (txCount > 0)
         {
             res.reserve(static_cast<size_t>(min(txCount, count)));
-            const char* req = "SELECT DISTINCT txID FROM " TX_PARAMS_NAME " LIMIT ?1 OFFSET ?2 ;";
+            std::string req = "SELECT DISTINCT txID FROM " TX_PARAMS_NAME;
 
-            sqlite::Statement stm(this, req);
+            if (txType != wallet::TxType::ALL)
+            {
+                req += " WHERE paramID = ?3 AND value = ?4";
+            }
+
+            req += " LIMIT ?1 OFFSET ?2 ;";
+
+            sqlite::Statement stm(this, req.c_str());
             stm.bind(1, count);
             stm.bind(2, start);
+
+            ByteBuffer typeBlob;
+            if (txType != wallet::TxType::ALL)
+            {
+                stm.bind(3, wallet::TxParameterID::TransactionType);
+                typeBlob = toByteBuffer(txType);
+                stm.bind(4, typeBlob);
+            }
 
             while (stm.step())
             {

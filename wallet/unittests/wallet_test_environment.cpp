@@ -109,7 +109,7 @@ public:
     void subscribe(IWalletDbObserver* observer) override {}
     void unsubscribe(IWalletDbObserver* observer) override {}
 
-    std::vector<TxDescription> getTxHistory(uint64_t, int) override { return {}; };
+    std::vector<TxDescription> getTxHistory(wallet::TxType, uint64_t, int) override { return {}; };
     boost::optional<TxDescription> getTx(const TxID&) override { return boost::optional<TxDescription>{}; };
     void saveTx(const TxDescription& p) override
     {

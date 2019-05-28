@@ -308,7 +308,7 @@ namespace beam::wallet
 
     void Wallet::RefreshTransactions()
     {
-        auto txs = m_WalletDB->getTxHistory(); // get list of ALL transactions
+        auto txs = m_WalletDB->getTxHistory(TxType::ALL); // get list of ALL transactions
         for (auto& tx : txs)
         {
             // For all transactions that are not currently in the 'active' tx list
@@ -347,7 +347,7 @@ namespace beam::wallet
 
     void Wallet::ResumeAllTransactions()
     {
-        auto txs = m_WalletDB->getTxHistory();
+        auto txs = m_WalletDB->getTxHistory(TxType::ALL);
         for (auto& tx : txs)
         {
             ResumeTransaction(tx);

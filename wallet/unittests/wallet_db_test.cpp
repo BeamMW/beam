@@ -311,25 +311,25 @@ void TestStoreTxRecord()
         WALLET_CHECK_NO_THROW(walletDB->saveTx(tr));
     }
     WALLET_CHECK(walletDB->getTxHistory().size() == 100);
-    t = walletDB->getTxHistory(50, 2);
+    t = walletDB->getTxHistory(TxType::Simple, 50, 2);
     WALLET_CHECK(t.size() == 2);
-    t = walletDB->getTxHistory(99, 10);
+    t = walletDB->getTxHistory(TxType::Simple, 99, 10);
     WALLET_CHECK(t.size() == 1);
-    t = walletDB->getTxHistory(9, 0);
+    t = walletDB->getTxHistory(TxType::Simple, 9, 0);
     WALLET_CHECK(t.size() == 0);
-    t = walletDB->getTxHistory(50, 2);
+    t = walletDB->getTxHistory(TxType::Simple, 50, 2);
     id[0] = 50;
     WALLET_CHECK(t[0].m_txId == id);
     id[0] = 51;
     WALLET_CHECK(t[1].m_txId == id);
 
-    t = walletDB->getTxHistory(0, 1);
+    t = walletDB->getTxHistory(TxType::Simple, 0, 1);
     WALLET_CHECK(t.size() == 1 && t[0].m_txId[0] == 0);
 
-    t = walletDB->getTxHistory(99, 1);
+    t = walletDB->getTxHistory(TxType::Simple, 99, 1);
     WALLET_CHECK(t.size() == 1 && t[0].m_txId[0] == 99);
 
-    t = walletDB->getTxHistory(100, 1);
+    t = walletDB->getTxHistory(TxType::Simple, 100, 1);
     WALLET_CHECK(t.size() == 0);
 }
 

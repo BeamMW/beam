@@ -28,7 +28,8 @@ namespace beam::wallet
     enum class TxType : uint8_t
     {
         Simple,
-        AtomicSwap
+        AtomicSwap,
+        ALL
     };
 
     using TxID = std::array<uint8_t, 16>;
