@@ -52,6 +52,30 @@ namespace Lightning {
 		proto::FlyClient::Request::Ptr m_pRequest;
 		proto::FlyClient::RequestTransaction::Ptr m_pPendingTx;
 
+		// current negotiation
+		struct NegotiationCtx {
+			enum Enum {
+				Open,
+				Update,
+				Close, // graceful closing
+			};
+
+			Enum m_eType;
+			Storage::Map m_Data;
+
+			virtual ~NegotiationCtx() {}
+		};
+
+		std::unique_ptr<NegotiationCtx> m_pNegCtx;
+
+		struct NegotiationCtx_Open :public NegotiationCtx {
+			ChannelOpen m_Inst;
+		};
+
+		struct NegotiationCtx_Update :public NegotiationCtx {
+			ChannelUpdate m_Inst;
+		};
+
 	public:
 
 		struct DataOpen
@@ -123,32 +147,13 @@ namespace Lightning {
 		State::Enum get_State() const;
 		bool IsUnfairPeerClosed() const;
 
-		// current negotiation
-		struct NegotiationCtx {
-			enum Enum {
-				Open,
-				Update,
-				Close, // graceful closing
-			};
-
-			Enum m_eType;
-			Storage::Map m_Data;
-		};
-
-		std::unique_ptr<NegotiationCtx> m_pNegCtx;
-
-		struct NegotiationCtx_Open :public NegotiationCtx {
-			ChannelOpen m_Inst;
-		};
-
-		struct NegotiationCtx_Update :public NegotiationCtx {
-			ChannelUpdate m_Inst;
-		};
 
 
 		bool Open(const std::vector<Key::IDV>& vIn, uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0);
 
 		bool Update(Amount nMyNew);
+
+		void Close(); // initiate non-cooperative closing
 
 		void OnRolledBack();
 

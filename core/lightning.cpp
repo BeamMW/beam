@@ -527,7 +527,7 @@ void Channel::CreatePunishmentTx()
 	TxKernel::Ptr& pKrn = tx.m_vKernels.back();
 	pKrn.reset(new TxKernel);
 
-	pKrn->m_Height.m_Min = m_State.m_Close.m_hPhase1; // not mandatory
+//	pKrn->m_Height.m_Min = m_State.m_Close.m_hPhase1; // not mandatory
 	pKrn->m_Fee = m_Params.m_Fee;
 
 	// extract (pseudo)random part into kernel. No need for extra-secure nonce generation
@@ -547,7 +547,7 @@ void Channel::CreatePunishmentTx()
 		// test
 		TxBase::Context::Params pars;
 		TxBase::Context ctx(pars);
-		ctx.m_Height.m_Min = pKrn->m_Height.m_Min;
+		ctx.m_Height.m_Min = m_State.m_Close.m_hPhase1;
 
 		bool bb = tx.IsValid(ctx);
 		bb = bb;
@@ -809,6 +809,16 @@ bool Channel::Update(Amount nMyNew)
 	}
 
 	return true;
+}
+
+void Channel::Close()
+{
+	if (!m_State.m_Terminate)
+	{
+		m_State.m_Terminate = true;
+		m_pNegCtx.reset();
+		Update();
+	}
 }
 
 } // namespace Lightning
