@@ -26,8 +26,6 @@ namespace Lightning {
 	{
 		void CancelRequest();
 		void CancelTx();
-		void SwapIfRole(IBase& x, Key::IDV*& pA, Key::IDV*& pB);
-		void AddUpdatePoint();
 		void SendTx(const Transaction& tx);
 		void SendTxNoSpam(const Transaction& tx, Height h);
 		void ConfirmKernel(const Merkle::Hash& hv, Height h);
@@ -104,6 +102,7 @@ namespace Lightning {
 			void get_Phase2ID(Merkle::Hash& hv, bool bInitiator) const;
 
 			bool IsPhase2UnfairPeerPunish() const;
+			bool IsWithdrawalReady() const;
 		};
 
 		std::unique_ptr<DataOpen> m_pOpen;
@@ -185,6 +184,9 @@ namespace Lightning {
 		virtual void OnCoin(const Key::IDV&, Height, CoinState, bool bReverse) {}
 
 		void OnCoin(const std::vector<Key::IDV>&, Height, CoinState, bool bReverse);
+
+	private:
+		DataUpdate& CreateUpdatePoint(uint32_t iRole, const Key::IDV& msA, const Key::IDV& msB, const Key::IDV& outp);
 	};
 
 

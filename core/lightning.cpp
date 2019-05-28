@@ -29,27 +29,31 @@ struct Channel::MuSigLocator
 	bool m_Initiator;
 };
 
+bool Channel::DataUpdate::IsWithdrawalReady() const
+{
+	return !(m_tx1.m_vKernels.empty() || m_tx2.m_vKernels.empty());
+}
+
 Channel::State::Enum Channel::get_State() const
 {
 	if (!m_pOpen)
 		return State::None;
+
+	assert(!m_vUpdates.empty());
 
 	if (!m_pOpen->m_hOpened)
 	{
 		if (m_State.m_hQueryLast >= m_pOpen->m_hrLimit.m_Max)
 			return State::OpenFailed;
 
-		if (m_pNegCtx && (NegotiationCtx::Open == m_pNegCtx->m_eType))
-		{
-			if (m_vUpdates.empty())
-				return State::Opening0; // no withdrawal path yet
+		if (!m_vUpdates.front()->IsWithdrawalReady())
+			return State::Opening0;
 
-			// still negotiating, however the barrier may already be crossed (I don't have opening tx - then maybe other peer has).
+		if (m_pNegCtx && (NegotiationCtx::Open == m_pNegCtx->m_eType))
+			// still negotiating, however the barrier may already be crossed (if I don't have opening tx - then maybe other peer has).
 			// More precisely - can check our Role. nevermind.
 			return State::Opening1;
-		}
 
-		assert(!m_vUpdates.empty());
 		return State::Opening2;
 	}
 
@@ -151,31 +155,12 @@ void Channel::UpdateNegotiation(Storage::Map& dataIn, Storage::Map& dataOut)
 				m_pOpen->m_Comm0 = res.m_Comm0;
 				m_pOpen->m_txOpen = std::move(res.m_txOpen);
 				x.m_Tx0.Get(m_pOpen->m_hvKernel0, MultiTx::Codes::KernelID);
-
-				assert(m_vUpdates.empty());
-				AddUpdatePoint();
-
 			}
 
 			assert(m_vUpdates.size() == 1);
 
-
 			DataUpdate& d = *m_vUpdates.front();
 			Cast::Down<ChannelWithdrawal::Result>(d) = std::move(res);
-
-			d.m_RevealedSelfKey = false;
-			d.m_PeerKeyValid = false;
-			d.m_PeerKey = Zero;
-
-			Key::IDV* pA = &d.m_msMy;
-			Key::IDV* pB = &d.m_msPeer;
-			SwapIfRole(x, pA, pB);
-
-			std::vector<Key::IDV> vWd;
-			x.Setup(false, nullptr, nullptr, nullptr, MultiTx::KernelParam(), pA, pB, &vWd, WithdrawTx::CommonParam());
-
-			if (!vWd.empty())
-				d.m_Outp = vWd.front();
 		}
 		break;
 
@@ -204,26 +189,11 @@ void Channel::UpdateNegotiation(Storage::Map& dataIn, Storage::Map& dataOut)
 			if (!(nDone1 & nFlags0))
 				break;
 
-			if (!(nDone0 & nFlags0))
-			{
-				AddUpdatePoint();
-			}
-
 			assert(m_vUpdates.size() > 1);
 			DataUpdate& d = *m_vUpdates.back();
 
 			x.get_Result(d);
-
-			Key::IDV* pA = &d.m_msMy;
-			Key::IDV* pB = &d.m_msPeer;
-			SwapIfRole(x, pA, pB);
-
-			std::vector<Key::IDV> vWd;
-			x.Setup(false, nullptr, nullptr, pA, pB, &vWd, WithdrawTx::CommonParam(), nullptr, nullptr, nullptr);
-
-			if (!vWd.empty())
-				d.m_Outp = vWd.front();
-	}
+		}
 		break;
 
 	default:
@@ -251,12 +221,13 @@ void Channel::Update()
 
 	if (!m_pOpen)
 		return;
+	assert(!m_vUpdates.empty());
 
 	Height hTip = get_Tip();
 
 	if (!m_pOpen->m_hOpened)
 	{
-		if (m_vUpdates.empty())
+		if (!m_vUpdates.front()->IsWithdrawalReady())
 		{
 			// early negotiation stage
 			m_State.m_hQueryLast = hTip;
@@ -326,7 +297,6 @@ void Channel::Update()
 			{
 				// Select the termination path. Note: it may not be the most recent m_vUpdates, because it may (theoretically) be not ready yet.
 				// Go from back to front, until we encounter a valid path
-				assert(!m_vUpdates.empty());
 				size_t iPath = m_vUpdates.size() - 1;
 
 				for (; ; iPath--)
@@ -346,18 +316,20 @@ void Channel::Update()
 }
 
 
-void Channel::SwapIfRole(IBase& x, Key::IDV*& pA, Key::IDV*& pB)
-{
-	uint32_t iRole = 0;
-	x.Get(iRole, Codes::Role);
-
-	if (iRole)
-		std::swap(pA, pB);
-}
-
-void Channel::AddUpdatePoint()
+Channel::DataUpdate& Channel::CreateUpdatePoint(uint32_t iRole, const Key::IDV& msA, const Key::IDV& msB, const Key::IDV& outp)
 {
 	m_vUpdates.push_back(std::unique_ptr<DataUpdate>(new DataUpdate));
+	DataUpdate& d = *m_vUpdates.back();
+
+	const Key::IDV* pArr[] = { &msA, &msB };
+
+	d.m_msMy = *pArr[iRole];
+	d.m_msPeer = *pArr[!iRole];
+	d.m_Outp = outp;
+	d.m_PeerKeyValid = false;
+	d.m_RevealedSelfKey = false;
+
+	return d;
 }
 
 void Channel::CancelRequest()
@@ -457,7 +429,7 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 		// continue search
 		if (r.m_Initiator)
 		{
-			assert(r.m_iIndex < m_vUpdates.size());
+			assert(r.m_iIndex < m_vUpdates.size()); // !!!
 
 			r.m_Initiator = false;
 			r.m_Msg.m_Utxo = m_vUpdates[r.m_iIndex]->m_CommPeer1;
@@ -811,6 +783,8 @@ bool Channel::Open(uint32_t iRole, Amount nMy, Amount nOther, const HeightRange&
 	else
 		m_pOpen->m_kidvChange = vChg.front();
 
+	CreateUpdatePoint(iRole, msA, msB, vOut.front());
+
 	return true;
 }
 
@@ -868,6 +842,8 @@ bool Channel::UpdateBalance(Amount nMyNew)
 		p->m_Inst.Setup(true, &m_pOpen->m_ms0, &m_pOpen->m_Comm0, &msA, &msB, &Cast::NotConst(vOut), cp, &d0.m_msMy, &d0.m_msPeer, &d0.m_CommPeer1);
 	}
 
+	CreateUpdatePoint(iRole, msA, msB, vOut.front());
+
 	return true;
 }
 
@@ -890,7 +866,7 @@ bool Channel::IsSafeToForget(Height hMaxRollback)
 	{
 		return
 			(m_State.m_hQueryLast >= m_pOpen->m_hrLimit.m_Max + hMaxRollback) || // too late
-			m_vUpdates.empty(); // negotiation is at a very early stage
+			!m_vUpdates.front()->IsWithdrawalReady(); // negotiation is at a very early stage
 	}
 
 	return m_State.m_Close.m_hPhase2 && (m_State.m_Close.m_hPhase2 + hMaxRollback <= get_Tip());
