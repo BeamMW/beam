@@ -337,10 +337,15 @@ namespace beam::wallet
     {
         if (!m_EventToUpdate)
         {
-            m_EventToUpdate = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { UpdateImpl(); });
+            m_EventToUpdate = io::AsyncEvent::create(io::Reactor::get_Current(), [this, weak = this->weak_from_this()]()
+            { 
+                if (auto l = weak.lock())
+                {
+                    Update();
+                }
+            });
+            m_EventToUpdate->post();
         }
-
-        m_EventToUpdate->post();
     }
 
     const TxID& BaseTransaction::GetTxID() const
@@ -353,6 +358,7 @@ namespace beam::wallet
         AsyncContextHolder async(m_Gateway);
         try
         {
+            m_EventToUpdate.reset();
             if (CheckExternalFailures())
             {
                 return;

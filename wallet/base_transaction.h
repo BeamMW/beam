@@ -21,6 +21,8 @@
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
+#include <memory>
+
 #if defined(BEAM_HW_WALLET)
 #include "hw_wallet.h"
 #endif

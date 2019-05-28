@@ -26,18 +26,35 @@ namespace beam
     {
     }
 
-    void Bitcoind017::signRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&, bool)> callback)
+    void Bitcoind017::signRawTransaction(const std::string& rawTx, std::function<void(const IBitcoinBridge::Error&, const std::string&, bool)> callback)
     {
-        sendRequest("signrawtransactionwithwallet", "\"" + rawTx + "\"", [callback](const std::string& response) {
-            json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
-            const auto& result = reply["result"];
+        sendRequest("signrawtransactionwithwallet", "\"" + rawTx + "\"", [callback](IBitcoinBridge::Error error, const std::string& response) {
             std::string hex;
             bool isComplete = false;
-            if (!result.empty())
+
+            if (error.m_type == IBitcoinBridge::None)
             {
-                hex = result["hex"].get<std::string>();
-                isComplete = result["complete"].get<bool>();
+                try
+                {
+                    json reply = json::parse(response);
+
+                    if (reply["error"].empty())
+                    {
+                        const auto& result = reply["result"];
+                        hex = result["hex"].get<std::string>();
+                        isComplete = result["complete"].get<bool>();
+                    }
+                    else
+                    {
+                        error.m_type = IBitcoinBridge::BitcoinError;
+                        error.m_message = reply["error"]["message"].get<std::string>();
+                    }
+                }
+                catch (const std::exception& ex)
+                {
+                    error.m_type = IBitcoinBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
+                }
             }
 
             callback(error, hex, isComplete);
@@ -50,7 +67,7 @@ namespace beam
         uint64_t amount,
         int outputIndex,
         Timestamp locktime,
-        std::function<void(const std::string&, const std::string&)> callback)
+        std::function<void(const IBitcoinBridge::Error&, const std::string&)> callback)
     {
         std::string args("[{\"txid\": \"" + contractTxId + "\", \"vout\":" + std::to_string(outputIndex) + ", \"Sequence\": " + std::to_string(libbitcoin::max_input_sequence - 1) + " }]");
 
@@ -59,10 +76,31 @@ namespace beam
         {
             args += "," + std::to_string(locktime);
         }
-        sendRequest("createrawtransaction", args, [callback](const std::string& response) {
-            json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
-            std::string result = reply["result"].empty() ? "" : reply["result"].get<std::string>();
+        sendRequest("createrawtransaction", args, [callback](IBitcoinBridge::Error error, const std::string& response) {
+            std::string result;
+
+            if (error.m_type == IBitcoinBridge::None)
+            {
+                try
+                {
+                    json reply = json::parse(response);
+
+                    if (reply["error"].empty())
+                    {
+                        result = reply["result"].get<std::string>();
+                    }
+                    else
+                    {
+                        error.m_type = IBitcoinBridge::BitcoinError;
+                        error.m_message = reply["error"]["message"].get<std::string>();
+                    }
+                }
+                catch (const std::exception& ex)
+                {
+                    error.m_type = IBitcoinBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
+                }
+            }
 
             callback(error, result);
         });

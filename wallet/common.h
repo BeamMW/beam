@@ -110,6 +110,8 @@ namespace beam::wallet
     MACRO(SwapInvalidAmount,            15, "Contract's amount is not valid") \
     MACRO(SwapInvalidContract,          16, "Side chain has invalid contract") \
     MACRO(SwapSecondSideBridgeError,    17, "Side chain bridge has internal error") \
+    MACRO(SwapNetworkBridgeError,       18, "Side chain bridge has network error") \
+    MACRO(SwapFormatResponseError,      19, "Side chain bridge has format response error") \
 
     enum TxFailureReason : int32_t
     {

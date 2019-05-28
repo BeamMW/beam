@@ -20,9 +20,11 @@
 #include "bitcoin/bitcoin.hpp"
 #include "bitcoin_bridge.h"
 
+#include <memory>
+
 namespace beam::wallet
 {
-    class BitcoinSide : public SecondSide
+    class BitcoinSide : public SecondSide, public std::enable_shared_from_this<BitcoinSide>
     {
     public:
         BitcoinSide(BaseTransaction& tx, std::shared_ptr<IBitcoinBridge> bitcoinBridge, bool isBeamSide);
@@ -47,14 +49,15 @@ namespace beam::wallet
         bool SendWithdrawTx(SubTxID subTxID);
         uint64_t GetBlockCount();
         std::string GetWithdrawAddress() const;
+        void SetTxError(const IBitcoinBridge::Error& error, SubTxID subTxID);
 
-        void OnGetRawChangeAddress(const std::string& error, const std::string& address);
-        void OnFundRawTransaction(const std::string& error, const std::string& hexTx, int changePos);
-        void OnSignLockTransaction(const std::string& error, const std::string& hexTx, bool complete);
-        void OnCreateWithdrawTransaction(SubTxID subTxID, const std::string& error, const std::string& hexTx);
-        void OnDumpPrivateKey(SubTxID subTxID, const std::string& error, const std::string& privateKey);
-        void OnGetSwapLockTxConfirmations(const std::string& error, const std::string& hexScript, double amount, uint16_t confirmations);
-        void OnGetBlockCount(const std::string& error, uint64_t blockCount);
+        void OnGetRawChangeAddress(const IBitcoinBridge::Error& error, const std::string& address);
+        void OnFundRawTransaction(const IBitcoinBridge::Error& error, const std::string& hexTx, int changePos);
+        void OnSignLockTransaction(const IBitcoinBridge::Error& error, const std::string& hexTx, bool complete);
+        void OnCreateWithdrawTransaction(SubTxID subTxID, const IBitcoinBridge::Error& error, const std::string& hexTx);
+        void OnDumpPrivateKey(SubTxID subTxID, const IBitcoinBridge::Error& error, const std::string& privateKey);
+        void OnGetSwapLockTxConfirmations(const IBitcoinBridge::Error& error, const std::string& hexScript, double amount, uint16_t confirmations);
+        void OnGetBlockCount(const IBitcoinBridge::Error& error, uint64_t blockCount);
 
     private:
         BaseTransaction& m_tx;

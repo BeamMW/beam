@@ -33,27 +33,44 @@ namespace beam
 
     Bitcoind016::Bitcoind016(io::Reactor& reactor, const BitcoinOptions& options)
         : m_httpClient(reactor)
-        //, m_address(address)
         , m_options(options)
         , m_authorization(generateAuthorization(options.m_userName, options.m_pass))
-        /*, m_isMainnet(mainnet)
-        , m_feeRate(feeRate)
-        , m_confirmations(confirmations)*/
     {
     }
 
-    void Bitcoind016::dumpPrivKey(const std::string& btcAddress, std::function<void(const std::string&, const std::string&)> callback)
+    void Bitcoind016::dumpPrivKey(const std::string& btcAddress, std::function<void(const IBitcoinBridge::Error&, const std::string&)> callback)
     {
-        sendRequest("dumpprivkey", "\"" + btcAddress + "\"", [callback] (const std::string& response){
-            json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
-            std::string result = reply["result"].empty() ? "" : reply["result"].get<std::string>();
+        sendRequest("dumpprivkey", "\"" + btcAddress + "\"", [callback] (IBitcoinBridge::Error error, const std::string& response){
+            std::string result;
+
+            if (error.m_type == IBitcoinBridge::None)
+            {
+                try
+                {
+                    json reply = json::parse(response);
+
+                    if (reply["error"].empty())
+                    {
+                        result = reply["result"].get<std::string>();
+                    }
+                    else
+                    {
+                        error.m_type = IBitcoinBridge::BitcoinError;
+                        error.m_message = reply["error"]["message"].get<std::string>();
+                    }
+                }
+                catch (const std::exception& ex)
+                {
+                    error.m_type = IBitcoinBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
+                }
+            }
 
             callback(error, result);
         });
     }
 
-    void Bitcoind016::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const std::string&, const std::string&, int)> callback)
+    void Bitcoind016::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const IBitcoinBridge::Error&, const std::string&, int)> callback)
     {
         std::string params = "\"" + rawTx + "\"";
         if (feeRate)
@@ -61,59 +78,135 @@ namespace beam
             params += ", {\"feeRate\": " + std::to_string(double(feeRate) / libbitcoin::satoshi_per_bitcoin) + "}";
         }
 
-        sendRequest("fundrawtransaction", params, [callback](const std::string& response) {
-            json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
-            const auto& result = reply["result"];
-
+        sendRequest("fundrawtransaction", params, [callback](IBitcoinBridge::Error error, const std::string& response) {
             std::string hex;
             int changepos = -1;
 
-            if (!result.empty())
+            if (error.m_type == IBitcoinBridge::None)
             {
-                hex = result["hex"].get<std::string>();
-                changepos = result["changepos"].get<int>();
+                try
+                {
+                    json reply = json::parse(response);
+
+                    if (reply["error"].empty())
+                    {
+                        const auto& result = reply["result"];
+
+                        hex = result["hex"].get<std::string>();
+                        changepos = result["changepos"].get<int>();
+                    }
+                    else
+                    {
+                        error.m_type = IBitcoinBridge::BitcoinError;
+                        error.m_message = reply["error"]["message"].get<std::string>();
+                    }
+                }
+                catch (const std::exception& ex)
+                {
+                    error.m_type = IBitcoinBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
+                }
             }
 
             callback(error, hex, changepos);
         });
     }
 
-    void Bitcoind016::signRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&, bool)> callback)
+    void Bitcoind016::signRawTransaction(const std::string& rawTx, std::function<void(const IBitcoinBridge::Error&, const std::string&, bool)> callback)
     {
-        sendRequest("signrawtransaction", "\"" + rawTx + "\"", [callback](const std::string& response) {
-            json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
-            const auto& result = reply["result"];
+        sendRequest("signrawtransaction", "\"" + rawTx + "\"", [callback](IBitcoinBridge::Error error, const std::string& response) {
             std::string hex;
             bool isComplete = false;
-            if (!result.empty())
+
+            if (error.m_type == IBitcoinBridge::None)
             {
-                hex = result["hex"].get<std::string>();
-                isComplete = result["complete"].get<bool>();
+                try
+                {
+                    json reply = json::parse(response);
+
+                    if (reply["error"].empty())
+                    {
+                        const auto& result = reply["result"];
+
+                        hex = result["hex"].get<std::string>();
+                        isComplete = result["complete"].get<bool>();
+                    }
+                    else
+                    {
+                        error.m_type = IBitcoinBridge::BitcoinError;
+                        error.m_message = reply["error"]["message"].get<std::string>();
+                    }
+                }
+                catch (const std::exception& ex)
+                {
+                    error.m_type = IBitcoinBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
+                }
             }
 
             callback(error, hex, isComplete);
         });
     }
 
-    void Bitcoind016::sendRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&)> callback)
+    void Bitcoind016::sendRawTransaction(const std::string& rawTx, std::function<void(const IBitcoinBridge::Error&, const std::string&)> callback)
     {
-        sendRequest("sendrawtransaction", "\"" + rawTx + "\"", [callback](const std::string& response) {
-            json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
-            std::string result = reply["result"].empty() ? "" : reply["result"].get<std::string>();
+        sendRequest("sendrawtransaction", "\"" + rawTx + "\"", [callback](IBitcoinBridge::Error error, const std::string& response) {
+            std::string result;
+
+            if (error.m_type == IBitcoinBridge::None)
+            {
+                try
+                {
+                    json reply = json::parse(response);
+
+                    if (reply["error"].empty())
+                    {
+                        result = reply["result"].get<std::string>();
+                    }
+                    else
+                    {
+                        error.m_type = IBitcoinBridge::BitcoinError;
+                        error.m_message = reply["error"]["message"].get<std::string>();
+                    }
+                }
+                catch (const std::exception& ex)
+                {
+                    error.m_type = IBitcoinBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
+                }
+            }
 
             callback(error, result);
         });
     }
 
-    void Bitcoind016::getRawChangeAddress(std::function<void(const std::string&, const std::string&)> callback)
+    void Bitcoind016::getRawChangeAddress(std::function<void(const IBitcoinBridge::Error&, const std::string&)> callback)
     {
-        sendRequest("getrawchangeaddress", "\"legacy\"", [callback](const std::string& response) {
-            json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
-            auto result = reply["result"].empty() ? "" : reply["result"].get<std::string>();
+        sendRequest("getrawchangeaddress", "\"legacy\"", [callback](IBitcoinBridge::Error error, const std::string& response) {
+            std::string result;
+
+            if (error.m_type == IBitcoinBridge::None)
+            {
+                try
+                {
+                    json reply = json::parse(response);
+
+                    if (reply["error"].empty())
+                    {
+                        result = reply["result"].get<std::string>();
+                    }
+                    else
+                    {
+                        error.m_type = IBitcoinBridge::BitcoinError;
+                        error.m_message = reply["error"]["message"].get<std::string>();
+                    }
+                }
+                catch (const std::exception& ex)
+                {
+                    error.m_type = IBitcoinBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
+                }
+            }
 
             callback(error, result);
         });
@@ -125,7 +218,7 @@ namespace beam
         uint64_t amount,
         int outputIndex,
         Timestamp locktime,
-        std::function<void(const std::string&, const std::string&)> callback)
+        std::function<void(const IBitcoinBridge::Error&, const std::string&)> callback)
     {
         std::string args("[{\"txid\": \"" + contractTxId + "\", \"vout\":" + std::to_string(outputIndex) + ", \"Sequence\": " + std::to_string(libbitcoin::max_input_sequence - 1) + " }]");
 
@@ -134,43 +227,100 @@ namespace beam
         {
             args += "," + std::to_string(locktime);
         }
-        sendRequest("createrawtransaction", args, [callback](const std::string& response) {
-            json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
-            auto result = reply["result"].empty() ? "" : reply["result"].get<std::string>();
+        sendRequest("createrawtransaction", args, [callback](IBitcoinBridge::Error error, const std::string& response) {
+            std::string result;
+
+            if (error.m_type == IBitcoinBridge::None)
+            {
+                try
+                {
+                    json reply = json::parse(response);
+
+                    if (reply["error"].empty())
+                    {
+                        result = reply["result"].empty() ? "" : reply["result"].get<std::string>();
+                    }
+                    else
+                    {
+                        error.m_type = IBitcoinBridge::BitcoinError;
+                        error.m_message = reply["error"]["message"].get<std::string>();
+                    }
+                }
+                catch (const std::exception& ex)
+                {
+                    error.m_type = IBitcoinBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
+                }
+            }
 
             callback(error, result);
         });
     }
 
-    void Bitcoind016::getTxOut(const std::string& txid, int outputIndex, std::function<void(const std::string&, const std::string&, double, uint16_t)> callback)
+    void Bitcoind016::getTxOut(const std::string& txid, int outputIndex, std::function<void(const IBitcoinBridge::Error&, const std::string&, double, uint16_t)> callback)
     {
-        sendRequest("gettxout", "\"" + txid + "\"" + "," + std::to_string(outputIndex), [callback](const std::string& response) {
-            json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
-            const auto& result = reply["result"];
+        sendRequest("gettxout", "\"" + txid + "\"" + "," + std::to_string(outputIndex), [callback](IBitcoinBridge::Error error, const std::string& response) {
             double value = 0;
             uint16_t confirmations = 0;
             std::string scriptHex;
 
-            if (!result.empty())
+            if (error.m_type == IBitcoinBridge::None)
             {
-                scriptHex = result["scriptPubKey"]["hex"].get<std::string>();
-                value = result["value"].get<double>();
-                confirmations = result["confirmations"];
+                try
+                {
+                    json reply = json::parse(response);
+
+                    if (reply["error"].empty())
+                    {
+                        const auto& result = reply["result"];
+                        scriptHex = result["scriptPubKey"]["hex"].get<std::string>();
+                        value = result["value"].get<double>();
+                        confirmations = result["confirmations"];
+                    }
+                    else
+                    {
+                        error.m_type = IBitcoinBridge::BitcoinError;
+                        error.m_message = reply["error"]["message"].get<std::string>();
+                    }
+                }
+                catch (const std::exception& ex)
+                {
+                    error.m_type = IBitcoinBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
+                }
             }
 
             callback(error, scriptHex, value, confirmations);
         });
     }
 
-    void Bitcoind016::getBlockCount(std::function<void(const std::string&, uint64_t)> callback)
+    void Bitcoind016::getBlockCount(std::function<void(const IBitcoinBridge::Error&, uint64_t)> callback)
     {
-        sendRequest("getblockcount", "", [callback](const std::string& response) {
-            json reply = json::parse(response);
-            std::string error = reply["error"].empty() ? "" : reply["error"]["message"].get<std::string>();
-            uint64_t blockCount = reply["result"].empty() ? 0 : reply["result"].get<uint64_t>();
+        sendRequest("getblockcount", "", [callback](IBitcoinBridge::Error error, const std::string& response) {
+            uint64_t blockCount = 0;
 
+            if (error.m_type == IBitcoinBridge::None)
+            {
+                try
+                {
+                    json reply = json::parse(response);
+
+                    if (reply["error"].empty())
+                    {
+                        blockCount = reply["result"].empty() ? 0 : reply["result"].get<uint64_t>();
+                    }
+                    else
+                    {
+                        error.m_type = IBitcoinBridge::BitcoinError;
+                        error.m_message = reply["error"]["message"].get<std::string>();
+                    }
+                }
+                catch (const std::exception& ex)
+                {
+                    error.m_type = IBitcoinBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
+                }
+            }
             callback(error, blockCount);
         });
     }
@@ -200,7 +350,7 @@ namespace beam
         return m_options.m_lockTimeInBlocks;
     }
 
-    void Bitcoind016::sendRequest(const std::string& method, const std::string& params, std::function<void(const std::string&)> callback)
+    void Bitcoind016::sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const std::string&)> callback)
     {
         const std::string content(R"({"method":")" + method + R"(","params":[)" + params + "]}");
         const HeaderPair headers[] = {
@@ -217,16 +367,30 @@ namespace beam
             .body(content.c_str(), content.size());
 
         request.callback([callback](uint64_t id, const HttpMsgReader::Message& msg) -> bool {
-            size_t sz = 0;
-            const void* body = msg.msg->get_body(sz);
-            if (sz > 0 && body)
+            Error error{ None, "" };
+            std::string response;
+
+            if (msg.what == HttpMsgReader::http_message)
             {
-                callback(std::string(static_cast<const char*>(body), sz));
+                size_t sz = 0;
+                const void* body = msg.msg->get_body(sz);
+                if (sz > 0 && body)
+                {
+                    response = std::string(static_cast<const char*>(body), sz);
+                }
+                else
+                {
+                    error.m_type = InvalidResultFormat;
+                    error.m_message = "Empty result";
+                }
             }
             else
             {
-                callback("");
+                error.m_type = IOError;
+                error.m_message = msg.error_str();
             }
+
+            callback(error, response);
             return false;
         });
 

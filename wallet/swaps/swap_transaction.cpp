@@ -419,7 +419,7 @@ namespace beam::wallet
             }
             else
             {
-                assert(false && "");
+                assert(false && "Impossible case!");
                 return;
             }
         }
@@ -427,7 +427,7 @@ namespace beam::wallet
         {
             if (isBeamSide)
             {
-                assert(false && "");
+                assert(false && "Impossible case!");
                 return;
             }
             else
@@ -445,7 +445,7 @@ namespace beam::wallet
             }
             else
             {
-                assert(false && "");
+                assert(false && "Impossible case!");
                 return;
             }
             break;
@@ -1098,7 +1098,7 @@ namespace beam::wallet
             state == State::Invitation ||
             state == State::HandlingContractTX) && GetParameter(TxParameterID::InternalFailureReason, reason, SubTxIndex::LOCK_TX))
         {
-            OnSubTxFailed(reason, SubTxIndex::LOCK_TX, false);
+            OnFailed(reason, false);
         }
     }
 
