@@ -115,7 +115,7 @@ namespace Lightning {
 		{
 			// generic (used not only for opening)
 			Height m_hTxSentLast = 0;
-			Height m_hQueryLast = 0;
+			Height m_hQueryLast = 0; // the last height of the current unsuccessful query finish.
 
 			enum Enum {
 				None,

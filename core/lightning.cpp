@@ -40,7 +40,7 @@ Channel::State::Enum Channel::get_State() const
 			// only 1 peer has the opening tx
 			return m_pOpen->m_txOpen.m_vKernels.empty() ? State::Opening1 : State::Opening0;
 
-		return (m_State.m_hQueryLast <= m_pOpen->m_hrLimit.m_Max) ? State::Opening2 : State::OpenFailed;
+		return (m_State.m_hQueryLast < m_pOpen->m_hrLimit.m_Max) ? State::Opening2 : State::OpenFailed;
 	}
 
 	if (!m_State.m_Close.m_hPhase1)
@@ -290,8 +290,6 @@ void Channel::Update()
 			CancelRequest();
 		}
 
-		m_State.m_hQueryLast = hTip;
-
 		MuSigLocator::Ptr pReq(new MuSigLocator);
 		pReq->m_iIndex = pReq->m_nTotal = m_vUpdates.size();
 		pReq->m_Initiator = false;
@@ -433,6 +431,7 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 			if (!r.m_iIndex)
 			{
 				// not found! (it's a problem)
+				m_State.m_hQueryLast = get_Tip();
 				Update();
 				return;
 			}
@@ -452,34 +451,29 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 		// bingo!
 		if (r.m_iIndex == r.m_nTotal)
 		{
+			m_State.m_hQueryLast = get_Tip();
 			ZeroObject(m_State.m_Close); // msig0 is still intact
 		}
 		else
 		{
 			// withdrawal detected
-			State::Close c;
-			ZeroObject(c);
-			c.m_iPath = r.m_iIndex;
-			c.m_Initiator = r.m_Initiator;
-			c.m_hPhase1 = r.m_Res.m_Proofs.front().m_State.m_Maturity;
+			m_State.m_hQueryLast = 0;
+			m_State.m_hTxSentLast = 0;
 
-			if (memcmp(&c, &m_State.m_Close, sizeof(c)))
+			m_State.m_Close.m_iPath = r.m_iIndex;
+			m_State.m_Close.m_Initiator = r.m_Initiator;
+			m_State.m_Close.m_hPhase1 = r.m_Res.m_Proofs.front().m_State.m_Maturity;
+			m_State.m_Close.m_hPhase2 = 0;
+
+			m_State.m_Terminate = true; // either we're closing it, or peer attempted
+			m_pNegCtx.reset(); // nore more negotiations!
+
+			if (IsUnfairPeerClosed())
 			{
-				m_State.m_Close = c;
-
-				m_State.m_Terminate = true; // either we're closing it, or peer attempted
-				m_pNegCtx.reset(); // nore more negotiations!
-
-				m_State.m_hQueryLast = 0;
-				m_State.m_hTxSentLast = 0;
-
-				if (IsUnfairPeerClosed())
-				{
-					DataUpdate& d = *m_vUpdates[c.m_iPath];
-					if (!d.IsPhase2UnfairPeerPunish())
-						// punish it! Create an immediate withdraw tx, put it instead of m_txPeer2
-						CreatePunishmentTx();
-				}
+				DataUpdate& d = *m_vUpdates[m_State.m_Close.m_iPath];
+				if (!d.IsPhase2UnfairPeerPunish())
+					// punish it! Create an immediate withdraw tx, put it instead of m_txPeer2
+					CreatePunishmentTx();
 			}
 		}
 
@@ -580,6 +574,8 @@ void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
 		}
 
 	}
+	else
+		m_State.m_hQueryLast = get_Tip();
 
 	Update();
 }
@@ -639,7 +635,6 @@ void Channel::ConfirmKernel(const Merkle::Hash& hv, Height h)
 {
 	if (m_State.m_hQueryLast == h)
 		return;
-	m_State.m_hQueryLast = h;
 
 	if (m_pRequest)
 	{
