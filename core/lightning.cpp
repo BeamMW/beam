@@ -307,10 +307,22 @@ void Channel::Update()
 			// Are we already in the channel-terminate phase?
 			if (m_State.m_Terminate)
 			{
+				// Select the termination path. Note: it may not be the most recent m_vUpdates, because it may (theoretically) be not ready yet.
+				// Go from back to front, until we encounter a valid path
 				assert(!m_vUpdates.empty());
-				const DataUpdate& d = *m_vUpdates.back();
+				size_t iPath = m_vUpdates.size() - 1;
 
-				SendTxNoSpam(d.m_tx1, hTip);
+				for (; ; iPath--)
+				{
+					const DataUpdate& d = *m_vUpdates[iPath];
+					if (!d.m_tx1.m_vKernels.empty() && !d.m_tx2.m_vKernels.empty())
+						break; // good enough
+
+					// we must never reveal our key before we obtain the full withdrawal path
+					assert(!d.m_RevealedSelfKey);
+				}
+
+				SendTxNoSpam(m_vUpdates[iPath]->m_tx1, hTip);
 			}
 		}
 	}
@@ -463,14 +475,84 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 
 				if (IsUnfairPeerClosed())
 				{
-					// punish it! Create an immediate withdraw tx, put it instead of m_txPeer2
-					// TODO!
+					DataUpdate& d = *m_vUpdates[c.m_iPath];
+					if (!d.IsPhase2UnfairPeerPunish())
+						// punish it! Create an immediate withdraw tx, put it instead of m_txPeer2
+						CreatePunishmentTx();
 				}
 			}
 		}
 
 		Update();
 	}
+}
+
+void Channel::CreatePunishmentTx()
+{
+	assert(m_State.m_Terminate && !m_State.m_Close.m_Initiator && (m_State.m_Close.m_iPath + 1 < m_vUpdates.size()));
+
+	DataUpdate& d = *m_vUpdates[m_State.m_Close.m_iPath];
+	assert(!d.IsPhase2UnfairPeerPunish()); // not yet
+
+	DataUpdate& d1 = *m_vUpdates[m_State.m_Close.m_iPath + 1];
+	assert(d1.m_PeerKeyValid);
+
+	// Create an immediate withdraw tx, put it instead of m_txPeer2
+	Key::IKdf::Ptr pKdf;
+	get_Kdf(pKdf);
+
+	Transaction& tx = d.m_txPeer2;
+
+	assert(tx.m_vInputs.size() == 1); // msig0
+
+	ECC::Scalar::Native offs, k;
+	pKdf->DeriveKey(offs, d.m_msPeer); // our part
+	offs += ECC::Scalar::Native(d1.m_PeerKey); // peer part
+
+	Key::IDV kidvOut;
+	kidvOut.m_Value = d.m_msPeer.m_Value - m_Params.m_Fee;
+	kidvOut.m_Type = Key::Type::Regular;
+	AllocTxoID(kidvOut);
+
+	tx.m_vOutputs.resize(1);
+	Output::Ptr& pOutp = tx.m_vOutputs.back();
+	pOutp.reset(new Output);
+
+	pOutp->Create(Rules::get().pForks[1].m_Height, k, *pKdf, kidvOut, *pKdf);
+
+	k = -k;
+	offs += k;
+
+	tx.m_vKernels.resize(1);
+	TxKernel::Ptr& pKrn = tx.m_vKernels.back();
+	pKrn.reset(new TxKernel);
+
+	pKrn->m_Height.m_Min = m_State.m_Close.m_hPhase1; // not mandatory
+	pKrn->m_Fee = m_Params.m_Fee;
+
+	// extract (pseudo)random part into kernel. No need for extra-secure nonce generation
+	ECC::Oracle() << offs >> k;
+	offs += k;
+	k = -k;
+
+	pKrn->m_Commitment = ECC::Context::get().G * k;
+
+	ECC::Hash::Value hv;
+	pKrn->get_ID(hv);
+	pKrn->m_Signature.Sign(hv, k);
+
+	tx.m_Offset = offs;
+/*
+	{
+		// test
+		TxBase::Context::Params pars;
+		TxBase::Context ctx(pars);
+		ctx.m_Height.m_Min = pKrn->m_Height.m_Min;
+
+		bool bb = tx.IsValid(ctx);
+		bb = bb;
+	}
+*/
 }
 
 void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
@@ -590,6 +672,13 @@ void Channel::DataUpdate::get_Phase2ID(Merkle::Hash& hv, bool bInitiator) const
 		hv = Zero; //?!
 	else
 		tx.m_vKernels.front()->get_ID(hv);
+}
+
+bool Channel::DataUpdate::IsPhase2UnfairPeerPunish() const
+{
+	return
+		!m_txPeer2.m_vKernels.empty() &&
+		!m_txPeer2.m_vKernels.front()->m_pRelativeLock;
 }
 
 bool Channel::Open(const std::vector<Key::IDV>& vIn, uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0)

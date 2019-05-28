@@ -32,6 +32,7 @@ namespace Lightning {
 		void SendTxNoSpam(const Transaction& tx, Height h);
 		void ConfirmKernel(const Merkle::Hash& hv, Height h);
 		static void OnRolledBackH(Height h, Height& hVar);
+		void CreatePunishmentTx();
 
 		struct MuSigLocator;
 
@@ -73,6 +74,8 @@ namespace Lightning {
 
 			const Transaction& get_TxPhase2(bool bInitiator) const;
 			void get_Phase2ID(Merkle::Hash& hv, bool bInitiator) const;
+
+			bool IsPhase2UnfairPeerPunish() const;
 		};
 
 		std::unique_ptr<DataOpen> m_pOpen;
@@ -157,7 +160,7 @@ namespace Lightning {
 		virtual proto::FlyClient::INetwork& get_Net() = 0;
 		virtual void get_Kdf(Key::IKdf::Ptr&) = 0;
 
-		virtual void AllocTxoID(Key::IDV&) = 0; // Type and Value are fixed. Should adjust ID and (optionally) SubIdx
+		virtual void AllocTxoID(Key::IDV&) = 0; // Type and Value are fixed. Should adjust ID and SubIdx
 	};
 
 
