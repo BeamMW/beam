@@ -948,6 +948,7 @@ void ChannelOpen::Setup(bool bSet,
 	std::vector<Key::IDV>* pInps,
 	std::vector<Key::IDV>* pOutsChange,
 	Key::IDV* pMsig0,
+	const MultiTx::KernelParam& krn1,
 	Key::IDV* pMsig1A,
 	Key::IDV* pMsig1B,
 	std::vector<Key::IDV>* pOutsWd,
@@ -961,6 +962,9 @@ void ChannelOpen::Setup(bool bSet,
 	m_MSig.SetGet(bSet, pMsig0, Multisig::Codes::Kidv);
 	m_Tx0.SetGet(bSet, pInps, MultiTx::Codes::InpKidvs);
 	m_Tx0.SetGet(bSet, pOutsChange, MultiTx::Codes::OutpKidvs);
+	m_Tx0.SetGet(bSet, krn1.m_pH0, MultiTx::Codes::KrnH0);
+	m_Tx0.SetGet(bSet, krn1.m_pH1, MultiTx::Codes::KrnH1);
+	m_Tx0.SetGet(bSet, krn1.m_pFee, MultiTx::Codes::KrnFee);
 
 	m_WdA.Setup(bSet, pMsig1A, nullptr, nullptr, pOutsWd, cp);
 	m_WdB.Setup(bSet, pMsig1B, nullptr, nullptr, nullptr, WithdrawTx::CommonParam());

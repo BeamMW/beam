@@ -81,6 +81,7 @@ namespace Lightning {
 		struct Params
 		{
 			Height m_hLockTime = 1440; // withdrawal lock. Same for all
+			Amount m_Fee; // for all txs
 		} m_Params;
 
 		struct State
@@ -141,6 +142,7 @@ namespace Lightning {
 		};
 
 
+		bool Open(const std::vector<Key::IDV>& vIn, uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0);
 
 		void OnRolledBack();
 
@@ -151,6 +153,8 @@ namespace Lightning {
 		virtual Height get_Tip() const = 0;
 		virtual proto::FlyClient::INetwork& get_Net() = 0;
 		virtual void get_Kdf(Key::IKdf::Ptr&) = 0;
+
+		virtual void AllocTxoID(Key::IDV&) = 0; // Type and Value are fixed. Should adjust ID and (optionally) SubIdx
 	};
 
 

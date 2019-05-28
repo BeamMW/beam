@@ -423,6 +423,7 @@ namespace Negotiator {
 			std::vector<Key::IDV>* pInps,
 			std::vector<Key::IDV>* pOutsChange,
 			Key::IDV* pMsig0,
+			const MultiTx::KernelParam&,
 			Key::IDV* pMsig1A,
 			Key::IDV* pMsig1B,
 			std::vector<Key::IDV>* pOutsWd,

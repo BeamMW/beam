@@ -139,9 +139,10 @@ void Channel::UpdateNegotiation(Storage::Map& dataInOut)
 				m_pOpen->m_Comm0 = res.m_Comm0;
 
 				m_pOpen->m_txOpen = std::move(res.m_txOpen);
-				m_pOpen->m_hrLimit; // ?!
 
 				x.m_Tx0.Get(m_pOpen->m_hvKernel0, MultiTx::Codes::KernelID);
+				x.m_Tx0.Get(m_pOpen->m_hrLimit.m_Min, MultiTx::Codes::KrnH0);
+				x.m_Tx0.Get(m_pOpen->m_hrLimit.m_Max, MultiTx::Codes::KrnH1);
 
 				assert(m_vUpdates.empty());
 				AddUpdatePoint();
@@ -162,7 +163,7 @@ void Channel::UpdateNegotiation(Storage::Map& dataInOut)
 			Key::IDV* pB = &d.m_msPeer;
 			SwapIfRole(x, pA, pB);
 
-			x.Setup(false, nullptr, nullptr, &m_pOpen->m_ms0, pA, pB, nullptr, WithdrawTx::CommonParam());
+			x.Setup(false, nullptr, nullptr, &m_pOpen->m_ms0, MultiTx::KernelParam(), pA, pB, nullptr, WithdrawTx::CommonParam());
 		}
 		break;
 
@@ -223,6 +224,9 @@ void Channel::UpdateNegotiation(Storage::Map& dataInOut)
 
 void Channel::Update()
 {
+	if (m_State.m_Close.m_hPhase2)
+		return; // all finished
+
 	if (!m_pOpen)
 		return; // negotiation is still in progress
 
@@ -241,9 +245,6 @@ void Channel::Update()
 
 		return;
 	}
-
-	if (m_State.m_Close.m_hPhase2)
-		return; // all finished
 
 	if (m_State.m_Close.m_hPhase1)
 	{
@@ -581,6 +582,78 @@ void Channel::DataUpdate::get_Phase2ID(Merkle::Hash& hv, bool bInitiator) const
 		tx.m_vKernels.front()->get_ID(hv);
 }
 
+bool Channel::Open(const std::vector<Key::IDV>& vIn, uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0)
+{
+	if (m_pOpen || m_pNegCtx)
+		return false; // already in progress
+
+	Amount nMyFee = m_Params.m_Fee / 2;
+	if (iRole)
+		nMyFee = m_Params.m_Fee - nMyFee; // in case it's odd
+
+	Amount nChange = 0;
+	for (size_t i = 0; i < vIn.size(); i++)
+		nChange += vIn[i].m_Value;
+
+	if (nChange < nMy + nMyFee * 3) // fee to create msig0, plus 2-stage withdrawal
+		return false;
+	nChange -= (nMy + nMyFee * 3);
+
+	NegotiationCtx_Open* p = new NegotiationCtx_Open;
+	m_pNegCtx.reset(p);
+	m_pNegCtx->m_eType = NegotiationCtx::Open;
+
+	p->m_Inst.m_pStorage = &p->m_Data;
+	get_Kdf(p->m_Inst.m_pKdf);
+
+
+	std::vector<ECC::Key::IDV> vChg, vOut;
+
+	if (nChange)
+	{
+		Key::IDV& kidv = vChg.emplace_back();
+		kidv.m_Value = nChange;
+		kidv.m_Type = Key::Type::Change;
+		AllocTxoID(kidv);
+	}
+
+	{
+		Key::IDV& kidv = vOut.emplace_back();
+		kidv.m_Value = nMy;
+		kidv.m_Type = Key::Type::Change;
+		AllocTxoID(kidv);
+	}
+
+	ECC::Key::IDV ms0, msA, msB;
+	ms0.m_Value = nMy + nOther + m_Params.m_Fee * 2;
+	msA.m_Value = msB.m_Value = ms0.m_Value - m_Params.m_Fee;
+	ms0.m_Type = msA.m_Type = msB.m_Type = FOURCC_FROM(MuSg);
+
+	AllocTxoID(ms0);
+	AllocTxoID(msA);
+	AllocTxoID(msB);
+
+	{
+		ChannelOpen::Worker wrk(p->m_Inst);
+
+		p->m_Inst.Set(iRole, Codes::Role);
+		p->m_Inst.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
+
+		MultiTx::KernelParam krn1;
+		krn1.m_pFee = &m_Params.m_Fee;
+		krn1.m_pH0 = &Cast::NotConst(hr0).m_Min;
+		krn1.m_pH1 = &Cast::NotConst(hr0).m_Max;
+
+		WithdrawTx::CommonParam cp;
+		cp.m_Krn1.m_pFee = &m_Params.m_Fee;
+		cp.m_Krn2.m_pFee = &m_Params.m_Fee;
+		cp.m_Krn2.m_pLock = &m_Params.m_hLockTime;
+
+		p->m_Inst.Setup(true, &Cast::NotConst(vIn), &vChg, &ms0, krn1, &msA, &msB, &Cast::NotConst(vOut), cp);
+	}
+
+	return true;
+}
 
 } // namespace Lightning
 } // namespace beam

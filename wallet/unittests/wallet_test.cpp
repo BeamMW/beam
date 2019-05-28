@@ -1408,7 +1408,7 @@ void TestNegotiation()
 		Key::IDV msB = msA;
 		msB.m_Idx++;
 
-		v.Setup(true, &vIn, nullptr, &ms0, &msA, &msB, &vOutWd, cpWd);
+		v.Setup(true, &vIn, nullptr, &ms0, MultiTx::KernelParam(), &msA, &msB, &vOutWd, cpWd);
 
 		ChannelData& cd = pCData[i];
 		cd.m_msMy = i ? msB : msA;
@@ -1544,7 +1544,7 @@ void TestLightning()
 			cp.m_Krn2.m_pLock = &m_hLock;
 
 			neg.m_pKdf = m_pKdf;
-			neg.Setup(true, &vIn, &vChange, &m_ms0, &msA, &msB, &vOutWd, cp);
+			neg.Setup(true, &vIn, &vChange, &m_ms0, MultiTx::KernelParam(), &msA, &msB, &vOutWd, cp);
 
 			m_msMy = iRole ? msB : msA;
 			m_msPeer = iRole ? msA : msB;
