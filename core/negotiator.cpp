@@ -672,7 +672,8 @@ uint32_t MultiTx::Update2()
 
 	TxBase::Context::Params pars;
 	TxBase::Context ctx(pars);
-	ctx.m_Height.m_Min = Rules::get().get_LastFork().m_Height;
+
+	ctx.m_Height.m_Min = hScheme;
 	if (!txFull.IsValid(ctx))
 		return Status::Error;
 
