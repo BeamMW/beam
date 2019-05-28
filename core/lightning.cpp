@@ -25,16 +25,23 @@ struct Channel::MuSigLocator
 	virtual ~MuSigLocator() {}
 
 	size_t m_iIndex;
+	size_t m_nTotal; // size of m_vUpdates may change during lookup, this is to prevent the confuse
 	bool m_Initiator;
 };
 
 Channel::State::Enum Channel::get_State() const
 {
 	if (!m_pOpen)
-		return m_pNegCtx ? State::Opening1 : State::None;
+		return m_pNegCtx ? State::Opening0 : State::None;
 
 	if (!m_pOpen->m_hOpened)
+	{
+		if (m_pNegCtx)
+			// only 1 peer has the opening tx
+			return m_pOpen->m_txOpen.m_vKernels.empty() ? State::Opening1 : State::Opening0;
+
 		return (m_State.m_hQueryLast <= m_pOpen->m_hrLimit.m_Max) ? State::Opening2 : State::OpenFailed;
+	}
 
 	if (!m_State.m_Close.m_hPhase1)
 		return m_State.m_Terminate ? State::Closing1 : State::Open;
@@ -54,11 +61,8 @@ bool Channel::IsUnfairPeerClosed() const
 
 }
 
-void Channel::UpdateNegotiation(Storage::Map& dataInOut)
+void Channel::UpdateNegotiation(Storage::Map& dataIn, Storage::Map& dataOut)
 {
-	Storage::Map dataIn;
-	dataIn.swap(dataInOut);
-
 	if (!m_pNegCtx)
 		return;
 
@@ -96,7 +100,7 @@ void Channel::UpdateNegotiation(Storage::Map& dataInOut)
 		m_pNegCtx->m_Data[code] = std::move(it->second);
 	}
 
-	Gateway::Direct gw(dataInOut);
+	Gateway::Direct gw(dataOut);
 
 	pBase->m_pStorage = &m_pNegCtx->m_Data;
 	pBase->m_pGateway = &gw;
@@ -170,10 +174,16 @@ void Channel::UpdateNegotiation(Storage::Map& dataInOut)
 	case NegotiationCtx::Update:
 		{
 			ChannelUpdate& x = Cast::Up<ChannelUpdate>(*pBase);
-			ChannelUpdate::Worker wrk(x);
+			uint8_t nDone0;
 
-			uint8_t nDone0 = x.get_DoneParts();
+			{
+				ChannelUpdate::Worker wrk(x);
+				nDone0 = x.get_DoneParts();
+			}
+
 			status = x.Update();
+
+			ChannelUpdate::Worker wrk(x);
 			uint8_t nDone1 = x.get_DoneParts();
 
 			if (nDone0 == nDone1)
@@ -283,7 +293,7 @@ void Channel::Update()
 		m_State.m_hQueryLast = hTip;
 
 		MuSigLocator::Ptr pReq(new MuSigLocator);
-		pReq->m_iIndex = m_vUpdates.size();
+		pReq->m_iIndex = pReq->m_nTotal = m_vUpdates.size();
 		pReq->m_Initiator = false;
 		pReq->m_Msg.m_Utxo = m_pOpen->m_Comm0;
 
@@ -428,7 +438,7 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 	else
 	{
 		// bingo!
-		if (r.m_iIndex == m_vUpdates.size())
+		if (r.m_iIndex == r.m_nTotal)
 		{
 			ZeroObject(m_State.m_Close); // msig0 is still intact
 		}
@@ -436,10 +446,10 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 		{
 			// withdrawal detected
 			State::Close c;
+			ZeroObject(c);
 			c.m_iPath = r.m_iIndex;
 			c.m_Initiator = r.m_Initiator;
 			c.m_hPhase1 = r.m_Res.m_Proofs.front().m_State.m_Maturity;
-			c.m_hPhase2 = 0;
 
 			if (memcmp(&c, &m_State.m_Close, sizeof(c)))
 			{
@@ -620,7 +630,7 @@ bool Channel::Open(const std::vector<Key::IDV>& vIn, uint32_t iRole, Amount nMy,
 	{
 		Key::IDV& kidv = vOut.emplace_back();
 		kidv.m_Value = nMy;
-		kidv.m_Type = Key::Type::Change;
+		kidv.m_Type = Key::Type::Regular;
 		AllocTxoID(kidv);
 	}
 
@@ -649,7 +659,64 @@ bool Channel::Open(const std::vector<Key::IDV>& vIn, uint32_t iRole, Amount nMy,
 		cp.m_Krn2.m_pFee = &m_Params.m_Fee;
 		cp.m_Krn2.m_pLock = &m_Params.m_hLockTime;
 
-		p->m_Inst.Setup(true, &Cast::NotConst(vIn), &vChg, &ms0, krn1, &msA, &msB, &Cast::NotConst(vOut), cp);
+		p->m_Inst.Setup(true, &Cast::NotConst(vIn), &vChg, &ms0, krn1, &msA, &msB, &vOut, cp);
+	}
+
+	return true;
+}
+
+bool Channel::Update(Amount nMyNew)
+{
+	if (m_pNegCtx || (State::Open != get_State()))
+		return false;
+
+	assert(m_pOpen && !m_State.m_Terminate && !m_vUpdates.empty());
+
+	uint32_t iRole = !!m_pOpen->m_txOpen.m_vKernels.empty();
+
+	Amount nMyFee = m_Params.m_Fee / 2;
+	if (iRole)
+		nMyFee = m_Params.m_Fee - nMyFee; // in case it's odd
+
+
+	NegotiationCtx_Update* p = new NegotiationCtx_Update;
+	m_pNegCtx.reset(p);
+	m_pNegCtx->m_eType = NegotiationCtx::Update;
+
+	p->m_Inst.m_pStorage = &p->m_Data;
+	get_Kdf(p->m_Inst.m_pKdf);
+
+
+	std::vector<ECC::Key::IDV> vOut;
+
+	{
+		Key::IDV& kidv = vOut.emplace_back();
+		kidv.m_Value = nMyNew;
+		kidv.m_Type = Key::Type::Regular;
+		AllocTxoID(kidv);
+	}
+
+	ECC::Key::IDV msA, msB;
+	msA.m_Value = msB.m_Value = m_pOpen->m_ms0.m_Value - m_Params.m_Fee;
+	msA.m_Type = msB.m_Type = FOURCC_FROM(MuSg);
+
+	AllocTxoID(msA);
+	AllocTxoID(msB);
+
+	DataUpdate& d0 = *m_vUpdates.back();
+
+	{
+		ChannelUpdate::Worker wrk(p->m_Inst);
+
+		p->m_Inst.Set(iRole, Codes::Role);
+		p->m_Inst.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
+
+		WithdrawTx::CommonParam cp;
+		cp.m_Krn1.m_pFee = &m_Params.m_Fee;
+		cp.m_Krn2.m_pFee = &m_Params.m_Fee;
+		cp.m_Krn2.m_pLock = &m_Params.m_hLockTime;
+
+		p->m_Inst.Setup(true, &m_pOpen->m_ms0, &m_pOpen->m_Comm0, &msA, &msB, &Cast::NotConst(vOut), cp, &d0.m_msMy, &d0.m_msPeer, &d0.m_CommPeer1);
 	}
 
 	return true;

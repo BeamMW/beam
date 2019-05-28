@@ -81,7 +81,7 @@ namespace Lightning {
 		struct Params
 		{
 			Height m_hLockTime = 1440; // withdrawal lock. Same for all
-			Amount m_Fee; // for all txs
+			Amount m_Fee = 0; // for all txs
 		} m_Params;
 
 		struct State
@@ -92,7 +92,8 @@ namespace Lightning {
 
 			enum Enum {
 				None,
-				Opening1, // negotiating
+				Opening0, // negotiating, no-return barrier not crossed yet. Safe to forget
+				Opening1, // negotiating, no-return barrier crossed
 				Opening2, // waiting for confirmation
 				OpenFailed, // no open confirmation up to max height
 				Open,
@@ -144,9 +145,11 @@ namespace Lightning {
 
 		bool Open(const std::vector<Key::IDV>& vIn, uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0);
 
+		bool Update(Amount nMyNew);
+
 		void OnRolledBack();
 
-		void UpdateNegotiation(Storage::Map& dataInOut);
+		void UpdateNegotiation(Storage::Map& dataIn, Storage::Map& dataOut);
 		void Update(); // w.r.t. blockchain
 
 		virtual ~Channel();
