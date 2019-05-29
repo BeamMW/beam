@@ -158,43 +158,6 @@ uint32_t IBase::Update()
 
 struct Multisig::Impl
 {
-	struct PubKeyPlus
-	{
-		ECC::Point m_PubKey;
-		ECC::Signature m_Sig;
-
-		template <typename Archive>
-		void serialize(Archive& ar)
-		{
-			ar
-				& m_PubKey
-				& m_Sig;
-		}
-
-		void Set(const ECC::Scalar::Native& sk)
-		{
-			ECC::Hash::Value hv;
-			get_Hash(hv);
-			m_Sig.Sign(hv, sk);
-		}
-
-		bool IsValid(ECC::Point::Native& pkOut) const
-		{
-			if (!pkOut.Import(m_PubKey))
-				return false;
-
-			ECC::Hash::Value hv;
-			get_Hash(hv);
-
-			return m_Sig.IsValid(hv, pkOut);
-		}
-
-		void get_Hash(ECC::Hash::Value& hv) const
-		{
-			ECC::Hash::Processor() << m_PubKey >> hv;
-		}
-	};
-
 	struct Part2Plus
 		:public ECC::RangeProof::Confidential::Part2
 	{
@@ -206,62 +169,11 @@ struct Multisig::Impl
 				& m_T2;
 		}
 	};
-
-	struct MSigPlus
-		:public ECC::RangeProof::Confidential::MultiSig
-	{
-		template <typename Archive>
-		void serialize(Archive& ar)
-		{
-			ar
-				& m_Part1.m_A
-				& m_Part1.m_S
-				& Cast::Up<Part2Plus>(m_Part2);
-		}
-	};
 };
 
 
 uint32_t Multisig::Update2()
 {
-	ECC::Key::IDV kidv;
-	if (!Get(kidv, Codes::Kidv))
-		return 0;
-
-	ECC::Scalar::Native sk;
-	m_pKdf->DeriveKey(sk, kidv);
-
-	Output outp;
-	if (!Get(outp.m_Commitment, Codes::Commitment))
-	{
-		ECC::Point::Native comm = ECC::Context::get().G * sk;
-
-		Impl::PubKeyPlus pkp;
-
-		if (RaiseTo(1))
-		{
-			pkp.m_PubKey = comm;
-			pkp.Set(sk);
-			Send(pkp, Codes::PubKeyPlus);
-		}
-
-		if (!Get(pkp, Codes::PubKeyPlus))
-			return 0;
-
-		ECC::Point::Native commPeer;
-		if (!pkp.IsValid(commPeer))
-			return Status::Error;
-
-		comm += commPeer;
-		comm += ECC::Context::get().H * kidv.m_Value;
-
-		outp.m_Commitment = comm;
-		Set(outp.m_Commitment, Codes::Commitment);
-	}
-
-	uint32_t iRole = 0;
-	Get(iRole, Codes::Role);
-
 	ECC::NoLeak<ECC::uintBig> seedSk;
 	if (!Get(seedSk.V, Codes::Nonce))
 	{
@@ -269,89 +181,127 @@ uint32_t Multisig::Update2()
 		Set(seedSk.V, Codes::Nonce);
 	}
 
-	outp.m_pConfidential.reset(new ECC::RangeProof::Confidential);
-	ECC::RangeProof::Confidential& bp = *outp.m_pConfidential;
+	Impl::Part2Plus p2;
+	if (RaiseTo(1))
+	{
+		ZeroObject(p2);
+		ECC::RangeProof::Confidential::MultiSig::CoSignPart(seedSk.V, p2);
+		Send(p2, Codes::BpPart2);
+	}
+
+	ECC::Key::IDV kidv;
+	if (!Get(kidv, Codes::Kidv))
+		return 0;
+
+	ECC::Scalar::Native sk;
+	m_pKdf->DeriveKey(sk, kidv);
+
+	ECC::Point::Native comm = ECC::Context::get().G * sk;
+
+	ECC::Point pPk[2];
+	pPk[0] = comm;
+
+	if (RaiseTo(2))
+		Send(pPk[0], Codes::PubKey);
 
 	Height hScheme = MaxHeight;
-	if (!Get(hScheme, Codes::Scheme))
+
+	if (!Get(pPk[1], Codes::PubKey) ||
+		!Get(p2, Codes::BpPart2) ||
+		!Get(hScheme, Codes::Scheme))
 		return 0;
+
+	Output outp;
+	if (Get(outp.m_Commitment, Codes::Commitment))
+	{
+		//comm = outp.m_Commitment;
+	}
+	else
+	{
+		ECC::Point::Native pt;
+		if (!pt.Import(pPk[1]))
+			return Status::Error;
+
+		comm += pt;
+		comm += ECC::Context::get().H * kidv.m_Value;
+		outp.m_Commitment = comm;
+
+		Set(outp.m_Commitment, Codes::Commitment);
+	}
+
+	ECC::RangeProof::CreatorParams cp;
+	cp.m_Kidv = Zero;
+	cp.m_Kidv.m_Value = kidv.m_Value;
+
+	uint32_t iRole = 0;
+	Get(iRole, Codes::Role);
+
+	ECC::Hash::Processor()
+		<< pPk[iRole]
+		<< pPk[!iRole]
+		>> cp.m_Seed.V;
 
 	ECC::Oracle oracle, o2;
 	outp.Prepare(oracle, hScheme);
 
+	outp.m_pConfidential.reset(new ECC::RangeProof::Confidential);
+	ECC::RangeProof::Confidential& bp = *outp.m_pConfidential;
+
+	bp.m_Part2 = p2;
+
+	o2 = oracle;
+	if (!bp.CoSign(seedSk.V, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Step2))
+		return Status::Error;
+
 	uint32_t nShareRes = 0;
 	Get(nShareRes, Codes::ShareResult);
 
-	if (!iRole)
+	bool bMustHaveResult = !iRole || nShareRes;
+
+	if (!Get(bp.m_Part3.m_TauX, Codes::BpPart3))
 	{
-		if (!Get(Cast::Up<Impl::Part2Plus>(bp.m_Part2), Codes::BpPart2))
-			return 0;
-
-		ECC::RangeProof::CreatorParams cp;
-		cp.m_Kidv = kidv;
-		beam::Output::GenerateSeedKid(cp.m_Seed.V, outp.m_Commitment, *m_pKdf);
-
-		o2 = oracle;
-		if (!bp.CoSign(seedSk.V, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Step2)) // add self p2, produce msig
-			return Status::Error;
-
-		if (RaiseTo(2))
-		{
-			Impl::MSigPlus msig;
-			msig.m_Part1 = bp.m_Part1;
-			msig.m_Part2 = bp.m_Part2;
-			Send(msig, Codes::BpBothPart);
-		}
-
-		if (!Get(bp.m_Part3.m_TauX, Codes::BpPart3))
-			return 0;
-
-		o2 = oracle;
-		if (!bp.CoSign(seedSk.V, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Finalize))
-			return Status::Error;
-
-		if (nShareRes && RaiseTo(3))
-			Send(bp, Codes::BpFull);
-	}
-	else
-	{
-		if (RaiseTo(2))
-		{
-			Impl::Part2Plus p2;
-			ZeroObject(p2);
-			if (!Impl::MSigPlus::CoSignPart(seedSk.V, p2))
-				return Status::Error;
-
-			Send(p2, Codes::BpPart2);
-		}
-
-		Impl::MSigPlus msig;
-		if (!Get(msig, Codes::BpBothPart))
-			return 0;
-
 		if (RaiseTo(3))
 		{
-			ECC::RangeProof::Confidential::Part3 p3;
-			ZeroObject(p3);
+			ECC::RangeProof::Confidential::MultiSig msig;
+			msig.m_Part1 = bp.m_Part1;
+			msig.m_Part2 = bp.m_Part2;
 
-			o2 = oracle;
-			msig.CoSignPart(seedSk.V, sk, o2, p3);
+			ZeroObject(bp.m_Part3);
+			msig.CoSignPart(seedSk.V, sk, oracle, bp.m_Part3);
 
-			Send(p3.m_TauX, Codes::BpPart3);
+			Send(bp.m_Part3.m_TauX, Codes::BpPart3);
 		}
 
-		if (!nShareRes)
-			return Status::Success;
-
-		if (!Get(bp, Codes::BpFull))
-			return 0;
+		return bMustHaveResult ? 0 : Status::Success;
 	}
 
-	ECC::Point::Native pt;
-	if (!outp.IsValid(hScheme, pt))
+	o2 = oracle;
+	if (!bp.CoSign(seedSk.V, sk, cp, o2, ECC::RangeProof::Confidential::Phase::Finalize))
+		return Status::Error;
+
+
+	// test (TODO: should be done in Phase::Finalize)
+	if (!outp.IsValid(hScheme, comm))
 		return Status::Error;
 
 	Set(outp, Codes::OutputTxo);
+
+
+	if ((iRole || nShareRes) && RaiseTo(3))
+	{
+		sk = bp.m_Part3.m_TauX;
+
+		ECC::RangeProof::Confidential::Part3 p3;
+		Get(p3.m_TauX, Codes::BpPart3);
+
+		ECC::Scalar::Native sk2(p3.m_TauX);
+		sk2 = -sk2;
+		sk2 += sk;
+		p3.m_TauX = sk2;
+
+		Send(p3.m_TauX, Codes::BpPart3);
+	}
+
 	return Status::Success;
 }
 
