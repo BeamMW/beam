@@ -1667,7 +1667,7 @@ namespace beam::wallet
             ByteBuffer typeBlob;
             if (txType != wallet::TxType::ALL)
             {
-                typeBlob = toByteBuffer(txType);
+                typeBlob = storage::toByteBuffer(txType);
                 stm.bind(2, typeBlob);
             }
 
@@ -1696,7 +1696,7 @@ namespace beam::wallet
             if (txType != wallet::TxType::ALL)
             {
                 stm.bind(3, wallet::TxParameterID::TransactionType);
-                typeBlob = toByteBuffer(txType);
+                typeBlob = storage::toByteBuffer(txType);
                 stm.bind(4, typeBlob);
             }
 

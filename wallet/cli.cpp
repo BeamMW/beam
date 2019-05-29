@@ -131,7 +131,7 @@ namespace beam
         }
 
         wallet::AtomicSwapTransaction::State state = wallet::AtomicSwapTransaction::State::CompleteSwap;
-        wallet::getTxParameter(*walletDB, tx.m_txId, wallet::TxParameterID::State, state);
+        storage::getTxParameter(*walletDB, tx.m_txId, wallet::TxParameterID::State, state);
 
         switch (state)
         {
@@ -622,9 +622,9 @@ namespace
             for (auto& tx : txHistory)
             {
                 Amount swapAmount = 0;
-                wallet::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapAmount, swapAmount);
+                storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapAmount, swapAmount);
                 bool isBeamSide = false;
-                wallet::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+                storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
 
                 cout << "   "
                     << " " << left << setw(columnWidths[0]) << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false)
