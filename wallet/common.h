@@ -311,6 +311,36 @@ namespace beam::wallet
     using SubTxID = uint16_t;
     const SubTxID kDefaultSubTxID = 1;
 
+    namespace storage
+    {
+        template<typename T>
+        bool fromByteBuffer(const ByteBuffer& b, T& value)
+        {
+            if (!b.empty())
+            {
+                Deserializer d;
+                d.reset(b.data(), b.size());
+                d& value;
+                return true;
+            }
+            ZeroObject(value);
+            return false;
+        }
+
+        template <typename T>
+        ByteBuffer toByteBuffer(const T& value)
+        {
+            Serializer s;
+            s& value;
+            ByteBuffer b;
+            s.swap_buf(b);
+            return b;
+        }
+
+        ByteBuffer toByteBuffer(const ECC::Point::Native& value);
+        ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
+    }
+
     // messages
     struct SetTxParameter
     {
@@ -324,7 +354,7 @@ namespace beam::wallet
         template <typename T>
         SetTxParameter& AddParameter(TxParameterID paramID, T&& value)
         {
-            m_Parameters.emplace_back(paramID, storage::toByteBuffer(value));
+            //m_Parameters.emplace_back(paramID, storage::toByteBuffer(value));
             return *this;
         }
 

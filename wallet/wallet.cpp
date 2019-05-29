@@ -1125,6 +1125,8 @@ namespace beam::wallet
              return make_shared<SimpleTransaction>(*this, m_WalletDB, m_KeyKeeper, id);
         case TxType::AtomicSwap:
             return make_shared<AtomicSwapTransaction>(*this, m_WalletDB, m_KeyKeeper, id);
+        default:
+            break;
         }
         return BaseTransaction::Ptr();
     }

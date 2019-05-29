@@ -414,33 +414,6 @@ namespace beam::wallet
     {
         extern const char g_szPaymentProofRequired[];
 
-        template<typename T>
-        bool fromByteBuffer(const ByteBuffer& b, T& value)
-        {
-            if (!b.empty())
-            {
-                Deserializer d;
-                d.reset(b.data(), b.size());
-                d& value;
-                return true;
-            }
-            ZeroObject(value);
-            return false;
-        }
-
-        template <typename T>
-        ByteBuffer toByteBuffer(const T& value)
-        {
-            Serializer s;
-            s& value;
-            ByteBuffer b;
-            s.swap_buf(b);
-            return b;
-        }
-
-        ByteBuffer toByteBuffer(const ECC::Point::Native& value);
-        ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
-
         template <typename Var>
         void setVar(IWalletDB& db, const char* name, const Var& var)
         {
