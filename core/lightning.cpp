@@ -133,8 +133,9 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 				dataIn.Get(nPeer, Codes::ValueMy) &&
 				dataIn.Get(nMy, Codes::ValueYours);
 
-			if (!bOk)
+			if (!bOk) { // ompiler insists of parentheses
 				return;
+			}
 
 				dataIn.Get(hr0.m_Min, Channel::Codes::H0);
 				dataIn.Get(hr0.m_Max, Channel::Codes::H1);
@@ -378,7 +379,7 @@ void Channel::Update()
 		}
 
 		MuSigLocator::Ptr pReq(new MuSigLocator);
-		pReq->m_iIndex = MaxHeight;
+		pReq->m_iIndex = static_cast<size_t>(-1);
 		pReq->m_Initiator = false;
 		pReq->m_Msg.m_Utxo = m_pOpen->m_Comm0;
 
@@ -565,7 +566,7 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 	else
 	{
 		// bingo!
-		if (r.m_iIndex == MaxHeight)
+		if (r.m_iIndex == static_cast<size_t>(-1))
 		{
 			m_State.m_hQueryLast = get_Tip();
 			ZeroObject(m_State.m_Close); // msig0 is still intact
