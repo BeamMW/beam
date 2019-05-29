@@ -133,6 +133,8 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::UpdateImpl()
     {
+        CheckSubTxFailures();
+
         State state = GetState(kDefaultSubTxID);
         bool isBeamOwner = IsBeamSide();
 
@@ -154,8 +156,6 @@ namespace beam::wallet
                 return;
             }
         }
-
-        CheckSubTxFailures();
 
         switch (state)
         {
