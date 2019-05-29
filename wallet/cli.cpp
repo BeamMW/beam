@@ -1228,16 +1228,16 @@ int main_impl(int argc, char* argv[])
 
                         if (!btcOptions.m_userName.empty() && !btcOptions.m_pass.empty())
                         {
-                            btcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Nonnegative<Amount>>().value;
+                            btcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
                             
                             if (vm.count(cli::BTC_CONFIRMATIONS) > 0)
                             {
-                                btcOptions.m_confirmations = vm[cli::BTC_CONFIRMATIONS].as<Nonnegative<uint16_t>>().value;
+                                btcOptions.m_confirmations = vm[cli::BTC_CONFIRMATIONS].as<Positive<uint16_t>>().value;
                             }
 
                             if (vm.count(cli::BTC_LOCK_TIME) > 0)
                             {
-                                btcOptions.m_lockTimeInBlocks = vm[cli::BTC_LOCK_TIME].as<Nonnegative<uint32_t>>().value;
+                                btcOptions.m_lockTimeInBlocks = vm[cli::BTC_LOCK_TIME].as<Positive<uint32_t>>().value;
                             }
                             
                             wallet.initBitcoin(io::Reactor::get_Current(), btcOptions);
@@ -1245,16 +1245,16 @@ int main_impl(int argc, char* argv[])
 
                         if (!ltcOptions.m_userName.empty() && !ltcOptions.m_pass.empty())
                         {
-                            ltcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Nonnegative<Amount>>().value;
+                            ltcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
 
                             if (vm.count(cli::LTC_CONFIRMATIONS) > 0)
                             {
-                                ltcOptions.m_confirmations = vm[cli::LTC_CONFIRMATIONS].as<Nonnegative<uint16_t>>().value;
+                                ltcOptions.m_confirmations = vm[cli::LTC_CONFIRMATIONS].as<Positive<uint16_t>>().value;
                             }
 
                             if (vm.count(cli::LTC_LOCK_TIME) > 0)
                             {
-                                ltcOptions.m_lockTimeInBlocks = vm[cli::LTC_LOCK_TIME].as<Nonnegative<uint32_t>>().value;
+                                ltcOptions.m_lockTimeInBlocks = vm[cli::LTC_LOCK_TIME].as<Positive<uint32_t>>().value;
                             }
                             wallet.initLitecoin(io::Reactor::get_Current(), ltcOptions);
                         }
@@ -1297,7 +1297,7 @@ int main_impl(int argc, char* argv[])
                                 return -1;
                             }
 
-                            Amount swapAmount = vm[cli::SWAP_AMOUNT].as<Nonnegative<Amount>>().value;
+                            Amount swapAmount = vm[cli::SWAP_AMOUNT].as<Positive<Amount>>().value;
                             bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
                             if (command == cli::SWAP_COINS)
@@ -1327,12 +1327,7 @@ int main_impl(int argc, char* argv[])
                                     return false;
                                 }
 
-                                auto signedAmount = vm[cli::AMOUNT].as<double>();
-                                if (signedAmount < 0)
-                                {
-                                    LOG_ERROR() << "Unable to send negative amount of coins";
-                                    return false;
-                                }
+                                auto signedAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
 
                                 signedAmount *= Rules::Coin; // convert beams to coins
 

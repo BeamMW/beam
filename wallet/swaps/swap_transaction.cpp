@@ -133,6 +133,8 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::UpdateImpl()
     {
+        CheckSubTxFailures();
+
         State state = GetState(kDefaultSubTxID);
         bool isBeamOwner = IsBeamSide();
 
@@ -154,8 +156,6 @@ namespace beam::wallet
                 return;
             }
         }
-
-        CheckSubTxFailures();
 
         switch (state)
         {
@@ -1110,6 +1110,7 @@ namespace beam::wallet
         TxKernel::Ptr kernel = GetMandatoryParameter<TxKernel::Ptr>(TxParameterID::Kernel, subTxID);
 
         SharedTxBuilder builder{ *this, subTxID };
+        builder.GetSharedParameters();
         builder.GetInitialTxParams();
         builder.GetPeerPublicExcessAndNonce();
         builder.GenerateNonce();
