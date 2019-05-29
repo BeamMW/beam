@@ -16,6 +16,7 @@
 
 #include "bitcoin/bitcoin.hpp"
 #include "nlohmann/json.hpp"
+#include "utility/logger.h"
 
 using json = nlohmann::json;
 
@@ -381,7 +382,7 @@ namespace beam
                 else
                 {
                     error.m_type = InvalidResultFormat;
-                    error.m_message = "Empty result";
+                    error.m_message = "Empty response. Maybe wrong credentials.";
                 }
             }
             else

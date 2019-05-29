@@ -59,6 +59,7 @@ namespace beam::wallet
             Cancelled,
 
             CompleteSwap,
+            Failed,
         };
 
     public:

@@ -405,6 +405,13 @@ namespace beam::wallet
 
     void BitcoinSide::SetTxError(const IBitcoinBridge::Error& error, SubTxID subTxID)
     {
+        TxFailureReason previousReason;
+
+        if (m_tx.GetParameter(TxParameterID::InternalFailureReason, previousReason, subTxID))
+        {
+            return;
+        }
+
         LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(subTxID) << "]" << " Bridge internal error: type = " << error.m_type << "; message = " << error.m_message;
         switch (error.m_type)
         {
