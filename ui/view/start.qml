@@ -1584,8 +1584,6 @@ Item
                 color: Style.background_main
 
                 Keys.onPressed: {
-                    console.log("Keys.onPressed:");
-                    console.log(Qt.platform.os);
                     // Linux hack, X11 return caps state with delay
                     if (Qt.platform.os == "linux") {
                         var timer = Qt.createQmlObject('import QtQml 2.11; Timer {}', open, "linuxCapsTimer");
