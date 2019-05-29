@@ -65,10 +65,12 @@
     </message>
     <message id="address-table-cm-edit">
         <source>edit address</source>
+        <extracomment>Entry in adress table context menu to edit</extracomment>
         <translation>edit address</translation>
     </message>
     <message id="address-table-cm-delete">
         <source>delete address</source>
+        <extracomment>Entry in adress table context menu to delete</extracomment>
         <translation>delete address</translation>
     </message>
     <message id="available-panel-available">
@@ -1236,15 +1238,15 @@
         <translation>QR code</translation>
     </message>
     <message id="show-qr-tx-token-label">
-        <source>Your transaction token:</source>
-        <extracomment>transaction token label</extracomment>
-        <translation>Your transaction token:</translation>
+        <source>Your address:</source>
+        <extracomment>show qr dialog address label</extracomment>
+        <translation>Your address:</translation>
     </message>
     <message id="show-qr-message">
-        <source>Scan this QR code or send this token to the sender over secure channel</source>
+        <source>Scan this QR code or send this address to the sender over secure channel</source>
         <extracomment>show QR dialog message, how to use this QR</extracomment>
         <translation>Scan this QR code
-or send this token to the sender over secure channel</translation>
+or send this address to the sender over secure channel</translation>
     </message>
     <message id="show-qr-close-button">
         <source>close</source>
