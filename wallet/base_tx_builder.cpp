@@ -250,7 +250,6 @@ namespace beam::wallet
     {
         m_Offset.GenRandomNnz();
         m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false, m_SubTxID);
-        LOG_DEBUG() << m_Tx.GetTxID() << " Offset: " << Scalar(m_Offset);
     }
 
     void BaseTxBuilder::GenerateNonce()
@@ -310,7 +309,6 @@ namespace beam::wallet
             }
         }
         publicExcess += publicAmount;
-        LOG_DEBUG() << m_Tx.GetTxID() << " Public excess: " << publicExcess;
         return publicExcess;
     }
 
