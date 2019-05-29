@@ -1110,6 +1110,7 @@ namespace beam::wallet
         TxKernel::Ptr kernel = GetMandatoryParameter<TxKernel::Ptr>(TxParameterID::Kernel, subTxID);
 
         SharedTxBuilder builder{ *this, subTxID };
+        builder.GetSharedParameters();
         builder.GetInitialTxParams();
         builder.GetPeerPublicExcessAndNonce();
         builder.GenerateNonce();
