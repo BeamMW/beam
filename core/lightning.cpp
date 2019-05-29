@@ -393,26 +393,32 @@ void Channel::Update()
 			// Are we already in the channel-terminate phase?
 			if (m_State.m_Terminate)
 			{
-				// Select the termination path. Note: it may not be the most recent m_vUpdates, because it may (theoretically) be not ready yet.
-				// Go from back to front, until we encounter a valid path
-				size_t iPath = m_vUpdates.size() - 1;
-
-				for (; ; iPath--)
-				{
-					const DataUpdate& d = *m_vUpdates[iPath];
-					if (d.IsWithdrawalReady())
-						break; // good enough
-
-					// we must never reveal our key before we obtain the full withdrawal path
-					assert(!d.m_RevealedSelfKey);
-				}
-
-				SendTxNoSpam(m_vUpdates[iPath]->m_tx1, hTip);
+				size_t iPath = SelectWithdrawalPath();
+				if (iPath < m_vUpdates.size())
+					SendTxNoSpam(m_vUpdates[iPath]->m_tx1, hTip);
 			}
 		}
 	}
 }
 
+size_t Channel::SelectWithdrawalPath()
+{
+	// Select the termination path. Note: it may not be the most recent m_vUpdates, because it may (theoretically) be not ready yet.
+	// Go from back to front, until we encounter a valid path
+	size_t iPath = m_vUpdates.size() - 1;
+
+	for (; ; iPath--)
+	{
+		const DataUpdate& d = *m_vUpdates[iPath];
+		if (d.IsWithdrawalReady())
+			break; // good enough
+
+		// we must never reveal our key before we obtain the full withdrawal path
+		assert(iPath && !d.m_RevealedSelfKey);
+	}
+
+	return iPath;
+}
 
 Channel::DataUpdate& Channel::CreateUpdatePoint(uint32_t iRole, const Key::IDV& msA, const Key::IDV& msB, const Key::IDV& outp)
 {

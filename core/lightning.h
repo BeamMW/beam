@@ -187,6 +187,8 @@ namespace Lightning {
 
 		void OnCoin(const std::vector<Key::IDV>&, Height, CoinState, bool bReverse);
 
+		virtual size_t SelectWithdrawalPath(); // By default selects the most recent available withdrawal. Override to try to use outdated (fraudulent) revisions, for testing.
+
 	private:
 		DataUpdate& CreateUpdatePoint(uint32_t iRole, const Key::IDV& msA, const Key::IDV& msB, const Key::IDV& outp);
 		bool OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0);
