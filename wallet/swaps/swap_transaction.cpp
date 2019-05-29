@@ -373,9 +373,6 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::NotifyFailure(TxFailureReason reason)
     {
-        //assert(false && "Not implemented yet.");
-        LOG_DEBUG() << GetTxID() << " NotifyFailure not implemented yet.";
-
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::FailureReason, reason);
         SendTxParameters(std::move(msg));
