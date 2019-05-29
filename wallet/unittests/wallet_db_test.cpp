@@ -1169,7 +1169,7 @@ void TestWalletMessages()
         msg.AddParameter(TxParameterID::PeerID, walletID);
         msg.AddParameter(TxParameterID::Lifetime, 130);
 
-        auto id = db->saveWalletMessage(WalletMessage{ 0, walletID, storage::toByteBuffer(msg)});
+        auto id = db->saveWalletMessage(WalletMessage{ 0, walletID, toByteBuffer(msg)});
         WALLET_CHECK(id == 1);
         auto messages = db->getWalletMessages();
         WALLET_CHECK(messages.size() == 1);
@@ -1177,7 +1177,7 @@ void TestWalletMessages()
         WALLET_CHECK(messages[0].m_PeerID == walletID);
         Amount amount = 0;
         SetTxParameter message;
-        WALLET_CHECK(storage::fromByteBuffer(messages[0].m_Message, message));
+        WALLET_CHECK(fromByteBuffer(messages[0].m_Message, message));
         WALLET_CHECK(message.GetParameter(TxParameterID::Amount, amount) && amount == 100);
         WalletID walletID2 = Zero;
         WALLET_CHECK(message.GetParameter(TxParameterID::PeerID, walletID2) && walletID2 == walletID);
@@ -1192,7 +1192,7 @@ void TestWalletMessages()
         msg.AddParameter(TxParameterID::PeerID, walletID);
         msg.AddParameter(TxParameterID::Lifetime, 230);
 
-        auto id = db->saveWalletMessage(WalletMessage{ 0, walletID, storage::toByteBuffer(msg) });
+        auto id = db->saveWalletMessage(WalletMessage{ 0, walletID, toByteBuffer(msg) });
         WALLET_CHECK(id == 2);
         auto messages = db->getWalletMessages();
         WALLET_CHECK(messages.size() == 2);
@@ -1200,7 +1200,7 @@ void TestWalletMessages()
         WALLET_CHECK(messages[1].m_PeerID == walletID);
         Amount amount = 0;
         SetTxParameter message;
-        WALLET_CHECK(storage::fromByteBuffer(messages[1].m_Message, message));
+        WALLET_CHECK(fromByteBuffer(messages[1].m_Message, message));
         WALLET_CHECK(message.GetParameter(TxParameterID::Amount, amount) && amount == 200);
         WalletID walletID2 = Zero;
         WALLET_CHECK(message.GetParameter(TxParameterID::PeerID, walletID2) && walletID2 == walletID);

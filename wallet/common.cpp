@@ -116,6 +116,23 @@ namespace beam::wallet
         return AtomicSwapCoin::Unknown;
     }
 
+    ByteBuffer toByteBuffer(const ECC::Point::Native& value)
+    {
+        ECC::Point pt;
+        if (value.Export(pt))
+        {
+            return toByteBuffer(pt);
+        }
+        return ByteBuffer();
+    }
+
+    ByteBuffer toByteBuffer(const ECC::Scalar::Native& value)
+    {
+        ECC::Scalar s;
+        value.Export(s);
+        return toByteBuffer(s);
+    }
+
     ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType)
     {
         switch (exceptionType)

@@ -1667,7 +1667,7 @@ namespace beam::wallet
             ByteBuffer typeBlob;
             if (txType != wallet::TxType::ALL)
             {
-                typeBlob = storage::toByteBuffer(txType);
+                typeBlob = toByteBuffer(txType);
                 stm.bind(2, typeBlob);
             }
 
@@ -1696,7 +1696,7 @@ namespace beam::wallet
             if (txType != wallet::TxType::ALL)
             {
                 stm.bind(3, wallet::TxParameterID::TransactionType);
-                typeBlob = storage::toByteBuffer(txType);
+                typeBlob = toByteBuffer(txType);
                 stm.bind(4, typeBlob);
             }
 
@@ -2478,23 +2478,6 @@ namespace beam::wallet
         bool setTxParameter(IWalletDB& db, const TxID& txID, TxParameterID paramID, const ByteBuffer& value, bool shouldNotifyAboutChanges)
         {
             return setTxParameter(db, txID, kDefaultSubTxID, paramID, value, shouldNotifyAboutChanges);
-        }
-
-        ByteBuffer toByteBuffer(const ECC::Point::Native& value)
-        {
-            ECC::Point pt;
-            if (value.Export(pt))
-            {
-                return toByteBuffer(pt);
-            }
-            return ByteBuffer();
-        }
-
-        ByteBuffer toByteBuffer(const ECC::Scalar::Native& value)
-        {
-            ECC::Scalar s;
-            value.Export(s);
-            return toByteBuffer(s);
         }
 
         bool changeAddressExpiration(IWalletDB& walletDB, const WalletID& walletID, uint64_t expiration)
