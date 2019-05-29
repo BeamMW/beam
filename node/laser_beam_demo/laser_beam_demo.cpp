@@ -66,6 +66,8 @@ struct Client
 		return m_Hdrs.m_Map.empty() ? 0 : m_Hdrs.m_Map.rbegin()->first;
 	}
 
+	std::string m_sName;
+
 	// my bbs address
 	WalletID m_Wid;
 	ECC::Scalar::Native m_skBbs;
@@ -76,6 +78,8 @@ struct Client
 	uint64_t m_nNextCoinID = 100500;
 
 	typedef std::map<uint32_t, ByteBuffer> FieldMap;
+
+	size_t m_OverrideWithdrawal = static_cast<size_t>(-1);
 
 	struct Channel
 		:public Lightning::Channel
@@ -94,11 +98,73 @@ struct Client
 
 		typedef boost::intrusive::multiset<Key> Map;
 
+		State::Enum m_LastState = State::None;
+
+		void LogNewState()
+		{
+			State::Enum eState = get_State();
+			if (m_LastState == eState)
+				return;
+
+			m_LastState = eState;
+
+			std::ostringstream os;
+			os << m_This.m_sName << "State ";
+
+			switch (eState)
+			{
+			case State::Opening0:
+				os << "Opening0 (early stage, safe to discard)";
+				break;
+			case State::Opening1:
+				os << "Opening1 (negotiating, no-return barrier crossed)";
+				break;
+			case State::Opening2:
+				os << "Opening2 (Waiting channel open confirmation)";
+				break;
+			case State::OpenFailed:
+				os << "OpenFailed (Not confirmed, missed height window). Waiting for " << m_SafeForgetHeight << " confirmations before forgetting";
+				break;
+			case State::Open:
+				os << "Open. Last Revision: " << m_vUpdates.size() << ". Balance: " << m_vUpdates.back()->m_Outp.m_Value << " / " << (m_vUpdates.back()->m_msMy.m_Value - m_Params.m_Fee);
+				break;
+			case State::Updating:
+				os << "Updating (creating newer Revision)";
+				break;
+			case State::Closing1:
+				os << "Closing1 (decided to close, sent Phase-1 withdrawal)";
+				break;
+			case State::Closing2:
+				{
+					os << "Closing2 (Phase-1 withdrawal detected). Revision: " << m_State.m_Close.m_iPath << ". Initiated by " << (m_State.m_Close.m_Initiator ? "me" : "peer");
+					if (m_vUpdates[m_State.m_Close.m_iPath]->IsPhase2UnfairPeerPunish())
+						os << ". Fraudulent withdrawal attempt detected! Will claim everything";
+				}
+				break;
+			case State::Closed:
+				os << "Closed. Waiting for " << m_SafeForgetHeight << " confirmations before forgetting";
+				break;
+			default:
+				return;
+			}
+
+
+			std::cout << os.str() << std::endl;
+		}
+
 		Client& m_This;
 
 		WalletID m_widTrg;
 
-		Channel(Client& x) :m_This(x) {}
+		Channel(Client& x) :m_This(x)
+		{
+			std::cout << m_This.m_sName << "+Channel" << std::endl;
+		}
+
+		~Channel()
+		{
+			std::cout << m_This.m_sName << "-Channel" << std::endl;
+		}
 
 		virtual Height get_Tip() const override { return m_This.get_TipHeight(); }
 		virtual proto::FlyClient::INetwork& get_Net() override { return m_This.m_Conn; }
@@ -129,6 +195,14 @@ struct Client
 
 		}
 
+		virtual size_t SelectWithdrawalPath() override
+		{
+			if (m_This.m_OverrideWithdrawal < m_vUpdates.size())
+				return m_This.m_OverrideWithdrawal;
+
+			return Lightning::Channel::SelectWithdrawalPath(); // default
+		}
+
 		struct Codes
 		{
 			static const uint32_t Control0 = 1024 << 16;
@@ -136,6 +210,7 @@ struct Client
 		};
 
 		bool m_SendMyWid = true;
+		Height m_SafeForgetHeight = 8;
 
 		virtual void SendPeer(Storage::Map&& dataOut) override
 		{
@@ -151,14 +226,19 @@ struct Client
 			ser & m_Key.m_ID;
 			ser & Cast::Down<FieldMap>(dataOut);
 
+			std::cout << m_This.m_sName << "\tTo peer (via bbs): " << ser.buffer().second << std::endl;
+
 			m_This.Send(*this, ser);
 		}
 
 		virtual void OnCoin(const ECC::Key::IDV& kidv, Height h, CoinState eState, bool bReverse) override
 		{
+			const char* szStatus = "";
+
 			switch (eState)
 			{
 			case CoinState::Locked:
+				szStatus = bReverse ? "Unlocked" : "Locked";
 				if (bReverse)
 					m_This.m_Coins[kidv] = h;
 				else
@@ -166,6 +246,7 @@ struct Client
 				break;
 
 			case CoinState::Spent:
+				szStatus = bReverse ? "Unspent" : "Spent";
 				if (bReverse)
 					m_This.m_Coins[kidv] = h;
 				else
@@ -173,6 +254,7 @@ struct Client
 				break;
 
 			case CoinState::Confirmed:
+				szStatus = bReverse ? "Unconfirmed" : "Confirmed";
 				if (bReverse)
 					m_This.m_Coins.erase(kidv);
 				else
@@ -183,6 +265,8 @@ struct Client
 			default: // suppress warning
 				break;
 			}
+
+			std::cout << m_This.m_sName << "Coin " << kidv.m_Value << " " << szStatus << std::endl;
 		}
 
 		void Close()
@@ -193,7 +277,7 @@ struct Client
 
 		void MaybeDelete()
 		{
-			if (!m_pOpen || (m_State.m_Terminate && IsSafeToForget(8)))
+			if (!m_pOpen || (m_State.m_Terminate && IsSafeToForget(m_SafeForgetHeight)))
 			{
 				Forget();
 				m_This.DeleteChannel(*this);
@@ -231,7 +315,22 @@ struct Client
 		IMPLEMENT_GET_PARENT_OBJ(Client, m_NodeEvts)
 	} m_NodeEvts;
 
-	proto::FlyClient::NetworkStd m_Conn;
+	struct MyNetwork
+		:public proto::FlyClient::NetworkStd
+	{
+		using proto::FlyClient::NetworkStd::NetworkStd;
+
+		virtual void PostRequestInternal(proto::FlyClient::Request& r) override
+		{
+			if (proto::FlyClient::Request::Type::Transaction == r.get_Type())
+				std::cout << get_ParentObj().m_sName << "### Broadcasting transaction ###" << std::endl;
+
+			proto::FlyClient::NetworkStd::PostRequestInternal(r);
+		}
+
+
+		IMPLEMENT_GET_PARENT_OBJ(Client, m_Conn)
+	} m_Conn;
 
 	void OnMsg(Blob&&);
 
@@ -258,47 +357,17 @@ struct Client
 
 	void Initialize();
 
-	std::unique_ptr<WalletID> m_pWidOpenPending;
-	Height m_hCloseEventually = MaxHeight;
-	Height m_hUpdNext = MaxHeight;
 	bool OpenChannel(const WalletID& widTrg, Amount nMy, Amount nTrg);
 };
 
 
 void Client::OnNewTip()
 {
-	if (m_pWidOpenPending && !m_Hdrs.m_Map.empty())
-	{
-		if (OpenChannel(*m_pWidOpenPending, 25000, 34000))
-			m_pWidOpenPending.reset();
-	}
-
-	if (get_TipHeight() >= m_hUpdNext)
-	{
-		m_hUpdNext = get_TipHeight() + 9;
-
-		for (Channel::Map::iterator it = m_Channels.begin(); m_Channels.end() != it; )
-		{
-			Channel& c = (it++)->get_ParentObj();
-			c.Transfer(144);
-		}
-	}
-
-	if (get_TipHeight() >= m_hCloseEventually)
-	{
-		m_hCloseEventually = MaxHeight;
-
-		for (Channel::Map::iterator it = m_Channels.begin(); m_Channels.end() != it; )
-		{
-			Channel& c = (it++)->get_ParentObj();
-			c.Close();
-		}
-	}
-
 	for (Channel::Map::iterator it = m_Channels.begin(); m_Channels.end() != it; )
 	{
 		Channel& c = (it++)->get_ParentObj();
 		c.Update();
+		c.LogNewState();
 		c.MaybeDelete();
 	}
 }
@@ -360,7 +429,7 @@ void Client::OnMsg(Blob&& blob)
 
 	Channel& c = it->get_ParentObj();
 	c.OnPeerData(dataIn);
-
+	c.LogNewState();
 	c.MaybeDelete();
 }
 
@@ -432,107 +501,249 @@ bool Client::OpenChannel(const WalletID& widTrg, Amount nMy, Amount nTrg)
 	return false;
 }
 
-
-void Test()
+struct TestDirector
+	:public Node::IObserver
 {
-	using namespace beam;
+	Client m_pC[2];
+	Node m_Node;
 
-	auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+	virtual void OnTip(Height) = 0;
 
-	Rules::get().pForks[1].m_Height = 1;
-
-	Client pLC[2];
-
-	Node node;
-
+	virtual void OnSyncProgress() override {}
+	virtual void OnStateChanged() override
 	{
-		Treasury tres;
-		Treasury::Parameters pars;
-		pars.m_Bursts = 1;
-		pars.m_Maturity0 = 1;
-		pars.m_MaturityStep = 0;
+		Height h = m_Node.get_Processor().m_Cursor.m_ID.m_Height;
+		std::cout << "H=" << h << std::endl;
 
-		for (size_t i = 0; i < _countof(pLC); i++)
+		OnTip(h);
+	}
+
+	virtual void OnRolledBack(const Block::SystemState::ID& id) override
+	{
+		std::cout << "Rollback to  " << id.m_Height << std::endl;
+	}
+
+	void Stop()
+	{
+		io::Reactor::get_Current().stop();
+	}
+
+	void MakeTreasury();
+	void Run();
+
+};
+
+void TestDirector::MakeTreasury()
+{
+	Treasury tres;
+	Treasury::Parameters pars;
+	pars.m_Bursts = 1;
+	pars.m_Maturity0 = 1;
+	pars.m_MaturityStep = 0;
+
+	for (size_t i = 0; i < _countof(m_pC); i++)
+	{
+		CreateTestKdf(m_pC[i].m_pKdf, i);
+
+		PeerID pid;
+		ECC::Scalar::Native sk;
+		Treasury::get_ID(*m_pC[i].m_pKdf, pid, sk);
+
+		Treasury::Entry* pE = tres.CreatePlan(pid, 0, pars);
+		pE->m_Request.m_vGroups.front().m_vCoins.front().m_Value = Rules::get().Emission.Value0 * 4;
+
+		pE->m_pResponse.reset(new Treasury::Response);
+		uint64_t nIndex = 1;
+		pE->m_pResponse->Create(pE->m_Request, *m_pC[i].m_pKdf, nIndex);
+
+		for (size_t iG = 0; iG < pE->m_pResponse->m_vGroups.size(); iG++)
 		{
-			CreateTestKdf(pLC[i].m_pKdf, i);
-
-			PeerID pid;
-			ECC::Scalar::Native sk;
-			Treasury::get_ID(*pLC[i].m_pKdf, pid, sk);
-
-			Treasury::Entry* pE = tres.CreatePlan(pid, 0, pars);
-			pE->m_Request.m_vGroups.front().m_vCoins.front().m_Value = Rules::get().Emission.Value0 * 4;
-
-			pE->m_pResponse.reset(new Treasury::Response);
-			uint64_t nIndex = 1;
-			pE->m_pResponse->Create(pE->m_Request, *pLC[i].m_pKdf, nIndex);
-
-			for (size_t iG = 0; iG < pE->m_pResponse->m_vGroups.size(); iG++)
+			const Treasury::Response::Group& g = pE->m_pResponse->m_vGroups[iG];
+			for (size_t iC = 0; iC < g.m_vCoins.size(); iC++)
 			{
-				const Treasury::Response::Group& g = pE->m_pResponse->m_vGroups[iG];
-				for (size_t iC = 0; iC < g.m_vCoins.size(); iC++)
-				{
-					const Treasury::Response::Group::Coin& coin = g.m_vCoins[iC];
-					Key::IDV kidv;
-					if (coin.m_pOutput->Recover(0, *pLC[i].m_pKdf, kidv))
-						pLC[i].m_Coins[kidv] = coin.m_pOutput->m_Incubation;
-				}
+				const Treasury::Response::Group::Coin& coin = g.m_vCoins[iC];
+				Key::IDV kidv;
+				if (coin.m_pOutput->Recover(0, *m_pC[i].m_pKdf, kidv))
+					m_pC[i].m_Coins[kidv] = coin.m_pOutput->m_Incubation;
 			}
 		}
-
-
-
-		Treasury::Data data;
-		data.m_sCustomMsg = "LN";
-		tres.Build(data);
-
-		beam::Serializer ser;
-		ser & data;
-
-		ser.swap_buf(node.m_Cfg.m_Treasury);
-
-		ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
 	}
 
 
 
-	Rules::get().FakePoW = true;
-	Rules::get().UpdateChecksum();
+	Treasury::Data data;
+	data.m_sCustomMsg = "LN";
+	tres.Build(data);
+
+	Serializer ser;
+	ser & data;
+
+	ser.swap_buf(m_Node.m_Cfg.m_Treasury);
+
+	ECC::Hash::Processor() << Blob(m_Node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
+}
+
+void TestDirector::Run()
+{
+	MakeTreasury();
 
 	io::Reactor::Ptr pReactor(io::Reactor::create());
 	io::Reactor::Scope scope(*pReactor);
 
+	std::cout << std::endl << "----------------------------------------------------------" << std::endl;
+
 	DeleteFile(g_sz);
-	node.m_Cfg.m_sPathLocal = g_sz;
-	node.m_Cfg.m_Listen.port(25005);
-	node.m_Cfg.m_Listen.ip(INADDR_ANY);
-	node.m_Cfg.m_MiningThreads = 1;
-	node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 2000;
+	m_Node.m_Cfg.m_sPathLocal = g_sz;
+	m_Node.m_Cfg.m_Listen.port(25005);
+	m_Node.m_Cfg.m_Listen.ip(INADDR_ANY);
+	m_Node.m_Cfg.m_MiningThreads = 1;
+	m_Node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 1000;
 
-	node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
-	node.m_Cfg.m_Dandelion.m_OutputsMin = 0;
+	m_Node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
+	m_Node.m_Cfg.m_Dandelion.m_OutputsMin = 0;
 
 	{
-		ECC::uintBig seed;
-		ECC::GenRandom(seed);
-		node.m_Keys.InitSingleKey(seed);
+		ECC::uintBig seed = 345U;
+		m_Node.m_Keys.InitSingleKey(seed);
 	}
 
+	m_Node.m_Cfg.m_Observer = this;
 
-	node.Initialize();
-	node.m_PostStartSynced = true;
+	m_Node.Initialize();
+	m_Node.m_PostStartSynced = true;
 
-	for (size_t i = 0; i < _countof(pLC); i++)
+	m_pC[0].m_sName = "  -A- ";
+	m_pC[1].m_sName = "  -B- ";
+
+	for (size_t i = 0; i < _countof(m_pC); i++)
 	{
-		pLC[i].m_Conn.m_Cfg.m_vNodes.push_back(node.m_Cfg.m_Listen);
-		pLC[i].Initialize();
+		m_pC[i].m_Conn.m_Cfg.m_vNodes.push_back(m_Node.m_Cfg.m_Listen);
+		m_pC[i].Initialize();
 	}
-
-	pLC[0].m_pWidOpenPending.reset(new Client::WalletID(pLC[1].m_Wid));
-	pLC[0].m_hCloseEventually = 33;
-	pLC[0].m_hUpdNext = 9;
 
 	pReactor->run();
+}
+
+
+
+void Test()
+{
+	//	auto logger = Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+
+	Rules::get().pForks[1].m_Height = 1;
+	Rules::get().FakePoW = true;
+	Rules::get().UpdateChecksum();
+
+	{
+		struct Test1 :public TestDirector
+		{
+			virtual void OnTip(Height h)
+			{
+				switch (h)
+				{
+				case 3:
+					std::cout << "Scenario: User A opens a channel to B" << std::endl;
+					m_pC[0].OpenChannel(m_pC[1].m_Wid, 25000, 34000);
+					break;
+
+				case 7:
+				case 11:
+					std::cout << "Scenario: User A sends funds" << std::endl;
+					{
+						Client& cl = m_pC[0];
+						for (Client::Channel::Map::iterator it = cl.m_Channels.begin(); cl.m_Channels.end() != it; it++)
+							(it)->get_ParentObj().Transfer(1200);
+					}
+					break;
+
+				case 15:
+					std::cout << "Scenario: User B sends funds" << std::endl;
+					{
+						Client& cl = m_pC[1];
+						for (Client::Channel::Map::iterator it = cl.m_Channels.begin(); cl.m_Channels.end() != it; it++)
+							(it)->get_ParentObj().Transfer(300);
+					}
+					break;
+
+				case 20:
+					std::cout << "Scenario: B decides to close (fair)" << std::endl;
+					{
+						Client& cl = m_pC[1];
+						for (Client::Channel::Map::iterator it = cl.m_Channels.begin(); cl.m_Channels.end() != it; )
+							(it++)->get_ParentObj().Close();
+					}
+					break;
+
+				case 50:
+					Stop();
+					break;
+				}
+			}
+		};
+
+		Test1().Run();
+	}
+
+
+	{
+		struct Test2 :public TestDirector
+		{
+			virtual void OnTip(Height h)
+			{
+				switch (h)
+				{
+				case 3:
+					std::cout << "Scenario: User A opens a channel to B" << std::endl;
+					m_pC[0].OpenChannel(m_pC[1].m_Wid, 25000, 34000);
+					break;
+
+				case 9:
+					std::cout << "Scenario: User A sends funds" << std::endl;
+					{
+						Client& cl = m_pC[0];
+						for (Client::Channel::Map::iterator it = cl.m_Channels.begin(); cl.m_Channels.end() != it; it++)
+							(it)->get_ParentObj().Transfer(1200);
+					}
+					break;
+
+				case 15:
+					std::cout << "Scenario: User B sends funds" << std::endl;
+					{
+						Client& cl = m_pC[1];
+						for (Client::Channel::Map::iterator it = cl.m_Channels.begin(); cl.m_Channels.end() != it; it++)
+							(it)->get_ParentObj().Transfer(300);
+					}
+					break;
+
+				case 21:
+					std::cout << "Scenario: User B sends funds" << std::endl;
+					{
+						Client& cl = m_pC[1];
+						for (Client::Channel::Map::iterator it = cl.m_Channels.begin(); cl.m_Channels.end() != it; it++)
+							(it)->get_ParentObj().Transfer(600);
+					}
+					break;
+
+				case 22:
+					std::cout << "Scenario: User B attempts to cheat, Close using Revision=1, while negotiating about new transfer" << std::endl;
+					{
+						Client& cl = m_pC[1];
+						cl.m_OverrideWithdrawal = 1;
+						for (Client::Channel::Map::iterator it = cl.m_Channels.begin(); cl.m_Channels.end() != it; it++)
+							(it)->get_ParentObj().Close();
+					}
+					break;
+
+
+				case 45:
+					Stop();
+					break;
+				}
+			}
+		};
+
+		Test2().Run();
+	}
 }
 
 
