@@ -116,11 +116,13 @@ QString ContactItem::getCategory() const
 AddressBookViewModel::AddressBookViewModel()
     : m_model{*AppModel::getInstance()->getWallet()}
 {
-    connect(&m_model, SIGNAL(walletStatus(const WalletStatus&)),
-        SLOT(onStatus(const WalletStatus&)));
+    connect(&m_model,
+            SIGNAL(walletStatus(const beam::wallet::WalletStatus&)),
+            SLOT(onStatus(const beam::wallet::WalletStatus&)));
 
-    connect(&m_model, SIGNAL(addressesChanged(bool, const std::vector<beam::WalletAddress>&)),
-        SLOT(onAddresses(bool, const std::vector<beam::WalletAddress>&)));
+    connect(&m_model,
+            SIGNAL(addressesChanged(bool, const std::vector<beam::wallet::WalletAddress>&)),
+            SLOT(onAddresses(bool, const std::vector<beam::wallet::WalletAddress>&)));
 
     getAddressesFromModel();
 
@@ -262,12 +264,12 @@ QString AddressBookViewModel::generateQR(
     return qr.getEncoded();
 }
 
-void AddressBookViewModel::onStatus(const WalletStatus&)
+void AddressBookViewModel::onStatus(const beam::wallet::WalletStatus&)
 {
     getAddressesFromModel();
 }
 
-void AddressBookViewModel::onAddresses(bool own, const std::vector<WalletAddress>& addresses)
+void AddressBookViewModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses)
 {
     if (own)
     {

@@ -111,9 +111,9 @@ UtxoViewModel::UtxoViewModel()
     : _model{*AppModel::getInstance()->getWallet()}
     , _sortOrder(Qt::DescendingOrder)
 {
-    connect(&_model, SIGNAL(allUtxoChanged(const std::vector<beam::Coin>&)),
-        SLOT(onAllUtxoChanged(const std::vector<beam::Coin>&)));
-    connect(&_model, SIGNAL(walletStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
+    connect(&_model, SIGNAL(allUtxoChanged(const std::vector<beam::wallet::Coin>&)),
+        SLOT(onAllUtxoChanged(const std::vector<beam::wallet::Coin>&)));
+    connect(&_model, SIGNAL(walletStatus(const beam::wallet::WalletStatus&)), SLOT(onStatus(const beam::wallet::WalletStatus&)));
 
     _model.getAsync()->getUtxosStatus();
 }

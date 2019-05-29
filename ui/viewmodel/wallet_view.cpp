@@ -384,22 +384,23 @@ WalletViewModel::WalletViewModel()
     , _expires(0)
     , _qr(std::make_unique<QR>())
 {
-    connect(&_model, SIGNAL(walletStatus(const WalletStatus&)), SLOT(onStatus(const WalletStatus&)));
 
-    connect(&_model, SIGNAL(txStatus(beam::ChangeAction, const std::vector<beam::TxDescription>&)),
-        SLOT(onTxStatus(beam::ChangeAction, const std::vector<beam::TxDescription>&)));
+    connect(&_model, SIGNAL(walletStatus(const beam::wallet::WalletStatus&)), SLOT(onStatus(const beam::wallet::WalletStatus&)));
+
+    connect(&_model, SIGNAL(txStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)),
+        SLOT(onTxStatus(beam::wallet::ChangeAction, const std::vector<beam::wallet::TxDescription>&)));
 
     connect(&_model, SIGNAL(changeCalculated(beam::Amount)),
         SLOT(onChangeCalculated(beam::Amount)));
 
-    connect(&_model, SIGNAL(changeCurrentWalletIDs(beam::WalletID, beam::WalletID)),
-        SLOT(onChangeCurrentWalletIDs(beam::WalletID, beam::WalletID)));
+    connect(&_model, SIGNAL(changeCurrentWalletIDs(beam::wallet::WalletID, beam::wallet::WalletID)),
+        SLOT(onChangeCurrentWalletIDs(beam::wallet::WalletID, beam::wallet::WalletID)));
 
-    connect(&_model, SIGNAL(addressesChanged(bool, const std::vector<beam::WalletAddress>&)),
-        SLOT(onAddresses(bool, const std::vector<beam::WalletAddress>&)));
+    connect(&_model, SIGNAL(addressesChanged(bool, const std::vector<beam::wallet::WalletAddress>&)),
+        SLOT(onAddresses(bool, const std::vector<beam::wallet::WalletAddress>&)));
 
-    connect(&_model, SIGNAL(generatedNewAddress(const beam::WalletAddress&)),
-        SLOT(onGeneratedNewAddress(const beam::WalletAddress&)));
+    connect(&_model, SIGNAL(generatedNewAddress(const beam::wallet::WalletAddress&)),
+        SLOT(onGeneratedNewAddress(const beam::wallet::WalletAddress&)));
 
     connect(&_model, SIGNAL(newAddressFailed()), SLOT(onNewAddressFailed()));
 
@@ -459,7 +460,7 @@ void WalletViewModel::copyToClipboard(const QString& text)
     QApplication::clipboard()->setText(text);
 }
 
-void WalletViewModel::onStatus(const WalletStatus& status)
+void WalletViewModel::onStatus(const beam::wallet::WalletStatus& status)
 {
     bool changed = false;
 
@@ -506,7 +507,7 @@ void WalletViewModel::onStatus(const WalletStatus& status)
     }
 }
 
-void WalletViewModel::onTxStatus(beam::wallet::ChangeAction action, const std::vector<TxDescription>& items)
+void WalletViewModel::onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& items)
 {
     QList<TxObject*> deletedObjects;
     if (action == beam::wallet::ChangeAction::Reset)
@@ -915,7 +916,7 @@ QString WalletViewModel::getNewReceiverName() const
     return _newReceiverName;
 }
 
-void WalletViewModel::onAddresses(bool own, const std::vector<WalletAddress>& addresses)
+void WalletViewModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addresses)
 {
     if (own)
     {
