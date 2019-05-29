@@ -113,17 +113,17 @@ namespace beam
 
     const char* getSwapTxStatus(const IWalletDB::Ptr& walletDB, const TxDescription& tx)
     {
-        constexpr char* Initial = "Initial";
-        constexpr char* Invitation = "Invitation";
-        constexpr char* BuildingBeamLockTX = "Building Beam LockTX";
-        constexpr char* BuildingBeamRefundTX = "Building Beam RefundTX";
-        constexpr char* BuildingBeamRedeemTX = "Building Beam RedeemTX";
-        constexpr char* HandlingContractTX = "Handling LockTX";
-        constexpr char* SendingRefundTX = "Sending RefundTX";
-        constexpr char* SendingRedeemTX = "Sending RedeemTX";
-        constexpr char* SendingBeamLockTX = "Sending Beam LockTX";
-        constexpr char* SendingBeamRefundTX = "Sending Beam RefundTX";
-        constexpr char* SendingBeamRedeemTX = "Sending Beam RedeemTX";
+        static const char* Initial = "Initial";
+        static const char* Invitation = "Invitation";
+        static const char* BuildingBeamLockTX = "Building Beam LockTX";
+        static const char* BuildingBeamRefundTX = "Building Beam RefundTX";
+        static const char* BuildingBeamRedeemTX = "Building Beam RedeemTX";
+        static const char* HandlingContractTX = "Handling LockTX";
+        static const char* SendingRefundTX = "Sending RefundTX";
+        static const char* SendingRedeemTX = "Sending RedeemTX";
+        static const char* SendingBeamLockTX = "Sending Beam LockTX";
+        static const char* SendingBeamRefundTX = "Sending Beam RefundTX";
+        static const char* SendingBeamRedeemTX = "Sending Beam RedeemTX";
 
         if (tx.m_status != TxStatus::InProgress)
         {
