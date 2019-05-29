@@ -14,29 +14,116 @@ Rectangle {
     SettingsViewModel {id: viewModel}
 
     OpenExternalLinkConfirmation {
-        id: beamMW
+        id: externalLinkConfirmation
     }
 
     ChangePasswordDialog {
         id: changePasswordDialog        
     }
 
+    ConfirmationDialog {
+        id: confirmRefreshDialog
+        property bool canRefresh: true
+        //: settings tab, confirm rescan dialog, rescan button
+        //% "rescan"
+        okButtonText: qsTrId("settings-rescan-confirmation-button")
+        okButtonIconSource: "qrc:/assets/icon-repeat.svg"
+        cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
+        cancelVisible: true
+        width: 460
+        height: 243
+
+        contentItem: Item {
+            id: confirmationContent
+            Column {
+                anchors.fill: parent
+                spacing: 30
+                
+                SFText {
+                    width: parent.width
+                    topPadding: 20
+                    font.pixelSize: 18
+                    color: Style.content_main
+                    horizontalAlignment : Text.AlignHCenter
+                    //: settings tab, confirm rescan dialog, title
+                    //% "Rescan"
+                    text: qsTrId("settings-rescan-confirmation-title")
+                }
+                SFText {
+                    width: parent.width
+                    leftPadding: 20
+                    rightPadding: 20
+                    font.pixelSize: 14
+                    color: Style.content_main
+                    wrapMode: Text.Wrap
+                    horizontalAlignment : Text.AlignHCenter
+                    //: settings tab, confirm rescan dialog message
+                    //% "Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time."
+                    text: qsTrId("settings-rescan-confirmation-message")
+                }
+                SFText {
+                    width: parent.width
+                    leftPadding: 20
+                    rightPadding: 20
+                    topPadding: -15
+                    font.pixelSize: 14
+                    color: Style.content_main
+                    wrapMode: Text.Wrap
+                    horizontalAlignment : Text.AlignHCenter
+                    //: settings tab, confirm rescan dialog additional message
+                    //% "Are you sure?"
+                    text: qsTrId("settings-rescan-confirmation-message-line-2")
+                }
+            }
+        }
+
+        onAccepted: {
+            canRefresh = false;
+            viewModel.refreshWallet();
+        }
+    }
+
+    function handleMousePointer(mouse, element) {
+        if (element.parent.linkAt(mouse.x, mouse.y).length) {
+            element.cursorShape = Qt.PointingHandCursor;
+        } else {
+            element.cursorShape = Qt.ArrowCursor;
+        }
+    }
+
+    function handleExternalLink(mouse, element) {
+        if (element.cursorShape == Qt.PointingHandCursor) {
+            var externalLink = element.parent.linkAt(mouse.x, mouse.y);
+            if (viewModel.isAllowedBeamMWLinks) {
+                Qt.openUrlExternally(externalLink);
+            } else {
+                externalLinkConfirmation.externalUrl = externalLink;
+                externalLinkConfirmation.onOkClicked = function () {
+                    viewModel.isAllowedBeamMWLinks = true;
+                    viewModel.applyChanges();
+                };
+                externalLinkConfirmation.open();
+            }
+        } else {
+            viewModel.isAllowedBeamMWLinks = !viewModel.isAllowedBeamMWLinks;
+        }
+    }
+
     ColumnLayout {
         id: mainColumn
         anchors.fill: parent
-        anchors.bottomMargin: 30
         spacing: 20
+        anchors.bottomMargin: 30
 
         RowLayout {
             Layout.fillWidth: true
-            Layout.rightMargin: 20
-            height: 40
+            Layout.preferredHeight: 40
 
             SFText {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignTop
+                Layout.alignment: Qt.AlignBottom | Qt.AlignLeft
                 font.pixelSize: 36
                 color: Style.content_main
+                //: settings tab title
                 //% "Settings"
                 text: qsTrId("settings-title")
             }
@@ -44,127 +131,77 @@ Rectangle {
             SFText {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignBottom | Qt.AlignRight
+                bottomPadding: 7
                 horizontalAlignment: Text.AlignRight
                 font.pixelSize: 14
-                color: Style.content_main
+                color: Style.content_secondary
+                //: settings tab, version label
                 //% "Version: "
                 text: qsTrId("settings-version") + viewModel.version
             }
         }
 
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 14          
             
-        ScrollView {
+            StatusBar {
+                Layout.preferredHeight: 14
+                id: status_bar
+                model: statusbarModel
+            }
+        }
+
+        RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            clip: true
-            RowLayout {
-                id: rowT
-                width: mainColumn.width
-                spacing: 10
+            
+            ScrollView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Layout.alignment: Qt.AlignTop
+                RowLayout {
+                    width: mainColumn.width
                     spacing: 10
 
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 220
+                    ColumnLayout {
+                        Layout.preferredWidth: mainColumn.width * 0.4
+                        Layout.alignment: Qt.AlignTop | Qt.AlignLeft
 
-                        radius: 10
-                        color: Style.background_second
+                        Rectangle {
+                            id: nodeBlock
+                            Layout.fillWidth: true
+                            radius: 10
+                            color: Style.background_second
+                            Layout.preferredHeight: viewModel.localNodeRun ? 460 : (nodeAddressError.visible ? 285 : 240)
 
-                        ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: 20
-                            spacing: 5
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 30
+                                spacing: 10
 
-                            SFText {
-                                Layout.alignment: Qt.AlignTop
-                                Layout.bottomMargin: 15
-                                //% "Remote node"
-                                text: qsTrId("settings-remote-node-title")
-                                color: Style.content_main
-                                font.pixelSize: 18
-                                font.styleName: "Bold"; font.weight: Font.Bold
-                            }
-
-                            SFText {
-                                Layout.alignment: Qt.AlignTop
-                                //% "ip:port"
-                                text: qsTrId("settings-remote-node-ip-port")
-                                color: localNodeRun.checked ? Style.content_disabled : Style.content_main
-                                font.pixelSize: 12
-                                font.styleName: "Bold"; font.weight: Font.Bold
-                            }
-
-                            SFTextInput {
-                                id: nodeAddress
-                                Layout.fillWidth: true
-                                Layout.alignment: Qt.AlignTop
-                                focus: true
-                                activeFocusOnTab: true
-                                font.pixelSize: 12
-                                color: readOnly ? Style.content_disabled : Style.content_main
-                                readOnly: localNodeRun.checked
-                                validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([1-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
-                                text: viewModel.nodeAddress
-                                Binding {
-                                    target: viewModel
-                                    property: "nodeAddress"
-                                    value: nodeAddress.text.trim()
-                                }
-                            }
-
-                            Item {
-                                Layout.minimumHeight: 12
                                 SFText {
-                                    Layout.alignment: Qt.AlignTop
-                                    id: nodeAddressError
-                                    color: Style.validator_error
-                                    font.pixelSize: 10
-                                    visible: (!nodeAddress.acceptableInput || !localNodeRun.checked && !viewModel.isValidNodeAddress)
-                                    text: "Invalid address"
+                                    Layout.preferredHeight: 21
+                                    //: settings tab, node section, title
+                                    //% "Node"
+                                    text: qsTrId("settings-node-title")
+                                    color: Style.content_main
+                                    font.pixelSize: 18
+                                    font.styleName: "Bold"; font.weight: Font.Bold
                                 }
-                            }
-                        }
-                    }
 
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignTop
-                        height: 320
-                        radius: 10
-                        color: Style.background_second
-
-                        ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: 20
-
-                            SFText {
-                                //% "Local node"
-                                text: qsTrId("settings-local-node-title")
-                                color: Style.content_main
-                                font.pixelSize: 18
-                                font.styleName: "Bold"; font.weight: Font.Bold
-                            }
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Layout.alignment: Qt.AlignTop
-                                spacing: 30
-
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    Layout.alignment: Qt.AlignTop
-                                    spacing: 10
-
+                                RowLayout {
+                                    Layout.preferredHeight: 16
+                                    Layout.topMargin: 15
+                                    
                                     CustomSwitch {
                                         id: localNodeRun
+                                        Layout.fillWidth: true
+                                        //: settings tab, node section, run node label
                                         //% "Run local node"
                                         text: qsTrId("settings-local-node-run-checkbox")
-                                        font.pixelSize: 12
+                                        font.pixelSize: 14
                                         width: parent.width
                                         checked: viewModel.localNodeRun
                                         Binding {
@@ -173,22 +210,36 @@ Rectangle {
                                             value: localNodeRun.checked
                                         }
                                     }
+                                }
+
+                                Item {
+                                    Layout.preferredHeight: 12
+                                }
+
+                                RowLayout {
+                                    Layout.preferredHeight: 16
+                                    visible: viewModel.localNodeRun
 
                                     SFText {
-                                        //% "Local node port"
+                                        Layout.fillWidth: true;
+                                        //: settings tab, node section, port label
+                                        //% "Port"
                                         text: qsTrId("settings-local-node-port")
-                                        color: localNodeRun.checked ? Style.content_main : Style.content_disabled
-                                        font.pixelSize: 12
-                                        font.styleName: "Bold"; font.weight: Font.Bold
+                                        color: Style.content_secondary
+                                        font.pixelSize: 14
+                                    }
+
+                                    Item {
+                                        Layout.fillWidth: true
                                     }
 
                                     SFTextInput {
                                         id: localNodePort
-                                        width: parent.width
+                                        Layout.preferredWidth: nodeBlock.width * 0.55
+                                        Layout.alignment: Qt.AlignRight
                                         activeFocusOnTab: true
-                                        font.pixelSize: 12
-                                        color: readOnly ? Style.content_disabled : Style.content_main
-                                        readOnly: !localNodeRun.checked
+                                        font.pixelSize: 14
+                                        color: Style.content_main
                                         text: viewModel.localNodePort
                                         validator: IntValidator {
                                             bottom: 1
@@ -202,541 +253,534 @@ Rectangle {
                                     }
                                 }
 
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    Layout.alignment: Qt.AlignTop
-                                    spacing: 10
-
+                                RowLayout {
+                                    Layout.preferredHeight: 16
+                                    visible: !viewModel.localNodeRun
                                     SFText {
-                                        Layout.topMargin: 5
-                                        //% "Peers"
-                                        text: qsTrId("settings-peers")
-                                        color: localNodeRun.checked ? Style.content_main : Style.content_disabled
-                                        font.pixelSize: 12
-                                        font.styleName: "Bold"; font.weight: Font.Bold
+                                        Layout.fillWidth: true;
+                                        //: settings tab, node section, address label
+                                        //% "ip:port"
+                                        text: qsTrId("settings-remote-node-ip-port")
+                                        color: Style.content_secondary
+                                        font.pixelSize: 14
                                     }
 
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 10
+                                    SFTextInput {
+                                        id: nodeAddress
+                                        Layout.preferredWidth: nodeBlock.width * 0.6
+                                        focus: true
+                                        activeFocusOnTab: true
+                                        font.pixelSize: 14
+                                        color: Style.content_main
+                                        validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([1-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
+                                        text: viewModel.nodeAddress
+                                        Binding {
+                                            target: viewModel
+                                            property: "nodeAddress"
+                                            value: nodeAddress.text.trim()
+                                        }
+                                    }
+                                }
 
-                                        SFTextInput {
-                                            Layout.fillWidth: true
-                                            id: newLocalNodePeer
-                                            width: parent.width
-                                            activeFocusOnTab: true
-                                            font.pixelSize: 12
-                                            color: readOnly ? Style.content_disabled : Style.content_main
-                                            readOnly: !localNodeRun.checked
-                                            validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([1-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
-                                        }
-                                    
-                                        CustomButton {
-                                            Layout.fillWidth: true
-                                            Layout.minimumWidth: 70
-                                            leftPadding: 20
-                                            rightPadding: 20
-                                            //% "Add"
-                                            text: qsTrId("settings-peers-add-button")
-                                            palette.button: Style.background_button
-                                            palette.buttonText : localNodeRun.checked ? Style.content_main : Style.content_disabled
-                                            enabled: newLocalNodePeer.acceptableInput && localNodeRun.checked
-                                            onClicked: {
-                                                viewModel.addLocalNodePeer(newLocalNodePeer.text.trim());
-                                                newLocalNodePeer.clear();
-                                            }
-                                        }
+                                RowLayout {
+                                    id: nodeAddressError
+                                    Layout.preferredHeight: 16
+                                    visible: !viewModel.localNodeRun && (!viewModel.isValidNodeAddress || !nodeAddress.acceptableInput)
+
+                                    Item {
+                                        Layout.fillWidth: true;
                                     }
 
                                     SFText {
-                                        //% "Please add at least one peer"
-                                        text: qsTrId("settings-local-node-no-peers-error")
+                                        Layout.preferredWidth: nodeBlock.width * 0.6
                                         color: Style.validator_error
                                         font.pixelSize: 14
-                                        fontSizeMode: Text.Fit
-                                        minimumPixelSize: 10
                                         font.italic: true
-                                        width: parent.width
-                                        visible: localNodeRun.checked && !(viewModel.localNodePeers.length > 0)
+                                        //: settings tab, node section, on address error
+                                        //% "Invalid address"
+                                        text: qsTrId("settings-remote-node-ip-port-error")
+                                    }
+                                }
+
+                                SFText {
+                                    Layout.topMargin: 15
+                                    //: settings tab, node section, peers label
+                                    //% "Peers"
+                                    text: qsTrId("settings-peers-title")
+                                    color: Style.content_main
+                                    font.pixelSize: 18
+                                    font.styleName: "Bold"; font.weight: Font.Bold
+                                    visible: viewModel.localNodeRun
+                                }
+
+                                RowLayout {
+                                    Layout.minimumHeight: 25
+                                    Layout.maximumHeight: 41
+                                    Layout.preferredHeight: 25
+                                    spacing: 10
+                                    visible: viewModel.localNodeRun
+
+                                    SFTextInput {
+                                        Layout.preferredWidth: nodeBlock.width * 0.7
+                                        id: newLocalNodePeer
+                                        activeFocusOnTab: true
+                                        font.pixelSize: 14
+                                        color: Style.content_main
+                                        validator: RegExpValidator { regExp: /^(\s|\x180E)*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])|([\w.-]+(?:\.[\w\.-]+)+))(:([1-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(\s|\x180E)*$/ }
                                     }
 
-                                    ListView {
+                                    Item {
                                         Layout.fillWidth: true
-                                        Layout.fillHeight: true
-                                        Layout.minimumWidth: 140
-                                        model: viewModel.localNodePeers
-                                        clip: true
-                                        delegate: RowLayout {
-                                            width: parent.width
-                                            height: 36
+                                    }
 
-                                            SFText {
-                                                Layout.fillWidth: true
-                                                Layout.alignment: Qt.AlignVCenter
-                                                text: modelData
-                                                font.pixelSize: 12
-                                                color: Style.content_main
-                                                height: 16
-                                                elide: Text.ElideRight
-                                            }
-
-                                            CustomButton {
-                                                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-                                                Layout.minimumHeight: 20
-                                                Layout.minimumWidth: 20
-                                                shadowRadius: 5
-                                                shadowSamples: 7
-                                                Layout.margins: shadowRadius
-                                                leftPadding: 5
-                                                rightPadding: 5
-                                                textOpacity: 0
-                                                icon.source: "qrc:/assets/icon-delete.svg"
-                                                enabled: localNodeRun.checked
-                                                onClicked: viewModel.deleteLocalNodePeer(index)
+                                    Image {
+                                        Layout.alignment: Qt.AlignRight
+                                        Layout.preferredHeight: 16
+                                        Layout.preferredWidth: 16
+                                        source: "qrc:/assets/icon-add-green.svg"
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            acceptedButtons: Qt.LeftButton
+                                            cursorShape: newLocalNodePeer.acceptableInput ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                            onClicked: {
+                                                if (newLocalNodePeer.acceptableInput) {
+                                                    viewModel.addLocalNodePeer(newLocalNodePeer.text.trim());
+                                                    newLocalNodePeer.clear();
+                                                }
                                             }
                                         }
+                                    }                               
+                                }
+
+                                ListView {
+                                    visible: viewModel.localNodeRun
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    model: viewModel.localNodePeers
+                                    clip: true
+                                    delegate: RowLayout {
+                                        width: parent.width
+                                        height: 36
+
+                                        SFText {
+                                            Layout.fillWidth: true
+                                            Layout.alignment: Qt.AlignVCenter
+                                            text: modelData
+                                            font.pixelSize: 14
+                                            color: Style.content_main
+                                            height: 16
+                                            elide: Text.ElideRight
+                                        }
+
+                                        CustomButton {
+                                            Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                                            Layout.minimumHeight: 20
+                                            Layout.minimumWidth: 20
+                                            shadowRadius: 5
+                                            shadowSamples: 7
+                                            Layout.margins: shadowRadius
+                                            leftPadding: 5
+                                            rightPadding: 5
+                                            textOpacity: 0
+                                            icon.source: "qrc:/assets/icon-delete.svg"
+                                            enabled: localNodeRun.checked
+                                            onClicked: viewModel.deleteLocalNodePeer(index)
+                                        }
+                                    }
+                                    ScrollBar.vertical: ScrollBar {}
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Layout.alignment: Qt.AlignHCenter
+                                    Layout.preferredHeight: 42
+                                    CustomButton {
+                                        Layout.preferredHeight: 38
+                                        Layout.preferredWidth: 125
+                                        leftPadding: 25
+                                        rightPadding: 25
+                                        spacing: 12
+                                        //: settings tab, node section, cancel button
+                                        //% "cancel"
+                                        text: qsTrId("settings-undo")
+                                        icon.source: "qrc:/assets/icon-cancel-white.svg"
+                                        enabled: {
+                                            viewModel.isChanged 
+                                            && nodeAddress.acceptableInput
+                                            && localNodePort.acceptableInput
+                                        }
+                                        onClicked: viewModel.undoChanges()
+                                    }
+
+                                    Item {
+                                        Layout.maximumWidth: 30
+                                        Layout.fillWidth: true
+                                    }
+
+                                    PrimaryButton {
+                                        Layout.preferredHeight: 38
+                                        Layout.preferredWidth: 125
+                                        leftPadding: 25
+                                        rightPadding: 25
+                                        spacing: 12
+                                        //: settings tab, node section, apply button    
+                                        //% "apply"
+                                        text: qsTrId("settings-apply")
+                                        icon.source: "qrc:/assets/icon-done.svg"  
+                                        enabled: {
+                                            viewModel.isChanged
+                                            && nodeAddress.acceptableInput
+                                            && localNodePort.acceptableInput
+                                            && (localNodeRun.checked ? (viewModel.localNodePeers.length > 0) : viewModel.isValidNodeAddress)
+                                        }
+                                        onClicked: viewModel.applyChanges()
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                ConfirmationDialog {
-                    id: confirmRefreshDialog
-                    property bool canRefresh: true
-                    //% "rescan"
-                    okButtonText: qsTrId("settings-rescan-confirmation-button")
-                    okButtonIconSource: "qrc:/assets/icon-repeat.svg"
-                    cancelButtonIconSource: "qrc:/assets/icon-cancel-white.svg"
-                    cancelVisible: true
-                    width: 460
-                    height: 243
-
-                    contentItem: Item {
-                        id: confirmationContent
-                        Column {
-                            anchors.fill: parent
-                            spacing: 30
-                            
-                            SFText {
-                                width: parent.width
-                                topPadding: 20
-                                font.pixelSize: 18
-                                color: Style.content_main
-                                horizontalAlignment : Text.AlignHCenter
-                                //% "Rescan"
-                                text: qsTrId("settings-rescan-confirmation-title")
-                            }
-                            SFText {
-                                width: parent.width
-                                leftPadding: 20
-                                rightPadding: 20
-                                font.pixelSize: 14
-                                color: Style.content_main
-                                wrapMode: Text.Wrap
-                                horizontalAlignment : Text.AlignHCenter
-                                //% "Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time."
-                                text: qsTrId("settings-rescan-confirmation-message")
-                            }
-                            SFText {
-                                width: parent.width
-                                leftPadding: 20
-                                rightPadding: 20
-                                topPadding: -15
-                                font.pixelSize: 14
-                                color: Style.content_main
-                                wrapMode: Text.Wrap
-                                horizontalAlignment : Text.AlignHCenter
-                                //% "Are you sure?"
-                                text: qsTrId("settings-rescan-confirmation-message-line-2")
-                            }
-                        }
+                    Item {
+                        Layout.preferredWidth: 10
                     }
 
-                    onAccepted: {
-                        canRefresh = false;
-                        viewModel.refreshWallet();
-                    }
-                }
+                    ColumnLayout {
+                        Layout.preferredWidth: mainColumn.width * 0.6
+                        Layout.alignment: Qt.AlignTop | Qt.AlignRight
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Layout.alignment: Qt.AlignTop
-                    spacing: 10
+                        Rectangle {
+                            id: generalBlock
+                            Layout.fillWidth: true
+                            radius: 10
+                            color: Style.background_second
+                            Layout.preferredHeight: 330
 
-                    Rectangle {
-                        Layout.fillWidth: true
-                        radius: 10
-                        color: Style.background_second
-                        //height: childrenRect.height + 40
-                        height: 220
-
-                        Column {
-                            anchors.top: parent.top
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.margins: 20
-                            spacing: 10
-
-                            Row {
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 30
+                                spacing: 10
                                 SFText {
+                                    Layout.preferredHeight: 21
+                                    //: settings tab, general section, title
                                     //% "General settings"
                                     text: qsTrId("settings-general-title")
                                     color: Style.content_main
                                     font.pixelSize: 18
                                     font.styleName: "Bold"; font.weight: Font.Bold
                                 }
-                            }
 
-                            Row {
-                                width: parent.width
-                                spacing: 10
+                                RowLayout {
+                                    Layout.preferredHeight: 16
+                                    Layout.topMargin: 15
 
-                                ColumnLayout {
-                                    width: parent.width * 0.66
-                                    SFText {
-                                        //% "Lock screen"
-                                        text: qsTrId("settings-general-lock-screen")
-                                        color: Style.content_main
-                                        font.pixelSize: 12
-                                    }
-                                }
-
-                                ColumnLayout {
-                                    width: parent.width * 0.33
-                                    CustomComboBox {
-                                        id: lockTimeoutControl
-                                        Layout.fillWidth: true
-                                        Layout.alignment: Qt.AlignRight | Qt.AlignTop
-                                        height: 20
-
-                                        currentIndex: viewModel.lockTimeout
-
-                                        Binding {
-                                            target: viewModel
-                                            property: "lockTimeout"
-                                            value: lockTimeoutControl.currentIndex
+                                    ColumnLayout {
+                                        SFText {
+                                            Layout.fillWidth: true
+                                            //: settings tab, general section, lock screen label
+                                            //% "Lock screen"
+                                            text: qsTrId("settings-general-lock-screen")
+                                            color: Style.content_secondary
+                                            font.pixelSize: 14
                                         }
-
-                                        model: [
-                                            //% "never"
-                                            qsTrId("settings-general-lock-screen-never"),
-                                            //% "1 minute"
-                                            qsTrId("settings-general-lock-screen-1m"),
-                                            //% "5 minutes"
-                                            qsTrId("settings-general-lock-screen-5m"),
-                                            //% "15 minutes"
-                                            qsTrId("settings-general-lock-screen-15m"),
-                                            //% "30 minutes"
-                                            qsTrId("settings-general-lock-screen-30m"),
-                                            //% "1 hour"
-                                            qsTrId("settings-general-lock-screen-1h"),
-                                        ]
                                     }
-                                }
-                            }
 
-                            Row {
-                                width: parent.width
-                                spacing: 10
-                                ColumnLayout {
-                                    width: parent.width * 0.66
-                                    SFText {
-                                        //% "Language"
-                                        text: qsTrId("settings-general-language")
-                                        color: Style.content_main
-                                        font.pixelSize: 12
+                                    Item {
                                     }
-                                }
-                                ColumnLayout {
-                                    width: parent.width * 0.33
-                                    CustomComboBox {
-                                        id: language
-                                        Layout.fillWidth: true
-                                        height: 20
-                                        Layout.alignment: Qt.AlignRight | Qt.AlignTop
 
-                                        model: viewModel.supportedLanguages
-                                        currentIndex: viewModel.currentLanguageIndex
-                                        Binding {
-                                            target: viewModel
-                                            property: "currentLanguage"
-                                            value: language.currentText
+                                    ColumnLayout {
+                                        CustomComboBox {
+                                            id: lockTimeoutControl
+                                            fontPixelSize: 14
+                                            Layout.preferredWidth: generalBlock.width * 0.33
+
+                                            currentIndex: viewModel.lockTimeout
+
+                                            Binding {
+                                                target: viewModel
+                                                property: "lockTimeout"
+                                                value: lockTimeoutControl.currentIndex
+                                            }
+
+                                            model: [
+                                                //% "never"
+                                                qsTrId("settings-general-lock-screen-never"),
+                                                //% "1 minute"
+                                                qsTrId("settings-general-lock-screen-1m"),
+                                                //% "5 minutes"
+                                                qsTrId("settings-general-lock-screen-5m"),
+                                                //% "15 minutes"
+                                                qsTrId("settings-general-lock-screen-15m"),
+                                                //% "30 minutes"
+                                                qsTrId("settings-general-lock-screen-30m"),
+                                                //% "1 hour"
+                                                qsTrId("settings-general-lock-screen-1h"),
+                                            ]
                                         }
                                     }
                                 }
-                            }
 
-                            Row {
-                                width: parent.width
-                                spacing: 10
-
-                                CustomSwitch {
-                                    id: isPasswordReqiredToSpendMoney
-                                    //% "Ask password for every sending transaction"
-                                    text: qsTrId("settings-general-require-pwd-to-spend")
-                                    font.pixelSize: 12
-                                    width: parent.width
-                                    checked: viewModel.isPasswordReqiredToSpendMoney
-                                    Binding {
-                                        target: viewModel
-                                        property: "isPasswordReqiredToSpendMoney"
-                                        value: isPasswordReqiredToSpendMoney.checked
-                                    }
+                                Item {
+                                    Layout.preferredHeight: 15
                                 }
-                            }
 
-                            Row {
-                                width: parent.width
-                                spacing: 10
+                                RowLayout {
+                                    Layout.preferredHeight: 16
 
-                                CustomSwitch {
-                                    id: allowBeamMWLinks
-                                    contentItem: Item {
-                                        Text {
-                                            id: allowBeamMWLinksLabelP1
-                                            //: general settings, label for alow access beam.mw part 1
-                                            //% "Allow access to "
-                                            text: qsTrId("settings-general-allow-beammw-label-p1")
-                                            font: allowBeamMWLinks.font
-                                            color: allowBeamMWLinks.checked && allowBeamMWLinks.enabled ? allowBeamMWLinks.palette.text : Style.content_secondary
-                                            verticalAlignment: Text.AlignVCenter
-                                            anchors.left: parent.left
+                                    ColumnLayout {
+                                        SFText {
+                                            Layout.fillWidth: true
+                                            //: settings tab, general section, language label
+                                            //% "Language"
+                                            text: qsTrId("settings-general-language")
+                                            color: Style.content_secondary
+                                            font.pixelSize: 14
                                         }
-                                        Text {
-                                            id: allowBeamMWLinksLabelP
-                                            //: general settings, label for alow access beam.mw part 2 (link)
-                                            //% "beam.mw"
-                                            text: qsTrId("settings-general-allow-beammw-label-p2")
-                                            font: allowBeamMWLinks.font
-                                            color: Style.active
-                                            verticalAlignment: Text.AlignVCenter
-                                            anchors.left: allowBeamMWLinksLabelP1.right
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                acceptedButtons: Qt.LeftButton
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: {
-                                                    var externalLink = "https://www.beam.mw/";
-                                                    if (viewModel.isAllowedBeamMWLinks) {
-                                                        Qt.openUrlExternally(externalLink);
-                                                    } else {
-                                                        beamMW.externalUrl = externalLink;
-                                                        beamMW.onOkClicked = function () {
-                                                            viewModel.isAllowedBeamMWLinks = true;
-                                                            viewModel.applyChanges();
-                                                        };
-                                                        beamMW.open();
-                                                    }
-                                                }
-                                                hoverEnabled: true
+                                    }
+
+                                    Item {
+                                    }
+
+                                    ColumnLayout {
+                                        CustomComboBox {
+                                            id: language
+                                            Layout.preferredWidth: generalBlock.width * 0.33
+                                            fontPixelSize: 14
+
+                                            model: viewModel.supportedLanguages
+                                            currentIndex: viewModel.currentLanguageIndex
+                                            Binding {
+                                                target: viewModel
+                                                property: "currentLanguage"
+                                                value: language.currentText
                                             }
                                         }
-                                        Text {
-                                            id: allowBeamMWLinksLabelP3
-                                            rightPadding: allowBeamMWLinks.indicator.width + allowBeamMWLinks.spacing
-                                            //: general settings, label for alow access beam.mw part 3
-                                            //% " (Exchanges and news feed)"
-                                            text: qsTrId("settings-general-allow-beammw-label-p3")
-                                            font: allowBeamMWLinks.font
-                                            color: allowBeamMWLinks.checked && allowBeamMWLinks.enabled ? allowBeamMWLinks.palette.text : Style.content_secondary
-                                            verticalAlignment: Text.AlignVCenter
-                                            anchors.left: allowBeamMWLinksLabelP.right
-                                        }
-                                    }
-                                    font.pixelSize: 12
-                                    width: parent.width
-                                    checked: viewModel.isAllowedBeamMWLinks
-                                    Binding {
-                                        target: viewModel
-                                        property: "isAllowedBeamMWLinks"
-                                        value: allowBeamMWLinks.checked
                                     }
                                 }
-                            }
 
+                                Item {
+                                    Layout.preferredHeight: 10
+                                }
+
+                                SFText {
+                                    //: settings tab, general section, wallet data folder location label
+                                    //% "Wallet folder location"
+                                    text: qsTrId("settings-wallet-location-label")
+                                    color: Style.content_main
+                                    font.pixelSize: 14
+                                    font.styleName: "Bold"; font.weight: Font.Bold
+                                }
+
+                                RowLayout {
+                                    SFText {
+                                        Layout.fillWidth: true
+                                        font.pixelSize: 14
+                                        color: Style.content_main
+                                        text: viewModel.walletLocation
+                                    }
+
+                                    SFText {
+                                        Layout.fillWidth: false
+                                        Layout.alignment: Qt.AlignRight
+                                        font.pixelSize: 14
+                                        color: Style.active
+                                        //: settings tab, general section, show data folder link
+                                        //% "show in folder"
+                                        text: qsTrId("settings-wallet-location-link")
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            acceptedButtons: Qt.LeftButton
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                viewModel.openFolder(viewModel.walletLocation);
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Item {
+                                    Layout.preferredHeight: 10
+                                }
+
+                                RowLayout {
+                                    Layout.preferredHeight: 16
+
+                                    CustomSwitch {
+                                        id: isPasswordReqiredToSpendMoney
+                                        //: settings tab, general section, ask password label
+                                        //% "Ask password for every sending transaction"
+                                        text: qsTrId("settings-general-require-pwd-to-spend")
+                                        font.pixelSize: 14
+                                        Layout.fillWidth: true
+                                        checked: viewModel.isPasswordReqiredToSpendMoney
+                                        Binding {
+                                            target: viewModel
+                                            property: "isPasswordReqiredToSpendMoney"
+                                            value: isPasswordReqiredToSpendMoney.checked
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.preferredHeight: 32
+
+                                    SFText {
+                                        //: general settings, label for alow open external links
+                                        //% "<style>a:link {color: '#00f6d2'; text-decoration: none;}</style>Allow access to <a href='https://www.beam.mw/'>beam.mw</a> and <a href='https://explorer.beam.mw/'>blockchain explorer</a> (to fetch exchanges and transaction data)"
+                                        text: qsTrId("settings-general-allow-beammw-label")
+                                        textFormat: Text.RichText
+                                        font.pixelSize: 14
+                                        color: allowBeamMWLinks.checked && allowBeamMWLinks.enabled ? allowBeamMWLinks.palette.text : Style.content_secondary
+                                        wrapMode: Text.WordWrap
+                                        Layout.preferredWidth: generalBlock.width - 95
+                                        Layout.preferredHeight: 32
+                                        MouseArea {
+                                            id: allowOpenExternalArea
+                                            anchors.fill: parent
+                                            acceptedButtons: Qt.LeftButton
+                                            onClicked: {
+                                                handleExternalLink(mouse, allowOpenExternalArea);
+                                            }
+                                            hoverEnabled: true
+                                            onPositionChanged : {
+                                                handleMousePointer(mouse, allowOpenExternalArea);
+                                            }
+                                        }
+                                    }
+
+                                    Item {
+                                        Layout.preferredWidth: 10
+                                    }
+
+                                    CustomSwitch {
+                                        id: allowBeamMWLinks
+                                        Layout.preferredWidth: 30
+                                        checked: viewModel.isAllowedBeamMWLinks
+                                        Binding {
+                                            target: viewModel
+                                            property: "isAllowedBeamMWLinks"
+                                            value: allowBeamMWLinks.checked
+                                        }
+                                    }
+                                }
+
+                                Item {
+                                    Layout.fillHeight: true
+                                }
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 38
+                            Layout.topMargin: 25
 
                             CustomButton {
+                                Layout.preferredWidth: 250
+                                Layout.preferredHeight: 38
+                                Layout.alignment: Qt.AlignLeft
+                                Layout.leftMargin: 5
+                                //: settings tab, change password button
                                 //% "change wallet password"
                                 text: qsTrId("settings-general-change-pwd-button")
                                 palette.buttonText : "white"
-                                palette.button: Style.background_button
+                                palette.button: Style.background_second
                                 icon.source: "qrc:/assets/icon-password.svg"
                                 icon.width: 16
                                 icon.height: 16
                                 onClicked: changePasswordDialog.open()
                             }
-                        }
-                    }
 
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 320
-                        radius: 10
-                        color: Style.background_second
-
-                        ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: 20
-                            spacing: 10
-
-                            SFText {
-                                //% "Report problem"
-                                text: qsTrId("settings-report-problem-title")
-                                color: Style.content_main
-                                font.pixelSize: 18
-                                font.styleName: "Bold"; font.weight: Font.Bold
+                            Item {
+                                Layout.maximumWidth: 30
+                                Layout.fillWidth: true
                             }
 
+                            CustomButton {
+                                Layout.preferredWidth: 250
+                                Layout.preferredHeight: 38
+                                Layout.alignment: Qt.AlignRight
+                                Layout.rightMargin: 5    
+                                //: settings tab, rescan button                            
+                                //% "rescan"
+                                text: qsTrId("settings-rescan-button")
+                                palette.button: Style.background_second
+                                palette.buttonText : viewModel.localNodeRun ? Style.content_main : Style.content_disabled
+                                icon.source: "qrc:/assets/icon-repeat-white.svg"
+                                enabled: viewModel.localNodeRun && confirmRefreshDialog.canRefresh && viewModel.isLocalNodeRunning
+                                onClicked: {
+                                    confirmRefreshDialog.open();
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            id: feedBackBlock
+                            Layout.fillWidth: true
+                            Layout.topMargin: 25
+                            radius: 10
+                            color: Style.background_second
+                            Layout.preferredHeight: 240
+
                             ColumnLayout {
-                                SFText {
-                                    Layout.fillWidth: true
-                                    //% "To report a problem:"
-                                    text: qsTrId("settings-report-problem-title-2")
-                                    color: Style.content_main
-                                    font.pixelSize: 12
-                                    font.styleName: "Bold"; font.weight: Font.Bold
-                                    wrapMode: Text.WordWrap
-                                }
+                                anchors.fill: parent
+                                anchors.margins: 30
+                                spacing: 20
 
                                 SFText {
-                                    Layout.fillWidth: true
-                                    //% "1. Click 'Save wallet logs' and choose a destination folder for log archive"
-                                    text: qsTrId("settings-report-problem-message-line-1")
+                                    //: settings tab, report problem section, title
+                                    //% "Report problem"
+                                    text: qsTrId("settings-report-problem-title")
                                     color: Style.content_main
-                                    font.pixelSize: 12
+                                    font.pixelSize: 18
                                     font.styleName: "Bold"; font.weight: Font.Bold
-                                    wrapMode: Text.WordWrap
                                 }
-
                                 SFText {
-                                    Layout.fillWidth: true
-                                    //% "<style>a:link {color: '#00f6d2'}</style>2. Send email to <a href='mailto:support@beam.mw'>support@beam.mw</a> or open a ticket in <a href='https://github.com/beam-mw/beam'>github</a>"
-                                    text: qsTrId("settings-report-problem-message-line-2")
-                                    color: Style.content_main
+                                    Layout.topMargin: 7
+                                    Layout.preferredWidth: 419
+                                    //: settings tab, report problem section, message
+                                    //% "<style>a:link {color: '#00f6d2'; text-decoration: none;}</style>To report a problem:<br />1. Click “Save wallet logs” and choose a destination folder for log archive<br />2. Send email to <a href='mailto:support@beam.mw'>support@beam.mw</a> or open a ticket in <a href='https://github.com/BeamMW'>Github</a><br />3. Don’t forget to attach logs archive"
+                                    text: qsTrId("settings-report-problem-message")
                                     textFormat: Text.RichText
-                                    font.pixelSize: 12
-                                    font.styleName: "Bold"; font.weight: Font.Bold
+                                    color: Style.content_main
+                                    font.pixelSize: 14
                                     wrapMode: Text.WordWrap
-                                    onLinkActivated: Qt.openUrlExternally(link)
-
                                     MouseArea {
+                                        id: reportProblemMessageArea
                                         anchors.fill: parent
-                                        acceptedButtons: Qt.NoButton
-                                        cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                        acceptedButtons: Qt.LeftButton
+                                        onClicked: {
+                                            handleExternalLink(mouse, reportProblemMessageArea);
+                                        }
+                                        hoverEnabled: true
+                                        onPositionChanged : {
+                                            handleMousePointer(mouse, reportProblemMessageArea);
+                                        }
                                     }
                                 }
 
-                                SFText {
-                                    Layout.fillWidth: true
-                                    //% "3. Don't forget to attach logs archive"
-                                    text: qsTrId("settings-report-problem-message-line-3")
-                                    color: Style.content_main
-                                    font.pixelSize: 12
-                                    font.styleName: "Bold"; font.weight: Font.Bold
-                                    wrapMode: Text.WordWrap
-                                }
-                            }                        
-                            RowLayout {
-                                Layout.fillWidth: true
                                 CustomButton {
+                                    Layout.topMargin: 10
+                                    Layout.preferredHeight: 38
+                                    Layout.preferredWidth: 191
+                                    Layout.alignment: Qt.AlignLeft
+                                    //: settings tab, report problem section, save logs button
                                     //% "save wallet logs"
                                     text: qsTrId("settings-report-problem-save-log-button")
+                                    icon.source: "qrc:/assets/icon-save.svg"
                                     palette.buttonText : "white"
                                     palette.button: Style.background_button
                                     onClicked: viewModel.reportProblem()
                                 }
-                                spacing: 30
-                                CustomButton {
-                                    icon.source: "qrc:/assets/icon-restore.svg"
-                                    Layout.alignment: Qt.AlignRight
-                                    //% "rescan"
-                                    text: qsTrId("settings-rescan-button")
-                                    palette.button: Style.background_button
-                                    palette.buttonText : localNodeRun.checked ? Style.content_main : Style.content_disabled
-                                    enabled: localNodeRun.checked && confirmRefreshDialog.canRefresh && viewModel.isLocalNodeRunning
-                                    onClicked: {
-                                        confirmRefreshDialog.open();
-                                    }
-                                }
-                            }
-
-                            SFText {
-                                Layout.topMargin: 20
-                                Layout.fillWidth: true
-                                Layout.minimumHeight: 20
-                                //% "Wallet folder location:"
-                                text: qsTrId("settings-wallet-location-label")
-                                color: Style.content_main
-                                font.pixelSize: 18
-                                font.styleName: "Bold"; font.weight: Font.Bold
-                                wrapMode: Text.WordWrap
-                            }
-
-                            SFTextInput {
-                                Layout.fillWidth: true
-                                
-                                font.pixelSize: 14
-                                color: Style.content_disabled
-                                readOnly: true
-                                activeFocusOnTab: false
-                                text: viewModel.walletLocation
-                            }
-                            CustomButton {
-                                //% "copy"
-                                text: qsTrId("settings-wallet-location-copy-button")
-                                icon.color: Style.content_main
-                                palette.buttonText : Style.content_main
-                                palette.button: Style.background_button
-                                icon.source: "qrc:/assets/icon-copy.svg"
-                                onClicked: {
-                                    viewModel.copyToClipboard(viewModel.walletLocation);
-                                }
-                            }
-                            Item {
-                                Layout.fillHeight: true;
                             }
                         }
 
+
                     }
 
-                
                 }
 
-                Item {
-                    Layout.fillHeight: true
-                }
-            }
-            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-            ScrollBar.vertical.policy: ScrollBar.AsNeeded
-        }
-
-        Row {
-            Layout.alignment: Qt.AlignHCenter
-            spacing: 30
-            PrimaryButton {
-                //% "undo changes"
-                text: qsTrId("settings-undo")
-                enabled: {
-                    viewModel.isChanged 
-                    && nodeAddress.acceptableInput
-                    && localNodePort.acceptableInput
-                }
-                onClicked: viewModel.undoChanges()
-            }
-
-            PrimaryButton {      
-                //% "apply changes"
-                text: qsTrId("settings-apply")  
-                enabled: {
-                    viewModel.isChanged
-                    && nodeAddress.acceptableInput
-                    && localNodePort.acceptableInput
-                    && (localNodeRun.checked ? (viewModel.localNodePeers.length > 0) : viewModel.isValidNodeAddress)
-                }
-                onClicked: viewModel.applyChanges()
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                ScrollBar.vertical.policy: ScrollBar.AsNeeded
             }
         }
     }

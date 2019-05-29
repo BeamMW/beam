@@ -77,98 +77,77 @@
     </message>
     <message id="settings-version">
         <source>Version: </source>
+        <extracomment>settings tab, version label</extracomment>
         <translation>Версия: </translation>
-    </message>
-    <message id="settings-remote-node-title">
-        <source>Remote node</source>
-        <translation>Удаленный узел</translation>
     </message>
     <message id="settings-remote-node-ip-port">
         <source>ip:port</source>
+        <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip адрес:порт</translation>
-    </message>
-    <message id="settings-local-node-title">
-        <source>Local node</source>
-        <translation>Локальный узел</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
+        <extracomment>settings tab, node section, run node label</extracomment>
         <translation>Запускать локальный узел</translation>
     </message>
     <message id="settings-local-node-port">
-        <source>Local node port</source>
-        <translation>Порт локального узла</translation>
-    </message>
-    <message id="settings-peers">
-        <source>Peers</source>
-        <translation>Пиры</translation>
-    </message>
-    <message id="settings-local-node-no-peers-error">
-        <source>Please add at least one peer</source>
-        <translation>Пожалуйста, добавьте хотя бы одного пира</translation>
+        <source>Port</source>
+        <extracomment>settings tab, node section, port label</extracomment>
+        <translation>Порт</translation>
     </message>
     <message id="settings-rescan-confirmation-button">
         <source>rescan</source>
+        <extracomment>settings tab, confirm rescan dialog, rescan button</extracomment>
         <translation>сканировать</translation>
     </message>
     <message id="settings-rescan-confirmation-title">
         <source>Rescan</source>
+        <extracomment>settings tab, confirm rescan dialog, title</extracomment>
         <translation>Сканировать</translation>
     </message>
     <message id="settings-rescan-confirmation-message">
         <source>Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</source>
+        <extracomment>settings tab, confirm rescan dialog message</extracomment>
         <translation>Сканирование обновит информацию о транзакциях и UTXO в соответствии с последним состоянием цепочки блоков. Процесс может занять некоторое время.</translation>
     </message>
     <message id="settings-general-title">
         <source>General settings</source>
+        <extracomment>settings tab, general section, title</extracomment>
         <translation>Основные настройки</translation>
     </message>
     <message id="settings-general-lock-screen">
         <source>Lock screen</source>
+        <extracomment>settings tab, general section, lock screen label</extracomment>
         <translation>Блокировать экран</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend">
         <source>Ask password for every sending transaction</source>
+        <extracomment>settings tab, general section, ask password label</extracomment>
         <translation>Спрашивать пароль для каждой исходящей транзакции</translation>
     </message>
     <message id="settings-report-problem-title">
         <source>Report problem</source>
+        <extracomment>settings tab, report problem section, title</extracomment>
         <translation>Сообщить о проблеме</translation>
-    </message>
-    <message id="settings-report-problem-title-2">
-        <source>To report a problem:</source>
-        <translation>Для того, что бы сообщить о проблеме:</translation>
-    </message>
-    <message id="settings-report-problem-message-line-1">
-        <source>1. Click &apos;Save wallet logs&apos; and choose a destination folder for log archive</source>
-        <translation>1. Нажмите &apos;сохранить лог&apos; и выберите папку</translation>
-    </message>
-    <message id="settings-report-problem-message-line-2">
-        <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;}&lt;/style&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/beam-mw/beam&apos;&gt;github&lt;/a&gt;</source>
-        <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;}&lt;/style&gt;2. Отправьте письмо на адрес &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; или сообщите на &lt;a href=&apos;https://github.com/beam-mw/beam&apos;&gt;github&lt;/a&gt;</translation>
-    </message>
-    <message id="settings-report-problem-message-line-3">
-        <source>3. Don&apos;t forget to attach logs archive</source>
-        <translation>3. Не забудьте приложить лог</translation>
     </message>
     <message id="settings-rescan-button">
         <source>rescan</source>
+        <extracomment>settings tab, rescan button</extracomment>
         <translation>сканировать</translation>
     </message>
     <message id="settings-wallet-location-label">
-        <source>Wallet folder location:</source>
-        <translation>Папка данных:</translation>
-    </message>
-    <message id="settings-wallet-location-copy-button">
-        <source>copy</source>
-        <translation>копировать</translation>
+        <source>Wallet folder location</source>
+        <extracomment>settings tab, general section, wallet data folder location label</extracomment>
+        <translation>Папка данных</translation>
     </message>
     <message id="settings-undo">
-        <source>undo changes</source>
+        <source>cancel</source>
+        <extracomment>settings tab, node section, cancel button</extracomment>
         <translation>отменить</translation>
     </message>
     <message id="settings-apply">
-        <source>apply changes</source>
+        <source>apply</source>
+        <extracomment>settings tab, node section, apply button</extracomment>
         <translation>применить</translation>
     </message>
     <message id="logo-name">
@@ -445,18 +424,22 @@
     </message>
     <message id="settings-report-problem-save-log-button">
         <source>save wallet logs</source>
+        <extracomment>settings tab, report problem section, save logs button</extracomment>
         <translation>сохранить лог</translation>
     </message>
     <message id="settings-rescan-confirmation-message-line-2">
         <source>Are you sure?</source>
+        <extracomment>settings tab, confirm rescan dialog additional message</extracomment>
         <translation>Вы уверены?</translation>
     </message>
     <message id="settings-general-change-pwd-button">
         <source>change wallet password</source>
+        <extracomment>settings tab, change password button</extracomment>
         <translation>сменить пароль</translation>
     </message>
     <message id="settings-title">
         <source>Settings</source>
+        <extracomment>settings tab title</extracomment>
         <translation>Настройки</translation>
     </message>
     <message id="cant-send-to-expired-message">
@@ -1165,6 +1148,7 @@
     </message>
     <message id="settings-general-language">
         <source>Language</source>
+        <extracomment>settings tab, general section, language label</extracomment>
         <translation>Язык</translation>
     </message>
     <message id="available-panel-where-to-buy">
@@ -1239,10 +1223,6 @@
         <source>open my wallet</source>
         <translation>открыть кошелек</translation>
     </message>
-    <message id="settings-peers-add-button">
-        <source>Add</source>
-        <translation>Добавить</translation>
-    </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
         <translation>Включен CapsLock!</translation>
@@ -1273,20 +1253,35 @@
         <extracomment>Entry in adress table context menu to show QR</extracomment>
         <translation>показать QR код</translation>
     </message>
-    <message id="settings-general-allow-beammw-label-p1">
-        <source>Allow access to </source>
-        <extracomment>general settings, label for alow access beam.mw part 1</extracomment>
-        <translation>Разрешить доступ к </translation>
+    <message id="settings-peers-title">
+        <source>Peers</source>
+        <extracomment>settings tab, node section, peers label</extracomment>
+        <translation>Пиры</translation>
     </message>
-    <message id="settings-general-allow-beammw-label-p2">
-        <source>beam.mw</source>
-        <extracomment>general settings, label for alow access beam.mw part 2 (link)</extracomment>
-        <translation>beam.mw</translation>
+    <message id="settings-node-title">
+        <source>Node</source>
+        <extracomment>settings tab, node section, title</extracomment>
+        <translation>Узел</translation>
     </message>
-    <message id="settings-general-allow-beammw-label-p3">
-        <source> (Exchanges and news feed)</source>
-        <extracomment>general settings, label for alow access beam.mw part 3</extracomment>
-        <translation> (Обменники и новости)</translation>
+    <message id="settings-remote-node-ip-port-error">
+        <source>Invalid address</source>
+        <extracomment>settings tab, node section, on address error</extracomment>
+        <translation>Неправильный адрес</translation>
+    </message>
+    <message id="settings-wallet-location-link">
+        <source>show in folder</source>
+        <extracomment>settings tab, general section, show data folder link</extracomment>
+        <translation>открыть папку</translation>
+    </message>
+    <message id="settings-general-allow-beammw-label">
+        <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch exchanges and transaction data)</source>
+        <extracomment>general settings, label for alow open external links</extracomment>
+        <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Разрешить доступ к &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; и &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;блокчейн эксплореру&lt;/a&gt; (обменники и информация о транзакциях)</translation>
+    </message>
+    <message id="settings-report-problem-message">
+        <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Don’t forget to attach logs archive</source>
+        <extracomment>settings tab, report problem section, message</extracomment>
+        <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Что бы сообщить о проблеме:&lt;br /&gt;1. Нажмите “сохранить лог” и укажите куда сохранить архив&lt;br /&gt;2. Отправьте письмо на &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; или сообщите на &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Не забудьте прикрепить архив</translation>
     </message>
 </context>
 </TS>

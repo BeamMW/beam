@@ -257,6 +257,11 @@ void SettingsViewModel::refreshWallet()
     AppModel::getInstance()->getWallet()->getAsync()->refresh();
 }
 
+void SettingsViewModel::openFolder(const QString& path)
+{
+    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+}
+
 bool SettingsViewModel::isChanged() const
 {
     return m_nodeAddress != m_settings.getNodeAddress()
