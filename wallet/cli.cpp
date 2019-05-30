@@ -832,7 +832,7 @@ namespace
 
         receiverWalletID.FromHex(vm[cli::RECEIVER_ADDR].as<string>());
 
-        auto signedAmount = vm[cli::AMOUNT].as<double>();
+        auto signedAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
         if (signedAmount < 0)
         {
             LOG_ERROR() << "Unable to send negative amount of coins";
