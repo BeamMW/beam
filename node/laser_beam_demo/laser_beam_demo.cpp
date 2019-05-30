@@ -137,7 +137,7 @@ struct Client
 			case State::Closing2:
 				{
 					os << "Closing2 (Phase-1 withdrawal detected). Revision: " << m_State.m_Close.m_iPath << ". Initiated by " << (m_State.m_Close.m_Initiator ? "me" : "peer");
-					if (m_vUpdates[m_State.m_Close.m_iPath]->IsPhase2UnfairPeerPunish())
+					if (DataUpdate::Type::Punishment == m_vUpdates[m_State.m_Close.m_iPath]->m_Type)
 						os << ". Fraudulent withdrawal attempt detected! Will claim everything";
 				}
 				break;

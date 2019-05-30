@@ -100,11 +100,18 @@ namespace Lightning {
 			Key::IDV m_msPeer; // my part of msigN for peer withdrawal
 			Key::IDV m_Outp; // phase2 output
 
+			enum struct Type
+			{
+				None, // not ready yet
+				TimeLocked, // standard 2-phase withdrawal
+				Punishment,
+
+			} m_Type;
+
 			const Transaction& get_TxPhase2(bool bInitiator) const;
 			void get_Phase2ID(Merkle::Hash& hv, bool bInitiator) const;
 
-			bool IsPhase2UnfairPeerPunish() const;
-			bool IsWithdrawalReady() const;
+			void CheckStdType();
 		};
 
 		std::unique_ptr<DataOpen> m_pOpen;

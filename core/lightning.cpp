@@ -45,11 +45,6 @@ struct Channel::MuSigLocator
 	bool m_Initiator;
 };
 
-bool Channel::DataUpdate::IsWithdrawalReady() const
-{
-	return !(m_tx1.m_vKernels.empty() || m_tx2.m_vKernels.empty());
-}
-
 Channel::State::Enum Channel::get_State() const
 {
 	if (!m_pOpen)
@@ -62,7 +57,7 @@ Channel::State::Enum Channel::get_State() const
 		if (m_State.m_hQueryLast >= m_pOpen->m_hrLimit.m_Max)
 			return State::OpenFailed;
 
-		if (!m_vUpdates.front()->IsWithdrawalReady())
+		if (DataUpdate::Type::None == m_vUpdates.front()->m_Type)
 			return State::Opening0;
 
 		if (m_pNegCtx && (NegotiationCtx::Open == m_pNegCtx->m_eType))
@@ -259,6 +254,7 @@ void Channel::UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut)
 
 			DataUpdate& d = *m_vUpdates.front();
 			Cast::Down<ChannelWithdrawal::Result>(d) = std::move(res);
+			d.CheckStdType();
 		}
 		break;
 
@@ -291,6 +287,7 @@ void Channel::UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut)
 			DataUpdate& d = *m_vUpdates.back();
 
 			x.get_Result(d);
+			d.CheckStdType();
 		}
 		break;
 
@@ -325,7 +322,7 @@ void Channel::Update()
 
 	if (!m_pOpen->m_hOpened)
 	{
-		if (!m_vUpdates.front()->IsWithdrawalReady())
+		if (DataUpdate::Type::None == m_vUpdates.front()->m_Type)
 		{
 			// early negotiation stage
 			m_State.m_hQueryLast = hTip;
@@ -410,7 +407,7 @@ size_t Channel::SelectWithdrawalPath()
 	for (; ; iPath--)
 	{
 		const DataUpdate& d = *m_vUpdates[iPath];
-		if (d.IsWithdrawalReady())
+		if (DataUpdate::Type::None != d.m_Type)
 			break; // good enough
 
 		// we must never reveal our key before we obtain the full withdrawal path
@@ -427,6 +424,7 @@ Channel::DataUpdate& Channel::CreateUpdatePoint(uint32_t iRole, const Key::IDV& 
 
 	const Key::IDV* pArr[] = { &msA, &msB };
 
+	d.m_Type = DataUpdate::Type::None;
 	d.m_msMy = *pArr[iRole];
 	d.m_msPeer = *pArr[!iRole];
 	d.m_Outp = outp;
@@ -554,7 +552,8 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 				assert(r.m_iIndex);
 				const DataUpdate& d = *m_vUpdates[--r.m_iIndex];
 
-				if (d.IsWithdrawalReady())
+				bool bIs2Phase = (DataUpdate::Type::TimeLocked == d.m_Type) || (DataUpdate::Type::Punishment == d.m_Type);
+				if (bIs2Phase)
 				{
 					r.m_Initiator = true;
 					r.m_Msg.m_Utxo = d.m_Comm1;
@@ -594,7 +593,7 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 			if (IsUnfairPeerClosed())
 			{
 				DataUpdate& d = *m_vUpdates[m_State.m_Close.m_iPath];
-				if (!d.IsPhase2UnfairPeerPunish())
+				if (DataUpdate::Type::TimeLocked == d.m_Type)
 					// punish it! Create an immediate withdraw tx, put it instead of m_txPeer2
 					CreatePunishmentTx();
 			}
@@ -609,7 +608,7 @@ void Channel::CreatePunishmentTx()
 	assert(m_State.m_Terminate && !m_State.m_Close.m_Initiator && (m_State.m_Close.m_iPath + 1 < m_vUpdates.size()));
 
 	DataUpdate& d = *m_vUpdates[m_State.m_Close.m_iPath];
-	assert(!d.IsPhase2UnfairPeerPunish()); // not yet
+	assert(DataUpdate::Type::TimeLocked == d.m_Type);
 
 	DataUpdate& d1 = *m_vUpdates[m_State.m_Close.m_iPath + 1];
 	assert(d1.m_PeerKeyValid);
@@ -659,6 +658,8 @@ void Channel::CreatePunishmentTx()
 	pKrn->m_Signature.Sign(hv, k);
 
 	tx.m_Offset = offs;
+
+	d.m_Type = DataUpdate::Type::Punishment;
 /*
 	{
 		// test
@@ -805,11 +806,13 @@ void Channel::DataUpdate::get_Phase2ID(Merkle::Hash& hv, bool bInitiator) const
 		tx.m_vKernels.front()->get_ID(hv);
 }
 
-bool Channel::DataUpdate::IsPhase2UnfairPeerPunish() const
+void Channel::DataUpdate::CheckStdType()
 {
-	return
-		!m_txPeer2.m_vKernels.empty() &&
-		!m_txPeer2.m_vKernels.front()->m_pRelativeLock;
+	if (Type::None == m_Type)
+	{
+		if (!(m_tx1.m_vKernels.empty() || m_tx2.m_vKernels.empty()))
+			m_Type = DataUpdate::Type::TimeLocked;
+	}
 }
 
 bool Channel::Open(Amount nMy, Amount nOther, const HeightRange& hr0)
@@ -1024,7 +1027,7 @@ bool Channel::IsSafeToForget(Height hMaxRollback)
 	{
 		return
 			(m_State.m_hQueryLast >= m_pOpen->m_hrLimit.m_Max + hMaxRollback) || // too late
-			!m_vUpdates.front()->IsWithdrawalReady(); // negotiation is at a very early stage
+			(DataUpdate::Type::None == m_vUpdates.front()->m_Type); // negotiation is at a very early stage
 	}
 
 	return m_State.m_Close.m_hPhase2 && (m_State.m_Close.m_hPhase2 + hMaxRollback <= get_Tip());
