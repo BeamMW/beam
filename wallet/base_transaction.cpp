@@ -96,17 +96,38 @@ namespace beam::wallet
         }
     }
 
-    //void LocalPrivateKeyKeeper::GenerateRangeProof(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<RangeProofs>&& resultCallback, ExceptionCallback&& exceptionCallback)
-    //{
-    //    //try
-    //    //{
-    //    //    resultCallback(GenerateRangeProofSync(schemeHeight, ids));
-    //    //}
-    //    //catch (const exception & ex)
-    //    //{
-    //    //    exceptionCallback(ex);
-    //    //}
-    //}
+    void LocalPrivateKeyKeeper::GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    {
+        auto thisHolder = shared_from_this();
+        shared_ptr<Outputs> result = make_shared<Outputs>();
+        shared_ptr<exception> storedException;
+        shared_ptr<future<void>> futureHolder = make_shared<future<void>>();
+        *futureHolder = do_thread_async(
+            [thisHolder, this, schemeHeight, ids, result, storedException]()
+            {
+                try
+                {
+                    *result = GenerateOutputsSync(schemeHeight, ids);
+                }
+                catch (const exception& ex)
+                {
+                    *storedException = ex;
+                }
+            },
+            [futureHolder, thisHolder, this, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), result, storedException]() mutable
+            {
+                if (storedException)
+                {
+                    exceptionCallback(*storedException);
+                }
+                else
+                {
+                    resultCallback(move(*result));
+                }
+                futureHolder.reset();
+            });
+        
+    }
 
     size_t LocalPrivateKeyKeeper::AllocateNonceSlot()
     {
@@ -185,23 +206,6 @@ namespace beam::wallet
         }
         return result;
     }
-
-    //IPrivateKeyKeeper::RangeProofs LocalPrivateKeyKeeper::GenerateRangeProofSync(Height schemeHeigh, const std::vector<Key::IDV>& ids)
-    //{
-    //    RangeProofs result;
-    //    Scalar::Native secretKey;
-    //    Point commitment;
-    //    result.reserve(ids.size());
-    //    for (const auto& coinID : ids)
-    //    {
-    //        Output output;
-    //        output.Create(schemeHeigh, secretKey, *GetChildKdf(coinID.m_SubIdx), coinID, *m_MasterKdf);
-
-    //        assert(output.m_pConfidential);
-    //        result.emplace_back(move(output.m_pConfidential));
-    //    }
-    //    return result;
-    //}
 
     ECC::Point LocalPrivateKeyKeeper::GenerateNonceSync(size_t slot)
     {
@@ -561,6 +565,11 @@ namespace beam::wallet
     IPrivateKeyKeeper::Ptr BaseTransaction::GetKeyKeeper()
     {
         return m_KeyKeeper;
+    }
+
+    IAsyncContext& BaseTransaction::GetAsyncAcontext() const
+    {
+        return m_Gateway;
     }
 
     bool BaseTransaction::SendTxParameters(SetTxParameter && msg) const

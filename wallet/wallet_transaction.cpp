@@ -107,29 +107,9 @@ namespace beam::wallet
                 return;
             }
 
-            if (!builder.GetOutputs())
+            if (builder.CreateOutputs())
             {
-                if (!builder.GetOutputCoins().empty())
-                {
-                    if (m_OutputsFuture.valid())
-                    {
-                        return;
-                    }
-                    m_OutputsFuture = DoThreadAsync(
-                        [sharedBuilder]()
-                        {
-                            sharedBuilder->CreateOutputs();
-                        },
-                        [sharedBuilder]()
-                        {
-                            if (!sharedBuilder->FinalizeOutputs())
-                            {
-                                //TODO: transaction is too big :(
-                            }
-                        });
-                    //builder.CreateOutputs();
-                    return;
-                }
+                return;
             }
 
             uint64_t nAddrOwnID;

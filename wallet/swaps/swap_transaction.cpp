@@ -567,7 +567,7 @@ namespace beam::wallet
 
         bool isBeamOwner = IsBeamSide();
         auto fee = GetMandatoryParameter<Amount>(TxParameterID::Fee);
-        auto lockTxBuilder = std::make_unique<LockTxBuilder>(*this, GetAmount(), fee);
+        auto lockTxBuilder = std::make_shared<LockTxBuilder>(*this, GetAmount(), fee);
 
         if (!lockTxBuilder->GetInitialTxParams() && lockTxState == SubTxState::Initial)
         {
@@ -584,12 +584,14 @@ namespace beam::wallet
 
                 lockTxBuilder->SelectInputs();
                 lockTxBuilder->AddChange();
-                lockTxBuilder->CreateOutputs();
             }
-
-            if (!lockTxBuilder->FinalizeOutputs())
+            else
             {
-                // TODO: transaction is too big :(
+                LOG_DEBUG() << "lockTxBuilder->FinalizeOutputs()";
+                if (!lockTxBuilder->FinalizeOutputs())
+                {
+                    // TODO: transaction is too big :(
+                }
             }
 
             UpdateTxDescription(TxStatus::InProgress);
@@ -598,6 +600,10 @@ namespace beam::wallet
         }
 
         lockTxBuilder->CreateInputs();
+        if (lockTxBuilder->CreateOutputs())
+        {
+            return lockTxState;
+        }
 
         lockTxBuilder->GenerateNonce();
         lockTxBuilder->LoadSharedParameters();

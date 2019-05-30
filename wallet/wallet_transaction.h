@@ -22,8 +22,6 @@
 #include <boost/optional.hpp>
 #include "utility/logger.h"
 
-#include <future>
-
 namespace beam::wallet
 {
     class BaseTxBuilder;
@@ -58,8 +56,6 @@ namespace beam::wallet
         bool IsSelfTx() const;
         State GetState() const;
     private:
-        std::future<void> m_InputsFuture;
-        std::future<void> m_OutputsFuture;
         std::shared_ptr<BaseTxBuilder> m_TxBuilder;
     };
 }
