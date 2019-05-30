@@ -1155,18 +1155,6 @@ bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const ch
 {
 	using namespace Negotiator;
 
-	struct MyGateway :public Gateway::Direct
-	{
-		MyGateway(Storage::IBase& x) :Gateway::Direct(x) {}
-		size_t m_Size = 0;
-
-		virtual void Send(uint32_t code, ByteBuffer&& buf) override
-		{
-			m_Size += sizeof(code) + sizeof(size_t) + buf.size();
-			Gateway::Direct::Send(code, std::move(buf));
-		}
-	};
-
 	const uint32_t nPeers = 2;
 
 	IBase* pArr[nPeers];
@@ -1193,17 +1181,43 @@ bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const ch
 
 		IBase& v = *pArr[i];
 
-		MyGateway gw(*pArr[!i]->m_pStorage);
+		Storage::Map gwOut;
+		Gateway::Direct gw(gwOut);
+
 		v.m_pGateway = &gw;
 
 		uint32_t status = v.Update();
 
 		char chThis = static_cast<char>('A' + i);
 
-		if (gw.m_Size)
+		if (!gwOut.empty())
 		{
 			char chOther = static_cast<char>('A' + !i);
-			cout << "\t" << chThis << " -> " << chOther << ' ' << gw.m_Size << " bytes" << std::endl;
+
+			Gateway::Direct gwFin(*pArr[!i]->m_pStorage);
+
+			size_t nSize = 0;
+			for (Storage::Map::iterator it = gwOut.begin(); gwOut.end() != it; it++)
+			{
+				ByteBuffer& buf = it->second;
+				uint32_t code = it->first;
+				nSize += sizeof(code) + sizeof(uint32_t) + buf.size();
+				gwFin.Send(code, std::move(buf));
+			}
+
+			cout << "\t" << chThis << " -> " << chOther << ' ' << nSize << " bytes" << std::endl;
+
+
+			for (Storage::Map::iterator it = gwOut.begin(); gwOut.end() != it; it++)
+			{
+				uint32_t code = it->first;
+				std::string sVar;
+				v.QueryVar(sVar, code);
+
+				if (sVar.empty())
+					sVar = "?";
+				cout << "\t     " << sVar << endl;
+			}
 		}
 
 		if (!status)
