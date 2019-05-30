@@ -19,8 +19,21 @@ using namespace ECC;
 
 namespace beam::wallet
 {
+    namespace
+    {
+        AmountList ConstructAmountList(Amount amount)
+        {
+            AmountList res;
+            if (amount > 0)
+            {
+                res.push_back(amount);
+            }
+            return res;
+        }
+    }
+
     SharedTxBuilder::SharedTxBuilder(BaseTransaction& tx, SubTxID subTxID, Amount amount, Amount fee)
-        : BaseTxBuilder(tx, subTxID, { amount }, fee)
+        : BaseTxBuilder(tx, subTxID, ConstructAmountList(amount), fee)
     {
         InitMinHeight();
     }
@@ -42,6 +55,14 @@ namespace beam::wallet
             && m_Tx.GetParameter(TxParameterID::PeerPublicSharedBlindingFactor, m_PeerPublicSharedBlindingFactor, SubTxIndex::BEAM_LOCK_TX);
     }
 
+    ECC::Point::Native SharedTxBuilder::GetPublicExcess() const
+    {
+        // correct public blinding excess
+        Point::Native pt = m_PeerPublicSharedBlindingFactor;
+        pt = -pt;
+        return BaseTxBuilder::GetPublicExcess() + pt;
+    }
+
     void SharedTxBuilder::InitTx(bool isTxOwner)
     {
         if (isTxOwner)
@@ -57,9 +78,9 @@ namespace beam::wallet
         }
         else
         {
-            // init offset
-            InitOffset();
+            InitInput();
         }
+        GenerateOffset();
     }
 
     void SharedTxBuilder::InitInput()
@@ -74,13 +95,11 @@ namespace beam::wallet
         auto& input = m_Inputs.emplace_back(std::make_unique<Input>());
         input->m_Commitment = commitment;
         m_Tx.SetParameter(TxParameterID::Inputs, m_Inputs, false, m_SubTxID);
-
-        m_Offset += m_SharedBlindingFactor;
     }
 
     void SharedTxBuilder::InitOutput()
     {
-        beam::Coin outputCoin;
+        Coin outputCoin;
 
         if (!m_Tx.GetParameter(TxParameterID::SharedCoinID, outputCoin.m_ID, m_SubTxID))
         {
@@ -96,16 +115,9 @@ namespace beam::wallet
         Output::Ptr output = std::make_unique<Output>();
         output->Create(minHeight, blindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(outputCoin.m_ID.m_SubIdx), outputCoin.m_ID, *m_Tx.GetWalletDB()->get_MasterKdf());
 
-        blindingFactor = -blindingFactor;
-        m_Offset += blindingFactor;
-
         m_Outputs.push_back(std::move(output));
-    }
-
-    void SharedTxBuilder::InitOffset()
-    {
-        m_Offset += m_SharedBlindingFactor;
-        m_Tx.SetParameter(TxParameterID::Offset, m_Offset, false, m_SubTxID);
+        m_OutputCoins.push_back(outputCoin.m_ID);
+        m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, m_SubTxID);
     }
 
     void SharedTxBuilder::InitMinHeight()

@@ -23,16 +23,14 @@
 #include "swaps/second_side.h"
 #include <algorithm>
 
-namespace beam
+namespace beam::wallet
 {
-    namespace wallet
+    enum class TxType : uint8_t
     {
-        enum class TxType : uint8_t
-        {
-            Simple,
-            AtomicSwap
-        };
-    }
+        Simple,
+        AtomicSwap,
+        ALL
+    };
 
     using TxID = std::array<uint8_t, 16>;
     const Height kDefaultTxLifetime = 2 * 60;
@@ -73,15 +71,14 @@ namespace beam
 
     struct PrintableAmount
     {
-        explicit PrintableAmount(const Amount& amount, bool showPoint = false) : m_value{ amount }, m_showPoint{showPoint}
+        explicit PrintableAmount(const Amount& amount, bool showPoint = false) 
+            : m_value{ amount }
+            , m_showPoint{showPoint}
         {}
         const Amount& m_value;
         bool m_showPoint;
     };
-
-    std::ostream& operator<<(std::ostream& os, const PrintableAmount& amount);
-    std::ostream& operator<<(std::ostream& os, const TxID& uuid);
-
+    
     struct Coin;
 
     enum class TxStatus : uint32_t
@@ -113,6 +110,8 @@ namespace beam
     MACRO(SwapInvalidAmount,            15, "Contract's amount is not valid") \
     MACRO(SwapInvalidContract,          16, "Side chain has invalid contract") \
     MACRO(SwapSecondSideBridgeError,    17, "Side chain bridge has internal error") \
+    MACRO(SwapNetworkBridgeError,       18, "Side chain bridge has network error") \
+    MACRO(SwapFormatResponseError,      19, "Side chain bridge has format response error") \
 
     enum TxFailureReason : int32_t
     {
@@ -179,283 +178,288 @@ namespace beam
 
         bool canCancel() const
         {
-            return m_status == beam::TxStatus::InProgress
-                || m_status == beam::TxStatus::Pending;
+            return m_status == TxStatus::InProgress
+                || m_status == TxStatus::Pending;
         }
 
         bool canDelete() const
         {
-            return m_status == beam::TxStatus::Failed
-                || m_status == beam::TxStatus::Completed
-                || m_status == beam::TxStatus::Cancelled;
+            return m_status == TxStatus::Failed
+                || m_status == TxStatus::Completed
+                || m_status == TxStatus::Cancelled;
         }
 
         std::string getStatusString() const;
     };
 
-    namespace wallet
+    template<typename T>
+    bool fromByteBuffer(const ByteBuffer& b, T& value)
     {
-        template<typename T>
-        bool fromByteBuffer(const ByteBuffer& b, T& value)
+        if (!b.empty())
         {
+            Deserializer d;
+            d.reset(b.data(), b.size());
+            d & value;
+            return true;
+        }
+        ZeroObject(value);
+        return false;
+    }
+
+    template <typename T>
+    ByteBuffer toByteBuffer(const T& value)
+    {
+        Serializer s;
+        s& value;
+        ByteBuffer b;
+        s.swap_buf(b);
+        return b;
+    }
+
+    ByteBuffer toByteBuffer(const ECC::Point::Native& value);
+    ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
+
+    // Ids of the transaction parameters
+    enum class TxParameterID : uint8_t
+    {
+        // public parameters
+        // Can bet set during outside communications
+        TransactionType = 0,
+        IsSender = 1,
+        Amount = 2,
+        Fee = 3,
+        MinHeight = 4,
+        Message = 5,
+        MyID = 6,
+        PeerID = 7,
+        //Inputs = 8,
+        //Outputs = 9,
+        CreateTime = 10,
+        IsInitiator = 11,
+        PeerMaxHeight = 12,
+        AmountList = 13,
+        PreselectedCoins = 14,
+        Lifetime = 15,
+        PeerProtoVersion = 16,
+        MaxHeight = 17,
+
+        SubTxIndex = 25,
+        PeerPublicSharedBlindingFactor = 26,
+
+        IsSelfTx = 27,
+       
+        AtomicSwapIsBeamSide = 30,
+        AtomicSwapCoin = 31,
+        AtomicSwapAmount = 32,
+        AtomicSwapPublicKey = 33,
+        AtomicSwapPeerPublicKey = 34,
+        AtomicSwapLockTime = 35,
+        AtomicSwapExternalLockTime = 36,
+        AtomicSwapExternalTx = 37,
+        AtomicSwapExternalTxID = 38,
+        AtomicSwapExternalTxOutputIndex = 39,
+
+        // signature parameters
+
+        PeerPublicNonce = 40,
+
+        PeerPublicExcess = 50,
+
+        PeerSignature = 60,
+
+        PeerOffset = 70,
+
+        PeerInputs = 80,
+        PeerOutputs = 81,
+
+        TransactionRegistered = 90,
+
+        FailureReason = 92,
+
+        PaymentConfirmation = 99,
+
+        PeerSharedBulletProofMSig = 108,
+        PeerSharedBulletProofPart2 = 109,
+        PeerSharedBulletProofPart3 = 110,
+
+        PeerLockImage = 115,
+
+        // private parameters
+        PrivateFirstParam = 128,
+
+        ModifyTime = 128,
+        KernelProofHeight = 129,
+
+        BlindingExcess = 130,
+
+        KernelUnconfirmedHeight = 133,
+        PeerResponseHeight = 134,
+
+        Offset = 140,
+
+        Change = 150,
+        Status = 151,
+        KernelID = 152,
+
+        MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
+
+        SharedBlindingFactor = 160,
+        MyNonce = 162,
+        NonceSlot = 163,
+        PublicNonce = 164,
+        SharedBulletProof = 171,
+        SharedCoinID = 172,
+        SharedSeed = 173,
+
+        Inputs = 180,
+        InputCoins = 183,
+        OutputCoins = 184,           
+        Outputs = 190,
+
+        Kernel = 200,
+        PreImage = 201,
+        AtomicSwapSecretPrivateKey = 202,
+        AtomicSwapSecretPublicKey = 203,
+
+        InternalFailureReason = 210,
+    
+        State = 255
+
+    };
+
+    enum class AtomicSwapCoin
+    {
+        Bitcoin,
+        Litecoin,
+        Unknown
+    };
+
+    AtomicSwapCoin from_string(const std::string& value);
+
+    using SubTxID = uint16_t;
+    const SubTxID kDefaultSubTxID = 1;
+
+    // messages
+    struct SetTxParameter
+    {
+        WalletID m_From;
+        TxID m_TxID;
+
+        TxType m_Type;
+
+        std::vector<std::pair<TxParameterID, ByteBuffer>> m_Parameters;
+
+        template <typename T>
+        SetTxParameter& AddParameter(TxParameterID paramID, T&& value)
+        {
+            m_Parameters.emplace_back(paramID, toByteBuffer(value));
+            return *this;
+        }
+
+        template <typename T>
+        bool GetParameter(TxParameterID paramID, T& value) const 
+        {
+            auto pit = std::find_if(m_Parameters.begin(), m_Parameters.end(), [paramID](const auto& p) { return p.first == paramID; });
+            if (pit == m_Parameters.end())
+            {
+                return false;
+            }
+            const ByteBuffer& b = pit->second;
+                
             if (!b.empty())
             {
                 Deserializer d;
                 d.reset(b.data(), b.size());
                 d & value;
-                return true;
             }
-            ZeroObject(value);
-            return false;
+            else
+            {
+                ZeroObject(value);
+            }
+            return true;
         }
 
-        template <typename T>
-        ByteBuffer toByteBuffer(const T& value)
+        SERIALIZE(m_From, m_TxID, m_Type, m_Parameters);
+    };
+
+    // context to take into account all async wallet operations
+    struct IAsyncContext
+    {
+        virtual void OnAsyncStarted() = 0;
+        virtual void OnAsyncFinished() = 0;
+    };
+
+    class AsyncContextHolder
+    {
+    public:
+        AsyncContextHolder(IAsyncContext& context)
+            : m_Context(context)
         {
-            Serializer s;
-            s & value;
-            ByteBuffer b;
-            s.swap_buf(b);
-            return b;
+            m_Context.OnAsyncStarted();
         }
-
-        ByteBuffer toByteBuffer(const ECC::Point::Native& value);
-        ByteBuffer toByteBuffer(const ECC::Scalar::Native& value);
-
-        // Ids of the transaction parameters
-        enum class TxParameterID : uint8_t
+        ~AsyncContextHolder()
         {
-            // public parameters
-            // Can bet set during outside communications
-            TransactionType = 0,
-            IsSender = 1,
-            Amount = 2,
-            Fee = 3,
-            MinHeight = 4,
-            Message = 5,
-            MyID = 6,
-            PeerID = 7,
-            //Inputs = 8,
-            //Outputs = 9,
-            CreateTime = 10,
-            IsInitiator = 11,
-            PeerMaxHeight = 12,
-            AmountList = 13,
-            PreselectedCoins = 14,
-            Lifetime = 15,
-            PeerProtoVersion = 16,
-            MaxHeight = 17,
+            m_Context.OnAsyncFinished();
+        }
+    private:
+        IAsyncContext& m_Context;
+    };
 
-            SubTxIndex = 25,
-            PeerPublicSharedBlindingFactor = 26,
+    struct INegotiatorGateway : IAsyncContext
+    {
+        virtual ~INegotiatorGateway() {}
+        virtual void on_tx_completed(const TxID& ) = 0;
+        virtual void register_tx(const TxID&, Transaction::Ptr, SubTxID subTxID = kDefaultSubTxID) = 0;
+        virtual void confirm_outputs(const std::vector<Coin>&) = 0;
+        virtual void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
+        virtual void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
+        virtual bool get_tip(Block::SystemState::Full& state) const = 0;
+        virtual void send_tx_params(const WalletID& peerID, SetTxParameter&&) = 0;
+        virtual void UpdateOnNextTip(const TxID&) = 0;
+        virtual SecondSide::Ptr GetSecondSide(const TxID&) const = 0;
+    };
 
-            IsSelfTx = 27,
-       
-            AtomicSwapIsBeamSide = 30,
-            AtomicSwapCoin = 31,
-            AtomicSwapAmount = 32,
-            AtomicSwapPublicKey = 33,
-            AtomicSwapPeerPublicKey = 34,
-            AtomicSwapLockTime = 35,
-            AtomicSwapExternalLockTime = 36,
-            AtomicSwapExternalTx = 37,
-            AtomicSwapExternalTxID = 38,
-            AtomicSwapExternalTxOutputIndex = 39,
+    enum class ErrorType : uint8_t
+    {
+        NodeProtocolBase,
+        NodeProtocolIncompatible,
+        ConnectionBase,
+        ConnectionTimedOut,
+        ConnectionRefused,
+        ConnectionHostUnreach,
+        ConnectionAddrInUse,
+        TimeOutOfSync,
+        InternalNodeStartFailed,
+        HostResolvedError,
+    };
 
-            // signature parameters
+    ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType);
+    ErrorType getWalletError(io::ErrorCode errorCode);
 
-            PeerPublicNonce = 40,
+    struct PaymentConfirmation
+    {
+        // I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
+        Amount m_Value;
+        ECC::Hash::Value m_KernelID;
+        PeerID m_Sender;
+        ECC::Signature m_Signature;
 
-            PeerPublicExcess = 50,
+        void get_Hash(ECC::Hash::Value&) const;
+        bool IsValid(const PeerID&) const;
 
-            PeerSignature = 60,
+        void Sign(const ECC::Scalar::Native& sk);
+    };
+}
 
-            PeerOffset = 70,
-
-            PeerInputs = 80,
-            PeerOutputs = 81,
-
-            TransactionRegistered = 90,
-
-            FailureReason = 92,
-
-            PaymentConfirmation = 99,
-
-            PeerSharedBulletProofMSig = 108,
-            PeerSharedBulletProofPart2 = 109,
-            PeerSharedBulletProofPart3 = 110,
-
-            PeerLockImage = 115,
-
-            // private parameters
-            PrivateFirstParam = 128,
-
-            ModifyTime = 128,
-            KernelProofHeight = 129,
-
-            BlindingExcess = 130,
-
-            KernelUnconfirmedHeight = 133,
-            PeerResponseHeight = 134,
-
-            Offset = 140,
-
-            Change = 150,
-            Status = 151,
-            KernelID = 152,
-
-            MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
-
-            SharedBlindingFactor = 160,
-            MyNonce = 162,
-
-            SharedBulletProof = 171,
-            SharedCoinID = 172,
-            SharedSeed = 173,
-
-            Inputs = 180,
-           
-            Outputs = 190,
-
-            Kernel = 200,
-            PreImage = 201,
-            AtomicSwapSecretPrivateKey = 202,
-            AtomicSwapSecretPublicKey = 203,
-
-            InternalFailureReason = 210,
-    
-            State = 255
-
-        };
-
-        enum class AtomicSwapCoin
-        {
-            Bitcoin,
-            Litecoin,
-            Unknown
-        };
-
-        AtomicSwapCoin from_string(const std::string& value);
-
-        using SubTxID = uint16_t;
-        const SubTxID kDefaultSubTxID = 1;
-
-        // messages
-        struct SetTxParameter
-        {
-            WalletID m_From;
-            TxID m_TxID;
-
-            TxType m_Type;
-
-            std::vector<std::pair<TxParameterID, ByteBuffer>> m_Parameters;
-
-            template <typename T>
-            SetTxParameter& AddParameter(TxParameterID paramID, T&& value)
-            {
-                m_Parameters.emplace_back(paramID, toByteBuffer(value));
-                return *this;
-            }
-
-            template <typename T>
-            bool GetParameter(TxParameterID paramID, T& value) const 
-            {
-                auto pit = std::find_if(m_Parameters.begin(), m_Parameters.end(), [paramID](const auto& p) { return p.first == paramID; });
-                if (pit == m_Parameters.end())
-                {
-                    return false;
-                }
-                const ByteBuffer& b = pit->second;
-                
-                if (!b.empty())
-                {
-                    Deserializer d;
-                    d.reset(b.data(), b.size());
-                    d & value;
-                }
-                else
-                {
-                    ZeroObject(value);
-                }
-                return true;
-            }
-
-            SERIALIZE(m_From, m_TxID, m_Type, m_Parameters);
-        };
-
-        // context to take into account all async wallet operations
-        struct IAsyncContext
-        {
-            virtual void OnAsyncStarted() = 0;
-            virtual void OnAsyncFinished() = 0;
-        };
-
-        class AsyncContextHolder
-        {
-        public:
-            AsyncContextHolder(IAsyncContext& context)
-                : m_Context(context)
-            {
-                m_Context.OnAsyncStarted();
-            }
-            ~AsyncContextHolder()
-            {
-                m_Context.OnAsyncFinished();
-            }
-        private:
-            IAsyncContext& m_Context;
-        };
-
-        struct INegotiatorGateway : IAsyncContext
-        {
-            virtual ~INegotiatorGateway() {}
-            virtual void on_tx_completed(const TxID& ) = 0;
-            virtual void register_tx(const TxID&, Transaction::Ptr, SubTxID subTxID = kDefaultSubTxID) = 0;
-            virtual void confirm_outputs(const std::vector<Coin>&) = 0;
-            virtual void confirm_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
-            virtual void get_kernel(const TxID&, const Merkle::Hash& kernelID, SubTxID subTxID = kDefaultSubTxID) = 0;
-            virtual bool get_tip(Block::SystemState::Full& state) const = 0;
-            virtual void send_tx_params(const WalletID& peerID, SetTxParameter&&) = 0;
-            virtual void UpdateOnNextTip(const TxID&) = 0;
-            virtual SecondSide::Ptr GetSecondSide(const TxID&) const = 0;
-        };
-
-        enum class ErrorType : uint8_t
-        {
-            NodeProtocolBase,
-            NodeProtocolIncompatible,
-            ConnectionBase,
-            ConnectionTimedOut,
-            ConnectionRefused,
-            ConnectionHostUnreach,
-            ConnectionAddrInUse,
-            TimeOutOfSync,
-            InternalNodeStartFailed,
-            HostResolvedError,
-        };
-
-        ErrorType getWalletError(proto::NodeProcessingException::Type exceptionType);
-        ErrorType getWalletError(io::ErrorCode errorCode);
-
-        struct PaymentConfirmation
-        {
-            // I, the undersigned, being healthy in mind and body, hereby accept they payment specified below, that shall be delivered by the following kernel ID.
-            Amount m_Value;
-            ECC::Hash::Value m_KernelID;
-            PeerID m_Sender;
-            ECC::Signature m_Signature;
-
-            void get_Hash(ECC::Hash::Value&) const;
-            bool IsValid(const PeerID&) const;
-
-            void Sign(const ECC::Scalar::Native& sk);
-        };
-    }
+namespace beam
+{
+    std::ostream& operator<<(std::ostream& os, const wallet::PrintableAmount& amount);
+    std::ostream& operator<<(std::ostream& os, const wallet::TxID& uuid);
 }
 
 namespace std
 {
-    string to_string(const beam::WalletID&);
+    string to_string(const beam::wallet::WalletID&);
     string to_string(const beam::Merkle::Hash& hash);
     string to_string(beam::wallet::AtomicSwapCoin value);
 }

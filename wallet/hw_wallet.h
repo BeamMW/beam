@@ -29,11 +29,11 @@ namespace beam
         template<typename T> using Result = std::function<void(const T& key)>;
 
         void getOwnerKey(Result<std::string> callback) const;
-        void generateNonce(uint8_t slot, Result<std::string> callback) const;
+        void generateNonce(uint8_t slot, Result<ECC::Point> callback) const;
         void generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<std::string> callback) const;
 
         std::string getOwnerKeySync() const;
-        std::string generateNonceSync(uint8_t slot) const;
+        ECC::Point generateNonceSync(uint8_t slot) const;
         std::string generateKeySync(const ECC::Key::IDV& idv, bool isCoinKey) const;
 
     private:

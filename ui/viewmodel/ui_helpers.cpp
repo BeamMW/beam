@@ -9,7 +9,7 @@ using namespace beam;
 
 namespace beamui
 {
-    QString toString(const beam::WalletID& walletID)
+    QString toString(const beam::wallet::WalletID& walletID)
     {
         auto id = std::to_string(walletID);
         return QString::fromStdString(id);

@@ -16,7 +16,7 @@ AbstractColors {
     property color background_second:     "#1c435b"  // dark-slate-blue
     property color background_row_even:   "#0e3850"  // light-navy
     property color background_details:    "#09425e"
-    property color background_button:     "#708090"
+    property color background_button:     "#33566B"
     property color row_selected:          "#085469"
     property color separator:             "#33566b"
 

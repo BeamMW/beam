@@ -63,11 +63,11 @@ namespace
         io::Reactor::Ptr mainReactor{ io::Reactor::create() };
         io::Reactor::Scope scope(*mainReactor);
 
-        WalletAddress wa = wallet::createAddress(*receiverWalletDB);
+        WalletAddress wa = storage::createAddress(*receiverWalletDB);
         receiverWalletDB->saveAddress(wa);
         WalletID receiver_id = wa.m_walletID;
 
-        wa = wallet::createAddress(*senderWalletDB);
+        wa = storage::createAddress(*senderWalletDB);
         senderWalletDB->saveAddress(wa);
         WalletID sender_id = wa.m_walletID;
 
@@ -808,7 +808,7 @@ namespace
         TestWalletRig receiver("receiver", createReceiverWalletDB());
 
         TxID txID = wallet::GenerateTxID();
-        auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, txID);
+        auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
         Height currentHeight = sender.m_WalletDB->getCurrentHeight();
 
         tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
@@ -867,7 +867,7 @@ namespace
             } gateway;
 
             TxID txID = wallet::GenerateTxID();
-            auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, txID);
+            auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
 
             tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
             tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
@@ -906,7 +906,7 @@ namespace
             } gateway;
 
             TxID txID = wallet::GenerateTxID();
-            auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, txID);
+            auto tx = make_shared<wallet::SimpleTransaction>(gateway, sender.m_WalletDB, sender.m_KeyKeeper, txID);
 
             tx->SetParameter(wallet::TxParameterID::TransactionType, wallet::TxType::Simple, false);
             tx->SetParameter(wallet::TxParameterID::MaxHeight, currentHeight + 2, false); // transaction is valid +lifetime blocks from currentHeight
@@ -1512,7 +1512,7 @@ void TestHWWallet()
         LOG_INFO() << "HWWallet.getOwnerKey(): " << key;
     });
 
-    hw.generateNonce(1, [](const std::string& nonce)
+    hw.generateNonce(1, [](const ECC::Point& nonce)
     {
         LOG_INFO() << "HWWallet.generateNonce(): " << nonce;
     });

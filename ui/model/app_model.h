@@ -69,7 +69,7 @@ private:
     MessageManager m_messages;
     ECC::NoLeak<ECC::uintBig> m_passwordHash;
     beam::io::Reactor::Ptr m_walletReactor;
-    beam::IWalletDB::Ptr m_db;
+    beam::wallet::IWalletDB::Ptr m_db;
     std::unique_ptr<QTranslator> m_translator;
     static AppModel* s_instance;
 };

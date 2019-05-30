@@ -26,37 +26,33 @@ namespace beam
         Bitcoind016() = delete;
         Bitcoind016(io::Reactor& reactor, const BitcoinOptions& options);
 
-        void dumpPrivKey(const std::string& btcAddress, std::function<void(const std::string&, const std::string&)> callback) override;
-        void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const std::string&, const std::string&, int)> callback) override;
-        void signRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&, bool)> callback) override;
-        void sendRawTransaction(const std::string& rawTx, std::function<void(const std::string&, const std::string&)> callback) override;
-        void getRawChangeAddress(std::function<void(const std::string&, const std::string&)> callback) override;
+        void dumpPrivKey(const std::string& btcAddress, std::function<void(const Error&, const std::string&)> callback) override;
+        void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const Error&, const std::string&, int)> callback) override;
+        void signRawTransaction(const std::string& rawTx, std::function<void(const Error&, const std::string&, bool)> callback) override;
+        void sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, const std::string&)> callback) override;
+        void getRawChangeAddress(std::function<void(const Error&, const std::string&)> callback) override;
         void createRawTransaction(
             const std::string& withdrawAddress,
             const std::string& contractTxId,
             uint64_t amount,
             int outputIndex,
             Timestamp locktime,
-            std::function<void(const std::string&, const std::string&)> callback) override;
-        void getTxOut(const std::string& txid, int outputIndex, std::function<void(const std::string&, const std::string&, double, uint16_t)> callback) override;
-        void getBlockCount(std::function<void(const std::string&, uint64_t)> callback) override;
+            std::function<void(const Error&, const std::string&)> callback) override;
+        void getTxOut(const std::string& txid, int outputIndex, std::function<void(const Error&, const std::string&, double, uint16_t)> callback) override;
+        void getBlockCount(std::function<void(const Error&, uint64_t)> callback) override;
 
         uint8_t getAddressVersion() override;
         Amount getFeeRate() const override;
-        Amount getTxMinConfirmations() const override;
+        uint16_t getTxMinConfirmations() const override;
         uint32_t getLockTimeInBlocks() const override;
 
     protected:
-        void sendRequest(const std::string& method, const std::string& params, std::function<void(const std::string&)> callback);
+        void sendRequest(const std::string& method, const std::string& params, std::function<void(const Error&, const std::string&)> callback);
         bool isMainnet() const;
 
     private:
         HttpClient m_httpClient;
-        //io::Address m_address;
         BitcoinOptions m_options;
         std::string m_authorization;
-        /*bool m_isMainnet = false;
-        Amount m_feeRate = 0;
-        Amount m_confirmations = 6;*/
     };
 }

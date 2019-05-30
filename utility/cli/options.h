@@ -117,6 +117,7 @@ namespace beam
         extern const char* SWAP_FEERATE;
         extern const char* SWAP_COIN;
         extern const char* SWAP_BEAM_SIDE;
+        extern const char* SWAP_TX_LIST;
         extern const char* BTC_CONFIRMATIONS;
         extern const char* LTC_CONFIRMATIONS;
         extern const char* BTC_LOCK_TIME;
@@ -166,6 +167,26 @@ namespace beam
     std::vector<std::string> getCfgPeers(const po::variables_map& vm);
 
     class SecString;
+
+    template <typename T>
+    struct Nonnegative {
+        static_assert(std::is_unsigned<T>::value, "Nonnegative<T> requires unsigned type.");
+
+        Nonnegative() {}
+        explicit Nonnegative(const T& v) : value(v) {}
+
+        T value = 0;
+    };
+
+    template <typename T>
+    struct Positive {
+        static_assert(std::is_arithmetic<T>::value, "Positive<T> requires numerical type.");
+
+        Positive() {}
+        explicit Positive(const T& v) : value(v) {}
+
+        T value = 0;
+    };
 
     bool read_wallet_pass(SecString& pass, const po::variables_map& vm);
     bool confirm_wallet_pass(const SecString& pass);

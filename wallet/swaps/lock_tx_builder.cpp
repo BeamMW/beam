@@ -135,6 +135,14 @@ namespace beam::wallet
             m_SharedCoin = m_Tx.GetWalletDB()->generateSharedCoin(GetAmount());
             m_Tx.SetParameter(TxParameterID::SharedCoinID, m_SharedCoin.m_ID, m_SubTxID);
 
+            m_OutputCoins.push_back(m_SharedCoin.m_ID);
+            m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, m_SubTxID);
+
+            CoinIDList sharedInputs;
+            sharedInputs.push_back(m_SharedCoin.m_ID);
+            m_Tx.SetParameter(TxParameterID::InputCoins, sharedInputs, static_cast<SubTxID>(SubTxIndex::BEAM_REDEEM_TX));
+            m_Tx.SetParameter(TxParameterID::InputCoins, sharedInputs, static_cast<SubTxID>(SubTxIndex::BEAM_REFUND_TX));
+
             // blindingFactor = sk + sk1
             beam::SwitchCommitment switchCommitment;
             switchCommitment.Create(m_SharedBlindingFactor, *m_Tx.GetWalletDB()->get_ChildKdf(m_SharedCoin.m_ID.m_SubIdx), m_SharedCoin.m_ID);
@@ -151,9 +159,6 @@ namespace beam::wallet
             m_Tx.GetParameter(TxParameterID::SharedCoinID, m_SharedCoin.m_ID, m_SubTxID);
             m_Tx.GetParameter(TxParameterID::SharedBulletProof, m_SharedProof, m_SubTxID);
         }
-
-        ECC::Scalar::Native blindingFactor = -m_SharedBlindingFactor;
-        m_Offset += blindingFactor;
     }
 
     Transaction::Ptr LockTxBuilder::CreateTransaction()
@@ -186,6 +191,15 @@ namespace beam::wallet
     ECC::Point::Native LockTxBuilder::GetPublicSharedBlindingFactor() const
     {
         return Context::get().G * GetSharedBlindingFactor();
+    }
+
+    ECC::Point::Native LockTxBuilder::GetPublicExcess() const
+    {
+        // create shared commitment
+        Point::Native pt = GetPublicSharedBlindingFactor();
+        AmountBig::AddTo(pt, GetAmount());
+        pt = -pt;
+        return BaseTxBuilder::GetPublicExcess() + pt;
     }
 
     const ECC::RangeProof::CreatorParams& LockTxBuilder::GetProofCreatorParams()

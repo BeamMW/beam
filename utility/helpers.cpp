@@ -18,7 +18,10 @@
 #include <stdio.h>
 #include <time.h>
 #include <atomic>
+
 #include "wallet/secstring.h"
+#include "io/reactor.h"
+#include "io/asyncevent.h"
 
 #if defined __linux__
     #include <unistd.h>
@@ -294,6 +297,22 @@ void read_password(const char* prompt, SecString& out, bool includeTerminatingZe
         out.push_back('\0');
     }
     std::cout << std::endl;
+}
+
+std::future<void> do_thread_async(Functor&& functor, CompletionCallback&& callback)
+{
+    auto completedEvent = io::AsyncEvent::create(io::Reactor::get_Current(),
+        [callback = move(callback)]()
+    {
+        callback();
+    });
+
+    return async(launch::async,
+        [functor = move(functor), completedEvent]()
+    {
+        functor();
+        completedEvent->post();
+    });
 }
 
 } //namespace

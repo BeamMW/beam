@@ -29,9 +29,10 @@ namespace beam::wallet
     }
 
     AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
-                                               , beam::IWalletDB::Ptr walletDB
+                                               , IWalletDB::Ptr walletDB
+                                               , IPrivateKeyKeeper::Ptr keyKeeper
                                                , const TxID& txID)
-        : BaseTransaction(gateway, walletDB, txID)
+        : BaseTransaction(gateway, walletDB, keyKeeper, txID)
     {
     }
 
@@ -132,6 +133,8 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::UpdateImpl()
     {
+        CheckSubTxFailures();
+
         State state = GetState(kDefaultSubTxID);
         bool isBeamOwner = IsBeamSide();
 
@@ -153,8 +156,6 @@ namespace beam::wallet
                 return;
             }
         }
-
-        CheckSubTxFailures();
 
         switch (state)
         {
@@ -351,6 +352,12 @@ namespace beam::wallet
             m_Gateway.on_tx_completed(GetTxID());
             break;
         }
+        case State::Failed:
+        {
+            LOG_INFO() << GetTxID() << " Transaction failed.";
+            UpdateTxDescription(TxStatus::Failed);
+            m_Gateway.on_tx_completed(GetTxID());
+        }
 
         default:
             break;
@@ -366,9 +373,6 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::NotifyFailure(TxFailureReason reason)
     {
-        //assert(false && "Not implemented yet.");
-        LOG_DEBUG() << GetTxID() << " NotifyFailure not implemented yet.";
-
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::FailureReason, reason);
         SendTxParameters(std::move(msg));
@@ -418,7 +422,7 @@ namespace beam::wallet
             }
             else
             {
-                assert(false && "");
+                assert(false && "Impossible case!");
                 return;
             }
         }
@@ -426,7 +430,7 @@ namespace beam::wallet
         {
             if (isBeamSide)
             {
-                assert(false && "");
+                assert(false && "Impossible case!");
                 return;
             }
             else
@@ -444,7 +448,7 @@ namespace beam::wallet
             }
             else
             {
-                assert(false && "");
+                assert(false && "Impossible case!");
                 return;
             }
             break;
@@ -453,8 +457,7 @@ namespace beam::wallet
             return;
         }
 
-        UpdateTxDescription(TxStatus::Failed);
-        m_Gateway.on_tx_completed(GetTxID());
+        SetNextState(State::Failed);
     }
 
     bool AtomicSwapTransaction::CheckExpired()
@@ -490,33 +493,25 @@ namespace beam::wallet
             case State::Initial:
             case State::Invitation:
             {
-                UpdateTxDescription(TxStatus::Failed);
-                m_Gateway.on_tx_completed(GetTxID());
-
-                return true;
+                SetState(State::Failed);
+                break;
             }
             case State::BuildingBeamLockTX:
             case State::BuildingBeamRedeemTX:
             case State::BuildingBeamRefundTX:
             {
                 RollbackTx();
-                UpdateTxDescription(TxStatus::Failed);
-                m_Gateway.on_tx_completed(GetTxID());
-
-                return true;
+                SetState(State::Failed);
+                break;
             }
             case State::HandlingContractTX:
             {
                 if (IsBeamSide())
                 {
                     RollbackTx();
-                    UpdateTxDescription(TxStatus::Failed);
-                    m_Gateway.on_tx_completed(GetTxID());
-
-                    return true;
+                    SetState(State::Failed);
                 }
 
-                // nothing
                 break;
             }
             case State::SendingBeamLockTX:
@@ -595,16 +590,14 @@ namespace beam::wallet
             }
 
             UpdateTxDescription(TxStatus::InProgress);
+
+            lockTxBuilder->GenerateOffset();
         }
 
-        bool newGenerated = lockTxBuilder->GenerateBlindingExcess();
-        if (newGenerated && lockTxState != SubTxState::Initial)
-        {
-            OnSubTxFailed(TxFailureReason::InvalidState, SubTxIndex::BEAM_LOCK_TX);
-            return lockTxState;
-        }
+        lockTxBuilder->CreateInputs();
 
         lockTxBuilder->GenerateNonce();
+        lockTxBuilder->LoadSharedParameters();
 
         if (!lockTxBuilder->UpdateMaxHeight())
         {
@@ -629,7 +622,6 @@ namespace beam::wallet
             return lockTxState;
         }
 
-        lockTxBuilder->LoadSharedParameters();
         lockTxBuilder->CreateKernel();
         lockTxBuilder->SignPartial();
 
@@ -718,13 +710,6 @@ namespace beam::wallet
             builder.InitTx(isTxOwner);
         }
 
-        bool newGenerated = builder.GenerateBlindingExcess();
-        if (newGenerated && subTxState != SubTxState::Initial)
-        {
-            OnSubTxFailed(TxFailureReason::InvalidState, subTxID);
-            return subTxState;
-        }
-
         builder.GenerateNonce();
         builder.CreateKernel();
 
@@ -756,7 +741,7 @@ namespace beam::wallet
             }
             return subTxState;
         }
-        
+
         if (subTxID == SubTxIndex::BEAM_REDEEM_TX)
         {
             if (IsBeamSide())
@@ -810,6 +795,7 @@ namespace beam::wallet
                 if (!SendTxParameters(std::move(msg)))
                 {
                     OnFailed(TxFailureReason::FailedToSendParameters, false);
+                    return subTxState;
                 }
             }
         }
@@ -1092,6 +1078,13 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::OnSubTxFailed(TxFailureReason reason, SubTxID subTxID, bool notify)
     {
+        TxFailureReason previousReason;
+
+        if (GetParameter(TxParameterID::InternalFailureReason, previousReason, subTxID) && previousReason == reason)
+        {
+            return;
+        }
+
         LOG_ERROR() << GetTxID() << "[" << subTxID << "]" << " Failed. " << GetFailureMessage(reason);
 
         SetParameter(TxParameterID::InternalFailureReason, reason, false, subTxID);
@@ -1107,7 +1100,7 @@ namespace beam::wallet
             state == State::Invitation ||
             state == State::HandlingContractTX) && GetParameter(TxParameterID::InternalFailureReason, reason, SubTxIndex::LOCK_TX))
         {
-            OnSubTxFailed(reason, SubTxIndex::LOCK_TX, false);
+            OnFailed(reason, false);
         }
     }
 
@@ -1116,32 +1109,20 @@ namespace beam::wallet
         auto subTxID = SubTxIndex::BEAM_REDEEM_TX;
         TxKernel::Ptr kernel = GetMandatoryParameter<TxKernel::Ptr>(TxParameterID::Kernel, subTxID);
 
+        SharedTxBuilder builder{ *this, subTxID };
+        builder.GetSharedParameters();
+        builder.GetInitialTxParams();
+        builder.GetPeerPublicExcessAndNonce();
+        builder.GenerateNonce();
+        builder.CreateKernel();
+        builder.SignPartial();
+
         Scalar::Native peerSignature = GetMandatoryParameter<Scalar::Native>(TxParameterID::PeerSignature, subTxID);
-        Scalar::Native partialSignature;
-
-        // create partial signature
-        {
-            // load Nonce and Excess
-            ECC::Signature::MultiSig multiSig;
-            {
-                NoLeak<Hash::Value> hvRandom;
-                GetParameter(TxParameterID::MyNonce, hvRandom.V, subTxID);
-                GetWalletDB()->get_MasterKdf()->DeriveKey(multiSig.m_Nonce, hvRandom.V);
-            }
-
-            Scalar::Native blindingExcess = GetMandatoryParameter<Scalar::Native>(TxParameterID::BlindingExcess, subTxID);
-            blindingExcess = -blindingExcess;
-            ECC::Hash::Value message;
-            kernel->get_Hash(message);
-
-            multiSig.m_NoncePub.Import(kernel->m_Signature.m_NoncePub);
-            multiSig.SignPartial(partialSignature, message, blindingExcess);
-        }
+        Scalar::Native partialSignature = builder.GetPartialSignature();
 
         Scalar::Native fullSignature;
         fullSignature.Import(kernel->m_Signature.m_k);
         fullSignature = -fullSignature;
-
         Scalar::Native secretPrivateKeyNative = peerSignature + partialSignature;
         secretPrivateKeyNative += fullSignature;
 

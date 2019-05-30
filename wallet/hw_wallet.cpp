@@ -44,7 +44,7 @@ namespace beam
 
             if (enumerates.size() == 0)
             {
-                //LOG_DEBUG() << "there is no device connected";
+                LOG_INFO() << "there is no device connected";
                 return;
             }
 
@@ -62,12 +62,12 @@ namespace beam
                 m_trezor->callback_Failure([&](const Message &msg, size_t queue_size) 
                 {
                     // !TODO: handle errors here
-                    std::cout << "FAIL REASON: " << child_cast<Message, Failure>(msg).message() << std::endl;
+                    LOG_ERROR() << "FAIL REASON: " << child_cast<Message, Failure>(msg).message();
                 });
 
                 m_trezor->callback_Success([&](const Message &msg, size_t queue_size) 
                 {
-                    std::cout << "SUCCESS: " << child_cast<Message, Success>(msg).message() << std::endl;
+                    LOG_INFO() << "SUCCESS: " << child_cast<Message, Success>(msg).message();
                 });
 
                 try
@@ -77,7 +77,7 @@ namespace beam
                 }
                 catch (std::runtime_error e)
                 {
-                    //LOG_ERROR() << e.what();
+                    LOG_ERROR() << e.what();
                 }
             }
         }
@@ -107,21 +107,22 @@ namespace beam
             }
             else
             {
-                // LOG_ERROR() << "HW wallet not initialized";
+                LOG_ERROR() << "HW wallet not initialized";
             }
         }
 
-        void generateNonce(uint8_t slot, HWWallet::Result<std::string> callback)
+        void generateNonce(uint8_t slot, HWWallet::Result<ECC::Point> callback)
         {
             if (m_trezor)
             {
                 std::atomic_flag m_runningFlag;
                 m_runningFlag.test_and_set();
-                std::string result;
+                ECC::Point result;
 
                 m_trezor->call_BeamGenerateNonce(slot, [&m_runningFlag, &result](const Message &msg, size_t queue_size)
                 {
-                    result = to_hex(reinterpret_cast<const uint8_t*>(child_cast<Message, hw::trezor::messages::beam::BeamECCImage>(msg).image_x().c_str()), 32);
+                    result.m_X = beam::Blob(child_cast<Message, hw::trezor::messages::beam::BeamECCImage>(msg).image_x().c_str(), 32);
+                    result.m_Y = 0;
                     m_runningFlag.clear();
                 });
 
@@ -131,7 +132,7 @@ namespace beam
             }
             else
             {
-                // LOG_ERROR() << "HW wallet not initialized";
+                LOG_ERROR() << "HW wallet not initialized";
             }
         }
 
@@ -155,7 +156,7 @@ namespace beam
             }
             else
             {
-                // LOG_ERROR() << "HW wallet not initialized";
+                LOG_ERROR() << "HW wallet not initialized";
             }
         }
 
@@ -174,7 +175,7 @@ namespace beam
         m_impl->getOwnerKey(callback);
     }
 
-    void HWWallet::generateNonce(uint8_t slot, Result<std::string> callback) const
+    void HWWallet::generateNonce(uint8_t slot, Result<ECC::Point> callback) const
     {
         m_impl->generateNonce(slot, callback);
     }
@@ -196,11 +197,11 @@ namespace beam
         return result;
     }
 
-    std::string HWWallet::generateNonceSync(uint8_t slot) const
+    ECC::Point HWWallet::generateNonceSync(uint8_t slot) const
     {
-        std::string result;
+        ECC::Point result;
 
-        generateNonce(slot, [&result](const std::string& nonce)
+        generateNonce(slot, [&result](const ECC::Point& nonce)
         {
             result = nonce;
         });

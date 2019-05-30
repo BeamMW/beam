@@ -33,7 +33,7 @@
 
 struct sqlite3;
 
-namespace beam
+namespace beam::wallet
 {
     const uint32_t EmptyCoinSession = 0;
 
@@ -112,7 +112,7 @@ namespace beam
     struct TxParameter
     {
         TxID m_txID;
-        int m_subTxID = static_cast<int>(wallet::kDefaultSubTxID);
+        int m_subTxID = static_cast<int>(kDefaultSubTxID);
         int m_paramID;
         ByteBuffer m_value;
     };
@@ -231,13 +231,13 @@ namespace beam
 
         // /////////////////////////////////////////////
         // Transaction management
-        virtual std::vector<TxDescription> getTxHistory(uint64_t start = 0, int count = std::numeric_limits<int>::max()) = 0;
+        virtual std::vector<TxDescription> getTxHistory(wallet::TxType txType = wallet::TxType::Simple, uint64_t start = 0, int count = std::numeric_limits<int>::max()) = 0;
         virtual boost::optional<TxDescription> getTx(const TxID& txId) = 0;
         virtual void saveTx(const TxDescription& p) = 0;
         virtual void deleteTx(const TxID& txId) = 0;
-        virtual bool setTxParameter(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID,
+        virtual bool setTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID,
             const ByteBuffer& blob, bool shouldNotifyAboutChanges) = 0;
-        virtual bool getTxParameter(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID, ByteBuffer& blob) const = 0;
+        virtual bool getTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob) const = 0;
         virtual void rollbackTx(const TxID& txId) = 0;
 
         // ////////////////////////////////////////////
@@ -319,7 +319,7 @@ namespace beam
         Height getCurrentHeight() const override;
         void rollbackConfirmedUtxo(Height minHeight) override;
 
-        std::vector<TxDescription> getTxHistory(uint64_t start, int count) override;
+        std::vector<TxDescription> getTxHistory(wallet::TxType txType, uint64_t start, int count) override;
         boost::optional<TxDescription> getTx(const TxID& txId) override;
         void saveTx(const TxDescription& p) override;
         void deleteTx(const TxID& txId) override;
@@ -340,9 +340,9 @@ namespace beam
 
         void changePassword(const SecString& password) override;
 
-        bool setTxParameter(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID,
+        bool setTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID,
             const ByteBuffer& blob, bool shouldNotifyAboutChanges) override;
-        bool getTxParameter(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID, ByteBuffer& blob) const override;
+        bool getTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, ByteBuffer& blob) const override;
 
         Block::SystemState::IHistory& get_History() override;
         void ShrinkHistory() override;
@@ -374,9 +374,9 @@ namespace beam
 
         // ////////////////////////////////////////
         // Cache for optimized access for database fields
-        using ParameterCache = std::map<TxID, std::map<wallet::SubTxID, std::map<wallet::TxParameterID, boost::optional<ByteBuffer>>>>;
+        using ParameterCache = std::map<TxID, std::map<SubTxID, std::map<TxParameterID, boost::optional<ByteBuffer>>>>;
 
-        void insertParameterToCache(const TxID& txID, wallet::SubTxID subTxID, wallet::TxParameterID paramID, const boost::optional<ByteBuffer>& blob) const;
+        void insertParameterToCache(const TxID& txID, SubTxID subTxID, TxParameterID paramID, const boost::optional<ByteBuffer>& blob) const;
         void deleteParametersFromCache(const TxID& txID);
         void insertAddressToCache(const WalletID& id, const boost::optional<WalletAddress>& address) const;
         void deleteAddressFromCache(const WalletID& id);
@@ -410,7 +410,7 @@ namespace beam
         mutable std::map<WalletID, boost::optional<WalletAddress>> m_AddressesCache;
     };
 
-    namespace wallet
+    namespace storage
     {
         extern const char g_szPaymentProofRequired[];
 
@@ -491,16 +491,16 @@ namespace beam
         // Used in statistics
         struct Totals
         {
-            Amount Avail;
-            Amount Maturing;
-            Amount Incoming;
-            Amount Unavail;
-            Amount Outgoing;
-            Amount AvailCoinbase;
-            Amount Coinbase;
-            Amount AvailFee;
-            Amount Fee;
-            Amount Unspent;
+            Amount Avail = 0;
+            Amount Maturing = 0;
+            Amount Incoming = 0;
+            Amount Unavail = 0;
+            Amount Outgoing = 0;
+            Amount AvailCoinbase = 0;
+            Amount Coinbase = 0;
+            Amount AvailFee = 0;
+            Amount Fee = 0;
+            Amount Unspent = 0;
 
             Totals() {}
             Totals(IWalletDB& db) { Init(db); }

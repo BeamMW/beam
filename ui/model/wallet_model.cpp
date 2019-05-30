@@ -20,22 +20,23 @@
 #include "utility/helpers.h"
 
 using namespace beam;
+using namespace beam::wallet;
 using namespace beam::io;
 using namespace std;
 
 WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor)
     : WalletClient(walletDB, nodeAddr, reactor)
 {
-    qRegisterMetaType<WalletStatus>("WalletStatus");
-    qRegisterMetaType<ChangeAction>("beam::ChangeAction");
-    qRegisterMetaType<vector<TxDescription>>("std::vector<beam::TxDescription>");
-    qRegisterMetaType<Amount>("beam::Amount");
-    qRegisterMetaType<vector<Coin>>("std::vector<beam::Coin>");
-    qRegisterMetaType<vector<WalletAddress>>("std::vector<beam::WalletAddress>");
-    qRegisterMetaType<WalletID>("beam::WalletID");
-    qRegisterMetaType<WalletAddress>("beam::WalletAddress");
+    qRegisterMetaType<beam::wallet::WalletStatus>("beam::wallet::WalletStatus");
+    qRegisterMetaType<beam::wallet::ChangeAction>("beam::wallet::ChangeAction");
+    qRegisterMetaType<vector<beam::wallet::TxDescription>>("std::vector<beam::wallet::TxDescription>");
+    qRegisterMetaType<beam::Amount>("beam::Amount");
+    qRegisterMetaType<vector<beam::wallet::Coin>>("std::vector<beam::wallet::Coin>");
+    qRegisterMetaType<vector<beam::wallet::WalletAddress>>("std::vector<beam::wallet::WalletAddress>");
+    qRegisterMetaType<beam::wallet::WalletID>("beam::wallet::WalletID");
+    qRegisterMetaType<beam::wallet::WalletAddress>("beam::wallet::WalletAddress");
     qRegisterMetaType<beam::wallet::ErrorType>("beam::wallet::ErrorType");
-    qRegisterMetaType<beam::TxID>("beam::TxID");
+    qRegisterMetaType<beam::wallet::TxID>("beam::wallet::TxID");
 }
 
 WalletModel::~WalletModel()
@@ -84,12 +85,12 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
     }
 }
 
-void WalletModel::onStatus(const WalletStatus& status)
+void WalletModel::onStatus(const beam::wallet::WalletStatus& status)
 {
     emit walletStatus(status);
 }
 
-void WalletModel::onTxStatus(beam::ChangeAction action, const std::vector<beam::TxDescription>& items)
+void WalletModel::onTxStatus(beam::wallet::ChangeAction action, const std::vector<beam::wallet::TxDescription>& items)
 {
     emit txStatus(action, items);
 }
@@ -104,17 +105,17 @@ void WalletModel::onChangeCalculated(beam::Amount change)
     emit changeCalculated(change);
 }
 
-void WalletModel::onAllUtxoChanged(const std::vector<beam::Coin>& utxos)
+void WalletModel::onAllUtxoChanged(const std::vector<beam::wallet::Coin>& utxos)
 {
     emit allUtxoChanged(utxos);
 }
 
-void WalletModel::onAddresses(bool own, const std::vector<beam::WalletAddress>& addrs)
+void WalletModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs)
 {
     emit addressesChanged(own, addrs);
 }
 
-void WalletModel::onCoinsByTx(const std::vector<beam::Coin>& coins)
+void WalletModel::onCoinsByTx(const std::vector<beam::wallet::Coin>& coins)
 {
 
 }
@@ -124,7 +125,7 @@ void WalletModel::onAddressChecked(const std::string& addr, bool isValid)
     emit addressChecked(QString::fromStdString(addr), isValid);
 }
 
-void WalletModel::onGeneratedNewAddress(const beam::WalletAddress& walletAddr)
+void WalletModel::onGeneratedNewAddress(const beam::wallet::WalletAddress& walletAddr)
 {
     emit generatedNewAddress(walletAddr);
 }
@@ -134,7 +135,7 @@ void WalletModel::onNewAddressFailed()
     emit newAddressFailed();
 }
 
-void WalletModel::onChangeCurrentWalletIDs(beam::WalletID senderID, beam::WalletID receiverID)
+void WalletModel::onChangeCurrentWalletIDs(beam::wallet::WalletID senderID, beam::wallet::WalletID receiverID)
 {
     emit changeCurrentWalletIDs(senderID, receiverID);
 }
@@ -165,7 +166,7 @@ void WalletModel::onCantSendToExpired()
     emit cantSendToExpired();
 }
 
-void WalletModel::onPaymentProofExported(const beam::TxID& txID, const beam::ByteBuffer& proof)
+void WalletModel::onPaymentProofExported(const beam::wallet::TxID& txID, const beam::ByteBuffer& proof)
 {
     string str;
     str.resize(proof.size() * 2);

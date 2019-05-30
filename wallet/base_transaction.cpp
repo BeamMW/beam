@@ -66,14 +66,247 @@ namespace beam::wallet
         return m_Reason;
     }
 
-    const uint32_t BaseTransaction::s_ProtoVersion = 2;
+    ///
 
+    namespace
+    {
+        const char* LOCAL_NONCE_SEEDS = "NonceSeeds";
+    }
+
+    LocalPrivateKeyKeeper::LocalPrivateKeyKeeper(IWalletDB::Ptr walletDB)
+        : m_WalletDB(walletDB)
+        , m_MasterKdf(walletDB->get_MasterKdf())
+    {
+        LoadNonceSeeds();
+    }
+
+    void LocalPrivateKeyKeeper::GenerateKey(const vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    {
+        try
+        {
+            //    auto eventHolder = make_shared<io::AsyncEvent::Ptr>();
+               // *eventHolder = io::AsyncEvent::create(io::Reactor::get_Current(), [eventHolder, result = move(result), cb = move(resultCallback)]() { cb(result); });
+              //  (*eventHolder)->post();
+            resultCallback(GenerateKeySync(ids, createCoinKey));
+        }
+        catch (const exception & ex)
+        {
+            //io::AsyncEvent::create(io::Reactor::get_Current(), [ex, cb = move(exceptionCallback)]() { cb(ex); })->post();
+            exceptionCallback(ex);
+        }
+    }
+
+    //void LocalPrivateKeyKeeper::GenerateRangeProof(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<RangeProofs>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    //{
+    //    //try
+    //    //{
+    //    //    resultCallback(GenerateRangeProofSync(schemeHeight, ids));
+    //    //}
+    //    //catch (const exception & ex)
+    //    //{
+    //    //    exceptionCallback(ex);
+    //    //}
+    //}
+
+    size_t LocalPrivateKeyKeeper::AllocateNonceSlot()
+    {
+        if (m_Nonces.size() == numeric_limits<uint8_t>::max())
+        {
+            throw runtime_error("has no place  for nonces");
+        }
+
+        size_t i = 0;
+        auto it = m_Nonces.begin();
+        while (it != m_Nonces.end() && i < numeric_limits<size_t>::max())
+        {
+            if (i > it->first)
+            {
+                ++it;
+            }
+            else if (i == it->first)
+            {
+                ++it;
+                ++i;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        // Don't store the generated nonce for the kernel multisig. Instead - store the raw random, from which the nonce is derived using kdf.
+        NoLeak<Hash::Value> hvRandom;
+        ECC::GenRandom(hvRandom.V);
+
+        m_Nonces.insert({ i, hvRandom.V });
+
+        SaveNonceSeeds();
+
+        return i;
+    }
+
+    ////
+
+    IPrivateKeyKeeper::PublicKeys LocalPrivateKeyKeeper::GenerateKeySync(const std::vector<Key::IDV>& ids, bool createCoinKey)
+    {
+        PublicKeys result;
+        Scalar::Native secretKey;
+        result.reserve(ids.size());
+        if (createCoinKey)
+        {
+            for (const auto& coinID : ids)
+            {
+                Point& publicKey = result.emplace_back();
+                SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(coinID.m_SubIdx), coinID);
+            }
+        }
+        else
+        {
+            for (const auto& keyID : ids)
+            {
+                Point& publicKey = result.emplace_back();
+                m_MasterKdf->DeriveKey(secretKey, keyID);
+                publicKey = Context::get().G * secretKey;
+            }
+        }
+        return result;
+    }
+
+    IPrivateKeyKeeper::Outputs LocalPrivateKeyKeeper::GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids)
+    {
+        Outputs result;
+        Scalar::Native secretKey;
+        Point commitment;
+        result.reserve(ids.size());
+        for (const auto& coinID : ids)
+        {
+            auto& output = result.emplace_back(make_unique<Output>());
+            output->Create(schemeHeigh, secretKey, *GetChildKdf(coinID.m_SubIdx), coinID, *m_MasterKdf);
+        }
+        return result;
+    }
+
+    //IPrivateKeyKeeper::RangeProofs LocalPrivateKeyKeeper::GenerateRangeProofSync(Height schemeHeigh, const std::vector<Key::IDV>& ids)
+    //{
+    //    RangeProofs result;
+    //    Scalar::Native secretKey;
+    //    Point commitment;
+    //    result.reserve(ids.size());
+    //    for (const auto& coinID : ids)
+    //    {
+    //        Output output;
+    //        output.Create(schemeHeigh, secretKey, *GetChildKdf(coinID.m_SubIdx), coinID, *m_MasterKdf);
+
+    //        assert(output.m_pConfidential);
+    //        result.emplace_back(move(output.m_pConfidential));
+    //    }
+    //    return result;
+    //}
+
+    ECC::Point LocalPrivateKeyKeeper::GenerateNonceSync(size_t slot)
+    {
+        Point::Native result = Context::get().G * GetNonce(slot);
+        return result;
+    }
+
+    Scalar LocalPrivateKeyKeeper::SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const Point::Native& publicNonce, const Point::Native& commitment)
+    {
+        auto excess = GetExcess(inputs, outputs, offset);
+
+        ECC::Signature::MultiSig multiSig;
+        ECC::Scalar::Native partialSignature;
+        multiSig.m_NoncePub = publicNonce;
+        multiSig.m_Nonce = GetNonce(nonceSlot);
+        multiSig.SignPartial(partialSignature, message, excess);
+    
+        return Scalar(partialSignature);
+    }
+
+    void LocalPrivateKeyKeeper::LoadNonceSeeds()
+    {
+        ByteBuffer buffer;
+        if (m_WalletDB->getBlob(LOCAL_NONCE_SEEDS, buffer) && !buffer.empty())
+        {
+            Deserializer d;
+            d.reset(buffer);
+            d & m_Nonces;
+        }
+    }
+
+    void LocalPrivateKeyKeeper::SaveNonceSeeds()
+    {
+        Serializer s;
+        s& m_Nonces;
+        ByteBuffer buffer;
+        s.swap_buf(buffer);
+        m_WalletDB->setVarRaw(LOCAL_NONCE_SEEDS, buffer.data(), buffer.size());
+    }
+
+    ////
+
+    ECC::uintBig LocalPrivateKeyKeeper::GetSeedKid(Key::IPKdf& tagKdf, const Point& commitment) const
+    {
+        uintBig seed;
+        ECC::Hash::Processor() << commitment >> seed;
+
+        ECC::Scalar::Native sk;
+        tagKdf.DerivePKey(sk, seed);
+
+        ECC::Hash::Processor() << sk >> seed;
+        return seed;
+    }
+
+    Key::IKdf::Ptr LocalPrivateKeyKeeper::GetChildKdf(Key::Index iKdf) const
+    {
+        if (!iKdf || m_MasterKdf)
+            return m_MasterKdf; // by convention 0 is not a childd
+
+        Key::IKdf::Ptr pRet;
+        ECC::HKdf::CreateChild(pRet, *m_MasterKdf, iKdf);
+        return pRet;
+    }
+
+    Scalar::Native LocalPrivateKeyKeeper::GetNonce(size_t slot)
+    {
+        auto randomValue = m_Nonces[slot];
+
+        NoLeak<Scalar::Native> nonce;
+        m_MasterKdf->DeriveKey(nonce.V, randomValue);
+        return nonce.V;
+    }
+
+    Scalar::Native LocalPrivateKeyKeeper::GetExcess(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset) const
+    {
+        // Excess = Sum(input blinfing factors) - Sum(output blinfing factors) - offset
+        Point commitment;
+        Scalar::Native blindingFactor;
+        Scalar::Native excess = offset;
+        for (const auto& coinID : outputs)
+        {
+            SwitchCommitment().Create(blindingFactor, commitment, *GetChildKdf(coinID.m_SubIdx), coinID);
+            excess += blindingFactor;
+        }
+        excess = -excess;
+
+        for (const auto& coinID : inputs)
+        {
+            SwitchCommitment().Create(blindingFactor, commitment, *GetChildKdf(coinID.m_SubIdx), coinID);
+            excess += blindingFactor;
+        }
+        return excess;
+    }
+
+    ///
+
+    const uint32_t BaseTransaction::s_ProtoVersion = 3;
 
     BaseTransaction::BaseTransaction(INegotiatorGateway& gateway
-                                   , beam::IWalletDB::Ptr walletDB
-                                   , const TxID& txID)
+        , IWalletDB::Ptr walletDB
+        , IPrivateKeyKeeper::Ptr keyKeeper
+        , const TxID& txID)
         : m_Gateway{ gateway }
         , m_WalletDB{ walletDB }
+        , m_KeyKeeper{ keyKeeper }
         , m_ID{ txID }
     {
         assert(walletDB);
@@ -104,10 +337,15 @@ namespace beam::wallet
     {
         if (!m_EventToUpdate)
         {
-            m_EventToUpdate = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { UpdateImpl(); });
+            m_EventToUpdate = io::AsyncEvent::create(io::Reactor::get_Current(), [this, weak = this->weak_from_this()]()
+            { 
+                if (auto l = weak.lock())
+                {
+                    Update();
+                }
+            });
+            m_EventToUpdate->post();
         }
-
-        m_EventToUpdate->post();
     }
 
     const TxID& BaseTransaction::GetTxID() const
@@ -120,6 +358,7 @@ namespace beam::wallet
         AsyncContextHolder async(m_Gateway);
         try
         {
+            m_EventToUpdate.reset();
             if (CheckExternalFailures())
             {
                 return;
@@ -129,12 +368,12 @@ namespace beam::wallet
 
             CheckExpired();
         }
-        catch (const TransactionFailedException& ex)
+        catch (const TransactionFailedException & ex)
         {
             LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
             OnFailed(ex.GetReason(), ex.ShouldNofify());
         }
-        catch (const exception& ex)
+        catch (const exception & ex)
         {
             LOG_ERROR() << GetTxID() << " exception msg: " << ex.what();
             OnFailed(TxFailureReason::Unknown);
@@ -150,7 +389,7 @@ namespace beam::wallet
         {
             if (s == TxStatus::InProgress)
             {
-                if (!m_WalletDB->get_MasterKdf())
+                if (!m_KeyKeeper)
                 {
                     // cannot create encrypted message
                     return;
@@ -193,25 +432,25 @@ namespace beam::wallet
     {
         TxStatus s = TxStatus::Failed;
         if (GetParameter(TxParameterID::Status, s)
-            && (s == TxStatus::Failed 
-             || s == TxStatus::Cancelled 
-             || s == TxStatus::Completed ))
+            && (s == TxStatus::Failed
+                || s == TxStatus::Cancelled
+                || s == TxStatus::Completed))
         {
             return false;
         }
 
         Height maxHeight = MaxHeight;
-        if (!GetParameter(TxParameterID::MaxHeight, maxHeight) 
-         && !GetParameter(TxParameterID::PeerResponseHeight, maxHeight))
+        if (!GetParameter(TxParameterID::MaxHeight, maxHeight)
+            && !GetParameter(TxParameterID::PeerResponseHeight, maxHeight))
         {
             // we have no data to make decision
             return false;
         }
 
-		uint8_t nRegistered = proto::TxStatus::Unspecified;
+        uint8_t nRegistered = proto::TxStatus::Unspecified;
         Merkle::Hash kernelID;
-		if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered)
-         || !GetParameter(TxParameterID::KernelID, kernelID))
+        if (!GetParameter(TxParameterID::TransactionRegistered, nRegistered)
+            || !GetParameter(TxParameterID::KernelID, kernelID))
         {
             Block::SystemState::Full state;
             if (GetTip(state) && state.m_Height > maxHeight)
@@ -319,7 +558,12 @@ namespace beam::wallet
         return m_WalletDB;
     }
 
-    bool BaseTransaction::SendTxParameters(SetTxParameter&& msg) const
+    IPrivateKeyKeeper::Ptr BaseTransaction::GetKeyKeeper()
+    {
+        return m_KeyKeeper;
+    }
+
+    bool BaseTransaction::SendTxParameters(SetTxParameter && msg) const
     {
         msg.m_TxID = GetTxID();
         msg.m_Type = GetType();
@@ -332,5 +576,25 @@ namespace beam::wallet
             return true;
         }
         return false;
+    }
+
+    future<void> BaseTransaction::DoThreadAsync(Functor && functor, CompletionCallback && callback)
+    {
+        weak_ptr<ITransaction> txRef = shared_from_this();
+        m_Gateway.OnAsyncStarted();
+        return do_thread_async(
+            [functor = move(functor)]()
+        {
+            functor();
+        },
+            [txRef, this, callback = move(callback)]()
+        {
+            if (auto txGuard = txRef.lock())
+            {
+                callback();
+                Update();
+                m_Gateway.OnAsyncFinished();
+            }
+        });
     }
 }

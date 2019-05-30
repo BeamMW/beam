@@ -65,10 +65,12 @@
     </message>
     <message id="address-table-cm-edit">
         <source>edit address</source>
+        <extracomment>Entry in adress table context menu to edit</extracomment>
         <translation>edit address</translation>
     </message>
     <message id="address-table-cm-delete">
         <source>delete address</source>
+        <extracomment>Entry in adress table context menu to delete</extracomment>
         <translation>delete address</translation>
     </message>
     <message id="available-panel-available">
@@ -77,99 +79,81 @@
     </message>
     <message id="settings-version">
         <source>Version: </source>
+        <extracomment>settings tab, version label</extracomment>
         <translation>Version: </translation>
-    </message>
-    <message id="settings-remote-node-title">
-        <source>Remote node</source>
-        <translation>Remote node</translation>
     </message>
     <message id="settings-remote-node-ip-port">
         <source>ip:port</source>
+        <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip:port</translation>
-    </message>
-    <message id="settings-local-node-title">
-        <source>Local node</source>
-        <translation>Local node</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
+        <extracomment>settings tab, node section, run node label</extracomment>
         <translation>Run local node</translation>
     </message>
     <message id="settings-local-node-port">
-        <source>Local node port</source>
-        <translation>Local node port</translation>
-    </message>
-    <message id="settings-peers">
-        <source>Peers</source>
-        <translation>Peers</translation>
-    </message>
-    <message id="settings-local-node-no-peers-error">
-        <source>Please add at least one peer</source>
-        <translation>Please add at least one peer</translation>
+        <source>Port</source>
+        <oldsource>Local node port</oldsource>
+        <extracomment>settings tab, node section, port label</extracomment>
+        <translation>Port</translation>
     </message>
     <message id="settings-rescan-confirmation-button">
         <source>rescan</source>
+        <extracomment>settings tab, confirm rescan dialog, rescan button</extracomment>
         <translation>rescan</translation>
     </message>
     <message id="settings-rescan-confirmation-title">
         <source>Rescan</source>
+        <extracomment>settings tab, confirm rescan dialog, title</extracomment>
         <translation>Rescan</translation>
     </message>
     <message id="settings-rescan-confirmation-message">
         <source>Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</source>
+        <extracomment>settings tab, confirm rescan dialog message</extracomment>
         <translation>Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</translation>
     </message>
     <message id="settings-general-title">
         <source>General settings</source>
+        <extracomment>settings tab, general section, title</extracomment>
         <translation>General settings</translation>
     </message>
     <message id="settings-general-lock-screen">
         <source>Lock screen</source>
+        <extracomment>settings tab, general section, lock screen label</extracomment>
         <translation>Lock screen</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend">
         <source>Ask password for every sending transaction</source>
+        <extracomment>settings tab, general section, ask password label</extracomment>
         <translation>Ask password for every sending transaction</translation>
     </message>
     <message id="settings-report-problem-title">
         <source>Report problem</source>
+        <extracomment>settings tab, report problem section, title</extracomment>
         <translation>Report problem</translation>
-    </message>
-    <message id="settings-report-problem-title-2">
-        <source>To report a problem:</source>
-        <translation>To report a problem:</translation>
-    </message>
-    <message id="settings-report-problem-message-line-1">
-        <source>1. Click &apos;Save wallet logs&apos; and choose a destination folder for log archive</source>
-        <translation>1. Click &apos;Save wallet logs&apos; and choose a destination folder for log archive</translation>
-    </message>
-    <message id="settings-report-problem-message-line-2">
-        <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;}&lt;/style&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/beam-mw/beam&apos;&gt;github&lt;/a&gt;</source>
-        <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;}&lt;/style&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/beam-mw/beam&apos;&gt;github&lt;/a&gt;</translation>
-    </message>
-    <message id="settings-report-problem-message-line-3">
-        <source>3. Don&apos;t forget to attach logs archive</source>
-        <translation>3. Don&apos;t forget to attach logs archive</translation>
     </message>
     <message id="settings-rescan-button">
         <source>rescan</source>
+        <extracomment>settings tab, rescan button</extracomment>
         <translation>rescan</translation>
     </message>
     <message id="settings-wallet-location-label">
-        <source>Wallet folder location:</source>
-        <translation>Wallet folder location:</translation>
-    </message>
-    <message id="settings-wallet-location-copy-button">
-        <source>copy</source>
-        <translation>copy</translation>
+        <source>Wallet folder location</source>
+        <extracomment>settings tab, general section, wallet data folder location label</extracomment>
+        <translation>Wallet folder location</translation>
     </message>
     <message id="settings-undo">
-        <source>undo changes</source>
-        <translation>undo changes</translation>
+        <source>cancel</source>
+        <oldsource>undo changes</oldsource>
+        <extracomment>settings tab, node section, cancel button</extracomment>
+        <translation>cancel</translation>
     </message>
     <message id="settings-apply">
-        <source>apply changes</source>
-        <translation>apply changes</translation>
+        <source>apply</source>
+        <oldsource>apply changes</oldsource>
+        <extracomment>settings tab, node section, apply button</extracomment>
+        <translation>apply</translation>
     </message>
     <message id="logo-name">
         <source>BEAM</source>
@@ -445,18 +429,22 @@
     </message>
     <message id="settings-report-problem-save-log-button">
         <source>save wallet logs</source>
+        <extracomment>settings tab, report problem section, save logs button</extracomment>
         <translation>save wallet logs</translation>
     </message>
     <message id="settings-rescan-confirmation-message-line-2">
         <source>Are you sure?</source>
+        <extracomment>settings tab, confirm rescan dialog additional message</extracomment>
         <translation>Are you sure?</translation>
     </message>
     <message id="settings-general-change-pwd-button">
         <source>change wallet password</source>
+        <extracomment>settings tab, change password button</extracomment>
         <translation>change wallet password</translation>
     </message>
     <message id="settings-title">
         <source>Settings</source>
+        <extracomment>settings tab title</extracomment>
         <translation>Settings</translation>
     </message>
     <message id="cant-send-to-expired-message">
@@ -1165,6 +1153,7 @@
     </message>
     <message id="settings-general-language">
         <source>Language</source>
+        <extracomment>settings tab, general section, language label</extracomment>
         <translation>Language</translation>
     </message>
     <message id="available-panel-where-to-buy">
@@ -1239,10 +1228,6 @@
         <source>open my wallet</source>
         <translation>open my wallet</translation>
     </message>
-    <message id="settings-peers-add-button">
-        <source>Add</source>
-        <translation>Add</translation>
-    </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
         <translation>Caps lock is on!</translation>
@@ -1253,15 +1238,15 @@
         <translation>QR code</translation>
     </message>
     <message id="show-qr-tx-token-label">
-        <source>Your transaction token:</source>
-        <extracomment>transaction token label</extracomment>
-        <translation>Your transaction token:</translation>
+        <source>Your address:</source>
+        <extracomment>show qr dialog address label</extracomment>
+        <translation>Your address:</translation>
     </message>
     <message id="show-qr-message">
-        <source>Scan this QR code or send this token to the sender over secure channel</source>
+        <source>Scan this QR code or send this address to the sender over secure channel</source>
         <extracomment>show QR dialog message, how to use this QR</extracomment>
         <translation>Scan this QR code
-or send this token to the sender over secure channel</translation>
+or send this address to the sender over secure channel</translation>
     </message>
     <message id="show-qr-close-button">
         <source>close</source>
@@ -1274,19 +1259,42 @@ or send this token to the sender over secure channel</translation>
         <translation>show QR code</translation>
     </message>
     <message id="settings-general-allow-beammw-label-p1">
-        <source>Allow access to </source>
+        <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch exchanges and transaction data)</source>
+        <oldsource>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch exchanges and transaction data)</oldsource>
         <extracomment>general settings, label for alow access beam.mw part 1</extracomment>
-        <translation>Allow access to </translation>
+        <translation type="obsolete">&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch
+exchanges and transaction data)</translation>
     </message>
-    <message id="settings-general-allow-beammw-label-p2">
-        <source>beam.mw</source>
-        <extracomment>general settings, label for alow access beam.mw part 2 (link)</extracomment>
-        <translation>beam.mw</translation>
+    <message id="settings-peers-title">
+        <source>Peers</source>
+        <extracomment>settings tab, node section, peers label</extracomment>
+        <translation>Peers</translation>
     </message>
-    <message id="settings-general-allow-beammw-label-p3">
-        <source> (Exchanges and news feed)</source>
-        <extracomment>general settings, label for alow access beam.mw part 3</extracomment>
-        <translation> (Exchanges and news feed)</translation>
+    <message id="settings-node-title">
+        <source>Node</source>
+        <extracomment>settings tab, node section, title</extracomment>
+        <translation>Node</translation>
+    </message>
+    <message id="settings-remote-node-ip-port-error">
+        <source>Invalid address</source>
+        <extracomment>settings tab, node section, on address error</extracomment>
+        <translation>Invalid address</translation>
+    </message>
+    <message id="settings-wallet-location-link">
+        <source>show in folder</source>
+        <extracomment>settings tab, general section, show data folder link</extracomment>
+        <translation>show in folder</translation>
+    </message>
+    <message id="settings-general-allow-beammw-label">
+        <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch exchanges and transaction data)</source>
+        <extracomment>general settings, label for alow open external links</extracomment>
+        <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch
+exchanges and transaction data)</translation>
+    </message>
+    <message id="settings-report-problem-message">
+        <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Don’t forget to attach logs archive</source>
+        <extracomment>settings tab, report problem section, message</extracomment>
+        <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Don’t forget to attach logs archive</translation>
     </message>
 </context>
 </TS>

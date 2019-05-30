@@ -21,6 +21,8 @@
 #include "wallet/secstring.h"
 #include "wallet/litecoin/options.h"
 #include "wallet/bitcoin/options.h"
+#include "wallet/swaps/common.h"
+#include "wallet/swaps/swap_transaction.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "core/treasury.h"
@@ -46,6 +48,7 @@
 
 using namespace std;
 using namespace beam;
+using namespace beam::wallet;
 using namespace ECC;
 
 namespace beam
@@ -103,6 +106,59 @@ namespace beam
         case TxStatus::Failed: return TxFailureReason::TransactionExpired == tx.m_failureReason ? Expired : Failed;
         default:
             assert(false && "Unknown status");
+        }
+
+        return "";
+    }
+
+    const char* getSwapTxStatus(const IWalletDB::Ptr& walletDB, const TxDescription& tx)
+    {
+        static const char* Initial = "Initial";
+        static const char* Invitation = "Invitation";
+        static const char* BuildingBeamLockTX = "Building Beam LockTX";
+        static const char* BuildingBeamRefundTX = "Building Beam RefundTX";
+        static const char* BuildingBeamRedeemTX = "Building Beam RedeemTX";
+        static const char* HandlingContractTX = "Handling LockTX";
+        static const char* SendingRefundTX = "Sending RefundTX";
+        static const char* SendingRedeemTX = "Sending RedeemTX";
+        static const char* SendingBeamLockTX = "Sending Beam LockTX";
+        static const char* SendingBeamRefundTX = "Sending Beam RefundTX";
+        static const char* SendingBeamRedeemTX = "Sending Beam RedeemTX";
+
+        if (tx.m_status != TxStatus::InProgress)
+        {
+            return getTxStatus(tx);
+        }
+
+        wallet::AtomicSwapTransaction::State state = wallet::AtomicSwapTransaction::State::CompleteSwap;
+        storage::getTxParameter(*walletDB, tx.m_txId, wallet::TxParameterID::State, state);
+
+        switch (state)
+        {
+        case wallet::AtomicSwapTransaction::State::Initial:
+            return Initial;
+        case wallet::AtomicSwapTransaction::State::Invitation:
+            return Invitation;
+        case wallet::AtomicSwapTransaction::State::BuildingBeamLockTX:
+            return BuildingBeamLockTX;
+        case wallet::AtomicSwapTransaction::State::BuildingBeamRefundTX:
+            return BuildingBeamRefundTX;
+        case wallet::AtomicSwapTransaction::State::BuildingBeamRedeemTX:
+            return BuildingBeamRedeemTX;
+        case wallet::AtomicSwapTransaction::State::HandlingContractTX:
+            return HandlingContractTX;
+        case wallet::AtomicSwapTransaction::State::SendingRefundTX:
+            return SendingRefundTX;
+        case wallet::AtomicSwapTransaction::State::SendingRedeemTX:
+            return SendingRedeemTX;
+        case wallet::AtomicSwapTransaction::State::SendingBeamLockTX:
+            return SendingBeamLockTX;
+        case wallet::AtomicSwapTransaction::State::SendingBeamRefundTX:
+            return SendingBeamRefundTX;
+        case wallet::AtomicSwapTransaction::State::SendingBeamRedeemTX:
+            return SendingBeamRedeemTX;
+        default:
+            assert(false && "Unexpected status");
         }
 
         return "";
@@ -377,7 +433,7 @@ namespace
             return -1;
         }
 
-        if (wallet::changeAddressExpiration(*walletDB, walletID, newDuration_s))
+        if (storage::changeAddressExpiration(*walletDB, walletID, newDuration_s))
         {
             if (allAddresses)
             {
@@ -394,7 +450,7 @@ namespace
 
     WalletAddress newAddress(const IWalletDB::Ptr& walletDB, const std::string& comment, bool isNever = false)
     {
-        WalletAddress address = wallet::createAddress(*walletDB);
+        WalletAddress address = storage::createAddress(*walletDB);
 
         if (isNever)
         {
@@ -499,7 +555,7 @@ namespace
         Block::SystemState::ID stateID = {};
         walletDB->getSystemStateID(stateID);
 
-        wallet::Totals totals(*walletDB);
+        storage::Totals totals(*walletDB);
 
         cout << "____Wallet summary____\n\n"
             << "Current height............" << stateID.m_Height << '\n'
@@ -543,6 +599,44 @@ namespace
             }
             return 0;
         }
+
+        if (vm.count(cli::SWAP_TX_LIST))
+        {
+            auto txHistory = walletDB->getTxHistory(wallet::TxType::AtomicSwap);
+            if (txHistory.empty())
+            {
+                cout << "No swap transactions\n";
+                return 0;
+            }
+
+            const array<uint8_t, 6> columnWidths{ { 20, 26, 18, 11, 23, 33} };
+
+            cout << "SWAP TRANSACTIONS\n\n  |"
+                << left << setw(columnWidths[0]) << " datetime" << " |"
+                << right << setw(columnWidths[1]) << " amount, BEAM" << " |"
+                << right << setw(columnWidths[2]) << " swap amount" << " |"
+                << left << setw(columnWidths[3]) << " beam side" << " |"
+                << left << setw(columnWidths[4]) << " status" << " |"
+                << setw(columnWidths[5]) << " ID" << " |" << endl;
+
+            for (auto& tx : txHistory)
+            {
+                Amount swapAmount = 0;
+                storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapAmount, swapAmount);
+                bool isBeamSide = false;
+                storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
+
+                cout << "   "
+                    << " " << left << setw(columnWidths[0]) << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false)
+                    << " " << right << setw(columnWidths[1]) << PrintableAmount(tx.m_amount, true) << " "
+                    << " " << right << setw(columnWidths[2]) << swapAmount << " "
+                    << " " << right << setw(columnWidths[3]) << isBeamSide << "  "
+                    << " " << left << setw(columnWidths[4]) << getSwapTxStatus(walletDB, tx)
+                    << " " << setw(columnWidths[5] + 1) << to_hex(tx.m_txId.data(), tx.m_txId.size()) << '\n';
+            }
+            return 0;
+        }
+
         const array<uint8_t, 6> columnWidths{ { 49, 14, 14, 18, 30, 8} };
         cout << "  |"
             << left << setw(columnWidths[0]) << " ID" << " |"
@@ -591,7 +685,7 @@ namespace
             return -1;
         }
 
-        auto res = wallet::ExportPaymentProof(*walletDB, txId);
+        auto res = storage::ExportPaymentProof(*walletDB, txId);
         if (!res.empty())
         {
             std::string sTxt;
@@ -613,7 +707,7 @@ namespace
         }
         ByteBuffer buf = from_hex(pprofData.as<string>());
 
-        if (!wallet::VerifyPaymentProof(buf))
+        if (!storage::VerifyPaymentProof(buf))
             throw std::runtime_error("Payment proof is invalid");
 
         return 0;
@@ -621,7 +715,7 @@ namespace
 
     int ExportMinerKey(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, const beam::SecString& pass)
     {
-        uint32_t subKey = vm[cli::KEY_SUBKEY].as<uint32_t>();
+        uint32_t subKey = vm[cli::KEY_SUBKEY].as<Nonnegative<uint32_t>>().value;
         if (subKey < 1)
         {
             cout << "Please, specify Subkey number --subkey=N (N > 0)" << endl;
@@ -686,7 +780,7 @@ namespace
 
     int ExportAddresses(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
     {
-        auto s = wallet::ExportAddressesToJson(*walletDB);
+        auto s = storage::ExportAddressesToJson(*walletDB);
         return SaveExportedData(ByteBuffer(s.begin(), s.end()), vm[cli::IMPORT_EXPORT_PATH].as<string>()) ? 0 : -1;
     }
 
@@ -698,7 +792,7 @@ namespace
             return -1;
         }
         const char* p = (char*)(&buffer[0]);
-        return wallet::ImportAddressesFromJson(*walletDB, p, buffer.size()) ? 0 : -1;
+        return storage::ImportAddressesFromJson(*walletDB, p, buffer.size()) ? 0 : -1;
     }
 
     CoinIDList GetPreselectedCoinIDs(const po::variables_map& vm)
@@ -754,7 +848,7 @@ namespace
             return false;
         }
 
-        fee = vm[cli::FEE].as<beam::Amount>();
+        fee = vm[cli::FEE].as<Nonnegative<Amount>>().value;
 
         return true;
     }
@@ -988,7 +1082,7 @@ int main_impl(int argc, char* argv[])
                         {
                             bool b = var.as<bool>();
                             uint8_t n = b ? 1 : 0;
-                            wallet::setVar(*walletDB, wallet::g_szPaymentProofRequired, n);
+                            storage::setVar(*walletDB, storage::g_szPaymentProofRequired, n);
 
                             cout << "Parameter set: Payment proof required: " << static_cast<uint32_t>(n) << std::endl;
                             return 0;
@@ -1134,16 +1228,16 @@ int main_impl(int argc, char* argv[])
 
                         if (!btcOptions.m_userName.empty() && !btcOptions.m_pass.empty())
                         {
-                            btcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Amount>();
+                            btcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
                             
                             if (vm.count(cli::BTC_CONFIRMATIONS) > 0)
                             {
-                                btcOptions.m_confirmations = vm[cli::BTC_CONFIRMATIONS].as<Amount>();
+                                btcOptions.m_confirmations = vm[cli::BTC_CONFIRMATIONS].as<Positive<uint16_t>>().value;
                             }
 
                             if (vm.count(cli::BTC_LOCK_TIME) > 0)
                             {
-                                btcOptions.m_lockTimeInBlocks = vm[cli::BTC_LOCK_TIME].as<uint32_t>();
+                                btcOptions.m_lockTimeInBlocks = vm[cli::BTC_LOCK_TIME].as<Positive<uint32_t>>().value;
                             }
                             
                             wallet.initBitcoin(io::Reactor::get_Current(), btcOptions);
@@ -1151,16 +1245,16 @@ int main_impl(int argc, char* argv[])
 
                         if (!ltcOptions.m_userName.empty() && !ltcOptions.m_pass.empty())
                         {
-                            ltcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Amount>();
+                            ltcOptions.m_feeRate = vm[cli::SWAP_FEERATE].as<Positive<Amount>>().value;
 
                             if (vm.count(cli::LTC_CONFIRMATIONS) > 0)
                             {
-                                ltcOptions.m_confirmations = vm[cli::LTC_CONFIRMATIONS].as<Amount>();
+                                ltcOptions.m_confirmations = vm[cli::LTC_CONFIRMATIONS].as<Positive<uint16_t>>().value;
                             }
 
                             if (vm.count(cli::LTC_LOCK_TIME) > 0)
                             {
-                                ltcOptions.m_lockTimeInBlocks = vm[cli::LTC_LOCK_TIME].as<uint32_t>();
+                                ltcOptions.m_lockTimeInBlocks = vm[cli::LTC_LOCK_TIME].as<Positive<uint32_t>>().value;
                             }
                             wallet.initLitecoin(io::Reactor::get_Current(), ltcOptions);
                         }
@@ -1203,7 +1297,7 @@ int main_impl(int argc, char* argv[])
                                 return -1;
                             }
 
-                            Amount swapAmount = vm[cli::SWAP_AMOUNT].as<beam::Amount>();
+                            Amount swapAmount = vm[cli::SWAP_AMOUNT].as<Positive<Amount>>().value;
                             bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
                             if (command == cli::SWAP_COINS)
@@ -1233,12 +1327,7 @@ int main_impl(int argc, char* argv[])
                                     return false;
                                 }
 
-                                auto signedAmount = vm[cli::AMOUNT].as<double>();
-                                if (signedAmount < 0)
-                                {
-                                    LOG_ERROR() << "Unable to send negative amount of coins";
-                                    return false;
-                                }
+                                auto signedAmount = vm[cli::AMOUNT].as<Positive<double>>().value;
 
                                 signedAmount *= Rules::Coin; // convert beams to coins
 

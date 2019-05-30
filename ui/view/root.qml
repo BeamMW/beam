@@ -7,7 +7,7 @@ import Beam.Wallet 1.0
 
 Window  {
     width: Math.min(1024, Screen.desktopAvailableWidth - 10)
-    height: Math.min(768, Screen.desktopAvailableHeight - 80)
+    height: Math.min(867, Screen.desktopAvailableHeight - 80)
     property alias source: rootLoader.source
 
     SFFontLoader {}

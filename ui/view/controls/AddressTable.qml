@@ -157,6 +157,7 @@ CustomTableView {
         property string address
         property var addressItem
         Action {
+            id: showQRAction
             //: Entry in adress table context menu to show QR
             //% "show QR code"
             text: qsTrId("address-table-cm-show-qr")
@@ -167,6 +168,7 @@ CustomTableView {
             }
         }
         Action {
+            //: Entry in adress table context menu to edit
             //% "edit address"
             text: qsTrId("address-table-cm-edit")
             icon.source: "qrc:/assets/icon-edit.svg"
@@ -176,11 +178,18 @@ CustomTableView {
             }
         }
         Action {
+            //: Entry in adress table context menu to delete
             //% "delete address"
             text: qsTrId("address-table-cm-delete")
             icon.source: "qrc:/assets/icon-delete.svg"
             onTriggered: {
                 viewModel.deleteAddress(contextMenu.address);
+            }
+        }
+    
+        Component.onCompleted: {
+            if (isExpired) {
+                contextMenu.removeAction(showQRAction);
             }
         }
     }
