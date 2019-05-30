@@ -1400,6 +1400,9 @@ int main_impl(int argc, char* argv[])
         catch (const AddressExpiredException&)
         {
         }
+        catch (const FailToStartSwapException&)
+        {
+        }
         catch (const po::error& e)
         {
             LOG_ERROR() << e.what();
