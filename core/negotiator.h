@@ -186,6 +186,9 @@ namespace Negotiator {
 			}
 		}
 
+		virtual void QueryVar(std::string&, uint32_t code) = 0; // for debug and trafic visualization
+		bool SubQueryVar(std::string&, uint32_t code, uint32_t i0, uint32_t i1, const char* szPrefix);
+
 		uint32_t Update();
 	};
 
@@ -236,6 +239,8 @@ namespace Negotiator {
 			static const uint32_t BpPart2 = PeerVariable0 + 1;
 			static const uint32_t BpPart3 = PeerVariable0 + 3;
 		};
+
+		virtual void QueryVar(std::string&, uint32_t code) override;
 	};
 
 	//////////////////////////////////////////
@@ -299,6 +304,8 @@ namespace Negotiator {
 			static const uint32_t KernelID = Output0 + 1;
 			static const uint32_t BarrierCrossed = Output0 + 2; // peer may come up with a valid tx
 		};
+
+		virtual void QueryVar(std::string&, uint32_t code) override;
 	};
 
 	//////////////////////////////////////////
@@ -369,6 +376,9 @@ namespace Negotiator {
 		};
 
 		static const uint32_t s_Channels = 4;
+
+		virtual void QueryVar(std::string&, uint32_t code) override;
+
 	};
 
 	//////////////////////////////////////////
@@ -476,6 +486,8 @@ namespace Negotiator {
 		};
 
 		static const uint32_t s_Channels = 3 + WithdrawTx::s_Channels * 2;
+
+		virtual void QueryVar(std::string&, uint32_t code) override;
 	};
 
 	//////////////////////////////////////////
@@ -545,6 +557,8 @@ namespace Negotiator {
 		};
 
 		static const uint32_t s_Channels = 1 + WithdrawTx::s_Channels * 2;
+
+		virtual void QueryVar(std::string&, uint32_t code) override;
 	};
 
 

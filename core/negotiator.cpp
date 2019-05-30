@@ -153,6 +153,24 @@ uint32_t IBase::Update()
 	return nStatus;
 }
 
+bool IBase::SubQueryVar(std::string& s, uint32_t code, uint32_t i0, uint32_t i1, const char* szPrefix)
+{
+	i0 <<= 16;
+	i1 <<= 16;
+
+	if ((code < i0) || (code >= i1))
+		return false;
+
+	std::string sufix;
+	QueryVar(sufix, code - i0);
+
+	s = szPrefix;
+	s += '.';
+	s += sufix;
+
+	return true;
+}
+
 /////////////////////
 // Multisig
 
@@ -303,6 +321,16 @@ uint32_t Multisig::Update2()
 	}
 
 	return Status::Success;
+}
+
+void Multisig::QueryVar(std::string& s, uint32_t code)
+{
+	switch (code)
+	{
+	case Codes::PubKey: s = "Partial Commitment"; break;
+	case Codes::BpPart2: s = "Bulletproof T1,T2"; break;
+	case Codes::BpPart3: s = "Bulletproof TauX"; break;
+	}
 }
 
 /////////////////////
@@ -631,6 +659,17 @@ uint32_t MultiTx::Update2()
 	return Status::Success;
 }
 
+void MultiTx::QueryVar(std::string& s, uint32_t code)
+{
+	switch (code)
+	{
+	case Codes::KrnCommitment: s = "Excess Commitment"; break;
+	case Codes::KrnNonce: s = "Nonce Commitment"; break;
+	case Codes::KrnSig: s = "Partial Kernel Signature"; break;
+	case Codes::TxPartial: s = "Partial Transaction"; break;
+	}
+}
+
 
 /////////////////////
 // WithdrawTx
@@ -766,6 +805,13 @@ uint32_t WithdrawTx::Update2()
 		return Status::Success;
 
 	return 0;
+}
+
+void WithdrawTx::QueryVar(std::string& s, uint32_t code)
+{
+	m_MSig.SubQueryVar(s, code, 1, 2, "MuSig");
+	m_Tx1.SubQueryVar(s, code, 2, 3, "Tx-TLock");
+	m_Tx2.SubQueryVar(s, code, 3, 4, "Tx-Final");
 }
 
 /////////////////////
@@ -994,6 +1040,13 @@ uint32_t ChannelOpen::Update2()
 	return 0;
 }
 
+void ChannelOpen::QueryVar(std::string& s, uint32_t code)
+{
+	m_MSig.SubQueryVar(s, code, 1, 2, "MuSig");
+	m_Tx0.SubQueryVar(s, code, 2, 3, "Tx-Open");
+	m_WdA.SubQueryVar(s, code, 3, 3 + WithdrawTx::s_Channels, "Exit-A");
+	m_WdB.SubQueryVar(s, code, 3 + WithdrawTx::s_Channels, 3 + WithdrawTx::s_Channels * 2, "Exit-B");
+}
 
 /////////////////////
 // ChannelUpdate
@@ -1142,6 +1195,21 @@ uint8_t ChannelUpdate::get_DoneParts()
 		ret |= DoneParts::PeerKey;
 
 	return ret;
+}
+
+void ChannelUpdate::QueryVar(std::string& s, uint32_t code)
+{
+	switch (code)
+	{
+	case Codes::PeerBlindingFactor:
+		s = "Reveal Previous Blinding Factor";
+		break;
+
+	default:
+
+		m_WdA.SubQueryVar(s, code, 1, 1 + WithdrawTx::s_Channels, "Exit-A");
+		m_WdB.SubQueryVar(s, code, 1 + WithdrawTx::s_Channels, 1 + WithdrawTx::s_Channels * 2, "Exit-B");
+	}
 }
 
 } // namespace Negotiator
