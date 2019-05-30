@@ -84,14 +84,10 @@ namespace beam::wallet
     {
         try
         {
-            //    auto eventHolder = make_shared<io::AsyncEvent::Ptr>();
-               // *eventHolder = io::AsyncEvent::create(io::Reactor::get_Current(), [eventHolder, result = move(result), cb = move(resultCallback)]() { cb(result); });
-              //  (*eventHolder)->post();
             resultCallback(GenerateKeySync(ids, createCoinKey));
         }
         catch (const exception & ex)
         {
-            //io::AsyncEvent::create(io::Reactor::get_Current(), [ex, cb = move(exceptionCallback)]() { cb(ex); })->post();
             exceptionCallback(ex);
         }
     }
@@ -114,7 +110,7 @@ namespace beam::wallet
                     *storedException = ex;
                 }
             },
-            [futureHolder, thisHolder, this, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), result, storedException]() mutable
+            [futureHolder, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), result, storedException]() mutable
             {
                 if (storedException)
                 {
@@ -585,25 +581,5 @@ namespace beam::wallet
             return true;
         }
         return false;
-    }
-
-    future<void> BaseTransaction::DoThreadAsync(Functor && functor, CompletionCallback && callback)
-    {
-        weak_ptr<ITransaction> txRef = shared_from_this();
-        m_Gateway.OnAsyncStarted();
-        return do_thread_async(
-            [functor = move(functor)]()
-        {
-            functor();
-        },
-            [txRef, this, callback = move(callback)]()
-        {
-            if (auto txGuard = txRef.lock())
-            {
-                callback();
-                Update();
-                m_Gateway.OnAsyncFinished();
-            }
-        });
     }
 }

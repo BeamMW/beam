@@ -251,7 +251,6 @@ namespace beam::wallet
         virtual void UpdateImpl() = 0;
 
         virtual bool ShouldNotifyAboutChanges(TxParameterID paramID) const { return true; };
-        std::future<void> DoThreadAsync(Functor&& functor, CompletionCallback&& callback);
     protected:
 
         INegotiatorGateway& m_Gateway;

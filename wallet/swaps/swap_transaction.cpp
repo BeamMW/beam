@@ -585,14 +585,6 @@ namespace beam::wallet
                 lockTxBuilder->SelectInputs();
                 lockTxBuilder->AddChange();
             }
-            else
-            {
-                LOG_DEBUG() << "lockTxBuilder->FinalizeOutputs()";
-                if (!lockTxBuilder->FinalizeOutputs())
-                {
-                    // TODO: transaction is too big :(
-                }
-            }
 
             UpdateTxDescription(TxStatus::InProgress);
 
@@ -600,7 +592,7 @@ namespace beam::wallet
         }
 
         lockTxBuilder->CreateInputs();
-        if (lockTxBuilder->CreateOutputs())
+        if (isBeamOwner && lockTxBuilder->CreateOutputs())
         {
             return lockTxState;
         }
