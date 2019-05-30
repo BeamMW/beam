@@ -100,7 +100,6 @@ Rectangle {
                 externalLinkConfirmation.externalUrl = externalLink;
                 externalLinkConfirmation.onOkClicked = function () {
                     viewModel.isAllowedBeamMWLinks = true;
-                    viewModel.applyChanges();
                 };
                 externalLinkConfirmation.open();
             }

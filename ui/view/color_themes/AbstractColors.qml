@@ -22,7 +22,6 @@ QtObject {
     property color active;
     property color passive;
         
-    property color gray_button;
     property color caps_warning;
 
 	property color white:            "#ffffff"
