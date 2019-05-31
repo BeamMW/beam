@@ -347,7 +347,7 @@ namespace beam
 
     void Bitcoind016::getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback)
     {
-        LOG_DEBUG() << "Send to Bitcoind getBlockCount command";
+        LOG_DEBUG() << "Send to Bitcoind getBalance command";
         sendRequest("getbalance", "\"*\"," + std::to_string(confirmations), [callback](IBitcoinBridge::Error error, const std::string& response) {
             double balance = 0;
 
