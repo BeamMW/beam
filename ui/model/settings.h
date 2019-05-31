@@ -65,6 +65,7 @@ public:
     static const char* LogsFolder;
     static const char* SettingsFile;
     static const char* WalletDBFile;
+    static const char* NodeDBFile;
 
     void applyChanges();
 
