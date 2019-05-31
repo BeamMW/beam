@@ -163,6 +163,20 @@ namespace beam
 
         return "";
     }
+
+    const char* getAtomicSwapCoinText(AtomicSwapCoin swapCoin)
+    {
+        switch (swapCoin)
+        {
+        case AtomicSwapCoin::Bitcoin:
+            return "BTC";
+        case AtomicSwapCoin::Litecoin:
+            return "LTC";
+        default:
+            assert(false && "Unknow SwapCoin");
+        }
+        return "";
+    }
 }
 namespace
 {
@@ -600,7 +614,7 @@ namespace
             return 0;
         }
 
-        if (vm.count(cli::SWAP_TX_LIST))
+        if (vm.count(cli::SWAP_TX_HISTORY))
         {
             auto txHistory = walletDB->getTxHistory(wallet::TxType::AtomicSwap);
             if (txHistory.empty())
@@ -609,13 +623,13 @@ namespace
                 return 0;
             }
 
-            const array<uint8_t, 6> columnWidths{ { 20, 26, 18, 11, 23, 33} };
+            const array<uint8_t, 6> columnWidths{ { 20, 26, 18, 15, 23, 33} };
 
             cout << "SWAP TRANSACTIONS\n\n  |"
                 << left << setw(columnWidths[0]) << " datetime" << " |"
                 << right << setw(columnWidths[1]) << " amount, BEAM" << " |"
                 << right << setw(columnWidths[2]) << " swap amount" << " |"
-                << left << setw(columnWidths[3]) << " beam side" << " |"
+                << left << setw(columnWidths[3]) << " swap type" << " |"
                 << left << setw(columnWidths[4]) << " status" << " |"
                 << setw(columnWidths[5]) << " ID" << " |" << endl;
 
@@ -626,11 +640,17 @@ namespace
                 bool isBeamSide = false;
                 storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
 
+                AtomicSwapCoin swapCoin;
+                storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapCoin, swapCoin);
+
+                stringstream ss;
+                ss << (isBeamSide ? "Beam" : getAtomicSwapCoinText(swapCoin)) << " <--> " << (!isBeamSide ? "Beam" : getAtomicSwapCoinText(swapCoin));
+
                 cout << "   "
                     << " " << left << setw(columnWidths[0]) << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false)
                     << " " << right << setw(columnWidths[1]) << PrintableAmount(tx.m_amount, true) << " "
                     << " " << right << setw(columnWidths[2]) << swapAmount << " "
-                    << " " << right << setw(columnWidths[3]) << isBeamSide << "  "
+                    << " " << right << setw(columnWidths[3]) << ss.str() << "  "
                     << " " << left << setw(columnWidths[4]) << getSwapTxStatus(walletDB, tx)
                     << " " << setw(columnWidths[5] + 1) << to_hex(tx.m_txId.data(), tx.m_txId.size()) << '\n';
             }
