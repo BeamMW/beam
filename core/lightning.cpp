@@ -32,6 +32,7 @@ struct Channel::Codes
 	static const uint32_t ValueMy = Control0 + 21;
 	static const uint32_t ValueYours = Control0 + 22;
 	static const uint32_t ValueTansfer = Control0 + 25;
+	static const uint32_t CloseGraceful = Control0 + 31;
 };
 
 struct Channel::MuSigLocator
@@ -49,6 +50,9 @@ Channel::State::Enum Channel::get_State() const
 {
 	if (!m_pOpen)
 		return State::None;
+
+	if (m_State.m_Close.m_hPhase2)
+		return State::Closed;
 
 	assert(!m_vUpdates.empty());
 
@@ -68,15 +72,13 @@ Channel::State::Enum Channel::get_State() const
 		return State::Opening2;
 	}
 
-	if (!m_State.m_Close.m_hPhase1)
-	{
-		if (m_State.m_Terminate)
-			return State::Closing1;
+	if (m_State.m_Close.m_hPhase1)
+		return State::Closing2;
 
-		return m_pNegCtx ? State::Updating : State::Open;
-	}
+	if (m_State.m_Terminate)
+		return State::Closing1;
 
-	return m_State.m_Close.m_hPhase2 ? State::Closed : State::Closing2;
+	return m_pNegCtx ? State::Updating : State::Open;
 }
 
 bool Channel::IsUnfairPeerClosed() const
@@ -143,7 +145,7 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 		}
 		else
 		{
-			// should be value transfer
+			// value transfer?
 			Amount val = 0;
 			if (!dataIn.Get(val, Codes::ValueTansfer))
 				return;
@@ -154,7 +156,10 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 			if (val < valMy)
 				return; // overflow attack!
 
-			if (!TransferInternal(val))
+			uint32_t iClose = 0;
+			dataIn.Get(iClose, Codes::CloseGraceful);
+
+			if (!TransferInternal(val, 1, !!iClose))
 				return;
 		}
 	}
@@ -185,6 +190,10 @@ void Channel::UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut)
 
 	case NegotiationCtx::Update:
 		pBase = &Cast::Up<NegotiationCtx_Update>(*m_pNegCtx).m_Inst;
+		break;
+
+	case NegotiationCtx::Close:
+		pBase = &Cast::Up<NegotiationCtx_Close>(*m_pNegCtx).m_Inst;
 		break;
 
 	default:
@@ -291,6 +300,28 @@ void Channel::UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut)
 		}
 		break;
 
+
+	case NegotiationCtx::Close:
+		{
+			MultiTx& x = Cast::Up<MultiTx>(*pBase);
+
+			status = x.Update();
+
+			if (Status::Success == status)
+			{
+				assert(m_vUpdates.size() > 1);
+				DataUpdate& d = *m_vUpdates.back();
+
+				x.Get(d.m_tx1, MultiTx::Codes::TxFinal);
+				x.Get(d.m_PeerKey.m_Value, MultiTx::Codes::KernelID); // just use this variable
+
+				d.m_Type = DataUpdate::Type::Direct;
+			}
+		}
+		break;
+
+
+
 	default:
 		assert(false);
 	}
@@ -348,9 +379,10 @@ void Channel::Update()
 		// msigN confirmed.
 		assert(m_State.m_Close.m_iPath < m_vUpdates.size());
 
-		if (IsUnfairPeerClosed() || (m_State.m_Close.m_hPhase1 + m_Params.m_hLockTime <= hTip + 1))
+		const DataUpdate& d = *m_vUpdates[m_State.m_Close.m_iPath];
+
+		if ((DataUpdate::Type::Punishment == d.m_Type) || (m_State.m_Close.m_hPhase1 + m_Params.m_hLockTime <= hTip + 1))
 		{
-			const DataUpdate& d = *m_vUpdates[m_State.m_Close.m_iPath];
 			const Transaction& tx = d.get_TxPhase2(m_State.m_Close.m_Initiator);
 			SendTxNoSpam(tx, hTip);
 
@@ -365,36 +397,25 @@ void Channel::Update()
 		return;
 	}
 
+	const DataUpdate& d = *m_vUpdates.back();
 	if (hTip > m_State.m_hQueryLast)
 	{
-		// Start the std locator logic
-		if (m_pRequest)
-		{
-			if (proto::FlyClient::Request::Type::Utxo == m_pRequest->get_Type())
-				return;
-			CancelRequest();
-		}
+		if (DataUpdate::Type::Direct == d.m_Type)
+			ConfirmKernel(d.m_PeerKey.m_Value, hTip);
+		else
+			ConfirmMuSig();
+	}
 
-		MuSigLocator::Ptr pReq(new MuSigLocator);
-		pReq->m_iIndex = static_cast<size_t>(-1);
-		pReq->m_Initiator = false;
-		pReq->m_Msg.m_Utxo = m_pOpen->m_Comm0;
-
-		get_Net().PostRequest(*pReq, m_RequestHandler);
-		m_pRequest = std::move(pReq);
+	if (m_State.m_Terminate)
+	{
+		size_t iPath = SelectWithdrawalPath();
+		if (iPath < m_vUpdates.size())
+			SendTxNoSpam(m_vUpdates[iPath]->m_tx1, hTip);
 	}
 	else
 	{
-		if (!m_pRequest)
-		{
-			// Are we already in the channel-terminate phase?
-			if (m_State.m_Terminate)
-			{
-				size_t iPath = SelectWithdrawalPath();
-				if (iPath < m_vUpdates.size())
-					SendTxNoSpam(m_vUpdates[iPath]->m_tx1, hTip);
-			}
-		}
+		if ((DataUpdate::Type::Direct == d.m_Type) && !d.m_tx1.m_vKernels.empty())
+			SendTxNoSpam(d.m_tx1, hTip);
 	}
 }
 
@@ -585,7 +606,6 @@ void Channel::OnRequestComplete(MuSigLocator& r)
 			m_State.m_Close.m_iPath = r.m_iIndex;
 			m_State.m_Close.m_Initiator = r.m_Initiator;
 			m_State.m_Close.m_hPhase1 = r.m_Res.m_Proofs.front().m_State.m_Maturity;
-			m_State.m_Close.m_hPhase2 = 0;
 
 			m_State.m_Terminate = true; // either we're closing it, or peer attempted
 			m_pNegCtx.reset(); // nore more negotiations!
@@ -710,9 +730,30 @@ void Channel::OnRequestComplete(proto::FlyClient::RequestKernel& r)
 			}
 		}
 
+		const DataUpdate& d = *m_vUpdates.back();
+		if (!m_State.m_Close.m_hPhase1 && !m_State.m_Close.m_hPhase2 && (DataUpdate::Type::Direct == d.m_Type) && (r.m_Msg.m_ID == d.m_PeerKey.m_Value))
+		{
+			// graceful closure detected
+			m_State.m_Close.m_hPhase2 = h;
+
+			m_State.m_hQueryLast = 0;
+			m_State.m_hTxSentLast = 0;
+
+			m_State.m_Close.m_iPath = m_vUpdates.size() - 1;
+			m_State.m_Close.m_Initiator = true; // doesn't matter
+
+			OnCoin(d.m_Outp, h, CoinState::Confirmed, false);
+		}
+
 	}
 	else
-		m_State.m_hQueryLast = get_Tip();
+	{
+		const DataUpdate& d = *m_vUpdates.back();
+		if (DataUpdate::Type::Direct == d.m_Type)
+			ConfirmMuSig();
+		else
+			m_State.m_hQueryLast = get_Tip();
+	}
 
 	Update();
 }
@@ -792,6 +833,25 @@ void Channel::ConfirmKernel(const Merkle::Hash& hv, Height h)
 	m_pRequest = std::move(pReq);
 }
 
+void Channel::ConfirmMuSig()
+{
+	// Start the std locator logic
+	if (m_pRequest)
+	{
+		if (proto::FlyClient::Request::Type::Utxo == m_pRequest->get_Type())
+			return;
+		CancelRequest();
+	}
+
+	MuSigLocator::Ptr pReq(new MuSigLocator);
+	pReq->m_iIndex = static_cast<size_t>(-1);
+	pReq->m_Initiator = false;
+	pReq->m_Msg.m_Utxo = m_pOpen->m_Comm0;
+
+	get_Net().PostRequest(*pReq, m_RequestHandler);
+	m_pRequest = std::move(pReq);
+}
+
 const Transaction& Channel::DataUpdate::get_TxPhase2(bool bInitiator) const
 {
 	return bInitiator ? m_tx2 : m_txPeer2;
@@ -836,7 +896,7 @@ bool Channel::Open(Amount nMy, Amount nOther, const HeightRange& hr0)
 	return true;
 }
 
-bool Channel::Transfer(Amount val)
+bool Channel::Transfer(Amount val, bool bCloseGraceful)
 {
 	if (!m_pOpen)
 		return false;
@@ -846,11 +906,14 @@ bool Channel::Transfer(Amount val)
 	if (valMy < val)
 		return false;
 
-	if (!TransferInternal(valMy - val))
+	if (!TransferInternal(valMy - val, 0, bCloseGraceful))
 		return false;
 
 	Storage::Map dataIn, dataOut;
 	dataOut.Set(val, Codes::ValueTansfer);
+
+	if (bCloseGraceful)
+		dataOut.Set(uint32_t(1), Codes::CloseGraceful);
 
 	UpdateNegotiator(dataIn, dataOut);
 	SendPeerInternal(dataOut);
@@ -949,61 +1012,88 @@ bool Channel::OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const Heig
 	return true;
 }
 
-bool Channel::TransferInternal(Amount nMyNew)
+bool Channel::TransferInternal(Amount nMyNew, uint32_t iRole, bool bCloseGraceful)
 {
 	if (m_pNegCtx || (State::Open != get_State()))
 		return false;
 
 	assert(m_pOpen && !m_State.m_Terminate && !m_vUpdates.empty());
 
-	uint32_t iRole = !!m_pOpen->m_txOpen.m_vKernels.empty();
+	if (DataUpdate::Type::Direct == m_vUpdates.back()->m_Type)
+		return false; // no negotiations past decision to (gracefully) close the channel
 
 	Amount nMyFee = m_Params.m_Fee / 2;
 	if (iRole)
 		nMyFee = m_Params.m_Fee - nMyFee; // in case it's odd
 
-
-	NegotiationCtx_Update* p = new NegotiationCtx_Update;
-	m_pNegCtx.reset(p);
-	m_pNegCtx->m_eType = NegotiationCtx::Update;
-
-	p->m_Inst.m_pStorage = &p->m_Data;
-	get_Kdf(p->m_Inst.m_pKdf);
-
-
 	std::vector<ECC::Key::IDV> vOut;
 
+	Key::IDV& kidv = vOut.emplace_back();
+	kidv.m_Value = nMyNew;
+	kidv.m_Type = Key::Type::Regular;
+
+	if (bCloseGraceful)
 	{
-		Key::IDV& kidv = vOut.emplace_back();
-		kidv.m_Value = nMyNew;
-		kidv.m_Type = Key::Type::Regular;
+		NegotiationCtx_Close* p = new NegotiationCtx_Close;
+		m_pNegCtx.reset(p);
+		m_pNegCtx->m_eType = NegotiationCtx::Close;
+
+		MultiTx& n = p->m_Inst;
+		n.m_pStorage = &p->m_Data;
+		get_Kdf(n.m_pKdf);
+
+		kidv.m_Value += nMyFee;
 		AllocTxoID(kidv);
+
+		n.Set(iRole, Codes::Role);
+		n.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
+
+
+		n.Set(m_pOpen->m_ms0, MultiTx::Codes::InpMsKidv);
+		n.Set(m_pOpen->m_Comm0, MultiTx::Codes::InpMsCommitment);
+		n.Set(vOut, MultiTx::Codes::OutpKidvs);
+		n.Set(m_Params.m_Fee, MultiTx::Codes::KrnFee);
+
+		ECC::Key::IDV msDummy(Zero);
+		msDummy.m_Value = m_pOpen->m_ms0.m_Value - m_Params.m_Fee;
+		CreateUpdatePoint(iRole, msDummy, msDummy, vOut.front());
 	}
-
-	ECC::Key::IDV msA, msB;
-	msA.m_Value = msB.m_Value = m_pOpen->m_ms0.m_Value - m_Params.m_Fee;
-	msA.m_Type = msB.m_Type = FOURCC_FROM(MuSg);
-
-	AllocTxoID(msA);
-	AllocTxoID(msB);
-
-	DataUpdate& d0 = *m_vUpdates.back();
-
+	else
 	{
-		ChannelUpdate::Worker wrk(p->m_Inst);
+		NegotiationCtx_Update* p = new NegotiationCtx_Update;
+		m_pNegCtx.reset(p);
+		m_pNegCtx->m_eType = NegotiationCtx::Update;
 
-		p->m_Inst.Set(iRole, Codes::Role);
-		p->m_Inst.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
+		p->m_Inst.m_pStorage = &p->m_Data;
+		get_Kdf(p->m_Inst.m_pKdf);
 
-		WithdrawTx::CommonParam cp;
-		cp.m_Krn1.m_pFee = &m_Params.m_Fee;
-		cp.m_Krn2.m_pFee = &m_Params.m_Fee;
-		cp.m_Krn2.m_pLock = &m_Params.m_hLockTime;
+		AllocTxoID(kidv);
 
-		p->m_Inst.Setup(true, &m_pOpen->m_ms0, &m_pOpen->m_Comm0, &msA, &msB, &Cast::NotConst(vOut), cp, &d0.m_msMy, &d0.m_msPeer, &d0.m_CommPeer1);
+		ECC::Key::IDV msA, msB;
+		msA.m_Value = msB.m_Value = m_pOpen->m_ms0.m_Value - m_Params.m_Fee;
+		msA.m_Type = msB.m_Type = FOURCC_FROM(MuSg);
+
+		AllocTxoID(msA);
+		AllocTxoID(msB);
+
+		DataUpdate& d0 = *m_vUpdates.back();
+
+		{
+			ChannelUpdate::Worker wrk(p->m_Inst);
+
+			p->m_Inst.Set(iRole, Codes::Role);
+			p->m_Inst.Set(Rules::get().pForks[1].m_Height, Codes::Scheme);
+
+			WithdrawTx::CommonParam cp;
+			cp.m_Krn1.m_pFee = &m_Params.m_Fee;
+			cp.m_Krn2.m_pFee = &m_Params.m_Fee;
+			cp.m_Krn2.m_pLock = &m_Params.m_hLockTime;
+
+			p->m_Inst.Setup(true, &m_pOpen->m_ms0, &m_pOpen->m_Comm0, &msA, &msB, &Cast::NotConst(vOut), cp, &d0.m_msMy, &d0.m_msPeer, &d0.m_CommPeer1);
+		}
+
+		CreateUpdatePoint(iRole, msA, msB, vOut.front());
 	}
-
-	CreateUpdatePoint(iRole, msA, msB, vOut.front());
 
 	return true;
 }

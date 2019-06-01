@@ -277,7 +277,7 @@ struct Client
 
 		void MaybeDelete()
 		{
-			if (!m_pOpen || (m_State.m_Terminate && IsSafeToForget(m_SafeForgetHeight)))
+			if (!IsNegotiating() && IsSafeToForget(m_SafeForgetHeight))
 			{
 				Forget();
 				m_This.DeleteChannel(*this);

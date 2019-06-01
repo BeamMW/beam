@@ -29,6 +29,7 @@ namespace Lightning {
 		void SendTx(const Transaction& tx);
 		void SendTxNoSpam(const Transaction& tx, Height h);
 		void ConfirmKernel(const Merkle::Hash& hv, Height h);
+		void ConfirmMuSig();
 		void CreatePunishmentTx();
 		void OnInpCoinsChanged();
 
@@ -74,6 +75,10 @@ namespace Lightning {
 			ChannelUpdate m_Inst;
 		};
 
+		struct NegotiationCtx_Close :public NegotiationCtx {
+			MultiTx m_Inst;
+		};
+
 		struct Codes;
 
 	public:
@@ -105,6 +110,7 @@ namespace Lightning {
 				None, // not ready yet
 				TimeLocked, // standard 2-phase withdrawal
 				Punishment,
+				Direct, // single phase, no time-lock. Used for the graceful channel closure
 
 			} m_Type;
 
@@ -163,7 +169,7 @@ namespace Lightning {
 
 		bool Open(Amount nMy, Amount nOther, const HeightRange& hr0);
 
-		bool Transfer(Amount);
+		bool Transfer(Amount, bool bCloseGraceful = false);
 
 		void Close(); // initiate non-cooperative closing
 
@@ -175,6 +181,8 @@ namespace Lightning {
 
 		bool IsSafeToForget(Height hMaxRollback); // returns true if the channel is either closed or couldn't be opened (i.e. no chance), and it's safe w.r.t. max rollback depth.
 		void Forget(); // If the channel didn't open - the locked inputs will are unlocked
+
+		bool IsNegotiating() const { return m_pNegCtx != nullptr; }
 
 		virtual ~Channel();
 		virtual Height get_Tip() const = 0;
@@ -199,7 +207,7 @@ namespace Lightning {
 	private:
 		DataUpdate& CreateUpdatePoint(uint32_t iRole, const Key::IDV& msA, const Key::IDV& msB, const Key::IDV& outp);
 		bool OpenInternal(uint32_t iRole, Amount nMy, Amount nOther, const HeightRange& hr0);
-		bool TransferInternal(Amount nMyNew);
+		bool TransferInternal(Amount nMyNew, uint32_t iRole, bool bCloseGraceful);
 		void UpdateNegotiator(Storage::Map& dataIn, Storage::Map& dataOut);
 		void SendPeerInternal(Storage::Map&);
 	};
