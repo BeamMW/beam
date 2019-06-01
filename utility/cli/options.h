@@ -117,7 +117,7 @@ namespace beam
         extern const char* SWAP_FEERATE;
         extern const char* SWAP_COIN;
         extern const char* SWAP_BEAM_SIDE;
-        extern const char* SWAP_TX_LIST;
+        extern const char* SWAP_TX_HISTORY;
         extern const char* BTC_CONFIRMATIONS;
         extern const char* LTC_CONFIRMATIONS;
         extern const char* BTC_LOCK_TIME;

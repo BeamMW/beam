@@ -64,6 +64,8 @@ namespace beam
         virtual void getTxOut(const std::string& txid, int outputIndex, std::function<void(const Error&, const std::string&, double, uint16_t)> callback) = 0;
         // error, block count
         virtual void getBlockCount(std::function<void(const Error&, uint64_t)> callback) = 0;
+        // error, balance
+        virtual void getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback) = 0;
 
         virtual uint8_t getAddressVersion() = 0;
         virtual Amount getFeeRate() const = 0;

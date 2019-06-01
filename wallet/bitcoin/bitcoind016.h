@@ -40,6 +40,7 @@ namespace beam
             std::function<void(const Error&, const std::string&)> callback) override;
         void getTxOut(const std::string& txid, int outputIndex, std::function<void(const Error&, const std::string&, double, uint16_t)> callback) override;
         void getBlockCount(std::function<void(const Error&, uint64_t)> callback) override;
+        void getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback) override;
 
         uint8_t getAddressVersion() override;
         Amount getFeeRate() const override;

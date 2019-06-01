@@ -120,7 +120,7 @@ namespace beam
         const char* SWAP_FEERATE = "swap_feerate";
         const char* SWAP_COIN = "swap_coin";
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
-        const char* SWAP_TX_LIST = "swap_tx_list";
+        const char* SWAP_TX_HISTORY = "swap_tx_history";
         const char* BTC_CONFIRMATIONS = "btc_confiramtions";
         const char* LTC_CONFIRMATIONS = "ltc_confiramtions";
         const char* BTC_LOCK_TIME = "btc_lock_time";
@@ -312,7 +312,7 @@ namespace beam
             (cli::SWAP_FEERATE, po::value<Positive<Amount>>()->default_value(Positive<Amount>(20000)), "The specific feerate you are willing to pay(satoshis(or photons) per KB)")
             (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc)")
             (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner")
-            (cli::SWAP_TX_LIST, "show swap transactions history in info command")
+            (cli::SWAP_TX_HISTORY, "show swap transactions history in info command")
             (cli::BTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in bitcoin chain")
             (cli::LTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in litecoin chain")
             (cli::BTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks bitcoin transaction")

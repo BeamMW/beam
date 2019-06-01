@@ -345,6 +345,38 @@ namespace beam
         });
     }
 
+    void Bitcoind016::getBalance(uint32_t confirmations, std::function<void(const Error&, double)> callback)
+    {
+        LOG_DEBUG() << "Send to Bitcoind getBalance command";
+        sendRequest("getbalance", "\"*\"," + std::to_string(confirmations), [callback](IBitcoinBridge::Error error, const std::string& response) {
+            double balance = 0;
+
+            if (error.m_type == IBitcoinBridge::None)
+            {
+                try
+                {
+                    json reply = json::parse(response);
+
+                    if (reply["error"].empty())
+                    {
+                        balance = reply["result"].empty() ? 0 : reply["result"].get<double>();
+                    }
+                    else
+                    {
+                        error.m_type = IBitcoinBridge::BitcoinError;
+                        error.m_message = reply["error"]["message"].get<std::string>();
+                    }
+                }
+                catch (const std::exception& ex)
+                {
+                    error.m_type = IBitcoinBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
+                }
+            }
+            callback(error, balance);
+        });
+    }
+
     uint8_t Bitcoind016::getAddressVersion()
     {
         if (isMainnet())

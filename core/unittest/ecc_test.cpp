@@ -104,6 +104,20 @@ void SetRandom(Scalar::Native& x)
 	}
 }
 
+void SetRandom(Point::Native& value, uint8_t y = 0)
+{
+    Point p;
+
+    SetRandom(p.m_X);
+    p.m_Y = y;
+
+    while (!value.Import(p))
+    {
+        verify_test(value == Zero);
+        p.m_X.Inc();
+    }
+}
+
 template <typename T>
 void SetRandomOrd(T& x)
 {
@@ -295,15 +309,10 @@ void TestPoints()
 
 	for (int i = 0; i < 1000; i++)
 	{
-		SetRandom(p_.m_X);
-		p_.m_Y = (1 & i);
+        SetRandom(p0, (1 & i));
 
-		while (!p0.Import(p_))
-		{
-			verify_test(p0 == Zero);
-			p_.m_X.Inc();
-		}
 		verify_test(!(p0 == Zero));
+        p0.Export(p_);
 
 		p1 = -p0;
 		verify_test(!(p1 == Zero));
@@ -318,19 +327,12 @@ void TestPoints()
     // substraction
     {
         Point::Native pointNative;
-        Point point;
 
         pointNative = Zero;
 
         verify_test(pointNative == Zero);
 
-        point.m_Y = 0;
-        SetRandom(point.m_X);
-
-        while (!pointNative.Import(point))
-        {
-            point.m_X.Inc();
-        }
+        SetRandom(pointNative);
 
         verify_test(pointNative != Zero);
 
@@ -2171,16 +2173,8 @@ void RunBenchmark()
 
 	Point::Native p0, p1;
 
-	Point p_;
-	p_.m_Y = 0;
-
-	SetRandom(p_.m_X);
-	while (!p0.Import(p_))
-		p_.m_X.Inc();
-
-	SetRandom(p_.m_X);
-	while (!p1.Import(p_))
-		p_.m_X.Inc();
+    SetRandom(p0);
+    SetRandom(p1);
 
 /*	{
 		BenchmarkMeter bm("point.Negate");
@@ -2265,6 +2259,9 @@ void RunBenchmark()
 
 		p0 = p1;
 	}
+
+    Point p_;
+    p_.m_Y = 0;
 
 	{
 		BenchmarkMeter bm("point.Export");

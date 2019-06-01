@@ -32,6 +32,16 @@ using namespace std;
 namespace
 {
 const char* kDefaultTranslationsPath = ":/translations";
+
+void RemoveFile(boost::filesystem::path path)
+{
+    boost::system::error_code error;
+    boost::filesystem::remove(path, error);
+    if (error)
+    {
+        LOG_ERROR() << error.message();
+    }
+}
 }
 
 AppModel* AppModel::s_instance = nullptr;
@@ -115,31 +125,14 @@ void AppModel::resetWalletImpl()
     try
     {
 #ifdef WIN32
-        boost::filesystem::path appDataPath{ Utf8toUtf16(getSettings().getAppDataPath().c_str()) };
+        boost::filesystem::path walletDBPath{ Utf8toUtf16(getSettings().getWalletStorage().c_str()) };
+        boost::filesystem::path nodeDBPath{ Utf8toUtf16(getSettings().getLocalNodeStorage().c_str()) };
 #else
-        boost::filesystem::path appDataPath{ getSettings().getAppDataPath() };
+        boost::filesystem::path walletDBPath{ getSettings().getWalletStorage() };
+        boost::filesystem::path nodeDBPath{ getSettings().getLocalNodeStorage() };
 #endif
-        boost::filesystem::path logsFolderPath = appDataPath;
-        logsFolderPath /= WalletSettings::LogsFolder;
-
-        boost::filesystem::path settingsPath = appDataPath;
-        settingsPath /= WalletSettings::SettingsFile;
-
-        for (boost::filesystem::directory_iterator endDirIt, it{ appDataPath }; it != endDirIt; ++it)
-        {
-            // don't delete settings and logs files
-            if ((it->path() == logsFolderPath) || (it->path() == settingsPath))
-            {
-                continue;
-            }
-
-            boost::system::error_code error;
-            boost::filesystem::remove_all(it->path(), error);
-            if (error)
-            {
-                LOG_ERROR() << error.message();
-            }
-        }
+        RemoveFile(walletDBPath);
+        RemoveFile(nodeDBPath);
     }
     catch (std::exception &e)
     {
