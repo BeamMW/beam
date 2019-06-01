@@ -744,6 +744,49 @@ void Test()
 
 		Test2().Run();
 	}
+
+
+	{
+		struct Test3 :public TestDirector
+		{
+			virtual void OnTip(Height h)
+			{
+				switch (h)
+				{
+				case 3:
+					std::cout << "Scenario: User A opens a channel to B" << std::endl;
+					m_pC[0].OpenChannel(m_pC[1].m_Wid, 25000, 34000);
+					break;
+
+				case 9:
+					std::cout << "Scenario: User A sends funds" << std::endl;
+					{
+						Client& cl = m_pC[0];
+						for (Client::Channel::Map::iterator it = cl.m_Channels.begin(); cl.m_Channels.end() != it; it++)
+							(it)->get_ParentObj().Transfer(1200);
+					}
+					break;
+
+				case 17:
+					std::cout << "Scenario: B sends funds, and asks for graceful channel closing" << std::endl;
+					{
+						Client& cl = m_pC[1];
+						for (Client::Channel::Map::iterator it = cl.m_Channels.begin(); cl.m_Channels.end() != it; it++)
+							(it)->get_ParentObj().Transfer(700, true);
+					}
+					break;
+
+
+				case 45:
+					Stop();
+					break;
+				}
+			}
+		};
+
+		Test3().Run();
+	}
+
 }
 
 
