@@ -471,7 +471,7 @@ void Channel::OnRolledBack()
 		if (h >= m_State.m_Close.m_hPhase2)
 			return;
 
-		OnCoin(m_vUpdates[m_State.m_Close.m_Initiator]->m_Outp, m_State.m_Close.m_hPhase2, CoinState::Confirmed, true); // remove confirmation
+		OnCoin(m_vUpdates[m_State.m_Close.m_iPath]->m_Outp, m_State.m_Close.m_hPhase2, CoinState::Confirmed, true); // remove confirmation
 
 		m_State.m_Close.m_hPhase2 = 0;
 	}
