@@ -171,13 +171,17 @@ namespace beam::wallet
         {
             if (IsInitiator())
             {
-                // init locktime
-                if (!m_secondSide->InitLockTime())
+                m_secondSide->InitLockTime();
+                SendInvitation();
+            }
+            else
+            {
+                if (!m_secondSide->ValidateLockTime())
                 {
-                    UpdateAsync();
+                    LOG_ERROR() << GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << "Lock height is unacceptable.";
+                    OnSubTxFailed(TxFailureReason::InvalidTransaction, SubTxIndex::LOCK_TX, true);
                     break;
                 }
-                SendInvitation();
             }
             
             SetNextState(State::BuildingBeamLockTX);

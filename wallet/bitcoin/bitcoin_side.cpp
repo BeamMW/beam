@@ -24,6 +24,7 @@ namespace
 {
     constexpr uint32_t kBTCLockTimeSec = 2 * 24 * 60 * 60;
     constexpr uint32_t kBTCWithdrawTxAverageSize = 240;
+    constexpr uint32_t kBTCMaxHeightDifference = 10;
 
     libbitcoin::chain::script AtomicSwapContract(const libbitcoin::ec_compressed& publicKeyA
         , const libbitcoin::ec_compressed& publicKeyB
@@ -81,21 +82,44 @@ namespace beam::wallet
             InitSecret();
         }
 
+        if (!GetBlockCount())
+        {
+            m_tx.UpdateAsync();
+            return false;
+        }
+
         return true;
     }
 
     bool BitcoinSide::InitLockTime()
     {
         auto height = GetBlockCount();
-        if (!height)
-        {
-            return false;
-        }
+        assert(height);
 
         auto externalLockPeriod = height + m_bitcoinBridge->getLockTimeInBlocks();
         m_tx.SetParameter(TxParameterID::AtomicSwapExternalLockTime, externalLockPeriod);
 
         return true;
+    }
+
+    bool BitcoinSide::ValidateLockTime()
+    {
+        auto height = GetBlockCount();
+        assert(height);
+        auto externalLockTime = m_tx.GetMandatoryParameter<Height>(TxParameterID::AtomicSwapExternalLockTime);
+
+        if (externalLockTime <= height)
+        {
+            return false;
+        }
+
+        Height lockPeriod = externalLockTime - height;
+        if (lockPeriod > m_bitcoinBridge->getLockTimeInBlocks())
+        {
+            return (lockPeriod - m_bitcoinBridge->getLockTimeInBlocks()) <= kBTCMaxHeightDifference;
+        }
+
+        return (m_bitcoinBridge->getLockTimeInBlocks() - lockPeriod) <= kBTCMaxHeightDifference;
     }
 
     void BitcoinSide::AddTxDetails(SetTxParameter& txParameters)
