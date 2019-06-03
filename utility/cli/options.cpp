@@ -150,7 +150,7 @@ namespace beam
     class NonnegativeOptionException : public po::error_with_option_name {
     public:
         NonnegativeOptionException()
-            : po::error_with_option_name("the argument for option '%canonical_option%' should be non-negative.")
+            : po::error_with_option_name("The argument for option '%canonical_option%' must be equal to or more than 0.")
         {
         }
     };
@@ -159,7 +159,7 @@ namespace beam
     class PositiveOptionException : public po::error_with_option_name {
     public:
         PositiveOptionException()
-            : po::error_with_option_name("the argument for option '%canonical_option%' should be positive number.")
+            : po::error_with_option_name("The argument for option '%canonical_option%' must be more than 0.")
         {
         }
     };
