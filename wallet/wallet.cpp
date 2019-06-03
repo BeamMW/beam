@@ -268,7 +268,7 @@ namespace beam::wallet
 
         if (receiverAddr && receiverAddr->m_OwnID)
         {
-            LOG_INFO() << "Can't start swap to yourself.";
+            LOG_INFO() << "Failed to initiate the atomic swap. Not able to use own address as receiver's.";
             throw FailToStartSwapException();
         }
 
