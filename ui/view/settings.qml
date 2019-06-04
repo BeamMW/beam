@@ -573,6 +573,7 @@ Rectangle {
                                         font.pixelSize: 14
                                         color: Style.content_main
                                         text: viewModel.walletLocation
+                                        elide: Text.ElideMiddle
                                     }
 
                                     SFText {

@@ -1230,7 +1230,7 @@
     <message id="show-qr-tx-token-label">
         <source>Your address:</source>
         <extracomment>show qr dialog address label</extracomment>
-        <translation>Токен транзакции:</translation>
+        <translation>Адрес транзакции:</translation>
     </message>
     <message id="show-qr-message">
         <source>Scan this QR code or send this address to the sender over secure channel</source>
@@ -1322,6 +1322,31 @@
         <source>never</source>
         <extracomment>time never string</extracomment>
         <translation>бессрочно</translation>
+    </message>
+    <message id="start-pwd-difficulty-very-weak">
+        <source>Very weak password</source>
+        <extracomment>set passwort, difficulty message, very weak</extracomment>
+        <translation>Очень легкий пароль</translation>
+    </message>
+    <message id="start-pwd-difficulty-weak">
+        <source>Weak password</source>
+        <extracomment>set passwort, difficulty message, weak</extracomment>
+        <translation>Легкий пароль</translation>
+    </message>
+    <message id="start-pwd-difficulty-medium">
+        <source>Medium strength password</source>
+        <extracomment>set passwort, difficulty message, medium</extracomment>
+        <translation>Нормальный пароль</translation>
+    </message>
+    <message id="start-pwd-difficulty-strong">
+        <source>Strong password</source>
+        <extracomment>set passwort, difficulty message, strong</extracomment>
+        <translation>Хороший пароль</translation>
+    </message>
+    <message id="start-pwd-difficulty-very-strong">
+        <source>Very strong password</source>
+        <extracomment>set passwort, difficulty message, very strong</extracomment>
+        <translation>Очень хороший пароль</translation>
     </message>
 </context>
 </TS>
