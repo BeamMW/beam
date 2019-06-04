@@ -17,6 +17,7 @@
 
 #include <QObject>
 #include <QtCore/qvariant.h>
+#include <QDateTime>
 #include <QQmlListProperty>
 #include "wallet/wallet_db.h"
 #include "model/wallet_model.h"
@@ -27,7 +28,7 @@ class AddressItem : public QObject
     Q_PROPERTY(QString address          READ getAddress         CONSTANT)
     Q_PROPERTY(QString name             READ getName            CONSTANT)
     Q_PROPERTY(QString category         READ getCategory        CONSTANT)
-    Q_PROPERTY(QString expirationDate   READ getExpirationDate  CONSTANT)
+    Q_PROPERTY(QDateTime expirationDate READ getExpirationDate  CONSTANT)
     Q_PROPERTY(QString createDate       READ getCreateDate      CONSTANT)
     Q_PROPERTY(bool neverExpired        READ isNeverExpired     CONSTANT)
 
@@ -39,7 +40,7 @@ public:
     QString getAddress() const;
     QString getName() const;
     QString getCategory() const;
-    QString getExpirationDate() const;
+    QDateTime getExpirationDate() const;
     QString getCreateDate() const;
     bool isNeverExpired() const;
 

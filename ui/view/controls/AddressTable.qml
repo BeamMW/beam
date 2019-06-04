@@ -71,6 +71,28 @@ CustomTableView {
         width: 150 *  rootControl.resizableWidth / 750
         resizable: false
         movable: false
+        delegate: Item {
+            Item {
+                width: parent.width
+                height: rootControl.rowHeight
+                // clip:true
+
+                SFText {
+                    font.pixelSize: 14
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.leftMargin: 20
+                    elide: Text.ElideMiddle
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: {
+                        // console.log("Qt.locale() " + Qt.locale().name);
+                        // return styleData.value.toLocaleDateString(Qt.locale()) + " | " + styleData.value.toLocaleTimeString(Qt.locale()/*, {timeZoneName:"short"}*/);
+                        return styleData.value.toString();
+                    }
+                    color: Style.content_main
+                }
+            }
+        }
     }
 
     TableViewColumn {
@@ -174,6 +196,7 @@ CustomTableView {
             icon.source: "qrc:/assets/icon-edit.svg"
             onTriggered: {
                 editDialog.addressItem = contextMenu.addressItem;
+                editDialog.reset();
                 editDialog.open();
             }
         }

@@ -246,30 +246,27 @@
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
+        <extracomment>Edit addres dialog title</extracomment>
         <translation>Редактировать адрес</translation>
     </message>
     <message id="edit-addr-addr-id">
         <source>Address ID</source>
+        <extracomment>Edit addres dialog, address label</extracomment>
         <translation>Идентификатор адреса</translation>
     </message>
     <message id="edit-addr-comment">
         <source>Comment</source>
+        <extracomment>Edit addres dialog, comment label</extracomment>
         <translation>Комментарий</translation>
-    </message>
-    <message id="edit-addr-expires">
-        <source>Expires</source>
-        <translation>Действителен до</translation>
     </message>
     <message id="edit-addr-cancel-button">
         <source>cancel</source>
+        <extracomment>Edit addres dialog, cancel button</extracomment>
         <translation>отмена</translation>
-    </message>
-    <message id="edit-addr-make-active-button">
-        <source>make active</source>
-        <translation>сделать активным</translation>
     </message>
     <message id="edit-addr-save-button">
         <source>save</source>
+        <extracomment>Edit addres dialog, save button</extracomment>
         <translation>сохранить</translation>
     </message>
     <message id="payment-info-proof-verification">
@@ -876,10 +873,6 @@
         <source>Failed to start wallet. Please check your wallet data location</source>
         <translation>Невозможно запустить приложение. Проверьте путь к данным кошелька.</translation>
     </message>
-    <message id="address-item-never">
-        <source>never</source>
-        <translation>никогда</translation>
-    </message>
     <message id="loading-view-download-blocks">
         <source>Downloading blocks</source>
         <translation>Загрузка блоков</translation>
@@ -1284,6 +1277,46 @@
         <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Don’t forget to attach logs archive</source>
         <extracomment>settings tab, report problem section, message</extracomment>
         <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Что бы сообщить о проблеме:&lt;br /&gt;1. Нажмите “сохранить лог” и укажите куда сохранить архив&lt;br /&gt;2. Отправьте письмо на &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; или сообщите на &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Не забудьте прикрепить архив</translation>
+    </message>
+    <message id="edit-addr-24-option">
+        <source>in 24 hours from now</source>
+        <extracomment>Edit address dialog, expiration option, in 24 hours from now</extracomment>
+        <translation>еще 24 часа</translation>
+    </message>
+    <message id="edit-addr-never-option">
+        <source>never</source>
+        <extracomment>Edit address dialog, expiration option, never</extracomment>
+        <translation>бессрочно</translation>
+    </message>
+    <message id="edit-addr-as-is-option">
+        <source>within 24 hours</source>
+        <extracomment>Edit address dialog, expiration option, do not change</extracomment>
+        <translation>в течении 24 часов</translation>
+    </message>
+    <message id="edit-addr-expires-label">
+        <source>Expires</source>
+        <extracomment>Edit addres dialog, expires label</extracomment>
+        <translation>Годен</translation>
+    </message>
+    <message id="edit-addr-expire-now-label">
+        <source>now</source>
+        <extracomment>Edit addres dialog, expire now label</extracomment>
+        <translation>до текущего времени</translation>
+    </message>
+    <message id="edit-addr-expire-now-switch">
+        <source>Expire address now</source>
+        <extracomment>Edit addres dialog, expire now switch</extracomment>
+        <translation>Деактивировать</translation>
+    </message>
+    <message id="edit-addr-expiration-time-label">
+        <source>Expired on </source>
+        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <translation>Активен до </translation>
+    </message>
+    <message id="edit-addr-activate-addr-switch">
+        <source>Activate address</source>
+        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <translation>Активировать адрес</translation>
     </message>
 </context>
 </TS>

@@ -56,15 +56,12 @@ QString AddressItem::getCategory() const
     return QString::fromStdString(m_walletAddress.m_category);
 }
 
-QString AddressItem::getExpirationDate() const
+QDateTime AddressItem::getExpirationDate() const
 {
-    if (m_walletAddress.m_duration == 0)
-    {
-        //% "never"
-        return qtTrId("address-item-never");
-    }
-
-    return toString(m_walletAddress.getExpirationTime());
+    QDateTime datetime;
+    datetime.setTime_t(m_walletAddress.getExpirationTime());
+    
+    return datetime;
 }
 
 QString AddressItem::getCreateDate() const
