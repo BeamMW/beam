@@ -1318,5 +1318,10 @@
         <extracomment>Edit addres dialog, expiration time label</extracomment>
         <translation>Активировать адрес</translation>
     </message>
+    <message id="time-never">
+        <source>never</source>
+        <extracomment>time never string</extracomment>
+        <translation>бессрочно</translation>
+    </message>
 </context>
 </TS>

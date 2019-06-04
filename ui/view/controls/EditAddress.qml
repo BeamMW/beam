@@ -2,6 +2,7 @@ import QtQuick 2.11
 import QtQuick.Controls 2.3
 import QtQuick.Layouts 1.11
 import "."
+import "../utils.js" as Utils
 
 Dialog {
 	id: rootControl
@@ -39,12 +40,15 @@ Dialog {
 	}
 
 	property var getExpirationTimeLabel: function() {
+		var localeName = parentModel.getLocaleName();
 		if (isExpiredAddress) {
-			return addressItem ? addressItem.expirationDate : "";
+			return addressItem
+				? Utils.formatDateTime(addressItem.expirationDate, localeName)
+				: "";
 		}
 		if (disactivate.checked) {
 			var datetime = new Date();
-			return datetime;
+			return Utils.formatDateTime(datetime, localeName);
 		}
 		var index = expirationOptionsForActive.currentIndex;
 		if (isNeverExpired()) {
@@ -52,11 +56,13 @@ Dialog {
 		}
 
 		if (index == 0) {
-			return addressItem ? addressItem.expirationDate : "";
+			return addressItem
+				? Utils.formatDateTime(addressItem.expirationDate, localeName)
+				: "";
 		} else if (index == 1) {
 			var datetime = new Date();
 			datetime.setHours(datetime.getHours() + 24);
-			return datetime;
+			return Utils.formatDateTime(datetime, localeName);
 		} else {
 			return " ";
 		}

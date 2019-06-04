@@ -64,9 +64,12 @@ QDateTime AddressItem::getExpirationDate() const
     return datetime;
 }
 
-QString AddressItem::getCreateDate() const
+QDateTime AddressItem::getCreateDate() const
 {
-    return toString(m_walletAddress.getCreateTime());
+    QDateTime datetime;
+    datetime.setTime_t(m_walletAddress.getCreateTime());
+    
+    return datetime;
 }
 
 bool AddressItem::isNeverExpired() const
@@ -259,6 +262,13 @@ QString AddressBookViewModel::generateQR(
 {
     QR qr(addr, width, height);
     return qr.getEncoded();
+}
+
+// static
+QString AddressBookViewModel::getLocaleName()
+{
+    const auto& settings = AppModel::getInstance()->getSettings();
+    return settings.getLocale();
 }
 
 void AddressBookViewModel::onStatus(const beam::wallet::WalletStatus&)

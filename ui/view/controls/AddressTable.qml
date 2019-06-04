@@ -2,6 +2,7 @@ import QtQuick 2.11
 import QtQuick.Controls 1.4
 import QtQuick.Controls 2.3
 import "."
+import "../utils.js" as Utils
 
 CustomTableView {
     id: rootControl
@@ -75,20 +76,15 @@ CustomTableView {
             Item {
                 width: parent.width
                 height: rootControl.rowHeight
-                // clip:true
 
                 SFText {
                     font.pixelSize: 14
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.leftMargin: 20
-                    elide: Text.ElideMiddle
+                    elide: Text.ElideRight
                     anchors.verticalCenter: parent.verticalCenter
-                    text: {
-                        // console.log("Qt.locale() " + Qt.locale().name);
-                        // return styleData.value.toLocaleDateString(Qt.locale()) + " | " + styleData.value.toLocaleTimeString(Qt.locale()/*, {timeZoneName:"short"}*/);
-                        return styleData.value.toString();
-                    }
+                    text: Utils.formatDateTime(styleData.value, parentModel.getLocaleName())
                     color: Style.content_main
                 }
             }
@@ -102,6 +98,23 @@ CustomTableView {
         width: 150 *  rootControl.resizableWidth / 750
         resizable: false
         movable: false
+        delegate: Item {
+            Item {
+                width: parent.width
+                height: rootControl.rowHeight
+
+                SFText {
+                    font.pixelSize: 14
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.leftMargin: 20
+                    elide: Text.ElideRight
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: Utils.formatDateTime(styleData.value, parentModel.getLocaleName())
+                    color: Style.content_main
+                }
+            }
+        }
     }
 
     TableViewColumn {

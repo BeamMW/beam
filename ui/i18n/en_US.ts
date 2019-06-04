@@ -1329,5 +1329,10 @@ exchanges and transaction data)</translation>
         <extracomment>Edit addres dialog, expiration time label</extracomment>
         <translation>Activate address</translation>
     </message>
+    <message id="time-never">
+        <source>never</source>
+        <extracomment>time never string</extracomment>
+        <translation>never</translation>
+    </message>
 </context>
 </TS>
