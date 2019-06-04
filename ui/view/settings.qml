@@ -547,10 +547,8 @@ Rectangle {
 
                                             model: viewModel.supportedLanguages
                                             currentIndex: viewModel.currentLanguageIndex
-                                            Binding {
-                                                target: viewModel
-                                                property: "currentLanguage"
-                                                value: language.currentText
+                                            onActivated: {
+                                                viewModel.currentLanguage = currentText;
                                             }
                                         }
                                     }
