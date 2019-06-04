@@ -381,7 +381,7 @@ namespace beam
     {
         if (isMainnet())
         {
-            return libbitcoin::wallet::ec_private::mainnet_wif;
+            return libbitcoin::wallet::ec_private::mainnet_p2kh;
         }
         
         return libbitcoin::wallet::ec_private::testnet_p2kh;
