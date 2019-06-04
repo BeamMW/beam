@@ -48,6 +48,9 @@ if (NOT ANDROID)
             ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src/messages/messages-beam.pb.cc
         )
 
+        add_dependencies(hw_wallet core)
+        target_link_libraries(hw_wallet core)
+
         if(MSVC)
             target_compile_options(hw_wallet PRIVATE "/wd4125")
             target_compile_options(hw_wallet PRIVATE "/wd4127")
