@@ -254,7 +254,7 @@ namespace beam::wallet
                 break;
 
             LOG_INFO() << GetTxID() << " RefundTX completed!";
-            SetNextState(State::CompleteSwap);
+            SetNextState(State::Refunded);
             break;
         }
         case State::SendingRedeemTX:
@@ -336,13 +336,14 @@ namespace beam::wallet
                 break;
 
             LOG_INFO() << GetTxID() << " Beam Refund TX completed!";
-            SetNextState(State::CompleteSwap);
+            SetNextState(State::Refunded);
             break;
         }
         case State::CompleteSwap:
         {
             LOG_INFO() << GetTxID() << " Swap completed.";
-            CompleteTx();
+            UpdateTxDescription(TxStatus::Completed);
+            m_Gateway.on_tx_completed(GetTxID());
             break;
         }
         case State::Cancelled:
@@ -361,6 +362,15 @@ namespace beam::wallet
             LOG_INFO() << GetTxID() << " Transaction failed.";
             UpdateTxDescription(TxStatus::Failed);
             m_Gateway.on_tx_completed(GetTxID());
+            break;
+        }
+
+        case State::Refunded:
+        {
+            LOG_INFO() << GetTxID() << " Swap has not succeeded.";
+            UpdateTxDescription(TxStatus::Completed);
+            m_Gateway.on_tx_completed(GetTxID());
+            break;
         }
 
         default:
