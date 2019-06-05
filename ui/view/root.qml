@@ -6,9 +6,23 @@ import "controls"
 import Beam.Wallet 1.0
 
 Window  {
-    width: Math.min(1024, Screen.desktopAvailableWidth - 10)
-    height: Math.min(867, Screen.desktopAvailableHeight - 80)
+    id: appWindow
     property alias source: rootLoader.source
+    flags: Qt.Window | Qt.WindowFullscreenButtonHint
+
+    function cellResize() {
+        if(appWindow.visibility == ApplicationWindow.Maximized) {
+            appWindow.width = Screen.desktopAvailableWidth;
+            appWindow.height = Screen.desktopAvailableHeight;
+            
+        }
+        else {
+            appWindow.width = Math.min(1024, Screen.desktopAvailableWidth - 10);
+            appWindow.height = Math.min(867, Screen.desktopAvailableHeight - 80);
+        }
+    }
+ 
+    onVisibilityChanged: cellResize()
 
     SFFontLoader {}
     
