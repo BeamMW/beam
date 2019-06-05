@@ -113,19 +113,22 @@ namespace beam
 
     const char* getSwapTxStatus(const IWalletDB::Ptr& walletDB, const TxDescription& tx)
     {
-        static const char* Initial = "Initial";
-        static const char* Invitation = "Invitation";
-        static const char* BuildingBeamLockTX = "Building Beam LockTX";
-        static const char* BuildingBeamRefundTX = "Building Beam RefundTX";
-        static const char* BuildingBeamRedeemTX = "Building Beam RedeemTX";
-        static const char* HandlingContractTX = "Handling LockTX";
-        static const char* SendingRefundTX = "Sending RefundTX";
-        static const char* SendingRedeemTX = "Sending RedeemTX";
-        static const char* SendingBeamLockTX = "Sending Beam LockTX";
-        static const char* SendingBeamRefundTX = "Sending Beam RefundTX";
-        static const char* SendingBeamRedeemTX = "Sending Beam RedeemTX";
+        static const char* Initial = "initial";
+        static const char* Invitation = "invitation";
+        static const char* BuildingBeamLockTX = "building Beam LockTX";
+        static const char* BuildingBeamRefundTX = "building Beam RefundTX";
+        static const char* BuildingBeamRedeemTX = "building Beam RedeemTX";
+        static const char* HandlingContractTX = "handling LockTX";
+        static const char* SendingRefundTX = "sending RefundTX";
+        static const char* SendingRedeemTX = "sending RedeemTX";
+        static const char* SendingBeamLockTX = "sending Beam LockTX";
+        static const char* SendingBeamRefundTX = "sending Beam RefundTX";
+        static const char* SendingBeamRedeemTX = "sending Beam RedeemTX";
+        static const char* Completed = "completed";
+        static const char* Cancelled = "cancelled";
+        static const char* Aborted = "aborted";
 
-        if (tx.m_status != TxStatus::InProgress)
+        if (tx.m_status == TxStatus::Failed)
         {
             return getTxStatus(tx);
         }
@@ -157,6 +160,12 @@ namespace beam
             return SendingBeamRefundTX;
         case wallet::AtomicSwapTransaction::State::SendingBeamRedeemTX:
             return SendingBeamRedeemTX;
+        case wallet::AtomicSwapTransaction::State::CompleteSwap:
+            return Completed;
+        case wallet::AtomicSwapTransaction::State::Cancelled:
+            return Cancelled;
+        case wallet::AtomicSwapTransaction::State::Refunded:
+            return Aborted;
         default:
             assert(false && "Unexpected status");
         }
