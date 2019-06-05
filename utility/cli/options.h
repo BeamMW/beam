@@ -111,7 +111,7 @@ namespace beam
         extern const char* HORIZON_HI;
         extern const char* HORIZON_LO;
         extern const char* COLD_WALLET;
-        extern const char* SWAP_COINS;
+        extern const char* SWAP_INIT;
         extern const char* SWAP_LISTEN;
         extern const char* SWAP_AMOUNT;
         extern const char* SWAP_FEERATE;

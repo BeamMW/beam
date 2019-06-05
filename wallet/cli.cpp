@@ -978,7 +978,7 @@ int main_impl(int argc, char* argv[])
                             cli::WALLET_RESCAN,
                             cli::IMPORT_ADDRESSES,
                             cli::EXPORT_ADDRESSES,
-                            cli::SWAP_COINS,
+                            cli::SWAP_INIT,
                             cli::SWAP_LISTEN
                         };
 
@@ -1289,7 +1289,7 @@ int main_impl(int argc, char* argv[])
                             wallet.initLitecoin(io::Reactor::get_Current(), ltcOptions);
                         }
 
-                        if (command == cli::SWAP_COINS || command == cli::SWAP_LISTEN)
+                        if (command == cli::SWAP_INIT || command == cli::SWAP_LISTEN)
                         {
                             wallet::AtomicSwapCoin swapCoin = wallet::AtomicSwapCoin::Bitcoin;
 
@@ -1330,7 +1330,7 @@ int main_impl(int argc, char* argv[])
                             Amount swapAmount = vm[cli::SWAP_AMOUNT].as<Positive<Amount>>().value;
                             bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
-                            if (command == cli::SWAP_COINS)
+                            if (command == cli::SWAP_INIT)
                             {
                                 if (!LoadBaseParamsForTX(vm, amount, fee, receiverWalletID))
                                 {
