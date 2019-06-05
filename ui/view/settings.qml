@@ -627,7 +627,7 @@ Rectangle {
                                         text: qsTrId("settings-general-allow-beammw-label")
                                         textFormat: Text.RichText
                                         font.pixelSize: 14
-                                        color: allowBeamMWLinks.checked && allowBeamMWLinks.enabled ? allowBeamMWLinks.palette.text : Style.content_secondary
+                                        color: allowBeamMWLinks.palette.text
                                         wrapMode: Text.WordWrap
                                         Layout.preferredWidth: generalBlock.width - 95
                                         Layout.preferredHeight: 32
