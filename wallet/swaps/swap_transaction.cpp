@@ -161,7 +161,7 @@ namespace beam::wallet
         {
         case State::Initial:
         {
-            if (!m_secondSide->Initial())
+            if (!m_secondSide->Initialize())
                 break;
 
             SetNextState(State::Invitation);

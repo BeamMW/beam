@@ -72,7 +72,7 @@ namespace beam::wallet
     {
     }
 
-    bool BitcoinSide::Initial()
+    bool BitcoinSide::Initialize()
     {
         if (!LoadSwapAddress())
             return false;
@@ -223,7 +223,7 @@ namespace beam::wallet
 
         if (NoLeak<uintBig> secretPrivateKey; m_tx.GetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.V, SubTxIndex::BEAM_REDEEM_TX))
         {
-            // TODO: secretPrivateKey -> secretPublicKey
+            // secretPrivateKey -> secretPublicKey
             libbitcoin::ec_secret secret;
             std::copy(std::begin(secretPrivateKey.V.m_pData), std::end(secretPrivateKey.V.m_pData), secret.begin());
             libbitcoin::wallet::ec_private privateKey(secret, m_bitcoinBridge->getAddressVersion());
@@ -234,7 +234,7 @@ namespace beam::wallet
         {
             Point publicKeyPoint = m_tx.GetMandatoryParameter<Point>(TxParameterID::AtomicSwapSecretPublicKey, SubTxIndex::BEAM_REDEEM_TX);
 
-            // TODO: publicKeyPoint -> secretPublicKey
+            // publicKeyPoint -> secretPublicKey
             auto publicKeyRaw = SerializePubkey(ConvertPointToPubkey(publicKeyPoint));
             secretPublicKey = libbitcoin::wallet::ec_public(publicKeyRaw);
         }
@@ -572,7 +572,7 @@ namespace beam::wallet
             }
             else
             {
-                // TODO: load AtomicSwapSecretPrivateKey and -> libbitcoin::wallet::ec_private
+                // AtomicSwapSecretPrivateKey -> libbitcoin::wallet::ec_private
                 NoLeak<uintBig> secretPrivateKey;
                 m_tx.GetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.V, SubTxIndex::BEAM_REDEEM_TX);
                 libbitcoin::ec_secret secret;
