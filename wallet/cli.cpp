@@ -920,6 +920,21 @@ int main_impl(int argc, char* argv[])
         {
             vm = getOptions(argc, argv, "beam-wallet.cfg", options, true);
         }
+        catch (const po::invalid_option_value& e)
+        {
+            cout << e.what() << std::endl;
+            return 0;
+        }
+        catch (const NonnegativeOptionException& e)
+        {
+            cout << e.what() << std::endl;
+            return 0;
+        }
+        catch (const PositiveOptionException& e)
+        {
+            cout << e.what() << std::endl;
+            return 0;
+        }
         catch (const po::error& e)
         {
             cout << e.what() << std::endl;
@@ -1472,6 +1487,21 @@ int main_impl(int argc, char* argv[])
         }
         catch (const FailToStartSwapException&)
         {
+        }
+        catch (const po::invalid_option_value& e)
+        {
+            cout << e.what() << std::endl;
+            return 0;
+        }
+        catch (const NonnegativeOptionException& e)
+        {
+            cout << e.what() << std::endl;
+            return 0;
+        }
+        catch (const PositiveOptionException& e)
+        {
+            cout << e.what() << std::endl;
+            return 0;
         }
         catch (const po::error& e)
         {

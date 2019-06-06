@@ -147,24 +147,6 @@ namespace beam
         const char* APPDATA_PATH = "appdata";
     }
 
-    /** Class thrown when a argument of option is negative */
-    class NonnegativeOptionException : public po::error_with_option_name {
-    public:
-        NonnegativeOptionException()
-            : po::error_with_option_name("The argument for option '%canonical_option%' must be equal to or more than 0.")
-        {
-        }
-    };
-
-    // Class thrown when a argument of option is negative or zero
-    class PositiveOptionException : public po::error_with_option_name {
-    public:
-        PositiveOptionException()
-            : po::error_with_option_name("The argument for option '%canonical_option%' must be more than 0.")
-        {
-        }
-    };
-
     template<typename T>
     std::ostream& operator<<(std::ostream &os, const Nonnegative<T>& v)
     {
