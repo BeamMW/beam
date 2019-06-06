@@ -690,6 +690,26 @@ namespace
         return 0;
     }
 
+    int TxDetails(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
+    {
+        auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
+        TxID txId;
+        if (txIdVec.size() >= 16)
+            std::copy_n(txIdVec.begin(), 16, txId.begin());
+
+        auto tx = walletDB->getTx(txId);
+        if (!tx)
+        {
+            LOG_ERROR() << "Failed, transaction does not exist.";
+            return -1;
+        }
+
+        LOG_INFO() << "Transaction details:";
+        LOG_INFO() << storage::TxDetailsInfo(walletDB, txId);
+
+        return 0;
+    }
+
     int ExportPaymentProof(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
     {
         auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
@@ -980,6 +1000,7 @@ int main_impl(int argc, char* argv[])
                             cli::CANCEL_TX,
                             cli::DELETE_TX,
                             cli::CHANGE_ADDRESS_EXPIRATION,
+                            cli::TX_DETAILS,
                             cli::PAYMENT_PROOF_EXPORT,
                             cli::PAYMENT_PROOF_VERIFY,
                             cli::GENERATE_PHRASE,
@@ -1195,6 +1216,11 @@ int main_impl(int argc, char* argv[])
                     if (command == cli::INFO)
                     {
                         return ShowWalletInfo(walletDB, vm);
+                    }
+
+                    if (command == cli::TX_DETAILS)
+                    {
+                        return TxDetails(walletDB, vm);
                     }
 
                     if (command == cli::PAYMENT_PROOF_EXPORT)
@@ -1488,4 +1514,3 @@ int main(int argc, char* argv[]) {
     return f.get();
 #endif
 }
-

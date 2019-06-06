@@ -2756,6 +2756,39 @@ namespace beam::wallet
             return pi;
         }
 
+        std::string TxDetailsInfo(const IWalletDB::Ptr& walletDB, const TxID& txID)
+        {
+            PaymentInfo pi;
+            auto tx = walletDB->getTx(txID);
+
+            bool bSuccess =
+                storage::getTxParameter(*walletDB,
+                                        txID,
+                                        tx->m_sender
+                                            ? TxParameterID::PeerID
+                                            : TxParameterID::MyID,
+                                        pi.m_Receiver) &&
+                storage::getTxParameter(*walletDB,
+                                        txID,
+                                        tx->m_sender
+                                            ? TxParameterID::MyID
+                                            : TxParameterID::PeerID,
+                                        pi.m_Sender) &&
+                storage::getTxParameter(
+                    *walletDB, txID, TxParameterID::KernelID, pi.m_KernelID) &&
+                storage::getTxParameter(
+                    *walletDB, txID, TxParameterID::Amount, pi.m_Amount);
+
+            if (bSuccess)
+            {
+                return pi.to_string();
+            }
+
+            LOG_WARNING() << "Can't get transaction details";
+            return "";
+
+        }
+
         ByteBuffer ExportPaymentProof(const IWalletDB& walletDB, const TxID& txID)
         {
             PaymentInfo pi;
