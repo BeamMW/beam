@@ -361,7 +361,7 @@ MyPaymentInfoItem::MyPaymentInfoItem(const TxID& txID, QObject* parent/* = nullp
     : PaymentInfoItem(parent)
 {
     auto model = AppModel::getInstance()->getWallet();
-    connect(model.get(), SIGNAL(paymentProofExported(const beam::TxID&, const QString&)), SLOT(onPaymentProofExported(const beam::TxID&, const QString&)));
+    connect(model.get(), SIGNAL(paymentProofExported(const beam::wallet::TxID&, const QString&)), SLOT(onPaymentProofExported(const beam::wallet::TxID&, const QString&)));
     model->getAsync()->exportPaymentProof(txID);
 }
 
