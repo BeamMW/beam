@@ -86,6 +86,7 @@ namespace beam::wallet
         void onSyncProgress(int done, int total) override;
 
         void sendMoney(const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee) override;
+        void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee) override;
         void syncWithNode() override;
         void calcChange(Amount&& amount) override;
         void getWalletStatus() override;

@@ -26,7 +26,7 @@ public class Wallet
     public native void getWalletStatus();
     public native void getUtxosStatus();
     public native void syncWithNode();
-    public native void sendMoney(String receiver, String comment, long amount, long fee);
+    public native void sendMoney(String sender, String receiver, String comment, long amount, long fee);
     public native void calcChange(long amount);
     public native void getAddresses(boolean own);
     public native void generateNewAddress();

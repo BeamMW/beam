@@ -56,6 +56,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
+    void sendMoney(const wallet::WalletID& senderID, const wallet::WalletID& receiverID, const std::string& comment, Amount&& amount, Amount&& fee) override
+    {
+        tx.send([senderID, receiverID, comment, amount{ move(amount) }, fee{ move(fee) }](BridgeInterface& receiver_) mutable
+        {
+            receiver_.sendMoney(senderID, receiverID, comment, move(amount), move(fee));
+        });
+    }
+
     void syncWithNode() override
     {
         tx.send([](BridgeInterface& receiver_) mutable
@@ -445,6 +453,40 @@ namespace beam::wallet
             if (s)
             {
                 s->transfer_money(senderAddress.m_walletID, receiver, move(amount), move(fee), true, kDefaultTxLifetime, kDefaultTxResponseTime, move(message), true);
+            }
+
+            onSendMoneyVerified();
+        }
+        catch (const CannotGenerateSecretException&)
+        {
+            onNewAddressFailed();
+            return;
+        }
+        catch (const AddressExpiredException&)
+        {
+            onCantSendToExpired();
+            return;
+        }
+        catch (const std::exception& e)
+        {
+            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+        }
+        catch (...) {
+            LOG_UNHANDLED_EXCEPTION();
+        }
+    }
+
+    void WalletClient::sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee)
+    {
+        try
+        {
+            ByteBuffer message(comment.begin(), comment.end());
+
+            assert(!m_wallet.expired());
+            auto s = m_wallet.lock();
+            if (s)
+            {
+                s->transfer_money(sender, receiver, move(amount), move(fee), true, kDefaultTxLifetime, kDefaultTxResponseTime, move(message), true);
             }
 
             onSendMoneyVerified();
