@@ -137,7 +137,7 @@ namespace beam::wallet
             {
                 m_Outputs = move(result);
                 FinalizeOutputs();
-                m_Tx.UpdateAsync();
+                m_Tx.Update();
                 m_Tx.GetAsyncAcontext().OnAsyncFinished();
             },
             [thisHolder, this](const exception&)
