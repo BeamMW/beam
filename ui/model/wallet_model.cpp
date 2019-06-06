@@ -27,16 +27,16 @@ using namespace std;
 WalletModel::WalletModel(IWalletDB::Ptr walletDB, const std::string& nodeAddr, beam::io::Reactor::Ptr reactor)
     : WalletClient(walletDB, nodeAddr, reactor)
 {
-    qRegisterMetaType<WalletStatus>("WalletStatus");
-    qRegisterMetaType<ChangeAction>("beam::ChangeAction");
-    qRegisterMetaType<vector<TxDescription>>("std::vector<beam::TxDescription>");
-    qRegisterMetaType<Amount>("beam::Amount");
-    qRegisterMetaType<vector<Coin>>("std::vector<beam::Coin>");
-    qRegisterMetaType<vector<WalletAddress>>("std::vector<beam::WalletAddress>");
-    qRegisterMetaType<WalletID>("beam::WalletID");
-    qRegisterMetaType<WalletAddress>("beam::WalletAddress");
+    qRegisterMetaType<beam::wallet::WalletStatus>("beam::wallet::WalletStatus");
+    qRegisterMetaType<beam::wallet::ChangeAction>("beam::wallet::ChangeAction");
+    qRegisterMetaType<vector<beam::wallet::TxDescription>>("std::vector<beam::wallet::TxDescription>");
+    qRegisterMetaType<beam::Amount>("beam::Amount");
+    qRegisterMetaType<vector<beam::wallet::Coin>>("std::vector<beam::wallet::Coin>");
+    qRegisterMetaType<vector<beam::wallet::WalletAddress>>("std::vector<beam::wallet::WalletAddress>");
+    qRegisterMetaType<beam::wallet::WalletID>("beam::wallet::WalletID");
+    qRegisterMetaType<beam::wallet::WalletAddress>("beam::wallet::WalletAddress");
     qRegisterMetaType<beam::wallet::ErrorType>("beam::wallet::ErrorType");
-    qRegisterMetaType<beam::wallet::TxID>("beam::TxID");
+    qRegisterMetaType<beam::wallet::TxID>("beam::wallet::TxID");
 }
 
 WalletModel::~WalletModel()
@@ -85,7 +85,7 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
     }
 }
 
-void WalletModel::onStatus(const WalletStatus& status)
+void WalletModel::onStatus(const beam::wallet::WalletStatus& status)
 {
     emit walletStatus(status);
 }

@@ -120,17 +120,7 @@ namespace Negotiator {
 				Write(code, std::move(buf));
 			}
 
-			template <typename T>
-			bool ReadConst(uint32_t code, Blob& blob, const T& val)
-			{
-				if (Read(code, blob))
-					return true;
-
-				// set it artifica
-				Set(val, code);
-
-				return Read(code, blob);
-			}
+			static bool ReadOneU(Blob& blob); // helper
 		};
 	}
 
@@ -157,7 +147,8 @@ namespace Negotiator {
 			Gateway::IBase* m_pG;
 			Storage::IBase* m_pS;
 
-			uint32_t Remap(uint32_t code) const;
+			uint32_t Offset() const;
+			static uint32_t Offset(uint32_t iChannel);
 		public:
 
 			Router(Gateway::IBase*, Storage::IBase*, uint32_t iChannel, Negotiator::IBase&);
@@ -171,8 +162,6 @@ namespace Negotiator {
 			virtual bool Read(uint32_t code, Blob& blob) override;
 		};
 
-
-
 	public:
 
 		Key::IKdf::Ptr m_pKdf;
@@ -185,6 +174,21 @@ namespace Negotiator {
 		template <typename T>
 		void Set(const T& val, uint32_t code) { m_pStorage->Set(val, code); }
 
+		template <typename T>
+		void SetGet(bool bSet, T* pVal, uint32_t code)
+		{
+			if (pVal)
+			{
+				if (bSet)
+					Set<T>(*pVal, code);
+				else
+					Get<T>(*pVal, code);
+			}
+		}
+
+		virtual void QueryVar(std::string&, uint32_t code) = 0; // for debug and trafic visualization
+		bool SubQueryVar(std::string&, uint32_t code, uint32_t i0, uint32_t i1, const char* szPrefix);
+
 		uint32_t Update();
 	};
 
@@ -193,8 +197,8 @@ namespace Negotiator {
 		// directly update peer's storage. Suitable for local peers
 		struct Direct :public IBase
 		{
-			Negotiator::IBase& m_Peer;
-			Direct(Negotiator::IBase& x) :m_Peer(x) {}
+			Storage::IBase& m_Trg;
+			Direct(Storage::IBase& x) :m_Trg(x) {}
 
 			virtual void Send(uint32_t code, ByteBuffer&& buf) override;
 		};
@@ -230,12 +234,13 @@ namespace Negotiator {
 			static const uint32_t Commitment = Output0 + 1;
 			static const uint32_t OutputTxo = Output0 + 0;
 			static const uint32_t Nonce = Variable0 + 1;
-			static const uint32_t PubKeyPlus = PeerVariable0 + 0;
+
+			static const uint32_t PubKey = PeerVariable0 + 0;
 			static const uint32_t BpPart2 = PeerVariable0 + 1;
-			static const uint32_t BpBothPart = PeerVariable0 + 2;
 			static const uint32_t BpPart3 = PeerVariable0 + 3;
-			static const uint32_t BpFull = PeerVariable0 + 4;
 		};
+
+		virtual void QueryVar(std::string&, uint32_t code) override;
 	};
 
 	//////////////////////////////////////////
@@ -255,6 +260,15 @@ namespace Negotiator {
 		virtual uint32_t Update2() override;
 
 	public:
+
+		struct KernelParam
+		{
+			Height* m_pH0;
+			Height* m_pH1;
+			Amount* m_pFee;
+
+			KernelParam() { ZeroObject(*this); }
+		};
 
 		struct Codes
 			:public Negotiator::Codes
@@ -290,6 +304,8 @@ namespace Negotiator {
 			static const uint32_t KernelID = Output0 + 1;
 			static const uint32_t BarrierCrossed = Output0 + 2; // peer may come up with a valid tx
 		};
+
+		virtual void QueryVar(std::string&, uint32_t code) override;
 	};
 
 	//////////////////////////////////////////
@@ -304,24 +320,30 @@ namespace Negotiator {
 	{
 		virtual uint32_t Update2() override;
 
-		struct Codes
-			:public Negotiator::Codes
-		{
-			static const uint32_t One = Variable0 + 1;
-		};
-
 	public:
+
+		struct CommonParam
+		{
+			MultiTx::KernelParam m_Krn1;
+
+			struct Krn2 {
+				Amount* m_pFee;
+				Height* m_pLock;
+			} m_Krn2;
+
+			CommonParam() { ZeroObject(m_Krn2); }
+		};
 
 		Multisig m_MSig; // msig1
 		MultiTx m_Tx1; // msig0 - > msig1
 		MultiTx m_Tx2; // msig1 -> outputs, timelocked
 
-		void Setup(
-			const Key::IDV* pMsig1,
-			const Key::IDV* pMsig0,
-			const ECC::Point* pComm0,
-			const std::vector<Key::IDV>* pOuts,
-			Height hLock);
+		void Setup(bool bSet,
+			Key::IDV* pMsig1,
+			Key::IDV* pMsig0,
+			ECC::Point* pComm0,
+			std::vector<Key::IDV>* pOuts,
+			const CommonParam&);
 
 		struct Result
 		{
@@ -335,37 +357,28 @@ namespace Negotiator {
 		// Worker object, handles remapping of storage and gateway for inner objects
 		class Worker
 		{
-			struct S0 :public Router
-			{
-				using Router::Router;
-				virtual bool Read(uint32_t code, Blob& blob) override;
-
-				IMPLEMENT_GET_PARENT_OBJ(Worker, m_s0)
-			} m_s0;
+			Router m_s0;
 
 			struct S1 :public Router
 			{
 				using Router::Router;
 				virtual bool Read(uint32_t code, Blob& blob) override;
-
-				IMPLEMENT_GET_PARENT_OBJ(Worker, m_s1)
 			} m_s1;
 
 			struct S2 :public Router
 			{
 				using Router::Router;
 				virtual bool Read(uint32_t code, Blob& blob) override;
-
-				IMPLEMENT_GET_PARENT_OBJ(Worker, m_s2)
 			} m_s2;
-
-			bool get_One(Blob& blob);
 
 		public:
 			Worker(WithdrawTx&);
 		};
 
 		static const uint32_t s_Channels = 4;
+
+		virtual void QueryVar(std::string&, uint32_t code) override;
+
 	};
 
 	//////////////////////////////////////////
@@ -393,6 +406,14 @@ namespace Negotiator {
 		ChannelWithdrawal() {}
 
 		void get_Result(Result&);
+
+		// remaps all the relevant parameters from SA, toggles the Role
+		struct SB :public Router
+		{
+			using Router::Router;
+			virtual bool Read(uint32_t code, Blob& blob) override;
+		};
+
 	};
 
 	//////////////////////////////////////////
@@ -402,25 +423,20 @@ namespace Negotiator {
 	{
 		virtual uint32_t Update2() override;
 
-		struct Codes
-			:public Negotiator::Codes
-		{
-			static const uint32_t One = Variable0 + 1;
-		};
-
 	public:
 
 		Multisig m_MSig; // msig0
 		MultiTx m_Tx0; // inputs -> msig0
 
-		void Setup(
-			const std::vector<Key::IDV>* pInps,
-			const std::vector<Key::IDV>* pOutsChange,
-			const Key::IDV* pMsig0,
-			const Key::IDV* pMsig1A,
-			const Key::IDV* pMsig1B,
-			const std::vector<Key::IDV>* pOutsWd,
-			Height hLock);
+		void Setup(bool bSet,
+			std::vector<Key::IDV>* pInps,
+			std::vector<Key::IDV>* pOutsChange,
+			Key::IDV* pMsig0,
+			const MultiTx::KernelParam&,
+			Key::IDV* pMsig1A,
+			Key::IDV* pMsig1B,
+			std::vector<Key::IDV>* pOutsWd,
+			const WithdrawTx::CommonParam&);
 
 		struct Result
 			:public ChannelWithdrawal::Result
@@ -432,51 +448,46 @@ namespace Negotiator {
 
 		void get_Result(Result&);
 
+		struct DoneParts {
+			static const uint8_t Main = 1; // my withdrawal path, opening tx
+			static const uint8_t PeerWd = 2; // peer withdrawal path.
+		};
+
+		uint8_t get_DoneParts();
+
 		// Worker object, handles remapping of storage and gateway for inner objects
 		class Worker
 		{
-			struct S0 :public Router
-			{
-				using Router::Router;
-				virtual bool Read(uint32_t code, Blob& blob) override;
-
-				IMPLEMENT_GET_PARENT_OBJ(Worker, m_s0)
-			} m_s0;
+			Router m_s0;
 
 			struct S1 :public Router
 			{
 				using Router::Router;
 				virtual bool Read(uint32_t code, Blob& blob) override;
-
-				IMPLEMENT_GET_PARENT_OBJ(Worker, m_s1)
 			} m_s1;
 
 			struct SA :public Router
 			{
 				using Router::Router;
 				virtual bool Read(uint32_t code, Blob& blob) override;
-
-				IMPLEMENT_GET_PARENT_OBJ(Worker, m_sa)
 			} m_sa;
 
-			struct SB :public Router
+			struct SB :public ChannelWithdrawal::SB
 			{
-				using Router::Router;
+				using ChannelWithdrawal::SB::SB;
 				virtual bool Read(uint32_t code, Blob& blob) override;
-
-				IMPLEMENT_GET_PARENT_OBJ(Worker, m_sb)
 			} m_sb;
 
 			WithdrawTx::Worker m_wrkA;
 			WithdrawTx::Worker m_wrkB;
-
-			bool get_One(Blob& blob);
 
 		public:
 			Worker(ChannelOpen&);
 		};
 
 		static const uint32_t s_Channels = 3 + WithdrawTx::s_Channels * 2;
+
+		virtual void QueryVar(std::string&, uint32_t code) override;
 	};
 
 	//////////////////////////////////////////
@@ -489,8 +500,6 @@ namespace Negotiator {
 		struct Codes
 			:public Negotiator::Codes
 		{
-			static const uint32_t One = Variable0 + 1;
-
 			static const uint32_t PeerBlindingFactor = PeerVariable0 + 0;
 
 			static const uint32_t KidvPrev = Input0 + 5;
@@ -503,16 +512,16 @@ namespace Negotiator {
 
 	public:
 
-		void Setup(
-			const Key::IDV* pMsig0,
-			const ECC::Point* pComm0,
-			const Key::IDV* pMsig1A,
-			const Key::IDV* pMsig1B,
-			const std::vector<Key::IDV>* pOutsWd,
-			Height hLock,
-			const Key::IDV* pMsigPrevMy, // should be revealed to the peer
-			const Key::IDV* pMsigPrevPeer, // my part, that must be complemented by peer
-			const ECC::Point* pCommPrevPeer); // the commitment, that should be obtained from my part and the blinding factor revealed by the peer
+		void Setup(bool bSet,
+			Key::IDV* pMsig0,
+			ECC::Point* pComm0,
+			Key::IDV* pMsig1A,
+			Key::IDV* pMsig1B,
+			std::vector<Key::IDV>* pOutsWd,
+			const WithdrawTx::CommonParam&,
+			Key::IDV* pMsigPrevMy, // should be revealed to the peer
+			Key::IDV* pMsigPrevPeer, // my part, that must be complemented by peer
+			ECC::Point* pCommPrevPeer); // the commitment, that should be obtained from my part and the blinding factor revealed by the peer
 
 
 		struct Result
@@ -526,35 +535,30 @@ namespace Negotiator {
 
 		void get_Result(Result&);
 
+		struct DoneParts {
+			static const uint8_t Main = 1; // my withdrawal path, I already compromised prev wd
+			static const uint8_t PeerWd = 2; // peer withdrawal path
+			static const uint8_t PeerKey = 4; // peer compromised prev wd
+		};
+
+		uint8_t get_DoneParts();
+
 		// Worker object, handles remapping of storage and gateway for inner objects
 		class Worker
 		{
-			struct SA :public Router
-			{
-				using Router::Router;
-				virtual bool Read(uint32_t code, Blob& blob) override;
-
-				IMPLEMENT_GET_PARENT_OBJ(Worker, m_sa)
-			} m_sa;
-
-			struct SB :public Router
-			{
-				using Router::Router;
-				virtual bool Read(uint32_t code, Blob& blob) override;
-
-				IMPLEMENT_GET_PARENT_OBJ(Worker, m_sb)
-			} m_sb;
+			Router m_sa;
+			SB m_sb;
 
 			WithdrawTx::Worker m_wrkA;
 			WithdrawTx::Worker m_wrkB;
-
-			bool get_One(Blob& blob);
 
 		public:
 			Worker(ChannelUpdate&);
 		};
 
 		static const uint32_t s_Channels = 1 + WithdrawTx::s_Channels * 2;
+
+		virtual void QueryVar(std::string&, uint32_t code) override;
 	};
 
 

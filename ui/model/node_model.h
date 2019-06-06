@@ -35,6 +35,7 @@ public:
     NodeModel();
 
     void setKdf(beam::Key::IKdf::Ptr);
+    void setOwnerKey(beam::Key::IPKdf::Ptr);
     void startNode();
     void stopNode();
 

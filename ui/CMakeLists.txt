@@ -160,6 +160,10 @@ endif()
 add_executable(${TARGET_NAME} ${SYSTEM_TYPE} ${UI_SRC} ${QT_RESOURCES} beam.rc ${MACOSX_BUNDLE_ICON_FILE})
 set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME ${OUTPUT_NAME})
 
+if(BEAM_HW_WALLET)
+    target_compile_definitions(${TARGET_NAME} PRIVATE BEAM_HW_WALLET)
+endif()
+
 configure_file("${PROJECT_SOURCE_DIR}/version.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version.h")
 
 add_dependencies(${TARGET_NAME} wallet mnemonic qrcode cli)

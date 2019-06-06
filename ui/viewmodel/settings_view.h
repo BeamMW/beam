@@ -77,6 +77,7 @@ public:
     Q_INVOKABLE void openUrl(const QString& url);
     Q_INVOKABLE void copyToClipboard(const QString& text);
     Q_INVOKABLE void refreshWallet();
+    Q_INVOKABLE void openFolder(const QString& path);
 
 public slots:
     void applyChanges();

@@ -860,7 +860,7 @@ namespace beam::wallet
         {
             sqlite3* db = nullptr;
             {
-                int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, nullptr);
+                int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
                 throwIfError(ret, db);
             }
 
@@ -868,7 +868,7 @@ namespace beam::wallet
 
             if (separateDBForPrivateData)
             {
-                int ret = sqlite3_open_v2((path+".private").c_str(), &sdb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, nullptr);
+                int ret = sqlite3_open_v2((path+".private").c_str(), &sdb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
                 throwIfError(ret, sdb);
                 enterKey(sdb, password);
             }
@@ -907,7 +907,7 @@ namespace beam::wallet
             {
                 sqlite3 *db = nullptr;
                 {
-                    int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, nullptr);
+                    int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE, nullptr);
                     throwIfError(ret, db);
                 }
 
@@ -916,7 +916,7 @@ namespace beam::wallet
                 bool separateDBForPrivateData = isInitialized(privatePath);
                 if (separateDBForPrivateData)
                 {
-                    int ret = sqlite3_open_v2(privatePath.c_str(), &sdb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, nullptr);
+                    int ret = sqlite3_open_v2(privatePath.c_str(), &sdb, SQLITE_OPEN_READWRITE, nullptr);
                     throwIfError(ret, sdb);
                     enterKey(sdb, password);
                 }

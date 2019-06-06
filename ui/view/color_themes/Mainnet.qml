@@ -16,13 +16,12 @@ AbstractColors {
     property color background_second:     "#1c435b"  // dark-slate-blue
     property color background_row_even:   "#0e3850"  // light-navy
     property color background_details:    "#09425e"
-    property color background_button:     "#708090"
+    property color background_button:     "#33566B"
     property color row_selected:          "#085469"
     property color separator:             "#33566b"
 
     property color active :               "#00f6d2" // bright-teal
     property color passive:               "#d6d9e0"  // silver
         
-    property color gray_button:           "#708090"
     property color caps_warning:          "#000000"
 }

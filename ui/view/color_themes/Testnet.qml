@@ -22,6 +22,5 @@ AbstractColors {
     property color active :               "#00f6d2" // bright-teal
     property color passive:               "#d6d9e0"  // silver
         
-    property color gray_button:           "#708090"
     property color caps_warning:          "#000000"
 }

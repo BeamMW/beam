@@ -60,6 +60,7 @@ namespace beam::wallet
 
             CompleteSwap,
             Failed,
+            Refunded
         };
 
     public:

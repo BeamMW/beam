@@ -309,18 +309,32 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(syncWithNode)(JNIEnv *env, job
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendMoney)(JNIEnv *env, jobject thiz,
-    jstring receiverAddr, jstring comment, jlong amount, jlong fee)
+    jstring senderAddr, jstring receiverAddr, jstring comment, jlong amount, jlong fee)
 {
-    LOG_DEBUG() << "sendMoney(" << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
+    LOG_DEBUG() << "sendMoney(" << JString(env, senderAddr).value() << ", " << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
 
-    WalletID walletID(Zero);
-    walletID.FromHex(JString(env, receiverAddr).value());
+    WalletID receiverID(Zero);
+    receiverID.FromHex(JString(env, receiverAddr).value());
 
-    // TODO: show 'operation in process' animation here?
-    walletModel->getAsync()->sendMoney(walletID
-        , JString(env, comment).value()
-        , Amount(amount)
-        , Amount(fee));
+    auto sender = JString(env, senderAddr).value();
+
+    if (sender.empty())
+    {
+        walletModel->getAsync()->sendMoney(receiverID
+            , JString(env, comment).value()
+            , Amount(amount)
+            , Amount(fee));
+    }
+    else
+    {
+        WalletID senderID(Zero);
+        senderID.FromHex(sender);
+
+        walletModel->getAsync()->sendMoney(senderID, receiverID
+            , JString(env, comment).value()
+            , Amount(amount)
+            , Amount(fee));
+    }
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(calcChange)(JNIEnv *env, jobject thiz,
@@ -490,6 +504,13 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(changeNodeAddress)(JNIEnv *env
     auto addr = JString(env, address).value();
 
     walletModel->getAsync()->setNodeAddress(addr);
+}
+
+JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(exportOwnerKey)(JNIEnv *env, jobject thiz,
+    jstring pass)
+{
+    std::string ownerKey = walletModel->exportOwnerKey(JString(env, pass).value());
+    return env->NewStringUTF(ownerKey.c_str());
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)

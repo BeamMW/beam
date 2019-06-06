@@ -15,13 +15,12 @@ AbstractColors {
     property color background_second:     "#323232"
     property color background_row_even:   "#242424"
     property color background_details:    "#3d3d3d"
-    property color background_button:     "#708090"
+    property color background_button:     "#474646"
     property color row_selected:          "#353636"
     property color separator:             "#353636"
 
     property color active :               "#00f6d2" // bright-teal
     property color passive:               "#d6d9e0"  // silver
         
-    property color gray_button:           "#708090"
     property color caps_warning:          "#ffffff"
 }

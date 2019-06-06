@@ -20,6 +20,10 @@
 #include <QApplication>
 #include <QTranslator>
 
+#if defined(BEAM_HW_WALLET)
+#include "wallet/hw_wallet.h"
+#endif
+
 using namespace beam;
 using namespace beam::wallet;
 using namespace ECC;
@@ -28,6 +32,16 @@ using namespace std;
 namespace
 {
 const char* kDefaultTranslationsPath = ":/translations";
+
+void RemoveFile(boost::filesystem::path path)
+{
+    boost::system::error_code error;
+    boost::filesystem::remove(path, error);
+    if (error)
+    {
+        LOG_ERROR() << error.message();
+    }
+}
 }
 
 AppModel* AppModel::s_instance = nullptr;
@@ -111,31 +125,14 @@ void AppModel::resetWalletImpl()
     try
     {
 #ifdef WIN32
-        boost::filesystem::path appDataPath{ Utf8toUtf16(getSettings().getAppDataPath().c_str()) };
+        boost::filesystem::path walletDBPath{ Utf8toUtf16(getSettings().getWalletStorage().c_str()) };
+        boost::filesystem::path nodeDBPath{ Utf8toUtf16(getSettings().getLocalNodeStorage().c_str()) };
 #else
-        boost::filesystem::path appDataPath{ getSettings().getAppDataPath() };
+        boost::filesystem::path walletDBPath{ getSettings().getWalletStorage() };
+        boost::filesystem::path nodeDBPath{ getSettings().getLocalNodeStorage() };
 #endif
-        boost::filesystem::path logsFolderPath = appDataPath;
-        logsFolderPath /= WalletSettings::LogsFolder;
-
-        boost::filesystem::path settingsPath = appDataPath;
-        settingsPath /= WalletSettings::SettingsFile;
-
-        for (boost::filesystem::directory_iterator endDirIt, it{ appDataPath }; it != endDirIt; ++it)
-        {
-            // don't delete settings and logs files
-            if ((it->path() == logsFolderPath) || (it->path() == settingsPath))
-            {
-                continue;
-            }
-
-            boost::system::error_code error;
-            boost::filesystem::remove_all(it->path(), error);
-            if (error)
-            {
-                LOG_ERROR() << error.message();
-            }
-        }
+        RemoveFile(walletDBPath);
+        RemoveFile(nodeDBPath);
     }
     catch (std::exception &e)
     {
@@ -225,7 +222,36 @@ void AppModel::onLocaleChanged()
 
 void AppModel::start()
 {
+    // TODO(alex.starun): should be uncommented when HW detection will be done
+
+//#if defined(BEAM_HW_WALLET)
+//    {
+//        HWWallet hw;
+//        auto key = hw.getOwnerKeySync();
+//        
+//        LOG_INFO() << "Owner key" << key;
+//
+//        // TODO: password encryption will be removed
+//        std::string pass = "1";
+//        KeyString ks;
+//        ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
+//
+//        ks.m_sRes = key;
+//
+//        std::shared_ptr<ECC::HKdfPub> pKdf = std::make_shared<ECC::HKdfPub>();
+//
+//        if (ks.Import(*pKdf))
+//        {
+//            m_nodeModel.setOwnerKey(pKdf);
+//        }
+//        else
+//        {
+//            LOG_ERROR() << "veiw key import failed";            
+//        }
+//    }
+//#else
     m_nodeModel.setKdf(m_db->get_MasterKdf());
+//#endif
 
     std::string nodeAddrStr;
 

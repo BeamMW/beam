@@ -34,6 +34,16 @@ namespace beam::wallet
 
     };
 
+    class FailToStartSwapException : public std::runtime_error
+    {
+    public:
+        explicit FailToStartSwapException()
+            : std::runtime_error("")
+        {
+        }
+
+    };
+
     // Interface for walelt observer. 
     struct IWalletObserver : IWalletDbObserver
     {

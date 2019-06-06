@@ -114,8 +114,8 @@ ColumnLayout {
 
             SFText {
                 Layout.alignment: Qt.AlignHCenter
-                //: transaction token label
-                //% "Your transaction token:"
+                //: show qr dialog address label
+                //% "Your address:"
                 text: qsTrId("show-qr-tx-token-label")
                 color: Style.content_main
                 font.pixelSize: 14
@@ -153,14 +153,16 @@ ColumnLayout {
             }
 
             SFText {
-                width: 400
-                height: 32
-                Layout.alignment: Qt.AlignHCenter
+                // width: 400
+                Layout.preferredWidth: 400
+                Layout.minimumHeight: 32
+                Layout.maximumHeight: 48
                 horizontalAlignment: Text.AlignHCenter
                 //: show QR dialog message, how to use this QR
-                //% "Scan this QR code or send this token to the sender over secure channel"
+                //% "Scan this QR code or send this address to the sender over secure channel"
                 text: qsTrId("show-qr-message")
                 color: Style.content_main
+                wrapMode: Text.WordWrap
                 font.pixelSize: 14
             }
 
@@ -456,5 +458,4 @@ ColumnLayout {
             }
         }
     ]
-
 }

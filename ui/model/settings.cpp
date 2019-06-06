@@ -52,6 +52,7 @@ const char* WalletSettings::WalletCfg = "beam-wallet.cfg";
 const char* WalletSettings::LogsFolder = "logs";
 const char* WalletSettings::SettingsFile = "settings.ini";
 const char* WalletSettings::WalletDBFile = "wallet.db";
+const char* WalletSettings::NodeDBFile = "node.db";
 
 WalletSettings::WalletSettings(const QDir& appDataDir)
     : m_data{ appDataDir.filePath(SettingsFile), QSettings::IniFormat }
@@ -183,7 +184,7 @@ void WalletSettings::setLocalNodePort(uint port)
 string WalletSettings::getLocalNodeStorage() const
 {
     Lock lock(m_mutex);
-    return m_appDataDir.filePath("node.db").toStdString();
+    return m_appDataDir.filePath(NodeDBFile).toStdString();
 }
 
 string WalletSettings::getTempDir() const

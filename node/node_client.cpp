@@ -69,6 +69,11 @@ void NodeClient::setKdf(beam::Key::IKdf::Ptr kdf)
     m_pKdf = kdf;
 }
 
+void NodeClient::setOwnerKey(beam::Key::IPKdf::Ptr key)
+{
+    m_ownerKey = key;
+}
+
 void NodeClient::startNode()
 {
     m_shouldStartNode = true;
@@ -164,7 +169,14 @@ void NodeClient::runLocalNode()
     node.m_Cfg.m_MiningThreads = 0;
     node.m_Cfg.m_VerificationThreads = kVerificationThreadsMaxAvailable;
 
-    node.m_Keys.SetSingleKey(m_pKdf);
+    if(m_ownerKey)
+    {
+        node.m_Keys.m_pOwner = m_ownerKey;
+    }
+    else
+    {
+        node.m_Keys.SetSingleKey(m_pKdf);
+    }
 
 	node.m_Cfg.m_Horizon.m_Branching = Rules::get().Macroblock.MaxRollback / 4; // inferior branches would be pruned when height difference is this.
 	node.m_Cfg.m_Horizon.m_SchwarzschildHi = 0; // would be adjusted anyway

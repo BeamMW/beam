@@ -133,6 +133,8 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::UpdateImpl()
     {
+        CheckSubTxFailures();
+
         State state = GetState(kDefaultSubTxID);
         bool isBeamOwner = IsBeamSide();
 
@@ -155,13 +157,11 @@ namespace beam::wallet
             }
         }
 
-        CheckSubTxFailures();
-
         switch (state)
         {
         case State::Initial:
         {
-            if (!m_secondSide->Initial())
+            if (!m_secondSide->Initialize())
                 break;
 
             SetNextState(State::Invitation);
@@ -171,13 +171,17 @@ namespace beam::wallet
         {
             if (IsInitiator())
             {
-                // init locktime
-                if (!m_secondSide->InitLockTime())
+                m_secondSide->InitLockTime();
+                SendInvitation();
+            }
+            else
+            {
+                if (!m_secondSide->ValidateLockTime())
                 {
-                    UpdateAsync();
+                    LOG_ERROR() << GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << "Lock height is unacceptable.";
+                    OnSubTxFailed(TxFailureReason::InvalidTransaction, SubTxIndex::LOCK_TX, true);
                     break;
                 }
-                SendInvitation();
             }
             
             SetNextState(State::BuildingBeamLockTX);
@@ -250,7 +254,7 @@ namespace beam::wallet
                 break;
 
             LOG_INFO() << GetTxID() << " RefundTX completed!";
-            SetNextState(State::CompleteSwap);
+            SetNextState(State::Refunded);
             break;
         }
         case State::SendingRedeemTX:
@@ -332,13 +336,14 @@ namespace beam::wallet
                 break;
 
             LOG_INFO() << GetTxID() << " Beam Refund TX completed!";
-            SetNextState(State::CompleteSwap);
+            SetNextState(State::Refunded);
             break;
         }
         case State::CompleteSwap:
         {
             LOG_INFO() << GetTxID() << " Swap completed.";
-            CompleteTx();
+            UpdateTxDescription(TxStatus::Completed);
+            m_Gateway.on_tx_completed(GetTxID());
             break;
         }
         case State::Cancelled:
@@ -357,6 +362,15 @@ namespace beam::wallet
             LOG_INFO() << GetTxID() << " Transaction failed.";
             UpdateTxDescription(TxStatus::Failed);
             m_Gateway.on_tx_completed(GetTxID());
+            break;
+        }
+
+        case State::Refunded:
+        {
+            LOG_INFO() << GetTxID() << " Swap has not succeeded.";
+            UpdateTxDescription(TxStatus::Completed);
+            m_Gateway.on_tx_completed(GetTxID());
+            break;
         }
 
         default:
@@ -373,9 +387,6 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::NotifyFailure(TxFailureReason reason)
     {
-        //assert(false && "Not implemented yet.");
-        LOG_DEBUG() << GetTxID() << " NotifyFailure not implemented yet.";
-
         SetTxParameter msg;
         msg.AddParameter(TxParameterID::FailureReason, reason);
         SendTxParameters(std::move(msg));
@@ -1111,6 +1122,7 @@ namespace beam::wallet
         TxKernel::Ptr kernel = GetMandatoryParameter<TxKernel::Ptr>(TxParameterID::Kernel, subTxID);
 
         SharedTxBuilder builder{ *this, subTxID };
+        builder.GetSharedParameters();
         builder.GetInitialTxParams();
         builder.GetPeerPublicExcessAndNonce();
         builder.GenerateNonce();

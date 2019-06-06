@@ -114,13 +114,13 @@ namespace beam
         const char* HORIZON_HI = "horizon_hi";
         const char* HORIZON_LO = "horizon_lo";
         const char* COLD_WALLET = "cold_wallet";
-        const char* SWAP_COINS = "swap_coins";
+        const char* SWAP_INIT = "swap_init";
         const char* SWAP_LISTEN = "swap_listen";
         const char* SWAP_AMOUNT = "swap_amount";
         const char* SWAP_FEERATE = "swap_feerate";
         const char* SWAP_COIN = "swap_coin";
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
-        const char* SWAP_TX_LIST = "swap_tx_list";
+        const char* SWAP_TX_HISTORY = "swap_tx_history";
         const char* BTC_CONFIRMATIONS = "btc_confiramtions";
         const char* LTC_CONFIRMATIONS = "ltc_confiramtions";
         const char* BTC_LOCK_TIME = "btc_lock_time";
@@ -146,17 +146,15 @@ namespace beam
         const char* APPDATA_PATH = "appdata";
     }
 
-    /** Class thrown when a argument of option is negative */
-    class NonnegativeOptionException : public po::error_with_option_name {
-    public:
-        NonnegativeOptionException()
-            : po::error_with_option_name("the argument for option '%canonical_option%' should be non-negative.")
-        {
-        }
-    };
-
     template<typename T>
     std::ostream& operator<<(std::ostream &os, const Nonnegative<T>& v)
+    {
+        os << v.value;
+        return os;
+    }
+
+    template<typename T>
+    std::ostream& operator<<(std::ostream &os, const Positive<T>& v)
     {
         os << v.value;
         return os;
@@ -181,6 +179,32 @@ namespace beam
         {
             throw po::invalid_option_value(s);
         }
+    }
+
+    template <typename T>
+    void validate(boost::any& v, const std::vector<std::string>& values, Positive<T>*, int)
+    {
+        po::validators::check_first_occurrence(v);
+        const std::string& s = po::validators::get_single_string(values);
+        T numb;
+
+        if (!s.empty() && s[0] == '-') {
+            throw PositiveOptionException();
+        }
+
+        try
+        {
+            numb = boost::lexical_cast<T>(s);
+        }
+        catch (const boost::bad_lexical_cast&)
+        {
+            throw po::invalid_option_value(s);
+        }
+
+        if (numb <= 0)
+            throw PositiveOptionException();
+
+        v = Positive<T>(numb);
     }
 
     template <typename T> struct TypeCvt {
@@ -209,7 +233,7 @@ namespace beam
         node_options.add_options()
             (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the server on")
             (cli::STORAGE, po::value<string>()->default_value("node.db"), "node storage path")
-            (cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
+            //(cli::MINING_THREADS, po::value<uint32_t>()->default_value(0), "number of mining threads(there is no mining if 0)")
 
             (cli::VERIFICATION_THREADS, po::value<int>()->default_value(-1), "number of threads for cryptographic verifications (0 = single thread, -1 = auto)")
             (cli::NONCEPREFIX_DIGITS, po::value<unsigned>()->default_value(0), "number of hex digits for nonce prefix for stratum client (0..6)")
@@ -245,7 +269,7 @@ namespace beam
             (cli::BTC_USER_NAME, po::value<string>(), "user name for the bitcoin node")
             (cli::LTC_PASS, po::value<string>(), "password for the litecoin node")
             (cli::LTC_USER_NAME, po::value<string>(), "user name for the litecoin node")
-            (cli::AMOUNT_FULL, po::value<double>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
+            (cli::AMOUNT_FULL, po::value<Positive<double>>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::FEE_FULL, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(0)), "fee (in Groth, 100,000,000 groth = 1 Beam)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "address of receiver")
             (cli::NODE_ADDR_FULL, po::value<string>(), "address of node")
@@ -265,16 +289,16 @@ namespace beam
             (cli::UTXO, po::value<vector<string>>()->multitoken(), "preselected utxos to transfer")
             (cli::IMPORT_EXPORT_PATH, po::value<string>()->default_value("addresses.dat"), "path to import or export data (import_addresses|export_addresses)")
             (cli::COLD_WALLET, "used to init cold wallet")
-            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_coins|swap_listen]")
-            (cli::SWAP_AMOUNT, po::value<Nonnegative<Amount>>(), "swap amount in the smallest unit of the coin")
-            (cli::SWAP_FEERATE, po::value<Nonnegative<Amount>>()->default_value(Nonnegative<Amount>(20000)), "The specific feerate you are willing to pay(satoshis(or photons) per KB)")
+            (cli::COMMAND, po::value<string>(), "command to execute [new_addr|send|receive|listen|init|restore|info|export_miner_key|export_owner_key|generate_phrase|change_address_expiration|address_list|rescan|export_addresses|import_addresses|payment_proof_export|payment_proof_verify|utxo|cancel_tx|delete_tx|swap_init|swap_listen]")
+            (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin")
+            (cli::SWAP_FEERATE, po::value<Positive<Amount>>()->default_value(Positive<Amount>(20000)), "The specific feerate you are willing to pay(satoshis(or photons) per KB)")
             (cli::SWAP_COIN, po::value<string>(), "swap coin(btc, ltc)")
             (cli::SWAP_BEAM_SIDE, "Should be set by Beam owner")
-            (cli::SWAP_TX_LIST, "show swap transactions history in info command")
-            (cli::BTC_CONFIRMATIONS, po::value<Nonnegative<uint16_t>>(), "confirmations count in bitcoin chain")
-            (cli::LTC_CONFIRMATIONS, po::value<Nonnegative<uint16_t>>(), "confirmations count in litecoin chain")
-            (cli::BTC_LOCK_TIME, po::value<Nonnegative<uint32_t>>(), "lock time in blocks bitcoin transaction")
-            (cli::LTC_LOCK_TIME, po::value<Nonnegative<uint32_t>>(), "lock time in blocks litecoin transaction");
+            (cli::SWAP_TX_HISTORY, "show swap transactions history in info command")
+            (cli::BTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in bitcoin chain")
+            (cli::LTC_CONFIRMATIONS, po::value<Positive<uint16_t>>(), "confirmations count in litecoin chain")
+            (cli::BTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks bitcoin transaction")
+            (cli::LTC_LOCK_TIME, po::value<Positive<uint32_t>>(), "lock time in blocks litecoin transaction");
 
         po::options_description wallet_treasury_options("Wallet treasury options");
         wallet_treasury_options.add_options()

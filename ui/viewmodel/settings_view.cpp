@@ -157,8 +157,8 @@ void SettingsViewModel::setLockTimeout(int value)
     if (value != m_lockTimeout)
     {
         m_lockTimeout = value;
+        m_settings.setLockTimeout(m_lockTimeout);
         emit lockTimeoutChanged();
-        emit propertiesChanged();
     }
 }
 
@@ -172,8 +172,8 @@ void SettingsViewModel::setPasswordReqiredToSpendMoney(bool value)
     if (value != m_isPasswordReqiredToSpendMoney)
     {
         m_isPasswordReqiredToSpendMoney = value;
+        m_settings.setPasswordReqiredToSpendMoney(m_isPasswordReqiredToSpendMoney);
         emit passwordReqiredToSpendMoneyChanged();
-        emit propertiesChanged();
     }
 }
 
@@ -187,8 +187,8 @@ void SettingsViewModel::allowBeamMWLinks(bool value)
     if (value != m_isAllowedBeamMWLinks)
     {
         m_isAllowedBeamMWLinks = value;
+        m_settings.setAllowedBeamMWLinks(m_isAllowedBeamMWLinks);
         emit beamMWLinksAllowed();
-        emit propertiesChanged();
     }
 }
 
@@ -205,8 +205,9 @@ int SettingsViewModel::getCurrentLanguageIndex() const
 void SettingsViewModel::setCurrentLanguageIndex(int value)
 {
     m_currentLanguageIndex = value;
+    m_settings.setLocaleByLanguageName(
+            m_supportedLanguages[m_currentLanguageIndex]);
     emit currentLanguageIndexChanged();
-    emit propertiesChanged();
 }
 
 QString SettingsViewModel::getCurrentLanguage() const
@@ -257,16 +258,17 @@ void SettingsViewModel::refreshWallet()
     AppModel::getInstance()->getWallet()->getAsync()->refresh();
 }
 
+void SettingsViewModel::openFolder(const QString& path)
+{
+    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+}
+
 bool SettingsViewModel::isChanged() const
 {
     return m_nodeAddress != m_settings.getNodeAddress()
         || m_localNodeRun != m_settings.getRunLocalNode()
         || m_localNodePort != m_settings.getLocalNodePort()
-        || m_localNodePeers != m_settings.getLocalNodePeers()
-        || m_lockTimeout != m_settings.getLockTimeout()
-        || m_isPasswordReqiredToSpendMoney != m_settings.isPasswordReqiredToSpendMoney()
-        || m_isAllowedBeamMWLinks != m_settings.isAllowedBeamMWLinks()
-        || getCurrentLanguage() != m_settings.getLanguageName();
+        || m_localNodePeers != m_settings.getLocalNodePeers();
 }
 
 void SettingsViewModel::applyChanges()
@@ -281,11 +283,6 @@ void SettingsViewModel::applyChanges()
     m_settings.setRunLocalNode(m_localNodeRun);
     m_settings.setLocalNodePort(m_localNodePort);
     m_settings.setLocalNodePeers(m_localNodePeers);
-    m_settings.setLockTimeout(m_lockTimeout);
-    m_settings.setPasswordReqiredToSpendMoney(m_isPasswordReqiredToSpendMoney);
-    m_settings.setAllowedBeamMWLinks(m_isAllowedBeamMWLinks);
-    m_settings.setLocaleByLanguageName(
-            m_supportedLanguages[m_currentLanguageIndex]);
     m_settings.applyChanges();
     emit propertiesChanged();
 }

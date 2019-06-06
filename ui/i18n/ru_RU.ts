@@ -65,10 +65,12 @@
     </message>
     <message id="address-table-cm-edit">
         <source>edit address</source>
+        <extracomment>Entry in adress table context menu to edit</extracomment>
         <translation>редактировать адрес</translation>
     </message>
     <message id="address-table-cm-delete">
         <source>delete address</source>
+        <extracomment>Entry in adress table context menu to delete</extracomment>
         <translation>удалить адрес</translation>
     </message>
     <message id="available-panel-available">
@@ -77,98 +79,77 @@
     </message>
     <message id="settings-version">
         <source>Version: </source>
+        <extracomment>settings tab, version label</extracomment>
         <translation>Версия: </translation>
-    </message>
-    <message id="settings-remote-node-title">
-        <source>Remote node</source>
-        <translation>Удаленный узел</translation>
     </message>
     <message id="settings-remote-node-ip-port">
         <source>ip:port</source>
+        <extracomment>settings tab, node section, address label</extracomment>
         <translation>ip адрес:порт</translation>
-    </message>
-    <message id="settings-local-node-title">
-        <source>Local node</source>
-        <translation>Локальный узел</translation>
     </message>
     <message id="settings-local-node-run-checkbox">
         <source>Run local node</source>
+        <extracomment>settings tab, node section, run node label</extracomment>
         <translation>Запускать локальный узел</translation>
     </message>
     <message id="settings-local-node-port">
-        <source>Local node port</source>
-        <translation>Порт локального узла</translation>
-    </message>
-    <message id="settings-peers">
-        <source>Peers</source>
-        <translation>Пиры</translation>
-    </message>
-    <message id="settings-local-node-no-peers-error">
-        <source>Please add at least one peer</source>
-        <translation>Пожалуйста, добавьте хотя бы одного пира</translation>
+        <source>Port</source>
+        <extracomment>settings tab, node section, port label</extracomment>
+        <translation>Порт</translation>
     </message>
     <message id="settings-rescan-confirmation-button">
         <source>rescan</source>
+        <extracomment>settings tab, confirm rescan dialog, rescan button</extracomment>
         <translation>сканировать</translation>
     </message>
     <message id="settings-rescan-confirmation-title">
         <source>Rescan</source>
+        <extracomment>settings tab, confirm rescan dialog, title</extracomment>
         <translation>Сканировать</translation>
     </message>
     <message id="settings-rescan-confirmation-message">
         <source>Rescan will sync transaction and UTXO data with the latest information on the blockchain. The process might take long time.</source>
+        <extracomment>settings tab, confirm rescan dialog message</extracomment>
         <translation>Сканирование обновит информацию о транзакциях и UTXO в соответствии с последним состоянием цепочки блоков. Процесс может занять некоторое время.</translation>
     </message>
     <message id="settings-general-title">
         <source>General settings</source>
+        <extracomment>settings tab, general section, title</extracomment>
         <translation>Основные настройки</translation>
     </message>
     <message id="settings-general-lock-screen">
         <source>Lock screen</source>
+        <extracomment>settings tab, general section, lock screen label</extracomment>
         <translation>Блокировать экран</translation>
     </message>
     <message id="settings-general-require-pwd-to-spend">
         <source>Ask password for every sending transaction</source>
+        <extracomment>settings tab, general section, ask password label</extracomment>
         <translation>Спрашивать пароль для каждой исходящей транзакции</translation>
     </message>
     <message id="settings-report-problem-title">
         <source>Report problem</source>
+        <extracomment>settings tab, report problem section, title</extracomment>
         <translation>Сообщить о проблеме</translation>
-    </message>
-    <message id="settings-report-problem-title-2">
-        <source>To report a problem:</source>
-        <translation>Для того, что бы сообщить о проблеме:</translation>
-    </message>
-    <message id="settings-report-problem-message-line-1">
-        <source>1. Click &apos;Save wallet logs&apos; and choose a destination folder for log archive</source>
-        <translation>1. Нажмите &apos;сохранить лог&apos; и выберите папку</translation>
-    </message>
-    <message id="settings-report-problem-message-line-2">
-        <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;}&lt;/style&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/beam-mw/beam&apos;&gt;github&lt;/a&gt;</source>
-        <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;}&lt;/style&gt;2. Отправьте письмо на адрес &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; или сообщите на &lt;a href=&apos;https://github.com/beam-mw/beam&apos;&gt;github&lt;/a&gt;</translation>
-    </message>
-    <message id="settings-report-problem-message-line-3">
-        <source>3. Don&apos;t forget to attach logs archive</source>
-        <translation>3. Не забудьте приложить лог</translation>
     </message>
     <message id="settings-rescan-button">
         <source>rescan</source>
+        <extracomment>settings tab, rescan button</extracomment>
         <translation>сканировать</translation>
     </message>
     <message id="settings-wallet-location-label">
-        <source>Wallet folder location:</source>
-        <translation>Папка данных:</translation>
-    </message>
-    <message id="settings-wallet-location-copy-button">
-        <source>copy</source>
-        <translation>копировать</translation>
+        <source>Wallet folder location</source>
+        <extracomment>settings tab, general section, wallet data folder location label</extracomment>
+        <translation>Папка данных</translation>
     </message>
     <message id="settings-undo">
-        <source>undo changes</source>
+        <source>cancel</source>
+        <extracomment>settings tab, node section, cancel button</extracomment>
         <translation>отменить</translation>
     </message>
     <message id="settings-apply">
-        <source>apply changes</source>
+        <source>apply</source>
+        <extracomment>settings tab, node section, apply button</extracomment>
         <translation>применить</translation>
     </message>
     <message id="logo-name">
@@ -265,30 +246,27 @@
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
+        <extracomment>Edit addres dialog title</extracomment>
         <translation>Редактировать адрес</translation>
     </message>
     <message id="edit-addr-addr-id">
         <source>Address ID</source>
+        <extracomment>Edit addres dialog, address label</extracomment>
         <translation>Идентификатор адреса</translation>
     </message>
     <message id="edit-addr-comment">
         <source>Comment</source>
+        <extracomment>Edit addres dialog, comment label</extracomment>
         <translation>Комментарий</translation>
-    </message>
-    <message id="edit-addr-expires">
-        <source>Expires</source>
-        <translation>Действителен до</translation>
     </message>
     <message id="edit-addr-cancel-button">
         <source>cancel</source>
+        <extracomment>Edit addres dialog, cancel button</extracomment>
         <translation>отмена</translation>
-    </message>
-    <message id="edit-addr-make-active-button">
-        <source>make active</source>
-        <translation>сделать активным</translation>
     </message>
     <message id="edit-addr-save-button">
         <source>save</source>
+        <extracomment>Edit addres dialog, save button</extracomment>
         <translation>сохранить</translation>
     </message>
     <message id="payment-info-proof-verification">
@@ -445,18 +423,22 @@
     </message>
     <message id="settings-report-problem-save-log-button">
         <source>save wallet logs</source>
+        <extracomment>settings tab, report problem section, save logs button</extracomment>
         <translation>сохранить лог</translation>
     </message>
     <message id="settings-rescan-confirmation-message-line-2">
         <source>Are you sure?</source>
+        <extracomment>settings tab, confirm rescan dialog additional message</extracomment>
         <translation>Вы уверены?</translation>
     </message>
     <message id="settings-general-change-pwd-button">
         <source>change wallet password</source>
+        <extracomment>settings tab, change password button</extracomment>
         <translation>сменить пароль</translation>
     </message>
     <message id="settings-title">
         <source>Settings</source>
+        <extracomment>settings tab title</extracomment>
         <translation>Настройки</translation>
     </message>
     <message id="cant-send-to-expired-message">
@@ -891,10 +873,6 @@
         <source>Failed to start wallet. Please check your wallet data location</source>
         <translation>Невозможно запустить приложение. Проверьте путь к данным кошелька.</translation>
     </message>
-    <message id="address-item-never">
-        <source>never</source>
-        <translation>никогда</translation>
-    </message>
     <message id="loading-view-download-blocks">
         <source>Downloading blocks</source>
         <translation>Загрузка блоков</translation>
@@ -1165,6 +1143,7 @@
     </message>
     <message id="settings-general-language">
         <source>Language</source>
+        <extracomment>settings tab, general section, language label</extracomment>
         <translation>Язык</translation>
     </message>
     <message id="available-panel-where-to-buy">
@@ -1239,10 +1218,6 @@
         <source>open my wallet</source>
         <translation>открыть кошелек</translation>
     </message>
-    <message id="settings-peers-add-button">
-        <source>Add</source>
-        <translation>Добавить</translation>
-    </message>
     <message id="start-open-caps-warning">
         <source>Caps lock is on!</source>
         <translation>Включен CapsLock!</translation>
@@ -1253,15 +1228,15 @@
         <translation>QR код</translation>
     </message>
     <message id="show-qr-tx-token-label">
-        <source>Your transaction token:</source>
-        <extracomment>transaction token label</extracomment>
-        <translation>Токен транзакции:</translation>
+        <source>Your address:</source>
+        <extracomment>show qr dialog address label</extracomment>
+        <translation>Адрес транзакции:</translation>
     </message>
     <message id="show-qr-message">
-        <source>Scan this QR code or send this token to the sender over secure channel</source>
+        <source>Scan this QR code or send this address to the sender over secure channel</source>
         <extracomment>show QR dialog message, how to use this QR</extracomment>
         <translation>Сканируйте этот QR код
-или этот токен отправителю по защищенному соединению</translation>
+или сообщите этот адрес отправителю по защищенному соединению</translation>
     </message>
     <message id="show-qr-close-button">
         <source>close</source>
@@ -1273,20 +1248,105 @@
         <extracomment>Entry in adress table context menu to show QR</extracomment>
         <translation>показать QR код</translation>
     </message>
-    <message id="settings-general-allow-beammw-label-p1">
-        <source>Allow access to </source>
-        <extracomment>general settings, label for alow access beam.mw part 1</extracomment>
-        <translation>Разрешить доступ к </translation>
+    <message id="settings-peers-title">
+        <source>Peers</source>
+        <extracomment>settings tab, node section, peers label</extracomment>
+        <translation>Пиры</translation>
     </message>
-    <message id="settings-general-allow-beammw-label-p2">
-        <source>beam.mw</source>
-        <extracomment>general settings, label for alow access beam.mw part 2 (link)</extracomment>
-        <translation>beam.mw</translation>
+    <message id="settings-node-title">
+        <source>Node</source>
+        <extracomment>settings tab, node section, title</extracomment>
+        <translation>Узел</translation>
     </message>
-    <message id="settings-general-allow-beammw-label-p3">
-        <source> (Exchanges and news feed)</source>
-        <extracomment>general settings, label for alow access beam.mw part 3</extracomment>
-        <translation> (Обменники и новости)</translation>
+    <message id="settings-remote-node-ip-port-error">
+        <source>Invalid address</source>
+        <extracomment>settings tab, node section, on address error</extracomment>
+        <translation>Неправильный адрес</translation>
+    </message>
+    <message id="settings-wallet-location-link">
+        <source>show in folder</source>
+        <extracomment>settings tab, general section, show data folder link</extracomment>
+        <translation>открыть папку</translation>
+    </message>
+    <message id="settings-general-allow-beammw-label">
+        <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Allow access to &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; and &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;blockchain explorer&lt;/a&gt; (to fetch exchanges and transaction data)</source>
+        <extracomment>general settings, label for alow open external links</extracomment>
+        <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Разрешить доступ к &lt;a href=&apos;https://www.beam.mw/&apos;&gt;beam.mw&lt;/a&gt; и &lt;a href=&apos;https://explorer.beam.mw/&apos;&gt;блокчейн эксплореру&lt;/a&gt; (обменники и информация о транзакциях)</translation>
+    </message>
+    <message id="settings-report-problem-message">
+        <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Don’t forget to attach logs archive</source>
+        <extracomment>settings tab, report problem section, message</extracomment>
+        <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;Что бы сообщить о проблеме:&lt;br /&gt;1. Нажмите “сохранить лог” и укажите куда сохранить архив&lt;br /&gt;2. Отправьте письмо на &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; или сообщите на &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Не забудьте прикрепить архив</translation>
+    </message>
+    <message id="edit-addr-24-option">
+        <source>in 24 hours from now</source>
+        <extracomment>Edit address dialog, expiration option, in 24 hours from now</extracomment>
+        <translation>еще 24 часа</translation>
+    </message>
+    <message id="edit-addr-never-option">
+        <source>never</source>
+        <extracomment>Edit address dialog, expiration option, never</extracomment>
+        <translation>бессрочно</translation>
+    </message>
+    <message id="edit-addr-as-is-option">
+        <source>within 24 hours</source>
+        <extracomment>Edit address dialog, expiration option, do not change</extracomment>
+        <translation>в течении 24 часов</translation>
+    </message>
+    <message id="edit-addr-expires-label">
+        <source>Expires</source>
+        <extracomment>Edit addres dialog, expires label</extracomment>
+        <translation>Годен</translation>
+    </message>
+    <message id="edit-addr-expire-now-label">
+        <source>now</source>
+        <extracomment>Edit addres dialog, expire now label</extracomment>
+        <translation>до текущего времени</translation>
+    </message>
+    <message id="edit-addr-expire-now-switch">
+        <source>Expire address now</source>
+        <extracomment>Edit addres dialog, expire now switch</extracomment>
+        <translation>Деактивировать</translation>
+    </message>
+    <message id="edit-addr-expiration-time-label">
+        <source>Expired on </source>
+        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <translation>Активен до </translation>
+    </message>
+    <message id="edit-addr-activate-addr-switch">
+        <source>Activate address</source>
+        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <translation>Активировать адрес</translation>
+    </message>
+    <message id="time-never">
+        <source>never</source>
+        <extracomment>time never string</extracomment>
+        <translation>бессрочно</translation>
+    </message>
+    <message id="start-pwd-difficulty-very-weak">
+        <source>Very weak password</source>
+        <extracomment>set passwort, difficulty message, very weak</extracomment>
+        <translation>Очень легкий пароль</translation>
+    </message>
+    <message id="start-pwd-difficulty-weak">
+        <source>Weak password</source>
+        <extracomment>set passwort, difficulty message, weak</extracomment>
+        <translation>Легкий пароль</translation>
+    </message>
+    <message id="start-pwd-difficulty-medium">
+        <source>Medium strength password</source>
+        <extracomment>set passwort, difficulty message, medium</extracomment>
+        <translation>Нормальный пароль</translation>
+    </message>
+    <message id="start-pwd-difficulty-strong">
+        <source>Strong password</source>
+        <extracomment>set passwort, difficulty message, strong</extracomment>
+        <translation>Хороший пароль</translation>
+    </message>
+    <message id="start-pwd-difficulty-very-strong">
+        <source>Very strong password</source>
+        <extracomment>set passwort, difficulty message, very strong</extracomment>
+        <translation>Очень хороший пароль</translation>
     </message>
 </context>
 </TS>

@@ -264,6 +264,14 @@ namespace beam::wallet
     TxID Wallet::swap_coins(const WalletID& from, const WalletID& to, Amount amount, Amount fee, AtomicSwapCoin swapCoin,
         Amount swapAmount, bool isBeamSide/*=true*/, Height lifetime/* = kDefaultTxLifetime*/, Height responseTime/* = kDefaultTxResponseTime*/)
     {
+        auto receiverAddr = m_WalletDB->getAddress(to);
+
+        if (receiverAddr && receiverAddr->m_OwnID)
+        {
+            LOG_INFO() << "Failed to initiate the atomic swap. Not able to use own address as receiver's.";
+            throw FailToStartSwapException();
+        }
+
         auto txID = GenerateTxID();
         auto tx = constructTransaction(txID, TxType::AtomicSwap);
 

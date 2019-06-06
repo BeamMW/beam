@@ -16,6 +16,7 @@
 
 #include "bitcoin/bitcoin.hpp"
 #include "nlohmann/json.hpp"
+#include "utility/logger.h"
 
 using json = nlohmann::json;
 
@@ -28,6 +29,8 @@ namespace beam
 
     void Bitcoind017::signRawTransaction(const std::string& rawTx, std::function<void(const IBitcoinBridge::Error&, const std::string&, bool)> callback)
     {
+        LOG_DEBUG() << "Send to Bitcoind signrawtransactionwithwallet command";
+
         sendRequest("signrawtransactionwithwallet", "\"" + rawTx + "\"", [callback](IBitcoinBridge::Error error, const std::string& response) {
             std::string hex;
             bool isComplete = false;
@@ -69,6 +72,8 @@ namespace beam
         Timestamp locktime,
         std::function<void(const IBitcoinBridge::Error&, const std::string&)> callback)
     {
+        LOG_DEBUG() << "Send to Bitcoind createRawTransaction command";
+
         std::string args("[{\"txid\": \"" + contractTxId + "\", \"vout\":" + std::to_string(outputIndex) + ", \"Sequence\": " + std::to_string(libbitcoin::max_input_sequence - 1) + " }]");
 
         args += ",[{\"" + withdrawAddress + "\": " + std::to_string(double(amount) / libbitcoin::satoshi_per_bitcoin) + "}]";
