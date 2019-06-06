@@ -350,8 +350,7 @@ namespace beam::wallet
                 }
             };
             m_bitcoinBridge->createRawTransaction(withdrawAddress, swapLockTxID, swapAmount, outputIndex, locktime, callback);
-            m_tx.SetState(SwapTxState::CreatingTx, subTxID);
-            return SwapTxState::CreatingTx;
+            return swapTxState;
         }
 
         if (swapTxState == SwapTxState::CreatingTx)
@@ -539,6 +538,7 @@ namespace beam::wallet
         if (!m_SwapWithdrawRawTx.is_initialized())
         {
             m_SwapWithdrawRawTx = hexTx;
+            m_tx.SetState(SwapTxState::CreatingTx, subTxID);
             m_tx.UpdateAsync();
         }
     }
