@@ -308,18 +308,32 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(syncWithNode)(JNIEnv *env, job
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendMoney)(JNIEnv *env, jobject thiz,
-    jstring receiverAddr, jstring comment, jlong amount, jlong fee)
+    jstring senderAddr, jstring receiverAddr, jstring comment, jlong amount, jlong fee)
 {
-    LOG_DEBUG() << "sendMoney(" << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
+    LOG_DEBUG() << "sendMoney(" << JString(env, senderAddr).value() << ", " << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
 
-    WalletID walletID(Zero);
-    walletID.FromHex(JString(env, receiverAddr).value());
+    WalletID receiverID(Zero);
+    receiverID.FromHex(JString(env, receiverAddr).value());
 
-    // TODO: show 'operation in process' animation here?
-    walletModel->getAsync()->sendMoney(walletID
-        , JString(env, comment).value()
-        , beam::Amount(amount)
-        , beam::Amount(fee));
+    auto sender = JString(env, senderAddr).value();
+
+    if (sender.empty())
+    {
+        walletModel->getAsync()->sendMoney(receiverID
+            , JString(env, comment).value()
+            , beam::Amount(amount)
+            , beam::Amount(fee));
+    }
+    else
+    {
+        WalletID senderID(Zero);
+        senderID.FromHex(sender);
+
+        walletModel->getAsync()->sendMoney(senderID, receiverID
+            , JString(env, comment).value()
+            , beam::Amount(amount)
+            , beam::Amount(fee));
+    }
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(calcChange)(JNIEnv *env, jobject thiz,

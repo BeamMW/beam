@@ -55,6 +55,14 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         });
     }
 
+    void sendMoney(const beam::WalletID& senderID, const beam::WalletID& receiverID, const std::string& comment, beam::Amount&& amount, beam::Amount&& fee) override
+    {
+        tx.send([senderID, receiverID, comment, amount{ move(amount) }, fee{ move(fee) }](BridgeInterface& receiver_) mutable
+        {
+            receiver_.sendMoney(senderID, receiverID, comment, move(amount), move(fee));
+        });
+    }
+
     void syncWithNode() override
     {
         tx.send([](BridgeInterface& receiver_) mutable
