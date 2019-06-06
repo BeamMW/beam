@@ -301,6 +301,10 @@ private:
         return _body.data();
     }
 
+    int get_status() const override {
+        return response_status;
+    }
+
 public:
     std::vector<uint8_t> _body;
     size_t _bodyCursor=0;

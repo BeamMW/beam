@@ -45,8 +45,8 @@ void testSuccessResponse()
     BitcoinOptions options;
 
     options.m_address = addr;
-    options.m_userName = "Alice";
-    options.m_pass = "123";
+    options.m_userName = btcUserName;
+    options.m_pass = btcPass;
 
     Bitcoind016 bridge(*reactor, options);
 
@@ -111,6 +111,36 @@ void testSuccessResponse()
     reactor->run();
 }
 
+void testWrongCredentials()
+{
+    io::Reactor::Ptr reactor = io::Reactor::create();
+    io::Timer::Ptr timer(io::Timer::create(*reactor));
+    io::Reactor::Scope scope(*reactor);
+
+    timer->start(5000, false, [&reactor]() {
+        reactor->stop();
+    });
+
+    BitcoinHttpServer httpServer("Bob", "123");
+
+    io::Address addr(io::Address::localhost(), PORT);
+    BitcoinOptions options;
+
+    options.m_address = addr;
+    options.m_userName = btcUserName;
+    options.m_pass = btcPass;
+
+    Bitcoind016 bridge(*reactor, options);
+
+    bridge.getBlockCount([](const IBitcoinBridge::Error& error, uint64_t blocks)
+    {
+        WALLET_CHECK(error.m_type == IBitcoinBridge::InvalidCredentials);
+        WALLET_CHECK(blocks == 0);
+    });
+
+    reactor->run();
+}
+
 int main()
 {
     int logLevel = LOG_LEVEL_DEBUG;
@@ -120,5 +150,8 @@ int main()
     auto logger = beam::Logger::create(logLevel, logLevel);
 
     testSuccessResponse();
-    return 0;
+    testWrongCredentials();
+
+    assert(g_failureCount == 0);
+    return WALLET_CHECK_RESULT;
 }

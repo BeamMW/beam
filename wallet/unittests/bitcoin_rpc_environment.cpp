@@ -20,18 +20,35 @@
 #include "utility/helpers.h"
 #include "nlohmann/json.hpp"
 
+#include "3rdparty/libbitcoin/include/bitcoin/bitcoin.hpp"
+
 const uint16_t PORT = 13300;
+const std::string btcUserName = "Alice";
+const std::string btcPass = "123";
 
 using namespace beam;
 using json = nlohmann::json;
 
+namespace
+{
+    // TODO roman.strilec: temporary solution
+    std::string generateAuthorization(const std::string& userName, const std::string& pass)
+    {
+        std::string userWithPass(userName + ":" + pass);
+        libbitcoin::data_chunk t(userWithPass.begin(), userWithPass.end());
+        return std::string("Basic " + libbitcoin::encode_base64(t));
+    }
+}
+
 class BitcoinHttpServer
 {
 public:
-    BitcoinHttpServer()
+    BitcoinHttpServer(const std::string& userName = btcUserName, const std::string& pass = btcPass)
         : m_reactor(io::Reactor::get_Current())
         , m_msgCreator(1000)
         , m_lastId(0)
+        , m_userName(userName)
+        , m_pass(pass)
     {
         m_server = io::TcpServer::create(
             m_reactor,
@@ -119,18 +136,28 @@ private:
             {"Server", "BitcoinHttpServer"}
         };
 
-        size_t sz = 0;
-        const void* rawReq = msg.msg->get_body(sz);
         std::string result;
-        if (sz > 0 && rawReq)
+        int responseStatus = 200;
+
+        if (msg.msg->get_header("Authorization") == generateAuthorization(m_userName, m_pass))
         {
-            std::string str(static_cast<const char*>(rawReq), sz);
-            result = generateResponse(str);
+            size_t sz = 0;
+            const void* rawReq = msg.msg->get_body(sz);
+
+            if (sz > 0 && rawReq)
+            {
+                std::string str(static_cast<const char*>(rawReq), sz);
+                result = generateResponse(str);
+            }
+            else
+            {
+                LOG_ERROR() << "Request is wrong";
+                stopServer();
+            }
         }
         else
         {
-            LOG_ERROR() << "Request is wrong";
-            stopServer();
+            responseStatus = 401;
         }
 
         io::SharedBuffer body;
@@ -139,7 +166,7 @@ private:
         io::SerializedMsg serialized;
 
         if (m_connections[peerId] && m_msgCreator.create_response(
-            serialized, 200, message, headers, sizeof(headers) / sizeof(HeaderPair),
+            serialized, responseStatus, message, headers, sizeof(headers) / sizeof(HeaderPair),
             1, "text/plain", body.size))
         {
             serialized.push_back(body);
@@ -192,4 +219,6 @@ private:
     std::map<uint64_t, HttpConnection::Ptr> m_connections;
     HttpMsgCreator m_msgCreator;
     uint64_t m_lastId;
+    std::string m_userName;
+    std::string m_pass;
 };

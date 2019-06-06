@@ -445,6 +445,9 @@ namespace beam::wallet
         case IBitcoinBridge::IOError:
             m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapNetworkBridgeError, false, subTxID);
             break;
+        case IBitcoinBridge::InvalidCredentials:
+            m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::InvalidCredentialsOfSideChain, false, subTxID);
+            break;
         default:
             m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapSecondSideBridgeError, false, subTxID);
         }
