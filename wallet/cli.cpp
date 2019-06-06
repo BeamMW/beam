@@ -127,11 +127,8 @@ namespace beam
         static const char* Completed = "completed";
         static const char* Cancelled = "cancelled";
         static const char* Aborted = "aborted";
-
-        if (tx.m_status == TxStatus::Failed)
-        {
-            return getTxStatus(tx);
-        }
+        static const char* Failed = "failed";
+        static const char* Expired = "expired";
 
         wallet::AtomicSwapTransaction::State state = wallet::AtomicSwapTransaction::State::CompleteSwap;
         storage::getTxParameter(*walletDB, tx.m_txId, wallet::TxParameterID::State, state);
@@ -166,6 +163,13 @@ namespace beam
             return Cancelled;
         case wallet::AtomicSwapTransaction::State::Refunded:
             return Aborted;
+        case wallet::AtomicSwapTransaction::State::Failed:
+        {
+            TxFailureReason reason = TxFailureReason::Unknown;
+            storage::getTxParameter(*walletDB, tx.m_txId, wallet::TxParameterID::InternalFailureReason, reason);
+
+            return TxFailureReason::TransactionExpired == reason ? Expired : Failed;
+        }
         default:
             assert(false && "Unexpected status");
         }
