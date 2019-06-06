@@ -125,50 +125,27 @@ namespace beam::wallet
 
     bool BaseTxBuilder::CreateOutputs()
     {
-        m_Outputs = m_Tx.GetKeyKeeper()->GenerateOutputsSync(m_MinHeight, m_OutputCoins);
-        FinalizeOutputs();
-        return false; // true if async operation has run
+        if (GetOutputs() || GetOutputCoins().empty())
+        {
+            return false;
+        }
 
-        //auto thisHolder = shared_from_this();
-        //m_Tx.GetKeyKeeper()->GenerateKey(m_OutputCoins, true,
-        //    [thisHolder, this](auto& result)
-        //    {
-        //        m_Outputs.reserve(result.size());
-        //        for (const auto& commitment : result)
-        //        {
-        //            auto& output = m_Outputs.emplace_back(make_unique<Output>());
-        //            output->m_Commitment = commitment;
-        //        }
-
-        //        m_Tx.GetKeyKeeper()->GenerateRangeProof(m_OutputCoins,
-        //            [thisHolder, this](auto & result)
-        //            {
-        //                if (result.size() != m_Outputs.size())
-        //                {
-        //                    return;
-        //                }
-
-        //                for (size_t i = 0; i < result.size(); ++i)
-        //                {
-        //                    m_Outputs[i]->m_pConfidential = move(result[i]);
-        //                }
-
-
-        //                FinalizeOutputs();
-        //                m_Tx.Update();
-        //            },
-        //            [thisHolder, this](const exception&)
-        //            {
-        //                //m_Tx.Update();
-        //            });
-
-        //        //FinalizeOutputs();
-        //        //m_Tx.Update();
-        //    },
-        //    [thisHolder, this](const exception&)
-        //    {
-        //        //m_Tx.Update();
-        //    });
+        auto thisHolder = shared_from_this();
+        m_Tx.GetAsyncAcontext().OnAsyncStarted();
+        m_Tx.GetKeyKeeper()->GenerateOutputs(m_MinHeight, m_OutputCoins,
+            [thisHolder, this](auto&& result)
+            {
+                m_Outputs = move(result);
+                FinalizeOutputs();
+                m_Tx.Update();
+                m_Tx.GetAsyncAcontext().OnAsyncFinished();
+            },
+            [thisHolder, this](const exception&)
+            {
+                //m_Tx.Update();
+                m_Tx.GetAsyncAcontext().OnAsyncFinished();
+            });
+        return true;// true if async
     }
 
     bool BaseTxBuilder::FinalizeOutputs()
@@ -632,5 +609,4 @@ namespace beam::wallet
     {
         return m_OutputCoins;
     }
-
 }

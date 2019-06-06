@@ -221,8 +221,8 @@ IWalletDB::Ptr createSqliteWalletDB(const string& path, bool separateDBForPrivat
 {
     if (boost::filesystem::exists(path))
     {
-        boost::filesystem::remove(path);
-    }
+            boost::filesystem::remove(path);
+        }
     if (separateDBForPrivateData)
     {
         string privatePath = path + ".private";

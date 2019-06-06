@@ -1008,10 +1008,9 @@ namespace
             boost::filesystem::copy_file(ReceiverWalletDB, publicPath);
 
             auto publicDB = WalletDB::open(publicPath, DBPassword, io::Reactor::get_Current().shared_from_this());
-            TestWalletRig publicReceiver("public_receiver", publicDB, f, false, true);
+            TestWalletRig publicReceiver("public_receiver", publicDB, f);
 
             mainReactor->run();
-            mainReactor->run(); // to allow receiver complete this transaction
         }
 
         // hot -> cold
