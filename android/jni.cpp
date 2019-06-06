@@ -492,6 +492,13 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(changeNodeAddress)(JNIEnv *env
     walletModel->getAsync()->setNodeAddress(addr);
 }
 
+JNIEXPORT jstring JNICALL BEAM_JAVA_WALLET_INTERFACE(exportOwnerKey)(JNIEnv *env, jobject thiz,
+    jstring pass)
+{
+    std::string ownerKey = walletModel->exportOwnerKey(JString(env, pass).value());
+    return env->NewStringUTF(ownerKey.c_str());
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv *env;

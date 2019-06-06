@@ -54,6 +54,7 @@ namespace beam::wallet
 
         IWalletModelAsync::Ptr getAsync();
         std::string getNodeAddress() const;
+        std::string exportOwnerKey(const beam::SecString& pass) const;
         bool isRunning() const;
 
     protected:

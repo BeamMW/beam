@@ -41,6 +41,7 @@ public class Wallet
     public native PaymentInfoDTO verifyPaymentInfo(String paymentInfo);
     public native void getCoinsByTx(String txID);
     public native void changeNodeAddress(String address);
+    public native String exportOwnerKey(String pass);
 
     // not implemented
     public native void changeCurrentWalletIDs(); //const beam::WalletID& senderID, const beam::WalletID& receiverID);
