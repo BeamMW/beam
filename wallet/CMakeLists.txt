@@ -48,8 +48,8 @@ if (NOT ANDROID)
             ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src/messages/messages-beam.pb.cc
         )
 
-        add_dependencies(hw_wallet core)
-        target_link_libraries(hw_wallet core)
+        add_dependencies(hw_wallet core libprotobuf libcurl)
+        target_link_libraries(hw_wallet core libprotobuf libcurl)
 
         if(MSVC)
             target_compile_options(hw_wallet PRIVATE "/wd4125")
@@ -63,8 +63,22 @@ if (NOT ANDROID)
         target_include_directories(hw_wallet PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src/messages)
         target_include_directories(hw_wallet PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/curl/include)
         target_include_directories(hw_wallet PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/protobuf/src)
-        add_dependencies(wallet hw_wallet libprotobuf libcurl)
-        target_link_libraries(wallet hw_wallet libprotobuf libcurl)
+        add_dependencies(wallet hw_wallet)
+        target_link_libraries(wallet hw_wallet)
+
+        # build trezor usage demo
+        add_executable(trezor-cpp-client ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/main.cpp)
+        if(MSVC)
+            target_compile_options(trezor-cpp-client PRIVATE "/wd4125")
+            target_compile_options(trezor-cpp-client PRIVATE "/wd4127")
+            target_compile_options(trezor-cpp-client PRIVATE "/wd4244")
+            target_compile_options(trezor-cpp-client PRIVATE "/wd4996")
+        endif()
+        target_include_directories(trezor-cpp-client PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src)
+        target_include_directories(trezor-cpp-client PRIVATE ${PROJECT_SOURCE_DIR}/3rdparty/trezor-cpp-client/src/messages)
+
+        add_dependencies(trezor-cpp-client hw_wallet)
+        target_link_libraries(trezor-cpp-client hw_wallet)
 
     endif()
 

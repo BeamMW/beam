@@ -59,13 +59,13 @@ namespace beam
                     enumerate.session = "null";
                 }
 
-                m_trezor->callback_Failure([&](const Message &msg, size_t queue_size) 
+                m_trezor->callback_Failure([&](const Message &msg, std::string session, size_t queue_size)
                 {
                     // !TODO: handle errors here
                     LOG_ERROR() << "FAIL REASON: " << child_cast<Message, Failure>(msg).message();
                 });
 
-                m_trezor->callback_Success([&](const Message &msg, size_t queue_size) 
+                m_trezor->callback_Success([&](const Message &msg, std::string session, size_t queue_size)
                 {
                     LOG_INFO() << "SUCCESS: " << child_cast<Message, Success>(msg).message();
                 });
@@ -95,7 +95,7 @@ namespace beam
                 m_runningFlag.test_and_set();
                 std::string result;
 
-                m_trezor->call_BeamGetOwnerKey(true, [&m_runningFlag, &result](const Message &msg, size_t queue_size)
+                m_trezor->call_BeamGetOwnerKey(true, [&m_runningFlag, &result](const Message &msg, std::string session, size_t queue_size)
                 {
                     result = child_cast<Message, hw::trezor::messages::beam::BeamOwnerKey>(msg).key();
                     m_runningFlag.clear();
@@ -119,9 +119,9 @@ namespace beam
                 m_runningFlag.test_and_set();
                 ECC::Point result;
 
-                m_trezor->call_BeamGenerateNonce(slot, [&m_runningFlag, &result](const Message &msg, size_t queue_size)
+                m_trezor->call_BeamGenerateNonce(slot, [&m_runningFlag, &result](const Message &msg, std::string session, size_t queue_size)
                 {
-                    result.m_X = beam::Blob(child_cast<Message, hw::trezor::messages::beam::BeamECCImage>(msg).image_x().c_str(), 32);
+                    result.m_X = beam::Blob(child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).x().c_str(), 32);
                     result.m_Y = 0;
                     m_runningFlag.clear();
                 });
@@ -144,9 +144,9 @@ namespace beam
                 m_runningFlag.test_and_set();
                 std::string result;
 
-                m_trezor->call_BeamGenerateKey(idv.m_Idx, idv.m_Type, idv.m_SubIdx, idv.m_Value, isCoinKey, [&m_runningFlag, &result](const Message &msg, size_t queue_size)
+                m_trezor->call_BeamGenerateKey(idv.m_Idx, idv.m_Type, idv.m_SubIdx, idv.m_Value, isCoinKey, [&m_runningFlag, &result](const Message &msg, std::string session, size_t queue_size)
                 {
-                    result = to_hex(reinterpret_cast<const uint8_t*>(child_cast<Message, hw::trezor::messages::beam::BeamPublicKey>(msg).pub_x().c_str()), 32);
+                    result = to_hex(reinterpret_cast<const uint8_t*>(child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).x().c_str()), 32);
                     m_runningFlag.clear();
                 });
 
