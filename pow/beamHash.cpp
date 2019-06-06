@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "core/block_crypt.h"
-#include "crypto/equihash.h"
+#include "crypto/beamHash.h"
 #include "uint256.h"
 #include "arith_uint256.h"
 #include <utility>
@@ -26,11 +26,21 @@ namespace beam
 struct Block::PoW::Helper
 {
 	blake2b_state m_Blake;
-	Equihash<Block::PoW::N, Block::PoW::K> m_Eh;
 
-	void Reset(const void* pInput, uint32_t nSizeInput, const NonceType& nonce)
+	BeamHash<150,5,0> BeamHashI;
+	BeamHash<150,5,3> BeamHashII;
+
+	PoWScheme* getCurrentPoW(uint32_t height) {
+		if (height < Rules::get().pForks[1].m_Height) {
+			return &BeamHashI;
+		} else {
+			return &BeamHashII;
+		}
+	}
+
+	void Reset(const void* pInput, uint32_t nSizeInput, const NonceType& nonce, uint32_t height)
 	{
-		m_Eh.InitialiseState(m_Blake);
+		getCurrentPoW(height)->InitialiseState(m_Blake);
 
 		// H(I||...
 		blake2b_update(&m_Blake, (uint8_t*) pInput, nSizeInput);
@@ -46,7 +56,7 @@ struct Block::PoW::Helper
 	}
 };
 
-bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, const Cancel& fnCancel)
+bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, uint32_t blockHeight, const Cancel& fnCancel)
 {
 	Helper hlp;
 
@@ -60,20 +70,20 @@ bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, const Cancel& fn
         };
 
 
-    std::function<bool(EhSolverCancelCheck)> fnCancelInternal = [fnCancel](EhSolverCancelCheck pos) {
+    std::function<bool(BhSolverCancelCheck)> fnCancelInternal = [fnCancel](BhSolverCancelCheck pos) {
         return fnCancel(false);
     };
 
     while (true)
     {
-		hlp.Reset(pInput, nSizeInput, m_Nonce);
+		hlp.Reset(pInput, nSizeInput, m_Nonce, blockHeight);
 
 		try {
 
-			if (hlp.m_Eh.OptimisedSolve(hlp.m_Blake, fnValid, fnCancelInternal))
+			if (hlp.getCurrentPoW(blockHeight)->OptimisedSolve(hlp.m_Blake, fnValid, fnCancelInternal))
 				break;
 
-		} catch (const EhSolverCancelledException&) {
+		} catch (const BhSolverCancelledException&) {
 			return false;
 		}
 
@@ -86,14 +96,14 @@ bool Block::PoW::Solve(const void* pInput, uint32_t nSizeInput, const Cancel& fn
     return true;
 }
 
-bool Block::PoW::IsValid(const void* pInput, uint32_t nSizeInput) const
+bool Block::PoW::IsValid(const void* pInput, uint32_t nSizeInput, uint32_t blockHeight) const
 {
 	Helper hlp;
-	hlp.Reset(pInput, nSizeInput, m_Nonce);
+	hlp.Reset(pInput, nSizeInput, m_Nonce, blockHeight);
 
 	std::vector<uint8_t> v(m_Indices.begin(), m_Indices.end());
     return
-		hlp.m_Eh.IsValidSolution(hlp.m_Blake, v) &&
+		hlp.getCurrentPoW(blockHeight)->IsValidSolution(hlp.m_Blake, v) &&
 		hlp.TestDifficulty(&m_Indices.front(), (uint32_t) m_Indices.size(), m_Difficulty);
 }
 

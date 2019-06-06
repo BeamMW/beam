@@ -54,8 +54,9 @@ IExternalPOW::BlockFoundResult got_new_block() {
     IExternalPOW::BlockFoundResult result = IExternalPOW::solution_rejected;
     if (server) {
         std::string blockId;
-        server->get_last_found_block(blockId, POW);
-        if (POW.IsValid(hash.m_pData, 32)) {
+	uint32_t blockHeight;
+        server->get_last_found_block(blockId, blockHeight, POW);
+        if (POW.IsValid(hash.m_pData, 32, blockHeight)) {
             LOG_INFO() << "got valid block" << TRACE(blockId);
             result = IExternalPOW::solution_accepted;
         }

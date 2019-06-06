@@ -195,6 +195,7 @@ void Server::new_job(
 ) {
     _recentJob.id = id;
     _recentResult.onBlockFound = callback;
+    _recentResult.height = height;	
 
     LOG_INFO() << STS << "new job " << id << " will be sent to " << _connections.size() << " connected peers";
 
@@ -217,8 +218,9 @@ void Server::new_job(
     // TODO job cancel policy - timer
 }
 
-void Server::get_last_found_block(std::string& jobID, Block::PoW& pow) {
+void Server::get_last_found_block(std::string& jobID, uint32_t& jobHeight, Block::PoW& pow) {
     jobID = _recentResult.id;
+    jobHeight = _recentResult.height;	
     pow = _recentResult.pow;
 }
 
