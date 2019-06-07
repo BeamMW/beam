@@ -122,15 +122,15 @@ Dialog {
 				font.weight: Font.Bold
 			}
 
-			SFText {
+			SFLabel {
 				id: addressID
-
 				Layout.preferredWidth: parent.width
-                enabled: false
 				font.pixelSize: 14
 				color: Style.content_secondary
                 text: addressItem ? addressItem.address : ""
 				elide: Text.ElideLeft
++				copyMenuEnabled: true
++				onCopyText: parentModel.copyToClipboard(text)
 			}
     	}
 
