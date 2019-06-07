@@ -192,7 +192,7 @@ namespace beam::wallet
     ECC::Point LocalPrivateKeyKeeper::GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey)
     {
         Scalar::Native secretKey;
-        Point publicKey = Zero;
+        Point publicKey;
 
         if (createCoinKey)
         {
