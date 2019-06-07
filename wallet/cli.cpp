@@ -653,7 +653,7 @@ namespace
                 bool isBeamSide = false;
                 storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
 
-                AtomicSwapCoin swapCoin;
+                AtomicSwapCoin swapCoin = AtomicSwapCoin::Unknown;
                 storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapCoin, swapCoin);
 
                 stringstream ss;
@@ -696,7 +696,12 @@ namespace
 
     int TxDetails(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
     {
-        auto txIdVec = from_hex(vm[cli::TX_ID].as<string>());
+        auto txIdStr = vm[cli::TX_ID].as<string>();
+        if (txIdStr.empty()) {
+            LOG_ERROR() << "Failed, --tx_id param reqired";
+            return -1;
+        }
+        auto txIdVec = from_hex(txIdStr);
         TxID txId;
         if (txIdVec.size() >= 16)
             std::copy_n(txIdVec.begin(), 16, txId.begin());
@@ -704,12 +709,14 @@ namespace
         auto tx = walletDB->getTx(txId);
         if (!tx)
         {
-            LOG_ERROR() << "Failed, transaction does not exist.";
+            LOG_ERROR() << "Failed, transaction with id: "
+                        << txIdStr
+                        << " does not exist.";
             return -1;
         }
 
-        LOG_INFO() << "Transaction details:";
-        LOG_INFO() << storage::TxDetailsInfo(walletDB, txId);
+        LOG_INFO() << "Transaction details:\n"
+                   << storage::TxDetailsInfo(walletDB, txId);
 
         return 0;
     }

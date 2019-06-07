@@ -17,8 +17,12 @@ Window  {
             
         }
         else {
-            appWindow.width = Math.min(1024, Screen.desktopAvailableWidth - 10);
-            appWindow.height = Math.min(867, Screen.desktopAvailableHeight - 80);
+            var minWidth = Math.min(1024, Screen.desktopAvailableWidth - 10);
+            var minHeight = Math.min(867, Screen.desktopAvailableHeight - 80);
+            appWindow.minimumWidth = minWidth;
+            appWindow.minimumHeight = minHeight;
+            appWindow.width = minWidth;
+            appWindow.height = minHeight;
         }
     }
  

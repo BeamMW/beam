@@ -491,11 +491,11 @@
     </message>
     <message id="wallet-receive-expires-label">
         <source>Expires:</source>
-        <translation>Действителен до:</translation>
+        <translation>Истекает:</translation>
     </message>
     <message id="wallet-receive-expires-24">
         <source>24 hours</source>
-        <translation>24 часа</translation>
+        <translation>через 24 часа</translation>
     </message>
     <message id="wallet-receive-expires-never">
         <source>never</source>
@@ -1055,11 +1055,11 @@
     </message>
     <message id="wallet-txs-status-waiting-sender">
         <source>waiting for sender</source>
-        <translation>ожидает отправителя</translation>
+        <translation>ждем отправителя</translation>
     </message>
     <message id="wallet-txs-status-waiting-receiver">
         <source>waiting for receiver</source>
-        <translation>ожидает получателя</translation>
+        <translation>ждем получателя</translation>
     </message>
     <message id="wallet-txs-status-receiving">
         <source>receiving</source>
