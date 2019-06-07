@@ -129,8 +129,8 @@ Dialog {
 				color: Style.content_secondary
                 text: addressItem ? addressItem.address : ""
 				elide: Text.ElideLeft
-+				copyMenuEnabled: true
-+				onCopyText: parentModel.copyToClipboard(text)
+				copyMenuEnabled: true
+				onCopyText: parentModel.copyToClipboard(text)
 			}
     	}
 
