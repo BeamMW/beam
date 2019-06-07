@@ -271,6 +271,27 @@ QString AddressBookViewModel::getLocaleName()
     return settings.getLocale();
 }
 
+bool AddressBookViewModel::isAddressWithCommentExist(const QString& comment) const
+{
+    if (comment.isEmpty())
+    {
+        return false;
+    }
+    for (const auto& it: m_activeAddresses)
+    {
+        if (it->getName() == comment) {
+            return true;
+        }
+    }
+    for (const auto& it: m_expiredAddresses)
+    {
+        if (it->getName() == comment) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void AddressBookViewModel::onStatus(const beam::wallet::WalletStatus&)
 {
     getAddressesFromModel();

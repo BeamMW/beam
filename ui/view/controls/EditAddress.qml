@@ -17,6 +17,7 @@ Dialog {
 		qsTrId("edit-addr-never-option")
 	]
     property bool isExpiredAddress: false
+	property bool isAddressWithCommentExist: false
     property var addressItem: null
 	property var isNeverExpired: function() {
 		return addressItem ? addressItem.neverExpired : false;
@@ -304,6 +305,10 @@ Dialog {
 				font.pixelSize: 14
 				color: Style.content_main
                 text: addressItem ? addressItem.name : ""
+				onTextEdited: {
+					rootControl.isAddressWithCommentExist =
+						parentModel.isAddressWithCommentExist(addressName.text);
+				}
 			}
     	}
 
@@ -342,17 +347,20 @@ Dialog {
                 icon.source: "qrc:/assets/icon-done.svg"
                 enabled: {
 					if (rootControl.isExpiredAddress) {
-						return activate.checked
-							|| (addressItem
-								&& addressItem.name != addressName.text);
+						return (activate.checked
+								|| (addressItem
+									&& addressItem.name != addressName.text))
+							&& !rootControl.isAddressWithCommentExist;
 					} else {
-						return disactivate.checked
-							|| (expirationOptionsForActive.currentIndex != 0
-								&& !isNeverExpired())
-							|| (expirationOptionsForActive.currentIndex != 1
-								&& isNeverExpired())
-							|| (addressItem
-								&& addressItem.name != addressName.text);
+						return (disactivate.checked
+								&& !rootControl.isAddressWithCommentExist
+								|| (expirationOptionsForActive.currentIndex != 0
+									&& !isNeverExpired())
+								|| (expirationOptionsForActive.currentIndex != 1
+									&& isNeverExpired())
+								|| (addressItem
+									&& addressItem.name != addressName.text))
+							&& !rootControl.isAddressWithCommentExist;
 					}
                 }
                 onClicked: {
