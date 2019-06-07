@@ -136,17 +136,17 @@ namespace beam
             }
         }
 
-        void generateKey(const ECC::Key::IDV& idv, bool isCoinKey, HWWallet::Result<std::string> callback)
+        void generateKey(const ECC::Key::IDV& idv, bool isCoinKey, HWWallet::Result<ECC::Scalar> callback)
         {
             if (m_trezor)
             {
                 std::atomic_flag m_runningFlag;
                 m_runningFlag.test_and_set();
-                std::string result;
+                ECC::Scalar result;
 
                 m_trezor->call_BeamGenerateKey(idv.m_Idx, idv.m_Type, idv.m_SubIdx, idv.m_Value, isCoinKey, [&m_runningFlag, &result](const Message &msg, std::string session, size_t queue_size)
                 {
-                    result = to_hex(reinterpret_cast<const uint8_t*>(child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).x().c_str()), 32);
+                    result.m_Value = beam::Blob(child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).x().data(), 32);
                     m_runningFlag.clear();
                 });
 
@@ -180,7 +180,7 @@ namespace beam
         m_impl->generateNonce(slot, callback);
     }
 
-    void HWWallet::generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<std::string> callback) const
+    void HWWallet::generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::Scalar> callback) const
     {
         m_impl->generateKey(idv, isCoinKey, callback);
     }
@@ -209,11 +209,11 @@ namespace beam
         return result;
     }
 
-    std::string HWWallet::generateKeySync(const ECC::Key::IDV& idv, bool isCoinKey) const
+    ECC::Scalar HWWallet::generateKeySync(const ECC::Key::IDV& idv, bool isCoinKey) const
     {
-        std::string result;
+        ECC::Scalar result;
 
-        generateKey(idv, isCoinKey, [&result](const std::string& key)
+        generateKey(idv, isCoinKey, [&result](const ECC::Scalar& key)
         {
             result = key;
         });

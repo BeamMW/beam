@@ -49,6 +49,10 @@
 #	pragma warning (pop)
 #endif
 
+#if defined(BEAM_HW_WALLET)
+#include "wallet/hw_wallet.h"
+#endif
+
 // Needed for test
 struct secp256k1_context_struct {
     secp256k1_ecmult_context ecmult_ctx;
@@ -1313,6 +1317,81 @@ struct IHWWallet
 	virtual bool SignTransaction(Scalar::Native& res, const TransactionData& tx) = 0;
 };
 
+//#if defined(BEAM_HW_WALLET)
+
+struct TrezorWallet
+    : IHWWallet
+{
+    beam::HWWallet m_trezor;
+
+    using AmountSigned = int64_t;
+
+    void Initialize()
+    {
+
+    }
+
+    void ResetNonce(Point::Native& res, uint32_t iSlot) override
+    {
+
+    }
+
+    // Add the blinding factor and value of a specific TXO
+    void SummarizeOnce(Scalar::Native& res, AmountSigned& dVal, const Key::IDV& kidv)
+    {
+        Scalar::Native sk = m_trezor.generateKeySync(kidv, false);
+
+        res += sk;
+        dVal += kidv.m_Value;
+    }
+
+    // Summarize blinding factors and values of several in/out TXOs
+    void Summarize(Scalar::Native& res, AmountSigned& dVal, const TransactionInOuts& tx)
+    {
+        res = -res;
+        dVal = -dVal;
+
+        for (uint32_t i = 0; i < tx.m_Outputs; i++)
+            SummarizeOnce(res, dVal, tx.m_pOutputs[i]);
+
+        res = -res;
+        dVal = -dVal;
+
+        for (uint32_t i = 0; i < tx.m_Inputs; i++)
+            SummarizeOnce(res, dVal, tx.m_pInputs[i]);
+    }
+
+    void SummarizeCommitment(Point::Native& res, const TransactionInOuts& tx) override
+    {
+        // Summarize (as above), but return only the commitment
+        Scalar::Native sk(Zero);
+        AmountSigned dVal = 0;
+        Summarize(sk, dVal, tx);
+
+        res = Context::get().G * sk;
+
+        if (dVal < 0)
+        {
+            res = -res;
+            res += Context::get().H * Amount(-dVal);
+            res = -res;
+        }
+        else
+            res += Context::get().H * Amount(dVal);
+    }
+
+    void CreateOutput(beam::Output& outp, const Key::IDV& kidv)  override
+    {
+    }
+
+    bool SignTransaction(Scalar::Native& res, const TransactionData& tx) override
+    {
+        return false;
+    }
+};
+
+//#endif
+
 struct HWWalletEmulator
 	:public IHWWallet
 {
@@ -1532,9 +1611,10 @@ struct MyWallet
 	}
 };
 
+template<typename HW>
 void TestTransactionHW()
 {
-	HWWalletEmulator hw1, hw2;
+    HW hw1, hw2;
 	hw1.Initialize();
 	hw2.Initialize();
 
@@ -2012,25 +2092,29 @@ void TestTreasury()
 
 void TestAll()
 {
-	TestUintBig();
-	TestHash();
-	TestScalars();
-	TestPoints();
-	TestSigning();
-	TestCommitments();
-	TestRangeProof(false);
-	TestRangeProof(true);
-	TestTransaction();
-	TestTransactionHW();
-    TestMultiSigOutput();
-	TestCutThrough();
-	TestAES();
-	TestKdf();
-	TestBbs();
-	TestDifficulty();
-	TestRandom();
-	TestFourCC();
-	TestTreasury();
+	 TestUintBig();
+	 TestHash();
+	 TestScalars();
+	 TestPoints();
+	 TestSigning();
+	 TestCommitments();
+	 TestRangeProof(false);
+	 TestRangeProof(true);
+	 TestTransaction();
+	TestTransactionHW<HWWalletEmulator>();
+
+#if defined(BEAM_HW_WALLET)
+    TestTransactionHW<TrezorWallet>();
+#endif
+     TestMultiSigOutput();
+	 TestCutThrough();
+	 TestAES();
+	 TestKdf();
+	 TestBbs();
+	 TestDifficulty();
+	 TestRandom();
+	 TestFourCC();
+	 TestTreasury();
 }
 
 

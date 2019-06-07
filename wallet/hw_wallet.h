@@ -30,11 +30,11 @@ namespace beam
 
         void getOwnerKey(Result<std::string> callback) const;
         void generateNonce(uint8_t slot, Result<ECC::Point> callback) const;
-        void generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<std::string> callback) const;
+        void generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::Scalar> callback) const;
 
         std::string getOwnerKeySync() const;
         ECC::Point generateNonceSync(uint8_t slot) const;
-        std::string generateKeySync(const ECC::Key::IDV& idv, bool isCoinKey) const;
+        ECC::Scalar generateKeySync(const ECC::Key::IDV& idv, bool isCoinKey) const;
 
     private:
         std::shared_ptr<HWWalletImpl> m_impl;
