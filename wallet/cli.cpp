@@ -653,7 +653,7 @@ namespace
                 bool isBeamSide = false;
                 storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
 
-                AtomicSwapCoin swapCoin;
+                AtomicSwapCoin swapCoin = AtomicSwapCoin::Unknown;
                 storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapCoin, swapCoin);
 
                 stringstream ss;
