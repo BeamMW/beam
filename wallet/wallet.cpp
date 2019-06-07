@@ -785,15 +785,15 @@ namespace beam::wallet
         const std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
 		for (size_t i = 0; i < v.size(); i++)
 		{
-			const proto::UtxoEvent& evt = v[i];
+			const auto& event = v[i];
 
 			// filter-out false positives
-			Scalar::Native sk;
-			Point comm;
-			m_WalletDB->calcCommitment(sk, comm, evt.m_Kidv);
-
-			if (comm == evt.m_Commitment)
-				ProcessUtxoEvent(evt);
+            if (m_KeyKeeper)
+            {
+                Point commitment = m_KeyKeeper->GeneratePublicKeySync(event.m_Kidv, true);
+			    if (commitment == event.m_Commitment)
+				    ProcessUtxoEvent(event);
+            }
 		}
 
 		if (r.m_Res.m_Events.size() < proto::UtxoEvent::s_Max)

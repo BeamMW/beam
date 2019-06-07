@@ -80,11 +80,11 @@ namespace beam::wallet
         LoadNonceSeeds();
     }
 
-    void LocalPrivateKeyKeeper::GenerateKey(const vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback)
+    void LocalPrivateKeyKeeper::GeneratePublicKeys(const vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback)
     {
         try
         {
-            resultCallback(GenerateKeySync(ids, createCoinKey));
+            resultCallback(GeneratePublicKeysSync(ids, createCoinKey));
         }
         catch (const exception & ex)
         {
@@ -164,7 +164,7 @@ namespace beam::wallet
 
     ////
 
-    IPrivateKeyKeeper::PublicKeys LocalPrivateKeyKeeper::GenerateKeySync(const std::vector<Key::IDV>& ids, bool createCoinKey)
+    IPrivateKeyKeeper::PublicKeys LocalPrivateKeyKeeper::GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey)
     {
         PublicKeys result;
         Scalar::Native secretKey;
@@ -187,6 +187,23 @@ namespace beam::wallet
             }
         }
         return result;
+    }
+
+    ECC::Point LocalPrivateKeyKeeper::GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey)
+    {
+        Scalar::Native secretKey;
+        Point publicKey;
+
+        if (createCoinKey)
+        {
+            SwitchCommitment().Create(secretKey, publicKey, *GetChildKdf(id.m_SubIdx), id);
+        }
+        else
+        {
+            m_MasterKdf->DeriveKey(secretKey, id);
+            publicKey = Context::get().G * secretKey;
+        }
+        return publicKey;
     }
 
     IPrivateKeyKeeper::Outputs LocalPrivateKeyKeeper::GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids)

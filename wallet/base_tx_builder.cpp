@@ -180,7 +180,7 @@ namespace beam::wallet
         //    {
         //        //m_Tx.Update();
         //    });
-        auto commitments = m_Tx.GetKeyKeeper()->GenerateKeySync(m_InputCoins, true);
+        auto commitments = m_Tx.GetKeyKeeper()->GeneratePublicKeysSync(m_InputCoins, true);
         m_Inputs.reserve(commitments.size());
         for (const auto& commitment : commitments)
         {
