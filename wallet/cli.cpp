@@ -718,7 +718,10 @@ namespace
         }
 
         LOG_INFO() << "Transaction details:\n"
-                   << storage::TxDetailsInfo(walletDB, txId);
+                   << storage::TxDetailsInfo(walletDB, txId)
+                   << "Status: "
+                   << getTxStatus(*tx)
+                   << (tx->m_status == TxStatus::Failed ? "\nReason: "+ GetFailureMessage(tx->m_failureReason) : "");
 
         return 0;
     }
