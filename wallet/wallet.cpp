@@ -340,6 +340,48 @@ namespace beam::wallet
             auto tx = p.second;
             tx->Update();
         }
+
+        // At this moment for unconfirmed transaction there are are no coins
+        // registered and wallet would display incorrect receiving amount.
+        // We check this situation and re-register coins when necessary.
+        const auto unconf = GetUnconfirmedTransactions();
+        for(const auto& txptr:unconf)
+        {
+            const auto dbCoins = m_WalletDB->getCoinsByTx(txptr->GetTxID());
+            assert(dbCoins.empty());
+            if(dbCoins.empty())
+            {
+                std::vector<Coin::ID> ocids;
+                std::vector<Coin> ocoins;
+
+                txptr->GetParameter(TxParameterID::OutputCoins, ocids);
+                for (const auto& ocid: ocids) {
+                    Coin coin;
+                    coin.m_ID = ocid;
+                    coin.m_createTxId = txptr->GetTxID();
+                    coin.m_status = Coin::Status::Incoming;
+                    ocoins.push_back(coin);
+                }
+
+                m_WalletDB->save(ocoins);
+            }
+        }
+    }
+
+    std::vector<BaseTransaction::Ptr> Wallet::GetUnconfirmedTransactions()
+    {
+        std::vector<BaseTransaction::Ptr> result;
+        for (const auto& [txid, txptr]:m_Transactions)
+        {
+            if(const auto txdesc = m_WalletDB->getTx(txid))
+            {
+                if (txdesc.get().m_status == TxStatus::Registering)
+                {
+                    result.push_back(txptr);
+                }
+            }
+        }
+        return result;
     }
 
     void Wallet::ResumeTransaction(const TxDescription& tx)
@@ -839,7 +881,24 @@ namespace beam::wallet
         LOG_INFO() << "CoinID: " << evt.m_Kidv << " Maturity=" << evt.m_Maturity << (evt.m_Added ? " Confirmed" : " Spent");
 
         if (evt.m_Added)
-			c.m_confirmHeight = std::min(c.m_confirmHeight, evt.m_Height); // in case of std utxo proofs - the event height may be bigger than actual utxo height
+        {
+            c.m_confirmHeight = std::min(c.m_confirmHeight, evt.m_Height); // in case of std utxo proofs - the event height may be bigger than actual utxo height
+
+            // Check if this Coin participates in any unconfirmed transaction
+            // and mark it as outgoing if it does (bug: ux_504)
+            const auto unconf = GetUnconfirmedTransactions();
+            for(const auto& txptr:unconf)
+            {
+                 std::vector<Coin::ID> icoins;
+                txptr->GetParameter(TxParameterID::InputCoins, icoins);
+                if (std::find(icoins.begin(), icoins.end(), c.m_ID) != icoins.end())
+                {
+                    c.m_status = Coin::Status::Outgoing;
+                    c.m_spentTxId = txptr->GetTxID();
+                    LOG_INFO() << "CoinID: " << evt.m_Kidv << " marked as Outgoing";
+                }
+            }
+        }
         else
         {
             if (!bExists)

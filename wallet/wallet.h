@@ -124,6 +124,7 @@ namespace beam::wallet
         void RefreshTransactions();
         void ResumeTransaction(const TxDescription& tx);
         void ResumeAllTransactions();
+        std::vector<BaseTransaction::Ptr> GetUnconfirmedTransactions();
 
         void OnAsyncStarted() override;
         void OnAsyncFinished() override;
