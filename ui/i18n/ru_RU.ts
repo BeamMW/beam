@@ -1291,7 +1291,7 @@
     <message id="edit-addr-as-is-option">
         <source>within 24 hours</source>
         <extracomment>Edit address dialog, expiration option, do not change</extracomment>
-        <translation>в течении 24 часов</translation>
+        <translation>в течение 24 часов</translation>
     </message>
     <message id="edit-addr-expires-label">
         <source>Expires</source>
