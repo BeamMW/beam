@@ -698,7 +698,7 @@ namespace
     {
         auto txIdStr = vm[cli::TX_ID].as<string>();
         if (txIdStr.empty()) {
-            LOG_ERROR() << "Failed, --tx_id param reqired";
+            LOG_ERROR() << "Failed, --tx_id param required";
             return -1;
         }
         auto txIdVec = from_hex(txIdStr);
