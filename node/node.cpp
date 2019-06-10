@@ -1790,10 +1790,7 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 						sid.m_Row = p.FindActiveAtStrict(sid.m_Height);
 
 						proto::BodyBuffers bb;
-						if (!p.GetBlock(sid,
-							msg.m_ExcludeE ? nullptr : &bb.m_Eternal,
-							msg.m_ExcludeP ? nullptr : &bb.m_Perishable,
-							msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
+						if (!GetBlock(bb, sid, msg))
 							break;
 
 						nSize += bb.m_Eternal.size() + bb.m_Perishable.size();
@@ -1813,10 +1810,7 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 			else
 			{
 				proto::Body msgBody;
-				if (p.GetBlock(sid,
-					msg.m_ExcludeE ? nullptr : &msgBody.m_Body.m_Eternal,
-					msg.m_ExcludeP ? nullptr : &msgBody.m_Body.m_Perishable,
-					msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
+				if (GetBlock(msgBody.m_Body, sid, msg))
 				{
 					Send(msgBody);
 					return;
@@ -1839,6 +1833,59 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 
     proto::DataMissing msgMiss(Zero);
     Send(msgMiss);
+}
+
+bool Node::Peer::GetBlock(proto::BodyBuffers& out, const NodeDB::StateID& sid, const proto::GetBodyPack& msg)
+{
+	ByteBuffer* pP = nullptr;
+	ByteBuffer* pE = nullptr;
+
+	switch (msg.m_FlagE)
+	{
+	case proto::BodyBuffers::Full:
+		pE = &out.m_Eternal;
+		// no break;
+	case proto::BodyBuffers::None:
+		break;
+	default:
+		ThrowUnexpected();
+	}
+
+	switch (msg.m_FlagP)
+	{
+	case proto::BodyBuffers::Recovery1:
+	case proto::BodyBuffers::Full:
+		pP = &out.m_Perishable;
+		// no break;
+	case proto::BodyBuffers::None:
+		break;
+	default:
+		ThrowUnexpected();
+	}
+
+	if (!m_This.m_Processor.GetBlock(sid, pE, pP, msg.m_Height0, msg.m_HorizonLo1, msg.m_HorizonHi1))
+		return false;
+
+	if (proto::BodyBuffers::Recovery1 == msg.m_FlagP)
+	{
+		Block::Body block;
+
+		Deserializer der;
+		der.reset(out.m_Perishable);
+		der & Cast::Down<Block::BodyBase>(block);
+		der & Cast::Down<TxVectors::Perishable>(block);
+
+		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+			block.m_vOutputs[i]->m_RecoveryOnly = true;
+
+		Serializer ser;
+		ser & Cast::Down<Block::BodyBase>(block);
+		ser & Cast::Down<TxVectors::Perishable>(block);
+
+		ser.swap_buf(out.m_Perishable);
+	}
+
+	return true;
 }
 
 void Node::Peer::OnMsg(proto::Body&& msg)
