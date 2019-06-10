@@ -206,7 +206,7 @@ QString TxObject::getFailureReason() const
 {
     if (getTxDescription().m_status == TxStatus::Failed)
     {
-        static QString Reasons[] =
+        QString Reasons[] =
         {
             //% "Unexpected reason, please send wallet logs to Beam support"
             qtTrId("tx-failture-undefined"),
