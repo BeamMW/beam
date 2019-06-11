@@ -16,6 +16,7 @@
 
 #include "core/common.h"
 #include "core/ecc.h"
+#include "core/ecc_native.h"
 
 namespace beam
 {
@@ -30,11 +31,13 @@ namespace beam
 
         void getOwnerKey(Result<std::string> callback) const;
         void generateNonce(uint8_t slot, Result<ECC::Point> callback) const;
-        void generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::Scalar> callback) const;
+        void getNoncePublic(uint8_t slot, Result<ECC::Point> callback) const;
+        void generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::Point> callback) const;
 
         std::string getOwnerKeySync() const;
         ECC::Point generateNonceSync(uint8_t slot) const;
-        ECC::Scalar generateKeySync(const ECC::Key::IDV& idv, bool isCoinKey) const;
+        ECC::Point getNoncePublicSync(uint8_t slot) const;
+        ECC::Point generateKeySync(const ECC::Key::IDV& idv, bool isCoinKey) const;
 
     private:
         std::shared_ptr<HWWalletImpl> m_impl;

@@ -81,40 +81,112 @@ namespace beam::wallet
     };
 
 #if defined(BEAM_HW_WALLET)
-    //
-    // Private key keeper in HW wallet implementation
-    //
-    class HWWalletKeyKeeper : public IPrivateKeyKeeper
+    class TrezorKeyKeeper : public IPrivateKeyKeeper
+        , public std::enable_shared_from_this<TrezorKeyKeeper>
     {
     public:
-        void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) override
+        TrezorKeyKeeper()
+            : m_latestSlot(0)
         {
 
+        }
+    private:
+        void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override
+        {
+
+        }
+
+        void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&& resultCallback, ExceptionCallback&& exceptionCallback) override
+        {
+            using namespace std;
+
+            auto thisHolder = shared_from_this();
+            shared_ptr<Outputs> result = make_shared<Outputs>();
+            shared_ptr<exception> storedException;
+            shared_ptr<future<void>> futureHolder = make_shared<future<void>>();
+            *futureHolder = do_thread_async(
+                [thisHolder, this, schemeHeight, ids, result, storedException]()
+                {
+                    try
+                    {
+                        *result = GenerateOutputsSync(schemeHeight, ids);
+                    }
+                    catch (const exception& ex)
+                    {
+                        *storedException = ex;
+                    }
+                },
+                [futureHolder, resultCallback = move(resultCallback), exceptionCallback = move(exceptionCallback), result, storedException]() mutable
+                {
+                    if (storedException)
+                    {
+                        exceptionCallback(*storedException);
+                    }
+                    else
+                    {
+                        resultCallback(move(*result));
+                    }
+                    futureHolder.reset();
+                });
         }
 
         size_t AllocateNonceSlot() override
         {
-            return 0;
+            m_latestSlot++;
+            m_hwWallet.generateNonceSync((uint8_t)m_latestSlot);
+            return m_latestSlot;
         }
 
         PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override
         {
-            return {};
+            PublicKeys result;
+            result.reserve(ids.size());
+
+            for (const auto& idv : ids)
+            {
+                ECC::Point& publicKey = result.emplace_back();
+                publicKey = m_hwWallet.generateKeySync(idv, createCoinKey);
+            }
+
+            return result;
         }
 
         ECC::Point GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey) override
         {
-            return {};
+            return m_hwWallet.generateKeySync(id, createCoinKey);
         }
 
         Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override
         {
+            //SwitchCommitment sc(&m_AssetID);
+            //sc.Create(sk, m_Commitment, coinKdf, kidv);
+
+            //ECC::Oracle oracle;
+            //Prepare(oracle, hScheme);
+
+            //ECC::RangeProof::CreatorParams cp;
+            //cp.m_Kidv = kidv;
+            //GenerateSeedKid(cp.m_Seed.V, m_Commitment, tagKdf);
+
+            //if (bPublic || m_Coinbase)
+            //{
+            //    m_pPublic.reset(new ECC::RangeProof::Public);
+            //    m_pPublic->m_Value = kidv.m_Value;
+            //    m_pPublic->Create(sk, cp, oracle);
+            //}
+            //else
+            //{
+            //    m_pConfidential.reset(new ECC::RangeProof::Confidential);
+            //    m_pConfidential->Create(sk, cp, oracle, &sc.m_hGen);
+            //}
+
             return {};
         }
 
         ECC::Point GenerateNonceSync(size_t slot) override
-        {            
-            return m_hwWallet.generateNonceSync(static_cast<uint8_t>(slot));
+        {
+            assert(m_latestSlot >= slot);
+            return m_hwWallet.getNoncePublicSync((uint8_t)slot);
         }
 
         ECC::Scalar SignSync(const std::vector<Key::IDV>& inputs, const std::vector<Key::IDV>& outputs, const ECC::Scalar::Native& offset, size_t nonceSlot, const ECC::Hash::Value& message, const ECC::Point::Native& publicNonce, const ECC::Point::Native& commitment) override
@@ -122,8 +194,8 @@ namespace beam::wallet
             return {};
         }
     private:
-
         beam::HWWallet m_hwWallet;
+        size_t m_latestSlot;
     };
 #endif
 

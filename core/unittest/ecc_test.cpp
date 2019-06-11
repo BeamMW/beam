@@ -1336,48 +1336,9 @@ struct TrezorWallet
 
     }
 
-    // Add the blinding factor and value of a specific TXO
-    void SummarizeOnce(Scalar::Native& res, AmountSigned& dVal, const Key::IDV& kidv)
-    {
-        Scalar::Native sk = m_trezor.generateKeySync(kidv, false);
-
-        res += sk;
-        dVal += kidv.m_Value;
-    }
-
-    // Summarize blinding factors and values of several in/out TXOs
-    void Summarize(Scalar::Native& res, AmountSigned& dVal, const TransactionInOuts& tx)
-    {
-        res = -res;
-        dVal = -dVal;
-
-        for (uint32_t i = 0; i < tx.m_Outputs; i++)
-            SummarizeOnce(res, dVal, tx.m_pOutputs[i]);
-
-        res = -res;
-        dVal = -dVal;
-
-        for (uint32_t i = 0; i < tx.m_Inputs; i++)
-            SummarizeOnce(res, dVal, tx.m_pInputs[i]);
-    }
-
     void SummarizeCommitment(Point::Native& res, const TransactionInOuts& tx) override
     {
-        // Summarize (as above), but return only the commitment
-        Scalar::Native sk(Zero);
-        AmountSigned dVal = 0;
-        Summarize(sk, dVal, tx);
 
-        res = Context::get().G * sk;
-
-        if (dVal < 0)
-        {
-            res = -res;
-            res += Context::get().H * Amount(-dVal);
-            res = -res;
-        }
-        else
-            res += Context::get().H * Amount(dVal);
     }
 
     void CreateOutput(beam::Output& outp, const Key::IDV& kidv)  override

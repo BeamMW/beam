@@ -122,7 +122,7 @@ namespace beam
                 m_trezor->call_BeamGenerateNonce(slot, [&m_runningFlag, &result](const Message &msg, std::string session, size_t queue_size)
                 {
                     result.m_X = beam::Blob(child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).x().c_str(), 32);
-                    result.m_Y = 0;
+                    result.m_Y = child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).y();
                     m_runningFlag.clear();
                 });
 
@@ -136,17 +136,43 @@ namespace beam
             }
         }
 
-        void generateKey(const ECC::Key::IDV& idv, bool isCoinKey, HWWallet::Result<ECC::Scalar> callback)
+        void getNoncePublic(uint8_t slot, HWWallet::Result<ECC::Point> callback)
         {
             if (m_trezor)
             {
                 std::atomic_flag m_runningFlag;
                 m_runningFlag.test_and_set();
-                ECC::Scalar result;
+                ECC::Point result;
+
+                m_trezor->call_BeamGetNoncePublic(slot, [&m_runningFlag, &result](const Message& msg, std::string session, size_t queue_size)
+                {
+                    result.m_X = beam::Blob(child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).x().c_str(), 32);
+                    result.m_Y = child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).y();
+                    m_runningFlag.clear();
+                });
+
+                while (m_runningFlag.test_and_set());
+
+                callback(result);
+            }
+            else
+            {
+                LOG_ERROR() << "HW wallet not initialized";
+            }
+        }
+
+        void generateKey(const ECC::Key::IDV& idv, bool isCoinKey, HWWallet::Result<ECC::Point> callback)
+        {
+            if (m_trezor)
+            {
+                std::atomic_flag m_runningFlag;
+                m_runningFlag.test_and_set();
+                ECC::Point result;
 
                 m_trezor->call_BeamGenerateKey(idv.m_Idx, idv.m_Type, idv.m_SubIdx, idv.m_Value, isCoinKey, [&m_runningFlag, &result](const Message &msg, std::string session, size_t queue_size)
                 {
-                    result.m_Value = beam::Blob(child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).x().data(), 32);
+                    result.m_X = beam::Blob(child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).x().c_str(), 32);
+                    result.m_Y = child_cast<Message, hw::trezor::messages::beam::BeamECCPoint>(msg).y();
                     m_runningFlag.clear();
                 });
 
@@ -180,7 +206,12 @@ namespace beam
         m_impl->generateNonce(slot, callback);
     }
 
-    void HWWallet::generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::Scalar> callback) const
+    void HWWallet::getNoncePublic(uint8_t slot, Result<ECC::Point> callback) const
+    {
+        m_impl->getNoncePublic(slot, callback);
+    }
+
+    void HWWallet::generateKey(const ECC::Key::IDV& idv, bool isCoinKey, Result<ECC::Point> callback) const
     {
         m_impl->generateKey(idv, isCoinKey, callback);
     }
@@ -209,11 +240,23 @@ namespace beam
         return result;
     }
 
-    ECC::Scalar HWWallet::generateKeySync(const ECC::Key::IDV& idv, bool isCoinKey) const
+    ECC::Point HWWallet::getNoncePublicSync(uint8_t slot) const
     {
-        ECC::Scalar result;
+        ECC::Point result;
 
-        generateKey(idv, isCoinKey, [&result](const ECC::Scalar& key)
+        getNoncePublic(slot, [&result](const ECC::Point& nonce)
+        {
+            result = nonce;
+        });
+
+        return result;
+    }
+
+    ECC::Point HWWallet::generateKeySync(const ECC::Key::IDV& idv, bool isCoinKey) const
+    {
+        ECC::Point result;
+
+        generateKey(idv, isCoinKey, [&result](const ECC::Point& key)
         {
             result = key;
         });

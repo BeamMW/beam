@@ -344,7 +344,11 @@ struct TestWalletRig
 {
     TestWalletRig(const string& name, IWalletDB::Ptr walletDB, Wallet::TxCompletedAction&& action = Wallet::TxCompletedAction(), bool coldWallet = false, bool oneTimeBbsEndpoint = false)
         : m_WalletDB{ walletDB }
+#if defined(BEAM_HW_WALLET)
+        , m_KeyKeeper{ make_shared<wallet::TrezorKeyKeeper>() }
+#else
         , m_KeyKeeper{ make_shared<wallet::LocalPrivateKeyKeeper>(walletDB) }
+#endif
         , m_Wallet{ m_WalletDB, move(action), coldWallet ? []() {io::Reactor::get_Current().stop(); } : Wallet::UpdateCompletedAction() }
     {
         if (m_WalletDB->get_MasterKdf()) // can create secrets
