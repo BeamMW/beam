@@ -256,7 +256,7 @@ Rectangle {
                                     Layout.preferredHeight: 16
                                     visible: !viewModel.localNodeRun
                                     SFText {
-                                        Layout.fillWidth: true;
+                                        Layout.fillWidth: true
                                         //: settings tab, node section, address label
                                         //% "ip:port"
                                         text: qsTrId("settings-remote-node-ip-port")
@@ -266,7 +266,9 @@ Rectangle {
 
                                     SFTextInput {
                                         id: nodeAddress
-                                        Layout.preferredWidth: nodeBlock.width * 0.6
+                                        Layout.fillWidth: true
+                                        Layout.maximumWidth: nodeBlock.width * 0.6
+                                        Layout.minimumWidth: nodeBlock.width * 0.5
                                         focus: true
                                         activeFocusOnTab: true
                                         font.pixelSize: 14
@@ -547,10 +549,8 @@ Rectangle {
 
                                             model: viewModel.supportedLanguages
                                             currentIndex: viewModel.currentLanguageIndex
-                                            Binding {
-                                                target: viewModel
-                                                property: "currentLanguage"
-                                                value: language.currentText
+                                            onActivated: {
+                                                viewModel.currentLanguage = currentText;
                                             }
                                         }
                                     }
@@ -575,6 +575,7 @@ Rectangle {
                                         font.pixelSize: 14
                                         color: Style.content_main
                                         text: viewModel.walletLocation
+                                        elide: Text.ElideMiddle
                                     }
 
                                     SFText {
@@ -628,7 +629,7 @@ Rectangle {
                                         text: qsTrId("settings-general-allow-beammw-label")
                                         textFormat: Text.RichText
                                         font.pixelSize: 14
-                                        color: allowBeamMWLinks.checked && allowBeamMWLinks.enabled ? allowBeamMWLinks.palette.text : Style.content_secondary
+                                        color: allowBeamMWLinks.palette.text
                                         wrapMode: Text.WordWrap
                                         Layout.preferredWidth: generalBlock.width - 95
                                         Layout.preferredHeight: 32

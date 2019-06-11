@@ -29,8 +29,9 @@ namespace beam::wallet
     public:
         BitcoinSide(BaseTransaction& tx, std::shared_ptr<IBitcoinBridge> bitcoinBridge, bool isBeamSide);
 
-        bool Initial() override;
+        bool Initialize() override;
         bool InitLockTime() override;
+        bool ValidateLockTime() override;
         void AddTxDetails(SetTxParameter& txParameters) override;
         bool ConfirmLockTx() override;
         bool SendLockTx() override;

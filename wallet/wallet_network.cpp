@@ -117,13 +117,8 @@ namespace beam::wallet {
 
     void BaseMessageEndpoint::AddOwnAddress(const WalletAddress& address)
     {
-        AddOwnAddress(address.m_OwnID, channel_from_wallet_id(address.m_walletID), address.getExpirationTime(), address.m_walletID);
-    }
-
-    void BaseMessageEndpoint::AddOwnAddress(uint64_t ownID, BbsChannel nChannel, Timestamp expirationTime, const WalletID& walletID)
-    {
         Addr::Wid key;
-        key.m_OwnID = ownID;
+        key.m_OwnID = address.m_OwnID;
 
         Addr* pAddr = nullptr;
         auto itW = m_Addresses.find(key);
@@ -131,17 +126,17 @@ namespace beam::wallet {
         if (m_Addresses.end() == itW)
         {
             pAddr = new Addr;
-            pAddr->m_ExpirationTime = expirationTime;
-            pAddr->m_Wid.m_OwnID = ownID;
+            pAddr->m_ExpirationTime = address.getExpirationTime();
+            pAddr->m_Wid.m_OwnID = address.m_OwnID;
 
             if (m_WalletDB->get_MasterKdf())
             {
-                m_WalletDB->get_MasterKdf()->DeriveKey(pAddr->m_sk, Key::ID(ownID, Key::Type::Bbs));
+                m_WalletDB->get_MasterKdf()->DeriveKey(pAddr->m_sk, Key::ID(address.m_OwnID, Key::Type::Bbs));
 
                 proto::Sk2Pk(pAddr->m_Pk, pAddr->m_sk); // needed to "normalize" the sk, and calculate the channel
             }
 
-            pAddr->m_Channel.m_Value = nChannel;
+            pAddr->m_Channel.m_Value = channel_from_wallet_id(address.m_walletID);
 
             m_Addresses.insert(pAddr->m_Wid);
             m_Channels.insert(pAddr->m_Channel);
@@ -149,7 +144,7 @@ namespace beam::wallet {
         else
         {
             pAddr = &(itW->get_ParentObj());
-            pAddr->m_ExpirationTime = expirationTime;
+            pAddr->m_ExpirationTime = address.getExpirationTime();
         }
 
         if (pAddr && IsSingleChannelUser(pAddr->m_Channel))
@@ -157,7 +152,7 @@ namespace beam::wallet {
             OnChannelAdded(pAddr->m_Channel.m_Value);
         }
 
-        LOG_INFO() << "WalletID " << to_string(walletID) << " subscribes to BBS channel " << pAddr->m_Channel.m_Value;
+        LOG_INFO() << "WalletID " << to_string(address.m_walletID) << " subscribes to BBS channel " << pAddr->m_Channel.m_Value;
     }
 
     void BaseMessageEndpoint::DeleteOwnAddress(uint64_t ownID)
@@ -334,10 +329,6 @@ namespace beam::wallet {
 		auto itBbs = m_BbsTimestamps.find(msg.m_Channel);
 		if (m_BbsTimestamps.end() != itBbs)
         {
-            if (itBbs->second > msg.m_TimePosted)
-            {
-                return; // ignore old messages
-            }
 			itBbs->second = std::max(itBbs->second, msg.m_TimePosted);
         }
 		else

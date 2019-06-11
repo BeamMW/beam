@@ -56,20 +56,20 @@ QString AddressItem::getCategory() const
     return QString::fromStdString(m_walletAddress.m_category);
 }
 
-QString AddressItem::getExpirationDate() const
+QDateTime AddressItem::getExpirationDate() const
 {
-    if (m_walletAddress.m_duration == 0)
-    {
-        //% "never"
-        return qtTrId("address-item-never");
-    }
-
-    return toString(m_walletAddress.getExpirationTime());
+    QDateTime datetime;
+    datetime.setTime_t(m_walletAddress.getExpirationTime());
+    
+    return datetime;
 }
 
-QString AddressItem::getCreateDate() const
+QDateTime AddressItem::getCreateDate() const
 {
-    return toString(m_walletAddress.getCreateTime());
+    QDateTime datetime;
+    datetime.setTime_t(m_walletAddress.getCreateTime());
+    
+    return datetime;
 }
 
 bool AddressItem::isNeverExpired() const
@@ -262,6 +262,18 @@ QString AddressBookViewModel::generateQR(
 {
     QR qr(addr, width, height);
     return qr.getEncoded();
+}
+
+// static
+QString AddressBookViewModel::getLocaleName()
+{
+    const auto& settings = AppModel::getInstance()->getSettings();
+    return settings.getLocale();
+}
+
+bool AddressBookViewModel::isAddressWithCommentExist(const QString& comment) const
+{
+    return m_model.isAddressWithCommentExist(comment.toStdString());
 }
 
 void AddressBookViewModel::onStatus(const beam::wallet::WalletStatus&)

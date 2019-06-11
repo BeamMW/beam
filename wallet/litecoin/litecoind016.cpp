@@ -16,6 +16,10 @@
 
 #include "bitcoin/bitcoin.hpp"
 
+namespace {
+    constexpr uint8_t kLitecoinMainnetP2KH = 48;
+}
+
 namespace beam
 {
     Litecoind016::Litecoind016(io::Reactor& reactor, const LitecoinOptions& options)
@@ -27,10 +31,9 @@ namespace beam
     {
         if (isMainnet())
         {
-            // litecoin mainnet virsion WIF
-            return 176;
+            return kLitecoinMainnetP2KH;
         }
 
-        return libbitcoin::wallet::ec_private::testnet_wif;
+        return libbitcoin::wallet::ec_private::testnet_p2kh;
     }
 }

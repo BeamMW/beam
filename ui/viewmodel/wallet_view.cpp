@@ -206,7 +206,7 @@ QString TxObject::getFailureReason() const
 {
     if (getTxDescription().m_status == TxStatus::Failed)
     {
-        static QString Reasons[] =
+        QString Reasons[] =
         {
             //% "Unexpected reason, please send wallet logs to Beam support"
             qtTrId("tx-failture-undefined"),
@@ -361,7 +361,7 @@ MyPaymentInfoItem::MyPaymentInfoItem(const TxID& txID, QObject* parent/* = nullp
     : PaymentInfoItem(parent)
 {
     auto model = AppModel::getInstance()->getWallet();
-    connect(model.get(), SIGNAL(paymentProofExported(const beam::TxID&, const QString&)), SLOT(onPaymentProofExported(const beam::TxID&, const QString&)));
+    connect(model.get(), SIGNAL(paymentProofExported(const beam::wallet::TxID&, const QString&)), SLOT(onPaymentProofExported(const beam::wallet::TxID&, const QString&)));
     model->getAsync()->exportPaymentProof(txID);
 }
 
@@ -667,6 +667,11 @@ bool WalletViewModel::isPasswordValid(const QString& value) const
 {
     SecString secretPass = value.toStdString();
     return AppModel::getInstance()->checkWalletPassword(secretPass);
+}
+
+bool WalletViewModel::isAddressWithCommentExist(const QString& comment) const
+{
+    return _model.isAddressWithCommentExist(comment.toStdString());
 }
 
 void WalletViewModel::setSendAmount(const QString& value)

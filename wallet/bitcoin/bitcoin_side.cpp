@@ -24,6 +24,7 @@ namespace
 {
     constexpr uint32_t kBTCLockTimeSec = 2 * 24 * 60 * 60;
     constexpr uint32_t kBTCWithdrawTxAverageSize = 240;
+    constexpr uint32_t kBTCMaxHeightDifference = 10;
 
     libbitcoin::chain::script AtomicSwapContract(const libbitcoin::ec_compressed& publicKeyA
         , const libbitcoin::ec_compressed& publicKeyB
@@ -71,7 +72,7 @@ namespace beam::wallet
     {
     }
 
-    bool BitcoinSide::Initial()
+    bool BitcoinSide::Initialize()
     {
         if (!LoadSwapAddress())
             return false;
@@ -81,21 +82,44 @@ namespace beam::wallet
             InitSecret();
         }
 
+        if (!GetBlockCount())
+        {
+            m_tx.UpdateAsync();
+            return false;
+        }
+
         return true;
     }
 
     bool BitcoinSide::InitLockTime()
     {
         auto height = GetBlockCount();
-        if (!height)
-        {
-            return false;
-        }
+        assert(height);
 
         auto externalLockPeriod = height + m_bitcoinBridge->getLockTimeInBlocks();
         m_tx.SetParameter(TxParameterID::AtomicSwapExternalLockTime, externalLockPeriod);
 
         return true;
+    }
+
+    bool BitcoinSide::ValidateLockTime()
+    {
+        auto height = GetBlockCount();
+        assert(height);
+        auto externalLockTime = m_tx.GetMandatoryParameter<Height>(TxParameterID::AtomicSwapExternalLockTime);
+
+        if (externalLockTime <= height)
+        {
+            return false;
+        }
+
+        Height lockPeriod = externalLockTime - height;
+        if (lockPeriod > m_bitcoinBridge->getLockTimeInBlocks())
+        {
+            return (lockPeriod - m_bitcoinBridge->getLockTimeInBlocks()) <= kBTCMaxHeightDifference;
+        }
+
+        return (m_bitcoinBridge->getLockTimeInBlocks() - lockPeriod) <= kBTCMaxHeightDifference;
     }
 
     void BitcoinSide::AddTxDetails(SetTxParameter& txParameters)
@@ -199,7 +223,7 @@ namespace beam::wallet
 
         if (NoLeak<uintBig> secretPrivateKey; m_tx.GetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.V, SubTxIndex::BEAM_REDEEM_TX))
         {
-            // TODO: secretPrivateKey -> secretPublicKey
+            // secretPrivateKey -> secretPublicKey
             libbitcoin::ec_secret secret;
             std::copy(std::begin(secretPrivateKey.V.m_pData), std::end(secretPrivateKey.V.m_pData), secret.begin());
             libbitcoin::wallet::ec_private privateKey(secret, m_bitcoinBridge->getAddressVersion());
@@ -210,7 +234,7 @@ namespace beam::wallet
         {
             Point publicKeyPoint = m_tx.GetMandatoryParameter<Point>(TxParameterID::AtomicSwapSecretPublicKey, SubTxIndex::BEAM_REDEEM_TX);
 
-            // TODO: publicKeyPoint -> secretPublicKey
+            // publicKeyPoint -> secretPublicKey
             auto publicKeyRaw = SerializePubkey(ConvertPointToPubkey(publicKeyPoint));
             secretPublicKey = libbitcoin::wallet::ec_public(publicKeyRaw);
         }
@@ -326,8 +350,7 @@ namespace beam::wallet
                 }
             };
             m_bitcoinBridge->createRawTransaction(withdrawAddress, swapLockTxID, swapAmount, outputIndex, locktime, callback);
-            m_tx.SetState(SwapTxState::CreatingTx, subTxID);
-            return SwapTxState::CreatingTx;
+            return swapTxState;
         }
 
         if (swapTxState == SwapTxState::CreatingTx)
@@ -421,6 +444,9 @@ namespace beam::wallet
         case IBitcoinBridge::IOError:
             m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapNetworkBridgeError, false, subTxID);
             break;
+        case IBitcoinBridge::InvalidCredentials:
+            m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::InvalidCredentialsOfSideChain, false, subTxID);
+            break;
         default:
             m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapSecondSideBridgeError, false, subTxID);
         }
@@ -512,6 +538,7 @@ namespace beam::wallet
         if (!m_SwapWithdrawRawTx.is_initialized())
         {
             m_SwapWithdrawRawTx = hexTx;
+            m_tx.SetState(SwapTxState::CreatingTx, subTxID);
             m_tx.UpdateAsync();
         }
     }
@@ -548,7 +575,7 @@ namespace beam::wallet
             }
             else
             {
-                // TODO: load AtomicSwapSecretPrivateKey and -> libbitcoin::wallet::ec_private
+                // AtomicSwapSecretPrivateKey -> libbitcoin::wallet::ec_private
                 NoLeak<uintBig> secretPrivateKey;
                 m_tx.GetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.V, SubTxIndex::BEAM_REDEEM_TX);
                 libbitcoin::ec_secret secret;

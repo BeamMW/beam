@@ -66,13 +66,14 @@ namespace beam::wallet
             ECC::Point m_PublicValue;
         };
 
-        virtual void GenerateKey(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) = 0;
-        //virtual void GenerateRangeProof(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<RangeProofs>&&, ExceptionCallback&&) = 0;
+        virtual void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) = 0;
+        virtual void GenerateOutputs(Height schemeHeigh, const std::vector<Key::IDV>& ids, Callback<Outputs>&&, ExceptionCallback&&) = 0;
 
         virtual size_t AllocateNonceSlot() = 0;
 
         // sync part for integration test
-        virtual PublicKeys GenerateKeySync(const std::vector<Key::IDV>& ids, bool createCoinKey) = 0;
+        virtual PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) = 0;
+        virtual ECC::Point GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey) = 0;
         virtual Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) = 0;
         //virtual RangeProofs GenerateRangeProofSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) = 0;
         virtual ECC::Point GenerateNonceSync(size_t slot) = 0;
@@ -86,7 +87,7 @@ namespace beam::wallet
     class HWWalletKeyKeeper : public IPrivateKeyKeeper
     {
     public:
-        void GenerateKey(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) override
+        void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&&, ExceptionCallback&&) override
         {
 
         }
@@ -96,7 +97,12 @@ namespace beam::wallet
             return 0;
         }
 
-        PublicKeys GenerateKeySync(const std::vector<Key::IDV>& ids, bool createCoinKey) override
+        PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override
+        {
+            return {};
+        }
+
+        ECC::Point GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey) override
         {
             return {};
         }
@@ -125,16 +131,18 @@ namespace beam::wallet
     // Private key keeper in local storage implementation
     //
     class LocalPrivateKeyKeeper : public IPrivateKeyKeeper
+                                , public std::enable_shared_from_this<LocalPrivateKeyKeeper>
     {
     public:
         LocalPrivateKeyKeeper(IWalletDB::Ptr walletDB);
     private:
-        void GenerateKey(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
-        //void GenerateRangeProof(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<RangeProofs>&&, ExceptionCallback&&) override;
+        void GeneratePublicKeys(const std::vector<Key::IDV>& ids, bool createCoinKey, Callback<PublicKeys>&& resultCallback, ExceptionCallback&& exceptionCallback) override;
+        void GenerateOutputs(Height schemeHeight, const std::vector<Key::IDV>& ids, Callback<Outputs>&&, ExceptionCallback&&) override;
 
         size_t AllocateNonceSlot() override;
 
-        PublicKeys GenerateKeySync(const std::vector<Key::IDV>& ids, bool createCoinKey) override;
+        PublicKeys GeneratePublicKeysSync(const std::vector<Key::IDV>& ids, bool createCoinKey) override;
+        ECC::Point GeneratePublicKeySync(const Key::IDV& id, bool createCoinKey) override;
         Outputs GenerateOutputsSync(Height schemeHeigh, const std::vector<Key::IDV>& ids) override;
         //RangeProofs GenerateRangeProofSync(Height schemeHeight, const std::vector<Key::IDV>& ids) override;
         ECC::Point GenerateNonceSync(size_t slot) override;
@@ -229,6 +237,7 @@ namespace beam::wallet
 
         IWalletDB::Ptr GetWalletDB();
         IPrivateKeyKeeper::Ptr GetKeyKeeper();
+        IAsyncContext& GetAsyncAcontext() const;
         bool IsInitiator() const;
         uint32_t get_PeerVersion() const;
         bool GetTip(Block::SystemState::Full& state) const;
@@ -249,7 +258,6 @@ namespace beam::wallet
         virtual void UpdateImpl() = 0;
 
         virtual bool ShouldNotifyAboutChanges(TxParameterID paramID) const { return true; };
-        std::future<void> DoThreadAsync(Functor&& functor, CompletionCallback&& callback);
     protected:
 
         INegotiatorGateway& m_Gateway;

@@ -8,7 +8,8 @@ if(BEAM_HW_WALLET)
     target_compile_definitions(wallet_test PRIVATE BEAM_HW_WALLET)
 endif()
 
-#add_test_snippet(bitcoin_rpc_test bitcoin_rpc)
+add_test_snippet(bitcoin_rpc_test wallet)
+add_test_snippet(swap_test wallet)
 
 add_executable(offline offline.cpp)
 add_dependencies(offline node wallet)

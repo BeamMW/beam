@@ -222,34 +222,36 @@ void AppModel::onLocaleChanged()
 
 void AppModel::start()
 {
-#if defined(BEAM_HW_WALLET)
-    {
-        HWWallet hw;
-        auto key = hw.getOwnerKeySync();
-        
-        LOG_INFO() << "Owner key" << key;
+    // TODO(alex.starun): should be uncommented when HW detection will be done
 
-        // TODO: password encryption will be removed
-        std::string pass = "1";
-        KeyString ks;
-        ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
-
-        ks.m_sRes = key;
-
-        std::shared_ptr<ECC::HKdfPub> pKdf = std::make_shared<ECC::HKdfPub>();
-
-        if (ks.Import(*pKdf))
-        {
-            m_nodeModel.setOwnerKey(pKdf);
-        }
-        else
-        {
-            LOG_ERROR() << "veiw key import failed";            
-        }
-    }
-#else
+//#if defined(BEAM_HW_WALLET)
+//    {
+//        HWWallet hw;
+//        auto key = hw.getOwnerKeySync();
+//        
+//        LOG_INFO() << "Owner key" << key;
+//
+//        // TODO: password encryption will be removed
+//        std::string pass = "1";
+//        KeyString ks;
+//        ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
+//
+//        ks.m_sRes = key;
+//
+//        std::shared_ptr<ECC::HKdfPub> pKdf = std::make_shared<ECC::HKdfPub>();
+//
+//        if (ks.Import(*pKdf))
+//        {
+//            m_nodeModel.setOwnerKey(pKdf);
+//        }
+//        else
+//        {
+//            LOG_ERROR() << "veiw key import failed";            
+//        }
+//    }
+//#else
     m_nodeModel.setKdf(m_db->get_MasterKdf());
-#endif
+//#endif
 
     std::string nodeAddrStr;
 

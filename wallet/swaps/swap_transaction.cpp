@@ -28,11 +28,33 @@ namespace beam::wallet
         constexpr Amount kMinFeeInGroth = 10;
     }
 
+    AtomicSwapTransaction::WrapperSecondSide::WrapperSecondSide(INegotiatorGateway& gateway, const TxID& txID)
+        : m_gateway(gateway)
+        , m_txID(txID)
+    {
+    }
+
+    SecondSide::Ptr AtomicSwapTransaction::WrapperSecondSide::operator -> ()
+    {
+        if (!m_secondSide)
+        {
+            m_secondSide = m_gateway.GetSecondSide(m_txID);
+
+            if (!m_secondSide)
+            {
+                throw UninitilizedSecondSide();
+            }
+        }
+
+        return m_secondSide;
+    }
+
     AtomicSwapTransaction::AtomicSwapTransaction(INegotiatorGateway& gateway
                                                , IWalletDB::Ptr walletDB
                                                , IPrivateKeyKeeper::Ptr keyKeeper
                                                , const TxID& txID)
         : BaseTransaction(gateway, walletDB, keyKeeper, txID)
+        , m_secondSide(gateway, txID)
     {
     }
 
@@ -65,33 +87,41 @@ namespace beam::wallet
 
     bool AtomicSwapTransaction::Rollback(Height height)
     {
-        State state = GetState(kDefaultSubTxID);
-        Height proofHeight;
+        Height proofHeight = 0;
 
         if (IsBeamSide())
         {
-            if (GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_LOCK_TX)
-                && proofHeight > height
-                && state != State::SendingBeamLockTX)
+            bool isRolledback = false;
+            if (GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_REFUND_TX)
+                && proofHeight > height)
             {
-                SetState(State::SendingBeamLockTX);
-                return true;
+                SetParameter(TxParameterID::KernelProofHeight, Height(0), false, SubTxIndex::BEAM_REFUND_TX);
+                SetParameter(TxParameterID::KernelUnconfirmedHeight, Height(0), false, SubTxIndex::BEAM_REFUND_TX);
+
+                SetState(State::SendingBeamRefundTX);
+                isRolledback = true;
             }
 
-            if (GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_REFUND_TX)
-                && proofHeight > height
-                && state != State::SendingBeamRefundTX)
+            if (GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_LOCK_TX)
+                && proofHeight > height)
             {
-                SetState(State::SendingBeamRefundTX);
-                return true;
+                SetParameter(TxParameterID::KernelProofHeight, Height(0), false, SubTxIndex::BEAM_LOCK_TX);
+                SetParameter(TxParameterID::KernelUnconfirmedHeight, Height(0), false, SubTxIndex::BEAM_LOCK_TX);
+
+                SetState(State::SendingBeamLockTX);
+                isRolledback = true;
             }
+
+            return isRolledback;
         }
         else
         {
             if (GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_REDEEM_TX) 
-                && proofHeight > height 
-                && state != State::SendingBeamRedeemTX)
+                && proofHeight > height)
             {
+                SetParameter(TxParameterID::KernelProofHeight, Height(0), false, SubTxIndex::BEAM_REDEEM_TX);
+                SetParameter(TxParameterID::KernelUnconfirmedHeight, Height(0), false, SubTxIndex::BEAM_REDEEM_TX);
+
                 SetState(State::SendingBeamRedeemTX);
                 return true;
             }
@@ -133,234 +163,251 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::UpdateImpl()
     {
-        CheckSubTxFailures();
-
-        State state = GetState(kDefaultSubTxID);
-        bool isBeamOwner = IsBeamSide();
-
-        if (Height minHeight = 0; (state == State::Initial) && IsInitiator() && !GetParameter(TxParameterID::MinHeight, minHeight))
+        try
         {
-            // init all heights
-            Height currentHeight = m_WalletDB->getCurrentHeight();
-            Height responseTime = GetMandatoryParameter<Height>(TxParameterID::PeerResponseHeight);
-            SetParameter(TxParameterID::MinHeight, currentHeight, false);
-            SetParameter(TxParameterID::PeerResponseHeight, responseTime + currentHeight);
-        }
+            CheckSubTxFailures();
 
-        if (!m_secondSide)
-        {
-            m_secondSide = m_Gateway.GetSecondSide(GetTxID());
+            State state = GetState(kDefaultSubTxID);
+            bool isBeamOwner = IsBeamSide();
 
-            if (!m_secondSide)
+            if (Height minHeight = 0; (state == State::Initial) && IsInitiator() && !GetParameter(TxParameterID::MinHeight, minHeight))
             {
-                return;
+                // init all heights
+                Height currentHeight = m_WalletDB->getCurrentHeight();
+                Height responseTime = GetMandatoryParameter<Height>(TxParameterID::PeerResponseHeight);
+                SetParameter(TxParameterID::MinHeight, currentHeight, false);
+                SetParameter(TxParameterID::PeerResponseHeight, responseTime + currentHeight);
             }
-        }
 
-        switch (state)
-        {
-        case State::Initial:
-        {
-            if (!m_secondSide->Initial())
-                break;
-
-            SetNextState(State::Invitation);
-            break;
-        }
-        case State::Invitation:
-        {
-            if (IsInitiator())
+            switch (state)
             {
-                // init locktime
-                if (!m_secondSide->InitLockTime())
+            case State::Initial:
+            {
+                if (!m_secondSide->Initialize())
+                    break;
+
+                SetNextState(State::Invitation);
+                break;
+            }
+            case State::Invitation:
+            {
+                if (IsInitiator())
                 {
-                    UpdateAsync();
-                    break;
+                    m_secondSide->InitLockTime();
+                    SendInvitation();
                 }
-                SendInvitation();
+                else
+                {
+                    if (!m_secondSide->ValidateLockTime())
+                    {
+                        LOG_ERROR() << GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << "Lock height is unacceptable.";
+                        OnSubTxFailed(TxFailureReason::InvalidTransaction, SubTxIndex::LOCK_TX, true);
+                        break;
+                    }
+                }
+
+                SetNextState(State::BuildingBeamLockTX);
+                break;
             }
-            
-            SetNextState(State::BuildingBeamLockTX);
-            break;
-        }
-        case State::BuildingBeamLockTX:
-        {
-            auto lockTxState = BuildBeamLockTx();
-            if (lockTxState != SubTxState::Constructed)
-                break;            
-            LOG_INFO() << GetTxID() << " Beam LockTX constructed.";
-            SetNextState(State::BuildingBeamRefundTX);
-            break;
-        }
-        case State::BuildingBeamRefundTX:
-        {
-            auto subTxState = BuildBeamWithdrawTx(SubTxIndex::BEAM_REFUND_TX, m_WithdrawTx);
-            if (subTxState != SubTxState::Constructed)
-                break;
-
-            m_WithdrawTx.reset();
-            LOG_INFO() << GetTxID() << " Beam RefundTX constructed.";
-            SetNextState(State::BuildingBeamRedeemTX);
-            break;
-        }
-        case State::BuildingBeamRedeemTX:
-        {
-            auto subTxState = BuildBeamWithdrawTx(SubTxIndex::BEAM_REDEEM_TX, m_WithdrawTx);
-            if (subTxState != SubTxState::Constructed)
-                break;
-
-            m_WithdrawTx.reset();
-            LOG_INFO() << GetTxID() << " Beam RedeemTX constructed.";
-            SetNextState(State::HandlingContractTX);
-            break;
-        }
-        case State::HandlingContractTX:
-        {
-            if (!isBeamOwner)
+            case State::BuildingBeamLockTX:
             {
-                if (!m_secondSide->SendLockTx())
+                auto lockTxState = BuildBeamLockTx();
+                if (lockTxState != SubTxState::Constructed)
+                    break;
+                LOG_INFO() << GetTxID() << " Beam LockTX constructed.";
+                SetNextState(State::BuildingBeamRefundTX);
+                break;
+            }
+            case State::BuildingBeamRefundTX:
+            {
+                auto subTxState = BuildBeamWithdrawTx(SubTxIndex::BEAM_REFUND_TX, m_WithdrawTx);
+                if (subTxState != SubTxState::Constructed)
                     break;
 
-                SendExternalTxDetails();
+                m_WithdrawTx.reset();
+                LOG_INFO() << GetTxID() << " Beam RefundTX constructed.";
+                SetNextState(State::BuildingBeamRedeemTX);
+                break;
             }
-            else
+            case State::BuildingBeamRedeemTX:
             {
-                if (!m_secondSide->ConfirmLockTx())
+                auto subTxState = BuildBeamWithdrawTx(SubTxIndex::BEAM_REDEEM_TX, m_WithdrawTx);
+                if (subTxState != SubTxState::Constructed)
+                    break;
+
+                m_WithdrawTx.reset();
+                LOG_INFO() << GetTxID() << " Beam RedeemTX constructed.";
+                SetNextState(State::HandlingContractTX);
+                break;
+            }
+            case State::HandlingContractTX:
+            {
+                if (!isBeamOwner)
+                {
+                    if (!m_secondSide->SendLockTx())
+                        break;
+
+                    SendExternalTxDetails();
+                }
+                else
+                {
+                    if (!m_secondSide->ConfirmLockTx())
+                    {
+                        UpdateOnNextTip();
+                        break;
+                    }
+                }
+
+                LOG_INFO() << GetTxID() << " LockTX completed.";
+                SetNextState(State::SendingBeamLockTX);
+                break;
+            }
+            case State::SendingRefundTX:
+            {
+                assert(!isBeamOwner);
+
+                if (!m_secondSide->IsLockTimeExpired())
                 {
                     UpdateOnNextTip();
                     break;
                 }
-            }
 
-            LOG_INFO() << GetTxID() << " LockTX completed.";
-            SetNextState(State::SendingBeamLockTX);
-            break;
-        }
-        case State::SendingRefundTX:
-        {
-            assert(!isBeamOwner);
+                if (!m_secondSide->SendRefund())
+                    break;
 
-            if (!m_secondSide->IsLockTimeExpired())
-            {
-                UpdateOnNextTip();
+                LOG_INFO() << GetTxID() << " RefundTX completed!";
+                SetNextState(State::Refunded);
                 break;
             }
-
-            if (!m_secondSide->SendRefund())
-                break;
-
-            LOG_INFO() << GetTxID() << " RefundTX completed!";
-            SetNextState(State::CompleteSwap);
-            break;
-        }
-        case State::SendingRedeemTX:
-        {
-            assert(isBeamOwner);
-            if (!m_secondSide->SendRedeem())
-                break;
-            
-            LOG_INFO() << GetTxID() << " RedeemTX completed!";
-            SetNextState(State::CompleteSwap);
-            break;
-        }
-        case State::SendingBeamLockTX:
-        {
-            if (!m_LockTx && isBeamOwner)
+            case State::SendingRedeemTX:
             {
-                BuildBeamLockTx();
-            }
+                assert(isBeamOwner);
+                if (!m_secondSide->SendRedeem())
+                    break;
 
-            if (m_LockTx && !SendSubTx(m_LockTx, SubTxIndex::BEAM_LOCK_TX))
-                break;
-
-            if (!isBeamOwner && m_secondSide->IsLockTimeExpired())
-            {
-                LOG_INFO() << GetTxID() << " Locktime is expired.";
-                SetNextState(State::SendingRefundTX);
+                LOG_INFO() << GetTxID() << " RedeemTX completed!";
+                SetNextState(State::CompleteSwap);
                 break;
             }
-
-            if (!CompleteSubTx(SubTxIndex::BEAM_LOCK_TX))
-                break;
-            
-            LOG_INFO() << GetTxID()<< " Beam LockTX completed.";
-            SetNextState(State::SendingBeamRedeemTX);
-            break;
-        }
-        case State::SendingBeamRedeemTX:
-        {
-            if (isBeamOwner)
+            case State::SendingBeamLockTX:
             {
-                UpdateOnNextTip();
-
-                if (IsBeamLockTimeExpired())
+                if (!m_LockTx && isBeamOwner)
                 {
-                    LOG_INFO() << GetTxID() << " Beam locktime expired.";
-                    SetNextState(State::SendingBeamRefundTX);
+                    BuildBeamLockTx();
+                }
+
+                if (m_LockTx && !SendSubTx(m_LockTx, SubTxIndex::BEAM_LOCK_TX))
+                    break;
+
+                if (!isBeamOwner && m_secondSide->IsLockTimeExpired())
+                {
+                    LOG_INFO() << GetTxID() << " Locktime is expired.";
+                    SetNextState(State::SendingRefundTX);
                     break;
                 }
 
-                // request kernel body for getting secretPrivateKey
-                if (!GetKernelFromChain(SubTxIndex::BEAM_REDEEM_TX))
+                if (!CompleteSubTx(SubTxIndex::BEAM_LOCK_TX))
                     break;
 
-                ExtractSecretPrivateKey();
-
-                // Redeem second Coin
-                SetNextState(State::SendingRedeemTX);
+                LOG_INFO() << GetTxID() << " Beam LockTX completed.";
+                SetNextState(State::SendingBeamRedeemTX);
+                break;
             }
-            else
+            case State::SendingBeamRedeemTX:
             {
-                if (!CompleteBeamWithdrawTx(SubTxIndex::BEAM_REDEEM_TX))
+                if (isBeamOwner)
+                {
+                    UpdateOnNextTip();
+
+                    if (IsBeamLockTimeExpired())
+                    {
+                        // If we already got SecretPrivateKey for RedeemTx, don't send refundTx,
+                        // because it looks like we got rollback and we just should rerun TX's.
+                        NoLeak<uintBig> secretPrivateKey;
+                        if (!GetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.V, SubTxIndex::BEAM_REDEEM_TX))
+                        {
+                            LOG_INFO() << GetTxID() << " Beam locktime expired.";
+                            SetNextState(State::SendingBeamRefundTX);
+                            break;
+                        }
+                    }
+
+                    // request kernel body for getting secretPrivateKey
+                    if (!GetKernelFromChain(SubTxIndex::BEAM_REDEEM_TX))
+                        break;
+
+                    ExtractSecretPrivateKey();
+
+                    // Redeem second Coin
+                    SetNextState(State::SendingRedeemTX);
+                }
+                else
+                {
+                    if (!CompleteBeamWithdrawTx(SubTxIndex::BEAM_REDEEM_TX))
+                        break;
+
+                    LOG_INFO() << GetTxID() << " Beam RedeemTX completed!";
+                    SetNextState(State::CompleteSwap);
+                }
+                break;
+            }
+            case State::SendingBeamRefundTX:
+            {
+                assert(isBeamOwner);
+                if (!IsBeamLockTimeExpired())
+                {
+                    UpdateOnNextTip();
+                    break;
+                }
+
+                if (!CompleteBeamWithdrawTx(SubTxIndex::BEAM_REFUND_TX))
                     break;
 
-                LOG_INFO() << GetTxID() << " Beam RedeemTX completed!";
-                SetNextState(State::CompleteSwap);
+                LOG_INFO() << GetTxID() << " Beam Refund TX completed!";
+                SetNextState(State::Refunded);
+                break;
             }
-            break;
-        }
-        case State::SendingBeamRefundTX:
-        {
-            assert(isBeamOwner);
-            if (!IsBeamLockTimeExpired())
+            case State::CompleteSwap:
             {
-                UpdateOnNextTip();
+                LOG_INFO() << GetTxID() << " Swap completed.";
+                UpdateTxDescription(TxStatus::Completed);
+                m_Gateway.on_tx_completed(GetTxID());
+                break;
+            }
+            case State::Cancelled:
+            {
+                LOG_INFO() << GetTxID() << " Transaction cancelled.";
+                // TODO roman.strilec: need to implement notification of counterparty
+                UpdateTxDescription(TxStatus::Cancelled);
+
+                RollbackTx();
+
+                m_Gateway.on_tx_completed(GetTxID());
+                break;
+            }
+            case State::Failed:
+            {
+                LOG_INFO() << GetTxID() << " Transaction failed.";
+                UpdateTxDescription(TxStatus::Failed);
+                m_Gateway.on_tx_completed(GetTxID());
                 break;
             }
 
-            if (!CompleteBeamWithdrawTx(SubTxIndex::BEAM_REFUND_TX))
+            case State::Refunded:
+            {
+                LOG_INFO() << GetTxID() << " Swap has not succeeded.";
+                UpdateTxDescription(TxStatus::Completed);
+                m_Gateway.on_tx_completed(GetTxID());
                 break;
+            }
 
-            LOG_INFO() << GetTxID() << " Beam Refund TX completed!";
-            SetNextState(State::CompleteSwap);
-            break;
+            default:
+                break;
+            }
         }
-        case State::CompleteSwap:
+        catch (const UninitilizedSecondSide&)
         {
-            LOG_INFO() << GetTxID() << " Swap completed.";
-            CompleteTx();
-            break;
-        }
-        case State::Cancelled:
-        {
-            LOG_INFO() << GetTxID() << " Transaction cancelled.";
-            // TODO roman.strilec: need to implement notification of counterparty
-            UpdateTxDescription(TxStatus::Cancelled);
-
-            RollbackTx();
-
-            m_Gateway.on_tx_completed(GetTxID());
-            break;
-        }
-        case State::Failed:
-        {
-            LOG_INFO() << GetTxID() << " Transaction failed.";
-            UpdateTxDescription(TxStatus::Failed);
-            m_Gateway.on_tx_completed(GetTxID());
-        }
-
-        default:
-            break;
+            //LOG_ERROR() << "";
         }
     }
 
@@ -564,7 +611,7 @@ namespace beam::wallet
 
         bool isBeamOwner = IsBeamSide();
         auto fee = GetMandatoryParameter<Amount>(TxParameterID::Fee);
-        auto lockTxBuilder = std::make_unique<LockTxBuilder>(*this, GetAmount(), fee);
+        auto lockTxBuilder = std::make_shared<LockTxBuilder>(*this, GetAmount(), fee);
 
         if (!lockTxBuilder->GetInitialTxParams() && lockTxState == SubTxState::Initial)
         {
@@ -581,12 +628,6 @@ namespace beam::wallet
 
                 lockTxBuilder->SelectInputs();
                 lockTxBuilder->AddChange();
-                lockTxBuilder->CreateOutputs();
-            }
-
-            if (!lockTxBuilder->FinalizeOutputs())
-            {
-                // TODO: transaction is too big :(
             }
 
             UpdateTxDescription(TxStatus::InProgress);
@@ -595,6 +636,10 @@ namespace beam::wallet
         }
 
         lockTxBuilder->CreateInputs();
+        if (isBeamOwner && lockTxBuilder->CreateOutputs())
+        {
+            return lockTxState;
+        }
 
         lockTxBuilder->GenerateNonce();
         lockTxBuilder->LoadSharedParameters();

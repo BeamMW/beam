@@ -268,7 +268,7 @@ namespace beam::wallet
 
         if (receiverAddr && receiverAddr->m_OwnID)
         {
-            LOG_INFO() << "Can't start swap to yourself.";
+            LOG_INFO() << "Failed to initiate the atomic swap. Not able to use own address as receiver's.";
             throw FailToStartSwapException();
         }
 
@@ -324,8 +324,7 @@ namespace beam::wallet
             {
                 // Reconstruct tx with reset parameters and add it to the active list
                 auto t = constructTransaction(tx.m_txId, tx.m_txType);
-                if (t->SetParameter(TxParameterID::KernelProofHeight, Height(0), false)
-                    && t->SetParameter(TxParameterID::KernelUnconfirmedHeight, Height(0), false))
+                if (t->Rollback(Height(0)))
                 {
                     m_Transactions.emplace(tx.m_txId, t);
                 }
@@ -827,15 +826,15 @@ namespace beam::wallet
         const std::vector<proto::UtxoEvent>& v = r.m_Res.m_Events;
 		for (size_t i = 0; i < v.size(); i++)
 		{
-			const proto::UtxoEvent& evt = v[i];
+			const auto& event = v[i];
 
 			// filter-out false positives
-			Scalar::Native sk;
-			Point comm;
-			m_WalletDB->calcCommitment(sk, comm, evt.m_Kidv);
-
-			if (comm == evt.m_Commitment)
-				ProcessUtxoEvent(evt);
+            if (m_KeyKeeper)
+            {
+                Point commitment = m_KeyKeeper->GeneratePublicKeySync(event.m_Kidv, true);
+			    if (commitment == event.m_Commitment)
+				    ProcessUtxoEvent(event);
+            }
 		}
 
 		if (r.m_Res.m_Events.size() < proto::UtxoEvent::s_Max)

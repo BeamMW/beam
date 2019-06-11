@@ -381,7 +381,7 @@ namespace beam
     {
         if (isMainnet())
         {
-            return libbitcoin::wallet::ec_private::mainnet_wif;
+            return libbitcoin::wallet::ec_private::mainnet_p2kh;
         }
         
         return libbitcoin::wallet::ec_private::testnet_p2kh;
@@ -424,18 +424,38 @@ namespace beam
 
             if (msg.what == HttpMsgReader::http_message)
             {
-                size_t sz = 0;
-                const void* body = msg.msg->get_body(sz);
-                if (sz > 0 && body)
+                switch (msg.msg->get_status())
                 {
-                    response = std::string(static_cast<const char*>(body), sz);
-                    LOG_DEBUG() << "Bitcoin response: " << response;
-                }
-                else
+                case 200:
                 {
-                    error.m_type = InvalidResultFormat;
-                    error.m_message = "Empty response. Maybe wrong credentials.";
+                    size_t sz = 0;
+                    const void* body = msg.msg->get_body(sz);
+                    if (sz > 0 && body)
+                    {
+                        response = std::string(static_cast<const char*>(body), sz);
+                        LOG_DEBUG() << "Bitcoin response: " << response;
+                    }
+                    else
+                    {
+                        error.m_type = InvalidResultFormat;
+                        error.m_message = "Empty response.";
+                    }
+                    break;
                 }
+                case 401:
+                {
+                    error.m_type = InvalidCredentials;
+                    error.m_message = "Invalid credentials.";
+                    break;
+                }
+                default:
+                {
+                    error.m_type = IOError;
+                    error.m_message = "HTTP status: " + std::to_string(msg.msg->get_status());
+                    break;
+                }
+                }
+
             }
             else
             {

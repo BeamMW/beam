@@ -552,6 +552,7 @@ namespace beam::wallet
 
         std::string ExportAddressesToJson(const IWalletDB& db);
         bool ImportAddressesFromJson(IWalletDB& db, const char* data, size_t size);
+        std::string TxDetailsInfo(const IWalletDB::Ptr& db, const TxID& txID);
         ByteBuffer ExportPaymentProof(const IWalletDB& db, const TxID& txID);
         bool VerifyPaymentProof(const ByteBuffer& data);
     }

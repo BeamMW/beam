@@ -74,6 +74,7 @@ namespace beam
         extern const char* NEW_ADDRESS;
         extern const char* CANCEL_TX;
         extern const char* DELETE_TX;
+        extern const char* TX_DETAILS;
         extern const char* PAYMENT_PROOF_EXPORT;
         extern const char* PAYMENT_PROOF_VERIFY;
         extern const char* PAYMENT_PROOF_DATA;
@@ -111,7 +112,7 @@ namespace beam
         extern const char* HORIZON_HI;
         extern const char* HORIZON_LO;
         extern const char* COLD_WALLET;
-        extern const char* SWAP_COINS;
+        extern const char* SWAP_INIT;
         extern const char* SWAP_LISTEN;
         extern const char* SWAP_AMOUNT;
         extern const char* SWAP_FEERATE;
@@ -186,6 +187,24 @@ namespace beam
         explicit Positive(const T& v) : value(v) {}
 
         T value = 0;
+    };
+
+    /** Class thrown when a argument of option is negative */
+    class NonnegativeOptionException : public po::error_with_option_name {
+    public:
+        NonnegativeOptionException()
+            : po::error_with_option_name("The argument for option '%canonical_option%' must be equal to or more than 0.")
+        {
+        }
+    };
+
+    // Class thrown when a argument of option is negative or zero
+    class PositiveOptionException : public po::error_with_option_name {
+    public:
+        PositiveOptionException()
+            : po::error_with_option_name("The argument for option '%canonical_option%' must be more than 0.")
+        {
+        }
     };
 
     bool read_wallet_pass(SecString& pass, const po::variables_map& vm);

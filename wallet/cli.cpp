@@ -113,22 +113,22 @@ namespace beam
 
     const char* getSwapTxStatus(const IWalletDB::Ptr& walletDB, const TxDescription& tx)
     {
-        static const char* Initial = "Initial";
-        static const char* Invitation = "Invitation";
-        static const char* BuildingBeamLockTX = "Building Beam LockTX";
-        static const char* BuildingBeamRefundTX = "Building Beam RefundTX";
-        static const char* BuildingBeamRedeemTX = "Building Beam RedeemTX";
-        static const char* HandlingContractTX = "Handling LockTX";
-        static const char* SendingRefundTX = "Sending RefundTX";
-        static const char* SendingRedeemTX = "Sending RedeemTX";
-        static const char* SendingBeamLockTX = "Sending Beam LockTX";
-        static const char* SendingBeamRefundTX = "Sending Beam RefundTX";
-        static const char* SendingBeamRedeemTX = "Sending Beam RedeemTX";
-
-        if (tx.m_status != TxStatus::InProgress)
-        {
-            return getTxStatus(tx);
-        }
+        static const char* Initial = "initial";
+        static const char* Invitation = "invitation";
+        static const char* BuildingBeamLockTX = "building Beam LockTX";
+        static const char* BuildingBeamRefundTX = "building Beam RefundTX";
+        static const char* BuildingBeamRedeemTX = "building Beam RedeemTX";
+        static const char* HandlingContractTX = "handling LockTX";
+        static const char* SendingRefundTX = "sending RefundTX";
+        static const char* SendingRedeemTX = "sending RedeemTX";
+        static const char* SendingBeamLockTX = "sending Beam LockTX";
+        static const char* SendingBeamRefundTX = "sending Beam RefundTX";
+        static const char* SendingBeamRedeemTX = "sending Beam RedeemTX";
+        static const char* Completed = "completed";
+        static const char* Cancelled = "cancelled";
+        static const char* Aborted = "aborted";
+        static const char* Failed = "failed";
+        static const char* Expired = "expired";
 
         wallet::AtomicSwapTransaction::State state = wallet::AtomicSwapTransaction::State::CompleteSwap;
         storage::getTxParameter(*walletDB, tx.m_txId, wallet::TxParameterID::State, state);
@@ -157,6 +157,19 @@ namespace beam
             return SendingBeamRefundTX;
         case wallet::AtomicSwapTransaction::State::SendingBeamRedeemTX:
             return SendingBeamRedeemTX;
+        case wallet::AtomicSwapTransaction::State::CompleteSwap:
+            return Completed;
+        case wallet::AtomicSwapTransaction::State::Cancelled:
+            return Cancelled;
+        case wallet::AtomicSwapTransaction::State::Refunded:
+            return Aborted;
+        case wallet::AtomicSwapTransaction::State::Failed:
+        {
+            TxFailureReason reason = TxFailureReason::Unknown;
+            storage::getTxParameter(*walletDB, tx.m_txId, wallet::TxParameterID::InternalFailureReason, reason);
+
+            return TxFailureReason::TransactionExpired == reason ? Expired : Failed;
+        }
         default:
             assert(false && "Unexpected status");
         }
@@ -593,23 +606,25 @@ namespace
                 return 0;
             }
 
-            const array<uint8_t, 5> columnWidths{ { 20, 26, 21, 33, 65} };
+            const array<uint8_t, 6> columnWidths{ { 20, 10, 26, 21, 33, 65} };
 
             cout << "TRANSACTIONS\n\n  |"
                 << left << setw(columnWidths[0]) << " datetime" << " |"
-                << right << setw(columnWidths[1]) << " amount, BEAM" << " |"
-                << left << setw(columnWidths[2]) << " status" << " |"
-                << setw(columnWidths[3]) << " ID" << " |" 
-                << setw(columnWidths[4]) << " kernel ID" << " |" << endl;
+                << left << setw(columnWidths[1]) << " direction" << " |"
+                << right << setw(columnWidths[2]) << " amount, BEAM" << " |"
+                << left << setw(columnWidths[3]) << " status" << " |"
+                << setw(columnWidths[4]) << " ID" << " |" 
+                << setw(columnWidths[5]) << " kernel ID" << " |" << endl;
 
             for (auto& tx : txHistory)
             {
                 cout << "   "
-                    << " " << left << setw(columnWidths[0]) << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false)
-                    << " " << right << setw(columnWidths[1]) << PrintableAmount(tx.m_amount, true) << " "
-                    << " " << left << setw(columnWidths[2]+1) << getTxStatus(tx) 
-                    << " " << setw(columnWidths[3]+1) << to_hex(tx.m_txId.data(), tx.m_txId.size())
-                    << " " << setw(columnWidths[4]+1) << to_string(tx.m_kernelID) << '\n';
+                    << " " << left << setw(columnWidths[0]) << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false) << " "
+                    << " " << left << setw(columnWidths[1]) << (tx.m_sender ? "outgoing" : "incoming")
+                    << " " << right << setw(columnWidths[2]) << PrintableAmount(tx.m_amount, true) << "  "
+                    << " " << left << setw(columnWidths[3]+1) << getTxStatus(tx) 
+                    << " " << setw(columnWidths[4]+1) << to_hex(tx.m_txId.data(), tx.m_txId.size())
+                    << " " << setw(columnWidths[5]+1) << to_string(tx.m_kernelID) << '\n';
             }
             return 0;
         }
@@ -640,7 +655,7 @@ namespace
                 bool isBeamSide = false;
                 storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapIsBeamSide, isBeamSide);
 
-                AtomicSwapCoin swapCoin;
+                AtomicSwapCoin swapCoin = AtomicSwapCoin::Unknown;
                 storage::getTxParameter(*walletDB, tx.m_txId, wallet::kDefaultSubTxID, wallet::TxParameterID::AtomicSwapCoin, swapCoin);
 
                 stringstream ss;
@@ -678,6 +693,36 @@ namespace
                 << " " << setw(columnWidths[5]+1) << c.m_ID.m_Type << endl;
             return true;
         });
+        return 0;
+    }
+
+    int TxDetails(const IWalletDB::Ptr& walletDB, const po::variables_map& vm)
+    {
+        auto txIdStr = vm[cli::TX_ID].as<string>();
+        if (txIdStr.empty()) {
+            LOG_ERROR() << "Failed, --tx_id param required";
+            return -1;
+        }
+        auto txIdVec = from_hex(txIdStr);
+        TxID txId;
+        if (txIdVec.size() >= 16)
+            std::copy_n(txIdVec.begin(), 16, txId.begin());
+
+        auto tx = walletDB->getTx(txId);
+        if (!tx)
+        {
+            LOG_ERROR() << "Failed, transaction with id: "
+                        << txIdStr
+                        << " does not exist.";
+            return -1;
+        }
+
+        LOG_INFO() << "Transaction details:\n"
+                   << storage::TxDetailsInfo(walletDB, txId)
+                   << "Status: "
+                   << getTxStatus(*tx)
+                   << (tx->m_status == TxStatus::Failed ? "\nReason: "+ GetFailureMessage(tx->m_failureReason) : "");
+
         return 0;
     }
 
@@ -891,6 +936,21 @@ int main_impl(int argc, char* argv[])
         {
             vm = getOptions(argc, argv, "beam-wallet.cfg", options, true);
         }
+        catch (const po::invalid_option_value& e)
+        {
+            cout << e.what() << std::endl;
+            return 0;
+        }
+        catch (const NonnegativeOptionException& e)
+        {
+            cout << e.what() << std::endl;
+            return 0;
+        }
+        catch (const PositiveOptionException& e)
+        {
+            cout << e.what() << std::endl;
+            return 0;
+        }
         catch (const po::error& e)
         {
             cout << e.what() << std::endl;
@@ -971,6 +1031,7 @@ int main_impl(int argc, char* argv[])
                             cli::CANCEL_TX,
                             cli::DELETE_TX,
                             cli::CHANGE_ADDRESS_EXPIRATION,
+                            cli::TX_DETAILS,
                             cli::PAYMENT_PROOF_EXPORT,
                             cli::PAYMENT_PROOF_VERIFY,
                             cli::GENERATE_PHRASE,
@@ -978,7 +1039,7 @@ int main_impl(int argc, char* argv[])
                             cli::WALLET_RESCAN,
                             cli::IMPORT_ADDRESSES,
                             cli::EXPORT_ADDRESSES,
-                            cli::SWAP_COINS,
+                            cli::SWAP_INIT,
                             cli::SWAP_LISTEN
                         };
 
@@ -1188,6 +1249,11 @@ int main_impl(int argc, char* argv[])
                         return ShowWalletInfo(walletDB, vm);
                     }
 
+                    if (command == cli::TX_DETAILS)
+                    {
+                        return TxDetails(walletDB, vm);
+                    }
+
                     if (command == cli::PAYMENT_PROOF_EXPORT)
                     {
                         return ExportPaymentProof(walletDB, vm);
@@ -1289,7 +1355,7 @@ int main_impl(int argc, char* argv[])
                             wallet.initLitecoin(io::Reactor::get_Current(), ltcOptions);
                         }
 
-                        if (command == cli::SWAP_COINS || command == cli::SWAP_LISTEN)
+                        if (command == cli::SWAP_INIT || command == cli::SWAP_LISTEN)
                         {
                             wallet::AtomicSwapCoin swapCoin = wallet::AtomicSwapCoin::Bitcoin;
 
@@ -1330,7 +1396,7 @@ int main_impl(int argc, char* argv[])
                             Amount swapAmount = vm[cli::SWAP_AMOUNT].as<Positive<Amount>>().value;
                             bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
-                            if (command == cli::SWAP_COINS)
+                            if (command == cli::SWAP_INIT)
                             {
                                 if (!LoadBaseParamsForTX(vm, amount, fee, receiverWalletID))
                                 {
@@ -1438,6 +1504,21 @@ int main_impl(int argc, char* argv[])
         catch (const FailToStartSwapException&)
         {
         }
+        catch (const po::invalid_option_value& e)
+        {
+            cout << e.what() << std::endl;
+            return 0;
+        }
+        catch (const NonnegativeOptionException& e)
+        {
+            cout << e.what() << std::endl;
+            return 0;
+        }
+        catch (const PositiveOptionException& e)
+        {
+            cout << e.what() << std::endl;
+            return 0;
+        }
         catch (const po::error& e)
         {
             LOG_ERROR() << e.what();
@@ -1479,4 +1560,3 @@ int main(int argc, char* argv[]) {
     return f.get();
 #endif
 }
-

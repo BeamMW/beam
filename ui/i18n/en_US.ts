@@ -249,30 +249,27 @@
     </message>
     <message id="edit-addr-title">
         <source>Edit address</source>
+        <extracomment>Edit addres dialog title</extracomment>
         <translation>Edit address</translation>
     </message>
     <message id="edit-addr-addr-id">
         <source>Address ID</source>
+        <extracomment>Edit addres dialog, address label</extracomment>
         <translation>Address ID</translation>
     </message>
     <message id="edit-addr-comment">
         <source>Comment</source>
+        <extracomment>Edit addres dialog, comment label</extracomment>
         <translation>Comment</translation>
-    </message>
-    <message id="edit-addr-expires">
-        <source>Expires</source>
-        <translation>Expires</translation>
     </message>
     <message id="edit-addr-cancel-button">
         <source>cancel</source>
+        <extracomment>Edit addres dialog, cancel button</extracomment>
         <translation>cancel</translation>
-    </message>
-    <message id="edit-addr-make-active-button">
-        <source>make active</source>
-        <translation>make active</translation>
     </message>
     <message id="edit-addr-save-button">
         <source>save</source>
+        <extracomment>Edit addres dialog, save button</extracomment>
         <translation>save</translation>
     </message>
     <message id="payment-info-proof-verification">
@@ -879,10 +876,6 @@
         <source>Failed to start wallet. Please check your wallet data location</source>
         <translation>Failed to start wallet. Please check your wallet data location</translation>
     </message>
-    <message id="address-item-never">
-        <source>never</source>
-        <translation>never</translation>
-    </message>
     <message id="loading-view-download-blocks">
         <source>Downloading blocks</source>
         <translation>Downloading blocks</translation>
@@ -1295,6 +1288,86 @@ exchanges and transaction data)</translation>
         <source>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Don’t forget to attach logs archive</source>
         <extracomment>settings tab, report problem section, message</extracomment>
         <translation>&lt;style&gt;a:link {color: &apos;#00f6d2&apos;; text-decoration: none;}&lt;/style&gt;To report a problem:&lt;br /&gt;1. Click “Save wallet logs” and choose a destination folder for log archive&lt;br /&gt;2. Send email to &lt;a href=&apos;mailto:support@beam.mw&apos;&gt;support@beam.mw&lt;/a&gt; or open a ticket in &lt;a href=&apos;https://github.com/BeamMW&apos;&gt;Github&lt;/a&gt;&lt;br /&gt;3. Don’t forget to attach logs archive</translation>
+    </message>
+    <message id="edit-addr-24-option">
+        <source>in 24 hours from now</source>
+        <extracomment>Edit address dialog, expiration option, in 24 hours from now</extracomment>
+        <translation>in 24 hours from now</translation>
+    </message>
+    <message id="edit-addr-never-option">
+        <source>never</source>
+        <extracomment>Edit address dialog, expiration option, never</extracomment>
+        <translation>never</translation>
+    </message>
+    <message id="edit-addr-as-is-option">
+        <source>within 24 hours</source>
+        <extracomment>Edit address dialog, expiration option, do not change</extracomment>
+        <translation>within 24 hours</translation>
+    </message>
+    <message id="edit-addr-expires-label">
+        <source>Expires</source>
+        <extracomment>Edit addres dialog, expires label</extracomment>
+        <translation>Expires</translation>
+    </message>
+    <message id="edit-addr-expire-now-label">
+        <source>now</source>
+        <extracomment>Edit addres dialog, expire now label</extracomment>
+        <translation>now</translation>
+    </message>
+    <message id="edit-addr-expire-now-switch">
+        <source>Expire address now</source>
+        <extracomment>Edit addres dialog, expire now switch</extracomment>
+        <translation>Expire address now</translation>
+    </message>
+    <message id="edit-addr-expiration-time-label">
+        <source>Expired on </source>
+        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <translation>Expired on </translation>
+    </message>
+    <message id="edit-addr-activate-addr-switch">
+        <source>Activate address</source>
+        <extracomment>Edit addres dialog, expiration time label</extracomment>
+        <translation>Activate address</translation>
+    </message>
+    <message id="time-never">
+        <source>never</source>
+        <extracomment>time never string</extracomment>
+        <translation>never</translation>
+    </message>
+    <message id="start-pwd-difficulty-very-weak">
+        <source>Very weak password</source>
+        <extracomment>set passwort, difficulty message, very weak</extracomment>
+        <translation>Very weak password</translation>
+    </message>
+    <message id="start-pwd-difficulty-weak">
+        <source>Weak password</source>
+        <extracomment>set passwort, difficulty message, weak</extracomment>
+        <translation>Weak password</translation>
+    </message>
+    <message id="start-pwd-difficulty-medium">
+        <source>Medium strength password</source>
+        <extracomment>set passwort, difficulty message, medium</extracomment>
+        <translation>Medium strength password</translation>
+    </message>
+    <message id="start-pwd-difficulty-strong">
+        <source>Strong password</source>
+        <extracomment>set passwort, difficulty message, strong</extracomment>
+        <translation>Strong password</translation>
+    </message>
+    <message id="start-pwd-difficulty-very-strong">
+        <source>Very strong password</source>
+        <extracomment>set passwort, difficulty message, very strong</extracomment>
+        <translation>Very strong password</translation>
+    </message>
+    <message id="edit-addr-comment-error">
+        <source>Address with same comment already exist</source>
+        <extracomment>Edit address dialog, address with same comment already exist error</extracomment>
+        <translation>Address with same comment already exist</translation>
+    </message>
+    <message id="create-addr-comment-error">
+        <source>Address with same comment already exist</source>
+        <extracomment>Create address, address with same comment already exist error</extracomment>
+        <translation>Address with same comment already exist</translation>
     </message>
 </context>
 </TS>

@@ -38,6 +38,23 @@ namespace beam::wallet
             Registration,
             KernelConfirmation
         };
+
+        class UninitilizedSecondSide : public std::exception
+        {
+        };
+
+        class WrapperSecondSide
+        {
+        public:
+            WrapperSecondSide(INegotiatorGateway& gateway, const TxID& txID);
+            SecondSide::Ptr operator -> ();
+
+        private:
+            INegotiatorGateway& m_gateway;
+            TxID m_txID;
+            SecondSide::Ptr m_secondSide;
+        };
+
     public:
         enum class State : uint8_t
         {
@@ -60,6 +77,7 @@ namespace beam::wallet
 
             CompleteSwap,
             Failed,
+            Refunded
         };
 
     public:
@@ -124,6 +142,6 @@ namespace beam::wallet
         Transaction::Ptr m_LockTx;
         Transaction::Ptr m_WithdrawTx;
 
-        SecondSide::Ptr m_secondSide;
+        WrapperSecondSide m_secondSide;
     };    
 }

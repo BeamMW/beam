@@ -860,7 +860,7 @@ namespace beam::wallet
         {
             sqlite3* db = nullptr;
             {
-                int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, nullptr);
+                int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
                 throwIfError(ret, db);
             }
 
@@ -868,7 +868,7 @@ namespace beam::wallet
 
             if (separateDBForPrivateData)
             {
-                int ret = sqlite3_open_v2((path+".private").c_str(), &sdb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_CREATE, nullptr);
+                int ret = sqlite3_open_v2((path+".private").c_str(), &sdb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
                 throwIfError(ret, sdb);
                 enterKey(sdb, password);
             }
@@ -907,7 +907,7 @@ namespace beam::wallet
             {
                 sqlite3 *db = nullptr;
                 {
-                    int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, nullptr);
+                    int ret = sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READWRITE, nullptr);
                     throwIfError(ret, db);
                 }
 
@@ -916,7 +916,7 @@ namespace beam::wallet
                 bool separateDBForPrivateData = isInitialized(privatePath);
                 if (separateDBForPrivateData)
                 {
-                    int ret = sqlite3_open_v2(privatePath.c_str(), &sdb, SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, nullptr);
+                    int ret = sqlite3_open_v2(privatePath.c_str(), &sdb, SQLITE_OPEN_READWRITE, nullptr);
                     throwIfError(ret, sdb);
                     enterKey(sdb, password);
                 }
@@ -1606,33 +1606,6 @@ namespace beam::wallet
 
     void WalletDB::rollbackConfirmedUtxo(Height minHeight)
     {
-        // TODO roman.strilets: maybe this is obsolete code. need to investigate. look at Wallet::OnRolledBack()
-        // Transactions
-        {
-            vector<TxID> rollbackedTransaction;
-            {
-                const char* req = "SELECT * FROM " TX_PARAMS_NAME " WHERE paramID = ?1 ;";
-                sqlite::Statement stm(this, req);
-                stm.bind(1, TxParameterID::KernelProofHeight);
-                while (stm.step())
-                {
-                    TxID txID = { {0} };
-                    stm.get(0, txID);
-                    Height kernelHeight = 0;
-                    if (storage::getTxParameter(*this, txID, TxParameterID::KernelProofHeight, kernelHeight) && kernelHeight > minHeight)
-                    {
-                        rollbackedTransaction.push_back(txID);
-                    }
-                }
-            }
-            for (auto& tx : rollbackedTransaction)
-            {
-                storage::setTxParameter(*this, tx, TxParameterID::Status, TxStatus::Registering, true);
-                storage::setTxParameter(*this, tx, TxParameterID::KernelProofHeight, Height(0), false);
-                storage::setTxParameter(*this, tx, TxParameterID::KernelUnconfirmedHeight, Height(0), false);
-            }
-        }
-
         // UTXOs
         {
             const char* req = "UPDATE " STORAGE_NAME " SET confirmHeight=?1 WHERE confirmHeight > ?2;";
@@ -2754,6 +2727,39 @@ namespace beam::wallet
                 }
             }
             return pi;
+        }
+
+        std::string TxDetailsInfo(const IWalletDB::Ptr& walletDB, const TxID& txID)
+        {
+            PaymentInfo pi;
+            auto tx = walletDB->getTx(txID);
+
+            bool bSuccess =
+                storage::getTxParameter(*walletDB,
+                                        txID,
+                                        tx->m_sender
+                                            ? TxParameterID::PeerID
+                                            : TxParameterID::MyID,
+                                        pi.m_Receiver) &&
+                storage::getTxParameter(*walletDB,
+                                        txID,
+                                        tx->m_sender
+                                            ? TxParameterID::MyID
+                                            : TxParameterID::PeerID,
+                                        pi.m_Sender) &&
+                storage::getTxParameter(
+                    *walletDB, txID, TxParameterID::KernelID, pi.m_KernelID) &&
+                storage::getTxParameter(
+                    *walletDB, txID, TxParameterID::Amount, pi.m_Amount);
+
+            if (bSuccess)
+            {
+                return pi.to_string();
+            }
+
+            LOG_WARNING() << "Can't get transaction details";
+            return "";
+
         }
 
         ByteBuffer ExportPaymentProof(const IWalletDB& walletDB, const TxID& txID)

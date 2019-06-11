@@ -26,6 +26,7 @@ namespace beam::wallet
         using Ptr = std::shared_ptr<IWalletModelAsync>;
 
         virtual void sendMoney(const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee = 0) = 0;
+        virtual void sendMoney(const WalletID& sender, const WalletID& receiver, const std::string& comment, Amount&& amount, Amount&& fee = 0) = 0;
         virtual void syncWithNode() = 0;
         virtual void calcChange(Amount&& amount) = 0;
         virtual void getWalletStatus() = 0;
