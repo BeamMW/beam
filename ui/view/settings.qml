@@ -256,7 +256,7 @@ Rectangle {
                                     Layout.preferredHeight: 16
                                     visible: !viewModel.localNodeRun
                                     SFText {
-                                        Layout.fillWidth: true;
+                                        Layout.fillWidth: true
                                         //: settings tab, node section, address label
                                         //% "ip:port"
                                         text: qsTrId("settings-remote-node-ip-port")
@@ -266,7 +266,9 @@ Rectangle {
 
                                     SFTextInput {
                                         id: nodeAddress
-                                        Layout.preferredWidth: nodeBlock.width * 0.6
+                                        Layout.fillWidth: true
+                                        Layout.maximumWidth: nodeBlock.width * 0.6
+                                        Layout.minimumWidth: nodeBlock.width * 0.5
                                         focus: true
                                         activeFocusOnTab: true
                                         font.pixelSize: 14
