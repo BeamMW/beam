@@ -114,6 +114,7 @@ namespace beam
         const char* IP_WHITELIST = "ip_whitelist";
         const char* HORIZON_HI = "horizon_hi";
         const char* HORIZON_LO = "horizon_lo";
+		const char* GENERATE_RECOVERY_PATH = "generate_recovery";
         const char* COLD_WALLET = "cold_wallet";
         const char* SWAP_INIT = "swap_init";
         const char* SWAP_LISTEN = "swap_listen";
@@ -256,6 +257,7 @@ namespace beam
             (cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
             (cli::HORIZON_HI, po::value<Height>()->default_value(MaxHeight), "spent TXO Hi-Horizon")
             (cli::HORIZON_LO, po::value<Height>()->default_value(MaxHeight), "spent TXO Lo-Horizon")
+			(cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")
             ;
 
         po::options_description node_treasury_options("Node treasury options");

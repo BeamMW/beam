@@ -332,6 +332,14 @@ int main_impl(int argc, char* argv[])
 
 					node.Initialize(stratumServer.get());
 
+					if (vm.count(cli::GENERATE_RECOVERY_PATH))
+					{
+						string sPath = vm[cli::GENERATE_RECOVERY_PATH].as<string>();
+						LOG_INFO() << "Writing recovery info...";
+						node.GenerateRecoveryInfo(sPath.c_str());
+						LOG_INFO() << "Recovery info written";
+					}
+
 					io::Timer::Ptr pCrashTimer;
 
 					int nCrash = vm.count(cli::CRASH) ? vm[cli::CRASH].as<int>() : 0;
