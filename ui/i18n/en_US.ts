@@ -1359,5 +1359,15 @@ exchanges and transaction data)</translation>
         <extracomment>set passwort, difficulty message, very strong</extracomment>
         <translation>Very strong password</translation>
     </message>
+    <message id="edit-addr-comment-error">
+        <source>Address with same comment already exist</source>
+        <extracomment>Edit address dialog, address with same comment already exist error</extracomment>
+        <translation>Address with same comment already exist</translation>
+    </message>
+    <message id="create-addr-comment-error">
+        <source>Address with same comment already exist</source>
+        <extracomment>Create address, address with same comment already exist error</extracomment>
+        <translation>Address with same comment already exist</translation>
+    </message>
 </context>
 </TS>

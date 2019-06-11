@@ -90,10 +90,25 @@ namespace ECC {
 		return operator << (s, x.m_Value);
 	}
 
+    std::ostream& operator << (std::ostream& s, const Scalar::Native& x)
+    {
+        Scalar scalar;
+        x.Export(scalar);
+        return operator << (s, scalar);
+    }
+
 	std::ostream& operator << (std::ostream& s, const Point& x)
 	{
 		return operator << (s, x.m_X);
 	}
+
+    std::ostream& operator << (std::ostream& s, const Point::Native& x)
+    {
+        Point point;
+
+        x.Export(point);
+        return operator << (s, point);
+    }
 
 	std::ostream& operator << (std::ostream& s, const Key::IDV& x)
 	{
