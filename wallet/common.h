@@ -94,7 +94,7 @@ namespace beam::wallet
 #define BEAM_TX_FAILURE_REASON_MAP(MACRO) \
     MACRO(Unknown,                      0, "Unknown reason") \
     MACRO(Cancelled,                    1, "Transaction was cancelled") \
-    MACRO(InvalidPeerSignature,         2, "Peer's signature in not valid ") \
+    MACRO(InvalidPeerSignature,         2, "Peer's signature is not valid ") \
     MACRO(FailedToRegister,             3, "Failed to register transaction") \
     MACRO(InvalidTransaction,           4, "Transaction is not valid") \
     MACRO(InvalidKernelProof,           5, "Invalid kernel proof provided") \
