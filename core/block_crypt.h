@@ -788,9 +788,19 @@ namespace beam
 				& m_LowerBound;
 		}
 
+		struct IStateWalker
+		{
+			virtual bool OnState(const SystemState::Full&, bool bIsTip) = 0;
+		};
+
+		// enumerates all the embedded states in standard order (from lo to hi)
+		bool EnumStates(IStateWalker&) const;
+		void UnpackStates(std::vector<SystemState::Full>&) const;
+
 	private:
 		struct Sampler;
 		bool IsValidInternal(size_t& iState, size_t& iHash, const Difficulty::Raw& lowerBound, SystemState::Full* pTip) const;
 		void ZeroInit();
+		bool EnumStatesHeadingOnly(IStateWalker&) const; // skip arbitrary
 	};
 }
