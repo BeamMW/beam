@@ -1819,8 +1819,8 @@ bool NodeProcessor::HandleBlockElement(const Input& v, Height h, const Height* p
 		}
 
 		t.m_pCu = &cu;
-		t.m_pBound[0] = kMin.m_pArr;
-		t.m_pBound[1] = kMax.m_pArr;
+		t.m_pBound[0] = kMin.V.m_pData;
+		t.m_pBound[1] = kMax.V.m_pData;
 
 		if (m_Utxos.Traverse(t))
 			return false;
@@ -2362,8 +2362,8 @@ bool NodeProcessor::ValidateTxContext(const Transaction& tx)
 
 		UtxoTree::Cursor cu;
 		t.m_pCu = &cu;
-		t.m_pBound[0] = kMin.m_pArr;
-		t.m_pBound[1] = kMax.m_pArr;
+		t.m_pBound[0] = kMin.V.m_pData;
+		t.m_pBound[1] = kMax.V.m_pData;
 
 		if (m_Utxos.Traverse(t))
 			return false; // some input UTXOs are missing

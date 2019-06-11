@@ -509,7 +509,7 @@ void RadixHashTree::get_Proof(Merkle::Proof& proof, const CursorBase& cu)
 void UtxoTree::MyLeaf::get_Hash(Merkle::Hash& hv, const Key& key, Input::Count nCount)
 {
 	ECC::Hash::Processor()
-		<< Blob(key.m_pArr, Key::s_Bytes) // whole description of the UTXO
+		<< key.V // whole description of the UTXO
 		<< nCount
 		>> hv;
 }
@@ -646,7 +646,7 @@ void UtxoTree::LoadIntenral(ISerializer& s)
 		if (i)
 		{
 			// must be in ascending order
-			if (keyPrev.cmp(key) >= 0)
+			if (keyPrev.V.cmp(key.V) >= 0)
 				throw std::runtime_error("incorrect order");
 		}
 
@@ -668,15 +668,10 @@ void UtxoTree::LoadIntenral(ISerializer& s)
 	}
 }
 
-int UtxoTree::Key::cmp(const Key& k) const
-{
-	return memcmp(m_pArr, k.m_pArr, sizeof(m_pArr));
-}
-
 UtxoTree::Key::Data& UtxoTree::Key::Data::operator = (const Key& key)
 {
-	memcpy(m_Commitment.m_X.m_pData, key.m_pArr, m_Commitment.m_X.nBytes);
-	const uint8_t* pKey = key.m_pArr + m_Commitment.m_X.nBytes;
+	memcpy(m_Commitment.m_X.m_pData, key.V.m_pData, m_Commitment.m_X.nBytes);
+	const uint8_t* pKey = key.V.m_pData + m_Commitment.m_X.nBytes;
 
 	m_Commitment.m_Y = 1 & (pKey[0] >> 7);
 
@@ -689,10 +684,10 @@ UtxoTree::Key::Data& UtxoTree::Key::Data::operator = (const Key& key)
 
 UtxoTree::Key& UtxoTree::Key::operator = (const Data& d)
 {
-	memcpy(m_pArr, d.m_Commitment.m_X.m_pData, d.m_Commitment.m_X.nBytes);
+	memcpy(V.m_pData, d.m_Commitment.m_X.m_pData, d.m_Commitment.m_X.nBytes);
 
-	uint8_t* pKey = m_pArr + d.m_Commitment.m_X.nBytes;
-	memset0(pKey, sizeof(m_pArr) - d.m_Commitment.m_X.nBytes);
+	uint8_t* pKey = V.m_pData + d.m_Commitment.m_X.nBytes;
+	memset0(pKey, sizeof(V.m_pData) - d.m_Commitment.m_X.nBytes);
 
 	if (d.m_Commitment.m_Y)
 		pKey[0] |= (1 << 7);

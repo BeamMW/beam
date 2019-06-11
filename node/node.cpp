@@ -2313,8 +2313,8 @@ void Node::AddDummyInputs(Transaction& tx)
 
 			UtxoTree::Cursor cu;
 			t.m_pCu = &cu;
-			t.m_pBound[0] = kMin.m_pArr;
-			t.m_pBound[1] = kMax.m_pArr;
+			t.m_pBound[0] = kMin.V.m_pData;
+			t.m_pBound[1] = kMax.V.m_pData;
 
 			bFound = !m_Processor.get_Utxos().Traverse(t);
 			if (bFound)
@@ -2810,8 +2810,8 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 		d.m_Maturity = Height(-1);
 		kMax = d;
 
-		t.m_pBound[0] = kMin.m_pArr;
-		t.m_pBound[1] = kMax.m_pArr;
+		t.m_pBound[0] = kMin.V.m_pData;
+		t.m_pBound[1] = kMax.V.m_pData;
 
 		t.m_pTree->Traverse(t);
 	}
