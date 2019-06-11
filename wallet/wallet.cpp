@@ -106,6 +106,7 @@ namespace beam::wallet
         , m_UpdateCompleted{move(updateCompleted)}
         , m_LastSyncTotal(0)
         , m_OwnedNodesOnline(0)
+        , m_icoinsRefreshPending(false)
     {
         assert(walletDB);
         ResumeAllTransactions();
@@ -343,28 +344,10 @@ namespace beam::wallet
         // At this moment for unconfirmed transaction there are are no coins
         // registered and wallet would display incorrect receiving amount.
         // We check this situation and re-register coins when necessary.
-        const auto unconf = GetUnconfirmedTransactions();
-        for(const auto& txptr:unconf)
-        {
-            const auto dbCoins = m_WalletDB->getCoinsByTx(txptr->GetTxID());
-            assert(dbCoins.empty());
-            if(dbCoins.empty())
-            {
-                std::vector<Coin::ID> ocids;
-                std::vector<Coin> ocoins;
-
-                txptr->GetParameter(TxParameterID::OutputCoins, ocids);
-                for (const auto& ocid: ocids) {
-                    Coin coin;
-                    coin.m_ID = ocid;
-                    coin.m_createTxId = txptr->GetTxID();
-                    coin.m_status = Coin::Status::Incoming;
-                    ocoins.push_back(coin);
-                }
-
-                m_WalletDB->save(ocoins);
-            }
-        }
+        // Also there might be some additional transactions added when all async
+        // actions are completed so we request additional call in the future
+        RefreshIncomingCoins();
+        m_icoinsRefreshPending = true;
     }
 
     std::vector<BaseTransaction::Ptr> Wallet::GetUnconfirmedTransactions()
@@ -374,13 +357,38 @@ namespace beam::wallet
         {
             if(const auto txdesc = m_WalletDB->getTx(txid))
             {
-                if (txdesc.get().m_status == TxStatus::Registering)
+                const auto status = txdesc.get().m_status;
+                if (status == TxStatus::Registering || status == TxStatus::InProgress)
                 {
                     result.push_back(txptr);
                 }
             }
         }
         return result;
+    }
+
+    void Wallet::RefreshIncomingCoins()
+    {
+        const auto unconf = GetUnconfirmedTransactions();
+        for(const auto& txptr:unconf)
+        {
+            std::vector<Coin::ID> ocids;
+            std::vector<Coin> ocoins;
+
+            txptr->GetParameter(TxParameterID::OutputCoins, ocids);
+            if(m_WalletDB->getCoinsByID(ocids).size() != ocids.size())
+            {
+                for (const auto &ocid: ocids)
+                {
+                    Coin coin;
+                    coin.m_ID = ocid;
+                    coin.m_createTxId = txptr->GetTxID();
+                    coin.m_status = Coin::Status::Incoming;
+                    ocoins.push_back(coin);
+                }
+                m_WalletDB->save(ocoins);
+            }
+        }
     }
 
     void Wallet::ResumeTransaction(const TxDescription& tx)
@@ -416,6 +424,12 @@ namespace beam::wallet
     {
         if (--m_AsyncUpdateCounter == 0)
         {
+            if (m_icoinsRefreshPending)
+            {
+                m_icoinsRefreshPending = false;
+                RefreshIncomingCoins();
+            }
+
             LOG_DEBUG() << "Async update finished!";
             if (m_UpdateCompleted)
             {
