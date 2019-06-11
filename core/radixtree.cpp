@@ -708,20 +708,19 @@ bool UtxoTree::Compact::Add(const Key& key)
 
 	if (!m_vNodes.empty())
 	{
-		Node& n = m_vNodes.back();
-		int nCmp = n.m_Key.V.cmp(key.V);
+		int nCmp = m_LastKey.V.cmp(key.V);
 		if (nCmp > 0)
 			return false;
 
-		assert(n.m_Count);
+		assert(m_LastCount);
 
 		if (!nCmp)
 		{
-			n.m_Count++;
-			return !!n.m_Count; // overflow check
+			m_LastCount++;
+			return !!m_LastCount; // overflow check
 		}
 
-		Key k1 = n.m_Key;
+		Key k1 = m_LastKey;
 		k1.V ^= key.V;
 
 		// calculate the common bits num!
@@ -733,9 +732,10 @@ bool UtxoTree::Compact::Add(const Key& key)
 	}
 
 	Node& n = m_vNodes.emplace_back();
-	n.m_Key = key;
-	n.m_Count = 1;
 	n.m_nBitsCommon = nBitsCommon;
+
+	m_LastKey = key;
+	m_LastCount = 1;
 
 	return true;
 }
@@ -749,7 +749,7 @@ void UtxoTree::Compact::Flush(Merkle::Hash& hv)
 		FlushInternal(0);
 
 		assert(m_vNodes.size() == 1);
-		assert(!m_vNodes.front().m_Count);
+		assert(!m_LastCount);
 
 		hv = m_vNodes.front().m_Hash;
 	}
@@ -759,11 +759,11 @@ void UtxoTree::Compact::FlushInternal(uint16_t nBitsCommonNext)
 {
 	assert(!m_vNodes.empty());
 	Node& n = m_vNodes.back();
-	if (n.m_Count)
+	if (m_LastCount)
 	{
 		// convert leaf -> node
-		MyLeaf::get_Hash(n.m_Hash, n.m_Key, n.m_Count);
-		n.m_Count = 0;
+		MyLeaf::get_Hash(n.m_Hash, m_LastKey, m_LastCount);
+		m_LastCount = 0;
 	}
 
 	for (; m_vNodes.size() > 1; m_vNodes.pop_back())
@@ -774,7 +774,6 @@ void UtxoTree::Compact::FlushInternal(uint16_t nBitsCommonNext)
 			break;
 
 		Node& n0 = m_vNodes[m_vNodes.size() - 2];
-		assert(!n0.m_Count && !n1.m_Count);
 
 		ECC::Hash::Processor()
 			<< n0.m_Hash
