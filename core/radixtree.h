@@ -260,6 +260,24 @@ public:
 		return ar;
 	}
 
+	struct Compact
+	{
+		// compact tree builder. Assumes all the elements are added in correct order
+		struct Node {
+			Key m_Key;
+			Merkle::Hash m_Hash;
+			Input::Count m_Count;
+			uint16_t m_nBitsCommon; // with prev node
+		};
+
+		std::vector<Node> m_vNodes;
+
+		bool Add(const Key&);
+		void Flush(Merkle::Hash&);
+
+	private:
+		void FlushInternal(uint16_t nBitsCommonNext);
+	};
 
 protected:
 	virtual Leaf* CreateLeaf() override { return new MyLeaf; }

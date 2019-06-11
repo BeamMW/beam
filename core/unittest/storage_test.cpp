@@ -386,6 +386,30 @@ namespace beam
 		t2.m_pBound[0] = t2.m_Min.V.m_pData;
 		t2.m_pBound[1] = t2.m_Max.V.m_pData;
 		t.Traverse(t2);
+
+		// full traverse, and verification of Compact
+
+		struct Traveler3
+			:public RadixTree::ITraveler
+		{
+			UtxoTree::Compact m_Compact;
+
+			virtual bool OnLeaf(const RadixTree::Leaf& x) override
+			{
+				const UtxoTree::MyLeaf& v = Cast::Up<UtxoTree::MyLeaf>(x);
+				uint32_t nCount = v.get_Count();
+
+				while (nCount--)
+					verify_test(m_Compact.Add(v.m_Key));
+
+				return true;
+			}
+		} t3;
+
+		t.Traverse(t3);
+
+		t3.m_Compact.Flush(hv2);
+		verify_test(hv1 == hv2);
 	}
 
 	struct MyMmr

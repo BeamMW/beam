@@ -702,4 +702,85 @@ UtxoTree::Key& UtxoTree::Key::operator = (const Data& d)
 	return *this;
 }
 
+bool UtxoTree::Compact::Add(const Key& key)
+{
+	uint16_t nBitsCommon = 0;
+
+	if (!m_vNodes.empty())
+	{
+		Node& n = m_vNodes.back();
+		int nCmp = n.m_Key.V.cmp(key.V);
+		if (nCmp > 0)
+			return false;
+
+		assert(n.m_Count);
+
+		if (!nCmp)
+		{
+			n.m_Count++;
+			return !!n.m_Count; // overflow check
+		}
+
+		Key k1 = n.m_Key;
+		k1.V ^= key.V;
+
+		// calculate the common bits num!
+		uint16_t nOrder = static_cast<uint16_t>(k1.V.get_Order());
+		nBitsCommon = k1.V.nBits - nOrder;
+		assert(nBitsCommon < Key::s_Bits);
+
+		FlushInternal(nBitsCommon);
+	}
+
+	Node& n = m_vNodes.emplace_back();
+	n.m_Key = key;
+	n.m_Count = 1;
+	n.m_nBitsCommon = nBitsCommon;
+
+	return true;
+}
+
+void UtxoTree::Compact::Flush(Merkle::Hash& hv)
+{
+	if (m_vNodes.empty())
+		hv = Zero;
+	else
+	{
+		FlushInternal(0);
+
+		assert(m_vNodes.size() == 1);
+		assert(!m_vNodes.front().m_Count);
+
+		hv = m_vNodes.front().m_Hash;
+	}
+}
+
+void UtxoTree::Compact::FlushInternal(uint16_t nBitsCommonNext)
+{
+	assert(!m_vNodes.empty());
+	Node& n = m_vNodes.back();
+	if (n.m_Count)
+	{
+		// convert leaf -> node
+		MyLeaf::get_Hash(n.m_Hash, n.m_Key, n.m_Count);
+		n.m_Count = 0;
+	}
+
+	for (; m_vNodes.size() > 1; m_vNodes.pop_back())
+	{
+		Node& n1 = m_vNodes[m_vNodes.size() - 1];
+
+		if (n1.m_nBitsCommon < nBitsCommonNext)
+			break;
+
+		Node& n0 = m_vNodes[m_vNodes.size() - 2];
+		assert(!n0.m_Count && !n1.m_Count);
+
+		ECC::Hash::Processor()
+			<< n0.m_Hash
+			<< n1.m_Hash
+			>> n0.m_Hash;
+	}
+}
+
 } // namespace beam
