@@ -1348,5 +1348,10 @@
         <extracomment>set passwort, difficulty message, very strong</extracomment>
         <translation>Очень хороший пароль</translation>
     </message>
+    <message id="edit-addr-comment-error">
+        <source>Address with same comment already exist</source>
+        <extracomment>Edit addres dialog, address with same comment already exist error</extracomment>
+        <translation>Адрес с таким коментарием уже существует</translation>
+    </message>
 </context>
 </TS>

@@ -303,18 +303,32 @@ Dialog {
 
 				Layout.preferredWidth: parent.width
 				font.pixelSize: 14
-				color: Style.content_main
+				font.italic : rootControl.isAddressWithCommentExist
+				backgroundColor: rootControl.isAddressWithCommentExist ? Style.validator_error : Style.content_main
+				color: rootControl.isAddressWithCommentExist ? Style.validator_error : Style.content_main
                 text: addressItem ? addressItem.name : ""
 				onTextEdited: {
 					rootControl.isAddressWithCommentExist =
 						parentModel.isAddressWithCommentExist(addressName.text);
 				}
 			}
+
+			Item {
+				Layout.preferredHeight: 15
+				SFText {
+					//: Edit addres dialog, address with same comment already exist error
+					//% "Address with same comment already exist"
+					text: qsTrId("edit-addr-comment-error")
+					color: Style.validator_error
+					font.pixelSize: 12
+					visible: rootControl.isAddressWithCommentExist
+				}
+			}
     	}
 
         RowLayout {
 			Layout.preferredWidth: parent.width
-			Layout.topMargin: 50
+			Layout.topMargin: 35
 			Layout.bottomMargin: 30
 			Layout.alignment: Qt.AlignLeft
 
