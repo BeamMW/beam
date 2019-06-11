@@ -1350,7 +1350,12 @@
     </message>
     <message id="edit-addr-comment-error">
         <source>Address with same comment already exist</source>
-        <extracomment>Edit addres dialog, address with same comment already exist error</extracomment>
+        <extracomment>Edit address dialog, address with same comment already exist error</extracomment>
+        <translation>Адрес с таким коментарием уже существует</translation>
+    </message>
+    <message id="create-addr-comment-error">
+        <source>Address with same comment already exist</source>
+        <extracomment>Create address, address with same comment already exist error</extracomment>
         <translation>Адрес с таким коментарием уже существует</translation>
     </message>
 </context>

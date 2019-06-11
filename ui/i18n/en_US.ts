@@ -1361,7 +1361,12 @@ exchanges and transaction data)</translation>
     </message>
     <message id="edit-addr-comment-error">
         <source>Address with same comment already exist</source>
-        <extracomment>Edit addres dialog, address with same comment already exist error</extracomment>
+        <extracomment>Edit address dialog, address with same comment already exist error</extracomment>
+        <translation>Address with same comment already exist</translation>
+    </message>
+    <message id="create-addr-comment-error">
+        <source>Address with same comment already exist</source>
+        <extracomment>Create address, address with same comment already exist error</extracomment>
         <translation>Address with same comment already exist</translation>
     </message>
 </context>

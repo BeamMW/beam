@@ -669,6 +669,11 @@ bool WalletViewModel::isPasswordValid(const QString& value) const
     return AppModel::getInstance()->checkWalletPassword(secretPass);
 }
 
+bool WalletViewModel::isAddressWithCommentExist(const QString& comment) const
+{
+    return _model.isAddressWithCommentExist(comment.toStdString());
+}
+
 void WalletViewModel::setSendAmount(const QString& value)
 {
     auto trimmedValue = value.trimmed();
