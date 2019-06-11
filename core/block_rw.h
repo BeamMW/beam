@@ -136,14 +136,14 @@ namespace beam
 	{
 		struct Entry
 		{
-			Height m_Maturity;
+			Height m_CreateHeight;
 			Output m_Output; // recovery-only piece
 
 			template <typename Archive>
 			void serialize(Archive& ar)
 			{
 				ar
-					& m_Maturity
+					& m_CreateHeight
 					& m_Output;
 			}
 		};

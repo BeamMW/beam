@@ -718,7 +718,7 @@ namespace beam
 
 		UtxoTree::Key::Data d;
 		d.m_Commitment = x.m_Output.m_Commitment;
-		d.m_Maturity = x.m_Maturity;
+		d.m_Maturity = x.m_Output.get_MinMaturity(x.m_CreateHeight);
 
 		UtxoTree::Key key;
 		key = d;

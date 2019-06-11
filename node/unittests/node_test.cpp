@@ -1426,11 +1426,22 @@ namespace beam
 		Block::SystemState::Full sTip;
 		rp.Open(g_sz3);
 
+		uint32_t nUnrecognized = 0;
 		while (true)
 		{
 			RecoveryInfo::Entry x;
 			if (!rp.Read(x))
 				break;
+
+			Key::IDV kidv;
+			bool b1 = x.m_Output.Recover(x.m_CreateHeight, *node.m_Keys.m_pOwner, kidv);
+			bool b2 = x.m_Output.Recover(x.m_CreateHeight, *node2.m_Keys.m_pOwner, kidv);
+			if (!(b1 || b2))
+			{
+				verify_test(!x.m_CreateHeight); // treasury
+				nUnrecognized++;
+				verify_test(nUnrecognized <= 1);
+			}
 		}
 
 		rp.Finalyze(); // final verification

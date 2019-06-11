@@ -3971,8 +3971,17 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 			der.reset(wlk.m_Value.p, wlk.m_Value.n);
 
 			RecoveryInfo::Entry val;
-			val.m_Maturity = d.m_Maturity;
 			der & val.m_Output;
+
+			// 2 ways to discover the UTXO create height: either directly by looking its TxoID in States table, or reverse-engineer it from Maturity
+			// Since currently maturity delta is independent of current height (not a function of height, not changed in current forks) - we prefer the 2nd method, which is faster.
+
+			//NodeDB::StateID sid;
+			//m_pDB->FindStateByTxoID(sid, id);
+			//val.m_CreateHeight = sid.m_Height;
+			//assert(val.m_Output.get_MinMaturity(val.m_CreateHeight) == d.m_Maturity);
+
+			val.m_CreateHeight = d.m_Maturity - val.m_Output.get_MinMaturity(0);
 
 			assert(val.m_Output.m_Commitment == d.m_Commitment);
 			val.m_Output.m_RecoveryOnly = true;
