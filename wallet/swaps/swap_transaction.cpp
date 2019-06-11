@@ -87,33 +87,41 @@ namespace beam::wallet
 
     bool AtomicSwapTransaction::Rollback(Height height)
     {
-        State state = GetState(kDefaultSubTxID);
-        Height proofHeight;
+        Height proofHeight = 0;
 
         if (IsBeamSide())
         {
-            if (GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_LOCK_TX)
-                && proofHeight > height
-                && state != State::SendingBeamLockTX)
+            bool isRolledback = false;
+            if (GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_REFUND_TX)
+                && proofHeight > height)
             {
-                SetState(State::SendingBeamLockTX);
-                return true;
+                SetParameter(TxParameterID::KernelProofHeight, Height(0), false, SubTxIndex::BEAM_REFUND_TX);
+                SetParameter(TxParameterID::KernelUnconfirmedHeight, Height(0), false, SubTxIndex::BEAM_REFUND_TX);
+
+                SetState(State::SendingBeamRefundTX);
+                isRolledback = true;
             }
 
-            if (GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_REFUND_TX)
-                && proofHeight > height
-                && state != State::SendingBeamRefundTX)
+            if (GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_LOCK_TX)
+                && proofHeight > height)
             {
-                SetState(State::SendingBeamRefundTX);
-                return true;
+                SetParameter(TxParameterID::KernelProofHeight, Height(0), false, SubTxIndex::BEAM_LOCK_TX);
+                SetParameter(TxParameterID::KernelUnconfirmedHeight, Height(0), false, SubTxIndex::BEAM_LOCK_TX);
+
+                SetState(State::SendingBeamLockTX);
+                isRolledback = true;
             }
+
+            return isRolledback;
         }
         else
         {
             if (GetParameter(TxParameterID::KernelProofHeight, proofHeight, SubTxIndex::BEAM_REDEEM_TX) 
-                && proofHeight > height 
-                && state != State::SendingBeamRedeemTX)
+                && proofHeight > height)
             {
+                SetParameter(TxParameterID::KernelProofHeight, Height(0), false, SubTxIndex::BEAM_REDEEM_TX);
+                SetParameter(TxParameterID::KernelUnconfirmedHeight, Height(0), false, SubTxIndex::BEAM_REDEEM_TX);
+
                 SetState(State::SendingBeamRedeemTX);
                 return true;
             }
@@ -313,9 +321,15 @@ namespace beam::wallet
 
                     if (IsBeamLockTimeExpired())
                     {
-                        LOG_INFO() << GetTxID() << " Beam locktime expired.";
-                        SetNextState(State::SendingBeamRefundTX);
-                        break;
+                        // If we already got SecretPrivateKey for RedeemTx, don't send refundTx,
+                        // because it looks like we got rollback and we just should rerun TX's.
+                        NoLeak<uintBig> secretPrivateKey;
+                        if (!GetParameter(TxParameterID::AtomicSwapSecretPrivateKey, secretPrivateKey.V, SubTxIndex::BEAM_REDEEM_TX))
+                        {
+                            LOG_INFO() << GetTxID() << " Beam locktime expired.";
+                            SetNextState(State::SendingBeamRefundTX);
+                            break;
+                        }
                     }
 
                     // request kernel body for getting secretPrivateKey

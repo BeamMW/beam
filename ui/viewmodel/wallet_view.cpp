@@ -206,7 +206,7 @@ QString TxObject::getFailureReason() const
 {
     if (getTxDescription().m_status == TxStatus::Failed)
     {
-        static QString Reasons[] =
+        QString Reasons[] =
         {
             //% "Unexpected reason, please send wallet logs to Beam support"
             qtTrId("tx-failture-undefined"),
@@ -667,6 +667,11 @@ bool WalletViewModel::isPasswordValid(const QString& value) const
 {
     SecString secretPass = value.toStdString();
     return AppModel::getInstance()->checkWalletPassword(secretPass);
+}
+
+bool WalletViewModel::isAddressWithCommentExist(const QString& comment) const
+{
+    return _model.isAddressWithCommentExist(comment.toStdString());
 }
 
 void WalletViewModel::setSendAmount(const QString& value)

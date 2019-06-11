@@ -1291,7 +1291,7 @@
     <message id="edit-addr-as-is-option">
         <source>within 24 hours</source>
         <extracomment>Edit address dialog, expiration option, do not change</extracomment>
-        <translation>в течении 24 часов</translation>
+        <translation>в течение 24 часов</translation>
     </message>
     <message id="edit-addr-expires-label">
         <source>Expires</source>
@@ -1347,6 +1347,16 @@
         <source>Very strong password</source>
         <extracomment>set passwort, difficulty message, very strong</extracomment>
         <translation>Очень хороший пароль</translation>
+    </message>
+    <message id="edit-addr-comment-error">
+        <source>Address with same comment already exist</source>
+        <extracomment>Edit address dialog, address with same comment already exist error</extracomment>
+        <translation>Адрес с таким коментарием уже существует</translation>
+    </message>
+    <message id="create-addr-comment-error">
+        <source>Address with same comment already exist</source>
+        <extracomment>Create address, address with same comment already exist error</extracomment>
+        <translation>Адрес с таким коментарием уже существует</translation>
     </message>
 </context>
 </TS>

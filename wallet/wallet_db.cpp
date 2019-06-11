@@ -1606,33 +1606,6 @@ namespace beam::wallet
 
     void WalletDB::rollbackConfirmedUtxo(Height minHeight)
     {
-        // TODO roman.strilets: maybe this is obsolete code. need to investigate. look at Wallet::OnRolledBack()
-        // Transactions
-        {
-            vector<TxID> rollbackedTransaction;
-            {
-                const char* req = "SELECT * FROM " TX_PARAMS_NAME " WHERE paramID = ?1 ;";
-                sqlite::Statement stm(this, req);
-                stm.bind(1, TxParameterID::KernelProofHeight);
-                while (stm.step())
-                {
-                    TxID txID = { {0} };
-                    stm.get(0, txID);
-                    Height kernelHeight = 0;
-                    if (storage::getTxParameter(*this, txID, TxParameterID::KernelProofHeight, kernelHeight) && kernelHeight > minHeight)
-                    {
-                        rollbackedTransaction.push_back(txID);
-                    }
-                }
-            }
-            for (auto& tx : rollbackedTransaction)
-            {
-                storage::setTxParameter(*this, tx, TxParameterID::Status, TxStatus::Registering, true);
-                storage::setTxParameter(*this, tx, TxParameterID::KernelProofHeight, Height(0), false);
-                storage::setTxParameter(*this, tx, TxParameterID::KernelUnconfirmedHeight, Height(0), false);
-            }
-        }
-
         // UTXOs
         {
             const char* req = "UPDATE " STORAGE_NAME " SET confirmHeight=?1 WHERE confirmHeight > ?2;";

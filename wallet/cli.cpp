@@ -607,23 +607,25 @@ namespace
                 return 0;
             }
 
-            const array<uint8_t, 5> columnWidths{ { 20, 26, 21, 33, 65} };
+            const array<uint8_t, 6> columnWidths{ { 20, 10, 26, 21, 33, 65} };
 
             cout << "TRANSACTIONS\n\n  |"
                 << left << setw(columnWidths[0]) << " datetime" << " |"
-                << right << setw(columnWidths[1]) << " amount, BEAM" << " |"
-                << left << setw(columnWidths[2]) << " status" << " |"
-                << setw(columnWidths[3]) << " ID" << " |" 
-                << setw(columnWidths[4]) << " kernel ID" << " |" << endl;
+                << left << setw(columnWidths[1]) << " direction" << " |"
+                << right << setw(columnWidths[2]) << " amount, BEAM" << " |"
+                << left << setw(columnWidths[3]) << " status" << " |"
+                << setw(columnWidths[4]) << " ID" << " |" 
+                << setw(columnWidths[5]) << " kernel ID" << " |" << endl;
 
             for (auto& tx : txHistory)
             {
                 cout << "   "
-                    << " " << left << setw(columnWidths[0]) << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false)
-                    << " " << right << setw(columnWidths[1]) << PrintableAmount(tx.m_amount, true) << " "
-                    << " " << left << setw(columnWidths[2]+1) << getTxStatus(tx) 
-                    << " " << setw(columnWidths[3]+1) << to_hex(tx.m_txId.data(), tx.m_txId.size())
-                    << " " << setw(columnWidths[4]+1) << to_string(tx.m_kernelID) << '\n';
+                    << " " << left << setw(columnWidths[0]) << format_timestamp("%Y.%m.%d %H:%M:%S", tx.m_createTime * 1000, false) << " "
+                    << " " << left << setw(columnWidths[1]) << (tx.m_sender ? "outgoing" : "incoming")
+                    << " " << right << setw(columnWidths[2]) << PrintableAmount(tx.m_amount, true) << "  "
+                    << " " << left << setw(columnWidths[3]+1) << getTxStatus(tx) 
+                    << " " << setw(columnWidths[4]+1) << to_hex(tx.m_txId.data(), tx.m_txId.size())
+                    << " " << setw(columnWidths[5]+1) << to_string(tx.m_kernelID) << '\n';
             }
             return 0;
         }
@@ -699,7 +701,7 @@ namespace
     {
         auto txIdStr = vm[cli::TX_ID].as<string>();
         if (txIdStr.empty()) {
-            LOG_ERROR() << "Failed, --tx_id param reqired";
+            LOG_ERROR() << "Failed, --tx_id param required";
             return -1;
         }
         auto txIdVec = from_hex(txIdStr);
@@ -717,7 +719,10 @@ namespace
         }
 
         LOG_INFO() << "Transaction details:\n"
-                   << storage::TxDetailsInfo(walletDB, txId);
+                   << storage::TxDetailsInfo(walletDB, txId)
+                   << "Status: "
+                   << getTxStatus(*tx)
+                   << (tx->m_status == TxStatus::Failed ? "\nReason: "+ GetFailureMessage(tx->m_failureReason) : "");
 
         return 0;
     }

@@ -31,6 +31,7 @@ public:
     ~WalletModel() override;
 
     QString GetErrorString(beam::wallet::ErrorType type);
+    bool isAddressWithCommentExist(const std::string& comment) const;
 
 signals:
     void walletStatus(const beam::wallet::WalletStatus& status);
@@ -67,4 +68,7 @@ private:
     void onPaymentProofExported(const beam::wallet::TxID& txID, const beam::ByteBuffer& proof) override;
     void onCoinsByTx(const std::vector<beam::wallet::Coin>& coins) override;
     void onAddressChecked(const std::string& addr, bool isValid) override;
+
+private:
+    std::vector<beam::wallet::WalletAddress> m_addresses;
 };

@@ -137,6 +137,7 @@ namespace beam::wallet
 
             m_OutputCoins.push_back(m_SharedCoin.m_ID);
             m_Tx.SetParameter(TxParameterID::OutputCoins, m_OutputCoins, m_SubTxID);
+            m_Tx.SetParameter(TxParameterID::Outputs, m_Outputs, false, m_SubTxID);
 
             CoinIDList sharedInputs;
             sharedInputs.push_back(m_SharedCoin.m_ID);

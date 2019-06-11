@@ -324,8 +324,7 @@ namespace beam::wallet
             {
                 // Reconstruct tx with reset parameters and add it to the active list
                 auto t = constructTransaction(tx.m_txId, tx.m_txType);
-                if (t->SetParameter(TxParameterID::KernelProofHeight, Height(0), false)
-                    && t->SetParameter(TxParameterID::KernelUnconfirmedHeight, Height(0), false))
+                if (t->Rollback(Height(0)))
                 {
                     m_Transactions.emplace(tx.m_txId, t);
                 }

@@ -368,6 +368,7 @@ Item {
         Item {
             
             property Item defaultFocusItem: myAddressName
+            property bool isAddressCommentDuplicated: false
 
             ColumnLayout {
                 anchors.fill: parent
@@ -516,15 +517,26 @@ Item {
                                 id: myAddressName
                                 font.pixelSize: 14
                                 width: parent.width
-                                color: Style.content_main
+                                font.italic : isAddressCommentDuplicated
+                                backgroundColor: isAddressCommentDuplicated ? Style.validator_error : Style.content_main
+                                color: isAddressCommentDuplicated ? Style.validator_error : Style.content_main
                                 focus: true
                                 text: viewModel.newReceiverName
+                                onTextEdited: {
+                                    isAddressCommentDuplicated = viewModel.isAddressWithCommentExist(myAddressName.text);
+                                    if (isAddressCommentDuplicated) {
+                                        viewModel.newReceiverName = myAddressName.text;
+                                    }
+                                }
                             }
 
-                            Binding {
-                                target: viewModel
-                                property: "newReceiverName"
-                                value: myAddressName.text
+                            SFText {
+                                //: Create address, address with same comment already exist error
+                                //% "Address with same comment already exist"
+                                text: qsTrId("create-addr-comment-error")
+                                color: Style.validator_error
+                                font.pixelSize: 12
+                                visible: isAddressCommentDuplicated
                             }
                         }
                     }
@@ -554,6 +566,7 @@ Item {
                 }
 
                 SFText {
+                    Layout.topMargin: 15
                     Layout.alignment: Qt.AlignHCenter
                     Layout.minimumHeight: 16
                     font.pixelSize: 14
@@ -592,7 +605,9 @@ Item {
 
                 Component.onDestruction: {
                     // TODO: "Save" may be deleted in future, when we'll have editor for own addresses.
-                    viewModel.saveNewAddress();
+                    if (!isAddressCommentDuplicated) {
+                        viewModel.saveNewAddress();
+                    }
                 }
 
                 Item {

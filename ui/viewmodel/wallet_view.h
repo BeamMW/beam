@@ -196,6 +196,7 @@ public:
     Q_INVOKABLE bool isValidReceiverAddress(const QString& value);
     Q_INVOKABLE bool isPasswordReqiredToSpendMoney() const;
     Q_INVOKABLE bool isPasswordValid(const QString& value) const;
+    Q_INVOKABLE bool isAddressWithCommentExist(const QString& comment) const;
 
 public:
     using TxList = QList<TxObject*>;

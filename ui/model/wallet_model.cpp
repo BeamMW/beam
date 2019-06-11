@@ -85,6 +85,21 @@ QString WalletModel::GetErrorString(beam::wallet::ErrorType type)
     }
 }
 
+bool WalletModel::isAddressWithCommentExist(const std::string& comment) const
+{
+    if (comment.empty())
+    {
+        return false;
+    }
+    for (const auto& it: m_addresses)
+    {
+        if (it.m_label == comment) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void WalletModel::onStatus(const beam::wallet::WalletStatus& status)
 {
     emit walletStatus(status);
@@ -112,6 +127,10 @@ void WalletModel::onAllUtxoChanged(const std::vector<beam::wallet::Coin>& utxos)
 
 void WalletModel::onAddresses(bool own, const std::vector<beam::wallet::WalletAddress>& addrs)
 {
+    if (own)
+    {
+        m_addresses = addrs;
+    }
     emit addressesChanged(own, addrs);
 }
 
