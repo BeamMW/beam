@@ -20,6 +20,7 @@
 #include "../../core/fly_client.h"
 #include "../../core/serialization_adapters.h"
 #include "../../core/treasury.h"
+#include "../../core/block_rw.h"
 #include "../../utility/test_helpers.h"
 #include "../../utility/serialize.h"
 #include "../../core/unittest/mini_blockchain.h"

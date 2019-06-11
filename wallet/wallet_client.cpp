@@ -14,6 +14,7 @@
 
 #include "wallet_client.h"
 #include "utility/log_rotation.h"
+#include "../core/block_rw.h"
 
 
 using namespace std;

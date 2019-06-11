@@ -16,6 +16,7 @@
 #include "../core/serialization_adapters.h"
 #include "../core/proto.h"
 #include "../core/ecc_native.h"
+#include "../core/block_rw.h"
 
 #include "../p2p/protocol.h"
 #include "../p2p/connection.h"

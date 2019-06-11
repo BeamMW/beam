@@ -2,6 +2,7 @@
 #include "adapter.h"
 #include "wallet/secstring.h"
 #include "core/ecc_native.h"
+#include "core/block_rw.h"
 
 #include "node/node.h"
 #include "utility/cli/options.h"

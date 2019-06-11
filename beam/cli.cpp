@@ -17,8 +17,8 @@
 
 #include "node/node.h"
 #include "core/ecc_native.h"
-#include "core/ecc.h"
 #include "core/serialization_adapters.h"
+#include "core/block_rw.h"
 #include "utility/cli/options.h"
 #include "utility/log_rotation.h"
 #include "utility/helpers.h"

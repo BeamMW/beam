@@ -26,6 +26,7 @@
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "core/treasury.h"
+#include "core/block_rw.h"
 #include "unittests/util.h"
 #include "mnemonic/mnemonic.h"
 #include "utility/string_helpers.h"
